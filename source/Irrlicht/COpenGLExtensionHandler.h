@@ -1,0 +1,3696 @@
+// Copyright (C) 2002-2012 Nikolaus Gebhardt
+// This file is part of the "Irrlicht Engine".
+// For conditions of distribution and use, see copyright notice in Irrlicht.h
+
+#ifndef __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
+#define __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
+
+#include "IrrCompileConfig.h"
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+
+#include "IMaterialRendererServices.h"
+#include "EDriverFeatures.h"
+#include "irrTypes.h"
+#include "os.h"
+
+#if defined(_IRR_WINDOWS_API_)
+	// include windows headers for HWND
+	#define WIN32_LEAN_AND_MEAN
+	#include <windows.h>
+	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+		#define GL_GLEXT_LEGACY 1
+	#endif
+	#include <GL/gl.h>
+	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+		#include "../Irrlicht/glext.h"
+	#endif
+	#include "wglext.h"
+
+	#ifdef _MSC_VER
+		#pragma comment(lib, "OpenGL32.lib")
+	#endif
+
+#elif defined(_IRR_COMPILE_WITH_OSX_DEVICE_)
+	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+		#define GL_GLEXT_LEGACY 1
+	#endif
+	#include <OpenGL/gl.h>
+	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+		#include "../Irrlicht/glext.h"
+	#endif
+#elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+		#define GL_GLEXT_LEGACY 1
+		#define GLX_GLXEXT_LEGACY 1
+	#else
+		#define GL_GLEXT_PROTOTYPES 1
+		#define GLX_GLXEXT_PROTOTYPES 1
+	#endif
+	#define NO_SDL_GLEXT
+	#include <SDL/SDL_video.h>
+	#include <SDL/SDL_opengl.h>
+	#include "../Irrlicht/glext.h"
+#else
+	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+		#define GL_GLEXT_LEGACY 1
+		#define GLX_GLXEXT_LEGACY 1
+	#else
+		#define GL_GLEXT_PROTOTYPES 1
+		#define GLX_GLXEXT_PROTOTYPES 1
+	#endif
+	#include <GL/gl.h>
+	#include <GL/glx.h>
+	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+        #include "../Irrlicht/glext.h"
+        #undef GLX_ARB_get_proc_address // avoid problems with local glxext.h
+        #include "glxext.h"
+	#endif
+#endif
+
+
+namespace irr
+{
+namespace video
+{
+
+
+
+E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType);
+
+
+static const char* const OpenGLFeatureStrings[] = {
+	"GL_3DFX_multisample",
+	"GL_3DFX_tbuffer",
+	"GL_3DFX_texture_compression_FXT1",
+	"GL_AMD_blend_minmax_factor",
+	"GL_AMD_conservative_depth",
+	"GL_AMD_debug_output",
+	"GL_AMD_depth_clamp_separate",
+	"GL_AMD_draw_buffers_blend",
+	"GL_AMD_multi_draw_indirect",
+	"GL_AMD_name_gen_delete",
+	"GL_AMD_performance_monitor",
+	"GL_AMD_sample_positions",
+	"GL_AMD_seamless_cubemap_per_texture",
+	"GL_AMD_shader_stencil_export",
+	"GL_AMD_texture_texture4",
+	"GL_AMD_transform_feedback3_lines_triangles",
+	"GL_AMD_vertex_shader_tesselator",
+	"GL_APPLE_aux_depth_stencil",
+	"GL_APPLE_client_storage",
+	"GL_APPLE_element_array",
+	"GL_APPLE_fence",
+	"GL_APPLE_float_pixels",
+	"GL_APPLE_flush_buffer_range",
+	"GL_APPLE_object_purgeable",
+	"GL_APPLE_rgb_422",
+	"GL_APPLE_row_bytes",
+	"GL_APPLE_specular_vector",
+	"GL_APPLE_texture_range",
+	"GL_APPLE_transform_hint",
+	"GL_APPLE_vertex_array_object",
+	"GL_APPLE_vertex_array_range",
+	"GL_APPLE_vertex_program_evaluators",
+	"GL_APPLE_ycbcr_422",
+	"GL_ARB_base_instance",
+	"GL_ARB_buffer_storage",
+	"GL_ARB_blend_func_extended",
+	"GL_ARB_cl_event",
+	"GL_ARB_color_buffer_float",
+	"GL_ARB_compatibility",
+	"GL_ARB_compressed_texture_pixel_storage",
+	"GL_ARB_conservative_depth",
+	"GL_ARB_copy_buffer",
+	"GL_ARB_debug_output",
+	"GL_ARB_depth_buffer_float",
+	"GL_ARB_depth_clamp",
+	"GL_ARB_depth_texture",
+	"GL_ARB_direct_state_access",
+	"GL_ARB_draw_buffers",
+	"GL_ARB_draw_buffers_blend",
+	"GL_ARB_draw_elements_base_vertex",
+	"GL_ARB_draw_indirect",
+	"GL_ARB_draw_instanced",
+	"GL_ARB_ES2_compatibility",
+	"GL_ARB_explicit_attrib_location",
+	"GL_ARB_explicit_uniform_location",
+	"GL_ARB_fragment_coord_conventions",
+	"GL_ARB_fragment_program",
+	"GL_ARB_fragment_program_shadow",
+	"GL_ARB_fragment_shader",
+	"GL_ARB_framebuffer_object",
+	"GL_ARB_framebuffer_sRGB",
+	"GL_ARB_get_program_binary",
+	"GL_ARB_geometry_shader4",
+	"GL_ARB_gpu_shader5",
+	"GL_ARB_gpu_shader_fp64",
+	"GL_ARB_half_float_pixel",
+	"GL_ARB_half_float_vertex",
+	"GL_ARB_imaging",
+	"GL_ARB_instanced_arrays",
+	"GL_ARB_internalformat_query",
+	"GL_ARB_internalformat_query2",
+	"GL_ARB_map_buffer_alignment",
+	"GL_ARB_map_buffer_range",
+	"GL_ARB_matrix_palette",
+	"GL_ARB_multisample",
+	"GL_ARB_multitexture",
+	"GL_ARB_occlusion_query",
+	"GL_ARB_occlusion_query2",
+	"GL_ARB_pixel_buffer_object",
+	"GL_ARB_point_parameters",
+	"GL_ARB_point_sprite",
+	"GL_ARB_program_interface_query",
+	"GL_ARB_provoking_vertex",
+	"GL_ARB_robustness",
+	"GL_ARB_sample_shading",
+	"GL_ARB_sampler_objects",
+	"GL_ARB_seamless_cube_map",
+	"GL_ARB_separate_shader_objects",
+	"GL_ARB_shader_atomic_counters",
+	"GL_ARB_shader_bit_encoding",
+	"GL_ARB_shader_image_load_store",
+	"GL_ARB_shader_objects",
+	"GL_ARB_shader_precision",
+	"GL_ARB_shader_stencil_export",
+	"GL_ARB_shader_subroutine",
+	"GL_ARB_shader_texture_lod",
+	"GL_ARB_shading_language_100",
+	"GL_ARB_shading_language_420pack",
+	"GL_ARB_shading_language_include",
+	"GL_ARB_shading_language_packing",
+	"GL_ARB_shadow",
+	"GL_ARB_shadow_ambient",
+	"GL_ARB_sync",
+	"GL_ARB_tessellation_shader",
+	"GL_ARB_texture_barrier",
+	"GL_ARB_texture_border_clamp",
+	"GL_ARB_texture_buffer_object",
+	"GL_ARB_texture_buffer_object_rgb32",
+	"GL_ARB_texture_buffer_range",
+	"GL_ARB_texture_compression",
+	"GL_ARB_texture_compression_bptc",
+	"GL_ARB_texture_compression_rgtc",
+	"GL_ARB_texture_cube_map",
+	"GL_ARB_texture_cube_map_array",
+	"GL_ARB_texture_env_add",
+	"GL_ARB_texture_env_combine",
+	"GL_ARB_texture_env_crossbar",
+	"GL_ARB_texture_env_dot3",
+	"GL_ARB_texture_float",
+	"GL_ARB_texture_gather",
+	"GL_ARB_texture_mirrored_repeat",
+	"GL_ARB_texture_multisample",
+	"GL_ARB_texture_non_power_of_two",
+	"GL_ARB_texture_query_lod",
+	"GL_ARB_texture_rectangle",
+	"GL_ARB_texture_rg",
+	"GL_ARB_texture_rgb10_a2ui",
+	"GL_ARB_texture_storage",
+	"GL_ARB_texture_swizzle",
+	"GL_ARB_texture_view",
+	"GL_ARB_timer_query",
+	"GL_ARB_transform_feedback2",
+	"GL_ARB_transform_feedback3",
+	"GL_ARB_transform_feedback_instanced",
+	"GL_ARB_transpose_matrix",
+	"GL_ARB_uniform_buffer_object",
+	"GL_ARB_vertex_array_bgra",
+	"GL_ARB_vertex_array_object",
+	"GL_ARB_vertex_attrib_64bit",
+	"GL_ARB_vertex_attrib_binding",
+	"GL_ARB_vertex_blend",
+	"GL_ARB_vertex_buffer_object",
+	"GL_ARB_vertex_program",
+	"GL_ARB_vertex_shader",
+	"GL_ARB_vertex_type_2_10_10_10_rev",
+	"GL_ARB_viewport_array",
+	"GL_ARB_window_pos",
+	"GL_ATI_draw_buffers",
+	"GL_ATI_element_array",
+	"GL_ATI_envmap_bumpmap",
+	"GL_ATI_fragment_shader",
+	"GL_ATI_map_object_buffer",
+	"GL_ATI_meminfo",
+	"GL_ATI_pixel_format_float",
+	"GL_ATI_pn_triangles",
+	"GL_ATI_separate_stencil",
+	"GL_ATI_text_fragment_shader",
+	"GL_ATI_texture_env_combine3",
+	"GL_ATI_texture_float",
+	"GL_ATI_texture_mirror_once",
+	"GL_ATI_vertex_array_object",
+	"GL_ATI_vertex_attrib_array_object",
+	"GL_ATI_vertex_streams",
+	"GL_EXT_422_pixels",
+	"GL_EXT_abgr",
+	"GL_EXT_bgra",
+	"GL_EXT_bindable_uniform",
+	"GL_EXT_blend_color",
+	"GL_EXT_blend_equation_separate",
+	"GL_EXT_blend_func_separate",
+	"GL_EXT_blend_logic_op",
+	"GL_EXT_blend_minmax",
+	"GL_EXT_blend_subtract",
+	"GL_EXT_clip_volume_hint",
+	"GL_EXT_cmyka",
+	"GL_EXT_color_subtable",
+	"GL_EXT_compiled_vertex_array",
+	"GL_EXT_convolution",
+	"GL_EXT_coordinate_frame",
+	"GL_EXT_copy_texture",
+	"GL_EXT_cull_vertex",
+	"GL_EXT_depth_bounds_test",
+	"GL_EXT_direct_state_access",
+	"GL_EXT_draw_buffers2",
+	"GL_EXT_draw_instanced",
+	"GL_EXT_draw_range_elements",
+	"GL_EXT_fog_coord",
+	"GL_EXT_framebuffer_blit",
+	"GL_EXT_framebuffer_multisample",
+	"GL_EXT_framebuffer_multisample_blit_scaled",
+	"GL_EXT_framebuffer_object",
+	"GL_EXT_framebuffer_sRGB",
+	"GL_EXT_geometry_shader4",
+	"GL_EXT_gpu_program_parameters",
+	"GL_EXT_gpu_shader4",
+	"GL_EXT_histogram",
+	"GL_EXT_index_array_formats",
+	"GL_EXT_index_func",
+	"GL_EXT_index_material",
+	"GL_EXT_index_texture",
+	"GL_EXT_light_texture",
+	"GL_EXT_misc_attribute",
+	"GL_EXT_multi_draw_arrays",
+	"GL_EXT_multisample",
+	"GL_EXT_packed_depth_stencil",
+	"GL_EXT_packed_float",
+	"GL_EXT_packed_pixels",
+	"GL_EXT_paletted_texture",
+	"GL_EXT_pixel_buffer_object",
+	"GL_EXT_pixel_transform",
+	"GL_EXT_pixel_transform_color_table",
+	"GL_EXT_point_parameters",
+	"GL_EXT_polygon_offset",
+	"GL_EXT_provoking_vertex",
+	"GL_EXT_rescale_normal",
+	"GL_EXT_secondary_color",
+	"GL_EXT_separate_shader_objects",
+	"GL_EXT_separate_specular_color",
+	"GL_EXT_shader_image_load_store",
+	"GL_EXT_shadow_funcs",
+	"GL_EXT_shared_texture_palette",
+	"GL_EXT_stencil_clear_tag",
+	"GL_EXT_stencil_two_side",
+	"GL_EXT_stencil_wrap",
+	"GL_EXT_subtexture",
+	"GL_EXT_texture",
+	"GL_EXT_texture3D",
+	"GL_EXT_texture_array",
+	"GL_EXT_texture_buffer_object",
+	"GL_EXT_texture_compression_latc",
+	"GL_EXT_texture_compression_rgtc",
+	"GL_EXT_texture_compression_s3tc",
+	"GL_EXT_texture_cube_map",
+	"GL_EXT_texture_env_add",
+	"GL_EXT_texture_env_combine",
+	"GL_EXT_texture_env_dot3",
+	"GL_EXT_texture_filter_anisotropic",
+	"GL_EXT_texture_integer",
+	"GL_EXT_texture_lod_bias",
+	"GL_EXT_texture_mirror_clamp",
+	"GL_EXT_texture_object",
+	"GL_EXT_texture_perturb_normal",
+	"GL_EXT_texture_shared_exponent",
+	"GL_EXT_texture_snorm",
+	"GL_EXT_texture_sRGB",
+	"GL_EXT_texture_sRGB_decode",
+	"GL_EXT_texture_swizzle",
+	"GL_EXT_texture_view",
+	"GL_EXT_timer_query",
+	"GL_EXT_transform_feedback",
+	"GL_EXT_vertex_array",
+	"GL_EXT_vertex_array_bgra",
+	"GL_EXT_vertex_attrib_64bit",
+	"GL_EXT_vertex_shader",
+	"GL_EXT_vertex_weighting",
+	"GL_EXT_x11_sync_object",
+	"GL_FfdMaskSGIX",
+	"GL_GREMEDY_frame_terminator",
+	"GL_GREMEDY_string_marker",
+	"GL_HP_convolution_border_modes",
+	"GL_HP_image_transform",
+	"GL_HP_occlusion_test",
+	"GL_HP_texture_lighting",
+	"GL_IBM_cull_vertex",
+	"GL_IBM_multimode_draw_arrays",
+	"GL_IBM_rasterpos_clip",
+	"GL_IBM_texture_mirrored_repeat",
+	"GL_IBM_vertex_array_lists",
+	"GL_INGR_blend_func_separate",
+	"GL_INGR_color_clamp",
+	"GL_INGR_interlace_read",
+	"GL_INGR_palette_buffer",
+	"GL_INTEL_parallel_arrays",
+	"GL_INTEL_texture_scissor",
+	"GL_KHR_debug",
+	"GL_MESA_pack_invert",
+	"GL_MESA_resize_buffers",
+	"GL_MESA_window_pos",
+	"GL_MESAX_texture_stack",
+	"GL_MESA_ycbcr_texture",
+	"GL_NV_blend_square",
+	"GL_NV_conditional_render",
+	"GL_NV_copy_depth_to_color",
+	"GL_NV_copy_image",
+	"GL_NV_depth_buffer_float",
+	"GL_NV_depth_clamp",
+	"GL_NV_evaluators",
+	"GL_NV_explicit_multisample",
+	"GL_NV_fence",
+	"GL_NV_float_buffer",
+	"GL_NV_fog_distance",
+	"GL_NV_fragment_program",
+	"GL_NV_fragment_program2",
+	"GL_NV_fragment_program4",
+	"GL_NV_fragment_program_option",
+	"GL_NV_framebuffer_multisample_coverage",
+	"GL_NV_geometry_program4",
+	"GL_NV_geometry_shader4",
+	"GL_NV_gpu_program4",
+	"GL_NV_gpu_program5",
+	"GL_NV_gpu_shader5",
+	"GL_NV_half_float",
+	"GL_NV_light_max_exponent",
+	"GL_NV_multisample_coverage",
+	"GL_NV_multisample_filter_hint",
+	"GL_NV_occlusion_query",
+	"GL_NV_packed_depth_stencil",
+	"GL_NV_parameter_buffer_object",
+	"GL_NV_parameter_buffer_object2",
+	"GL_NV_pixel_data_range",
+	"GL_NV_point_sprite",
+	"GL_NV_present_video",
+	"GL_NV_primitive_restart",
+	"GL_NV_register_combiners",
+	"GL_NV_register_combiners2",
+	"GL_NV_shader_buffer_load",
+	"GL_NV_shader_buffer_store",
+	"GL_NV_tessellation_program5",
+	"GL_NV_texgen_emboss",
+	"GL_NV_texgen_reflection",
+	"GL_NV_texture_barrier",
+	"GL_NV_texture_compression_vtc",
+	"GL_NV_texture_env_combine4",
+	"GL_NV_texture_expand_normal",
+	"GL_NV_texture_multisample",
+	"GL_NV_texture_rectangle",
+	"GL_NV_texture_shader",
+	"GL_NV_texture_shader2",
+	"GL_NV_texture_shader3",
+	"GL_NV_transform_feedback",
+	"GL_NV_transform_feedback2",
+	"GL_NV_vdpau_interop",
+	"GL_NV_vertex_array_range",
+	"GL_NV_vertex_array_range2",
+	"GL_NV_vertex_attrib_integer_64bit",
+	"GL_NV_vertex_buffer_unified_memory",
+	"GL_NV_vertex_program",
+	"GL_NV_vertex_program1_1",
+	"GL_NV_vertex_program2",
+	"GL_NV_vertex_program2_option",
+	"GL_NV_vertex_program3",
+	"GL_NV_vertex_program4",
+	"GL_NV_video_capture",
+	"GL_OES_read_format",
+	"GL_OML_interlace",
+	"GL_OML_resample",
+	"GL_OML_subsample",
+	"GL_PGI_misc_hints",
+	"GL_PGI_vertex_hints",
+	"GL_REND_screen_coordinates",
+	"GL_S3_s3tc",
+	"GL_SGI_color_matrix",
+	"GL_SGI_color_table",
+	"GL_SGI_depth_pass_instrument",
+	"GL_SGIS_detail_texture",
+	"GL_SGIS_fog_function",
+	"GL_SGIS_generate_mipmap",
+	"GL_SGIS_multisample",
+	"GL_SGIS_pixel_texture",
+	"GL_SGIS_point_line_texgen",
+	"GL_SGIS_point_parameters",
+	"GL_SGIS_sharpen_texture",
+	"GL_SGIS_texture4D",
+	"GL_SGIS_texture_border_clamp",
+	"GL_SGIS_texture_color_mask",
+	"GL_SGIS_texture_edge_clamp",
+	"GL_SGIS_texture_filter4",
+	"GL_SGIS_texture_lod",
+	"GL_SGIS_texture_select",
+	"GL_SGI_texture_color_table",
+	"GL_SGIX_async",
+	"GL_SGIX_async_histogram",
+	"GL_SGIX_async_pixel",
+	"GL_SGIX_blend_alpha_minmax",
+	"GL_SGIX_calligraphic_fragment",
+	"GL_SGIX_clipmap",
+	"GL_SGIX_convolution_accuracy",
+	"GL_SGIX_depth_pass_instrument",
+	"GL_SGIX_depth_texture",
+	"GL_SGIX_flush_raster",
+	"GL_SGIX_fog_offset",
+	"GL_SGIX_fog_scale",
+	"GL_SGIX_fragment_lighting",
+	"GL_SGIX_framezoom",
+	"GL_SGIX_igloo_interface",
+	"GL_SGIX_impact_pixel_texture",
+	"GL_SGIX_instruments",
+	"GL_SGIX_interlace",
+	"GL_SGIX_ir_instrument1",
+	"GL_SGIX_list_priority",
+	"GL_SGIX_pixel_texture",
+	"GL_SGIX_pixel_tiles",
+	"GL_SGIX_polynomial_ffd",
+	"GL_SGIX_reference_plane",
+	"GL_SGIX_resample",
+	"GL_SGIX_scalebias_hint",
+	"GL_SGIX_shadow",
+	"GL_SGIX_shadow_ambient",
+	"GL_SGIX_sprite",
+	"GL_SGIX_subsample",
+	"GL_SGIX_tag_sample_buffer",
+	"GL_SGIX_texture_add_env",
+	"GL_SGIX_texture_coordinate_clamp",
+	"GL_SGIX_texture_lod_bias",
+	"GL_SGIX_texture_multi_buffer",
+	"GL_SGIX_texture_scale_bias",
+	"GL_SGIX_texture_select",
+	"GL_SGIX_vertex_preclip",
+	"GL_SGIX_ycrcb",
+	"GL_SGIX_ycrcba",
+	"GL_SGIX_ycrcb_subsample",
+	"GL_SUN_convolution_border_modes",
+	"GL_SUN_global_alpha",
+	"GL_SUN_mesh_array",
+	"GL_SUN_slice_accum",
+	"GL_SUN_triangle_list",
+	"GL_SUN_vertex",
+	"GL_SUNX_constant_data",
+	"GL_WIN_phong_shading",
+	"GL_WIN_specular_fog",
+	//"GLX_EXT_swap_control_tear",
+	// unofficial stuff
+	"GL_NVX_gpu_memory_info"
+};
+
+
+class COpenGLExtensionHandler
+{
+	public:
+	enum EOpenGLFeatures {
+		IRR_3DFX_multisample = 0,
+		IRR_3DFX_tbuffer,
+		IRR_3DFX_texture_compression_FXT1,
+		IRR_AMD_blend_minmax_factor,
+		IRR_AMD_conservative_depth,
+		IRR_AMD_debug_output,
+		IRR_AMD_depth_clamp_separate,
+		IRR_AMD_draw_buffers_blend,
+		IRR_AMD_multi_draw_indirect,
+		IRR_AMD_name_gen_delete,
+		IRR_AMD_performance_monitor,
+		IRR_AMD_sample_positions,
+		IRR_AMD_seamless_cubemap_per_texture,
+		IRR_AMD_shader_stencil_export,
+		IRR_AMD_texture_texture4,
+		IRR_AMD_transform_feedback3_lines_triangles,
+		IRR_AMD_vertex_shader_tesselator,
+		IRR_APPLE_aux_depth_stencil,
+		IRR_APPLE_client_storage,
+		IRR_APPLE_element_array,
+		IRR_APPLE_fence,
+		IRR_APPLE_float_pixels,
+		IRR_APPLE_flush_buffer_range,
+		IRR_APPLE_object_purgeable,
+		IRR_APPLE_rgb_422,
+		IRR_APPLE_row_bytes,
+		IRR_APPLE_specular_vector,
+		IRR_APPLE_texture_range,
+		IRR_APPLE_transform_hint,
+		IRR_APPLE_vertex_array_object,
+		IRR_APPLE_vertex_array_range,
+		IRR_APPLE_vertex_program_evaluators,
+		IRR_APPLE_ycbcr_422,
+		IRR_ARB_base_instance,
+		IRR_ARB_buffer_storage,
+		IRR_ARB_blend_func_extended,
+		IRR_ARB_cl_event,
+		IRR_ARB_color_buffer_float,
+		IRR_ARB_compatibility,
+		IRR_ARB_compressed_texture_pixel_storage,
+		IRR_ARB_conservative_depth,
+		IRR_ARB_copy_buffer,
+		IRR_ARB_debug_output,
+		IRR_ARB_depth_buffer_float,
+		IRR_ARB_depth_clamp,
+		IRR_ARB_depth_texture,
+		IRR_ARB_direct_state_access,
+		IRR_ARB_draw_buffers,
+		IRR_ARB_draw_buffers_blend,
+		IRR_ARB_draw_elements_base_vertex,
+		IRR_ARB_draw_indirect,
+		IRR_ARB_draw_instanced,
+		IRR_ARB_ES2_compatibility,
+		IRR_ARB_explicit_attrib_location,
+		IRR_ARB_explicit_uniform_location,
+		IRR_ARB_fragment_coord_conventions,
+		IRR_ARB_fragment_program,
+		IRR_ARB_fragment_program_shadow,
+		IRR_ARB_fragment_shader,
+		IRR_ARB_framebuffer_object,
+		IRR_ARB_framebuffer_sRGB,
+		IRR_ARB_geometry_shader4,
+		IRR_ARB_get_program_binary,
+		IRR_ARB_gpu_shader5,
+		IRR_ARB_gpu_shader_fp64,
+		IRR_ARB_half_float_pixel,
+		IRR_ARB_half_float_vertex,
+		IRR_ARB_imaging,
+		IRR_ARB_instanced_arrays,
+		IRR_ARB_internalformat_query,
+		IRR_ARB_internalformat_query2,
+		IRR_ARB_map_buffer_alignment,
+		IRR_ARB_map_buffer_range,
+		IRR_ARB_matrix_palette,
+		IRR_ARB_multisample,
+		IRR_ARB_multitexture,
+		IRR_ARB_occlusion_query,
+		IRR_ARB_occlusion_query2,
+		IRR_ARB_pixel_buffer_object,
+		IRR_ARB_point_parameters,
+		IRR_ARB_point_sprite,
+		IRR_ARB_program_interface_query,
+		IRR_ARB_provoking_vertex,
+		IRR_ARB_robustness,
+		IRR_ARB_sample_shading,
+		IRR_ARB_sampler_objects,
+		IRR_ARB_seamless_cube_map,
+		IRR_ARB_separate_shader_objects,
+		IRR_ARB_shader_atomic_counters,
+		IRR_ARB_shader_bit_encoding,
+		IRR_ARB_shader_image_load_store,
+		IRR_ARB_shader_objects,
+		IRR_ARB_shader_precision,
+		IRR_ARB_shader_stencil_export,
+		IRR_ARB_shader_subroutine,
+		IRR_ARB_shader_texture_lod,
+		IRR_ARB_shading_language_100,
+		IRR_ARB_shading_language_420pack,
+		IRR_ARB_shading_language_include,
+		IRR_ARB_shading_language_packing,
+		IRR_ARB_shadow,
+		IRR_ARB_shadow_ambient,
+		IRR_ARB_sync,
+		IRR_ARB_tessellation_shader,
+		IRR_ARB_texture_barrier,
+		IRR_ARB_texture_border_clamp,
+		IRR_ARB_texture_buffer_object,
+		IRR_ARB_texture_buffer_object_rgb32,
+		IRR_ARB_texture_buffer_range,
+		IRR_ARB_texture_compression,
+		IRR_ARB_texture_compression_bptc,
+		IRR_ARB_texture_compression_rgtc,
+		IRR_ARB_texture_cube_map,
+		IRR_ARB_texture_cube_map_array,
+		IRR_ARB_texture_env_add,
+		IRR_ARB_texture_env_combine,
+		IRR_ARB_texture_env_crossbar,
+		IRR_ARB_texture_env_dot3,
+		IRR_ARB_texture_float,
+		IRR_ARB_texture_gather,
+		IRR_ARB_texture_mirrored_repeat,
+		IRR_ARB_texture_multisample,
+		IRR_ARB_texture_non_power_of_two,
+		IRR_ARB_texture_query_lod,
+		IRR_ARB_texture_rectangle,
+		IRR_ARB_texture_rg,
+		IRR_ARB_texture_rgb10_a2ui,
+		IRR_ARB_texture_storage,
+		IRR_ARB_texture_swizzle,
+		IRR_ARB_texture_view,
+		IRR_ARB_timer_query,
+		IRR_ARB_transform_feedback2,
+		IRR_ARB_transform_feedback3,
+		IRR_ARB_transform_feedback_instanced,
+		IRR_ARB_transpose_matrix,
+		IRR_ARB_uniform_buffer_object,
+		IRR_ARB_vertex_array_bgra,
+		IRR_ARB_vertex_array_object,
+		IRR_ARB_vertex_attrib_64bit,
+		IRR_ARB_vertex_attrib_binding,
+		IRR_ARB_vertex_blend,
+		IRR_ARB_vertex_buffer_object,
+		IRR_ARB_vertex_program,
+		IRR_ARB_vertex_shader,
+		IRR_ARB_vertex_type_2_10_10_10_rev,
+		IRR_ARB_viewport_array,
+		IRR_ARB_window_pos,
+		IRR_ATI_draw_buffers,
+		IRR_ATI_element_array,
+		IRR_ATI_envmap_bumpmap,
+		IRR_ATI_fragment_shader,
+		IRR_ATI_map_object_buffer,
+		IRR_ATI_meminfo,
+		IRR_ATI_pixel_format_float,
+		IRR_ATI_pn_triangles,
+		IRR_ATI_separate_stencil,
+		IRR_ATI_text_fragment_shader,
+		IRR_ATI_texture_env_combine3,
+		IRR_ATI_texture_float,
+		IRR_ATI_texture_mirror_once,
+		IRR_ATI_vertex_array_object,
+		IRR_ATI_vertex_attrib_array_object,
+		IRR_ATI_vertex_streams,
+		IRR_EXT_422_pixels,
+		IRR_EXT_abgr,
+		IRR_EXT_bgra,
+		IRR_EXT_bindable_uniform,
+		IRR_EXT_blend_color,
+		IRR_EXT_blend_equation_separate,
+		IRR_EXT_blend_func_separate,
+		IRR_EXT_blend_logic_op,
+		IRR_EXT_blend_minmax,
+		IRR_EXT_blend_subtract,
+		IRR_EXT_clip_volume_hint,
+		IRR_EXT_cmyka,
+		IRR_EXT_color_subtable,
+		IRR_EXT_compiled_vertex_array,
+		IRR_EXT_convolution,
+		IRR_EXT_coordinate_frame,
+		IRR_EXT_copy_texture,
+		IRR_EXT_cull_vertex,
+		IRR_EXT_depth_bounds_test,
+		IRR_EXT_direct_state_access,
+		IRR_EXT_draw_buffers2,
+		IRR_EXT_draw_instanced,
+		IRR_EXT_draw_range_elements,
+		IRR_EXT_fog_coord,
+		IRR_EXT_framebuffer_blit,
+		IRR_EXT_framebuffer_multisample,
+		IRR_EXT_framebuffer_multisample_blit_scaled,
+		IRR_EXT_framebuffer_object,
+		IRR_EXT_framebuffer_sRGB,
+		IRR_EXT_geometry_shader4,
+		IRR_EXT_gpu_program_parameters,
+		IRR_EXT_gpu_shader4,
+		IRR_EXT_histogram,
+		IRR_EXT_index_array_formats,
+		IRR_EXT_index_func,
+		IRR_EXT_index_material,
+		IRR_EXT_index_texture,
+		IRR_EXT_light_texture,
+		IRR_EXT_misc_attribute,
+		IRR_EXT_multi_draw_arrays,
+		IRR_EXT_multisample,
+		IRR_EXT_packed_depth_stencil,
+		IRR_EXT_packed_float,
+		IRR_EXT_packed_pixels,
+		IRR_EXT_paletted_texture,
+		IRR_EXT_pixel_buffer_object,
+		IRR_EXT_pixel_transform,
+		IRR_EXT_pixel_transform_color_table,
+		IRR_EXT_point_parameters,
+		IRR_EXT_polygon_offset,
+		IRR_EXT_provoking_vertex,
+		IRR_EXT_rescale_normal,
+		IRR_EXT_secondary_color,
+		IRR_EXT_separate_shader_objects,
+		IRR_EXT_separate_specular_color,
+		IRR_EXT_shader_image_load_store,
+		IRR_EXT_shadow_funcs,
+		IRR_EXT_shared_texture_palette,
+		IRR_EXT_stencil_clear_tag,
+		IRR_EXT_stencil_two_side,
+		IRR_EXT_stencil_wrap,
+		IRR_EXT_subtexture,
+		IRR_EXT_texture,
+		IRR_EXT_texture3D,
+		IRR_EXT_texture_array,
+		IRR_EXT_texture_buffer_object,
+		IRR_EXT_texture_compression_latc,
+		IRR_EXT_texture_compression_rgtc,
+		IRR_EXT_texture_compression_s3tc,
+		IRR_EXT_texture_cube_map,
+		IRR_EXT_texture_env_add,
+		IRR_EXT_texture_env_combine,
+		IRR_EXT_texture_env_dot3,
+		IRR_EXT_texture_filter_anisotropic,
+		IRR_EXT_texture_integer,
+		IRR_EXT_texture_lod_bias,
+		IRR_EXT_texture_mirror_clamp,
+		IRR_EXT_texture_object,
+		IRR_EXT_texture_perturb_normal,
+		IRR_EXT_texture_shared_exponent,
+		IRR_EXT_texture_snorm,
+		IRR_EXT_texture_sRGB,
+		IRR_EXT_texture_sRGB_decode,
+		IRR_EXT_texture_swizzle,
+		IRR_EXT_texture_view,
+		IRR_EXT_timer_query,
+		IRR_EXT_transform_feedback,
+		IRR_EXT_vertex_array,
+		IRR_EXT_vertex_array_bgra,
+		IRR_EXT_vertex_attrib_64bit,
+		IRR_EXT_vertex_shader,
+		IRR_EXT_vertex_weighting,
+		IRR_EXT_x11_sync_object,
+		IRR_FfdMaskSGIX,
+		IRR_GREMEDY_frame_terminator,
+		IRR_GREMEDY_string_marker,
+		IRR_HP_convolution_border_modes,
+		IRR_HP_image_transform,
+		IRR_HP_occlusion_test,
+		IRR_HP_texture_lighting,
+		IRR_IBM_cull_vertex,
+		IRR_IBM_multimode_draw_arrays,
+		IRR_IBM_rasterpos_clip,
+		IRR_IBM_texture_mirrored_repeat,
+		IRR_IBM_vertex_array_lists,
+		IRR_INGR_blend_func_separate,
+		IRR_INGR_color_clamp,
+		IRR_INGR_interlace_read,
+		IRR_INGR_palette_buffer,
+		IRR_INTEL_parallel_arrays,
+		IRR_INTEL_texture_scissor,
+		IRR_KHR_debug,
+		IRR_MESA_pack_invert,
+		IRR_MESA_resize_buffers,
+		IRR_MESA_window_pos,
+		IRR_MESAX_texture_stack,
+		IRR_MESA_ycbcr_texture,
+		IRR_NV_blend_square,
+		IRR_NV_conditional_render,
+		IRR_NV_copy_depth_to_color,
+		IRR_NV_copy_image,
+		IRR_NV_depth_buffer_float,
+		IRR_NV_depth_clamp,
+		IRR_NV_evaluators,
+		IRR_NV_explicit_multisample,
+		IRR_NV_fence,
+		IRR_NV_float_buffer,
+		IRR_NV_fog_distance,
+		IRR_NV_fragment_program,
+		IRR_NV_fragment_program2,
+		IRR_NV_fragment_program4,
+		IRR_NV_fragment_program_option,
+		IRR_NV_framebuffer_multisample_coverage,
+		IRR_NV_geometry_program4,
+		IRR_NV_geometry_shader4,
+		IRR_NV_gpu_program4,
+		IRR_NV_gpu_program5,
+		IRR_NV_gpu_shader5,
+		IRR_NV_half_float,
+		IRR_NV_light_max_exponent,
+		IRR_NV_multisample_coverage,
+		IRR_NV_multisample_filter_hint,
+		IRR_NV_occlusion_query,
+		IRR_NV_packed_depth_stencil,
+		IRR_NV_parameter_buffer_object,
+		IRR_NV_parameter_buffer_object2,
+		IRR_NV_pixel_data_range,
+		IRR_NV_point_sprite,
+		IRR_NV_present_video,
+		IRR_NV_primitive_restart,
+		IRR_NV_register_combiners,
+		IRR_NV_register_combiners2,
+		IRR_NV_shader_buffer_load,
+		IRR_NV_shader_buffer_store,
+		IRR_NV_tessellation_program5,
+		IRR_NV_texgen_emboss,
+		IRR_NV_texgen_reflection,
+		IRR_NV_texture_barrier,
+		IRR_NV_texture_compression_vtc,
+		IRR_NV_texture_env_combine4,
+		IRR_NV_texture_expand_normal,
+		IRR_NV_texture_multisample,
+		IRR_NV_texture_rectangle,
+		IRR_NV_texture_shader,
+		IRR_NV_texture_shader2,
+		IRR_NV_texture_shader3,
+		IRR_NV_transform_feedback,
+		IRR_NV_transform_feedback2,
+		IRR_NV_vdpau_interop,
+		IRR_NV_vertex_array_range,
+		IRR_NV_vertex_array_range2,
+		IRR_NV_vertex_attrib_integer_64bit,
+		IRR_NV_vertex_buffer_unified_memory,
+		IRR_NV_vertex_program,
+		IRR_NV_vertex_program1_1,
+		IRR_NV_vertex_program2,
+		IRR_NV_vertex_program2_option,
+		IRR_NV_vertex_program3,
+		IRR_NV_vertex_program4,
+		IRR_NV_video_capture,
+		IRR_OES_read_format,
+		IRR_OML_interlace,
+		IRR_OML_resample,
+		IRR_OML_subsample,
+		IRR_PGI_misc_hints,
+		IRR_PGI_vertex_hints,
+		IRR_REND_screen_coordinates,
+		IRR_S3_s3tc,
+		IRR_SGI_color_matrix,
+		IRR_SGI_color_table,
+		IRR_SGI_depth_pass_instrument,
+		IRR_SGIS_detail_texture,
+		IRR_SGIS_fog_function,
+		IRR_SGIS_generate_mipmap,
+		IRR_SGIS_multisample,
+		IRR_SGIS_pixel_texture,
+		IRR_SGIS_point_line_texgen,
+		IRR_SGIS_point_parameters,
+		IRR_SGIS_sharpen_texture,
+		IRR_SGIS_texture4D,
+		IRR_SGIS_texture_border_clamp,
+		IRR_SGIS_texture_color_mask,
+		IRR_SGIS_texture_edge_clamp,
+		IRR_SGIS_texture_filter4,
+		IRR_SGIS_texture_lod,
+		IRR_SGIS_texture_select,
+		IRR_SGI_texture_color_table,
+		IRR_SGIX_async,
+		IRR_SGIX_async_histogram,
+		IRR_SGIX_async_pixel,
+		IRR_SGIX_blend_alpha_minmax,
+		IRR_SGIX_calligraphic_fragment,
+		IRR_SGIX_clipmap,
+		IRR_SGIX_convolution_accuracy,
+		IRR_SGIX_depth_pass_instrument,
+		IRR_SGIX_depth_texture,
+		IRR_SGIX_flush_raster,
+		IRR_SGIX_fog_offset,
+		IRR_SGIX_fog_scale,
+		IRR_SGIX_fragment_lighting,
+		IRR_SGIX_framezoom,
+		IRR_SGIX_igloo_interface,
+		IRR_SGIX_impact_pixel_texture,
+		IRR_SGIX_instruments,
+		IRR_SGIX_interlace,
+		IRR_SGIX_ir_instrument1,
+		IRR_SGIX_list_priority,
+		IRR_SGIX_pixel_texture,
+		IRR_SGIX_pixel_tiles,
+		IRR_SGIX_polynomial_ffd,
+		IRR_SGIX_reference_plane,
+		IRR_SGIX_resample,
+		IRR_SGIX_scalebias_hint,
+		IRR_SGIX_shadow,
+		IRR_SGIX_shadow_ambient,
+		IRR_SGIX_sprite,
+		IRR_SGIX_subsample,
+		IRR_SGIX_tag_sample_buffer,
+		IRR_SGIX_texture_add_env,
+		IRR_SGIX_texture_coordinate_clamp,
+		IRR_SGIX_texture_lod_bias,
+		IRR_SGIX_texture_multi_buffer,
+		IRR_SGIX_texture_scale_bias,
+		IRR_SGIX_texture_select,
+		IRR_SGIX_vertex_preclip,
+		IRR_SGIX_ycrcb,
+		IRR_SGIX_ycrcba,
+		IRR_SGIX_ycrcb_subsample,
+		IRR_SUN_convolution_border_modes,
+		IRR_SUN_global_alpha,
+		IRR_SUN_mesh_array,
+		IRR_SUN_slice_accum,
+		IRR_SUN_triangle_list,
+		IRR_SUN_vertex,
+		IRR_SUNX_constant_data,
+		IRR_WIN_phong_shading,
+		IRR_WIN_specular_fog,
+		//IRR_GLX_EXT_swap_control_tear,
+		IRR_NVX_gpu_memory_info,
+		IRR_OpenGL_Feature_Count
+	};
+
+
+	// constructor
+	COpenGLExtensionHandler();
+
+	// deferred initialization
+	void initExtensions(bool stencilBuffer);
+
+	static void loadFunctions();
+
+	bool isDeviceCompatibile(core::array<core::stringc>* failedExtensions=NULL);
+
+	//! queries the features of the driver, returns true if feature is available
+	static bool queryFeature(const E_VIDEO_DRIVER_FEATURE &feature);
+
+	//! queries the features of the driver, returns true if feature is available
+	inline bool queryOpenGLFeature(EOpenGLFeatures feature) const
+	{
+		return FeatureAvailable[feature];
+	}
+
+	//! show all features with availablity
+	void dump(core::stringc* outStr=NULL, bool onlyAvailable=false) const;
+
+	void dumpFramebufferFormats() const;
+
+	// Some variables for properties
+	bool StencilBuffer;
+	bool TextureCompressionExtension;
+
+	// Some non-boolean properties
+	//! Maxmimum texture layers supported by the engine
+	u8 MaxTextureUnits;
+	//! Maximum hardware lights supported
+	u8 MaxLights;
+	//! Maximal Anisotropy
+	u8 MaxAnisotropy;
+	//! Number of user clipplanes
+	u8 MaxUserClipPlanes;
+	//! Number of auxiliary buffers
+	u8 MaxAuxBuffers;
+	//! Number of rendertargets available as MRTs
+	u8 MaxMultipleRenderTargets;
+	//! Optimal number of indices per meshbuffer
+	static uint32_t MaxIndices;
+	//! Optimal number of vertices per meshbuffer
+	static uint32_t MaxVertices;
+	//! Maximal texture dimension
+	u32 MaxTextureSize;
+	//! Maximal vertices handled by geometry shaders
+	u32 MaxGeometryVerticesOut;
+	//! Maximal LOD Bias
+	f32 MaxTextureLODBias;
+	//! Minimal and maximal supported thickness for lines without smoothing
+	GLfloat DimAliasedLine[2];
+	//! Minimal and maximal supported thickness for points without smoothing
+	GLfloat DimAliasedPoint[2];
+	//! Minimal and maximal supported thickness for lines with smoothing
+	GLfloat DimSmoothedLine[2];
+	//! Minimal and maximal supported thickness for points with smoothing
+	GLfloat DimSmoothedPoint[2];
+
+	//! OpenGL version as Integer: 100*Major+Minor, i.e. 2.1 becomes 201
+	static u16 Version;
+	//! GLSL version as Integer: 100*Major+Minor
+	u16 ShaderLanguageVersion;
+
+    //
+    static GLsync extGlFenceSync(GLenum condition, GLbitfield flags);
+    static void extGlDeleteSync(GLsync sync);
+    static GLenum extGlClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout);
+    static void extGlWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout);
+
+	// public access to the (loaded) extensions.
+    static void extGlBindTextureUnit(GLuint unit, GLuint texture, GLenum target);
+    static void extGlCreateTextures(GLenum target, GLsizei n, GLuint *textures);
+
+
+    static void extGlTextureStorage1D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width);
+    static void extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
+    static void extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
+    //multisample textures
+    ///static void extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
+    ///static void extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations);
+    //texture update functions
+    static void extGlTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void *pixels);
+    static void extGlTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels);
+    static void extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels);
+    static void extGlCompressedTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void *data);
+    static void extGlCompressedTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data);
+    static void extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void *data);
+    static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
+    static void setPixelUnpackAlignment(const uint32_t &pitchInBits, void* ptr);
+
+    static void extGlGenSamplers(GLsizei n, GLuint* samplers);
+    static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
+    static void extGlBindSampler(GLuint unit, GLuint sampler);
+    static void extGlSamplerParameteri(GLuint sampler, GLenum pname, GLint param);
+    static void extGlSamplerParameterf(GLuint sampler, GLenum pname, GLfloat param);
+
+	static void extGlPointParameterf(GLint loc, GLfloat f);
+	static void extGlPointParameterfv(GLint loc, const GLfloat *v);
+	static void extGlStencilFuncSeparate (GLenum frontfunc, GLenum backfunc, GLint ref, GLuint mask);
+	static void extGlStencilOpSeparate (GLenum face, GLenum fail, GLenum zfail, GLenum zpass);
+
+///#ifndef NEW_MESHES
+    static void extGlDisableVertexAttribArray (GLuint index);
+    static void extGlEnableVertexAttribArray (GLuint index);
+    static void extGlVertexAttribPointer (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *pointer);
+///#endif // NEW_MESHES
+
+	// shader programming
+	static GLuint extGlCreateShader(GLenum shaderType);
+	static void extGlShaderSource(GLuint shader, GLsizei numOfStrings, const char **strings, const GLint *lenOfStrings);
+	static void extGlCompileShader(GLuint shader);
+	static GLuint extGlCreateProgram(void);
+	static void extGlAttachShader(GLuint program, GLuint shader);
+	static void extGlLinkProgram(GLuint program);
+	static void extGlUseProgram(GLuint prog);
+	static void extGlDeleteProgram(GLuint object);
+	static void extGlDeleteShader(GLuint shader);
+	static void extGlGetAttachedShaders(GLuint program, GLsizei maxcount, GLsizei* count, GLuint* shaders);
+	static void extGlGetShaderInfoLog(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog);
+	static void extGlGetProgramInfoLog(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog);
+	static void extGlGetShaderiv(GLuint shader, GLenum type, GLint *param);
+	static void extGlGetProgramiv(GLuint program, GLenum type, GLint *param);
+	static GLint extGlGetUniformLocation(GLuint program, const char *name);
+	static void extGlUniform1fv(GLint loc, GLsizei count, const GLfloat *v);
+	static void extGlUniform2fv(GLint loc, GLsizei count, const GLfloat *v);
+	static void extGlUniform3fv(GLint loc, GLsizei count, const GLfloat *v);
+	static void extGlUniform4fv(GLint loc, GLsizei count, const GLfloat *v);
+	static void extGlUniform1bv(GLint loc, GLsizei count, const bool *v);
+	static void extGlUniform2bv(GLint loc, GLsizei count, const bool *v);
+	static void extGlUniform3bv(GLint loc, GLsizei count, const bool *v);
+	static void extGlUniform4bv(GLint loc, GLsizei count, const bool *v);
+	static void extGlUniform1iv(GLint loc, GLsizei count, const GLint *v);
+	static void extGlUniform2iv(GLint loc, GLsizei count, const GLint *v);
+	static void extGlUniform3iv(GLint loc, GLsizei count, const GLint *v);
+	static void extGlUniform4iv(GLint loc, GLsizei count, const GLint *v);
+	static void extGlUniform1uiv(GLint loc, GLsizei count, const GLuint *v);
+	static void extGlUniform2uiv(GLint loc, GLsizei count, const GLuint *v);
+	static void extGlUniform3uiv(GLint loc, GLsizei count, const GLuint *v);
+	static void extGlUniform4uiv(GLint loc, GLsizei count, const GLuint *v);
+	static void extGlUniformMatrix2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlUniformMatrix3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlUniformMatrix4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlUniformMatrix2x3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlUniformMatrix2x4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlUniformMatrix3x2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlUniformMatrix3x4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlUniformMatrix4x2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlUniformMatrix4x3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlGetActiveUniform(GLuint program, GLuint index, GLsizei maxlength, GLsizei *length, GLint *size, GLenum *type, GLchar *name);
+
+	// framebuffer objects
+	static void extGlDeleteFramebuffers(GLsizei n, const GLuint *framebuffers);
+	static void extGlCreateFramebuffers(GLsizei n, GLuint *framebuffers);
+	static void extGlBindFramebuffer(GLenum target, GLuint framebuffer);
+	static GLenum extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target);
+	static void extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level);
+	static void extGlNamedFramebufferTextureLayer(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLint layer);
+	static void extGlNamedFramebufferRenderbuffer(GLuint framebuffer, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
+	static void extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
+    static void extGlNamedFramebufferReadBuffer(GLuint framebuffer, GLenum mode);
+	static void extGlNamedFramebufferDrawBuffers(GLuint framebuffer, GLsizei n, const GLenum *bufs);
+	static void extGlNamedFramebufferDrawBuffer(GLuint framebuffer, GLenum buf);
+	static void extGlClearNamedFramebufferiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLint* value);
+	static void extGlClearNamedFramebufferuiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLuint* value);
+	static void extGlClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value);
+	static void extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLfloat depth, GLint stencil);
+	// renderbuffers
+	static void extGlDeleteRenderbuffers(GLsizei n, const GLuint *renderbuffers);
+	static void extGlCreateRenderbuffers(GLsizei n, GLuint *renderbuffers);
+	static void extGlNamedRenderbufferStorage(GLuint renderbuffer, GLenum internalformat, GLsizei width, GLsizei height);
+	static void extGlActiveStencilFace(GLenum face);
+
+	// vertex buffer object
+	static void extGlCreateBuffers(GLsizei n, GLuint *buffers);
+	static void extGlBindBuffer(GLenum target, GLuint buffer);
+	static void extGlDeleteBuffers(GLsizei n, const GLuint *buffers);
+    static void extGlNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void *data, GLbitfield flags);
+	static void extGlNamedBufferSubData (GLuint buffer, GLintptr offset, GLsizeiptr size, const void *data);
+	static void extGlGetNamedBufferSubData (GLuint buffer, GLintptr offset, GLsizeiptr size, void *data);
+    static void* extGlMapNamedBuffer(GLuint buffer, GLenum access);
+    static void* extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLenum access);
+    static void extGlFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length);
+    static GLboolean extGlUnmapNamedBuffer(GLuint buffer);
+    static void extGlClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void *data);
+    static void extGlClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void *data);
+    static void extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size);
+	static GLboolean extGlIsBuffer (GLuint buffer);
+
+	//vao
+	static void extGlCreateVertexArrays(GLsizei n, GLuint *arrays);
+	static void extGlDeleteVertexArrays(GLsizei n, GLuint *arrays);
+    static void extGlBindVertexArray(GLuint vaobj);
+	static void extGlVertexArrayElementBuffer(GLuint vaobj, GLuint buffer);
+	static void extGlVertexArrayVertexBuffer(GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride);
+	static void extGlVertexArrayAttribBinding(GLuint vaobj, GLuint attribindex, GLuint bindingindex);
+	static void extGlEnableVertexArrayAttrib(GLuint vaobj, GLuint index);
+	static void extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index);
+	static void extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset);
+	static void extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset);
+	static void extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset);
+
+	static void extGlDrawRangeElementsBaseVertex(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices, GLint basevertex);
+
+	//
+	static void extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
+	static void extGlProvokingVertex(GLenum mode);
+	static void extGlColorMaskIndexed(GLuint buf, GLboolean r, GLboolean g, GLboolean b, GLboolean a);
+	static void extGlEnableIndexed(GLenum target, GLuint index);
+	static void extGlDisableIndexed(GLenum target, GLuint index);
+	static void extGlBlendFuncIndexed(GLuint buf, GLenum src, GLenum dst);
+	static void extGlBlendEquationIndexed(GLuint buf, GLenum mode);
+	static void extGlProgramParameteri(GLuint program, GLenum pname, GLint value);
+	static void extGlPatchParameterfv(GLenum pname, GLfloat* values);
+    static void extGlPatchParameteri(GLenum pname, GLuint value);
+
+	// occlusion query
+	static void extGlGenQueries(GLsizei n, GLuint *ids);
+	static void extGlDeleteQueries(GLsizei n, const GLuint *ids);
+	static GLboolean extGlIsQuery(GLuint id);
+	static void extGlBeginQuery(GLenum target, GLuint id);
+	static void extGlEndQuery(GLenum target);
+	static void extGlGetQueryiv(GLenum target, GLenum pname, GLint *params);
+	static void extGlGetQueryObjectiv(GLuint id, GLenum pname, GLint *params);
+	static void extGlGetQueryObjectuiv(GLuint id, GLenum pname, GLuint *params);
+	static void extGlGetQueryObjecti64v(GLuint id, GLenum pname, GLint64 *params);
+	static void extGlGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params);
+	static void extGlQueryCounter(GLuint id, GLenum target);
+	static void extGlBeginConditionalRender(GLuint id, GLenum mode);
+	static void extGlEndConditionalRender();
+
+	// generic vsync setting method for several extensions
+	static void extGlSwapInterval(int interval);
+
+	// blend operations
+	static void extGlBlendEquation(GLenum mode);
+
+	// the global feature array
+	static bool FeatureAvailable[IRR_OpenGL_Feature_Count];
+
+#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+    //fences
+    static PFNGLFENCESYNCPROC pGlFenceSync;
+    static PFNGLDELETESYNCPROC pGlDeleteSync;
+    static PFNGLCLIENTWAITSYNCPROC pGlClientWaitSync;
+    static PFNGLWAITSYNCPROC pGlWaitSync;
+
+    //textures
+    static PFNGLBINDTEXTUREUNITPROC pGlBindTextureUnit;
+    static PFNGLBINDMULTITEXTUREEXTPROC pGlBindMultiTextureEXT;
+    static PFNGLCREATETEXTURESPROC pGlCreateTextures;
+    static PFNGLTEXTURESTORAGE1DPROC pGlTextureStorage1D;
+    static PFNGLTEXTURESTORAGE2DPROC pGlTextureStorage2D;
+    static PFNGLTEXTURESTORAGE3DPROC pGlTextureStorage3D;
+    static PFNGLTEXTURESTORAGE1DEXTPROC pGlTextureStorage1DEXT;
+    static PFNGLTEXTURESTORAGE2DEXTPROC pGlTextureStorage2DEXT;
+    static PFNGLTEXTURESTORAGE3DEXTPROC pGlTextureStorage3DEXT;
+    ///static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC pGlTextureStorage2DMultisample;
+    ///static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC pGlTextureStorage3DMultisample;
+    static PFNGLTEXTURESUBIMAGE1DPROC pGlTextureSubImage1D;
+    static PFNGLTEXTURESUBIMAGE2DPROC pGlTextureSubImage2D;
+    static PFNGLTEXTURESUBIMAGE3DPROC pGlTextureSubImage3D;
+    static PFNGLTEXTURESUBIMAGE1DEXTPROC pGlTextureSubImage1DEXT;
+    static PFNGLTEXTURESUBIMAGE2DEXTPROC pGlTextureSubImage2DEXT;
+    static PFNGLTEXTURESUBIMAGE3DEXTPROC pGlTextureSubImage3DEXT;
+    static PFNGLCOMPRESSEDTEXTURESUBIMAGE1DPROC pGlCompressedTextureSubImage1D;
+    static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DPROC pGlCompressedTextureSubImage2D;
+    static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DPROC pGlCompressedTextureSubImage3D;
+    static PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC pGlCompressedTextureSubImage1DEXT;
+    static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC pGlCompressedTextureSubImage2DEXT;
+    static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC pGlCompressedTextureSubImage3DEXT;
+    static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap;
+    static PFNGLGENERATETEXTUREMIPMAPEXTPROC pGlGenerateTextureMipmapEXT;
+
+    //samplers
+    static PFNGLGENSAMPLERSPROC pGlGenSamplers;
+    static PFNGLCREATESAMPLERSPROC pGlCreateSamplers;
+    static PFNGLDELETESAMPLERSPROC pGlDeleteSamplers;
+    static PFNGLBINDSAMPLERPROC pGlBindSampler;
+    static PFNGLSAMPLERPARAMETERIPROC pGlSamplerParameteri;
+    static PFNGLSAMPLERPARAMETERFPROC pGlSamplerParameterf;
+
+
+    //shaders
+    static PFNGLBINDATTRIBLOCATIONPROC pGlBindAttribLocation;
+    static PFNGLCREATEPROGRAMPROC pGlCreateProgram;
+    static PFNGLUSEPROGRAMPROC pGlUseProgram;
+    static PFNGLDELETEPROGRAMPROC pGlDeleteProgram;
+    static PFNGLDELETESHADERPROC pGlDeleteShader;
+    static PFNGLGETATTACHEDSHADERSPROC pGlGetAttachedShaders;
+    static PFNGLCREATESHADERPROC pGlCreateShader;
+    static PFNGLSHADERSOURCEPROC pGlShaderSource;
+    static PFNGLCOMPILESHADERPROC pGlCompileShader;
+    static PFNGLATTACHSHADERPROC pGlAttachShader;
+    static PFNGLLINKPROGRAMPROC pGlLinkProgram;
+    static PFNGLGETSHADERINFOLOGPROC pGlGetShaderInfoLog;
+    static PFNGLGETPROGRAMINFOLOGPROC pGlGetProgramInfoLog;
+    static PFNGLGETSHADERIVPROC pGlGetShaderiv;
+    static PFNGLGETSHADERIVPROC pGlGetProgramiv;
+    static PFNGLGETUNIFORMLOCATIONPROC pGlGetUniformLocation;
+    static PFNGLUNIFORM1FVPROC pGlUniform1fv;
+    static PFNGLUNIFORM2FVPROC pGlUniform2fv;
+    static PFNGLUNIFORM3FVPROC pGlUniform3fv;
+    static PFNGLUNIFORM4FVPROC pGlUniform4fv;
+    static PFNGLUNIFORM1IVPROC pGlUniform1iv;
+    static PFNGLUNIFORM2IVPROC pGlUniform2iv;
+    static PFNGLUNIFORM3IVPROC pGlUniform3iv;
+    static PFNGLUNIFORM4IVPROC pGlUniform4iv;
+    static PFNGLUNIFORM1UIVPROC pGlUniform1uiv;
+    static PFNGLUNIFORM2UIVPROC pGlUniform2uiv;
+    static PFNGLUNIFORM3UIVPROC pGlUniform3uiv;
+    static PFNGLUNIFORM4UIVPROC pGlUniform4uiv;
+    static PFNGLUNIFORMMATRIX2FVPROC pGlUniformMatrix2fv;
+    static PFNGLUNIFORMMATRIX3FVPROC pGlUniformMatrix3fv;
+    static PFNGLUNIFORMMATRIX4FVPROC pGlUniformMatrix4fv;
+    static PFNGLUNIFORMMATRIX2X3FVPROC pGlUniformMatrix2x3fv;
+    static PFNGLUNIFORMMATRIX2X4FVPROC pGlUniformMatrix2x4fv;
+    static PFNGLUNIFORMMATRIX3X2FVPROC pGlUniformMatrix3x2fv;
+    static PFNGLUNIFORMMATRIX3X4FVPROC pGlUniformMatrix3x4fv;
+    static PFNGLUNIFORMMATRIX4X2FVPROC pGlUniformMatrix4x2fv;
+    static PFNGLUNIFORMMATRIX4X3FVPROC pGlUniformMatrix4x3fv;
+    static PFNGLGETACTIVEUNIFORMPROC pGlGetActiveUniform;
+    static PFNGLPOINTPARAMETERFPROC  pGlPointParameterf;
+    static PFNGLPOINTPARAMETERFVPROC pGlPointParameterfv;
+    static PFNGLSTENCILFUNCSEPARATEPROC pGlStencilFuncSeparate;
+    static PFNGLSTENCILOPSEPARATEPROC pGlStencilOpSeparate;
+    static PFNGLSTENCILFUNCSEPARATEATIPROC pGlStencilFuncSeparateATI;
+    static PFNGLSTENCILOPSEPARATEATIPROC pGlStencilOpSeparateATI;
+
+    // ARB framebuffer object
+    static PFNGLBLITNAMEDFRAMEBUFFERPROC pGlBlitNamedFramebuffer;
+    static PFNGLBLITFRAMEBUFFERPROC pGlBlitFramebuffer;
+    static PFNGLDELETEFRAMEBUFFERSPROC pGlDeleteFramebuffers;
+    static PFNGLCREATEFRAMEBUFFERSPROC pGlCreateFramebuffers;
+    static PFNGLBINDFRAMEBUFFERPROC pGlBindFramebuffer;
+    static PFNGLGENFRAMEBUFFERSPROC pGlGenFramebuffers;
+    static PFNGLCHECKNAMEDFRAMEBUFFERSTATUSPROC pGlCheckNamedFramebufferStatus;
+    static PFNGLCHECKNAMEDFRAMEBUFFERSTATUSEXTPROC pGlCheckNamedFramebufferStatusEXT;
+    static PFNGLNAMEDFRAMEBUFFERTEXTUREPROC pGlNamedFramebufferTexture;
+    static PFNGLNAMEDFRAMEBUFFERTEXTUREEXTPROC pGlNamedFramebufferTextureEXT;
+    static PFNGLNAMEDFRAMEBUFFERTEXTURELAYERPROC pGlNamedFramebufferTextureLayer;
+    static PFNGLNAMEDFRAMEBUFFERTEXTURELAYEREXTPROC pGlNamedFramebufferTextureLayerEXT;
+    static PFNGLDELETERENDERBUFFERSPROC pGlDeleteRenderbuffers;
+    static PFNGLGENRENDERBUFFERSPROC pGlGenRenderbuffers;
+    static PFNGLCREATERENDERBUFFERSPROC pGlCreateRenderbuffers;
+    static PFNGLNAMEDRENDERBUFFERSTORAGEPROC pGlNamedRenderbufferStorage;
+    static PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC pGlNamedRenderbufferStorageEXT;
+    static PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC pGlNamedFramebufferRenderbuffer;
+    static PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC pGlNamedFramebufferRenderbufferEXT;
+
+    // EXT framebuffer object
+    static PFNGLACTIVESTENCILFACEEXTPROC pGlActiveStencilFaceEXT;
+    static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERPROC pGlNamedFramebufferReadBuffer;
+    static PFNGLFRAMEBUFFERDRAWBUFFEREXTPROC pGlFramebufferReadBufferEXT;
+    static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERPROC pGlNamedFramebufferDrawBuffer;
+    static PFNGLFRAMEBUFFERDRAWBUFFEREXTPROC pGlFramebufferDrawBufferEXT;
+    static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERSPROC pGlNamedFramebufferDrawBuffers;
+    static PFNGLFRAMEBUFFERDRAWBUFFERSEXTPROC pGlFramebufferDrawBuffersEXT;
+    static PFNGLCLEARNAMEDFRAMEBUFFERIVPROC pGlClearNamedFramebufferiv;
+    static PFNGLCLEARNAMEDFRAMEBUFFERUIVPROC pGlClearNamedFramebufferuiv;
+    static PFNGLCLEARNAMEDFRAMEBUFFERFVPROC pGlClearNamedFramebufferfv;
+    static PFNGLCLEARNAMEDFRAMEBUFFERFIPROC pGlClearNamedFramebufferfi;
+    static PFNGLCLEARBUFFERIVPROC pGlClearBufferiv;
+    static PFNGLCLEARBUFFERUIVPROC pGlClearBufferuiv;
+    static PFNGLCLEARBUFFERFVPROC pGlClearBufferfv;
+    static PFNGLCLEARBUFFERFIPROC pGlClearBufferfi;
+    //
+    static PFNGLGENBUFFERSPROC pGlGenBuffers;
+    static PFNGLCREATEBUFFERSPROC pGlCreateBuffers;
+    static PFNGLBINDBUFFERPROC pGlBindBuffer;
+    static PFNGLDELETEBUFFERSPROC pGlDeleteBuffers;
+    static PFNGLNAMEDBUFFERSTORAGEPROC pGlNamedBufferStorage;
+    static PFNGLNAMEDBUFFERSTORAGEEXTPROC pGlNamedBufferStorageEXT;
+    static PFNGLNAMEDBUFFERSUBDATAPROC pGlNamedBufferSubData;
+    static PFNGLNAMEDBUFFERSUBDATAEXTPROC pGlNamedBufferSubDataEXT;
+    static PFNGLGETNAMEDBUFFERSUBDATAPROC pGlGetNamedBufferSubData;
+    static PFNGLGETNAMEDBUFFERSUBDATAEXTPROC pGlGetNamedBufferSubDataEXT;
+    static PFNGLMAPNAMEDBUFFERPROC pGlMapNamedBuffer;
+    static PFNGLMAPNAMEDBUFFEREXTPROC pGlMapNamedBufferEXT;
+    static PFNGLMAPNAMEDBUFFERRANGEPROC pGlMapNamedBufferRange;
+    static PFNGLMAPNAMEDBUFFERRANGEEXTPROC pGlMapNamedBufferRangeEXT;
+    static PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEPROC pGlFlushMappedNamedBufferRange;
+    static PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEEXTPROC pGlFlushMappedNamedBufferRangeEXT;
+    static PFNGLUNMAPNAMEDBUFFERPROC pGlUnmapNamedBuffer;
+    static PFNGLUNMAPNAMEDBUFFEREXTPROC pGlUnmapNamedBufferEXT;
+    static PFNGLCLEARNAMEDBUFFERDATAPROC pGlClearNamedBufferData;
+    static PFNGLCLEARNAMEDBUFFERDATAEXTPROC pGlClearNamedBufferDataEXT;
+    static PFNGLCLEARNAMEDBUFFERSUBDATAPROC pGlClearNamedBufferSubData;
+    static PFNGLCLEARNAMEDBUFFERSUBDATAEXTPROC pGlClearNamedBufferSubDataEXT;
+    static PFNGLCOPYNAMEDBUFFERSUBDATAPROC pGlCopyNamedBufferSubData;
+    static PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC pGlNamedCopyBufferSubDataEXT;
+    static PFNGLISBUFFERPROC pGlIsBuffer;
+    //vao
+    static PFNGLCREATEVERTEXARRAYSPROC pGlCreateVertexArrays;
+    static PFNGLDELETEVERTEXARRAYSPROC pGlDeleteVertexArrays;
+    static PFNGLBINDVERTEXARRAYPROC pGlBindVertexArray;
+    static PFNGLVERTEXARRAYELEMENTBUFFERPROC pGlVertexArrayElementBuffer;
+    static PFNGLVERTEXARRAYVERTEXBUFFERPROC pGlVertexArrayVertexBuffer;
+    static PFNGLVERTEXARRAYATTRIBBINDINGPROC pGlVertexArrayAttribBinding;
+    static PFNGLENABLEVERTEXARRAYATTRIBPROC pGlEnableVertexArrayAttrib;
+    static PFNGLDISABLEVERTEXARRAYATTRIBPROC pGlDisableVertexArrayAttrib;
+    static PFNGLVERTEXARRAYATTRIBFORMATPROC pGlVertexArrayAttribFormat;
+    static PFNGLVERTEXARRAYATTRIBIFORMATPROC pGlVertexArrayAttribIFormat;
+    static PFNGLVERTEXARRAYATTRIBLFORMATPROC pGlVertexArrayAttribLFormat;
+    //
+    static PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC pGlDrawRangeElementsBaseVertex;
+    //
+    static PFNGLBLENDFUNCSEPARATEPROC pGlBlendFuncSeparate;
+    static PFNGLPROVOKINGVERTEXPROC pGlProvokingVertex;
+    static PFNGLCOLORMASKIPROC pGlColorMaski;
+    static PFNGLENABLEIPROC pGlEnablei;
+    static PFNGLDISABLEIPROC pGlDisablei;
+    static PFNGLBLENDFUNCINDEXEDAMDPROC pGlBlendFuncIndexedAMD;
+    static PFNGLBLENDFUNCIPROC pGlBlendFunciARB;
+    static PFNGLBLENDEQUATIONINDEXEDAMDPROC pGlBlendEquationIndexedAMD;
+    static PFNGLBLENDEQUATIONIPROC pGlBlendEquationiARB;
+    static PFNGLPROGRAMPARAMETERIARBPROC pGlProgramParameteriARB;
+    static PFNGLPROGRAMPARAMETERIEXTPROC pGlProgramParameteriEXT;
+    static PFNGLPATCHPARAMETERIPROC pGlPatchParameteri;
+    static PFNGLPATCHPARAMETERFVPROC pGlPatchParameterfv;
+    //
+    static PFNGLGENQUERIESPROC pGlGenQueries;
+    static PFNGLDELETEQUERIESPROC pGlDeleteQueries;
+    static PFNGLISQUERYPROC pGlIsQuery;
+    static PFNGLBEGINQUERYPROC pGlBeginQuery;
+    static PFNGLENDQUERYPROC pGlEndQuery;
+    static PFNGLGETQUERYIVPROC pGlGetQueryiv;
+    static PFNGLGETQUERYOBJECTIVPROC pGlGetQueryObjectiv;
+    static PFNGLGETQUERYOBJECTUIVPROC pGlGetQueryObjectuiv;
+    static PFNGLGETQUERYOBJECTI64VPROC pGlGetQueryObjecti64v;
+    static PFNGLGETQUERYOBJECTUI64VPROC pGlGetQueryObjectui64v;
+    static PFNGLGETQUERYOBJECTI64VEXTPROC pGlGetQueryObjecti64vEXT;
+    static PFNGLGETQUERYOBJECTUI64VEXTPROC pGlGetQueryObjectui64vEXT;
+    static PFNGLQUERYCOUNTERPROC pGlQueryCounter;
+    static PFNGLBEGINCONDITIONALRENDERPROC pGlBeginConditionalRender;
+    static PFNGLENDCONDITIONALRENDERPROC pGlEndConditionalRender;
+
+    static PFNGLGENOCCLUSIONQUERIESNVPROC pGlGenOcclusionQueriesNV;
+    static PFNGLDELETEOCCLUSIONQUERIESNVPROC pGlDeleteOcclusionQueriesNV;
+    static PFNGLISOCCLUSIONQUERYNVPROC pGlIsOcclusionQueryNV;
+    static PFNGLBEGINOCCLUSIONQUERYNVPROC pGlBeginOcclusionQueryNV;
+    static PFNGLENDOCCLUSIONQUERYNVPROC pGlEndOcclusionQueryNV;
+    static PFNGLGETOCCLUSIONQUERYIVNVPROC pGlGetOcclusionQueryivNV;
+    static PFNGLGETOCCLUSIONQUERYUIVNVPROC pGlGetOcclusionQueryuivNV;
+    //
+    static PFNGLBLENDEQUATIONEXTPROC pGlBlendEquationEXT;
+    static PFNGLBLENDEQUATIONPROC pGlBlendEquation;
+
+    static PFNGLDEBUGMESSAGECONTROLPROC pGlDebugMessageControl;
+    static PFNGLDEBUGMESSAGECONTROLARBPROC pGlDebugMessageControlARB;
+    static PFNGLDEBUGMESSAGECALLBACKPROC pGlDebugMessageCallback;
+    static PFNGLDEBUGMESSAGECALLBACKARBPROC pGlDebugMessageCallbackARB;
+
+    static PFNGLDISABLEVERTEXATTRIBARRAYPROC pGlDisableVertexAttribArray;
+    static PFNGLENABLEVERTEXATTRIBARRAYPROC pGlEnableVertexAttribArray;
+    static PFNGLVERTEXATTRIBPOINTERPROC pGlVertexAttribPointer;
+    #if defined(WGL_EXT_swap_control)
+    static PFNWGLSWAPINTERVALEXTPROC pWglSwapIntervalEXT;
+    #endif
+    #if defined(GLX_SGI_swap_control)
+    static PFNGLXSWAPINTERVALSGIPROC pGlxSwapIntervalSGI;
+    #endif
+    #if defined(GLX_EXT_swap_control)
+    static PFNGLXSWAPINTERVALEXTPROC pGlxSwapIntervalEXT;
+    #endif
+    #if defined(GLX_MESA_swap_control)
+    static PFNGLXSWAPINTERVALMESAPROC pGlxSwapIntervalMESA;
+    #endif
+#endif
+private:
+        static bool functionsAlreadyLoaded;
+
+        static int32_t pixelUnpackAlignment;
+};
+
+
+inline GLsync COpenGLExtensionHandler::extGlFenceSync(GLenum condition, GLbitfield flags)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlFenceSync)
+        return pGlFenceSync(condition,flags);
+    return NULL;
+#else
+    return glFenceSync(condition,flags);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteSync(GLsync sync)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDeleteSync)
+        pGlDeleteSync(sync);
+#else
+    glDeleteSync(sync);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline GLenum COpenGLExtensionHandler::extGlClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlClientWaitSync)
+        return pGlClientWaitSync(sync,flags,timeout);
+    return GL_WAIT_FAILED;
+#else
+    return glClientWaitSync(sync,flags,timeout);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlWaitSync)
+        pGlWaitSync(sync,flags,timeout);
+#else
+    glWaitSync(sync,flags,timeout);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlBindTextureUnit(GLuint unit, GLuint texture, GLenum target)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBindTextureUnit)
+            pGlBindTextureUnit(unit,texture);
+#else
+        glBindTextureUnit(unit,texture);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBindMultiTextureEXT)
+            pGlBindMultiTextureEXT(GL_TEXTURE0+unit,target,texture);
+#else
+        glBindMultiTextureEXT(GL_TEXTURE0+unit,target,texture);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlCreateTextures(GLenum target, GLsizei n, GLuint *textures)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCreateTextures)
+            pGlCreateTextures(target,n,textures);
+        else if (textures)
+            memset(textures,0,n*sizeof(GLuint));
+#else
+        glCreateTextures(target,n,textures);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+        glGenTextures(n,textures);/*
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+#else
+        ///GLuint oldBoundTex = ;
+        for (GLsizei i=0; i<n; n++)
+        {
+            glBindMultiTextureEXT(0,target,textures[i]);
+        }
+        glBindMultiTextureEXT(0,target,oldBoundTex);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+*/
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+
+inline void COpenGLExtensionHandler::extGlTextureStorage1D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage1D)
+            pGlTextureStorage1D(texture,levels,internalformat,width);
+#else
+        glTextureStorage1D(texture,levels,internalformat,width);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage1DEXT)
+            pGlTextureStorage1DEXT(texture,target,levels,internalformat,width);
+#else
+        glTextureStorage1DEXT(texture,target,levels,internalformat,width);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+inline void COpenGLExtensionHandler::extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage2D)
+            pGlTextureStorage2D(texture,levels,internalformat,width,height);
+#else
+        glTextureStorage2D(texture,levels,internalformat,width,height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage2DEXT)
+            pGlTextureStorage2DEXT(texture,target,levels,internalformat,width,height);
+#else
+        glTextureStorage2DEXT(texture,target,levels,internalformat,width,height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage3D)
+            pGlTextureStorage3D(texture,levels,internalformat,width,height,depth);
+#else
+        glTextureStorage3D(texture,levels,internalformat,width,height,depth);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage3DEXT)
+            pGlTextureStorage3DEXT(texture,target,levels,internalformat,width,height,depth);
+#else
+        glTextureStorage3DEXT(texture,target,levels,internalformat,width,height,depth);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void *pixels)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureSubImage1D)
+            pGlTextureSubImage1D(texture, level, xoffset, width,format, type, pixels);
+#else
+        glTextureSubImage1D(texture, level, xoffset, width,format, type, pixels));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureSubImage1DEXT)
+            pGlTextureSubImage1DEXT(texture, target, level, xoffset, width,format, type, pixels);
+#else
+        glTextureSubImage1DEXT(texture, target, level, xoffset, width,format, type, pixels));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+inline void COpenGLExtensionHandler::extGlTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureSubImage2D)
+            pGlTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, type, pixels);
+#else
+        glTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, type, pixels));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureSubImage2DEXT)
+            pGlTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, type, pixels);
+#else
+        glTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, type, pixels));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+inline void COpenGLExtensionHandler::extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureSubImage3D)
+            pGlTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
+#else
+        glTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureSubImage3DEXT)
+            pGlTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
+#else
+        glTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void *data)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCompressedTextureSubImage1D)
+            pGlCompressedTextureSubImage1D(texture, level, xoffset, width,format, imageSize, data);
+#else
+        glCompressedTextureSubImage1D(texture, level, xoffset, width,format, imageSize, data));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCompressedTextureSubImage1DEXT)
+            pGlCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width,format, imageSize, data);
+#else
+        glCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width,format, imageSize, data));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCompressedTextureSubImage2D)
+            pGlCompressedTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, imageSize, data);
+#else
+        glCompressedTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, imageSize, data));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCompressedTextureSubImage2DEXT)
+            pGlCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, imageSize, data);
+#else
+        glCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, imageSize, data));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void *data)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCompressedTextureSubImage3D)
+            pGlCompressedTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
+#else
+        glCompressedTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCompressedTextureSubImage3DEXT)
+            pGlCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
+#else
+        glCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data));
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, GLenum target)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGenerateTextureMipmap)
+            pGlGenerateTextureMipmap(texture);
+#else
+        glGenerateTextureMipmap(texture);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGenerateTextureMipmapEXT)
+            pGlGenerateTextureMipmapEXT(texture,target);
+#else
+        glGenerateTextureMipmapEXT(texture,target);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pitchInBits, void* ptr)
+{
+#if _MSC_VER && !__INTEL_COMPILER
+    DWORD textureUploadAlignment,textureUploadAlignment2;
+    _BitScanForward(&textureUploadAlignment,pitchInBits);
+    _BitScanForward(&textureUploadAlignment2,*reinterpret_cast<size_t*>(&ptr));
+#else
+    int32_t textureUploadAlignment = __builtin_ffs(pitchInBits)-1;
+    int32_t textureUploadAlignment2 = __builtin_ffs(*reinterpret_cast<size_t*>(&ptr))-1;
+#endif
+    textureUploadAlignment = core::min_(core::min_((int32_t)textureUploadAlignment,(int32_t)textureUploadAlignment2),(int32_t)3);
+
+    if (textureUploadAlignment==pixelUnpackAlignment)
+        return;
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT,0x1u<<textureUploadAlignment);
+    pixelUnpackAlignment = textureUploadAlignment;
+}
+
+inline void COpenGLExtensionHandler::extGlGenSamplers(GLsizei n, GLuint* samplers)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlGenSamplers)
+        pGlGenSamplers(n,samplers);
+#else
+    glGenSamplers(n,samplers);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteSamplers(GLsizei n, GLuint* samplers)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDeleteSamplers)
+        pGlDeleteSamplers(n,samplers);
+#else
+    glDeleteSamplers(n,samplers);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlBindSampler(GLuint unit, GLuint sampler)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlBindSampler)
+        pGlBindSampler(unit,sampler);
+#else
+    glBindSampler(unit,sampler);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlSamplerParameteri(GLuint sampler, GLenum pname, GLint param)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlSamplerParameteri)
+        pGlSamplerParameteri(sampler,pname,param);
+#else
+    glSamplerParameteri(sampler,pname,param);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlSamplerParameterf(GLuint sampler, GLenum pname, GLfloat param)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlSamplerParameterf)
+        pGlSamplerParameterf(sampler,pname,param);
+#else
+    glSamplerParameterf(sampler,pname,param);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+
+
+inline GLuint COpenGLExtensionHandler::extGlCreateShader(GLenum shaderType)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlCreateShader)
+		return pGlCreateShader(shaderType);
+#else
+	return glCreateShader(shaderType);
+#endif
+	return 0;
+}
+
+inline void COpenGLExtensionHandler::extGlShaderSource(GLuint shader, GLsizei numOfStrings, const char **strings, const GLint *lenOfStrings)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlShaderSource)
+		pGlShaderSource(shader, numOfStrings, strings, lenOfStrings);
+#else
+	glShaderSource(shader, numOfStrings, strings, (GLint *)lenOfStrings);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlCompileShader(GLuint shader)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlCompileShader)
+		pGlCompileShader(shader);
+#else
+	glCompileShader(shader);
+#endif
+}
+
+inline GLuint COpenGLExtensionHandler::extGlCreateProgram(void)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlCreateProgram)
+		return pGlCreateProgram();
+#else
+	return glCreateProgram();
+#endif
+	return 0;
+}
+
+inline void COpenGLExtensionHandler::extGlAttachShader(GLuint program, GLuint shader)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlAttachShader)
+		pGlAttachShader(program, shader);
+#else
+	glAttachShader(program, shader);
+#endif
+}
+
+
+inline void COpenGLExtensionHandler::extGlLinkProgram(GLuint program)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlLinkProgram)
+		pGlLinkProgram(program);
+#else
+	glLinkProgram(program);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUseProgram(GLuint prog)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUseProgram)
+		pGlUseProgram(prog);
+#else
+	glUseProgram(prog);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteProgram(GLuint object)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDeleteProgram)
+		pGlDeleteProgram(object);
+#else
+	glDeleteProgram(object);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteShader(GLuint shader)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDeleteShader)
+		pGlDeleteShader(shader);
+#else
+	glDeleteShader(shader);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetAttachedShaders(GLuint program, GLsizei maxcount, GLsizei* count, GLuint* shaders)
+{
+	if (count)
+		*count=0;
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetAttachedShaders)
+		pGlGetAttachedShaders(program, maxcount, count, shaders);
+#else
+	glGetAttachedShaders(program, maxcount, count, shaders);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetShaderInfoLog(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog)
+{
+	if (length)
+		*length=0;
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetShaderInfoLog)
+		pGlGetShaderInfoLog(shader, maxLength, length, infoLog);
+#else
+	glGetShaderInfoLog(shader, maxLength, length, infoLog);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetProgramInfoLog(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog)
+{
+	if (length)
+		*length=0;
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetProgramInfoLog)
+		pGlGetProgramInfoLog(program, maxLength, length, infoLog);
+#else
+	glGetProgramInfoLog(program, maxLength, length, infoLog);
+#endif
+}
+
+
+inline void COpenGLExtensionHandler::extGlGetShaderiv(GLuint shader, GLenum type, GLint *param)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetShaderiv)
+		pGlGetShaderiv(shader, type, param);
+#else
+	glGetShaderiv(shader, type, param);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetProgramiv(GLuint program, GLenum type, GLint *param)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetProgramiv)
+		pGlGetProgramiv(program, type, param);
+#else
+	glGetProgramiv(program, type, param);
+#endif
+}
+
+inline GLint COpenGLExtensionHandler::extGlGetUniformLocation(GLuint program, const char *name)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetUniformLocation)
+		return pGlGetUniformLocation(program, name);
+#else
+	return glGetUniformLocation(program, name);
+#endif
+	return -1;
+}
+
+inline void COpenGLExtensionHandler::extGlUniform1fv(GLint loc, GLsizei count, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform1fv)
+		pGlUniform1fv(loc, count, v);
+#else
+	glUniform1fv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform2fv(GLint loc, GLsizei count, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform2fv)
+		pGlUniform2fv(loc, count, v);
+#else
+	glUniform2fv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform3fv(GLint loc, GLsizei count, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform3fv)
+		pGlUniform3fv(loc, count, v);
+#else
+	glUniform3fv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform4fv(GLint loc, GLsizei count, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform4fv)
+		pGlUniform4fv(loc, count, v);
+#else
+	glUniform4fv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform1iv(GLint loc, GLsizei count, const GLint *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform1iv)
+		pGlUniform1iv(loc, count, v);
+#else
+	glUniform1iv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform2iv(GLint loc, GLsizei count, const GLint *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform2iv)
+		pGlUniform2iv(loc, count, v);
+#else
+	glUniform2iv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform3iv(GLint loc, GLsizei count, const GLint *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform3iv)
+		pGlUniform3iv(loc, count, v);
+#else
+	glUniform3iv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform4iv(GLint loc, GLsizei count, const GLint *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform4iv)
+		pGlUniform4iv(loc, count, v);
+#else
+	glUniform4iv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform1uiv(GLint loc, GLsizei count, const GLuint *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform1uiv)
+		pGlUniform1uiv(loc, count, v);
+#else
+	glUniform1uiv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform2uiv(GLint loc, GLsizei count, const GLuint *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform2uiv)
+		pGlUniform2uiv(loc, count, v);
+#else
+	glUniform2uiv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform3uiv(GLint loc, GLsizei count, const GLuint *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform3uiv)
+		pGlUniform3uiv(loc, count, v);
+#else
+	glUniform3uiv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniform4uiv(GLint loc, GLsizei count, const GLuint *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniform4uiv)
+		pGlUniform4uiv(loc, count, v);
+#else
+	glUniform4uiv(loc, count, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniformMatrix2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniformMatrix2fv)
+		pGlUniformMatrix2fv(loc, count, transpose, v);
+#else
+	glUniformMatrix2fv(loc, count, transpose, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniformMatrix3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniformMatrix3fv)
+		pGlUniformMatrix3fv(loc, count, transpose, v);
+#else
+	glUniformMatrix3fv(loc, count, transpose, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniformMatrix4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniformMatrix4fv)
+		pGlUniformMatrix4fv(loc, count, transpose, v);
+#else
+	glUniformMatrix4fv(loc, count, transpose, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlUniformMatrix2x3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniformMatrix2x3fv)
+		pGlUniformMatrix2x3fv(loc, count, transpose, v);
+#else
+	glUniformMatrix2x3fv(loc, count, transpose, v);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlUniformMatrix2x4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniformMatrix2x4fv)
+		pGlUniformMatrix2x4fv(loc, count, transpose, v);
+#else
+	glUniformMatrix2x4fv(loc, count, transpose, v);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlUniformMatrix3x2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniformMatrix3x2fv)
+		pGlUniformMatrix3x2fv(loc, count, transpose, v);
+#else
+	glUniformMatrix3x2fv(loc, count, transpose, v);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlUniformMatrix3x4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniformMatrix3x4fv)
+		pGlUniformMatrix3x4fv(loc, count, transpose, v);
+#else
+	glUniformMatrix3x4fv(loc, count, transpose, v);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlUniformMatrix4x2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniformMatrix4x2fv)
+		pGlUniformMatrix4x2fv(loc, count, transpose, v);
+#else
+	glUniformMatrix4x2fv(loc, count, transpose, v);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlUniformMatrix4x3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlUniformMatrix4x3fv)
+		pGlUniformMatrix4x3fv(loc, count, transpose, v);
+#else
+	glUniformMatrix4x3fv(loc, count, transpose, v);
+#endif
+}
+
+
+
+inline void COpenGLExtensionHandler::extGlGetActiveUniform(GLuint program,
+		GLuint index, GLsizei maxlength, GLsizei *length,
+		GLint *size, GLenum *type, GLchar *name)
+{
+	if (length)
+		*length=0;
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetActiveUniform)
+		pGlGetActiveUniform(program, index, maxlength, length, size, type, name);
+#else
+	glGetActiveUniform(program, index, maxlength, length, size, type, name);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlPointParameterf(GLint loc, GLfloat f)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlPointParameterf)
+		pGlPointParameterf(loc, f);
+#else
+	glPointParameterf(loc, f);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlPointParameterfv(GLint loc, const GLfloat *v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlPointParameterfv)
+		pGlPointParameterfv(loc, v);
+#else
+	glPointParameterfv(loc, v);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlStencilFuncSeparate (GLenum frontfunc, GLenum backfunc, GLint ref, GLuint mask)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlStencilFuncSeparate)
+		pGlStencilFuncSeparate(frontfunc, backfunc, ref, mask);
+#else
+	glStencilFuncSeparate(frontfunc, backfunc, ref, mask);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlStencilOpSeparate (GLenum face, GLenum fail, GLenum zfail, GLenum zpass)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlStencilOpSeparate)
+		pGlStencilOpSeparate(face, fail, zfail, zpass);
+#else
+	glStencilOpSeparate(face, fail, zfail, zpass);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlDisableVertexAttribArray (GLuint index)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDisableVertexAttribArray)
+        pGlDisableVertexAttribArray(index);
+#else
+	glDisableVertexAttribArray(index);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlEnableVertexAttribArray (GLuint index)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlEnableVertexAttribArray)
+        pGlEnableVertexAttribArray(index);
+#else
+    glEnableVertexAttribArray(index);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlVertexAttribPointer (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *pointer)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlVertexAttribPointer)
+        pGlVertexAttribPointer(index,size,type,normalized,stride,pointer);
+#else
+	glVertexAttribPointer(index,size,type,normalized,stride,pointer);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBindFramebuffer(GLenum target, GLuint framebuffer)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBindFramebuffer)
+		pGlBindFramebuffer(target, framebuffer);
+#else
+	glBindFramebuffer(target, framebuffer);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteFramebuffers(GLsizei n, const GLuint *framebuffers)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDeleteFramebuffers)
+		pGlDeleteFramebuffers(n, framebuffers);
+#else
+	glDeleteFramebuffers(n, framebuffers);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlCreateFramebuffers(GLsizei n, GLuint *framebuffers)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCreateFramebuffers)
+            pGlCreateFramebuffers(n, framebuffers);
+        else if (framebuffers)
+            memset(framebuffers,0,n*sizeof(GLuint));
+    #else
+        glCreateFramebuffers(n, framebuffers);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGenFramebuffers)
+            pGlGenFramebuffers(n, framebuffers);
+        else if (framebuffers)
+            memset(framebuffers,0,n*sizeof(GLuint));
+#else
+        glGenFramebuffers(n, framebuffers);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        /*GLuint oldBoundFBO = ;
+        for (GLsizei i=0; i<n; n++)
+        {
+            extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffers[i]);
+        }
+        extGlBindFramebuffer(GL_FRAMEBUFFER,oldBoundFBO);*/
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline GLenum COpenGLExtensionHandler::extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCheckNamedFramebufferStatus)
+            return pGlCheckNamedFramebufferStatus(framebuffer,target);
+    #else
+        return glCheckNamedFramebufferStatus(framebuffer,target);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCheckNamedFramebufferStatusEXT)
+            return pGlCheckNamedFramebufferStatusEXT(framebuffer,target);
+    #else
+        return glCheckNamedFramebufferStatusEXT(framebuffer,target);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+    return GL_INVALID_ENUM;
+}
+
+inline void COpenGLExtensionHandler::extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedFramebufferTexture)
+            pGlNamedFramebufferTexture(framebuffer, attachment, texture, level);
+    #else
+        glNamedFramebufferTexture(framebuffer, attachment, texture, level);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedFramebufferTextureEXT)
+            pGlNamedFramebufferTextureEXT(framebuffer, attachment, texture, level);
+    #else
+        glNamedFramebufferTextureEXT(framebuffer, attachment, texture, level);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLint layer)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedFramebufferTextureLayer)
+            pGlNamedFramebufferTextureLayer(framebuffer, attachment, texture, level, layer);
+    #else
+        glNamedFramebufferTextureLayer(framebuffer, attachment, texture, level, layer);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedFramebufferTextureLayerEXT)
+            pGlNamedFramebufferTextureLayerEXT(framebuffer, attachment, texture, level, layer);
+    #else
+        glNamedFramebufferTextureLayerEXT(framebuffer, attachment, texture, level, layer);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBlitNamedFramebuffer)
+            pGlBlitNamedFramebuffer(readFramebuffer, drawFramebuffer, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+    #else
+        glBlitNamedFramebuffer(readFramebuffer, drawFramebuffer, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+        GLint boundReadFBO = -1;
+        GLint boundDrawFBO = -1;
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&boundReadFBO);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundDrawFBO);
+        if (boundReadFBO<0||boundDrawFBO<0)
+            return;
+
+        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,readFramebuffer);
+        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,drawFramebuffer);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBlitFramebuffer)
+            pGlBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+    #else
+        glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+    #endif
+        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundReadFBO);
+        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundDrawFBO);
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteRenderbuffers(GLsizei n, const GLuint *renderbuffers)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDeleteRenderbuffers)
+		pGlDeleteRenderbuffers(n, renderbuffers);
+#else
+	glDeleteRenderbuffers(n, renderbuffers);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlCreateRenderbuffers(GLsizei n, GLuint *renderbuffers)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCreateRenderbuffers)
+            pGlCreateRenderbuffers(n, renderbuffers);
+        else if (renderbuffers)
+            memset(renderbuffers,0,n*sizeof(GLuint));
+#else
+        glCreateRenderbuffers(n, renderbuffers);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGenRenderbuffers)
+            pGlGenRenderbuffers(n, renderbuffers);
+        else if (renderbuffers)
+            memset(renderbuffers,0,n*sizeof(GLuint));
+#else
+        glGenRenderbuffers(n, renderbuffers);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlNamedRenderbufferStorage(GLuint renderbuffer, GLenum internalformat, GLsizei width, GLsizei height)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedRenderbufferStorage)
+            pGlNamedRenderbufferStorage(renderbuffer, internalformat, width, height);
+#else
+        glNamedRenderbufferStorage(renderbuffer, internalformat, width, height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedRenderbufferStorageEXT)
+            pGlNamedRenderbufferStorageEXT(renderbuffer, internalformat, width, height);
+#else
+        glNamedRenderbufferStorageEXT(renderbuffer, internalformat, width, height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+
+inline void COpenGLExtensionHandler::extGlNamedFramebufferRenderbuffer(GLuint framebuffer, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedFramebufferRenderbuffer)
+            pGlNamedFramebufferRenderbuffer(framebuffer, attachment, renderbuffertarget, renderbuffer);
+    #else
+        glNamedFramebufferRenderbuffer(framebuffer, attachment, renderbuffertarget, renderbuffer);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedFramebufferRenderbufferEXT)
+            pGlNamedFramebufferRenderbufferEXT(framebuffer, attachment, renderbuffertarget, renderbuffer);
+    #else
+        glNamedFramebufferRenderbufferEXT(framebuffer, attachment, renderbuffertarget, renderbuffer);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+//! there should be a GL 3.1 thing for this
+inline void COpenGLExtensionHandler::extGlActiveStencilFace(GLenum face)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlActiveStencilFaceEXT)
+		pGlActiveStencilFaceEXT(face);
+#elif defined(GL_EXT_stencil_two_side)
+	glActiveStencilFaceEXT(face);
+#else
+	os::Printer::log("glActiveStencilFace not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(GLuint framebuffer, GLenum mode)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedFramebufferReadBuffer)
+            pGlNamedFramebufferReadBuffer(framebuffer, mode);
+    #else
+        glNamedFramebufferReadBuffer(framebuffer, mode);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlFramebufferReadBufferEXT)
+            pGlFramebufferReadBufferEXT(framebuffer, mode);
+    #else
+        glFramebufferReadBufferEXT(framebuffer, mode);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffer(GLuint framebuffer, GLenum buf)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedFramebufferDrawBuffer)
+            pGlNamedFramebufferDrawBuffer(framebuffer, buf);
+    #else
+        glNamedFramebufferDrawBuffer(framebuffer, buf);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlFramebufferDrawBufferEXT)
+            pGlFramebufferDrawBufferEXT(framebuffer, buf);
+    #else
+        glFramebufferDrawBufferEXT(framebuffer, buf);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffers(GLuint framebuffer, GLsizei n, const GLenum *bufs)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedFramebufferDrawBuffers)
+            pGlNamedFramebufferDrawBuffers(framebuffer, n, bufs);
+    #else
+        glNamedFramebufferDrawBuffers(framebuffer, n, bufs);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlFramebufferDrawBuffersEXT)
+            pGlFramebufferDrawBuffersEXT(framebuffer, n, bufs);
+    #else
+        glFramebufferDrawBuffersEXT(framebuffer, n, bufs);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlClearNamedFramebufferiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLint* value)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearNamedFramebufferiv)
+            pGlClearNamedFramebufferiv(framebuffer, buffer, drawbuffer, value);
+#else
+        glClearNamedFramebufferiv(framebuffer, buffer, drawbuffer, value);
+#endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+        GLint boundFBO = -1;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&boundFBO);
+        if (boundFBO<0)
+            return;
+        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearBufferiv)
+            pGlClearBufferiv(buffer, drawbuffer, value);
+#else
+        glClearBufferiv(buffer, drawbuffer, value);
+#endif
+        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlClearNamedFramebufferuiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLuint* value)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearNamedFramebufferuiv)
+            pGlClearNamedFramebufferuiv(framebuffer, buffer, drawbuffer, value);
+#else
+        glClearNamedFramebufferuiv(framebuffer, buffer, drawbuffer, value);
+#endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+        GLint boundFBO = -1;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&boundFBO);
+        if (boundFBO<0)
+            return;
+        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearBufferuiv)
+            pGlClearBufferuiv(buffer, drawbuffer, value);
+#else
+        glClearNamedBufferuiv(buffer, drawbuffer, value);
+#endif
+        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearNamedFramebufferfv)
+            pGlClearNamedFramebufferfv(framebuffer, buffer, drawbuffer, value);
+#else
+        glClearNamedFramebufferfv(framebuffer, buffer, drawbuffer, value);
+#endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+        GLint boundFBO = -1;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&boundFBO);
+        if (boundFBO<0)
+            return;
+        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearBufferfv)
+            pGlClearBufferfv(buffer, drawbuffer, value);
+#else
+        glClearNamedBufferfv(buffer, drawbuffer, value);
+#endif
+        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLfloat depth, GLint stencil)
+{
+/*    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearNamedFramebufferfi)
+            pGlClearNamedFramebufferfi(framebuffer, buffer, depth, stencil);
+#else
+        glClearNamedFramebufferfi(framebuffer, buffer, depth, stencil);
+#endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+        GLint boundFBO = -1;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&boundFBO);
+        if (boundFBO<0)
+            return;
+        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearBufferfi)
+            pGlClearBufferfi(buffer, depth, stencil);
+#else
+        glClearNamedBufferfi(buffer, depth, stencil);
+#endif
+        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }*/
+}
+
+
+inline void COpenGLExtensionHandler::extGlCreateBuffers(GLsizei n, GLuint *buffers)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCreateBuffers)
+            pGlCreateBuffers(n, buffers);
+        else if (buffers)
+            memset(buffers,0,n*sizeof(GLuint));
+    #else
+        glCreateBuffers(n, buffers);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGenBuffers)
+            pGlGenBuffers(n, buffers);
+        else if (buffers)
+            memset(buffers,0,n*sizeof(GLuint));
+    #else
+        glGenBuffers(n, buffers);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteBuffers(GLsizei n, const GLuint *buffers)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDeleteBuffers)
+		pGlDeleteBuffers(n, buffers);
+#else
+	glDeleteBuffers(n, buffers);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBindBuffer(GLenum target, GLuint buffer)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBindBuffer)
+		pGlBindBuffer(target, buffer);
+#else
+	glBindBuffer(target, buffer);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void *data, GLbitfield flags)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedBufferStorage)
+            pGlNamedBufferStorage(buffer,size,data,flags);
+    #else
+        glNamedBufferStorage(buffer,size,data,flags);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedBufferStorageEXT)
+            pGlNamedBufferStorageEXT(buffer,size,data,flags);
+    #else
+        glNamedBufferStorageEXT(buffer,size,data,flags);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, const void *data)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedBufferSubData)
+            pGlNamedBufferSubData(buffer,offset,size,data);
+    #else
+        glNamedBufferSubData(buffer,offset,size,data);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedBufferSubDataEXT)
+            pGlNamedBufferSubDataEXT(buffer,offset,size,data);
+    #else
+        glNamedBufferSubDataEXT(buffer,offset,size,data);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlGetNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, void *data)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetNamedBufferSubData)
+            pGlGetNamedBufferSubData(buffer,offset,size,data);
+    #else
+        glGetNamedBufferSubData(buffer,offset,size,data);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetNamedBufferSubDataEXT)
+            pGlGetNamedBufferSubDataEXT(buffer,offset,size,data);
+    #else
+        glGetNamedBufferSubDataEXT(buffer,offset,size,data);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void *COpenGLExtensionHandler::extGlMapNamedBuffer(GLuint buffer, GLenum access)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlMapNamedBuffer)
+            return pGlMapNamedBuffer(buffer,access);
+    #else
+        return glMapNamedBuffer(buffer,access);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlMapNamedBufferEXT)
+            return pGlMapNamedBufferEXT(buffer,access);
+    #else
+        return glMapNamedBufferEXT(buffer,access);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+    return NULL;
+}
+
+inline void *COpenGLExtensionHandler::extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLenum access)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlMapNamedBufferRange)
+            return pGlMapNamedBufferRange(buffer,offset,length,access);
+    #else
+        return glMapNamedBufferRange(buffer,offset,length,access);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlMapNamedBufferRangeEXT)
+            return pGlMapNamedBufferRangeEXT(buffer,offset,length,access);
+    #else
+        return glMapNamedBufferRangeEXT(buffer,offset,length,access);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+    return NULL;
+}
+
+inline void COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlFlushMappedNamedBufferRange)
+            pGlFlushMappedNamedBufferRange(buffer,offset,length);
+    #else
+        glFlushMappedNamedBufferRange(buffer,offset,length);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlFlushMappedNamedBufferRangeEXT)
+            pGlFlushMappedNamedBufferRangeEXT(buffer,offset,length);
+    #else
+        glFlushMappedNamedBufferRangeEXT(buffer,offset,length);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline GLboolean COpenGLExtensionHandler::extGlUnmapNamedBuffer(GLuint buffer)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlUnmapNamedBuffer)
+            return pGlUnmapNamedBuffer(buffer);
+    #else
+        return glUnmapNamedBuffer(buffer);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlUnmapNamedBufferEXT)
+            return pGlUnmapNamedBufferEXT(buffer);
+    #else
+        return glUnmapNamedBufferEXT(buffer);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+    return false;
+}
+
+inline void COpenGLExtensionHandler::extGlClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void *data)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearNamedBufferData)
+            pGlClearNamedBufferData(buffer,internalformat,format,type,data);
+    #else
+        glClearNamedBufferData(buffer,internalformat,format,type,data);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearNamedBufferDataEXT)
+            pGlClearNamedBufferDataEXT(buffer,internalformat,format,type,data);
+    #else
+        glClearNamedBufferDataEXT(buffer,internalformat,format,type,data);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void *data)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearNamedBufferSubData)
+            pGlClearNamedBufferSubData(buffer,internalformat,offset,size,format,type,data);
+    #else
+        glClearNamedBufferSubData(buffer,internalformat,offset,size,format,type,data);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlClearNamedBufferSubDataEXT)
+            pGlClearNamedBufferSubDataEXT(buffer,internalformat,offset,size,format,type,data);
+    #else
+        glClearNamedBufferSubDataEXT(buffer,internalformat,offset,size,format,type,data);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCopyNamedBufferSubData)
+            pGlCopyNamedBufferSubData(readBuffer, writeBuffer, readOffset, writeOffset, size);
+    #else
+        glCopyNamedBufferSubData(readBuffer, writeBuffer, readOffset, writeOffset, size);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedCopyBufferSubDataEXT)
+            pGlNamedCopyBufferSubDataEXT(readBuffer, writeBuffer, readOffset, writeOffset, size);
+    #else
+        glNamedCopyBufferSubDataEXT(readBuffer, writeBuffer, readOffset, writeOffset, size);
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline GLboolean COpenGLExtensionHandler::extGlIsBuffer(GLuint buffer)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlIsBuffer)
+		return pGlIsBuffer(buffer);
+	return false;
+#else
+	return glIsBuffer(buffer);
+#endif
+}
+
+
+inline void COpenGLExtensionHandler::extGlCreateVertexArrays(GLsizei n, GLuint *arrays)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCreateVertexArrays)
+            pGlCreateVertexArrays(n,arrays);
+    #else
+        glCreateVertexArrays(n,arrays);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteVertexArrays(GLsizei n, GLuint *arrays)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlDeleteVertexArrays)
+            pGlDeleteVertexArrays(n,arrays);
+    #else
+        glDeleteVertexArrays(n,arrays);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlBindVertexArray(GLuint vaobj)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBindVertexArray)
+            pGlBindVertexArray(vaobj);
+    #else
+        glBindVertexArray(vaobj);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlVertexArrayElementBuffer(GLuint vaobj, GLuint buffer)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayElementBuffer)
+            pGlVertexArrayElementBuffer(vaobj,buffer);
+    #else
+        glVertexArrayElementBuffer(vaobj,buffer);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayVertexBuffer)
+            pGlVertexArrayVertexBuffer(vaobj,bindingindex,buffer,offset,stride);
+    #else
+        glVertexArrayVertexBuffer(vaobj,bindingindex,buffer,offset,stride);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlVertexArrayAttribBinding(GLuint vaobj, GLuint attribindex, GLuint bindingindex)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayAttribBinding)
+            pGlVertexArrayAttribBinding(vaobj,attribindex,bindingindex);
+    #else
+        glVertexArrayAttribBinding(vaobj,attribindex,bindingindex);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlEnableVertexArrayAttrib(GLuint vaobj, GLuint index)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlEnableVertexArrayAttrib)
+            pGlEnableVertexArrayAttrib(vaobj,index);
+    #else
+        glEnableVertexArrayAttrib(vaobj,index);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlDisableVertexArrayAttrib)
+            pGlDisableVertexArrayAttrib(vaobj,index);
+    #else
+        glDisableVertexArrayAttrib(vaobj,index);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayAttribFormat)
+            pGlVertexArrayAttribFormat(vaobj,attribindex,size,type,normalized,relativeoffset);
+    #else
+        glVertexArrayAttribFormat(vaobj,attribindex,size,type,normalized,relativeoffset);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayAttribIFormat)
+            pGlVertexArrayAttribIFormat(vaobj,attribindex,size,type,relativeoffset);
+    #else
+        glVertexArrayAttribIFormat(vaobj,attribindex,size,type,relativeoffset);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayAttribLFormat)
+            pGlVertexArrayAttribLFormat(vaobj,attribindex,size,type,relativeoffset);
+    #else
+        pGlVertexArrayAttribLFormat(vaobj,attribindex,size,type,relativeoffset);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    #else
+    #endif
+    }
+    else
+    {
+        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlDrawRangeElementsBaseVertex(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices, GLint basevertex)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawRangeElementsBaseVertex)
+        pGlDrawRangeElementsBaseVertex(mode,start,end,count,type,indices,basevertex);
+#else
+    glDrawRangeElementsBaseVertex(mode,start,end,count,type,indices,basevertex);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+
+inline void COpenGLExtensionHandler::extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBlendFuncSeparate)
+		pGlBlendFuncSeparate(srcRGB,dstRGB,srcAlpha,dstAlpha);
+#else
+	glBlendFuncSeparate(srcRGB,dstRGB,srcAlpha,dstAlpha);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlProvokingVertex(GLenum mode)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlProvokingVertex)
+		pGlProvokingVertex(mode);
+#else
+	glProvokingVertex(mode);
+#endif
+}
+
+
+inline void COpenGLExtensionHandler::extGlColorMaskIndexed(GLuint buf, GLboolean r, GLboolean g, GLboolean b, GLboolean a)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlColorMaski)
+		pGlColorMaski(buf, r, g, b, a);
+#else
+	glColorMaski(buf,r,g,b,a);
+#endif
+}
+
+
+inline void COpenGLExtensionHandler::extGlEnableIndexed(GLenum target, GLuint index)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlEnablei)
+		pGlEnablei(target, index);
+#else
+    glEnablei(target, index);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlDisableIndexed(GLenum target, GLuint index)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDisablei)
+		pGlDisablei(target, index);
+#else
+	glDisablei(target, index);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBlendFuncIndexed(GLuint buf, GLenum src, GLenum dst)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (FeatureAvailable[IRR_ARB_draw_buffers_blend] && pGlBlendFunciARB)
+		pGlBlendFunciARB(buf, src, dst);
+	else if (FeatureAvailable[IRR_AMD_draw_buffers_blend] && pGlBlendFuncIndexedAMD)
+		pGlBlendFuncIndexedAMD(buf, src, dst);
+#elif defined(GL_ARB_draw_buffers_blend)
+	glBlendFunciARB(buf, src, dst);
+#elif defined(GL_AMD_draw_buffers_blend)
+	glBlendFuncIndexedAMD(buf, src, dst);
+#else
+	os::Printer::log("glBlendFuncIndexed not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBlendEquationIndexed(GLuint buf, GLenum mode)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (FeatureAvailable[IRR_ARB_draw_buffers_blend] && pGlBlendEquationiARB)
+		pGlBlendEquationiARB(buf, mode);
+	else if (FeatureAvailable[IRR_AMD_draw_buffers_blend] && pGlBlendEquationIndexedAMD)
+		pGlBlendEquationIndexedAMD(buf, mode);
+#elif defined(GL_ARB_draw_buffers_blend)
+	glBlendEquationiARB(buf, mode);
+#elif defined(GL_AMD_draw_buffers_blend)
+	glBlendEquationIndexedAMD(buf, mode);
+#else
+	os::Printer::log("glBlendEquationIndexed not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlPatchParameterfv(GLenum pname, GLfloat* values)
+{
+#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+	if (queryFeature(EVDF_TESSELLATION_SHADER))
+	{
+		if (pGlPatchParameterfv)
+			pGlPatchParameterfv(pname, values);
+	}
+#elif defined(GL_ARB_tesselation_shader)
+    glPatchParameterfv();
+#else
+	os::Printer::log("glPatchParameterfv not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlPatchParameteri(GLenum pname, GLuint value)
+{
+#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+	if (queryFeature(EVDF_TESSELLATION_SHADER))
+	{
+		if (pGlPatchParameteri)
+			pGlPatchParameteri(pname, value);
+	}
+#elif defined(GL_ARB_tesselation_shader)
+    glPatchParameteri();
+#else
+	os::Printer::log("glPatchParameteri not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlProgramParameteri(GLuint program, GLenum pname, GLint value)
+{
+#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+	if (queryFeature(EVDF_GEOMETRY_SHADER))
+	{
+		if (pGlProgramParameteriARB)
+			pGlProgramParameteriARB(program, pname, value);
+		else if (pGlProgramParameteriEXT)
+			pGlProgramParameteriEXT(program, pname, value);
+	}
+#elif defined(GL_ARB_geometry_shader4)
+	glProgramParameteriARB(program, pname, value);
+#elif defined(GL_EXT_geometry_shader4)
+	glProgramParameteriEXT(program, pname, value);
+#elif defined(GL_NV_geometry_program4) || defined(GL_NV_geometry_shader4)
+	glProgramParameteriNV(program, pname, value);
+#else
+	os::Printer::log("glProgramParameteri not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGenQueries(GLsizei n, GLuint *ids)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGenQueries)
+		pGlGenQueries(n, ids);
+#else
+	glGenQueries(n, ids);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteQueries(GLsizei n, const GLuint *ids)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDeleteQueries)
+		pGlDeleteQueries(n, ids);
+#else
+	glDeleteQueries(n, ids);
+#endif
+}
+
+inline GLboolean COpenGLExtensionHandler::extGlIsQuery(GLuint id)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlIsQuery)
+		return pGlIsQuery(id);
+	return false;
+#else
+	return glIsQuery(id);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBeginQuery(GLenum target, GLuint id)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBeginQuery)
+		pGlBeginQuery(target, id);
+#else
+	glBeginQuery(target, id);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlEndQuery(GLenum target)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlEndQuery)
+		pGlEndQuery(target);
+#else
+	glEndQuery(target);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetQueryiv(GLenum target, GLenum pname, GLint *params)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetQueryiv)
+		pGlGetQueryiv(target, pname, params);
+#else
+	glGetQueryiv(target, pname, params);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetQueryObjectiv(GLuint id, GLenum pname, GLint *params)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetQueryObjectiv)
+		pGlGetQueryObjectiv(id, pname, params);
+#else
+	glGetQueryObjectiv(id, pname, params);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetQueryObjectuiv(GLuint id, GLenum pname, GLuint *params)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetQueryObjectuiv)
+		pGlGetQueryObjectuiv(id, pname, params);
+#else
+	glGetQueryObjectuiv(id, pname, params);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetQueryObjecti64v(GLuint id, GLenum pname, GLint64 *params)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetQueryObjecti64v)
+		pGlGetQueryObjecti64v(id, pname, params);
+	else if (pGlGetQueryObjecti64vEXT)
+		pGlGetQueryObjecti64vEXT(id, pname, params);
+#else
+	os::Printer::log("glGetQueryObjecti64v not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlGetQueryObjectui64v)
+		pGlGetQueryObjectui64v(id, pname, params);
+	else if (pGlGetQueryObjectui64vEXT)
+		pGlGetQueryObjectui64vEXT(id, pname, params);
+#else
+	os::Printer::log("glGetQueryObjectui64v not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlQueryCounter(GLuint id, GLenum target)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlQueryCounter)
+		pGlQueryCounter(id, target);
+#else
+	os::Printer::log("glQueryCounter not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBeginConditionalRender(GLuint id, GLenum mode)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBeginConditionalRender)
+		pGlBeginConditionalRender(id, mode);
+#else
+	os::Printer::log("glBeginConditionalRender not supported", ELL_ERROR);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlEndConditionalRender()
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlEndConditionalRender)
+		pGlEndConditionalRender();
+#else
+	os::Printer::log("glEndConditionalRender not supported", ELL_ERROR);
+#endif
+}
+
+
+
+
+inline void COpenGLExtensionHandler::extGlSwapInterval(int interval)
+{
+	// we have wglext, so try to use that
+#if defined(_IRR_WINDOWS_API_) && defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
+#ifdef WGL_EXT_swap_control
+	if (pWglSwapIntervalEXT)
+		pWglSwapIntervalEXT(interval);
+#endif
+#endif
+#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+	//TODO: Check GLX_EXT_swap_control and GLX_MESA_swap_control
+#ifdef GLX_SGI_swap_control
+	// does not work with interval==0
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (interval && pGlxSwapIntervalSGI)
+		pGlxSwapIntervalSGI(interval);
+#else
+	if (interval)
+		glXSwapIntervalSGI(interval);
+#endif
+#elif defined(GLX_EXT_swap_control)
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	Display *dpy = glXGetCurrentDisplay();
+	GLXDrawable drawable = glXGetCurrentDrawable();
+
+	if (pGlxSwapIntervalEXT)
+		pGlxSwapIntervalEXT(dpy, drawable, interval);
+#else
+	pGlXSwapIntervalEXT(dpy, drawable, interval);
+#endif
+#elif defined(GLX_MESA_swap_control)
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlxSwapIntervalMESA)
+		pGlxSwapIntervalMESA(interval);
+#else
+	pGlXSwapIntervalMESA(interval);
+#endif
+#endif
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBlendEquation(GLenum mode)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBlendEquation)
+		pGlBlendEquation(mode);
+#else
+	glBlendEquation(mode);
+#endif
+}
+
+
+}
+}
+
+#endif
+
+#endif
+

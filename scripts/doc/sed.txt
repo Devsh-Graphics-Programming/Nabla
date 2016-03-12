@@ -1,0 +1,9 @@
+GNU sed version 4.0.7 - compiled for Win32. 
+Native executable requires only the Microsoft 
+C runtime MSVCRT.DLL, not an emulation layer 
+like Cygwin. This .EXE file was obtained from 
+http://unxutils.sourceforge.net on 2003-10-21.
+For documentation, GPL license, source code, 
+etc., visit http://unxutils.sourceforge.net.
+
+Downloaded from http://www.student.northpark.edu/pemente/sed/

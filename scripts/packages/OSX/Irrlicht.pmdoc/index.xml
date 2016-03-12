@@ -1,0 +1,47 @@
+<pkmkdoc spec="1.12"><properties><title>Irrlicht Engine v1.5.1</title><build>/Users/gazdavidson/Desktop/installer/Irrlicht v1.5.1.mpkg</build><organization>com.irrlicht</organization><userSees ui="easy"/><min-target os="2"/><domain system="true"/></properties><distribution><versions min-spec="1.000000"/><scripts></scripts></distribution><contents><choice title="Irrlicht.framework" id="installframework" description="This is required, unless you want to build from source." starts_selected="true" starts_enabled="true" starts_hidden="false"><pkgref id="org.irrlichtengine.irrlichtEngineV151.irrlicht.pkg"/></choice><choice title="Documentation" id="installdocs" description="This will install the documentation" starts_selected="true" starts_enabled="true" starts_hidden="false"><pkgref id="com.irrlicht.irrlichtEngineV151.html.pkg"/></choice><choice title="Example media" id="installmedia" description="The media for the examples, without this the examples will not run." starts_selected="true" starts_enabled="true" starts_hidden="false"><pkgref id="com.irrlicht.irrlichtEngineV151.media.pkg"/></choice><choice title="Examples" id="installexamples" description="The examples, which you'll need if you want to get started." starts_selected="true" starts_enabled="true" starts_hidden="false"><pkgref id="com.irrlicht.irrlichtEngineV151.examples.pkg"/></choice><choice title="Tools" id="installtools" description="Some useful tools; GUI editor, mesh converter and bitmap font generator" starts_selected="true" starts_enabled="true" starts_hidden="false"><pkgref id="com.irrlicht.irrlichtEngineV151.tools.pkg"/></choice><choice title="Source code" id="installsource" description="The complete source code to the Irrlicht Engine, this allows you to make changes to the core and make your own custom versions of Irrlicht." starts_selected="true" starts_enabled="true" starts_hidden="false"><pkgref id="com.irrlicht.irrlichtEngineV151.source.pkg"/></choice><choice title="changes" id="installchangelog" starts_selected="true" starts_enabled="true" starts_hidden="true"><pkgref id="com.irrlicht.irrlichtEngineV151.changes.pkg"/></choice><choice title="readme" id="installreadme" starts_selected="true" starts_enabled="true" starts_hidden="true"><pkgref id="com.irrlicht.irrlichtEngineV151.readme.pkg"/></choice></contents><resources bg-scale="none" bg-align="topleft"><locale lang="en"><resource mime-type="text/rtf" kind="embedded" type="license"><![CDATA[{\rtf1\ansi\ansicpg1252\cocoartf949\cocoasubrtf430
+{\fonttbl\f0\fnil\fcharset0 Verdana;}
+{\colortbl;\red255\green255\blue255;}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc0\levelnfcn0\leveljc2\leveljcn2\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{decimal\}.}{\leveltext\leveltemplateid0\'02\'05.;}{\levelnumbers\'01;}}{\listname ;}\listid1}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}}
+\deftab720
+\pard\pardeftab720\sl320\sa220\ql\qnatural
+
+\f0\fs22 \cf0 The Irrlicht Engine License\
+Copyright \'a9 2002-2009 Nikolaus Gebhardt\
+This software is provided 'as-is', without any express or implied warranty. In no event will the authors be held liable for any damages arising from the use of this software.\
+Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sl320\ql\qnatural
+\ls1\ilvl0\cf0 {\listtext	1.	}The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.\
+{\listtext	2.	}Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.\
+{\listtext	3.	}This notice may not be removed or altered from any source distribution.}]]></resource><resource mime-type="text/rtf" kind="embedded" type="readme"><![CDATA[{\rtf1\ansi\ansicpg1252\cocoartf949\cocoasubrtf430
+{\fonttbl\f0\fnil\fcharset0 LucidaGrande;}
+{\colortbl;\red255\green255\blue255;}
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural\pardirnatural
+
+\f0\fs26 \cf0 The Irrlicht Engine is a cross platform, high performance 3D scene graph API for C++ programmers.\
+\
+This package contains:\
+\
+* The library runtime. This installs to /Library/Frameworks/Irrlicht.framework and allows you to create and run Irrlicht 3D applications.\
+\
+ * The examples and project files, which will allow you to get started developing Irrlicht applications.\
+\
+ * The documentation, which is also available online at http://irrlicht.sourceforge.net/\
+\
+ * The source to the engine, so that you can modify the engine itself.}]]></resource></locale><locale lang="fr"><resource mime-type="text/rtf" kind="embedded" type="readme"><![CDATA[{\rtf1\ansi\ansicpg1252\cocoartf949\cocoasubrtf430
+{\fonttbl\f0\fnil\fcharset0 LucidaGrande;}
+{\colortbl;\red255\green255\blue255;}
+\deftab720
+\pard\pardeftab720\ql\qnatural
+
+\f0\fs24 \cf0 Le moteur Irrlicht est une API de rendu 3D tr\'e8s performante pour les programmeurs C++.\
+\
+Ce paquet contient:\
+\
+* La biblioth\'e8que de runtime. Ceci s'installe vers /Library/Frameworks/Irrlicht.framework et vous permet de cr\'e9er et de lancer des applications Irrlicht, notamment en 3d.\
+\
+* Les exemples et les projets, qui vous permettront de commencer \'e0 d\'e9velopper des applications Irrlicht.\
+\
+* La documentation, qui est aussi disponible sur http://irrlicht.sourceforge.net/\
+\
+* Les sources du moteur, afin que vous puissiez modifier le moteur vous-m\'eame.}]]></resource></locale></resources><flags/><extra-files/><item type="file">01irrlicht.xml</item><item type="file">02html.xml</item><item type="file">03media.xml</item><item type="file">04examples.xml</item><item type="file">05tools.xml</item><item type="file">06source.xml</item><item type="file">07changes.xml</item><item type="file">08readme.xml</item><mod>properties.userDomain</mod><mod>properties.systemDomain</mod><mod>properties.anywhereDomain</mod><mod>properties.customizeOption</mod><mod>extraFiles</mod><mod>properties.title</mod></pkmkdoc>
