@@ -20,6 +20,8 @@ class COpenGLPersistentlyMappedBuffer : public IGPUMappedBuffer, COpenGLBuffer
 
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false);
 
+        virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart);
+
         //! WARNING: RESIZE will invalidate pointer
         //! WARNING: NEED TO FENCE BEFORE USE!!!!!!!!!!!!!
         virtual void* getPointer() {return persistentPointer;}

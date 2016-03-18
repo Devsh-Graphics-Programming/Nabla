@@ -79,7 +79,7 @@
 		<Compiler>
 			<Add option="-g" />
 			<Add option="-W" />
-			<Add directory="../../../irrlicht/include" />
+			<Add directory="../../include" />
 		</Compiler>
 		<Unit filename="main.cpp" />
 		<Unit filename="mesh.frag" />

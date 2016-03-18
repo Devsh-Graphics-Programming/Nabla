@@ -847,6 +847,10 @@ NO BITSHIFTING SUPPORT
     {
         return min_(max_(value,low),high);
     }
+    inline vector4db_SIMD equals(const vectorSIMDf& a,const vectorSIMDf& b, const float tolerance = ROUNDING_ERROR_f32)
+    {
+        return (a + tolerance >= b) && (a - tolerance <= b);
+    }
     inline vectorSIMDf floor(const vectorSIMDf& a)
     {
         vectorSIMDf b = a;

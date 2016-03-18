@@ -48,7 +48,8 @@ namespace scene
 			: RelativeTranslation(position), RelativeRotation(rotation), RelativeScale(scale),
 				Parent(0), SceneManager(mgr), TriangleSelector(0), query(0), ID(id),
 				AutomaticCullingState(EAC_BOX), DebugDataVisible(EDS_OFF),
-				mobid(0), mobtype(0), IsVisible(true), IsDebugObject(false)
+				mobid(0), mobtype(0), IsVisible(true), IsDebugObject(false),
+				staticmeshid(0),blockposX(0),blockposY(0),blockposZ(0)
 		{
 			if (parent)
 				parent->addChild(this);
@@ -711,6 +712,8 @@ namespace scene
 		// sodan
 		int32_t mobtype;
 		int32_t mobid;
+		int32_t staticmeshid;
+		int32_t blockposX,blockposY,blockposZ;
 
 	protected:
 

@@ -78,6 +78,7 @@
     <ProjectName>Irrlicht</ProjectName>
     <ProjectGuid>{E08E042A-6C45-411B-92BE-3CC31331019F}</ProjectGuid>
     <RootNamespace>Irrlicht</RootNamespace>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SDL-Debug|Win32'" Label="Configuration">
@@ -762,7 +763,7 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -1270,29 +1271,17 @@
     <ClInclude Include="CMeshCache.h" />
     <ClInclude Include="CMeshManipulator.h" />
     <ClInclude Include="COpenGL3DTexture.h" />
-    <ClInclude Include="COpenGLOcclusionQuery.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Server|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Server|x64'">true</ExcludedFromBuild>
-    </ClInclude>
     <ClInclude Include="CSceneManager.h" />
     <ClInclude Include="Octree.h" />
     <ClInclude Include="CSMFMeshFileLoader.h" />
     <ClInclude Include="C3DSMeshFileLoader.h" />
     <ClInclude Include="CAnimatedMeshHalfLife.h" />
-    <ClInclude Include="CAnimatedMeshMD2.h" />
-    <ClInclude Include="CAnimatedMeshMD3.h" />
     <ClInclude Include="CB3DMeshFileLoader.h" />
-    <ClInclude Include="CBSPMeshFileLoader.h" />
     <ClInclude Include="CColladaFileLoader.h" />
     <ClInclude Include="CCSMLoader.h" />
     <ClInclude Include="CDMFLoader.h" />
-    <ClInclude Include="CIrrMeshFileLoader.h" />
     <ClInclude Include="CLMTSMeshFileLoader.h" />
     <ClInclude Include="CLWOMeshFileLoader.h" />
-    <ClInclude Include="CMD2MeshFileLoader.h" />
-    <ClInclude Include="CMD3MeshFileLoader.h" />
     <ClInclude Include="CMS3DMeshFileLoader.h" />
     <ClInclude Include="CMY3DHelper.h" />
     <ClInclude Include="CMY3DMeshFileLoader.h" />
@@ -1300,7 +1289,6 @@
     <ClInclude Include="COCTLoader.h" />
     <ClInclude Include="COgreMeshFileLoader.h" />
     <ClInclude Include="CPLYMeshFileLoader.h" />
-    <ClInclude Include="CQ3LevelMesh.h" />
     <ClInclude Include="CSkinnedMesh.h" />
     <ClInclude Include="CSTLMeshFileLoader.h" />
     <ClInclude Include="CXMeshFileLoader.h" />
@@ -1314,34 +1302,14 @@
     <ClInclude Include="CEmptySceneNode.h" />
     <ClInclude Include="CLightSceneNode.h" />
     <ClInclude Include="CMeshSceneNode.h" />
-    <ClInclude Include="COctreeSceneNode.h" />
-    <ClInclude Include="CQuake3ShaderSceneNode.h" />
     <ClInclude Include="CSkyBoxSceneNode.h" />
     <ClInclude Include="CSkyDomeSceneNode.h" />
     <ClInclude Include="CSphereSceneNode.h" />
-    <ClInclude Include="CTerrainSceneNode.h" />
-    <ClInclude Include="CTextSceneNode.h" />
-    <ClInclude Include="CWaterSurfaceSceneNode.h" />
-    <ClInclude Include="CParticleAnimatedMeshSceneNodeEmitter.h" />
-    <ClInclude Include="CParticleAttractionAffector.h" />
-    <ClInclude Include="CParticleBoxEmitter.h" />
-    <ClInclude Include="CParticleCylinderEmitter.h" />
-    <ClInclude Include="CParticleFadeOutAffector.h" />
-    <ClInclude Include="CParticleGravityAffector.h" />
-    <ClInclude Include="CParticleMeshEmitter.h" />
-    <ClInclude Include="CParticlePointEmitter.h" />
-    <ClInclude Include="CParticleRingEmitter.h" />
-    <ClInclude Include="CParticleRotationAffector.h" />
-    <ClInclude Include="CParticleScaleAffector.h" />
-    <ClInclude Include="CParticleSphereEmitter.h" />
-    <ClInclude Include="CParticleSystemSceneNode.h" />
     <ClInclude Include="CMetaTriangleSelector.h" />
     <ClInclude Include="COctreeTriangleSelector.h" />
     <ClInclude Include="CSceneCollisionManager.h" />
-    <ClInclude Include="CTerrainTriangleSelector.h" />
     <ClInclude Include="CTriangleBBSelector.h" />
     <ClInclude Include="CTriangleSelector.h" />
-    <ClInclude Include="CSceneLoaderIrr.h" />
     <ClInclude Include="CSceneNodeAnimatorCameraFPS.h" />
     <ClInclude Include="CSceneNodeAnimatorCameraMaya.h" />
     <ClInclude Include="CSceneNodeAnimatorCollisionResponse.h" />
@@ -1352,7 +1320,6 @@
     <ClInclude Include="CSceneNodeAnimatorRotation.h" />
     <ClInclude Include="CSceneNodeAnimatorTexture.h" />
     <ClInclude Include="CColladaMeshWriter.h" />
-    <ClInclude Include="CIrrMeshWriter.h" />
     <ClInclude Include="COBJMeshWriter.h" />
     <ClInclude Include="CPLYMeshWriter.h" />
     <ClInclude Include="CSTLMeshWriter.h" />
@@ -1427,7 +1394,9 @@
     <ClInclude Include="COSOperator.h" />
     <ClInclude Include="CTimer.h" />
     <ClInclude Include="os.h" />
-    <ClInclude Include="lzma\LzmaDec.h" />
+    <ClInclude Include="lzma\LzmaDec.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="lzma\Types.h" />
     <ClInclude Include="zlib\crc32.h" />
     <ClInclude Include="zlib\deflate.h" />
@@ -1468,7 +1437,6 @@
     <ClInclude Include="CIrrDeviceWin32.h" />
     <ClInclude Include="CIrrDeviceWinCE.h" />
     <ClInclude Include="CAttributeImpl.h" />
-    <ClInclude Include="CAttributes.h" />
     <ClInclude Include="CFileList.h" />
     <ClInclude Include="CFileSystem.h" />
     <ClInclude Include="CLimitReadFile.h" />
@@ -1485,35 +1453,6 @@
     <ClInclude Include="CXMLWriter.h" />
     <ClInclude Include="CZipReader.h" />
     <ClInclude Include="IAttribute.h" />
-    <ClInclude Include="BuiltInFont.h" />
-    <ClInclude Include="CDefaultGUIElementFactory.h" />
-    <ClInclude Include="CGUIButton.h" />
-    <ClInclude Include="CGUICheckbox.h" />
-    <ClInclude Include="CGUIColorSelectDialog.h" />
-    <ClInclude Include="CGUIComboBox.h" />
-    <ClInclude Include="CGUIContextMenu.h" />
-    <ClInclude Include="CGUIEditBox.h" />
-    <ClInclude Include="CGUIEnvironment.h" />
-    <ClInclude Include="CGUIFileOpenDialog.h" />
-    <ClInclude Include="CGUIFont.h" />
-    <ClInclude Include="CGUIImage.h" />
-    <ClInclude Include="CGUIImageList.h" />
-    <ClInclude Include="CGUIInOutFader.h" />
-    <ClInclude Include="CGUIListBox.h" />
-    <ClInclude Include="CGUIMenu.h" />
-    <ClInclude Include="CGUIMeshViewer.h" />
-    <ClInclude Include="CGUIMessageBox.h" />
-    <ClInclude Include="CGUIModalScreen.h" />
-    <ClInclude Include="CGUIScrollBar.h" />
-    <ClInclude Include="CGUISkin.h" />
-    <ClInclude Include="CGUISpinBox.h" />
-    <ClInclude Include="CGUISpriteBank.h" />
-    <ClInclude Include="CGUIStaticText.h" />
-    <ClInclude Include="CGUITabControl.h" />
-    <ClInclude Include="CGUITable.h" />
-    <ClInclude Include="CGUIToolBar.h" />
-    <ClInclude Include="CGUITreeView.h" />
-    <ClInclude Include="CGUIWindow.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\changes.txt" />
@@ -1528,37 +1467,24 @@
     <ClCompile Include="CMeshManipulator.cpp" />
     <ClCompile Include="COpenGL3DTexture.cpp" />
     <ClCompile Include="COpenGLFrameBuffer.cpp" />
-    <ClCompile Include="COpenGLOcclusionQuery.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Server|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Server|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="COpenGLPersistentlyMappedBuffer.cpp" />
     <ClCompile Include="COpenGLRenderBuffer.cpp" />
     <ClCompile Include="CSceneManager.cpp" />
     <ClCompile Include="C3DSMeshFileLoader.cpp" />
     <ClCompile Include="CSMFMeshFileLoader.cpp" />
     <ClCompile Include="CAnimatedMeshHalfLife.cpp" />
-    <ClCompile Include="CAnimatedMeshMD2.cpp" />
-    <ClCompile Include="CAnimatedMeshMD3.cpp" />
     <ClCompile Include="CB3DMeshFileLoader.cpp" />
-    <ClCompile Include="CBSPMeshFileLoader.cpp" />
     <ClCompile Include="CColladaFileLoader.cpp" />
     <ClCompile Include="CCSMLoader.cpp" />
     <ClCompile Include="CDMFLoader.cpp" />
-    <ClCompile Include="CIrrMeshFileLoader.cpp" />
     <ClCompile Include="CLMTSMeshFileLoader.cpp" />
     <ClCompile Include="CLWOMeshFileLoader.cpp" />
-    <ClCompile Include="CMD2MeshFileLoader.cpp" />
-    <ClCompile Include="CMD3MeshFileLoader.cpp" />
     <ClCompile Include="CMS3DMeshFileLoader.cpp" />
     <ClCompile Include="CMY3DMeshFileLoader.cpp" />
     <ClCompile Include="COBJMeshFileLoader.cpp" />
     <ClCompile Include="COCTLoader.cpp" />
     <ClCompile Include="COgreMeshFileLoader.cpp" />
     <ClCompile Include="CPLYMeshFileLoader.cpp" />
-    <ClCompile Include="CQ3LevelMesh.cpp" />
     <ClCompile Include="CSkinnedMesh.cpp" />
     <ClCompile Include="CSTLMeshFileLoader.cpp" />
     <ClCompile Include="CXMeshFileLoader.cpp" />
@@ -1571,34 +1497,14 @@
     <ClCompile Include="CEmptySceneNode.cpp" />
     <ClCompile Include="CLightSceneNode.cpp" />
     <ClCompile Include="CMeshSceneNode.cpp" />
-    <ClCompile Include="COctreeSceneNode.cpp" />
-    <ClCompile Include="CQuake3ShaderSceneNode.cpp" />
     <ClCompile Include="CSkyBoxSceneNode.cpp" />
     <ClCompile Include="CSkyDomeSceneNode.cpp" />
     <ClCompile Include="CSphereSceneNode.cpp" />
-    <ClCompile Include="CTerrainSceneNode.cpp" />
-    <ClCompile Include="CTextSceneNode.cpp" />
-    <ClCompile Include="CWaterSurfaceSceneNode.cpp" />
-    <ClCompile Include="CParticleAnimatedMeshSceneNodeEmitter.cpp" />
-    <ClCompile Include="CParticleAttractionAffector.cpp" />
-    <ClCompile Include="CParticleBoxEmitter.cpp" />
-    <ClCompile Include="CParticleCylinderEmitter.cpp" />
-    <ClCompile Include="CParticleFadeOutAffector.cpp" />
-    <ClCompile Include="CParticleGravityAffector.cpp" />
-    <ClCompile Include="CParticleMeshEmitter.cpp" />
-    <ClCompile Include="CParticlePointEmitter.cpp" />
-    <ClCompile Include="CParticleRingEmitter.cpp" />
-    <ClCompile Include="CParticleRotationAffector.cpp" />
-    <ClCompile Include="CParticleScaleAffector.cpp" />
-    <ClCompile Include="CParticleSphereEmitter.cpp" />
-    <ClCompile Include="CParticleSystemSceneNode.cpp" />
     <ClCompile Include="CMetaTriangleSelector.cpp" />
     <ClCompile Include="COctreeTriangleSelector.cpp" />
     <ClCompile Include="CSceneCollisionManager.cpp" />
-    <ClCompile Include="CTerrainTriangleSelector.cpp" />
     <ClCompile Include="CTriangleBBSelector.cpp" />
     <ClCompile Include="CTriangleSelector.cpp" />
-    <ClCompile Include="CSceneLoaderIrr.cpp" />
     <ClCompile Include="CSceneNodeAnimatorCameraFPS.cpp" />
     <ClCompile Include="CSceneNodeAnimatorCameraMaya.cpp" />
     <ClCompile Include="CSceneNodeAnimatorCollisionResponse.cpp" />
@@ -1609,7 +1515,6 @@
     <ClCompile Include="CSceneNodeAnimatorRotation.cpp" />
     <ClCompile Include="CSceneNodeAnimatorTexture.cpp" />
     <ClCompile Include="CColladaMeshWriter.cpp" />
-    <ClCompile Include="CIrrMeshWriter.cpp" />
     <ClCompile Include="COBJMeshWriter.cpp" />
     <ClCompile Include="CPLYMeshWriter.cpp" />
     <ClCompile Include="CSTLMeshWriter.cpp" />
@@ -1703,7 +1608,9 @@
     <ClCompile Include="COSOperator.cpp" />
     <ClCompile Include="Irrlicht.cpp" />
     <ClCompile Include="os.cpp" />
-    <ClCompile Include="lzma\LzmaDec.c" />
+    <ClCompile Include="lzma\LzmaDec.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="STextureSamplingParams.cpp" />
     <ClCompile Include="zlib\adler32.c" />
     <ClCompile Include="zlib\compress.c" />
@@ -1799,7 +1706,6 @@
     <ClCompile Include="CIrrDeviceStub.cpp" />
     <ClCompile Include="CIrrDeviceWin32.cpp" />
     <ClCompile Include="CIrrDeviceWinCE.cpp" />
-    <ClCompile Include="CAttributes.cpp" />
     <ClCompile Include="CFileList.cpp" />
     <ClCompile Include="CFileSystem.cpp" />
     <ClCompile Include="CLimitReadFile.cpp" />
@@ -1815,34 +1721,6 @@
     <ClCompile Include="CXMLWriter.cpp" />
     <ClCompile Include="CZipReader.cpp" />
     <ClCompile Include="irrXML.cpp" />
-    <ClCompile Include="CDefaultGUIElementFactory.cpp" />
-    <ClCompile Include="CGUIButton.cpp" />
-    <ClCompile Include="CGUICheckbox.cpp" />
-    <ClCompile Include="CGUIColorSelectDialog.cpp" />
-    <ClCompile Include="CGUIComboBox.cpp" />
-    <ClCompile Include="CGUIContextMenu.cpp" />
-    <ClCompile Include="CGUIEditBox.cpp" />
-    <ClCompile Include="CGUIEnvironment.cpp" />
-    <ClCompile Include="CGUIFileOpenDialog.cpp" />
-    <ClCompile Include="CGUIFont.cpp" />
-    <ClCompile Include="CGUIImage.cpp" />
-    <ClCompile Include="CGUIImageList.cpp" />
-    <ClCompile Include="CGUIInOutFader.cpp" />
-    <ClCompile Include="CGUIListBox.cpp" />
-    <ClCompile Include="CGUIMenu.cpp" />
-    <ClCompile Include="CGUIMeshViewer.cpp" />
-    <ClCompile Include="CGUIMessageBox.cpp" />
-    <ClCompile Include="CGUIModalScreen.cpp" />
-    <ClCompile Include="CGUIScrollBar.cpp" />
-    <ClCompile Include="CGUISkin.cpp" />
-    <ClCompile Include="CGUISpinBox.cpp" />
-    <ClCompile Include="CGUISpriteBank.cpp" />
-    <ClCompile Include="CGUIStaticText.cpp" />
-    <ClCompile Include="CGUITabControl.cpp" />
-    <ClCompile Include="CGUITable.cpp" />
-    <ClCompile Include="CGUIToolBar.cpp" />
-    <ClCompile Include="CGUITreeView.cpp" />
-    <ClCompile Include="CGUIWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Irrlicht.rc" />

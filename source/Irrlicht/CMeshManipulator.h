@@ -12,7 +12,6 @@ namespace irr
 namespace scene
 {
 
-#ifndef NEW_MESHES
 //! An interface for easy manipulation of meshes.
 /** Scale, set alpha value, flip surfaces, and so on. This exists for fixing
 problems with wrong imported or exported meshes quickly after loading. It is
@@ -21,13 +20,16 @@ not intended for doing mesh modifications and/or animations during runtime.
 class CMeshManipulator : public IMeshManipulator
 {
 public:
+#ifndef NEW_MESHES
     virtual void isolateAndExtractMeshBuffer(ICPUMeshBuffer* inbuffer, const bool& interleaved=true) const = 0;
+#endif // NEW_MESHES
 
 	//! Flips the direction of surfaces.
 	/** Changes backfacing triangles to frontfacing triangles and vice versa.
 	\param mesh: Mesh on which the operation is performed. */
-	virtual void flipSurfaces(scene::IMesh* mesh) const;
+	virtual void flipSurfaces(ICPUMeshBuffer* inbuffer) const;
 
+#ifndef NEW_MESHES
 	//! Recalculates all normals of the mesh.
 	/** \param mesh: Mesh on which the operation is performed.
 	    \param smooth: Whether to use smoothed normals. */
@@ -37,9 +39,6 @@ public:
 	/** \param buffer: Mesh buffer on which the operation is performed.
 	    \param smooth: Whether to use smoothed normals. */
 	virtual void recalculateNormals(IMeshBuffer* buffer, bool smooth = false, bool angleWeighted = false) const;
-
-	//! Clones a static IMesh into a modifiable SMesh.
-	virtual SMesh* createMeshCopy(scene::IMesh* mesh) const;
 
 	//! Creates a planar texture mapping on the mesh
 	/** \param mesh: Mesh on which the operation is performed.
@@ -62,35 +61,22 @@ public:
 
 	//! Recalculates tangents, requires a tangent mesh
 	virtual void recalculateTangents(IMesh* mesh, bool recalculateNormals=false, bool smooth=false, bool angleWeighted=false) const;
-
-	//! Creates a copy of the mesh, which will only consist of S3DVertexTangents vertices.
-	virtual IMesh* createMeshWithTangents(IMesh* mesh, bool recalculateNormals=false, bool smooth=false, bool angleWeighted=false, bool recalculateTangents=true) const;
-
-	//! Creates a copy of the mesh, which will only consist of S3D2TCoords vertices.
-	virtual IMesh* createMeshWith2TCoords(IMesh* mesh) const;
-
-	//! Creates a copy of the mesh, which will only consist of S3DVertex vertices.
-	virtual IMesh* createMeshWith1TCoords(IMesh* mesh) const;
+#endif // NEW_MESHES
 
 	//! Creates a copy of the mesh, which will only consist of unique triangles, i.e. no vertices are shared.
-	virtual IMesh* createMeshUniquePrimitives(IMesh* mesh) const;
+	virtual ICPUMeshBuffer* createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer) const;
 
 	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
-	virtual IMesh* createMeshWelded(IMesh *mesh, f32 tolerance=core::ROUNDING_ERROR_f32) const;
+	virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& makeNewMesh=false, f32 tolerance=core::ROUNDING_ERROR_f32) const;
 
-	//! Returns amount of polygons in mesh.
-	virtual s32 getPolyCount(scene::IMesh* mesh) const;
-
-	//! Returns amount of polygons in mesh.
-	virtual s32 getPolyCount(scene::IAnimatedMesh* mesh) const;
-
+#ifndef NEW_MESHES
 	//! create a new AnimatedMesh and adds the mesh to it
 	virtual IAnimatedMesh * createAnimatedMesh(scene::IMesh* mesh,scene::E_ANIMATED_MESH_TYPE type) const;
 
 	//! create a mesh optimized for the vertex cache
-	virtual IMesh* createForsythOptimizedMesh(const scene::IMesh *mesh) const;
-};
+	virtual ICPUMeshBuffer* createForsythOptimizedMeshBuffer(const ICPUMeshBuffer *meshbuffer) const;
 #endif // NEW_MESHES
+};
 
 
 } // end namespace scene

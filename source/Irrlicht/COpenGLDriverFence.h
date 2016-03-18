@@ -24,7 +24,7 @@ class COpenGLDriverFence : public IDriverFence
             firstTimeFlush = true;
         }
 
-        ~COpenGLDriverFence()
+        virtual ~COpenGLDriverFence()
         {
             COpenGLExtensionHandler::extGlDeleteSync(fence);
         }

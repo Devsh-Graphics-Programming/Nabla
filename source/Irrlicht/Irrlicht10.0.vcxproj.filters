@@ -34,9 +34,6 @@
     <Filter Include="Irrlicht\scene\sceneNodes">
       <UniqueIdentifier>{b84f01e5-ae3c-457b-8d96-b3e271800162}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Irrlicht\scene\particleSystem">
-      <UniqueIdentifier>{eca36d94-d8fb-477d-a0dc-b5498c9686d7}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Irrlicht\scene\collision">
       <UniqueIdentifier>{67826246-df05-4523-9191-5286f9157963}</UniqueIdentifier>
     </Filter>
@@ -93,9 +90,6 @@
     </Filter>
     <Filter Include="Irrlicht\io">
       <UniqueIdentifier>{799f220e-3a58-4788-876b-88c175b69871}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Irrlicht\gui">
-      <UniqueIdentifier>{da421793-4674-481c-be46-f7a44e78aee5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -582,16 +576,7 @@
     <ClInclude Include="CAnimatedMeshHalfLife.h">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClInclude>
-    <ClInclude Include="CAnimatedMeshMD2.h">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClInclude>
-    <ClInclude Include="CAnimatedMeshMD3.h">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClInclude>
     <ClInclude Include="CB3DMeshFileLoader.h">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClInclude>
-    <ClInclude Include="CBSPMeshFileLoader.h">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClInclude>
     <ClInclude Include="CColladaFileLoader.h">
@@ -603,19 +588,10 @@
     <ClInclude Include="CDMFLoader.h">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClInclude>
-    <ClInclude Include="CIrrMeshFileLoader.h">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClInclude>
     <ClInclude Include="CLMTSMeshFileLoader.h">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClInclude>
     <ClInclude Include="CLWOMeshFileLoader.h">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClInclude>
-    <ClInclude Include="CMD2MeshFileLoader.h">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClInclude>
-    <ClInclude Include="CMD3MeshFileLoader.h">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClInclude>
     <ClInclude Include="CMS3DMeshFileLoader.h">
@@ -637,9 +613,6 @@
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClInclude>
     <ClInclude Include="CPLYMeshFileLoader.h">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClInclude>
-    <ClInclude Include="CQ3LevelMesh.h">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClInclude>
     <ClInclude Include="CSkinnedMesh.h">
@@ -681,12 +654,6 @@
     <ClInclude Include="CMeshSceneNode.h">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClInclude>
-    <ClInclude Include="COctreeSceneNode.h">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClInclude>
-    <ClInclude Include="CQuake3ShaderSceneNode.h">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClInclude>
     <ClInclude Include="CSkyBoxSceneNode.h">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClInclude>
@@ -696,54 +663,6 @@
     <ClInclude Include="CSphereSceneNode.h">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClInclude>
-    <ClInclude Include="CTerrainSceneNode.h">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClInclude>
-    <ClInclude Include="CTextSceneNode.h">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClInclude>
-    <ClInclude Include="CWaterSurfaceSceneNode.h">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleAnimatedMeshSceneNodeEmitter.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleAttractionAffector.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleBoxEmitter.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleCylinderEmitter.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleFadeOutAffector.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleGravityAffector.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleMeshEmitter.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticlePointEmitter.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleRingEmitter.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleRotationAffector.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleScaleAffector.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleSphereEmitter.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
-    <ClInclude Include="CParticleSystemSceneNode.h">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClInclude>
     <ClInclude Include="CMetaTriangleSelector.h">
       <Filter>Irrlicht\scene\collision</Filter>
     </ClInclude>
@@ -751,9 +670,6 @@
       <Filter>Irrlicht\scene\collision</Filter>
     </ClInclude>
     <ClInclude Include="CSceneCollisionManager.h">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClInclude>
-    <ClInclude Include="CTerrainTriangleSelector.h">
       <Filter>Irrlicht\scene\collision</Filter>
     </ClInclude>
     <ClInclude Include="CTriangleBBSelector.h">
@@ -790,9 +706,6 @@
       <Filter>Irrlicht\scene\animators</Filter>
     </ClInclude>
     <ClInclude Include="CColladaMeshWriter.h">
-      <Filter>Irrlicht\scene\writers</Filter>
-    </ClInclude>
-    <ClInclude Include="CIrrMeshWriter.h">
       <Filter>Irrlicht\scene\writers</Filter>
     </ClInclude>
     <ClInclude Include="COBJMeshWriter.h">
@@ -1080,9 +993,6 @@
     <ClInclude Include="CAttributeImpl.h">
       <Filter>Irrlicht\io</Filter>
     </ClInclude>
-    <ClInclude Include="CAttributes.h">
-      <Filter>Irrlicht\io</Filter>
-    </ClInclude>
     <ClInclude Include="CFileList.h">
       <Filter>Irrlicht\io</Filter>
     </ClInclude>
@@ -1131,100 +1041,10 @@
     <ClInclude Include="IAttribute.h">
       <Filter>Irrlicht\io</Filter>
     </ClInclude>
-    <ClInclude Include="BuiltInFont.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CDefaultGUIElementFactory.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIButton.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUICheckbox.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIColorSelectDialog.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIComboBox.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIContextMenu.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIEditBox.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIEnvironment.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIFileOpenDialog.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIFont.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIImage.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIImageList.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIInOutFader.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIListBox.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIMenu.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIMeshViewer.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIMessageBox.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIModalScreen.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIScrollBar.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUISkin.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUISpinBox.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUISpriteBank.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIStaticText.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUITabControl.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUITable.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIToolBar.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUITreeView.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
-    <ClInclude Include="CGUIWindow.h">
-      <Filter>Irrlicht\gui</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\IAnimatedMeshMD3.h">
       <Filter>include\scene</Filter>
     </ClInclude>
     <ClInclude Include="resource.h" />
-    <ClInclude Include="CSceneLoaderIrr.h">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\ISceneLoader.h">
       <Filter>include\scene</Filter>
     </ClInclude>
@@ -1242,9 +1062,6 @@
     </ClInclude>
     <ClInclude Include="COpenGL3DTexture.h">
       <Filter>Irrlicht\video\OpenGL</Filter>
-    </ClInclude>
-    <ClInclude Include="COpenGLOcclusionQuery.h">
-      <Filter>Irrlicht</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\vectorSIMD.h">
       <Filter>include</Filter>
@@ -1283,16 +1100,7 @@
     <ClCompile Include="CAnimatedMeshHalfLife.cpp">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
-    <ClCompile Include="CAnimatedMeshMD2.cpp">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClCompile>
-    <ClCompile Include="CAnimatedMeshMD3.cpp">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClCompile>
     <ClCompile Include="CB3DMeshFileLoader.cpp">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClCompile>
-    <ClCompile Include="CBSPMeshFileLoader.cpp">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
     <ClCompile Include="CColladaFileLoader.cpp">
@@ -1304,19 +1112,10 @@
     <ClCompile Include="CDMFLoader.cpp">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
-    <ClCompile Include="CIrrMeshFileLoader.cpp">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClCompile>
     <ClCompile Include="CLMTSMeshFileLoader.cpp">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
     <ClCompile Include="CLWOMeshFileLoader.cpp">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClCompile>
-    <ClCompile Include="CMD2MeshFileLoader.cpp">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClCompile>
-    <ClCompile Include="CMD3MeshFileLoader.cpp">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
     <ClCompile Include="CMS3DMeshFileLoader.cpp">
@@ -1335,9 +1134,6 @@
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
     <ClCompile Include="CPLYMeshFileLoader.cpp">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClCompile>
-    <ClCompile Include="CQ3LevelMesh.cpp">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
     <ClCompile Include="CSkinnedMesh.cpp">
@@ -1376,12 +1172,6 @@
     <ClCompile Include="CMeshSceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
-    <ClCompile Include="COctreeSceneNode.cpp">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClCompile>
-    <ClCompile Include="CQuake3ShaderSceneNode.cpp">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClCompile>
     <ClCompile Include="CSkyBoxSceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
@@ -1391,54 +1181,6 @@
     <ClCompile Include="CSphereSceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
-    <ClCompile Include="CTerrainSceneNode.cpp">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClCompile>
-    <ClCompile Include="CTextSceneNode.cpp">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClCompile>
-    <ClCompile Include="CWaterSurfaceSceneNode.cpp">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleAnimatedMeshSceneNodeEmitter.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleAttractionAffector.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleBoxEmitter.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleCylinderEmitter.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleFadeOutAffector.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleGravityAffector.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleMeshEmitter.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticlePointEmitter.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleRingEmitter.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleRotationAffector.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleScaleAffector.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleSphereEmitter.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
-    <ClCompile Include="CParticleSystemSceneNode.cpp">
-      <Filter>Irrlicht\scene\particleSystem</Filter>
-    </ClCompile>
     <ClCompile Include="CMetaTriangleSelector.cpp">
       <Filter>Irrlicht\scene\collision</Filter>
     </ClCompile>
@@ -1446,9 +1188,6 @@
       <Filter>Irrlicht\scene\collision</Filter>
     </ClCompile>
     <ClCompile Include="CSceneCollisionManager.cpp">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClCompile>
-    <ClCompile Include="CTerrainTriangleSelector.cpp">
       <Filter>Irrlicht\scene\collision</Filter>
     </ClCompile>
     <ClCompile Include="CTriangleBBSelector.cpp">
@@ -1485,9 +1224,6 @@
       <Filter>Irrlicht\scene\animators</Filter>
     </ClCompile>
     <ClCompile Include="CColladaMeshWriter.cpp">
-      <Filter>Irrlicht\scene\writers</Filter>
-    </ClCompile>
-    <ClCompile Include="CIrrMeshWriter.cpp">
       <Filter>Irrlicht\scene\writers</Filter>
     </ClCompile>
     <ClCompile Include="COBJMeshWriter.cpp">
@@ -1991,9 +1727,6 @@
     <ClCompile Include="CIrrDeviceWinCE.cpp">
       <Filter>Irrlicht\irr\device</Filter>
     </ClCompile>
-    <ClCompile Include="CAttributes.cpp">
-      <Filter>Irrlicht\io</Filter>
-    </ClCompile>
     <ClCompile Include="CFileList.cpp">
       <Filter>Irrlicht\io</Filter>
     </ClCompile>
@@ -2039,101 +1772,11 @@
     <ClCompile Include="irrXML.cpp">
       <Filter>Irrlicht\io</Filter>
     </ClCompile>
-    <ClCompile Include="CDefaultGUIElementFactory.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIButton.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUICheckbox.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIColorSelectDialog.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIComboBox.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIContextMenu.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIEditBox.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIEnvironment.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIFileOpenDialog.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIFont.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIImage.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIImageList.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIInOutFader.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIListBox.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIMenu.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIMeshViewer.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIMessageBox.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIModalScreen.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIScrollBar.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUISkin.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUISpinBox.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUISpriteBank.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIStaticText.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUITabControl.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUITable.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIToolBar.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUITreeView.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CGUIWindow.cpp">
-      <Filter>Irrlicht\gui</Filter>
-    </ClCompile>
-    <ClCompile Include="CSceneLoaderIrr.cpp">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClCompile>
     <ClCompile Include="CSMFMeshFileLoader.cpp">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
     <ClCompile Include="COpenGL3DTexture.cpp">
       <Filter>Irrlicht\video\OpenGL</Filter>
-    </ClCompile>
-    <ClCompile Include="COpenGLOcclusionQuery.cpp">
-      <Filter>Irrlicht</Filter>
     </ClCompile>
     <ClCompile Include="CMeshBuffer.cpp" />
     <ClCompile Include="STextureSamplingParams.cpp">

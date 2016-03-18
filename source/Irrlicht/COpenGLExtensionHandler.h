@@ -1184,9 +1184,13 @@ class COpenGLExtensionHandler
     static PFNGLWAITSYNCPROC pGlWaitSync;
 
     //textures
+    static PFNGLACTIVETEXTUREPROC pGlActiveTexture;
     static PFNGLBINDTEXTUREUNITPROC pGlBindTextureUnit;
     static PFNGLBINDMULTITEXTUREEXTPROC pGlBindMultiTextureEXT;
     static PFNGLCREATETEXTURESPROC pGlCreateTextures;
+    static PFNGLTEXSTORAGE1DPROC pGlTexStorage1D;
+    static PFNGLTEXSTORAGE2DPROC pGlTexStorage2D;
+    static PFNGLTEXSTORAGE3DPROC pGlTexStorage3D;
     static PFNGLTEXTURESTORAGE1DPROC pGlTextureStorage1D;
     static PFNGLTEXTURESTORAGE2DPROC pGlTextureStorage2D;
     static PFNGLTEXTURESTORAGE3DPROC pGlTextureStorage3D;
@@ -1195,18 +1199,23 @@ class COpenGLExtensionHandler
     static PFNGLTEXTURESTORAGE3DEXTPROC pGlTextureStorage3DEXT;
     ///static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC pGlTextureStorage2DMultisample;
     ///static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC pGlTextureStorage3DMultisample;
+    static PFNGLTEXSUBIMAGE3DPROC pGlTexSubImage3D;
     static PFNGLTEXTURESUBIMAGE1DPROC pGlTextureSubImage1D;
     static PFNGLTEXTURESUBIMAGE2DPROC pGlTextureSubImage2D;
     static PFNGLTEXTURESUBIMAGE3DPROC pGlTextureSubImage3D;
     static PFNGLTEXTURESUBIMAGE1DEXTPROC pGlTextureSubImage1DEXT;
     static PFNGLTEXTURESUBIMAGE2DEXTPROC pGlTextureSubImage2DEXT;
     static PFNGLTEXTURESUBIMAGE3DEXTPROC pGlTextureSubImage3DEXT;
+    static PFNGLCOMPRESSEDTEXSUBIMAGE1DPROC pGlCompressedTexSubImage1D;
+    static PFNGLCOMPRESSEDTEXSUBIMAGE2DPROC pGlCompressedTexSubImage2D;
+    static PFNGLCOMPRESSEDTEXSUBIMAGE3DPROC pGlCompressedTexSubImage3D;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE1DPROC pGlCompressedTextureSubImage1D;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DPROC pGlCompressedTextureSubImage2D;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DPROC pGlCompressedTextureSubImage3D;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC pGlCompressedTextureSubImage1DEXT;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC pGlCompressedTextureSubImage2DEXT;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC pGlCompressedTextureSubImage3DEXT;
+    static PFNGLGENERATEMIPMAPPROC pGlGenerateMipmap;
     static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap;
     static PFNGLGENERATETEXTUREMIPMAPEXTPROC pGlGenerateTextureMipmapEXT;
 
@@ -1272,26 +1281,33 @@ class COpenGLExtensionHandler
     static PFNGLCREATEFRAMEBUFFERSPROC pGlCreateFramebuffers;
     static PFNGLBINDFRAMEBUFFERPROC pGlBindFramebuffer;
     static PFNGLGENFRAMEBUFFERSPROC pGlGenFramebuffers;
+    static PFNGLCHECKFRAMEBUFFERSTATUSPROC pGlCheckFramebufferStatus;
     static PFNGLCHECKNAMEDFRAMEBUFFERSTATUSPROC pGlCheckNamedFramebufferStatus;
     static PFNGLCHECKNAMEDFRAMEBUFFERSTATUSEXTPROC pGlCheckNamedFramebufferStatusEXT;
+    static PFNGLFRAMEBUFFERTEXTUREPROC pGlFramebufferTexture;
     static PFNGLNAMEDFRAMEBUFFERTEXTUREPROC pGlNamedFramebufferTexture;
     static PFNGLNAMEDFRAMEBUFFERTEXTUREEXTPROC pGlNamedFramebufferTextureEXT;
+    static PFNGLFRAMEBUFFERTEXTURELAYERPROC pGlFramebufferTextureLayer;
     static PFNGLNAMEDFRAMEBUFFERTEXTURELAYERPROC pGlNamedFramebufferTextureLayer;
     static PFNGLNAMEDFRAMEBUFFERTEXTURELAYEREXTPROC pGlNamedFramebufferTextureLayerEXT;
     static PFNGLDELETERENDERBUFFERSPROC pGlDeleteRenderbuffers;
     static PFNGLGENRENDERBUFFERSPROC pGlGenRenderbuffers;
     static PFNGLCREATERENDERBUFFERSPROC pGlCreateRenderbuffers;
+    static PFNGLBINDRENDERBUFFERPROC pGlBindRenderbuffer;
+    static PFNGLRENDERBUFFERSTORAGEPROC pGlRenderbufferStorage;
     static PFNGLNAMEDRENDERBUFFERSTORAGEPROC pGlNamedRenderbufferStorage;
     static PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC pGlNamedRenderbufferStorageEXT;
+    static PFNGLFRAMEBUFFERRENDERBUFFERPROC pGlFramebufferRenderbuffer;
     static PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC pGlNamedFramebufferRenderbuffer;
     static PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC pGlNamedFramebufferRenderbufferEXT;
 
     // EXT framebuffer object
     static PFNGLACTIVESTENCILFACEEXTPROC pGlActiveStencilFaceEXT;
-    static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERPROC pGlNamedFramebufferReadBuffer;
-    static PFNGLFRAMEBUFFERDRAWBUFFEREXTPROC pGlFramebufferReadBufferEXT;
+    static PFNGLNAMEDFRAMEBUFFERREADBUFFERPROC pGlNamedFramebufferReadBuffer;
+    static PFNGLFRAMEBUFFERREADBUFFEREXTPROC pGlFramebufferReadBufferEXT;
     static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERPROC pGlNamedFramebufferDrawBuffer;
     static PFNGLFRAMEBUFFERDRAWBUFFEREXTPROC pGlFramebufferDrawBufferEXT;
+    static PFNGLDRAWBUFFERSPROC pGlDrawBuffers;
     static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERSPROC pGlNamedFramebufferDrawBuffers;
     static PFNGLFRAMEBUFFERDRAWBUFFERSEXTPROC pGlFramebufferDrawBuffersEXT;
     static PFNGLCLEARNAMEDFRAMEBUFFERIVPROC pGlClearNamedFramebufferiv;
@@ -1307,39 +1323,65 @@ class COpenGLExtensionHandler
     static PFNGLCREATEBUFFERSPROC pGlCreateBuffers;
     static PFNGLBINDBUFFERPROC pGlBindBuffer;
     static PFNGLDELETEBUFFERSPROC pGlDeleteBuffers;
+    static PFNGLNAMEDBUFFERSTORAGEPROC pGlBufferStorage;
     static PFNGLNAMEDBUFFERSTORAGEPROC pGlNamedBufferStorage;
     static PFNGLNAMEDBUFFERSTORAGEEXTPROC pGlNamedBufferStorageEXT;
+    static PFNGLNAMEDBUFFERSUBDATAPROC pGlBufferSubData;
     static PFNGLNAMEDBUFFERSUBDATAPROC pGlNamedBufferSubData;
     static PFNGLNAMEDBUFFERSUBDATAEXTPROC pGlNamedBufferSubDataEXT;
+    static PFNGLNAMEDBUFFERSUBDATAEXTPROC pGlBufferSubDataEXT;
+    static PFNGLGETNAMEDBUFFERSUBDATAPROC pGlGetBufferSubData;
     static PFNGLGETNAMEDBUFFERSUBDATAPROC pGlGetNamedBufferSubData;
     static PFNGLGETNAMEDBUFFERSUBDATAEXTPROC pGlGetNamedBufferSubDataEXT;
+    static PFNGLMAPNAMEDBUFFERPROC pGlMapBuffer;
     static PFNGLMAPNAMEDBUFFERPROC pGlMapNamedBuffer;
     static PFNGLMAPNAMEDBUFFEREXTPROC pGlMapNamedBufferEXT;
+    static PFNGLMAPNAMEDBUFFERRANGEPROC pGlMapBufferRange;
     static PFNGLMAPNAMEDBUFFERRANGEPROC pGlMapNamedBufferRange;
     static PFNGLMAPNAMEDBUFFERRANGEEXTPROC pGlMapNamedBufferRangeEXT;
+    static PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEPROC pGlFlushMappedBufferRange;
     static PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEPROC pGlFlushMappedNamedBufferRange;
     static PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEEXTPROC pGlFlushMappedNamedBufferRangeEXT;
+    static PFNGLUNMAPNAMEDBUFFERPROC pGlUnmapBuffer;
     static PFNGLUNMAPNAMEDBUFFERPROC pGlUnmapNamedBuffer;
     static PFNGLUNMAPNAMEDBUFFEREXTPROC pGlUnmapNamedBufferEXT;
+    static PFNGLCLEARNAMEDBUFFERDATAPROC pGlClearBufferData;
     static PFNGLCLEARNAMEDBUFFERDATAPROC pGlClearNamedBufferData;
     static PFNGLCLEARNAMEDBUFFERDATAEXTPROC pGlClearNamedBufferDataEXT;
+    static PFNGLCLEARNAMEDBUFFERSUBDATAPROC pGlClearBufferSubData;
     static PFNGLCLEARNAMEDBUFFERSUBDATAPROC pGlClearNamedBufferSubData;
     static PFNGLCLEARNAMEDBUFFERSUBDATAEXTPROC pGlClearNamedBufferSubDataEXT;
+    static PFNGLCOPYNAMEDBUFFERSUBDATAPROC pGlCopyBufferSubData;
     static PFNGLCOPYNAMEDBUFFERSUBDATAPROC pGlCopyNamedBufferSubData;
     static PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC pGlNamedCopyBufferSubDataEXT;
     static PFNGLISBUFFERPROC pGlIsBuffer;
     //vao
+    static PFNGLGENVERTEXARRAYSPROC pGlGenVertexArrays;
     static PFNGLCREATEVERTEXARRAYSPROC pGlCreateVertexArrays;
     static PFNGLDELETEVERTEXARRAYSPROC pGlDeleteVertexArrays;
     static PFNGLBINDVERTEXARRAYPROC pGlBindVertexArray;
     static PFNGLVERTEXARRAYELEMENTBUFFERPROC pGlVertexArrayElementBuffer;
+    static PFNGLBINDVERTEXBUFFERPROC pGlBindVertexBuffer;
     static PFNGLVERTEXARRAYVERTEXBUFFERPROC pGlVertexArrayVertexBuffer;
+    static PFNGLVERTEXARRAYBINDVERTEXBUFFEREXTPROC pGlVertexArrayBindVertexBufferEXT;
+    static PFNGLVERTEXATTRIBBINDINGPROC pGlVertexAttribBinding;
     static PFNGLVERTEXARRAYATTRIBBINDINGPROC pGlVertexArrayAttribBinding;
+    static PFNGLVERTEXARRAYVERTEXATTRIBBINDINGEXTPROC pGlVertexArrayVertexAttribBindingEXT;
+    static PFNGLENABLEVERTEXATTRIBARRAYPROC pGlEnableVertexAttribArray;
     static PFNGLENABLEVERTEXARRAYATTRIBPROC pGlEnableVertexArrayAttrib;
+    static PFNGLENABLEVERTEXARRAYATTRIBEXTPROC pGlEnableVertexArrayAttribEXT;
+    static PFNGLDISABLEVERTEXATTRIBARRAYPROC pGlDisableVertexAttribArray;
     static PFNGLDISABLEVERTEXARRAYATTRIBPROC pGlDisableVertexArrayAttrib;
+    static PFNGLDISABLEVERTEXARRAYATTRIBEXTPROC pGlDisableVertexArrayAttribEXT;
+    static PFNGLVERTEXATTRIBFORMATPROC pGlVertexAttribFormat;
+    static PFNGLVERTEXATTRIBIFORMATPROC pGlVertexAttribIFormat;
+    static PFNGLVERTEXATTRIBLFORMATPROC pGlVertexAttribLFormat;
     static PFNGLVERTEXARRAYATTRIBFORMATPROC pGlVertexArrayAttribFormat;
     static PFNGLVERTEXARRAYATTRIBIFORMATPROC pGlVertexArrayAttribIFormat;
     static PFNGLVERTEXARRAYATTRIBLFORMATPROC pGlVertexArrayAttribLFormat;
+    static PFNGLVERTEXARRAYVERTEXATTRIBFORMATEXTPROC pGlVertexArrayVertexAttribFormatEXT;
+    static PFNGLVERTEXARRAYVERTEXATTRIBIFORMATEXTPROC pGlVertexArrayVertexAttribIFormatEXT;
+    static PFNGLVERTEXARRAYVERTEXATTRIBLFORMATEXTPROC pGlVertexArrayVertexAttribLFormatEXT;
     //
     static PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC pGlDrawRangeElementsBaseVertex;
     //
@@ -1389,8 +1431,6 @@ class COpenGLExtensionHandler
     static PFNGLDEBUGMESSAGECALLBACKPROC pGlDebugMessageCallback;
     static PFNGLDEBUGMESSAGECALLBACKARBPROC pGlDebugMessageCallbackARB;
 
-    static PFNGLDISABLEVERTEXATTRIBARRAYPROC pGlDisableVertexAttribArray;
-    static PFNGLENABLEVERTEXATTRIBARRAYPROC pGlEnableVertexAttribArray;
     static PFNGLVERTEXATTRIBPOINTERPROC pGlVertexAttribPointer;
     #if defined(WGL_EXT_swap_control)
     static PFNWGLSWAPINTERVALEXTPROC pWglSwapIntervalEXT;
@@ -1476,7 +1516,13 @@ inline void COpenGLExtensionHandler::extGlBindTextureUnit(GLuint unit, GLuint te
     }
     else
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlActiveTexture)
+            pGlActiveTexture(GL_TEXTURE0+unit);
+#else
+        glActiveTexture(GL_TEXTURE0+unit);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, texture);
     }
 }
 
@@ -1493,7 +1539,7 @@ inline void COpenGLExtensionHandler::extGlCreateTextures(GLenum target, GLsizei 
         glCreateTextures(target,n,textures);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else
     {
         glGenTextures(n,textures);/*
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -1506,10 +1552,6 @@ inline void COpenGLExtensionHandler::extGlCreateTextures(GLenum target, GLsizei 
         glBindMultiTextureEXT(0,target,oldBoundTex);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 */
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
     }
 }
 
@@ -1534,9 +1576,29 @@ inline void COpenGLExtensionHandler::extGlTextureStorage1D(GLuint texture, GLenu
         glTextureStorage1DEXT(texture,target,levels,internalformat,width);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlTexStorage1D)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlTexStorage1D(target,levels,internalformat,width);
+#else
+        glTexStorage1D(target,levels,internalformat,width);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, bound);
     }
 }
 inline void COpenGLExtensionHandler::extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height)
@@ -1559,9 +1621,41 @@ inline void COpenGLExtensionHandler::extGlTextureStorage2D(GLuint texture, GLenu
         glTextureStorage2DEXT(texture,target,levels,internalformat,width,height);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlTexStorage2D)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            case GL_TEXTURE_RECTANGLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlTexStorage2D(target,levels,internalformat,width,height);
+#else
+        glTexStorage2D(target,levels,internalformat,width,height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, bound);
     }
 }
 inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
@@ -1584,9 +1678,38 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenu
         glTextureStorage3DEXT(texture,target,levels,internalformat,width,height,depth);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlTexStorage3D)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_2D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_3D:
+                glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlTexStorage3D(target,levels,internalformat,width,height,depth);
+#else
+        glTexStorage3D(target,levels,internalformat,width,height,depth);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, bound);
     }
 }
 
@@ -1612,7 +1735,19 @@ inline void COpenGLExtensionHandler::extGlTextureSubImage1D(GLuint texture, GLen
     }
     else
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+        glTexSubImage1D(target, level, xoffset, width,format, type, pixels);
+        glBindTexture(target, bound);
     }
 }
 inline void COpenGLExtensionHandler::extGlTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels)
@@ -1637,7 +1772,36 @@ inline void COpenGLExtensionHandler::extGlTextureSubImage2D(GLuint texture, GLen
     }
     else
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            case GL_TEXTURE_RECTANGLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+        glTexSubImage2D(target, level, xoffset, yoffset,width, height,format, type, pixels);
+        glBindTexture(target, bound);
     }
 }
 inline void COpenGLExtensionHandler::extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels)
@@ -1660,9 +1824,41 @@ inline void COpenGLExtensionHandler::extGlTextureSubImage3D(GLuint texture, GLen
         glTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels));
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlTexSubImage3D)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_2D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_3D:
+                glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
+#else
+        glTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, bound);
     }
 }
 inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void *data)
@@ -1685,9 +1881,29 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(GLuint tex
         glCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width,format, imageSize, data));
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlCompressedTexSubImage1D)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlCompressedTexSubImage1D(target, level, xoffset, width,format, imageSize, data);
+#else
+        glCompressedTexSubImage1D(target, level, xoffset, width,format, imageSize, data);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, bound);
     }
 }
 inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data)
@@ -1710,9 +1926,40 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(GLuint tex
         glCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, imageSize, data));
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlCompressedTexSubImage2D)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlCompressedTexSubImage2D(target, level, xoffset, yoffset,width, height,format, imageSize, data);
+#else
+        glCompressedTexSubImage2D(target, level, xoffset, yoffset,width, height,format, imageSize, data);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, bound);
     }
 }
 inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void *data)
@@ -1735,9 +1982,38 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint tex
         glCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data));
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlCompressedTexSubImage3D)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_2D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_3D:
+                glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
+#else
+        glCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, bound);
     }
 }
 
@@ -1761,9 +2037,59 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
         glGenerateTextureMipmapEXT(texture,target);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlGenerateMipmap)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+                break;
+            case GL_TEXTURE_1D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+                break;
+            case GL_TEXTURE_2D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_3D:
+                glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+                break;
+            case GL_TEXTURE_BUFFER:
+                glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_RECTANGLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlGenerateMipmap(target);
+#else
+        glGenerateMipmap(target);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, bound);
     }
 }
 
@@ -2321,7 +2647,7 @@ inline void COpenGLExtensionHandler::extGlCreateFramebuffers(GLsizei n, GLuint *
         glCreateFramebuffers(n, framebuffers);
     #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else
     {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGenFramebuffers)
@@ -2337,10 +2663,6 @@ inline void COpenGLExtensionHandler::extGlCreateFramebuffers(GLsizei n, GLuint *
             extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffers[i]);
         }
         extGlBindFramebuffer(GL_FRAMEBUFFER,oldBoundFBO);*/
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
     }
 }
 
@@ -2364,9 +2686,25 @@ inline GLenum COpenGLExtensionHandler::extGlCheckNamedFramebufferStatus(GLuint f
         return glCheckNamedFramebufferStatusEXT(framebuffer,target);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlCheckFramebufferStatus&&pGlBindFramebuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLenum retval;
+        GLint bound;
+        glGetIntegerv(target==GL_READ_FRAMEBUFFER ? GL_READ_FRAMEBUFFER_BINDING:GL_DRAW_FRAMEBUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindFramebuffer(target,framebuffer);
+        retval = pGlCheckFramebufferStatus(target);
+        pGlBindFramebuffer(target,bound);
+#else
+        glBindFramebuffer(target,framebuffer);
+        retval = glCheckFramebufferStatus(target);
+        glBindFramebuffer(target,bound);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
+        return retval;
     }
     return GL_INVALID_ENUM;
 }
@@ -2391,9 +2729,23 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTexture(GLuint framebu
         glNamedFramebufferTextureEXT(framebuffer, attachment, texture, level);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlFramebufferTexture&&pGlBindFramebuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+        pGlFramebufferTexture(GL_FRAMEBUFFER,attachment,texture,level);
+        pGlBindFramebuffer(GL_FRAMEBUFFER,bound);
+#else
+        glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+        glFramebufferTexture(GL_FRAMEBUFFER,attachment,texture,level);
+        glBindFramebuffer(GL_FRAMEBUFFER,bound);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
@@ -2417,9 +2769,23 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
         glNamedFramebufferTextureLayerEXT(framebuffer, attachment, texture, level, layer);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlFramebufferTextureLayer&&pGlBindFramebuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+        pGlFramebufferTextureLayer(GL_FRAMEBUFFER,attachment,texture,level, layer);
+        pGlBindFramebuffer(GL_FRAMEBUFFER,bound);
+#else
+        glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER,attachment,texture,level, layer);
+        glBindFramebuffer(GL_FRAMEBUFFER,bound);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
@@ -2434,14 +2800,12 @@ inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFrameb
         glBlitNamedFramebuffer(readFramebuffer, drawFramebuffer, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
     #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else
     {
         GLint boundReadFBO = -1;
         GLint boundDrawFBO = -1;
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&boundReadFBO);
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundDrawFBO);
-        if (boundReadFBO<0||boundDrawFBO<0)
-            return;
 
         extGlBindFramebuffer(GL_READ_FRAMEBUFFER,readFramebuffer);
         extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,drawFramebuffer);
@@ -2453,10 +2817,6 @@ inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFrameb
     #endif
         extGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundReadFBO);
         extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundDrawFBO);
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
     }
 }
 
@@ -2483,7 +2843,7 @@ inline void COpenGLExtensionHandler::extGlCreateRenderbuffers(GLsizei n, GLuint 
         glCreateRenderbuffers(n, renderbuffers);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else
     {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGenRenderbuffers)
@@ -2493,10 +2853,6 @@ inline void COpenGLExtensionHandler::extGlCreateRenderbuffers(GLsizei n, GLuint 
 #else
         glGenRenderbuffers(n, renderbuffers);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
     }
 }
 
@@ -2520,15 +2876,32 @@ inline void COpenGLExtensionHandler::extGlNamedRenderbufferStorage(GLuint render
         glNamedRenderbufferStorageEXT(renderbuffer, internalformat, width, height);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlRenderbufferStorage&&pGlBindRenderbuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        glGetIntegerv(GL_RENDERBUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
+        pGlRenderbufferStorage(GL_RENDERBUFFER,internalformat,width,height);
+        pGlBindRenderbuffer(GL_RENDERBUFFER,bound);
+#else
+        glBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
+        glRenderbufferStorage(GL_RENDERBUFFER,internalformat,width,height);
+        glBindRenderbuffer(GL_RENDERBUFFER,bound);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
 
 inline void COpenGLExtensionHandler::extGlNamedFramebufferRenderbuffer(GLuint framebuffer, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)
 {
+    if (!framebuffer)
+        return;
+
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -2547,9 +2920,23 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferRenderbuffer(GLuint fr
         glNamedFramebufferRenderbufferEXT(framebuffer, attachment, renderbuffertarget, renderbuffer);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlFramebufferRenderbuffer&&pGlBindFramebuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint boundFBO;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        pGlFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, attachment, renderbuffertarget, renderbuffer);
+        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+#else
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, attachment, renderbuffertarget, renderbuffer);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
@@ -2586,9 +2973,23 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(GLuint fram
         glFramebufferReadBufferEXT(framebuffer, mode);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlBindFramebuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint boundFBO;
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&boundFBO);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
+        glReadBuffer(mode);
+        pGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundFBO);
+#else
+        glBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
+        glReadBuffer(mode);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER,boundFBO);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
@@ -2612,9 +3013,23 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffer(GLuint fram
         glFramebufferDrawBufferEXT(framebuffer, buf);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlBindFramebuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint boundFBO;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        glDrawBuffer(buf);
+        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+#else
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        glDrawBuffer(buf);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
@@ -2638,9 +3053,23 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffers(GLuint fra
         glFramebufferDrawBuffersEXT(framebuffer, n, bufs);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlDrawBuffers&&pGlBindFramebuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint boundFBO;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        pGlDrawBuffers(n,bufs);
+        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+#else
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        glDrawBuffers(n,bufs);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
@@ -2655,10 +3084,10 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferiv(GLuint framebu
         glClearNamedFramebufferiv(framebuffer, buffer, drawbuffer, value);
 #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else
     {
         GLint boundFBO = -1;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&boundFBO);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
         if (boundFBO<0)
             return;
         extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
@@ -2669,10 +3098,6 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferiv(GLuint framebu
         glClearBufferiv(buffer, drawbuffer, value);
 #endif
         extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
     }
 }
 
@@ -2687,10 +3112,10 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferuiv(GLuint frameb
         glClearNamedFramebufferuiv(framebuffer, buffer, drawbuffer, value);
 #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else
     {
         GLint boundFBO = -1;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&boundFBO);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
         if (boundFBO<0)
             return;
         extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
@@ -2701,10 +3126,6 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferuiv(GLuint frameb
         glClearNamedBufferuiv(buffer, drawbuffer, value);
 #endif
         extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
     }
 }
 
@@ -2719,10 +3140,10 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfv(GLuint framebu
         glClearNamedFramebufferfv(framebuffer, buffer, drawbuffer, value);
 #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else
     {
         GLint boundFBO = -1;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&boundFBO);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
         if (boundFBO<0)
             return;
         extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
@@ -2733,10 +3154,6 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfv(GLuint framebu
         glClearNamedBufferfv(buffer, drawbuffer, value);
 #endif
         extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
     }
 }
 
@@ -2751,10 +3168,10 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebu
         glClearNamedFramebufferfi(framebuffer, buffer, depth, stencil);
 #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else
     {
         GLint boundFBO = -1;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&boundFBO);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
         if (boundFBO<0)
             return;
         extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
@@ -2765,10 +3182,6 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebu
         glClearNamedBufferfi(buffer, depth, stencil);
 #endif
         extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
     }*/
 }
 
@@ -2786,7 +3199,7 @@ inline void COpenGLExtensionHandler::extGlCreateBuffers(GLsizei n, GLuint *buffe
         glCreateBuffers(n, buffers);
     #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGenBuffers)
@@ -2796,10 +3209,6 @@ inline void COpenGLExtensionHandler::extGlCreateBuffers(GLsizei n, GLuint *buffe
     #else
         glGenBuffers(n, buffers);
     #endif
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
     }
 }
 
@@ -2843,9 +3252,23 @@ inline void COpenGLExtensionHandler::extGlNamedBufferStorage(GLuint buffer, GLsi
         glNamedBufferStorageEXT(buffer,size,data,flags);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlBufferStorage&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        pGlBufferStorage(GL_ARRAY_BUFFER, size, data, flags);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        glBufferStorage(GL_ARRAY_BUFFER, size, data, flags);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
     }
 }
 
@@ -2869,9 +3292,23 @@ inline void COpenGLExtensionHandler::extGlNamedBufferSubData(GLuint buffer, GLin
         glNamedBufferSubDataEXT(buffer,offset,size,data);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlBufferSubData&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        pGlBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        glBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
     }
 }
 
@@ -2895,9 +3332,23 @@ inline void COpenGLExtensionHandler::extGlGetNamedBufferSubData(GLuint buffer, G
         glGetNamedBufferSubDataEXT(buffer,offset,size,data);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlGetBufferSubData&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        pGlGetBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        glGetBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
     }
 }
 
@@ -2921,9 +3372,25 @@ inline void *COpenGLExtensionHandler::extGlMapNamedBuffer(GLuint buffer, GLenum 
         return glMapNamedBufferEXT(buffer,access);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlMapBuffer&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLvoid* retval;
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        retval = pGlMapBuffer(GL_ARRAY_BUFFER,access);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        retval = glMapBuffer(GL_ARRAY_BUFFER,access);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
+        return retval;
     }
     return NULL;
 }
@@ -2948,9 +3415,25 @@ inline void *COpenGLExtensionHandler::extGlMapNamedBufferRange(GLuint buffer, GL
         return glMapNamedBufferRangeEXT(buffer,offset,length,access);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlMapBufferRange&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLvoid* retval;
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        retval = pGlMapBufferRange(GL_ARRAY_BUFFER,offset,length,access);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        retval = pGlMapBufferRange(GL_ARRAY_BUFFER,offset,length,access);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
+        return retval;
     }
     return NULL;
 }
@@ -2975,9 +3458,23 @@ inline void COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(GLuint buf
         glFlushMappedNamedBufferRangeEXT(buffer,offset,length);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlFlushMappedBufferRange&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        pGlFlushMappedBufferRange(GL_ARRAY_BUFFER, offset, length);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        glFlushMappedBufferRange(GL_ARRAY_BUFFER, offset, length);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
     }
 }
 
@@ -3001,9 +3498,25 @@ inline GLboolean COpenGLExtensionHandler::extGlUnmapNamedBuffer(GLuint buffer)
         return glUnmapNamedBufferEXT(buffer);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlUnmapBuffer&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLboolean retval;
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        retval = pGlUnmapBuffer(GL_ARRAY_BUFFER);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        retval = pGlUnmapBuffer(GL_ARRAY_BUFFER);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
+        return retval;
     }
     return false;
 }
@@ -3028,9 +3541,23 @@ inline void COpenGLExtensionHandler::extGlClearNamedBufferData(GLuint buffer, GL
         glClearNamedBufferDataEXT(buffer,internalformat,format,type,data);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlClearBufferData&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        pGlClearBufferData(GL_ARRAY_BUFFER, internalformat,format,type,data);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        glClearBufferData(GL_ARRAY_BUFFER, internalformat,format,type,data);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
     }
 }
 
@@ -3054,9 +3581,23 @@ inline void COpenGLExtensionHandler::extGlClearNamedBufferSubData(GLuint buffer,
         glClearNamedBufferSubDataEXT(buffer,internalformat,offset,size,format,type,data);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlClearBufferSubData&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        pGlClearBufferSubData(GL_ARRAY_BUFFER, internalformat,offset,size,format,type,data);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        glClearBufferSubData(GL_ARRAY_BUFFER, internalformat,offset,size,format,type,data);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
     }
 }
 
@@ -3080,9 +3621,28 @@ inline void COpenGLExtensionHandler::extGlCopyNamedBufferSubData(GLuint readBuff
         glNamedCopyBufferSubDataEXT(readBuffer, writeBuffer, readOffset, writeOffset, size);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlCopyBufferSubData&&pGlBindBuffer)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        GLint boundRead,boundWrite;
+        glGetIntegerv(GL_COPY_READ_BUFFER_BINDING,&boundRead);
+        glGetIntegerv(GL_COPY_WRITE_BUFFER_BINDING,&boundWrite);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_COPY_READ_BUFFER,readBuffer);
+        pGlBindBuffer(GL_COPY_WRITE_BUFFER,writeBuffer);
+        pGlCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, readOffset, writeOffset, size);
+        pGlBindBuffer(GL_COPY_READ_BUFFER,boundRead);
+        pGlBindBuffer(GL_COPY_WRITE_BUFFER,boundWrite);
+#else
+        glBindBuffer(GL_COPY_READ_BUFFER,readBuffer);
+        glBindBuffer(GL_COPY_WRITE_BUFFER,writeBuffer);
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, readOffset, writeOffset, size);
+        glBindBuffer(GL_COPY_READ_BUFFER,boundRead);
+        glBindBuffer(GL_COPY_WRITE_BUFFER,boundWrite);
+#endif
     }
 }
 
@@ -3109,62 +3669,37 @@ inline void COpenGLExtensionHandler::extGlCreateVertexArrays(GLsizei n, GLuint *
         glCreateVertexArrays(n,arrays);
     #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    #else
-    #endif
-    }
     else
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGenVertexArrays)
+            pGlGenVertexArrays(n,arrays);
+        else
+            memset(arrays,0,sizeof(GLuint)*n);
+    #else
+        glGenVertexArrays(n,arrays);
+    #endif
     }
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteVertexArrays(GLsizei n, GLuint *arrays)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlDeleteVertexArrays)
-            pGlDeleteVertexArrays(n,arrays);
+    if (pGlDeleteVertexArrays)
+        pGlDeleteVertexArrays(n,arrays);
     #else
-        glDeleteVertexArrays(n,arrays);
+    glDeleteVertexArrays(n,arrays);
     #endif
-    }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    #else
-    #endif
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
-    }
 }
 
 inline void COpenGLExtensionHandler::extGlBindVertexArray(GLuint vaobj)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlBindVertexArray)
-            pGlBindVertexArray(vaobj);
-    #else
-        glBindVertexArray(vaobj);
-    #endif
-    }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    #else
-    #endif
-    }
-    else
-    {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
-    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlBindVertexArray)
+        pGlBindVertexArray(vaobj);
+#else
+    glBindVertexArray(vaobj);
+#endif
 }
 
 inline void COpenGLExtensionHandler::extGlVertexArrayElementBuffer(GLuint vaobj, GLuint buffer)
@@ -3178,15 +3713,24 @@ inline void COpenGLExtensionHandler::extGlVertexArrayElementBuffer(GLuint vaobj,
         glVertexArrayElementBuffer(vaobj,buffer);
     #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    #else
-    #endif
-    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlBindBuffer&&pGlBindVertexArray)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        // Save the previous bound vertex array
+        GLint restoreVertexArray;
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindVertexArray(vaobj);
+        pGlBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
+        pGlBindVertexArray(restoreVertexArray);
+    #else
+        glBindVertexArray(vaobj);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
+        glBindVertexArray(restoreVertexArray);
+    #endif
     }
 }
 
@@ -3204,12 +3748,30 @@ inline void COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(GLuint vaobj, 
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayBindVertexBufferEXT)
+            pGlVertexArrayBindVertexBufferEXT(vaobj,bindingindex,buffer,offset,stride);
     #else
+        glVertexArrayBindVertexBufferEXT(vaobj,bindingindex,buffer,offset,stride);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlBindVertexBuffer&&pGlBindVertexArray)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        // Save the previous bound vertex array
+        GLint restoreVertexArray;
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindVertexArray(vaobj);
+        pGlBindVertexBuffer(bindingindex,buffer,offset,stride);
+        pGlBindVertexArray(restoreVertexArray);
+    #else
+        glBindVertexArray(vaobj);
+        glBindVertexBuffer(bindingindex,buffer,offset,stride);
+        glBindVertexArray(restoreVertexArray);
+    #endif
     }
 }
 
@@ -3227,12 +3789,30 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribBinding(GLuint vaobj,
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayVertexAttribBindingEXT)
+            pGlVertexArrayVertexAttribBindingEXT(vaobj,attribindex,bindingindex);
     #else
+        glVertexArrayVertexAttribBindingEXT(vaobj,attribindex,bindingindex);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlVertexAttribBinding&&pGlBindVertexArray)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        // Save the previous bound vertex array
+        GLint restoreVertexArray;
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindVertexArray(vaobj);
+        pGlVertexAttribBinding(attribindex,bindingindex);
+        pGlBindVertexArray(restoreVertexArray);
+    #else
+        glBindVertexArray(vaobj);
+        glVertexAttribBinding(attribindex,bindingindex);
+        glBindVertexArray(restoreVertexArray);
+    #endif
     }
 }
 
@@ -3250,12 +3830,30 @@ inline void COpenGLExtensionHandler::extGlEnableVertexArrayAttrib(GLuint vaobj, 
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlEnableVertexArrayAttribEXT)
+            pGlEnableVertexArrayAttribEXT(vaobj,index);
     #else
+        glEnableVertexArrayAttribEXT(vaobj,index);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlEnableVertexAttribArray&&pGlBindVertexArray)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        // Save the previous bound vertex array
+        GLint restoreVertexArray;
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindVertexArray(vaobj);
+        pGlEnableVertexAttribArray(index);
+        pGlBindVertexArray(restoreVertexArray);
+    #else
+        glBindVertexArray(vaobj);
+        glEnableVertexAttribArray(index);
+        glBindVertexArray(restoreVertexArray);
+    #endif
     }
 }
 
@@ -3273,12 +3871,30 @@ inline void COpenGLExtensionHandler::extGlDisableVertexArrayAttrib(GLuint vaobj,
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlDisableVertexArrayAttribEXT)
+            pGlDisableVertexArrayAttribEXT(vaobj,index);
     #else
+        glDisableVertexArrayAttribEXT(vaobj,index);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlDisableVertexAttribArray&&pGlBindVertexArray)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        // Save the previous bound vertex array
+        GLint restoreVertexArray;
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindVertexArray(vaobj);
+        pGlDisableVertexAttribArray(index);
+        pGlBindVertexArray(restoreVertexArray);
+    #else
+        glBindVertexArray(vaobj);
+        glDisableVertexAttribArray(index);
+        glBindVertexArray(restoreVertexArray);
+    #endif
     }
 }
 
@@ -3296,12 +3912,30 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribFormat(GLuint vaobj, 
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayVertexAttribFormatEXT)
+            pGlVertexArrayVertexAttribFormatEXT(vaobj,attribindex,size,type,normalized,relativeoffset);
     #else
+        glVertexArrayVertexAttribFormatEXT(vaobj,attribindex,size,type,normalized,relativeoffset);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlVertexAttribFormat&&pGlBindVertexArray)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        // Save the previous bound vertex array
+        GLint restoreVertexArray;
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindVertexArray(vaobj);
+        pGlVertexAttribFormat(attribindex,size,type,normalized,relativeoffset);
+        pGlBindVertexArray(restoreVertexArray);
+    #else
+        glBindVertexArray(vaobj);
+        glVertexAttribFormat(attribindex,size,type,normalized,relativeoffset);
+        glBindVertexArray(restoreVertexArray);
+    #endif
     }
 }
 
@@ -3319,12 +3953,30 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribIFormat(GLuint vaobj,
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayVertexAttribIFormatEXT)
+            pGlVertexArrayVertexAttribIFormatEXT(vaobj,attribindex,size,type,relativeoffset);
     #else
+        glVertexArrayVertexAttribIFormatEXT(vaobj,attribindex,size,type,relativeoffset);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlVertexAttribIFormat&&pGlBindVertexArray)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        // Save the previous bound vertex array
+        GLint restoreVertexArray;
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindVertexArray(vaobj);
+        pGlVertexAttribIFormat(attribindex,size,type,relativeoffset);
+        pGlBindVertexArray(restoreVertexArray);
+    #else
+        glBindVertexArray(vaobj);
+        glVertexAttribIFormat(attribindex,size,type,relativeoffset);
+        glBindVertexArray(restoreVertexArray);
+    #endif
     }
 }
 
@@ -3342,12 +3994,30 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribLFormat(GLuint vaobj,
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayVertexAttribLFormatEXT)
+            pGlVertexArrayVertexAttribLFormatEXT(vaobj,attribindex,size,type,relativeoffset);
     #else
+        pGlVertexArrayVertexAttribLFormatEXT(vaobj,attribindex,size,type,relativeoffset);
     #endif
     }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlVertexAttribLFormat&&pGlBindVertexArray)
+#else
     else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        os::Printer::log("Direct State Access not supported through neither ARB or EXT, get a new driver!", ELL_ERROR);
+        // Save the previous bound vertex array
+        GLint restoreVertexArray;
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindVertexArray(vaobj);
+        pGlVertexAttribLFormat(attribindex,size,type,relativeoffset);
+        pGlBindVertexArray(restoreVertexArray);
+    #else
+        glBindVertexArray(vaobj);
+        glVertexAttribLFormat(attribindex,size,type,relativeoffset);
+        glBindVertexArray(restoreVertexArray);
+    #endif
     }
 }
 

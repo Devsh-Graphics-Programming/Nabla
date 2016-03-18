@@ -26,13 +26,18 @@ COpenGLPersistentlyMappedBuffer::~COpenGLPersistentlyMappedBuffer()
 
 bool COpenGLPersistentlyMappedBuffer::reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink)
 {
+    return reallocate(newSize,forceRetentionOfData,reallocateIfShrink,0);
+}
+
+bool COpenGLPersistentlyMappedBuffer::reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart)
+{
     if (persistentPointer)
     {
         COpenGLExtensionHandler::extGlUnmapNamedBuffer(BufferName);
         persistentPointer = NULL;
     }
 
-    bool success = COpenGLBuffer::reallocate(newSize,forceRetentionOfData,reallocateIfShrink);
+    bool success = COpenGLBuffer::reallocate(newSize,forceRetentionOfData,reallocateIfShrink, wraparoundStart);
     if (!success)
         return false;
 

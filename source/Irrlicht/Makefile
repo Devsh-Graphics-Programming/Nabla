@@ -32,10 +32,10 @@ VERSION_RELEASE = 3
 IRRMESHLOADER = CMS3DMeshFileLoader.o CB3DMeshFileLoader.o C3DSMeshFileLoader.o COgreMeshFileLoader.o COBJMeshFileLoader.o CColladaFileLoader.o CCSMLoader.o CDMFLoader.o CLMTSMeshFileLoader.o CMY3DMeshFileLoader.o COCTLoader.o CXMeshFileLoader.o CSTLMeshFileLoader.o CLWOMeshFileLoader.o CPLYMeshFileLoader.o CSMFMeshFileLoader.o
 IRRMESHWRITER = CColladaMeshWriter.o CSTLMeshWriter.o COBJMeshWriter.o CPLYMeshWriter.o
 IRRMESHOBJ = $(IRRMESHLOADER) $(IRRMESHWRITER) \
-	CSkinnedMesh.o CBoneSceneNode.o CMeshSceneNode.o \
+	CMeshBuffer.o CSkinnedMesh.o CBoneSceneNode.o CMeshSceneNode.o \
 	CAnimatedMeshSceneNode.o \
 	CAnimatedMeshHalfLife.o
-IRROBJ = CCameraSceneNode.o CDummyTransformationSceneNode.o CEmptySceneNode.o CGeometryCreator.o CLightSceneNode.o CMeshManipulator.o CMetaTriangleSelector.o COctreeTriangleSelector.o CSceneCollisionManager.o CSceneManager.o CSkyBoxSceneNode.o CSkyDomeSceneNode.o CCubeSceneNode.o CSphereSceneNode.o CTriangleBBSelector.o CTriangleSelector.o CMeshCache.o CDefaultSceneNodeAnimatorFactory.o CDefaultSceneNodeFactory.o
+IRROBJ = CBillboardSceneNode.o CCameraSceneNode.o CDummyTransformationSceneNode.o CEmptySceneNode.o CGeometryCreator.o CLightSceneNode.o CMeshManipulator.o CMetaTriangleSelector.o COctreeTriangleSelector.o CSceneCollisionManager.o CSceneManager.o CSkyBoxSceneNode.o CSkyDomeSceneNode.o CCubeSceneNode.o CSphereSceneNode.o CTriangleBBSelector.o CTriangleSelector.o CMeshCache.o CDefaultSceneNodeAnimatorFactory.o CDefaultSceneNodeFactory.o
 IRRANIMOBJ = CSceneNodeAnimatorCameraFPS.o CSceneNodeAnimatorCameraMaya.o CSceneNodeAnimatorCollisionResponse.o CSceneNodeAnimatorDelete.o CSceneNodeAnimatorFlyCircle.o CSceneNodeAnimatorFlyStraight.o CSceneNodeAnimatorFollowSpline.o CSceneNodeAnimatorRotation.o CSceneNodeAnimatorTexture.o
 IRRDRVROBJ = CNullDriver.o COpenGLDriver.o COpenGLTexture.o COpenGLSLMaterialRenderer.o COpenGLExtensionHandler.o COpenGLFrameBuffer.o COpenGLRenderBuffer.o STextureSamplingParams.o
 IRRIMAGEOBJ = CColorConverter.o CImage.o CImageLoaderBMP.o CImageLoaderDDS.o CImageLoaderJPG.o CImageLoaderPCX.o CImageLoaderPNG.o CImageLoaderPSD.o CImageLoaderTGA.o CImageLoaderPPM.o CImageLoaderWAL.o CImageLoaderRGB.o \

@@ -145,9 +145,13 @@ PFNGLCLIENTWAITSYNCPROC COpenGLExtensionHandler::pGlClientWaitSync = NULL;
 PFNGLWAITSYNCPROC COpenGLExtensionHandler::pGlWaitSync = NULL;
 
         //textures
+PFNGLACTIVETEXTUREPROC COpenGLExtensionHandler::pGlActiveTexture = NULL;
 PFNGLBINDTEXTUREUNITPROC COpenGLExtensionHandler::pGlBindTextureUnit = NULL;
 PFNGLBINDMULTITEXTUREEXTPROC COpenGLExtensionHandler::pGlBindMultiTextureEXT = NULL;
 PFNGLCREATETEXTURESPROC COpenGLExtensionHandler::pGlCreateTextures = NULL;
+PFNGLTEXSTORAGE1DPROC COpenGLExtensionHandler::pGlTexStorage1D = NULL;
+PFNGLTEXSTORAGE2DPROC COpenGLExtensionHandler::pGlTexStorage2D = NULL;
+PFNGLTEXSTORAGE3DPROC COpenGLExtensionHandler::pGlTexStorage3D = NULL;
 PFNGLTEXTURESTORAGE1DPROC COpenGLExtensionHandler::pGlTextureStorage1D = NULL;
 PFNGLTEXTURESTORAGE2DPROC COpenGLExtensionHandler::pGlTextureStorage2D = NULL;
 PFNGLTEXTURESTORAGE3DPROC COpenGLExtensionHandler::pGlTextureStorage3D = NULL;
@@ -156,18 +160,23 @@ PFNGLTEXTURESTORAGE2DEXTPROC COpenGLExtensionHandler::pGlTextureStorage2DEXT = N
 PFNGLTEXTURESTORAGE3DEXTPROC COpenGLExtensionHandler::pGlTextureStorage3DEXT = NULL;
         ///static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage2DMultisample = NULL;
         ///static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage3DMultisample = NULL;
+PFNGLTEXSUBIMAGE3DPROC COpenGLExtensionHandler::pGlTexSubImage3D = NULL;
 PFNGLTEXTURESUBIMAGE1DPROC COpenGLExtensionHandler::pGlTextureSubImage1D = NULL;
 PFNGLTEXTURESUBIMAGE2DPROC COpenGLExtensionHandler::pGlTextureSubImage2D = NULL;
 PFNGLTEXTURESUBIMAGE3DPROC COpenGLExtensionHandler::pGlTextureSubImage3D = NULL;
 PFNGLTEXTURESUBIMAGE1DEXTPROC COpenGLExtensionHandler::pGlTextureSubImage1DEXT = NULL;
 PFNGLTEXTURESUBIMAGE2DEXTPROC COpenGLExtensionHandler::pGlTextureSubImage2DEXT = NULL;
 PFNGLTEXTURESUBIMAGE3DEXTPROC COpenGLExtensionHandler::pGlTextureSubImage3DEXT = NULL;
+PFNGLCOMPRESSEDTEXSUBIMAGE1DPROC COpenGLExtensionHandler::pGlCompressedTexSubImage1D = NULL;
+PFNGLCOMPRESSEDTEXSUBIMAGE2DPROC COpenGLExtensionHandler::pGlCompressedTexSubImage2D = NULL;
+PFNGLCOMPRESSEDTEXSUBIMAGE3DPROC COpenGLExtensionHandler::pGlCompressedTexSubImage3D = NULL;
 PFNGLCOMPRESSEDTEXTURESUBIMAGE1DPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage1D = NULL;
 PFNGLCOMPRESSEDTEXTURESUBIMAGE2DPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage2D = NULL;
 PFNGLCOMPRESSEDTEXTURESUBIMAGE3DPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage3D = NULL;
 PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage1DEXT = NULL;
 PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage2DEXT = NULL;
 PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage3DEXT = NULL;
+PFNGLGENERATEMIPMAPPROC COpenGLExtensionHandler::pGlGenerateMipmap = NULL;
 PFNGLGENERATETEXTUREMIPMAPPROC COpenGLExtensionHandler::pGlGenerateTextureMipmap = NULL;
 PFNGLGENERATETEXTUREMIPMAPEXTPROC COpenGLExtensionHandler::pGlGenerateTextureMipmapEXT = NULL;
 
@@ -232,17 +241,23 @@ PFNGLDELETEFRAMEBUFFERSPROC COpenGLExtensionHandler::pGlDeleteFramebuffers = NUL
 PFNGLCREATEFRAMEBUFFERSPROC COpenGLExtensionHandler::pGlCreateFramebuffers = NULL;
 PFNGLGENFRAMEBUFFERSPROC COpenGLExtensionHandler::pGlGenFramebuffers = NULL;
 PFNGLBINDFRAMEBUFFERPROC COpenGLExtensionHandler::pGlBindFramebuffer = NULL;
+PFNGLCHECKFRAMEBUFFERSTATUSPROC COpenGLExtensionHandler::pGlCheckFramebufferStatus = NULL;
 PFNGLCHECKNAMEDFRAMEBUFFERSTATUSPROC COpenGLExtensionHandler::pGlCheckNamedFramebufferStatus = NULL;
 PFNGLCHECKNAMEDFRAMEBUFFERSTATUSEXTPROC COpenGLExtensionHandler::pGlCheckNamedFramebufferStatusEXT = NULL;
+PFNGLFRAMEBUFFERTEXTUREPROC COpenGLExtensionHandler::pGlFramebufferTexture = NULL;
 PFNGLNAMEDFRAMEBUFFERTEXTUREPROC COpenGLExtensionHandler::pGlNamedFramebufferTexture = NULL;
 PFNGLNAMEDFRAMEBUFFERTEXTUREEXTPROC COpenGLExtensionHandler::pGlNamedFramebufferTextureEXT = NULL;
+PFNGLFRAMEBUFFERTEXTURELAYERPROC COpenGLExtensionHandler::pGlFramebufferTextureLayer = NULL;
 PFNGLNAMEDFRAMEBUFFERTEXTURELAYERPROC COpenGLExtensionHandler::pGlNamedFramebufferTextureLayer = NULL;
 PFNGLNAMEDFRAMEBUFFERTEXTURELAYEREXTPROC COpenGLExtensionHandler::pGlNamedFramebufferTextureLayerEXT = NULL;
 PFNGLDELETERENDERBUFFERSPROC COpenGLExtensionHandler::pGlDeleteRenderbuffers = NULL;
 PFNGLGENRENDERBUFFERSPROC COpenGLExtensionHandler::pGlGenRenderbuffers = NULL;
 PFNGLCREATERENDERBUFFERSPROC COpenGLExtensionHandler::pGlCreateRenderbuffers = NULL;
+PFNGLBINDRENDERBUFFERPROC COpenGLExtensionHandler::pGlBindRenderbuffer = NULL;
+PFNGLRENDERBUFFERSTORAGEPROC COpenGLExtensionHandler::pGlRenderbufferStorage = NULL;
 PFNGLNAMEDRENDERBUFFERSTORAGEPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorage = NULL;
 PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorageEXT = NULL;
+PFNGLFRAMEBUFFERRENDERBUFFERPROC COpenGLExtensionHandler::pGlFramebufferRenderbuffer = NULL;
 PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC COpenGLExtensionHandler::pGlNamedFramebufferRenderbuffer = NULL;
 PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC COpenGLExtensionHandler::pGlNamedFramebufferRenderbufferEXT = NULL;
 		// EXT framebuffer object
@@ -251,6 +266,7 @@ PFNGLNAMEDFRAMEBUFFERREADBUFFERPROC COpenGLExtensionHandler::pGlNamedFramebuffer
 PFNGLFRAMEBUFFERREADBUFFEREXTPROC COpenGLExtensionHandler::pGlFramebufferReadBufferEXT = NULL;
 PFNGLNAMEDFRAMEBUFFERDRAWBUFFERPROC COpenGLExtensionHandler::pGlNamedFramebufferDrawBuffer = NULL;
 PFNGLFRAMEBUFFERDRAWBUFFEREXTPROC COpenGLExtensionHandler::pGlFramebufferDrawBufferEXT = NULL;
+PFNGLDRAWBUFFERSPROC COpenGLExtensionHandler::pGlDrawBuffers = NULL;
 PFNGLNAMEDFRAMEBUFFERDRAWBUFFERSPROC COpenGLExtensionHandler::pGlNamedFramebufferDrawBuffers = NULL;
 PFNGLFRAMEBUFFERDRAWBUFFERSEXTPROC COpenGLExtensionHandler::pGlFramebufferDrawBuffersEXT = NULL;
 PFNGLCLEARNAMEDFRAMEBUFFERIVPROC COpenGLExtensionHandler::pGlClearNamedFramebufferiv = NULL;
@@ -267,39 +283,64 @@ PFNGLGENBUFFERSPROC COpenGLExtensionHandler::pGlGenBuffers = NULL;
 PFNGLCREATEBUFFERSPROC COpenGLExtensionHandler::pGlCreateBuffers = NULL;
 PFNGLBINDBUFFERPROC COpenGLExtensionHandler::pGlBindBuffer = NULL;
 PFNGLDELETEBUFFERSPROC COpenGLExtensionHandler::pGlDeleteBuffers = NULL;
+PFNGLBUFFERSTORAGEPROC COpenGLExtensionHandler::pGlBufferStorage = NULL;
 PFNGLNAMEDBUFFERSTORAGEPROC COpenGLExtensionHandler::pGlNamedBufferStorage = NULL;
 PFNGLNAMEDBUFFERSTORAGEEXTPROC COpenGLExtensionHandler::pGlNamedBufferStorageEXT = NULL;
+PFNGLBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlBufferSubData = NULL;
 PFNGLNAMEDBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlNamedBufferSubData = NULL;
 PFNGLNAMEDBUFFERSUBDATAEXTPROC COpenGLExtensionHandler::pGlNamedBufferSubDataEXT = NULL;
+PFNGLGETBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlGetBufferSubData = NULL;
 PFNGLGETNAMEDBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlGetNamedBufferSubData = NULL;
 PFNGLGETNAMEDBUFFERSUBDATAEXTPROC COpenGLExtensionHandler::pGlGetNamedBufferSubDataEXT = NULL;
+PFNGLMAPBUFFERPROC COpenGLExtensionHandler::pGlMapBuffer = NULL;
 PFNGLMAPNAMEDBUFFERPROC COpenGLExtensionHandler::pGlMapNamedBuffer = NULL;
 PFNGLMAPNAMEDBUFFEREXTPROC COpenGLExtensionHandler::pGlMapNamedBufferEXT = NULL;
+PFNGLMAPBUFFERRANGEPROC COpenGLExtensionHandler::pGlMapBufferRange = NULL;
 PFNGLMAPNAMEDBUFFERRANGEPROC COpenGLExtensionHandler::pGlMapNamedBufferRange = NULL;
 PFNGLMAPNAMEDBUFFERRANGEEXTPROC COpenGLExtensionHandler::pGlMapNamedBufferRangeEXT = NULL;
+PFNGLFLUSHMAPPEDBUFFERRANGEPROC COpenGLExtensionHandler::pGlFlushMappedBufferRange = NULL;
 PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEPROC COpenGLExtensionHandler::pGlFlushMappedNamedBufferRange = NULL;
 PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEEXTPROC COpenGLExtensionHandler::pGlFlushMappedNamedBufferRangeEXT = NULL;
+PFNGLUNMAPBUFFERPROC COpenGLExtensionHandler::pGlUnmapBuffer = NULL;
 PFNGLUNMAPNAMEDBUFFERPROC COpenGLExtensionHandler::pGlUnmapNamedBuffer = NULL;
 PFNGLUNMAPNAMEDBUFFEREXTPROC COpenGLExtensionHandler::pGlUnmapNamedBufferEXT = NULL;
+PFNGLCLEARBUFFERDATAPROC COpenGLExtensionHandler::pGlClearBufferData = NULL;
 PFNGLCLEARNAMEDBUFFERDATAPROC COpenGLExtensionHandler::pGlClearNamedBufferData = NULL;
 PFNGLCLEARNAMEDBUFFERDATAEXTPROC COpenGLExtensionHandler::pGlClearNamedBufferDataEXT = NULL;
+PFNGLCLEARBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlClearBufferSubData = NULL;
 PFNGLCLEARNAMEDBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlClearNamedBufferSubData = NULL;
 PFNGLCLEARNAMEDBUFFERSUBDATAEXTPROC COpenGLExtensionHandler::pGlClearNamedBufferSubDataEXT = NULL;
+PFNGLCOPYBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlCopyBufferSubData = NULL;
 PFNGLCOPYNAMEDBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlCopyNamedBufferSubData = NULL;
 PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC COpenGLExtensionHandler::pGlNamedCopyBufferSubDataEXT = NULL;
 PFNGLISBUFFERPROC COpenGLExtensionHandler::pGlIsBuffer = NULL;
 //vao
+PFNGLGENVERTEXARRAYSPROC COpenGLExtensionHandler::pGlGenVertexArrays = NULL;
 PFNGLCREATEVERTEXARRAYSPROC COpenGLExtensionHandler::pGlCreateVertexArrays = NULL;
 PFNGLDELETEVERTEXARRAYSPROC COpenGLExtensionHandler::pGlDeleteVertexArrays = NULL;
 PFNGLBINDVERTEXARRAYPROC COpenGLExtensionHandler::pGlBindVertexArray = NULL;
 PFNGLVERTEXARRAYELEMENTBUFFERPROC COpenGLExtensionHandler::pGlVertexArrayElementBuffer = NULL;
+PFNGLBINDVERTEXBUFFERPROC COpenGLExtensionHandler::pGlBindVertexBuffer = NULL;
 PFNGLVERTEXARRAYVERTEXBUFFERPROC COpenGLExtensionHandler::pGlVertexArrayVertexBuffer = NULL;
+PFNGLVERTEXARRAYBINDVERTEXBUFFEREXTPROC COpenGLExtensionHandler::pGlVertexArrayBindVertexBufferEXT = NULL;
+PFNGLVERTEXATTRIBBINDINGPROC COpenGLExtensionHandler::pGlVertexAttribBinding = NULL;
 PFNGLVERTEXARRAYATTRIBBINDINGPROC COpenGLExtensionHandler::pGlVertexArrayAttribBinding = NULL;
+PFNGLVERTEXARRAYVERTEXATTRIBBINDINGEXTPROC COpenGLExtensionHandler::pGlVertexArrayVertexAttribBindingEXT = NULL;
+PFNGLENABLEVERTEXATTRIBARRAYPROC COpenGLExtensionHandler::pGlEnableVertexAttribArray = NULL;
 PFNGLENABLEVERTEXARRAYATTRIBPROC COpenGLExtensionHandler::pGlEnableVertexArrayAttrib = NULL;
+PFNGLENABLEVERTEXARRAYATTRIBEXTPROC COpenGLExtensionHandler::pGlEnableVertexArrayAttribEXT = NULL;
+PFNGLDISABLEVERTEXATTRIBARRAYPROC COpenGLExtensionHandler::pGlDisableVertexAttribArray = NULL;
 PFNGLDISABLEVERTEXARRAYATTRIBPROC COpenGLExtensionHandler::pGlDisableVertexArrayAttrib = NULL;
+PFNGLDISABLEVERTEXARRAYATTRIBEXTPROC COpenGLExtensionHandler::pGlDisableVertexArrayAttribEXT = NULL;
+PFNGLVERTEXATTRIBFORMATPROC COpenGLExtensionHandler::pGlVertexAttribFormat = NULL;
+PFNGLVERTEXATTRIBIFORMATPROC COpenGLExtensionHandler::pGlVertexAttribIFormat = NULL;
+PFNGLVERTEXATTRIBLFORMATPROC COpenGLExtensionHandler::pGlVertexAttribLFormat = NULL;
 PFNGLVERTEXARRAYATTRIBFORMATPROC COpenGLExtensionHandler::pGlVertexArrayAttribFormat = NULL;
 PFNGLVERTEXARRAYATTRIBIFORMATPROC COpenGLExtensionHandler::pGlVertexArrayAttribIFormat = NULL;
 PFNGLVERTEXARRAYATTRIBLFORMATPROC COpenGLExtensionHandler::pGlVertexArrayAttribLFormat = NULL;
+PFNGLVERTEXARRAYVERTEXATTRIBFORMATEXTPROC COpenGLExtensionHandler::pGlVertexArrayVertexAttribFormatEXT = NULL;
+PFNGLVERTEXARRAYVERTEXATTRIBIFORMATEXTPROC COpenGLExtensionHandler::pGlVertexArrayVertexAttribIFormatEXT = NULL;
+PFNGLVERTEXARRAYVERTEXATTRIBLFORMATEXTPROC COpenGLExtensionHandler::pGlVertexArrayVertexAttribLFormatEXT = NULL;
 //
 PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC COpenGLExtensionHandler::pGlDrawRangeElementsBaseVertex = NULL;
 //
@@ -347,8 +388,6 @@ PFNGLDEBUGMESSAGECONTROLARBPROC COpenGLExtensionHandler::pGlDebugMessageControlA
 PFNGLDEBUGMESSAGECALLBACKPROC COpenGLExtensionHandler::pGlDebugMessageCallback = NULL;
 PFNGLDEBUGMESSAGECALLBACKARBPROC COpenGLExtensionHandler::pGlDebugMessageCallbackARB = NULL;
 
-PFNGLDISABLEVERTEXATTRIBARRAYPROC COpenGLExtensionHandler::pGlDisableVertexAttribArray = NULL;
-PFNGLENABLEVERTEXATTRIBARRAYPROC COpenGLExtensionHandler::pGlEnableVertexAttribArray = NULL;
 PFNGLVERTEXATTRIBPOINTERPROC COpenGLExtensionHandler::pGlVertexAttribPointer = NULL;
     #if defined(WGL_EXT_swap_control)
         PFNWGLSWAPINTERVALEXTPROC COpenGLExtensionHandler::pWglSwapIntervalEXT = NULL;
@@ -707,7 +746,9 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     //! For EXT-DSA testing
     //Version = 410;
     //FeatureAvailable[IRR_ARB_direct_state_access] = false;
-
+    //! Non-DSA testing
+    //Version = 400;
+    //FeatureAvailable[IRR_EXT_direct_state_access] = FeatureAvailable[IRR_ARB_direct_state_access] = false;
 
 
     num=0;
@@ -831,9 +872,13 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlWaitSync = (PFNGLWAITSYNCPROC) IRR_OGL_LOAD_EXTENSION("glWaitSync");
 
 	// get multitexturing function pointers
+    pGlActiveTexture = (PFNGLACTIVETEXTUREPROC) IRR_OGL_LOAD_EXTENSION("glActiveTexture");
 	pGlBindTextureUnit = (PFNGLBINDTEXTUREUNITPROC) IRR_OGL_LOAD_EXTENSION("glBindTextureUnit");
 	pGlBindMultiTextureEXT = (PFNGLBINDMULTITEXTUREEXTPROC) IRR_OGL_LOAD_EXTENSION("glBindMultiTextureEXT");
     pGlCreateTextures = (PFNGLCREATETEXTURESPROC) IRR_OGL_LOAD_EXTENSION("glCreateTextures");
+    pGlTexStorage1D = (PFNGLTEXSTORAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage1D");
+    pGlTexStorage2D = (PFNGLTEXSTORAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage2D");
+    pGlTexStorage3D = (PFNGLTEXSTORAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage3D");
     pGlTextureStorage1D = (PFNGLTEXTURESTORAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage1D");
     pGlTextureStorage2D = (PFNGLTEXTURESTORAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage2D");
     pGlTextureStorage3D = (PFNGLTEXTURESTORAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3D");
@@ -842,18 +887,23 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlTextureStorage3DEXT = (PFNGLTEXTURESTORAGE3DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3DEXT");
     ///PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage2DMultisample");
     ///PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3DMultisample");
+    pGlTexSubImage3D = (PFNGLTEXSUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTexSubImage3D");
     pGlTextureSubImage1D = (PFNGLTEXTURESUBIMAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureSubImage1D");
     pGlTextureSubImage2D = (PFNGLTEXTURESUBIMAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureSubImage2D");
     pGlTextureSubImage3D = (PFNGLTEXTURESUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureSubImage3D");
     pGlTextureSubImage1DEXT = (PFNGLTEXTURESUBIMAGE1DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureSubImage1DEXT");
     pGlTextureSubImage2DEXT = (PFNGLTEXTURESUBIMAGE2DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureSubImage2DEXT");
     pGlTextureSubImage3DEXT = (PFNGLTEXTURESUBIMAGE3DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureSubImage3DEXT");
+    pGlCompressedTexSubImage1D = (PFNGLCOMPRESSEDTEXSUBIMAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTexSubImage1D");
+    pGlCompressedTexSubImage2D = (PFNGLCOMPRESSEDTEXSUBIMAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTexSubImage2D");
+    pGlCompressedTexSubImage3D = (PFNGLCOMPRESSEDTEXSUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTexSubImage3D");
     pGlCompressedTextureSubImage1D = (PFNGLCOMPRESSEDTEXTURESUBIMAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage1D");
     pGlCompressedTextureSubImage2D = (PFNGLCOMPRESSEDTEXTURESUBIMAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage2D");
     pGlCompressedTextureSubImage3D = (PFNGLCOMPRESSEDTEXTURESUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage3D");
     pGlCompressedTextureSubImage1DEXT = (PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage1DEXT");
     pGlCompressedTextureSubImage2DEXT = (PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage2DEXT");
     pGlCompressedTextureSubImage3DEXT = (PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage3DEXT");
+    pGlGenerateMipmap = (PFNGLGENERATEMIPMAPPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateMipmap");
     pGlGenerateTextureMipmap = (PFNGLGENERATETEXTUREMIPMAPPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateTextureMipmap");
     pGlGenerateTextureMipmapEXT = (PFNGLGENERATETEXTUREMIPMAPEXTPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateTextureMipmapEXT");
 
@@ -913,8 +963,6 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlStencilFuncSeparateATI = (PFNGLSTENCILFUNCSEPARATEATIPROC) IRR_OGL_LOAD_EXTENSION("glStencilFuncSeparateATI");
 	pGlStencilOpSeparateATI = (PFNGLSTENCILOPSEPARATEATIPROC) IRR_OGL_LOAD_EXTENSION("glStencilOpSeparateATI");
 
-    pGlDisableVertexAttribArray = (PFNGLDISABLEVERTEXATTRIBARRAYPROC)IRR_OGL_LOAD_EXTENSION("glDisableVertexAttribArray");
-    pGlEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC)IRR_OGL_LOAD_EXTENSION("glEnableVertexAttribArray");
     pGlVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)IRR_OGL_LOAD_EXTENSION("glVertexAttribPointer");
 
 	// ARB FrameBufferObjects
@@ -924,19 +972,26 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlCreateFramebuffers = (PFNGLCREATEFRAMEBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glCreateFramebuffers");
 	pGlGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glGenFramebuffers");
 	pGlBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glBindFramebuffer");
+	pGlCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC) IRR_OGL_LOAD_EXTENSION("glCheckFramebufferStatus");
 	pGlCheckNamedFramebufferStatus = (PFNGLCHECKNAMEDFRAMEBUFFERSTATUSPROC) IRR_OGL_LOAD_EXTENSION("glCheckNamedFramebufferStatus");
 	pGlCheckNamedFramebufferStatusEXT = (PFNGLCHECKNAMEDFRAMEBUFFERSTATUSEXTPROC) IRR_OGL_LOAD_EXTENSION("glCheckNamedFramebufferStatusEXT");
+	pGlFramebufferTexture = (PFNGLFRAMEBUFFERTEXTUREPROC) IRR_OGL_LOAD_EXTENSION("glFramebufferTexture");
 	pGlNamedFramebufferTexture = (PFNGLNAMEDFRAMEBUFFERTEXTUREPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferTexture");
 	pGlNamedFramebufferTextureEXT = (PFNGLNAMEDFRAMEBUFFERTEXTUREEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferTextureEXT");
+	pGlFramebufferTextureLayer = (PFNGLFRAMEBUFFERTEXTURELAYERPROC) IRR_OGL_LOAD_EXTENSION("glFramebufferTextureLayer");
 	pGlNamedFramebufferTextureLayer = (PFNGLNAMEDFRAMEBUFFERTEXTURELAYERPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferTextureLayer");
 	pGlNamedFramebufferTextureLayerEXT = (PFNGLNAMEDFRAMEBUFFERTEXTURELAYEREXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferTextureLayerEXT");
 	pGlDeleteRenderbuffers = (PFNGLDELETERENDERBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glDeleteRenderbuffers");
 	pGlGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glGenRenderbuffers");
 	pGlCreateRenderbuffers = (PFNGLCREATERENDERBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glCreateRenderbuffers");
+	pGlBindRenderbuffer = (PFNGLBINDRENDERBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glBindRenderbuffer");
+	pGlRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC) IRR_OGL_LOAD_EXTENSION("glRenderbufferStorage");
 	pGlNamedRenderbufferStorage = (PFNGLNAMEDRENDERBUFFERSTORAGEPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorage");
 	pGlNamedRenderbufferStorageEXT = (PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorageEXT");
+	pGlFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glFramebufferRenderbuffer");
 	pGlNamedFramebufferRenderbuffer = (PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferRenderbuffer");
 	pGlNamedFramebufferRenderbufferEXT = (PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferRenderbufferEXT");
+	pGlDrawBuffers = (PFNGLDRAWBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glDrawBuffers");
 	pGlNamedFramebufferDrawBuffers = (PFNGLNAMEDFRAMEBUFFERDRAWBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferDrawBuffers");
 	pGlFramebufferDrawBuffersEXT = (PFNGLFRAMEBUFFERDRAWBUFFERSEXTPROC) IRR_OGL_LOAD_EXTENSION("glFramebufferDrawBuffersEXT");
 	pGlNamedFramebufferDrawBuffer = (PFNGLNAMEDFRAMEBUFFERDRAWBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferDrawBuffer");
@@ -957,39 +1012,64 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlCreateBuffers = (PFNGLCREATEBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glCreateBuffers");
 	pGlBindBuffer = (PFNGLBINDBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glBindBuffer");
 	pGlDeleteBuffers = (PFNGLDELETEBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glDeleteBuffers");
+    pGlBufferStorage = (PFNGLBUFFERSTORAGEPROC) IRR_OGL_LOAD_EXTENSION("glBufferStorage");
     pGlNamedBufferStorage = (PFNGLNAMEDBUFFERSTORAGEPROC) IRR_OGL_LOAD_EXTENSION("glNamedBufferStorage");
     pGlNamedBufferStorageEXT = (PFNGLNAMEDBUFFERSTORAGEEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedBufferStorageEXT");
+    pGlBufferSubData = (PFNGLBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glBufferSubData");
     pGlNamedBufferSubData = (PFNGLNAMEDBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glNamedBufferSubData");
     pGlNamedBufferSubDataEXT = (PFNGLNAMEDBUFFERSUBDATAEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedBufferSubDataEXT");
+    pGlGetBufferSubData = (PFNGLGETBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glGetBufferSubData");
     pGlGetNamedBufferSubData = (PFNGLGETNAMEDBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glGetNamedBufferSubData");
     pGlGetNamedBufferSubDataEXT = (PFNGLGETNAMEDBUFFERSUBDATAEXTPROC) IRR_OGL_LOAD_EXTENSION("glGetNamedBufferSubDataEXT");
+    pGlMapBuffer = (PFNGLMAPBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glMapBuffer");
     pGlMapNamedBuffer = (PFNGLMAPNAMEDBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glMapNamedBuffer");
     pGlMapNamedBufferEXT = (PFNGLMAPNAMEDBUFFEREXTPROC) IRR_OGL_LOAD_EXTENSION("glMapNamedBufferEXT");
+    pGlMapBufferRange = (PFNGLMAPBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION("glMapBufferRange");
     pGlMapNamedBufferRange = (PFNGLMAPNAMEDBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION("glMapNamedBufferRange");
     pGlMapNamedBufferRangeEXT = (PFNGLMAPNAMEDBUFFERRANGEEXTPROC) IRR_OGL_LOAD_EXTENSION("glMapNamedBufferRangeEXT");
+    pGlFlushMappedBufferRange = (PFNGLFLUSHMAPPEDBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION("glFlushMappedBufferRange");
     pGlFlushMappedNamedBufferRange = (PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION("glFlushMappedNamedBufferRange");
     pGlFlushMappedNamedBufferRangeEXT = (PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEEXTPROC) IRR_OGL_LOAD_EXTENSION("glFlushMappedNamedBufferRangeEXT");
+    pGlUnmapBuffer = (PFNGLUNMAPBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glUnmapBuffer");
     pGlUnmapNamedBuffer = (PFNGLUNMAPNAMEDBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glUnmapNamedBuffer");
     pGlUnmapNamedBufferEXT = (PFNGLUNMAPNAMEDBUFFEREXTPROC) IRR_OGL_LOAD_EXTENSION("glUnmapNamedBufferEXT");
+    pGlClearBufferData = (PFNGLCLEARBUFFERDATAPROC) IRR_OGL_LOAD_EXTENSION("glClearBufferData");
     pGlClearNamedBufferData = (PFNGLCLEARNAMEDBUFFERDATAPROC) IRR_OGL_LOAD_EXTENSION("glClearNamedBufferData");
     pGlClearNamedBufferDataEXT = (PFNGLCLEARNAMEDBUFFERDATAEXTPROC) IRR_OGL_LOAD_EXTENSION("glClearNamedBufferDataEXT");
+    pGlClearBufferSubData = (PFNGLCLEARBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glClearBufferSubData");
     pGlClearNamedBufferSubData = (PFNGLCLEARNAMEDBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glClearNamedBufferSubData");
     pGlClearNamedBufferSubDataEXT = (PFNGLCLEARNAMEDBUFFERSUBDATAEXTPROC) IRR_OGL_LOAD_EXTENSION("glClearNamedBufferSubDataEXT");
+    pGlCopyBufferSubData = (PFNGLCOPYBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glCopyBufferSubData");
     pGlCopyNamedBufferSubData = (PFNGLCOPYNAMEDBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glCopyNamedBufferSubData");
     pGlNamedCopyBufferSubDataEXT = (PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedCopyBufferSubDataEXT");
 	pGlIsBuffer= (PFNGLISBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glIsBuffer");
 	//vao
+    pGlGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC) IRR_OGL_LOAD_EXTENSION("glGenVertexArrays");
     pGlCreateVertexArrays = (PFNGLCREATEVERTEXARRAYSPROC) IRR_OGL_LOAD_EXTENSION("glCreateVertexArrays");
     pGlDeleteVertexArrays = (PFNGLDELETEVERTEXARRAYSPROC) IRR_OGL_LOAD_EXTENSION("glDeleteVertexArrays");
     pGlBindVertexArray = (PFNGLBINDVERTEXARRAYPROC) IRR_OGL_LOAD_EXTENSION("glBindVertexArray");
     pGlVertexArrayElementBuffer = (PFNGLVERTEXARRAYELEMENTBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayElementBuffer");
+    pGlBindVertexBuffer = (PFNGLBINDVERTEXBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glBindVertexBuffer");
     pGlVertexArrayVertexBuffer = (PFNGLVERTEXARRAYVERTEXBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexBuffer");
+    pGlVertexArrayBindVertexBufferEXT = (PFNGLVERTEXARRAYBINDVERTEXBUFFEREXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayBindVertexBufferEXT");
+    pGlVertexAttribBinding = (PFNGLVERTEXATTRIBBINDINGPROC) IRR_OGL_LOAD_EXTENSION("glVertexAttribBinding");
     pGlVertexArrayAttribBinding = (PFNGLVERTEXARRAYATTRIBBINDINGPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayAttribBinding");
+    pGlVertexArrayVertexAttribBindingEXT = (PFNGLVERTEXARRAYVERTEXATTRIBBINDINGEXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexAttribBindingEXT");
+    pGlEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC) IRR_OGL_LOAD_EXTENSION("glEnableVertexAttribArray");
     pGlEnableVertexArrayAttrib = (PFNGLENABLEVERTEXARRAYATTRIBPROC) IRR_OGL_LOAD_EXTENSION("glEnableVertexArrayAttrib");
+    pGlEnableVertexArrayAttribEXT = (PFNGLENABLEVERTEXARRAYATTRIBEXTPROC) IRR_OGL_LOAD_EXTENSION("glEnableVertexArrayAttribEXT");
+    pGlDisableVertexAttribArray = (PFNGLDISABLEVERTEXATTRIBARRAYPROC) IRR_OGL_LOAD_EXTENSION("glDisableVertexAttribArray");
     pGlDisableVertexArrayAttrib = (PFNGLDISABLEVERTEXARRAYATTRIBPROC) IRR_OGL_LOAD_EXTENSION("glDisableVertexArrayAttrib");
+    pGlDisableVertexArrayAttribEXT = (PFNGLDISABLEVERTEXARRAYATTRIBEXTPROC) IRR_OGL_LOAD_EXTENSION("glDisableVertexArrayAttribEXT");
+    pGlVertexAttribFormat = (PFNGLVERTEXATTRIBFORMATPROC) IRR_OGL_LOAD_EXTENSION("glVertexAttribFormat");
+    pGlVertexAttribIFormat = (PFNGLVERTEXATTRIBIFORMATPROC) IRR_OGL_LOAD_EXTENSION("glVertexAttribIFormat");
+    pGlVertexAttribLFormat = (PFNGLVERTEXATTRIBLFORMATPROC) IRR_OGL_LOAD_EXTENSION("glVertexAttribLFormat");
     pGlVertexArrayAttribFormat = (PFNGLVERTEXARRAYATTRIBFORMATPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayAttribFormat");
     pGlVertexArrayAttribIFormat = (PFNGLVERTEXARRAYATTRIBIFORMATPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayAttribIFormat");
     pGlVertexArrayAttribLFormat = (PFNGLVERTEXARRAYATTRIBLFORMATPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayAttribLFormat");
+    pGlVertexArrayVertexAttribFormatEXT = (PFNGLVERTEXARRAYVERTEXATTRIBFORMATEXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexAttribFormatEXT");
+    pGlVertexArrayVertexAttribIFormatEXT = (PFNGLVERTEXARRAYVERTEXATTRIBIFORMATEXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexAttribIFormatEXT");
+    pGlVertexArrayVertexAttribLFormatEXT = (PFNGLVERTEXARRAYVERTEXATTRIBLFORMATEXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexAttribLFormatEXT");
     //
     pGlDrawRangeElementsBaseVertex = (PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC) IRR_OGL_LOAD_EXTENSION("glDrawRangeElementsBaseVertex");
 	//

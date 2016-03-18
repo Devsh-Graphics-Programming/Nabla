@@ -12,6 +12,7 @@
 #include "IMaterialRenderer.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "CColorConverter.h"
+#include "CMeshManipulator.h"
 
 
 namespace irr
@@ -1218,37 +1219,7 @@ void CNullDriver::drawMeshBuffer(scene::ICPUMeshBuffer* mb, IOcclusionQuery* que
 	if (!mb)
 		return;
 
-    switch (mb->getPrimitiveType())
-    {
-        case scene::EPT_POINTS:
-        case scene::EPT_POINT_SPRITES:
-            PrimitivesDrawn += mb->getIndexCount();
-            break;
-        case scene::EPT_LINE_STRIP:
-            PrimitivesDrawn += mb->getIndexCount()-1;
-            break;
-        case scene::EPT_LINE_LOOP:
-            PrimitivesDrawn += mb->getIndexCount();
-            break;
-        case scene::EPT_LINES:
-            PrimitivesDrawn += mb->getIndexCount()/2;
-            break;
-        case scene::EPT_TRIANGLE_STRIP:
-            PrimitivesDrawn += mb->getIndexCount()-2;
-            break;
-        case scene::EPT_TRIANGLE_FAN:
-            PrimitivesDrawn += mb->getIndexCount()-2;
-            break;
-        case scene::EPT_TRIANGLES:
-            PrimitivesDrawn += mb->getIndexCount()/3;
-            break;
-        case scene::EPT_QUAD_STRIP:
-            PrimitivesDrawn += (mb->getIndexCount()-2)/2;
-            break;
-        case scene::EPT_QUADS:
-            PrimitivesDrawn += mb->getIndexCount()/4;
-            break;
-    }
+    PrimitivesDrawn += scene::CMeshManipulator::getPolyCount(mb);
 }
 
 void CNullDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query)

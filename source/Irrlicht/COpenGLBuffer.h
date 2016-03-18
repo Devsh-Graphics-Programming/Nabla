@@ -49,6 +49,16 @@ class COpenGLBuffer : public virtual video::IGPUBuffer
 
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)
         {
+            return reallocate(newSize,forceRetentionOfData,reallocateIfShrink,0);
+        }
+
+    protected:
+        GLbitfield cachedFlags;
+        size_t BufferSize;
+        GLuint BufferName;
+
+        virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart)
+        {
             if (newSize==BufferSize)
                 return true;
 
@@ -63,7 +73,14 @@ class COpenGLBuffer : public virtual video::IGPUBuffer
                     return false;
 
                 COpenGLExtensionHandler::extGlNamedBufferStorage(newBufferHandle,newSize,NULL,cachedFlags);
-                COpenGLExtensionHandler::extGlCopyNamedBufferSubData(BufferName,newBufferHandle,0,0,core::min_(newSize,BufferSize));
+                if (wraparoundStart&&newSize>BufferSize)
+                {
+                    size_t wrap = wraparoundStart%BufferSize;
+                    COpenGLExtensionHandler::extGlCopyNamedBufferSubData(BufferName,newBufferHandle,wrap,wrap,BufferSize-wrap);
+                    COpenGLExtensionHandler::extGlCopyNamedBufferSubData(BufferName,newBufferHandle,0,BufferSize,wrap);
+                }
+                else
+                    COpenGLExtensionHandler::extGlCopyNamedBufferSubData(BufferName,newBufferHandle,0,0,core::min_(newSize,BufferSize));
                 BufferSize = newSize;
 
                 COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
@@ -83,10 +100,6 @@ class COpenGLBuffer : public virtual video::IGPUBuffer
 
             return true;
         }
-    protected:
-        GLbitfield cachedFlags;
-        size_t BufferSize;
-        GLuint BufferName;
 };
 
 } // end namespace video

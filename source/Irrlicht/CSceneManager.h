@@ -12,6 +12,7 @@
 #include "irrArray.h"
 #include "IMeshLoader.h"
 #include "ILightManager.h"
+#include "CMeshManipulator.h"
 
 #include <map>
 #include <string>
@@ -478,6 +479,7 @@ namespace scene
 		const core::stringw IRR_XML_FORMAT_NODE_ATTR_TYPE;
 
 		IGeometryCreator* GeometryCreator;
+		CMeshManipulator* MeshManipulator;
 	};
 
 } // end namespace video

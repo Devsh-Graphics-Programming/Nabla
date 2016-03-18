@@ -28,23 +28,14 @@ namespace scene
 	class IMeshManipulator : public virtual IReferenceCounted
 	{
 	public:
+#ifndef NEW_MESHES
 	    virtual void isolateAndExtractMeshBuffer(ICPUMeshBuffer* inbuffer, const bool& interleaved=true) const = 0;
-
+#endif // NEW_MESHES
 		//! Flips the direction of surfaces.
 		/** Changes backfacing triangles to frontfacing
 		triangles and vice versa.
 		\param mesh Mesh on which the operation is performed. */
-		virtual void flipSurfaces(SCPUMesh* mesh) const = 0;
-
-		//! Clones a static IMesh into a modifiable SMesh.
-		/** All meshbuffers in the returned SMesh
-		are of type SMeshBuffer or SMeshBufferLightMap.
-		\param mesh Mesh to copy.
-		\return Cloned mesh. If you no longer need the
-		cloned mesh, you should call SMesh::drop(). See
-		IReferenceCounted::drop() for more information. */
-		virtual SCPUMesh* createMeshCopy(SCPUMesh* mesh) const = 0;
-
+		virtual void flipSurfaces(ICPUMeshBuffer* inbuffer) const = 0;
 
 		//! Creates a copy of a mesh with all vertices unwelded
 		/** \param mesh Input mesh
@@ -52,7 +43,7 @@ namespace scene
 		which were previously shared are now duplicated. If you no
 		longer need the cloned mesh, you should call IMesh::drop(). See
 		IReferenceCounted::drop() for more information. */
-		virtual SCPUMesh* createMeshUniquePrimitives(SCPUMesh* mesh) const = 0;
+		virtual ICPUMeshBuffer* createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer) const = 0;
 
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh
@@ -60,17 +51,26 @@ namespace scene
 		\return Mesh without redundant vertices. If you no longer need
 		the cloned mesh, you should call IMesh::drop(). See
 		IReferenceCounted::drop() for more information. */
-		virtual SCPUMesh* createMeshWelded(SCPUMesh* mesh, f32 tolerance=core::ROUNDING_ERROR_f32) const = 0;
+		virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer* inbuffer, const bool& makeNewMesh=false, f32 tolerance=core::ROUNDING_ERROR_f32) const = 0;
+
+		//! Get amount of polygons in mesh buffer.
+		/** \param meshbuffer Input mesh buffer
+		\return Number of polygons in mesh buffer. */
+		template<typename T>
+		static uint32_t getPolyCount(IMeshBuffer<T>* meshbuffer);
 
 		//! Get amount of polygons in mesh.
 		/** \param mesh Input mesh
 		\return Number of polygons in mesh. */
-		virtual s32 getPolyCount(ICPUMesh* mesh) const = 0;
+		template<typename T>
+		static uint32_t getPolyCount(IMesh<T>* mesh);
 
+#ifndef NEW_MESHES
 		//! Get amount of polygons in mesh.
 		/** \param mesh Input mesh
 		\return Number of polygons in mesh. */
-		virtual s32 getPolyCount(ICPUAnimatedMesh* mesh) const = 0;
+		template<typename T>
+		static uint32_t getPolyCount(ICPUAnimatedMesh* mesh);
 
 		//! Create a new AnimatedMesh and adds the mesh to it
 		/** \param mesh Input mesh
@@ -90,8 +90,8 @@ namespace scene
 
 		\param mesh Source mesh for the operation.
 		\return A new mesh optimized for the vertex cache. */
-		virtual SCPUMesh* createForsythOptimizedMesh(const SCPUMesh *mesh) const = 0;
-
+        virtual ICPUMeshBuffer* createForsythOptimizedMeshBuffer(const ICPUMeshBuffer *meshbuffer) const = 0;
+#endif // NEW_MESHES
 
 protected:
 };

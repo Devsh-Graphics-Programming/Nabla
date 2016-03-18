@@ -176,6 +176,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 
 	// create geometry creator
 	GeometryCreator = new CGeometryCreator();
+	MeshManipulator = new CMeshManipulator();
 	{
         //ICPUMesh* boxmesh = GeometryCreator->createCubeMeshCPU();
 
@@ -382,6 +383,9 @@ CSceneManager::~CSceneManager()
 
 	if (CollisionManager)
 		CollisionManager->drop();
+
+    if (MeshManipulator)
+        MeshManipulator->drop();
 
 	if (GeometryCreator)
 		GeometryCreator->drop();
@@ -1347,11 +1351,7 @@ ISceneCollisionManager* CSceneManager::getSceneCollisionManager()
 //! Returns a pointer to the mesh manipulator.
 IMeshManipulator* CSceneManager::getMeshManipulator()
 {
-#ifdef NEW_MESHES
-    return NULL;
-#else
-	return Driver->getMeshManipulator();
-#endif // NEW_MESHES
+	return MeshManipulator;
 }
 
 
