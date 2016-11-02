@@ -19,6 +19,7 @@
 #include "IGeometryCreator.h"
 #include "IMeshCache.h"
 #include "ISkinnedMesh.h"
+#include "ISkinnedMeshSceneNode.h"
 
 namespace irr
 {
@@ -96,16 +97,15 @@ namespace scene
 	class IMeshLoader;
 	class IMeshManipulator;
 	class IMeshSceneNode;
+	class IMeshSceneNodeInstanced;
 	class IMeshWriter;
 	class IMetaTriangleSelector;
-	class ISceneCollisionManager;
 	class ISceneNode;
 	class ISceneNodeAnimator;
 	class ISceneNodeAnimatorCollisionResponse;
 	class ISceneNodeAnimatorFactory;
 	class ISceneNodeFactory;
 	class ISceneUserDataSerializer;
-	class ITriangleSelector;
 
 	namespace quake3
 	{
@@ -387,7 +387,7 @@ namespace scene
 		\return Pointer to the created test scene node. This
 		pointer should not be dropped. See IReferenceCounted::drop()
 		for more information. */
-		virtual IMeshSceneNode* addCubeSceneNode(f32 size=10.0f, ISceneNode* parent=0, s32 id=-1,
+		virtual IMeshSceneNode* addCubeSceneNode(f32 size=10.0f, IDummyTransformationSceneNode* parent=0, s32 id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
@@ -408,28 +408,18 @@ namespace scene
 		pointer should not be dropped. See IReferenceCounted::drop()
 		for more information. */
 		virtual IMeshSceneNode* addSphereSceneNode(f32 radius=5.0f, s32 polyCount=16,
-				ISceneNode* parent=0, s32 id=-1,
+				IDummyTransformationSceneNode* parent=0, s32 id=-1,
 				const core::vector3df& position = core::vector3df(0,0,0),
 				const core::vector3df& rotation = core::vector3df(0,0,0),
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
 
-		//! Adds a scene node for rendering an animated mesh model.
-		/** \param mesh: Pointer to the loaded animated mesh to be displayed.
-		\param parent: Parent of the scene node. Can be NULL if no parent.
-		\param id: Id of the node. This id can be used to identify the scene node.
-		\param position: Position of the space relative to its parent where the
-		scene node will be placed.
-		\param rotation: Initital rotation of the scene node.
-		\param scale: Initial scale of the scene node.
-		\param alsoAddIfMeshPointerZero: Add the scene node even if a 0 pointer is passed.
-		\return Pointer to the created scene node.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IAnimatedMeshSceneNode* addAnimatedMeshSceneNode(ICPUAnimatedMesh* mesh,
-				ISceneNode* parent=0, s32 id=-1,
+		//! Adds a scene node for rendering an skinned mesh model.
+		virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(
+                IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
+				IDummyTransformationSceneNode* parent=0, s32 id=-1,
 				const core::vector3df& position = core::vector3df(0,0,0),
 				const core::vector3df& rotation = core::vector3df(0,0,0),
-				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f),
-				bool alsoAddIfMeshPointerZero=false) = 0;
+				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
 
 		//! Adds a scene node for rendering a static mesh.
 		/** \param mesh: Pointer to the loaded static mesh to be displayed.
@@ -442,11 +432,16 @@ namespace scene
 		\param alsoAddIfMeshPointerZero: Add the scene node even if a 0 pointer is passed.
 		\return Pointer to the created scene node.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IMeshSceneNode* addMeshSceneNode(IGPUMesh* mesh, ISceneNode* parent=0, s32 id=-1,
+		virtual IMeshSceneNode* addMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent=0, s32 id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f),
 			bool alsoAddIfMeshPointerZero=false) = 0;
+
+        virtual IMeshSceneNodeInstanced* addMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent=0, s32 id=-1,
+			const core::vector3df& position = core::vector3df(0,0,0),
+			const core::vector3df& rotation = core::vector3df(0,0,0),
+			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
 
 		//! Adds a camera scene node to the scene graph and sets it as active camera.
 		/** This camera does not react on user input like for example the one created with
@@ -465,7 +460,7 @@ namespace scene
 		Make sure you always have one active camera.
 		\return Pointer to interface to camera if successful, otherwise 0.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ICameraSceneNode* addCameraSceneNode(ISceneNode* parent = 0,
+		virtual ICameraSceneNode* addCameraSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& lookat = core::vector3df(0,0,100),
 			s32 id=-1, bool makeActive=true) = 0;
@@ -487,7 +482,7 @@ namespace scene
 		Make sure you always have one active camera.
 		\return Returns a pointer to the interface of the camera if successful, otherwise 0.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ICameraSceneNode* addCameraSceneNodeMaya(ISceneNode* parent=0,
+		virtual ICameraSceneNode* addCameraSceneNodeMaya(IDummyTransformationSceneNode* parent=0,
 			f32 rotateSpeed=-1500.f, f32 zoomSpeed=200.f,
 			f32 translationSpeed=1500.f, s32 id=-1, f32 distance=70.f,
 			bool makeActive=true) =0;
@@ -556,7 +551,7 @@ namespace scene
 		\return Pointer to the interface of the camera if successful,
 		otherwise 0. This pointer should not be dropped. See
 		IReferenceCounted::drop() for more information. */
-		virtual ICameraSceneNode* addCameraSceneNodeFPS(ISceneNode* parent = 0,
+		virtual ICameraSceneNode* addCameraSceneNodeFPS(IDummyTransformationSceneNode* parent = 0,
 			f32 rotateSpeed = 100.0f, f32 moveSpeed = 0.5f, s32 id=-1,
 			SKeyMap* keyMapArray=0, s32 keyMapSize=0, bool noVerticalMovement=false,
 			f32 jumpSpeed = 0.f, bool invertMouse=false,
@@ -575,7 +570,7 @@ namespace scene
 		\param id: id of the node. This id can be used to identify the node.
 		\return Pointer to the interface of the light if successful, otherwise NULL.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ILightSceneNode* addLightSceneNode(ISceneNode* parent = 0,
+		virtual ILightSceneNode* addLightSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			video::SColorf color = video::SColorf(1.0f, 1.0f, 1.0f),
 			f32 radius=100.0f, s32 id=-1) = 0;
@@ -600,7 +595,7 @@ namespace scene
 		\return Pointer to the billboard if successful, otherwise NULL.
 		This pointer should not be dropped. See
 		IReferenceCounted::drop() for more information. */
-		virtual IBillboardSceneNode* addBillboardSceneNode(ISceneNode* parent = 0,
+		virtual IBillboardSceneNode* addBillboardSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::dimension2d<f32>& size = core::dimension2d<f32>(10.0f, 10.0f),
 			const core::vector3df& position = core::vector3df(0,0,0), s32 id=-1,
 			video::SColor colorTop = 0xFFFFFFFF, video::SColor colorBottom = 0xFFFFFFFF) = 0;
@@ -622,7 +617,7 @@ namespace scene
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual ISceneNode* addSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom,
 			video::ITexture* left, video::ITexture* right, video::ITexture* front,
-			video::ITexture* back, ISceneNode* parent = 0, s32 id=-1) = 0;
+			video::ITexture* back, IDummyTransformationSceneNode* parent = 0, s32 id=-1) = 0;
 
 		//! Adds a skydome scene node to the scene graph.
 		/** A skydome is a large (half-) sphere with a panoramic texture
@@ -645,14 +640,14 @@ namespace scene
 		virtual ISceneNode* addSkyDomeSceneNode(video::ITexture* texture,
 			u32 horiRes=16, u32 vertRes=8,
 			f32 texturePercentage=0.9, f32 spherePercentage=2.0,f32 radius = 1000.f,
-			ISceneNode* parent=0, s32 id=-1) = 0;
+			IDummyTransformationSceneNode* parent=0, s32 id=-1) = 0;
 
 		//! Adds an empty scene node to the scene graph.
 		/** Can be used for doing advanced transformations
 		or structuring the scene graph.
 		\return Pointer to the created scene node.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addEmptySceneNode(ISceneNode* parent=0, s32 id=-1) = 0;
+		virtual ISceneNode* addEmptySceneNode(IDummyTransformationSceneNode* parent=0, s32 id=-1) = 0;
 
 		//! Adds a dummy transformation scene node to the scene graph.
 		/** This scene node does not render itself, and does not respond to set/getPosition,
@@ -662,7 +657,7 @@ namespace scene
 		\return Pointer to the created scene node.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
-			ISceneNode* parent=0, s32 id=-1) = 0;
+			IDummyTransformationSceneNode* parent=0, s32 id=-1) = 0;
 
 		//! Gets the root scene node.
 		/** This is the scene node which is parent
@@ -672,7 +667,7 @@ namespace scene
 		\return Pointer to the root scene node.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual ISceneNode* getRootSceneNode() = 0;
-
+/*
 		//! Get the first scene node with the specified id.
 		/** \param id: The id to search for
 		\param start: Scene node to start from. All children of this scene
@@ -680,8 +675,8 @@ namespace scene
 		taken.
 		\return Pointer to the first scene node with this id,
 		and null if no scene node could be found.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* getSceneNodeFromId(s32 id, ISceneNode* start=0) = 0;
+		This pointer should not be dropped. See IReferenceCounted::drop() for more information. *
+		virtual ISceneNode* getSceneNodeFromId(s32 id, IDummyTransformationSceneNode* start=0) = 0;
 
 		//! Get the first scene node with the specified name.
 		/** \param name: The name to search for
@@ -690,8 +685,8 @@ namespace scene
 		taken.
 		\return Pointer to the first scene node with this id,
 		and null if no scene node could be found.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* getSceneNodeFromName(const c8* name, ISceneNode* start=0) = 0;
+		This pointer should not be dropped. See IReferenceCounted::drop() for more information. *
+		virtual ISceneNode* getSceneNodeFromName(const c8* name, IDummyTransformationSceneNode* start=0) = 0;
 
 		//! Get the first scene node with the specified type.
 		/** \param type: The type to search for
@@ -700,19 +695,19 @@ namespace scene
 		taken.
 		\return Pointer to the first scene node with this type,
 		and null if no scene node could be found.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, ISceneNode* start=0) = 0;
+		This pointer should not be dropped. See IReferenceCounted::drop() for more information. *
+		virtual ISceneNode* getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, IDummyTransformationSceneNode* start=0) = 0;
 
 		//! Get scene nodes by type.
 		/** \param type: Type of scene node to find (ESNT_ANY will return all child nodes).
 		\param outNodes: array to be filled with results.
 		\param start: Scene node to start from. All children of this scene
 		node are searched. If null is specified, the root scene node is
-		taken. */
+		taken. *
 		virtual void getSceneNodesFromType(ESCENE_NODE_TYPE type,
 				core::array<scene::ISceneNode*>& outNodes,
-				ISceneNode* start=0) = 0;
-
+				IDummyTransformationSceneNode* start=0) = 0;
+*/
 		//! Get the current active camera.
 		/** \return The active camera is returned. Note that this can
 		be NULL, if there was no camera created yet.
@@ -808,44 +803,6 @@ namespace scene
 		See IReferenceCounted::drop() for more information. */
 		virtual ISceneNodeAnimator* createDeleteAnimator(u32 timeMs) = 0;
 
-		//! Creates a special scene node animator for doing automatic collision detection and response.
-		/** See ISceneNodeAnimatorCollisionResponse for details.
-		\param world: Triangle selector holding all triangles of the world with which
-		the scene node may collide. You can create a triangle selector with
-		ISceneManager::createTriangleSelector();
-		\param sceneNode: SceneNode which should be manipulated. After you added this animator
-		to the scene node, the scene node will not be able to move through walls and is
-		affected by gravity. If you need to teleport the scene node to a new position without
-		it being effected by the collision geometry, then call sceneNode->setPosition(); then
-		animator->setTargetNode(sceneNode);
-		\param ellipsoidRadius: Radius of the ellipsoid with which collision detection and
-		response is done. If you have got a scene node, and you are unsure about
-		how big the radius should be, you could use the following code to determine
-		it:
-		\code
-		const core::aabbox3d<f32>& box = yourSceneNode->getBoundingBox();
-		core::vector3df radius = box.MaxEdge - box.getCenter();
-		\endcode
-		\param gravityPerSecond: Sets the gravity of the environment, as an acceleration in
-		units per second per second. If your units are equivalent to metres, then
-		core::vector3df(0,-10.0f,0) would give an approximately realistic gravity.
-		You can disable gravity by setting it to core::vector3df(0,0,0).
-		\param ellipsoidTranslation: By default, the ellipsoid for collision detection is created around
-		the center of the scene node, which means that the ellipsoid surrounds
-		it completely. If this is not what you want, you may specify a translation
-		for the ellipsoid.
-		\param slidingValue: DOCUMENTATION NEEDED.
-		\return The animator. Attach it to a scene node with ISceneNode::addAnimator()
-		and the animator will cause it to do collision detection and response.
-		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimatorCollisionResponse* createCollisionResponseAnimator(
-			ITriangleSelector* world, ISceneNode* sceneNode,
-			const core::vector3df& ellipsoidRadius = core::vector3df(30,60,30),
-			const core::vector3df& gravityPerSecond = core::vector3df(0,-10.0f,0),
-			const core::vector3df& ellipsoidTranslation = core::vector3df(0,0,0),
-			f32 slidingValue = 0.0005f) = 0;
-
 		//! Creates a follow spline animator.
 		/** The animator modifies the position of
 		the attached scene node to make it follow a hermite spline.
@@ -859,74 +816,6 @@ namespace scene
 			const core::array< core::vector3df >& points,
 			f32 speed = 1.0f, f32 tightness = 0.5f, bool loop=true, bool pingpong=false) = 0;
 
-		//! Creates a simple ITriangleSelector, based on a mesh.
-		/** Triangle selectors
-		can be used for doing collision detection. Don't use this selector
-		for a huge amount of triangles like in Quake3 maps.
-		Instead, use for example ISceneManager::createOctreeTriangleSelector().
-		Please note that the created triangle selector is not automaticly attached
-		to the scene node. You will have to call ISceneNode::setTriangleSelector()
-		for this. To create and attach a triangle selector is done like this:
-		\code
-		ITriangleSelector* s = sceneManager->createTriangleSelector(yourMesh,
-				yourSceneNode);
-		yourSceneNode->setTriangleSelector(s);
-		s->drop();
-		\endcode
-		\param mesh: Mesh of which the triangles are taken.
-		\param node: Scene node of which visibility and transformation is used.
-		\return The selector, or null if not successful.
-		If you no longer need the selector, you should call ITriangleSelector::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ITriangleSelector* createTriangleSelector(ICPUMesh* mesh, ISceneNode* node) = 0;
-
-
-		//! Creates a simple dynamic ITriangleSelector, based on a axis aligned bounding box.
-		/** Triangle selectors
-		can be used for doing collision detection. Every time when triangles are
-		queried, the triangle selector gets the bounding box of the scene node,
-		an creates new triangles. In this way, it works good with animated scene nodes.
-		\param node: Scene node of which the bounding box, visibility and transformation is used.
-		\return The selector, or null if not successful.
-		If you no longer need the selector, you should call ITriangleSelector::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ITriangleSelector* createTriangleSelectorFromBoundingBox(ISceneNode* node) = 0;
-
-		//! Creates a Triangle Selector, optimized by an octree.
-		/** Triangle selectors
-		can be used for doing collision detection. This triangle selector is
-		optimized for huge amounts of triangle, it organizes them in an octree.
-		Please note that the created triangle selector is not automaticly attached
-		to the scene node. You will have to call ISceneNode::setTriangleSelector()
-		for this. To create and attach a triangle selector is done like this:
-		\code
-		ITriangleSelector* s = sceneManager->createOctreeTriangleSelector(yourMesh,
-				yourSceneNode);
-		yourSceneNode->setTriangleSelector(s);
-		s->drop();
-		\endcode
-		For more informations and examples on this, take a look at the collision
-		tutorial in the SDK.
-		\param mesh: Mesh of which the triangles are taken.
-		\param node: Scene node of which visibility and transformation is used.
-		\param minimalPolysPerNode: Specifies the minimal polygons contained a octree node.
-		If a node gets less polys the this value, it will not be splitted into
-		smaller nodes.
-		\return The selector, or null if not successful.
-		If you no longer need the selector, you should call ITriangleSelector::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ITriangleSelector* createOctreeTriangleSelector(ICPUMesh* mesh,
-			ISceneNode* node, s32 minimalPolysPerNode=32) = 0;
-
-		//! Creates a meta triangle selector.
-		/** A meta triangle selector is nothing more than a
-		collection of one or more triangle selectors providing together
-		the interface of one triangle selector. In this way,
-		collision tests can be done with different triangle soups in one pass.
-		\return The selector, or null if not successful.
-		If you no longer need the selector, you should call ITriangleSelector::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual IMetaTriangleSelector* createMetaTriangleSelector() = 0;
 
 		//! Adds an external mesh loader for extending the engine with new file formats.
 		/** If you want the engine to be extended with
@@ -946,11 +835,6 @@ namespace scene
 		\return A pointer to the specified loader, 0 if the index is incorrect. */
 		virtual IMeshLoader* getMeshLoader(u32 index) const = 0;
 
-		//! Get pointer to the scene collision manager.
-		/** \return Pointer to the collision manager
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneCollisionManager* getSceneCollisionManager() = 0;
-
 		//! Get pointer to the mesh manipulator.
 		/** \return Pointer to the mesh manipulator
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
@@ -965,7 +849,7 @@ namespace scene
 		deletion queue is not necessary.
 		See ISceneManager::createDeleteAnimator() for details.
 		\param node: Node to detete. */
-		virtual void addToDeletionQueue(ISceneNode* node) = 0;
+		virtual void addToDeletionQueue(IDummyTransformationSceneNode* node) = 0;
 
 		//! Posts an input event to the environment.
 		/** Usually you do not have to
@@ -1030,7 +914,7 @@ namespace scene
 		//! Adds a scene node to the scene by name
 		/** \return Pointer to the scene node added by a factory
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addSceneNode(const char* sceneNodeTypeName, ISceneNode* parent=0) = 0;
+		virtual ISceneNode* addSceneNode(const char* sceneNodeTypeName, IDummyTransformationSceneNode* parent=0) = 0;
 
 		//! creates a scene node animator based on its type name
 		/** \param typeName: Type of the scene node animator to add.
@@ -1090,7 +974,7 @@ namespace scene
 		\param node The scene node which is checked for culling.
 		\return True if node is not visible in the current scene, else
 		false. */
-		virtual bool isCulled(const ISceneNode* node) const =0;
+		virtual bool isCulled(ISceneNode* node) const =0;
 	};
 
 

@@ -243,8 +243,6 @@ namespace core
 			//! Translate a vector by the inverse of the translation part of this matrix.
 			void inverseTranslateVect( vector3df& vect ) const;
 /*
-			//! Rotate a vector by the inverse of the rotation part of this matrix.
-			void inverseRotateVect( vector3df& vect ) const;
 
 			//! Rotate a vector by the rotation part of this matrix.
 			void rotateVect( vector3df& vect ) const;
@@ -959,14 +957,6 @@ namespace core
 		out[0] = in.X*M[0] + in.Y*M[4] + in.Z*M[8];
 		out[1] = in.X*M[1] + in.Y*M[5] + in.Z*M[9];
 		out[2] = in.X*M[2] + in.Y*M[6] + in.Z*M[10];
-	}
-
-	inline void matrixSIMD4::inverseRotateVect( vector3df& vect ) const
-	{
-		vector3df tmp = vect;
-		vect.X = tmp.X*M[0] + tmp.Y*M[1] + tmp.Z*M[2];
-		vect.Y = tmp.X*M[4] + tmp.Y*M[5] + tmp.Z*M[6];
-		vect.Z = tmp.X*M[8] + tmp.Y*M[9] + tmp.Z*M[10];
 	}
 */
 

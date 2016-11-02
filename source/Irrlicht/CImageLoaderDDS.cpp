@@ -158,7 +158,7 @@ void DDSDecodePixelFormat( ddsBuffer *dds, eDDSPixelFormat *pf )
 	}
 	else if( fourCC == *((u32*) "DXT1") )
 	{ // sodan was here
-//	    if (dds->pixelFormat.privateFormatBitCount==24)	
+//	    if (dds->pixelFormat.privateFormatBitCount==24)
             *pf = DDS_PF_DXT1;
 /*        else if (dds->pixelFormat.privateFormatBitCount==32)
             *pf = DDS_PF_DXT1_ALPHA;
@@ -362,12 +362,12 @@ IImage* CImageLoaderDDS::loadImage(io::IReadFile* file) const
 	file->read ( memFile, file->getSize() );
 
 	ddsBuffer *header = (ddsBuffer*) memFile;
-	IImage* image = 0;/*
+	IImage* image = 0;
 	s32 width, height;
 	eDDSPixelFormat pixelFormat;
 
 	if ( 0 == DDSGetInfo( header, &width, &height, &pixelFormat) )
-	{
+	{/*
 		image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(width, height));
 
 		if ( DDSDecompress( header, (u8*) image->lock() ) == -1)
@@ -375,8 +375,8 @@ IImage* CImageLoaderDDS::loadImage(io::IReadFile* file) const
 			image->unlock();
 			image->drop();
 			image = 0;
-		}
-	}*/
+		}*/
+	}
 
 	delete [] memFile;
 	if ( image )

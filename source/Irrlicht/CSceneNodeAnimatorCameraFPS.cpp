@@ -8,7 +8,6 @@
 #include "Keycodes.h"
 #include "ICursorControl.h"
 #include "ICameraSceneNode.h"
-#include "ISceneNodeAnimatorCollisionResponse.h"
 
 namespace irr
 {
@@ -95,7 +94,7 @@ bool CSceneNodeAnimatorCameraFPS::OnEvent(const SEvent& evt)
 }
 
 
-void CSceneNodeAnimatorCameraFPS::animateNode(ISceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
 {
 	if (!node || node->getType() != ESNT_CAMERA)
 		return;
@@ -196,14 +195,14 @@ void CSceneNodeAnimatorCameraFPS::animateNode(ISceneNode* node, u32 timeMs)
 	target.set(0,0, core::max_(1.f, pos.getLength()));
 	core::vector3df movedir = target;
 
-	core::matrix4 mat;
+	core::matrix4x3 mat;
 	mat.setRotationDegrees(core::vector3df(relativeRotation.X, relativeRotation.Y, 0));
-	mat.transformVect(target);
+	mat.transformVect(&target.X);
 
 	if (NoVerticalMovement)
 	{
 		mat.setRotationDegrees(core::vector3df(0, relativeRotation.Y, 0));
-		mat.transformVect(movedir);
+		mat.transformVect(&movedir.X);
 	}
 	else
 	{
@@ -233,27 +232,6 @@ void CSceneNodeAnimatorCameraFPS::animateNode(ISceneNode* node, u32 timeMs)
 
 	if (CursorKeys[EKA_STRAFE_RIGHT])
 		pos -= strafevect * timeDiff * MoveSpeed;
-
-	// For jumping, we find the collision response animator attached to our camera
-	// and if it's not falling, we tell it to jump.
-	if (CursorKeys[EKA_JUMP_UP])
-	{
-		const ISceneNodeAnimatorList& animators = camera->getAnimators();
-		ISceneNodeAnimatorList::ConstIterator it = animators.begin();
-		while(it != animators.end())
-		{
-			if(ESNAT_COLLISION_RESPONSE == (*it)->getType())
-			{
-				ISceneNodeAnimatorCollisionResponse * collisionResponse =
-					static_cast<ISceneNodeAnimatorCollisionResponse *>(*it);
-
-				if(!collisionResponse->isFalling())
-					collisionResponse->jump(JumpSpeed);
-			}
-
-			it++;
-		}
-	}
 
 	// write translation
 	camera->setPosition(pos);
@@ -340,7 +318,7 @@ void CSceneNodeAnimatorCameraFPS::setInvertMouse(bool invert)
 }
 
 
-ISceneNodeAnimator* CSceneNodeAnimatorCameraFPS::createClone(ISceneNode* node, ISceneManager* newManager)
+ISceneNodeAnimator* CSceneNodeAnimatorCameraFPS::createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager)
 {
 	CSceneNodeAnimatorCameraFPS * newAnimator =
 		new CSceneNodeAnimatorCameraFPS(CursorControl,	RotateSpeed, MoveSpeed, JumpSpeed,

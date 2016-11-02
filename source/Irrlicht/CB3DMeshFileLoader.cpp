@@ -169,6 +169,8 @@ bool CB3DMeshFileLoader::readChunkNODE(CSkinnedMesh::SJoint *inJoint)
 
 	joint->Animatedposition = core::vector3df(position[0],position[1],position[2]) ;
 	joint->Animatedscale = core::vector3df(scale[0],scale[1],scale[2]);
+_
+#error "Fix QUATERNIONS FIRST!!!"
 	joint->Animatedrotation = core::quaternion(rotation[1], rotation[2], rotation[3], rotation[0]);
 
 	//Build LocalMatrix:
@@ -631,6 +633,8 @@ bool CB3DMeshFileLoader::readChunkKEYS(CSkinnedMesh::SJoint *inJoint)
 	core::vector3df oldScale[2];
 	CSkinnedMesh::SRotationKey *oldRotKey=0;
 	core::quaternion oldRot[2];
+_
+#error "Fix QUATERNIONS FIRST!!!"
 	bool isFirst[3]={true,true,true};
 	while((B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos()) //this chunk repeats
 	{
@@ -712,6 +716,8 @@ bool CB3DMeshFileLoader::readChunkKEYS(CSkinnedMesh::SJoint *inJoint)
 		if (flags & 4)
 		{
 			readFloats(data, 4);
+_
+#error "Fix QUATERNIONS FIRST!!!"
 			if ((oldRotKey!=0) && (oldRot[0]==oldRot[1]))
 			{
 				// meant to be in this order since b3d stores W first
@@ -993,7 +999,6 @@ bool CB3DMeshFileLoader::readChunkBRUS()
 		}
 
 		B3dMaterial.Material.DiffuseColor = video::SColorf(B3dMaterial.red, B3dMaterial.green, B3dMaterial.blue, B3dMaterial.alpha).toSColor();
-		B3dMaterial.Material.ColorMaterial=video::ECM_NONE;
 
 		//------ Material fx ------
 
@@ -1004,9 +1009,6 @@ bool CB3DMeshFileLoader::readChunkBRUS()
 		}
 		else
 			B3dMaterial.Material.AmbientColor = B3dMaterial.Material.DiffuseColor;
-
-		if (B3dMaterial.fx & 2) //use vertex colors instead of brush color
-			B3dMaterial.Material.ColorMaterial=video::ECM_DIFFUSE_AND_AMBIENT;
 
 		if (B3dMaterial.fx & 4) //flatshaded
 			B3dMaterial.Material.GouraudShading = false;

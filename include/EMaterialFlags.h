@@ -39,14 +39,8 @@ namespace video
 		//! ColorMask bits, for enabling the color planes
 		EMF_COLOR_MASK = 0x8000,
 
-		//! ColorMaterial enum for vertex color interpretation
-		EMF_COLOR_MATERIAL = 0x10000,
-
 		//! Flag for blend operation
-		EMF_BLEND_OPERATION = 0x40000,
-
-		//! Flag for polygon offset
-		EMF_POLYGON_OFFSET = 0x80000
+		EMF_BLEND_OPERATION = 0x40000
 	};
 
 } // end namespace video

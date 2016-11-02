@@ -204,6 +204,8 @@ private:
 		core::quaternion Orientation;
 		core::vector3df Scale;
 	};
+_
+#error "Fix QUATERNIONS FIRST!!!"
 
 	struct OgreAnimation
 	{

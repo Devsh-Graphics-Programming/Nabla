@@ -14,7 +14,7 @@ namespace scene
 
 
 //! constructor
-CCameraSceneNode::CCameraSceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id,
+CCameraSceneNode::CCameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 	const core::vector3df& position, const core::vector3df& lookat)
 	: ICameraSceneNode(parent, mgr, id, position),
 	Target(lookat), UpVector(0.0f, 1.0f, 0.0f), ZNear(1.0f), ZFar(3000.0f),
@@ -61,7 +61,8 @@ to build a projection matrix. e.g: core::matrix4::buildProjectionMatrixPerspecti
 void CCameraSceneNode::setProjectionMatrix(const core::matrix4& projection, bool isOrthogonal)
 {
 	IsOrthogonal = isOrthogonal;
-	ViewArea.getTransform ( video::ETS_PROJECTION ) = projection;
+	projMatrix = projection;
+	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 }
 
 
@@ -69,33 +70,17 @@ void CCameraSceneNode::setProjectionMatrix(const core::matrix4& projection, bool
 //! \return Returns the current projection matrix of the camera.
 const core::matrix4& CCameraSceneNode::getProjectionMatrix() const
 {
-	return ViewArea.getTransform ( video::ETS_PROJECTION );
+	return projMatrix;
 }
 
 
 //! Gets the current view matrix of the camera
 //! \return Returns the current view matrix of the camera.
-const core::matrix4& CCameraSceneNode::getViewMatrix() const
+const core::matrix4x3& CCameraSceneNode::getViewMatrix() const
 {
-	return ViewArea.getTransform ( video::ETS_VIEW );
+	return viewMatrix;
 }
 
-
-//! Sets a custom view matrix affector. The matrix passed here, will be
-//! multiplied with the view matrix when it gets updated.
-//! This allows for custom camera setups like, for example, a reflection camera.
-/** \param affector: The affector matrix. */
-void CCameraSceneNode::setViewMatrixAffector(const core::matrix4& affector)
-{
-	Affector = affector;
-}
-
-
-//! Gets the custom view matrix affector.
-const core::matrix4& CCameraSceneNode::getViewMatrixAffector() const
-{
-	return Affector;
-}
 
 
 //! It is possible to send mouse and key events to the camera. Most cameras
@@ -227,7 +212,8 @@ void CCameraSceneNode::setFOV(f32 f)
 
 void CCameraSceneNode::recalculateProjectionMatrix()
 {
-	ViewArea.getTransform ( video::ETS_PROJECTION ).buildProjectionMatrixPerspectiveFovLH(Fovy, Aspect, ZNear, ZFar);
+	projMatrix.buildProjectionMatrixPerspectiveFovLH(Fovy, Aspect, ZNear, ZFar);
+	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 }
 
 
@@ -260,21 +246,21 @@ void CCameraSceneNode::render()
 		up.X += 0.5f;
 	}
 
-	ViewArea.getTransform(video::ETS_VIEW).buildCameraLookAtMatrixLH(pos, Target, up);
-	ViewArea.getTransform(video::ETS_VIEW) *= Affector;
+	viewMatrix.buildCameraLookAtMatrixLH(pos, Target, up);
+	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 	recalculateViewArea();
 
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 	if ( driver)
 	{
-		driver->setTransform(video::ETS_PROJECTION, ViewArea.getTransform ( video::ETS_PROJECTION) );
-		driver->setTransform(video::ETS_VIEW, ViewArea.getTransform ( video::ETS_VIEW) );
+		driver->setTransform(video::EPTS_PROJ,projMatrix);
+		driver->setTransform(video::E4X3TS_VIEW, viewMatrix );
 	}
 }
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CCameraSceneNode::getBoundingBox() const
+const core::aabbox3d<f32>& CCameraSceneNode::getBoundingBox()
 {
 	return ViewArea.getBoundingBox();
 }
@@ -291,10 +277,7 @@ void CCameraSceneNode::recalculateViewArea()
 {
 	ViewArea.cameraPosition = getAbsolutePosition();
 
-	core::matrix4 m(core::matrix4::EM4CONST_NOTHING);
-	m.setbyproduct_nocheck(ViewArea.getTransform(video::ETS_PROJECTION),
-						ViewArea.getTransform(video::ETS_VIEW));
-	ViewArea.setFrom(m);
+	ViewArea.setFrom(concatMatrix);
 }
 
 
@@ -314,7 +297,7 @@ bool CCameraSceneNode::getTargetAndRotationBinding(void) const
 
 
 //! Creates a clone of this scene node and its children.
-ISceneNode* CCameraSceneNode::clone(ISceneNode* newParent, ISceneManager* newManager)
+ISceneNode* CCameraSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
 {
 	ICameraSceneNode::clone(newParent, newManager);
 
@@ -336,7 +319,6 @@ ISceneNode* CCameraSceneNode::clone(ISceneNode* newParent, ISceneManager* newMan
 	nb->ZNear = ZNear;
 	nb->ZFar = ZFar;
 	nb->ViewArea = ViewArea;
-	nb->Affector = Affector;
 	nb->InputReceiverEnabled = InputReceiverEnabled;
 	nb->TargetAndRotationAreBound = TargetAndRotationAreBound;
 

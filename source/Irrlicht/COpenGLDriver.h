@@ -24,6 +24,7 @@ namespace irr
 // also includes the OpenGL stuff
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLDriverFence.h"
+#include "COpenGLTransformFeedback.h"
 #include "COpenGLVAO.h"
 
 #include <map>
@@ -51,7 +52,7 @@ namespace video
 		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device);
 		//! inits the GLX specific parts of the open gl driver
-		bool initDriver(CIrrDeviceLinux* device);
+		bool initDriver(CIrrDeviceLinux* device, GLXContext* auxCtxts);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
 		#endif
 
@@ -69,13 +70,19 @@ namespace video
 		//! destructor
 		virtual ~COpenGLDriver();
 
-        virtual IGPUBuffer* createGPUBuffer(const size_t &size, void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE);
+        virtual bool initAuxContext(const size_t& ctxIx);
+        virtual bool deinitAuxContext();
 
-	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true);
+
+        virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE);
+
+	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true);
+
+        virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
 
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc();
 
-	    virtual scene::SGPUMesh* createGPUMeshFromCPU(scene::SCPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT);
+	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT);
 
 		//! clears the zbuffer
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
@@ -86,23 +93,20 @@ namespace video
 		//! presents the rendered scene on the screen, returns false if failed
 		virtual bool endScene();
 
-		//! sets transformation
-		virtual void setTransform(E_TRANSFORMATION_STATE state, const core::matrix4& mat);
+
+		virtual void beginQuery(IQueryObject* query);
+		virtual void endQuery(IQueryObject* query);
+		virtual void beginQuery(IQueryObject* query, const size_t& index);
+		virtual void endQuery(IQueryObject* query, const size_t& index);
+
+        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic);
+
+        virtual IQueryObject* createPrimitivesGeneratedQuery();
+        virtual IQueryObject* createXFormFeedbackPrimitiveQuery();
+        virtual IQueryObject* createElapsedTimeQuery();
+        virtual IGPUTimestampQuery* createTimestampQuery();
 
 
-        virtual IOcclusionQuery* createOcclusionQuery(bool binary=false);
-
-		//! Update occlusion query. Retrieves results from GPU.
-		/** If the query shall not block, set the flag to false.
-		Update might not occur in this case, though */
-		virtual void updateOcclusionQuery(IOcclusionQuery* query, bool block=true);
-
-        virtual void beginOcclusionQuery(IOcclusionQuery* query);
-
-        virtual void endOcclusionQuery();
-
-
-        virtual void drawMeshBuffer(scene::ICPUMeshBuffer* mb, IOcclusionQuery* query);
         virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
 
@@ -111,6 +115,8 @@ namespace video
 		{
 			return FeatureEnabled[feature] && COpenGLExtensionHandler::queryFeature(feature);
 		}
+
+		virtual const video::SMaterial& getCurrentMaterial() const {return Material;}
 
 		//! Sets a material. All 3d drawing functions draw geometry now
 		//! using this material.
@@ -143,11 +149,6 @@ namespace video
 		//! returns the maximal amount of dynamic lights the device can handle
 		virtual u32 getMaximalDynamicLightAmount() const;
 
-		//! Sets the dynamic ambient light color. The default color is
-		//! (0,0,0,0) which means it is dark.
-		//! \param color: New color of the ambient light.
-		virtual void setAmbientLight(const SColorf& color);
-
 		//! sets a viewport
 		virtual void setViewPort(const core::rect<s32>& area);
 
@@ -161,9 +162,6 @@ namespace video
 		//! get color format of the current color buffer
 		virtual ECOLOR_FORMAT getColorFormat() const;
 
-		//! Returns the transformation set by setTransform
-		virtual const core::matrix4& getTransform(E_TRANSFORMATION_STATE state) const;
-
 		//! Can be called by an IMaterialRenderer to make its work easier.
 		virtual void setBasicRenderStates(const SMaterial& material, const SMaterial& lastmaterial,
 			bool resetAllRenderstates);
@@ -174,7 +172,7 @@ namespace video
 
 		//! sets the current Texture
 		//! Returns whether setting was a success or not.
-		bool setActiveTexture(u32 stage, const video::ITexture* texture, const video::STextureSamplingParams &sampleParams);
+		bool setActiveTexture(u32 stage, video::ITexture* texture, const video::STextureSamplingParams &sampleParams);
 
 		GLuint constructSamplerInCache(const uint64_t &hashVal);
 
@@ -187,24 +185,15 @@ namespace video
             u32 patchVertices=3,
             E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
             IShaderConstantSetCallBack* callback=0,
+            const char** xformFeedbackOutputs = NULL,
+            const uint32_t& xformFeedbackOutputCount = 0,
+            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData=0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName="main",
             const c8* evaluationShaderEntryPointName="main",
             const c8* geometryShaderEntryPointName="main",
             const c8* pixelShaderEntryPointName="main");
-
-		//! Adds a new material renderer to the VideoDriver, using GLSL to render geometry.
-		virtual s32 addHighLevelShaderMaterial(
-				const c8* vertexShaderProgram,
-				const c8* vertexShaderEntryPointName,
-				const c8* pixelShaderProgram,
-				const c8* pixelShaderEntryPointName,
-				const c8* geometryShaderProgram = NULL,
-				const c8* geometryShaderEntryPointName = "main",
-				IShaderConstantSetCallBack* callback = 0,
-				E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-				s32 userData = 0);
 
 		//! Returns a pointer to the IVideoDriver interface. (Implementation for
 		//! IMaterialRendererServices)
@@ -228,7 +217,7 @@ namespace video
 
 
 		//! Clears the ZBuffer.
-		virtual void clearZBuffer(const float &depth=1.0);
+		virtual void clearZBuffer(const float &depth=0.0);
 
 		virtual void clearStencilBuffer(const int32_t &stencil);
 
@@ -240,6 +229,28 @@ namespace video
 
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals);
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals);
+
+
+		virtual ITransformFeedback* createTransformFeedback();
+
+		//!
+		virtual void bindTransformFeedback(ITransformFeedback* xformFeedback);
+
+		virtual ITransformFeedback* getBoundTransformFeedback() {return CurrentXFormFeedback;}
+
+        /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
+        This issues an implicit call to bindTransformFeedback()
+        **/
+		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType=scene::EPT_POINTS);
+
+		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
+		virtual void pauseTransformFeedback();
+
+		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
+		virtual void resumeTransformFeedback();
+
+		virtual void endTransformFeedback();
+
 
 		//! checks if an OpenGL error has happend and prints it
 		//! for performance reasons only available in debug mode
@@ -257,17 +268,11 @@ namespace video
 		//! Returns the graphics card vendor name.
 		virtual core::stringc getVendorInfo() {return VendorName;}
 
-		//! Returns the maximum texture size supported.
-		virtual core::dimension2du getMaxTextureSize() const;
-
 		//! Removes a texture from the texture cache and deletes it, freeing lot of memory.
 		void removeTexture(ITexture* texture);
 
 		//! Convert E_PRIMITIVE_TYPE to OpenGL equivalent
 		GLenum primitiveTypeToGL(scene::E_PRIMITIVE_TYPE type) const;
-
-		//! Convert E_BLEND_FACTOR to OpenGL equivalent
-		GLenum getGLBlend(E_BLEND_FACTOR factor) const;
 
 		//! Get ZBuffer bits.
 		GLenum getZBufferBits() const;
@@ -278,29 +283,22 @@ namespace video
 	private:
 	    COpenGLVAO* CurrentVAO;
 
+        bool XFormFeedbackRunning;
+	    COpenGLTransformFeedback* CurrentXFormFeedback;
+
 		//! inits the parts of the open gl driver used on all platforms
 		bool genericDriverInit();
 		//! returns a device dependent texture from a software surface (IImage)
 		virtual video::ITexture* createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData=NULL);
-		virtual video::ITexture* createDeviceDependentTexture(const core::dimension2d<u32>& size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
-
-		//! creates a transposed matrix in supplied GLfloat array to pass to OpenGL
-		inline void getGLMatrix(GLfloat gl_matrix[16], const core::matrix4& m);
-		inline void getGLTextureMatrix(GLfloat gl_matrix[16], const core::matrix4& m);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
 		// returns the current size of the screen or rendertarget
 		virtual const core::dimension2d<u32>& getCurrentRenderTargetSize() const;
 
 		void createMaterialRenderers();
 
-		//! Assign a hardware light to the specified requested light, if any
-		//! free hardware lights exist.
-		//! \param[in] lightIndex: the index of the requesting light
-		void assignHardwareLight(u32 lightIndex);
-
 
 		core::stringw Name;
-		core::matrix4 Matrices[ETS_COUNT];
 
 		//! enumeration for rendering modes such as 2d and 3d for minizing the switching of renderStates.
 		enum E_RENDER_MODE
@@ -313,7 +311,6 @@ namespace video
 		E_RENDER_MODE CurrentRenderMode;
 		//! bool to make all renderstates reset if set to true.
 		bool ResetRenderStates;
-		bool Transformation3DChanged;
 		u8 AntiAlias;
 
 		SMaterial Material, LastMaterial;
@@ -369,8 +366,6 @@ namespace video
 
 		core::stringc VendorName;
 
-		core::matrix4 TextureFlipMatrix;
-
 		//! Color buffer format
 		ECOLOR_FORMAT ColorFormat;
 
@@ -381,10 +376,9 @@ namespace video
 		struct RequestedLight
 		{
 			RequestedLight(SLight const & lightData)
-				: LightData(lightData), HardwareLightIndex(-1), DesireToBeOn(true) { }
+				: LightData(lightData), DesireToBeOn(true) { }
 
 			SLight	LightData;
-			s32	HardwareLightIndex; // GL_LIGHT0 - GL_LIGHT7
 			bool	DesireToBeOn;
 		};
 		core::array<RequestedLight> RequestedLights;
@@ -407,6 +401,8 @@ namespace video
 		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 			CIrrDeviceSDL *SDLDevice;
 		#endif
+
+		void* AuxContext;
 
 		E_DEVICE_TYPE DeviceType;
 	};

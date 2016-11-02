@@ -19,37 +19,29 @@ class COpenGL3DTexture : public COpenGLTexture
 public:
 
 	//! constructor
-	COpenGL3DTexture(core::vector3d<u32> size, GLenum format, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, void* data, void* mipmapData=0, COpenGLDriver* driver=0, u32 mipmapLevels=0);
+	COpenGL3DTexture(core::vector3d<u32> size, GLenum format, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, const void* data, void* mipmapData=0, COpenGLDriver* driver=0, u32 mipmapLevels=0);
 
-	//! destructor
-	virtual ~COpenGL3DTexture();
 
-	//! Returns size of the texture.
-	virtual const core::vector3d<u32>& getSize3D() const;
+	virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_THREE;}
+
+    virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_3D;}
 
 	//! returns pitch of texture (in bytes)
 	virtual u32 getPitch() const;
 
 
-
-	//! return whether this texture has mipmaps
-	virtual void* lock(E_TEXTURE_LOCK_MODE mode=ETLM_READ_WRITE, u32 mipmapLevel=0) {return NULL;}
-	virtual void unlock() {}
-	virtual const core::dimension2d<u32>& getSize() const {return TextureSize;}
-    virtual const core::dimension2du& getRenderableSize() const {return *reinterpret_cast<const core::dimension2du*>(&TextureSize3D);}
+    //!
+    virtual core::dimension2du getRenderableSize() const {return *reinterpret_cast<const core::dimension2du*>(TextureSize);}
 
 
 	//! returns the opengl texture type
 	virtual GLenum getOpenGLTextureType() const;
 
-    virtual void updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, void* data, u32 minX, u32 minY, u32 minZ, u32 maxX, u32 maxY, u32 maxZ, s32 mipmap=0);
-    virtual void resize(core::vector3d<u32> size, u32 mipLevels=0);
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0);
+    virtual bool resize(const uint32_t* size, u32 mipLevels=0);
 
 
 protected:
-
-	core::vector3d<u32> OrigSize3D;
-	core::vector3d<u32> TextureSize3D;
 };
 
 //! OpenGL texture.
@@ -61,39 +53,29 @@ public:
 	//! constructor
 	COpenGL2DTextureArray(core::vector3d<u32> size, ECOLOR_FORMAT format, const io::path& name, void* mipmapData, COpenGLDriver* driver=0, u32 mipmapLevels=0);
 
-	//! destructor
-	virtual ~COpenGL2DTextureArray();
 
-	//! Returns size of the texture.
-	virtual const core::vector3d<u32>& getSize3D() const;
+	virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_THREE;}
+
+    virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D_ARRAY;}
 
 	//! returns pitch of texture (in bytes)
 	virtual u32 getPitch() const;
 
 
-
-	//! return whether this texture has mipmaps
-	virtual void* lock(E_TEXTURE_LOCK_MODE mode=ETLM_READ_WRITE, u32 mipmapLevel=0) {return NULL;}
-	virtual void unlock() {}
-	virtual const core::dimension2d<u32>& getSize() const {return TextureSize;}
-    virtual const core::dimension2du& getRenderableSize() const {return *reinterpret_cast<const core::dimension2du*>(&TextureSize3D);}
+    //!
+    virtual core::dimension2du getRenderableSize() const {return *reinterpret_cast<const core::dimension2du*>(TextureSize);}
 
 
 
 	//! returns the opengl texture type
 	virtual GLenum getOpenGLTextureType() const;
 
-	//virtual bool is3D() const { return true; }
 
-//! needs my attention
-    virtual void updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, void* data, u32 minX, u32 minY, u32 minZ, u32 maxX, u32 maxY, u32 maxZ, s32 mipmap=0);
-    virtual void resize(core::vector3d<u32> size, u32 mipLevels=0);
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0);
+    virtual bool resize(const uint32_t* size, u32 mipLevels=0);
 
 
 protected:
-
-	core::vector3d<u32> OrigSize3D;
-	core::vector3d<u32> TextureSize3D;
 };
 
 

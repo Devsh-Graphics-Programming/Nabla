@@ -28,17 +28,22 @@ public:
 	//! constructor
 	COpenGLTexture(IImage* surface, const io::path& name, void* mipmapData=0, COpenGLDriver* driver=0, u32 mipmapLevels=0);
 
-	COpenGLTexture(GLenum internalFormat, core::dimension2du size, void* data, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, void* mipmapData=0, COpenGLDriver* driver=0, u32 mipmapLevels=0);
+	COpenGLTexture(GLenum internalFormat, core::dimension2du size, const void* data, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, void* mipmapData=0, COpenGLDriver* driver=0, u32 mipmapLevels=0);
 
 	//! destructor
 	virtual ~COpenGLTexture();
 
 	//! Returns size of the texture.
-	virtual const core::dimension2d<u32>& getSize() const;
-    virtual const core::dimension2du& getRenderableSize() const {return TextureSize;}
+	virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+
+    virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
+
+
+	virtual const uint32_t* getSize() const {return TextureSize;}
+    virtual core::dimension2du getRenderableSize() const {return *reinterpret_cast<const core::dimension2du*>(TextureSize);}
 
 	//! returns driver type of texture (=the driver, that created it)
-	virtual E_DRIVER_TYPE getDriverType() const;
+	virtual E_DRIVER_TYPE getDriverType() const {return EDT_OPENGL;}
 
 	//! returns color format of texture
 	virtual ECOLOR_FORMAT getColorFormat() const;
@@ -50,7 +55,7 @@ public:
 	const GLuint& getOpenGLName() const {return TextureName;}
 	GLuint* getOpenGLNamePtr() {return &TextureName;}
 
-	GLint getOpenGLInternalFormat() const;
+	GLint getOpenGLInternalFormat() const {return InternalFormat;}
 	///GLenum getOpenGLPixelFormat() const;
 	///GLenum getOpenGLPixelType() const;
 
@@ -65,7 +70,10 @@ public:
 	\param mipmapData Pointer to raw mipmap data, including all necessary mip levels, in the same format as the main texture image. If not set the mipmaps are derived from the main image. */
 	virtual void regenerateMipMapLevels();
 
-	void resize(const core::dimension2du &newSize, const u32 &mipmapLevels);
+
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0);
+    virtual bool resize(const uint32_t* size, const u32& mipLevels=0);
+
 
 	const uint64_t& hasOpenGLNameChanged() const {return TextureNameHasChanged;}
 
@@ -97,7 +105,7 @@ protected:
 	//! get important numbers of the image and hw texture
 	core::dimension2du getImageValues(IImage* image);
 
-	core::dimension2d<u32> TextureSize;
+	uint32_t TextureSize[3];
 	ECOLOR_FORMAT ColorFormat;
 	COpenGLDriver* Driver;
 

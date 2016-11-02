@@ -6,7 +6,6 @@
 #include "CSceneNodeAnimatorCameraFPS.h"
 #include "CSceneNodeAnimatorCameraMaya.h"
 #include "ICursorControl.h"
-#include "ISceneNodeAnimatorCollisionResponse.h"
 #include "ISceneManager.h"
 
 namespace irr
@@ -23,7 +22,6 @@ const c8* const SceneNodeAnimatorTypeNames[] =
 	"rotation",
 	"texture",
 	"deletion",
-	"collisionResponse",
 	"cameraFPS",
 	"cameraMaya",
 	0
@@ -83,9 +81,6 @@ ISceneNodeAnimator* CDefaultSceneNodeAnimatorFactory::createSceneNodeAnimator(ES
 	case ESNAT_DELETION:
 		anim = Manager->createDeleteAnimator(5000);
 		break;
-	case ESNAT_COLLISION_RESPONSE:
-		anim = Manager->createCollisionResponseAnimator(0, target);
-		break;
 	case ESNAT_CAMERA_FPS:
 		anim = new CSceneNodeAnimatorCameraFPS(CursorControl);
 		break;
@@ -127,7 +122,7 @@ ESCENE_NODE_ANIMATOR_TYPE CDefaultSceneNodeAnimatorFactory::getCreateableSceneNo
 }
 
 
-//! returns type name of a createable scene node animator type 
+//! returns type name of a createable scene node animator type
 const c8* CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorTypeName(u32 idx) const
 {
 	if (idx<ESNAT_COUNT)
@@ -136,7 +131,7 @@ const c8* CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorTypeNa
 		return 0;
 }
 
-//! returns type name of a createable scene node animator type 
+//! returns type name of a createable scene node animator type
 const c8* CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorTypeName(ESCENE_NODE_ANIMATOR_TYPE type) const
 {
 	// for this factory: index == type

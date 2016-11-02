@@ -357,6 +357,16 @@ inline float fast_atof(const char* floatAsString, const char** out=0)
 	return ret;
 }
 
+
+	inline f32 getAsFloat ( const core::stringc &string, u32 &pos )
+	{
+		const char * in = string.c_str () + pos;
+
+		f32 value = 0.f;
+		pos += (u32) ( core::fast_atof_move ( in, value ) - in ) + 1;
+		return value;
+	}
+
 } // end namespace core
 } // end namespace irr
 

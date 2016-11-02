@@ -1,0 +1,850 @@
+# depslib dependency file v1.0
+1457624617 source:/home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/examples_tests/04.BuiltinNodes/main.cpp
+	<irrlicht.h>
+	"driverChoice.h"
+	"../source/Irrlicht/CGeometryCreator.h"
+
+1457455139 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/irrlicht.h
+	"IrrCompileConfig.h"
+	"aabbox3d.h"
+	"coreutil.h"
+	"dimension2d.h"
+	"ECullingTypes.h"
+	"EDebugSceneTypes.h"
+	"EDriverFeatures.h"
+	"EDriverTypes.h"
+	"EMaterialFlags.h"
+	"EMaterialTypes.h"
+	"EMeshWriterEnums.h"
+	"ESceneNodeAnimatorTypes.h"
+	"ESceneNodeTypes.h"
+	"fast_atof.h"
+	"heapsort.h"
+	"IAnimatedMesh.h"
+	"IAnimatedMeshSceneNode.h"
+	"IBillboardSceneNode.h"
+	"IBoneSceneNode.h"
+	"ICameraSceneNode.h"
+	"ICursorControl.h"
+	"IDummyTransformationSceneNode.h"
+	"IEventReceiver.h"
+	"IFileList.h"
+	"IFileSystem.h"
+	"IGeometryCreator.h"
+	"IGPUProgrammingServices.h"
+	"IImage.h"
+	"IImageLoader.h"
+	"IImageWriter.h"
+	"ILightSceneNode.h"
+	"ILogger.h"
+	"IMaterialRenderer.h"
+	"IMaterialRendererServices.h"
+	"IMesh.h"
+	"IMeshBuffer.h"
+	"IMeshCache.h"
+	"IMeshLoader.h"
+	"IMeshManipulator.h"
+	"IMeshSceneNode.h"
+	"IMeshWriter.h"
+	"IColladaMeshWriter.h"
+	"IMetaTriangleSelector.h"
+	"IOSOperator.h"
+	"IReadFile.h"
+	"IReferenceCounted.h"
+	"irrArray.h"
+	"IRandomizer.h"
+	"IrrlichtDevice.h"
+	"irrList.h"
+	"irrMap.h"
+	"irrMath.h"
+	"irrString.h"
+	"irrTypes.h"
+	"path.h"
+	"irrXML.h"
+	"ISceneCollisionManager.h"
+	"ISceneManager.h"
+	"ISceneNode.h"
+	"ISceneNodeAnimator.h"
+	"ISceneNodeAnimatorCameraFPS.h"
+	"ISceneNodeAnimatorCameraMaya.h"
+	"ISceneNodeAnimatorCollisionResponse.h"
+	"ISceneNodeAnimatorFactory.h"
+	"ISceneNodeFactory.h"
+	"IShaderConstantSetCallBack.h"
+	"ISkinnedMesh.h"
+	"ITexture.h"
+	"ITimer.h"
+	"ITriangleSelector.h"
+	"IVideoDriver.h"
+	"IVideoModeList.h"
+	"IWriteFile.h"
+	"IXMLReader.h"
+	"IXMLWriter.h"
+	"ILightManager.h"
+	"Keycodes.h"
+	"line2d.h"
+	"line3d.h"
+	"matrix4.h"
+	"matrixSIMD4.h"
+	"plane3d.h"
+	"position2d.h"
+	"quaternion.h"
+	"rect.h"
+	"SAnimatedMesh.h"
+	"SceneParameters.h"
+	"SColor.h"
+	"SExposedVideoData.h"
+	"SIrrCreationParameters.h"
+	"SKeyMap.h"
+	"SLight.h"
+	"SMaterial.h"
+	"SMesh.h"
+	"SSkinMeshBuffer.h"
+	"SVertexIndex.h"
+	"SViewFrustum.h"
+	"triangle3d.h"
+	"vector2d.h"
+	"vector3d.h"
+	"vectorSIMD.h"
+	"SIrrCreationParameters.h"
+
+1457619577 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IrrCompileConfig.h
+	<immintrin.h>
+	<stdio.h>
+	<xtl.h>
+	<tchar.h>
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/aabbox3d.h
+	"irrMath.h"
+	"plane3d.h"
+	"line3d.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/irrMath.h
+	"IrrCompileConfig.h"
+	"irrTypes.h"
+	<math.h>
+	<float.h>
+	<stdlib.h>
+	<limits.h>
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/irrTypes.h
+	"IrrCompileConfig.h"
+	<wchar.h>
+	<crtdbg.h>
+	"assert.h"
+	<stdlib.h>
+	<crtdbg.h>
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/plane3d.h
+	"irrMath.h"
+	"vector3d.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/vector3d.h
+	"irrMath.h"
+	<stdint.h>
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/line3d.h
+	"irrTypes.h"
+	"vector3d.h"
+
+1456427670 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/CDynamicMeshBuffer.h
+	"IDynamicMeshBuffer.h"
+	"CVertexBuffer.h"
+	"CIndexBuffer.h"
+
+1456426792 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IDynamicMeshBuffer.h
+	"IMeshBuffer.h"
+	"IVertexBuffer.h"
+	"IIndexBuffer.h"
+
+1457623508 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMeshBuffer.h
+	"IReferenceCounted.h"
+	"SMaterial.h"
+	"aabbox3d.h"
+	"SVertexIndex.h"
+	"EPrimitiveTypes.h"
+	"ICPUBuffer.h"
+	"IGPUBuffer.h"
+	"SMaterial.h"
+	"vectorSIMD.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IReferenceCounted.h
+	"irrTypes.h"
+
+1454510449 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SMaterial.h
+	"SColor.h"
+	"matrix4.h"
+	"irrArray.h"
+	"irrMath.h"
+	"EMaterialTypes.h"
+	"EMaterialFlags.h"
+	"SMaterialLayer.h"
+
+1454004977 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SColor.h
+	"irrTypes.h"
+	"irrMath.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/matrix4.h
+	"irrMath.h"
+	"vector3d.h"
+	"vector2d.h"
+	"plane3d.h"
+	"aabbox3d.h"
+	"rect.h"
+	"irrString.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/vector2d.h
+	"irrMath.h"
+	"dimension2d.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/dimension2d.h
+	"irrTypes.h"
+	"irrMath.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/rect.h
+	"irrTypes.h"
+	"dimension2d.h"
+	"position2d.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/position2d.h
+	"vector2d.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/irrString.h
+	"irrTypes.h"
+	"irrAllocator.h"
+	"irrMath.h"
+	<stdio.h>
+	<string.h>
+	<stdlib.h>
+
+1457623036 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/irrAllocator.h
+	"IrrCompileConfig.h"
+	"irrTypes.h"
+	<new>
+	<memory.h>
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/irrArray.h
+	"irrTypes.h"
+	"heapsort.h"
+	"irrAllocator.h"
+	"irrMath.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/heapsort.h
+	"irrTypes.h"
+
+1453411795 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EMaterialTypes.h
+
+1454505218 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EMaterialFlags.h
+
+1457623142 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SMaterialLayer.h
+	"matrix4.h"
+	"irrAllocator.h"
+
+1456355043 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/S3DVertex.h
+	"vector3d.h"
+	"vector2d.h"
+	"SColor.h"
+
+1456354538 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SVertexIndex.h
+	"irrTypes.h"
+
+1456444643 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EPrimitiveTypes.h
+
+1457623501 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ICPUBuffer.h
+	"IBuffer.h"
+
+1457623501 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IBuffer.h
+	"IReferenceCounted.h"
+	"stdint.h"
+
+1457096582 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGPUBuffer.h
+	"IBuffer.h"
+
+1457623333 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/vectorSIMD.h
+	"IrrCompileConfig.h"
+	"irrMath.h"
+	<stdint.h>
+	"SColor.h"
+	"SIMDswizzle.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SIMDswizzle.h
+
+1456426729 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IVertexBuffer.h
+	"IReferenceCounted.h"
+	"irrArray.h"
+	"S3DVertex.h"
+
+1456426775 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IIndexBuffer.h
+	"IReferenceCounted.h"
+	"irrArray.h"
+	"SVertexIndex.h"
+
+1456426847 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/CVertexBuffer.h
+	"IVertexBuffer.h"
+
+1456427164 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/CIndexBuffer.h
+	"IIndexBuffer.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/coreutil.h
+	"irrString.h"
+	"path.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/path.h
+	"irrString.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ECullingTypes.h
+	"irrTypes.h"
+
+1456941465 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EDebugSceneTypes.h
+
+1453972021 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EDriverFeatures.h
+
+1452603362 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EDriverTypes.h
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EGUIAlignment.h
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EGUIElementTypes.h
+	"irrTypes.h"
+
+1456868091 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EMeshWriterEnums.h
+	"irrTypes.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EMessageBoxFlags.h
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ESceneNodeAnimatorTypes.h
+
+1457452007 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ESceneNodeTypes.h
+	"irrTypes.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ETerrainElements.h
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/fast_atof.h
+	"irrMath.h"
+	"irrString.h"
+
+1457623501 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IAnimatedMesh.h
+	"aabbox3d.h"
+	"IMesh.h"
+
+1457623502 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMesh.h
+	"IReferenceCounted.h"
+	"SMaterial.h"
+	"IMeshBuffer.h"
+
+1457444183 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IAnimatedMeshSceneNode.h
+	"ISceneNode.h"
+	"IBoneSceneNode.h"
+	"IAnimatedMesh.h"
+
+1457623679 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISceneNode.h
+	"ESceneNodeTypes.h"
+	"ECullingTypes.h"
+	"EDebugSceneTypes.h"
+	"ISceneNodeAnimator.h"
+	"ITriangleSelector.h"
+	"SMaterial.h"
+	"irrString.h"
+	"aabbox3d.h"
+	"matrix4.h"
+	"irrList.h"
+	"IOcclusionQuery.h"
+
+1456525098 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISceneNodeAnimator.h
+	"IReferenceCounted.h"
+	"vector3d.h"
+	"ESceneNodeAnimatorTypes.h"
+	"IEventReceiver.h"
+
+1456956001 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IEventReceiver.h
+	"ILogger.h"
+	"Keycodes.h"
+	"irrString.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ILogger.h
+	"IReferenceCounted.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/Keycodes.h
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ITriangleSelector.h
+	"IReferenceCounted.h"
+	"triangle3d.h"
+	"aabbox3d.h"
+	"matrix4.h"
+	"line3d.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/triangle3d.h
+	"vector3d.h"
+	"line3d.h"
+	"plane3d.h"
+	"aabbox3d.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/irrList.h
+	"irrTypes.h"
+	"irrAllocator.h"
+	"irrMath.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IOcclusionQuery.h
+	<IReferenceCounted.h>
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IBoneSceneNode.h
+	"ISceneNode.h"
+
+1457095925 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IBillboardSceneNode.h
+	"ISceneNode.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IBillboardTextSceneNode.h
+	"IBillboardSceneNode.h"
+
+1456524798 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ICameraSceneNode.h
+	"ISceneNode.h"
+	"IEventReceiver.h"
+
+1456959660 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ICursorControl.h
+	"IReferenceCounted.h"
+	"position2d.h"
+	"rect.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IDummyTransformationSceneNode.h
+	"ISceneNode.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IFileList.h
+	"IReferenceCounted.h"
+	"path.h"
+
+1456524820 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IFileSystem.h
+	"IReferenceCounted.h"
+	"IXMLReader.h"
+	"IFileArchive.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IXMLReader.h
+	"IReferenceCounted.h"
+	"irrXML.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/irrXML.h
+	<stdio.h>
+	"IrrCompileConfig.h"
+	<irrXML.h>
+	<string>
+	<irrXML.h>
+	<irrXML.h>
+	<irrXML.h>
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IFileArchive.h
+	"IReadFile.h"
+	"IFileList.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IReadFile.h
+	"IReferenceCounted.h"
+	"coreutil.h"
+
+1456922417 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGeometryCreator.h
+	"IReferenceCounted.h"
+	"IMesh.h"
+	"IImage.h"
+
+1454005032 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IImage.h
+	"IReferenceCounted.h"
+	"position2d.h"
+	"rect.h"
+	"SColor.h"
+
+1453844721 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGPUProgrammingServices.h
+	"EMaterialTypes.h"
+	"EPrimitiveTypes.h"
+	"path.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIButton.h
+	"IGUIElement.h"
+
+1456524914 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIElement.h
+	"irrList.h"
+	"rect.h"
+	"irrString.h"
+	"IEventReceiver.h"
+	"EGUIElementTypes.h"
+	"EGUIAlignment.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUICheckBox.h
+	"IGUIElement.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIColorSelectDialog.h
+	"IGUIElement.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIComboBox.h
+	"IGUIElement.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIContextMenu.h
+	"IGUIElement.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIEditBox.h
+	"IGUIElement.h"
+	"SColor.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIElementFactory.h
+	"IReferenceCounted.h"
+	"EGUIElementTypes.h"
+
+1456524939 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIEnvironment.h
+	"IReferenceCounted.h"
+	"IGUISkin.h"
+	"rect.h"
+	"EMessageBoxFlags.h"
+	"IEventReceiver.h"
+	"IXMLReader.h"
+	"path.h"
+
+1456524896 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUISkin.h
+	"EGUIAlignment.h"
+	"SColor.h"
+	"rect.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIFileOpenDialog.h
+	"IGUIElement.h"
+	"path.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIFont.h
+	"IReferenceCounted.h"
+	"SColor.h"
+	"rect.h"
+	"irrString.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIFontBitmap.h
+	"IGUIFont.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIImage.h
+	"IGUIElement.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIInOutFader.h
+	"IGUIElement.h"
+	"SColor.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIListBox.h
+	"IGUIElement.h"
+	"SColor.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIMeshViewer.h
+	"IGUIElement.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIScrollBar.h
+	"IGUIElement.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUISpinBox.h
+	"IGUIElement.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUISpriteBank.h
+	"IReferenceCounted.h"
+	"irrArray.h"
+	"SColor.h"
+	"rect.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIStaticText.h
+	"IGUIElement.h"
+	"SColor.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUITabControl.h
+	"IGUIElement.h"
+	"SColor.h"
+	"IGUISkin.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUITable.h
+	"IGUIElement.h"
+	"irrTypes.h"
+	"SColor.h"
+	"IGUISkin.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIToolbar.h
+	"IGUIElement.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIWindow.h
+	"IGUIElement.h"
+	"EMessageBoxFlags.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUITreeView.h
+	"IGUIElement.h"
+	"IGUIImageList.h"
+	"irrTypes.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGUIImageList.h
+	"IGUIElement.h"
+	"rect.h"
+	"irrTypes.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IImageLoader.h
+	"IReferenceCounted.h"
+	"IImage.h"
+	"path.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IImageWriter.h
+	"IReferenceCounted.h"
+	"irrString.h"
+	"coreutil.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ILightSceneNode.h
+	"ISceneNode.h"
+	"SLight.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SLight.h
+	"SColor.h"
+
+1457451218 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMaterialRenderer.h
+	"IReferenceCounted.h"
+	"SMaterial.h"
+
+1457451238 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMaterialRendererServices.h
+	"SMaterial.h"
+
+1457444437 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMeshCache.h
+	"IReferenceCounted.h"
+	"path.h"
+
+1457449440 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMeshLoader.h
+	"IAnimatedMesh.h"
+	"path.h"
+
+1457447359 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMeshManipulator.h
+	"IrrCompileConfig.h"
+	"IReferenceCounted.h"
+	"vector3d.h"
+	"aabbox3d.h"
+	"matrix4.h"
+	"IAnimatedMesh.h"
+	"IMeshBuffer.h"
+	"SVertexManipulator.h"
+	"SMesh.h"
+
+1457625086 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SVertexManipulator.h
+	"vectorSIMD.h"
+	"IMeshBuffer.h"
+
+1457091428 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMeshSceneNode.h
+	"ISceneNode.h"
+	"IMesh.h"
+
+1457359201 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMeshWriter.h
+	"IReferenceCounted.h"
+	"EMeshWriterEnums.h"
+	"IMesh.h"
+
+1456425807 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IColladaMeshWriter.h
+	"IMeshWriter.h"
+	"ISceneNode.h"
+	"IAnimatedMesh.h"
+	"SMaterial.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IMetaTriangleSelector.h
+	"ITriangleSelector.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IOSOperator.h
+	"IReferenceCounted.h"
+	"irrString.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IRandomizer.h
+	"IReferenceCounted.h"
+
+1456958170 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IrrlichtDevice.h
+	"IReferenceCounted.h"
+	"dimension2d.h"
+	"IVideoDriver.h"
+	"EDriverTypes.h"
+	"EDeviceTypes.h"
+	"IEventReceiver.h"
+	"ICursorControl.h"
+	"IVideoModeList.h"
+	"ITimer.h"
+	"IOSOperator.h"
+
+1457619668 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IVideoDriver.h
+	"rect.h"
+	"SColor.h"
+	"IGPUMappedBuffer.h"
+	"ITexture.h"
+	"IRenderBuffer.h"
+	"IFrameBuffer.h"
+	"irrArray.h"
+	"matrix4.h"
+	"plane3d.h"
+	"dimension2d.h"
+	"position2d.h"
+	"SMaterial.h"
+	"IDriverFence.h"
+	"SMesh.h"
+	"IOcclusionQuery.h"
+	"triangle3d.h"
+	"EDriverTypes.h"
+	"EDriverFeatures.h"
+	"SExposedVideoData.h"
+
+1456420685 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IGPUMappedBuffer.h
+	"IGPUBuffer.h"
+
+1457623501 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ITexture.h
+	"IFrameBuffer.h"
+	"IImage.h"
+	"dimension2d.h"
+	"EDriverTypes.h"
+	"path.h"
+	"matrix4.h"
+
+1457623501 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IFrameBuffer.h
+	"stdint.h"
+	"IReferenceCounted.h"
+	"dimension2d.h"
+
+1457623501 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IRenderBuffer.h
+	"IFrameBuffer.h"
+	"dimension2d.h"
+
+1454968025 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IDriverFence.h
+
+1457623501 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SMesh.h
+	"IMesh.h"
+	"IMeshBuffer.h"
+	"aabbox3d.h"
+	"irrArray.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SExposedVideoData.h
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/EDeviceTypes.h
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IVideoModeList.h
+	"IReferenceCounted.h"
+	"dimension2d.h"
+
+1438381037 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ITimer.h
+	"IReferenceCounted.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/irrMap.h
+	"irrTypes.h"
+	"irrMath.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISceneCollisionManager.h
+	"IReferenceCounted.h"
+	"vector3d.h"
+	"triangle3d.h"
+	"position2d.h"
+	"line3d.h"
+
+1457452663 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISceneManager.h
+	"IReferenceCounted.h"
+	"irrArray.h"
+	"irrString.h"
+	"path.h"
+	"vector3d.h"
+	"dimension2d.h"
+	"SColor.h"
+	"ESceneNodeTypes.h"
+	"ESceneNodeAnimatorTypes.h"
+	"EMeshWriterEnums.h"
+	"SceneParameters.h"
+	"IGeometryCreator.h"
+	"IMeshCache.h"
+	"ISkinnedMesh.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SceneParameters.h
+
+1457623502 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISkinnedMesh.h
+	"irrArray.h"
+	"IBoneSceneNode.h"
+	"IAnimatedMesh.h"
+	"quaternion.h"
+	"matrix4.h"
+
+1457623454 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SSkinMeshBuffer.h
+	"IMeshBuffer.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISceneNodeAnimatorCameraFPS.h
+	"ISceneNodeAnimator.h"
+	"IEventReceiver.h"
+	"irrArray.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISceneNodeAnimatorCameraMaya.h
+	"ISceneNodeAnimator.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISceneNodeAnimatorCollisionResponse.h
+	"ISceneNode.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISceneNodeAnimatorFactory.h
+	"IReferenceCounted.h"
+	"ESceneNodeAnimatorTypes.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ISceneNodeFactory.h
+	"IReferenceCounted.h"
+	"ESceneNodeTypes.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IShaderConstantSetCallBack.h
+	"IReferenceCounted.h"
+	"IMaterialRendererServices.h"
+
+1456859649 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ITerrainSceneNode.h
+	"ETerrainElements.h"
+	"ISceneNode.h"
+	"IDynamicMeshBuffer.h"
+	"irrArray.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ITextSceneNode.h
+	"ISceneNode.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IWriteFile.h
+	"IReferenceCounted.h"
+	"path.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/IXMLWriter.h
+	"IReferenceCounted.h"
+	"irrArray.h"
+	"irrString.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/ILightManager.h
+	"IReferenceCounted.h"
+	"irrArray.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/line2d.h
+	"irrTypes.h"
+	"vector2d.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/matrixSIMD4.h
+	"matrix4.h"
+	"vectorSIMD.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/quaternion.h
+	"irrTypes.h"
+	"irrMath.h"
+	"matrix4.h"
+	"vector3d.h"
+
+1457447375 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SAnimatedMesh.h
+	"IAnimatedMesh.h"
+	"IMesh.h"
+	"aabbox3d.h"
+	"irrArray.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SIrrCreationParameters.h
+	"EDriverTypes.h"
+	"EDeviceTypes.h"
+	"dimension2d.h"
+	"ILogger.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SKeyMap.h
+	"Keycodes.h"
+
+1456441086 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SSharedMeshBuffer.h
+	"irrArray.h"
+	"IMeshBuffer.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/SViewFrustum.h
+	"plane3d.h"
+	"vector3d.h"
+	"line3d.h"
+	"aabbox3d.h"
+	"matrix4.h"
+	"IVideoDriver.h"
+
+1433776046 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/include/driverChoice.h
+	<iostream>
+	<cstdio>
+	"EDriverTypes.h"
+	"irrTypes.h"
+	"IrrlichtDevice.h"
+
+1456922417 /home/devsh/BaW/Repositories/svn4/trunk/3rdparty/irrlicht/source/Irrlicht/CGeometryCreator.h
+	"IGeometryCreator.h"
+

@@ -34,9 +34,6 @@
     <Filter Include="Irrlicht\scene\sceneNodes">
       <UniqueIdentifier>{b84f01e5-ae3c-457b-8d96-b3e271800162}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Irrlicht\scene\collision">
-      <UniqueIdentifier>{67826246-df05-4523-9191-5286f9157963}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Irrlicht\scene\animators">
       <UniqueIdentifier>{659a61d5-7ab3-4aa3-95ca-879780810b4e}</UniqueIdentifier>
     </Filter>
@@ -432,9 +429,6 @@
     <ClInclude Include="..\..\include\ITextSceneNode.h">
       <Filter>include\scene</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\ITriangleSelector.h">
-      <Filter>include\scene</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\IVolumeLightSceneNode.h">
       <Filter>include\scene</Filter>
     </ClInclude>
@@ -633,16 +627,10 @@
     <ClInclude Include="CBillboardSceneNode.h">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClInclude>
-    <ClInclude Include="CBoneSceneNode.h">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClInclude>
     <ClInclude Include="CCameraSceneNode.h">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClInclude>
     <ClInclude Include="CCubeSceneNode.h">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClInclude>
-    <ClInclude Include="CDummyTransformationSceneNode.h">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClInclude>
     <ClInclude Include="CEmptySceneNode.h">
@@ -663,28 +651,10 @@
     <ClInclude Include="CSphereSceneNode.h">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClInclude>
-    <ClInclude Include="CMetaTriangleSelector.h">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClInclude>
-    <ClInclude Include="COctreeTriangleSelector.h">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClInclude>
-    <ClInclude Include="CSceneCollisionManager.h">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClInclude>
-    <ClInclude Include="CTriangleBBSelector.h">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClInclude>
-    <ClInclude Include="CTriangleSelector.h">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClInclude>
     <ClInclude Include="CSceneNodeAnimatorCameraFPS.h">
       <Filter>Irrlicht\scene\animators</Filter>
     </ClInclude>
     <ClInclude Include="CSceneNodeAnimatorCameraMaya.h">
-      <Filter>Irrlicht\scene\animators</Filter>
-    </ClInclude>
-    <ClInclude Include="CSceneNodeAnimatorCollisionResponse.h">
       <Filter>Irrlicht\scene\animators</Filter>
     </ClInclude>
     <ClInclude Include="CSceneNodeAnimatorDelete.h">
@@ -1066,6 +1036,23 @@
     <ClInclude Include="..\..\include\vectorSIMD.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="COpenGLVAO.h" />
+    <ClInclude Include="COpenGLOcclusionQuery.h" />
+    <ClInclude Include="CMeshSceneNodeInstanced.h">
+      <Filter>Irrlicht\scene\sceneNodes</Filter>
+    </ClInclude>
+    <ClInclude Include="COpenGLQuery.h">
+      <Filter>Irrlicht</Filter>
+    </ClInclude>
+    <ClInclude Include="COpenGLTransformFeedback.h">
+      <Filter>Irrlicht</Filter>
+    </ClInclude>
+    <ClInclude Include="CSkinnedMeshSceneNode.h">
+      <Filter>Irrlicht\scene\sceneNodes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\IMetaGranularBuffer.h">
+      <Filter>include\scene</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\changes.txt">
@@ -1151,16 +1138,10 @@
     <ClCompile Include="CBillboardSceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
-    <ClCompile Include="CBoneSceneNode.cpp">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClCompile>
     <ClCompile Include="CCameraSceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
     <ClCompile Include="CCubeSceneNode.cpp">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClCompile>
-    <ClCompile Include="CDummyTransformationSceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
     <ClCompile Include="CEmptySceneNode.cpp">
@@ -1181,28 +1162,10 @@
     <ClCompile Include="CSphereSceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
-    <ClCompile Include="CMetaTriangleSelector.cpp">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClCompile>
-    <ClCompile Include="COctreeTriangleSelector.cpp">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClCompile>
-    <ClCompile Include="CSceneCollisionManager.cpp">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClCompile>
-    <ClCompile Include="CTriangleBBSelector.cpp">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClCompile>
-    <ClCompile Include="CTriangleSelector.cpp">
-      <Filter>Irrlicht\scene\collision</Filter>
-    </ClCompile>
     <ClCompile Include="CSceneNodeAnimatorCameraFPS.cpp">
       <Filter>Irrlicht\scene\animators</Filter>
     </ClCompile>
     <ClCompile Include="CSceneNodeAnimatorCameraMaya.cpp">
-      <Filter>Irrlicht\scene\animators</Filter>
-    </ClCompile>
-    <ClCompile Include="CSceneNodeAnimatorCollisionResponse.cpp">
       <Filter>Irrlicht\scene\animators</Filter>
     </ClCompile>
     <ClCompile Include="CSceneNodeAnimatorDelete.cpp">
@@ -1778,7 +1741,6 @@
     <ClCompile Include="COpenGL3DTexture.cpp">
       <Filter>Irrlicht\video\OpenGL</Filter>
     </ClCompile>
-    <ClCompile Include="CMeshBuffer.cpp" />
     <ClCompile Include="STextureSamplingParams.cpp">
       <Filter>Irrlicht</Filter>
     </ClCompile>
@@ -1790,6 +1752,21 @@
     </ClCompile>
     <ClCompile Include="COpenGLPersistentlyMappedBuffer.cpp">
       <Filter>Irrlicht\video</Filter>
+    </ClCompile>
+    <ClCompile Include="COpenGLVAO.cpp" />
+    <ClCompile Include="COpenGLOcclusionQuery.cpp" />
+    <ClCompile Include="CGPUTransientBuffer.cpp" />
+    <ClCompile Include="CMeshSceneNodeInstanced.cpp">
+      <Filter>Irrlicht\scene\sceneNodes</Filter>
+    </ClCompile>
+    <ClCompile Include="COpenGLQuery.cpp">
+      <Filter>Irrlicht</Filter>
+    </ClCompile>
+    <ClCompile Include="COpenGLTransformFeedback.cpp">
+      <Filter>Irrlicht</Filter>
+    </ClCompile>
+    <ClCompile Include="CSkinnedMeshSceneNode.cpp">
+      <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

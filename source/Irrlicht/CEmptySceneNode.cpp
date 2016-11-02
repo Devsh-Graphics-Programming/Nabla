@@ -11,7 +11,7 @@ namespace scene
 {
 
 //! constructor
-CEmptySceneNode::CEmptySceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id)
+CEmptySceneNode::CEmptySceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id)
 : ISceneNode(parent, mgr, id)
 {
 	#ifdef _DEBUG
@@ -40,14 +40,14 @@ void CEmptySceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CEmptySceneNode::getBoundingBox() const
+const core::aabbox3d<f32>& CEmptySceneNode::getBoundingBox()
 {
 	return Box;
 }
 
 
 //! Creates a clone of this scene node and its children.
-ISceneNode* CEmptySceneNode::clone(ISceneNode* newParent, ISceneManager* newManager)
+ISceneNode* CEmptySceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
 {
 	if (!newParent)
 		newParent = Parent;

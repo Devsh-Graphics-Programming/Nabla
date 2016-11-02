@@ -31,7 +31,7 @@ public:
 
 	//! Returns size of the texture.
 	virtual const core::dimension2d<u32>& getSize() const {return RenderBufferSize;}
-    virtual const core::dimension2du& getRenderableSize() const {return RenderBufferSize;}
+    virtual core::dimension2du getRenderableSize() const {return RenderBufferSize;}
 
 	//! returns driver type of texture (=the driver, that created it)
 	virtual const E_DRIVER_TYPE getDriverType() const {return EDT_OPENGL;}

@@ -13,12 +13,26 @@
 #include "IAnimatedMeshSceneNode.h"
 #include "CColorConverter.h"
 #include "CMeshManipulator.h"
+#include "CMeshSceneNodeInstanced.h"
+#include "FW_Mutex.h"
 
 
 namespace irr
 {
 namespace video
 {
+
+FW_AtomicCounter CNullDriver::ReallocationCounter = 0;
+
+FW_AtomicCounter CNullDriver::incrementAndFetchReallocCounter()
+{
+#if _MSC_VER && !__INTEL_COMPILER
+    return InterlockedIncrement(&ReallocationCounter);
+#elif defined(__GNUC__)
+    return __sync_add_and_fetch(&ReallocationCounter,int32_t(1));
+#endif // _MSC_VER
+}
+
 
 //! creates a loader which is able to load windows bitmaps
 IImageLoader* createImageLoaderBMP();
@@ -83,11 +97,15 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<u32>& scre
 : FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
 	PrimitivesDrawn(0), MinVertexCountForVBO(500), TextureCreationFlags(0),
 	OverrideMaterial2DEnabled(false), AllowZWriteOnTransparent(false),
-	currentQuery(0)
+	matrixModifiedBits(0)
 {
 	#ifdef _DEBUG
 	setDebugName("CNullDriver");
 	#endif
+
+	for (size_t i=0; i<EQOT_COUNT; i++)
+    for (size_t j=0; j<_IRR_XFORM_FEEDBACK_MAX_STREAMS_; j++)
+        currentQuery[i][j] = NULL;
 
 	setTextureCreationFlag(ETCF_ALWAYS_32_BIT, true);
 	setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, true);
@@ -157,6 +175,38 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<u32>& scre
 	SurfaceWriter.push_back(video::createImageWriterBMP());
 #endif
 
+    MaxTextureSizes[ITexture::ETT_1D][0] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_1D][1] = 0x1u;
+    MaxTextureSizes[ITexture::ETT_1D][2] = 0x1u;
+
+    MaxTextureSizes[ITexture::ETT_2D][0] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_2D][1] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_2D][2] = 0x1u;
+
+    MaxTextureSizes[ITexture::ETT_3D][0] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_3D][1] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_3D][2] = 0x80u;
+
+    MaxTextureSizes[ITexture::ETT_1D_ARRAY][0] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_1D_ARRAY][1] = 0x1u;
+    MaxTextureSizes[ITexture::ETT_1D_ARRAY][2] = 0x800u;
+
+    MaxTextureSizes[ITexture::ETT_2D_ARRAY][0] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_2D_ARRAY][1] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_2D_ARRAY][2] = 0x800u;
+
+    MaxTextureSizes[ITexture::ETT_CUBE_MAP][0] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_CUBE_MAP][1] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_CUBE_MAP][2] = 0x6u;
+
+    MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][0] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][1] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][2] = 0x800u*6;
+
+    MaxTextureSizes[ITexture::ETT_TEXTURE_BUFFER][0] = 0x80u;
+    MaxTextureSizes[ITexture::ETT_TEXTURE_BUFFER][1] = 0x1u;
+    MaxTextureSizes[ITexture::ETT_TEXTURE_BUFFER][2] = 0x1u;
+
 
 	// set ExposedData to 0
 	memset(&ExposedData, 0, sizeof(ExposedData));
@@ -200,6 +250,11 @@ CNullDriver::~CNullDriver()
 
 	// delete material renderers
 	deleteMaterialRenders();
+}
+
+void CNullDriver::bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
+{
+    os::Printer::log("Copying Buffers Not supported by this Driver!\n",ELL_ERROR);
 }
 
 
@@ -277,6 +332,9 @@ bool CNullDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 		const SExposedVideoData& videoData, core::rect<s32>* sourceRect)
 {
 	core::clearFPUException();
+
+	scene::CMeshSceneNodeInstanced::recullOrder = 0;
+
 	PrimitivesDrawn = 0;
 	return true;
 }
@@ -306,15 +364,172 @@ bool CNullDriver::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
 
 
 //! sets transformation
-void CNullDriver::setTransform(E_TRANSFORMATION_STATE state, const core::matrix4& mat)
+void CNullDriver::setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat)
 {
+    if (state>E4X3TS_WORLD)
+        return;
+
+
+	const uint32_t commonBits = (0x1u<<E4X3TS_WORLD_VIEW)|(0x1u<<E4X3TS_WORLD_VIEW_INVERSE)|(0x1u<<E4X3TS_NORMAL_MATRIX)|(0x1u<<(E4X3TS_COUNT+EPTS_PROJ_VIEW_WORLD))|(0x1u<<(E4X3TS_COUNT+EPTS_PROJ_VIEW_WORLD_INVERSE));
+    uint32_t modifiedBit;
+    switch (state)
+    {
+        case E4X3TS_VIEW:
+            modifiedBit = (0x1u<<E4X3TS_VIEW)|(0x1u<<E4X3TS_VIEW_INVERSE)|(0x1u<<(E4X3TS_COUNT+EPTS_PROJ_VIEW))|(0x1u<<(E4X3TS_COUNT+EPTS_PROJ_VIEW_INVERSE))|commonBits;
+            break;
+        case E4X3TS_WORLD:
+            modifiedBit = (0x1u<<E4X3TS_WORLD)|(0x1u<<E4X3TS_WORLD_INVERSE)|commonBits;
+            break;
+    }
+
+    //if all bits marked as modified and matrices dont change
+    if ((matrixModifiedBits&modifiedBit)==modifiedBit)
+        TransformationMatrices[state] = mat;
+    else
+    {
+        if (TransformationMatrices[state]==mat)
+            return;
+        matrixModifiedBits |= modifiedBit;
+        TransformationMatrices[state] = mat;
+    }
+}
+
+//! sets transformation
+void CNullDriver::setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4& mat)
+{
+    if (state>EPTS_PROJ)
+        return;
+
+
+	const uint32_t modifiedBit = ((0x1u<<EPTS_PROJ)|(0x1u<<EPTS_PROJ_VIEW)|(0x1u<<EPTS_PROJ_VIEW_WORLD)|(0x1u<<EPTS_PROJ_INVERSE)|(0x1u<<EPTS_PROJ_VIEW_INVERSE)|(0x1u<<EPTS_PROJ_VIEW_WORLD_INVERSE))<<E4X3TS_COUNT;
+
+    //if all bits marked as modified and matrices dont change
+    if ((matrixModifiedBits&modifiedBit)==modifiedBit)
+        ProjectionMatrices[state] = mat;
+    else
+    {
+        if (ProjectionMatrices[state]==mat)
+            return;
+        matrixModifiedBits |= modifiedBit;
+        ProjectionMatrices[state] = mat;
+    }
 }
 
 
 //! Returns the transformation set by setTransform
-const core::matrix4& CNullDriver::getTransform(E_TRANSFORMATION_STATE state) const
+const core::matrix4x3& CNullDriver::getTransform(const E_4X3_TRANSFORMATION_STATE& state)
 {
-	return TransformationMatrix;
+    const uint32_t stateBit = 0x1u<<state;
+
+	if (matrixModifiedBits&stateBit)
+    {
+        switch (state)
+        {
+            case E4X3TS_WORLD:
+            case E4X3TS_VIEW:
+                break;
+            case E4X3TS_WORLD_VIEW:
+                TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
+                break;
+            case E4X3TS_VIEW_INVERSE:
+                TransformationMatrices[E4X3TS_VIEW].getInverse(TransformationMatrices[E4X3TS_VIEW_INVERSE]);
+                break;
+            case E4X3TS_WORLD_INVERSE:
+                TransformationMatrices[E4X3TS_WORLD].getInverse(TransformationMatrices[E4X3TS_WORLD_INVERSE]);
+                break;
+            case E4X3TS_WORLD_VIEW_INVERSE:
+                if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
+                {
+                    TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
+                    matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
+                }
+
+                TransformationMatrices[E4X3TS_WORLD_VIEW].getInverse(TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE]);
+                break;
+            case E4X3TS_NORMAL_MATRIX:
+                if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW_INVERSE))
+                {
+                    if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
+                    {
+                        TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
+                        matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
+                    }
+
+                    TransformationMatrices[E4X3TS_WORLD_VIEW].getInverse(TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE]);
+                    matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW_INVERSE);
+                }
+
+                TransformationMatrices[E4X3TS_NORMAL_MATRIX](0,0) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](0,0);
+                TransformationMatrices[E4X3TS_NORMAL_MATRIX](0,1) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](1,0);
+                TransformationMatrices[E4X3TS_NORMAL_MATRIX](0,2) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](2,0);
+                TransformationMatrices[E4X3TS_NORMAL_MATRIX](1,0) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](0,1);
+                TransformationMatrices[E4X3TS_NORMAL_MATRIX](1,1) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](1,1);
+                TransformationMatrices[E4X3TS_NORMAL_MATRIX](1,2) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](2,1);
+                TransformationMatrices[E4X3TS_NORMAL_MATRIX](2,0) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](0,2);
+                TransformationMatrices[E4X3TS_NORMAL_MATRIX](2,1) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](1,2);
+                TransformationMatrices[E4X3TS_NORMAL_MATRIX](2,2) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](2,2);
+                break;
+        }
+
+        matrixModifiedBits &= ~stateBit;
+    }
+
+    return TransformationMatrices[state];
+}
+
+//! Returns the transformation set by setTransform
+const core::matrix4& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state)
+{
+    const uint32_t stateBit = 0x1u<<(state+E4X3TS_COUNT);
+
+	if (matrixModifiedBits&stateBit)
+    {
+        switch (state)
+        {
+            case EPTS_PROJ:
+                break;
+            case EPTS_PROJ_VIEW:
+                ProjectionMatrices[EPTS_PROJ_VIEW] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_VIEW]);
+                break;
+            case EPTS_PROJ_VIEW_WORLD:
+                if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
+                {
+                    TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
+                    ///TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenatePreciselyBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
+                    matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
+                }
+                ProjectionMatrices[EPTS_PROJ_VIEW_WORLD] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_WORLD_VIEW]);
+                break;
+            case EPTS_PROJ_INVERSE:
+                ProjectionMatrices[EPTS_PROJ].getInverse(ProjectionMatrices[EPTS_PROJ]);
+                break;
+            case EPTS_PROJ_VIEW_INVERSE:
+                if (matrixModifiedBits&(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT)))
+                {
+                    ProjectionMatrices[EPTS_PROJ_VIEW] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_VIEW]);
+                    matrixModifiedBits &= ~(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT));
+                }
+                ProjectionMatrices[EPTS_PROJ_VIEW].getInverse(ProjectionMatrices[EPTS_PROJ_VIEW_INVERSE]);
+                break;
+            case EPTS_PROJ_VIEW_WORLD_INVERSE:
+                if (matrixModifiedBits&(0x1u<<(EPTS_PROJ_VIEW_WORLD+E4X3TS_COUNT)))
+                {
+                    if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
+                    {
+                        TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
+                        ///TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenatePreciselyBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
+                        matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
+                    }
+                    ProjectionMatrices[EPTS_PROJ_VIEW_WORLD] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_WORLD_VIEW]);
+                    matrixModifiedBits &= ~(0x1u<<(EPTS_PROJ_VIEW_WORLD+E4X3TS_COUNT));
+                }
+                ProjectionMatrices[EPTS_PROJ_VIEW_WORLD].getInverse(ProjectionMatrices[EPTS_PROJ_VIEW_WORLD_INVERSE]);
+                break;
+        }
+
+        matrixModifiedBits &= ~stateBit;
+    }
+    return ProjectionMatrices[state];
 }
 
 
@@ -567,13 +782,13 @@ ITexture* CNullDriver::addTexture(const io::path& name, IImage* image, void* mip
 
 
 //! creates a Texture
-ITexture* CNullDriver::addTexture(const core::dimension2d<u32>& size, uint32_t mipMapLevels,
+ITexture* CNullDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipMapLevels,
 				  const io::path& name, ECOLOR_FORMAT format)
 {
 	if ( 0 == name.size () )
 		return 0;
 
-	ITexture* t = createDeviceDependentTexture(size,mipMapLevels,name,format);
+	ITexture* t = createDeviceDependentTexture(type,size,mipMapLevels,name,format);
 	addToTextureCache(t);
 
 	if (t)
@@ -590,7 +805,7 @@ ITexture* CNullDriver::createDeviceDependentTexture(IImage* surface, const io::p
 {
 	return new SDummyTexture(name);
 }
-ITexture* CNullDriver::createDeviceDependentTexture(const core::dimension2d<u32>& size, uint32_t mipmapLevels,
+ITexture* CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, ECOLOR_FORMAT format)
 {
 	return new SDummyTexture(name);
@@ -646,7 +861,6 @@ void CNullDriver::draw3DBox(const core::aabbox3d<f32>& box, SColor color)
             return;
 
         scene::IGPUMeshBuffer* boxLineMesh =  new scene::IGPUMeshBuffer();
-        boxLineMesh->setIndexRange(0,7);
         boxLineMesh->setIndexCount(24);
         boxLineMesh->setIndexType(EIT_16BIT);
         boxLineMesh->setMeshDataAndFormat(desc);
@@ -679,7 +893,7 @@ void CNullDriver::draw2DImage(const video::ITexture* texture, const core::positi
 		return;
 
 	draw2DImage(texture,destPos, core::rect<s32>(core::position2d<s32>(0,0),
-												core::dimension2di(texture->getSize())));
+												core::dimension2di(*reinterpret_cast<const core::dimension2du*>(texture->getSize()))));
 }
 
 
@@ -849,15 +1063,6 @@ s32 CNullDriver::getFPS() const
 u32 CNullDriver::getPrimitiveCountDrawn( u32 param ) const
 {
 	return (0 == param) ? FPSCounter.getPrimitive() : (1 == param) ? FPSCounter.getPrimitiveAverage() : FPSCounter.getPrimitiveTotal();
-}
-
-
-
-//! Sets the dynamic ambient light color. The default color is
-//! (0,0,0,0) which means it is dark.
-//! \param color: New color of the ambient light.
-void CNullDriver::setAmbientLight(const SColorf& color)
-{
 }
 
 
@@ -1095,8 +1300,8 @@ IImage* CNullDriver::createImageFromFile(const io::path& filename)
 		image = createImageFromFile(file);
 		file->drop();
 	}
-	else
-		os::Printer::log("Could not open file of image", filename, ELL_WARNING);
+//	else
+//		os::Printer::log("Could not open file of image", filename, ELL_WARNING);	// sodan
 
 	return image;
 }
@@ -1213,85 +1418,117 @@ IImage* CNullDriver::createImage(IImage* imageToCopy, const core::position2d<s32
 }
 
 
-//! Draws a mesh buffer
-void CNullDriver::drawMeshBuffer(scene::ICPUMeshBuffer* mb, IOcclusionQuery* query)
-{
-	if (!mb)
-		return;
-
-    PrimitivesDrawn += scene::CMeshManipulator::getPolyCount(mb);
-}
 
 void CNullDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query)
 {
 	if (!mb)
 		return;
 
-	if ((mb->getIndexType()==EIT_16BIT) && (mb->getIndexMaxBound()>=65536u))
-		os::Printer::log("Too many vertices for 16bit index type, render artifacts may occur.");
+    uint32_t increment = mb->getInstanceCount();
     switch (mb->getPrimitiveType())
     {
         case scene::EPT_POINTS:
-        case scene::EPT_POINT_SPRITES:
-            PrimitivesDrawn += mb->getIndexCount();
+            increment *= mb->getIndexCount();
             break;
         case scene::EPT_LINE_STRIP:
-            PrimitivesDrawn += mb->getIndexCount()-1;
+            increment *= mb->getIndexCount()-1;
             break;
         case scene::EPT_LINE_LOOP:
-            PrimitivesDrawn += mb->getIndexCount();
+            increment *= mb->getIndexCount();
             break;
         case scene::EPT_LINES:
-            PrimitivesDrawn += mb->getIndexCount()/2;
+            increment *= mb->getIndexCount()/2;
             break;
         case scene::EPT_TRIANGLE_STRIP:
-            PrimitivesDrawn += mb->getIndexCount()-2;
+            increment *= mb->getIndexCount()-2;
             break;
         case scene::EPT_TRIANGLE_FAN:
-            PrimitivesDrawn += mb->getIndexCount()-2;
+            increment *= mb->getIndexCount()-2;
             break;
         case scene::EPT_TRIANGLES:
-            PrimitivesDrawn += mb->getIndexCount()/3;
-            break;
-        case scene::EPT_QUAD_STRIP:
-            PrimitivesDrawn += (mb->getIndexCount()-2)/2;
-            break;
-        case scene::EPT_QUADS:
-            PrimitivesDrawn += mb->getIndexCount()/4;
+            increment *= mb->getIndexCount()/3;
             break;
     }
+    PrimitivesDrawn += increment;
 }
 
 
 
-//! Create occlusion query.
-/** Use node for identification and mesh for occlusion test. */
-IOcclusionQuery* CNullDriver::createOcclusionQuery(bool binary)
+
+IOcclusionQuery* CNullDriver::createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic)
+{
+    return NULL;
+}
+
+IQueryObject* CNullDriver::createPrimitivesGeneratedQuery()
+{
+    return NULL;
+}
+IQueryObject* CNullDriver::createXFormFeedbackPrimitiveQuery()
+{
+    return NULL;
+}
+IQueryObject* CNullDriver::createElapsedTimeQuery()
+{
+    return NULL;
+}
+IGPUTimestampQuery* CNullDriver::createTimestampQuery()
 {
     return NULL;
 }
 
 
-//! Update occlusion query. Retrieves results from GPU.
-/** If the query shall not block, set the flag to false.
-Update might not occur in this case, though */
-void CNullDriver::updateOcclusionQuery(IOcclusionQuery* query, bool block)
+void CNullDriver::beginQuery(IQueryObject* query)
 {
-}
-
-void CNullDriver::beginOcclusionQuery(IOcclusionQuery* query)
-{
-    if (currentQuery)
+    if (!query)
         return; //error
-    else
-        currentQuery = query;
-}
 
-void CNullDriver::endOcclusionQuery()
+    if (currentQuery[query->getQueryObjectType()][0])
+        return; //error
+
+    query->grab();
+    currentQuery[query->getQueryObjectType()][0] = query;
+}
+void CNullDriver::endQuery(IQueryObject* query)
 {
-    currentQuery = NULL;
+    if (!query)
+        return; //error
+    if (currentQuery[query->getQueryObjectType()][0]!=query)
+        return; //error
+
+    if (currentQuery[query->getQueryObjectType()][0])
+        currentQuery[query->getQueryObjectType()][0]->drop();
+    currentQuery[query->getQueryObjectType()][0] = NULL;
 }
 
+void CNullDriver::beginQuery(IQueryObject* query, const size_t& index)
+{
+    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
+        return; //error
+
+    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
+        return; //error
+
+    if (currentQuery[query->getQueryObjectType()][index])
+        return; //error
+
+    query->grab();
+    currentQuery[query->getQueryObjectType()][index] = query;
+}
+void CNullDriver::endQuery(IQueryObject* query, const size_t& index)
+{
+    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
+        return; //error
+
+    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
+        return; //error
+    if (currentQuery[query->getQueryObjectType()][index]!=query)
+        return; //error
+
+    if (currentQuery[query->getQueryObjectType()][index])
+        currentQuery[query->getQueryObjectType()][index]->drop();
+    currentQuery[query->getQueryObjectType()][index] = NULL;
+}
 
 
 //! Only used by the internal engine. Used to notify the driver that
@@ -1422,6 +1659,9 @@ s32 CNullDriver::addHighLevelShaderMaterial(
     u32 patchVertices,
     E_MATERIAL_TYPE baseMaterial,
     IShaderConstantSetCallBack* callback,
+    const char** xformFeedbackOutputs,
+    const uint32_t& xformFeedbackOutputCount,
+    const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
     s32 userData,
     const c8* vertexShaderEntryPointName,
     const c8* controlShaderEntryPointName,
@@ -1442,6 +1682,9 @@ bool CNullDriver::replaceHighLevelShaderMaterial(const s32 &materialIDToReplace,
     u32 patchVertices,
     E_MATERIAL_TYPE baseMaterial,
     IShaderConstantSetCallBack* callback,
+    const char** xformFeedbackOutputs,
+    const uint32_t& xformFeedbackOutputCount,
+    const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
     s32 userData,
     const c8* vertexShaderEntryPointName,
     const c8* controlShaderEntryPointName,
@@ -1453,7 +1696,7 @@ bool CNullDriver::replaceHighLevelShaderMaterial(const s32 &materialIDToReplace,
         return false;
 
     s32 nr = addHighLevelShaderMaterial(vertexShaderProgram,controlShaderProgram,evaluationShaderProgram,geometryShaderProgram,pixelShaderProgram,
-                                        3,baseMaterial,callback,userData,
+                                        3,baseMaterial,callback,xformFeedbackOutputs,xformFeedbackOutputCount,attribLayout,userData,
                                         vertexShaderEntryPointName,controlShaderEntryPointName,evaluationShaderEntryPointName,geometryShaderEntryPointName,pixelShaderEntryPointName);
     if (nr==-1)
         return false;
@@ -1475,6 +1718,9 @@ s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
     u32 patchVertices,
     E_MATERIAL_TYPE baseMaterial,
     IShaderConstantSetCallBack* callback,
+    const char** xformFeedbackOutputs,
+    const uint32_t& xformFeedbackOutputCount,
+    const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
     s32 userData,
     const c8* vertexShaderEntryPointName,
     const c8* controlShaderEntryPointName,
@@ -1540,7 +1786,8 @@ s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
 
 	s32 result = addHighLevelShaderMaterialFromFiles(
 		vsfile, ctsfile, etsfile, gsfile, psfile,
-		patchVertices, baseMaterial, callback, userData,
+		patchVertices, baseMaterial, callback,
+		xformFeedbackOutputs,xformFeedbackOutputCount,attribLayout, userData,
 		vertexShaderEntryPointName, controlShaderEntryPointName,
 		evaluationShaderEntryPointName, geometryShaderEntryPointName,
 		pixelShaderEntryPointName);
@@ -1572,6 +1819,9 @@ s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
     u32 patchVertices,
     E_MATERIAL_TYPE baseMaterial,
     IShaderConstantSetCallBack* callback,
+    const char** xformFeedbackOutputs,
+    const uint32_t& xformFeedbackOutputCount,
+    const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
     s32 userData,
     const c8* vertexShaderEntryPointName,
     const c8* controlShaderEntryPointName,
@@ -1661,7 +1911,8 @@ s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
 
 	s32 result = this->addHighLevelShaderMaterial(
 		vs, cts, ets, gs, ps,patchVertices,
-		baseMaterial, callback, userData,
+		baseMaterial, callback,
+		xformFeedbackOutputs,xformFeedbackOutputCount,attribLayout, userData,
 		vertexShaderEntryPointName,
 		controlShaderEntryPointName,
 		evaluationShaderEntryPointName,
@@ -1678,159 +1929,6 @@ s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
         delete [] cts;
     if (ets)
         delete [] ets;
-
-	return result;
-}
-
-//! Adds a new material renderer to the VideoDriver, based on a high level shading language.
-s32 CNullDriver::addHighLevelShaderMaterial(
-	const c8* vertexShaderProgram,
-	const c8* vertexShaderEntryPointName,
-	const c8* pixelShaderProgram,
-	const c8* pixelShaderEntryPointName,
-	const c8* geometryShaderProgram,
-	const c8* geometryShaderEntryPointName,
-	IShaderConstantSetCallBack* callback,
-	E_MATERIAL_TYPE baseMaterial,
-	s32 userData)
-{
-	os::Printer::log("High level shader materials not available (yet) in this driver, sorry");
-	return -1;
-}
-
-
-//! Like IGPUProgrammingServices::addShaderMaterial() (look there for a detailed description),
-//! but tries to load the programs from files.
-s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
-		const io::path& vertexShaderProgramFileName,
-		const c8* vertexShaderEntryPointName,
-		const io::path& pixelShaderProgramFileName,
-		const c8* pixelShaderEntryPointName,
-		const io::path& geometryShaderProgramFileName,
-		const c8* geometryShaderEntryPointName,
-		IShaderConstantSetCallBack* callback,
-		E_MATERIAL_TYPE baseMaterial,
-		s32 userData)
-{
-	io::IReadFile* vsfile = 0;
-	io::IReadFile* psfile = 0;
-	io::IReadFile* gsfile = 0;
-
-	if (vertexShaderProgramFileName.size() )
-	{
-		vsfile = FileSystem->createAndOpenFile(vertexShaderProgramFileName);
-		if (!vsfile)
-		{
-			os::Printer::log("Could not open vertex shader program file",
-				vertexShaderProgramFileName, ELL_WARNING);
-		}
-	}
-
-	if (pixelShaderProgramFileName.size() )
-	{
-		psfile = FileSystem->createAndOpenFile(pixelShaderProgramFileName);
-		if (!psfile)
-		{
-			os::Printer::log("Could not open pixel shader program file",
-				pixelShaderProgramFileName, ELL_WARNING);
-		}
-	}
-
-	if (geometryShaderProgramFileName.size() )
-	{
-		gsfile = FileSystem->createAndOpenFile(geometryShaderProgramFileName);
-		if (!gsfile)
-		{
-			os::Printer::log("Could not open geometry shader program file",
-				geometryShaderProgramFileName, ELL_WARNING);
-		}
-	}
-
-	s32 result = addHighLevelShaderMaterialFromFiles(
-		vsfile, vertexShaderEntryPointName,
-		psfile, pixelShaderEntryPointName,
-		gsfile, geometryShaderEntryPointName,
-		callback, baseMaterial, userData);
-
-	if (psfile)
-		psfile->drop();
-
-	if (vsfile)
-		vsfile->drop();
-
-	if (gsfile)
-		gsfile->drop();
-
-	return result;
-}
-
-
-//! Like IGPUProgrammingServices::addShaderMaterial() (look there for a detailed description),
-//! but tries to load the programs from files.
-s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
-		io::IReadFile* vertexShaderProgram,
-		const c8* vertexShaderEntryPointName,
-		io::IReadFile* pixelShaderProgram,
-		const c8* pixelShaderEntryPointName,
-		io::IReadFile* geometryShaderProgram,
-		const c8* geometryShaderEntryPointName,
-		IShaderConstantSetCallBack* callback,
-		E_MATERIAL_TYPE baseMaterial,
-		s32 userData)
-{
-	c8* vs = 0;
-	c8* ps = 0;
-	c8* gs = 0;
-
-	if (vertexShaderProgram)
-	{
-		const long size = vertexShaderProgram->getSize();
-		if (size)
-		{
-			vs = new c8[size+1];
-			vertexShaderProgram->read(vs, size);
-			vs[size] = 0;
-		}
-	}
-
-	if (pixelShaderProgram)
-	{
-		const long size = pixelShaderProgram->getSize();
-		if (size)
-		{
-			// if both handles are the same we must reset the file
-			if (pixelShaderProgram==vertexShaderProgram)
-				pixelShaderProgram->seek(0);
-			ps = new c8[size+1];
-			pixelShaderProgram->read(ps, size);
-			ps[size] = 0;
-		}
-	}
-
-	if (geometryShaderProgram)
-	{
-		const long size = geometryShaderProgram->getSize();
-		if (size)
-		{
-			// if both handles are the same we must reset the file
-			if ((geometryShaderProgram==vertexShaderProgram) ||
-					(geometryShaderProgram==pixelShaderProgram))
-				geometryShaderProgram->seek(0);
-			gs = new c8[size+1];
-			geometryShaderProgram->read(gs, size);
-			gs[size] = 0;
-		}
-	}
-
-	s32 result = this->addHighLevelShaderMaterial(
-		vs, vertexShaderEntryPointName,
-		ps, pixelShaderEntryPointName,
-		gs, geometryShaderEntryPointName,
-		callback, baseMaterial, userData);
-
-	delete [] vs;
-	delete [] ps;
-	delete [] gs;
 
 	return result;
 }
@@ -1894,6 +1992,31 @@ void CNullDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* va
 {
 }
 
+void CNullDriver::bindTransformFeedback(ITransformFeedback* xformFeedback)
+{
+    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
+}
+
+void CNullDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType)
+{
+    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
+}
+
+void CNullDriver::pauseTransformFeedback()
+{
+    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
+}
+
+void CNullDriver::resumeTransformFeedback()
+{
+    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
+}
+
+void CNullDriver::endTransformFeedback()
+{
+    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
+}
+
 
 // prints renderer version
 void CNullDriver::printVersion()
@@ -1955,9 +2078,9 @@ void CNullDriver::enableMaterial2D(bool enable)
 }
 
 
-core::dimension2du CNullDriver::getMaxTextureSize() const
+const uint32_t* CNullDriver::getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const
 {
-	return core::dimension2du(0x10000,0x10000); // maybe large enough
+    return MaxTextureSizes[type];
 }
 
 

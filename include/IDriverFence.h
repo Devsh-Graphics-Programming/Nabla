@@ -29,9 +29,9 @@ class IDriverFence : public virtual IReferenceCounted
 {
     public:
         //! If timeout​ is zero, the function will simply check to see if the sync object is signaled and return immediately.
-        virtual E_DRIVER_FENCE_RETVAL waitCPU(const uint64_t &timeout, const bool &flush=true) = 0;
+        virtual E_DRIVER_FENCE_RETVAL waitCPU(const uint64_t &timeout, const bool &flush=false) = 0;
 
-        virtual void waitGPU(const bool &flush=true) = 0;
+        virtual void waitGPU() = 0;
 };
 
 } // end namespace scene

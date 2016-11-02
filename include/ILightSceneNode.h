@@ -24,7 +24,7 @@ class ILightSceneNode : public ISceneNode
 public:
 
 	//! constructor
-	ILightSceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id,
+	ILightSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 		const core::vector3df& position = core::vector3df(0,0,0))
 		: ISceneNode(parent, mgr, id, position) {}
 

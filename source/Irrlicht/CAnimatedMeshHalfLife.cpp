@@ -3,7 +3,9 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "IrrCompileConfig.h"
-#ifdef _IRR_COMPILE_WITH_HALFLIFE_LOADER_
+#ifdef _IRR_COMPILE_WITH_HALFLIFE_LOADER
+_
+#error "Fix QUATERNIONS FIRST!!!"
 
 #include "CAnimatedMeshHalfLife.h"
 #include "os.h"
@@ -256,17 +258,6 @@ u32 CAnimatedMeshHalfLife::getFrameCount() const
 	return FrameCount;
 }
 
-
-//! set the hardware mapping hint, for driver
-void CAnimatedMeshHalfLife::setHardwareMappingHint(E_HARDWARE_MAPPING newMappingHint,E_BUFFER_TYPE buffer)
-{
-}
-
-
-//! flags the meshbuffer as changed, reloads hardware buffers
-void CAnimatedMeshHalfLife::setDirty(E_BUFFER_TYPE buffer)
-{
-}
 
 
 static core::vector3df TransformedVerts[MAXSTUDIOVERTS];	// transformed vertices

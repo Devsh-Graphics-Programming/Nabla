@@ -28,7 +28,7 @@ struct STLVertex
     float pos[3];
     uint32_t normal32bit;
     uint32_t color;
-};
+} PACK_STRUCT;
 #include "irrunpack.h"
 
 //! returns true if the file maybe is able to be loaded by this class

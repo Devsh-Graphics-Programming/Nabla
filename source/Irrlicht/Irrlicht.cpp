@@ -115,7 +115,7 @@ namespace irr
 
 namespace core
 {
-	const matrix4 IdentityMatrix(matrix4::EM4CONST_IDENTITY);
+	const matrix4x3 IdentityMatrix(matrix4x3::EM4CONST_IDENTITY);
 #ifdef __IRR_COMPILE_WITH_X86_SIMD_
 	//const matrixSIMD4 IdentityMatrix(matrix4::EM4CONST_IDENTITY);
 #endif

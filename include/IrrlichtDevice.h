@@ -39,7 +39,6 @@ namespace irr
 	class IrrlichtDevice : public virtual IReferenceCounted
 	{
 	public:
-
 		//! Runs the device.
 		/** Also increments the virtual timer by calling
 		ITimer::tick();. You can prevent this

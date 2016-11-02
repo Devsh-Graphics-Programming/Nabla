@@ -32,12 +32,13 @@ VERSION_RELEASE = 3
 IRRMESHLOADER = CMS3DMeshFileLoader.o CB3DMeshFileLoader.o C3DSMeshFileLoader.o COgreMeshFileLoader.o COBJMeshFileLoader.o CColladaFileLoader.o CCSMLoader.o CDMFLoader.o CLMTSMeshFileLoader.o CMY3DMeshFileLoader.o COCTLoader.o CXMeshFileLoader.o CSTLMeshFileLoader.o CLWOMeshFileLoader.o CPLYMeshFileLoader.o CSMFMeshFileLoader.o
 IRRMESHWRITER = CColladaMeshWriter.o CSTLMeshWriter.o COBJMeshWriter.o CPLYMeshWriter.o
 IRRMESHOBJ = $(IRRMESHLOADER) $(IRRMESHWRITER) \
-	CMeshBuffer.o CSkinnedMesh.o CBoneSceneNode.o CMeshSceneNode.o \
+	CSkinnedMesh.o CMeshSceneNode.o CMeshSceneNodeInstanced.o \
+	CSkinnedMeshSceneNode.o \
 	CAnimatedMeshSceneNode.o \
 	CAnimatedMeshHalfLife.o
-IRROBJ = CBillboardSceneNode.o CCameraSceneNode.o CDummyTransformationSceneNode.o CEmptySceneNode.o CGeometryCreator.o CLightSceneNode.o CMeshManipulator.o CMetaTriangleSelector.o COctreeTriangleSelector.o CSceneCollisionManager.o CSceneManager.o CSkyBoxSceneNode.o CSkyDomeSceneNode.o CCubeSceneNode.o CSphereSceneNode.o CTriangleBBSelector.o CTriangleSelector.o CMeshCache.o CDefaultSceneNodeAnimatorFactory.o CDefaultSceneNodeFactory.o
-IRRANIMOBJ = CSceneNodeAnimatorCameraFPS.o CSceneNodeAnimatorCameraMaya.o CSceneNodeAnimatorCollisionResponse.o CSceneNodeAnimatorDelete.o CSceneNodeAnimatorFlyCircle.o CSceneNodeAnimatorFlyStraight.o CSceneNodeAnimatorFollowSpline.o CSceneNodeAnimatorRotation.o CSceneNodeAnimatorTexture.o
-IRRDRVROBJ = CNullDriver.o COpenGLDriver.o COpenGLTexture.o COpenGLSLMaterialRenderer.o COpenGLExtensionHandler.o COpenGLFrameBuffer.o COpenGLRenderBuffer.o STextureSamplingParams.o
+IRROBJ = CBillboardSceneNode.o CCameraSceneNode.o CEmptySceneNode.o CGeometryCreator.o CLightSceneNode.o CMeshManipulator.o CSceneManager.o CSkyBoxSceneNode.o CSkyDomeSceneNode.o CCubeSceneNode.o CSphereSceneNode.o CMeshCache.o CDefaultSceneNodeAnimatorFactory.o CDefaultSceneNodeFactory.o
+IRRANIMOBJ = CSceneNodeAnimatorCameraFPS.o CSceneNodeAnimatorCameraMaya.o CSceneNodeAnimatorDelete.o CSceneNodeAnimatorFlyCircle.o CSceneNodeAnimatorFlyStraight.o CSceneNodeAnimatorFollowSpline.o CSceneNodeAnimatorRotation.o CSceneNodeAnimatorTexture.o
+IRRDRVROBJ = FW_Mutex.o CNullDriver.o COpenGLDriver.o COpenGLTexture.o COpenGLSLMaterialRenderer.o COpenGLExtensionHandler.o COpenGLFrameBuffer.o COpenGLRenderBuffer.o STextureSamplingParams.o
 IRRIMAGEOBJ = CColorConverter.o CImage.o CImageLoaderBMP.o CImageLoaderDDS.o CImageLoaderJPG.o CImageLoaderPCX.o CImageLoaderPNG.o CImageLoaderPSD.o CImageLoaderTGA.o CImageLoaderPPM.o CImageLoaderWAL.o CImageLoaderRGB.o \
 	CImageWriterBMP.o CImageWriterJPG.o CImageWriterPCX.o CImageWriterPNG.o CImageWriterPPM.o CImageWriterPSD.o CImageWriterTGA.o
 IRRVIDEOOBJ = CVideoModeList.o CFPSCounter.o $(IRRDRVROBJ) $(IRRIMAGEOBJ)
@@ -111,7 +112,7 @@ LIB_PATH = ../../lib/$(SYSTEM)
 INSTALL_DIR = /usr/local/lib
 sharedlib install: SHARED_LIB = libIrrlicht.so
 #staticlib sharedlib: LDFLAGS += --no-export-all-symbols --add-stdcall-alias
-sharedlib: LDFLAGS += -L/usr/X11R6/lib$(LIBSELECT) -lGL -lXxf86vm
+sharedlib: LDFLAGS += -fuse-ld=gold -L/usr/X11R6/lib$(LIBSELECT) -lGL -lXxf86vm
 #might lose the X11 for serverlib
 serverlib staticlib sharedlib: CXXINCS += -I/usr/X11R6/include
 

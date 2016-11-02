@@ -130,6 +130,41 @@ void CTRTextureBlend::setZCompareFunc ( u32 func)
 
 /*!
 */
+	//! Flag for EMT_ONETEXTURE_BLEND, ( BlendFactor ) BlendFunc = source * sourceFactor + dest * destFactor
+	enum E_BLEND_FACTOR
+	{
+		EBF_ZERO	= 0,			//!< src & dest	(0, 0, 0, 0)
+		EBF_ONE,					//!< src & dest	(1, 1, 1, 1)
+		EBF_DST_COLOR, 				//!< src	(destR, destG, destB, destA)
+		EBF_ONE_MINUS_DST_COLOR,	//!< src	(1-destR, 1-destG, 1-destB, 1-destA)
+		EBF_SRC_COLOR,				//!< dest	(srcR, srcG, srcB, srcA)
+		EBF_ONE_MINUS_SRC_COLOR, 	//!< dest	(1-srcR, 1-srcG, 1-srcB, 1-srcA)
+		EBF_SRC_ALPHA,				//!< src & dest	(srcA, srcA, srcA, srcA)
+		EBF_ONE_MINUS_SRC_ALPHA,	//!< src & dest	(1-srcA, 1-srcA, 1-srcA, 1-srcA)
+		EBF_DST_ALPHA,				//!< src & dest	(destA, destA, destA, destA)
+		EBF_ONE_MINUS_DST_ALPHA,	//!< src & dest	(1-destA, 1-destA, 1-destA, 1-destA)
+		EBF_SRC_ALPHA_SATURATE		//!< src	(min(srcA, 1-destA), idem, ...)
+	};
+	//! MaterialTypeParam: e.g. DirectX: D3DTOP_MODULATE, D3DTOP_MODULATE2X, D3DTOP_MODULATE4X
+	enum E_MODULATE_FUNC
+	{
+		EMFN_MODULATE_1X	= 1,
+		EMFN_MODULATE_2X	= 2,
+		EMFN_MODULATE_4X	= 4
+	};
+
+//! EMT_ONETEXTURE_BLEND: unpack srcFact & dstFact and Modulo to MaterialTypeParam
+/** The fields don't use the full byte range, so we could pack even more... */
+inline void unpack_textureBlendFunc ( E_BLEND_FACTOR &srcFact, E_BLEND_FACTOR &dstFact,
+        E_MODULATE_FUNC &modulo, u32& alphaSource, const f32 param )
+{
+    const u32 state = IR(param);
+    alphaSource = (state & 0x0000F000) >> 12;
+    modulo	= E_MODULATE_FUNC( ( state & 0x00000F00 ) >> 8 );
+    srcFact = E_BLEND_FACTOR ( ( state & 0x000000F0 ) >> 4 );
+    dstFact = E_BLEND_FACTOR ( ( state & 0x0000000F ) );
+}
+
 void CTRTextureBlend::setParam ( u32 index, f32 value)
 {
 	u8 showname = 0;
@@ -191,8 +226,8 @@ void CTRTextureBlend::setParam ( u32 index, f32 value)
 		fragmentShader = &CTRTextureBlend::fragment_dst_color_zero;
 	}
 
-	static const c8 *n[] = 
-	{ 
+	static const c8 *n[] =
+	{
 		"gl_zero",
 		"gl_one",
 		"gl_dst_color",
@@ -334,12 +369,12 @@ void CTRTextureBlend::fragment_dst_color_src_alpha ()
 		iw = fix_inverse32 ( line.w[0] );
 #endif
 
-		getSample_texture ( a0,r0,g0,b0, 
+		getSample_texture ( a0,r0,g0,b0,
 							&IT[0],
 							tofix ( line.t[0][0].x,iw),
 							tofix ( line.t[0][0].y,iw)
 						);
-	
+
 		color_to_fix ( r1, g1, b1, dst[i] );
 
 		dst[i] = fix_to_color ( clampfix_maxcolor ( imulFix_tex2 ( r0, r1 ) ),
@@ -377,12 +412,12 @@ void CTRTextureBlend::fragment_dst_color_src_alpha ()
 		iw = fix_inverse32 ( line.w[0] );
 #endif
 
-		getSample_texture ( a0,r0,g0,b0, 
+		getSample_texture ( a0,r0,g0,b0,
 							&IT[0],
 							tofix ( line.t[0][0].x,iw),
 							tofix ( line.t[0][0].y,iw)
 						);
-	
+
 		color_to_fix ( r1, g1, b1, dst[i] );
 
 		dst[i] = fix_to_color ( clampfix_maxcolor ( imulFix_tex2 ( r0, r1 ) ),
@@ -557,12 +592,12 @@ void CTRTextureBlend::fragment_src_color_src_alpha ()
 		iw = fix_inverse32 ( line.w[0] );
 #endif
 
-		getSample_texture ( a0,r0,g0,b0, 
+		getSample_texture ( a0,r0,g0,b0,
 							&IT[0],
 							tofix ( line.t[0][0].x,iw),
 							tofix ( line.t[0][0].y,iw)
 						);
-	
+
 		color_to_fix ( r1, g1, b1, dst[i] );
 
 		dst[i] = fix_to_color ( clampfix_maxcolor ( imulFix_tex2 ( r0, r1 ) ),
@@ -2100,31 +2135,31 @@ void CTRTextureBlend::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;
-		scan.x[1] += scan.slopeX[1] * subPixel;		
+		scan.x[1] += scan.slopeX[1] * subPixel;
 
 #ifdef IPOL_Z
 		scan.z[0] += scan.slopeZ[0] * subPixel;
-		scan.z[1] += scan.slopeZ[1] * subPixel;		
+		scan.z[1] += scan.slopeZ[1] * subPixel;
 #endif
 
 #ifdef IPOL_W
 		scan.w[0] += scan.slopeW[0] * subPixel;
-		scan.w[1] += scan.slopeW[1] * subPixel;		
+		scan.w[1] += scan.slopeW[1] * subPixel;
 #endif
 
 #ifdef IPOL_C0
 		scan.c[0][0] += scan.slopeC[0][0] * subPixel;
-		scan.c[0][1] += scan.slopeC[0][1] * subPixel;		
+		scan.c[0][1] += scan.slopeC[0][1] * subPixel;
 #endif
 
 #ifdef IPOL_T0
 		scan.t[0][0] += scan.slopeT[0][0] * subPixel;
-		scan.t[0][1] += scan.slopeT[0][1] * subPixel;		
+		scan.t[0][1] += scan.slopeT[0][1] * subPixel;
 #endif
 
 #ifdef IPOL_T1
 		scan.t[1][0] += scan.slopeT[1][0] * subPixel;
-		scan.t[1][1] += scan.slopeT[1][1] * subPixel;		
+		scan.t[1][1] += scan.slopeT[1][1] * subPixel;
 #endif
 
 #endif
@@ -2260,31 +2295,31 @@ void CTRTextureBlend::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;
-		scan.x[1] += scan.slopeX[1] * subPixel;		
+		scan.x[1] += scan.slopeX[1] * subPixel;
 
 #ifdef IPOL_Z
 		scan.z[0] += scan.slopeZ[0] * subPixel;
-		scan.z[1] += scan.slopeZ[1] * subPixel;		
+		scan.z[1] += scan.slopeZ[1] * subPixel;
 #endif
 
 #ifdef IPOL_W
 		scan.w[0] += scan.slopeW[0] * subPixel;
-		scan.w[1] += scan.slopeW[1] * subPixel;		
+		scan.w[1] += scan.slopeW[1] * subPixel;
 #endif
 
 #ifdef IPOL_C0
 		scan.c[0][0] += scan.slopeC[0][0] * subPixel;
-		scan.c[0][1] += scan.slopeC[0][1] * subPixel;		
+		scan.c[0][1] += scan.slopeC[0][1] * subPixel;
 #endif
 
 #ifdef IPOL_T0
 		scan.t[0][0] += scan.slopeT[0][0] * subPixel;
-		scan.t[0][1] += scan.slopeT[0][1] * subPixel;		
+		scan.t[0][1] += scan.slopeT[0][1] * subPixel;
 #endif
 
 #ifdef IPOL_T1
 		scan.t[1][0] += scan.slopeT[1][0] * subPixel;
-		scan.t[1][1] += scan.slopeT[1][1] * subPixel;		
+		scan.t[1][1] += scan.slopeT[1][1] * subPixel;
 #endif
 
 #endif

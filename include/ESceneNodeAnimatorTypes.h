@@ -31,9 +31,6 @@ namespace scene
 		//! Deletion scene node animator
 		ESNAT_DELETION,
 
-		//! Collision respose scene node animator
-		ESNAT_COLLISION_RESPONSE,
-
 		//! FPS camera animator
 		ESNAT_CAMERA_FPS,
 

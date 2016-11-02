@@ -22,10 +22,10 @@ namespace scene
 		CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
 			video::ITexture* right, video::ITexture* front, video::ITexture* back,
 			video::IGPUBuffer* vertPositions, size_t positionsOffsetInBuf,
-			ISceneNode* parent, ISceneManager* mgr, s32 id);
+			IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id);
         //! clone Ctor
 		CSkyBoxSceneNode(CSkyBoxSceneNode* other,
-			ISceneNode* parent, ISceneManager* mgr, s32 id);
+			IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id);
 
         virtual ~CSkyBoxSceneNode()
         {
@@ -39,7 +39,7 @@ namespace scene
 		virtual void render();
 
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox() const;
+		virtual const core::aabbox3d<f32>& getBoundingBox();
 
 		//! returns the material based on the zero based index i. To get the amount
 		//! of materials used by this scene node, use getMaterialCount().
@@ -55,7 +55,7 @@ namespace scene
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_BOX; }
 
 		//! Creates a clone of this scene node and its children.
-		virtual ISceneNode* clone(ISceneNode* newParent=0, ISceneManager* newManager=0);
+		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
 
 	private:
 

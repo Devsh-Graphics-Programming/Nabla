@@ -7,18 +7,48 @@ using namespace irr;
 using namespace video;
 
 
+#if defined(_IRR_WINDOWS_API_)
+// ----------------------------------------------------------------
+// Windows specific functions
+// ----------------------------------------------------------------
 
-IGPUTransientBuffer::IGPUTransientBuffer(IVideoDriver* driver, const size_t& bufsize, const bool& inCPUMem, const bool& growable, const bool& threadSafe) : lastChanged(0), canGrow(growable), Driver(driver)
+#ifdef _IRR_XBOX_PLATFORM_
+#include <xtl.h>
+#else
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <time.h>
+#endif
+
+#else
+
+#include <sys/time.h>
+
+#endif // defined
+
+
+
+//#define _EXTREME_DEBUG
+
+
+IGPUTransientBuffer::IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe)
+                                    :   lastChanged(0), canGrow(growable), flushOnWait(autoFlush), Driver(driver), underlyingBuffer(buffer), underlyingBufferAsMapped(dynamic_cast<IGPUMappedBuffer*>(underlyingBuffer)),
+                                        totalTrueFreeSpace(0), totalFreeSpace(0), largestFreeChunkSize(0), trueLargestFreeChunkSize(0)
 {
     Allocation first;
     first.state = Allocation::EAS_FREE;
     first.fence = NULL;
     first.start = 0;
-    first.end = bufsize;
+    if (underlyingBuffer)
+    {
+        underlyingBuffer->grab();
+        first.end = underlyingBuffer->getSize();
+        totalTrueFreeSpace = totalFreeSpace = largestFreeChunkSize = trueLargestFreeChunkSize = underlyingBuffer->getSize();
+    }
+    else
+        first.end = 0;
     allocs.reserve(1024);
     allocs.push_back(first);
-
-    underlyingBuffer = Driver->createPersistentlyMappedBuffer(bufsize,NULL,EGBA_WRITE,true,inCPUMem);
 
     if (threadSafe)
     {
@@ -70,16 +100,100 @@ bool IGPUTransientBuffer::Validate()
     return retval;
 }
 
-IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &offsetOut, const size_t &maxSize, E_WAIT_POLICY waitPolicy, bool growIfTooSmall)
+bool IGPUTransientBuffer::validate_ALREADYMUTEXED()
+{
+    if (!underlyingBuffer)
+        return false;
+
+    if (allocs.size()<1)
+        return false;
+
+    if (allocs[0].start!=0||allocs.back().end!=underlyingBuffer->getSize())
+        return false;
+
+    for (size_t i=0; i<allocs.size(); i++)
+    {
+        if (invalidState(allocs[i]))
+            return false;
+
+        if (allocs[i].end<=allocs[i].start)
+            return false;
+
+        if (i>0&&allocs[i-1].end!=allocs[i].start)
+            return false;
+    }
+/*
+    size_t tmpSize = (underlyingBuffer->getSize()+7)/8;
+    uint8_t* tmpData = new uint8_t[tmpSize];
+    memset(tmpData,0,tmpSize);
+    for (size_t i=0; i<allocs.size(); i++)
+    for (size_t j=allocs[i].start; j<allocs[i].end; j++)
+    {
+        size_t addr = j/8;
+        uint8_t mask = 0x1u<<(j-8*addr);
+        uint8_t& location = tmpData[addr];
+        if (location&mask)
+        {
+            delete [] tmpData;
+            os::Printer::log("DOUBLY ALLOCATED RANGE!\n",ELL_ERROR);
+            return false;
+        }
+        location |= mask;
+    }
+
+    delete [] tmpData;*/
+
+    return true;
+}
+
+void IGPUTransientBuffer::PrintDebug(bool needsMutex)
+{
+    if (needsMutex&&mutex)
+        mutex->Get();
+
+    os::Printer::log("==========================GPU TRANSIENT BUFFER INFO==========================\n",ELL_INFORMATION);
+    os::Printer::log("==========================          START          ==========================\n",ELL_INFORMATION);
+    for (int32_t i=0; i<allocs.size(); i++)
+    {
+        core::stringc infoOut = "Block:";
+        infoOut +=i;
+        infoOut += "\t\t\tStart:";
+        infoOut += (int32_t)allocs[i].start;
+        infoOut += "\t\t\tEnd:  ";
+        infoOut += (int32_t)allocs[i].end;
+        infoOut += "\t\t\tFence:";
+        infoOut += (int32_t)reinterpret_cast<size_t &>(allocs[i].fence);
+        infoOut += "\tRefCnt:";
+        if (allocs[i].fence)
+            infoOut += allocs[i].fence->getReferenceCount();
+        else
+            infoOut += 0;
+        infoOut += "\t\t\tState:";
+        infoOut += allocs[i].state;
+        infoOut += "\n";
+        os::Printer::log(infoOut.c_str(),ELL_INFORMATION);
+    }
+    os::Printer::log("==========================           END           ==========================\n",ELL_INFORMATION);
+
+    if (needsMutex&&mutex)
+        mutex->Release();
+}
+
+inline size_t roundUpStart(size_t index, const size_t& alignment)
+{
+    index += alignment-1;
+    index /= alignment;
+    return index*alignment;
+}
+
+IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &offsetOut, const size_t &maxSize, const size_t& alignment, E_WAIT_POLICY waitPolicy, bool growIfTooSmall)
 {
     if (maxSize==0)
         return EARS_FAIL;
 
 
     if (!canGrow)
-        growIfTooSmall = false;/*
-    else if (growIfTooSmall&&waitPolicy==EWP_DONT_WAIT)
-        waitPolicy = EWP_WAIT_FOR_CPU_UNMAP;*/
+        growIfTooSmall = false;
 
     if (!allocMutex)
         waitPolicy = EWP_DONT_WAIT;
@@ -100,17 +214,19 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
         return EARS_ERROR;
     }
 
-#ifdef _DEBUG
+#ifdef _EXTREME_DEBUG
     if (!validate_ALREADYMUTEXED())
+    {
         os::Printer::log("TRNASIENT BUFFER VALIDATION FAILED!\n",ELL_ERROR);
-#endif // _DEBUG
+        PrintDebug(false);
+    }
+#endif // _EXTREME_DEBUG
 
     // defragment all the time
     // grow if everything is unmapped
     // circle releasing fence
     do
     {
-        bool allUnmapped = true;
         bool noFencesToCycle = true;
         bool allFree = true;
         //defragment while checking if all are unmapped
@@ -119,14 +235,15 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
         {
             bool retest = false;
             //not the same as next
-            if (allocs[j].state!=allocs[i].state&&allocs[j].fence!=allocs[i].fence)
+            if (allocs[j].state!=allocs[i].state||allocs[j].fence!=allocs[i].fence)
             {
                 switch (allocs[j].state)
                 {
                     case Allocation::EAS_FREE:
+                        //only wait on fence if free
                         if (allocs[j].fence)
                         {
-                            switch (allocs[j].fence->waitCPU(0))
+                            switch (allocs[j].fence->waitCPU(0,flushOnWait))
                             {
                                 case EDFR_TIMEOUT_EXPIRED:
                                     noFencesToCycle = false;
@@ -134,27 +251,82 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
                                 default: //any other thing
                                     allocs[j].fence->drop();
                                     allocs[j].fence = NULL;
+
+                                    totalTrueFreeSpace += allocs[i].start-allocs[j].start;
+
                                     retest = !allocs[i].fence;
                                     break;
                             }
                         }
-                        //could have changed
+                        //could have changed and needs merge
                         if (!allocs[j].fence)
                         {
-                            if (allocs[i].start-allocs[j].start>=maxSize)
+                            //found a block large enough to allocate from
+                            size_t startAligned = roundUpStart(allocs[j].start,alignment);
+                            if (startAligned<allocs[i].start&&allocs[i].start-startAligned>=maxSize)
                             {
-                                allocs[j].state = Allocation::EAS_ALLOCATED;
-                                offsetOut = allocs[j].start;
+                                offsetOut = startAligned;
+
+                                if (allocs[j].start!=startAligned)
+                                {
+                                    //front of the allocated space will be freed
+                                    allocs[j].state = Allocation::EAS_FREE;
+                                    allocs[j++].end = startAligned;
+                                    //insert new chunk info straight after
+                                    Allocation tmp;
+                                    tmp.state = Allocation::EAS_ALLOCATED;
+                                    tmp.fence = NULL;
+                                    tmp.start = startAligned;
+                                    tmp.end = startAligned+maxSize;
+                                    //insert new chunk after old
+                                    if (j<i)
+                                        allocs[j] = tmp;
+                                    else
+                                    {
+                                        allocs.insert(allocs.begin()+j,tmp);
+                                        i++;//need to move our next index along
+                                    }
+                                }
+                                else
+                                {
+                                    //allocate from the start of current chunk
+                                    allocs[j].state = Allocation::EAS_ALLOCATED;
+                                    allocs[j].end = startAligned+maxSize;
+                                }
+                                //no j/the current maps to the chunk with EAS_ALLOCATED state
+                                if (startAligned+maxSize<allocs[i].start)
+                                {
+                                    //new free chunk to insert after current chunk
+                                    Allocation tmp;
+                                    tmp.state = Allocation::EAS_FREE;
+                                    tmp.fence = NULL;
+                                    tmp.start = startAligned+maxSize;
+                                    tmp.end = allocs[i].start;
+
+                                    //if the next chunk desc we look at is FAAAR away
+                                    j++;
+                                    if (j<i)
+                                        allocs[j] = tmp;
+                                    else
+                                    {
+                                        //j = current desc index equals i= next desc index
+                                        allocs.insert(allocs.begin()+j,tmp);
+                                        i++;
+                                    }
+                                }
+
                                 if (j<i-1)
                                 {
-                                    allocs[j].end = allocs[i].start;
-                                    j++;i++;
+                                    j++;
                                     for (; i<allocs.size(); i++,j++)
                                     {
                                         allocs[j] = allocs[i];
                                     }
                                     allocs.resize(j);
                                 }
+                                totalTrueFreeSpace -= maxSize;
+                                totalFreeSpace -= maxSize;
+
                                 if (mutex)
                                     mutex->Release();
                                 if (waitPolicy&&allocMutex)
@@ -164,8 +336,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
                         }
                         break;
                     case Allocation::EAS_ALLOCATED:
-                        allUnmapped = false;
-                        ///allFree = false; //implicit in later check
+                        allFree = false;
                         break;
                     case Allocation::EAS_PENDING_RENDER_CMD:
                         allFree = false;
@@ -191,17 +362,19 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
                 allocs[i].fence->drop();
         }
 
+        //trim and fix the end
         if (j+1<allocs.size())
         {
             allocs[j].end = allocs.back().end;
             allocs.resize(j+1);
         }
 
+        //process last chunk
         if (allocs[j].state==Allocation::EAS_FREE)
         {
             if (allocs[j].fence)
             {
-                switch (allocs[j].fence->waitCPU(0))
+                switch (allocs[j].fence->waitCPU(0,flushOnWait))
                 {
                     case EDFR_TIMEOUT_EXPIRED:
                         noFencesToCycle = false;
@@ -209,35 +382,76 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
                     default: //any other thing
                         allocs[j].fence->drop();
                         allocs[j].fence = NULL;
+
+                        totalTrueFreeSpace += allocs[j].end-allocs[j].start;
                         break;
                 }
             }
             //could have changed
-            if (!allocs[j].fence&&allocs[j].end-allocs[j].start>=maxSize)
+            if (!allocs[j].fence)
             {
-                allocs[j].state = Allocation::EAS_ALLOCATED;
-                offsetOut = allocs[j].start;
-                if (mutex)
-                    mutex->Release();
-                if (waitPolicy&&allocMutex)
-                    allocMutex->Release();
-                return EARS_SUCCESS;
+                size_t startAligned = roundUpStart(allocs[j].start,alignment);
+                if (startAligned<allocs[j].end&&allocs[j].end-startAligned>=maxSize)
+                {
+                    offsetOut = startAligned;
+                    size_t bufferEnd = allocs[j].end;
+
+                    if (allocs[j].start!=startAligned)
+                    {
+                        //front of the allocated space will be freed
+                        allocs[j].state = Allocation::EAS_FREE;
+                        allocs[j++].end = startAligned;
+                        //insert new chunk info straight after
+                        Allocation tmp;
+                        tmp.state = Allocation::EAS_ALLOCATED;
+                        tmp.fence = NULL;
+                        tmp.start = startAligned;
+                        tmp.end = startAligned+maxSize;
+                        //insert new chunk after old
+                        allocs.push_back(tmp);
+                    }
+                    else
+                    {
+                        //allocate from the start of current chunk
+                        allocs[j].state = Allocation::EAS_ALLOCATED;
+                        allocs[j].end = startAligned+maxSize;
+                    }
+
+                    if (startAligned+maxSize<bufferEnd)
+                    {
+                        //new free chunk to insert after current chunk
+                        Allocation tmp;
+                        tmp.state = Allocation::EAS_FREE;
+                        tmp.fence = NULL;
+                        tmp.start = startAligned+maxSize;
+                        tmp.end = bufferEnd;
+
+                        allocs.push_back(tmp);
+                    }
+
+                    totalTrueFreeSpace -= maxSize;
+                    totalFreeSpace -= maxSize;
+
+                    if (mutex)
+                        mutex->Release();
+                    if (waitPolicy&&allocMutex)
+                        allocMutex->Release();
+                    return EARS_SUCCESS;
+                }
             }
-        }
-        else if (allocs[j].state==Allocation::EAS_ALLOCATED)
-        {
-            allUnmapped = false;
-            ///allFree = false; //implicit in later check
         }
         else
             allFree = false;
 
-#ifdef _DEBUG
+#ifdef _EXTREME_DEBUG
         if (!validate_ALREADYMUTEXED())
+        {
             os::Printer::log("TRNASIENT BUFFER VALIDATION FAILED!\n",ELL_ERROR);
-#endif // _DEBUG
+            PrintDebug(false);
+        }
+#endif // _EXTREME_DEBUG
 
-        if (allUnmapped)
+        if (allFree)
         {
             if (growIfTooSmall)
             {
@@ -257,6 +471,9 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
 
                 if (lastChunkFree)
                 {
+                    totalTrueFreeSpace -= oldBufferSz-allocs.back().start;
+                    totalFreeSpace -= oldBufferSz-allocs.back().start;
+
                     offsetOut = allocs.back().start;
                     allocs.back().end = allocs.back().start+maxSize;
                     allocs.back().state = Allocation::EAS_ALLOCATED;
@@ -278,7 +495,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
                     allocMutex->Release();
                 return EARS_SUCCESS;
             }
-            else if (allFree&&(waitPolicy<EWP_WAIT_FOR_GPU_FREE||noFencesToCycle))
+			else if (noFencesToCycle||(!noFencesToCycle&&waitPolicy<EWP_WAIT_FOR_GPU_FREE))
                 break;
         }
 
@@ -476,7 +693,7 @@ bool IGPUTransientBuffer::queryRange(const size_t& start, const size_t& end, con
     return true;
 }
 //
-bool IGPUTransientBuffer::Place(size_t &offsetOut, void* data, const size_t& dataSize, const E_WAIT_POLICY &waitPolicy, const bool &growIfTooSmall)
+bool IGPUTransientBuffer::Place(size_t &offsetOut, const void* data, const size_t& dataSize, const size_t& alignment, const E_WAIT_POLICY &waitPolicy, const bool &growIfTooSmall)
 {
     if (!data||dataSize==0)
     {
@@ -485,10 +702,17 @@ bool IGPUTransientBuffer::Place(size_t &offsetOut, void* data, const size_t& dat
     }
 
     size_t offset;
-    if (!Alloc(offset,dataSize,waitPolicy,growIfTooSmall))
+    if (Alloc(offset,dataSize,alignment,waitPolicy,growIfTooSmall)!=EARS_SUCCESS)
         return false;
 
-    memcpy(((uint8_t*)underlyingBuffer->getPointer())+offset,data,dataSize);
+    bool result = true;
+    if (underlyingBufferAsMapped)
+        memcpy(((uint8_t*)underlyingBufferAsMapped->getPointer())+offset,data,dataSize);
+    else if (underlyingBuffer->canUpdateSubRange())
+        underlyingBuffer->updateSubRange(offset,dataSize,data);
+    else
+        result = false;
+
     if (!Commit(offset,offset+dataSize))
     {
         Free(offset,offset+dataSize);
@@ -496,7 +720,7 @@ bool IGPUTransientBuffer::Place(size_t &offsetOut, void* data, const size_t& dat
     }
     offsetOut = offset;
 
-    return true;
+    return result;
 }
 //! Unless memory is being used by GPU it will be returned to free pool straight away
 //! Useful if you dont end up using comitted memory by GPU
@@ -527,12 +751,12 @@ bool IGPUTransientBuffer::Free(const size_t& start, const size_t& end)
     //state of chunks must be EAS_PENDING
     //change state to EAS_FREE
     //pay attention to fences
-    if (allocs[index].state==Allocation::EAS_PENDING_RENDER_CMD)
+    if (allocs[index].state==Allocation::EAS_PENDING_RENDER_CMD||allocs[index].state==Allocation::EAS_ALLOCATED)
     {
         if (allocs[index].start<start)
         {
             Allocation tmp;
-            tmp.state = Allocation::EAS_PENDING_RENDER_CMD;
+            tmp.state = allocs[index].state;
             if (allocs[index].fence)
             {
                 tmp.fence = allocs[index].fence;
@@ -550,7 +774,11 @@ bool IGPUTransientBuffer::Free(const size_t& start, const size_t& end)
     else
     {
         if (mutex)
+        {
+            lastChanged++;
+            allocationChanged->SignalConditionToAll();
             mutex->Release();
+        }
 #ifdef _DEBUG
         os::Printer::log("DOUBLE FREE ATTEMPTED",ELL_WARNING);
 #endif // _DEBUG
@@ -558,7 +786,7 @@ bool IGPUTransientBuffer::Free(const size_t& start, const size_t& end)
     }
     for (; index<allocs.size()&&allocs[index].end<=end; index++)
     {
-        if (allocs[index].state==Allocation::EAS_PENDING_RENDER_CMD)
+        if (allocs[index].state==Allocation::EAS_PENDING_RENDER_CMD||allocs[index].state==Allocation::EAS_ALLOCATED)
         {
             allocs[index].state = Allocation::EAS_FREE;
         }
@@ -578,10 +806,10 @@ bool IGPUTransientBuffer::Free(const size_t& start, const size_t& end)
     }
     if (index<allocs.size()&&allocs[index].start<end)
     {
-        if (allocs[index].state==Allocation::EAS_PENDING_RENDER_CMD)
+        if (allocs[index].state==Allocation::EAS_PENDING_RENDER_CMD||allocs[index].state==Allocation::EAS_ALLOCATED)
         {
             Allocation tmp;
-            tmp.state = Allocation::EAS_PENDING_RENDER_CMD;
+            tmp.state = allocs[index].state;
             if (allocs[index].fence)
             {
                 tmp.fence = allocs[index].fence;
@@ -610,6 +838,8 @@ bool IGPUTransientBuffer::Free(const size_t& start, const size_t& end)
             return false;
         }
     }
+    totalFreeSpace += end-start;
+
 
     if (mutex)
     {
@@ -758,6 +988,173 @@ bool IGPUTransientBuffer::fenceRangeUsedByGPU(const size_t& start, const size_t&
     return true;
 }
 //
+bool IGPUTransientBuffer::waitRangeFences(const size_t& start, const size_t& end, size_t timeOutNs)
+{
+#if defined(_IRR_WINDOWS_API_)
+    LARGE_INTEGER nTime;
+    QueryPerformanceCounter(&nTime);
+    size_t lastMeasuredTime = nTime.QuadPart;
+#else
+    timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts); // Works on Linux
+    size_t lastMeasuredTime = ts.tv_nsec;
+    lastMeasuredTime += ts.tv_sec*1000000000;
+#endif
+
+    if (mutex)
+        mutex->Get();
+    if (!underlyingBuffer)
+    {
+        if (mutex)
+            mutex->Release();
+        return true;
+    }
+
+#ifdef _EXTREME_DEBUG
+    if (!validate_ALREADYMUTEXED())
+    {
+        os::Printer::log("TRNASIENT BUFFER VALIDATION FAILED!\n",ELL_ERROR);
+        PrintDebug(false);
+    }
+#endif // _EXTREME_DEBUG
+
+    //defragment while checking if all are unmapped
+    uint32_t j;
+    if (!findFirstChunk(j,start))
+    {
+        if (mutex)
+            mutex->Release();
+        return false;
+    }
+    size_t i=j+1;
+    for (; i<allocs.size()&&allocs[i].start<end; i++)
+    {
+        bool retest = false;
+        //not the same as next
+        if (allocs[j].state!=allocs[i].state||allocs[j].fence!=allocs[i].fence)
+        {
+            switch (allocs[j].state)
+            {
+                case Allocation::EAS_FREE:
+                case Allocation::EAS_PENDING_RENDER_CMD:
+                    //only wait on fence if free
+                    if (allocs[j].fence)
+                    {
+                        switch (allocs[j].fence->waitCPU(timeOutNs,flushOnWait))
+                        {
+                            case EDFR_TIMEOUT_EXPIRED:
+                                allocs[j].end = allocs[i].start;
+                                if (j<i-1)
+                                {
+                                    j++;
+                                    for (; i<allocs.size(); i++,j++)
+                                    {
+                                        allocs[j] = allocs[i];
+                                    }
+                                    allocs.resize(j);
+                                }
+                                if (mutex)
+                                    mutex->Release();
+                                return false;
+                                break;
+                            case EDFR_CONDITION_SATISFIED:
+                                {
+    #if defined(_IRR_WINDOWS_API_)
+                                    LARGE_INTEGER nTime;
+                                    QueryPerformanceCounter(&nTime);
+								    size_t timeMeasuredNs = nTime.QuadPart;
+                #else
+                                    timespec ts;
+                                    clock_gettime(CLOCK_REALTIME, &ts); // Works on Linux
+                                    size_t timeMeasuredNs = ts.tv_nsec;
+                                    timeMeasuredNs += ts.tv_sec*1000000000;
+    #endif
+                                    size_t timeDiff = lastMeasuredTime-timeMeasuredNs;
+                                    if (timeDiff>timeOutNs)
+                                        timeOutNs = 0;
+                                    else
+                                        timeOutNs -= timeDiff;
+                                    lastMeasuredTime = timeMeasuredNs;
+                                }
+                                break;
+                            default: //any other thing
+                                allocs[j].fence->drop();
+                                allocs[j].fence = NULL;
+
+                                totalTrueFreeSpace += allocs[i].start-allocs[j].start;
+
+                                retest = !allocs[i].fence;
+                                break;
+                        }
+                    }
+                    break;
+               default:
+                    break;
+            }
+
+            if (retest)
+            {
+                i--;
+                continue;
+            }
+
+            if (j<i-1)
+            {
+                allocs[j].end = allocs[i].start;
+                j++;
+                allocs[j] = allocs[i];
+            }
+            else
+                j++;
+        } //will be removed (collapsed) so drop reference to fence
+        else if (allocs[i].fence)
+            allocs[i].fence->drop();
+    }
+
+    bool returnTrue = true;
+    //process last chunk
+    if (allocs[j].state==Allocation::EAS_PENDING_RENDER_CMD||allocs[j].state==Allocation::EAS_FREE)
+    {
+        if (allocs[j].fence)
+        {
+            switch (allocs[j].fence->waitCPU(timeOutNs,flushOnWait))
+            {
+                case EDFR_TIMEOUT_EXPIRED:
+                    returnTrue = false;
+                    break;
+                default: //any other thing
+                    allocs[j].fence->drop();
+                    allocs[j].fence = NULL;
+
+                    totalTrueFreeSpace += allocs.back().end-allocs[j].start;
+
+                    break;
+            }
+        }
+    }
+
+    //trim and fix the end
+    if (j+1<i)
+    {
+        allocs[j++].end = allocs[i-1].end;
+        for (; i<allocs.size(); i++,j++)
+            allocs[j] = allocs[i];
+        allocs.resize(j);
+    }
+
+#ifdef _EXTREME_DEBUG
+    if (!validate_ALREADYMUTEXED())
+    {
+        os::Printer::log("TRNASIENT BUFFER VALIDATION FAILED!\n",ELL_ERROR);
+        PrintDebug(false);
+    }
+#endif // _EXTREME_DEBUG
+
+    if (mutex)
+        mutex->Release();
+    return returnTrue;
+}
+//
 void IGPUTransientBuffer::DefragDescriptor()
 {
     if (mutex)
@@ -777,10 +1174,38 @@ void IGPUTransientBuffer::DefragDescriptor()
     }
 
     size_t j=0;
+    largestFreeChunkSize = 0;
+    trueLargestFreeChunkSize = 0;
+    size_t freeIntervalSize=0;
+    size_t trueFreeIntervalSize=0;
     for (size_t i=1; i<allocs.size(); i++)
     {
-        if (allocs[j].state!=allocs[i].state&&allocs[j].fence!=allocs[i].fence)
+        if (allocs[j].state!=allocs[i].state||allocs[j].fence!=allocs[i].fence)
         {
+            if (allocs[j].state==Allocation::EAS_FREE)
+            {
+                freeIntervalSize += allocs[i].start-allocs[j].start;
+                if (allocs[j].fence)
+                {
+                    trueFreeIntervalSize += allocs[i].start-allocs[j].start;
+                }
+                else
+                {
+                    if (trueFreeIntervalSize>trueLargestFreeChunkSize)
+                        trueLargestFreeChunkSize = trueFreeIntervalSize;
+                    trueFreeIntervalSize = 0;
+                }
+            }
+            else
+            {
+                if (trueFreeIntervalSize>trueLargestFreeChunkSize)
+                    trueLargestFreeChunkSize = trueFreeIntervalSize;
+                if (freeIntervalSize>largestFreeChunkSize)
+                    largestFreeChunkSize = freeIntervalSize;
+                freeIntervalSize = 0;
+                trueFreeIntervalSize = 0;
+            }
+
             if (j<i-1)
             {
                 allocs[j].end = allocs[i].start;
@@ -795,6 +1220,17 @@ void IGPUTransientBuffer::DefragDescriptor()
         if (allocs[i].fence)
             allocs[i].fence->drop();
     }
+
+    if (allocs[j].state==Allocation::EAS_FREE)
+    {
+        freeIntervalSize += allocs.back().end-allocs[j].start;
+        if (allocs[j].fence)
+            trueFreeIntervalSize += allocs.back().end-allocs[j].start;
+    }
+    if (trueFreeIntervalSize>trueLargestFreeChunkSize)
+        trueLargestFreeChunkSize = trueFreeIntervalSize;
+    if (freeIntervalSize>largestFreeChunkSize)
+        largestFreeChunkSize = freeIntervalSize;
 
     if (j+1<allocs.size())
     {

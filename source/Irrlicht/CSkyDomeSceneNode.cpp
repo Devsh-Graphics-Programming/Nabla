@@ -33,7 +33,7 @@ namespace scene
 
 CSkyDomeSceneNode::CSkyDomeSceneNode(video::ITexture* sky, u32 horiRes, u32 vertRes,
 		f32 texturePercentage, f32 spherePercentage, f32 radius,
-		ISceneNode* parent, ISceneManager* mgr, s32 id)
+		IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id)
 	: ISceneNode(parent, mgr, id), Buffer(0),
 	  HorizontalResolution(horiRes), VerticalResolution(vertRes),
 	  TexturePercentage(texturePercentage),
@@ -59,7 +59,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(video::ITexture* sky, u32 horiRes, u32 vert
 }
 
 CSkyDomeSceneNode::CSkyDomeSceneNode(CSkyDomeSceneNode* other,
-		ISceneNode* parent, ISceneManager* mgr, s32 id)
+		IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id)
 	: ISceneNode(parent, mgr, id), Buffer(0),
 	  HorizontalResolution(other->HorizontalResolution), VerticalResolution(other->VerticalResolution),
 	  TexturePercentage(other->TexturePercentage),
@@ -154,7 +154,6 @@ void CSkyDomeSceneNode::generateMesh()
 	vao->mapIndexBuffer(indexBuf);
 	Buffer->setIndexType(video::EIT_16BIT);
 	Buffer->setIndexCount(numOfIndices);
-	Buffer->setIndexRange(0,numberOfVertices-1);
 	indexBuf->drop();
 
     video::IGPUBuffer* vAttr = SceneManager->getVideoDriver()->createGPUBuffer(4*numberOfVertices*(3+2),vertices);
@@ -178,10 +177,10 @@ void CSkyDomeSceneNode::render()
 
 	if ( !camera->isOrthogonal() )
 	{
-		core::matrix4 mat(AbsoluteTransformation);
+		core::matrix4x3 mat(AbsoluteTransformation);
 		mat.setTranslation(camera->getAbsolutePosition());
 
-		driver->setTransform(video::ETS_WORLD, mat);
+		driver->setTransform(video::E4X3TS_WORLD, mat);
 
 		driver->setMaterial(Buffer->getMaterial());
 		driver->drawMeshBuffer(Buffer);
@@ -205,7 +204,7 @@ void CSkyDomeSceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CSkyDomeSceneNode::getBoundingBox() const
+const core::aabbox3d<f32>& CSkyDomeSceneNode::getBoundingBox()
 {
 	return BoundingBox;
 }
@@ -240,7 +239,7 @@ u32 CSkyDomeSceneNode::getMaterialCount() const
 }
 
 //! Creates a clone of this scene node and its children.
-ISceneNode* CSkyDomeSceneNode::clone(ISceneNode* newParent, ISceneManager* newManager)
+ISceneNode* CSkyDomeSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
 {
 	if (!newParent)
 		newParent = Parent;

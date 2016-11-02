@@ -15,6 +15,9 @@ namespace irr
 namespace scene
 {
 
+std::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
+
+
 static inline core::vector3df getAngleWeight(const core::vector3df& v1,
 		const core::vector3df& v2,
 		const core::vector3df& v3)
@@ -716,7 +719,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffe
             if (offset[j]<0)
                 continue;
 
-            memcpy(destPointer,sourceBuffers[j]+((*idx)+inbuffer->getBaseVertex())*sourceBufferStrides[j],newAttribSizes[j]);
+            memcpy(destPointer,sourceBuffers[j]+(int64_t(*idx)+inbuffer->getBaseVertex())*sourceBufferStrides[j],newAttribSizes[j]);
             destPointer += newAttribSizes[j];
         }
     }
@@ -729,7 +732,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffe
             if (offset[j]<0)
                 continue;
 
-            memcpy(destPointer,sourceBuffers[j]+((*idx)+inbuffer->getBaseVertex())*sourceBufferStrides[j],newAttribSizes[j]);
+            memcpy(destPointer,sourceBuffers[j]+(int64_t(*idx)+inbuffer->getBaseVertex())*sourceBufferStrides[j],newAttribSizes[j]);
             destPointer += newAttribSizes[j];
         }
     }
@@ -737,6 +740,11 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffe
 	return clone;
 }
 
+size_t cmpfunc_vertsz;
+int cmpfunc (const void * a, const void * b)
+{
+   return memcmp((uint8_t*)a+4,(uint8_t*)b+4,cmpfunc_vertsz);
+}
 
 //! Creates a copy of a mesh, which will have identical vertices welded together
 ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& makeNewMesh, f32 tolerance) const
@@ -748,126 +756,220 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
         return 0;
 
     bool bufferPresent[EVAI_COUNT];
-    //ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
+    ICPUMeshDataFormatDesc* desc = NULL;
+    if (makeNewMesh)
+    {
+        desc = new ICPUMeshDataFormatDesc();
+        if (!desc)
+            return 0;
+    }
+
+    size_t vertexAttrSize[EVAI_COUNT];
+    size_t vertexSize = 0;
     for (size_t i=0; i<EVAI_COUNT; i++)
     {
         const core::ICPUBuffer* buf = oldDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i);
-        bufferPresent[i] = buf!=0;/*
-        desc->mapVertexAttrBuffer(buf,(E_VERTEX_ATTRIBUTE_ID)i,
-                                  oldDesc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i),oldDesc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i),
-                                  oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i),oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i));*/
+        if (buf)
+        {
+            bufferPresent[i] = true;
+            scene::E_COMPONENTS_PER_ATTRIBUTE componentCount = oldDesc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i);
+            scene::E_COMPONENT_TYPE componentType = oldDesc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i);
+            vertexAttrSize[i] = scene::vertexAttrSize[componentType][componentCount];
+            vertexSize += vertexAttrSize[i];
+            if (makeNewMesh)
+            {
+                desc->mapVertexAttrBuffer(  const_cast<core::ICPUBuffer*>(buf),(E_VERTEX_ATTRIBUTE_ID)i,
+                                            componentCount,componentType,
+                                            oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i),oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i));
+            }
+        }
+        else
+            bufferPresent[i] = false;
     }
+    cmpfunc_vertsz = vertexSize;
 
-    size_t maxIndex = 0;
+    size_t vertexCount = 0;
+    video::E_INDEX_TYPE oldIndexType = video::EIT_UNKNOWN;
     if (oldDesc->getIndexBuffer())
     {
         if (inbuffer->getIndexType()==video::EIT_16BIT)
         {
+            oldIndexType = video::EIT_16BIT;
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
             {
-                uint16_t index = reinterpret_cast<const uint16_t*>(inbuffer->getIndices())[i];
-                if (index>maxIndex)
-                    maxIndex = index;
+                size_t index = reinterpret_cast<const uint16_t*>(inbuffer->getIndices())[i];
+                if (index>vertexCount)
+                    vertexCount = index;
             }
+            if (inbuffer->getIndexCount())
+                vertexCount++;
         }
         else if (inbuffer->getIndexType()==video::EIT_32BIT)
         {
+            oldIndexType = video::EIT_32BIT;
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
             {
-                uint32_t index = reinterpret_cast<const uint32_t*>(inbuffer->getIndices())[i];
-                if (index>maxIndex)
-                    maxIndex = index;
+                size_t index = reinterpret_cast<const uint32_t*>(inbuffer->getIndices())[i];
+                if (index>vertexCount)
+                    vertexCount = index;
             }
+            if (inbuffer->getIndexCount())
+                vertexCount++;
         }
+        else
+            vertexCount = inbuffer->getIndexCount();
     }
     else
-        maxIndex = inbuffer->getIndexCount()-1;
+        vertexCount = inbuffer->getIndexCount();
 
-    if (maxIndex>0xdeadbeefu)
+    if (vertexCount==0)
     {
-        //desc->drop();
+        if (makeNewMesh)
+            desc->drop();
         return 0;
     }
 
     // reset redirect list
-    std::vector<uint16_t> redirects;
-    redirects.resize(maxIndex+1);
+    uint32_t* redirects = new uint32_t[vertexCount];
 
-/*
-    ICPUMeshBuffer* clone = new ICPUMeshBuffer();
-    clone->setBaseVertex(inbuffer->getBaseVertex());
-    clone->setBoundingBox(inbuffer->getBoundingBox());
-    clone->setIndexCount(inbuffer->getIndexCount());
-    clone->setIndexType(inbuffer->getIndexType());
-    clone->setMeshDataAndFormat(desc);
-    desc->drop();
-    clone->setPrimitiveType(inbuffer->getPrimitiveType());
-    clone->getMaterial() = inbuffer->getMaterial();
-*/
+    uint32_t maxRedirect = 0;
 
-    for (size_t i=0; i <= maxIndex; ++i)
+    uint8_t* epicData = (uint8_t*)malloc((vertexSize+4)*vertexCount);
+    for (size_t i=0; i < vertexCount; i++)
     {
-        bool found = false;
-        for (size_t j=0; j < i; ++j)
+        uint8_t* currentVertexPtr = epicData+i*(vertexSize+4);
+        reinterpret_cast<uint32_t*>(currentVertexPtr)[0] = i;
+        currentVertexPtr+=4;
+        for (size_t k=0; k<EVAI_COUNT; k++)
         {
-            bool different = false;
-
-            for (size_t k=0; k<EVAI_COUNT; k++)
-            {
-                if (bufferPresent[k])
-                    continue;
-
-                core::vectorSIMDf attributeI,attributeJ;
-                inbuffer->getAttribute(attributeI,(E_VERTEX_ATTRIBUTE_ID)k,i);
-                inbuffer->getAttribute(attributeJ,(E_VERTEX_ATTRIBUTE_ID)k,j);
-                if (equals(attributeI, attributeJ, tolerance).all())
-                {
-                    different = true;
-                    break;
-                }
-            }
-
-            if (different)
+            if (!bufferPresent[k])
                 continue;
 
-            redirects[i] = redirects[j];
-            found = true;
-            break;
+            size_t stride = oldDesc->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)k);
+            void* sourcePtr = inbuffer->getAttribPointer((scene::E_VERTEX_ATTRIBUTE_ID)k)+i*stride;
+            memcpy(currentVertexPtr,sourcePtr,vertexAttrSize[k]);
+            currentVertexPtr += vertexAttrSize[k];
         }
-        if (!found)
-            redirects[i] = i;
     }
-
-
-    if (inbuffer->getIndexType()==video::EIT_16BIT)
+    uint8_t* origData = (uint8_t*)malloc((vertexSize+4)*vertexCount);
+    memcpy(origData,epicData,(vertexSize+4)*vertexCount);
+    qsort(epicData, vertexCount, vertexSize+4, cmpfunc);
+    for (size_t i=0; i<vertexCount; i++)
     {
-        uint16_t* indices = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
-        for (uint64_t i=0; i<inbuffer->getIndexCount(); ++i)
-            indices[i] = redirects[ indices[i] ];
+        uint32_t redir;
+
+        void* item = bsearch (origData+(vertexSize+4)*i, epicData, vertexCount, vertexSize+4, cmpfunc);
+        if( item != NULL )
+        {
+            redir = *reinterpret_cast<uint32_t*>(item);
+        }
+
+        redirects[i] = redir;
+        if (redir>maxRedirect)
+            maxRedirect = redir;
     }
-    else if (inbuffer->getIndexType()==video::EIT_32BIT)
+    free(origData);
+    free(epicData);
+
+    void* oldIndices = inbuffer->getIndices();
+    ICPUMeshBuffer* clone = NULL;
+    if (makeNewMesh)
     {
-        uint32_t* indices = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
-        for (uint64_t i=0; i<inbuffer->getIndexCount(); ++i)
-            indices[i] = redirects[ indices[i] ];
+        clone = new ICPUMeshBuffer();
+        if (!clone)
+        {
+            desc->drop();
+            return 0;
+        }
+        clone->setBaseVertex(inbuffer->getBaseVertex());
+        clone->setBoundingBox(inbuffer->getBoundingBox());
+        clone->setIndexCount(inbuffer->getIndexCount());
+        clone->setIndexType(maxRedirect>=0x10000u ? video::EIT_32BIT:video::EIT_16BIT);
+        clone->setMeshDataAndFormat(desc);
+        desc->drop();
+        clone->setPrimitiveType(inbuffer->getPrimitiveType());
+        clone->getMaterial() = inbuffer->getMaterial();
+
+        core::ICPUBuffer* indexCpy = new core::ICPUBuffer((maxRedirect>=0x10000u ? 4:2)*inbuffer->getIndexCount());
+        desc->mapIndexBuffer(indexCpy);
+        indexCpy->drop();
+    }
+    else
+    {
+        if (!oldDesc->getIndexBuffer())
+        {
+            core::ICPUBuffer* indexCpy = new core::ICPUBuffer((maxRedirect>=0x10000u ? 4:2)*inbuffer->getIndexCount());
+            oldDesc->mapIndexBuffer(indexCpy);
+            indexCpy->drop();
+        }
+        inbuffer->setIndexType(maxRedirect>=0x10000u ? video::EIT_32BIT:video::EIT_16BIT);
     }
 
-	//return clone;
-	return 0;
+
+    if (oldIndexType==video::EIT_16BIT)
+    {
+        uint16_t* indicesIn = reinterpret_cast<uint16_t*>(oldIndices);
+        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_32BIT)
+        {
+            uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
+            for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+                indicesOut[i] = redirects[indicesIn[i]];
+        }
+        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_16BIT)
+        {
+            uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
+            for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+                indicesOut[i] = redirects[indicesIn[i]];
+        }
+    }
+    else if (oldIndexType==video::EIT_32BIT)
+    {
+        uint32_t* indicesIn = reinterpret_cast<uint32_t*>(oldIndices);
+        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_32BIT)
+        {
+            uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
+            for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+                indicesOut[i] = redirects[indicesIn[i]];
+        }
+        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_16BIT)
+        {
+            uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
+            for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+                indicesOut[i] = redirects[indicesIn[i]];
+        }
+    }
+    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_32BIT)
+    {
+        uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
+        for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+            indicesOut[i] = redirects[i];
+    }
+    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_16BIT)
+    {
+        uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
+        for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+            indicesOut[i] = redirects[i];
+    }
+    delete [] redirects;
+
+    if (makeNewMesh)
+        return clone;
+    else
+        return inbuffer;
 }
 
-template<typename T>
-uint32_t IMeshManipulator::getPolyCount(IMeshBuffer<T>* meshbuffer)
+template<>
+bool IMeshManipulator::getPolyCount<core::ICPUBuffer>(uint32_t& outCount, IMeshBuffer<core::ICPUBuffer>* meshbuffer)
 {
+    outCount= 0;
     if (meshbuffer)
-        return 0;
+        return false;
 
     uint32_t trianglecount;
 
     switch (meshbuffer->getPrimitiveType())
     {
         case scene::EPT_POINTS:
-        case scene::EPT_POINT_SPRITES:
             trianglecount = meshbuffer->getIndexCount();
             break;
         case scene::EPT_LINE_STRIP:
@@ -888,40 +990,73 @@ uint32_t IMeshManipulator::getPolyCount(IMeshBuffer<T>* meshbuffer)
         case scene::EPT_TRIANGLES:
             trianglecount = meshbuffer->getIndexCount()/3;
             break;
-        case scene::EPT_QUAD_STRIP:
-            trianglecount = (meshbuffer->getIndexCount()-2)/2;
+    }
+
+    outCount = trianglecount;
+    return true;
+}
+template<>
+bool IMeshManipulator::getPolyCount<video::IGPUBuffer>(uint32_t& outCount, IMeshBuffer<video::IGPUBuffer>* meshbuffer)
+{
+    outCount = 0;
+    if (meshbuffer)
+        return false;
+
+    if (static_cast<IGPUMeshBuffer*>(meshbuffer)->isIndexCountGivenByXFormFeedback())
+        return false;
+
+    uint32_t trianglecount;
+
+    switch (meshbuffer->getPrimitiveType())
+    {
+        case scene::EPT_POINTS:
+            trianglecount = meshbuffer->getIndexCount();
             break;
-        case scene::EPT_QUADS:
-            trianglecount = meshbuffer->getIndexCount()/4;
+        case scene::EPT_LINE_STRIP:
+            trianglecount = meshbuffer->getIndexCount()-1;
+            break;
+        case scene::EPT_LINE_LOOP:
+            trianglecount = meshbuffer->getIndexCount();
+            break;
+        case scene::EPT_LINES:
+            trianglecount = meshbuffer->getIndexCount()/2;
+            break;
+        case scene::EPT_TRIANGLE_STRIP:
+            trianglecount = meshbuffer->getIndexCount()-2;
+            break;
+        case scene::EPT_TRIANGLE_FAN:
+            trianglecount = meshbuffer->getIndexCount()-2;
+            break;
+        case scene::EPT_TRIANGLES:
+            trianglecount = meshbuffer->getIndexCount()/3;
             break;
     }
 
-    return trianglecount;
+    outCount = trianglecount;
+    return true;
 }
-
-template uint32_t IMeshManipulator::getPolyCount<core::ICPUBuffer>(IMeshBuffer<core::ICPUBuffer>* mesh);
-template uint32_t IMeshManipulator::getPolyCount<video::IGPUBuffer>(IMeshBuffer<video::IGPUBuffer>* mesh);
 
 
 //! Returns amount of polygons in mesh.
 template<typename T>
-uint32_t IMeshManipulator::getPolyCount(scene::IMesh<T>* mesh)
+bool IMeshManipulator::getPolyCount(uint32_t& outCount, scene::IMesh<T>* mesh)
 {
+    outCount = 0;
 	if (!mesh)
-		return 0;
+		return false;
 
-	uint32_t trianglecount = 0;
-
+    bool retval = true;
 	for (u32 g=0; g<mesh->getMeshBufferCount(); ++g)
     {
-		trianglecount += getPolyCount(mesh->getMeshBuffer(g));
+        uint32_t trianglecount;
+        retval = retval&&getPolyCount(trianglecount,mesh->getMeshBuffer(g));
     }
 
-	return trianglecount;
+	return retval;
 }
 
-template uint32_t IMeshManipulator::getPolyCount<ICPUMeshBuffer>(IMesh<ICPUMeshBuffer>* mesh);
-template uint32_t IMeshManipulator::getPolyCount<IGPUMeshBuffer>(IMesh<IGPUMeshBuffer>* mesh);
+template bool IMeshManipulator::getPolyCount<ICPUMeshBuffer>(uint32_t& outCount, IMesh<ICPUMeshBuffer>* mesh);
+template bool IMeshManipulator::getPolyCount<IGPUMeshBuffer>(uint32_t& outCount, IMesh<IGPUMeshBuffer>* mesh);
 
 #ifndef NEW_MESHES
 //! Returns amount of polygons in mesh.
@@ -931,13 +1066,6 @@ uint32_t IMeshManipulator::getPolyCount(scene::IAnimatedMesh* mesh)
 		return getPolyCount(mesh->getMesh(0));
 
 	return 0;
-}
-
-
-//! create a new AnimatedMesh and adds the mesh to it
-IAnimatedMesh * CMeshManipulator::createAnimatedMesh(scene::IMesh* mesh, scene::E_ANIMATED_MESH_TYPE type) const
-{
-	return new SAnimatedMesh(mesh, type);
 }
 
 namespace

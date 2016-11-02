@@ -90,12 +90,6 @@ namespace scene
 		//! recalculates the bounding box member based on the planes
 		inline void recalculateBoundingBox();
 
-		//! get the given state's matrix based on frustum E_TRANSFORMATION_STATE
-		core::matrix4& getTransform( video::E_TRANSFORMATION_STATE state);
-
-		//! get the given state's matrix based on frustum E_TRANSFORMATION_STATE
-		const core::matrix4& getTransform( video::E_TRANSFORMATION_STATE state) const;
-
 		//! clips a line to the view frustum.
 		/** \return True if the line was clipped, false if not */
 		bool clipLine(core::line3d<f32>& line) const;
@@ -110,16 +104,6 @@ namespace scene
 		core::aabbox3d<f32> boundingBox;
 
 	private:
-		//! Hold a copy of important transform matrices
-		enum E_TRANSFORMATION_STATE_FRUSTUM
-		{
-			ETS_VIEW = 0,
-			ETS_PROJECTION = 1,
-			ETS_COUNT_FRUSTUM
-		};
-
-		//! Hold a copy of important transform matrices
-		core::matrix4 Matrices[ETS_COUNT_FRUSTUM];
 	};
 
 
@@ -134,9 +118,6 @@ namespace scene
 		u32 i;
 		for (i=0; i<VF_PLANE_COUNT; ++i)
 			planes[i]=other.planes[i];
-
-		for (i=0; i<ETS_COUNT_FRUSTUM; ++i)
-			Matrices[i]=other.Matrices[i];
 	}
 
 	inline SViewFrustum::SViewFrustum(const core::matrix4& mat)
@@ -302,42 +283,6 @@ namespace scene
 
 		// make bounding box
 		recalculateBoundingBox();
-	}
-
-	/*!
-		View Frustum depends on Projection & View Matrix
-	*/
-	inline core::matrix4& SViewFrustum::getTransform(video::E_TRANSFORMATION_STATE state )
-	{
-		u32 index = 0;
-		switch ( state )
-		{
-			case video::ETS_PROJECTION:
-				index = SViewFrustum::ETS_PROJECTION; break;
-			case video::ETS_VIEW:
-				index = SViewFrustum::ETS_VIEW; break;
-			default:
-				break;
-		}
-		return Matrices [ index ];
-	}
-
-	/*!
-		View Frustum depends on Projection & View Matrix
-	*/
-	inline const core::matrix4& SViewFrustum::getTransform(video::E_TRANSFORMATION_STATE state ) const
-	{
-		u32 index = 0;
-		switch ( state )
-		{
-			case video::ETS_PROJECTION:
-				index = SViewFrustum::ETS_PROJECTION; break;
-			case video::ETS_VIEW:
-				index = SViewFrustum::ETS_VIEW; break;
-			default:
-				break;
-		}
-		return Matrices [ index ];
 	}
 
 	//! Clips a line to the frustum

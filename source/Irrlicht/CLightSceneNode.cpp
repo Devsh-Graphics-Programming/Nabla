@@ -15,7 +15,7 @@ namespace scene
 {
 
 //! constructor
-CLightSceneNode::CLightSceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id,
+CLightSceneNode::CLightSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 		const core::vector3df& position, video::SColorf color, f32 radius)
 : ILightSceneNode(parent, mgr, id, position), DriverLightIndex(-1), LightIsOn(true)
 {
@@ -52,7 +52,7 @@ void CLightSceneNode::render()
 
 	if ( DebugDataVisible & scene::EDS_BBOX )
 	{
-		driver->setTransform(video::ETS_WORLD, AbsoluteTransformation);
+		driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 		video::SMaterial m;
 		driver->setMaterial(m);
 
@@ -113,7 +113,7 @@ void CLightSceneNode::setVisible(bool isVisible)
 }
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CLightSceneNode::getBoundingBox() const
+const core::aabbox3d<f32>& CLightSceneNode::getBoundingBox()
 {
 	return BBox;
 }
@@ -181,7 +181,7 @@ void CLightSceneNode::doLightRecalc()
 	if ((LightData.Type == video::ELT_SPOT) || (LightData.Type == video::ELT_DIRECTIONAL))
 	{
 		LightData.Direction = core::vector3df(.0f,.0f,1.0f);
-		getAbsoluteTransformation().rotateVect(LightData.Direction);
+		getAbsoluteTransformation().mulSub3x3With3x1(&LightData.Direction.X);
 		LightData.Direction.normalize();
 	}
 	if ((LightData.Type == video::ELT_SPOT) || (LightData.Type == video::ELT_POINT))
@@ -202,7 +202,7 @@ void CLightSceneNode::doLightRecalc()
 
 
 //! Creates a clone of this scene node and its children.
-ISceneNode* CLightSceneNode::clone(ISceneNode* newParent, ISceneManager* newManager)
+ISceneNode* CLightSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
 {
 	if (!newParent)
 		newParent = Parent;

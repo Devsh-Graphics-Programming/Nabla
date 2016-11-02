@@ -773,9 +773,11 @@ void COgreMeshFileLoader::composeObject(void)
 			ISkinnedMesh::SJoint* joint = m->addJoint();
 			joint->Name=Skeleton.Bones[i].Name;
 
-			// IRR_TEST_BROKEN_QUATERNION_USE: TODO - switched to getMatrix_transposed instead of getMatrix for downward compatibility. 
+			// IRR_TEST_BROKEN_QUATERNION_USE: TODO - switched to getMatrix_transposed instead of getMatrix for downward compatibility.
 			//								   Not tested so far if this was correct or wrong before quaternion fix!
 			Skeleton.Bones[i].Orientation.getMatrix_transposed(joint->LocalMatrix);
+_
+#error "Fix QUATERNIONS FIRST!!!"
 
 			if (Skeleton.Bones[i].Scale != core::vector3df(1,1,1))
 			{
@@ -825,11 +827,15 @@ void COgreMeshFileLoader::composeObject(void)
 				poskey->frame=frame.Time*25;
 				poskey->position=keyjoint->LocalMatrix.getTranslation()+frame.Position;
 				ISkinnedMesh::SRotationKey* rotkey = m->addRotationKey(keyjoint);
+_
+#error "Fix QUATERNIONS FIRST!!!"
 				rotkey->frame=frame.Time*25;
 
-				// IRR_TEST_BROKEN_QUATERNION_USE: TODO - switched from keyjoint->LocalMatrix to keyjoint->LocalMatrix.getTransposed() for downward compatibility. 
+				// IRR_TEST_BROKEN_QUATERNION_USE: TODO - switched from keyjoint->LocalMatrix to keyjoint->LocalMatrix.getTransposed() for downward compatibility.
 				//								   Not tested so far if this was correct or wrong before quaternion fix!
 				rotkey->rotation=core::quaternion(keyjoint->LocalMatrix.getTransposed())*frame.Orientation;
+_
+#error "Fix QUATERNIONS FIRST!!!"
 
 				ISkinnedMesh::SScaleKey* scalekey = m->addScaleKey(keyjoint);
 				scalekey->frame=frame.Time*25;
@@ -1393,7 +1399,9 @@ bool COgreMeshFileLoader::loadSkeleton(io::IReadFile* meshFile, const core::stri
 				readString(file, data, bone.Name);
 				readShort(file, data, &bone.Handle);
 				readVector(file, data, bone.Position);
-				readQuaternion(file, data, bone.Orientation);
+				readQuaternion(file, data, bone.Orientation);_
+#error "Fix QUATERNIONS FIRST!!!"
+
 #ifdef IRR_OGRE_LOADER_DEBUG
 				os::Printer::log("Bone", bone.Name+" ("+core::stringc(bone.Handle)+")", ELL_DEBUG);
 				os::Printer::log("Position", core::stringc(bone.Position.X)+" "+core::stringc(bone.Position.Y)+" "+core::stringc(bone.Position.Z), ELL_DEBUG);
@@ -1449,6 +1457,7 @@ bool COgreMeshFileLoader::loadSkeleton(io::IReadFile* meshFile, const core::stri
 				readFloat(file, data, &keyframe.Time);
 				keyframe.Time+=animationTotal;
 				readQuaternion(file, data, keyframe.Orientation);
+#error "Fix QUATERNIONS FIRST!!!"
 				readVector(file, data, keyframe.Position);
 				if (data.read<data.header.length)
 				{
@@ -1564,6 +1573,8 @@ void COgreMeshFileLoader::readQuaternion(io::IReadFile* file, ChunkData& data, c
 {
 	readVector(file, data, *((core::vector3df*)&out.X));
 	readFloat(file, data, &out.W);
+_
+#error "Fix QUATERNIONS FIRST!!!"
 }
 
 

@@ -21,12 +21,16 @@ enum E_GPU_BUFFER_ACCESS
     EGBA_NONE
 };
 
-class IGPUBuffer : public virtual core::IBuffer
+class IGPUBuffer : public core::IBuffer
 {
     public:
-        virtual void updateSubRange(const size_t& offset, const size_t& size, void* data) = 0;
+        virtual void clandestineRecreate(const size_t& size, const void* data) = 0;
+
+        virtual void updateSubRange(const size_t& offset, const size_t& size, const void* data) = 0;
 
         virtual bool canUpdateSubRange() const = 0;
+
+        virtual const bool isMappedBuffer() const {return false;}
     private:
         //
 };

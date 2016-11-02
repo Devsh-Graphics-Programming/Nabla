@@ -38,6 +38,7 @@ namespace scene
 
 		//! Mesh Scene Node
 		ESNT_MESH           = MAKE_IRR_ID('m','e','s','h'),
+		ESNT_MESH_INSTANCED = MAKE_IRR_ID('m','b','f','I'),
 
 		//! Light Scene Node
 		ESNT_LIGHT          = MAKE_IRR_ID('l','g','h','t'),
@@ -56,6 +57,11 @@ namespace scene
 
 		//! Animated Mesh Scene Node
 		ESNT_ANIMATED_MESH  = MAKE_IRR_ID('a','m','s','h'),
+		ESNT_ANIMATED_MESH_INSTANCED = MAKE_IRR_ID('a','m','s','I'),
+
+		//! Skinned Mesh Scene Node
+		ESNT_SKINNED_MESH  = MAKE_IRR_ID('s','m','s','h'),
+		ESNT_SKINNED_MESH_INSTANCED = MAKE_IRR_ID('s','m','s','I'),
 
 		//! Quake3 Model Scene Node ( has tag to link to )
 		ESNT_MD3_SCENE_NODE  = MAKE_IRR_ID('m','d','3','_'),

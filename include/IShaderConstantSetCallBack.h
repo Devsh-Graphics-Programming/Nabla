@@ -37,7 +37,7 @@ class IShaderConstantSetCallBack : public virtual IReferenceCounted
 {
 public:
     virtual void PreLink(u32 program) {}
-    virtual void PostLink(const E_MATERIAL_TYPE &materialType, const irr::core::array<SConstantLocationNamePair> &constants) =0;
+    virtual void PostLink(video::IMaterialRendererServices* services, const E_MATERIAL_TYPE &materialType, const irr::core::array<SConstantLocationNamePair> &constants) =0;
 
 	//! Called to let the callBack know the used material (optional method)
 	/**
@@ -75,8 +75,8 @@ public:
 
 		// set clip matrix at register 4
 		core::matrix4 worldViewProj(driver->getTransform(video::ETS_PROJECTION));
-		worldViewProj *= driver->getTransform(video::ETS_VIEW);
-		worldViewProj *= driver->getTransform(video::ETS_WORLD);
+		worldViewProj *= driver->getTransform(video::E4X3TS_VIEW);
+		worldViewProj *= driver->getTransform(video::E4X3TS_WORLD);
 		services->setVertexShaderConstant(&worldViewProj.M[0], 4, 4);
 		// for high level shading languages, this would be another solution:
 		//services->setVertexShaderConstant("mWorldViewProj", worldViewProj.M, 16);

@@ -233,7 +233,6 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 			CDynamicMeshBuffer *mb = new CDynamicMeshBuffer(video::EVT_STANDARD, vertCount > 65565 ? video::EIT_32BIT : video::EIT_16BIT);
 			mb->getVertexBuffer().reallocate(vertCount);
 			mb->getIndexBuffer().reallocate(vertCount);
-			mb->setHardwareMappingHint(EHM_STATIC);
 
 			bool hasNormals=true;
 			// loop through each of the elements

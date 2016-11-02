@@ -6,6 +6,7 @@
 #define __IRR_POINT_3D_H_INCLUDED__
 
 #include "irrMath.h"
+#include "fast_atof.h"
 #include <stdint.h>
 
 namespace irr
@@ -454,6 +455,21 @@ namespace core
 	//! Function multiplying a scalar and a vector component-wise.
 	template<class S, class T>
 	vector3d<T> operator*(const S scalar, const vector3d<T>& vector) { return vector*scalar; }
+
+
+
+
+	//! get a quake3 vector translated to irrlicht position (x,-z,y )
+	inline vector3df getAsVector3df ( const core::stringc &string, u32 &pos )
+	{
+		vector3df v;
+
+		v.X = getAsFloat ( string, pos );
+		v.Z = getAsFloat ( string, pos );
+		v.Y = getAsFloat ( string, pos );
+
+		return v;
+	}
 
 } // end namespace core
 } // end namespace irr

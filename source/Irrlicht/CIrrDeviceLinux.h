@@ -129,6 +129,7 @@ namespace irr
 #endif
 #endif
 
+
 	private:
 
 		//! create the driver
@@ -392,6 +393,7 @@ namespace irr
 		#ifdef _IRR_COMPILE_WITH_OPENGL_
 		GLXWindow glxWin;
 		GLXContext Context;
+		GLXContext* AuxContext;
 		#endif
 #endif
 		u32 Width, Height;
@@ -399,7 +401,6 @@ namespace irr
 		bool WindowMinimized;
 		bool UseXVidMode;
 		bool UseXRandR;
-		bool UseGLXWindow;
 		bool ExternalWindow;
 		int AutorepeatSupport;
 

@@ -31,6 +31,30 @@ using namespace irr;
 using namespace core;
 
 
+
+class SimpleCallBack : public video::IShaderConstantSetCallBack
+{
+    s32 mvpUniformLocation;
+    video::E_SHADER_CONSTANT_TYPE mvpUniformType;
+public:
+    SimpleCallBack() : mvpUniformLocation(-1), mvpUniformType(video::ESCT_FLOAT_VEC3) {}
+
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    {
+        //! Normally we'd iterate through the array and check our actual constant names before mapping them to locations but oh well
+        mvpUniformLocation = constants[0].location;
+        mvpUniformType = constants[0].type;
+    }
+
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, s32 userData)
+    {
+        services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
+    }
+
+    virtual void OnUnsetMaterial() {}
+};
+
+
 /*
 The start of the main function starts like in most other example. We ask the
 user for the desired renderer and start it up.
@@ -56,6 +80,7 @@ int main()
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
+	SimpleCallBack* callBack = new SimpleCallBack();
 
     //! First need to make a material other than default to be able to draw with custom shader
     video::SMaterial material;
@@ -64,8 +89,9 @@ int main()
                                                         "","","", //! No Geometry or Tessellation Shaders
                                                         "../points.frag",
                                                         3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-                                                        NULL, //! No Shader Callback (we dont have any constants/uniforms to pass to the shader)
+                                                        callBack, //! No Shader Callback (we dont have any constants/uniforms to pass to the shader)
                                                         0); //! No custom user data
+    callBack->drop();
 
 
 
@@ -123,7 +149,7 @@ int main()
 
         smgr->drawAll();
 
-        driver->setTransform(video::ETS_WORLD,core::matrix4());
+        driver->setTransform(video::E4X3TS_WORLD,core::matrix4x3());
         driver->setMaterial(material);
         //! draw back to front
         driver->drawMeshBuffer(mb);

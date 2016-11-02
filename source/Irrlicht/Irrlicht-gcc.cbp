@@ -138,7 +138,7 @@
 			</Target>
 			<Target title="Win32 - Debug - static">
 				<Option platforms="Windows;" />
-				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
+				<Option output="../../lib/Win32-gcc/libIrrlicht" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option object_output="../obj/win32-gcc-debug-static" />
 				<Option type="2" />
@@ -177,7 +177,7 @@
 			</Target>
 			<Target title="Win32 - Release - accurate math - static">
 				<Option platforms="Windows;" />
-				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
+				<Option output="../../lib/Win32-gcc/libIrrlicht" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option object_output="../obj/win32-gcc-release-dll" />
 				<Option type="2" />
@@ -217,7 +217,7 @@
 			</Target>
 			<Target title="Win32 - Release - fast math - static">
 				<Option platforms="Windows;" />
-				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
+				<Option output="../../lib/Win32-gcc/libIrrlicht" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option object_output="../obj/win32-gcc-release-fast-static" />
 				<Option type="2" />
@@ -357,6 +357,7 @@
 					<Add option="-Wno-unused-parameter" />
 					<Add option="-fno-omit-frame-pointer" />
 					<Add option="-fno-exceptions" />
+					<Add option="-fuse-ld=gold" />
 					<Add option="-msse3" />
 					<Add option="-ggdb3" />
 					<Add option="-D_IRR_STATIC_LIB_" />
@@ -366,6 +367,7 @@
 					<Add directory="libpng" />
 				</Compiler>
 				<Linker>
+					<Add option="-fuse-ld=gold" />
 					<Add library="GL" />
 					<Add library="Xxf86vm" />
 					<Add directory="/usr/X11R6/lib" />
@@ -386,12 +388,14 @@
 					<Add option="-W" />
 					<Add option="-Wno-unused-parameter" />
 					<Add option="-fno-exceptions" />
+					<Add option="-fuse-ld=gold" />
 					<Add option="-D_IRR_STATIC_LIB_" />
 					<Add directory="../../include" />
 					<Add directory="zlib" />
 					<Add directory="libpng" />
 				</Compiler>
 				<Linker>
+					<Add option="-fuse-ld=gold" />
 					<Add library="GL" />
 					<Add library="Xxf86vm" />
 					<Add directory="/usr/X11R6/lib" />
@@ -425,6 +429,7 @@
 				<Linker>
 					<Add option="-msse3" />
 					<Add option="-mfpmath=sse" />
+					<Add option="-fuse-ld=gold" />
 					<Add directory="/usr/X11R6/lib" />
 					<Add directory="/usr/local/lib" />
 				</Linker>
@@ -436,6 +441,7 @@
 		<Compiler>
 			<Add option="-D_IRR_COMPILE_WITH_OPENGL_" />
 		</Compiler>
+		<Unit filename="../../include/CFinalBoneHierarchy.h" />
 		<Unit filename="../../include/ECullingTypes.h" />
 		<Unit filename="../../include/EDebugSceneTypes.h" />
 		<Unit filename="../../include/EDeviceTypes.h" />
@@ -450,7 +456,6 @@
 		<Unit filename="../../include/IAnimatedMesh.h" />
 		<Unit filename="../../include/IAnimatedMeshSceneNode.h" />
 		<Unit filename="../../include/IBillboardSceneNode.h" />
-		<Unit filename="../../include/IBoneSceneNode.h" />
 		<Unit filename="../../include/IBuffer.h" />
 		<Unit filename="../../include/ICPUBuffer.h" />
 		<Unit filename="../../include/ICameraSceneNode.h" />
@@ -466,6 +471,7 @@
 		<Unit filename="../../include/IGPUBuffer.h" />
 		<Unit filename="../../include/IGPUMappedBuffer.h" />
 		<Unit filename="../../include/IGPUProgrammingServices.h" />
+		<Unit filename="../../include/IGPUTimestampQuery.h" />
 		<Unit filename="../../include/IGPUTransientBuffer.h" />
 		<Unit filename="../../include/IGeometryCreator.h" />
 		<Unit filename="../../include/IImage.h" />
@@ -482,27 +488,29 @@
 		<Unit filename="../../include/IMeshLoader.h" />
 		<Unit filename="../../include/IMeshManipulator.h" />
 		<Unit filename="../../include/IMeshSceneNode.h" />
+		<Unit filename="../../include/IMeshSceneNodeInstanced.h" />
 		<Unit filename="../../include/IMeshWriter.h" />
-		<Unit filename="../../include/IMetaTriangleSelector.h" />
+		<Unit filename="../../include/IMetaGranularBuffer.h" />
 		<Unit filename="../../include/IOSOperator.h" />
 		<Unit filename="../../include/IOcclusionQuery.h" />
+		<Unit filename="../../include/IQueryObject.h" />
 		<Unit filename="../../include/IReadFile.h" />
 		<Unit filename="../../include/IReferenceCounted.h" />
 		<Unit filename="../../include/IRenderBuffer.h" />
-		<Unit filename="../../include/ISceneCollisionManager.h" />
 		<Unit filename="../../include/ISceneManager.h" />
 		<Unit filename="../../include/ISceneNode.h" />
 		<Unit filename="../../include/ISceneNodeAnimator.h" />
 		<Unit filename="../../include/ISceneNodeAnimatorCameraFPS.h" />
 		<Unit filename="../../include/ISceneNodeAnimatorCameraMaya.h" />
-		<Unit filename="../../include/ISceneNodeAnimatorCollisionResponse.h" />
 		<Unit filename="../../include/ISceneNodeAnimatorFactory.h" />
 		<Unit filename="../../include/ISceneNodeFactory.h" />
 		<Unit filename="../../include/IShaderConstantSetCallBack.h" />
 		<Unit filename="../../include/ISkinnedMesh.h" />
+		<Unit filename="../../include/ISkinnedMeshSceneNode.h" />
+		<Unit filename="../../include/ISkinningStateManager.h" />
 		<Unit filename="../../include/ITexture.h" />
 		<Unit filename="../../include/ITimer.h" />
-		<Unit filename="../../include/ITriangleSelector.h" />
+		<Unit filename="../../include/ITransformFeedback.h" />
 		<Unit filename="../../include/IVideoDriver.h" />
 		<Unit filename="../../include/IVideoModeList.h" />
 		<Unit filename="../../include/IWriteFile.h" />
@@ -511,8 +519,12 @@
 		<Unit filename="../../include/IrrCompileConfig.h" />
 		<Unit filename="../../include/IrrlichtDevice.h" />
 		<Unit filename="../../include/Keycodes.h" />
+		<Unit filename="../../include/SAABoxCollider.h" />
 		<Unit filename="../../include/SAnimatedMesh.h" />
+		<Unit filename="../../include/SCollisionEngine.h" />
 		<Unit filename="../../include/SColor.h" />
+		<Unit filename="../../include/SCompoundCollider.h" />
+		<Unit filename="../../include/SEllipsoidCollider.h" />
 		<Unit filename="../../include/SExposedVideoData.h" />
 		<Unit filename="../../include/SIMDswizzle.h" />
 		<Unit filename="../../include/SIrrCreationParameters.h" />
@@ -522,6 +534,7 @@
 		<Unit filename="../../include/SMaterialLayer.h" />
 		<Unit filename="../../include/SMesh.h" />
 		<Unit filename="../../include/SSkinMeshBuffer.h" />
+		<Unit filename="../../include/STriangleMeshCollider.h" />
 		<Unit filename="../../include/SVertexIndex.h" />
 		<Unit filename="../../include/SVertexManipulator.h" />
 		<Unit filename="../../include/SViewFrustum.h" />
@@ -545,6 +558,7 @@
 		<Unit filename="../../include/line2d.h" />
 		<Unit filename="../../include/line3d.h" />
 		<Unit filename="../../include/matrix4.h" />
+		<Unit filename="../../include/matrix4x3.h" />
 		<Unit filename="../../include/matrixSIMD4.h" />
 		<Unit filename="../../include/path.h" />
 		<Unit filename="../../include/plane3d.h" />
@@ -565,8 +579,6 @@
 		<Unit filename="CB3DMeshFileLoader.h" />
 		<Unit filename="CBillboardSceneNode.cpp" />
 		<Unit filename="CBillboardSceneNode.h" />
-		<Unit filename="CBoneSceneNode.cpp" />
-		<Unit filename="CBoneSceneNode.h" />
 		<Unit filename="CBurningShader_Raster_Reference.cpp" />
 		<Unit filename="CCSMLoader.cpp" />
 		<Unit filename="CCSMLoader.h" />
@@ -588,8 +600,6 @@
 		<Unit filename="CDefaultSceneNodeFactory.h" />
 		<Unit filename="CDepthBuffer.cpp" />
 		<Unit filename="CDepthBuffer.h" />
-		<Unit filename="CDummyTransformationSceneNode.cpp" />
-		<Unit filename="CDummyTransformationSceneNode.h" />
 		<Unit filename="CEmptySceneNode.cpp" />
 		<Unit filename="CEmptySceneNode.h" />
 		<Unit filename="CFPSCounter.cpp" />
@@ -666,15 +676,14 @@
 		<Unit filename="CMY3DMeshFileLoader.h" />
 		<Unit filename="CMemoryFile.cpp" />
 		<Unit filename="CMemoryFile.h" />
-		<Unit filename="CMeshBuffer.cpp" />
 		<Unit filename="CMeshCache.cpp" />
 		<Unit filename="CMeshCache.h" />
 		<Unit filename="CMeshManipulator.cpp" />
 		<Unit filename="CMeshManipulator.h" />
 		<Unit filename="CMeshSceneNode.cpp" />
 		<Unit filename="CMeshSceneNode.h" />
-		<Unit filename="CMetaTriangleSelector.cpp" />
-		<Unit filename="CMetaTriangleSelector.h" />
+		<Unit filename="CMeshSceneNodeInstanced.cpp" />
+		<Unit filename="CMeshSceneNodeInstanced.h" />
 		<Unit filename="CMountPointReader.cpp" />
 		<Unit filename="CMountPointReader.h" />
 		<Unit filename="CNPKReader.cpp" />
@@ -689,9 +698,6 @@
 		<Unit filename="COCTLoader.h" />
 		<Unit filename="COSOperator.cpp" />
 		<Unit filename="COSOperator.h" />
-		<Unit filename="COctreeSceneNode.h" />
-		<Unit filename="COctreeTriangleSelector.cpp" />
-		<Unit filename="COctreeTriangleSelector.h" />
 		<Unit filename="COgreMeshFileLoader.cpp" />
 		<Unit filename="COgreMeshFileLoader.h" />
 		<Unit filename="COpenGL3DTexture.cpp" />
@@ -708,12 +714,18 @@
 		<Unit filename="COpenGLOcclusionQuery.h" />
 		<Unit filename="COpenGLPersistentlyMappedBuffer.cpp" />
 		<Unit filename="COpenGLPersistentlyMappedBuffer.h" />
+		<Unit filename="COpenGLQuery.cpp" />
+		<Unit filename="COpenGLQuery.h" />
 		<Unit filename="COpenGLRenderBuffer.cpp" />
 		<Unit filename="COpenGLRenderBuffer.h" />
 		<Unit filename="COpenGLSLMaterialRenderer.cpp" />
 		<Unit filename="COpenGLSLMaterialRenderer.h" />
 		<Unit filename="COpenGLTexture.cpp" />
 		<Unit filename="COpenGLTexture.h" />
+		<Unit filename="COpenGLTextureBufferObject.h" />
+		<Unit filename="COpenGLTimestampQuery.h" />
+		<Unit filename="COpenGLTransformFeedback.cpp" />
+		<Unit filename="COpenGLTransformFeedback.h" />
 		<Unit filename="COpenGLVAO.cpp" />
 		<Unit filename="COpenGLVAO.h" />
 		<Unit filename="CPLYMeshFileLoader.cpp" />
@@ -730,16 +742,12 @@
 		<Unit filename="CSTLMeshFileLoader.h" />
 		<Unit filename="CSTLMeshWriter.cpp" />
 		<Unit filename="CSTLMeshWriter.h" />
-		<Unit filename="CSceneCollisionManager.cpp" />
-		<Unit filename="CSceneCollisionManager.h" />
 		<Unit filename="CSceneManager.cpp" />
 		<Unit filename="CSceneManager.h" />
 		<Unit filename="CSceneNodeAnimatorCameraFPS.cpp" />
 		<Unit filename="CSceneNodeAnimatorCameraFPS.h" />
 		<Unit filename="CSceneNodeAnimatorCameraMaya.cpp" />
 		<Unit filename="CSceneNodeAnimatorCameraMaya.h" />
-		<Unit filename="CSceneNodeAnimatorCollisionResponse.cpp" />
-		<Unit filename="CSceneNodeAnimatorCollisionResponse.h" />
 		<Unit filename="CSceneNodeAnimatorDelete.cpp" />
 		<Unit filename="CSceneNodeAnimatorDelete.h" />
 		<Unit filename="CSceneNodeAnimatorFlyCircle.cpp" />
@@ -754,6 +762,9 @@
 		<Unit filename="CSceneNodeAnimatorTexture.h" />
 		<Unit filename="CSkinnedMesh.cpp" />
 		<Unit filename="CSkinnedMesh.h" />
+		<Unit filename="CSkinnedMeshSceneNode.cpp" />
+		<Unit filename="CSkinnedMeshSceneNode.h" />
+		<Unit filename="CSkinningStateManager.h" />
 		<Unit filename="CSkyBoxSceneNode.cpp" />
 		<Unit filename="CSkyBoxSceneNode.h" />
 		<Unit filename="CSkyDomeSceneNode.cpp" />
@@ -803,10 +814,6 @@
 		<Unit filename="CTarReader.cpp" />
 		<Unit filename="CTarReader.h" />
 		<Unit filename="CTimer.h" />
-		<Unit filename="CTriangleBBSelector.cpp" />
-		<Unit filename="CTriangleBBSelector.h" />
-		<Unit filename="CTriangleSelector.cpp" />
-		<Unit filename="CTriangleSelector.h" />
 		<Unit filename="CVideoModeList.cpp" />
 		<Unit filename="CVideoModeList.h" />
 		<Unit filename="CWADReader.cpp" />

@@ -20,18 +20,18 @@ class CSkyDomeSceneNode : public ISceneNode
 	public:
 		CSkyDomeSceneNode(video::ITexture* texture, u32 horiRes, u32 vertRes,
 			f32 texturePercentage, f32 spherePercentage, f32 radius,
-			ISceneNode* parent, ISceneManager* smgr, s32 id);
+			IDummyTransformationSceneNode* parent, ISceneManager* smgr, s32 id);
 		CSkyDomeSceneNode(CSkyDomeSceneNode* other,
-			ISceneNode* parent, ISceneManager* smgr, s32 id);
+			IDummyTransformationSceneNode* parent, ISceneManager* smgr, s32 id);
 		virtual ~CSkyDomeSceneNode();
 		virtual void OnRegisterSceneNode();
 		virtual void render();
-		virtual const core::aabbox3d<f32>& getBoundingBox() const;
+		virtual const core::aabbox3d<f32>& getBoundingBox();
 		virtual video::SMaterial& getMaterial(u32 i);
 		virtual u32 getMaterialCount() const;
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_DOME; }
 
-		virtual ISceneNode* clone(ISceneNode* newParent=0, ISceneManager* newManager=0);
+		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
 
 	private:
 

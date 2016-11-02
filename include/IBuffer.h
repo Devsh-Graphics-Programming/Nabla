@@ -38,8 +38,6 @@ enum E_BUFFER_TYPE
 class IBuffer : public virtual IReferenceCounted
 {
     public:
-        IBuffer() : lastTimeReallocated(0) {}
-
         virtual E_BUFFER_TYPE getBufferType() const = 0;
         //virtual E_BUFFER_CLASS getBufferClass() const = 0;
         //! size in BYTES

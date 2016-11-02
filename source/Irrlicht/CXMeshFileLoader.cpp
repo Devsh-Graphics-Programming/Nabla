@@ -15,11 +15,13 @@
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
 #include "IReadFile.h"
+#include "SVertexManipulator.h"
+#include "assert.h"
+#include <vector>
 
 #ifdef _DEBUG
 #define _XREADER_DEBUG
 #endif
-//#define BETTER_MESHBUFFER_SPLITTING_FOR_X
 
 namespace irr
 {
@@ -60,10 +62,108 @@ ICPUMesh* CXMeshFileLoader::createMesh(io::IReadFile* f)
 #endif
 
 	AnimatedMesh = new CCPUSkinnedMesh();
+    ICPUMesh* retVal = NULL;
 
 	if (load(f))
 	{
 		AnimatedMesh->finalize();
+		if (AnimatedMesh->isStatic())
+        {
+            SCPUMesh* staticMesh = new SCPUMesh();
+            for (size_t i=0; i<AnimatedMesh->getMeshBufferCount(); i++)
+            {
+                ICPUMeshBuffer* meshbuffer = new ICPUMeshBuffer();
+                staticMesh->addMeshBuffer(meshbuffer);
+                meshbuffer->drop();
+
+                ICPUMeshBuffer* origMeshBuffer = AnimatedMesh->getMeshBuffer(i);
+                ICPUMeshDataFormatDesc* desc = static_cast<ICPUMeshDataFormatDesc*>(origMeshBuffer->getMeshDataAndFormat());
+                meshbuffer->getMaterial() = origMeshBuffer->getMaterial();
+                meshbuffer->setPrimitiveType(origMeshBuffer->getPrimitiveType());
+
+                bool doesntNeedIndices = !desc->getIndexBuffer();
+                uint32_t largestVertex = origMeshBuffer->getIndexCount();
+                meshbuffer->setIndexCount(largestVertex);
+                if (doesntNeedIndices)
+                {
+                    largestVertex = 0;
+
+                    size_t baseVertex = origMeshBuffer->getIndexType()==video::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[0]:((uint16_t*)origMeshBuffer->getIndices())[0];
+                    for (size_t j=1; j<origMeshBuffer->getIndexCount(); j++)
+                    {
+                        uint32_t nextIx = origMeshBuffer->getIndexType()==video::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
+                        if (nextIx>largestVertex)
+                            largestVertex = nextIx;
+
+                        if (doesntNeedIndices&&(baseVertex+j!=nextIx))
+                            doesntNeedIndices = false;
+                    }
+
+                    if (doesntNeedIndices)
+                    {
+                        desc->mapIndexBuffer(NULL);
+                        meshbuffer->setBaseVertex(baseVertex);
+                    }
+                }
+
+
+                video::E_INDEX_TYPE indexType;
+                if (doesntNeedIndices)
+                    indexType = video::EIT_UNKNOWN;
+                else
+                {
+                    core::ICPUBuffer* indexBuffer;
+                    if (largestVertex>=0x10000u)
+                    {
+                        indexType = video::EIT_32BIT;
+                        indexBuffer = new core::ICPUBuffer(4*origMeshBuffer->getIndexCount());
+                        for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
+                           ((uint32_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==video::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
+                    }
+                    else
+                    {
+                        indexType = video::EIT_16BIT;
+                        indexBuffer = new core::ICPUBuffer(2*origMeshBuffer->getIndexCount());
+                        for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
+                           ((uint16_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==video::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
+                    }
+                    desc->mapIndexBuffer(indexBuffer);
+                }
+                meshbuffer->setIndexType(indexType);
+                meshbuffer->setMeshDataAndFormat(desc);
+
+                meshbuffer->setPositionAttributeIx(origMeshBuffer->getPositionAttributeIx());
+                for (size_t j=0; j<EVAI_COUNT; j++)
+                {
+                    E_VERTEX_ATTRIBUTE_ID attrId = (E_VERTEX_ATTRIBUTE_ID)j;
+                    if (!desc->getMappedBuffer(attrId))
+                        continue;
+
+                    if (attrId==EVAI_ATTR3)
+                    {
+                        const core::ICPUBuffer* normalBuffer = desc->getMappedBuffer(EVAI_ATTR3);
+                        core::ICPUBuffer* newNormalBuffer = new core::ICPUBuffer(normalBuffer->getSize()/3);
+                        for (size_t k=0; k<newNormalBuffer->getSize()/4; k++)
+                        {
+                            core::vectorSIMDf simdNormal;
+                            simdNormal.set(((core::vector3df*)normalBuffer->getPointer())[k]);
+                            ((uint32_t*)newNormalBuffer->getPointer())[k] = quantizeNormal2_10_10_10(simdNormal);
+                        }
+                        desc->mapVertexAttrBuffer(newNormalBuffer,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV);
+                        newNormalBuffer->drop();
+                    }
+                }
+
+                meshbuffer->recalculateBoundingBox();
+            }
+            staticMesh->recalculateBoundingBox();
+
+            retVal = staticMesh;
+            AnimatedMesh->drop();
+            AnimatedMesh = 0;
+        }
+        else
+            retVal = AnimatedMesh;
 	}
 	else
 	{
@@ -98,7 +198,24 @@ ICPUMesh* CXMeshFileLoader::createMesh(io::IReadFile* f)
 		delete Meshes[i];
 	Meshes.clear();
 
-	return AnimatedMesh;
+	return retVal;
+}
+
+class SuperSkinningTMPStruct
+{
+    public:
+		inline bool operator<(const SuperSkinningTMPStruct& other) const { return (tmp >= other.tmp); }
+
+        float tmp;
+        uint32_t redir;
+};
+
+core::matrix4x3 getGlobalMatrix_evil(ICPUSkinnedMesh::SJoint* joint)
+{
+    if (joint->Parent)
+        return concatenateBFollowedByA(getGlobalMatrix_evil(joint->Parent),joint->LocalMatrix);
+    else
+        return joint->LocalMatrix;
 }
 
 
@@ -124,25 +241,17 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
 			mesh->Materials[0].EmissiveColor.set(0xff000000);
 		}
 
+		if (mesh->BoneCount>0x100u)
+            os::Printer::log("X loader", "Too many bones in mesh, limit is 256!", ELL_WARNING);
+
 		u32 i;
 
 		mesh->Buffers.reallocate(mesh->Materials.size());
-#ifndef BETTER_MESHBUFFER_SPLITTING_FOR_X
-		const u32 bufferOffset = AnimatedMesh->getMeshBufferCount();
-#endif
+
 		for (i=0; i<mesh->Materials.size(); ++i)
 		{
 			mesh->Buffers.push_back( AnimatedMesh->addMeshBuffer() );
 			mesh->Buffers.getLast()->getMaterial() = mesh->Materials[i];
-
-			if (!mesh->HasSkinning)
-			{
-				//Set up rigid animation
-				if (mesh->AttachedJointID!=-1)
-				{
-					AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->AttachedMeshes.push_back( AnimatedMesh->getMeshBuffers().size()-1 );
-				}
-			}
 		}
 
 		if (!mesh->FaceMaterialIndices.size())
@@ -152,114 +261,12 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
 				mesh->FaceMaterialIndices[i]=0;
 		}
 
-		#ifdef BETTER_MESHBUFFER_SPLITTING_FOR_X
-		{
-			//the same vertex can be used in many different meshbuffers, but it's slow to work out
 
-			core::array< core::array< u32 > > verticesLinkIndex;
-			verticesLinkIndex.reallocate(mesh->Vertices.size());
-			core::array< core::array< u16 > > verticesLinkBuffer;
-			verticesLinkBuffer.reallocate(mesh->Vertices.size());
-
-			for (i=0;i<mesh->Vertices.size();++i)
-			{
-				verticesLinkIndex.push_back( core::array< u32 >() );
-				verticesLinkBuffer.push_back( core::array< u16 >() );
-			}
-
-			for (i=0;i<mesh->FaceMaterialIndices.size();++i)
-			{
-				for (u32 id=i*3+0;id<=i*3+2;++id)
-				{
-					core::array< u16 > &Array=verticesLinkBuffer[ mesh->Indices[id] ];
-					bool found=false;
-
-					for (u32 j=0; j < Array.size(); ++j)
-					{
-						if (Array[j]==mesh->FaceMaterialIndices[i])
-						{
-							found=true;
-							break;
-						}
-					}
-
-					if (!found)
-						Array.push_back( mesh->FaceMaterialIndices[i] );
-				}
-			}
-
-			for (i=0;i<verticesLinkBuffer.size();++i)
-			{
-				if (!verticesLinkBuffer[i].size())
-					verticesLinkBuffer[i].push_back(0);
-			}
-
-			for (i=0;i<mesh->Vertices.size();++i)
-			{
-				core::array< u16 > &Array = verticesLinkBuffer[i];
-				verticesLinkIndex[i].reallocate(Array.size());
-				for (u32 j=0; j < Array.size(); ++j)
-				{
-					scene::SSkinMeshBuffer *buffer = mesh->Buffers[ Array[j] ];
-					verticesLinkIndex[i].push_back( buffer->Vertices_Standard.size() );
-					buffer->Vertices_Standard.push_back( mesh->Vertices[i] );
-				}
-			}
-
-			for (i=0;i<mesh->FaceMaterialIndices.size();++i)
-			{
-				scene::SSkinMeshBuffer *buffer=mesh->Buffers[ mesh->FaceMaterialIndices[i] ];
-
-				for (u32 id=i*3+0;id<=i*3+2;++id)
-				{
-					core::array< u16 > &Array=verticesLinkBuffer[ mesh->Indices[id] ];
-
-					for (u32 j=0;j< Array.size() ;++j)
-					{
-						if ( Array[j]== mesh->FaceMaterialIndices[i] )
-							buffer->Indices.push_back( verticesLinkIndex[ mesh->Indices[id] ][j] );
-					}
-				}
-			}
-
-			for (u32 j=0;j<mesh->WeightJoint.size();++j)
-			{
-				ISkinnedMesh::SJoint* joint = AnimatedMesh->getAllJoints()[mesh->WeightJoint[j]];
-				ISkinnedMesh::SWeight& weight = joint->Weights[mesh->WeightNum[j]];
-
-				u32 id = weight.vertex_id;
-
-				if (id>=verticesLinkIndex.size())
-				{
-					os::Printer::log("X loader: Weight id out of range", ELL_WARNING);
-					id=0;
-					weight.strength=0.f;
-				}
-
-				if (verticesLinkBuffer[id].size()==1)
-				{
-					weight.vertex_id=verticesLinkIndex[id][0];
-					weight.buffer_id=verticesLinkBuffer[id][0];
-				}
-				else if (verticesLinkBuffer[id].size() != 0)
-				{
-					for (u32 k=1; k < verticesLinkBuffer[id].size(); ++k)
-					{
-						ISkinnedMesh::SWeight* WeightClone = AnimatedMesh->addWeight(joint);
-						WeightClone->strength = weight.strength;
-						WeightClone->vertex_id = verticesLinkIndex[id][k];
-						WeightClone->buffer_id = verticesLinkBuffer[id][k];
-					}
-				}
-			}
-		}
-		#else
 		{
 			core::array< u32 > verticesLinkIndex;
 			core::array< s16 > verticesLinkBuffer;
 			verticesLinkBuffer.set_used(mesh->Vertices.size());
 
-			// init with 0
 			for (i=0;i<mesh->Vertices.size();++i)
 			{
 				// watch out for vertices which are not part of the mesh
@@ -283,9 +290,10 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
 						const u32 tmp = mesh->Vertices.size();
 						mesh->Vertices.push_back(mesh->Vertices[ mesh->Indices[id] ]);
 						mesh->Indices[id] = tmp;
-						verticesLinkBuffer.set_used(mesh->Vertices.size());
+                        verticesLinkBuffer.push_back(mesh->FaceMaterialIndices[i]);
 					}
-					verticesLinkBuffer[ mesh->Indices[id] ] = mesh->FaceMaterialIndices[i];
+					else
+                        verticesLinkBuffer[ mesh->Indices[id] ] = mesh->FaceMaterialIndices[i];
 				}
 			}
 
@@ -316,6 +324,40 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
                     desc->mapVertexAttrBuffer(vTC2Buf,EVAI_ATTR4,ECPA_TWO,ECT_FLOAT);
                     vTC2Buf->drop();
 				}
+				core::ICPUBuffer* vSkinningDataBuf = NULL;
+				if (mesh->VertexSkinWeights.size())
+                {
+                    vSkinningDataBuf = new core::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
+                    desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,ECPA_FOUR,ECT_INTEGER_UNSIGNED_BYTE,8,0);
+                    desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,ECPA_FOUR,ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV,8,4);
+                    vSkinningDataBuf->drop();
+                }
+				else if (mesh->AttachedJointID!=-1)
+                {
+                    vSkinningDataBuf = new core::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
+                    desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,ECPA_FOUR,ECT_INTEGER_UNSIGNED_BYTE,8,0);
+                    desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,ECPA_FOUR,ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV,8,4);
+                    vSkinningDataBuf->drop();
+
+                    bool correctBindMatrix = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.isIdentity();
+                    core::matrix4x3 globalMat;
+                    if (correctBindMatrix)
+                        globalMat = getGlobalMatrix_evil(AnimatedMesh->getAllJoints()[mesh->AttachedJointID]);
+
+                    for (size_t j=0; j<mesh->Vertices.size(); j++)
+                    {
+                        if (correctBindMatrix)
+                        {
+                            globalMat.transformVect(&mesh->Vertices[j].Pos.X);
+                        }
+                        reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneWeights = 0x000003ffu;
+                        reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[0] = mesh->AttachedJointID;
+                        reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[1] = 0;
+                        reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[2] = 0;
+                        reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[3] = 0;
+                    }
+                    vSkinningDataBuf = NULL;
+                }
 
 				// store vertices in buffers and remember relation in verticesLinkIndex
 				uint32_t* vCountArray = new uint32_t[mesh->Buffers.size()];
@@ -334,7 +376,7 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
                 {
 					scene::SCPUSkinMeshBuffer *buffer = mesh->Buffers[i];
 
-                    buffer->setIndexRange(0,vCountArray[i]-1);
+                    buffer->setIndexRange(0,vCountArray[i]);
                     if (vCountArray[i]>0x10000u)
                         buffer->setIndexType(video::EIT_32BIT);
                     else
@@ -373,6 +415,123 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
                         ((core::vector3df*)vNormalBuf->getPointer())[properIx] = mesh->Vertices[i].Normal;
                     if (vTC2Buf)
                         ((core::vector2df*)vTC2Buf->getPointer())[properIx] = (i<mesh->TCoords2.size())?mesh->TCoords2[i]:mesh->Vertices[i].TCoords;
+                    if (vSkinningDataBuf)
+                    {
+                        const SkinnedVertexIntermediateData& origWeight = mesh->VertexSkinWeights[i];
+                        SkinnedVertexFinalData* actualWeight = reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())+properIx;
+                        reinterpret_cast<uint32_t*>(actualWeight->boneIDs)[0] = reinterpret_cast<const uint32_t*>(origWeight.boneIDs)[0];
+                        size_t activeBones = 0;
+                        for (; activeBones<4; activeBones++)
+                        {
+                            if (origWeight.boneWeights[activeBones]<=0.f)
+                                break;
+                        }
+                        #define SWAP(x,y) if (sortStuff[y] < sortStuff[x]) { SuperSkinningTMPStruct tmp = sortStuff[x]; sortStuff[x] = sortStuff[y]; sortStuff[y] = tmp; }
+                        switch (activeBones)
+                        {
+                            case 0:
+                                actualWeight->boneWeights = 0;
+                                break;
+                            case 1:
+                                actualWeight->boneWeights = 0x000003ffu;
+                                break;
+                            case 2:
+                                {
+                                    float sum = origWeight.boneWeights[0]+origWeight.boneWeights[1];
+                                    SuperSkinningTMPStruct sortStuff[2];
+                                    uint32_t tmpInt[2];
+                                    //normalize weights
+                                    sum = 1023.f/sum;
+                                    //first pass quantize to integer
+                                    for (size_t j=0; j<2; j++)
+                                    {
+                                        float tmp = origWeight.boneWeights[j]*sum;
+                                        tmpInt[j] = tmp;
+                                        sortStuff[j].tmp = tmp-float(tmpInt[j]); //fract()
+
+                                        sortStuff[j].redir = j;
+                                    }
+
+                                    //sort
+                                    SWAP(0, 1);
+
+                                    uint32_t leftOver = 1023-tmpInt[0]-tmpInt[1];
+                                    {
+                                        assert(leftOver<=2); // <=2,<=3
+                                        for (uint32_t j=0; j<leftOver; j++)
+                                            tmpInt[sortStuff[j].redir]++;
+                                    }
+                                    actualWeight->boneWeights = tmpInt[0]|(tmpInt[1]<<10)|(0x1u<<30);
+                                }
+                                break;
+                            case 3:
+                                {
+                                    float sum = origWeight.boneWeights[0]+origWeight.boneWeights[1]+origWeight.boneWeights[2];
+                                    SuperSkinningTMPStruct sortStuff[3];
+                                    uint32_t tmpInt[3];
+                                    //normalize weights
+                                    sum = 1023.f/sum;
+                                    //first pass quantize to integer
+                                    for (size_t j=0; j<3; j++)
+                                    {
+                                        float tmp = origWeight.boneWeights[j]*sum;
+                                        tmpInt[j] = tmp;
+                                        sortStuff[j].tmp = tmp-float(tmpInt[j]); //fract()
+
+                                        sortStuff[j].redir = j;
+                                    }
+
+                                    //sort
+                                    SWAP(1, 2);
+                                    SWAP(0, 2);
+                                    SWAP(0, 1);
+
+                                    uint32_t leftOver = 1023-tmpInt[0]-tmpInt[1]-tmpInt[2];
+                                    {
+                                        assert(leftOver<=3); // <=2,<=3
+                                        for (uint32_t j=0; j<leftOver; j++)
+                                            tmpInt[sortStuff[j].redir]++;
+                                    }
+                                    actualWeight->boneWeights = tmpInt[0]|(tmpInt[1]<<10)|(tmpInt[2]<<20)|(0x2u<<30);
+                                }
+                                break;
+                            case 4://very precise quantization
+                                {
+                                    float sum = origWeight.boneWeights[0]+origWeight.boneWeights[1]+origWeight.boneWeights[2]+origWeight.boneWeights[3];
+                                    SuperSkinningTMPStruct sortStuff[4];
+                                    uint32_t tmpInt[4];
+                                    //normalize weights
+                                    sum = 1023.f/sum;
+                                    //first pass quantize to integer
+                                    for (size_t j=0; j<4; j++)
+                                    {
+                                        float tmp = origWeight.boneWeights[j]*sum;
+                                        tmpInt[j] = tmp;
+                                        sortStuff[j].tmp = tmp-float(tmpInt[j]); //fract()
+
+                                        sortStuff[j].redir = j;
+                                    }
+
+                                    //sort
+                                    SWAP(0, 1);
+                                    SWAP(2, 3);
+                                    SWAP(0, 2);
+                                    SWAP(1, 3);
+                                    SWAP(1, 2);
+
+
+
+                                    uint32_t gap = 1023-tmpInt[0]-tmpInt[1]-tmpInt[2]-tmpInt[3];
+                                    assert(gap<=4);
+                                    for (uint32_t j=0; j<gap; j++)
+                                        tmpInt[sortStuff[j].redir]++;
+
+                                    actualWeight->boneWeights = tmpInt[0]|(tmpInt[1]<<10)|(tmpInt[2]<<20)|(0x3u<<30);
+                                }
+                                break;
+                        }
+                        #undef SWAP
+                    }
 
                     Ix++;
 				}
@@ -422,26 +581,7 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
                 delete [] cumBaseVertex;
 				delete [] vCountArray;
 			}
-
-			for (u32 j=0; j<mesh->WeightJoint.size(); ++j)
-			{
-				ICPUSkinnedMesh::SWeight& weight = (AnimatedMesh->getAllJoints()[mesh->WeightJoint[j]]->Weights[mesh->WeightNum[j]]);
-
-				u32 id = weight.vertex_id;
-
-				if (id>=verticesLinkIndex.size())
-				{
-					os::Printer::log("X loader: Weight id out of range", ELL_WARNING);
-					id=0;
-					weight.strength=0.f;
-				}
-
-				weight.vertex_id=verticesLinkIndex[id];
-				weight.buffer_id=verticesLinkBuffer[id] + bufferOffset;
-			}
 		}
-		#endif
-
 	}
 
 	return true;
@@ -751,7 +891,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(ICPUSkinnedMesh::SJoint *Parent)
 }
 
 
-bool CXMeshFileLoader::parseDataObjectTransformationMatrix(core::matrix4 &mat)
+bool CXMeshFileLoader::parseDataObjectTransformationMatrix(core::matrix4x3 &mat)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading Transformation Matrix", ELL_DEBUG);
@@ -764,7 +904,21 @@ bool CXMeshFileLoader::parseDataObjectTransformationMatrix(core::matrix4 &mat)
 		return false;
 	}
 
-	readMatrix(mat);
+	core::matrix4 tmpMat;
+
+	readMatrix(tmpMat);
+	mat(0,0) = tmpMat(0,0);
+	mat(1,0) = tmpMat(0,1);
+	mat(2,0) = tmpMat(0,2);
+	mat(0,1) = tmpMat(1,0);
+	mat(1,1) = tmpMat(1,1);
+	mat(2,1) = tmpMat(1,2);
+	mat(0,2) = tmpMat(2,0);
+	mat(1,2) = tmpMat(2,1);
+	mat(2,2) = tmpMat(2,2);
+	mat(0,3) = tmpMat(3,0);
+	mat(1,3) = tmpMat(3,1);
+	mat(2,3) = tmpMat(3,2);
 
 	if (!checkForOneFollowingSemicolons())
 	{
@@ -1154,16 +1308,14 @@ bool CXMeshFileLoader::parseDataObjectSkinWeights(SXMesh &mesh)
 		return false;
 	}
 
-	mesh.HasSkinning=true;
-
 	ICPUSkinnedMesh::SJoint *joint=0;
 
-	u32 n;
-	for (n=0; n < AnimatedMesh->getAllJoints().size(); ++n)
+	size_t jointID;
+	for (jointID=0; jointID < AnimatedMesh->getAllJoints().size(); jointID++)
 	{
-		if (AnimatedMesh->getAllJoints()[n]->Name==TransformNodeName)
+		if (AnimatedMesh->getAllJoints()[jointID]->Name==TransformNodeName)
 		{
-			joint=AnimatedMesh->getAllJoints()[n];
+			joint=AnimatedMesh->getAllJoints()[jointID];
 			break;
 		}
 	}
@@ -1173,47 +1325,66 @@ bool CXMeshFileLoader::parseDataObjectSkinWeights(SXMesh &mesh)
 #ifdef _XREADER_DEBUG
 		os::Printer::log("creating joint for skinning ", TransformNodeName.c_str(), ELL_DEBUG);
 #endif
-		n = AnimatedMesh->getAllJoints().size();
+		jointID = AnimatedMesh->getAllJoints().size();
 		joint=AnimatedMesh->addJoint(0);
 		joint->Name=TransformNodeName;
 	}
 
-	// read vertex weights
-	const u32 nWeights = readInt();
-
 	// read vertex indices
-	u32 i;
-
-	const u32 jointStart = joint->Weights.size();
-	joint->Weights.reallocate(jointStart+nWeights);
-
-	mesh.WeightJoint.reallocate( mesh.WeightJoint.size() + nWeights );
-	mesh.WeightNum.reallocate( mesh.WeightNum.size() + nWeights );
-
-	for (i=0; i<nWeights; ++i)
-	{
-		mesh.WeightJoint.push_back(n);
-		mesh.WeightNum.push_back(joint->Weights.size());
-
-		ICPUSkinnedMesh::SWeight *weight=AnimatedMesh->addWeight(joint);
-
-		weight->buffer_id=0;
-		weight->vertex_id=readInt();
-	}
+	const uint32_t nWeights = readInt();
+	uint32_t* vertexIDs = new uint32_t[nWeights];
+	uint32_t maxIx = 0;
+	for (size_t i=0; i<nWeights; i++)
+    {
+		vertexIDs[i] = readInt();
+		if (vertexIDs[i]>maxIx)
+            maxIx = vertexIDs[i];
+    }
+    size_t oldUsed = mesh.VertexSkinWeights.size();
+    if (maxIx>=oldUsed)
+    {
+        mesh.VertexSkinWeights.set_used(maxIx+1);
+        memset(mesh.VertexSkinWeights.pointer()+oldUsed,0,(maxIx+1-oldUsed)*sizeof(SkinnedVertexIntermediateData));
+    }
 
 	// read vertex weights
+	for (size_t i=0; i<nWeights; ++i)
+	{
+	    SkinnedVertexIntermediateData& tmp = mesh.VertexSkinWeights[vertexIDs[i]];
+        float tmpWeight = readFloat();
+        for (size_t j=0; j<4; j++)
+        {
+            if (tmpWeight<=tmp.boneWeights[j])
+                continue;
 
-	for (i=jointStart; i<jointStart+nWeights; ++i)
-		joint->Weights[i].strength = readFloat();
+            tmp.boneIDs[j] = jointID;
+            tmp.boneWeights[j] = tmpWeight;
+            break;
+        }
+	}
+	delete [] vertexIDs;
+
 
 	// read matrix offset
 
 	// transforms the mesh vertices to the space of the bone
 	// When concatenated to the bone's transform, this provides the
 	// world space coordinates of the mesh as affected by the bone
-	core::matrix4& MatrixOffset = joint->GlobalInversedMatrix;
+	core::matrix4 MatrixOffset;
 
 	readMatrix(MatrixOffset);
+	joint->GlobalInversedMatrix(0,0) = MatrixOffset(0,0);
+	joint->GlobalInversedMatrix(1,0) = MatrixOffset(0,1);
+	joint->GlobalInversedMatrix(2,0) = MatrixOffset(0,2);
+	joint->GlobalInversedMatrix(0,1) = MatrixOffset(1,0);
+	joint->GlobalInversedMatrix(1,1) = MatrixOffset(1,1);
+	joint->GlobalInversedMatrix(2,1) = MatrixOffset(1,2);
+	joint->GlobalInversedMatrix(0,2) = MatrixOffset(2,0);
+	joint->GlobalInversedMatrix(1,2) = MatrixOffset(2,1);
+	joint->GlobalInversedMatrix(2,2) = MatrixOffset(2,2);
+	joint->GlobalInversedMatrix(0,3) = MatrixOffset(3,0);
+	joint->GlobalInversedMatrix(1,3) = MatrixOffset(3,1);
+	joint->GlobalInversedMatrix(2,3) = MatrixOffset(3,2);
 
 	if (!checkForOneFollowingSemicolons())
 	{
@@ -1245,8 +1416,10 @@ bool CXMeshFileLoader::parseDataObjectSkinMeshHeader(SXMesh& mesh)
 		return false;
 	}
 
-	mesh.MaxSkinWeightsPerVertex = readInt();
-	mesh.MaxSkinWeightsPerFace = readInt();
+	//mesh.MaxSkinWeightsPerVertex = readInt();
+	//mesh.MaxSkinWeightsPerFace = readInt();
+	readInt();readInt();
+
 	mesh.BoneCount = readInt();
 
 	if (!BinaryFormat)
@@ -1852,10 +2025,13 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(ICPUSkinnedMesh::SJoint *join
 					return false;
 				}
 
-				f32 W = -readFloat();
-				f32 X = -readFloat();
-				f32 Y = -readFloat();
-				f32 Z = -readFloat();
+                core::vectorSIMDf quatern;
+				quatern.W = -readFloat();
+				quatern.X = readFloat();
+				quatern.Y = readFloat();
+				quatern.Z = readFloat();
+
+                quatern = normalize(quatern);
 
 				if (!checkForTwoFollowingSemicolons())
 				{
@@ -1863,10 +2039,9 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(ICPUSkinnedMesh::SJoint *join
 					os::Printer::log("Line", core::stringc(Line).c_str(), ELL_WARNING);
 				}
 
-				ICPUSkinnedMesh::SRotationKey *key=AnimatedMesh->addRotationKey(joint);
+				ICPUSkinnedMesh::SRotationKey *key=joint->addRotationKey();
 				key->frame=time;
-				key->rotation.set(X,Y,Z,W);
-				key->rotation.normalize();
+				key->rotation.set(quatern);
 			}
 			break;
 		case 1: //scale
@@ -1893,13 +2068,13 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(ICPUSkinnedMesh::SJoint *join
 
 				if (keyType==2)
 				{
-					ICPUSkinnedMesh::SPositionKey *key=AnimatedMesh->addPositionKey(joint);
+					ICPUSkinnedMesh::SPositionKey *key=joint->addPositionKey();
 					key->frame=time;
 					key->position=vector;
 				}
 				else
 				{
-					ICPUSkinnedMesh::SScaleKey *key=AnimatedMesh->addScaleKey(joint);
+					ICPUSkinnedMesh::SScaleKey *key=joint->addScaleKey();
 					key->frame=time;
 					key->scale=vector;
 				}
@@ -1932,19 +2107,32 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(ICPUSkinnedMesh::SJoint *join
 
 				//core::vector3df rotation = mat.getRotationDegrees();
 
-				ICPUSkinnedMesh::SRotationKey *keyR=AnimatedMesh->addRotationKey(joint);
+				ICPUSkinnedMesh::SRotationKey *keyR=joint->addRotationKey();
 				keyR->frame=time;
 
 				// IRR_TEST_BROKEN_QUATERNION_USE: TODO - switched from mat to mat.getTransposed() for downward compatibility.
 				//								   Not tested so far if this was correct or wrong before quaternion fix!
-				keyR->rotation= core::quaternion(mat.getTransposed());
+				core::matrix4x3 mat4x3;
+                mat4x3(0,0) = mat(0,0);
+                mat4x3(1,0) = mat(0,1);
+                mat4x3(2,0) = mat(0,2);
+                mat4x3(0,1) = mat(1,0);
+                mat4x3(1,1) = mat(1,1);
+                mat4x3(2,1) = mat(1,2);
+                mat4x3(0,2) = mat(2,0);
+                mat4x3(1,2) = mat(2,1);
+                mat4x3(2,2) = mat(2,2);
+                mat4x3(0,3) = mat(3,0);
+                mat4x3(1,3) = mat(3,1);
+                mat4x3(2,3) = mat(3,2);
+				keyR->rotation = core::quaternion(mat4x3);
 
-				ICPUSkinnedMesh::SPositionKey *keyP=AnimatedMesh->addPositionKey(joint);
+				ICPUSkinnedMesh::SPositionKey *keyP=joint->addPositionKey();
 				keyP->frame=time;
-				keyP->position=mat.getTranslation();
+				keyP->position=mat4x3.getTranslation();
 
-/*
-				core::vector3df scale=mat.getScale();
+
+				core::vector3df scale=mat4x3.getScale();
 
 				if (scale.X==0)
 					scale.X=1;
@@ -1952,10 +2140,9 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(ICPUSkinnedMesh::SJoint *join
 					scale.Y=1;
 				if (scale.Z==0)
 					scale.Z=1;
-				ICPUSkinnedMesh::SScaleKey *keyS=AnimatedMesh->addScaleKey(joint);
+				ICPUSkinnedMesh::SScaleKey *keyS=joint->addScaleKey();
 				keyS->frame=time;
 				keyS->scale=scale;
-*/
 			}
 			break;
 		} // end switch

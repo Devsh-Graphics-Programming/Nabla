@@ -169,13 +169,6 @@ bool CSoftwareDriver::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
 }
 
 
-//! sets transformation
-void CSoftwareDriver::setTransform(E_TRANSFORMATION_STATE state, const core::matrix4& mat)
-{
-	TransformationMatrix[state] = mat;
-}
-
-
 //! sets the current Texture
 bool CSoftwareDriver::setActiveTexture(u32 stage, video::ITexture* texture)
 {
@@ -491,11 +484,11 @@ void CSoftwareDriver::drawClippedIndexedTriangleListT(const VERTEXTYPE* vertices
 	core::array<u16> clippedIndices;
 
 	// calculate inverse world transformation
-	core::matrix4 worldinv(TransformationMatrix[ETS_WORLD]);
+	core::matrix4x3 worldinv(TransformationMatrix[E4X3TS_WORLD]);
 	worldinv.makeInverse();
 
 	// calculate view frustum planes
-	scene::SViewFrustum frustum(TransformationMatrix[ETS_PROJECTION] * TransformationMatrix[ETS_VIEW]);
+	scene::SViewFrustum frustum(TransformationMatrix[ETS_PROJECTION] * TransformationMatrix[E4X3TS_VIEW]);
 
 	// copy and transform clipping planes ignoring far plane
 	core::plane3df planes[5]; // ordered by near, left, right, bottom, top
@@ -675,8 +668,8 @@ void CSoftwareDriver::drawClippedIndexedTriangleListT(const VERTEXTYPE* vertices
 	f32 transformedPos[4]; // transform all points in the list
 
 	core::matrix4 matrix(TransformationMatrix[ETS_PROJECTION]);
-	matrix *= TransformationMatrix[ETS_VIEW];
-	matrix *= TransformationMatrix[ETS_WORLD];
+	matrix *= TransformationMatrix[E4X3TS_VIEW];
+	matrix *= TransformationMatrix[E4X3TS_WORLD];
 
 	s32 ViewTransformWidth = (ViewPortSize.Width>>1);
 	s32 ViewTransformHeight = (ViewPortSize.Height>>1);
@@ -886,12 +879,6 @@ ECOLOR_FORMAT CSoftwareDriver::getColorFormat() const
 		return CNullDriver::getColorFormat();
 }
 
-
-//! Returns the transformation set by setTransform
-const core::matrix4& CSoftwareDriver::getTransform(E_TRANSFORMATION_STATE state) const
-{
-	return TransformationMatrix[state];
-}
 
 
 //! Creates a render target texture.

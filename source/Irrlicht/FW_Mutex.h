@@ -12,8 +12,28 @@
 #include <pthread.h>
 #endif
 
-namespace irr
+#ifdef WIN32
+#include "Windows.h"
+#endif
+
+
+inline void FW_SleepMs(const uint64_t &milliseconds)
 {
+#ifdef WIN32
+	Sleep(milliseconds);
+#else
+	if (!milliseconds)
+		pthread_yield();
+	else
+	{
+		struct timespec ts;
+		ts.tv_sec = (time_t) (milliseconds / 1000);
+		ts.tv_nsec = (long) (milliseconds % 1000) * 1000000;
+		nanosleep(&ts, NULL);
+	}
+#endif
+}
+
 
 class FW_ConditionVariable;
 
@@ -307,7 +327,6 @@ inline void FW_AtomicCounterUnBlockIncr(FW_AtomicCounter &lock)
 
 #define FW_AtomicCounterInit(lock) FW_AtomicCounter lock = 0;
 
-}
 
 
 #endif // _FW_MUTEX_H_

@@ -19,21 +19,6 @@ namespace video
 {
 	class ITexture;
 
-	//! Flag for EMT_ONETEXTURE_BLEND, ( BlendFactor ) BlendFunc = source * sourceFactor + dest * destFactor
-	enum E_BLEND_FACTOR
-	{
-		EBF_ZERO	= 0,			//!< src & dest	(0, 0, 0, 0)
-		EBF_ONE,					//!< src & dest	(1, 1, 1, 1)
-		EBF_DST_COLOR, 				//!< src	(destR, destG, destB, destA)
-		EBF_ONE_MINUS_DST_COLOR,	//!< src	(1-destR, 1-destG, 1-destB, 1-destA)
-		EBF_SRC_COLOR,				//!< dest	(srcR, srcG, srcB, srcA)
-		EBF_ONE_MINUS_SRC_COLOR, 	//!< dest	(1-srcR, 1-srcG, 1-srcB, 1-srcA)
-		EBF_SRC_ALPHA,				//!< src & dest	(srcA, srcA, srcA, srcA)
-		EBF_ONE_MINUS_SRC_ALPHA,	//!< src & dest	(1-srcA, 1-srcA, 1-srcA, 1-srcA)
-		EBF_DST_ALPHA,				//!< src & dest	(destA, destA, destA, destA)
-		EBF_ONE_MINUS_DST_ALPHA,	//!< src & dest	(1-destA, 1-destA, 1-destA, 1-destA)
-		EBF_SRC_ALPHA_SATURATE		//!< src	(min(srcA, 1-destA), idem, ...)
-	};
 
 	//! Values defining the blend operation used when blend is enabled
 	enum E_BLEND_OPERATION
@@ -50,20 +35,12 @@ namespace video
 		EBO_MAX_ALPHA	//!< Choose maximum value of each color channel based on alpha value, not widely supported
 	};
 
-	//! MaterialTypeParam: e.g. DirectX: D3DTOP_MODULATE, D3DTOP_MODULATE2X, D3DTOP_MODULATE4X
-	enum E_MODULATE_FUNC
-	{
-		EMFN_MODULATE_1X	= 1,
-		EMFN_MODULATE_2X	= 2,
-		EMFN_MODULATE_4X	= 4
-	};
-
 	//! Comparison function, e.g. for depth buffer test
 	enum E_COMPARISON_FUNC
 	{
 		//! Test never succeeds, this equals disable
 		ECFN_NEVER=0,
-		//! <= test, default for e.g. depth test
+		//! <= test
 		ECFN_LESSEQUAL=1,
 		//! Exact equality
 		ECFN_EQUAL=2,
@@ -71,7 +48,7 @@ namespace video
 		ECFN_LESS,
 		//! Succeeds almost always, except for exact equality
 		ECFN_NOTEQUAL,
-		//! >= test
+		//! >= test, default for e.g. depth test
 		ECFN_GREATEREQUAL,
 		//! inverse of <=
 		ECFN_GREATER,
@@ -97,55 +74,6 @@ namespace video
 		//! All planes enabled
 		ECP_ALL=15
 	};
-
-	//! Source of the alpha value to take
-	/** This is currently only supported in EMT_ONETEXTURE_BLEND. You can use an
-	or'ed combination of values. Alpha values are modulated (multiplicated). */
-	enum E_ALPHA_SOURCE
-	{
-		//! Use no alpha, somewhat redundant with other settings
-		EAS_NONE=0,
-		//! Use vertex color alpha
-		EAS_VERTEX_COLOR,
-		//! Use texture alpha channel
-		EAS_TEXTURE
-	};
-
-	//! EMT_ONETEXTURE_BLEND: pack srcFact, dstFact, Modulate and alpha source to MaterialTypeParam
-	/** alpha source can be an OR'ed combination of E_ALPHA_SOURCE values. */
-	inline f32 pack_textureBlendFunc ( const E_BLEND_FACTOR srcFact, const E_BLEND_FACTOR dstFact, const E_MODULATE_FUNC modulate=EMFN_MODULATE_1X, const u32 alphaSource=EAS_TEXTURE )
-	{
-		const u32 tmp = (alphaSource << 12) | (modulate << 8) | (srcFact << 4) | dstFact;
-		return FR(tmp);
-	}
-
-	//! EMT_ONETEXTURE_BLEND: unpack srcFact & dstFact and Modulo to MaterialTypeParam
-	/** The fields don't use the full byte range, so we could pack even more... */
-	inline void unpack_textureBlendFunc ( E_BLEND_FACTOR &srcFact, E_BLEND_FACTOR &dstFact,
-			E_MODULATE_FUNC &modulo, u32& alphaSource, const f32 param )
-	{
-		const u32 state = IR(param);
-		alphaSource = (state & 0x0000F000) >> 12;
-		modulo	= E_MODULATE_FUNC( ( state & 0x00000F00 ) >> 8 );
-		srcFact = E_BLEND_FACTOR ( ( state & 0x000000F0 ) >> 4 );
-		dstFact = E_BLEND_FACTOR ( ( state & 0x0000000F ) );
-	}
-
-	//! EMT_ONETEXTURE_BLEND: has BlendFactor Alphablending
-	inline bool textureBlendFunc_hasAlpha ( const E_BLEND_FACTOR factor )
-	{
-		switch ( factor )
-		{
-			case EBF_SRC_ALPHA:
-			case EBF_ONE_MINUS_SRC_ALPHA:
-			case EBF_DST_ALPHA:
-			case EBF_ONE_MINUS_DST_ALPHA:
-			case EBF_SRC_ALPHA_SATURATE:
-				return true;
-			default:
-				return false;
-		}
-	}
 
 
 	//! These flags are used to specify the anti-aliasing and smoothing modes
@@ -174,50 +102,6 @@ namespace video
 		EAAM_ALPHA_TO_COVERAGE=16
 	};
 
-	//! These flags allow to define the interpretation of vertex color when lighting is enabled
-	/** Without lighting being enabled the vertex color is the only value defining the fragment color.
-	Once lighting is enabled, the four values for diffuse, ambient, emissive, and specular take over.
-	With these flags it is possible to define which lighting factor shall be defined by the vertex color
-	instead of the lighting factor which is the same for all faces of that material.
-	The default is to use vertex color for the diffuse value, another pretty common value is to use
-	vertex color for both diffuse and ambient factor. */
-	enum E_COLOR_MATERIAL
-	{
-		//! Don't use vertex color for lighting
-		ECM_NONE=0,
-		//! Use vertex color for diffuse light, this is default
-		ECM_DIFFUSE,
-		//! Use vertex color for ambient light
-		ECM_AMBIENT,
-		//! Use vertex color for emissive light
-		ECM_EMISSIVE,
-		//! Use vertex color for specular light
-		ECM_SPECULAR,
-		//! Use vertex color for both diffuse and ambient light
-		ECM_DIFFUSE_AND_AMBIENT
-	};
-
-	//! Flags for the definition of the polygon offset feature
-	/** These flags define whether the offset should be into the screen, or towards the eye. */
-	enum E_POLYGON_OFFSET
-	{
-		//! Push pixel towards the far plane, away from the eye
-		/** This is typically used for rendering inner areas. */
-		EPO_BACK=0,
-		//! Pull pixels towards the camera.
-		/** This is typically used for polygons which should appear on top
-		of other elements, such as decals. */
-		EPO_FRONT=1
-	};
-
-	//! Names for polygon offset direction
-	const c8* const PolygonOffsetDirectionNames[] =
-	{
-		"Back",
-		"Front",
-		0
-	};
-
 
 	//! Maximum number of texture an SMaterial can have.
 	const u32 MATERIAL_MAX_TEXTURES = _IRR_MATERIAL_MAX_TEXTURES_;
@@ -231,10 +115,10 @@ namespace video
 		: MaterialType(EMT_SOLID), AmbientColor(255,255,255,255), DiffuseColor(255,255,255,255),
 			EmissiveColor(0,0,0,0), SpecularColor(255,255,255,255),
 			Shininess(0.0f), MaterialTypeParam(0.0f), MaterialTypeParam2(0.0f), userData(NULL), Thickness(1.0f),
-			ZBuffer(ECFN_LESSEQUAL), AntiAliasing(EAAM_SIMPLE), ColorMask(ECP_ALL),
-			ColorMaterial(ECM_DIFFUSE), BlendOperation(EBO_NONE),
-			PolygonOffsetFactor(0), PolygonOffsetDirection(EPO_FRONT),
-			Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false)
+			ZBuffer(ECFN_GREATEREQUAL), AntiAliasing(EAAM_SIMPLE), ColorMask(ECP_ALL),
+			BlendOperation(EBO_NONE),
+			PolygonOffsetConstantMultiplier(0.f), PolygonOffsetGradientMultiplier(0.f),
+			Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false), RasterizerDiscard(false)
 		{ }
 
 		//! Copy constructor
@@ -273,13 +157,13 @@ namespace video
 			ZWriteEnable = other.ZWriteEnable;
 			BackfaceCulling = other.BackfaceCulling;
 			FrontfaceCulling = other.FrontfaceCulling;
+			RasterizerDiscard = other.RasterizerDiscard;
 			ZBuffer = other.ZBuffer;
 			AntiAliasing = other.AntiAliasing;
 			ColorMask = other.ColorMask;
-			ColorMaterial = other.ColorMaterial;
 			BlendOperation = other.BlendOperation;
-			PolygonOffsetFactor = other.PolygonOffsetFactor;
-			PolygonOffsetDirection = other.PolygonOffsetDirection;
+			PolygonOffsetConstantMultiplier = other.PolygonOffsetConstantMultiplier;
+			PolygonOffsetGradientMultiplier = other.PolygonOffsetGradientMultiplier;
 
 			return *this;
 		}
@@ -357,7 +241,7 @@ namespace video
 		//! Thickness of non-3dimensional elements such as lines and points.
 		f32 Thickness;
 
-		//! Is the ZBuffer enabled? Default: ECFN_LESSEQUAL
+		//! Is the ZBuffer enabled? Default: ECFN_GREATEREQUAL
 		/** Values are from E_COMPARISON_FUNC. */
 		u8 ZBuffer;
 
@@ -374,27 +258,14 @@ namespace video
 		depth or stencil buffer, or using Red and Green for Stereo rendering. */
 		u8 ColorMask:4;
 
-		//! Defines the interpretation of vertex color in the lighting equation
-		/** Values should be chosen from E_COLOR_MATERIAL.
-		When lighting is enabled, vertex color can be used instead of the
-		material values for light modulation. This allows to easily change e.g. the
-		diffuse light behavior of each face. The default, ECM_DIFFUSE, will result in
-		a very similar rendering as with lighting turned off, just with light shading. */
-		u8 ColorMaterial:3;
-
 		//! Store the blend operation of choice
 		/** Values to be chosen from E_BLEND_OPERATION. The actual way to use this value
 		is not yet determined, so ignore it for now. */
 		E_BLEND_OPERATION BlendOperation:4;
 
-		//! Factor specifying how far the polygon offset should be made
-		/** Specifying 0 disables the polygon offset. The direction is specified spearately.
-		The factor can be from 0 to 7.*/
-		u8 PolygonOffsetFactor:3;
+		float PolygonOffsetConstantMultiplier;
 
-		//! Flag defining the direction the polygon offset is applied to.
-		/** Can be to front or to back, specififed by values from E_POLYGON_OFFSET. */
-		E_POLYGON_OFFSET PolygonOffsetDirection:1;
+		float PolygonOffsetGradientMultiplier;
 
 		//! Draw as wireframe or filled triangles? Default: false
 		/** The user can access a material flag using
@@ -416,6 +287,8 @@ namespace video
 
 		//! Is frontface culling enabled? Default: false
 		bool FrontfaceCulling:1;
+
+		bool RasterizerDiscard:1;
 
 		//! Gets the i-th texture
 		/** \param i The desired level.
@@ -459,14 +332,8 @@ namespace video
 					AntiAliasing = value?EAAM_SIMPLE:EAAM_OFF; break;
 				case EMF_COLOR_MASK:
 					ColorMask = value?ECP_ALL:ECP_NONE; break;
-				case EMF_COLOR_MATERIAL:
-					ColorMaterial = value?ECM_DIFFUSE:ECM_NONE; break;
 				case EMF_BLEND_OPERATION:
 					BlendOperation = value?EBO_ADD:EBO_NONE; break;
-				case EMF_POLYGON_OFFSET:
-					PolygonOffsetFactor = value?1:0;
-					PolygonOffsetDirection = EPO_BACK;
-					break;
 				default:
 					break;
 			}
@@ -495,12 +362,8 @@ namespace video
 					return (AntiAliasing==1);
 				case EMF_COLOR_MASK:
 					return (ColorMask!=ECP_NONE);
-				case EMF_COLOR_MATERIAL:
-					return (ColorMaterial != ECM_NONE);
 				case EMF_BLEND_OPERATION:
 					return BlendOperation != EBO_NONE;
-				case EMF_POLYGON_OFFSET:
-					return PolygonOffsetFactor != 0;
 			}
 
 			return false;
@@ -528,12 +391,12 @@ namespace video
 				ZWriteEnable != b.ZWriteEnable ||
 				BackfaceCulling != b.BackfaceCulling ||
 				FrontfaceCulling != b.FrontfaceCulling ||
+				RasterizerDiscard != b.RasterizerDiscard ||
 				AntiAliasing != b.AntiAliasing ||
 				ColorMask != b.ColorMask ||
-				ColorMaterial != b.ColorMaterial ||
 				BlendOperation != b.BlendOperation ||
-				PolygonOffsetFactor != b.PolygonOffsetFactor ||
-				PolygonOffsetDirection != b.PolygonOffsetDirection;
+				PolygonOffsetConstantMultiplier != b.PolygonOffsetConstantMultiplier ||
+				PolygonOffsetGradientMultiplier != b.PolygonOffsetGradientMultiplier;
 			for (u32 i=0; (i<MATERIAL_MAX_TEXTURES) && !different; ++i)
 			{
 				different |= (TextureLayer[i] != b.TextureLayer[i]);

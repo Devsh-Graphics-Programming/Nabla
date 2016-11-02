@@ -55,32 +55,19 @@ namespace scene
 
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
-		\return Number of polygons in mesh buffer. */
+		\param Outputted Number of polygons in mesh buffer, if successful.
+		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
 		template<typename T>
-		static uint32_t getPolyCount(IMeshBuffer<T>* meshbuffer);
+		static bool getPolyCount(uint32_t& outCount, IMeshBuffer<T>* meshbuffer);
 
 		//! Get amount of polygons in mesh.
-		/** \param mesh Input mesh
-		\return Number of polygons in mesh. */
+		/** \param meshbuffer Input mesh
+		\param Outputted Number of polygons in mesh, if successful.
+		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
 		template<typename T>
-		static uint32_t getPolyCount(IMesh<T>* mesh);
+		static bool getPolyCount(uint32_t& outCount, IMesh<T>* mesh);
 
 #ifndef NEW_MESHES
-		//! Get amount of polygons in mesh.
-		/** \param mesh Input mesh
-		\return Number of polygons in mesh. */
-		template<typename T>
-		static uint32_t getPolyCount(ICPUAnimatedMesh* mesh);
-
-		//! Create a new AnimatedMesh and adds the mesh to it
-		/** \param mesh Input mesh
-		\param type The type of the animated mesh to create.
-		\return Newly created animated mesh with mesh as its only
-		content. When you don't need the animated mesh anymore, you
-		should call IAnimatedMesh::drop(). See
-		IReferenceCounted::drop() for more information. */
-		virtual ICPUAnimatedMesh* createAnimatedMesh(ICPUMesh* mesh) const = 0;
-
 		//! Vertex cache optimization according to the Forsyth paper
 		/** More information can be found at
 		http://home.comcast.net/~tom_forsyth/papers/fast_vert_cache_opt.html

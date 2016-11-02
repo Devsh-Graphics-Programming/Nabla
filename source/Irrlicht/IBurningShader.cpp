@@ -101,13 +101,12 @@ namespace video
 			// select mignify and magnify ( lodLevel )
 			//SOFTWARE_DRIVER_2_MIPMAPPING_LOD_BIAS
 			it->lodLevel = lodLevel;
-			it->data = (tVideoSample*) it->Texture->lock(ETLM_READ_ONLY,
-				core::s32_clamp ( lodLevel + SOFTWARE_DRIVER_2_MIPMAPPING_LOD_BIAS, 0, SOFTWARE_DRIVER_2_MIPMAPPING_MAX - 1 ));
+			it->data = (tVideoSample*) it->Texture->lock(core::s32_clamp ( lodLevel + SOFTWARE_DRIVER_2_MIPMAPPING_LOD_BIAS, 0, SOFTWARE_DRIVER_2_MIPMAPPING_MAX - 1 ));
 
 			// prepare for optimal fixpoint
 			it->pitchlog2 = s32_log2_s32 ( it->Texture->getPitch() );
 
-			const core::dimension2d<u32> &dim = it->Texture->getSize();
+			const core::dimension2du &dim = *reinterpret_cast<const core::dimension2du*>(it->Texture->getSize());
 			it->textureXMask = s32_to_fixPoint ( dim.Width - 1 ) & FIX_POINT_UNSIGNED_MASK;
 			it->textureYMask = s32_to_fixPoint ( dim.Height - 1 ) & FIX_POINT_UNSIGNED_MASK;
 		}

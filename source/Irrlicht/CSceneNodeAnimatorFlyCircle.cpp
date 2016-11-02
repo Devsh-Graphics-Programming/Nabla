@@ -37,7 +37,7 @@ void CSceneNodeAnimatorFlyCircle::init()
 
 
 //! animates a scene node
-void CSceneNodeAnimatorFlyCircle::animateNode(ISceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorFlyCircle::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
 {
 	if ( 0 == node )
 		return;
@@ -58,7 +58,7 @@ void CSceneNodeAnimatorFlyCircle::animateNode(ISceneNode* node, u32 timeMs)
 
 
 
-ISceneNodeAnimator* CSceneNodeAnimatorFlyCircle::createClone(ISceneNode* node, ISceneManager* newManager)
+ISceneNodeAnimator* CSceneNodeAnimatorFlyCircle::createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager)
 {
 	CSceneNodeAnimatorFlyCircle * newAnimator =
 		new CSceneNodeAnimatorFlyCircle(StartTime, Center, Radius, Speed, Direction, RadiusEllipsoid);

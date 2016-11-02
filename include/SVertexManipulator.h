@@ -7,11 +7,41 @@
 
 #include "vectorSIMD.h"
 #include "IMeshBuffer.h"
+#include <vector>
+#include <fstream>
+#include <iterator>
+#include <algorithm>
 
 namespace irr
 {
 namespace scene
 {
+
+    class QuantizationCacheEntry2_10_10_10
+    {
+    public:
+        core::vector3df_SIMD key;
+        uint32_t value;
+
+        inline bool operator<(const QuantizationCacheEntry2_10_10_10& other) const
+        {
+            if (key.Z<other.key.Z)
+                return true;
+            else if (key.Z==other.key.Z)
+            {
+                if (key.Y<other.key.Y)
+                    return true;
+                else if (key.Y==other.key.Y)
+                    return key.X<other.key.X;
+                else
+                    return false;
+            }
+            else
+                return false;
+        }
+    };
+
+    extern std::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
 
 
     inline core::vectorSIMDf findBestFit(const uint32_t& bits, const core::vectorSIMDf& normal)
@@ -90,13 +120,21 @@ namespace scene
 
 	inline uint32_t quantizeNormal2_10_10_10(const core::vectorSIMDf &normal)
 	{
-        uint32_t bestFit;
+        QuantizationCacheEntry2_10_10_10 dummySearchVal;
+        dummySearchVal.key = normal;
+        std::vector<QuantizationCacheEntry2_10_10_10>::iterator found = std::lower_bound(normalCacheFor2_10_10_10Quant.begin(),normalCacheFor2_10_10_10Quant.end(),dummySearchVal);
+        if (found!=normalCacheFor2_10_10_10Quant.end()&&(found->key==normal).all())
+        {
+            return found->value;
+        }
 
         core::vectorSIMDf fit = findBestFit(10,normal);
         const uint32_t xorflag = (0x1u<<10)-1;
-        bestFit = ((uint32_t(fit.X)^(normal.X<0.f ? xorflag:0))+(normal.X<0.f ? 1:0))&xorflag;
+        uint32_t bestFit = ((uint32_t(fit.X)^(normal.X<0.f ? xorflag:0))+(normal.X<0.f ? 1:0))&xorflag;
         bestFit |= (((uint32_t(fit.Y)^(normal.Y<0.f ? xorflag:0))+(normal.Y<0.f ? 1:0))&xorflag)<<10;
         bestFit |= (((uint32_t(fit.Z)^(normal.Z<0.f ? xorflag:0))+(normal.Z<0.f ? 1:0))&xorflag)<<20;
+        dummySearchVal.value = bestFit;
+        normalCacheFor2_10_10_10Quant.insert(found,dummySearchVal);
 
 
 	    return bestFit;

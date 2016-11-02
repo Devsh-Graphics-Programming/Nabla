@@ -49,7 +49,7 @@ CDefaultSceneNodeFactory::CDefaultSceneNodeFactory(ISceneManager* mgr)
 
 
 //! adds a scene node to the scene graph based on its type id
-ISceneNode* CDefaultSceneNodeFactory::addSceneNode(ESCENE_NODE_TYPE type, ISceneNode* parent)
+ISceneNode* CDefaultSceneNodeFactory::addSceneNode(ESCENE_NODE_TYPE type, IDummyTransformationSceneNode* parent)
 {
 	switch(type)
 	{
@@ -69,9 +69,9 @@ ISceneNode* CDefaultSceneNodeFactory::addSceneNode(ESCENE_NODE_TYPE type, IScene
 	case ESNT_LIGHT:
 		return Manager->addLightSceneNode(parent);
 	case ESNT_EMPTY:
-		return Manager->addEmptySceneNode(parent);
+		return Manager->addEmptySceneNode(parent);/*
 	case ESNT_DUMMY_TRANSFORMATION:
-		return Manager->addDummyTransformationSceneNode(parent);
+		return Manager->addDummyTransformationSceneNode(parent);*/
 	case ESNT_CAMERA:
 		return Manager->addCameraSceneNode(parent);
 	case ESNT_CAMERA_MAYA:
@@ -80,9 +80,12 @@ ISceneNode* CDefaultSceneNodeFactory::addSceneNode(ESCENE_NODE_TYPE type, IScene
 		return Manager->addCameraSceneNodeFPS(parent);
 	case ESNT_BILLBOARD:
 		return Manager->addBillboardSceneNode(parent);
+#ifdef NEW_MESHES
 	case ESNT_ANIMATED_MESH:
-		return Manager->addAnimatedMeshSceneNode(0, parent, -1, core::vector3df(),
-												 core::vector3df(), core::vector3df(1,1,1), true);
+		return NULL;
+    case ESNT_SKINNED_MESH:
+        return NULL;
+#endif
 	default:
 		break;
 	}
@@ -92,7 +95,7 @@ ISceneNode* CDefaultSceneNodeFactory::addSceneNode(ESCENE_NODE_TYPE type, IScene
 
 
 //! adds a scene node to the scene graph based on its type name
-ISceneNode* CDefaultSceneNodeFactory::addSceneNode(const c8* typeName, ISceneNode* parent)
+ISceneNode* CDefaultSceneNodeFactory::addSceneNode(const c8* typeName, IDummyTransformationSceneNode* parent)
 {
 	return addSceneNode( getTypeFromName(typeName), parent );
 }

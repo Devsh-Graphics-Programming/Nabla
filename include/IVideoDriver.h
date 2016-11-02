@@ -12,13 +12,14 @@
 #include "IRenderBuffer.h"
 #include "IFrameBuffer.h"
 #include "irrArray.h"
-#include "matrix4.h"
+#include "matrix4x3.h"
 #include "plane3d.h"
 #include "dimension2d.h"
 #include "position2d.h"
 #include "SMaterial.h"
 #include "IDriverFence.h"
 #include "SMesh.h"
+#include "IGPUTimestampQuery.h"
 #include "IOcclusionQuery.h"
 #include "triangle3d.h"
 #include "EDriverTypes.h"
@@ -42,16 +43,41 @@ namespace video
 	class IGPUProgrammingServices;
 
 	//! enumeration for geometry transformation states
-	enum E_TRANSFORMATION_STATE
+	enum E_4X3_TRANSFORMATION_STATE
 	{
 		//! View transformation
-		ETS_VIEW = 0,
+		E4X3TS_VIEW = 0,
 		//! World transformation
-		ETS_WORLD,
-		//! Projection transformation
-		ETS_PROJECTION,
+		E4X3TS_WORLD,
+		//!
+		E4X3TS_WORLD_VIEW,
+		//!
+		E4X3TS_VIEW_INVERSE,
+		//!
+		E4X3TS_WORLD_INVERSE,
+		//!
+		E4X3TS_WORLD_VIEW_INVERSE,
+		//!
+		E4X3TS_NORMAL_MATRIX,
 		//! Not used
-		ETS_COUNT
+		E4X3TS_COUNT
+	};
+	enum E_PROJECTION_TRANSFORMATION_STATE
+	{
+		//! Projection transformation
+		EPTS_PROJ,
+		//!
+		EPTS_PROJ_VIEW,
+		//!
+		EPTS_PROJ_VIEW_WORLD,
+		//!
+		EPTS_PROJ_INVERSE,
+		//!
+		EPTS_PROJ_VIEW_INVERSE,
+		//!
+		EPTS_PROJ_VIEW_WORLD_INVERSE,
+		//! Not used
+		EPTS_COUNT
 	};
 
 	//! enumeration for signaling resources which were lost after the last render cycle
@@ -126,11 +152,7 @@ namespace video
 						case EMF_FRONT_FACE_CULLING: material.FrontfaceCulling = Material.FrontfaceCulling; break;
 						case EMF_ANTI_ALIASING: material.AntiAliasing = Material.AntiAliasing; break;
 						case EMF_COLOR_MASK: material.ColorMask = Material.ColorMask; break;
-						case EMF_COLOR_MATERIAL: material.ColorMaterial = Material.ColorMaterial; break;
 						case EMF_BLEND_OPERATION: material.BlendOperation = Material.BlendOperation; break;
-						case EMF_POLYGON_OFFSET:
-							material.PolygonOffsetDirection = Material.PolygonOffsetDirection;
-							material.PolygonOffsetFactor = Material.PolygonOffsetFactor; break;
 						}
 					}
 				}
@@ -150,14 +172,19 @@ namespace video
 	class IVideoDriver : public virtual IReferenceCounted
 	{
 	public:
-        virtual IGPUBuffer* createGPUBuffer(const size_t &size, void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) = 0;
+        virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) = 0;
 
-	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) = 0;
+	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) = 0;
 
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc() = 0;
 
-	    virtual scene::SGPUMesh* createGPUMeshFromCPU(scene::SCPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) = 0;
+	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) = 0;
 
+        virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;
+
+
+        virtual bool initAuxContext(const size_t& ctxIx) = 0;
+        virtual bool deinitAuxContext() = 0;
 
 
 		//! Applications must call this method before performing any rendering.
@@ -212,12 +239,16 @@ namespace video
 		/** \param state Transformation type to be set, e.g. view,
 		world, or projection.
 		\param mat Matrix describing the transformation. */
-		virtual void setTransform(E_TRANSFORMATION_STATE state, const core::matrix4& mat) =0;
+		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat) =0;
+
+		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4& mat) =0;
 
 		//! Returns the transformation set by setTransform
 		/** \param state Transformation type to query
 		\return Matrix describing the transformation. */
-		virtual const core::matrix4& getTransform(E_TRANSFORMATION_STATE state) const =0;
+		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state) =0;
+
+		virtual const core::matrix4& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
 
 		//! Retrieve the number of image loaders
 		/** \return Number of image loaders */
@@ -301,7 +332,7 @@ namespace video
 		\return Pointer to the newly created texture. This pointer
 		should not be dropped. See IReferenceCounted::drop() for more
 		information. */
-		virtual ITexture* addTexture(const core::dimension2d<u32>& size, uint32_t mipmapLevels,
+		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
 
 		//! Creates a texture from an IImage.
@@ -353,17 +384,19 @@ namespace video
 
 		virtual void removeAllFrameBuffers() =0;
 
-		//! Create occlusion query.
-        virtual IOcclusionQuery* createOcclusionQuery(bool binary=false) =0;
 
-		//! Update occlusion query. Retrieves results from GPU.
-		/** If the query shall not block, set the flag to false.
-		Update might not occur in this case, though */
-		virtual void updateOcclusionQuery(IOcclusionQuery* query, bool block=true) =0;
+		//! Queries
+		virtual void beginQuery(IQueryObject* query) = 0;
+		virtual void endQuery(IQueryObject* query) = 0;
+		virtual void beginQuery(IQueryObject* query, const size_t& index) = 0;
+		virtual void endQuery(IQueryObject* query, const size_t& index) = 0;
 
-        virtual void beginOcclusionQuery(IOcclusionQuery* query) = 0;
+        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic) = 0;
 
-        virtual void endOcclusionQuery() = 0;
+        virtual IQueryObject* createPrimitivesGeneratedQuery() = 0;
+        virtual IQueryObject* createXFormFeedbackPrimitiveQuery() = 0;
+        virtual IQueryObject* createElapsedTimeQuery() = 0;
+        virtual IGPUTimestampQuery* createTimestampQuery() = 0;
 
 
 		//! Creates a normal map from a height map texture.
@@ -387,7 +420,7 @@ namespace video
 		you have to render some special things, you can clear the
 		zbuffer during the rendering process with this method any time.
 		*/
-		virtual void clearZBuffer(const float &depth=1.0) =0;
+		virtual void clearZBuffer(const float &depth=0.0) =0;
 
 		virtual void clearStencilBuffer(const int32_t &stencil) =0;
 
@@ -399,6 +432,30 @@ namespace video
 
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) =0;
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) =0;
+
+
+
+		virtual ITransformFeedback* createTransformFeedback() = 0;
+
+		//!
+		virtual void bindTransformFeedback(ITransformFeedback* xformFeedback) = 0;
+
+		virtual ITransformFeedback* getBoundTransformFeedback() = 0;
+
+        /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
+        This issues an implicit call to bindTransformFeedback()
+        **/
+		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType=scene::EPT_POINTS) = 0;
+
+		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
+		virtual void pauseTransformFeedback() = 0;
+
+		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
+		virtual void resumeTransformFeedback() = 0;
+
+        //! This issues an implicit call to bindTransformFeedback(NULL)
+		virtual void endTransformFeedback() = 0;
+
 
 		//! Sets a new viewport.
 		/** Every rendering operation is done into this new area.
@@ -416,7 +473,7 @@ namespace video
 		independently of the current transformation, use
 		\code
 		driver->setMaterial(someMaterial);
-		driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
+		driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
 		\endcode
 		for some properly set up material before drawing the line.
 		Some drivers support line thickness set in the material.
@@ -433,7 +490,7 @@ namespace video
 		the current transformation, use
 		\code
 		driver->setMaterial(someMaterial);
-		driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
+		driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
 		\endcode
 		for some properly set up material before drawing the box.
 		\param box The axis aligned box to draw
@@ -607,10 +664,6 @@ namespace video
 				f32 radius,
 				video::SColor color=SColor(100,255,255,255),
 				s32 vertexCount=10) =0;
-
-		//! Draws a mesh buffer SUPER_SLOW!!!
-		/** \param mb Buffer to draw */
-		virtual void drawMeshBuffer(scene::ICPUMeshBuffer* mb, IOcclusionQuery* query = NULL) =0;
 
 		//! Draws a mesh buffer
 		/** \param mb Buffer to draw */
@@ -938,19 +991,13 @@ namespace video
 		virtual core::stringc getVendorInfo() =0;
 
 		//! Only used by the engine internally.
-		/** The ambient color is set in the scene manager, see
-		scene::ISceneManager::setAmbientLight().
-		\param color New color of the ambient light. */
-		virtual void setAmbientLight(const SColorf& color) =0;
-
-		//! Only used by the engine internally.
 		/** Passes the global material flag AllowZWriteOnTransparent.
 		Use the SceneManager attribute to set this value from your app.
 		\param flag Default behavior is to disable ZWrite, i.e. false. */
 		virtual void setAllowZWriteOnTransparent(bool flag) =0;
 
 		//! Get the maximum texture size supported.
-		virtual core::dimension2du getMaxTextureSize() const =0;
+		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const =0;
 
 		//! Color conversion convenience function
 		/** Convert an image (as array of pixels) from source to destination

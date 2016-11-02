@@ -59,6 +59,24 @@ namespace scene
 		/** \param box New bounding box to use for the mesh. */
 		virtual void setBoundingBox( const core::aabbox3df& box) = 0;
 
+		//! recalculates the bounding box
+		virtual void recalculateBoundingBox()
+		{
+		    core::aabbox3df tmpBox;
+			if (getMeshBufferCount())
+			{
+				tmpBox = getMeshBuffer(0)->getBoundingBox();
+				for (u32 i=1; i<getMeshBufferCount(); ++i)
+                {
+					tmpBox.addInternalBox(getMeshBuffer(i)->getBoundingBox());
+                }
+			}
+			else
+				tmpBox.reset(0.0f, 0.0f, 0.0f);
+
+            setBoundingBox(tmpBox);
+		}
+
 		//! Sets a flag of all contained materials to a new value.
 		/** \param flag: Flag to set in all materials.
 		\param newvalue: New value to set in all materials. */

@@ -15,7 +15,7 @@ namespace scene
 
 
 //! constructor
-CSphereSceneNode::CSphereSceneNode(f32 radius, u32 polyCountX, u32 polyCountY, ISceneNode* parent, ISceneManager* mgr, s32 id,
+CSphereSceneNode::CSphereSceneNode(f32 radius, u32 polyCountX, u32 polyCountY, IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 			const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
 : IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
 	Radius(radius), PolyCountX(polyCountX), PolyCountY(polyCountY)
@@ -45,7 +45,7 @@ void CSphereSceneNode::render()
 	if (Mesh && driver)
 	{
 		driver->setMaterial(Mesh->getMeshBuffer(0)->getMaterial());
-		driver->setTransform(video::ETS_WORLD, AbsoluteTransformation);
+		driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
 		driver->drawMeshBuffer(Mesh->getMeshBuffer(0), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
 
@@ -59,18 +59,9 @@ void CSphereSceneNode::render()
 }
 
 
-//! Removes a child from this scene node.
-//! Implemented here, to be able to remove the shadow properly, if there is one,
-//! or to remove attached childs.
-bool CSphereSceneNode::removeChild(ISceneNode* child)
-{
-	return ISceneNode::removeChild(child);
-}
-
-
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CSphereSceneNode::getBoundingBox() const
+const core::aabbox3d<f32>& CSphereSceneNode::getBoundingBox()
 {
 	return Mesh ? Mesh->getBoundingBox() : Box;
 }
@@ -106,7 +97,7 @@ u32 CSphereSceneNode::getMaterialCount() const
 }
 
 //! Creates a clone of this scene node and its children.
-ISceneNode* CSphereSceneNode::clone(ISceneNode* newParent, ISceneManager* newManager)
+ISceneNode* CSphereSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
 {
 	if (!newParent)
 		newParent = Parent;

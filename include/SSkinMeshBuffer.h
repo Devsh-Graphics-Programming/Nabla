@@ -14,55 +14,32 @@ namespace scene
 {
 
 
-struct SCPUSkinMeshBuffer : public ICPUMeshBuffer
+class SCPUSkinMeshBuffer : public ICPUMeshBuffer
 {
-	//! Default constructor
-	SCPUSkinMeshBuffer() : normalAttrId(EVAI_ATTR3), indexValMin(0), indexValMax(0), BoundingBoxNeedsRecalculated(true)
-	{
-		#ifdef _DEBUG
-		setDebugName("SCPUSkinMeshBuffer");
-		#endif
-	}
-
-    inline void setIndexRange(const uint32_t &minBeforeBaseVxAdd, const uint32_t &maxBeforeBaseVxAdd)
-    {
-        indexValMin = minBeforeBaseVxAdd;
-        indexValMax = maxBeforeBaseVxAdd;
-    }
-
-    inline const uint32_t& getIndexMinBound() const {return indexValMin;}
-    inline const uint32_t& getIndexMaxBound() const {return indexValMax;}
-
-    inline const E_VERTEX_ATTRIBUTE_ID& getNormalAttributeIx() const {return normalAttrId;}
-    inline void setNormalAttributeIx(const E_VERTEX_ATTRIBUTE_ID& attrId)
-    {
-        if (attrId>=EVAI_COUNT)
-#ifdef _DEBUG
+        uint32_t indexValMin;
+        uint32_t indexValMax;
+        uint32_t maxVertexBoneInfluences;
+    public:
+        //! Default constructor
+        SCPUSkinMeshBuffer() : indexValMin(0), indexValMax(0), maxVertexBoneInfluences(1)
         {
-            //os::Printer::log("MeshBuffer setPositionAttributeIx attribute ID out of range!\n",ELL_ERROR);
-            return;
+            #ifdef _DEBUG
+            setDebugName("SCPUSkinMeshBuffer");
+            #endif
         }
-#else
-            return;
-#endif // _DEBUG
 
-        normalAttrId = attrId;
-    }
+        inline void setIndexRange(const uint32_t &minBeforeBaseVxAdd, const uint32_t &maxBeforeBaseVxAdd)
+        {
+            indexValMin = minBeforeBaseVxAdd;
+            indexValMax = maxBeforeBaseVxAdd;
+        }
 
-
-	//! Call this after changing the positions of any vertex.
-	void boundingBoxNeedsRecalculated(void) { BoundingBoxNeedsRecalculated = true; }
-
+        inline const uint32_t& getIndexMinBound() const {return indexValMin;}
+        inline const uint32_t& getIndexMaxBound() const {return indexValMax;}
 
 
-    E_VERTEX_ATTRIBUTE_ID normalAttrId;
-
-    uint32_t indexValMin;
-    uint32_t indexValMax;
-
-	core::matrix4 Transformation;
-
-	bool BoundingBoxNeedsRecalculated;
+        inline void setMaxVertexBoneInfluences(const uint32_t& val) {maxVertexBoneInfluences = val;}
+        inline const uint32_t& getMaxVertexBoneInfluences() const {return maxVertexBoneInfluences;}
 };
 
 

@@ -20,6 +20,12 @@
 #include "SLight.h"
 #include "SExposedVideoData.h"
 
+#if _MSC_VER && !__INTEL_COMPILER
+	#define FW_AtomicCounter volatile long
+#elif defined(__GNUC__)
+	#define FW_AtomicCounter volatile int32_t
+#endif
+
 #ifdef _MSC_VER
 #pragma warning( disable: 4996)
 #endif
@@ -39,6 +45,9 @@ namespace video
 	class CNullDriver : public IVideoDriver, public IGPUProgrammingServices
 	{
 	public:
+        static FW_AtomicCounter ReallocationCounter;
+
+        static FW_AtomicCounter incrementAndFetchReallocCounter();
 
 		//! constructor
 		CNullDriver(io::IFileSystem* io, const core::dimension2d<u32>& screenSize);
@@ -46,13 +55,18 @@ namespace video
 		//! destructor
 		virtual ~CNullDriver();
 
-        virtual IGPUBuffer* createGPUBuffer(const size_t &size, void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) {return NULL;}
+        virtual bool initAuxContext(const size_t& ctxIx) {return false;}
+        virtual bool deinitAuxContext() {return false;}
 
-	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) {return NULL;}
+        virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) {return NULL;}
+
+	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) {return NULL;}
+
+	    virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
 
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc() {return NULL;}
 
-	    virtual scene::SGPUMesh* createGPUMeshFromCPU(scene::SCPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) {return NULL;}
+	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) {return NULL;}
 
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
 				SColor color=SColor(255,0,0,0),
@@ -68,7 +82,8 @@ namespace video
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const;
 
 		//! sets transformation
-		virtual void setTransform(E_TRANSFORMATION_STATE state, const core::matrix4& mat);
+		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
+		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4& mat);
 
 		//! Retrieve the number of image loaders
 		virtual u32 getImageLoaderCount() const;
@@ -104,7 +119,7 @@ namespace video
 		virtual void renameTexture(ITexture* texture, const io::path& newName);
 
 		//! creates a Texture
-		virtual ITexture* addTexture(const core::dimension2d<u32>& size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
 		//! Sets new multiple render targets.
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true);
@@ -116,7 +131,7 @@ namespace video
 		you have to render some special things, you can clear the
 		zbuffer during the rendering process with this method any time.
 		*/
-		virtual void clearZBuffer(const float &depth=1.0);
+		virtual void clearZBuffer(const float &depth=0.0);
 
 		virtual void clearStencilBuffer(const int32_t &stencil);
 
@@ -129,13 +144,34 @@ namespace video
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals);
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals);
 
+
+		virtual ITransformFeedback* createTransformFeedback() {return NULL;}
+
+		//!
+		virtual void bindTransformFeedback(ITransformFeedback* xformFeedback);
+
+		virtual ITransformFeedback* getBoundTransformFeedback() {return NULL;}
+
+        /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
+        This issues an implicit call to bindTransformFeedback()
+        **/
+		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType=scene::EPT_POINTS);
+
+		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
+		virtual void pauseTransformFeedback();
+
+		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
+		virtual void resumeTransformFeedback();
+
+		virtual void endTransformFeedback();
+
+
 		//! sets a viewport
 		virtual void setViewPort(const core::rect<s32>& area);
 
 		//! gets the area of the current viewport
 		virtual const core::rect<s32>& getViewPort() const;
 
-        virtual void drawMeshBuffer(scene::ICPUMeshBuffer* mb, IOcclusionQuery* query);
         virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
 		//! Draws a 3d line.
@@ -267,11 +303,6 @@ namespace video
 		//! driver, it would return "Direct3D8.1".
 		virtual const wchar_t* getName() const;
 
-		//! Sets the dynamic ambient light color. The default color is
-		//! (0,0,0,0) which means it is dark.
-		//! \param color: New color of the ambient light.
-		virtual void setAmbientLight(const SColorf& color);
-
 		//! Adds an external image loader to the engine.
 		virtual void addExternalImageLoader(IImageLoader* loader);
 
@@ -356,17 +387,17 @@ namespace video
 
 
 	public:
+		virtual void beginQuery(IQueryObject* query);
+		virtual void endQuery(IQueryObject* query);
+		virtual void beginQuery(IQueryObject* query, const size_t& index);
+		virtual void endQuery(IQueryObject* query, const size_t& index);
 
-        virtual IOcclusionQuery* createOcclusionQuery(bool binary=false);
+        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic);
 
-		//! Update occlusion query. Retrieves results from GPU.
-		/** If the query shall not block, set the flag to false.
-		Update might not occur in this case, though */
-		virtual void updateOcclusionQuery(IOcclusionQuery* query, bool block=true);
-
-        virtual void beginOcclusionQuery(IOcclusionQuery* query);
-
-        virtual void endOcclusionQuery();
+        virtual IQueryObject* createPrimitivesGeneratedQuery();
+        virtual IQueryObject* createXFormFeedbackPrimitiveQuery();
+        virtual IQueryObject* createElapsedTimeQuery();
+        virtual IGPUTimestampQuery* createTimestampQuery();
 
 		//! Only used by the engine internally.
 		/** Used to notify the driver that the window was resized. */
@@ -383,7 +414,9 @@ namespace video
 		virtual E_DRIVER_TYPE getDriverType() const;
 
 		//! Returns the transformation set by setTransform
-		virtual const core::matrix4& getTransform(E_TRANSFORMATION_STATE state) const;
+		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state);
+
+		virtual const core::matrix4& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
 
 		//! Returns pointer to the IGPUProgrammingServices interface.
 		virtual IGPUProgrammingServices* getGPUProgrammingServices();
@@ -406,6 +439,9 @@ namespace video
             u32 patchVertices=3,
             E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
             IShaderConstantSetCallBack* callback = 0,
+            const char** xformFeedbackOutputs = NULL,
+            const uint32_t& xformFeedbackOutputCount = 0,
+            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData = 0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName = "main",
@@ -422,6 +458,9 @@ namespace video
             u32 patchVertices=3,
             E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
             IShaderConstantSetCallBack* callback = 0,
+            const char** xformFeedbackOutputs = NULL,
+            const uint32_t& xformFeedbackOutputCount = 0,
+            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData = 0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName = "main",
@@ -438,6 +477,9 @@ namespace video
             u32 patchVertices=3,
             E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
             IShaderConstantSetCallBack* callback = 0,
+            const char** xformFeedbackOutputs = NULL,
+            const uint32_t& xformFeedbackOutputCount = 0,
+            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData = 0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName = "main",
@@ -454,6 +496,9 @@ namespace video
             u32 patchVertices=3,
             E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
             IShaderConstantSetCallBack* callback=0,
+            const char** xformFeedbackOutputs = NULL,
+            const uint32_t& xformFeedbackOutputCount = 0,
+            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData=0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName="main",
@@ -461,45 +506,6 @@ namespace video
             const c8* geometryShaderEntryPointName="main",
             const c8* pixelShaderEntryPointName="main");
 
-
-		//! Adds a new material renderer to the VideoDriver, based on a high level shading
-		//! language. Currently only HLSL in D3D9 is supported.
-		virtual s32 addHighLevelShaderMaterial(
-			const c8* vertexShaderProgram,
-			const c8* vertexShaderEntryPointName = 0,
-			const c8* pixelShaderProgram = 0,
-			const c8* pixelShaderEntryPointName = 0,
-			const c8* geometryShaderProgram = 0,
-			const c8* geometryShaderEntryPointName = "main",
-			IShaderConstantSetCallBack* callback = 0,
-			E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-			s32 userData = 0);
-
-		//! Like IGPUProgrammingServices::addShaderMaterial() (look there for a detailed description),
-		//! but tries to load the programs from files.
-		virtual s32 addHighLevelShaderMaterialFromFiles(
-			const io::path& vertexShaderProgramFile,
-			const c8* vertexShaderEntryPointName = "main",
-			const io::path& pixelShaderProgramFile = "",
-			const c8* pixelShaderEntryPointName = "main",
-			const io::path& geometryShaderProgramFileName="",
-			const c8* geometryShaderEntryPointName = "main",
-			IShaderConstantSetCallBack* callback = 0,
-			E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-			s32 userData = 0);
-
-		//! Like IGPUProgrammingServices::addShaderMaterial() (look there for a detailed description),
-		//! but tries to load the programs from files.
-		virtual s32 addHighLevelShaderMaterialFromFiles(
-			io::IReadFile* vertexShaderProgram,
-			const c8* vertexShaderEntryPointName = "main",
-			io::IReadFile* pixelShaderProgram = 0,
-			const c8* pixelShaderEntryPointName = "main",
-			io::IReadFile* geometryShaderProgram= 0,
-			const c8* geometryShaderEntryPointName = "main",
-			IShaderConstantSetCallBack* callback = 0,
-			E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-			s32 userData = 0);
 
 		//! Writes the provided image to disk file
 		virtual bool writeImageToFile(IImage* image, const io::path& filename, u32 param = 0);
@@ -543,7 +549,7 @@ namespace video
 		{ AllowZWriteOnTransparent=flag; }
 
 		//! Returns the maximum texture size supported.
-		virtual core::dimension2du getMaxTextureSize() const;
+		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const;
 
 		//! Color conversion convenience function
 		/** Convert an image (as array of pixels) from source to destination
@@ -580,7 +586,7 @@ namespace video
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 		virtual video::ITexture* createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData=NULL);
-		virtual video::ITexture* createDeviceDependentTexture(const core::dimension2d<u32>& size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
 
 		// adds a material renderer and drops it afterwards. To be used for internal creation
@@ -627,16 +633,20 @@ namespace video
 
 		struct SDummyTexture : public ITexture
 		{
-			SDummyTexture(const io::path& name) : ITexture(name), size(0,0) {};
+			SDummyTexture(const io::path& name) : ITexture(name), size(0,0) {}
 
-			virtual void* lock(E_TEXTURE_LOCK_MODE mode=ETLM_READ_WRITE, u32 mipmapLevel=0) { return 0; };
+			virtual void* lock(u32 mipmapLevel=0) { return 0; }
 			virtual void unlock(){}
-			virtual const core::dimension2d<u32>& getSize() const { return size; }
-			virtual const core::dimension2d<u32>& getRenderableSize() const { return size; }
+            virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+            virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
+			virtual const uint32_t* getSize() const { return &size.Width; }
+			virtual core::dimension2du getRenderableSize() const { return size; }
 			virtual E_DRIVER_TYPE getDriverType() const { return video::EDT_NULL; }
-			virtual ECOLOR_FORMAT getColorFormat() const { return video::ECF_A1R5G5B5; };
+			virtual ECOLOR_FORMAT getColorFormat() const { return video::ECF_A1R5G5B5; }
 			virtual u32 getPitch() const { return 0; }
-			virtual void regenerateMipMapLevels() {};
+			virtual void regenerateMipMapLevels() {}
+            virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0) {return false;}
+            virtual bool resize(const uint32_t* size, const u32& mipLevels=0) {return false;}
 			core::dimension2d<u32> size;
 		};
 		core::array<SSurface> Textures;
@@ -649,13 +659,16 @@ namespace video
 		core::array<SMaterialRenderer> MaterialRenderers;
 
 
-        IOcclusionQuery* currentQuery;
+        IQueryObject* currentQuery[EQOT_COUNT][_IRR_XFORM_FEEDBACK_MAX_STREAMS_];
 
 		io::IFileSystem* FileSystem;
 
 		core::rect<s32> ViewPort;
 		core::dimension2d<u32> ScreenSize;
-		core::matrix4 TransformationMatrix;
+
+		uint32_t matrixModifiedBits;
+		core::matrix4 ProjectionMatrices[EPTS_COUNT];
+		core::matrix4x3 TransformationMatrices[E4X3TS_COUNT];
 
 		CFPSCounter FPSCounter;
 
@@ -676,6 +689,8 @@ namespace video
 		bool AllowZWriteOnTransparent;
 
 		bool FeatureEnabled[video::EVDF_COUNT];
+
+		uint32_t MaxTextureSizes[ITexture::ETT_COUNT][3];
 	};
 
 } // end namespace video

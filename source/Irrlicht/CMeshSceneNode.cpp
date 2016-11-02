@@ -19,7 +19,7 @@ namespace scene
 
 
 //! constructor
-CMeshSceneNode::CMeshSceneNode(IGPUMesh* mesh, ISceneNode* parent, ISceneManager* mgr, s32 id,
+CMeshSceneNode::CMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 			const core::vector3df& position, const core::vector3df& rotation,
 			const core::vector3df& scale)
 : IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
@@ -65,7 +65,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 			for (u32 i=0; i<Mesh->getMeshBufferCount(); ++i)
 			{
 				scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
-				if (!mb||mb->getIndexCount()<1)
+				if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
                     continue;
 
 				video::IMaterialRenderer* rnd = driver->getMaterialRenderer(mb->getMaterial().MaterialType);
@@ -86,7 +86,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 			for (u32 i=0; i<Materials.size(); ++i)
 			{
 				scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
-				if (!mb||mb->getIndexCount()<1)
+				if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
                     continue;
 
 				video::IMaterialRenderer* rnd =
@@ -128,7 +128,7 @@ void CMeshSceneNode::render()
 
 	++PassCount;
 
-	driver->setTransform(video::ETS_WORLD, AbsoluteTransformation);
+	driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
     for (u32 i=0; i<Mesh->getMeshBufferCount(); ++i)
     {
@@ -150,7 +150,7 @@ void CMeshSceneNode::render()
         }
     }
 
-	driver->setTransform(video::ETS_WORLD, AbsoluteTransformation);
+	driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
 	// for debug purposes only:
 	if (DebugDataVisible && PassCount==1)
@@ -189,17 +189,9 @@ void CMeshSceneNode::render()
 }
 
 
-//! Removes a child from this scene node.
-//! Implemented here, to be able to remove the shadow properly, if there is one,
-//! or to remove attached childs.
-bool CMeshSceneNode::removeChild(ISceneNode* child)
-{
-	return ISceneNode::removeChild(child);
-}
-
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CMeshSceneNode::getBoundingBox() const
+const core::aabbox3d<f32>& CMeshSceneNode::getBoundingBox()
 {
 	return Mesh ? Mesh->getBoundingBox() : Box;
 }
@@ -286,7 +278,7 @@ bool CMeshSceneNode::isReferencingeMeshMaterials() const
 
 
 //! Creates a clone of this scene node and its children.
-ISceneNode* CMeshSceneNode::clone(ISceneNode* newParent, ISceneManager* newManager)
+ISceneNode* CMeshSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
 {
 	if (!newParent)
 		newParent = Parent;

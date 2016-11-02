@@ -138,7 +138,7 @@ namespace
 		}
 
 		//! creates an instance of this prefab
-		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
+		virtual scene::ISceneNode* addInstance(scene::IDummyTransformationSceneNode* parent,
 			scene::ISceneManager* mgr)
 		{
 			// empty implementation
@@ -172,7 +172,7 @@ namespace
 		video::SLight LightData; // publically accessible
 
 		//! creates an instance of this prefab
-		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
+		virtual scene::ISceneNode* addInstance(scene::IDummyTransformationSceneNode* parent,
 			scene::ISceneManager* mgr)
 		{
 			#ifdef COLLADA_READER_DEBUG
@@ -209,7 +209,7 @@ namespace
 		scene::IMesh* Mesh;
 
 		//! creates an instance of this prefab
-		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
+		virtual scene::ISceneNode* addInstance(scene::IDummyTransformationSceneNode* parent,
 			scene::ISceneManager* mgr)
 		{
 			#ifdef COLLADA_READER_DEBUG
@@ -247,7 +247,7 @@ namespace
 		f32 ZFar;
 
 		//! creates an instance of this prefab
-		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
+		virtual scene::ISceneNode* addInstance(scene::IDummyTransformationSceneNode* parent,
 			scene::ISceneManager* mgr)
 		{
 			#ifdef COLLADA_READER_DEBUG
@@ -281,7 +281,7 @@ namespace
 		}
 
 		//! creates an instance of this prefab
-		virtual scene::ISceneNode* addInstance(scene::ISceneNode* parent,
+		virtual scene::ISceneNode* addInstance(scene::IDummyTransformationSceneNode* parent,
 			scene::ISceneManager* mgr)
 		{
 			#ifdef COLLADA_READER_DEBUG
@@ -727,7 +727,7 @@ void CColladaFileLoader::readAssetSection(io::IXMLReaderUTF8* reader)
 
 
 //! reads a <node> section and its content
-void CColladaFileLoader::readNodeSection(io::IXMLReaderUTF8* reader, scene::ISceneNode* parent, CScenePrefab* p)
+void CColladaFileLoader::readNodeSection(io::IXMLReaderUTF8* reader, scene::IDummyTransformationSceneNode* parent, CScenePrefab* p)
 {
 	if (reader->isEmptyElement())
 	{
@@ -895,6 +895,8 @@ core::matrix4 CColladaFileLoader::readSkewNode(io::IXMLReaderUTF8* reader)
 	// build skew matrix from these 7 floats
 	core::quaternion q;
 	q.fromAngleAxis(floats[0]*core::DEGTORAD, core::vector3df(floats[1], floats[2], floats[3]));
+_
+#error "Fix QUATERNIONS FIRST!!!"
 	mat = q.getMatrix();
 
 	if (floats[4]==1.f) // along x-axis
@@ -1041,6 +1043,8 @@ core::matrix4 CColladaFileLoader::readRotateNode(io::IXMLReaderUTF8* reader)
 	if (!core::iszero(floats[3]))
 	{
 		core::quaternion q;
+_
+#error "Fix QUATERNIONS FIRST!!!"
 		if (FlipAxis)
 			q.fromAngleAxis(floats[3]*core::DEGTORAD, core::vector3df(floats[0], floats[2], floats[1]));
 		else
@@ -1048,7 +1052,7 @@ core::matrix4 CColladaFileLoader::readRotateNode(io::IXMLReaderUTF8* reader)
 		return q.getMatrix();
 	}
 	else
-		return core::IdentityMatrix;
+		return core::matrix4();
 }
 
 
@@ -1100,7 +1104,7 @@ core::matrix4 CColladaFileLoader::readTranslateNode(io::IXMLReaderUTF8* reader)
 
 //! reads any kind of <instance*> node
 void CColladaFileLoader::readInstanceNode(io::IXMLReaderUTF8* reader,
-		scene::ISceneNode* parent, scene::ISceneNode** outNode,
+		scene::IDummyTransformationSceneNode* parent, scene::ISceneNode** outNode,
 		CScenePrefab* p, const core::stringc& type)
 {
 	// find prefab of the specified id
@@ -1132,7 +1136,7 @@ void CColladaFileLoader::readInstanceNode(io::IXMLReaderUTF8* reader,
 }
 
 
-void CColladaFileLoader::instantiateNode(scene::ISceneNode* parent,
+void CColladaFileLoader::instantiateNode(scene::IDummyTransformationSceneNode* parent,
 		scene::ISceneNode** outNode, CScenePrefab* p, const core::stringc& url,
 		const core::stringc& type)
 {

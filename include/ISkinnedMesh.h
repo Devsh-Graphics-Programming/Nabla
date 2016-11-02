@@ -6,170 +6,170 @@
 #define __I_SKINNED_MESH_H_INCLUDED__
 
 #include "irrArray.h"
-#include "IBoneSceneNode.h"
-#include "IAnimatedMesh.h"
+#include "IMesh.h"
 #include "quaternion.h"
 #include "matrix4.h"
+#include <vector>
 
 namespace irr
 {
 namespace scene
 {
+    class CFinalBoneHierarchy;
 
-	enum E_INTERPOLATION_MODE
-	{
-		// constant does use the current key-values without interpolation
-		EIM_CONSTANT = 0,
+    class IGPUSkinnedMesh : public IGPUMesh
+    {
+        protected:
+            const CFinalBoneHierarchy* referenceHierarchy;
+            //! The bounding box of this mesh
+            core::aabbox3d<f32> Box;
+        public:
+            IGPUSkinnedMesh(CFinalBoneHierarchy* boneHierarchy) : referenceHierarchy(boneHierarchy)
+            {
+            }
 
-		// linear interpolation
-		EIM_LINEAR,
+            //!
+            inline const CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy;}
 
-		//! count of all available interpolation modes
-		EIM_COUNT
-	};
+            //! Returns an axis aligned bounding box of the mesh.
+            /** \return A bounding box of this mesh is returned. */
+            virtual const core::aabbox3d<f32>& getBoundingBox() const
+            {
+                return Box;
+            }
+
+            //! set user axis aligned bounding box
+            virtual void setBoundingBox(const core::aabbox3df& box)
+            {
+                Box = box;
+            }
+
+            //! Gets the frame count of the animated mesh.
+            /** \return The amount of frames. If the amount is 1,
+            it is a static, non animated mesh.
+            If 0 it just is in the bind-pose doesn't have keyframes */
+            virtual uint32_t getFrameCount() const =0;
+            virtual float getFirstFrame() const =0;
+            virtual float getLastFrame() const =0;
+
+            virtual E_MESH_TYPE getMeshType() const
+            {
+                return EMT_ANIMATED_SKINNED;
+            }
+
+            //! can use more efficient shaders this way :D
+            virtual const uint32_t& getMaxVertexWeights(const size_t& meshbufferIx) const =0;
+
+            //!
+            virtual uint32_t getMaxVertexWeights() const =0;
+    };
 
 	//! Interface for using some special functions of Skinned meshes
-	class ICPUSkinnedMesh : public ICPUAnimatedMesh
+	class ICPUSkinnedMesh : public ICPUMesh
 	{
 	public:
 
-		//! Gets joint count.
-		/** \return Amount of joints in the skeletal animated mesh. */
-		virtual u32 getJointCount() const = 0;
+		//!
+		virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const = 0;
 
-		//! Gets the name of a joint.
-		/** \param number: Zero based index of joint. The last joint
-		has the number getJointCount()-1;
-		\return Name of joint and null if an error happened. */
-		virtual const c8* getJointName(u32 number) const = 0;
-
-		//! Gets a joint number from its name
-		/** \param name: Name of the joint.
-		\return Number of the joint or -1 if not found. */
-		virtual s32 getJointNumber(const c8* name) const = 0;
-
-		//! Use animation from another mesh
-		/** The animation is linked (not copied) based on joint names
-		so make sure they are unique.
-		\return True if all joints in this mesh were
-		matched up (empty names will not be matched, and it's case
-		sensitive). Unmatched joints will not be animated. */
-		virtual bool useAnimationFrom(const ICPUSkinnedMesh *mesh) = 0;
-
-		//! Update Normals when Animating
-		/** \param on If false don't animate, which is faster.
-		Else update normals, which allows for proper lighting of
-		animated meshes. */
-		virtual void updateNormalsWhenAnimating(bool on) = 0;
-
-		//! Sets Interpolation Mode
-		virtual void setInterpolationMode(E_INTERPOLATION_MODE mode) = 0;
-
-		//! Animates this mesh's joints based on frame input
-		virtual void animateMesh(f32 frame, f32 blend)=0;
-
-		//! Preforms a software skin on this mesh based of joint positions
-		virtual void skinMesh() = 0;
-
+		//!
 		virtual E_MESH_TYPE getMeshType() const
 		{
 			return EMT_ANIMATED_SKINNED;
 		}
 
-		//! A vertex weight
-		struct SWeight
-		{
-			//! Index of the mesh buffer
-			u16 buffer_id; //I doubt 32bits is needed
-
-			//! Index of the vertex
-			u32 vertex_id; //Store global ID here
-
-			//! Weight Strength/Percentage (0-1)
-			f32 strength;
-
-		private:
-			//! Internal members used by CSkinnedMesh
-			friend class CCPUSkinnedMesh;
-			bool *Moved;
-			core::vectorSIMDf StaticPos;
-			core::vectorSIMDf StaticNormal;
-		};
 
 
 		//! Animation keyframe which describes a new position
-		struct SPositionKey
+		class SPositionKey
 		{
-			f32 frame;
-			core::vector3df position;
+        public:
+                SPositionKey() {}
+                SPositionKey(const float& mockFrame) : frame(mockFrame) {}
+                inline bool operator<(const SPositionKey& other) const { return (frame < other.frame); }
+
+                f32 frame;
+                core::vector3df position;
 		};
 
 		//! Animation keyframe which describes a new scale
-		struct SScaleKey
+		class SScaleKey
 		{
+		    public:
+                SScaleKey() {}
+                SScaleKey(const float& mockFrame) : frame(mockFrame) {}
+                inline bool operator<(const SScaleKey& other) const { return (frame < other.frame); }
+
 			f32 frame;
 			core::vector3df scale;
 		};
 
 		//! Animation keyframe which describes a new rotation
-		struct SRotationKey
+		class SRotationKey
 		{
+		    public:
+                SRotationKey() {}
+                SRotationKey(const float& mockFrame) : frame(mockFrame) {}
+                inline bool operator<(const SRotationKey& other) const { return (frame < other.frame); }
+
 			f32 frame;
 			core::quaternion rotation;
 		};
 
 		//! Joints
-		struct SJoint
+		class SJoint
 		{
-			SJoint() : UseAnimationFrom(0), GlobalSkinningSpace(false),
-				positionHint(-1),scaleHint(-1),rotationHint(-1)
-			{
-			}
+		    public:
+                SJoint() : Parent(NULL)
+                {
+                }
 
-			//! The name of this joint
-			core::stringc Name;
+                //! The name of this joint
+                core::stringc Name;
 
-			//! Local matrix of this joint
-			core::matrix4 LocalMatrix;
+                //! Local matrix of this joint
+                core::matrix4x3 LocalMatrix;
 
-			//! List of child joints
-			core::array<SJoint*> Children;
+                //! List of child joints
+                SJoint* Parent;
+                core::array<SJoint*> Children;
 
-			//! List of attached meshes
-			core::array<u32> AttachedMeshes;
 
-			//! Animation keys causing translation change
-			core::array<SPositionKey> PositionKeys;
+                inline SPositionKey* addPositionKey()
+                {
+                    PositionKeys.push_back(SPositionKey());
+                    return &PositionKeys.getLast();
+                }
 
-			//! Animation keys causing scale change
-			core::array<SScaleKey> ScaleKeys;
 
-			//! Animation keys causing rotation change
-			core::array<SRotationKey> RotationKeys;
+                inline SScaleKey* addScaleKey()
+                {
+                    ScaleKeys.push_back(SScaleKey());
+                    return &ScaleKeys.getLast();
+                }
 
-			//! Skin weights
-			core::array<SWeight> Weights;
 
-			//! Unnecessary for loaders, will be overwritten on finalize
-			core::matrix4 GlobalMatrix;
-			core::matrix4 GlobalAnimatedMatrix;
-			core::matrix4 LocalAnimatedMatrix;
-			core::vector3df Animatedposition;
-			core::vector3df Animatedscale;
-			core::quaternion Animatedrotation;
+                inline SRotationKey* addRotationKey()
+                {
+                    RotationKeys.push_back(SRotationKey());
+                    return &RotationKeys.getLast();
+                }
 
-			core::matrix4 GlobalInversedMatrix; //the x format pre-calculates this
+                //! Animation keys causing translation change
+                core::array<SPositionKey> PositionKeys;
 
-		private:
-			//! Internal members used by CSkinnedMesh
-			friend class CCPUSkinnedMesh;
+                //! Animation keys causing scale change
+                core::array<SScaleKey> ScaleKeys;
 
-			SJoint *UseAnimationFrom;
-			bool GlobalSkinningSpace;
+                //! Animation keys causing rotation change
+                core::array<SRotationKey> RotationKeys;
 
-			s32 positionHint;
-			s32 scaleHint;
-			s32 rotationHint;
+                //! Unnecessary for loaders, will be overwritten on finalize
+                core::aabbox3df bbox;
+
+                core::matrix4x3 GlobalMatrix;
+
+                core::matrix4x3 GlobalInversedMatrix; //the x format pre-calculates this
 		};
 
 
@@ -178,26 +178,16 @@ namespace scene
 		//these functions will use the needed arrays, set values, etc to help the loaders
 
 		//! exposed for loaders: joints list
-		virtual core::array<SJoint*>& getAllJoints() = 0;
+		virtual std::vector<SJoint*>& getAllJoints() = 0;
 
 		//! exposed for loaders: joints list
-		virtual const core::array<SJoint*>& getAllJoints() const = 0;
+		virtual const std::vector<SJoint*>& getAllJoints() const = 0;
 
 		//! loaders should call this after populating the mesh
 		virtual void finalize() = 0;
 
 		//! Adds a new joint to the mesh, access it as last one
 		virtual SJoint* addJoint(SJoint *parent=0) = 0;
-
-		//! Adds a new weight to the mesh, access it as last one
-		virtual SWeight* addWeight(SJoint *joint) = 0;
-
-		//! Adds a new position key to the mesh, access it as last one
-		virtual SPositionKey* addPositionKey(SJoint *joint) = 0;
-		//! Adds a new scale key to the mesh, access it as last one
-		virtual SScaleKey* addScaleKey(SJoint *joint) = 0;
-		//! Adds a new rotation key to the mesh, access it as last one
-		virtual SRotationKey* addRotationKey(SJoint *joint) = 0;
 
 		//! Check if the mesh is non-animated
 		virtual bool isStatic()=0;

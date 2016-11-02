@@ -37,7 +37,35 @@ public:
 private:
 };
 
+class SimpleCallBack : public video::IShaderConstantSetCallBack
+{
+    s32 mvpUniformLocation;
+    video::E_SHADER_CONSTANT_TYPE mvpUniformType;
+public:
+    SimpleCallBack() : mvpUniformLocation(-1), mvpUniformType(video::ESCT_FLOAT_VEC3) {}
 
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    {
+        //! Normally we'd iterate through the array and check our actual constant names before mapping them to locations but oh well
+        mvpUniformLocation = constants[0].location;
+        mvpUniformType = constants[0].type;
+    }
+
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, s32 userData)
+    {
+        services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
+    }
+
+    virtual void OnUnsetMaterial() {}
+};
+
+#include "irrpack.h"
+struct VertexStruct
+{
+    float Pos[3];
+    uint8_t Col[2];
+} PACK_STRUCT;
+#include "irrunpack.h"
 
 int main()
 {
@@ -67,6 +95,7 @@ int main()
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
+    SimpleCallBack* callBack = new SimpleCallBack();
 
     //! First need to make a material other than default to be able to draw with custom shader
     video::SMaterial material;
@@ -75,9 +104,9 @@ int main()
                                                         "","","", //! No Geometry or Tessellation Shaders
                                                         "../mesh.frag",
                                                         3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-                                                        NULL, //! No Shader Callback (we dont have any constants/uniforms to pass to the shader)
+                                                        callBack,
                                                         0); //! No custom user data
-
+    callBack->drop();
 
 
 	scene::ISceneManager* smgr = device->getSceneManager();
@@ -130,6 +159,7 @@ int main()
 	device->setEventReceiver(&receiver);
 
 	uint64_t lastFPSTime = 0;
+	printf("%d\n",sizeof(VertexStruct));
 
 	while(device->run())
 	//if (device->isWindowActive())
@@ -147,7 +177,50 @@ int main()
             mb->setMeshDataAndFormat(desc);
             desc->drop();
 
-            uint16_t indices_indexed16[] = {
+            VertexStruct vertices[8];
+            vertices[0].Pos[0] = -1.f;
+            vertices[0].Pos[1] = -1.f;
+            vertices[0].Pos[2] = -1.f;
+            vertices[0].Col[0] = 0;
+            vertices[0].Col[1] = 0;
+            vertices[1].Pos[0] = 1.f;
+            vertices[1].Pos[1] = -1.f;
+            vertices[1].Pos[2] = -1.f;
+            vertices[1].Col[0] = 127;
+            vertices[1].Col[1] = 0;
+            vertices[2].Pos[0] = -1.f;
+            vertices[2].Pos[1] = 1.f;
+            vertices[2].Pos[2] = -1.f;
+            vertices[2].Col[0] = 255;
+            vertices[2].Col[1] = 0;
+            vertices[3].Pos[0] = 1.f;
+            vertices[3].Pos[1] = 1.f;
+            vertices[3].Pos[2] = -1.f;
+            vertices[3].Col[0] = 0;
+            vertices[3].Col[1] = 127;
+            vertices[4].Pos[0] = -1.f;
+            vertices[4].Pos[1] = -1.f;
+            vertices[4].Pos[2] = 1.f;
+            vertices[4].Col[0] = 127;
+            vertices[4].Col[1] = 127;
+            vertices[5].Pos[0] = 1.f;
+            vertices[5].Pos[1] = -1.f;
+            vertices[5].Pos[2] = 1.f;
+            vertices[5].Col[0] = 255;
+            vertices[5].Col[1] = 127;
+            vertices[6].Pos[0] = -1.f;
+            vertices[6].Pos[1] = 1.f;
+            vertices[6].Pos[2] = 1.f;
+            vertices[6].Col[0] = 0;
+            vertices[6].Col[1] = 255;
+            vertices[7].Pos[0] = 1.f;
+            vertices[7].Pos[1] = 1.f;
+            vertices[7].Pos[2] = 1.f;
+            vertices[7].Col[0] = 127;
+            vertices[7].Col[1] = 255;
+
+            uint16_t indices_indexed16[] =
+            {
                 0,1,2,1,2,3,
                 4,5,6,5,6,7,
                 0,1,4,1,4,5,
@@ -155,29 +228,22 @@ int main()
                 0,2,4,2,4,6,
                 1,3,5,3,5,7
             };
-            video::IGPUBuffer* index = driver->createGPUBuffer(sizeof(indices_indexed16),indices_indexed16);
-            desc->mapIndexBuffer(index);
+
+            void* tmpMem = malloc(sizeof(vertices)+2+sizeof(indices_indexed16));
+            memcpy(tmpMem,vertices,sizeof(vertices));
+            memcpy(tmpMem+sizeof(vertices)+2,indices_indexed16,sizeof(indices_indexed16));
+            video::IGPUBuffer* buff = driver->createGPUBuffer(sizeof(vertices)+sizeof(indices_indexed16)+2,tmpMem);
+            free(tmpMem);
+
+            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(VertexStruct),0);
+            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_NORMALIZED_UNSIGNED_BYTE,sizeof(VertexStruct),12);
+            desc->mapIndexBuffer(buff);
+            mb->setIndexBufferOffset(sizeof(vertices)+2);
             mb->setIndexType(video::EIT_16BIT);
             mb->setIndexCount(2*3*6);
-            mb->setIndexRange(0,7);
-            index->drop();
+            buff->drop();
 
-            float attrArr[] = {
-                -1.f,-1.f,-1.f,0.f,0.f,
-                 1.f,-1.f,-1.f,0.5f,0.f,
-                -1.f, 1.f,-1.f,1.f,0.f,
-                 1.f, 1.f,-1.f,0.f,0.5f,
-                -1.f,-1.f, 1.f,0.5f,0.5f,
-                 1.f,-1.f, 1.f,1.f,0.5f,
-                -1.f, 1.f, 1.f,0.f,1.f,
-                 1.f, 1.f, 1.f,0.5f,1.f
-            };
-            video::IGPUBuffer* attr0 = driver->createGPUBuffer(sizeof(attrArr),attrArr);
-            desc->mapVertexAttrBuffer(attr0,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,20,0);
-            desc->mapVertexAttrBuffer(attr0,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_FLOAT,20,3*4);
-            attr0->drop();
-
-            driver->setTransform(video::ETS_WORLD,core::matrix4());
+            driver->setTransform(video::E4X3TS_WORLD,core::matrix4x3());
             driver->setMaterial(material);
             driver->drawMeshBuffer(mb);
             mb->drop();

@@ -91,8 +91,14 @@ E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
         return ESCT_SAMPLER_1D_ARRAY_SHADOW;
     case GL_SAMPLER_2D_ARRAY_SHADOW:
         return ESCT_SAMPLER_2D_ARRAY_SHADOW;
+    case GL_SAMPLER_2D_MULTISAMPLE:
+        return ESCT_SAMPLER_2D_MULTISAMPLE;
+    case GL_SAMPLER_2D_MULTISAMPLE_ARRAY:
+        return ESCT_SAMPLER_2D_MULTISAMPLE_ARRAY;
     case GL_SAMPLER_CUBE_SHADOW:
         return ESCT_SAMPLER_CUBE_SHADOW;
+    case GL_SAMPLER_BUFFER:
+        return ESCT_SAMPLER_BUFFER;
     case GL_SAMPLER_2D_RECT:
         return ESCT_SAMPLER_2D_RECT;
     case GL_SAMPLER_2D_RECT_SHADOW:
@@ -109,6 +115,12 @@ E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
         return ESCT_INT_SAMPLER_1D_ARRAY;
     case GL_INT_SAMPLER_2D_ARRAY:
         return ESCT_INT_SAMPLER_2D_ARRAY;
+    case GL_INT_SAMPLER_2D_MULTISAMPLE:
+        return ESCT_INT_SAMPLER_2D_MULTISAMPLE;
+    case GL_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
+        return ESCT_INT_SAMPLER_2D_MULTISAMPLE_ARRAY;
+    case GL_INT_SAMPLER_BUFFER:
+        return ESCT_INT_SAMPLER_BUFFER;
     case GL_UNSIGNED_INT_SAMPLER_1D:
         return ESCT_UINT_SAMPLER_1D;
     case GL_UNSIGNED_INT_SAMPLER_2D:
@@ -121,6 +133,12 @@ E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
         return ESCT_UINT_SAMPLER_1D_ARRAY;
     case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
         return ESCT_UINT_SAMPLER_2D_ARRAY;
+    case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE:
+        return ESCT_UINT_SAMPLER_2D_MULTISAMPLE;
+    case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
+        return ESCT_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY;
+    case GL_UNSIGNED_INT_SAMPLER_BUFFER:
+        return ESCT_UINT_SAMPLER_BUFFER;
     default:
         return ESCT_INVALID_COUNT;
     }
@@ -137,6 +155,11 @@ bool COpenGLExtensionHandler::FeatureAvailable[] = {false};
 uint32_t COpenGLExtensionHandler::MaxIndices = 65535;
 uint32_t COpenGLExtensionHandler::MaxVertices = 0xffffffffu;
 
+//uint32_t COpenGLExtensionHandler::MaxXFormFeedbackInterleavedAttributes = GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS;
+//uint32_t COpenGLExtensionHandler::MaxXFormFeedbackSeparateAttributes = GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS;
+
+bool COpenGLExtensionHandler::IsIntelGPU = false;
+
 #if defined(_IRR_OPENGL_USE_EXTPOINTER_)
 //fences
 PFNGLFENCESYNCPROC COpenGLExtensionHandler::pGlFenceSync = NULL;
@@ -152,12 +175,18 @@ PFNGLCREATETEXTURESPROC COpenGLExtensionHandler::pGlCreateTextures = NULL;
 PFNGLTEXSTORAGE1DPROC COpenGLExtensionHandler::pGlTexStorage1D = NULL;
 PFNGLTEXSTORAGE2DPROC COpenGLExtensionHandler::pGlTexStorage2D = NULL;
 PFNGLTEXSTORAGE3DPROC COpenGLExtensionHandler::pGlTexStorage3D = NULL;
+PFNGLTEXBUFFERPROC COpenGLExtensionHandler::pGlTexBuffer = NULL;
+PFNGLTEXBUFFERRANGEPROC COpenGLExtensionHandler::pGlTexBufferRange = NULL;
 PFNGLTEXTURESTORAGE1DPROC COpenGLExtensionHandler::pGlTextureStorage1D = NULL;
 PFNGLTEXTURESTORAGE2DPROC COpenGLExtensionHandler::pGlTextureStorage2D = NULL;
 PFNGLTEXTURESTORAGE3DPROC COpenGLExtensionHandler::pGlTextureStorage3D = NULL;
+PFNGLTEXTUREBUFFERPROC COpenGLExtensionHandler::pGlTextureBuffer = NULL;
+PFNGLTEXTUREBUFFERRANGEPROC COpenGLExtensionHandler::pGlTextureBufferRange = NULL;
 PFNGLTEXTURESTORAGE1DEXTPROC COpenGLExtensionHandler::pGlTextureStorage1DEXT = NULL;
 PFNGLTEXTURESTORAGE2DEXTPROC COpenGLExtensionHandler::pGlTextureStorage2DEXT = NULL;
 PFNGLTEXTURESTORAGE3DEXTPROC COpenGLExtensionHandler::pGlTextureStorage3DEXT = NULL;
+PFNGLTEXTUREBUFFEREXTPROC COpenGLExtensionHandler::pGlTextureBufferEXT = NULL;
+PFNGLTEXTUREBUFFERRANGEEXTPROC COpenGLExtensionHandler::pGlTextureBufferRangeEXT = NULL;
         ///static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage2DMultisample = NULL;
         ///static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage3DMultisample = NULL;
 PFNGLTEXSUBIMAGE3DPROC COpenGLExtensionHandler::pGlTexSubImage3D = NULL;
@@ -188,6 +217,10 @@ PFNGLBINDSAMPLERPROC COpenGLExtensionHandler::pGlBindSampler = NULL;
 PFNGLSAMPLERPARAMETERIPROC COpenGLExtensionHandler::pGlSamplerParameteri = NULL;
 PFNGLSAMPLERPARAMETERFPROC COpenGLExtensionHandler::pGlSamplerParameterf = NULL;
 
+        //stuff
+PFNGLBINDBUFFERBASEPROC COpenGLExtensionHandler::pGlBindBufferBase = NULL;
+PFNGLBINDBUFFERRANGEPROC COpenGLExtensionHandler::pGlBindBufferRange = NULL;
+
 
         //shaders
 PFNGLBINDATTRIBLOCATIONPROC COpenGLExtensionHandler::pGlBindAttribLocation = NULL;
@@ -200,6 +233,7 @@ PFNGLCREATESHADERPROC COpenGLExtensionHandler::pGlCreateShader = NULL;
 PFNGLSHADERSOURCEPROC COpenGLExtensionHandler::pGlShaderSource = NULL;
 PFNGLCOMPILESHADERPROC COpenGLExtensionHandler::pGlCompileShader = NULL;
 PFNGLATTACHSHADERPROC COpenGLExtensionHandler::pGlAttachShader = NULL;
+PFNGLTRANSFORMFEEDBACKVARYINGSPROC COpenGLExtensionHandler::pGlTransformFeedbackVaryings = NULL;
 PFNGLLINKPROGRAMPROC COpenGLExtensionHandler::pGlLinkProgram = NULL;
 PFNGLGETSHADERINFOLOGPROC COpenGLExtensionHandler::pGlGetShaderInfoLog = NULL;
 PFNGLGETPROGRAMINFOLOGPROC COpenGLExtensionHandler::pGlGetProgramInfoLog = NULL;
@@ -341,8 +375,27 @@ PFNGLVERTEXARRAYATTRIBLFORMATPROC COpenGLExtensionHandler::pGlVertexArrayAttribL
 PFNGLVERTEXARRAYVERTEXATTRIBFORMATEXTPROC COpenGLExtensionHandler::pGlVertexArrayVertexAttribFormatEXT = NULL;
 PFNGLVERTEXARRAYVERTEXATTRIBIFORMATEXTPROC COpenGLExtensionHandler::pGlVertexArrayVertexAttribIFormatEXT = NULL;
 PFNGLVERTEXARRAYVERTEXATTRIBLFORMATEXTPROC COpenGLExtensionHandler::pGlVertexArrayVertexAttribLFormatEXT = NULL;
+PFNGLVERTEXARRAYBINDINGDIVISORPROC COpenGLExtensionHandler::pGlVertexArrayBindingDivisor = NULL;
+PFNGLVERTEXARRAYVERTEXBINDINGDIVISOREXTPROC COpenGLExtensionHandler::pGlVertexArrayVertexBindingDivisorEXT = NULL;
+PFNGLVERTEXBINDINGDIVISORPROC COpenGLExtensionHandler::pGlVertexBindingDivisor = NULL;
 //
-PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC COpenGLExtensionHandler::pGlDrawRangeElementsBaseVertex = NULL;
+PFNGLDRAWARRAYSINSTANCEDPROC COpenGLExtensionHandler::pGlDrawArraysInstanced = NULL;
+PFNGLDRAWARRAYSINSTANCEDBASEINSTANCEPROC COpenGLExtensionHandler::pGlDrawArraysInstancedBaseInstance = NULL;
+PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC COpenGLExtensionHandler::pGlDrawElementsInstancedBaseVertex = NULL;
+PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCEPROC COpenGLExtensionHandler::pGlDrawElementsInstancedBaseVertexBaseInstance = NULL;
+PFNGLDRAWTRANSFORMFEEDBACKPROC COpenGLExtensionHandler::pGlDrawTransformFeedback = NULL;
+PFNGLDRAWTRANSFORMFEEDBACKINSTANCEDPROC COpenGLExtensionHandler::pGlDrawTransformFeedbackInstanced = NULL;
+//
+PFNGLCREATETRANSFORMFEEDBACKSPROC COpenGLExtensionHandler::pGlCreateTransformFeedbacks = NULL;
+PFNGLGENTRANSFORMFEEDBACKSPROC COpenGLExtensionHandler::pGlGenTransformFeedbacks = NULL;
+PFNGLDELETETRANSFORMFEEDBACKSPROC COpenGLExtensionHandler::pGlDeleteTransformFeedbacks = NULL;
+PFNGLBINDTRANSFORMFEEDBACKPROC COpenGLExtensionHandler::pGlBindTransformFeedback = NULL;
+PFNGLBEGINTRANSFORMFEEDBACKPROC COpenGLExtensionHandler::pGlBeginTransformFeedback = NULL;
+PFNGLPAUSETRANSFORMFEEDBACKPROC COpenGLExtensionHandler::pGlPauseTransformFeedback = NULL;
+PFNGLRESUMETRANSFORMFEEDBACKPROC COpenGLExtensionHandler::pGlResumeTransformFeedback = NULL;
+PFNGLENDTRANSFORMFEEDBACKPROC COpenGLExtensionHandler::pGlEndTransformFeedback = NULL;
+PFNGLTRANSFORMFEEDBACKBUFFERBASEPROC COpenGLExtensionHandler::pGlTransformFeedbackBufferBase = NULL;
+PFNGLTRANSFORMFEEDBACKBUFFERRANGEPROC COpenGLExtensionHandler::pGlTransformFeedbackBufferRange = NULL;
 //
 PFNGLBLENDFUNCSEPARATEPROC COpenGLExtensionHandler::pGlBlendFuncSeparate = NULL;
 PFNGLPROVOKINGVERTEXPROC COpenGLExtensionHandler::pGlProvokingVertex = NULL;
@@ -357,29 +410,24 @@ PFNGLPROGRAMPARAMETERIARBPROC COpenGLExtensionHandler::pGlProgramParameteriARB =
 PFNGLPROGRAMPARAMETERIEXTPROC COpenGLExtensionHandler::pGlProgramParameteriEXT = NULL;
 PFNGLPATCHPARAMETERIPROC COpenGLExtensionHandler::pGlPatchParameteri = NULL;
 PFNGLPATCHPARAMETERFVPROC COpenGLExtensionHandler::pGlPatchParameterfv = NULL;
+//
+PFNGLCREATEQUERIESPROC COpenGLExtensionHandler::pGlCreateQueries = NULL;
 PFNGLGENQUERIESPROC COpenGLExtensionHandler::pGlGenQueries = NULL;
 PFNGLDELETEQUERIESPROC COpenGLExtensionHandler::pGlDeleteQueries = NULL;
 PFNGLISQUERYPROC COpenGLExtensionHandler::pGlIsQuery = NULL;
 PFNGLBEGINQUERYPROC COpenGLExtensionHandler::pGlBeginQuery = NULL;
 PFNGLENDQUERYPROC COpenGLExtensionHandler::pGlEndQuery = NULL;
+PFNGLBEGINQUERYINDEXEDPROC COpenGLExtensionHandler::pGlBeginQueryIndexed = NULL;
+PFNGLENDQUERYINDEXEDPROC COpenGLExtensionHandler::pGlEndQueryIndexed = NULL;
 PFNGLGETQUERYIVPROC COpenGLExtensionHandler::pGlGetQueryiv = NULL;
-PFNGLGETQUERYOBJECTIVPROC COpenGLExtensionHandler::pGlGetQueryObjectiv = NULL;
 PFNGLGETQUERYOBJECTUIVPROC COpenGLExtensionHandler::pGlGetQueryObjectuiv = NULL;
-PFNGLGETQUERYOBJECTI64VPROC COpenGLExtensionHandler::pGlGetQueryObjecti64v = NULL;
 PFNGLGETQUERYOBJECTUI64VPROC COpenGLExtensionHandler::pGlGetQueryObjectui64v = NULL;
-PFNGLGETQUERYOBJECTI64VEXTPROC COpenGLExtensionHandler::pGlGetQueryObjecti64vEXT = NULL;
-PFNGLGETQUERYOBJECTUI64VEXTPROC COpenGLExtensionHandler::pGlGetQueryObjectui64vEXT = NULL;
+PFNGLGETQUERYBUFFEROBJECTUIVPROC COpenGLExtensionHandler::pGlGetQueryBufferObjectuiv = NULL;
+PFNGLGETQUERYBUFFEROBJECTUI64VPROC COpenGLExtensionHandler::pGlGetQueryBufferObjectui64v = NULL;
 PFNGLQUERYCOUNTERPROC COpenGLExtensionHandler::pGlQueryCounter = NULL;
 PFNGLBEGINCONDITIONALRENDERPROC COpenGLExtensionHandler::pGlBeginConditionalRender = NULL;
 PFNGLENDCONDITIONALRENDERPROC COpenGLExtensionHandler::pGlEndConditionalRender = NULL;
-
-PFNGLGENOCCLUSIONQUERIESNVPROC COpenGLExtensionHandler::pGlGenOcclusionQueriesNV = NULL;
-PFNGLDELETEOCCLUSIONQUERIESNVPROC COpenGLExtensionHandler::pGlDeleteOcclusionQueriesNV = NULL;
-PFNGLISOCCLUSIONQUERYNVPROC COpenGLExtensionHandler::pGlIsOcclusionQueryNV = NULL;
-PFNGLBEGINOCCLUSIONQUERYNVPROC COpenGLExtensionHandler::pGlBeginOcclusionQueryNV = NULL;
-PFNGLENDOCCLUSIONQUERYNVPROC COpenGLExtensionHandler::pGlEndOcclusionQueryNV = NULL;
-PFNGLGETOCCLUSIONQUERYIVNVPROC COpenGLExtensionHandler::pGlGetOcclusionQueryivNV = NULL;
-PFNGLGETOCCLUSIONQUERYUIVNVPROC COpenGLExtensionHandler::pGlGetOcclusionQueryuivNV = NULL;
+//
 PFNGLBLENDEQUATIONEXTPROC COpenGLExtensionHandler::pGlBlendEquationEXT = NULL;
 PFNGLBLENDEQUATIONPROC COpenGLExtensionHandler::pGlBlendEquation = NULL;
 
@@ -388,7 +436,6 @@ PFNGLDEBUGMESSAGECONTROLARBPROC COpenGLExtensionHandler::pGlDebugMessageControlA
 PFNGLDEBUGMESSAGECALLBACKPROC COpenGLExtensionHandler::pGlDebugMessageCallback = NULL;
 PFNGLDEBUGMESSAGECALLBACKARBPROC COpenGLExtensionHandler::pGlDebugMessageCallbackARB = NULL;
 
-PFNGLVERTEXATTRIBPOINTERPROC COpenGLExtensionHandler::pGlVertexAttribPointer = NULL;
     #if defined(WGL_EXT_swap_control)
         PFNWGLSWAPINTERVALEXTPROC COpenGLExtensionHandler::pWglSwapIntervalEXT = NULL;
     #endif
@@ -409,7 +456,7 @@ COpenGLExtensionHandler::COpenGLExtensionHandler() :
 		MaxTextureUnits(1), MaxLights(1),
 		MaxAnisotropy(1), MaxUserClipPlanes(0), MaxAuxBuffers(0),
 		MaxMultipleRenderTargets(1),
-		MaxTextureSize(1), MaxGeometryVerticesOut(0),
+		MaxGeometryVerticesOut(0),
 		MaxTextureLODBias(0.f), ShaderLanguageVersion(0)
 {
 	DimAliasedLine[0]=1.f;
@@ -673,11 +720,9 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 
 void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 {
-	if ( Version >= 120)
-		os::Printer::log("OpenGL driver version is 1.2 or better.", ELL_INFORMATION);
-	else
-		os::Printer::log("OpenGL driver version is not 1.2 or better.", ELL_WARNING);
-
+    core::stringc vendorString = (char*)glGetString(GL_VENDOR);
+    if (vendorString.find("Intel")!=-1 || vendorString.find("INTEL")!=-1)
+	    IsIntelGPU = true;
 
 	TextureCompressionExtension = FeatureAvailable[IRR_ARB_texture_compression];
 	StencilBuffer=stencilBuffer;
@@ -685,6 +730,10 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
 
 	loadFunctions();
+	if ( Version >= 120)
+		os::Printer::log("OpenGL driver version is 1.2 or better.", ELL_INFORMATION);
+	else
+		os::Printer::log("OpenGL driver version is not 1.2 or better.", ELL_WARNING);
 
 
 
@@ -697,9 +746,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 		glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
 		MaxAnisotropy=static_cast<u8>(num);
 	}
-
-	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &num);
-	MaxTextureSize=static_cast<u32>(num);
 
 
 	if (queryFeature(EVDF_GEOMETRY_SHADER))
@@ -742,14 +788,105 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     const f32 sl_ver = core::fast_atof(reinterpret_cast<const c8*>(shaderVersion));
     ShaderLanguageVersion = static_cast<u16>(core::round32(sl_ver*100.0f));
 
-
+/*
     //! For EXT-DSA testing
-    //Version = 410;
-    //FeatureAvailable[IRR_ARB_direct_state_access] = false;
+    Version = 440;
+    FeatureAvailable[IRR_ARB_direct_state_access] = false;
+    pGlBindTextureUnit = NULL;
+    pGlCreateTextures = NULL;
+    pGlTextureStorage1D = NULL;
+    pGlTextureStorage2D = NULL;
+    pGlTextureStorage3D = NULL;
+    pGlTextureSubImage1D = NULL;
+    pGlTextureSubImage2D = NULL;
+    pGlTextureSubImage3D = NULL;
+    pGlCompressedTextureSubImage1D = NULL;
+    pGlCompressedTextureSubImage2D = NULL;
+    pGlCompressedTextureSubImage3D = NULL;
+    pGlGenerateTextureMipmap = NULL;
+    pGlCreateSamplers = NULL;
+    pGlBindAttribLocation = NULL;
+    pGlBlitNamedFramebuffer = NULL;
+    pGlCreateFramebuffers = NULL;
+    pGlCheckNamedFramebufferStatus = NULL;
+    pGlNamedFramebufferTexture = NULL;
+    pGlNamedFramebufferTextureLayer = NULL;
+    pGlCreateRenderbuffers = NULL;
+    pGlNamedRenderbufferStorage = NULL;
+    pGlNamedFramebufferRenderbuffer = NULL;
+    pGlActiveStencilFaceEXT = NULL;
+    pGlNamedFramebufferReadBuffer = NULL;
+    pGlNamedFramebufferDrawBuffer = NULL;
+    pGlNamedFramebufferDrawBuffers = NULL;
+    pGlClearNamedFramebufferiv = NULL;
+    pGlClearNamedFramebufferuiv = NULL;
+    pGlClearNamedFramebufferfv = NULL;
+    pGlClearNamedFramebufferfi = NULL;
+    pGlCreateBuffers = NULL;
+    pGlNamedBufferStorage = NULL;
+    pGlNamedBufferSubData = NULL;
+    pGlGetNamedBufferSubData = NULL;
+    pGlMapNamedBuffer = NULL;
+    pGlMapNamedBufferRange = NULL;
+    pGlFlushMappedNamedBufferRange = NULL;
+    pGlUnmapNamedBuffer = NULL;
+    pGlClearNamedBufferData = NULL;
+    pGlClearNamedBufferSubData = NULL;
+    pGlCopyNamedBufferSubData = NULL;
+    pGlCreateVertexArrays = NULL;
+    pGlVertexArrayElementBuffer = NULL;
+    pGlVertexArrayVertexBuffer = NULL;
+    pGlVertexArrayAttribBinding = NULL;
+    pGlEnableVertexArrayAttrib = NULL;
+    pGlDisableVertexArrayAttrib = NULL;
+    pGlVertexArrayAttribFormat = NULL;
+    pGlVertexArrayAttribIFormat = NULL;
+    pGlVertexArrayAttribLFormat = NULL;
+    pGlVertexArrayBindingDivisor = NULL;
+    pGlBlendFuncIndexedAMD = NULL;
+    pGlBlendEquationIndexedAMD = NULL;
+    pGlBlendEquationiARB = NULL;
     //! Non-DSA testing
-    //Version = 400;
-    //FeatureAvailable[IRR_EXT_direct_state_access] = FeatureAvailable[IRR_ARB_direct_state_access] = false;
-
+    Version = 400;
+    FeatureAvailable[IRR_EXT_direct_state_access] = FeatureAvailable[IRR_ARB_direct_state_access] = false;
+    pGlBindMultiTextureEXT = NULL;
+    pGlTextureStorage1DEXT = NULL;
+    pGlTextureStorage2DEXT = NULL;
+    pGlTextureStorage3DEXT = NULL;
+    pGlTextureSubImage1DEXT = NULL;
+    pGlTextureSubImage2DEXT = NULL;
+    pGlTextureSubImage3DEXT = NULL;
+    pGlCompressedTextureSubImage1DEXT = NULL;
+    pGlCompressedTextureSubImage2DEXT = NULL;
+    pGlCompressedTextureSubImage3DEXT = NULL;
+    pGlGenerateTextureMipmapEXT = NULL;
+    pGlCheckNamedFramebufferStatusEXT = NULL;
+    pGlNamedFramebufferTextureEXT = NULL;
+    pGlNamedFramebufferTextureLayerEXT = NULL;
+    pGlNamedRenderbufferStorageEXT = NULL;
+    pGlNamedFramebufferRenderbufferEXT = NULL;
+    pGlFramebufferReadBufferEXT = NULL;
+    pGlFramebufferDrawBufferEXT = NULL;
+    pGlFramebufferDrawBuffersEXT = NULL;
+    pGlNamedBufferStorageEXT = NULL;
+    pGlNamedBufferSubDataEXT = NULL;
+    pGlGetNamedBufferSubDataEXT = NULL;
+    pGlMapNamedBufferEXT = NULL;
+    pGlMapNamedBufferRangeEXT = NULL;
+    pGlFlushMappedNamedBufferRangeEXT = NULL;
+    pGlUnmapNamedBufferEXT = NULL;
+    pGlClearNamedBufferDataEXT = NULL;
+    pGlClearNamedBufferSubDataEXT = NULL;
+    pGlNamedCopyBufferSubDataEXT = NULL;
+    pGlVertexArrayBindVertexBufferEXT = NULL;
+    pGlVertexArrayVertexAttribBindingEXT = NULL;
+    pGlEnableVertexArrayAttribEXT = NULL;
+    pGlDisableVertexArrayAttribEXT = NULL;
+    pGlVertexArrayVertexAttribFormatEXT = NULL;
+    pGlVertexArrayVertexAttribIFormatEXT = NULL;
+    pGlVertexArrayVertexAttribLFormatEXT = NULL;
+    pGlVertexArrayVertexBindingDivisorEXT = NULL;
+**/
 
     num=0;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &num);
@@ -833,30 +970,7 @@ void COpenGLExtensionHandler::loadFunctions()
 #elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !defined(_IRR_COMPILE_WITH_X11_DEVICE_)
 	#define IRR_OGL_LOAD_EXTENSION(x) SDL_GL_GetProcAddress(reinterpret_cast<const char*>(x))
 #else
-	// Accessing the correct function is quite complex
-	// All libraries should support the ARB version, however
-	// since GLX 1.4 the non-ARB version is the official one
-	// So we have to check the runtime environment and
-	// choose the proper symbol
-	// In case you still have problems please enable the
-	// next line by uncommenting it
-	// #define _IRR_GETPROCADDRESS_WORKAROUND_
-
-	#ifndef _IRR_GETPROCADDRESS_WORKAROUND_
-	__GLXextFuncPtr (*IRR_OGL_LOAD_EXTENSION_FUNCP)(const GLubyte*)=0;
-	#ifdef GLX_VERSION_1_4
-		int major=0,minor=0;
-		if (glXGetCurrentDisplay())
-			glXQueryVersion(glXGetCurrentDisplay(), &major, &minor);
-		if ((major>1) || (minor>3))
-			IRR_OGL_LOAD_EXTENSION_FUNCP=glXGetProcAddress;
-		else
-	#endif
-			IRR_OGL_LOAD_EXTENSION_FUNCP=glXGetProcAddressARB;
-		#define IRR_OGL_LOAD_EXTENSION(X) IRR_OGL_LOAD_EXTENSION_FUNCP(reinterpret_cast<const GLubyte*>(X))
-	#else
-		#define IRR_OGL_LOAD_EXTENSION(X) glXGetProcAddressARB(reinterpret_cast<const GLubyte*>(X))
-	#endif // workaround
+    #define IRR_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
 #endif // Windows, SDL, or Linux
 
 	GLint num=0;
@@ -879,12 +993,18 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlTexStorage1D = (PFNGLTEXSTORAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage1D");
     pGlTexStorage2D = (PFNGLTEXSTORAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage2D");
     pGlTexStorage3D = (PFNGLTEXSTORAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage3D");
+    pGlTexBuffer = (PFNGLTEXBUFFERPROC) IRR_OGL_LOAD_EXTENSION( "glTexBuffer");
+    pGlTexBufferRange = (PFNGLTEXBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION( "glTexBufferRange");
     pGlTextureStorage1D = (PFNGLTEXTURESTORAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage1D");
     pGlTextureStorage2D = (PFNGLTEXTURESTORAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage2D");
     pGlTextureStorage3D = (PFNGLTEXTURESTORAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3D");
+    pGlTextureBuffer = (PFNGLTEXTUREBUFFERPROC) IRR_OGL_LOAD_EXTENSION( "glTextureBuffer");
+    pGlTextureBufferRange = (PFNGLTEXTUREBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION( "glTextureBufferRange");
     pGlTextureStorage1DEXT = (PFNGLTEXTURESTORAGE1DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage1DEXT");
     pGlTextureStorage2DEXT = (PFNGLTEXTURESTORAGE2DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage2DEXT");
     pGlTextureStorage3DEXT = (PFNGLTEXTURESTORAGE3DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3DEXT");
+    pGlTextureBufferEXT = (PFNGLTEXTUREBUFFEREXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureBufferEXT");
+    pGlTextureBufferRangeEXT = (PFNGLTEXTUREBUFFERRANGEEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureBufferRangeEXT");
     ///PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage2DMultisample");
     ///PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3DMultisample");
     pGlTexSubImage3D = (PFNGLTEXSUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTexSubImage3D");
@@ -914,12 +1034,17 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlSamplerParameteri = (PFNGLSAMPLERPARAMETERIPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameteri");
     pGlSamplerParameterf = (PFNGLSAMPLERPARAMETERFPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameterf");
 
+    //
+    pGlBindBufferBase = (PFNGLBINDBUFFERBASEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferBase");
+    pGlBindBufferRange = (PFNGLBINDBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferRange");
+
 	// get fragment and vertex program function pointers
 	pGlCreateShader = (PFNGLCREATESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCreateShader");
 	pGlShaderSource = (PFNGLSHADERSOURCEPROC) IRR_OGL_LOAD_EXTENSION("glShaderSource");
 	pGlCompileShader = (PFNGLCOMPILESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCompileShader");
 	pGlCreateProgram = (PFNGLCREATEPROGRAMPROC) IRR_OGL_LOAD_EXTENSION("glCreateProgram");
 	pGlAttachShader = (PFNGLATTACHSHADERPROC) IRR_OGL_LOAD_EXTENSION("glAttachShader");
+	pGlTransformFeedbackVaryings = (PFNGLTRANSFORMFEEDBACKVARYINGSPROC) IRR_OGL_LOAD_EXTENSION("glTransformFeedbackVaryings");
 	pGlLinkProgram = (PFNGLLINKPROGRAMPROC) IRR_OGL_LOAD_EXTENSION("glLinkProgram");
 	pGlUseProgram = (PFNGLUSEPROGRAMPROC) IRR_OGL_LOAD_EXTENSION("glUseProgram");
 	pGlDeleteProgram = (PFNGLDELETEPROGRAMPROC) IRR_OGL_LOAD_EXTENSION("glDeleteProgram");
@@ -962,8 +1087,6 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlStencilOpSeparate = (PFNGLSTENCILOPSEPARATEPROC) IRR_OGL_LOAD_EXTENSION("glStencilOpSeparate");
 	pGlStencilFuncSeparateATI = (PFNGLSTENCILFUNCSEPARATEATIPROC) IRR_OGL_LOAD_EXTENSION("glStencilFuncSeparateATI");
 	pGlStencilOpSeparateATI = (PFNGLSTENCILOPSEPARATEATIPROC) IRR_OGL_LOAD_EXTENSION("glStencilOpSeparateATI");
-
-    pGlVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)IRR_OGL_LOAD_EXTENSION("glVertexAttribPointer");
 
 	// ARB FrameBufferObjects
 	pGlBlitNamedFramebuffer = (PFNGLBLITNAMEDFRAMEBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glBlitNamedFramebuffer");
@@ -1070,8 +1193,27 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlVertexArrayVertexAttribFormatEXT = (PFNGLVERTEXARRAYVERTEXATTRIBFORMATEXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexAttribFormatEXT");
     pGlVertexArrayVertexAttribIFormatEXT = (PFNGLVERTEXARRAYVERTEXATTRIBIFORMATEXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexAttribIFormatEXT");
     pGlVertexArrayVertexAttribLFormatEXT = (PFNGLVERTEXARRAYVERTEXATTRIBLFORMATEXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexAttribLFormatEXT");
+    pGlVertexArrayBindingDivisor = (PFNGLVERTEXARRAYBINDINGDIVISORPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayBindingDivisor");
+    pGlVertexArrayVertexBindingDivisorEXT = (PFNGLVERTEXARRAYVERTEXBINDINGDIVISOREXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexBindingDivisorEXT");
+    pGlVertexBindingDivisor = (PFNGLVERTEXBINDINGDIVISORPROC) IRR_OGL_LOAD_EXTENSION("glVertexBindingDivisor");
     //
-    pGlDrawRangeElementsBaseVertex = (PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC) IRR_OGL_LOAD_EXTENSION("glDrawRangeElementsBaseVertex");
+    pGlDrawArraysInstanced = (PFNGLDRAWARRAYSINSTANCEDPROC) IRR_OGL_LOAD_EXTENSION("glDrawArraysInstanced");
+    pGlDrawArraysInstancedBaseInstance = (PFNGLDRAWARRAYSINSTANCEDBASEINSTANCEPROC) IRR_OGL_LOAD_EXTENSION("glDrawArraysInstancedBaseInstance");
+    pGlDrawElementsInstancedBaseVertex = (PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC) IRR_OGL_LOAD_EXTENSION("glDrawElementsInstancedBaseVertex");
+    pGlDrawElementsInstancedBaseVertexBaseInstance = (PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCEPROC) IRR_OGL_LOAD_EXTENSION("glDrawElementsInstancedBaseVertexBaseInstance");
+    pGlDrawTransformFeedback = (PFNGLDRAWTRANSFORMFEEDBACKPROC) IRR_OGL_LOAD_EXTENSION("glDrawTransformFeedback");
+    pGlDrawTransformFeedbackInstanced = (PFNGLDRAWTRANSFORMFEEDBACKINSTANCEDPROC) IRR_OGL_LOAD_EXTENSION("glDrawTransformFeedbackInstanced");
+    //
+	pGlCreateTransformFeedbacks = (PFNGLCREATETRANSFORMFEEDBACKSPROC) IRR_OGL_LOAD_EXTENSION("glCreateTransformFeedbacks");
+	pGlGenTransformFeedbacks = (PFNGLGENTRANSFORMFEEDBACKSPROC) IRR_OGL_LOAD_EXTENSION("glGenTransformFeedbacks");
+	pGlDeleteTransformFeedbacks = (PFNGLDELETETRANSFORMFEEDBACKSPROC) IRR_OGL_LOAD_EXTENSION("glDeleteTransformFeedbacks");
+	pGlBindTransformFeedback = (PFNGLBINDTRANSFORMFEEDBACKPROC) IRR_OGL_LOAD_EXTENSION("glBindTransformFeedback");
+	pGlBeginTransformFeedback = (PFNGLBEGINTRANSFORMFEEDBACKPROC) IRR_OGL_LOAD_EXTENSION("glBeginTransformFeedback");
+	pGlPauseTransformFeedback = (PFNGLPAUSETRANSFORMFEEDBACKPROC) IRR_OGL_LOAD_EXTENSION("glPauseTransformFeedback");
+	pGlResumeTransformFeedback = (PFNGLRESUMETRANSFORMFEEDBACKPROC) IRR_OGL_LOAD_EXTENSION("glResumeTransformFeedback");
+	pGlEndTransformFeedback = (PFNGLENDTRANSFORMFEEDBACKPROC) IRR_OGL_LOAD_EXTENSION("glEndTransformFeedback");
+	pGlTransformFeedbackBufferBase = (PFNGLTRANSFORMFEEDBACKBUFFERBASEPROC) IRR_OGL_LOAD_EXTENSION("glTransformFeedbackBufferBase");
+	pGlTransformFeedbackBufferRange = (PFNGLTRANSFORMFEEDBACKBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION("glTransformFeedbackBufferRange");
 	//
 	pGlBlendFuncSeparate = (PFNGLBLENDFUNCSEPARATEPROC) IRR_OGL_LOAD_EXTENSION("glBlendFuncSeparate");
 	pGlProvokingVertex = (PFNGLPROVOKINGVERTEXPROC) IRR_OGL_LOAD_EXTENSION("glProvokingVertex");
@@ -1088,29 +1230,22 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlPatchParameteri = (PFNGLPATCHPARAMETERIPROC) IRR_OGL_LOAD_EXTENSION("glPatchParameteri");
 
 	// occlusion query
+	pGlCreateQueries = (PFNGLCREATEQUERIESPROC) IRR_OGL_LOAD_EXTENSION("glCreateQueries");
 	pGlGenQueries = (PFNGLGENQUERIESPROC) IRR_OGL_LOAD_EXTENSION("glGenQueries");
 	pGlDeleteQueries = (PFNGLDELETEQUERIESPROC) IRR_OGL_LOAD_EXTENSION("glDeleteQueries");
 	pGlIsQuery = (PFNGLISQUERYPROC) IRR_OGL_LOAD_EXTENSION("glIsQuery");
 	pGlBeginQuery = (PFNGLBEGINQUERYPROC) IRR_OGL_LOAD_EXTENSION("glBeginQuery");
 	pGlEndQuery = (PFNGLENDQUERYPROC) IRR_OGL_LOAD_EXTENSION("glEndQuery");
+	pGlBeginQueryIndexed = (PFNGLBEGINQUERYINDEXEDPROC) IRR_OGL_LOAD_EXTENSION("glBeginQueryIndexed");
+	pGlEndQueryIndexed = (PFNGLENDQUERYINDEXEDPROC) IRR_OGL_LOAD_EXTENSION("glEndQueryIndexed");
 	pGlGetQueryiv = (PFNGLGETQUERYIVPROC) IRR_OGL_LOAD_EXTENSION("glGetQueryiv");
-    pGlGetQueryObjectiv = (PFNGLGETQUERYOBJECTIVPROC) IRR_OGL_LOAD_EXTENSION("glGetQueryObjectiv");
 	pGlGetQueryObjectuiv = (PFNGLGETQUERYOBJECTUIVPROC) IRR_OGL_LOAD_EXTENSION("glGetQueryObjectuiv");
-	pGlGetQueryObjecti64v = (PFNGLGETQUERYOBJECTI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetQueryObjecti64v");
 	pGlGetQueryObjectui64v = (PFNGLGETQUERYOBJECTUI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetQueryObjectui64v");
-	pGlGetQueryObjecti64vEXT = (PFNGLGETQUERYOBJECTI64VEXTPROC) IRR_OGL_LOAD_EXTENSION("glGetQueryObjecti64vEXT");
-	pGlGetQueryObjectui64vEXT = (PFNGLGETQUERYOBJECTUI64VEXTPROC) IRR_OGL_LOAD_EXTENSION("glGetQueryObjectui64vEXT");
+    pGlGetQueryBufferObjectuiv = (PFNGLGETQUERYBUFFEROBJECTUIVPROC) IRR_OGL_LOAD_EXTENSION("glGetQueryBufferObjectuiv");
+    pGlGetQueryBufferObjectui64v = (PFNGLGETQUERYBUFFEROBJECTUI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetQueryBufferObjectui64v");
 	pGlQueryCounter = (PFNGLQUERYCOUNTERPROC) IRR_OGL_LOAD_EXTENSION("glQueryCounter");
 	pGlBeginConditionalRender = (PFNGLBEGINCONDITIONALRENDERPROC) IRR_OGL_LOAD_EXTENSION("glBeginConditionalRender");
     pGlEndConditionalRender = (PFNGLENDCONDITIONALRENDERPROC) IRR_OGL_LOAD_EXTENSION("glEndConditionalRender");
-
-	pGlGenOcclusionQueriesNV = (PFNGLGENOCCLUSIONQUERIESNVPROC) IRR_OGL_LOAD_EXTENSION("glGenOcclusionQueriesNV");
-	pGlDeleteOcclusionQueriesNV = (PFNGLDELETEOCCLUSIONQUERIESNVPROC) IRR_OGL_LOAD_EXTENSION("glDeleteOcclusionQueriesNV");
-	pGlIsOcclusionQueryNV = (PFNGLISOCCLUSIONQUERYNVPROC) IRR_OGL_LOAD_EXTENSION("glIsOcclusionQueryNV");
-	pGlBeginOcclusionQueryNV = (PFNGLBEGINOCCLUSIONQUERYNVPROC) IRR_OGL_LOAD_EXTENSION("glBeginOcclusionQueryNV");
-	pGlEndOcclusionQueryNV = (PFNGLENDOCCLUSIONQUERYNVPROC) IRR_OGL_LOAD_EXTENSION("glEndOcclusionQueryNV");
-	pGlGetOcclusionQueryivNV = (PFNGLGETOCCLUSIONQUERYIVNVPROC) IRR_OGL_LOAD_EXTENSION("glGetOcclusionQueryivNV");
-	pGlGetOcclusionQueryuivNV = (PFNGLGETOCCLUSIONQUERYUIVNVPROC) IRR_OGL_LOAD_EXTENSION("glGetOcclusionQueryuivNV");
 
 
 
@@ -1186,7 +1321,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_debug_output] || FeatureAvailable[IRR_KHR_debug]))
+    if (!(FeatureAvailable[IRR_ARB_debug_output] || FeatureAvailable[IRR_KHR_debug] || Version>=430))
     {
         retval =  false;
         core::stringc error = "No OpenGL Debug-out\n";
@@ -1239,56 +1374,6 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_vertex_array_object]))
-    {
-        retval =  false;
-        core::stringc error = "VAOs unavailable\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_framebuffer_object]||FeatureAvailable[IRR_EXT_framebuffer_object]))
-    {
-        retval =  false;
-        core::stringc error = "FBOs unavailable\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_EXT_framebuffer_blit]))
-    {
-        retval =  false;
-        core::stringc error = "FBO blitting unavailable\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_EXT_framebuffer_multisample]))
-    {
-        retval =  false;
-        core::stringc error = "FBO multisampling unavailable\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_EXT_packed_depth_stencil]))
-    {
-        retval =  false;
-        core::stringc error = "Packed Depth Stencil format unavailable\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
     if (!(FeatureAvailable[IRR_ARB_buffer_storage]||Version>=440))
     {
         retval =  false;
@@ -1299,98 +1384,8 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_map_buffer_range]))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_map_buffer_range missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_copy_buffer]))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_copy_buffer missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_texture_rectangle]))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_texture_rectangle missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_color_buffer_float]))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_color_buffer_float missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_half_float_pixel]))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_half_float_pixel missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_texture_rg]))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_texture_rg missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_texture_compression_rgtc]))
-    {
-        retval =  false;
-        core::stringc error = "RGTC texture compression is missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_EXT_draw_buffers2]))
-    {
-        retval =  false;
-        core::stringc error = "GL_EXT_draw_buffers2 missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
     /// Core 3.3. stuff
-    if (!(FeatureAvailable[IRR_EXT_gpu_shader4]))
-    {
-        retval =  false;
-        core::stringc error = "GL_EXT_gpu_shader4 missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_compressed_texture_pixel_storage]))
+    if (!(FeatureAvailable[IRR_ARB_compressed_texture_pixel_storage]||Version>=420))
     {
         retval =  false;
         core::stringc error = "GL_ARB_compressed_texture_pixel_storage missing\n";
@@ -1400,7 +1395,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_conservative_depth]))
+    if (!(FeatureAvailable[IRR_ARB_conservative_depth]||Version>=420))
     {
         retval =  false;
         core::stringc error = "GL_ARB_conservative_depth missing\n";
@@ -1410,7 +1405,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_explicit_uniform_location]))
+    if (!(FeatureAvailable[IRR_ARB_explicit_uniform_location]||Version>=430))
     {
         retval =  false;
         core::stringc error = "GL_ARB_explicit_uniform_location missing\n";
@@ -1420,7 +1415,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_internalformat_query]&&FeatureAvailable[IRR_ARB_internalformat_query2]))
+    if (!(FeatureAvailable[IRR_ARB_internalformat_query]&&FeatureAvailable[IRR_ARB_internalformat_query2] || Version>=430))
     {
         retval =  false;
         core::stringc error = "GL_ARB_internalformat_query and GL_ARB_internalformat_query2 missing\n";
@@ -1430,17 +1425,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_NV_fence]||FeatureAvailable[IRR_ARB_sync]))
-    {
-        retval =  false;
-        core::stringc error = "Fences missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_map_buffer_alignment]))
+    if (!(FeatureAvailable[IRR_ARB_map_buffer_alignment]||Version>=420))
     {
         retval =  false;
         core::stringc error = "GL_ARB_map_buffer_alignment missing\n";
@@ -1450,17 +1435,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_uniform_buffer_object]))
-    {
-        retval =  false;
-        core::stringc error = "Uniform Buffer Objects missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_program_interface_query]))
+    if (!(FeatureAvailable[IRR_ARB_program_interface_query]||Version>=430))
     {
         retval =  false;
         core::stringc error = "GL_ARB_program_interface_query missing\n";
@@ -1470,7 +1445,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_separate_shader_objects]))
+    if (!(FeatureAvailable[IRR_ARB_separate_shader_objects]||Version>=410))
     {
         retval =  false;
         core::stringc error = "GL_ARB_separate_shader_objects missing\n";
@@ -1480,7 +1455,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 /**
-    if (!(FeatureAvailable[IRR_ARB_shading_language_420pack]))
+    if (!(FeatureAvailable[IRR_ARB_shading_language_420pack]||Version>=420))
     {
         retval =  false;
         core::stringc error = "\n";
@@ -1490,7 +1465,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 */
-    if (!(FeatureAvailable[IRR_ARB_shading_language_packing]))
+    if (!(FeatureAvailable[IRR_ARB_shading_language_packing]||Version>=420))
     {
         retval =  false;
         core::stringc error = "GL_ARB_shading_language_packing missing\n";
@@ -1500,7 +1475,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_viewport_array]))
+    if (!(FeatureAvailable[IRR_ARB_viewport_array]||Version>=410))
     {
         retval =  false;
         core::stringc error = "GL_ARB_viewport_array missing\n";
@@ -1509,19 +1484,8 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
         else
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
-/*!!======================CORE!!!=============================
-    if (!(FeatureAvailable[IRR_ARB_texture_buffer_object]||FeatureAvailable[IRR_EXT_texture_buffer_object]))
-    {
-        retval =  false;
-        core::stringc error = "Texture Buffer Objects extension missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-*/
 
-    if (!(FeatureAvailable[IRR_ARB_texture_buffer_range]))
+    if (!(FeatureAvailable[IRR_ARB_texture_buffer_range]||Version>=430))
     {
         retval =  false;
         core::stringc error = "GL_ARB_texture_buffer_range missing\n";
@@ -1531,7 +1495,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_texture_storage]))
+    if (!(FeatureAvailable[IRR_ARB_texture_storage]||Version>=420))
     {
         retval =  false;
         core::stringc error = "GL_ARB_texture_storage missing\n";
@@ -1541,7 +1505,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_texture_view]))
+    if (!(FeatureAvailable[IRR_ARB_texture_view]||Version>=430))
     {
         retval =  false;
         core::stringc error = "GL_ARB_texture_view missing\n";
@@ -1551,7 +1515,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_vertex_attrib_binding]))
+    if (!(FeatureAvailable[IRR_ARB_vertex_attrib_binding]||Version>=430))
     {
         retval =  false;
         core::stringc error = "GL_ARB_vertex_attrib_binding missing\n";
@@ -1561,7 +1525,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 /*
-    if (!(FeatureAvailable[IRR_NV_texture_barrier]||FeatureAvailable[IRR_ARB_texture_barrier]))
+    if (!(FeatureAvailable[IRR_NV_texture_barrier]||FeatureAvailable[IRR_ARB_texture_barrier]||Version>=450))
     {
         retval =  false;
         core::stringc error = "GL_NV_texture_barrier missing\n";
@@ -1571,7 +1535,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }*/
 
-    if (!(FeatureAvailable[IRR_ARB_direct_state_access] || FeatureAvailable[IRR_EXT_direct_state_access]))
+    if (!(FeatureAvailable[IRR_ARB_direct_state_access] || FeatureAvailable[IRR_EXT_direct_state_access] || Version>=450))
     {
         retval =  false;
         core::stringc error = "Direct State Access Extension missing\n";
@@ -1581,27 +1545,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_geometry_shader4] || FeatureAvailable[IRR_EXT_geometry_shader4] || FeatureAvailable[IRR_NV_geometry_program4]))
-    {
-        retval =  false;
-        core::stringc error = "Geometry Shaders missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_sampler_objects]))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_sampler_objects missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_ES2_compatibility]))
+    if (!(FeatureAvailable[IRR_ARB_ES2_compatibility] || Version>=410))
     {
         retval =  false;
         core::stringc error = "GL_ARB_ES2_compatibility missing (no 16bit R5G6B5 textures)\n";
@@ -1611,10 +1555,10 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_EXT_transform_feedback] || FeatureAvailable[IRR_NV_transform_feedback]))
+    if (!(FeatureAvailable[IRR_ARB_transform_feedback2] || Version>=400))
     {
         retval =  false;
-        core::stringc error = "Transform Feedback Level 1 Not Available\n";
+        core::stringc error = "Transform Feedback Level 2 Not Available\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
@@ -1622,7 +1566,17 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
     }
 
 /**
-    if (!(FeatureAvailable[IRR_EXT_transform_feedback2] || FeatureAvailable[IRR_NV_transform_feedback2]))
+    if (!(FeatureAvailable[IRR_ARB_transform_feedback3] || Version>=400))
+    {
+        retval =  false;
+        core::stringc error = "\n";
+        if (failedExtensions)
+            failedExtensions->push_back(error);
+        else
+            os::Printer::log(error.c_str(), ELL_ERROR);
+    }
+
+    if (!(FeatureAvailable[IRR_ARB_transform_feedback_instanced] || Version>=420))
     {
         retval =  false;
         core::stringc error = "\n";
@@ -1631,6 +1585,16 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
         else
             os::Printer::log(error.c_str(), ELL_ERROR);
     }**/
+
+    if ((Version>=400||FeatureAvailable[IRR_ARB_draw_indirect])&&Version<420&&(!FeatureAvailable[IRR_ARB_base_instance]))
+    {
+        retval =  false;
+        core::stringc error = "Has glDrawElementsIndirect but no ARB_base_instance extension\n";
+        if (failedExtensions)
+            failedExtensions->push_back(error);
+        else
+            os::Printer::log(error.c_str(), ELL_ERROR);
+    }
 
 
     return retval;

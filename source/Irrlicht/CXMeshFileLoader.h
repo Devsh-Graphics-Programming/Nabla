@@ -24,6 +24,7 @@ namespace io
 namespace scene
 {
 
+class ISceneManager;
 
 //! Meshloader capable of loading x meshes.
 class CXMeshFileLoader : public IMeshLoader
@@ -59,7 +60,7 @@ public:
 
 	struct SXMesh
 	{
-		SXMesh() : MaxSkinWeightsPerVertex(0), MaxSkinWeightsPerFace(0), BoneCount(0),AttachedJointID(-1),HasSkinning(false), HasVertexColors(false) {}
+		SXMesh() : BoneCount(0),AttachedJointID(-1), HasVertexColors(false) {}
 		// this mesh contains triangulated texture data.
 		// because in an .x file, faces can be made of more than 3
 		// vertices, the indices data structure is triangulated during the
@@ -70,8 +71,6 @@ public:
 
 		core::stringc Name;
 
-		u32 MaxSkinWeightsPerVertex;
-		u32 MaxSkinWeightsPerFace;
 		u32 BoneCount;
 
 		core::array<u16> IndexCountPerFace; // default 3, but could be more
@@ -81,6 +80,7 @@ public:
 		core::array<SXVertex> Vertices;
 		core::array<uint32_t> Colors;
 		core::array<core::vector2df> TCoords2;
+		core::array<SkinnedVertexIntermediateData> VertexSkinWeights;
 
 		core::array<u32> Indices;
 
@@ -88,12 +88,8 @@ public:
 
 		core::array<video::SMaterial> Materials; // material array
 
-		core::array<u32> WeightJoint;
-		core::array<u32> WeightNum;
-
 		s32 AttachedJointID;
 
-		bool HasSkinning;
 		bool HasVertexColors;
 	};
 
@@ -111,7 +107,7 @@ private:
 
 	bool parseDataObjectFrame(ICPUSkinnedMesh::SJoint *parent);
 
-	bool parseDataObjectTransformationMatrix(core::matrix4 &mat);
+	bool parseDataObjectTransformationMatrix(core::matrix4x3 &mat);
 
 	bool parseDataObjectMesh(SXMesh &mesh);
 

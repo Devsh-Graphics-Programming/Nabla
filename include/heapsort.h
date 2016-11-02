@@ -62,7 +62,53 @@ inline void heapsort(T* array_, s32 size)
 		heapsink(virtualArray, 1, i + 1);
 	}
 }
+/*
+template<size_t elementBytes>
+inline void radixsort(void* array, const size_t& count, const size_t bucketBits)
+{
+    if (!bucketBits)
+        return;
 
+    const size_t kHist = 0x1<<bucketBits;
+	size_t histogram[kHist];
+
+	void* arrayTmp = malloc(count*elementBytes);
+	void* ptrIn = array;
+	void* ptrOut = arrayTmp;
+
+    const size_t numberOfPasses = (8+bucketBits-1)/bucketBits;
+    for (size_t i=0; i<numberOfPasses; i++)
+    {
+        memset(histogram,0,kHist*sizeof(size_t));
+
+        for (size_t j=0; j<count; j++)
+        {
+            size_t fi = reinterpret_cast<uint8_t*>(ptrIn)[j]>>(elementBytes-i*bucketBits);
+            histogram[fi]++;
+        }
+
+        size_t sum=0;
+        for (size_t j=0; j<kHist; j++)
+        {
+            size_t tsum = histogram[j]+sum;
+            histogram[j] = sum-1;
+            sum = tsum;
+        }
+
+        for (size_t j=0; j<count; j++)
+        {
+            uint8_t key = reinterpret_cast<uint8_t*>(ptrIn)[j];
+
+            size_t fi = key>>(elementBytes-i*bucketBits);
+            reinterpret_cast<uint8_t*>(ptrOut)[++histogram[fi]] = key;
+        }
+    }
+}
+
+template<> inline void radixsort<1>(void* array, const size_t& size, const size_t bucketBits)
+{
+}
+*/
 } // end namespace core
 } // end namespace irr
 

@@ -49,7 +49,7 @@ void CSceneNodeAnimatorTexture::clearTextures()
 
 
 //! animates a scene node
-void CSceneNodeAnimatorTexture::animateNode(ISceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorTexture::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
 {
 	if(!node)
 		return;
@@ -70,13 +70,16 @@ void CSceneNodeAnimatorTexture::animateNode(ISceneNode* node, u32 timeMs)
 		}
 
 		if (idx < Textures.size())
-			node->setMaterialTexture(0, Textures[idx]);
+        {
+            if (node->isISceneNode())
+                static_cast<ISceneNode*>(node)->setMaterialTexture(0, Textures[idx]);
+        }
 	}
 }
 
 
 
-ISceneNodeAnimator* CSceneNodeAnimatorTexture::createClone(ISceneNode* node, ISceneManager* newManager)
+ISceneNodeAnimator* CSceneNodeAnimatorTexture::createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager)
 {
 	CSceneNodeAnimatorTexture * newAnimator =
 		new CSceneNodeAnimatorTexture(Textures, TimePerFrame, Loop, StartTime);

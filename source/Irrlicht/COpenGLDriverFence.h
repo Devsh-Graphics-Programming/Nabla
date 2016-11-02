@@ -18,10 +18,12 @@ namespace video
 class COpenGLDriverFence : public IDriverFence
 {
     public:
-        inline COpenGLDriverFence()
+        inline COpenGLDriverFence() : cachedRetval(EDFR_TIMEOUT_EXPIRED)
         {
             fence = COpenGLExtensionHandler::extGlFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
-            firstTimeFlush = true;
+            firstTimeFlush = !COpenGLExtensionHandler::IsIntelGPU;
+            if (COpenGLExtensionHandler::IsIntelGPU)
+                glFlush();
         }
 
         virtual ~COpenGLDriverFence()
@@ -29,12 +31,16 @@ class COpenGLDriverFence : public IDriverFence
             COpenGLExtensionHandler::extGlDeleteSync(fence);
         }
 
-        virtual E_DRIVER_FENCE_RETVAL waitCPU(const uint64_t &timeout, const bool &flush=true)
+        virtual E_DRIVER_FENCE_RETVAL waitCPU(const uint64_t &timeout, const bool &flush=false)
         {
+            if (cachedRetval!=EDFR_TIMEOUT_EXPIRED)
+                return cachedRetval;
+
             switch(COpenGLExtensionHandler::extGlClientWaitSync(fence,flush&&firstTimeFlush ? GL_SYNC_FLUSH_COMMANDS_BIT:0,timeout))
             {
                 case GL_ALREADY_SIGNALED:
                     firstTimeFlush = false;
+                    cachedRetval = EDFR_ALREADY_SIGNALED;
                     return EDFR_ALREADY_SIGNALED;
                     break;
                 case GL_TIMEOUT_EXPIRED:
@@ -43,27 +49,25 @@ class COpenGLDriverFence : public IDriverFence
                     break;
                 case GL_CONDITION_SATISFIED:
                     firstTimeFlush = false;
+                    cachedRetval = EDFR_ALREADY_SIGNALED;
                     return EDFR_CONDITION_SATISFIED;
                     break;
                 default:
                 //case GL_WAIT_FAILED:
                     firstTimeFlush = false;
+                    cachedRetval = EDFR_FAIL;
                     return EDFR_FAIL;
                     break;
             }
         }
 
-        virtual void waitGPU(const bool &flush=true)
+        virtual void waitGPU()
         {
-            if (flush&&firstTimeFlush)
-            {
-                glFlush();//! IMPROVE: FLUSH THE CONTEXT THAT CREATED THE FENCE
-            }
-
             COpenGLExtensionHandler::extGlWaitSync(fence,0,GL_TIMEOUT_IGNORED);
             firstTimeFlush = false;
         }
     private:
+        E_DRIVER_FENCE_RETVAL cachedRetval;
         bool firstTimeFlush;
         GLsync fence;
 };

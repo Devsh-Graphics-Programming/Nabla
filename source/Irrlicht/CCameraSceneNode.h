@@ -7,6 +7,7 @@
 
 #include "ICameraSceneNode.h"
 #include "SViewFrustum.h"
+#include "matrix4x3.h"
 
 namespace irr
 {
@@ -18,7 +19,7 @@ namespace scene
 	public:
 
 		//! constructor
-		CCameraSceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id,
+		CCameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& lookat = core::vector3df(0,0,100));
 
@@ -38,14 +39,9 @@ namespace scene
 
 		//! Gets the current view matrix of the camera
 		//! \return Returns the current view matrix of the camera.
-		virtual const core::matrix4& getViewMatrix() const;
+		virtual const core::matrix4x3& getViewMatrix() const;
 
-		//! Sets a custom view matrix affector.
-		/** \param affector: The affector matrix. */
-		virtual void setViewMatrixAffector(const core::matrix4& affector);
-
-		//! Gets the custom view matrix affector.
-		virtual const core::matrix4& getViewMatrixAffector() const;
+		virtual const core::matrix4& getConcatenatedMatrix() const {return concatMatrix;}
 
 		//! It is possible to send mouse and key events to the camera. Most cameras
 		//! may ignore this input, but camera scene nodes which are created for
@@ -114,7 +110,7 @@ namespace scene
 		virtual void render();
 
 		//! Returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox() const;
+		virtual const core::aabbox3d<f32>& getBoundingBox();
 
 		//! Returns the view area. Sometimes needed by bsp or lod render nodes.
 		virtual const SViewFrustum* getViewFrustum() const;
@@ -137,7 +133,7 @@ namespace scene
 		virtual bool getTargetAndRotationBinding(void) const;
 
 		//! Creates a clone of this scene node and its children.
-		virtual ISceneNode* clone(ISceneNode* newParent=0, ISceneManager* newManager=0);
+		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
 
 	protected:
 
@@ -152,8 +148,10 @@ namespace scene
 		f32 ZNear;	// value of the near view-plane.
 		f32 ZFar;	// Z-value of the far view-plane.
 
+        core::matrix4x3 viewMatrix;
+        core::matrix4 projMatrix;
+        core::matrix4 concatMatrix;
 		SViewFrustum ViewArea;
-		core::matrix4 Affector;
 
 		bool InputReceiverEnabled;
 		bool TargetAndRotationAreBound;

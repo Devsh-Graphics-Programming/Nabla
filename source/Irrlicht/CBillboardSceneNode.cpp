@@ -14,7 +14,7 @@ namespace scene
 {
 
 //! constructor
-CBillboardSceneNode::CBillboardSceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id,
+CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 			const core::vector3df& position, const core::dimension2d<f32>& size,
 			video::SColor colorTop, video::SColor colorBottom)
 	: IBillboardSceneNode(parent, mgr, id, position)
@@ -97,13 +97,13 @@ void CBillboardSceneNode::render()
 
 	if (DebugDataVisible & scene::EDS_BBOX)
 	{
-		driver->setTransform(video::ETS_WORLD, AbsoluteTransformation);
+		driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 		video::SMaterial m;
 		driver->setMaterial(m);
 		driver->draw3DBox(BBox, video::SColor(0,208,195,152));
 	}
 
-	driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
+	driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
 
 	driver->setMaterial(Material);
 
@@ -198,7 +198,7 @@ void CBillboardSceneNode::setColor(const video::SColor& topColor,
 
 
 //! Creates a clone of this scene node and its children.
-ISceneNode* CBillboardSceneNode::clone(ISceneNode* newParent, ISceneManager* newManager)
+ISceneNode* CBillboardSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
 {
 	if (!newParent)
 		newParent = Parent;

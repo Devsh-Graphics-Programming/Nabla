@@ -57,7 +57,49 @@ public:
     float pos[3];
     float uv[2];
     uint32_t normal32bit;
-};
+} PACK_STRUCT;
+
+class SObjVertex16
+{
+public:
+    SObjVertex16(const SObjVertex& other)
+    {
+        pos[0] = other.pos[0];
+        pos[1] = other.pos[1];
+        pos[2] = other.pos[2];
+        for (size_t i=0; i<2; i++)
+        {
+            double x = other.uv[i];
+            x *= 0xffffu;
+            uv[i] = x;
+        }
+        normal32bit = other.normal32bit;
+    }
+    float pos[3];
+    uint16_t uv[2];
+    uint32_t normal32bit;
+} PACK_STRUCT;
+
+class SObjVertex8
+{
+public:
+    SObjVertex8(const SObjVertex& other)
+    {
+        pos[0] = other.pos[0];
+        pos[1] = other.pos[1];
+        pos[2] = other.pos[2];
+        for (size_t i=0; i<2; i++)
+        {
+            double x = other.uv[i];
+            x *= 0xffu;
+            uv[i] = x;
+        }
+        normal32bit = other.normal32bit;
+    }
+    float pos[3];
+    uint8_t uv[2];
+    uint32_t normal32bit;
+} PACK_STRUCT;
 #include "irrunpack.h"
 
 //! Meshloader capable of loading obj meshes.

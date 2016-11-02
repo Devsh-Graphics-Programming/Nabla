@@ -70,9 +70,6 @@ public:
 	virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& makeNewMesh=false, f32 tolerance=core::ROUNDING_ERROR_f32) const;
 
 #ifndef NEW_MESHES
-	//! create a new AnimatedMesh and adds the mesh to it
-	virtual IAnimatedMesh * createAnimatedMesh(scene::IMesh* mesh,scene::E_ANIMATED_MESH_TYPE type) const;
-
 	//! create a mesh optimized for the vertex cache
 	virtual ICPUMeshBuffer* createForsythOptimizedMeshBuffer(const ICPUMeshBuffer *meshbuffer) const;
 #endif // NEW_MESHES

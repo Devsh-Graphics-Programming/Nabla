@@ -19,7 +19,7 @@ namespace scene
 CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
 			video::ITexture* right, video::ITexture* front, video::ITexture* back,
 			video::IGPUBuffer* vertPositions, size_t positionsOffsetInBuf,
-			ISceneNode* parent, ISceneManager* mgr, s32 id)
+			IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id)
 : ISceneNode(parent, mgr, id)
 {
 	#ifdef _DEBUG
@@ -63,7 +63,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 	if (!tex) tex = top;
 	if (!tex) tex = bottom;
 
-	const f32 onepixel = tex?(1.0f / (tex->getSize().Width * 1.5f)) : 0.0f;
+	const f32 onepixel = tex?(1.0f / (tex->getSize()[0] * 1.5f)) : 0.0f;
 	const f32 t = 1.0f - onepixel;
 	const f32 o = 0.0f + onepixel;
 
@@ -137,7 +137,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 }
 
 CSkyBoxSceneNode::CSkyBoxSceneNode(CSkyBoxSceneNode* other,
-			ISceneNode* parent, ISceneManager* mgr, s32 id)
+			IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id)
 : ISceneNode(parent, mgr, id)
 {
 	#ifdef _DEBUG
@@ -171,15 +171,15 @@ void CSkyBoxSceneNode::render()
 	{
 		// draw perspective skybox
 
-		core::matrix4 translate(AbsoluteTransformation);
+		core::matrix4x3 translate(AbsoluteTransformation);
 		translate.setTranslation(camera->getAbsolutePosition());
 
 		// Draw the sky box between the near and far clip plane
 		const f32 viewDistance = (camera->getNearValue() + camera->getFarValue()) * 0.5f;
-		core::matrix4 scale;
+		core::matrix4x3 scale;
 		scale.setScale(core::vector3df(viewDistance, viewDistance, viewDistance));
 
-		driver->setTransform(video::ETS_WORLD, translate * scale);
+		driver->setTransform(video::E4X3TS_WORLD, concatenateBFollowedByA(translate,scale));
 
 		for (s32 i=0; i<6; ++i)
 		{
@@ -226,7 +226,7 @@ void CSkyBoxSceneNode::render()
 			core::rect<s32> rctDest(core::position2d<s32>(-1,0),
 									core::dimension2di(driver->getCurrentRenderTargetSize()));
 			core::rect<s32> rctSrc(core::position2d<s32>(0,0),
-									core::dimension2di(tex->getSize()));
+									core::dimension2di(*reinterpret_cast<const core::dimension2du*>(tex->getSize())));
 
 			driver->draw2DImage(tex, rctDest, rctSrc);
 		}
@@ -236,7 +236,7 @@ void CSkyBoxSceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CSkyBoxSceneNode::getBoundingBox() const
+const core::aabbox3d<f32>& CSkyBoxSceneNode::getBoundingBox()
 {
 	return Box;
 }
@@ -270,7 +270,7 @@ u32 CSkyBoxSceneNode::getMaterialCount() const
 
 
 //! Creates a clone of this scene node and its children.
-ISceneNode* CSkyBoxSceneNode::clone(ISceneNode* newParent, ISceneManager* newManager)
+ISceneNode* CSkyBoxSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
 {
 	if (!newParent) newParent = Parent;
 	if (!newManager) newManager = SceneManager;

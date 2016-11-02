@@ -41,6 +41,9 @@ COpenGLSLMaterialRenderer::COpenGLSLMaterialRenderer(video::COpenGLDriver* drive
 		u32 patchVertices,
 		IShaderConstantSetCallBack* callback,
 		E_MATERIAL_TYPE baseMaterial,
+        const char** xformFeedbackOutputs,
+        const uint32_t& xformFeedbackOutputCount,
+        const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
 		s32 userData)
 	: Driver(driver), CallBack(callback), BaseMaterial(baseMaterial),
 		Program2(0), UserData(userData), tessellationPatchVertices(-1), activeUniformCount(0)
@@ -57,20 +60,7 @@ COpenGLSLMaterialRenderer::COpenGLSLMaterialRenderer(video::COpenGLDriver* drive
 		CallBack->grab();
 
 	init(outMaterialTypeNr, vertexShaderProgram, pixelShaderProgram, geometryShaderProgram,
-        controlShaderProgram,evaluationShaderProgram,patchVertices);
-}
-
-
-//! constructor only for use by derived classes who want to
-//! create a fall back material for example.
-COpenGLSLMaterialRenderer::COpenGLSLMaterialRenderer(COpenGLDriver* driver,
-					IShaderConstantSetCallBack* callback,
-					E_MATERIAL_TYPE baseMaterial, s32 userData)
-: Driver(driver), CallBack(callback), BaseMaterial(baseMaterial),
-		Program2(0), UserData(userData), tessellationPatchVertices(-1), activeUniformCount(0)
-{
-	if (CallBack)
-		CallBack->grab();
+        controlShaderProgram,evaluationShaderProgram,patchVertices,xformFeedbackOutputs,xformFeedbackOutputCount,attribLayout);
 }
 
 
@@ -101,7 +91,10 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
 		const c8* geometryShaderProgram,
 		const c8* controlShaderProgram,
 		const c8* evaluationShaderProgram,
-		u32 patchVertices)
+		u32 patchVertices,
+        const char** xformFeedbackOutputs,
+        const uint32_t& xformFeedbackOutputCount,
+        const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout)
 {
 	outMaterialTypeNr = -1;
 
@@ -134,6 +127,13 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
     if (CallBack)
         CallBack->PreLink(Program2);
 
+    if (xformFeedbackOutputCount>0&&xformFeedbackOutputs)
+    {
+        if (attribLayout==EXFAM_INTERLEAVED)
+            Driver->extGlTransformFeedbackVaryings(Program2,xformFeedbackOutputCount,xformFeedbackOutputs,GL_INTERLEAVED_ATTRIBS);
+        else if (attribLayout==EXFAM_SEPARATE)
+            Driver->extGlTransformFeedbackVaryings(Program2,xformFeedbackOutputCount,xformFeedbackOutputs,GL_SEPARATE_ATTRIBS);
+    }
 
 	if (!linkProgram())
 		return;
@@ -193,7 +193,13 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
 
 
     if (CallBack)
-        CallBack->PostLink((E_MATERIAL_TYPE)outMaterialTypeNr,constants);
+    {
+        GLint oldProgram;
+        glGetIntegerv(GL_CURRENT_PROGRAM,&oldProgram);
+		Driver->extGlUseProgram(Program2);
+        CallBack->PostLink(this,(E_MATERIAL_TYPE)outMaterialTypeNr,constants);
+		Driver->extGlUseProgram(oldProgram);
+    }
 
 #if _DEBUG
     debugConstants = constants;
@@ -376,7 +382,7 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, s32 location
 #endif
         return;
     }
-
+/*
 #ifdef _DEBUG
     GLuint index = 0;
     bool found = false;
@@ -405,6 +411,7 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, s32 location
         return;
     }
 #endif
+*/
 
     GLsizei cnt = int32_t(number);
     GLint loc = int32_t(location);
@@ -506,6 +513,7 @@ void COpenGLSLMaterialRenderer::setShaderTextures(const s32* textureIndices, s32
 #endif
         return;
     }
+    /*
 #ifdef _DEBUG
     GLuint index = 0;
     bool found = false;
@@ -534,6 +542,7 @@ void COpenGLSLMaterialRenderer::setShaderTextures(const s32* textureIndices, s32
         return;
     }
 #endif
+*/
 
     GLsizei cnt = number;
     GLint loc = location;
@@ -550,7 +559,10 @@ void COpenGLSLMaterialRenderer::setShaderTextures(const s32* textureIndices, s32
     case ESCT_SAMPLER_2D_ARRAY:
     case ESCT_SAMPLER_1D_ARRAY_SHADOW:
     case ESCT_SAMPLER_2D_ARRAY_SHADOW:
+    case ESCT_SAMPLER_2D_MULTISAMPLE:
+    case ESCT_SAMPLER_2D_MULTISAMPLE_ARRAY:
     case ESCT_SAMPLER_CUBE_SHADOW:
+    case ESCT_SAMPLER_BUFFER:
     case ESCT_SAMPLER_2D_RECT:
     case ESCT_SAMPLER_2D_RECT_SHADOW:
     case ESCT_INT_SAMPLER_1D:
@@ -559,12 +571,18 @@ void COpenGLSLMaterialRenderer::setShaderTextures(const s32* textureIndices, s32
     case ESCT_INT_SAMPLER_CUBE:
     case ESCT_INT_SAMPLER_1D_ARRAY:
     case ESCT_INT_SAMPLER_2D_ARRAY:
+    case ESCT_INT_SAMPLER_2D_MULTISAMPLE:
+    case ESCT_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
+    case ESCT_INT_SAMPLER_BUFFER:
     case ESCT_UINT_SAMPLER_1D:
     case ESCT_UINT_SAMPLER_2D:
     case ESCT_UINT_SAMPLER_3D:
     case ESCT_UINT_SAMPLER_CUBE:
     case ESCT_UINT_SAMPLER_1D_ARRAY:
     case ESCT_UINT_SAMPLER_2D_ARRAY:
+    case ESCT_UINT_SAMPLER_2D_MULTISAMPLE:
+    case ESCT_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY:
+    case ESCT_UINT_SAMPLER_BUFFER:
         Driver->extGlUniform1iv(loc,cnt,(GLint*)textureIndices);
         break;
 #ifdef _DEBUG

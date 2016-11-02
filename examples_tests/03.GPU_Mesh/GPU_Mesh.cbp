@@ -50,8 +50,6 @@
 					<Add option="-O3" />
 					<Add option="-w" />
 					<Add option="-g" />
-					<Add option="-flto" />
-					<Add option="-fuse-linker-plugin" />
 					<Add option="-fno-omit-frame-pointer" />
 					<Add option="-msse3" />
 					<Add option="-mfpmath=sse" />
@@ -60,8 +58,6 @@
 				</Compiler>
 				<Linker>
 					<Add option="-fuse-ld=gold" />
-					<Add option="-flto" />
-					<Add option="-fuse-linker-plugin" />
 					<Add option="-msse3" />
 					<Add library="Irrlicht" />
 					<Add library="Xxf86vm" />
@@ -80,7 +76,7 @@
 		<Compiler>
 			<Add option="-g" />
 			<Add option="-W" />
-			<Add directory="../../../irrlicht/include" />
+			<Add directory="../../include" />
 		</Compiler>
 		<Unit filename="main.cpp" />
 		<Unit filename="mesh.frag" />

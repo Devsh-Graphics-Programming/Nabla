@@ -25,7 +25,7 @@ namespace scene
 	public:
 
 		//! Constructor
-		ICameraSceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id,
+		ICameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f,1.0f,1.0f))
@@ -50,18 +50,9 @@ namespace scene
 
 		//! Gets the current view matrix of the camera.
 		/** \return The current view matrix of the camera. */
-		virtual const core::matrix4& getViewMatrix() const =0;
+		virtual const core::matrix4x3& getViewMatrix() const =0;
 
-		//! Sets a custom view matrix affector.
-		/** The matrix passed here, will be multiplied with the view
-		matrix when it gets updated. This allows for custom camera
-		setups like, for example, a reflection camera.
-		\param affector The affector matrix. */
-		virtual void setViewMatrixAffector(const core::matrix4& affector) =0;
-
-		//! Get the custom view matrix affector.
-		/** \return The affector matrix. */
-		virtual const core::matrix4& getViewMatrixAffector() const =0;
+		virtual const core::matrix4& getConcatenatedMatrix() const =0;
 
 		//! It is possible to send mouse and key events to the camera.
 		/** Most cameras may ignore this input, but camera scene nodes

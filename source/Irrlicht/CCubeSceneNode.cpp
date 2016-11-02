@@ -27,7 +27,7 @@ namespace scene
 	*/
 
 //! constructor
-CCubeSceneNode::CCubeSceneNode(f32 size, ISceneNode* parent, ISceneManager* mgr,
+CCubeSceneNode::CCubeSceneNode(f32 size, IDummyTransformationSceneNode* parent, ISceneManager* mgr,
 		s32 id, const core::vector3df& position,
 		const core::vector3df& rotation, const core::vector3df& scale)
 	: IMeshSceneNode(parent, mgr, id, position, rotation, scale),
@@ -60,7 +60,7 @@ void CCubeSceneNode::setSize()
 void CCubeSceneNode::render()
 {
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
-	driver->setTransform(video::ETS_WORLD, AbsoluteTransformation);
+	driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
 
 	// for debug purposes only:
@@ -99,18 +99,9 @@ void CCubeSceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CCubeSceneNode::getBoundingBox() const
+const core::aabbox3d<f32>& CCubeSceneNode::getBoundingBox()
 {
 	return Mesh->getMeshBuffer(0)->getBoundingBox();
-}
-
-
-//! Removes a child from this scene node.
-//! Implemented here, to be able to remove the shadow properly, if there is one,
-//! or to remove attached childs.
-bool CCubeSceneNode::removeChild(ISceneNode* child)
-{
-	return ISceneNode::removeChild(child);
 }
 
 
@@ -138,7 +129,7 @@ u32 CCubeSceneNode::getMaterialCount() const
 
 
 //! Creates a clone of this scene node and its children.
-ISceneNode* CCubeSceneNode::clone(ISceneNode* newParent, ISceneManager* newManager)
+ISceneNode* CCubeSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
 {
 	if (!newParent)
 		newParent = Parent;

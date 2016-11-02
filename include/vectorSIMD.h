@@ -15,6 +15,7 @@
 #endif // __IRR_COMPILE_WITH_SSE2
 
 #include "irrMath.h"
+#include "vector2d.h"
 #include <stdint.h>
 #include "SColor.h"
 
@@ -192,6 +193,24 @@ NO BITSHIFTING SUPPORT
 
 #include "SIMDswizzle.h"
 
+
+    inline vectorSIMDf abs(const vectorSIMDf& a);
+    inline vectorSIMDf ceil(const vectorSIMDf& a);
+    inline vectorSIMDf clamp(const vectorSIMDf& value, const vectorSIMDf& low, const vectorSIMDf& high);
+	inline vectorSIMDf cross(const vectorSIMDf& a, const vectorSIMDf& b);
+    inline vectorSIMDf degToRad(const vectorSIMDf& degrees);
+	inline vectorSIMDf dot(const vectorSIMDf& a, const vectorSIMDf& b);
+    inline vector4db_SIMD equals(const vectorSIMDf& a,const vectorSIMDf& b, const float tolerance = ROUNDING_ERROR_f32);
+    inline vectorSIMDf floor(const vectorSIMDf& a);
+    inline vectorSIMDf fract(const vectorSIMDf& a);
+    inline vectorSIMDf inversesqrt(const vectorSIMDf& a);
+    inline vectorSIMDf length(const vectorSIMDf& v);
+    inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t);
+    inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t);
+    inline vectorSIMDf normalize(const vectorSIMDf& v);
+    inline vectorSIMDf radToDeg(const vectorSIMDf& radians);
+    inline vectorSIMDf reciprocal(const vectorSIMDf& a);
+    inline vectorSIMDf sqrt(const vectorSIMDf& a);
 
 
 #ifdef _IRR_WINDOWS_
@@ -376,11 +395,11 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf& set(const vector2df &p) {_mm_store_ps(pointer,_mm_loadu_ps(&p.X)); makeSafe2D(); return *this;}
 
         //! going directly from vectorSIMD to irrlicht types is safe cause vectorSIMDf is wider
-		inline vector2df& getAsVector2df(void) const
+		inline vector2df getAsVector2df(void) const
 		{
 		    return *((vector2df*)pointer);
 		}
-		inline vector3df& getAsVector3df(void) const
+		inline vector3df getAsVector3df(void) const
 		{
 		    return *((vector3df*)pointer);
 		}
@@ -389,45 +408,17 @@ NO BITSHIFTING SUPPORT
 		//! Get length of the vector.
 		inline float getLengthAsFloat() const
 		{
-		    __m128 xmm0 = getAsRegister();
-		    float result;/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-            xmm0 = _mm_dp_ps(xmm0,xmm0,);
-		    xmm0 = _mm_sqrt_ps(xmm0);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/
-#ifdef __IRR_COMPILE_WITH_SSE3
-		    xmm0 = _mm_mul_ps(xmm0,xmm0);
-		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
-		    xmm0 = _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
-		    _mm_store_ss(&result,xmm0);
+		    float result;
+		    _mm_store_ss(&result,length(*this).getAsRegister());
 		    return result;
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm0);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-		    xmm0 = _mm_sqrt_ps(xmm0);
-		    _mm_store_ss(&result,xmm0);
-		    return result;
-#endif
         }
         //! Useful when you have to divide a vector by another vector's length (so you dont convert/store to a scalar)
         //! all components are filled with length
         //! if you need something else, you can get the register and shuffle
 		inline vectorSIMDf getLength() const
 		{
-		    __m128 xmm0 = getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE3
-		    xmm0 = _mm_mul_ps(xmm0,xmm0);
-		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
-		    return _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm0);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-		    return _mm_sqrt_ps(xmm0);
-#endif
-        }
+		    return length(*this);
+		}
 
 
         inline vectorSIMDf getSquareRoot() const
@@ -444,43 +435,12 @@ NO BITSHIFTING SUPPORT
 		inline float dotProductAsFloat(const vectorSIMDf& other) const
 		{
 		    float result;
-		    __m128 xmm0 = getAsRegister();
-		    __m128 xmm1 = other.getAsRegister();/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-            xmm0 = _mm_dp_ps(xmm0,xmm1,);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/
-#ifdef __IRR_COMPILE_WITH_SSE3
-		    xmm0 = _mm_mul_ps(xmm0,xmm1);
-		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
-		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
-		    _mm_store_ss(&result,xmm0);
+		    _mm_store_ss(&result,dot(*this,other).getAsRegister());
 		    return result;
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm1);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-		    _mm_store_ss(&result,xmm0);
-		    return result;
-#endif
 		}
 		inline vectorSIMDf dotProduct(const vectorSIMDf& other) const
 		{
-		    __m128 xmm0 = getAsRegister();
-		    __m128 xmm1 = other.getAsRegister();/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-            xmm0 = _mm_dp_ps(xmm0,xmm1,);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/
-#ifdef __IRR_COMPILE_WITH_SSE3
-		    xmm0 = _mm_mul_ps(xmm0,xmm1);
-		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
-		    return _mm_hadd_ps(xmm0,xmm0);
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm1);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    return _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-#endif
+            return dot(*this,other);
 		}
 
 		//! Get squared length of the vector.
@@ -495,7 +455,7 @@ NO BITSHIFTING SUPPORT
         //! Useful when you have to divide a vector by another vector's length (so you dont convert/store to a scalar)
 		inline vectorSIMDf getLengthSQ() const
 		{
-		    return dotProduct(*this);
+		    return dot(*this,*this);
         }
 
 
@@ -530,34 +490,13 @@ NO BITSHIFTING SUPPORT
 		\return Crossproduct of this vector with p. */
 		inline vectorSIMDf crossProduct(const vectorSIMDf& p) const
 		{
-		    __m128 xmm0 = getAsRegister();
-		    __m128 xmm1 = p.getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE2 //! SSE2 implementation is faster than previous SSE3 implementation
-		    __m128 backslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,2,1)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,1,0,2)));
-		    __m128 forwardslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,1,0,2)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,0,2,1)));
-			return _mm_sub_ps(backslash,forwardslash); //returns 0 in the last component :D
-#endif
-		}
-
-		//! Normalizes the vector.
-		/** In case of the 0 vector the result is still 0, otherwise
-		the length of the vector will be 1.
-		\return Reference to this vector after normalization. */
-		inline vectorSIMDf normalize() const
-		{
-		    __m128 xmm0 = getAsRegister();
-		    __m128 xmm1 = getLengthSQ().getAsRegister();// the uncecessary load/store and variable construction will get optimized out with inline
-#ifdef IRRLICHT_FAST_MATH
-		    return _mm_mul_ps(xmm0,_mm_rsqrt_ps(xmm1));
-#else
-		    return _mm_div_ps(xmm0,_mm_sqrt_ps(xmm1));
-#endif
+		    return cross(*this,p);
 		}
 
 		//! Sets the length of the vector to a new value
 		inline vectorSIMDf& setLengthAsFloat(float newlength)
 		{
-			(*this) = normalize()*newlength;
+			(*this) = normalize(*this)*newlength;
 			return (*this);
 		}
 
@@ -566,11 +505,6 @@ NO BITSHIFTING SUPPORT
 		{
 			_mm_store_ps(pointer,_mm_xor_ps(_mm_castsi128_ps(_mm_set_epi32(0x80000000u,0x80000000u,0x80000000u,0x80000000u)),getAsRegister()));
 			return *this;
-		}
-		//! Returns component-wise absolute value of a
-		inline vectorSIMDf abs(const vectorSIMDf& a) const
-		{
-			return _mm_and_ps(a.getAsRegister(),_mm_castsi128_ps(_mm_set_epi32(0x7FFFFFFF,0x7FFFFFFF,0x7FFFFFFF,0x7FFFFFFF)));
 		}
 		//! Returns component-wise absolute value of itself
 		inline vectorSIMDf getAbsoluteValue() const
@@ -817,19 +751,24 @@ NO BITSHIFTING SUPPORT
 #endif
 
 
-	static inline vectorSIMDf radToDeg(const vectorSIMDf& radians)
+    //! Returns component-wise absolute value of a
+    inline vectorSIMDf abs(const vectorSIMDf& a)
+    {
+        return _mm_and_ps(a.getAsRegister(),_mm_castsi128_ps(_mm_set_epi32(0x7FFFFFFF,0x7FFFFFFF,0x7FFFFFFF,0x7FFFFFFF)));
+    }
+	 inline vectorSIMDf radToDeg(const vectorSIMDf& radians)
 	{
 	    return radians*vectorSIMDf(RADTODEG);
 	}
-    static inline vectorSIMDf degToRad(const vectorSIMDf& degrees)
+     inline vectorSIMDf degToRad(const vectorSIMDf& degrees)
     {
         return degrees*vectorSIMDf(DEGTORAD);
     }
-    static inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
+     inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
     {
         return a+(b-a)*t;
     }
-    static inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
+     inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
     {
         return mix(a,b,t);
 	}
@@ -847,16 +786,32 @@ NO BITSHIFTING SUPPORT
     {
         return min_(max_(value,low),high);
     }
-    inline vector4db_SIMD equals(const vectorSIMDf& a,const vectorSIMDf& b, const float tolerance = ROUNDING_ERROR_f32)
+    inline vector4db_SIMD equals(const vectorSIMDf& a,const vectorSIMDf& b, const float tolerance)
     {
         return (a + tolerance >= b) && (a - tolerance <= b);
     }
     inline vectorSIMDf floor(const vectorSIMDf& a)
     {
         vectorSIMDf b = a;
-        vector4db_SIMD notTooLargeToFloor = b.getAbsoluteValue()<vectorSIMDf(float(0x800000)); //cutoff point for flooring
+        vector4db_SIMD notTooLarge = b.getAbsoluteValue()<vectorSIMDf(float(0x800000)); //cutoff point for flooring
         __m128i xmm0 = _mm_cvtps_epi32(b.getAsRegister());
-        _mm_maskmoveu_si128(_mm_castps_si128(_mm_cvtepi32_ps(xmm0)),notTooLargeToFloor.getAsRegister(),(char*)b.pointer);
+        __m128 xmm1 = _mm_cvtepi32_ps(xmm0);
+
+        xmm1 =  _mm_add_ps(xmm1, _mm_and_ps(_mm_cmpgt_ps(xmm1, a.getAsRegister()), _mm_set1_ps(-1.f)));
+
+        _mm_maskmoveu_si128(_mm_castps_si128(xmm1),notTooLarge.getAsRegister(),(char*)b.pointer);
+        return b;
+    }
+    inline vectorSIMDf ceil(const vectorSIMDf& a)
+    {
+        vectorSIMDf b = a;
+        vector4db_SIMD notTooLarge = b.getAbsoluteValue()<vectorSIMDf(float(0x800000)); //cutoff point for flooring
+        __m128i xmm0 = _mm_cvtps_epi32(b.getAsRegister());
+        __m128 xmm1 = _mm_cvtepi32_ps(xmm0);
+
+        xmm1 =  _mm_add_ps(xmm1, _mm_and_ps(_mm_cmplt_ps(xmm1, a.getAsRegister()), _mm_set1_ps(1.f)));
+
+        _mm_maskmoveu_si128(_mm_castps_si128(xmm1),notTooLarge.getAsRegister(),(char*)b.pointer);
         return b;
     }
     inline vectorSIMDf fract(const vectorSIMDf& a)
@@ -875,6 +830,58 @@ NO BITSHIFTING SUPPORT
     {
         return _mm_rcp_ps(a.getAsRegister());
 	}
+	inline vectorSIMDf dot(const vectorSIMDf& a, const vectorSIMDf& b)
+    {
+        __m128 xmm0 = a.getAsRegister();
+        __m128 xmm1 = b.getAsRegister();/*
+#ifdef __IRR_COMPILE_WITH_SSE4_1
+        xmm0 = _mm_dp_ps(xmm0,xmm1,);
+#error "Implementation in >=SSE4.1 not ready yet"
+#elif __IRR_COMPILE_WITH_SSE3*/
+#ifdef __IRR_COMPILE_WITH_SSE3
+        xmm0 = _mm_mul_ps(xmm0,xmm1);
+        xmm0 = _mm_hadd_ps(xmm0,xmm0);
+        return _mm_hadd_ps(xmm0,xmm0);
+#elif defined(__IRR_COMPILE_WITH_SSE2)
+        xmm0 = _mm_mul_ps(xmm0,xmm1);
+        xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
+        return _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
+#endif
+    }
+	inline vectorSIMDf cross(const vectorSIMDf& a, const vectorSIMDf& b)
+    {
+        __m128 xmm0 = a.getAsRegister();
+        __m128 xmm1 = b.getAsRegister();
+#ifdef __IRR_COMPILE_WITH_SSE2 //! SSE2 implementation is faster than previous SSE3 implementation
+        __m128 backslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,2,1)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,1,0,2)));
+        __m128 forwardslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,1,0,2)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,0,2,1)));
+        return _mm_sub_ps(backslash,forwardslash); //returns 0 in the last component :D
+#endif
+    }
+    inline vectorSIMDf length(const vectorSIMDf& v)
+    {
+        __m128 xmm0 = v.getAsRegister();
+#ifdef __IRR_COMPILE_WITH_SSE3
+        xmm0 = _mm_mul_ps(xmm0,xmm0);
+        xmm0 = _mm_hadd_ps(xmm0,xmm0);
+        return _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
+#elif defined(__IRR_COMPILE_WITH_SSE2)
+        xmm0 = _mm_mul_ps(xmm0,xmm0);
+        xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
+        xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
+        return _mm_sqrt_ps(xmm0);
+#endif
+    }
+    inline vectorSIMDf normalize(const vectorSIMDf& v)
+    {
+        __m128 xmm0 = v.getAsRegister();
+        __m128 xmm1 = dot(v,v).getAsRegister();// the uncecessary load/store and variable construction will get optimized out with inline
+#ifdef IRRLICHT_FAST_MATH
+        return _mm_mul_ps(xmm0,_mm_rsqrt_ps(xmm1));
+#else
+        return _mm_div_ps(xmm0,_mm_sqrt_ps(xmm1));
+#endif
+    }
 
 	//! Typedef for a f32 n-dimensional vector.
 	typedef vectorSIMDf vector4df_SIMD;

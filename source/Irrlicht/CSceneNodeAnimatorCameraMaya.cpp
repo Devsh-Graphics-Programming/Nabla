@@ -91,7 +91,7 @@ bool CSceneNodeAnimatorCameraMaya::OnEvent(const SEvent& event)
 
 
 //! OnAnimate() is called just before rendering the whole scene.
-void CSceneNodeAnimatorCameraMaya::animateNode(ISceneNode *node, u32 timeMs)
+void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *node, u32 timeMs)
 {
 	//Alt + LM = Rotate around camera pivot
 	//Alt + LM + MM = Dolly forth/back in view direction (speed % distance camera pivot - max distance to pivot)
@@ -276,7 +276,7 @@ void CSceneNodeAnimatorCameraMaya::setDistance(f32 distance)
 	CurrentZoom=distance;
 }
 
-		
+
 //! Gets the rotation speed
 f32 CSceneNodeAnimatorCameraMaya::getRotateSpeed() const
 {
@@ -305,7 +305,7 @@ f32 CSceneNodeAnimatorCameraMaya::getDistance() const
 }
 
 
-ISceneNodeAnimator* CSceneNodeAnimatorCameraMaya::createClone(ISceneNode* node, ISceneManager* newManager)
+ISceneNodeAnimator* CSceneNodeAnimatorCameraMaya::createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager)
 {
 	CSceneNodeAnimatorCameraMaya * newAnimator =
 		new CSceneNodeAnimatorCameraMaya(CursorControl, RotateSpeed, ZoomSpeed, TranslateSpeed);

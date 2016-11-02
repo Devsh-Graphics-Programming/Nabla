@@ -12,6 +12,11 @@ namespace video
 
 COpenGLVAO::COpenGLVAO() :  vao(0), lastValidated(0)
 {
+    for (size_t i=0; i<scene::EVAI_COUNT; i++)
+        mappedAttrBuf[i] = NULL;
+
+    mappedIndexBuf = NULL;
+
     COpenGLExtensionHandler::extGlCreateVertexArrays(1,&vao);
 }
 
@@ -19,6 +24,16 @@ COpenGLVAO::~COpenGLVAO()
 {
     if (vao)
         COpenGLExtensionHandler::extGlDeleteVertexArrays(1,&vao);
+
+
+    for (size_t i=0; i<scene::EVAI_COUNT; i++)
+    {
+        if (mappedAttrBuf[i])
+            mappedAttrBuf[i]->drop();
+    }
+
+    if (getIndexBuffer())
+        getIndexBuffer()->drop();
 }
 
 
@@ -53,7 +68,7 @@ void COpenGLVAO::mapIndexBuffer(IGPUBuffer* ixbuf)
 }
 
 
-void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, scene::E_COMPONENTS_PER_ATTRIBUTE components, scene::E_COMPONENT_TYPE type, const size_t &stride, size_t offset)
+void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, scene::E_COMPONENTS_PER_ATTRIBUTE components, scene::E_COMPONENT_TYPE type, const size_t &stride, size_t offset, uint32_t divisor)
 {
     if (attrId>=scene::EVAI_COUNT)
 #ifdef _DEBUG
@@ -114,6 +129,7 @@ void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_
         type = scene::ECT_FLOAT;
         newStride = 16;
         offset = 0;
+        divisor = 0;
     }
 
 
@@ -162,6 +178,12 @@ void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_
         }
     }
 
+    if (divisor!=attrDivisor[attrId])
+    {
+        COpenGLExtensionHandler::extGlVertexArrayBindingDivisor(vao,attrId,divisor);
+        attrDivisor[attrId] = divisor;
+    }
+
     compntsPerAttr[attrId] = components;
     attrType[attrId] = type;
     attrStride[attrId] = newStride;
@@ -171,14 +193,42 @@ void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_
     mappedAttrBuf[attrId] = asGLBuf;
 }
 
+void COpenGLVAO::setMappedBufferOffset(const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const size_t &offset)
+{
+    if (attrId>=scene::EVAI_COUNT)
+#ifdef _DEBUG
+    {
+        os::Printer::log("MeshBuffer mapVertexAttrBuffer attribute ID out of range!\n",ELL_ERROR);
+        return;
+    }
+#else
+        return;
+#endif // _DEBUG
+
+    COpenGLBuffer* asGLBuf = mappedAttrBuf[attrId];
+    if (!asGLBuf)
+        return;
+
+
+    if (offset!=attrOffset[attrId]) //dont compare openGL names, could have been recycled
+        COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),offset,attrStride[attrId]);
+
+    attrOffset[attrId] = offset;
+}
+
+
 bool COpenGLVAO::rebindRevalidate()
 {
-    bool updateValidated = false;
-    COpenGLBuffer* asGLBuf = dynamic_cast<COpenGLBuffer*>(mappedIndexBuf);
-    if (mappedIndexBuf&&asGLBuf->getLastTimeReallocated()>lastValidated)
+    uint64_t highestRevalidateStamp = lastValidated;
+
+    if (mappedIndexBuf)
     {
-        COpenGLExtensionHandler::extGlVertexArrayElementBuffer(vao,asGLBuf->getOpenGLName());
-        updateValidated = true;
+        uint64_t revalidateStamp = mappedIndexBuf->getLastTimeReallocated();
+        if (revalidateStamp>lastValidated)
+        {
+            highestRevalidateStamp = revalidateStamp;
+            COpenGLExtensionHandler::extGlVertexArrayElementBuffer(vao,mappedIndexBuf->getOpenGLName());
+        }
     }
 
     for (size_t i=0; i<scene::EVAI_COUNT; i++)
@@ -186,22 +236,23 @@ bool COpenGLVAO::rebindRevalidate()
         if (!mappedAttrBuf[i])
             continue;
 
-        COpenGLBuffer* buffer = dynamic_cast<COpenGLBuffer*>(mappedAttrBuf[i]);
+        COpenGLBuffer* buffer = mappedAttrBuf[i];
         if (!buffer)
         {
             os::Printer::log("Non-OpenGL IBuffer used in OpenGL VAO!");
             return false;
         }
 
-        if (buffer->getLastTimeReallocated()>lastValidated)
+        uint64_t revalidateStamp = buffer->getLastTimeReallocated();
+        if (revalidateStamp>lastValidated)
         {
+            if (revalidateStamp>highestRevalidateStamp)
+                highestRevalidateStamp = revalidateStamp;
             COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,i,buffer->getOpenGLName(),attrOffset[i],attrStride[i]);
-            updateValidated = true;
         }
     }
 
-    if (updateValidated)
-        lastValidated = os::Timer::getRealTime();
+    lastValidated = highestRevalidateStamp;
 
 	return true;
 }
@@ -214,9 +265,6 @@ bool COpenGLVAO::rebindRevalidate()
                                   const uint *buffers,
                                   const intptr *offsets,
                                   const sizei *strides);
-
-    void VertexArrayBindingDivisor(uint vaobj, uint bindingindex,
-                                   uint divisor);
 **/
 }
 }

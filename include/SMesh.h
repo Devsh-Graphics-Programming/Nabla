@@ -53,7 +53,10 @@ namespace scene
 		//! returns pointer to a mesh buffer
 		virtual ICPUMeshBuffer* getMeshBuffer(u32 nr) const
 		{
-			return MeshBuffers[nr];
+		    if (MeshBuffers.size())
+                return MeshBuffers[nr];
+            else
+                return NULL;
 		}
 
 		//! returns an axis aligned bounding box
@@ -141,21 +144,22 @@ namespace scene
 		{
 			for (u32 i=0; i<MeshBuffers.size(); ++i)
 				MeshBuffers[i]->drop();
-			MeshBuffers.clear();
-			BoundingBox.reset ( 0.f, 0.f, 0.f );
 		}
 
 
 		//! returns amount of mesh buffers.
 		virtual u32 getMeshBufferCount() const
 		{
-			return MeshBuffers.size();
+            return MeshBuffers.size();
 		}
 
 		//! returns pointer to a mesh buffer
 		virtual IGPUMeshBuffer* getMeshBuffer(u32 nr) const
 		{
-			return MeshBuffers[nr];
+		    if (MeshBuffers.size())
+                return MeshBuffers[nr];
+            else
+                return NULL;
 		}
 
 		//! returns an axis aligned bounding box
@@ -168,21 +172,6 @@ namespace scene
 		virtual void setBoundingBox( const core::aabbox3df& box)
 		{
 			BoundingBox = box;
-		}
-
-		//! recalculates the bounding box
-		void recalculateBoundingBox()
-		{
-			if (MeshBuffers.size())
-			{
-				BoundingBox = MeshBuffers[0]->getBoundingBox();
-				for (u32 i=1; i<MeshBuffers.size(); ++i)
-                {
-					BoundingBox.addInternalBox(MeshBuffers[i]->getBoundingBox());
-                }
-			}
-			else
-				BoundingBox.reset(0.0f, 0.0f, 0.0f);
 		}
 
 		//! adds a MeshBuffer
@@ -205,9 +194,10 @@ namespace scene
 
 		virtual E_MESH_TYPE getMeshType() const {return EMT_NOT_ANIMATED;}
 
+    //private:
 		//! The bounding box of this mesh
 		core::aabbox3d<f32> BoundingBox;
-    //private:
+
 		//! The meshbuffers of this mesh
 		core::array<IGPUMeshBuffer*> MeshBuffers;
 	};

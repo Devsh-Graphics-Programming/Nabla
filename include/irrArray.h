@@ -620,6 +620,375 @@ private:
 };
 
 
+template <class T>
+class pseudoarray
+{
+
+public:
+
+	//! Default constructor for empty array.
+	pseudoarray(T* mappedRange, const size_t& maxSize, const size_t& currentSize=0)
+		: data(mappedRange), allocated(maxSize), used(currentSize), is_sorted(true)
+	{
+	}
+
+
+	//! Copy constructor
+	pseudoarray(const pseudoarray<T>& other) : data(0)
+	{
+		*this = other;
+	}
+
+	pseudoarray() : data(0), allocated(0), used(0), is_sorted(true) {}
+
+
+	//! Adds an element at back of array.
+	/** If the array is too small to add this new element it is made bigger.
+	\param element: Element to add at the back of the array. */
+	void push_back(const T& element)
+	{
+		insert(element, used);
+	}
+
+
+	//! Adds an element at the front of the array.
+	/** If the array is to small to add this new element, the array is
+	made bigger. Please note that this is slow, because the whole array
+	needs to be copied for this.
+	\param element Element to add at the back of the array. */
+	void push_front(const T& element)
+	{
+		insert(element);
+	}
+
+
+	//! Insert item into array at specified position.
+	/** Please use this only if you know what you are doing (possible
+	performance loss). The preferred method of adding elements should be
+	push_back().
+	\param element: Element to be inserted
+	\param index: Where position to insert the new element. */
+	void insert(const T& element, u32 index=0)
+	{
+		_IRR_DEBUG_BREAK_IF(index>used) // access violation
+		_IRR_DEBUG_BREAK_IF(index>=allocated) // access violation
+
+        // element inserted not at end
+        if ( used > index )
+        {
+            // move the rest of the array content
+            memmove(data+index+1,data+index,used-index);
+            // insert the new element
+            data[index] = element;
+        }
+        else
+        {
+            data[index] = element;
+        }
+		// set to false as we don't know if we have the comparison operators
+		is_sorted = false;
+		++used;
+	}
+
+
+	//! Sets the size of the array and allocates new elements if necessary.
+	/** Please note: This is only secure when using it with simple types,
+	because no default constructor will be called for the added elements.
+	\param usedNow Amount of elements now used. */
+	void set_used(u32 usedNow)
+	{
+		if (allocated < usedNow)
+			usedNow = allocated;
+
+		used = usedNow;
+		is_sorted = usedNow==0||(is_sorted&&usedNow<=used);
+	}
+
+
+	//! Assignment operator
+	const pseudoarray<T>& operator=(const pseudoarray<T>& other)
+	{
+		if (this == &other)
+			return *this;
+
+
+		if (other.allocated == 0)
+			data = 0;
+		else
+			data = other.data;
+
+		used = other.used;
+		is_sorted = other.is_sorted;
+		allocated = other.allocated;
+
+		return *this;
+	}
+
+
+	//! Direct access operator
+	T& operator [](u32 index)
+	{
+		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
+
+		return data[index];
+	}
+
+
+	//! Direct const access operator
+	const T& operator [](u32 index) const
+	{
+		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
+
+		return data[index];
+	}
+
+
+	//! Gets last element.
+	T& getLast()
+	{
+		_IRR_DEBUG_BREAK_IF(!used) // access violation
+
+		return data[used-1];
+	}
+
+
+	//! Gets last element
+	const T& getLast() const
+	{
+		_IRR_DEBUG_BREAK_IF(!used) // access violation
+
+		return data[used-1];
+	}
+
+
+	//! Gets a pointer to the array.
+	/** \return Pointer to the array. */
+	T* pointer()
+	{
+		return data;
+	}
+
+
+	//! Gets a const pointer to the array.
+	/** \return Pointer to the array. */
+	const T* const_pointer() const
+	{
+		return data;
+	}
+
+
+	//! Get number of occupied elements of the array.
+	/** \return Size of elements in the array which are actually occupied. */
+	u32 size() const
+	{
+		return used;
+	}
+
+
+	//! Get amount of memory allocated.
+	/** \return Amount of memory allocated. The amount of bytes
+	allocated would be allocated_size() * sizeof(ElementTypeUsed); */
+	u32 allocated_size() const
+	{
+		return allocated;
+	}
+
+
+	//! Check if array is empty.
+	/** \return True if the array is empty false if not. */
+	bool empty() const
+	{
+		return used == 0;
+	}
+
+
+	//! Sorts the array using heapsort.
+	/** There is no additional memory waste and the algorithm performs
+	O(n*log n) in worst case. */
+	void sort()
+	{
+		if (!is_sorted && used>1)
+			heapsort(data, used);
+		is_sorted = true;
+	}
+
+
+	//! Performs a binary search for an element, returns -1 if not found.
+	/** The array will be sorted before the binary search if it is not
+	already sorted. Caution is advised! Be careful not to call this on
+	unsorted const arrays, or the slower method will be used.
+	\param element Element to search for.
+	\return Position of the searched element if it was found,
+	otherwise -1 is returned. */
+	s32 binary_search(const T& element)
+	{
+		sort();
+		return binary_search(element, 0, used-1);
+	}
+
+
+	//! Performs a binary search for an element if possible, returns -1 if not found.
+	/** This method is for const arrays and so cannot call sort(), if the array is
+	not sorted then linear_search will be used instead. Potentially very slow!
+	\param element Element to search for.
+	\return Position of the searched element if it was found,
+	otherwise -1 is returned. */
+	s32 binary_search(const T& element) const
+	{
+		if (is_sorted)
+			return binary_search(element, 0, used-1);
+		else
+			return linear_search(element);
+	}
+
+
+	//! Performs a binary search for an element, returns -1 if not found.
+	/** \param element: Element to search for.
+	\param left First left index
+	\param right Last right index.
+	\return Position of the searched element if it was found, otherwise -1
+	is returned. */
+	s32 binary_search(const T& element, s32 left, s32 right) const
+	{
+		if (!used)
+			return -1;
+
+		s32 m;
+
+		do
+		{
+			m = (left+right)>>1;
+
+			if (element < data[m])
+				right = m - 1;
+			else
+				left = m + 1;
+
+		} while((element < data[m] || data[m] < element) && left<=right);
+		// this last line equals to:
+		// " while((element != array[m]) && left<=right);"
+		// but we only want to use the '<' operator.
+		// the same in next line, it is "(element == array[m])"
+
+
+		if (!(element < data[m]) && !(data[m] < element))
+			return m;
+
+		return -1;
+	}
+
+
+	//! Performs a binary search for an element, returns -1 if not found.
+	//! it is used for searching a multiset
+	/** The array will be sorted before the binary search if it is not
+	already sorted.
+	\param element	Element to search for.
+	\param &last	return lastIndex of equal elements
+	\return Position of the first searched element if it was found,
+	otherwise -1 is returned. */
+	s32 binary_search_multi(const T& element, s32 &last)
+	{
+		sort();
+		s32 index = binary_search(element, 0, used-1);
+		if ( index < 0 )
+			return index;
+
+		// The search can be somewhere in the middle of the set
+		// look linear previous and past the index
+		last = index;
+
+		while ( index > 0 && !(element < data[index - 1]) && !(data[index - 1] < element) )
+		{
+			index -= 1;
+		}
+		// look linear up
+		while ( last < (s32) used - 1 && !(element < data[last + 1]) && !(data[last + 1] < element) )
+		{
+			last += 1;
+		}
+
+		return index;
+	}
+
+
+	//! Finds an element in linear time, which is very slow.
+	/** Use binary_search for faster finding. Only works if ==operator is
+	implemented.
+	\param element Element to search for.
+	\return Position of the searched element if it was found, otherwise -1
+	is returned. */
+	s32 linear_search(const T& element) const
+	{
+		for (u32 i=0; i<used; ++i)
+			if (element == data[i])
+				return (s32)i;
+
+		return -1;
+	}
+
+
+	//! Finds an element in linear time, which is very slow.
+	/** Use binary_search for faster finding. Only works if ==operator is
+	implemented.
+	\param element: Element to search for.
+	\return Position of the searched element if it was found, otherwise -1
+	is returned. */
+	s32 linear_reverse_search(const T& element) const
+	{
+		for (s32 i=used-1; i>=0; --i)
+			if (data[i] == element)
+				return i;
+
+		return -1;
+	}
+
+
+	//! Erases an element from the array.
+	/** May be slow, because all elements following after the erased
+	element have to be copied.
+	\param index: Index of element to be erased. */
+	void erase(u32 index)
+	{
+		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
+
+        if (index+1<used)
+            memmove(data+index,data+index+1,used-index-1);
+
+		--used;
+	}
+
+
+	//! Erases some elements from the array.
+	/** May be slow, because all elements following after the erased
+	element have to be copied.
+	\param index: Index of the first element to be erased.
+	\param count: Amount of elements to be erased. */
+	void erase(u32 index, s32 count)
+	{
+		_IRR_DEBUG_BREAK_IF(index+count>used) // access violation
+
+        if (index+count<used)
+            memmove(data+index,data+index+count,used-index-count);
+
+		used-= count;
+	}
+
+
+	//! Sets if the array is sorted
+	void set_sorted(bool _is_sorted)
+	{
+		is_sorted = _is_sorted;
+	}
+
+
+private:
+	T* data;
+	u32 allocated;
+	u32 used;
+	bool is_sorted;
+};
+
+
 } // end namespace core
 } // end namespace irr
 

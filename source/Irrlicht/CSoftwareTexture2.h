@@ -35,8 +35,13 @@ public:
 	//! destructor
 	virtual ~CSoftwareTexture2();
 
+    virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0) {return false;}
+    virtual bool resize(const uint32_t* size, const u32& mipLevels=0) {return false;}
+    virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
+
 	//! lock function
-	virtual void* lock(E_TEXTURE_LOCK_MODE mode=ETLM_READ_WRITE, u32 mipmapLevel=0)
+	virtual void* lock(u32 mipmapLevel=0)
 	{
 		if (Flags & GEN_MIPMAP)
 			MipMapLOD=mipmapLevel;
@@ -64,11 +69,11 @@ public:
 	}
 
 	//! Returns (=size) of the texture.
-	virtual const core::dimension2d<u32>& getSize() const
+	virtual const uint32_t* getSize() const
 	{
-		return MipMap[MipMapLOD]->getDimension();
+		return &MipMap[MipMapLOD]->getDimension().Width;
 	}
-	virtual const core::dimension2d<u32>& getRenderableSize() const
+	virtual core::dimension2du getRenderableSize() const
 	{
 		return MipMap[MipMapLOD]->getDimension();
 	}

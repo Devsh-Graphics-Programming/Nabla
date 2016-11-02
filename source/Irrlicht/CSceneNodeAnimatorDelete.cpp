@@ -22,7 +22,7 @@ CSceneNodeAnimatorDelete::CSceneNodeAnimatorDelete(ISceneManager* manager, u32 t
 
 
 //! animates a scene node
-void CSceneNodeAnimatorDelete::animateNode(ISceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorDelete::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
 {
 	if (timeMs > FinishTime)
 	{
@@ -37,7 +37,7 @@ void CSceneNodeAnimatorDelete::animateNode(ISceneNode* node, u32 timeMs)
 }
 
 
-ISceneNodeAnimator* CSceneNodeAnimatorDelete::createClone(ISceneNode* node, ISceneManager* newManager)
+ISceneNodeAnimator* CSceneNodeAnimatorDelete::createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager)
 {
 	CSceneNodeAnimatorDelete * newAnimator =
 		new CSceneNodeAnimatorDelete(SceneManager, FinishTime);

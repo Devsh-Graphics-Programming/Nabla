@@ -30,9 +30,6 @@ namespace video
 		//! queries the features of the driver, returns true if feature is available
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const;
 
-		//! sets transformation
-		virtual void setTransform(E_TRANSFORMATION_STATE state, const core::matrix4& mat);
-
 		//! sets a material
 		virtual void setMaterial(const SMaterial& material);
 
@@ -99,9 +96,6 @@ namespace video
 		//! get color format of the current color buffer
 		virtual ECOLOR_FORMAT getColorFormat() const;
 
-		//! Returns the transformation set by setTransform
-		virtual const core::matrix4& getTransform(E_TRANSFORMATION_STATE state) const;
-
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 		virtual video::ITexture* createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData=0);
@@ -158,7 +152,6 @@ namespace video
 		core::dimension2d<u32> RenderTargetSize;
 		core::dimension2d<u32> ViewPortSize;
 
-		core::matrix4 TransformationMatrix[ETS_COUNT];
 
 		ITriangleRenderer* CurrentTriangleRenderer;
 		ITriangleRenderer* TriangleRenderers[ETR_COUNT];

@@ -13,6 +13,7 @@ namespace irr
 
 namespace scene
 {
+	class IDummyTransformationSceneNode;
 	class ISceneNode;
 
 	//! Interface for dynamic creation of scene nodes
@@ -32,14 +33,14 @@ namespace scene
 		\param parent: Parent scene node of the new node, can be null to add the scene node to the root.
 		\return Returns pointer to the new scene node or null if not successful.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addSceneNode(ESCENE_NODE_TYPE type, ISceneNode* parent=0) = 0;
+		virtual ISceneNode* addSceneNode(ESCENE_NODE_TYPE type, IDummyTransformationSceneNode* parent=0) = 0;
 
 		//! adds a scene node to the scene graph based on its type name
 		/** \param typeName: Type name of the scene node to add.
 		\param parent: Parent scene node of the new node, can be null to add the scene node to the root.
 		\return Returns pointer to the new scene node or null if not successful.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addSceneNode(const c8* typeName, ISceneNode* parent=0) = 0;
+		virtual ISceneNode* addSceneNode(const c8* typeName, IDummyTransformationSceneNode* parent=0) = 0;
 
 		//! returns amount of scene node types this factory is able to create
 		virtual u32 getCreatableSceneNodeTypeCount() const = 0;

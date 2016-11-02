@@ -20,6 +20,8 @@ class IGPUMappedBuffer : public virtual video::IGPUBuffer
         //! WARNING: RESIZE will invalidate pointer
         //! WARNING: NEED TO FENCE BEFORE USE!!!!!!!!!!!!!
         virtual void* getPointer() = 0;
+
+        virtual const bool isMappedBuffer() const {return true;}
     private:
         //
 };

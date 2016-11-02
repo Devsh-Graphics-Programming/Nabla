@@ -57,16 +57,66 @@ namespace video
 
     class COpenGLVAO : public scene::IGPUMeshDataFormatDesc
     {
+            //vertices
+            COpenGLBuffer* mappedAttrBuf[scene::EVAI_COUNT];
+            //indices
+            COpenGLBuffer* mappedIndexBuf;
+
+            inline bool formatCanBeAppended(const COpenGLVAO* other) const
+            {
+                bool retVal = true;
+                for (size_t i=0; retVal&&i<scene::EVAI_COUNT; i++)
+                {
+                    if (mappedAttrBuf[i])
+                    {
+                        if (other->mappedAttrBuf[i])
+                            retVal = retVal&&compntsPerAttr[i]==other->compntsPerAttr[i]&&attrType[i]==other->attrType[i];
+                        else
+                            return false;
+                    }
+                    else
+                    {
+                        if (other->mappedAttrBuf[i])
+                            return false;
+                        else
+                            retVal = retVal&&compntsPerAttr[i]==other->compntsPerAttr[i]&&attrType[i]==other->attrType[i];
+                    }
+                }
+                return retVal;
+            }
+
+
             GLuint vao;
             uint64_t lastValidated;
         public:
             COpenGLVAO();
             virtual ~COpenGLVAO();
 
+            bool formatCanBeAppended(const scene::IGPUMeshDataFormatDesc* other) const
+            {
+                return formatCanBeAppended(reinterpret_cast<const COpenGLVAO*>(other));
+            }
+
 
             virtual void mapIndexBuffer(IGPUBuffer* ixbuf);
 
-            virtual void mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, scene::E_COMPONENTS_PER_ATTRIBUTE components, scene::E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0);
+            virtual const video::IGPUBuffer* getIndexBuffer() const
+            {
+                return mappedIndexBuf;
+            }
+
+            virtual void mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, scene::E_COMPONENTS_PER_ATTRIBUTE components, scene::E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0, uint32_t divisor=0);
+
+            virtual void setMappedBufferOffset(const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const size_t &offset);
+
+            virtual const video::IGPUBuffer* getMappedBuffer(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+            {
+                if (attrId>=scene::EVAI_COUNT)
+                    return NULL;
+
+                return mappedAttrBuf[attrId];
+            }
+
 
 
             inline const GLuint& getOpenGLName() const {return vao;}

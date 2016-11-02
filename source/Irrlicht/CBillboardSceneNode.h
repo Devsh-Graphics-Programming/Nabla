@@ -20,7 +20,7 @@ class CBillboardSceneNode : virtual public IBillboardSceneNode
 public:
 
 	//! constructor
-	CBillboardSceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id,
+	CBillboardSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 		const core::vector3df& position, const core::dimension2d<f32>& size,
 		video::SColor colorTop=video::SColor(0xFFFFFFFF),
 		video::SColor colorBottom=video::SColor(0xFFFFFFFF));
@@ -32,7 +32,7 @@ public:
 	virtual void render();
 
 	//! returns the axis aligned bounding box of this node
-	virtual const core::aabbox3d<f32>& getBoundingBox() const {return BBox;}
+	virtual const core::aabbox3d<f32>& getBoundingBox() {return BBox;}
 
 	//! sets the size of the billboard
 	virtual void setSize(const core::dimension2d<f32>& size);
@@ -65,7 +65,7 @@ public:
 	virtual ESCENE_NODE_TYPE getType() const { return ESNT_BILLBOARD; }
 
 	//! Creates a clone of this scene node and its children.
-	virtual ISceneNode* clone(ISceneNode* newParent=0, ISceneManager* newManager=0);
+	virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
 
 private:
 

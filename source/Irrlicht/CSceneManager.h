@@ -12,6 +12,7 @@
 #include "irrArray.h"
 #include "IMeshLoader.h"
 #include "ILightManager.h"
+#include "ISkinningStateManager.h"
 #include "CMeshManipulator.h"
 
 #include <map>
@@ -60,36 +61,44 @@ namespace scene
 
 		//! adds a cube scene node to the scene. It is a simple cube of (1,1,1) size.
 		//! the returned pointer must not be dropped.
-		virtual IMeshSceneNode* addCubeSceneNode(f32 size=10.0f, ISceneNode* parent=0, s32 id=-1,
+		virtual IMeshSceneNode* addCubeSceneNode(f32 size=10.0f, IDummyTransformationSceneNode* parent=0, s32 id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),	const core::vector3df& rotation = core::vector3df(0,0,0),	const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
 
 		//! Adds a sphere scene node to the scene.
-		virtual IMeshSceneNode* addSphereSceneNode(f32 radius=5.0f, s32 polyCount=16, ISceneNode* parent=0, s32 id=-1,
+		virtual IMeshSceneNode* addSphereSceneNode(f32 radius=5.0f, s32 polyCount=16, IDummyTransformationSceneNode* parent=0, s32 id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
 
-		//! adds a scene node for rendering an animated mesh model
-		virtual IAnimatedMeshSceneNode* addAnimatedMeshSceneNode(ICPUAnimatedMesh* mesh, ISceneNode* parent=0, s32 id=-1,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& rotation = core::vector3df(0,0,0),
-			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f),
-			bool alsoAddIfMeshPointerZero=false);
-
+        //!
+        virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
+            IDummyTransformationSceneNode* parent=0, s32 id=-1,
+            const core::vector3df& position = core::vector3df(0,0,0),
+            const core::vector3df& rotation = core::vector3df(0,0,0),
+            const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
 
 		//! adds a scene node for rendering a static mesh
 		//! the returned pointer must not be dropped.
-		virtual IMeshSceneNode* addMeshSceneNode(IGPUMesh* mesh, ISceneNode* parent=0, s32 id=-1,
+		virtual IMeshSceneNode* addMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent=0, s32 id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f),
 			bool alsoAddIfMeshPointerZero=false);
+
+        //!
+        virtual IMeshSceneNodeInstanced* addMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent=0, s32 id=-1,
+			const core::vector3df& position = core::vector3df(0,0,0),
+			const core::vector3df& rotation = core::vector3df(0,0,0),
+			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
+
+        //!
+		virtual void OnAnimate(u32 timeMs);
 
 		//! renders the node.
 		virtual void render();
 
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox() const;
+		virtual const core::aabbox3d<f32>& getBoundingBox();
 
 		//! registers a node for rendering it at a specific time.
 		virtual u32 registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_RENDER_PASS pass = ESNRP_AUTOMATIC);
@@ -103,7 +112,7 @@ namespace scene
 		//! \param parent: Parent scene node of the camera. Can be null. If the parent moves,
 		//! the camera will move too.
 		//! \return Pointer to interface to camera
-		virtual ICameraSceneNode* addCameraSceneNode(ISceneNode* parent = 0,
+		virtual ICameraSceneNode* addCameraSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& lookat = core::vector3df(0,0,100),
 			s32 id=-1, bool makeActive=true);
@@ -111,14 +120,14 @@ namespace scene
 		//! Adds a camera scene node which is able to be controlle with the mouse similar
 		//! like in the 3D Software Maya by Alias Wavefront.
 		//! The returned pointer must not be dropped.
-		virtual ICameraSceneNode* addCameraSceneNodeMaya(ISceneNode* parent=0,
+		virtual ICameraSceneNode* addCameraSceneNodeMaya(IDummyTransformationSceneNode* parent=0,
 			f32 rotateSpeed=-1500.f, f32 zoomSpeed=200.f,
 			f32 translationSpeed=1500.f, s32 id=-1, f32 distance=70.f,
 			bool makeActive=true);
 
 		//! Adds a camera scene node which is able to be controled with the mouse and keys
 		//! like in most first person shooters (FPS):
-		virtual ICameraSceneNode* addCameraSceneNodeFPS(ISceneNode* parent = 0,
+		virtual ICameraSceneNode* addCameraSceneNodeFPS(IDummyTransformationSceneNode* parent = 0,
 			f32 rotateSpeed = 100.0f, f32 moveSpeed = .5f, s32 id=-1,
 			SKeyMap* keyMapArray=0, s32 keyMapSize=0,
 			bool noVerticalMovement=false, f32 jumpSpeed = 0.f,
@@ -127,7 +136,7 @@ namespace scene
 		//! Adds a dynamic light scene node. The light will cast dynamic light on all
 		//! other scene nodes in the scene, which have the material flag video::MTF_LIGHTING
 		//! turned on. (This is the default setting in most scene nodes).
-		virtual ILightSceneNode* addLightSceneNode(ISceneNode* parent = 0,
+		virtual ILightSceneNode* addLightSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			video::SColorf color = video::SColorf(1.0f, 1.0f, 1.0f),
 			f32 range=100.0f, s32 id=-1);
@@ -135,7 +144,7 @@ namespace scene
 		//! Adds a billboard scene node to the scene. A billboard is like a 3d sprite: A 2d element,
 		//! which always looks to the camera. It is usually used for things like explosions, fire,
 		//! lensflares and things like that.
-		virtual IBillboardSceneNode* addBillboardSceneNode(ISceneNode* parent = 0,
+		virtual IBillboardSceneNode* addBillboardSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::dimension2d<f32>& size = core::dimension2d<f32>(10.0f, 10.0f),
 			const core::vector3df& position = core::vector3df(0,0,0), s32 id=-1,
 			video::SColor shadeTop = 0xFFFFFFFF, video::SColor shadeBottom = 0xFFFFFFFF);
@@ -144,21 +153,21 @@ namespace scene
 		//! is drawn around the camera position.
 		virtual ISceneNode* addSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom,
 			video::ITexture* left, video::ITexture* right, video::ITexture* front,
-			video::ITexture* back, ISceneNode* parent = 0, s32 id=-1);
+			video::ITexture* back, IDummyTransformationSceneNode* parent = 0, s32 id=-1);
 
 		//! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 		//! panoramic texture on it and is drawn around the camera position.
 		virtual ISceneNode* addSkyDomeSceneNode(video::ITexture* texture,
 			u32 horiRes=16, u32 vertRes=8,
 			f32 texturePercentage=0.9, f32 spherePercentage=2.0,f32 radius = 1000.f,
-			ISceneNode* parent=0, s32 id=-1);
+			IDummyTransformationSceneNode* parent=0, s32 id=-1);
 
 		//! Adds a dummy transformation scene node to the scene graph.
 		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
-			ISceneNode* parent=0, s32 id=-1);
+			IDummyTransformationSceneNode* parent=0, s32 id=-1);
 
 		//! Adds an empty scene node.
-		virtual ISceneNode* addEmptySceneNode(ISceneNode* parent, s32 id=-1);
+		virtual ISceneNode* addEmptySceneNode(IDummyTransformationSceneNode* parent, s32 id=-1);
 
 		//! Returns the root scene node. This is the scene node wich is parent
 		//! of all scene nodes. The root scene node is a special scene node which
@@ -212,35 +221,11 @@ namespace scene
 		//! some time automaticly.
 		virtual ISceneNodeAnimator* createDeleteAnimator(u32 timeMS);
 
-
-		//! Creates a special scene node animator for doing automatic collision detection
-		//! and response.
-		virtual ISceneNodeAnimatorCollisionResponse* createCollisionResponseAnimator(
-			ITriangleSelector* world, ISceneNode* sceneNode,
-			const core::vector3df& ellipsoidRadius = core::vector3df(30,60,30),
-			const core::vector3df& gravityPerSecond = core::vector3df(0,-1.0f,0),
-			const core::vector3df& ellipsoidTranslation = core::vector3df(0,0,0),
-			f32 slidingValue = 0.0005f);
-
 		//! Creates a follow spline animator.
 		virtual ISceneNodeAnimator* createFollowSplineAnimator(s32 startTime,
 			const core::array< core::vector3df >& points,
 			f32 speed, f32 tightness, bool loop, bool pingpong);
 
-
-		//! Creates a simple ITriangleSelector, based on a mesh.
-		virtual ITriangleSelector* createTriangleSelector(ICPUMesh* mesh, ISceneNode* node);
-
-		//! Creates a simple ITriangleSelector, based on a mesh.
-		virtual ITriangleSelector* createOctreeTriangleSelector(ICPUMesh* mesh,
-			ISceneNode* node, s32 minimalPolysPerNode);
-
-		//! Creates a simple dynamic ITriangleSelector, based on a axis aligned bounding box.
-		virtual ITriangleSelector* createTriangleSelectorFromBoundingBox(
-			ISceneNode* node);
-
-		//! Creates a meta triangle selector.
-		virtual IMetaTriangleSelector* createMetaTriangleSelector();
 
 		//! Adds an external mesh loader.
 		virtual void addExternalMeshLoader(IMeshLoader* externalLoader);
@@ -251,27 +236,24 @@ namespace scene
 		//! Retrieve the given mesh loader
 		virtual IMeshLoader* getMeshLoader(u32 index) const;
 
-		//! Returns a pointer to the scene collision manager.
-		virtual ISceneCollisionManager* getSceneCollisionManager();
-
 		//! Returns a pointer to the mesh manipulator.
 		virtual IMeshManipulator* getMeshManipulator();
 
 		//! Adds a scene node to the deletion queue.
-		virtual void addToDeletionQueue(ISceneNode* node);
-
+		virtual void addToDeletionQueue(IDummyTransformationSceneNode* node);
+/*
 		//! Returns the first scene node with the specified id.
-		virtual ISceneNode* getSceneNodeFromId(s32 id, ISceneNode* start=0);
+		virtual ISceneNode* getSceneNodeFromId(s32 id, IDummyTransformationSceneNode* start=0);
 
 		//! Returns the first scene node with the specified name.
-		virtual ISceneNode* getSceneNodeFromName(const c8* name, ISceneNode* start=0);
+		virtual ISceneNode* getSceneNodeFromName(const c8* name, IDummyTransformationSceneNode* start=0);
 
 		//! Returns the first scene node with the specified type.
-		virtual ISceneNode* getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, ISceneNode* start=0);
+		virtual ISceneNode* getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, IDummyTransformationSceneNode* start=0);
 
 		//! returns scene nodes by type.
-		virtual void getSceneNodesFromType(ESCENE_NODE_TYPE type, core::array<scene::ISceneNode*>& outNodes, ISceneNode* start=0);
-
+		virtual void getSceneNodesFromType(ESCENE_NODE_TYPE type, core::array<scene::ISceneNode*>& outNodes, IDummyTransformationSceneNode* start=0);
+*/
 		//! Posts an input event to the environment. Usually you do not have to
 		//! use this method, it is used by the internal engine.
 		virtual bool postEventFromUser(const SEvent& event);
@@ -312,7 +294,7 @@ namespace scene
 		virtual const c8* getAnimatorTypeName(ESCENE_NODE_ANIMATOR_TYPE type);
 
 		//! Adds a scene node to the scene by name
-		virtual ISceneNode* addSceneNode(const char* sceneNodeTypeName, ISceneNode* parent=0);
+		virtual ISceneNode* addSceneNode(const char* sceneNodeTypeName, IDummyTransformationSceneNode* parent=0);
 
 		//! creates a scene node animator based on its type name
 		virtual ISceneNodeAnimator* createSceneNodeAnimator(const char* typeName, ISceneNode* target=0);
@@ -351,7 +333,7 @@ namespace scene
 		virtual const IGeometryCreator* getGeometryCreator(void) const { return GeometryCreator; }
 
 		//! returns if node is culled
-		virtual bool isCulled(const ISceneNode* node) const;
+		virtual bool isCulled(ISceneNode* node) const;
 
 	protected:
 
@@ -363,21 +345,23 @@ namespace scene
 
 		struct DefaultNodeEntry
 		{
-			DefaultNodeEntry(ISceneNode* n) :
-				Node(n), TextureValue(0)
-			{
-				if (n->getMaterialCount())
-					TextureValue = (n->getMaterial(0).getTexture(0));
-			}
+				DefaultNodeEntry(ISceneNode* n) :
+					Node(n), renderPriority(0x80000000u), Material(video::EMT_SOLID)
+				{
+					renderPriority = n->getRenderPriorityScore();
+					if (n->getMaterialCount())
+						Material = n->getMaterial(0).MaterialType;
+				}
 
-			bool operator < (const DefaultNodeEntry& other) const
-			{
-				return (TextureValue < other.TextureValue);
-			}
+				bool operator < (const DefaultNodeEntry& other) const
+				{
+					return (renderPriority < other.renderPriority)||(renderPriority==other.renderPriority && Material<other.Material);
+				}
 
-			ISceneNode* Node;
+				ISceneNode* Node;
 			private:
-			void* TextureValue;
+				uint32_t renderPriority;
+				video::E_MATERIAL_TYPE Material;
 		};
 
 		//! sort on distance (center) to camera
@@ -434,9 +418,6 @@ namespace scene
 		//! cursor control
 		gui::ICursorControl* CursorControl;
 
-		//! collision manager
-		ISceneCollisionManager* CollisionManager;
-
 		//! render pass lists
 		core::array<ISceneNode*> CameraList;
 		core::array<ISceneNode*> LightList;
@@ -446,7 +427,7 @@ namespace scene
 		core::array<TransparentNodeEntry> TransparentEffectNodeList;
 
 		core::array<IMeshLoader*> MeshLoaderList;
-		core::array<ISceneNode*> DeletionList;
+		core::array<IDummyTransformationSceneNode*> DeletionList;
 		core::array<ISceneNodeFactory*> SceneNodeFactoryList;
 		core::array<ISceneNodeAnimatorFactory*> SceneNodeAnimatorFactoryList;
 

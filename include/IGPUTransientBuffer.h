@@ -10,12 +10,14 @@
 #include "IVideoDriver.h"
 #include "IDriverFence.h"
 #include <vector>
+#include "../source/Irrlicht/os.h"
+
+class FW_Mutex;
+class FW_ConditionVariable;
 
 namespace irr
 {
 
-class FW_Mutex;
-class FW_ConditionVariable;
 
 namespace video
 {
@@ -100,7 +102,7 @@ Thread Safeness:
     7) Using EWP_WAIT_FOR_GPU_FREE bit on Alloc() while having un-Free()'ed ranges (which will not be Free()'ed by other Threads) will DEADLOCK
 
 **/
-class IGPUTransientBuffer: public virtual IReferenceCounted
+class IGPUTransientBuffer : public virtual IReferenceCounted
 {
     public:
         struct Allocation
@@ -132,17 +134,42 @@ class IGPUTransientBuffer: public virtual IReferenceCounted
         };
 
 
-        static IGPUTransientBuffer* createTransientBuffer(IVideoDriver* driver, const size_t& bufsize=0x100000u, const bool& inCPUMem=true, const bool& growable=false, const bool& threadSafe=true)
+        static IGPUTransientBuffer* createMappedTransientBuffer(IVideoDriver* driver, const size_t& bufsize=0x100000u, const E_GPU_BUFFER_ACCESS& accessPattern=EGBA_WRITE, const bool& inCPUMem=true, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true)
         {
-            return new IGPUTransientBuffer(driver,bufsize,inCPUMem,growable,threadSafe);
+            IGPUMappedBuffer* buffer = driver->createPersistentlyMappedBuffer(bufsize,NULL,accessPattern,true,inCPUMem);
+            IGPUTransientBuffer* retval = new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe);
+			buffer->drop();
+			return retval;
+        }
+        static IGPUTransientBuffer* createMappedTransientBuffer(IVideoDriver* driver, IGPUMappedBuffer* buffer, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true)
+        {
+            return new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe);
+        }
+        static IGPUTransientBuffer* createTransientBuffer(IVideoDriver* driver, const size_t& bufsize=0x100000u, const E_GPU_BUFFER_ACCESS& accessPattern=EGBA_WRITE, const bool& inCPUMem=true, const bool& canModifySubData=false, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true)
+        {
+            IGPUBuffer* buffer = driver->createGPUBuffer(bufsize,NULL,canModifySubData,inCPUMem,accessPattern);
+            IGPUTransientBuffer* retval = new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe);
+			buffer->drop();
+			return retval;
         }
         ~IGPUTransientBuffer();
+
+        IGPUBuffer* getUnderlyingBuffer() {return underlyingBuffer;}
         //
         bool Validate();
+        void PrintDebug(bool needsMutex=true);
+        //
         //do more defragmentation in alloc()
-        E_ALLOC_RETURN_STATUS Alloc(size_t &offsetOut, const size_t &maxSize, E_WAIT_POLICY waitPolicy=EWP_DONT_WAIT, bool growIfTooSmall = false);
+        E_ALLOC_RETURN_STATUS Alloc(size_t &offsetOut, const size_t &maxSize, const size_t& alignment=32, E_WAIT_POLICY waitPolicy=EWP_DONT_WAIT, bool growIfTooSmall = false);
         //
         bool Commit(const size_t& start, const size_t& end);
+        //
+        bool Place(size_t &offsetOut, const void* data, const size_t& dataSize, const size_t& alignment=32, const E_WAIT_POLICY &waitPolicy=EWP_DONT_WAIT, const bool &growIfTooSmall = false);
+        //! Unless memory is being used by GPU it will be returned to free pool straight away
+        //! Useful if you dont end up using comitted memory by GPU
+        bool Free(const size_t& start, const size_t& end);
+        // GPU side calls
+        bool fenceRangeUsedByGPU(const size_t& start, const size_t& end);
         //
         inline bool queryRangeCommitted(const size_t& start, const size_t& end)
         {
@@ -150,24 +177,29 @@ class IGPUTransientBuffer: public virtual IReferenceCounted
         }
         bool queryRange(const size_t& start, const size_t& end, const Allocation::E_ALLOCATION_STATE& state);
         //
-        bool Place(size_t &offsetOut, void* data, const size_t& dataSize, const E_WAIT_POLICY &waitPolicy=EWP_DONT_WAIT, const bool &growIfTooSmall = false);
-        //! Unless memory is being used by GPU it will be returned to free pool straight away
-        //! Useful if you dont end up using comitted memory by GPU
-        bool Free(const size_t& start, const size_t& end);
-        // GPU side calls
-        bool fenceRangeUsedByGPU(const size_t& start, const size_t& end);
-        //
+        bool waitRangeFences(const size_t& start, const size_t& end, size_t timeOutNs);
+
         void DefragDescriptor();
+
+        const size_t& getFreeSpace() const {return totalFreeSpace;}
+        const size_t& getTrueFreeSpace() const {return totalTrueFreeSpace;}
     private:
-        IGPUTransientBuffer(IVideoDriver* driver, const size_t& bufsize, const bool& inCPUMem, const bool& growable, const bool& threadSafe);
+        IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe);
         FW_Mutex* mutex;
         FW_ConditionVariable* allocationChanged;
         size_t lastChanged;
         FW_Mutex* allocMutex;
 
+        size_t totalFreeSpace;
+        size_t totalTrueFreeSpace;
+        size_t largestFreeChunkSize; //! unifinished
+        size_t trueLargestFreeChunkSize; //! unfinished
+
+		bool flushOnWait;
         const bool canGrow;
         IVideoDriver* Driver;
-        IGPUMappedBuffer* underlyingBuffer;
+        IGPUBuffer* underlyingBuffer;
+        IGPUMappedBuffer* underlyingBufferAsMapped;
 
         std::vector<Allocation> allocs;
         inline bool invalidState(const Allocation& a)
@@ -194,7 +226,7 @@ class IGPUTransientBuffer: public virtual IReferenceCounted
                     startIx = m+1;
                 else
                 {
-        #ifdef _DEBUG
+        #ifdef _EXTREME_DEBUG
                     if (m>=allocs.size()||(!(start>=allocs[m].start&&start<allocs[m].end)))
                     {
                         os::Printer::log("IGPUTransientBuffer::findFirstChunk Binary Search FAILED!",ELL_ERROR);
@@ -206,7 +238,7 @@ class IGPUTransientBuffer: public virtual IReferenceCounted
                 }
             }
 
-        #ifdef _DEBUG
+        #ifdef _EXTREME_DEBUG
             if (startIx>endIx)
             {
                 os::Printer::log("IGPUTransientBuffer::findFirstChunk Binary Search FAILED!",ELL_ERROR);
@@ -217,31 +249,7 @@ class IGPUTransientBuffer: public virtual IReferenceCounted
             index =  endIx;
             return true;
         }
-        inline bool validate_ALREADYMUTEXED()
-        {
-            if (!underlyingBuffer)
-                return false;
-
-            if (allocs.size()<1)
-                return false;
-
-            if (allocs[0].start!=0||allocs.back().end!=underlyingBuffer->getSize())
-                return false;
-
-            for (size_t i=0; i<allocs.size(); i++)
-            {
-                if (invalidState(allocs[i]))
-                    return false;
-
-                if (allocs[i].end<=allocs[i].start)
-                    return false;
-
-                if (i>0&&allocs[i-1].end!=allocs[i].start)
-                    return false;
-            }
-
-            return true;
-        }
+        bool validate_ALREADYMUTEXED();
 };
 
 } // end namespace scene

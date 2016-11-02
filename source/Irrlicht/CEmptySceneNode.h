@@ -17,10 +17,10 @@ namespace scene
 	public:
 
 		//! constructor
-		CEmptySceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id);
+		CEmptySceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id);
 
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox() const;
+		virtual const core::aabbox3d<f32>& getBoundingBox();
 
 		//! This method is called just before the rendering process of the whole scene.
 		virtual void OnRegisterSceneNode();
@@ -32,7 +32,7 @@ namespace scene
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_EMPTY; }
 
 		//! Creates a clone of this scene node and its children.
-		virtual ISceneNode* clone(ISceneNode* newParent=0, ISceneManager* newManager=0);
+		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
 
 	private:
 

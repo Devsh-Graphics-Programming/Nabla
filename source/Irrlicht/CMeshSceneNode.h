@@ -19,7 +19,7 @@ namespace scene
 	public:
 
 		//! constructor
-		CMeshSceneNode(IGPUMesh* mesh, ISceneNode* parent, ISceneManager* mgr,	s32 id,
+		CMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr,	s32 id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
@@ -34,7 +34,7 @@ namespace scene
 		virtual void render();
 
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox() const;
+		virtual const core::aabbox3d<f32>& getBoundingBox();
 
 		//! returns the material based on the zero based index i. To get the amount
 		//! of materials used by this scene node, use getMaterialCount().
@@ -64,12 +64,7 @@ namespace scene
 		virtual bool isReferencingeMeshMaterials() const;
 
 		//! Creates a clone of this scene node and its children.
-		virtual ISceneNode* clone(ISceneNode* newParent=0, ISceneManager* newManager=0);
-
-		//! Removes a child from this scene node.
-		//! Implemented here, to be able to remove the shadow properly, if there is one,
-		//! or to remove attached childs.
-		virtual bool removeChild(ISceneNode* child);
+		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
 
 	protected:
 

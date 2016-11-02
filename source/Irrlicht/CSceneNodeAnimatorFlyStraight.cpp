@@ -35,7 +35,7 @@ void CSceneNodeAnimatorFlyStraight::recalculateIntermediateValues()
 
 
 //! animates a scene node
-void CSceneNodeAnimatorFlyStraight::animateNode(ISceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorFlyStraight::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
 {
 	if (!node)
 		return;
@@ -74,7 +74,7 @@ void CSceneNodeAnimatorFlyStraight::animateNode(ISceneNode* node, u32 timeMs)
 }
 
 
-ISceneNodeAnimator* CSceneNodeAnimatorFlyStraight::createClone(ISceneNode* node, ISceneManager* newManager)
+ISceneNodeAnimator* CSceneNodeAnimatorFlyStraight::createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager)
 {
 	CSceneNodeAnimatorFlyStraight * newAnimator =
 		new CSceneNodeAnimatorFlyStraight(Start, End, TimeForWay, Loop, StartTime, PingPong);

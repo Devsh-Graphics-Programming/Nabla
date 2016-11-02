@@ -21,7 +21,7 @@ CSceneNodeAnimatorRotation::CSceneNodeAnimatorRotation(u32 time, const core::vec
 
 
 //! animates a scene node
-void CSceneNodeAnimatorRotation::animateNode(ISceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorRotation::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
 {
 	if (node) // thanks to warui for this fix
 	{
@@ -44,7 +44,7 @@ void CSceneNodeAnimatorRotation::animateNode(ISceneNode* node, u32 timeMs)
 	}
 }
 
-ISceneNodeAnimator* CSceneNodeAnimatorRotation::createClone(ISceneNode* node, ISceneManager* newManager)
+ISceneNodeAnimator* CSceneNodeAnimatorRotation::createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager)
 {
 	CSceneNodeAnimatorRotation * newAnimator =
 		new CSceneNodeAnimatorRotation(StartTime, Rotation);

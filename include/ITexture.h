@@ -10,12 +10,53 @@
 #include "dimension2d.h"
 #include "EDriverTypes.h"
 #include "path.h"
-#include "matrix4.h"
 
 namespace irr
 {
 namespace video
 {
+
+enum E_TEXURE_BUFFER_OBJECT_FORMAT
+{
+    ///1
+    ETBOF_R8=0,
+    ETBOF_R16,
+    ETBOF_R16F,
+    ETBOF_R32F,
+    ETBOF_R8I,
+    ETBOF_R16I,
+    ETBOF_R32I,
+    ETBOF_R8UI,
+    ETBOF_R16UI,
+    ETBOF_R32UI,
+    ///2
+    ETBOF_RG8,
+    ETBOF_RG16,
+    ETBOF_RG16F,
+    ETBOF_RG32F,
+    ETBOF_RG8I,
+    ETBOF_RG16I,
+    ETBOF_RG32I,
+    ETBOF_RG8UI,
+    ETBOF_RG16UI,
+    ETBOF_RG32UI,
+    ///3
+    ETBOF_RGB32F,
+    ETBOF_RGB32I,
+    ETBOF_RGB32UI,
+    ///4
+    ETBOF_RGBA8,
+    ETBOF_RGBA16,
+    ETBOF_RGBA16F,
+    ETBOF_RGBA32F,
+    ETBOF_RGBA8I,
+    ETBOF_RGBA16I,
+    ETBOF_RGBA32I,
+    ETBOF_RGBA8UI,
+    ETBOF_RGBA16UI,
+    ETBOF_RGBA32UI,
+    ETBOF_COUNT
+};
 
 
 //! Enumeration flags telling the video driver in which format textures should be created.
@@ -70,21 +111,6 @@ enum E_TEXTURE_CREATION_FLAG
 	ETCF_FORCE_32_BIT_DO_NOT_USE = 0x7fffffff
 };
 
-//! Enum for the mode for texture locking. Read-Only, write-only or read/write.
-enum E_TEXTURE_LOCK_MODE
-{
-	//! The default mode. Texture can be read and written to.
-	ETLM_READ_WRITE = 0,
-
-	//! Read only. The texture is downloaded, but not uploaded again.
-	/** Often used to read back shader generated textures. */
-	ETLM_READ_ONLY,
-
-	//! Write only. The texture is not downloaded and might be uninitialised.
-	/** The updated texture is uploaded to the GPU.
-	Used for initialising the shader from the CPU. */
-	ETLM_WRITE_ONLY
-};
 
 //! Interface of a Video Driver dependent Texture.
 /** An ITexture is created by an IVideoDriver by using IVideoDriver::addTexture
@@ -95,18 +121,49 @@ NULL device, their textures are compatible. If you try to use a texture
 created by one device with an other device, the device will refuse to do that
 and write a warning or an error message to the output buffer.
 */
-class ITexture : public virtual IRenderable
+class ITexture : public IRenderable
 {
 public:
+    enum E_DIMENSION_COUNT
+    {
+        EDC_ZERO=0,
+        EDC_ONE,
+        EDC_TWO,
+        EDC_THREE,
+        EDC_COUNT,
+        EDC_FORCE32BIT=0xffffffffu
+    };
+    enum E_TEXTURE_TYPE
+    {
+        ETT_1D=0,
+        ETT_2D,
+        ETT_3D,
+        ETT_1D_ARRAY,
+        ETT_2D_ARRAY,
+        ETT_CUBE_MAP,
+        ETT_CUBE_MAP_ARRAY,
+        ETT_TEXTURE_BUFFER,
+        ETT_COUNT
+    };
 
 	//! constructor
 	ITexture(const io::path& name) : NamedPath(name)
 	{
 	}
 
+	virtual const E_DIMENSION_COUNT getDimensionality() const = 0;
+
 	//! Get dimension (=size) of the texture.
 	/** \return The size of the texture. */
-	virtual const core::dimension2d<u32>& getSize() const = 0;
+	virtual const uint32_t* getSize() const = 0;
+
+
+	//!
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0) = 0;
+    virtual bool resize(const uint32_t* size, const u32& mipLevels=0) = 0;
+
+    //!
+    virtual const E_TEXTURE_TYPE getTextureType() const = 0;
 
 	//! Get driver type of texture.
 	/** This is the driver, which created the texture. This method is used

@@ -30,9 +30,6 @@ namespace video
 		//! queries the features of the driver, returns true if feature is available
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const;
 
-		//! sets transformation
-		virtual void setTransform(E_TRANSFORMATION_STATE state, const core::matrix4& mat);
-
 		//! sets a material
 		virtual void setMaterial(const SMaterial& material);
 
@@ -73,11 +70,6 @@ namespace video
 
 		//! returns the maximal amount of dynamic lights the device can handle
 		virtual u32 getMaximalDynamicLightAmount() const;
-
-		//! Sets the dynamic ambient light color. The default color is
-		//! (0,0,0,0) which means it is dark.
-		//! \param color: New color of the ambient light.
-		virtual void setAmbientLight(const SColorf& color);
 
 		//! draws an 2d image, using a color (if color is other then Color(255,255,255,255)) and the alpha channel of the texture if wanted.
 		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<s32>& destPos,
@@ -120,9 +112,6 @@ namespace video
 		//! get color format of the current color buffer
 		virtual ECOLOR_FORMAT getColorFormat() const;
 
-		//! Returns the transformation set by setTransform
-		virtual const core::matrix4& getTransform(E_TRANSFORMATION_STATE state) const;
-
 		//! Creates a render target texture.
 		virtual ITexture* addRenderTargetTexture(const core::dimension2d<u32>& size,
 			const io::path& name, const ECOLOR_FORMAT format = ECF_UNKNOWN);
@@ -137,9 +126,6 @@ namespace video
 
 		//! Returns the graphics card vendor name.
 		virtual core::stringc getVendorInfo();
-
-		//! Returns the maximum texture size supported.
-		virtual core::dimension2du getMaxTextureSize() const;
 
 		virtual IDepthBuffer * getDepthBuffer () { return DepthBuffer; }
 		virtual IStencilBuffer * getStencilBuffer () { return StencilBuffer; }
@@ -182,17 +168,17 @@ namespace video
 			-> combined CameraProjection
 			-> combined CameraProjectionWorld
 			-> ClipScale from NDC to DC Space
-		*/
+		*
 		enum E_TRANSFORMATION_STATE_BURNING_VIDEO
 		{
-			ETS_VIEW_PROJECTION = ETS_COUNT,
+			E4X3TS_VIEW_PROJECTION = ETS_COUNT,
 			ETS_CURRENT,
 			ETS_CLIPSCALE,
-			ETS_VIEW_INVERSE,
-			ETS_WORLD_INVERSE,
+			E4X3TS_VIEW_INVERSE,
+			E4X3TS_WORLD_INVERSE,
 
 			ETS_COUNT_BURNING
-		};
+		};*/
 
 		enum E_TRANSFORMATION_FLAG
 		{
@@ -200,11 +186,11 @@ namespace video
 			ETF_TEXGEN_CAMERA_NORMAL = 2,
 			ETF_TEXGEN_CAMERA_REFLECTION = 4,
 		};
-		u32 TransformationFlag[ETS_COUNT_BURNING];
-		core::matrix4 Transformation[ETS_COUNT_BURNING];
 
 		void getCameraPosWorldSpace ();
 		void getLightPosObjectSpace ();
+
+		core::matrix4 ClipscaleTransformation;
 
 
 		// Vertex Cache

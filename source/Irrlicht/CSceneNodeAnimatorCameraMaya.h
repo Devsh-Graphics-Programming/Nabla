@@ -24,18 +24,18 @@ namespace scene
 	/** This scene node animator can be attached to a camera to make it act
 	like a 3d modelling tool camera
 	*/
-	class CSceneNodeAnimatorCameraMaya : public ISceneNodeAnimatorCameraMaya 
+	class CSceneNodeAnimatorCameraMaya : public ISceneNodeAnimatorCameraMaya
 	{
 	public:
 		//! Constructor
-		CSceneNodeAnimatorCameraMaya(gui::ICursorControl* cursor, f32 rotateSpeed = -1500.f, 
+		CSceneNodeAnimatorCameraMaya(gui::ICursorControl* cursor, f32 rotateSpeed = -1500.f,
 			f32 zoomSpeed = 200.f, f32 translationSpeed = 1500.f, f32 distance=70.f);
 
 		//! Destructor
 		virtual ~CSceneNodeAnimatorCameraMaya();
 
 		//! Animates the scene node, currently only works on cameras
-		virtual void animateNode(ISceneNode* node, u32 timeMs);
+		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs);
 
 		//! Event receiver
 		virtual bool OnEvent(const SEvent& event);
@@ -71,7 +71,7 @@ namespace scene
 		}
 
 		//! Returns type of the scene node
-		virtual ESCENE_NODE_ANIMATOR_TYPE getType() const 
+		virtual ESCENE_NODE_ANIMATOR_TYPE getType() const
 		{
 			return ESNAT_CAMERA_MAYA;
 		}
@@ -80,7 +80,7 @@ namespace scene
 		/** Please note that you will have to drop
 		(IReferenceCounted::drop()) the returned pointer after calling
 		this. */
-		virtual ISceneNodeAnimator* createClone(ISceneNode* node, ISceneManager* newManager=0);
+		virtual ISceneNodeAnimator* createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager=0);
 
 	private:
 

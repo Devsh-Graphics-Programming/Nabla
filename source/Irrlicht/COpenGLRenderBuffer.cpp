@@ -36,7 +36,7 @@ void COpenGLRenderBuffer::resize(const core::dimension2du &newSize)
     Driver->extGlCreateRenderbuffers(1,&RenderBufferName);
     Driver->extGlNamedRenderbufferStorage(RenderBufferName,InternalFormat,RenderBufferSize.Width,RenderBufferSize.Height);
 
-	RenderBufferNameHasChanged = os::Timer::getRealTime();
+	RenderBufferNameHasChanged = CNullDriver::incrementAndFetchReallocCounter();
 }
 
 }

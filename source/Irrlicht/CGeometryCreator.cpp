@@ -221,7 +221,6 @@ ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
 				blockSize.Height = hMapSize.Height - processed.Y;
 
 			SMeshBuffer* buffer = new SMeshBuffer();
-			buffer->setHardwareMappingHint(scene::EHM_STATIC);
 			buffer->Vertices.reallocate(blockSize.getArea());
 			// add vertices of vertex block
 			u32 y;
@@ -372,7 +371,6 @@ ICPUMesh* CGeometryCreator::createArrowMeshCPU(const u32 tesselationCylinder,
 		mesh->addMeshBuffer(buffer);
 	}
 	mesh2->drop();
-	mesh->setHardwareMappingHint(EHM_STATIC);
 
 	mesh->recalculateBoundingBox();
 	return mesh;
@@ -863,7 +861,6 @@ ICPUMesh* CGeometryCreator::createConeMeshCPU(f32 radius, f32 length, u32 tessel
 	mesh->addMeshBuffer(buffer);
 	buffer->drop();
 
-	mesh->setHardwareMappingHint(EHM_STATIC);
 	mesh->recalculateBoundingBox();
 	return mesh;
 #endif // NEW_MESHES

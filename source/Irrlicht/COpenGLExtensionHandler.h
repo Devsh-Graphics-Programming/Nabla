@@ -162,6 +162,7 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_point_sprite",
 	"GL_ARB_program_interface_query",
 	"GL_ARB_provoking_vertex",
+	"GL_ARB_query_buffer_object",
 	"GL_ARB_robustness",
 	"GL_ARB_sample_shading",
 	"GL_ARB_sampler_objects",
@@ -592,6 +593,7 @@ class COpenGLExtensionHandler
 		IRR_ARB_point_sprite,
 		IRR_ARB_program_interface_query,
 		IRR_ARB_provoking_vertex,
+		IRR_ARB_query_buffer_object,
 		IRR_ARB_robustness,
 		IRR_ARB_sample_shading,
 		IRR_ARB_sampler_objects,
@@ -980,8 +982,6 @@ class COpenGLExtensionHandler
 	static uint32_t MaxIndices;
 	//! Optimal number of vertices per meshbuffer
 	static uint32_t MaxVertices;
-	//! Maximal texture dimension
-	u32 MaxTextureSize;
 	//! Maximal vertices handled by geometry shaders
 	u32 MaxGeometryVerticesOut;
 	//! Maximal LOD Bias
@@ -1000,6 +1000,8 @@ class COpenGLExtensionHandler
 	//! GLSL version as Integer: 100*Major+Minor
 	u16 ShaderLanguageVersion;
 
+	static bool IsIntelGPU;
+
     //
     static GLsync extGlFenceSync(GLenum condition, GLbitfield flags);
     static void extGlDeleteSync(GLsync sync);
@@ -1011,6 +1013,8 @@ class COpenGLExtensionHandler
     static void extGlCreateTextures(GLenum target, GLsizei n, GLuint *textures);
 
 
+    static void extGlTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer);
+    static void extGlTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizei length);
     static void extGlTextureStorage1D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width);
     static void extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
     static void extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
@@ -1025,7 +1029,7 @@ class COpenGLExtensionHandler
     static void extGlCompressedTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data);
     static void extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void *data);
     static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
-    static void setPixelUnpackAlignment(const uint32_t &pitchInBits, void* ptr);
+    static void setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr);
 
     static void extGlGenSamplers(GLsizei n, GLuint* samplers);
     static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
@@ -1038,11 +1042,6 @@ class COpenGLExtensionHandler
 	static void extGlStencilFuncSeparate (GLenum frontfunc, GLenum backfunc, GLint ref, GLuint mask);
 	static void extGlStencilOpSeparate (GLenum face, GLenum fail, GLenum zfail, GLenum zpass);
 
-///#ifndef NEW_MESHES
-    static void extGlDisableVertexAttribArray (GLuint index);
-    static void extGlEnableVertexAttribArray (GLuint index);
-    static void extGlVertexAttribPointer (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *pointer);
-///#endif // NEW_MESHES
 
 	// shader programming
 	static GLuint extGlCreateShader(GLenum shaderType);
@@ -1050,7 +1049,8 @@ class COpenGLExtensionHandler
 	static void extGlCompileShader(GLuint shader);
 	static GLuint extGlCreateProgram(void);
 	static void extGlAttachShader(GLuint program, GLuint shader);
-	static void extGlLinkProgram(GLuint program);
+    static void extGlTransformFeedbackVaryings(GLuint program, GLsizei count, const char** varyings, GLenum bufferMode);
+    static void extGlLinkProgram(GLuint program);
 	static void extGlUseProgram(GLuint prog);
 	static void extGlDeleteProgram(GLuint object);
 	static void extGlDeleteShader(GLuint shader);
@@ -1111,7 +1111,7 @@ class COpenGLExtensionHandler
 
 	// vertex buffer object
 	static void extGlCreateBuffers(GLsizei n, GLuint *buffers);
-	static void extGlBindBuffer(GLenum target, GLuint buffer);
+	static void extGlBindBuffer(const GLenum& target, const GLuint& buffer);
 	static void extGlDeleteBuffers(GLsizei n, const GLuint *buffers);
     static void extGlNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void *data, GLbitfield flags);
 	static void extGlNamedBufferSubData (GLuint buffer, GLintptr offset, GLsizeiptr size, const void *data);
@@ -1137,8 +1137,27 @@ class COpenGLExtensionHandler
 	static void extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset);
 	static void extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset);
 	static void extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset);
+	static void extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor);
 
-	static void extGlDrawRangeElementsBaseVertex(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices, GLint basevertex);
+	//transform feedback
+	static void extGlCreateTransformFeedbacks(GLsizei n, GLuint* ids);
+    static void extGlDeleteTransformFeedbacks(GLsizei n, const GLuint* ids);
+    static void extGlBindTransformFeedback(GLenum target, GLuint id);
+    static void extGlBeginTransformFeedback(GLenum primitiveMode);
+    static void extGlPauseTransformFeedback();
+    static void extGlResumeTransformFeedback();
+    static void extGlEndTransformFeedback();
+    static void extGlTransformFeedbackBufferBase(GLuint xfb, GLuint index, GLuint buffer);
+    static void extGlTransformFeedbackBufferRange(GLuint xfb, GLuint index, GLuint buffer, GLintptr offset, GLsizei size);
+
+
+    //draw
+    static void extGlDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount);
+    static void extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance);
+	static void extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex);
+	static void extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance);
+    static void extGlDrawTransformFeedback(GLenum mode, GLuint id);
+    static void extGlDrawTransformFeedbackInstanced(GLenum mode, GLuint id, GLsizei instancecount);
 
 	//
 	static void extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
@@ -1152,17 +1171,18 @@ class COpenGLExtensionHandler
 	static void extGlPatchParameterfv(GLenum pname, GLfloat* values);
     static void extGlPatchParameteri(GLenum pname, GLuint value);
 
-	// occlusion query
-	static void extGlGenQueries(GLsizei n, GLuint *ids);
+	// queries
+	static void extGlCreateQueries(GLenum target, GLsizei n, GLuint *ids);
 	static void extGlDeleteQueries(GLsizei n, const GLuint *ids);
 	static GLboolean extGlIsQuery(GLuint id);
 	static void extGlBeginQuery(GLenum target, GLuint id);
 	static void extGlEndQuery(GLenum target);
-	static void extGlGetQueryiv(GLenum target, GLenum pname, GLint *params);
-	static void extGlGetQueryObjectiv(GLuint id, GLenum pname, GLint *params);
+	static void extGlBeginQueryIndexed(GLenum target, GLuint index, GLuint id);
+	static void extGlEndQueryIndexed(GLenum target, GLuint index);
 	static void extGlGetQueryObjectuiv(GLuint id, GLenum pname, GLuint *params);
-	static void extGlGetQueryObjecti64v(GLuint id, GLenum pname, GLint64 *params);
 	static void extGlGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params);
+	static void extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset);
+	static void extGlGetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname, GLintptr offset);
 	static void extGlQueryCounter(GLuint id, GLenum target);
 	static void extGlBeginConditionalRender(GLuint id, GLenum mode);
 	static void extGlEndConditionalRender();
@@ -1185,51 +1205,60 @@ class COpenGLExtensionHandler
 
     //textures
     static PFNGLACTIVETEXTUREPROC pGlActiveTexture;
-    static PFNGLBINDTEXTUREUNITPROC pGlBindTextureUnit;
+    static PFNGLBINDTEXTUREUNITPROC pGlBindTextureUnit; //NULL
     static PFNGLBINDMULTITEXTUREEXTPROC pGlBindMultiTextureEXT;
-    static PFNGLCREATETEXTURESPROC pGlCreateTextures;
+    static PFNGLCREATETEXTURESPROC pGlCreateTextures; //NULL
     static PFNGLTEXSTORAGE1DPROC pGlTexStorage1D;
     static PFNGLTEXSTORAGE2DPROC pGlTexStorage2D;
     static PFNGLTEXSTORAGE3DPROC pGlTexStorage3D;
-    static PFNGLTEXTURESTORAGE1DPROC pGlTextureStorage1D;
-    static PFNGLTEXTURESTORAGE2DPROC pGlTextureStorage2D;
-    static PFNGLTEXTURESTORAGE3DPROC pGlTextureStorage3D;
+    static PFNGLTEXBUFFERPROC pGlTexBuffer;
+    static PFNGLTEXBUFFERRANGEPROC pGlTexBufferRange;
+    static PFNGLTEXTURESTORAGE1DPROC pGlTextureStorage1D; //NULL
+    static PFNGLTEXTURESTORAGE2DPROC pGlTextureStorage2D; //NULL
+    static PFNGLTEXTURESTORAGE3DPROC pGlTextureStorage3D; //NULL
+    static PFNGLTEXTUREBUFFERPROC pGlTextureBuffer; //NULL
+    static PFNGLTEXTUREBUFFERRANGEPROC pGlTextureBufferRange; //NULL
     static PFNGLTEXTURESTORAGE1DEXTPROC pGlTextureStorage1DEXT;
     static PFNGLTEXTURESTORAGE2DEXTPROC pGlTextureStorage2DEXT;
     static PFNGLTEXTURESTORAGE3DEXTPROC pGlTextureStorage3DEXT;
+    static PFNGLTEXTUREBUFFEREXTPROC pGlTextureBufferEXT;
+    static PFNGLTEXTUREBUFFERRANGEEXTPROC pGlTextureBufferRangeEXT;
     ///static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC pGlTextureStorage2DMultisample;
     ///static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC pGlTextureStorage3DMultisample;
     static PFNGLTEXSUBIMAGE3DPROC pGlTexSubImage3D;
-    static PFNGLTEXTURESUBIMAGE1DPROC pGlTextureSubImage1D;
-    static PFNGLTEXTURESUBIMAGE2DPROC pGlTextureSubImage2D;
-    static PFNGLTEXTURESUBIMAGE3DPROC pGlTextureSubImage3D;
+    static PFNGLTEXTURESUBIMAGE1DPROC pGlTextureSubImage1D; //NULL
+    static PFNGLTEXTURESUBIMAGE2DPROC pGlTextureSubImage2D; //NULL
+    static PFNGLTEXTURESUBIMAGE3DPROC pGlTextureSubImage3D; //NULL
     static PFNGLTEXTURESUBIMAGE1DEXTPROC pGlTextureSubImage1DEXT;
     static PFNGLTEXTURESUBIMAGE2DEXTPROC pGlTextureSubImage2DEXT;
     static PFNGLTEXTURESUBIMAGE3DEXTPROC pGlTextureSubImage3DEXT;
     static PFNGLCOMPRESSEDTEXSUBIMAGE1DPROC pGlCompressedTexSubImage1D;
     static PFNGLCOMPRESSEDTEXSUBIMAGE2DPROC pGlCompressedTexSubImage2D;
     static PFNGLCOMPRESSEDTEXSUBIMAGE3DPROC pGlCompressedTexSubImage3D;
-    static PFNGLCOMPRESSEDTEXTURESUBIMAGE1DPROC pGlCompressedTextureSubImage1D;
-    static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DPROC pGlCompressedTextureSubImage2D;
-    static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DPROC pGlCompressedTextureSubImage3D;
+    static PFNGLCOMPRESSEDTEXTURESUBIMAGE1DPROC pGlCompressedTextureSubImage1D; //NULL
+    static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DPROC pGlCompressedTextureSubImage2D; //NULL
+    static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DPROC pGlCompressedTextureSubImage3D; //NULL
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC pGlCompressedTextureSubImage1DEXT;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC pGlCompressedTextureSubImage2DEXT;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC pGlCompressedTextureSubImage3DEXT;
     static PFNGLGENERATEMIPMAPPROC pGlGenerateMipmap;
-    static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap;
+    static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap; //NULL
     static PFNGLGENERATETEXTUREMIPMAPEXTPROC pGlGenerateTextureMipmapEXT;
 
     //samplers
     static PFNGLGENSAMPLERSPROC pGlGenSamplers;
-    static PFNGLCREATESAMPLERSPROC pGlCreateSamplers;
+    static PFNGLCREATESAMPLERSPROC pGlCreateSamplers; //NULL
     static PFNGLDELETESAMPLERSPROC pGlDeleteSamplers;
     static PFNGLBINDSAMPLERPROC pGlBindSampler;
     static PFNGLSAMPLERPARAMETERIPROC pGlSamplerParameteri;
     static PFNGLSAMPLERPARAMETERFPROC pGlSamplerParameterf;
 
+    // stuff
+    static PFNGLBINDBUFFERBASEPROC pGlBindBufferBase;
+    static PFNGLBINDBUFFERRANGEPROC pGlBindBufferRange;
 
     //shaders
-    static PFNGLBINDATTRIBLOCATIONPROC pGlBindAttribLocation;
+    static PFNGLBINDATTRIBLOCATIONPROC pGlBindAttribLocation; //NULL
     static PFNGLCREATEPROGRAMPROC pGlCreateProgram;
     static PFNGLUSEPROGRAMPROC pGlUseProgram;
     static PFNGLDELETEPROGRAMPROC pGlDeleteProgram;
@@ -1239,6 +1268,7 @@ class COpenGLExtensionHandler
     static PFNGLSHADERSOURCEPROC pGlShaderSource;
     static PFNGLCOMPILESHADERPROC pGlCompileShader;
     static PFNGLATTACHSHADERPROC pGlAttachShader;
+    static PFNGLTRANSFORMFEEDBACKVARYINGSPROC pGlTransformFeedbackVaryings;
     static PFNGLLINKPROGRAMPROC pGlLinkProgram;
     static PFNGLGETSHADERINFOLOGPROC pGlGetShaderInfoLog;
     static PFNGLGETPROGRAMINFOLOGPROC pGlGetProgramInfoLog;
@@ -1275,153 +1305,164 @@ class COpenGLExtensionHandler
     static PFNGLSTENCILOPSEPARATEATIPROC pGlStencilOpSeparateATI;
 
     // ARB framebuffer object
-    static PFNGLBLITNAMEDFRAMEBUFFERPROC pGlBlitNamedFramebuffer;
+    static PFNGLBLITNAMEDFRAMEBUFFERPROC pGlBlitNamedFramebuffer; //NULL
     static PFNGLBLITFRAMEBUFFERPROC pGlBlitFramebuffer;
     static PFNGLDELETEFRAMEBUFFERSPROC pGlDeleteFramebuffers;
-    static PFNGLCREATEFRAMEBUFFERSPROC pGlCreateFramebuffers;
+    static PFNGLCREATEFRAMEBUFFERSPROC pGlCreateFramebuffers; //NULL
     static PFNGLBINDFRAMEBUFFERPROC pGlBindFramebuffer;
     static PFNGLGENFRAMEBUFFERSPROC pGlGenFramebuffers;
     static PFNGLCHECKFRAMEBUFFERSTATUSPROC pGlCheckFramebufferStatus;
-    static PFNGLCHECKNAMEDFRAMEBUFFERSTATUSPROC pGlCheckNamedFramebufferStatus;
+    static PFNGLCHECKNAMEDFRAMEBUFFERSTATUSPROC pGlCheckNamedFramebufferStatus; //NULL
     static PFNGLCHECKNAMEDFRAMEBUFFERSTATUSEXTPROC pGlCheckNamedFramebufferStatusEXT;
     static PFNGLFRAMEBUFFERTEXTUREPROC pGlFramebufferTexture;
-    static PFNGLNAMEDFRAMEBUFFERTEXTUREPROC pGlNamedFramebufferTexture;
+    static PFNGLNAMEDFRAMEBUFFERTEXTUREPROC pGlNamedFramebufferTexture; //NULL
     static PFNGLNAMEDFRAMEBUFFERTEXTUREEXTPROC pGlNamedFramebufferTextureEXT;
     static PFNGLFRAMEBUFFERTEXTURELAYERPROC pGlFramebufferTextureLayer;
-    static PFNGLNAMEDFRAMEBUFFERTEXTURELAYERPROC pGlNamedFramebufferTextureLayer;
+    static PFNGLNAMEDFRAMEBUFFERTEXTURELAYERPROC pGlNamedFramebufferTextureLayer; //NULL
     static PFNGLNAMEDFRAMEBUFFERTEXTURELAYEREXTPROC pGlNamedFramebufferTextureLayerEXT;
     static PFNGLDELETERENDERBUFFERSPROC pGlDeleteRenderbuffers;
     static PFNGLGENRENDERBUFFERSPROC pGlGenRenderbuffers;
-    static PFNGLCREATERENDERBUFFERSPROC pGlCreateRenderbuffers;
+    static PFNGLCREATERENDERBUFFERSPROC pGlCreateRenderbuffers; //NULL
     static PFNGLBINDRENDERBUFFERPROC pGlBindRenderbuffer;
     static PFNGLRENDERBUFFERSTORAGEPROC pGlRenderbufferStorage;
-    static PFNGLNAMEDRENDERBUFFERSTORAGEPROC pGlNamedRenderbufferStorage;
+    static PFNGLNAMEDRENDERBUFFERSTORAGEPROC pGlNamedRenderbufferStorage; //NULL
     static PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC pGlNamedRenderbufferStorageEXT;
     static PFNGLFRAMEBUFFERRENDERBUFFERPROC pGlFramebufferRenderbuffer;
-    static PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC pGlNamedFramebufferRenderbuffer;
+    static PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC pGlNamedFramebufferRenderbuffer; //NULL
     static PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC pGlNamedFramebufferRenderbufferEXT;
 
     // EXT framebuffer object
-    static PFNGLACTIVESTENCILFACEEXTPROC pGlActiveStencilFaceEXT;
-    static PFNGLNAMEDFRAMEBUFFERREADBUFFERPROC pGlNamedFramebufferReadBuffer;
+    static PFNGLACTIVESTENCILFACEEXTPROC pGlActiveStencilFaceEXT; //NULL
+    static PFNGLNAMEDFRAMEBUFFERREADBUFFERPROC pGlNamedFramebufferReadBuffer; //NULL
     static PFNGLFRAMEBUFFERREADBUFFEREXTPROC pGlFramebufferReadBufferEXT;
-    static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERPROC pGlNamedFramebufferDrawBuffer;
+    static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERPROC pGlNamedFramebufferDrawBuffer; //NULL
     static PFNGLFRAMEBUFFERDRAWBUFFEREXTPROC pGlFramebufferDrawBufferEXT;
     static PFNGLDRAWBUFFERSPROC pGlDrawBuffers;
-    static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERSPROC pGlNamedFramebufferDrawBuffers;
+    static PFNGLNAMEDFRAMEBUFFERDRAWBUFFERSPROC pGlNamedFramebufferDrawBuffers; //NULL
     static PFNGLFRAMEBUFFERDRAWBUFFERSEXTPROC pGlFramebufferDrawBuffersEXT;
-    static PFNGLCLEARNAMEDFRAMEBUFFERIVPROC pGlClearNamedFramebufferiv;
-    static PFNGLCLEARNAMEDFRAMEBUFFERUIVPROC pGlClearNamedFramebufferuiv;
-    static PFNGLCLEARNAMEDFRAMEBUFFERFVPROC pGlClearNamedFramebufferfv;
-    static PFNGLCLEARNAMEDFRAMEBUFFERFIPROC pGlClearNamedFramebufferfi;
+    static PFNGLCLEARNAMEDFRAMEBUFFERIVPROC pGlClearNamedFramebufferiv; //NULL
+    static PFNGLCLEARNAMEDFRAMEBUFFERUIVPROC pGlClearNamedFramebufferuiv; //NULL
+    static PFNGLCLEARNAMEDFRAMEBUFFERFVPROC pGlClearNamedFramebufferfv; //NULL
+    static PFNGLCLEARNAMEDFRAMEBUFFERFIPROC pGlClearNamedFramebufferfi; //NULL
     static PFNGLCLEARBUFFERIVPROC pGlClearBufferiv;
     static PFNGLCLEARBUFFERUIVPROC pGlClearBufferuiv;
     static PFNGLCLEARBUFFERFVPROC pGlClearBufferfv;
     static PFNGLCLEARBUFFERFIPROC pGlClearBufferfi;
     //
     static PFNGLGENBUFFERSPROC pGlGenBuffers;
-    static PFNGLCREATEBUFFERSPROC pGlCreateBuffers;
+    static PFNGLCREATEBUFFERSPROC pGlCreateBuffers; //NULL
     static PFNGLBINDBUFFERPROC pGlBindBuffer;
     static PFNGLDELETEBUFFERSPROC pGlDeleteBuffers;
-    static PFNGLNAMEDBUFFERSTORAGEPROC pGlBufferStorage;
-    static PFNGLNAMEDBUFFERSTORAGEPROC pGlNamedBufferStorage;
+    static PFNGLBUFFERSTORAGEPROC pGlBufferStorage;
+    static PFNGLNAMEDBUFFERSTORAGEPROC pGlNamedBufferStorage; //NULL
     static PFNGLNAMEDBUFFERSTORAGEEXTPROC pGlNamedBufferStorageEXT;
-    static PFNGLNAMEDBUFFERSUBDATAPROC pGlBufferSubData;
-    static PFNGLNAMEDBUFFERSUBDATAPROC pGlNamedBufferSubData;
+    static PFNGLBUFFERSUBDATAPROC pGlBufferSubData;
+    static PFNGLNAMEDBUFFERSUBDATAPROC pGlNamedBufferSubData; //NULL
     static PFNGLNAMEDBUFFERSUBDATAEXTPROC pGlNamedBufferSubDataEXT;
-    static PFNGLNAMEDBUFFERSUBDATAEXTPROC pGlBufferSubDataEXT;
-    static PFNGLGETNAMEDBUFFERSUBDATAPROC pGlGetBufferSubData;
-    static PFNGLGETNAMEDBUFFERSUBDATAPROC pGlGetNamedBufferSubData;
+    static PFNGLGETBUFFERSUBDATAPROC pGlGetBufferSubData;
+    static PFNGLGETNAMEDBUFFERSUBDATAPROC pGlGetNamedBufferSubData; //NULL
     static PFNGLGETNAMEDBUFFERSUBDATAEXTPROC pGlGetNamedBufferSubDataEXT;
-    static PFNGLMAPNAMEDBUFFERPROC pGlMapBuffer;
-    static PFNGLMAPNAMEDBUFFERPROC pGlMapNamedBuffer;
+    static PFNGLMAPBUFFERPROC pGlMapBuffer;
+    static PFNGLMAPNAMEDBUFFERPROC pGlMapNamedBuffer; //NULL
     static PFNGLMAPNAMEDBUFFEREXTPROC pGlMapNamedBufferEXT;
-    static PFNGLMAPNAMEDBUFFERRANGEPROC pGlMapBufferRange;
-    static PFNGLMAPNAMEDBUFFERRANGEPROC pGlMapNamedBufferRange;
+    static PFNGLMAPBUFFERRANGEPROC pGlMapBufferRange;
+    static PFNGLMAPNAMEDBUFFERRANGEPROC pGlMapNamedBufferRange; //NULL
     static PFNGLMAPNAMEDBUFFERRANGEEXTPROC pGlMapNamedBufferRangeEXT;
-    static PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEPROC pGlFlushMappedBufferRange;
-    static PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEPROC pGlFlushMappedNamedBufferRange;
+    static PFNGLFLUSHMAPPEDBUFFERRANGEPROC pGlFlushMappedBufferRange;
+    static PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEPROC pGlFlushMappedNamedBufferRange; //NULL
     static PFNGLFLUSHMAPPEDNAMEDBUFFERRANGEEXTPROC pGlFlushMappedNamedBufferRangeEXT;
-    static PFNGLUNMAPNAMEDBUFFERPROC pGlUnmapBuffer;
-    static PFNGLUNMAPNAMEDBUFFERPROC pGlUnmapNamedBuffer;
+    static PFNGLUNMAPBUFFERPROC pGlUnmapBuffer;
+    static PFNGLUNMAPNAMEDBUFFERPROC pGlUnmapNamedBuffer; //NULL
     static PFNGLUNMAPNAMEDBUFFEREXTPROC pGlUnmapNamedBufferEXT;
-    static PFNGLCLEARNAMEDBUFFERDATAPROC pGlClearBufferData;
-    static PFNGLCLEARNAMEDBUFFERDATAPROC pGlClearNamedBufferData;
+    static PFNGLCLEARBUFFERDATAPROC pGlClearBufferData;
+    static PFNGLCLEARNAMEDBUFFERDATAPROC pGlClearNamedBufferData; //NULL
     static PFNGLCLEARNAMEDBUFFERDATAEXTPROC pGlClearNamedBufferDataEXT;
-    static PFNGLCLEARNAMEDBUFFERSUBDATAPROC pGlClearBufferSubData;
-    static PFNGLCLEARNAMEDBUFFERSUBDATAPROC pGlClearNamedBufferSubData;
+    static PFNGLCLEARBUFFERSUBDATAPROC pGlClearBufferSubData;
+    static PFNGLCLEARNAMEDBUFFERSUBDATAPROC pGlClearNamedBufferSubData; //NULL
     static PFNGLCLEARNAMEDBUFFERSUBDATAEXTPROC pGlClearNamedBufferSubDataEXT;
-    static PFNGLCOPYNAMEDBUFFERSUBDATAPROC pGlCopyBufferSubData;
-    static PFNGLCOPYNAMEDBUFFERSUBDATAPROC pGlCopyNamedBufferSubData;
+    static PFNGLCOPYBUFFERSUBDATAPROC pGlCopyBufferSubData;
+    static PFNGLCOPYNAMEDBUFFERSUBDATAPROC pGlCopyNamedBufferSubData; //NULL
     static PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC pGlNamedCopyBufferSubDataEXT;
     static PFNGLISBUFFERPROC pGlIsBuffer;
     //vao
     static PFNGLGENVERTEXARRAYSPROC pGlGenVertexArrays;
-    static PFNGLCREATEVERTEXARRAYSPROC pGlCreateVertexArrays;
+    static PFNGLCREATEVERTEXARRAYSPROC pGlCreateVertexArrays; //NULL
     static PFNGLDELETEVERTEXARRAYSPROC pGlDeleteVertexArrays;
     static PFNGLBINDVERTEXARRAYPROC pGlBindVertexArray;
-    static PFNGLVERTEXARRAYELEMENTBUFFERPROC pGlVertexArrayElementBuffer;
+    static PFNGLVERTEXARRAYELEMENTBUFFERPROC pGlVertexArrayElementBuffer; //NULL
     static PFNGLBINDVERTEXBUFFERPROC pGlBindVertexBuffer;
-    static PFNGLVERTEXARRAYVERTEXBUFFERPROC pGlVertexArrayVertexBuffer;
+    static PFNGLVERTEXARRAYVERTEXBUFFERPROC pGlVertexArrayVertexBuffer; //NULL
     static PFNGLVERTEXARRAYBINDVERTEXBUFFEREXTPROC pGlVertexArrayBindVertexBufferEXT;
     static PFNGLVERTEXATTRIBBINDINGPROC pGlVertexAttribBinding;
-    static PFNGLVERTEXARRAYATTRIBBINDINGPROC pGlVertexArrayAttribBinding;
+    static PFNGLVERTEXARRAYATTRIBBINDINGPROC pGlVertexArrayAttribBinding; //NULL
     static PFNGLVERTEXARRAYVERTEXATTRIBBINDINGEXTPROC pGlVertexArrayVertexAttribBindingEXT;
     static PFNGLENABLEVERTEXATTRIBARRAYPROC pGlEnableVertexAttribArray;
-    static PFNGLENABLEVERTEXARRAYATTRIBPROC pGlEnableVertexArrayAttrib;
+    static PFNGLENABLEVERTEXARRAYATTRIBPROC pGlEnableVertexArrayAttrib; //NULL
     static PFNGLENABLEVERTEXARRAYATTRIBEXTPROC pGlEnableVertexArrayAttribEXT;
     static PFNGLDISABLEVERTEXATTRIBARRAYPROC pGlDisableVertexAttribArray;
-    static PFNGLDISABLEVERTEXARRAYATTRIBPROC pGlDisableVertexArrayAttrib;
+    static PFNGLDISABLEVERTEXARRAYATTRIBPROC pGlDisableVertexArrayAttrib; //NULL
     static PFNGLDISABLEVERTEXARRAYATTRIBEXTPROC pGlDisableVertexArrayAttribEXT;
     static PFNGLVERTEXATTRIBFORMATPROC pGlVertexAttribFormat;
     static PFNGLVERTEXATTRIBIFORMATPROC pGlVertexAttribIFormat;
     static PFNGLVERTEXATTRIBLFORMATPROC pGlVertexAttribLFormat;
-    static PFNGLVERTEXARRAYATTRIBFORMATPROC pGlVertexArrayAttribFormat;
-    static PFNGLVERTEXARRAYATTRIBIFORMATPROC pGlVertexArrayAttribIFormat;
-    static PFNGLVERTEXARRAYATTRIBLFORMATPROC pGlVertexArrayAttribLFormat;
+    static PFNGLVERTEXARRAYATTRIBFORMATPROC pGlVertexArrayAttribFormat; //NULL
+    static PFNGLVERTEXARRAYATTRIBIFORMATPROC pGlVertexArrayAttribIFormat; //NULL
+    static PFNGLVERTEXARRAYATTRIBLFORMATPROC pGlVertexArrayAttribLFormat; //NULL
     static PFNGLVERTEXARRAYVERTEXATTRIBFORMATEXTPROC pGlVertexArrayVertexAttribFormatEXT;
     static PFNGLVERTEXARRAYVERTEXATTRIBIFORMATEXTPROC pGlVertexArrayVertexAttribIFormatEXT;
     static PFNGLVERTEXARRAYVERTEXATTRIBLFORMATEXTPROC pGlVertexArrayVertexAttribLFormatEXT;
+    static PFNGLVERTEXARRAYBINDINGDIVISORPROC pGlVertexArrayBindingDivisor; //NULL
+    static PFNGLVERTEXARRAYVERTEXBINDINGDIVISOREXTPROC pGlVertexArrayVertexBindingDivisorEXT;
+    static PFNGLVERTEXBINDINGDIVISORPROC pGlVertexBindingDivisor;
     //
-    static PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC pGlDrawRangeElementsBaseVertex;
+    static PFNGLDRAWARRAYSINSTANCEDPROC pGlDrawArraysInstanced;
+    static PFNGLDRAWARRAYSINSTANCEDBASEINSTANCEPROC pGlDrawArraysInstancedBaseInstance;
+	static PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC pGlDrawElementsInstancedBaseVertex;
+	static PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCEPROC pGlDrawElementsInstancedBaseVertexBaseInstance;
+	static PFNGLDRAWTRANSFORMFEEDBACKPROC pGlDrawTransformFeedback;
+	static PFNGLDRAWTRANSFORMFEEDBACKINSTANCEDPROC pGlDrawTransformFeedbackInstanced;
+	//
+	static PFNGLCREATETRANSFORMFEEDBACKSPROC pGlCreateTransformFeedbacks;
+	static PFNGLGENTRANSFORMFEEDBACKSPROC pGlGenTransformFeedbacks;
+	static PFNGLDELETETRANSFORMFEEDBACKSPROC pGlDeleteTransformFeedbacks;
+	static PFNGLBINDTRANSFORMFEEDBACKPROC pGlBindTransformFeedback;
+	static PFNGLBEGINTRANSFORMFEEDBACKPROC pGlBeginTransformFeedback;
+	static PFNGLPAUSETRANSFORMFEEDBACKPROC pGlPauseTransformFeedback;
+	static PFNGLRESUMETRANSFORMFEEDBACKPROC pGlResumeTransformFeedback;
+	static PFNGLENDTRANSFORMFEEDBACKPROC pGlEndTransformFeedback;
+	static PFNGLTRANSFORMFEEDBACKBUFFERBASEPROC pGlTransformFeedbackBufferBase;
+	static PFNGLTRANSFORMFEEDBACKBUFFERRANGEPROC pGlTransformFeedbackBufferRange;
     //
     static PFNGLBLENDFUNCSEPARATEPROC pGlBlendFuncSeparate;
     static PFNGLPROVOKINGVERTEXPROC pGlProvokingVertex;
     static PFNGLCOLORMASKIPROC pGlColorMaski;
     static PFNGLENABLEIPROC pGlEnablei;
     static PFNGLDISABLEIPROC pGlDisablei;
-    static PFNGLBLENDFUNCINDEXEDAMDPROC pGlBlendFuncIndexedAMD;
+    static PFNGLBLENDFUNCINDEXEDAMDPROC pGlBlendFuncIndexedAMD; //NULL
     static PFNGLBLENDFUNCIPROC pGlBlendFunciARB;
-    static PFNGLBLENDEQUATIONINDEXEDAMDPROC pGlBlendEquationIndexedAMD;
-    static PFNGLBLENDEQUATIONIPROC pGlBlendEquationiARB;
+    static PFNGLBLENDEQUATIONINDEXEDAMDPROC pGlBlendEquationIndexedAMD; //NULL
+    static PFNGLBLENDEQUATIONIPROC pGlBlendEquationiARB; //NULL
     static PFNGLPROGRAMPARAMETERIARBPROC pGlProgramParameteriARB;
     static PFNGLPROGRAMPARAMETERIEXTPROC pGlProgramParameteriEXT;
     static PFNGLPATCHPARAMETERIPROC pGlPatchParameteri;
     static PFNGLPATCHPARAMETERFVPROC pGlPatchParameterfv;
     //
+    static PFNGLCREATEQUERIESPROC pGlCreateQueries;
     static PFNGLGENQUERIESPROC pGlGenQueries;
     static PFNGLDELETEQUERIESPROC pGlDeleteQueries;
     static PFNGLISQUERYPROC pGlIsQuery;
     static PFNGLBEGINQUERYPROC pGlBeginQuery;
     static PFNGLENDQUERYPROC pGlEndQuery;
+    static PFNGLBEGINQUERYINDEXEDPROC pGlBeginQueryIndexed;
+    static PFNGLENDQUERYINDEXEDPROC pGlEndQueryIndexed;
     static PFNGLGETQUERYIVPROC pGlGetQueryiv;
-    static PFNGLGETQUERYOBJECTIVPROC pGlGetQueryObjectiv;
     static PFNGLGETQUERYOBJECTUIVPROC pGlGetQueryObjectuiv;
-    static PFNGLGETQUERYOBJECTI64VPROC pGlGetQueryObjecti64v;
     static PFNGLGETQUERYOBJECTUI64VPROC pGlGetQueryObjectui64v;
-    static PFNGLGETQUERYOBJECTI64VEXTPROC pGlGetQueryObjecti64vEXT;
-    static PFNGLGETQUERYOBJECTUI64VEXTPROC pGlGetQueryObjectui64vEXT;
+    static PFNGLGETQUERYBUFFEROBJECTUIVPROC pGlGetQueryBufferObjectuiv;
+    static PFNGLGETQUERYBUFFEROBJECTUI64VPROC pGlGetQueryBufferObjectui64v;
     static PFNGLQUERYCOUNTERPROC pGlQueryCounter;
     static PFNGLBEGINCONDITIONALRENDERPROC pGlBeginConditionalRender;
     static PFNGLENDCONDITIONALRENDERPROC pGlEndConditionalRender;
-
-    static PFNGLGENOCCLUSIONQUERIESNVPROC pGlGenOcclusionQueriesNV;
-    static PFNGLDELETEOCCLUSIONQUERIESNVPROC pGlDeleteOcclusionQueriesNV;
-    static PFNGLISOCCLUSIONQUERYNVPROC pGlIsOcclusionQueryNV;
-    static PFNGLBEGINOCCLUSIONQUERYNVPROC pGlBeginOcclusionQueryNV;
-    static PFNGLENDOCCLUSIONQUERYNVPROC pGlEndOcclusionQueryNV;
-    static PFNGLGETOCCLUSIONQUERYIVNVPROC pGlGetOcclusionQueryivNV;
-    static PFNGLGETOCCLUSIONQUERYUIVNVPROC pGlGetOcclusionQueryuivNV;
     //
     static PFNGLBLENDEQUATIONEXTPROC pGlBlendEquationEXT;
     static PFNGLBLENDEQUATIONPROC pGlBlendEquation;
@@ -1431,7 +1472,6 @@ class COpenGLExtensionHandler
     static PFNGLDEBUGMESSAGECALLBACKPROC pGlDebugMessageCallback;
     static PFNGLDEBUGMESSAGECALLBACKARBPROC pGlDebugMessageCallbackARB;
 
-    static PFNGLVERTEXATTRIBPOINTERPROC pGlVertexAttribPointer;
     #if defined(WGL_EXT_swap_control)
     static PFNWGLSWAPINTERVALEXTPROC pWglSwapIntervalEXT;
     #endif
@@ -1555,6 +1595,75 @@ inline void COpenGLExtensionHandler::extGlCreateTextures(GLenum target, GLsizei 
     }
 }
 
+inline void COpenGLExtensionHandler::extGlTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureBuffer)
+            pGlTextureBuffer(texture,internalformat,buffer);
+#else
+        glTextureBuffer(texture,internalformat,buffer);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureBufferEXT)
+            pGlTextureBufferEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer);
+#else
+        glTextureBufferEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        GLint bound;
+        glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
+        glBindTexture(GL_TEXTURE_BUFFER, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTexBuffer)
+            pGlTexBuffer(GL_TEXTURE_BUFFER,internalformat,buffer);
+#else
+        glTexBuffer(GL_TEXTURE_BUFFER,internalformat,buffer);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
+        glBindTexture(GL_TEXTURE_BUFFER, bound);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizei length)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureBufferRange)
+            pGlTextureBufferRange(texture,internalformat,buffer,offset,length);
+#else
+        glTextureBufferRange(texture,internalformat,buffer,offset,length);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureBufferRangeEXT)
+            pGlTextureBufferRangeEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer,offset,length);
+#else
+        glTextureBufferRangeEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer,offset,length);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        GLint bound;
+        glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
+        glBindTexture(GL_TEXTURE_BUFFER, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTexBufferRange)
+            pGlTexBufferRange(GL_TEXTURE_BUFFER,internalformat,buffer,offset,length);
+#else
+        glTexBufferRange(GL_TEXTURE_BUFFER,internalformat,buffer,offset,length);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
+        glBindTexture(GL_TEXTURE_BUFFER, bound);
+    }
+}
 
 inline void COpenGLExtensionHandler::extGlTextureStorage1D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width)
 {
@@ -2093,15 +2202,25 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
     }
 }
 
-inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pitchInBits, void* ptr)
+inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr)
 {
 #if _MSC_VER && !__INTEL_COMPILER
     DWORD textureUploadAlignment,textureUploadAlignment2;
-    _BitScanForward(&textureUploadAlignment,pitchInBits);
-    _BitScanForward(&textureUploadAlignment2,*reinterpret_cast<size_t*>(&ptr));
+    if (!_BitScanForward(&textureUploadAlignment,pitchInBytes))
+        textureUploadAlignment = 3;
+    if (!_BitScanForward64(&textureUploadAlignment2,*reinterpret_cast<size_t*>(&ptr)))
+        textureUploadAlignment2 = 3;
 #else
-    int32_t textureUploadAlignment = __builtin_ffs(pitchInBits)-1;
-    int32_t textureUploadAlignment2 = __builtin_ffs(*reinterpret_cast<size_t*>(&ptr))-1;
+    int32_t textureUploadAlignment = __builtin_ffs(pitchInBytes);
+    if (textureUploadAlignment)
+        textureUploadAlignment--;
+    else
+        textureUploadAlignment = 3;
+    int32_t textureUploadAlignment2 = __builtin_ffs(*reinterpret_cast<size_t*>(&ptr));
+    if (textureUploadAlignment2)
+        textureUploadAlignment2--;
+    else
+        textureUploadAlignment2 = 3;
 #endif
     textureUploadAlignment = core::min_(core::min_((int32_t)textureUploadAlignment,(int32_t)textureUploadAlignment2),(int32_t)3);
 
@@ -2224,6 +2343,16 @@ inline void COpenGLExtensionHandler::extGlLinkProgram(GLuint program)
 		pGlLinkProgram(program);
 #else
 	glLinkProgram(program);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlTransformFeedbackVaryings(GLuint program, GLsizei count, const char** varyings, GLenum bufferMode)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlTransformFeedbackVaryings)
+        pGlTransformFeedbackVaryings(program,count,varyings,bufferMode);
+#else
+	glTransformFeedbackVaryings(program,count,varyings,bufferMode);
 #endif
 }
 
@@ -2586,33 +2715,6 @@ inline void COpenGLExtensionHandler::extGlStencilOpSeparate (GLenum face, GLenum
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlDisableVertexAttribArray (GLuint index)
-{
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlDisableVertexAttribArray)
-        pGlDisableVertexAttribArray(index);
-#else
-	glDisableVertexAttribArray(index);
-#endif
-}
-inline void COpenGLExtensionHandler::extGlEnableVertexAttribArray (GLuint index)
-{
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlEnableVertexAttribArray)
-        pGlEnableVertexAttribArray(index);
-#else
-    glEnableVertexAttribArray(index);
-#endif
-}
-inline void COpenGLExtensionHandler::extGlVertexAttribPointer (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid *pointer)
-{
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlVertexAttribPointer)
-        pGlVertexAttribPointer(index,size,type,normalized,stride,pointer);
-#else
-	glVertexAttribPointer(index,size,type,normalized,stride,pointer);
-#endif
-}
 
 inline void COpenGLExtensionHandler::extGlBindFramebuffer(GLenum target, GLuint framebuffer)
 {
@@ -2696,13 +2798,17 @@ inline GLenum COpenGLExtensionHandler::extGlCheckNamedFramebufferStatus(GLuint f
         GLint bound;
         glGetIntegerv(target==GL_READ_FRAMEBUFFER ? GL_READ_FRAMEBUFFER_BINDING:GL_DRAW_FRAMEBUFFER_BINDING,&bound);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        pGlBindFramebuffer(target,framebuffer);
+		if (bound!=framebuffer)
+	        pGlBindFramebuffer(target,framebuffer);
         retval = pGlCheckFramebufferStatus(target);
-        pGlBindFramebuffer(target,bound);
+        if (bound!=framebuffer)
+	        pGlBindFramebuffer(target,bound);
 #else
-        glBindFramebuffer(target,framebuffer);
+        if (bound!=framebuffer)
+	        glBindFramebuffer(target,framebuffer);
         retval = glCheckFramebufferStatus(target);
-        glBindFramebuffer(target,bound);
+        if (bound!=framebuffer)
+	        glBindFramebuffer(target,bound);
 #endif // _IRR_OPENGL_USE_EXTPOINTER
         return retval;
     }
@@ -2738,13 +2844,17 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTexture(GLuint framebu
         GLint bound;
         glGetIntegerv(GL_FRAMEBUFFER_BINDING,&bound);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        pGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+        if (bound!=framebuffer)
+	        pGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
         pGlFramebufferTexture(GL_FRAMEBUFFER,attachment,texture,level);
-        pGlBindFramebuffer(GL_FRAMEBUFFER,bound);
+        if (bound!=framebuffer)
+	        pGlBindFramebuffer(GL_FRAMEBUFFER,bound);
 #else
-        glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+        if (bound!=framebuffer)
+	        glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
         glFramebufferTexture(GL_FRAMEBUFFER,attachment,texture,level);
-        glBindFramebuffer(GL_FRAMEBUFFER,bound);
+        if (bound!=framebuffer)
+	        glBindFramebuffer(GL_FRAMEBUFFER,bound);
 #endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
@@ -2778,13 +2888,17 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
         GLint bound;
         glGetIntegerv(GL_FRAMEBUFFER_BINDING,&bound);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        pGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+        if (bound!=framebuffer)
+	        pGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
         pGlFramebufferTextureLayer(GL_FRAMEBUFFER,attachment,texture,level, layer);
-        pGlBindFramebuffer(GL_FRAMEBUFFER,bound);
+        if (bound!=framebuffer)
+	        pGlBindFramebuffer(GL_FRAMEBUFFER,bound);
 #else
-        glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+        if (bound!=framebuffer)
+	        glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
         glFramebufferTextureLayer(GL_FRAMEBUFFER,attachment,texture,level, layer);
-        glBindFramebuffer(GL_FRAMEBUFFER,bound);
+        if (bound!=framebuffer)
+	        glBindFramebuffer(GL_FRAMEBUFFER,bound);
 #endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
@@ -2807,16 +2921,20 @@ inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFrameb
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&boundReadFBO);
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundDrawFBO);
 
-        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,readFramebuffer);
-        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,drawFramebuffer);
+        if (readFramebuffer!=boundReadFBO)
+	        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,readFramebuffer);
+        if (drawFramebuffer!=boundDrawFBO)
+	        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,drawFramebuffer);
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlBlitFramebuffer)
             pGlBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
     #else
         glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
     #endif
-        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundReadFBO);
-        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundDrawFBO);
+        if (readFramebuffer!=boundReadFBO)
+	        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundReadFBO);
+        if (drawFramebuffer!=boundDrawFBO)
+	        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundDrawFBO);
     }
 }
 
@@ -2929,13 +3047,17 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferRenderbuffer(GLuint fr
         GLint boundFBO;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+		if (boundFBO!=framebuffer)
+	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
         pGlFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, attachment, renderbuffertarget, renderbuffer);
-        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
 #else
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        if (boundFBO!=framebuffer)
+	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
         glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, attachment, renderbuffertarget, renderbuffer);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
 #endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
@@ -2982,13 +3104,17 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(GLuint fram
         GLint boundFBO;
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&boundFBO);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        pGlBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
+        if (boundFBO!=framebuffer)
+	        pGlBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
         glReadBuffer(mode);
-        pGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        pGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundFBO);
 #else
-        glBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
+        if (boundFBO!=framebuffer)
+	        glBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
         glReadBuffer(mode);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        glBindFramebuffer(GL_READ_FRAMEBUFFER,boundFBO);
 #endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
@@ -3022,13 +3148,17 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffer(GLuint fram
         GLint boundFBO;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        if (boundFBO!=framebuffer)
+	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
         glDrawBuffer(buf);
-        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
 #else
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        if (boundFBO!=framebuffer)
+	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
         glDrawBuffer(buf);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
 #endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
@@ -3062,13 +3192,17 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffers(GLuint fra
         GLint boundFBO;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        if (boundFBO!=framebuffer)
+	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
         pGlDrawBuffers(n,bufs);
-        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
 #else
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
+        if (boundFBO!=framebuffer)
+	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
         glDrawBuffers(n,bufs);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
 #endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
@@ -3090,14 +3224,17 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferiv(GLuint framebu
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
         if (boundFBO<0)
             return;
-        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+
+        if (boundFBO!=framebuffer)
+	        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearBufferiv)
             pGlClearBufferiv(buffer, drawbuffer, value);
 #else
         glClearBufferiv(buffer, drawbuffer, value);
 #endif
-        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
     }
 }
 
@@ -3118,14 +3255,17 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferuiv(GLuint frameb
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
         if (boundFBO<0)
             return;
-        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+
+		if (boundFBO!=framebuffer)
+	        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearBufferuiv)
             pGlClearBufferuiv(buffer, drawbuffer, value);
 #else
         glClearNamedBufferuiv(buffer, drawbuffer, value);
 #endif
-        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
+        if (boundFBO!=framebuffer)
+	        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
     }
 }
 
@@ -3146,14 +3286,17 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfv(GLuint framebu
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
         if (boundFBO<0)
             return;
-        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+
+		if (boundFBO!=framebuffer)
+	        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearBufferfv)
             pGlClearBufferfv(buffer, drawbuffer, value);
 #else
         glClearNamedBufferfv(buffer, drawbuffer, value);
 #endif
-        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
+		if (boundFBO!=framebuffer)
+			extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
     }
 }
 
@@ -3222,7 +3365,7 @@ inline void COpenGLExtensionHandler::extGlDeleteBuffers(GLsizei n, const GLuint 
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlBindBuffer(GLenum target, GLuint buffer)
+inline void COpenGLExtensionHandler::extGlBindBuffer(const GLenum& target, const GLuint& buffer)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBindBuffer)
@@ -3513,7 +3656,7 @@ inline GLboolean COpenGLExtensionHandler::extGlUnmapNamedBuffer(GLuint buffer)
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
 #else
         glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        retval = pGlUnmapBuffer(GL_ARRAY_BUFFER);
+        retval = glUnmapBuffer(GL_ARRAY_BUFFER);
         glBindBuffer(GL_ARRAY_BUFFER,bound);
 #endif
         return retval;
@@ -3909,7 +4052,7 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribFormat(GLuint vaobj, 
         glVertexArrayAttribFormat(vaobj,attribindex,size,type,normalized,relativeoffset);
     #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (!IsIntelGPU&&FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayVertexAttribFormatEXT)
@@ -3950,7 +4093,7 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribIFormat(GLuint vaobj,
         glVertexArrayAttribIFormat(vaobj,attribindex,size,type,relativeoffset);
     #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (!IsIntelGPU&&FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayVertexAttribIFormatEXT)
@@ -3991,7 +4134,7 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribLFormat(GLuint vaobj,
         pGlVertexArrayAttribLFormat(vaobj,attribindex,size,type,relativeoffset);
     #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (!IsIntelGPU&&FeatureAvailable[IRR_EXT_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayVertexAttribLFormatEXT)
@@ -4021,16 +4164,259 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribLFormat(GLuint vaobj,
     }
 }
 
-inline void COpenGLExtensionHandler::extGlDrawRangeElementsBaseVertex(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices, GLint basevertex)
+inline void COpenGLExtensionHandler::extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayBindingDivisor)
+            pGlVertexArrayBindingDivisor(vaobj,bindingindex,divisor);
+    #else
+        glVertexArrayBindingDivisor(vaobj,bindingindex,divisor);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlVertexArrayVertexBindingDivisorEXT)
+            pGlVertexArrayVertexBindingDivisorEXT(vaobj,bindingindex,divisor);
+    #else
+        glVertexArrayVertexBindingDivisorEXT(vaobj,bindingindex,divisor);
+    #endif
+    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlVertexBindingDivisor&&pGlBindVertexArray)
+#else
+    else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    {
+        // Save the previous bound vertex array
+        GLint restoreVertexArray;
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindVertexArray(vaobj);
+        pGlVertexBindingDivisor(bindingindex,divisor);
+        pGlBindVertexArray(restoreVertexArray);
+    #else
+        glBindVertexArray(vaobj);
+        glVertexBindingDivisor(bindingindex,divisor);
+        glBindVertexArray(restoreVertexArray);
+    #endif
+    }
+}
+
+
+
+inline void COpenGLExtensionHandler::extGlCreateTransformFeedbacks(GLsizei n, GLuint* ids)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCreateTransformFeedbacks)
+            pGlCreateTransformFeedbacks(n,ids);
+#else
+        glCreateTransformFeedbacks(n,ids);
+#endif
+    }
+    else
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGenTransformFeedbacks)
+            pGlGenTransformFeedbacks(n,ids);
+#else
+        glGenTransformFeedbacks(n,ids);
+#endif
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteTransformFeedbacks(GLsizei n, const GLuint* ids)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlDrawRangeElementsBaseVertex)
-        pGlDrawRangeElementsBaseVertex(mode,start,end,count,type,indices,basevertex);
+    if (pGlDeleteTransformFeedbacks)
+        pGlDeleteTransformFeedbacks(n,ids);
 #else
-    glDrawRangeElementsBaseVertex(mode,start,end,count,type,indices,basevertex);
+    glDeleteTransformFeedbacks(n,ids);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBindTransformFeedback(GLenum target, GLuint id)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlBindTransformFeedback)
+        pGlBindTransformFeedback(target,id);
+#else
+    glBindTransformFeedback(target,id);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBeginTransformFeedback(GLenum primitiveMode)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlBeginTransformFeedback)
+        pGlBeginTransformFeedback(primitiveMode);
+#else
+    glBeginTransformFeedback(primitiveMode);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlPauseTransformFeedback()
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlPauseTransformFeedback)
+        pGlPauseTransformFeedback();
+#else
+    glPauseTransformFeedback();
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlResumeTransformFeedback()
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlResumeTransformFeedback)
+        pGlResumeTransformFeedback();
+#else
+    glResumeTransformFeedback();
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlEndTransformFeedback()
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlEndTransformFeedback)
+        pGlEndTransformFeedback();
+#else
+    glEndTransformFeedback();
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferBase(GLuint xfb, GLuint index, GLuint buffer)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTransformFeedbackBufferBase)
+            pGlTransformFeedbackBufferBase(xfb,index,buffer);
+#else
+        glTransformFeedbackBufferBase(xfb,index,buffer);
+#endif
+    }
+    else
+    {
+        GLint restoreXFormFeedback;
+        glGetIntegerv(GL_TRANSFORM_FEEDBACK_BINDING, &restoreXFormFeedback);
+        extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,xfb);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBindBufferBase)
+            pGlBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,index,buffer);
+#else
+        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,index,buffer);
+#endif
+        extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,restoreXFormFeedback);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferRange(GLuint xfb, GLuint index, GLuint buffer, GLintptr offset, GLsizei size)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTransformFeedbackBufferRange)
+            pGlTransformFeedbackBufferRange(xfb,index,buffer,offset,size);
+#else
+        glTransformFeedbackBufferRange(xfb,index,buffer,offset,size);
+#endif
+    }
+    else
+    {
+        GLint restoreXFormFeedback;
+        glGetIntegerv(GL_TRANSFORM_FEEDBACK_BINDING, &restoreXFormFeedback);
+        extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,xfb);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBindBufferRange)
+            pGlBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER,index,buffer,offset,size);
+#else
+        glBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER,index,buffer,offset,size);
+#endif
+        extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,restoreXFormFeedback);
+    }
+}
+
+
+
+inline void COpenGLExtensionHandler::extGlDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawArraysInstanced)
+        pGlDrawArraysInstanced(mode,first,count,instancecount);
+#else
+    glDrawArraysInstanced(mode,first,count,instancecount);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
+inline void COpenGLExtensionHandler::extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance)
+{
+    if (Version>=420||FeatureAvailable[IRR_ARB_base_instance])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlDrawArraysInstancedBaseInstance)
+            pGlDrawArraysInstancedBaseInstance(mode,first,count,instancecount,baseinstance);
+#else
+        glDrawArraysInstancedBaseInstance(mode,first,count,instancecount,baseinstance);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+        os::Printer::log("glDrawArraysInstancedBaseInstance not supported", ELL_ERROR);
+}
+
+inline void COpenGLExtensionHandler::extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawElementsInstancedBaseVertex)
+        pGlDrawElementsInstancedBaseVertex(mode,count,type,indices,instancecount,basevertex);
+#else
+    glDrawElementsInstancedBaseVertex(mode,count,type,indices,instancecount,basevertex);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance)
+{
+    if (Version>=420||FeatureAvailable[IRR_ARB_base_instance])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlDrawElementsInstancedBaseVertexBaseInstance)
+            pGlDrawElementsInstancedBaseVertexBaseInstance(mode,count,type,indices,instancecount,basevertex,baseinstance);
+    #else
+        glDrawElementsInstancedBaseVertexBaseInstance(mode,count,type,indices,instancecount,basevertex,baseinstance);
+    #endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+        os::Printer::log("glDrawElementsInstancedBaseVertexBaseInstance not supported", ELL_ERROR);
+}
+
+inline void COpenGLExtensionHandler::extGlDrawTransformFeedback(GLenum mode, GLuint id)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawTransformFeedback)
+        pGlDrawTransformFeedback(mode,id);
+#else
+    glDrawTransformFeedback(mode,id);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackInstanced(GLenum mode, GLuint id, GLsizei instancecount)
+{
+    if (Version>=420||FeatureAvailable[IRR_ARB_transform_feedback_instanced])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlDrawTransformFeedbackInstanced)
+            pGlDrawTransformFeedbackInstanced(mode,id,instancecount);
+    #else
+        glDrawTransformFeedbackInstanced(mode,id,instancecount);
+    #endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+        os::Printer::log("glDrawTransformFeedbackInstanced not supported", ELL_ERROR);
+}
 
 inline void COpenGLExtensionHandler::extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
 {
@@ -4156,25 +4542,31 @@ inline void COpenGLExtensionHandler::extGlProgramParameteri(GLuint program, GLen
 		else if (pGlProgramParameteriEXT)
 			pGlProgramParameteriEXT(program, pname, value);
 	}
-#elif defined(GL_ARB_geometry_shader4)
-	glProgramParameteriARB(program, pname, value);
-#elif defined(GL_EXT_geometry_shader4)
-	glProgramParameteriEXT(program, pname, value);
-#elif defined(GL_NV_geometry_program4) || defined(GL_NV_geometry_shader4)
-	glProgramParameteriNV(program, pname, value);
 #else
 	os::Printer::log("glProgramParameteri not supported", ELL_ERROR);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlGenQueries(GLsizei n, GLuint *ids)
+inline void COpenGLExtensionHandler::extGlCreateQueries(GLenum target, GLsizei n, GLuint *ids)
 {
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlGenQueries)
-		pGlGenQueries(n, ids);
+        if (pGlCreateQueries)
+            pGlCreateQueries(target, n, ids);
 #else
-	glGenQueries(n, ids);
+        glCreateQueries(target, n, ids);
 #endif
+    }
+    else
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGenQueries)
+            pGlGenQueries(n, ids);
+#else
+        glGenQueries(n, ids);
+#endif
+    }
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteQueries(GLsizei n, const GLuint *ids)
@@ -4218,25 +4610,42 @@ inline void COpenGLExtensionHandler::extGlEndQuery(GLenum target)
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlGetQueryiv(GLenum target, GLenum pname, GLint *params)
+inline void COpenGLExtensionHandler::extGlBeginQueryIndexed(GLenum target, GLuint index, GLuint id)
 {
+    if (Version<400 && !FeatureAvailable[IRR_ARB_transform_feedback3])
+    {
+#ifdef _DEBuG
+        os::Printer::log("GL_ARB_transform_feedback3 unsupported!\n");
+#endif // _DEBuG
+        return;
+    }
+
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlGetQueryiv)
-		pGlGetQueryiv(target, pname, params);
+	if (pGlBeginQueryIndexed)
+		pGlBeginQueryIndexed(target, index, id);
 #else
-	glGetQueryiv(target, pname, params);
+	glBeginQueryIndexed(target, index, id);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlGetQueryObjectiv(GLuint id, GLenum pname, GLint *params)
+inline void COpenGLExtensionHandler::extGlEndQueryIndexed(GLenum target, GLuint index)
 {
+    if (Version<400 && !FeatureAvailable[IRR_ARB_transform_feedback3])
+    {
+#ifdef _DEBuG
+        os::Printer::log("GL_ARB_transform_feedback3 unsupported!\n");
+#endif // _DEBuG
+        return;
+    }
+
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlGetQueryObjectiv)
-		pGlGetQueryObjectiv(id, pname, params);
+	if (pGlEndQueryIndexed)
+		pGlEndQueryIndexed(target, index);
 #else
-	glGetQueryObjectiv(id, pname, params);
+	glEndQueryIndexed(target, index);
 #endif
 }
+
 
 inline void COpenGLExtensionHandler::extGlGetQueryObjectuiv(GLuint id, GLenum pname, GLuint *params)
 {
@@ -4248,28 +4657,86 @@ inline void COpenGLExtensionHandler::extGlGetQueryObjectuiv(GLuint id, GLenum pn
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlGetQueryObjecti64v(GLuint id, GLenum pname, GLint64 *params)
-{
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlGetQueryObjecti64v)
-		pGlGetQueryObjecti64v(id, pname, params);
-	else if (pGlGetQueryObjecti64vEXT)
-		pGlGetQueryObjecti64vEXT(id, pname, params);
-#else
-	os::Printer::log("glGetQueryObjecti64v not supported", ELL_ERROR);
-#endif
-}
-
 inline void COpenGLExtensionHandler::extGlGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetQueryObjectui64v)
 		pGlGetQueryObjectui64v(id, pname, params);
-	else if (pGlGetQueryObjectui64vEXT)
-		pGlGetQueryObjectui64vEXT(id, pname, params);
 #else
-	os::Printer::log("glGetQueryObjectui64v not supported", ELL_ERROR);
+    glGetQueryObjectui64v(id, pname, params);
 #endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
+{
+    if (Version<440 && !FeatureAvailable[IRR_ARB_query_buffer_object])
+    {
+#ifdef _DEBuG
+        os::Printer::log("GL_ARB_query_buffer_object unsupported!\n");
+#endif // _DEBuG
+        return;
+    }
+
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetQueryBufferObjectuiv)
+            pGlGetQueryBufferObjectuiv(id, buffer, pname, offset);
+#else
+        glGetQueryBufferObjectuiv(id, buffer, pname, offset);
+#endif
+    }
+    else
+    {
+        GLint restoreQueryBuffer;
+        glGetIntegerv(GL_QUERY_BUFFER_BINDING, &restoreQueryBuffer);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_QUERY_BUFFER,id);
+        if (pGlGetQueryObjectuiv)
+            pGlGetQueryObjectuiv(id, pname, reinterpret_cast<GLuint*>(offset));
+        pGlBindBuffer(GL_QUERY_BUFFER,restoreQueryBuffer);
+#else
+        glBindBuffer(GL_QUERY_BUFFER,id);
+        glGetQueryObjectuiv(id, pname, reinterpret_cast<GLuint*>(offset));
+        glBindBuffer(GL_QUERY_BUFFER,restoreQueryBuffer);
+#endif
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
+{
+    if (Version<440 && !FeatureAvailable[IRR_ARB_query_buffer_object])
+    {
+#ifdef _DEBuG
+        os::Printer::log("GL_ARB_query_buffer_object unsupported!\n");
+#endif // _DEBuG
+        return;
+    }
+
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetQueryBufferObjectui64v)
+            pGlGetQueryBufferObjectui64v(id, buffer, pname, offset);
+#else
+        glGetQueryBufferObjectui64v(id, buffer, pname, offset);
+#endif
+    }
+    else
+    {
+        GLint restoreQueryBuffer;
+        glGetIntegerv(GL_QUERY_BUFFER_BINDING, &restoreQueryBuffer);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_QUERY_BUFFER,id);
+        if (pGlGetQueryObjectui64v)
+            pGlGetQueryObjectui64v(id, pname, reinterpret_cast<GLuint64*>(offset));
+        pGlBindBuffer(GL_QUERY_BUFFER,restoreQueryBuffer);
+#else
+        glBindBuffer(GL_QUERY_BUFFER,id);
+        glGetQueryObjectui64v(id, pname, reinterpret_cast<GLuint64*>(offset));
+        glBindBuffer(GL_QUERY_BUFFER,restoreQueryBuffer);
+#endif
+    }
 }
 
 inline void COpenGLExtensionHandler::extGlQueryCounter(GLuint id, GLenum target)
@@ -4278,7 +4745,7 @@ inline void COpenGLExtensionHandler::extGlQueryCounter(GLuint id, GLenum target)
 	if (pGlQueryCounter)
 		pGlQueryCounter(id, target);
 #else
-	os::Printer::log("glQueryCounter not supported", ELL_ERROR);
+    glQueryCounter(id, target);
 #endif
 }
 
@@ -4288,7 +4755,7 @@ inline void COpenGLExtensionHandler::extGlBeginConditionalRender(GLuint id, GLen
 	if (pGlBeginConditionalRender)
 		pGlBeginConditionalRender(id, mode);
 #else
-	os::Printer::log("glBeginConditionalRender not supported", ELL_ERROR);
+    glBeginConditionalRender(id, mode);
 #endif
 }
 
@@ -4298,7 +4765,7 @@ inline void COpenGLExtensionHandler::extGlEndConditionalRender()
 	if (pGlEndConditionalRender)
 		pGlEndConditionalRender();
 #else
-	os::Printer::log("glEndConditionalRender not supported", ELL_ERROR);
+    glEndConditionalRender();
 #endif
 }
 

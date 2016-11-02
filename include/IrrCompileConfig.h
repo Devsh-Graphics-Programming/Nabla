@@ -165,6 +165,10 @@
 //! Maximum number of texture an SMaterial can have, up to 8 are supported by Irrlicht.
 #define _IRR_MATERIAL_MAX_TEXTURES_ 8
 
+//!
+#define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4
+#define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4
+
 //! Define _IRR_COMPILE_WITH_DIRECT3D_8_ and _IRR_COMPILE_WITH_DIRECT3D_9_ to
 //! compile the Irrlicht engine with Direct3D8 and/or DIRECT3D9.
 /** If you only want to use the software device or opengl you can disable those defines.
@@ -378,15 +382,7 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 //! Uncomment the following line if you want to ignore the deprecated warnings
 //#define IGNORE_DEPRECATED_WARNING
 
-//! Define _IRR_COMPILE_WITH_SKINNED_MESH_SUPPORT_ if you want to use bone based
-/** animated meshes. If you compile without this, you will be unable to load
-B3D, MS3D or X meshes */
-#define _IRR_COMPILE_WITH_SKINNED_MESH_SUPPORT_
-#ifdef NO_IRR_COMPILE_WITH_SKINNED_MESH_SUPPORT_
-#undef _IRR_COMPILE_WITH_SKINNED_MESH_SUPPORT_
-#endif
 
-#ifdef _IRR_COMPILE_WITH_SKINNED_MESH_SUPPORT_
 //! Define _IRR_COMPILE_WITH_B3D_LOADER_ if you want to use Blitz3D files
 //#define _IRR_COMPILE_WITH_B3D_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_B3D_LOADER_
@@ -407,7 +403,6 @@ B3D, MS3D or X meshes */
 #ifdef NO_IRR_COMPILE_WITH_OGRE_LOADER_
 #undef _IRR_COMPILE_WITH_OGRE_LOADER_
 #endif
-#endif	// _IRR_COMPILE_WITH_SKINNED_MESH_SUPPORT_
 
 //! Define _IRR_COMPILE_WITH_HALFLIFE_LOADER_ if you want to load Halflife animated files
 //#define _IRR_COMPILE_WITH_HALFLIFE_LOADER_

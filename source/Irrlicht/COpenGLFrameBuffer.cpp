@@ -202,6 +202,7 @@ bool COpenGLFrameBuffer::rebindRevalidate()
 {
     bool noAttachments = true;
     bool revalidate = lastValidated==0;
+    uint64_t highestRevalidationStamp = lastValidated;
     //
     size_t enabledBufferCnt = 0;
     GLenum drawBuffers[EFAP_MAX_ATTACHMENTS-EFAP_COLOR_ATTACHMENT0] = {0}; //GL_NONE
@@ -219,9 +220,12 @@ bool COpenGLFrameBuffer::rebindRevalidate()
 
         if (attachments[i]->getRenderableType()==ERT_TEXTURE)
         {
-            COpenGLTexture* glTex = dynamic_cast<COpenGLTexture*>(attachments[i]);
-            if (glTex->hasOpenGLNameChanged()>lastValidated)
+            COpenGLTexture* glTex = static_cast<COpenGLTexture*>(attachments[i]);
+            uint64_t revalidationStamp = glTex->hasOpenGLNameChanged();
+            if (revalidationStamp>lastValidated)
             {
+                if (revalidationStamp>highestRevalidationStamp)
+                    highestRevalidationStamp = revalidationStamp;
                 revalidate = true;
                 attach((E_FBO_ATTACHMENT_POINT)i,glTex,cachedLevel[i],cachedLayer[i]);
             }
@@ -229,8 +233,11 @@ bool COpenGLFrameBuffer::rebindRevalidate()
         else
         {
             COpenGLRenderBuffer* glRBuf = static_cast<COpenGLRenderBuffer*>(attachments[i]);
-            if (glRBuf->hasOpenGLNameChanged()>lastValidated)
+            uint64_t revalidationStamp = glRBuf->hasOpenGLNameChanged();
+            if (revalidationStamp>lastValidated)
             {
+                if (revalidationStamp>highestRevalidationStamp)
+                    highestRevalidationStamp = revalidationStamp;
                 revalidate = true;
                 attach((E_FBO_ATTACHMENT_POINT)i,glRBuf);
             }
@@ -250,7 +257,7 @@ bool COpenGLFrameBuffer::rebindRevalidate()
             os::Printer::log("FBO incomplete");
             return false;
         }
-        lastValidated = os::Timer::getRealTime();
+        lastValidated = highestRevalidationStamp;
         if (enabledBufferCnt)
             enabledBufferCnt += 1-EFAP_COLOR_ATTACHMENT0;
         COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffers(frameBuffer, enabledBufferCnt, drawBuffers);

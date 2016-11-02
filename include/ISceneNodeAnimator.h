@@ -5,7 +5,6 @@
 #ifndef __I_SCENE_NODE_ANIMATOR_H_INCLUDED__
 #define __I_SCENE_NODE_ANIMATOR_H_INCLUDED__
 
-#include "IReferenceCounted.h"
 #include "vector3d.h"
 #include "ESceneNodeAnimatorTypes.h"
 #include "IEventReceiver.h"
@@ -14,7 +13,7 @@ namespace irr
 {
 namespace scene
 {
-	class ISceneNode;
+	class IDummyTransformationSceneNode;
 	class ISceneManager;
 
 	//! Animates a scene node. Can animate position, rotation, material, and so on.
@@ -28,12 +27,12 @@ namespace scene
 		//! Animates a scene node.
 		/** \param node Node to animate.
 		\param timeMs Current time in milli seconds. */
-		virtual void animateNode(ISceneNode* node, u32 timeMs) =0;
+		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs) =0;
 
 		//! Creates a clone of this animator.
 		/** Please note that you will have to drop
 		(IReferenceCounted::drop()) the returned pointer after calling this. */
-		virtual ISceneNodeAnimator* createClone(ISceneNode* node,
+		virtual ISceneNodeAnimator* createClone(IDummyTransformationSceneNode* node,
 				ISceneManager* newManager=0) =0;
 
 		//! Returns true if this animator receives events.

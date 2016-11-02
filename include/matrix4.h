@@ -201,9 +201,6 @@ namespace core
 			//! Translate a vector by the inverse of the translation part of this matrix.
 			void inverseTranslateVect( vector3df& vect ) const;
 
-			//! Rotate a vector by the inverse of the rotation part of this matrix.
-			void inverseRotateVect( vector3df& vect ) const;
-
 			//! Rotate a vector by the rotation part of this matrix.
 			void rotateVect( vector3df& vect ) const;
 
@@ -1125,15 +1122,6 @@ namespace core
 	}
 
 	template <class T>
-	inline void CMatrix4<T>::inverseRotateVect( vector3df& vect ) const
-	{
-		vector3df tmp = vect;
-		vect.X = tmp.X*M[0] + tmp.Y*M[1] + tmp.Z*M[2];
-		vect.Y = tmp.X*M[4] + tmp.Y*M[5] + tmp.Z*M[6];
-		vect.Z = tmp.X*M[8] + tmp.Y*M[9] + tmp.Z*M[10];
-	}
-
-	template <class T>
 	inline void CMatrix4<T>::transformVect( vector3df& vect) const
 	{
 		f32 vector[3];
@@ -1194,19 +1182,6 @@ namespace core
         out.D = in.Normal.X*transposedInverse[12] + in.Normal.Y*transposedInverse[13] + in.Normal.Z*transposedInverse[14] + in.D*transposedInverse[15];
 	}
 
-	//! Transforms a axis aligned bounding box
-	template <class T>
-	inline void CMatrix4<T>::transformBox(core::aabbox3d<f32>& box) const
-	{
-#if defined ( USE_MATRIX_TEST )
-		if (isIdentity())
-			return;
-#endif
-
-		transformVect(box.MinEdge);
-		transformVect(box.MaxEdge);
-		box.repair();
-	}
 
 	//! Transforms a axis aligned bounding box more accurately than transformBox()
 	template <class T>
@@ -2227,9 +2202,6 @@ namespace core
 
 	//! Typedef for f32 matrix
 	typedef CMatrix4<f32> matrix4;
-
-	//! global const identity matrix
-	IRRLICHT_API extern const matrix4 IdentityMatrix;
 
 } // end namespace core
 } // end namespace irr

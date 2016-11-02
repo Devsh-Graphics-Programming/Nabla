@@ -41,7 +41,7 @@ class IRenderable : public virtual IReferenceCounted
     public:
         virtual E_RENDERABLE_TYPE getRenderableType() const = 0;
 
-        virtual const core::dimension2du& getRenderableSize() const = 0;
+        virtual core::dimension2du getRenderableSize() const = 0;
 };
 
 class ITexture;

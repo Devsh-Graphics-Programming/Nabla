@@ -36,7 +36,7 @@ namespace scene
 		virtual ~CSceneNodeAnimatorCameraFPS();
 
 		//! Animates the scene node, currently only works on cameras
-		virtual void animateNode(ISceneNode* node, u32 timeMs);
+		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs);
 
 		//! Event receiver
 		virtual bool OnEvent(const SEvent& event);
@@ -59,7 +59,7 @@ namespace scene
 		virtual void setKeyMap(SKeyMap *map, u32 count);
 
 		//! Sets the keyboard mapping for this animator
-		//!	\param keymap The new keymap array 
+		//!	\param keymap The new keymap array
 		virtual void setKeyMap(const core::array<SKeyMap>& keymap);
 
 		//! Gets the keyboard mapping for this animator
@@ -89,7 +89,7 @@ namespace scene
 		/** Please note that you will have to drop
 		(IReferenceCounted::drop()) the returned pointer once you're
 		done with it. */
-		virtual ISceneNodeAnimator* createClone(ISceneNode* node, ISceneManager* newManager=0);
+		virtual ISceneNodeAnimator* createClone(IDummyTransformationSceneNode* node, ISceneManager* newManager=0);
 
 	private:
 		void allKeysUp();

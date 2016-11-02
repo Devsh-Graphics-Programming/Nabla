@@ -49,6 +49,9 @@ public:
 		u32 patchVertices=3,
 		IShaderConstantSetCallBack* callback = 0,
 		E_MATERIAL_TYPE baseMaterial = EMT_SOLID,
+        const char** xformFeedbackOutputs = NULL,
+        const uint32_t& xformFeedbackOutputCount = 0,
+        const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
 		s32 userData = 0);
 
 	//! Destructor
@@ -75,20 +78,16 @@ public:
 
 protected:
 
-	//! constructor only for use by derived classes who want to
-	//! create a fall back material for example.
-	COpenGLSLMaterialRenderer(COpenGLDriver* driver,
-					IShaderConstantSetCallBack* callback,
-					E_MATERIAL_TYPE baseMaterial,
-					s32 userData=0);
-
 	void init(s32& outMaterialTypeNr,
 		const c8* vertexShaderProgram,
 		const c8* pixelShaderProgram,
 		const c8* geometryShaderProgram,
 		const c8* controlShaderProgram,
 		const c8* evaluationShaderProgram,
-		u32 patchVertices=3);
+		u32 patchVertices=3,
+        const char** xformFeedbackOutputs = NULL,
+        const uint32_t& xformFeedbackOutputCount = 0,
+        const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID);
 
 	bool createProgram();
 	bool createShader(GLenum shaderType, const char* shader);

@@ -9,24 +9,22 @@
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "ISceneNodeAnimator.h"
-#include "ITriangleSelector.h"
 #include "SMaterial.h"
 #include "irrString.h"
 #include "aabbox3d.h"
 #include "matrix4.h"
 #include "irrList.h"
 #include "IOcclusionQuery.h"
+#include "IDummyTransformationSceneNode.h"
 
 namespace irr
 {
 namespace scene
 {
 	class ISceneManager;
+    class ISceneNode;
 
-	//! Typedef for list of scene nodes
-	typedef core::list<ISceneNode*> ISceneNodeList;
-	//! Typedef for list of scene node animators
-	typedef core::list<ISceneNodeAnimator*> ISceneNodeAnimatorList;
+
 
 	//! Scene node interface.
 	/** A scene node is a node in the hierarchical scene graph. Every scene
@@ -36,45 +34,31 @@ namespace scene
 	example easily possible to attach a light to a moving car, or to place
 	a walking character on a moving platform on a moving ship.
 	*/
-	class ISceneNode : public virtual IReferenceCounted
+	class ISceneNode : public IDummyTransformationSceneNode
 	{
 	public:
 
 		//! Constructor
-		ISceneNode(ISceneNode* parent, ISceneManager* mgr, s32 id=-1,
+		ISceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id=-1,
 				const core::vector3df& position = core::vector3df(0,0,0),
 				const core::vector3df& rotation = core::vector3df(0,0,0),
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f))
-			: RelativeTranslation(position), RelativeRotation(rotation), RelativeScale(scale),
-				Parent(0), SceneManager(mgr), TriangleSelector(0), query(0), ID(id),
-				AutomaticCullingState(EAC_BOX), DebugDataVisible(EDS_OFF),
-				mobid(0), mobtype(0), IsVisible(true), IsDebugObject(false),
-				staticmeshid(0),blockposX(0),blockposY(0),blockposZ(0)
+			:   IDummyTransformationSceneNode(parent,position,rotation,scale),
+                SceneManager(mgr), query(0), ID(id), AutomaticCullingState(EAC_FRUSTUM_BOX),
+                DebugDataVisible(EDS_OFF), mobid(0), mobtype(0), IsVisible(true),
+                IsDebugObject(false), staticmeshid(0),blockposX(0),blockposY(0),blockposZ(0), renderPriority(0x80000000u)
 		{
-			if (parent)
-				parent->addChild(this);
-
-			updateAbsolutePosition();
 		}
 
 
 		//! Destructor
 		virtual ~ISceneNode()
 		{
-			// delete all children
-			removeAll();
-
-			// delete all animators
-			ISceneNodeAnimatorList::Iterator ait = Animators.begin();
-			for (; ait != Animators.end(); ++ait)
-				(*ait)->drop();
-
-			if (TriangleSelector)
-				TriangleSelector->drop();
-
             if (query)
                 query->drop();
 		}
+
+        virtual const bool isISceneNode() const {return true;}
 
 
 		//! This method is called just before the rendering process of the whole scene.
@@ -93,12 +77,7 @@ namespace scene
 		*/
 		virtual void OnRegisterSceneNode()
 		{
-			if (IsVisible)
-			{
-				ISceneNodeList::Iterator it = Children.begin();
-				for (; it != Children.end(); ++it)
-					(*it)->OnRegisterSceneNode();
-			}
+			OnRegisterSceneNode_static(this);
 		}
 
 
@@ -119,6 +98,22 @@ namespace scene
 		virtual video::IOcclusionQuery const* getOcclusionQuery() const {return query;}
 
 
+		//! Adds a child to this scene node.
+		/** If the scene node already has a parent it is first removed
+		from the other parent.
+		\param child A pointer to the new child. */
+		virtual void addChild(ISceneNode* child)
+		{
+			if (child && (child != this))
+			{
+				// Change scene manager?
+				if (SceneManager != child->SceneManager)
+					child->setSceneManager(SceneManager);
+			}
+
+			IDummyTransformationSceneNode::addChild(child);
+		}
+
 		//! OnAnimate() is called just before rendering the whole scene.
 		/** Nodes may calculate or store animations here, and may do other useful things,
 		depending on what they are. Also, OnAnimate() should be called for all
@@ -127,30 +122,7 @@ namespace scene
 		\param timeMs Current time in milliseconds. */
 		virtual void OnAnimate(u32 timeMs)
 		{
-			if (IsVisible)
-			{
-				// animate this node with all animators
-
-				ISceneNodeAnimatorList::Iterator ait = Animators.begin();
-				while (ait != Animators.end())
-					{
-					// continue to the next node before calling animateNode()
-					// so that the animator may remove itself from the scene
-					// node without the iterator becoming invalid
-					ISceneNodeAnimator* anim = *ait;
-					++ait;
-					anim->animateNode(this, timeMs);
-				}
-
-				// update absolute position
-				updateAbsolutePosition();
-
-				// perform the post render process on all children
-
-				ISceneNodeList::Iterator it = Children.begin();
-				for (; it != Children.end(); ++it)
-					(*it)->OnAnimate(timeMs);
-			}
+			OnAnimate_static(this,timeMs);
 		}
 
 
@@ -190,52 +162,21 @@ namespace scene
 		getAbsoluteTransformation() or simply use
 		getTransformedBoundingBox(), which does the same.
 		\return The non-transformed bounding box. */
-		virtual const core::aabbox3d<f32>& getBoundingBox() const = 0;
+		virtual const core::aabbox3d<f32>& getBoundingBox() = 0;
 
 
 		//! Get the axis aligned, transformed and animated absolute bounding box of this node.
 		/** \return The transformed bounding box. */
-		virtual const core::aabbox3d<f32> getTransformedBoundingBox() const
+		virtual const core::aabbox3d<f32> getTransformedBoundingBox()
 		{
 			core::aabbox3d<f32> box = getBoundingBox();
 			AbsoluteTransformation.transformBoxEx(box);
 			return box;
 		}
 
+		inline const uint32_t& getRenderPriorityScore() const {return renderPriority;}
 
-		//! Get the absolute transformation of the node. Is recalculated every OnAnimate()-call.
-		/** NOTE: For speed reasons the absolute transformation is not
-		automatically recalculated on each change of the relative
-		transformation or by a transformation change of an parent. Instead the
-		update usually happens once per frame in OnAnimate. You can enforce
-		an update with updateAbsolutePosition().
-		\return The absolute transformation matrix. */
-		virtual const core::matrix4& getAbsoluteTransformation() const
-		{
-			return AbsoluteTransformation;
-		}
-
-
-		//! Returns the relative transformation of the scene node.
-		/** The relative transformation is stored internally as 3
-		vectors: translation, rotation and scale. To get the relative
-		transformation matrix, it is calculated from these values.
-		\return The relative transformation matrix. */
-		virtual core::matrix4 getRelativeTransformation() const
-		{
-			core::matrix4 mat;
-			mat.setRotationDegrees(RelativeRotation);
-			mat.setTranslation(RelativeTranslation);
-
-			if (RelativeScale != core::vector3df(1.f,1.f,1.f))
-			{
-				core::matrix4 smat;
-				smat.setScale(RelativeScale);
-				mat *= smat;
-			}
-
-			return mat;
-		}
+		inline void setRenderPriorityScore(const uint32_t& nice) {renderPriority = nice;}
 
 
 		//! Returns whether the node should be visible (if all of its parents are visible).
@@ -254,14 +195,7 @@ namespace scene
 		false if this or any parent node is invisible. */
 		virtual bool isTrulyVisible() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
-			if(!IsVisible)
-				return false;
-
-			if(!Parent)
-				return true;
-
-			return Parent->isTrulyVisible();
+			return isTrulyVisible_static(this);
 		}
 
 		//! Sets if the node should be visible or not.
@@ -290,128 +224,6 @@ namespace scene
 		virtual void setID(s32 id)
 		{
 			ID = id;
-		}
-
-
-		//! Adds a child to this scene node.
-		/** If the scene node already has a parent it is first removed
-		from the other parent.
-		\param child A pointer to the new child. */
-		virtual void addChild(ISceneNode* child)
-		{
-			if (child && (child != this))
-			{
-				// Change scene manager?
-				if (SceneManager != child->SceneManager)
-					child->setSceneManager(SceneManager);
-
-				child->grab();
-				child->remove(); // remove from old parent
-				Children.push_back(child);
-				child->Parent = this;
-			}
-		}
-
-
-		//! Removes a child from this scene node.
-		/** If found in the children list, the child pointer is also
-		dropped and might be deleted if no other grab exists.
-		\param child A pointer to the child which shall be removed.
-		\return True if the child was removed, and false if not,
-		e.g. because it couldn't be found in the children list. */
-		virtual bool removeChild(ISceneNode* child)
-		{
-			ISceneNodeList::Iterator it = Children.begin();
-			for (; it != Children.end(); ++it)
-				if ((*it) == child)
-				{
-					(*it)->Parent = 0;
-					(*it)->drop();
-					Children.erase(it);
-					return true;
-				}
-
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
-			return false;
-		}
-
-
-		//! Removes all children of this scene node
-		/** The scene nodes found in the children list are also dropped
-		and might be deleted if no other grab exists on them.
-		*/
-		virtual void removeAll()
-		{
-			ISceneNodeList::Iterator it = Children.begin();
-			for (; it != Children.end(); ++it)
-			{
-				(*it)->Parent = 0;
-				(*it)->drop();
-			}
-
-			Children.clear();
-		}
-
-
-		//! Removes this scene node from the scene
-		/** If no other grab exists for this node, it will be deleted.
-		*/
-		virtual void remove()
-		{
-			if (Parent)
-				Parent->removeChild(this);
-		}
-
-
-		//! Adds an animator which should animate this node.
-		/** \param animator A pointer to the new animator. */
-		virtual void addAnimator(ISceneNodeAnimator* animator)
-		{
-			if (animator)
-			{
-				Animators.push_back(animator);
-				animator->grab();
-			}
-		}
-
-
-		//! Get a list of all scene node animators.
-		/** \return The list of animators attached to this node. */
-		const core::list<ISceneNodeAnimator*>& getAnimators() const
-		{
-			return Animators;
-		}
-
-
-		//! Removes an animator from this scene node.
-		/** If the animator is found, it is also dropped and might be
-		deleted if not other grab exists for it.
-		\param animator A pointer to the animator to be deleted. */
-		virtual void removeAnimator(ISceneNodeAnimator* animator)
-		{
-			ISceneNodeAnimatorList::Iterator it = Animators.begin();
-			for (; it != Animators.end(); ++it)
-			{
-				if ((*it) == animator)
-				{
-					(*it)->drop();
-					Animators.erase(it);
-					return;
-				}
-			}
-		}
-
-
-		//! Removes all animators from this scene node.
-		/** The animators might also be deleted if no other grab exists
-		for them. */
-		virtual void removeAnimators()
-		{
-			ISceneNodeAnimatorList::Iterator it = Animators.begin();
-			for (; it != Animators.end(); ++it)
-				(*it)->drop();
-
-			Animators.clear();
 		}
 
 
@@ -472,79 +284,6 @@ namespace scene
 		}
 
 
-		//! Gets the scale of the scene node relative to its parent.
-		/** This is the scale of this node relative to its parent.
-		If you want the absolute scale, use
-		getAbsoluteTransformation().getScale()
-		\return The scale of the scene node. */
-		virtual const core::vector3df& getScale() const
-		{
-			return RelativeScale;
-		}
-
-
-		//! Sets the relative scale of the scene node.
-		/** \param scale New scale of the node, relative to its parent. */
-		virtual void setScale(const core::vector3df& scale)
-		{
-			RelativeScale = scale;
-		}
-
-
-		//! Gets the rotation of the node relative to its parent.
-		/** Note that this is the relative rotation of the node.
-		If you want the absolute rotation, use
-		getAbsoluteTransformation().getRotation()
-		\return Current relative rotation of the scene node. */
-		virtual const core::vector3df& getRotation() const
-		{
-			return RelativeRotation;
-		}
-
-
-		//! Sets the rotation of the node relative to its parent.
-		/** This only modifies the relative rotation of the node.
-		\param rotation New rotation of the node in degrees. */
-		virtual void setRotation(const core::vector3df& rotation)
-		{
-			RelativeRotation = rotation;
-		}
-
-
-		//! Gets the position of the node relative to its parent.
-		/** Note that the position is relative to the parent. If you want
-		the position in world coordinates, use getAbsolutePosition() instead.
-		\return The current position of the node relative to the parent. */
-		virtual const core::vector3df& getPosition() const
-		{
-			return RelativeTranslation;
-		}
-
-
-		//! Sets the position of the node relative to its parent.
-		/** Note that the position is relative to the parent.
-		\param newpos New relative position of the scene node. */
-		virtual void setPosition(const core::vector3df& newpos)
-		{
-			RelativeTranslation = newpos;
-		}
-
-
-		//! Gets the absolute position of the node in world coordinates.
-		/** If you want the position of the node relative to its parent,
-		use getPosition() instead.
-		NOTE: For speed reasons the absolute position is not
-		automatically recalculated on each change of the relative
-		position or by a position change of an parent. Instead the
-		update usually happens once per frame in OnAnimate. You can enforce
-		an update with updateAbsolutePosition().
-		\return The current absolute position of the scene node (updated on last call of updateAbsolutePosition). */
-		virtual core::vector3df getAbsolutePosition() const
-		{
-			return AbsoluteTransformation.getTranslation();
-		}
-
-
 		//! Enables or disables automatic culling based on the bounding box.
 		/** Automatic culling is enabled by default. Note that not
 		all SceneNodes support culling and that some nodes always cull
@@ -602,92 +341,6 @@ namespace scene
 		}
 
 
-		//! Returns a const reference to the list of all children.
-		/** \return The list of all children of this node. */
-		const core::list<ISceneNode*>& getChildren() const
-		{
-			return Children;
-		}
-
-
-		//! Changes the parent of the scene node.
-		/** \param newParent The new parent to be used. */
-		virtual void setParent(ISceneNode* newParent)
-		{
-			grab();
-			remove();
-
-			Parent = newParent;
-
-			if (Parent)
-				Parent->addChild(this);
-
-			drop();
-		}
-
-
-		//! Returns the triangle selector attached to this scene node.
-		/** The Selector can be used by the engine for doing collision
-		detection. You can create a TriangleSelector with
-		ISceneManager::createTriangleSelector() or
-		ISceneManager::createOctreeTriangleSelector and set it with
-		ISceneNode::setTriangleSelector(). If a scene node got no triangle
-		selector, but collision tests should be done with it, a triangle
-		selector is created using the bounding box of the scene node.
-		\return A pointer to the TriangleSelector or 0, if there
-		is none. */
-		virtual ITriangleSelector* getTriangleSelector() const
-		{
-			return TriangleSelector;
-		}
-
-
-		//! Sets the triangle selector of the scene node.
-		/** The Selector can be used by the engine for doing collision
-		detection. You can create a TriangleSelector with
-		ISceneManager::createTriangleSelector() or
-		ISceneManager::createOctreeTriangleSelector(). Some nodes may
-		create their own selector by default, so it would be good to
-		check if there is already a selector in this node by calling
-		ISceneNode::getTriangleSelector().
-		\param selector New triangle selector for this scene node. */
-		virtual void setTriangleSelector(ITriangleSelector* selector)
-		{
-			if (TriangleSelector != selector)
-			{
-				if (TriangleSelector)
-					TriangleSelector->drop();
-
-				TriangleSelector = selector;
-				if (TriangleSelector)
-					TriangleSelector->grab();
-			}
-		}
-
-
-		//! Updates the absolute position based on the relative and the parents position
-		/** Note: This does not recursively update the parents absolute positions, so if you have a deeper
-			hierarchy you might want to update the parents first.*/
-		virtual void updateAbsolutePosition()
-		{
-			if (Parent)
-			{
-				AbsoluteTransformation =
-					Parent->getAbsoluteTransformation() * getRelativeTransformation();
-			}
-			else
-				AbsoluteTransformation = getRelativeTransformation();
-		}
-
-
-		//! Returns the parent of this scene node
-		/** \return A pointer to the parent. */
-		scene::ISceneNode* getParent() const
-		{
-			return Parent;
-		}
-
-
 		//! Returns type of the scene node
 		/** \return The type of this node. */
 		virtual ESCENE_NODE_TYPE getType() const
@@ -700,7 +353,7 @@ namespace scene
 		/** \param newParent An optional new parent.
 		\param newManager An optional new scene manager.
 		\return The newly created clone of this node. */
-		virtual ISceneNode* clone(ISceneNode* newParent=0, ISceneManager* newManager=0)
+		virtual IDummyTransformationSceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0)
 		{
 			return 0; // to be implemented by derived classes
 		}
@@ -722,85 +375,34 @@ namespace scene
 		derived classes
 		\param toCopyFrom The node from which the values are copied
 		\param newManager The new scene manager. */
-		void cloneMembers(ISceneNode* toCopyFrom, ISceneManager* newManager)
+		virtual void cloneMembers(ISceneNode* toCopyFrom, ISceneManager* newManager)
 		{
 			Name = toCopyFrom->Name;
-			AbsoluteTransformation = toCopyFrom->AbsoluteTransformation;
-			RelativeTranslation = toCopyFrom->RelativeTranslation;
-			RelativeRotation = toCopyFrom->RelativeRotation;
-			RelativeScale = toCopyFrom->RelativeScale;
 			ID = toCopyFrom->ID;
-			setTriangleSelector(toCopyFrom->TriangleSelector);
 			AutomaticCullingState = toCopyFrom->AutomaticCullingState;
 			DebugDataVisible = toCopyFrom->DebugDataVisible;
 			IsVisible = toCopyFrom->IsVisible;
 			IsDebugObject = toCopyFrom->IsDebugObject;
-
 			if (newManager)
 				SceneManager = newManager;
 			else
 				SceneManager = toCopyFrom->SceneManager;
 
-			// clone children
-
-			ISceneNodeList::Iterator it = toCopyFrom->Children.begin();
-			for (; it != toCopyFrom->Children.end(); ++it)
-				(*it)->clone(this, newManager);
-
-			// clone animators
-
-			ISceneNodeAnimatorList::Iterator ait = toCopyFrom->Animators.begin();
-			for (; ait != toCopyFrom->Animators.end(); ++ait)
-			{
-				ISceneNodeAnimator* anim = (*ait)->createClone(this, SceneManager);
-				if (anim)
-				{
-					addAnimator(anim);
-					anim->drop();
-				}
-			}
+            IDummyTransformationSceneNode::cloneMembers(toCopyFrom,SceneManager);
 		}
 
 		//! Sets the new scene manager for this node and all children.
 		//! Called by addChild when moving nodes between scene managers
 		void setSceneManager(ISceneManager* newManager)
 		{
-			SceneManager = newManager;
-
-			ISceneNodeList::Iterator it = Children.begin();
-			for (; it != Children.end(); ++it)
-				(*it)->setSceneManager(newManager);
+			setSceneManager_static(this,newManager);
 		}
 
 		//! Name of the scene node.
 		core::stringc Name;
 
-		//! Absolute transformation of the node.
-		core::matrix4 AbsoluteTransformation;
-
-		//! Relative translation of the scene node.
-		core::vector3df RelativeTranslation;
-
-		//! Relative rotation of the scene node.
-		core::vector3df RelativeRotation;
-
-		//! Relative scale of the scene node.
-		core::vector3df RelativeScale;
-
-		//! Pointer to the parent
-		ISceneNode* Parent;
-
-		//! List of all children of this node
-		core::list<ISceneNode*> Children;
-
-		//! List of all animator nodes
-		core::list<ISceneNodeAnimator*> Animators;
-
 		//! Pointer to the scene manager
 		ISceneManager* SceneManager;
-
-		//! Pointer to the triangle selector
-		ITriangleSelector* TriangleSelector;
 
 		//! Pointer to the attached occlusion query
 		video::IOcclusionQuery* query;
@@ -817,8 +419,91 @@ namespace scene
 		//! Is the node visible?
 		bool IsVisible;
 
+		uint32_t renderPriority;
+
 		//! Is debug object?
 		bool IsDebugObject;
+
+        static void OnAnimate_static(IDummyTransformationSceneNode* node, u32 timeMs)
+		{
+            ISceneNode* tmp = static_cast<ISceneNode*>(node);
+			if (!node->isISceneNode()||tmp->IsVisible)
+			{
+				// animate this node with all animators
+
+				ISceneNodeAnimatorList::ConstIterator ait = node->getAnimators().begin();
+				while (ait != node->getAnimators().end())
+                {
+					// continue to the next node before calling animateNode()
+					// so that the animator may remove itself from the scene
+					// node without the iterator becoming invalid
+					ISceneNodeAnimator* anim = *ait;
+					++ait;
+					anim->animateNode(node, timeMs);
+				}
+
+				// update absolute position
+				node->updateAbsolutePosition();
+
+				// perform the post render process on all children
+
+				IDummyTransformationSceneNodeList::ConstIterator it = node->getChildren().begin();
+				for (; it != node->getChildren().end(); ++it)
+                {
+                    ISceneNode* tmpChild = static_cast<ISceneNode*>(*it);
+                    if ((*it)->isISceneNode())
+                        static_cast<ISceneNode*>(*it)->OnAnimate(timeMs);
+                    else
+                        OnAnimate_static(*it,timeMs);
+                }
+			}
+		}
+    private:
+        static void OnRegisterSceneNode_static(IDummyTransformationSceneNode* node)
+        {
+            ISceneNode* tmp = static_cast<ISceneNode*>(node);
+			if (!node->isISceneNode()||tmp->IsVisible)
+			{
+				IDummyTransformationSceneNodeList::ConstIterator it = node->getChildren().begin();
+				for (; it != node->getChildren().end(); ++it)
+                {
+                    if ((*it)->isISceneNode())
+                        static_cast<ISceneNode*>(*it)->OnRegisterSceneNode();
+                    else
+                        OnRegisterSceneNode_static(*it);
+                }
+			}
+        }
+
+        static bool isTrulyVisible_static(const IDummyTransformationSceneNode* node)
+		{
+			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
+            const ISceneNode* tmp = static_cast<const ISceneNode*>(node);
+
+            if (node->isISceneNode())
+            {
+                if(!tmp->isVisible())
+                    return false;
+            }
+
+            if (node->getParent())
+                return isTrulyVisible_static(node->getParent());
+            else
+                return true;
+		}
+
+
+		static void setSceneManager_static(IDummyTransformationSceneNode* node, ISceneManager* newManager)
+		{
+            ISceneNode* tmp = static_cast<ISceneNode*>(node);
+
+            if (node->isISceneNode())
+                tmp->SceneManager = newManager;
+
+			IDummyTransformationSceneNodeList::ConstIterator it = node->getChildren().begin();
+			for (; it != node->getChildren().end(); ++it)
+                setSceneManager_static(*it,newManager);
+		}
 	};
 
 
