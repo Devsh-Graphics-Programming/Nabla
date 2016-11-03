@@ -210,7 +210,7 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 }
 
 
-#if defined(_IRR_COMPILE_WITH_X11_) && defined(_DEBUG)
+#if defined(_IRR_COMPILE_WITH_X11_)
 int IrrPrintXError(Display *display, XErrorEvent *event)
 {
 	char msg[256];
@@ -224,7 +224,6 @@ int IrrPrintXError(Display *display, XErrorEvent *event)
 	return 0;
 }
 #endif
-
 
 bool CIrrDeviceLinux::switchToFullscreen(bool reset)
 {
@@ -373,10 +372,8 @@ bool CIrrDeviceLinux::createWindow()
     if (CreationParams.AuxGLContexts)
         XInitThreads();
 
-#ifdef _DEBUG
 	os::Printer::log("Creating X window...", ELL_INFORMATION);
 	XSetErrorHandler(IrrPrintXError);
-#endif
 
 	display = XOpenDisplay(0);
 	if (!display)
@@ -409,8 +406,8 @@ bool CIrrDeviceLinux::createWindow()
         GLX_STENCIL_SIZE    , CreationParams.Stencilbuffer ? 8:0,
         GLX_DOUBLEBUFFER    , CreationParams.Doublebuffer ? True:False,
         GLX_STEREO          , CreationParams.Stereobuffer ? True:False,
-        //GLX_SAMPLE_BUFFERS  , 1,
-        //GLX_SAMPLES         , 4,
+        GLX_SAMPLE_BUFFERS  , 0,
+        GLX_SAMPLES         , 0,
         None
     };
 
