@@ -394,59 +394,88 @@ bool CIrrDeviceLinux::createWindow()
 	switchToFullscreen();
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
+    // attribute array for the draw buffer
+    int visualAttrBuffer[] =
+    {
+        GLX_X_RENDERABLE    , True,
+        GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
+        GLX_RENDER_TYPE     , GLX_RGBA_BIT,
+        GLX_X_VISUAL_TYPE   , GLX_TRUE_COLOR,
+        GLX_RED_SIZE        , 8,
+        GLX_GREEN_SIZE      , 8,
+        GLX_BLUE_SIZE       , 8,
+        GLX_ALPHA_SIZE      , CreationParams.WithAlphaChannel ? 8:0,
+        GLX_DEPTH_SIZE      , CreationParams.ZBufferBits,
+        GLX_STENCIL_SIZE    , CreationParams.Stencilbuffer ? 8:0,
+        GLX_DOUBLEBUFFER    , CreationParams.Doublebuffer ? True:False,
+        GLX_STEREO          , CreationParams.Stereobuffer ? True:False,
+        //GLX_SAMPLE_BUFFERS  , 1,
+        //GLX_SAMPLES         , 4,
+        None
+    };
 
     #define IRR_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
 
     int major,minor;
-	GLXFBConfig glxFBConfig;
 	bool isAvailableGLX=false;
+	GLXFBConfig bestFbc;
 	if (CreationParams.DriverType==video::EDT_OPENGL)
 	{
 		isAvailableGLX=glXQueryExtension(display,&major,&minor);
-		if (isAvailableGLX && glXQueryVersion(display, &major, &minor))
+		if (isAvailableGLX && glXQueryVersion(display, &major, &minor) &&
+            (major>1 || (major==1&&minor>=3) )  )
 		{
-			typedef GLXFBConfig * ( * PFNGLXCHOOSEFBCONFIGPROC) (Display *dpy, int screen, const int *attrib_list, int *nelements);
-
-            // attribute array for the draw buffer
-            int visualAttrBuffer[] =
-            {
-                GLX_RGBA, GLX_USE_GL,
-                GLX_RED_SIZE, 4,
-                GLX_GREEN_SIZE, 4,
-                GLX_BLUE_SIZE, 4,
-                GLX_ALPHA_SIZE, CreationParams.WithAlphaChannel?1:0,
-                GLX_DEPTH_SIZE, CreationParams.ZBufferBits,
-                GLX_STENCIL_SIZE, CreationParams.Stencilbuffer?1:0, // 12,13
-                // The following attributes have no flags, but are
-                // either present or not. As a no-op we use
-                // GLX_USE_GL, which is silently ignored by glXChooseVisual
-                CreationParams.Doublebuffer?GLX_DOUBLEBUFFER:GLX_USE_GL, // 14
-                CreationParams.Stereobuffer?GLX_STEREO:GLX_USE_GL, // 15
-//#ifdef GL_ARB_framebuffer_sRGB
-//					CreationParams.HandleSRGB?GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB:GLX_USE_GL,
-//#elif defined(GL_EXT_framebuffer_sRGB)
-//					CreationParams.HandleSRGB?GLX_FRAMEBUFFER_SRGB_CAPABLE_EXT:GLX_USE_GL,
-//#endif
-                None
-            };
-
-            visual=glXChooseVisual(display, screennr, visualAttrBuffer);
-            if (!visual)
+            int fbcount;
+            GLXFBConfig* fbc = glXChooseFBConfig(display, DefaultScreen(display), visualAttrBuffer, &fbcount);
+            if (!fbc)
             {
                 if (CreationParams.Stencilbuffer)
                     os::Printer::log("No stencilbuffer available, disabling.", ELL_WARNING);
                 CreationParams.Stencilbuffer = !CreationParams.Stencilbuffer;
-                visualAttrBuffer[13]=CreationParams.Stencilbuffer?1:0;
+                visualAttrBuffer[13] = CreationParams.Stencilbuffer ? 1:0;
 
-                visual=glXChooseVisual(display, screennr, visualAttrBuffer);
-                if (!visual && CreationParams.Doublebuffer)
+                fbc = glXChooseFBConfig(display, DefaultScreen(display), visualAttrBuffer, &fbcount);
+                if (!fbc && CreationParams.Doublebuffer)
                 {
                     os::Printer::log("No doublebuffering available.", ELL_WARNING);
                     CreationParams.Doublebuffer=false;
                     visualAttrBuffer[14] = GLX_USE_GL;
-                    visual=glXChooseVisual(display, screennr, visualAttrBuffer);
+                    fbc = glXChooseFBConfig(display, DefaultScreen(display), visualAttrBuffer, &fbcount);
                 }
             }
+
+            if (fbc)
+            {
+                // Pick the FB config/visual with the most samples per pixel
+                int best_fbc = -1, worst_fbc = -1, best_num_samp = -1, worst_num_samp = 999;
+
+                int i;
+                for (i=0; i<fbcount; ++i)
+                {
+                    XVisualInfo *vi = glXGetVisualFromFBConfig( display, fbc[i] );
+                    if ( vi )
+                    {
+                      int samp_buf, samples;
+                      glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
+                      glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , &samples  );
+
+                      if ( best_fbc < 0 || samp_buf && samples > best_num_samp )
+                        best_fbc = i, best_num_samp = samples;
+                      if ( worst_fbc < 0 || !samp_buf || samples < worst_num_samp )
+                        worst_fbc = i, worst_num_samp = samples;
+                    }
+                    XFree( vi );
+                }
+
+                bestFbc = fbc[ best_fbc ];
+
+                // Be sure to free the FBConfig list allocated by glXChooseFBConfig()
+                XFree( fbc );
+
+                visual = glXGetVisualFromFBConfig( display, bestFbc );
+            }
+            else
+                os::Printer::log("No GLX support available. OpenGL driver will not work.", ELL_WARNING);
 		}
 		else
 			os::Printer::log("No GLX support available. OpenGL driver will not work.", ELL_WARNING);
@@ -558,26 +587,89 @@ bool CIrrDeviceLinux::createWindow()
 	Context=0;
 	if (isAvailableGLX && CreationParams.DriverType==video::EDT_OPENGL)
 	{
-		Context = glXCreateContext(display, visual, NULL, True);
-		if (CreationParams.AuxGLContexts)
-            AuxContext = new GLXContext[CreationParams.AuxGLContexts];
-		for (u8 i=0; i<CreationParams.AuxGLContexts; i++)
-        {
-            AuxContext[i] = glXCreateContext(display, visual, Context, True);
-        }
+		GLXContext tmpCtx = glXCreateContext(display, visual, NULL, True);
+		glXMakeCurrent(display, window, tmpCtx);
+        //if (glXMakeCurrent(display, window, Context))
+            PFNGLXCREATECONTEXTATTRIBSARBPROC pGlxCreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC)IRR_OGL_LOAD_EXTENSION("glXCreateContextAttribsARB");
 
-		if (Context)
-		{
-			if (!glXMakeCurrent(display, window, Context))
-			{
-				os::Printer::log("Could not make context current.", ELL_WARNING);
-				glXDestroyContext(display, Context);
-			}
-		}
-		else
-		{
-			os::Printer::log("Could not create GLX rendering context.", ELL_WARNING);
-		}
+		if (tmpCtx)
+        {
+            if (pGlxCreateContextAttribsARB)
+            {
+                int context_attribs[] =
+                {
+                    GLX_CONTEXT_MAJOR_VERSION_ARB, 4,
+                    GLX_CONTEXT_MINOR_VERSION_ARB, 5,
+                    GLX_CONTEXT_PROFILE_MASK_ARB,  GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+                    None
+                };
+
+                // create rendering context
+                Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
+                if (!Context)
+                {
+                    context_attribs[3] = 4;
+                    Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
+                }
+                if (!Context)
+                {
+                    context_attribs[3] = 3;
+                    Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
+                }
+                if (!Context)
+                {
+                    context_attribs[3] = 2;
+                    Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
+                }
+                if (!Context)
+                {
+                    context_attribs[3] = 1;
+                    Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
+                }
+                if (!Context)
+                {
+                    context_attribs[1] = 3;
+                    context_attribs[3] = 3;
+                    Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
+                }
+
+                if (Context)
+                {
+                    if (CreationParams.AuxGLContexts)
+                        AuxContext = new GLXContext[CreationParams.AuxGLContexts];
+                    for (u8 i=0; i<CreationParams.AuxGLContexts; i++)
+                    {
+                        AuxContext[i] = pGlxCreateContextAttribsARB( display, bestFbc, Context, True, context_attribs );
+                    }
+
+                    if (!glXMakeCurrent(display, window, Context))
+                    {
+                        os::Printer::log("Could not make context current.", ELL_WARNING);
+                        glXDestroyContext(display, Context);
+                        glXMakeCurrent(display, None, NULL);
+                    }
+                    glXDestroyContext(display, tmpCtx);
+                }
+                else
+                {
+                    glXMakeCurrent(display, None, NULL);
+                    glXDestroyContext(display, tmpCtx);
+                    os::Printer::log("Could not create GLX rendering context.", ELL_WARNING);
+                }
+            }
+            else
+            {
+                glXMakeCurrent(display, None, NULL);
+                glXDestroyContext(display, tmpCtx);
+                os::Printer::log("Could not get pointer to glxCreateContextAttribsARB.", ELL_WARNING);
+            }
+        }
+        else
+        {
+            glXMakeCurrent(display, None, NULL);
+            glXDestroyContext(display, tmpCtx);
+            os::Printer::log("Could not get pointer to glxCreateContextAttribsARB.", ELL_WARNING);
+        }
 	}
 #endif // _IRR_COMPILE_WITH_OPENGL_
 
