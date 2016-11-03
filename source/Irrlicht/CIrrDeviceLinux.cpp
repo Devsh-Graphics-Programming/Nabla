@@ -446,8 +446,9 @@ bool CIrrDeviceLinux::createWindow()
 
             if (fbc)
             {
-                // Pick the FB config/visual with the most samples per pixel
-                int best_fbc = -1, worst_fbc = -1, best_num_samp = -1, worst_num_samp = 999;
+                int desiredSamples = 0;
+                int bestSamples = 1024;
+                int best_fbc = -1;
 
                 int i;
                 for (i=0; i<fbcount; ++i)
@@ -455,14 +456,28 @@ bool CIrrDeviceLinux::createWindow()
                     XVisualInfo *vi = glXGetVisualFromFBConfig( display, fbc[i] );
                     if ( vi )
                     {
-                      int samp_buf, samples;
-                      glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
-                      glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , &samples  );
+                        int samp_buf, samples;
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , &samples  );
 
-                      if ( best_fbc < 0 || samp_buf && samples > best_num_samp )
-                        best_fbc = i, best_num_samp = samples;
-                      if ( worst_fbc < 0 || !samp_buf || samples < worst_num_samp )
-                        worst_fbc = i, worst_num_samp = samples;
+                        if (best_fbc < 0)
+                        {
+                            best_fbc = i;
+                            bestSamples = samples;
+                        }
+                        else if (desiredSamples>1)
+                        {
+                            if (samp_buf&&samples>=desiredSamples&&samples<bestSamples)
+                            {
+                                best_fbc = i;
+                                bestSamples = samples;
+                            }
+                        }
+                        else if (!samp_buf && samples<=1)
+                        {
+                            best_fbc = i;
+                            bestSamples = samples;
+                        }
                     }
                     XFree( vi );
                 }
