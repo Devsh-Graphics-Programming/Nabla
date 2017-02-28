@@ -20,13 +20,6 @@ namespace io
 namespace video
 {
 
-enum E_XFORM_FEEDBACK_ATTRIBUTE_MODE
-{
-    EXFAM_INTERLEAVED=0,
-    EXFAM_SEPARATE,
-    EXFAM_COUNT_INVALID
-};
-
 class IVideoDriver;
 class IShaderConstantSetCallBack;
 
@@ -50,7 +43,6 @@ public:
 		IShaderConstantSetCallBack* callback = 0,
 		const char** xformFeedbackOutputs = NULL,
 		const uint32_t& xformFeedbackOutputCount = 0,
-		const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
 		s32 userData = 0,
 		const c8* vertexShaderEntryPointName="main",
 		const c8* controlShaderEntryPointName = "main",
@@ -69,7 +61,6 @@ public:
 		IShaderConstantSetCallBack* callback = 0,
 		const char** xformFeedbackOutputs = NULL,
 		const uint32_t& xformFeedbackOutputCount = 0,
-		const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
 		s32 userData = 0,
 		const c8* vertexShaderEntryPointName="main",
 		const c8* controlShaderEntryPointName = "main",
@@ -88,7 +79,6 @@ public:
 		IShaderConstantSetCallBack* callback = 0,
 		const char** xformFeedbackOutputs = NULL,
 		const uint32_t& xformFeedbackOutputCount = 0,
-		const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
 		s32 userData = 0,
 		const c8* vertexShaderEntryPointName="main",
 		const c8* controlShaderEntryPointName = "main",
@@ -108,7 +98,6 @@ public:
         IShaderConstantSetCallBack* callback=0,
 		const char** xformFeedbackOutputs = NULL,
 		const uint32_t& xformFeedbackOutputCount = 0,
-		const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
         s32 userData=0,
         const c8* vertexShaderEntryPointName="main",
         const c8* controlShaderEntryPointName="main",

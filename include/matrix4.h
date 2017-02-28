@@ -395,6 +395,50 @@ namespace core
 			//! Compare two matrices using the equal method
 			bool equals(const core::CMatrix4<T>& other, const T tolerance=(T)ROUNDING_ERROR_f64) const;
 
+			inline bool isBoxInsideFrustum(const core::aabbox3df& tbox)
+			{
+                core::vector3df column0_Min = reinterpret_cast<core::vector3df*>(M)[0];
+                core::vector3df column1_Min = reinterpret_cast<core::vector3df*>(M+4)[0];
+                core::vector3df column2_Min = reinterpret_cast<core::vector3df*>(M+8)[0];
+                core::vector3df column3_Min = reinterpret_cast<core::vector3df*>(M+12)[0];
+                core::vector3df column0_Max = column0_Min;
+                core::vector3df column1_Max = column1_Min;
+                core::vector3df column2_Max = column2_Min;
+                core::vector3df column3_Max = column3_Min;
+
+                column0_Min += M[3];
+                column1_Min += M[7];
+                column2_Min += M[11];
+                column3_Min += M[15];
+
+                float tmp = column0_Min.X*(column0_Min.X<0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Min.X*(column1_Min.X<0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Min.X*(column2_Min.X<0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
+                if (tmp<=-column3_Min.X)
+                    return false;
+                tmp = column0_Min.Y*(column0_Min.Y<0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Min.Y*(column1_Min.Y<0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Min.Y*(column2_Min.Y<0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
+                if (tmp<=-column3_Min.Y)
+                    return false;
+                tmp = M[3]*(M[3]<0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+M[7]*(M[7]<0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+M[11]*(M[11]<0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
+                if (tmp<=-M[15])
+                    return false;
+
+                column0_Max -= M[3];
+                column1_Max -= M[7];
+                column2_Max -= M[11];
+                column3_Max = core::vector3df(M[15])-column3_Max;
+                tmp = column0_Max.X*(column0_Max.X>=0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Max.X*(column1_Max.X>=0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Max.X*(column2_Max.X>=0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
+                if (tmp>=column3_Max.X)
+                    return false;
+                tmp = column0_Max.Y*(column0_Max.Y>=0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Max.Y*(column1_Max.Y>=0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Max.Y*(column2_Max.Y>=0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
+                if (tmp>=column3_Max.Y)
+                    return false;
+
+                tmp = column0_Max.Z*(column0_Max.Z>=0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Max.Z*(column1_Max.Z>=0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Max.Z*(column2_Max.Z>=0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
+                if (tmp>=column3_Max.Z)
+                    return false;
+
+                return true;
+			}
+
 		private:
 			//! Matrix data, stored in row-major order
 			T M[16];

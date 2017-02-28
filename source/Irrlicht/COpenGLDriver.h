@@ -26,6 +26,7 @@ namespace irr
 #include "COpenGLDriverFence.h"
 #include "COpenGLTransformFeedback.h"
 #include "COpenGLVAO.h"
+#include "COpenCLHandler.h"
 
 #include <map>
 
@@ -109,6 +110,10 @@ namespace video
 
         virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
+		//! Indirect Draw
+		virtual void drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
+		virtual void drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
+
 
 		//! queries the features of the driver, returns true if feature is available
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
@@ -187,7 +192,6 @@ namespace video
             IShaderConstantSetCallBack* callback=0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData=0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName="main",
@@ -280,8 +284,24 @@ namespace video
 		//! sets the needed renderstates
 		void setRenderStates3DMode();
 
+		//!
+		const size_t& getMaxConcurrentShaderInvocations() const {return maxConcurrentShaderInvocations;}
+
+		//!
+		const size_t& getMaxShaderInvocationsPerALU() const {return maxALUShaderInvocations;}
+
+#ifdef _IRR_COMPILE_WITH_OPENCL_
+        const cl_device_id& getOpenCLAssociatedDevice() const {return clDevice;}
+
+        const size_t& getOpenCLAssociatedDeviceID() const {return clDeviceIx;}
+        const size_t& getOpenCLAssociatedPlatformID() const {return clPlatformIx;}
+#endif // _IRR_COMPILE_WITH_OPENCL_
+
 	private:
 	    COpenGLVAO* CurrentVAO;
+
+	    COpenGLBuffer* currentIndirectDrawBuff;
+	    uint64_t lastValidatedIndirectBuffer;
 
         bool XFormFeedbackRunning;
 	    COpenGLTransformFeedback* CurrentXFormFeedback;
@@ -401,6 +421,13 @@ namespace video
 		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 			CIrrDeviceSDL *SDLDevice;
 		#endif
+
+        size_t maxALUShaderInvocations;
+        size_t maxConcurrentShaderInvocations;
+#ifdef _IRR_COMPILE_WITH_OPENCL_
+        cl_device_id clDevice;
+        size_t clPlatformIx, clDeviceIx;
+#endif // _IRR_COMPILE_WITH_OPENCL_
 
 		void* AuxContext;
 

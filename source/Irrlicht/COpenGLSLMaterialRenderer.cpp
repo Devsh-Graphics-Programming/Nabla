@@ -43,7 +43,6 @@ COpenGLSLMaterialRenderer::COpenGLSLMaterialRenderer(video::COpenGLDriver* drive
 		E_MATERIAL_TYPE baseMaterial,
         const char** xformFeedbackOutputs,
         const uint32_t& xformFeedbackOutputCount,
-        const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
 		s32 userData)
 	: Driver(driver), CallBack(callback), BaseMaterial(baseMaterial),
 		Program2(0), UserData(userData), tessellationPatchVertices(-1), activeUniformCount(0)
@@ -60,7 +59,7 @@ COpenGLSLMaterialRenderer::COpenGLSLMaterialRenderer(video::COpenGLDriver* drive
 		CallBack->grab();
 
 	init(outMaterialTypeNr, vertexShaderProgram, pixelShaderProgram, geometryShaderProgram,
-        controlShaderProgram,evaluationShaderProgram,patchVertices,xformFeedbackOutputs,xformFeedbackOutputCount,attribLayout);
+        controlShaderProgram,evaluationShaderProgram,patchVertices,xformFeedbackOutputs,xformFeedbackOutputCount);
 }
 
 
@@ -93,8 +92,7 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
 		const c8* evaluationShaderProgram,
 		u32 patchVertices,
         const char** xformFeedbackOutputs,
-        const uint32_t& xformFeedbackOutputCount,
-        const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout)
+        const uint32_t& xformFeedbackOutputCount)
 {
 	outMaterialTypeNr = -1;
 
@@ -115,7 +113,7 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
 			return;
 	}
 
-    if (controlShaderProgram && evaluationShaderProgram && Driver->queryFeature(EVDF_TESSELLATION_SHADER))
+    if (controlShaderProgram && evaluationShaderProgram)
     {
         if (!createShader(GL_TESS_CONTROL_SHADER,controlShaderProgram))
             return;
@@ -128,12 +126,7 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
         CallBack->PreLink(Program2);
 
     if (xformFeedbackOutputCount>0&&xformFeedbackOutputs)
-    {
-        if (attribLayout==EXFAM_INTERLEAVED)
-            Driver->extGlTransformFeedbackVaryings(Program2,xformFeedbackOutputCount,xformFeedbackOutputs,GL_INTERLEAVED_ATTRIBS);
-        else if (attribLayout==EXFAM_SEPARATE)
-            Driver->extGlTransformFeedbackVaryings(Program2,xformFeedbackOutputCount,xformFeedbackOutputs,GL_SEPARATE_ATTRIBS);
-    }
+        Driver->extGlTransformFeedbackVaryings(Program2,xformFeedbackOutputCount,xformFeedbackOutputs,GL_INTERLEAVED_ATTRIBS);
 
 	if (!linkProgram())
 		return;

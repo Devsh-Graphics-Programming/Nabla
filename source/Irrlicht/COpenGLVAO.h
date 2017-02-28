@@ -121,6 +121,23 @@ namespace video
 
             inline const GLuint& getOpenGLName() const {return vao;}
             bool rebindRevalidate();
+
+
+            void swapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const size_t& newOffset, const size_t& newStride)
+            {
+                if (!mappedAttrBuf[attrId] || !attrBuf)
+                    return;
+
+                attrBuf->grab();
+                mappedAttrBuf[attrId]->drop();
+
+                COpenGLBuffer* asGLBuf = dynamic_cast<COpenGLBuffer*>(attrBuf);
+                mappedAttrBuf[attrId] = asGLBuf;
+                attrOffset[attrId] = newOffset;
+                attrStride[attrId] = newStride;
+
+                COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),attrOffset[attrId],attrStride[attrId]);
+            }
     };
 
 

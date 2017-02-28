@@ -376,57 +376,11 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
             meshbuffer->setIndexCount(Materials[m]->Indices.size());
         }
 
-        size_t bitsPerUV = 8;
-        for (size_t i=0; i<actualVertexCount; i++)
-        for (size_t j=0; j<2; j++)
-        {
-            float localUV = Materials[m]->Vertices[baseVertex+i].uv[j];
-            if (localUV<0.f||localUV>1.f)
-            {
-                bitsPerUV = 32;
-                break;
-            }
-
-            uint16_t q16 = localUV*float(0xffffu);
-            if (abs(localUV*float(0xffffu)-float(q16))>=0.499992371f*0.5f) //half of a pixel in a 128Kx128K texture
-            {
-                bitsPerUV = 32;
-                break;
-            }
-            else if (bitsPerUV<16)
-            {
-                uint8_t q8 = q16>>8u;
-                if (abs(localUV*float(0xffu)-float(q8))>=0.001945496f*0.5f) //half of a pixel in a 128Kx128K texture
-                    bitsPerUV = 16;
-            }
-        }
-        //vertices
-        switch (bitsPerUV)
-        {
-            case 8:
-                vertexbuf = new core::ICPUBuffer(actualVertexCount*sizeof(SObjVertex8));
-                desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(SObjVertex8),0);
-                desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR2,ECPA_TWO,ECT_NORMALIZED_UNSIGNED_BYTE,sizeof(SObjVertex8),12);
-                desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(SObjVertex8),14); //normal
-                for (size_t i=0; i<actualVertexCount; i++)
-                    reinterpret_cast<SObjVertex8*>(vertexbuf->getPointer())[i] = SObjVertex8(Materials[m]->Vertices[baseVertex+i]);
-                break;
-            case 16:
-                vertexbuf = new core::ICPUBuffer(actualVertexCount*sizeof(SObjVertex16));
-                desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(SObjVertex16),0);
-                desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR2,ECPA_TWO,ECT_NORMALIZED_UNSIGNED_SHORT,sizeof(SObjVertex16),12);
-                desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(SObjVertex16),16); //normal
-                for (size_t i=0; i<actualVertexCount; i++)
-                    reinterpret_cast<SObjVertex16*>(vertexbuf->getPointer())[i] = SObjVertex16(Materials[m]->Vertices[baseVertex+i]);
-                break;
-            default:
-                vertexbuf = new core::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
-                desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(SObjVertex),0);
-                desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,sizeof(SObjVertex),12);
-                desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(SObjVertex),20); //normal
-                memcpy(vertexbuf->getPointer(),Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
-                break;
-        }
+        vertexbuf = new core::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
+        desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(SObjVertex),0);
+        desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,sizeof(SObjVertex),12);
+        desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(SObjVertex),20); //normal
+        memcpy(vertexbuf->getPointer(),Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
 
         //memory is precious

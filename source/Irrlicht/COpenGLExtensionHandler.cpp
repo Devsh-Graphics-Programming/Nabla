@@ -154,6 +154,8 @@ bool COpenGLExtensionHandler::FeatureAvailable[] = {false};
 
 uint32_t COpenGLExtensionHandler::MaxIndices = 65535;
 uint32_t COpenGLExtensionHandler::MaxVertices = 0xffffffffu;
+uint32_t COpenGLExtensionHandler::MaxVertexStreams = 1;
+uint32_t COpenGLExtensionHandler::MaxXFormFeedbackComponents = 64;
 
 //uint32_t COpenGLExtensionHandler::MaxXFormFeedbackInterleavedAttributes = GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS;
 //uint32_t COpenGLExtensionHandler::MaxXFormFeedbackSeparateAttributes = GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS;
@@ -161,6 +163,9 @@ uint32_t COpenGLExtensionHandler::MaxVertices = 0xffffffffu;
 bool COpenGLExtensionHandler::IsIntelGPU = false;
 
 #if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+//
+PFNGLGETSTRINGIPROC COpenGLExtensionHandler::pGlGetStringi = NULL;
+
 //fences
 PFNGLFENCESYNCPROC COpenGLExtensionHandler::pGlFenceSync = NULL;
 PFNGLDELETESYNCPROC COpenGLExtensionHandler::pGlDeleteSync = NULL;
@@ -385,6 +390,12 @@ PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC COpenGLExtensionHandler::pGlDrawElement
 PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCEPROC COpenGLExtensionHandler::pGlDrawElementsInstancedBaseVertexBaseInstance = NULL;
 PFNGLDRAWTRANSFORMFEEDBACKPROC COpenGLExtensionHandler::pGlDrawTransformFeedback = NULL;
 PFNGLDRAWTRANSFORMFEEDBACKINSTANCEDPROC COpenGLExtensionHandler::pGlDrawTransformFeedbackInstanced = NULL;
+PFNGLDRAWTRANSFORMFEEDBACKSTREAMPROC COpenGLExtensionHandler::pGlDrawTransformFeedbackStream = NULL;
+PFNGLDRAWTRANSFORMFEEDBACKSTREAMINSTANCEDPROC COpenGLExtensionHandler::pGlDrawTransformFeedbackStreamInstanced = NULL;
+PFNGLDRAWARRAYSINDIRECTPROC COpenGLExtensionHandler::pGlDrawArraysIndirect = NULL;
+PFNGLDRAWELEMENTSINDIRECTPROC COpenGLExtensionHandler::pGlDrawElementsIndirect = NULL;
+PFNGLMULTIDRAWARRAYSINDIRECTPROC COpenGLExtensionHandler::pGlMultiDrawArraysIndirect = NULL;
+PFNGLMULTIDRAWELEMENTSINDIRECTPROC COpenGLExtensionHandler::pGlMultiDrawElementsIndirect = NULL;
 //
 PFNGLCREATETRANSFORMFEEDBACKSPROC COpenGLExtensionHandler::pGlCreateTransformFeedbacks = NULL;
 PFNGLGENTRANSFORMFEEDBACKSPROC COpenGLExtensionHandler::pGlGenTransformFeedbacks = NULL;
@@ -724,10 +735,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     if (vendorString.find("Intel")!=-1 || vendorString.find("INTEL")!=-1)
 	    IsIntelGPU = true;
 
-	TextureCompressionExtension = FeatureAvailable[IRR_ARB_texture_compression];
-	StencilBuffer=stencilBuffer;
-
-
 
 	loadFunctions();
 	if ( Version >= 120)
@@ -735,6 +742,9 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	else
 		os::Printer::log("OpenGL driver version is not 1.2 or better.", ELL_WARNING);
 
+
+	TextureCompressionExtension = FeatureAvailable[IRR_ARB_texture_compression];
+	StencilBuffer=stencilBuffer;
 
 
 	GLint num=0;
@@ -930,41 +940,9 @@ void COpenGLExtensionHandler::loadFunctions()
 	for (u32 i=0; i<IRR_OpenGL_Feature_Count; ++i)
 		FeatureAvailable[i]=false;
 
-    const char* t = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
-    size_t len = 0;
-    c8 *str = 0;
-    if (t)
-    {
-        len = strlen(t);
-        str = new c8[len+1];
-    }
-    c8* p = str;
-
-    for (size_t i=0; i<len; ++i)
-    {
-        str[i] = static_cast<char>(t[i]);
-
-        if (str[i] == ' ')
-        {
-            str[i] = 0;
-            for (u32 j=0; j<IRR_OpenGL_Feature_Count; ++j)
-            {
-                if (!strcmp(OpenGLFeatureStrings[j], p))
-                {
-                    FeatureAvailable[j] = true;
-                    break;
-                }
-            }
-
-            p = p + strlen(p) + 1;
-        }
-    }
-
-    delete [] str;
 
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	const f32 ogl_ver = core::fast_atof(reinterpret_cast<const c8*>(glGetString(GL_VERSION)));
-	Version = static_cast<u16>(core::round32(ogl_ver*100.0f));
+
 #ifdef _IRR_WINDOWS_API_
 	#define IRR_OGL_LOAD_EXTENSION(x) wglGetProcAddress(reinterpret_cast<const char*>(x))
 #elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !defined(_IRR_COMPILE_WITH_X11_DEVICE_)
@@ -973,11 +951,44 @@ void COpenGLExtensionHandler::loadFunctions()
     #define IRR_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
 #endif // Windows, SDL, or Linux
 
+    pGlGetStringi = (PFNGLGETSTRINGIPROC) IRR_OGL_LOAD_EXTENSION("glGetStringi");
+
+#else
+
+    pGlGetStringi = &glGetStringi;
+
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+
+    GLint extensionCount;
+    glGetIntegerv(GL_NUM_EXTENSIONS,&extensionCount);
+    for (GLint i=0; i<extensionCount; ++i)
+    {
+        const char* extensionName = reinterpret_cast<const char*>(pGlGetStringi(GL_EXTENSIONS,i));
+
+        for (u32 j=0; j<IRR_OpenGL_Feature_Count; ++j)
+        {
+            if (!strcmp(OpenGLFeatureStrings[j], extensionName))
+            {
+                FeatureAvailable[j] = true;
+                break;
+            }
+        }
+    }
+
+
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	const f32 ogl_ver = core::fast_atof(reinterpret_cast<const c8*>(glGetString(GL_VERSION)));
+	Version = static_cast<u16>(core::round32(ogl_ver*100.0f));
+
 	GLint num=0;
 	glGetIntegerv(GL_MAX_ELEMENTS_INDICES, &num);
     MaxIndices=num;
 	glGetIntegerv(GL_MAX_ELEMENTS_VERTICES, &num);
     MaxVertices=num;
+	glGetIntegerv(GL_MAX_VERTEX_STREAMS, &num);
+    MaxVertexStreams=num;
+	glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS, &num);
+    MaxXFormFeedbackComponents=num;
 
     //fences
     pGlFenceSync = (PFNGLFENCESYNCPROC) IRR_OGL_LOAD_EXTENSION("glFenceSync");
@@ -1203,6 +1214,12 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlDrawElementsInstancedBaseVertexBaseInstance = (PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCEPROC) IRR_OGL_LOAD_EXTENSION("glDrawElementsInstancedBaseVertexBaseInstance");
     pGlDrawTransformFeedback = (PFNGLDRAWTRANSFORMFEEDBACKPROC) IRR_OGL_LOAD_EXTENSION("glDrawTransformFeedback");
     pGlDrawTransformFeedbackInstanced = (PFNGLDRAWTRANSFORMFEEDBACKINSTANCEDPROC) IRR_OGL_LOAD_EXTENSION("glDrawTransformFeedbackInstanced");
+    pGlDrawTransformFeedbackStream = (PFNGLDRAWTRANSFORMFEEDBACKSTREAMPROC) IRR_OGL_LOAD_EXTENSION("glDrawTransformFeedbackStream");
+    pGlDrawTransformFeedbackStreamInstanced = (PFNGLDRAWTRANSFORMFEEDBACKSTREAMINSTANCEDPROC) IRR_OGL_LOAD_EXTENSION("glDrawTransformFeedbackStreamInstanced");
+    pGlDrawArraysIndirect = (PFNGLDRAWARRAYSINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glDrawArraysIndirect");
+    pGlDrawElementsIndirect = (PFNGLDRAWELEMENTSINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glDrawElementsIndirect");
+    pGlMultiDrawArraysIndirect = (PFNGLMULTIDRAWARRAYSINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawArraysIndirect");
+    pGlMultiDrawElementsIndirect = (PFNGLMULTIDRAWELEMENTSINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawElementsIndirect");
     //
 	pGlCreateTransformFeedbacks = (PFNGLCREATETRANSFORMFEEDBACKSPROC) IRR_OGL_LOAD_EXTENSION("glCreateTransformFeedbacks");
 	pGlGenTransformFeedbacks = (PFNGLGENTRANSFORMFEEDBACKSPROC) IRR_OGL_LOAD_EXTENSION("glGenTransformFeedbacks");
@@ -1288,10 +1305,6 @@ bool COpenGLExtensionHandler::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature
 		return FeatureAvailable[IRR_ARB_multisample];
 	case EVDF_GEOMETRY_SHADER:
 		return true;
-    case EVDF_TESSELLATION_SHADER:
-        return FeatureAvailable[IRR_ARB_tessellation_shader];
-	case EVDF_MULTIPLE_RENDER_TARGETS:
-		return true;
 	case EVDF_MRT_BLEND:
 	case EVDF_MRT_COLOR_MASK:
 		return FeatureAvailable[IRR_EXT_draw_buffers2] || FeatureAvailable[IRR_ARB_draw_buffers_blend];
@@ -1311,10 +1324,10 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
 {
     bool retval = true;
 
-    if (Version<330)
+    if (Version<400)
     {
         retval = false;
-        core::stringc error = "OpenGL Version Lower Than 3.3\n";
+        core::stringc error = "OpenGL Version Lower Than 4.0\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
@@ -1555,27 +1568,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_transform_feedback2] || Version>=400))
-    {
-        retval =  false;
-        core::stringc error = "Transform Feedback Level 2 Not Available\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
 /**
-    if (!(FeatureAvailable[IRR_ARB_transform_feedback3] || Version>=400))
-    {
-        retval =  false;
-        core::stringc error = "\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
     if (!(FeatureAvailable[IRR_ARB_transform_feedback_instanced] || Version>=420))
     {
         retval =  false;
@@ -1586,10 +1579,20 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
             os::Printer::log(error.c_str(), ELL_ERROR);
     }**/
 
-    if ((Version>=400||FeatureAvailable[IRR_ARB_draw_indirect])&&Version<420&&(!FeatureAvailable[IRR_ARB_base_instance]))
+    if (Version<420&&(!FeatureAvailable[IRR_ARB_base_instance]))
     {
         retval =  false;
         core::stringc error = "Has glDrawElementsIndirect but no ARB_base_instance extension\n";
+        if (failedExtensions)
+            failedExtensions->push_back(error);
+        else
+            os::Printer::log(error.c_str(), ELL_ERROR);
+    }
+
+    if (!(FeatureAvailable[IRR_ARB_multi_draw_indirect] || Version>=430))
+    {
+        retval =  false;
+        core::stringc error = "GL_ARB_multi_draw_indirect extension missing\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else

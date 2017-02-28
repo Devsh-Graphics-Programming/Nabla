@@ -1,40 +1,50 @@
-#version 330 core
+#version 400 core
 layout(points) in;
 layout(points, max_vertices = 1) out;
 
 uniform mat4 ProjViewWorldMat;
 uniform mat4x3 ViewWorldMat;
 uniform mat4x3 WorldMat;
-uniform mat3 NormalMat;
 uniform vec3 eyePos;
 uniform vec3 LoDInvariantMinEdge;
 uniform vec3 LoDInvariantBBoxCenter;
 uniform vec3 LoDInvariantMaxEdge;
-vec3 instanceLoDDistanceSQ = vec3(0.0,64.0,2500.0);
-uniform int cullingPassLoD;
+uniform vec2 instanceLoDDistancesSQ;
 
 in vec4 gWorldMatPart0[];
 in vec4 gWorldMatPart1[];
 in vec4 gWorldMatPart2[];
+/*
+struct InstanceData
+{
+    vec4 worldViewProjMatCol0;
+    vec4 worldViewProjMatCol1;
+    vec4 worldViewProjMatCol2;
+    vec4 worldViewProjMatCol3;
 
-in mat3 gNormalMat[];
+    vec3 worldViewMatCol0;
+    vec3 worldViewMatCol1;
+    vec3 worldViewMatCol2;
+    vec3 worldViewMatCol3;
+};*/
 
+layout(stream = 0) out vec4 outLoD0_worldViewProjMatCol0;
+layout(stream = 0) out vec4 outLoD0_worldViewProjMatCol1;
+layout(stream = 0) out vec4 outLoD0_worldViewProjMatCol2;
+layout(stream = 0) out vec4 outLoD0_worldViewProjMatCol3;
+layout(stream = 0) out vec3 outLoD0_worldViewMatCol0;
+layout(stream = 0) out vec3 outLoD0_worldViewMatCol1;
+layout(stream = 0) out vec3 outLoD0_worldViewMatCol2;
+layout(stream = 0) out vec3 outLoD0_worldViewMatCol3;
 
-out vec4 instanceWorldViewProjMatCol0;
-out vec4 instanceWorldViewProjMatCol1;
-out vec4 instanceWorldViewProjMatCol2;
-out vec4 instanceWorldViewProjMatCol3;
-
-out vec3 instanceNormalMatCol0;
-out vec3 instanceNormalMatCol1;
-out vec3 instanceNormalMatCol2;
-
-
-out vec3 instanceWorldViewMatCol0;
-out vec3 instanceWorldViewMatCol1;
-out vec3 instanceWorldViewMatCol2;
-out vec3 instanceWorldViewMatCol3;
-
+layout(stream = 1) out vec4 outLoD1_worldViewProjMatCol0;
+layout(stream = 1) out vec4 outLoD1_worldViewProjMatCol1;
+layout(stream = 1) out vec4 outLoD1_worldViewProjMatCol2;
+layout(stream = 1) out vec4 outLoD1_worldViewProjMatCol3;
+layout(stream = 1) out vec3 outLoD1_worldViewMatCol0;
+layout(stream = 1) out vec3 outLoD1_worldViewMatCol1;
+layout(stream = 1) out vec3 outLoD1_worldViewMatCol2;
+layout(stream = 1) out vec3 outLoD1_worldViewMatCol3;
 
 void main()
 {
@@ -42,13 +52,13 @@ void main()
     instancePos = WorldMat[0]*instancePos.x+WorldMat[1]*instancePos.y+WorldMat[2]*instancePos.z+WorldMat[3];
     vec3 eyeToInstance = instancePos-eyePos;
     float distanceToInstance = dot(eyeToInstance,eyeToInstance);
-    if (distanceToInstance<instanceLoDDistanceSQ[cullingPassLoD]||distanceToInstance>=instanceLoDDistanceSQ[cullingPassLoD+1])
+    if (distanceToInstance>=instanceLoDDistancesSQ.y)
         return;
 
-    instanceWorldViewProjMatCol0 = ProjViewWorldMat[0]*gWorldMatPart0[0].x+ProjViewWorldMat[1]*gWorldMatPart0[0].y+ProjViewWorldMat[2]*gWorldMatPart0[0].z;
-    instanceWorldViewProjMatCol1 = ProjViewWorldMat[0]*gWorldMatPart0[0].w+ProjViewWorldMat[1]*gWorldMatPart1[0].x+ProjViewWorldMat[2]*gWorldMatPart1[0].y;
-    instanceWorldViewProjMatCol2 = ProjViewWorldMat[0]*gWorldMatPart1[0].z+ProjViewWorldMat[1]*gWorldMatPart1[0].w+ProjViewWorldMat[2]*gWorldMatPart2[0].x;
-    instanceWorldViewProjMatCol3 = ProjViewWorldMat[0]*gWorldMatPart2[0].y+ProjViewWorldMat[1]*gWorldMatPart2[0].z+ProjViewWorldMat[2]*gWorldMatPart2[0].w+ProjViewWorldMat[3];
+    vec4 instanceWorldViewProjMatCol0 = ProjViewWorldMat[0]*gWorldMatPart0[0].x+ProjViewWorldMat[1]*gWorldMatPart0[0].y+ProjViewWorldMat[2]*gWorldMatPart0[0].z;
+    vec4 instanceWorldViewProjMatCol1 = ProjViewWorldMat[0]*gWorldMatPart0[0].w+ProjViewWorldMat[1]*gWorldMatPart1[0].x+ProjViewWorldMat[2]*gWorldMatPart1[0].y;
+    vec4 instanceWorldViewProjMatCol2 = ProjViewWorldMat[0]*gWorldMatPart1[0].z+ProjViewWorldMat[1]*gWorldMatPart1[0].w+ProjViewWorldMat[2]*gWorldMatPart2[0].x;
+    vec4 instanceWorldViewProjMatCol3 = ProjViewWorldMat[0]*gWorldMatPart2[0].y+ProjViewWorldMat[1]*gWorldMatPart2[0].z+ProjViewWorldMat[2]*gWorldMatPart2[0].w+ProjViewWorldMat[3];
 
     ///Do frustum Culling
     float tmp = instanceWorldViewProjMatCol0.w*(instanceWorldViewProjMatCol0.w<0.0 ? LoDInvariantMinEdge.x:LoDInvariantMaxEdge.x)+
@@ -89,16 +99,35 @@ void main()
     if (tmp>=columnMax[3].z)
         return;
 
-    instanceNormalMatCol0 = NormalMat[0]*gNormalMat[0][0].x+NormalMat[1]*gNormalMat[0][0].y+NormalMat[2]*gNormalMat[0][0].z;
-    instanceNormalMatCol1 = NormalMat[0]*gNormalMat[0][1].x+NormalMat[1]*gNormalMat[0][1].y+NormalMat[2]*gNormalMat[0][1].z;
-    instanceNormalMatCol2 = NormalMat[0]*gNormalMat[0][2].x+NormalMat[1]*gNormalMat[0][2].y+NormalMat[2]*gNormalMat[0][2].z;
+    vec3 instanceWorldViewMatCol0 = ViewWorldMat[0]*gWorldMatPart0[0].x+ViewWorldMat[1]*gWorldMatPart0[0].y+ViewWorldMat[2]*gWorldMatPart0[0].z;
+    vec3 instanceWorldViewMatCol1 = ViewWorldMat[0]*gWorldMatPart0[0].w+ViewWorldMat[1]*gWorldMatPart1[0].x+ViewWorldMat[2]*gWorldMatPart1[0].y;
+    vec3 instanceWorldViewMatCol2 = ViewWorldMat[0]*gWorldMatPart1[0].z+ViewWorldMat[1]*gWorldMatPart1[0].w+ViewWorldMat[2]*gWorldMatPart2[0].x;
+    vec3 instanceWorldViewMatCol3 = ViewWorldMat[0]*gWorldMatPart2[0].y+ViewWorldMat[1]*gWorldMatPart2[0].z+ViewWorldMat[2]*gWorldMatPart2[0].w+ViewWorldMat[3];
 
-    instanceWorldViewMatCol0 = -ViewWorldMat[0]*gWorldMatPart0[0].x-ViewWorldMat[1]*gWorldMatPart0[0].y-ViewWorldMat[2]*gWorldMatPart0[0].z;
-    instanceWorldViewMatCol1 = -ViewWorldMat[0]*gWorldMatPart0[0].w-ViewWorldMat[1]*gWorldMatPart1[0].x-ViewWorldMat[2]*gWorldMatPart1[0].y;
-    instanceWorldViewMatCol2 = -ViewWorldMat[0]*gWorldMatPart1[0].z-ViewWorldMat[1]*gWorldMatPart1[0].w-ViewWorldMat[2]*gWorldMatPart2[0].x;
-    instanceWorldViewMatCol3 = -ViewWorldMat[0]*gWorldMatPart2[0].y-ViewWorldMat[1]*gWorldMatPart2[0].z-ViewWorldMat[2]*gWorldMatPart2[0].w-ViewWorldMat[3];
-
-
-    EmitVertex();
-    EndPrimitive();
+    if (distanceToInstance<instanceLoDDistancesSQ.x)
+    {
+        outLoD0_worldViewProjMatCol0 = instanceWorldViewProjMatCol0;
+        outLoD0_worldViewProjMatCol1 = instanceWorldViewProjMatCol1;
+        outLoD0_worldViewProjMatCol2 = instanceWorldViewProjMatCol2;
+        outLoD0_worldViewProjMatCol3 = instanceWorldViewProjMatCol3;
+        outLoD0_worldViewMatCol0 = instanceWorldViewMatCol0;
+        outLoD0_worldViewMatCol1 = instanceWorldViewMatCol1;
+        outLoD0_worldViewMatCol2 = instanceWorldViewMatCol2;
+        outLoD0_worldViewMatCol3 = instanceWorldViewMatCol3;
+        EmitStreamVertex(0);
+        EndStreamPrimitive(0);
+    }
+    else
+    {
+        outLoD1_worldViewProjMatCol0 = instanceWorldViewProjMatCol0;
+        outLoD1_worldViewProjMatCol1 = instanceWorldViewProjMatCol1;
+        outLoD1_worldViewProjMatCol2 = instanceWorldViewProjMatCol2;
+        outLoD1_worldViewProjMatCol3 = instanceWorldViewProjMatCol3;
+        outLoD1_worldViewMatCol0 = instanceWorldViewMatCol0;
+        outLoD1_worldViewMatCol1 = instanceWorldViewMatCol1;
+        outLoD1_worldViewMatCol2 = instanceWorldViewMatCol2;
+        outLoD1_worldViewMatCol3 = instanceWorldViewMatCol3;
+        EmitStreamVertex(1);
+        EndStreamPrimitive(1);
+    }
 }

@@ -444,6 +444,17 @@ namespace scene
                             }
                             break;
                     }
+                    /*
+                    //debug
+                    if (!HasAnyKeys)
+                    {
+                        core::matrix4x3 diff = joint->LocalMatrix-getMatrixFromKey(tmpAnimationNonInterpol[0]);
+                        printf("PosDiff %f,%f,%f \t %f,%f,%f \t %f,%f,%f\n",diff.getColumn(0).X,diff.getColumn(0).Y,diff.getColumn(0).Z,
+                                                                            diff.getColumn(1).X,diff.getColumn(1).Y,diff.getColumn(1).Z,
+                                                                            diff.getColumn(2).X,diff.getColumn(2).Y,diff.getColumn(2).Z);
+
+                        core::vector3df scale = joint->LocalMatrix.getScale()-joint->LocalMatrix-getMatrixFromKey(tmpAnimationNonInterpol[0]).getScale();
+                    }*/
                 }
             }
 

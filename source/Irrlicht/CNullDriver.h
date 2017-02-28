@@ -174,6 +174,10 @@ namespace video
 
         virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
+		//! Indirect Draw
+		virtual void drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
+		virtual void drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
+
 		//! Draws a 3d line.
 		virtual void draw3DLine(const core::vector3df& start,
 			const core::vector3df& end, SColor color = SColor(255,255,255,255));
@@ -259,13 +263,6 @@ namespace video
 		virtual void draw2DLine(const core::position2d<s32>& start,
 					const core::position2d<s32>& end,
 					SColor color=SColor(255,255,255,255));
-
-		//! Draws a pixel
-		virtual void drawPixel(u32 x, u32 y, const SColor & color);
-
-		//! Draws a non filled concyclic reqular 2d polyon.
-		virtual void draw2DPolygon(core::position2d<s32> center,
-			f32 radius, video::SColor Color, s32 vertexCount);
 
 		//! get color format of the current color buffer
 		virtual ECOLOR_FORMAT getColorFormat() const;
@@ -441,7 +438,6 @@ namespace video
             IShaderConstantSetCallBack* callback = 0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData = 0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName = "main",
@@ -460,7 +456,6 @@ namespace video
             IShaderConstantSetCallBack* callback = 0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData = 0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName = "main",
@@ -479,7 +474,6 @@ namespace video
             IShaderConstantSetCallBack* callback = 0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData = 0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName = "main",
@@ -498,7 +492,6 @@ namespace video
             IShaderConstantSetCallBack* callback=0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout = EXFAM_COUNT_INVALID,
             s32 userData=0,
             const c8* vertexShaderEntryPointName="main",
             const c8* controlShaderEntryPointName="main",

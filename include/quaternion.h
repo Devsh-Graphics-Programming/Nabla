@@ -282,7 +282,7 @@ class quaternion : private vectorSIMDf
 		}
 
 		//! Sets new quaternion based on euler angles (radians)
-		inline quaternion& set(const float& pitch, const float& yaw, const float& roll);
+		inline quaternion& set(const float& roll, const float& pitch, const float& yaw);
 
 		//! Sets new quaternion from other quaternion
 		inline quaternion& set(const quaternion& quat)
@@ -606,21 +606,22 @@ inline quaternion quaternion::rotationFromTo(const vector3df_SIMD& from, const v
 	tmp.W = s.X*0.5f;
     return normalize(tmp);
 }
+#endif
 
 // sets new quaternion based on euler angles
-inline quaternion& quaternion::set(const float& pitch, const float& yaw, const float& roll)
+inline quaternion& quaternion::set(const float& roll, const float& pitch, const float& yaw)
 {
 	f64 angle;
 
-	angle = pitch * 0.5;
+	angle = roll * 0.5;
 	const f64 sr = sin(angle);
 	const f64 cr = cos(angle);
 
-	angle = yaw * 0.5;
+	angle = pitch * 0.5;
 	const f64 sp = sin(angle);
 	const f64 cp = cos(angle);
 
-	angle = roll * 0.5;
+	angle = yaw * 0.5;
 	const f64 sy = sin(angle);
 	const f64 cy = cos(angle);
 
@@ -629,12 +630,10 @@ inline quaternion& quaternion::set(const float& pitch, const float& yaw, const f
 	const f64 cpsy = cp * sy;
 	const f64 spsy = sp * sy;
 
-    *reinterpret_cast<vectorSIMDf*>(this) = vectorSIMDf(sr,cr,cr,cr)*vectorSIMDf(cpcy,spcy,cpsy,cpcy)-vectorSIMDf(cr,sr,sr,sr)*vectorSIMDf(spsy,cpsy,spcy,spsy);
-    *this = normalize(*this);
+    *reinterpret_cast<vectorSIMDf*>(this) = vectorSIMDf(sr,cr,cr,cr)*vectorSIMDf(cpcy,spcy,cpsy,cpcy)+vectorSIMDf(-cr,sr,-sr,sr)*vectorSIMDf(spsy,cpsy,spcy,spsy);
 
 	return *this;
 }
-#endif
 
 } // end namespace core
 } // end namespace irr

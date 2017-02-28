@@ -212,6 +212,8 @@ class SuperSkinningTMPStruct
 
 core::matrix4x3 getGlobalMatrix_evil(ICPUSkinnedMesh::SJoint* joint)
 {
+    //if (joint->GlobalInversedMatrix.isIdentity())
+        //return joint->GlobalInversedMatrix;
     if (joint->Parent)
         return concatenateBFollowedByA(getGlobalMatrix_evil(joint->Parent),joint->LocalMatrix);
     else
@@ -340,16 +342,47 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
                     vSkinningDataBuf->drop();
 
                     bool correctBindMatrix = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.isIdentity();
-                    core::matrix4x3 globalMat;
+                    core::matrix4x3 globalMat,globalMatInvTransp;
                     if (correctBindMatrix)
+                    {
                         globalMat = getGlobalMatrix_evil(AnimatedMesh->getAllJoints()[mesh->AttachedJointID]);
+                        //
+                        globalMatInvTransp(0,0) = globalMat(0,0);
+                        globalMatInvTransp(1,0) = globalMat(0,1);
+                        globalMatInvTransp(2,0) = globalMat(0,2);
+                        globalMatInvTransp(0,1) = globalMat(1,0);
+                        globalMatInvTransp(1,1) = globalMat(1,1);
+                        globalMatInvTransp(2,1) = globalMat(1,2);
+                        globalMatInvTransp(0,2) = globalMat(2,0);
+                        globalMatInvTransp(1,2) = globalMat(2,1);
+                        globalMatInvTransp(2,2) = globalMat(2,2);
+                        globalMatInvTransp(0,3) = globalMat(3,0);
+                        globalMatInvTransp(1,3) = globalMat(3,1);
+                        globalMatInvTransp(2,3) = globalMat(3,2);
+                        globalMatInvTransp.makeInverse();
+                    }
+                    else
+                    {
+                        AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.getInverse(globalMat);
+                        globalMatInvTransp(0,0) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(0,0);
+                        globalMatInvTransp(1,0) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(0,1);
+                        globalMatInvTransp(2,0) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(0,2);
+                        globalMatInvTransp(0,1) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(1,0);
+                        globalMatInvTransp(1,1) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(1,1);
+                        globalMatInvTransp(2,1) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(1,2);
+                        globalMatInvTransp(0,2) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(2,0);
+                        globalMatInvTransp(1,2) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(2,1);
+                        globalMatInvTransp(2,2) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(2,2);
+                        globalMatInvTransp(0,3) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(3,0);
+                        globalMatInvTransp(1,3) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(3,1);
+                        globalMatInvTransp(2,3) = AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(3,2);
+                    }
 
                     for (size_t j=0; j<mesh->Vertices.size(); j++)
                     {
-                        if (correctBindMatrix)
-                        {
-                            globalMat.transformVect(&mesh->Vertices[j].Pos.X);
-                        }
+                        globalMat.transformVect(&mesh->Vertices[j].Pos.X);
+                        globalMatInvTransp.mulSub3x3With3x1(&mesh->Vertices[j].Normal.X);
+
                         reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneWeights = 0x000003ffu;
                         reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[0] = mesh->AttachedJointID;
                         reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[1] = 0;

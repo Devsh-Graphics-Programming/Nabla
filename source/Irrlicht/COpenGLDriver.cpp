@@ -45,7 +45,7 @@ COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
+	AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
 	CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	DeviceType(EIDT_WIN32), AuxContext(0)
@@ -416,7 +416,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	{
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
 		WGL_CONTEXT_MINOR_VERSION_ARB, 5,
-		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
 		0
 	};
 	// create rendering context
@@ -492,6 +492,9 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 			ColorFormat = ECF_R5G6B5;
 	}
 
+#ifdef _IRR_COMPILE_WITH_OPENCL_
+	ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,hrc,HDc);
+#endif // _IRR_COMPILE_WITH_OPENCL_
 	genericDriverInit();
 
 	extGlSwapInterval(Params.Vsync ? 1 : 0);
@@ -519,7 +522,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceMacOSX *device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
+	AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
 	CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8),
 	Params(params),
 	OSXDevice(device), DeviceType(EIDT_OSX), AuxContext(0)
@@ -542,7 +545,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
+	AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
 	CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8),
 	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContext(0)
 {
@@ -613,6 +616,11 @@ bool COpenGLDriver::initDriver(CIrrDeviceLinux* device, GLXContext* auxCtxts)
 
     AuxContext = auxCtxts;
 
+#ifdef _IRR_COMPILE_WITH_OPENCL_
+	if (!ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,reinterpret_cast<GLXContext&>(ExposedData.OpenGLLinux.X11Context),(Display*)ExposedData.OpenGLLinux.X11Display))
+        os::Printer::log("Couldn't find matching OpenCL device.\n");
+#endif // _IRR_COMPILE_WITH_OPENCL_
+
 	genericDriverInit();
 
 	// set vsync
@@ -643,8 +651,8 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-    AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0),
-    CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8),
+    AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0),
+     lastValidatedIndirectBuffer(0), CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8),
 	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
 	SDLDevice(device), DeviceType(EIDT_SDL), AuxContext(0)
 {
@@ -745,6 +753,32 @@ bool COpenGLDriver::genericDriverInit()
 	}
 
 
+    maxConcurrentShaderInvocations = 0;
+    maxALUShaderInvocations = 0;
+#ifdef _IRR_COMPILE_WITH_OPENCL_
+    clPlatformIx = 0xdeadbeefu;
+    clDeviceIx = 0xdeadbeefu;
+    for (size_t i=0; i<ocl::COpenCLHandler::getPlatformCount(); i++)
+    {
+        const ocl::COpenCLHandler::SOpenCLPlatformInfo& platform = ocl::COpenCLHandler::getPlatformInfo(i);
+
+        for (size_t j=0; j<platform.deviceCount; j++)
+        {
+            if (platform.devices[j]==clDevice)
+            {
+                clPlatformIx = i;
+                clDeviceIx = j;
+                maxALUShaderInvocations = platform.deviceInformation[j].MaxWorkGroupSize;
+                maxConcurrentShaderInvocations = platform.deviceInformation[j].ProbableUnifiedShaders;
+                break;
+            }
+        }
+        if (clPlatformIx==i)
+            break;
+    }
+#endif // _IRR_COMPILE_WITH_OPENCL_
+
+
 	GLint num = 0;
 	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &num);
 	MaxTextureSizes[ITexture::ETT_1D][0] = static_cast<u32>(num);
@@ -794,9 +828,9 @@ bool COpenGLDriver::genericDriverInit()
 		return false;
     }
 
-    if (Version<330)
+    if (Version<400)
     {
-		os::Printer::log("OpenGL version is less than 3.3", ELL_ERROR);
+		os::Printer::log("OpenGL version is less than 4.0", ELL_ERROR);
 		return false;
     }
 
@@ -889,7 +923,7 @@ void COpenGLDriver::createMaterialRenderers()
 {
 	// create OpenGL material renderers
     const char* std_vert =
-    "#version 330 core\n"
+    "#version 400 core\n"
     "uniform mat4 MVPMat;\n"
     "layout(location = 0) in vec4 vPosAttr;\n"
     "layout(location = 2) in vec2 vTCAttr;\n"
@@ -905,7 +939,7 @@ void COpenGLDriver::createMaterialRenderers()
     "   tcCoord = vTCAttr;"
     "}";
     const char* std_solid_frag =
-    "#version 330 core\n"
+    "#version 400 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
@@ -918,7 +952,7 @@ void COpenGLDriver::createMaterialRenderers()
     "   outColor = texture(tex0,tcCoord);"
     "}";
     const char* std_trans_add_frag =
-    "#version 330 core\n"
+    "#version 400 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
@@ -931,7 +965,7 @@ void COpenGLDriver::createMaterialRenderers()
     "   outColor = texture(tex0,tcCoord);"
     "}";
     const char* std_trans_alpha_frag =
-    "#version 330 core\n"
+    "#version 400 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
@@ -947,7 +981,7 @@ void COpenGLDriver::createMaterialRenderers()
     "   outColor = tmp;"
     "}";
     const char* std_trans_vertex_frag =
-    "#version 330 core\n"
+    "#version 400 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
@@ -1578,12 +1612,12 @@ IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()
 
 IQueryObject* COpenGLDriver::createXFormFeedbackPrimitiveQuery()
 {
-    return new COpenGLQuery(GL_PRIMITIVES_GENERATED);
+    return new COpenGLQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
 }
 
 IQueryObject* COpenGLDriver::createElapsedTimeQuery()
 {
-    return new COpenGLQuery(GL_PRIMITIVES_GENERATED);
+    return new COpenGLQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
 }
 
 IGPUTimestampQuery* COpenGLDriver::createTimestampQuery()
@@ -1804,33 +1838,6 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
 			extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 			glPointSize(particleSize);
 
-            if (indexSize)
-            {
-                if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
-                    extGlDrawElementsInstancedBaseVertexBaseInstance(GL_POINTS,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
-                else
-                    extGlDrawElementsInstancedBaseVertex(GL_POINTS,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex());
-            }
-            else if (mb->isIndexCountGivenByXFormFeedback())
-            {
-                COpenGLTransformFeedback* xfmFb = static_cast<COpenGLTransformFeedback*>(mb->getXFormFeedback());
-#ifdef _DEBUG
-                if (xfmFb->isEnded())
-                    os::Printer::log("Trying To DrawTransformFeedback which hasn't ended yet (call glEndTransformFeedback() on the damn thing)!\n",ELL_ERROR);
-#endif // _DEBUG
-                if (FeatureAvailable[IRR_ARB_transform_feedback_instanced]||Version>=420)
-                    extGlDrawTransformFeedbackInstanced(GL_POINTS,xfmFb->getOpenGLHandle(),mb->getInstanceCount());
-                else
-                {
-                    extGlDrawTransformFeedback(GL_POINTS,xfmFb->getOpenGLHandle());
-                    if (mb->getInstanceCount()>1)
-                        os::Printer::log("Trying To DrawTransformFeedback with multiple instances, ARB_transform_feedback_instanced missing, hence fail!\n",ELL_ERROR);
-                }
-            }
-            else if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
-                extGlDrawArraysInstancedBaseInstance(GL_POINTS, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
-            else
-                extGlDrawArraysInstanced(GL_POINTS, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount());
 		}
 			break;
 		case scene::EPT_TRIANGLES:
@@ -1841,66 +1848,43 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
                 if (shaderRenderer&&shaderRenderer->isTessellation())
                     primType = GL_PATCHES;
             }
-
-            if (indexSize)
-            {
-                if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
-                    extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
-                else
-                    extGlDrawElementsInstancedBaseVertex(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex());
-            }
-            else if (mb->isIndexCountGivenByXFormFeedback())
-            {
-                COpenGLTransformFeedback* xfmFb = static_cast<COpenGLTransformFeedback*>(mb->getXFormFeedback());
-#ifdef _DEBUG
-                if (xfmFb->isEnded())
-                    os::Printer::log("Trying To DrawTransformFeedback which hasn't ended yet (call glEndTransformFeedback() on the damn thing)!\n",ELL_ERROR);
-#endif // _DEBUG
-                if (FeatureAvailable[IRR_ARB_transform_feedback_instanced]||Version>=420)
-                    extGlDrawTransformFeedbackInstanced(primType,xfmFb->getOpenGLHandle(),mb->getInstanceCount());
-                else
-                {
-                    extGlDrawTransformFeedback(primType,xfmFb->getOpenGLHandle());
-                    if (mb->getInstanceCount()>1)
-                        os::Printer::log("Trying To DrawTransformFeedback with multiple instances, ARB_transform_feedback_instanced missing, hence fail!\n",ELL_ERROR);
-                }
-            }
-            else if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
-                extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
-            else
-                extGlDrawArraysInstanced(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount());
         }
 			break;
         default:
-            if (indexSize)
-            {
-                if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
-                    extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
-                else
-                    extGlDrawElementsInstancedBaseVertex(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex());
-            }
-            else if (mb->isIndexCountGivenByXFormFeedback())
-            {
-                COpenGLTransformFeedback* xfmFb = static_cast<COpenGLTransformFeedback*>(mb->getXFormFeedback());
-#ifdef _DEBUG
-                if (xfmFb->isEnded())
-                    os::Printer::log("Trying To DrawTransformFeedback which hasn't ended yet (call glEndTransformFeedback() on the damn thing)!\n",ELL_ERROR);
-#endif // _DEBUG
-                if (FeatureAvailable[IRR_ARB_transform_feedback_instanced]||Version>=420)
-                    extGlDrawTransformFeedbackInstanced(primType,xfmFb->getOpenGLHandle(),mb->getInstanceCount());
-                else
-                {
-                    extGlDrawTransformFeedback(primType,xfmFb->getOpenGLHandle());
-                    if (mb->getInstanceCount()>1)
-                        os::Printer::log("Trying To DrawTransformFeedback with multiple instances, ARB_transform_feedback_instanced missing, hence fail!\n",ELL_ERROR);
-                }
-            }
-            else if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
-                extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
-            else
-                extGlDrawArraysInstanced(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount());
 			break;
 	}
+
+    if (indexSize)
+    {
+        if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
+            extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
+        else
+            extGlDrawElementsInstancedBaseVertex(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex());
+    }
+    else if (mb->isIndexCountGivenByXFormFeedback())
+    {
+        COpenGLTransformFeedback* xfmFb = static_cast<COpenGLTransformFeedback*>(mb->getXFormFeedback());
+#ifdef _DEBUG
+        if (xfmFb->isEnded())
+            os::Printer::log("Trying To DrawTransformFeedback which hasn't ended yet (call glEndTransformFeedback() on the damn thing)!\n",ELL_ERROR);
+        if (mb->getXFormFeedbackStream()>=MaxVertexStreams)
+            os::Printer::log("Trying to use more than GL_MAX_VERTEX_STREAMS vertex streams in transform feedback!\n",ELL_ERROR);
+#endif // _DEBUG
+        if (FeatureAvailable[IRR_ARB_transform_feedback_instanced]||Version>=420)
+            extGlDrawTransformFeedbackStreamInstanced(primType,xfmFb->getOpenGLHandle(),mb->getXFormFeedbackStream(),mb->getInstanceCount());
+        else
+        {
+            extGlDrawTransformFeedbackStream(primType,xfmFb->getOpenGLHandle(),mb->getXFormFeedbackStream());
+            if (mb->getInstanceCount()>1)
+                os::Printer::log("Trying To DrawTransformFeedback with multiple instances, ARB_transform_feedback_instanced missing, hence fail!\n",ELL_ERROR);
+        }
+    }
+    else if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
+        extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
+    else
+        extGlDrawArraysInstanced(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount());
+
+
 
     if (((Version<420&&!FeatureAvailable[IRR_ARB_base_instance])||mb->isIndexCountGivenByXFormFeedback())&&mb->getBaseInstance())
     {
@@ -1924,6 +1908,222 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
             meshLayoutVAO->setMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i,meshLayoutVAO->getMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i)-byteOffset);
         }
     }
+
+    if (didConditional)
+        extGlEndConditionalRender();
+}
+
+
+//! Indirect Draw
+void COpenGLDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+{
+    if (!indirectDrawBuff)
+        return;
+
+    if (indirectDrawBuff!=currentIndirectDrawBuff)
+    {
+        indirectDrawBuff->grab();
+        if (currentIndirectDrawBuff)
+            currentIndirectDrawBuff->drop();
+        currentIndirectDrawBuff = dynamic_cast<COpenGLBuffer*>(indirectDrawBuff);
+
+        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
+        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
+    }
+    else if (lastValidatedIndirectBuffer>currentIndirectDrawBuff->getLastTimeReallocated())
+    {
+        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
+        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
+    }
+
+
+    COpenGLVAO* meshLayoutVAO = static_cast<COpenGLVAO*>(vao);
+	if (!meshLayoutVAO)
+    {
+        if (CurrentVAO)
+        {
+            CurrentVAO->drop();
+            CurrentVAO = NULL;
+        }
+        extGlBindVertexArray(0);
+		return;
+    }
+
+	// draw everything
+	setRenderStates3DMode();
+
+    COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
+
+    bool didConditional = false;
+    if (queryGL&&(queryGL->getGLHandle()!=0))
+    {
+        extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
+        didConditional = true;
+    }
+
+    if (!meshLayoutVAO->rebindRevalidate())
+    {
+#ifdef _DEBUG
+        os::Printer::log("VAO revalidation failed!",ELL_ERROR);
+#endif // _DEBUG
+        return;
+    }
+
+    if (CurrentVAO!=meshLayoutVAO)
+    {
+        meshLayoutVAO->grab();
+        extGlBindVertexArray(meshLayoutVAO->getOpenGLName());
+        if (CurrentVAO)
+            CurrentVAO->drop();
+
+        CurrentVAO = meshLayoutVAO;
+    }
+
+    GLenum primType = primitiveTypeToGL(mode);
+	switch (mode)
+	{
+		case scene::EPT_POINTS:
+		{
+			// prepare size and attenuation (where supported)
+			GLfloat particleSize=Material.Thickness;
+			extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
+			glPointSize(particleSize);
+		}
+			break;
+		case scene::EPT_TRIANGLES:
+        {
+            if (static_cast<u32>(Material.MaterialType) < MaterialRenderers.size())
+            {
+                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[Material.MaterialType].Renderer);
+                if (shaderRenderer&&shaderRenderer->isTessellation())
+                    primType = GL_PATCHES;
+            }
+        }
+			break;
+        default:
+			break;
+	}
+
+
+    //actual drawing
+    if (FeatureAvailable[IRR_ARB_multi_draw_indirect] || Version>=430)
+    {
+        extGlMultiDrawArraysIndirect(primType,(void*)offset,count,stride);
+    }
+    else
+    {
+        for (size_t i=0; i<count; i++)
+            extGlDrawArraysIndirect(primType,(void*)(offset+i*stride));
+    }
+
+
+    if (didConditional)
+        extGlEndConditionalRender();
+}
+
+void COpenGLDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+{
+    if (!indirectDrawBuff)
+        return;
+
+    if (indirectDrawBuff!=currentIndirectDrawBuff)
+    {
+        indirectDrawBuff->grab();
+        if (currentIndirectDrawBuff)
+            currentIndirectDrawBuff->drop();
+        currentIndirectDrawBuff = dynamic_cast<COpenGLBuffer*>(indirectDrawBuff);
+
+        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
+        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
+    }
+    else if (lastValidatedIndirectBuffer>currentIndirectDrawBuff->getLastTimeReallocated())
+    {
+        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
+        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
+    }
+
+
+    COpenGLVAO* meshLayoutVAO = static_cast<COpenGLVAO*>(vao);
+	if (!meshLayoutVAO)
+    {
+        if (CurrentVAO)
+        {
+            CurrentVAO->drop();
+            CurrentVAO = NULL;
+        }
+        extGlBindVertexArray(0);
+		return;
+    }
+
+	// draw everything
+	setRenderStates3DMode();
+
+    COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
+
+    bool didConditional = false;
+    if (queryGL&&(queryGL->getGLHandle()!=0))
+    {
+        extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
+        didConditional = true;
+    }
+
+    if (!meshLayoutVAO->rebindRevalidate())
+    {
+#ifdef _DEBUG
+        os::Printer::log("VAO revalidation failed!",ELL_ERROR);
+#endif // _DEBUG
+        return;
+    }
+
+    if (CurrentVAO!=meshLayoutVAO)
+    {
+        meshLayoutVAO->grab();
+        extGlBindVertexArray(meshLayoutVAO->getOpenGLName());
+        if (CurrentVAO)
+            CurrentVAO->drop();
+
+        CurrentVAO = meshLayoutVAO;
+    }
+
+	GLenum indexSize = type!=EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
+
+    GLenum primType = primitiveTypeToGL(mode);
+	switch (mode)
+	{
+		case scene::EPT_POINTS:
+		{
+			// prepare size and attenuation (where supported)
+			GLfloat particleSize=Material.Thickness;
+			extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
+			glPointSize(particleSize);
+		}
+			break;
+		case scene::EPT_TRIANGLES:
+        {
+            if (static_cast<u32>(Material.MaterialType) < MaterialRenderers.size())
+            {
+                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[Material.MaterialType].Renderer);
+                if (shaderRenderer&&shaderRenderer->isTessellation())
+                    primType = GL_PATCHES;
+            }
+        }
+			break;
+        default:
+			break;
+	}
+
+
+    //actual drawing
+    if (FeatureAvailable[IRR_ARB_multi_draw_indirect] || Version>=430)
+    {
+        extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,count,stride);
+    }
+    else
+    {
+        for (size_t i=0; i<count; i++)
+            extGlDrawElementsIndirect(primType,indexSize,(void*)(offset+i*stride));
+    }
+
 
     if (didConditional)
         extGlEndConditionalRender();
@@ -2024,12 +2224,15 @@ bool COpenGLDriver::setActiveTexture(u32 stage, video::ITexture* texture, const 
 	if (CurrentTexture[stage]!=texture)
     {
         const video::COpenGLTexture* oldTexture = static_cast<const COpenGLTexture*>(CurrentTexture[stage]);
+        GLenum oldTexType = GL_INVALID_ENUM;
+        if (oldTexture)
+            oldTexType = static_cast<const COpenGLTexture*>(oldTexture)->getOpenGLTextureType();
         CurrentTexture.set(stage,texture);
 
         if (!texture)
         {
             if (oldTexture)
-                extGlBindTextureUnit(stage,0,oldTexture->getOpenGLTextureType());
+                extGlBindTextureUnit(stage,0,oldTexType);
         }
         else
         {
@@ -2037,13 +2240,13 @@ bool COpenGLDriver::setActiveTexture(u32 stage, video::ITexture* texture, const 
             {
                 CurrentTexture.set(stage, 0);
                 if (oldTexture)
-                    extGlBindTextureUnit(stage,0,oldTexture->getOpenGLTextureType());
+                    extGlBindTextureUnit(stage,0,oldTexType);
                 os::Printer::log("Fatal Error: Tried to set a texture not owned by this driver.", ELL_ERROR);
             }
             else
             {
-                if (oldTexture&&oldTexture->getOpenGLTextureType()!=static_cast<const COpenGLTexture*>(texture)->getOpenGLTextureType())
-                    extGlBindTextureUnit(stage,0,oldTexture->getOpenGLTextureType());
+                if (oldTexture&&oldTexType!=static_cast<const COpenGLTexture*>(texture)->getOpenGLTextureType())
+                    extGlBindTextureUnit(stage,0,oldTexType);
                 extGlBindTextureUnit(stage,static_cast<const COpenGLTexture*>(texture)->getOpenGLName(),static_cast<const COpenGLTexture*>(texture)->getOpenGLTextureType());
             }
         }
@@ -2623,7 +2826,6 @@ s32 COpenGLDriver::addHighLevelShaderMaterial(
     IShaderConstantSetCallBack* callback,
     const char** xformFeedbackOutputs,
     const uint32_t& xformFeedbackOutputCount,
-    const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
     s32 userData,
     const c8* vertexShaderEntryPointName,
     const c8* controlShaderEntryPointName,
@@ -2641,7 +2843,7 @@ s32 COpenGLDriver::addHighLevelShaderMaterial(
 		controlShaderProgram,controlShaderEntryPointName,
 		evaluationShaderProgram,evaluationShaderEntryPointName,
 		patchVertices,callback,baseMaterial,
-		xformFeedbackOutputs, xformFeedbackOutputCount, attribLayout, userData);
+		xformFeedbackOutputs, xformFeedbackOutputCount, userData);
 	r->drop();
 	return nr;
 }

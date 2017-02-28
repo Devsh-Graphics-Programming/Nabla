@@ -34,27 +34,12 @@ public:
 	CMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
-			const core::vector3df& scale = core::vector3df(1,1,1))
-		: IMeshSceneNodeInstanced(parent, mgr, id, position, rotation, scale),
-		instanceDataBufferChanged(false), instanceDataBuffer(NULL), instanceBBoxes(NULL), instanceBBoxesCount(0),
-		flagQueryForRetrieval(false),
-		culledLodInstanceDataBuffer(NULL), dataPerInstanceOutputSize(0),
-        extraDataInstanceSize(0), visibilityPadding(0), cachedMaterialCount(0)
-    {
-        #ifdef _DEBUG
-        setDebugName("CMeshSceneNodeInstanced");
-        #endif
-
-		renderPriority = 0x80000000u;
-
-        lodCullingPointVAO = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
-        lodCullingPointMesh = new IGPUMeshBuffer();
-        lodCullingPointMesh->setMeshDataAndFormat(lodCullingPointVAO);
-        lodCullingPointMesh->setPrimitiveType(EPT_POINTS);
-        lodCullingPointVAO->drop();
-	}
+			const core::vector3df& scale = core::vector3df(1,1,1));
 
     virtual ~CMeshSceneNodeInstanced();
+
+    virtual const uint32_t& getGPUCullingThreshold() const {return instanceCountThresholdForGPU;}
+    virtual void setGPUCullingThresholdMultiplier(const double& multiplier);
 
     //! returns the material based on the zero based index i. To get the amount
     //! of materials used by this scene node, use getMaterialCount().
@@ -78,7 +63,7 @@ public:
 
 	//! Sets a new mesh to display
 	/** \param mesh Mesh to display. */
-	virtual bool setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, IGPUMeshDataFormatDesc* (*vaoSetupOverride)(ISceneManager*,video::IGPUBuffer*,const std::vector<MeshLoD>&,const size_t&,const size_t&,const size_t&), const size_t& extraDataSizePerInstanceInput=0);
+	virtual bool setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0, CPUCullingFunc cpuCullFunc=NULL);
 
 	//! Get the currently defined mesh for display.
 	/** \return Pointer to mesh which is displayed by this node. */
@@ -156,6 +141,11 @@ public:
 protected:
     friend void inputBuffersOnTransformFeedback(video::IGPUBuffer* buff, void* node);
 
+    uint32_t instanceCountThresholdForGPU;
+    bool lastTimeUsedGPU;
+    CPUCullingFunc cpuCullingFunction;
+    uint8_t* cpuCullingScratchSpace;
+
     void RecullInstances();
     core::aabbox3d<f32> Box;
     core::aabbox3d<f32> LoDInvariantBox;
@@ -170,15 +160,17 @@ protected:
     };
     std::vector<LoDData> LoD;
     std::vector<video::ITransformFeedback*> xfb;
+    size_t gpuLoDsPerPass;
+
     bool instanceDataBufferChanged;
     video::IMetaGranularGPUMappedBuffer* instanceDataBuffer;
     bool needsBBoxRecompute;
     size_t instanceBBoxesCount;
     core::aabbox3df* instanceBBoxes;
     bool flagQueryForRetrieval;
-    IGPUMeshDataFormatDesc* lodCullingPointVAO;
     IGPUMeshBuffer* lodCullingPointMesh;
-    video::IGPUBuffer* culledLodInstanceDataBuffer;
+    video::IGPUBuffer* gpuCulledLodInstanceDataBuffer;
+    video::IGPUBuffer* cpuCulledLodInstanceDataBuffer;
 
     size_t dataPerInstanceOutputSize;
     size_t extraDataInstanceSize;

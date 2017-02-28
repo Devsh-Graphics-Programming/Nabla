@@ -68,6 +68,7 @@
 					<Add library="GL" />
 					<Add library="Xxf86vm" />
 					<Add library="X11" />
+					<Add library="OpenCL" />
 					<Add library="pthread" />
 					<Add library="dl" />
 					<Add directory="../../lib/Linux" />

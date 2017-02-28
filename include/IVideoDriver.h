@@ -641,33 +641,14 @@ namespace video
 					const core::position2d<s32>& end,
 					SColor color=SColor(255,255,255,255)) =0;
 
-		//! Draws a pixel.
-		/** \param x The x-position of the pixel.
-		\param y The y-position of the pixel.
-		\param color Color of the pixel to draw. */
-		virtual void drawPixel(u32 x, u32 y, const SColor& color) =0;
-
-		//! Draws a non filled concyclic regular 2d polyon.
-		/** This method can be used to draw circles, but also
-		triangles, tetragons, pentagons, hexagons, heptagons, octagons,
-		enneagons, decagons, hendecagons, dodecagon, triskaidecagons,
-		etc. I think you'll got it now. And all this by simply
-		specifying the vertex count. Welcome to the wonders of
-		geometry.
-		\param center Position of center of circle (pixels).
-		\param radius Radius of circle in pixels.
-		\param color Color of the circle.
-		\param vertexCount Amount of vertices of the polygon. Specify 2
-		to draw a line, 3 to draw a triangle, 4 for tetragons and a lot
-		(>10) for nearly a circle. */
-		virtual void draw2DPolygon(core::position2d<s32> center,
-				f32 radius,
-				video::SColor color=SColor(100,255,255,255),
-				s32 vertexCount=10) =0;
 
 		//! Draws a mesh buffer
 		/** \param mb Buffer to draw */
 		virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query = NULL) =0;
+
+		//! Indirect Draw
+		virtual void drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL) =0;
+		virtual void drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL) =0;
 
 		//! Get the current color format of the color buffer
 		/** \return Color format of the color buffer. */

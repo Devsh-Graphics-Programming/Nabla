@@ -995,38 +995,6 @@ void CNullDriver::draw2DLine(const core::position2d<s32>& start,
 {
 }
 
-//! Draws a pixel
-void CNullDriver::drawPixel(u32 x, u32 y, const SColor & color)
-{
-}
-
-
-//! Draws a non filled concyclic regular 2d polyon.
-void CNullDriver::draw2DPolygon(core::position2d<s32> center,
-	f32 radius, video::SColor color, s32 count)
-{
-	if (count < 2)
-		return;
-
-	core::position2d<s32> first;
-	core::position2d<s32> a,b;
-
-	for (s32 j=0; j<count; ++j)
-	{
-		b = a;
-
-		f32 p = j / (f32)count * (core::PI*2);
-		a = center + core::position2d<s32>((s32)(sin(p)*radius), (s32)(cos(p)*radius));
-
-		if (j==0)
-			first = a;
-		else
-			draw2DLine(a, b, color);
-	}
-
-	draw2DLine(a, first, color);
-}
-
 
 //! returns color format
 ECOLOR_FORMAT CNullDriver::getColorFormat() const
@@ -1453,6 +1421,16 @@ void CNullDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* que
 }
 
 
+//! Indirect Draw
+void CNullDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+{
+}
+
+void CNullDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+{
+}
+
+
 
 
 IOcclusionQuery* CNullDriver::createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic)
@@ -1661,7 +1639,6 @@ s32 CNullDriver::addHighLevelShaderMaterial(
     IShaderConstantSetCallBack* callback,
     const char** xformFeedbackOutputs,
     const uint32_t& xformFeedbackOutputCount,
-    const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
     s32 userData,
     const c8* vertexShaderEntryPointName,
     const c8* controlShaderEntryPointName,
@@ -1684,7 +1661,6 @@ bool CNullDriver::replaceHighLevelShaderMaterial(const s32 &materialIDToReplace,
     IShaderConstantSetCallBack* callback,
     const char** xformFeedbackOutputs,
     const uint32_t& xformFeedbackOutputCount,
-    const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
     s32 userData,
     const c8* vertexShaderEntryPointName,
     const c8* controlShaderEntryPointName,
@@ -1696,7 +1672,7 @@ bool CNullDriver::replaceHighLevelShaderMaterial(const s32 &materialIDToReplace,
         return false;
 
     s32 nr = addHighLevelShaderMaterial(vertexShaderProgram,controlShaderProgram,evaluationShaderProgram,geometryShaderProgram,pixelShaderProgram,
-                                        3,baseMaterial,callback,xformFeedbackOutputs,xformFeedbackOutputCount,attribLayout,userData,
+                                        3,baseMaterial,callback,xformFeedbackOutputs,xformFeedbackOutputCount,userData,
                                         vertexShaderEntryPointName,controlShaderEntryPointName,evaluationShaderEntryPointName,geometryShaderEntryPointName,pixelShaderEntryPointName);
     if (nr==-1)
         return false;
@@ -1720,7 +1696,6 @@ s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
     IShaderConstantSetCallBack* callback,
     const char** xformFeedbackOutputs,
     const uint32_t& xformFeedbackOutputCount,
-    const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
     s32 userData,
     const c8* vertexShaderEntryPointName,
     const c8* controlShaderEntryPointName,
@@ -1787,7 +1762,7 @@ s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
 	s32 result = addHighLevelShaderMaterialFromFiles(
 		vsfile, ctsfile, etsfile, gsfile, psfile,
 		patchVertices, baseMaterial, callback,
-		xformFeedbackOutputs,xformFeedbackOutputCount,attribLayout, userData,
+		xformFeedbackOutputs,xformFeedbackOutputCount, userData,
 		vertexShaderEntryPointName, controlShaderEntryPointName,
 		evaluationShaderEntryPointName, geometryShaderEntryPointName,
 		pixelShaderEntryPointName);
@@ -1821,7 +1796,6 @@ s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
     IShaderConstantSetCallBack* callback,
     const char** xformFeedbackOutputs,
     const uint32_t& xformFeedbackOutputCount,
-    const E_XFORM_FEEDBACK_ATTRIBUTE_MODE& attribLayout,
     s32 userData,
     const c8* vertexShaderEntryPointName,
     const c8* controlShaderEntryPointName,
@@ -1912,7 +1886,7 @@ s32 CNullDriver::addHighLevelShaderMaterialFromFiles(
 	s32 result = this->addHighLevelShaderMaterial(
 		vs, cts, ets, gs, ps,patchVertices,
 		baseMaterial, callback,
-		xformFeedbackOutputs,xformFeedbackOutputCount,attribLayout, userData,
+		xformFeedbackOutputs,xformFeedbackOutputCount, userData,
 		vertexShaderEntryPointName,
 		controlShaderEntryPointName,
 		evaluationShaderEntryPointName,

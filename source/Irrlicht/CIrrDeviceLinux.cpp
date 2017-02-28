@@ -124,6 +124,10 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	// create cursor control
 	CursorControl = new CCursorControl(this, CreationParams.DriverType == video::EDT_NULL);
 
+#ifdef _IRR_COMPILE_WITH_OPENCL_
+    ocl::COpenCLHandler::enumeratePlatformsAndDevices();
+#endif // _IRR_COMPILE_WITH_OPENCL_
+
 	// create driver
 	createDriver();
 
@@ -445,6 +449,7 @@ bool CIrrDeviceLinux::createWindow()
             {
                 int desiredSamples = 0;
                 int bestSamples = 1024;
+                int bestDepth = -1;
                 int best_fbc = -1;
 
                 int i;
@@ -453,44 +458,109 @@ bool CIrrDeviceLinux::createWindow()
                     XVisualInfo *vi = glXGetVisualFromFBConfig( display, fbc[i] );
                     if ( vi )
                     {
-                        int samp_buf, samples;
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , &samples  );
+                        int obtainedFBConfigAttrs[11];
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_RED_SIZE, obtainedFBConfigAttrs+0 );
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_GREEN_SIZE, obtainedFBConfigAttrs+1 );
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_BLUE_SIZE, obtainedFBConfigAttrs+2 );
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_ALPHA_SIZE, obtainedFBConfigAttrs+3 );
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_DEPTH_SIZE, obtainedFBConfigAttrs+4 );
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_STENCIL_SIZE, obtainedFBConfigAttrs+5 );
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_DOUBLEBUFFER, obtainedFBConfigAttrs+6 );
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_STEREO, obtainedFBConfigAttrs+7 );
 
-                        if (best_fbc < 0)
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, obtainedFBConfigAttrs+8 );
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , obtainedFBConfigAttrs+9  );
+
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_FBCONFIG_ID       , obtainedFBConfigAttrs+10  );
+
+                        if (CreationParams.WithAlphaChannel)
                         {
-                            best_fbc = i;
-                            bestSamples = samples;
+                            if (obtainedFBConfigAttrs[3]<8)
+                                continue;
+
+                            if (vi->depth==24)
+                                continue;
                         }
-                        else if (desiredSamples>1)
+                        else
                         {
-                            if (samp_buf&&samples>=desiredSamples&&samples<bestSamples)
+                            if (obtainedFBConfigAttrs[3])
+                                continue;
+
+                            if (vi->depth==32)
+                                continue;
+                        }
+
+                        if (best_fbc >= 0)
+                        {
+                            if (desiredSamples>1) //want AA
                             {
-                                best_fbc = i;
-                                bestSamples = samples;
+                                if (obtainedFBConfigAttrs[8]!=1 || obtainedFBConfigAttrs[9]<desiredSamples || bestSamples<1024&&obtainedFBConfigAttrs[9]>bestSamples)
+                                    continue;
                             }
+                            else if (obtainedFBConfigAttrs[8] || obtainedFBConfigAttrs[9]>1) //don't want AA
+                            {
+                                continue;
+                            }
+
+                            if (obtainedFBConfigAttrs[0]<8 || obtainedFBConfigAttrs[1]<8 || obtainedFBConfigAttrs[2]<8)
+                                continue;
+
+                            if (obtainedFBConfigAttrs[4]<CreationParams.ZBufferBits || bestDepth>=0&&obtainedFBConfigAttrs[4]>bestDepth)
+                                continue;
+
+                            if (CreationParams.Stencilbuffer)
+                            {
+                                if (obtainedFBConfigAttrs[5]<8)
+                                    continue;
+                            }
+                            else if (obtainedFBConfigAttrs[5])
+                                continue;
+
+                            if (CreationParams.Doublebuffer && !obtainedFBConfigAttrs[6])
+                                continue;
                         }
-                        else if (!samp_buf && samples<=1)
-                        {
-                            best_fbc = i;
-                            bestSamples = samples;
-                        }
+/*
+                        printf("%d===================================================================\n",obtainedFBConfigAttrs[10]);
+                        printf("GLX_RED_SIZE \t\t%d\n",obtainedFBConfigAttrs[0]);
+                        printf("GLX_GREEN_SIZE \t\t%d\n",obtainedFBConfigAttrs[1]);
+                        printf("GLX_BLUE_SIZE \t\t%d\n",obtainedFBConfigAttrs[2]);
+                        printf("GLX_ALPHA_SIZE \t\t%d\n",obtainedFBConfigAttrs[3]);
+                        printf("GLX_DEPTH_SIZE \t\t%d\n",obtainedFBConfigAttrs[4]);
+                        printf("GLX_STENCIL_SIZE \t\t%d\n",obtainedFBConfigAttrs[5]);
+                        printf("GLX_DOUBLEBUFFER \t\t%d\n",obtainedFBConfigAttrs[6]);
+                        printf("GLX_STEREO \t\t%d\n",obtainedFBConfigAttrs[7]);
+                        printf("GLX_SAMPLE_BUFFERS \t\t%d\n",obtainedFBConfigAttrs[8]);
+                        printf("GLX_SAMPLES \t\t%d\n",obtainedFBConfigAttrs[9]);
+                        printf("=====================================================================\n");
+*/
+                        best_fbc = i;
+                        bestDepth = obtainedFBConfigAttrs[4];
+                        bestSamples = obtainedFBConfigAttrs[9];
                     }
                     XFree( vi );
                 }
 
-                bestFbc = fbc[ best_fbc ];
+                //printf("best_fbc is %d\n",best_fbc);
+                if (best_fbc<0)
+                {
+                    os::Printer::log("Couldn't find matching Framebuffer Config.", ELL_ERROR);
+                }
+                else
+                {
+                    bestFbc = fbc[ best_fbc ];
+
+                    visual = glXGetVisualFromFBConfig( display, bestFbc );
+                    //printf("Visual chosen %d\n",visual->visualid);
+                }
 
                 // Be sure to free the FBConfig list allocated by glXChooseFBConfig()
                 XFree( fbc );
-
-                visual = glXGetVisualFromFBConfig( display, bestFbc );
             }
             else
-                os::Printer::log("No GLX support available. OpenGL driver will not work.", ELL_WARNING);
+                os::Printer::log("No GLX support available. OpenGL driver will not work.", ELL_ERROR);
 		}
 		else
-			os::Printer::log("No GLX support available. OpenGL driver will not work.", ELL_WARNING);
+			os::Printer::log("No GLX support available. OpenGL driver will not work.", ELL_ERROR);
 	}
 	// don't use the XVisual with OpenGL, because it ignores all requested
 	// properties of the CreationParams

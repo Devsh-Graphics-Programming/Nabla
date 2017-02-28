@@ -63,6 +63,7 @@
 					<Add library="Xxf86vm" />
 					<Add library="Xrandr" />
 					<Add library="GL" />
+					<Add library="OpenCL" />
 					<Add library="X11" />
 					<Add library="pthread" />
 					<Add library="dl" />

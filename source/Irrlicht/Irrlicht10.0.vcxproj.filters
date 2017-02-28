@@ -1053,6 +1053,9 @@
     <ClInclude Include="..\..\include\IMetaGranularBuffer.h">
       <Filter>include\scene</Filter>
     </ClInclude>
+    <ClInclude Include="COpenCLHandler.h">
+      <Filter>Irrlicht</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\changes.txt">
@@ -1768,8 +1771,14 @@
     <ClCompile Include="CSkinnedMeshSceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
+    <ClCompile Include="COpenCLHandler.cpp">
+      <Filter>Irrlicht</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Irrlicht.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="clwinlib\OpenCL.lib" />
   </ItemGroup>
 </Project>

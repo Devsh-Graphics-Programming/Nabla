@@ -120,6 +120,10 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 	// create cursor control
 	CursorControl = new CCursorControl(this);
 
+#ifdef _IRR_COMPILE_WITH_OPENCL_
+    COpenCLHandler::enumeratePlatformsAndDevices();
+#endif // _IRR_COMPILE_WITH_OPENCL_
+
 	// create driver
 	createDriver();
 

@@ -614,23 +614,13 @@ namespace core
 	{
 		const matrix4x3 &mat = *this;
 		core::vector3df scale = getScale();
-		// we need to check for negative scale on to axes, which would bring up wrong results
-		if (scale.Y<0 && scale.Z<0)
-		{
-			scale.Y =-scale.Y;
-			scale.Z =-scale.Z;
-		}
-		else if (scale.X<0 && scale.Z<0)
-		{
-			scale.X =-scale.X;
-			scale.Z =-scale.Z;
-		}
-		else if (scale.X<0 && scale.Y<0)
-		{
-			scale.X =-scale.X;
-			scale.Y =-scale.Y;
-		}
+
 		const core::vector3d<float> invScale(core::reciprocal(scale.X),core::reciprocal(scale.Y),core::reciprocal(scale.Z));
+
+		float nzd00 = mat(0,0)*invScale.X;
+		float nzd11 = mat(1,1)*invScale.Y;
+		float nzd22 = mat(2,2)*invScale.Z;
+		//float trace = nzd00+nzd11+nzd22+1.f;
 
 		float Y = -asinf(core::clamp(mat(2,0)*invScale.X, -1.f, 1.f));
 		const float C = cosf(Y);
@@ -641,19 +631,18 @@ namespace core
 		if (!core::iszero(C))
 		{
 			const float invC = core::reciprocal(C);
-			rotx = mat(2,2) * invC * invScale.Z;
+			rotx = nzd22 * invC;
 			roty = mat(2,1) * invC * invScale.Y;
 			X = atan2f( roty, rotx ) * RADTODEG64;
-			rotx = mat(0,0) * invC * invScale.X;
+			rotx = nzd00 * invC;
 			roty = mat(1,0) * invC * invScale.X;
 			Z = atan2f( roty, rotx ) * RADTODEG64;
 		}
 		else
 		{
 			X = 0.0;
-			rotx = mat(1,1) * invScale.Y;
 			roty = -mat(0,1) * invScale.Y;
-			Z = atan2f( roty, rotx ) * RADTODEG64;
+			Z = atan2f( roty, nzd11 ) * RADTODEG64;
 		}
 
 		// fix values that get below zero
@@ -707,9 +696,10 @@ namespace core
 	{
 		// See http://www.robertblum.com/articles/2005/02/14/decomposing-matrices
 		// We have to do the full calculation.
-		return vector3df(sqrtf(column[0].dotProduct(column[0])),
-                        sqrtf(column[1].dotProduct(column[1])),
-                        sqrtf(column[2].dotProduct(column[2])));
+		vector3df tmpScale(sqrtf(column[0].dotProduct(column[0])),sqrtf(column[1].dotProduct(column[1])),sqrtf(column[2].dotProduct(column[2])));
+		if (column[0].dotProduct(column[1].crossProduct(column[2]))<0.f)
+            tmpScale.Z = -tmpScale.Z;
+        return tmpScale;
 	}
 
 

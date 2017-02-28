@@ -138,7 +138,7 @@
 			</Target>
 			<Target title="Win32 - Debug - static">
 				<Option platforms="Windows;" />
-				<Option output="../../lib/Win32-gcc/libIrrlicht" prefix_auto="1" extension_auto="1" />
+				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option object_output="../obj/win32-gcc-debug-static" />
 				<Option type="2" />
@@ -177,7 +177,7 @@
 			</Target>
 			<Target title="Win32 - Release - accurate math - static">
 				<Option platforms="Windows;" />
-				<Option output="../../lib/Win32-gcc/libIrrlicht" prefix_auto="1" extension_auto="1" />
+				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option object_output="../obj/win32-gcc-release-dll" />
 				<Option type="2" />
@@ -217,7 +217,7 @@
 			</Target>
 			<Target title="Win32 - Release - fast math - static">
 				<Option platforms="Windows;" />
-				<Option output="../../lib/Win32-gcc/libIrrlicht" prefix_auto="1" extension_auto="1" />
+				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option object_output="../obj/win32-gcc-release-fast-static" />
 				<Option type="2" />
@@ -365,6 +365,7 @@
 					<Add directory="../../include" />
 					<Add directory="zlib" />
 					<Add directory="libpng" />
+					<Add directory="../Irrlicht" />
 				</Compiler>
 				<Linker>
 					<Add option="-fuse-ld=gold" />
@@ -425,6 +426,7 @@
 					<Add directory="../../include" />
 					<Add directory="zlib" />
 					<Add directory="libpng" />
+					<Add directory="../Irrlicht" />
 				</Compiler>
 				<Linker>
 					<Add option="-msse3" />
@@ -700,6 +702,8 @@
 		<Unit filename="COSOperator.h" />
 		<Unit filename="COgreMeshFileLoader.cpp" />
 		<Unit filename="COgreMeshFileLoader.h" />
+		<Unit filename="COpenCLHandler.cpp" />
+		<Unit filename="COpenCLHandler.h" />
 		<Unit filename="COpenGL3DTexture.cpp" />
 		<Unit filename="COpenGL3DTexture.h" />
 		<Unit filename="COpenGLBuffer.h" />

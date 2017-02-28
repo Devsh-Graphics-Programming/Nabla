@@ -28,9 +28,6 @@ namespace video
 		//! Supports Color masks (disabling color planes in output)
 		EVDF_COLOR_MASK,
 
-		//! Supports multiple render targets at once
-		EVDF_MULTIPLE_RENDER_TARGETS,
-
 		//! Supports separate blend settings for multiple render targets
 		EVDF_MRT_BLEND,
 
@@ -42,9 +39,6 @@ namespace video
 
 		//! Supports geometry shaders
 		EVDF_GEOMETRY_SHADER,
-
-		//! Supports tessellation shaders
-		EVDF_TESSELLATION_SHADER,
 
 		//! Supports occlusion queries
 		EVDF_OCCLUSION_QUERY,

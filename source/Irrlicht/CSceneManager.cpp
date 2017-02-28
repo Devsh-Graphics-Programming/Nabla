@@ -812,44 +812,7 @@ bool CSceneManager::isCulled(ISceneNode* node) const
         //transform the frustum to the node's current absolute transformation
         core::matrix4 worldviewproj = concatenateBFollowedByA(cam->getProjectionMatrix(),concatenateBFollowedByA(cam->getViewMatrix(),node->getAbsoluteTransformation()));
 
-
-        core::vector3df column0_Min = reinterpret_cast<core::vector3df*>(worldviewproj.pointer())[0];
-        core::vector3df column1_Min = reinterpret_cast<core::vector3df*>(worldviewproj.pointer()+4)[0];
-        core::vector3df column2_Min = reinterpret_cast<core::vector3df*>(worldviewproj.pointer()+8)[0];
-        core::vector3df column3_Min = reinterpret_cast<core::vector3df*>(worldviewproj.pointer()+12)[0];
-        core::vector3df column0_Max = column0_Min;
-        core::vector3df column1_Max = column1_Min;
-        core::vector3df column2_Max = column2_Min;
-        core::vector3df column3_Max = column3_Min;
-
-        column0_Min += worldviewproj.pointer()[3];
-        column1_Min += worldviewproj.pointer()[7];
-        column2_Min += worldviewproj.pointer()[11];
-        column3_Min += worldviewproj.pointer()[15];
-
-        float tmp = column0_Min.X*(column0_Min.X<0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Min.X*(column1_Min.X<0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Min.X*(column2_Min.X<0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
-        if (tmp<=-column3_Min.X)
-            return true;
-        tmp = column0_Min.Y*(column0_Min.Y<0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Min.Y*(column1_Min.Y<0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Min.Y*(column2_Min.Y<0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
-        if (tmp<=-column3_Min.Y)
-            return true;
-        tmp = worldviewproj.pointer()[3]*(worldviewproj.pointer()[3]<0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+worldviewproj.pointer()[7]*(worldviewproj.pointer()[7]<0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+worldviewproj.pointer()[11]*(worldviewproj.pointer()[11]<0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
-        if (tmp<=-worldviewproj.pointer()[15])
-            return true;
-
-        column0_Max -= worldviewproj.pointer()[3];
-        column1_Max -= worldviewproj.pointer()[7];
-        column2_Max -= worldviewproj.pointer()[11];
-        column3_Max = core::vector3df(worldviewproj.pointer()[15])-column3_Max;
-        tmp = column0_Max.X*(column0_Max.X>=0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Max.X*(column1_Max.X>=0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Max.X*(column2_Max.X>=0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
-        if (tmp>=column3_Max.X)
-            return true;
-        tmp = column0_Max.Y*(column0_Max.Y>=0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Max.Y*(column1_Max.Y>=0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Max.Y*(column2_Max.Y>=0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
-        if (tmp>=column3_Max.Y)
-            return true;
-
-        tmp = column0_Max.Z*(column0_Max.Z>=0.f ? tbox.MinEdge.X:tbox.MaxEdge.X)+column1_Max.Z*(column1_Max.Z>=0.f ? tbox.MinEdge.Y:tbox.MaxEdge.Y)+column2_Max.Z*(column2_Max.Z>=0.f ? tbox.MinEdge.Z:tbox.MaxEdge.Z);
-        if (tmp>=column3_Max.Z)
+        if (!worldviewproj.isBoxInsideFrustum(tbox))
             return true;
 	}
 

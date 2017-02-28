@@ -9,6 +9,7 @@
 #include "IImagePresenter.h"
 #include "SIrrCreationParameters.h"
 #include "CVideoModeList.h"
+#include "COpenCLHandler.h"
 
 namespace irr
 {

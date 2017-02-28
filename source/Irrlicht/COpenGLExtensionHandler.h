@@ -28,6 +28,7 @@
 
 	#ifdef _MSC_VER
 		#pragma comment(lib, "OpenGL32.lib")
+//		#pragma comment(lib, "OpenCL.lib")
 	#endif
 
 #elif defined(_IRR_COMPILE_WITH_OSX_DEVICE_)
@@ -73,6 +74,24 @@ namespace irr
 namespace video
 {
 
+
+
+struct DrawArraysIndirectCommand
+{
+    GLuint count;
+    GLuint instanceCount;
+    GLuint first;
+    GLuint reservedMustBeZero;
+};
+
+struct DrawElementsIndirectCommand
+{
+    GLuint count;
+    GLuint instanceCount;
+    GLuint firstIndex;
+    GLuint baseVertex;
+    GLuint baseInstance;
+};
 
 
 E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType);
@@ -147,12 +166,14 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_half_float_pixel",
 	"GL_ARB_half_float_vertex",
 	"GL_ARB_imaging",
+	"GL_ARB_indirect_parameters",
 	"GL_ARB_instanced_arrays",
 	"GL_ARB_internalformat_query",
 	"GL_ARB_internalformat_query2",
 	"GL_ARB_map_buffer_alignment",
 	"GL_ARB_map_buffer_range",
 	"GL_ARB_matrix_palette",
+	"GL_ARB_multi_draw_indirect",
 	"GL_ARB_multisample",
 	"GL_ARB_multitexture",
 	"GL_ARB_occlusion_query",
@@ -579,11 +600,13 @@ class COpenGLExtensionHandler
 		IRR_ARB_half_float_vertex,
 		IRR_ARB_imaging,
 		IRR_ARB_instanced_arrays,
+		IRR_ARB_indirect_parameters,
 		IRR_ARB_internalformat_query,
 		IRR_ARB_internalformat_query2,
 		IRR_ARB_map_buffer_alignment,
 		IRR_ARB_map_buffer_range,
 		IRR_ARB_matrix_palette,
+		IRR_ARB_multi_draw_indirect,
 		IRR_ARB_multisample,
 		IRR_ARB_multitexture,
 		IRR_ARB_occlusion_query,
@@ -986,6 +1009,10 @@ class COpenGLExtensionHandler
 	u32 MaxGeometryVerticesOut;
 	//! Maximal LOD Bias
 	f32 MaxTextureLODBias;
+	//!
+	static uint32_t MaxVertexStreams;
+	//!
+	static uint32_t MaxXFormFeedbackComponents;
 	//! Minimal and maximal supported thickness for lines without smoothing
 	GLfloat DimAliasedLine[2];
 	//! Minimal and maximal supported thickness for points without smoothing
@@ -1158,6 +1185,12 @@ class COpenGLExtensionHandler
 	static void extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance);
     static void extGlDrawTransformFeedback(GLenum mode, GLuint id);
     static void extGlDrawTransformFeedbackInstanced(GLenum mode, GLuint id, GLsizei instancecount);
+    static void extGlDrawTransformFeedbackStream(GLenum mode, GLuint id, GLuint stream);
+    static void extGlDrawTransformFeedbackStreamInstanced(GLenum mode, GLuint id, GLuint stream, GLsizei instancecount);
+    static void extGlDrawArraysIndirect(GLenum mode, const void* indirect);
+    static void extGlDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect);
+    static void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride);
+    static void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride);
 
 	//
 	static void extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
@@ -1197,6 +1230,9 @@ class COpenGLExtensionHandler
 	static bool FeatureAvailable[IRR_OpenGL_Feature_Count];
 
 #if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+    //
+    static PFNGLGETSTRINGIPROC pGlGetStringi;
+
     //fences
     static PFNGLFENCESYNCPROC pGlFenceSync;
     static PFNGLDELETESYNCPROC pGlDeleteSync;
@@ -1421,6 +1457,12 @@ class COpenGLExtensionHandler
 	static PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCEPROC pGlDrawElementsInstancedBaseVertexBaseInstance;
 	static PFNGLDRAWTRANSFORMFEEDBACKPROC pGlDrawTransformFeedback;
 	static PFNGLDRAWTRANSFORMFEEDBACKINSTANCEDPROC pGlDrawTransformFeedbackInstanced;
+	static PFNGLDRAWTRANSFORMFEEDBACKSTREAMPROC pGlDrawTransformFeedbackStream;
+	static PFNGLDRAWTRANSFORMFEEDBACKSTREAMINSTANCEDPROC pGlDrawTransformFeedbackStreamInstanced;
+	static PFNGLDRAWARRAYSINDIRECTPROC pGlDrawArraysIndirect;
+	static PFNGLDRAWELEMENTSINDIRECTPROC pGlDrawElementsIndirect;
+	static PFNGLMULTIDRAWARRAYSINDIRECTPROC pGlMultiDrawArraysIndirect;
+	static PFNGLMULTIDRAWELEMENTSINDIRECTPROC pGlMultiDrawElementsIndirect;
 	//
 	static PFNGLCREATETRANSFORMFEEDBACKSPROC pGlCreateTransformFeedbacks;
 	static PFNGLGENTRANSFORMFEEDBACKSPROC pGlGenTransformFeedbacks;
@@ -4418,6 +4460,81 @@ inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackInstanced(GLenum 
         os::Printer::log("glDrawTransformFeedbackInstanced not supported", ELL_ERROR);
 }
 
+inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackStream(GLenum mode, GLuint id, GLuint stream)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawTransformFeedbackStream)
+        pGlDrawTransformFeedbackStream(mode,id,stream);
+#else
+    glDrawTransformFeedbackStream(mode,id,stream);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackStreamInstanced(GLenum mode, GLuint id, GLuint stream, GLsizei instancecount)
+{
+    if (Version>=420||FeatureAvailable[IRR_ARB_transform_feedback_instanced])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlDrawTransformFeedbackStreamInstanced)
+            pGlDrawTransformFeedbackStreamInstanced(mode,id,stream,instancecount);
+    #else
+        glDrawTransformFeedbackStreamInstanced(mode,id,stream,instancecount);
+    #endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+        os::Printer::log("glDrawTransformFeedbackInstanced not supported", ELL_ERROR);
+}
+
+inline void COpenGLExtensionHandler::extGlDrawArraysIndirect(GLenum mode, const void *indirect)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawArraysIndirect)
+        pGlDrawArraysIndirect(mode,indirect);
+#else
+    glDrawArraysIndirect(mode,indirect);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawElementsIndirect)
+        pGlDrawElementsIndirect(mode,type,indirect);
+#else
+    glDrawElementsIndirect(mode,type,indirect);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlMultiDrawArraysIndirect(GLenum mode, const void *indirect, GLsizei drawcount, GLsizei stride)
+{
+    if (Version>=430||FeatureAvailable[IRR_ARB_transform_feedback_instanced])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlMultiDrawArraysIndirect)
+            pGlMultiDrawArraysIndirect(mode,indirect,drawcount,stride);
+    #else
+        glMultiDrawArraysIndirect(mode,indirect,drawcount,stride);
+    #endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+        os::Printer::log("glMultiDrawArraysIndirect not supported", ELL_ERROR);
+}
+
+inline void COpenGLExtensionHandler::extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride)
+{
+    if (Version>=430||FeatureAvailable[IRR_ARB_transform_feedback_instanced])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlMultiDrawElementsIndirect)
+            pGlMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
+    #else
+        glMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
+    #endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+        os::Printer::log("glMultiDrawElementsIndirect not supported", ELL_ERROR);
+}
+
 inline void COpenGLExtensionHandler::extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -4505,11 +4622,8 @@ inline void COpenGLExtensionHandler::extGlBlendEquationIndexed(GLuint buf, GLenu
 inline void COpenGLExtensionHandler::extGlPatchParameterfv(GLenum pname, GLfloat* values)
 {
 #if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-	if (queryFeature(EVDF_TESSELLATION_SHADER))
-	{
-		if (pGlPatchParameterfv)
-			pGlPatchParameterfv(pname, values);
-	}
+    if (pGlPatchParameterfv)
+        pGlPatchParameterfv(pname, values);
 #elif defined(GL_ARB_tesselation_shader)
     glPatchParameterfv();
 #else
@@ -4520,11 +4634,8 @@ inline void COpenGLExtensionHandler::extGlPatchParameterfv(GLenum pname, GLfloat
 inline void COpenGLExtensionHandler::extGlPatchParameteri(GLenum pname, GLuint value)
 {
 #if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-	if (queryFeature(EVDF_TESSELLATION_SHADER))
-	{
-		if (pGlPatchParameteri)
-			pGlPatchParameteri(pname, value);
-	}
+    if (pGlPatchParameteri)
+        pGlPatchParameteri(pname, value);
 #elif defined(GL_ARB_tesselation_shader)
     glPatchParameteri();
 #else
@@ -4612,14 +4723,6 @@ inline void COpenGLExtensionHandler::extGlEndQuery(GLenum target)
 
 inline void COpenGLExtensionHandler::extGlBeginQueryIndexed(GLenum target, GLuint index, GLuint id)
 {
-    if (Version<400 && !FeatureAvailable[IRR_ARB_transform_feedback3])
-    {
-#ifdef _DEBuG
-        os::Printer::log("GL_ARB_transform_feedback3 unsupported!\n");
-#endif // _DEBuG
-        return;
-    }
-
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBeginQueryIndexed)
 		pGlBeginQueryIndexed(target, index, id);
@@ -4630,14 +4733,6 @@ inline void COpenGLExtensionHandler::extGlBeginQueryIndexed(GLenum target, GLuin
 
 inline void COpenGLExtensionHandler::extGlEndQueryIndexed(GLenum target, GLuint index)
 {
-    if (Version<400 && !FeatureAvailable[IRR_ARB_transform_feedback3])
-    {
-#ifdef _DEBuG
-        os::Printer::log("GL_ARB_transform_feedback3 unsupported!\n");
-#endif // _DEBuG
-        return;
-    }
-
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlEndQueryIndexed)
 		pGlEndQueryIndexed(target, index);
