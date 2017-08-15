@@ -34,16 +34,16 @@ namespace scene
 
 struct SMyVector3
 {   SMyVector3 () {;}
-    SMyVector3 (f32 __X, f32 __Y, f32 __Z)
+    SMyVector3 (float __X, float __Y, float __Z)
         : X(__X), Y(__Y), Z(__Z) {}
-    f32 X, Y, Z;
+    float X, Y, Z;
 } PACK_STRUCT;
 
 struct SMyVector2
 {   SMyVector2 () {;}
-    SMyVector2(f32 __X, f32 __Y)
+    SMyVector2(float __X, float __Y)
         : X(__X), Y(__Y) {}
-    f32 X, Y;
+    float X, Y;
 } PACK_STRUCT;
 
 struct SMyVertex
@@ -64,64 +64,64 @@ struct SMyTVertex
 
 struct SMyFace
 {   SMyFace() {;}
-    SMyFace(u32 __A, u32 __B, u32 __C)
+    SMyFace(uint32_t __A, uint32_t __B, uint32_t __C)
         : A(__A), B(__B), C(__C) {}
-    u32 A, B, C;
+    uint32_t A, B, C;
 } PACK_STRUCT;
 
 // file header (6 bytes)
 struct SMyFileHeader
-{   u32 MyId; // MY3D
-    u16 Ver;  // Version
+{   uint32_t MyId; // MY3D
+    uint16_t Ver;  // Version
 } PACK_STRUCT;
 
 // scene header
 struct SMySceneHeader
 {   SMyColor BackgrColor;  // background color
     SMyColor AmbientColor; // ambient color
-    s32 MaterialCount;     // material count
-    s32 MeshCount;         // mesh count
+    int32_t MaterialCount;     // material count
+    int32_t MeshCount;         // mesh count
 } PACK_STRUCT;
 
 // mesh header
 struct SMyMeshHeader
-{   c8  Name[256];   // material name
-    u32 MatIndex;    // index of the mesh material
-    u32 TChannelCnt; // mesh mapping channels count
+{   int8_t  Name[256];   // material name
+    uint32_t MatIndex;    // index of the mesh material
+    uint32_t TChannelCnt; // mesh mapping channels count
 } PACK_STRUCT;
 
 // texture data header
 struct SMyTexDataHeader
-{   c8  Name[256]; // texture name
-    u32 ComprMode; //compression mode
-    u32 PixelFormat;
-    u32 Width;   // image width
-    u32 Height;  // image height
+{   int8_t  Name[256]; // texture name
+    uint32_t ComprMode; //compression mode
+    uint32_t PixelFormat;
+    uint32_t Width;   // image width
+    uint32_t Height;  // image height
 } PACK_STRUCT;
 
 // pixel color 24bit (R8G8B8)
 struct SMyPixelColor24
 {   SMyPixelColor24() {;}
-    SMyPixelColor24(u8 __r, u8 __g, u8 __b)
+    SMyPixelColor24(uint8_t __r, uint8_t __g, uint8_t __b)
         : r(__r), g(__g), b(__b) {}
-    u8 r, g, b;
+    uint8_t r, g, b;
 } PACK_STRUCT;
 
 // pixel color 16bit (A1R5G5B5)
 struct SMyPixelColor16
 {   SMyPixelColor16() {;}
-    SMyPixelColor16(s16 _argb): argb(_argb) {;}
-    SMyPixelColor16(u8 r, u8 g, u8 b)
+    SMyPixelColor16(int16_t _argb): argb(_argb) {;}
+    SMyPixelColor16(uint8_t r, uint8_t g, uint8_t b)
     {   argb = ((r&0x1F)<<10) | ((g&0x1F)<<5) | (b&0x1F);
     }
-    s16 argb;
+    int16_t argb;
 } PACK_STRUCT;
 
 // RLE Header
 struct SMyRLEHeader
 {   SMyRLEHeader() {}
-    u32 nEncodedBytes;
-    u32 nDecodedBytes;
+    uint32_t nEncodedBytes;
+    uint32_t nDecodedBytes;
 } PACK_STRUCT;
 
 // Default alignment

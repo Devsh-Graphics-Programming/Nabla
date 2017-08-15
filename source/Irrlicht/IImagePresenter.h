@@ -9,11 +9,11 @@
 
 namespace irr
 {
-namespace video  
+namespace video
 {
 
 /*!
-	Interface for a class which is able to present an IImage 
+	Interface for a class which is able to present an IImage
 	an the Screen. Usually only implemented by an IrrDevice for
 	presenting Software Device Rendered images.
 
@@ -26,7 +26,7 @@ namespace video
 
 		virtual ~IImagePresenter() {};
 		//! presents a surface in the client area
-		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<s32>* src=0 ) = 0;
+		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0 ) = 0;
 	};
 
 } // end namespace video

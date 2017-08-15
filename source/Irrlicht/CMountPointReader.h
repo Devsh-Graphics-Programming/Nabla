@@ -64,7 +64,7 @@ namespace io
 				bool ignoreCase, bool ignorePaths);
 
 		//! opens a file by index
-		virtual IReadFile* createAndOpenFile(u32 index);
+		virtual IReadFile* createAndOpenFile(uint32_t index);
 
 		//! opens a file by file name
 		virtual IReadFile* createAndOpenFile(const io::path& filename);

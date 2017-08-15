@@ -16,8 +16,8 @@ namespace scene
 
 //! constructor
 CSceneNodeAnimatorCameraFPS::CSceneNodeAnimatorCameraFPS(gui::ICursorControl* cursorControl,
-		f32 rotateSpeed, f32 moveSpeed, f32 jumpSpeed,
-		SKeyMap* keyMapArray, u32 keyMapSize, bool noVerticalMovement, bool invertY)
+		float rotateSpeed, float moveSpeed, float jumpSpeed,
+		SKeyMap* keyMapArray, uint32_t keyMapSize, bool noVerticalMovement, bool invertY)
 : CursorControl(cursorControl), MaxVerticalAngle(88.0f),
 	MoveSpeed(moveSpeed), RotateSpeed(rotateSpeed), JumpSpeed(jumpSpeed),
 	MouseYDirection(invertY ? -1.0f : 1.0f),
@@ -68,7 +68,7 @@ bool CSceneNodeAnimatorCameraFPS::OnEvent(const SEvent& evt)
 	switch(evt.EventType)
 	{
 	case EET_KEY_INPUT_EVENT:
-		for (u32 i=0; i<KeyMap.size(); ++i)
+		for (uint32_t i=0; i<KeyMap.size(); ++i)
 		{
 			if (KeyMap[i].KeyCode == evt.KeyInput.Key)
 			{
@@ -94,7 +94,7 @@ bool CSceneNodeAnimatorCameraFPS::OnEvent(const SEvent& evt)
 }
 
 
-void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 {
 	if (!node || node->getType() != ESNT_CAMERA)
 		return;
@@ -133,7 +133,7 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 		return;
 
 	// get time
-	f32 timeDiff = (f32) ( timeMs - LastAnimationTime );
+	float timeDiff = (float) ( timeMs - LastAnimationTime );
 	LastAnimationTime = timeMs;
 
 	// update position
@@ -175,8 +175,8 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 
 		// Special case, mouse is whipped outside of window before it can update.
 		video::IVideoDriver* driver = smgr->getVideoDriver();
-		core::vector2d<u32> mousepos(u32(CursorControl->getPosition().X), u32(CursorControl->getPosition().Y));
-		core::rect<u32> screenRect(0, 0, driver->getScreenSize().Width, driver->getScreenSize().Height);
+		core::vector2d<uint32_t> mousepos(uint32_t(CursorControl->getPosition().X), uint32_t(CursorControl->getPosition().Y));
+		core::rect<uint32_t> screenRect(0, 0, driver->getScreenSize().Width, driver->getScreenSize().Height);
 
 		// Only if we are moving outside quickly.
 		bool reset = !screenRect.isPointInside(mousepos);
@@ -244,47 +244,47 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 
 void CSceneNodeAnimatorCameraFPS::allKeysUp()
 {
-	for (u32 i=0; i<EKA_COUNT; ++i)
+	for (uint32_t i=0; i<EKA_COUNT; ++i)
 		CursorKeys[i] = false;
 }
 
 
 //! Sets the rotation speed
-void CSceneNodeAnimatorCameraFPS::setRotateSpeed(f32 speed)
+void CSceneNodeAnimatorCameraFPS::setRotateSpeed(float speed)
 {
 	RotateSpeed = speed;
 }
 
 
 //! Sets the movement speed
-void CSceneNodeAnimatorCameraFPS::setMoveSpeed(f32 speed)
+void CSceneNodeAnimatorCameraFPS::setMoveSpeed(float speed)
 {
 	MoveSpeed = speed;
 }
 
 
 //! Gets the rotation speed
-f32 CSceneNodeAnimatorCameraFPS::getRotateSpeed() const
+float CSceneNodeAnimatorCameraFPS::getRotateSpeed() const
 {
 	return RotateSpeed;
 }
 
 
 // Gets the movement speed
-f32 CSceneNodeAnimatorCameraFPS::getMoveSpeed() const
+float CSceneNodeAnimatorCameraFPS::getMoveSpeed() const
 {
 	return MoveSpeed;
 }
 
 
 //! Sets the keyboard mapping for this animator
-void CSceneNodeAnimatorCameraFPS::setKeyMap(SKeyMap *map, u32 count)
+void CSceneNodeAnimatorCameraFPS::setKeyMap(SKeyMap *map, uint32_t count)
 {
 	// clear the keymap
 	KeyMap.clear();
 
 	// add actions
-	for (u32 i=0; i<count; ++i)
+	for (uint32_t i=0; i<count; ++i)
 	{
 		KeyMap.push_back(map[i]);
 	}

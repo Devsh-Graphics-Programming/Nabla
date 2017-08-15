@@ -490,14 +490,14 @@ namespace video
 
 	struct SShaderParam
 	{
-		u32 ColorUnits;
-		u32 TextureUnits;
+		uint32_t ColorUnits;
+		uint32_t TextureUnits;
 
-		u32 RenderState [ BD3DRS_MAX_TYPE ];
-		void SetRenderState ( BD3DRENDERSTATETYPE state, u32 value );
+		uint32_t RenderState [ BD3DRS_MAX_TYPE ];
+		void SetRenderState ( BD3DRENDERSTATETYPE state, uint32_t value );
 	};
 
-	void SShaderParam::SetRenderState ( BD3DRENDERSTATETYPE state, u32 value )
+	void SShaderParam::SetRenderState ( BD3DRENDERSTATETYPE state, uint32_t value )
 	{
 		RenderState [ state ] = value;
 	}
@@ -529,7 +529,7 @@ private:
 
 	SShaderParam ShaderParam;
 
-	REALINLINE u32 depthFunc ();
+	REALINLINE uint32_t depthFunc ();
 	REALINLINE void depthWrite ();
 
 
@@ -552,7 +552,7 @@ void CBurningShader_Raster_Reference::pShader_EMT_LIGHTMAP_M4 ()
 	tFixPoint r0, g0, b0;
 	tFixPoint r1, g1, b1;
 
-	f32 inversew = fix_inverse32 ( line.w[0] );
+	float inversew = fix_inverse32 ( line.w[0] );
 
 	getSample_texture ( r0, g0, b0, &IT[0], tofix ( line.t[0][0].x,inversew), tofix ( line.t[0][0].y,inversew) );
 	getSample_texture ( r1, g1, b1, &IT[1], tofix ( line.t[1][0].x,inversew), tofix ( line.t[1][0].y,inversew) );
@@ -572,7 +572,7 @@ void CBurningShader_Raster_Reference::pShader_1 ()
 	tFixPoint r0, g0, b0;
 	tFixPoint tx0, ty0;
 
-	const f32 inversew = fix_inverse32 ( line.w[0] );
+	const float inversew = fix_inverse32 ( line.w[0] );
 
 	tx0 = tofix ( line.t[0][0].x, inversew );
 	ty0 = tofix ( line.t[0][0].y, inversew );
@@ -589,8 +589,8 @@ void CBurningShader_Raster_Reference::setMaterial ( const SBurningShaderMaterial
 {
 	const video::SMaterial &m = material.org;
 
-	u32 i;
-	u32 enable;
+	uint32_t i;
+	uint32_t enable;
 
 	ShaderParam.ColorUnits = 0;
 	ShaderParam.TextureUnits = 0;
@@ -660,7 +660,7 @@ void CBurningShader_Raster_Reference::setMaterial ( const SBurningShaderMaterial
 
 /*!
 */
-REALINLINE u32 CBurningShader_Raster_Reference::depthFunc ()
+REALINLINE uint32_t CBurningShader_Raster_Reference::depthFunc ()
 {
 	if ( ShaderParam.RenderState [ BD3DRS_ZENABLE ] )
 	{
@@ -698,14 +698,14 @@ REALINLINE void CBurningShader_Raster_Reference::scanline2()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal ( line.x[1] - line.x[0] );
-	const f32 subPixel = ( (f32) pShader.xStart ) - line.x[0];
+	const float invDeltaX = core::reciprocal ( line.x[1] - line.x[0] );
+	const float subPixel = ( (float) pShader.xStart ) - line.x[0];
 
 	// store slopes in endpoint, and correct first pixel
 
 	line.w[0] += (line.w[1] = (line.w[1] - line.w[0]) * invDeltaX) * subPixel;
 
-	u32 i;
+	uint32_t i;
 
 #ifdef SOFTWARE_DRIVER_2_USE_VERTEX_COLOR
 	for ( i = 0; i != ShaderParam.ColorUnits; ++i )
@@ -721,8 +721,8 @@ REALINLINE void CBurningShader_Raster_Reference::scanline2()
 		line.t[i][0] += line.t[i][1] * subPixel;
 	}
 
-	pShader.dst = (tVideoSample*) ( (u8*) RenderTarget->lock() + ( line.y * RenderTarget->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
-	pShader.z = (fp24*) ( (u8*) DepthBuffer->lock() + ( line.y * DepthBuffer->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
+	pShader.dst = (tVideoSample*) ( (uint8_t*) RenderTarget->lock() + ( line.y * RenderTarget->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
+	pShader.z = (fp24*) ( (uint8_t*) DepthBuffer->lock() + ( line.y * DepthBuffer->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
 
 	for ( pShader.i = 0; pShader.i <= pShader.dx; ++pShader.i )
 	{
@@ -752,7 +752,7 @@ REALINLINE void CBurningShader_Raster_Reference::scanline2()
 */
 REALINLINE void CBurningShader_Raster_Reference::scanline ()
 {
-	u32 i;
+	uint32_t i;
 
 	// apply top-left fill-convention, left
 	pShader.xStart = core::ceil32( line.x[0] );
@@ -763,22 +763,22 @@ REALINLINE void CBurningShader_Raster_Reference::scanline ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal ( line.x[1] - line.x[0] );
 
 	// search z-buffer for first not occulled pixel
-	pShader.z = (fp24*) ( (u8*) DepthBuffer->lock() + ( line.y * DepthBuffer->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
+	pShader.z = (fp24*) ( (uint8_t*) DepthBuffer->lock() + ( line.y * DepthBuffer->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
 
 	// subTexel
-	const f32 subPixel = ( (f32) pShader.xStart ) - line.x[0];
+	const float subPixel = ( (float) pShader.xStart ) - line.x[0];
 
-	const f32 b = (line.w[1] - line.w[0]) * invDeltaX;
-	f32 a = line.w[0] + ( b * subPixel );
+	const float b = (line.w[1] - line.w[0]) * invDeltaX;
+	float a = line.w[0] + ( b * subPixel );
 
 	pShader.i = 0;
 
 	if ( ShaderParam.RenderState [ BD3DRS_ZENABLE ] )
 	{
-		u32 condition;
+		uint32_t condition;
 		switch ( ShaderParam.RenderState [ BD3DRS_ZFUNC ] )
 		{
 			case BD3DCMP_LESSEQUAL:
@@ -804,9 +804,9 @@ REALINLINE void CBurningShader_Raster_Reference::scanline ()
 	line.w[0] = a;
 	line.w[1] = b;
 
-	pShader.dst = (tVideoSample*) ( (u8*) RenderTarget->lock() + ( line.y * RenderTarget->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
+	pShader.dst = (tVideoSample*) ( (uint8_t*) RenderTarget->lock() + ( line.y * RenderTarget->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
 
-	a = (f32) pShader.i + subPixel;
+	a = (float) pShader.i + subPixel;
 
 #ifdef SOFTWARE_DRIVER_2_USE_VERTEX_COLOR
 	for ( i = 0; i != ShaderParam.ColorUnits; ++i )
@@ -852,7 +852,7 @@ REALINLINE void CBurningShader_Raster_Reference::scanline ()
 void CBurningShader_Raster_Reference::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const s4DVertex *c )
 {
 	sScanConvertData scan;
-	u32 i;
+	uint32_t i;
 
 	// sort on height, y
 	if ( F32_A_GREATER_B ( a->Pos.y , b->Pos.y ) ) swapVertexPointer(&a, &b);
@@ -870,14 +870,14 @@ void CBurningShader_Raster_Reference::drawTriangle ( const s4DVertex *a,const s4
 
 
 	// find if the major edge is left or right aligned
-	f32 temp[4];
+	float temp[4];
 
 	temp[0] = a->Pos.x - c->Pos.x;
 	temp[1] = a->Pos.y - c->Pos.y;
 	temp[2] = b->Pos.x - a->Pos.x;
 	temp[3] = b->Pos.y - a->Pos.y;
 
-	scan.left = ( temp[0] * temp[3] - temp[1] * temp[2] ) > (f32) 0.0 ? 0 : 1;
+	scan.left = ( temp[0] * temp[3] - temp[1] * temp[2] ) > (float) 0.0 ? 0 : 1;
 	scan.right = 1 - scan.left;
 
 	// calculate slopes for the major edge
@@ -902,10 +902,10 @@ void CBurningShader_Raster_Reference::drawTriangle ( const s4DVertex *a,const s4
 	}
 
 	// top left fill convention y run
-	s32 yStart;
-	s32 yEnd;
+	int32_t yStart;
+	int32_t yEnd;
 
-	f32 subPixel;
+	float subPixel;
 
 	// rasterize upper sub-triangle
 	if ( F32_GREATER_0 ( scan.invDeltaY[1] ) )
@@ -934,7 +934,7 @@ void CBurningShader_Raster_Reference::drawTriangle ( const s4DVertex *a,const s4
 		yStart = core::ceil32( a->Pos.y );
 		yEnd = core::ceil32( b->Pos.y ) - 1;
 
-		subPixel = ( (f32) yStart ) - a->Pos.y;
+		subPixel = ( (float) yStart ) - a->Pos.y;
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;
@@ -1049,7 +1049,7 @@ void CBurningShader_Raster_Reference::drawTriangle ( const s4DVertex *a,const s4
 		yEnd = core::ceil32( c->Pos.y ) - 1;
 
 
-		subPixel = ( (f32) yStart ) - b->Pos.y;
+		subPixel = ( (float) yStart ) - b->Pos.y;
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;

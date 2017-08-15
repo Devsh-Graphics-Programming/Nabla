@@ -37,48 +37,33 @@ namespace video
 						bool clearZBuffer, SColor color);
 
 		//! sets a viewport
-		virtual void setViewPort(const core::rect<s32>& area);
+		virtual void setViewPort(const core::rect<int32_t>& area);
 
 		//! clears the zbuffer
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
 				SColor color=SColor(255,0,0,0),
 				const SExposedVideoData& videoData=SExposedVideoData(),
-				core::rect<s32>* sourceRect=0);
+				core::rect<int32_t>* sourceRect=0);
 
 		//! presents the rendered scene on the screen, returns false if failed
 		virtual bool endScene();
 
 		//! Only used by the internal engine. Used to notify the driver that
 		//! the window was resized.
-		virtual void OnResize(const core::dimension2d<u32>& size);
+		virtual void OnResize(const core::dimension2d<uint32_t>& size);
 
 		//! returns size of the current render target
-		virtual const core::dimension2d<u32>& getCurrentRenderTargetSize() const;
+		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
 
-		//! deletes all dynamic lights there are
-		virtual void deleteAllDynamicLights();
-
-		//! adds a dynamic light, returning an index to the light
-		//! \param light: the light data to use to create the light
-		//! \return An index to the light, or -1 if an error occurs
-		virtual s32 addDynamicLight(const SLight& light);
-
-		//! Turns a dynamic light on or off
-		//! \param lightIndex: the index returned by addDynamicLight
-		//! \param turnOn: true to turn the light on, false to turn it off
-		virtual void turnLightOn(s32 lightIndex, bool turnOn);
-
-		//! returns the maximal amount of dynamic lights the device can handle
-		virtual u32 getMaximalDynamicLightAmount() const;
 
 		//! draws an 2d image, using a color (if color is other then Color(255,255,255,255)) and the alpha channel of the texture if wanted.
-		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<s32>& destPos,
-			const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect = 0,
+		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos,
+			const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect = 0,
 			SColor color=SColor(255,255,255,255), bool useAlphaChannelOfTexture=false);
 
 	//! Draws a part of the texture into the rectangle.
-		virtual void draw2DImage(const video::ITexture* texture, const core::rect<s32>& destRect,
-				const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect = 0,
+		virtual void draw2DImage(const video::ITexture* texture, const core::rect<int32_t>& destRect,
+				const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect = 0,
 				const video::SColor* const colors=0, bool useAlphaChannelOfTexture=false);
 
 		//! Draws a 3d line.
@@ -86,21 +71,21 @@ namespace video
 			const core::vector3df& end, SColor color = SColor(255,255,255,255));
 
 		//! draw an 2d rectangle
-		virtual void draw2DRectangle(SColor color, const core::rect<s32>& pos,
-			const core::rect<s32>* clip = 0);
+		virtual void draw2DRectangle(SColor color, const core::rect<int32_t>& pos,
+			const core::rect<int32_t>* clip = 0);
 
 		//!Draws an 2d rectangle with a gradient.
-		virtual void draw2DRectangle(const core::rect<s32>& pos,
+		virtual void draw2DRectangle(const core::rect<int32_t>& pos,
 			SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
-			const core::rect<s32>* clip = 0);
+			const core::rect<int32_t>* clip = 0);
 
 		//! Draws a 2d line.
-		virtual void draw2DLine(const core::position2d<s32>& start,
-					const core::position2d<s32>& end,
+		virtual void draw2DLine(const core::position2d<int32_t>& start,
+					const core::position2d<int32_t>& end,
 					SColor color=SColor(255,255,255,255));
 
 		//! Draws a single pixel
-		virtual void drawPixel(u32 x, u32 y, const SColor & color);
+		virtual void drawPixel(uint32_t x, uint32_t y, const SColor & color);
 
 		//! \return Returns the name of the video driver. Example: In case of the DirectX8
 		//! driver, it would return "Direct3D8.1".
@@ -113,7 +98,7 @@ namespace video
 		virtual ECOLOR_FORMAT getColorFormat() const;
 
 		//! Creates a render target texture.
-		virtual ITexture* addRenderTargetTexture(const core::dimension2d<u32>& size,
+		virtual ITexture* addRenderTargetTexture(const core::dimension2d<uint32_t>& size,
 			const io::path& name, const ECOLOR_FORMAT format = ECF_UNKNOWN);
 
 		//! Clears the DepthBuffer.
@@ -122,10 +107,10 @@ namespace video
 		//! Returns the maximum amount of primitives (mostly vertices) which
 		//! the device is able to render with one drawIndexedTriangleList
 		//! call.
-		virtual u32 getMaximalIndicesCount() const;
+		virtual uint32_t getMaximalIndicesCount() const;
 
 		//! Returns the graphics card vendor name.
-		virtual core::stringc getVendorInfo();
+		virtual std::string getVendorInfo();
 
 		virtual IDepthBuffer * getDepthBuffer () { return DepthBuffer; }
 		virtual IStencilBuffer * getStencilBuffer () { return StencilBuffer; }
@@ -137,7 +122,7 @@ namespace video
 		void setRenderTarget(video::CImage* image);
 
 		//! sets the current Texture
-		//bool setTexture(u32 stage, video::ITexture* texture);
+		//bool setTexture(uint32_t stage, video::ITexture* texture);
 
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
@@ -147,11 +132,11 @@ namespace video
 		video::IImagePresenter* Presenter;
 
 		void* WindowId;
-		core::rect<s32>* SceneSourceRect;
+		core::rect<int32_t>* SceneSourceRect;
 
 		video::ITexture* RenderTargetTexture;
 		video::IImage* RenderTargetSurface;
-		core::dimension2d<u32> RenderTargetSize;
+		core::dimension2d<uint32_t> RenderTargetSize;
 
 		//! selects the right triangle renderer based on the render states.
 		void setCurrentShader();
@@ -188,7 +173,6 @@ namespace video
 		};
 
 		void getCameraPosWorldSpace ();
-		void getLightPosObjectSpace ();
 
 		core::matrix4 ClipscaleTransformation;
 
@@ -199,43 +183,38 @@ namespace video
 
 		SVertexCache VertexCache;
 
-		void VertexCache_reset (const void* vertices, u32 vertexCount,
-					const void* indices, u32 indexCount,
+		void VertexCache_reset (const void* vertices, uint32_t vertexCount,
+					const void* indices, uint32_t indexCount,
 					E_VERTEX_TYPE vType,scene::E_PRIMITIVE_TYPE pType,
 					E_INDEX_TYPE iType);
 		void VertexCache_get ( const s4DVertex ** face );
 		void VertexCache_getbypass ( s4DVertex ** face );
 
-		void VertexCache_fill ( const u32 sourceIndex,const u32 destIndex );
-		s4DVertex * VertexCache_getVertex ( const u32 sourceIndex );
+		void VertexCache_fill ( const uint32_t sourceIndex,const uint32_t destIndex );
+		s4DVertex * VertexCache_getVertex ( const uint32_t sourceIndex );
 #endif // NEW_MESHES
 
 		// culling & clipping
-		u32 clipToHyperPlane ( s4DVertex * dest, const s4DVertex * source, u32 inCount, const sVec4 &plane );
-		u32 clipToFrustumTest ( const s4DVertex * v  ) const;
-		u32 clipToFrustum ( s4DVertex *source, s4DVertex * temp, const u32 vIn );
+		uint32_t clipToHyperPlane ( s4DVertex * dest, const s4DVertex * source, uint32_t inCount, const sVec4 &plane );
+		uint32_t clipToFrustumTest ( const s4DVertex * v  ) const;
+		uint32_t clipToFrustum ( s4DVertex *source, s4DVertex * temp, const uint32_t vIn );
 
-
-#ifdef SOFTWARE_DRIVER_2_LIGHTING
-
-		void lightVertex ( s4DVertex *dest, u32 vertexargb );
-#endif
 
 
 		// holds transformed, clipped vertices
 		SAlignedVertex CurrentOut;
 		SAlignedVertex Temp;
 
-		void ndc_2_dc_and_project ( s4DVertex *dest,s4DVertex *source, u32 vIn ) const;
-		f32 screenarea ( const s4DVertex *v0 ) const;
-		void select_polygon_mipmap ( s4DVertex *source, u32 vIn, u32 tex, const core::dimension2du& texSize ) const;
-		f32 texelarea ( const s4DVertex *v0, int tex ) const;
+		void ndc_2_dc_and_project ( s4DVertex *dest,s4DVertex *source, uint32_t vIn ) const;
+		float screenarea ( const s4DVertex *v0 ) const;
+		void select_polygon_mipmap ( s4DVertex *source, uint32_t vIn, uint32_t tex, const core::dimension2du& texSize ) const;
+		float texelarea ( const s4DVertex *v0, int tex ) const;
 
 
-		void ndc_2_dc_and_project2 ( const s4DVertex **v, const u32 size ) const;
-		f32 screenarea2 ( const s4DVertex **v ) const;
-		f32 texelarea2 ( const s4DVertex **v, int tex ) const;
-		void select_polygon_mipmap2 ( s4DVertex **source, u32 tex, const core::dimension2du& texSize ) const;
+		void ndc_2_dc_and_project2 ( const s4DVertex **v, const uint32_t size ) const;
+		float screenarea2 ( const s4DVertex **v ) const;
+		float texelarea2 ( const s4DVertex **v, int tex ) const;
+		void select_polygon_mipmap2 ( s4DVertex **source, uint32_t tex, const core::dimension2du& texSize ) const;
 
 
 		SBurningShaderLightSpace LightSpace;

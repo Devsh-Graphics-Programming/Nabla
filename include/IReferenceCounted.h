@@ -28,7 +28,7 @@ namespace irr
 
 	If you want to create a texture, you may want to call an imaginable method
 	IDriver::createTexture. You call
-	ITexture* texture = driver->createTexture(dimension2d<u32>(128, 128));
+	ITexture* texture = driver->createTexture(dimension2d<uint32_t>(128, 128));
 	If you no longer need the texture, call texture->drop().
 
 	If you want to load a texture, you may want to call imaginable method
@@ -75,7 +75,7 @@ namespace irr
 
 		If you want to create a texture, you may want to call an
 		imaginable method IDriver::createTexture. You call
-		ITexture* texture = driver->createTexture(dimension2d<u32>(128, 128));
+		ITexture* texture = driver->createTexture(dimension2d<uint32_t>(128, 128));
 		If you no longer need the texture, call texture->drop().
 		If you want to load a texture, you may want to call imaginable
 		method IDriver::loadTexture. You do this like
@@ -104,7 +104,7 @@ namespace irr
 
 		If you want to create a texture, you may want to call an
 		imaginable method IDriver::createTexture. You call
-		ITexture* texture = driver->createTexture(dimension2d<u32>(128, 128));
+		ITexture* texture = driver->createTexture(dimension2d<uint32_t>(128, 128));
 		If you no longer need the texture, call texture->drop().
 		If you want to load a texture, you may want to call imaginable
 		method IDriver::loadTexture. You do this like
@@ -130,7 +130,7 @@ namespace irr
 
 		//! Get the reference count.
 		/** \return Current value of the reference counter. */
-		s32 getReferenceCount() const
+		int32_t getReferenceCount() const
 		{
 			return ReferenceCounter;
 		}
@@ -139,7 +139,7 @@ namespace irr
 		/** The Debugname may only be set and changed by the object
 		itself. This method should only be used in Debug mode.
 		\return Returns a string, previously set by setDebugName(); */
-		const c8* getDebugName() const
+		const char* getDebugName() const
 		{
 			return DebugName;
 		}
@@ -150,7 +150,7 @@ namespace irr
 		/** The Debugname may only be set and changed by the object
 		itself. This method should only be used in Debug mode.
 		\param newName: New debug name to set. */
-		void setDebugName(const c8* newName)
+		void setDebugName(const char* newName)
 		{
 			DebugName = newName;
 		}
@@ -158,10 +158,10 @@ namespace irr
 	private:
 
 		//! The debug name.
-		const c8* DebugName;
+		const char* DebugName;
 
 		//! The reference counter. Mutable to do reference counting on const objects.
-		mutable s32 ReferenceCounter;
+		mutable int32_t ReferenceCounter;
 	};
 
 } // end namespace irr

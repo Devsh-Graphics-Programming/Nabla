@@ -44,8 +44,8 @@ private:
 
 	struct SB3dChunkHeader
 	{
-		c8 name[4];
-		s32 size;
+		int8_t name[4];
+		int32_t size;
 	};
 
 	struct SB3dChunk
@@ -59,21 +59,21 @@ private:
 			name[3]=header.name[3];
 		}
 
-		c8 name[4];
-		s32 length;
+		int8_t name[4];
+		int32_t length;
 		long startposition;
 	};
 
 	struct SB3dTexture
 	{
 		core::stringc TextureName;
-		s32 Flags;
-		s32 Blend;
-		f32 Xpos;
-		f32 Ypos;
-		f32 Xscale;
-		f32 Yscale;
-		f32 Angle;
+		int32_t Flags;
+		int32_t Blend;
+		float Xpos;
+		float Ypos;
+		float Xscale;
+		float Yscale;
+		float Angle;
 	};
 
 	struct SB3dMaterial
@@ -82,13 +82,13 @@ private:
 			blue(1.0f), alpha(1.0f), shininess(0.0f), blend(1),
 			fx(0)
 		{
-			for (u32 i=0; i<video::MATERIAL_MAX_TEXTURES; ++i)
+			for (uint32_t i=0; i<video::MATERIAL_MAX_TEXTURES; ++i)
 				Textures[i]=0;
 		}
 		video::SMaterial Material;
-		f32 red, green, blue, alpha;
-		f32 shininess;
-		s32 blend,fx;
+		float red, green, blue, alpha;
+		float shininess;
+		int32_t blend,fx;
 		SB3dTexture *Textures[video::MATERIAL_MAX_TEXTURES];
 	};
 
@@ -96,7 +96,7 @@ private:
 	bool readChunkNODE(CSkinnedMesh::SJoint* InJoint);
 	bool readChunkMESH(CSkinnedMesh::SJoint* InJoint);
 	bool readChunkVRTS(CSkinnedMesh::SJoint* InJoint);
-	bool readChunkTRIS(scene::SSkinMeshBuffer *MeshBuffer, u32 MeshBufferID, s32 Vertices_Start);
+	bool readChunkTRIS(scene::SSkinMeshBuffer *MeshBuffer, uint32_t MeshBufferID, int32_t Vertices_Start);
 	bool readChunkBONE(CSkinnedMesh::SJoint* InJoint);
 	bool readChunkKEYS(CSkinnedMesh::SJoint* InJoint);
 	bool readChunkANIM();
@@ -106,16 +106,16 @@ private:
 	void loadTextures(SB3dMaterial& material) const;
 
 	void readString(core::stringc& newstring);
-	void readFloats(f32* vec, u32 count);
+	void readFloats(float* vec, uint32_t count);
 
 	core::array<SB3dChunk> B3dStack;
 
 	core::array<SB3dMaterial> Materials;
 	core::array<SB3dTexture> Textures;
 
-	core::array<s32> AnimatedVertices_VertexID;
+	core::array<int32_t> AnimatedVertices_VertexID;
 
-	core::array<s32> AnimatedVertices_BufferID;
+	core::array<int32_t> AnimatedVertices_BufferID;
 
 	core::array<video::S3DVertex2TCoords> BaseVertices;
 
@@ -125,7 +125,7 @@ private:
 
 	//B3Ds have Vertex ID's local within the mesh I don't want this
 	// Variable needs to be class member due to recursion in calls
-	u32 VerticesStart;
+	uint32_t VerticesStart;
 
 	bool NormalsInFile;
 	bool HasVertexColors;

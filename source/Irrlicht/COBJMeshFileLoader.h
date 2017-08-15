@@ -149,49 +149,49 @@ private:
             std::vector<SObjVertex> Vertices;
             std::vector<uint32_t> Indices;
             video::SMaterial Material;
-            core::stringc Name;
-            core::stringc Group;
-            f32 Bumpiness;
-            c8 Illumination;
+            std::string Name;
+            std::string Group;
+            float Bumpiness;
+            char Illumination;
             bool RecalculateNormals;
 	};
 
 	// helper method for material reading
-	const c8* readTextures(const c8* bufPtr, const c8* const bufEnd, SObjMtl* currMaterial, const io::path& relPath);
+	const char* readTextures(const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath);
 
 	// returns a pointer to the first printable character available in the buffer
-	const c8* goFirstWord(const c8* buf, const c8* const bufEnd, bool acrossNewlines=true);
+	const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines=true);
 	// returns a pointer to the first printable character after the first non-printable
-	const c8* goNextWord(const c8* buf, const c8* const bufEnd, bool acrossNewlines=true);
+	const char* goNextWord(const char* buf, const char* const bufEnd, bool acrossNewlines=true);
 	// returns a pointer to the next printable character after the first line break
-	const c8* goNextLine(const c8* buf, const c8* const bufEnd);
+	const char* goNextLine(const char* buf, const char* const bufEnd);
 	// copies the current word from the inBuf to the outBuf
-	u32 copyWord(c8* outBuf, const c8* inBuf, u32 outBufLength, const c8* const pBufEnd);
+	uint32_t copyWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* const pBufEnd);
 	// copies the current line from the inBuf to the outBuf
-	core::stringc copyLine(const c8* inBuf, const c8* const bufEnd);
+	core::stringc copyLine(const char* inBuf, const char* const bufEnd);
 
 	// combination of goNextWord followed by copyWord
-	const c8* goAndCopyNextWord(c8* outBuf, const c8* inBuf, u32 outBufLength, const c8* const pBufEnd);
+	const char* goAndCopyNextWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* const pBufEnd);
 
 	//! Read the material from the given file
-	void readMTL(const c8* fileName, const io::path& relPath);
+	void readMTL(const char* fileName, const io::path& relPath);
 
 	//! Find and return the material with the given name
-	SObjMtl* findMtl(const core::stringc& mtlName, const core::stringc& grpName);
+	SObjMtl* findMtl(const std::string& mtlName, const std::string& grpName);
 
 	//! Read RGB color
-	const c8* readColor(const c8* bufPtr, video::SColor& color, const c8* const pBufEnd);
+	const char* readColor(const char* bufPtr, video::SColor& color, const char* const pBufEnd);
 	//! Read 3d vector of floats
-	const c8* readVec3(const c8* bufPtr, core::vector3df& vec, const c8* const pBufEnd);
+	const char* readVec3(const char* bufPtr, core::vector3df& vec, const char* const pBufEnd);
 	//! Read 2d vector of floats
-	const c8* readUV(const c8* bufPtr, core::vector2df& vec, const c8* const pBufEnd);
+	const char* readUV(const char* bufPtr, core::vector2df& vec, const char* const pBufEnd);
 	//! Read boolean value represented as 'on' or 'off'
-	const c8* readBool(const c8* bufPtr, bool& tf, const c8* const bufEnd);
+	const char* readBool(const char* bufPtr, bool& tf, const char* const bufEnd);
 
 	// reads and convert to integer the vertex indices in a line of obj file's face statement
 	// -1 for the index if it doesn't exist
 	// indices are changed to 0-based index instead of 1-based from the obj file
-	bool retrieveVertexIndices(c8* vertexData, s32* idx, const c8* bufEnd, u32 vbsize, u32 vtsize, u32 vnsize);
+	bool retrieveVertexIndices(char* vertexData, int32_t* idx, const char* bufEnd, uint32_t vbsize, uint32_t vtsize, uint32_t vnsize);
 
 
 	scene::ISceneManager* SceneManager;

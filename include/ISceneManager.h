@@ -116,7 +116,7 @@ namespace scene
 	/** All Scene nodes can be created only here. There is a always growing
 	list of scene nodes for lots of purposes: Indoor rendering scene nodes,
 	different Camera scene nodes (addCameraSceneNode(), addCameraSceneNodeMaya()),
-	scene nodes for Light (addLightSceneNode()), Billboards (addBillboardSceneNode()) and so on.
+	Billboards (addBillboardSceneNode()) and so on.
 	A scene node is a node in the hierachical scene graph. Every scene node
 	may have children, which are other scene nodes. Children move relative
 	the their parents position. If the parent of a node is not visible, its
@@ -174,37 +174,6 @@ namespace scene
 		 *      using
 		 *      SceneManager-&gt;getParameters()-&gt;setAttribute(scene::CSM_TEXTURE_PATH,
 		 *      &quot;path/to/your/textures&quot;);</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>COLLADA (.dae, .xml)</TD>
-		 *    <TD>COLLADA is an open Digital Asset Exchange Schema for
-		 *        the interactive 3D industry. There are exporters and
-		 *        importers for this format available for most of the
-		 *        big 3d packagesat http://collada.org. Irrlicht can
-		 *        import COLLADA files by using the
-		 *        ISceneManager::getMesh() method. COLLADA files need
-		 *        not contain only one single mesh but multiple meshes
-		 *        and a whole scene setup with lights, cameras and mesh
-		 *        instances, this loader can set up a scene as
-		 *        described by the COLLADA file instead of loading and
-		 *        returning one single mesh. By default, this loader
-		 *        behaves like the other loaders and does not create
-		 *        instances, but it can be switched into this mode by
-		 *        using
-		 *        SceneManager-&gt;getParameters()-&gt;setAttribute(COLLADA_CREATE_SCENE_INSTANCES, true);
-		 *        Created scene nodes will be named as the names of the
-		 *        nodes in the COLLADA file. The returned mesh is just
-		 *        a dummy object in this mode. Meshes included in the
-		 *        scene will be added into the scene manager with the
-		 *        following naming scheme:
-		 *        "path/to/file/file.dea#meshname". The loading of such
-		 *        meshes is logged. Currently, this loader is able to
-
-
-		 *        create meshes (made of only polygons), lights, and
-		 *        cameras. Materials and animations are currently not
-		 *        supported but this will change with future releases.
-		 *    </TD>
 		 *  </TR>
 		 *  <TR>
 		 *    <TD>Delgine DeleD (.dmf)</TD>
@@ -387,7 +356,7 @@ namespace scene
 		\return Pointer to the created test scene node. This
 		pointer should not be dropped. See IReferenceCounted::drop()
 		for more information. */
-		virtual IMeshSceneNode* addCubeSceneNode(f32 size=10.0f, IDummyTransformationSceneNode* parent=0, s32 id=-1,
+		virtual IMeshSceneNode* addCubeSceneNode(float size=10.0f, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
@@ -407,8 +376,8 @@ namespace scene
 		\return Pointer to the created test scene node. This
 		pointer should not be dropped. See IReferenceCounted::drop()
 		for more information. */
-		virtual IMeshSceneNode* addSphereSceneNode(f32 radius=5.0f, s32 polyCount=16,
-				IDummyTransformationSceneNode* parent=0, s32 id=-1,
+		virtual IMeshSceneNode* addSphereSceneNode(float radius=5.0f, int32_t polyCount=16,
+				IDummyTransformationSceneNode* parent=0, int32_t id=-1,
 				const core::vector3df& position = core::vector3df(0,0,0),
 				const core::vector3df& rotation = core::vector3df(0,0,0),
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
@@ -416,7 +385,7 @@ namespace scene
 		//! Adds a scene node for rendering an skinned mesh model.
 		virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(
                 IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
-				IDummyTransformationSceneNode* parent=0, s32 id=-1,
+				IDummyTransformationSceneNode* parent=0, int32_t id=-1,
 				const core::vector3df& position = core::vector3df(0,0,0),
 				const core::vector3df& rotation = core::vector3df(0,0,0),
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
@@ -432,13 +401,13 @@ namespace scene
 		\param alsoAddIfMeshPointerZero: Add the scene node even if a 0 pointer is passed.
 		\return Pointer to the created scene node.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IMeshSceneNode* addMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent=0, s32 id=-1,
+		virtual IMeshSceneNode* addMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f),
 			bool alsoAddIfMeshPointerZero=false) = 0;
 
-        virtual IMeshSceneNodeInstanced* addMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent=0, s32 id=-1,
+        virtual IMeshSceneNodeInstanced* addMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent=0, int32_t id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
@@ -463,7 +432,7 @@ namespace scene
 		virtual ICameraSceneNode* addCameraSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& lookat = core::vector3df(0,0,100),
-			s32 id=-1, bool makeActive=true) = 0;
+			int32_t id=-1, bool makeActive=true) = 0;
 
 		//! Adds a maya style user controlled camera scene node to the scene graph.
 		/** This is a standard camera with an animator that provides mouse control similar
@@ -483,8 +452,8 @@ namespace scene
 		\return Returns a pointer to the interface of the camera if successful, otherwise 0.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual ICameraSceneNode* addCameraSceneNodeMaya(IDummyTransformationSceneNode* parent=0,
-			f32 rotateSpeed=-1500.f, f32 zoomSpeed=200.f,
-			f32 translationSpeed=1500.f, s32 id=-1, f32 distance=70.f,
+			float rotateSpeed=-1500.f, float zoomSpeed=200.f,
+			float translationSpeed=1500.f, int32_t id=-1, float distance=70.f,
 			bool makeActive=true) =0;
 
 		//! Adds a camera scene node with an animator which provides mouse and keyboard control appropriate for first person shooters (FPS).
@@ -552,28 +521,10 @@ namespace scene
 		otherwise 0. This pointer should not be dropped. See
 		IReferenceCounted::drop() for more information. */
 		virtual ICameraSceneNode* addCameraSceneNodeFPS(IDummyTransformationSceneNode* parent = 0,
-			f32 rotateSpeed = 100.0f, f32 moveSpeed = 0.5f, s32 id=-1,
-			SKeyMap* keyMapArray=0, s32 keyMapSize=0, bool noVerticalMovement=false,
-			f32 jumpSpeed = 0.f, bool invertMouse=false,
+			float rotateSpeed = 100.0f, float moveSpeed = 0.5f, int32_t id=-1,
+			SKeyMap* keyMapArray=0, int32_t keyMapSize=0, bool noVerticalMovement=false,
+			float jumpSpeed = 0.f, bool invertMouse=false,
 			bool makeActive=true) = 0;
-
-		//! Adds a dynamic light scene node to the scene graph.
-		/** The light will cast dynamic light on all
-		other scene nodes in the scene, which have the material flag video::MTF_LIGHTING
-		turned on. (This is the default setting in most scene nodes).
-		\param parent: Parent scene node of the light. Can be null. If the parent moves,
-		the light will move too.
-		\param position: Position of the space relative to its parent where the light will be placed.
-		\param color: Diffuse color of the light. Ambient or Specular colors can be set manually with
-		the ILightSceneNode::getLightData() method.
-		\param radius: Radius of the light.
-		\param id: id of the node. This id can be used to identify the node.
-		\return Pointer to the interface of the light if successful, otherwise NULL.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ILightSceneNode* addLightSceneNode(IDummyTransformationSceneNode* parent = 0,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			video::SColorf color = video::SColorf(1.0f, 1.0f, 1.0f),
-			f32 radius=100.0f, s32 id=-1) = 0;
 
 
 		//! Adds a billboard scene node to the scene graph.
@@ -596,8 +547,8 @@ namespace scene
 		This pointer should not be dropped. See
 		IReferenceCounted::drop() for more information. */
 		virtual IBillboardSceneNode* addBillboardSceneNode(IDummyTransformationSceneNode* parent = 0,
-			const core::dimension2d<f32>& size = core::dimension2d<f32>(10.0f, 10.0f),
-			const core::vector3df& position = core::vector3df(0,0,0), s32 id=-1,
+			const core::dimension2d<float>& size = core::dimension2d<float>(10.0f, 10.0f),
+			const core::vector3df& position = core::vector3df(0,0,0), int32_t id=-1,
 			video::SColor colorTop = 0xFFFFFFFF, video::SColor colorBottom = 0xFFFFFFFF) = 0;
 
 		//! Adds a skybox scene node to the scene graph.
@@ -617,7 +568,7 @@ namespace scene
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual ISceneNode* addSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom,
 			video::ITexture* left, video::ITexture* right, video::ITexture* front,
-			video::ITexture* back, IDummyTransformationSceneNode* parent = 0, s32 id=-1) = 0;
+			video::ITexture* back, IDummyTransformationSceneNode* parent = 0, int32_t id=-1) = 0;
 
 		//! Adds a skydome scene node to the scene graph.
 		/** A skydome is a large (half-) sphere with a panoramic texture
@@ -638,16 +589,16 @@ namespace scene
 		\return Pointer to the sky dome if successful, otherwise NULL.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual ISceneNode* addSkyDomeSceneNode(video::ITexture* texture,
-			u32 horiRes=16, u32 vertRes=8,
-			f32 texturePercentage=0.9, f32 spherePercentage=2.0,f32 radius = 1000.f,
-			IDummyTransformationSceneNode* parent=0, s32 id=-1) = 0;
+			uint32_t horiRes=16, uint32_t vertRes=8,
+			float texturePercentage=0.9, float spherePercentage=2.0,float radius = 1000.f,
+			IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
 
 		//! Adds an empty scene node to the scene graph.
 		/** Can be used for doing advanced transformations
 		or structuring the scene graph.
 		\return Pointer to the created scene node.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addEmptySceneNode(IDummyTransformationSceneNode* parent=0, s32 id=-1) = 0;
+		virtual ISceneNode* addEmptySceneNode(IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
 
 		//! Adds a dummy transformation scene node to the scene graph.
 		/** This scene node does not render itself, and does not respond to set/getPosition,
@@ -657,7 +608,7 @@ namespace scene
 		\return Pointer to the created scene node.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
-			IDummyTransformationSceneNode* parent=0, s32 id=-1) = 0;
+			IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
 
 		//! Gets the root scene node.
 		/** This is the scene node which is parent
@@ -676,7 +627,7 @@ namespace scene
 		\return Pointer to the first scene node with this id,
 		and null if no scene node could be found.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. *
-		virtual ISceneNode* getSceneNodeFromId(s32 id, IDummyTransformationSceneNode* start=0) = 0;
+		virtual ISceneNode* getSceneNodeFromId(int32_t id, IDummyTransformationSceneNode* start=0) = 0;
 
 		//! Get the first scene node with the specified name.
 		/** \param name: The name to search for
@@ -686,7 +637,7 @@ namespace scene
 		\return Pointer to the first scene node with this id,
 		and null if no scene node could be found.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. *
-		virtual ISceneNode* getSceneNodeFromName(const c8* name, IDummyTransformationSceneNode* start=0) = 0;
+		virtual ISceneNode* getSceneNodeFromName(const char* name, IDummyTransformationSceneNode* start=0) = 0;
 
 		//! Get the first scene node with the specified type.
 		/** \param type: The type to search for
@@ -728,7 +679,7 @@ namespace scene
 		For example, if the node is a shadow, it usually wants to be drawn after all other nodes
 		and will use ESNRP_SHADOW for this. See scene::E_SCENE_NODE_RENDER_PASS for details.
 		\return scene will be rendered ( passed culling ) */
-		virtual u32 registerNodeForRendering(ISceneNode* node,
+		virtual uint32_t registerNodeForRendering(ISceneNode* node,
 			E_SCENE_NODE_RENDER_PASS pass = ESNRP_AUTOMATIC) = 0;
 
 		//! Draws all the scene nodes.
@@ -761,10 +712,10 @@ namespace scene
 		See IReferenceCounted::drop() for more information. */
 		virtual ISceneNodeAnimator* createFlyCircleAnimator(
 				const core::vector3df& center=core::vector3df(0.f,0.f,0.f),
-				f32 radius=100.f, f32 speed=0.001f,
+				float radius=100.f, float speed=0.001f,
 				const core::vector3df& direction=core::vector3df(0.f, 1.f, 0.f),
-				f32 startPosition = 0.f,
-				f32 radiusEllipsoid = 0.f) = 0;
+				float startPosition = 0.f,
+				float radiusEllipsoid = 0.f) = 0;
 
 		//! Creates a fly straight animator, which lets the attached scene node fly or move along a line between two points.
 		/** \param startPoint: Start point of the line.
@@ -780,7 +731,7 @@ namespace scene
 		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
 		See IReferenceCounted::drop() for more information. */
 		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vector3df& startPoint,
-			const core::vector3df& endPoint, u32 timeForWay, bool loop=false, bool pingpong = false) = 0;
+			const core::vector3df& endPoint, uint32_t timeForWay, bool loop=false, bool pingpong = false) = 0;
 
 		//! Creates a texture animator, which switches the textures of the target scene node based on a list of textures.
 		/** \param textures: List of textures to use.
@@ -793,7 +744,7 @@ namespace scene
 		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
 		See IReferenceCounted::drop() for more information. */
 		virtual ISceneNodeAnimator* createTextureAnimator(const core::array<video::ITexture*>& textures,
-			s32 timePerFrame, bool loop=true) = 0;
+			int32_t timePerFrame, bool loop=true) = 0;
 
 		//! Creates a scene node animator, which deletes the scene node after some time automatically.
 		/** \param timeMs: Time in milliseconds, after when the node will be deleted.
@@ -801,7 +752,7 @@ namespace scene
 		and the animator will animate it.
 		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createDeleteAnimator(u32 timeMs) = 0;
+		virtual ISceneNodeAnimator* createDeleteAnimator(uint32_t timeMs) = 0;
 
 		//! Creates a follow spline animator.
 		/** The animator modifies the position of
@@ -812,9 +763,9 @@ namespace scene
 		1/speed seconds. This code was sent in by Matthias Gall.
 		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createFollowSplineAnimator(s32 startTime,
+		virtual ISceneNodeAnimator* createFollowSplineAnimator(int32_t startTime,
 			const core::array< core::vector3df >& points,
-			f32 speed = 1.0f, f32 tightness = 0.5f, bool loop=true, bool pingpong=false) = 0;
+			float speed = 1.0f, float tightness = 0.5f, bool loop=true, bool pingpong=false) = 0;
 
 
 		//! Adds an external mesh loader for extending the engine with new file formats.
@@ -827,13 +778,13 @@ namespace scene
 		virtual void addExternalMeshLoader(IMeshLoader* externalLoader) = 0;
 
 		//! Returns the number of mesh loaders supported by Irrlicht at this time
-		virtual u32 getMeshLoaderCount() const = 0;
+		virtual uint32_t getMeshLoaderCount() const = 0;
 
 		//! Retrieve the given mesh loader
 		/** \param index The index of the loader to retrieve. This parameter is an 0-based
 		array index.
 		\return A pointer to the specified loader, 0 if the index is incorrect. */
-		virtual IMeshLoader* getMeshLoader(u32 index) const = 0;
+		virtual IMeshLoader* getMeshLoader(uint32_t index) const = 0;
 
 		//! Get pointer to the mesh manipulator.
 		/** \return Pointer to the mesh manipulator
@@ -880,12 +831,12 @@ namespace scene
 		virtual void registerSceneNodeFactory(ISceneNodeFactory* factoryToAdd) = 0;
 
 		//! Get amount of registered scene node factories.
-		virtual u32 getRegisteredSceneNodeFactoryCount() const = 0;
+		virtual uint32_t getRegisteredSceneNodeFactoryCount() const = 0;
 
 		//! Get a scene node factory by index
 		/** \return Pointer to the requested scene node factory, or 0 if it does not exist.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeFactory* getSceneNodeFactory(u32 index) = 0;
+		virtual ISceneNodeFactory* getSceneNodeFactory(uint32_t index) = 0;
 
 		//! Get the default scene node animator factory which can create all built-in scene node animators
 		/** \return Pointer to the default scene node animator factory
@@ -898,18 +849,18 @@ namespace scene
 		virtual void registerSceneNodeAnimatorFactory(ISceneNodeAnimatorFactory* factoryToAdd) = 0;
 
 		//! Get amount of registered scene node animator factories.
-		virtual u32 getRegisteredSceneNodeAnimatorFactoryCount() const = 0;
+		virtual uint32_t getRegisteredSceneNodeAnimatorFactoryCount() const = 0;
 
 		//! Get scene node animator factory by index
 		/** \return Pointer to the requested scene node animator factory, or 0 if it does not exist.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimatorFactory* getSceneNodeAnimatorFactory(u32 index) = 0;
+		virtual ISceneNodeAnimatorFactory* getSceneNodeAnimatorFactory(uint32_t index) = 0;
 
 		//! Get typename from a scene node type or null if not found
-		virtual const c8* getSceneNodeTypeName(ESCENE_NODE_TYPE type) = 0;
+		virtual const char* getSceneNodeTypeName(ESCENE_NODE_TYPE type) = 0;
 
 		//! Returns a typename from a scene node animator type or null if not found
-		virtual const c8* getAnimatorTypeName(ESCENE_NODE_ANIMATOR_TYPE type) = 0;
+		virtual const char* getAnimatorTypeName(ESCENE_NODE_ANIMATOR_TYPE type) = 0;
 
 		//! Adds a scene node to the scene by name
 		/** \return Pointer to the scene node added by a factory

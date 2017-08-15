@@ -114,17 +114,17 @@ void CTRTextureGouraudAdd2::scanline_bilinear ()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -146,7 +146,7 @@ void CTRTextureGouraudAdd2::scanline_bilinear ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -165,7 +165,7 @@ void CTRTextureGouraudAdd2::scanline_bilinear ()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -191,12 +191,12 @@ void CTRTextureGouraudAdd2::scanline_bilinear ()
 
 
 #ifdef INVERSE_W
-	f32 inversew;
+	float inversew;
 #endif
 
 
 #ifdef BURNINGVIDEO_RENDERER_FAST
-	u32 dIndex = ( line.y & 3 ) << 2;
+	uint32_t dIndex = ( line.y & 3 ) << 2;
 
 #else
 	tFixPoint tx0;
@@ -207,7 +207,7 @@ void CTRTextureGouraudAdd2::scanline_bilinear ()
 #endif
 
 
-	for ( s32 i = 0; i <= dx; ++i )
+	for ( int32_t i = 0; i <= dx; ++i )
 	{
 #ifdef CMP_Z
 		if ( line.z[0] < z[i] )
@@ -229,13 +229,13 @@ void CTRTextureGouraudAdd2::scanline_bilinear ()
 
 			dst[i] = PixelAdd32 (
 						dst[i],
-					getTexel_plain ( &IT[0],	d + tofix ( line.t[0][0].x,inversew), 
+					getTexel_plain ( &IT[0],	d + tofix ( line.t[0][0].x,inversew),
 												d + tofix ( line.t[0][0].y,inversew) )
 												  );
 #else
 			dst[i] = PixelAdd32 (
 						dst[i],
-					getTexel_plain ( &IT[0],	d + tofix ( line.t[0][0].x), 
+					getTexel_plain ( &IT[0],	d + tofix ( line.t[0][0].x),
 												d + tofix ( line.t[0][0].y) )
 												 );
 
@@ -298,16 +298,16 @@ void CTRTextureGouraudAdd2::drawTriangle ( const s4DVertex *a,const s4DVertex *b
 	if ( F32_A_GREATER_B ( b->Pos.y , c->Pos.y ) ) swapVertexPointer(&b, &c);
 	if ( F32_A_GREATER_B ( a->Pos.y , b->Pos.y ) ) swapVertexPointer(&a, &b);
 
-	const f32 ca = c->Pos.y - a->Pos.y;
-	const f32 ba = b->Pos.y - a->Pos.y;
-	const f32 cb = c->Pos.y - b->Pos.y;
+	const float ca = c->Pos.y - a->Pos.y;
+	const float ba = b->Pos.y - a->Pos.y;
+	const float cb = c->Pos.y - b->Pos.y;
 	// calculate delta y of the edges
 	scan.invDeltaY[0] = core::reciprocal( ca );
 	scan.invDeltaY[1] = core::reciprocal( ba );
 	scan.invDeltaY[2] = core::reciprocal( cb );
 
 	// find if the major edge is left or right aligned
-	f32 temp[4];
+	float temp[4];
 
 	temp[0] = a->Pos.x - c->Pos.x;
 	temp[1] = -ca;
@@ -347,11 +347,11 @@ void CTRTextureGouraudAdd2::drawTriangle ( const s4DVertex *a,const s4DVertex *b
 #endif
 
 	// top left fill convention y run
-	s32 yStart;
-	s32 yEnd;
+	int32_t yStart;
+	int32_t yEnd;
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 	// rasterize upper sub-triangle
@@ -391,35 +391,35 @@ void CTRTextureGouraudAdd2::drawTriangle ( const s4DVertex *a,const s4DVertex *b
 		yEnd = core::ceil32( b->Pos.y ) - 1;
 
 #ifdef SUBTEXEL
-		subPixel = ( (f32) yStart ) - a->Pos.y;
+		subPixel = ( (float) yStart ) - a->Pos.y;
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;
-		scan.x[1] += scan.slopeX[1] * subPixel;		
+		scan.x[1] += scan.slopeX[1] * subPixel;
 
 #ifdef IPOL_Z
 		scan.z[0] += scan.slopeZ[0] * subPixel;
-		scan.z[1] += scan.slopeZ[1] * subPixel;		
+		scan.z[1] += scan.slopeZ[1] * subPixel;
 #endif
 
 #ifdef IPOL_W
 		scan.w[0] += scan.slopeW[0] * subPixel;
-		scan.w[1] += scan.slopeW[1] * subPixel;		
+		scan.w[1] += scan.slopeW[1] * subPixel;
 #endif
 
 #ifdef IPOL_C0
 		scan.c[0] += scan.slopeC[0] * subPixel;
-		scan.c[1] += scan.slopeC[1] * subPixel;		
+		scan.c[1] += scan.slopeC[1] * subPixel;
 #endif
 
 #ifdef IPOL_T0
 		scan.t[0][0] += scan.slopeT[0][0] * subPixel;
-		scan.t[0][1] += scan.slopeT[0][1] * subPixel;		
+		scan.t[0][1] += scan.slopeT[0][1] * subPixel;
 #endif
 
 #ifdef IPOL_T1
 		scan.t[1][0] += scan.slopeT[1][0] * subPixel;
-		scan.t[1][1] += scan.slopeT[1][1] * subPixel;		
+		scan.t[1][1] += scan.slopeT[1][1] * subPixel;
 #endif
 
 #endif
@@ -490,10 +490,10 @@ void CTRTextureGouraudAdd2::drawTriangle ( const s4DVertex *a,const s4DVertex *b
 	}
 
 	// rasterize lower sub-triangle
-	if ( (f32) 0.0 != scan.invDeltaY[2] )
+	if ( (float) 0.0 != scan.invDeltaY[2] )
 	{
 		// advance to middle point
-		if( (f32) 0.0 != scan.invDeltaY[1] )
+		if( (float) 0.0 != scan.invDeltaY[1] )
 		{
 			temp[0] = b->Pos.y - a->Pos.y;	// dy
 
@@ -551,35 +551,35 @@ void CTRTextureGouraudAdd2::drawTriangle ( const s4DVertex *a,const s4DVertex *b
 
 #ifdef SUBTEXEL
 
-		subPixel = ( (f32) yStart ) - b->Pos.y;
+		subPixel = ( (float) yStart ) - b->Pos.y;
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;
-		scan.x[1] += scan.slopeX[1] * subPixel;		
+		scan.x[1] += scan.slopeX[1] * subPixel;
 
 #ifdef IPOL_Z
 		scan.z[0] += scan.slopeZ[0] * subPixel;
-		scan.z[1] += scan.slopeZ[1] * subPixel;		
+		scan.z[1] += scan.slopeZ[1] * subPixel;
 #endif
 
 #ifdef IPOL_W
 		scan.w[0] += scan.slopeW[0] * subPixel;
-		scan.w[1] += scan.slopeW[1] * subPixel;		
+		scan.w[1] += scan.slopeW[1] * subPixel;
 #endif
 
 #ifdef IPOL_C0
 		scan.c[0] += scan.slopeC[0] * subPixel;
-		scan.c[1] += scan.slopeC[1] * subPixel;		
+		scan.c[1] += scan.slopeC[1] * subPixel;
 #endif
 
 #ifdef IPOL_T0
 		scan.t[0][0] += scan.slopeT[0][0] * subPixel;
-		scan.t[0][1] += scan.slopeT[0][1] * subPixel;		
+		scan.t[0][1] += scan.slopeT[0][1] * subPixel;
 #endif
 
 #ifdef IPOL_T1
 		scan.t[1][0] += scan.slopeT[1][0] * subPixel;
-		scan.t[1][1] += scan.slopeT[1][1] * subPixel;		
+		scan.t[1][1] += scan.slopeT[1][1] * subPixel;
 #endif
 
 #endif

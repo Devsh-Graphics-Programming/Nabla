@@ -34,21 +34,21 @@ struct MS3DHeader
 // Vertex information
 struct MS3DVertex
 {
-	u8 Flags;
+	uint8_t Flags;
 	float Vertex[3];
 	char BoneID;
-	u8 RefCount;
+	uint8_t RefCount;
 } PACK_STRUCT;
 
 // Triangle information
 struct MS3DTriangle
 {
-	u16 Flags;
-	u16 VertexIndices[3];
+	uint16_t Flags;
+	uint16_t VertexIndices[3];
 	float VertexNormals[3][3];
 	float S[3], T[3];
-	u8 SmoothingGroup;
-	u8 GroupIndex;
+	uint8_t SmoothingGroup;
+	uint8_t GroupIndex;
 } PACK_STRUCT;
 
 // Material information
@@ -61,7 +61,7 @@ struct MS3DMaterial
     float Emissive[4];
     float Shininess;	// 0.0f - 128.0f
     float Transparency;	// 0.0f - 1.0f
-    u8 Mode;	// 0, 1, 2 is unused now
+    uint8_t Mode;	// 0, 1, 2 is unused now
     char Texture[128];
     char Alphamap[128];
 } PACK_STRUCT;
@@ -69,13 +69,13 @@ struct MS3DMaterial
 // Joint information
 struct MS3DJoint
 {
-	u8 Flags;
+	uint8_t Flags;
 	char Name[32];
 	char ParentName[32];
 	float Rotation[3];
 	float Translation[3];
-	u16 NumRotationKeyframes;
-	u16 NumTranslationKeyframes;
+	uint16_t NumRotationKeyframes;
+	uint16_t NumTranslationKeyframes;
 } PACK_STRUCT;
 
 // Keyframe data
@@ -89,7 +89,7 @@ struct MS3DKeyframe
 struct MS3DVertexWeights
 {
 	char boneIds[3];
-	u8 weights[3];
+	uint8_t weights[3];
 } PACK_STRUCT;
 
 } // end namespace
@@ -100,8 +100,8 @@ struct MS3DVertexWeights
 struct SGroup
 {
 	core::stringc Name;
-	core::array<u16> VertexIds;
-	u16 MaterialIdx;
+	core::array<uint16_t> VertexIds;
+	uint16_t MaterialIdx;
 };
 
 //! Constructor
@@ -158,25 +158,25 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 
 	// read whole file
 
-	u8* buffer = new u8[fileSize];
-	s32 read = file->read(buffer, fileSize);
+	uint8_t* buffer = new uint8_t[fileSize];
+	int32_t read = file->read(buffer, fileSize);
 	if (read != fileSize)
 	{
 		delete [] buffer;
-		os::Printer::log("Could not read full file. Loading failed", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Could not read full file. Loading failed", file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
 
 	// read header
 
-	const u8 *pPtr = (u8*)((void*)buffer);
+	const uint8_t *pPtr = (uint8_t*)((void*)buffer);
 	MS3DHeader *pHeader = (MS3DHeader*)pPtr;
 	pPtr += sizeof(MS3DHeader);
 
 	if ( strncmp( pHeader->ID, "MS3D000000", 10 ) != 0 )
 	{
 		delete [] buffer;
-		os::Printer::log("Not a valid Milkshape3D Model File. Loading failed", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Not a valid Milkshape3D Model File. Loading failed", file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
 
@@ -186,7 +186,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	if ( pHeader->Version < 3 || pHeader->Version > 4 )
 	{
 		delete [] buffer;
-		os::Printer::log("Only Milkshape3D version 3 and 4 (1.3 to 1.8) is supported. Loading failed", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Only Milkshape3D version 3 and 4 (1.3 to 1.8) is supported. Loading failed", file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
 #ifdef _IRR_DEBUG_MS3D_LOADER_
@@ -196,23 +196,23 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	// get pointers to data
 
 	// vertices
-	u16 numVertices = *(u16*)pPtr;
+	uint16_t numVertices = *(uint16_t*)pPtr;
 #ifdef __BIG_ENDIAN__
 	numVertices = os::Byteswap::byteswap(numVertices);
 #endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Load vertices", core::stringc(numVertices).c_str());
 #endif
-	pPtr += sizeof(u16);
+	pPtr += sizeof(uint16_t);
 	MS3DVertex *vertices = (MS3DVertex*)pPtr;
 	pPtr += sizeof(MS3DVertex) * numVertices;
 	if (pPtr > buffer+fileSize)
 	{
 		delete [] buffer;
-		os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
-	for (u16 tmp=0; tmp<numVertices; ++tmp)
+	for (uint16_t tmp=0; tmp<numVertices; ++tmp)
 	{
 #ifdef __BIG_ENDIAN__
 		vertices[tmp].Vertex[0] = os::Byteswap::byteswap(vertices[tmp].Vertex[0]);
@@ -224,27 +224,27 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	}
 
 	// triangles
-	u16 numTriangles = *(u16*)pPtr;
+	uint16_t numTriangles = *(uint16_t*)pPtr;
 #ifdef __BIG_ENDIAN__
 	numTriangles = os::Byteswap::byteswap(numTriangles);
 #endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Load Triangles", core::stringc(numTriangles).c_str());
 #endif
-	pPtr += sizeof(u16);
+	pPtr += sizeof(uint16_t);
 	MS3DTriangle *triangles = (MS3DTriangle*)pPtr;
 	pPtr += sizeof(MS3DTriangle) * numTriangles;
 	if (pPtr > buffer+fileSize)
 	{
 		delete [] buffer;
-		os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
-	for (u16 tmp=0; tmp<numTriangles; ++tmp)
+	for (uint16_t tmp=0; tmp<numTriangles; ++tmp)
 	{
 #ifdef __BIG_ENDIAN__
 		triangles[tmp].Flags = os::Byteswap::byteswap(triangles[tmp].Flags);
-		for (u16 j=0; j<3; ++j)
+		for (uint16_t j=0; j<3; ++j)
 		{
 			triangles[tmp].VertexIndices[j] = os::Byteswap::byteswap(triangles[tmp].VertexIndices[j]);
 			triangles[tmp].VertexNormals[j][0] = os::Byteswap::byteswap(triangles[tmp].VertexNormals[j][0]);
@@ -261,69 +261,69 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	}
 
 	// groups
-	u16 numGroups = *(u16*)pPtr;
+	uint16_t numGroups = *(uint16_t*)pPtr;
 #ifdef __BIG_ENDIAN__
 	numGroups = os::Byteswap::byteswap(numGroups);
 #endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Load Groups", core::stringc(numGroups).c_str());
 #endif
-	pPtr += sizeof(u16);
+	pPtr += sizeof(uint16_t);
 
 	core::array<SGroup> groups;
 	groups.reallocate(numGroups);
 
 	//store groups
-	u32 i;
+	uint32_t i;
 	for (i=0; i<numGroups; ++i)
 	{
 		groups.push_back(SGroup());
 		SGroup& grp = groups.getLast();
 
 		// The byte flag is before the name, so add 1
-		grp.Name = ((const c8*) pPtr) + 1;
+		grp.Name = ((const char*) pPtr) + 1;
 
 		pPtr += 33; // name and 1 byte flags
-		u16 triangleCount = *(u16*)pPtr;
+		uint16_t triangleCount = *(uint16_t*)pPtr;
 #ifdef __BIG_ENDIAN__
 		triangleCount = os::Byteswap::byteswap(triangleCount);
 #endif
-		pPtr += sizeof(u16);
+		pPtr += sizeof(uint16_t);
 		grp.VertexIds.reallocate(triangleCount);
 
-		//pPtr += sizeof(u16) * triangleCount; // triangle indices
-		for (u16 j=0; j<triangleCount; ++j)
+		//pPtr += sizeof(uint16_t) * triangleCount; // triangle indices
+		for (uint16_t j=0; j<triangleCount; ++j)
 		{
 #ifdef __BIG_ENDIAN__
-			grp.VertexIds.push_back(os::Byteswap::byteswap(*(u16*)pPtr));
+			grp.VertexIds.push_back(os::Byteswap::byteswap(*(uint16_t*)pPtr));
 #else
-			grp.VertexIds.push_back(*(u16*)pPtr);
+			grp.VertexIds.push_back(*(uint16_t*)pPtr);
 #endif
-			pPtr += sizeof (u16);
+			pPtr += sizeof (uint16_t);
 		}
 
-		grp.MaterialIdx = *(u8*)pPtr;
+		grp.MaterialIdx = *(uint8_t*)pPtr;
 		if (grp.MaterialIdx == 255)
 			grp.MaterialIdx = 0;
 
-		pPtr += sizeof(c8); // material index
+		pPtr += sizeof(char); // material index
 		if (pPtr > buffer+fileSize)
 		{
 			delete [] buffer;
-			os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 			return false;
 		}
 	}
 
 	// load materials
-	u16 numMaterials = *(u16*)pPtr;
+	uint16_t numMaterials = *(uint16_t*)pPtr;
 #ifdef __BIG_ENDIAN__
 	numMaterials = os::Byteswap::byteswap(numMaterials);
 #endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Load Materials", core::stringc(numMaterials).c_str());
 #endif
-	pPtr += sizeof(u16);
+	pPtr += sizeof(uint16_t);
 
 	if(numMaterials == 0)
 	{
@@ -335,13 +335,13 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	{
 		MS3DMaterial *material = (MS3DMaterial*)pPtr;
 #ifdef __BIG_ENDIAN__
-		for (u16 j=0; j<4; ++j)
+		for (uint16_t j=0; j<4; ++j)
 			material->Ambient[j] = os::Byteswap::byteswap(material->Ambient[j]);
-		for (u16 j=0; j<4; ++j)
+		for (uint16_t j=0; j<4; ++j)
 			material->Diffuse[j] = os::Byteswap::byteswap(material->Diffuse[j]);
-		for (u16 j=0; j<4; ++j)
+		for (uint16_t j=0; j<4; ++j)
 			material->Specular[j] = os::Byteswap::byteswap(material->Specular[j]);
-		for (u16 j=0; j<4; ++j)
+		for (uint16_t j=0; j<4; ++j)
 			material->Emissive[j] = os::Byteswap::byteswap(material->Emissive[j]);
 		material->Shininess = os::Byteswap::byteswap(material->Shininess);
 		material->Transparency = os::Byteswap::byteswap(material->Transparency);
@@ -350,7 +350,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 		if (pPtr > buffer+fileSize)
 		{
 			delete [] buffer;
-			os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 			return false;
 		}
 
@@ -371,7 +371,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 			tmpBuffer->Material.setTexture(0, Driver->getTexture(TexturePath));
 		}
 
-		core::stringc AlphamapPath=(const c8*)material->Alphamap;
+		core::stringc AlphamapPath=(const char*)material->Alphamap;
 		if (AlphamapPath.trim()!="")
 		{
 			AlphamapPath=stripPathFromString(file->getFileName(),true) + stripPathFromString(AlphamapPath,false);
@@ -380,7 +380,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	}
 
 	// animation time
-	f32 framesPerSecond = *(float*)pPtr;
+	float framesPerSecond = *(float*)pPtr;
 #ifdef __BIG_ENDIAN__
 	framesPerSecond = os::Byteswap::byteswap(framesPerSecond);
 #endif
@@ -394,24 +394,24 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	AnimatedMesh->setAnimationSpeed(framesPerSecond);
 
 // ignore, calculated inside SkinnedMesh
-//	s32 frameCount = *(int*)pPtr;
+//	int32_t frameCount = *(int*)pPtr;
 #ifdef __BIG_ENDIAN__
 //	frameCount = os::Byteswap::byteswap(frameCount);
 #endif
 	pPtr += sizeof(int);
 
-	u16 jointCount = *(u16*)pPtr;
+	uint16_t jointCount = *(uint16_t*)pPtr;
 #ifdef __BIG_ENDIAN__
 	jointCount = os::Byteswap::byteswap(jointCount);
 #endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Joints", core::stringc(jointCount).c_str());
 #endif
-	pPtr += sizeof(u16);
+	pPtr += sizeof(uint16_t);
 	if (pPtr > buffer+fileSize)
 	{
 		delete [] buffer;
-		os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
 
@@ -421,7 +421,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	// load joints
 	for (i=0; i<jointCount; ++i)
 	{
-		u32 j;
+		uint32_t j;
 		MS3DJoint *pJoint = (MS3DJoint*)pPtr;
 #ifdef __BIG_ENDIAN__
 		for (j=0; j<3; ++j)
@@ -435,7 +435,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 		if (pPtr > buffer+fileSize)
 		{
 			delete [] buffer;
-			os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 			return false;
 		}
 
@@ -461,7 +461,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 		jnt->Animatedposition.set(jnt->LocalMatrix.getTranslation());
 		jnt->Animatedrotation.set(jnt->LocalMatrix.getRotationDegrees());
 
-		parentNames.push_back( (c8*)pJoint->ParentName );
+		parentNames.push_back( (char*)pJoint->ParentName );
 
 		/*if (pJoint->NumRotationKeyframes ||
 			pJoint->NumTranslationKeyframes)
@@ -469,20 +469,20 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 		 */
 
 		// get rotation keyframes
-		const u16 numRotationKeyframes = pJoint->NumRotationKeyframes;
+		const uint16_t numRotationKeyframes = pJoint->NumRotationKeyframes;
 		for (j=0; j < numRotationKeyframes; ++j)
 		{
 			MS3DKeyframe* kf = (MS3DKeyframe*)pPtr;
 #ifdef __BIG_ENDIAN__
 			kf->Time = os::Byteswap::byteswap(kf->Time);
-			for (u32 l=0; l<3; ++l)
+			for (uint32_t l=0; l<3; ++l)
 				kf->Parameter[l] = os::Byteswap::byteswap(kf->Parameter[l]);
 #endif
 			pPtr += sizeof(MS3DKeyframe);
 			if (pPtr > buffer+fileSize)
 			{
 				delete [] buffer;
-				os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+				os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 				return false;
 			}
 
@@ -509,20 +509,20 @@ _
 		}
 
 		// get translation keyframes
-		const u16 numTranslationKeyframes = pJoint->NumTranslationKeyframes;
+		const uint16_t numTranslationKeyframes = pJoint->NumTranslationKeyframes;
 		for (j=0; j<numTranslationKeyframes; ++j)
 		{
 			MS3DKeyframe* kf = (MS3DKeyframe*)pPtr;
 #ifdef __BIG_ENDIAN__
 			kf->Time = os::Byteswap::byteswap(kf->Time);
-			for (u32 l=0; l<3; ++l)
+			for (uint32_t l=0; l<3; ++l)
 				kf->Parameter[l] = os::Byteswap::byteswap(kf->Parameter[l]);
 #endif
 			pPtr += sizeof(MS3DKeyframe);
 			if (pPtr > buffer+fileSize)
 			{
 				delete [] buffer;
-				os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+				os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 				return false;
 			}
 
@@ -537,52 +537,52 @@ _
 	}
 
 	core::array<MS3DVertexWeights> vertexWeights;
-	f32 weightFactor=0;
+	float weightFactor=0;
 
 	if (jointCount && (pHeader->Version == 4) && (pPtr < buffer+fileSize))
 	{
-		s32 subVersion = *(s32*)pPtr; // comment subVersion, always 1
+		int32_t subVersion = *(int32_t*)pPtr; // comment subVersion, always 1
 #ifdef __BIG_ENDIAN__
 		subVersion = os::Byteswap::byteswap(subVersion);
 #endif
-		pPtr += sizeof(s32);
+		pPtr += sizeof(int32_t);
 
-		for (u32 j=0; j<4; ++j) // four comment groups
+		for (uint32_t j=0; j<4; ++j) // four comment groups
 		{
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 			os::Printer::log("Skipping comment group", core::stringc(j+1).c_str());
 #endif
-			u32 numComments = *(u32*)pPtr;
+			uint32_t numComments = *(uint32_t*)pPtr;
 #ifdef __BIG_ENDIAN__
 			numComments = os::Byteswap::byteswap(numComments);
 #endif
-			pPtr += sizeof(u32);
+			pPtr += sizeof(uint32_t);
 			for (i=0; i<numComments; ++i)
 			{
 				// according to scorpiomidget this field does
 				// not exist for model comments. So avoid to
 				// read it
 				if (j!=3)
-					pPtr += sizeof(s32); // index
-				s32 commentLength = *(s32*)pPtr;
+					pPtr += sizeof(int32_t); // index
+				int32_t commentLength = *(int32_t*)pPtr;
 #ifdef __BIG_ENDIAN__
 				commentLength = os::Byteswap::byteswap(commentLength);
 #endif
-				pPtr += sizeof(s32);
+				pPtr += sizeof(int32_t);
 				pPtr += commentLength;
 			}
 
 			if (pPtr > buffer+fileSize)
 			{
 				delete [] buffer;
-				os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+				os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 				return false;
 			}
 		}
 
 		if (pPtr < buffer+fileSize)
 		{
-			subVersion = *(s32*)pPtr; // vertex subVersion, 1 or 2
+			subVersion = *(int32_t*)pPtr; // vertex subVersion, 1 or 2
 #ifdef __BIG_ENDIAN__
 			subVersion = os::Byteswap::byteswap(subVersion);
 #endif
@@ -590,7 +590,7 @@ _
 				weightFactor=1.f/255.f;
 			else
 				weightFactor=1.f/100.f;
-			pPtr += sizeof(s32);
+			pPtr += sizeof(int32_t);
 
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 			os::Printer::log("Reading vertex weights");
@@ -607,18 +607,18 @@ _
 			if (pPtr > buffer+fileSize)
 			{
 				delete [] buffer;
-				os::Printer::log("Loading failed. Corrupted data found.", file->getFileName(), ELL_ERROR);
+				os::Printer::log("Loading failed. Corrupted data found.", file->getFileName().c_str(), ELL_ERROR);
 				return false;
 			}
 		}
 
 		if (pPtr < buffer+fileSize)
 		{
-			subVersion = *(s32*)pPtr; // joint subVersion, 1 or 2
+			subVersion = *(int32_t*)pPtr; // joint subVersion, 1 or 2
 #ifdef __BIG_ENDIAN__
 			subVersion = os::Byteswap::byteswap(subVersion);
 #endif
-			pPtr += sizeof(s32);
+			pPtr += sizeof(int32_t);
 			// skip joint colors
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 			os::Printer::log("Skip joint color");
@@ -628,18 +628,18 @@ _
 			if (pPtr > buffer+fileSize)
 			{
 				delete [] buffer;
-				os::Printer::log("Loading failed. Corrupted data found", file->getFileName(), ELL_ERROR);
+				os::Printer::log("Loading failed. Corrupted data found", file->getFileName().c_str(), ELL_ERROR);
 				return false;
 			}
 		}
 
 		if (pPtr < buffer+fileSize)
 		{
-			subVersion = *(s32*)pPtr; // model subVersion, 1 or 2
+			subVersion = *(int32_t*)pPtr; // model subVersion, 1 or 2
 #ifdef __BIG_ENDIAN__
 			subVersion = os::Byteswap::byteswap(subVersion);
 #endif
-			pPtr += sizeof(s32);
+			pPtr += sizeof(int32_t);
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 			os::Printer::log("Skip model extra information");
 #endif
@@ -649,9 +649,9 @@ _
 	}
 
 	//find parent of every joint
-	for (u32 jointnum=0; jointnum<AnimatedMesh->getAllJoints().size(); ++jointnum)
+	for (uint32_t jointnum=0; jointnum<AnimatedMesh->getAllJoints().size(); ++jointnum)
 	{
-		for (u32 j2=0; j2<AnimatedMesh->getAllJoints().size(); ++j2)
+		for (uint32_t j2=0; j2<AnimatedMesh->getAllJoints().size(); ++j2)
 		{
 			if (jointnum != j2 && parentNames[jointnum] == AnimatedMesh->getAllJoints()[j2]->Name )
 			{
@@ -664,16 +664,16 @@ _
 	// create vertices and indices, attach them to the joints.
 	video::S3DVertex v;
 	core::array<video::S3DVertex> *Vertices;
-	core::array<u16> Indices;
+	core::array<uint16_t> Indices;
 
 	for (i=0; i<numTriangles; ++i)
 	{
-		u32 tmp = groups[triangles[i].GroupIndex].MaterialIdx;
+		uint32_t tmp = groups[triangles[i].GroupIndex].MaterialIdx;
 		Vertices = &AnimatedMesh->getMeshBuffers()[tmp]->Vertices_Standard;
 
-		for (s32 j = 2; j!=-1; --j)
+		for (int32_t j = 2; j!=-1; --j)
 		{
-			const u32 vertidx = triangles[i].VertexIndices[j];
+			const uint32_t vertidx = triangles[i].VertexIndices[j];
 
 			v.TCoords.X = triangles[i].S[j];
 			v.TCoords.Y = triangles[i].T[j];
@@ -693,12 +693,12 @@ _
 			v.Pos.Z = vertices[vertidx].Vertex[2];
 
 			// check if we already have this vertex in our vertex array
-			s32 index = -1;
-			for (u32 iV = 0; iV < Vertices->size(); ++iV)
+			int32_t index = -1;
+			for (uint32_t iV = 0; iV < Vertices->size(); ++iV)
 			{
 				if (v == (*Vertices)[iV])
 				{
-					index = (s32)iV;
+					index = (int32_t)iV;
 					break;
 				}
 			}
@@ -706,11 +706,11 @@ _
 			if (index == -1)
 			{
 				index = Vertices->size();
-				const u32 matidx = groups[triangles[i].GroupIndex].MaterialIdx;
+				const uint32_t matidx = groups[triangles[i].GroupIndex].MaterialIdx;
 				if (vertexWeights.size()==0)
 				{
-					const s32 boneid = vertices[vertidx].BoneID;
-					if ((u32)boneid < AnimatedMesh->getAllJoints().size())
+					const int32_t boneid = vertices[vertidx].BoneID;
+					if ((uint32_t)boneid < AnimatedMesh->getAllJoints().size())
 					{
 						ISkinnedMesh::SWeight *w=AnimatedMesh->addWeight(AnimatedMesh->getAllJoints()[boneid]);
 						w->buffer_id = matidx;
@@ -720,9 +720,9 @@ _
 				}
 				else if (jointCount) // new weights from 1.8.x
 				{
-					f32 sum = 1.0f;
-					s32 boneid = vertices[vertidx].BoneID;
-					if (((u32)boneid < AnimatedMesh->getAllJoints().size()) && (vertexWeights[vertidx].weights[0] != 0))
+					float sum = 1.0f;
+					int32_t boneid = vertices[vertidx].BoneID;
+					if (((uint32_t)boneid < AnimatedMesh->getAllJoints().size()) && (vertexWeights[vertidx].weights[0] != 0))
 					{
 						ISkinnedMesh::SWeight *w=AnimatedMesh->addWeight(AnimatedMesh->getAllJoints()[boneid]);
 						w->buffer_id = matidx;
@@ -730,7 +730,7 @@ _
 						w->vertex_id = index;
 					}
 					boneid = vertexWeights[vertidx].boneIds[0];
-					if (((u32)boneid < AnimatedMesh->getAllJoints().size()) && (vertexWeights[vertidx].weights[1] != 0))
+					if (((uint32_t)boneid < AnimatedMesh->getAllJoints().size()) && (vertexWeights[vertidx].weights[1] != 0))
 					{
 						ISkinnedMesh::SWeight *w=AnimatedMesh->addWeight(AnimatedMesh->getAllJoints()[boneid]);
 						w->buffer_id = matidx;
@@ -738,7 +738,7 @@ _
 						w->vertex_id = index;
 					}
 					boneid = vertexWeights[vertidx].boneIds[1];
-					if (((u32)boneid < AnimatedMesh->getAllJoints().size()) && (vertexWeights[vertidx].weights[2] != 0))
+					if (((uint32_t)boneid < AnimatedMesh->getAllJoints().size()) && (vertexWeights[vertidx].weights[2] != 0))
 					{
 						ISkinnedMesh::SWeight *w=AnimatedMesh->addWeight(AnimatedMesh->getAllJoints()[boneid]);
 						w->buffer_id = matidx;
@@ -746,7 +746,7 @@ _
 						w->vertex_id = index;
 					}
 					boneid = vertexWeights[vertidx].boneIds[2];
-					if (((u32)boneid < AnimatedMesh->getAllJoints().size()) && (sum > 0.f))
+					if (((uint32_t)boneid < AnimatedMesh->getAllJoints().size()) && (sum > 0.f))
 					{
 						ISkinnedMesh::SWeight *w=AnimatedMesh->addWeight(AnimatedMesh->getAllJoints()[boneid]);
 						w->buffer_id = matidx;
@@ -755,7 +755,7 @@ _
 					}
 					// fallback, if no bone chosen. Seems to be an error in the specs
 					boneid = vertices[vertidx].BoneID;
-					if ((sum == 1.f) && ((u32)boneid < AnimatedMesh->getAllJoints().size()))
+					if ((sum == 1.f) && ((uint32_t)boneid < AnimatedMesh->getAllJoints().size()))
 					{
 						ISkinnedMesh::SWeight *w=AnimatedMesh->addWeight(AnimatedMesh->getAllJoints()[boneid]);
 						w->buffer_id = matidx;
@@ -771,7 +771,7 @@ _
 	}
 
 	//create groups
-	s32 iIndex = -1;
+	int32_t iIndex = -1;
 	for (i=0; i<groups.size(); ++i)
 	{
 		SGroup& grp = groups[i];
@@ -779,10 +779,10 @@ _
 		if (grp.MaterialIdx >= AnimatedMesh->getMeshBuffers().size())
 			grp.MaterialIdx = 0;
 
-		core::array<u16>& indices = AnimatedMesh->getMeshBuffers()[grp.MaterialIdx]->Indices;
+		core::array<uint16_t>& indices = AnimatedMesh->getMeshBuffers()[grp.MaterialIdx]->Indices;
 
-		for (u32 k=0; k < grp.VertexIds.size(); ++k)
-			for (u32 l=0; l<3; ++l)
+		for (uint32_t k=0; k < grp.VertexIds.size(); ++k)
+			for (uint32_t l=0; l<3; ++l)
 				indices.push_back(Indices[++iIndex]);
 	}
 
@@ -794,8 +794,8 @@ _
 
 core::stringc CMS3DMeshFileLoader::stripPathFromString(const core::stringc& inString, bool returnPath) const
 {
-	s32 slashIndex=inString.findLast('/'); // forward slash
-	s32 backSlash=inString.findLast('\\'); // back slash
+	int32_t slashIndex=inString.findLast('/'); // forward slash
+	int32_t backSlash=inString.findLast('\\'); // back slash
 
 	if (backSlash>slashIndex) slashIndex=backSlash;
 

@@ -39,9 +39,9 @@ private:
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
-    s32 mvpUniformLocation;
-    s32 cameraDirUniformLocation;
-    s32 texUniformLocation[4];
+    int32_t mvpUniformLocation;
+    int32_t cameraDirUniformLocation;
+    int32_t texUniformLocation[4];
     video::E_SHADER_CONSTANT_TYPE mvpUniformType;
     video::E_SHADER_CONSTANT_TYPE cameraDirUniformType;
     video::E_SHADER_CONSTANT_TYPE texUniformType[4];
@@ -75,7 +75,7 @@ public:
         }
     }
 
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, s32 userData)
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
         core::vectorSIMDf modelSpaceCamPos;
         modelSpaceCamPos.set(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW_INVERSE).getTranslation());
@@ -100,7 +100,7 @@ int main()
 	params.ZBufferBits = 24; //we'd like 32bit here
     params.AntiAlias = 0; //No AA, yet
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<u32>(1280, 720);
+	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;

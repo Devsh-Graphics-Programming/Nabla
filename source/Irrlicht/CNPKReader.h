@@ -27,17 +27,17 @@ namespace io
 	struct SNPKHeader
 	{
 		// Don't change the order of these fields!  They must match the order stored on disk.
-		c8 Tag[4];
-		u32 Length;
-		u32 Offset;
+		int8_t Tag[4];
+		uint32_t Length;
+		uint32_t Offset;
 	};
 
 	//! An entry in the NPK file's table of contents.
 	struct SNPKFileEntry
 	{
 		core::stringc Name;
-		u32 Offset;
-		u32 Length;
+		uint32_t Offset;
+		uint32_t Length;
 	};
 	} // end namespace
 
@@ -102,7 +102,7 @@ namespace io
 		virtual IReadFile* createAndOpenFile(const io::path& filename);
 
 		//! opens a file by index
-		virtual IReadFile* createAndOpenFile(u32 index);
+		virtual IReadFile* createAndOpenFile(uint32_t index);
 
 		//! returns the list of files
 		virtual const IFileList* getFileList() const;

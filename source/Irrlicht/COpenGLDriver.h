@@ -29,6 +29,7 @@ namespace irr
 #include "COpenCLHandler.h"
 
 #include <map>
+#include "FW_Mutex.h"
 
 namespace irr
 {
@@ -42,6 +43,20 @@ namespace video
 	{
 		friend class COpenGLTexture;
 	public:
+        struct SAuxContext
+        {
+            size_t threadId;
+            #ifdef _IRR_WINDOWS_API_
+                HGLRC ctx;
+            #endif
+            #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+                GLXContext ctx;
+                GLXPbuffer pbuff;
+            #endif
+            #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
+                AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
+            #endif
+        };
 
 		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device);
@@ -53,7 +68,7 @@ namespace video
 		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device);
 		//! inits the GLX specific parts of the open gl driver
-		bool initDriver(CIrrDeviceLinux* device, GLXContext* auxCtxts);
+		bool initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
 		#endif
 
@@ -71,7 +86,7 @@ namespace video
 		//! destructor
 		virtual ~COpenGLDriver();
 
-        virtual bool initAuxContext(const size_t& ctxIx);
+        virtual bool initAuxContext();
         virtual bool deinitAuxContext();
 
 
@@ -81,7 +96,7 @@ namespace video
 
         virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
 
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc();
+	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
 
 	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT);
 
@@ -89,7 +104,7 @@ namespace video
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
 				SColor color=SColor(255,0,0,0),
 				const SExposedVideoData& videoData=SExposedVideoData(),
-				core::rect<s32>* sourceRect=0);
+				core::rect<int32_t>* sourceRect=0);
 
 		//! presents the rendered scene on the screen, returns false if failed
 		virtual bool endScene();
@@ -129,37 +144,21 @@ namespace video
 		virtual void setMaterial(const SMaterial& material);
 
         //! needs to be "deleted" since its not refcounted
-        virtual IDriverFence* placeFence()
+        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false)
         {
-            return new COpenGLDriverFence();
+            return new COpenGLDriverFence(implicitFlushWaitSameThread);
         }
 
 		//! \return Returns the name of the video driver. Example: In case of the Direct3D8
 		//! driver, it would return "Direct3D8.1".
 		virtual const wchar_t* getName() const;
 
-		//! deletes all dynamic lights there are
-		virtual void deleteAllDynamicLights();
-
-		//! adds a dynamic light, returning an index to the light
-		//! \param light: the light data to use to create the light
-		//! \return An index to the light, or -1 if an error occurs
-		virtual s32 addDynamicLight(const SLight& light);
-
-		//! Turns a dynamic light on or off
-		//! \param lightIndex: the index returned by addDynamicLight
-		//! \param turnOn: true to turn the light on, false to turn it off
-		virtual void turnLightOn(s32 lightIndex, bool turnOn);
-
-		//! returns the maximal amount of dynamic lights the device can handle
-		virtual u32 getMaximalDynamicLightAmount() const;
-
 		//! sets a viewport
-		virtual void setViewPort(const core::rect<s32>& area);
+		virtual void setViewPort(const core::rect<int32_t>& area);
 
 		//! Only used by the internal engine. Used to notify the driver that
 		//! the window was resized.
-		virtual void OnResize(const core::dimension2d<u32>& size);
+		virtual void OnResize(const core::dimension2d<uint32_t>& size);
 
 		//! Returns type of video driver
 		virtual E_DRIVER_TYPE getDriverType() const;
@@ -172,32 +171,32 @@ namespace video
 			bool resetAllRenderstates);
 
 
-        virtual void setShaderConstant(const void* data, s32 location, E_SHADER_CONSTANT_TYPE type, u32 number=1);
-        virtual void setShaderTextures(const s32* textureIndices, s32 location, E_SHADER_CONSTANT_TYPE type, u32 number=1);
+        virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
+        virtual void setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
 
 		//! sets the current Texture
 		//! Returns whether setting was a success or not.
-		bool setActiveTexture(u32 stage, video::ITexture* texture, const video::STextureSamplingParams &sampleParams);
+		bool setActiveTexture(uint32_t stage, video::ITexture* texture, const video::STextureSamplingParams &sampleParams);
 
 		GLuint constructSamplerInCache(const uint64_t &hashVal);
 
-        virtual s32 addHighLevelShaderMaterial(
-            const c8* vertexShaderProgram,
-            const c8* controlShaderProgram,
-            const c8* evaluationShaderProgram,
-            const c8* geometryShaderProgram,
-            const c8* pixelShaderProgram,
-            u32 patchVertices=3,
+        virtual int32_t addHighLevelShaderMaterial(
+            const char* vertexShaderProgram,
+            const char* controlShaderProgram,
+            const char* evaluationShaderProgram,
+            const char* geometryShaderProgram,
+            const char* pixelShaderProgram,
+            uint32_t patchVertices=3,
             E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
             IShaderConstantSetCallBack* callback=0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            s32 userData=0,
-            const c8* vertexShaderEntryPointName="main",
-            const c8* controlShaderEntryPointName="main",
-            const c8* evaluationShaderEntryPointName="main",
-            const c8* geometryShaderEntryPointName="main",
-            const c8* pixelShaderEntryPointName="main");
+            int32_t userData=0,
+            const char* vertexShaderEntryPointName="main",
+            const char* controlShaderEntryPointName="main",
+            const char* evaluationShaderEntryPointName="main",
+            const char* geometryShaderEntryPointName="main",
+            const char* pixelShaderEntryPointName="main");
 
 		//! Returns a pointer to the IVideoDriver interface. (Implementation for
 		//! IMaterialRendererServices)
@@ -206,9 +205,9 @@ namespace video
 		//! Returns the maximum amount of primitives (mostly vertices) which
 		//! the device is able to render with one drawIndexedTriangleList
 		//! call.
-		virtual u32 getMaximalIndicesCount() const;
+		virtual uint32_t getMaximalIndicesCount() const;
 
-		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<u32>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
         virtual IFrameBuffer* addFrameBuffer();
 
@@ -264,13 +263,13 @@ namespace video
 		//! There are at least 6 clipping planes available for the user to set at will.
 		//! \param index: The plane index. Must be between 0 and MaxUserClipPlanes.
 		//! \param enable: If true, enable the clipping plane else disable it.
-		virtual void enableClipPlane(u32 index, bool enable);
+		virtual void enableClipPlane(uint32_t index, bool enable);
 
 		//! Enable the 2d override material
 		virtual void enableMaterial2D(bool enable=true);
 
 		//! Returns the graphics card vendor name.
-		virtual core::stringc getVendorInfo() {return VendorName;}
+		virtual std::string getVendorInfo() {return VendorName;}
 
 		//! Removes a texture from the texture cache and deletes it, freeing lot of memory.
 		void removeTexture(ITexture* texture);
@@ -313,7 +312,7 @@ namespace video
 		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
 		// returns the current size of the screen or rendertarget
-		virtual const core::dimension2d<u32>& getCurrentRenderTargetSize() const;
+		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
 
 		void createMaterialRenderers();
 
@@ -331,7 +330,7 @@ namespace video
 		E_RENDER_MODE CurrentRenderMode;
 		//! bool to make all renderstates reset if set to true.
 		bool ResetRenderStates;
-		u8 AntiAlias;
+		uint8_t AntiAlias;
 
 		SMaterial Material, LastMaterial;
 		COpenGLFrameBuffer* CurrentFBO;
@@ -341,7 +340,7 @@ namespace video
 		public:
 			STextureStageCache()
 			{
-				for (u32 i=0; i<MATERIAL_MAX_TEXTURES; ++i)
+				for (uint32_t i=0; i<MATERIAL_MAX_TEXTURES; ++i)
 				{
 					CurrentTexture[i] = 0;
 				}
@@ -352,7 +351,7 @@ namespace video
 				clear();
 			}
 
-			void set(u32 stage, const ITexture* tex)
+			void set(uint32_t stage, const ITexture* tex)
 			{
 				if (stage<MATERIAL_MAX_TEXTURES)
 				{
@@ -367,7 +366,7 @@ namespace video
 
 			const ITexture* operator[](int stage) const
 			{
-				if ((u32)stage<MATERIAL_MAX_TEXTURES)
+				if ((uint32_t)stage<MATERIAL_MAX_TEXTURES)
 					return CurrentTexture[stage];
 				else
 					return 0;
@@ -382,26 +381,15 @@ namespace video
         std::map<uint64_t,GLuint> SamplerMap;
 
 
-		core::dimension2d<u32> CurrentRendertargetSize;
+		core::dimension2d<uint32_t> CurrentRendertargetSize;
 
-		core::stringc VendorName;
+		std::string VendorName;
 
 		//! Color buffer format
 		ECOLOR_FORMAT ColorFormat;
 
 		SIrrlichtCreationParameters Params;
 
-		//! All the lights that have been requested; a hardware limited
-		//! number of them will be used at once.
-		struct RequestedLight
-		{
-			RequestedLight(SLight const & lightData)
-				: LightData(lightData), DesireToBeOn(true) { }
-
-			SLight	LightData;
-			bool	DesireToBeOn;
-		};
-		core::array<RequestedLight> RequestedLights;
 
 		#ifdef _IRR_WINDOWS_API_
 			HDC HDc; // Private GDI Device Context
@@ -429,7 +417,8 @@ namespace video
         size_t clPlatformIx, clDeviceIx;
 #endif // _IRR_COMPILE_WITH_OPENCL_
 
-		void* AuxContext;
+        FW_Mutex* ctxInitMutex;
+		SAuxContext* AuxContexts;
 
 		E_DEVICE_TYPE DeviceType;
 	};

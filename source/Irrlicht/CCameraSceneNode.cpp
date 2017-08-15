@@ -14,7 +14,7 @@ namespace scene
 
 
 //! constructor
-CCameraSceneNode::CCameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
+CCameraSceneNode::CCameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 	const core::vector3df& position, const core::vector3df& lookat)
 	: ICameraSceneNode(parent, mgr, id, position),
 	Target(lookat), UpVector(0.0f, 1.0f, 0.0f), ZNear(1.0f), ZFar(3000.0f),
@@ -29,8 +29,8 @@ CCameraSceneNode::CCameraSceneNode(IDummyTransformationSceneNode* parent, IScene
 
 	const video::IVideoDriver* const d = mgr?mgr->getVideoDriver():0;
 	if (d)
-		Aspect = (f32)d->getCurrentRenderTargetSize().Width /
-			(f32)d->getCurrentRenderTargetSize().Height;
+		Aspect = (float)d->getCurrentRenderTargetSize().Width /
+			(float)d->getCurrentRenderTargetSize().Height;
 	else
 		Aspect = 4.0f / 3.0f;	// Aspect ratio.
 
@@ -49,7 +49,6 @@ void CCameraSceneNode::setInputReceiverEnabled(bool enabled)
 //! Returns if the input receiver of the camera is currently enabled.
 bool CCameraSceneNode::isInputReceiverEnabled() const
 {
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return InputReceiverEnabled;
 }
 
@@ -158,52 +157,52 @@ const core::vector3df& CCameraSceneNode::getUpVector() const
 }
 
 
-f32 CCameraSceneNode::getNearValue() const
+float CCameraSceneNode::getNearValue() const
 {
 	return ZNear;
 }
 
 
-f32 CCameraSceneNode::getFarValue() const
+float CCameraSceneNode::getFarValue() const
 {
 	return ZFar;
 }
 
 
-f32 CCameraSceneNode::getAspectRatio() const
+float CCameraSceneNode::getAspectRatio() const
 {
 	return Aspect;
 }
 
 
-f32 CCameraSceneNode::getFOV() const
+float CCameraSceneNode::getFOV() const
 {
 	return Fovy;
 }
 
 
-void CCameraSceneNode::setNearValue(f32 f)
+void CCameraSceneNode::setNearValue(float f)
 {
 	ZNear = f;
 	recalculateProjectionMatrix();
 }
 
 
-void CCameraSceneNode::setFarValue(f32 f)
+void CCameraSceneNode::setFarValue(float f)
 {
 	ZFar = f;
 	recalculateProjectionMatrix();
 }
 
 
-void CCameraSceneNode::setAspectRatio(f32 f)
+void CCameraSceneNode::setAspectRatio(float f)
 {
 	Aspect = f;
 	recalculateProjectionMatrix();
 }
 
 
-void CCameraSceneNode::setFOV(f32 f)
+void CCameraSceneNode::setFOV(float f)
 {
 	Fovy = f;
 	recalculateProjectionMatrix();
@@ -239,9 +238,9 @@ void CCameraSceneNode::render()
 	core::vector3df up = UpVector;
 	up.normalize();
 
-	f32 dp = tgtv.dotProduct(up);
+	float dp = tgtv.dotProduct(up);
 
-	if ( core::equals(core::abs_<f32>(dp), 1.f) )
+	if ( core::equals(core::abs_<float>(dp), 1.f) )
 	{
 		up.X += 0.5f;
 	}
@@ -260,7 +259,7 @@ void CCameraSceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CCameraSceneNode::getBoundingBox()
+const core::aabbox3d<float>& CCameraSceneNode::getBoundingBox()
 {
 	return ViewArea.getBoundingBox();
 }

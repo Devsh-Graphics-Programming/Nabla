@@ -27,21 +27,21 @@ namespace irr
 namespace scene
 {
 
-static const u32 MY3D_ID = 0x4d593344;
-static const u16 MY3D_VER = 0x0003;
-static const u16 MY3D_SCENE_HEADER_ID = 0x1000;
-static const u16 MY3D_MAT_LIST_ID = 0x2000;
-static const u16 MY3D_MAT_HEADER_ID = 0x2100;
-static const u16 MY3D_TEX_FNAME_ID = 0x2101;
-static const u16 MY3D_TEXDATA_HEADER_ID = 0x2501;
-static const u16 MY3D_TEXDATA_RLE_HEADER_ID = 0x2502;
-static const u16 MY3D_MESH_LIST_ID =  0x3000;
-static const u16 MY3D_MESH_HEADER_ID = 0x3100;
-static const u16 MY3D_VERTS_ID = 0x3101;
-static const u16 MY3D_FACES_ID = 0x3102;
-static const u16 MY3D_TVERTS_ID = 0x3103;
-static const u16 MY3D_TFACES_ID = 0x3104;
-static const u16 MY3D_FILE_END_ID = 0xFFFF;
+static const uint32_t MY3D_ID = 0x4d593344;
+static const uint16_t MY3D_VER = 0x0003;
+static const uint16_t MY3D_SCENE_HEADER_ID = 0x1000;
+static const uint16_t MY3D_MAT_LIST_ID = 0x2000;
+static const uint16_t MY3D_MAT_HEADER_ID = 0x2100;
+static const uint16_t MY3D_TEX_FNAME_ID = 0x2101;
+static const uint16_t MY3D_TEXDATA_HEADER_ID = 0x2501;
+static const uint16_t MY3D_TEXDATA_RLE_HEADER_ID = 0x2502;
+static const uint16_t MY3D_MESH_LIST_ID =  0x3000;
+static const uint16_t MY3D_MESH_HEADER_ID = 0x3100;
+static const uint16_t MY3D_VERTS_ID = 0x3101;
+static const uint16_t MY3D_FACES_ID = 0x3102;
+static const uint16_t MY3D_TVERTS_ID = 0x3103;
+static const uint16_t MY3D_TFACES_ID = 0x3104;
+static const uint16_t MY3D_FILE_END_ID = 0xFFFF;
 
 static const unsigned long MY3D_TEXDATA_COMPR_NONE_ID = 0x4e4f4e45;
 static const unsigned long MY3D_TEXDATA_COMPR_SIMPLE_ID = 0x53494d50;
@@ -102,7 +102,7 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 		return 0;
 	}
 
-	u16 id;
+	uint16_t id;
 
 	file->read(&id, sizeof(id));
 #ifdef __BIG_ENDIAN__
@@ -141,8 +141,8 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 	id = os::Byteswap::byteswap(id);
 #endif
 
-	c8 namebuf[256];
-	for (s32 m=0; m<sceneHeader.MaterialCount; ++m)
+	char namebuf[256];
+	for (int32_t m=0; m<sceneHeader.MaterialCount; ++m)
 	{
 		if (id != MY3D_MAT_HEADER_ID)
 		{
@@ -163,7 +163,7 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 
 		bool gotLightMap=false, gotMainMap=false;
 
-		for (u32 t=0; t<me.Header.TextureCount; ++t)
+		for (uint32_t t=0; t<me.Header.TextureCount; ++t)
 		{
 			if (id==MY3D_TEX_FNAME_ID)
 				file->read(namebuf, 256);
@@ -176,9 +176,9 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 			}
 
 			const core::stringc name(namebuf);
-			const s32 pos = name.findLast('.');
+			const int32_t pos = name.findLast('.');
 			const core::stringc LightingMapStr = "LightingMap";
-			const s32 ls = LightingMapStr.size();
+			const int32_t ls = LightingMapStr.size();
 			const bool isSubString = (LightingMapStr == name.subString(core::max_(0, (pos - ls)), ls));
 			if ((isSubString || (name[pos-1]=='m' &&
 				name[pos-2]=='l' && name[pos-3]=='_')) &&
@@ -254,7 +254,7 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 	id = os::Byteswap::byteswap(id);
 #endif
 
-	for (s32 mesh_id=0; mesh_id<sceneHeader.MeshCount; mesh_id++)
+	for (int32_t mesh_id=0; mesh_id<sceneHeader.MeshCount; mesh_id++)
 	{
 		// Warning!!! In some cases MY3D exporter uncorrectly calculates
 		// MeshCount (it's a problem, has to be solved) thats why
@@ -276,8 +276,8 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 		core::array <SMyTVertex> TVertex1, TVertex2;
 		core::array <SMyFace> TFace1, TFace2;
 
-		s32 vertsNum=0;
-		s32 facesNum=0;
+		int32_t vertsNum=0;
+		int32_t facesNum=0;
 
 		// vertices
 		file->read(&id, sizeof(id));
@@ -310,10 +310,10 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 		file->read(Face.pointer(), sizeof(SMyFace)*facesNum);
 
 		// reading texture channels
-		for (s32 tex=0; tex<(s32)meshHeader.TChannelCnt; tex++)
+		for (int32_t tex=0; tex<(int32_t)meshHeader.TChannelCnt; tex++)
 		{
 			// Max 2 texture channels allowed (but in format .my3d can be more)
-			s32 tVertsNum=0, tFacesNum=0;
+			int32_t tVertsNum=0, tFacesNum=0;
 
 			// reading texture coords
 			file->read(&id, sizeof(id));
@@ -634,7 +634,7 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 	// creating mesh
 	SMesh* mesh = new SMesh();
 
-	for (u32 num=0; num<MeshBufferEntry.size(); ++num)
+	for (uint32_t num=0; num<MeshBufferEntry.size(); ++num)
 	{
 		SMeshBufferLightMap* buffer = MeshBufferEntry[num].MeshBuffer;
 
@@ -665,7 +665,7 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, char* namebuf)
 {
 	static int LightMapIndex=0;
-	u16 id;
+	uint16_t id;
 	file->read(&id, sizeof(id));
 #ifdef __BIG_ENDIAN__
 	id = os::Byteswap::byteswap(id);
@@ -708,7 +708,7 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 		return 0;
 	}
 
-	const u32 num_pixels = texDataHeader.Width*texDataHeader.Height;
+	const uint32_t num_pixels = texDataHeader.Width*texDataHeader.Height;
 
 	void* data = 0;
 
@@ -753,11 +753,11 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 
 		// decode data
 		data = 0;//(void*) new unsigned char[rleHeader.nDecodedBytes];
-		s32 decodedBytes = core::rle_decode(
+		int32_t decodedBytes = core::rle_decode(
 			(unsigned char*)input_buffer,  rleHeader.nEncodedBytes,
 			(unsigned char*)output_buffer, rleHeader.nDecodedBytes);
 
-		if (decodedBytes!=(s32)rleHeader.nDecodedBytes)
+		if (decodedBytes!=(int32_t)rleHeader.nDecodedBytes)
 		{
 			os::Printer::log("Error extracting data from RLE compression, loading failed!", ELL_ERROR);
 			return 0;
@@ -777,7 +777,7 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 		else
 			data = (void*) new SMyPixelColor16[num_pixels];
 
-		u32 nReadedPixels=0, nToRead=0;
+		uint32_t nReadedPixels=0, nToRead=0;
 		while (true)
 		{
 			file->read(&nToRead, sizeof(nToRead));
@@ -789,7 +789,7 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 			{
 				SMyPixelColor24 col24;
 				file->read(&col24, sizeof(SMyPixelColor24));
-				for (u32 p=0; p<nToRead; p++)
+				for (uint32_t p=0; p<nToRead; p++)
 				{
 					((SMyPixelColor24*)data)[nReadedPixels+p] =
 						SMyPixelColor24(col24.r, col24.g, col24.b);
@@ -799,7 +799,7 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 			{
 				SMyPixelColor16 col16;
 				file->read(&col16, sizeof(SMyPixelColor16));
-				for (u32 p=0; p<nToRead; p++)
+				for (uint32_t p=0; p<nToRead; p++)
 					((SMyPixelColor16*)data)[nReadedPixels+p].argb = col16.argb;
 			}
 
@@ -824,7 +824,7 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 		// 24 bit lightmap format
 		light_img = SceneManager->getVideoDriver()->createImageFromData(
 		video::ECF_R8G8B8,
-		core::dimension2d<u32>(texDataHeader.Width, texDataHeader.Height),
+		core::dimension2d<uint32_t>(texDataHeader.Width, texDataHeader.Height),
 			data, true);
 	}
 	else
@@ -832,7 +832,7 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 		// 16 bit lightmap format
 		light_img = SceneManager->getVideoDriver()->createImageFromData(
 			video::ECF_A1R5G5B5,
-			core::dimension2d<u32>(texDataHeader.Width, texDataHeader.Height),
+			core::dimension2d<uint32_t>(texDataHeader.Width, texDataHeader.Height),
 			data, true);
 	}
 
@@ -846,9 +846,9 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 }
 
 
-CMY3DMeshFileLoader::SMyMaterialEntry* CMY3DMeshFileLoader::getMaterialEntryByIndex(u32 matInd)
+CMY3DMeshFileLoader::SMyMaterialEntry* CMY3DMeshFileLoader::getMaterialEntryByIndex(uint32_t matInd)
 {
-	for (u32 m=0; m<MaterialEntry.size(); ++m)
+	for (uint32_t m=0; m<MaterialEntry.size(); ++m)
 		if (MaterialEntry[m].Header.Index == matInd)
 			return &MaterialEntry[m];
 
@@ -857,11 +857,11 @@ CMY3DMeshFileLoader::SMyMaterialEntry* CMY3DMeshFileLoader::getMaterialEntryByIn
 
 
 
-SMeshBufferLightMap* CMY3DMeshFileLoader::getMeshBufferByMaterialIndex(u32 matInd)
+SMeshBufferLightMap* CMY3DMeshFileLoader::getMeshBufferByMaterialIndex(uint32_t matInd)
 {
-	for (u32 m=0; m<MeshBufferEntry.size(); ++m)
+	for (uint32_t m=0; m<MeshBufferEntry.size(); ++m)
 	{
-		if (MeshBufferEntry[m].MaterialIndex == (s32)matInd)
+		if (MeshBufferEntry[m].MaterialIndex == (int32_t)matInd)
 			return MeshBufferEntry[m].MeshBuffer;
 	}
 	return 0;

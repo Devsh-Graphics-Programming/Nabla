@@ -12,8 +12,8 @@ namespace scene
 
 //! constructor
 CSceneNodeAnimatorFlyStraight::CSceneNodeAnimatorFlyStraight(const core::vector3df& startPoint,
-				const core::vector3df& endPoint, u32 timeForWay,
-				bool loop, u32 now, bool pingpong)
+				const core::vector3df& endPoint, uint32_t timeForWay,
+				bool loop, uint32_t now, bool pingpong)
 : ISceneNodeAnimatorFinishing(now + timeForWay),
 	Start(startPoint), End(endPoint), TimeFactor(0.0f), StartTime(now),
 	TimeForWay(timeForWay), Loop(loop), PingPong(pingpong)
@@ -29,18 +29,18 @@ CSceneNodeAnimatorFlyStraight::CSceneNodeAnimatorFlyStraight(const core::vector3
 void CSceneNodeAnimatorFlyStraight::recalculateIntermediateValues()
 {
 	Vector = End - Start;
-	TimeFactor = (f32)Vector.getLength() / TimeForWay;
+	TimeFactor = (float)Vector.getLength() / TimeForWay;
 	Vector.normalize();
 }
 
 
 //! animates a scene node
-void CSceneNodeAnimatorFlyStraight::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorFlyStraight::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 {
 	if (!node)
 		return;
 
-	u32 t = (timeMs-StartTime);
+	uint32_t t = (timeMs-StartTime);
 
 	core::vector3df pos;
 
@@ -56,9 +56,9 @@ void CSceneNodeAnimatorFlyStraight::animateNode(IDummyTransformationSceneNode* n
 	}
 	else
 	{
-		f32 phase = fmodf( (f32) t, (f32) TimeForWay );
+		float phase = fmodf( (float) t, (float) TimeForWay );
 		core::vector3df rel = Vector * phase * TimeFactor;
-		const bool pong = PingPong && fmodf( (f32) t, (f32) TimeForWay*2.f ) >= TimeForWay;
+		const bool pong = PingPong && fmodf( (float) t, (float) TimeForWay*2.f ) >= TimeForWay;
 
 		if ( !pong )
 		{

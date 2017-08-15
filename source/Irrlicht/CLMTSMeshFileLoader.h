@@ -53,39 +53,39 @@ private:
 
 	struct SLMTSHeader
 	{
-		u32 MagicID;
-		u32 Version;
-		u32 HeaderSize;
-		u16 TextureCount;
-		u16 SubsetCount;
-		u32 TriangleCount;
-		u16 SubsetSize;
-		u16 VertexSize;
+		uint32_t MagicID;
+		uint32_t Version;
+		uint32_t HeaderSize;
+		uint16_t TextureCount;
+		uint16_t SubsetCount;
+		uint32_t TriangleCount;
+		uint16_t SubsetSize;
+		uint16_t VertexSize;
 	} PACK_STRUCT;
 
 	struct SLMTSTextureInfoEntry
 	{
-		c8 Filename[256];
-		u16 Flags;
+		int8_t Filename[256];
+		uint16_t Flags;
 	} PACK_STRUCT;
 
 	struct SLMTSSubsetInfoEntry
 	{
-		u32 Offset;
-		u32 Count;
-		u16 TextID1;
-		u16 TextID2;
+		uint32_t Offset;
+		uint32_t Count;
+		uint16_t TextID1;
+		uint16_t TextID2;
 	} PACK_STRUCT;
 
 	struct SLMTSTriangleDataEntry
 	{
-		f32 X;
-		f32 Y;
-		f32 Z;
-		f32 U1;
-		f32 V1;
-		f32 U2;
-		f32 V2;
+		float X;
+		float Y;
+		float Z;
+		float U1;
+		float V1;
+		float U2;
+		float V2;
 	} PACK_STRUCT;
 
 // Default alignment

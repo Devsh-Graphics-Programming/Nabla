@@ -10,7 +10,7 @@
 #ifdef _IRR_COMPILE_WITH_PPM_LOADER_
 
 #include "IImageLoader.h"
-#include "irrString.h"
+#include <string>
 
 
 namespace irr
@@ -41,7 +41,7 @@ public:
 
 private:
 	//! read the next token from file
-	void getNextToken(io::IReadFile* file, core::stringc& token) const;
+	void getNextToken(io::IReadFile* file, std::string& token) const;
 	//! skip to next token (skip whitespace)
 	void skipToNextToken(io::IReadFile* file) const;
 };

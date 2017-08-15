@@ -11,7 +11,6 @@
 #include "SMeshBuffer.h"
 #include "SAnimatedMesh.h"
 #include "IReadFile.h"
-#include "fast_atof.h"
 #include "coreutil.h"
 
 #ifdef _DEBUG
@@ -109,7 +108,7 @@ bool COgreMeshFileLoader::isALoadableFileExtension(const io::path& filename) con
 //! See IReferenceCounted::drop() for more information.
 IAnimatedMesh* COgreMeshFileLoader::createMesh(io::IReadFile* file)
 {
-	s16 id;
+	int16_t id;
 
 	file->read(&id, 2);
 
@@ -147,7 +146,7 @@ IAnimatedMesh* COgreMeshFileLoader::createMesh(io::IReadFile* file)
 		}
 		else
 		{
-			for (u32 i=0; i<Mesh->getMeshBufferCount(); ++i)
+			for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
 				((SMeshBuffer*)Mesh->getMeshBuffer(i))->recalculateBoundingBox();
 
 			((SMesh*)Mesh)->recalculateBoundingBox();
@@ -331,7 +330,7 @@ bool COgreMeshFileLoader::readVertexDeclaration(io::IReadFile* file, ChunkData& 
 				++NumUV;
 			}
 			readShort(file, data, &elem.Offset);
-			elem.Offset /= sizeof(f32);
+			elem.Offset /= sizeof(float);
 			readShort(file, data, &elem.Index);
 		}
 			break;
@@ -356,7 +355,7 @@ bool COgreMeshFileLoader::readVertexBuffer(io::IReadFile* file, ChunkData& paren
 	OgreVertexBuffer buf;
 	readShort(file, parent, &buf.BindIndex);
 	readShort(file, parent, &buf.VertexSize);
-	buf.VertexSize /= sizeof(f32);
+	buf.VertexSize /= sizeof(float);
 	ChunkData data;
 	readChunkData(file, data);
 
@@ -385,7 +384,7 @@ bool COgreMeshFileLoader::readSubMesh(io::IReadFile* file, ChunkData& parent, Og
 #endif
 	readBool(file, parent, subMesh.SharedVertices);
 
-	s32 numIndices;
+	int32_t numIndices;
 	readInt(file, parent, &numIndices);
 	subMesh.Indices.set_used(numIndices);
 
@@ -395,9 +394,9 @@ bool COgreMeshFileLoader::readSubMesh(io::IReadFile* file, ChunkData& parent, Og
 		readInt(file, parent, subMesh.Indices.pointer(), numIndices);
 	else
 	{
-		for (s32 i=0; i<numIndices; ++i)
+		for (int32_t i=0; i<numIndices; ++i)
 		{
-			u16 num;
+			uint16_t num;
 			readShort(file, parent, &num);
 			subMesh.Indices[i]=num;
 		}
@@ -462,12 +461,12 @@ bool COgreMeshFileLoader::readSubMesh(io::IReadFile* file, ChunkData& parent, Og
 void COgreMeshFileLoader::composeMeshBufferMaterial(scene::IMeshBuffer* mb, const core::stringc& materialName)
 {
 	video::SMaterial& material=mb->getMaterial();
-	for (u32 k=0; k<Materials.size(); ++k)
+	for (uint32_t k=0; k<Materials.size(); ++k)
 	{
 		if ((materialName==Materials[k].Name)&&(Materials[k].Techniques.size())&&(Materials[k].Techniques[0].Passes.size()))
 		{
 			material=Materials[k].Techniques[0].Passes[0].Material;
-			for (u32 i=0; i<Materials[k].Techniques[0].Passes[0].Texture.Filename.size(); ++i)
+			for (uint32_t i=0; i<Materials[k].Techniques[0].Passes[0].Texture.Filename.size(); ++i)
 			{
 				if (FileSystem->existFile(Materials[k].Techniques[0].Passes[0].Texture.Filename[i]))
 					material.setTexture(i, Driver->getTexture(Materials[k].Techniques[0].Passes[0].Texture.Filename[i]));
@@ -480,11 +479,11 @@ void COgreMeshFileLoader::composeMeshBufferMaterial(scene::IMeshBuffer* mb, cons
 }
 
 
-scene::SMeshBuffer* COgreMeshFileLoader::composeMeshBuffer(const core::array<s32>& indices, const OgreGeometry& geom)
+scene::SMeshBuffer* COgreMeshFileLoader::composeMeshBuffer(const core::array<int32_t>& indices, const OgreGeometry& geom)
 {
 	scene::SMeshBuffer *mb=new scene::SMeshBuffer();
 
-	u32 i;
+	uint32_t i;
 	mb->Indices.set_used(indices.size());
 	for (i=0; i<indices.size(); ++i)
 		mb->Indices[i]=indices[i];
@@ -494,13 +493,13 @@ scene::SMeshBuffer* COgreMeshFileLoader::composeMeshBuffer(const core::array<s32
 	{
 		if (geom.Elements[i].Semantic==1) //Pos
 		{
-			for (u32 j=0; j<geom.Buffers.size(); ++j)
+			for (uint32_t j=0; j<geom.Buffers.size(); ++j)
 			{
 				if (geom.Elements[i].Source==geom.Buffers[j].BindIndex)
 				{
-					u32 eSize=geom.Buffers[j].VertexSize;
-					u32 ePos=geom.Elements[i].Offset;
-					for (s32 k=0; k<geom.NumVertex; ++k)
+					uint32_t eSize=geom.Buffers[j].VertexSize;
+					uint32_t ePos=geom.Elements[i].Offset;
+					for (int32_t k=0; k<geom.NumVertex; ++k)
 					{
 						mb->Vertices[k].Color=mb->Material.DiffuseColor;
 						mb->Vertices[k].Pos.set(geom.Buffers[j].Data[ePos],geom.Buffers[j].Data[ePos+1],geom.Buffers[j].Data[ePos+2]);
@@ -512,13 +511,13 @@ scene::SMeshBuffer* COgreMeshFileLoader::composeMeshBuffer(const core::array<s32
 
 		if (geom.Elements[i].Semantic==4) //Normal
 		{
-			for (u32 j=0; j<geom.Buffers.size(); ++j)
+			for (uint32_t j=0; j<geom.Buffers.size(); ++j)
 			{
 				if (geom.Elements[i].Source==geom.Buffers[j].BindIndex)
 				{
-					u32 eSize=geom.Buffers[j].VertexSize;
-					u32 ePos=geom.Elements[i].Offset;
-					for (s32 k=0; k<geom.NumVertex; ++k)
+					uint32_t eSize=geom.Buffers[j].VertexSize;
+					uint32_t ePos=geom.Elements[i].Offset;
+					for (int32_t k=0; k<geom.NumVertex; ++k)
 					{
 						mb->Vertices[k].Normal.set(geom.Buffers[j].Data[ePos],geom.Buffers[j].Data[ePos+1],geom.Buffers[j].Data[ePos+2]);
 						ePos += eSize;
@@ -529,13 +528,13 @@ scene::SMeshBuffer* COgreMeshFileLoader::composeMeshBuffer(const core::array<s32
 
 		if (geom.Elements[i].Semantic==7) //TexCoord
 		{
-			for (u32 j=0; j<geom.Buffers.size(); ++j)
+			for (uint32_t j=0; j<geom.Buffers.size(); ++j)
 			{
 				if (geom.Elements[i].Source==geom.Buffers[j].BindIndex)
 				{
-					u32 eSize=geom.Buffers[j].VertexSize;
-					u32 ePos=geom.Elements[i].Offset;
-					for (s32 k=0; k<geom.NumVertex; ++k)
+					uint32_t eSize=geom.Buffers[j].VertexSize;
+					uint32_t ePos=geom.Elements[i].Offset;
+					for (int32_t k=0; k<geom.NumVertex; ++k)
 					{
 						mb->Vertices[k].TCoords.set(geom.Buffers[j].Data[ePos],geom.Buffers[j].Data[ePos+1]);
 						ePos += eSize;
@@ -548,11 +547,11 @@ scene::SMeshBuffer* COgreMeshFileLoader::composeMeshBuffer(const core::array<s32
 }
 
 
-scene::SMeshBufferLightMap* COgreMeshFileLoader::composeMeshBufferLightMap(const core::array<s32>& indices, const OgreGeometry& geom)
+scene::SMeshBufferLightMap* COgreMeshFileLoader::composeMeshBufferLightMap(const core::array<int32_t>& indices, const OgreGeometry& geom)
 {
 	scene::SMeshBufferLightMap *mb=new scene::SMeshBufferLightMap();
 
-	u32 i;
+	uint32_t i;
 	mb->Indices.set_used(indices.size());
 	for (i=0; i<indices.size(); ++i)
 		mb->Indices[i]=indices[i];
@@ -563,13 +562,13 @@ scene::SMeshBufferLightMap* COgreMeshFileLoader::composeMeshBufferLightMap(const
 	{
 		if (geom.Elements[i].Semantic==1) //Pos
 		{
-			for (u32 j=0; j<geom.Buffers.size(); ++j)
+			for (uint32_t j=0; j<geom.Buffers.size(); ++j)
 			{
 				if (geom.Elements[i].Source==geom.Buffers[j].BindIndex)
 				{
-					u32 eSize=geom.Buffers[j].VertexSize;
-					u32 ePos=geom.Elements[i].Offset;
-					for (s32 k=0; k<geom.NumVertex; ++k)
+					uint32_t eSize=geom.Buffers[j].VertexSize;
+					uint32_t ePos=geom.Elements[i].Offset;
+					for (int32_t k=0; k<geom.NumVertex; ++k)
 					{
 						mb->Vertices[k].Color=mb->Material.DiffuseColor;
 						mb->Vertices[k].Pos.set(geom.Buffers[j].Data[ePos],geom.Buffers[j].Data[ePos+1],geom.Buffers[j].Data[ePos+2]);
@@ -581,13 +580,13 @@ scene::SMeshBufferLightMap* COgreMeshFileLoader::composeMeshBufferLightMap(const
 
 		if (geom.Elements[i].Semantic==4) //Normal
 		{
-			for (u32 j=0; j<geom.Buffers.size(); ++j)
+			for (uint32_t j=0; j<geom.Buffers.size(); ++j)
 			{
 				if (geom.Elements[i].Source==geom.Buffers[j].BindIndex)
 				{
-					u32 eSize=geom.Buffers[j].VertexSize;
-					u32 ePos=geom.Elements[i].Offset;
-					for (s32 k=0; k<geom.NumVertex; ++k)
+					uint32_t eSize=geom.Buffers[j].VertexSize;
+					uint32_t ePos=geom.Elements[i].Offset;
+					for (int32_t k=0; k<geom.NumVertex; ++k)
 					{
 						mb->Vertices[k].Normal.set(geom.Buffers[j].Data[ePos],geom.Buffers[j].Data[ePos+1],geom.Buffers[j].Data[ePos+2]);
 						ePos += eSize;
@@ -598,15 +597,15 @@ scene::SMeshBufferLightMap* COgreMeshFileLoader::composeMeshBufferLightMap(const
 
 		if (geom.Elements[i].Semantic==7) //TexCoord
 		{
-			for (u32 j=0; j<geom.Buffers.size(); ++j)
+			for (uint32_t j=0; j<geom.Buffers.size(); ++j)
 			{
 				if (geom.Elements[i].Source==geom.Buffers[j].BindIndex)
 				{
-					u32 eSize=geom.Buffers[j].VertexSize;
-					u32 ePos=geom.Elements[i].Offset;
+					uint32_t eSize=geom.Buffers[j].VertexSize;
+					uint32_t ePos=geom.Elements[i].Offset;
 					// make sure we have data for a second texture coord
 					const bool secondCoord = (eSize>ePos+3);
-					for (s32 k=0; k<geom.NumVertex; ++k)
+					for (int32_t k=0; k<geom.NumVertex; ++k)
 					{
 						mb->Vertices[k].TCoords.set(geom.Buffers[j].Data[ePos], geom.Buffers[j].Data[ePos+1]);
 						if (secondCoord)
@@ -624,7 +623,7 @@ scene::SMeshBufferLightMap* COgreMeshFileLoader::composeMeshBufferLightMap(const
 }
 
 
-scene::IMeshBuffer* COgreMeshFileLoader::composeMeshBufferSkinned(scene::CSkinnedMesh& mesh, const core::array<s32>& indices, const OgreGeometry& geom)
+scene::IMeshBuffer* COgreMeshFileLoader::composeMeshBufferSkinned(scene::CSkinnedMesh& mesh, const core::array<int32_t>& indices, const OgreGeometry& geom)
 {
 	scene::SSkinMeshBuffer *mb=mesh.addMeshBuffer();
 	if (NumUV>1)
@@ -635,7 +634,7 @@ scene::IMeshBuffer* COgreMeshFileLoader::composeMeshBufferSkinned(scene::CSkinne
 	else
 		mb->Vertices_Standard.set_used(geom.NumVertex);
 
-	u32 i;
+	uint32_t i;
 	mb->Indices.set_used(indices.size());
 	for (i=0; i<indices.size(); i+=3)
 	{
@@ -648,13 +647,13 @@ scene::IMeshBuffer* COgreMeshFileLoader::composeMeshBufferSkinned(scene::CSkinne
 	{
 		if (geom.Elements[i].Semantic==1) //Pos
 		{
-			for (u32 j=0; j<geom.Buffers.size(); ++j)
+			for (uint32_t j=0; j<geom.Buffers.size(); ++j)
 			{
 				if (geom.Elements[i].Source==geom.Buffers[j].BindIndex)
 				{
-					u32 eSize=geom.Buffers[j].VertexSize;
-					u32 ePos=geom.Elements[i].Offset;
-					for (s32 k=0; k<geom.NumVertex; ++k)
+					uint32_t eSize=geom.Buffers[j].VertexSize;
+					uint32_t ePos=geom.Elements[i].Offset;
+					for (int32_t k=0; k<geom.NumVertex; ++k)
 					{
 						if (NumUV>1)
 							mb->Vertices_2TCoords[k].Color=mb->Material.DiffuseColor;
@@ -669,13 +668,13 @@ scene::IMeshBuffer* COgreMeshFileLoader::composeMeshBufferSkinned(scene::CSkinne
 
 		if (geom.Elements[i].Semantic==4) //Normal
 		{
-			for (u32 j=0; j<geom.Buffers.size(); ++j)
+			for (uint32_t j=0; j<geom.Buffers.size(); ++j)
 			{
 				if (geom.Elements[i].Source==geom.Buffers[j].BindIndex)
 				{
-					u32 eSize=geom.Buffers[j].VertexSize;
-					u32 ePos=geom.Elements[i].Offset;
-					for (s32 k=0; k<geom.NumVertex; ++k)
+					uint32_t eSize=geom.Buffers[j].VertexSize;
+					uint32_t ePos=geom.Elements[i].Offset;
+					for (int32_t k=0; k<geom.NumVertex; ++k)
 					{
 						mb->getNormal(k).set(-geom.Buffers[j].Data[ePos],geom.Buffers[j].Data[ePos+1],geom.Buffers[j].Data[ePos+2]);
 						ePos += eSize;
@@ -686,15 +685,15 @@ scene::IMeshBuffer* COgreMeshFileLoader::composeMeshBufferSkinned(scene::CSkinne
 
 		if (geom.Elements[i].Semantic==7) //TexCoord
 		{
-			for (u32 j=0; j<geom.Buffers.size(); ++j)
+			for (uint32_t j=0; j<geom.Buffers.size(); ++j)
 			{
 				if (geom.Elements[i].Source==geom.Buffers[j].BindIndex)
 				{
-					u32 eSize=geom.Buffers[j].VertexSize;
-					u32 ePos=geom.Elements[i].Offset;
+					uint32_t eSize=geom.Buffers[j].VertexSize;
+					uint32_t ePos=geom.Elements[i].Offset;
 					// make sure we have data for a second texture coord
 					const bool secondCoord = (eSize>ePos+3);
-					for (s32 k=0; k<geom.NumVertex; ++k)
+					for (int32_t k=0; k<geom.NumVertex; ++k)
 					{
 						mb->getTCoords(k).set(geom.Buffers[j].Data[ePos], geom.Buffers[j].Data[ePos+1]);
 						if (NumUV>1)
@@ -717,9 +716,9 @@ scene::IMeshBuffer* COgreMeshFileLoader::composeMeshBufferSkinned(scene::CSkinne
 
 void COgreMeshFileLoader::composeObject(void)
 {
-	for (u32 i=0; i<Meshes.size(); ++i)
+	for (uint32_t i=0; i<Meshes.size(); ++i)
 	{
-		for (u32 j=0; j<Meshes[i].SubMeshes.size(); ++j)
+		for (uint32_t j=0; j<Meshes[i].SubMeshes.size(); ++j)
 		{
 			IMeshBuffer* mb;
 			if (Meshes[i].SubMeshes[j].SharedVertices)
@@ -768,7 +767,7 @@ void COgreMeshFileLoader::composeObject(void)
 	{
 		CSkinnedMesh* m = (CSkinnedMesh*)Mesh;
 		// Create Joints
-		for (u32 i=0; i<Skeleton.Bones.size(); ++i)
+		for (uint32_t i=0; i<Skeleton.Bones.size(); ++i)
 		{
 			ISkinnedMesh::SJoint* joint = m->addJoint();
 			joint->Name=Skeleton.Bones[i].Name;
@@ -788,7 +787,7 @@ _
 			joint->LocalMatrix.setTranslation( Skeleton.Bones[i].Position );
 		}
 		// Joints hierarchy
-		for (u32 i=0; i<Skeleton.Bones.size(); ++i)
+		for (uint32_t i=0; i<Skeleton.Bones.size(); ++i)
 		{
 			if (Skeleton.Bones[i].Parent<m->getJointCount())
 			{
@@ -797,12 +796,12 @@ _
 		}
 
 		// Weights
-		u32 bufCount=0;
-		for (u32 i=0; i<Meshes.size(); ++i)
+		uint32_t bufCount=0;
+		for (uint32_t i=0; i<Meshes.size(); ++i)
 		{
-			for (u32 j=0; j<Meshes[i].SubMeshes.size(); ++j)
+			for (uint32_t j=0; j<Meshes[i].SubMeshes.size(); ++j)
 			{
-				for (u32 k=0; k<Meshes[i].SubMeshes[j].BoneAssignments.size(); ++k)
+				for (uint32_t k=0; k<Meshes[i].SubMeshes[j].BoneAssignments.size(); ++k)
 				{
 					const OgreBoneAssignment& ba = Meshes[i].SubMeshes[j].BoneAssignments[k];
 					if (ba.BoneID<m->getJointCount())
@@ -817,9 +816,9 @@ _
 			}
 		}
 
-		for (u32 i=0; i<Skeleton.Animations.size(); ++i)
+		for (uint32_t i=0; i<Skeleton.Animations.size(); ++i)
 		{
-			for (u32 j=0; j<Skeleton.Animations[i].Keyframes.size(); ++j)
+			for (uint32_t j=0; j<Skeleton.Animations[i].Keyframes.size(); ++j)
 			{
 				OgreKeyframe& frame = Skeleton.Animations[i].Keyframes[j];
 				ISkinnedMesh::SJoint* keyjoint = m->getAllJoints()[frame.BoneID];
@@ -850,13 +849,13 @@ _
 void COgreMeshFileLoader::getMaterialToken(io::IReadFile* file, core::stringc& token, bool noNewLine)
 {
 	bool parseString=false;
-	c8 c=0;
+	int8_t c=0;
 	token = "";
 
 	if (file->getPos() >= file->getSize())
 		return;
 
-	file->read(&c, sizeof(c8));
+	file->read(&c, sizeof(int8_t));
 	// search for word beginning
 	while ( core::isspace(c) && (file->getPos() < file->getSize()))
 	{
@@ -865,25 +864,25 @@ void COgreMeshFileLoader::getMaterialToken(io::IReadFile* file, core::stringc& t
 			file->seek(-1, true);
 			return;
 		}
-		file->read(&c, sizeof(c8));
+		file->read(&c, sizeof(int8_t));
 	}
 	// check if we read a string
 	if (c=='"')
 	{
 		parseString = true;
-		file->read(&c, sizeof(c8));
+		file->read(&c, sizeof(int8_t));
 	}
 	do
 	{
 		if (c=='/')
 		{
-			file->read(&c, sizeof(c8));
+			file->read(&c, sizeof(int8_t));
 			// check for comments, cannot be part of strings
 			if (!parseString && (c=='/'))
 			{
 				// skip comments
 				while(c!='\n')
-					file->read(&c, sizeof(c8));
+					file->read(&c, sizeof(int8_t));
 				if (!token.size())
 				{
 					// if we start with a comment we need to skip
@@ -894,7 +893,7 @@ void COgreMeshFileLoader::getMaterialToken(io::IReadFile* file, core::stringc& t
 				else
 				{
 					// else continue with next character
-					file->read(&c, sizeof(c8));
+					file->read(&c, sizeof(int8_t));
 					continue;
 				}
 			}
@@ -909,7 +908,7 @@ void COgreMeshFileLoader::getMaterialToken(io::IReadFile* file, core::stringc& t
 			}
 		}
 		token.append(c);
-		file->read(&c, sizeof(c8));
+		file->read(&c, sizeof(int8_t));
 		// read until a token delimiter is found
 	}
 	while (((!parseString && !core::isspace(c)) || (parseString && (c!='"'))) &&
@@ -965,8 +964,8 @@ void COgreMeshFileLoader::readPass(io::IReadFile* file, OgreTechnique& technique
 	getMaterialToken(file, token);
 	if (token == "}")
 		return;
-	u32 inBlocks=1;
-	u32 textureUnit=0;
+	uint32_t inBlocks=1;
+	uint32_t textureUnit=0;
 	while(inBlocks)
 	{
 		if (token=="ambient")
@@ -1162,7 +1161,7 @@ void COgreMeshFileLoader::readPass(io::IReadFile* file, OgreTechnique& technique
 				else if (token=="max_anisotropy")
 				{
 					getMaterialToken(file, token);
-					pass.Material.TextureLayer[textureUnit].AnisotropicFilter=(u8)core::strtoul10(token.c_str());
+					pass.Material.TextureLayer[textureUnit].AnisotropicFilter=(uint8_t)core::strtoul10(token.c_str());
 				}
 				else if (token=="texture_alias")
 				{
@@ -1278,7 +1277,7 @@ void COgreMeshFileLoader::loadMaterials(io::IReadFile* meshFile)
 		if ((token == "fragment_program") || (token == "vertex_program"))
 		{
 			// skip whole block
-			u32 blocks=1;
+			uint32_t blocks=1;
 			do
 			{
 				getMaterialToken(file, token);
@@ -1364,7 +1363,7 @@ bool COgreMeshFileLoader::loadSkeleton(io::IReadFile* meshFile, const core::stri
 		return false;
 	}
 
-	s16 id;
+	int16_t id;
 	file->read(&id, 2);
 	if (SwapEndian)
 		id = os::Byteswap::byteswap(id);
@@ -1383,8 +1382,8 @@ bool COgreMeshFileLoader::loadSkeleton(io::IReadFile* meshFile, const core::stri
 		return false;
 	}
 
-	u16 bone=0;
-	f32 animationTotal=0.f;
+	uint16_t bone=0;
+	float animationTotal=0.f;
 	while(file->getPos() < file->getSize())
 	{
 		ChunkData data;
@@ -1423,7 +1422,7 @@ bool COgreMeshFileLoader::loadSkeleton(io::IReadFile* meshFile, const core::stri
 			break;
 		case COGRE_BONE_PARENT:
 			{
-				u16 parent;
+				uint16_t parent;
 				readShort(file, data, &bone);
 				readShort(file, data, &parent);
 				if (bone<Skeleton.Bones.size() && parent<Skeleton.Bones.size())
@@ -1497,12 +1496,12 @@ void COgreMeshFileLoader::readChunkData(io::IReadFile* file, ChunkData& data)
 
 void COgreMeshFileLoader::readString(io::IReadFile* file, ChunkData& data, core::stringc& out)
 {
-	c8 c = 0;
+	int8_t c = 0;
 	out = "";
 
 	while (c!='\n')
 	{
-		file->read(&c, sizeof(c8));
+		file->read(&c, sizeof(int8_t));
 		if (c!='\n')
 			out.append(c);
 
@@ -1521,39 +1520,39 @@ void COgreMeshFileLoader::readBool(io::IReadFile* file, ChunkData& data, bool& o
 }
 
 
-void COgreMeshFileLoader::readInt(io::IReadFile* file, ChunkData& data, s32* out, u32 num)
+void COgreMeshFileLoader::readInt(io::IReadFile* file, ChunkData& data, int32_t* out, uint32_t num)
 {
 	// normal C type because we read a bit string
 	file->read(out, sizeof(int)*num);
 	if (SwapEndian)
 	{
-		for (u32 i=0; i<num; ++i)
+		for (uint32_t i=0; i<num; ++i)
 			out[i] = os::Byteswap::byteswap(out[i]);
 	}
 	data.read+=sizeof(int)*num;
 }
 
 
-void COgreMeshFileLoader::readShort(io::IReadFile* file, ChunkData& data, u16* out, u32 num)
+void COgreMeshFileLoader::readShort(io::IReadFile* file, ChunkData& data, uint16_t* out, uint32_t num)
 {
 	// normal C type because we read a bit string
 	file->read(out, sizeof(short)*num);
 	if (SwapEndian)
 	{
-		for (u32 i=0; i<num; ++i)
+		for (uint32_t i=0; i<num; ++i)
 			out[i] = os::Byteswap::byteswap(out[i]);
 	}
 	data.read+=sizeof(short)*num;
 }
 
 
-void COgreMeshFileLoader::readFloat(io::IReadFile* file, ChunkData& data, f32* out, u32 num)
+void COgreMeshFileLoader::readFloat(io::IReadFile* file, ChunkData& data, float* out, uint32_t num)
 {
 	// normal C type because we read a bit string
 	file->read(out, sizeof(float)*num);
 	if (SwapEndian)
 	{
-		for (u32 i=0; i<num; ++i)
+		for (uint32_t i=0; i<num; ++i)
 			out[i] = os::Byteswap::byteswap(out[i]);
 	}
 	data.read+=sizeof(float)*num;
@@ -1580,12 +1579,12 @@ _
 
 void COgreMeshFileLoader::clearMeshes()
 {
-	for (u32 i=0; i<Meshes.size(); ++i)
+	for (uint32_t i=0; i<Meshes.size(); ++i)
 	{
 		for (int k=0; k<(int)Meshes[i].Geometry.Buffers.size(); ++k)
 			Meshes[i].Geometry.Buffers[k].Data.clear();
 
-		for (u32 j=0; j<Meshes[i].SubMeshes.size(); ++j)
+		for (uint32_t j=0; j<Meshes[i].SubMeshes.size(); ++j)
 		{
 			for (int h=0; h<(int)Meshes[i].SubMeshes[j].Geometry.Buffers.size(); ++h)
 				Meshes[i].SubMeshes[j].Geometry.Buffers[h].Data.clear();

@@ -20,55 +20,55 @@ namespace irr
 namespace io
 {
 	// set if the file is encrypted
-	const s16 ZIP_FILE_ENCRYPTED =		0x0001;
+	const int16_t ZIP_FILE_ENCRYPTED =		0x0001;
 	// the fields crc-32, compressed size and uncompressed size are set to
 	// zero in the local header
-	const s16 ZIP_INFO_IN_DATA_DESCRIPTOR =	0x0008;
+	const int16_t ZIP_INFO_IN_DATA_DESCRIPTOR =	0x0008;
 
 // byte-align structures
 #include "irrpack.h"
 
 	struct SZIPFileDataDescriptor
 	{
-		u32 CRC32;
-		u32 CompressedSize;
-		u32 UncompressedSize;
+		uint32_t CRC32;
+		uint32_t CompressedSize;
+		uint32_t UncompressedSize;
 	} PACK_STRUCT;
 
 	struct SZIPFileHeader
 	{
-		u32 Sig;				// 'PK0304' little endian (0x04034b50)
-		s16 VersionToExtract;
-		s16 GeneralBitFlag;
-		s16 CompressionMethod;
-		s16 LastModFileTime;
-		s16 LastModFileDate;
+		uint32_t Sig;				// 'PK0304' little endian (0x04034b50)
+		int16_t VersionToExtract;
+		int16_t GeneralBitFlag;
+		int16_t CompressionMethod;
+		int16_t LastModFileTime;
+		int16_t LastModFileDate;
 		SZIPFileDataDescriptor DataDescriptor;
-		s16 FilenameLength;
-		s16 ExtraFieldLength;
+		int16_t FilenameLength;
+		int16_t ExtraFieldLength;
 		// filename (variable size)
 		// extra field (variable size )
 	} PACK_STRUCT;
 
 	struct SZIPFileCentralDirFileHeader
 	{
-		u32 Sig;	// 'PK0102' (0x02014b50)
-		u16 VersionMadeBy;
-		u16 VersionToExtract;
-		u16 GeneralBitFlag;
-		u16 CompressionMethod;
-		u16 LastModFileTime;
-		u16 LastModFileDate;
-		u32 CRC32;
-		u32 CompressedSize;
-		u32 UncompressedSize;
-		u16 FilenameLength;
-		u16 ExtraFieldLength;
-		u16 FileCommentLength;
-		u16 DiskNumberStart;
-		u16 InternalFileAttributes;
-		u32 ExternalFileAttributes;
-		u32 RelativeOffsetOfLocalHeader;
+		uint32_t Sig;	// 'PK0102' (0x02014b50)
+		uint16_t VersionMadeBy;
+		uint16_t VersionToExtract;
+		uint16_t GeneralBitFlag;
+		uint16_t CompressionMethod;
+		uint16_t LastModFileTime;
+		uint16_t LastModFileDate;
+		uint32_t CRC32;
+		uint32_t CompressedSize;
+		uint32_t UncompressedSize;
+		uint16_t FilenameLength;
+		uint16_t ExtraFieldLength;
+		uint16_t FileCommentLength;
+		uint16_t DiskNumberStart;
+		uint16_t InternalFileAttributes;
+		uint32_t ExternalFileAttributes;
+		uint32_t RelativeOffsetOfLocalHeader;
 
 		// filename (variable size)
 		// extra field (variable size)
@@ -78,29 +78,29 @@ namespace io
 
 	struct SZIPFileCentralDirEnd
 	{
-		u32 Sig;			// 'PK0506' end_of central dir signature			// (0x06054b50)
-		u16 NumberDisk;		// number of this disk
-		u16 NumberStart;	// number of the disk with the start of the central directory
-		u16 TotalDisk;		// total number of entries in the central dir on this disk
-		u16 TotalEntries;	// total number of entries in the central dir
-		u32 Size;			// size of the central directory
-		u32 Offset;			// offset of start of centraldirectory with respect to the starting disk number
-		u16 CommentLength;	// zipfile comment length
+		uint32_t Sig;			// 'PK0506' end_of central dir signature			// (0x06054b50)
+		uint16_t NumberDisk;		// number of this disk
+		uint16_t NumberStart;	// number of the disk with the start of the central directory
+		uint16_t TotalDisk;		// total number of entries in the central dir on this disk
+		uint16_t TotalEntries;	// total number of entries in the central dir
+		uint32_t Size;			// size of the central directory
+		uint32_t Offset;			// offset of start of centraldirectory with respect to the starting disk number
+		uint16_t CommentLength;	// zipfile comment length
 		// zipfile comment (variable size)
 	} PACK_STRUCT;
 
 	struct SZipFileExtraHeader
 	{
-		s16 ID;
-		s16 Size;
+		int16_t ID;
+		int16_t Size;
 	} PACK_STRUCT;
 
 	struct SZipFileAESExtraData
 	{
-		s16 Version;
-		u8 Vendor[2];
-		u8 EncryptionStrength;
-		s16 CompressionMode;
+		int16_t Version;
+		uint8_t Vendor[2];
+		uint8_t EncryptionStrength;
+		int16_t CompressionMode;
 	} PACK_STRUCT;
 
 	enum E_GZIP_FLAGS
@@ -114,12 +114,12 @@ namespace io
 
 	struct SGZIPMemberHeader
 	{
-		u16 sig; // 0x8b1f
-		u8  compressionMethod; // 8 = deflate
-		u8  flags;
-		u32 time;
-		u8  extraFlags; // slow compress = 2, fast compress = 4
-		u8  operatingSystem;
+		uint16_t sig; // 0x8b1f
+		uint8_t  compressionMethod; // 8 = deflate
+		uint8_t  flags;
+		uint32_t time;
+		uint8_t  extraFlags; // slow compress = 2, fast compress = 4
+		uint8_t  operatingSystem;
 	} PACK_STRUCT;
 
 // Default alignment
@@ -129,7 +129,7 @@ namespace io
 	struct SZipFileEntry
 	{
 		//! Position of data in the archive file
-		s32 Offset;
+		int32_t Offset;
 
 		//! The header for this file containing compression info etc
 		SZIPFileHeader header;
@@ -189,7 +189,7 @@ namespace io
 		virtual IReadFile* createAndOpenFile(const io::path& filename);
 
 		//! opens a file by index
-		virtual IReadFile* createAndOpenFile(u32 index);
+		virtual IReadFile* createAndOpenFile(uint32_t index);
 
 		//! returns the list of files
 		virtual const IFileList* getFileList() const;

@@ -6,7 +6,6 @@
 #define __I_FILE_SYSTEM_H_INCLUDED__
 
 #include "IReferenceCounted.h"
-#include "IXMLReader.h"
 #include "IFileArchive.h"
 
 namespace irr
@@ -50,7 +49,7 @@ public:
 	The returned pointer should be dropped when no longer needed.
 	See IReferenceCounted::drop() for more information.
 	*/
-	virtual IReadFile* createMemoryReadFile(void* memory, s32 len, const path& fileName, bool deleteMemoryWhenDropped=false) =0;
+	virtual IReadFile* createMemoryReadFile(void* memory, int32_t len, const path& fileName, bool deleteMemoryWhenDropped=false) =0;
 
 	//! Creates an IReadFile interface for accessing files inside files.
 	/** This is useful e.g. for archives.
@@ -77,7 +76,7 @@ public:
 	The returned pointer should be dropped when no longer needed.
 	See IReferenceCounted::drop() for more information.
 	*/
-	virtual IWriteFile* createMemoryWriteFile(void* memory, s32 len, const path& fileName, bool deleteMemoryWhenDropped=false) =0;
+	virtual IWriteFile* createMemoryWriteFile(void* memory, int32_t len, const path& fileName, bool deleteMemoryWhenDropped=false) =0;
 
 
 	//! Opens a file for write access.
@@ -156,7 +155,7 @@ public:
 	virtual bool addFileArchive(IFileArchive* archive) =0;
 
 	//! Get the number of archives currently attached to the file system
-	virtual u32 getFileArchiveCount() const =0;
+	virtual uint32_t getFileArchiveCount() const =0;
 
 	//! Removes an archive from the file system.
 	/** This will close the archive and free any file handles, but will not
@@ -164,7 +163,7 @@ public:
 	example textures and meshes.
 	\param index: The index of the archive to remove
 	\return True on success, false on failure */
-	virtual bool removeFileArchive(u32 index) =0;
+	virtual bool removeFileArchive(uint32_t index) =0;
 
 	//! Removes an archive from the file system.
 	/** This will close the archive and free any file handles, but will not
@@ -192,10 +191,10 @@ public:
 	/**
 	\param sourceIndex: The index of the archive to change
 	\param relative: The relative change in position, archives with a lower index are searched first */
-	virtual bool moveFileArchive(u32 sourceIndex, s32 relative) =0;
+	virtual bool moveFileArchive(uint32_t sourceIndex, int32_t relative) =0;
 
 	//! Get the archive at a given index.
-	virtual IFileArchive* getFileArchive(u32 index) =0;
+	virtual IFileArchive* getFileArchive(uint32_t index) =0;
 
 	//! Adds an external archive loader to the engine.
 	/** Use this function to add support for new archive types to the
@@ -203,13 +202,13 @@ public:
 	virtual void addArchiveLoader(IArchiveLoader* loader) =0;
 
 	//! Gets the number of archive loaders currently added
-	virtual u32 getArchiveLoaderCount() const = 0;
+	virtual uint32_t getArchiveLoaderCount() const = 0;
 
 	//! Retrieve the given archive loader
 	/** \param index The index of the loader to retrieve. This parameter is an 0-based
 	array index.
 	\return A pointer to the specified loader, 0 if the index is incorrect. */
-	virtual IArchiveLoader* getArchiveLoader(u32 index) const = 0;
+	virtual IArchiveLoader* getArchiveLoader(uint32_t index) const = 0;
 
 	//! Adds a zip archive to the file system.
 	/** \deprecated This function is provided for compatibility
@@ -224,7 +223,7 @@ public:
 	\param ignorePaths: If set to true, files in the added archive can be accessed
 	without its complete path.
 	\return True if the archive was added successfully, false if not. */
-	_IRR_DEPRECATED_ virtual bool addZipFileArchive(const c8* filename, bool ignoreCase=true, bool ignorePaths=true)
+	_IRR_DEPRECATED_ virtual bool addZipFileArchive(const char* filename, bool ignoreCase=true, bool ignorePaths=true)
 	{
 		return addFileArchive(filename, ignoreCase, ignorePaths, EFAT_ZIP);
 	}
@@ -240,7 +239,7 @@ public:
 	\param ignorePaths: If set to true, files in the added archive can be accessed
 	without its complete path.
 	\return True if the archive was added successful, false if not. */
-	_IRR_DEPRECATED_ virtual bool addFolderFileArchive(const c8* filename, bool ignoreCase=true, bool ignorePaths=true)
+	_IRR_DEPRECATED_ virtual bool addFolderFileArchive(const char* filename, bool ignoreCase=true, bool ignorePaths=true)
 	{
 		return addFileArchive(filename, ignoreCase, ignorePaths, EFAT_FOLDER);
 	}
@@ -258,7 +257,7 @@ public:
 	\param ignorePaths: If set to true, files in the added archive can be accessed
 	without its complete path.(should not use with Quake2 paks
 	\return True if the archive was added successful, false if not. */
-	_IRR_DEPRECATED_ virtual bool addPakFileArchive(const c8* filename, bool ignoreCase=true, bool ignorePaths=true)
+	_IRR_DEPRECATED_ virtual bool addPakFileArchive(const char* filename, bool ignoreCase=true, bool ignorePaths=true)
 	{
 		return addFileArchive(filename, ignoreCase, ignorePaths, EFAT_PAK);
 	}
@@ -316,56 +315,6 @@ public:
 	/** \param filename is the string identifying the file which should be tested for existence.
 	\return True if file exists, and false if it does not exist or an error occured. */
 	virtual bool existFile(const path& filename) const =0;
-
-	//! Creates a XML Reader from a file which returns all parsed strings as wide characters (wchar_t*).
-	/** Use createXMLReaderUTF8() if you prefer char* instead of wchar_t*. See IIrrXMLReader for
-	more information on how to use the parser.
-	\return 0, if file could not be opened, otherwise a pointer to the created
-	IXMLReader is returned. After use, the reader
-	has to be deleted using its IXMLReader::drop() method.
-	See IReferenceCounted::drop() for more information. */
-	virtual IXMLReader* createXMLReader(const path& filename) =0;
-
-	//! Creates a XML Reader from a file which returns all parsed strings as wide characters (wchar_t*).
-	/** Use createXMLReaderUTF8() if you prefer char* instead of wchar_t*. See IIrrXMLReader for
-	more information on how to use the parser.
-	\return 0, if file could not be opened, otherwise a pointer to the created
-	IXMLReader is returned. After use, the reader
-	has to be deleted using its IXMLReader::drop() method.
-	See IReferenceCounted::drop() for more information. */
-	virtual IXMLReader* createXMLReader(IReadFile* file) =0;
-
-	//! Creates a XML Reader from a file which returns all parsed strings as ASCII/UTF-8 characters (char*).
-	/** Use createXMLReader() if you prefer wchar_t* instead of char*. See IIrrXMLReader for
-	more information on how to use the parser.
-	\return 0, if file could not be opened, otherwise a pointer to the created
-	IXMLReader is returned. After use, the reader
-	has to be deleted using its IXMLReaderUTF8::drop() method.
-	See IReferenceCounted::drop() for more information. */
-	virtual IXMLReaderUTF8* createXMLReaderUTF8(const path& filename) =0;
-
-	//! Creates a XML Reader from a file which returns all parsed strings as ASCII/UTF-8 characters (char*).
-	/** Use createXMLReader() if you prefer wchar_t* instead of char*. See IIrrXMLReader for
-	more information on how to use the parser.
-	\return 0, if file could not be opened, otherwise a pointer to the created
-	IXMLReader is returned. After use, the reader
-	has to be deleted using its IXMLReaderUTF8::drop() method.
-	See IReferenceCounted::drop() for more information. */
-	virtual IXMLReaderUTF8* createXMLReaderUTF8(IReadFile* file) =0;
-
-	//! Creates a XML Writer from a file.
-	/** \return 0, if file could not be opened, otherwise a pointer to the created
-	IXMLWriter is returned. After use, the reader
-	has to be deleted using its IXMLWriter::drop() method.
-	See IReferenceCounted::drop() for more information. */
-	virtual IXMLWriter* createXMLWriter(const path& filename) =0;
-
-	//! Creates a XML Writer from a file.
-	/** \return 0, if file could not be opened, otherwise a pointer to the created
-	IXMLWriter is returned. After use, the reader
-	has to be deleted using its IXMLWriter::drop() method.
-	See IReferenceCounted::drop() for more information. */
-	virtual IXMLWriter* createXMLWriter(IWriteFile* file) =0;
 };
 
 

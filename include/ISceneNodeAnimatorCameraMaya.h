@@ -27,28 +27,28 @@ namespace scene
 	public:
 
 		//! Returns the speed of movement
-		virtual f32 getMoveSpeed() const = 0;
+		virtual float getMoveSpeed() const = 0;
 
 		//! Sets the speed of movement
-		virtual void setMoveSpeed(f32 moveSpeed) = 0;
+		virtual void setMoveSpeed(float moveSpeed) = 0;
 
 		//! Returns the rotation speed
-		virtual f32 getRotateSpeed() const = 0;
+		virtual float getRotateSpeed() const = 0;
 
 		//! Set the rotation speed
-		virtual void setRotateSpeed(f32 rotateSpeed) = 0;
+		virtual void setRotateSpeed(float rotateSpeed) = 0;
 
 		//! Returns the zoom speed
-		virtual f32 getZoomSpeed() const = 0;
+		virtual float getZoomSpeed() const = 0;
 
 		//! Set the zoom speed
-		virtual void setZoomSpeed(f32 zoomSpeed) = 0;
+		virtual void setZoomSpeed(float zoomSpeed) = 0;
 
 		//! Returns the current distance, i.e. orbit radius
-		virtual f32 getDistance() const = 0;
+		virtual float getDistance() const = 0;
 
 		//! Set the distance
-		virtual void setDistance(f32 distance) = 0;
+		virtual void setDistance(float distance) = 0;
 	};
 
 } // end namespace scene

@@ -26,37 +26,37 @@ public:
 	}
 
 	//! draws an indexed triangle list
-	virtual void drawIndexedTriangleList(S2DVertex* vertices, s32 vertexCount, const u16* indexList, s32 triangleCount)
+	virtual void drawIndexedTriangleList(S2DVertex* vertices, int32_t vertexCount, const uint16_t* indexList, int32_t triangleCount)
 	{
 		const S2DVertex *v1, *v2, *v3;
 
-		f32 tmpDiv; // temporary division factor
-		f32 longest; // saves the longest span
-		s32 height; // saves height of triangle
-		u16* targetSurface; // target pointer where to plot pixels
-		s32 spanEnd; // saves end of spans
-		f32 leftdeltaxf; // amount of pixels to increase on left side of triangle
-		f32 rightdeltaxf; // amount of pixels to increase on right side of triangle
-		s32 leftx, rightx; // position where we are 
-		f32 leftxf, rightxf; // same as above, but as f32 values
-		s32 span; // current span
-		u16 *hSpanBegin, *hSpanEnd; // pointer used when plotting pixels
-		s32 leftR, leftG, leftB, rightR, rightG, rightB; // color values
-		s32 leftStepR, leftStepG, leftStepB,
+		float tmpDiv; // temporary division factor
+		float longest; // saves the longest span
+		int32_t height; // saves height of triangle
+		uint16_t* targetSurface; // target pointer where to plot pixels
+		int32_t spanEnd; // saves end of spans
+		float leftdeltaxf; // amount of pixels to increase on left side of triangle
+		float rightdeltaxf; // amount of pixels to increase on right side of triangle
+		int32_t leftx, rightx; // position where we are
+		float leftxf, rightxf; // same as above, but as float values
+		int32_t span; // current span
+		uint16_t *hSpanBegin, *hSpanEnd; // pointer used when plotting pixels
+		int32_t leftR, leftG, leftB, rightR, rightG, rightB; // color values
+		int32_t leftStepR, leftStepG, leftStepB,
 			rightStepR, rightStepG, rightStepB; // color steps
-		s32 spanR, spanG, spanB, spanStepR, spanStepG, spanStepB; // color interpolating values while drawing a span.
+		int32_t spanR, spanG, spanB, spanStepR, spanStepG, spanStepB; // color interpolating values while drawing a span.
 
-		core::rect<s32> TriangleRect;
+		core::rect<int32_t> TriangleRect;
 
-		s32 leftZValue, rightZValue;
-		s32 leftZStep, rightZStep;
-		s32 spanZValue, spanZStep; // ZValues when drawing a span
+		int32_t leftZValue, rightZValue;
+		int32_t leftZStep, rightZStep;
+		int32_t spanZValue, spanZStep; // ZValues when drawing a span
 		TZBufferType* zTarget, *spanZTarget; // target of ZBuffer;
 
-		lockedSurface = (u16*)RenderTarget->lock();
+		lockedSurface = (uint16_t*)RenderTarget->lock();
 		lockedZBuffer = ZBuffer->lock();
 
-		for (s32 i=0; i<triangleCount; ++i)
+		for (int32_t i=0; i<triangleCount; ++i)
 		{
 			v1 = &vertices[*indexList];
 			++indexList;
@@ -69,7 +69,7 @@ public:
 
 			if (BackFaceCullingEnabled)
 			{
-				s32 z = ((v3->Pos.X - v1->Pos.X) * (v3->Pos.Y - v2->Pos.Y)) -
+				int32_t z = ((v3->Pos.X - v1->Pos.X) * (v3->Pos.Y - v2->Pos.Y)) -
 					((v3->Pos.Y - v1->Pos.Y) * (v3->Pos.X - v2->Pos.X));
 
 				if (z < 0)
@@ -112,12 +112,12 @@ public:
 
 			// calculate longest span
 
-			longest = (v2->Pos.Y - v1->Pos.Y) / (f32)height * (v3->Pos.X - v1->Pos.X) + (v1->Pos.X - v2->Pos.X);
+			longest = (v2->Pos.Y - v1->Pos.Y) / (float)height * (v3->Pos.X - v1->Pos.X) + (v1->Pos.X - v2->Pos.X);
 
 			spanEnd = v2->Pos.Y;
 			span = v1->Pos.Y;
-			leftxf = (f32)v1->Pos.X;
-			rightxf = (f32)v1->Pos.X;
+			leftxf = (float)v1->Pos.X;
+			rightxf = (float)v1->Pos.X;
 
 			leftZValue = v1->ZValue;
 			rightZValue = v1->ZValue;
@@ -131,47 +131,47 @@ public:
 
 			if (longest < 0.0f)
 			{
-				tmpDiv = 1.0f / (f32)(v2->Pos.Y - v1->Pos.Y);
+				tmpDiv = 1.0f / (float)(v2->Pos.Y - v1->Pos.Y);
 				rightdeltaxf = (v2->Pos.X - v1->Pos.X) * tmpDiv;
-				rightZStep = (s32)((v2->ZValue - v1->ZValue) * tmpDiv);
-				rightStepR = (s32)(((s32)(video::getRed(v2->Color)<<11) - rightR) * tmpDiv);
-				rightStepG = (s32)(((s32)(video::getGreen(v2->Color)<<11) - rightG) * tmpDiv);
-				rightStepB = (s32)(((s32)(video::getBlue(v2->Color)<<11) - rightB) * tmpDiv);
+				rightZStep = (int32_t)((v2->ZValue - v1->ZValue) * tmpDiv);
+				rightStepR = (int32_t)(((int32_t)(video::getRed(v2->Color)<<11) - rightR) * tmpDiv);
+				rightStepG = (int32_t)(((int32_t)(video::getGreen(v2->Color)<<11) - rightG) * tmpDiv);
+				rightStepB = (int32_t)(((int32_t)(video::getBlue(v2->Color)<<11) - rightB) * tmpDiv);
 
-				tmpDiv = 1.0f / (f32)height;
+				tmpDiv = 1.0f / (float)height;
 				leftdeltaxf = (v3->Pos.X - v1->Pos.X) * tmpDiv;
-				leftZStep = (s32)((v3->ZValue - v1->ZValue) * tmpDiv);
-				leftStepR = (s32)(((s32)(video::getRed(v3->Color)<<11) - leftR) * tmpDiv);
-				leftStepG = (s32)(((s32)(video::getGreen(v3->Color)<<11) - leftG) * tmpDiv);
-				leftStepB = (s32)(((s32)(video::getBlue(v3->Color)<<11) - leftB) * tmpDiv);
+				leftZStep = (int32_t)((v3->ZValue - v1->ZValue) * tmpDiv);
+				leftStepR = (int32_t)(((int32_t)(video::getRed(v3->Color)<<11) - leftR) * tmpDiv);
+				leftStepG = (int32_t)(((int32_t)(video::getGreen(v3->Color)<<11) - leftG) * tmpDiv);
+				leftStepB = (int32_t)(((int32_t)(video::getBlue(v3->Color)<<11) - leftB) * tmpDiv);
 			}
 			else
 			{
-				tmpDiv = 1.0f / (f32)height;
+				tmpDiv = 1.0f / (float)height;
 				rightdeltaxf = (v3->Pos.X - v1->Pos.X) * tmpDiv;
-				rightZStep = (s32)((v3->ZValue - v1->ZValue) * tmpDiv);
-				rightStepR = (s32)(((s32)(video::getRed(v3->Color)<<11) - rightR) * tmpDiv);
-				rightStepG = (s32)(((s32)(video::getGreen(v3->Color)<<11) - rightG) * tmpDiv);
-				rightStepB = (s32)(((s32)(video::getBlue(v3->Color)<<11) - rightB) * tmpDiv);
+				rightZStep = (int32_t)((v3->ZValue - v1->ZValue) * tmpDiv);
+				rightStepR = (int32_t)(((int32_t)(video::getRed(v3->Color)<<11) - rightR) * tmpDiv);
+				rightStepG = (int32_t)(((int32_t)(video::getGreen(v3->Color)<<11) - rightG) * tmpDiv);
+				rightStepB = (int32_t)(((int32_t)(video::getBlue(v3->Color)<<11) - rightB) * tmpDiv);
 
-				tmpDiv = 1.0f / (f32)(v2->Pos.Y - v1->Pos.Y);
+				tmpDiv = 1.0f / (float)(v2->Pos.Y - v1->Pos.Y);
 				leftdeltaxf = (v2->Pos.X - v1->Pos.X) * tmpDiv;
-				leftZStep = (s32)((v2->ZValue - v1->ZValue) * tmpDiv);
-				leftStepR = (s32)(((s32)(video::getRed(v2->Color)<<11) - leftR) * tmpDiv);
-				leftStepG = (s32)(((s32)(video::getGreen(v2->Color)<<11) - leftG) * tmpDiv);
-				leftStepB = (s32)(((s32)(video::getBlue(v2->Color)<<11) - leftB) * tmpDiv);
+				leftZStep = (int32_t)((v2->ZValue - v1->ZValue) * tmpDiv);
+				leftStepR = (int32_t)(((int32_t)(video::getRed(v2->Color)<<11) - leftR) * tmpDiv);
+				leftStepG = (int32_t)(((int32_t)(video::getGreen(v2->Color)<<11) - leftG) * tmpDiv);
+				leftStepB = (int32_t)(((int32_t)(video::getBlue(v2->Color)<<11) - leftB) * tmpDiv);
 			}
 
 
 			// do it twice, once for the first half of the triangle,
 			// end then for the second half.
 
-			for (s32 triangleHalf=0; triangleHalf<2; ++triangleHalf)
+			for (int32_t triangleHalf=0; triangleHalf<2; ++triangleHalf)
 			{
 				if (spanEnd > ViewPortRect.LowerRightCorner.Y)
 					spanEnd = ViewPortRect.LowerRightCorner.Y;
 
-				// if the span <0, than we can skip these spans, 
+				// if the span <0, than we can skip these spans,
 				// and proceed to the next spans which are really on the screen.
 				if (span < ViewPortRect.UpperLeftCorner.Y)
 				{
@@ -183,7 +183,7 @@ public:
 					}
 					else
 					{
-						leftx = ViewPortRect.UpperLeftCorner.Y - span; 
+						leftx = ViewPortRect.UpperLeftCorner.Y - span;
 						span = ViewPortRect.UpperLeftCorner.Y;
 					}
 
@@ -207,8 +207,8 @@ public:
 
 				while (span < spanEnd)
 				{
-					leftx = (s32)(leftxf);
-					rightx = (s32)(rightxf + 0.5f);
+					leftx = (int32_t)(leftxf);
+					rightx = (int32_t)(rightxf + 0.5f);
 
 					// perform some clipping
 
@@ -232,18 +232,18 @@ public:
 					{
 						tmpDiv = 1.0f / (rightx - leftx);
 						spanZValue = leftZValue;
-						spanZStep = (s32)((rightZValue - leftZValue) * tmpDiv);
+						spanZStep = (int32_t)((rightZValue - leftZValue) * tmpDiv);
 
 						hSpanBegin = targetSurface + leftx;
 						spanZTarget = zTarget + leftx;
 						hSpanEnd = targetSurface + rightx;
 
-						spanR = leftR;	
-						spanG = leftG;	
+						spanR = leftR;
+						spanG = leftG;
 						spanB = leftB;
-						spanStepR = (s32)((rightR - leftR) * tmpDiv);
-						spanStepG = (s32)((rightG - leftG) * tmpDiv);
-						spanStepB = (s32)((rightB - leftB) * tmpDiv);
+						spanStepR = (int32_t)((rightR - leftR) * tmpDiv);
+						spanStepG = (int32_t)((rightG - leftG) * tmpDiv);
+						spanStepB = (int32_t)((rightB - leftB) * tmpDiv);
 
 						while (hSpanBegin < hSpanEnd)
 						{
@@ -256,7 +256,7 @@ public:
 							spanR += spanStepR;
 							spanG += spanStepG;
 							spanB += spanStepB;
-							
+
 							spanZValue += spanZStep;
 							++hSpanBegin;
 							++spanZTarget;
@@ -290,34 +290,34 @@ public:
 					tmpDiv = 1.0f / (v3->Pos.Y - v2->Pos.Y);
 
 					rightdeltaxf = (v3->Pos.X - v2->Pos.X) * tmpDiv;
-					rightxf = (f32)v2->Pos.X;
+					rightxf = (float)v2->Pos.X;
 
 					rightZValue = v2->ZValue;
-					rightZStep = (s32)((v3->ZValue - v2->ZValue) * tmpDiv);
+					rightZStep = (int32_t)((v3->ZValue - v2->ZValue) * tmpDiv);
 
 					rightR = video::getRed(v2->Color)<<11;
 					rightG = video::getGreen(v2->Color)<<11;
 					rightB = video::getBlue(v2->Color)<<11;
-					rightStepR = (s32)(((s32)(video::getRed(v3->Color)<<11) - rightR) * tmpDiv);
-					rightStepG = (s32)(((s32)(video::getGreen(v3->Color)<<11) - rightG) * tmpDiv);
-					rightStepB = (s32)(((s32)(video::getBlue(v3->Color)<<11) - rightB) * tmpDiv);
+					rightStepR = (int32_t)(((int32_t)(video::getRed(v3->Color)<<11) - rightR) * tmpDiv);
+					rightStepG = (int32_t)(((int32_t)(video::getGreen(v3->Color)<<11) - rightG) * tmpDiv);
+					rightStepB = (int32_t)(((int32_t)(video::getBlue(v3->Color)<<11) - rightB) * tmpDiv);
 				}
 				else
 				{
 					tmpDiv = 1.0f / (v3->Pos.Y - v2->Pos.Y);
 
 					leftdeltaxf = (v3->Pos.X - v2->Pos.X) * tmpDiv;
-					leftxf = (f32)v2->Pos.X;
+					leftxf = (float)v2->Pos.X;
 
 					leftZValue = v2->ZValue;
-					leftZStep = (s32)((v3->ZValue - v2->ZValue) * tmpDiv);
+					leftZStep = (int32_t)((v3->ZValue - v2->ZValue) * tmpDiv);
 
 					leftR = video::getRed(v2->Color)<<11;
 					leftG = video::getGreen(v2->Color)<<11;
 					leftB = video::getBlue(v2->Color)<<11;
-					leftStepR = (s32)(((s32)(video::getRed(v3->Color)<<11) - leftR) * tmpDiv);
-					leftStepG = (s32)(((s32)(video::getGreen(v3->Color)<<11) - leftG) * tmpDiv);
-					leftStepB = (s32)(((s32)(video::getBlue(v3->Color)<<11) - leftB) * tmpDiv);
+					leftStepR = (int32_t)(((int32_t)(video::getRed(v3->Color)<<11) - leftR) * tmpDiv);
+					leftStepG = (int32_t)(((int32_t)(video::getGreen(v3->Color)<<11) - leftG) * tmpDiv);
+					leftStepB = (int32_t)(((int32_t)(video::getBlue(v3->Color)<<11) - leftB) * tmpDiv);
 				}
 
 

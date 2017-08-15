@@ -29,15 +29,15 @@ struct SFileListEntry
 	io::path FullName;
 
 	//! The size of the file in bytes
-	u32 Size;
+	uint32_t Size;
 
 	//! The ID of the file in an archive
 	/** This is used to link the FileList entry to extra info held about this
 	file in an archive, which can hold things like data offset and CRC. */
-	u32 ID;
+	uint32_t ID;
 
 	//! FileOffset inside an archive
-	u32 Offset;
+	uint32_t Offset;
 
 	//! True if this is a folder, false if not.
 	bool IsDirectory;
@@ -82,34 +82,34 @@ public:
 	\param offset The offset where the file is stored in an archive
 	\param size The size of the file in bytes.
 	\param id The ID of the file in the archive which owns it */
-	virtual u32 addItem(const io::path& fullPath, u32 offset, u32 size, bool isDirectory, u32 id=0);
+	virtual uint32_t addItem(const io::path& fullPath, uint32_t offset, uint32_t size, bool isDirectory, uint32_t id=0);
 
 	//! Sorts the file list. You should call this after adding any items to the file list
 	virtual void sort();
 
 	//! Returns the amount of files in the filelist.
-	virtual u32 getFileCount() const;
+	virtual uint32_t getFileCount() const;
 
 	//! Gets the name of a file in the list, based on an index.
-	virtual const io::path& getFileName(u32 index) const;
+	virtual const io::path& getFileName(uint32_t index) const;
 
 	//! Gets the full name of a file in the list, path included, based on an index.
-	virtual const io::path& getFullFileName(u32 index) const;
+	virtual const io::path& getFullFileName(uint32_t index) const;
 
 	//! Returns the ID of a file in the file list, based on an index.
-	virtual u32 getID(u32 index) const;
+	virtual uint32_t getID(uint32_t index) const;
 
 	//! Returns true if the file is a directory
-	virtual bool isDirectory(u32 index) const;
+	virtual bool isDirectory(uint32_t index) const;
 
 	//! Returns the size of a file
-	virtual u32 getFileSize(u32 index) const;
+	virtual uint32_t getFileSize(uint32_t index) const;
 
 	//! Returns the offest of a file
-	virtual u32 getFileOffset(u32 index) const;
+	virtual uint32_t getFileOffset(uint32_t index) const;
 
 	//! Searches for a file or folder within the list, returns the index
-	virtual s32 findFile(const io::path& filename, bool isFolder) const;
+	virtual int32_t findFile(const io::path& filename, bool isFolder) const;
 
 	//! Returns the base path of the file list
 	virtual const io::path& getPath() const;

@@ -103,8 +103,8 @@ public:
 
 
 
-	virtual void setShaderConstant(const void* data, s32 location, E_SHADER_CONSTANT_TYPE type, u32 number=1) = 0;
-    virtual void setShaderTextures(const s32* textureIndices, s32 location, E_SHADER_CONSTANT_TYPE type, u32 number=1) = 0;
+	virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1) = 0;
+    virtual void setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1) = 0;
 
 
 	//! Get pointer to the IVideoDriver interface

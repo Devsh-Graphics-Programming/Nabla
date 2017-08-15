@@ -10,7 +10,6 @@
 #include "SMesh.h"
 #include "SAnimatedMesh.h"
 #include "IReadFile.h"
-#include "fast_atof.h"
 #include "coreutil.h"
 #include "os.h"
 #include "SVertexManipulator.h"
@@ -79,7 +78,7 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 	if (getNextToken(file, token) != "solid")
 		binary = true;
 	// read/skip header
-	u32 binFaceCount = 0;
+	uint32_t binFaceCount = 0;
 	std::vector<STLVertex> vertices;
 	if (binary)
 	{
@@ -94,7 +93,7 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 		goNextLine(file);
 
 
-	u16 attrib=0;
+	uint16_t attrib=0;
 	token.reserve(32);
 	while (file->getPos() < filesize)
 	{
@@ -127,7 +126,7 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 				return 0;
 			}
 		}
-		for (u32 i=0; i<3; ++i)
+		for (uint32_t i=0; i<3; ++i)
 		{
 			if (!binary)
 			{
@@ -201,11 +200,11 @@ void CSTLMeshFileLoader::getNextVector(io::IReadFile* file, core::vectorSIMDf& v
 		core::stringc tmp;
 
 		getNextToken(file, tmp);
-		core::fast_atof_move(tmp.c_str(), vec.X);
+		sscanf(tmp.c_str(),"%f",&vec.X);
 		getNextToken(file, tmp);
-		core::fast_atof_move(tmp.c_str(), vec.Y);
+		sscanf(tmp.c_str(),"%f",&vec.Y);
 		getNextToken(file, tmp);
-		core::fast_atof_move(tmp.c_str(), vec.Z);
+		sscanf(tmp.c_str(),"%f",&vec.Z);
 	}
 	vec.X=-vec.X;
 }
@@ -215,7 +214,7 @@ void CSTLMeshFileLoader::getNextVector(io::IReadFile* file, core::vectorSIMDf& v
 const core::stringc& CSTLMeshFileLoader::getNextToken(io::IReadFile* file, core::stringc& token) const
 {
 	goNextWord(file);
-	u8 c;
+	uint8_t c;
 	token = "";
 	while(file->getPos() != file->getSize())
 	{
@@ -232,7 +231,7 @@ const core::stringc& CSTLMeshFileLoader::getNextToken(io::IReadFile* file, core:
 //! skip to next word
 void CSTLMeshFileLoader::goNextWord(io::IReadFile* file) const
 {
-	u8 c;
+	uint8_t c;
 	while(file->getPos() != file->getSize())
 	{
 		file->read(&c, 1);
@@ -249,7 +248,7 @@ void CSTLMeshFileLoader::goNextWord(io::IReadFile* file) const
 //! Read until line break is reached and stop at the next non-space character
 void CSTLMeshFileLoader::goNextLine(io::IReadFile* file) const
 {
-	u8 c;
+	uint8_t c;
 	// look for newline characters
 	while(file->getPos() != file->getSize())
 	{

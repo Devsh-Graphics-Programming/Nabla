@@ -85,23 +85,23 @@ namespace scene
 		core::vector3df getNearRightDown() const;
 
 		//! returns a bounding box enclosing the whole view frustum
-		const core::aabbox3d<f32> &getBoundingBox() const;
+		const core::aabbox3d<float> &getBoundingBox() const;
 
 		//! recalculates the bounding box member based on the planes
 		inline void recalculateBoundingBox();
 
 		//! clips a line to the view frustum.
 		/** \return True if the line was clipped, false if not */
-		bool clipLine(core::line3d<f32>& line) const;
+		bool clipLine(core::line3d<float>& line) const;
 
 		//! the position of the camera
 		core::vector3df cameraPosition;
 
 		//! all planes enclosing the view frustum.
-		core::plane3d<f32> planes[VF_PLANE_COUNT];
+		core::plane3d<float> planes[VF_PLANE_COUNT];
 
 		//! bounding box around the view frustum
-		core::aabbox3d<f32> boundingBox;
+		core::aabbox3d<float> boundingBox;
 
 	private:
 	};
@@ -115,7 +115,7 @@ namespace scene
 		cameraPosition=other.cameraPosition;
 		boundingBox=other.boundingBox;
 
-		u32 i;
+		uint32_t i;
 		for (i=0; i<VF_PLANE_COUNT; ++i)
 			planes[i]=other.planes[i];
 	}
@@ -128,7 +128,7 @@ namespace scene
 
 	inline void SViewFrustum::transform(const core::matrix4& mat)
 	{
-		for (u32 i=0; i<VF_PLANE_COUNT; ++i)
+		for (uint32_t i=0; i<VF_PLANE_COUNT; ++i)
 			mat.transformPlane(planes[i]);
 
 		mat.transformVect(cameraPosition);
@@ -216,7 +216,7 @@ namespace scene
 		return p;
 	}
 
-	inline const core::aabbox3d<f32> &SViewFrustum::getBoundingBox() const
+	inline const core::aabbox3d<float> &SViewFrustum::getBoundingBox() const
 	{
 		return boundingBox;
 	}
@@ -272,10 +272,10 @@ namespace scene
 		planes[VF_NEAR_PLANE].D =        mat[14];
 
 		// normalize normals
-		u32 i;
+		uint32_t i;
 		for ( i=0; i != VF_PLANE_COUNT; ++i)
 		{
-			const f32 len = -core::reciprocal_squareroot(
+			const float len = -core::reciprocal_squareroot(
 					planes[i].Normal.getLengthSQ());
 			planes[i].Normal *= len;
 			planes[i].D *= len;
@@ -286,10 +286,10 @@ namespace scene
 	}
 
 	//! Clips a line to the frustum
-	inline bool SViewFrustum::clipLine(core::line3d<f32>& line) const
+	inline bool SViewFrustum::clipLine(core::line3d<float>& line) const
 	{
 		bool wasClipped = false;
-		for (u32 i=0; i < VF_PLANE_COUNT; ++i)
+		for (uint32_t i=0; i < VF_PLANE_COUNT; ++i)
 		{
 			if (planes[i].classifyPointRelation(line.start) == core::ISREL3D_FRONT)
 			{

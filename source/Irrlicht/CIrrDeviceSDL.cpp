@@ -7,6 +7,7 @@
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 
 #include "CIrrDeviceSDL.h"
+#include "CSceneManager.h"
 #include "IEventReceiver.h"
 #include "irrList.h"
 #include "os.h"
@@ -136,11 +137,23 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 CIrrDeviceSDL::~CIrrDeviceSDL()
 {
 #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
-	const u32 numJoysticks = Joysticks.size();
-	for (u32 i=0; i<numJoysticks; ++i)
+	const uint32_t numJoysticks = Joysticks.size();
+	for (uint32_t i=0; i<numJoysticks; ++i)
 		SDL_JoystickClose(Joysticks[i]);
 #endif
 	SDL_Quit();
+
+	if (SceneManager)
+		SceneManager->drop();
+
+	if (InputReceivingSceneManager)
+		InputReceivingSceneManager->drop();
+
+	if (CursorControl)
+		CursorControl->drop();
+
+	if (VideoDriver)
+		VideoDriver->drop();
 }
 
 
@@ -376,7 +389,7 @@ bool CIrrDeviceSDL::run()
 
 				if ( irrevent.MouseInput.Event >= EMIE_LMOUSE_PRESSED_DOWN && irrevent.MouseInput.Event <= EMIE_MMOUSE_PRESSED_DOWN )
 				{
-					u32 clicks = checkSuccessiveClicks(irrevent.MouseInput.X, irrevent.MouseInput.Y, irrevent.MouseInput.Event);
+					uint32_t clicks = checkSuccessiveClicks(irrevent.MouseInput.X, irrevent.MouseInput.Y, irrevent.MouseInput.Event);
 					if ( clicks == 2 )
 					{
 						irrevent.MouseInput.Event = (EMOUSE_INPUT_EVENT)(EMIE_LMOUSE_DOUBLE_CLICK + irrevent.MouseInput.Event-EMIE_LMOUSE_PRESSED_DOWN);
@@ -396,7 +409,7 @@ bool CIrrDeviceSDL::run()
 			{
 				SKeyMap mp;
 				mp.SDLKey = SDL_event.key.keysym.sym;
-				s32 idx = KeyMap.binary_search(mp);
+				int32_t idx = KeyMap.binary_search(mp);
 
 				EKEY_CODE key;
 				if (idx == -1)
@@ -442,14 +455,14 @@ bool CIrrDeviceSDL::run()
 				Height = SDL_event.resize.h;
 				Screen = SDL_SetVideoMode( Width, Height, 0, SDL_Flags );
 				if (VideoDriver)
-					VideoDriver->OnResize(core::dimension2d<u32>(Width, Height));
+					VideoDriver->OnResize(core::dimension2d<uint32_t>(Width, Height));
 			}
 			break;
 
 		case SDL_USEREVENT:
 			irrevent.EventType = irr::EET_USER_EVENT;
-			irrevent.UserEvent.UserData1 = *(reinterpret_cast<s32*>(&SDL_event.user.data1));
-			irrevent.UserEvent.UserData2 = *(reinterpret_cast<s32*>(&SDL_event.user.data2));
+			irrevent.UserEvent.UserData1 = *(reinterpret_cast<int32_t*>(&SDL_event.user.data1));
+			irrevent.UserEvent.UserData2 = *(reinterpret_cast<int32_t*>(&SDL_event.user.data2));
 
 			postEventFromUser(irrevent);
 			break;
@@ -469,7 +482,7 @@ bool CIrrDeviceSDL::run()
 	// we'll always send joystick input events...
 	SEvent joyevent;
 	joyevent.EventType = EET_JOYSTICK_INPUT_EVENT;
-	for (u32 i=0; i<Joysticks.size(); ++i)
+	for (uint32_t i=0; i<Joysticks.size(); ++i)
 	{
 		SDL_Joystick* joystick = Joysticks[i];
 		if (joystick)
@@ -535,7 +548,7 @@ bool CIrrDeviceSDL::run()
 			}
 
 			// we map the number directly
-			joyevent.JoystickEvent.Joystick=static_cast<u8>(i);
+			joyevent.JoystickEvent.Joystick=static_cast<uint8_t>(i);
 			// now post the event
 			postEventFromUser(joyevent);
 			// and close the joystick
@@ -598,7 +611,7 @@ void CIrrDeviceSDL::yield()
 
 
 //! pause execution for a specified time
-void CIrrDeviceSDL::sleep(u32 timeMs, bool pauseTimer)
+void CIrrDeviceSDL::sleep(uint32_t timeMs, bool pauseTimer)
 {
 	const bool wasStopped = Timer ? Timer->isStopped() : true;
 	if (pauseTimer && !wasStopped)
@@ -612,7 +625,7 @@ void CIrrDeviceSDL::sleep(u32 timeMs, bool pauseTimer)
 
 
 //! sets the caption of the window
-void CIrrDeviceSDL::setWindowCaption(const wchar_t* text)
+void CIrrDeviceSDL::setWindowCaption(const std::wstring& text)
 {
 	core::stringc textc = text;
 	SDL_WM_SetCaption( textc.c_str( ), textc.c_str( ) );
@@ -620,7 +633,7 @@ void CIrrDeviceSDL::setWindowCaption(const wchar_t* text)
 
 
 //! presents a surface in the client area
-bool CIrrDeviceSDL::present(video::IImage* surface, void* windowId, core::rect<s32>* srcClip)
+bool CIrrDeviceSDL::present(video::IImage* surface, void* windowId, core::rect<int32_t>* srcClip)
 {
 	SDL_Surface *sdlSurface = SDL_CreateRGBSurfaceFrom(
 			surface->lock(), surface->getDimension().Width, surface->getDimension().Height,
@@ -721,8 +734,8 @@ video::IVideoModeList* CIrrDeviceSDL::getVideoModeList()
 				os::Printer::log("All modes available.\n");
 			else
 			{
-				for (u32 i=0; modes[i]; ++i)
-					VideoModeList->addMode(core::dimension2d<u32>(modes[i]->w, modes[i]->h), vi->vfmt->BitsPerPixel);
+				for (uint32_t i=0; modes[i]; ++i)
+					VideoModeList->addMode(core::dimension2d<uint32_t>(modes[i]->w, modes[i]->h), vi->vfmt->BitsPerPixel);
 			}
 		}
 	}

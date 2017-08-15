@@ -14,7 +14,7 @@ namespace io
 
 //! Type used for all file system related strings.
 /** This type will transparently handle different file system encodings. */
-typedef core::string<fschar_t> path;
+typedef core::string<char> path;
 
 //! Used in places where we identify objects by a filename, but don't actually work with the real filename
 /** Irrlicht is internally not case-sensitive when it comes to names.

@@ -22,25 +22,25 @@ namespace video
 
 	// these structs are also used in the TGA writer
 	struct STGAHeader{
-		u8 IdLength;
-		u8 ColorMapType;
-		u8 ImageType;
-		u8 FirstEntryIndex[2];
-		u16 ColorMapLength;
-		u8 ColorMapEntrySize;
-		u8 XOrigin[2];
-		u8 YOrigin[2];
-		u16 ImageWidth;
-		u16 ImageHeight;
-		u8 PixelDepth;
-		u8 ImageDescriptor;
+		uint8_t IdLength;
+		uint8_t ColorMapType;
+		uint8_t ImageType;
+		uint8_t FirstEntryIndex[2];
+		uint16_t ColorMapLength;
+		uint8_t ColorMapEntrySize;
+		uint8_t XOrigin[2];
+		uint8_t YOrigin[2];
+		uint16_t ImageWidth;
+		uint16_t ImageHeight;
+		uint8_t PixelDepth;
+		uint8_t ImageDescriptor;
 	} PACK_STRUCT;
 
 	struct STGAFooter
 	{
-		u32 ExtensionOffset;
-		u32 DeveloperOffset;
-		c8  Signature[18];
+		uint32_t ExtensionOffset;
+		uint32_t DeveloperOffset;
+		char  Signature[18];
 	} PACK_STRUCT;
 
 // Default alignment
@@ -70,7 +70,7 @@ public:
 private:
 
 	//! loads a compressed tga. Was written and sent in by Jon Pry, thank you very much!
-	u8* loadCompressedImage(io::IReadFile *file, const STGAHeader& header) const;
+	uint8_t* loadCompressedImage(io::IReadFile *file, const STGAHeader& header) const;
 };
 
 #endif // compiled with loader

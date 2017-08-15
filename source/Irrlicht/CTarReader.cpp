@@ -89,7 +89,7 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(io::IReadFile* file) const
 	STarHeader fHead;
 	file->read(&fHead, sizeof(STarHeader));
 
-	u32 checksum = 0;
+	uint32_t checksum = 0;
 	sscanf(fHead.Checksum, "%o", &checksum);
 
 	// verify checksum
@@ -97,28 +97,28 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(io::IReadFile* file) const
 	// some old TAR writers assume that chars are signed, others assume unsigned
 	// USTAR archives have a longer header, old TAR archives end after linkname
 
-	u32 checksum1=0;
-	s32 checksum2=0;
+	uint32_t checksum1=0;
+	int32_t checksum2=0;
 
 	// remember to blank the checksum field!
 	memset(fHead.Checksum, ' ', 8);
 
 	// old header
-	for (u8* p = (u8*)(&fHead); p < (u8*)(&fHead.Magic[0]); ++p)
+	for (uint8_t* p = (uint8_t*)(&fHead); p < (uint8_t*)(&fHead.Magic[0]); ++p)
 	{
 		checksum1 += *p;
-		checksum2 += c8(*p);
+		checksum2 += char(*p);
 	}
 
 	if (!strncmp(fHead.Magic, "ustar", 5))
 	{
-		for (u8* p = (u8*)(&fHead.Magic[0]); p < (u8*)(&fHead) + sizeof(fHead); ++p)
+		for (uint8_t* p = (uint8_t*)(&fHead.Magic[0]); p < (uint8_t*)(&fHead) + sizeof(fHead); ++p)
 		{
 			checksum1 += *p;
-			checksum2 += c8(*p);
+			checksum2 += char(*p);
 		}
 	}
-	return checksum1 == checksum || checksum2 == (s32)checksum;
+	return checksum1 == checksum || checksum2 == (int32_t)checksum;
 }
 
 /*
@@ -155,13 +155,13 @@ const IFileList* CTarReader::getFileList() const
 }
 
 
-u32 CTarReader::populateFileList()
+uint32_t CTarReader::populateFileList()
 {
 	STarHeader fHead;
 	Files.clear();
 
-	u32 pos = 0;
-	while ( s32(pos + sizeof(STarHeader)) < File->getSize())
+	uint32_t pos = 0;
+	while ( int32_t(pos + sizeof(STarHeader)) < File->getSize())
 	{
 		// seek to next file header
 		File->seek(pos);
@@ -179,14 +179,14 @@ u32 CTarReader::populateFileList()
 			// may not be null terminated, copy carefully!
 			if (!strncmp(fHead.Magic, "ustar", 5))
 			{
-				c8* np = fHead.FileNamePrefix;
+				char* np = fHead.FileNamePrefix;
 				while(*np && (np - fHead.FileNamePrefix) < 155)
 					fullPath.append(*np);
 				np++;
 			}
 
 			// append the file name
-			c8* np = fHead.FileName;
+			char* np = fHead.FileName;
 			while(*np && (np - fHead.FileName) < 100)
 			{
 				fullPath.append(*np);
@@ -203,14 +203,14 @@ u32 CTarReader::populateFileList()
 				np++;
 			}
 
-			u32 size = strtoul(sSize.c_str(), NULL, 8);
+			uint32_t size = strtoul(sSize.c_str(), NULL, 8);
 #if !defined(_IRR_WINDOWS_CE_PLATFORM_)
 			if (errno == ERANGE)
-				os::Printer::log("File too large", fullPath, ELL_WARNING);
+				os::Printer::log("File too large", fullPath.c_str(), ELL_WARNING);
 #endif
 
 			// save start position
-			u32 offset = pos + 512;
+			uint32_t offset = pos + 512;
 
 			// move to next file header block
 			pos = offset + (size / 512) * 512 + ((size % 512) ? 512 : 0);
@@ -234,7 +234,7 @@ u32 CTarReader::populateFileList()
 //! opens a file by file name
 IReadFile* CTarReader::createAndOpenFile(const io::path& filename)
 {
-	const s32 index = findFile(filename, false);
+	const int32_t index = findFile(filename, false);
 
 	if (index != -1)
 		return createAndOpenFile(index);
@@ -243,7 +243,7 @@ IReadFile* CTarReader::createAndOpenFile(const io::path& filename)
 }
 
 //! opens a file by index
-IReadFile* CTarReader::createAndOpenFile(u32 index)
+IReadFile* CTarReader::createAndOpenFile(uint32_t index)
 {
 	if (index >= Files.size() )
 		return 0;

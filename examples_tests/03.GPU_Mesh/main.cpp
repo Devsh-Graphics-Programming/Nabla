@@ -39,7 +39,7 @@ private:
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
-    s32 mvpUniformLocation;
+    int32_t mvpUniformLocation;
     video::E_SHADER_CONSTANT_TYPE mvpUniformType;
 public:
     SimpleCallBack() : mvpUniformLocation(-1), mvpUniformType(video::ESCT_FLOAT_VEC3) {}
@@ -51,7 +51,7 @@ public:
         mvpUniformType = constants[0].type;
     }
 
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, s32 userData)
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
         services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
     }
@@ -83,7 +83,7 @@ int main()
 	params.ZBufferBits = 24; //we'd like 32bit here
     params.AntiAlias = 0; //No AA, yet
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<u32>(1280, 720);
+	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;

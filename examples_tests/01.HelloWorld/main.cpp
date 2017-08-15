@@ -42,11 +42,12 @@ int main()
 	params.ZBufferBits = 24; //we'd like 32bit here
     params.AntiAlias = 0; //No AA, yet
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = core::dimension2d<u32>(1280, 720);
+	params.WindowSize = core::dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
+	params.AuxGLContexts = 16;
 	IrrlichtDevice* device = createDeviceEx(params);
 
 	if (device == 0)
@@ -71,12 +72,11 @@ int main()
 		uint64_t time = device->getTimer()->getRealTime();
 		if (time-lastFPSTime > 1000)
 		{
-			core::stringw str = L"Hello World - Irrlicht Engine [";
-			str += driver->getName();
-			str += "] FPS:";
-			str += driver->getFPS();
+		    std::wostringstream str(L"Hello World - Irrlicht Engine [");
+		    str.seekp(0,std::ios_base::end);
+			str << driver->getName() << "] FPS:" << driver->getFPS();
 
-			device->setWindowCaption(str.c_str());
+			device->setWindowCaption(str.str());
 			lastFPSTime = time;
 		}
 	}

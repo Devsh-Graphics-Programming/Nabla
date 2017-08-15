@@ -25,7 +25,7 @@ namespace scene
 	public:
 
 		//! Constructor
-		ICameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
+		ICameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f,1.0f,1.0f))
@@ -95,35 +95,35 @@ namespace scene
 
 		//! Gets the value of the near plane of the camera.
 		/** \return The value of the near plane of the camera. */
-		virtual f32 getNearValue() const =0;
+		virtual float getNearValue() const =0;
 
 		//! Gets the value of the far plane of the camera.
 		/** \return The value of the far plane of the camera. */
-		virtual f32 getFarValue() const =0;
+		virtual float getFarValue() const =0;
 
 		//! Gets the aspect ratio of the camera.
 		/** \return The aspect ratio of the camera. */
-		virtual f32 getAspectRatio() const =0;
+		virtual float getAspectRatio() const =0;
 
 		//! Gets the field of view of the camera.
 		/** \return The field of view of the camera in radians. */
-		virtual f32 getFOV() const =0;
+		virtual float getFOV() const =0;
 
 		//! Sets the value of the near clipping plane. (default: 1.0f)
 		/** \param zn: New z near value. */
-		virtual void setNearValue(f32 zn) =0;
+		virtual void setNearValue(float zn) =0;
 
 		//! Sets the value of the far clipping plane (default: 2000.0f)
 		/** \param zf: New z far value. */
-		virtual void setFarValue(f32 zf) =0;
+		virtual void setFarValue(float zf) =0;
 
 		//! Sets the aspect ratio (default: 4.0f / 3.0f)
 		/** \param aspect: New aspect ratio. */
-		virtual void setAspectRatio(f32 aspect) =0;
+		virtual void setAspectRatio(float aspect) =0;
 
 		//! Sets the field of view (Default: PI / 2.5f)
 		/** \param fovy: New field of view in radians. */
-		virtual void setFOV(f32 fovy) =0;
+		virtual void setFOV(float fovy) =0;
 
 		//! Get the view frustum.
 		/** Needed sometimes by bspTree or LOD render nodes.
@@ -141,7 +141,6 @@ namespace scene
 		//! Checks if a camera is orthogonal.
 		virtual bool isOrthogonal() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return IsOrthogonal;
 		}
 

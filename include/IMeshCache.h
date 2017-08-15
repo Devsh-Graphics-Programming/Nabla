@@ -37,8 +37,7 @@ namespace scene
 		that a mesh already has been loaded. This method can be used
 		for example by mesh loaders who need to load more than one mesh
 		with one call. They can add additional meshes with this method
-		to the scene manager. The COLLADA loader for example uses this
-		method.
+		to the scene manager.
 		\param name Name of the mesh. When calling
 		ISceneManager::getMesh() with this name it will return the mesh
 		set by this method.
@@ -59,12 +58,12 @@ namespace scene
 		you can do this using removeMesh(), getMeshNumber(),
 		getMeshByIndex() and getMeshName().
 		\return Number of meshes in cache. */
-		virtual u32 getMeshCount() const = 0;
+		virtual uint32_t getMeshCount() const = 0;
 
 		//! Returns current index number of the mesh or -1 when not found.
 		/** \param mesh Pointer to the mesh to search for.
 		\return Index of the mesh in the cache, or -1 if not found. */
-		virtual s32 getMeshIndex(const /*IAnimatedMesh*/T* const mesh) const = 0;
+		virtual int32_t getMeshIndex(const /*IAnimatedMesh*/T* const mesh) const = 0;
 
 		//! Returns a mesh based on its index number.
 		/** \param index: Index of the mesh, number between 0 and
@@ -73,7 +72,7 @@ namespace scene
 		or removed.
 		\return Pointer to the mesh or 0 if there is none with this
 		number. */
-		virtual /*IAnimatedMesh*/T* getMeshByIndex(u32 index) = 0;
+		virtual /*IAnimatedMesh*/T* getMeshByIndex(uint32_t index) = 0;
 
 		//! Returns a mesh based on its name.
 		/** \param name Name of the mesh. Usually a filename.
@@ -83,7 +82,7 @@ namespace scene
 		//! Get the name of a loaded mesh, based on its index.
 		/** \param index: Index of the mesh, number between 0 and getMeshCount()-1.
 		\return The name if mesh was found and has a name, else	the path is empty. */
-		virtual const io::SNamedPath& getMeshName(u32 index) const = 0;
+		virtual const io::SNamedPath& getMeshName(uint32_t index) const = 0;
 
 		//! Get the name of the loaded mesh if there is any.
 		/** \param mesh Pointer to mesh to query.
@@ -97,7 +96,7 @@ namespace scene
 		\param index The index of the mesh in the cache.
 		\param name New name for the mesh.
 		\return True if mesh was renamed. */
-		virtual bool renameMesh(u32 index, const io::path& name) = 0;
+		virtual bool renameMesh(uint32_t index, const io::path& name) = 0;
 
 		//! Renames the loaded mesh
 		/** Note that renaming meshes might change the ordering of the

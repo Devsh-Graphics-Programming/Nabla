@@ -29,10 +29,10 @@ namespace io
 		virtual ~CMemoryFile();
 
 		//! returns how much was read
-		virtual s32 read(void* buffer, u32 sizeToRead);
+		virtual int32_t read(void* buffer, uint32_t sizeToRead);
 
 		//! returns how much was written
-		virtual s32 write(const void* buffer, u32 sizeToWrite);
+		virtual int32_t write(const void* buffer, uint32_t sizeToWrite);
 
 		//! changes position in file, returns true if successful
 		virtual bool seek(long finalPos, bool relativeMovement = false);

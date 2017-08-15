@@ -218,7 +218,7 @@ If not defined, Windows Multimedia library is used, which offers also broad supp
 define out. */
 #ifndef BAW_SERVER
 #define _IRR_COMPILE_WITH_OPENGL_
-#define _IRR_COMPILE_WITH_OPENCL_
+///#define _IRR_COMPILE_WITH_OPENCL_
 #endif
 
 #ifdef NO_IRR_COMPILE_WITH_OPENGL_
@@ -286,16 +286,6 @@ define out. */
 
 #endif
 
-
-//! Define _IRR_WCHAR_FILESYSTEM to enable unicode filesystem support for the engine.
-/** This enables the engine to read/write from unicode filesystem. If you
-disable this feature, the engine behave as before (ansi). This is currently only supported
-for Windows based systems. You also have to set #define UNICODE for this to compile.
-*/
-//#define _IRR_WCHAR_FILESYSTEM
-#ifdef NO_IRR_WCHAR_FILESYSTEM
-#undef _IRR_WCHAR_FILESYSTEM
-#endif
 
 //! Define _IRR_COMPILE_WITH_JPEGLIB_ to enable compiling the engine using libjpeg.
 /** This enables the engine to read jpeg images. If you comment this out,
@@ -418,13 +408,6 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_3DS_LOADER_
 #undef _IRR_COMPILE_WITH_3DS_LOADER_
 #endif
-//! Define _IRR_COMPILE_WITH_COLLADA_LOADER_ if you want to load Collada files
-#ifndef NEW_MESHES
-#define _IRR_COMPILE_WITH_COLLADA_LOADER_
-#endif // NEW_MESHES
-#ifdef NO_IRR_COMPILE_WITH_COLLADA_LOADER_
-#undef _IRR_COMPILE_WITH_COLLADA_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_CSM_LOADER_ if you want to load Cartography Shop files
 //#define _IRR_COMPILE_WITH_CSM_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_CSM_LOADER_
@@ -484,11 +467,6 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #undef _IRR_COMPILE_WITH_STL_WRITER_
 #endif
 #ifndef NEW_MESHES
-//! Define _IRR_COMPILE_WITH_COLLADA_WRITER_ if you want to write Collada files
-#define _IRR_COMPILE_WITH_COLLADA_WRITER_
-#ifdef NO_IRR_COMPILE_WITH_COLLADA_WRITER_
-#undef _IRR_COMPILE_WITH_COLLADA_WRITER_
-#endif
 //! Define _IRR_COMPILE_WITH_OBJ_WRITER_ if you want to write .obj files
 #define _IRR_COMPILE_WITH_OBJ_WRITER_
 #ifdef NO_IRR_COMPILE_WITH_OBJ_WRITER_
@@ -646,7 +624,7 @@ defined. */
 //! Define _IRR_COMPILE_WITH_LZMA_ if you want to use LZMA compressed zip files.
 /** LZMA is a very efficient compression code, known from 7zip. Irrlicht
 currently only supports zip archives, though. */
-#define _IRR_COMPILE_WITH_LZMA_
+//#define _IRR_COMPILE_WITH_LZMA_
 #ifdef NO_IRR_COMPILE_WITH_LZMA_
 #undef _IRR_COMPILE_WITH_LZMA_
 #endif
@@ -755,10 +733,8 @@ precision will be lower but speed higher. currently X86 only
 
 	#undef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 	#define _IRR_COMPILE_WITH_WINDOWS_CE_DEVICE_
-	//#define _IRR_WCHAR_FILESYSTEM
 
 	#undef _IRR_COMPILE_WITH_3DS_LOADER_
-	#undef _IRR_COMPILE_WITH_COLLADA_LOADER_
 	#undef _IRR_COMPILE_WITH_CSM_LOADER_
 	#undef _IRR_COMPILE_WITH_BSP_LOADER_
 	#undef _IRR_COMPILE_WITH_DMF_LOADER_
@@ -769,7 +745,6 @@ precision will be lower but speed higher. currently X86 only
 	#undef _IRR_COMPILE_WITH_OGRE_LOADER_
 	#undef _IRR_COMPILE_WITH_LWO_LOADER_
 	#undef _IRR_COMPILE_WITH_STL_LOADER_
-	#undef _IRR_COMPILE_WITH_COLLADA_WRITER_
 	#undef _IRR_COMPILE_WITH_STL_WRITER_
 	#undef _IRR_COMPILE_WITH_OBJ_WRITER_
 	//#undef _IRR_COMPILE_WITH_BMP_LOADER_
@@ -802,7 +777,7 @@ precision will be lower but speed higher. currently X86 only
 	#undef _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
 #endif
 
-//! Define __IRR_HAS_S64 if the irr::s64 type should be enable (needs long long, available on most platforms, but not part of ISO C++ 98)
+//! Define __IRR_HAS_S64 if the irr::int64_t type should be enable (needs long long, available on most platforms, but not part of ISO C++ 98)
 #define __IRR_HAS_S64
 #ifdef NO__IRR_HAS_S64
 #undef __IRR_HAS_S64

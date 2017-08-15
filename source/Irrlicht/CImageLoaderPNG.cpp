@@ -44,7 +44,7 @@ void PNGAPI user_read_data_fcn(png_structp png_ptr, png_bytep data, png_size_t l
 
 	// changed by zola {
 	io::IReadFile* file=(io::IReadFile*)png_get_io_ptr(png_ptr);
-	check=(png_size_t) file->read((void*)data,(u32)length);
+	check=(png_size_t) file->read((void*)data,(uint32_t)length);
 	// }
 
 	if (check != length)
@@ -94,20 +94,20 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 
 	video::IImage* image = 0;
 	//Used to point to image rows
-	u8** RowPointers = 0;
+	uint8_t** RowPointers = 0;
 
 	png_byte buffer[8];
 	// Read the first few bytes of the PNG file
 	if( file->read(buffer, 8) != 8 )
 	{
-		os::Printer::log("LOAD PNG: can't read file\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("LOAD PNG: can't read file\n", file->getFileName().c_str(), ELL_ERROR);
 		return 0;
 	}
 
 	// Check if it really is a PNG file
 	if( png_sig_cmp(buffer, 0, 8) )
 	{
-		os::Printer::log("LOAD PNG: not really a png\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("LOAD PNG: not really a png\n", file->getFileName().c_str(), ELL_ERROR);
 		return 0;
 	}
 
@@ -116,7 +116,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 		NULL, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warn);
 	if (!png_ptr)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create read struct failure\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("LOAD PNG: Internal PNG create read struct failure\n", file->getFileName().c_str(), ELL_ERROR);
 		return 0;
 	}
 
@@ -124,7 +124,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	png_infop info_ptr = png_create_info_struct(png_ptr);
 	if (!info_ptr)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create info struct failure\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("LOAD PNG: Internal PNG create info struct failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_read_struct(&png_ptr, NULL, NULL);
 		return 0;
 	}
@@ -145,10 +145,10 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 
 	png_read_info(png_ptr, info_ptr); // Read the info section of the png file
 
-	u32 Width;
-	u32 Height;
-	s32 BitDepth;
-	s32 ColorType;
+	uint32_t Width;
+	uint32_t Height;
+	int32_t BitDepth;
+	int32_t ColorType;
 	{
 		// Use temporary variables to avoid passing casted pointers
 		png_uint_32 w,h;
@@ -224,12 +224,12 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 
 	// Create the image structure to be filled by png data
 	if (ColorType==PNG_COLOR_TYPE_RGB_ALPHA)
-		image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(Width, Height));
+		image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(Width, Height));
 	else
-		image = new CImage(ECF_R8G8B8, core::dimension2d<u32>(Width, Height));
+		image = new CImage(ECF_R8G8B8, core::dimension2d<uint32_t>(Width, Height));
 	if (!image)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_read_struct(&png_ptr, NULL, NULL);
 		return 0;
 	}
@@ -238,7 +238,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	RowPointers = new png_bytep[Height];
 	if (!RowPointers)
 	{
-		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_read_struct(&png_ptr, NULL, NULL);
 		delete image;
 		return 0;
@@ -246,7 +246,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 
 	// Fill array of pointers to rows in image data
 	unsigned char* data = (unsigned char*)image->lock();
-	for (u32 i=0; i<Height; ++i)
+	for (uint32_t i=0; i<Height; ++i)
 	{
 		RowPointers[i]=data;
 		data += image->getPitch();

@@ -41,12 +41,12 @@ inline bool CWriteFile::isOpen() const
 
 
 //! returns how much was read
-s32 CWriteFile::write(const void* buffer, u32 sizeToWrite)
+int32_t CWriteFile::write(const void* buffer, uint32_t sizeToWrite)
 {
 	if (!isOpen())
 		return 0;
 
-	return (s32)fwrite(buffer, 1, sizeToWrite, File);
+	return (int32_t)fwrite(buffer, 1, sizeToWrite, File);
 }
 
 

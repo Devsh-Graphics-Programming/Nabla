@@ -25,8 +25,8 @@ namespace video
 #include "irrpack.h"
 
 	struct SLMPHeader {
-		u32	width;	// width
-		u32	height;	// height
+		uint32_t	width;	// width
+		uint32_t	height;	// height
 		// variably sized
 	} PACK_STRUCT;
 
@@ -70,22 +70,22 @@ public:
 	// Halfelife wad3 type 67 file
 	struct miptex_halflife
 	{
-		c8  name[16];
-		u32 width, height;
-		u32 mipmap[4];		// four mip maps stored
+		int8_t  name[16];
+		uint32_t width, height;
+		uint32_t mipmap[4];		// four mip maps stored
 	} PACK_STRUCT;
 
 	//quake2 texture
 	struct miptex_quake2
 	{
-		c8 name[32];
-		u32 width;
-		u32 height;
-		u32 mipmap[4];		// four mip maps stored
-		c8  animname[32];	// next frame in animation chain
-		s32 flags;
-		s32 contents;
-		s32 value;
+		int8_t name[32];
+		uint32_t width;
+		uint32_t height;
+		uint32_t mipmap[4];		// four mip maps stored
+		int8_t  animname[32];	// next frame in animation chain
+		int32_t flags;
+		int32_t contents;
+		int32_t value;
 	} PACK_STRUCT;
 
 // Default alignment

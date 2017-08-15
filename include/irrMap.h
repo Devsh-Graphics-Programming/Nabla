@@ -54,43 +54,36 @@ class map
 
 		const ValueTypeRB& getValue() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return Value;
 		}
 
 		ValueTypeRB& getValue()
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return Value;
 		}
 
 		const KeyTypeRB& getKey() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return Key;
 		}
 
 		bool isRoot() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return Parent==0;
 		}
 
 		bool isLeftChild() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return (Parent != 0) && (Parent->getLeftChild()==this);
 		}
 
 		bool isRightChild() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return (Parent!=0) && (Parent->getRightChild()==this);
 		}
 
 		bool isLeaf() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return (LeftChild==0) && (RightChild==0);
 		}
 
@@ -105,13 +98,11 @@ class map
 
 		bool isRed() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return IsRed;
 		}
 
 		bool isBlack() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return !IsRed;
 		}
 
@@ -162,7 +153,6 @@ class map
 
 		bool atEnd() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return Cur==0;
 		}
 
@@ -311,7 +301,6 @@ class map
 
 		bool atEnd() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return Cur==0;
 		}
 
@@ -456,7 +445,6 @@ class map
 
 	bool atEnd() const
 	{
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return Cur==0;
 	}
 
@@ -556,7 +544,6 @@ class map
 
 		bool atEnd() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return Cur==0;
 		}
 
@@ -654,7 +641,6 @@ class map
 			// Not found
 			_IRR_DEBUG_BREAK_IF(node==0) // access violation
 
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return node->getValue();
 		}
 
@@ -693,7 +679,6 @@ class map
 		if (!insert(newNode))
 		{
 			delete newNode;
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return false;
 		}
 
@@ -832,7 +817,6 @@ class map
 	{
 		if (p == 0)
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return false;
 		}
 
@@ -888,7 +872,6 @@ class map
 	//! \return Returns true if empty, false if not
 	bool empty() const
 	{
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return Root == 0;
 	}
 
@@ -929,7 +912,7 @@ class map
 	}
 
 	//! Returns the number of nodes in the tree.
-	u32 size() const
+	uint32_t size() const
 	{
 		return Size;
 	}
@@ -1073,7 +1056,6 @@ class map
 				++Size;
 		}
 
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return result;
 	}
 
@@ -1117,7 +1099,7 @@ class map
 	// Private Members
 	//------------------------------
 	Node* Root; // The top node. 0 if empty.
-	u32 Size; // Number of nodes in the tree
+	uint32_t Size; // Number of nodes in the tree
 };
 
 } // end namespace core

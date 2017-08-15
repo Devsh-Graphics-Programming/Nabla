@@ -48,22 +48,22 @@ namespace scene
 
 struct SMyColor
 {   SMyColor () {;}
-    SMyColor (s32 __R, s32 __G, s32 __B, s32 __A)
+    SMyColor (int32_t __R, int32_t __G, int32_t __B, int32_t __A)
         : R(__R), G(__G), B(__B), A(__A) {}
-    s32 R, G, B, A;
+    int32_t R, G, B, A;
 } PACK_STRUCT;
 
 // material header
 struct SMyMaterialHeader
-{   c8  Name[256];           // material name
-    u32 Index;
+{   int8_t  Name[256];           // material name
+    uint32_t Index;
     SMyColor AmbientColor;
     SMyColor DiffuseColor;
     SMyColor EmissiveColor;
     SMyColor SpecularColor;
-    f32 Shininess;
-    f32 Transparency;
-    u32 TextureCount;        // texture count
+    float Shininess;
+    float Transparency;
+    uint32_t TextureCount;        // texture count
 } PACK_STRUCT;
 
 // Default alignment
@@ -107,15 +107,15 @@ private:
 	struct SMyMeshBufferEntry
 	{
 		SMyMeshBufferEntry() : MaterialIndex(-1), MeshBuffer(0) {}
-		SMyMeshBufferEntry(s32 mi, SMeshBufferLightMap* mb)
+		SMyMeshBufferEntry(int32_t mi, SMeshBufferLightMap* mb)
 			: MaterialIndex(mi), MeshBuffer(mb) {}
 
-		s32 MaterialIndex;
+		int32_t MaterialIndex;
 		SMeshBufferLightMap* MeshBuffer;
 	};
 
-	SMyMaterialEntry*    getMaterialEntryByIndex     (u32 matInd);
-	SMeshBufferLightMap* getMeshBufferByMaterialIndex(u32 matInd);
+	SMyMaterialEntry*    getMaterialEntryByIndex     (uint32_t matInd);
+	SMeshBufferLightMap* getMeshBufferByMaterialIndex(uint32_t matInd);
 
 	core::array<SMyMaterialEntry>   MaterialEntry;
 	core::array<SMyMeshBufferEntry> MeshBufferEntry;

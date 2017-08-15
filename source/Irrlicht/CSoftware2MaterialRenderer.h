@@ -71,7 +71,7 @@ public:
 	CSoftware2MaterialRenderer_UNSUPPORTED ( video::CBurningVideoDriver* driver )
 		: CSoftware2MaterialRenderer ( driver ) {}
 
-	virtual s32 getRenderCapability() const { return 1; }
+	virtual int32_t getRenderCapability() const { return 1; }
 
 };
 
@@ -102,7 +102,7 @@ public:
 	};
 
 
-	virtual s32 getRenderCapability() const
+	virtual int32_t getRenderCapability() const
 	{
 		return 1;
 	}

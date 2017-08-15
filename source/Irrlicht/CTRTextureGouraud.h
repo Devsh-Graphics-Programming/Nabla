@@ -34,15 +34,15 @@ namespace video
 
 		//! constructor
 		CTRTextureGouraud(IZBuffer* zbuffer);
-	
+
 		//! destructor
 		virtual ~CTRTextureGouraud();
-	
+
 		//! sets a render target
-		virtual void setRenderTarget(video::IImage* surface, const core::rect<s32>& viewPort);
+		virtual void setRenderTarget(video::IImage* surface, const core::rect<int32_t>& viewPort);
 
 		//! draws an indexed triangle list
-		virtual void drawIndexedTriangleList(S2DVertex* vertices, s32 vertexCount, const u16* indexList, s32 triangleCount);
+		virtual void drawIndexedTriangleList(S2DVertex* vertices, int32_t vertexCount, const uint16_t* indexList, int32_t triangleCount);
 
 		//! en or disables the backface culling
 		virtual void setBackfaceCulling(bool enabled = true);
@@ -61,18 +61,18 @@ namespace video
 		}
 
 		video::IImage* RenderTarget;
-		core::rect<s32> ViewPortRect;
+		core::rect<int32_t> ViewPortRect;
 
 		IZBuffer* ZBuffer;
 
-		s32 SurfaceWidth;
-		s32 SurfaceHeight;
+		int32_t SurfaceWidth;
+		int32_t SurfaceHeight;
 		bool BackFaceCullingEnabled;
 		TZBufferType* lockedZBuffer;
-		u16* lockedSurface;
-		u16* lockedTexture;
-		s32 lockedTextureWidth;
-		s32 textureXMask, textureYMask;
+		uint16_t* lockedSurface;
+		uint16_t* lockedTexture;
+		int32_t lockedTextureWidth;
+		int32_t textureXMask, textureYMask;
 		video::IImage* Texture;
 	};
 

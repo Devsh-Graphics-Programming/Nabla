@@ -24,18 +24,18 @@ namespace io
 	struct SPAKFileHeader
 	{
 		// Don't change the order of these fields!  They must match the order stored on disk.
-		c8 tag[4];
-		u32 offset;
-		u32 length;
+		char tag[4];
+		uint32_t offset;
+		uint32_t length;
 	};
 
 	//! An entry in the PAK file's table of contents.
 	struct SPAKFileEntry
 	{
 		// Don't change the order of these fields!  They must match the order stored on disk.
-		c8 name[56];
-		u32 offset;
-		u32 length;
+		char name[56];
+		uint32_t offset;
+		uint32_t length;
 	};
 
 	//! Archiveloader capable of loading PAK Archives
@@ -99,7 +99,7 @@ namespace io
 		virtual IReadFile* createAndOpenFile(const io::path& filename);
 
 		//! opens a file by index
-		virtual IReadFile* createAndOpenFile(u32 index);
+		virtual IReadFile* createAndOpenFile(uint32_t index);
 
 		//! returns the list of files
 		virtual const IFileList* getFileList() const;

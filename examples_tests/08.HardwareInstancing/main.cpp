@@ -18,6 +18,7 @@ using namespace scene;
 
 const float instanceLoDDistances[] = {8.f,50.f};
 
+bool quit = false;
 
 
 //!Same As Last Example
@@ -36,7 +37,7 @@ public:
             switch (event.KeyInput.Key)
             {
             case irr::KEY_KEY_Q: // switch wire frame mode
-                exit(0);
+                quit = true;
                 return true;
             default:
                 break;
@@ -77,7 +78,7 @@ enum E_UNIFORM
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
     video::E_MATERIAL_TYPE currentMat;
-    s32 uniformLocation[video::EMT_COUNT+2][EU_COUNT];
+    int32_t uniformLocation[video::EMT_COUNT+2][EU_COUNT];
     video::E_SHADER_CONSTANT_TYPE uniformType[video::EMT_COUNT+2][EU_COUNT];
     float currentLodPass;
 public:
@@ -110,7 +111,7 @@ public:
         currentLodPass = material.MaterialTypeParam;
     }
 
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, s32 userData)
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
         if (uniformLocation[currentMat][EU_PROJ_VIEW_WORLD_MAT]>=0)
             services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),uniformLocation[currentMat][EU_PROJ_VIEW_WORLD_MAT],uniformType[currentMat][EU_PROJ_VIEW_WORLD_MAT],1);
@@ -248,7 +249,7 @@ int main()
 	params.ZBufferBits = 24; //we'd like 32bit here
     params.AntiAlias = 0; //No AA, yet
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<u32>(1280, 720);
+	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
@@ -467,7 +468,7 @@ int main()
             alreadyKilled[i] = true;
         }
 
-	while(device->run())
+	while(device->run()&&(!quit))
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
@@ -481,14 +482,10 @@ int main()
 		uint64_t time = device->getTimer()->getRealTime();
 		if (time-lastFPSTime > 1000)
 		{
-			stringw str = L"Builtin Nodes Demo - Irrlicht Engine [";
-			str += driver->getName();
-			str += "] FPS:";
-			str += driver->getFPS();
-			str += " PrimitvesDrawn:";
-			str += driver->getPrimitiveCountDrawn();
+			std::wostringstream str;
+			str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
-			device->setWindowCaption(str.c_str());
+			device->setWindowCaption(str.str());
 			lastFPSTime = time;
 		}
 	}

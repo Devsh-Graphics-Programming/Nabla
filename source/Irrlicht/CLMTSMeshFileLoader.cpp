@@ -128,8 +128,8 @@ bool CLMTSMeshFileLoader::isALoadableFileExtension(const io::path& filename) con
 
 IAnimatedMesh* CLMTSMeshFileLoader::createMesh(io::IReadFile* file)
 {
-	u32 i;
-	u32 id;
+	uint32_t i;
+	uint32_t id;
 
 	// HEADER
 
@@ -153,13 +153,13 @@ IAnimatedMesh* CLMTSMeshFileLoader::createMesh(io::IReadFile* file)
 
 	//Skip any User Data (arbitrary app specific data)
 
-	const s32 userSize = Header.HeaderSize - sizeof(SLMTSHeader);
+	const int32_t userSize = Header.HeaderSize - sizeof(SLMTSHeader);
 	if (userSize>0)
 		file->seek(userSize,true);
 
 	// TEXTURES
 
-	file->read(&id, sizeof(u32));
+	file->read(&id, sizeof(uint32_t));
 	if (FlipEndianess)
 		id = os::Byteswap::byteswap(id);
 	if (id != 0x54584554) { // "TEXT"
@@ -178,7 +178,7 @@ IAnimatedMesh* CLMTSMeshFileLoader::createMesh(io::IReadFile* file)
 
 	// SUBSETS
 
-	file->read(&id, sizeof(u32));
+	file->read(&id, sizeof(uint32_t));
 	if (FlipEndianess)
 		id = os::Byteswap::byteswap(id);
 	if (id != 0x53425553) // "SUBS"
@@ -189,7 +189,7 @@ IAnimatedMesh* CLMTSMeshFileLoader::createMesh(io::IReadFile* file)
 	}
 
 	Subsets = new SLMTSSubsetInfoEntry[Header.SubsetCount];
-	const s32 subsetUserSize = Header.SubsetSize - sizeof(SLMTSSubsetInfoEntry);
+	const int32_t subsetUserSize = Header.SubsetSize - sizeof(SLMTSSubsetInfoEntry);
 
 	for (i=0; i<Header.SubsetCount; ++i)
 	{
@@ -207,7 +207,7 @@ IAnimatedMesh* CLMTSMeshFileLoader::createMesh(io::IReadFile* file)
 
 	// TRIANGLES
 
-	file->read(&id, sizeof(u32));
+	file->read(&id, sizeof(uint32_t));
 	if (FlipEndianess)
 		id = os::Byteswap::byteswap(id);
 	if (id != 0x53495254) // "TRIS"
@@ -218,7 +218,7 @@ IAnimatedMesh* CLMTSMeshFileLoader::createMesh(io::IReadFile* file)
 	}
 
 	Triangles = new SLMTSTriangleDataEntry[(Header.TriangleCount*3)];
-	const s32 triUserSize = Header.VertexSize - sizeof(SLMTSTriangleDataEntry);
+	const int32_t triUserSize = Header.VertexSize - sizeof(SLMTSTriangleDataEntry);
 
 	for (i=0; i<(Header.TriangleCount*3); ++i)
 	{
@@ -259,7 +259,7 @@ IAnimatedMesh* CLMTSMeshFileLoader::createMesh(io::IReadFile* file)
 
 void CLMTSMeshFileLoader::constructMesh(SMesh* mesh)
 {
-	for (s32 i=0; i<Header.SubsetCount; ++i)
+	for (int32_t i=0; i<Header.SubsetCount; ++i)
 	{
 		scene::SMeshBufferLightMap* meshBuffer = new scene::SMeshBufferLightMap();
 
@@ -270,13 +270,13 @@ void CLMTSMeshFileLoader::constructMesh(SMesh* mesh)
 
 		mesh->addMeshBuffer(meshBuffer);
 
-		const u32 offs = Subsets[i].Offset * 3;
+		const uint32_t offs = Subsets[i].Offset * 3;
 
-		for (u32 sc=0; sc<Subsets[i].Count; sc++)
+		for (uint32_t sc=0; sc<Subsets[i].Count; sc++)
 		{
-			const u32 idx = meshBuffer->getVertexCount();
+			const uint32_t idx = meshBuffer->getVertexCount();
 
-			for (u32 vu=0; vu<3; ++vu)
+			for (uint32_t vu=0; vu<3; ++vu)
 			{
 				const SLMTSTriangleDataEntry& v = Triangles[offs+(3*sc)+vu];
 				meshBuffer->Vertices.push_back(
@@ -301,7 +301,7 @@ void CLMTSMeshFileLoader::constructMesh(SMesh* mesh)
 		meshBuffer->drop();
 	}
 
-	for (u32 j=0; j<mesh->MeshBuffers.size(); ++j)
+	for (uint32_t j=0; j<mesh->MeshBuffers.size(); ++j)
 		mesh->MeshBuffers[j]->recalculateBoundingBox();
 
 	mesh->recalculateBoundingBox();
@@ -320,13 +320,13 @@ void CLMTSMeshFileLoader::loadTextures(SMesh* mesh)
 	tex.reallocate(Header.TextureCount);
 	core::array<video::ITexture*> lig;
 	lig.reallocate(Header.TextureCount);
-	core::array<u32> id2id;
+	core::array<uint32_t> id2id;
 	id2id.reallocate(Header.TextureCount);
 
 	const core::stringc Path = Parameters->getAttributeAsString(LMTS_TEXTURE_PATH);
 
 	core::stringc s;
-	for (u32 t=0; t<Header.TextureCount; ++t)
+	for (uint32_t t=0; t<Header.TextureCount; ++t)
 	{
 		video::ITexture* tmptex = 0;
 		s = Path;
@@ -351,7 +351,7 @@ void CLMTSMeshFileLoader::loadTextures(SMesh* mesh)
 
 	// attach textures to materials.
 
-	for (u32 i=0; i<Header.SubsetCount; ++i)
+	for (uint32_t i=0; i<Header.SubsetCount; ++i)
 	{
 		if (Subsets[i].TextID1 < Header.TextureCount && id2id[Subsets[i].TextID1] < tex.size())
 			mesh->getMeshBuffer(i)->getMaterial().setTexture(0, tex[id2id[Subsets[i].TextID1]]);

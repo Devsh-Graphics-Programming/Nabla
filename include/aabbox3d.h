@@ -187,9 +187,9 @@ class aabbox3d
 		\param other Other box to interpolate between
 		\param d Value between 0.0f and 1.0f.
 		\return Interpolated box. */
-		aabbox3d<T> getInterpolated(const aabbox3d<T>& other, f32 d) const
+		aabbox3d<T> getInterpolated(const aabbox3d<T>& other, float d) const
 		{
-			f32 inv = 1.0f - d;
+			float inv = 1.0f - d;
 			return aabbox3d<T>((other.MinEdge*inv) + (MinEdge*d),
 				(other.MaxEdge*inv) + (MaxEdge*d));
 		}
@@ -320,10 +320,10 @@ class aabbox3d
 		vector3d<T> MaxEdge;
 };
 
-	//! Typedef for a f32 3d bounding box.
-	typedef aabbox3d<f32> aabbox3df;
+	//! Typedef for a float 3d bounding box.
+	typedef aabbox3d<float> aabbox3df;
 	//! Typedef for an integer 3d bounding box.
-	typedef aabbox3d<s32> aabbox3di;
+	typedef aabbox3d<int32_t> aabbox3di;
 
 } // end namespace core
 } // end namespace irr

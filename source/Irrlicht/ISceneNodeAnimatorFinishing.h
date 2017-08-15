@@ -17,14 +17,14 @@ namespace scene
 	public:
 
 		//! constructor
-		ISceneNodeAnimatorFinishing(u32 finishTime)
+		ISceneNodeAnimatorFinishing(uint32_t finishTime)
 			: FinishTime(finishTime), HasFinished(false) { }
 
 		virtual bool hasFinished(void) const { return HasFinished; }
 
 	protected:
 
-		u32 FinishTime;
+		uint32_t FinishTime;
 		bool HasFinished;
 	};
 

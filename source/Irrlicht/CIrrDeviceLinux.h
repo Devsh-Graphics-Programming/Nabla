@@ -37,7 +37,7 @@
 #include <X11/keysym.h>
 
 #else
-#define KeySym s32
+#define KeySym int32_t
 #endif
 
 namespace irr
@@ -61,10 +61,10 @@ namespace irr
 		virtual void yield();
 
 		//! Pause execution and let other processes to run for a specified amount of time.
-		virtual void sleep(u32 timeMs, bool pauseTimer);
+		virtual void sleep(uint32_t timeMs, bool pauseTimer);
 
 		//! sets the caption of the window
-		virtual void setWindowCaption(const wchar_t* text);
+		virtual void setWindowCaption(const std::wstring& text);
 
 		//! returns if window is active. if not, nothing need to be drawn
 		virtual bool isWindowActive() const;
@@ -79,7 +79,7 @@ namespace irr
 		virtual video::ECOLOR_FORMAT getColorFormat() const;
 
 		//! presents a surface in the client area
-		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<s32>* src=0 );
+		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0 );
 
 		//! notifies the device that it should close itself
 		virtual void closeDevice();
@@ -105,11 +105,11 @@ namespace irr
 
 		//! gets text from the clipboard
 		//! \return Returns 0 if no string is in there.
-		virtual const c8* getTextFromClipboard() const;
+		virtual const char* getTextFromClipboard() const;
 
 		//! copies text to the clipboard
 		//! This sets the clipboard selection and _not_ the primary selection which you have on X on the middle mouse button.
-		virtual void copyToClipboard(const c8* text) const;
+		virtual void copyToClipboard(const char* text) const;
 
 		//! Remove all messages pending in the system message loop
 		virtual void clearSystemMessages();
@@ -122,10 +122,10 @@ namespace irr
 
 #ifdef _IRR_COMPILE_WITH_X11_
 		// convert an Irrlicht texture to a X11 cursor
-		Cursor TextureToCursor(irr::video::IImage * tex, const core::rect<s32>& sourceRect, const core::position2d<s32> &hotspot);
-		Cursor TextureToMonochromeCursor(irr::video::IImage * tex, const core::rect<s32>& sourceRect, const core::position2d<s32> &hotspot);
+		Cursor TextureToCursor(irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot);
+		Cursor TextureToMonochromeCursor(irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot);
 #ifdef _IRR_LINUX_XCURSOR_
-		Cursor TextureToARGBCursor(irr::video::IImage * tex, const core::rect<s32>& sourceRect, const core::position2d<s32> &hotspot);
+		Cursor TextureToARGBCursor(irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot);
 #endif
 #endif
 
@@ -178,25 +178,25 @@ namespace irr
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<f32> &pos)
+			virtual void setPosition(const core::position2d<float> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(f32 x, f32 y)
+			virtual void setPosition(float x, float y)
 			{
-				setPosition((s32)(x*Device->Width), (s32)(y*Device->Height));
+				setPosition((int32_t)(x*Device->Width), (int32_t)(y*Device->Height));
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<s32> &pos)
+			virtual void setPosition(const core::position2d<int32_t> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(s32 x, s32 y)
+			virtual void setPosition(int32_t x, int32_t y)
 			{
 #ifdef _IRR_COMPILE_WITH_X11_
 
@@ -229,28 +229,28 @@ namespace irr
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual const core::position2d<s32>& getPosition()
+			virtual const core::position2d<int32_t>& getPosition()
 			{
 				updateCursorPos();
 				return CursorPos;
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual core::position2d<f32> getRelativePosition()
+			virtual core::position2d<float> getRelativePosition()
 			{
 				updateCursorPos();
 
 				if (!UseReferenceRect)
 				{
-					return core::position2d<f32>(CursorPos.X / (f32)Device->Width,
-						CursorPos.Y / (f32)Device->Height);
+					return core::position2d<float>(CursorPos.X / (float)Device->Width,
+						CursorPos.Y / (float)Device->Height);
 				}
 
-				return core::position2d<f32>(CursorPos.X / (f32)ReferenceRect.getWidth(),
-						CursorPos.Y / (f32)ReferenceRect.getHeight());
+				return core::position2d<float>(CursorPos.X / (float)ReferenceRect.getWidth(),
+						CursorPos.Y / (float)ReferenceRect.getHeight());
 			}
 
-			virtual void setReferenceRect(core::rect<s32>* rect=0)
+			virtual void setReferenceRect(core::rect<int32_t>* rect=0)
 			{
 				if (rect)
 				{
@@ -307,7 +307,7 @@ namespace irr
 
 				if ( PlatformBehavior&gui::ECPB_X11_CACHE_UPDATES && !os::Timer::isStopped() )
 				{
-					u32 now = os::Timer::getTime();
+					uint32_t now = os::Timer::getTime();
 					if (now <= lastQuery)
 						return;
 					lastQuery = now;
@@ -323,21 +323,21 @@ namespace irr
 
 				if (CursorPos.X < 0)
 					CursorPos.X = 0;
-				if (CursorPos.X > (s32) Device->Width)
+				if (CursorPos.X > (int32_t) Device->Width)
 					CursorPos.X = Device->Width;
 				if (CursorPos.Y < 0)
 					CursorPos.Y = 0;
-				if (CursorPos.Y > (s32) Device->Height)
+				if (CursorPos.Y > (int32_t) Device->Height)
 					CursorPos.Y = Device->Height;
 #endif
 			}
 
 			CIrrDeviceLinux* Device;
-			core::position2d<s32> CursorPos;
-			core::rect<s32> ReferenceRect;
+			core::position2d<int32_t> CursorPos;
+			core::rect<int32_t> ReferenceRect;
 #ifdef _IRR_COMPILE_WITH_X11_
 			gui::ECURSOR_PLATFORM_BEHAVIOR PlatformBehavior;
-			u32 lastQuery;
+			uint32_t lastQuery;
 			Cursor invisCursor;
 
 			struct CursorFrameX11
@@ -351,12 +351,12 @@ namespace irr
 			struct CursorX11
 			{
 				CursorX11() {}
-				explicit CursorX11(Cursor iconHw, u32 frameTime=0) : FrameTime(frameTime)
+				explicit CursorX11(Cursor iconHw, uint32_t frameTime=0) : FrameTime(frameTime)
 				{
 					Frames.push_back( CursorFrameX11(iconHw) );
 				}
 				core::array<CursorFrameX11> Frames;
-				u32 FrameTime;
+				uint32_t FrameTime;
 			};
 
 			core::array<CursorX11> Cursors;
@@ -367,7 +367,7 @@ namespace irr
 			bool Null;
 			bool UseReferenceRect;
 			gui::ECURSOR_ICON ActiveIcon;
-			u32 ActiveIconStartTime;
+			uint32_t ActiveIconStartTime;
 		};
 
 		friend class CCursorControl;
@@ -393,10 +393,10 @@ namespace irr
 		#ifdef _IRR_COMPILE_WITH_OPENGL_
 		GLXWindow glxWin;
 		GLXContext Context;
-		GLXContext* AuxContext;
+		void* AuxContexts;
 		#endif
 #endif
-		u32 Width, Height;
+		uint32_t Width, Height;
 		bool WindowHasFocus;
 		bool WindowMinimized;
 		bool UseXVidMode;
@@ -407,13 +407,13 @@ namespace irr
 		struct SKeyMap
 		{
 			SKeyMap() {}
-			SKeyMap(s32 x11, s32 win32)
+			SKeyMap(int32_t x11, int32_t win32)
 				: X11Key(x11), Win32Key(win32)
 			{
 			}
 
 			KeySym X11Key;
-			s32 Win32Key;
+			int32_t Win32Key;
 
 			bool operator<(const SKeyMap& o) const
 			{

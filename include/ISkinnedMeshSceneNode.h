@@ -23,7 +23,7 @@ namespace scene
 	public:
 
 		//! Constructor
-		ISkinnedMeshSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
+		ISkinnedMeshSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f))
@@ -70,23 +70,23 @@ namespace scene
 		//! This function is needed for inserting the node into the scene hirachy on a
 		//! optimal position for minimizing renderstate changes, but can also be used
 		//! to directly modify the material of a scene node.
-		virtual video::SMaterial& getMaterial(u32 i) = 0;
+		virtual video::SMaterial& getMaterial(uint32_t i) = 0;
 
 		//! returns amount of materials used by this scene node.
-		virtual u32 getMaterialCount() const = 0;
+		virtual uint32_t getMaterialCount() const = 0;
 
 		//! frame
 		virtual void OnRegisterSceneNode() = 0;
 
 		//! OnAnimate() is called just before rendering the whole scene.
-		virtual void OnAnimate(u32 timeMs) = 0;
+		virtual void OnAnimate(uint32_t timeMs) = 0;
 
 		//! renders the node.
 		virtual void render() = 0;
 
-		virtual void setBoundingBox(const core::aabbox3d<f32>& bbox) = 0;
+		virtual void setBoundingBox(const core::aabbox3d<float>& bbox) = 0;
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox() = 0;
+		virtual const core::aabbox3d<float>& getBoundingBox() = 0;
 
 		//! Get a pointer to a joint in the mesh.
 		/** With this method it is possible to attach scene nodes to

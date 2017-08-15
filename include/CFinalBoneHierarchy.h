@@ -8,6 +8,7 @@
 #include "ISkinnedMesh.h"
 #include "IGPUMappedBuffer.h"
 #include "quaternion.h"
+#include "irrString.h"
 
 namespace irr
 {
@@ -354,8 +355,8 @@ namespace scene
                                 size_t foundIndex = std::lower_bound(keyframes,keyframes+keyframeCount,joint->PositionKeys[0].frame)-keyframes;
                                 for (size_t m=0; m<foundIndex; m++)
                                 {
-                                    memcpy(tmpAnimationNonInterpol[m].Position,&current,16);
-                                    memcpy(tmpAnimationInterpol[m].Position,&current,16);
+                                    memcpy(tmpAnimationNonInterpol[m].Position,&current,12);
+                                    memcpy(tmpAnimationInterpol[m].Position,&current,12);
                                 }
 
                                 for (size_t j=1; j<joint->PositionKeys.size(); j++)
@@ -371,11 +372,11 @@ namespace scene
                                     assert(nextIndex<keyframeCount);
                                     for (; foundIndex<nextIndex; foundIndex++)
                                     {
-                                        memcpy(tmpAnimationNonInterpol[foundIndex].Position,&current,16);
+                                        memcpy(tmpAnimationNonInterpol[foundIndex].Position,&current,12);
 
-                                        const f32 fd1 = keyframes[foundIndex] - currentFrame;
+                                        const float fd1 = keyframes[foundIndex] - currentFrame;
                                         core::vector3df position = (next-current)*fd1/(nextFrame-currentFrame) + current;
-                                        memcpy(tmpAnimationInterpol[foundIndex].Position,&position,16);
+                                        memcpy(tmpAnimationInterpol[foundIndex].Position,&position,12);
                                     }
 
                                     current = next;
@@ -383,8 +384,8 @@ namespace scene
 
                                 for (; foundIndex<keyframeCount; foundIndex++)
                                 {
-                                    memcpy(tmpAnimationNonInterpol[foundIndex].Position,&current,16);
-                                    memcpy(tmpAnimationInterpol[foundIndex].Position,&current,16);
+                                    memcpy(tmpAnimationNonInterpol[foundIndex].Position,&current,12);
+                                    memcpy(tmpAnimationInterpol[foundIndex].Position,&current,12);
                                 }
                             }
                             break;
@@ -409,8 +410,8 @@ namespace scene
                                 size_t foundIndex = std::lower_bound(keyframes,keyframes+keyframeCount,joint->ScaleKeys[0].frame)-keyframes;
                                 for (size_t m=0; m<foundIndex; m++)
                                 {
-                                    memcpy(tmpAnimationNonInterpol[m].Scale,&current,16);
-                                    memcpy(tmpAnimationInterpol[m].Scale,&current,16);
+                                    memcpy(tmpAnimationNonInterpol[m].Scale,&current,12);
+                                    memcpy(tmpAnimationInterpol[m].Scale,&current,12);
                                 }
 
                                 for (size_t j=1; j<joint->ScaleKeys.size(); j++)
@@ -426,11 +427,11 @@ namespace scene
                                     assert(nextIndex<keyframeCount);
                                     for (; foundIndex<nextIndex; foundIndex++)
                                     {
-                                        memcpy(tmpAnimationNonInterpol[foundIndex].Scale,&current,16);
+                                        memcpy(tmpAnimationNonInterpol[foundIndex].Scale,&current,12);
 
-                                        const f32 fd1 = keyframes[foundIndex] - currentFrame;
+                                        const float fd1 = keyframes[foundIndex] - currentFrame;
                                         core::vector3df scale = (next-current)*fd1/(nextFrame-currentFrame) + current;
-                                        memcpy(tmpAnimationInterpol[foundIndex].Scale,&scale,16);
+                                        memcpy(tmpAnimationInterpol[foundIndex].Scale,&scale,12);
                                     }
 
                                     current = next;
@@ -438,8 +439,8 @@ namespace scene
 
                                 for (; foundIndex<keyframeCount; foundIndex++)
                                 {
-                                    memcpy(tmpAnimationNonInterpol[foundIndex].Scale,&current,16);
-                                    memcpy(tmpAnimationInterpol[foundIndex].Scale,&current,16);
+                                    memcpy(tmpAnimationNonInterpol[foundIndex].Scale,&current,12);
+                                    memcpy(tmpAnimationInterpol[foundIndex].Scale,&current,12);
                                 }
                             }
                             break;

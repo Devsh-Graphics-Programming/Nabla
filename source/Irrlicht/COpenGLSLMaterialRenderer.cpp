@@ -28,22 +28,22 @@ namespace video
 
 //! Constructor
 COpenGLSLMaterialRenderer::COpenGLSLMaterialRenderer(video::COpenGLDriver* driver,
-		s32& outMaterialTypeNr, const c8* vertexShaderProgram,
-		const c8* vertexShaderEntryPointName,
-		const c8* pixelShaderProgram,
-		const c8* pixelShaderEntryPointName,
-		const c8* geometryShaderProgram,
-		const c8* geometryShaderEntryPointName,
-		const c8* controlShaderProgram,
-		const c8* controlShaderEntryPointName,
-		const c8* evaluationShaderProgram,
-		const c8* evaluationShaderEntryPointName,
-		u32 patchVertices,
+		int32_t& outMaterialTypeNr, const char* vertexShaderProgram,
+		const char* vertexShaderEntryPointName,
+		const char* pixelShaderProgram,
+		const char* pixelShaderEntryPointName,
+		const char* geometryShaderProgram,
+		const char* geometryShaderEntryPointName,
+		const char* controlShaderProgram,
+		const char* controlShaderEntryPointName,
+		const char* evaluationShaderProgram,
+		const char* evaluationShaderEntryPointName,
+		uint32_t patchVertices,
 		IShaderConstantSetCallBack* callback,
 		E_MATERIAL_TYPE baseMaterial,
         const char** xformFeedbackOutputs,
         const uint32_t& xformFeedbackOutputCount,
-		s32 userData)
+		int32_t userData)
 	: Driver(driver), CallBack(callback), BaseMaterial(baseMaterial),
 		Program2(0), UserData(userData), tessellationPatchVertices(-1), activeUniformCount(0)
 {
@@ -73,24 +73,24 @@ COpenGLSLMaterialRenderer::~COpenGLSLMaterialRenderer()
 	{
 		GLuint shaders[8];
 		GLint count;
-		Driver->extGlGetAttachedShaders(Program2, 8, &count, shaders);
+		COpenGLExtensionHandler::extGlGetAttachedShaders(Program2, 8, &count, shaders);
 		// avoid bugs in some drivers, which return larger numbers
 		count=core::min_(count,8);
 		for (GLint i=0; i<count; ++i)
-			Driver->extGlDeleteShader(shaders[i]);
-		Driver->extGlDeleteProgram(Program2);
+			COpenGLExtensionHandler::extGlDeleteShader(shaders[i]);
+		COpenGLExtensionHandler::extGlDeleteProgram(Program2);
 		Program2 = 0;
 	}
 }
 
 
-void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
-		const c8* vertexShaderProgram,
-		const c8* pixelShaderProgram,
-		const c8* geometryShaderProgram,
-		const c8* controlShaderProgram,
-		const c8* evaluationShaderProgram,
-		u32 patchVertices,
+void COpenGLSLMaterialRenderer::init(int32_t& outMaterialTypeNr,
+		const char* vertexShaderProgram,
+		const char* pixelShaderProgram,
+		const char* geometryShaderProgram,
+		const char* controlShaderProgram,
+		const char* evaluationShaderProgram,
+		uint32_t patchVertices,
         const char** xformFeedbackOutputs,
         const uint32_t& xformFeedbackOutputCount)
 {
@@ -126,7 +126,7 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
         CallBack->PreLink(Program2);
 
     if (xformFeedbackOutputCount>0&&xformFeedbackOutputs)
-        Driver->extGlTransformFeedbackVaryings(Program2,xformFeedbackOutputCount,xformFeedbackOutputs,GL_INTERLEAVED_ATTRIBS);
+        COpenGLExtensionHandler::extGlTransformFeedbackVaryings(Program2,xformFeedbackOutputCount,xformFeedbackOutputs,GL_INTERLEAVED_ATTRIBS);
 
 	if (!linkProgram())
 		return;
@@ -138,7 +138,7 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
 
     activeUniformCount = 0;
     //get uniforms
-    Driver->extGlGetProgramiv(Program2, GL_ACTIVE_UNIFORMS, &activeUniformCount);
+    COpenGLExtensionHandler::extGlGetProgramiv(Program2, GL_ACTIVE_UNIFORMS, &activeUniformCount);
 
     if (activeUniformCount == 0)
     {
@@ -147,7 +147,7 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
     }
 
     GLint maxlen = 0;
-    Driver->extGlGetProgramiv(Program2, GL_ACTIVE_UNIFORM_MAX_LENGTH, &maxlen);
+    COpenGLExtensionHandler::extGlGetProgramiv(Program2, GL_ACTIVE_UNIFORM_MAX_LENGTH, &maxlen);
 
     if (maxlen < 0)
     {
@@ -162,17 +162,17 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
     core::array<SConstantLocationNamePair> constants;
 
 
-    c8 *buf = new c8[maxlen];
+    char *buf = new char[maxlen];
     for (GLuint i=0; i < activeUniformCount; ++i)
     {
         SConstantLocationNamePair pr;
         GLint length;
         GLenum type;
 
-        Driver->extGlGetActiveUniform(Program2, i, maxlen, NULL, &length, &type, reinterpret_cast<GLchar*>(buf));
+        COpenGLExtensionHandler::extGlGetActiveUniform(Program2, i, maxlen, NULL, &length, &type, reinterpret_cast<GLchar*>(buf));
 
         pr.name = buf;
-		GLint index = Driver->extGlGetUniformLocation(Program2,pr.name.c_str());
+		GLint index = COpenGLExtensionHandler::extGlGetUniformLocation(Program2,pr.name.c_str());
         pr.location = index;
         pr.length = length;
         pr.type = getIrrUniformType(type);
@@ -189,9 +189,9 @@ void COpenGLSLMaterialRenderer::init(s32& outMaterialTypeNr,
     {
         GLint oldProgram;
         glGetIntegerv(GL_CURRENT_PROGRAM,&oldProgram);
-		Driver->extGlUseProgram(Program2);
+		COpenGLExtensionHandler::extGlUseProgram(Program2);
         CallBack->PostLink(this,(E_MATERIAL_TYPE)outMaterialTypeNr,constants);
-		Driver->extGlUseProgram(oldProgram);
+		COpenGLExtensionHandler::extGlUseProgram(oldProgram);
     }
 
 #if _DEBUG
@@ -208,11 +208,11 @@ bool COpenGLSLMaterialRenderer::OnRender(IMaterialRendererServices* service)
 
     if (tessellationPatchVertices!=-1)
     {
-        Driver->extGlPatchParameteri(GL_PATCH_VERTICES, tessellationPatchVertices);
+        COpenGLExtensionHandler::extGlPatchParameteri(GL_PATCH_VERTICES, tessellationPatchVertices);
         GLfloat outer[] = {1.f,1.f,1.f,1.f};
-        Driver->extGlPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL,outer);
+        COpenGLExtensionHandler::extGlPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL,outer);
         GLfloat inner[] = {1.f,1.f};
-        Driver->extGlPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL,inner);
+        COpenGLExtensionHandler::extGlPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL,inner);
     }
 
 	return true;
@@ -228,7 +228,7 @@ void COpenGLSLMaterialRenderer::OnSetMaterial(const video::SMaterial& material,
 
 	if (material.MaterialType != lastMaterial.MaterialType || resetAllRenderstates)
 	{
-		Driver->extGlUseProgram(Program2);
+		COpenGLExtensionHandler::extGlUseProgram(Program2);
 
 		if (BaseMaterial==EMT_TRANSPARENT_ADD_COLOR)
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -258,7 +258,7 @@ bool COpenGLSLMaterialRenderer::isTransparent() const
 
 bool COpenGLSLMaterialRenderer::createProgram()
 {
-	Program2 = Driver->extGlCreateProgram();
+	Program2 = COpenGLExtensionHandler::extGlCreateProgram();
 
 	return true;
 }
@@ -266,13 +266,13 @@ bool COpenGLSLMaterialRenderer::createProgram()
 
 bool COpenGLSLMaterialRenderer::createShader(GLenum shaderType, const char* shader)
 {
-    GLuint shaderHandle = Driver->extGlCreateShader(shaderType);
-    Driver->extGlShaderSource(shaderHandle, 1, &shader, NULL);
-    Driver->extGlCompileShader(shaderHandle);
+    GLuint shaderHandle = COpenGLExtensionHandler::extGlCreateShader(shaderType);
+    COpenGLExtensionHandler::extGlShaderSource(shaderHandle, 1, &shader, NULL);
+    COpenGLExtensionHandler::extGlCompileShader(shaderHandle);
 
     GLint status = 0;
 
-    Driver->extGlGetShaderiv(shaderHandle, GL_COMPILE_STATUS, &status);
+    COpenGLExtensionHandler::extGlGetShaderiv(shaderHandle, GL_COMPILE_STATUS, &status);
 
     if (status != GL_TRUE)
     {
@@ -280,23 +280,23 @@ bool COpenGLSLMaterialRenderer::createShader(GLenum shaderType, const char* shad
         // check error message and log it
         GLint maxLength=0;
         GLint length;
-        Driver->extGlGetShaderiv(shaderHandle, GL_INFO_LOG_LENGTH,
+        COpenGLExtensionHandler::extGlGetShaderiv(shaderHandle, GL_INFO_LOG_LENGTH,
                 &maxLength);
 
         if (maxLength)
         {
             GLchar *infoLog = new GLchar[maxLength];
-            Driver->extGlGetShaderInfoLog(shaderHandle, maxLength, &length, infoLog);
-            os::Printer::log(reinterpret_cast<const c8*>(infoLog), ELL_ERROR);
+            COpenGLExtensionHandler::extGlGetShaderInfoLog(shaderHandle, maxLength, &length, infoLog);
+            os::Printer::log(reinterpret_cast<const char*>(infoLog), ELL_ERROR);
             delete [] infoLog;
         }
 
-        Driver->extGlDeleteShader(shaderHandle);
+        COpenGLExtensionHandler::extGlDeleteShader(shaderHandle);
 
         return false;
     }
 
-    Driver->extGlAttachShader(Program2, shaderHandle);
+    COpenGLExtensionHandler::extGlAttachShader(Program2, shaderHandle);
 
 	return true;
 }
@@ -304,11 +304,11 @@ bool COpenGLSLMaterialRenderer::createShader(GLenum shaderType, const char* shad
 
 bool COpenGLSLMaterialRenderer::linkProgram()
 {
-    Driver->extGlLinkProgram(Program2);
+    COpenGLExtensionHandler::extGlLinkProgram(Program2);
 
     GLint status = 0;
 
-    Driver->extGlGetProgramiv(Program2, GL_LINK_STATUS, &status);
+    COpenGLExtensionHandler::extGlGetProgramiv(Program2, GL_LINK_STATUS, &status);
 
     if (!status)
     {
@@ -316,13 +316,13 @@ bool COpenGLSLMaterialRenderer::linkProgram()
         // check error message and log it
         GLint maxLength=0;
         GLsizei length;
-        Driver->extGlGetProgramiv(Program2, GL_INFO_LOG_LENGTH, &maxLength);
+        COpenGLExtensionHandler::extGlGetProgramiv(Program2, GL_INFO_LOG_LENGTH, &maxLength);
 
         if (maxLength)
         {
             GLchar *infoLog = new GLchar[maxLength];
-            Driver->extGlGetProgramInfoLog(Program2, maxLength, &length, infoLog);
-            os::Printer::log(reinterpret_cast<const c8*>(infoLog), ELL_ERROR);
+            COpenGLExtensionHandler::extGlGetProgramInfoLog(Program2, maxLength, &length, infoLog);
+            os::Printer::log(reinterpret_cast<const char*>(infoLog), ELL_ERROR);
             delete [] infoLog;
         }
 
@@ -334,7 +334,7 @@ bool COpenGLSLMaterialRenderer::linkProgram()
     // get uniforms information
 
     activeUniformCount = 0;
-    Driver->extGlGetProgramiv(Program2, GL_ACTIVE_UNIFORMS, &activeUniformCount);
+    COpenGLExtensionHandler::extGlGetProgramiv(Program2, GL_ACTIVE_UNIFORMS, &activeUniformCount);
 
     if (activeUniformCount == 0)
     {
@@ -343,7 +343,7 @@ bool COpenGLSLMaterialRenderer::linkProgram()
     }
 
     GLint maxlen = 0;
-    Driver->extGlGetProgramiv(Program2, GL_ACTIVE_UNIFORM_MAX_LENGTH, &maxlen);
+    COpenGLExtensionHandler::extGlGetProgramiv(Program2, GL_ACTIVE_UNIFORM_MAX_LENGTH, &maxlen);
 
     if (maxlen < 0)
     {
@@ -366,7 +366,7 @@ void COpenGLSLMaterialRenderer::setBasicRenderStates(const SMaterial& material,
 	Driver->setBasicRenderStates(material, lastMaterial, resetAllRenderstates);
 }
 
-void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, s32 location, E_SHADER_CONSTANT_TYPE type, u32 number)
+void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number)
 {
     if (location<0)
     {
@@ -379,7 +379,7 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, s32 location
 #ifdef _DEBUG
     GLuint index = 0;
     bool found = false;
-    for (u32 i=0; i<debugConstants.size(); i++)
+    for (uint32_t i=0; i<debugConstants.size(); i++)
     {
         if (debugConstants[i].location==location)
         {
@@ -397,7 +397,7 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, s32 location
     GLint length;
     GLenum type2;
     GLchar buf[1024];
-    Driver->extGlGetActiveUniform(Program2, index, 1023, NULL, &length, &type2, buf);
+    COpenGLExtensionHandler::extGlGetActiveUniform(Program2, index, 1023, NULL, &length, &type2, buf);
     if (number>length||type!=getIrrUniformType(type2))
     {
         os::Printer::log("Number of elements or uniform type are ALL WRONG.", ELL_ERROR);
@@ -412,79 +412,79 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, s32 location
     switch (type)
     {
     case ESCT_FLOAT:
-        Driver->extGlUniform1fv(loc,cnt,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniform1fv(loc,cnt,(GLfloat*)data);
         break;
     case ESCT_FLOAT_VEC2:
-        Driver->extGlUniform2fv(loc,cnt,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniform2fv(loc,cnt,(GLfloat*)data);
         break;
     case ESCT_FLOAT_VEC3:
-        Driver->extGlUniform3fv(loc,cnt,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniform3fv(loc,cnt,(GLfloat*)data);
         break;
     case ESCT_FLOAT_VEC4:
-        Driver->extGlUniform4fv(loc,cnt,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniform4fv(loc,cnt,(GLfloat*)data);
         break;
     case ESCT_INT:
-        Driver->extGlUniform1iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlUniform1iv(loc,cnt,(GLint*)data);
         break;
     case ESCT_INT_VEC2:
-        Driver->extGlUniform2iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlUniform2iv(loc,cnt,(GLint*)data);
         break;
     case ESCT_INT_VEC3:
-        Driver->extGlUniform3iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlUniform3iv(loc,cnt,(GLint*)data);
         break;
     case ESCT_INT_VEC4:
-        Driver->extGlUniform4iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlUniform4iv(loc,cnt,(GLint*)data);
         break;
     case ESCT_UINT:
-        Driver->extGlUniform1uiv(loc,cnt,(GLuint*)data);
+        COpenGLExtensionHandler::extGlUniform1uiv(loc,cnt,(GLuint*)data);
         break;
     case ESCT_UINT_VEC2:
-        Driver->extGlUniform2uiv(loc,cnt,(GLuint*)data);
+        COpenGLExtensionHandler::extGlUniform2uiv(loc,cnt,(GLuint*)data);
         break;
     case ESCT_UINT_VEC3:
-        Driver->extGlUniform3uiv(loc,cnt,(GLuint*)data);
+        COpenGLExtensionHandler::extGlUniform3uiv(loc,cnt,(GLuint*)data);
         break;
     case ESCT_UINT_VEC4:
-        Driver->extGlUniform4uiv(loc,cnt,(GLuint*)data);
+        COpenGLExtensionHandler::extGlUniform4uiv(loc,cnt,(GLuint*)data);
         break;
     case ESCT_BOOL:
-        Driver->extGlUniform1iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlUniform1iv(loc,cnt,(GLint*)data);
         break;
     case ESCT_BOOL_VEC2:
-        Driver->extGlUniform2iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlUniform2iv(loc,cnt,(GLint*)data);
         break;
     case ESCT_BOOL_VEC3:
-        Driver->extGlUniform3iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlUniform3iv(loc,cnt,(GLint*)data);
         break;
     case ESCT_BOOL_VEC4:
-        Driver->extGlUniform4iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlUniform4iv(loc,cnt,(GLint*)data);
         break;
     case ESCT_FLOAT_MAT2:
-        Driver->extGlUniformMatrix2fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniformMatrix2fv(loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT3:
-        Driver->extGlUniformMatrix3fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniformMatrix3fv(loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4:
-        Driver->extGlUniformMatrix4fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniformMatrix4fv(loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT2x3:
-        Driver->extGlUniformMatrix2x3fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniformMatrix2x3fv(loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT2x4:
-        Driver->extGlUniformMatrix2x4fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniformMatrix2x4fv(loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT3x2:
-        Driver->extGlUniformMatrix3x2fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniformMatrix3x2fv(loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT3x4:
-        Driver->extGlUniformMatrix3x4fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniformMatrix3x4fv(loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4x2:
-        Driver->extGlUniformMatrix4x2fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniformMatrix4x2fv(loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4x3:
-        Driver->extGlUniformMatrix4x3fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlUniformMatrix4x3fv(loc,cnt,false,(GLfloat*)data);
         break;
 #ifdef _DEBUG
     default:
@@ -497,7 +497,7 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, s32 location
     }
 }
 
-void COpenGLSLMaterialRenderer::setShaderTextures(const s32* textureIndices, s32 location, E_SHADER_CONSTANT_TYPE type, u32 number)
+void COpenGLSLMaterialRenderer::setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number)
 {
     if (location<0)
     {
@@ -510,7 +510,7 @@ void COpenGLSLMaterialRenderer::setShaderTextures(const s32* textureIndices, s32
 #ifdef _DEBUG
     GLuint index = 0;
     bool found = false;
-    for (u32 i=0; i<debugConstants.size(); i++)
+    for (uint32_t i=0; i<debugConstants.size(); i++)
     {
         if (debugConstants[i].location==location)
         {
@@ -528,7 +528,7 @@ void COpenGLSLMaterialRenderer::setShaderTextures(const s32* textureIndices, s32
     GLint length;
     GLenum type2;
     GLchar buf[1024];
-    Driver->extGlGetActiveUniform(Program2, index, 1023, NULL, &length, &type2, buf);
+    COpenGLExtensionHandler::extGlGetActiveUniform(Program2, index, 1023, NULL, &length, &type2, buf);
     if (number>length||type!=getIrrUniformType(type2))
     {
         os::Printer::log("Number of elements or uniform type are ALL WRONG.", ELL_ERROR);
@@ -576,7 +576,7 @@ void COpenGLSLMaterialRenderer::setShaderTextures(const s32* textureIndices, s32
     case ESCT_UINT_SAMPLER_2D_MULTISAMPLE:
     case ESCT_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY:
     case ESCT_UINT_SAMPLER_BUFFER:
-        Driver->extGlUniform1iv(loc,cnt,(GLint*)textureIndices);
+        COpenGLExtensionHandler::extGlUniform1iv(loc,cnt,(GLint*)textureIndices);
         break;
 #ifdef _DEBUG
     default:

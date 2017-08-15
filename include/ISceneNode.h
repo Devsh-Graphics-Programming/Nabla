@@ -16,6 +16,7 @@
 #include "irrList.h"
 #include "IOcclusionQuery.h"
 #include "IDummyTransformationSceneNode.h"
+#include "IDriverFence.h"
 
 namespace irr
 {
@@ -39,12 +40,13 @@ namespace scene
 	public:
 
 		//! Constructor
-		ISceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id=-1,
+		ISceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id=-1,
 				const core::vector3df& position = core::vector3df(0,0,0),
 				const core::vector3df& rotation = core::vector3df(0,0,0),
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f))
 			:   IDummyTransformationSceneNode(parent,position,rotation,scale),
-                SceneManager(mgr), query(0), ID(id), AutomaticCullingState(EAC_FRUSTUM_BOX),
+                SceneManager(mgr), renderFence(0), fenceBehaviour(EFRB_SKIP_DRAW), query(0),
+                ID(id), AutomaticCullingState(EAC_FRUSTUM_BOX),
                 DebugDataVisible(EDS_OFF), mobid(0), mobtype(0), IsVisible(true),
                 IsDebugObject(false), staticmeshid(0),blockposX(0),blockposY(0),blockposZ(0), renderPriority(0x80000000u)
 		{
@@ -56,9 +58,34 @@ namespace scene
 		{
             if (query)
                 query->drop();
+
+            if (renderFence)
+                renderFence->drop();
 		}
 
         virtual const bool isISceneNode() const {return true;}
+
+
+        virtual const bool supportsDriverFence() const {return false;}
+
+        enum E_FENCE_RENDER_BEHAVIOUR
+        {
+            EFRB_SKIP_DRAW=0,
+            EFRB_CPU_BLOCK,
+            EFRB_GPU_WAIT,
+            EFRB_COUNT
+        };
+        void useFenceForRender(video::IDriverFence* fence, const E_FENCE_RENDER_BEHAVIOUR& behaviour=EFRB_SKIP_DRAW)
+        {
+            if (fence)
+                fence->grab();
+
+            if (renderFence)
+                renderFence->drop();
+
+            renderFence = fence;
+            fenceBehaviour = behaviour;
+        }
 
 
 		//! This method is called just before the rendering process of the whole scene.
@@ -120,7 +147,7 @@ namespace scene
 		child scene nodes here. This method will be called once per frame, independent
 		of whether the scene node is visible or not.
 		\param timeMs Current time in milliseconds. */
-		virtual void OnAnimate(u32 timeMs)
+		virtual void OnAnimate(uint32_t timeMs)
 		{
 			OnAnimate_static(this,timeMs);
 		}
@@ -132,7 +159,7 @@ namespace scene
 
 		//! Returns the name of the node.
 		/** \return Name as character string. */
-		virtual const c8* getName() const
+		virtual const char* getName() const
 		{
 			return Name.c_str();
 		}
@@ -140,7 +167,7 @@ namespace scene
 
 		//! Sets the name of the node.
 		/** \param name New name of the scene node. */
-		virtual void setName(const c8* name)
+		virtual void setName(const char* name)
 		{
 			Name = name;
 		}
@@ -162,14 +189,14 @@ namespace scene
 		getAbsoluteTransformation() or simply use
 		getTransformedBoundingBox(), which does the same.
 		\return The non-transformed bounding box. */
-		virtual const core::aabbox3d<f32>& getBoundingBox() = 0;
+		virtual const core::aabbox3d<float>& getBoundingBox() = 0;
 
 
 		//! Get the axis aligned, transformed and animated absolute bounding box of this node.
 		/** \return The transformed bounding box. */
-		virtual const core::aabbox3d<f32> getTransformedBoundingBox()
+		virtual const core::aabbox3d<float> getTransformedBoundingBox()
 		{
-			core::aabbox3d<f32> box = getBoundingBox();
+			core::aabbox3d<float> box = getBoundingBox();
 			AbsoluteTransformation.transformBoxEx(box);
 			return box;
 		}
@@ -186,7 +213,6 @@ namespace scene
 		visible (if all parents are also visible). */
 		virtual bool isVisible() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return IsVisible;
 		}
 
@@ -212,7 +238,7 @@ namespace scene
 		//! Get the id of the scene node.
 		/** This id can be used to identify the node.
 		\return The id. */
-		virtual s32 getID() const
+		virtual int32_t getID() const
 		{
 			return ID;
 		}
@@ -221,7 +247,7 @@ namespace scene
 		//! Sets the id of the scene node.
 		/** This id can be used to identify the node.
 		\param id The new id. */
-		virtual void setID(s32 id)
+		virtual void setID(int32_t id)
 		{
 			ID = id;
 		}
@@ -235,7 +261,7 @@ namespace scene
 		directly modify the material of a scene node.
 		\param num Zero based index. The maximal value is getMaterialCount() - 1.
 		\return The material at that index. */
-		virtual video::SMaterial& getMaterial(u32 num)
+		virtual video::SMaterial& getMaterial(uint32_t num)
 		{
 			return video::IdentityMaterial;
 		}
@@ -243,7 +269,7 @@ namespace scene
 
 		//! Get amount of materials used by this scene node.
 		/** \return Current amount of materials of this scene node. */
-		virtual u32 getMaterialCount() const
+		virtual uint32_t getMaterialCount() const
 		{
 			return 0;
 		}
@@ -256,7 +282,7 @@ namespace scene
 		\param newvalue New value of that flag. */
 		void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
 		{
-			for (u32 i=0; i<getMaterialCount(); ++i)
+			for (uint32_t i=0; i<getMaterialCount(); ++i)
 				getMaterial(i).setFlag(flag, newvalue);
 		}
 
@@ -265,12 +291,12 @@ namespace scene
 		/** \param textureLayer Layer of texture to be set. Must be a
 		value smaller than MATERIAL_MAX_TEXTURES.
 		\param texture New texture to be used. */
-		void setMaterialTexture(u32 textureLayer, video::ITexture* texture)
+		void setMaterialTexture(uint32_t textureLayer, video::ITexture* texture)
 		{
 			if (textureLayer >= video::MATERIAL_MAX_TEXTURES)
 				return;
 
-			for (u32 i=0; i<getMaterialCount(); ++i)
+			for (uint32_t i=0; i<getMaterialCount(); ++i)
 				getMaterial(i).setTexture(textureLayer, texture);
 		}
 
@@ -279,7 +305,7 @@ namespace scene
 		/** \param newType New type of material to be set. */
 		void setMaterialType(video::E_MATERIAL_TYPE newType)
 		{
-			for (u32 i=0; i<getMaterialCount(); ++i)
+			for (uint32_t i=0; i<getMaterialCount(); ++i)
 				getMaterial(i).MaterialType = newType;
 		}
 
@@ -289,7 +315,7 @@ namespace scene
 		all SceneNodes support culling and that some nodes always cull
 		their geometry because it is their only reason for existence.
 		\param state The culling state to be used. */
-		void setAutomaticCulling( u32 state)
+		void setAutomaticCulling( uint32_t state)
 		{
 			AutomaticCullingState = state;
 		}
@@ -297,7 +323,7 @@ namespace scene
 
 		//! Gets the automatic culling state.
 		/** \return The automatic culling state. */
-		u32 getAutomaticCulling() const
+		uint32_t getAutomaticCulling() const
 		{
 			return AutomaticCullingState;
 		}
@@ -307,7 +333,7 @@ namespace scene
 		/** A bitwise OR of the types from @ref irr::scene::E_DEBUG_SCENE_TYPE.
 		Please note that not all scene nodes support all debug data types.
 		\param state The debug data visibility state to be used. */
-		virtual void setDebugDataVisible(u32 state)
+		virtual void setDebugDataVisible(uint32_t state)
 		{
 			DebugDataVisible = state;
 		}
@@ -315,7 +341,7 @@ namespace scene
 		//! Returns if debug data like bounding boxes are drawn.
 		/** \return A bitwise OR of the debug data values from
 		@ref irr::scene::E_DEBUG_SCENE_TYPE that are currently visible. */
-		u32 isDebugDataVisible() const
+		uint32_t isDebugDataVisible() const
 		{
 			return DebugDataVisible;
 		}
@@ -336,7 +362,6 @@ namespace scene
 		\return If this node is a debug object, true is returned. */
 		bool isDebugObject() const
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return IsDebugObject;
 		}
 
@@ -404,17 +429,71 @@ namespace scene
 		//! Pointer to the scene manager
 		ISceneManager* SceneManager;
 
+		//!
+		video::IDriverFence* renderFence;
+		E_FENCE_RENDER_BEHAVIOUR fenceBehaviour;
+
+		inline bool canProceedPastFence()
+		{
+            if (!renderFence)
+                return true;
+
+            switch (fenceBehaviour)
+            {
+                case EFRB_SKIP_DRAW:
+                    switch (renderFence->waitCPU(0))
+                    {
+                        case video::EDFR_FAIL:
+                        case video::EDFR_TIMEOUT_EXPIRED:
+                            return false;
+                            break;
+                        case video::EDFR_CONDITION_SATISFIED:
+                        case video::EDFR_ALREADY_SIGNALED:
+                            renderFence->drop();
+                            renderFence = NULL;
+                            return true;
+                            break;
+                    }
+                    break;
+                case EFRB_CPU_BLOCK:
+                    {
+                        video::E_DRIVER_FENCE_RETVAL rv = renderFence->waitCPU(1000);
+                        while (rv==video::EDFR_TIMEOUT_EXPIRED)
+                        {
+                            rv = renderFence->waitCPU(1000);
+                        }
+
+                        if (rv!=video::EDFR_FAIL)
+                        {
+                            renderFence->drop();
+                            renderFence = NULL;
+                            return true;
+                        }
+                        else
+                            return false;
+                    }
+                    break;
+                case EFRB_GPU_WAIT:
+                    renderFence->waitGPU();
+                    renderFence->drop();
+                    renderFence = NULL;
+                    return true;
+                    break;
+            }
+            return false;
+        }
+
 		//! Pointer to the attached occlusion query
 		video::IOcclusionQuery* query;
 
 		//! ID of the node.
-		s32 ID;
+		int32_t ID;
 
 		//! Automatic culling state
-		u32 AutomaticCullingState;
+		uint32_t AutomaticCullingState;
 
 		//! Flag if debug data should be drawn, such as Bounding Boxes.
-		u32 DebugDataVisible;
+		uint32_t DebugDataVisible;
 
 		//! Is the node visible?
 		bool IsVisible;
@@ -424,7 +503,7 @@ namespace scene
 		//! Is debug object?
 		bool IsDebugObject;
 
-        static void OnAnimate_static(IDummyTransformationSceneNode* node, u32 timeMs)
+        static void OnAnimate_static(IDummyTransformationSceneNode* node, uint32_t timeMs)
 		{
             ISceneNode* tmp = static_cast<ISceneNode*>(node);
 			if (!node->isISceneNode()||tmp->IsVisible)
@@ -477,7 +556,6 @@ namespace scene
 
         static bool isTrulyVisible_static(const IDummyTransformationSceneNode* node)
 		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
             const ISceneNode* tmp = static_cast<const ISceneNode*>(node);
 
             if (node->isISceneNode())

@@ -22,34 +22,34 @@ namespace video
 		CVideoModeList();
 
 		//! Gets amount of video modes in the list.
-		virtual s32 getVideoModeCount() const;
+		virtual int32_t getVideoModeCount() const;
 
 		//! Returns the screen size of a video mode in pixels.
-		virtual core::dimension2d<u32> getVideoModeResolution(s32 modeNumber) const;
+		virtual core::dimension2d<uint32_t> getVideoModeResolution(int32_t modeNumber) const;
 
 		//! Returns the screen size of an optimal video mode in pixels.
-		virtual core::dimension2d<u32> getVideoModeResolution(const core::dimension2d<u32>& minSize, const core::dimension2d<u32>& maxSize) const;
+		virtual core::dimension2d<uint32_t> getVideoModeResolution(const core::dimension2d<uint32_t>& minSize, const core::dimension2d<uint32_t>& maxSize) const;
 
 		//! Returns the pixel depth of a video mode in bits.
-		virtual s32 getVideoModeDepth(s32 modeNumber) const;
+		virtual int32_t getVideoModeDepth(int32_t modeNumber) const;
 
 		//! Returns current desktop screen resolution.
-		virtual const core::dimension2d<u32>& getDesktopResolution() const;
+		virtual const core::dimension2d<uint32_t>& getDesktopResolution() const;
 
 		//! Returns the pixel depth of a video mode in bits.
-		virtual s32 getDesktopDepth() const;
+		virtual int32_t getDesktopDepth() const;
 
 		//! adds a new mode to the list
-		void addMode(const core::dimension2d<u32>& size, s32 depth);
+		void addMode(const core::dimension2d<uint32_t>& size, int32_t depth);
 
-		void setDesktop(s32 desktopDepth, const core::dimension2d<u32>& desktopSize);
+		void setDesktop(int32_t desktopDepth, const core::dimension2d<uint32_t>& desktopSize);
 
 	private:
 
 		struct SVideoMode
 		{
-			core::dimension2d<u32> size;
-			s32 depth;
+			core::dimension2d<uint32_t> size;
+			int32_t depth;
 
 			bool operator==(const SVideoMode& other) const
 			{

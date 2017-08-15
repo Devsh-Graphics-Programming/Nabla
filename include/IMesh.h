@@ -42,18 +42,18 @@ namespace scene
 
 		//! Get the amount of mesh buffers.
 		/** \return Amount of mesh buffers (IMeshBuffer) in this mesh. */
-		virtual u32 getMeshBufferCount() const = 0;
+		virtual uint32_t getMeshBufferCount() const = 0;
 
 		//! Get pointer to a mesh buffer.
 		/** \param nr: Zero based index of the mesh buffer. The maximum value is
 		getMeshBufferCount() - 1;
 		\return Pointer to the mesh buffer or 0 if there is no such
 		mesh buffer. */
-		virtual T* getMeshBuffer(u32 nr) const = 0;
+		virtual T* getMeshBuffer(uint32_t nr) const = 0;
 
 		//! Get an axis aligned bounding box of the mesh.
 		/** \return Bounding box of this mesh. */
-		virtual const core::aabbox3d<f32>& getBoundingBox() const = 0;
+		virtual const core::aabbox3d<float>& getBoundingBox() const = 0;
 
 		//! Set user-defined axis aligned bounding box
 		/** \param box New bounding box to use for the mesh. */
@@ -66,7 +66,7 @@ namespace scene
 			if (getMeshBufferCount())
 			{
 				tmpBox = getMeshBuffer(0)->getBoundingBox();
-				for (u32 i=1; i<getMeshBufferCount(); ++i)
+				for (uint32_t i=1; i<getMeshBufferCount(); ++i)
                 {
 					tmpBox.addInternalBox(getMeshBuffer(i)->getBoundingBox());
                 }

@@ -59,7 +59,7 @@ namespace irr
 			UserData1 and UserData2 members of the SUserEvent.
 		Linux: send a ClientMessage via XSendEvent to the Irrlicht
 			Window; the data.l[0] and data.l[1] members will be
-			casted to s32 and used as UserData1 and UserData2.
+			casted to int32_t and used as UserData1 and UserData2.
 		MacOS: Not yet implemented
 		*/
 		EET_USER_EVENT,
@@ -151,14 +151,14 @@ struct SEvent
 	struct SMouseInput
 	{
 		//! X position of mouse cursor
-		s32 X;
+		int32_t X;
 
 		//! Y position of mouse cursor
-		s32 Y;
+		int32_t Y;
 
 		//! mouse wheel delta, often 1.0 or -1.0, but can have other values < 0.f or > 0.f;
 		/** Only valid if event was EMIE_MOUSE_WHEEL */
-		f32 Wheel;
+		float Wheel;
 
 		//! True if shift was also pressed
 		bool Shift:1;
@@ -169,7 +169,7 @@ struct SEvent
 		//! A bitmap of button states. You can use isButtonPressed() to determine
 		//! if a button is pressed or not.
 		//! Currently only valid if the event was EMIE_MOUSE_MOVED
-		u32 ButtonStates;
+		uint32_t ButtonStates;
 
 		//! Is the left button pressed down?
 		bool isLeftPressed() const { return 0 != ( ButtonStates & EMBSM_LEFT ); }
@@ -230,7 +230,7 @@ struct SEvent
 
 		/** A bitmap of button states.  You can use IsButtonPressed() to
 		 ( check the state of each button from 0 to (NUMBER_OF_BUTTONS - 1) */
-		u32 ButtonStates;
+		uint32_t ButtonStates;
 
 		/** For AXIS_X, AXIS_Y, AXIS_Z, AXIS_R, AXIS_U and AXIS_V
 		 * Values are in the range -32768 to 32767, with 0 representing
@@ -240,24 +240,24 @@ struct SEvent
 		 * always have a value of 0. On Linux, POV hats are represented as axes,
 		 * usually the last two active axis.
 		 */
-		s16 Axis[NUMBER_OF_AXES];
+		int16_t Axis[NUMBER_OF_AXES];
 
 		/** The POV represents the angle of the POV hat in degrees * 100,
 		 * from 0 to 35,900.  A value of 65535 indicates that the POV hat
 		 * is centered (or not present).
 		 * This value is only supported on Windows.  On Linux, the POV hat
 		 * will be sent as 2 axes instead. */
-		u16 POV;
+		uint16_t POV;
 
 		//! The ID of the joystick which generated this event.
 		/** This is an internal Irrlicht index; it does not map directly
 		 * to any particular hardware joystick. */
-		u8 Joystick;
+		uint8_t Joystick;
 
 		//! A helper function to check if a button is pressed.
-		bool IsButtonPressed(u32 button) const
+		bool IsButtonPressed(uint32_t button) const
 		{
-			if(button >= (u32)NUMBER_OF_BUTTONS)
+			if(button >= (uint32_t)NUMBER_OF_BUTTONS)
 				return false;
 
 			return (ButtonStates & (1 << button)) ? true : false;
@@ -269,7 +269,7 @@ struct SEvent
 	struct SLogEvent
 	{
 		//! Pointer to text which has been logged
-		const c8* Text;
+		const char* Text;
 
 		//! Log level in which the text has been logged
 		ELOG_LEVEL Level;
@@ -279,10 +279,10 @@ struct SEvent
 	struct SUserEvent
 	{
 		//! Some user specified data as int
-		s32 UserData1;
+		int32_t UserData1;
 
 		//! Another user specified data as int
-		s32 UserData2;
+		int32_t UserData2;
 	};
 
 	EEVENT_TYPE EventType;
@@ -327,18 +327,18 @@ struct SJoystickInfo
 	/** This is an internal Irrlicht index; it does not map directly
 	 * to any particular hardware joystick. It corresponds to the
 	 * irr::SJoystickEvent Joystick ID. */
-	u8				Joystick;
+	uint8_t				Joystick;
 
 	//! The name that the joystick uses to identify itself.
 	core::stringc	Name;
 
 	//! The number of buttons that the joystick has.
-	u32				Buttons;
+	uint32_t				Buttons;
 
 	//! The number of axes that the joystick has, i.e. X, Y, Z, R, U, V.
 	/** Note: with a Linux device, the POV hat (if any) will use two axes. These
 	 *  will be included in this count. */
-	u32				Axes;
+	uint32_t				Axes;
 
 	//! An indication of whether the joystick has a POV hat.
 	/** A Windows device will identify the presence or absence or the POV hat.  A

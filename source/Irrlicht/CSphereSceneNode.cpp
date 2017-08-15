@@ -15,7 +15,7 @@ namespace scene
 
 
 //! constructor
-CSphereSceneNode::CSphereSceneNode(f32 radius, u32 polyCountX, u32 polyCountY, IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
+CSphereSceneNode::CSphereSceneNode(float radius, uint32_t polyCountX, uint32_t polyCountY, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
 : IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
 	Radius(radius), PolyCountX(polyCountX), PolyCountY(polyCountY)
@@ -61,7 +61,7 @@ void CSphereSceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CSphereSceneNode::getBoundingBox()
+const core::aabbox3d<float>& CSphereSceneNode::getBoundingBox()
 {
 	return Mesh ? Mesh->getBoundingBox() : Box;
 }
@@ -81,7 +81,7 @@ void CSphereSceneNode::OnRegisterSceneNode()
 //! This function is needed for inserting the node into the scene hirachy on a
 //! optimal position for minimizing renderstate changes, but can also be used
 //! to directly modify the material of a scene node.
-video::SMaterial& CSphereSceneNode::getMaterial(u32 i)
+video::SMaterial& CSphereSceneNode::getMaterial(uint32_t i)
 {
 	if (i>0 || !Mesh)
 		return ISceneNode::getMaterial(i);
@@ -91,7 +91,7 @@ video::SMaterial& CSphereSceneNode::getMaterial(u32 i)
 
 
 //! returns amount of materials used by this scene node.
-u32 CSphereSceneNode::getMaterialCount() const
+uint32_t CSphereSceneNode::getMaterialCount() const
 {
 	return 1;
 }

@@ -5,8 +5,17 @@
 #ifndef __IRR_CORE_UTIL_H_INCLUDED__
 #define __IRR_CORE_UTIL_H_INCLUDED__
 
+#include <string>
+#include <sstream>
+#include <vector>
+#include <map>
+#include <set>
+#include "stddef.h"
+#include "string.h"
 #include "irrString.h"
 #include "path.h"
+
+class FW_Mutex;
 
 namespace irr
 {
@@ -17,15 +26,110 @@ namespace core
 	\brief File containing useful basic utility functions
 */
 
+//depr
+inline int64_t atolonglong(
+	const std::string& inString)
+{
+    int64_t x;
+    std::istringstream tmp(inString);
+    tmp >> x;
+	return x;
+}
+
+//depr
+inline std::string longlongtoa(
+	int64_t inVal)
+{
+    std::ostringstream tmp;
+    tmp << inVal;
+	return tmp.str();
+}
+
+template<class T>
+inline void findAndReplaceAll(T& source, T const& findStr, T const& replaceStr)
+{
+    for(size_t i = 0; (i = source.find(findStr, i)) != std::string::npos;)
+    {
+        source.replace(i, findStr.length(), replaceStr);
+        i += replaceStr.length();
+    }
+}
+
+template<class T>
+inline void findAndReplaceAll(std::basic_string<T>& source, const T* findStr, const T* replaceStr)
+{
+    findAndReplaceAll(source,std::basic_string<T>(findStr),std::basic_string<T>(replaceStr));
+}
+
+
+template<typename T>
+inline bool equalsIgnoreCaseSubStr(const T& str1, const size_t& pos1, const T& str2, const size_t& pos2, const size_t& len)
+{
+    if (str1.begin()+len+pos1>str1.end())
+        return false;
+    if (str2.begin()+len+pos2>str2.end())
+        return false;
+
+    for (typename T::const_iterator c1 = str1.begin()+pos1, c2 = str2.begin()+pos2; c1 != str1.begin()+pos1+len; ++c1, ++c2)
+    {
+        if (tolower(*c1) != tolower(*c2))
+            return false;
+    }
+    return true;
+}
+
+template<typename T>
+inline bool equalsIgnoreCase(const T& str1, const T& str2)
+{
+    if (str1.size() != str2.size())
+        return false;
+
+    return equalsIgnoreCaseSubStr<T>(str1,0,str2,0,str2.size());
+}
+
+
+template<typename T>
+inline int32_t strcmpi(const T& str1, const T& str2)
+{
+    if (str1.size()!=str2.size())
+        return str1.size()-str2.size();
+
+    for (typename T::const_iterator c1 = str1.begin(), c2 = str2.begin(); c1 != str1.end(); ++c1, ++c2)
+    {
+        int32_t val1 = tolower(*c1);
+        int32_t val2 = tolower(*c2);
+        if (val1 != val2)
+            return val1-val2;
+    }
+    return 0;
+}
+
+template<typename T>
+inline T lastChar(const std::basic_string<T>& str1)
+{
+    if (str1.size())
+    {
+        return *(str1.end()-1);
+    }
+    return 0;
+}
+
+
+extern std::string WStringToUTF8String(const std::wstring& inString);
+
+extern std::wstring UTF8StringToWString(const std::string& inString);
+
+extern std::wstring UTF8StringToWString(const std::string& inString, uint32_t inReplacementforInvalid);
+
 // ----------- some basic quite often used string functions -----------------
 
 //! search if a filename has a proper extension
-inline s32 isFileExtension (	const io::path& filename,
+inline int32_t isFileExtension (	const io::path& filename,
 								const io::path& ext0,
 								const io::path& ext1,
 								const io::path& ext2)
 {
-	s32 extPos = filename.findLast ( '.' );
+	int32_t extPos = filename.findLast ( '.' );
 	if ( extPos < 0 )
 		return 0;
 
@@ -48,7 +152,7 @@ inline bool hasFileExtension (	const io::path& filename,
 //! cut the filename extension from a source file path and store it in a dest file path
 inline io::path& cutFilenameExtension ( io::path &dest, const io::path &source )
 {
-	s32 endPos = source.findLast ( '.' );
+	int32_t endPos = source.findLast ( '.' );
 	dest = source.subString ( 0, endPos < 0 ? source.size () : endPos );
 	return dest;
 }
@@ -56,7 +160,7 @@ inline io::path& cutFilenameExtension ( io::path &dest, const io::path &source )
 //! get the filename extension from a file path
 inline io::path& getFileNameExtension ( io::path &dest, const io::path &source )
 {
-	s32 endPos = source.findLast ( '.' );
+	int32_t endPos = source.findLast ( '.' );
 	if ( endPos < 0 )
 		dest = "";
 	else
@@ -68,8 +172,8 @@ inline io::path& getFileNameExtension ( io::path &dest, const io::path &source )
 inline io::path& deletePathFromFilename(io::path& filename)
 {
 	// delete path from filename
-	const fschar_t* s = filename.c_str();
-	const fschar_t* p = s + filename.size();
+	const char* s = filename.c_str();
+	const char* p = s + filename.size();
 
 	// search for path separator or beginning
 	while ( *p != '/' && *p != '\\' && p != s )
@@ -84,10 +188,10 @@ inline io::path& deletePathFromFilename(io::path& filename)
 }
 
 //! trim paths
-inline io::path& deletePathFromPath(io::path& filename, s32 pathCount)
+inline io::path& deletePathFromPath(io::path& filename, int32_t pathCount)
 {
 	// delete path from filename
-	s32 i = filename.size();
+	int32_t i = filename.size();
 
 	// search for path separator or beginning
 	while ( i>=0 )
@@ -112,11 +216,11 @@ inline io::path& deletePathFromPath(io::path& filename, s32 pathCount)
 
 //! looks if file is in the same directory of path. returns offset of directory.
 //! 0 means in same directory. 1 means file is direct child of path
-inline s32 isInSameDirectory ( const io::path& path, const io::path& file )
+inline int32_t isInSameDirectory ( const io::path& path, const io::path& file )
 {
-	s32 subA = 0;
-	s32 subB = 0;
-	s32 pos;
+	int32_t subA = 0;
+	int32_t subB = 0;
+	int32_t pos;
 
 	if ( path.size() && !path.equalsn ( file, path.size() ) )
 		return -1;
@@ -142,8 +246,8 @@ inline s32 isInSameDirectory ( const io::path& path, const io::path& file )
 static inline void splitFilename(const io::path &name, io::path* path=0,
 		io::path* filename=0, io::path* extension=0, bool make_lower=false)
 {
-	s32 i = name.size();
-	s32 extpos = i;
+	int32_t i = name.size();
+	int32_t extpos = i;
 
 	// search for path separator or beginning
 	while ( i >= 0 )
@@ -177,10 +281,194 @@ static inline void splitFilename(const io::path &name, io::path* path=0,
 #undef isdigit
 #undef isspace
 #undef isupper
-inline s32 isdigit(s32 c) { return c >= '0' && c <= '9'; }
-inline s32 isspace(s32 c) { return c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v'; }
-inline s32 isupper(s32 c) { return c >= 'A' && c <= 'Z'; }
+inline int32_t isdigit(int32_t c) { return c >= '0' && c <= '9'; }
+inline int32_t isspace(int32_t c) { return c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v'; }
+inline int32_t isupper(int32_t c) { return c >= 'A' && c <= 'Z'; }
 
+
+
+
+std::vector<std::string> getBackTrace(void);
+
+
+
+
+
+/*
+   xxHash256 - A fast checksum algorithm
+   Copyright (C) 2012, Yann Collet & Maciej Adamczyk.
+   BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are
+   met:
+
+       * Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+       * Redistributions in binary form must reproduce the above
+   copyright notice, this list of conditions and the following disclaimer
+   in the documentation and/or other materials provided with the
+   distribution.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+************************************************************************
+   This file contains a super-fast hash function for checksumming
+   purposes, designed for large (1 KB++) inputs.
+   Known limitations:
+    * they use 64-bit math and will not be so fast on 32-bit machines
+    * on architectures that disallow unaligned memory access, the input
+      must be 8-byte aligned. Aligning it on other architectures
+      is not needed, but will improve performance.
+    * it produces different results on big and small endian.
+
+   Changelog:
+    v0: initial release
+    v1: the strong hash is faster and stronger, it obsoletes the fast one
+*/
+
+
+inline void XXHash_256(const void* input, size_t len, uint64_t* out)
+{
+//**************************************
+// Macros
+//**************************************
+#define _rotl(x,r) ((x << r) | (x >> (64 - r)))
+
+//**************************************
+// Constants
+//**************************************
+    const uint64_t PRIME = 11400714819323198393ULL;
+
+    const uint8_t* p = (uint8_t*)input;
+    const uint8_t* const bEnd = p + len;
+    uint64_t v1 = len * PRIME;
+    uint64_t v2 = v1;
+    uint64_t v3 = v1;
+    uint64_t v4 = v1;
+
+    const size_t big_loop_step = 4 * 4 * sizeof(uint64_t);
+    const size_t small_loop_step = 4 * sizeof(uint64_t);
+    // Set the big loop limit early enough, so the well-mixing small loop can be executed twice after it
+    const uint8_t* const big_loop_limit   = bEnd - big_loop_step - 2 * small_loop_step;
+    const uint8_t* const small_loop_limit = bEnd - small_loop_step;
+
+    while (p < big_loop_limit)
+    {
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v1 += v2 *= PRIME;
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v2 += v3 *= PRIME;
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v3 += v4 *= PRIME;
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v4 += v1 *= PRIME;
+    }
+
+    while (p < small_loop_limit)
+    {
+        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v2 += v1 *= PRIME;
+        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v3 += v2 *= PRIME;
+        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v4 += v3 *= PRIME;
+        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
+        v1 += v4 *= PRIME;
+    }
+#undef _rotl
+    memcpy(out, p, bEnd - p);
+
+    out[0] += v1;
+    out[1] += v2;
+    out[2] += v3;
+    out[3] += v4;
+}
+
+class LeakDebugger
+{
+        std::string name;
+    public:
+        class StackTrace
+        {
+                std::vector<std::string> stackTrace;
+            public:
+                StackTrace()
+                {
+                }
+
+                StackTrace(const std::vector<std::string>& trc) : stackTrace(trc)
+                {
+                }
+
+                const std::vector<std::string>& getTrace() const {return stackTrace;}
+
+                bool operator<(const StackTrace& o) const
+                {
+                    if (stackTrace.size()<o.stackTrace.size())
+                        return true;
+                    else if (stackTrace.size()==o.stackTrace.size())
+                    {
+                        for (size_t i=0; i<stackTrace.size(); i++)
+                        {
+                            if (stackTrace[i]==o.stackTrace[i])
+                                continue;
+
+                            return stackTrace[i]<o.stackTrace[i];
+                        }
+                        return false;
+                    }
+                    else
+                        return false;
+                }
+
+                inline void printStackToOStream(std::ostringstream& strm) const
+                {
+                    for (size_t i=0; i<stackTrace.size(); i++)
+                    {
+                        for (size_t j=0; j<i; j++)
+                            strm << " ";
+
+                        strm << stackTrace[i] << "\n";
+                    }
+                    strm << "\n";
+                }
+        };
+
+        LeakDebugger(const std::string& nameOfDbgr);
+        ~LeakDebugger();
+
+        void registerObj(const void* obj);
+
+        void deregisterObj(const void* obj);
+
+        void dumpLeaks();
+    private:
+        FW_Mutex* tsafer;
+        std::map<const void*,StackTrace> tracker;
+};
 
 } // end namespace core
 } // end namespace irr

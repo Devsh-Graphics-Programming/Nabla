@@ -18,11 +18,11 @@ namespace scene
 		//! constructor
 		CSceneNodeAnimatorFlyStraight(const core::vector3df& startPoint,
 						const core::vector3df& endPoint,
-						u32 timeForWay,
-						bool loop, u32 now, bool pingpong);
+						uint32_t timeForWay,
+						bool loop, uint32_t now, bool pingpong);
 
 		//! animates a scene node
-		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs);
+		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);
 
 		//! Returns type of the scene node animator
 		virtual ESCENE_NODE_ANIMATOR_TYPE getType() const { return ESNAT_FLY_STRAIGHT; }
@@ -39,9 +39,9 @@ namespace scene
 		core::vector3df Start;
 		core::vector3df End;
 		core::vector3df Vector;
-		f32 TimeFactor;
-		u32 StartTime;
-		u32 TimeForWay;
+		float TimeFactor;
+		uint32_t StartTime;
+		uint32_t TimeForWay;
 		bool Loop;
 		bool PingPong;
 	};

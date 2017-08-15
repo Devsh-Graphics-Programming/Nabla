@@ -31,9 +31,9 @@ namespace scene
 	//
 	struct color_rgb_t
 	{
-		s32 red;
-		s32 green;
-		s32 blue;
+		int32_t red;
+		int32_t green;
+		int32_t blue;
 
 		color_rgb_t() : red(0), green(0), blue(0) {}
 		void clear() { red=0; green=0; blue=0; }
@@ -48,13 +48,13 @@ namespace scene
 	{
 		BinaryFileReader(io::IReadFile* pFile) : file(pFile) { }
 
-		s32 readBuffer(void* buffer, s32 len)
+		int32_t readBuffer(void* buffer, int32_t len)
 		{
 			return file->read(buffer,len);
 		}
 
-		s32 readLong();
-		f32 readFloat();
+		int32_t readLong();
+		float readFloat();
 
 		void readString(core::stringc &str);
 		void readVec3f(core::vector3df* v);
@@ -79,7 +79,7 @@ namespace scene
 
 		Header(){ clear(); }
 
-		s32 getVersion() const { return version; }
+		int32_t getVersion() const { return version; }
 		void clear(){ version = 0; }
 		void load(BinaryFileReader* pReader)
 		{
@@ -88,7 +88,7 @@ namespace scene
 
 	private:
 
-		s32 version;
+		int32_t version;
 	};
 
 
@@ -105,15 +105,15 @@ namespace scene
 		void clear();
 		void load(BinaryFileReader* pReader);
 
-		s32 getFlags() const { return flags; }
-		s32 getParentGroupID() const { return parentGroup; }
+		int32_t getFlags() const { return flags; }
+		int32_t getParentGroupID() const { return parentGroup; }
 		const core::stringc& getProperties() const { return props; }
 		video::SColor getColor() const { return color.toSColor(); }
 
 	private:
 
-		s32 flags;
-		s32 parentGroup;
+		int32_t flags;
+		int32_t parentGroup;
 		core::stringc props;
 		color_rgb_t color;
 	};
@@ -131,14 +131,14 @@ namespace scene
 		void clear();
 		void load(BinaryFileReader* pReader);
 
-		s32 getFlags() const{ return flags; }
+		int32_t getFlags() const{ return flags; }
 		const core::stringc& getName() const{ return name; }
 		video::SColor getColor() const{ return color.toSColor(); }
 
 	private:
 
 		core::stringc name;
-		s32 flags;
+		int32_t flags;
 		color_rgb_t color;
 	};
 
@@ -154,26 +154,26 @@ namespace scene
 		~LightMap(){ clear(); }
 		void clear();
 		void load(BinaryFileReader* pReader);
-		s32 getWidth() const{ return width; }
-		s32 getHeight() const{ return height; }
-		s32* getPixelData() const{ return pixelData; }
+		int32_t getWidth() const{ return width; }
+		int32_t getHeight() const{ return height; }
+		int32_t* getPixelData() const{ return pixelData; }
 
 	private:
 
-		s32 width;
-		s32 height;
-		s32* pixelData;
+		int32_t width;
+		int32_t height;
+		int32_t* pixelData;
 	};
 
 	struct Triangle
 	{
-		s32 a,b,c;
+		int32_t a,b,c;
 	};
 
 
 	struct Line
 	{
-		s32 a,b;
+		int32_t a,b;
 	};
 
 
@@ -212,27 +212,27 @@ namespace scene
 		void clear();
 		void load(BinaryFileReader *pReader);
 
-		s32 getFlags() const{ return flags; }
+		int32_t getFlags() const{ return flags; }
 		const core::stringc& getTextureName() const{ return textureName; }
-		s32 getLightMapId() const{ return lightMapId; }
+		int32_t getLightMapId() const{ return lightMapId; }
 		const core::vector2df* getUVOffset() const{ return &uvOffset; }
 		const core::vector2df* getUVScale() const{ return &uvScale; }
-		f32 getUVRotation() const{ return uvRotation; }
+		float getUVRotation() const{ return uvRotation; }
 
-		u32 getVertexCount() const{ return vertices.size(); }
-		const Vertex& getVertexAt(const s32 index) const{ return vertices[index]; }
+		uint32_t getVertexCount() const{ return vertices.size(); }
+		const Vertex& getVertexAt(const int32_t index) const{ return vertices[index]; }
 
-		u32 getTriangleCount() const{ return triangles.size(); }
-		const Triangle& getTriangleAt(const s32 index) const{ return triangles[index]; }
+		uint32_t getTriangleCount() const{ return triangles.size(); }
+		const Triangle& getTriangleAt(const int32_t index) const{ return triangles[index]; }
 
 	private:
 
-		s32 flags;
+		int32_t flags;
 		core::stringc textureName;
-		s32 lightMapId;
+		int32_t lightMapId;
 		core::vector2df uvOffset;
 		core::vector2df uvScale;
-		f32 uvRotation;
+		float uvRotation;
 		core::array<Vertex> vertices;
 		core::array<Triangle> triangles;
 		core::array<Line> lines;
@@ -248,23 +248,23 @@ namespace scene
 		void clear();
 		void load(BinaryFileReader* pReader, bool bReadVisGroups);
 
-		s32 getFlags() const { return flags; }
-		s32 getGroupID() const { return groupId; }
+		int32_t getFlags() const { return flags; }
+		int32_t getGroupID() const { return groupId; }
 		const core::stringc& getProperties() const { return props; }
 		video::SColor getColor() const { return color.toSColor(); }
 		const core::vector3df* getPosition() const { return &position; }
-		s32 getVisgroupID() const { return visgroupId; }
-		s32 getSurfaceCount() const { return surfaces.size(); }
-		const Surface* getSurfaceAt(const s32 index) const { return surfaces[index]; }
+		int32_t getVisgroupID() const { return visgroupId; }
+		int32_t getSurfaceCount() const { return surfaces.size(); }
+		const Surface* getSurfaceAt(const int32_t index) const { return surfaces[index]; }
 
 	private:
 
-		s32 flags;
-		s32 groupId;
+		int32_t flags;
+		int32_t groupId;
 		core::stringc props;
 		color_rgb_t color;
 		core::vector3df position;
-		s32 visgroupId;
+		int32_t visgroupId;
 
 		core::array<Surface*> surfaces;
 	};
@@ -278,15 +278,15 @@ namespace scene
 
 		void clear();
 		void load(BinaryFileReader* pReader);
-		s32 getVisgroupID() const { return visgroupId; }
-		s32 getGroupID() const { return groupId; }
+		int32_t getVisgroupID() const { return visgroupId; }
+		int32_t getGroupID() const { return groupId; }
 		const core::stringc& getProperties() const { return props; }
 		const core::vector3df* getPosition() const { return &position; }
 
 	private:
 
-		s32 visgroupId;
-		s32 groupId;
+		int32_t visgroupId;
+		int32_t groupId;
 		core::stringc props;
 		core::vector3df position;
 	};
@@ -303,14 +303,14 @@ namespace scene
 		void load(BinaryFileReader* pReader);
 
 		const core::vector3df* getPosition(){ return &position; }
-		f32 getPitch(){ return pitch; }
-		f32 getYaw(){ return yaw; }
+		float getPitch(){ return pitch; }
+		float getYaw(){ return yaw; }
 
 	private:
 
 		core::vector3df position;
-		f32 pitch;
-		f32 yaw;
+		float pitch;
+		float yaw;
 	};
 
 	//
@@ -327,20 +327,20 @@ namespace scene
 
 		const Header* getHeader() const{ return &header; }
 
-		u32 getGroupCount() const{ return groups.size(); }
-		const Group* getGroupAt(const s32 index) const{ return groups[index]; }
+		uint32_t getGroupCount() const{ return groups.size(); }
+		const Group* getGroupAt(const int32_t index) const{ return groups[index]; }
 
-		u32 getVisGroupCount() const{ return visgroups.size(); }
-		const VisGroup* getVisGroupAt(const s32 index) const{ return visgroups[index]; }
+		uint32_t getVisGroupCount() const{ return visgroups.size(); }
+		const VisGroup* getVisGroupAt(const int32_t index) const{ return visgroups[index]; }
 
-		u32 getLightMapCount() const{ return lightmaps.size(); }
-		const LightMap* getLightMapAt(const s32 index) const { return lightmaps[index]; }
+		uint32_t getLightMapCount() const{ return lightmaps.size(); }
+		const LightMap* getLightMapAt(const int32_t index) const { return lightmaps[index]; }
 
-		u32 getMeshCount() const{ return meshes.size(); }
-		const Mesh* getMeshAt(const s32 index) const{ return meshes[index]; }
+		uint32_t getMeshCount() const{ return meshes.size(); }
+		const Mesh* getMeshAt(const int32_t index) const{ return meshes[index]; }
 
-		u32 getEntityCount() const{ return entities.size(); }
-		const Entity* getEntityAt(const s32 index) const{ return entities[index]; }
+		uint32_t getEntityCount() const{ return entities.size(); }
+		const Entity* getEntityAt(const int32_t index) const{ return entities[index]; }
 
 		const CameraData* getCameraData() const{ return &cameraData; }
 
@@ -411,7 +411,7 @@ namespace scene
 		scene::SMesh *pMesh = new scene::SMesh();
 		video::IVideoDriver* driver = SceneManager->getVideoDriver();
 
-		for(u32 l = 0; l<csmFile->getLightMapCount(); l++)
+		for(uint32_t l = 0; l<csmFile->getLightMapCount(); l++)
 		{
 			const LightMap* lmap = csmFile->getLightMapAt(l);
 
@@ -422,18 +422,18 @@ namespace scene
 
 			video::IImage* lmapImg = driver->createImageFromData(
 				video::ECF_A8R8G8B8,
-				core::dimension2d<u32>(lmap->getWidth(),lmap->getHeight()),
+				core::dimension2d<uint32_t>(lmap->getWidth(),lmap->getHeight()),
 				lmap->getPixelData());
 
 			driver->addTexture(lmapName.c_str(), lmapImg);
 			lmapImg->drop();
 		}
 
-		for(u32 m = 0; m<csmFile->getMeshCount(); m++)
+		for(uint32_t m = 0; m<csmFile->getMeshCount(); m++)
 		{
 			const Mesh* mshPtr = csmFile->getMeshAt(m);
 
-			for(s32 s = 0; s < mshPtr->getSurfaceCount(); s++)
+			for(int32_t s = 0; s < mshPtr->getSurfaceCount(); s++)
 			{
 				const Surface* surface = mshPtr->getSurfaceAt(s);
 
@@ -475,7 +475,7 @@ namespace scene
 				}
 
 				buffer->Vertices.reallocate(surface->getVertexCount());
-				for(u32 v = 0; v < surface->getVertexCount(); ++v)
+				for(uint32_t v = 0; v < surface->getVertexCount(); ++v)
 				{
 					const Vertex& vtxPtr = surface->getVertexAt(v);
 					video::S3DVertex2TCoords vtx;
@@ -489,7 +489,7 @@ namespace scene
 				}
 
 				buffer->Indices.reallocate(surface->getTriangleCount()*3);
-				for(u32 t = 0; t < surface->getTriangleCount(); ++t)
+				for(uint32_t t = 0; t < surface->getTriangleCount(); ++t)
 				{
 					const Triangle& tri = surface->getTriangleAt(t);
 					buffer->Indices.push_back(tri.c);
@@ -548,8 +548,8 @@ namespace scene
 	{
 		width = pReader->readLong();
 		height = pReader->readLong();
-		pixelData = new s32[width * height];
-		pReader->readBuffer(pixelData, width * height * sizeof(s32));
+		pixelData = new int32_t[width * height];
+		pReader->readBuffer(pixelData, width * height * sizeof(int32_t));
 	}
 
 	void Mesh::clear()
@@ -561,7 +561,7 @@ namespace scene
 		color.clear();
 		position.set(0,0,0);
 
-		for(u32 s = 0; s < surfaces.size(); s++)
+		for(uint32_t s = 0; s < surfaces.size(); s++)
 		{
 			delete surfaces[s];
 		}
@@ -580,9 +580,9 @@ namespace scene
 		else
 			visgroupId = 0;
 
-		s32 count = pReader->readLong();
+		int32_t count = pReader->readLong();
 
-		for(s32 i = 0; i < count; i++)
+		for(int32_t i = 0; i < count; i++)
 		{
 			Surface* surf = new Surface();
 			surf->load(pReader);
@@ -613,24 +613,24 @@ namespace scene
 		pReader->readVec2f(&uvOffset);
 		pReader->readVec2f(&uvScale);
 		uvRotation = pReader->readFloat();
-		s32 vtxCount = pReader->readLong();
-		s32 triCount = pReader->readLong();
-		s32 lineCount = pReader->readLong();
+		int32_t vtxCount = pReader->readLong();
+		int32_t triCount = pReader->readLong();
+		int32_t lineCount = pReader->readLong();
 
-		for(s32 v = 0; v < vtxCount; v++)
+		for(int32_t v = 0; v < vtxCount; v++)
 		{
 			vertices.push_back(Vertex());
 			vertices.getLast().load(pReader);
 		}
 
-		for(s32 t = 0; t < triCount; t++)
+		for(int32_t t = 0; t < triCount; t++)
 		{
 			Triangle tri;
 			pReader->readBuffer(&tri, sizeof(tri));
 			triangles.push_back(tri);
 		}
 
-		for(s32 l = 0; l < lineCount; l++)
+		for(int32_t l = 0; l < lineCount; l++)
 		{
 			Line line;
 			pReader->readBuffer(&line,sizeof(line));
@@ -692,7 +692,7 @@ namespace scene
 		header.clear();
 		cameraData.clear();
 
-		u32 x =0;
+		uint32_t x =0;
 		for( x= 0; x < groups.size(); x++)
 			delete groups[x];
 
@@ -727,14 +727,14 @@ namespace scene
 
 		//groups
 		{
-			const s32 count = pReader->readLong();
+			const int32_t count = pReader->readLong();
 #ifdef _IRR_DEBUG_CSM_LOADER_
 			os::Printer::log("CSM Version", core::stringc(header.getVersion()).c_str());
 			os::Printer::log("Loading groups. Count", core::stringc(count));
 #endif
 
 			groups.reallocate(count);
-			for (s32 i = 0; i < count; i++)
+			for (int32_t i = 0; i < count; i++)
 			{
 				Group* grp = new Group();
 				grp->load(pReader);
@@ -746,13 +746,13 @@ namespace scene
 		if (bHasVGroups)
 		{
 			//visgroups
-			const s32 count = pReader->readLong();
+			const int32_t count = pReader->readLong();
 #ifdef _IRR_DEBUG_CSM_LOADER_
 			os::Printer::log("Loading visgroups. Count", core::stringc(count));
 #endif
 
 			visgroups.reallocate(count);
-			for (s32 i = 0; i < count; i++)
+			for (int32_t i = 0; i < count; i++)
 			{
 				VisGroup* grp = new VisGroup();
 				grp->load(pReader);
@@ -762,13 +762,13 @@ namespace scene
 
 		//lightmaps
 		{
-			const s32 count = pReader->readLong();
+			const int32_t count = pReader->readLong();
 #ifdef _IRR_DEBUG_CSM_LOADER_
 			os::Printer::log("Loading lightmaps. Count", core::stringc(count));
 #endif
 
 			lightmaps.reallocate(count);
-			for(s32 i = 0; i < count; i++)
+			for(int32_t i = 0; i < count; i++)
 			{
 				LightMap* lm = new LightMap();
 				lm->load(pReader);
@@ -778,13 +778,13 @@ namespace scene
 
 		//meshes
 		{
-			const s32 count = pReader->readLong();
+			const int32_t count = pReader->readLong();
 #ifdef _IRR_DEBUG_CSM_LOADER_
 			os::Printer::log("Loading meshes. Count", core::stringc(count));
 #endif
 
 			meshes.reallocate(count);
-			for(s32 i = 0; i < count; i++)
+			for(int32_t i = 0; i < count; i++)
 			{
 				Mesh* mesh = new Mesh();
 				mesh->load(pReader,bHasVGroups);
@@ -794,13 +794,13 @@ namespace scene
 
 		//entities
 		{
-			const s32 count = pReader->readLong();
+			const int32_t count = pReader->readLong();
 #ifdef _IRR_DEBUG_CSM_LOADER_
 			os::Printer::log("Loading entitites. Count", core::stringc(count));
 #endif
 
 			entities.reallocate(count);
-			for(s32 i = 0; i < count; i++)
+			for(int32_t i = 0; i < count; i++)
 			{
 				Entity* ent = new Entity();
 				ent->load(pReader);
@@ -815,7 +815,7 @@ namespace scene
 		cameraData.load(pReader);
 	}
 
-	s32 BinaryFileReader::readLong()
+	int32_t BinaryFileReader::readLong()
 	{
 		int ret = 0;
 		readBuffer(&ret,sizeof(int));
@@ -825,7 +825,7 @@ namespace scene
 		return ret;
 	}
 
-	f32 BinaryFileReader::readFloat()
+	float BinaryFileReader::readFloat()
 	{
 		float ret = 0;
 		readBuffer(&ret,sizeof(float));
@@ -838,7 +838,7 @@ namespace scene
 	void BinaryFileReader::readString(core::stringc &str)
 	{
 		str = "";
-		c8 c;
+		int8_t c;
 		readBuffer(&c,sizeof(char));
 		while(c != 0)
 		{

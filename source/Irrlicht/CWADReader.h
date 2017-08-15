@@ -48,20 +48,20 @@ namespace io
 
 	struct SWADFileHeader
 	{
-		c8 tag[4];			// type of WAD format WAD2 = quake2, WAD3 = halflife
-		u32 numlumps;		
-		u32 infotableofs;
+		char tag[4];			// type of WAD format WAD2 = quake2, WAD3 = halflife
+		uint32_t numlumps;
+		uint32_t infotableofs;
 	} PACK_STRUCT;
 
 	struct SWADFileEntryOriginal
 	{
-		u32	filepos;
-		u32 disksize;
-		u32 size;					// uncompressed
-		u8 type;
-		u8 compression;
-		u8 pad[2];
-		u8 name[16];				// must be null terminated
+		uint32_t	filepos;
+		uint32_t disksize;
+		uint32_t size;					// uncompressed
+		uint8_t type;
+		uint8_t compression;
+		uint8_t pad[2];
+		uint8_t name[16];				// must be null terminated
 	} PACK_STRUCT;
 
 // Default alignment
@@ -134,7 +134,7 @@ namespace io
 		virtual IReadFile* createAndOpenFile(const io::path& filename);
 
 		//! opens a file by index
-		virtual IReadFile* createAndOpenFile(u32 index);
+		virtual IReadFile* createAndOpenFile(uint32_t index);
 
 		//! returns the list of files
 		virtual const IFileList* getFileList() const;
@@ -144,7 +144,7 @@ namespace io
 
 
 	private:
-		
+
 		io::path Type;
 
 		//! scans for a local header, returns false if there is no more local file header.

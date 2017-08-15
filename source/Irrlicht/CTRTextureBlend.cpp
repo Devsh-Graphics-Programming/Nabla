@@ -86,8 +86,8 @@ public:
 	//! draws an indexed triangle list
 	virtual void drawTriangle ( const s4DVertex *a,const s4DVertex *b,const s4DVertex *c );
 
-	virtual void setZCompareFunc ( u32 func);
-	virtual void setParam ( u32 index, f32 value);
+	virtual void setZCompareFunc ( uint32_t func);
+	virtual void setParam ( uint32_t index, float value);
 
 
 private:
@@ -107,7 +107,7 @@ private:
 	sScanConvertData scan;
 	sScanLineData line;
 
-	u32 ZCompare;
+	uint32_t ZCompare;
 };
 
 //! constructor
@@ -123,7 +123,7 @@ CTRTextureBlend::CTRTextureBlend(CBurningVideoDriver* driver)
 
 /*!
 */
-void CTRTextureBlend::setZCompareFunc ( u32 func)
+void CTRTextureBlend::setZCompareFunc ( uint32_t func)
 {
 	ZCompare = func;
 }
@@ -156,22 +156,22 @@ void CTRTextureBlend::setZCompareFunc ( u32 func)
 //! EMT_ONETEXTURE_BLEND: unpack srcFact & dstFact and Modulo to MaterialTypeParam
 /** The fields don't use the full byte range, so we could pack even more... */
 inline void unpack_textureBlendFunc ( E_BLEND_FACTOR &srcFact, E_BLEND_FACTOR &dstFact,
-        E_MODULATE_FUNC &modulo, u32& alphaSource, const f32 param )
+        E_MODULATE_FUNC &modulo, uint32_t& alphaSource, const float param )
 {
-    const u32 state = IR(param);
+    const uint32_t state = IR(param);
     alphaSource = (state & 0x0000F000) >> 12;
     modulo	= E_MODULATE_FUNC( ( state & 0x00000F00 ) >> 8 );
     srcFact = E_BLEND_FACTOR ( ( state & 0x000000F0 ) >> 4 );
     dstFact = E_BLEND_FACTOR ( ( state & 0x0000000F ) );
 }
 
-void CTRTextureBlend::setParam ( u32 index, f32 value)
+void CTRTextureBlend::setParam ( uint32_t index, float value)
 {
-	u8 showname = 0;
+	uint8_t showname = 0;
 
 	E_BLEND_FACTOR srcFact,dstFact;
 	E_MODULATE_FUNC modulate;
-	u32 alphaSrc;
+	uint32_t alphaSrc;
 	unpack_textureBlendFunc ( srcFact, dstFact, modulate, alphaSrc, value );
 
 	fragmentShader = 0;
@@ -226,7 +226,7 @@ void CTRTextureBlend::setParam ( u32 index, f32 value)
 		fragmentShader = &CTRTextureBlend::fragment_dst_color_zero;
 	}
 
-	static const c8 *n[] =
+	static const char *n[] =
 	{
 		"gl_zero",
 		"gl_one",
@@ -267,17 +267,17 @@ void CTRTextureBlend::fragment_dst_color_src_alpha ()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -299,7 +299,7 @@ void CTRTextureBlend::fragment_dst_color_src_alpha ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -318,7 +318,7 @@ void CTRTextureBlend::fragment_dst_color_src_alpha ()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -343,12 +343,12 @@ void CTRTextureBlend::fragment_dst_color_src_alpha ()
 #endif
 
 
-	f32 iw = 	FIX_POINT_F32_MUL;
+	float iw = 	FIX_POINT_F32_MUL;
 
 	tFixPoint a0, r0, g0, b0;
 	tFixPoint     r1, g1, b1;
 
-	s32 i;
+	int32_t i;
 
 	switch ( ZCompare )
 	{
@@ -451,17 +451,17 @@ void CTRTextureBlend::fragment_src_color_src_alpha ()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -483,7 +483,7 @@ void CTRTextureBlend::fragment_src_color_src_alpha ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -502,7 +502,7 @@ void CTRTextureBlend::fragment_src_color_src_alpha ()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -527,12 +527,12 @@ void CTRTextureBlend::fragment_src_color_src_alpha ()
 #endif
 
 
-	f32 iw = 	FIX_POINT_F32_MUL;
+	float iw = 	FIX_POINT_F32_MUL;
 
 	tFixPoint a0, r0, g0, b0;
 	tFixPoint     r1, g1, b1;
 
-	s32 i;
+	int32_t i;
 
 	switch ( ZCompare )
 	{
@@ -556,7 +556,7 @@ void CTRTextureBlend::fragment_src_color_src_alpha ()
 		getSample_texture ( a0, r0, g0, b0, &IT[0],	tofix ( line.t[0][0].x,iw),	tofix ( line.t[0][0].y,iw) );
 		color_to_fix ( r1, g1, b1, dst[i] );
 
-//		u32 check = imulFix_tex1( r0, r1 );
+//		uint32_t check = imulFix_tex1( r0, r1 );
 		dst[i] = fix_to_color ( clampfix_maxcolor ( imulFix_tex1( r0, r1 ) + imulFix_tex1( r1, a0 ) ),
 								clampfix_maxcolor ( imulFix_tex1( g0, g1 ) + imulFix_tex1( g1, a0 ) ),
 								clampfix_maxcolor ( imulFix_tex1( b0, b1 ) + imulFix_tex1( b1, a0 ) )
@@ -631,17 +631,17 @@ void CTRTextureBlend::fragment_one_one_minus_src_alpha()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -663,7 +663,7 @@ void CTRTextureBlend::fragment_one_one_minus_src_alpha()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -682,7 +682,7 @@ void CTRTextureBlend::fragment_one_one_minus_src_alpha()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -707,13 +707,13 @@ void CTRTextureBlend::fragment_one_one_minus_src_alpha()
 #endif
 
 
-	f32 iw = FIX_POINT_F32_MUL;
+	float iw = FIX_POINT_F32_MUL;
 
 	tFixPoint a0,r0, g0, b0;
 	tFixPoint	 r1, g1, b1;
 	tFixPoint	 r2, g2, b2;
 
-	s32 i;
+	int32_t i;
 
 	switch ( ZCompare )
 	{
@@ -828,17 +828,17 @@ void CTRTextureBlend::fragment_one_minus_dst_alpha_one ()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -860,7 +860,7 @@ void CTRTextureBlend::fragment_one_minus_dst_alpha_one ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -879,7 +879,7 @@ void CTRTextureBlend::fragment_one_minus_dst_alpha_one ()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -904,13 +904,13 @@ void CTRTextureBlend::fragment_one_minus_dst_alpha_one ()
 #endif
 
 
-	f32 iw = FIX_POINT_F32_MUL;
+	float iw = FIX_POINT_F32_MUL;
 
 	tFixPoint r0, g0, b0;
 	tFixPoint a1, r1, g1, b1;
 	tFixPoint r2, g2, b2;
 
-	s32 i;
+	int32_t i;
 
 	switch ( ZCompare )
 	{
@@ -1024,17 +1024,17 @@ void CTRTextureBlend::fragment_src_alpha_one ()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -1056,7 +1056,7 @@ void CTRTextureBlend::fragment_src_alpha_one ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -1075,7 +1075,7 @@ void CTRTextureBlend::fragment_src_alpha_one ()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -1100,13 +1100,13 @@ void CTRTextureBlend::fragment_src_alpha_one ()
 #endif
 
 
-	f32 iw = FIX_POINT_F32_MUL;
+	float iw = FIX_POINT_F32_MUL;
 
 	tFixPoint a0, r0, g0, b0;
 	tFixPoint r1, g1, b1;
 	tFixPoint r2, g2, b2;
 
-	s32 i;
+	int32_t i;
 
 	switch ( ZCompare )
 	{
@@ -1251,17 +1251,17 @@ void CTRTextureBlend::fragment_dst_color_one_minus_dst_alpha ()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -1283,7 +1283,7 @@ void CTRTextureBlend::fragment_dst_color_one_minus_dst_alpha ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -1302,7 +1302,7 @@ void CTRTextureBlend::fragment_dst_color_one_minus_dst_alpha ()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -1327,13 +1327,13 @@ void CTRTextureBlend::fragment_dst_color_one_minus_dst_alpha ()
 #endif
 
 
-	f32 iw = FIX_POINT_F32_MUL;
+	float iw = FIX_POINT_F32_MUL;
 
 	tFixPoint r0, g0, b0;
 	tFixPoint a1, r1, g1, b1;
 	tFixPoint r2, g2, b2;
 
-	s32 i;
+	int32_t i;
 
 	switch ( ZCompare )
 	{
@@ -1447,17 +1447,17 @@ void CTRTextureBlend::fragment_dst_color_zero ()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -1479,7 +1479,7 @@ void CTRTextureBlend::fragment_dst_color_zero ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -1498,7 +1498,7 @@ void CTRTextureBlend::fragment_dst_color_zero ()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -1523,13 +1523,13 @@ void CTRTextureBlend::fragment_dst_color_zero ()
 #endif
 
 
-	f32 iw = FIX_POINT_F32_MUL;
+	float iw = FIX_POINT_F32_MUL;
 
 	tFixPoint r0, g0, b0;
 	tFixPoint r1, g1, b1;
 	tFixPoint r2, g2, b2;
 
-	s32 i;
+	int32_t i;
 
 	switch ( ZCompare )
 	{
@@ -1641,17 +1641,17 @@ void CTRTextureBlend::fragment_dst_color_one ()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -1673,7 +1673,7 @@ void CTRTextureBlend::fragment_dst_color_one ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -1692,7 +1692,7 @@ void CTRTextureBlend::fragment_dst_color_one ()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -1717,13 +1717,13 @@ void CTRTextureBlend::fragment_dst_color_one ()
 #endif
 
 
-	f32 iw = FIX_POINT_F32_MUL;
+	float iw = FIX_POINT_F32_MUL;
 
 	tFixPoint r0, g0, b0;
 	tFixPoint r1, g1, b1;
 	tFixPoint r2, g2, b2;
 
-	s32 i;
+	int32_t i;
 
 	switch ( ZCompare )
 	{
@@ -1838,17 +1838,17 @@ void CTRTextureBlend::fragment_zero_one_minus_scr_color ()
 	fp24 *z;
 #endif
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
 
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 #ifdef IPOL_Z
-	f32 slopeZ;
+	float slopeZ;
 #endif
 #ifdef IPOL_W
 	fp24 slopeW;
@@ -1870,7 +1870,7 @@ void CTRTextureBlend::fragment_zero_one_minus_scr_color ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 #ifdef IPOL_Z
 	slopeZ = (line.z[1] - line.z[0]) * invDeltaX;
@@ -1889,7 +1889,7 @@ void CTRTextureBlend::fragment_zero_one_minus_scr_color ()
 #endif
 
 #ifdef SUBTEXEL
-	subPixel = ( (f32) xStart ) - line.x[0];
+	subPixel = ( (float) xStart ) - line.x[0];
 #ifdef IPOL_Z
 	line.z[0] += slopeZ * subPixel;
 #endif
@@ -1914,13 +1914,13 @@ void CTRTextureBlend::fragment_zero_one_minus_scr_color ()
 #endif
 
 
-	f32 iw = FIX_POINT_F32_MUL;
+	float iw = FIX_POINT_F32_MUL;
 
 	tFixPoint r0, g0, b0;
 	tFixPoint r1, g1, b1;
 	tFixPoint r2, g2, b2;
 
-	s32 i;
+	int32_t i;
 
 	switch ( ZCompare )
 	{
@@ -2035,9 +2035,9 @@ void CTRTextureBlend::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const
 	if ( F32_A_GREATER_B ( b->Pos.y , c->Pos.y ) ) swapVertexPointer(&b, &c);
 	if ( F32_A_GREATER_B ( a->Pos.y , b->Pos.y ) ) swapVertexPointer(&a, &b);
 
-	const f32 ca = c->Pos.y - a->Pos.y;
-	const f32 ba = b->Pos.y - a->Pos.y;
-	const f32 cb = c->Pos.y - b->Pos.y;
+	const float ca = c->Pos.y - a->Pos.y;
+	const float ba = b->Pos.y - a->Pos.y;
+	const float cb = c->Pos.y - b->Pos.y;
 	// calculate delta y of the edges
 	scan.invDeltaY[0] = core::reciprocal( ca );
 	scan.invDeltaY[1] = core::reciprocal( ba );
@@ -2047,7 +2047,7 @@ void CTRTextureBlend::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const
 		return;
 
 	// find if the major edge is left or right aligned
-	f32 temp[4];
+	float temp[4];
 
 	temp[0] = a->Pos.x - c->Pos.x;
 	temp[1] = -ca;
@@ -2087,15 +2087,15 @@ void CTRTextureBlend::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const
 #endif
 
 	// top left fill convention y run
-	s32 yStart;
-	s32 yEnd;
+	int32_t yStart;
+	int32_t yEnd;
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 	// rasterize upper sub-triangle
-	if ( (f32) 0.0 != scan.invDeltaY[1]  )
+	if ( (float) 0.0 != scan.invDeltaY[1]  )
 	{
 		// calculate slopes for top edge
 		scan.slopeX[1] = (b->Pos.x - a->Pos.x) * scan.invDeltaY[1];
@@ -2131,7 +2131,7 @@ void CTRTextureBlend::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const
 		yEnd = core::ceil32( b->Pos.y ) - 1;
 
 #ifdef SUBTEXEL
-		subPixel = ( (f32) yStart ) - a->Pos.y;
+		subPixel = ( (float) yStart ) - a->Pos.y;
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;
@@ -2230,10 +2230,10 @@ void CTRTextureBlend::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const
 	}
 
 	// rasterize lower sub-triangle
-	if ( (f32) 0.0 != scan.invDeltaY[2] )
+	if ( (float) 0.0 != scan.invDeltaY[2] )
 	{
 		// advance to middle point
-		if( (f32) 0.0 != scan.invDeltaY[1] )
+		if( (float) 0.0 != scan.invDeltaY[1] )
 		{
 			temp[0] = b->Pos.y - a->Pos.y;	// dy
 
@@ -2291,7 +2291,7 @@ void CTRTextureBlend::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const
 
 #ifdef SUBTEXEL
 
-		subPixel = ( (f32) yStart ) - b->Pos.y;
+		subPixel = ( (float) yStart ) - b->Pos.y;
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;

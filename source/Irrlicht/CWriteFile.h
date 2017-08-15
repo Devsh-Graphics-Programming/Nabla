@@ -27,7 +27,7 @@ namespace io
 		virtual ~CWriteFile();
 
 		//! Reads an amount of bytes from the file.
-		virtual s32 write(const void* buffer, u32 sizeToWrite);
+		virtual int32_t write(const void* buffer, uint32_t sizeToWrite);
 
 		//! Changes position in file, returns true if successful.
 		virtual bool seek(long finalPos, bool relativeMovement = false);

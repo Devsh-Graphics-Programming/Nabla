@@ -31,7 +31,7 @@ CFileList::~CFileList()
 	Files.clear();
 }
 
-u32 CFileList::getFileCount() const
+uint32_t CFileList::getFileCount() const
 {
 	return Files.size();
 }
@@ -41,7 +41,7 @@ void CFileList::sort()
 	Files.sort();
 }
 
-const io::path& CFileList::getFileName(u32 index) const
+const io::path& CFileList::getFileName(uint32_t index) const
 {
 	if (index >= Files.size())
 		return emptyFileListEntry;
@@ -51,7 +51,7 @@ const io::path& CFileList::getFileName(u32 index) const
 
 
 //! Gets the full name of a file in the list, path included, based on an index.
-const io::path& CFileList::getFullFileName(u32 index) const
+const io::path& CFileList::getFullFileName(uint32_t index) const
 {
 	if (index >= Files.size())
 		return emptyFileListEntry;
@@ -60,7 +60,7 @@ const io::path& CFileList::getFullFileName(u32 index) const
 }
 
 //! adds a file or folder
-u32 CFileList::addItem(const io::path& fullPath, u32 offset, u32 size, bool isDirectory, u32 id)
+uint32_t CFileList::addItem(const io::path& fullPath, uint32_t offset, uint32_t size, bool isDirectory, uint32_t id)
 {
 	SFileListEntry entry;
 	entry.ID   = id ? id : Files.size();
@@ -96,36 +96,35 @@ u32 CFileList::addItem(const io::path& fullPath, u32 offset, u32 size, bool isDi
 }
 
 //! Returns the ID of a file in the file list, based on an index.
-u32 CFileList::getID(u32 index) const
+uint32_t CFileList::getID(uint32_t index) const
 {
-	return index < Files.size() ? Files[index].ID : 0;	
+	return index < Files.size() ? Files[index].ID : 0;
 }
 
-bool CFileList::isDirectory(u32 index) const
+bool CFileList::isDirectory(uint32_t index) const
 {
 	bool ret = false;
 	if (index < Files.size())
 		ret = Files[index].IsDirectory;
 
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return ret;
 }
 
 //! Returns the size of a file
-u32 CFileList::getFileSize(u32 index) const
+uint32_t CFileList::getFileSize(uint32_t index) const
 {
 	return index < Files.size() ? Files[index].Size : 0;
 }
 
 //! Returns the size of a file
-u32 CFileList::getFileOffset(u32 index) const
+uint32_t CFileList::getFileOffset(uint32_t index) const
 {
 	return index < Files.size() ? Files[index].Offset : 0;
 }
 
 
 //! Searches for a file or folder within the list, returns the index
-s32 CFileList::findFile(const io::path& filename, bool isDirectory = false) const
+int32_t CFileList::findFile(const io::path& filename, bool isDirectory = false) const
 {
 	SFileListEntry entry;
 	// we only need FullName to be set for the search

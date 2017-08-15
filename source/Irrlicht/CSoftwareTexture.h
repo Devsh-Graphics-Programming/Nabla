@@ -27,7 +27,7 @@ public:
 	virtual ~CSoftwareTexture();
 
 	//! lock function
-	virtual void* lock(u32 mipmapLevel=0);
+	virtual void* lock(uint32_t mipmapLevel=0);
 
 	//! unlock function
 	virtual void unlock();
@@ -35,7 +35,7 @@ public:
 	virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
 
 	//! Returns original size of the texture.
-	virtual const core::dimension2d<u32>& getOriginalSize() const;
+	virtual const core::dimension2d<uint32_t>& getOriginalSize() const;
 
 	//! Returns (=size) of the texture.
 	virtual const uint32_t* getSize() const;
@@ -53,19 +53,19 @@ public:
 	virtual ECOLOR_FORMAT getColorFormat() const;
 
 	//! returns pitch of texture (in bytes)
-	virtual u32 getPitch() const;
+	virtual uint32_t getPitch() const;
 
 	//! Regenerates the mip map levels of the texture. Useful after locking and
 	//! modifying the texture
 	virtual void regenerateMipMapLevels();
 
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0) {return false;}
-    virtual bool resize(const uint32_t* size, u32 mipLevels=0) {return false;}
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0) {return false;}
+    virtual bool resize(const uint32_t* size, uint32_t mipLevels=0) {return false;}
 
 private:
 	CImage* Image;
 	CImage* Texture;
-	core::dimension2d<u32> OrigSize;
+	core::dimension2d<uint32_t> OrigSize;
 };
 
 

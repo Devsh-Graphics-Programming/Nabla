@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "COSOperator.h"
+#include "coreutil.h"
 
 #ifdef _IRR_WINDOWS_API_
 #ifndef _IRR_XBOX_PLATFORM_
@@ -19,6 +20,7 @@
 
 #if defined(_IRR_COMPILE_WITH_X11_DEVICE_)
 #include "CIrrDeviceLinux.h"
+#include <fstream>
 #endif
 #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
 #include "MacOSX/OSXClipboard.h"
@@ -52,7 +54,7 @@ const core::stringc& COSOperator::getOperatingSystemVersion() const
 
 
 //! copies text to the clipboard
-void COSOperator::copyToClipboard(const c8* text) const
+void COSOperator::copyToClipboard(const char* text) const
 {
 	if (strlen(text)==0)
 		return;
@@ -93,7 +95,7 @@ void COSOperator::copyToClipboard(const c8* text) const
 
 //! gets text from the clipboard
 //! \return Returns 0 if no string is in there.
-const c8* COSOperator::getTextFromClipboard() const
+const char* COSOperator::getTextFromClipboard() const
 {
 #if defined(_IRR_XBOX_PLATFORM_)
 		return 0;
@@ -124,7 +126,7 @@ const c8* COSOperator::getTextFromClipboard() const
 }
 
 
-bool COSOperator::getProcessorSpeedMHz(u32* MHz) const
+bool COSOperator::getProcessorSpeedMHz(uint32_t* MHz) const
 {
 #if defined(_IRR_WINDOWS_API_) && !defined(_WIN32_WCE ) && !defined (_IRR_XBOX_PLATFORM_)
 	LONG Error;
@@ -147,7 +149,6 @@ bool COSOperator::getProcessorSpeedMHz(u32* MHz) const
 		return false;
 	else if (MHz)
 		*MHz = Speed;
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return true;
 
 #elif defined(_IRR_OSX_PLATFORM_)
@@ -161,12 +162,38 @@ bool COSOperator::getProcessorSpeedMHz(u32* MHz) const
 	return true;
 #else
 	// could probably be read from "/proc/cpuinfo" or "/proc/cpufreq"
+    std::ifstream infile("/proc/cpuinfo",std::ios::in);
+
+    std::string line;
+    while (std::getline(infile, line))
+    {
+        if (!core::equalsIgnoreCaseSubStr<std::string>(line,0,"cpu mhz",0,7))
+            continue;
+
+        size_t firstPos = line.find_first_of("0123456789");
+        if (firstPos==std::string::npos)
+            continue;
+
+        size_t dec = line.find('.',firstPos+1);
+        if (dec!=std::string::npos)
+        {
+            std::istringstream strm(line.substr(firstPos,dec-firstPos));
+            strm >> *MHz;
+        }
+        else
+        {
+            std::istringstream strm(line.substr(firstPos));
+            strm >> *MHz;
+        }
+
+        return true;
+    }
 
 	return false;
 #endif
 }
 
-bool COSOperator::getSystemMemory(u32* Total, u32* Avail) const
+bool COSOperator::getSystemMemory(uint32_t* Total, uint32_t* Avail) const
 {
 #if defined(_IRR_WINDOWS_API_) && !defined (_IRR_XBOX_PLATFORM_)
 	MEMORYSTATUS MemoryStatus;
@@ -176,11 +203,10 @@ bool COSOperator::getSystemMemory(u32* Total, u32* Avail) const
 	GlobalMemoryStatus(&MemoryStatus);
 
 	if (Total)
-		*Total = (u32)(MemoryStatus.dwTotalPhys>>10);
+		*Total = (uint32_t)(MemoryStatus.dwTotalPhys>>10);
 	if (Avail)
-		*Avail = (u32)(MemoryStatus.dwAvailPhys>>10);
+		*Avail = (uint32_t)(MemoryStatus.dwAvailPhys>>10);
 
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return true;
 
 #elif defined(_IRR_POSIX_API_) && !defined(__FreeBSD__)
@@ -193,9 +219,9 @@ bool COSOperator::getSystemMemory(u32* Total, u32* Avail) const
 		return false;
 
 	if (Total)
-		*Total = (u32)((ps*(long long)pp)>>10);
+		*Total = (uint32_t)((ps*(long long)pp)>>10);
 	if (Avail)
-		*Avail = (u32)((ps*(long long)ap)>>10);
+		*Avail = (uint32_t)((ps*(long long)ap)>>10);
 	return true;
 #else
 	// TODO: implement for non-availablity of symbols/features

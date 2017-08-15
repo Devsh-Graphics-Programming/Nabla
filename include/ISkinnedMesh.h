@@ -10,6 +10,7 @@
 #include "quaternion.h"
 #include "matrix4.h"
 #include <vector>
+#include <string>
 
 namespace irr
 {
@@ -22,10 +23,16 @@ namespace scene
         protected:
             const CFinalBoneHierarchy* referenceHierarchy;
             //! The bounding box of this mesh
-            core::aabbox3d<f32> Box;
+            core::aabbox3d<float> Box;
         public:
             IGPUSkinnedMesh(CFinalBoneHierarchy* boneHierarchy) : referenceHierarchy(boneHierarchy)
             {
+                //referenceHierarchy grab in child classes
+            }
+
+            virtual ~IGPUSkinnedMesh()
+            {
+                //referenceHierarchy drop in child classes
             }
 
             //!
@@ -33,7 +40,7 @@ namespace scene
 
             //! Returns an axis aligned bounding box of the mesh.
             /** \return A bounding box of this mesh is returned. */
-            virtual const core::aabbox3d<f32>& getBoundingBox() const
+            virtual const core::aabbox3d<float>& getBoundingBox() const
             {
                 return Box;
             }
@@ -88,7 +95,7 @@ namespace scene
                 SPositionKey(const float& mockFrame) : frame(mockFrame) {}
                 inline bool operator<(const SPositionKey& other) const { return (frame < other.frame); }
 
-                f32 frame;
+                float frame;
                 core::vector3df position;
 		};
 
@@ -100,7 +107,7 @@ namespace scene
                 SScaleKey(const float& mockFrame) : frame(mockFrame) {}
                 inline bool operator<(const SScaleKey& other) const { return (frame < other.frame); }
 
-			f32 frame;
+			float frame;
 			core::vector3df scale;
 		};
 
@@ -112,7 +119,7 @@ namespace scene
                 SRotationKey(const float& mockFrame) : frame(mockFrame) {}
                 inline bool operator<(const SRotationKey& other) const { return (frame < other.frame); }
 
-			f32 frame;
+			float frame;
 			core::quaternion rotation;
 		};
 
@@ -125,7 +132,7 @@ namespace scene
                 }
 
                 //! The name of this joint
-                core::stringc Name;
+                std::string Name;
 
                 //! Local matrix of this joint
                 core::matrix4x3 LocalMatrix;

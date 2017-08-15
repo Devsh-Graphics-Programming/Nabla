@@ -125,12 +125,12 @@ class FW_ConditionVariable
         FW_ConditionVariable(const FW_ConditionVariable&); // no implementation
         FW_ConditionVariable&   operator=(const FW_ConditionVariable&); // no implementation
 #ifdef _DEBUG
-        FW_Mutex*               mutexAttachedTo;
+        FW_Mutex*      mutexAttachedTo;
 #endif // _DEBUG
 #if _MSC_VER && !__INTEL_COMPILER
         CONDITION_VARIABLE      conditionVar;
 #elif defined(_PTHREAD_H)
-        pthread_cond_t          conditionVar;
+        pthread_cond_t conditionVar;
 #else
 #error "No Threading Lib Used!"
 #endif

@@ -696,7 +696,7 @@ NO BITSHIFTING SUPPORT
 			const float crsp = cr*sp;
 			const float srsp = sr*sp;
 
-			const f64 pseudoMatrix[] = {
+			const double pseudoMatrix[] = {
 				( cp*cy ), ( cp*sy ), ( -sp ),
 				( srsp*cy-cr*sy ), ( srsp*sy+cr*cy ), ( sr*cp ),
 				( crsp*cy+sr*sy ), ( crsp*sy-sr*cy ), ( cr*cp )};
@@ -883,7 +883,7 @@ NO BITSHIFTING SUPPORT
 #endif
     }
 
-	//! Typedef for a f32 n-dimensional vector.
+	//! Typedef for a float n-dimensional vector.
 	typedef vectorSIMDf vector4df_SIMD;
 	typedef vectorSIMDf vector3df_SIMD;
 	typedef vectorSIMDf vector2df_SIMD;

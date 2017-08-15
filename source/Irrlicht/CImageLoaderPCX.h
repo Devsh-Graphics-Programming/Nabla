@@ -21,24 +21,24 @@ namespace video
 
 	struct SPCXHeader
 	{
-		u8	Manufacturer;
-		u8	Version;
-		u8	Encoding;
-		u8	BitsPerPixel;
-		u16	XMin;
-		u16	YMin;
-		u16	XMax;
-		u16	YMax;
-		u16	HorizDPI;
-		u16	VertDPI;
-		u8	Palette[48];
-		u8	Reserved;
-		u8	Planes;
-		u16	BytesPerLine;
-		u16	PaletteType;
-		u16	HScrSize;
-		u16	VScrSize;
-		u8	Filler[54];
+		uint8_t	Manufacturer;
+		uint8_t	Version;
+		uint8_t	Encoding;
+		uint8_t	BitsPerPixel;
+		uint16_t	XMin;
+		uint16_t	YMin;
+		uint16_t	XMax;
+		uint16_t	YMax;
+		uint16_t	HorizDPI;
+		uint16_t	VertDPI;
+		uint8_t	Palette[48];
+		uint8_t	Reserved;
+		uint8_t	Planes;
+		uint16_t	BytesPerLine;
+		uint16_t	PaletteType;
+		uint16_t	HScrSize;
+		uint16_t	VScrSize;
+		uint8_t	Filler[54];
 	} PACK_STRUCT;
 
 

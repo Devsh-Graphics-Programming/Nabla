@@ -14,8 +14,8 @@ namespace scene
 {
 
 //! constructor
-CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
-			const core::vector3df& position, const core::dimension2d<f32>& size,
+CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
+			const core::vector3df& position, const core::dimension2d<float>& size,
 			video::SColor colorTop, video::SColor colorBottom)
 	: IBillboardSceneNode(parent, mgr, id, position)
 {
@@ -103,16 +103,19 @@ void CBillboardSceneNode::render()
 		driver->draw3DBox(BBox, video::SColor(0,208,195,152));
 	}
 
-	driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
+    if (canProceedPastFence())
+    {
+        driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
 
-	driver->setMaterial(Material);
+        driver->setMaterial(Material);
 
-	driver->drawMeshBuffer(meshbuffer, (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+        driver->drawMeshBuffer(meshbuffer, (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+    }
 }
 
 
 //! sets the size of the billboard
-void CBillboardSceneNode::setSize(const core::dimension2d<f32>& size)
+void CBillboardSceneNode::setSize(const core::dimension2d<float>& size)
 {
 	Size = size;
 
@@ -123,13 +126,13 @@ void CBillboardSceneNode::setSize(const core::dimension2d<f32>& size)
 	if (core::equals(Size.Height, 0.0f))
 		Size.Height = 1.0f;
 
-	const f32 avg = (Size.Width + Size.Height)/6;
+	const float avg = (Size.Width + Size.Height)/6;
 	BBox.MinEdge.set(-avg,-avg,-avg);
 	BBox.MaxEdge.set(avg,avg,avg);
 }
 
 
-void CBillboardSceneNode::setSize(f32 height, f32 bottomEdgeWidth, f32 topEdgeWidth)
+void CBillboardSceneNode::setSize(float height, float bottomEdgeWidth, float topEdgeWidth)
 {
 	Size.set(bottomEdgeWidth, height);
 	TopEdgeWidth = topEdgeWidth;
@@ -143,15 +146,15 @@ void CBillboardSceneNode::setSize(f32 height, f32 bottomEdgeWidth, f32 topEdgeWi
 		TopEdgeWidth = 1.0f;
 	}
 
-	const f32 avg = (core::max_(Size.Width,TopEdgeWidth) + Size.Height)/6;
+	const float avg = (core::max_(Size.Width,TopEdgeWidth) + Size.Height)/6;
 	BBox.MinEdge.set(-avg,-avg,-avg);
 	BBox.MaxEdge.set(avg,avg,avg);
 }
 
 
 //! Gets the widths of the top and bottom edges of the billboard.
-void CBillboardSceneNode::getSize(f32& height, f32& bottomEdgeWidth,
-		f32& topEdgeWidth) const
+void CBillboardSceneNode::getSize(float& height, float& bottomEdgeWidth,
+		float& topEdgeWidth) const
 {
 	height = Size.Height;
 	bottomEdgeWidth = Size.Width;

@@ -24,12 +24,12 @@ static inline core::vector3df getAngleWeight(const core::vector3df& v1,
 {
 	// Calculate this triangle's weight for each of its three vertices
 	// start by calculating the lengths of its sides
-	const f32 a = v2.getDistanceFromSQ(v3);
-	const f32 asqrt = sqrtf(a);
-	const f32 b = v1.getDistanceFromSQ(v3);
-	const f32 bsqrt = sqrtf(b);
-	const f32 c = v1.getDistanceFromSQ(v2);
-	const f32 csqrt = sqrtf(c);
+	const float a = v2.getDistanceFromSQ(v3);
+	const float asqrt = sqrtf(a);
+	const float b = v1.getDistanceFromSQ(v3);
+	const float bsqrt = sqrtf(b);
+	const float c = v1.getDistanceFromSQ(v2);
+	const float csqrt = sqrtf(c);
 
 	// use them to find the angle at each vertex
 	return core::vector3df(
@@ -47,7 +47,7 @@ void CMeshManipulator::flipSurfaces(scene::ICPUMeshBuffer* inbuffer) const
 	if (!inbuffer)
 		return;
 
-    const u32 idxcnt = inbuffer->getIndexCount();
+    const uint32_t idxcnt = inbuffer->getIndexCount();
     if (!inbuffer->getIndices())
         return;
 
@@ -58,7 +58,7 @@ void CMeshManipulator::flipSurfaces(scene::ICPUMeshBuffer* inbuffer) const
         switch (inbuffer->getPrimitiveType())
         {
         case EPT_TRIANGLE_FAN:
-            for (u32 i=1; i<idxcnt; i+=2)
+            for (uint32_t i=1; i<idxcnt; i+=2)
             {
                 const uint16_t tmp = idx[i];
                 idx[i] = idx[i+1];
@@ -68,7 +68,7 @@ void CMeshManipulator::flipSurfaces(scene::ICPUMeshBuffer* inbuffer) const
         case EPT_TRIANGLE_STRIP:
             if (idxcnt%2) //odd
             {
-                for (u32 i=0; i<(idxcnt>>1); i++)
+                for (uint32_t i=0; i<(idxcnt>>1); i++)
                 {
                     const uint16_t tmp = idx[i];
                     idx[i] = idx[idxcnt-1-i];
@@ -87,7 +87,7 @@ void CMeshManipulator::flipSurfaces(scene::ICPUMeshBuffer* inbuffer) const
             }
             break;
         case EPT_TRIANGLES:
-            for (u32 i=0; i<idxcnt; i+=3)
+            for (uint32_t i=0; i<idxcnt; i+=3)
             {
                 const uint16_t tmp = idx[i+1];
                 idx[i+1] = idx[i+2];
@@ -102,7 +102,7 @@ void CMeshManipulator::flipSurfaces(scene::ICPUMeshBuffer* inbuffer) const
         switch (inbuffer->getPrimitiveType())
         {
         case EPT_TRIANGLE_FAN:
-            for (u32 i=1; i<idxcnt; i+=2)
+            for (uint32_t i=1; i<idxcnt; i+=2)
             {
                 const uint32_t tmp = idx[i];
                 idx[i] = idx[i+1];
@@ -112,7 +112,7 @@ void CMeshManipulator::flipSurfaces(scene::ICPUMeshBuffer* inbuffer) const
         case EPT_TRIANGLE_STRIP:
             if (idxcnt%2) //odd
             {
-                for (u32 i=0; i<(idxcnt>>1); i++)
+                for (uint32_t i=0; i<(idxcnt>>1); i++)
                 {
                     const uint32_t tmp = idx[i];
                     idx[i] = idx[idxcnt-1-i];
@@ -131,7 +131,7 @@ void CMeshManipulator::flipSurfaces(scene::ICPUMeshBuffer* inbuffer) const
             }
             break;
         case EPT_TRIANGLES:
-            for (u32 i=0; i<idxcnt; i+=3)
+            for (uint32_t i=0; i<idxcnt; i+=3)
             {
                 const uint32_t tmp = idx[i+1];
                 idx[i+1] = idx[i+2];
@@ -149,18 +149,18 @@ namespace
 template <typename T>
 void recalculateNormalsT(IMeshBuffer* buffer, bool smooth, bool angleWeighted)
 {
-	const u32 vtxcnt = buffer->getVertexCount();
-	const u32 idxcnt = buffer->getIndexCount();
+	const uint32_t vtxcnt = buffer->getVertexCount();
+	const uint32_t idxcnt = buffer->getIndexCount();
 	const T* idx = reinterpret_cast<T*>(buffer->getIndices());
 
 	if (!smooth)
 	{
-		for (u32 i=0; i<idxcnt; i+=3)
+		for (uint32_t i=0; i<idxcnt; i+=3)
 		{
 			const core::vector3df& v1 = buffer->getPosition(idx[i+0]);
 			const core::vector3df& v2 = buffer->getPosition(idx[i+1]);
 			const core::vector3df& v3 = buffer->getPosition(idx[i+2]);
-			const core::vector3df normal = core::plane3d<f32>(v1, v2, v3).Normal;
+			const core::vector3df normal = core::plane3d<float>(v1, v2, v3).Normal;
 			buffer->getNormal(idx[i+0]) = normal;
 			buffer->getNormal(idx[i+1]) = normal;
 			buffer->getNormal(idx[i+2]) = normal;
@@ -168,7 +168,7 @@ void recalculateNormalsT(IMeshBuffer* buffer, bool smooth, bool angleWeighted)
 	}
 	else
 	{
-		u32 i;
+		uint32_t i;
 
 		for ( i = 0; i!= vtxcnt; ++i )
 			buffer->getNormal(i).set(0.f, 0.f, 0.f);
@@ -178,7 +178,7 @@ void recalculateNormalsT(IMeshBuffer* buffer, bool smooth, bool angleWeighted)
 			const core::vector3df& v1 = buffer->getPosition(idx[i+0]);
 			const core::vector3df& v2 = buffer->getPosition(idx[i+1]);
 			const core::vector3df& v3 = buffer->getPosition(idx[i+2]);
-			const core::vector3df normal = core::plane3d<f32>(v1, v2, v3).Normal;
+			const core::vector3df normal = core::plane3d<float>(v1, v2, v3).Normal;
 
 			core::vector3df weight(1.f,1.f,1.f);
 			if (angleWeighted)
@@ -204,9 +204,9 @@ void CMeshManipulator::recalculateNormals(IMeshBuffer* buffer, bool smooth, bool
 		return;
 
 	if (buffer->getIndexType()==video::EIT_16BIT)
-		recalculateNormalsT<u16>(buffer, smooth, angleWeighted);
+		recalculateNormalsT<uint16_t>(buffer, smooth, angleWeighted);
 	else
-		recalculateNormalsT<u32>(buffer, smooth, angleWeighted);
+		recalculateNormalsT<uint32_t>(buffer, smooth, angleWeighted);
 }
 
 
@@ -217,8 +217,8 @@ void CMeshManipulator::recalculateNormals(scene::IMesh* mesh, bool smooth, bool 
 	if (!mesh)
 		return;
 
-	const u32 bcount = mesh->getMeshBufferCount();
-	for ( u32 b=0; b<bcount; ++b)
+	const uint32_t bcount = mesh->getMeshBufferCount();
+	for ( uint32_t b=0; b<bcount; ++b)
 		recalculateNormals(mesh->getMeshBuffer(b), smooth, angleWeighted);
 }
 
@@ -245,15 +245,15 @@ void calculateTangents(
 
 	// binormal
 
-	f32 deltaX1 = tc1.X - tc2.X;
-	f32 deltaX2 = tc3.X - tc1.X;
+	float deltaX1 = tc1.X - tc2.X;
+	float deltaX2 = tc3.X - tc1.X;
 	binormal = (v1 * deltaX2) - (v2 * deltaX1);
 	binormal.normalize();
 
 	// tangent
 
-	f32 deltaY1 = tc1.Y - tc2.Y;
-	f32 deltaY2 = tc3.Y - tc1.Y;
+	float deltaY1 = tc1.Y - tc2.Y;
+	float deltaY2 = tc3.Y - tc1.Y;
 	tangent = (v1 * deltaY2) - (v2 * deltaY1);
 	tangent.normalize();
 
@@ -312,7 +312,7 @@ void calculateTangents(
 	binormal = tangent.crossProduct(normal);
 	binormal.normalize();
 
-	core::plane3d<f32> pl(vt1, vt2, vt3);
+	core::plane3d<float> pl(vt1, vt2, vt3);
 
 	if(normal.dotProduct(pl.Normal) < 0.0f )
 		normal *= -1.0f;
@@ -328,8 +328,8 @@ void recalculateTangentsT(IMeshBuffer* buffer, bool recalculateNormals, bool smo
 	if (!buffer || (buffer->getVertexType()!= video::EVT_TANGENTS))
 		return;
 
-	const u32 vtxCnt = buffer->getVertexCount();
-	const u32 idxCnt = buffer->getIndexCount();
+	const uint32_t vtxCnt = buffer->getVertexCount();
+	const uint32_t idxCnt = buffer->getIndexCount();
 
 	T* idx = reinterpret_cast<T*>(buffer->getIndices());
 	video::S3DVertexTangents* v =
@@ -337,7 +337,7 @@ void recalculateTangentsT(IMeshBuffer* buffer, bool recalculateNormals, bool smo
 
 	if (smooth)
 	{
-		u32 i;
+		uint32_t i;
 
 		for ( i = 0; i!= vtxCnt; ++i )
 		{
@@ -433,7 +433,7 @@ void recalculateTangentsT(IMeshBuffer* buffer, bool recalculateNormals, bool smo
 	else
 	{
 		core::vector3df localNormal;
-		for (u32 i=0; i<idxCnt; i+=3)
+		for (uint32_t i=0; i<idxCnt; i+=3)
 		{
 			calculateTangents(
 				localNormal,
@@ -485,9 +485,9 @@ void CMeshManipulator::recalculateTangents(IMeshBuffer* buffer, bool recalculate
 	if (buffer && (buffer->getVertexType() == video::EVT_TANGENTS))
 	{
 		if (buffer->getIndexType() == video::EIT_16BIT)
-			recalculateTangentsT<u16>(buffer, recalculateNormals, smooth, angleWeighted);
+			recalculateTangentsT<uint16_t>(buffer, recalculateNormals, smooth, angleWeighted);
 		else
-			recalculateTangentsT<u32>(buffer, recalculateNormals, smooth, angleWeighted);
+			recalculateTangentsT<uint32_t>(buffer, recalculateNormals, smooth, angleWeighted);
 	}
 }
 
@@ -498,8 +498,8 @@ void CMeshManipulator::recalculateTangents(IMesh* mesh, bool recalculateNormals,
 	if (!mesh)
 		return;
 
-	const u32 meshBufferCount = mesh->getMeshBufferCount();
-	for (u32 b=0; b<meshBufferCount; ++b)
+	const uint32_t meshBufferCount = mesh->getMeshBufferCount();
+	for (uint32_t b=0; b<meshBufferCount; ++b)
 	{
 		recalculateTangents(mesh->getMeshBuffer(b), recalculateNormals, smooth, angleWeighted);
 	}
@@ -510,12 +510,12 @@ namespace
 {
 //! Creates a planar texture mapping on the meshbuffer
 template<typename T>
-void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, f32 resolution)
+void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, float resolution)
 {
-	u32 idxcnt = buffer->getIndexCount();
+	uint32_t idxcnt = buffer->getIndexCount();
 	T* idx = reinterpret_cast<T*>(buffer->getIndices());
 
-	for (u32 i=0; i<idxcnt; i+=3)
+	for (uint32_t i=0; i<idxcnt; i+=3)
 	{
 		core::plane3df p(buffer->getPosition(idx[i+0]), buffer->getPosition(idx[i+1]), buffer->getPosition(idx[i+2]));
 		p.Normal.X = fabsf(p.Normal.X);
@@ -525,7 +525,7 @@ void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, f32 resolution)
 
 		if (p.Normal.X > p.Normal.Y && p.Normal.X > p.Normal.Z)
 		{
-			for (u32 o=0; o!=3; ++o)
+			for (uint32_t o=0; o!=3; ++o)
 			{
 				buffer->getTCoords(idx[i+o]).X = buffer->getPosition(idx[i+o]).Y * resolution;
 				buffer->getTCoords(idx[i+o]).Y = buffer->getPosition(idx[i+o]).Z * resolution;
@@ -534,7 +534,7 @@ void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, f32 resolution)
 		else
 		if (p.Normal.Y > p.Normal.X && p.Normal.Y > p.Normal.Z)
 		{
-			for (u32 o=0; o!=3; ++o)
+			for (uint32_t o=0; o!=3; ++o)
 			{
 				buffer->getTCoords(idx[i+o]).X = buffer->getPosition(idx[i+o]).X * resolution;
 				buffer->getTCoords(idx[i+o]).Y = buffer->getPosition(idx[i+o]).Z * resolution;
@@ -542,7 +542,7 @@ void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, f32 resolution)
 		}
 		else
 		{
-			for (u32 o=0; o!=3; ++o)
+			for (uint32_t o=0; o!=3; ++o)
 			{
 				buffer->getTCoords(idx[i+o]).X = buffer->getPosition(idx[i+o]).X * resolution;
 				buffer->getTCoords(idx[i+o]).Y = buffer->getPosition(idx[i+o]).Y * resolution;
@@ -554,26 +554,26 @@ void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, f32 resolution)
 
 
 //! Creates a planar texture mapping on the meshbuffer
-void CMeshManipulator::makePlanarTextureMapping(scene::IMeshBuffer* buffer, f32 resolution) const
+void CMeshManipulator::makePlanarTextureMapping(scene::IMeshBuffer* buffer, float resolution) const
 {
 	if (!buffer)
 		return;
 
 	if (buffer->getIndexType()==video::EIT_16BIT)
-		makePlanarTextureMappingT<u16>(buffer, resolution);
+		makePlanarTextureMappingT<uint16_t>(buffer, resolution);
 	else
-		makePlanarTextureMappingT<u32>(buffer, resolution);
+		makePlanarTextureMappingT<uint32_t>(buffer, resolution);
 }
 
 
 //! Creates a planar texture mapping on the mesh
-void CMeshManipulator::makePlanarTextureMapping(scene::IMesh* mesh, f32 resolution) const
+void CMeshManipulator::makePlanarTextureMapping(scene::IMesh* mesh, float resolution) const
 {
 	if (!mesh)
 		return;
 
-	const u32 bcount = mesh->getMeshBufferCount();
-	for ( u32 b=0; b<bcount; ++b)
+	const uint32_t bcount = mesh->getMeshBufferCount();
+	for ( uint32_t b=0; b<bcount; ++b)
 	{
 		makePlanarTextureMapping(mesh->getMeshBuffer(b), resolution);
 	}
@@ -584,17 +584,17 @@ namespace
 {
 //! Creates a planar texture mapping on the meshbuffer
 template <typename T>
-void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, f32 resolutionS, f32 resolutionT, u8 axis, const core::vector3df& offset)
+void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, float resolutionS, float resolutionT, uint8_t axis, const core::vector3df& offset)
 {
-	u32 idxcnt = buffer->getIndexCount();
+	uint32_t idxcnt = buffer->getIndexCount();
 	T* idx = reinterpret_cast<T*>(buffer->getIndices());
 
-	for (u32 i=0; i<idxcnt; i+=3)
+	for (uint32_t i=0; i<idxcnt; i+=3)
 	{
 		// calculate planar mapping worldspace coordinates
 		if (axis==0)
 		{
-			for (u32 o=0; o!=3; ++o)
+			for (uint32_t o=0; o!=3; ++o)
 			{
 				buffer->getTCoords(idx[i+o]).X = 0.5f+(buffer->getPosition(idx[i+o]).Z + offset.Z) * resolutionS;
 				buffer->getTCoords(idx[i+o]).Y = 0.5f-(buffer->getPosition(idx[i+o]).Y + offset.Y) * resolutionT;
@@ -602,7 +602,7 @@ void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, f32 resolutionS, f32 
 		}
 		else if (axis==1)
 		{
-			for (u32 o=0; o!=3; ++o)
+			for (uint32_t o=0; o!=3; ++o)
 			{
 				buffer->getTCoords(idx[i+o]).X = 0.5f+(buffer->getPosition(idx[i+o]).X + offset.X) * resolutionS;
 				buffer->getTCoords(idx[i+o]).Y = 1.f-(buffer->getPosition(idx[i+o]).Z + offset.Z) * resolutionT;
@@ -610,7 +610,7 @@ void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, f32 resolutionS, f32 
 		}
 		else if (axis==2)
 		{
-			for (u32 o=0; o!=3; ++o)
+			for (uint32_t o=0; o!=3; ++o)
 			{
 				buffer->getTCoords(idx[i+o]).X = 0.5f+(buffer->getPosition(idx[i+o]).X + offset.X) * resolutionS;
 				buffer->getTCoords(idx[i+o]).Y = 0.5f-(buffer->getPosition(idx[i+o]).Y + offset.Y) * resolutionT;
@@ -622,26 +622,26 @@ void makePlanarTextureMappingT(scene::IMeshBuffer* buffer, f32 resolutionS, f32 
 
 
 //! Creates a planar texture mapping on the meshbuffer
-void CMeshManipulator::makePlanarTextureMapping(scene::IMeshBuffer* buffer, f32 resolutionS, f32 resolutionT, u8 axis, const core::vector3df& offset) const
+void CMeshManipulator::makePlanarTextureMapping(scene::IMeshBuffer* buffer, float resolutionS, float resolutionT, uint8_t axis, const core::vector3df& offset) const
 {
 	if (!buffer)
 		return;
 
 	if (buffer->getIndexType()==video::EIT_16BIT)
-		makePlanarTextureMappingT<u16>(buffer, resolutionS, resolutionT, axis, offset);
+		makePlanarTextureMappingT<uint16_t>(buffer, resolutionS, resolutionT, axis, offset);
 	else
-		makePlanarTextureMappingT<u32>(buffer, resolutionS, resolutionT, axis, offset);
+		makePlanarTextureMappingT<uint32_t>(buffer, resolutionS, resolutionT, axis, offset);
 }
 
 
 //! Creates a planar texture mapping on the mesh
-void CMeshManipulator::makePlanarTextureMapping(scene::IMesh* mesh, f32 resolutionS, f32 resolutionT, u8 axis, const core::vector3df& offset) const
+void CMeshManipulator::makePlanarTextureMapping(scene::IMesh* mesh, float resolutionS, float resolutionT, uint8_t axis, const core::vector3df& offset) const
 {
 	if (!mesh)
 		return;
 
-	const u32 bcount = mesh->getMeshBufferCount();
-	for ( u32 b=0; b<bcount; ++b)
+	const uint32_t bcount = mesh->getMeshBufferCount();
+	for ( uint32_t b=0; b<bcount; ++b)
 	{
 		makePlanarTextureMapping(mesh->getMeshBuffer(b), resolutionS, resolutionT, axis, offset);
 	}
@@ -747,7 +747,7 @@ int cmpfunc (const void * a, const void * b)
 }
 
 //! Creates a copy of a mesh, which will have identical vertices welded together
-ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& makeNewMesh, f32 tolerance) const
+ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& makeNewMesh, float tolerance) const
 {
     if (!inbuffer)
         return 0;
@@ -1046,7 +1046,7 @@ bool IMeshManipulator::getPolyCount(uint32_t& outCount, scene::IMesh<T>* mesh)
 		return false;
 
     bool retval = true;
-	for (u32 g=0; g<mesh->getMeshBufferCount(); ++g)
+	for (uint32_t g=0; g<mesh->getMeshBufferCount(); ++g)
     {
         uint32_t trianglecount;
         retval = retval&&getPolyCount(trianglecount,mesh->getMeshBuffer(g));
@@ -1073,20 +1073,20 @@ namespace
 
 struct vcache
 {
-	core::array<u32> tris;
+	core::array<uint32_t> tris;
 	float score;
-	s16 cachepos;
-	u16 NumActiveTris;
+	int16_t cachepos;
+	uint16_t NumActiveTris;
 };
 
 struct tcache
 {
-	u16 ind[3];
+	uint16_t ind[3];
 	float score;
 	bool drawn;
 };
 
-const u16 cachesize = 32;
+const uint16_t cachesize = 32;
 
 float FindVertexScore(vcache *v)
 {
@@ -1144,24 +1144,24 @@ class f_lru
 public:
 	f_lru(vcache *v, tcache *t): vc(v), tc(t)
 	{
-		for (u16 i = 0; i < cachesize; i++)
+		for (uint16_t i = 0; i < cachesize; i++)
 		{
 			cache[i] = -1;
 		}
 	}
 
 	// Adds this vertex index and returns the highest-scoring triangle index
-	u32 add(u16 vert, bool updatetris = false)
+	uint32_t add(uint16_t vert, bool updatetris = false)
 	{
 		bool found = false;
 
 		// Mark existing pos as empty
-		for (u16 i = 0; i < cachesize; i++)
+		for (uint16_t i = 0; i < cachesize; i++)
 		{
 			if (cache[i] == vert)
 			{
 				// Move everything down
-				for (u16 j = i; j; j--)
+				for (uint16_t j = i; j; j--)
 				{
 					cache[j] = cache[j - 1];
 				}
@@ -1177,7 +1177,7 @@ public:
 				vc[cache[cachesize-1]].cachepos = -1;
 
 			// Move everything down
-			for (u16 i = cachesize - 1; i; i--)
+			for (uint16_t i = cachesize - 1; i; i--)
 			{
 				cache[i] = cache[i - 1];
 			}
@@ -1185,13 +1185,13 @@ public:
 
 		cache[0] = vert;
 
-		u32 highest = 0;
+		uint32_t highest = 0;
 		float hiscore = 0;
 
 		if (updatetris)
 		{
 			// Update cache positions
-			for (u16 i = 0; i < cachesize; i++)
+			for (uint16_t i = 0; i < cachesize; i++)
 			{
 				if (cache[i] == -1)
 					break;
@@ -1201,13 +1201,13 @@ public:
 			}
 
 			// Update triangle scores
-			for (u16 i = 0; i < cachesize; i++)
+			for (uint16_t i = 0; i < cachesize; i++)
 			{
 				if (cache[i] == -1)
 					break;
 
-				const u16 trisize = vc[cache[i]].tris.size();
-				for (u16 t = 0; t < trisize; t++)
+				const uint16_t trisize = vc[cache[i]].tris.size();
+				for (uint16_t t = 0; t < trisize; t++)
 				{
 					tcache *tri = &tc[vc[cache[i]].tris[t]];
 
@@ -1229,7 +1229,7 @@ public:
 	}
 
 private:
-	s32 cache[cachesize];
+	int32_t cache[cachesize];
 	vcache *vc;
 	tcache *tc;
 };
@@ -1251,9 +1251,9 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 	SMesh *newmesh = new SMesh();
 	newmesh->BoundingBox = mesh->getBoundingBox();
 
-	const u32 mbcount = mesh->getMeshBufferCount();
+	const uint32_t mbcount = mesh->getMeshBufferCount();
 
-	for (u32 b = 0; b < mbcount; ++b)
+	for (uint32_t b = 0; b < mbcount; ++b)
 	{
 		const IMeshBuffer *mb = mesh->getMeshBuffer(b);
 
@@ -1264,10 +1264,10 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 			return 0;
 		}
 
-		const u32 icount = mb->getIndexCount();
-		const u32 tcount = icount / 3;
-		const u32 vcount = mb->getVertexCount();
-		const u16* ind = reinterpret_cast<const u16*>(mb->getIndices());
+		const uint32_t icount = mb->getIndexCount();
+		const uint32_t tcount = icount / 3;
+		const uint32_t vcount = mb->getVertexCount();
+		const uint16_t* ind = reinterpret_cast<const uint16_t*>(mb->getIndices());
 
 		vcache *vc = new vcache[vcount];
 		tcache *tc = new tcache[tcount];
@@ -1275,7 +1275,7 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 		f_lru lru(vc, tc);
 
 		// init
-		for (u16 i = 0; i < vcount; i++)
+		for (uint16_t i = 0; i < vcount; i++)
 		{
 			vc[i].score = 0;
 			vc[i].cachepos = -1;
@@ -1283,20 +1283,20 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 		}
 
 		// First pass: count how many times a vert is used
-		for (u32 i = 0; i < icount; i += 3)
+		for (uint32_t i = 0; i < icount; i += 3)
 		{
 			vc[ind[i]].NumActiveTris++;
 			vc[ind[i + 1]].NumActiveTris++;
 			vc[ind[i + 2]].NumActiveTris++;
 
-			const u32 tri_ind = i/3;
+			const uint32_t tri_ind = i/3;
 			tc[tri_ind].ind[0] = ind[i];
 			tc[tri_ind].ind[1] = ind[i + 1];
 			tc[tri_ind].ind[2] = ind[i + 2];
 		}
 
 		// Second pass: list of each triangle
-		for (u32 i = 0; i < tcount; i++)
+		for (uint32_t i = 0; i < tcount; i++)
 		{
 			vc[tc[i].ind[0]].tris.push_back(i);
 			vc[tc[i].ind[1]].tris.push_back(i);
@@ -1306,11 +1306,11 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 		}
 
 		// Give initial scores
-		for (u16 i = 0; i < vcount; i++)
+		for (uint16_t i = 0; i < vcount; i++)
 		{
 			vc[i].score = FindVertexScore(&vc[i]);
 		}
-		for (u32 i = 0; i < tcount; i++)
+		for (uint32_t i = 0; i < tcount; i++)
 		{
 			tc[i].score =
 					vc[tc[i].ind[0]].score +
@@ -1330,19 +1330,19 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 				buf->Vertices.reallocate(vcount);
 				buf->Indices.reallocate(icount);
 
-				core::map<const video::S3DVertex, const u16> sind; // search index for fast operation
-				typedef core::map<const video::S3DVertex, const u16>::Node snode;
+				core::map<const video::S3DVertex, const uint16_t> sind; // search index for fast operation
+				typedef core::map<const video::S3DVertex, const uint16_t>::Node snode;
 
 				// Main algorithm
-				u32 highest = 0;
-				u32 drawcalls = 0;
+				uint32_t highest = 0;
+				uint32_t drawcalls = 0;
 				for (;;)
 				{
 					if (tc[highest].drawn)
 					{
 						bool found = false;
 						float hiscore = 0;
-						for (u32 t = 0; t < tcount; t++)
+						for (uint32_t t = 0; t < tcount; t++)
 						{
 							if (!tc[t].drawn)
 							{
@@ -1359,7 +1359,7 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 					}
 
 					// Output the best triangle
-					u16 newind = buf->Vertices.size();
+					uint16_t newind = buf->Vertices.size();
 
 					snode *s = sind.find(v[tc[highest].ind[0]]);
 
@@ -1408,10 +1408,10 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 
 					tc[highest].drawn = true;
 
-					for (u16 j = 0; j < 3; j++)
+					for (uint16_t j = 0; j < 3; j++)
 					{
 						vcache *vert = &vc[tc[highest].ind[j]];
-						for (u16 t = 0; t < vert->tris.size(); t++)
+						for (uint16_t t = 0; t < vert->tris.size(); t++)
 						{
 							if (highest == vert->tris[t])
 							{
@@ -1442,19 +1442,19 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 				buf->Vertices.reallocate(vcount);
 				buf->Indices.reallocate(icount);
 
-				core::map<const video::S3DVertex2TCoords, const u16> sind; // search index for fast operation
-				typedef core::map<const video::S3DVertex2TCoords, const u16>::Node snode;
+				core::map<const video::S3DVertex2TCoords, const uint16_t> sind; // search index for fast operation
+				typedef core::map<const video::S3DVertex2TCoords, const uint16_t>::Node snode;
 
 				// Main algorithm
-				u32 highest = 0;
-				u32 drawcalls = 0;
+				uint32_t highest = 0;
+				uint32_t drawcalls = 0;
 				for (;;)
 				{
 					if (tc[highest].drawn)
 					{
 						bool found = false;
 						float hiscore = 0;
-						for (u32 t = 0; t < tcount; t++)
+						for (uint32_t t = 0; t < tcount; t++)
 						{
 							if (!tc[t].drawn)
 							{
@@ -1471,7 +1471,7 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 					}
 
 					// Output the best triangle
-					u16 newind = buf->Vertices.size();
+					uint16_t newind = buf->Vertices.size();
 
 					snode *s = sind.find(v[tc[highest].ind[0]]);
 
@@ -1520,10 +1520,10 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 
 					tc[highest].drawn = true;
 
-					for (u16 j = 0; j < 3; j++)
+					for (uint16_t j = 0; j < 3; j++)
 					{
 						vcache *vert = &vc[tc[highest].ind[j]];
-						for (u16 t = 0; t < vert->tris.size(); t++)
+						for (uint16_t t = 0; t < vert->tris.size(); t++)
 						{
 							if (highest == vert->tris[t])
 							{
@@ -1555,19 +1555,19 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 				buf->Vertices.reallocate(vcount);
 				buf->Indices.reallocate(icount);
 
-				core::map<const video::S3DVertexTangents, const u16> sind; // search index for fast operation
-				typedef core::map<const video::S3DVertexTangents, const u16>::Node snode;
+				core::map<const video::S3DVertexTangents, const uint16_t> sind; // search index for fast operation
+				typedef core::map<const video::S3DVertexTangents, const uint16_t>::Node snode;
 
 				// Main algorithm
-				u32 highest = 0;
-				u32 drawcalls = 0;
+				uint32_t highest = 0;
+				uint32_t drawcalls = 0;
 				for (;;)
 				{
 					if (tc[highest].drawn)
 					{
 						bool found = false;
 						float hiscore = 0;
-						for (u32 t = 0; t < tcount; t++)
+						for (uint32_t t = 0; t < tcount; t++)
 						{
 							if (!tc[t].drawn)
 							{
@@ -1584,7 +1584,7 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 					}
 
 					// Output the best triangle
-					u16 newind = buf->Vertices.size();
+					uint16_t newind = buf->Vertices.size();
 
 					snode *s = sind.find(v[tc[highest].ind[0]]);
 
@@ -1633,10 +1633,10 @@ IMesh* CMeshManipulator::createForsythOptimizedMesh(const IMesh *mesh) const
 
 					tc[highest].drawn = true;
 
-					for (u16 j = 0; j < 3; j++)
+					for (uint16_t j = 0; j < 3; j++)
 					{
 						vcache *vert = &vc[tc[highest].ind[j]];
-						for (u16 t = 0; t < vert->tris.size(); t++)
+						for (uint16_t t = 0; t < vert->tris.size(); t++)
 						{
 							if (highest == vert->tris[t])
 							{

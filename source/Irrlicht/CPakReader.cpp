@@ -20,7 +20,7 @@ namespace
 
 inline bool isHeaderValid(const SPAKFileHeader& header)
 {
-	const c8* tag = header.tag;
+	const char* tag = header.tag;
 	return tag[0] == 'P' &&
 		   tag[1] == 'A' &&
 		   tag[2] == 'C' &&
@@ -170,7 +170,7 @@ bool CPakReader::scanLocalHeader()
 //! opens a file by file name
 IReadFile* CPakReader::createAndOpenFile(const io::path& filename)
 {
-	s32 index = findFile(filename, false);
+	int32_t index = findFile(filename, false);
 
 	if (index != -1)
 		return createAndOpenFile(index);
@@ -180,7 +180,7 @@ IReadFile* CPakReader::createAndOpenFile(const io::path& filename)
 
 
 //! opens a file by index
-IReadFile* CPakReader::createAndOpenFile(u32 index)
+IReadFile* CPakReader::createAndOpenFile(uint32_t index)
 {
 	if (index >= Files.size() )
 		return 0;

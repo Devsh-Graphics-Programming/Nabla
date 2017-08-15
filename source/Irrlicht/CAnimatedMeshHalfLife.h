@@ -8,7 +8,7 @@
 #include "IAnimatedMesh.h"
 #include "ISceneManager.h"
 #include "irrArray.h"
-#include "irrString.h"
+#include <string>
 #include "IMeshLoader.h"
 #include "SMesh.h"
 #include "IReadFile.h"
@@ -35,19 +35,19 @@ namespace scene
 	#define MAXSTUDIOPIVOTS		256
 	#define MAXSTUDIOCONTROLLERS 8
 
-	typedef f32 vec3_hl[3];	// x,y,z
-	typedef f32 vec4_hl[4];	// x,y,z,w
+	typedef float vec3_hl[3];	// x,y,z
+	typedef float vec4_hl[4];	// x,y,z,w
 
 // byte-align structures
 #include "irrpack.h"
 
 	struct SHalflifeHeader
 	{
-		c8 id[4];
-		s32 version;
+		int8_t id[4];
+		int32_t version;
 
-		c8 name[64];
-		s32 length;
+		int8_t name[64];
+		int32_t length;
 
 		vec3_hl eyeposition;	// ideal eye position
 		vec3_hl min;			// ideal movement hull size
@@ -56,156 +56,156 @@ namespace scene
 		vec3_hl bbmin;			// clipping bounding box
 		vec3_hl bbmax;
 
-		s32	flags;
+		int32_t	flags;
 
-		u32	numbones;			// bones
-		u32	boneindex;
+		uint32_t	numbones;			// bones
+		uint32_t	boneindex;
 
-		u32	numbonecontrollers;		// bone controllers
-		u32	bonecontrollerindex;
+		uint32_t	numbonecontrollers;		// bone controllers
+		uint32_t	bonecontrollerindex;
 
-		u32	numhitboxes;			// complex bounding boxes
-		u32	hitboxindex;
+		uint32_t	numhitboxes;			// complex bounding boxes
+		uint32_t	hitboxindex;
 
-		u32	numseq;				// animation sequences
-		u32	seqindex;
+		uint32_t	numseq;				// animation sequences
+		uint32_t	seqindex;
 
-		u32	numseqgroups;		// demand loaded sequences
-		u32	seqgroupindex;
+		uint32_t	numseqgroups;		// demand loaded sequences
+		uint32_t	seqgroupindex;
 
-		u32	numtextures;		// raw textures
-		u32	textureindex;
-		u32	texturedataindex;
+		uint32_t	numtextures;		// raw textures
+		uint32_t	textureindex;
+		uint32_t	texturedataindex;
 
-		u32	numskinref;			// replaceable textures
-		u32	numskinfamilies;
-		u32	skinindex;
+		uint32_t	numskinref;			// replaceable textures
+		uint32_t	numskinfamilies;
+		uint32_t	skinindex;
 
-		u32	numbodyparts;
-		u32	bodypartindex;
+		uint32_t	numbodyparts;
+		uint32_t	bodypartindex;
 
-		u32	numattachments;		// queryable attachable points
-		u32	attachmentindex;
+		uint32_t	numattachments;		// queryable attachable points
+		uint32_t	attachmentindex;
 
-		s32	soundtable;
-		s32	soundindex;
-		s32	soundgroups;
-		s32	soundgroupindex;
+		int32_t	soundtable;
+		int32_t	soundindex;
+		int32_t	soundgroups;
+		int32_t	soundgroupindex;
 
-		s32 numtransitions;		// animation node to animation node transition graph
-		s32	transitionindex;
+		int32_t numtransitions;		// animation node to animation node transition graph
+		int32_t	transitionindex;
 	} PACK_STRUCT;
 
 	// header for demand loaded sequence group data
 	struct studioseqhdr_t
 	{
-		s32 id;
-		s32 version;
+		int32_t id;
+		int32_t version;
 
-		c8 name[64];
-		s32 length;
+		int8_t name[64];
+		int32_t length;
 	} PACK_STRUCT;
 
 	// bones
 	struct SHalflifeBone
 	{
-		c8 name[32];	// bone name for symbolic links
-		s32 parent;		// parent bone
-		s32 flags;		// ??
-		s32 bonecontroller[6];	// bone controller index, -1 == none
-		f32 value[6];	// default DoF values
-		f32 scale[6];   // scale for delta DoF values
+		int8_t name[32];	// bone name for symbolic links
+		int32_t parent;		// parent bone
+		int32_t flags;		// ??
+		int32_t bonecontroller[6];	// bone controller index, -1 == none
+		float value[6];	// default DoF values
+		float scale[6];   // scale for delta DoF values
 	} PACK_STRUCT;
 
 
 	// bone controllers
 	struct SHalflifeBoneController
 	{
-		s32 bone;	// -1 == 0
-		s32 type;	// X, Y, Z, XR, YR, ZR, M
-		f32 start;
-		f32 end;
-		s32 rest;	// byte index value at rest
-		s32 index;	// 0-3 user set controller, 4 mouth
+		int32_t bone;	// -1 == 0
+		int32_t type;	// X, Y, Z, XR, YR, ZR, M
+		float start;
+		float end;
+		int32_t rest;	// byte index value at rest
+		int32_t index;	// 0-3 user set controller, 4 mouth
 	} PACK_STRUCT;
 
 	// intersection boxes
 	struct SHalflifeBBox
 	{
-		s32 bone;
-		s32 group;			// intersection group
+		int32_t bone;
+		int32_t group;			// intersection group
 		vec3_hl bbmin;		// bounding box
 		vec3_hl bbmax;
 	} PACK_STRUCT;
 
 #ifndef ZONE_H
 	// NOTE: this was a void*, but that crashes on 64bit.
-	// I have found no mdl format desc, so not sure what it's meant to be, but s32 at least works.
-	typedef s32 cache_user_t;
+	// I have found no mdl format desc, so not sure what it's meant to be, but int32_t at least works.
+	typedef int32_t cache_user_t;
 #endif
 
 	// demand loaded sequence groups
 	struct SHalflifeSequenceGroup
 	{
-		c8 label[32];	// textual name
-		c8 name[64];	// file name
+		int8_t label[32];	// textual name
+		int8_t name[64];	// file name
 		cache_user_t cache;		// cache index pointer
-		s32 data;		// hack for group 0
+		int32_t data;		// hack for group 0
 	} PACK_STRUCT;
 
 	// sequence descriptions
 	struct SHalflifeSequence
 	{
-		c8 label[32];	// sequence label
+		int8_t label[32];	// sequence label
 
-		f32 fps;		// frames per second
-		s32 flags;		// looping/non-looping flags
+		float fps;		// frames per second
+		int32_t flags;		// looping/non-looping flags
 
-		s32 activity;
-		s32 actweight;
+		int32_t activity;
+		int32_t actweight;
 
-		s32 numevents;
-		s32 eventindex;
+		int32_t numevents;
+		int32_t eventindex;
 
-		s32 numframes;	// number of frames per sequence
+		int32_t numframes;	// number of frames per sequence
 
-		u32 numpivots;	// number of foot pivots
-		u32 pivotindex;
+		uint32_t numpivots;	// number of foot pivots
+		uint32_t pivotindex;
 
-		s32 motiontype;
-		s32 motionbone;
+		int32_t motiontype;
+		int32_t motionbone;
 		vec3_hl linearmovement;
-		s32 automoveposindex;
-		s32 automoveangleindex;
+		int32_t automoveposindex;
+		int32_t automoveangleindex;
 
 		vec3_hl bbmin;		// per sequence bounding box
 		vec3_hl bbmax;
 
-		s32 numblends;
-		s32 animindex;		// SHalflifeAnimOffset pointer relative to start of sequence group data
+		int32_t numblends;
+		int32_t animindex;		// SHalflifeAnimOffset pointer relative to start of sequence group data
 		// [blend][bone][X, Y, Z, XR, YR, ZR]
 
-		s32 blendtype[2];	// X, Y, Z, XR, YR, ZR
-		f32 blendstart[2];	// starting value
-		f32 blendend[2];	// ending value
-		s32 blendparent;
+		int32_t blendtype[2];	// X, Y, Z, XR, YR, ZR
+		float blendstart[2];	// starting value
+		float blendend[2];	// ending value
+		int32_t blendparent;
 
-		s32 seqgroup;		// sequence group for demand loading
+		int32_t seqgroup;		// sequence group for demand loading
 
-		s32 entrynode;		// transition node at entry
-		s32 exitnode;		// transition node at exit
-		s32 nodeflags;		// transition rules
+		int32_t entrynode;		// transition node at entry
+		int32_t exitnode;		// transition node at exit
+		int32_t nodeflags;		// transition rules
 
-		s32 nextseq;		// auto advancing sequences
+		int32_t nextseq;		// auto advancing sequences
 	} PACK_STRUCT;
 
 	// events
 	struct mstudioevent_t
 	{
-		s32 frame;
-		s32 event;
-		s32 type;
-		c8 options[64];
+		int32_t frame;
+		int32_t event;
+		int32_t type;
+		int8_t options[64];
 	} PACK_STRUCT;
 
 
@@ -213,54 +213,54 @@ namespace scene
 	struct mstudiopivot_t
 	{
 		vec3_hl org;	// pivot point
-		s32 start;
-		s32 end;
+		int32_t start;
+		int32_t end;
 	} PACK_STRUCT;
 
 	// attachment
 	struct SHalflifeAttachment
 	{
-		c8 name[32];
-		s32 type;
-		s32 bone;
+		int8_t name[32];
+		int32_t type;
+		int32_t bone;
 		vec3_hl org;	// attachment point
 		vec3_hl vectors[3];
 	} PACK_STRUCT;
 
 	struct SHalflifeAnimOffset
 	{
-		u16	offset[6];
+		uint16_t	offset[6];
 	} PACK_STRUCT;
 
 	// animation frames
 	union SHalflifeAnimationFrame
 	{
 		struct {
-			u8	valid;
-			u8	total;
+			uint8_t	valid;
+			uint8_t	total;
 		} PACK_STRUCT num;
-		s16		value;
+		int16_t		value;
 	} PACK_STRUCT;
 
 
 	// body part index
 	struct SHalflifeBody
 	{
-		c8 name[64];
-		u32 nummodels;
-		u32 base;
-		u32 modelindex; // index into models array
+		int8_t name[64];
+		uint32_t nummodels;
+		uint32_t base;
+		uint32_t modelindex; // index into models array
 	} PACK_STRUCT;
 
 
 	// skin info
 	struct SHalflifeTexture
 	{
-		c8 name[64];
-		s32 flags;
-		s32 width;
-		s32 height;
-		s32 index;
+		int8_t name[64];
+		int32_t flags;
+		int32_t width;
+		int32_t height;
+		int32_t index;
 	} PACK_STRUCT;
 
 
@@ -270,34 +270,34 @@ namespace scene
 	// studio models
 	struct SHalflifeModel
 	{
-		c8 name[64];
-		s32 type;
+		int8_t name[64];
+		int32_t type;
 
-		f32	boundingradius;
+		float	boundingradius;
 
-		u32	nummesh;
-		u32	meshindex;
+		uint32_t	nummesh;
+		uint32_t	meshindex;
 
-		u32	numverts;		// number of unique vertices
-		u32	vertinfoindex;	// vertex bone info
-		u32	vertindex;		// vertex vec3_hl
-		u32	numnorms;		// number of unique surface normals
-		u32	norminfoindex;	// normal bone info
-		u32	normindex;		// normal vec3_hl
+		uint32_t	numverts;		// number of unique vertices
+		uint32_t	vertinfoindex;	// vertex bone info
+		uint32_t	vertindex;		// vertex vec3_hl
+		uint32_t	numnorms;		// number of unique surface normals
+		uint32_t	norminfoindex;	// normal bone info
+		uint32_t	normindex;		// normal vec3_hl
 
-		u32	numgroups;		// deformation groups
-		u32	groupindex;
+		uint32_t	numgroups;		// deformation groups
+		uint32_t	groupindex;
 	} PACK_STRUCT;
 
 
 	// meshes
 	struct SHalflifeMesh
 	{
-		u32	numtris;
-		u32	triindex;
-		u32	skinref;
-		u32	numnorms;		// per mesh normals
-		u32	normindex;		// normal vec3_hl
+		uint32_t	numtris;
+		uint32_t	triindex;
+		uint32_t	skinref;
+		uint32_t	numnorms;		// per mesh normals
+		uint32_t	normindex;		// normal vec3_hl
 	} PACK_STRUCT;
 
 // Default alignment
@@ -357,16 +357,16 @@ namespace scene
 		}
 
 		void release ();
-		void addSource ( const c8 * name, video::IImage * image );
-		void create ( u32 pixelborder, video::E_TEXTURE_CLAMP texmode );
+		void addSource ( const int8_t * name, video::IImage * image );
+		void create ( uint32_t pixelborder, video::E_TEXTURE_CLAMP texmode );
 		void getScale ( core::vector2df &scale );
-		void getTranslation ( const c8 * name, core::vector2di &pos );
+		void getTranslation ( const int8_t * name, core::vector2di &pos );
 
 		struct TextureAtlasEntry
 		{
 			io::path name;
-			u32 width;
-			u32 height;
+			uint32_t width;
+			uint32_t height;
 
 			core::vector2di pos;
 
@@ -398,7 +398,7 @@ namespace scene
 	};
 
 	//! Names for Animation Type
-	const c8* const MeshAnimationTypeNames[] =
+	const int8_t* const MeshAnimationTypeNames[] =
 	{
 		"still",
 		"waypoint",
@@ -411,28 +411,28 @@ namespace scene
 	//! Data for holding named Animation Info
 	struct KeyFrameInterpolation
 	{
-		core::stringc Name;		// Name of the current Animation/Bone
+		std::string Name;		// Name of the current Animation/Bone
 		E_ANIMATION_TYPE AnimationType;	// Type of Animation ( looping, usw..)
 
-		f32 CurrentFrame;		// Current Frame
-		s32 NextFrame;			// Frame which will be used next. For blending
+		float CurrentFrame;		// Current Frame
+		int32_t NextFrame;			// Frame which will be used next. For blending
 
-		s32 StartFrame;			// Absolute Frame where the current animation start
-		s32 Frames;				// Relative Frames how much Frames this animation have
-		s32 LoopingFrames;		// How much of Frames sould be looped
-		s32 EndFrame;			// Absolute Frame where the current animation ends End = start + frames - 1
+		int32_t StartFrame;			// Absolute Frame where the current animation start
+		int32_t Frames;				// Relative Frames how much Frames this animation have
+		int32_t LoopingFrames;		// How much of Frames sould be looped
+		int32_t EndFrame;			// Absolute Frame where the current animation ends End = start + frames - 1
 
-		f32 FramesPerSecond;	// Speed in Frames/Seconds the animation is played
-		f32 RelativeSpeed;		// Factor Original fps is modified
+		float FramesPerSecond;	// Speed in Frames/Seconds the animation is played
+		float RelativeSpeed;		// Factor Original fps is modified
 
-		u32 BeginTime;			// Animation started at this thime
-		u32 EndTime;			// Animation end at this time
-		u32 LastTime;			// Last Keyframe was done at this time
+		uint32_t BeginTime;			// Animation started at this thime
+		uint32_t EndTime;			// Animation end at this time
+		uint32_t LastTime;			// Last Keyframe was done at this time
 
-		KeyFrameInterpolation ( const c8 * name = "", s32 start = 0, s32 frames = 0, s32 loopingframes = 0,
-								f32 fps = 0.f, f32 relativefps = 1.f  )
+		KeyFrameInterpolation ( const int8_t * name = "", int32_t start = 0, int32_t frames = 0, int32_t loopingframes = 0,
+								float fps = 0.f, float relativefps = 1.f  )
 			: Name ( name ), AnimationType ( loopingframes ? EAMT_LOOPING : EAMT_WAYPOINT),
-			CurrentFrame ( (f32) start ), NextFrame ( start ), StartFrame ( start ),
+			CurrentFrame ( (float) start ), NextFrame ( start ), StartFrame ( start ),
 			Frames ( frames ), LoopingFrames ( loopingframes ), EndFrame ( start + frames - 1 ),
 			FramesPerSecond ( fps ), RelativeSpeed ( relativefps ),
 			BeginTime ( 0 ), EndTime ( 0 ), LastTime ( 0 )
@@ -442,7 +442,7 @@ namespace scene
 		// linear search
 		bool operator == ( const KeyFrameInterpolation & other ) const
 		{
-			return Name.equals_ignore_case ( other.Name );
+			return equalsIgnoreCase<std::string>(Name,other.Name);
 		}
 
 	};
@@ -452,22 +452,22 @@ namespace scene
 	typedef core::array < KeyFrameInterpolation > IAnimationList;
 
 	//! a List holding named Skins
-	typedef core::array < core::stringc > ISkinList;
+	typedef core::array < std::string > ISkinList;
 
 
 	// Current Model per Body
 	struct SubModel
 	{
-		core::stringc name;
-		u32 startBuffer;
-		u32 endBuffer;
-		u32 state;
+		std::string name;
+		uint32_t startBuffer;
+		uint32_t endBuffer;
+		uint32_t state;
 	};
 
 	struct BodyPart
 	{
-		core::stringc name;
-		u32 defaultModel;
+		std::string name;
+		uint32_t defaultModel;
 		core::array < SubModel > model;
 	};
 	//! a List holding named Models and SubModels
@@ -488,16 +488,16 @@ namespace scene
 		virtual bool loadModelFile( io::IReadFile* file, ISceneManager * smgr );
 
 		//IAnimatedMesh
-		virtual u32 getFrameCount() const;
-		virtual IMesh* getMesh(s32 frame, s32 detailLevel);
-		virtual const core::aabbox3d<f32>& getBoundingBox() const;
+		virtual uint32_t getFrameCount() const;
+		virtual IMesh* getMesh(int32_t frame, int32_t detailLevel);
+		virtual const core::aabbox3d<float>& getBoundingBox() const;
 		virtual E_ANIMATED_MESH_TYPE getMeshType() const;
-		virtual void renderModel ( u32 param, video::IVideoDriver * driver, const core::matrix4 &absoluteTransformation);
+		virtual void renderModel ( uint32_t param, video::IVideoDriver * driver, const core::matrix4 &absoluteTransformation);
 
 		//! returns amount of mesh buffers.
-		virtual u32 getMeshBufferCount() const;
+		virtual uint32_t getMeshBufferCount() const;
 		//! returns pointer to a mesh buffer
-		virtual IMeshBuffer* getMeshBuffer(u32 nr) const;
+		virtual IMeshBuffer* getMeshBuffer(uint32_t nr) const;
 		//! Returns pointer to a mesh buffer which fits a material
 		virtual IMeshBuffer* getMeshBuffer( const video::SMaterial &material) const;
 
@@ -514,7 +514,7 @@ namespace scene
 
 		//! Gets the default animation speed of the animated mesh.
 		/** \return Amount of frames per second. If the amount is 0, it is a static, non animated mesh. */
-		virtual f32 getAnimationSpeed() const
+		virtual float getAnimationSpeed() const
 		{
 			return FramesPerSecond;
 		}
@@ -522,7 +522,7 @@ namespace scene
 		//! Gets the frame count of the animated mesh.
 		/** \param fps Frames per second to play the animation with. If the amount is 0, it is not animated.
 		The actual speed is set in the scene node the mesh is instantiated in.*/
-		virtual void setAnimationSpeed(f32 fps)
+		virtual void setAnimationSpeed(float fps)
 		{
 			FramesPerSecond=fps;
 		}
@@ -538,7 +538,7 @@ namespace scene
 		// KeyFrame Animation List
 		IAnimationList AnimList;
 		// Sum of all sequences
-		u32 FrameCount;
+		uint32_t FrameCount;
 
 		// Named meshes of the Body
 		IBodyList BodyList;
@@ -557,35 +557,35 @@ namespace scene
 		SHalflifeHeader * loadModel( io::IReadFile* file, const io::path &filename );
 		bool postLoadModel( const io::path &filename );
 
-		u32 SequenceIndex;	// sequence index
-		f32 CurrentFrame;	// Current Frame
-		f32 FramesPerSecond;
+		uint32_t SequenceIndex;	// sequence index
+		float CurrentFrame;	// Current Frame
+		float FramesPerSecond;
 
 		#define MOUTH_CONTROLLER	4
-		u8 BoneController[4 + 1 ]; // bone controllers + mouth position
-		u8 Blending[2]; // animation blending
+		uint8_t BoneController[4 + 1 ]; // bone controllers + mouth position
+		uint8_t Blending[2]; // animation blending
 
 		vec4_hl BoneAdj;
-		f32 SetController( s32 controllerIndex, f32 value );
+		float SetController( int32_t controllerIndex, float value );
 
-		u32 SkinGroupSelection; // skin group selection
-		u32 SetSkin( u32 value );
+		uint32_t SkinGroupSelection; // skin group selection
+		uint32_t SetSkin( uint32_t value );
 
 		void initModel();
-		void dumpModelInfo(u32 level) const;
+		void dumpModelInfo(uint32_t level) const;
 
-		void ExtractBbox(s32 sequence, core::aabbox3df &box) const;
+		void ExtractBbox(int32_t sequence, core::aabbox3df &box) const;
 
 		void setUpBones ();
 		SHalflifeAnimOffset * getAnim( SHalflifeSequence *seq );
-		void slerpBones( vec4_hl q1[], vec3_hl pos1[], vec4_hl q2[], vec3_hl pos2[], f32 s );
-		void calcRotations ( vec3_hl *pos, vec4_hl *q, SHalflifeSequence *seq, SHalflifeAnimOffset *anim, f32 f );
+		void slerpBones( vec4_hl q1[], vec3_hl pos1[], vec4_hl q2[], vec3_hl pos2[], float s );
+		void calcRotations ( vec3_hl *pos, vec4_hl *q, SHalflifeSequence *seq, SHalflifeAnimOffset *anim, float f );
 
 		void calcBoneAdj();
 _
 #error "Fix QUATERNIONS FIRST!!!"
-		void calcBoneQuaternion(const s32 frame, const SHalflifeBone *bone, SHalflifeAnimOffset *anim, const u32 j, f32& angle1, f32& angle2) const;
-		void calcBonePosition(const s32 frame, f32 s, const SHalflifeBone *bone, SHalflifeAnimOffset *anim, f32 *pos ) const;
+		void calcBoneQuaternion(const int32_t frame, const SHalflifeBone *bone, SHalflifeAnimOffset *anim, const uint32_t j, float& angle1, float& angle2) const;
+		void calcBonePosition(const int32_t frame, float s, const SHalflifeBone *bone, SHalflifeAnimOffset *anim, float *pos ) const;
 
 		void buildVertices ();
 

@@ -33,7 +33,7 @@ bool CImageWriterTGA::isAWriteableFileExtension(const io::path& filename) const
 	return core::hasFileExtension ( filename, "tga" );
 }
 
-bool CImageWriterTGA::writeImage(io::IWriteFile *file, IImage *image,u32 param) const
+bool CImageWriterTGA::writeImage(io::IWriteFile *file, IImage *image,uint32_t param) const
 {
 	STGAHeader imageHeader;
 	imageHeader.IdLength = 0;
@@ -57,7 +57,7 @@ bool CImageWriterTGA::writeImage(io::IWriteFile *file, IImage *image,u32 param) 
    // chances are good we'll need to swizzle data, so i'm going
 	// to convert and write one scan line at a time. it's also
 	// a bit cleaner this way
-	void (*CColorConverter_convertFORMATtoFORMAT)(const void*, s32, void*) = 0;
+	void (*CColorConverter_convertFORMATtoFORMAT)(const void*, int32_t, void*) = 0;
 	switch(image->getColorFormat())
 	{
 	case ECF_A8R8G8B8:
@@ -97,23 +97,23 @@ bool CImageWriterTGA::writeImage(io::IWriteFile *file, IImage *image,u32 param) 
 	if (file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
 		return false;
 
-	u8* scan_lines = (u8*)image->lock();
+	uint8_t* scan_lines = (uint8_t*)image->lock();
 	if (!scan_lines)
 		return false;
 
 	// size of one pixel in bits
-	u32 pixel_size_bits = image->getBitsPerPixel();
+	uint32_t pixel_size_bits = image->getBitsPerPixel();
 
 	// length of one row of the source image in bytes
-	u32 row_stride = (pixel_size_bits * imageHeader.ImageWidth)/8;
+	uint32_t row_stride = (pixel_size_bits * imageHeader.ImageWidth)/8;
 
 	// length of one output row in bytes
-	s32 row_size = ((imageHeader.PixelDepth / 8) * imageHeader.ImageWidth);
+	int32_t row_size = ((imageHeader.PixelDepth / 8) * imageHeader.ImageWidth);
 
 	// allocate a row do translate data into
-	u8* row_pointer = new u8[row_size];
+	uint8_t* row_pointer = new uint8_t[row_size];
 
-	u32 y;
+	uint32_t y;
 	for (y = 0; y < imageHeader.ImageHeight; ++y)
 	{
 		// source, length [pixels], destination
@@ -134,7 +134,7 @@ bool CImageWriterTGA::writeImage(io::IWriteFile *file, IImage *image,u32 param) 
 	imageFooter.DeveloperOffset = 0;
 	strncpy(imageFooter.Signature, "TRUEVISION-XFILE.", 18);
 
-	if (file->write(&imageFooter, sizeof(imageFooter)) < (s32)sizeof(imageFooter))
+	if (file->write(&imageFooter, sizeof(imageFooter)) < (int32_t)sizeof(imageFooter))
 		return false;
 
 	return imageHeader.ImageHeight <= y;

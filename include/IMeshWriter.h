@@ -40,14 +40,14 @@ namespace scene
 		\param flags Optional flags to set properties of the writer.
 		\return True if sucessful */
 		virtual bool writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh,
-							s32 flags=EMWF_NONE) = 0;
+							int32_t flags=EMWF_NONE) = 0;
 
 		// Writes an animated mesh
 		// for future use, no writer is able to write animated meshes currently
 		/* \return Returns true if sucessful */
 		//virtual bool writeAnimatedMesh(io::IWriteFile* file,
 		// scene::IAnimatedMesh* mesh,
-		// s32 flags=EMWF_NONE) = 0;
+		// int32_t flags=EMWF_NONE) = 0;
 	};
 
 } // end namespace

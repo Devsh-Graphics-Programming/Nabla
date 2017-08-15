@@ -13,6 +13,7 @@
 #include "ISceneManager.h"
 #include "IMeshCache.h"
 #include "IWriteFile.h"
+#include <sstream>
 
 namespace irr
 {
@@ -46,12 +47,12 @@ EMESH_WRITER_TYPE CSTLMeshWriter::getType() const
 
 
 //! writes a mesh
-bool CSTLMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, s32 flags)
+bool CSTLMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
 {
 	if (!file)
 		return false;
 
-	os::Printer::log("Writing mesh", file->getFileName());
+	os::Printer::log("Writing mesh", file->getFileName().c_str());
 
 	if (flags & scene::EMWF_WRITE_COMPRESSED)
 		return writeMeshBinary(file, mesh, flags);
@@ -63,9 +64,9 @@ bool CSTLMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, s32 
 template <class I>
 inline void writePositions(ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file)
 {
-    const u32 indexCount = buffer->getIndexCount();
-    const u16 attributes = 0;
-    for (u32 j=0; j<indexCount; j+=3)
+    const uint32_t indexCount = buffer->getIndexCount();
+    const uint16_t attributes = 0;
+    for (uint32_t j=0; j<indexCount; j+=3)
     {
         core::vectorSIMDf v1,v2,v3;
         if (noIndices)
@@ -89,13 +90,13 @@ inline void writePositions(ICPUMeshBuffer* buffer, const bool& noIndices, io::IW
     }
 }
 
-bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh, s32 flags)
+bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
 {
 	// write STL MESH header
 
 	file->write("binary ",7);
 	const core::stringc name(SceneManager->getMeshCache()->getMeshName(mesh));
-	const s32 sizeleft = 73-name.size(); // 80 byte header
+	const int32_t sizeleft = 73-name.size(); // 80 byte header
 	if (sizeleft<0)
 		file->write(name.c_str(),73);
 	else
@@ -106,14 +107,14 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh
 		file->write(buf,sizeleft);
 		delete [] buf;
 	}
-	u32 facenum = 0;
-	for (u32 j=0; j<mesh->getMeshBufferCount(); ++j)
+	uint32_t facenum = 0;
+	for (uint32_t j=0; j<mesh->getMeshBufferCount(); ++j)
 		facenum += mesh->getMeshBuffer(j)->getIndexCount()/3;
 	file->write(&facenum,4);
 
 	// write mesh buffers
 
-	for (u32 i=0; i<mesh->getMeshBufferCount(); ++i)
+	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
 	{
 		ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer&&buffer->getMeshDataAndFormat())
@@ -124,12 +125,12 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh
 			if (type==video::EIT_16BIT)
             {
                 //os::Printer::log("Writing mesh with 16bit indices");
-                writePositions<u16>(buffer,false,file);
+                writePositions<uint16_t>(buffer,false,file);
             }
 			else if (type==video::EIT_32BIT)
             {
                 //os::Printer::log("Writing mesh with 32bit indices");
-                writePositions<u32>(buffer,false,file);
+                writePositions<uint32_t>(buffer,false,file);
             }
 			else
             {
@@ -142,7 +143,7 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh
 }
 
 
-bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh, s32 flags)
+bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
 {
 	// write STL MESH header
 
@@ -153,7 +154,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
 
 	// write mesh buffers
 
-	for (u32 i=0; i<mesh->getMeshBufferCount(); ++i)
+	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
 	{
 		ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer&&buffer->getMeshDataAndFormat())
@@ -161,33 +162,33 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
 			video::E_INDEX_TYPE type = buffer->getIndexType();
 			if (!buffer->getMeshDataAndFormat()->getIndexBuffer())
                 type = video::EIT_UNKNOWN;
-			const u32 indexCount = buffer->getIndexCount();
+			const uint32_t indexCount = buffer->getIndexCount();
 			if (type==video::EIT_16BIT)
 			{
                 //os::Printer::log("Writing mesh with 16bit indices");
-                for (u32 j=0; j<indexCount; j+=3)
+                for (uint32_t j=0; j<indexCount; j+=3)
                 {
                     writeFace(file,
-                        buffer->getPosition(((u16*)buffer->getIndices())[j]).getAsVector3df(),
-                        buffer->getPosition(((u16*)buffer->getIndices())[j+1]).getAsVector3df(),
-                        buffer->getPosition(((u16*)buffer->getIndices())[j+2]).getAsVector3df());
+                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j]).getAsVector3df(),
+                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]).getAsVector3df(),
+                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]).getAsVector3df());
                 }
 			}
 			else if (type==video::EIT_32BIT)
 			{
                 //os::Printer::log("Writing mesh with 32bit indices");
-                for (u32 j=0; j<indexCount; j+=3)
+                for (uint32_t j=0; j<indexCount; j+=3)
                 {
                     writeFace(file,
-                        buffer->getPosition(((u32*)buffer->getIndices())[j]).getAsVector3df(),
-                        buffer->getPosition(((u32*)buffer->getIndices())[j+1]).getAsVector3df(),
-                        buffer->getPosition(((u32*)buffer->getIndices())[j+2]).getAsVector3df());
+                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j]).getAsVector3df(),
+                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]).getAsVector3df(),
+                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]).getAsVector3df());
                 }
 			}
 			else
             {
                 //os::Printer::log("Writing mesh with no indices");
-                for (u32 j=0; j<indexCount; j+=3)
+                for (uint32_t j=0; j<indexCount; j+=3)
                 {
                     writeFace(file,
                         buffer->getPosition(j).getAsVector3df(),
@@ -208,12 +209,9 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
 
 void CSTLMeshWriter::getVectorAsStringLine(const core::vector3df& v, core::stringc& s) const
 {
-	s = core::stringc(v.X);
-	s += " ";
-	s += core::stringc(v.Y);
-	s += " ";
-	s += core::stringc(v.Z);
-	s += "\n";
+    std::ostringstream tmp;
+    tmp << v.X << " " << v.Y << " " << v.Z << "\n";
+    s = core::stringc(tmp.str().c_str());
 }
 
 

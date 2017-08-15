@@ -27,7 +27,7 @@ namespace io
 		virtual ~CReadFile();
 
 		//! returns how much was read
-		virtual s32 read(void* buffer, u32 sizeToRead);
+		virtual int32_t read(void* buffer, uint32_t sizeToRead);
 
 		//! changes position in file, returns true if successful
 		virtual bool seek(long finalPos, bool relativeMovement = false);

@@ -39,10 +39,10 @@ namespace irr
 		virtual void yield();
 
 		//! Pause execution and let other processes to run for a specified amount of time.
-		virtual void sleep(u32 timeMs, bool pauseTimer);
+		virtual void sleep(uint32_t timeMs, bool pauseTimer);
 
 		//! sets the caption of the window
-		virtual void setWindowCaption(const wchar_t* text);
+		virtual void setWindowCaption(const std::wstring& text);
 
 		//! returns if window is active. if not, nothing need to be drawn
 		virtual bool isWindowActive() const;
@@ -54,7 +54,7 @@ namespace irr
 		virtual bool isWindowMinimized() const;
 
 		//! presents a surface in the client area
-		virtual bool present(video::IImage* surface, void* windowId = 0, core::rect<s32>* src=0 );
+		virtual bool present(video::IImage* surface, void* windowId = 0, core::rect<int32_t>* src=0 );
 
 		//! notifies the device that it should close itself
 		virtual void closeDevice();
@@ -89,7 +89,7 @@ namespace irr
 		{
 		public:
 
-			CCursorControl(const core::dimension2d<u32>& wsize, HWND hwnd, bool fullscreen)
+			CCursorControl(const core::dimension2d<uint32_t>& wsize, HWND hwnd, bool fullscreen)
 				: WindowSize(wsize), InvWindowSize(0.0f, 0.0f),
 					HWnd(hwnd), BorderX(0), BorderY(0),
 					UseReferenceRect(false), IsVisible(true)
@@ -121,13 +121,13 @@ namespace irr
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<f32> &pos)
+			virtual void setPosition(const core::position2d<float> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(f32 x, f32 y)
+			virtual void setPosition(float x, float y)
 			{
 				if (!UseReferenceRect)
 					setPosition(core::round32(x*WindowSize.Width), core::round32(y*WindowSize.Height));
@@ -136,13 +136,13 @@ namespace irr
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<s32> &pos)
+			virtual void setPosition(const core::position2d<int32_t> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(s32 x, s32 y)
+			virtual void setPosition(int32_t x, int32_t y)
 			{
 				RECT rect;
 
@@ -162,29 +162,29 @@ namespace irr
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual const core::position2d<s32>& getPosition()
+			virtual const core::position2d<int32_t>& getPosition()
 			{
 				updateInternalCursorPosition();
 				return CursorPos;
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual core::position2d<f32> getRelativePosition()
+			virtual core::position2d<float> getRelativePosition()
 			{
 				updateInternalCursorPosition();
 
 				if (!UseReferenceRect)
 				{
-					return core::position2d<f32>(CursorPos.X * InvWindowSize.Width,
+					return core::position2d<float>(CursorPos.X * InvWindowSize.Width,
 						CursorPos.Y * InvWindowSize.Height);
 				}
 
-				return core::position2d<f32>(CursorPos.X / (f32)ReferenceRect.getWidth(),
-						CursorPos.Y / (f32)ReferenceRect.getHeight());
+				return core::position2d<float>(CursorPos.X / (float)ReferenceRect.getWidth(),
+						CursorPos.Y / (float)ReferenceRect.getHeight());
 			}
 
 			//! Sets an absolute reference rect for calculating the cursor position.
-			virtual void setReferenceRect(core::rect<s32>* rect=0)
+			virtual void setReferenceRect(core::rect<int32_t>* rect=0)
 			{
 				if (rect)
 				{
@@ -204,14 +204,14 @@ namespace irr
 			}
 
 			/** Used to notify the cursor that the window was resized. */
-			virtual void OnResize(const core::dimension2d<u32>& size)
+			virtual void OnResize(const core::dimension2d<uint32_t>& size)
 			{
 				WindowSize = size;
 				if (size.Width!=0)
 					InvWindowSize.Width = 1.0f / size.Width;
-				else 
+				else
 					InvWindowSize.Width = 0.f;
- 
+
 				if (size.Height!=0)
 					InvWindowSize.Height = 1.0f / size.Height;
 				else
@@ -229,7 +229,7 @@ namespace irr
 					DWORD xy = GetMessagePos();
 					p.x = GET_X_LPARAM(xy);
 					p.y = GET_Y_LPARAM(xy);
-				} 
+				}
 
 				if (UseReferenceRect)
 				{
@@ -254,13 +254,13 @@ namespace irr
 				}
 			}
 
-			core::position2d<s32> CursorPos;
-			core::dimension2d<s32> WindowSize;
-			core::dimension2d<f32> InvWindowSize;
+			core::position2d<int32_t> CursorPos;
+			core::dimension2d<int32_t> WindowSize;
+			core::dimension2d<float> InvWindowSize;
 			HWND HWnd;
 
-			s32 BorderX, BorderY;
-			core::rect<s32> ReferenceRect;
+			int32_t BorderX, BorderY;
+			core::rect<int32_t> ReferenceRect;
 			bool UseReferenceRect;
 			bool IsVisible;
 		};

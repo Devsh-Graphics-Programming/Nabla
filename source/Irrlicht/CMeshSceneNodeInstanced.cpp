@@ -18,7 +18,7 @@ namespace scene
 uint32_t CMeshSceneNodeInstanced::recullOrder;
 
 //!constructor
-CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
+CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
         const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
     : IMeshSceneNodeInstanced(parent, mgr, id, position, rotation, scale),
     cpuCullingFunction(NULL), cpuCullingScratchSpace(NULL),
@@ -563,7 +563,7 @@ void CMeshSceneNodeInstanced::OnRegisterSceneNode()
 {
     ISceneNode::OnRegisterSceneNode();
 
-	if (IsVisible&&LoD.size()&&instanceDataBuffer&&instanceDataBuffer->getAllocatedCount())
+	if (IsVisible&&LoD.size()&&instanceDataBuffer&&instanceDataBuffer->getAllocatedCount()&&canProceedPastFence())
 	{
 		// because this node supports rendering of mixed mode meshes consisting of
 		// transparent and solid material at the same time, we need to go through all
@@ -643,7 +643,7 @@ void CMeshSceneNodeInstanced::render()
         flagQueryForRetrieval = false;
     }
 
-    for (u32 i=0; i<LoD.size(); ++i)
+    for (uint32_t i=0; i<LoD.size(); ++i)
     {
         for (size_t j=0; j<LoD[i].mesh->getMeshBufferCount(); j++)
         {

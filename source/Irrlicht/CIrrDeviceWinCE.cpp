@@ -89,7 +89,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	//BYTE allKeys[256];
 
-	static irr::s32 ClickCount=0;
+	static int32_t ClickCount=0;
 	if (GetCapture() != hWnd && ClickCount > 0)
 		ClickCount = 0;
 
@@ -117,7 +117,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_MOUSEWHEEL:
 		event.EventType = irr::EET_MOUSE_INPUT_EVENT;
-		event.MouseInput.Wheel = ((irr::f32)((short)HIWORD(wParam))) / (irr::f32)WHEEL_DELTA;
+		event.MouseInput.Wheel = ((float)((short)HIWORD(wParam))) / (float)WHEEL_DELTA;
 		event.MouseInput.Event = irr::EMIE_MOUSE_WHEEL;
 
 		POINT p; // fixed by jox
@@ -389,11 +389,11 @@ CIrrDeviceWinCE::CIrrDeviceWinCE(const SIrrlichtCreationParameters& params)
 
 		AdjustWindowRectEx(&clientSize, style, FALSE, 0);
 
-		const s32 realWidth = clientSize.right - clientSize.left;
-		const s32 realHeight = clientSize.bottom - clientSize.top;
+		const int32_t realWidth = clientSize.right - clientSize.left;
+		const int32_t realHeight = clientSize.bottom - clientSize.top;
 
-		const s32 windowLeft = core::s32_max ( 0, (GetSystemMetrics(SM_CXSCREEN) - realWidth) >> 1 );
-		const s32 windowTop = core::s32_max ( 0, (GetSystemMetrics(SM_CYSCREEN) - realHeight) >> 1 );
+		const int32_t windowLeft = core::s32_max ( 0, (GetSystemMetrics(SM_CXSCREEN) - realWidth) >> 1 );
+		const int32_t windowTop = core::s32_max ( 0, (GetSystemMetrics(SM_CYSCREEN) - realHeight) >> 1 );
 
 		// create window
 
@@ -577,7 +577,7 @@ void CIrrDeviceWinCE::yield()
 
 
 //! Pause execution and let other processes to run for a specified amount of time.
-void CIrrDeviceWinCE::sleep(u32 timeMs, bool pauseTimer)
+void CIrrDeviceWinCE::sleep(uint32_t timeMs, bool pauseTimer)
 {
 	const bool wasStopped = Timer ? Timer->isStopped() : true;
 	if (pauseTimer && !wasStopped)
@@ -610,7 +610,7 @@ void CIrrDeviceWinCE::resizeIfNecessary()
 		sprintf(tmp, "Resizing window (%ld %ld)", r.right, r.bottom);
 		os::Printer::log(tmp);
 
-		getVideoDriver()->OnResize(irr::core::dimension2d<irr::u32>(r.right, r.bottom));
+		getVideoDriver()->OnResize(irr::core::dimension2d<uint32_t>(r.right, r.bottom));
 		getWin32CursorControl()->OnResize(getVideoDriver()->getScreenSize());
 	}
 
@@ -619,7 +619,7 @@ void CIrrDeviceWinCE::resizeIfNecessary()
 
 
 //! sets the caption of the window
-void CIrrDeviceWinCE::setWindowCaption(const wchar_t* text)
+void CIrrDeviceWinCE::setWindowCaption(const std::wstring& text)
 {
 	SetWindowTextW(HWnd, text);
 }
@@ -649,7 +649,7 @@ typedef struct {
 
 
 //! presents a surface in the client area
-bool CIrrDeviceWinCE::present(video::IImage* image, void* windowId, core::rect<s32>* src)
+bool CIrrDeviceWinCE::present(video::IImage* image, void* windowId, core::rect<int32_t>* src)
 {
 	HWND hwnd = HWnd;
 	if ( windowId )
@@ -709,7 +709,7 @@ void CIrrDeviceWinCE::closeDevice()
 	if (!ExternalWindow)
 	{
 		DestroyWindow(HWnd);
-		const fschar_t* ClassName = __TEXT("CIrrDeviceWin32");
+		const char* ClassName = __TEXT("CIrrDeviceWin32");
 		HINSTANCE hInstance = GetModuleHandle(0);
 		UnregisterClass(ClassName, hInstance);
 	}
@@ -780,14 +780,14 @@ video::IVideoModeList* CIrrDeviceWinCE::getVideoModeList()
 
 		while (EnumDisplaySettings(NULL, i, &mode))
 		{
-			VideoModeList->addMode(core::dimension2d<u32>(mode.dmPelsWidth, mode.dmPelsHeight),
+			VideoModeList->addMode(core::dimension2d<uint32_t>(mode.dmPelsWidth, mode.dmPelsHeight),
 				mode.dmBitsPerPel);
 
 			++i;
 		}
 
 		if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &mode))
-			VideoModeList->setDesktop(mode.dmBitsPerPel, core::dimension2d<u32>(mode.dmPelsWidth, mode.dmPelsHeight));
+			VideoModeList->setDesktop(mode.dmBitsPerPel, core::dimension2d<uint32_t>(mode.dmPelsWidth, mode.dmPelsHeight));
 	}
 
 	return VideoModeList;
@@ -831,11 +831,11 @@ void CIrrDeviceWinCE::setResizable(bool resize)
 
 	AdjustWindowRectEx(&clientSize, style, FALSE, 0);
 
-	const s32 realWidth = clientSize.right - clientSize.left;
-	const s32 realHeight = clientSize.bottom - clientSize.top;
+	const int32_t realWidth = clientSize.right - clientSize.left;
+	const int32_t realHeight = clientSize.bottom - clientSize.top;
 
-	const s32 windowLeft = (GetSystemMetrics(SM_CXSCREEN) - realWidth) / 2;
-	const s32 windowTop = (GetSystemMetrics(SM_CYSCREEN) - realHeight) / 2;
+	const int32_t windowLeft = (GetSystemMetrics(SM_CXSCREEN) - realWidth) / 2;
+	const int32_t windowTop = (GetSystemMetrics(SM_CYSCREEN) - realHeight) / 2;
 
 	SetWindowPos(HWnd, HWND_TOP, windowLeft, windowTop, realWidth, realHeight,
 		SWP_FRAMECHANGED | SWP_NOMOVE | SWP_SHOWWINDOW);

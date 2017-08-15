@@ -23,37 +23,37 @@ namespace video
 
 	struct SBMPHeader
 	{
-		u16	Id;					//	BM - Windows 3.1x, 95, NT, 98, 2000, ME, XP
+		uint16_t	Id;					//	BM - Windows 3.1x, 95, NT, 98, 2000, ME, XP
 											//	BA - OS/2 Bitmap Array
 											//	CI - OS/2 Color Icon
 											//	CP - OS/2 Color Pointer
 											//	IC - OS/2 Icon
 											//	PT - OS/2 Pointer
-		u32	FileSize;
-		u32	Reserved;
-		u32	BitmapDataOffset;
-		u32	BitmapHeaderSize;	// should be 28h for windows bitmaps or
+		uint32_t	FileSize;
+		uint32_t	Reserved;
+		uint32_t	BitmapDataOffset;
+		uint32_t	BitmapHeaderSize;	// should be 28h for windows bitmaps or
 											// 0Ch for OS/2 1.x or F0h for OS/2 2.x
-		u32 Width;
-		u32 Height;
-		u16 Planes;
-		u16 BPP;					// 1: Monochrome bitmap
+		uint32_t Width;
+		uint32_t Height;
+		uint16_t Planes;
+		uint16_t BPP;					// 1: Monochrome bitmap
 											// 4: 16 color bitmap
 											// 8: 256 color bitmap
 											// 16: 16bit (high color) bitmap
 											// 24: 24bit (true color) bitmap
 											// 32: 32bit (true color) bitmap
 
-		u32  Compression;			// 0: none (Also identified by BI_RGB)
+		uint32_t  Compression;			// 0: none (Also identified by BI_RGB)
 											// 1: RLE 8-bit / pixel (Also identified by BI_RLE4)
 											// 2: RLE 4-bit / pixel (Also identified by BI_RLE8)
 											// 3: Bitfields  (Also identified by BI_BITFIELDS)
 
-		u32  BitmapDataSize;		// Size of the bitmap data in bytes. This number must be rounded to the next 4 byte boundary.
-		u32  PixelPerMeterX;
-		u32  PixelPerMeterY;
-		u32  Colors;
-		u32  ImportantColors;
+		uint32_t  BitmapDataSize;		// Size of the bitmap data in bytes. This number must be rounded to the next 4 byte boundary.
+		uint32_t  PixelPerMeterX;
+		uint32_t  PixelPerMeterY;
+		uint32_t  Colors;
+		uint32_t  ImportantColors;
 	} PACK_STRUCT;
 
 // Default alignment
@@ -85,9 +85,9 @@ public:
 
 private:
 
-	void decompress8BitRLE(u8*& BmpData, s32 size, s32 width, s32 height, s32 pitch) const;
+	void decompress8BitRLE(uint8_t*& BmpData, int32_t size, int32_t width, int32_t height, int32_t pitch) const;
 
-	void decompress4BitRLE(u8*& BmpData, s32 size, s32 width, s32 height, s32 pitch) const;
+	void decompress4BitRLE(uint8_t*& BmpData, int32_t size, int32_t width, int32_t height, int32_t pitch) const;
 };
 
 

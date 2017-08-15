@@ -28,7 +28,7 @@ namespace video
 		setDebugName("IBurningShader");
 		#endif
 
-		for ( u32 i = 0; i != BURNING_MATERIAL_MAX_TEXTURES; ++i )
+		for ( uint32_t i = 0; i != BURNING_MATERIAL_MAX_TEXTURES; ++i )
 		{
 			IT[i].Texture = 0;
 		}
@@ -59,7 +59,7 @@ namespace video
 		if (Stencil)
 			Stencil->drop();
 
-		for ( u32 i = 0; i != BURNING_MATERIAL_MAX_TEXTURES; ++i )
+		for ( uint32_t i = 0; i != BURNING_MATERIAL_MAX_TEXTURES; ++i )
 		{
 			if ( IT[i].Texture )
 				IT[i].Texture->drop();
@@ -67,7 +67,7 @@ namespace video
 	}
 
 	//! sets a render target
-	void IBurningShader::setRenderTarget(video::IImage* surface, const core::rect<s32>& viewPort)
+	void IBurningShader::setRenderTarget(video::IImage* surface, const core::rect<int32_t>& viewPort)
 	{
 		if (RenderTarget)
 			RenderTarget->drop();
@@ -85,7 +85,7 @@ namespace video
 
 
 	//! sets the Texture
-	void IBurningShader::setTextureParam( u32 stage, video::CSoftwareTexture2* texture, s32 lodLevel)
+	void IBurningShader::setTextureParam( uint32_t stage, video::CSoftwareTexture2* texture, int32_t lodLevel)
 	{
 		sInternalTexture *it = &IT[stage];
 

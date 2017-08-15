@@ -1936,7 +1936,7 @@ png_muldiv(png_fixed_point_p res, png_fixed_point a, png_int_32 times,
 #else
          int negative = 0;
          png_uint_32 A, T, D;
-         png_uint_32 s16, s32, s00;
+         png_uint_32 int16_t, int32_t, s00;
 
          if (a < 0)
             negative = 1, A = -a;
@@ -1956,24 +1956,24 @@ png_muldiv(png_fixed_point_p res, png_fixed_point a, png_int_32 times,
          /* Following can't overflow because the arguments only
           * have 31 bits each, however the result may be 32 bits.
           */
-         s16 = (A >> 16) * (T & 0xffff) +
+         int16_t = (A >> 16) * (T & 0xffff) +
                            (A & 0xffff) * (T >> 16);
          /* Can't overflow because the a*times bit is only 30
           * bits at most.
           */
-         s32 = (A >> 16) * (T >> 16) + (s16 >> 16);
+         int32_t = (A >> 16) * (T >> 16) + (int16_t >> 16);
          s00 = (A & 0xffff) * (T & 0xffff);
 
-         s16 = (s16 & 0xffff) << 16;
-         s00 += s16;
+         int16_t = (int16_t & 0xffff) << 16;
+         s00 += int16_t;
 
-         if (s00 < s16)
-            ++s32; /* carry */
+         if (s00 < int16_t)
+            ++int32_t; /* carry */
 
-         if (s32 < D) /* else overflow */
+         if (int32_t < D) /* else overflow */
          {
-            /* s32.s00 is now the 64-bit product, do a standard
-             * division, we know that s32 < D, so the maximum
+            /* int32_t.s00 is now the 64-bit product, do a standard
+             * division, we know that int32_t < D, so the maximum
              * required shift is 31.
              */
             int bitshift = 32;
@@ -1989,15 +1989,15 @@ png_muldiv(png_fixed_point_p res, png_fixed_point a, png_int_32 times,
                else
                   d32 = 0, d00 = D;
 
-               if (s32 > d32)
+               if (int32_t > d32)
                {
-                  if (s00 < d00) --s32; /* carry */
-                  s32 -= d32, s00 -= d00, result += 1<<bitshift;
+                  if (s00 < d00) --int32_t; /* carry */
+                  int32_t -= d32, s00 -= d00, result += 1<<bitshift;
                }
 
                else
-                  if (s32 == d32 && s00 >= d00)
-                     s32 = 0, s00 -= d00, result += 1<<bitshift;
+                  if (int32_t == d32 && s00 >= d00)
+                     int32_t = 0, s00 -= d00, result += 1<<bitshift;
             }
 
             /* Handle the rounding. */

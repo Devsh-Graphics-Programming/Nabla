@@ -6,109 +6,8 @@
 #define __IRR_TYPES_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
+#include "stdint.h"
 
-namespace irr
-{
-
-//! 8 bit unsigned variable.
-/** This is a typedef for unsigned char, it ensures portability of the engine. */
-#if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
-typedef unsigned __int8		u8;
-#else
-typedef unsigned char		u8;
-#endif
-
-//! 8 bit signed variable.
-/** This is a typedef for signed char, it ensures portability of the engine. */
-#if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
-typedef __int8			s8;
-#else
-typedef signed char		s8;
-#endif
-
-//! 8 bit character variable.
-/** This is a typedef for char, it ensures portability of the engine. */
-typedef char			c8;
-
-
-
-//! 16 bit unsigned variable.
-/** This is a typedef for unsigned short, it ensures portability of the engine. */
-#if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
-typedef unsigned __int16	u16;
-#else
-typedef unsigned short		u16;
-#endif
-
-//! 16 bit signed variable.
-/** This is a typedef for signed short, it ensures portability of the engine. */
-#if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
-typedef __int16			s16;
-#else
-typedef signed short		s16;
-#endif
-
-
-
-//! 32 bit unsigned variable.
-/** This is a typedef for unsigned int, it ensures portability of the engine. */
-#if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
-typedef unsigned __int32	u32;
-#else
-typedef unsigned int		u32;
-#endif
-
-//! 32 bit signed variable.
-/** This is a typedef for signed int, it ensures portability of the engine. */
-#if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
-typedef __int32			s32;
-#else
-typedef signed int		s32;
-#endif
-
-
-#ifdef __IRR_HAS_S64
-//! 64 bit unsigned variable.
-/** This is a typedef for 64bit uint, it ensures portability of the engine. */
-#if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
-typedef unsigned __int64			u64;
-#elif __GNUC__
-#if __WORDSIZE == 64
-typedef unsigned long int 			u64;
-#else
-__extension__ typedef unsigned long long	u64;
-#endif
-#else
-typedef unsigned long long			u64;
-#endif
-
-//! 64 bit signed variable.
-/** This is a typedef for 64bit int, it ensures portability of the engine. */
-#if defined(_MSC_VER) || ((__BORLANDC__ >= 0x530) && !defined(__STRICT_ANSI__))
-typedef __int64					s64;
-#elif __GNUC__
-#if __WORDSIZE == 64
-typedef long int 				s64;
-#else
-__extension__ typedef long long			s64;
-#endif
-#else
-typedef long long				s64;
-#endif
-#endif	// __IRR_HAS_S64
-
-
-
-//! 32 bit floating point variable.
-/** This is a typedef for float, it ensures portability of the engine. */
-typedef float				f32;
-
-//! 64 bit floating point variable.
-/** This is a typedef for double, it ensures portability of the engine. */
-typedef double				f64;
-
-
-} // end namespace irr
 
 
 #include <wchar.h>
@@ -125,41 +24,13 @@ typedef double				f64;
 #define snprintf _snprintf
 #endif
 
-// define the wchar_t type if not already built in.
-#ifdef _MSC_VER
-#ifndef _WCHAR_T_DEFINED
-//! A 16 bit wide character type.
-/**
-	Defines the wchar_t-type.
-	In VS6, its not possible to tell
-	the standard compiler to treat wchar_t as a built-in type, and
-	sometimes we just don't want to include the huge stdlib.h or wchar.h,
-	so we'll use this.
-*/
-typedef unsigned short wchar_t;
-#define _WCHAR_T_DEFINED
-#endif // wchar is not defined
-#endif // microsoft compiler
 #endif // _IRR_WINDOWS_API_
 
-namespace irr
-{
 
-//! Type name for character type used by the file system.
-/** Should the wide character version of the FileSystem be used it is a
-16 bit character variable. Used for unicode Filesystem and unicode strings.
-Else it is a 8 bit character variable. Used for ansi Filesystem and non-unicode
-strings
-*/
-#if defined(_IRR_WCHAR_FILESYSTEM)
-	typedef wchar_t fschar_t;
-	#define _IRR_TEXT(X) L##X
-#else
-	typedef char fschar_t;
-	#define _IRR_TEXT(X) X
-#endif
 
-} // end namespace irr
+#define _IRR_TEXT(X) X
+
+
 
 //! define a break macro for debugging.
 #if defined(_DEBUG)
@@ -195,17 +66,6 @@ For functions:		template<class T> _IRR_DEPRECATED_ void test4(void) {}
 #define _IRR_DEPRECATED_
 #endif
 
-//! Defines a small statement to work around a microsoft compiler bug.
-/** The microsoft compiler 7.0 - 7.1 has a bug:
-When you call unmanaged code that returns a bool type value of false from managed code,
-the return value may appear as true. See
-http://support.microsoft.com/default.aspx?kbid=823071 for details.
-Compiler version defines: VC6.0 : 1200, VC7.0 : 1300, VC7.1 : 1310, VC8.0 : 1400*/
-#if defined(_IRR_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER > 1299) && (_MSC_VER < 1400)
-#define _IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX __asm mov eax,100
-#else
-#define _IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX
-#endif // _IRR_MANAGED_MARSHALLING_BUGFIX
 
 
 // memory debugging
@@ -239,8 +99,8 @@ Compiler version defines: VC6.0 : 1200, VC7.0 : 1300, VC7.1 : 1310, VC8.0 : 1400
 /** some compilers can create those by directly writing the
 code like 'code', but some generate warnings so we use this macro here */
 #define MAKE_IRR_ID(c0, c1, c2, c3) \
-		((irr::u32)(irr::u8)(c0) | ((irr::u32)(irr::u8)(c1) << 8) | \
-		((irr::u32)(irr::u8)(c2) << 16) | ((irr::u32)(irr::u8)(c3) << 24 ))
+		((uint32_t)(uint8_t)(c0) | ((uint32_t)(uint8_t)(c1) << 8) | \
+		((uint32_t)(uint8_t)(c2) << 16) | ((uint32_t)(uint8_t)(c3) << 24 ))
 
 #if defined(__BORLANDC__) || defined (__BCPLUSPLUS__)
 #define _strcmpi(a,b) strcmpi(a,b)

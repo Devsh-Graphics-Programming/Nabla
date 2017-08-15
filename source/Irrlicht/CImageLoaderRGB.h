@@ -38,18 +38,18 @@ namespace video
 
 	struct SRGBHeader
 	{
-		u16 Magic;	// IRIS image file magic number
-		u8  Storage;	// Storage format
-		u8  BPC;	// Number of bytes per pixel channel
-		u16 Dimension;	// Number of dimensions
-		u16 Xsize;	// X size in pixels
-		u16 Ysize;	// Y size in pixels
-		u16 Zsize;	// Z size in pixels
-		u32 Pixmin;	// Minimum pixel value
-		u32 Pixmax;	// Maximum pixel value
-		u32 Dummy1;	// ignored
+		uint16_t Magic;	// IRIS image file magic number
+		uint8_t  Storage;	// Storage format
+		uint8_t  BPC;	// Number of bytes per pixel channel
+		uint16_t Dimension;	// Number of dimensions
+		uint16_t Xsize;	// X size in pixels
+		uint16_t Ysize;	// Y size in pixels
+		uint16_t Zsize;	// Z size in pixels
+		uint32_t Pixmin;	// Minimum pixel value
+		uint32_t Pixmax;	// Maximum pixel value
+		uint32_t Dummy1;	// ignored
 		char Imagename[80];// Image name
-		u32 Colormap;	// Colormap ID
+		uint32_t Colormap;	// Colormap ID
 //		char Dummy2[404];// Ignored
 	} PACK_STRUCT;
 
@@ -60,20 +60,20 @@ namespace video
 
 	typedef struct _RGBdata
 	{
-		u8 *tmp,
+		uint8_t *tmp,
 		   *tmpR,
 		   *tmpG,
 		   *tmpB,
 		   *tmpA;
 
 
-		u32 *StartTable;	// compressed data table, holds file offsets
-		u32 *LengthTable;	// length for the above data, hold lengths for above
-		u32 TableLen;		// len of above tables
+		uint32_t *StartTable;	// compressed data table, holds file offsets
+		uint32_t *LengthTable;	// length for the above data, hold lengths for above
+		uint32_t TableLen;		// len of above tables
 
 		SRGBHeader Header;	// define the .rgb file header
-		u32 ImageSize;
-		u8 *rgbData;
+		uint32_t ImageSize;
+		uint8_t *rgbData;
 
 	public:
 		_RGBdata() : tmp(0), tmpR(0), tmpG(0), tmpB(0), tmpA(0),
@@ -96,31 +96,31 @@ namespace video
 		bool allocateTemps()
 		{
 			tmp = tmpR = tmpG = tmpB = tmpA = 0;
-			tmp = new u8 [Header.Xsize * 256 * Header.BPC];
+			tmp = new uint8_t [Header.Xsize * 256 * Header.BPC];
 			if (!tmp)
 				return false;
 
 			if (Header.Zsize >= 1)
 			{
-				tmpR = new u8[Header.Xsize * Header.BPC];
+				tmpR = new uint8_t[Header.Xsize * Header.BPC];
 				if (!tmpR)
 					return false;
 			}
 			if (Header.Zsize >= 2)
 			{
-				tmpG = new u8[Header.Xsize * Header.BPC];
+				tmpG = new uint8_t[Header.Xsize * Header.BPC];
 				if (!tmpG)
 					return false;
 			}
 			if (Header.Zsize >= 3)
 			{
-				tmpB = new u8[Header.Xsize * Header.BPC];
+				tmpB = new uint8_t[Header.Xsize * Header.BPC];
 				if (!tmpB)
 					return false;
 			}
 			if (Header.Zsize >= 4)
 			{
-				tmpA = new u8[Header.Xsize * Header.BPC];
+				tmpA = new uint8_t[Header.Xsize * Header.BPC];
 				if (!tmpA)
 					return false;
 			}
@@ -150,11 +150,11 @@ public:
 private:
 
 	bool readHeader(io::IReadFile* file, rgbStruct& rgb) const;
-	void readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgbStruct& rgb) const;
+	void readRGBrow(uint8_t *buf, int y, int z, io::IReadFile* file, rgbStruct& rgb) const;
 	void processFile(io::IReadFile *file, rgbStruct& rgb) const;
 	bool checkFormat(io::IReadFile *file, rgbStruct& rgb) const;
 	bool readOffsetTables(io::IReadFile* file, rgbStruct& rgb) const;
-	void converttoARGB(u32* in, const u32 size) const;
+	void converttoARGB(uint32_t* in, const uint32_t size) const;
 };
 
 } // end namespace video

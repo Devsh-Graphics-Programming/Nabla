@@ -24,7 +24,7 @@ ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
 
     //! This is a baaaad mesh, you dont share vertices in a cube across faces
 	// Create indices
-	const u16 u[36] = {   0,2,1,   0,3,2,   1,5,4,   1,2,5,   4,6,7,   4,5,6,
+	const uint16_t u[36] = {   0,2,1,   0,3,2,   1,5,4,   1,2,5,   4,6,7,   4,5,6,
             7,3,0,   7,6,3,   9,5,2,   9,8,5,   0,11,10,   0,10,7};
 
     core::ICPUBuffer* indices = new core::ICPUBuffer(sizeof(u));
@@ -147,7 +147,7 @@ ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
 	// Recalculate bounding box
 	buffer->setBoundingBox(core::aabbox3df(-size*0.5f,size*0.5f));
 
-	for (u32 i=0; i<12; ++i)
+	for (uint32_t i=0; i<12; ++i)
 	{
 	    core::vector3df& Pos = *((core::vector3df*)(tmpMem+i*vertexSize));
 		Pos -= core::vector3df(0.5f, 0.5f, 0.5f);
@@ -184,9 +184,9 @@ IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const
 
 
 ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
-		video::IImage* heightmap, const core::dimension2d<f32>& stretchSize,
-		f32 maxHeight, video::IVideoDriver* driver,
-		const core::dimension2d<u32>& maxVtxBlockSize,
+		video::IImage* heightmap, const core::dimension2d<float>& stretchSize,
+		float maxHeight, video::IVideoDriver* driver,
+		const core::dimension2d<uint32_t>& maxVtxBlockSize,
 		bool debugBorders) const
 {
 #ifdef NEW_MESHES
@@ -196,25 +196,25 @@ ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
 		return 0;
 
 	// debug border
-	const s32 borderSkip = debugBorders ? 0 : 1;
+	const int32_t borderSkip = debugBorders ? 0 : 1;
 
 	video::S3DVertex vtx;
 	vtx.Color.set(255,255,255,255);
 
 	SMesh* mesh = new SMesh();
 
-	const u32 tm = os::Timer::getRealTime()/1000;
-	const core::dimension2d<u32> hMapSize= heightmap->getDimension();
-	const core::dimension2d<u32> tMapSize= texture->getDimension();
-	const core::position2d<f32> thRel(static_cast<f32>(tMapSize.Width) / hMapSize.Width, static_cast<f32>(tMapSize.Height) / hMapSize.Height);
+	const uint32_t tm = os::Timer::getRealTime()/1000;
+	const core::dimension2d<uint32_t> hMapSize= heightmap->getDimension();
+	const core::dimension2d<uint32_t> tMapSize= texture->getDimension();
+	const core::position2d<float> thRel(static_cast<float>(tMapSize.Width) / hMapSize.Width, static_cast<float>(tMapSize.Height) / hMapSize.Height);
 	maxHeight /= 255.0f; // height step per color value
 
-	core::position2d<u32> processed(0,0);
+	core::position2d<uint32_t> processed(0,0);
 	while (processed.Y<hMapSize.Height)
 	{
 		while(processed.X<hMapSize.Width)
 		{
-			core::dimension2d<u32> blockSize = maxVtxBlockSize;
+			core::dimension2d<uint32_t> blockSize = maxVtxBlockSize;
 			if (processed.X + blockSize.Width > hMapSize.Width)
 				blockSize.Width = hMapSize.Width - processed.X;
 			if (processed.Y + blockSize.Height > hMapSize.Height)
@@ -223,7 +223,7 @@ ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
 			SMeshBuffer* buffer = new SMeshBuffer();
 			buffer->Vertices.reallocate(blockSize.getArea());
 			// add vertices of vertex block
-			u32 y;
+			uint32_t y;
 			core::vector2df pos(0.f, processed.Y*stretchSize.Height);
 			const core::vector2df bs(1.f/blockSize.Width, 1.f/blockSize.Height);
 			core::vector2df tc(0.f, 0.5f*bs.Y);
@@ -231,9 +231,9 @@ ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
 			{
 				pos.X=processed.X*stretchSize.Width;
 				tc.X=0.5f*bs.X;
-				for (u32 x=0; x<blockSize.Width; ++x)
+				for (uint32_t x=0; x<blockSize.Width; ++x)
 				{
-					const f32 height = heightmap->getPixel(x+processed.X, y+processed.Y).getAverage() * maxHeight;
+					const float height = heightmap->getPixel(x+processed.X, y+processed.Y).getAverage() * maxHeight;
 
 					vtx.Pos.set(pos.X, height, pos.Y);
 					vtx.TCoords.set(tc);
@@ -247,12 +247,12 @@ ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
 
 			buffer->Indices.reallocate((blockSize.Height-1)*(blockSize.Width-1)*6);
 			// add indices of vertex block
-			s32 c1 = 0;
+			int32_t c1 = 0;
 			for (y=0; y<blockSize.Height-1; ++y)
 			{
-				for (u32 x=0; x<blockSize.Width-1; ++x)
+				for (uint32_t x=0; x<blockSize.Width-1; ++x)
 				{
-					const s32 c = c1 + x;
+					const int32_t c = c1 + x;
 
 					indexPtr[indexAddIx++] = c);
 					indexPtr[indexAddIx++] = c + blockSize.Width);
@@ -266,9 +266,9 @@ ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
 			}
 
 			// recalculate normals
-			for (u32 i=0; i<buffer->Indices.size(); i+=3)
+			for (uint32_t i=0; i<buffer->Indices.size(); i+=3)
 			{
-				const core::vector3df normal = core::plane3d<f32>(
+				const core::vector3df normal = core::plane3d<float>(
 					buffer->Vertices[buffer->Indices[i+0]].Pos,
 					buffer->Vertices[buffer->Indices[i+1]].Pos,
 					buffer->Vertices[buffer->Indices[i+2]].Pos).Normal;
@@ -280,12 +280,12 @@ ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
 
 			if (buffer->Vertices.size())
 			{
-				c8 textureName[64];
+				int8_t textureName[64];
 				// create texture for this block
-				video::IImage* img = driver->createImage(texture->getColorFormat(), core::dimension2d<u32>(core::floor32(blockSize.Width*thRel.X), core::floor32(blockSize.Height*thRel.Y)));
+				video::IImage* img = driver->createImage(texture->getColorFormat(), core::dimension2d<uint32_t>(core::floor32(blockSize.Width*thRel.X), core::floor32(blockSize.Height*thRel.Y)));
 				texture->copyTo(img, core::position2di(0,0), core::recti(
-					core::position2d<s32>(core::floor32(processed.X*thRel.X), core::floor32(processed.Y*thRel.Y)),
-					core::dimension2d<u32>(core::floor32(blockSize.Width*thRel.X), core::floor32(blockSize.Height*thRel.Y))), 0);
+					core::position2d<int32_t>(core::floor32(processed.X*thRel.X), core::floor32(processed.Y*thRel.Y)),
+					core::dimension2d<uint32_t>(core::floor32(blockSize.Width*thRel.X), core::floor32(blockSize.Height*thRel.Y))), 0);
 
 				sprintf(textureName, "terrain%u_%u", tm, mesh->getMeshBufferCount());
 
@@ -293,7 +293,7 @@ ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
 
 				if (buffer->Material.getTexture(0))
 				{
-					c8 tmp[255];
+					int8_t tmp[255];
 					sprintf(tmp, "Generated terrain texture (%dx%d): %s",
 						buffer->Material.getTexture(0)->getSize().Width,
 						buffer->Material.getTexture(0)->getSize().Height,
@@ -326,9 +326,9 @@ ICPUMesh* CGeometryCreator::createTerrainMeshCPU(video::IImage* texture,
 
 
 IGPUMesh* CGeometryCreator::createTerrainMeshGPU(video::IImage* texture,
-		video::IImage* heightmap, const core::dimension2d<f32>& stretchSize,
-		f32 maxHeight, video::IVideoDriver* driver,
-		const core::dimension2d<u32>& maxVtxBlockSize,
+		video::IImage* heightmap, const core::dimension2d<float>& stretchSize,
+		float maxHeight, video::IVideoDriver* driver,
+		const core::dimension2d<uint32_t>& maxVtxBlockSize,
 		bool debugBorders) const
 {
     if (!driver)
@@ -346,12 +346,12 @@ IGPUMesh* CGeometryCreator::createTerrainMeshGPU(video::IImage* texture,
 	a cylinder, a cone and a cross
 	point up on (0,1.f, 0.f )
 */
-ICPUMesh* CGeometryCreator::createArrowMeshCPU(const u32 tesselationCylinder,
-						const u32 tesselationCone,
-						const f32 height,
-						const f32 cylinderHeight,
-						const f32 width0,
-						const f32 width1,
+ICPUMesh* CGeometryCreator::createArrowMeshCPU(const uint32_t tesselationCylinder,
+						const uint32_t tesselationCone,
+						const float height,
+						const float cylinderHeight,
+						const float width0,
+						const float width1,
 						const video::SColor vtxColor0,
 						const video::SColor vtxColor1) const
 {
@@ -361,10 +361,10 @@ ICPUMesh* CGeometryCreator::createArrowMeshCPU(const u32 tesselationCylinder,
 	SMesh* mesh = (SMesh*)createCylinderMesh(width0, cylinderHeight, tesselationCylinder, vtxColor0, false);
 
 	IMesh* mesh2 = createConeMesh(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor0);
-	for (u32 i=0; i<mesh2->getMeshBufferCount(); ++i)
+	for (uint32_t i=0; i<mesh2->getMeshBufferCount(); ++i)
 	{
 		scene::IMeshBuffer* buffer = mesh2->getMeshBuffer(i);
-		for (u32 j=0; j<buffer->getVertexCount(); ++j)
+		for (uint32_t j=0; j<buffer->getVertexCount(); ++j)
 			buffer->getPosition(j).Y += cylinderHeight;
 		buffer->setDirty(EBT_VERTEX);
 		buffer->recalculateBoundingBox();
@@ -378,12 +378,12 @@ ICPUMesh* CGeometryCreator::createArrowMeshCPU(const u32 tesselationCylinder,
 }
 
 IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
-                        const u32 tesselationCylinder,
-						const u32 tesselationCone,
-						const f32 height,
-						const f32 cylinderHeight,
-						const f32 width0,
-						const f32 width1,
+                        const uint32_t tesselationCylinder,
+						const uint32_t tesselationCone,
+						const float height,
+						const float cylinderHeight,
+						const float width0,
+						const float width1,
 						const video::SColor vtxColor0,
 						const video::SColor vtxColor1) const
 {
@@ -399,7 +399,7 @@ IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
 
 
 /* A sphere with proper normals and texture coords */
-ICPUMesh* CGeometryCreator::createSphereMeshCPU(f32 radius, u32 polyCountX, u32 polyCountY) const
+ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t polyCountX, uint32_t polyCountY) const
 {
 	// thanks to Alfaz93 who made his code available for Irrlicht on which
 	// this one is based!
@@ -411,7 +411,7 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(f32 radius, u32 polyCountX, u32 
 	if (polyCountY < 2)
 		polyCountY = 2;
 
-	const u32 polyCountXPitch = polyCountX+1; // get to same vertex on next level
+	const uint32_t polyCountXPitch = polyCountX+1; // get to same vertex on next level
 
 	ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
 	ICPUMeshBuffer* buffer = new ICPUMeshBuffer();
@@ -426,15 +426,15 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(f32 radius, u32 polyCountX, u32 
     //buffer->setIndexRange(0,11);
     indices->drop();
 
-	u32 level = 0;
+	uint32_t level = 0;
 	size_t indexAddIx = 0;
     uint32_t* indexPtr = (uint32_t*)indices->getPointer();
-	for (u32 p1 = 0; p1 < polyCountY-1; ++p1)
+	for (uint32_t p1 = 0; p1 < polyCountY-1; ++p1)
 	{
 		//main quads, top to bottom
-		for (u32 p2 = 0; p2 < polyCountX - 1; ++p2)
+		for (uint32_t p2 = 0; p2 < polyCountX - 1; ++p2)
 		{
-			const u32 curr = level + p2;
+			const uint32_t curr = level + p2;
 			indexPtr[indexAddIx++] = curr + polyCountXPitch;
 			indexPtr[indexAddIx++] = curr;
 			indexPtr[indexAddIx++] = curr + 1;
@@ -454,11 +454,11 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(f32 radius, u32 polyCountX, u32 
 		level += polyCountXPitch;
 	}
 
-	const u32 polyCountSq = polyCountXPitch * polyCountY; // top point
-	const u32 polyCountSq1 = polyCountSq + 1; // bottom point
-	const u32 polyCountSqM1 = (polyCountY - 1) * polyCountXPitch; // last row's first vertex
+	const uint32_t polyCountSq = polyCountXPitch * polyCountY; // top point
+	const uint32_t polyCountSq1 = polyCountSq + 1; // bottom point
+	const uint32_t polyCountSqM1 = (polyCountY - 1) * polyCountXPitch; // last row's first vertex
 
-	for (u32 p2 = 0; p2 < polyCountX - 1; ++p2)
+	for (uint32_t p2 = 0; p2 < polyCountX - 1; ++p2)
 	{
 		// create triangles which are at the top of the sphere
 
@@ -498,31 +498,31 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(f32 radius, u32 polyCountX, u32 
         tmpMem[i*vertexSize+3*4+3] = 255;
     }
 	// calculate the angle which separates all points in a circle
-	const f64 AngleX = 2 * core::PI / polyCountX;
-	const f64 AngleY = core::PI / polyCountY;
+	const double AngleX = 2 * core::PI / polyCountX;
+	const double AngleY = core::PI / polyCountY;
 
-	f64 axz;
+	double axz;
 
 	// we don't start at 0.
 
-	f64 ay = 0;//AngleY / 2;
+	double ay = 0;//AngleY / 2;
 
     uint8_t* tmpMemPtr = tmpMem;
-	for (u32 y = 0; y < polyCountY; ++y)
+	for (uint32_t y = 0; y < polyCountY; ++y)
 	{
 		ay += AngleY;
-		const f64 sinay = sin(ay);
+		const double sinay = sin(ay);
 		axz = 0;
 
 		// calculate the necessary vertices without the doubled one
 		uint8_t* oldTmpMemPtr = tmpMemPtr;
-		for (u32 xz = 0;xz < polyCountX; ++xz)
+		for (uint32_t xz = 0;xz < polyCountX; ++xz)
 		{
 			// calculate points position
 
-			core::vector3df pos(static_cast<f32>(cos(axz) * sinay),
-						static_cast<f32>(cos(ay)),
-						static_cast<f32>(sin(axz) * sinay));
+			core::vector3df pos(static_cast<float>(cos(axz) * sinay),
+						static_cast<float>(cos(ay)),
+						static_cast<float>(sin(axz) * sinay));
 			// for spheres the normal is the position
 			core::vectorSIMDf normal(&pos.X);
 			normal.makeSafe3D();
@@ -531,11 +531,11 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(f32 radius, u32 polyCountX, u32 
 
 			// calculate texture coordinates via sphere mapping
 			// tu is the same on each level, so only calculate once
-			f32 tu = 0.5f;
+			float tu = 0.5f;
 			//if (y==0)
 			//{
 				if (normal.Y != -1.0f && normal.Y != 1.0f)
-					tu = static_cast<f32>(acos(core::clamp(normal.X/sinay, -1.0, 1.0)) * 0.5 *core::RECIPROCAL_PI64);
+					tu = static_cast<float>(acos(core::clamp(normal.X/sinay, -1.0, 1.0)) * 0.5 *core::RECIPROCAL_PI64);
 				if (normal.Z < 0.0f)
 					tu=1-tu;
 			//}
@@ -546,7 +546,7 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(f32 radius, u32 polyCountX, u32 
             ((float*)tmpMemPtr)[1] = pos.Y;
             ((float*)tmpMemPtr)[2] = pos.Z;
             ((float*)tmpMemPtr)[4] = tu;
-            ((float*)tmpMemPtr)[5] = static_cast<f32>(ay*core::RECIPROCAL_PI64);
+            ((float*)tmpMemPtr)[5] = static_cast<float>(ay*core::RECIPROCAL_PI64);
             ((uint32_t*)tmpMemPtr)[6] = quantizedNormal;
 
 			tmpMemPtr += vertexSize;
@@ -601,7 +601,7 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(f32 radius, u32 polyCountX, u32 
 	return mesh;
 }
 
-IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, f32 radius, u32 polyCountX, u32 polyCountY) const
+IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, float radius, uint32_t polyCountX, uint32_t polyCountY) const
 {
     if (!driver)
         return NULL;
@@ -615,29 +615,29 @@ IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, f32
 
 
 /* A cylinder with proper normals and texture coords */
-ICPUMesh* CGeometryCreator::createCylinderMeshCPU(f32 radius, f32 length,
-			u32 tesselation, const video::SColor& color,
-			bool closeTop, f32 oblique) const
+ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float length,
+			uint32_t tesselation, const video::SColor& color,
+			bool closeTop, float oblique) const
 {
 #ifdef NEW_MESHES
     return NULL;
 #else
 	SMeshBuffer* buffer = new SMeshBuffer();
 
-	const f32 recTesselation = core::reciprocal((f32)tesselation);
-	const f32 recTesselationHalf = recTesselation * 0.5f;
-	const f32 angleStep = (core::PI * 2.f ) * recTesselation;
-	const f32 angleStepHalf = angleStep*0.5f;
+	const float recTesselation = core::reciprocal((float)tesselation);
+	const float recTesselationHalf = recTesselation * 0.5f;
+	const float angleStep = (core::PI * 2.f ) * recTesselation;
+	const float angleStepHalf = angleStep*0.5f;
 
-	u32 i;
+	uint32_t i;
 	video::S3DVertex v;
 	v.Color = color;
 	buffer->Vertices.reallocate(tesselation*4+4+(closeTop?2:1));
 	buffer->Indices.reallocate((tesselation*2+1)*(closeTop?12:9));
-	f32 tcx = 0.f;
+	float tcx = 0.f;
 	for ( i = 0; i <= tesselation; ++i )
 	{
-		const f32 angle = angleStep * i;
+		const float angle = angleStep * i;
 		v.Pos.X = radius * cosf(angle);
 		v.Pos.Y = 0.f;
 		v.Pos.Z = radius * sinf(angle);
@@ -673,7 +673,7 @@ ICPUMesh* CGeometryCreator::createCylinderMeshCPU(f32 radius, f32 length,
 	}
 
 	// indices for the main hull part
-	const u32 nonWrappedSize = tesselation* 4;
+	const uint32_t nonWrappedSize = tesselation* 4;
 	for (i=0; i != nonWrappedSize; i += 2)
 	{
 		indexPtr[indexAddIx++] = i + 2);
@@ -705,7 +705,7 @@ ICPUMesh* CGeometryCreator::createCylinderMeshCPU(f32 radius, f32 length,
 	v.TCoords.Y = 1.f;
 	buffer->Vertices.push_back(v);
 
-	u32 index = buffer->Vertices.size() - 1;
+	uint32_t index = buffer->Vertices.size() - 1;
 
 	for ( i = 0; i != nonWrappedSize; i += 2 )
 	{
@@ -756,9 +756,9 @@ ICPUMesh* CGeometryCreator::createCylinderMeshCPU(f32 radius, f32 length,
 }
 
 IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
-            f32 radius, f32 length,
-			u32 tesselation, const video::SColor& color,
-			bool closeTop, f32 oblique) const
+            float radius, float length,
+			uint32_t tesselation, const video::SColor& color,
+			bool closeTop, float oblique) const
 {
     if (!driver)
         return NULL;
@@ -773,26 +773,26 @@ IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
 
 
 /* A cone with proper normals and texture coords */
-ICPUMesh* CGeometryCreator::createConeMeshCPU(f32 radius, f32 length, u32 tesselation,
+ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length, uint32_t tesselation,
 					const video::SColor& colorTop,
 					const video::SColor& colorBottom,
-					f32 oblique) const
+					float oblique) const
 {
 #ifdef NEW_MESHES
     return NULL;
 #else
 	SMeshBuffer* buffer = new SMeshBuffer();
 
-	const f32 angleStep = (core::PI * 2.f ) / tesselation;
-	const f32 angleStepHalf = angleStep*0.5f;
+	const float angleStep = (core::PI * 2.f ) / tesselation;
+	const float angleStepHalf = angleStep*0.5f;
 
 	video::S3DVertex v;
-	u32 i;
+	uint32_t i;
 
 	v.Color = colorTop;
 	for ( i = 0; i != tesselation; ++i )
 	{
-		f32 angle = angleStep * f32(i);
+		float angle = angleStep * float(i);
 
 		v.Pos.X = radius * cosf(angle);
 		v.Pos.Y = 0.f;
@@ -809,7 +809,7 @@ ICPUMesh* CGeometryCreator::createConeMeshCPU(f32 radius, f32 length, u32 tessel
 		v.Normal.normalize();
 		buffer->Vertices.push_back(v);
 	}
-	const u32 nonWrappedSize = buffer->Vertices.size() - 1;
+	const uint32_t nonWrappedSize = buffer->Vertices.size() - 1;
 
 	// close top
 	v.Pos.X = oblique;
@@ -820,7 +820,7 @@ ICPUMesh* CGeometryCreator::createConeMeshCPU(f32 radius, f32 length, u32 tessel
 	v.Normal.Z = 0.f;
 	buffer->Vertices.push_back(v);
 
-	u32 index = buffer->Vertices.size() - 1;
+	uint32_t index = buffer->Vertices.size() - 1;
 
 	for ( i = 0; i != nonWrappedSize; i += 1 )
 	{
@@ -867,10 +867,10 @@ ICPUMesh* CGeometryCreator::createConeMeshCPU(f32 radius, f32 length, u32 tessel
 }
 
 IGPUMesh* CGeometryCreator::createConeMeshGPU(video::IVideoDriver* driver,
-                    f32 radius, f32 length, u32 tesselation,
+                    float radius, float length, uint32_t tesselation,
 					const video::SColor& colorTop,
 					const video::SColor& colorBottom,
-					f32 oblique) const
+					float oblique) const
 {
     if (!driver)
         return NULL;

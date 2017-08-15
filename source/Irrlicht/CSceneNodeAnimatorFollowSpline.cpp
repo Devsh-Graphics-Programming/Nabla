@@ -11,9 +11,9 @@ namespace scene
 
 
 //! constructor
-CSceneNodeAnimatorFollowSpline::CSceneNodeAnimatorFollowSpline(u32 time,
-	const core::array<core::vector3df>& points, f32 speed,
-	f32 tightness, bool loop, bool pingpong)
+CSceneNodeAnimatorFollowSpline::CSceneNodeAnimatorFollowSpline(uint32_t time,
+	const core::array<core::vector3df>& points, float speed,
+	float tightness, bool loop, bool pingpong)
 : ISceneNodeAnimatorFinishing(0), Points(points), Speed(speed), Tightness(tightness), StartTime(time)
 , Loop(loop), PingPong(pingpong)
 {
@@ -23,19 +23,19 @@ CSceneNodeAnimatorFollowSpline::CSceneNodeAnimatorFollowSpline(u32 time,
 }
 
 
-inline s32 CSceneNodeAnimatorFollowSpline::clamp(s32 idx, s32 size)
+inline int32_t CSceneNodeAnimatorFollowSpline::clamp(int32_t idx, int32_t size)
 {
 	return ( idx<0 ? size+idx : ( idx>=size ? idx-size : idx ) );
 }
 
 
 //! animates a scene node
-void CSceneNodeAnimatorFollowSpline::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorFollowSpline::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 {
 	if(!node)
 		return;
 
-	const u32 pSize = Points.size();
+	const uint32_t pSize = Points.size();
 	if (pSize==0)
 	{
 		if ( !Loop )
@@ -53,20 +53,20 @@ void CSceneNodeAnimatorFollowSpline::animateNode(IDummyTransformationSceneNode* 
 		return;
 	}
 
-	const f32 dt = ( (timeMs-StartTime) * Speed * 0.001f );
-	const s32 unwrappedIdx = core::floor32( dt );
-	if ( !Loop && unwrappedIdx >= (s32)pSize-1 )
+	const float dt = ( (timeMs-StartTime) * Speed * 0.001f );
+	const int32_t unwrappedIdx = core::floor32( dt );
+	if ( !Loop && unwrappedIdx >= (int32_t)pSize-1 )
 	{
 		node->setPosition(Points[pSize-1]);
 		HasFinished = true;
 		return;
 	}
 	const bool pong = PingPong && (unwrappedIdx/(pSize-1))%2;
-	const f32 u =  pong ? 1.f-core::fract ( dt ) : core::fract ( dt );
-	const s32 idx = pong ?	(pSize-2) - (unwrappedIdx % (pSize-1))
+	const float u =  pong ? 1.f-core::fract ( dt ) : core::fract ( dt );
+	const int32_t idx = pong ?	(pSize-2) - (unwrappedIdx % (pSize-1))
 						: (PingPong ? unwrappedIdx % (pSize-1)
 									: unwrappedIdx % pSize);
-	//const f32 u = 0.001f * fmodf( dt, 1000.0f );
+	//const float u = 0.001f * fmodf( dt, 1000.0f );
 
 	const core::vector3df& p0 = Points[ clamp( idx - 1, pSize ) ];
 	const core::vector3df& p1 = Points[ clamp( idx + 0, pSize ) ]; // starting point
@@ -74,10 +74,10 @@ void CSceneNodeAnimatorFollowSpline::animateNode(IDummyTransformationSceneNode* 
 	const core::vector3df& p3 = Points[ clamp( idx + 2, pSize ) ];
 
 	// hermite polynomials
-	const f32 h1 = 2.0f * u * u * u - 3.0f * u * u + 1.0f;
-	const f32 h2 = -2.0f * u * u * u + 3.0f * u * u;
-	const f32 h3 = u * u * u - 2.0f * u * u + u;
-	const f32 h4 = u * u * u - u * u;
+	const float h1 = 2.0f * u * u * u - 3.0f * u * u + 1.0f;
+	const float h2 = -2.0f * u * u * u + 3.0f * u * u;
+	const float h3 = u * u * u - 2.0f * u * u + u;
+	const float h4 = u * u * u - u * u;
 
 	// tangents
 	const core::vector3df t1 = ( p2 - p0 ) * Tightness;

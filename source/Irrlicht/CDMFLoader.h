@@ -64,17 +64,17 @@ namespace scene
 		Note that loaded lights from DeleD must have the suffix \b dynamic_ and must be \b pointlight.
 		Irrlicht correctly loads specular color, diffuse color , position and distance of object affected by light.
 		\return number of lights loaded or 0 if loading failed.*/
-		int loadLights(const c8 * filename, ISceneManager* smgr,
-			ISceneNode*  parent = 0, s32 base_id = 1000);
+		int loadLights(const int8_t * filename, ISceneManager* smgr,
+			ISceneNode*  parent = 0, int32_t base_id = 1000);
 
 		/** loads water plains present in this scene.
 		Note that loaded water plains from DeleD must have the suffix \b water_ and must be \b rectangle (with just 1 rectangular face).
 		Irrlicht correctly loads position and rotation of water plain as well as texture layers.
 		\return number of water plains loaded or 0 if loading failed.*/
-		int loadWaterPlains(const c8 *filename,
+		int loadWaterPlains(const int8_t *filename,
 				ISceneManager* smgr,
 				ISceneNode * parent = 0,
-				s32 base_id = 2000,
+				int32_t base_id = 2000,
 				bool mode = true);
 
 	private:

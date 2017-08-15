@@ -3,10 +3,12 @@
 
 #include "IGPUBuffer.h"
 #include "IrrCompileConfig.h"
+#include "FW_Mutex.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 #include "CNullDriver.h"
 #include "COpenGLExtensionHandler.h"
+#include <assert.h>
 
 namespace irr
 {
@@ -16,7 +18,7 @@ namespace video
 
 
 //! get the amount of Bits per Pixel of the given color format
-inline u32 getBitsPerPixelFromGLenum(const GLenum& format)
+inline uint32_t getBitsPerPixelFromGLenum(const GLenum& format)
 {
     switch(format)
     {
@@ -82,12 +84,26 @@ class COpenGLBuffer : public virtual IGPUBuffer
             COpenGLExtensionHandler::extGlNamedBufferStorage(BufferName,size,data,flags);
             cachedFlags = flags;
             BufferSize = size;
+
+#ifdef OPENGL_LEAK_DEBUG
+            for (size_t i=0; i<3; i++)
+                concurrentAccessGuard[i] = 0;
+#endif // OPENGL_LEAK_DEBUG
         }
 
         virtual ~COpenGLBuffer()
         {
+#ifdef OPENGL_LEAK_DEBUG
+            assert(concurrentAccessGuard[0]==0);
+            FW_AtomicCounterIncr(concurrentAccessGuard[0]);
+#endif // OPENGL_LEAK_DEBUG
             if (BufferName)
                 COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
+
+#ifdef OPENGL_LEAK_DEBUG
+            assert(concurrentAccessGuard[0]==1);
+            FW_AtomicCounterDecr(concurrentAccessGuard[0]);
+#endif // OPENGL_LEAK_DEBUG
         }
 
 
@@ -105,8 +121,16 @@ class COpenGLBuffer : public virtual IGPUBuffer
 
         virtual void clandestineRecreate(const size_t& size, const void* data)
         {
+#ifdef OPENGL_LEAK_DEBUG
+            assert(concurrentAccessGuard[1]==0);
+            FW_AtomicCounterIncr(concurrentAccessGuard[1]);
+#endif // OPENGL_LEAK_DEBUG
             COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
             COpenGLExtensionHandler::extGlCreateBuffers(1,&BufferName);
+#ifdef OPENGL_LEAK_DEBUG
+            assert(concurrentAccessGuard[1]==1);
+            FW_AtomicCounterDecr(concurrentAccessGuard[1]);
+#endif // OPENGL_LEAK_DEBUG
             if (BufferName==0)
                 return;
 
@@ -130,18 +154,40 @@ class COpenGLBuffer : public virtual IGPUBuffer
 
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart)
         {
+#ifdef OPENGL_LEAK_DEBUG
+            assert(concurrentAccessGuard[2]==0);
+            FW_AtomicCounterIncr(concurrentAccessGuard[2]);
+#endif // OPENGL_LEAK_DEBUG
             if (newSize==BufferSize)
+            {
+#ifdef OPENGL_LEAK_DEBUG
+                assert(concurrentAccessGuard[2]==1);
+                FW_AtomicCounterDecr(concurrentAccessGuard[2]);
+#endif // OPENGL_LEAK_DEBUG
                 return true;
+            }
 
             if (newSize<BufferSize&&(!reallocateIfShrink))
+            {
+#ifdef OPENGL_LEAK_DEBUG
+                assert(concurrentAccessGuard[2]==1);
+                FW_AtomicCounterDecr(concurrentAccessGuard[2]);
+#endif // OPENGL_LEAK_DEBUG
                 return true;
+            }
 
             if (forceRetentionOfData)
             {
                 GLuint newBufferHandle = 0;
                 COpenGLExtensionHandler::extGlCreateBuffers(1,&newBufferHandle);
                 if (newBufferHandle==0)
+                {
+    #ifdef OPENGL_LEAK_DEBUG
+                    assert(concurrentAccessGuard[2]==1);
+                    FW_AtomicCounterDecr(concurrentAccessGuard[2]);
+    #endif // OPENGL_LEAK_DEBUG
                     return false;
+                }
 
                 COpenGLExtensionHandler::extGlNamedBufferStorage(newBufferHandle,newSize,NULL,cachedFlags);
                 if (wraparoundStart&&newSize>BufferSize)
@@ -162,15 +208,29 @@ class COpenGLBuffer : public virtual IGPUBuffer
                 COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
                 COpenGLExtensionHandler::extGlCreateBuffers(1,&BufferName);
                 if (BufferName==0)
+                {
+#ifdef OPENGL_LEAK_DEBUG
+                    assert(concurrentAccessGuard[2]==1);
+                    FW_AtomicCounterDecr(concurrentAccessGuard[2]);
+#endif // OPENGL_LEAK_DEBUG
                     return false;
+                }
 
                 COpenGLExtensionHandler::extGlNamedBufferStorage(BufferName,newSize,NULL,cachedFlags);
                 BufferSize = newSize;
             }
             lastTimeReallocated = CNullDriver::incrementAndFetchReallocCounter();
 
+#ifdef OPENGL_LEAK_DEBUG
+            assert(concurrentAccessGuard[2]==1);
+            FW_AtomicCounterDecr(concurrentAccessGuard[2]);
+#endif // OPENGL_LEAK_DEBUG
             return true;
         }
+    private:
+#ifdef OPENGL_LEAK_DEBUG
+        FW_AtomicCounter concurrentAccessGuard[3];
+#endif // OPENGL_LEAK_DEBUG
 };
 
 } // end namespace video

@@ -33,7 +33,7 @@ bool CImageWriterBMP::isAWriteableFileExtension(const io::path& filename) const
 	return core::hasFileExtension ( filename, "bmp" );
 }
 
-bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, u32 param) const
+bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, uint32_t param) const
 {
 	// we always write 24-bit color because nothing really reads 32-bit
 
@@ -61,7 +61,7 @@ bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, u32 param)
 	imageHeader.FileSize = imageHeader.BitmapDataOffset + imageHeader.BitmapDataSize;
 
 	// bitmaps are stored upside down and padded so we always do this
-	void (*CColorConverter_convertFORMATtoFORMAT)(const void*, s32, void*) = 0;
+	void (*CColorConverter_convertFORMATtoFORMAT)(const void*, int32_t, void*) = 0;
 	switch(image->getColorFormat())
 	{
 	case ECF_R8G8B8:
@@ -94,25 +94,25 @@ bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, u32 param)
 	if (file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
 		return false;
 
-	u8* scan_lines = (u8*)image->lock();
+	uint8_t* scan_lines = (uint8_t*)image->lock();
 	if (!scan_lines)
 		return false;
 
 	// size of one pixel in bits
-	u32 pixel_size_bits = image->getBitsPerPixel();
+	uint32_t pixel_size_bits = image->getBitsPerPixel();
 
 	// length of one row of the source image in bytes
-	u32 row_stride = (pixel_size_bits * imageHeader.Width)/8;
+	uint32_t row_stride = (pixel_size_bits * imageHeader.Width)/8;
 
 	// length of one row in bytes, rounded up to nearest 4-byte boundary
-	s32 row_size = ((3 * imageHeader.Width) + 3) & ~3;
+	int32_t row_size = ((3 * imageHeader.Width) + 3) & ~3;
 
 	// allocate and clear memory for our scan line
-	u8* row_pointer = new u8[row_size];
+	uint8_t* row_pointer = new uint8_t[row_size];
 	memset(row_pointer, 0, row_size);
 
 	// convert the image to 24-bit BGR and flip it over
-	s32 y;
+	int32_t y;
 	for (y = imageHeader.Height - 1; 0 <= y; --y)
 	{
 		if (image->getColorFormat()==ECF_R8G8B8)

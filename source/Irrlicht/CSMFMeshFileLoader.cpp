@@ -36,10 +36,10 @@ IAnimatedMesh* CSMFMeshFileLoader::createMesh(io::IReadFile* file)
 	SMesh *mesh = new SMesh();
 
 	// load file
-	u16 version;
-	u8  flags;
-	s32 limbCount;
-	s32 i;
+	uint16_t version;
+	uint8_t  flags;
+	int32_t limbCount;
+	int32_t i;
 
 	io::BinaryFile::read(file, version);
 	io::BinaryFile::read(file, flags);
@@ -51,7 +51,7 @@ IAnimatedMesh* CSMFMeshFileLoader::createMesh(io::IReadFile* file)
 		loadLimb(file, mesh, identity);
 
 	// recalculate buffer bounding boxes
-	for (i=0; i < (s32)mesh->getMeshBufferCount(); ++i)
+	for (i=0; i < (int32_t)mesh->getMeshBufferCount(); ++i)
 		mesh->getMeshBuffer(i)->recalculateBoundingBox();
 
 	mesh->recalculateBoundingBox();
@@ -88,16 +88,16 @@ void CSMFMeshFileLoader::loadLimb(io::IReadFile* file, SMesh* mesh, const core::
 	// attempt to load texture using known formats
 	video::ITexture* texture = 0;
 
-	const c8* extensions[] = {".jpg", ".png", ".tga", ".bmp", 0};
+	const int8_t* extensions[] = {".jpg", ".png", ".tga", ".bmp", 0};
 
-	for (const c8 **ext = extensions; !texture && *ext; ++ext)
+	for (const int8_t **ext = extensions; !texture && *ext; ++ext)
 	{
 		texture = Driver->getTexture(textureName + *ext);
 		if (texture)
 			textureName = textureName + *ext;
 	}
 	// find the correct mesh buffer
-	u32 i;
+	uint32_t i;
 	for (i=0; i<mesh->MeshBuffers.size(); ++i)
 		if (mesh->MeshBuffers[i]->getMaterial().TextureLayer[0].Texture == texture)
 			break;
@@ -105,7 +105,7 @@ void CSMFMeshFileLoader::loadLimb(io::IReadFile* file, SMesh* mesh, const core::
 	// create mesh buffer if none was found
 	if (i == mesh->MeshBuffers.size())
 	{
-		CMeshBuffer<video::S3DVertex,u16>* mb = new CMeshBuffer<video::S3DVertex,u16>();
+		CMeshBuffer<video::S3DVertex,uint16_t>* mb = new CMeshBuffer<video::S3DVertex,uint16_t>();
 		mb->Material.TextureLayer[0].Texture = texture;
 
 		// horribly hacky way to do this, maybe it's in the flags?
@@ -117,9 +117,9 @@ void CSMFMeshFileLoader::loadLimb(io::IReadFile* file, SMesh* mesh, const core::
 		mesh->MeshBuffers.push_back(mb);
 	}
 
-	CMeshBuffer<video::S3DVertex,u16>* mb = (CMeshBuffer<video::S3DVertex,u16>*)mesh->MeshBuffers[i];
+	CMeshBuffer<video::S3DVertex,uint16_t>* mb = (CMeshBuffer<video::S3DVertex,uint16_t>*)mesh->MeshBuffers[i];
 
-	u16 vertexCount, firstVertex = mb->getVertexCount();
+	uint16_t vertexCount, firstVertex = mb->getVertexCount();
 
 	io::BinaryFile::read(file, vertexCount);
 	mb->Vertices.reallocate(mb->Vertices.size() + vertexCount);
@@ -154,7 +154,7 @@ void CSMFMeshFileLoader::loadLimb(io::IReadFile* file, SMesh* mesh, const core::
 	}
 
 	// triangles
-	u32 triangleCount;
+	uint32_t triangleCount;
 	// vertexCount used as temporary
 	io::BinaryFile::read(file, vertexCount);
 	triangleCount=3*vertexCount;
@@ -162,16 +162,16 @@ void CSMFMeshFileLoader::loadLimb(io::IReadFile* file, SMesh* mesh, const core::
 
 	for (i=0; i < triangleCount; ++i)
 	{
-		u16 index;
+		uint16_t index;
 		io::BinaryFile::read(file, index);
 		mb->Indices.push_back(firstVertex + index);
 	}
 
 	// read limbs
-	s32 limbCount;
+	int32_t limbCount;
 	io::BinaryFile::read(file, limbCount);
 
-	for (s32 l=0; l < limbCount; ++l)
+	for (int32_t l=0; l < limbCount; ++l)
 		loadLimb(file, mesh, transformation);
 }
 
@@ -213,7 +213,7 @@ void BinaryFile::read(io::IReadFile* file, core::vector2df &outVector2d, bool bi
 //! reads a null terminated string from the file, moving the file pointer along
 void BinaryFile::read(io::IReadFile* file, core::stringc &outString, bool bigEndian)
 {
-	c8 c;
+	int8_t c;
 	file->read((void*)&c, 1);
 
 	while (c)

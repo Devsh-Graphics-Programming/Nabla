@@ -52,16 +52,16 @@ private:
 
 	bool readFileHeader();
 	bool readChunks();
-	void readObj1(u32 size);
-	void readTagMapping(u32 size);
-	void readVertexMapping(u32 size);
-	void readDiscVertexMapping (u32 size);
-	void readObj2(u32 size);
-	void readMat(u32 size);
-	u32 readString(core::stringc& name, u32 size=0);
-	u32 readVec(core::vector3df& vec);
-	u32 readVX(u32& num);
-	u32 readColor(video::SColor& color);
+	void readObj1(uint32_t size);
+	void readTagMapping(uint32_t size);
+	void readVertexMapping(uint32_t size);
+	void readDiscVertexMapping (uint32_t size);
+	void readObj2(uint32_t size);
+	void readMat(uint32_t size);
+	uint32_t readString(core::stringc& name, uint32_t size=0);
+	uint32_t readVec(core::vector3df& vec);
+	uint32_t readVX(uint32_t& num);
+	uint32_t readColor(video::SColor& color);
 	video::ITexture* loadTexture(const core::stringc& file);
 
 	scene::ISceneManager* SceneManager;
@@ -70,18 +70,18 @@ private:
 	SMesh* Mesh;
 
 	core::array<core::vector3df> Points;
-	core::array<core::array<u32> > Indices;
+	core::array<core::array<uint32_t> > Indices;
 	core::array<core::stringc> UvName;
-	core::array<core::array<u32> > UvIndex;
+	core::array<core::array<uint32_t> > UvIndex;
 	core::array<core::stringc> DUvName;
-	core::array<core::array<u32> > VmPolyPointsIndex;
+	core::array<core::array<uint32_t> > VmPolyPointsIndex;
 	core::array<core::array<core::vector2df> > VmCoordsIndex;
 
-	core::array<u16> MaterialMapping;
+	core::array<uint16_t> MaterialMapping;
 	core::array<core::array<core::vector2df> > TCoords;
 	core::array<tLWOMaterial*> Materials;
 	core::array<core::stringc> Images;
-	u8 FormatVersion;
+	uint8_t FormatVersion;
 };
 
 } // end namespace scene

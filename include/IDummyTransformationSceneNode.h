@@ -35,7 +35,7 @@ anywhere into the scene graph.
 This scene node is for example used by the IAnimatedMeshSceneNode for emulating
 joint scene nodes when playing skeletal animations.
 */
-class IDummyTransformationSceneNode : public IReferenceCounted
+class IDummyTransformationSceneNode : public virtual IReferenceCounted
 {
     protected:
         uint64_t lastTimeRelativeTransRead[5];
@@ -326,7 +326,6 @@ class IDummyTransformationSceneNode : public IReferenceCounted
 					return true;
 				}
 
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return false;
 		}
 

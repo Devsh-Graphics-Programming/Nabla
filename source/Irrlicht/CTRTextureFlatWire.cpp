@@ -25,33 +25,33 @@ public:
 	}
 
 	//! draws an indexed triangle list
-	virtual void drawIndexedTriangleList(S2DVertex* vertices, s32 vertexCount, const u16* indexList, s32 triangleCount)
+	virtual void drawIndexedTriangleList(S2DVertex* vertices, int32_t vertexCount, const uint16_t* indexList, int32_t triangleCount)
 	{
 		const S2DVertex *v1, *v2, *v3;
 
-		f32 tmpDiv; // temporary division factor
-		f32 longest; // saves the longest span
-		s32 height; // saves height of triangle
-		u16* targetSurface; // target pointer where to plot pixels
-		s32 spanEnd; // saves end of spans
-		f32 leftdeltaxf; // amount of pixels to increase on left side of triangle
-		f32 rightdeltaxf; // amount of pixels to increase on right side of triangle
-		s32 leftx, rightx; // position where we are 
-		f32 leftxf, rightxf; // same as above, but as f32 values
-		s32 span; // current span
-		s32 leftTx, rightTx, leftTy, rightTy; // texture interpolating values
-		s32 leftTxStep, rightTxStep, leftTyStep, rightTyStep; // texture interpolating values
-		core::rect<s32> TriangleRect;
+		float tmpDiv; // temporary division factor
+		float longest; // saves the longest span
+		int32_t height; // saves height of triangle
+		uint16_t* targetSurface; // target pointer where to plot pixels
+		int32_t spanEnd; // saves end of spans
+		float leftdeltaxf; // amount of pixels to increase on left side of triangle
+		float rightdeltaxf; // amount of pixels to increase on right side of triangle
+		int32_t leftx, rightx; // position where we are
+		float leftxf, rightxf; // same as above, but as float values
+		int32_t span; // current span
+		int32_t leftTx, rightTx, leftTy, rightTy; // texture interpolating values
+		int32_t leftTxStep, rightTxStep, leftTyStep, rightTyStep; // texture interpolating values
+		core::rect<int32_t> TriangleRect;
 
-		s32 leftZValue, rightZValue;
-		s32 leftZStep, rightZStep;
+		int32_t leftZValue, rightZValue;
+		int32_t leftZStep, rightZStep;
 		TZBufferType* zTarget; // target of ZBuffer;
 
-		lockedSurface = (u16*)RenderTarget->lock();
+		lockedSurface = (uint16_t*)RenderTarget->lock();
 		lockedZBuffer = ZBuffer->lock();
-		lockedTexture = (u16*)Texture->lock();
-		
-		for (s32 i=0; i<triangleCount; ++i)
+		lockedTexture = (uint16_t*)Texture->lock();
+
+		for (int32_t i=0; i<triangleCount; ++i)
 		{
 			v1 = &vertices[*indexList];
 			++indexList;
@@ -64,7 +64,7 @@ public:
 
 			if (BackFaceCullingEnabled)
 			{
-				s32 z = ((v3->Pos.X - v1->Pos.X) * (v3->Pos.Y - v2->Pos.Y)) -
+				int32_t z = ((v3->Pos.X - v1->Pos.X) * (v3->Pos.Y - v2->Pos.Y)) -
 					((v3->Pos.Y - v1->Pos.Y) * (v3->Pos.X - v2->Pos.X));
 
 				if (z < 0)
@@ -107,12 +107,12 @@ public:
 
 			// calculate longest span
 
-			longest = (v2->Pos.Y - v1->Pos.Y) / (f32)height * (v3->Pos.X - v1->Pos.X) + (v1->Pos.X - v2->Pos.X);
+			longest = (v2->Pos.Y - v1->Pos.Y) / (float)height * (v3->Pos.X - v1->Pos.X) + (v1->Pos.X - v2->Pos.X);
 
 			spanEnd = v2->Pos.Y;
 			span = v1->Pos.Y;
-			leftxf = (f32)v1->Pos.X;
-			rightxf = (f32)v1->Pos.X;
+			leftxf = (float)v1->Pos.X;
+			rightxf = (float)v1->Pos.X;
 
 			leftZValue = v1->ZValue;
 			rightZValue = v1->ZValue;
@@ -125,43 +125,43 @@ public:
 
 			if (longest < 0.0f)
 			{
-				tmpDiv = 1.0f / (f32)(v2->Pos.Y - v1->Pos.Y);
+				tmpDiv = 1.0f / (float)(v2->Pos.Y - v1->Pos.Y);
 				rightdeltaxf = (v2->Pos.X - v1->Pos.X) * tmpDiv;
-				rightZStep = (s32)((v2->ZValue - v1->ZValue) * tmpDiv);
-				rightTxStep = (s32)((v2->TCoords.X - rightTx) * tmpDiv);
-				rightTyStep = (s32)((v2->TCoords.Y - rightTy) * tmpDiv);
+				rightZStep = (int32_t)((v2->ZValue - v1->ZValue) * tmpDiv);
+				rightTxStep = (int32_t)((v2->TCoords.X - rightTx) * tmpDiv);
+				rightTyStep = (int32_t)((v2->TCoords.Y - rightTy) * tmpDiv);
 
-				tmpDiv = 1.0f / (f32)height;
+				tmpDiv = 1.0f / (float)height;
 				leftdeltaxf = (v3->Pos.X - v1->Pos.X) * tmpDiv;
-				leftZStep = (s32)((v3->ZValue - v1->ZValue) * tmpDiv);
-				leftTxStep = (s32)((v3->TCoords.X - leftTx) * tmpDiv);
-				leftTyStep = (s32)((v3->TCoords.Y - leftTy) * tmpDiv);
+				leftZStep = (int32_t)((v3->ZValue - v1->ZValue) * tmpDiv);
+				leftTxStep = (int32_t)((v3->TCoords.X - leftTx) * tmpDiv);
+				leftTyStep = (int32_t)((v3->TCoords.Y - leftTy) * tmpDiv);
 			}
 			else
 			{
-				tmpDiv = 1.0f / (f32)height;
+				tmpDiv = 1.0f / (float)height;
 				rightdeltaxf = (v3->Pos.X - v1->Pos.X) * tmpDiv;
-				rightZStep = (s32)((v3->ZValue - v1->ZValue) * tmpDiv);
-				rightTxStep = (s32)((v3->TCoords.X - rightTx) * tmpDiv);
-				rightTyStep = (s32)((v3->TCoords.Y - rightTy) * tmpDiv);
+				rightZStep = (int32_t)((v3->ZValue - v1->ZValue) * tmpDiv);
+				rightTxStep = (int32_t)((v3->TCoords.X - rightTx) * tmpDiv);
+				rightTyStep = (int32_t)((v3->TCoords.Y - rightTy) * tmpDiv);
 
-				tmpDiv = 1.0f / (f32)(v2->Pos.Y - v1->Pos.Y);
+				tmpDiv = 1.0f / (float)(v2->Pos.Y - v1->Pos.Y);
 				leftdeltaxf = (v2->Pos.X - v1->Pos.X) * tmpDiv;
-				leftZStep = (s32)((v2->ZValue - v1->ZValue) * tmpDiv);
-				leftTxStep = (s32)((v2->TCoords.X - leftTx) * tmpDiv);
-				leftTyStep = (s32)((v2->TCoords.Y - leftTy) * tmpDiv);
+				leftZStep = (int32_t)((v2->ZValue - v1->ZValue) * tmpDiv);
+				leftTxStep = (int32_t)((v2->TCoords.X - leftTx) * tmpDiv);
+				leftTyStep = (int32_t)((v2->TCoords.Y - leftTy) * tmpDiv);
 			}
 
 
 			// do it twice, once for the first half of the triangle,
 			// end then for the second half.
 
-			for (s32 triangleHalf=0; triangleHalf<2; ++triangleHalf)
+			for (int32_t triangleHalf=0; triangleHalf<2; ++triangleHalf)
 			{
 				if (spanEnd > ViewPortRect.LowerRightCorner.Y)
 					spanEnd = ViewPortRect.LowerRightCorner.Y;
 
-				// if the span <0, than we can skip these spans, 
+				// if the span <0, than we can skip these spans,
 				// and proceed to the next spans which are really on the screen.
 				if (span < ViewPortRect.UpperLeftCorner.Y)
 				{
@@ -173,7 +173,7 @@ public:
 					}
 					else
 					{
-						leftx = ViewPortRect.UpperLeftCorner.Y - span; 
+						leftx = ViewPortRect.UpperLeftCorner.Y - span;
 						span = ViewPortRect.UpperLeftCorner.Y;
 					}
 
@@ -195,8 +195,8 @@ public:
 
 				while (span < spanEnd)
 				{
-					leftx = (s32)(leftxf);
-					rightx = (s32)(rightxf + 0.5f);
+					leftx = (int32_t)(leftxf);
+					rightx = (int32_t)(rightxf + 0.5f);
 
 					// perform some clipping
 
@@ -248,30 +248,30 @@ public:
 					tmpDiv = 1.0f / (v3->Pos.Y - v2->Pos.Y);
 
 					rightdeltaxf = (v3->Pos.X - v2->Pos.X) * tmpDiv;
-					rightxf = (f32)v2->Pos.X;
+					rightxf = (float)v2->Pos.X;
 
 					rightZValue = v2->ZValue;
-					rightZStep = (s32)((v3->ZValue - v2->ZValue) * tmpDiv);
+					rightZStep = (int32_t)((v3->ZValue - v2->ZValue) * tmpDiv);
 
 					rightTx = v2->TCoords.X;
 					rightTy = v2->TCoords.Y;
-					rightTxStep = (s32)((v3->TCoords.X - rightTx) * tmpDiv);
-					rightTyStep = (s32)((v3->TCoords.Y - rightTy) * tmpDiv);
+					rightTxStep = (int32_t)((v3->TCoords.X - rightTx) * tmpDiv);
+					rightTyStep = (int32_t)((v3->TCoords.Y - rightTy) * tmpDiv);
 				}
 				else
 				{
 					tmpDiv = 1.0f / (v3->Pos.Y - v2->Pos.Y);
 
 					leftdeltaxf = (v3->Pos.X - v2->Pos.X) * tmpDiv;
-					leftxf = (f32)v2->Pos.X;
+					leftxf = (float)v2->Pos.X;
 
 					leftZValue = v2->ZValue;
-					leftZStep = (s32)((v3->ZValue - v2->ZValue) * tmpDiv);
+					leftZStep = (int32_t)((v3->ZValue - v2->ZValue) * tmpDiv);
 
 					leftTx = v2->TCoords.X;
 					leftTy = v2->TCoords.Y;
-					leftTxStep = (s32)((v3->TCoords.X - leftTx) * tmpDiv);
-					leftTyStep = (s32)((v3->TCoords.Y - leftTy) * tmpDiv);
+					leftTxStep = (int32_t)((v3->TCoords.X - leftTx) * tmpDiv);
+					leftTyStep = (int32_t)((v3->TCoords.Y - leftTy) * tmpDiv);
 				}
 
 

@@ -7,7 +7,7 @@
 
 #include "ITimer.h"
 #include "os.h"
- 
+
 namespace irr
 {
 	//! Device independent implementation of the timer
@@ -24,12 +24,12 @@ namespace irr
 		/** This value does not start with 0 when the application starts.
 		For example in one implementation the value returned could be the
 		amount of milliseconds which have elapsed since the system was started. */
-		virtual u32 getRealTime() const
+		virtual uint32_t getRealTime() const
 		{
 			return os::Timer::getRealTime();
 		}
 
-		virtual u64 getRealTime64() const
+		virtual uint64_t getRealTime64() const
 		{
 			return os::Timer::getRealTime64();
 		}
@@ -44,13 +44,13 @@ namespace irr
 		/** This value starts with 0 and can be manipulated using setTime(), stopTimer(),
 		startTimer(), etc. This value depends on the set speed of the timer if the timer
 		is stopped, etc. If you need the system time, use getRealTime() */
-		virtual u32 getTime() const
+		virtual uint32_t getTime() const
 		{
 			return os::Timer::getTime();
 		}
 
 		//! sets current virtual time
-		virtual void setTime(u32 time)
+		virtual void setTime(uint32_t time)
 		{
 			os::Timer::setTime(time);
 		}
@@ -76,7 +76,7 @@ namespace irr
 		//! Sets the speed of the timer
 		/** The speed is the factor with which the time is running faster or slower then the
 		real system time. */
-		virtual void setSpeed(f32 speed = 1.0f)
+		virtual void setSpeed(float speed = 1.0f)
 		{
 			os::Timer::setSpeed(speed);
 		}
@@ -84,7 +84,7 @@ namespace irr
 		//! Returns current speed of the timer
 		/** The speed is the factor with which the time is running faster or slower then the
 		real system time. */
-		virtual f32 getSpeed() const
+		virtual float getSpeed() const
 		{
 			return os::Timer::getSpeed();
 		}
@@ -93,7 +93,6 @@ namespace irr
 		virtual bool isStopped() const
 		{
 			bool ret = os::Timer::isStopped();
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return ret;
 		}
 

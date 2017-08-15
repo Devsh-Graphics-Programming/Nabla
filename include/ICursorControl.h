@@ -41,7 +41,7 @@ namespace gui
 	};
 
 	//! Names for ECURSOR_ICON
-	const c8* const GUICursorIconNames[ECI_COUNT+1] =
+	const char* const GUICursorIconNames[ECI_COUNT+1] =
 	{
 		"normal",
 		"cross",
@@ -67,14 +67,14 @@ namespace gui
 		{
 		}
 /**
-		SCursorSprite( gui::IGUISpriteBank * spriteBank, s32 spriteId, const core::position2d<s32> &hotspot=(core::position2d<s32>(0,0)) )
+		SCursorSprite( gui::IGUISpriteBank * spriteBank, int32_t spriteId, const core::position2d<int32_t> &hotspot=(core::position2d<int32_t>(0,0)) )
 		: SpriteBank(spriteBank), SpriteId(spriteId), HotSpot(hotspot)
 		{
 		}**/
 
 		//!IGUISpriteBank * SpriteBank;
-		s32 SpriteId;
-		core::position2d<s32> HotSpot;
+		int32_t SpriteId;
+		core::position2d<int32_t> HotSpot;
 	};
 
 	//! platform specific behavior flags for the cursor
@@ -112,7 +112,7 @@ namespace gui
 		the top left corner and (1.0f, 1.0f) is the bottom right corner of the
 		render window.
 		\param pos New position of the cursor. */
-		virtual void setPosition(const core::position2d<f32> &pos) = 0;
+		virtual void setPosition(const core::position2d<float> &pos) = 0;
 
 		//! Sets the new position of the cursor.
 		/** The position must be
@@ -121,28 +121,28 @@ namespace gui
 		render window.
 		\param x New x-coord of the cursor.
 		\param y New x-coord of the cursor. */
-		virtual void setPosition(f32 x, f32 y) = 0;
+		virtual void setPosition(float x, float y) = 0;
 
 		//! Sets the new position of the cursor.
 		/** \param pos: New position of the cursor. The coordinates are pixel units. */
-		virtual void setPosition(const core::position2d<s32> &pos) = 0;
+		virtual void setPosition(const core::position2d<int32_t> &pos) = 0;
 
 		//! Sets the new position of the cursor.
 		/** \param x New x-coord of the cursor. The coordinates are pixel units.
 		\param y New y-coord of the cursor. The coordinates are pixel units. */
-		virtual void setPosition(s32 x, s32 y) = 0;
+		virtual void setPosition(int32_t x, int32_t y) = 0;
 
 		//! Returns the current position of the mouse cursor.
 		/** \return Returns the current position of the cursor. The returned position
 		is the position of the mouse cursor in pixel units. */
-		virtual const core::position2d<s32>& getPosition() = 0;
+		virtual const core::position2d<int32_t>& getPosition() = 0;
 
 		//! Returns the current position of the mouse cursor.
 		/** \return Returns the current position of the cursor. The returned position
 		is a value between (0.0f, 0.0f) and (1.0f, 1.0f), where (0.0f, 0.0f) is
 		the top left corner and (1.0f, 1.0f) is the bottom right corner of the
 		render window. */
-		virtual core::position2d<f32> getRelativePosition() = 0;
+		virtual core::position2d<float> getRelativePosition() = 0;
 
 		//! Sets an absolute reference rect for setting and retrieving the cursor position.
 		/** If this rect is set, the cursor position is not being calculated relative to
@@ -150,7 +150,7 @@ namespace gui
 		this feature again. This feature is useful when rendering into parts of foreign windows
 		for example in an editor.
 		\param rect: A pointer to an reference rectangle or 0 to disable the reference rectangle.*/
-		virtual void setReferenceRect(core::rect<s32>* rect=0) = 0;
+		virtual void setReferenceRect(core::rect<int32_t>* rect=0) = 0;
 
 
 		//! Sets the active cursor icon

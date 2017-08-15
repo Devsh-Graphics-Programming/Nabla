@@ -7,6 +7,7 @@
 #include "CSkinnedMesh.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "os.h"
+#include <sstream>
 #include <algorithm>
 #include "assert.h"
 
@@ -29,27 +30,30 @@ CCPUSkinnedMesh::CCPUSkinnedMesh()
 //! destructor
 CCPUSkinnedMesh::~CCPUSkinnedMesh()
 {
-	for (u32 i=0; i<AllJoints.size(); ++i)
+	for (uint32_t i=0; i<AllJoints.size(); ++i)
 		delete AllJoints[i];
 
-	for (u32 j=0; j<LocalBuffers.size(); ++j)
+	for (uint32_t j=0; j<LocalBuffers.size(); ++j)
 	{
 		if (LocalBuffers[j])
 			LocalBuffers[j]->drop();
 	}
+
+	if (referenceHierarchy)
+        referenceHierarchy->drop();
 }
 
 
 
 //! returns amount of mesh buffers.
-u32 CCPUSkinnedMesh::getMeshBufferCount() const
+uint32_t CCPUSkinnedMesh::getMeshBufferCount() const
 {
 	return LocalBuffers.size();
 }
 
 
 //! returns pointer to a mesh buffer
-ICPUMeshBuffer* CCPUSkinnedMesh::getMeshBuffer(u32 nr) const
+ICPUMeshBuffer* CCPUSkinnedMesh::getMeshBuffer(uint32_t nr) const
 {
 	if (nr < LocalBuffers.size())
 		return LocalBuffers[nr];
@@ -58,7 +62,7 @@ ICPUMeshBuffer* CCPUSkinnedMesh::getMeshBuffer(u32 nr) const
 }
 
 //! returns an axis aligned bounding box
-const core::aabbox3d<f32>& CCPUSkinnedMesh::getBoundingBox() const
+const core::aabbox3d<float>& CCPUSkinnedMesh::getBoundingBox() const
 {
 	return BoundingBox;
 }
@@ -74,7 +78,7 @@ void CCPUSkinnedMesh::setBoundingBox( const core::aabbox3df& box)
 //! sets a flag of all contained materials to a new value
 void CCPUSkinnedMesh::setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
 {
-	for (u32 i=0; i<LocalBuffers.size(); ++i)
+	for (uint32_t i=0; i<LocalBuffers.size(); ++i)
 		LocalBuffers[i]->getMaterial().setFlag(flag,newvalue);
 }
 
@@ -101,7 +105,7 @@ const std::vector<CCPUSkinnedMesh::SJoint*> &CCPUSkinnedMesh::getAllJoints() con
 
 void CCPUSkinnedMesh::checkForAnimation()
 {
-	u32 i,j;
+	uint32_t i,j;
 	//Check for animation...
 	HasAnimation = false;
 	for(i=0;i<AllJoints.size();++i)
@@ -136,30 +140,23 @@ void CCPUSkinnedMesh::checkForAnimation()
 	}
 }
 
-void PrintDebugBoneHierarchy(ICPUSkinnedMesh::SJoint* joint, core::stringc indent="", ICPUSkinnedMesh::SJoint* parentJoint=NULL)
+void PrintDebugBoneHierarchy(ICPUSkinnedMesh::SJoint* joint, std::string indent="", ICPUSkinnedMesh::SJoint* parentJoint=NULL)
 {
     assert(joint->Parent==parentJoint);
 
-    core::stringc debug = indent;
-    debug += "Bone Name: \"";
-    debug += joint->Name;
-    debug += "\"           BindMt: ";
+    std::ostringstream debug(indent);
+    debug.seekp(0,std::ios_base::end);
+    debug << "Bone Name: \"" << joint->Name << "\"           BindMt: ";
+
     for (size_t i=0; i<11; i++)
-    {
-        debug += joint->GlobalInversedMatrix.pointer()[i];
-        debug += ",";
-    }
-    debug += joint->GlobalInversedMatrix.pointer()[11];
-    debug += "\n";
-    debug += indent;
-    debug += "PoseMt: ";
+        debug << joint->GlobalInversedMatrix.pointer()[i] << ",";
+
+    debug << joint->GlobalInversedMatrix.pointer()[11] << "\n" << indent << "PoseMt: ";
     for (size_t i=0; i<11; i++)
-    {
-        debug += joint->LocalMatrix.pointer()[i];
-        debug += ",";
-    }
-    debug += joint->LocalMatrix.pointer()[11];
-    os::Printer::log(debug.c_str(),ELL_INFORMATION);
+        debug << joint->LocalMatrix.pointer()[i] << ",";
+
+    debug << joint->LocalMatrix.pointer()[11];
+    os::Printer::log(debug.str(),ELL_INFORMATION);
 
     indent += "\t";
     for (size_t j=0; j<joint->Children.size(); j++)
@@ -347,7 +344,7 @@ void CCPUSkinnedMesh::finalize()
         PositionKeys.sort();
         if (PositionKeys.size()>2)
         {
-            for(u32 j=0;j<PositionKeys.size()-2;++j)
+            for(uint32_t j=0;j<PositionKeys.size()-2;++j)
             {
                 if (PositionKeys[j].position == PositionKeys[j+1].position && PositionKeys[j+1].position == PositionKeys[j+2].position)
                 {
@@ -360,7 +357,7 @@ void CCPUSkinnedMesh::finalize()
         ScaleKeys.sort();
         if (ScaleKeys.size()>2)
         {
-            for(u32 j=0;j<ScaleKeys.size()-2;++j)
+            for(uint32_t j=0;j<ScaleKeys.size()-2;++j)
             {
                 if (ScaleKeys[j].scale == ScaleKeys[j+1].scale && ScaleKeys[j+1].scale == ScaleKeys[j+2].scale)
                 {
@@ -373,7 +370,7 @@ void CCPUSkinnedMesh::finalize()
         RotationKeys.sort();
         if (RotationKeys.size()>2)
         {
-            for(u32 j=0;j<RotationKeys.size()-2;++j)
+            for(uint32_t j=0;j<RotationKeys.size()-2;++j)
             {
                 if ((RotationKeys[j].rotation == RotationKeys[j+1].rotation && RotationKeys[j+1].rotation == RotationKeys[j+2].rotation).all())
                 {

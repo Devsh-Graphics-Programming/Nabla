@@ -18,9 +18,6 @@ namespace scene
 	name clashes with external mesh writers.*/
 	enum EMESH_WRITER_TYPE
 	{
-		//! COLLADA mesh writer for .dae and .xml files
-		EMWT_COLLADA      = MAKE_IRR_ID('c','o','l','l'),
-
 		//! STL mesh writer for .stl files
 		EMWT_STL          = MAKE_IRR_ID('s','t','l',0),
 

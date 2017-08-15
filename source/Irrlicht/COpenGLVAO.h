@@ -88,8 +88,10 @@ namespace video
 
             GLuint vao;
             uint64_t lastValidated;
+
+            core::LeakDebugger* leakDebugger;
         public:
-            COpenGLVAO();
+            COpenGLVAO(core::LeakDebugger* dbgr=NULL);
             virtual ~COpenGLVAO();
 
             bool formatCanBeAppended(const scene::IGPUMeshDataFormatDesc* other) const

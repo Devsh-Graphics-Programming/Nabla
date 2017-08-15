@@ -72,7 +72,7 @@ static boolean jpeg_empty_output_buffer(j_compress_ptr cinfo)
 static void jpeg_term_destination(j_compress_ptr cinfo)
 {
 	mem_dest_ptr dest = (mem_dest_ptr) cinfo->dest;
-	const s32 datacount = (s32)(OUTPUT_BUF_SIZE - dest->pub.free_in_buffer);
+	const int32_t datacount = (int32_t)(OUTPUT_BUF_SIZE - dest->pub.free_in_buffer);
 	// for now just exit upon file error
 	if (dest->file->write(dest->buffer, datacount) != datacount)
 		ERREXIT (cinfo, JERR_FILE_WRITE);
@@ -104,9 +104,9 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
-static bool writeJPEGFile(io::IWriteFile* file, IImage* image, u32 quality)
+static bool writeJPEGFile(io::IWriteFile* file, IImage* image, uint32_t quality)
 {
-	void (*format)(const void*, s32, void*) = 0;
+	void (*format)(const void*, int32_t, void*) = 0;
 	switch( image->getColorFormat () )
 	{
 		case ECF_R8G8B8:
@@ -152,15 +152,15 @@ static bool writeJPEGFile(io::IWriteFile* file, IImage* image, u32 quality)
 	jpeg_set_quality(&cinfo, quality, TRUE);
 	jpeg_start_compress(&cinfo, TRUE);
 
-	u8 * dest = new u8[dim.Width*3];
+	uint8_t * dest = new uint8_t[dim.Width*3];
 
 	if (dest)
 	{
-		const u32 pitch = image->getPitch();
+		const uint32_t pitch = image->getPitch();
 		JSAMPROW row_pointer[1];      /* pointer to JSAMPLE row[s] */
 		row_pointer[0] = dest;
 
-		u8* src = (u8*)image->lock();
+		uint8_t* src = (uint8_t*)image->lock();
 
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
@@ -213,7 +213,7 @@ bool CImageWriterJPG::isAWriteableFileExtension(const io::path& filename) const
 }
 
 
-bool CImageWriterJPG::writeImage(io::IWriteFile *file, IImage *image, u32 quality) const
+bool CImageWriterJPG::writeImage(io::IWriteFile *file, IImage *image, uint32_t quality) const
 {
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	return false;

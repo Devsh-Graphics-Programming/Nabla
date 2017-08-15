@@ -17,7 +17,7 @@ namespace video
 	public:
 
 		//! constructor
-		CZBuffer(const core::dimension2d<u32>& size);
+		CZBuffer(const core::dimension2d<uint32_t>& size);
 
 		//! destructor
 		virtual ~CZBuffer();
@@ -26,10 +26,10 @@ namespace video
 		virtual void clear();
 
 		//! sets the new size of the zbuffer
-		virtual void setSize(const core::dimension2d<u32>& size);
+		virtual void setSize(const core::dimension2d<uint32_t>& size);
 
 		//! returns the size of the zbuffer
-		virtual const core::dimension2d<u32>& getSize() const;
+		virtual const core::dimension2d<uint32_t>& getSize() const;
 
 		//! locks the zbuffer
 		virtual TZBufferType* lock();
@@ -41,8 +41,8 @@ namespace video
 
 		TZBufferType* Buffer;
 		TZBufferType* BufferEnd;
-		core::dimension2d<u32> Size;
-		s32 TotalSize;
+		core::dimension2d<uint32_t> Size;
+		int32_t TotalSize;
 	};
 
 } // end namespace video

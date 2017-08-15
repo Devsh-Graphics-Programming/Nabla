@@ -26,7 +26,7 @@ public:
 	virtual bool isAWriteableFileExtension(const io::path& filename) const;
 
 	//! write image to file
-	virtual bool writeImage(io::IWriteFile *file, IImage *image,u32 param) const;
+	virtual bool writeImage(io::IWriteFile *file, IImage *image,uint32_t param) const;
 };
 
 } // namespace video

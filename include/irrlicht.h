@@ -43,7 +43,6 @@
 #include "EMeshWriterEnums.h"
 #include "ESceneNodeAnimatorTypes.h"
 #include "ESceneNodeTypes.h"
-#include "fast_atof.h"
 #include "heapsort.h"
 #include "IAnimatedMesh.h"
 #include "IAnimatedMeshSceneNode.h"
@@ -60,7 +59,6 @@
 #include "IImage.h"
 #include "IImageLoader.h"
 #include "IImageWriter.h"
-#include "ILightSceneNode.h"
 #include "ILogger.h"
 #include "IMaterialRenderer.h"
 #include "IMaterialRendererServices.h"
@@ -73,7 +71,6 @@
 #include "IMeshSceneNodeInstanced.h"
 #include "IMeshWriter.h"
 #include "IMetaGranularBuffer.h"
-#include "IColladaMeshWriter.h"
 #include "IOSOperator.h"
 #include "IReadFile.h"
 #include "IReferenceCounted.h"
@@ -86,7 +83,6 @@
 #include "irrString.h"
 #include "irrTypes.h"
 #include "path.h"
-#include "irrXML.h"
 #include "ISceneManager.h"
 #include "ISceneNode.h"
 #include "ISceneNodeAnimator.h"
@@ -103,8 +99,6 @@
 #include "IVideoDriver.h"
 #include "IVideoModeList.h"
 #include "IWriteFile.h"
-#include "IXMLReader.h"
-#include "IXMLWriter.h"
 #include "ILightManager.h"
 #include "Keycodes.h"
 #include "line2d.h"
@@ -123,7 +117,6 @@
 #include "SExposedVideoData.h"
 #include "SIrrCreationParameters.h"
 #include "SKeyMap.h"
-#include "SLight.h"
 #include "SMaterial.h"
 #include "SMesh.h"
 #include "SSkinMeshBuffer.h"
@@ -161,8 +154,8 @@ namespace irr
 	extern "C" IRRLICHT_API IrrlichtDevice* IRRCALLCONV createDevice(
 		video::E_DRIVER_TYPE deviceType = video::EDT_SOFTWARE,
 		// parantheses are necessary for some compilers
-		const core::dimension2d<u32>& windowSize = (core::dimension2d<u32>(640,480)),
-		u32 bits = 16,
+		const core::dimension2d<uint32_t>& windowSize = (core::dimension2d<uint32_t>(640,480)),
+		uint32_t bits = 16,
 		bool fullscreen = false,
 		bool stencilbuffer = false,
 		bool vsync = false,
@@ -171,8 +164,8 @@ namespace irr
 	//! typedef for Function Pointer
 	typedef IrrlichtDevice* (IRRCALLCONV *funcptr_createDevice )(
 			video::E_DRIVER_TYPE deviceType,
-			const core::dimension2d<u32>& windowSize,
-			u32 bits,
+			const core::dimension2d<uint32_t>& windowSize,
+			uint32_t bits,
 			bool fullscreen,
 			bool stencilbuffer,
 			bool vsync,

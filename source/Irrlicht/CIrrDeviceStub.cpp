@@ -56,25 +56,11 @@ CIrrDeviceStub::~CIrrDeviceStub()
 	VideoModeList->drop();
 	FileSystem->drop();
 
-	if (VideoDriver)
-		VideoDriver->drop();
-
-	if (SceneManager)
-		SceneManager->drop();
-
-	if (InputReceivingSceneManager)
-		InputReceivingSceneManager->drop();
-
-	if (CursorControl)
-		CursorControl->drop();
-
 	if (Operator)
 		Operator->drop();
 
 	if (Randomizer)
 		Randomizer->drop();
-
-	CursorControl = 0;
 
 	if (Timer)
 		Timer->drop();
@@ -158,7 +144,6 @@ bool CIrrDeviceStub::checkVersion(const char* version)
 		w += version;
 		w += "). This may cause problems.";
 		os::Printer::log(w.c_str(), ELL_WARNING);
-		_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 		return false;
 	}
 
@@ -167,11 +152,11 @@ bool CIrrDeviceStub::checkVersion(const char* version)
 
 
 //! Compares to the last call of this function to return double and triple clicks.
-u32 CIrrDeviceStub::checkSuccessiveClicks(s32 mouseX, s32 mouseY, EMOUSE_INPUT_EVENT inputEvent )
+uint32_t CIrrDeviceStub::checkSuccessiveClicks(int32_t mouseX, int32_t mouseY, EMOUSE_INPUT_EVENT inputEvent )
 {
-	const s32 MAX_MOUSEMOVE = 3;
+	const int32_t MAX_MOUSEMOVE = 3;
 
-	irr::u32 clickTime = getTimer()->getRealTime();
+	uint32_t clickTime = getTimer()->getRealTime();
 
 	if ( (clickTime-MouseMultiClicks.LastClickTime) < MouseMultiClicks.DoubleClickTime
 		&& core::abs_(MouseMultiClicks.LastClick.X - mouseX ) <= MAX_MOUSEMOVE
@@ -211,7 +196,6 @@ bool CIrrDeviceStub::postEventFromUser(const SEvent& event)
 	if (!absorbed && inputReceiver)
 		absorbed = inputReceiver->postEventFromUser(event);
 
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return absorbed;
 }
 
@@ -268,22 +252,22 @@ namespace
 {
 	struct SDefaultRandomizer : public IRandomizer
 	{
-		virtual void reset(s32 value=0x0f0f0f0f)
+		virtual void reset(int32_t value=0x0f0f0f0f)
 		{
 			os::Randomizer::reset(value);
 		}
 
-		virtual s32 rand() const
+		virtual int32_t rand() const
 		{
 			return os::Randomizer::rand();
 		}
 
-		virtual f32 frand() const
+		virtual float frand() const
 		{
 			return os::Randomizer::frand();
 		}
 
-		virtual s32 randMax() const
+		virtual int32_t randMax() const
 		{
 			return os::Randomizer::randMax();
 		}
@@ -333,37 +317,37 @@ bool CIrrDeviceStub::activateJoysticks(core::array<SJoystickInfo> & joystickInfo
 
 /*!
 */
-void CIrrDeviceStub::calculateGammaRamp ( u16 *ramp, f32 gamma, f32 relativebrightness, f32 relativecontrast )
+void CIrrDeviceStub::calculateGammaRamp ( uint16_t *ramp, float gamma, float relativebrightness, float relativecontrast )
 {
-	s32 i;
-	s32 value;
-	s32 rbright = (s32) ( relativebrightness * (65535.f / 4 ) );
-	f32 rcontrast = 1.f / (255.f - ( relativecontrast * 127.5f ) );
+	int32_t i;
+	int32_t value;
+	int32_t rbright = (int32_t) ( relativebrightness * (65535.f / 4 ) );
+	float rcontrast = 1.f / (255.f - ( relativecontrast * 127.5f ) );
 
 	gamma = gamma > 0.f ? 1.0f / gamma : 0.f;
 
 	for ( i = 0; i < 256; ++i )
 	{
-		value = (s32)(pow( rcontrast * i, gamma)*65535.f + 0.5f );
-		ramp[i] = (u16) core::s32_clamp ( value + rbright, 0, 65535 );
+		value = (int32_t)(pow( rcontrast * i, gamma)*65535.f + 0.5f );
+		ramp[i] = (uint16_t) core::s32_clamp ( value + rbright, 0, 65535 );
 	}
 
 }
 
-void CIrrDeviceStub::calculateGammaFromRamp ( f32 &gamma, const u16 *ramp )
+void CIrrDeviceStub::calculateGammaFromRamp ( float &gamma, const uint16_t *ramp )
 {
 	/* The following is adapted from a post by Garrett Bass on OpenGL
 	Gamedev list, March 4, 2000.
 	*/
-	f32 sum = 0.0;
-	s32 i, count = 0;
+	float sum = 0.0;
+	int32_t i, count = 0;
 
 	gamma = 1.0;
 	for ( i = 1; i < 256; ++i ) {
 		if ( (ramp[i] != 0) && (ramp[i] != 65535) ) {
-			f32 B = (f32)i / 256.f;
-			f32 A = ramp[i] / 65535.f;
-			sum += (f32) ( logf(A) / logf(B) );
+			float B = (float)i / 256.f;
+			float A = ramp[i] / 65535.f;
+			sum += (float) ( logf(A) / logf(B) );
 			count++;
 		}
 	}
@@ -375,13 +359,13 @@ void CIrrDeviceStub::calculateGammaFromRamp ( f32 &gamma, const u16 *ramp )
 
 
 //! Set the maximal elapsed time between 2 clicks to generate doubleclicks for the mouse. It also affects tripleclick behavior.
-void CIrrDeviceStub::setDoubleClickTime( u32 timeMs )
+void CIrrDeviceStub::setDoubleClickTime( uint32_t timeMs )
 {
 	MouseMultiClicks.DoubleClickTime = timeMs;
 }
 
 //! Get the maximal elapsed time between 2 clicks to generate double- and tripleclicks for the mouse.
-u32 CIrrDeviceStub::getDoubleClickTime() const
+uint32_t CIrrDeviceStub::getDoubleClickTime() const
 {
 	return MouseMultiClicks.DoubleClickTime;
 }

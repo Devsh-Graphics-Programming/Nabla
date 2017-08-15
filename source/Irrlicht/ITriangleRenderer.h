@@ -34,9 +34,9 @@ namespace video
 	class ITriangleRenderer : public virtual IReferenceCounted
 	{
 	public:
-	
+
 		//! sets a render target
-		virtual void setRenderTarget(video::IImage* surface, const core::rect<s32>& viewPort) = 0;
+		virtual void setRenderTarget(video::IImage* surface, const core::rect<int32_t>& viewPort) = 0;
 
 		//! en or disables the backface culling
 		virtual void setBackfaceCulling(bool enabled = true) = 0;
@@ -45,7 +45,7 @@ namespace video
 		virtual void setTexture(video::IImage* texture) = 0;
 
 		//! draws an indexed triangle list
-		virtual void drawIndexedTriangleList(S2DVertex* vertices, s32 vertexCount, const u16* indexList, s32 triangleCount) = 0;
+		virtual void drawIndexedTriangleList(S2DVertex* vertices, int32_t vertexCount, const uint16_t* indexList, int32_t triangleCount) = 0;
 	};
 
 

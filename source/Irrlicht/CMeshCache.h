@@ -30,7 +30,7 @@ class CMeshCache : public IMeshCache<T>
 		the mesh. With IMeshCache::addMesh(), it is possible to pretend that a mesh already
 		has been loaded. This method can be used for example by mesh loaders who need to
 		load more than one mesh with one call. They can add additional meshes with this
-		method to the scene manager. The COLLADA loader for example uses this method.
+		method to the scene manager.
 		\param filename: Filename of the mesh. When called ISceneManager::getMesh() with this
 		parameter, the method will return the mesh parameter given with this method.
 		\param mesh: Pointer to a mesh which will now be referenced by this name. */
@@ -45,16 +45,16 @@ class CMeshCache : public IMeshCache<T>
 		/** You can load new meshes into the cache using getMesh() and addMesh().
 		If you ever need to access the internal mesh cache, you can do this using
 		removeMesh(), getMeshNumber(), getMeshByIndex() and getMeshFilename() */
-		virtual u32 getMeshCount() const;
+		virtual uint32_t getMeshCount() const;
 
 		//! Returns current index number of the mesh, and -1 if it is not in the cache.
-		virtual s32 getMeshIndex(const /*IAnimatedMesh*/T* const mesh) const;
+		virtual int32_t getMeshIndex(const /*IAnimatedMesh*/T* const mesh) const;
 
 		//! Returns a mesh based on its index number.
 		/** \param index: Index of the mesh, number between 0 and getMeshCount()-1.
 		Note that this number is only valid until a new mesh is loaded or removed *
 		\return Returns pointer to the mesh or 0 if there is none with this number. */
-		virtual /*IAnimatedMesh*/T* getMeshByIndex(u32 index);
+		virtual /*IAnimatedMesh*/T* getMeshByIndex(uint32_t index);
 
 		//! Returns a mesh based on its name.
 		/** \param name Name of the mesh. Usually a filename.
@@ -64,7 +64,7 @@ class CMeshCache : public IMeshCache<T>
 		//! Get the name of a loaded mesh, based on its index.
 		/** \param index: Index of the mesh, number between 0 and getMeshCount()-1.
 		\return The name if mesh was found and has a name, else	the path is empty. */
-		virtual const io::SNamedPath& getMeshName(u32 index) const;
+		virtual const io::SNamedPath& getMeshName(uint32_t index) const;
 
 		//! Get the name of a loaded mesh, if there is any.
 		/** \param mesh Pointer to mesh to query.
@@ -78,7 +78,7 @@ class CMeshCache : public IMeshCache<T>
 		\param index The index of the mesh in the cache.
 		\param name New name for the mesh.
 		\return True if mesh was renamed. */
-		virtual bool renameMesh(u32 index, const io::path& name);
+		virtual bool renameMesh(uint32_t index, const io::path& name);
 
 		//! Renames a loaded mesh.
 		/** Note that renaming meshes might change the ordering of the

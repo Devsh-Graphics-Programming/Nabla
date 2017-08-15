@@ -7,6 +7,7 @@
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 
 #include "CIrrDeviceWin32.h"
+#include "CSceneManager.h"
 #include "IEventReceiver.h"
 #include "irrList.h"
 #include "os.h"
@@ -64,13 +65,13 @@ struct SJoystickWin32Control
 #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
 	struct JoystickInfo
 	{
-		u32 Index;
+		uint32_t Index;
 #ifdef _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
 		core::stringc Name;
 		GUID guid;
 		LPDIRECTINPUTDEVICE8 lpdijoy;
 		DIDEVCAPS devcaps;
-		u8 axisValid[8];
+		uint8_t axisValid[8];
 #else
 		JOYCAPS Caps;
 #endif
@@ -92,7 +93,7 @@ struct SJoystickWin32Control
 	~SJoystickWin32Control()
 	{
 #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
-		for(u32 joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
+		for(uint32_t joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
 		{
 			LPDIRECTINPUTDEVICE8 dev = ActiveJoysticks[joystick].lpdijoy;
 			if (dev)
@@ -170,13 +171,13 @@ struct SJoystickWin32Control
 		activeJoystick.axisValid[5]= (info.lRz!=0) ? 1 : 0;
 
 		int caxis=0;
-		for (u8 i=0; i<6; i++)
+		for (uint8_t i=0; i<6; i++)
 		{
 			if (activeJoystick.axisValid[i])
 				caxis++;
 		}
 
-		for (u8 i=0; i<(activeJoystick.devcaps.dwAxes)-caxis; i++)
+		for (uint8_t i=0; i<(activeJoystick.devcaps.dwAxes)-caxis; i++)
 		{
 			if (i+caxis < 8)
 				activeJoystick.axisValid[i+caxis]=1;
@@ -193,7 +194,7 @@ void pollJoysticks()
 	if(0 == ActiveJoysticks.size())
 		return;
 
-	u32 joystick;
+	uint32_t joystick;
 	DIJOYSTATE2 info;
 
 	for(joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
@@ -209,9 +210,9 @@ void pollJoysticks()
 			SEvent event;
 
 			event.EventType = irr::EET_JOYSTICK_INPUT_EVENT;
-			event.JoystickEvent.Joystick = (u8)joystick;
+			event.JoystickEvent.Joystick = (uint8_t)joystick;
 
-			event.JoystickEvent.POV = (u16)info.rgdwPOV[0];
+			event.JoystickEvent.POV = (uint16_t)info.rgdwPOV[0];
 			// set to undefined if no POV value was returned or the value
 			// is out of range
 			if ((caps.dwPOVs==0) || (event.JoystickEvent.POV > 35900))
@@ -220,13 +221,13 @@ void pollJoysticks()
 			for(int axis = 0; axis < SEvent::SJoystickEvent::NUMBER_OF_AXES; ++axis)
 				event.JoystickEvent.Axis[axis] = 0;
 
-			u16 dxAxis=0;
-			u16 irrAxis=0;
+			uint16_t dxAxis=0;
+			uint16_t irrAxis=0;
 
 			while (dxAxis < 6 && irrAxis <caps.dwAxes)
 			{
 				bool axisFound=0;
-				s32 axisValue=0;
+				int32_t axisValue=0;
 
 				switch (dxAxis)
 				{
@@ -263,20 +264,20 @@ void pollJoysticks()
 
 				if (axisFound)
 				{
-					s32 val=axisValue - 32768;
+					int32_t val=axisValue - 32768;
 
 					if (val <-32767) val=-32767;
 					if (val > 32767) val=32767;
-					event.JoystickEvent.Axis[irrAxis]=(s16)(val);
+					event.JoystickEvent.Axis[irrAxis]=(int16_t)(val);
 					irrAxis++;
 				}
 
 				dxAxis++;
 			}
 
-			u32 buttons=0;
+			uint32_t buttons=0;
 			BYTE* bytebuttons=info.rgbButtons;
-			for (u16 i=0; i<32; i++)
+			for (uint16_t i=0; i<32; i++)
 			{
 				if (bytebuttons[i] >0)
 				{
@@ -292,7 +293,7 @@ void pollJoysticks()
 	if (0 == ActiveJoysticks.size())
 		return;
 
-	u32 joystick;
+	uint32_t joystick;
 	JOYINFOEX info;
 
 	for(joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
@@ -310,9 +311,9 @@ void pollJoysticks()
 			SEvent event;
 
 			event.EventType = irr::EET_JOYSTICK_INPUT_EVENT;
-			event.JoystickEvent.Joystick = (u8)joystick;
+			event.JoystickEvent.Joystick = (uint8_t)joystick;
 
-			event.JoystickEvent.POV = (u16)info.dwPOV;
+			event.JoystickEvent.POV = (uint16_t)info.dwPOV;
 			// set to undefined if no POV value was returned or the value
 			// is out of range
 			if (!(info.dwFlags & JOY_RETURNPOV) || (event.JoystickEvent.POV > 35900))
@@ -328,27 +329,27 @@ void pollJoysticks()
 			default:
 			case 6:
 				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_V] =
-					(s16)((65535 * (info.dwVpos - caps.wVmin)) / (caps.wVmax - caps.wVmin) - 32768);
+					(int16_t)((65535 * (info.dwVpos - caps.wVmin)) / (caps.wVmax - caps.wVmin) - 32768);
 
 			case 5:
 				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_U] =
-					(s16)((65535 * (info.dwUpos - caps.wUmin)) / (caps.wUmax - caps.wUmin) - 32768);
+					(int16_t)((65535 * (info.dwUpos - caps.wUmin)) / (caps.wUmax - caps.wUmin) - 32768);
 
 			case 4:
 				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_R] =
-					(s16)((65535 * (info.dwRpos - caps.wRmin)) / (caps.wRmax - caps.wRmin) - 32768);
+					(int16_t)((65535 * (info.dwRpos - caps.wRmin)) / (caps.wRmax - caps.wRmin) - 32768);
 
 			case 3:
 				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_Z] =
-					(s16)((65535 * (info.dwZpos - caps.wZmin)) / (caps.wZmax - caps.wZmin) - 32768);
+					(int16_t)((65535 * (info.dwZpos - caps.wZmin)) / (caps.wZmax - caps.wZmin) - 32768);
 
 			case 2:
 				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_Y] =
-					(s16)((65535 * (info.dwYpos - caps.wYmin)) / (caps.wYmax - caps.wYmin) - 32768);
+					(int16_t)((65535 * (info.dwYpos - caps.wYmin)) / (caps.wYmax - caps.wYmin) - 32768);
 
 			case 1:
 				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_X] =
-					(s16)((65535 * (info.dwXpos - caps.wXmin)) / (caps.wXmax - caps.wXmin) - 32768);
+					(int16_t)((65535 * (info.dwXpos - caps.wXmin)) / (caps.wXmax - caps.wXmin) - 32768);
 			}
 
 			(void)Device->postEventFromUser(event);
@@ -368,7 +369,7 @@ bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo)
 		return false;
 	}
 
-	for(u32 joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
+	for(uint32_t joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
 	{
 		JoystickInfo& activeJoystick = ActiveJoysticks[joystick];
 		SJoystickInfo info;
@@ -384,7 +385,7 @@ bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo)
 	joystickInfo.clear();
 	ActiveJoysticks.clear();
 
-	const u32 numberOfJoysticks = ::joyGetNumDevs();
+	const uint32_t numberOfJoysticks = ::joyGetNumDevs();
 	JOYINFOEX info;
 	info.dwSize = sizeof(info);
 	info.dwFlags = JOY_RETURNALL;
@@ -395,7 +396,7 @@ bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo)
 	joystickInfo.reallocate(numberOfJoysticks);
 	ActiveJoysticks.reallocate(numberOfJoysticks);
 
-	u32 joystick = 0;
+	uint32_t joystick = 0;
 	for(; joystick < numberOfJoysticks; ++joystick)
 	{
 		if(JOYERR_NOERROR == joyGetPosEx(joystick, &info)
@@ -407,7 +408,7 @@ bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo)
 			activeJoystick.Index = joystick;
 			ActiveJoysticks.push_back(activeJoystick);
 
-			returnInfo.Joystick = (u8)joystick;
+			returnInfo.Joystick = (uint8_t)joystick;
 			returnInfo.Axes = activeJoystick.Caps.wNumAxes;
 			returnInfo.Buttons = activeJoystick.Caps.wNumButtons;
 			returnInfo.Name = activeJoystick.Caps.szPname;
@@ -643,16 +644,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	irr::CIrrDeviceWin32* dev = 0;
 	irr::SEvent event;
 
-	static irr::s32 ClickCount=0;
+	static int32_t ClickCount=0;
 	if (GetCapture() != hWnd && ClickCount > 0)
 		ClickCount = 0;
 
 
 	struct messageMap
 	{
-		irr::s32 group;
+		int32_t group;
 		UINT winMessage;
-		irr::s32 irrMessage;
+		int32_t irrMessage;
 	};
 
 	static messageMap mouseMap[] =
@@ -718,7 +719,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			ClientToScreen(hWnd, &p);
 			event.MouseInput.X -= p.x;
 			event.MouseInput.Y -= p.y;
-			event.MouseInput.Wheel = ((irr::f32)((short)HIWORD(wParam))) / (irr::f32)WHEEL_DELTA;
+			event.MouseInput.Wheel = ((float)((short)HIWORD(wParam))) / (float)WHEEL_DELTA;
 		}
 
 		dev = getDeviceFromHWnd(hWnd);
@@ -728,7 +729,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			if ( event.MouseInput.Event >= irr::EMIE_LMOUSE_PRESSED_DOWN && event.MouseInput.Event <= irr::EMIE_MMOUSE_PRESSED_DOWN )
 			{
-				irr::u32 clicks = dev->checkSuccessiveClicks(event.MouseInput.X, event.MouseInput.Y, event.MouseInput.Event);
+				uint32_t clicks = dev->checkSuccessiveClicks(event.MouseInput.X, event.MouseInput.Y, event.MouseInput.Event);
 				if ( clicks == 2 )
 				{
 					event.MouseInput.Event = (irr::EMOUSE_INPUT_EVENT)(irr::EMIE_LMOUSE_DOUBLE_CLICK + event.MouseInput.Event-irr::EMIE_LMOUSE_PRESSED_DOWN);
@@ -875,8 +876,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_USER:
 		event.EventType = irr::EET_USER_EVENT;
-		event.UserEvent.UserData1 = (irr::s32)wParam;
-		event.UserEvent.UserData2 = (irr::s32)lParam;
+		event.UserEvent.UserData1 = (int32_t)wParam;
+		event.UserEvent.UserData2 = (int32_t)lParam;
 		dev = getDeviceFromHWnd(hWnd);
 
 		if (dev)
@@ -935,7 +936,7 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 	// create the window if we need to and we do not use the null device
 	if (!CreationParams.WindowId && CreationParams.DriverType != video::EDT_NULL)
 	{
-		const fschar_t* ClassName = __TEXT("CIrrDeviceWin32");
+		const char* ClassName = __TEXT("CIrrDeviceWin32");
 
 		// Register Class
 		WNDCLASSEX wcex;
@@ -972,11 +973,11 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 
 		AdjustWindowRect(&clientSize, style, FALSE);
 
-		const s32 realWidth = clientSize.right - clientSize.left;
-		const s32 realHeight = clientSize.bottom - clientSize.top;
+		const int32_t realWidth = clientSize.right - clientSize.left;
+		const int32_t realHeight = clientSize.bottom - clientSize.top;
 
-		s32 windowLeft = (GetSystemMetrics(SM_CXSCREEN) - realWidth) / 2;
-		s32 windowTop = (GetSystemMetrics(SM_CYSCREEN) - realHeight) / 2;
+		int32_t windowLeft = (GetSystemMetrics(SM_CXSCREEN) - realWidth) / 2;
+		int32_t windowTop = (GetSystemMetrics(SM_CYSCREEN) - realHeight) / 2;
 
 		if ( windowLeft < 0 )
 			windowLeft = 0;
@@ -1078,6 +1079,18 @@ CIrrDeviceWin32::~CIrrDeviceWin32()
 	}
 
 	switchToFullScreen(true);
+
+	if (SceneManager)
+		SceneManager->drop();
+
+	if (InputReceivingSceneManager)
+		InputReceivingSceneManager->drop();
+
+	if (CursorControl)
+		CursorControl->drop();
+
+	if (VideoDriver)
+		VideoDriver->drop();
 }
 
 
@@ -1150,7 +1163,6 @@ bool CIrrDeviceWin32::run()
 	if(!Close && JoyControl)
 		JoyControl->pollJoysticks();
 
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return !Close;
 }
 
@@ -1162,7 +1174,7 @@ void CIrrDeviceWin32::yield()
 }
 
 //! Pause execution and let other processes to run for a specified amount of time.
-void CIrrDeviceWin32::sleep(u32 timeMs, bool pauseTimer)
+void CIrrDeviceWin32::sleep(uint32_t timeMs, bool pauseTimer)
 {
 	const bool wasStopped = Timer ? Timer->isStopped() : true;
 	if (pauseTimer && !wasStopped)
@@ -1195,7 +1207,7 @@ void CIrrDeviceWin32::resizeIfNecessary()
 		sprintf(tmp, "Resizing window (%ld %ld)", r.right, r.bottom);
 		os::Printer::log(tmp);
 
-		getVideoDriver()->OnResize(irr::core::dimension2du((u32)r.right, (u32)r.bottom));
+		getVideoDriver()->OnResize(irr::core::dimension2du((uint32_t)r.right, (uint32_t)r.bottom));
 		getWin32CursorControl()->OnResize(getVideoDriver()->getScreenSize());
 	}
 
@@ -1204,19 +1216,19 @@ void CIrrDeviceWin32::resizeIfNecessary()
 
 
 //! sets the caption of the window
-void CIrrDeviceWin32::setWindowCaption(const wchar_t* text)
+void CIrrDeviceWin32::setWindowCaption(const std::wstring& text)
 {
 	// We use SendMessage instead of SetText to ensure proper
 	// function even in cases where the HWND was created in a different thread
 	DWORD_PTR dwResult;
 	SendMessageTimeoutW(HWnd, WM_SETTEXT, 0,
-			reinterpret_cast<LPARAM>(text),
+			reinterpret_cast<LPARAM>(text.c_str()),
 			SMTO_ABORTIFHUNG, 2000, &dwResult);
 }
 
 
 //! presents a surface in the client area
-bool CIrrDeviceWin32::present(video::IImage* image, void* windowId, core::rect<s32>* src)
+bool CIrrDeviceWin32::present(video::IImage* image, void* windowId, core::rect<int32_t>* src)
 {
 	HWND hwnd = HWnd;
 	if ( windowId )
@@ -1236,7 +1248,7 @@ bool CIrrDeviceWin32::present(video::IImage* image, void* windowId, core::rect<s
 		bi.bV4BitCount = (WORD)image->getBitsPerPixel();
 		bi.bV4Planes = 1;
 		bi.bV4Width = image->getDimension().Width;
-		bi.bV4Height = -((s32)image->getDimension().Height);
+		bi.bV4Height = -((int32_t)image->getDimension().Height);
 		bi.bV4V4Compression = BI_BITFIELDS;
 		bi.bV4AlphaMask = image->getAlphaMask();
 		bi.bV4RedMask = image->getRedMask();
@@ -1275,7 +1287,7 @@ void CIrrDeviceWin32::closeDevice()
 	if (!ExternalWindow)
 	{
 		DestroyWindow(HWnd);
-		const fschar_t* ClassName = __TEXT("CIrrDeviceWin32");
+		const char* ClassName = __TEXT("CIrrDeviceWin32");
 		HINSTANCE hInstance = GetModuleHandle(0);
 		UnregisterClass(ClassName, hInstance);
 	}
@@ -1286,7 +1298,6 @@ void CIrrDeviceWin32::closeDevice()
 //! returns if window is active. if not, nothing needs to be drawn
 bool CIrrDeviceWin32::isWindowActive() const
 {
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return (GetActiveWindow() == HWnd);
 }
 
@@ -1295,7 +1306,6 @@ bool CIrrDeviceWin32::isWindowActive() const
 bool CIrrDeviceWin32::isWindowFocused() const
 {
 	bool ret = (GetFocus() == HWnd);
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return ret;
 }
 
@@ -1308,7 +1318,6 @@ bool CIrrDeviceWin32::isWindowMinimized() const
 	bool ret=false;
 	if (GetWindowPlacement(HWnd,&plc))
 		ret=(plc.showCmd & SW_SHOWMINIMIZED)!=0;
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return ret;
 }
 
@@ -1374,7 +1383,6 @@ bool CIrrDeviceWin32::switchToFullScreen(bool reset)
 		os::Printer::log("An unknown error occured while changing to fullscreen.", ELL_ERROR);
 		break;
 	}
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return ret;
 }
 
@@ -1400,14 +1408,14 @@ video::IVideoModeList* CIrrDeviceWin32::getVideoModeList()
 
 		while (EnumDisplaySettings(NULL, i, &mode))
 		{
-			VideoModeList->addMode(core::dimension2d<u32>(mode.dmPelsWidth, mode.dmPelsHeight),
+			VideoModeList->addMode(core::dimension2d<uint32_t>(mode.dmPelsWidth, mode.dmPelsHeight),
 				mode.dmBitsPerPel);
 
 			++i;
 		}
 
 		if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &mode))
-			VideoModeList->setDesktop(mode.dmBitsPerPel, core::dimension2d<u32>(mode.dmPelsWidth, mode.dmPelsHeight));
+			VideoModeList->setDesktop(mode.dmBitsPerPel, core::dimension2d<uint32_t>(mode.dmPelsWidth, mode.dmPelsHeight));
 	}
 
 	return VideoModeList;
@@ -1662,11 +1670,11 @@ void CIrrDeviceWin32::setResizable(bool resize)
 
 	AdjustWindowRect(&clientSize, style, FALSE);
 
-	const s32 realWidth = clientSize.right - clientSize.left;
-	const s32 realHeight = clientSize.bottom - clientSize.top;
+	const int32_t realWidth = clientSize.right - clientSize.left;
+	const int32_t realHeight = clientSize.bottom - clientSize.top;
 
-	const s32 windowLeft = (GetSystemMetrics(SM_CXSCREEN) - realWidth) / 2;
-	const s32 windowTop = (GetSystemMetrics(SM_CYSCREEN) - realHeight) / 2;
+	const int32_t windowLeft = (GetSystemMetrics(SM_CXSCREEN) - realWidth) / 2;
+	const int32_t windowTop = (GetSystemMetrics(SM_CYSCREEN) - realHeight) / 2;
 
 	SetWindowPos(HWnd, HWND_TOP, windowLeft, windowTop, realWidth, realHeight,
 		SWP_FRAMECHANGED | SWP_NOMOVE | SWP_SHOWWINDOW);
@@ -1718,10 +1726,10 @@ bool CIrrDeviceWin32::activateJoysticks(core::array<SJoystickInfo> & joystickInf
 
 /*
 //! Set the current Gamma Value for the Display
-bool CIrrDeviceWin32::setGammaRamp( f32 red, f32 green, f32 blue, f32 brightness, f32 contrast )
+bool CIrrDeviceWin32::setGammaRamp( float red, float green, float blue, float brightness, float contrast )
 {
 	bool r;
-	u16 ramp[3][256];
+	uint16_t ramp[3][256];
 
 	calculateGammaRamp( ramp[0], red, brightness, contrast );
 	calculateGammaRamp( ramp[1], green, brightness, contrast );
@@ -1734,10 +1742,10 @@ bool CIrrDeviceWin32::setGammaRamp( f32 red, f32 green, f32 blue, f32 brightness
 }
 
 //! Get the current Gamma Value for the Display
-bool CIrrDeviceWin32::getGammaRamp( f32 &red, f32 &green, f32 &blue, f32 &brightness, f32 &contrast )
+bool CIrrDeviceWin32::getGammaRamp( float &red, float &green, float &blue, float &brightness, float &contrast )
 {
 	bool r;
-	u16 ramp[3][256];
+	uint16_t ramp[3][256];
 
 	HDC dc = GetDC(0);
 	r = GetDeviceGammaRamp ( dc, ramp ) == TRUE;
@@ -1828,7 +1836,7 @@ void CIrrDeviceWin32::ReportLastWinApiError()
 
 // Convert an Irrlicht texture to a Windows cursor
 // Based on http://www.codeguru.com/cpp/w-p/win32/cursors/article.php/c4529/
-HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, const core::rect<s32>& sourceRect, const core::position2d<s32> &hotspot)
+HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot)
 {
 	//
 	// create the bitmaps needed for cursors from the texture
@@ -1844,15 +1852,15 @@ HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, co
 
 
 	video::ECOLOR_FORMAT format = tex->getColorFormat();
-	u32 bytesPerPixel = video::IImage::getBitsPerPixelFromFormat(format) / 8;
-	u32 bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
-	u32 bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
-	const u8* data = (const u8*)tex->lock();
+	uint32_t bytesPerPixel = video::IImage::getBitsPerPixelFromFormat(format) / 8;
+	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
+	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
+	const uint8_t* data = (const uint8_t*)tex->lock();
 	data += sourceRect.UpperLeftCorner.Y*tex->getPitch();
-	for ( s32 y = 0; y < sourceRect.getHeight(); ++y )
+	for ( int32_t y = 0; y < sourceRect.getHeight(); ++y )
 	{
 		data += bytesLeftGap;
-		for ( s32 x = 0; x < sourceRect.getWidth(); ++x )
+		for ( int32_t x = 0; x < sourceRect.getWidth(); ++x )
 		{
 			video::SColor pixelCol;
 			pixelCol.setData((const void*)data, format);
@@ -1899,7 +1907,7 @@ HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, co
 }
 
 
-CIrrDeviceWin32::CCursorControl::CCursorControl(CIrrDeviceWin32* device, const core::dimension2d<u32>& wsize, HWND hwnd, bool fullscreen)
+CIrrDeviceWin32::CCursorControl::CCursorControl(CIrrDeviceWin32* device, const core::dimension2d<uint32_t>& wsize, HWND hwnd, bool fullscreen)
 	: Device(device), WindowSize(wsize), InvWindowSize(0.0f, 0.0f),
 		HWnd(hwnd), BorderX(0), BorderY(0),
 		UseReferenceRect(false), IsVisible(true)
@@ -1917,9 +1925,9 @@ CIrrDeviceWin32::CCursorControl::CCursorControl(CIrrDeviceWin32* device, const c
 
 CIrrDeviceWin32::CCursorControl::~CCursorControl()
 {
-	for ( u32 i=0; i < Cursors.size(); ++i )
+	for ( uint32_t i=0; i < Cursors.size(); ++i )
 	{
-		for ( u32 f=0; f < Cursors[i].Frames.size(); ++f )
+		for ( uint32_t f=0; f < Cursors[i].Frames.size(); ++f )
 		{
 			DestroyCursor(Cursors[i].Frames[f].IconHW);
 		}
@@ -1950,8 +1958,8 @@ void CIrrDeviceWin32::CCursorControl::update()
 	if ( !Cursors[ActiveIcon].Frames.empty() && Cursors[ActiveIcon].FrameTime )
 	{
 		// update animated cursors. This could also be done by X11 in case someone wants to figure that out (this way was just easier to implement)
-		u32 now = Device->getTimer()->getRealTime();
-		u32 frame = ((now - ActiveIconStartTime) / Cursors[ActiveIcon].FrameTime) % Cursors[ActiveIcon].Frames.size();
+		uint32_t now = Device->getTimer()->getRealTime();
+		uint32_t frame = ((now - ActiveIconStartTime) / Cursors[ActiveIcon].FrameTime) % Cursors[ActiveIcon].Frames.size();
 		SetCursor( Cursors[ActiveIcon].Frames[frame].IconHW );
 	}
 }
@@ -1959,7 +1967,7 @@ void CIrrDeviceWin32::CCursorControl::update()
 //! Sets the active cursor icon
 void CIrrDeviceWin32::CCursorControl::setActiveIcon(gui::ECURSOR_ICON iconId)
 {
-	if ( iconId >= (s32)Cursors.size() )
+	if ( iconId >= (int32_t)Cursors.size() )
 		return;
 
 	ActiveIcon = iconId;
@@ -1977,11 +1985,11 @@ gui::ECURSOR_ICON CIrrDeviceWin32::CCursorControl::addIcon(const gui::SCursorSpr
 		CursorW32 cW32;
 		cW32.FrameTime = icon.SpriteBank->getSprites()[icon.SpriteId].frameTime;
 
-		for ( u32 i=0; i < icon.SpriteBank->getSprites()[icon.SpriteId].Frames.size(); ++i )
+		for ( uint32_t i=0; i < icon.SpriteBank->getSprites()[icon.SpriteId].Frames.size(); ++i )
 		{
-			irr::u32 texId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].textureNumber;
-			irr::u32 rectId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].rectNumber;
-			irr::core::rect<s32> rectIcon = icon.SpriteBank->getPositions()[rectId];
+			uint32_t texId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].textureNumber;
+			uint32_t rectId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].rectNumber;
+			irr::core::rect<int32_t> rectIcon = icon.SpriteBank->getPositions()[rectId];
 
 			HCURSOR hc = Device->TextureToCursor(HWnd, icon.SpriteBank->getTexture(texId), rectIcon, icon.HotSpot);
 			cW32.Frames.push_back( CursorFrameW32(hc) );
@@ -1997,21 +2005,21 @@ gui::ECURSOR_ICON CIrrDeviceWin32::CCursorControl::addIcon(const gui::SCursorSpr
 //! replace the given cursor icon.
 void CIrrDeviceWin32::CCursorControl::changeIcon(gui::ECURSOR_ICON iconId, const gui::SCursorSprite& icon)
 {
-	if ( iconId >= (s32)Cursors.size() )
+	if ( iconId >= (int32_t)Cursors.size() )
 		return;
 /*
-	for ( u32 i=0; i < Cursors[iconId].Frames.size(); ++i )
+	for ( uint32_t i=0; i < Cursors[iconId].Frames.size(); ++i )
 		DestroyCursor(Cursors[iconId].Frames[i].IconHW);
 
 	if ( icon.SpriteId >= 0 )
 	{
 		CursorW32 cW32;
 		cW32.FrameTime = icon.SpriteBank->getSprites()[icon.SpriteId].frameTime;
-		for ( u32 i=0; i < icon.SpriteBank->getSprites()[icon.SpriteId].Frames.size(); ++i )
+		for ( uint32_t i=0; i < icon.SpriteBank->getSprites()[icon.SpriteId].Frames.size(); ++i )
 		{
-			irr::u32 texId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].textureNumber;
-			irr::u32 rectId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].rectNumber;
-			irr::core::rect<s32> rectIcon = icon.SpriteBank->getPositions()[rectId];
+			uint32_t texId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].textureNumber;
+			uint32_t rectId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].rectNumber;
+			irr::core::rect<int32_t> rectIcon = icon.SpriteBank->getPositions()[rectId];
 
 			HCURSOR hc = Device->TextureToCursor(HWnd, icon.SpriteBank->getTexture(texId), rectIcon, icon.HotSpot);
 			cW32.Frames.push_back( CursorFrameW32(hc) );

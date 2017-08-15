@@ -24,7 +24,7 @@ namespace
 {
 	bool isHeaderValid(const SNPKHeader& header)
 	{
-		const c8* const tag = header.Tag;
+		const int8_t* const tag = header.Tag;
 		return tag[0] == '0' &&
 			   tag[1] == 'K' &&
 			   tag[2] == 'P' &&
@@ -172,7 +172,7 @@ bool CNPKReader::scanLocalHeader()
 				entry.Length=0;
 				entry.Offset=0;
 #ifdef IRR_DEBUG_NPK_READER
-		os::Printer::log("Dir", entry.Name);
+                os::Printer::log("Dir", entry.Name.c_str());
 #endif
 			}
 				break;
@@ -184,7 +184,7 @@ bool CNPKReader::scanLocalHeader()
 				readString(entry.Name);
 				isDir=false;
 #ifdef IRR_DEBUG_NPK_READER
-		os::Printer::log("File", entry.Name);
+                os::Printer::log("File", entry.Name.c_str());
 #endif
 #ifdef __BIG_ENDIAN__
 				entry.Offset = os::Byteswap::byteswap(entry.Offset);
@@ -198,13 +198,13 @@ bool CNPKReader::scanLocalHeader()
 				entry.Name="";
 				entry.Length=0;
 				entry.Offset=0;
-				const s32 pos = dirName.findLast('/', dirName.size()-2);
+				const int32_t pos = dirName.findLast('/', dirName.size()-2);
 				if (pos==-1)
 					dirName="";
 				else
 					dirName=dirName.subString(0, pos);
 #ifdef IRR_DEBUG_NPK_READER
-		os::Printer::log("Dirend", dirName);
+                os::Printer::log("Dirend", dirName.c_str());
 #endif
 			}
 				break;
@@ -220,7 +220,7 @@ bool CNPKReader::scanLocalHeader()
 			dirName += "/";
 		}
 #ifdef IRR_DEBUG_NPK_READER
-		os::Printer::log("Name", entry.Name);
+		os::Printer::log("Name", entry.Name.c_str());
 #endif
 		addItem((isDir?dirName:dirName+entry.Name), entry.Offset+header.Offset, entry.Length, isDir);
 	}
@@ -231,7 +231,7 @@ bool CNPKReader::scanLocalHeader()
 //! opens a file by file name
 IReadFile* CNPKReader::createAndOpenFile(const io::path& filename)
 {
-	s32 index = findFile(filename, false);
+	int32_t index = findFile(filename, false);
 
 	if (index != -1)
 		return createAndOpenFile(index);
@@ -241,7 +241,7 @@ IReadFile* CNPKReader::createAndOpenFile(const io::path& filename)
 
 
 //! opens a file by index
-IReadFile* CNPKReader::createAndOpenFile(u32 index)
+IReadFile* CNPKReader::createAndOpenFile(uint32_t index)
 {
 	if (index >= Files.size() )
 		return 0;

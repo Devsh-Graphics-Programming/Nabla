@@ -11,7 +11,7 @@ namespace scene
 {
 
 //! constructor
-CEmptySceneNode::CEmptySceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id)
+CEmptySceneNode::CEmptySceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
 : ISceneNode(parent, mgr, id)
 {
 	#ifdef _DEBUG
@@ -40,7 +40,7 @@ void CEmptySceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CEmptySceneNode::getBoundingBox()
+const core::aabbox3d<float>& CEmptySceneNode::getBoundingBox()
 {
 	return Box;
 }

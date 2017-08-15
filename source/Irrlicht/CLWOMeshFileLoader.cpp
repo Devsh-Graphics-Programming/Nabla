@@ -43,24 +43,24 @@ struct tLWOTextureInfo
 	core::stringc Map;
 	core::stringc AlphaMap;
 	core::stringc UVname;
-	u16 UVTag;
-	u16 DUVTag;
-	u16 Flags;
-	u16 WidthWrap;
-	u16 HeightWrap;
-	u16 OpacType;
-	u16 IParam[3];
+	uint16_t UVTag;
+	uint16_t DUVTag;
+	uint16_t Flags;
+	uint16_t WidthWrap;
+	uint16_t HeightWrap;
+	uint16_t OpacType;
+	uint16_t IParam[3];
 	core::vector3df Size;
 	core::vector3df Center;
 	core::vector3df Falloff;
 	core::vector3df Velocity;
 	video::SColor Color;
-	f32 Value;
-	f32 AntiAliasing;
-	f32 Opacity;
-	f32 FParam[3];
-	u8 Axis;
-	u8 Projection;
+	float Value;
+	float AntiAliasing;
+	float Opacity;
+	float FParam[3];
+	uint8_t Axis;
+	uint8_t Projection;
 	bool Active;
 };
 
@@ -78,42 +78,42 @@ struct CLWOMeshFileLoader::tLWOMaterial
 	core::stringc Name;
 	scene::SMeshBuffer *Meshbuffer;
 	core::stringc ReflMap;
-	u16 TagType;
-	u16 Flags;
-	u16 ReflMode;
-	u16 TranspMode;
-	u16 Glow;
-	u16 AlphaMode;
-	f32 Luminance;
-	f32 Diffuse;
-	f32 Specular;
-	f32 Reflection;
-	f32 Transparency;
-	f32 Translucency;
-	f32 Sharpness;
-	f32 ReflSeamAngle;
-	f32 ReflBlur;
-	f32 RefrIndex;
-	f32 TranspBlur;
-	f32 SmoothingAngle;
-	f32 EdgeTransparency;
-	f32 HighlightColor;
-	f32 ColorFilter;
-	f32 AdditiveTransparency;
-	f32 GlowIntensity;
-	f32 GlowSize;
-	f32 AlphaValue;
-	f32 VertexColorIntensity;
+	uint16_t TagType;
+	uint16_t Flags;
+	uint16_t ReflMode;
+	uint16_t TranspMode;
+	uint16_t Glow;
+	uint16_t AlphaMode;
+	float Luminance;
+	float Diffuse;
+	float Specular;
+	float Reflection;
+	float Transparency;
+	float Translucency;
+	float Sharpness;
+	float ReflSeamAngle;
+	float ReflBlur;
+	float RefrIndex;
+	float TranspBlur;
+	float SmoothingAngle;
+	float EdgeTransparency;
+	float HighlightColor;
+	float ColorFilter;
+	float AdditiveTransparency;
+	float GlowIntensity;
+	float GlowSize;
+	float AlphaValue;
+	float VertexColorIntensity;
 	video::SColorf VertexColor;
-	u32 Envelope[23];
+	uint32_t Envelope[23];
 	tLWOTextureInfo Texture[7];
 };
 
 struct tLWOLayerInfo
 {
-	u16 Number;
-	u16 Parent;
-	u16 Flags;
+	uint16_t Number;
+	uint16_t Parent;
+	uint16_t Flags;
 	bool Active;
 	core::stringc Name;
 	core::vector3df Pivot;
@@ -167,11 +167,11 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 	os::Printer::log("LWO loader: Creating geometry.");
 	os::Printer::log("LWO loader: Assigning UV maps.");
 #endif
-	u32 i;
+	uint32_t i;
 	for (i=0; i<Materials.size(); ++i)
 	{
-		u16 uvTag;
-		for (u32 j=0; j<2; ++j) // max 2 texture coords
+		uint16_t uvTag;
+		for (uint32_t j=0; j<2; ++j) // max 2 texture coords
 		{
 			if (Materials[i]->Texture[j].UVname.size())
 			{
@@ -200,11 +200,11 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 	// create actual geometry for lwo2
 	if (FormatVersion==2)
 	{
-		core::array<u32> vertexCount;
+		core::array<uint32_t> vertexCount;
 		vertexCount.reallocate(Materials.size());
 		for (i=0; i<Materials.size(); ++i)
 			vertexCount.push_back(0);
-		for (u32 polyIndex=0; polyIndex<Indices.size(); ++polyIndex)
+		for (uint32_t polyIndex=0; polyIndex<Indices.size(); ++polyIndex)
 			vertexCount[MaterialMapping[polyIndex]] += Indices[polyIndex].size();
 		for (i=0; i<Materials.size(); ++i)
 		{
@@ -213,24 +213,24 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 		}
 	}
 	// create actual geometry for lwo2
-	for (u32 polyIndex=0; polyIndex<Indices.size(); ++polyIndex)
+	for (uint32_t polyIndex=0; polyIndex<Indices.size(); ++polyIndex)
 	{
-		const u16 tag = MaterialMapping[polyIndex];
+		const uint16_t tag = MaterialMapping[polyIndex];
 		scene::SMeshBuffer *mb=Materials[tag]->Meshbuffer;
-		const core::array<u32>& poly = Indices[polyIndex];
-		const u32 polySize=poly.size();
-		const u16 uvTag = Materials[tag]->Texture[0].UVTag;
-		const u16 duvTag = Materials[tag]->Texture[0].DUVTag;
+		const core::array<uint32_t>& poly = Indices[polyIndex];
+		const uint32_t polySize=poly.size();
+		const uint16_t uvTag = Materials[tag]->Texture[0].UVTag;
+		const uint16_t duvTag = Materials[tag]->Texture[0].DUVTag;
 		video::S3DVertex vertex;
 		vertex.Color=0xffffffff;
-		const u32 vertCount=mb->Vertices.size();
-		for (u32 i=0; i<polySize; ++i)
+		const uint32_t vertCount=mb->Vertices.size();
+		for (uint32_t i=0; i<polySize; ++i)
 		{
-			const u32 j=poly[i];
+			const uint32_t j=poly[i];
 			vertex.Pos=Points[j];
 			if (uvTag<UvIndex.size())
 			{
-				for (u32 uvsearch=0; uvsearch < UvIndex[uvTag].size(); ++uvsearch)
+				for (uint32_t uvsearch=0; uvsearch < UvIndex[uvTag].size(); ++uvsearch)
 				{
 					if(j==UvIndex[uvTag][uvsearch])
 					{
@@ -240,7 +240,7 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 				}
 				if (duvTag<DUvName.size())
 				{
-					for (u32 polysearch = 0; polysearch < VmPolyPointsIndex[duvTag].size(); polysearch += 2)
+					for (uint32_t polysearch = 0; polysearch < VmPolyPointsIndex[duvTag].size(); polysearch += 2)
 					{
 						if (polyIndex==VmPolyPointsIndex[duvTag][polysearch] && j==VmPolyPointsIndex[duvTag][polysearch+1])
 						{
@@ -255,7 +255,7 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 		// triangulate as trifan
 		if (polySize>2)
 		{
-			for (u32 i=1; i<polySize-1; ++i)
+			for (uint32_t i=1; i<polySize-1; ++i)
 			{
 				mb->Indices.push_back(vertCount);
 				mb->Indices.push_back(vertCount+i);
@@ -266,7 +266,7 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 #ifdef LWO_READER_DEBUG
 	os::Printer::log("LWO loader: Fixing meshbuffers.");
 #endif
-	for (u32 i=0; i<Materials.size(); ++i)
+	for (uint32_t i=0; i<Materials.size(); ++i)
 	{
 #ifdef LWO_READER_DEBUG
 		os::Printer::log("LWO loader: Material name", Materials[i]->Name);
@@ -278,7 +278,7 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 			delete Materials[i];
 			continue;
 		}
-		for (u32 j=0; j<Materials[i]->Meshbuffer->Vertices.size(); ++j)
+		for (uint32_t j=0; j<Materials[i]->Meshbuffer->Vertices.size(); ++j)
 			Materials[i]->Meshbuffer->Vertices[j].Color=Materials[i]->Meshbuffer->Material.DiffuseColor;
 		Materials[i]->Meshbuffer->recalculateBoundingBox();
 
@@ -314,7 +314,7 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 #ifdef LWO_READER_DEBUG
 			os::Printer::log("LWO loader: loading bump texture.");
 #endif
-			const u8 pos = irrMat.getTexture(0)?1:0;
+			const uint8_t pos = irrMat.getTexture(0)?1:0;
 			irrMat.setTexture(pos, loadTexture(Materials[i]->Texture[6].Map));
 			if (irrMat.getTexture(pos))
 			{
@@ -355,8 +355,8 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 				}
 			}
 			// get the resolution for this axis
-			f32 resolutionS = core::reciprocal(Materials[i]->Texture[0].Size.Z);
-			f32 resolutionT = core::reciprocal(Materials[i]->Texture[0].Size.Y);
+			float resolutionS = core::reciprocal(Materials[i]->Texture[0].Size.Z);
+			float resolutionT = core::reciprocal(Materials[i]->Texture[0].Size.Y);
 			if (Materials[i]->Texture[0].Axis==1)
 			{
 				resolutionS = core::reciprocal(Materials[i]->Texture[0].Size.X);
@@ -416,8 +416,8 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 
 bool CLWOMeshFileLoader::readChunks()
 {
-	s32 lastPos;
-	u32 size;
+	int32_t lastPos;
+	uint32_t size;
 	unsigned int uiType;
 	char type[5];
 	type[4]=0;
@@ -442,7 +442,7 @@ bool CLWOMeshFileLoader::readChunks()
 #ifdef LWO_READER_DEBUG
 					os::Printer::log("LWO loader: loading layer.");
 #endif
-					u16 tmp16;
+					uint16_t tmp16;
 					File->read(&tmp16, 2); // number
 					File->read(&tmp16, 2); // flags
 					size -= 4;
@@ -474,9 +474,9 @@ bool CLWOMeshFileLoader::readChunks()
 #endif
 					core::vector3df vec;
 					Points.clear();
-					const u32 tmpsize = size/12;
+					const uint32_t tmpsize = size/12;
 					Points.reallocate(tmpsize);
-					for (u32 i=0; i<tmpsize; ++i)
+					for (uint32_t i=0; i<tmpsize; ++i)
 					{
 						readVec(vec);
 						Points.push_back(vec);
@@ -539,8 +539,8 @@ bool CLWOMeshFileLoader::readChunks()
 #ifdef LWO_READER_DEBUG
 					os::Printer::log("LWO loader: loading clips.");
 #endif
-					u32 index;
-					u16 subsize;
+					uint32_t index;
+					uint16_t subsize;
 					File->read(&index, 4);
 #ifndef __BIG_ENDIAN__
 					index=os::Byteswap::byteswap(index);
@@ -582,7 +582,7 @@ bool CLWOMeshFileLoader::readChunks()
 #endif
 					// not stored
 					core::vector3df vec;
-					for (u32 i=0; i<2; ++i)
+					for (uint32_t i=0; i<2; ++i)
 						readVec(vec);
 					size -= 24;
 				}
@@ -615,11 +615,11 @@ bool CLWOMeshFileLoader::readChunks()
 }
 
 
-void CLWOMeshFileLoader::readObj1(u32 size)
+void CLWOMeshFileLoader::readObj1(uint32_t size)
 {
-	u32 pos;
-	u16 numVerts, vertIndex;
-	s16 material;
+	uint32_t pos;
+	uint16_t numVerts, vertIndex;
+	int16_t material;
 	video::S3DVertex vertex;
 	vertex.Color=0xffffffff;
 
@@ -646,8 +646,8 @@ void CLWOMeshFileLoader::readObj1(u32 size)
 		// back to vertex list start
 		File->seek(pos, false);
 
-		const u16 vertCount=mb->Vertices.size();
-		for (u16 i=0; i<numVerts; ++i)
+		const uint16_t vertCount=mb->Vertices.size();
+		for (uint16_t i=0; i<numVerts; ++i)
 		{
 			File->read(&vertIndex, 2);
 #ifndef __BIG_ENDIAN__
@@ -656,7 +656,7 @@ void CLWOMeshFileLoader::readObj1(u32 size)
 			vertex.Pos=Points[vertIndex];
 			mb->Vertices.push_back(vertex);
 		}
-		for (u16 i=1; i<numVerts-1; ++i)
+		for (uint16_t i=1; i<numVerts-1; ++i)
 		{
 			mb->Indices.push_back(vertCount);
 			mb->Indices.push_back(vertCount+i);
@@ -671,10 +671,10 @@ void CLWOMeshFileLoader::readObj1(u32 size)
 }
 
 
-void CLWOMeshFileLoader::readVertexMapping(u32 size)
+void CLWOMeshFileLoader::readVertexMapping(uint32_t size)
 {
 	char type[5]={0};
-	u16 dimension;
+	uint16_t dimension;
 	core::stringc name;
 	File->read(&type, 4);
 #ifdef LWO_READER_DEBUG
@@ -699,11 +699,11 @@ void CLWOMeshFileLoader::readVertexMapping(u32 size)
 	TCoords.push_back(core::array<core::vector2df>());
 	core::array<core::vector2df>& UvCoords=TCoords.getLast();
 	UvCoords.reallocate(Points.size());
-	UvIndex.push_back(core::array<u32>());
-	core::array<u32>& UvPointsArray=UvIndex.getLast();
+	UvIndex.push_back(core::array<uint32_t>());
+	core::array<uint32_t>& UvPointsArray=UvIndex.getLast();
 	UvPointsArray.reallocate(Points.size());
 
-	u32 index;
+	uint32_t index;
 	core::vector2df tcoord;
 	while (size)
 	{
@@ -725,10 +725,10 @@ void CLWOMeshFileLoader::readVertexMapping(u32 size)
 }
 
 
-void CLWOMeshFileLoader::readDiscVertexMapping(u32 size)
+void CLWOMeshFileLoader::readDiscVertexMapping(uint32_t size)
 {
 	char type[5]={0};
-	u16 dimension;
+	uint16_t dimension;
 	core::stringc name;
 	File->read(&type, 4);
 #ifdef LWO_READER_DEBUG
@@ -749,14 +749,14 @@ void CLWOMeshFileLoader::readDiscVertexMapping(u32 size)
 		return;
 	}
 	DUvName.push_back(name);
-	VmPolyPointsIndex.push_back(core::array<u32>());
-	core::array<u32>& VmPolyPoints=VmPolyPointsIndex.getLast();
+	VmPolyPointsIndex.push_back(core::array<uint32_t>());
+	core::array<uint32_t>& VmPolyPoints=VmPolyPointsIndex.getLast();
 
 	VmCoordsIndex.push_back(core::array<core::vector2df>());
 	core::array<core::vector2df>& VmCoords=VmCoordsIndex.getLast();
 
-	u32 vmpolys;
-	u32 vmpoints;
+	uint32_t vmpolys;
+	uint32_t vmpoints;
 	core::vector2df vmcoords;
 	while (size)
 	{
@@ -781,7 +781,7 @@ void CLWOMeshFileLoader::readDiscVertexMapping(u32 size)
 }
 
 
-void CLWOMeshFileLoader::readTagMapping(u32 size)
+void CLWOMeshFileLoader::readTagMapping(uint32_t size)
 {
 	char type[5];
 	type[4]=0;
@@ -795,8 +795,8 @@ void CLWOMeshFileLoader::readTagMapping(u32 size)
 
 	while (size!=0)
 	{
-		u16 tag;
-		u32 polyIndex;
+		uint16_t tag;
+		uint32_t polyIndex;
 		size-=readVX(polyIndex);
 		File->read(&tag, 2);
 #ifndef __BIG_ENDIAN__
@@ -809,7 +809,7 @@ void CLWOMeshFileLoader::readTagMapping(u32 size)
 }
 
 
-void CLWOMeshFileLoader::readObj2(u32 size)
+void CLWOMeshFileLoader::readObj2(uint32_t size)
 {
 	char type[5];
 	type[4]=0;
@@ -821,7 +821,7 @@ void CLWOMeshFileLoader::readObj2(u32 size)
 		File->seek(size, true);
 		return;
 	}
-	u16 numVerts=0;
+	uint16_t numVerts=0;
 	while (size!=0)
 	{
 		File->read(&numVerts, 2);
@@ -832,23 +832,23 @@ void CLWOMeshFileLoader::readObj2(u32 size)
 		numVerts &= 0x03FF;
 
 		size -= 2;
-		Indices.push_back(core::array<u32>());
-		u32 vertIndex;
-		core::array<u32>& polyArray = Indices.getLast();
+		Indices.push_back(core::array<uint32_t>());
+		uint32_t vertIndex;
+		core::array<uint32_t>& polyArray = Indices.getLast();
 		polyArray.reallocate(numVerts);
-		for (u16 i=0; i<numVerts; ++i)
+		for (uint16_t i=0; i<numVerts; ++i)
 		{
 			size -= readVX(vertIndex);
 			polyArray.push_back(vertIndex);
 		}
 	}
 	MaterialMapping.reallocate(Indices.size());
-	for (u32 j=0; j<Indices.size(); ++j)
+	for (uint32_t j=0; j<Indices.size(); ++j)
 		MaterialMapping.push_back(0);
 }
 
 
-void CLWOMeshFileLoader::readMat(u32 size)
+void CLWOMeshFileLoader::readMat(uint32_t size)
 {
 	core::stringc name;
 
@@ -857,7 +857,7 @@ void CLWOMeshFileLoader::readMat(u32 size)
 #ifdef LWO_READER_DEBUG
 	os::Printer::log("LWO loader: material name", name.c_str());
 #endif
-	for (u32 i=0; i<Materials.size(); ++i)
+	for (uint32_t i=0; i<Materials.size(); ++i)
 	{
 		if ((Materials[i]->TagType==1) && (Materials[i]->Name==name))
 		{
@@ -875,15 +875,15 @@ void CLWOMeshFileLoader::readMat(u32 size)
 
 	video::SMaterial& irrMat=mat->Meshbuffer->Material;
 
-	u8 currTexture=0;
+	uint8_t currTexture=0;
 	while (size!=0)
 	{
 		char type[5];
 		type[4]=0;
-		u32 uiType;
-		u32 tmp32;
-		u16 subsize, tmp16;
-		f32 tmpf32;
+		uint32_t uiType;
+		uint32_t tmp32;
+		uint16_t subsize, tmp16;
+		float tmpf32;
 		File->read(&type, 4);
 		//Convert 4-char string to 4-byte integer
 		//Makes it possible to do a switch statement
@@ -900,7 +900,7 @@ void CLWOMeshFileLoader::readMat(u32 size)
 				os::Printer::log("LWO loader: loading Ambient color.");
 #endif
 				{
-					s32 colSize = readColor(irrMat.DiffuseColor);
+					int32_t colSize = readColor(irrMat.DiffuseColor);
 					irrMat.AmbientColor=irrMat.DiffuseColor;
 					size -= colSize;
 					subsize -= colSize;
@@ -1683,7 +1683,7 @@ void CLWOMeshFileLoader::readMat(u32 size)
 #ifndef __BIG_ENDIAN__
 					tmp16=os::Byteswap::byteswap(tmp16);
 #endif
-					mat->Texture[currTexture].Axis=(u8)tmp16;
+					mat->Texture[currTexture].Axis=(uint8_t)tmp16;
 					size -= 2;
 #ifdef LWO_READER_DEBUG
 					os::Printer::log("LWO loader: loading axis value", core::stringc(tmp16).c_str());
@@ -1741,7 +1741,7 @@ void CLWOMeshFileLoader::readMat(u32 size)
 				{
 					if (FormatVersion==2)
 					{
-						u16 tmp16;
+						uint16_t tmp16;
 						File->read(&tmp16, 2);
 						size -= 2;
 #ifndef __BIG_ENDIAN__
@@ -1760,7 +1760,7 @@ void CLWOMeshFileLoader::readMat(u32 size)
 				break;
 			case charsToUIntD('C','S','Y','S'):
 				{
-					u16 tmp16;
+					uint16_t tmp16;
 					File->read(&tmp16, 2);
 					size -= 2;
 #ifndef __BIG_ENDIAN__
@@ -1911,7 +1911,7 @@ void CLWOMeshFileLoader::readMat(u32 size)
 				os::Printer::log("LWO loader: loading channel map.");
 #endif
 				{
-					u16 index;
+					uint16_t index;
 					File->read(&index, 2);
 #ifndef __BIG_ENDIAN__
 					index=os::Byteswap::byteswap(index);
@@ -1926,7 +1926,7 @@ void CLWOMeshFileLoader::readMat(u32 size)
 				os::Printer::log("LWO loader: loading channel projection type.");
 #endif
 				{
-					u16 index;
+					uint16_t index;
 					File->read(&index, 2);
 #ifndef __BIG_ENDIAN__
 					index=os::Byteswap::byteswap(index);
@@ -1936,7 +1936,7 @@ void CLWOMeshFileLoader::readMat(u32 size)
 					if (index != 5)
 						os::Printer::log("LWO loader: wrong channel projection type", core::stringc(index).c_str());
 #endif
-					mat->Texture[currTexture].Projection=(u8)index;
+					mat->Texture[currTexture].Projection=(uint8_t)index;
 				}
 				break;
 			case charsToUIntD('W','R','P','W'): // for cylindrical and spherical projections
@@ -1959,11 +1959,11 @@ void CLWOMeshFileLoader::readMat(u32 size)
 }
 
 
-u32 CLWOMeshFileLoader::readColor(video::SColor& color)
+uint32_t CLWOMeshFileLoader::readColor(video::SColor& color)
 {
 	if (FormatVersion!=2)
 	{
-		u8 colorComponent;
+		uint8_t colorComponent;
 		File->read(&colorComponent, 1);
 		color.setRed(colorComponent);
 		File->read(&colorComponent, 1);
@@ -1994,9 +1994,9 @@ u32 CLWOMeshFileLoader::readColor(video::SColor& color)
 	}
 }
 
-u32 CLWOMeshFileLoader::readString(core::stringc& name, u32 size)
+uint32_t CLWOMeshFileLoader::readString(core::stringc& name, uint32_t size)
 {
-	c8 c;
+	int8_t c;
 
 	name="";
 	if (size)
@@ -2017,7 +2017,7 @@ u32 CLWOMeshFileLoader::readString(core::stringc& name, u32 size)
 }
 
 
-u32 CLWOMeshFileLoader::readVec(core::vector3df& vec)
+uint32_t CLWOMeshFileLoader::readVec(core::vector3df& vec)
 {
 	File->read(&vec.X, 4);
 #ifndef __BIG_ENDIAN__
@@ -2035,9 +2035,9 @@ u32 CLWOMeshFileLoader::readVec(core::vector3df& vec)
 }
 
 
-u32 CLWOMeshFileLoader::readVX(u32& num)
+uint32_t CLWOMeshFileLoader::readVX(uint32_t& num)
 {
-	u16 tmpIndex;
+	uint16_t tmpIndex;
 
 	File->read(&tmpIndex, 2);
 #ifndef __BIG_ENDIAN__
@@ -2059,7 +2059,7 @@ u32 CLWOMeshFileLoader::readVX(u32& num)
 
 bool CLWOMeshFileLoader::readFileHeader()
 {
-	u32 Id;
+	uint32_t Id;
 
 	File->read(&Id, 4);
 #ifndef __BIG_ENDIAN__

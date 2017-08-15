@@ -38,11 +38,11 @@ namespace video
 
 #ifdef __BIG_ENDIAN__
 
-	s32   DDSBigLong( s32 src ) { return src; }
-	s16 DDSBigShort( s16 src ) { return src; }
-	f32 DDSBigFloat( f32 src ) { return src; }
+	int32_t   DDSBigLong( int32_t src ) { return src; }
+	int16_t DDSBigShort( int16_t src ) { return src; }
+	float DDSBigFloat( float src ) { return src; }
 
-	s32 DDSLittleLong( s32 src )
+	int32_t DDSLittleLong( int32_t src )
 	{
 		return ((src & 0xFF000000) >> 24) |
 			((src & 0x00FF0000) >> 8) |
@@ -50,13 +50,13 @@ namespace video
 			((src & 0x000000FF) << 24);
 	}
 
-	s16 DDSLittleShort( s16 src )
+	int16_t DDSLittleShort( int16_t src )
 	{
 		return ((src & 0xFF00) >> 8) |
 			((src & 0x00FF) << 8);
 	}
 
-	f32 DDSLittleFloat( f32 src )
+	float DDSLittleFloat( float src )
 	{
 		floatSwapUnion in,out;
 		in.f = src;
@@ -69,11 +69,11 @@ namespace video
 
 #else /*__BIG_ENDIAN__*/
 
-	s32   DDSLittleLong( s32 src ) { return src; }
-	s16 DDSLittleShort( s16 src ) { return src; }
-	f32 DDSLittleFloat( f32 src ) { return src; }
+	int32_t   DDSLittleLong( int32_t src ) { return src; }
+	int16_t DDSLittleShort( int16_t src ) { return src; }
+	float DDSLittleFloat( float src ) { return src; }
 
-	s32 DDSBigLong( s32 src )
+	int32_t DDSBigLong( int32_t src )
 	{
 		return ((src & 0xFF000000) >> 24) |
 			((src & 0x00FF0000) >> 8) |
@@ -81,13 +81,13 @@ namespace video
 			((src & 0x000000FF) << 24);
 	}
 
-	s16 DDSBigShort( s16 src )
+	int16_t DDSBigShort( int16_t src )
 	{
 		return ((src & 0xFF00) >> 8) |
 			((src & 0x00FF) << 8);
 	}
 
-	f32 DDSBigFloat( f32 src )
+	float DDSBigFloat( float src )
 	{
 		floatSwapUnion in,out;
 		in.f = src;
@@ -114,7 +114,7 @@ void DDSDecodePixelFormat( ddsBuffer *dds, eDDSPixelFormat *pf )
 		return;
 
 	/* extract fourCC */
-	const u32 fourCC = dds->pixelFormat.fourCC;
+	const uint32_t fourCC = dds->pixelFormat.fourCC;
 
 	/* test it */
 	if( fourCC == 0 )
@@ -122,7 +122,7 @@ void DDSDecodePixelFormat( ddsBuffer *dds, eDDSPixelFormat *pf )
 	    bool hasAlpha = false;
 	    bool hasRGB = false;
 	    bool hasLuma = false;
-	    u32 bitDepth = dds->pixelFormat.privateFormatBitCount;
+	    uint32_t bitDepth = dds->pixelFormat.privateFormatBitCount;
 
 	    if (dds->pixelFormat.flags&0x3)
 	    {
@@ -156,7 +156,7 @@ void DDSDecodePixelFormat( ddsBuffer *dds, eDDSPixelFormat *pf )
         else
             *pf = DDS_PF_UNKNOWN;
 	}
-	else if( fourCC == *((u32*) "DXT1") )
+	else if( fourCC == *((uint32_t*) "DXT1") )
 	{ // sodan was here
 //	    if (dds->pixelFormat.privateFormatBitCount==24)
             *pf = DDS_PF_DXT1;
@@ -165,13 +165,13 @@ void DDSDecodePixelFormat( ddsBuffer *dds, eDDSPixelFormat *pf )
         else
             printf("IRRLICHT BUUUUUUUUGGGGG!!!!!!!!!!\n SHOOT SOMEONE!\n");*/
 	}
-	else if( fourCC == *((u32*) "DXT2") )
+	else if( fourCC == *((uint32_t*) "DXT2") )
 		*pf = DDS_PF_DXT2;
-	else if( fourCC == *((u32*) "DXT3") )
+	else if( fourCC == *((uint32_t*) "DXT3") )
 		*pf = DDS_PF_DXT3;
-	else if( fourCC == *((u32*) "DXT4") )
+	else if( fourCC == *((uint32_t*) "DXT4") )
 		*pf = DDS_PF_DXT4;
-	else if( fourCC == *((u32*) "DXT5") )
+	else if( fourCC == *((uint32_t*) "DXT5") )
 		*pf = DDS_PF_DXT5;
 	else
 		*pf = DDS_PF_UNKNOWN;
@@ -182,14 +182,14 @@ void DDSDecodePixelFormat( ddsBuffer *dds, eDDSPixelFormat *pf )
 DDSGetInfo()
 extracts relevant info from a dds texture, returns 0 on success
 */
-s32 DDSGetInfo( ddsBuffer *dds, s32 *width, s32 *height, eDDSPixelFormat *pf )
+int32_t DDSGetInfo( ddsBuffer *dds, int32_t *width, int32_t *height, eDDSPixelFormat *pf )
 {
 	/* dummy test */
 	if( dds == NULL )
 		return -1;
 
 	/* test dds header */
-	if( *((s32*) dds->magic) != *((s32*) "DDS ") )
+	if( *((int32_t*) dds->magic) != *((int32_t*) "DDS ") )
 		return -1;
 	if( DDSLittleLong( dds->size ) != 124 )
 		return -1;
@@ -228,7 +228,7 @@ bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* file) const
 	ddsBuffer header;
 	file->read(&header, sizeof(header));
 
-	s32 width, height;
+	int32_t width, height;
 	eDDSPixelFormat pixelFormat;
 
 	return (0 == DDSGetInfo( &header, &width, &height, &pixelFormat));
@@ -236,13 +236,13 @@ bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* file) const
 
 
 //! proper load, returns allocated image data (mip maps inclusif)
-u8* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelFormat, s32 *width, s32 *height, s32 *mipmapCnt) const
+uint8_t* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelFormat, int32_t *width, int32_t *height, int32_t *mipmapCnt) const
 {
-	u8 *memFile = new u8 [ file->getSize() ];
+	uint8_t *memFile = new uint8_t [ file->getSize() ];
 	file->read ( memFile, file->getSize() );
 
 	ddsBuffer *header = (ddsBuffer*) memFile;
-	u8* data = 0;
+	uint8_t* data = 0;
 
 	if ( 0 == DDSGetInfo( header, width, height, pixelFormat) )
 	{
@@ -253,10 +253,10 @@ u8* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelF
 	    else
             *mipmapCnt = 1;
 
-        u32 tmpWidth = *width;
-        u32 tmpHeight = *height;
+        uint32_t tmpWidth = *width;
+        uint32_t tmpHeight = *height;
 
-        s32 r = 1;
+        int32_t r = 1;
         /* decompress */
         switch( *pixelFormat )
         {
@@ -264,7 +264,7 @@ u8* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelF
         case DDS_PF_ABGR8888:
             /* fixme: support other [a]rgb formats */
             tmpWidth = header->pitch;
-            for (s32 i=0; i<*mipmapCnt; i++)
+            for (int32_t i=0; i<*mipmapCnt; i++)
             {
                 dataSize += tmpWidth*tmpHeight;
                 tmpWidth /= 2;
@@ -274,14 +274,14 @@ u8* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelF
         case DDS_PF_RGB888:
             /* fixme: support other [a]rgb formats */
             tmpWidth = header->pitch;
-            for (s32 i=0; i<*mipmapCnt; i++)
+            for (int32_t i=0; i<*mipmapCnt; i++)
             {
                 size_t bytes = tmpWidth*tmpHeight;
-                for (u32 j=0; j<bytes; j+=3)
+                for (uint32_t j=0; j<bytes; j+=3)
                 {
-                    u8 byte1 = header->data[dataSize+j];
-                    u8 byte2 = header->data[dataSize+j+1];
-                    u8 byte3 = header->data[dataSize+j+2];
+                    uint8_t byte1 = header->data[dataSize+j];
+                    uint8_t byte2 = header->data[dataSize+j+1];
+                    uint8_t byte3 = header->data[dataSize+j+2];
 
                     header->data[dataSize+j] = byte3;
                     header->data[dataSize+j+1] = byte2;
@@ -299,7 +299,7 @@ u8* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelF
         case DDS_PF_A8:
             /* fixme: support other [a]rgb formats */
             tmpWidth = header->pitch;
-            for (s32 i=0; i<*mipmapCnt; i++)
+            for (int32_t i=0; i<*mipmapCnt; i++)
             {
                 dataSize += tmpWidth*tmpHeight;
                 tmpWidth /= 2;
@@ -308,9 +308,9 @@ u8* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelF
             break;
 
         case DDS_PF_DXT1:
-            for (s32 i=0; i<*mipmapCnt; i++)
+            for (int32_t i=0; i<*mipmapCnt; i++)
             {
-                dataSize += core::max_(u32(1), u32((tmpWidth)+3) / 4) * core::max_(u32(1), u32(tmpHeight+3) / 4)*8;
+                dataSize += core::max_(uint32_t(1), uint32_t((tmpWidth)+3) / 4) * core::max_(uint32_t(1), uint32_t(tmpHeight+3) / 4)*8;
                 tmpWidth /= 2;
                 tmpHeight /= 2;
             }
@@ -320,9 +320,9 @@ u8* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelF
         case DDS_PF_DXT3:
         case DDS_PF_DXT4:
         case DDS_PF_DXT5:
-            for (s32 i=0; i<*mipmapCnt; i++)
+            for (int32_t i=0; i<*mipmapCnt; i++)
             {
-                dataSize += core::max_(u32(1), u32((tmpWidth)+3) / 4) * core::max_(u32(1), u32(tmpHeight+3) / 4)*16;
+                dataSize += core::max_(uint32_t(1), uint32_t((tmpWidth)+3) / 4) * core::max_(uint32_t(1), uint32_t(tmpHeight+3) / 4)*16;
                 tmpWidth /= 2;
                 tmpHeight /= 2;
             }
@@ -337,7 +337,7 @@ u8* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelF
 
 		if ( r != -1 && dataSize>0)
 		{
-            data = new u8[dataSize];
+            data = new uint8_t[dataSize];
 		    memcpy(data,header->data,dataSize);
 		}
 	}
@@ -358,19 +358,19 @@ u8* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelF
 //! creates a surface from the file
 IImage* CImageLoaderDDS::loadImage(io::IReadFile* file) const
 {
-	u8 *memFile = new u8 [ file->getSize() ];
+	uint8_t *memFile = new uint8_t [ file->getSize() ];
 	file->read ( memFile, file->getSize() );
 
 	ddsBuffer *header = (ddsBuffer*) memFile;
 	IImage* image = 0;
-	s32 width, height;
+	int32_t width, height;
 	eDDSPixelFormat pixelFormat;
 
 	if ( 0 == DDSGetInfo( header, &width, &height, &pixelFormat) )
 	{/*
-		image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(width, height));
+		image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(width, height));
 
-		if ( DDSDecompress( header, (u8*) image->lock() ) == -1)
+		if ( DDSDecompress( header, (uint8_t*) image->lock() ) == -1)
 		{
 			image->unlock();
 			image->drop();

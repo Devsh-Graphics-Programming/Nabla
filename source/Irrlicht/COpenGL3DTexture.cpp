@@ -14,13 +14,13 @@ namespace irr
 namespace video
 {
 
-COpenGL3DTexture::COpenGL3DTexture(core::vector3d<u32> size, GLenum format, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, const void* data, void* mipmapData, COpenGLDriver* driver, u32 mipLevels) : COpenGLTexture(name, driver)
+COpenGL3DTexture::COpenGL3DTexture(core::vector3d<uint32_t> size, GLenum format, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, const void* data, void* mipmapData, COpenGLDriver* driver, uint32_t mipLevels) : COpenGLTexture(name, driver)
 {
     TextureSize[0] = size.X;
     TextureSize[1] = size.Y;
     TextureSize[2] = size.Z;
 
-    u32 defaultMipMapCount = 1u+u32(floorf(log2(float(core::min_(core::max_(core::max_(size.X,size.Y),size.Z),Driver->getMaxTextureSize(ETT_3D)[0])))));
+    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(core::max_(size.X,size.Y),size.Z),Driver->getMaxTextureSize(ETT_3D)[0])))));
     if (mipLevels==0)
     {
         HasMipMaps = Driver->getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
@@ -64,9 +64,9 @@ COpenGL3DTexture::COpenGL3DTexture(core::vector3d<u32> size, GLenum format, GLen
     if (mipmapData)
     {
         uint8_t* tmpMipmapDataPTr = (uint8_t*)mipmapData;
-        for (u32 i=1; i<MipLevelsStored; i++)
+        for (uint32_t i=1; i<MipLevelsStored; i++)
         {
-            core::vector3d<u32> tmpSize = size/(0x1u<<i);
+            core::vector3d<uint32_t> tmpSize = size/(0x1u<<i);
             tmpSize.X = core::max_(tmpSize.X,0x1u);
             tmpSize.Y = core::max_(tmpSize.Y,0x1u);
             tmpSize.Z = core::max_(tmpSize.Z,0x1u);
@@ -95,7 +95,7 @@ COpenGL3DTexture::COpenGL3DTexture(core::vector3d<u32> size, GLenum format, GLen
 /*
 	ReadOnlyLock(false)
 */
-bool COpenGL3DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap)
+bool COpenGL3DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap)
 {
     bool compressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
     if (compressed&&(minimum[0]||minimum[1]||minimum[2]))
@@ -123,7 +123,7 @@ bool COpenGL3DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, c
     return true;
 }
 
-bool COpenGL3DTexture::resize(const uint32_t* size, u32 mipLevels)
+bool COpenGL3DTexture::resize(const uint32_t* size, uint32_t mipLevels)
 {
     if (TextureSize[0]==size[0]&&TextureSize[1]==size[1]&&TextureSize[2]==size[2])
         return true;
@@ -135,7 +135,7 @@ bool COpenGL3DTexture::resize(const uint32_t* size, u32 mipLevels)
     COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_3D,1,&TextureName);
 	TextureNameHasChanged = CNullDriver::incrementAndFetchReallocCounter();
 
-    u32 defaultMipMapCount = 1u+u32(floorf(log2(float(core::min_(core::max_(core::max_(size[0],size[1]),size[2]),Driver->getMaxTextureSize(ETT_3D)[0])))));
+    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(core::max_(size[0],size[1]),size[2]),Driver->getMaxTextureSize(ETT_3D)[0])))));
     if (HasMipMaps)
     {
         if (mipLevels==0)
@@ -152,7 +152,7 @@ bool COpenGL3DTexture::resize(const uint32_t* size, u32 mipLevels)
     return true;
 }
 
-u32 COpenGL3DTexture::getPitch() const
+uint32_t COpenGL3DTexture::getPitch() const
 {
     return TextureSize[0]*COpenGLTexture::getOpenGLFormatBpp(InternalFormat)/8;
 }
@@ -188,13 +188,13 @@ GLenum COpenGL3DTexture::getOpenGLTextureType() const
 
 
 
-COpenGL2DTextureArray::COpenGL2DTextureArray(core::vector3d<u32> size, ECOLOR_FORMAT format, const io::path& name, void* mipmapData, COpenGLDriver* driver, u32 mipmapLevels) : COpenGLTexture(name, driver)
+COpenGL2DTextureArray::COpenGL2DTextureArray(core::vector3d<uint32_t> size, ECOLOR_FORMAT format, const io::path& name, void* mipmapData, COpenGLDriver* driver, uint32_t mipmapLevels) : COpenGLTexture(name, driver)
 {
     TextureSize[0] = size.X;
     TextureSize[1] = size.Y;
     TextureSize[2] = size.Z;
 
-    u32 defaultMipMapCount = 1u+u32(floorf(log2(float(core::min_(core::max_(size.X,size.Y),Driver->getMaxTextureSize(ETT_2D_ARRAY)[0])))));
+    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(size.X,size.Y),Driver->getMaxTextureSize(ETT_2D_ARRAY)[0])))));
     if (mipmapLevels==0)
     {
         HasMipMaps = Driver->getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
@@ -238,9 +238,9 @@ COpenGL2DTextureArray::COpenGL2DTextureArray(core::vector3d<u32> size, ECOLOR_FO
         if (mipmapLevels==0)
         {
             uint8_t* tmpMipmapDataPTr = ((uint8_t*)mipmapData)+levelByteSize;
-            for (u32 i=1; i<MipLevelsStored; i++)
+            for (uint32_t i=1; i<MipLevelsStored; i++)
             {
-                core::vector3d<u32> tmpSize = size;
+                core::vector3d<uint32_t> tmpSize = size;
                 tmpSize.X = core::max_(tmpSize.X/(0x1u<<i),0x1u);
                 tmpSize.Y = core::max_(tmpSize.Y/(0x1u<<i),0x1u);
                 levelByteSize = tmpSize.Z;
@@ -269,7 +269,7 @@ COpenGL2DTextureArray::COpenGL2DTextureArray(core::vector3d<u32> size, ECOLOR_FO
 	ReadOnlyLock(false)
 */
 
-bool COpenGL2DTextureArray::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap)
+bool COpenGL2DTextureArray::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap)
 {
     bool compressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
     if (compressed&&(minimum[0]||minimum[1]))
@@ -297,7 +297,7 @@ bool COpenGL2DTextureArray::updateSubRegion(const ECOLOR_FORMAT &inDataColorForm
     return true;
 }
 
-bool COpenGL2DTextureArray::resize(const uint32_t* size, u32 mipLevels)
+bool COpenGL2DTextureArray::resize(const uint32_t* size, uint32_t mipLevels)
 {
     if (TextureSize[0]==size[0]&&TextureSize[1]==size[1]&&TextureSize[2]==size[2])
         return true;
@@ -307,7 +307,7 @@ bool COpenGL2DTextureArray::resize(const uint32_t* size, u32 mipLevels)
     COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_2D_ARRAY,1,&TextureName);
 	TextureNameHasChanged = CNullDriver::incrementAndFetchReallocCounter();
 
-    u32 defaultMipMapCount = 1u+u32(floorf(log2(float(core::min_(core::max_(size[0],size[1]),Driver->getMaxTextureSize(ETT_2D_ARRAY)[0])))));
+    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(size[0],size[1]),Driver->getMaxTextureSize(ETT_2D_ARRAY)[0])))));
     if (HasMipMaps)
     {
         if (mipLevels==0)
@@ -325,7 +325,7 @@ bool COpenGL2DTextureArray::resize(const uint32_t* size, u32 mipLevels)
     return true;
 }
 
-u32 COpenGL2DTextureArray::getPitch() const
+uint32_t COpenGL2DTextureArray::getPitch() const
 {
     return TextureSize[0]*COpenGLTexture::getOpenGLFormatBpp(InternalFormat)/8;
 }

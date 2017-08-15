@@ -57,11 +57,16 @@ FW_ConditionVariable::FW_ConditionVariable(FW_Mutex *mutex)
 #ifdef _DEBUG
     mutexAttachedTo = mutex;
 #endif // _DEBUG
+    bool fail = false;
 
 #if _MSC_VER && !__INTEL_COMPILER
     InitializeConditionVariable(&conditionVar);
 #else
-    if (pthread_cond_init(&conditionVar,NULL))
+    fail = pthread_cond_init(&conditionVar,NULL);
+#endif // _MSC_VER
+
+#ifdef _DEBUG
+    if (fail)
         os::Printer::log("FW_ConditionVariable constructor failed!\n",ELL_ERROR);
 #endif
 }
@@ -73,10 +78,15 @@ FW_ConditionVariable::~FW_ConditionVariable()
 {
 #if _MSC_VER && !__INTEL_COMPILER
     //no need to delete cond var on windows
+    bool fail = false;
 #else
-    if (pthread_cond_destroy(&conditionVar))
+    bool fail = pthread_cond_destroy(&conditionVar);
+#endif // _MSC_VER
+
+#ifdef _DEBUG
+    if (fail)
         os::Printer::log("FW_ConditionVariable destructor failed!\n",ELL_ERROR);
-#endif
+#endif // _DEBUG
 }
 
 //
@@ -93,11 +103,15 @@ void FW_ConditionVariable::WaitForCondition(FW_Mutex *mutex)
 #endif // _DEBUG
 
 #if _MSC_VER && !__INTEL_COMPILER
-    if (!SleepConditionVariableCS(&conditionVar,&mutex->hMutex,INFINITE))
+    bool fail = !SleepConditionVariableCS(&conditionVar,&mutex->hMutex,INFINITE);
 #else
-    if (pthread_cond_wait(&conditionVar,&mutex->hMutex))
-#endif
+    bool fail = pthread_cond_wait(&conditionVar,&mutex->hMutex);
+#endif // _MSC_VER
+
+#ifdef _DEBUG
+    if (fail)
         os::Printer::log("WaitForCondition system call returned error for unknown reason!\n",ELL_ERROR);
+#endif // _DEBUG
 }
 
 
@@ -116,24 +130,8 @@ bool FW_ConditionVariable::TimedWaitForCondition(FW_Mutex *mutex, uint32_t milli
     }
 #endif // _DEBUG
 
-#ifndef LINUX
-    if (!SleepConditionVariableCS(&conditionVar,&mutex->hMutex,INFINITE))
-    {
-        if (GetLastError()!=ERROR_TIMEOUT)
-            os::Printer::log("TimedWaitForCondition system call returned error for unknown reason!\n");
-        return false;
-    }
-#else
-    #error "Havent figured out how to sleep for a relative time yet"
 
-    int waitResult = pthread_cond_timedwait(&conditionVar,&mutex->hMutex,timespec);
-    if (waitResult)
-    {
-        if (waitResult!=ETIMEDOUT)
-            os::Printer::log("TimedWaitForCondition system call returned error for unknown reason!\n");
-        return false;
-    }
-#endif
+STUFF
 
     return true;
 }
@@ -145,10 +143,15 @@ bool FW_ConditionVariable::TimedWaitForCondition(FW_Mutex *mutex, uint32_t milli
 //
 void FW_ConditionVariable::SignalConditionOnce()
 {
+    bool fail = false;
 #if _MSC_VER && !__INTEL_COMPILER
     WakeConditionVariable(&conditionVar);
 #else
-    if (pthread_cond_signal(&conditionVar))
+    fail = pthread_cond_signal(&conditionVar);
+#endif // _MSC_VER
+
+#ifdef _DEBUG
+    if (fail)
         os::Printer::log("SignalConditionOnce system call returned error for unknown reason!\n",ELL_ERROR);
 #endif
 }
@@ -158,10 +161,15 @@ void FW_ConditionVariable::SignalConditionOnce()
 //
 void FW_ConditionVariable::SignalConditionToAll()
 {
+    bool fail = false;
 #if _MSC_VER && !__INTEL_COMPILER
     WakeAllConditionVariable(&conditionVar);
 #else
-    if (pthread_cond_broadcast(&conditionVar))
+    fail = pthread_cond_broadcast(&conditionVar);
+#endif // _MSC_VER
+
+#ifdef _DEBUG
+    if (fail)
         os::Printer::log("SignalConditionToAll system call returned error for unknown reason!\n",ELL_ERROR);
 #endif
 }

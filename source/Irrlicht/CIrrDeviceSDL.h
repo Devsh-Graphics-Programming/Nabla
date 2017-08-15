@@ -39,10 +39,10 @@ namespace irr
 		virtual void yield();
 
 		//! pause execution for a specified time
-		virtual void sleep(u32 timeMs, bool pauseTimer);
+		virtual void sleep(uint32_t timeMs, bool pauseTimer);
 
 		//! sets the caption of the window
-		virtual void setWindowCaption(const wchar_t* text);
+		virtual void setWindowCaption(const std::wstring& text);
 
 		//! returns if window is active. if not, nothing need to be drawn
 		virtual bool isWindowActive() const;
@@ -57,7 +57,7 @@ namespace irr
 		video::ECOLOR_FORMAT getColorFormat() const;
 
 		//! presents a surface in the client area
-		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<s32>* src=0);
+		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0);
 
 		//! notifies the device that it should close itself
 		virtual void closeDevice();
@@ -113,45 +113,45 @@ namespace irr
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<f32> &pos)
+			virtual void setPosition(const core::position2d<float> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(f32 x, f32 y)
+			virtual void setPosition(float x, float y)
 			{
-				setPosition((s32)(x*Device->Width), (s32)(y*Device->Height));
+				setPosition((int32_t)(x*Device->Width), (int32_t)(y*Device->Height));
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<s32> &pos)
+			virtual void setPosition(const core::position2d<int32_t> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(s32 x, s32 y)
+			virtual void setPosition(int32_t x, int32_t y)
 			{
 				SDL_WarpMouse( x, y );
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual const core::position2d<s32>& getPosition()
+			virtual const core::position2d<int32_t>& getPosition()
 			{
 				updateCursorPos();
 				return CursorPos;
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual core::position2d<f32> getRelativePosition()
+			virtual core::position2d<float> getRelativePosition()
 			{
 				updateCursorPos();
-				return core::position2d<f32>(CursorPos.X / (f32)Device->Width,
-					CursorPos.Y / (f32)Device->Height);
+				return core::position2d<float>(CursorPos.X / (float)Device->Width,
+					CursorPos.Y / (float)Device->Height);
 			}
 
-			virtual void setReferenceRect(core::rect<s32>* rect=0)
+			virtual void setReferenceRect(core::rect<int32_t>* rect=0)
 			{
 			}
 
@@ -164,16 +164,16 @@ namespace irr
 
 				if (CursorPos.X < 0)
 					CursorPos.X = 0;
-				if (CursorPos.X > (s32)Device->Width)
+				if (CursorPos.X > (int32_t)Device->Width)
 					CursorPos.X = Device->Width;
 				if (CursorPos.Y < 0)
 					CursorPos.Y = 0;
-				if (CursorPos.Y > (s32)Device->Height)
+				if (CursorPos.Y > (int32_t)Device->Height)
 					CursorPos.Y = Device->Height;
 			}
 
 			CIrrDeviceSDL* Device;
-			core::position2d<s32> CursorPos;
+			core::position2d<int32_t> CursorPos;
 			bool IsVisible;
 		};
 
@@ -192,10 +192,10 @@ namespace irr
 		core::array<SDL_Joystick*> Joysticks;
 #endif
 
-		s32 MouseX, MouseY;
-		u32 MouseButtonStates;
+		int32_t MouseX, MouseY;
+		uint32_t MouseButtonStates;
 
-		u32 Width, Height;
+		uint32_t Width, Height;
 
 		bool Resizable;
 		bool WindowHasFocus;
@@ -204,13 +204,13 @@ namespace irr
 		struct SKeyMap
 		{
 			SKeyMap() {}
-			SKeyMap(s32 x11, s32 win32)
+			SKeyMap(int32_t x11, int32_t win32)
 				: SDLKey(x11), Win32Key(win32)
 			{
 			}
 
-			s32 SDLKey;
-			s32 Win32Key;
+			int32_t SDLKey;
+			int32_t Win32Key;
 
 			bool operator<(const SKeyMap& o) const
 			{

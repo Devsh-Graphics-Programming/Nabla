@@ -26,9 +26,9 @@ class COpenGLTexture : public ITexture
 public:
 
 	//! constructor
-	COpenGLTexture(IImage* surface, const io::path& name, void* mipmapData=0, COpenGLDriver* driver=0, u32 mipmapLevels=0);
+	COpenGLTexture(IImage* surface, const io::path& name, void* mipmapData=0, COpenGLDriver* driver=0, uint32_t mipmapLevels=0);
 
-	COpenGLTexture(GLenum internalFormat, core::dimension2du size, const void* data, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, void* mipmapData=0, COpenGLDriver* driver=0, u32 mipmapLevels=0);
+	COpenGLTexture(GLenum internalFormat, core::dimension2du size, const void* data, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, void* mipmapData=0, COpenGLDriver* driver=0, uint32_t mipmapLevels=0);
 
 	//! destructor
 	virtual ~COpenGLTexture();
@@ -49,7 +49,7 @@ public:
 	virtual ECOLOR_FORMAT getColorFormat() const;
 
 	//! returns pitch of texture (in bytes)
-	virtual u32 getPitch() const;
+	virtual uint32_t getPitch() const;
 
 	//! return open gl texture name
 	const GLuint& getOpenGLName() const {return TextureName;}
@@ -71,8 +71,8 @@ public:
 	virtual void regenerateMipMapLevels();
 
 
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0);
-    virtual bool resize(const uint32_t* size, const u32& mipLevels=0);
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0);
+    virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0);
 
 
 	const uint64_t& hasOpenGLNameChanged() const {return TextureNameHasChanged;}
@@ -115,7 +115,7 @@ protected:
 	///GLenum PixelFormat;
 	///GLenum PixelType;
 
-	u32 MipLevelsStored;
+	uint32_t MipLevelsStored;
 	bool HasMipMaps;
 };
 

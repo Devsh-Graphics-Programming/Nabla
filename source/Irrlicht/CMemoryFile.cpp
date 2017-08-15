@@ -23,21 +23,21 @@ CMemoryFile::CMemoryFile(void* memory, long len, const io::path& fileName, bool 
 CMemoryFile::~CMemoryFile()
 {
 	if (deleteMemoryWhenDropped)
-		delete [] (c8*)Buffer;
+		delete [] (int8_t*)Buffer;
 }
 
 
 //! returns how much was read
-s32 CMemoryFile::read(void* buffer, u32 sizeToRead)
+int32_t CMemoryFile::read(void* buffer, uint32_t sizeToRead)
 {
-	s32 amount = static_cast<s32>(sizeToRead);
+	int32_t amount = static_cast<int32_t>(sizeToRead);
 	if (Pos + amount > Len)
 		amount -= Pos + amount - Len;
 
 	if (amount <= 0)
 		return 0;
 
-	c8* p = (c8*)Buffer;
+	int8_t* p = (int8_t*)Buffer;
 	memcpy(buffer, p + Pos, amount);
 
 	Pos += amount;
@@ -46,16 +46,16 @@ s32 CMemoryFile::read(void* buffer, u32 sizeToRead)
 }
 
 //! returns how much was written
-s32 CMemoryFile::write(const void* buffer, u32 sizeToWrite)
+int32_t CMemoryFile::write(const void* buffer, uint32_t sizeToWrite)
 {
-	s32 amount = static_cast<s32>(sizeToWrite);
+	int32_t amount = static_cast<int32_t>(sizeToWrite);
 	if (Pos + amount > Len)
 		amount -= Pos + amount - Len;
 
 	if (amount <= 0)
 		return 0;
 
-	c8* p = (c8*)Buffer;
+	int8_t* p = (int8_t*)Buffer;
 	memcpy(p + Pos, buffer, amount);
 
 	Pos += amount;

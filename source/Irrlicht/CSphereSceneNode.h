@@ -18,7 +18,7 @@ namespace scene
 	public:
 
 		//! constructor
-		CSphereSceneNode(f32 size, u32 polyCountX, u32 polyCountY, IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
+		CSphereSceneNode(float size, uint32_t polyCountX, uint32_t polyCountY, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
@@ -32,17 +32,17 @@ namespace scene
 		virtual void render();
 
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox();
+		virtual const core::aabbox3d<float>& getBoundingBox();
 
 		//! returns the material based on the zero based index i. To get the amount
 		//! of materials used by this scene node, use getMaterialCount().
 		//! This function is needed for inserting the node into the scene hirachy on a
 		//! optimal position for minimizing renderstate changes, but can also be used
 		//! to directly modify the material of a scene node.
-		virtual video::SMaterial& getMaterial(u32 i);
+		virtual video::SMaterial& getMaterial(uint32_t i);
 
 		//! returns amount of materials used by this scene node.
-		virtual u32 getMaterialCount() const;
+		virtual uint32_t getMaterialCount() const;
 
 		//! Returns type of the scene node
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SPHERE; }
@@ -67,10 +67,10 @@ namespace scene
 	private:
 
 		IGPUMesh* Mesh;
-		core::aabbox3d<f32> Box;
-		f32 Radius;
-		u32 PolyCountX;
-		u32 PolyCountY;
+		core::aabbox3d<float> Box;
+		float Radius;
+		uint32_t PolyCountX;
+		uint32_t PolyCountY;
 	};
 
 } // end namespace scene

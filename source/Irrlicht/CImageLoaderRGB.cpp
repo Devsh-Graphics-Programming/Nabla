@@ -170,7 +170,7 @@ bool CImageLoaderRGB::isALoadableFileFormat(io::IReadFile* file) const
 IImage* CImageLoaderRGB::loadImage(io::IReadFile* file) const
 {
 	IImage* image = 0;
-	s32* paletteData = 0;
+	int32_t* paletteData = 0;
 
 	rgbStruct rgb;   // construct our structure for holding data
 
@@ -180,19 +180,19 @@ IImage* CImageLoaderRGB::loadImage(io::IReadFile* file) const
 		// 16 bits per COLOR VALUE, not supported, this is 48bpp mode
 		if (rgb.Header.BPC != 1)
 		{
-			os::Printer::log("Only one byte per pixel RGB files are supported", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Only one byte per pixel RGB files are supported", file->getFileName().c_str(), ELL_ERROR);
 		}
 		else if (rgb.Header.Colormap != 0)
 		{
-			os::Printer::log("Dithered, Screen and Colormap RGB files are not supported", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Dithered, Screen and Colormap RGB files are not supported", file->getFileName().c_str(), ELL_ERROR);
 		}
 		else if (rgb.Header.Storage == 1 && !readOffsetTables(file, rgb))
 		{
-			os::Printer::log("Failed to read RLE table in RGB file", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Failed to read RLE table in RGB file", file->getFileName().c_str(), ELL_ERROR);
 		}
 		else if (!rgb.allocateTemps())
 		{
-			os::Printer::log("Out of memory in RGB file loader", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Out of memory in RGB file loader", file->getFileName().c_str(), ELL_ERROR);
 		}
 		else
 		{
@@ -230,35 +230,35 @@ IImage* CImageLoaderRGB::loadImage(io::IReadFile* file) const
 			{
 			case 1:
 				// BW (grayscale) image
-				paletteData = new s32[256];
+				paletteData = new int32_t[256];
 				for (int n=0; n<256; n++)
 					paletteData[n] = n;
 
-				image = new CImage(ECF_A1R5G5B5, core::dimension2d<u32>(rgb.Header.Xsize, rgb.Header.Ysize));
+				image = new CImage(ECF_A1R5G5B5, core::dimension2d<uint32_t>(rgb.Header.Xsize, rgb.Header.Ysize));
 				if (image)
-					CColorConverter::convert8BitTo16Bit(rgb.rgbData, (s16*)image->lock(), rgb.Header.Xsize, rgb.Header.Ysize, paletteData, 0, true);
+					CColorConverter::convert8BitTo16Bit(rgb.rgbData, (int16_t*)image->lock(), rgb.Header.Xsize, rgb.Header.Ysize, paletteData, 0, true);
 				break;
 			case 3:
 				// RGB image
 				// one byte per COLOR VALUE, eg, 24bpp
-				image = new CImage(ECF_R8G8B8, core::dimension2d<u32>(rgb.Header.Xsize, rgb.Header.Ysize));
+				image = new CImage(ECF_R8G8B8, core::dimension2d<uint32_t>(rgb.Header.Xsize, rgb.Header.Ysize));
 				if (image)
-					CColorConverter::convert24BitTo24Bit(rgb.rgbData, (u8*)image->lock(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true, false);
+					CColorConverter::convert24BitTo24Bit(rgb.rgbData, (uint8_t*)image->lock(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true, false);
 				break;
 			case 4:
 				// RGBa image with one alpha channel (32bpp)
 				// image is stored in rgbData as RGBA
 
-				converttoARGB(reinterpret_cast<u32*>(rgb.rgbData), 	rgb.Header.Ysize * rgb.Header.Xsize);
+				converttoARGB(reinterpret_cast<uint32_t*>(rgb.rgbData), 	rgb.Header.Ysize * rgb.Header.Xsize);
 
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(rgb.Header.Xsize, rgb.Header.Ysize));
+				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(rgb.Header.Xsize, rgb.Header.Ysize));
 				if (image)
-					CColorConverter::convert32BitTo32Bit((s32*)rgb.rgbData, (s32*)image->lock(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true);
+					CColorConverter::convert32BitTo32Bit((int32_t*)rgb.rgbData, (int32_t*)image->lock(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true);
 
 				break;
 			default:
 				// Format unknown
-				os::Printer::log("Unsupported pixel format in RGB file", file->getFileName(), ELL_ERROR);
+				os::Printer::log("Unsupported pixel format in RGB file", file->getFileName().c_str(), ELL_ERROR);
 			}
 
 			if (image)
@@ -275,7 +275,7 @@ IImage* CImageLoaderRGB::loadImage(io::IReadFile* file) const
 // returns true on success
 bool CImageLoaderRGB::readHeader(io::IReadFile* file, rgbStruct& rgb) const
 {
-	if ( file->read(&rgb.Header, sizeof(rgb.Header)) < s32(sizeof(rgb.Header)) )
+	if ( file->read(&rgb.Header, sizeof(rgb.Header)) < int32_t(sizeof(rgb.Header)) )
 		return false;
 
 	// test for INTEL or BIG ENDIAN processor
@@ -355,21 +355,21 @@ bool CImageLoaderRGB::readOffsetTables(io::IReadFile* file, rgbStruct& rgb) cons
 	rgb.TableLen = rgb.Header.Ysize * rgb.Header.Zsize ; // calc size of tables
 
 	// return error if unable to allocate tables
-	rgb.StartTable = new u32[rgb.TableLen];
+	rgb.StartTable = new uint32_t[rgb.TableLen];
 	if (!rgb.StartTable)
 		return false;
-	rgb.LengthTable = new u32[rgb.TableLen];
+	rgb.LengthTable = new uint32_t[rgb.TableLen];
 	if (!rgb.LengthTable)
 		return false;
 
 	file->seek(512);
-	file->read(rgb.StartTable, rgb.TableLen* sizeof(u32));
-	file->read(rgb.LengthTable, rgb.TableLen* sizeof(u32));
+	file->read(rgb.StartTable, rgb.TableLen* sizeof(uint32_t));
+	file->read(rgb.LengthTable, rgb.TableLen* sizeof(uint32_t));
 
 	// if we are on an INTEL platform, swap the bytes
 #ifndef __BIG_ENDIAN__
-	const u32 length = rgb.TableLen;
-	for (u32 i=0; i<length; ++i)
+	const uint32_t length = rgb.TableLen;
+	for (uint32_t i=0; i<length; ++i)
 	{
 		rgb.StartTable[i] = os::Byteswap::byteswap(rgb.StartTable[i]);
 		rgb.LengthTable[i] = os::Byteswap::byteswap(rgb.LengthTable[i]);
@@ -387,20 +387,20 @@ bool CImageLoaderRGB::readOffsetTables(io::IReadFile* file, rgbStruct& rgb) cons
 */
 void CImageLoaderRGB::processFile(io::IReadFile* file, rgbStruct& rgb) const
 {
-	u16 *tempShort;
+	uint16_t *tempShort;
 
 	// calculate the size of the buffer needed: XSIZE * YSIZE * ZSIZE * BPC
-	rgb.rgbData = new u8 [(rgb.Header.Xsize)*(rgb.Header.Ysize)*(rgb.Header.Zsize)*(rgb.Header.BPC)];
-	u8 *ptr = rgb.rgbData;
+	rgb.rgbData = new uint8_t [(rgb.Header.Xsize)*(rgb.Header.Ysize)*(rgb.Header.Zsize)*(rgb.Header.BPC)];
+	uint8_t *ptr = rgb.rgbData;
 
 	// cycle through all scanlines
 
 #ifdef _IRR_RGB_FILE_INVERTED_IMAGE_
 	// preserve the image as stored, eg, inverted
-	for (u16 i = 0; i < rgb.Header.Ysize; ++i)
+	for (uint16_t i = 0; i < rgb.Header.Ysize; ++i)
 #else
 	// invert the image to make it upright
-	for (s32 i = (s32)(rgb.Header.Ysize)-1; i>=0; --i)
+	for (int32_t i = (int32_t)(rgb.Header.Ysize)-1; i>=0; --i)
 #endif
 	{
 		// check the number of channels and read a row of data
@@ -414,7 +414,7 @@ void CImageLoaderRGB::processFile(io::IReadFile* file, rgbStruct& rgb) const
 			readRGBrow( rgb.tmpA, i, 3, file, rgb);
 
 		// cycle thru all values for this row
-		for (u16 j = 0; j < rgb.Header.Xsize; ++j)
+		for (uint16_t j = 0; j < rgb.Header.Xsize; ++j)
 		{
 			if(rgb.Header.BPC == 1)
 			{
@@ -434,31 +434,31 @@ void CImageLoaderRGB::processFile(io::IReadFile* file, rgbStruct& rgb) const
 				if( rgb.Header.Zsize >= 1 )
 				{
 					// two bytes of color data
-					tempShort  = (u16 *) (ptr);
-					*tempShort = *(  (u16 *) (rgb.tmpR) + j);
+					tempShort  = (uint16_t *) (ptr);
+					*tempShort = *(  (uint16_t *) (rgb.tmpR) + j);
 					tempShort++;
-					ptr = ( u8 *)(tempShort);
+					ptr = ( uint8_t *)(tempShort);
 				}
 				if( rgb.Header.Zsize >= 2 )
 				{
-					tempShort  = ( u16 *) (ptr);
-					*tempShort = *( ( u16 *) (rgb.tmpG) + j);
+					tempShort  = ( uint16_t *) (ptr);
+					*tempShort = *( ( uint16_t *) (rgb.tmpG) + j);
 					tempShort++;
-					ptr = ( u8 *) (tempShort);
+					ptr = ( uint8_t *) (tempShort);
 				}
 				if( rgb.Header.Zsize >= 3 )
 				{
-					tempShort  = ( u16 *) (ptr);
-					*tempShort = *( ( u16 *) (rgb.tmpB) + j);
+					tempShort  = ( uint16_t *) (ptr);
+					*tempShort = *( ( uint16_t *) (rgb.tmpB) + j);
 					tempShort++;
-					ptr = ( u8 *)(tempShort);
+					ptr = ( uint8_t *)(tempShort);
 				}
 				if( rgb.Header.Zsize >= 4 )
 				{
-					tempShort  = ( u16 *) (ptr);
-					*tempShort = *( ( u16 *) (rgb.tmpA) + j);
+					tempShort  = ( uint16_t *) (ptr);
+					*tempShort = *( ( uint16_t *) (rgb.tmpA) + j);
 					tempShort++;
-					ptr = ( u8 *)(tempShort);
+					ptr = ( uint8_t *)(tempShort);
 				}
 			} // end if(rgb.Header.BPC == 1)
        	} // end for
@@ -497,7 +497,7 @@ void CImageLoaderRGB::processFile(io::IReadFile* file, rgbStruct& rgb) const
 
 	Return a row of data, expanding RLE compression if necessary
 */
-void CImageLoaderRGB::readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgbStruct& rgb) const
+void CImageLoaderRGB::readRGBrow(uint8_t *buf, int y, int z, io::IReadFile* file, rgbStruct& rgb) const
 {
 	if (rgb.Header.Storage != 1)
 	{
@@ -509,8 +509,8 @@ void CImageLoaderRGB::readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgb
 #ifndef __BIG_ENDIAN__
 		if (rgb.Header.BPC != 1)
 		{
-			u16* tmpbuf = reinterpret_cast<u16*>(buf);
-			for (u16 i=0; i<rgb.Header.Xsize; ++i)
+			uint16_t* tmpbuf = reinterpret_cast<uint16_t*>(buf);
+			for (uint16_t i=0; i<rgb.Header.Xsize; ++i)
 				tmpbuf[i] = os::Byteswap::byteswap(tmpbuf[i]);
 		}
 #endif
@@ -528,10 +528,10 @@ void CImageLoaderRGB::readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgb
 
 	// rgb.tmp has the data
 
-	u16 pixel;
-	u16 *tempShort;
-	u8* iPtr = rgb.tmp;
-	u8* oPtr = buf;
+	uint16_t pixel;
+	uint16_t *tempShort;
+	uint8_t* iPtr = rgb.tmp;
+	uint8_t* oPtr = buf;
 	while (true)
 	{
 		// if BPC = 1, then one byte per pixel
@@ -542,10 +542,10 @@ void CImageLoaderRGB::readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgb
 		else
 		{
 			// BPC = 2, so two bytes per pixel
-			tempShort = (u16 *)  iPtr;
+			tempShort = (uint16_t *)  iPtr;
 			pixel = *tempShort;
 			tempShort++;
-			iPtr = (u8 *) tempShort;
+			iPtr = (uint8_t *) tempShort;
 		}
 
 #ifndef __BIG_ENDIAN__
@@ -553,7 +553,7 @@ void CImageLoaderRGB::readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgb
 			pixel = os::Byteswap::byteswap(pixel);
 #endif
 
-		s32 count = (s32)(pixel & 0x7F);
+		int32_t count = (int32_t)(pixel & 0x7F);
 
 		// limit the count value to the remaining row size
 		if (oPtr + count*rgb.Header.BPC > buf + rgb.Header.Xsize * rgb.Header.BPC)
@@ -575,17 +575,17 @@ void CImageLoaderRGB::readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgb
 				else
 				{
 					// write pixel from iPtr to oPtr, move both two bytes ahead
-					tempShort = (u16 *) (iPtr);
+					tempShort = (uint16_t *) (iPtr);
 					pixel = *tempShort;
 					tempShort++;
-					iPtr = (u8 *) (tempShort);
+					iPtr = (uint8_t *) (tempShort);
 #ifndef __BIG_ENDIAN__
 					pixel = os::Byteswap::byteswap(pixel);
 #endif
-					tempShort = (u16 *) (oPtr);
+					tempShort = (uint16_t *) (oPtr);
 					*tempShort = pixel;
 					tempShort++;
-					oPtr = (u8 *) (tempShort);
+					oPtr = (uint8_t *) (tempShort);
 				}
 			}
 		}
@@ -597,10 +597,10 @@ void CImageLoaderRGB::readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgb
 			}
 			else
 			{
-				tempShort = (u16 *) (iPtr);
+				tempShort = (uint16_t *) (iPtr);
 				pixel = *tempShort;
 				tempShort++;
-				iPtr = (u8 *) (tempShort);
+				iPtr = (uint8_t *) (tempShort);
 			}
 
 #ifndef __BIG_ENDIAN__
@@ -612,14 +612,14 @@ void CImageLoaderRGB::readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgb
 			{
 				if(rgb.Header.BPC == 1)
 				{
-					*oPtr++ = (u8) pixel;
+					*oPtr++ = (uint8_t) pixel;
 				}
 				else
 				{
-					tempShort  = (u16 *) (oPtr);
+					tempShort  = (uint16_t *) (oPtr);
 					*tempShort = pixel;
 					tempShort++;
-					oPtr = (u8 *) (tempShort);
+					oPtr = (uint8_t *) (tempShort);
 				}
 			}
 		} // else if (pixel & 0x80)
@@ -630,9 +630,9 @@ void CImageLoaderRGB::readRGBrow(u8 *buf, int y, int z, io::IReadFile* file, rgb
 // we have 1 byte per COLOR VALUE, eg 24bpp and 1 alpha channel
 // color values are stored as RGBA, convert to ARGB
 // todo: replace with CColorConverter method
-void CImageLoaderRGB::converttoARGB(u32* in, const u32 size) const
+void CImageLoaderRGB::converttoARGB(uint32_t* in, const uint32_t size) const
 {
-	for (u32 x=0; x < size; ++x)
+	for (uint32_t x=0; x < size; ++x)
 	{
 		*in=(*in>>8)|(*in<<24);
 		++in;

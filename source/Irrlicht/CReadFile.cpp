@@ -29,12 +29,12 @@ CReadFile::~CReadFile()
 
 
 //! returns how much was read
-s32 CReadFile::read(void* buffer, u32 sizeToRead)
+int32_t CReadFile::read(void* buffer, uint32_t sizeToRead)
 {
 	if (!isOpen())
 		return 0;
 
-	return (s32)fread(buffer, 1, sizeToRead, File);
+	return (int32_t)fread(buffer, 1, sizeToRead, File);
 }
 
 

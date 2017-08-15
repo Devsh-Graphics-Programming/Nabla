@@ -39,22 +39,22 @@ namespace io
 
 	struct STarHeader
 	{
-		c8 FileName[100];
-		c8 FileMode[8];
-		c8 UserID[8];
-		c8 GroupID[8];
-		c8 Size[12];
-		c8 ModifiedTime[12];
-		c8 Checksum[8];
-		c8 Link;
-		c8 LinkName[100];
-		c8 Magic[6];
-		c8 USTARVersion[2];
-		c8 UserName[32];
-		c8 GroupName[32];
-		c8 DeviceMajor[8];
-		c8 DeviceMinor[8];
-		c8 FileNamePrefix[155];
+		char FileName[100];
+		char FileMode[8];
+		char UserID[8];
+		char GroupID[8];
+		char Size[12];
+		char ModifiedTime[12];
+		char Checksum[8];
+		char Link;
+		char LinkName[100];
+		char Magic[6];
+		char USTARVersion[2];
+		char UserName[32];
+		char GroupName[32];
+		char DeviceMajor[8];
+		char DeviceMinor[8];
+		char FileNamePrefix[155];
 	} PACK_STRUCT;
 
 // Default alignment
@@ -111,7 +111,7 @@ namespace io
 		virtual IReadFile* createAndOpenFile(const io::path& filename);
 
 		//! opens a file by index
-		virtual IReadFile* createAndOpenFile(u32 index);
+		virtual IReadFile* createAndOpenFile(uint32_t index);
 
 		//! returns the list of files
 		virtual const IFileList* getFileList() const;
@@ -121,7 +121,7 @@ namespace io
 
 	private:
 
-		u32 populateFileList();
+		uint32_t populateFileList();
 
 		IReadFile* File;
 	};

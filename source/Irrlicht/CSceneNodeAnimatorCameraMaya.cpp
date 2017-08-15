@@ -15,7 +15,7 @@ namespace scene
 
 //! constructor
 CSceneNodeAnimatorCameraMaya::CSceneNodeAnimatorCameraMaya(gui::ICursorControl* cursor,
-	f32 rotateSpeed, f32 zoomSpeed, f32 translateSpeed, f32 distance)
+	float rotateSpeed, float zoomSpeed, float translateSpeed, float distance)
 	: CursorControl(cursor), OldCamera(0), MousePos(0.5f, 0.5f),
 	ZoomSpeed(zoomSpeed), RotateSpeed(rotateSpeed), TranslateSpeed(translateSpeed),
 	CurrentZoom(distance), RotX(0.0f), RotY(0.0f),
@@ -91,7 +91,7 @@ bool CSceneNodeAnimatorCameraMaya::OnEvent(const SEvent& event)
 
 
 //! OnAnimate() is called just before rendering the whole scene.
-void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *node, u32 timeMs)
+void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *node, uint32_t timeMs)
 {
 	//Alt + LM = Rotate around camera pivot
 	//Alt + LM + MM = Dolly forth/back in view direction (speed % distance camera pivot - max distance to pivot)
@@ -120,9 +120,9 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 		OldTarget += camera->getTarget() - LastCameraTarget;
 	}
 
-	f32 nRotX = RotX;
-	f32 nRotY = RotY;
-	f32 nZoom = CurrentZoom;
+	float nRotX = RotX;
+	float nRotY = RotY;
+	float nZoom = CurrentZoom;
 
 	if ( (isMouseKeyDown(0) && isMouseKeyDown(2)) || isMouseKeyDown(1) )
 	{
@@ -133,7 +133,7 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 		}
 		else
 		{
-			const f32 targetMinDistance = 0.1f;
+			const float targetMinDistance = 0.1f;
 			nZoom += (ZoomStart.X - MousePos.X) * ZoomSpeed;
 
 			if (nZoom < targetMinDistance) // jox: fixed bug: bounce back when zooming to close
@@ -142,7 +142,7 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 	}
 	else if (Zooming)
 	{
-		const f32 old = CurrentZoom;
+		const float old = CurrentZoom;
 		CurrentZoom = CurrentZoom + (ZoomStart.X - MousePos.X ) * ZoomSpeed;
 		nZoom = CurrentZoom;
 
@@ -236,7 +236,7 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 }
 
 
-bool CSceneNodeAnimatorCameraMaya::isMouseKeyDown(s32 key) const
+bool CSceneNodeAnimatorCameraMaya::isMouseKeyDown(int32_t key) const
 {
 	return MouseKeys[key];
 }
@@ -244,62 +244,62 @@ bool CSceneNodeAnimatorCameraMaya::isMouseKeyDown(s32 key) const
 
 void CSceneNodeAnimatorCameraMaya::allKeysUp()
 {
-	for (s32 i=0; i<3; ++i)
+	for (int32_t i=0; i<3; ++i)
 		MouseKeys[i] = false;
 }
 
 
 //! Sets the rotation speed
-void CSceneNodeAnimatorCameraMaya::setRotateSpeed(f32 speed)
+void CSceneNodeAnimatorCameraMaya::setRotateSpeed(float speed)
 {
 	RotateSpeed = speed;
 }
 
 
 //! Sets the movement speed
-void CSceneNodeAnimatorCameraMaya::setMoveSpeed(f32 speed)
+void CSceneNodeAnimatorCameraMaya::setMoveSpeed(float speed)
 {
 	TranslateSpeed = speed;
 }
 
 
 //! Sets the zoom speed
-void CSceneNodeAnimatorCameraMaya::setZoomSpeed(f32 speed)
+void CSceneNodeAnimatorCameraMaya::setZoomSpeed(float speed)
 {
 	ZoomSpeed = speed;
 }
 
 
 //! Set the distance
-void CSceneNodeAnimatorCameraMaya::setDistance(f32 distance)
+void CSceneNodeAnimatorCameraMaya::setDistance(float distance)
 {
 	CurrentZoom=distance;
 }
 
 
 //! Gets the rotation speed
-f32 CSceneNodeAnimatorCameraMaya::getRotateSpeed() const
+float CSceneNodeAnimatorCameraMaya::getRotateSpeed() const
 {
 	return RotateSpeed;
 }
 
 
 // Gets the movement speed
-f32 CSceneNodeAnimatorCameraMaya::getMoveSpeed() const
+float CSceneNodeAnimatorCameraMaya::getMoveSpeed() const
 {
 	return TranslateSpeed;
 }
 
 
 //! Gets the zoom speed
-f32 CSceneNodeAnimatorCameraMaya::getZoomSpeed() const
+float CSceneNodeAnimatorCameraMaya::getZoomSpeed() const
 {
 	return ZoomSpeed;
 }
 
 
 //! Returns the current distance, i.e. orbit radius
-f32 CSceneNodeAnimatorCameraMaya::getDistance() const
+float CSceneNodeAnimatorCameraMaya::getDistance() const
 {
 	return CurrentZoom;
 }

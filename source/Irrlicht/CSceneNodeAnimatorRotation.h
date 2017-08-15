@@ -16,10 +16,10 @@ namespace scene
 	public:
 
 		//! constructor
-		CSceneNodeAnimatorRotation(u32 time, const core::vector3df& rotation);
+		CSceneNodeAnimatorRotation(uint32_t time, const core::vector3df& rotation);
 
 		//! animates a scene node
-		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs);
+		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);
 
 		//! Returns type of the scene node animator
 		virtual ESCENE_NODE_ANIMATOR_TYPE getType() const { return ESNAT_ROTATION; }
@@ -32,7 +32,7 @@ namespace scene
 	private:
 
 		core::vector3df Rotation;
-		u32 StartTime;
+		uint32_t StartTime;
 	};
 
 

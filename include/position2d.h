@@ -18,14 +18,14 @@ namespace core
 // Use typedefs where possible as they are more explicit...
 
 //! \deprecated position2d is now a synonym for vector2d, but vector2d should be used directly.
-typedef vector2d<f32> position2df;
+typedef vector2d<float> position2df;
 
 //! \deprecated position2d is now a synonym for vector2d, but vector2d should be used directly.
-typedef vector2d<s32> position2di;
+typedef vector2d<int32_t> position2di;
 } // namespace core
 } // namespace irr
 
-// ...and use a #define to catch the rest, for (e.g.) position2d<f64>
+// ...and use a #define to catch the rest, for (e.g.) position2d<double>
 #define position2d vector2d
 
 #endif // __IRR_POSITION_H_INCLUDED__

@@ -108,10 +108,10 @@ REALINLINE void CTRTextureLightMap2_M2::scanline_bilinear2 ()
 	tVideoSample *dst;
 	fp24 *z;
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
-	s32 i;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
+	int32_t i;
 
 
 	// apply top-left fill-convention, left
@@ -123,17 +123,17 @@ REALINLINE void CTRTextureLightMap2_M2::scanline_bilinear2 ()
 		return;
 
 	// slopes
-	const f32 invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
+	const float invDeltaX = core::reciprocal_approxim ( line.x[1] - line.x[0] );
 
 	// search z-buffer for first not occulled pixel
 	z = (fp24*) DepthBuffer->lock() + ( line.y * RenderTarget->getDimension().Width ) + xStart;
 
 	// subTexel
-	const f32 subPixel = ( (f32) xStart ) - line.x[0];
+	const float subPixel = ( (float) xStart ) - line.x[0];
 
 #ifdef IPOL_W
-	const f32 b = (line.w[1] - line.w[0]) * invDeltaX;
-	f32 a = line.w[0] + ( b * subPixel );
+	const float b = (line.w[1] - line.w[0]) * invDeltaX;
+	float a = line.w[0] + ( b * subPixel );
 
 	i = 0;
 
@@ -144,7 +144,7 @@ REALINLINE void CTRTextureLightMap2_M2::scanline_bilinear2 ()
 		i += 1;
 		if ( i > dx )
 			return;
-		
+
 	}
 
 	// lazy setup rest of scanline
@@ -152,8 +152,8 @@ REALINLINE void CTRTextureLightMap2_M2::scanline_bilinear2 ()
 	line.w[0] = a;
 	line.w[1] = b;
 #else
-	const f32 b = (line.z[1] - line.z[0]) * invDeltaX;
-	f32 a = line.z[0] + ( b * subPixel );
+	const float b = (line.z[1] - line.z[0]) * invDeltaX;
+	float a = line.z[0] + ( b * subPixel );
 
 	i = 0;
 
@@ -164,7 +164,7 @@ REALINLINE void CTRTextureLightMap2_M2::scanline_bilinear2 ()
 		i += 1;
 		if ( i > dx )
 			return;
-		
+
 	}
 
 	// lazy setup rest of scanline
@@ -174,7 +174,7 @@ REALINLINE void CTRTextureLightMap2_M2::scanline_bilinear2 ()
 #endif
 	dst = (tVideoSample*)RenderTarget->lock() + ( line.y * RenderTarget->getDimension().Width ) + xStart;
 
-	a = (f32) i + subPixel;
+	a = (float) i + subPixel;
 
 	line.t[0][1] = (line.t[0][1] - line.t[0][0]) * invDeltaX;
 	line.t[1][1] = (line.t[1][1] - line.t[1][0]) * invDeltaX;
@@ -184,13 +184,13 @@ REALINLINE void CTRTextureLightMap2_M2::scanline_bilinear2 ()
 
 
 #ifdef BURNINGVIDEO_RENDERER_FAST
-	u32 dIndex = ( line.y & 3 ) << 2;
+	uint32_t dIndex = ( line.y & 3 ) << 2;
 
 	tFixPoint r0, g0, b0;
 	tFixPoint r1, g1, b1;
 
 #else
-	// 
+	//
 	tFixPoint r0, g0, b0;
 	tFixPoint r1, g1, b1;
 #endif
@@ -209,9 +209,9 @@ REALINLINE void CTRTextureLightMap2_M2::scanline_bilinear2 ()
 #endif
 
 #ifdef SOFTWARE_DRIVER_2_PERSPECTIVE_CORRECT
-			f32 inversew = fix_inverse32 ( line.w[0] );
+			float inversew = fix_inverse32 ( line.w[0] );
 #else
-			f32 inversew = FIX_POINT_F32_MUL;
+			float inversew = FIX_POINT_F32_MUL;
 #endif
 
 
@@ -244,7 +244,7 @@ REALINLINE void CTRTextureLightMap2_M2::scanline_bilinear2 ()
 	}
 
 }
-	
+
 
 
 void CTRTextureLightMap2_M2::drawTriangle ( const s4DVertex *a,const s4DVertex *b,const s4DVertex *c )
@@ -256,9 +256,9 @@ void CTRTextureLightMap2_M2::drawTriangle ( const s4DVertex *a,const s4DVertex *
 	if ( F32_A_GREATER_B ( b->Pos.y , c->Pos.y ) ) swapVertexPointer(&b, &c);
 	if ( F32_A_GREATER_B ( a->Pos.y , b->Pos.y ) ) swapVertexPointer(&a, &b);
 
-	const f32 ca = c->Pos.y - a->Pos.y;
-	const f32 ba = b->Pos.y - a->Pos.y;
-	const f32 cb = c->Pos.y - b->Pos.y;
+	const float ca = c->Pos.y - a->Pos.y;
+	const float ba = b->Pos.y - a->Pos.y;
+	const float cb = c->Pos.y - b->Pos.y;
 	// calculate delta y of the edges
 	scan.invDeltaY[0] = core::reciprocal( ca );
 	scan.invDeltaY[1] = core::reciprocal( ba );
@@ -268,7 +268,7 @@ void CTRTextureLightMap2_M2::drawTriangle ( const s4DVertex *a,const s4DVertex *
 		return;
 
 	// find if the major edge is left or right aligned
-	f32 temp[4];
+	float temp[4];
 
 	temp[0] = a->Pos.x - c->Pos.x;
 	temp[1] = -ca;
@@ -308,11 +308,11 @@ void CTRTextureLightMap2_M2::drawTriangle ( const s4DVertex *a,const s4DVertex *
 #endif
 
 	// top left fill convention y run
-	s32 yStart;
-	s32 yEnd;
+	int32_t yStart;
+	int32_t yEnd;
 
 #ifdef SUBTEXEL
-	f32 subPixel;
+	float subPixel;
 #endif
 
 	// rasterize upper sub-triangle
@@ -352,35 +352,35 @@ void CTRTextureLightMap2_M2::drawTriangle ( const s4DVertex *a,const s4DVertex *
 		yEnd = core::ceil32( b->Pos.y ) - 1;
 
 #ifdef SUBTEXEL
-		subPixel = ( (f32) yStart ) - a->Pos.y;
+		subPixel = ( (float) yStart ) - a->Pos.y;
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;
-		scan.x[1] += scan.slopeX[1] * subPixel;		
+		scan.x[1] += scan.slopeX[1] * subPixel;
 
 #ifdef IPOL_Z
 		scan.z[0] += scan.slopeZ[0] * subPixel;
-		scan.z[1] += scan.slopeZ[1] * subPixel;		
+		scan.z[1] += scan.slopeZ[1] * subPixel;
 #endif
 
 #ifdef IPOL_W
 		scan.w[0] += scan.slopeW[0] * subPixel;
-		scan.w[1] += scan.slopeW[1] * subPixel;		
+		scan.w[1] += scan.slopeW[1] * subPixel;
 #endif
 
 #ifdef IPOL_C0
 		scan.c[0] += scan.slopeC[0] * subPixel;
-		scan.c[1] += scan.slopeC[1] * subPixel;		
+		scan.c[1] += scan.slopeC[1] * subPixel;
 #endif
 
 #ifdef IPOL_T0
 		scan.t[0][0] += scan.slopeT[0][0] * subPixel;
-		scan.t[0][1] += scan.slopeT[0][1] * subPixel;		
+		scan.t[0][1] += scan.slopeT[0][1] * subPixel;
 #endif
 
 #ifdef IPOL_T1
 		scan.t[1][0] += scan.slopeT[1][0] * subPixel;
-		scan.t[1][1] += scan.slopeT[1][1] * subPixel;		
+		scan.t[1][1] += scan.slopeT[1][1] * subPixel;
 #endif
 
 #endif
@@ -451,7 +451,7 @@ void CTRTextureLightMap2_M2::drawTriangle ( const s4DVertex *a,const s4DVertex *
 	}
 
 	// rasterize lower sub-triangle
-	//if ( (f32) 0.0 != scan.invDeltaY[2] )
+	//if ( (float) 0.0 != scan.invDeltaY[2] )
 	if ( F32_GREATER_0 ( scan.invDeltaY[2] ) )
 	{
 		// advance to middle point
@@ -513,35 +513,35 @@ void CTRTextureLightMap2_M2::drawTriangle ( const s4DVertex *a,const s4DVertex *
 
 #ifdef SUBTEXEL
 
-		subPixel = ( (f32) yStart ) - b->Pos.y;
+		subPixel = ( (float) yStart ) - b->Pos.y;
 
 		// correct to pixel center
 		scan.x[0] += scan.slopeX[0] * subPixel;
-		scan.x[1] += scan.slopeX[1] * subPixel;		
+		scan.x[1] += scan.slopeX[1] * subPixel;
 
 #ifdef IPOL_Z
 		scan.z[0] += scan.slopeZ[0] * subPixel;
-		scan.z[1] += scan.slopeZ[1] * subPixel;		
+		scan.z[1] += scan.slopeZ[1] * subPixel;
 #endif
 
 #ifdef IPOL_W
 		scan.w[0] += scan.slopeW[0] * subPixel;
-		scan.w[1] += scan.slopeW[1] * subPixel;		
+		scan.w[1] += scan.slopeW[1] * subPixel;
 #endif
 
 #ifdef IPOL_C0
 		scan.c[0] += scan.slopeC[0] * subPixel;
-		scan.c[1] += scan.slopeC[1] * subPixel;		
+		scan.c[1] += scan.slopeC[1] * subPixel;
 #endif
 
 #ifdef IPOL_T0
 		scan.t[0][0] += scan.slopeT[0][0] * subPixel;
-		scan.t[0][1] += scan.slopeT[0][1] * subPixel;		
+		scan.t[0][1] += scan.slopeT[0][1] * subPixel;
 #endif
 
 #ifdef IPOL_T1
 		scan.t[1][0] += scan.slopeT[1][0] * subPixel;
-		scan.t[1][1] += scan.slopeT[1][1] * subPixel;		
+		scan.t[1][1] += scan.slopeT[1][1] * subPixel;
 #endif
 
 #endif

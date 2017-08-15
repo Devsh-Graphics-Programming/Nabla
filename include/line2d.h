@@ -78,13 +78,13 @@ class line2d
 		{
 			// Uses the method given at:
 			// http://local.wasp.uwa.edu.au/~pbourke/geometry/lineline2d/
-			const f32 commonDenominator = (f32)(l.end.Y - l.start.Y)*(end.X - start.X) -
+			const float commonDenominator = (float)(l.end.Y - l.start.Y)*(end.X - start.X) -
 											(l.end.X - l.start.X)*(end.Y - start.Y);
 
-			const f32 numeratorA = (f32)(l.end.X - l.start.X)*(start.Y - l.start.Y) -
+			const float numeratorA = (float)(l.end.X - l.start.X)*(start.Y - l.start.Y) -
 											(l.end.Y - l.start.Y)*(start.X -l.start.X);
 
-			const f32 numeratorB = (f32)(end.X - start.X)*(start.Y - l.start.Y) -
+			const float numeratorB = (float)(end.X - start.X)*(start.Y - l.start.Y) -
 											(end.Y - start.Y)*(start.X -l.start.X);
 
 			if(equals(commonDenominator, 0.f))
@@ -154,11 +154,11 @@ class line2d
 
 			// Get the point of intersection on this line, checking that
 			// it is within the line segment.
-			const f32 uA = numeratorA / commonDenominator;
+			const float uA = numeratorA / commonDenominator;
 			if(checkOnlySegments && (uA < 0.f || uA > 1.f) )
 				return false; // Outside the line segment
 
-			const f32 uB = numeratorB / commonDenominator;
+			const float uB = numeratorB / commonDenominator;
 			if(checkOnlySegments && (uB < 0.f || uB > 1.f))
 				return false; // Outside the line segment
 
@@ -179,7 +179,7 @@ class line2d
 		//! Get angle between this line and given line.
 		/** \param l Other line for test.
 		\return Angle in degrees. */
-		f64 getAngleWith(const line2d<T>& l) const
+		double getAngleWith(const line2d<T>& l) const
 		{
 			vector2d<T> vect = getVector();
 			vector2d<T> vect2 = l.getVector();
@@ -215,13 +215,13 @@ class line2d
 		When set to false the function will check for the first the closest point on the the line even when outside the segment. */
 		vector2d<T> getClosestPoint(const vector2d<T>& point, bool checkOnlySegments=true) const
 		{
-			vector2d<f64> c((f64)(point.X-start.X), (f64)(point.Y- start.Y));
-			vector2d<f64> v((f64)(end.X-start.X), (f64)(end.Y-start.Y));
-			f64 d = v.getLength();
+			vector2d<double> c((double)(point.X-start.X), (double)(point.Y- start.Y));
+			vector2d<double> v((double)(end.X-start.X), (double)(end.Y-start.Y));
+			double d = v.getLength();
 			if ( d == 0 )	// can't tell much when the line is just a single point
 				return start;
 			v /= d;
-			f64 t = v.dotProduct(c);
+			double t = v.dotProduct(c);
 
 			if ( checkOnlySegments )
 			{
@@ -239,17 +239,17 @@ class line2d
 		vector2d<T> end;
 };
 
-	// partial specialization to optimize <f32> lines (avoiding casts)
+	// partial specialization to optimize <float> lines (avoiding casts)
 	template <>
-	inline vector2df line2d<irr::f32>::getClosestPoint(const vector2df& point, bool checkOnlySegments) const
+	inline vector2df line2d<float>::getClosestPoint(const vector2df& point, bool checkOnlySegments) const
 	{
 		vector2df c = point - start;
 		vector2df v = end - start;
-		f32 d = (f32)v.getLength();
+		float d = (float)v.getLength();
 		if ( d == 0 )	// can't tell much when the line is just a single point
 			return start;
 		v /= d;
-		f32 t = v.dotProduct(c);
+		float t = v.dotProduct(c);
 
 		if ( checkOnlySegments )
 		{
@@ -262,10 +262,10 @@ class line2d
 	}
 
 
-	//! Typedef for an f32 line.
-	typedef line2d<f32> line2df;
+	//! Typedef for an float line.
+	typedef line2d<float> line2df;
 	//! Typedef for an integer line.
-	typedef line2d<s32> line2di;
+	typedef line2d<int32_t> line2di;
 
 } // end namespace core
 } // end namespace irr

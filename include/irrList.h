@@ -42,10 +42,10 @@ public:
 
 		Iterator& operator ++()    { Current = Current->Next; return *this; }
 		Iterator& operator --()    { Current = Current->Prev; return *this; }
-		Iterator  operator ++(s32) { Iterator tmp = *this; Current = Current->Next; return tmp; }
-		Iterator  operator --(s32) { Iterator tmp = *this; Current = Current->Prev; return tmp; }
+		Iterator  operator ++(int32_t) { Iterator tmp = *this; Current = Current->Next; return tmp; }
+		Iterator  operator --(int32_t) { Iterator tmp = *this; Current = Current->Prev; return tmp; }
 
-		Iterator& operator +=(s32 num)
+		Iterator& operator +=(int32_t num)
 		{
 			if(num > 0)
 			{
@@ -58,9 +58,9 @@ public:
 			return *this;
 		}
 
-		Iterator  operator + (s32 num) const { Iterator tmp = *this; return tmp += num; }
-		Iterator& operator -=(s32 num) { return (*this)+=(-num); }
-		Iterator  operator - (s32 num) const { return (*this)+ (-num); }
+		Iterator  operator + (int32_t num) const { Iterator tmp = *this; return tmp += num; }
+		Iterator& operator -=(int32_t num) { return (*this)+=(-num); }
+		Iterator  operator - (int32_t num) const { return (*this)+ (-num); }
 
 		bool operator ==(const Iterator&      other) const { return Current == other.Current; }
 		bool operator !=(const Iterator&      other) const { return Current != other.Current; }
@@ -93,10 +93,10 @@ public:
 
 		ConstIterator& operator ++()    { Current = Current->Next; return *this; }
 		ConstIterator& operator --()    { Current = Current->Prev; return *this; }
-		ConstIterator  operator ++(s32) { ConstIterator tmp = *this; Current = Current->Next; return tmp; }
-		ConstIterator  operator --(s32) { ConstIterator tmp = *this; Current = Current->Prev; return tmp; }
+		ConstIterator  operator ++(int32_t) { ConstIterator tmp = *this; Current = Current->Next; return tmp; }
+		ConstIterator  operator --(int32_t) { ConstIterator tmp = *this; Current = Current->Prev; return tmp; }
 
-		ConstIterator& operator +=(s32 num)
+		ConstIterator& operator +=(int32_t num)
 		{
 			if(num > 0)
 			{
@@ -109,17 +109,17 @@ public:
 			return *this;
 		}
 
-		ConstIterator  operator + (s32 num) const { ConstIterator tmp = *this; return tmp += num; }
-		ConstIterator& operator -=(s32 num) { return (*this)+=(-num); }
-		ConstIterator  operator - (s32 num) const { return (*this)+ (-num); }
+		ConstIterator  operator + (int32_t num) const { ConstIterator tmp = *this; return tmp += num; }
+		ConstIterator& operator -=(int32_t num) { return (*this)+=(-num); }
+		ConstIterator  operator - (int32_t num) const { return (*this)+ (-num); }
 
 		bool operator ==(const ConstIterator& other) const { return Current == other.Current; }
 		bool operator !=(const ConstIterator& other) const { return Current != other.Current; }
 		bool operator ==(const Iterator&      other) const { return Current == other.Current; }
 		bool operator !=(const Iterator&      other) const { return Current != other.Current; }
 
-		const T & operator * () { return Current->Element; }
-		const T * operator ->() { return &Current->Element; }
+		const T & operator * () const { return Current->Element; }
+		const T * operator ->() const { return &Current->Element; }
 
 		ConstIterator & operator =(const Iterator & iterator) { Current = iterator.Current; return *this; }
 
@@ -172,11 +172,11 @@ public:
 
 	//! Returns amount of elements in list.
 	/** \return Amount of elements in the list. */
-	u32 size() const
+	uint32_t size() const
 	{
 		return Size;
 	}
-	u32 getSize() const
+	uint32_t getSize() const
 	{
 		return Size;
 	}
@@ -403,7 +403,7 @@ private:
 
 	SKListNode* First;
 	SKListNode* Last;
-	u32 Size;
+	uint32_t Size;
 	irrAllocator<SKListNode> allocator;
 
 };

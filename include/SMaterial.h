@@ -104,7 +104,7 @@ namespace video
 
 
 	//! Maximum number of texture an SMaterial can have.
-	const u32 MATERIAL_MAX_TEXTURES = _IRR_MATERIAL_MAX_TEXTURES_;
+	const uint32_t MATERIAL_MAX_TEXTURES = _IRR_MATERIAL_MAX_TEXTURES_;
 
 	//! Struct for holding parameters for a material renderer
 	class SMaterial
@@ -147,7 +147,7 @@ namespace video
 			MaterialTypeParam2 = other.MaterialTypeParam2;
 			userData = other.userData;
 			Thickness = other.Thickness;
-			for (u32 i=0; i<MATERIAL_MAX_TEXTURES; ++i)
+			for (uint32_t i=0; i<MATERIAL_MAX_TEXTURES; ++i)
 			{
 				TextureLayer[i] = other.TextureLayer[i];
 			}
@@ -217,21 +217,17 @@ namespace video
 		node->setMaterialTexture(0, driver->getTexture("data/Faerie2.pcx")); // set diffuse texture
 		node->setMaterialFlag(video::EMF_LIGHTING, true); // enable dynamic lighting
 		node->getMaterial(0).Shininess = 20.0f; // set size of specular highlights
-
-		// add white light
-		scene::ILightSceneNode* light = smgr->addLightSceneNode(0,
-			core::vector3df(5,5,5), video::SColorf(1.0f, 1.0f, 1.0f));
 		\endcode */
-		f32 Shininess;
+		float Shininess;
 
 		//! Free parameter, dependent on the material type.
 		/** Mostly ignored, used for example in EMT_PARALLAX_MAP_SOLID
 		and EMT_TRANSPARENT_ALPHA_CHANNEL. */
-		f32 MaterialTypeParam;
+		float MaterialTypeParam;
 
 		//! Second free parameter, dependent on the material type.
 		/** Mostly ignored. */
-		f32 MaterialTypeParam2;
+		float MaterialTypeParam2;
 
 		//! User Data
 		void* userData;
@@ -239,24 +235,24 @@ namespace video
 		int32_t userData2_textureatlas;		// sodan (this one is mine, MINE, MINE!!!)
 
 		//! Thickness of non-3dimensional elements such as lines and points.
-		f32 Thickness;
+		float Thickness;
 
 		//! Is the ZBuffer enabled? Default: ECFN_GREATEREQUAL
 		/** Values are from E_COMPARISON_FUNC. */
-		u8 ZBuffer;
+		uint8_t ZBuffer;
 
 		//! Sets the antialiasing mode
 		/** Values are chosen from E_ANTI_ALIASING_MODE. Default is
 		EAAM_SIMPLE|EAAM_LINE_SMOOTH, i.e. simple multi-sample
 		anti-aliasing and lime smoothing is enabled. */
-		u8 AntiAliasing;
+		uint8_t AntiAliasing;
 
 		//! Defines the enabled color planes
 		/** Values are defined as or'ed values of the E_COLOR_PLANE enum.
 		Only enabled color planes will be rendered to the current render
 		target. Typical use is to disable all colors when rendering only to
 		depth or stencil buffer, or using Red and Green for Stereo rendering. */
-		u8 ColorMask:4;
+		uint8_t ColorMask:4;
 
 		//! Store the blend operation of choice
 		/** Values to be chosen from E_BLEND_OPERATION. The actual way to use this value
@@ -293,7 +289,7 @@ namespace video
 		//! Gets the i-th texture
 		/** \param i The desired level.
 		\return Texture for texture level i, if defined, else 0. */
-		ITexture* getTexture(u32 i) const
+		ITexture* getTexture(uint32_t i) const
 		{
 			return i < MATERIAL_MAX_TEXTURES ? TextureLayer[i].Texture : 0;
 		}
@@ -302,7 +298,7 @@ namespace video
 		/** If i>=MATERIAL_MAX_TEXTURES this setting will be ignored.
 		\param i The desired level.
 		\param tex Texture for texture level i. */
-		void setTexture(u32 i, ITexture* tex)
+		void setTexture(uint32_t i, ITexture* tex)
 		{
 			if (i>=MATERIAL_MAX_TEXTURES)
 				return;
@@ -397,7 +393,7 @@ namespace video
 				BlendOperation != b.BlendOperation ||
 				PolygonOffsetConstantMultiplier != b.PolygonOffsetConstantMultiplier ||
 				PolygonOffsetGradientMultiplier != b.PolygonOffsetGradientMultiplier;
-			for (u32 i=0; (i<MATERIAL_MAX_TEXTURES) && !different; ++i)
+			for (uint32_t i=0; (i<MATERIAL_MAX_TEXTURES) && !different; ++i)
 			{
 				different |= (TextureLayer[i] != b.TextureLayer[i]);
 			}

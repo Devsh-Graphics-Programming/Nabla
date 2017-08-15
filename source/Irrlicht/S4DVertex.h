@@ -18,23 +18,23 @@ namespace video
 
 struct sVec2
 {
-	f32 x;
-	f32 y;
+	float x;
+	float y;
 
 	sVec2 () {}
 
-	sVec2 ( f32 s) : x ( s ), y ( s ) {}
-	sVec2 ( f32 _x, f32 _y )
+	sVec2 ( float s) : x ( s ), y ( s ) {}
+	sVec2 ( float _x, float _y )
 		: x ( _x ), y ( _y ) {}
 
-	void set ( f32 _x, f32 _y )
+	void set ( float _x, float _y )
 	{
 		x = _x;
 		y = _y;
 	}
 
 	// f = a * t + b * ( 1 - t )
-	void interpolate(const sVec2& a, const sVec2& b, const f32 t)
+	void interpolate(const sVec2& a, const sVec2& b, const float t)
 	{
 		x = b.x + ( ( a.x - b.x ) * t );
 		y = b.y + ( ( a.y - b.y ) * t );
@@ -56,12 +56,12 @@ struct sVec2
 		y += other.y;
 	}
 
-	sVec2 operator*(const f32 s) const
+	sVec2 operator*(const float s) const
 	{
 		return sVec2(x * s , y * s);
 	}
 
-	void operator*=( const f32 s)
+	void operator*=( const float s)
 	{
 		x *= s;
 		y *= s;
@@ -79,9 +79,9 @@ struct sVec2
 struct sVec4;
 struct sCompressedVec4
 {
-	u32 argb;
+	uint32_t argb;
 
-	void setA8R8G8B8 ( u32 value )
+	void setA8R8G8B8 ( uint32_t value )
 	{
 		argb = value;
 	}
@@ -97,7 +97,7 @@ struct sCompressedVec4
 	void setVec4 ( const sVec4 & v );
 
 	// f = a * t + b * ( 1 - t )
-	void interpolate(const sCompressedVec4& a, const sCompressedVec4& b, const f32 t)
+	void interpolate(const sCompressedVec4& a, const sCompressedVec4& b, const float t)
 	{
 		argb = PixelBlend32 ( b.argb, a.argb, core::floor32 ( t * 256.f ) );
 	}
@@ -110,8 +110,8 @@ struct sVec4
 {
 	union
 	{
-		struct { f32 x, y, z, w; };
-		struct { f32 a, r, g, b; };
+		struct { float x, y, z, w; };
+		struct { float a, r, g, b; };
 //		struct { sVec2 xy, zw; };	// sorry, this does not compile with gcc
 	};
 
@@ -119,12 +119,12 @@ struct sVec4
 
 	sVec4 () {}
 
-	sVec4 ( f32 s) : x ( s ), y ( s ), z ( s ), w ( s ) {}
+	sVec4 ( float s) : x ( s ), y ( s ), z ( s ), w ( s ) {}
 
-	sVec4 ( f32 _x, f32 _y, f32 _z, f32 _w )
+	sVec4 ( float _x, float _y, float _z, float _w )
 		: x ( _x ), y ( _y ), z( _z ), w ( _w ){}
 
-	void set ( f32 _x, f32 _y, f32 _z, f32 _w )
+	void set ( float _x, float _y, float _z, float _w )
 	{
 		x = _x;
 		y = _y;
@@ -132,7 +132,7 @@ struct sVec4
 		w = _w;
 	}
 
-	void setA8R8G8B8 ( u32 argb )
+	void setA8R8G8B8 ( uint32_t argb )
 	{
 		x = ( ( argb & 0xFF000000 ) >> 24 ) * ( 1.f / 255.f );
 		y = ( ( argb & 0x00FF0000 ) >> 16 ) * ( 1.f / 255.f );
@@ -151,7 +151,7 @@ struct sVec4
 
 
 	// f = a * t + b * ( 1 - t )
-	void interpolate(const sVec4& a, const sVec4& b, const f32 t)
+	void interpolate(const sVec4& a, const sVec4& b, const float t)
 	{
 		x = b.x + ( ( a.x - b.x ) * t );
 		y = b.y + ( ( a.y - b.y ) * t );
@@ -160,29 +160,29 @@ struct sVec4
 	}
 
 
-	f32 dotProduct(const sVec4& other) const
+	float dotProduct(const sVec4& other) const
 	{
 		return x*other.x + y*other.y + z*other.z + w*other.w;
 	}
 
-	f32 dot_xyz( const sVec4& other) const
+	float dot_xyz( const sVec4& other) const
 	{
 		return x*other.x + y*other.y + z*other.z;
 	}
 
-	f32 get_length_xyz_square () const
+	float get_length_xyz_square () const
 	{
 		return x * x + y * y + z * z;
 	}
 
-	f32 get_length_xyz () const
+	float get_length_xyz () const
 	{
 		return core::squareroot ( x * x + y * y + z * z );
 	}
 
 	void normalize_xyz ()
 	{
-		const f32 l = core::reciprocal_squareroot ( x * x + y * y + z * z );
+		const float l = core::reciprocal_squareroot ( x * x + y * y + z * z );
 
 		x *= l;
 		y *= l;
@@ -215,7 +215,7 @@ struct sVec4
 		w += other.w;
 	}
 
-	sVec4 operator*(const f32 s) const
+	sVec4 operator*(const float s) const
 	{
 		return sVec4(x * s , y * s, z * s,w * s);
 	}
@@ -225,16 +225,16 @@ struct sVec4
 		return sVec4(x * other.x , y * other.y, z * other.z,w * other.w);
 	}
 
-	void mulReciprocal ( f32 s )
+	void mulReciprocal ( float s )
 	{
-		const f32 i = core::reciprocal ( s );
-		x = (f32) ( x * i );
-		y = (f32) ( y * i );
-		z = (f32) ( z * i );
-		w = (f32) ( w * i );
+		const float i = core::reciprocal ( s );
+		x = (float) ( x * i );
+		y = (float) ( y * i );
+		z = (float) ( z * i );
+		w = (float) ( w * i );
 	}
 
-	void mul ( const f32 s )
+	void mul ( const float s )
 	{
 		x *= s;
 		y *= s;
@@ -243,7 +243,7 @@ struct sVec4
 	}
 
 /*
-	void operator*=(f32 s)
+	void operator*=(float s)
 	{
 		x *= s;
 		y *= s;
@@ -272,26 +272,26 @@ struct sVec3
 {
 	union
 	{
-		struct { f32 r, g, b; };
-		struct { f32 x, y, z; };
+		struct { float r, g, b; };
+		struct { float x, y, z; };
 	};
 
 
 	sVec3 () {}
-	sVec3 ( f32 _x, f32 _y, f32 _z )
+	sVec3 ( float _x, float _y, float _z )
 		: r ( _x ), g ( _y ), b( _z ) {}
 
 	sVec3 ( const sVec4 &v )
 		: r ( v.x ), g ( v.y ), b( v.z ) {}
 
-	void set ( f32 _r, f32 _g, f32 _b )
+	void set ( float _r, float _g, float _b )
 	{
 		r = _r;
 		g = _g;
 		b = _b;
 	}
 
-	void setR8G8B8 ( u32 argb )
+	void setR8G8B8 ( uint32_t argb )
 	{
 		r = ( ( argb & 0x00FF0000 ) >> 16 ) * ( 1.f / 255.f );
 		g = ( ( argb & 0x0000FF00 ) >>  8 ) * ( 1.f / 255.f );
@@ -312,7 +312,7 @@ struct sVec3
 		b += other.b;
 	}
 
-	void mulAdd(const sVec3& other, const f32 v)
+	void mulAdd(const sVec3& other, const float v)
 	{
 		r += other.r * v;
 		g += other.g * v;
@@ -326,7 +326,7 @@ struct sVec3
 		b += v0.b * v1.b;
 	}
 
-	void saturate ( sVec4 &dest, u32 argb )
+	void saturate ( sVec4 &dest, uint32_t argb )
 	{
 		dest.x = ( ( argb & 0xFF000000 ) >> 24 ) * ( 1.f / 255.f );
 		dest.y = core::min_ ( r, 1.f );
@@ -335,7 +335,7 @@ struct sVec3
 	}
 
 	// f = a * t + b * ( 1 - t )
-	void interpolate(const sVec3& v0, const sVec3& v1, const f32 t)
+	void interpolate(const sVec3& v0, const sVec3& v1, const float t)
 	{
 		r = v1.r + ( ( v0.r - v1.r ) * t );
 		g = v1.g + ( ( v0.g - v1.g ) * t );
@@ -352,14 +352,14 @@ struct sVec3
 		return sVec3(r + other.r, g + other.g, b + other.b);
 	}
 
-	sVec3 operator*(const f32 s) const
+	sVec3 operator*(const float s) const
 	{
 		return sVec3(r * s , g * s, b * s);
 	}
 
-	sVec3 operator/(const f32 s) const
+	sVec3 operator/(const float s) const
 	{
-		f32 inv = 1.f / s;
+		float inv = 1.f / s;
 		return sVec3(r * inv , g * inv, b * inv);
 	}
 
@@ -375,9 +375,9 @@ struct sVec3
 		b += other.b;
 	}
 
-	void setLength ( f32 len )
+	void setLength ( float len )
 	{
-		const f32 l = len * core::reciprocal_squareroot ( r * r + g * g + b * b );
+		const float l = len * core::reciprocal_squareroot ( r * r + g * g + b * b );
 
 		r *= l;
 		g *= l;
@@ -420,14 +420,14 @@ enum e4DVertexFlag
 
 };
 
-const u32 MATERIAL_MAX_COLORS = 1;
-const u32 BURNING_MATERIAL_MAX_TEXTURES = 2;
-const u32 BURNING_MATERIAL_MAX_TANGENT = 1;
+const uint32_t MATERIAL_MAX_COLORS = 1;
+const uint32_t BURNING_MATERIAL_MAX_TEXTURES = 2;
+const uint32_t BURNING_MATERIAL_MAX_TANGENT = 1;
 
 // dummy Vertex. used for calculation vertex memory size
 struct s4DVertex_proxy
 {
-	u32 flag;
+	uint32_t flag;
 	sVec4 Pos;
 	sVec2 Tex[BURNING_MATERIAL_MAX_TEXTURES];
 
@@ -447,7 +447,7 @@ struct s4DVertex_proxy
 */
 struct s4DVertex
 {
-	u32 flag;
+	uint32_t flag;
 
 	sVec4 Pos;
 	sVec2 Tex[ BURNING_MATERIAL_MAX_TEXTURES ];
@@ -458,13 +458,13 @@ struct s4DVertex
 
 	sVec3 LightTangent[BURNING_MATERIAL_MAX_TANGENT];
 
-	//u8 fill [ SIZEOF_SVERTEX - sizeof (s4DVertex_proxy) ];
+	//uint8_t fill [ SIZEOF_SVERTEX - sizeof (s4DVertex_proxy) ];
 
 	// f = a * t + b * ( 1 - t )
-	void interpolate(const s4DVertex& b, const s4DVertex& a, const f32 t)
+	void interpolate(const s4DVertex& b, const s4DVertex& a, const float t)
 	{
-		u32 i;
-		u32 size;
+		uint32_t i;
+		uint32_t size;
 
 		Pos.interpolate ( a.Pos, b.Pos, t );
 
@@ -495,11 +495,11 @@ struct s4DVertex
 
 struct SAlignedVertex
 {
-	SAlignedVertex ( u32 element, u32 aligned )
+	SAlignedVertex ( uint32_t element, uint32_t aligned )
 		: ElementSize ( element )
 	{
-		u32 byteSize = (ElementSize << SIZEOF_SVERTEX_LOG2 ) + aligned;
-		mem = new u8 [ byteSize ];
+		uint32_t byteSize = (ElementSize << SIZEOF_SVERTEX_LOG2 ) + aligned;
+		mem = new uint8_t [ byteSize ];
 		data = (s4DVertex*) mem;
 	}
 
@@ -509,25 +509,25 @@ struct SAlignedVertex
 	}
 
 	s4DVertex *data;
-	u8 *mem;
-	u32 ElementSize;
+	uint8_t *mem;
+	uint32_t ElementSize;
 };
 
 
 // hold info for different Vertex Types
 struct SVSize
 {
-	u32 Format;
-	u32 Pitch;
-	u32 TexSize;
+	uint32_t Format;
+	uint32_t Pitch;
+	uint32_t TexSize;
 };
 
 
 // a cache info
 struct SCacheInfo
 {
-	u32 index;
-	u32 hit;
+	uint32_t index;
+	uint32_t hit;
 };
 
 #define VERTEXCACHE_ELEMENT	16
@@ -545,20 +545,20 @@ struct SVertexCache
 
 	// source
 	const void* vertices;
-	u32 vertexCount;
+	uint32_t vertexCount;
 
 	const void* indices;
-	u32 indexCount;
-	u32 indicesIndex;
+	uint32_t indexCount;
+	uint32_t indicesIndex;
 
-	u32 indicesRun;
+	uint32_t indicesRun;
 
 	// primitives consist of x vertices
-	u32 primitivePitch;
+	uint32_t primitivePitch;
 
-	u32 vType;		//E_VERTEX_TYPE
-	u32 pType;		//scene::E_PRIMITIVE_TYPE
-	u32 iType;		//E_INDEX_TYPE iType
+	uint32_t vType;		//E_VERTEX_TYPE
+	uint32_t pType;		//scene::E_PRIMITIVE_TYPE
+	uint32_t iType;		//E_INDEX_TYPE iType
 
 };
 
@@ -579,20 +579,20 @@ REALINLINE void swapVertexPointer(const s4DVertex** v1, const s4DVertex** v2)
 // internal scan convert
 struct sScanConvertData
 {
-	u8 left;			// major edge left/right
-	u8 right;			// !left
+	uint8_t left;			// major edge left/right
+	uint8_t right;			// !left
 
-	f32 invDeltaY[3];	// inverse edge delta y
+	float invDeltaY[3];	// inverse edge delta y
 
-	f32 x[2];			// x coordinate
-	f32 slopeX[2];		// x slope along edges
+	float x[2];			// x coordinate
+	float slopeX[2];		// x slope along edges
 
 #if defined ( SOFTWARE_DRIVER_2_USE_WBUFFER ) || defined ( SOFTWARE_DRIVER_2_PERSPECTIVE_CORRECT )
-	f32 w[2];			// w coordinate
+	float w[2];			// w coordinate
 	fp24 slopeW[2];		// w slope along edges
 #else
-	f32 z[2];			// z coordinate
-	f32 slopeZ[2];		// z slope along edges
+	float z[2];			// z coordinate
+	float slopeZ[2];		// z slope along edges
 #endif
 
 	sVec4 c[MATERIAL_MAX_COLORS][2];			// color
@@ -608,13 +608,13 @@ struct sScanConvertData
 // passed to scan Line
 struct sScanLineData
 {
-	s32 y;				// y position of scanline
-	f32 x[2];			// x start, x end of scanline
+	int32_t y;				// y position of scanline
+	float x[2];			// x start, x end of scanline
 
 #if defined ( SOFTWARE_DRIVER_2_USE_WBUFFER ) || defined ( SOFTWARE_DRIVER_2_PERSPECTIVE_CORRECT )
-	f32 w[2];			// w start, w end of scanline
+	float w[2];			// w start, w end of scanline
 #else
-	f32 z[2];			// z start, z end of scanline
+	float z[2];			// z start, z end of scanline
 #endif
 
 #ifdef SOFTWARE_DRIVER_2_USE_VERTEX_COLOR
@@ -631,10 +631,10 @@ struct sPixelShaderData
 	tVideoSample *dst;
 	fp24 *z;
 
-	s32 xStart;
-	s32 xEnd;
-	s32 dx;
-	s32 i;
+	int32_t xStart;
+	int32_t xEnd;
+	int32_t dx;
+	int32_t i;
 };
 
 /*
@@ -676,7 +676,7 @@ inline void getSample_color ( tFixPoint &r, tFixPoint &g, tFixPoint &b,const sVe
 	load a color value
 */
 inline void getSample_color (	tFixPoint &r, tFixPoint &g, tFixPoint &b,
-								const sVec4 &v, const f32 mulby )
+								const sVec4 &v, const float mulby )
 {
 	r = tofix ( v.y, mulby);
 	g = tofix ( v.z, mulby);

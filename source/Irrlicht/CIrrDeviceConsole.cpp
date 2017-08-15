@@ -3,6 +3,8 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CIrrDeviceConsole.h"
+#include "CSceneManager.h"
+#include <sstream>
 
 #ifdef _IRR_COMPILE_WITH_CONSOLE_DEVICE_
 
@@ -42,10 +44,10 @@ BOOL WINAPI ConsoleHandler(DWORD CEvent)
 
 void sighandler(int sig)
 {
-	irr::core::stringc code = "Signal ";
-	code += sig;
-	code += " received";
-	irr::os::Printer::log("Closing console device", code.c_str());
+    std::ostringstream code("Signal ");
+    code.seekp(0,std::ios_base::end);
+	code << sig << " received";
+	irr::os::Printer::log("Closing console device", code.str().c_str());
 
 	DeviceToClose->closeDevice();
 }
@@ -54,11 +56,11 @@ void sighandler(int sig)
 namespace irr
 {
 
-const c8 ASCIIArtChars[] = " .,'~:;!+>=icopjtJY56SB8XDQKHNWM"; //MWNHKQDX8BS65YJtjpoci=+>!;:~',. ";
-const u16 ASCIIArtCharsCount = 32;
+const int8_t ASCIIArtChars[] = " .,'~:;!+>=icopjtJY56SB8XDQKHNWM"; //MWNHKQDX8BS65YJtjpoci=+>!;:~',. ";
+const uint16_t ASCIIArtCharsCount = 32;
 
-//const c8 ASCIIArtChars[] = " \xb0\xb1\xf9\xb2\xdb";
-//const u16 ASCIIArtCharsCount = 5;
+//const int8_t ASCIIArtChars[] = " \xb0\xb1\xf9\xb2\xdb";
+//const uint16_t ASCIIArtCharsCount = 5;
 
 //! constructor
 CIrrDeviceConsole::CIrrDeviceConsole(const SIrrlichtCreationParameters& params)
@@ -141,11 +143,11 @@ CIrrDeviceConsole::CIrrDeviceConsole(const SIrrlichtCreationParameters& params)
 	}
 
 	// set up output buffer
-	for (u32 y=0; y<CreationParams.WindowSize.Height; ++y)
+	for (uint32_t y=0; y<CreationParams.WindowSize.Height; ++y)
 	{
 		core::stringc str;
 		str.reserve(CreationParams.WindowSize.Width);
-		for (u32 x=0; x<CreationParams.WindowSize.Width; ++x)
+		for (uint32_t x=0; x<CreationParams.WindowSize.Width; ++x)
 			str += " ";
 		OutputBuffer.push_back(str);
 	}
@@ -164,12 +166,18 @@ CIrrDeviceConsole::CIrrDeviceConsole(const SIrrlichtCreationParameters& params)
 //! destructor
 CIrrDeviceConsole::~CIrrDeviceConsole()
 {
-	// GUI and scene are dropped in the stub
+	if (SceneManager)
+		SceneManager->drop();
+
+	if (InputReceivingSceneManager)
+		InputReceivingSceneManager->drop();
+
 	if (CursorControl)
-	{
 		CursorControl->drop();
-		CursorControl = 0;
-	}
+
+	if (VideoDriver)
+		VideoDriver->drop();
+
 #ifdef _IRR_VT100_CONSOLE_
 	// reset terminal
 	fprintf(OutFile, "%cc", 27);
@@ -268,7 +276,7 @@ bool CIrrDeviceConsole::run()
 		}
 		case WINDOW_BUFFER_SIZE_EVENT:
 			VideoDriver->OnResize(
-				core::dimension2d<u32>(in.Event.WindowBufferSizeEvent.dwSize.X,
+				core::dimension2d<uint32_t>(in.Event.WindowBufferSizeEvent.dwSize.X,
 				                       in.Event.WindowBufferSizeEvent.dwSize.Y));
 			break;
 		case FOCUS_EVENT:
@@ -302,7 +310,7 @@ void CIrrDeviceConsole::yield()
 }
 
 //! Pause execution and let other processes to run for a specified amount of time.
-void CIrrDeviceConsole::sleep(u32 timeMs, bool pauseTimer)
+void CIrrDeviceConsole::sleep(uint32_t timeMs, bool pauseTimer)
 {
 	const bool wasStopped = Timer ? Timer->isStopped() : true;
 
@@ -324,10 +332,10 @@ void CIrrDeviceConsole::sleep(u32 timeMs, bool pauseTimer)
 }
 
 //! sets the caption of the window
-void CIrrDeviceConsole::setWindowCaption(const wchar_t* text)
+void CIrrDeviceConsole::setWindowCaption(const std::wstring& text)
 {
 #ifdef _IRR_WINDOWS_NT_CONSOLE_
-	SetConsoleTitleW(text);
+	SetConsoleTitleW(text.c_str());
 #endif
 }
 
@@ -351,17 +359,17 @@ bool CIrrDeviceConsole::isWindowMinimized() const
 }
 
 //! presents a surface in the client area
-bool CIrrDeviceConsole::present(video::IImage* surface, void* windowId, core::rect<s32>* src)
+bool CIrrDeviceConsole::present(video::IImage* surface, void* windowId, core::rect<int32_t>* src)
 {
 
 	if (surface)
 	{
-		for (u32 y=0; y < surface->getDimension().Height; ++y)
+		for (uint32_t y=0; y < surface->getDimension().Height; ++y)
 		{
-			for (u32 x=0; x< surface->getDimension().Width; ++x)
+			for (uint32_t x=0; x< surface->getDimension().Width; ++x)
 			{
 				// get average pixel
-				u32 avg = surface->getPixel(x,y).getAverage() * (ASCIIArtCharsCount-1);
+				uint32_t avg = surface->getPixel(x,y).getAverage() * (ASCIIArtCharsCount-1);
 				avg /= 255;
 				OutputBuffer[y] [x] = ASCIIArtChars[avg];
 			}
@@ -369,7 +377,7 @@ bool CIrrDeviceConsole::present(video::IImage* surface, void* windowId, core::re
 	}
 
 	// draw output
-	for (u32 y=0; y<OutputBuffer.size(); ++y)
+	for (uint32_t y=0; y<OutputBuffer.size(); ++y)
 	{
 		setTextCursorPos(0,y);
 		fprintf(OutFile, "%s", OutputBuffer[y].c_str());
@@ -413,7 +421,7 @@ void CIrrDeviceConsole::restoreWindow()
 }
 
 
-void CIrrDeviceConsole::setTextCursorPos(s16 x, s16 y)
+void CIrrDeviceConsole::setTextCursorPos(int16_t x, int16_t y)
 {
 #ifdef _IRR_WINDOWS_NT_CONSOLE_
 	// move WinNT cursor
@@ -429,7 +437,7 @@ void CIrrDeviceConsole::setTextCursorPos(s16 x, s16 y)
 #endif
 }
 
-void CIrrDeviceConsole::addPostPresentText(s16 X, s16 Y, const wchar_t *text)
+void CIrrDeviceConsole::addPostPresentText(int16_t X, int16_t Y, const wchar_t *text)
 {
 	SPostPresentText p;
 	p.Text = text;

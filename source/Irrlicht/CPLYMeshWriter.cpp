@@ -33,7 +33,7 @@ EMESH_WRITER_TYPE CPLYMeshWriter::getType() const
 }
 
 //! writes a mesh
-bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 flags)
+bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, int32_t flags)
 {
 	if (!file || !mesh)
 		return false;
@@ -48,10 +48,10 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 fla
 	header +=  IRRLICHT_SDK_VERSION;
 
 	// get vertex and triangle counts
-	u32 VertexCount   = 0;
-	u32 TriangleCount = 0;
+	uint32_t VertexCount   = 0;
+	uint32_t TriangleCount = 0;
 
-	for (u32 i=0; i < mesh->getMeshBufferCount(); ++i)
+	for (uint32_t i=0; i < mesh->getMeshBufferCount(); ++i)
 	{
 		VertexCount   += mesh->getMeshBuffer(i)->getVertexCount();
 		TriangleCount += mesh->getMeshBuffer(i)->getIndexCount() / 3;
@@ -94,18 +94,18 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 fla
 
 	// write vertices
 
-	c8 outLine[1024];
+	char outLine[1024];
 
-	for (u32 i=0; i < mesh->getMeshBufferCount(); ++i)
+	for (uint32_t i=0; i < mesh->getMeshBufferCount(); ++i)
 	{
 		scene::IMeshBuffer* mb = mesh->getMeshBuffer(i);
-		for (u32 j=0; j < mb->getVertexCount(); ++j)
+		for (uint32_t j=0; j < mb->getVertexCount(); ++j)
 		{
 			const core::vector3df& pos = mb->getPosition(j);
 			const core::vector3df& n   = mb->getNormal(j);
 //			const core::vector2df& tc  = mb->getTCoords(j);
 
-			u8 *buf  = (u8*)mb->getVertices();
+			uint8_t *buf  = (uint8_t*)mb->getVertices();
 			switch(mb->getVertexType())
 			{
 			case video::EVT_STANDARD:
@@ -134,30 +134,30 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 fla
 	}
 
 	// index of the first vertex in the current mesh buffer
-	u32 StartOffset = 0;
+	uint32_t StartOffset = 0;
 
 	// write triangles
-	for (u32 i=0; i < mesh->getMeshBufferCount(); ++i)
+	for (uint32_t i=0; i < mesh->getMeshBufferCount(); ++i)
 	{
 		scene::IMeshBuffer* mb = mesh->getMeshBuffer(i);
-		for (u32 j=0; j < mb->getIndexCount(); j+=3)
+		for (uint32_t j=0; j < mb->getIndexCount(); j+=3)
 		{
 			// y and z are flipped so triangles are reversed
-			u32 a=StartOffset,
+			uint32_t a=StartOffset,
 			    b=StartOffset,
 			    c=StartOffset;
 
 			switch(mb->getIndexType())
 			{
 			case video::EIT_16BIT:
-				a += ((u16*)mb->getIndices())[j+0];
-				c += ((u16*)mb->getIndices())[j+1];
-				b += ((u16*)mb->getIndices())[j+2];
+				a += ((uint16_t*)mb->getIndices())[j+0];
+				c += ((uint16_t*)mb->getIndices())[j+1];
+				b += ((uint16_t*)mb->getIndices())[j+2];
 				break;
 			case video::EIT_32BIT:
-				a += ((u32*)mb->getIndices()) [j+0];
-				c += ((u32*)mb->getIndices()) [j+0];
-				b += ((u32*)mb->getIndices()) [j+0];
+				a += ((uint32_t*)mb->getIndices()) [j+0];
+				c += ((uint32_t*)mb->getIndices()) [j+0];
+				b += ((uint32_t*)mb->getIndices()) [j+0];
 				break;
 			}
 

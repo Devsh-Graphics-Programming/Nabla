@@ -27,8 +27,8 @@ namespace scene
 	*/
 
 //! constructor
-CCubeSceneNode::CCubeSceneNode(f32 size, IDummyTransformationSceneNode* parent, ISceneManager* mgr,
-		s32 id, const core::vector3df& position,
+CCubeSceneNode::CCubeSceneNode(float size, IDummyTransformationSceneNode* parent, ISceneManager* mgr,
+		int32_t id, const core::vector3df& position,
 		const core::vector3df& rotation, const core::vector3df& scale)
 	: IMeshSceneNode(parent, mgr, id, position, rotation, scale),
 	Mesh(0), Size(size)
@@ -60,14 +60,20 @@ void CCubeSceneNode::setSize()
 void CCubeSceneNode::render()
 {
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
-	driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
+
+    if (canProceedPastFence())
+    {
+        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
 
-	// for debug purposes only:
-	video::SMaterial mat = Mesh->getMeshBuffer(0)->getMaterial();
+        // for debug purposes only:
+        video::SMaterial mat = Mesh->getMeshBuffer(0)->getMaterial();
 
-	driver->setMaterial(mat);
-	driver->drawMeshBuffer(Mesh->getMeshBuffer(0), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+        driver->setMaterial(mat);
+        driver->drawMeshBuffer(Mesh->getMeshBuffer(0), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+    }
+    else if (DebugDataVisible)
+        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
 	// for debug purposes only:
 	if (DebugDataVisible)
@@ -99,7 +105,7 @@ void CCubeSceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CCubeSceneNode::getBoundingBox()
+const core::aabbox3d<float>& CCubeSceneNode::getBoundingBox()
 {
 	return Mesh->getMeshBuffer(0)->getBoundingBox();
 }
@@ -115,14 +121,14 @@ void CCubeSceneNode::OnRegisterSceneNode()
 
 
 //! returns the material based on the zero based index i.
-video::SMaterial& CCubeSceneNode::getMaterial(u32 i)
+video::SMaterial& CCubeSceneNode::getMaterial(uint32_t i)
 {
 	return Mesh->getMeshBuffer(0)->getMaterial();
 }
 
 
 //! returns amount of materials used by this scene node.
-u32 CCubeSceneNode::getMaterialCount() const
+uint32_t CCubeSceneNode::getMaterialCount() const
 {
 	return 1;
 }

@@ -10,8 +10,11 @@ namespace irr
 namespace video
 {
 
-COpenGLVAO::COpenGLVAO() :  vao(0), lastValidated(0)
+COpenGLVAO::COpenGLVAO(core::LeakDebugger* dbgr) :  vao(0), lastValidated(0), leakDebugger(dbgr)
 {
+    if (leakDebugger)
+        leakDebugger->registerObj(this);
+
     for (size_t i=0; i<scene::EVAI_COUNT; i++)
         mappedAttrBuf[i] = NULL;
 
@@ -22,6 +25,9 @@ COpenGLVAO::COpenGLVAO() :  vao(0), lastValidated(0)
 
 COpenGLVAO::~COpenGLVAO()
 {
+    if (leakDebugger)
+        leakDebugger->deregisterObj(this);
+
     if (vao)
         COpenGLExtensionHandler::extGlDeleteVertexArrays(1,&vao);
 

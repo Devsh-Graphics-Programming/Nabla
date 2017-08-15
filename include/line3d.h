@@ -110,7 +110,7 @@ class line3d
 		\return True if there is an intersection.
 		If there is one, the distance to the first intersection point
 		is stored in outdistance. */
-		bool getIntersectionWithSphere(vector3d<T> sorigin, T sradius, f64& outdistance) const
+		bool getIntersectionWithSphere(vector3d<T> sorigin, T sradius, double& outdistance) const
 		{
 			const vector3d<T> q = sorigin - start;
 			T c = q.getLength();
@@ -132,10 +132,10 @@ class line3d
 		vector3d<T> end;
 };
 
-	//! Typedef for an f32 line.
-	typedef line3d<f32> line3df;
+	//! Typedef for an float line.
+	typedef line3d<float> line3df;
 	//! Typedef for an integer line.
-	typedef line3d<s32> line3di;
+	typedef line3d<int32_t> line3di;
 
 } // end namespace core
 } // end namespace irr

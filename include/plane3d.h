@@ -104,12 +104,12 @@ class plane3d
 		\return Where on a line between two points an intersection with this plane happened.
 		For example, 0.5 is returned if the intersection happened exactly in the middle of the two points.
 		*/
-		f32 getKnownIntersectionWithLine(const vector3d<T>& linePoint1,
+		float getKnownIntersectionWithLine(const vector3d<T>& linePoint1,
 			const vector3d<T>& linePoint2) const
 		{
 			vector3d<T> vect = linePoint2 - linePoint1;
-			T t2 = (f32)Normal.dotProduct(vect);
-			return (f32)-((Normal.dotProduct(linePoint1) + D) / t2);
+			T t2 = (float)Normal.dotProduct(vect);
+			return (float)-((Normal.dotProduct(linePoint1) + D) / t2);
 		}
 
 		//! Get an intersection with a 3d line, limited between two 3d points.
@@ -177,14 +177,14 @@ class plane3d
 			const T fn00 = Normal.getLength();
 			const T fn01 = Normal.dotProduct(other.Normal);
 			const T fn11 = other.Normal.getLength();
-			const f64 det = fn00*fn11 - fn01*fn01;
+			const double det = fn00*fn11 - fn01*fn01;
 
 			if (fabs(det) < ROUNDING_ERROR_f64 )
 				return false;
 
-			const f64 invdet = 1.0 / det;
-			const f64 fc0 = (fn11*-D + fn01*other.D) * invdet;
-			const f64 fc1 = (fn00*-other.D + fn01*D) * invdet;
+			const double invdet = 1.0 / det;
+			const double fc0 = (fn11*-D + fn01*other.D) * invdet;
+			const double fc1 = (fn00*-other.D + fn01*D) * invdet;
 
 			outLineVect = Normal.crossProduct(other.Normal);
 			outLinePoint = Normal*(T)fc0 + other.Normal*(T)fc1;
@@ -213,7 +213,7 @@ class plane3d
 		false if it is backfacing. */
 		bool isFrontFacing(const vector3d<T>& lookDirection) const
 		{
-			const f32 d = Normal.dotProduct(lookDirection);
+			const float d = Normal.dotProduct(lookDirection);
 			return F32_LOWER_EQUAL_0 ( d );
 		}
 
@@ -232,11 +232,11 @@ class plane3d
 };
 
 
-//! Typedef for a f32 3d plane.
-typedef plane3d<f32> plane3df;
+//! Typedef for a float 3d plane.
+typedef plane3d<float> plane3df;
 
 //! Typedef for an integer 3d plane.
-typedef plane3d<s32> plane3di;
+typedef plane3d<int32_t> plane3di;
 
 } // end namespace core
 } // end namespace irr

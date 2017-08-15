@@ -22,7 +22,7 @@ namespace irr
 		SIrrlichtCreationParameters() :
 			DeviceType(EIDT_BEST),
 			DriverType(video::EDT_BURNINGSVIDEO),
-			WindowSize(core::dimension2d<u32>(800, 600)),
+			WindowSize(core::dimension2d<uint32_t>(800, 600)),
 			Bits(16),
 			ZBufferBits(16),
 			Fullscreen(false),
@@ -100,13 +100,13 @@ namespace irr
 		video::E_DRIVER_TYPE DriverType;
 
 		//! Size of the window or the video mode in fullscreen mode. Default: 800x600
-		core::dimension2d<u32> WindowSize;
+		core::dimension2d<uint32_t> WindowSize;
 
 		//! Minimum Bits per pixel of the color buffer in fullscreen mode. Ignored if windowed mode. Default: 16.
-		u8 Bits;
+		uint8_t Bits;
 
 		//! Minimum Bits per pixel of the depth buffer. Default: 16.
-		u8 ZBufferBits;
+		uint8_t ZBufferBits;
 
 		//! Should be set to true if the device should run in fullscreen.
 		/** Otherwise the device runs in windowed mode. Default: false. */
@@ -142,7 +142,7 @@ namespace irr
 		special value on some platforms. On D3D devices it maps to
 		NONMASKABLE.
 		Default value: 0 - disabled */
-		u8 AntiAlias;
+		uint8_t AntiAlias;
 
 		//! Flag to enable proper sRGB and linear color handling
 		/** In most situations, it is desireable to have the color handling in
@@ -268,9 +268,9 @@ namespace irr
 
 		//! Allows to select which graphic card is used for rendering when more than one card is in the system.
 		/** So far only supported on D3D */
-		u32 DisplayAdapter;
+		uint32_t DisplayAdapter;
 
-		u8 AuxGLContexts;
+		uint8_t AuxGLContexts;
 
 		//! Enables use of high performance timers on Windows platform.
 		/** When performance timers are not used, standard GetTickCount()
@@ -282,7 +282,7 @@ namespace irr
 		//! Don't use or change this parameter.
 		/** Always set it to IRRLICHT_SDK_VERSION, which is done by default.
 		This is needed for sdk version checks. */
-		const c8* const SDK_version_do_not_use;
+		const char* const SDK_version_do_not_use;
 	};
 
 

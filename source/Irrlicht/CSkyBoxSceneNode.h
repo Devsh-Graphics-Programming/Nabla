@@ -22,10 +22,10 @@ namespace scene
 		CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
 			video::ITexture* right, video::ITexture* front, video::ITexture* back,
 			video::IGPUBuffer* vertPositions, size_t positionsOffsetInBuf,
-			IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id);
+			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
         //! clone Ctor
 		CSkyBoxSceneNode(CSkyBoxSceneNode* other,
-			IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id);
+			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
 
         virtual ~CSkyBoxSceneNode()
         {
@@ -33,23 +33,26 @@ namespace scene
                 sides[i]->drop();
         }
 
+		//!
+		virtual const bool supportsDriverFence() const {return true;}
+
 		virtual void OnRegisterSceneNode();
 
 		//! renders the node.
 		virtual void render();
 
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox();
+		virtual const core::aabbox3d<float>& getBoundingBox();
 
 		//! returns the material based on the zero based index i. To get the amount
 		//! of materials used by this scene node, use getMaterialCount().
 		//! This function is needed for inserting the node into the scene hirachy on a
 		//! optimal position for minimizing renderstate changes, but can also be used
 		//! to directly modify the material of a scene node.
-		virtual video::SMaterial& getMaterial(u32 i);
+		virtual video::SMaterial& getMaterial(uint32_t i);
 
 		//! returns amount of materials used by this scene node.
-		virtual u32 getMaterialCount() const;
+		virtual uint32_t getMaterialCount() const;
 
 		//! Returns type of the scene node
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_BOX; }
@@ -59,7 +62,7 @@ namespace scene
 
 	private:
 
-		core::aabbox3d<f32> Box;
+		core::aabbox3d<float> Box;
 		IGPUMeshBuffer* sides[6];
 		video::SMaterial Material[6];
 	};

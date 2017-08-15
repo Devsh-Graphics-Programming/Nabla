@@ -76,7 +76,7 @@ namespace irr
 		\param timeMs: Time to sleep for in milisecs.
 		\param pauseTimer: If true, pauses the device timer while sleeping
 		*/
-		virtual void sleep(u32 timeMs, bool pauseTimer=false) = 0;
+		virtual void sleep(uint32_t timeMs, bool pauseTimer=false) = 0;
 
 		//! Provides access to the video driver for drawing 3d and 2d geometry.
 		/** \return Pointer the video driver. */
@@ -141,7 +141,7 @@ namespace irr
 
 		//! Sets the caption of the window.
 		/** \param text: New text of the window caption. */
-		virtual void setWindowCaption(const wchar_t* text) = 0;
+		virtual void setWindowCaption(const std::wstring& text) = 0;
 
 		//! Returns if the window is active.
 		/** If the window is inactive,
@@ -185,7 +185,7 @@ namespace irr
 		/** The returned string
 		will look like this: "1.2.3" or this: "1.2".
 		\return String which contains the version. */
-		virtual const c8* getVersion() const = 0;
+		virtual const char* getVersion() const = 0;
 
 		//! Sets a new user event receiver which will receive events from the engine.
 		/** Return true in IEventReceiver::OnEvent to prevent the event from continuing along

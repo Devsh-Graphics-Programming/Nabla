@@ -28,20 +28,20 @@ bool CImageLoaderTGA::isALoadableFileExtension(const io::path& filename) const
 
 
 //! loads a compressed tga.
-u8 *CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader& header) const
+uint8_t *CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader& header) const
 {
 	// This was written and sent in by Jon Pry, thank you very much!
 	// I only changed the formatting a little bit.
 
-	s32 bytesPerPixel = header.PixelDepth/8;
-	s32 imageSize =  header.ImageHeight * header.ImageWidth * bytesPerPixel;
-	u8* data = new u8[imageSize];
-	s32 currentByte = 0;
+	int32_t bytesPerPixel = header.PixelDepth/8;
+	int32_t imageSize =  header.ImageHeight * header.ImageWidth * bytesPerPixel;
+	uint8_t* data = new uint8_t[imageSize];
+	int32_t currentByte = 0;
 
 	while(currentByte < imageSize)
 	{
-		u8 chunkheader = 0;
-		file->read(&chunkheader, sizeof(u8)); // Read The Chunk's Header
+		uint8_t chunkheader = 0;
+		file->read(&chunkheader, sizeof(uint8_t)); // Read The Chunk's Header
 
 		if(chunkheader < 128) // If The Chunk Is A 'RAW' Chunk
 		{
@@ -57,14 +57,14 @@ u8 *CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader& 
 			// If It's An RLE Header
 			chunkheader -= 127; // Subtract 127 To Get Rid Of The ID Bit
 
-			s32 dataOffset = currentByte;
+			int32_t dataOffset = currentByte;
 			file->read(&data[dataOffset], bytesPerPixel);
 
 			currentByte += bytesPerPixel;
 
-			for(s32 counter = 1; counter < chunkheader; counter++)
+			for(int32_t counter = 1; counter < chunkheader; counter++)
 			{
-				for(s32 elementCounter=0; elementCounter < bytesPerPixel; elementCounter++)
+				for(int32_t elementCounter=0; elementCounter < bytesPerPixel; elementCounter++)
 					data[currentByte + elementCounter] = data[dataOffset + elementCounter];
 
 				currentByte += bytesPerPixel;
@@ -96,7 +96,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* file) const
 IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
 {
 	STGAHeader header;
-	u32 *palette = 0;
+	uint32_t *palette = 0;
 
 	file->read(&header, sizeof(STGAHeader));
 
@@ -113,10 +113,10 @@ IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
 	if (header.ColorMapType)
 	{
 		// create 32 bit palette
-		palette = new u32[ header.ColorMapLength];
+		palette = new uint32_t[ header.ColorMapLength];
 
 		// read color map
-		u8 * colorMap = new u8[header.ColorMapEntrySize/8 * header.ColorMapLength];
+		uint8_t * colorMap = new uint8_t[header.ColorMapEntrySize/8 * header.ColorMapLength];
 		file->read(colorMap,header.ColorMapEntrySize/8 * header.ColorMapLength);
 
 		// convert to 32-bit palette
@@ -137,15 +137,15 @@ IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
 
 	// read image
 
-	u8* data = 0;
+	uint8_t* data = 0;
 
 	if (	header.ImageType == 1 || // Uncompressed, color-mapped images.
 			header.ImageType == 2 || // Uncompressed, RGB images
 			header.ImageType == 3 // Uncompressed, black and white images
 		)
 	{
-		const s32 imageSize = header.ImageHeight * header.ImageWidth * header.PixelDepth/8;
-		data = new u8[imageSize];
+		const int32_t imageSize = header.ImageHeight * header.ImageWidth * header.PixelDepth/8;
+		data = new uint8_t[imageSize];
 	  	file->read(data, imageSize);
 	}
 	else
@@ -156,7 +156,7 @@ IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
 	}
 	else
 	{
-		os::Printer::log("Unsupported TGA file type", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Unsupported TGA file type", file->getFileName().c_str(), ELL_ERROR);
 		delete [] palette;
 		return 0;
 	}
@@ -170,49 +170,49 @@ IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
 			if (header.ImageType==3) // grey image
 			{
 				image = new CImage(ECF_R8G8B8,
-					core::dimension2d<u32>(header.ImageWidth, header.ImageHeight));
+					core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
 				if (image)
-					CColorConverter::convert8BitTo24Bit((u8*)data,
-						(u8*)image->lock(),
+					CColorConverter::convert8BitTo24Bit((uint8_t*)data,
+						(uint8_t*)image->lock(),
 						header.ImageWidth,header.ImageHeight,
 						0, 0, (header.ImageDescriptor&0x20)==0);
 			}
 			else
 			{
 				image = new CImage(ECF_A1R5G5B5,
-					core::dimension2d<u32>(header.ImageWidth, header.ImageHeight));
+					core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
 				if (image)
-					CColorConverter::convert8BitTo16Bit((u8*)data,
-						(s16*)image->lock(),
+					CColorConverter::convert8BitTo16Bit((uint8_t*)data,
+						(int16_t*)image->lock(),
 						header.ImageWidth,header.ImageHeight,
-						(s32*) palette, 0,
+						(int32_t*) palette, 0,
 						(header.ImageDescriptor&0x20)==0);
 			}
 		}
 		break;
 	case 16:
 		image = new CImage(ECF_A1R5G5B5,
-			core::dimension2d<u32>(header.ImageWidth, header.ImageHeight));
+			core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
 		if (image)
-			CColorConverter::convert16BitTo16Bit((s16*)data,
-				(s16*)image->lock(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
+			CColorConverter::convert16BitTo16Bit((int16_t*)data,
+				(int16_t*)image->lock(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
 		break;
 	case 24:
 			image = new CImage(ECF_R8G8B8,
-				core::dimension2d<u32>(header.ImageWidth, header.ImageHeight));
+				core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
 			if (image)
 				CColorConverter::convert24BitTo24Bit(
-					(u8*)data, (u8*)image->lock(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
+					(uint8_t*)data, (uint8_t*)image->lock(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
 		break;
 	case 32:
 			image = new CImage(ECF_A8R8G8B8,
-				core::dimension2d<u32>(header.ImageWidth, header.ImageHeight));
+				core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
 			if (image)
-				CColorConverter::convert32BitTo32Bit((s32*)data,
-					(s32*)image->lock(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
+				CColorConverter::convert32BitTo32Bit((int32_t*)data,
+					(int32_t*)image->lock(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
 		break;
 	default:
-		os::Printer::log("Unsupported TGA format", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Unsupported TGA format", file->getFileName().c_str(), ELL_ERROR);
 		break;
 	}
 	if (image)

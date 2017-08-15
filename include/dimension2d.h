@@ -151,25 +151,25 @@ namespace core
 					bool requirePowerOfTwo=true,
 					bool requireSquare=false,
 					bool larger=true,
-					u32 maxValue = 0) const
+					uint32_t maxValue = 0) const
 			{
-				u32 i=1;
-				u32 j=1;
+				uint32_t i=1;
+				uint32_t j=1;
 				if (requirePowerOfTwo)
 				{
-					while (i<(u32)Width)
+					while (i<(uint32_t)Width)
 						i<<=1;
-					if (!larger && i!=1 && i!=(u32)Width)
+					if (!larger && i!=1 && i!=(uint32_t)Width)
 						i>>=1;
-					while (j<(u32)Height)
+					while (j<(uint32_t)Height)
 						j<<=1;
-					if (!larger && j!=1 && j!=(u32)Height)
+					if (!larger && j!=1 && j!=(uint32_t)Height)
 						j>>=1;
 				}
 				else
 				{
-					i=(u32)Width;
-					j=(u32)Height;
+					i=(uint32_t)Width;
+					j=(uint32_t)Height;
 				}
 
 				if (requireSquare)
@@ -193,9 +193,9 @@ namespace core
 			/** \param other Other dimension to interpolate with.
 			\param d Value between 0.0f and 1.0f.
 			\return Interpolated dimension. */
-			dimension2d<T> getInterpolated(const dimension2d<T>& other, f32 d) const
+			dimension2d<T> getInterpolated(const dimension2d<T>& other, float d) const
 			{
-				f32 inv = (1.0f - d);
+				float inv = (1.0f - d);
 				return dimension2d<T>( (T)(other.Width*inv + Width*d), (T)(other.Height*inv + Height*d));
 			}
 
@@ -206,15 +206,15 @@ namespace core
 			T Height;
 	};
 
-	//! Typedef for an f32 dimension.
-	typedef dimension2d<f32> dimension2df;
+	//! Typedef for an float dimension.
+	typedef dimension2d<float> dimension2df;
 	//! Typedef for an unsigned integer dimension.
-	typedef dimension2d<u32> dimension2du;
+	typedef dimension2d<uint32_t> dimension2du;
 
 	//! Typedef for an integer dimension.
 	/** There are few cases where negative dimensions make sense. Please consider using
 		dimension2du instead. */
-	typedef dimension2d<s32> dimension2di;
+	typedef dimension2d<int32_t> dimension2di;
 
 
 } // end namespace core

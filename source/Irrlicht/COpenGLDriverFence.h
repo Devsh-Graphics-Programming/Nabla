@@ -18,13 +18,12 @@ namespace video
 class COpenGLDriverFence : public IDriverFence
 {
     public:
-        inline COpenGLDriverFence() : cachedRetval(EDFR_TIMEOUT_EXPIRED)
+        inline COpenGLDriverFence(const bool& implicitFlushOnCPUWait=false) : cachedRetval(EDFR_TIMEOUT_EXPIRED)
         {
             fence = COpenGLExtensionHandler::extGlFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
-            firstTimeFlush = !COpenGLExtensionHandler::IsIntelGPU;
-            if (COpenGLExtensionHandler::IsIntelGPU)
-                glFlush();
+            firstTimeFlush = implicitFlushOnCPUWait;
         }
+
 
         virtual ~COpenGLDriverFence()
         {

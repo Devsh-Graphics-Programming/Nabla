@@ -353,24 +353,29 @@
 					<Add option="-Wall" />
 					<Add option="-g" />
 					<Add option="-W" />
-					<Add option="-fstack-protector-all" />
 					<Add option="-Wno-unused-parameter" />
 					<Add option="-fno-omit-frame-pointer" />
 					<Add option="-fno-exceptions" />
 					<Add option="-fuse-ld=gold" />
 					<Add option="-msse3" />
 					<Add option="-ggdb3" />
+					<Add option="-std=c++03" />
 					<Add option="-D_IRR_STATIC_LIB_" />
 					<Add option="-D_DEBUG" />
 					<Add directory="../../include" />
 					<Add directory="zlib" />
 					<Add directory="libpng" />
 					<Add directory="../Irrlicht" />
+					<Add directory="convert_utf" />
+					<Add directory="utf8/source/utf8" />
+					<Add directory="utf8/source" />
 				</Compiler>
 				<Linker>
 					<Add option="-fuse-ld=gold" />
 					<Add library="GL" />
 					<Add library="Xxf86vm" />
+					<Add library="unwind-x86_64" />
+					<Add library="unwind" />
 					<Add directory="/usr/X11R6/lib" />
 					<Add directory="/usr/local/lib" />
 				</Linker>
@@ -421,12 +426,16 @@
 					<Add option="-fno-exceptions" />
 					<Add option="-mfpmath=sse" />
 					<Add option="-msse3" />
+					<Add option="-std=c++03" />
 					<Add option="-DIRRLICHT_FAST_MATH" />
 					<Add option="-D_IRR_STATIC_LIB_" />
 					<Add directory="../../include" />
 					<Add directory="zlib" />
 					<Add directory="libpng" />
 					<Add directory="../Irrlicht" />
+					<Add directory="convert_utf" />
+					<Add directory="utf8/source/utf8" />
+					<Add directory="utf8/source" />
 				</Compiler>
 				<Linker>
 					<Add option="-msse3" />
@@ -461,7 +470,6 @@
 		<Unit filename="../../include/IBuffer.h" />
 		<Unit filename="../../include/ICPUBuffer.h" />
 		<Unit filename="../../include/ICameraSceneNode.h" />
-		<Unit filename="../../include/IColladaMeshWriter.h" />
 		<Unit filename="../../include/ICursorControl.h" />
 		<Unit filename="../../include/IDriverFence.h" />
 		<Unit filename="../../include/IDummyTransformationSceneNode.h" />
@@ -480,7 +488,6 @@
 		<Unit filename="../../include/IImageLoader.h" />
 		<Unit filename="../../include/IImageWriter.h" />
 		<Unit filename="../../include/ILightManager.h" />
-		<Unit filename="../../include/ILightSceneNode.h" />
 		<Unit filename="../../include/ILogger.h" />
 		<Unit filename="../../include/IMaterialRenderer.h" />
 		<Unit filename="../../include/IMaterialRendererServices.h" />
@@ -496,6 +503,7 @@
 		<Unit filename="../../include/IOSOperator.h" />
 		<Unit filename="../../include/IOcclusionQuery.h" />
 		<Unit filename="../../include/IQueryObject.h" />
+		<Unit filename="../../include/IRandomizer.h" />
 		<Unit filename="../../include/IReadFile.h" />
 		<Unit filename="../../include/IReferenceCounted.h" />
 		<Unit filename="../../include/IRenderBuffer.h" />
@@ -516,8 +524,6 @@
 		<Unit filename="../../include/IVideoDriver.h" />
 		<Unit filename="../../include/IVideoModeList.h" />
 		<Unit filename="../../include/IWriteFile.h" />
-		<Unit filename="../../include/IXMLReader.h" />
-		<Unit filename="../../include/IXMLWriter.h" />
 		<Unit filename="../../include/IrrCompileConfig.h" />
 		<Unit filename="../../include/IrrlichtDevice.h" />
 		<Unit filename="../../include/Keycodes.h" />
@@ -531,7 +537,6 @@
 		<Unit filename="../../include/SIMDswizzle.h" />
 		<Unit filename="../../include/SIrrCreationParameters.h" />
 		<Unit filename="../../include/SKeyMap.h" />
-		<Unit filename="../../include/SLight.h" />
 		<Unit filename="../../include/SMaterial.h" />
 		<Unit filename="../../include/SMaterialLayer.h" />
 		<Unit filename="../../include/SMesh.h" />
@@ -544,7 +549,6 @@
 		<Unit filename="../../include/aabbox3d.h" />
 		<Unit filename="../../include/coreutil.h" />
 		<Unit filename="../../include/dimension2d.h" />
-		<Unit filename="../../include/fast_atof.h" />
 		<Unit filename="../../include/heapsort.h" />
 		<Unit filename="../../include/irrAllocator.h" />
 		<Unit filename="../../include/irrArray.h" />
@@ -553,7 +557,6 @@
 		<Unit filename="../../include/irrMath.h" />
 		<Unit filename="../../include/irrString.h" />
 		<Unit filename="../../include/irrTypes.h" />
-		<Unit filename="../../include/irrXML.h" />
 		<Unit filename="../../include/irrlicht.h" />
 		<Unit filename="../../include/irrpack.h" />
 		<Unit filename="../../include/irrunpack.h" />
@@ -581,15 +584,12 @@
 		<Unit filename="CB3DMeshFileLoader.h" />
 		<Unit filename="CBillboardSceneNode.cpp" />
 		<Unit filename="CBillboardSceneNode.h" />
+		<Unit filename="CBlit.h" />
 		<Unit filename="CBurningShader_Raster_Reference.cpp" />
 		<Unit filename="CCSMLoader.cpp" />
 		<Unit filename="CCSMLoader.h" />
 		<Unit filename="CCameraSceneNode.cpp" />
 		<Unit filename="CCameraSceneNode.h" />
-		<Unit filename="CColladaFileLoader.cpp" />
-		<Unit filename="CColladaFileLoader.h" />
-		<Unit filename="CColladaMeshWriter.cpp" />
-		<Unit filename="CColladaMeshWriter.h" />
 		<Unit filename="CColorConverter.cpp" />
 		<Unit filename="CColorConverter.h" />
 		<Unit filename="CCubeSceneNode.cpp" />
@@ -665,8 +665,6 @@
 		<Unit filename="CLMTSMeshFileLoader.h" />
 		<Unit filename="CLWOMeshFileLoader.cpp" />
 		<Unit filename="CLWOMeshFileLoader.h" />
-		<Unit filename="CLightSceneNode.cpp" />
-		<Unit filename="CLightSceneNode.h" />
 		<Unit filename="CLimitReadFile.cpp" />
 		<Unit filename="CLimitReadFile.h" />
 		<Unit filename="CLogger.cpp" />
@@ -824,11 +822,6 @@
 		<Unit filename="CWADReader.h" />
 		<Unit filename="CWriteFile.cpp" />
 		<Unit filename="CWriteFile.h" />
-		<Unit filename="CXMLReader.cpp" />
-		<Unit filename="CXMLReader.h" />
-		<Unit filename="CXMLReaderImpl.h" />
-		<Unit filename="CXMLWriter.cpp" />
-		<Unit filename="CXMLWriter.h" />
 		<Unit filename="CXMeshFileLoader.cpp" />
 		<Unit filename="CXMeshFileLoader.h" />
 		<Unit filename="CZBuffer.cpp" />
@@ -841,6 +834,7 @@
 		<Unit filename="IBurningShader.h" />
 		<Unit filename="IDepthBuffer.h" />
 		<Unit filename="IImagePresenter.h" />
+		<Unit filename="ISceneNodeAnimatorFinishing.h" />
 		<Unit filename="ITriangleRenderer.h" />
 		<Unit filename="IZBuffer.h" />
 		<Unit filename="Irrlicht.cpp" />
@@ -891,9 +885,12 @@
 		<Unit filename="bzip2/randtable.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="convert_utf/ConvertUTF.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="coreutil.cpp" />
 		<Unit filename="dmfsupport.h" />
 		<Unit filename="glext.h" />
-		<Unit filename="irrXML.cpp" />
 		<Unit filename="jpeglib/cderror.h" />
 		<Unit filename="jpeglib/jaricom.c">
 			<Option compilerVar="CC" />

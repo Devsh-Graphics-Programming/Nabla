@@ -27,22 +27,22 @@ public:
 	virtual const core::stringc& getOperatingSystemVersion() const;
 
 	//! copies text to the clipboard
-	virtual void copyToClipboard(const c8* text) const;
+	virtual void copyToClipboard(const char* text) const;
 
 	//! gets text from the clipboard
 	//! \return Returns 0 if no string is in there.
-	virtual const c8* getTextFromClipboard() const;
+	virtual const char* getTextFromClipboard() const;
 
 	//! gets the processor speed in megahertz
 	//! \param Mhz:
 	//! \return Returns true if successful, false if not
-	virtual bool getProcessorSpeedMHz(u32* MHz) const;
+	virtual bool getProcessorSpeedMHz(uint32_t* MHz) const;
 
 	//! gets the total and available system RAM in kB
 	//! \param Total: will contain the total system memory
 	//! \param Avail: will contain the available memory
 	//! \return Returns true if successful, false if not
-	virtual bool getSystemMemory(u32* Total, u32* Avail) const;
+	virtual bool getSystemMemory(uint32_t* Total, uint32_t* Avail) const;
 
 private:
 

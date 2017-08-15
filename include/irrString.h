@@ -18,12 +18,12 @@ namespace core
 {
 
 //! Very simple string class with some useful features.
-/** string<c8> and string<wchar_t> both accept Unicode AND ASCII/Latin-1,
-so you can assign Unicode to string<c8> and ASCII/Latin-1 to string<wchar_t>
+/** string<char> and string<wchar_t> both accept Unicode AND ASCII/Latin-1,
+so you can assign Unicode to string<char> and ASCII/Latin-1 to string<wchar_t>
 (and the other way round) if you want to.
 
 However, note that the conversation between both is not done using any encoding.
-This means that c8 strings are treated as ASCII/Latin-1, not UTF-8, and
+This means that char strings are treated as ASCII/Latin-1, not UTF-8, and
 are simply expanded to the equivalent wchar_t, while Unicode/wchar_t
 characters are truncated to 8-bit ASCII/Latin-1 characters, discarding all
 other information in the wchar_t.
@@ -42,7 +42,7 @@ static inline void locale_set ( eLocaleID id )
 }
 
 //! Returns a character converted to lower case
-static inline u32 locale_lower ( u32 x )
+static inline uint32_t locale_lower ( uint32_t x )
 {
 	switch ( locale_current )
 	{
@@ -55,7 +55,7 @@ static inline u32 locale_lower ( u32 x )
 }
 
 //! Returns a character converted to upper case
-static inline u32 locale_upper ( u32 x )
+static inline uint32_t locale_upper ( uint32_t x )
 {
 	switch ( locale_current )
 	{
@@ -101,177 +101,10 @@ public:
 	}
 
 
-	//! Constructs a string from a float
-	explicit string(const double number)
-	: array(0), allocated(0), used(0)
-	{
-		c8 tmpbuf[255];
-		snprintf(tmpbuf, 255, "%0.6f", number);
-		*this = tmpbuf;
-	}
-
-
-	//! Constructs a string from an int
-	explicit string(int number)
-	: array(0), allocated(0), used(0)
-	{
-		// store if negative and make positive
-
-		bool negative = false;
-		if (number < 0)
-		{
-			number *= -1;
-			negative = true;
-		}
-
-		// temporary buffer for 16 numbers
-
-		c8 tmpbuf[16]={0};
-		u32 idx = 15;
-
-		// special case '0'
-
-		if (!number)
-		{
-			tmpbuf[14] = '0';
-			*this = &tmpbuf[14];
-			return;
-		}
-
-		// add numbers
-
-		while(number && idx)
-		{
-			--idx;
-			tmpbuf[idx] = (c8)('0' + (number % 10));
-			number /= 10;
-		}
-
-		// add sign
-
-		if (negative)
-		{
-			--idx;
-			tmpbuf[idx] = '-';
-		}
-
-		*this = &tmpbuf[idx];
-	}
-
-
-	//! Constructs a string from an unsigned int
-	explicit string(unsigned int number)
-	: array(0), allocated(0), used(0)
-	{
-		// temporary buffer for 16 numbers
-
-		c8 tmpbuf[16]={0};
-		u32 idx = 15;
-
-		// special case '0'
-
-		if (!number)
-		{
-			tmpbuf[14] = '0';
-			*this = &tmpbuf[14];
-			return;
-		}
-
-		// add numbers
-
-		while(number && idx)
-		{
-			--idx;
-			tmpbuf[idx] = (c8)('0' + (number % 10));
-			number /= 10;
-		}
-
-		*this = &tmpbuf[idx];
-	}
-
-
-	//! Constructs a string from a long
-	explicit string(long number)
-	: array(0), allocated(0), used(0)
-	{
-		// store if negative and make positive
-
-		bool negative = false;
-		if (number < 0)
-		{
-			number *= -1;
-			negative = true;
-		}
-
-		// temporary buffer for 16 numbers
-
-		c8 tmpbuf[16]={0};
-		u32 idx = 15;
-
-		// special case '0'
-
-		if (!number)
-		{
-			tmpbuf[14] = '0';
-			*this = &tmpbuf[14];
-			return;
-		}
-
-		// add numbers
-
-		while(number && idx)
-		{
-			--idx;
-			tmpbuf[idx] = (c8)('0' + (number % 10));
-			number /= 10;
-		}
-
-		// add sign
-
-		if (negative)
-		{
-			--idx;
-			tmpbuf[idx] = '-';
-		}
-
-		*this = &tmpbuf[idx];
-	}
-
-
-	//! Constructs a string from an unsigned long
-	explicit string(unsigned long number)
-	: array(0), allocated(0), used(0)
-	{
-		// temporary buffer for 16 numbers
-
-		c8 tmpbuf[16]={0};
-		u32 idx = 15;
-
-		// special case '0'
-
-		if (!number)
-		{
-			tmpbuf[14] = '0';
-			*this = &tmpbuf[14];
-			return;
-		}
-
-		// add numbers
-
-		while(number && idx)
-		{
-			--idx;
-			tmpbuf[idx] = (c8)('0' + (number % 10));
-			number /= 10;
-		}
-
-		*this = &tmpbuf[idx];
-	}
-
 
 	//! Constructor for copying a string from a pointer with a given length
 	template <class B>
-	string(const B* const c, u32 length)
+	string(const B* const c, uint32_t length)
 	: array(0), allocated(0), used(0)
 	{
 		if (!c)
@@ -284,7 +117,7 @@ public:
 		allocated = used = length+1;
 		array = allocator.allocate(used); // new T[used];
 
-		for (u32 l = 0; l<length; ++l)
+		for (uint32_t l = 0; l<length; ++l)
 			array[l] = (T)c[l];
 
 		array[length] = 0;
@@ -322,7 +155,7 @@ public:
 		}
 
 		const T* p = other.c_str();
-		for (u32 i=0; i<used; ++i, ++p)
+		for (uint32_t i=0; i<used; ++i, ++p)
 			array[i] = *p;
 
 		return *this;
@@ -356,7 +189,7 @@ public:
 		if ((void*)c == (void*)array)
 			return *this;
 
-		u32 len = 0;
+		uint32_t len = 0;
 		const B* p = c;
 		do
 		{
@@ -374,7 +207,7 @@ public:
 			array = allocator.allocate(used); //new T[used];
 		}
 
-		for (u32 l = 0; l<len; ++l)
+		for (uint32_t l = 0; l<len; ++l)
 			array[l] = (T)c[l];
 
 		if (oldArray != array)
@@ -406,7 +239,7 @@ public:
 
 
 	//! Direct access operator
-	T& operator [](const u32 index)
+	T& operator [](const uint32_t index)
 	{
 		_IRR_DEBUG_BREAK_IF(index>=used) // bad index
 		return array[index];
@@ -414,7 +247,7 @@ public:
 
 
 	//! Direct access operator
-	const T& operator [](const u32 index) const
+	const T& operator [](const uint32_t index) const
 	{
 		_IRR_DEBUG_BREAK_IF(index>=used) // bad index
 		return array[index];
@@ -427,7 +260,7 @@ public:
 		if (!str)
 			return false;
 
-		u32 i;
+		uint32_t i;
 		for (i=0; array[i] && str[i]; ++i)
 			if (array[i] != str[i])
 				return false;
@@ -439,7 +272,7 @@ public:
 	//! Equality operator
 	bool operator==(const string<T,TAlloc>& other) const
 	{
-		for (u32 i=0; array[i] && other.array[i]; ++i)
+		for (uint32_t i=0; array[i] && other.array[i]; ++i)
 			if (array[i] != other.array[i])
 				return false;
 
@@ -450,9 +283,9 @@ public:
 	//! Is smaller comparator
 	bool operator<(const string<T,TAlloc>& other) const
 	{
-		for (u32 i=0; array[i] && other.array[i]; ++i)
+		for (uint32_t i=0; array[i] && other.array[i]; ++i)
 		{
-			const s32 diff = array[i] - other.array[i];
+			const int32_t diff = array[i] - other.array[i];
 			if (diff)
 				return (diff < 0);
 		}
@@ -478,9 +311,15 @@ public:
 	//! Returns length of the string's content
 	/** \return Length of the string's content in characters, excluding
 	the trailing NUL. */
-	u32 size() const
+	uint32_t size() const
 	{
 		return used-1;
+	}
+
+	void resize(const size_t& newSz)
+	{
+	    reallocate(newSz+1);
+	    used = newSz+1;
 	}
 
 	//! Informs if the string is empty or not.
@@ -501,7 +340,7 @@ public:
 	//! Makes the string lower case.
 	string<T,TAlloc>& make_lower()
 	{
-		for (u32 i=0; array[i]; ++i)
+		for (uint32_t i=0; array[i]; ++i)
 			array[i] = locale_lower ( array[i] );
 		return *this;
 	}
@@ -510,7 +349,7 @@ public:
 	//! Makes the string upper case.
 	string<T,TAlloc>& make_upper()
 	{
-		for (u32 i=0; array[i]; ++i)
+		for (uint32_t i=0; array[i]; ++i)
 			array[i] = locale_upper ( array[i] );
 		return *this;
 	}
@@ -521,7 +360,7 @@ public:
 	\return True if the strings are equal ignoring case. */
 	bool equals_ignore_case(const string<T,TAlloc>& other) const
 	{
-		for(u32 i=0; array[i] && other[i]; ++i)
+		for(uint32_t i=0; array[i] && other[i]; ++i)
 			if (locale_lower( array[i]) != locale_lower(other[i]))
 				return false;
 
@@ -532,12 +371,12 @@ public:
 	/** \param other: Other string to compare.
 		\param sourcePos: where to start to compare in the string
 	\return True if the strings are equal ignoring case. */
-	bool equals_substring_ignore_case(const string<T,TAlloc>&other, const s32 sourcePos = 0 ) const
+	bool equals_substring_ignore_case(const string<T,TAlloc>&other, const int32_t sourcePos = 0 ) const
 	{
-		if ( (u32) sourcePos >= used )
+		if ( (uint32_t) sourcePos >= used )
 			return false;
 
-		u32 i;
+		uint32_t i;
 		for( i=0; array[sourcePos + i] && other[i]; ++i)
 			if (locale_lower( array[sourcePos + i]) != locale_lower(other[i]))
 				return false;
@@ -551,9 +390,9 @@ public:
 	\return True if this string is smaller ignoring case. */
 	bool lower_ignore_case(const string<T,TAlloc>& other) const
 	{
-		for(u32 i=0; array[i] && other.array[i]; ++i)
+		for(uint32_t i=0; array[i] && other.array[i]; ++i)
 		{
-			s32 diff = (s32) locale_lower ( array[i] ) - (s32) locale_lower ( other.array[i] );
+			int32_t diff = (int32_t) locale_lower ( array[i] ) - (int32_t) locale_lower ( other.array[i] );
 			if ( diff )
 				return diff < 0;
 		}
@@ -566,9 +405,9 @@ public:
 	/** \param other Other string to compare.
 	\param n Number of characters to compare
 	\return True if the n first characters of both strings are equal. */
-	bool equalsn(const string<T,TAlloc>& other, u32 n) const
+	bool equalsn(const string<T,TAlloc>& other, uint32_t n) const
 	{
-		u32 i;
+		uint32_t i;
 		for(i=0; array[i] && other[i] && i < n; ++i)
 			if (array[i] != other[i])
 				return false;
@@ -583,11 +422,11 @@ public:
 	/** \param str Other string to compare.
 	\param n Number of characters to compare
 	\return True if the n first characters of both strings are equal. */
-	bool equalsn(const T* const str, u32 n) const
+	bool equalsn(const T* const str, uint32_t n) const
 	{
 		if (!str)
 			return false;
-		u32 i;
+		uint32_t i;
 		for(i=0; array[i] && str[i] && i < n; ++i)
 			if (array[i] != str[i])
 				return false;
@@ -617,12 +456,12 @@ public:
 	//! Appends a char string to this string
 	/** \param other: Char string to append. */
 	/** \param length: The length of the string to append. */
-	string<T,TAlloc>& append(const T* const other, u32 length=0xffffffff)
+	string<T,TAlloc>& append(const T* const other, uint32_t length=0xffffffff)
 	{
 		if (!other)
 			return *this;
 
-		u32 len = 0;
+		uint32_t len = 0;
 		const T* p = other;
 		while(*p)
 		{
@@ -638,7 +477,7 @@ public:
 		--used;
 		++len;
 
-		for (u32 l=0; l<len; ++l)
+		for (uint32_t l=0; l<len; ++l)
 			array[l+used] = *(other+l);
 
 		used += len;
@@ -655,12 +494,12 @@ public:
 			return *this;
 
 		--used;
-		u32 len = other.size()+1;
+		uint32_t len = other.size()+1;
 
 		if (used + len > allocated)
 			reallocate(used + len);
 
-		for (u32 l=0; l<len; ++l)
+		for (uint32_t l=0; l<len; ++l)
 			array[used+l] = other[l];
 
 		used += len;
@@ -672,7 +511,7 @@ public:
 	//! Appends a string of the length l to this string.
 	/** \param other: other String to append to this string.
 	\param length: How much characters of the other string to add to this one. */
-	string<T,TAlloc>& append(const string<T,TAlloc>& other, u32 length)
+	string<T,TAlloc>& append(const string<T,TAlloc>& other, uint32_t length)
 	{
 		if (other.size() == 0)
 			return *this;
@@ -688,7 +527,7 @@ public:
 
 		--used;
 
-		for (u32 l=0; l<length; ++l)
+		for (uint32_t l=0; l<length; ++l)
 			array[l+used] = other[l];
 		used += length;
 
@@ -702,7 +541,7 @@ public:
 
 	//! Reserves some memory.
 	/** \param count: Amount of characters to reserve. */
-	void reserve(u32 count)
+	void reserve(uint32_t count)
 	{
 		if (count < allocated)
 			return;
@@ -715,9 +554,9 @@ public:
 	/** \param c: Character to search for.
 	\return Position where the character has been found,
 	or -1 if not found. */
-	s32 findFirst(T c) const
+	int32_t findFirst(T c) const
 	{
-		for (u32 i=0; i<used-1; ++i)
+		for (uint32_t i=0; i<used-1; ++i)
 			if (array[i] == c)
 				return i;
 
@@ -731,13 +570,13 @@ public:
 	this should be strlen(c)
 	\return Position where one of the characters has been found,
 	or -1 if not found. */
-	s32 findFirstChar(const T* const c, u32 count=1) const
+	int32_t findFirstChar(const T* const c, uint32_t count=1) const
 	{
 		if (!c || !count)
 			return -1;
 
-		for (u32 i=0; i<used-1; ++i)
-			for (u32 j=0; j<count; ++j)
+		for (uint32_t i=0; i<used-1; ++i)
+			for (uint32_t j=0; j<count; ++j)
 				if (array[i] == c[j])
 					return i;
 
@@ -753,14 +592,14 @@ public:
 	\return Position where the character has been found,
 	or -1 if not found. */
 	template <class B>
-	s32 findFirstCharNotInList(const B* const c, u32 count=1) const
+	int32_t findFirstCharNotInList(const B* const c, uint32_t count=1) const
 	{
 		if (!c || !count)
 			return -1;
 
-		for (u32 i=0; i<used-1; ++i)
+		for (uint32_t i=0; i<used-1; ++i)
 		{
-			u32 j;
+			uint32_t j;
 			for (j=0; j<count; ++j)
 				if (array[i] == c[j])
 					break;
@@ -780,14 +619,14 @@ public:
 	\return Position where the character has been found,
 	or -1 if not found. */
 	template <class B>
-	s32 findLastCharNotInList(const B* const c, u32 count=1) const
+	int32_t findLastCharNotInList(const B* const c, uint32_t count=1) const
 	{
 		if (!c || !count)
 			return -1;
 
-		for (s32 i=(s32)(used-2); i>=0; --i)
+		for (int32_t i=(int32_t)(used-2); i>=0; --i)
 		{
-			u32 j;
+			uint32_t j;
 			for (j=0; j<count; ++j)
 				if (array[i] == c[j])
 					break;
@@ -804,9 +643,9 @@ public:
 	\param startPos: Position in string to start searching.
 	\return Position where the character has been found,
 	or -1 if not found. */
-	s32 findNext(T c, u32 startPos) const
+	int32_t findNext(T c, uint32_t startPos) const
 	{
-		for (u32 i=startPos; i<used-1; ++i)
+		for (uint32_t i=startPos; i<used-1; ++i)
 			if (array[i] == c)
 				return i;
 
@@ -819,10 +658,10 @@ public:
 	\param start: start to search reverse ( default = -1, on end )
 	\return Position where the character has been found,
 	or -1 if not found. */
-	s32 findLast(T c, s32 start = -1) const
+	int32_t findLast(T c, int32_t start = -1) const
 	{
-		start = core::clamp ( start < 0 ? (s32)(used) - 2 : start, 0, (s32)(used) - 2 );
-		for (s32 i=start; i>=0; --i)
+		start = core::clamp ( start < 0 ? (int32_t)(used) - 2 : start, 0, (int32_t)(used) - 2 );
+		for (int32_t i=start; i>=0; --i)
 			if (array[i] == c)
 				return i;
 
@@ -836,13 +675,13 @@ public:
 	this should be strlen(c)
 	\return Position where one of the characters has been found,
 	or -1 if not found. */
-	s32 findLastChar(const T* const c, u32 count=1) const
+	int32_t findLastChar(const T* const c, uint32_t count=1) const
 	{
 		if (!c || !count)
 			return -1;
 
-		for (s32 i=(s32)used-2; i>=0; --i)
-			for (u32 j=0; j<count; ++j)
+		for (int32_t i=(int32_t)used-2; i>=0; --i)
+			for (uint32_t j=0; j<count; ++j)
 				if (array[i] == c[j])
 					return i;
 
@@ -856,11 +695,11 @@ public:
 	\return Positions where the string has been found,
 	or -1 if not found. */
 	template <class B>
-	s32 find(const B* const str, const u32 start = 0) const
+	int32_t find(const B* const str, const uint32_t start = 0) const
 	{
 		if (str && *str)
 		{
-			u32 len = 0;
+			uint32_t len = 0;
 
 			while (str[len])
 				++len;
@@ -868,9 +707,9 @@ public:
 			if (len > used-1)
 				return -1;
 
-			for (u32 i=start; i<used-len; ++i)
+			for (uint32_t i=start; i<used-len; ++i)
 			{
-				u32 j=0;
+				uint32_t j=0;
 
 				while(str[j] && array[i+j] == str[j])
 					++j;
@@ -888,7 +727,7 @@ public:
 	/** \param begin Start of substring.
 	\param length Length of substring.
 	\param make_lower_in copy only lower case */
-	string<T> subString(u32 begin, s32 length, bool make_lower_in = false ) const
+	string<T> subString(uint32_t begin, int32_t length, bool make_lower_in = false ) const
 	{
 		// if start after string
 		// or no proper substring length
@@ -901,7 +740,7 @@ public:
 		string<T> o;
 		o.reserve(length+1);
 
-		s32 i;
+		int32_t i;
 		if ( !make_lower_in )
 		{
 			for (i=0; i<length; ++i)
@@ -919,14 +758,6 @@ public:
 		return o;
 	}
 
-
-	//! Appends a character to this string
-	/** \param c Character to append. */
-	string<T,TAlloc>& operator += (T c)
-	{
-		append(c);
-		return *this;
-	}
 
 
 	//! Appends a char string to this string
@@ -947,66 +778,13 @@ public:
 	}
 
 
-	//! Appends a string representation of a number to this string
-	/** \param i Number to append. */
-	string<T,TAlloc>& operator += (const int i)
-	{
-		append(string<T,TAlloc>(i));
-		return *this;
-	}
-
-
-	//! Appends a string representation of a number to this string
-	/** \param i Number to append. */
-	string<T,TAlloc>& operator += (const unsigned int i)
-	{
-		append(string<T,TAlloc>(i));
-		return *this;
-	}
-
-
-	//! Appends a string representation of a number to this string
-	/** \param i Number to append. */
-	string<T,TAlloc>& operator += (const long i)
-	{
-		append(string<T,TAlloc>(i));
-		return *this;
-	}
-
-
-	//! Appends a string representation of a number to this string
-	/** \param i Number to append. */
-	string<T,TAlloc>& operator += (const unsigned long i)
-	{
-		append(string<T,TAlloc>(i));
-		return *this;
-	}
-
-
-	//! Appends a string representation of a number to this string
-	/** \param i Number to append. */
-	string<T,TAlloc>& operator += (const double i)
-	{
-		append(string<T,TAlloc>(i));
-		return *this;
-	}
-
-
-	//! Appends a string representation of a number to this string
-	/** \param i Number to append. */
-	string<T,TAlloc>& operator += (const float i)
-	{
-		append(string<T,TAlloc>(i));
-		return *this;
-	}
-
 
 	//! Replaces all characters of a special type with another one
 	/** \param toReplace Character to replace.
 	\param replaceWith Character replacing the old one. */
 	string<T,TAlloc>& replace(T toReplace, T replaceWith)
 	{
-		for (u32 i=0; i<used-1; ++i)
+		for (uint32_t i=0; i<used-1; ++i)
 			if (array[i] == toReplace)
 				array[i] = replaceWith;
 		return *this;
@@ -1023,19 +801,19 @@ public:
 
 		const T* other = toReplace.c_str();
 		const T* replacePtr = replaceWith.c_str();
-		const u32 other_size = toReplace.size();
-		const u32 replace_size = replaceWith.size();
+		const uint32_t other_size = toReplace.size();
+		const uint32_t replace_size = replaceWith.size();
 
 		// Determine the delta.  The algorithm will change depending on the delta.
-		s32 delta = replace_size - other_size;
+		int32_t delta = replace_size - other_size;
 
 		// A character for character replace.  The string will not shrink or grow.
 		if (delta == 0)
 		{
-			s32 pos = 0;
+			int32_t pos = 0;
 			while ((pos = find(other, pos)) != -1)
 			{
-				for (u32 i = 0; i < replace_size; ++i)
+				for (uint32_t i = 0; i < replace_size; ++i)
 					array[pos + i] = replacePtr[i];
 				++pos;
 			}
@@ -1045,14 +823,14 @@ public:
 		// We are going to be removing some characters.  The string will shrink.
 		if (delta < 0)
 		{
-			u32 i = 0;
-			for (u32 pos = 0; pos < used; ++i, ++pos)
+			uint32_t i = 0;
+			for (uint32_t pos = 0; pos < used; ++i, ++pos)
 			{
 				// Is this potentially a match?
 				if (array[pos] == *other)
 				{
 					// Check to see if we have a match.
-					u32 j;
+					uint32_t j;
 					for (j = 0; j < other_size; ++j)
 					{
 						if (array[pos + j] != other[j])
@@ -1081,8 +859,8 @@ public:
 
 		// We are going to be adding characters, so the string size will increase.
 		// Count the number of times toReplace exists in the string so we can allocate the new size.
-		u32 find_count = 0;
-		s32 pos = 0;
+		uint32_t find_count = 0;
+		int32_t pos = 0;
 		while ((pos = find(other, pos)) != -1)
 		{
 			++find_count;
@@ -1090,7 +868,7 @@ public:
 		}
 
 		// Re-allocate the string now, if needed.
-		u32 len = delta * find_count;
+		uint32_t len = delta * find_count;
 		if (used + len > allocated)
 			reallocate(used + len);
 
@@ -1111,7 +889,7 @@ public:
 			}
 
 			// Add the new string now.
-			for (u32 i = 0; i < replace_size; ++i)
+			for (uint32_t i = 0; i < replace_size; ++i)
 				array[pos + i] = replacePtr[i];
 
 			pos += replace_size;
@@ -1126,9 +904,9 @@ public:
 	/** \param c: Character to remove. */
 	string<T,TAlloc>& remove(T c)
 	{
-		u32 pos = 0;
-		u32 found = 0;
-		for (u32 i=0; i<used-1; ++i)
+		uint32_t pos = 0;
+		uint32_t found = 0;
+		for (uint32_t i=0; i<used-1; ++i)
 		{
 			if (array[i] == c)
 			{
@@ -1148,14 +926,14 @@ public:
 	/** \param toRemove: String to remove. */
 	string<T,TAlloc>& remove(const string<T,TAlloc>& toRemove)
 	{
-		u32 sizeToRemove = toRemove.size();
+		uint32_t sizeToRemove = toRemove.size();
 		if ( sizeToRemove == 0 )
 			return *this;
-		u32 pos = 0;
-		u32 found = 0;
-		for (u32 i=0; i<used-1; ++i)
+		uint32_t pos = 0;
+		uint32_t found = 0;
+		for (uint32_t i=0; i<used-1; ++i)
 		{
-			u32 j = 0;
+			uint32_t j = 0;
 			while (j < sizeToRemove)
 			{
 				if (array[i + j] != toRemove[j])
@@ -1184,14 +962,14 @@ public:
 		if (characters.size() == 0)
 			return *this;
 
-		u32 pos = 0;
-		u32 found = 0;
-		for (u32 i=0; i<used-1; ++i)
+		uint32_t pos = 0;
+		uint32_t found = 0;
+		for (uint32_t i=0; i<used-1; ++i)
 		{
 			// Don't use characters.findFirst as it finds the \0,
 			// causing used to become incorrect.
 			bool docontinue = false;
-			for (u32 j=0; j<characters.size(); ++j)
+			for (uint32_t j=0; j<characters.size(); ++j)
 			{
 				if (characters[j] == array[i])
 				{
@@ -1218,11 +996,11 @@ public:
 	string<T,TAlloc>& trim(const string<T,TAlloc> & whitespace = " \t\n\r")
 	{
 		// find start and end of the substring without the specified characters
-		const s32 begin = findFirstCharNotInList(whitespace.c_str(), whitespace.used);
+		const int32_t begin = findFirstCharNotInList(whitespace.c_str(), whitespace.used);
 		if (begin == -1)
 			return (*this="");
 
-		const s32 end = findLastCharNotInList(whitespace.c_str(), whitespace.used);
+		const int32_t end = findLastCharNotInList(whitespace.c_str(), whitespace.used);
 
 		return (*this = subString(begin, (end +1) - begin));
 	}
@@ -1232,11 +1010,11 @@ public:
 	/** May be slow, because all elements
 	following after the erased element have to be copied.
 	\param index: Index of element to be erased. */
-	string<T,TAlloc>& erase(u32 index)
+	string<T,TAlloc>& erase(uint32_t index)
 	{
 		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
 
-		for (u32 i=index+1; i<used; ++i)
+		for (uint32_t i=index+1; i<used; ++i)
 			array[i-1] = array[i];
 
 		--used;
@@ -1247,7 +1025,7 @@ public:
 	string<T,TAlloc>& validate()
 	{
 		// terminate on existing null
-		for (u32 i=0; i<allocated; ++i)
+		for (uint32_t i=0; i<allocated; ++i)
 		{
 			if (array[i] == 0)
 			{
@@ -1295,18 +1073,18 @@ public:
 	\return The number of resulting substrings
 	*/
 	template<class container>
-	u32 split(container& ret, const T* const c, u32 count=1, bool ignoreEmptyTokens=true, bool keepSeparators=false) const
+	uint32_t split(container& ret, const T* const c, uint32_t count=1, bool ignoreEmptyTokens=true, bool keepSeparators=false) const
 	{
 		if (!c)
 			return 0;
 
-		const u32 oldSize=ret.size();
-		u32 lastpos = 0;
+		const uint32_t oldSize=ret.size();
+		uint32_t lastpos = 0;
 		bool lastWasSeparator = false;
-		for (u32 i=0; i<used; ++i)
+		for (uint32_t i=0; i<used; ++i)
 		{
 			bool foundSeparator = false;
-			for (u32 j=0; j<count; ++j)
+			for (uint32_t j=0; j<count; ++j)
 			{
 				if (array[i] == c[j])
 				{
@@ -1328,15 +1106,15 @@ public:
 private:
 
 	//! Reallocate the array, make it bigger or smaller
-	void reallocate(u32 new_size)
+	void reallocate(uint32_t new_size)
 	{
 		T* old_array = array;
 
 		array = allocator.allocate(new_size); //new T[new_size];
 		allocated = new_size;
 
-		u32 amount = used < new_size ? used : new_size;
-		for (u32 i=0; i<amount; ++i)
+		uint32_t amount = used < new_size ? used : new_size;
+		for (uint32_t i=0; i<amount; ++i)
 			array[i] = old_array[i];
 
 		if (allocated < used)
@@ -1348,14 +1126,14 @@ private:
 	//--- member variables
 
 	T* array;
-	u32 allocated;
-	u32 used;
+	uint32_t allocated;
+	uint32_t used;
 	TAlloc allocator;
 };
 
 
 //! Typedef for character strings
-typedef string<c8> stringc;
+typedef string<char> stringc;
 
 //! Typedef for wide character strings
 typedef string<wchar_t> stringw;

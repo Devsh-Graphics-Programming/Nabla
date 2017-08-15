@@ -2,6 +2,7 @@
 #include "COpenGLPersistentlyMappedBuffer.h"
 #include "os.h"
 #include "FW_Mutex.h"
+#include <sstream>
 
 using namespace irr;
 using namespace video;
@@ -31,10 +32,13 @@ using namespace video;
 //#define _EXTREME_DEBUG
 
 
-IGPUTransientBuffer::IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe)
+IGPUTransientBuffer::IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe, core::LeakDebugger* dbgr)
                                     :   lastChanged(0), canGrow(growable), flushOnWait(autoFlush), Driver(driver), underlyingBuffer(buffer), underlyingBufferAsMapped(dynamic_cast<IGPUMappedBuffer*>(underlyingBuffer)),
-                                        totalTrueFreeSpace(0), totalFreeSpace(0), largestFreeChunkSize(0), trueLargestFreeChunkSize(0)
+                                        totalTrueFreeSpace(0), totalFreeSpace(0), largestFreeChunkSize(0), trueLargestFreeChunkSize(0), leakTracker(dbgr)
 {
+    if (leakTracker)
+        leakTracker->registerObj(this);
+
     Allocation first;
     first.state = Allocation::EAS_FREE;
     first.fence = NULL;
@@ -66,6 +70,9 @@ IGPUTransientBuffer::IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffe
 
 IGPUTransientBuffer::~IGPUTransientBuffer()
 {
+    if (leakTracker)
+        leakTracker->deregisterObj(this);
+
     if (mutex)
         mutex->Get();
 
@@ -155,23 +162,15 @@ void IGPUTransientBuffer::PrintDebug(bool needsMutex)
     os::Printer::log("==========================          START          ==========================\n",ELL_INFORMATION);
     for (int32_t i=0; i<allocs.size(); i++)
     {
-        core::stringc infoOut = "Block:";
-        infoOut +=i;
-        infoOut += "\t\t\tStart:";
-        infoOut += (int32_t)allocs[i].start;
-        infoOut += "\t\t\tEnd:  ";
-        infoOut += (int32_t)allocs[i].end;
-        infoOut += "\t\t\tFence:";
-        infoOut += (int32_t)reinterpret_cast<size_t &>(allocs[i].fence);
-        infoOut += "\tRefCnt:";
+        std::ostringstream infoOut("Block:");
+        infoOut.seekp(0,std::ios_base::end);
+        infoOut << i << "\t\t\tStart:" << allocs[i].start << "\t\t\tEnd:  " << allocs[i].end << "\t\t\tFence:" << reinterpret_cast<size_t &>(allocs[i].fence) << "\tRefCnt:";
         if (allocs[i].fence)
-            infoOut += allocs[i].fence->getReferenceCount();
+            infoOut << allocs[i].fence->getReferenceCount();
         else
-            infoOut += 0;
-        infoOut += "\t\t\tState:";
-        infoOut += allocs[i].state;
-        infoOut += "\n";
-        os::Printer::log(infoOut.c_str(),ELL_INFORMATION);
+            infoOut << "0";
+        infoOut << "\t\t\tState:" << allocs[i].state << "\n";
+        os::Printer::log(infoOut.str().c_str(),ELL_INFORMATION);
     }
     os::Printer::log("==========================           END           ==========================\n",ELL_INFORMATION);
 

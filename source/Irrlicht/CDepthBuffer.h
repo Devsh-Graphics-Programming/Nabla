@@ -17,7 +17,7 @@ namespace video
 	public:
 
 		//! constructor
-		CDepthBuffer(const core::dimension2d<u32>& size);
+		CDepthBuffer(const core::dimension2d<uint32_t>& size);
 
 		//! destructor
 		virtual ~CDepthBuffer();
@@ -26,10 +26,10 @@ namespace video
 		virtual void clear();
 
 		//! sets the new size of the zbuffer
-		virtual void setSize(const core::dimension2d<u32>& size);
+		virtual void setSize(const core::dimension2d<uint32_t>& size);
 
 		//! returns the size of the zbuffer
-		virtual const core::dimension2d<u32>& getSize() const;
+		virtual const core::dimension2d<uint32_t>& getSize() const;
 
 		//! locks the zbuffer
 		virtual void* lock() { return (void*) Buffer; }
@@ -38,15 +38,15 @@ namespace video
 		virtual void unlock() {}
 
 		//! returns pitch of depthbuffer (in bytes)
-		virtual u32 getPitch() const { return Pitch; }
+		virtual uint32_t getPitch() const { return Pitch; }
 
 
 	private:
 
-		u8* Buffer;
-		core::dimension2d<u32> Size;
-		u32 TotalSize;
-		u32 Pitch;
+		uint8_t* Buffer;
+		core::dimension2d<uint32_t> Size;
+		uint32_t TotalSize;
+		uint32_t Pitch;
 	};
 
 
@@ -55,7 +55,7 @@ namespace video
 	public:
 
 		//! constructor
-		CStencilBuffer(const core::dimension2d<u32>& size);
+		CStencilBuffer(const core::dimension2d<uint32_t>& size);
 
 		//! destructor
 		virtual ~CStencilBuffer();
@@ -64,10 +64,10 @@ namespace video
 		virtual void clear();
 
 		//! sets the new size of the zbuffer
-		virtual void setSize(const core::dimension2d<u32>& size);
+		virtual void setSize(const core::dimension2d<uint32_t>& size);
 
 		//! returns the size of the zbuffer
-		virtual const core::dimension2d<u32>& getSize() const;
+		virtual const core::dimension2d<uint32_t>& getSize() const;
 
 		//! locks the zbuffer
 		virtual void* lock() { return (void*) Buffer; }
@@ -76,15 +76,15 @@ namespace video
 		virtual void unlock() {}
 
 		//! returns pitch of depthbuffer (in bytes)
-		virtual u32 getPitch() const { return Pitch; }
+		virtual uint32_t getPitch() const { return Pitch; }
 
 
 	private:
 
-		u8* Buffer;
-		core::dimension2d<u32> Size;
-		u32 TotalSize;
-		u32 Pitch;
+		uint8_t* Buffer;
+		core::dimension2d<uint32_t> Size;
+		uint32_t TotalSize;
+		uint32_t Pitch;
 	};
 
 } // end namespace video

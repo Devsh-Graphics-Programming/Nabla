@@ -20,12 +20,12 @@ namespace scene
 	public:
 
 		//! constructor
-		CSceneNodeAnimatorFollowSpline(u32 startTime,
+		CSceneNodeAnimatorFollowSpline(uint32_t startTime,
 			const core::array< core::vector3df >& points,
-			f32 speed = 1.0f, f32 tightness = 0.5f, bool loop=true, bool pingpong=false);
+			float speed = 1.0f, float tightness = 0.5f, bool loop=true, bool pingpong=false);
 
 		//! animates a scene node
-		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs);
+		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);
 
 		//! Returns type of the scene node animator
 		virtual ESCENE_NODE_ANIMATOR_TYPE getType() const { return ESNAT_FOLLOW_SPLINE; }
@@ -39,12 +39,12 @@ namespace scene
 	protected:
 
 		//! clamps a the value idx to fit into range 0..size-1
-		s32 clamp(s32 idx, s32 size);
+		int32_t clamp(int32_t idx, int32_t size);
 
 		core::array< core::vector3df > Points;
-		f32 Speed;
-		f32 Tightness;
-		u32 StartTime;
+		float Speed;
+		float Tightness;
+		uint32_t StartTime;
 		bool Loop;
 		bool PingPong;
 	};

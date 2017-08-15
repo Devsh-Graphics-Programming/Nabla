@@ -17,7 +17,7 @@ namespace video
 
 //! constructor
 CSoftwareTexture2::CSoftwareTexture2(IImage* image, const io::path& name,
-		u32 flags, void* mipmapData)
+		uint32_t flags, void* mipmapData)
 		: ITexture(name), MipMapLOD(0), Flags ( flags ), OriginalFormat(video::ECF_UNKNOWN)
 {
 	#ifdef _DEBUG
@@ -40,7 +40,7 @@ CSoftwareTexture2::CSoftwareTexture2(IImage* image, const io::path& name,
 				image->getColorFormat () == video::ECF_A1R5G5B5,
 				HAS_ALPHA);
 
-		core::dimension2d<u32> optSize(
+		core::dimension2d<uint32_t> optSize(
 				OrigSize.getOptimalSize( 0 != ( Flags & NP2_SIZE ),
 				false, false,
 				( Flags & NP2_SIZE ) ? SOFTWARE_DRIVER_2_TEXTURE_MAXSIZE : 0)
@@ -67,7 +67,7 @@ CSoftwareTexture2::CSoftwareTexture2(IImage* image, const io::path& name,
 			image->copyToScalingBoxFilter ( MipMap[0],0, false );
 		}
 
-		OrigImageDataSizeInPixels = (f32) 0.3f * MipMap[0]->getImageDataSizeInPixels();
+		OrigImageDataSizeInPixels = (float) 0.3f * MipMap[0]->getImageDataSizeInPixels();
 	}
 
 	regenerateMipMapLevels();
@@ -77,7 +77,7 @@ CSoftwareTexture2::CSoftwareTexture2(IImage* image, const io::path& name,
 //! destructor
 CSoftwareTexture2::~CSoftwareTexture2()
 {
-	for ( s32 i = 0; i!= SOFTWARE_DRIVER_2_MIPMAPPING_MAX; ++i )
+	for ( int32_t i = 0; i!= SOFTWARE_DRIVER_2_MIPMAPPING_MAX; ++i )
 	{
 		if ( MipMap[i] )
 			MipMap[i]->drop();
@@ -93,7 +93,7 @@ void CSoftwareTexture2::regenerateMipMapLevels()
 	///if ( !hasMipMaps () )
 		return;
 /**
-	s32 i;
+	int32_t i;
 
 	// release
 	for ( i = 1; i < SOFTWARE_DRIVER_2_MIPMAPPING_MAX; ++i )
@@ -102,8 +102,8 @@ void CSoftwareTexture2::regenerateMipMapLevels()
 			MipMap[i]->drop();
 	}
 
-	core::dimension2d<u32> newSize;
-	core::dimension2d<u32> origSize=OrigSize;
+	core::dimension2d<uint32_t> newSize;
+	core::dimension2d<uint32_t> origSize=OrigSize;
 
 	for (i=1; i < SOFTWARE_DRIVER_2_MIPMAPPING_MAX; ++i)
 	{
@@ -137,13 +137,13 @@ void CSoftwareTexture2::regenerateMipMapLevels()
 					tmpImage->drop();
 				}
 			}
-			mipmapData = (u8*)mipmapData+origSize.getArea()*IImage::getBitsPerPixelFromFormat(OriginalFormat)/8;
+			mipmapData = (uint8_t*)mipmapData+origSize.getArea()*IImage::getBitsPerPixelFromFormat(OriginalFormat)/8;
 		}
 		else
 		{
 			MipMap[i] = new CImage(BURNINGSHADER_COLOR_FORMAT, newSize);
 
-			//static u32 color[] = { 0, 0xFFFF0000, 0xFF00FF00,0xFF0000FF,0xFFFFFF00,0xFFFF00FF,0xFF00FFFF,0xFF0F0F0F };
+			//static uint32_t color[] = { 0, 0xFFFF0000, 0xFF00FF00,0xFF0000FF,0xFFFFFF00,0xFFFF00FF,0xFF00FFFF,0xFF0F0F0F };
 			MipMap[i]->fill ( 0 );
 			MipMap[0]->copyToScalingBoxFilter( MipMap[i], 0, false );
 		}

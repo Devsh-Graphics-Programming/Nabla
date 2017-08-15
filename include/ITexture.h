@@ -159,8 +159,8 @@ public:
 
 
 	//!
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0) = 0;
-    virtual bool resize(const uint32_t* size, const u32& mipLevels=0) = 0;
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0) = 0;
+    virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) = 0;
 
     //!
     virtual const E_TEXTURE_TYPE getTextureType() const = 0;
@@ -180,7 +180,7 @@ public:
 	/** The pitch is the amount of bytes used for a row of pixels in a
 	texture.
 	\return Pitch of texture in bytes. */
-	virtual u32 getPitch() const = 0;
+	virtual uint32_t getPitch() const = 0;
 
 	//! Check whether the texture has MipMaps
 	/** \return True if texture has MipMaps, else false. */
@@ -213,7 +213,7 @@ protected:
 	//! Helper function, helps to get the desired texture creation format from the flags.
 	/** \return Either ETCF_ALWAYS_32_BIT, ETCF_ALWAYS_16_BIT,
 	ETCF_OPTIMIZED_FOR_QUALITY, or ETCF_OPTIMIZED_FOR_SPEED. */
-	inline E_TEXTURE_CREATION_FLAG getTextureFormatFromFlags(u32 flags)
+	inline E_TEXTURE_CREATION_FLAG getTextureFormatFromFlags(uint32_t flags)
 	{
 		if (flags & ETCF_OPTIMIZED_FOR_SPEED)
 			return ETCF_OPTIMIZED_FOR_SPEED;

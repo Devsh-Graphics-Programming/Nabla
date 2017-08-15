@@ -489,7 +489,7 @@ inline quaternion quaternion::slerp(quaternion q1, const quaternion &q2, const f
 
 	if (angle.X <= (1.f-threshold)) // spherical interpolation
 	{
-		const f32 theta = acosf(angle.X);
+		const float theta = acosf(angle.X);
 		const vectorSIMDf sintheta(sinf(theta));
         const vectorSIMDf scale(sinf(theta * (1.0f-interpolant)));
 		const vectorSIMDf invscale(sinf(theta * interpolant));
@@ -504,8 +504,8 @@ inline quaternion quaternion::slerp(quaternion q1, const quaternion &q2, const f
 //! axis must be unit length, angle in radians
 inline quaternion quaternion::fromAngleAxis(const float& angle, const vector3df_SIMD& axis)
 {
-	const f32 fHalfAngle = 0.5f*angle;
-	const f32 fSin = sinf(fHalfAngle);
+	const float fHalfAngle = 0.5f*angle;
+	const float fSin = sinf(fHalfAngle);
 	quaternion retval;
 	reinterpret_cast<vectorSIMDf&>(retval) = axis*fSin;
 	reinterpret_cast<vectorSIMDf&>(retval).W = cosf(fHalfAngle);
@@ -535,40 +535,40 @@ inline void quaternion::toAngleAxis(float& angle, vector3df_SIMD &axis) const
 
 inline void quaternion::toEuler(vector3df_SIMD& euler) const
 {
-	const f64 sqw = W*W;
-	const f64 sqx = X*X;
-	const f64 sqy = Y*Y;
-	const f64 sqz = Z*Z;
+	const double sqw = W*W;
+	const double sqx = X*X;
+	const double sqy = Y*Y;
+	const double sqz = Z*Z;
 	vectorSIMDf sqr = *reinterpret_cast<const vectorSIMDf*>(this);
 	sqr *= sqr;
-	const f64 test = 2.0 * (Y*W - X*Z);
+	const double test = 2.0 * (Y*W - X*Z);
 
 	if (core::equals(test, 1.0, 0.000001))
 	{
 		// heading = rotation about z-axis
-		euler.Z = (f32) (-2.0*atan2(X, W));
+		euler.Z = (float) (-2.0*atan2(X, W));
 		// bank = rotation about x-axis
 		euler.X = 0;
 		// attitude = rotation about y-axis
-		euler.Y = (f32) (PI64/2.0);
+		euler.Y = (float) (PI64/2.0);
 	}
 	else if (core::equals(test, -1.0, 0.000001))
 	{
 		// heading = rotation about z-axis
-		euler.Z = (f32) (2.0*atan2(X, W));
+		euler.Z = (float) (2.0*atan2(X, W));
 		// bank = rotation about x-axis
 		euler.X = 0;
 		// attitude = rotation about y-axis
-		euler.Y = (f32) (PI64/-2.0);
+		euler.Y = (float) (PI64/-2.0);
 	}
 	else
 	{
 		// heading = rotation about z-axis
-		euler.Z = (f32) atan2(2.0 * (X*Y +Z*W),(sqr.X - sqr.Y - sqr.Z + sqr.W));
+		euler.Z = (float) atan2(2.0 * (X*Y +Z*W),(sqr.X - sqr.Y - sqr.Z + sqr.W));
 		// bank = rotation about x-axis
-		euler.X = (f32) atan2(2.0 * (Y*Z +X*W),(-sqr.X - sqr.Y + sqr.Z + sqr.W));
+		euler.X = (float) atan2(2.0 * (Y*Z +X*W),(-sqr.X - sqr.Y + sqr.Z + sqr.W));
 		// attitude = rotation about y-axis
-		euler.Y = (f32) asin( core::clamp(test, -1.0, 1.0) );
+		euler.Y = (float) asin( core::clamp(test, -1.0, 1.0) );
 	}
 }
 
@@ -611,24 +611,24 @@ inline quaternion quaternion::rotationFromTo(const vector3df_SIMD& from, const v
 // sets new quaternion based on euler angles
 inline quaternion& quaternion::set(const float& roll, const float& pitch, const float& yaw)
 {
-	f64 angle;
+	double angle;
 
 	angle = roll * 0.5;
-	const f64 sr = sin(angle);
-	const f64 cr = cos(angle);
+	const double sr = sin(angle);
+	const double cr = cos(angle);
 
 	angle = pitch * 0.5;
-	const f64 sp = sin(angle);
-	const f64 cp = cos(angle);
+	const double sp = sin(angle);
+	const double cp = cos(angle);
 
 	angle = yaw * 0.5;
-	const f64 sy = sin(angle);
-	const f64 cy = cos(angle);
+	const double sy = sin(angle);
+	const double cy = cos(angle);
 
-	const f64 cpcy = cp * cy;
-	const f64 spcy = sp * cy;
-	const f64 cpsy = cp * sy;
-	const f64 spsy = sp * sy;
+	const double cpcy = cp * cy;
+	const double spcy = sp * cy;
+	const double cpsy = cp * sy;
+	const double spsy = sp * sy;
 
     *reinterpret_cast<vectorSIMDf*>(this) = vectorSIMDf(sr,cr,cr,cr)*vectorSIMDf(cpcy,spcy,cpsy,cpcy)+vectorSIMDf(-cr,sr,-sr,sr)*vectorSIMDf(spsy,cpsy,spcy,spsy);
 

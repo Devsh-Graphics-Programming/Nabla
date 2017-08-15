@@ -14,7 +14,7 @@ namespace scene
 {
 
 //! Names for scene node types
-const c8* const SceneNodeAnimatorTypeNames[] =
+const char* const SceneNodeAnimatorTypeNames[] =
 {
 	"flyCircle",
 	"flyStraight",
@@ -99,21 +99,21 @@ ISceneNodeAnimator* CDefaultSceneNodeAnimatorFactory::createSceneNodeAnimator(ES
 
 
 //! creates a scene node animator based on its type name
-ISceneNodeAnimator* CDefaultSceneNodeAnimatorFactory::createSceneNodeAnimator(const c8* typeName, ISceneNode* target)
+ISceneNodeAnimator* CDefaultSceneNodeAnimatorFactory::createSceneNodeAnimator(const char* typeName, ISceneNode* target)
 {
 	return createSceneNodeAnimator( getTypeFromName(typeName), target );
 }
 
 
 //! returns amount of scene node animator types this factory is able to create
-u32 CDefaultSceneNodeAnimatorFactory::getCreatableSceneNodeAnimatorTypeCount() const
+uint32_t CDefaultSceneNodeAnimatorFactory::getCreatableSceneNodeAnimatorTypeCount() const
 {
 	return ESNAT_COUNT;
 }
 
 
 //! returns type of a createable scene node animator type
-ESCENE_NODE_ANIMATOR_TYPE CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorType(u32 idx) const
+ESCENE_NODE_ANIMATOR_TYPE CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorType(uint32_t idx) const
 {
 	if (idx<ESNAT_COUNT)
 		return (ESCENE_NODE_ANIMATOR_TYPE)idx;
@@ -123,7 +123,7 @@ ESCENE_NODE_ANIMATOR_TYPE CDefaultSceneNodeAnimatorFactory::getCreateableSceneNo
 
 
 //! returns type name of a createable scene node animator type
-const c8* CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorTypeName(u32 idx) const
+const char* CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorTypeName(uint32_t idx) const
 {
 	if (idx<ESNAT_COUNT)
 		return SceneNodeAnimatorTypeNames[idx];
@@ -132,7 +132,7 @@ const c8* CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorTypeNa
 }
 
 //! returns type name of a createable scene node animator type
-const c8* CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorTypeName(ESCENE_NODE_ANIMATOR_TYPE type) const
+const char* CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorTypeName(ESCENE_NODE_ANIMATOR_TYPE type) const
 {
 	// for this factory: index == type
 
@@ -142,9 +142,9 @@ const c8* CDefaultSceneNodeAnimatorFactory::getCreateableSceneNodeAnimatorTypeNa
 		return 0;
 }
 
-ESCENE_NODE_ANIMATOR_TYPE CDefaultSceneNodeAnimatorFactory::getTypeFromName(const c8* name) const
+ESCENE_NODE_ANIMATOR_TYPE CDefaultSceneNodeAnimatorFactory::getTypeFromName(const char* name) const
 {
-	for ( u32 i=0; SceneNodeAnimatorTypeNames[i]; ++i)
+	for ( uint32_t i=0; SceneNodeAnimatorTypeNames[i]; ++i)
 		if (!strcmp(name, SceneNodeAnimatorTypeNames[i]) )
 			return (ESCENE_NODE_ANIMATOR_TYPE)i;
 

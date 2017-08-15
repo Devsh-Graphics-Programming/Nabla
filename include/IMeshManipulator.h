@@ -51,7 +51,7 @@ namespace scene
 		\return Mesh without redundant vertices. If you no longer need
 		the cloned mesh, you should call IMesh::drop(). See
 		IReferenceCounted::drop() for more information. */
-		virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer* inbuffer, const bool& makeNewMesh=false, f32 tolerance=core::ROUNDING_ERROR_f32) const = 0;
+		virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer* inbuffer, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const = 0;
 
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer

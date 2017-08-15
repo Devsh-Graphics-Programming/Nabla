@@ -52,10 +52,10 @@ namespace irr
 		virtual void yield();
 
 		//! Pause execution and let other processes to run for a specified amount of time.
-		virtual void sleep(u32 timeMs, bool pauseTimer);
+		virtual void sleep(uint32_t timeMs, bool pauseTimer);
 
 		//! sets the caption of the window
-		virtual void setWindowCaption(const wchar_t* text);
+		virtual void setWindowCaption(const std::wstring& text);
 
 		//! returns if window is active. if not, nothing need to be drawn
 		virtual bool isWindowActive() const;
@@ -67,7 +67,7 @@ namespace irr
 		virtual bool isWindowMinimized() const;
 
 		//! presents a surface in the client area
-		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<s32>* src=0);
+		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0);
 
 		//! notifies the device that it should close itself
 		virtual void closeDevice();
@@ -90,14 +90,14 @@ namespace irr
 				return EIDT_CONSOLE;
 		}
 
-		void addPostPresentText(s16 X, s16 Y, const wchar_t *text);
+		void addPostPresentText(int16_t X, int16_t Y, const wchar_t *text);
 
 		//! Implementation of the win32 console mouse cursor
 		class CCursorControl : public gui::ICursorControl
 		{
 		public:
 
-			CCursorControl(const core::dimension2d<u32>& wsize)
+			CCursorControl(const core::dimension2d<uint32_t>& wsize)
 				: WindowSize(wsize), InvWindowSize(0.0f, 0.0f), IsVisible(true), UseReferenceRect(false)
 			{
 				if (WindowSize.Width!=0)
@@ -124,53 +124,53 @@ namespace irr
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<f32> &pos)
+			virtual void setPosition(const core::position2d<float> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(f32 x, f32 y)
+			virtual void setPosition(float x, float y)
 			{
 				if (!UseReferenceRect)
-					setPosition((s32)(x*WindowSize.Width), (s32)(y*WindowSize.Height));
+					setPosition((int32_t)(x*WindowSize.Width), (int32_t)(y*WindowSize.Height));
 				else
-					setPosition((s32)(x*ReferenceRect.getWidth()), (s32)(y*ReferenceRect.getHeight()));
+					setPosition((int32_t)(x*ReferenceRect.getWidth()), (int32_t)(y*ReferenceRect.getHeight()));
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<s32> &pos)
+			virtual void setPosition(const core::position2d<int32_t> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(s32 x, s32 y)
+			virtual void setPosition(int32_t x, int32_t y)
 			{
 				setInternalCursorPosition(core::position2di(x,y));
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual const core::position2d<s32>& getPosition()
+			virtual const core::position2d<int32_t>& getPosition()
 			{
 				return CursorPos;
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual core::position2d<f32> getRelativePosition()
+			virtual core::position2d<float> getRelativePosition()
 			{
 				if (!UseReferenceRect)
 				{
-					return core::position2d<f32>(CursorPos.X * InvWindowSize.Width,
+					return core::position2d<float>(CursorPos.X * InvWindowSize.Width,
 						CursorPos.Y * InvWindowSize.Height);
 				}
 
-				return core::position2d<f32>(CursorPos.X / (f32)ReferenceRect.getWidth(),
-						CursorPos.Y / (f32)ReferenceRect.getHeight());
+				return core::position2d<float>(CursorPos.X / (float)ReferenceRect.getWidth(),
+						CursorPos.Y / (float)ReferenceRect.getHeight());
 			}
 
 			//! Sets an absolute reference rect for calculating the cursor position.
-			virtual void setReferenceRect(core::rect<s32>* rect=0)
+			virtual void setReferenceRect(core::rect<int32_t>* rect=0)
 			{
 				if (rect)
 				{
@@ -201,23 +201,23 @@ namespace irr
 
 		private:
 
-			core::position2d<s32>  CursorPos;
-			core::dimension2d<u32> WindowSize;
-			core::dimension2d<f32> InvWindowSize;
+			core::position2d<int32_t>  CursorPos;
+			core::dimension2d<uint32_t> WindowSize;
+			core::dimension2d<float> InvWindowSize;
 			bool                   IsVisible,
 			                       UseReferenceRect;
-			core::rect<s32>        ReferenceRect;
+			core::rect<int32_t>        ReferenceRect;
 		};
 
 	private:
 
 		//! Set the position of the text caret
-		void setTextCursorPos(s16 x, s16 y);
+		void setTextCursorPos(int16_t x, int16_t y);
 
 		// text to be added after drawing the screen
 		struct SPostPresentText
 		{
-			core::position2d<s16> Pos;
+			core::position2d<int16_t> Pos;
 			core::stringc         Text;
 		};
 
@@ -230,7 +230,7 @@ namespace irr
 
 #ifdef _IRR_WINDOWS_NT_CONSOLE_
 		HANDLE WindowsSTDIn, WindowsSTDOut;
-		u32 MouseButtonStates;
+		uint32_t MouseButtonStates;
 #endif
 	};
 

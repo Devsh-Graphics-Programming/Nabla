@@ -19,7 +19,7 @@ namespace scene
 
 
 //! constructor
-CMeshSceneNode::CMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
+CMeshSceneNode::CMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position, const core::vector3df& rotation,
 			const core::vector3df& scale)
 : IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
@@ -62,7 +62,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 		{
 			// count mesh materials
 
-			for (u32 i=0; i<Mesh->getMeshBufferCount(); ++i)
+			for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
 			{
 				scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 				if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
@@ -83,7 +83,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 		{
 			// count copied materials
 
-			for (u32 i=0; i<Materials.size(); ++i)
+			for (uint32_t i=0; i<Materials.size(); ++i)
 			{
 				scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 				if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
@@ -128,33 +128,36 @@ void CMeshSceneNode::render()
 
 	++PassCount;
 
-	driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
-
-    for (u32 i=0; i<Mesh->getMeshBufferCount(); ++i)
+	if (canProceedPastFence())
     {
-        scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
-        if (mb)
+        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
+
+        for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
         {
-            const video::SMaterial& material = ReferencingMeshMaterials ? mb->getMaterial() : Materials[i];
-
-            video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
-            bool transparent = (rnd && rnd->isTransparent());
-
-            // only render transparent buffer if this is the transparent render pass
-            // and solid only in solid pass
-            if (transparent == isTransparentPass)
+            scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+            if (mb)
             {
-                driver->setMaterial(material);
-                driver->drawMeshBuffer(mb, (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+                const video::SMaterial& material = ReferencingMeshMaterials ? mb->getMaterial() : Materials[i];
+
+                video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
+                bool transparent = (rnd && rnd->isTransparent());
+
+                // only render transparent buffer if this is the transparent render pass
+                // and solid only in solid pass
+                if (transparent == isTransparentPass)
+                {
+                    driver->setMaterial(material);
+                    driver->drawMeshBuffer(mb, (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+                }
             }
         }
     }
 
-	driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
-
 	// for debug purposes only:
 	if (DebugDataVisible && PassCount==1)
 	{
+        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
+
 		video::SMaterial m;
 		m.AntiAliasing=0;
 		driver->setMaterial(m);
@@ -166,7 +169,7 @@ void CMeshSceneNode::render()
 		}
 		if (DebugDataVisible & scene::EDS_BBOX_BUFFERS)
 		{
-			for (u32 g=0; g<Mesh->getMeshBufferCount(); ++g)
+			for (uint32_t g=0; g<Mesh->getMeshBufferCount(); ++g)
 			{
 				driver->draw3DBox(
 					Mesh->getMeshBuffer(g)->getBoundingBox(),
@@ -180,7 +183,7 @@ void CMeshSceneNode::render()
 			m.Wireframe = true;
 			driver->setMaterial(m);
 
-			for (u32 g=0; g<Mesh->getMeshBufferCount(); ++g)
+			for (uint32_t g=0; g<Mesh->getMeshBufferCount(); ++g)
 			{
 				driver->drawMeshBuffer(Mesh->getMeshBuffer(g), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
 			}
@@ -191,7 +194,7 @@ void CMeshSceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CMeshSceneNode::getBoundingBox()
+const core::aabbox3d<float>& CMeshSceneNode::getBoundingBox()
 {
 	return Mesh ? Mesh->getBoundingBox() : Box;
 }
@@ -202,7 +205,7 @@ const core::aabbox3d<f32>& CMeshSceneNode::getBoundingBox()
 //! This function is needed for inserting the node into the scene hierarchy on a
 //! optimal position for minimizing renderstate changes, but can also be used
 //! to directly modify the material of a scene node.
-video::SMaterial& CMeshSceneNode::getMaterial(u32 i)
+video::SMaterial& CMeshSceneNode::getMaterial(uint32_t i)
 {
 	if (Mesh && ReferencingMeshMaterials && i<Mesh->getMeshBufferCount())
 		return Mesh->getMeshBuffer(i)->getMaterial();
@@ -215,7 +218,7 @@ video::SMaterial& CMeshSceneNode::getMaterial(u32 i)
 
 
 //! returns amount of materials used by this scene node.
-u32 CMeshSceneNode::getMaterialCount() const
+uint32_t CMeshSceneNode::getMaterialCount() const
 {
 	if (Mesh && ReferencingMeshMaterials)
 		return Mesh->getMeshBufferCount();
@@ -248,7 +251,7 @@ void CMeshSceneNode::copyMaterials()
 	{
 		video::SMaterial mat;
 
-		for (u32 i=0; i<Mesh->getMeshBufferCount(); ++i)
+		for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
 		{
 			IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 			if (mb)

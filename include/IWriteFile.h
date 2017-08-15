@@ -21,7 +21,7 @@ namespace io
 		/** \param buffer Pointer to buffer of bytes to write.
 		\param sizeToWrite Amount of bytes to write to the file.
 		\return How much bytes were written. */
-		virtual s32 write(const void* buffer, u32 sizeToWrite) = 0;
+		virtual int32_t write(const void* buffer, uint32_t sizeToWrite) = 0;
 
 		//! Changes position in file
 		/** \param finalPos Destination position in the file.

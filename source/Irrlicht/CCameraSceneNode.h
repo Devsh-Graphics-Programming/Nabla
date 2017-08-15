@@ -19,7 +19,7 @@ namespace scene
 	public:
 
 		//! constructor
-		CCameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
+		CCameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& lookat = core::vector3df(0,0,100));
 
@@ -77,31 +77,31 @@ namespace scene
 
 		//! Gets distance from the camera to the near plane.
 		//! \return Value of the near plane of the camera.
-		virtual f32 getNearValue() const;
+		virtual float getNearValue() const;
 
 		//! Gets the distance from the camera to the far plane.
 		//! \return Value of the far plane of the camera.
-		virtual f32 getFarValue() const;
+		virtual float getFarValue() const;
 
 		//! Get the aspect ratio of the camera.
 		//! \return The aspect ratio of the camera.
-		virtual f32 getAspectRatio() const;
+		virtual float getAspectRatio() const;
 
 		//! Gets the field of view of the camera.
 		//! \return Field of view of the camera
-		virtual f32 getFOV() const;
+		virtual float getFOV() const;
 
 		//! Sets the value of the near clipping plane. (default: 1.0f)
-		virtual void setNearValue(f32 zn);
+		virtual void setNearValue(float zn);
 
 		//! Sets the value of the far clipping plane (default: 2000.0f)
-		virtual void setFarValue(f32 zf);
+		virtual void setFarValue(float zf);
 
 		//! Sets the aspect ratio (default: 4.0f / 3.0f)
-		virtual void setAspectRatio(f32 aspect);
+		virtual void setAspectRatio(float aspect);
 
 		//! Sets the field of view (Default: PI / 3.5f)
-		virtual void setFOV(f32 fovy);
+		virtual void setFOV(float fovy);
 
 		//! PreRender event
 		virtual void OnRegisterSceneNode();
@@ -110,7 +110,7 @@ namespace scene
 		virtual void render();
 
 		//! Returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox();
+		virtual const core::aabbox3d<float>& getBoundingBox();
 
 		//! Returns the view area. Sometimes needed by bsp or lod render nodes.
 		virtual const SViewFrustum* getViewFrustum() const;
@@ -143,10 +143,10 @@ namespace scene
 		core::vector3df Target;
 		core::vector3df UpVector;
 
-		f32 Fovy;	// Field of view, in radians.
-		f32 Aspect;	// Aspect ratio.
-		f32 ZNear;	// value of the near view-plane.
-		f32 ZFar;	// Z-value of the far view-plane.
+		float Fovy;	// Field of view, in radians.
+		float Aspect;	// Aspect ratio.
+		float ZNear;	// value of the near view-plane.
+		float ZFar;	// Z-value of the far view-plane.
 
         core::matrix4x3 viewMatrix;
         core::matrix4 projMatrix;

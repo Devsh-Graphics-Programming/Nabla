@@ -134,21 +134,23 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         };
 
 
-        static IGPUTransientBuffer* createMappedTransientBuffer(IVideoDriver* driver, const size_t& bufsize=0x100000u, const E_GPU_BUFFER_ACCESS& accessPattern=EGBA_WRITE, const bool& inCPUMem=true, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true)
+        static IGPUTransientBuffer* createMappedTransientBuffer(IVideoDriver* driver, const size_t& bufsize=0x100000u, const E_GPU_BUFFER_ACCESS& accessPattern=EGBA_WRITE,
+                                                                const bool& inCPUMem=true, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true, core::LeakDebugger* dbgr=NULL)
         {
             IGPUMappedBuffer* buffer = driver->createPersistentlyMappedBuffer(bufsize,NULL,accessPattern,true,inCPUMem);
-            IGPUTransientBuffer* retval = new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe);
+            IGPUTransientBuffer* retval = new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe,dbgr);
 			buffer->drop();
 			return retval;
         }
-        static IGPUTransientBuffer* createMappedTransientBuffer(IVideoDriver* driver, IGPUMappedBuffer* buffer, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true)
+        static IGPUTransientBuffer* createMappedTransientBuffer(IVideoDriver* driver, IGPUMappedBuffer* buffer, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true, core::LeakDebugger* dbgr=NULL)
         {
-            return new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe);
+            return new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe,dbgr);
         }
-        static IGPUTransientBuffer* createTransientBuffer(IVideoDriver* driver, const size_t& bufsize=0x100000u, const E_GPU_BUFFER_ACCESS& accessPattern=EGBA_WRITE, const bool& inCPUMem=true, const bool& canModifySubData=false, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true)
+        static IGPUTransientBuffer* createTransientBuffer(IVideoDriver* driver, const size_t& bufsize=0x100000u, const E_GPU_BUFFER_ACCESS& accessPattern=EGBA_WRITE,
+                                                          const bool& inCPUMem=true, const bool& canModifySubData=false, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true, core::LeakDebugger* dbgr=NULL)
         {
             IGPUBuffer* buffer = driver->createGPUBuffer(bufsize,NULL,canModifySubData,inCPUMem,accessPattern);
-            IGPUTransientBuffer* retval = new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe);
+            IGPUTransientBuffer* retval = new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe,dbgr);
 			buffer->drop();
 			return retval;
         }
@@ -184,7 +186,7 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         const size_t& getFreeSpace() const {return totalFreeSpace;}
         const size_t& getTrueFreeSpace() const {return totalTrueFreeSpace;}
     private:
-        IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe);
+        IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe, core::LeakDebugger* dbgr=NULL);
         FW_Mutex* mutex;
         FW_ConditionVariable* allocationChanged;
         size_t lastChanged;
@@ -250,6 +252,9 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
             return true;
         }
         bool validate_ALREADYMUTEXED();
+
+
+        core::LeakDebugger* leakTracker;
 };
 
 } // end namespace scene

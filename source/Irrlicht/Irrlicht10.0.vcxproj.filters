@@ -573,9 +573,6 @@
     <ClInclude Include="CB3DMeshFileLoader.h">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClInclude>
-    <ClInclude Include="CColladaFileLoader.h">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClInclude>
     <ClInclude Include="CCSMLoader.h">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClInclude>
@@ -636,9 +633,6 @@
     <ClInclude Include="CEmptySceneNode.h">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClInclude>
-    <ClInclude Include="CLightSceneNode.h">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClInclude>
     <ClInclude Include="CMeshSceneNode.h">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClInclude>
@@ -674,9 +668,6 @@
     </ClInclude>
     <ClInclude Include="CSceneNodeAnimatorTexture.h">
       <Filter>Irrlicht\scene\animators</Filter>
-    </ClInclude>
-    <ClInclude Include="CColladaMeshWriter.h">
-      <Filter>Irrlicht\scene\writers</Filter>
     </ClInclude>
     <ClInclude Include="COBJMeshWriter.h">
       <Filter>Irrlicht\scene\writers</Filter>
@@ -831,9 +822,6 @@
     <ClInclude Include="CLogger.h">
       <Filter>Irrlicht\irr</Filter>
     </ClInclude>
-    <ClInclude Include="COSOperator.h">
-      <Filter>Irrlicht\irr</Filter>
-    </ClInclude>
     <ClInclude Include="CTimer.h">
       <Filter>Irrlicht\irr</Filter>
     </ClInclude>
@@ -954,9 +942,6 @@
     <ClInclude Include="CIrrDeviceStub.h">
       <Filter>Irrlicht\irr\device</Filter>
     </ClInclude>
-    <ClInclude Include="CIrrDeviceWin32.h">
-      <Filter>Irrlicht\irr\device</Filter>
-    </ClInclude>
     <ClInclude Include="CIrrDeviceWinCE.h">
       <Filter>Irrlicht\irr\device</Filter>
     </ClInclude>
@@ -996,13 +981,7 @@
     <ClInclude Include="CWriteFile.h">
       <Filter>Irrlicht\io</Filter>
     </ClInclude>
-    <ClInclude Include="CXMLReader.h">
-      <Filter>Irrlicht\io</Filter>
-    </ClInclude>
     <ClInclude Include="CXMLReaderImpl.h">
-      <Filter>Irrlicht\io</Filter>
-    </ClInclude>
-    <ClInclude Include="CXMLWriter.h">
       <Filter>Irrlicht\io</Filter>
     </ClInclude>
     <ClInclude Include="CZipReader.h">
@@ -1056,6 +1035,11 @@
     <ClInclude Include="COpenCLHandler.h">
       <Filter>Irrlicht</Filter>
     </ClInclude>
+    <ClInclude Include="CIrrDeviceWin32.h">
+      <Filter>Irrlicht\irr\device</Filter>
+    </ClInclude>
+    <ClInclude Include="COSOperator.h" />
+    <ClInclude Include="utf8\source\utf8.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\changes.txt">
@@ -1091,9 +1075,6 @@
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
     <ClCompile Include="CB3DMeshFileLoader.cpp">
-      <Filter>Irrlicht\scene\loaders</Filter>
-    </ClCompile>
-    <ClCompile Include="CColladaFileLoader.cpp">
       <Filter>Irrlicht\scene\loaders</Filter>
     </ClCompile>
     <ClCompile Include="CCSMLoader.cpp">
@@ -1150,9 +1131,6 @@
     <ClCompile Include="CEmptySceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
-    <ClCompile Include="CLightSceneNode.cpp">
-      <Filter>Irrlicht\scene\sceneNodes</Filter>
-    </ClCompile>
     <ClCompile Include="CMeshSceneNode.cpp">
       <Filter>Irrlicht\scene\sceneNodes</Filter>
     </ClCompile>
@@ -1188,9 +1166,6 @@
     </ClCompile>
     <ClCompile Include="CSceneNodeAnimatorTexture.cpp">
       <Filter>Irrlicht\scene\animators</Filter>
-    </ClCompile>
-    <ClCompile Include="CColladaMeshWriter.cpp">
-      <Filter>Irrlicht\scene\writers</Filter>
     </ClCompile>
     <ClCompile Include="COBJMeshWriter.cpp">
       <Filter>Irrlicht\scene\writers</Filter>
@@ -1397,9 +1372,6 @@
       <Filter>Irrlicht\video\Burning Video</Filter>
     </ClCompile>
     <ClCompile Include="CLogger.cpp">
-      <Filter>Irrlicht\irr</Filter>
-    </ClCompile>
-    <ClCompile Include="COSOperator.cpp">
       <Filter>Irrlicht\irr</Filter>
     </ClCompile>
     <ClCompile Include="Irrlicht.cpp">
@@ -1687,9 +1659,6 @@
     <ClCompile Include="CIrrDeviceStub.cpp">
       <Filter>Irrlicht\irr\device</Filter>
     </ClCompile>
-    <ClCompile Include="CIrrDeviceWin32.cpp">
-      <Filter>Irrlicht\irr\device</Filter>
-    </ClCompile>
     <ClCompile Include="CIrrDeviceWinCE.cpp">
       <Filter>Irrlicht\irr\device</Filter>
     </ClCompile>
@@ -1726,16 +1695,7 @@
     <ClCompile Include="CWriteFile.cpp">
       <Filter>Irrlicht\io</Filter>
     </ClCompile>
-    <ClCompile Include="CXMLReader.cpp">
-      <Filter>Irrlicht\io</Filter>
-    </ClCompile>
-    <ClCompile Include="CXMLWriter.cpp">
-      <Filter>Irrlicht\io</Filter>
-    </ClCompile>
     <ClCompile Include="CZipReader.cpp">
-      <Filter>Irrlicht\io</Filter>
-    </ClCompile>
-    <ClCompile Include="irrXML.cpp">
       <Filter>Irrlicht\io</Filter>
     </ClCompile>
     <ClCompile Include="CSMFMeshFileLoader.cpp">
@@ -1774,6 +1734,12 @@
     <ClCompile Include="COpenCLHandler.cpp">
       <Filter>Irrlicht</Filter>
     </ClCompile>
+    <ClCompile Include="CIrrDeviceWin32.cpp">
+      <Filter>Irrlicht\irr\device</Filter>
+    </ClCompile>
+    <ClCompile Include="COSOperator.cpp" />
+    <ClCompile Include="convert_utf\ConvertUTF.c" />
+    <ClCompile Include="coreutil.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Irrlicht.rc" />

@@ -322,7 +322,7 @@ namespace core
 			}
 
 			//! Transforms a plane by this matrix
-			inline void transformPlane( core::plane3d<f32> &plane) const
+			inline void transformPlane( core::plane3d<float> &plane) const
 			{
                 core::plane3df temp;
                 transformPlane(plane,temp);
@@ -332,7 +332,7 @@ namespace core
 			//! Transforms a plane by this matrix
 			// (N,D).(x,1) = 0
 			// N.(Mx) + D = 0
-			inline void transformPlane( const core::plane3d<f32> &in, core::plane3d<f32> &out) const
+			inline void transformPlane( const core::plane3d<float> &in, core::plane3d<float> &out) const
             {
                 matrix4x3 inverse;
                 getInverse(inverse);
@@ -346,7 +346,7 @@ namespace core
 
 
 			//! Transforms a axis aligned bounding box
-			inline void transformBoxEx(core::aabbox3d<f32>& box) const
+			inline void transformBoxEx(core::aabbox3d<float>& box) const
 			{
 			    core::aabbox3df tmpBox;
                 tmpBox.MinEdge.X = column[0].X*(column[0].X<0.f ? box.MaxEdge.X:box.MinEdge.X)+column[1].X*(column[1].X<0.f ? box.MaxEdge.Y:box.MinEdge.Y)+column[2].X*(column[2].X<0.f ? box.MaxEdge.Z:box.MinEdge.Z);
@@ -385,7 +385,7 @@ namespace core
                 /// Calculates the inverse of this Matrix
                 /// The inverse is calculated using Cramers rule.
                 /// If no inverse exists then 'false' is returned.
-                f32 d = column[0].dotProduct(column[1].crossProduct(column[2]));
+                float d = column[0].dotProduct(column[1].crossProduct(column[2]));
 
                 if( core::iszero ( d, FLT_MIN ) )
                     return false;
@@ -415,7 +415,7 @@ namespace core
                 /// Calculates the inverse of this Matrix
                 /// The inverse is calculated using Cramers rule.
                 /// If no inverse exists then 'false' is returned.
-                f32 d = column[0].dotProduct(column[1].crossProduct(column[2]));
+                float d = column[0].dotProduct(column[1].crossProduct(column[2]));
 
                 if( core::iszero ( d, FLT_MIN ) )
                     return false;
@@ -865,7 +865,7 @@ namespace core
 		const core::vector3df vs = look.crossProduct(from);
 
 		// cosinus angle
-		const f32 ca = from.dotProduct(look);
+		const float ca = from.dotProduct(look);
 
 		core::vector3df vt(up * (1.f - ca));
 

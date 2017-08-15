@@ -256,7 +256,7 @@ jpeg_idct_islow (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp1 = DEQUANTIZE(inptr[DCTSIZE*5], quantptr[DCTSIZE*5]);
     tmp2 = DEQUANTIZE(inptr[DCTSIZE*3], quantptr[DCTSIZE*3]);
     tmp3 = DEQUANTIZE(inptr[DCTSIZE*1], quantptr[DCTSIZE*1]);
-    
+
     z2 = tmp0 + tmp2;
     z3 = tmp1 + tmp3;
 
@@ -288,7 +288,7 @@ jpeg_idct_islow (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     wsptr[DCTSIZE*5] = (int) RIGHT_SHIFT(tmp12 - tmp1, CONST_BITS-PASS1_BITS);
     wsptr[DCTSIZE*3] = (int) RIGHT_SHIFT(tmp13 + tmp0, CONST_BITS-PASS1_BITS);
     wsptr[DCTSIZE*4] = (int) RIGHT_SHIFT(tmp13 - tmp0, CONST_BITS-PASS1_BITS);
-    
+
     inptr++;			/* advance pointers to next column */
     quantptr++;
     wsptr++;
@@ -332,7 +332,7 @@ jpeg_idct_islow (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
     /* Even part: reverse the even part of the forward DCT. */
     /* The rotator is sqrt(2)*c(-6). */
-    
+
     z2 = (INT32) wsptr[2];
     z3 = (INT32) wsptr[6];
 
@@ -346,7 +346,7 @@ jpeg_idct_islow (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
     tmp0 = (z2 + z3) << CONST_BITS;
     tmp1 = (z2 - z3) << CONST_BITS;
-    
+
     tmp10 = tmp0 + tmp2;
     tmp13 = tmp0 - tmp2;
     tmp11 = tmp1 + tmp3;
@@ -835,7 +835,7 @@ jpeg_idct_4x4 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
     tmp0 = DEQUANTIZE(inptr[DCTSIZE*0], quantptr[DCTSIZE*0]);
     tmp2 = DEQUANTIZE(inptr[DCTSIZE*2], quantptr[DCTSIZE*2]);
-    
+
     tmp10 = (tmp0 + tmp2) << PASS1_BITS;
     tmp12 = (tmp0 - tmp2) << PASS1_BITS;
 
@@ -1128,7 +1128,7 @@ jpeg_idct_9x9 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
     tmp0 = MULTIPLY(z1 + z2, FIX(1.328926049)); /* c2 */
     tmp2 = MULTIPLY(z1, FIX(1.083350441));      /* c4 */
-    tmp3 = MULTIPLY(z2, FIX(0.245575608));      /* c8 */
+    tmp3 = MULTIPLY(z2, FIX(0.245575608));      /* int8_t */
 
     tmp10 = tmp1 + tmp0 - tmp3;
     tmp12 = tmp1 - tmp0 + tmp2;
@@ -1190,7 +1190,7 @@ jpeg_idct_9x9 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
     tmp0 = MULTIPLY(z1 + z2, FIX(1.328926049)); /* c2 */
     tmp2 = MULTIPLY(z1, FIX(1.083350441));      /* c4 */
-    tmp3 = MULTIPLY(z2, FIX(0.245575608));      /* c8 */
+    tmp3 = MULTIPLY(z2, FIX(0.245575608));      /* int8_t */
 
     tmp10 = tmp1 + tmp0 - tmp3;
     tmp12 = tmp1 - tmp0 + tmp2;
@@ -1287,11 +1287,11 @@ jpeg_idct_10x10 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     z3 += ONE << (CONST_BITS-PASS1_BITS-1);
     z4 = DEQUANTIZE(inptr[DCTSIZE*4], quantptr[DCTSIZE*4]);
     z1 = MULTIPLY(z4, FIX(1.144122806));         /* c4 */
-    z2 = MULTIPLY(z4, FIX(0.437016024));         /* c8 */
+    z2 = MULTIPLY(z4, FIX(0.437016024));         /* int8_t */
     tmp10 = z3 + z1;
     tmp11 = z3 - z2;
 
-    tmp22 = RIGHT_SHIFT(z3 - ((z1 - z2) << 1),   /* c0 = (c4-c8)*2 */
+    tmp22 = RIGHT_SHIFT(z3 - ((z1 - z2) << 1),   /* c0 = (c4-int8_t)*2 */
 			CONST_BITS-PASS1_BITS);
 
     z2 = DEQUANTIZE(inptr[DCTSIZE*2], quantptr[DCTSIZE*2]);
@@ -1360,11 +1360,11 @@ jpeg_idct_10x10 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     z3 <<= CONST_BITS;
     z4 = (INT32) wsptr[4];
     z1 = MULTIPLY(z4, FIX(1.144122806));         /* c4 */
-    z2 = MULTIPLY(z4, FIX(0.437016024));         /* c8 */
+    z2 = MULTIPLY(z4, FIX(0.437016024));         /* int8_t */
     tmp10 = z3 + z1;
     tmp11 = z3 - z2;
 
-    tmp22 = z3 - ((z1 - z2) << 1);               /* c0 = (c4-c8)*2 */
+    tmp22 = z3 - ((z1 - z2) << 1);               /* c0 = (c4-int8_t)*2 */
 
     z2 = (INT32) wsptr[2];
     z3 = (INT32) wsptr[6];
@@ -1494,10 +1494,10 @@ jpeg_idct_11x11 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp21 = tmp20 + tmp23 + tmp25 -
 	    MULTIPLY(z2, FIX(1.821790775));          /* c2+c4+c10-c6 */
     tmp20 += tmp25 + MULTIPLY(z3, FIX(2.115825087)); /* c4+c6 */
-    tmp23 += tmp25 - MULTIPLY(z1, FIX(1.513598477)); /* c6+c8 */
+    tmp23 += tmp25 - MULTIPLY(z1, FIX(1.513598477)); /* c6+int8_t */
     tmp24 += tmp25;
-    tmp22 = tmp24 - MULTIPLY(z3, FIX(0.788749120));  /* c8+c10 */
-    tmp24 += MULTIPLY(z2, FIX(1.944413522)) -        /* c2+c8 */
+    tmp22 = tmp24 - MULTIPLY(z3, FIX(0.788749120));  /* int8_t+c10 */
+    tmp24 += MULTIPLY(z2, FIX(1.944413522)) -        /* c2+int8_t */
 	     MULTIPLY(z1, FIX(1.390975730));         /* c4+c10 */
     tmp25 = tmp10 - MULTIPLY(z4, FIX(1.414213562));  /* c0 */
 
@@ -1565,10 +1565,10 @@ jpeg_idct_11x11 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp21 = tmp20 + tmp23 + tmp25 -
 	    MULTIPLY(z2, FIX(1.821790775));          /* c2+c4+c10-c6 */
     tmp20 += tmp25 + MULTIPLY(z3, FIX(2.115825087)); /* c4+c6 */
-    tmp23 += tmp25 - MULTIPLY(z1, FIX(1.513598477)); /* c6+c8 */
+    tmp23 += tmp25 - MULTIPLY(z1, FIX(1.513598477)); /* c6+int8_t */
     tmp24 += tmp25;
-    tmp22 = tmp24 - MULTIPLY(z3, FIX(0.788749120));  /* c8+c10 */
-    tmp24 += MULTIPLY(z2, FIX(1.944413522)) -        /* c2+c8 */
+    tmp22 = tmp24 - MULTIPLY(z3, FIX(0.788749120));  /* int8_t+c10 */
+    tmp24 += MULTIPLY(z2, FIX(1.944413522)) -        /* c2+int8_t */
 	     MULTIPLY(z1, FIX(1.390975730));         /* c4+c10 */
     tmp25 = tmp10 - MULTIPLY(z4, FIX(1.414213562));  /* c0 */
 
@@ -1904,8 +1904,8 @@ jpeg_idct_13x13 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp20 = MULTIPLY(z2, FIX(1.373119086)) + tmp12 + tmp13;   /* c2 */
     tmp22 = MULTIPLY(z2, FIX(0.501487041)) - tmp12 + tmp13;   /* c10 */
 
-    tmp12 = MULTIPLY(tmp10, FIX(0.316450131));                /* (c8-c12)/2 */
-    tmp13 = MULTIPLY(tmp11, FIX(0.486914739)) + z1;           /* (c8+c12)/2 */
+    tmp12 = MULTIPLY(tmp10, FIX(0.316450131));                /* (int8_t-c12)/2 */
+    tmp13 = MULTIPLY(tmp11, FIX(0.486914739)) + z1;           /* (int8_t+c12)/2 */
 
     tmp21 = MULTIPLY(z2, FIX(1.058554052)) - tmp12 + tmp13;   /* c6 */
     tmp25 = MULTIPLY(z2, - FIX(1.252223920)) + tmp12 + tmp13; /* c4 */
@@ -1914,7 +1914,7 @@ jpeg_idct_13x13 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp13 = MULTIPLY(tmp11, FIX(0.937303064)) - z1;           /* (c2+c10)/2 */
 
     tmp23 = MULTIPLY(z2, - FIX(0.170464608)) - tmp12 - tmp13; /* c12 */
-    tmp24 = MULTIPLY(z2, - FIX(0.803364869)) + tmp12 - tmp13; /* c8 */
+    tmp24 = MULTIPLY(z2, - FIX(0.803364869)) + tmp12 - tmp13; /* int8_t */
 
     tmp26 = MULTIPLY(tmp11 - z2, FIX(1.414213562)) + z1;      /* c0 */
 
@@ -1990,8 +1990,8 @@ jpeg_idct_13x13 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp20 = MULTIPLY(z2, FIX(1.373119086)) + tmp12 + tmp13;   /* c2 */
     tmp22 = MULTIPLY(z2, FIX(0.501487041)) - tmp12 + tmp13;   /* c10 */
 
-    tmp12 = MULTIPLY(tmp10, FIX(0.316450131));                /* (c8-c12)/2 */
-    tmp13 = MULTIPLY(tmp11, FIX(0.486914739)) + z1;           /* (c8+c12)/2 */
+    tmp12 = MULTIPLY(tmp10, FIX(0.316450131));                /* (int8_t-c12)/2 */
+    tmp13 = MULTIPLY(tmp11, FIX(0.486914739)) + z1;           /* (int8_t+c12)/2 */
 
     tmp21 = MULTIPLY(z2, FIX(1.058554052)) - tmp12 + tmp13;   /* c6 */
     tmp25 = MULTIPLY(z2, - FIX(1.252223920)) + tmp12 + tmp13; /* c4 */
@@ -2000,7 +2000,7 @@ jpeg_idct_13x13 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp13 = MULTIPLY(tmp11, FIX(0.937303064)) - z1;           /* (c2+c10)/2 */
 
     tmp23 = MULTIPLY(z2, - FIX(0.170464608)) - tmp12 - tmp13; /* c12 */
-    tmp24 = MULTIPLY(z2, - FIX(0.803364869)) + tmp12 - tmp13; /* c8 */
+    tmp24 = MULTIPLY(z2, - FIX(0.803364869)) + tmp12 - tmp13; /* int8_t */
 
     tmp26 = MULTIPLY(tmp11 - z2, FIX(1.414213562)) + z1;      /* c0 */
 
@@ -2121,13 +2121,13 @@ jpeg_idct_14x14 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     z4 = DEQUANTIZE(inptr[DCTSIZE*4], quantptr[DCTSIZE*4]);
     z2 = MULTIPLY(z4, FIX(1.274162392));         /* c4 */
     z3 = MULTIPLY(z4, FIX(0.314692123));         /* c12 */
-    z4 = MULTIPLY(z4, FIX(0.881747734));         /* c8 */
+    z4 = MULTIPLY(z4, FIX(0.881747734));         /* int8_t */
 
     tmp10 = z1 + z2;
     tmp11 = z1 + z3;
     tmp12 = z1 - z4;
 
-    tmp23 = RIGHT_SHIFT(z1 - ((z2 + z3 - z4) << 1), /* c0 = (c4+c12-c8)*2 */
+    tmp23 = RIGHT_SHIFT(z1 - ((z2 + z3 - z4) << 1), /* c0 = (c4+c12-int8_t)*2 */
 			CONST_BITS-PASS1_BITS);
 
     z1 = DEQUANTIZE(inptr[DCTSIZE*2], quantptr[DCTSIZE*2]);
@@ -2206,13 +2206,13 @@ jpeg_idct_14x14 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     z4 = (INT32) wsptr[4];
     z2 = MULTIPLY(z4, FIX(1.274162392));         /* c4 */
     z3 = MULTIPLY(z4, FIX(0.314692123));         /* c12 */
-    z4 = MULTIPLY(z4, FIX(0.881747734));         /* c8 */
+    z4 = MULTIPLY(z4, FIX(0.881747734));         /* int8_t */
 
     tmp10 = z1 + z2;
     tmp11 = z1 + z3;
     tmp12 = z1 - z4;
 
-    tmp23 = z1 - ((z2 + z3 - z4) << 1);          /* c0 = (c4+c12-c8)*2 */
+    tmp23 = z1 - ((z2 + z3 - z4) << 1);          /* c0 = (c4+c12-int8_t)*2 */
 
     z1 = (INT32) wsptr[2];
     z2 = (INT32) wsptr[6];
@@ -2365,8 +2365,8 @@ jpeg_idct_15x15 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp20 = tmp13 + tmp10 + tmp11;
     tmp23 = tmp12 - tmp10 + tmp11 + z2;
 
-    tmp10 = MULTIPLY(z3, FIX(0.547059574)); /* (c8+c14)/2 */
-    tmp11 = MULTIPLY(z4, FIX(0.399234004)); /* (c8-c14)/2 */
+    tmp10 = MULTIPLY(z3, FIX(0.547059574)); /* (int8_t+c14)/2 */
+    tmp11 = MULTIPLY(z4, FIX(0.399234004)); /* (int8_t-c14)/2 */
 
     tmp25 = tmp13 - tmp10 - tmp11;
     tmp26 = tmp12 + tmp10 - tmp11 - z2;
@@ -2456,8 +2456,8 @@ jpeg_idct_15x15 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp20 = tmp13 + tmp10 + tmp11;
     tmp23 = tmp12 - tmp10 + tmp11 + z2;
 
-    tmp10 = MULTIPLY(z3, FIX(0.547059574)); /* (c8+c14)/2 */
-    tmp11 = MULTIPLY(z4, FIX(0.399234004)); /* (c8-c14)/2 */
+    tmp10 = MULTIPLY(z3, FIX(0.547059574)); /* (int8_t+c14)/2 */
+    tmp11 = MULTIPLY(z4, FIX(0.399234004)); /* (int8_t-c14)/2 */
 
     tmp25 = tmp13 - tmp10 - tmp11;
     tmp26 = tmp12 + tmp10 - tmp11 - z2;
@@ -2851,14 +2851,14 @@ jpeg_idct_16x8 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
      * With typical images and quantization tables, half or more of the
      * column DCT calculations can be simplified this way.
      */
-    
+
     if (inptr[DCTSIZE*1] == 0 && inptr[DCTSIZE*2] == 0 &&
 	inptr[DCTSIZE*3] == 0 && inptr[DCTSIZE*4] == 0 &&
 	inptr[DCTSIZE*5] == 0 && inptr[DCTSIZE*6] == 0 &&
 	inptr[DCTSIZE*7] == 0) {
       /* AC terms all zero */
       int dcval = DEQUANTIZE(inptr[DCTSIZE*0], quantptr[DCTSIZE*0]) << PASS1_BITS;
-      
+
       wsptr[DCTSIZE*0] = dcval;
       wsptr[DCTSIZE*1] = dcval;
       wsptr[DCTSIZE*2] = dcval;
@@ -2867,23 +2867,23 @@ jpeg_idct_16x8 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
       wsptr[DCTSIZE*5] = dcval;
       wsptr[DCTSIZE*6] = dcval;
       wsptr[DCTSIZE*7] = dcval;
-      
+
       inptr++;			/* advance pointers to next column */
       quantptr++;
       wsptr++;
       continue;
     }
-    
+
     /* Even part: reverse the even part of the forward DCT. */
     /* The rotator is sqrt(2)*c(-6). */
-    
+
     z2 = DEQUANTIZE(inptr[DCTSIZE*2], quantptr[DCTSIZE*2]);
     z3 = DEQUANTIZE(inptr[DCTSIZE*6], quantptr[DCTSIZE*6]);
-    
+
     z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
     tmp2 = z1 + MULTIPLY(z2, FIX_0_765366865);
     tmp3 = z1 - MULTIPLY(z3, FIX_1_847759065);
-    
+
     z2 = DEQUANTIZE(inptr[DCTSIZE*0], quantptr[DCTSIZE*0]);
     z3 = DEQUANTIZE(inptr[DCTSIZE*4], quantptr[DCTSIZE*4]);
     z2 <<= CONST_BITS;
@@ -2893,21 +2893,21 @@ jpeg_idct_16x8 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
     tmp0 = z2 + z3;
     tmp1 = z2 - z3;
-    
+
     tmp10 = tmp0 + tmp2;
     tmp13 = tmp0 - tmp2;
     tmp11 = tmp1 + tmp3;
     tmp12 = tmp1 - tmp3;
-    
+
     /* Odd part per figure 8; the matrix is unitary and hence its
      * transpose is its inverse.  i0..i3 are y7,y5,y3,y1 respectively.
      */
-    
+
     tmp0 = DEQUANTIZE(inptr[DCTSIZE*7], quantptr[DCTSIZE*7]);
     tmp1 = DEQUANTIZE(inptr[DCTSIZE*5], quantptr[DCTSIZE*5]);
     tmp2 = DEQUANTIZE(inptr[DCTSIZE*3], quantptr[DCTSIZE*3]);
     tmp3 = DEQUANTIZE(inptr[DCTSIZE*1], quantptr[DCTSIZE*1]);
-    
+
     z2 = tmp0 + tmp2;
     z3 = tmp1 + tmp3;
 
@@ -2928,9 +2928,9 @@ jpeg_idct_16x8 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp2 = MULTIPLY(tmp2, FIX_3_072711026); /* sqrt(2) * ( c1+c3+c5-c7) */
     tmp1 += z1 + z3;
     tmp2 += z1 + z2;
-    
+
     /* Final output stage: inputs are tmp10..tmp13, tmp0..tmp3 */
-    
+
     wsptr[DCTSIZE*0] = (int) RIGHT_SHIFT(tmp10 + tmp3, CONST_BITS-PASS1_BITS);
     wsptr[DCTSIZE*7] = (int) RIGHT_SHIFT(tmp10 - tmp3, CONST_BITS-PASS1_BITS);
     wsptr[DCTSIZE*1] = (int) RIGHT_SHIFT(tmp11 + tmp2, CONST_BITS-PASS1_BITS);
@@ -2939,7 +2939,7 @@ jpeg_idct_16x8 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     wsptr[DCTSIZE*5] = (int) RIGHT_SHIFT(tmp12 - tmp1, CONST_BITS-PASS1_BITS);
     wsptr[DCTSIZE*3] = (int) RIGHT_SHIFT(tmp13 + tmp0, CONST_BITS-PASS1_BITS);
     wsptr[DCTSIZE*4] = (int) RIGHT_SHIFT(tmp13 - tmp0, CONST_BITS-PASS1_BITS);
-    
+
     inptr++;			/* advance pointers to next column */
     quantptr++;
     wsptr++;
@@ -3176,13 +3176,13 @@ jpeg_idct_14x7 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     z4 = (INT32) wsptr[4];
     z2 = MULTIPLY(z4, FIX(1.274162392));         /* c4 */
     z3 = MULTIPLY(z4, FIX(0.314692123));         /* c12 */
-    z4 = MULTIPLY(z4, FIX(0.881747734));         /* c8 */
+    z4 = MULTIPLY(z4, FIX(0.881747734));         /* int8_t */
 
     tmp10 = z1 + z2;
     tmp11 = z1 + z3;
     tmp12 = z1 - z4;
 
-    tmp23 = z1 - ((z2 + z3 - z4) << 1);          /* c0 = (c4+c12-c8)*2 */
+    tmp23 = z1 - ((z2 + z3 - z4) << 1);          /* c0 = (c4+c12-int8_t)*2 */
 
     z1 = (INT32) wsptr[2];
     z2 = (INT32) wsptr[6];
@@ -3531,11 +3531,11 @@ jpeg_idct_10x5 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     z3 <<= CONST_BITS;
     z4 = (INT32) wsptr[4];
     z1 = MULTIPLY(z4, FIX(1.144122806));         /* c4 */
-    z2 = MULTIPLY(z4, FIX(0.437016024));         /* c8 */
+    z2 = MULTIPLY(z4, FIX(0.437016024));         /* int8_t */
     tmp10 = z3 + z1;
     tmp11 = z3 - z2;
 
-    tmp22 = z3 - ((z1 - z2) << 1);               /* c0 = (c4-c8)*2 */
+    tmp22 = z3 - ((z1 - z2) << 1);               /* c0 = (c4-int8_t)*2 */
 
     z2 = (INT32) wsptr[2];
     z3 = (INT32) wsptr[6];
@@ -3688,18 +3688,18 @@ jpeg_idct_8x4 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
     z2 = (INT32) wsptr[2];
     z3 = (INT32) wsptr[6];
-    
+
     z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
     tmp2 = z1 + MULTIPLY(z2, FIX_0_765366865);
     tmp3 = z1 - MULTIPLY(z3, FIX_1_847759065);
-    
+
     /* Add fudge factor here for final descale. */
     z2 = (INT32) wsptr[0] + (ONE << (PASS1_BITS+2));
     z3 = (INT32) wsptr[4];
-    
+
     tmp0 = (z2 + z3) << CONST_BITS;
     tmp1 = (z2 - z3) << CONST_BITS;
-    
+
     tmp10 = tmp0 + tmp2;
     tmp13 = tmp0 - tmp2;
     tmp11 = tmp1 + tmp3;
@@ -3819,7 +3819,7 @@ jpeg_idct_6x3 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     wsptr[6*2] = (int) RIGHT_SHIFT(tmp10 - tmp0, CONST_BITS-PASS1_BITS);
     wsptr[6*1] = (int) RIGHT_SHIFT(tmp2, CONST_BITS-PASS1_BITS);
   }
-  
+
   /* Pass 2: process 3 rows from work array, store into output array.
    * 6-point IDCT kernel, cK represents sqrt(2) * cos(K*pi/12).
    */
@@ -4134,7 +4134,7 @@ jpeg_idct_8x16 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     wsptr[8*7]  = (int) RIGHT_SHIFT(tmp27 + tmp13, CONST_BITS-PASS1_BITS);
     wsptr[8*8]  = (int) RIGHT_SHIFT(tmp27 - tmp13, CONST_BITS-PASS1_BITS);
   }
-  
+
   /* Pass 2: process rows from work array, store into output array. */
   /* Note that we must descale the results by a factor of 8 == 2**3, */
   /* and also undo the PASS1_BITS scaling. */
@@ -4142,38 +4142,38 @@ jpeg_idct_8x16 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
   wsptr = workspace;
   for (ctr = 0; ctr < 16; ctr++) {
     outptr = output_buf[ctr] + output_col;
-    
+
     /* Even part: reverse the even part of the forward DCT. */
     /* The rotator is sqrt(2)*c(-6). */
-    
+
     z2 = (INT32) wsptr[2];
     z3 = (INT32) wsptr[6];
-    
+
     z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
     tmp2 = z1 + MULTIPLY(z2, FIX_0_765366865);
     tmp3 = z1 - MULTIPLY(z3, FIX_1_847759065);
-    
+
     /* Add fudge factor here for final descale. */
     z2 = (INT32) wsptr[0] + (ONE << (PASS1_BITS+2));
     z3 = (INT32) wsptr[4];
-    
+
     tmp0 = (z2 + z3) << CONST_BITS;
     tmp1 = (z2 - z3) << CONST_BITS;
-    
+
     tmp10 = tmp0 + tmp2;
     tmp13 = tmp0 - tmp2;
     tmp11 = tmp1 + tmp3;
     tmp12 = tmp1 - tmp3;
-    
+
     /* Odd part per figure 8; the matrix is unitary and hence its
      * transpose is its inverse.  i0..i3 are y7,y5,y3,y1 respectively.
      */
-    
+
     tmp0 = (INT32) wsptr[7];
     tmp1 = (INT32) wsptr[5];
     tmp2 = (INT32) wsptr[3];
     tmp3 = (INT32) wsptr[1];
-    
+
     z2 = tmp0 + tmp2;
     z3 = tmp1 + tmp3;
 
@@ -4194,9 +4194,9 @@ jpeg_idct_8x16 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     tmp2 = MULTIPLY(tmp2, FIX_3_072711026); /* sqrt(2) * ( c1+c3+c5-c7) */
     tmp1 += z1 + z3;
     tmp2 += z1 + z2;
-    
+
     /* Final output stage: inputs are tmp10..tmp13, tmp0..tmp3 */
-    
+
     outptr[0] = range_limit[(int) RIGHT_SHIFT(tmp10 + tmp3,
 					      CONST_BITS+PASS1_BITS+3)
 			    & RANGE_MASK];
@@ -4221,7 +4221,7 @@ jpeg_idct_8x16 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     outptr[4] = range_limit[(int) RIGHT_SHIFT(tmp13 - tmp0,
 					      CONST_BITS+PASS1_BITS+3)
 			    & RANGE_MASK];
-    
+
     wsptr += DCTSIZE;		/* advance pointer to next row */
   }
 }
@@ -4267,13 +4267,13 @@ jpeg_idct_7x14 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     z4 = DEQUANTIZE(inptr[DCTSIZE*4], quantptr[DCTSIZE*4]);
     z2 = MULTIPLY(z4, FIX(1.274162392));         /* c4 */
     z3 = MULTIPLY(z4, FIX(0.314692123));         /* c12 */
-    z4 = MULTIPLY(z4, FIX(0.881747734));         /* c8 */
+    z4 = MULTIPLY(z4, FIX(0.881747734));         /* int8_t */
 
     tmp10 = z1 + z2;
     tmp11 = z1 + z3;
     tmp12 = z1 - z4;
 
-    tmp23 = RIGHT_SHIFT(z1 - ((z2 + z3 - z4) << 1), /* c0 = (c4+c12-c8)*2 */
+    tmp23 = RIGHT_SHIFT(z1 - ((z2 + z3 - z4) << 1), /* c0 = (c4+c12-int8_t)*2 */
 			CONST_BITS-PASS1_BITS);
 
     z1 = DEQUANTIZE(inptr[DCTSIZE*2], quantptr[DCTSIZE*2]);
@@ -4613,11 +4613,11 @@ jpeg_idct_5x10 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     z3 += ONE << (CONST_BITS-PASS1_BITS-1);
     z4 = DEQUANTIZE(inptr[DCTSIZE*4], quantptr[DCTSIZE*4]);
     z1 = MULTIPLY(z4, FIX(1.144122806));         /* c4 */
-    z2 = MULTIPLY(z4, FIX(0.437016024));         /* c8 */
+    z2 = MULTIPLY(z4, FIX(0.437016024));         /* int8_t */
     tmp10 = z3 + z1;
     tmp11 = z3 - z2;
 
-    tmp22 = RIGHT_SHIFT(z3 - ((z1 - z2) << 1),   /* c0 = (c4-c8)*2 */
+    tmp22 = RIGHT_SHIFT(z3 - ((z1 - z2) << 1),   /* c0 = (c4-int8_t)*2 */
 			CONST_BITS-PASS1_BITS);
 
     z2 = DEQUANTIZE(inptr[DCTSIZE*2], quantptr[DCTSIZE*2]);
@@ -4794,11 +4794,11 @@ jpeg_idct_4x8 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
     z2 = DEQUANTIZE(inptr[DCTSIZE*2], quantptr[DCTSIZE*2]);
     z3 = DEQUANTIZE(inptr[DCTSIZE*6], quantptr[DCTSIZE*6]);
-    
+
     z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
     tmp2 = z1 + MULTIPLY(z2, FIX_0_765366865);
     tmp3 = z1 - MULTIPLY(z3, FIX_1_847759065);
-    
+
     z2 = DEQUANTIZE(inptr[DCTSIZE*0], quantptr[DCTSIZE*0]);
     z3 = DEQUANTIZE(inptr[DCTSIZE*4], quantptr[DCTSIZE*4]);
     z2 <<= CONST_BITS;
@@ -4808,7 +4808,7 @@ jpeg_idct_4x8 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
     tmp0 = z2 + z3;
     tmp1 = z2 - z3;
-    
+
     tmp10 = tmp0 + tmp2;
     tmp13 = tmp0 - tmp2;
     tmp11 = tmp1 + tmp3;
@@ -4900,7 +4900,7 @@ jpeg_idct_4x8 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     outptr[2] = range_limit[(int) RIGHT_SHIFT(tmp12 - tmp2,
 					      CONST_BITS+PASS1_BITS+3)
 			    & RANGE_MASK];
-    
+
     wsptr += 4;		/* advance pointer to next row */
   }
 }
@@ -5116,7 +5116,7 @@ jpeg_idct_1x2 (j_decompress_ptr cinfo, jpeg_component_info * compptr,
   quantptr = (ISLOW_MULT_TYPE *) compptr->dct_table;
 
   /* Even part */
-    
+
   tmp10 = DEQUANTIZE(coef_block[DCTSIZE*0], quantptr[DCTSIZE*0]);
   /* Add fudge factor here for final descale. */
   tmp10 += ONE << 2;

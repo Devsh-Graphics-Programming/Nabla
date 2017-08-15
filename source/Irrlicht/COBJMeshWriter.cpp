@@ -54,11 +54,11 @@ EMESH_WRITER_TYPE COBJMeshWriter::getType() const
 }
 
 template <class I>
-inline void writeIndices(IMeshBuffer* buffer, io::IWriteFile* file, const u32 &allVertexCount)
+inline void writeIndices(IMeshBuffer* buffer, io::IWriteFile* file, const uint32_t &allVertexCount)
 {
     core::stringc num;
-    const u32 indexCount = buffer->getIndexCount();
-    for (u32 j=0; j<indexCount; j+=3)
+    const uint32_t indexCount = buffer->getIndexCount();
+    for (uint32_t j=0; j<indexCount; j+=3)
     {
         file->write("f ",2);
         num = core::stringc(((I*)buffer->getIndices())[j+2]+allVertexCount);
@@ -90,7 +90,7 @@ inline void writeIndices(IMeshBuffer* buffer, io::IWriteFile* file, const u32 &a
 }
 
 //! writes a mesh
-bool COBJMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 flags)
+bool COBJMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, int32_t flags)
 {
 	if (!file)
 		return false;
@@ -109,8 +109,8 @@ bool COBJMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 fla
 
 	core::array<video::SMaterial*> mat;
 
-	u32 allVertexCount=1; // count vertices over the whole file
-	for (u32 i=0; i<mesh->getMeshBufferCount(); ++i)
+	uint32_t allVertexCount=1; // count vertices over the whole file
+	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
 	{
 		core::stringc num(i+1);
 		IMeshBuffer* buffer = mesh->getMeshBuffer(i);
@@ -120,8 +120,8 @@ bool COBJMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 fla
 			file->write(num.c_str(), num.size());
 			file->write("\n",1);
 
-			u32 j;
-			const u32 vertexCount = buffer->getVertexCount();
+			uint32_t j;
+			const uint32_t vertexCount = buffer->getVertexCount();
 			for (j=0; j<vertexCount; ++j)
 			{
 				file->write("v ",2);
@@ -162,9 +162,9 @@ bool COBJMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 fla
 			file->write("\n",1);
 
 			if (buffer->getIndexType()==video::EIT_16BIT)
-                writeIndices<u16>(buffer,file,allVertexCount);
+                writeIndices<uint16_t>(buffer,file,allVertexCount);
 			else if (buffer->getIndexType()==video::EIT_32BIT)
-                writeIndices<u32>(buffer,file,allVertexCount);
+                writeIndices<uint32_t>(buffer,file,allVertexCount);
 			file->write("\n",1);
 			allVertexCount += vertexCount;
 		}
@@ -179,7 +179,7 @@ bool COBJMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 fla
 		os::Printer::log("Writing material", file->getFileName());
 
 		file->write("# exported by Irrlicht\n\n",24);
-		for (u32 i=0; i<mat.size(); ++i)
+		for (uint32_t i=0; i<mat.size(); ++i)
 		{
 			core::stringc num(i);
 			file->write("newmtl mat",10);
@@ -232,7 +232,7 @@ void COBJMeshWriter::getVectorAsStringLine(const core::vector2df& v, core::strin
 }
 
 
-void COBJMeshWriter::getColorAsStringLine(const video::SColor& color, const c8* const prefix, core::stringc& s) const
+void COBJMeshWriter::getColorAsStringLine(const video::SColor& color, const int8_t* const prefix, core::stringc& s) const
 {
 	s = prefix;
 	s += " ";

@@ -9,7 +9,7 @@
 #include "IReadFile.h"
 #include "CImage.h"
 #include "os.h"
-#include "irrString.h"
+#include <string>
 
 namespace irr
 {
@@ -110,11 +110,11 @@ void CImageLoaderJPG::error_exit (j_common_ptr cinfo)
 void CImageLoaderJPG::output_message(j_common_ptr cinfo)
 {
 	// display the error message.
-	c8 temp1[JMSG_LENGTH_MAX];
+	char temp1[JMSG_LENGTH_MAX];
 	(*cinfo->err->format_message)(cinfo, temp1);
-	core::stringc errMsg("JPEG FATAL ERROR in ");
-	errMsg += core::stringc(Filename);
-	os::Printer::log(errMsg.c_str(),temp1, ELL_ERROR);
+	std::string errMsg("JPEG FATAL ERROR in ");
+	errMsg += std::string(Filename.c_str());
+	os::Printer::log(errMsg,temp1, ELL_ERROR);
 }
 #endif // _IRR_COMPILE_WITH_LIBJPEG_
 
@@ -128,9 +128,9 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* file) const
 	if (!file)
 		return false;
 
-	s32 jfif = 0;
+	int32_t jfif = 0;
 	file->seek(6);
-	file->read(&jfif, sizeof(s32));
+	file->read(&jfif, sizeof(int32_t));
 	return (jfif == 0x4a464946 || jfif == 0x4649464a);
 
 	#endif
@@ -149,8 +149,8 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 
 	Filename = file->getFileName();
 
-	u8 **rowPtr=0;
-	u8* input = new u8[file->getSize()];
+	uint8_t **rowPtr=0;
+	uint8_t* input = new uint8_t[file->getSize()];
 	file->read(input, file->getSize());
 
 	// allocate and initialize JPEG decompression object
@@ -229,22 +229,22 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	jpeg_start_decompress(&cinfo);
 
 	// Get image data
-	u16 rowspan = cinfo.image_width * cinfo.out_color_components;
-	u32 width = cinfo.image_width;
-	u32 height = cinfo.image_height;
+	uint16_t rowspan = cinfo.image_width * cinfo.out_color_components;
+	uint32_t width = cinfo.image_width;
+	uint32_t height = cinfo.image_height;
 
 	// Allocate memory for buffer
-	u8* output = new u8[rowspan * height];
+	uint8_t* output = new uint8_t[rowspan * height];
 
 	// Here we use the library's state variable cinfo.output_scanline as the
 	// loop counter, so that we don't have to keep track ourselves.
 	// Create array of row pointers for lib
-	rowPtr = new u8* [height];
+	rowPtr = new uint8_t* [height];
 
-	for( u32 i = 0; i < height; i++ )
+	for( uint32_t i = 0; i < height; i++ )
 		rowPtr[i] = &output[ i * rowspan ];
 
-	u32 rowsRead = 0;
+	uint32_t rowsRead = 0;
 
 	while( cinfo.output_scanline < cinfo.output_height )
 		rowsRead += jpeg_read_scanlines( &cinfo, &rowPtr[rowsRead], cinfo.output_height - rowsRead );
@@ -263,12 +263,12 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	if (useCMYK)
 	{
 		image = new CImage(ECF_R8G8B8,
-				core::dimension2d<u32>(width, height));
-		const u32 size = 3*width*height;
-		u8* data = (u8*)image->lock();
+				core::dimension2d<uint32_t>(width, height));
+		const uint32_t size = 3*width*height;
+		uint8_t* data = (uint8_t*)image->lock();
 		if (data)
 		{
-			for (u32 i=0,j=0; i<size; i+=3, j+=4)
+			for (uint32_t i=0,j=0; i<size; i+=3, j+=4)
 			{
 				// Also works without K, but has more contrast with K multiplied in
 //				data[i+0] = output[j+2];
@@ -284,7 +284,7 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	}
 	else
 		image = new CImage(ECF_R8G8B8,
-				core::dimension2d<u32>(width, height), output);
+				core::dimension2d<uint32_t>(width, height), output);
 
 	delete [] input;
 

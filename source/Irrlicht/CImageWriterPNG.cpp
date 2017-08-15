@@ -50,7 +50,7 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 	png_size_t check;
 
 	io::IWriteFile* file=(io::IWriteFile*)png_get_io_ptr(png_ptr);
-	check=(png_size_t) file->write((const void*)data,(u32)length);
+	check=(png_size_t) file->write((const void*)data,(uint32_t)length);
 
 	if (check != length)
 		png_error(png_ptr, "Write Error");
@@ -73,7 +73,7 @@ bool CImageWriterPNG::isAWriteableFileExtension(const io::path& filename) const
 #endif
 }
 
-bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,u32 param) const
+bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t param) const
 {
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 	if (!file || !image)
@@ -84,7 +84,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,u32 param) 
 		NULL, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warning);
 	if (!png_ptr)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create write struct failure\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("PNGWriter: Internal PNG create write struct failure\n", file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
 
@@ -92,7 +92,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,u32 param) 
 	png_infop info_ptr = png_create_info_struct(png_ptr);
 	if (!info_ptr)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create info struct failure\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("PNGWriter: Internal PNG create info struct failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, NULL);
 		return false;
 	}
@@ -123,30 +123,30 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,u32 param) 
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 	}
 
-	s32 lineWidth = image->getDimension().Width;
+	int32_t lineWidth = image->getDimension().Width;
 	switch(image->getColorFormat())
-	{ 	 
-	case ECF_R8G8B8: 	 
-	case ECF_R5G6B5: 	 
-		lineWidth*=3; 	 
-		break; 	 
-	case ECF_A8R8G8B8: 	 
-	case ECF_A1R5G5B5: 	 
-		lineWidth*=4; 	 
+	{
+	case ECF_R8G8B8:
+	case ECF_R5G6B5:
+		lineWidth*=3;
+		break;
+	case ECF_A8R8G8B8:
+	case ECF_A1R5G5B5:
+		lineWidth*=4;
 		break;
 	// TODO: Error handling in case of unsupported color format
 	default:
 		break;
-	} 	 
-	u8* tmpImage = new u8[image->getDimension().Height*lineWidth];
+	}
+	uint8_t* tmpImage = new uint8_t[image->getDimension().Height*lineWidth];
 	if (!tmpImage)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create image failure\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("PNGWriter: Internal PNG create image failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		return false;
 	}
 
-	u8* data = (u8*)image->lock();
+	uint8_t* data = (uint8_t*)image->lock();
 	switch(image->getColorFormat())
 	{
 	case ECF_R8G8B8:
@@ -172,10 +172,10 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,u32 param) 
 	// Create array of pointers to rows in image data
 
 	//Used to point to image rows
-	u8** RowPointers = new png_bytep[image->getDimension().Height];
+	uint8_t** RowPointers = new png_bytep[image->getDimension().Height];
 	if (!RowPointers)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create row pointers failure\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("PNGWriter: Internal PNG create row pointers failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		delete [] tmpImage;
 		return false;
@@ -183,7 +183,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,u32 param) 
 
 	data=tmpImage;
 	// Fill array of pointers to rows in image data
-	for (u32 i=0; i<image->getDimension().Height; ++i)
+	for (uint32_t i=0; i<image->getDimension().Height; ++i)
 	{
 		RowPointers[i]=data;
 		data += lineWidth;

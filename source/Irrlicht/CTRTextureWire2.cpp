@@ -102,7 +102,7 @@ CTRTextureWire2::CTRTextureWire2(CBurningVideoDriver* driver)
 
 
 // swap integer with xor
-static inline void swap_xor ( s32 &a, s32 &b )
+static inline void swap_xor ( int32_t &a, int32_t &b )
 {
 	a ^= b;
 	b ^= a;
@@ -114,7 +114,7 @@ static inline void swap_xor ( s32 &a, s32 &b )
 */
 void CTRTextureWire2::renderLine ( const s4DVertex *a,const s4DVertex *b ) const
 {
-	
+
 	int pitch0 = RenderTarget->getDimension().Width << VIDEO_SAMPLE_GRANULARITY;
 	int pitch1 = RenderTarget->getDimension().Width << 2;
 
@@ -169,21 +169,21 @@ void CTRTextureWire2::renderLine ( const s4DVertex *a,const s4DVertex *b ) const
 	if ( 0 == dx )
 		return;
 
-	dst = (tVideoSample*) ( (u8*) (tVideoSample*)RenderTarget->lock() + ( aposy * pitch0 ) + (aposx << VIDEO_SAMPLE_GRANULARITY ) );
+	dst = (tVideoSample*) ( (uint8_t*) (tVideoSample*)RenderTarget->lock() + ( aposy * pitch0 ) + (aposx << VIDEO_SAMPLE_GRANULARITY ) );
 #ifdef USE_ZBUFFER
-	z = (fp24*) ( (u8*) (fp24*) DepthBuffer->lock() + ( aposy * pitch1 ) + (aposx << 2 ) );
+	z = (fp24*) ( (uint8_t*) (fp24*) DepthBuffer->lock() + ( aposy * pitch1 ) + (aposx << 2 ) );
 #endif
 
 	c = dx << 1;
 	m = dy << 1;
 
 #ifdef IPOL_Z
-	f32 slopeZ = (b->Pos.z - a->Pos.z) / f32(dx);
-	f32 dataZ = a->Pos.z;
+	float slopeZ = (b->Pos.z - a->Pos.z) / float(dx);
+	float dataZ = a->Pos.z;
 #endif
 
 #ifdef IPOL_W
-	fp24 slopeW = (b->Pos.w - a->Pos.w) / f32( dx );
+	fp24 slopeW = (b->Pos.w - a->Pos.w) / float( dx );
 	fp24 dataW = a->Pos.w;
 #endif
 
@@ -208,23 +208,23 @@ void CTRTextureWire2::renderLine ( const s4DVertex *a,const s4DVertex *b ) const
 
 		}
 
-		dst = (tVideoSample*) ( (u8*) dst + xInc0 );	// x += xInc
+		dst = (tVideoSample*) ( (uint8_t*) dst + xInc0 );	// x += xInc
 #ifdef IPOL_Z
-		z = (fp24*) ( (u8*) z + xInc1 );
+		z = (fp24*) ( (uint8_t*) z + xInc1 );
 #endif
 #ifdef IPOL_W
-		z = (fp24*) ( (u8*) z + xInc1 );
+		z = (fp24*) ( (uint8_t*) z + xInc1 );
 #endif
 
 		d += m;
 		if ( d > dx )
 		{
-			dst = (tVideoSample*) ( (u8*) dst + yInc0 );	// y += yInc
+			dst = (tVideoSample*) ( (uint8_t*) dst + yInc0 );	// y += yInc
 #ifdef IPOL_Z
-			z = (fp24*) ( (u8*) z + yInc1 );
+			z = (fp24*) ( (uint8_t*) z + yInc1 );
 #endif
 #ifdef IPOL_W
-			z = (fp24*) ( (u8*) z + yInc1 );
+			z = (fp24*) ( (uint8_t*) z + yInc1 );
 #endif
 
 			d -= c;

@@ -33,19 +33,19 @@
 					<Add option="-O3" />
 					<Add option="-w" />
 					<Add option="-g" />
-					<Add option="-flto" />
-					<Add option="-fuse-linker-plugin" />
+					<Add option="-fuse-ld=gold" />
 					<Add option="-fno-omit-frame-pointer" />
 					<Add option="-msse3" />
 					<Add option="-mfpmath=sse" />
 					<Add option="-ggdb3" />
+					<Add option="-std=c++03" />
+					<Add option="-fsanitize=address" />
 					<Add option="-D_AMD64_" />
 				</Compiler>
 				<Linker>
 					<Add option="-fuse-ld=gold" />
-					<Add option="-flto" />
-					<Add option="-fuse-linker-plugin" />
 					<Add option="-msse3" />
+					<Add option="-fsanitize=address" />
 					<Add library="Irrlicht" />
 					<Add library="Xrandr" />
 					<Add library="GL" />

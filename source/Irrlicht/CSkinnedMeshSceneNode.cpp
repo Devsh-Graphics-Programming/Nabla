@@ -86,7 +86,7 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
 		int solidCount = 0;
 
         // count copied materials
-        for (u32 i=0; i<Materials.size(); ++i)
+        for (uint32_t i=0; i<Materials.size(); ++i)
         {
             scene::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
             if (!mb||mb->getIndexCount()<1)
@@ -119,7 +119,7 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
 
 
 //! OnAnimate() is called just before rendering the whole scene.
-void CSkinnedMeshSceneNode::OnAnimate(u32 timeMs)
+void CSkinnedMeshSceneNode::OnAnimate(uint32_t timeMs)
 {
 	if (LastTimeMs==0)	// first frame
 	{
@@ -169,25 +169,28 @@ void CSkinnedMeshSceneNode::render()
 
 
 
-	driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
-
-	// render original meshes
-    for (u32 i=0; i<mesh->getMeshBufferCount(); ++i)
+    if (canProceedPastFence())
     {
-        scene::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
-        if (mb)
+        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
+
+        // render original meshes
+        for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
         {
-            const video::SMaterial& material = Materials[i];
-
-            video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
-            bool transparent = (rnd && rnd->isTransparent());
-
-            // only render transparent buffer if this is the transparent render pass
-            // and solid only in solid pass
-            if (transparent == isTransparentPass)
+            scene::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+            if (mb)
             {
-                driver->setMaterial(material);
-                driver->drawMeshBuffer(mb,(AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+                const video::SMaterial& material = Materials[i];
+
+                video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
+                bool transparent = (rnd && rnd->isTransparent());
+
+                // only render transparent buffer if this is the transparent render pass
+                // and solid only in solid pass
+                if (transparent == isTransparentPass)
+                {
+                    driver->setMaterial(material);
+                    driver->drawMeshBuffer(mb,(AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+                }
             }
         }
     }
@@ -195,6 +198,8 @@ void CSkinnedMeshSceneNode::render()
 	// for debug purposes only:
 	if (DebugDataVisible && PassCount==1)
 	{
+        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
+
 		video::SMaterial debug_mat;
         debug_mat.Thickness = 3.f;
 		driver->setMaterial(debug_mat);
@@ -205,7 +210,7 @@ void CSkinnedMeshSceneNode::render()
 		// show bounding box
 		if (DebugDataVisible & scene::EDS_BBOX_BUFFERS)
 		{
-			for (u32 g=0; g< mesh->getMeshBufferCount(); ++g)
+			for (uint32_t g=0; g< mesh->getMeshBufferCount(); ++g)
 			{
 				const IGPUMeshBuffer* mb = mesh->getMeshBuffer(g);
 
@@ -220,7 +225,7 @@ void CSkinnedMeshSceneNode::render()
 			{
 				// draw skeleton
 
-				for (u32 g=0; g < static_cast<ICPUSkinnedMesh*>(mesh)->getAllJoints().size(); ++g)
+				for (uint32_t g=0; g < static_cast<ICPUSkinnedMesh*>(mesh)->getAllJoints().size(); ++g)
 				{
 					ICPUSkinnedMesh::SJoint *joint = static_cast<ICPUSkinnedMesh*>(Mesh)->getAllJoints()[g];
 
@@ -237,7 +242,7 @@ void CSkinnedMeshSceneNode::render()
 			debug_mat.ZBuffer = video::ECFN_NEVER;
 			driver->setMaterial(debug_mat);
 
-			for (u32 g=0; g<mesh->getMeshBufferCount(); ++g)
+			for (uint32_t g=0; g<mesh->getMeshBufferCount(); ++g)
 			{
 				IGPUMeshBuffer* mb = mesh->getMeshBuffer(g);
 				driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
@@ -278,7 +283,7 @@ void CSkinnedMeshSceneNode::setMesh(IGPUSkinnedMesh* inMesh, const ISkinningStat
     Materials.clear();
     Materials.resize(mesh->getMeshBufferCount());
 
-    for (u32 i=0; i<mesh->getMeshBufferCount(); ++i)
+    for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
     {
         IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
         if (mb)
@@ -305,9 +310,9 @@ bool CSkinnedMeshSceneNode::setFrameLoop(const float& begin, const float& end)
 		EndFrame = core::s32_clamp(end, StartFrame, maxFrameCount);
 	}
 	if (FramesPerSecond < 0)
-		setCurrentFrame((f32)EndFrame);
+		setCurrentFrame((float)EndFrame);
 	else
-		setCurrentFrame((f32)StartFrame);
+		setCurrentFrame((float)StartFrame);
 
 	return true;
 }

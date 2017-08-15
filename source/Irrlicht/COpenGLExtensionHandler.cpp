@@ -7,9 +7,8 @@
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "COpenGLExtensionHandler.h"
-#include "irrString.h"
 #include "SMaterial.h" // for MATERIAL_MAX_TEXTURES
-#include "fast_atof.h"
+#include "coreutil.h"
 
 namespace irr
 {
@@ -147,15 +146,18 @@ E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
 }
 
 
-u16 COpenGLExtensionHandler::Version = 0;
+uint16_t COpenGLExtensionHandler::Version = 0;
 bool COpenGLExtensionHandler::functionsAlreadyLoaded = false;
 int32_t COpenGLExtensionHandler::pixelUnpackAlignment = 2;
 bool COpenGLExtensionHandler::FeatureAvailable[] = {false};
 
+uint32_t COpenGLExtensionHandler::MaxArrayTextureLayers = 2048;
 uint32_t COpenGLExtensionHandler::MaxIndices = 65535;
 uint32_t COpenGLExtensionHandler::MaxVertices = 0xffffffffu;
 uint32_t COpenGLExtensionHandler::MaxVertexStreams = 1;
 uint32_t COpenGLExtensionHandler::MaxXFormFeedbackComponents = 64;
+uint32_t COpenGLExtensionHandler::MaxGPUWaitTimeout = 0;
+uint32_t COpenGLExtensionHandler::MaxGeometryVerticesOut = 65535;
 
 //uint32_t COpenGLExtensionHandler::MaxXFormFeedbackInterleavedAttributes = GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS;
 //uint32_t COpenGLExtensionHandler::MaxXFormFeedbackSeparateAttributes = GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS;
@@ -461,13 +463,18 @@ PFNGLDEBUGMESSAGECALLBACKARBPROC COpenGLExtensionHandler::pGlDebugMessageCallbac
     #endif
 #endif
 
+
+core::LeakDebugger COpenGLExtensionHandler::bufferLeaker("GLBuffer");
+core::LeakDebugger COpenGLExtensionHandler::textureLeaker("GLTex");
+
+
+
 COpenGLExtensionHandler::COpenGLExtensionHandler() :
 		StencilBuffer(false),
 		TextureCompressionExtension(false),
 		MaxTextureUnits(1), MaxLights(1),
 		MaxAnisotropy(1), MaxUserClipPlanes(0), MaxAuxBuffers(0),
 		MaxMultipleRenderTargets(1),
-		MaxGeometryVerticesOut(0),
 		MaxTextureLODBias(0.f), ShaderLanguageVersion(0)
 {
 	DimAliasedLine[0]=1.f;
@@ -481,11 +488,11 @@ COpenGLExtensionHandler::COpenGLExtensionHandler() :
 }
 
 
-void COpenGLExtensionHandler::dump(core::stringc* outStr, bool onlyAvailable) const
+void COpenGLExtensionHandler::dump(std::string* outStr, bool onlyAvailable) const
 {
     if (onlyAvailable)
     {
-        for (u32 i=0; i<IRR_OpenGL_Feature_Count; ++i)
+        for (uint32_t i=0; i<IRR_OpenGL_Feature_Count; ++i)
         {
             if (FeatureAvailable[i])
             {
@@ -501,7 +508,7 @@ void COpenGLExtensionHandler::dump(core::stringc* outStr, bool onlyAvailable) co
     }
     else
     {
-        for (u32 i=0; i<IRR_OpenGL_Feature_Count; ++i)
+        for (uint32_t i=0; i<IRR_OpenGL_Feature_Count; ++i)
         {
             if (outStr)
             {
@@ -519,7 +526,7 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 {
 #ifdef _IRR_WINDOWS_API_
 	HDC hdc=wglGetCurrentDC();
-	core::stringc wglExtensions;
+	std::string wglExtensions;
 #ifdef WGL_ARB_extensions_string
 	PFNWGLGETEXTENSIONSSTRINGARBPROC irrGetExtensionsString = (PFNWGLGETEXTENSIONSSTRINGARBPROC)wglGetProcAddress("wglGetExtensionsStringARB");
 	if (irrGetExtensionsString)
@@ -529,9 +536,9 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 	if (irrGetExtensionsString)
 		wglExtensions = irrGetExtensionsString(hdc);
 #endif
-	const bool pixel_format_supported = (wglExtensions.find("WGL_ARB_pixel_format") != -1);
-	const bool multi_sample_supported = ((wglExtensions.find("WGL_ARB_multisample") != -1) ||
-		(wglExtensions.find("WGL_EXT_multisample") != -1) || (wglExtensions.find("WGL_3DFX_multisample") != -1) );
+	const bool pixel_format_supported = (wglExtensions.find("WGL_ARB_pixel_format") != std::string::npos);
+	const bool multi_sample_supported = ((wglExtensions.find("WGL_ARB_multisample") != std::string::npos) ||
+		(wglExtensions.find("WGL_EXT_multisample") != std::string::npos) || (wglExtensions.find("WGL_3DFX_multisample") != std::string::npos) );
 #ifdef _DEBUG
 	os::Printer::log("WGL_extensions", wglExtensions);
 #endif
@@ -613,7 +620,7 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 				,0,0,0,0
 			};
 			size_t nums = sizeof(atts)/sizeof(int);
-			const bool depth_float_supported= (wglExtensions.find("WGL_EXT_depth_float") != -1);
+			const bool depth_float_supported= (wglExtensions.find("WGL_EXT_depth_float") != std::string::npos);
 			if (!depth_float_supported)
 			{
 				memmove(&atts[49], &atts[50], (nums-50)*sizeof(int));
@@ -624,19 +631,19 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 				memmove(&atts[47], &atts[49], (nums-49)*sizeof(int));
 				nums -= 2;
 			}
-			const bool framebuffer_sRGB_supported= (wglExtensions.find("WGL_ARB_framebuffer_sRGB") != -1);
+			const bool framebuffer_sRGB_supported= (wglExtensions.find("WGL_ARB_framebuffer_sRGB") != std::string::npos);
 			if (!framebuffer_sRGB_supported)
 			{
 				memmove(&atts[46], &atts[47], (nums-47)*sizeof(int));
 				nums -= 1;
 			}
-			const bool pbuffer_supported = (wglExtensions.find("WGL_ARB_pbuffer") != -1);
+			const bool pbuffer_supported = (wglExtensions.find("WGL_ARB_pbuffer") != std::string::npos);
 			if (!pbuffer_supported)
 			{
 				memmove(&atts[42], &atts[46], (nums-46)*sizeof(int));
 				nums -= 4;
 			}
-			const bool render_texture_supported = (wglExtensions.find("WGL_ARB_render_texture") != -1);
+			const bool render_texture_supported = (wglExtensions.find("WGL_ARB_render_texture") != std::string::npos);
 			if (!render_texture_supported)
 			{
 				memmove(&atts[40], &atts[42], (nums-42)*sizeof(int));
@@ -648,22 +655,22 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 			for (int i=1; i<count; ++i)
 			{
 				memset(vals,0,sizeof(vals));
-#define tmplog(x,y) os::Printer::log(x, core::stringc(y).c_str())
+#define tmplog(x,y) os::Printer::log(x, core::longlongtoa(y))
 				const BOOL res = wglGetPixelFormatAttribiv_ARB(hdc,i,0,nums,atts,vals);
 				if (FALSE==res)
 					continue;
 				tmplog("Pixel format ",i);
-				u32 j=0;
+				uint32_t j=0;
 				tmplog("Draw to window " , vals[j]);
 				tmplog("Draw to bitmap " , vals[++j]);
 				++j;
-				tmplog("Acceleration " , (vals[j]==WGL_NO_ACCELERATION_ARB?"No":
+				os::Printer::log("Acceleration " , (vals[j]==WGL_NO_ACCELERATION_ARB?"No":
 					vals[j]==WGL_GENERIC_ACCELERATION_ARB?"Generic":vals[j]==WGL_FULL_ACCELERATION_ARB?"Full":"ERROR"));
 				tmplog("Need palette " , vals[++j]);
 				tmplog("Need system palette " , vals[++j]);
 				tmplog("Swap layer buffers " , vals[++j]);
 				++j;
-				tmplog("Swap method " , (vals[j]==WGL_SWAP_EXCHANGE_ARB?"Exchange":
+				os::Printer::log("Swap method " , (vals[j]==WGL_SWAP_EXCHANGE_ARB?"Exchange":
 					vals[j]==WGL_SWAP_COPY_ARB?"Copy":vals[j]==WGL_SWAP_UNDEFINED_ARB?"Undefined":"ERROR"));
 				tmplog("Number of overlays " , vals[++j]);
 				tmplog("Number of underlays " , vals[++j]);
@@ -737,10 +744,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
 
 	loadFunctions();
-	if ( Version >= 120)
-		os::Printer::log("OpenGL driver version is 1.2 or better.", ELL_INFORMATION);
-	else
-		os::Printer::log("OpenGL driver version is not 1.2 or better.", ELL_WARNING);
 
 
 	TextureCompressionExtension = FeatureAvailable[IRR_ARB_texture_compression];
@@ -751,43 +754,34 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
 	MaxLights=0;
 
+	glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS,&num);
+	MaxArrayTextureLayers = num;
+
 	if (FeatureAvailable[IRR_EXT_texture_filter_anisotropic])
 	{
 		glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
-		MaxAnisotropy=static_cast<u8>(num);
+		MaxAnisotropy=static_cast<uint8_t>(num);
 	}
 
 
 	if (queryFeature(EVDF_GEOMETRY_SHADER))
 	{
-#if defined(GL_ARB_geometry_shader4) || defined(GL_EXT_geometry_shader4)
 		if (FeatureAvailable[IRR_ARB_geometry_shader4]||FeatureAvailable[IRR_EXT_geometry_shader4])
         {
             glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES_EXT, &num);
-            MaxGeometryVerticesOut=static_cast<u32>(num);
+            MaxGeometryVerticesOut=static_cast<uint32_t>(num);
         }
-#if defined(GL_NV_geometry_program4)
-        else
-#endif
-#endif
-#if defined(GL_NV_geometry_program4)
-        if (FeatureAvailable[IRR_NV_geometry_program4])
-        {
-            extGlGetProgramiv(GL_GEOMETRY_PROGRAM_NV, GL_MAX_PROGRAM_OUTPUT_VERTICES_NV, &num);
-            MaxGeometryVerticesOut=static_cast<u32>(num);
-        }
-#endif
 	}
 	if (FeatureAvailable[IRR_EXT_texture_lod_bias])
 		glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &MaxTextureLODBias);
 
 
 	glGetIntegerv(GL_MAX_CLIP_DISTANCES, &num);
-	MaxUserClipPlanes=static_cast<u8>(num);
+	MaxUserClipPlanes=static_cast<uint8_t>(num);
 	glGetIntegerv(GL_AUX_BUFFERS, &num);
-	MaxAuxBuffers=static_cast<u8>(num);
+	MaxAuxBuffers=static_cast<uint8_t>(num);
     glGetIntegerv(GL_MAX_DRAW_BUFFERS_ARB, &num);
-    MaxMultipleRenderTargets = static_cast<u8>(num);
+    MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
 	glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, DimAliasedLine);
 	glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, DimAliasedPoint);
@@ -795,8 +789,9 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, DimSmoothedPoint);
 
     const GLubyte* shaderVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
-    const f32 sl_ver = core::fast_atof(reinterpret_cast<const c8*>(shaderVersion));
-    ShaderLanguageVersion = static_cast<u16>(core::round32(sl_ver*100.0f));
+    float sl_ver;
+    sscanf(reinterpret_cast<const char*>(shaderVersion),"%f",&sl_ver);
+    ShaderLanguageVersion = static_cast<uint16_t>(core::round32(sl_ver*100.0f));
 
 /*
     //! For EXT-DSA testing
@@ -857,7 +852,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     pGlBlendEquationIndexedAMD = NULL;
     pGlBlendEquationiARB = NULL;
     //! Non-DSA testing
-    Version = 400;
+    Version = 430;
     FeatureAvailable[IRR_EXT_direct_state_access] = FeatureAvailable[IRR_ARB_direct_state_access] = false;
     pGlBindMultiTextureEXT = NULL;
     pGlTextureStorage1DEXT = NULL;
@@ -900,7 +895,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
     num=0;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &num);
-	MaxTextureUnits = core::min_(static_cast<u8>(num), static_cast<u8>(MATERIAL_MAX_TEXTURES));
+	MaxTextureUnits = core::min_(static_cast<uint8_t>(num), static_cast<uint8_t>(MATERIAL_MAX_TEXTURES));
 
     //num=100000000u;
 	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES,&num);
@@ -911,22 +906,22 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 		// undocumented flags, so use the RAW values
 		GLint val;
 		glGetIntegerv(0x9047, &val);
-		os::Printer::log("Dedicated video memory (kB)", core::stringc(val));
+		os::Printer::log("Dedicated video memory (kB)", core::longlongtoa(val));
 		glGetIntegerv(0x9048, &val);
-		os::Printer::log("Total video memory (kB)", core::stringc(val));
+		os::Printer::log("Total video memory (kB)", core::longlongtoa(val));
 		glGetIntegerv(0x9049, &val);
-		os::Printer::log("Available video memory (kB)", core::stringc(val));
+		os::Printer::log("Available video memory (kB)", core::longlongtoa(val));
 	}
 #ifdef GL_ATI_meminfo
 	if (FeatureAvailable[IRR_ATI_meminfo])
 	{
 		GLint val[4];
 		glGetIntegerv(GL_TEXTURE_FREE_MEMORY_ATI, val);
-		os::Printer::log("Free texture memory (kB)", core::stringc(val[0]));
+		os::Printer::log("Free texture memory (kB)", core::longlongtoa(val[0]));
 		glGetIntegerv(GL_VBO_FREE_MEMORY_ATI, val);
-		os::Printer::log("Free VBO memory (kB)", core::stringc(val[0]));
+		os::Printer::log("Free VBO memory (kB)", core::longlongtoa(val[0]));
 		glGetIntegerv(GL_RENDERBUFFER_FREE_MEMORY_ATI, val);
-		os::Printer::log("Free render buffer memory (kB)", core::stringc(val[0]));
+		os::Printer::log("Free render buffer memory (kB)", core::longlongtoa(val[0]));
 	}
 #endif
 #endif
@@ -937,7 +932,7 @@ void COpenGLExtensionHandler::loadFunctions()
     if (functionsAlreadyLoaded)
         return;
 
-	for (u32 i=0; i<IRR_OpenGL_Feature_Count; ++i)
+	for (uint32_t i=0; i<IRR_OpenGL_Feature_Count; ++i)
 		FeatureAvailable[i]=false;
 
 
@@ -965,7 +960,7 @@ void COpenGLExtensionHandler::loadFunctions()
     {
         const char* extensionName = reinterpret_cast<const char*>(pGlGetStringi(GL_EXTENSIONS,i));
 
-        for (u32 j=0; j<IRR_OpenGL_Feature_Count; ++j)
+        for (uint32_t j=0; j<IRR_OpenGL_Feature_Count; ++j)
         {
             if (!strcmp(OpenGLFeatureStrings[j], extensionName))
             {
@@ -977,8 +972,9 @@ void COpenGLExtensionHandler::loadFunctions()
 
 
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	const f32 ogl_ver = core::fast_atof(reinterpret_cast<const c8*>(glGetString(GL_VERSION)));
-	Version = static_cast<u16>(core::round32(ogl_ver*100.0f));
+	float ogl_ver;
+	sscanf(reinterpret_cast<const char*>(glGetString(GL_VERSION)),"%f",&ogl_ver);
+	Version = static_cast<uint16_t>(core::round32(ogl_ver*100.0f));
 
 	GLint num=0;
 	glGetIntegerv(GL_MAX_ELEMENTS_INDICES, &num);
@@ -988,7 +984,9 @@ void COpenGLExtensionHandler::loadFunctions()
 	glGetIntegerv(GL_MAX_VERTEX_STREAMS, &num);
     MaxVertexStreams=num;
 	glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS, &num);
-    MaxXFormFeedbackComponents=num;
+    MaxXFormFeedbackComponents = num;
+	glGetIntegerv(GL_MAX_SERVER_WAIT_TIMEOUT, &num);
+    MaxGPUWaitTimeout = reinterpret_cast<const uint32_t&>(num);
 
     //fences
     pGlFenceSync = (PFNGLFENCESYNCPROC) IRR_OGL_LOAD_EXTENSION("glFenceSync");
@@ -1320,24 +1318,14 @@ bool COpenGLExtensionHandler::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature
 }
 
 
-bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* failedExtensions)
+bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<std::string>* failedExtensions)
 {
     bool retval = true;
 
-    if (Version<400)
+    if (Version<430)
     {
         retval = false;
-        core::stringc error = "OpenGL Version Lower Than 4.0\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_debug_output] || FeatureAvailable[IRR_KHR_debug] || Version>=430))
-    {
-        retval =  false;
-        core::stringc error = "No OpenGL Debug-out\n";
+        std::string error = "OpenGL Version Lower Than 4.3\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
@@ -1349,7 +1337,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
     if (!(FeatureAvailable[WGL_ARB_pixel_format] || FeatureAvailable[WGL_ARB_framebuffer_sRGB]))
     {
         retval =  false;
-        core::stringc error = "WGL_ARB_framebuffer_sRGB missing\n";
+        std::string error = "WGL_ARB_framebuffer_sRGB missing\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
@@ -1359,7 +1347,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
     if (!(FeatureAvailable[IRR_EXT_framebuffer_sRGB]))
     {
         retval =  false;
-        core::stringc error = "GL_EXT_framebuffer_sRGB missing\n";
+        std::string error = "GL_EXT_framebuffer_sRGB missing\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
@@ -1370,7 +1358,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
     if (!(FeatureAvailable[IRR_EXT_texture_filter_anisotropic]))
     {
         retval =  false;
-        core::stringc error = "No anisotropic filtering\n";
+        std::string error = "No anisotropic filtering\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
@@ -1380,7 +1368,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
     if (!(FeatureAvailable[IRR_EXT_texture_compression_s3tc]))
     {
         retval =  false;
-        core::stringc error = "DXTn compression missing\n";
+        std::string error = "DXTn compression missing\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
@@ -1390,158 +1378,18 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
     if (!(FeatureAvailable[IRR_ARB_buffer_storage]||Version>=440))
     {
         retval =  false;
-        core::stringc error = "GL_ARB_buffer_storage missing\n";
+        std::string error = "GL_ARB_buffer_storage missing\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    /// Core 3.3. stuff
-    if (!(FeatureAvailable[IRR_ARB_compressed_texture_pixel_storage]||Version>=420))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_compressed_texture_pixel_storage missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_conservative_depth]||Version>=420))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_conservative_depth missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_explicit_uniform_location]||Version>=430))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_explicit_uniform_location missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_internalformat_query]&&FeatureAvailable[IRR_ARB_internalformat_query2] || Version>=430))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_internalformat_query and GL_ARB_internalformat_query2 missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_map_buffer_alignment]||Version>=420))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_map_buffer_alignment missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_program_interface_query]||Version>=430))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_program_interface_query missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_separate_shader_objects]||Version>=410))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_separate_shader_objects missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-/**
-    if (!(FeatureAvailable[IRR_ARB_shading_language_420pack]||Version>=420))
-    {
-        retval =  false;
-        core::stringc error = "\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-*/
-    if (!(FeatureAvailable[IRR_ARB_shading_language_packing]||Version>=420))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_shading_language_packing missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_viewport_array]||Version>=410))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_viewport_array missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_texture_buffer_range]||Version>=430))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_texture_buffer_range missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_texture_storage]||Version>=420))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_texture_storage missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_texture_view]||Version>=430))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_texture_view missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_vertex_attrib_binding]||Version>=430))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_vertex_attrib_binding missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
 /*
     if (!(FeatureAvailable[IRR_NV_texture_barrier]||FeatureAvailable[IRR_ARB_texture_barrier]||Version>=450))
     {
         retval =  false;
-        core::stringc error = "GL_NV_texture_barrier missing\n";
+        std::string error = "GL_NV_texture_barrier missing\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
@@ -1551,48 +1399,17 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<core::stringc>* fa
     if (!(FeatureAvailable[IRR_ARB_direct_state_access] || FeatureAvailable[IRR_EXT_direct_state_access] || Version>=450))
     {
         retval =  false;
-        core::stringc error = "Direct State Access Extension missing\n";
+        std::string error = "Direct State Access Extension missing\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_ES2_compatibility] || Version>=410))
+    if (!FeatureAvailable[IRR_ARB_compute_shader]) //&&Version<430
     {
         retval =  false;
-        core::stringc error = "GL_ARB_ES2_compatibility missing (no 16bit R5G6B5 textures)\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-/**
-    if (!(FeatureAvailable[IRR_ARB_transform_feedback_instanced] || Version>=420))
-    {
-        retval =  false;
-        core::stringc error = "\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }**/
-
-    if (Version<420&&(!FeatureAvailable[IRR_ARB_base_instance]))
-    {
-        retval =  false;
-        core::stringc error = "Has glDrawElementsIndirect but no ARB_base_instance extension\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!(FeatureAvailable[IRR_ARB_multi_draw_indirect] || Version>=430))
-    {
-        retval =  false;
-        core::stringc error = "GL_ARB_multi_draw_indirect extension missing\n";
+        std::string error = "GL_ARB_compute_shader missing\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else

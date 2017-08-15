@@ -19,8 +19,8 @@ public:
 	For example in one implementation the value returned could be the
 	amount of milliseconds which have elapsed since the system was started.
 	*/
-	virtual u32 getRealTime() const = 0;
-	virtual u64 getRealTime64() const = 0;
+	virtual uint32_t getRealTime() const = 0;
+	virtual uint64_t getRealTime64() const = 0;
 
 	enum EWeekday
 	{
@@ -36,21 +36,21 @@ public:
 	struct RealTimeDate
 	{
 		// Hour of the day, from 0 to 23
-		u32 Hour;
+		uint32_t Hour;
 		// Minute of the hour, from 0 to 59
-		u32 Minute;
+		uint32_t Minute;
 		// Second of the minute, due to extra seconds from 0 to 61
-		u32 Second;
+		uint32_t Second;
 		// Year of the gregorian calender
-		s32 Year;
+		int32_t Year;
 		// Month of the year, from 1 to 12
-		u32 Month;
+		uint32_t Month;
 		// Day of the month, from 1 to 31
-		u32 Day;
+		uint32_t Day;
 		// Weekday for the current day
 		EWeekday Weekday;
 		// Day of the year, from 1 to 366
-		u32 Yearday;
+		uint32_t Yearday;
 		// Whether daylight saving is on
 		bool IsDST;
 	};
@@ -62,10 +62,10 @@ public:
 	stopTimer(), startTimer(), etc. This value depends on the set speed of
 	the timer if the timer is stopped, etc. If you need the system time,
 	use getRealTime() */
-	virtual u32 getTime() const = 0;
+	virtual uint32_t getTime() const = 0;
 
 	//! sets current virtual time
-	virtual void setTime(u32 time) = 0;
+	virtual void setTime(uint32_t time) = 0;
 
 	//! Stops the virtual timer.
 	/** The timer is reference counted, which means everything which calls
@@ -82,12 +82,12 @@ public:
 	//! Sets the speed of the timer
 	/** The speed is the factor with which the time is running faster or
 	slower then the real system time. */
-	virtual void setSpeed(f32 speed = 1.0f) = 0;
+	virtual void setSpeed(float speed = 1.0f) = 0;
 
 	//! Returns current speed of the timer
 	/** The speed is the factor with which the time is running faster or
 	slower then the real system time. */
-	virtual f32 getSpeed() const = 0;
+	virtual float getSpeed() const = 0;
 
 	//! Returns if the virtual timer is currently stopped
 	virtual bool isStopped() const = 0;

@@ -9,6 +9,7 @@
 #include "IMeshBuffer.h"
 #include "aabbox3d.h"
 #include "irrArray.h"
+#include "coreutil.h"
 
 namespace irr
 {
@@ -17,10 +18,14 @@ namespace scene
 	//! Simple implementation of the IMesh interface.
 	class SCPUMesh : public ICPUMesh
 	{
+	    core::LeakDebugger* leakDebugger;
 	    public:
 		//! constructor
-		SCPUMesh()
+		SCPUMesh(core::LeakDebugger* dbgr=NULL) : leakDebugger(dbgr)
 		{
+		    if (leakDebugger)
+                leakDebugger->registerObj(this);
+
 			#ifdef _DEBUG
 			setDebugName("SCPUMesh");
 			#endif
@@ -29,15 +34,18 @@ namespace scene
 		//! destructor
 		virtual ~SCPUMesh()
 		{
+		    if (leakDebugger)
+                leakDebugger->deregisterObj(this);
+
 			// drop buffers
-			for (u32 i=0; i<MeshBuffers.size(); ++i)
+			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
 				MeshBuffers[i]->drop();
 		}
 
 		//! clean mesh
 		virtual void clear()
 		{
-			for (u32 i=0; i<MeshBuffers.size(); ++i)
+			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
 				MeshBuffers[i]->drop();
 			MeshBuffers.clear();
 			BoundingBox.reset ( 0.f, 0.f, 0.f );
@@ -45,13 +53,13 @@ namespace scene
 
 
 		//! returns amount of mesh buffers.
-		virtual u32 getMeshBufferCount() const
+		virtual uint32_t getMeshBufferCount() const
 		{
 			return MeshBuffers.size();
 		}
 
 		//! returns pointer to a mesh buffer
-		virtual ICPUMeshBuffer* getMeshBuffer(u32 nr) const
+		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const
 		{
 		    if (MeshBuffers.size())
                 return MeshBuffers[nr];
@@ -60,7 +68,7 @@ namespace scene
 		}
 
 		//! returns an axis aligned bounding box
-		virtual const core::aabbox3d<f32>& getBoundingBox() const
+		virtual const core::aabbox3d<float>& getBoundingBox() const
 		{
 			return BoundingBox;
 		}
@@ -80,7 +88,7 @@ namespace scene
                     MeshBuffers[0]->recalculateBoundingBox();
 
 				BoundingBox = MeshBuffers[0]->getBoundingBox();
-				for (u32 i=1; i<MeshBuffers.size(); ++i)
+				for (uint32_t i=1; i<MeshBuffers.size(); ++i)
                 {
                     if (recomputeSubBoxes)
                         MeshBuffers[i]->recalculateBoundingBox();
@@ -106,14 +114,14 @@ namespace scene
 		//! sets a flag of all contained materials to a new value
 		virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
 		{
-			for (u32 i=0; i<MeshBuffers.size(); ++i)
+			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
 				MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
 		}
 
 		virtual E_MESH_TYPE getMeshType() const {return EMT_NOT_ANIMATED;}
 
 		//! The bounding box of this mesh
-		core::aabbox3d<f32> BoundingBox;
+		core::aabbox3d<float> BoundingBox;
     //private:
 		//! The meshbuffers of this mesh
 		core::array<ICPUMeshBuffer*> MeshBuffers;
@@ -122,10 +130,14 @@ namespace scene
 	//! Simple implementation of the IMesh interface.
 	class SGPUMesh : public IGPUMesh
 	{
+	    core::LeakDebugger* leakDebugger;
     public:
 		//! constructor
-		SGPUMesh()
+		SGPUMesh(core::LeakDebugger* dbgr=NULL) : leakDebugger(dbgr)
 		{
+		    if (leakDebugger)
+                leakDebugger->registerObj(this);
+
 			#ifdef _DEBUG
 			setDebugName("SGPUMesh");
 			#endif
@@ -134,27 +146,30 @@ namespace scene
 		//! destructor
 		virtual ~SGPUMesh()
 		{
+		    if (leakDebugger)
+                leakDebugger->deregisterObj(this);
+
 			// drop buffers
-			for (u32 i=0; i<MeshBuffers.size(); ++i)
+			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
 				MeshBuffers[i]->drop();
 		}
 
 		//! clean mesh
 		virtual void clear()
 		{
-			for (u32 i=0; i<MeshBuffers.size(); ++i)
+			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
 				MeshBuffers[i]->drop();
 		}
 
 
 		//! returns amount of mesh buffers.
-		virtual u32 getMeshBufferCount() const
+		virtual uint32_t getMeshBufferCount() const
 		{
             return MeshBuffers.size();
 		}
 
 		//! returns pointer to a mesh buffer
-		virtual IGPUMeshBuffer* getMeshBuffer(u32 nr) const
+		virtual IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const
 		{
 		    if (MeshBuffers.size())
                 return MeshBuffers[nr];
@@ -163,7 +178,7 @@ namespace scene
 		}
 
 		//! returns an axis aligned bounding box
-		virtual const core::aabbox3d<f32>& getBoundingBox() const
+		virtual const core::aabbox3d<float>& getBoundingBox() const
 		{
 			return BoundingBox;
 		}
@@ -188,7 +203,7 @@ namespace scene
 		//! sets a flag of all contained materials to a new value
 		virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
 		{
-			for (u32 i=0; i<MeshBuffers.size(); ++i)
+			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
 				MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
 		}
 
@@ -196,7 +211,7 @@ namespace scene
 
     //private:
 		//! The bounding box of this mesh
-		core::aabbox3d<f32> BoundingBox;
+		core::aabbox3d<float> BoundingBox;
 
 		//! The meshbuffers of this mesh
 		core::array<IGPUMeshBuffer*> MeshBuffers;

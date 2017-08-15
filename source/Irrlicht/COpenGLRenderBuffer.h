@@ -30,7 +30,7 @@ public:
 	virtual ~COpenGLRenderBuffer();
 
 	//! Returns size of the texture.
-	virtual const core::dimension2d<u32>& getSize() const {return RenderBufferSize;}
+	virtual const core::dimension2d<uint32_t>& getSize() const {return RenderBufferSize;}
     virtual core::dimension2du getRenderableSize() const {return RenderBufferSize;}
 
 	//! returns driver type of texture (=the driver, that created it)
@@ -48,7 +48,7 @@ public:
 
 
 protected:
-	core::dimension2d<u32> RenderBufferSize;
+	core::dimension2d<uint32_t> RenderBufferSize;
 	COpenGLDriver* Driver;
 
 	GLuint RenderBufferName;

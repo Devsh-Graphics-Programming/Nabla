@@ -17,10 +17,10 @@ namespace scene
 	public:
 
 		//! constructor
-		CEmptySceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id);
+		CEmptySceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
 
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox();
+		virtual const core::aabbox3d<float>& getBoundingBox();
 
 		//! This method is called just before the rendering process of the whole scene.
 		virtual void OnRegisterSceneNode();
@@ -36,7 +36,7 @@ namespace scene
 
 	private:
 
-		core::aabbox3d<f32> Box;
+		core::aabbox3d<float> Box;
 	};
 
 } // end namespace scene

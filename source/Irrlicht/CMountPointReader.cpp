@@ -115,8 +115,8 @@ void CMountPointReader::buildDirectory()
 	if (!list)
 		return;
 
-	const u32 size = list->getFileCount();
-	for (u32 i=0; i < size; ++i)
+	const uint32_t size = list->getFileCount();
+	for (uint32_t i=0; i < size; ++i)
 	{
 		io::path full = list->getFullFileName(i);
 		full = full.subString(Path.size(), full.size() - Path.size());
@@ -150,7 +150,7 @@ void CMountPointReader::buildDirectory()
 }
 
 //! opens a file by index
-IReadFile* CMountPointReader::createAndOpenFile(u32 index)
+IReadFile* CMountPointReader::createAndOpenFile(uint32_t index)
 {
 	if (index >= Files.size())
 		return 0;
@@ -161,7 +161,7 @@ IReadFile* CMountPointReader::createAndOpenFile(u32 index)
 //! opens a file by file name
 IReadFile* CMountPointReader::createAndOpenFile(const io::path& filename)
 {
-	s32 index = findFile(filename, false);
+	int32_t index = findFile(filename, false);
 	if (index != -1)
 		return createAndOpenFile(index);
 	else

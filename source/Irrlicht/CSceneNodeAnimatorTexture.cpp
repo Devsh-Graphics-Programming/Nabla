@@ -13,7 +13,7 @@ namespace scene
 
 //! constructor
 CSceneNodeAnimatorTexture::CSceneNodeAnimatorTexture(const core::array<video::ITexture*>& textures,
-					 s32 timePerFrame, bool loop, u32 now)
+					 int32_t timePerFrame, bool loop, uint32_t now)
 : ISceneNodeAnimatorFinishing(0),
 	TimePerFrame(timePerFrame), StartTime(now), Loop(loop)
 {
@@ -21,7 +21,7 @@ CSceneNodeAnimatorTexture::CSceneNodeAnimatorTexture(const core::array<video::IT
 	setDebugName("CSceneNodeAnimatorTexture");
 	#endif
 
-	for (u32 i=0; i<textures.size(); ++i)
+	for (uint32_t i=0; i<textures.size(); ++i)
 	{
 		if (textures[i])
 			textures[i]->grab();
@@ -42,23 +42,23 @@ CSceneNodeAnimatorTexture::~CSceneNodeAnimatorTexture()
 
 void CSceneNodeAnimatorTexture::clearTextures()
 {
-	for (u32 i=0; i<Textures.size(); ++i)
+	for (uint32_t i=0; i<Textures.size(); ++i)
 		if (Textures[i])
 			Textures[i]->drop();
 }
 
 
 //! animates a scene node
-void CSceneNodeAnimatorTexture::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorTexture::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 {
 	if(!node)
 		return;
 
 	if (Textures.size())
 	{
-		const u32 t = (timeMs-StartTime);
+		const uint32_t t = (timeMs-StartTime);
 
-		u32 idx = 0;
+		uint32_t idx = 0;
 		if (!Loop && timeMs >= FinishTime)
 		{
 			idx = Textures.size() - 1;

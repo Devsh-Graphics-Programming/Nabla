@@ -148,11 +148,11 @@ public:
 	/** \param degrees Amount of degrees to rotate by, anticlockwise.
 	\param center Rotation center.
 	\return This vector after transformation. */
-	vector2d<T>& rotateBy(f64 degrees, const vector2d<T>& center=vector2d<T>())
+	vector2d<T>& rotateBy(double degrees, const vector2d<T>& center=vector2d<T>())
 	{
 		degrees *= DEGTORAD64;
-		const f64 cs = cos(degrees);
-		const f64 sn = sin(degrees);
+		const double cs = cos(degrees);
+		const double sn = sin(degrees);
 
 		X -= center.X;
 		Y -= center.Y;
@@ -169,7 +169,7 @@ public:
 	\return Reference to this vector, after normalization. */
 	vector2d<T>& normalize()
 	{
-		f32 length = (f32)(X*X + Y*Y);
+		float length = (float)(X*X + Y*Y);
 		if ( length == 0 )
 			return *this;
 		length = core::reciprocal_squareroot ( length );
@@ -182,7 +182,7 @@ public:
 	/** 0 is to the right (3 o'clock), values increase counter-clockwise.
 	This method has been suggested by Pr3t3nd3r.
 	\return Returns a value between 0 and 360. */
-	f64 getAngleTrig() const
+	double getAngleTrig() const
 	{
 		if (Y == 0)
 			return X < 0 ? 180 : 0;
@@ -192,30 +192,30 @@ public:
 
 		if ( Y > 0)
 			if (X > 0)
-				return atan((irr::f64)Y/(irr::f64)X) * RADTODEG64;
+				return atan((double)Y/(double)X) * RADTODEG64;
 			else
-				return 180.0-atan((irr::f64)Y/-(irr::f64)X) * RADTODEG64;
+				return 180.0-atan((double)Y/-(double)X) * RADTODEG64;
 		else
 			if (X > 0)
-				return 360.0-atan(-(irr::f64)Y/(irr::f64)X) * RADTODEG64;
+				return 360.0-atan(-(double)Y/(double)X) * RADTODEG64;
 			else
-				return 180.0+atan(-(irr::f64)Y/-(irr::f64)X) * RADTODEG64;
+				return 180.0+atan(-(double)Y/-(double)X) * RADTODEG64;
 	}
 
 	//! Calculates the angle of this vector in degrees in the counter trigonometric sense.
 	/** 0 is to the right (3 o'clock), values increase clockwise.
 	\return Returns a value between 0 and 360. */
-	inline f64 getAngle() const
+	inline double getAngle() const
 	{
 		if (Y == 0) // corrected thanks to a suggestion by Jox
 			return X < 0 ? 180 : 0;
 		else if (X == 0)
 			return Y < 0 ? 90 : 270;
 
-		// don't use getLength here to avoid precision loss with s32 vectors
+		// don't use getLength here to avoid precision loss with int32_t vectors
 		// avoid floating-point trouble as sqrt(y*y) is occasionally larger than y, so clamp
-		const f64 tmp = core::clamp(Y / sqrt((f64)(X*X + Y*Y)), -1.0, 1.0);
-		const f64 angle = atan( core::squareroot(1 - tmp*tmp) / tmp) * RADTODEG64;
+		const double tmp = core::clamp(Y / sqrt((double)(X*X + Y*Y)), -1.0, 1.0);
+		const double angle = atan( core::squareroot(1 - tmp*tmp) / tmp) * RADTODEG64;
 
 		if (X>0 && Y>0)
 			return angle + 270;
@@ -235,14 +235,14 @@ public:
 	//! Calculates the angle between this vector and another one in degree.
 	/** \param b Other vector to test with.
 	\return Returns a value between 0 and 90. */
-	inline f64 getAngleWith(const vector2d<T>& b) const
+	inline double getAngleWith(const vector2d<T>& b) const
 	{
-		f64 tmp = (f64)(X*b.X + Y*b.Y);
+		double tmp = (double)(X*b.X + Y*b.Y);
 
 		if (tmp == 0.0)
 			return 90.0;
 
-		tmp = tmp / core::squareroot((f64)((X*X + Y*Y) * (b.X*b.X + b.Y*b.Y)));
+		tmp = tmp / core::squareroot((double)((X*X + Y*Y) * (b.X*b.X + b.Y*b.Y)));
 		if (tmp < 0.0)
 			tmp = -tmp;
 		if ( tmp > 1.0 ) //   avoid floating-point trouble
@@ -275,9 +275,9 @@ public:
 	\param d Interpolation value between 0.0f (all the other vector) and 1.0f (all this vector).
 	Note that this is the opposite direction of interpolation to getInterpolated_quadratic()
 	\return An interpolated vector.  This vector is not modified. */
-	vector2d<T> getInterpolated(const vector2d<T>& other, f64 d) const
+	vector2d<T> getInterpolated(const vector2d<T>& other, double d) const
 	{
-		f64 inv = 1.0f - d;
+		double inv = 1.0f - d;
 		return vector2d<T>((T)(other.X*inv + X*d), (T)(other.Y*inv + Y*d));
 	}
 
@@ -287,13 +287,13 @@ public:
 	\param d Interpolation value between 0.0f (all this vector) and 1.0f (all the 3rd vector).
 	Note that this is the opposite direction of interpolation to getInterpolated() and interpolate()
 	\return An interpolated vector. This vector is not modified. */
-	vector2d<T> getInterpolated_quadratic(const vector2d<T>& v2, const vector2d<T>& v3, f64 d) const
+	vector2d<T> getInterpolated_quadratic(const vector2d<T>& v2, const vector2d<T>& v3, double d) const
 	{
 		// this*(1-d)*(1-d) + 2 * v2 * (1-d) + v3 * d * d;
-		const f64 inv = 1.0f - d;
-		const f64 mul0 = inv * inv;
-		const f64 mul1 = 2.0f * d * inv;
-		const f64 mul2 = d * d;
+		const double inv = 1.0f - d;
+		const double mul0 = inv * inv;
+		const double mul1 = 2.0f * d * inv;
+		const double mul2 = d * d;
 
 		return vector2d<T> ( (T)(X * mul0 + v2.X * mul1 + v3.X * mul2),
 					(T)(Y * mul0 + v2.Y * mul1 + v3.Y * mul2));
@@ -305,10 +305,10 @@ public:
 	\param d Interpolation value between 0.0f (all vector b) and 1.0f (all vector a)
 	Note that this is the opposite direction of interpolation to getInterpolated_quadratic()
 	*/
-	vector2d<T>& interpolate(const vector2d<T>& a, const vector2d<T>& b, f64 d)
+	vector2d<T>& interpolate(const vector2d<T>& a, const vector2d<T>& b, double d)
 	{
-		X = (T)((f64)b.X + ( ( a.X - b.X ) * d ));
-		Y = (T)((f64)b.Y + ( ( a.Y - b.Y ) * d ));
+		X = (T)((double)b.X + ( ( a.X - b.X ) * d ));
+		Y = (T)((double)b.Y + ( ( a.Y - b.Y ) * d ));
 		return *this;
 	}
 
@@ -319,11 +319,11 @@ public:
 	T Y;
 };
 
-	//! Typedef for f32 2d vector.
-	typedef vector2d<f32> vector2df;
+	//! Typedef for float 2d vector.
+	typedef vector2d<float> vector2df;
 
 	//! Typedef for integer 2d vector.
-	typedef vector2d<s32> vector2di;
+	typedef vector2d<int32_t> vector2di;
 
 	template<class S, class T>
 	vector2d<T> operator*(const S scalar, const vector2d<T>& vector) { return vector*scalar; }

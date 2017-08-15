@@ -46,7 +46,7 @@ IFileArchive* CArchiveLoaderWAD::createArchive(const io::path& filename, bool ig
 		archive = createArchive ( file, ignoreCase, ignorePaths );
 		file->drop ();
 	}
-	
+
 	return archive;
 }
 
@@ -84,7 +84,7 @@ bool CArchiveLoaderWAD::isALoadableFileFormat(E_FILE_ARCHIVE_TYPE fileType) cons
 	return fileType == EFAT_WAD;
 }
 
-void createDir ( const c8 *full );
+void createDir ( const int8_t *full );
 
 
 /*!
@@ -111,7 +111,7 @@ CWADReader::CWADReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
 	}
 
 #if 0
-	for ( u32 i = 0; i < FileList.size(); ++i )
+	for ( uint32_t i = 0; i < FileList.size(); ++i )
 	{
 		SWADFileEntry &e = FileList[i];
 		char buf[128];
@@ -122,7 +122,7 @@ CWADReader::CWADReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
 		if ( 0 == f )
 			continue;
 
-		u8 * mem = new u8 [ e.header.disksize ];
+		uint8_t * mem = new uint8_t [ e.header.disksize ];
 		File->seek ( e.header.filepos );
 		File->read ( mem, e.header.disksize );
 		fwrite ( mem, e.header.disksize, 1, f );
@@ -143,7 +143,7 @@ CWADReader::~CWADReader()
 
 //! return the id of the file Archive
 const io::path& CWADReader::getArchiveName () const
-{ 
+{
 	return Base;
 }
 
@@ -180,8 +180,8 @@ bool CWADReader::scanLocalHeader()
 
 	File->seek ( Header.infotableofs );
 
-	c8 buf[16];
-	for ( u32 i = 0; i < Header.numlumps; ++i )
+	char buf[16];
+	for ( uint32_t i = 0; i < Header.numlumps; ++i )
 	{
 		// read entry
 		File->read(&entry, sizeof ( SWADFileEntryOriginal ));
@@ -234,7 +234,7 @@ bool CWADReader::scanLocalHeader()
 //! opens a file by file name
 IReadFile* CWADReader::createAndOpenFile(const io::path& filename)
 {
-	s32 index = findFile(filename, false);
+	int32_t index = findFile(filename, false);
 
 	if (index != -1)
 		return createAndOpenFile(index);
@@ -244,7 +244,7 @@ IReadFile* CWADReader::createAndOpenFile(const io::path& filename)
 
 
 //! opens a file by index
-IReadFile* CWADReader::createAndOpenFile(u32 index)
+IReadFile* CWADReader::createAndOpenFile(uint32_t index)
 {
 	if (index >= Files.size() )
 		return 0;

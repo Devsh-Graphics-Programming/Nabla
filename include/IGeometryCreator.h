@@ -53,15 +53,15 @@ public:
 	*/
 	virtual IGPUMesh* createTerrainMeshGPU(video::IImage* texture,
 			video::IImage* heightmap,
-			const core::dimension2d<f32>& stretchSize,
-			f32 maxHeight, video::IVideoDriver* driver,
-			const core::dimension2d<u32>& defaultVertexBlockSize,
+			const core::dimension2d<float>& stretchSize,
+			float maxHeight, video::IVideoDriver* driver,
+			const core::dimension2d<uint32_t>& defaultVertexBlockSize,
 			bool debugBorders=false) const =0;
 	virtual ICPUMesh* createTerrainMeshCPU(video::IImage* texture,
 			video::IImage* heightmap,
-			const core::dimension2d<f32>& stretchSize,
-			f32 maxHeight, video::IVideoDriver* driver,
-			const core::dimension2d<u32>& defaultVertexBlockSize,
+			const core::dimension2d<float>& stretchSize,
+			float maxHeight, video::IVideoDriver* driver,
+			const core::dimension2d<uint32_t>& defaultVertexBlockSize,
 			bool debugBorders=false) const =0;
 
 	//! Create an arrow mesh, composed of a cylinder and a cone.
@@ -78,15 +78,15 @@ public:
 	\param colorCone color of the cone
 	\return Generated mesh.
 	*/
-	virtual IGPUMesh* createArrowMeshGPU(video::IVideoDriver* driver, const u32 tesselationCylinder = 4,
-			const u32 tesselationCone = 8, const f32 height = 1.f,
-			const f32 cylinderHeight = 0.6f, const f32 widthCylinder = 0.05f,
-			const f32 widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
+	virtual IGPUMesh* createArrowMeshGPU(video::IVideoDriver* driver, const uint32_t tesselationCylinder = 4,
+			const uint32_t tesselationCone = 8, const float height = 1.f,
+			const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
+			const float widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
 			const video::SColor colorCone = 0xFFFFFFFF) const =0;
-	virtual ICPUMesh* createArrowMeshCPU(const u32 tesselationCylinder = 4,
-			const u32 tesselationCone = 8, const f32 height = 1.f,
-			const f32 cylinderHeight = 0.6f, const f32 widthCylinder = 0.05f,
-			const f32 widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
+	virtual ICPUMesh* createArrowMeshCPU(const uint32_t tesselationCylinder = 4,
+			const uint32_t tesselationCone = 8, const float height = 1.f,
+			const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
+			const float widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
 			const video::SColor colorCone = 0xFFFFFFFF) const =0;
 
 
@@ -97,10 +97,10 @@ public:
 	\param polyCountY Number of quads used for the vertical tiling
 	\return Generated mesh.
 	*/
-	virtual IGPUMesh* createSphereMeshGPU(video::IVideoDriver* driver, f32 radius = 5.f,
-			u32 polyCountX = 16, u32 polyCountY = 16) const =0;
-	virtual ICPUMesh* createSphereMeshCPU(f32 radius = 5.f,
-			u32 polyCountX = 16, u32 polyCountY = 16) const =0;
+	virtual IGPUMesh* createSphereMeshGPU(video::IVideoDriver* driver, float radius = 5.f,
+			uint32_t polyCountX = 16, uint32_t polyCountY = 16) const =0;
+	virtual ICPUMesh* createSphereMeshCPU(float radius = 5.f,
+			uint32_t polyCountX = 16, uint32_t polyCountY = 16) const =0;
 
 	//! Create a cylinder mesh.
 	/**
@@ -112,14 +112,14 @@ public:
 	\param oblique (to be documented)
 	\return Generated mesh.
 	*/
-	virtual IGPUMesh* createCylinderMeshGPU(video::IVideoDriver* driver, f32 radius, f32 length,
-			u32 tesselation,
+	virtual IGPUMesh* createCylinderMeshGPU(video::IVideoDriver* driver, float radius, float length,
+			uint32_t tesselation,
 			const video::SColor& color=video::SColor(0xffffffff),
-			bool closeTop=true, f32 oblique=0.f) const =0;
-	virtual ICPUMesh* createCylinderMeshCPU(f32 radius, f32 length,
-			u32 tesselation,
+			bool closeTop=true, float oblique=0.f) const =0;
+	virtual ICPUMesh* createCylinderMeshCPU(float radius, float length,
+			uint32_t tesselation,
 			const video::SColor& color=video::SColor(0xffffffff),
-			bool closeTop=true, f32 oblique=0.f) const =0;
+			bool closeTop=true, float oblique=0.f) const =0;
 
 	//! Create a cone mesh.
 	/**
@@ -131,14 +131,14 @@ public:
 	\param oblique (to be documented)
 	\return Generated mesh.
 	*/
-	virtual IGPUMesh* createConeMeshGPU(video::IVideoDriver* driver, f32 radius, f32 length, u32 tesselation,
+	virtual IGPUMesh* createConeMeshGPU(video::IVideoDriver* driver, float radius, float length, uint32_t tesselation,
 			const video::SColor& colorTop=video::SColor(0xffffffff),
 			const video::SColor& colorBottom=video::SColor(0xffffffff),
-			f32 oblique=0.f) const =0;
-	virtual ICPUMesh* createConeMeshCPU(f32 radius, f32 length, u32 tesselation,
+			float oblique=0.f) const =0;
+	virtual ICPUMesh* createConeMeshCPU(float radius, float length, uint32_t tesselation,
 			const video::SColor& colorTop=video::SColor(0xffffffff),
 			const video::SColor& colorBottom=video::SColor(0xffffffff),
-			f32 oblique=0.f) const =0;
+			float oblique=0.f) const =0;
 
 };
 

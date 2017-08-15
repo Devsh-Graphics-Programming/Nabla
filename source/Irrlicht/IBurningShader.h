@@ -14,7 +14,6 @@
 #include "CDepthBuffer.h"
 #include "S4DVertex.h"
 #include "irrArray.h"
-#include "SLight.h"
 #include "SMaterial.h"
 #include "os.h"
 
@@ -25,23 +24,6 @@ namespace irr
 namespace video
 {
 
-	struct SBurningShaderLight
-	{
-		//SLight org;
-		bool LightIsOn;
-
-		E_LIGHT_TYPE Type;
-		f32 radius;
-		f32 linearAttenuation;
-		f32 constantAttenuation;
-		f32 quadraticAttenuation;
-		sVec4 pos;
-
-		sVec3 AmbientColor;
-		sVec3 DiffuseColor;
-		sVec3 SpecularColor;
-		sVec4 pos_objectspace;
-	};
 
 	enum eLightFlags
 	{
@@ -57,17 +39,15 @@ namespace video
 	{
 		void reset ()
 		{
-			Light.set_used ( 0 );
 			Global_AmbientLight.set ( 0.f, 0.f, 0.f );
 			Flags = 0;
 		}
-		core::array<SBurningShaderLight> Light;
 		sVec3 Global_AmbientLight;
 		sVec4 FogColor;
 		sVec4 campos;
 		sVec4 vertex;
 		sVec4 normal;
-		u32 Flags;
+		uint32_t Flags;
 	};
 
 	struct SBurningShaderMaterial
@@ -104,7 +84,7 @@ namespace video
 
 		ETR_TEXTURE_GOURAUD_DETAIL_MAP,
 		ETR_TEXTURE_GOURAUD_LIGHTMAP_ADD,
-	
+
 		ETR_GOURAUD_ALPHA,
 		ETR_GOURAUD_ALPHA_NOZ,
 
@@ -132,15 +112,15 @@ namespace video
 		virtual ~IBurningShader();
 
 		//! sets a render target
-		virtual void setRenderTarget(video::IImage* surface, const core::rect<s32>& viewPort);
+		virtual void setRenderTarget(video::IImage* surface, const core::rect<int32_t>& viewPort);
 
 		//! sets the Texture
-		virtual void setTextureParam( u32 stage, video::CSoftwareTexture2* texture, s32 lodLevel);
+		virtual void setTextureParam( uint32_t stage, video::CSoftwareTexture2* texture, int32_t lodLevel);
 		virtual void drawTriangle ( const s4DVertex *a,const s4DVertex *b,const s4DVertex *c ) = 0;
 		virtual void drawLine ( const s4DVertex *a,const s4DVertex *b) {};
 
-		virtual void setParam ( u32 index, f32 value) {};
-		virtual void setZCompareFunc ( u32 func) {};
+		virtual void setParam ( uint32_t index, float value) {};
+		virtual void setZCompareFunc ( uint32_t func) {};
 
 		virtual void setMaterial ( const SBurningShaderMaterial &material ) {};
 

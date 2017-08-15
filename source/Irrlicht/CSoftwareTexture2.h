@@ -30,18 +30,18 @@ public:
 		NP2_SIZE	= 4,
 		HAS_ALPHA	= 8
 	};
-	CSoftwareTexture2(IImage* surface, const io::path& name, u32 flags, void* mipmapData=0);
+	CSoftwareTexture2(IImage* surface, const io::path& name, uint32_t flags, void* mipmapData=0);
 
 	//! destructor
 	virtual ~CSoftwareTexture2();
 
     virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0) {return false;}
-    virtual bool resize(const uint32_t* size, const u32& mipLevels=0) {return false;}
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0) {return false;}
+    virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
     virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
 
 	//! lock function
-	virtual void* lock(u32 mipmapLevel=0)
+	virtual void* lock(uint32_t mipmapLevel=0)
 	{
 		if (Flags & GEN_MIPMAP)
 			MipMapLOD=mipmapLevel;
@@ -55,14 +55,14 @@ public:
 	}
 
 	//! Returns original size of the texture.
-	virtual const core::dimension2d<u32>& getOriginalSize() const
+	virtual const core::dimension2d<uint32_t>& getOriginalSize() const
 	{
 		//return MipMap[0]->getDimension();
 		return OrigSize;
 	}
 
 	//! Returns the size of the largest mipmap.
-	f32 getLODFactor( const f32 texArea ) const
+	float getLODFactor( const float texArea ) const
 	{
 		return OrigImageDataSizeInPixels * texArea;
 		//return MipMap[0]->getImageDataSizeInPixels () * texArea;
@@ -104,7 +104,7 @@ public:
 	}
 
 	//! returns pitch of texture (in bytes)
-	virtual u32 getPitch() const
+	virtual uint32_t getPitch() const
 	{
 		return MipMap[MipMapLOD]->getPitch();
 	}
@@ -126,13 +126,13 @@ public:
 	}
 
 private:
-	f32 OrigImageDataSizeInPixels;
-	core::dimension2d<u32> OrigSize;
+	float OrigImageDataSizeInPixels;
+	core::dimension2d<uint32_t> OrigSize;
 
 	CImage * MipMap[SOFTWARE_DRIVER_2_MIPMAPPING_MAX];
 
-	u32 MipMapLOD;
-	u32 Flags;
+	uint32_t MipMapLOD;
+	uint32_t Flags;
 	ECOLOR_FORMAT OriginalFormat;
 };
 

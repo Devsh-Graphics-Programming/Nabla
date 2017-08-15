@@ -20,7 +20,7 @@ namespace scene
 	    CSkinningStateManager* boneStateManager;
 
 		std::vector<video::SMaterial> Materials;
-		core::aabbox3d<f32> Box;
+		core::aabbox3d<float> Box;
 		IAnimationEndCallBack<ISkinnedMeshSceneNode>* LoopCallBack;
 
 		float FramesPerSecond;
@@ -34,7 +34,7 @@ namespace scene
 	public:
 
 		//! Constructor
-		CSkinnedMeshSceneNode(IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode, IDummyTransformationSceneNode* parent, ISceneManager* mgr,	s32 id,
+		CSkinnedMeshSceneNode(IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode, IDummyTransformationSceneNode* parent, ISceneManager* mgr,	int32_t id,
                 const core::vector3df& position = core::vector3df(0), const core::vector3df& rotation = core::vector3df(0),
                 const core::vector3df& scale = core::vector3df(1.f))
             : ISkinnedMeshSceneNode(parent, mgr, id, position, rotation, scale), mesh(NULL), boneStateManager(NULL),
@@ -59,6 +59,9 @@ namespace scene
                 LoopCallBack->drop();
 		}
 
+		//!
+		virtual const bool supportsDriverFence() const {return true;}
+
 		const void* getRawBoneData() {return boneStateManager->getRawBoneData();}
 
 		virtual video::ITexture* getBonePoseTBO() const
@@ -73,7 +76,7 @@ namespace scene
 		virtual void setCurrentFrame(const float& frame)
 		{
             // if you pass an out of range value, we just clamp it
-            CurrentFrameNr = core::clamp ( frame, (f32)StartFrame, (f32)EndFrame );
+            CurrentFrameNr = core::clamp ( frame, (float)StartFrame, (float)EndFrame );
 		}
 
 		//! Sets the frame numbers between the animation is looped.
@@ -96,7 +99,7 @@ namespace scene
 		//! This function is needed for inserting the node into the scene hirachy on a
 		//! optimal position for minimizing renderstate changes, but can also be used
 		//! to directly modify the material of a scene node.
-		virtual video::SMaterial& getMaterial(u32 i)
+		virtual video::SMaterial& getMaterial(uint32_t i)
 		{
             if (i >= Materials.size())
                 return ISceneNode::getMaterial(i);
@@ -105,20 +108,20 @@ namespace scene
 		}
 
 		//! returns amount of materials used by this scene node.
-		virtual u32 getMaterialCount() const {return Materials.size();}
+		virtual uint32_t getMaterialCount() const {return Materials.size();}
 
 		//! frame
 		virtual void OnRegisterSceneNode();
 
 		//! OnAnimate() is called just before rendering the whole scene.
-		virtual void OnAnimate(u32 timeMs);
+		virtual void OnAnimate(uint32_t timeMs);
 
 		//! renders the node.
 		virtual void render();
 
-		virtual void setBoundingBox(const core::aabbox3d<f32>& bbox) {Box = bbox;}
+		virtual void setBoundingBox(const core::aabbox3d<float>& bbox) {Box = bbox;}
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox() {return Box;}
+		virtual const core::aabbox3d<float>& getBoundingBox() {return Box;}
 
 		//! Get a pointer to a joint in the mesh.
 		virtual ISkinningStateManager::IBoneSceneNode* getJointNode(const size_t& jointID)

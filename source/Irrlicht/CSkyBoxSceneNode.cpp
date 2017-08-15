@@ -19,7 +19,7 @@ namespace scene
 CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
 			video::ITexture* right, video::ITexture* front, video::ITexture* back,
 			video::IGPUBuffer* vertPositions, size_t positionsOffsetInBuf,
-			IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id)
+			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
 : ISceneNode(parent, mgr, id)
 {
 	#ifdef _DEBUG
@@ -63,9 +63,9 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 	if (!tex) tex = top;
 	if (!tex) tex = bottom;
 
-	const f32 onepixel = tex?(1.0f / (tex->getSize()[0] * 1.5f)) : 0.0f;
-	const f32 t = 1.0f - onepixel;
-	const f32 o = 0.0f + onepixel;
+	const float onepixel = tex?(1.0f / (tex->getSize()[0] * 1.5f)) : 0.0f;
+	const float t = 1.0f - onepixel;
+	const float o = 0.0f + onepixel;
 
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 	// create front side
@@ -137,7 +137,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 }
 
 CSkyBoxSceneNode::CSkyBoxSceneNode(CSkyBoxSceneNode* other,
-			IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id)
+			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
 : ISceneNode(parent, mgr, id)
 {
 	#ifdef _DEBUG
@@ -164,7 +164,7 @@ void CSkyBoxSceneNode::render()
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 	scene::ICameraSceneNode* camera = SceneManager->getActiveCamera();
 
-	if (!camera || !driver)
+	if (!camera || !driver || !canProceedPastFence())
 		return;
 
 	if ( !camera->isOrthogonal() )
@@ -175,13 +175,13 @@ void CSkyBoxSceneNode::render()
 		translate.setTranslation(camera->getAbsolutePosition());
 
 		// Draw the sky box between the near and far clip plane
-		const f32 viewDistance = (camera->getNearValue() + camera->getFarValue()) * 0.5f;
+		const float viewDistance = (camera->getNearValue() + camera->getFarValue()) * 0.5f;
 		core::matrix4x3 scale;
 		scale.setScale(core::vector3df(viewDistance, viewDistance, viewDistance));
 
 		driver->setTransform(video::E4X3TS_WORLD, concatenateBFollowedByA(translate,scale));
 
-		for (s32 i=0; i<6; ++i)
+		for (int32_t i=0; i<6; ++i)
 		{
 			driver->setMaterial(Material[i]);
 			driver->drawMeshBuffer(sides[i]);
@@ -223,9 +223,9 @@ void CSkyBoxSceneNode::render()
 
 		if ( tex )
 		{
-			core::rect<s32> rctDest(core::position2d<s32>(-1,0),
+			core::rect<int32_t> rctDest(core::position2d<int32_t>(-1,0),
 									core::dimension2di(driver->getCurrentRenderTargetSize()));
-			core::rect<s32> rctSrc(core::position2d<s32>(0,0),
+			core::rect<int32_t> rctSrc(core::position2d<int32_t>(0,0),
 									core::dimension2di(*reinterpret_cast<const core::dimension2du*>(tex->getSize())));
 
 			driver->draw2DImage(tex, rctDest, rctSrc);
@@ -236,7 +236,7 @@ void CSkyBoxSceneNode::render()
 
 
 //! returns the axis aligned bounding box of this node
-const core::aabbox3d<f32>& CSkyBoxSceneNode::getBoundingBox()
+const core::aabbox3d<float>& CSkyBoxSceneNode::getBoundingBox()
 {
 	return Box;
 }
@@ -256,14 +256,14 @@ void CSkyBoxSceneNode::OnRegisterSceneNode()
 //! This function is needed for inserting the node into the scene hirachy on a
 //! optimal position for minimizing renderstate changes, but can also be used
 //! to directly modify the material of a scene node.
-video::SMaterial& CSkyBoxSceneNode::getMaterial(u32 i)
+video::SMaterial& CSkyBoxSceneNode::getMaterial(uint32_t i)
 {
 	return Material[i];
 }
 
 
 //! returns amount of materials used by this scene node.
-u32 CSkyBoxSceneNode::getMaterialCount() const
+uint32_t CSkyBoxSceneNode::getMaterialCount() const
 {
 	return 6;
 }

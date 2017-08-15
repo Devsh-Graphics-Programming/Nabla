@@ -13,7 +13,7 @@ namespace video
 {
 
 //! Constructor of empty image
-CImage::CImage(ECOLOR_FORMAT format, const core::dimension2d<u32>& size)
+CImage::CImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size)
 :Data(0), Size(size), Format(format), DeleteMemory(true)
 {
 	initData();
@@ -21,15 +21,15 @@ CImage::CImage(ECOLOR_FORMAT format, const core::dimension2d<u32>& size)
 
 
 //! Constructor from raw data
-CImage::CImage(ECOLOR_FORMAT format, const core::dimension2d<u32>& size, void* data,
+CImage::CImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size, void* data,
 			bool ownForeignMemory, bool deleteForeignMemory)
 : Data(0), Size(size), Format(format), DeleteMemory(deleteForeignMemory)
 {
 	if (ownForeignMemory)
 	{
-		Data = (u8*)0xbadf00d;
+		Data = (uint8_t*)0xbadf00d;
 		initData();
-		Data = (u8*)data;
+		Data = (uint8_t*)data;
 	}
 	else
 	{
@@ -56,7 +56,7 @@ void CImage::initData()
 	if (!Data)
 	{
 		DeleteMemory=true;
-		Data = new u8[Size.Height * Pitch];
+		Data = new uint8_t[Size.Height * Pitch];
 	}
 }
 
@@ -70,34 +70,34 @@ CImage::~CImage()
 
 
 //! Returns width and height of image data.
-const core::dimension2d<u32>& CImage::getDimension() const
+const core::dimension2d<uint32_t>& CImage::getDimension() const
 {
 	return Size;
 }
 
 
 //! Returns bits per pixel.
-u32 CImage::getBitsPerPixel() const
+uint32_t CImage::getBitsPerPixel() const
 {
 	return BitsPerPixel;
 }
 
 //! Returns image data size in bytes
-u32 CImage::getImageDataSizeInBytes() const
+uint32_t CImage::getImageDataSizeInBytes() const
 {
 	return (BitsPerPixel * Size.Width * Size.Height)/8;
 }
 
 
 //! Returns image data size in pixels
-u32 CImage::getImageDataSizeInPixels() const
+uint32_t CImage::getImageDataSizeInPixels() const
 {
 	return Size.Width * Size.Height;
 }
 
 
 //! returns mask for red value of a pixel
-u32 CImage::getRedMask() const
+uint32_t CImage::getRedMask() const
 {
 	switch(Format)
 	{
@@ -118,7 +118,7 @@ u32 CImage::getRedMask() const
 
 
 //! returns mask for green value of a pixel
-u32 CImage::getGreenMask() const
+uint32_t CImage::getGreenMask() const
 {
 	switch(Format)
 	{
@@ -139,7 +139,7 @@ u32 CImage::getGreenMask() const
 
 
 //! returns mask for blue value of a pixel
-u32 CImage::getBlueMask() const
+uint32_t CImage::getBlueMask() const
 {
 	switch(Format)
 	{
@@ -160,7 +160,7 @@ u32 CImage::getBlueMask() const
 
 
 //! returns mask for alpha value of a pixel
-u32 CImage::getAlphaMask() const
+uint32_t CImage::getAlphaMask() const
 {
 	switch(Format)
 	{
@@ -181,7 +181,7 @@ u32 CImage::getAlphaMask() const
 
 
 //! sets a pixel
-void CImage::setPixel(u32 x, u32 y, const SColor &color, bool blend)
+void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 {
 	if (x >= Size.Width || y >= Size.Height)
 		return;
@@ -190,34 +190,34 @@ void CImage::setPixel(u32 x, u32 y, const SColor &color, bool blend)
 	{
 		case ECF_A1R5G5B5:
 		{
-			u16 * dest = (u16*) (Data + ( y * Pitch ) + ( x << 1 ));
+			uint16_t * dest = (uint16_t*) (Data + ( y * Pitch ) + ( x << 1 ));
 			*dest = video::A8R8G8B8toA1R5G5B5( color.color );
 		} break;
 
 		case ECF_R5G6B5:
 		{
-			u16 * dest = (u16*) (Data + ( y * Pitch ) + ( x << 1 ));
+			uint16_t * dest = (uint16_t*) (Data + ( y * Pitch ) + ( x << 1 ));
 			*dest = video::A8R8G8B8toR5G6B5( color.color );
 		} break;
 
 		case ECF_R8G8B8:
 		{
-			u8* dest = Data + ( y * Pitch ) + ( x * 3 );
-			dest[0] = (u8)color.getRed();
-			dest[1] = (u8)color.getGreen();
-			dest[2] = (u8)color.getBlue();
+			uint8_t* dest = Data + ( y * Pitch ) + ( x * 3 );
+			dest[0] = (uint8_t)color.getRed();
+			dest[1] = (uint8_t)color.getGreen();
+			dest[2] = (uint8_t)color.getBlue();
 		} break;
 
 		case ECF_A8R8G8B8:
 		{
-			u32 * dest = (u32*) (Data + ( y * Pitch ) + ( x << 2 ));
+			uint32_t * dest = (uint32_t*) (Data + ( y * Pitch ) + ( x << 2 ));
 //			*dest = blend ? PixelBlend32 ( *dest, color.color ) : color.color;
 			if (!blend)
 				*dest = color.color;
 			else
 			{
-				u32 p = PixelBlend32(*dest, color.color );	// baw sodan
-				((u8*)(&p))[3] = 255u-(255u-color.getAlpha())*(255u-((*dest)>>24))/255;
+				uint32_t p = PixelBlend32(*dest, color.color );	// baw sodan
+				((uint8_t*)(&p))[3] = 255u-(255u-color.getAlpha())*(255u-((*dest)>>24))/255;
 				*dest = p;
 			}
 		} break;
@@ -231,20 +231,20 @@ void CImage::setPixel(u32 x, u32 y, const SColor &color, bool blend)
 
 //! sets a pixel
 // baw
-/*void CImage::setPixel(u32 x, u32 y, const SColor &color)
+/*void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color)
 {
 	if (x >= Size.Width || y >= Size.Height)
 		return;
 
-	u32 *dest = (u32*) (Data + ( y * Pitch ) + ( x << 2 ));
-	u32 p = PixelBlend32(*dest, color.color );
+	uint32_t *dest = (uint32_t*) (Data + ( y * Pitch ) + ( x << 2 ));
+	uint32_t p = PixelBlend32(*dest, color.color );
 	p |= 0xff000000;
 	*dest = p;
 }*/
 
 
 //! returns a pixel
-SColor CImage::getPixel(u32 x, u32 y) const
+SColor CImage::getPixel(uint32_t x, uint32_t y) const
 {
 	if (x >= Size.Width || y >= Size.Height || (Format>=video::ECF_RGB_BC1&&Format<=video::ECF_DEPTH32F_STENCIL8) )
 		return SColor(0);
@@ -252,14 +252,14 @@ SColor CImage::getPixel(u32 x, u32 y) const
 	switch(Format)
 	{
 	case ECF_A1R5G5B5:
-		return A1R5G5B5toA8R8G8B8(((u16*)Data)[y*Size.Width + x]);
+		return A1R5G5B5toA8R8G8B8(((uint16_t*)Data)[y*Size.Width + x]);
 	case ECF_R5G6B5:
-		return R5G6B5toA8R8G8B8(((u16*)Data)[y*Size.Width + x]);
+		return R5G6B5toA8R8G8B8(((uint16_t*)Data)[y*Size.Width + x]);
 	case ECF_A8R8G8B8:
-		return ((u32*)Data)[y*Size.Width + x];
+		return ((uint32_t*)Data)[y*Size.Width + x];
 	case ECF_R8G8B8:
 		{
-			u8* p = Data+(y*3)*Size.Width + (x*3);
+			uint8_t* p = Data+(y*3)*Size.Width + (x*3);
 			return SColor(255,p[0],p[1],p[2]);
 		}
 	default:
@@ -276,7 +276,7 @@ ECOLOR_FORMAT CImage::getColorFormat() const
 
 
 //! copies this surface into another at given position
-void CImage::copyTo(IImage* target, const core::position2d<s32>& pos)
+void CImage::copyTo(IImage* target, const core::position2d<int32_t>& pos)
 {
     if (!target)
         return;
@@ -289,7 +289,7 @@ void CImage::copyTo(IImage* target, const core::position2d<s32>& pos)
 
 
 //! copies this surface partially into another at given position
-void CImage::copyTo(IImage* target, const core::position2d<s32>& pos, const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect)
+void CImage::copyTo(IImage* target, const core::position2d<int32_t>& pos, const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect)
 {
     if (!target)
         return;
@@ -302,7 +302,7 @@ void CImage::copyTo(IImage* target, const core::position2d<s32>& pos, const core
 
 
 //! copies this surface into another, using the alpha mask, a cliprect and a color to add with
-void CImage::copyToWithAlpha(IImage* target, const core::position2d<s32>& pos, const core::rect<s32>& sourceRect, const SColor &color, const core::rect<s32>* clipRect)
+void CImage::copyToWithAlpha(IImage* target, const core::position2d<int32_t>& pos, const core::rect<int32_t>& sourceRect, const SColor &color, const core::rect<int32_t>* clipRect)
 {
     if (!target)
         return;
@@ -318,7 +318,7 @@ void CImage::copyToWithAlpha(IImage* target, const core::position2d<s32>& pos, c
 
 //! copies this surface into another, scaling it to the target image size
 // note: this is very very slow.
-void CImage::copyToScaling(void* target, u32 width, u32 height, ECOLOR_FORMAT format, u32 pitch)
+void CImage::copyToScaling(void* target, uint32_t width, uint32_t height, ECOLOR_FORMAT format, uint32_t pitch)
 {
 	if (!target || !width || !height)
 		return;
@@ -327,7 +327,7 @@ void CImage::copyToScaling(void* target, u32 width, u32 height, ECOLOR_FORMAT fo
     if ((format>=video::ECF_RGB_BC1&&format<=video::ECF_RG_BC5)||(Format>=video::ECF_RGB_BC1&&Format<=video::ECF_RG_BC5))
         return;
 
-	const u32 bpp=getBitsPerPixelFromFormat(format);
+	const uint32_t bpp=getBitsPerPixelFromFormat(format);
 	if (0==pitch)
 		pitch = (width*bpp)/8;
 
@@ -340,11 +340,11 @@ void CImage::copyToScaling(void* target, u32 width, u32 height, ECOLOR_FORMAT fo
 		}
 		else
 		{
-			u8* tgtpos = (u8*) target;
-			u8* srcpos = Data;
-			const u32 bwidth = (width*bpp)/8;
-			const u32 rest = pitch-bwidth;
-			for (u32 y=0; y<height; ++y)
+			uint8_t* tgtpos = (uint8_t*) target;
+			uint8_t* srcpos = Data;
+			const uint32_t bwidth = (width*bpp)/8;
+			const uint32_t rest = pitch-bwidth;
+			for (uint32_t y=0; y<height; ++y)
 			{
 				// copy scanline
 				memcpy(tgtpos, srcpos, bwidth);
@@ -368,20 +368,20 @@ void CImage::copyToScaling(void* target, u32 width, u32 height, ECOLOR_FORMAT fo
         return;
     }
 
-	const f32 sourceXStep = (f32)Size.Width / (f32)width;
-	const f32 sourceYStep = (f32)Size.Height / (f32)height;
-	s32 yval=0, syval=0;
-	f32 sy = 0.0f;
-	for (u32 y=0; y<height; ++y)
+	const float sourceXStep = (float)Size.Width / (float)width;
+	const float sourceYStep = (float)Size.Height / (float)height;
+	int32_t yval=0, syval=0;
+	float sy = 0.0f;
+	for (uint32_t y=0; y<height; ++y)
 	{
-		f32 sx = 0.0f;
-		for (u32 x=0; x<width; ++x)
+		float sx = 0.0f;
+		for (uint32_t x=0; x<width; ++x)
 		{
-			CColorConverter::convert_viaFormat(Data+ syval + (((s32)sx)*BitsPerPixel)/8, Format, 1, ((u8*)target)+ yval + (x*bpp)/8, format);
+			CColorConverter::convert_viaFormat(Data+ syval + (((int32_t)sx)*BitsPerPixel)/8, Format, 1, ((uint8_t*)target)+ yval + (x*bpp)/8, format);
 			sx+=sourceXStep;
 		}
 		sy+=sourceYStep;
-		syval=((s32)sy)*Pitch;
+		syval=((int32_t)sy)*Pitch;
 		yval+=pitch;
 	}
 }
@@ -394,7 +394,7 @@ void CImage::copyToScaling(IImage* target)
 	if (!target)
 		return;
 
-	const core::dimension2d<u32>& targetSize = target->getDimension();
+	const core::dimension2d<uint32_t>& targetSize = target->getDimension();
 
 	if (targetSize==Size)
 	{
@@ -408,7 +408,7 @@ void CImage::copyToScaling(IImage* target)
 
 
 //! copies this surface into another, scaling it to fit it.
-void CImage::copyToScalingBoxFilter(IImage* target, s32 bias, bool blend)
+void CImage::copyToScalingBoxFilter(IImage* target, int32_t bias, bool blend)
 {
     if (!target)
         return;
@@ -416,23 +416,23 @@ void CImage::copyToScalingBoxFilter(IImage* target, s32 bias, bool blend)
     if ((target->getColorFormat()>=video::ECF_RGB_BC1&&target->getColorFormat()<=video::ECF_RG_BC5)||(Format>=video::ECF_RGB_BC1&&Format<=video::ECF_RG_BC5))
         return;
 
-	const core::dimension2d<u32> destSize = target->getDimension();
+	const core::dimension2d<uint32_t> destSize = target->getDimension();
 
-	const f32 sourceXStep = (f32) Size.Width / (f32) destSize.Width;
-	const f32 sourceYStep = (f32) Size.Height / (f32) destSize.Height;
+	const float sourceXStep = (float) Size.Width / (float) destSize.Width;
+	const float sourceYStep = (float) Size.Height / (float) destSize.Height;
 
 	target->lock();
 
-	s32 fx = core::ceil32( sourceXStep );
-	s32 fy = core::ceil32( sourceYStep );
-	f32 sx;
-	f32 sy;
+	int32_t fx = core::ceil32( sourceXStep );
+	int32_t fy = core::ceil32( sourceYStep );
+	float sx;
+	float sy;
 
 	sy = 0.f;
-	for ( u32 y = 0; y != destSize.Height; ++y )
+	for ( uint32_t y = 0; y != destSize.Height; ++y )
 	{
 		sx = 0.f;
-		for ( u32 x = 0; x != destSize.Width; ++x )
+		for ( uint32_t x = 0; x != destSize.Width; ++x )
 		{
 			target->setPixel( x, y,
 				getPixelBox( core::floor32(sx), core::floor32(sy), fx, fy, bias ), blend );
@@ -448,7 +448,7 @@ void CImage::copyToScalingBoxFilter(IImage* target, s32 bias, bool blend)
 //! fills the surface with given color
 void CImage::fill(const SColor &color)
 {
-	u32 c;
+	uint32_t c;
 
 	switch ( Format )
 	{
@@ -465,10 +465,10 @@ void CImage::fill(const SColor &color)
 			break;
 		case ECF_R8G8B8:
 		{
-			u8 rgb[3];
+			uint8_t rgb[3];
 			CColorConverter::convert_A8R8G8B8toR8G8B8(&color, 1, rgb);
-			const u32 size = getImageDataSizeInBytes();
-			for (u32 i=0; i<size; i+=3)
+			const uint32_t size = getImageDataSizeInBytes();
+			for (uint32_t i=0; i<size; i+=3)
 			{
 				memcpy(Data+i, rgb, 3);
 			}
@@ -484,16 +484,16 @@ void CImage::fill(const SColor &color)
 
 
 //! get a filtered pixel
-inline SColor CImage::getPixelBox( s32 x, s32 y, s32 fx, s32 fy, s32 bias ) const
+inline SColor CImage::getPixelBox( int32_t x, int32_t y, int32_t fx, int32_t fy, int32_t bias ) const
 {
 	SColor c;
-	s32 a = 0, r = 0, g = 0, b = 0;
+	int32_t a = 0, r = 0, g = 0, b = 0;
 
     if (Format<video::ECF_RGB_BC1||Format>video::ECF_RG_BC5)
     {
-        for ( s32 dx = 0; dx != fx; ++dx )
+        for ( int32_t dx = 0; dx != fx; ++dx )
         {
-            for ( s32 dy = 0; dy != fy; ++dy )
+            for ( int32_t dy = 0; dy != fy; ++dy )
             {
                 c = getPixel(	core::s32_min ( x + dx, Size.Width - 1 ) ,
                                 core::s32_min ( y + dy, Size.Height - 1 )
@@ -507,7 +507,7 @@ inline SColor CImage::getPixelBox( s32 x, s32 y, s32 fx, s32 fy, s32 bias ) cons
 
         }
 
-        s32 sdiv = s32_log2_s32(fx * fy);
+        int32_t sdiv = s32_log2_s32(fx * fy);
 
         a = core::s32_clamp( ( a >> sdiv ) + bias, 0, 255 );
         r = core::s32_clamp( ( r >> sdiv ) + bias, 0, 255 );

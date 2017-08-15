@@ -48,7 +48,7 @@ namespace scene
             virtual uint32_t getMeshBufferCount() const {return meshbuffers.size();}
 
             //! Returns the IMesh interface for a frame.
-            virtual IGPUMeshBuffer* getMeshBuffer(u32 nr) const
+            virtual IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const
             {
                 if (nr>=meshbuffers.size())
                     return NULL;
@@ -74,7 +74,7 @@ namespace scene
             \param newvalue: New value to set in all materials. */
             virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
             {
-                for (u32 i=0; i<meshbuffers.size(); ++i)
+                for (uint32_t i=0; i<meshbuffers.size(); ++i)
                     meshbuffers[i].mb->getMaterial().setFlag(flag, newvalue);
             }
 
@@ -129,13 +129,13 @@ namespace scene
 		virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy;}
 
 		//! returns amount of mesh buffers.
-		virtual u32 getMeshBufferCount() const;
+		virtual uint32_t getMeshBufferCount() const;
 
 		//! returns pointer to a mesh buffer
-		virtual ICPUMeshBuffer* getMeshBuffer(u32 nr) const;
+		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const;
 
 		//! returns an axis aligned bounding box
-		virtual const core::aabbox3d<f32>& getBoundingBox() const;
+		virtual const core::aabbox3d<float>& getBoundingBox() const;
 
 		//! set user axis aligned bounding box
 		virtual void setBoundingBox( const core::aabbox3df& box);
@@ -178,7 +178,7 @@ private:
 
         CFinalBoneHierarchy* referenceHierarchy;
 
-		core::aabbox3d<f32> BoundingBox;
+		core::aabbox3d<float> BoundingBox;
 
 		bool HasAnimation;
 	};

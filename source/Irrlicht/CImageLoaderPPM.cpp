@@ -10,8 +10,8 @@
 #include "CColorConverter.h"
 #include "CImage.h"
 #include "os.h"
-#include "fast_atof.h"
 #include "coreutil.h"
+#include "string.h"
 
 namespace irr
 {
@@ -39,7 +39,7 @@ bool CImageLoaderPPM::isALoadableFileExtension(const io::path& filename) const
 //! returns true if the file maybe is able to be loaded by this class
 bool CImageLoaderPPM::isALoadableFileFormat(io::IReadFile* file) const
 {
-	c8 id[2]={0};
+	int8_t id[2]={0};
 	file->read(&id, 2);
 	return (id[0]=='P' && id[1]>'0' && id[1]<'7');
 }
@@ -53,44 +53,47 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 	if (file->getSize() < 12)
 		return 0;
 
-	c8 id[2];
+	int8_t id[2];
 	file->read(&id, 2);
 
 	if (id[0]!='P' || id[1]<'1' || id[1]>'6')
 		return 0;
 
-	const u8 format = id[1] - '0';
+	const uint8_t format = id[1] - '0';
 	const bool binary = format>3;
 
-	core::stringc token;
+	std::string token;
 	getNextToken(file, token);
-	const u32 width = core::strtoul10(token.c_str());
+
+    uint32_t width;
+	sscanf(token.c_str(),"%u",&width);
 
 	getNextToken(file, token);
-	const u32 height = core::strtoul10(token.c_str());
+	uint32_t height;
+	sscanf(token.c_str(),"%u",&height);
 
-	u8* data = 0;
-	const u32 size = width*height;
+	uint8_t* data = 0;
+	const uint32_t size = width*height;
 	if (format==1 || format==4)
 	{
 		skipToNextToken(file); // go to start of data
 
-		const u32 bytesize = size/8+(size & 3)?1:0;
+		const uint32_t bytesize = size/8+(size & 3)?1:0;
 		if (binary)
 		{
 			if (file->getSize()-file->getPos() < (long)bytesize)
 				return 0;
-			data = new u8[bytesize];
+			data = new uint8_t[bytesize];
 			file->read(data, bytesize);
 		}
 		else
 		{
 			if (file->getSize()-file->getPos() < (long)(2*size)) // optimistic test
 				return 0;
-			data = new u8[bytesize];
+			data = new uint8_t[bytesize];
 			memset(data, 0, bytesize);
-			u32 shift=0;
-			for (u32 i=0; i<size; ++i)
+			uint32_t shift=0;
+			for (uint32_t i=0; i<size; ++i)
 			{
 				getNextToken(file, token);
 				if (token == "1")
@@ -99,14 +102,15 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 					shift=0;
 			}
 		}
-		image = new CImage(ECF_A1R5G5B5, core::dimension2d<u32>(width, height));
+		image = new CImage(ECF_A1R5G5B5, core::dimension2d<uint32_t>(width, height));
 		if (image)
-			CColorConverter::convert1BitTo16Bit(data, (s16*)image->lock(), width, height);
+			CColorConverter::convert1BitTo16Bit(data, (int16_t*)image->lock(), width, height);
 	}
 	else
 	{
 		getNextToken(file, token);
-		const u32 maxDepth = core::strtoul10(token.c_str());
+		uint32_t maxDepth;
+        sscanf(token.c_str(),"%u",&maxDepth);
 		if (maxDepth > 255) // no double bytes yet
 			return 0;
 
@@ -118,13 +122,13 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 			{
 				if (file->getSize()-file->getPos() < (long)size)
 					return 0;
-				data = new u8[size];
+				data = new uint8_t[size];
 				file->read(data, size);
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(width, height));
+				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(width, height));
 				if (image)
 				{
-					u8* ptr = (u8*)image->lock();
-					for (u32 i=0; i<size; ++i)
+					uint8_t* ptr = (uint8_t*)image->lock();
+					for (uint32_t i=0; i<size; ++i)
 					{
 						*ptr++ = data[i];
 						*ptr++ = data[i];
@@ -137,14 +141,15 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 			{
 				if (file->getSize()-file->getPos() < (long)(2*size)) // optimistic test
 					return 0;
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(width, height));
+				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(width, height));
 				if (image)
 				{
-					u8* ptr = (u8*)image->lock();
-					for (u32 i=0; i<size; ++i)
+					uint8_t* ptr = (uint8_t*)image->lock();
+					for (uint32_t i=0; i<size; ++i)
 					{
 						getNextToken(file, token);
-						const u8 num = (u8)core::strtoul10(token.c_str());
+						uint8_t num;
+                        sscanf(token.c_str(),"%u",&num);
 						*ptr++ = num;
 						*ptr++ = num;
 						*ptr++ = num;
@@ -155,18 +160,18 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 		}
 		else
 		{
-			const u32 bytesize = 3*size;
+			const uint32_t bytesize = 3*size;
 			if (binary)
 			{
 				if (file->getSize()-file->getPos() < (long)bytesize)
 					return 0;
-				data = new u8[bytesize];
+				data = new uint8_t[bytesize];
 				file->read(data, bytesize);
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(width, height));
+				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(width, height));
 				if (image)
 				{
-					u8* ptr = (u8*)image->lock();
-					for (u32 i=0; i<size; ++i)
+					uint8_t* ptr = (uint8_t*)image->lock();
+					for (uint32_t i=0; i<size; ++i)
 					{
 						*ptr++ = data[3*i];
 						*ptr++ = data[3*i+1];
@@ -179,18 +184,18 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 			{
 				if (file->getSize()-file->getPos() < (long)(2*bytesize)) // optimistic test
 					return 0;
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(width, height));
+				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(width, height));
 				if (image)
 				{
-					u8* ptr = (u8*)image->lock();
-					for (u32 i=0; i<size; ++i)
+					uint8_t* ptr = (uint8_t*)image->lock();
+					for (uint32_t i=0; i<size; ++i)
 					{
 						getNextToken(file, token);
-						*ptr++ = (u8)core::strtoul10(token.c_str());
+                        sscanf(token.c_str(),"%u",ptr++);
 						getNextToken(file, token);
-						*ptr++ = (u8)core::strtoul10(token.c_str());
+                        sscanf(token.c_str(),"%u",ptr++);
 						getNextToken(file, token);
-						*ptr++ = (u8)core::strtoul10(token.c_str());
+                        sscanf(token.c_str(),"%u",ptr++);
 						*ptr++ = 255;
 					}
 				}
@@ -208,10 +213,10 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 
 
 //! read the next token from file
-void CImageLoaderPPM::getNextToken(io::IReadFile* file, core::stringc& token) const
+void CImageLoaderPPM::getNextToken(io::IReadFile* file, std::string& token) const
 {
 	token = "";
-	c8 c;
+	int8_t c;
 	while(file->getPos()<file->getSize())
 	{
 		file->read(&c, 1);
@@ -222,7 +227,7 @@ void CImageLoaderPPM::getNextToken(io::IReadFile* file, core::stringc& token) co
 		}
 		else if (!core::isspace(c))
 		{
-			token.append(c);
+			token.push_back(c);
 			break;
 		}
 	}
@@ -235,7 +240,7 @@ void CImageLoaderPPM::getNextToken(io::IReadFile* file, core::stringc& token) co
 				file->read(&c, 1);
 		}
 		else if (!core::isspace(c))
-			token.append(c);
+			token.push_back(c);
 		else
 			break;
 	}
@@ -245,7 +250,7 @@ void CImageLoaderPPM::getNextToken(io::IReadFile* file, core::stringc& token) co
 //! skip to next token (skip whitespace)
 void CImageLoaderPPM::skipToNextToken(io::IReadFile* file) const
 {
-	c8 c;
+	int8_t c;
 	while(file->getPos()<file->getSize())
 	{
 		file->read(&c, 1);

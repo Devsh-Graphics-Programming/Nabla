@@ -27,7 +27,7 @@ namespace scene
 		//! Animates a scene node.
 		/** \param node Node to animate.
 		\param timeMs Current time in milli seconds. */
-		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs) =0;
+		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs) =0;
 
 		//! Creates a clone of this animator.
 		/** Please note that you will have to drop

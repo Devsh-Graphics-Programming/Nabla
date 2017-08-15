@@ -42,8 +42,8 @@ bool CImageLoaderPSD::isALoadableFileFormat(io::IReadFile* file) const
 	if (!file)
 		return false;
 
-	u8 type[3];
-	file->read(&type, sizeof(u8)*3);
+	uint8_t type[3];
+	file->read(&type, sizeof(uint8_t)*3);
 	return (type[2]==2); // we currently only handle tgas of type 2.
 }
 
@@ -52,7 +52,7 @@ bool CImageLoaderPSD::isALoadableFileFormat(io::IReadFile* file) const
 //! creates a surface from the file
 IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
 {
-	u32* imageData = 0;
+	uint32_t* imageData = 0;
 
 	PsdHeader header;
 	file->read(&header, sizeof(PsdHeader));
@@ -74,70 +74,70 @@ IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
 
 	if (header.version != 1)
 	{
-		os::Printer::log("Unsupported PSD file version", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Unsupported PSD file version", file->getFileName().c_str(), ELL_ERROR);
 		return 0;
 	}
 
 	if (header.mode != 3 || header.depth != 8)
 	{
-		os::Printer::log("Unsupported PSD color mode or depth.\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Unsupported PSD color mode or depth.\n", file->getFileName().c_str(), ELL_ERROR);
 		return 0;
 	}
 
 	// skip color mode data
 
-	u32 l;
-	file->read(&l, sizeof(u32));
+	uint32_t l;
+	file->read(&l, sizeof(uint32_t));
 #ifndef __BIG_ENDIAN__
 	l = os::Byteswap::byteswap(l);
 #endif
 	if (!file->seek(l, true))
 	{
-		os::Printer::log("Error seeking file pos to image resources.\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Error seeking file pos to image resources.\n", file->getFileName().c_str(), ELL_ERROR);
 		return 0;
 	}
 
 	// skip image resources
 
-	file->read(&l, sizeof(u32));
+	file->read(&l, sizeof(uint32_t));
 #ifndef __BIG_ENDIAN__
 	l = os::Byteswap::byteswap(l);
 #endif
 	if (!file->seek(l, true))
 	{
-		os::Printer::log("Error seeking file pos to layer and mask.\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Error seeking file pos to layer and mask.\n", file->getFileName().c_str(), ELL_ERROR);
 		return 0;
 	}
 
 	// skip layer & mask
 
-	file->read(&l, sizeof(u32));
+	file->read(&l, sizeof(uint32_t));
 #ifndef __BIG_ENDIAN__
 	l = os::Byteswap::byteswap(l);
 #endif
 	if (!file->seek(l, true))
 	{
-		os::Printer::log("Error seeking file pos to image data section.\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Error seeking file pos to image data section.\n", file->getFileName().c_str(), ELL_ERROR);
 		return 0;
 	}
 
 	// read image data
 
-	u16 compressionType;
-	file->read(&compressionType, sizeof(u16));
+	uint16_t compressionType;
+	file->read(&compressionType, sizeof(uint16_t));
 #ifndef __BIG_ENDIAN__
 	compressionType = os::Byteswap::byteswap(compressionType);
 #endif
 
 	if (compressionType != 1 && compressionType != 0)
 	{
-		os::Printer::log("Unsupported psd compression mode.\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Unsupported psd compression mode.\n", file->getFileName().c_str(), ELL_ERROR);
 		return 0;
 	}
 
 	// create image data block
 
-	imageData = new u32[header.width * header.height];
+	imageData = new uint32_t[header.width * header.height];
 
 	bool res = false;
 
@@ -152,7 +152,7 @@ IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
 	{
 		// create surface
 		image = new CImage(ECF_A8R8G8B8,
-			core::dimension2d<u32>(header.width, header.height), imageData);
+			core::dimension2d<uint32_t>(header.width, header.height), imageData);
 	}
 
 	if (!image)
@@ -163,28 +163,28 @@ IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
 }
 
 
-bool CImageLoaderPSD::readRawImageData(io::IReadFile* file, const PsdHeader& header, u32* imageData) const
+bool CImageLoaderPSD::readRawImageData(io::IReadFile* file, const PsdHeader& header, uint32_t* imageData) const
 {
-	u8* tmpData = new u8[header.width * header.height];
+	uint8_t* tmpData = new uint8_t[header.width * header.height];
 
-	for (s32 channel=0; channel<header.channels && channel < 3; ++channel)
+	for (int32_t channel=0; channel<header.channels && channel < 3; ++channel)
 	{
-		if (!file->read(tmpData, sizeof(c8) * header.width * header.height))
+		if (!file->read(tmpData, sizeof(char) * header.width * header.height))
 		{
-			os::Printer::log("Error reading color channel\n", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Error reading color channel\n", file->getFileName().c_str(), ELL_ERROR);
 			break;
 		}
 
-		s16 shift = getShiftFromChannel((c8)channel, header);
+		int16_t shift = getShiftFromChannel((char)channel, header);
 		if (shift != -1)
 		{
-			u32 mask = 0xff << shift;
+			uint32_t mask = 0xff << shift;
 
-			for (u32 x=0; x<header.width; ++x)
+			for (uint32_t x=0; x<header.width; ++x)
 			{
-				for (u32 y=0; y<header.height; ++y)
+				for (uint32_t y=0; y<header.height; ++y)
 				{
-					s32 index = x + y*header.width;
+					int32_t index = x + y*header.width;
 					imageData[index] = ~(~imageData[index] | mask);
 					imageData[index] |= tmpData[index] << shift;
 				}
@@ -198,7 +198,7 @@ bool CImageLoaderPSD::readRawImageData(io::IReadFile* file, const PsdHeader& hea
 }
 
 
-bool CImageLoaderPSD::readRLEImageData(io::IReadFile* file, const PsdHeader& header, u32* imageData) const
+bool CImageLoaderPSD::readRLEImageData(io::IReadFile* file, const PsdHeader& header, uint32_t* imageData) const
 {
 	/*	If the compression code is 1, the image data
 		starts with the byte counts for all the scan lines in the channel
@@ -236,18 +236,18 @@ bool CImageLoaderPSD::readRLEImageData(io::IReadFile* file, const PsdHeader& hea
 	type 1 (no compression).
 	*/
 
-	u8* tmpData = new u8[header.width * header.height];
-	u16 *rleCount= new u16 [header.height * header.channels];
+	uint8_t* tmpData = new uint8_t[header.width * header.height];
+	uint16_t *rleCount= new uint16_t [header.height * header.channels];
 
-	s32 size=0;
+	int32_t size=0;
 
-	for (u32 y=0; y<header.height * header.channels; ++y)
+	for (uint32_t y=0; y<header.height * header.channels; ++y)
 	{
-		if (!file->read(&rleCount[y], sizeof(u16)))
+		if (!file->read(&rleCount[y], sizeof(uint16_t)))
 		{
 			delete [] tmpData;
 			delete [] rleCount;
-			os::Printer::log("Error reading rle rows\n", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Error reading rle rows\n", file->getFileName().c_str(), ELL_ERROR);
 			return false;
 		}
 
@@ -257,28 +257,28 @@ bool CImageLoaderPSD::readRLEImageData(io::IReadFile* file, const PsdHeader& hea
 		size += rleCount[y];
 	}
 
-	s8 *buf = new s8[size];
+	int8_t *buf = new int8_t[size];
 	if (!file->read(buf, size))
 	{
 		delete [] rleCount;
 		delete [] buf;
 		delete [] tmpData;
-		os::Printer::log("Error reading rle rows\n", file->getFileName(), ELL_ERROR);
+		os::Printer::log("Error reading rle rows\n", file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
 
-	u16 *rcount=rleCount;
+	uint16_t *rcount=rleCount;
 
-	s8 rh;
-	u16 bytesRead;
-	u8 *dest;
-	s8 *pBuf = buf;
+	int8_t rh;
+	uint16_t bytesRead;
+	uint8_t *dest;
+	int8_t *pBuf = buf;
 
 	// decompress packbit rle
 
-	for (s32 channel=0; channel<header.channels; channel++)
+	for (int32_t channel=0; channel<header.channels; channel++)
 	{
-		for (u32 y=0; y<header.height; ++y, ++rcount)
+		for (uint32_t y=0; y<header.height; ++y, ++rcount)
 		{
 			bytesRead=0;
 			dest = &tmpData[y*header.width];
@@ -316,16 +316,16 @@ bool CImageLoaderPSD::readRLEImageData(io::IReadFile* file, const PsdHeader& hea
 			}
 		}
 
-		s16 shift = getShiftFromChannel((c8)channel, header);
+		int16_t shift = getShiftFromChannel((char)channel, header);
 
 		if (shift != -1)
 		{
-			u32 mask = 0xff << shift;
+			uint32_t mask = 0xff << shift;
 
-			for (u32 x=0; x<header.width; ++x)
-				for (u32 y=0; y<header.height; ++y)
+			for (uint32_t x=0; x<header.width; ++x)
+				for (uint32_t y=0; y<header.height; ++y)
 				{
-					s32 index = x + y*header.width;
+					int32_t index = x + y*header.width;
 					imageData[index] = ~(~imageData[index] | mask);
 					imageData[index] |= tmpData[index] << shift;
 				}
@@ -340,7 +340,7 @@ bool CImageLoaderPSD::readRLEImageData(io::IReadFile* file, const PsdHeader& hea
 }
 
 
-s16 CImageLoaderPSD::getShiftFromChannel(c8 channelNr, const PsdHeader& header) const
+int16_t CImageLoaderPSD::getShiftFromChannel(char channelNr, const PsdHeader& header) const
 {
 	switch(channelNr)
 	{

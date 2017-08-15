@@ -34,13 +34,13 @@ class SCollisionEngine
             vector3df lefttoright = f->getFarRightUp() - farLeftUp;
             vector3df uptodown = f->getFarLeftDown() - farLeftUp;
 
-            const rect<s32>& viewPort = driver->getViewPort();
-            dimension2d<u32> screenSize(viewPort.getWidth(), viewPort.getHeight());
+            const rect<int32_t>& viewPort = driver->getViewPort();
+            dimension2d<uint32_t> screenSize(viewPort.getWidth(), viewPort.getHeight());
 
-            f32 dx = uv.X;
-            dx /= (f32)screenSize.Width;
-            f32 dy = uv.Y;
-            dy /= (f32)screenSize.Height;
+            float dx = uv.X;
+            dx /= (float)screenSize.Width;
+            float dy = uv.Y;
+            dy /= (float)screenSize.Height;
 
             if (camera->isOrthogonal())
                 origin.set(f->cameraPosition + lefttoright * (dx-0.5f) + uptodown * (dy-0.5f));
@@ -58,9 +58,9 @@ class SCollisionEngine
 		inline static position2di getScreenCoordinatesFrom3DPosition(const vector3df& pos, video::IVideoDriver* driver, scene::ICameraSceneNode* camera, bool useViewPort=false)
 		{
             if (!driver||!camera)
-                return position2d<s32>(-100000,-100000);
+                return position2d<int32_t>(-100000,-100000);
 
-            dimension2d<u32> dim;
+            dimension2d<uint32_t> dim;
             if (useViewPort)
                 dim.set(driver->getViewPort().getWidth(), driver->getViewPort().getHeight());
             else
@@ -71,16 +71,16 @@ class SCollisionEngine
 
             matrix4 trans = camera->getConcatenatedMatrix();
 
-            f32 transformedPos[4] = { pos.X, pos.Y, pos.Z, 1.0f };
+            float transformedPos[4] = { pos.X, pos.Y, pos.Z, 1.0f };
 
             trans.multiplyWith1x4Matrix(transformedPos);
 
             if (transformedPos[3] < 0)
-                return position2d<s32>(-10000,-10000);
+                return position2d<int32_t>(-10000,-10000);
 
-            const f32 zDiv = transformedPos[3]==0.f  ?  1.f:reciprocal(transformedPos[3]);
+            const float zDiv = transformedPos[3]==0.f  ?  1.f:reciprocal(transformedPos[3]);
 
-            return position2d<s32>(
+            return position2d<int32_t>(
                         dim.Width + round32(dim.Width * (transformedPos[0] * zDiv)),
                         dim.Height - round32(dim.Height * (transformedPos[1] * zDiv)));
 		}
@@ -98,7 +98,7 @@ class SCollisionEngine
         {
             if (!collider)
                 return;
-	
+
             int32_t ix = colliders.binary_search(collider);
             if (ix<0)
 			{

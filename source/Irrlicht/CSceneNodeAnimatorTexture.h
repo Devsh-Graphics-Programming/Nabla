@@ -18,13 +18,13 @@ namespace scene
 
 		//! constructor
 		CSceneNodeAnimatorTexture(const core::array<video::ITexture*>& textures,
-			s32 timePerFrame, bool loop, u32 now);
+			int32_t timePerFrame, bool loop, uint32_t now);
 
 		//! destructor
 		virtual ~CSceneNodeAnimatorTexture();
 
 		//! animates a scene node
-		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs);
+		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);
 
 		//! Returns type of the scene node animator
 		virtual ESCENE_NODE_ANIMATOR_TYPE getType() const { return ESNAT_TEXTURE; }
@@ -40,8 +40,8 @@ namespace scene
 		void clearTextures();
 
 		core::array<video::ITexture*> Textures;
-		u32 TimePerFrame;
-		u32 StartTime;
+		uint32_t TimePerFrame;
+		uint32_t StartTime;
 		bool Loop;
 	};
 

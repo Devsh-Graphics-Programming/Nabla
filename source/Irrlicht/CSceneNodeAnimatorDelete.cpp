@@ -12,7 +12,7 @@ namespace scene
 
 
 //! constructor
-CSceneNodeAnimatorDelete::CSceneNodeAnimatorDelete(ISceneManager* manager, u32 time)
+CSceneNodeAnimatorDelete::CSceneNodeAnimatorDelete(ISceneManager* manager, uint32_t time)
 : ISceneNodeAnimatorFinishing(time), SceneManager(manager)
 {
 	#ifdef _DEBUG
@@ -22,7 +22,7 @@ CSceneNodeAnimatorDelete::CSceneNodeAnimatorDelete(ISceneManager* manager, u32 t
 
 
 //! animates a scene node
-void CSceneNodeAnimatorDelete::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorDelete::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 {
 	if (timeMs > FinishTime)
 	{

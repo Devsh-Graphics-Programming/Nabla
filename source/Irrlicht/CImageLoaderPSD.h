@@ -22,14 +22,14 @@ namespace video
 
 	struct PsdHeader
 	{
-		c8 signature [4];	// Always equal to 8BPS.
-		u16 version;		// Always equal to 1
-		c8 reserved [6];	// Must be zero
-		u16 channels;		// Number of any channels inc. alphas
-		u32 height;		// Rows Height of image in pixel
-		u32 width;		// Colums Width of image in pixel
-		u16 depth;		// Bits/channel
-		u16 mode;		// Color mode of the file (Bitmap/Grayscale..)
+		char signature [4];	// Always equal to 8BPS.
+		uint16_t version;		// Always equal to 1
+		char reserved [6];	// Must be zero
+		uint16_t channels;		// Number of any channels inc. alphas
+		uint32_t height;		// Rows Height of image in pixel
+		uint32_t width;		// Colums Width of image in pixel
+		uint16_t depth;		// Bits/channel
+		uint16_t mode;		// Color mode of the file (Bitmap/Grayscale..)
 	} PACK_STRUCT;
 
 
@@ -58,9 +58,9 @@ public:
 
 private:
 
-	bool readRawImageData(io::IReadFile* file, const PsdHeader& header, u32* imageData) const;
-	bool readRLEImageData(io::IReadFile* file, const PsdHeader& header, u32* imageData) const;
-	s16 getShiftFromChannel(c8 channelNr, const PsdHeader& header) const;
+	bool readRawImageData(io::IReadFile* file, const PsdHeader& header, uint32_t* imageData) const;
+	bool readRLEImageData(io::IReadFile* file, const PsdHeader& header, uint32_t* imageData) const;
+	int16_t getShiftFromChannel(char channelNr, const PsdHeader& header) const;
 };
 
 

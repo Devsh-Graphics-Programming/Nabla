@@ -23,8 +23,8 @@ struct SConstantLocationNamePair
 		length = 0;
 		type = ESCT_INVALID_COUNT;
 	}
-    s32 location;
-    s32 length;
+    int32_t location;
+    int32_t length;
     E_SHADER_CONSTANT_TYPE type;
     core::stringc name;
 };
@@ -36,7 +36,7 @@ OnSetConstants method will be called every frame now. */
 class IShaderConstantSetCallBack : public virtual IReferenceCounted
 {
 public:
-    virtual void PreLink(u32 program) {}
+    virtual void PreLink(uint32_t program) {}
     virtual void PostLink(video::IMaterialRendererServices* services, const E_MATERIAL_TYPE &materialType, const irr::core::array<SConstantLocationNamePair> &constants) =0;
 
 	//! Called to let the callBack know the used material (optional method)
@@ -51,9 +51,9 @@ public:
 			UsedMaterial=&material;
 		}
 
-		OnSetConstants(IMaterialRendererServices* services, s32 userData)
+		OnSetConstants(IMaterialRendererServices* services, int32_t userData)
 		{
-			services->setVertexShaderConstant("myColor", reinterpret_cast<f32*>(&UsedMaterial->color), 4);
+			services->setVertexShaderConstant("myColor", reinterpret_cast<float*>(&UsedMaterial->color), 4);
 		}
 	}
 	\endcode
@@ -69,7 +69,7 @@ public:
 	before geometry is being drawn using your shader material. A sample implementation
 	would look like this:
 	\code
-	virtual void OnSetConstants(video::IMaterialRendererServices* services, s32 userData)
+	virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
 	{
 		video::IVideoDriver* driver = services->getVideoDriver();
 
@@ -83,15 +83,15 @@ public:
 
 		// set some light color at register 9
 		video::SColorf col(0.0f,1.0f,1.0f,0.0f);
-		services->setVertexShaderConstant(reinterpret_cast<const f32*>(&col), 9, 1);
+		services->setVertexShaderConstant(reinterpret_cast<const float*>(&col), 9, 1);
 		// for high level shading languages, this would be another solution:
-		//services->setVertexShaderConstant("myColor", reinterpret_cast<f32*>(&col), 4);
+		//services->setVertexShaderConstant("myColor", reinterpret_cast<float*>(&col), 4);
 	}
 	\endcode
 	\param services: Pointer to an interface providing methods to set the constants for the shader.
 	\param userData: Userdata int which can be specified when creating the shader.
 	*/
-	virtual void OnSetConstants(IMaterialRendererServices* services, s32 userData) = 0;
+	virtual void OnSetConstants(IMaterialRendererServices* services, int32_t userData) = 0;
 
 	virtual void OnUnsetMaterial() = 0;
 };

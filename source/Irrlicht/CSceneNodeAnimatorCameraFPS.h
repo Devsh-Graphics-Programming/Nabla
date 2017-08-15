@@ -28,35 +28,35 @@ namespace scene
 
 		//! Constructor
 		CSceneNodeAnimatorCameraFPS(gui::ICursorControl* cursorControl,
-			f32 rotateSpeed = 100.0f, f32 moveSpeed = .5f, f32 jumpSpeed=0.f,
-			SKeyMap* keyMapArray=0, u32 keyMapSize=0, bool noVerticalMovement=false,
+			float rotateSpeed = 100.0f, float moveSpeed = .5f, float jumpSpeed=0.f,
+			SKeyMap* keyMapArray=0, uint32_t keyMapSize=0, bool noVerticalMovement=false,
 			bool invertY=false);
 
 		//! Destructor
 		virtual ~CSceneNodeAnimatorCameraFPS();
 
 		//! Animates the scene node, currently only works on cameras
-		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs);
+		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);
 
 		//! Event receiver
 		virtual bool OnEvent(const SEvent& event);
 
 		//! Returns the speed of movement in units per second
-		virtual f32 getMoveSpeed() const;
+		virtual float getMoveSpeed() const;
 
 		//! Sets the speed of movement in units per second
-		virtual void setMoveSpeed(f32 moveSpeed);
+		virtual void setMoveSpeed(float moveSpeed);
 
 		//! Returns the rotation speed
-		virtual f32 getRotateSpeed() const;
+		virtual float getRotateSpeed() const;
 
 		//! Set the rotation speed
-		virtual void setRotateSpeed(f32 rotateSpeed);
+		virtual void setRotateSpeed(float rotateSpeed);
 
 		//! Sets the keyboard mapping for this animator (old style)
 		//! \param keymap: an array of keyboard mappings, see SKeyMap
 		//! \param count: the size of the keyboard map array
-		virtual void setKeyMap(SKeyMap *map, u32 count);
+		virtual void setKeyMap(SKeyMap *map, uint32_t count);
 
 		//! Sets the keyboard mapping for this animator
 		//!	\param keymap The new keymap array
@@ -96,18 +96,18 @@ namespace scene
 
 		gui::ICursorControl *CursorControl;
 
-		f32 MaxVerticalAngle;
+		float MaxVerticalAngle;
 
-		f32 MoveSpeed;
-		f32 RotateSpeed;
-		f32 JumpSpeed;
+		float MoveSpeed;
+		float RotateSpeed;
+		float JumpSpeed;
 		// -1.0f for inverted mouse, defaults to 1.0f
-		f32 MouseYDirection;
+		float MouseYDirection;
 
-		s32 LastAnimationTime;
+		int32_t LastAnimationTime;
 
 		core::array<SKeyMap> KeyMap;
-		core::position2d<f32> CenterCursor, CursorPos;
+		core::position2d<float> CenterCursor, CursorPos;
 
 		bool CursorKeys[EKA_COUNT];
 

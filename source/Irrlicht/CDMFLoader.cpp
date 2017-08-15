@@ -89,7 +89,7 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 
 	SMesh * mesh = new SMesh();
 
-	u32 i;
+	uint32_t i;
 
 	dmfHeader header;
 
@@ -155,14 +155,14 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 				materiali[faces[i].materialID].lightmapName.size();
 			if (use2TCoords && meshBuffer->Vertices_Standard.size())
 				meshBuffer->convertTo2TCoords();
-			const u32 base = meshBuffer->Vertices_2TCoords.size()?meshBuffer->Vertices_2TCoords.size():meshBuffer->Vertices_Standard.size();
+			const uint32_t base = meshBuffer->Vertices_2TCoords.size()?meshBuffer->Vertices_2TCoords.size():meshBuffer->Vertices_Standard.size();
 
 			// Add this face's verts
 			if (use2TCoords)
 			{
 				// make sure we have the proper type set
 				meshBuffer->VertexType=video::EVT_2TCOORDS;
-				for (u32 v = 0; v < faces[i].numVerts; v++)
+				for (uint32_t v = 0; v < faces[i].numVerts; v++)
 				{
 					const dmfVert& vv = verts[faces[i].firstVert + v];
 					video::S3DVertex2TCoords vert(vv.pos,
@@ -177,7 +177,7 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 			}
 			else
 			{
-				for (u32 v = 0; v < faces[i].numVerts; v++)
+				for (uint32_t v = 0; v < faces[i].numVerts; v++)
 				{
 					const dmfVert& vv = verts[faces[i].firstVert + v];
 					video::S3DVertex vert(vv.pos,
@@ -195,8 +195,8 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 			// This weird loop turns convex polygons into triangle strips.
 			// I do it this way instead of a simple fan because it usually
 			// looks a lot better in wireframe, for example.
-			u32 h = faces[i].numVerts - 1, l = 0, c; // High, Low, Center
-			for (u32 v = 0; v < faces[i].numVerts - 2; v++)
+			uint32_t h = faces[i].numVerts - 1, l = 0, c; // High, Low, Center
+			for (uint32_t v = 0; v < faces[i].numVerts - 2; v++)
 			{
 				if (v & 1) // odd
 					c = h - 1;
@@ -284,7 +284,7 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 					driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT,true);
 
 				video::IImage *immagine= driver->createImage(video::ECF_A8R8G8B8,
-					core::dimension2d<u32>(8,8));
+					core::dimension2d<uint32_t>(8,8));
 				immagine->fill(color);
 				tex = driver->addTexture("", immagine);
 				immagine->drop();
@@ -293,7 +293,7 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 				if (color.getAlpha()!=255 && materiali[i].textureBlend==4)
 				{
 					mat.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
-					mat.MaterialTypeParam =(((f32) (color.getAlpha()-1))/255.0f);
+					mat.MaterialTypeParam =(((float) (color.getAlpha()-1))/255.0f);
 				}
 			}
 
@@ -306,7 +306,7 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 			else //no lightmap
 			{
 				mat.MaterialType = video::EMT_SOLID;
-				const f32 mult = 100.0f - header.dmfShadow;
+				const float mult = 100.0f - header.dmfShadow;
 				mat.AmbientColor=header.dmfAmbient.getInterpolated(video::SColor(255,0,0,0),mult/100.f);
 			}
 
@@ -320,17 +320,17 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 			//if texture is present mirror vertically owing to DeleD representation
 			if (tex && header.dmfVersion<1.1)
 			{
-				const core::dimension2d<u32> texsize = tex->getSize();
+				const core::dimension2d<uint32_t> texsize = tex->getSize();
 				void* pp = tex->lock();
 				if (pp)
 				{
 					const video::ECOLOR_FORMAT format = tex->getColorFormat();
 					if (format == video::ECF_A1R5G5B5)
 					{
-						s16* p = (s16*)pp;
-						s16 tmp=0;
-						for (u32 x=0; x<texsize.Width; x++)
-							for (u32 y=0; y<texsize.Height/2; y++)
+						int16_t* p = (int16_t*)pp;
+						int16_t tmp=0;
+						for (uint32_t x=0; x<texsize.Width; x++)
+							for (uint32_t y=0; y<texsize.Height/2; y++)
 							{
 								tmp=p[y*texsize.Width + x];
 								p[y*texsize.Width + x] = p[(texsize.Height-y-1)*texsize.Width + x];
@@ -340,10 +340,10 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 					else
 					if (format == video::ECF_A8R8G8B8)
 					{
-						s32* p = (s32*)pp;
-						s32 tmp=0;
-						for (u32 x=0; x<texsize.Width; x++)
-							for (u32 y=0; y<texsize.Height/2; y++)
+						int32_t* p = (int32_t*)pp;
+						int32_t tmp=0;
+						for (uint32_t x=0; x<texsize.Width; x++)
+							for (uint32_t y=0; y<texsize.Height/2; y++)
 							{
 								tmp=p[y*texsize.Width + x];
 								p[y*texsize.Width + x] = p[(texsize.Height-y-1)*texsize.Width + x];
@@ -358,18 +358,18 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 			//if lightmap is present mirror vertically owing to DeleD rapresentation
 			if (lig && header.dmfVersion<1.1)
 			{
-				const core::dimension2d<u32> ligsize=lig->getSize();
+				const core::dimension2d<uint32_t> ligsize=lig->getSize();
 				void* pp = lig->lock();
 				if (pp)
 				{
 					video::ECOLOR_FORMAT format = lig->getColorFormat();
 					if (format == video::ECF_A1R5G5B5)
 					{
-						s16* p = (s16*)pp;
-						s16 tmp=0;
-						for (u32 x=0; x<ligsize.Width; x++)
+						int16_t* p = (int16_t*)pp;
+						int16_t tmp=0;
+						for (uint32_t x=0; x<ligsize.Width; x++)
 						{
-							for (u32 y=0; y<ligsize.Height/2; y++)
+							for (uint32_t y=0; y<ligsize.Height/2; y++)
 							{
 								tmp=p[y*ligsize.Width + x];
 								p[y*ligsize.Width + x] = p[(ligsize.Height-y-1)*ligsize.Width + x];
@@ -379,11 +379,11 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 					}
 					else if (format == video::ECF_A8R8G8B8)
 					{
-						s32* p = (s32*)pp;
-						s32 tmp=0;
-						for (u32 x=0; x<ligsize.Width; x++)
+						int32_t* p = (int32_t*)pp;
+						int32_t tmp=0;
+						for (uint32_t x=0; x<ligsize.Width; x++)
 						{
-							for (u32 y=0; y<ligsize.Height/2; y++)
+							for (uint32_t y=0; y<ligsize.Height/2; y++)
 							{
 								tmp=p[y*ligsize.Width + x];
 								p[y*ligsize.Width + x] = p[(ligsize.Height-y-1)*ligsize.Width + x];

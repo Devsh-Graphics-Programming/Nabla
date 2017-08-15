@@ -31,7 +31,7 @@ namespace scene
 		virtual EMESH_WRITER_TYPE getType() const;
 
 		//! writes a mesh
-		virtual bool writeMesh(io::IWriteFile* file, scene::IMesh* mesh, s32 flags=EMWF_NONE);
+		virtual bool writeMesh(io::IWriteFile* file, scene::IMesh* mesh, int32_t flags=EMWF_NONE);
 
 	protected:
 		// create vector output with line end into string
@@ -44,7 +44,7 @@ namespace scene
 
 		// create color output with line end into string
 		void getColorAsStringLine(const video::SColor& color,
-				const c8* const prefix, core::stringc& s) const;
+				const char* const prefix, core::stringc& s) const;
 
 		scene::ISceneManager* SceneManager;
 		io::IFileSystem* FileSystem;

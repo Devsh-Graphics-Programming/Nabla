@@ -46,10 +46,10 @@ namespace irr
 		virtual void yield();
 
 		//! Pause execution and let other processes to run for a specified amount of time.
-		virtual void sleep(u32 timeMs, bool pauseTimer);
+		virtual void sleep(uint32_t timeMs, bool pauseTimer);
 
 		//! sets the caption of the window
-		virtual void setWindowCaption(const wchar_t* text);
+		virtual void setWindowCaption(const std::wstring& text);
 
 		//! returns if window is active. if not, nothing need to be drawn
 		virtual bool isWindowActive() const;
@@ -61,7 +61,7 @@ namespace irr
 		virtual bool isWindowMinimized() const;
 
 		//! presents a surface in the client area
-		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<s32>* src=0);
+		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0);
 
 		//! notifies the device that it should close itself
 		virtual void closeDevice();
@@ -89,10 +89,10 @@ namespace irr
 		virtual bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo);
 /*
 		//! Set the current Gamma Value for the Display
-		virtual bool setGammaRamp( f32 red, f32 green, f32 blue, f32 brightness, f32 contrast );
+		virtual bool setGammaRamp( float red, float green, float blue, float brightness, float contrast );
 
 		//! Get the current Gamma Value for the Display
-		virtual bool getGammaRamp( f32 &red, f32 &green, f32 &blue, f32 &brightness, f32 &contrast );
+		virtual bool getGammaRamp( float &red, float &green, float &blue, float &brightness, float &contrast );
 */
 		//! Remove all messages pending in the system message loop
 		virtual void clearSystemMessages();
@@ -105,7 +105,7 @@ namespace irr
 
 		//! Compares to the last call of this function to return double and triple clicks.
 		//! \return Returns only 1,2 or 3. A 4th click will start with 1 again.
-		virtual u32 checkSuccessiveClicks(s32 mouseX, s32 mouseY, EMOUSE_INPUT_EVENT inputEvent )
+		virtual uint32_t checkSuccessiveClicks(int32_t mouseX, int32_t mouseY, EMOUSE_INPUT_EVENT inputEvent )
 		{
 			// we just have to make it public
 			return CIrrDeviceStub::checkSuccessiveClicks(mouseX, mouseY, inputEvent );
@@ -119,14 +119,14 @@ namespace irr
 		static void ReportLastWinApiError();
 
 		// convert an Irrlicht texture to a windows cursor
-		HCURSOR TextureToCursor(HWND hwnd, irr::video::IImage * tex, const core::rect<s32>& sourceRect, const core::position2d<s32> &hotspot);
+		HCURSOR TextureToCursor(HWND hwnd, irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot);
 
 		//! Implementation of the win32 cursor control
 		class CCursorControl : public gui::ICursorControl
 		{
 		public:
 
-			CCursorControl(CIrrDeviceWin32* device, const core::dimension2d<u32>& wsize, HWND hwnd, bool fullscreen);
+			CCursorControl(CIrrDeviceWin32* device, const core::dimension2d<uint32_t>& wsize, HWND hwnd, bool fullscreen);
 			~CCursorControl();
 
 			//! Changes the visible state of the mouse cursor.
@@ -170,18 +170,17 @@ namespace irr
 			//! Returns if the cursor is currently visible.
 			virtual bool isVisible() const
 			{
-				_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 				return IsVisible;
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<f32> &pos)
+			virtual void setPosition(const core::position2d<float> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(f32 x, f32 y)
+			virtual void setPosition(float x, float y)
 			{
 				if (!UseReferenceRect)
 					setPosition(core::round32(x*WindowSize.Width), core::round32(y*WindowSize.Height));
@@ -190,13 +189,13 @@ namespace irr
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<s32> &pos)
+			virtual void setPosition(const core::position2d<int32_t> &pos)
 			{
 				setPosition(pos.X, pos.Y);
 			}
 
 			//! Sets the new position of the cursor.
-			virtual void setPosition(s32 x, s32 y)
+			virtual void setPosition(int32_t x, int32_t y)
 			{
 				if (UseReferenceRect)
 				{
@@ -215,29 +214,29 @@ namespace irr
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual const core::position2d<s32>& getPosition()
+			virtual const core::position2d<int32_t>& getPosition()
 			{
 				updateInternalCursorPosition();
 				return CursorPos;
 			}
 
 			//! Returns the current position of the mouse cursor.
-			virtual core::position2d<f32> getRelativePosition()
+			virtual core::position2d<float> getRelativePosition()
 			{
 				updateInternalCursorPosition();
 
 				if (!UseReferenceRect)
 				{
-					return core::position2d<f32>(CursorPos.X * InvWindowSize.Width,
+					return core::position2d<float>(CursorPos.X * InvWindowSize.Width,
 						CursorPos.Y * InvWindowSize.Height);
 				}
 
-				return core::position2d<f32>(CursorPos.X / (f32)ReferenceRect.getWidth(),
-						CursorPos.Y / (f32)ReferenceRect.getHeight());
+				return core::position2d<float>(CursorPos.X / (float)ReferenceRect.getWidth(),
+						CursorPos.Y / (float)ReferenceRect.getHeight());
 			}
 
 			//! Sets an absolute reference rect for calculating the cursor position.
-			virtual void setReferenceRect(core::rect<s32>* rect=0)
+			virtual void setReferenceRect(core::rect<int32_t>* rect=0)
 			{
 				if (rect)
 				{
@@ -257,7 +256,7 @@ namespace irr
 			}
 
 			/** Used to notify the cursor that the window was resized. */
-			virtual void OnResize(const core::dimension2d<u32>& size)
+			virtual void OnResize(const core::dimension2d<uint32_t>& size)
 			{
 				WindowSize = size;
 				if (size.Width!=0)
@@ -351,13 +350,13 @@ namespace irr
 			}
 
             CIrrDeviceWin32* Device;
-			core::position2d<s32> CursorPos;
-			core::dimension2d<u32> WindowSize;
-			core::dimension2d<f32> InvWindowSize;
+			core::position2d<int32_t> CursorPos;
+			core::dimension2d<uint32_t> WindowSize;
+			core::dimension2d<float> InvWindowSize;
 			HWND HWnd;
 
-			s32 BorderX, BorderY;
-			core::rect<s32> ReferenceRect;
+			int32_t BorderX, BorderY;
+			core::rect<int32_t> ReferenceRect;
 			bool UseReferenceRect;
 			bool IsVisible;
 
@@ -373,17 +372,17 @@ namespace irr
 			struct CursorW32
 			{
 				CursorW32() {}
-				explicit CursorW32(HCURSOR iconHw, u32 frameTime=0) : FrameTime(frameTime)
+				explicit CursorW32(HCURSOR iconHw, uint32_t frameTime=0) : FrameTime(frameTime)
 				{
 					Frames.push_back( CursorFrameW32(iconHw) );
 				}
 				core::array<CursorFrameW32> Frames;
-				u32 FrameTime;
+				uint32_t FrameTime;
 			};
 
 			core::array<CursorW32> Cursors;
 			gui::ECURSOR_ICON ActiveIcon;
-			u32 ActiveIconStartTime;
+			uint32_t ActiveIconStartTime;
 
 			void initCursors();
 		};

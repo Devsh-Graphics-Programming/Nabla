@@ -16,10 +16,10 @@ namespace scene
 	public:
 
 		//! constructor
-		CSceneNodeAnimatorDelete(ISceneManager* manager, u32 when);
+		CSceneNodeAnimatorDelete(ISceneManager* manager, uint32_t when);
 
 		//! animates a scene node
-		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs);
+		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);
 
 		//! Returns type of the scene node animator
 		virtual ESCENE_NODE_ANIMATOR_TYPE getType() const

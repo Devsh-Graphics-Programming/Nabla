@@ -47,7 +47,7 @@ COCTLoader::~COCTLoader()
 
 
 // Doesn't really belong here, but it's jammed in for now.
-void COCTLoader::OCTLoadLights(io::IReadFile* file, scene::ISceneNode * parent, f32 radius, f32 intensityScale, bool rewind)
+void COCTLoader::OCTLoadLights(io::IReadFile* file, scene::ISceneNode * parent, float radius, float intensityScale, bool rewind)
 {
 	if (rewind)
 		file->seek(0);
@@ -65,13 +65,14 @@ void COCTLoader::OCTLoadLights(io::IReadFile* file, scene::ISceneNode * parent, 
 
 	//TODO: Skip past my extended data just for good form
 
-	for (u32 i = 0; i < header.numLights; i++)
+	for (uint32_t i = 0; i < header.numLights; i++)
 	{
-		const f32 intensity = lights[i].intensity * intensityScale;
-
+		const float intensity = lights[i].intensity * intensityScale;
+/**
 		SceneManager->addLightSceneNode(parent, core::vector3df(lights[i].pos[0], lights[i].pos[2], lights[i].pos[1]),
 			video::SColorf(lights[i].color[0] * intensity, lights[i].color[1] * intensity, lights[i].color[2] * intensity, 1.0f),
 			radius);
+**/
 	}
 }
 
@@ -98,7 +99,7 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 	file->read(faces, sizeof(octFace) * header.numFaces);
 	//TODO: Make sure id is in the legal range for Textures and Lightmaps
 
-	u32 i;
+	uint32_t i;
 	for (i = 0; i < header.numTextures; i++) {
 		octTexture t;
 		file->read(&t, sizeof(octTexture));
@@ -137,19 +138,19 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 		if (faces[i].numVerts < 3)
 			continue;
 
-		const f32* const a = verts[faces[i].firstVert].pos;
-		const f32* const b = verts[faces[i].firstVert+1].pos;
-		const f32* const c = verts[faces[i].firstVert+2].pos;
+		const float* const a = verts[faces[i].firstVert].pos;
+		const float* const b = verts[faces[i].firstVert+1].pos;
+		const float* const c = verts[faces[i].firstVert+2].pos;
 		const core::vector3df normal =
 			core::plane3df(core::vector3df(a[0],a[1],a[2]), core::vector3df(b[0],c[1],c[2]), core::vector3df(c[0],c[1],c[2])).Normal;
 
-		const u32 textureID = core::min_(s32(faces[i].textureID), s32(header.numTextures - 1)) + 1;
-		const u32 lightmapID = core::min_(s32(faces[i].lightmapID),s32(header.numLightmaps - 1)) + 1;
+		const uint32_t textureID = core::min_(int32_t(faces[i].textureID), int32_t(header.numTextures - 1)) + 1;
+		const uint32_t lightmapID = core::min_(int32_t(faces[i].lightmapID),int32_t(header.numLightmaps - 1)) + 1;
 		SMeshBufferLightMap * meshBuffer = (SMeshBufferLightMap*)Mesh->getMeshBuffer(lightmapID * (header.numTextures + 1) + textureID);
-		const u32 base = meshBuffer->Vertices.size();
+		const uint32_t base = meshBuffer->Vertices.size();
 
 		// Add this face's verts
-		u32 v;
+		uint32_t v;
 		for (v = 0; v < faces[i].numVerts; ++v)
 		{
 			octVert * vv = &verts[faces[i].firstVert + v];
@@ -177,11 +178,11 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 		// This weird loop turns convex polygons into triangle strips.
 		// I do it this way instead of a simple fan because it usually looks a lot better in wireframe, for example.
 		// High, Low
-		u32 h = faces[i].numVerts - 1;
-		u32 l = 0;
+		uint32_t h = faces[i].numVerts - 1;
+		uint32_t l = 0;
 		for (v = 0; v < faces[i].numVerts - 2; ++v)
 		{
-			const u32 center = (v & 1)? h - 1: l + 1;
+			const uint32_t center = (v & 1)? h - 1: l + 1;
 
 			meshBuffer->Indices.push_back(base + h);
 			meshBuffer->Indices.push_back(base + l);
@@ -216,9 +217,9 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 	lig.set_used(header.numLightmaps + 1);
 	lig[0] = 0;
 
-	const u32 lightmapWidth = 128;
-	const u32 lightmapHeight = 128;
-	const core::dimension2d<u32> lmapsize(lightmapWidth, lightmapHeight);
+	const uint32_t lightmapWidth = 128;
+	const uint32_t lightmapHeight = 128;
+	const core::dimension2d<uint32_t> lmapsize(lightmapWidth, lightmapHeight);
 
 	bool oldMipMapState = SceneManager->getVideoDriver()->getTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS);
 	SceneManager->getVideoDriver()->setTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS, false);
@@ -232,9 +233,9 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 
 		const octLightmap* lm = &lightmaps[i-1];
 
-		for (u32 x=0; x<lightmapWidth; ++x)
+		for (uint32_t x=0; x<lightmapWidth; ++x)
 		{
-			for (u32 y=0; y<lightmapHeight; ++y)
+			for (uint32_t y=0; y<lightmapHeight; ++y)
 			{
 				tmpImage->setPixel(x, y,
 						video::SColor(255,
@@ -259,9 +260,9 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 	// attach materials
 	for (i = 0; i < header.numLightmaps + 1; i++)
 	{
-		for (u32 j = 0; j < header.numTextures + 1; j++)
+		for (uint32_t j = 0; j < header.numTextures + 1; j++)
 		{
-			u32 mb = i * (header.numTextures + 1) + j;
+			uint32_t mb = i * (header.numTextures + 1) + j;
 			SMeshBufferLightMap * meshBuffer = (SMeshBufferLightMap*)Mesh->getMeshBuffer(mb);
 			meshBuffer->Material.setTexture(0, tex[j]);
 			meshBuffer->Material.setTexture(1, lig[i]);

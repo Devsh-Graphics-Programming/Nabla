@@ -19,13 +19,16 @@ namespace scene
 	public:
 
 		//! constructor
-		CMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr,	s32 id,
+		CMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr,	int32_t id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
 
 		//! destructor
 		virtual ~CMeshSceneNode();
+
+		//!
+		virtual const bool supportsDriverFence() const {return true;}
 
 		//! frame
 		virtual void OnRegisterSceneNode();
@@ -34,17 +37,17 @@ namespace scene
 		virtual void render();
 
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<f32>& getBoundingBox();
+		virtual const core::aabbox3d<float>& getBoundingBox();
 
 		//! returns the material based on the zero based index i. To get the amount
 		//! of materials used by this scene node, use getMaterialCount().
 		//! This function is needed for inserting the node into the scene hirachy on a
 		//! optimal position for minimizing renderstate changes, but can also be used
 		//! to directly modify the material of a scene node.
-		virtual video::SMaterial& getMaterial(u32 i);
+		virtual video::SMaterial& getMaterial(uint32_t i);
 
 		//! returns amount of materials used by this scene node.
-		virtual u32 getMaterialCount() const;
+		virtual uint32_t getMaterialCount() const;
 
 		//! Returns type of the scene node
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_MESH; }
@@ -71,11 +74,11 @@ namespace scene
 		void copyMaterials();
 
 		core::array<video::SMaterial> Materials;
-		core::aabbox3d<f32> Box;
+		core::aabbox3d<float> Box;
 
 		IGPUMesh* Mesh;
 
-		s32 PassCount;
+		int32_t PassCount;
 		bool ReferencingMeshMaterials;
 	};
 

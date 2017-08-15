@@ -28,41 +28,41 @@ namespace scene
 	{
 	public:
 		//! Constructor
-		CSceneNodeAnimatorCameraMaya(gui::ICursorControl* cursor, f32 rotateSpeed = -1500.f,
-			f32 zoomSpeed = 200.f, f32 translationSpeed = 1500.f, f32 distance=70.f);
+		CSceneNodeAnimatorCameraMaya(gui::ICursorControl* cursor, float rotateSpeed = -1500.f,
+			float zoomSpeed = 200.f, float translationSpeed = 1500.f, float distance=70.f);
 
 		//! Destructor
 		virtual ~CSceneNodeAnimatorCameraMaya();
 
 		//! Animates the scene node, currently only works on cameras
-		virtual void animateNode(IDummyTransformationSceneNode* node, u32 timeMs);
+		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);
 
 		//! Event receiver
 		virtual bool OnEvent(const SEvent& event);
 
 		//! Returns the speed of movement in units per millisecond
-		virtual f32 getMoveSpeed() const;
+		virtual float getMoveSpeed() const;
 
 		//! Sets the speed of movement in units per millisecond
-		virtual void setMoveSpeed(f32 moveSpeed);
+		virtual void setMoveSpeed(float moveSpeed);
 
 		//! Returns the rotation speed
-		virtual f32 getRotateSpeed() const;
+		virtual float getRotateSpeed() const;
 
 		//! Set the rotation speed
-		virtual void setRotateSpeed(f32 rotateSpeed);
+		virtual void setRotateSpeed(float rotateSpeed);
 
 		//! Returns the zoom speed
-		virtual f32 getZoomSpeed() const;
+		virtual float getZoomSpeed() const;
 
 		//! Set the zoom speed
-		virtual void setZoomSpeed(f32 zoomSpeed);
+		virtual void setZoomSpeed(float zoomSpeed);
 
 		//! Returns the current distance, i.e. orbit radius
-		virtual f32 getDistance() const;
+		virtual float getDistance() const;
 
 		//! Set the distance
-		virtual void setDistance(f32 distance);
+		virtual void setDistance(float distance);
 
 		//! This animator will receive events when attached to the active camera
 		virtual bool isEventReceiverEnabled() const
@@ -86,7 +86,7 @@ namespace scene
 
 		void allKeysUp();
 		void animate();
-		bool isMouseKeyDown(s32 key) const;
+		bool isMouseKeyDown(int32_t key) const;
 
 		bool MouseKeys[3];
 
@@ -98,11 +98,11 @@ namespace scene
 		core::position2df ZoomStart;
 		core::position2df TranslateStart;
 		core::position2df MousePos;
-		f32 ZoomSpeed;
-		f32 RotateSpeed;
-		f32 TranslateSpeed;
-		f32 CurrentZoom;
-		f32 RotX, RotY;
+		float ZoomSpeed;
+		float RotateSpeed;
+		float TranslateSpeed;
+		float CurrentZoom;
+		float RotX, RotY;
 		bool Zooming;
 		bool Rotating;
 		bool Moving;

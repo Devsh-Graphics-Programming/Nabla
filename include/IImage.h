@@ -27,7 +27,7 @@ public:
 	/** After you don't need the pointer anymore, you must call unlock().
 	\return Pointer to the image data. What type of data is pointed to
 	depends on the color format of the image. For example if the color
-	format is ECF_A8R8G8B8, it is of u32. Be sure to call unlock() after
+	format is ECF_A8R8G8B8, it is of uint32_t. Be sure to call unlock() after
 	you don't need the pointer any more. */
 	virtual void* lock() = 0;
 
@@ -37,66 +37,66 @@ public:
 	virtual void unlock() = 0;
 
 	//! Returns width and height of image data.
-	virtual const core::dimension2d<u32>& getDimension() const = 0;
+	virtual const core::dimension2d<uint32_t>& getDimension() const = 0;
 
 	//! Returns bits per pixel.
-	virtual u32 getBitsPerPixel() const = 0;
+	virtual uint32_t getBitsPerPixel() const = 0;
 
 	//! Returns image data size in bytes
-	virtual u32 getImageDataSizeInBytes() const = 0;
+	virtual uint32_t getImageDataSizeInBytes() const = 0;
 
 	//! Returns image data size in pixels
-	virtual u32 getImageDataSizeInPixels() const = 0;
+	virtual uint32_t getImageDataSizeInPixels() const = 0;
 
 	//! Returns a pixel
-	virtual SColor getPixel(u32 x, u32 y) const = 0;
+	virtual SColor getPixel(uint32_t x, uint32_t y) const = 0;
 
 	//! Sets a pixel
-	virtual void setPixel(u32 x, u32 y, const SColor &color, bool blend = false ) = 0;
+	virtual void setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend = false ) = 0;
 
 	//! Returns the color format
 	virtual ECOLOR_FORMAT getColorFormat() const = 0;
 
 	//! Returns mask for red value of a pixel
-	virtual u32 getRedMask() const = 0;
+	virtual uint32_t getRedMask() const = 0;
 
 	//! Returns mask for green value of a pixel
-	virtual u32 getGreenMask() const = 0;
+	virtual uint32_t getGreenMask() const = 0;
 
 	//! Returns mask for blue value of a pixel
-	virtual u32 getBlueMask() const = 0;
+	virtual uint32_t getBlueMask() const = 0;
 
 	//! Returns mask for alpha value of a pixel
-	virtual u32 getAlphaMask() const = 0;
+	virtual uint32_t getAlphaMask() const = 0;
 
 	//! Returns pitch of image
-	virtual u32 getPitch() const =0;
+	virtual uint32_t getPitch() const =0;
 
 	//! Copies the image into the target, scaling the image to fit
-	virtual void copyToScaling(void* target, u32 width, u32 height, ECOLOR_FORMAT format=ECF_A8R8G8B8, u32 pitch=0) =0;
+	virtual void copyToScaling(void* target, uint32_t width, uint32_t height, ECOLOR_FORMAT format=ECF_A8R8G8B8, uint32_t pitch=0) =0;
 
 	//! Copies the image into the target, scaling the image to fit
 	virtual void copyToScaling(IImage* target) =0;
 
 	//! copies this surface into another
-	virtual void copyTo(IImage* target, const core::position2d<s32>& pos=core::position2d<s32>(0,0)) =0;
+	virtual void copyTo(IImage* target, const core::position2d<int32_t>& pos=core::position2d<int32_t>(0,0)) =0;
 
 	//! copies this surface into another
-	virtual void copyTo(IImage* target, const core::position2d<s32>& pos, const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect=0) =0;
+	virtual void copyTo(IImage* target, const core::position2d<int32_t>& pos, const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect=0) =0;
 
 	//! copies this surface into another, using the alpha mask and cliprect and a color to add with
-	virtual void copyToWithAlpha(IImage* target, const core::position2d<s32>& pos,
-			const core::rect<s32>& sourceRect, const SColor &color,
-			const core::rect<s32>* clipRect = 0) =0;
+	virtual void copyToWithAlpha(IImage* target, const core::position2d<int32_t>& pos,
+			const core::rect<int32_t>& sourceRect, const SColor &color,
+			const core::rect<int32_t>* clipRect = 0) =0;
 
 	//! copies this surface into another, scaling it to fit, appyling a box filter
-	virtual void copyToScalingBoxFilter(IImage* target, s32 bias = 0, bool blend = false) = 0;
+	virtual void copyToScalingBoxFilter(IImage* target, int32_t bias = 0, bool blend = false) = 0;
 
 	//! fills the surface with given color
 	virtual void fill(const SColor &color) =0;
 
 	//! get the amount of Bits per Pixel of the given color format
-	static u32 getBitsPerPixelFromFormat(const ECOLOR_FORMAT format)
+	static uint32_t getBitsPerPixelFromFormat(const ECOLOR_FORMAT format)
 	{
 		switch(format)
 		{

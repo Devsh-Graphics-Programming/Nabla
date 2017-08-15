@@ -15,7 +15,7 @@ namespace video
 
 
 //! constructor
-CDepthBuffer::CDepthBuffer(const core::dimension2d<u32>& size)
+CDepthBuffer::CDepthBuffer(const core::dimension2d<uint32_t>& size)
 : Buffer(0), Size(0,0)
 {
 	#ifdef _DEBUG
@@ -41,12 +41,12 @@ void CDepthBuffer::clear()
 {
 
 #ifdef SOFTWARE_DRIVER_2_USE_WBUFFER
-	f32 zMax = 0.f;
+	float zMax = 0.f;
 #else
-	f32 zMax = 1.f;
+	float zMax = 1.f;
 #endif
 
-	u32 zMaxValue;
+	uint32_t zMaxValue;
 	zMaxValue = IR(zMax);
 
 	memset32 ( Buffer, zMaxValue, TotalSize );
@@ -55,7 +55,7 @@ void CDepthBuffer::clear()
 
 
 //! sets the new size of the zbuffer
-void CDepthBuffer::setSize(const core::dimension2d<u32>& size)
+void CDepthBuffer::setSize(const core::dimension2d<uint32_t>& size)
 {
 	if (size == Size)
 		return;
@@ -67,14 +67,14 @@ void CDepthBuffer::setSize(const core::dimension2d<u32>& size)
 
 	Pitch = size.Width * sizeof ( fp24 );
 	TotalSize = Pitch * size.Height;
-	Buffer = new u8[TotalSize];
+	Buffer = new uint8_t[TotalSize];
 	clear ();
 }
 
 
 
 //! returns the size of the zbuffer
-const core::dimension2d<u32>& CDepthBuffer::getSize() const
+const core::dimension2d<uint32_t>& CDepthBuffer::getSize() const
 {
 	return Size;
 }
@@ -82,7 +82,7 @@ const core::dimension2d<u32>& CDepthBuffer::getSize() const
 // -----------------------------------------------------------------
 
 //! constructor
-CStencilBuffer::CStencilBuffer(const core::dimension2d<u32>& size)
+CStencilBuffer::CStencilBuffer(const core::dimension2d<uint32_t>& size)
 : Buffer(0), Size(0,0)
 {
 	#ifdef _DEBUG
@@ -112,7 +112,7 @@ void CStencilBuffer::clear()
 
 
 //! sets the new size of the zbuffer
-void CStencilBuffer::setSize(const core::dimension2d<u32>& size)
+void CStencilBuffer::setSize(const core::dimension2d<uint32_t>& size)
 {
 	if (size == Size)
 		return;
@@ -122,16 +122,16 @@ void CStencilBuffer::setSize(const core::dimension2d<u32>& size)
 	if (Buffer)
 		delete [] Buffer;
 
-	Pitch = size.Width * sizeof ( u32 );
+	Pitch = size.Width * sizeof ( uint32_t );
 	TotalSize = Pitch * size.Height;
-	Buffer = new u8[TotalSize];
+	Buffer = new uint8_t[TotalSize];
 	clear ();
 }
 
 
 
 //! returns the size of the zbuffer
-const core::dimension2d<u32>& CStencilBuffer::getSize() const
+const core::dimension2d<uint32_t>& CStencilBuffer::getSize() const
 {
 	return Size;
 }
@@ -149,7 +149,7 @@ namespace video
 {
 
 //! creates a ZBuffer
-IDepthBuffer* createDepthBuffer(const core::dimension2d<u32>& size)
+IDepthBuffer* createDepthBuffer(const core::dimension2d<uint32_t>& size)
 {
 	#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
 	return new CDepthBuffer(size);
@@ -160,7 +160,7 @@ IDepthBuffer* createDepthBuffer(const core::dimension2d<u32>& size)
 
 
 //! creates a ZBuffer
-IStencilBuffer* createStencilBuffer(const core::dimension2d<u32>& size)
+IStencilBuffer* createStencilBuffer(const core::dimension2d<uint32_t>& size)
 {
 	#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
 	return new CStencilBuffer(size);

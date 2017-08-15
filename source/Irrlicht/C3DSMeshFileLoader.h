@@ -8,7 +8,7 @@
 #include "IMeshLoader.h"
 #include "IFileSystem.h"
 #include "ISceneManager.h"
-#include "irrString.h"
+#include <string>
 #include "SMesh.h"
 #include "matrix4.h"
 
@@ -45,8 +45,8 @@ private:
 
 	struct ChunkHeader
 	{
-		u16 id;
-		s32 length;
+		uint16_t id;
+		int32_t length;
 	} PACK_STRUCT;
 
 // Default alignment
@@ -57,7 +57,7 @@ private:
 		ChunkData() : read(0) {}
 
 		ChunkHeader header;
-		s32 read;
+		int32_t read;
 	};
 
 	struct SCurrentMaterial
@@ -78,9 +78,9 @@ private:
 		}
 
 		video::SMaterial Material;
-		core::stringc Name;
-		core::stringc Filename[5];
-		f32 Strength[5];
+		std::string Name;
+		std::string Filename[5];
+		float Strength[5];
 	};
 
 	struct SMaterialGroup
@@ -108,14 +108,14 @@ private:
 		{
 			MaterialName = o.MaterialName;
 			faceCount = o.faceCount;
-			faces = new u16[faceCount];
-			for (u16 i=0; i<faceCount; ++i)
+			faces = new uint16_t[faceCount];
+			for (uint16_t i=0; i<faceCount; ++i)
 				faces[i] = o.faces[i];
 		}
 
-		core::stringc MaterialName;
-		u16 faceCount;
-		u16* faces;
+		std::string MaterialName;
+		uint16_t faceCount;
+		uint16_t* faces;
 	};
 
 	bool readChunk(io::IReadFile* file, ChunkData* parent);
@@ -124,36 +124,36 @@ private:
 	bool readTrackChunk(io::IReadFile* file, ChunkData& data,
 				IMeshBuffer* mb, const core::vector3df& pivot);
 	bool readObjectChunk(io::IReadFile* file, ChunkData* parent);
-	bool readPercentageChunk(io::IReadFile* file, ChunkData* chunk, f32& percentage);
+	bool readPercentageChunk(io::IReadFile* file, ChunkData* chunk, float& percentage);
 	bool readColorChunk(io::IReadFile* file, ChunkData* chunk, video::SColor& out);
 
 	void readChunkData(io::IReadFile* file, ChunkData& data);
-	void readString(io::IReadFile* file, ChunkData& data, core::stringc& out);
+	void readString(io::IReadFile* file, ChunkData& data, std::string& out);
 	void readVertices(io::IReadFile* file, ChunkData& data);
 	void readIndices(io::IReadFile* file, ChunkData& data);
 	void readMaterialGroup(io::IReadFile* file, ChunkData& data);
 	void readTextureCoords(io::IReadFile* file, ChunkData& data);
 
-	void composeObject(io::IReadFile* file, const core::stringc& name);
+	void composeObject(io::IReadFile* file, const std::string& name);
 	void loadMaterials(io::IReadFile* file);
 	void cleanUp();
 
 	scene::ISceneManager* SceneManager;
 	io::IFileSystem* FileSystem;
 
-	f32* Vertices;
-	u16* Indices;
-	u32* SmoothingGroups;
-	core::array<u16> TempIndices;
-	f32* TCoords;
-	u16 CountVertices;
-	u16 CountFaces; // = CountIndices/4
-	u16 CountTCoords;
+	float* Vertices;
+	uint16_t* Indices;
+	uint32_t* SmoothingGroups;
+	core::array<uint16_t> TempIndices;
+	float* TCoords;
+	uint16_t CountVertices;
+	uint16_t CountFaces; // = CountIndices/4
+	uint16_t CountTCoords;
 	core::array<SMaterialGroup> MaterialGroups;
 
 	SCurrentMaterial CurrentMaterial;
 	core::array<SCurrentMaterial> Materials;
-	core::array<core::stringc> MeshBufferNames;
+	core::array<std::string> MeshBufferNames;
 	core::matrix4 TransformationMatrix;
 
 	SMesh* Mesh;

@@ -20,10 +20,13 @@ class CBillboardSceneNode : virtual public IBillboardSceneNode
 public:
 
 	//! constructor
-	CBillboardSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
-		const core::vector3df& position, const core::dimension2d<f32>& size,
+	CBillboardSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
+		const core::vector3df& position, const core::dimension2d<float>& size,
 		video::SColor colorTop=video::SColor(0xFFFFFFFF),
 		video::SColor colorBottom=video::SColor(0xFFFFFFFF));
+
+    //!
+    virtual const bool supportsDriverFence() const {return true;}
 
 	//! pre render event
 	virtual void OnRegisterSceneNode();
@@ -32,24 +35,24 @@ public:
 	virtual void render();
 
 	//! returns the axis aligned bounding box of this node
-	virtual const core::aabbox3d<f32>& getBoundingBox() {return BBox;}
+	virtual const core::aabbox3d<float>& getBoundingBox() {return BBox;}
 
 	//! sets the size of the billboard
-	virtual void setSize(const core::dimension2d<f32>& size);
+	virtual void setSize(const core::dimension2d<float>& size);
 
 	//! Sets the widths of the top and bottom edges of the billboard independently.
-	virtual void setSize(f32 height, f32 bottomEdgeWidth, f32 topEdgeWidth);
+	virtual void setSize(float height, float bottomEdgeWidth, float topEdgeWidth);
 
  	//! gets the size of the billboard
- 	virtual const core::dimension2d<f32>& getSize() const {return Size;}
+ 	virtual const core::dimension2d<float>& getSize() const {return Size;}
 
 	//! Gets the widths of the top and bottom edges of the billboard.
-	virtual void getSize(f32& height, f32& bottomEdgeWidth, f32& topEdgeWidth) const;
+	virtual void getSize(float& height, float& bottomEdgeWidth, float& topEdgeWidth) const;
 
-	virtual video::SMaterial& getMaterial(u32 i) {return Material;}
+	virtual video::SMaterial& getMaterial(uint32_t i) {return Material;}
 
 	//! returns amount of materials used by this scene node.
-	virtual u32 getMaterialCount() const {return 1;}
+	virtual uint32_t getMaterialCount() const {return 1;}
 
 	//! Set the color of all vertices of the billboard
 	//! \param overallColor: the color to set
@@ -70,9 +73,9 @@ public:
 private:
 
 	//! Size.Width is the bottom edge width
-	core::dimension2d<f32> Size;
-	f32 TopEdgeWidth;
-	core::aabbox3d<f32> BBox;
+	core::dimension2d<float> Size;
+	float TopEdgeWidth;
+	core::aabbox3d<float> BBox;
 	video::SMaterial Material;
 
     video::IGPUBuffer* vertexBuffer;

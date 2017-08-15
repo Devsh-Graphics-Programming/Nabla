@@ -50,8 +50,8 @@
 #define AES_DECRYPT /* if support for decryption is needed          */
 #define AES_ERR_CHK /* for parameter checks & error return codes    */
 
-typedef irr::u8 aes_08t;
-typedef irr::u32 aes_32t;
+typedef uint8_t aes_08t;
+typedef uint32_t aes_32t;
 
 #define AES_BLOCK_SIZE  16  /* the AES block size in bytes          */
 #define N_COLS           4  /* the number of columns in the state   */
@@ -83,7 +83,7 @@ void gen_tabs(void);
 
 #ifdef  AES_ENCRYPT
 
-typedef struct  
+typedef struct
 {
 	aes_32t ks[KS_LENGTH];
 } aes_encrypt_ctx;
@@ -109,7 +109,7 @@ aes_rval aes_encrypt(const void *in_blk, void *out_blk, const aes_encrypt_ctx cx
 
 #ifdef AES_DECRYPT
 
-typedef struct  
+typedef struct
 {
 	aes_32t ks[KS_LENGTH];
 } aes_decrypt_ctx;

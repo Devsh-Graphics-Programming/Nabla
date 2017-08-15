@@ -33,14 +33,14 @@ bool CImageWriterPCX::isAWriteableFileExtension(const io::path& filename) const
 	return core::hasFileExtension ( filename, "pcx" );
 }
 
-bool CImageWriterPCX::writeImage(io::IWriteFile *file, IImage *image,u32 param) const
+bool CImageWriterPCX::writeImage(io::IWriteFile *file, IImage *image,uint32_t param) const
 {
 	if (!file || !image)
 		return false;
 
-	u8 d1;
-	u16 d2;
-	u32 i;
+	uint8_t d1;
+	uint16_t d2;
+	uint32_t i;
 
 	d1 = 10; // Manufacturer
 	file->write(&d1, 1);
@@ -106,14 +106,14 @@ bool CImageWriterPCX::writeImage(io::IWriteFile *file, IImage *image,u32 param) 
 		file->write(&d2, 2);
 	}
 
-	u8 cnt, value;
+	uint8_t cnt, value;
 	for (i=0; i<image->getDimension().Height; ++i)
 	{
 		cnt = 0;
 		value = 0;
-		for (u32 j=0; j<3; ++j) // color planes
+		for (uint32_t j=0; j<3; ++j) // color planes
 		{
-			for (u32 k=0; k<image->getDimension().Width; ++k)
+			for (uint32_t k=0; k<image->getDimension().Width; ++k)
 			{
 				const SColor pix = image->getPixel(k,i);
 				if ((cnt!=0) && (cnt<63) &&
@@ -136,11 +136,11 @@ bool CImageWriterPCX::writeImage(io::IWriteFile *file, IImage *image,u32 param) 
 					}
 					cnt=1;
 					if (j==0)
-						value=(u8)pix.getRed();
+						value=(uint8_t)pix.getRed();
 					else if (j==1)
-						value=(u8)pix.getGreen();
+						value=(uint8_t)pix.getGreen();
 					else if (j==2)
-						value=(u8)pix.getBlue();
+						value=(uint8_t)pix.getBlue();
 				}
 			}
 		}

@@ -14,8 +14,6 @@
 #include "CTarReader.h"
 #include "CWADReader.h"
 #include "CFileList.h"
-#include "CXMLReader.h"
-#include "CXMLWriter.h"
 #include "stdio.h"
 #include "os.h"
 #include "CMemoryFile.h"
@@ -87,7 +85,7 @@ CFileSystem::CFileSystem()
 //! destructor
 CFileSystem::~CFileSystem()
 {
-	u32 i;
+	uint32_t i;
 
 	for ( i=0; i < FileArchives.size(); ++i)
 	{
@@ -105,7 +103,7 @@ CFileSystem::~CFileSystem()
 IReadFile* CFileSystem::createAndOpenFile(const io::path& filename)
 {
 	IReadFile* file = 0;
-	u32 i;
+	uint32_t i;
 
 	for (i=0; i< FileArchives.size(); ++i)
 	{
@@ -121,7 +119,7 @@ IReadFile* CFileSystem::createAndOpenFile(const io::path& filename)
 
 
 //! Creates an IReadFile interface for treating memory like a file.
-IReadFile* CFileSystem::createMemoryReadFile(void* memory, s32 len,
+IReadFile* CFileSystem::createMemoryReadFile(void* memory, int32_t len,
 		const io::path& fileName, bool deleteMemoryWhenDropped)
 {
 	if (!memory)
@@ -143,7 +141,7 @@ IReadFile* CFileSystem::createLimitReadFile(const io::path& fileName,
 
 
 //! Creates an IReadFile interface for treating memory like a file.
-IWriteFile* CFileSystem::createMemoryWriteFile(void* memory, s32 len,
+IWriteFile* CFileSystem::createMemoryWriteFile(void* memory, int32_t len,
 		const io::path& fileName, bool deleteMemoryWhenDropped)
 {
 	if (!memory)
@@ -171,13 +169,13 @@ void CFileSystem::addArchiveLoader(IArchiveLoader* loader)
 }
 
 //! Returns the total number of archive loaders added.
-u32 CFileSystem::getArchiveLoaderCount() const
+uint32_t CFileSystem::getArchiveLoaderCount() const
 {
 	return ArchiveLoader.size();
 }
 
 //! Gets the archive loader by index.
-IArchiveLoader* CFileSystem::getArchiveLoader(u32 index) const
+IArchiveLoader* CFileSystem::getArchiveLoader(uint32_t index) const
 {
 	if (index < ArchiveLoader.size())
 		return ArchiveLoader[index];
@@ -186,15 +184,15 @@ IArchiveLoader* CFileSystem::getArchiveLoader(u32 index) const
 }
 
 //! move the hirarchy of the filesystem. moves sourceIndex relative up or down
-bool CFileSystem::moveFileArchive(u32 sourceIndex, s32 relative)
+bool CFileSystem::moveFileArchive(uint32_t sourceIndex, int32_t relative)
 {
 	bool r = false;
-	const s32 dest = (s32) sourceIndex + relative;
-	const s32 dir = relative < 0 ? -1 : 1;
-	const s32 sourceEnd = ((s32) FileArchives.size() ) - 1;
+	const int32_t dest = (int32_t) sourceIndex + relative;
+	const int32_t dir = relative < 0 ? -1 : 1;
+	const int32_t sourceEnd = ((int32_t) FileArchives.size() ) - 1;
 	IFileArchive *t;
 
-	for (s32 s = (s32) sourceIndex;s != dest; s += dir)
+	for (int32_t s = (int32_t) sourceIndex;s != dest; s += dir)
 	{
 		if (s < 0 || s > sourceEnd || s + dir < 0 || s + dir > sourceEnd)
 			continue;
@@ -221,7 +219,7 @@ bool CFileSystem::addFileArchive(const io::path& filename, bool ignoreCase,
 	if (changeArchivePassword(filename, password, retArchive))
 		return true;
 
-	s32 i;
+	int32_t i;
 
 	// do we know what type it should be?
 	if (archiveType == EFAT_UNKNOWN || archiveType == EFAT_FOLDER)
@@ -309,10 +307,9 @@ bool CFileSystem::addFileArchive(const io::path& filename, bool ignoreCase,
 	}
 	else
 	{
-		os::Printer::log("Could not create archive for", filename, ELL_ERROR);
+		os::Printer::log("Could not create archive for", std::string(filename.c_str()), ELL_ERROR);
 	}
 
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 	return ret;
 }
 
@@ -321,7 +318,7 @@ bool CFileSystem::changeArchivePassword(const path& filename,
 		const core::stringc& password,
 		IFileArchive** archive)
 {
-	for (s32 idx = 0; idx < (s32)FileArchives.size(); ++idx)
+	for (int32_t idx = 0; idx < (int32_t)FileArchives.size(); ++idx)
 	{
 		// TODO: This should go into a path normalization method
 		// We need to check for directory names with trailing slash and without
@@ -353,7 +350,7 @@ bool CFileSystem::addFileArchive(IReadFile* file, bool ignoreCase,
 			return true;
 
 		IFileArchive* archive = 0;
-		s32 i;
+		int32_t i;
 
 		if (archiveType == EFAT_UNKNOWN)
 		{
@@ -415,7 +412,7 @@ bool CFileSystem::addFileArchive(IReadFile* file, bool ignoreCase,
 		}
 		else
 		{
-			os::Printer::log("Could not create archive for", file->getFileName(), ELL_ERROR);
+			os::Printer::log("Could not create archive for", file->getFileName().c_str(), ELL_ERROR);
 		}
 	}
 
@@ -426,13 +423,10 @@ bool CFileSystem::addFileArchive(IReadFile* file, bool ignoreCase,
 //! Adds an archive to the file system.
 bool CFileSystem::addFileArchive(IFileArchive* archive)
 {
-	for (u32 i=0; i < FileArchives.size(); ++i)
+	for (uint32_t i=0; i < FileArchives.size(); ++i)
 	{
 		if (archive == FileArchives[i])
-		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return false;
-		}
 	}
 	FileArchives.push_back(archive);
 	return true;
@@ -440,7 +434,7 @@ bool CFileSystem::addFileArchive(IFileArchive* archive)
 
 
 //! removes an archive from the file system.
-bool CFileSystem::removeFileArchive(u32 index)
+bool CFileSystem::removeFileArchive(uint32_t index)
 {
 	bool ret = false;
 	if (index < FileArchives.size())
@@ -449,7 +443,7 @@ bool CFileSystem::removeFileArchive(u32 index)
 		FileArchives.erase(index);
 		ret = true;
 	}
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
+
 	return ret;
 }
 
@@ -458,12 +452,12 @@ bool CFileSystem::removeFileArchive(u32 index)
 bool CFileSystem::removeFileArchive(const io::path& filename)
 {
 	const path absPath = getAbsolutePath(filename);
-	for (u32 i=0; i < FileArchives.size(); ++i)
+	for (uint32_t i=0; i < FileArchives.size(); ++i)
 	{
 		if (absPath == FileArchives[i]->getFileList()->getPath())
 			return removeFileArchive(i);
 	}
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
+
 	return false;
 }
 
@@ -471,27 +465,24 @@ bool CFileSystem::removeFileArchive(const io::path& filename)
 //! Removes an archive from the file system.
 bool CFileSystem::removeFileArchive(const IFileArchive* archive)
 {
-	for (u32 i=0; i < FileArchives.size(); ++i)
+	for (uint32_t i=0; i < FileArchives.size(); ++i)
 	{
 		if (archive == FileArchives[i])
-		{
-			_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 			return removeFileArchive(i);
-		}
 	}
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
+
 	return false;
 }
 
 
 //! gets an archive
-u32 CFileSystem::getFileArchiveCount() const
+uint32_t CFileSystem::getFileArchiveCount() const
 {
 	return FileArchives.size();
 }
 
 
-IFileArchive* CFileSystem::getFileArchive(u32 index)
+IFileArchive* CFileSystem::getFileArchive(uint32_t index)
 {
 	return index < getFileArchiveCount() ? FileArchives[index] : 0;
 }
@@ -511,7 +502,7 @@ const io::path& CFileSystem::getWorkingDirectory()
 		#if defined(_IRR_WINDOWS_CE_PLATFORM_)
 		// does not need this
 		#elif defined(_IRR_WINDOWS_API_)
-			fschar_t tmp[_MAX_PATH];
+			char tmp[_MAX_PATH];
 			#if defined(_IRR_WCHAR_FILESYSTEM )
 				_wgetcwd(tmp, _MAX_PATH);
 				WorkingDirectory[FILESYSTEM_NATIVE] = tmp;
@@ -530,7 +521,7 @@ const io::path& CFileSystem::getWorkingDirectory()
 			// Note that neither the first nor the second parameter may be 0 according to POSIX
 
 			#if defined(_IRR_WCHAR_FILESYSTEM )
-				u32 pathSize=256;
+				uint32_t pathSize=256;
 				wchar_t *tmpPath = new wchar_t[pathSize];
 				while ((pathSize < (1<<16)) && !(wgetcwd(tmpPath,pathSize)))
 				{
@@ -544,7 +535,7 @@ const io::path& CFileSystem::getWorkingDirectory()
 					delete [] tmpPath;
 				}
 			#else
-				u32 pathSize=256;
+				uint32_t pathSize=256;
 				char *tmpPath = new char[pathSize];
 				while ((pathSize < (1<<16)) && !(getcwd(tmpPath,pathSize)))
 				{
@@ -609,8 +600,8 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 #if defined(_IRR_WINDOWS_CE_PLATFORM_)
 	return filename;
 #elif defined(_IRR_WINDOWS_API_)
-	fschar_t *p=0;
-	fschar_t fpath[_MAX_PATH];
+	char *p=0;
+	char fpath[_MAX_PATH];
 	#if defined(_IRR_WCHAR_FILESYSTEM )
 		p = _wfullpath(fpath, filename.c_str(), _MAX_PATH);
 		core::stringw tmp(p);
@@ -622,8 +613,8 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 	#endif
 	return tmp;
 #elif (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
-	c8* p=0;
-	c8 fpath[4096];
+	char* p=0;
+	char fpath[4096];
 	fpath[0]=0;
 	p = realpath(filename.c_str(), fpath);
 	if (!p)
@@ -653,11 +644,11 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 io::path CFileSystem::getFileDir(const io::path& filename) const
 {
 	// find last forward or backslash
-	s32 lastSlash = filename.findLast('/');
-	const s32 lastBackSlash = filename.findLast('\\');
+	int32_t lastSlash = filename.findLast('/');
+	const int32_t lastBackSlash = filename.findLast('\\');
 	lastSlash = lastSlash > lastBackSlash ? lastSlash : lastBackSlash;
 
-	if ((u32)lastSlash < filename.size())
+	if ((uint32_t)lastSlash < filename.size())
 		return filename.subString(0, lastSlash);
 	else
 		return _IRR_TEXT(".");
@@ -669,12 +660,12 @@ io::path CFileSystem::getFileDir(const io::path& filename) const
 io::path CFileSystem::getFileBasename(const io::path& filename, bool keepExtension) const
 {
 	// find last forward or backslash
-	s32 lastSlash = filename.findLast('/');
-	const s32 lastBackSlash = filename.findLast('\\');
+	int32_t lastSlash = filename.findLast('/');
+	const int32_t lastBackSlash = filename.findLast('\\');
 	lastSlash = core::max_(lastSlash, lastBackSlash);
 
 	// get number of chars after last dot
-	s32 end = 0;
+	int32_t end = 0;
 	if (!keepExtension)
 	{
 		// take care to search only after last slash to check only for
@@ -686,7 +677,7 @@ io::path CFileSystem::getFileBasename(const io::path& filename, bool keepExtensi
 			end = filename.size()-end;
 	}
 
-	if ((u32)lastSlash < filename.size())
+	if ((uint32_t)lastSlash < filename.size())
 		return filename.subString(lastSlash+1, filename.size()-lastSlash-1-end);
 	else if (end != 0)
 		return filename.subString(0, filename.size()-end);
@@ -705,8 +696,8 @@ io::path& CFileSystem::flattenFilename(io::path& directory, const io::path& root
 	io::path dir;
 	io::path subdir;
 
-	s32 lastpos = 0;
-	s32 pos = 0;
+	int32_t lastpos = 0;
+	int32_t pos = 0;
 	bool lastWasRealDir=false;
 
 	while ((pos = directory.findNext('/', lastpos)) >= 0)
@@ -755,13 +746,13 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 	core::list<io::path> list1, list2;
 	path1.split(list1, _IRR_TEXT("/\\"), 2);
 	path2.split(list2, _IRR_TEXT("/\\"), 2);
-	u32 i=0;
+	uint32_t i=0;
 	core::list<io::path>::ConstIterator it1,it2;
 	it1=list1.begin();
 	it2=list2.begin();
 
 	#if defined (_IRR_WINDOWS_API_)
-	fschar_t partition1 = 0, partition2 = 0;
+	char partition1 = 0, partition2 = 0;
 	io::path prefix1, prefix2;
 	if ( it1 != list1.end() )
 		prefix1 = *it1;
@@ -796,13 +787,13 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 		path1 += _IRR_TEXT("../");
 	while (it1 != list1.end())
 	{
-		path1 += *it1++;
-		path1 += _IRR_TEXT('/');
+		path1.append(*it1++);
+		path1.append(_IRR_TEXT('/'));
 	}
 	path1 += file;
 	if (ext.size())
 	{
-		path1 += _IRR_TEXT('.');
+		path1.append(_IRR_TEXT('.'));
 		path1 += ext;
 	}
 	return path1;
@@ -879,7 +870,7 @@ IFileList* CFileSystem::createFileList()
 			struct dirent *dirEntry;
 			while ((dirEntry=readdir(dirHandle)))
 			{
-				u32 size = 0;
+				uint32_t size = 0;
 				bool isDirectory = false;
 
 				if((strcmp(dirEntry->d_name, ".")==0) ||
@@ -923,11 +914,11 @@ IFileList* CFileSystem::createFileList()
 		r->addItem(Path + _IRR_TEXT(".."), 0, 0, true, 0);
 
 		//! merge archives
-		for (u32 i=0; i < FileArchives.size(); ++i)
+		for (uint32_t i=0; i < FileArchives.size(); ++i)
 		{
 			const IFileList *merge = FileArchives[i]->getFileList();
 
-			for (u32 j=0; j < merge->getFileCount(); ++j)
+			for (uint32_t j=0; j < merge->getFileCount(); ++j)
 			{
 				if (core::isInSameDirectory(Path, merge->getFullFileName(j)) == 0)
 				{
@@ -952,7 +943,7 @@ IFileList* CFileSystem::createEmptyFileList(const io::path& path, bool ignoreCas
 //! determines if a file exists and would be able to be opened.
 bool CFileSystem::existFile(const io::path& filename) const
 {
-	for (u32 i=0; i < FileArchives.size(); ++i)
+	for (uint32_t i=0; i < FileArchives.size(); ++i)
 		if (FileArchives[i]->getFileList()->findFile(filename)!=-1)
 			return true;
 
@@ -970,7 +961,6 @@ bool CFileSystem::existFile(const io::path& filename) const
 		return true;
 	}
 #else
-	_IRR_IMPLEMENT_MANAGED_MARSHALLING_BUGFIX;
 #if defined(_MSC_VER)
     #if defined(_IRR_WCHAR_FILESYSTEM)
         return (_waccess(filename.c_str(), 0) != -1);
@@ -989,72 +979,6 @@ bool CFileSystem::existFile(const io::path& filename) const
 #endif
 }
 
-
-//! Creates a XML Reader from a file.
-IXMLReader* CFileSystem::createXMLReader(const io::path& filename)
-{
-	IReadFile* file = createAndOpenFile(filename);
-	if (!file)
-		return 0;
-
-	IXMLReader* reader = createXMLReader(file);
-	file->drop();
-	return reader;
-}
-
-
-//! Creates a XML Reader from a file.
-IXMLReader* CFileSystem::createXMLReader(IReadFile* file)
-{
-	if (!file)
-		return 0;
-
-	return createIXMLReader(file);
-}
-
-
-//! Creates a XML Reader from a file.
-IXMLReaderUTF8* CFileSystem::createXMLReaderUTF8(const io::path& filename)
-{
-	IReadFile* file = createAndOpenFile(filename);
-	if (!file)
-		return 0;
-
-	IXMLReaderUTF8* reader = createIXMLReaderUTF8(file);
-	file->drop();
-	return reader;
-}
-
-
-//! Creates a XML Reader from a file.
-IXMLReaderUTF8* CFileSystem::createXMLReaderUTF8(IReadFile* file)
-{
-	if (!file)
-		return 0;
-
-	return createIXMLReaderUTF8(file);
-}
-
-
-//! Creates a XML Writer from a file.
-IXMLWriter* CFileSystem::createXMLWriter(const io::path& filename)
-{
-	IWriteFile* file = createAndWriteFile(filename);
-	IXMLWriter* writer = 0;
-	if (file)
-	{
-		writer = createXMLWriter(file);
-		file->drop();
-	}
-	return writer;
-}
-
-
-//! Creates a XML Writer from a file.
-IXMLWriter* CFileSystem::createXMLWriter(IWriteFile* file)
-{
-	return new CXMLWriter(file);
-}
 
 
 //! creates a filesystem which is able to open files from the ordinary file system,

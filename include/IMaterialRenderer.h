@@ -89,7 +89,7 @@ public:
 	it cannot use the latest shaders. More specific examples:
 	Fixed function pipeline materials should return 0 in most cases, parallax mapped
 	material will only return 0 when at least pixel shader 1.4 is available on that machine. */
-	virtual s32 getRenderCapability() const { return 0; }
+	virtual int32_t getRenderCapability() const { return 0; }
 };
 
 

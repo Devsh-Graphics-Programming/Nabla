@@ -27,8 +27,12 @@ class COpenGLTextureBufferObject : public COpenGLTexture
 public:
 
 	//! constructor
-	COpenGLTextureBufferObject(COpenGLBuffer* buffer, GLenum internalFormat, video::COpenGLDriver* driver, const size_t& offset=0, const size_t& length=0, const io::path& name="") : COpenGLTexture(name,driver),  lastValidated(0), currentBuffer(NULL), Offset(0), Length(0)
+	COpenGLTextureBufferObject(COpenGLBuffer* buffer, GLenum internalFormat, video::COpenGLDriver* driver, const size_t& offset=0, const size_t& length=0, const io::path& name="", core::LeakDebugger* dbgr=NULL)
+                                : COpenGLTexture(name,driver),  lastValidated(0), currentBuffer(NULL), Offset(0), Length(0), leakTracker(dbgr)
 	{
+	    if (leakTracker)
+            leakTracker->registerObj(this);
+
 	    HasMipMaps = false;
 	    MipLevelsStored = 1;
         COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_BUFFER,1,&TextureName);
@@ -40,6 +44,9 @@ public:
 
 	virtual ~COpenGLTextureBufferObject()
 	{
+	    if (leakTracker)
+            leakTracker->deregisterObj(this);
+
 	    if (currentBuffer)
             currentBuffer->drop();
 	}
@@ -53,7 +60,7 @@ public:
     virtual core::dimension2du getRenderableSize() const {return core::dimension2du(0,0);}
 
 	//! returns pitch of texture (in bytes)
-	virtual u32 getPitch() const {return Length;}
+	virtual uint32_t getPitch() const {return Length;}
 
 	GLint getOpenGLInternalFormat() const {return InternalFormat;}
 
@@ -69,8 +76,8 @@ public:
 	virtual void regenerateMipMapLevels() {}
 
 
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0) {return false;}
-    virtual bool resize(const uint32_t* size, const u32& mipLevels=0) {return false;}
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0) {return false;}
+    virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
 
     inline bool bind(COpenGLBuffer* buffer, GLenum internalFormat, const size_t& offset=0, const size_t& length=0)
     {
@@ -136,6 +143,8 @@ protected:
     uint64_t lastValidated;
     COpenGLBuffer* currentBuffer;
     size_t Length,Offset;
+
+    core::LeakDebugger* leakTracker;
 };
 
 

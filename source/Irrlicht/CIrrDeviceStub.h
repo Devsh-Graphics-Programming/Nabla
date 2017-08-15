@@ -31,12 +31,12 @@ namespace irr
 
 	namespace video
 	{
-		IVideoDriver* createSoftwareDriver(const core::dimension2d<u32>& windowSize,
+		IVideoDriver* createSoftwareDriver(const core::dimension2d<uint32_t>& windowSize,
 				bool fullscreen, io::IFileSystem* io,
 				video::IImagePresenter* presenter);
 		IVideoDriver* createBurningVideoDriver(const irr::SIrrlichtCreationParameters& params,
 				io::IFileSystem* io, video::IImagePresenter* presenter);
-		IVideoDriver* createNullDriver(io::IFileSystem* io, const core::dimension2d<u32>& screenSize);
+		IVideoDriver* createNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 	}
 
 
@@ -112,10 +112,10 @@ namespace irr
 
 		//! Set the maximal elapsed time between 2 clicks to generate doubleclicks for the mouse. It also affects tripleclick behavior.
 		//! When set to 0 no double- and tripleclicks will be generated.
-		virtual void setDoubleClickTime( u32 timeMs );
+		virtual void setDoubleClickTime( uint32_t timeMs );
 
 		//! Get the maximal elapsed time between 2 clicks to generate double- and tripleclicks for the mouse.
-		virtual u32 getDoubleClickTime() const;
+		virtual uint32_t getDoubleClickTime() const;
 
 		//! Remove all messages pending in the system message loop
 		virtual void clearSystemMessages();
@@ -130,10 +130,10 @@ namespace irr
 
 		//! Compares to the last call of this function to return double and triple clicks.
 		//! \return Returns only 1,2 or 3. A 4th click will start with 1 again.
-		virtual u32 checkSuccessiveClicks(s32 mouseX, s32 mouseY, EMOUSE_INPUT_EVENT inputEvent );
+		virtual uint32_t checkSuccessiveClicks(int32_t mouseX, int32_t mouseY, EMOUSE_INPUT_EVENT inputEvent );
 
-		void calculateGammaRamp ( u16 *ramp, f32 gamma, f32 relativebrightness, f32 relativecontrast );
-		void calculateGammaFromRamp ( f32 &gamma, const u16 *ramp );
+		void calculateGammaRamp ( uint16_t *ramp, float gamma, float relativebrightness, float relativecontrast );
+		void calculateGammaFromRamp ( float &gamma, const uint16_t *ramp );
 
 		video::IVideoDriver* VideoDriver;
 		scene::ISceneManager* SceneManager;
@@ -152,9 +152,9 @@ namespace irr
 				: DoubleClickTime(500), CountSuccessiveClicks(0), LastClickTime(0), LastMouseInputEvent(EMIE_COUNT)
 			{}
 
-			u32 DoubleClickTime;
-			u32 CountSuccessiveClicks;
-			u32 LastClickTime;
+			uint32_t DoubleClickTime;
+			uint32_t CountSuccessiveClicks;
+			uint32_t LastClickTime;
 			core::position2di LastClick;
 			EMOUSE_INPUT_EVENT LastMouseInputEvent;
 		};

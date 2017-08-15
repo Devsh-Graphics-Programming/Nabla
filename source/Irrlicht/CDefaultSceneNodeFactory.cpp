@@ -8,7 +8,6 @@
 #include "ICameraSceneNode.h"
 #include "IBillboardSceneNode.h"
 #include "IAnimatedMeshSceneNode.h"
-#include "ILightSceneNode.h"
 #include "IMeshSceneNode.h"
 
 namespace irr
@@ -34,7 +33,6 @@ CDefaultSceneNodeFactory::CDefaultSceneNodeFactory(ISceneManager* mgr)
 	SupportedSceneNodeTypes.push_back(SSceneNodeTypePair(ESNT_SHADOW_VOLUME, "shadowVolume"));
 	// Legacy support;
 	SupportedSceneNodeTypes.push_back(SSceneNodeTypePair(ESNT_MESH, "mesh"));
-	SupportedSceneNodeTypes.push_back(SSceneNodeTypePair(ESNT_LIGHT, "light"));
 	SupportedSceneNodeTypes.push_back(SSceneNodeTypePair(ESNT_EMPTY, "empty"));
 	SupportedSceneNodeTypes.push_back(SSceneNodeTypePair(ESNT_DUMMY_TRANSFORMATION, "dummyTransformation"));
 	SupportedSceneNodeTypes.push_back(SSceneNodeTypePair(ESNT_CAMERA, "camera"));
@@ -66,8 +64,6 @@ ISceneNode* CDefaultSceneNodeFactory::addSceneNode(ESCENE_NODE_TYPE type, IDummy
 	case ESNT_MESH:
 		return Manager->addMeshSceneNode(0, parent, -1, core::vector3df(),
 										 core::vector3df(), core::vector3df(1,1,1), true);
-	case ESNT_LIGHT:
-		return Manager->addLightSceneNode(parent);
 	case ESNT_EMPTY:
 		return Manager->addEmptySceneNode(parent);/*
 	case ESNT_DUMMY_TRANSFORMATION:
@@ -95,21 +91,21 @@ ISceneNode* CDefaultSceneNodeFactory::addSceneNode(ESCENE_NODE_TYPE type, IDummy
 
 
 //! adds a scene node to the scene graph based on its type name
-ISceneNode* CDefaultSceneNodeFactory::addSceneNode(const c8* typeName, IDummyTransformationSceneNode* parent)
+ISceneNode* CDefaultSceneNodeFactory::addSceneNode(const char* typeName, IDummyTransformationSceneNode* parent)
 {
 	return addSceneNode( getTypeFromName(typeName), parent );
 }
 
 
 //! returns amount of scene node types this factory is able to create
-u32 CDefaultSceneNodeFactory::getCreatableSceneNodeTypeCount() const
+uint32_t CDefaultSceneNodeFactory::getCreatableSceneNodeTypeCount() const
 {
 	return SupportedSceneNodeTypes.size();
 }
 
 
 //! returns type of a createable scene node type
-ESCENE_NODE_TYPE CDefaultSceneNodeFactory::getCreateableSceneNodeType(u32 idx) const
+ESCENE_NODE_TYPE CDefaultSceneNodeFactory::getCreateableSceneNodeType(uint32_t idx) const
 {
 	if (idx<SupportedSceneNodeTypes.size())
 		return SupportedSceneNodeTypes[idx].Type;
@@ -119,7 +115,7 @@ ESCENE_NODE_TYPE CDefaultSceneNodeFactory::getCreateableSceneNodeType(u32 idx) c
 
 
 //! returns type name of a createable scene node type
-const c8* CDefaultSceneNodeFactory::getCreateableSceneNodeTypeName(u32 idx) const
+const char* CDefaultSceneNodeFactory::getCreateableSceneNodeTypeName(uint32_t idx) const
 {
 	if (idx<SupportedSceneNodeTypes.size())
 		return SupportedSceneNodeTypes[idx].TypeName.c_str();
@@ -129,9 +125,9 @@ const c8* CDefaultSceneNodeFactory::getCreateableSceneNodeTypeName(u32 idx) cons
 
 
 //! returns type name of a createable scene node type
-const c8* CDefaultSceneNodeFactory::getCreateableSceneNodeTypeName(ESCENE_NODE_TYPE type) const
+const char* CDefaultSceneNodeFactory::getCreateableSceneNodeTypeName(ESCENE_NODE_TYPE type) const
 {
-	for (u32 i=0; i<SupportedSceneNodeTypes.size(); ++i)
+	for (uint32_t i=0; i<SupportedSceneNodeTypes.size(); ++i)
 		if (SupportedSceneNodeTypes[i].Type == type)
 			return SupportedSceneNodeTypes[i].TypeName.c_str();
 
@@ -139,9 +135,9 @@ const c8* CDefaultSceneNodeFactory::getCreateableSceneNodeTypeName(ESCENE_NODE_T
 }
 
 
-ESCENE_NODE_TYPE CDefaultSceneNodeFactory::getTypeFromName(const c8* name) const
+ESCENE_NODE_TYPE CDefaultSceneNodeFactory::getTypeFromName(const char* name) const
 {
-	for (u32 i=0; i<SupportedSceneNodeTypes.size(); ++i)
+	for (uint32_t i=0; i<SupportedSceneNodeTypes.size(); ++i)
 		if (SupportedSceneNodeTypes[i].TypeName == name)
 			return SupportedSceneNodeTypes[i].Type;
 

@@ -2,7 +2,7 @@
 #define __C_OPENCL_HANDLER_H__
 
 #include "IrrCompileConfig.h"
-#include "irrString.h"
+#include <string>
 
 #ifdef _IRR_COMPILE_WITH_OPENCL_
 
@@ -41,18 +41,18 @@ class COpenCLHandler
                 class SOpenCLDeviceInfo
                 {
                     public:
-                        core::stringc Name;
-                        core::stringc ReportedExtensions;
+                        std::string Name;
+                        std::string ReportedExtensions;
 
                         uint32_t    MaxComputeUnits;
                         size_t      MaxWorkGroupSize;
                         size_t      ProbableUnifiedShaders;
                 };
 
-                core::stringc Vendor;
-                core::stringc Name;
+                std::string Vendor;
+                std::string Name;
                 uint32_t Version;
-                core::stringc ReportedExtensions;
+                std::string ReportedExtensions;
                 bool FeatureAvailable[IRR_OpenCL_Feature_Count];
 
                 cl_device_id devices[IRR_MAX_OCL_DEVICES];
@@ -70,7 +70,17 @@ class COpenCLHandler
             pClGetGLContextInfoKHR = (clGetGLContextInfoKHR_fn)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
 #endif // defined
 
-            if (clGetPlatformIDs(IRR_MAX_OCL_PLATFORMS,platforms,&actualPlatformCount)!=CL_SUCCESS)
+            cl_int retval = -0x80000000;
+            //try
+            //{
+                retval = clGetPlatformIDs(IRR_MAX_OCL_PLATFORMS,platforms,&actualPlatformCount);
+            //}
+            //catch ()
+            //{
+                //
+            //}
+
+            if (retval!=CL_SUCCESS)
                 return false;
 
             //printf("Found %d OpenCL Platforms\n",actualPlatformCount);
@@ -90,17 +100,17 @@ class COpenCLHandler
 
                 actualSize = 0;
                 clGetPlatformInfo(platforms[i],CL_PLATFORM_VENDOR,128*1024,tmpBuf,&actualSize);
-                info.Vendor = core::stringc(tmpBuf,actualSize);
+                info.Vendor = std::string(tmpBuf,actualSize);
                 //printf("VENDOR = %s\n",tmpBuf);
 
                 actualSize = 0;
                 clGetPlatformInfo(platforms[i],CL_PLATFORM_EXTENSIONS,128*1024,tmpBuf,&actualSize);
-                info.ReportedExtensions = core::stringc(tmpBuf,actualSize);
+                info.ReportedExtensions = std::string(tmpBuf,actualSize);
                 //printf("CL_PLATFORM_EXTENSIONS = %s\n",tmpBuf);
 
                 actualSize = 0;
                 clGetPlatformInfo(platforms[i],CL_PLATFORM_NAME,128*1024,tmpBuf,&actualSize);
-                info.Name = core::stringc(tmpBuf,actualSize);
+                info.Name = std::string(tmpBuf,actualSize);
                 //printf("NAME = %s\n",tmpBuf);
 
                 actualSize = 0;
@@ -138,7 +148,7 @@ class COpenCLHandler
                 {
                     if (tmpBuf[k]==' '&&k>j)
                     {
-                        core::stringc extension(tmpBuf+j,k-j);
+                        std::string extension(tmpBuf+j,k-j);
                         j = k+1;
                         for (size_t m=0; m<SOpenCLPlatformInfo::IRR_OpenCL_Feature_Count; m++)
                         {
@@ -152,7 +162,7 @@ class COpenCLHandler
                 }
                 if (j<actualSize)
                 {
-                    core::stringc extension(tmpBuf+j,actualSize-j);
+                    std::string extension(tmpBuf+j,actualSize-j);
                     for (size_t m=0; m<SOpenCLPlatformInfo::IRR_OpenCL_Feature_Count; m++)
                     {
                         if (extension==OpenCLFeatureStrings[m])
@@ -171,12 +181,12 @@ class COpenCLHandler
                 {
                     size_t tmpSize;
                     clGetDeviceInfo(info.devices[j],CL_DEVICE_NAME,128*1024,tmpBuf,&tmpSize);
-                    info.deviceInformation[j].Name = core::stringc(tmpBuf,tmpSize);
+                    info.deviceInformation[j].Name = std::string(tmpBuf,tmpSize);
                     //printf("Device Name: %s\n",tmpBuf);
 
                     tmpSize = 0;
                     clGetDeviceInfo(info.devices[j],CL_DEVICE_EXTENSIONS,128*1024,tmpBuf,&tmpSize);
-                    info.deviceInformation[j].ReportedExtensions = core::stringc(tmpBuf,tmpSize);
+                    info.deviceInformation[j].ReportedExtensions = std::string(tmpBuf,tmpSize);
                     //printf("Device Extensions: %s\n",tmpBuf);
 
                     clGetDeviceInfo(info.devices[j],CL_DEVICE_MAX_COMPUTE_UNITS,4,&info.deviceInformation[j].MaxComputeUnits,&tmpSize);

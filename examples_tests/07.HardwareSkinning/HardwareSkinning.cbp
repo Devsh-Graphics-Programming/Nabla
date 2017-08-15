@@ -53,10 +53,12 @@
 					<Add option="-msse3" />
 					<Add option="-mfpmath=sse" />
 					<Add option="-ggdb3" />
+					<Add option="-fsanitize=address" />
 					<Add option="-D_AMD64_" />
 				</Compiler>
 				<Linker>
 					<Add option="-msse3" />
+					<Add option="-fsanitize=address" />
 					<Add library="Irrlicht" />
 					<Add library="Xrandr" />
 					<Add library="GL" />

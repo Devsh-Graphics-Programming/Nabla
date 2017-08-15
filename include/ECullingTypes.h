@@ -24,7 +24,7 @@ namespace scene
 	};
 
 	//! Names for culling type
-	const c8* const AutomaticCullingNames[] =
+	const char* const AutomaticCullingNames[] =
 	{
 		"false",
 		"box",			// camera box against node box

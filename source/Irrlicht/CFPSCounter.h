@@ -9,40 +9,40 @@
 
 namespace irr
 {
-namespace video  
+namespace video
 {
 
 
-class CFPSCounter  
+class CFPSCounter
 {
 public:
 	CFPSCounter();
 
 	//! returns current fps
-	s32 getFPS() const;
+	int32_t getFPS() const;
 
 	//! returns primitive count
-	u32 getPrimitive() const;
+	uint32_t getPrimitive() const;
 
 	//! returns average primitive count of last period
-	u32 getPrimitiveAverage() const;
+	uint32_t getPrimitiveAverage() const;
 
 	//! returns accumulated primitive count since start
-	u32 getPrimitiveTotal() const;
+	uint32_t getPrimitiveTotal() const;
 
 	//! to be called every frame
-	void registerFrame(u32 now, u32 primitive);
+	void registerFrame(uint32_t now, uint32_t primitive);
 
 private:
 
-	s32 FPS;
-	u32 Primitive;
-	u32 StartTime;
+	int32_t FPS;
+	uint32_t Primitive;
+	uint32_t StartTime;
 
-	u32 FramesCounted;
-	u32 PrimitivesCounted;
-	u32 PrimitiveAverage;
-	u32 PrimitiveTotal;
+	uint32_t FramesCounted;
+	uint32_t PrimitivesCounted;
+	uint32_t PrimitiveAverage;
+	uint32_t PrimitiveTotal;
 };
 
 
@@ -50,5 +50,5 @@ private:
 } // end namespace irr
 
 
-#endif 
+#endif
 

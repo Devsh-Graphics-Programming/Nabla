@@ -50,11 +50,11 @@ private:
 		E_PLY_PROPERTY_TYPE Type;
 		union
 		{
-			u8  Int8;
-			u16 Int16;
-			u32 Int32;
-			f32 Float32;
-			f64 Double;
+			uint8_t  Int8;
+			uint16_t Int16;
+			uint32_t Int32;
+			float Float32;
+			double Double;
 			struct SPLYListProperty
 			{
 				E_PLY_PROPERTY_TYPE CountType;
@@ -63,7 +63,7 @@ private:
 
 		} Data;
 
-		inline u32 size() const
+		inline uint32_t size() const
 		{
 			switch(Type)
 			{
@@ -107,37 +107,37 @@ private:
 		// but we have to parse the others anyway.
 		core::stringc Name;
 		// The number of elements in the file
-		u32 Count;
+		uint32_t Count;
 		// Properties of this element
 		core::array<SPLYProperty> Properties;
 		// in binary files, true if this is a fixed size
 		bool IsFixedWidth;
 		// known size in bytes, 0 if unknown
-		u32 KnownSize;
+		uint32_t KnownSize;
 	};
 
 	bool allocateBuffer();
-	c8* getNextLine();
-	c8* getNextWord();
+	int8_t* getNextLine();
+	int8_t* getNextWord();
 	void fillBuffer();
-	E_PLY_PROPERTY_TYPE getPropertyType(const c8* typeString) const;
+	E_PLY_PROPERTY_TYPE getPropertyType(const int8_t* typeString) const;
 
 	bool readVertex(const SPLYElement &Element, scene::CDynamicMeshBuffer* mb);
 	bool readFace(const SPLYElement &Element, scene::CDynamicMeshBuffer* mb);
 	void skipElement(const SPLYElement &Element);
 	void skipProperty(const SPLYProperty &Property);
-	f32 getFloat(E_PLY_PROPERTY_TYPE t);
-	u32 getInt(E_PLY_PROPERTY_TYPE t);
-	void moveForward(u32 bytes);
+	float getFloat(E_PLY_PROPERTY_TYPE t);
+	uint32_t getInt(E_PLY_PROPERTY_TYPE t);
+	void moveForward(uint32_t bytes);
 
 	core::array<SPLYElement*> ElementList;
 
 	scene::ISceneManager* SceneManager;
 	io::IReadFile *File;
-	c8 *Buffer;
+	int8_t *Buffer;
 	bool IsBinaryFile, IsWrongEndian, EndOfFile;
-	s32 LineLength, WordLength;
-	c8 *StartPointer, *EndPointer, *LineEndPointer;
+	int32_t LineLength, WordLength;
+	int8_t *StartPointer, *EndPointer, *LineEndPointer;
 };
 
 } // end namespace scene

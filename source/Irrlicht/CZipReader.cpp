@@ -5,11 +5,14 @@
 #include "CZipReader.h"
 
 #include "os.h"
+#include <sstream>
 
 // This method is used for error output from bzip2.
 extern "C" void bz_internal_error(int errorCode)
 {
-	irr::os::Printer::log("Error in bzip2 handling", irr::core::stringc(errorCode), irr::ELL_ERROR);
+    std::ostringstream tmp;
+    tmp << errorCode;
+	irr::os::Printer::log("Error in bzip2 handling", tmp.str().c_str(), irr::ELL_ERROR);
 }
 
 #ifdef __IRR_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
@@ -100,7 +103,7 @@ IFileArchive* CArchiveLoaderZIP::createArchive(io::IReadFile* file, bool ignoreC
 	{
 		file->seek(0);
 
-		u16 sig;
+		uint16_t sig;
 		file->read(&sig, 2);
 
 #ifdef __BIG_ENDIAN__
@@ -204,7 +207,7 @@ bool CZipReader::scanGZipHeader()
 		if (header.flags & EGZF_EXTRA_FIELDS)
 		{
 			// read lenth of extra data
-			u16 dataLen;
+			uint16_t dataLen;
 
 			File->read(&dataLen, 2);
 
@@ -220,7 +223,7 @@ bool CZipReader::scanGZipHeader()
 
 		if (header.flags & EGZF_FILE_NAME)
 		{
-			c8 c;
+			char c;
 			File->read(&c, 1);
 			while (c)
 			{
@@ -249,7 +252,7 @@ bool CZipReader::scanGZipHeader()
 
 		if (header.flags & EGZF_COMMENT)
 		{
-			c8 c='a';
+			char c='a';
 			while (c)
 				File->read(&c, 1);
 		}
@@ -316,7 +319,7 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 
 	// read filename
 	{
-		c8 *tmp = new c8 [ entry.header.FilenameLength + 2 ];
+		char *tmp = new char [ entry.header.FilenameLength + 2 ];
 		File->read(tmp, entry.header.FilenameLength);
 		tmp[entry.header.FilenameLength] = 0;
 		ZipFileName = tmp;
@@ -327,7 +330,7 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 	// AES encryption
 	if ((entry.header.GeneralBitFlag & ZIP_FILE_ENCRYPTED) && (entry.header.CompressionMethod == 99))
 	{
-		s16 restSize = entry.header.ExtraFieldLength;
+		int16_t restSize = entry.header.ExtraFieldLength;
 		SZipFileExtraHeader extraHeader;
 		while (restSize)
 		{
@@ -337,7 +340,7 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 			extraHeader.Size = os::Byteswap::byteswap(extraHeader.Size);
 #endif
 			restSize -= sizeof(extraHeader);
-			if (extraHeader.ID==(s16)0x9901)
+			if (extraHeader.ID==(int16_t)0x9901)
 			{
 				SZipFileAESExtraData data;
 				File->read(&data, sizeof(data));
@@ -480,7 +483,7 @@ bool CZipReader::scanCentralDirectoryHeader()
 //! opens a file by file name
 IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
 {
-	s32 index = findFile(filename, false);
+	int32_t index = findFile(filename, false);
 
 	if (index != -1)
 		return createAndOpenFile(index);
@@ -499,7 +502,7 @@ namespace
 #endif
 
 //! opens a file by index
-IReadFile* CZipReader::createAndOpenFile(u32 index)
+IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 {
 	// Irrlicht supports 0, 8, 12, 14, 99
 	//0 - The file is stored (no compression)
@@ -522,16 +525,16 @@ IReadFile* CZipReader::createAndOpenFile(u32 index)
 
 	const SZipFileEntry &e = FileInfo[Files[index].ID];
 	wchar_t buf[64];
-	s16 actualCompressionMethod=e.header.CompressionMethod;
+	int16_t actualCompressionMethod=e.header.CompressionMethod;
 	IReadFile* decrypted=0;
-	u8* decryptedBuf=0;
-	u32 decryptedSize=e.header.DataDescriptor.CompressedSize;
+	uint8_t* decryptedBuf=0;
+	uint32_t decryptedSize=e.header.DataDescriptor.CompressedSize;
 #ifdef _IRR_COMPILE_WITH_ZIP_ENCRYPTION_
 	if ((e.header.GeneralBitFlag & ZIP_FILE_ENCRYPTED) && (e.header.CompressionMethod == 99))
 	{
 		os::Printer::log("Reading encrypted file.");
-		u8 salt[16]={0};
-		const u16 saltSize = (((e.header.Sig & 0x00ff0000) >>16)+1)*4;
+		uint8_t salt[16]={0};
+		const uint16_t saltSize = (((e.header.Sig & 0x00ff0000) >>16)+1)*4;
 		File->seek(e.Offset);
 		File->read(salt, saltSize);
 		char pwVerification[2];
@@ -551,8 +554,8 @@ IReadFile* CZipReader::createAndOpenFile(u32 index)
 			return 0;
 		}
 		decryptedSize= e.header.DataDescriptor.CompressedSize-saltSize-12;
-		decryptedBuf= new u8[decryptedSize];
-		u32 c = 0;
+		decryptedBuf= new uint8_t[decryptedSize];
+		uint32_t c = 0;
 		while ((c+32768)<=decryptedSize)
 		{
 			File->read(decryptedBuf+c, 32768);
@@ -616,8 +619,8 @@ IReadFile* CZipReader::createAndOpenFile(u32 index)
 		{
   			#ifdef _IRR_COMPILE_WITH_ZLIB_
 
-			const u32 uncompressedSize = e.header.DataDescriptor.UncompressedSize;
-			c8* pBuf = new c8[ uncompressedSize ];
+			const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
+			char* pBuf = new char[ uncompressedSize ];
 			if (!pBuf)
 			{
 				swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
@@ -627,10 +630,10 @@ IReadFile* CZipReader::createAndOpenFile(u32 index)
 				return 0;
 			}
 
-			u8 *pcData = decryptedBuf;
+			uint8_t *pcData = decryptedBuf;
 			if (!pcData)
 			{
-				pcData = new u8[decryptedSize];
+				pcData = new uint8_t[decryptedSize];
 				if (!pcData)
 				{
 					swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
@@ -646,7 +649,7 @@ IReadFile* CZipReader::createAndOpenFile(u32 index)
 
 			// Setup the inflate stream.
 			z_stream stream;
-			s32 err;
+			int32_t err;
 
 			stream.next_in = (Bytef*)pcData;
 			stream.avail_in = (uInt)decryptedSize;
@@ -690,8 +693,8 @@ IReadFile* CZipReader::createAndOpenFile(u32 index)
 		{
   			#ifdef _IRR_COMPILE_WITH_BZIP2_
 
-			const u32 uncompressedSize = e.header.DataDescriptor.UncompressedSize;
-			c8* pBuf = new c8[ uncompressedSize ];
+			const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
+			char* pBuf = new char[ uncompressedSize ];
 			if (!pBuf)
 			{
 				swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
@@ -701,10 +704,10 @@ IReadFile* CZipReader::createAndOpenFile(u32 index)
 				return 0;
 			}
 
-			u8 *pcData = decryptedBuf;
+			uint8_t *pcData = decryptedBuf;
 			if (!pcData)
 			{
-				pcData = new u8[decryptedSize];
+				pcData = new uint8_t[decryptedSize];
 				if (!pcData)
 				{
 					swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
@@ -762,8 +765,8 @@ IReadFile* CZipReader::createAndOpenFile(u32 index)
 		{
   			#ifdef _IRR_COMPILE_WITH_LZMA_
 
-			u32 uncompressedSize = e.header.DataDescriptor.UncompressedSize;
-			c8* pBuf = new c8[ uncompressedSize ];
+			uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
+			char* pBuf = new char[ uncompressedSize ];
 			if (!pBuf)
 			{
 				swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
@@ -773,10 +776,10 @@ IReadFile* CZipReader::createAndOpenFile(u32 index)
 				return 0;
 			}
 
-			u8 *pcData = decryptedBuf;
+			uint8_t *pcData = decryptedBuf;
 			if (!pcData)
 			{
-				pcData = new u8[decryptedSize];
+				pcData = new uint8_t[decryptedSize];
 				if (!pcData)
 				{
 					swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );

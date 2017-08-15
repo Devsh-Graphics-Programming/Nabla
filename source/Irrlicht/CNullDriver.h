@@ -17,7 +17,6 @@
 #include "IMeshSceneNode.h"
 #include "CFPSCounter.h"
 #include "SVertexIndex.h"
-#include "SLight.h"
 #include "SExposedVideoData.h"
 
 #if _MSC_VER && !__INTEL_COMPILER
@@ -50,12 +49,12 @@ namespace video
         static FW_AtomicCounter incrementAndFetchReallocCounter();
 
 		//! constructor
-		CNullDriver(io::IFileSystem* io, const core::dimension2d<u32>& screenSize);
+		CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
 		//! destructor
 		virtual ~CNullDriver();
 
-        virtual bool initAuxContext(const size_t& ctxIx) {return false;}
+        virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}
 
         virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) {return NULL;}
@@ -64,14 +63,14 @@ namespace video
 
 	    virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
 
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc() {return NULL;}
+	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) {return NULL;}
 
 	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) {return NULL;}
 
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
 				SColor color=SColor(255,0,0,0),
 				const SExposedVideoData& videoData=SExposedVideoData(),
-				core::rect<s32>* sourceRect=0);
+				core::rect<int32_t>* sourceRect=0);
 
 		virtual bool endScene();
 
@@ -86,22 +85,22 @@ namespace video
 		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4& mat);
 
 		//! Retrieve the number of image loaders
-		virtual u32 getImageLoaderCount() const;
+		virtual uint32_t getImageLoaderCount() const;
 
 		//! Retrieve the given image loader
-		virtual IImageLoader* getImageLoader(u32 n);
+		virtual IImageLoader* getImageLoader(uint32_t n);
 
 		//! Retrieve the number of image writers
-		virtual u32 getImageWriterCount() const;
+		virtual uint32_t getImageWriterCount() const;
 
 		//! Retrieve the given image writer
-		virtual IImageWriter* getImageWriter(u32 n);
+		virtual IImageWriter* getImageWriter(uint32_t n);
 
 		//! sets a material
 		virtual void setMaterial(const SMaterial& material);
 
         //! needs to be "deleted" since its not refcounted
-        virtual IDriverFence* placeFence() {return NULL;}
+        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) {return NULL;}
 
 		//! loads a Texture
 		virtual ITexture* getTexture(const io::path& filename);
@@ -110,10 +109,10 @@ namespace video
 		virtual ITexture* getTexture(io::IReadFile* file);
 
 		//! Returns a texture by index
-		virtual ITexture* getTextureByIndex(u32 index);
+		virtual ITexture* getTextureByIndex(uint32_t index);
 
 		//! Returns amount of textures currently loaded
-		virtual u32 getTextureCount() const;
+		virtual uint32_t getTextureCount() const;
 
 		//! Renames a texture
 		virtual void renameTexture(ITexture* texture, const io::path& newName);
@@ -167,10 +166,10 @@ namespace video
 
 
 		//! sets a viewport
-		virtual void setViewPort(const core::rect<s32>& area);
+		virtual void setViewPort(const core::rect<int32_t>& area);
 
 		//! gets the area of the current viewport
-		virtual const core::rect<s32>& getViewPort() const;
+		virtual const core::rect<int32_t>& getViewPort() const;
 
         virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
@@ -183,11 +182,11 @@ namespace video
 			const core::vector3df& end, SColor color = SColor(255,255,255,255));
 
 		//! Draws a 3d axis aligned box.
-		virtual void draw3DBox(const core::aabbox3d<f32>& box,
+		virtual void draw3DBox(const core::aabbox3d<float>& box,
 			SColor color = SColor(255,255,255,255));
 
 		//! draws an 2d image
-		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<s32>& destPos);
+		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos);
 
 		//! draws a set of 2d images, using a color and the alpha
 		/** channel of the texture if desired. The images are drawn
@@ -207,11 +206,11 @@ namespace video
 		\param useAlphaChannelOfTexture: If true, the alpha channel of the texture is
 		used to draw the image. */
 		virtual void draw2DImageBatch(const video::ITexture* texture,
-				const core::position2d<s32>& pos,
-				const core::array<core::rect<s32> >& sourceRects,
-				const core::array<s32>& indices,
-				s32 kerningWidth = 0,
-				const core::rect<s32>* clipRect = 0,
+				const core::position2d<int32_t>& pos,
+				const core::array<core::rect<int32_t> >& sourceRects,
+				const core::array<int32_t>& indices,
+				int32_t kerningWidth = 0,
+				const core::rect<int32_t>* clipRect = 0,
 				SColor color=SColor(255,255,255,255),
 				bool useAlphaChannelOfTexture=false);
 
@@ -232,69 +231,53 @@ namespace video
 		\param useAlphaChannelOfTexture: If true, the alpha channel of
 		the texture is used to draw the image. */
 		virtual void draw2DImageBatch(const video::ITexture* texture,
-				const core::array<core::position2d<s32> >& positions,
-				const core::array<core::rect<s32> >& sourceRects,
-				const core::rect<s32>* clipRect=0,
+				const core::array<core::position2d<int32_t> >& positions,
+				const core::array<core::rect<int32_t> >& sourceRects,
+				const core::rect<int32_t>* clipRect=0,
 				SColor color=SColor(255,255,255,255),
 				bool useAlphaChannelOfTexture=false);
 
 		//! Draws a 2d image, using a color (if color is other then Color(255,255,255,255)) and the alpha channel of the texture if wanted.
-		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<s32>& destPos,
-			const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect = 0,
+		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos,
+			const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect = 0,
 			SColor color=SColor(255,255,255,255), bool useAlphaChannelOfTexture=false);
 
 		//! Draws a part of the texture into the rectangle.
-		virtual void draw2DImage(const video::ITexture* texture, const core::rect<s32>& destRect,
-			const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect = 0,
+		virtual void draw2DImage(const video::ITexture* texture, const core::rect<int32_t>& destRect,
+			const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect = 0,
 			const video::SColor* const colors=0, bool useAlphaChannelOfTexture=false);
 
 		//! Draws a 2d rectangle
-		virtual void draw2DRectangle(SColor color, const core::rect<s32>& pos, const core::rect<s32>* clip = 0);
+		virtual void draw2DRectangle(SColor color, const core::rect<int32_t>& pos, const core::rect<int32_t>* clip = 0);
 
 		//! Draws a 2d rectangle with a gradient.
-		virtual void draw2DRectangle(const core::rect<s32>& pos,
+		virtual void draw2DRectangle(const core::rect<int32_t>& pos,
 			SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
-			const core::rect<s32>* clip = 0);
+			const core::rect<int32_t>* clip = 0);
 
 		//! Draws the outline of a 2d rectangle
 		virtual void draw2DRectangleOutline(const core::recti& pos, SColor color=SColor(255,255,255,255));
 
 		//! Draws a 2d line.
-		virtual void draw2DLine(const core::position2d<s32>& start,
-					const core::position2d<s32>& end,
+		virtual void draw2DLine(const core::position2d<int32_t>& start,
+					const core::position2d<int32_t>& end,
 					SColor color=SColor(255,255,255,255));
 
 		//! get color format of the current color buffer
 		virtual ECOLOR_FORMAT getColorFormat() const;
 
 		//! get screen size
-		virtual const core::dimension2d<u32>& getScreenSize() const;
+		virtual const core::dimension2d<uint32_t>& getScreenSize() const;
 
 		//! get render target size
-		virtual const core::dimension2d<u32>& getCurrentRenderTargetSize() const;
+		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
 
 		// get current frames per second value
-		virtual s32 getFPS() const;
+		virtual int32_t getFPS() const;
 
 		//! returns amount of primitives (mostly triangles) were drawn in the last frame.
 		//! very useful method for statistics.
-		virtual u32 getPrimitiveCountDrawn( u32 param = 0 ) const;
-
-		//! deletes all dynamic lights there are
-		virtual void deleteAllDynamicLights();
-
-		//! adds a dynamic light, returning an index to the light
-		//! \param light: the light data to use to create the light
-		//! \return An index to the light, or -1 if an error occurs
-		virtual s32 addDynamicLight(const SLight& light);
-
-		//! Turns a dynamic light on or off
-		//! \param lightIndex: the index returned by addDynamicLight
-		//! \param turnOn: true to turn the light on, false to turn it off
-		virtual void turnLightOn(s32 lightIndex, bool turnOn);
-
-		//! returns the maximal amount of dynamic lights the device can handle
-		virtual u32 getMaximalDynamicLightAmount() const;
+		virtual uint32_t getPrimitiveCountDrawn( uint32_t param = 0 ) const;
 
 		//! \return Returns the name of the video driver. Example: In case of the DIRECT3D8
 		//! driver, it would return "Direct3D8.1".
@@ -305,16 +288,6 @@ namespace video
 
 		//! Adds an external image writer to the engine.
 		virtual void addExternalImageWriter(IImageWriter* writer);
-
-		//! Returns current amount of dynamic lights set
-		//! \return Current amount of dynamic lights set
-		virtual u32 getDynamicLightCount() const;
-
-		//! Returns light data which was previously set with IVideDriver::addDynamicLight().
-		//! \param idx: Zero based index of the light. Must be greater than 0 and smaller
-		//! than IVideoDriver()::getDynamicLightCount.
-		//! \return Light data.
-		virtual const SLight& getDynamicLight(u32 idx) const;
 
 		//! Removes a texture from the texture cache and deletes it, freeing lot of
 		//! memory.
@@ -332,7 +305,7 @@ namespace video
 
 		virtual void removeAllFrameBuffers();
 
-		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<u32>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
         virtual IFrameBuffer* addFrameBuffer();
 
@@ -343,12 +316,12 @@ namespace video
 
 		//! Creates a normal map from a height map texture.
 		//! \param amplitude: Constant value by which the height information is multiplied.
-		virtual void makeNormalMapTexture(video::ITexture* texture, f32 amplitude=1.0f) const;
+		virtual void makeNormalMapTexture(video::ITexture* texture, float amplitude=1.0f) const;
 
 		//! Returns the maximum amount of primitives (mostly vertices) which
 		//! the device is able to render with one drawIndexedTriangleList
 		//! call.
-		virtual u32 getMaximalIndicesCount() const;
+		virtual uint32_t getMaximalIndicesCount() const;
 
 		//! Enables or disables a texture creation flag.
 		virtual void setTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag, bool enabled);
@@ -367,11 +340,11 @@ namespace video
 		directly and own it from now on, which means it will also try to delete [] the
 		data when the image will be destructed. If false, the memory will by copied. */
 		virtual IImage* createImageFromData(ECOLOR_FORMAT format,
-			const core::dimension2d<u32>& size, void *data,
+			const core::dimension2d<uint32_t>& size, void *data,
 			bool ownForeignMemory=true, bool deleteForeignMemory = true);
 
 		//! Creates an empty software image.
-		virtual IImage* createImage(ECOLOR_FORMAT format, const core::dimension2d<u32>& size);
+		virtual IImage* createImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size);
 
 
 		//! Creates a software image from another image.
@@ -379,8 +352,8 @@ namespace video
 
 		//! Creates a software image from part of another image.
 		virtual IImage* createImage(IImage* imageToCopy,
-				const core::position2d<s32>& pos,
-				const core::dimension2d<u32>& size);
+				const core::position2d<int32_t>& pos,
+				const core::dimension2d<uint32_t>& size);
 
 
 	public:
@@ -398,10 +371,10 @@ namespace video
 
 		//! Only used by the engine internally.
 		/** Used to notify the driver that the window was resized. */
-		virtual void OnResize(const core::dimension2d<u32>& size);
+		virtual void OnResize(const core::dimension2d<uint32_t>& size);
 
 		//! Adds a new material renderer to the video device.
-		virtual s32 addMaterialRenderer(IMaterialRenderer* renderer,
+		virtual int32_t addMaterialRenderer(IMaterialRenderer* renderer,
 				const char* name = 0);
 
 		//! Returns driver and operating system specific data about the IVideoDriver.
@@ -419,95 +392,95 @@ namespace video
 		virtual IGPUProgrammingServices* getGPUProgrammingServices();
 
 		//! Returns pointer to material renderer or null
-		virtual IMaterialRenderer* getMaterialRenderer(u32 idx);
+		virtual IMaterialRenderer* getMaterialRenderer(uint32_t idx);
 
 		//! Returns amount of currently available material renderers.
-		virtual u32 getMaterialRendererCount() const;
+		virtual uint32_t getMaterialRendererCount() const;
 
 		//! Returns name of the material renderer
-		virtual const char* getMaterialRendererName(u32 idx) const;
+		virtual const char* getMaterialRendererName(uint32_t idx) const;
 
-        virtual s32 addHighLevelShaderMaterial(
-            const c8* vertexShaderProgram,
-            const c8* controlShaderProgram,
-            const c8* evaluationShaderProgram,
-            const c8* geometryShaderProgram,
-            const c8* pixelShaderProgram,
-            u32 patchVertices=3,
+        virtual int32_t addHighLevelShaderMaterial(
+            const char* vertexShaderProgram,
+            const char* controlShaderProgram,
+            const char* evaluationShaderProgram,
+            const char* geometryShaderProgram,
+            const char* pixelShaderProgram,
+            uint32_t patchVertices=3,
             E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
             IShaderConstantSetCallBack* callback = 0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            s32 userData = 0,
-            const c8* vertexShaderEntryPointName="main",
-            const c8* controlShaderEntryPointName = "main",
-            const c8* evaluationShaderEntryPointName = "main",
-            const c8* geometryShaderEntryPointName = "main",
-            const c8* pixelShaderEntryPointName="main" );
+            int32_t userData = 0,
+            const char* vertexShaderEntryPointName="main",
+            const char* controlShaderEntryPointName = "main",
+            const char* evaluationShaderEntryPointName = "main",
+            const char* geometryShaderEntryPointName = "main",
+            const char* pixelShaderEntryPointName="main" );
 
-        virtual s32 addHighLevelShaderMaterialFromFiles(
+        virtual int32_t addHighLevelShaderMaterialFromFiles(
             const io::path& vertexShaderProgramFileName,
             const io::path& controlShaderProgramFileName,
             const io::path& evaluationShaderProgramFileName,
             const io::path& geometryShaderProgramFileName,
             const io::path& pixelShaderProgramFileName,
-            u32 patchVertices=3,
+            uint32_t patchVertices=3,
             E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
             IShaderConstantSetCallBack* callback = 0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            s32 userData = 0,
-            const c8* vertexShaderEntryPointName="main",
-            const c8* controlShaderEntryPointName = "main",
-            const c8* evaluationShaderEntryPointName = "main",
-            const c8* geometryShaderEntryPointName = "main",
-            const c8* pixelShaderEntryPointName="main");
+            int32_t userData = 0,
+            const char* vertexShaderEntryPointName="main",
+            const char* controlShaderEntryPointName = "main",
+            const char* evaluationShaderEntryPointName = "main",
+            const char* geometryShaderEntryPointName = "main",
+            const char* pixelShaderEntryPointName="main");
 
-        virtual s32 addHighLevelShaderMaterialFromFiles(
+        virtual int32_t addHighLevelShaderMaterialFromFiles(
             io::IReadFile* vertexShaderProgram,
             io::IReadFile* controlShaderProgram,
             io::IReadFile* evaluationShaderProgram,
             io::IReadFile* geometryShaderProgram,
             io::IReadFile* pixelShaderProgram,
-            u32 patchVertices=3,
+            uint32_t patchVertices=3,
             E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
             IShaderConstantSetCallBack* callback = 0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            s32 userData = 0,
-            const c8* vertexShaderEntryPointName="main",
-            const c8* controlShaderEntryPointName = "main",
-            const c8* evaluationShaderEntryPointName = "main",
-            const c8* geometryShaderEntryPointName = "main",
-            const c8* pixelShaderEntryPointName="main");
+            int32_t userData = 0,
+            const char* vertexShaderEntryPointName="main",
+            const char* controlShaderEntryPointName = "main",
+            const char* evaluationShaderEntryPointName = "main",
+            const char* geometryShaderEntryPointName = "main",
+            const char* pixelShaderEntryPointName="main");
 
-        virtual bool replaceHighLevelShaderMaterial(const s32 &materialIDToReplace,
-            const c8* vertexShaderProgram,
-            const c8* controlShaderProgram,
-            const c8* evaluationShaderProgram,
-            const c8* geometryShaderProgram,
-            const c8* pixelShaderProgram,
-            u32 patchVertices=3,
+        virtual bool replaceHighLevelShaderMaterial(const int32_t &materialIDToReplace,
+            const char* vertexShaderProgram,
+            const char* controlShaderProgram,
+            const char* evaluationShaderProgram,
+            const char* geometryShaderProgram,
+            const char* pixelShaderProgram,
+            uint32_t patchVertices=3,
             E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
             IShaderConstantSetCallBack* callback=0,
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0,
-            s32 userData=0,
-            const c8* vertexShaderEntryPointName="main",
-            const c8* controlShaderEntryPointName="main",
-            const c8* evaluationShaderEntryPointName="main",
-            const c8* geometryShaderEntryPointName="main",
-            const c8* pixelShaderEntryPointName="main");
+            int32_t userData=0,
+            const char* vertexShaderEntryPointName="main",
+            const char* controlShaderEntryPointName="main",
+            const char* evaluationShaderEntryPointName="main",
+            const char* geometryShaderEntryPointName="main",
+            const char* pixelShaderEntryPointName="main");
 
 
 		//! Writes the provided image to disk file
-		virtual bool writeImageToFile(IImage* image, const io::path& filename, u32 param = 0);
+		virtual bool writeImageToFile(IImage* image, const io::path& filename, uint32_t param = 0);
 
 		//! Writes the provided image to a file.
-		virtual bool writeImageToFile(IImage* image, io::IWriteFile * file, u32 param = 0);
+		virtual bool writeImageToFile(IImage* image, io::IWriteFile * file, uint32_t param = 0);
 
 		//! Sets the name of a material renderer.
-		virtual void setMaterialRendererName(s32 idx, const char* name);
+		virtual void setMaterialRendererName(int32_t idx, const char* name);
 
 		//! looks if the image is already loaded
 		virtual video::ITexture* findTexture(const io::path& filename);
@@ -516,14 +489,14 @@ namespace video
 		//! There are at least 6 clipping planes available for the user to set at will.
 		//! \param index: The plane index. Must be between 0 and MaxUserClipPlanes.
 		//! \param enable: If true, enable the clipping plane else disable it.
-		virtual void enableClipPlane(u32 index, bool enable);
+		virtual void enableClipPlane(uint32_t index, bool enable);
 
 		//! Returns the graphics card vendor name.
-		virtual core::stringc getVendorInfo() {return "Not available on this driver.";}
+		virtual std::string getVendorInfo() {return "Not available on this driver.";}
 
 		//! Set the minimum number of vertices for which a hw buffer will be created
 		/** \param count Number of vertices to set as minimum. */
-		virtual void setMinHardwareBufferVertexCount(u32 count);
+		virtual void setMinHardwareBufferVertexCount(uint32_t count);
 
 		//! Get the global Material, which might override local materials.
 		/** Depending on the enable flags, values from this Material
@@ -554,7 +527,7 @@ namespace video
 		\param dP Pointer to destination
 		\param dF Color format of destination
 		*/
-		virtual void convertColor(const void* sP, ECOLOR_FORMAT sF, s32 sN,
+		virtual void convertColor(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
 				void* dP, ECOLOR_FORMAT dF) const;
 
 		virtual bool checkDriverReset() {return false;}
@@ -583,7 +556,7 @@ namespace video
 
 
 		// adds a material renderer and drops it afterwards. To be used for internal creation
-		s32 addAndDropMaterialRenderer(IMaterialRenderer* m);
+		int32_t addAndDropMaterialRenderer(IMaterialRenderer* m);
 
 		//! deletes all material renderers
 		void deleteMaterialRenders();
@@ -592,20 +565,20 @@ namespace video
 		void printVersion();
 
 		//! normal map lookup 32 bit version
-		inline f32 nml32(int x, int y, int pitch, int height, s32 *p) const
+		inline float nml32(int x, int y, int pitch, int height, int32_t *p) const
 		{
 			if (x < 0) x = pitch-1; if (x >= pitch) x = 0;
 			if (y < 0) y = height-1; if (y >= height) y = 0;
-			return (f32)(((p[(y * pitch) + x])>>16) & 0xff);
+			return (float)(((p[(y * pitch) + x])>>16) & 0xff);
 		}
 
 		//! normal map lookup 16 bit version
-		inline f32 nml16(int x, int y, int pitch, int height, s16 *p) const
+		inline float nml16(int x, int y, int pitch, int height, int16_t *p) const
 		{
 			if (x < 0) x = pitch-1; if (x >= pitch) x = 0;
 			if (y < 0) y = height-1; if (y >= height) y = 0;
 
-			return (f32) getAverage ( p[(y * pitch) + x] );
+			return (float) getAverage ( p[(y * pitch) + x] );
 		}
 
 		struct SSurface
@@ -628,7 +601,7 @@ namespace video
 		{
 			SDummyTexture(const io::path& name) : ITexture(name), size(0,0) {}
 
-			virtual void* lock(u32 mipmapLevel=0) { return 0; }
+			virtual void* lock(uint32_t mipmapLevel=0) { return 0; }
 			virtual void unlock(){}
             virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
             virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
@@ -636,11 +609,11 @@ namespace video
 			virtual core::dimension2du getRenderableSize() const { return size; }
 			virtual E_DRIVER_TYPE getDriverType() const { return video::EDT_NULL; }
 			virtual ECOLOR_FORMAT getColorFormat() const { return video::ECF_A1R5G5B5; }
-			virtual u32 getPitch() const { return 0; }
+			virtual uint32_t getPitch() const { return 0; }
 			virtual void regenerateMipMapLevels() {}
-            virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap=0) {return false;}
-            virtual bool resize(const uint32_t* size, const u32& mipLevels=0) {return false;}
-			core::dimension2d<u32> size;
+            virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0) {return false;}
+            virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
+			core::dimension2d<uint32_t> size;
 		};
 		core::array<SSurface> Textures;
 		core::array<IRenderBuffer*> RenderBuffers;
@@ -648,7 +621,6 @@ namespace video
 
 		core::array<video::IImageLoader*> SurfaceLoader;
 		core::array<video::IImageWriter*> SurfaceWriter;
-		core::array<SLight> Lights;
 		core::array<SMaterialRenderer> MaterialRenderers;
 
 
@@ -656,8 +628,8 @@ namespace video
 
 		io::IFileSystem* FileSystem;
 
-		core::rect<s32> ViewPort;
-		core::dimension2d<u32> ScreenSize;
+		core::rect<int32_t> ViewPort;
+		core::dimension2d<uint32_t> ScreenSize;
 
 		uint32_t matrixModifiedBits;
 		core::matrix4 ProjectionMatrices[EPTS_COUNT];
@@ -667,10 +639,10 @@ namespace video
 
         scene::IGPUMeshBuffer* boxLineMesh;
 
-		u32 PrimitivesDrawn;
-		u32 MinVertexCountForVBO;
+		uint32_t PrimitivesDrawn;
+		uint32_t MinVertexCountForVBO;
 
-		u32 TextureCreationFlags;
+		uint32_t TextureCreationFlags;
 
 		SExposedVideoData ExposedData;
 

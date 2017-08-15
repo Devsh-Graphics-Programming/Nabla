@@ -22,7 +22,7 @@ namespace video
 	public:
 
 		//! constructor
-		CSoftwareDriver(const core::dimension2d<u32>& windowSize, bool fullscreen, io::IFileSystem* io, video::IImagePresenter* presenter);
+		CSoftwareDriver(const core::dimension2d<uint32_t>& windowSize, bool fullscreen, io::IFileSystem* io, video::IImagePresenter* presenter);
 
 		//! destructor
 		virtual ~CSoftwareDriver();
@@ -37,27 +37,27 @@ namespace video
 						bool clearZBuffer, SColor color);
 
 		//! sets a viewport
-		virtual void setViewPort(const core::rect<s32>& area);
+		virtual void setViewPort(const core::rect<int32_t>& area);
 
 		//! clears the zbuffer
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
 				SColor color=SColor(255,0,0,0),
 				const SExposedVideoData& videoData=SExposedVideoData(),
-				core::rect<s32>* sourceRect=0);
+				core::rect<int32_t>* sourceRect=0);
 
 		//! presents the rendered scene on the screen, returns false if failed
 		virtual bool endScene();
 
 		//! Only used by the internal engine. Used to notify the driver that
 		//! the window was resized.
-		virtual void OnResize(const core::dimension2d<u32>& size);
+		virtual void OnResize(const core::dimension2d<uint32_t>& size);
 
 		//! returns size of the current render target
-		virtual const core::dimension2d<u32>& getCurrentRenderTargetSize() const;
+		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
 
 		//! draws a vertex primitive list
-		void drawVertexPrimitiveList(const void* vertices, u32 vertexCount,
-				const void* indexList, u32 primitiveCount,
+		void drawVertexPrimitiveList(const void* vertices, uint32_t vertexCount,
+				const void* indexList, uint32_t primitiveCount,
 				E_VERTEX_TYPE vType, scene::E_PRIMITIVE_TYPE pType, E_INDEX_TYPE iType);
 
 		//! Draws a 3d line.
@@ -65,26 +65,26 @@ namespace video
 			const core::vector3df& end, SColor color = SColor(255,255,255,255));
 
 		//! draws an 2d image, using a color (if color is other then Color(255,255,255,255)) and the alpha channel of the texture if wanted.
-		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<s32>& destPos,
-			const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect = 0,
+		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos,
+			const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect = 0,
 			SColor color=SColor(255,255,255,255), bool useAlphaChannelOfTexture=false);
 
 		//! draw an 2d rectangle
-		virtual void draw2DRectangle(SColor color, const core::rect<s32>& pos,
-			const core::rect<s32>* clip = 0);
+		virtual void draw2DRectangle(SColor color, const core::rect<int32_t>& pos,
+			const core::rect<int32_t>* clip = 0);
 
 		//!Draws an 2d rectangle with a gradient.
-		virtual void draw2DRectangle(const core::rect<s32>& pos,
+		virtual void draw2DRectangle(const core::rect<int32_t>& pos,
 			SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
-			const core::rect<s32>* clip = 0);
+			const core::rect<int32_t>* clip = 0);
 
 		//! Draws a 2d line.
-		virtual void draw2DLine(const core::position2d<s32>& start,
-								const core::position2d<s32>& end,
+		virtual void draw2DLine(const core::position2d<int32_t>& start,
+								const core::position2d<int32_t>& end,
 								SColor color=SColor(255,255,255,255));
 
 		//! Draws a single pixel
-		virtual void drawPixel(u32 x, u32 y, const SColor & color);
+		virtual void drawPixel(uint32_t x, uint32_t y, const SColor & color);
 
 		//! \return Returns the name of the video driver. Example: In case of the Direct3D8
 		//! driver, it would return "Direct3D8.1".
@@ -101,7 +101,7 @@ namespace video
 		virtual video::ITexture* createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData=0);
 
 		//! Creates a render target texture.
-		virtual ITexture* addRenderTargetTexture(const core::dimension2d<u32>& size,
+		virtual ITexture* addRenderTargetTexture(const core::dimension2d<uint32_t>& size,
 				const io::path& name, const ECOLOR_FORMAT format = ECF_UNKNOWN);
 
 		//! Clears the ZBuffer.
@@ -110,7 +110,7 @@ namespace video
 		//! Returns the maximum amount of primitives (mostly vertices) which
 		//! the device is able to render with one drawIndexedTriangleList
 		//! call.
-		virtual u32 getMaximalIndicesCount() const;
+		virtual uint32_t getMaximalIndicesCount() const;
 
 	protected:
 
@@ -118,7 +118,7 @@ namespace video
 		void setRenderTarget(video::CImage* image);
 
 		//! sets the current Texture
-		bool setActiveTexture(u32 stage, video::ITexture* texture);
+		bool setActiveTexture(uint32_t stage, video::ITexture* texture);
 
 		//! switches to a triangle renderer
 		void switchToTriangleRenderer(ETriangleRenderer renderer);
@@ -127,30 +127,30 @@ namespace video
 		void selectRightTriangleRenderer();
 
 		//! clips a triangle agains the viewing frustum
-		void clipTriangle(f32* transformedPos);
+		void clipTriangle(float* transformedPos);
 
 
 		//! draws a vertex primitive list
-		void drawVertexPrimitiveList16(const void* vertices, u32 vertexCount,
-				const u16* indexList, u32 primitiveCount,
+		void drawVertexPrimitiveList16(const void* vertices, uint32_t vertexCount,
+				const uint16_t* indexList, uint32_t primitiveCount,
 				E_VERTEX_TYPE vType, scene::E_PRIMITIVE_TYPE pType);
 
 		template<class VERTEXTYPE>
 		void drawClippedIndexedTriangleListT(const VERTEXTYPE* vertices,
-			s32 vertexCount, const u16* indexList, s32 triangleCount);
+			int32_t vertexCount, const uint16_t* indexList, int32_t triangleCount);
 
 		video::CImage* BackBuffer;
 		video::IImagePresenter* Presenter;
 		void* WindowId;
-		core::rect<s32>* SceneSourceRect;
+		core::rect<int32_t>* SceneSourceRect;
 
 		core::array<S2DVertex> TransformedPoints;
 
 		video::ITexture* RenderTargetTexture;
 		video::CImage* RenderTargetSurface;
-		core::position2d<s32> Render2DTranslation;
-		core::dimension2d<u32> RenderTargetSize;
-		core::dimension2d<u32> ViewPortSize;
+		core::position2d<int32_t> Render2DTranslation;
+		core::dimension2d<uint32_t> RenderTargetSize;
+		core::dimension2d<uint32_t> ViewPortSize;
 
 
 		ITriangleRenderer* CurrentTriangleRenderer;

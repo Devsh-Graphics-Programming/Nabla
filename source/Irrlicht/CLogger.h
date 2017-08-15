@@ -27,24 +27,32 @@ public:
 	virtual void setLogLevel(ELOG_LEVEL ll);
 
 	//! Prints out a text into the log
-	virtual void log(const c8* text, ELOG_LEVEL ll=ELL_INFORMATION);
+	virtual void log(const std::string& text, ELOG_LEVEL ll=ELL_INFORMATION) {actualLog(text,ll);}
 
 	//! Prints out a text into the log
-	virtual void log(const wchar_t* text, ELOG_LEVEL ll=ELL_INFORMATION);
-	
-	//! Prints out a text into the log
-	virtual void log(const c8* text, const c8* hint, ELOG_LEVEL ll=ELL_INFORMATION);
+	virtual void log(const std::wstring& text, ELOG_LEVEL ll=ELL_INFORMATION) {actualLog(text,ll);}
 
 	//! Prints out a text into the log
-	virtual void log(const c8* text, const wchar_t* hint, ELOG_LEVEL ll=ELL_INFORMATION);
+	virtual void log(const std::string& text, const std::string& hint, ELOG_LEVEL ll=ELL_INFORMATION) {actualLog(text,hint,ll);}
 
 	//! Prints out a text into the log
-	virtual void log(const wchar_t* text, const wchar_t* hint, ELOG_LEVEL ll=ELL_INFORMATION);
+	virtual void log(const std::string& text, const std::wstring& hint, ELOG_LEVEL ll=ELL_INFORMATION) {actualLog(text,hint,ll);}
+
+	//! Prints out a text into the log
+	virtual void log(const std::wstring& text, const std::wstring& hint, ELOG_LEVEL ll=ELL_INFORMATION) {actualLog(text,hint,ll);}
 
 	//! Sets a new event receiver
 	void setReceiver(IEventReceiver* r);
 
 private:
+
+	//! Prints out a text into the log
+    template <typename T>
+	void actualLog(const std::basic_string<T>& text, ELOG_LEVEL ll=ELL_INFORMATION);
+
+	//! Prints out a text into the log
+	template <typename T1, typename T2>
+	void actualLog(const std::basic_string<T1>& text, const std::basic_string<T2>& hint, ELOG_LEVEL ll=ELL_INFORMATION);
 
 	ELOG_LEVEL LogLevel;
 	IEventReceiver* Receiver;

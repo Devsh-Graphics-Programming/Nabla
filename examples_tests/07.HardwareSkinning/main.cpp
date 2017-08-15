@@ -5,6 +5,7 @@
 using namespace irr;
 using namespace core;
 
+bool quit = false;
 
 //!Same As Last Example
 class MyEventReceiver : public IEventReceiver
@@ -22,7 +23,7 @@ public:
             switch (event.KeyInput.Key)
             {
             case irr::KEY_KEY_Q: // switch wire frame mode
-                exit(0);
+                quit = true;
                 return true;
             default:
                 break;
@@ -37,9 +38,9 @@ private:
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
-    s32 mvpUniformLocation;
-    s32 cameraDirUniformLocation;
-    s32 texUniformLocation[4];
+    int32_t mvpUniformLocation;
+    int32_t cameraDirUniformLocation;
+    int32_t texUniformLocation[4];
     video::E_SHADER_CONSTANT_TYPE mvpUniformType;
     video::E_SHADER_CONSTANT_TYPE cameraDirUniformType;
     video::E_SHADER_CONSTANT_TYPE texUniformType[4];
@@ -73,16 +74,20 @@ public:
         }
     }
 
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, s32 userData)
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
         core::vectorSIMDf modelSpaceCamPos;
         modelSpaceCamPos.set(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW_INVERSE).getTranslation());
-        services->setShaderConstant(&modelSpaceCamPos,cameraDirUniformLocation,cameraDirUniformType,1);
-        services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
+        if (cameraDirUniformLocation!=-1)
+            services->setShaderConstant(&modelSpaceCamPos,cameraDirUniformLocation,cameraDirUniformType,1);
+        if (mvpUniformLocation!=-1)
+            services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
 
         int32_t id[] = {0,1,2,3};
-        services->setShaderTextures(id+0,texUniformLocation[0],texUniformType[0],1);
-        services->setShaderTextures(id+3,texUniformLocation[3],texUniformType[3],1);
+        if (texUniformLocation[0]!=-1)
+            services->setShaderTextures(id+0,texUniformLocation[0],texUniformType[0],1);
+        if (texUniformLocation[3]!=-1)
+            services->setShaderTextures(id+3,texUniformLocation[3],texUniformType[3],1);
     }
 
     virtual void OnUnsetMaterial() {}
@@ -98,7 +103,7 @@ int main()
 	params.ZBufferBits = 24; //we'd like 32bit here
     params.AntiAlias = 0; //No AA, yet
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<u32>(1280, 720);
+	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
@@ -136,7 +141,7 @@ int main()
 	device->setEventReceiver(&receiver);
 
         #define kInstanceSquareSize 10
-	scene::ISceneNode* instancesToRemove[kInstanceSquareSize*kInstanceSquareSize];
+	scene::ISceneNode* instancesToRemove[kInstanceSquareSize*kInstanceSquareSize] = {0};
 
 	//! Test Loading of Obj
     scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/dwarf.x");
@@ -164,7 +169,7 @@ int main()
 
 	uint64_t lastFPSTime = 0;
 
-	while(device->run())
+	while(device->run()&&(!quit))
 	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
@@ -179,14 +184,10 @@ int main()
 		uint64_t time = device->getTimer()->getRealTime();
 		if (time-lastFPSTime > 1000)
 		{
-			stringw str = L"Builtin Nodes Demo - Irrlicht Engine [";
-			str += driver->getName();
-			str += "] FPS:";
-			str += driver->getFPS();
-			str += " PrimitvesDrawn:";
-			str += driver->getPrimitiveCountDrawn();
+			std::wostringstream str;
+			str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
-			device->setWindowCaption(str.c_str());
+			device->setWindowCaption(str.str());
 			lastFPSTime = time;
 		}
 	}

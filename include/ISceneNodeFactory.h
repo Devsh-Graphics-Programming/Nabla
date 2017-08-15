@@ -40,25 +40,25 @@ namespace scene
 		\param parent: Parent scene node of the new node, can be null to add the scene node to the root.
 		\return Returns pointer to the new scene node or null if not successful.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addSceneNode(const c8* typeName, IDummyTransformationSceneNode* parent=0) = 0;
+		virtual ISceneNode* addSceneNode(const char* typeName, IDummyTransformationSceneNode* parent=0) = 0;
 
 		//! returns amount of scene node types this factory is able to create
-		virtual u32 getCreatableSceneNodeTypeCount() const = 0;
+		virtual uint32_t getCreatableSceneNodeTypeCount() const = 0;
 
 			//! returns type of a createable scene node type
 		/** \param idx: Index of scene node type in this factory. Must be a value between 0 and
 		getCreatableSceneNodeTypeCount() */
-		virtual ESCENE_NODE_TYPE getCreateableSceneNodeType(u32 idx) const = 0;
+		virtual ESCENE_NODE_TYPE getCreateableSceneNodeType(uint32_t idx) const = 0;
 
 		//! returns type name of a createable scene node type by index
 		/** \param idx: Index of scene node type in this factory. Must be a value between 0 and
 		getCreatableSceneNodeTypeCount() */
-		virtual const c8* getCreateableSceneNodeTypeName(u32 idx) const = 0;
+		virtual const char* getCreateableSceneNodeTypeName(uint32_t idx) const = 0;
 
 		//! returns type name of a createable scene node type
 		/** \param type: Type of scene node.
 		\return: Returns name of scene node type if this factory can create the type, otherwise 0. */
-		virtual const c8* getCreateableSceneNodeTypeName(ESCENE_NODE_TYPE type) const = 0;
+		virtual const char* getCreateableSceneNodeTypeName(ESCENE_NODE_TYPE type) const = 0;
 	};
 
 

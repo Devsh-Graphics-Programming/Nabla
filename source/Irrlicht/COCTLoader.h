@@ -1,4 +1,4 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt 
+// Copyright (C) 2002-2012 Nikolaus Gebhardt
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 //
@@ -79,55 +79,55 @@ namespace scene
 		virtual IAnimatedMesh* createMesh(io::IReadFile* file);
 
 		void OCTLoadLights(io::IReadFile* file,
-				ISceneNode * parent = 0, f32 radius = 500.0f,
-				f32 intensityScale = 0.0000001f*2.5,
+				ISceneNode * parent = 0, float radius = 500.0f,
+				float intensityScale = 0.0000001f*2.5,
 				bool rewind = true);
 
 	private:
 		struct octHeader {
-			u32 numVerts;
-			u32 numFaces;
-			u32 numTextures;
-			u32 numLightmaps;
-			u32 numLights;
+			uint32_t numVerts;
+			uint32_t numFaces;
+			uint32_t numTextures;
+			uint32_t numLightmaps;
+			uint32_t numLights;
 		};
 
 		struct octHeaderEx {
-			u32 magic; // 'OCTX' - 0x4F435458L
-			u32 numLightmaps;
-			u32 lightmapWidth;
-			u32 lightmapHeight;
-			u32 containsVertexNormals;
+			uint32_t magic; // 'OCTX' - 0x4F435458L
+			uint32_t numLightmaps;
+			uint32_t lightmapWidth;
+			uint32_t lightmapHeight;
+			uint32_t containsVertexNormals;
 		};
 
 		struct octFace {
-			u32 firstVert;
-			u32 numVerts;
-			u32 textureID;
-			u32 lightmapID;
-			f32 plane[4];
+			uint32_t firstVert;
+			uint32_t numVerts;
+			uint32_t textureID;
+			uint32_t lightmapID;
+			float plane[4];
 		};
 
 		struct octVert {
-			f32 tc[2];
-			f32 lc[2];
-			f32 pos[3];
+			float tc[2];
+			float lc[2];
+			float pos[3];
 		};
 
 		struct octTexture {
-			u32 id;
+			uint32_t id;
 			char fileName[64];
 		};
 
 		struct octLightmap {
-			u32 id;
-			u8 data[128][128][3];
+			uint32_t id;
+			uint8_t data[128][128][3];
 		};
 
 		struct octLight {
-			f32 pos[3];
-			f32 color[3];
-			u32 intensity;
+			float pos[3];
+			float color[3];
+			uint32_t intensity;
 		};
 
 		ISceneManager* SceneManager;

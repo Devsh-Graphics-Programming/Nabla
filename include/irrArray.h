@@ -34,7 +34,7 @@ public:
 
 	//! Constructs an array and allocates an initial chunk of memory.
 	/** \param start_count Amount of elements to pre-allocate. */
-	array(u32 start_count)
+	array(uint32_t start_count)
       : data(0), allocated(0), used(0),
         strategy(ALLOC_STRATEGY_DOUBLE), free_when_destroyed(true), is_sorted(true)
 	{
@@ -64,7 +64,7 @@ public:
 	enough space is available. Setting this flag to false can speed up
 	array usage, but may use more memory than required by the data.
 	*/
-	void reallocate(u32 new_size, bool canShrink=true)
+	void reallocate(uint32_t new_size, bool canShrink=true)
 	{
 		if (allocated==new_size)
 			return;
@@ -77,16 +77,16 @@ public:
 		allocated = new_size;
 
 		// copy old data
-		s32 end = used < new_size ? used : new_size;
+		int32_t end = used < new_size ? used : new_size;
 
-		for (s32 i=0; i<end; ++i)
+		for (int32_t i=0; i<end; ++i)
 		{
 			// data[i] = old_data[i];
 			allocator.construct(&data[i], old_data[i]);
 		}
 
 		// destruct old data
-		for (u32 j=0; j<used; ++j)
+		for (uint32_t j=0; j<used; ++j)
 			allocator.destruct(&old_data[j]);
 
 		if (allocated < used)
@@ -132,7 +132,7 @@ public:
 	push_back().
 	\param element: Element to be inserted
 	\param index: Where position to insert the new element. */
-	void insert(const T& element, u32 index=0)
+	void insert(const T& element, uint32_t index=0)
 	{
 		_IRR_DEBUG_BREAK_IF(index>used) // access violation
 
@@ -144,7 +144,7 @@ public:
 			const T e(element);
 
 			// increase data block
-			u32 newAlloc;
+			uint32_t newAlloc;
 			switch ( strategy )
 			{
 				case ALLOC_STRATEGY_DOUBLE:
@@ -160,7 +160,7 @@ public:
 
 			// move array content and construct new element
 			// first move end one up
-			for (u32 i=used; i>index; --i)
+			for (uint32_t i=used; i>index; --i)
 			{
 				if (i<used)
 					allocator.destruct(&data[i]);
@@ -180,7 +180,7 @@ public:
 				allocator.construct(&data[used], data[used-1]);
 
 				// move the rest of the array content
-				for (u32 i=used-1; i>index; --i)
+				for (uint32_t i=used-1; i>index; --i)
 				{
 					data[i] = data[i-1];
 				}
@@ -204,7 +204,7 @@ public:
 	{
 		if (free_when_destroyed)
 		{
-			for (u32 i=0; i<used; ++i)
+			for (uint32_t i=0; i<used; ++i)
 				allocator.destruct(&data[i]);
 
 			allocator.deallocate(data); // delete [] data;
@@ -225,7 +225,7 @@ public:
 	\param _free_when_destroyed Sets whether the new memory area shall be
 	freed by the array upon destruction, or if this will be up to the user
 	application. */
-	void set_pointer(T* newPointer, u32 size_in, bool _is_sorted=false, bool _free_when_destroyed=true)
+	void set_pointer(T* newPointer, uint32_t size_in, bool _is_sorted=false, bool _free_when_destroyed=true)
 	{
 		clear();
 		data = newPointer;
@@ -254,7 +254,7 @@ public:
 	/** Please note: This is only secure when using it with simple types,
 	because no default constructor will be called for the added elements.
 	\param usedNow Amount of elements now used. */
-	void set_used(u32 usedNow)
+	void set_used(uint32_t usedNow)
 	{
 		if (allocated < usedNow)
 			reallocate(usedNow);
@@ -284,7 +284,7 @@ public:
 		is_sorted = other.is_sorted;
 		allocated = other.allocated;
 
-		for (u32 i=0; i<other.used; ++i)
+		for (uint32_t i=0; i<other.used; ++i)
 			allocator.construct(&data[i], other.data[i]); // data[i] = other.data[i];
 
 		return *this;
@@ -297,7 +297,7 @@ public:
 		if (used != other.used)
 			return false;
 
-		for (u32 i=0; i<other.used; ++i)
+		for (uint32_t i=0; i<other.used; ++i)
 			if (data[i] != other[i])
 				return false;
 		return true;
@@ -312,7 +312,7 @@ public:
 
 
 	//! Direct access operator
-	T& operator [](u32 index)
+	T& operator [](uint32_t index)
 	{
 		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
 
@@ -321,7 +321,7 @@ public:
 
 
 	//! Direct const access operator
-	const T& operator [](u32 index) const
+	const T& operator [](uint32_t index) const
 	{
 		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
 
@@ -365,7 +365,7 @@ public:
 
 	//! Get number of occupied elements of the array.
 	/** \return Size of elements in the array which are actually occupied. */
-	u32 size() const
+	uint32_t size() const
 	{
 		return used;
 	}
@@ -374,7 +374,7 @@ public:
 	//! Get amount of memory allocated.
 	/** \return Amount of memory allocated. The amount of bytes
 	allocated would be allocated_size() * sizeof(ElementTypeUsed); */
-	u32 allocated_size() const
+	uint32_t allocated_size() const
 	{
 		return allocated;
 	}
@@ -406,7 +406,7 @@ public:
 	\param element Element to search for.
 	\return Position of the searched element if it was found,
 	otherwise -1 is returned. */
-	s32 binary_search(const T& element)
+	int32_t binary_search(const T& element)
 	{
 		sort();
 		return binary_search(element, 0, used-1);
@@ -419,7 +419,7 @@ public:
 	\param element Element to search for.
 	\return Position of the searched element if it was found,
 	otherwise -1 is returned. */
-	s32 binary_search(const T& element) const
+	int32_t binary_search(const T& element) const
 	{
 		if (is_sorted)
 			return binary_search(element, 0, used-1);
@@ -434,12 +434,12 @@ public:
 	\param right Last right index.
 	\return Position of the searched element if it was found, otherwise -1
 	is returned. */
-	s32 binary_search(const T& element, s32 left, s32 right) const
+	int32_t binary_search(const T& element, int32_t left, int32_t right) const
 	{
 		if (!used)
 			return -1;
 
-		s32 m;
+		int32_t m;
 
 		do
 		{
@@ -472,10 +472,10 @@ public:
 	\param &last	return lastIndex of equal elements
 	\return Position of the first searched element if it was found,
 	otherwise -1 is returned. */
-	s32 binary_search_multi(const T& element, s32 &last)
+	int32_t binary_search_multi(const T& element, int32_t &last)
 	{
 		sort();
-		s32 index = binary_search(element, 0, used-1);
+		int32_t index = binary_search(element, 0, used-1);
 		if ( index < 0 )
 			return index;
 
@@ -488,7 +488,7 @@ public:
 			index -= 1;
 		}
 		// look linear up
-		while ( last < (s32) used - 1 && !(element < data[last + 1]) && !(data[last + 1] < element) )
+		while ( last < (int32_t) used - 1 && !(element < data[last + 1]) && !(data[last + 1] < element) )
 		{
 			last += 1;
 		}
@@ -503,11 +503,11 @@ public:
 	\param element Element to search for.
 	\return Position of the searched element if it was found, otherwise -1
 	is returned. */
-	s32 linear_search(const T& element) const
+	int32_t linear_search(const T& element) const
 	{
-		for (u32 i=0; i<used; ++i)
+		for (uint32_t i=0; i<used; ++i)
 			if (element == data[i])
-				return (s32)i;
+				return (int32_t)i;
 
 		return -1;
 	}
@@ -519,9 +519,9 @@ public:
 	\param element: Element to search for.
 	\return Position of the searched element if it was found, otherwise -1
 	is returned. */
-	s32 linear_reverse_search(const T& element) const
+	int32_t linear_reverse_search(const T& element) const
 	{
-		for (s32 i=used-1; i>=0; --i)
+		for (int32_t i=used-1; i>=0; --i)
 			if (data[i] == element)
 				return i;
 
@@ -533,11 +533,11 @@ public:
 	/** May be slow, because all elements following after the erased
 	element have to be copied.
 	\param index: Index of element to be erased. */
-	void erase(u32 index)
+	void erase(uint32_t index)
 	{
 		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
 
-		for (u32 i=index+1; i<used; ++i)
+		for (uint32_t i=index+1; i<used; ++i)
 		{
 			allocator.destruct(&data[i-1]);
 			allocator.construct(&data[i-1], data[i]); // data[i-1] = data[i];
@@ -554,14 +554,14 @@ public:
 	element have to be copied.
 	\param index: Index of the first element to be erased.
 	\param count: Amount of elements to be erased. */
-	void erase(u32 index, s32 count)
+	void erase(uint32_t index, int32_t count)
 	{
 		if (index>=used || count<1)
 			return;
 		if (index+count>used)
 			count = used-index;
 
-		u32 i;
+		uint32_t i;
 		for (i=index; i<index+count; ++i)
 			allocator.destruct(&data[i]);
 
@@ -611,8 +611,8 @@ public:
 
 private:
 	T* data;
-	u32 allocated;
-	u32 used;
+	uint32_t allocated;
+	uint32_t used;
 	TAlloc allocator;
 	eAllocStrategy strategy:4;
 	bool free_when_destroyed:1;
@@ -668,7 +668,7 @@ public:
 	push_back().
 	\param element: Element to be inserted
 	\param index: Where position to insert the new element. */
-	void insert(const T& element, u32 index=0)
+	void insert(const T& element, uint32_t index=0)
 	{
 		_IRR_DEBUG_BREAK_IF(index>used) // access violation
 		_IRR_DEBUG_BREAK_IF(index>=allocated) // access violation
@@ -695,7 +695,7 @@ public:
 	/** Please note: This is only secure when using it with simple types,
 	because no default constructor will be called for the added elements.
 	\param usedNow Amount of elements now used. */
-	void set_used(u32 usedNow)
+	void set_used(uint32_t usedNow)
 	{
 		if (allocated < usedNow)
 			usedNow = allocated;
@@ -726,7 +726,7 @@ public:
 
 
 	//! Direct access operator
-	T& operator [](u32 index)
+	T& operator [](uint32_t index)
 	{
 		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
 
@@ -735,7 +735,7 @@ public:
 
 
 	//! Direct const access operator
-	const T& operator [](u32 index) const
+	const T& operator [](uint32_t index) const
 	{
 		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
 
@@ -779,7 +779,7 @@ public:
 
 	//! Get number of occupied elements of the array.
 	/** \return Size of elements in the array which are actually occupied. */
-	u32 size() const
+	uint32_t size() const
 	{
 		return used;
 	}
@@ -788,7 +788,7 @@ public:
 	//! Get amount of memory allocated.
 	/** \return Amount of memory allocated. The amount of bytes
 	allocated would be allocated_size() * sizeof(ElementTypeUsed); */
-	u32 allocated_size() const
+	uint32_t allocated_size() const
 	{
 		return allocated;
 	}
@@ -820,7 +820,7 @@ public:
 	\param element Element to search for.
 	\return Position of the searched element if it was found,
 	otherwise -1 is returned. */
-	s32 binary_search(const T& element)
+	int32_t binary_search(const T& element)
 	{
 		sort();
 		return binary_search(element, 0, used-1);
@@ -833,7 +833,7 @@ public:
 	\param element Element to search for.
 	\return Position of the searched element if it was found,
 	otherwise -1 is returned. */
-	s32 binary_search(const T& element) const
+	int32_t binary_search(const T& element) const
 	{
 		if (is_sorted)
 			return binary_search(element, 0, used-1);
@@ -848,12 +848,12 @@ public:
 	\param right Last right index.
 	\return Position of the searched element if it was found, otherwise -1
 	is returned. */
-	s32 binary_search(const T& element, s32 left, s32 right) const
+	int32_t binary_search(const T& element, int32_t left, int32_t right) const
 	{
 		if (!used)
 			return -1;
 
-		s32 m;
+		int32_t m;
 
 		do
 		{
@@ -886,10 +886,10 @@ public:
 	\param &last	return lastIndex of equal elements
 	\return Position of the first searched element if it was found,
 	otherwise -1 is returned. */
-	s32 binary_search_multi(const T& element, s32 &last)
+	int32_t binary_search_multi(const T& element, int32_t &last)
 	{
 		sort();
-		s32 index = binary_search(element, 0, used-1);
+		int32_t index = binary_search(element, 0, used-1);
 		if ( index < 0 )
 			return index;
 
@@ -902,7 +902,7 @@ public:
 			index -= 1;
 		}
 		// look linear up
-		while ( last < (s32) used - 1 && !(element < data[last + 1]) && !(data[last + 1] < element) )
+		while ( last < (int32_t) used - 1 && !(element < data[last + 1]) && !(data[last + 1] < element) )
 		{
 			last += 1;
 		}
@@ -917,11 +917,11 @@ public:
 	\param element Element to search for.
 	\return Position of the searched element if it was found, otherwise -1
 	is returned. */
-	s32 linear_search(const T& element) const
+	int32_t linear_search(const T& element) const
 	{
-		for (u32 i=0; i<used; ++i)
+		for (uint32_t i=0; i<used; ++i)
 			if (element == data[i])
-				return (s32)i;
+				return (int32_t)i;
 
 		return -1;
 	}
@@ -933,9 +933,9 @@ public:
 	\param element: Element to search for.
 	\return Position of the searched element if it was found, otherwise -1
 	is returned. */
-	s32 linear_reverse_search(const T& element) const
+	int32_t linear_reverse_search(const T& element) const
 	{
-		for (s32 i=used-1; i>=0; --i)
+		for (int32_t i=used-1; i>=0; --i)
 			if (data[i] == element)
 				return i;
 
@@ -947,7 +947,7 @@ public:
 	/** May be slow, because all elements following after the erased
 	element have to be copied.
 	\param index: Index of element to be erased. */
-	void erase(u32 index)
+	void erase(uint32_t index)
 	{
 		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
 
@@ -963,7 +963,7 @@ public:
 	element have to be copied.
 	\param index: Index of the first element to be erased.
 	\param count: Amount of elements to be erased. */
-	void erase(u32 index, s32 count)
+	void erase(uint32_t index, int32_t count)
 	{
 		_IRR_DEBUG_BREAK_IF(index+count>used) // access violation
 
@@ -983,8 +983,8 @@ public:
 
 private:
 	T* data;
-	u32 allocated;
-	u32 used;
+	uint32_t allocated;
+	uint32_t used;
 	bool is_sorted;
 };
 

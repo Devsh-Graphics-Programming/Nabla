@@ -22,7 +22,7 @@ public:
 	//! Constructor
 	/** Use setMesh() to set the mesh to display.
 	*/
-	IMeshSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, s32 id,
+	IMeshSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1,1,1))

@@ -25,6 +25,7 @@
 #include "EDriverTypes.h"
 #include "EDriverFeatures.h"
 #include "SExposedVideoData.h"
+#include <string>
 
 namespace irr
 {
@@ -36,7 +37,6 @@ namespace io
 
 namespace video
 {
-	struct SLight;
 	class IImageLoader;
 	class IImageWriter;
 	class IMaterialRenderer;
@@ -120,10 +120,10 @@ namespace video
 		SMaterial Material;
 		//! Which values are taken for override
 		/** OR'ed values from E_MATERIAL_FLAGS. */
-		u32 EnableFlags;
+		uint32_t EnableFlags;
 		//! Set in which render passes the material override is active.
 		/** OR'ed values from E_SCENE_NODE_RENDER_PASS. */
-		u16 EnablePasses;
+		uint16_t EnablePasses;
 		//! Global enable flag, overwritten by the SceneManager in each pass
 		/** The Scenemanager uses the EnablePass array and sets Enabled to
 		true if the Override material is enabled in the current pass. */
@@ -137,9 +137,9 @@ namespace video
 		{
 			if (Enabled)
 			{
-				for (u32 i=0; i<32; ++i)
+				for (uint32_t i=0; i<32; ++i)
 				{
-					const u32 num=(1<<i);
+					const uint32_t num=(1<<i);
 					if (EnableFlags & num)
 					{
 						switch (num)
@@ -176,14 +176,14 @@ namespace video
 
 	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) = 0;
 
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc() = 0;
+	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) = 0;
 
 	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) = 0;
 
         virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;
 
 
-        virtual bool initAuxContext(const size_t& ctxIx) = 0;
+        virtual bool initAuxContext() = 0;
         virtual bool deinitAuxContext() = 0;
 
 
@@ -208,7 +208,7 @@ namespace video
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
 				SColor color=SColor(255,0,0,0),
 				const SExposedVideoData& videoData=SExposedVideoData(),
-				core::rect<s32>* sourceRect=0) =0;
+				core::rect<int32_t>* sourceRect=0) =0;
 
 		//! Presents the rendered image to the screen.
 		/** Applications must call this method after performing any
@@ -252,33 +252,37 @@ namespace video
 
 		//! Retrieve the number of image loaders
 		/** \return Number of image loaders */
-		virtual u32 getImageLoaderCount() const = 0;
+		virtual uint32_t getImageLoaderCount() const = 0;
 
 		//! Retrieve the given image loader
 		/** \param n The index of the loader to retrieve. This parameter is an 0-based
 		array index.
 		\return A pointer to the specified loader, 0 if the index is incorrect. */
-		virtual IImageLoader* getImageLoader(u32 n) = 0;
+		virtual IImageLoader* getImageLoader(uint32_t n) = 0;
 
 		//! Retrieve the number of image writers
 		/** \return Number of image writers */
-		virtual u32 getImageWriterCount() const = 0;
+		virtual uint32_t getImageWriterCount() const = 0;
 
 		//! Retrieve the given image writer
 		/** \param n The index of the writer to retrieve. This parameter is an 0-based
 		array index.
 		\return A pointer to the specified writer, 0 if the index is incorrect. */
-		virtual IImageWriter* getImageWriter(u32 n) = 0;
+		virtual IImageWriter* getImageWriter(uint32_t n) = 0;
 
 		//! Sets a material.
 		/** All 3d drawing functions will draw geometry using this material thereafter.
 		\param material: Material to be used from now on. */
 		virtual void setMaterial(const SMaterial& material) =0;
 
-        //! needs to be "deleted" since its not refcounted
-        /** Since not owned by any openGL context and hence not owned by driver
+        //! needs to be "deleted" since its not refcounted by GPU driver internally
+        /** Since not owned by any openGL context and hence not owned by driver.
+        You normally need to call glFlush() after placing a fence
+		\param whether to perform an implicit flush the first time CPU waiting,
+		this only works if the first wait is from the same thread as the one which
+		placed the fence.
         **/
-        virtual IDriverFence* placeFence() = 0;
+        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) = 0;
 
 		//! Get access to a named texture.
 		/** Loads the texture from disk if it is not
@@ -311,11 +315,11 @@ namespace video
 		\return Pointer to the texture, or 0 if the texture was not
 		set or index is out of bounds. This pointer should not be
 		dropped. See IReferenceCounted::drop() for more information. */
-		virtual ITexture* getTextureByIndex(u32 index) =0;
+		virtual ITexture* getTextureByIndex(uint32_t index) =0;
 
 		//! Returns amount of textures currently loaded
 		/** \return Amount of textures currently loaded */
-		virtual u32 getTextureCount() const = 0;
+		virtual uint32_t getTextureCount() const = 0;
 
 		//! Renames a texture
 		/** \param texture Pointer to the texture to rename.
@@ -348,7 +352,7 @@ namespace video
 		information. */
 		virtual ITexture* addTexture(const io::path& name, IImage* image, void* mipmapData=0) = 0;
 
-		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<u32>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
+		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
 
         virtual IFrameBuffer* addFrameBuffer() = 0;
 
@@ -407,7 +411,7 @@ namespace video
 		\param texture Texture whose alpha channel is modified.
 		\param amplitude Constant value by which the height
 		information is multiplied.*/
-		virtual void makeNormalMapTexture(video::ITexture* texture, f32 amplitude=1.0f) const =0;
+		virtual void makeNormalMapTexture(video::ITexture* texture, float amplitude=1.0f) const =0;
 
 
 		//! Sets new multiple render targets.
@@ -461,11 +465,11 @@ namespace video
 		/** Every rendering operation is done into this new area.
 		\param area: Rectangle defining the new area of rendering
 		operations. */
-		virtual void setViewPort(const core::rect<s32>& area) =0;
+		virtual void setViewPort(const core::rect<int32_t>& area) =0;
 
 		//! Gets the area of the current viewport.
 		/** \return Rectangle of the current viewport. */
-		virtual const core::rect<s32>& getViewPort() const =0;
+		virtual const core::rect<int32_t>& getViewPort() const =0;
 
 		//! Draws a 3d line.
 		/** Note that the line is drawn using the current transformation
@@ -495,7 +499,7 @@ namespace video
 		for some properly set up material before drawing the box.
 		\param box The axis aligned box to draw
 		\param color Color to use while drawing the box. */
-		virtual void draw3DBox(const core::aabbox3d<f32>& box,
+		virtual void draw3DBox(const core::aabbox3d<float>& box,
 			SColor color = SColor(255,255,255,255)) =0;
 
 		//! Draws a 2d image without any special effects
@@ -503,7 +507,7 @@ namespace video
 		\param destPos Upper left 2d destination position where the
 		image will be drawn. */
 		virtual void draw2DImage(const video::ITexture* texture,
-			const core::position2d<s32>& destPos) =0;
+			const core::position2d<int32_t>& destPos) =0;
 
 		//! Draws a 2d image using a color
 		/** (if color is other than
@@ -521,8 +525,8 @@ namespace video
 		will be transparent.
 		\param useAlphaChannelOfTexture: If true, the alpha channel of
 		the texture is used to draw the image.*/
-		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<s32>& destPos,
-			const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect =0,
+		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos,
+			const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect =0,
 			SColor color=SColor(255,255,255,255), bool useAlphaChannelOfTexture=false) =0;
 
 		//! Draws a set of 2d images, using a color and the alpha channel of the texture.
@@ -546,11 +550,11 @@ namespace video
 		\param useAlphaChannelOfTexture: If true, the alpha channel of
 		the texture is used to draw the image. */
 		virtual void draw2DImageBatch(const video::ITexture* texture,
-				const core::position2d<s32>& pos,
-				const core::array<core::rect<s32> >& sourceRects,
-				const core::array<s32>& indices,
-				s32 kerningWidth=0,
-				const core::rect<s32>* clipRect=0,
+				const core::position2d<int32_t>& pos,
+				const core::array<core::rect<int32_t> >& sourceRects,
+				const core::array<int32_t>& indices,
+				int32_t kerningWidth=0,
+				const core::rect<int32_t>* clipRect=0,
 				SColor color=SColor(255,255,255,255),
 				bool useAlphaChannelOfTexture=false) =0;
 
@@ -571,9 +575,9 @@ namespace video
 		\param useAlphaChannelOfTexture: If true, the alpha channel of
 		the texture is used to draw the image. */
 		virtual void draw2DImageBatch(const video::ITexture* texture,
-				const core::array<core::position2d<s32> >& positions,
-				const core::array<core::rect<s32> >& sourceRects,
-				const core::rect<s32>* clipRect=0,
+				const core::array<core::position2d<int32_t> >& positions,
+				const core::array<core::rect<int32_t> >& sourceRects,
+				const core::rect<int32_t>* clipRect=0,
 				SColor color=SColor(255,255,255,255),
 				bool useAlphaChannelOfTexture=false) =0;
 
@@ -587,8 +591,8 @@ namespace video
 		the corners of the destRect
 		\param useAlphaChannelOfTexture True if alpha channel will be
 		blended. */
-		virtual void draw2DImage(const video::ITexture* texture, const core::rect<s32>& destRect,
-			const core::rect<s32>& sourceRect, const core::rect<s32>* clipRect =0,
+		virtual void draw2DImage(const video::ITexture* texture, const core::rect<int32_t>& destRect,
+			const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect =0,
 			const video::SColor * const colors=0, bool useAlphaChannelOfTexture=false) =0;
 
 		//! Draws a 2d rectangle.
@@ -599,8 +603,8 @@ namespace video
 		\param clip Pointer to rectangle against which the rectangle
 		will be clipped. If the pointer is null, no clipping will be
 		performed. */
-		virtual void draw2DRectangle(SColor color, const core::rect<s32>& pos,
-			const core::rect<s32>* clip =0) =0;
+		virtual void draw2DRectangle(SColor color, const core::rect<int32_t>& pos,
+			const core::rect<int32_t>* clip =0) =0;
 
 		//! Draws a 2d rectangle with a gradient.
 		/** \param colorLeftUp Color of the upper left corner to draw.
@@ -619,10 +623,10 @@ namespace video
 		\param clip Pointer to rectangle against which the rectangle
 		will be clipped. If the pointer is null, no clipping will be
 		performed. */
-		virtual void draw2DRectangle(const core::rect<s32>& pos,
+		virtual void draw2DRectangle(const core::rect<int32_t>& pos,
 				SColor colorLeftUp, SColor colorRightUp,
 				SColor colorLeftDown, SColor colorRightDown,
-				const core::rect<s32>* clip =0) =0;
+				const core::rect<int32_t>* clip =0) =0;
 
 		//! Draws the outline of a 2D rectangle.
 		/** \param pos Position of the rectangle.
@@ -637,8 +641,8 @@ namespace video
 		\param end Screen coordinates of the start of the line in
 		pixels.
 		\param color Color of the line to draw. */
-		virtual void draw2DLine(const core::position2d<s32>& start,
-					const core::position2d<s32>& end,
+		virtual void draw2DLine(const core::position2d<int32_t>& start,
+					const core::position2d<int32_t>& end,
 					SColor color=SColor(255,255,255,255)) =0;
 
 
@@ -656,14 +660,14 @@ namespace video
 
 		//! Get the size of the screen or render window.
 		/** \return Size of screen or render window. */
-		virtual const core::dimension2d<u32>& getScreenSize() const =0;
+		virtual const core::dimension2d<uint32_t>& getScreenSize() const =0;
 
 		//! Get the size of the current render target
 		/** This method will return the screen size if the driver
 		doesn't support render to texture, or if the current render
 		target is the screen.
 		\return Size of render target or screen/window */
-		virtual const core::dimension2d<u32>& getCurrentRenderTargetSize() const =0;
+		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const =0;
 
 		//! Returns current frames per second value.
 		/** This value is updated approximately every 1.5 seconds and
@@ -671,41 +675,14 @@ namespace video
 		rate. It is not suitable for use in performing timing
 		calculations or framerate independent movement.
 		\return Approximate amount of frames per second drawn. */
-		virtual s32 getFPS() const =0;
+		virtual int32_t getFPS() const =0;
 
 		//! Returns amount of primitives (mostly triangles) which were drawn in the last frame.
 		/** Together with getFPS() very useful method for statistics.
 		\param mode Defines if the primitives drawn are accumulated or
 		counted per frame.
 		\return Amount of primitives drawn in the last frame. */
-		virtual u32 getPrimitiveCountDrawn( u32 mode =0 ) const =0;
-
-		//! Deletes all dynamic lights which were previously added with addDynamicLight().
-		virtual void deleteAllDynamicLights() =0;
-
-		//! adds a dynamic light, returning an index to the light
-		//! \param light: the light data to use to create the light
-		//! \return An index to the light, or -1 if an error occurs
-		virtual s32 addDynamicLight(const SLight& light) =0;
-
-		//! Returns the maximal amount of dynamic lights the device can handle
-		/** \return Maximal amount of dynamic lights. */
-		virtual u32 getMaximalDynamicLightAmount() const =0;
-
-		//! Returns amount of dynamic lights currently set
-		/** \return Amount of dynamic lights currently set */
-		virtual u32 getDynamicLightCount() const =0;
-
-		//! Returns light data which was previously set by IVideoDriver::addDynamicLight().
-		/** \param idx Zero based index of the light. Must be 0 or
-		greater and smaller than IVideoDriver::getDynamicLightCount.
-		\return Light data. */
-		virtual const SLight& getDynamicLight(u32 idx) const =0;
-
-		//! Turns a dynamic light on or off
-		//! \param lightIndex: the index returned by addDynamicLight
-		//! \param turnOn: true to turn the light on, false to turn it off
-		virtual void turnLightOn(s32 lightIndex, bool turnOn) =0;
+		virtual uint32_t getPrimitiveCountDrawn( uint32_t mode =0 ) const =0;
 
 		//! Gets name of this video driver.
 		/** \return Returns the name of the video driver, e.g. in case
@@ -733,7 +710,7 @@ namespace video
 		//! Returns the maximum amount of primitives
 		/** (mostly vertices) which the device is able to render.
 		\return Maximum amount of primitives. */
-		virtual u32 getMaximalIndicesCount() const =0;
+		virtual uint32_t getMaximalIndicesCount() const =0;
 
 		//! Enables or disables a texture creation flag.
 		/** These flags define how textures should be created. By
@@ -782,7 +759,7 @@ namespace video
 		\param param Control parameter for the backend (e.g. compression
 		level).
 		\return True on successful write. */
-		virtual bool writeImageToFile(IImage* image, const io::path& filename, u32 param = 0) = 0;
+		virtual bool writeImageToFile(IImage* image, const io::path& filename, uint32_t param = 0) = 0;
 
 		//! Writes the provided image to a file.
 		/** Requires that there is a suitable image writer registered
@@ -793,7 +770,7 @@ namespace video
 		\param param Control parameter for the backend (e.g. compression
 		level).
 		\return True on successful write. */
-		virtual bool writeImageToFile(IImage* image, io::IWriteFile* file, u32 param =0) =0;
+		virtual bool writeImageToFile(IImage* image, io::IWriteFile* file, uint32_t param =0) =0;
 
 		//! Creates a software image from a byte array.
 		/** No hardware texture will be created for this image. This
@@ -811,7 +788,7 @@ namespace video
 		If you no longer need the image, you should call IImage::drop().
 		See IReferenceCounted::drop() for more information. */
 		virtual IImage* createImageFromData(ECOLOR_FORMAT format,
-			const core::dimension2d<u32>& size, void *data,
+			const core::dimension2d<uint32_t>& size, void *data,
 			bool ownForeignMemory=false,
 			bool deleteMemory = true) =0;
 
@@ -822,7 +799,7 @@ namespace video
 		\return The created image.
 		If you no longer need the image, you should call IImage::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual IImage* createImage(ECOLOR_FORMAT format, const core::dimension2d<u32>& size) =0;
+		virtual IImage* createImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size) =0;
 
 		//! Creates a software image by converting it to given format from another image.
 		/** \deprecated Create an empty image and use copyTo(). This method may be removed by Irrlicht 1.9.
@@ -842,13 +819,13 @@ namespace video
 		If you no longer need the image, you should call IImage::drop().
 		See IReferenceCounted::drop() for more information. */
 		_IRR_DEPRECATED_ virtual IImage* createImage(IImage* imageToCopy,
-				const core::position2d<s32>& pos,
-				const core::dimension2d<u32>& size) =0;
+				const core::position2d<int32_t>& pos,
+				const core::dimension2d<uint32_t>& size) =0;
 
 		//! Event handler for resize events. Only used by the engine internally.
 		/** Used to notify the driver that the window was resized.
 		Usually, there is no need to call this method. */
-		virtual void OnResize(const core::dimension2d<u32>& size) =0;
+		virtual void OnResize(const core::dimension2d<uint32_t>& size) =0;
 
 		//! Adds a new material renderer to the video device.
 		/** Use this method to extend the VideoDriver with new material
@@ -871,18 +848,18 @@ namespace video
 		an error occured. For example if you tried to add an material
 		renderer to the software renderer or the null device, which do
 		not accept material renderers. */
-		virtual s32 addMaterialRenderer(IMaterialRenderer* renderer, const c8* name =0) =0;
+		virtual int32_t addMaterialRenderer(IMaterialRenderer* renderer, const char* name =0) =0;
 
 		//! Get access to a material renderer by index.
 		/** \param idx Id of the material renderer. Can be a value of
 		the E_MATERIAL_TYPE enum or a value which was returned by
 		addMaterialRenderer().
 		\return Pointer to material renderer or null if not existing. */
-		virtual IMaterialRenderer* getMaterialRenderer(u32 idx) =0;
+		virtual IMaterialRenderer* getMaterialRenderer(uint32_t idx) =0;
 
 		//! Get amount of currently available material renderers.
 		/** \return Amount of currently available material renderers. */
-		virtual u32 getMaterialRendererCount() const =0;
+		virtual uint32_t getMaterialRendererCount() const =0;
 
 		//! Get name of a material renderer
 		/** This string can, e.g., be used to test if a specific
@@ -894,7 +871,7 @@ namespace video
 		addMaterialRenderer().
 		\return String with the name of the renderer, or 0 if not
 		exisiting */
-		virtual const c8* getMaterialRendererName(u32 idx) const =0;
+		virtual const char* getMaterialRendererName(uint32_t idx) const =0;
 
 		//! Sets the name of a material renderer.
 		/** Will have no effect on built-in material renderers.
@@ -902,7 +879,7 @@ namespace video
 		E_MATERIAL_TYPE enum or a value which was returned by
 		addMaterialRenderer().
 		\param name: New name of the material renderer. */
-		virtual void setMaterialRendererName(s32 idx, const c8* name) =0;
+		virtual void setMaterialRendererName(int32_t idx, const char* name) =0;
 
 		//! Returns driver and operating system specific data about the IVideoDriver.
 		/** This method should only be used if the engine should be
@@ -934,11 +911,11 @@ namespace video
 		MaxUserClipPlanes.
 		\param enable If true, enable the clipping plane else disable
 		it. */
-		virtual void enableClipPlane(u32 index, bool enable) =0;
+		virtual void enableClipPlane(uint32_t index, bool enable) =0;
 
 		//! Set the minimum number of vertices for which a hw buffer will be created
 		/** \param count Number of vertices to set as minimum. */
-		virtual void setMinHardwareBufferVertexCount(u32 count) =0;
+		virtual void setMinHardwareBufferVertexCount(uint32_t count) =0;
 
 		//! Get the global Material, which might override local materials.
 		/** Depending on the enable flags, values from this Material
@@ -969,7 +946,7 @@ namespace video
 		virtual void enableMaterial2D(bool enable=true) =0;
 
 		//! Get the graphics card vendor name.
-		virtual core::stringc getVendorInfo() =0;
+		virtual std::string getVendorInfo() =0;
 
 		//! Only used by the engine internally.
 		/** Passes the global material flag AllowZWriteOnTransparent.
@@ -990,7 +967,7 @@ namespace video
 		\param dP Pointer to destination
 		\param dF Color format of destination
 		*/
-		virtual void convertColor(const void* sP, ECOLOR_FORMAT sF, s32 sN,
+		virtual void convertColor(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
 				void* dP, ECOLOR_FORMAT dF) const =0;
 	};
 

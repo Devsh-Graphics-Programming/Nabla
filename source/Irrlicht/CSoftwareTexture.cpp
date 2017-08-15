@@ -24,7 +24,7 @@ CSoftwareTexture::CSoftwareTexture(IImage* image, const io::path& name, void* mi
 	if (image)
 	{
 		OrigSize = image->getDimension();
-		core::dimension2d<u32> optSize=OrigSize.getOptimalSize();
+		core::dimension2d<uint32_t> optSize=OrigSize.getOptimalSize();
 
 		Image = new CImage(ECF_A1R5G5B5, OrigSize);
 		image->copyTo(Image);
@@ -57,7 +57,7 @@ CSoftwareTexture::~CSoftwareTexture()
 
 
 //! lock function
-void* CSoftwareTexture::lock(E_TEXTURE_LOCK_MODE mode, u32 mipmapLevel)
+void* CSoftwareTexture::lock(E_TEXTURE_LOCK_MODE mode, uint32_t mipmapLevel)
 {
 	return Image->lock();
 }
@@ -78,14 +78,14 @@ void CSoftwareTexture::unlock()
 
 
 //! Returns original size of the texture.
-const core::dimension2d<u32>& CSoftwareTexture::getOriginalSize() const
+const core::dimension2d<uint32_t>& CSoftwareTexture::getOriginalSize() const
 {
 	return OrigSize;
 }
 
 
 //! Returns (=size) of the texture.
-const core::dimension2d<u32>& CSoftwareTexture::getSize() const
+const core::dimension2d<uint32_t>& CSoftwareTexture::getSize() const
 {
 	return Image->getDimension();
 }
@@ -124,7 +124,7 @@ ECOLOR_FORMAT CSoftwareTexture::getColorFormat() const
 
 
 //! returns pitch of texture (in bytes)
-u32 CSoftwareTexture::getPitch() const
+uint32_t CSoftwareTexture::getPitch() const
 {
 	return Image->getDimension().Width * 2;
 }

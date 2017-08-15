@@ -11,9 +11,9 @@ namespace scene
 
 
 //! constructor
-CSceneNodeAnimatorFlyCircle::CSceneNodeAnimatorFlyCircle(u32 time,
-		const core::vector3df& center, f32 radius, f32 speed,
-		const core::vector3df& direction, f32 radiusEllipsoid)
+CSceneNodeAnimatorFlyCircle::CSceneNodeAnimatorFlyCircle(uint32_t time,
+		const core::vector3df& center, float radius, float speed,
+		const core::vector3df& direction, float radiusEllipsoid)
 	: Center(center), Direction(direction), Radius(radius),
 	RadiusEllipsoid(radiusEllipsoid), Speed(speed), StartTime(time)
 {
@@ -37,21 +37,21 @@ void CSceneNodeAnimatorFlyCircle::init()
 
 
 //! animates a scene node
-void CSceneNodeAnimatorFlyCircle::animateNode(IDummyTransformationSceneNode* node, u32 timeMs)
+void CSceneNodeAnimatorFlyCircle::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 {
 	if ( 0 == node )
 		return;
 
-	f32 time;
+	float time;
 
 	// Check for the condition where the StartTime is in the future.
 	if(StartTime > timeMs)
-		time = ((s32)timeMs - (s32)StartTime) * Speed;
+		time = ((int32_t)timeMs - (int32_t)StartTime) * Speed;
 	else
 		time = (timeMs-StartTime) * Speed;
 
 //	node->setPosition(Center + Radius * ((VecU*cosf(time)) + (VecV*sinf(time))));
-	f32 r2 = RadiusEllipsoid == 0.f ? Radius : RadiusEllipsoid;
+	float r2 = RadiusEllipsoid == 0.f ? Radius : RadiusEllipsoid;
 	node->setPosition(Center + (Radius*cosf(time)*VecU) + (r2*sinf(time)*VecV ) );
 }
 

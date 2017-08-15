@@ -10,7 +10,6 @@
 #include "SMesh.h"
 #include "SAnimatedMesh.h"
 #include "IReadFile.h"
-#include "fast_atof.h"
 #include "os.h"
 
 namespace irr
@@ -40,7 +39,7 @@ CPLYMeshFileLoader::~CPLYMeshFileLoader()
 	}
 
 	// Destroy the element list if it exists
-	for (u32 i=0; i<ElementList.size(); ++i)
+	for (uint32_t i=0; i<ElementList.size(); ++i)
 		delete ElementList[i];
 	ElementList.clear();
 }
@@ -72,7 +71,7 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 
 	// start with empty mesh
 	SAnimatedMesh* animMesh = 0;
-	u32 vertCount=0;
+	uint32_t vertCount=0;
 
 	// Currently only supports ASCII meshes
 	if (strcmp(getNextLine(), "ply"))
@@ -84,7 +83,7 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 		// cut the next line out
 		getNextLine();
 		// grab the word from this line
-		c8 *word = getNextWord();
+		int8_t *word = getNextWord();
 
 		// ignore comments
 		while (strcmp(word, "comment") == 0)
@@ -236,25 +235,25 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 
 			bool hasNormals=true;
 			// loop through each of the elements
-			for (u32 i=0; i<ElementList.size(); ++i)
+			for (uint32_t i=0; i<ElementList.size(); ++i)
 			{
 				// do we want this element type?
 				if (ElementList[i]->Name == "vertex")
 				{
 					// loop through vertex properties
-					for (u32 j=0; j < ElementList[i]->Count; ++j)
+					for (uint32_t j=0; j < ElementList[i]->Count; ++j)
 						hasNormals &= readVertex(*ElementList[i], mb);
 				}
 				else if (ElementList[i]->Name == "face")
 				{
 					// read faces
-					for (u32 j=0; j < ElementList[i]->Count; ++j)
+					for (uint32_t j=0; j < ElementList[i]->Count; ++j)
 						readFace(*ElementList[i], mb);
 				}
 				else
 				{
 					// skip these elements
-					for (u32 j=0; j < ElementList[i]->Count; ++j)
+					for (uint32_t j=0; j < ElementList[i]->Count; ++j)
 						skipElement(*ElementList[i]);
 				}
 			}
@@ -298,7 +297,7 @@ bool CPLYMeshFileLoader::readVertex(const SPLYElement &Element, scene::CDynamicM
 	vert.Normal.Z = 0.0f;
 
 	bool result=false;
-	for (u32 i=0; i < Element.Properties.size(); ++i)
+	for (uint32_t i=0; i < Element.Properties.size(); ++i)
 	{
 		E_PLY_PROPERTY_TYPE t = Element.Properties[i].Type;
 
@@ -329,22 +328,22 @@ bool CPLYMeshFileLoader::readVertex(const SPLYElement &Element, scene::CDynamicM
 			vert.TCoords.Y = getFloat(t);
 		else if (Element.Properties[i].Name == "red")
 		{
-			u32 value = Element.Properties[i].isFloat() ? (u32)(getFloat(t)*255.0f) : getInt(t);
+			uint32_t value = Element.Properties[i].isFloat() ? (uint32_t)(getFloat(t)*255.0f) : getInt(t);
 			vert.Color.setRed(value);
 		}
 		else if (Element.Properties[i].Name == "green")
 		{
-			u32 value = Element.Properties[i].isFloat() ? (u32)(getFloat(t)*255.0f) : getInt(t);
+			uint32_t value = Element.Properties[i].isFloat() ? (uint32_t)(getFloat(t)*255.0f) : getInt(t);
 			vert.Color.setGreen(value);
 		}
 		else if (Element.Properties[i].Name == "blue")
 		{
-			u32 value = Element.Properties[i].isFloat() ? (u32)(getFloat(t)*255.0f) : getInt(t);
+			uint32_t value = Element.Properties[i].isFloat() ? (uint32_t)(getFloat(t)*255.0f) : getInt(t);
 			vert.Color.setBlue(value);
 		}
 		else if (Element.Properties[i].Name == "alpha")
 		{
-			u32 value = Element.Properties[i].isFloat() ? (u32)(getFloat(t)*255.0f) : getInt(t);
+			uint32_t value = Element.Properties[i].isFloat() ? (uint32_t)(getFloat(t)*255.0f) : getInt(t);
 			vert.Color.setAlpha(value);
 		}
 		else
@@ -362,17 +361,17 @@ bool CPLYMeshFileLoader::readFace(const SPLYElement &Element, scene::CDynamicMes
 	if (!IsBinaryFile)
 		getNextLine();
 
-	for (u32 i=0; i < Element.Properties.size(); ++i)
+	for (uint32_t i=0; i < Element.Properties.size(); ++i)
 	{
 		if ( (Element.Properties[i].Name == "vertex_indices" ||
 			Element.Properties[i].Name == "vertex_index") && Element.Properties[i].Type == EPLYPT_LIST)
 		{
 			// get count
-			s32 count = getInt(Element.Properties[i].Data.List.CountType);
-			u32 a = getInt(Element.Properties[i].Data.List.ItemType),
+			int32_t count = getInt(Element.Properties[i].Data.List.CountType);
+			uint32_t a = getInt(Element.Properties[i].Data.List.ItemType),
 				b = getInt(Element.Properties[i].Data.List.ItemType),
 				c = getInt(Element.Properties[i].Data.List.ItemType);
-			s32 j = 3;
+			int32_t j = 3;
 
 			mb->getIndexBuffer().push_back(a);
 			mb->getIndexBuffer().push_back(c);
@@ -406,7 +405,7 @@ void CPLYMeshFileLoader::skipElement(const SPLYElement &Element)
 		if (Element.IsFixedWidth)
 			moveForward(Element.KnownSize);
 		else
-			for (u32 i=0; i < Element.Properties.size(); ++i)
+			for (uint32_t i=0; i < Element.Properties.size(); ++i)
 				skipProperty(Element.Properties[i]);
 	else
 		getNextLine();
@@ -417,9 +416,9 @@ void CPLYMeshFileLoader::skipProperty(const SPLYProperty &Property)
 {
 	if (Property.Type == EPLYPT_LIST)
 	{
-		s32 count = getInt(Property.Data.List.CountType);
+		int32_t count = getInt(Property.Data.List.CountType);
 
-		for (s32 i=0; i < count; ++i)
+		for (int32_t i=0; i < count; ++i)
 			getInt(Property.Data.List.CountType);
 	}
 	else
@@ -435,12 +434,12 @@ void CPLYMeshFileLoader::skipProperty(const SPLYProperty &Property)
 bool CPLYMeshFileLoader::allocateBuffer()
 {
 	// Destroy the element list if it exists
-	for (u32 i=0; i<ElementList.size(); ++i)
+	for (uint32_t i=0; i<ElementList.size(); ++i)
 		delete ElementList[i];
 	ElementList.clear();
 
 	if (!Buffer)
-		Buffer = new c8[PLY_INPUT_BUFFER_SIZE];
+		Buffer = new int8_t[PLY_INPUT_BUFFER_SIZE];
 
 	// not enough memory?
 	if (!Buffer)
@@ -468,7 +467,7 @@ void CPLYMeshFileLoader::fillBuffer()
 	if (EndOfFile)
 		return;
 
-	u32 length = (u32)(EndPointer - StartPointer);
+	uint32_t length = (uint32_t)(EndPointer - StartPointer);
 	if (length && StartPointer != Buffer)
 	{
 		// copy the remaining data to the start of the buffer
@@ -485,7 +484,7 @@ void CPLYMeshFileLoader::fillBuffer()
 	else
 	{
 		// read data from the file
-		u32 count = File->read(EndPointer, PLY_INPUT_BUFFER_SIZE - length);
+		uint32_t count = File->read(EndPointer, PLY_INPUT_BUFFER_SIZE - length);
 
 		// increment the end pointer by the number of bytes read
 		EndPointer = EndPointer + count;
@@ -504,7 +503,7 @@ void CPLYMeshFileLoader::fillBuffer()
 
 
 // skips x bytes in the file, getting more data if required
-void CPLYMeshFileLoader::moveForward(u32 bytes)
+void CPLYMeshFileLoader::moveForward(uint32_t bytes)
 {
 	if (StartPointer + bytes >= EndPointer)
 		fillBuffer();
@@ -515,7 +514,7 @@ void CPLYMeshFileLoader::moveForward(u32 bytes)
 }
 
 
-E_PLY_PROPERTY_TYPE CPLYMeshFileLoader::getPropertyType(const c8* typeString) const
+E_PLY_PROPERTY_TYPE CPLYMeshFileLoader::getPropertyType(const int8_t* typeString) const
 {
 	if (strcmp(typeString, "char") == 0 ||
 		strcmp(typeString, "uchar") == 0 ||
@@ -564,7 +563,7 @@ E_PLY_PROPERTY_TYPE CPLYMeshFileLoader::getPropertyType(const c8* typeString) co
 
 
 // Split the string data into a line in place by terminating it instead of copying.
-c8* CPLYMeshFileLoader::getNextLine()
+int8_t* CPLYMeshFileLoader::getNextLine()
 {
 	// move the start pointer along
 	StartPointer = LineEndPointer + 1;
@@ -577,7 +576,7 @@ c8* CPLYMeshFileLoader::getNextLine()
 	}
 
 	// begin at the start of the next line
-	c8* pos = StartPointer;
+	int8_t* pos = StartPointer;
 	while (pos < EndPointer && *pos && *pos != '\r' && *pos != '\n')
 		++pos;
 
@@ -624,7 +623,7 @@ c8* CPLYMeshFileLoader::getNextLine()
 
 // null terminate the next word on the previous line and move the next word pointer along
 // since we already have a full line in the buffer, we never need to retrieve more data
-c8* CPLYMeshFileLoader::getNextWord()
+int8_t* CPLYMeshFileLoader::getNextWord()
 {
 	// move the start pointer along
 	StartPointer += WordLength + 1;
@@ -635,7 +634,7 @@ c8* CPLYMeshFileLoader::getNextWord()
 		return LineEndPointer;
 	}
 	// begin at the start of the next word
-	c8* pos = StartPointer;
+	int8_t* pos = StartPointer;
 	while (*pos && pos < LineEndPointer && pos < EndPointer && *pos != ' ' && *pos != '\t')
 		++pos;
 
@@ -646,16 +645,16 @@ c8* CPLYMeshFileLoader::getNextWord()
 		++pos;
 	}
 	--pos;
-	WordLength = (s32)(pos-StartPointer);
+	WordLength = (int32_t)(pos-StartPointer);
 	// return pointer to the start of the word
 	return StartPointer;
 }
 
 
 // read the next float from the file and move the start pointer along
-f32 CPLYMeshFileLoader::getFloat(E_PLY_PROPERTY_TYPE t)
+float CPLYMeshFileLoader::getFloat(E_PLY_PROPERTY_TYPE t)
 {
-	f32 retVal = 0.0f;
+	float retVal = 0.0f;
 
 	if (IsBinaryFile)
 	{
@@ -672,28 +671,28 @@ f32 CPLYMeshFileLoader::getFloat(E_PLY_PROPERTY_TYPE t)
 				break;
 			case EPLYPT_INT16:
 				if (IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<s16*>(StartPointer)));
+					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int16_t*>(StartPointer)));
 				else
-					retVal = *(reinterpret_cast<s16*>(StartPointer));
+					retVal = *(reinterpret_cast<int16_t*>(StartPointer));
 				StartPointer += 2;
 				break;
 			case EPLYPT_INT32:
 				if (IsWrongEndian)
-					retVal = f32(os::Byteswap::byteswap(*(reinterpret_cast<s32*>(StartPointer))));
+					retVal = float(os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(StartPointer))));
 				else
-					retVal = f32(*(reinterpret_cast<s32*>(StartPointer)));
+					retVal = float(*(reinterpret_cast<int32_t*>(StartPointer)));
 				StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT32:
 				if (IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<f32*>(StartPointer)));
+					retVal = os::Byteswap::byteswap(*(reinterpret_cast<float*>(StartPointer)));
 				else
-					retVal = *(reinterpret_cast<f32*>(StartPointer));
+					retVal = *(reinterpret_cast<float*>(StartPointer));
 				StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT64:
 				// todo: byteswap 64-bit
-				retVal = f32(*(reinterpret_cast<f64*>(StartPointer)));
+				retVal = float(*(reinterpret_cast<double*>(StartPointer)));
 				StartPointer += 8;
 				break;
 			case EPLYPT_LIST:
@@ -708,17 +707,17 @@ f32 CPLYMeshFileLoader::getFloat(E_PLY_PROPERTY_TYPE t)
 	}
 	else
 	{
-		c8* word = getNextWord();
+		int8_t* word = getNextWord();
 		switch (t)
 		{
 		case EPLYPT_INT8:
 		case EPLYPT_INT16:
 		case EPLYPT_INT32:
-			retVal = f32(atoi(word));
+			retVal = float(atoi(word));
 			break;
 		case EPLYPT_FLOAT32:
 		case EPLYPT_FLOAT64:
-			retVal = f32(atof(word));
+			retVal = float(atof(word));
 			break;
 		case EPLYPT_LIST:
 		case EPLYPT_UNKNOWN:
@@ -731,9 +730,9 @@ f32 CPLYMeshFileLoader::getFloat(E_PLY_PROPERTY_TYPE t)
 
 
 // read the next int from the file and move the start pointer along
-u32 CPLYMeshFileLoader::getInt(E_PLY_PROPERTY_TYPE t)
+uint32_t CPLYMeshFileLoader::getInt(E_PLY_PROPERTY_TYPE t)
 {
-	u32 retVal = 0;
+	uint32_t retVal = 0;
 
 	if (IsBinaryFile)
 	{
@@ -750,28 +749,28 @@ u32 CPLYMeshFileLoader::getInt(E_PLY_PROPERTY_TYPE t)
 				break;
 			case EPLYPT_INT16:
 				if (IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<u16*>(StartPointer)));
+					retVal = os::Byteswap::byteswap(*(reinterpret_cast<uint16_t*>(StartPointer)));
 				else
-					retVal = *(reinterpret_cast<u16*>(StartPointer));
+					retVal = *(reinterpret_cast<uint16_t*>(StartPointer));
 				StartPointer += 2;
 				break;
 			case EPLYPT_INT32:
 				if (IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<s32*>(StartPointer)));
+					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(StartPointer)));
 				else
-					retVal = *(reinterpret_cast<s32*>(StartPointer));
+					retVal = *(reinterpret_cast<int32_t*>(StartPointer));
 				StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT32:
 				if (IsWrongEndian)
-					retVal = (u32)os::Byteswap::byteswap(*(reinterpret_cast<f32*>(StartPointer)));
+					retVal = (uint32_t)os::Byteswap::byteswap(*(reinterpret_cast<float*>(StartPointer)));
 				else
-					retVal = (u32)(*(reinterpret_cast<f32*>(StartPointer)));
+					retVal = (uint32_t)(*(reinterpret_cast<float*>(StartPointer)));
 				StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT64:
 				// todo: byteswap 64-bit
-				retVal = (u32)(*(reinterpret_cast<f64*>(StartPointer)));
+				retVal = (uint32_t)(*(reinterpret_cast<double*>(StartPointer)));
 				StartPointer += 8;
 				break;
 			case EPLYPT_LIST:
@@ -786,7 +785,7 @@ u32 CPLYMeshFileLoader::getInt(E_PLY_PROPERTY_TYPE t)
 	}
 	else
 	{
-		c8* word = getNextWord();
+		int8_t* word = getNextWord();
 		switch (t)
 		{
 		case EPLYPT_INT8:
@@ -796,7 +795,7 @@ u32 CPLYMeshFileLoader::getInt(E_PLY_PROPERTY_TYPE t)
 			break;
 		case EPLYPT_FLOAT32:
 		case EPLYPT_FLOAT64:
-			retVal = u32(atof(word));
+			retVal = uint32_t(atof(word));
 			break;
 		case EPLYPT_LIST:
 		case EPLYPT_UNKNOWN:

@@ -12,7 +12,7 @@
 #include "IMeshLoader.h"
 #include "irrString.h"
 #include "CSkinnedMesh.h"
-
+#include <sstream>
 
 namespace irr
 {
@@ -46,7 +46,7 @@ public:
 
 	struct SXTemplateMaterial
 	{
-		core::stringc Name; // template name from Xfile
+		std::string Name; // template name from Xfile
 		video::SMaterial Material; // material
 	};
 
@@ -71,9 +71,9 @@ public:
 
 		core::stringc Name;
 
-		u32 BoneCount;
+		uint32_t BoneCount;
 
-		core::array<u16> IndexCountPerFace; // default 3, but could be more
+		core::array<uint16_t> IndexCountPerFace; // default 3, but could be more
 
 		core::array<SCPUSkinMeshBuffer*> Buffers;
 
@@ -82,13 +82,13 @@ public:
 		core::array<core::vector2df> TCoords2;
 		core::array<SkinnedVertexIntermediateData> VertexSkinWeights;
 
-		core::array<u32> Indices;
+		core::array<uint32_t> Indices;
 
-		core::array<u32> FaceMaterialIndices; // index of material for each face
+		core::array<uint32_t> FaceMaterialIndices; // index of material for each face
 
 		core::array<video::SMaterial> Materials; // material array
 
-		s32 AttachedJointID;
+		int32_t AttachedJointID;
 
 		bool HasVertexColors;
 	};
@@ -131,7 +131,7 @@ private:
 
 	bool parseDataObjectAnimationKey(ICPUSkinnedMesh::SJoint *joint);
 
-	bool parseDataObjectTextureFilename(core::stringc& texturename);
+	bool parseDataObjectTextureFilename(std::string& texturename);
 
 	bool parseUnknownDataObject();
 
@@ -143,12 +143,12 @@ private:
 	void findNextNoneWhiteSpaceNumber();
 
 	//! returns next parseable token. Returns empty string if no token there
-	core::stringc getNextToken();
+	std::string getNextToken();
 
 	//! reads header of dataobject including the opening brace.
 	//! returns false if error happened, and writes name of object
 	//! if there is one
-	bool readHeadOfDataObject(core::stringc* outname=0);
+	bool readHeadOfDataObject(std::string* outname=0);
 
 	//! checks for closing curly brace, returns false if not there
 	bool checkForClosingBrace();
@@ -160,14 +160,12 @@ private:
 	bool checkForTwoFollowingSemicolons();
 
 	//! reads a x file style string
-	bool getNextTokenAsString(core::stringc& out);
+	bool getNextTokenAsString(std::string& out);
 
-	void readUntilEndOfLine();
-
-	u16 readBinWord();
-	u32 readBinDWord();
-	u32 readInt();
-	f32 readFloat();
+	uint16_t readBinWord();
+	uint32_t readBinDWord();
+	uint32_t readInt();
+	float readFloat();
 	bool readVector2(core::vector2df& vec);
 	bool readVector3(core::vector3df& vec);
 	bool readMatrix(core::matrix4& mat);
@@ -181,12 +179,9 @@ private:
 
 	CCPUSkinnedMesh* AnimatedMesh;
 
-	c8* Buffer;
-	const c8* P;
-	c8* End;
+	std::istringstream fileContents;
 	// counter for number arrays in binary format
-	u32 BinaryNumCount;
-	u32 Line;
+	uint32_t BinaryNumCount;
 	io::path FilePath;
 
 	ICPUSkinnedMesh::SJoint *CurFrame;
@@ -195,10 +190,10 @@ private:
 
 	core::array<SXTemplateMaterial> TemplateMaterials;
 
-	u32 MajorVersion;
-	u32 MinorVersion;
+	uint32_t MajorVersion;
+	uint32_t MinorVersion;
 	bool BinaryFormat;
-	c8 FloatSize;
+	int8_t FloatSize;
 };
 
 } // end namespace scene

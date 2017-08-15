@@ -18,11 +18,11 @@ CVideoModeList::CVideoModeList()
 	#endif
 
 	Desktop.depth = 0;
-	Desktop.size = core::dimension2d<u32>(0,0);
+	Desktop.size = core::dimension2d<uint32_t>(0,0);
 }
 
 
-void CVideoModeList::setDesktop(s32 desktopDepth, const core::dimension2d<u32>& desktopSize)
+void CVideoModeList::setDesktop(int32_t desktopDepth, const core::dimension2d<uint32_t>& desktopSize)
 {
 	Desktop.depth = desktopDepth;
 	Desktop.size = desktopSize;
@@ -30,32 +30,32 @@ void CVideoModeList::setDesktop(s32 desktopDepth, const core::dimension2d<u32>& 
 
 
 //! Gets amount of video modes in the list.
-s32 CVideoModeList::getVideoModeCount() const
+int32_t CVideoModeList::getVideoModeCount() const
 {
-	return (s32)VideoModes.size();
+	return (int32_t)VideoModes.size();
 }
 
 
 //! Returns the screen size of a video mode in pixels.
-core::dimension2d<u32> CVideoModeList::getVideoModeResolution(s32 modeNumber) const
+core::dimension2d<uint32_t> CVideoModeList::getVideoModeResolution(int32_t modeNumber) const
 {
-	if (modeNumber < 0 || modeNumber > (s32)VideoModes.size())
-		return core::dimension2d<u32>(0,0);
+	if (modeNumber < 0 || modeNumber > (int32_t)VideoModes.size())
+		return core::dimension2d<uint32_t>(0,0);
 
 	return VideoModes[modeNumber].size;
 }
 
 
-core::dimension2d<u32> CVideoModeList::getVideoModeResolution(
-		const core::dimension2d<u32>& minSize,
-		const core::dimension2d<u32>& maxSize) const
+core::dimension2d<uint32_t> CVideoModeList::getVideoModeResolution(
+		const core::dimension2d<uint32_t>& minSize,
+		const core::dimension2d<uint32_t>& maxSize) const
 {
-	u32 best=VideoModes.size();
+	uint32_t best=VideoModes.size();
 	// if only one or no mode
 	if (best<2)
 		return getVideoModeResolution(0);
 
-	u32 i;
+	uint32_t i;
 	for (i=0; i<VideoModes.size(); ++i)
 	{
 		if (VideoModes[i].size.Width>=minSize.Width &&
@@ -67,14 +67,14 @@ core::dimension2d<u32> CVideoModeList::getVideoModeResolution(
 	// we take the last one found, the largest one fitting
 	if (best<VideoModes.size())
 		return VideoModes[best].size;
-	const u32 minArea = minSize.getArea();
-	const u32 maxArea = maxSize.getArea();
-	u32 minDist = 0xffffffff;
+	const uint32_t minArea = minSize.getArea();
+	const uint32_t maxArea = maxSize.getArea();
+	uint32_t minDist = 0xffffffff;
 	best=0;
 	for (i=0; i<VideoModes.size(); ++i)
 	{
-		const u32 area = VideoModes[i].size.getArea();
-		const u32 dist = core::min_(abs(int(minArea-area)), abs(int(maxArea-area)));
+		const uint32_t area = VideoModes[i].size.getArea();
+		const uint32_t dist = core::min_(abs(int(minArea-area)), abs(int(maxArea-area)));
 		if (dist<minDist)
 		{
 			minDist=dist;
@@ -86,9 +86,9 @@ core::dimension2d<u32> CVideoModeList::getVideoModeResolution(
 
 
 //! Returns the pixel depth of a video mode in bits.
-s32 CVideoModeList::getVideoModeDepth(s32 modeNumber) const
+int32_t CVideoModeList::getVideoModeDepth(int32_t modeNumber) const
 {
-	if (modeNumber < 0 || modeNumber > (s32)VideoModes.size())
+	if (modeNumber < 0 || modeNumber > (int32_t)VideoModes.size())
 		return 0;
 
 	return VideoModes[modeNumber].depth;
@@ -96,27 +96,27 @@ s32 CVideoModeList::getVideoModeDepth(s32 modeNumber) const
 
 
 //! Returns current desktop screen resolution.
-const core::dimension2d<u32>& CVideoModeList::getDesktopResolution() const
+const core::dimension2d<uint32_t>& CVideoModeList::getDesktopResolution() const
 {
 	return Desktop.size;
 }
 
 
 //! Returns the pixel depth of a video mode in bits.
-s32 CVideoModeList::getDesktopDepth() const
+int32_t CVideoModeList::getDesktopDepth() const
 {
 	return Desktop.depth;
 }
 
 
 //! adds a new mode to the list
-void CVideoModeList::addMode(const core::dimension2d<u32>& size, s32 depth)
+void CVideoModeList::addMode(const core::dimension2d<uint32_t>& size, int32_t depth)
 {
 	SVideoMode m;
 	m.depth = depth;
 	m.size = size;
 
-	for (u32 i=0; i<VideoModes.size(); ++i)
+	for (uint32_t i=0; i<VideoModes.size(); ++i)
 	{
 		if (VideoModes[i] == m)
 			return;

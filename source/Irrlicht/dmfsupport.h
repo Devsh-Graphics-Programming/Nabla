@@ -19,7 +19,6 @@
 #define __DMF_SUPPORT_H_INCLUDED__
 
 #include "irrString.h"
-#include "fast_atof.h"
 
 namespace irr
 {
@@ -34,16 +33,16 @@ struct dmfHeader
 {
 	//main file header
 	core::stringc dmfName; //!<Scene name
-	f32 dmfVersion;     //!<File version
+	float dmfVersion;     //!<File version
 	video::SColor dmfAmbient; //!<Ambient color
-	f32 dmfShadow;     //!<Shadow intensity
-	u32 numObjects;    //!<Number of objects in this scene
-	u32 numMaterials;  //!<Number of materials in this scene
-	u32 numVertices;   //!<Total number of vertices faces*(vertices for each face)
-	u32 numFaces;      //!<Total number of faces
-	u32 numLights;     //!<Number of dynamic lights in this scene
-	u32 numWatVertices; //!<Total number of vertices of water plains watfaces*(vertices for each face)
-	u32 numWatFaces;   //!<Total number of faces for water plains.Note that each water plane is a rectangle with one face only.
+	float dmfShadow;     //!<Shadow intensity
+	uint32_t numObjects;    //!<Number of objects in this scene
+	uint32_t numMaterials;  //!<Number of materials in this scene
+	uint32_t numVertices;   //!<Total number of vertices faces*(vertices for each face)
+	uint32_t numFaces;      //!<Total number of faces
+	uint32_t numLights;     //!<Number of dynamic lights in this scene
+	uint32_t numWatVertices; //!<Total number of vertices of water plains watfaces*(vertices for each face)
+	uint32_t numWatFaces;   //!<Total number of faces for water plains.Note that each water plane is a rectangle with one face only.
 };
 
 
@@ -51,15 +50,15 @@ struct dmfHeader
 This structure contains texture names, an ID and some flags.*/
 struct dmfMaterial
 {
-	u32 materialID;//!<This material unique ID.
-	u32 textureLayers;//!<First texture Flag (0=Normal, 1=Color).
-	u32 textureFlag;//!<First texture Flag (0=Normal, 1=Color).
-	u32 lightmapFlag;//!<Lightmap Flag (0=Normal, others not considered).
-	u32 textureBlend;//!<Texture Blend mode used to support alpha maps (4=Alpha map, others not implemented yet).
+	uint32_t materialID;//!<This material unique ID.
+	uint32_t textureLayers;//!<First texture Flag (0=Normal, 1=Color).
+	uint32_t textureFlag;//!<First texture Flag (0=Normal, 1=Color).
+	uint32_t lightmapFlag;//!<Lightmap Flag (0=Normal, others not considered).
+	uint32_t textureBlend;//!<Texture Blend mode used to support alpha maps (4=Alpha map, others not implemented yet).
 	core::stringc pathName;//!<Name of path defined in path element.
 	core::stringc textureName;//!<Name of first texture (only file name, no path).
 	core::stringc lightmapName;//!<Name of lightmap (only file name, no path).
-	u32 lightmapBlend;//!<Blend mode used to support alpha maps (not implemented yet).
+	uint32_t lightmapBlend;//!<Blend mode used to support alpha maps (not implemented yet).
 };
 
 
@@ -67,9 +66,9 @@ struct dmfMaterial
 This structure contains first vertice index, number of vertices and the material used.*/
 struct dmfFace
 {
-	u32 firstVert;//!<First vertex index.
-	u32 numVerts;//!<Number of vertices for this face.
-	u32 materialID;//!<Material used for this face.
+	uint32_t firstVert;//!<First vertex index.
+	uint32_t numVerts;//!<Number of vertices for this face.
+	uint32_t materialID;//!<Material used for this face.
 };
 
 
@@ -90,20 +89,20 @@ struct dmfLight
 	core::vector3df pos;//!<Position of this light.
 	video::SColorf diffuseColor;//!<Diffuse color.
 	video::SColorf specularColor;//!<Specular color.
-	f32 radius;//!<Maximum radius of light.
+	float radius;//!<Maximum radius of light.
 };
 
 /** A structure representing a single water plane.
 This structure contains light position coordinates, diffuse color, specular color and maximum radius of light.*/
 struct dmfWaterPlane
 {
-	u32 waterID;//!<ID of specified water plane.
-	u32 numFaces;//!<number of faces that make this plain.Owing to the fact that this is a rectangle you'll have 1 every time.
-	u32 firstFace;//!<first face of this plain.
-	core::dimension2d<u32> tileNum;//!<number of tiles of this water plain.
-	f32 waveHeight;//!<height of waves.
-	f32 waveSpeed;//!<waves speed.
-	f32 waveLength;//!<waves length.
+	uint32_t waterID;//!<ID of specified water plane.
+	uint32_t numFaces;//!<number of faces that make this plain.Owing to the fact that this is a rectangle you'll have 1 every time.
+	uint32_t firstFace;//!<first face of this plain.
+	core::dimension2d<uint32_t> tileNum;//!<number of tiles of this water plain.
+	float waveHeight;//!<height of waves.
+	float waveSpeed;//!<waves speed.
+	float waveLength;//!<waves length.
 };
 
 
@@ -138,7 +137,7 @@ void LoadFromFile(io::IReadFile* file, StringList& strlist)
 	{
 		if (*p == '\n')
 		{
-			core::stringc str(start, (u32)(p - start - 1));
+			core::stringc str(start, (uint32_t)(p - start - 1));
 			str.trim();
 			strlist.push_back(str);
 			start = p+1;
@@ -149,7 +148,7 @@ void LoadFromFile(io::IReadFile* file, StringList& strlist)
 
 	if (p - start > 1)
 	{
-		core::stringc str(start, (u32)(p - start - 1));
+		core::stringc str(start, (uint32_t)(p - start - 1));
 		str.trim();
 		strlist.push_back(str);
 	}
@@ -241,7 +240,7 @@ bool GetDMFHeader(const StringList& RawFile, dmfHeader& header)
 	header.numWatVertices=0;
 	offs++;
 
-	s32 fac;
+	int32_t fac;
 	int i;
 
 	for(i=0; i < (int)header.numObjects; i++)
@@ -277,7 +276,7 @@ bool GetDMFHeader(const StringList& RawFile, dmfHeader& header)
 	header.numLights=0;
 	temp.clear();
 	temp1.clear();
-	s32 lit = atoi(RawFile[offs].c_str());
+	int32_t lit = atoi(RawFile[offs].c_str());
 
 	for (i=0; i<lit; i++)
 	{
@@ -429,15 +428,15 @@ bool GetDMFVerticesFaces(const StringList& RawFile/**<StringList representing a 
 	StringList temp,temp1;
 
 	// skip materials
-	s32 offs = 4 + atoi(RawFile[3].c_str());
+	int32_t offs = 4 + atoi(RawFile[3].c_str());
 
-	const s32 objs = atoi(RawFile[offs].c_str());
+	const int32_t objs = atoi(RawFile[offs].c_str());
 	offs++;
 #ifdef _IRR_DMF_DEBUG_
 	os::Printer::log("Reading objects", core::stringc(objs).c_str());
 #endif
 
-	s32 vert_cnt=0, face_cnt=0;
+	int32_t vert_cnt=0, face_cnt=0;
 	for (int i=0; i<objs; ++i)
 	{
 		StringList wat=SubdivideString(RawFile[offs],";");
@@ -449,10 +448,10 @@ bool GetDMFVerticesFaces(const StringList& RawFile/**<StringList representing a 
 		offs++;
 		// load vertices
 		core::array<core::vector3df> pos;
-		const u32 posCount = core::strtoul10(RawFile[offs].c_str());
+		const uint32_t posCount = core::strtoul10(RawFile[offs].c_str());
 		++offs;
 		pos.reallocate(posCount);
-		for (u32 i=0; i<posCount; ++i)
+		for (uint32_t i=0; i<posCount; ++i)
 		{
 			temp1=SubdivideString(RawFile[offs].c_str(),";");
 			pos.push_back(core::vector3df(core::fast_atof(temp1[0].c_str()),
@@ -461,16 +460,16 @@ bool GetDMFVerticesFaces(const StringList& RawFile/**<StringList representing a 
 			++offs;
 		}
 
-		const u32 numFaces=core::strtoul10(RawFile[offs].c_str());
+		const uint32_t numFaces=core::strtoul10(RawFile[offs].c_str());
 		offs++;
 		if(!(wat1[0]=="water" && wat[2]=="0"))
 		{
-			for(u32 j=0; j<numFaces; ++j)
+			for(uint32_t j=0; j<numFaces; ++j)
 			{
 				temp=SubdivideString(RawFile[offs+j],";");
 
 				//first value is vertices number for this face
-				const u32 vert=core::strtoul10(temp[0].c_str());
+				const uint32_t vert=core::strtoul10(temp[0].c_str());
 				faces[face_cnt].numVerts=vert;
 				//second is material ID
 				faces[face_cnt].materialID=core::strtoul10(temp[1].c_str());
@@ -478,14 +477,14 @@ bool GetDMFVerticesFaces(const StringList& RawFile/**<StringList representing a 
 				faces[face_cnt].firstVert=vert_cnt;
 
 				//now we'll create vertices structure
-				for(u32 k=0; k<vert; ++k)
+				for(uint32_t k=0; k<vert; ++k)
 				{
 					//copy position
 					vertices[vert_cnt].pos.set(pos[core::strtoul10(temp[2+k].c_str())]);
 					//get uv coords for tex and light if any
 					vertices[vert_cnt].tc.set(core::fast_atof(temp[2+vert+(2*k)].c_str()),
 							core::fast_atof(temp[2+vert+(2*k)+1].c_str()));
-					const u32 tmp_sz=temp.size();
+					const uint32_t tmp_sz=temp.size();
 					vertices[vert_cnt].lc.set(core::fast_atof(temp[tmp_sz-(2*vert)+(2*k)].c_str()),
 							core::fast_atof(temp[tmp_sz-(2*vert)+(2*k)+1].c_str()));
 					vert_cnt++;
@@ -533,9 +532,9 @@ bool GetDMFLights(const StringList& RawFile/**<StringList representing a DMF fil
 	temp1.clear();
 	offs=offs + atoi(RawFile[offs].c_str());
 	offs++;
-	s32 objs = atoi(RawFile[offs].c_str());
-	s32 lit=0;
-	s32 d_lit=0;
+	int32_t objs = atoi(RawFile[offs].c_str());
+	int32_t lit=0;
+	int32_t d_lit=0;
 	offs++;
 
 	//let's get position of lights in file
@@ -620,12 +619,12 @@ bool GetDMFWaterPlanes(const StringList& RawFile/**<StringList representing a DM
 	temp1.clear();
 	offs=offs+atoi(RawFile[offs].c_str());
 	offs++;
-	s32 objs=atoi(RawFile[offs].c_str());
-	s32 fac=0,vert=0,tmp_sz=0,vert_cnt=0,face_cnt=0,wat_id=0;
-	core::dimension2d<u32> tilenum(40,40);
-	f32 waveheight=3.0f;
-	f32 wavespeed=300.0f;
-	f32 wavelength=80.0f;
+	int32_t objs=atoi(RawFile[offs].c_str());
+	int32_t fac=0,vert=0,tmp_sz=0,vert_cnt=0,face_cnt=0,wat_id=0;
+	core::dimension2d<uint32_t> tilenum(40,40);
+	float waveheight=3.0f;
+	float wavespeed=300.0f;
+	float wavelength=80.0f;
 	offs++;
 
 	for(int i=0;i<objs;i++)

@@ -34,33 +34,33 @@ namespace scene
 		/** \param typeName: Type name of the scene node to add.
 		\param parent: Parent scene node of the new node, can be null to add the scene node to the root.
 		\return Returns pointer to the new scene node or null if not successful. */
-		virtual ISceneNode* addSceneNode(const c8* typeName, IDummyTransformationSceneNode* parent=0);
+		virtual ISceneNode* addSceneNode(const char* typeName, IDummyTransformationSceneNode* parent=0);
 
 		//! returns amount of scene node types this factory is able to create
-		virtual u32 getCreatableSceneNodeTypeCount() const;
+		virtual uint32_t getCreatableSceneNodeTypeCount() const;
 
 		//! returns type name of a createable scene node type by index
 		/** \param idx: Index of scene node type in this factory. Must be a value between 0 and
 		uetCreatableSceneNodeTypeCount() */
-		virtual const c8* getCreateableSceneNodeTypeName(u32 idx) const;
+		virtual const char* getCreateableSceneNodeTypeName(uint32_t idx) const;
 
 		//! returns type of a createable scene node type
 		/** \param idx: Index of scene node type in this factory. Must be a value between 0 and
 		getCreatableSceneNodeTypeCount() */
-		virtual ESCENE_NODE_TYPE getCreateableSceneNodeType(u32 idx) const;
+		virtual ESCENE_NODE_TYPE getCreateableSceneNodeType(uint32_t idx) const;
 
 		//! returns type name of a createable scene node type
 		/** \param idx: Type of scene node.
 		\return: Returns name of scene node type if this factory can create the type, otherwise 0. */
-		virtual const c8* getCreateableSceneNodeTypeName(ESCENE_NODE_TYPE type) const;
+		virtual const char* getCreateableSceneNodeTypeName(ESCENE_NODE_TYPE type) const;
 
 	private:
 
-		ESCENE_NODE_TYPE getTypeFromName(const c8* name) const;
+		ESCENE_NODE_TYPE getTypeFromName(const char* name) const;
 
 		struct SSceneNodeTypePair
 		{
-			SSceneNodeTypePair(ESCENE_NODE_TYPE type, const c8* name)
+			SSceneNodeTypePair(ESCENE_NODE_TYPE type, const char* name)
 				: Type(type), TypeName(name)
 			{}
 

@@ -37,14 +37,14 @@ namespace irr
 {
 namespace os
 {
-	u16 Byteswap::byteswap(u16 num) {return bswap_16(num);}
-	s16 Byteswap::byteswap(s16 num) {return bswap_16(num);}
-	u32 Byteswap::byteswap(u32 num) {return bswap_32(num);}
-	s32 Byteswap::byteswap(s32 num) {return bswap_32(num);}
-	f32 Byteswap::byteswap(f32 num) {u32 tmp=IR(num); tmp=bswap_32(tmp); return (FR(tmp));}
+	uint16_t Byteswap::byteswap(uint16_t num) {return bswap_16(num);}
+	int16_t Byteswap::byteswap(int16_t num) {return bswap_16(num);}
+	uint32_t Byteswap::byteswap(uint32_t num) {return bswap_32(num);}
+	int32_t Byteswap::byteswap(int32_t num) {return bswap_32(num);}
+	float Byteswap::byteswap(float num) {uint32_t tmp=IR(num); tmp=bswap_32(tmp); return (FR(tmp));}
 	// prevent accidental byte swapping of chars
-	u8  Byteswap::byteswap(u8 num)  {return num;}
-	c8  Byteswap::byteswap(c8 num)  {return num;}
+	uint8_t  Byteswap::byteswap(uint8_t num)  {return num;}
+	int8_t  Byteswap::byteswap(int8_t num)  {return num;}
 }
 }
 
@@ -66,14 +66,14 @@ namespace irr
 namespace os
 {
 	//! prints a debuginfo string
-	void Printer::print(const c8* message)
+	void Printer::print(const std::string& message)
 	{
 #if defined (_WIN32_WCE )
 		core::stringw tmp(message);
 		tmp += L"\n";
 		OutputDebugStringW(tmp.c_str());
 #else
-		core::stringc tmp(message);
+		std::string tmp(message);
 		tmp += "\n";
 		OutputDebugStringA(tmp.c_str());
 		printf("%s", tmp.c_str());
@@ -99,7 +99,7 @@ namespace os
 		initVirtualTimer();
 	}
 
-	u32 Timer::getRealTime()
+	uint32_t Timer::getRealTime()
 	{
 		if (HighPerformanceTimerSupport)
 		{
@@ -119,14 +119,14 @@ namespace os
 //				(void)SetThreadAffinityMask(GetCurrentThread(), affinityMask);
 #endif
 			if(queriedOK)
-				return u32((nTime.QuadPart) * 1000 / HighPerformanceFreq.QuadPart);
+				return uint32_t((nTime.QuadPart) * 1000 / HighPerformanceFreq.QuadPart);
 
 		}
 
 		return GetTickCount();
 	}
 
-	u64 Timer::getRealTime64()
+	uint64_t Timer::getRealTime64()
 	{
 		if (HighPerformanceTimerSupport)
 		{
@@ -147,11 +147,11 @@ namespace os
 #endif
 			if(queriedOK)
 			{
-				u64 r = nTime.QuadPart;
+				uint64_t r = nTime.QuadPart;
 				r *= 1000;
 				r /= HighPerformanceFreq.QuadPart;
 				return r;
-//				return u64((nTime.QuadPart) * 1000 / HighPerformanceFreq.QuadPart);
+//				return uint64_t((nTime.QuadPart) * 1000 / HighPerformanceFreq.QuadPart);
 			}
 
 		}
@@ -178,9 +178,9 @@ namespace os
 {
 
 	//! prints a debuginfo string
-	void Printer::print(const c8* message)
+	void Printer::print(const std::string& message)
 	{
-		printf("%s\n", message);
+		printf("%s\n", message.c_str());
 	}
 
 	void Timer::initTimer(bool usePerformanceTimer)
@@ -188,17 +188,17 @@ namespace os
 		initVirtualTimer();
 	}
 
-	u32 Timer::getRealTime()
+	uint32_t Timer::getRealTime()
 	{
 		timeval tv;
 		gettimeofday(&tv, 0);
-		return (u32)(tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+		return (uint32_t)(tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 	}
-	u64 Timer::getRealTime64()
+	uint64_t Timer::getRealTime64()
 	{
 		timeval tv;
 		gettimeofday(&tv, 0);
-		return (u64)(tv.tv_sec)*1000ull + (u64)(tv.tv_usec / 1000);
+		return (uint64_t)(tv.tv_sec)*1000ull + (uint64_t)(tv.tv_usec / 1000);
 	}
 } // end namespace os
 
@@ -209,38 +209,32 @@ namespace os
 	// The platform independent implementation of the printer
 	ILogger* Printer::Logger = 0;
 
-	void Printer::log(const c8* message, ELOG_LEVEL ll)
+	void Printer::log(const std::string& message, ELOG_LEVEL ll)
 	{
 		if (Logger)
 			Logger->log(message, ll);
 	}
 
-	void Printer::log(const wchar_t* message, ELOG_LEVEL ll)
+	void Printer::log(const std::wstring& message, ELOG_LEVEL ll)
 	{
 		if (Logger)
 			Logger->log(message, ll);
 	}
 
-	void Printer::log(const c8* message, const c8* hint, ELOG_LEVEL ll)
+	void Printer::log(const std::string& message, const std::string& hint, ELOG_LEVEL ll)
 	{
 		if (Logger)
 			Logger->log(message, hint, ll);
-	}
-
-	void Printer::log(const c8* message, const io::path& hint, ELOG_LEVEL ll)
-	{
-		if (Logger)
-			Logger->log(message, hint.c_str(), ll);
 	}
 
 	// our Randomizer is not really os specific, so we
 	// code one for all, which should work on every platform the same,
 	// which is desireable.
 
-	s32 Randomizer::seed = 0x0f0f0f0f;
+	int32_t Randomizer::seed = 0x0f0f0f0f;
 
 	//! generates a pseudo random number
-	s32 Randomizer::rand()
+	int32_t Randomizer::rand()
 	{
 		// (a*seed)%m with Schrage's method
 		seed = a * (seed%q) - r* (seed/q);
@@ -251,18 +245,18 @@ namespace os
 	}
 
 	//! generates a pseudo random number
-	f32 Randomizer::frand()
+	float Randomizer::frand()
 	{
 		return rand()*(1.f/rMax);
 	}
 
-	s32 Randomizer::randMax()
+	int32_t Randomizer::randMax()
 	{
 		return rMax;
 	}
 
 	//! resets the randomizer
-	void Randomizer::reset(s32 value)
+	void Randomizer::reset(int32_t value)
 	{
 		seed = value;
 	}
@@ -272,11 +266,11 @@ namespace os
 	// virtual timer implementation
 
 // this shit aint here, then win32 wont compile
-	f32 Timer::VirtualTimerSpeed = 1.0f;
-	s32 Timer::VirtualTimerStopCounter = 0;
-	u32 Timer::LastVirtualTime = 0;
-	u32 Timer::StartRealTime = 0;
-	u32 Timer::StaticTime = 0;
+	float Timer::VirtualTimerSpeed = 1.0f;
+	int32_t Timer::VirtualTimerStopCounter = 0;
+	uint32_t Timer::LastVirtualTime = 0;
+	uint32_t Timer::StartRealTime = 0;
+	uint32_t Timer::StaticTime = 0;
 
 	//! Get real time and date in calendar form
 	ITimer::RealTimeDate Timer::getRealTimeAndDate()
@@ -293,26 +287,26 @@ namespace os
 		if (timeinfo)
 		{
 			// set useful values if succeeded
-			date.Hour=(u32)timeinfo->tm_hour;
-			date.Minute=(u32)timeinfo->tm_min;
-			date.Second=(u32)timeinfo->tm_sec;
-			date.Day=(u32)timeinfo->tm_mday;
-			date.Month=(u32)timeinfo->tm_mon+1;
-			date.Year=(u32)timeinfo->tm_year+1900;
+			date.Hour=(uint32_t)timeinfo->tm_hour;
+			date.Minute=(uint32_t)timeinfo->tm_min;
+			date.Second=(uint32_t)timeinfo->tm_sec;
+			date.Day=(uint32_t)timeinfo->tm_mday;
+			date.Month=(uint32_t)timeinfo->tm_mon+1;
+			date.Year=(uint32_t)timeinfo->tm_year+1900;
 			date.Weekday=(ITimer::EWeekday)timeinfo->tm_wday;
-			date.Yearday=(u32)timeinfo->tm_yday+1;
+			date.Yearday=(uint32_t)timeinfo->tm_yday+1;
 			date.IsDST=timeinfo->tm_isdst != 0;
 		}
 		return date;
 	}
 
 	//! returns current virtual time
-	u32 Timer::getTime()
+	uint32_t Timer::getTime()
 	{
 		if (isStopped())
 			return LastVirtualTime;
 
-		return LastVirtualTime + (u32)((StaticTime - StartRealTime) * VirtualTimerSpeed);
+		return LastVirtualTime + (uint32_t)((StaticTime - StartRealTime) * VirtualTimerSpeed);
 	}
 
 	//! ticks, advances the virtual timer
@@ -322,7 +316,7 @@ namespace os
 	}
 
 	//! sets the current virtual time
-	void Timer::setTime(u32 time)
+	void Timer::setTime(uint32_t time)
 	{
 		StaticTime = getRealTime();
 		LastVirtualTime = time;
@@ -354,7 +348,7 @@ namespace os
 	}
 
 	//! sets the speed of the virtual timer
-	void Timer::setSpeed(f32 speed)
+	void Timer::setSpeed(float speed)
 	{
 		setTime(getTime());
 
@@ -364,7 +358,7 @@ namespace os
 	}
 
 	//! gets the speed of the virtual timer
-	f32 Timer::getSpeed()
+	float Timer::getSpeed()
 	{
 		return VirtualTimerSpeed;
 	}

@@ -15,7 +15,7 @@ namespace video
 
 
 //! constructor
-CZBuffer::CZBuffer(const core::dimension2d<u32>& size)
+CZBuffer::CZBuffer(const core::dimension2d<uint32_t>& size)
 : Buffer(0), BufferEnd(0), Size(0,0), TotalSize(0)
 {
 	#ifdef _DEBUG
@@ -44,7 +44,7 @@ void CZBuffer::clear()
 
 
 //! sets the new size of the zbuffer
-void CZBuffer::setSize(const core::dimension2d<u32>& size)
+void CZBuffer::setSize(const core::dimension2d<uint32_t>& size)
 {
 	if (size == Size)
 		return;
@@ -61,7 +61,7 @@ void CZBuffer::setSize(const core::dimension2d<u32>& size)
 
 
 //! returns the size of the zbuffer
-const core::dimension2d<u32>& CZBuffer::getSize() const
+const core::dimension2d<uint32_t>& CZBuffer::getSize() const
 {
 	return Size;
 }
@@ -92,7 +92,7 @@ namespace video
 {
 
 //! creates a ZBuffer
-IZBuffer* createZBuffer(const core::dimension2d<u32>& size)
+IZBuffer* createZBuffer(const core::dimension2d<uint32_t>& size)
 {
 	#ifdef _IRR_COMPILE_WITH_SOFTWARE_
 	return new CZBuffer(size);

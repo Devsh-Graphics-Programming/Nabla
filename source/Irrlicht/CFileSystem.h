@@ -34,13 +34,13 @@ public:
 	virtual IReadFile* createAndOpenFile(const io::path& filename);
 
 	//! Creates an IReadFile interface for accessing memory like a file.
-	virtual IReadFile* createMemoryReadFile(void* memory, s32 len, const io::path& fileName, bool deleteMemoryWhenDropped = false);
+	virtual IReadFile* createMemoryReadFile(void* memory, int32_t len, const io::path& fileName, bool deleteMemoryWhenDropped = false);
 
 	//! Creates an IReadFile interface for accessing files inside files
 	virtual IReadFile* createLimitReadFile(const io::path& fileName, IReadFile* alreadyOpenedFile, long pos, long areaSize);
 
 	//! Creates an IWriteFile interface for accessing memory like a file.
-	virtual IWriteFile* createMemoryWriteFile(void* memory, s32 len, const io::path& fileName, bool deleteMemoryWhenDropped=false);
+	virtual IWriteFile* createMemoryWriteFile(void* memory, int32_t len, const io::path& fileName, bool deleteMemoryWhenDropped=false);
 
 	//! Opens a file for write access.
 	virtual IWriteFile* createAndWriteFile(const io::path& filename, bool append=false);
@@ -63,25 +63,25 @@ public:
 	virtual bool addFileArchive(IFileArchive* archive);
 
 	//! move the hirarchy of the filesystem. moves sourceIndex relative up or down
-	virtual bool moveFileArchive(u32 sourceIndex, s32 relative);
+	virtual bool moveFileArchive(uint32_t sourceIndex, int32_t relative);
 
 	//! Adds an external archive loader to the engine.
 	virtual void addArchiveLoader(IArchiveLoader* loader);
 
 	//! Returns the total number of archive loaders added.
-	virtual u32 getArchiveLoaderCount() const;
+	virtual uint32_t getArchiveLoaderCount() const;
 
 	//! Gets the archive loader by index.
-	virtual IArchiveLoader* getArchiveLoader(u32 index) const;
+	virtual IArchiveLoader* getArchiveLoader(uint32_t index) const;
 
 	//! gets the file archive count
-	virtual u32 getFileArchiveCount() const;
+	virtual uint32_t getFileArchiveCount() const;
 
 	//! gets an archive
-	virtual IFileArchive* getFileArchive(u32 index);
+	virtual IFileArchive* getFileArchive(uint32_t index);
 
 	//! removes an archive from the file system.
-	virtual bool removeFileArchive(u32 index);
+	virtual bool removeFileArchive(uint32_t index);
 
 	//! removes an archive from the file system.
 	virtual bool removeFileArchive(const io::path& filename);
@@ -126,24 +126,6 @@ public:
 
 	//! determines if a file exists and would be able to be opened.
 	virtual bool existFile(const io::path& filename) const;
-
-	//! Creates a XML Reader from a file.
-	virtual IXMLReader* createXMLReader(const io::path& filename);
-
-	//! Creates a XML Reader from a file.
-	virtual IXMLReader* createXMLReader(IReadFile* file);
-
-	//! Creates a XML Reader from a file.
-	virtual IXMLReaderUTF8* createXMLReaderUTF8(const io::path& filename);
-
-	//! Creates a XML Reader from a file.
-	virtual IXMLReaderUTF8* createXMLReaderUTF8(IReadFile* file);
-
-	//! Creates a XML Writer from a file.
-	virtual IXMLWriter* createXMLWriter(const io::path& filename);
-
-	//! Creates a XML Writer from a file.
-	virtual IXMLWriter* createXMLWriter(IWriteFile* file);
 
 private:
 

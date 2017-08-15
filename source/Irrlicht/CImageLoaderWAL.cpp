@@ -22,7 +22,7 @@ namespace video
 #ifdef _IRR_COMPILE_WITH_LMP_LOADER_
 
 // Palette quake2 colormap.h, 768 byte, last is transparent
-static const u32 colormap_h[256] = {
+static const uint32_t colormap_h[256] = {
 	0xFF000000,0xFF0F0F0F,0xFF1F1F1F,0xFF2F2F2F,0xFF3F3F3F,0xFF4B4B4B,0xFF5B5B5B,0xFF6B6B6B,
 	0xFF7B7B7B,0xFF8B8B8B,0xFF9B9B9B,0xFFABABAB,0xFFBBBBBB,0xFFCBCBCB,0xFFDBDBDB,0xFFEBEBEB,
 	0xFF0F0B07,0xFF170F0B,0xFF1F170B,0xFF271B0F,0xFF2F2313,0xFF372B17,0xFF3F2F17,0xFF4B371B,
@@ -79,17 +79,17 @@ IImage* CImageLoaderLMP::loadImage(irr::io::IReadFile* file) const
 	file->read(&header, sizeof(header));
 
 	// maybe palette file
-	u32 rawtexsize = header.width * header.height;
-	if ( rawtexsize + sizeof ( header ) != (u32)file->getSize() )
+	uint32_t rawtexsize = header.width * header.height;
+	if ( rawtexsize + sizeof ( header ) != (uint32_t)file->getSize() )
 		return 0;
 
-	u8 *rawtex = new u8 [ rawtexsize ];
+	uint8_t *rawtex = new uint8_t [ rawtexsize ];
 
 	file->read(rawtex, rawtexsize);
 
-	IImage* image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(header.width, header.height));
+	IImage* image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(header.width, header.height));
 
-	CColorConverter::convert8BitTo32Bit(rawtex, (u8*)image->lock(), header.width, header.height, (u8*) colormap_h, 0, false);
+	CColorConverter::convert8BitTo32Bit(rawtex, (uint8_t*)image->lock(), header.width, header.height, (uint8_t*) colormap_h, 0, false);
 	image->unlock();
 
 	delete [] rawtex;
@@ -108,7 +108,7 @@ IImageLoader* createImageLoaderLMP()
 #ifdef _IRR_COMPILE_WITH_WAL_LOADER_
 
 // Palette quake2 demo pics/colormap.pcx, last is transparent
-static const u32 colormap_pcx[256] = {
+static const uint32_t colormap_pcx[256] = {
 	0xFF000000,0xFF0F0F0F,0xFF1F1F1F,0xFF2F2F2F,0xFF3F3F3F,0xFF4B4B4B,0xFF5B5B5B,0xFF6B6B6B,
 	0xFF7B7B7B,0xFF8B8B8B,0xFF9B9B9B,0xFFABABAB,0xFFBBBBBB,0xFFCBCBCB,0xFFDBDBDB,0xFFEBEBEB,
 	0xFF634B23,0xFF5B431F,0xFF533F1F,0xFF4F3B1B,0xFF47371B,0xFF3F2F17,0xFF3B2B17,0xFF332713,
@@ -174,13 +174,13 @@ IImage* CImageLoaderWAL2::loadImage(irr::io::IReadFile* file) const
 #endif
 
 	// palette
-	//u32 paletteofs = header.mipmap[0] + ((rawtexsize * 85) >> 6) + 2;
-	u32 *pal = new u32 [ 192 + 256 ];
-	u8 *s = (u8*) pal;
+	//uint32_t paletteofs = header.mipmap[0] + ((rawtexsize * 85) >> 6) + 2;
+	uint32_t *pal = new uint32_t [ 192 + 256 ];
+	uint8_t *s = (uint8_t*) pal;
 
 	file->seek ( file->getSize() - 768 - 2 );
 	file->read ( s, 768 );
-	u32 i;
+	uint32_t i;
 
 	for ( i = 0; i < 256; ++i, s+= 3 )
 	{
@@ -196,23 +196,23 @@ IImage* CImageLoaderWAL2::loadImage(irr::io::IReadFile* file) const
 		pal [ 192 + 255 ] &= 0x00FFFFFF;
 	}
 
-	u32 rawtexsize = header.width * header.height;
+	uint32_t rawtexsize = header.width * header.height;
 
 
-	u8 *rawtex = new u8 [ rawtexsize ];
+	uint8_t *rawtex = new uint8_t [ rawtexsize ];
 
 	file->seek ( header.mipmap[0] );
 	file->read(rawtex, rawtexsize);
 
-	IImage* image = new CImage(format, core::dimension2d<u32>(header.width, header.height));
+	IImage* image = new CImage(format, core::dimension2d<uint32_t>(header.width, header.height));
 
 	switch ( format )
 	{
 	case ECF_R8G8B8:
-		CColorConverter::convert8BitTo24Bit(rawtex, (u8*)image->lock(), header.width, header.height, (u8*) pal + 768, 0, false);
+		CColorConverter::convert8BitTo24Bit(rawtex, (uint8_t*)image->lock(), header.width, header.height, (uint8_t*) pal + 768, 0, false);
 		break;
 	case ECF_A8R8G8B8:
-		CColorConverter::convert8BitTo32Bit(rawtex, (u8*)image->lock(), header.width, header.height, (u8*) pal + 768, 0, false);
+		CColorConverter::convert8BitTo32Bit(rawtex, (uint8_t*)image->lock(), header.width, header.height, (uint8_t*) pal + 768, 0, false);
 		break;
 	}
 
@@ -251,16 +251,16 @@ IImage* CImageLoaderWAL::loadImage(irr::io::IReadFile* file) const
 	header.height = os::Byteswap::byteswap(header.height);
 #endif
 
-	u32 rawtexsize = header.width * header.height;
+	uint32_t rawtexsize = header.width * header.height;
 
-	u8 *rawtex = new u8 [ rawtexsize ];
+	uint8_t *rawtex = new uint8_t [ rawtexsize ];
 
 	file->seek ( header.mipmap[0] );
 	file->read(rawtex, rawtexsize);
 
-	IImage* image = new CImage(ECF_A8R8G8B8, core::dimension2d<u32>(header.width, header.height));
+	IImage* image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(header.width, header.height));
 
-	CColorConverter::convert8BitTo32Bit(rawtex, (u8*)image->lock(), header.width, header.height, (u8*) colormap_pcx, 0, false);
+	CColorConverter::convert8BitTo32Bit(rawtex, (uint8_t*)image->lock(), header.width, header.height, (uint8_t*) colormap_pcx, 0, false);
 	image->unlock();
 
 	delete [] rawtex;

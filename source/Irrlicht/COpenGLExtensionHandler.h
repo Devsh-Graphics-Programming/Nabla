@@ -12,6 +12,7 @@
 #include "EDriverFeatures.h"
 #include "irrTypes.h"
 #include "os.h"
+#include "coreutil.h"
 
 #if defined(_IRR_WINDOWS_API_)
 	// include windows headers for HWND
@@ -138,6 +139,7 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_color_buffer_float",
 	"GL_ARB_compatibility",
 	"GL_ARB_compressed_texture_pixel_storage",
+	"GL_ARB_compute_shader",
 	"GL_ARB_conservative_depth",
 	"GL_ARB_copy_buffer",
 	"GL_ARB_debug_output",
@@ -571,6 +573,7 @@ class COpenGLExtensionHandler
 		IRR_ARB_color_buffer_float,
 		IRR_ARB_compatibility,
 		IRR_ARB_compressed_texture_pixel_storage,
+		IRR_ARB_compute_shader,
 		IRR_ARB_conservative_depth,
 		IRR_ARB_copy_buffer,
 		IRR_ARB_debug_output,
@@ -960,6 +963,13 @@ class COpenGLExtensionHandler
 	};
 
 
+//#if _DEBUG
+//#define OPENGL_LEAK_DEBUG
+//#endif // _DEBUG
+
+	static core::LeakDebugger bufferLeaker;
+	static core::LeakDebugger textureLeaker;
+
 	// constructor
 	COpenGLExtensionHandler();
 
@@ -968,7 +978,7 @@ class COpenGLExtensionHandler
 
 	static void loadFunctions();
 
-	bool isDeviceCompatibile(core::array<core::stringc>* failedExtensions=NULL);
+	bool isDeviceCompatibile(core::array<std::string>* failedExtensions=NULL);
 
 	//! queries the features of the driver, returns true if feature is available
 	static bool queryFeature(const E_VIDEO_DRIVER_FEATURE &feature);
@@ -980,7 +990,7 @@ class COpenGLExtensionHandler
 	}
 
 	//! show all features with availablity
-	void dump(core::stringc* outStr=NULL, bool onlyAvailable=false) const;
+	void dump(std::string* outStr=NULL, bool onlyAvailable=false) const;
 
 	void dumpFramebufferFormats() const;
 
@@ -989,30 +999,34 @@ class COpenGLExtensionHandler
 	bool TextureCompressionExtension;
 
 	// Some non-boolean properties
+	//!
+	static uint32_t MaxArrayTextureLayers;
 	//! Maxmimum texture layers supported by the engine
-	u8 MaxTextureUnits;
+	uint8_t MaxTextureUnits;
 	//! Maximum hardware lights supported
-	u8 MaxLights;
+	uint8_t MaxLights;
 	//! Maximal Anisotropy
-	u8 MaxAnisotropy;
+	uint8_t MaxAnisotropy;
 	//! Number of user clipplanes
-	u8 MaxUserClipPlanes;
+	uint8_t MaxUserClipPlanes;
 	//! Number of auxiliary buffers
-	u8 MaxAuxBuffers;
+	uint8_t MaxAuxBuffers;
 	//! Number of rendertargets available as MRTs
-	u8 MaxMultipleRenderTargets;
+	uint8_t MaxMultipleRenderTargets;
 	//! Optimal number of indices per meshbuffer
 	static uint32_t MaxIndices;
 	//! Optimal number of vertices per meshbuffer
 	static uint32_t MaxVertices;
 	//! Maximal vertices handled by geometry shaders
-	u32 MaxGeometryVerticesOut;
+	static uint32_t MaxGeometryVerticesOut;
 	//! Maximal LOD Bias
-	f32 MaxTextureLODBias;
+	float MaxTextureLODBias;
 	//!
 	static uint32_t MaxVertexStreams;
 	//!
 	static uint32_t MaxXFormFeedbackComponents;
+	//!
+	static uint32_t MaxGPUWaitTimeout;
 	//! Minimal and maximal supported thickness for lines without smoothing
 	GLfloat DimAliasedLine[2];
 	//! Minimal and maximal supported thickness for points without smoothing
@@ -1023,9 +1037,9 @@ class COpenGLExtensionHandler
 	GLfloat DimSmoothedPoint[2];
 
 	//! OpenGL version as Integer: 100*Major+Minor, i.e. 2.1 becomes 201
-	static u16 Version;
+	static uint16_t Version;
 	//! GLSL version as Integer: 100*Major+Minor
-	u16 ShaderLanguageVersion;
+	uint16_t ShaderLanguageVersion;
 
 	static bool IsIntelGPU;
 
@@ -3373,6 +3387,11 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebu
 
 inline void COpenGLExtensionHandler::extGlCreateBuffers(GLsizei n, GLuint *buffers)
 {
+#ifdef OPENGL_LEAK_DEBUG
+    for (size_t i=0; i<n; i++)
+        COpenGLExtensionHandler::bufferLeaker.registerObj(buffers);
+#endif // OPENGL_LEAK_DEBUG
+
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
     #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -3399,6 +3418,12 @@ inline void COpenGLExtensionHandler::extGlCreateBuffers(GLsizei n, GLuint *buffe
 
 inline void COpenGLExtensionHandler::extGlDeleteBuffers(GLsizei n, const GLuint *buffers)
 {
+#ifdef OPENGL_LEAK_DEBUG
+    for (size_t i=0; i<n; i++)
+        COpenGLExtensionHandler::bufferLeaker.deregisterObj(buffers);
+#endif // OPENGL_LEAK_DEBUG
+
+
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlDeleteBuffers)
 		pGlDeleteBuffers(n, buffers);

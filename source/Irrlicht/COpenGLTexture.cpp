@@ -20,7 +20,7 @@ namespace video
 {
 
 //! constructor for usual textures
-COpenGLTexture::COpenGLTexture(IImage* origImage, const io::path& name, void* mipmapData, COpenGLDriver* driver, u32 mipmapLevels)
+COpenGLTexture::COpenGLTexture(IImage* origImage, const io::path& name, void* mipmapData, COpenGLDriver* driver, uint32_t mipmapLevels)
 	: ITexture(name), ColorFormat(ECF_A8R8G8B8), Driver(driver),
 	TextureName(0), InternalFormat(GL_RGBA), MipLevelsStored(0x1),
 	TextureNameHasChanged(0)
@@ -31,7 +31,7 @@ COpenGLTexture::COpenGLTexture(IImage* origImage, const io::path& name, void* mi
 	#endif
 	core::dimension2du ImageSize2 = getImageValues(origImage);
 
-    u32 defaultMipMapCount = 1u+u32(floorf(log2(float(core::min_(core::max_(TextureSize[0],TextureSize[1]),Driver->getMaxTextureSize(ETT_2D)[0])))));
+    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(TextureSize[0],TextureSize[1]),Driver->getMaxTextureSize(ETT_2D)[0])))));
     if (mipmapLevels==0)
     {
         HasMipMaps = Driver->getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
@@ -86,9 +86,9 @@ COpenGLTexture::COpenGLTexture(IImage* origImage, const io::path& name, void* mi
 
     if (mipmapLevels>1&&tmpMipmapDataPTr)
     {
-        for (u32 i=1; i<MipLevelsStored; i++)
+        for (uint32_t i=1; i<MipLevelsStored; i++)
         {
-            core::dimension2d<u32> tmpSize;
+            core::dimension2d<uint32_t> tmpSize;
             tmpSize.Width = core::max_(TextureSize[0]/(0x1u<<i),0x1u);
             tmpSize.Height = core::max_(TextureSize[1]/(0x1u<<i),0x1u);
             size_t levelByteSize;
@@ -115,9 +115,13 @@ COpenGLTexture::COpenGLTexture(IImage* origImage, const io::path& name, void* mi
 	{
 		Image->drop();
 	}
+
+#ifdef OPENGL_LEAK_DEBUG
+    COpenGLExtensionHandler::textureLeaker.registerObj(this);
+#endif // OPENGL_LEAK_DEBUG
 }
 
-COpenGLTexture::COpenGLTexture(GLenum internalFormat, core::dimension2du size, const void* data, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, void* mipmapData, COpenGLDriver* driver, u32 mipmapLevels)
+COpenGLTexture::COpenGLTexture(GLenum internalFormat, core::dimension2du size, const void* data, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, void* mipmapData, COpenGLDriver* driver, uint32_t mipmapLevels)
 	: ITexture(name), Driver(driver), TextureName(0),
 	InternalFormat(internalFormat),
 	TextureNameHasChanged(0)
@@ -129,7 +133,7 @@ COpenGLTexture::COpenGLTexture(GLenum internalFormat, core::dimension2du size, c
 	setDebugName("COpenGLTexture");
 	#endif
 
-    u32 defaultMipMapCount = 1u+u32(floorf(log2(float(core::min_(core::max_(size.Width,size.Height),Driver->getMaxTextureSize(ETT_2D)[0])))));
+    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(size.Width,size.Height),Driver->getMaxTextureSize(ETT_2D)[0])))));
     if (mipmapLevels==0)
     {
         HasMipMaps = Driver->getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
@@ -169,9 +173,9 @@ COpenGLTexture::COpenGLTexture(GLenum internalFormat, core::dimension2du size, c
     if (mipmapData)
     {
         uint8_t* tmpMipmapDataPTr = (uint8_t*)mipmapData;
-        for (u32 i=1; i<MipLevelsStored; i++)
+        for (uint32_t i=1; i<MipLevelsStored; i++)
         {
-            core::dimension2d<u32> tmpSize = size;
+            core::dimension2d<uint32_t> tmpSize = size;
             tmpSize.Width = core::max_(tmpSize.Width/(0x1u<<i),0x1u);
             tmpSize.Height = core::max_(tmpSize.Height/(0x1u<<i),0x1u);
             size_t levelByteSize;
@@ -193,6 +197,10 @@ COpenGLTexture::COpenGLTexture(GLenum internalFormat, core::dimension2du size, c
     {
         COpenGLExtensionHandler::extGlGenerateTextureMipmap(TextureName,GL_TEXTURE_2D);
     }
+
+#ifdef OPENGL_LEAK_DEBUG
+    COpenGLExtensionHandler::textureLeaker.registerObj(this);
+#endif // OPENGL_LEAK_DEBUG
 }
 
 
@@ -208,6 +216,10 @@ COpenGLTexture::COpenGLTexture(const io::path& name, COpenGLDriver* driver)
 	#ifdef _DEBUG
 	setDebugName("COpenGLTexture");
 	#endif
+
+#ifdef OPENGL_LEAK_DEBUG
+    COpenGLExtensionHandler::textureLeaker.registerObj(this);
+#endif // OPENGL_LEAK_DEBUG
 }
 
 
@@ -216,6 +228,10 @@ COpenGLTexture::~COpenGLTexture()
 {
 	if (TextureName)
 		glDeleteTextures(1, &TextureName);
+
+#ifdef OPENGL_LEAK_DEBUG
+    COpenGLExtensionHandler::textureLeaker.deregisterObj(this);
+#endif // OPENGL_LEAK_DEBUG
 }
 
 
@@ -755,16 +771,16 @@ core::dimension2du COpenGLTexture::getImageValues(IImage* image)
 		return ImageSize;
 	}
 
-	const f32 ratio = (f32)ImageSize.Width/(f32)ImageSize.Height;
+	const float ratio = (float)ImageSize.Width/(float)ImageSize.Height;
 	if ((ImageSize.Width>Driver->getMaxTextureSize(ETT_2D)[0]) && (ratio >= 1.0f))
 	{
 		ImageSize.Width = Driver->getMaxTextureSize(ETT_2D)[0];
-		ImageSize.Height = (u32)(Driver->getMaxTextureSize(ETT_2D)[1]/ratio);
+		ImageSize.Height = (uint32_t)(Driver->getMaxTextureSize(ETT_2D)[1]/ratio);
 	}
 	else if (ImageSize.Height>Driver->getMaxTextureSize(ETT_2D)[1])
 	{
 		ImageSize.Height = Driver->getMaxTextureSize(ETT_2D)[1];
-		ImageSize.Width = (u32)(Driver->getMaxTextureSize(ETT_2D)[0]*ratio);
+		ImageSize.Width = (uint32_t)(Driver->getMaxTextureSize(ETT_2D)[0]*ratio);
 	}
 	TextureSize[0] = ImageSize.Width;
 	TextureSize[1] = ImageSize.Height;
@@ -784,7 +800,7 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormat() const
 
 
 //! returns pitch of texture (in bytes)
-u32 COpenGLTexture::getPitch() const
+uint32_t COpenGLTexture::getPitch() const
 {
 	return IImage::getBitsPerPixelFromFormat(ColorFormat)*TextureSize[0]/8;
 }
@@ -818,7 +834,7 @@ void COpenGLTexture::regenerateMipMapLevels()
 }
 
 
-bool COpenGLTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, s32 mipmap)
+bool COpenGLTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap)
 {
     bool compressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
     if (compressed&&(minimum[0]||minimum[1]))
@@ -845,14 +861,14 @@ bool COpenGLTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, con
     return true;
 }
 
-bool COpenGLTexture::resize(const uint32_t* size, const u32 &mipLevels)
+bool COpenGLTexture::resize(const uint32_t* size, const uint32_t &mipLevels)
 {
     memcpy(TextureSize,size,12);
 
     if (TextureName)
         glDeleteTextures(1,&TextureName);
     COpenGLExtensionHandler::extGlCreateTextures(getOpenGLTextureType(),1,&TextureName);
-    u32 defaultMipMapCount = 1u+u32(floorf(log2(float(core::min_(core::max_(size[0],size[1]),Driver->getMaxTextureSize(ETT_2D)[0])))));
+    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(size[0],size[1]),Driver->getMaxTextureSize(ETT_2D)[0])))));
     if (HasMipMaps)
     {
         if (mipLevels==0)

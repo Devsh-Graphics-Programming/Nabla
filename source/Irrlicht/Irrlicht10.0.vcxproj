@@ -442,7 +442,7 @@
       <TypeLibraryName>.\..\Debug/Irrlicht.tlb</TypeLibraryName>
     </Midl>
     <ClCompile>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_WINDOWS;_USRDLL;IRRLICHT_EXPORTS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions); _ITERATOR_DEBUG_LEVEL=0</PreprocessorDefinitions>
       <ExceptionHandling>
       </ExceptionHandling>
@@ -524,7 +524,7 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_WINDOWS;_USRDLL;IRRLICHT_EXPORTS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -613,7 +613,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_WINDOWS;_USRDLL;IRRLICHT_EXPORTS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>false</ExceptionHandling>
@@ -722,7 +722,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -753,7 +753,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>BAW_SERVER;WIN32;WIN64;_DEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -871,7 +871,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>false</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -913,7 +913,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>BAW_SERVER;WIN32;WIN64;NDEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -996,7 +996,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>
@@ -1072,7 +1072,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_WINDOWS;_USRDLL;IRRLICHT_EXPORTS;_CRT_SECURE_NO_DEPRECATE;_IRR_USE_SDL_DEVICE_=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>
       </ExceptionHandling>
@@ -1264,6 +1264,7 @@
     <ClInclude Include="CDefaultSceneNodeAnimatorFactory.h" />
     <ClInclude Include="CDefaultSceneNodeFactory.h" />
     <ClInclude Include="CGeometryCreator.h" />
+    <ClInclude Include="CIrrDeviceWin32.h" />
     <ClInclude Include="CMeshCache.h" />
     <ClInclude Include="CMeshManipulator.h" />
     <ClInclude Include="CMeshSceneNodeInstanced.h" />
@@ -1311,6 +1312,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release - Fast FPU|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='SDL-Debug|x64'">false</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="COSOperator.h" />
     <ClInclude Include="CSceneManager.h" />
     <ClInclude Include="CSkinnedMeshSceneNode.h" />
     <ClInclude Include="Octree.h" />
@@ -1318,7 +1320,6 @@
     <ClInclude Include="C3DSMeshFileLoader.h" />
     <ClInclude Include="CAnimatedMeshHalfLife.h" />
     <ClInclude Include="CB3DMeshFileLoader.h" />
-    <ClInclude Include="CColladaFileLoader.h" />
     <ClInclude Include="CCSMLoader.h" />
     <ClInclude Include="CDMFLoader.h" />
     <ClInclude Include="CLMTSMeshFileLoader.h" />
@@ -1339,7 +1340,6 @@
     <ClInclude Include="CCameraSceneNode.h" />
     <ClInclude Include="CCubeSceneNode.h" />
     <ClInclude Include="CEmptySceneNode.h" />
-    <ClInclude Include="CLightSceneNode.h" />
     <ClInclude Include="CMeshSceneNode.h" />
     <ClInclude Include="CSkyBoxSceneNode.h" />
     <ClInclude Include="CSkyDomeSceneNode.h" />
@@ -1352,7 +1352,6 @@
     <ClInclude Include="CSceneNodeAnimatorFollowSpline.h" />
     <ClInclude Include="CSceneNodeAnimatorRotation.h" />
     <ClInclude Include="CSceneNodeAnimatorTexture.h" />
-    <ClInclude Include="CColladaMeshWriter.h" />
     <ClInclude Include="COBJMeshWriter.h" />
     <ClInclude Include="CPLYMeshWriter.h" />
     <ClInclude Include="CSTLMeshWriter.h" />
@@ -1391,6 +1390,7 @@
     <ClInclude Include="COpenGLSLMaterialRenderer.h" />
     <ClInclude Include="COpenGLTexture.h" />
     <ClInclude Include="glext.h" />
+    <ClInclude Include="utf8\source\utf8.h" />
     <ClInclude Include="wglext.h" />
     <ClInclude Include="CColorConverter.h" />
     <ClInclude Include="CFPSCounter.h" />
@@ -1424,7 +1424,6 @@
     <ClInclude Include="SoftwareDriver2_compile_config.h" />
     <ClInclude Include="SoftwareDriver2_helper.h" />
     <ClInclude Include="CLogger.h" />
-    <ClInclude Include="COSOperator.h" />
     <ClInclude Include="CTimer.h" />
     <ClInclude Include="os.h" />
     <ClInclude Include="lzma\LzmaDec.h">
@@ -1467,7 +1466,6 @@
     <ClInclude Include="CIrrDeviceLinux.h" />
     <ClInclude Include="CIrrDeviceSDL.h" />
     <ClInclude Include="CIrrDeviceStub.h" />
-    <ClInclude Include="CIrrDeviceWin32.h" />
     <ClInclude Include="CIrrDeviceWinCE.h" />
     <ClInclude Include="CAttributeImpl.h" />
     <ClInclude Include="CFileList.h" />
@@ -1481,9 +1479,7 @@
     <ClInclude Include="CTarReader.h" />
     <ClInclude Include="CWADReader.h" />
     <ClInclude Include="CWriteFile.h" />
-    <ClInclude Include="CXMLReader.h" />
     <ClInclude Include="CXMLReaderImpl.h" />
-    <ClInclude Include="CXMLWriter.h" />
     <ClInclude Include="CZipReader.h" />
     <ClInclude Include="IAttribute.h" />
   </ItemGroup>
@@ -1496,9 +1492,11 @@
     <ClCompile Include="CDefaultSceneNodeFactory.cpp" />
     <ClCompile Include="CGeometryCreator.cpp" />
     <ClCompile Include="CGPUTransientBuffer.cpp" />
+    <ClCompile Include="CIrrDeviceWin32.cpp" />
     <ClCompile Include="CMeshCache.cpp" />
     <ClCompile Include="CMeshManipulator.cpp" />
     <ClCompile Include="CMeshSceneNodeInstanced.cpp" />
+    <ClCompile Include="convert_utf\ConvertUTF.c" />
     <ClCompile Include="COpenCLHandler.cpp" />
     <ClCompile Include="COpenGL3DTexture.cpp" />
     <ClCompile Include="COpenGLFrameBuffer.cpp" />
@@ -1546,13 +1544,14 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release - Fast FPU|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='SDL-Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="coreutil.cpp" />
+    <ClCompile Include="COSOperator.cpp" />
     <ClCompile Include="CSceneManager.cpp" />
     <ClCompile Include="C3DSMeshFileLoader.cpp" />
     <ClCompile Include="CSkinnedMeshSceneNode.cpp" />
     <ClCompile Include="CSMFMeshFileLoader.cpp" />
     <ClCompile Include="CAnimatedMeshHalfLife.cpp" />
     <ClCompile Include="CB3DMeshFileLoader.cpp" />
-    <ClCompile Include="CColladaFileLoader.cpp" />
     <ClCompile Include="CCSMLoader.cpp" />
     <ClCompile Include="CDMFLoader.cpp" />
     <ClCompile Include="CLMTSMeshFileLoader.cpp" />
@@ -1571,7 +1570,6 @@
     <ClCompile Include="CCameraSceneNode.cpp" />
     <ClCompile Include="CCubeSceneNode.cpp" />
     <ClCompile Include="CEmptySceneNode.cpp" />
-    <ClCompile Include="CLightSceneNode.cpp" />
     <ClCompile Include="CMeshSceneNode.cpp" />
     <ClCompile Include="CSkyBoxSceneNode.cpp" />
     <ClCompile Include="CSkyDomeSceneNode.cpp" />
@@ -1584,7 +1582,6 @@
     <ClCompile Include="CSceneNodeAnimatorFollowSpline.cpp" />
     <ClCompile Include="CSceneNodeAnimatorRotation.cpp" />
     <ClCompile Include="CSceneNodeAnimatorTexture.cpp" />
-    <ClCompile Include="CColladaMeshWriter.cpp" />
     <ClCompile Include="COBJMeshWriter.cpp" />
     <ClCompile Include="CPLYMeshWriter.cpp" />
     <ClCompile Include="CSTLMeshWriter.cpp" />
@@ -1675,7 +1672,6 @@
     <ClCompile Include="CTRTextureWire2.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
-    <ClCompile Include="COSOperator.cpp" />
     <ClCompile Include="Irrlicht.cpp" />
     <ClCompile Include="os.cpp" />
     <ClCompile Include="lzma\LzmaDec.c">
@@ -1774,7 +1770,6 @@
     <ClCompile Include="CIrrDeviceLinux.cpp" />
     <ClCompile Include="CIrrDeviceSDL.cpp" />
     <ClCompile Include="CIrrDeviceStub.cpp" />
-    <ClCompile Include="CIrrDeviceWin32.cpp" />
     <ClCompile Include="CIrrDeviceWinCE.cpp" />
     <ClCompile Include="CFileList.cpp" />
     <ClCompile Include="CFileSystem.cpp" />
@@ -1787,10 +1782,7 @@
     <ClCompile Include="CTarReader.cpp" />
     <ClCompile Include="CWADReader.cpp" />
     <ClCompile Include="CWriteFile.cpp" />
-    <ClCompile Include="CXMLReader.cpp" />
-    <ClCompile Include="CXMLWriter.cpp" />
     <ClCompile Include="CZipReader.cpp" />
-    <ClCompile Include="irrXML.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Irrlicht.rc" />
