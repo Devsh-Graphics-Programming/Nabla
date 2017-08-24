@@ -21,7 +21,6 @@
 #include "COpenGLOcclusionQuery.h"
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
-#include "../Irrlicht/glext.h"
 
 #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
 #include "MacOSX/CIrrDeviceMacOSX.h"

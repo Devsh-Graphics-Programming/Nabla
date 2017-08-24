@@ -9,6 +9,12 @@
 #include "FW_Mutex.h"
 #include "os.h"
 
+#if _MSC_VER && !__INTEL_COMPILER
+//
+#else
+#include "errno.h"
+#endif // _MSC_VER
+
 using namespace irr;
 
 // ---------------------------------------------------------------------------
@@ -116,26 +122,38 @@ void FW_ConditionVariable::WaitForCondition(FW_Mutex *mutex)
 
 
 
-
-/*
-//
-//
-bool FW_ConditionVariable::TimedWaitForCondition(FW_Mutex *mutex, uint32_t milliseconds)
+void FW_ConditionVariable::TimedWaitForCondition(FW_Mutex *mutex, const uint64_t& nanosec)
 {
 #ifdef _DEBUG
     if (mutexAttachedTo!=mutex)
     {
-        os::Printer::log("Tried to wait on condition bound to a different mutex!\n");
-        exit(-1)
+        os::Printer::log("Tried to wait on condition bound to a different mutex!\n",ELL_ERROR);
+        exit(-69);
     }
 #endif // _DEBUG
 
+#if _MSC_VER && !__INTEL_COMPILER
+    bool fail = !SleepConditionVariableCS(&conditionVar,&mutex->hMutex,(nanosec+999999ull)/1000000ull);
+	if (fail)
+	{
+		DWORD er = GetLastError();
+		if (er == ERROR_TIMEOUT)
+			fail = false;
+	}
+#else
+    struct timespec ts;
+    ts.tv_sec = (time_t) (nanosec / 1000000000ull);
+    ts.tv_nsec = (long) (nanosec % 1000000000ull);
 
-STUFF
+    int retval = pthread_cond_timedwait(&conditionVar,&mutex->hMutex,&ts);
+    bool fail = retval&&retval!=ETIMEDOUT;
+#endif // _MSC_VER
 
-    return true;
+#ifdef _DEBUG
+    if (fail)
+        os::Printer::log("WaitForCondition system call returned error for unknown reason!\n",ELL_ERROR);
+#endif // _DEBUG
 }
-*/
 
 
 //

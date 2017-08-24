@@ -64,8 +64,9 @@
 	#include <GL/glx.h>
 	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
         #include "../Irrlicht/glext.h"
-        #undef GLX_ARB_get_proc_address // avoid problems with local glxext.h
-        #include "glxext.h"
+        //#ifndef GL_VERSION_4_6 1
+            //#error "WTF"
+        //#endif // GL_VERSION_4_6
 	#endif
 #endif
 

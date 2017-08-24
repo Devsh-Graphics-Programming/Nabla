@@ -142,7 +142,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, 
 #endif // _IRR_COMPILE_WITH_OPENGL_
     gpuLoDsPerPass = shaderLoDsPerPass;
 
-    visibilityPadding = 4-(extraDataInstanceSize&0x3u);
+    visibilityPadding = 4-(extraDataSizePerInstanceInput&0x3u);
 
 	instanceDataBuffer = new video::IMetaGranularGPUMappedBuffer(SceneManager->getVideoDriver(),extraDataSizePerInstanceInput+visibilityPadding+48+36,4096,false,16*1024,16*1024);
 	instanceBBoxesCount = instanceDataBuffer->getCapacity();

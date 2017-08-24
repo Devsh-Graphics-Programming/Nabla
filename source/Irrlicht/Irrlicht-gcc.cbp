@@ -552,8 +552,6 @@
 		<Unit filename="../../include/heapsort.h" />
 		<Unit filename="../../include/irrAllocator.h" />
 		<Unit filename="../../include/irrArray.h" />
-		<Unit filename="../../include/irrList.h" />
-		<Unit filename="../../include/irrMap.h" />
 		<Unit filename="../../include/irrMath.h" />
 		<Unit filename="../../include/irrString.h" />
 		<Unit filename="../../include/irrTypes.h" />
@@ -570,6 +568,7 @@
 		<Unit filename="../../include/position2d.h" />
 		<Unit filename="../../include/quaternion.h" />
 		<Unit filename="../../include/rect.h" />
+		<Unit filename="../../include/splines.h" />
 		<Unit filename="../../include/triangle3d.h" />
 		<Unit filename="../../include/vector2d.h" />
 		<Unit filename="../../include/vector3d.h" />
@@ -659,8 +658,6 @@
 		<Unit filename="CIrrDeviceStub.h" />
 		<Unit filename="CIrrDeviceWin32.cpp" />
 		<Unit filename="CIrrDeviceWin32.h" />
-		<Unit filename="CIrrDeviceWinCE.cpp" />
-		<Unit filename="CIrrDeviceWinCE.h" />
 		<Unit filename="CLMTSMeshFileLoader.cpp" />
 		<Unit filename="CLMTSMeshFileLoader.h" />
 		<Unit filename="CLWOMeshFileLoader.cpp" />

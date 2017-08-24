@@ -20,17 +20,68 @@
 inline void FW_SleepMs(const uint64_t &milliseconds)
 {
 #ifdef WIN32
-	Sleep(milliseconds);
+    if (!milliseconds)
+        SwitchToThread();
+	else
+        Sleep(milliseconds);
 #else
 	if (!milliseconds)
 		pthread_yield();
 	else
 	{
 		struct timespec ts;
-		ts.tv_sec = (time_t) (milliseconds / 1000);
-		ts.tv_nsec = (long) (milliseconds % 1000) * 1000000;
+		ts.tv_sec = (time_t) (milliseconds / 1000ull);
+		ts.tv_nsec = (long) (milliseconds % 1000ull) * 1000000ull;
 		nanosleep(&ts, NULL);
 	}
+#endif
+}
+
+//nanoseconds :D
+inline void FW_SleepNano(const uint64_t &nanoseconds)
+{
+#ifdef WIN32
+    if (!nanoseconds)
+        SwitchToThread();
+    else
+    {
+        __int64 time1 = 0, time2 = 0, freq = 0;
+
+        QueryPerformanceCounter((LARGE_INTEGER*)&time1);
+        QueryPerformanceFrequency((LARGE_INTEGER*)&freq);
+        time1 -= freq/__int64(20000); //add a 50us guard
+
+        do {
+            SwitchToThread();
+            QueryPerformanceCounter((LARGE_INTEGER *) &time2);
+        } while((time2-time1) < nanoseconds*freq/__int64(1000000000));
+    }
+#else
+	if (!nanoseconds)
+		pthread_yield();
+	else
+	{
+		struct timespec ts;
+		ts.tv_sec = (time_t) (nanoseconds / 1000000000ull);
+		ts.tv_nsec = (long) (nanoseconds % 1000000000ull);
+		nanosleep(&ts, NULL);
+	}
+#endif
+}
+
+inline uint64_t FW_GetTimestampNs()
+{
+#ifdef WIN32
+    __int64 time1 = 0, freq = 0;
+
+    QueryPerformanceCounter((LARGE_INTEGER*)&time1);
+    QueryPerformanceFrequency((LARGE_INTEGER*)&freq);
+
+    return time1*__int64(1000000000)/freq;
+#else
+    struct timespec ts1;
+    clock_gettime(CLOCK_MONOTONIC, &ts1); //maybe CLOCK_PROCESS_CPUTIME_ID?
+    return uint64_t(ts1.tv_sec)*1000000000ull+uint64_t(ts1.tv_nsec);
 #endif
 }
 
@@ -111,6 +162,8 @@ class FW_ConditionVariable
         **/
         void    WaitForCondition(FW_Mutex *mutex);
 
+        void    TimedWaitForCondition(FW_Mutex* mutex, const uint64_t& nanosec);
+
 
         /**
         You can signal a condition outside a mutex lock,
@@ -149,7 +202,7 @@ not using add because we atomically wait for value to be 0 before swapping
 
 #define FW_FastLock(lock) volatile long lock = 0
 #define FW_FastLockGet(lock) while(InterlockedCompareExchange(&lock, 1, 0)) \
-Sleep(0)
+SwitchToThread()
 #define FW_FastLockRelease(lock) InterlockedExchange(&lock, 0)
 
 
@@ -168,7 +221,7 @@ inline void FW_AtomicCounterIncr(FW_AtomicCounter &lock)
 	{
 		while (lock>=FW_AtomicCounterMagicBlockVal)
 		{
-			Sleep(0);
+			SwitchToThread();
 		}
 	}
 
@@ -198,7 +251,7 @@ inline void FW_AtomicCounterBlock(FW_AtomicCounter &lock)
 {
     while(InterlockedCompareExchange(&lock, FW_AtomicCounterMagicBlockVal, 0))
     {
-        Sleep(0);
+        SwitchToThread();
     }
 }
 

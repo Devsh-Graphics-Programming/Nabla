@@ -77,8 +77,6 @@
 #include "irrArray.h"
 #include "IRandomizer.h"
 #include "IrrlichtDevice.h"
-#include "irrList.h"
-#include "irrMap.h"
 #include "irrMath.h"
 #include "irrString.h"
 #include "irrTypes.h"
@@ -109,6 +107,7 @@
 #include "position2d.h"
 #include "quaternion.h"
 #include "rect.h"
+#include "splines.h"
 
 #include "SAnimatedMesh.h"
 #include "SceneParameters.h"
