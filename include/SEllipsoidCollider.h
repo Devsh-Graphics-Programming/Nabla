@@ -29,7 +29,7 @@ class SEllipsoidCollider
             validEllipse = true;
         }
 
-
+/**
         static inline void* operator new(size_t size) throw(std::bad_alloc)
         {
             void *memoryallocatedaligned = 0;
@@ -76,7 +76,7 @@ class SEllipsoidCollider
             return p;
         }
         static inline void  operator delete[](void* p,void* t) throw() {}
-
+**/
 
         inline bool CollideWithRay(float& collisionDistance, vectorSIMDf origin, vectorSIMDf direction, const float& dirMaxMultiplier) const
         {

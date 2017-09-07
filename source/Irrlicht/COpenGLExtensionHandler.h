@@ -14,62 +14,7 @@
 #include "os.h"
 #include "coreutil.h"
 
-#if defined(_IRR_WINDOWS_API_)
-	// include windows headers for HWND
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#define GL_GLEXT_LEGACY 1
-	#endif
-	#include <GL/gl.h>
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#include "../Irrlicht/glext.h"
-	#endif
-	#include "wglext.h"
-
-	#ifdef _MSC_VER
-		#pragma comment(lib, "OpenGL32.lib")
-//		#pragma comment(lib, "OpenCL.lib")
-	#endif
-
-#elif defined(_IRR_COMPILE_WITH_OSX_DEVICE_)
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#define GL_GLEXT_LEGACY 1
-	#endif
-	#include <OpenGL/gl.h>
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#include "../Irrlicht/glext.h"
-	#endif
-#elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#define GL_GLEXT_LEGACY 1
-		#define GLX_GLXEXT_LEGACY 1
-	#else
-		#define GL_GLEXT_PROTOTYPES 1
-		#define GLX_GLXEXT_PROTOTYPES 1
-	#endif
-	#define NO_SDL_GLEXT
-	#include <SDL/SDL_video.h>
-	#include <SDL/SDL_opengl.h>
-	#include "../Irrlicht/glext.h"
-#else
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#define GL_GLEXT_LEGACY 1
-		#define GLX_GLXEXT_LEGACY 1
-	#else
-		#define GL_GLEXT_PROTOTYPES 1
-		#define GLX_GLXEXT_PROTOTYPES 1
-	#endif
-	#include <GL/gl.h>
-	#include <GL/glx.h>
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-        #include "../Irrlicht/glext.h"
-        //#ifndef GL_VERSION_4_6 1
-            //#error "WTF"
-        //#endif // GL_VERSION_4_6
-	#endif
-#endif
-
+#include "COpenGLStateManager.h"
 
 namespace irr
 {
@@ -1070,6 +1015,9 @@ class COpenGLExtensionHandler
     static void extGlCompressedTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void *data);
     static void extGlCompressedTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data);
     static void extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void *data);
+    static void extGlCopyTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint x, GLint y, GLsizei width);
+    static void extGlCopyTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height);
+    static void extGlCopyTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
     static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
     static void setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr);
 
@@ -1102,31 +1050,31 @@ class COpenGLExtensionHandler
 	static void extGlGetShaderiv(GLuint shader, GLenum type, GLint *param);
 	static void extGlGetProgramiv(GLuint program, GLenum type, GLint *param);
 	static GLint extGlGetUniformLocation(GLuint program, const char *name);
-	static void extGlUniform1fv(GLint loc, GLsizei count, const GLfloat *v);
-	static void extGlUniform2fv(GLint loc, GLsizei count, const GLfloat *v);
-	static void extGlUniform3fv(GLint loc, GLsizei count, const GLfloat *v);
-	static void extGlUniform4fv(GLint loc, GLsizei count, const GLfloat *v);
-	static void extGlUniform1bv(GLint loc, GLsizei count, const bool *v);
-	static void extGlUniform2bv(GLint loc, GLsizei count, const bool *v);
-	static void extGlUniform3bv(GLint loc, GLsizei count, const bool *v);
-	static void extGlUniform4bv(GLint loc, GLsizei count, const bool *v);
-	static void extGlUniform1iv(GLint loc, GLsizei count, const GLint *v);
-	static void extGlUniform2iv(GLint loc, GLsizei count, const GLint *v);
-	static void extGlUniform3iv(GLint loc, GLsizei count, const GLint *v);
-	static void extGlUniform4iv(GLint loc, GLsizei count, const GLint *v);
-	static void extGlUniform1uiv(GLint loc, GLsizei count, const GLuint *v);
-	static void extGlUniform2uiv(GLint loc, GLsizei count, const GLuint *v);
-	static void extGlUniform3uiv(GLint loc, GLsizei count, const GLuint *v);
-	static void extGlUniform4uiv(GLint loc, GLsizei count, const GLuint *v);
-	static void extGlUniformMatrix2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
-	static void extGlUniformMatrix3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
-	static void extGlUniformMatrix4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
-	static void extGlUniformMatrix2x3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
-	static void extGlUniformMatrix2x4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
-	static void extGlUniformMatrix3x2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
-	static void extGlUniformMatrix3x4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
-	static void extGlUniformMatrix4x2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
-	static void extGlUniformMatrix4x3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlProgramUniform1fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v);
+	static void extGlProgramUniform2fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v);
+	static void extGlProgramUniform3fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v);
+	static void extGlProgramUniform4fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v);
+	static void extGlProgramUniform1bv(GLuint program, GLint loc, GLsizei count, const bool *v);
+	static void extGlProgramUniform2bv(GLuint program, GLint loc, GLsizei count, const bool *v);
+	static void extGlProgramUniform3bv(GLuint program, GLint loc, GLsizei count, const bool *v);
+	static void extGlProgramUniform4bv(GLuint program, GLint loc, GLsizei count, const bool *v);
+	static void extGlProgramUniform1iv(GLuint program, GLint loc, GLsizei count, const GLint *v);
+	static void extGlProgramUniform2iv(GLuint program, GLint loc, GLsizei count, const GLint *v);
+	static void extGlProgramUniform3iv(GLuint program, GLint loc, GLsizei count, const GLint *v);
+	static void extGlProgramUniform4iv(GLuint program, GLint loc, GLsizei count, const GLint *v);
+	static void extGlProgramUniform1uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v);
+	static void extGlProgramUniform2uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v);
+	static void extGlProgramUniform3uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v);
+	static void extGlProgramUniform4uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v);
+	static void extGlProgramUniformMatrix2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlProgramUniformMatrix3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlProgramUniformMatrix4fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlProgramUniformMatrix2x3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlProgramUniformMatrix2x4fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlProgramUniformMatrix3x2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlProgramUniformMatrix3x4fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlProgramUniformMatrix4x2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
+	static void extGlProgramUniformMatrix4x3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
 	static void extGlGetActiveUniform(GLuint program, GLuint index, GLsizei maxlength, GLsizei *length, GLint *size, GLenum *type, GLchar *name);
 
 	// framebuffer objects
@@ -1277,6 +1225,9 @@ class COpenGLExtensionHandler
     ///static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC pGlTextureStorage2DMultisample;
     ///static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC pGlTextureStorage3DMultisample;
     static PFNGLTEXSUBIMAGE3DPROC pGlTexSubImage3D;
+    static PFNGLMULTITEXSUBIMAGE1DEXTPROC pGlMultiTexSubImage1DEXT;
+    static PFNGLMULTITEXSUBIMAGE2DEXTPROC pGlMultiTexSubImage2DEXT;
+    static PFNGLMULTITEXSUBIMAGE3DEXTPROC pGlMultiTexSubImage3DEXT;
     static PFNGLTEXTURESUBIMAGE1DPROC pGlTextureSubImage1D; //NULL
     static PFNGLTEXTURESUBIMAGE2DPROC pGlTextureSubImage2D; //NULL
     static PFNGLTEXTURESUBIMAGE3DPROC pGlTextureSubImage3D; //NULL
@@ -1292,6 +1243,13 @@ class COpenGLExtensionHandler
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC pGlCompressedTextureSubImage1DEXT;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC pGlCompressedTextureSubImage2DEXT;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC pGlCompressedTextureSubImage3DEXT;
+    static PFNGLCOPYTEXSUBIMAGE3DPROC pGlCopyTexSubImage3D;
+    static PFNGLCOPYTEXTURESUBIMAGE1DPROC pGlCopyTextureSubImage1D;
+    static PFNGLCOPYTEXTURESUBIMAGE2DPROC pGlCopyTextureSubImage2D;
+    static PFNGLCOPYTEXTURESUBIMAGE3DPROC pGlCopyTextureSubImage3D;
+    static PFNGLCOPYTEXTURESUBIMAGE1DEXTPROC pGlCopyTextureSubImage1DEXT;
+    static PFNGLCOPYTEXTURESUBIMAGE2DEXTPROC pGlCopyTextureSubImage2DEXT;
+    static PFNGLCOPYTEXTURESUBIMAGE3DEXTPROC pGlCopyTextureSubImage3DEXT;
     static PFNGLGENERATEMIPMAPPROC pGlGenerateMipmap;
     static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap; //NULL
     static PFNGLGENERATETEXTUREMIPMAPEXTPROC pGlGenerateTextureMipmapEXT;
@@ -1326,27 +1284,27 @@ class COpenGLExtensionHandler
     static PFNGLGETSHADERIVPROC pGlGetShaderiv;
     static PFNGLGETSHADERIVPROC pGlGetProgramiv;
     static PFNGLGETUNIFORMLOCATIONPROC pGlGetUniformLocation;
-    static PFNGLUNIFORM1FVPROC pGlUniform1fv;
-    static PFNGLUNIFORM2FVPROC pGlUniform2fv;
-    static PFNGLUNIFORM3FVPROC pGlUniform3fv;
-    static PFNGLUNIFORM4FVPROC pGlUniform4fv;
-    static PFNGLUNIFORM1IVPROC pGlUniform1iv;
-    static PFNGLUNIFORM2IVPROC pGlUniform2iv;
-    static PFNGLUNIFORM3IVPROC pGlUniform3iv;
-    static PFNGLUNIFORM4IVPROC pGlUniform4iv;
-    static PFNGLUNIFORM1UIVPROC pGlUniform1uiv;
-    static PFNGLUNIFORM2UIVPROC pGlUniform2uiv;
-    static PFNGLUNIFORM3UIVPROC pGlUniform3uiv;
-    static PFNGLUNIFORM4UIVPROC pGlUniform4uiv;
-    static PFNGLUNIFORMMATRIX2FVPROC pGlUniformMatrix2fv;
-    static PFNGLUNIFORMMATRIX3FVPROC pGlUniformMatrix3fv;
-    static PFNGLUNIFORMMATRIX4FVPROC pGlUniformMatrix4fv;
-    static PFNGLUNIFORMMATRIX2X3FVPROC pGlUniformMatrix2x3fv;
-    static PFNGLUNIFORMMATRIX2X4FVPROC pGlUniformMatrix2x4fv;
-    static PFNGLUNIFORMMATRIX3X2FVPROC pGlUniformMatrix3x2fv;
-    static PFNGLUNIFORMMATRIX3X4FVPROC pGlUniformMatrix3x4fv;
-    static PFNGLUNIFORMMATRIX4X2FVPROC pGlUniformMatrix4x2fv;
-    static PFNGLUNIFORMMATRIX4X3FVPROC pGlUniformMatrix4x3fv;
+    static PFNGLPROGRAMUNIFORM1FVPROC pGlProgramUniform1fv;
+    static PFNGLPROGRAMUNIFORM2FVPROC pGlProgramUniform2fv;
+    static PFNGLPROGRAMUNIFORM3FVPROC pGlProgramUniform3fv;
+    static PFNGLPROGRAMUNIFORM4FVPROC pGlProgramUniform4fv;
+    static PFNGLPROGRAMUNIFORM1IVPROC pGlProgramUniform1iv;
+    static PFNGLPROGRAMUNIFORM2IVPROC pGlProgramUniform2iv;
+    static PFNGLPROGRAMUNIFORM3IVPROC pGlProgramUniform3iv;
+    static PFNGLPROGRAMUNIFORM4IVPROC pGlProgramUniform4iv;
+    static PFNGLPROGRAMUNIFORM1UIVPROC pGlProgramUniform1uiv;
+    static PFNGLPROGRAMUNIFORM2UIVPROC pGlProgramUniform2uiv;
+    static PFNGLPROGRAMUNIFORM3UIVPROC pGlProgramUniform3uiv;
+    static PFNGLPROGRAMUNIFORM4UIVPROC pGlProgramUniform4uiv;
+    static PFNGLPROGRAMUNIFORMMATRIX2FVPROC pGlProgramUniformMatrix2fv;
+    static PFNGLPROGRAMUNIFORMMATRIX3FVPROC pGlProgramUniformMatrix3fv;
+    static PFNGLPROGRAMUNIFORMMATRIX4FVPROC pGlProgramUniformMatrix4fv;
+    static PFNGLPROGRAMUNIFORMMATRIX2X3FVPROC pGlProgramUniformMatrix2x3fv;
+    static PFNGLPROGRAMUNIFORMMATRIX2X4FVPROC pGlProgramUniformMatrix2x4fv;
+    static PFNGLPROGRAMUNIFORMMATRIX3X2FVPROC pGlProgramUniformMatrix3x2fv;
+    static PFNGLPROGRAMUNIFORMMATRIX3X4FVPROC pGlProgramUniformMatrix3x4fv;
+    static PFNGLPROGRAMUNIFORMMATRIX4X2FVPROC pGlProgramUniformMatrix4x2fv;
+    static PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC pGlProgramUniformMatrix4x3fv;
     static PFNGLGETACTIVEUNIFORMPROC pGlGetActiveUniform;
     static PFNGLPOINTPARAMETERFPROC  pGlPointParameterf;
     static PFNGLPOINTPARAMETERFVPROC pGlPointParameterfv;
@@ -1499,8 +1457,7 @@ class COpenGLExtensionHandler
     static PFNGLBLENDFUNCIPROC pGlBlendFunciARB;
     static PFNGLBLENDEQUATIONINDEXEDAMDPROC pGlBlendEquationIndexedAMD; //NULL
     static PFNGLBLENDEQUATIONIPROC pGlBlendEquationiARB; //NULL
-    static PFNGLPROGRAMPARAMETERIARBPROC pGlProgramParameteriARB;
-    static PFNGLPROGRAMPARAMETERIEXTPROC pGlProgramParameteriEXT;
+    static PFNGLPROGRAMPARAMETERIPROC pGlProgramParameteri;
     static PFNGLPATCHPARAMETERIPROC pGlPatchParameteri;
     static PFNGLPATCHPARAMETERFVPROC pGlPatchParameterfv;
     //
@@ -2035,7 +1992,7 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(GLuint tex
         if (pGlCompressedTextureSubImage1D)
             pGlCompressedTextureSubImage1D(texture, level, xoffset, width,format, imageSize, data);
 #else
-        glCompressedTextureSubImage1D(texture, level, xoffset, width,format, imageSize, data));
+        glCompressedTextureSubImage1D(texture, level, xoffset, width,format, imageSize, data);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
@@ -2044,7 +2001,7 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(GLuint tex
         if (pGlCompressedTextureSubImage1DEXT)
             pGlCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width,format, imageSize, data);
 #else
-        glCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width,format, imageSize, data));
+        glCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width,format, imageSize, data);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -2080,7 +2037,7 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(GLuint tex
         if (pGlCompressedTextureSubImage2D)
             pGlCompressedTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, imageSize, data);
 #else
-        glCompressedTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, imageSize, data));
+        glCompressedTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, imageSize, data);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
@@ -2089,7 +2046,7 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(GLuint tex
         if (pGlCompressedTextureSubImage2DEXT)
             pGlCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, imageSize, data);
 #else
-        glCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, imageSize, data));
+        glCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, imageSize, data);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -2136,7 +2093,7 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint tex
         if (pGlCompressedTextureSubImage3D)
             pGlCompressedTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
 #else
-        glCompressedTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data));
+        glCompressedTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
@@ -2145,7 +2102,7 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint tex
         if (pGlCompressedTextureSubImage3DEXT)
             pGlCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
 #else
-        glCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data));
+        glCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -2178,6 +2135,154 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint tex
         pGlCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
 #else
         glCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(target, bound);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlCopyTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint x, GLint y, GLsizei width)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCopyTextureSubImage1D)
+            pGlCopyTextureSubImage1D(texture, level, xoffset, x, y, width);
+#else
+        glCopyTextureSubImage1D(texture, level, xoffset, x, y, width);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCopyTextureSubImage1DEXT)
+            pGlCopyTextureSubImage1DEXT(texture, target, level, xoffset, x, y, width);
+#else
+        glCopyTextureSubImage1DEXT(texture, target, level, xoffset, x, y, width);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlCopyTexSubImage3D)
+#else
+    else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    {
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+        glCopyTexSubImage1D(target, level, xoffset, x, y, width);
+        glBindTexture(target, bound);
+    }
+}
+inline void COpenGLExtensionHandler::extGlCopyTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCopyTextureSubImage2D)
+            pGlCopyTextureSubImage2D(texture, level, xoffset, yoffset, x, y, width, height);
+#else
+        glCopyTextureSubImage2D(texture, level, xoffset, yoffset, x, y, width, height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCopyTextureSubImage2DEXT)
+            pGlCopyTextureSubImage2DEXT(texture, target, level, xoffset, yoffset, x, y, width, height);
+#else
+        glCopyTextureSubImage2DEXT(texture, target, level, xoffset, yoffset, x, y, width, height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlCopyTexSubImage3D)
+#else
+    else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    {
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+            case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+        glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
+        glBindTexture(target, bound);
+    }
+}
+inline void COpenGLExtensionHandler::extGlCopyTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCopyTextureSubImage3D)
+            pGlCopyTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, x, y, width, height);
+#else
+        glCopyTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, x, y, width, height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlCopyTextureSubImage3DEXT)
+            pGlCopyTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, x, y, width, height);
+#else
+        glCopyTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, x, y, width, height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlCopyTexSubImage3D)
+#else
+    else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    {
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_2D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_3D:
+                glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlCopyTexSubImage3D(target, level, xoffset, yoffset, zoffset, x, y, width, height);
+#else
+        glCopyTexSubImage3D(target, level, xoffset, yoffset, zoffset, x, y, width, height);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
@@ -2511,208 +2616,208 @@ inline GLint COpenGLExtensionHandler::extGlGetUniformLocation(GLuint program, co
 	return -1;
 }
 
-inline void COpenGLExtensionHandler::extGlUniform1fv(GLint loc, GLsizei count, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform1fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform1fv)
-		pGlUniform1fv(loc, count, v);
+	if (pGlProgramUniform1fv)
+		pGlProgramUniform1fv(program, loc, count, v);
 #else
-	glUniform1fv(loc, count, v);
+	glProgramUniform1fv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform2fv(GLint loc, GLsizei count, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform2fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform2fv)
-		pGlUniform2fv(loc, count, v);
+	if (pGlProgramUniform2fv)
+		pGlProgramUniform2fv(program, loc, count, v);
 #else
-	glUniform2fv(loc, count, v);
+	glProgramUniform2fv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform3fv(GLint loc, GLsizei count, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform3fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform3fv)
-		pGlUniform3fv(loc, count, v);
+	if (pGlProgramUniform3fv)
+		pGlProgramUniform3fv(program, loc, count, v);
 #else
-	glUniform3fv(loc, count, v);
+	glProgramUniform3fv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform4fv(GLint loc, GLsizei count, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform4fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform4fv)
-		pGlUniform4fv(loc, count, v);
+	if (pGlProgramUniform4fv)
+		pGlProgramUniform4fv(program, loc, count, v);
 #else
-	glUniform4fv(loc, count, v);
+	glProgramUniform4fv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform1iv(GLint loc, GLsizei count, const GLint *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform1iv(GLuint program, GLint loc, GLsizei count, const GLint *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform1iv)
-		pGlUniform1iv(loc, count, v);
+	if (pGlProgramUniform1iv)
+		pGlProgramUniform1iv(program, loc, count, v);
 #else
-	glUniform1iv(loc, count, v);
+	glProgramUniform1iv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform2iv(GLint loc, GLsizei count, const GLint *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform2iv(GLuint program, GLint loc, GLsizei count, const GLint *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform2iv)
-		pGlUniform2iv(loc, count, v);
+	if (pGlProgramUniform2iv)
+		pGlProgramUniform2iv(program, loc, count, v);
 #else
-	glUniform2iv(loc, count, v);
+	glProgramUniform2iv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform3iv(GLint loc, GLsizei count, const GLint *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform3iv(GLuint program, GLint loc, GLsizei count, const GLint *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform3iv)
-		pGlUniform3iv(loc, count, v);
+	if (pGlProgramUniform3iv)
+		pGlProgramUniform3iv(program, loc, count, v);
 #else
-	glUniform3iv(loc, count, v);
+	glProgramUniform3iv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform4iv(GLint loc, GLsizei count, const GLint *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform4iv(GLuint program, GLint loc, GLsizei count, const GLint *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform4iv)
-		pGlUniform4iv(loc, count, v);
+	if (pGlProgramUniform4iv)
+		pGlProgramUniform4iv(program, loc, count, v);
 #else
-	glUniform4iv(loc, count, v);
+	glProgramUniform4iv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform1uiv(GLint loc, GLsizei count, const GLuint *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform1uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform1uiv)
-		pGlUniform1uiv(loc, count, v);
+	if (pGlProgramUniform1uiv)
+		pGlProgramUniform1uiv(program, loc, count, v);
 #else
-	glUniform1uiv(loc, count, v);
+	glProgramUniform1uiv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform2uiv(GLint loc, GLsizei count, const GLuint *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform2uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform2uiv)
-		pGlUniform2uiv(loc, count, v);
+	if (pGlProgramUniform2uiv)
+		pGlProgramUniform2uiv(program, loc, count, v);
 #else
-	glUniform2uiv(loc, count, v);
+	glProgramUniform2uiv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform3uiv(GLint loc, GLsizei count, const GLuint *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform3uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform3uiv)
-		pGlUniform3uiv(loc, count, v);
+	if (pGlProgramUniform3uiv)
+		pGlProgramUniform3uiv(program, loc, count, v);
 #else
-	glUniform3uiv(loc, count, v);
+	glProgramUniform3uiv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniform4uiv(GLint loc, GLsizei count, const GLuint *v)
+inline void COpenGLExtensionHandler::extGlProgramUniform4uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniform4uiv)
-		pGlUniform4uiv(loc, count, v);
+	if (pGlProgramUniform4uiv)
+		pGlProgramUniform4uiv(program, loc, count, v);
 #else
-	glUniform4uiv(loc, count, v);
+	glProgramUniform4uiv(program, loc, count, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniformMatrix2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniformMatrix2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniformMatrix2fv)
-		pGlUniformMatrix2fv(loc, count, transpose, v);
+	if (pGlProgramUniformMatrix2fv)
+		pGlProgramUniformMatrix2fv(program, loc, count, transpose, v);
 #else
-	glUniformMatrix2fv(loc, count, transpose, v);
+	glProgramUniformMatrix2fv(program, loc, count, transpose, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniformMatrix3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniformMatrix3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniformMatrix3fv)
-		pGlUniformMatrix3fv(loc, count, transpose, v);
+	if (pGlProgramUniformMatrix3fv)
+		pGlProgramUniformMatrix3fv(program, loc, count, transpose, v);
 #else
-	glUniformMatrix3fv(loc, count, transpose, v);
+	glProgramUniformMatrix3fv(program, loc, count, transpose, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniformMatrix4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniformMatrix4fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniformMatrix4fv)
-		pGlUniformMatrix4fv(loc, count, transpose, v);
+	if (pGlProgramUniformMatrix4fv)
+		pGlProgramUniformMatrix4fv(program, loc, count, transpose, v);
 #else
-	glUniformMatrix4fv(loc, count, transpose, v);
+	glProgramUniformMatrix4fv(program, loc, count, transpose, v);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlUniformMatrix2x3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniformMatrix2x3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniformMatrix2x3fv)
-		pGlUniformMatrix2x3fv(loc, count, transpose, v);
+	if (pGlProgramUniformMatrix2x3fv)
+		pGlProgramUniformMatrix2x3fv(program, loc, count, transpose, v);
 #else
-	glUniformMatrix2x3fv(loc, count, transpose, v);
+	glProgramUniformMatrix2x3fv(program, loc, count, transpose, v);
 #endif
 }
-inline void COpenGLExtensionHandler::extGlUniformMatrix2x4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniformMatrix2x4fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniformMatrix2x4fv)
-		pGlUniformMatrix2x4fv(loc, count, transpose, v);
+	if (pGlProgramUniformMatrix2x4fv)
+		pGlProgramUniformMatrix2x4fv(program, loc, count, transpose, v);
 #else
-	glUniformMatrix2x4fv(loc, count, transpose, v);
+	glProgramUniformMatrix2x4fv(program, loc, count, transpose, v);
 #endif
 }
-inline void COpenGLExtensionHandler::extGlUniformMatrix3x2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniformMatrix3x2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniformMatrix3x2fv)
-		pGlUniformMatrix3x2fv(loc, count, transpose, v);
+	if (pGlProgramUniformMatrix3x2fv)
+		pGlProgramUniformMatrix3x2fv(program, loc, count, transpose, v);
 #else
-	glUniformMatrix3x2fv(loc, count, transpose, v);
+	glProgramUniformMatrix3x2fv(program, loc, count, transpose, v);
 #endif
 }
-inline void COpenGLExtensionHandler::extGlUniformMatrix3x4fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniformMatrix3x4fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniformMatrix3x4fv)
-		pGlUniformMatrix3x4fv(loc, count, transpose, v);
+	if (pGlProgramUniformMatrix3x4fv)
+		pGlProgramUniformMatrix3x4fv(program, loc, count, transpose, v);
 #else
-	glUniformMatrix3x4fv(loc, count, transpose, v);
+	glProgramUniformMatrix3x4fv(program, loc, count, transpose, v);
 #endif
 }
-inline void COpenGLExtensionHandler::extGlUniformMatrix4x2fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniformMatrix4x2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniformMatrix4x2fv)
-		pGlUniformMatrix4x2fv(loc, count, transpose, v);
+	if (pGlProgramUniformMatrix4x2fv)
+		pGlProgramUniformMatrix4x2fv(program, loc, count, transpose, v);
 #else
-	glUniformMatrix4x2fv(loc, count, transpose, v);
+	glProgramUniformMatrix4x2fv(program, loc, count, transpose, v);
 #endif
 }
-inline void COpenGLExtensionHandler::extGlUniformMatrix4x3fv(GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
+inline void COpenGLExtensionHandler::extGlProgramUniformMatrix4x3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlUniformMatrix4x3fv)
-		pGlUniformMatrix4x3fv(loc, count, transpose, v);
+	if (pGlProgramUniformMatrix4x3fv)
+		pGlProgramUniformMatrix4x3fv(program, loc, count, transpose, v);
 #else
-	glUniformMatrix4x3fv(loc, count, transpose, v);
+	glProgramUniformMatrix4x3fv(program, loc, count, transpose, v);
 #endif
 }
 
@@ -3319,7 +3424,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferuiv(GLuint frameb
         if (pGlClearBufferuiv)
             pGlClearBufferuiv(buffer, drawbuffer, value);
 #else
-        glClearNamedBufferuiv(buffer, drawbuffer, value);
+        glClearBufferuiv(buffer, drawbuffer, value);
 #endif
         if (boundFBO!=framebuffer)
 	        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
@@ -3350,7 +3455,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfv(GLuint framebu
         if (pGlClearBufferfv)
             pGlClearBufferfv(buffer, drawbuffer, value);
 #else
-        glClearNamedBufferfv(buffer, drawbuffer, value);
+        glClearBufferfv(buffer, drawbuffer, value);
 #endif
 		if (boundFBO!=framebuffer)
 			extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
@@ -3365,7 +3470,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebu
         if (pGlClearNamedFramebufferfi)
             pGlClearNamedFramebufferfi(framebuffer, buffer, depth, stencil);
 #else
-        glClearNamedFramebufferfi(framebuffer, buffer, depth, stencil);
+        glClearFramebufferfi(framebuffer, buffer, depth, stencil);
 #endif
     }
     else
@@ -3379,7 +3484,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebu
         if (pGlClearBufferfi)
             pGlClearBufferfi(buffer, depth, stencil);
 #else
-        glClearNamedBufferfi(buffer, depth, stencil);
+        glClearBufferfi(buffer, depth, stencil);
 #endif
         extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
     }*/
@@ -4423,17 +4528,12 @@ inline void COpenGLExtensionHandler::extGlDrawArraysInstanced(GLenum mode, GLint
 
 inline void COpenGLExtensionHandler::extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance)
 {
-    if (Version>=420||FeatureAvailable[IRR_ARB_base_instance])
-    {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlDrawArraysInstancedBaseInstance)
-            pGlDrawArraysInstancedBaseInstance(mode,first,count,instancecount,baseinstance);
+    if (pGlDrawArraysInstancedBaseInstance)
+        pGlDrawArraysInstancedBaseInstance(mode,first,count,instancecount,baseinstance);
 #else
-        glDrawArraysInstancedBaseInstance(mode,first,count,instancecount,baseinstance);
+    glDrawArraysInstancedBaseInstance(mode,first,count,instancecount,baseinstance);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else
-        os::Printer::log("glDrawArraysInstancedBaseInstance not supported", ELL_ERROR);
 }
 
 inline void COpenGLExtensionHandler::extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex)
@@ -4448,17 +4548,12 @@ inline void COpenGLExtensionHandler::extGlDrawElementsInstancedBaseVertex(GLenum
 
 inline void COpenGLExtensionHandler::extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance)
 {
-    if (Version>=420||FeatureAvailable[IRR_ARB_base_instance])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlDrawElementsInstancedBaseVertexBaseInstance)
-            pGlDrawElementsInstancedBaseVertexBaseInstance(mode,count,type,indices,instancecount,basevertex,baseinstance);
-    #else
-        glDrawElementsInstancedBaseVertexBaseInstance(mode,count,type,indices,instancecount,basevertex,baseinstance);
-    #endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else
-        os::Printer::log("glDrawElementsInstancedBaseVertexBaseInstance not supported", ELL_ERROR);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawElementsInstancedBaseVertexBaseInstance)
+        pGlDrawElementsInstancedBaseVertexBaseInstance(mode,count,type,indices,instancecount,basevertex,baseinstance);
+#else
+    glDrawElementsInstancedBaseVertexBaseInstance(mode,count,type,indices,instancecount,basevertex,baseinstance);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawTransformFeedback(GLenum mode, GLuint id)
@@ -4473,17 +4568,12 @@ inline void COpenGLExtensionHandler::extGlDrawTransformFeedback(GLenum mode, GLu
 
 inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackInstanced(GLenum mode, GLuint id, GLsizei instancecount)
 {
-    if (Version>=420||FeatureAvailable[IRR_ARB_transform_feedback_instanced])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlDrawTransformFeedbackInstanced)
-            pGlDrawTransformFeedbackInstanced(mode,id,instancecount);
-    #else
-        glDrawTransformFeedbackInstanced(mode,id,instancecount);
-    #endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else
-        os::Printer::log("glDrawTransformFeedbackInstanced not supported", ELL_ERROR);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawTransformFeedbackInstanced)
+        pGlDrawTransformFeedbackInstanced(mode,id,instancecount);
+#else
+    glDrawTransformFeedbackInstanced(mode,id,instancecount);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackStream(GLenum mode, GLuint id, GLuint stream)
@@ -4498,17 +4588,12 @@ inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackStream(GLenum mod
 
 inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackStreamInstanced(GLenum mode, GLuint id, GLuint stream, GLsizei instancecount)
 {
-    if (Version>=420||FeatureAvailable[IRR_ARB_transform_feedback_instanced])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlDrawTransformFeedbackStreamInstanced)
-            pGlDrawTransformFeedbackStreamInstanced(mode,id,stream,instancecount);
-    #else
-        glDrawTransformFeedbackStreamInstanced(mode,id,stream,instancecount);
-    #endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else
-        os::Printer::log("glDrawTransformFeedbackInstanced not supported", ELL_ERROR);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDrawTransformFeedbackStreamInstanced)
+        pGlDrawTransformFeedbackStreamInstanced(mode,id,stream,instancecount);
+#else
+    glDrawTransformFeedbackStreamInstanced(mode,id,stream,instancecount);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawArraysIndirect(GLenum mode, const void *indirect)
@@ -4533,32 +4618,22 @@ inline void COpenGLExtensionHandler::extGlDrawElementsIndirect(GLenum mode, GLen
 
 inline void COpenGLExtensionHandler::extGlMultiDrawArraysIndirect(GLenum mode, const void *indirect, GLsizei drawcount, GLsizei stride)
 {
-    if (Version>=430||FeatureAvailable[IRR_ARB_transform_feedback_instanced])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlMultiDrawArraysIndirect)
-            pGlMultiDrawArraysIndirect(mode,indirect,drawcount,stride);
-    #else
-        glMultiDrawArraysIndirect(mode,indirect,drawcount,stride);
-    #endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else
-        os::Printer::log("glMultiDrawArraysIndirect not supported", ELL_ERROR);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlMultiDrawArraysIndirect)
+        pGlMultiDrawArraysIndirect(mode,indirect,drawcount,stride);
+#else
+    glMultiDrawArraysIndirect(mode,indirect,drawcount,stride);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride)
 {
-    if (Version>=430||FeatureAvailable[IRR_ARB_transform_feedback_instanced])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlMultiDrawElementsIndirect)
-            pGlMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
-    #else
-        glMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
-    #endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else
-        os::Printer::log("glMultiDrawElementsIndirect not supported", ELL_ERROR);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlMultiDrawElementsIndirect)
+        pGlMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
+#else
+    glMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
@@ -4672,15 +4747,10 @@ inline void COpenGLExtensionHandler::extGlPatchParameteri(GLenum pname, GLuint v
 inline void COpenGLExtensionHandler::extGlProgramParameteri(GLuint program, GLenum pname, GLint value)
 {
 #if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-	if (queryFeature(EVDF_GEOMETRY_SHADER))
-	{
-		if (pGlProgramParameteriARB)
-			pGlProgramParameteriARB(program, pname, value);
-		else if (pGlProgramParameteriEXT)
-			pGlProgramParameteriEXT(program, pname, value);
-	}
+	if (pGlProgramParameteri)
+        pGlProgramParameteri(program, pname, value);
 #else
-	os::Printer::log("glProgramParameteri not supported", ELL_ERROR);
+    glProgramParameteri(program, pname, value);
 #endif
 }
 

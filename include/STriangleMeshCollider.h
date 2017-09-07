@@ -30,7 +30,7 @@ class STriangleCollider
             validTriangle = true;
         }
 
-
+/**
         static inline void* operator new(size_t size) throw(std::bad_alloc)
         {
             void *memoryallocatedaligned = 0;
@@ -77,7 +77,7 @@ class STriangleCollider
             return p;
         }
         static inline void  operator delete[](void* p,void* t) throw() {}
-
+**/
 
         inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier) const
         {
@@ -120,7 +120,7 @@ class STriangleMeshCollider : public IReferenceCounted
         STriangleMeshCollider() : BBox(core::aabbox3df()) {}
         ~STriangleMeshCollider() {}
 
-
+/**
         static inline void* operator new(size_t size) throw(std::bad_alloc)
         {
             void *memoryallocatedaligned = 0;
@@ -167,6 +167,7 @@ class STriangleMeshCollider : public IReferenceCounted
             return p;
         }
         static inline void  operator delete[](void* p,void* t) throw() {}
+**/
 
 
         inline const SAABoxCollider& getBoundingBox() const {return BBox;}

@@ -7,7 +7,6 @@
 #include "IMeshBuffer.h"
 #include "SAnimatedMesh.h"
 #include "os.h"
-#include "irrMap.h"
 #include <vector>
 
 namespace irr

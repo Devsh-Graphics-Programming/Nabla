@@ -197,6 +197,9 @@ PFNGLTEXTUREBUFFERRANGEEXTPROC COpenGLExtensionHandler::pGlTextureBufferRangeEXT
         ///static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage2DMultisample = NULL;
         ///static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage3DMultisample = NULL;
 PFNGLTEXSUBIMAGE3DPROC COpenGLExtensionHandler::pGlTexSubImage3D = NULL;
+PFNGLMULTITEXSUBIMAGE1DEXTPROC COpenGLExtensionHandler::pGlMultiTexSubImage1DEXT = NULL;
+PFNGLMULTITEXSUBIMAGE2DEXTPROC COpenGLExtensionHandler::pGlMultiTexSubImage2DEXT = NULL;
+PFNGLMULTITEXSUBIMAGE3DEXTPROC COpenGLExtensionHandler::pGlMultiTexSubImage3DEXT = NULL;
 PFNGLTEXTURESUBIMAGE1DPROC COpenGLExtensionHandler::pGlTextureSubImage1D = NULL;
 PFNGLTEXTURESUBIMAGE2DPROC COpenGLExtensionHandler::pGlTextureSubImage2D = NULL;
 PFNGLTEXTURESUBIMAGE3DPROC COpenGLExtensionHandler::pGlTextureSubImage3D = NULL;
@@ -212,6 +215,13 @@ PFNGLCOMPRESSEDTEXTURESUBIMAGE3DPROC COpenGLExtensionHandler::pGlCompressedTextu
 PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage1DEXT = NULL;
 PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage2DEXT = NULL;
 PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage3DEXT = NULL;
+PFNGLCOPYTEXSUBIMAGE3DPROC COpenGLExtensionHandler::pGlCopyTexSubImage3D = NULL;
+PFNGLCOPYTEXTURESUBIMAGE1DPROC COpenGLExtensionHandler::pGlCopyTextureSubImage1D = NULL;
+PFNGLCOPYTEXTURESUBIMAGE2DPROC COpenGLExtensionHandler::pGlCopyTextureSubImage2D = NULL;
+PFNGLCOPYTEXTURESUBIMAGE3DPROC COpenGLExtensionHandler::pGlCopyTextureSubImage3D = NULL;
+PFNGLCOPYTEXTURESUBIMAGE1DEXTPROC COpenGLExtensionHandler::pGlCopyTextureSubImage1DEXT = NULL;
+PFNGLCOPYTEXTURESUBIMAGE2DEXTPROC COpenGLExtensionHandler::pGlCopyTextureSubImage2DEXT = NULL;
+PFNGLCOPYTEXTURESUBIMAGE3DEXTPROC COpenGLExtensionHandler::pGlCopyTextureSubImage3DEXT = NULL;
 PFNGLGENERATEMIPMAPPROC COpenGLExtensionHandler::pGlGenerateMipmap = NULL;
 PFNGLGENERATETEXTUREMIPMAPPROC COpenGLExtensionHandler::pGlGenerateTextureMipmap = NULL;
 PFNGLGENERATETEXTUREMIPMAPEXTPROC COpenGLExtensionHandler::pGlGenerateTextureMipmapEXT = NULL;
@@ -247,27 +257,29 @@ PFNGLGETPROGRAMINFOLOGPROC COpenGLExtensionHandler::pGlGetProgramInfoLog = NULL;
 PFNGLGETSHADERIVPROC COpenGLExtensionHandler::pGlGetShaderiv = NULL;
 PFNGLGETSHADERIVPROC COpenGLExtensionHandler::pGlGetProgramiv = NULL;
 PFNGLGETUNIFORMLOCATIONPROC COpenGLExtensionHandler::pGlGetUniformLocation = NULL;
-PFNGLUNIFORM1FVPROC COpenGLExtensionHandler::pGlUniform1fv = NULL;
-PFNGLUNIFORM2FVPROC COpenGLExtensionHandler::pGlUniform2fv = NULL;
-PFNGLUNIFORM3FVPROC COpenGLExtensionHandler::pGlUniform3fv = NULL;
-PFNGLUNIFORM4FVPROC COpenGLExtensionHandler::pGlUniform4fv = NULL;
-PFNGLUNIFORM1IVPROC COpenGLExtensionHandler::pGlUniform1iv = NULL;
-PFNGLUNIFORM2IVPROC COpenGLExtensionHandler::pGlUniform2iv = NULL;
-PFNGLUNIFORM3IVPROC COpenGLExtensionHandler::pGlUniform3iv = NULL;
-PFNGLUNIFORM4IVPROC COpenGLExtensionHandler::pGlUniform4iv = NULL;
-PFNGLUNIFORM1UIVPROC COpenGLExtensionHandler::pGlUniform1uiv = NULL;
-PFNGLUNIFORM2UIVPROC COpenGLExtensionHandler::pGlUniform2uiv = NULL;
-PFNGLUNIFORM3UIVPROC COpenGLExtensionHandler::pGlUniform3uiv = NULL;
-PFNGLUNIFORM4UIVPROC COpenGLExtensionHandler::pGlUniform4uiv = NULL;
-PFNGLUNIFORMMATRIX2FVPROC COpenGLExtensionHandler::pGlUniformMatrix2fv = NULL;
-PFNGLUNIFORMMATRIX3FVPROC COpenGLExtensionHandler::pGlUniformMatrix3fv = NULL;
-PFNGLUNIFORMMATRIX4FVPROC COpenGLExtensionHandler::pGlUniformMatrix4fv = NULL;
-PFNGLUNIFORMMATRIX2X3FVPROC COpenGLExtensionHandler::pGlUniformMatrix2x3fv = NULL;
-PFNGLUNIFORMMATRIX2X4FVPROC COpenGLExtensionHandler::pGlUniformMatrix2x4fv = NULL;
-PFNGLUNIFORMMATRIX3X2FVPROC COpenGLExtensionHandler::pGlUniformMatrix3x2fv = NULL;
-PFNGLUNIFORMMATRIX3X4FVPROC COpenGLExtensionHandler::pGlUniformMatrix3x4fv = NULL;
-PFNGLUNIFORMMATRIX4X2FVPROC COpenGLExtensionHandler::pGlUniformMatrix4x2fv = NULL;
-PFNGLUNIFORMMATRIX4X3FVPROC COpenGLExtensionHandler::pGlUniformMatrix4x3fv = NULL;
+//
+PFNGLPROGRAMUNIFORM1FVPROC COpenGLExtensionHandler::pGlProgramUniform1fv = NULL;
+PFNGLPROGRAMUNIFORM2FVPROC COpenGLExtensionHandler::pGlProgramUniform2fv = NULL;
+PFNGLPROGRAMUNIFORM3FVPROC COpenGLExtensionHandler::pGlProgramUniform3fv = NULL;
+PFNGLPROGRAMUNIFORM4FVPROC COpenGLExtensionHandler::pGlProgramUniform4fv = NULL;
+PFNGLPROGRAMUNIFORM1IVPROC COpenGLExtensionHandler::pGlProgramUniform1iv = NULL;
+PFNGLPROGRAMUNIFORM2IVPROC COpenGLExtensionHandler::pGlProgramUniform2iv = NULL;
+PFNGLPROGRAMUNIFORM3IVPROC COpenGLExtensionHandler::pGlProgramUniform3iv = NULL;
+PFNGLPROGRAMUNIFORM4IVPROC COpenGLExtensionHandler::pGlProgramUniform4iv = NULL;
+PFNGLPROGRAMUNIFORM1UIVPROC COpenGLExtensionHandler::pGlProgramUniform1uiv = NULL;
+PFNGLPROGRAMUNIFORM2UIVPROC COpenGLExtensionHandler::pGlProgramUniform2uiv = NULL;
+PFNGLPROGRAMUNIFORM3UIVPROC COpenGLExtensionHandler::pGlProgramUniform3uiv = NULL;
+PFNGLPROGRAMUNIFORM4UIVPROC COpenGLExtensionHandler::pGlProgramUniform4uiv = NULL;
+PFNGLPROGRAMUNIFORMMATRIX2FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix2fv = NULL;
+PFNGLPROGRAMUNIFORMMATRIX3FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix3fv = NULL;
+PFNGLPROGRAMUNIFORMMATRIX4FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix4fv = NULL;
+PFNGLPROGRAMUNIFORMMATRIX2X3FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix2x3fv = NULL;
+PFNGLPROGRAMUNIFORMMATRIX2X4FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix2x4fv = NULL;
+PFNGLPROGRAMUNIFORMMATRIX3X2FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix3x2fv = NULL;
+PFNGLPROGRAMUNIFORMMATRIX3X4FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix3x4fv = NULL;
+PFNGLPROGRAMUNIFORMMATRIX4X2FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix4x2fv = NULL;
+PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix4x3fv = NULL;
+//
 PFNGLGETACTIVEUNIFORMPROC COpenGLExtensionHandler::pGlGetActiveUniform = NULL;
 PFNGLPOINTPARAMETERFPROC COpenGLExtensionHandler:: pGlPointParameterf = NULL;
 PFNGLPOINTPARAMETERFVPROC COpenGLExtensionHandler::pGlPointParameterfv = NULL;
@@ -419,8 +431,7 @@ PFNGLBLENDFUNCINDEXEDAMDPROC COpenGLExtensionHandler::pGlBlendFuncIndexedAMD = N
 PFNGLBLENDFUNCIPROC COpenGLExtensionHandler::pGlBlendFunciARB = NULL;
 PFNGLBLENDEQUATIONINDEXEDAMDPROC COpenGLExtensionHandler::pGlBlendEquationIndexedAMD = NULL;
 PFNGLBLENDEQUATIONIPROC COpenGLExtensionHandler::pGlBlendEquationiARB = NULL;
-PFNGLPROGRAMPARAMETERIARBPROC COpenGLExtensionHandler::pGlProgramParameteriARB = NULL;
-PFNGLPROGRAMPARAMETERIEXTPROC COpenGLExtensionHandler::pGlProgramParameteriEXT = NULL;
+PFNGLPROGRAMPARAMETERIPROC COpenGLExtensionHandler::pGlProgramParameteri = NULL;
 PFNGLPATCHPARAMETERIPROC COpenGLExtensionHandler::pGlPatchParameteri = NULL;
 PFNGLPATCHPARAMETERFVPROC COpenGLExtensionHandler::pGlPatchParameterfv = NULL;
 //
@@ -808,6 +819,9 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     pGlCompressedTextureSubImage1D = NULL;
     pGlCompressedTextureSubImage2D = NULL;
     pGlCompressedTextureSubImage3D = NULL;
+    pGlCopyTextureSubImage1D = NULL;
+    pGlCopyTextureSubImage2D = NULL;
+    pGlCopyTextureSubImage3D = NULL;
     pGlGenerateTextureMipmap = NULL;
     pGlCreateSamplers = NULL;
     pGlBindAttribLocation = NULL;
@@ -864,6 +878,9 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     pGlCompressedTextureSubImage1DEXT = NULL;
     pGlCompressedTextureSubImage2DEXT = NULL;
     pGlCompressedTextureSubImage3DEXT = NULL;
+    pGlCopyTextureSubImage1DEXT = NULL;
+    pGlCopyTextureSubImage2DEXT = NULL;
+    pGlCopyTextureSubImage3DEXT = NULL;
     pGlGenerateTextureMipmapEXT = NULL;
     pGlCheckNamedFramebufferStatusEXT = NULL;
     pGlNamedFramebufferTextureEXT = NULL;
@@ -1017,6 +1034,9 @@ void COpenGLExtensionHandler::loadFunctions()
     ///PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage2DMultisample");
     ///PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3DMultisample");
     pGlTexSubImage3D = (PFNGLTEXSUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTexSubImage3D");
+    pGlMultiTexSubImage1DEXT = (PFNGLMULTITEXSUBIMAGE1DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glMultiTexSubImage1DEXT");
+    pGlMultiTexSubImage2DEXT = (PFNGLMULTITEXSUBIMAGE2DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glMultiTexSubImage2DEXT");
+    pGlMultiTexSubImage3DEXT = (PFNGLMULTITEXSUBIMAGE3DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glMultiTexSubImage3DEXT");
     pGlTextureSubImage1D = (PFNGLTEXTURESUBIMAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureSubImage1D");
     pGlTextureSubImage2D = (PFNGLTEXTURESUBIMAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureSubImage2D");
     pGlTextureSubImage3D = (PFNGLTEXTURESUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTextureSubImage3D");
@@ -1032,6 +1052,13 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlCompressedTextureSubImage1DEXT = (PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage1DEXT");
     pGlCompressedTextureSubImage2DEXT = (PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage2DEXT");
     pGlCompressedTextureSubImage3DEXT = (PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage3DEXT");
+    pGlCopyTexSubImage3D = (PFNGLCOPYTEXSUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glCopyTexSubImage3D");
+    pGlCopyTextureSubImage1D = (PFNGLCOPYTEXTURESUBIMAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glCopyTextureSubImage1D");
+    pGlCopyTextureSubImage2D = (PFNGLCOPYTEXTURESUBIMAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glCopyTextureSubImage2D");
+    pGlCopyTextureSubImage3D = (PFNGLCOPYTEXTURESUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glCopyTextureSubImage3D");
+    pGlCopyTextureSubImage1DEXT = (PFNGLCOPYTEXTURESUBIMAGE1DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCopyTextureSubImage1DEXT");
+    pGlCopyTextureSubImage2DEXT = (PFNGLCOPYTEXTURESUBIMAGE2DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCopyTextureSubImage2DEXT");
+    pGlCopyTextureSubImage3DEXT = (PFNGLCOPYTEXTURESUBIMAGE3DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCopyTextureSubImage3DEXT");
     pGlGenerateMipmap = (PFNGLGENERATEMIPMAPPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateMipmap");
     pGlGenerateTextureMipmap = (PFNGLGENERATETEXTUREMIPMAPPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateTextureMipmap");
     pGlGenerateTextureMipmapEXT = (PFNGLGENERATETEXTUREMIPMAPEXTPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateTextureMipmapEXT");
@@ -1064,27 +1091,27 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlGetShaderiv = (PFNGLGETSHADERIVPROC) IRR_OGL_LOAD_EXTENSION("glGetShaderiv");
 	pGlGetProgramiv = (PFNGLGETPROGRAMIVPROC) IRR_OGL_LOAD_EXTENSION("glGetProgramiv");
 	pGlGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC) IRR_OGL_LOAD_EXTENSION("glGetUniformLocation");
-	pGlUniform1fv = (PFNGLUNIFORM1FVPROC) IRR_OGL_LOAD_EXTENSION("glUniform1fv");
-	pGlUniform2fv = (PFNGLUNIFORM2FVPROC) IRR_OGL_LOAD_EXTENSION("glUniform2fv");
-	pGlUniform3fv = (PFNGLUNIFORM3FVPROC) IRR_OGL_LOAD_EXTENSION("glUniform3fv");
-	pGlUniform4fv = (PFNGLUNIFORM4FVPROC) IRR_OGL_LOAD_EXTENSION("glUniform4fv");
-	pGlUniform1iv = (PFNGLUNIFORM1IVPROC) IRR_OGL_LOAD_EXTENSION("glUniform1iv");
-	pGlUniform2iv = (PFNGLUNIFORM2IVPROC) IRR_OGL_LOAD_EXTENSION("glUniform2iv");
-	pGlUniform3iv = (PFNGLUNIFORM3IVPROC) IRR_OGL_LOAD_EXTENSION("glUniform3iv");
-	pGlUniform4iv = (PFNGLUNIFORM4IVPROC) IRR_OGL_LOAD_EXTENSION("glUniform4iv");
-	pGlUniform1uiv = (PFNGLUNIFORM1UIVPROC) IRR_OGL_LOAD_EXTENSION("glUniform1uiv");
-	pGlUniform2uiv = (PFNGLUNIFORM2UIVPROC) IRR_OGL_LOAD_EXTENSION("glUniform2uiv");
-	pGlUniform3uiv = (PFNGLUNIFORM3UIVPROC) IRR_OGL_LOAD_EXTENSION("glUniform3uiv");
-	pGlUniform4uiv = (PFNGLUNIFORM4UIVPROC) IRR_OGL_LOAD_EXTENSION("glUniform4uiv");
-	pGlUniformMatrix2fv = (PFNGLUNIFORMMATRIX2FVPROC) IRR_OGL_LOAD_EXTENSION("glUniformMatrix2fv");
-	pGlUniformMatrix3fv = (PFNGLUNIFORMMATRIX3FVPROC) IRR_OGL_LOAD_EXTENSION("glUniformMatrix3fv");
-	pGlUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC) IRR_OGL_LOAD_EXTENSION("glUniformMatrix4fv");
-	pGlUniformMatrix2x3fv = (PFNGLUNIFORMMATRIX2X3FVPROC) IRR_OGL_LOAD_EXTENSION("glUniformMatrix2x3fv");
-	pGlUniformMatrix3x2fv = (PFNGLUNIFORMMATRIX3X2FVPROC) IRR_OGL_LOAD_EXTENSION("glUniformMatrix3x2fv");
-	pGlUniformMatrix4x2fv = (PFNGLUNIFORMMATRIX4X2FVPROC) IRR_OGL_LOAD_EXTENSION("glUniformMatrix4x2fv");
-	pGlUniformMatrix2x4fv = (PFNGLUNIFORMMATRIX2X4FVPROC) IRR_OGL_LOAD_EXTENSION("glUniformMatrix2x4fv");
-	pGlUniformMatrix3x4fv = (PFNGLUNIFORMMATRIX3X4FVPROC) IRR_OGL_LOAD_EXTENSION("glUniformMatrix3x4fv");
-	pGlUniformMatrix4x3fv = (PFNGLUNIFORMMATRIX4X3FVPROC) IRR_OGL_LOAD_EXTENSION("glUniformMatrix4x3fv");
+	pGlProgramUniform1fv = (PFNGLPROGRAMUNIFORM1FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform1fv");
+	pGlProgramUniform2fv = (PFNGLPROGRAMUNIFORM2FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform2fv");
+	pGlProgramUniform3fv = (PFNGLPROGRAMUNIFORM3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform3fv");
+	pGlProgramUniform4fv = (PFNGLPROGRAMUNIFORM4FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform4fv");
+	pGlProgramUniform1iv = (PFNGLPROGRAMUNIFORM1IVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform1iv");
+	pGlProgramUniform2iv = (PFNGLPROGRAMUNIFORM2IVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform2iv");
+	pGlProgramUniform3iv = (PFNGLPROGRAMUNIFORM3IVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform3iv");
+	pGlProgramUniform4iv = (PFNGLPROGRAMUNIFORM4IVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform4iv");
+	pGlProgramUniform1uiv = (PFNGLPROGRAMUNIFORM1UIVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform1uiv");
+	pGlProgramUniform2uiv = (PFNGLPROGRAMUNIFORM2UIVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform2uiv");
+	pGlProgramUniform3uiv = (PFNGLPROGRAMUNIFORM3UIVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform3uiv");
+	pGlProgramUniform4uiv = (PFNGLPROGRAMUNIFORM4UIVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniform4uiv");
+	pGlProgramUniformMatrix2fv = (PFNGLPROGRAMUNIFORMMATRIX2FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix2fv");
+	pGlProgramUniformMatrix3fv = (PFNGLPROGRAMUNIFORMMATRIX3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix3fv");
+	pGlProgramUniformMatrix4fv = (PFNGLPROGRAMUNIFORMMATRIX4FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix4fv");
+	pGlProgramUniformMatrix2x3fv = (PFNGLPROGRAMUNIFORMMATRIX2X3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix2x3fv");
+	pGlProgramUniformMatrix3x2fv = (PFNGLPROGRAMUNIFORMMATRIX3X2FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix3x2fv");
+	pGlProgramUniformMatrix4x2fv = (PFNGLPROGRAMUNIFORMMATRIX4X2FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix4x2fv");
+	pGlProgramUniformMatrix2x4fv = (PFNGLPROGRAMUNIFORMMATRIX2X4FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix2x4fv");
+	pGlProgramUniformMatrix3x4fv = (PFNGLPROGRAMUNIFORMMATRIX3X4FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix3x4fv");
+	pGlProgramUniformMatrix4x3fv = (PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix4x3fv");
 	pGlGetActiveUniform = (PFNGLGETACTIVEUNIFORMPROC) IRR_OGL_LOAD_EXTENSION("glGetActiveUniform");
 
 	// get point parameter extension
@@ -1239,8 +1266,7 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlBlendFunciARB= (PFNGLBLENDFUNCIPROC) IRR_OGL_LOAD_EXTENSION("glBlendFunciARB");
 	pGlBlendEquationIndexedAMD= (PFNGLBLENDEQUATIONINDEXEDAMDPROC) IRR_OGL_LOAD_EXTENSION("glBlendEquationIndexedAMD");
 	pGlBlendEquationiARB= (PFNGLBLENDEQUATIONIPROC) IRR_OGL_LOAD_EXTENSION("glBlendEquationiARB");
-	pGlProgramParameteriARB= (PFNGLPROGRAMPARAMETERIARBPROC) IRR_OGL_LOAD_EXTENSION("glProgramParameteriARB");
-	pGlProgramParameteriEXT= (PFNGLPROGRAMPARAMETERIEXTPROC) IRR_OGL_LOAD_EXTENSION("glProgramParameteriEXT");
+	pGlProgramParameteri= (PFNGLPROGRAMPARAMETERIPROC) IRR_OGL_LOAD_EXTENSION("glProgramParameteri");
 	pGlPatchParameterfv = (PFNGLPATCHPARAMETERFVPROC) IRR_OGL_LOAD_EXTENSION("glPatchParameterfv");
 	pGlPatchParameteri = (PFNGLPATCHPARAMETERIPROC) IRR_OGL_LOAD_EXTENSION("glPatchParameteri");
 
@@ -1400,16 +1426,6 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<std::string>* fail
     {
         retval =  false;
         std::string error = "Direct State Access Extension missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-
-    if (!FeatureAvailable[IRR_ARB_compute_shader]) //&&Version<430
-    {
-        retval =  false;
-        std::string error = "GL_ARB_compute_shader missing\n";
         if (failedExtensions)
             failedExtensions->push_back(error);
         else

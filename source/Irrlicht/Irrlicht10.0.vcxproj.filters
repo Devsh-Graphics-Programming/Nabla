@@ -942,9 +942,6 @@
     <ClInclude Include="CIrrDeviceStub.h">
       <Filter>Irrlicht\irr\device</Filter>
     </ClInclude>
-    <ClInclude Include="CIrrDeviceWinCE.h">
-      <Filter>Irrlicht\irr\device</Filter>
-    </ClInclude>
     <ClInclude Include="CAttributeImpl.h">
       <Filter>Irrlicht\io</Filter>
     </ClInclude>
@@ -1657,9 +1654,6 @@
       <Filter>Irrlicht\irr\device</Filter>
     </ClCompile>
     <ClCompile Include="CIrrDeviceStub.cpp">
-      <Filter>Irrlicht\irr\device</Filter>
-    </ClCompile>
-    <ClCompile Include="CIrrDeviceWinCE.cpp">
       <Filter>Irrlicht\irr\device</Filter>
     </ClCompile>
     <ClCompile Include="CFileList.cpp">

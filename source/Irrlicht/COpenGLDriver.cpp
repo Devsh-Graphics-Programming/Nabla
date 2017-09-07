@@ -429,21 +429,6 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	{
 		iAttribs[3] = 3;
 		hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
-	} //! everything below will go
-	if (!hrc)
-	{
-		iAttribs[3] = 2;
-		hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
-	}
-	if (!hrc)
-	{
-		iAttribs[3] = 1;
-		hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
-	}
-	if (!hrc)
-	{
-		iAttribs[3] = 0;
-		hrc = wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
 	}
 
 	if (!hrc)
@@ -924,16 +909,11 @@ bool COpenGLDriver::genericDriverInit()
 		return false;
     }
 
-    if (Version<400)
-    {
-		os::Printer::log("OpenGL version is less than 4.0", ELL_ERROR);
-		return false;
-    }/*
     if (Version<430)
     {
 		os::Printer::log("OpenGL version is less than 4.3", ELL_ERROR);
 		return false;
-    }*/
+    }
 
     for (size_t i=0; i<MATERIAL_MAX_TEXTURES; i++)
     {
@@ -1911,26 +1891,29 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
         }
     }
 
-    if (((Version<420&&!FeatureAvailable[IRR_ARB_base_instance])||mb->isIndexCountGivenByXFormFeedback())&&mb->getBaseInstance())
+    if (mb->isIndexCountGivenByXFormFeedback())
     {
-        for (size_t i=0; i<scene::EVAI_COUNT; i++)
+        if (mb->getBaseInstance())
         {
-            if (!meshLayoutVAO->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i)||!meshLayoutVAO->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)i))
-                continue;
+            for (size_t i=0; i<scene::EVAI_COUNT; i++)
+            {
+                if (!meshLayoutVAO->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i)||!meshLayoutVAO->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)i))
+                    continue;
 
-            size_t byteOffset = meshLayoutVAO->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i)*mb->getBaseInstance();
-            meshLayoutVAO->setMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i,meshLayoutVAO->getMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i)+byteOffset);
+                size_t byteOffset = meshLayoutVAO->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i)*mb->getBaseInstance();
+                meshLayoutVAO->setMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i,meshLayoutVAO->getMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i)+byteOffset);
+            }
         }
-    }
-    if (mb->isIndexCountGivenByXFormFeedback()&&mb->getBaseVertex()!=0)
-    {
-        for (size_t i=0; i<scene::EVAI_COUNT; i++)
+        if (mb->getBaseVertex()!=0)
         {
-            if (!meshLayoutVAO->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i)||meshLayoutVAO->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)i))
-                continue;
+            for (size_t i=0; i<scene::EVAI_COUNT; i++)
+            {
+                if (!meshLayoutVAO->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i)||meshLayoutVAO->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)i))
+                    continue;
 
-            int64_t byteOffset = int64_t(meshLayoutVAO->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i))*mb->getBaseVertex();
-            meshLayoutVAO->setMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i,int64_t(meshLayoutVAO->getMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i))+byteOffset);
+                int64_t byteOffset = int64_t(meshLayoutVAO->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i))*mb->getBaseVertex();
+                meshLayoutVAO->setMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i,int64_t(meshLayoutVAO->getMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i))+byteOffset);
+            }
         }
     }
 
@@ -1961,12 +1944,7 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
 	}
 
     if (indexSize)
-    {
-        if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
-            extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
-        else
-            extGlDrawElementsInstancedBaseVertex(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex());
-    }
+        extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
     else if (mb->isIndexCountGivenByXFormFeedback())
     {
         COpenGLTransformFeedback* xfmFb = static_cast<COpenGLTransformFeedback*>(mb->getXFormFeedback());
@@ -1976,42 +1954,36 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
         if (mb->getXFormFeedbackStream()>=MaxVertexStreams)
             os::Printer::log("Trying to use more than GL_MAX_VERTEX_STREAMS vertex streams in transform feedback!\n",ELL_ERROR);
 #endif // _DEBUG
-        if (FeatureAvailable[IRR_ARB_transform_feedback_instanced]||Version>=420)
-            extGlDrawTransformFeedbackStreamInstanced(primType,xfmFb->getOpenGLHandle(),mb->getXFormFeedbackStream(),mb->getInstanceCount());
-        else
-        {
-            extGlDrawTransformFeedbackStream(primType,xfmFb->getOpenGLHandle(),mb->getXFormFeedbackStream());
-            if (mb->getInstanceCount()>1)
-                os::Printer::log("Trying To DrawTransformFeedback with multiple instances, ARB_transform_feedback_instanced missing, hence fail!\n",ELL_ERROR);
-        }
+        extGlDrawTransformFeedbackStreamInstanced(primType,xfmFb->getOpenGLHandle(),mb->getXFormFeedbackStream(),mb->getInstanceCount());
     }
-    else if (FeatureAvailable[IRR_ARB_base_instance]||Version>=420)
-        extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
     else
-        extGlDrawArraysInstanced(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount());
+        extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
 
 
 
-    if (((Version<420&&!FeatureAvailable[IRR_ARB_base_instance])||mb->isIndexCountGivenByXFormFeedback())&&mb->getBaseInstance())
+    if (mb->isIndexCountGivenByXFormFeedback())
     {
-        for (size_t i=0; i<scene::EVAI_COUNT; i++)
+        if (mb->getBaseInstance())
         {
-            if (!meshLayoutVAO->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i)||!meshLayoutVAO->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)i))
-                continue;
+            for (size_t i=0; i<scene::EVAI_COUNT; i++)
+            {
+                if (!meshLayoutVAO->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i)||!meshLayoutVAO->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)i))
+                    continue;
 
-            size_t byteOffset = meshLayoutVAO->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i)*mb->getBaseInstance();
-            meshLayoutVAO->setMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i,meshLayoutVAO->getMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i)-byteOffset);
+                size_t byteOffset = meshLayoutVAO->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i)*mb->getBaseInstance();
+                meshLayoutVAO->setMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i,meshLayoutVAO->getMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i)-byteOffset);
+            }
         }
-    }
-    if (mb->isIndexCountGivenByXFormFeedback()&&mb->getBaseVertex()!=0)
-    {
-        for (size_t i=0; i<scene::EVAI_COUNT; i++)
+        if (mb->getBaseVertex()!=0)
         {
-            if (!meshLayoutVAO->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i)||meshLayoutVAO->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)i))
-                continue;
+            for (size_t i=0; i<scene::EVAI_COUNT; i++)
+            {
+                if (!meshLayoutVAO->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i)||meshLayoutVAO->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)i))
+                    continue;
 
-            int64_t byteOffset = int64_t(meshLayoutVAO->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i))*mb->getBaseVertex();
-            meshLayoutVAO->setMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i,meshLayoutVAO->getMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i)-byteOffset);
+                int64_t byteOffset = int64_t(meshLayoutVAO->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i))*mb->getBaseVertex();
+                meshLayoutVAO->setMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i,meshLayoutVAO->getMappedBufferOffset((scene::E_VERTEX_ATTRIBUTE_ID)i)-byteOffset);
+            }
         }
     }
 
@@ -2112,15 +2084,7 @@ void COpenGLDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene
 
 
     //actual drawing
-    if (FeatureAvailable[IRR_ARB_multi_draw_indirect] || Version>=430)
-    {
-        extGlMultiDrawArraysIndirect(primType,(void*)offset,count,stride);
-    }
-    else
-    {
-        for (size_t i=0; i<count; i++)
-            extGlDrawArraysIndirect(primType,(void*)(offset+i*stride));
-    }
+    extGlMultiDrawArraysIndirect(primType,(void*)offset,count,stride);
 
 
     if (didConditional)
@@ -2220,15 +2184,8 @@ void COpenGLDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scen
 
 
     //actual drawing
-    if (FeatureAvailable[IRR_ARB_multi_draw_indirect] || Version>=430)
-    {
-        extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,count,stride);
-    }
-    else
-    {
-        for (size_t i=0; i<count; i++)
-            extGlDrawElementsIndirect(primType,indexSize,(void*)(offset+i*stride));
-    }
+    extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,count,stride);
+
 
 
     if (didConditional)

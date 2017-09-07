@@ -16,10 +16,6 @@ namespace irr
 		/** This device uses the Win32 API and works in all versions of Windows. */
 		EIDT_WIN32,
 
-		//! A device native to Windows CE devices
-		/** This device works on Windows Mobile, Pocket PC and Microsoft SmartPhone devices */
-		EIDT_WINCE,
-
 		//! A device native to Unix style operating systems.
 		/** This device uses the X11 windowing system and works in Linux, Solaris, FreeBSD, OSX and
 		other operating systems which support X11. */

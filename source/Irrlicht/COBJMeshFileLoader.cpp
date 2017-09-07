@@ -245,16 +245,16 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 				}
 
 				int vertLocation;
-				core::map<SObjVertex, int>::Node* n = currMtl->VertMap.find(v);
-				if (n)
+				std::map<SObjVertex, int>::iterator n = currMtl->VertMap.find(v);
+				if (n!=currMtl->VertMap.end())
 				{
-					vertLocation = n->getValue();
+					vertLocation = n->second;
 				}
 				else
 				{
 					currMtl->Vertices.push_back(v);
 					vertLocation = currMtl->Vertices.size() -1;
-					currMtl->VertMap.insert(v, vertLocation);
+					currMtl->VertMap.insert(std::pair<SObjVertex, int>(v, vertLocation));
 				}
 
 				faceCorners.push_back(vertLocation);

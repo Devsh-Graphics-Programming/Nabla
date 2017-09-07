@@ -13,7 +13,6 @@
 #include "irrString.h"
 #include "aabbox3d.h"
 #include "matrix4.h"
-#include "irrList.h"
 #include "IOcclusionQuery.h"
 #include "IDummyTransformationSceneNode.h"
 #include "IDriverFence.h"
@@ -510,30 +509,37 @@ namespace scene
 			{
 				// animate this node with all animators
 
-				ISceneNodeAnimatorList::ConstIterator ait = node->getAnimators().begin();
-				while (ait != node->getAnimators().end())
+				//! The bloody animator can remove itself!!!!
+				const ISceneNodeAnimatorArray& animators = node->getAnimators();
+				size_t prevSize = animators.size();
+				for (size_t i=0; i<prevSize;)
                 {
-					// continue to the next node before calling animateNode()
-					// so that the animator may remove itself from the scene
-					// node without the iterator becoming invalid
-					ISceneNodeAnimator* anim = *ait;
-					++ait;
+					ISceneNodeAnimator* anim = animators[i];
 					anim->animateNode(node, timeMs);
+					if (animators[i]>anim)
+                        prevSize = animators.size();
+                    else
+                        i++;
 				}
 
 				// update absolute position
 				node->updateAbsolutePosition();
 
 				// perform the post render process on all children
-
-				IDummyTransformationSceneNodeList::ConstIterator it = node->getChildren().begin();
-				for (; it != node->getChildren().end(); ++it)
+                const IDummyTransformationSceneNodeArray& children = node->getChildren();
+				prevSize = children.size();
+				for (size_t i=0; i<prevSize;)
                 {
-                    ISceneNode* tmpChild = static_cast<ISceneNode*>(*it);
-                    if ((*it)->isISceneNode())
-                        static_cast<ISceneNode*>(*it)->OnAnimate(timeMs);
+                    IDummyTransformationSceneNode* tmpChild = children[i];
+                    if (tmpChild->isISceneNode())
+                        static_cast<ISceneNode*>(tmpChild)->OnAnimate(timeMs);
                     else
-                        OnAnimate_static(*it,timeMs);
+                        OnAnimate_static(tmpChild,timeMs);
+
+					if (children[i]>tmpChild)
+                        prevSize = children.size();
+                    else
+                        i++;
                 }
 			}
 		}
@@ -543,13 +549,20 @@ namespace scene
             ISceneNode* tmp = static_cast<ISceneNode*>(node);
 			if (!node->isISceneNode()||tmp->IsVisible)
 			{
-				IDummyTransformationSceneNodeList::ConstIterator it = node->getChildren().begin();
-				for (; it != node->getChildren().end(); ++it)
+                const IDummyTransformationSceneNodeArray& children = node->getChildren();
+				size_t prevSize = children.size();
+				for (size_t i=0; i<prevSize;)
                 {
-                    if ((*it)->isISceneNode())
-                        static_cast<ISceneNode*>(*it)->OnRegisterSceneNode();
+                    IDummyTransformationSceneNode* tmpChild = children[i];
+                    if (tmpChild->isISceneNode())
+                        static_cast<ISceneNode*>(tmpChild)->OnRegisterSceneNode();
                     else
-                        OnRegisterSceneNode_static(*it);
+                        OnRegisterSceneNode_static(tmpChild);
+
+					if (children[i]>tmpChild)
+                        prevSize = children.size();
+                    else
+                        i++;
                 }
 			}
         }
@@ -578,7 +591,7 @@ namespace scene
             if (node->isISceneNode())
                 tmp->SceneManager = newManager;
 
-			IDummyTransformationSceneNodeList::ConstIterator it = node->getChildren().begin();
+			IDummyTransformationSceneNodeArray::const_iterator it = node->getChildren().begin();
 			for (; it != node->getChildren().end(); ++it)
                 setSceneManager_static(*it,newManager);
 		}

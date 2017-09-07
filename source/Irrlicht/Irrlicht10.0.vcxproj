@@ -1466,7 +1466,6 @@
     <ClInclude Include="CIrrDeviceLinux.h" />
     <ClInclude Include="CIrrDeviceSDL.h" />
     <ClInclude Include="CIrrDeviceStub.h" />
-    <ClInclude Include="CIrrDeviceWinCE.h" />
     <ClInclude Include="CAttributeImpl.h" />
     <ClInclude Include="CFileList.h" />
     <ClInclude Include="CFileSystem.h" />
@@ -1770,7 +1769,6 @@
     <ClCompile Include="CIrrDeviceLinux.cpp" />
     <ClCompile Include="CIrrDeviceSDL.cpp" />
     <ClCompile Include="CIrrDeviceStub.cpp" />
-    <ClCompile Include="CIrrDeviceWinCE.cpp" />
     <ClCompile Include="CFileList.cpp" />
     <ClCompile Include="CFileSystem.cpp" />
     <ClCompile Include="CLimitReadFile.cpp" />

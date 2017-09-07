@@ -9,7 +9,6 @@
 #include "IFileSystem.h"
 #include "ISceneManager.h"
 #include "irrString.h"
-#include "irrMap.h"
 #include <vector>
 
 namespace irr
@@ -23,32 +22,27 @@ class SObjVertex
 public:
     inline bool operator<(const SObjVertex& other) const
     {
-        if (pos[0]>other.pos[0])
-            return false;
-        else if (pos[0]==other.pos[0])
+        if (pos[0]==other.pos[0])
         {
-            if (pos[1]>other.pos[1])
-                return false;
-            else if (pos[1]==other.pos[1])
+            if (pos[1]==other.pos[1])
             {
-                if (pos[2]>other.pos[2])
-                    return false;
-                else if (pos[2]==other.pos[2])
+                if (pos[2]==other.pos[2])
                 {
-                    if (uv[0]>other.uv[0])
-                        return false;
-                    else if (uv[0]==other.uv[0])
+                    if (uv[0]==other.uv[0])
                     {
-                        if (uv[1]>other.uv[1])
-                            return false;
-                        else if (uv[1]==other.uv[1]&&normal32bit>other.normal32bit)
-                            return false;
+                        if (uv[1]==other.uv[1])
+                            return normal32bit<other.normal32bit;
+
+                        return uv[1]<other.uv[1];
                     }
+                    return uv[0]<other.uv[0];
                 }
+                return pos[2]<other.pos[2];
             }
+            return pos[1]<other.pos[1];
         }
 
-        return true;
+        return pos[0]<other.pos[0];
     }
     inline bool operator==(const SObjVertex& other) const
     {
@@ -145,7 +139,7 @@ private:
                 Material = o.Material;
             }
 
-            core::map<SObjVertex, int> VertMap;
+            std::map<SObjVertex, int> VertMap;
             std::vector<SObjVertex> Vertices;
             std::vector<uint32_t> Indices;
             video::SMaterial Material;

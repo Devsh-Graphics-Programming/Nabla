@@ -241,7 +241,7 @@ NO BITSHIFTING SUPPORT
 		//! Copy constructor
 		inline vectorSIMDf(const vectorSIMDf& other) {_mm_store_ps(pointer,other.getAsRegister());}
 
-
+/**
         static inline void* operator new(size_t size) throw(std::bad_alloc)
         {
             void *memoryallocatedaligned = 0;
@@ -288,6 +288,8 @@ NO BITSHIFTING SUPPORT
             return p;
         }
         static inline void  operator delete[](void* p,void* t) throw() {}
+**/
+
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
 		inline vectorSIMDf(const vectorSIMDi32& other);
@@ -905,7 +907,7 @@ NO BITSHIFTING SUPPORT
 		//! Copy constructor
 		inline vectorSIMD_32(const vectorSIMD_32<T>& other) {_mm_store_si128((__m128i*)pointer,other.getAsRegister());}
 
-
+/**
         static inline void* operator new(size_t size) throw(std::bad_alloc)
         {
             void *memoryallocatedaligned = 0;
@@ -952,6 +954,8 @@ NO BITSHIFTING SUPPORT
             return p;
         }
         static inline void  operator delete[](void* p,void* t) throw() {}
+**/
+
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
 		inline vectorSIMDf(const vectorSIMDi32& other);

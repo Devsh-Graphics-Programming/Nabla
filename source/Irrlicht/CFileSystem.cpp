@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "IrrCompileConfig.h"
-
+#include <list>
 #include "CFileSystem.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
@@ -18,7 +18,7 @@
 #include "os.h"
 #include "CMemoryFile.h"
 #include "CLimitReadFile.h"
-#include "irrList.h"
+
 
 #if defined (_IRR_WINDOWS_API_)
 	#if !defined ( _WIN32_WCE )
@@ -732,7 +732,38 @@ io::path& CFileSystem::flattenFilename(io::path& directory, const io::path& root
 	directory = dir;
 	return directory;
 }
+/*
+	template<class container>
+	uint32_t split(container& ret, const T* const c, uint32_t count=1, bool ignoreEmptyTokens=true, bool keepSeparators=false) const
+	{
+		if (!c)
+			return 0;
 
+		const uint32_t oldSize=ret.size();
+		uint32_t lastpos = 0;
+		bool lastWasSeparator = false;
+		for (uint32_t i=0; i<used; ++i)
+		{
+			bool foundSeparator = false;
+			for (uint32_t j=0; j<count; ++j)
+			{
+				if (array[i] == c[j])
+				{
+					if ((!ignoreEmptyTokens || i - lastpos != 0) &&
+							!lastWasSeparator)
+						ret.push_back(string<T,TAlloc>(&array[lastpos], i - lastpos));
+					foundSeparator = true;
+					lastpos = (keepSeparators ? i : i + 1);
+					break;
+				}
+			}
+			lastWasSeparator = foundSeparator;
+		}
+		if ((used - 1) > lastpos)
+			ret.push_back(string<T,TAlloc>(&array[lastpos], (used - 1) - lastpos));
+		return ret.size()-oldSize;
+	}
+*/
 
 //! Get the relative filename, relative to the given directory
 path CFileSystem::getRelativeFilename(const path& filename, const path& directory) const
@@ -743,11 +774,11 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 	io::path path1, file, ext;
 	core::splitFilename(getAbsolutePath(filename), &path1, &file, &ext);
 	io::path path2(getAbsolutePath(directory));
-	core::list<io::path> list1, list2;
+	std::list<io::path> list1, list2;
 	path1.split(list1, _IRR_TEXT("/\\"), 2);
 	path2.split(list2, _IRR_TEXT("/\\"), 2);
 	uint32_t i=0;
-	core::list<io::path>::ConstIterator it1,it2;
+	std::list<io::path>::const_iterator it1,it2;
 	it1=list1.begin();
 	it2=list2.begin();
 

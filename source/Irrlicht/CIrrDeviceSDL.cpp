@@ -9,7 +9,7 @@
 #include "CIrrDeviceSDL.h"
 #include "CSceneManager.h"
 #include "IEventReceiver.h"
-#include "irrList.h"
+
 #include "os.h"
 #include "CTimer.h"
 #include "irrString.h"

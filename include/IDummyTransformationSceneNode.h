@@ -7,7 +7,7 @@
 
 #include "IReferenceCounted.h"
 #include "ISceneNodeAnimator.h"
-#include "irrList.h"
+#include <vector>
 #include "matrix4x3.h"
 #include "ESceneNodeTypes.h"
 
@@ -22,10 +22,10 @@ class IDummyTransformationSceneNode;
 
 
 
-	//! Typedef for list of scene nodes
-	typedef core::list<IDummyTransformationSceneNode*> IDummyTransformationSceneNodeList;
-	//! Typedef for list of scene node animators
-	typedef core::list<ISceneNodeAnimator*> ISceneNodeAnimatorList;
+	//! Typedef for array of scene nodes
+	typedef std::vector<IDummyTransformationSceneNode*> IDummyTransformationSceneNodeArray;
+	//! Typedef for array of scene node animators
+	typedef std::vector<ISceneNodeAnimator*> ISceneNodeAnimatorArray;
 
 //! Dummy scene node for adding additional transformations to the scene graph.
 /** This scene node does not render itself, and does not respond to set/getPosition,
@@ -65,7 +65,7 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
             removeAll();
 
 			// delete all animators
-			ISceneNodeAnimatorList::Iterator ait = Animators.begin();
+			ISceneNodeAnimatorArray::iterator ait = Animators.begin();
 			for (; ait != Animators.end(); ++ait)
 				(*ait)->drop();
         }
@@ -256,7 +256,7 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 
 		//! Returns a const reference to the list of all children.
 		/** \return The list of all children of this node. */
-		inline const core::list<IDummyTransformationSceneNode*>& getChildren() const
+		inline const IDummyTransformationSceneNodeArray& getChildren() const
 		{
 			return Children;
 		}
@@ -269,18 +269,13 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 		    if (newParent==Parent)
                 return;
 
-			grab();
-			remove();
-
-			Parent = newParent;
-
-			if (Parent)
+			if (newParent)
             {
-				Parent->addChild(this);
+				newParent->addChild(this);
 				lastTimeRelativeTransRead[4] = 0;
             }
-
-			drop();
+            else
+                remove();
 		}
 
 
@@ -297,14 +292,15 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 		\param child A pointer to the new child. */
 		virtual void addChild(IDummyTransformationSceneNode* child)
 		{
-			if (child && (child != this))
-			{
-				child->grab();
-				child->remove(); // remove from old parent
-				Children.push_back(child);
-				child->Parent = this;
-				child->lastTimeRelativeTransRead[4] = 0;
-			}
+			if (!child || child == this || child->getParent() == this)
+                return;
+
+            child->grab();
+            child->remove(); // remove from old parent
+            IDummyTransformationSceneNodeArray::iterator insertionPoint = std::lower_bound(Children.begin(),Children.end(),child);
+            Children.insert(insertionPoint,child);
+            child->Parent = this;
+            child->lastTimeRelativeTransRead[4] = 0;
 		}
 
 
@@ -316,17 +312,14 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 		e.g. because it couldn't be found in the children list. */
 		virtual bool removeChild(IDummyTransformationSceneNode* child)
 		{
-			IDummyTransformationSceneNodeList::Iterator it = Children.begin();
-			for (; it != Children.end(); ++it)
-				if ((*it) == child)
-				{
-					(*it)->Parent = 0;
-					(*it)->drop();
-					Children.erase(it);
-					return true;
-				}
+            IDummyTransformationSceneNodeArray::iterator found = std::lower_bound(Children.begin(),Children.end(),child);
+            if (found==Children.end() || *found!=child)
+                return false;
 
-			return false;
+			(*found)->Parent = 0;
+            (*found)->drop();
+            Children.erase(found);
+            return true;
 		}
 
 
@@ -336,7 +329,7 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 		*/
 		virtual void removeAll()
 		{
-			IDummyTransformationSceneNodeList::Iterator it = Children.begin();
+			IDummyTransformationSceneNodeArray::iterator it = Children.begin();
 			for (; it != Children.end(); ++it)
 			{
 				(*it)->Parent = 0;
@@ -361,17 +354,21 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 		/** \param animator A pointer to the new animator. */
 		virtual void addAnimator(ISceneNodeAnimator* animator)
 		{
-			if (animator)
-			{
-				Animators.push_back(animator);
-				animator->grab();
-			}
+			if (!animator)
+				return;
+
+			ISceneNodeAnimatorArray::iterator found = std::lower_bound(Animators.begin(),Animators.end(),animator);
+            ///if (found!=Animators.end() && *found==animator) //already in there
+                ///return;
+
+            animator->grab();
+            Animators.insert(found,animator);
 		}
 
 
 		//! Get a list of all scene node animators.
 		/** \return The list of animators attached to this node. */
-		const core::list<ISceneNodeAnimator*>& getAnimators() const
+		const ISceneNodeAnimatorArray& getAnimators() const
 		{
 			return Animators;
 		}
@@ -383,16 +380,13 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 		\param animator A pointer to the animator to be deleted. */
 		virtual void removeAnimator(ISceneNodeAnimator* animator)
 		{
-			ISceneNodeAnimatorList::Iterator it = Animators.begin();
-			for (; it != Animators.end(); ++it)
-			{
-				if ((*it) == animator)
-				{
-					(*it)->drop();
-					Animators.erase(it);
-					return;
-				}
-			}
+			ISceneNodeAnimatorArray::iterator found = std::lower_bound(Animators.begin(),Animators.end(),animator);
+            if (found==Animators.end() || *found!=animator)
+                return;
+
+            (*found)->drop();
+            Animators.erase(found);
+            return;
 		}
 
 
@@ -401,7 +395,7 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 		for them. */
 		virtual void removeAnimators()
 		{
-			ISceneNodeAnimatorList::Iterator it = Animators.begin();
+			ISceneNodeAnimatorArray::iterator it = Animators.begin();
 			for (; it != Animators.end(); ++it)
 				(*it)->drop();
 
@@ -432,10 +426,10 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 		IDummyTransformationSceneNode* Parent;
 
 		//! List of all children of this node
-		core::list<IDummyTransformationSceneNode*> Children;
+		IDummyTransformationSceneNodeArray Children;
 
 		//! List of all animator nodes
-		core::list<ISceneNodeAnimator*> Animators;
+		ISceneNodeAnimatorArray Animators;
 
 		//! Absolute transformation of the node.
 		core::matrix4x3 AbsoluteTransformation;
@@ -465,12 +459,12 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 			RelativeScale = toCopyFrom->RelativeScale;
 
 			// clone children
-			IDummyTransformationSceneNodeList::Iterator it = toCopyFrom->Children.begin();
+			IDummyTransformationSceneNodeArray::iterator it = toCopyFrom->Children.begin();
 			for (; it != toCopyFrom->Children.end(); ++it)
 				(*it)->clone(this, newManager);
 
 			// clone animators
-			ISceneNodeAnimatorList::Iterator ait = toCopyFrom->Animators.begin();
+			ISceneNodeAnimatorArray::iterator ait = toCopyFrom->Animators.begin();
 			for (; ait != toCopyFrom->Animators.end(); ++ait)
 			{
 				ISceneNodeAnimator* anim = (*ait)->createClone(this, newManager);

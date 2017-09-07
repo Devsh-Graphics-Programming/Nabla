@@ -30,6 +30,7 @@ Also useful for interpolations. */
 class quaternion : private vectorSIMDf
 {
 	public:
+/**
         static inline void* operator new(size_t size) throw(std::bad_alloc)
         {
             void *memoryallocatedaligned = 0;
@@ -76,7 +77,7 @@ class quaternion : private vectorSIMDf
             return p;
         }
         static inline void  operator delete[](void* p,void* t) throw() {}
-
+**/
 
 
 		//! Default Constructor

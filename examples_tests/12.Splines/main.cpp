@@ -58,7 +58,7 @@ public:
                         spline = NULL;
                         if (controlPts.size())
                         {
-                            spline = new CQuadraticSpline(controlPts.pointer(),controlPts.size(),false);
+                            spline = new irr::core::CQuadraticBSpline(controlPts.pointer(),controlPts.size(),false);
                             printf("Total Len %f\n",spline->getSplineLength());
                             for (size_t i=0; i<spline->getSegmentCount(); i++)
                                 printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
@@ -74,7 +74,7 @@ public:
                         spline = NULL;
                         if (controlPts.size())
                         {
-                            spline = new CQuadraticSpline(controlPts.pointer(),controlPts.size(),false,true); //make it be ready for first turn
+                            spline = new CQuadraticBSpline(controlPts.pointer(),controlPts.size(),true); //make it a loop
                             printf("Total Len %f\n",spline->getSplineLength());
                             for (size_t i=0; i<spline->getSegmentCount(); i++)
                                 printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
@@ -84,17 +84,6 @@ public:
                     }
                 case KEY_KEY_O:
                     {
-                        if (spline)
-                            delete spline;
-                        spline = NULL;
-                        if (controlPts.size())
-                        {
-                            spline = new CQuadraticSpline(controlPts.pointer(),controlPts.size(),true); //make it loop
-                            printf("Total Len %f\n",spline->getSplineLength());
-                            for (size_t i=0; i<spline->getSegmentCount(); i++)
-                                printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
-                        }
-
                         return true;
                     }
                     break;

@@ -910,14 +910,19 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 //!
 void CSceneManager::OnAnimate(uint32_t timeMs)
 {
-    IDummyTransformationSceneNodeList::ConstIterator it = getChildren().begin();
-    for (; it != getChildren().end(); ++it)
+    size_t prevSize = Children.size();
+    for (size_t i=0; i<prevSize;)
     {
-        ISceneNode* tmpChild = static_cast<ISceneNode*>(*it);
-        if ((*it)->isISceneNode())
-            static_cast<ISceneNode*>(*it)->OnAnimate(timeMs);
+        IDummyTransformationSceneNode* tmpChild = Children[i];
+        if (tmpChild->isISceneNode())
+            static_cast<ISceneNode*>(tmpChild)->OnAnimate(timeMs);
         else
-            OnAnimate_static(*it,timeMs);
+            OnAnimate_static(tmpChild,timeMs);
+
+        if (Children[i]>tmpChild)
+            prevSize = Children.size();
+        else
+            i++;
     }
 }
 
@@ -1273,8 +1278,8 @@ ISceneNode* CSceneManager::getSceneNodeFromName(const char* name, IDummyTransfor
 
 	IDummyTransformationSceneNode* node = 0;
 
-	const IDummyTransformationSceneNodeList& list = start->getChildren();
-	IDummyTransformationSceneNodeList::ConstIterator it = list.begin();
+	const IDummyTransformationSceneNodeArray& list = start->getChildren();
+	IDummyTransformationSceneNodeArray::ConstIterator it = list.begin();
 	for (; it!=list.end(); ++it)
 	{
 		node = getSceneNodeFromName(name, *it);
@@ -1297,8 +1302,8 @@ ISceneNode* CSceneManager::getSceneNodeFromId(int32_t id, IDummyTransformationSc
 
 	ISceneNode* node = 0;
 
-	const IDummyTransformationSceneNodeList& list = start->getChildren();
-	IDummyTransformationSceneNodeList::ConstIterator it = list.begin();
+	const IDummyTransformationSceneNodeArray& list = start->getChildren();
+	IDummyTransformationSceneNodeArray::ConstIterator it = list.begin();
 	for (; it!=list.end(); ++it)
 	{
 		node = getSceneNodeFromId(id, *it);
@@ -1321,8 +1326,8 @@ ISceneNode* CSceneManager::getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, ID
 
 	ISceneNode* node = 0;
 
-	const IDummyTransformationSceneNodeList& list = start->getChildren();
-	IDummyTransformationSceneNodeList::ConstIterator it = list.begin();
+	const IDummyTransformationSceneNodeArray& list = start->getChildren();
+	IDummyTransformationSceneNodeArray::ConstIterator it = list.begin();
 	for (; it!=list.end(); ++it)
 	{
 		node = getSceneNodeFromType(type, *it);
@@ -1343,8 +1348,8 @@ void CSceneManager::getSceneNodesFromType(ESCENE_NODE_TYPE type, core::array<sce
 	if (start->getType() == type || ESNT_ANY == type)
 		outNodes.push_back(start);
 
-	const IDummyTransformationSceneNodeList& list = start->getChildren();
-	IDummyTransformationSceneNodeList::ConstIterator it = list.begin();
+	const IDummyTransformationSceneNodeArray& list = start->getChildren();
+	IDummyTransformationSceneNodeArray::ConstIterator it = list.begin();
 
 	for (; it!=list.end(); ++it)
 	{

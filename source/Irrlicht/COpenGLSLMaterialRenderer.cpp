@@ -412,79 +412,79 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t loca
     switch (type)
     {
     case ESCT_FLOAT:
-        COpenGLExtensionHandler::extGlUniform1fv(loc,cnt,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniform1fv(Program2,loc,cnt,(GLfloat*)data);
         break;
     case ESCT_FLOAT_VEC2:
-        COpenGLExtensionHandler::extGlUniform2fv(loc,cnt,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniform2fv(Program2,loc,cnt,(GLfloat*)data);
         break;
     case ESCT_FLOAT_VEC3:
-        COpenGLExtensionHandler::extGlUniform3fv(loc,cnt,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniform3fv(Program2,loc,cnt,(GLfloat*)data);
         break;
     case ESCT_FLOAT_VEC4:
-        COpenGLExtensionHandler::extGlUniform4fv(loc,cnt,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniform4fv(Program2,loc,cnt,(GLfloat*)data);
         break;
     case ESCT_INT:
-        COpenGLExtensionHandler::extGlUniform1iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform1iv(Program2,loc,cnt,(GLint*)data);
         break;
     case ESCT_INT_VEC2:
-        COpenGLExtensionHandler::extGlUniform2iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform2iv(Program2,loc,cnt,(GLint*)data);
         break;
     case ESCT_INT_VEC3:
-        COpenGLExtensionHandler::extGlUniform3iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform3iv(Program2,loc,cnt,(GLint*)data);
         break;
     case ESCT_INT_VEC4:
-        COpenGLExtensionHandler::extGlUniform4iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform4iv(Program2,loc,cnt,(GLint*)data);
         break;
     case ESCT_UINT:
-        COpenGLExtensionHandler::extGlUniform1uiv(loc,cnt,(GLuint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform1uiv(Program2,loc,cnt,(GLuint*)data);
         break;
     case ESCT_UINT_VEC2:
-        COpenGLExtensionHandler::extGlUniform2uiv(loc,cnt,(GLuint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform2uiv(Program2,loc,cnt,(GLuint*)data);
         break;
     case ESCT_UINT_VEC3:
-        COpenGLExtensionHandler::extGlUniform3uiv(loc,cnt,(GLuint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform3uiv(Program2,loc,cnt,(GLuint*)data);
         break;
     case ESCT_UINT_VEC4:
-        COpenGLExtensionHandler::extGlUniform4uiv(loc,cnt,(GLuint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform4uiv(Program2,loc,cnt,(GLuint*)data);
         break;
     case ESCT_BOOL:
-        COpenGLExtensionHandler::extGlUniform1iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform1iv(Program2,loc,cnt,(GLint*)data);
         break;
     case ESCT_BOOL_VEC2:
-        COpenGLExtensionHandler::extGlUniform2iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform2iv(Program2,loc,cnt,(GLint*)data);
         break;
     case ESCT_BOOL_VEC3:
-        COpenGLExtensionHandler::extGlUniform3iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform3iv(Program2,loc,cnt,(GLint*)data);
         break;
     case ESCT_BOOL_VEC4:
-        COpenGLExtensionHandler::extGlUniform4iv(loc,cnt,(GLint*)data);
+        COpenGLExtensionHandler::extGlProgramUniform4iv(Program2,loc,cnt,(GLint*)data);
         break;
     case ESCT_FLOAT_MAT2:
-        COpenGLExtensionHandler::extGlUniformMatrix2fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix2fv(Program2,loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT3:
-        COpenGLExtensionHandler::extGlUniformMatrix3fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix3fv(Program2,loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4:
-        COpenGLExtensionHandler::extGlUniformMatrix4fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix4fv(Program2,loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT2x3:
-        COpenGLExtensionHandler::extGlUniformMatrix2x3fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix2x3fv(Program2,loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT2x4:
-        COpenGLExtensionHandler::extGlUniformMatrix2x4fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix2x4fv(Program2,loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT3x2:
-        COpenGLExtensionHandler::extGlUniformMatrix3x2fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix3x2fv(Program2,loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT3x4:
-        COpenGLExtensionHandler::extGlUniformMatrix3x4fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix3x4fv(Program2,loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4x2:
-        COpenGLExtensionHandler::extGlUniformMatrix4x2fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix4x2fv(Program2,loc,cnt,false,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4x3:
-        COpenGLExtensionHandler::extGlUniformMatrix4x3fv(loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix4x3fv(Program2,loc,cnt,false,(GLfloat*)data);
         break;
 #ifdef _DEBUG
     default:
@@ -576,7 +576,7 @@ void COpenGLSLMaterialRenderer::setShaderTextures(const int32_t* textureIndices,
     case ESCT_UINT_SAMPLER_2D_MULTISAMPLE:
     case ESCT_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY:
     case ESCT_UINT_SAMPLER_BUFFER:
-        COpenGLExtensionHandler::extGlUniform1iv(loc,cnt,(GLint*)textureIndices);
+        COpenGLExtensionHandler::extGlProgramUniform1iv(Program2,loc,cnt,(GLint*)textureIndices);
         break;
 #ifdef _DEBUG
     default:

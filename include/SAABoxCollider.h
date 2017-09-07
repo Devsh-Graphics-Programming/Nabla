@@ -14,7 +14,7 @@ class SAABoxCollider
     public:
         SAABoxCollider(const aabbox3df& box) : Box(box) {}
 
-
+/**
         static inline void* operator new(size_t size) throw(std::bad_alloc)
         {
             void *memoryallocatedaligned = 0;
@@ -61,7 +61,7 @@ class SAABoxCollider
             return p;
         }
         static inline void  operator delete[](void* p,void* t) throw() {}
-
+*/
 
 
         inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier, const vectorSIMDf& reciprocalDirection) const

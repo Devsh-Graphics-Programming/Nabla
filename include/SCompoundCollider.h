@@ -76,7 +76,7 @@ class SCompoundCollider : public IReferenceCounted
             }
         }
 
-
+/**
         static inline void* operator new(size_t size) throw(std::bad_alloc)
         {
             void *memoryallocatedaligned = 0;
@@ -123,7 +123,7 @@ class SCompoundCollider : public IReferenceCounted
             return p;
         }
         static inline void  operator delete[](void* p,void* t) throw() {}
-
+**/
 
 
         inline SCompoundCollider* clone()

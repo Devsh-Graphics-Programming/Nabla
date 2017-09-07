@@ -51,8 +51,8 @@ class ISpline
 
         //is the distance and parameter the same?
         virtual bool            isArcLengthPrecise() const = 0;
-        virtual float           parameterToDistance(const float& param) const = 0;
-        virtual float           distanceToParameter(const float& dist) const = 0;
+        ///virtual float           parameterToDistance(const float& param) const = 0;
+        ///virtual float           distanceToParameter(const float& dist) const = 0;
     protected:
         ISpline(bool loop) : isLoop(loop) {}
 
@@ -208,8 +208,8 @@ class CLinearSpline : public ISpline
 
 
         virtual bool            isArcLengthPrecise() const {return true;}
-        virtual float           parameterToDistance(const float& param) const {return param;}
-        virtual float           distanceToParameter(const float& dist) const {return dist;}
+        ///virtual float           parameterToDistance(const float& param) const {return param;}
+        ///virtual float           distanceToParameter(const float& dist) const {return dist;}
     private:
         void finalize()
         {
@@ -487,10 +487,17 @@ class CQuadraticSpline : public ISpline
         }
 
 
-        virtual bool            isArcLengthPrecise() const {return true;}
-        virtual float           parameterToDistance(const float& param) const {return param;}
-        virtual float           distanceToParameter(const float& dist) const {return dist;}
-    private:
+        virtual bool            isArcLengthPrecise() const {return true;}/**
+        virtual float           parameterToDistance(const float& param) const
+        {
+        }
+        virtual float           distanceToParameter(const float& dist) const
+        {
+        }**/
+
+    protected:
+        CQuadraticSpline(bool loop) : ISpline(loop) {}
+
         void finalize()
         {
             double lenDouble = 0;
@@ -502,8 +509,9 @@ class CQuadraticSpline : public ISpline
         }
 
 
-        struct Segment
+        class Segment
         {
+            public:
             Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt, const float& currentApproxLen, const vectorSIMDf& firstWeight)
             {
                 /// ad^2+bd+y0 = y1
@@ -560,13 +568,35 @@ class CQuadraticSpline : public ISpline
 
                 finalize(currentApproxLen);
             }
+            static Segment createForBSpline(const vectorSIMDf& startPt, const vectorSIMDf& midCtrl, const vectorSIMDf& endPt)
+            {
+                Segment seg;
+                seg.weights[2] = startPt;
+                seg.weights[1] = (midCtrl-startPt)*2.f;
+                seg.weights[0] = endPt+startPt-midCtrl*2.f;
+
+                float bLen = dot(seg.weights[1],seg.weights[1]).X;
+                if (bLen<0.000001f)
+                {
+                    seg.weights[1] = endPt-startPt;
+                    seg.weights[0].set(0.f,0.f,0.f);
+                }
+                else if (std::abs(dot(seg.weights[2],seg.weights[1]).X)>std::sqrt(bLen*dot(seg.weights[2],seg.weights[2]).X)*0.999999f)
+                {
+                    seg.weights[1] = endPt-startPt;
+                    seg.weights[0].set(0.f,0.f,0.f);
+                }
+
+                seg.finalize(1.f);
+                return seg;
+            }
 
             inline void finalize(const float &currentApproxLen)
             {
                 parameterLength = currentApproxLen;
 
                 lenASq       = dot(weights[0],weights[0]).x;
-                double lenCSq       = dot(weights[1],weights[1]).x;
+                double lenCSq= dot(weights[1],weights[1]).x;
                 lenC         = std::sqrt(lenCSq);
                 if (std::abs(lenASq)>0.000001f)
                 {
@@ -715,6 +745,7 @@ class CQuadraticSpline : public ISpline
                 return -1.f;
             }*/
 
+
             float length,parameterLength,lenASq,lowerIntegralValue;
             union
             {
@@ -723,10 +754,53 @@ class CQuadraticSpline : public ISpline
             };
             float arcCalcConstants[6];
             vectorSIMDf weights[3];
+
+            private:
+                Segment() {}
         };
 
         core::array<Segment> segments;
         float splineLen;
+};
+
+
+//! Loop code is wrong for now, unable to calculate A_0 so the gradients match all the way around the loop
+class CQuadraticBSpline : public CQuadraticSpline
+{
+    public:
+        CQuadraticBSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false) : CQuadraticSpline(loop)
+        {
+            //assert(count<0x80000000u && count);
+            vectorSIMDf firstMidpoint = (controlPoints[0]+controlPoints[1])*0.5f;
+            if (isLoop)
+            {
+                segments.push_back(Segment::createForBSpline((controlPoints[count-1]+controlPoints[0])*0.5f,controlPoints[0],firstMidpoint));
+            }
+            else
+            {
+                segments.push_back(Segment::createForBSpline(controlPoints[0],controlPoints[0],firstMidpoint));
+            }
+
+            vectorSIMDf midpoint = firstMidpoint;
+            vectorSIMDf lastMid = midpoint;
+            for (size_t i=2; i<count; i++)
+            {
+                midpoint = (controlPoints[i-1]+controlPoints[i])*0.5f;
+                segments.push_back(Segment::createForBSpline(lastMid,controlPoints[i-1],midpoint));
+                lastMid = midpoint;
+            }
+
+            if (isLoop)
+            {
+                segments.push_back(Segment::createForBSpline(lastMid,controlPoints[count-1],segments[0].weights[2]));
+            }
+            else
+            {
+                segments.push_back(Segment::createForBSpline(lastMid,lastMid,controlPoints[count-1]));
+            }
+
+            finalize();
+        }
 };
 
 /*
