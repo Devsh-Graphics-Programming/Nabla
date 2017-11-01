@@ -16,6 +16,63 @@ namespace video
 {
 
 
+#define glIsEnabledi_MACRO COpenGLExtensionHandler::extGlIsEnabledi
+#define glEnablei_MACRO COpenGLExtensionHandler::extGlEnablei
+#define glDisablei_MACRO COpenGLExtensionHandler::extGlDisablei
+
+#define glGetBooleani_v_MACRO COpenGLExtensionHandler::extGlGetBooleani_v
+
+#define glGetFloati_v_MACRO COpenGLExtensionHandler::extGlGetFloati_v
+#define glGetIntegeri_v_MACRO COpenGLExtensionHandler::extGlGetIntegeri_v
+
+#define glProvokingVertex_MACRO COpenGLExtensionHandler::extGlProvokingVertex
+
+#define glBindFramebuffer_MACRO COpenGLExtensionHandler::extGlBindFramebuffer
+
+#define glClampColor_MACRO COpenGLExtensionHandler::extGlClampColor
+#define glPrimitiveRestartIndex_MACRO COpenGLExtensionHandler::extGlPrimitiveRestartIndex
+
+#define glBindTransformFeedback_MACRO COpenGLExtensionHandler::extGlBindTransformFeedback
+
+#define glUseProgram_MACRO COpenGLExtensionHandler::extGlUseProgram
+#define glBindProgramPipeline_MACRO COpenGLExtensionHandler::extGlBindProgramPipeline
+
+#define glPatchParameteri_MACRO COpenGLExtensionHandler::extGlPatchParameteri
+#define glPatchParameterfv_MACRO COpenGLExtensionHandler::extGlPatchParameterfv
+
+#define glBindBuffer_MACRO COpenGLExtensionHandler::extGlBindBuffer
+#define glBindBufferRange_MACRO COpenGLExtensionHandler::extGlBindBufferRange
+
+#define glDepthRangeIndexed_MACRO COpenGLExtensionHandler::extGlDepthRangeIndexed
+#define glViewportIndexedfv_MACRO COpenGLExtensionHandler::extGlViewportIndexedfv
+#define glScissorIndexedv_MACRO COpenGLExtensionHandler::extGlScissorIndexedv
+
+#define glSampleCoverage_MACRO COpenGLExtensionHandler::extGlSampleCoverage
+#define glSampleMaski_MACRO COpenGLExtensionHandler::extGlSampleMaski
+#define glMinSampleShading_MACRO COpenGLExtensionHandler::extGlMinSampleShading
+
+#define glBlendColor_MACRO COpenGLExtensionHandler::extGlBlendColor
+#define glBlendEquationSeparatei_MACRO COpenGLExtensionHandler::extGlBlendEquationSeparatei
+#define glBlendFuncSeparatei_MACRO COpenGLExtensionHandler::extGlBlendFuncSeparatei
+#define glColorMaski_MACRO COpenGLExtensionHandler::extGlColorMaski
+
+#define glStencilFuncSeparate_MACRO COpenGLExtensionHandler::extGlStencilFuncSeparate
+#define glStencilOpSeparate_MACRO COpenGLExtensionHandler::extGlStencilOpSeparate
+#define glStencilMaskSeparate_MACRO COpenGLExtensionHandler::extGlStencilMaskSeparate
+
+#define glBindImageTexture_MACRO COpenGLExtensionHandler::extGlBindImageTexture
+
+#define glActiveTexture_MACRO COpenGLExtensionHandler::extGlActiveTexture
+#define SPECIAL_glBindTextureUnit_MACRO COpenGLExtensionHandler::extGlBindTextureUnit
+#define glBindSampler_MACRO COpenGLExtensionHandler::extGlBindSampler
+
+#define glBindVertexArray_MACRO COpenGLExtensionHandler::extGlBindVertexArray
+
+#include "COpenGLStateManagerImpl.h"
+
+
+
+
 E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
 {
     switch (oglType)
@@ -147,17 +204,24 @@ E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
 
 
 uint16_t COpenGLExtensionHandler::Version = 0;
+uint16_t COpenGLExtensionHandler::ShaderLanguageVersion = 0;
 bool COpenGLExtensionHandler::functionsAlreadyLoaded = false;
 int32_t COpenGLExtensionHandler::pixelUnpackAlignment = 2;
 bool COpenGLExtensionHandler::FeatureAvailable[] = {false};
 
 uint32_t COpenGLExtensionHandler::MaxArrayTextureLayers = 2048;
+uint8_t COpenGLExtensionHandler::MaxTextureUnits = 96;
+uint8_t COpenGLExtensionHandler::MaxAnisotropy = 8;
+uint8_t COpenGLExtensionHandler::MaxUserClipPlanes = 8;
+uint8_t COpenGLExtensionHandler::MaxAuxBuffers = 0;
+uint8_t COpenGLExtensionHandler::MaxMultipleRenderTargets = 4;
 uint32_t COpenGLExtensionHandler::MaxIndices = 65535;
 uint32_t COpenGLExtensionHandler::MaxVertices = 0xffffffffu;
 uint32_t COpenGLExtensionHandler::MaxVertexStreams = 1;
 uint32_t COpenGLExtensionHandler::MaxXFormFeedbackComponents = 64;
 uint32_t COpenGLExtensionHandler::MaxGPUWaitTimeout = 0;
 uint32_t COpenGLExtensionHandler::MaxGeometryVerticesOut = 65535;
+float COpenGLExtensionHandler::MaxTextureLODBias = 0.f;
 
 //uint32_t COpenGLExtensionHandler::MaxXFormFeedbackInterleavedAttributes = GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS;
 //uint32_t COpenGLExtensionHandler::MaxXFormFeedbackSeparateAttributes = GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS;
@@ -166,7 +230,14 @@ bool COpenGLExtensionHandler::IsIntelGPU = false;
 
 #if defined(_IRR_OPENGL_USE_EXTPOINTER_)
 //
+PFNGLISENABLEDIPROC COpenGLExtensionHandler::pGlIsEnabledi = NULL;
+PFNGLENABLEIPROC COpenGLExtensionHandler::pGlEnablei = NULL;
+PFNGLDISABLEIPROC COpenGLExtensionHandler::pGlDisablei = NULL;
+PFNGLGETBOOLEANI_VPROC COpenGLExtensionHandler::pGlGetBooleani_v = NULL;
+PFNGLGETFLOATI_VPROC COpenGLExtensionHandler::pGlGetFloati_v = NULL;
+PFNGLGETINTEGERI_VPROC COpenGLExtensionHandler::pGlGetIntegeri_v = NULL;
 PFNGLGETSTRINGIPROC COpenGLExtensionHandler::pGlGetStringi = NULL;
+PFNGLPROVOKINGVERTEXPROC COpenGLExtensionHandler::pGlProvokingVertex = NULL;
 
 //fences
 PFNGLFENCESYNCPROC COpenGLExtensionHandler::pGlFenceSync = NULL;
@@ -225,6 +296,7 @@ PFNGLCOPYTEXTURESUBIMAGE3DEXTPROC COpenGLExtensionHandler::pGlCopyTextureSubImag
 PFNGLGENERATEMIPMAPPROC COpenGLExtensionHandler::pGlGenerateMipmap = NULL;
 PFNGLGENERATETEXTUREMIPMAPPROC COpenGLExtensionHandler::pGlGenerateTextureMipmap = NULL;
 PFNGLGENERATETEXTUREMIPMAPEXTPROC COpenGLExtensionHandler::pGlGenerateTextureMipmapEXT = NULL;
+PFNGLCLAMPCOLORPROC COpenGLExtensionHandler::pGlClampColor = NULL;
 
         //samplers
 PFNGLGENSAMPLERSPROC COpenGLExtensionHandler::pGlGenSamplers = NULL;
@@ -233,6 +305,9 @@ PFNGLDELETESAMPLERSPROC COpenGLExtensionHandler::pGlDeleteSamplers = NULL;
 PFNGLBINDSAMPLERPROC COpenGLExtensionHandler::pGlBindSampler = NULL;
 PFNGLSAMPLERPARAMETERIPROC COpenGLExtensionHandler::pGlSamplerParameteri = NULL;
 PFNGLSAMPLERPARAMETERFPROC COpenGLExtensionHandler::pGlSamplerParameterf = NULL;
+
+//
+PFNGLBINDIMAGETEXTUREPROC COpenGLExtensionHandler::pGlBindImageTexture = NULL;
 
         //stuff
 PFNGLBINDBUFFERBASEPROC COpenGLExtensionHandler::pGlBindBufferBase = NULL;
@@ -281,12 +356,27 @@ PFNGLPROGRAMUNIFORMMATRIX4X2FVPROC COpenGLExtensionHandler::pGlProgramUniformMat
 PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC COpenGLExtensionHandler::pGlProgramUniformMatrix4x3fv = NULL;
 //
 PFNGLGETACTIVEUNIFORMPROC COpenGLExtensionHandler::pGlGetActiveUniform = NULL;
+PFNGLBINDPROGRAMPIPELINEPROC COpenGLExtensionHandler::pGlBindProgramPipeline = NULL;
+//
 PFNGLPOINTPARAMETERFPROC COpenGLExtensionHandler:: pGlPointParameterf = NULL;
 PFNGLPOINTPARAMETERFVPROC COpenGLExtensionHandler::pGlPointParameterfv = NULL;
+
+//ROP
+PFNGLBLENDCOLORPROC COpenGLExtensionHandler::pGlBlendColor = NULL;
+PFNGLDEPTHRANGEINDEXEDPROC COpenGLExtensionHandler::pGlDepthRangeIndexed = NULL;
+PFNGLVIEWPORTINDEXEDFVPROC COpenGLExtensionHandler::pGlViewportIndexedfv = NULL;
+PFNGLSCISSORINDEXEDVPROC COpenGLExtensionHandler::pGlScissorIndexedv = NULL;
+PFNGLSAMPLECOVERAGEPROC COpenGLExtensionHandler::pGlSampleCoverage = NULL;
+PFNGLSAMPLEMASKIPROC COpenGLExtensionHandler::pGlSampleMaski = NULL;
+PFNGLMINSAMPLESHADINGPROC COpenGLExtensionHandler::pGlMinSampleShading = NULL;
+PFNGLBLENDEQUATIONSEPARATEIPROC COpenGLExtensionHandler::pGlBlendEquationSeparatei = NULL;
+PFNGLBLENDFUNCSEPARATEIPROC COpenGLExtensionHandler::pGlBlendFuncSeparatei = NULL;
+PFNGLCOLORMASKIPROC COpenGLExtensionHandler::pGlColorMaski = NULL;
 PFNGLSTENCILFUNCSEPARATEPROC COpenGLExtensionHandler::pGlStencilFuncSeparate = NULL;
 PFNGLSTENCILOPSEPARATEPROC COpenGLExtensionHandler::pGlStencilOpSeparate = NULL;
-PFNGLSTENCILFUNCSEPARATEATIPROC COpenGLExtensionHandler::pGlStencilFuncSeparateATI = NULL;
-PFNGLSTENCILOPSEPARATEATIPROC COpenGLExtensionHandler::pGlStencilOpSeparateATI = NULL;
+PFNGLSTENCILMASKSEPARATEPROC COpenGLExtensionHandler::pGlStencilMaskSeparate = NULL;
+
+
 		// ARB framebuffer object
 PFNGLBLITNAMEDFRAMEBUFFERPROC COpenGLExtensionHandler::pGlBlitNamedFramebuffer = NULL;
 PFNGLBLITFRAMEBUFFERPROC COpenGLExtensionHandler::pGlBlitFramebuffer = NULL;
@@ -398,6 +488,7 @@ PFNGLVERTEXARRAYBINDINGDIVISORPROC COpenGLExtensionHandler::pGlVertexArrayBindin
 PFNGLVERTEXARRAYVERTEXBINDINGDIVISOREXTPROC COpenGLExtensionHandler::pGlVertexArrayVertexBindingDivisorEXT = NULL;
 PFNGLVERTEXBINDINGDIVISORPROC COpenGLExtensionHandler::pGlVertexBindingDivisor = NULL;
 //
+PFNGLPRIMITIVERESTARTINDEXPROC COpenGLExtensionHandler::pGlPrimitiveRestartIndex = NULL;
 PFNGLDRAWARRAYSINSTANCEDPROC COpenGLExtensionHandler::pGlDrawArraysInstanced = NULL;
 PFNGLDRAWARRAYSINSTANCEDBASEINSTANCEPROC COpenGLExtensionHandler::pGlDrawArraysInstancedBaseInstance = NULL;
 PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC COpenGLExtensionHandler::pGlDrawElementsInstancedBaseVertex = NULL;
@@ -423,10 +514,6 @@ PFNGLTRANSFORMFEEDBACKBUFFERBASEPROC COpenGLExtensionHandler::pGlTransformFeedba
 PFNGLTRANSFORMFEEDBACKBUFFERRANGEPROC COpenGLExtensionHandler::pGlTransformFeedbackBufferRange = NULL;
 //
 PFNGLBLENDFUNCSEPARATEPROC COpenGLExtensionHandler::pGlBlendFuncSeparate = NULL;
-PFNGLPROVOKINGVERTEXPROC COpenGLExtensionHandler::pGlProvokingVertex = NULL;
-PFNGLCOLORMASKIPROC COpenGLExtensionHandler::pGlColorMaski = NULL;
-PFNGLENABLEIPROC COpenGLExtensionHandler::pGlEnablei = NULL;
-PFNGLDISABLEIPROC COpenGLExtensionHandler::pGlDisablei = NULL;
 PFNGLBLENDFUNCINDEXEDAMDPROC COpenGLExtensionHandler::pGlBlendFuncIndexedAMD = NULL;
 PFNGLBLENDFUNCIPROC COpenGLExtensionHandler::pGlBlendFunciARB = NULL;
 PFNGLBLENDEQUATIONINDEXEDAMDPROC COpenGLExtensionHandler::pGlBlendEquationIndexedAMD = NULL;
@@ -482,11 +569,7 @@ core::LeakDebugger COpenGLExtensionHandler::textureLeaker("GLTex");
 
 COpenGLExtensionHandler::COpenGLExtensionHandler() :
 		StencilBuffer(false),
-		TextureCompressionExtension(false),
-		MaxTextureUnits(1), MaxLights(1),
-		MaxAnisotropy(1), MaxUserClipPlanes(0), MaxAuxBuffers(0),
-		MaxMultipleRenderTargets(1),
-		MaxTextureLODBias(0.f), ShaderLanguageVersion(0)
+		TextureCompressionExtension(false)
 {
 	DimAliasedLine[0]=1.f;
 	DimAliasedLine[1]=1.f;
@@ -758,30 +841,29 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
 
 	TextureCompressionExtension = FeatureAvailable[IRR_ARB_texture_compression];
-	StencilBuffer=stencilBuffer;
+	StencilBuffer = stencilBuffer;
 
 
-	GLint num=0;
+	GLint num = 0;
 
-	MaxLights=0;
 
-	glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS,&num);
+	glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
 	MaxArrayTextureLayers = num;
 
 	if (FeatureAvailable[IRR_EXT_texture_filter_anisotropic])
 	{
 		glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
-		MaxAnisotropy=static_cast<uint8_t>(num);
+		MaxAnisotropy = static_cast<uint8_t>(num);
 	}
 
 
 	if (queryFeature(EVDF_GEOMETRY_SHADER))
 	{
-		if (FeatureAvailable[IRR_ARB_geometry_shader4]||FeatureAvailable[IRR_EXT_geometry_shader4])
-        {
-            glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES_EXT, &num);
-            MaxGeometryVerticesOut=static_cast<uint32_t>(num);
-        }
+		if (FeatureAvailable[IRR_ARB_geometry_shader4] || FeatureAvailable[IRR_EXT_geometry_shader4])
+		{
+			glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES_EXT, &num);
+			MaxGeometryVerticesOut = static_cast<uint32_t>(num);
+		}
 	}
 	if (FeatureAvailable[IRR_EXT_texture_lod_bias])
 		glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &MaxTextureLODBias);
@@ -791,7 +873,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	MaxUserClipPlanes=static_cast<uint8_t>(num);
 	glGetIntegerv(GL_AUX_BUFFERS, &num);
 	MaxAuxBuffers=static_cast<uint8_t>(num);
-    glGetIntegerv(GL_MAX_DRAW_BUFFERS_ARB, &num);
+    glGetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
     MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 
 	glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, DimAliasedLine);
@@ -804,67 +886,70 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     sscanf(reinterpret_cast<const char*>(shaderVersion),"%f",&sl_ver);
     ShaderLanguageVersion = static_cast<uint16_t>(core::round32(sl_ver*100.0f));
 
-/*
-    //! For EXT-DSA testing
-    Version = 440;
-    FeatureAvailable[IRR_ARB_direct_state_access] = false;
-    pGlBindTextureUnit = NULL;
-    pGlCreateTextures = NULL;
-    pGlTextureStorage1D = NULL;
-    pGlTextureStorage2D = NULL;
-    pGlTextureStorage3D = NULL;
-    pGlTextureSubImage1D = NULL;
-    pGlTextureSubImage2D = NULL;
-    pGlTextureSubImage3D = NULL;
-    pGlCompressedTextureSubImage1D = NULL;
-    pGlCompressedTextureSubImage2D = NULL;
-    pGlCompressedTextureSubImage3D = NULL;
-    pGlCopyTextureSubImage1D = NULL;
-    pGlCopyTextureSubImage2D = NULL;
-    pGlCopyTextureSubImage3D = NULL;
-    pGlGenerateTextureMipmap = NULL;
-    pGlCreateSamplers = NULL;
-    pGlBindAttribLocation = NULL;
-    pGlBlitNamedFramebuffer = NULL;
-    pGlCreateFramebuffers = NULL;
-    pGlCheckNamedFramebufferStatus = NULL;
-    pGlNamedFramebufferTexture = NULL;
-    pGlNamedFramebufferTextureLayer = NULL;
-    pGlCreateRenderbuffers = NULL;
-    pGlNamedRenderbufferStorage = NULL;
-    pGlNamedFramebufferRenderbuffer = NULL;
-    pGlActiveStencilFaceEXT = NULL;
-    pGlNamedFramebufferReadBuffer = NULL;
-    pGlNamedFramebufferDrawBuffer = NULL;
-    pGlNamedFramebufferDrawBuffers = NULL;
-    pGlClearNamedFramebufferiv = NULL;
-    pGlClearNamedFramebufferuiv = NULL;
-    pGlClearNamedFramebufferfv = NULL;
-    pGlClearNamedFramebufferfi = NULL;
-    pGlCreateBuffers = NULL;
-    pGlNamedBufferStorage = NULL;
-    pGlNamedBufferSubData = NULL;
-    pGlGetNamedBufferSubData = NULL;
-    pGlMapNamedBuffer = NULL;
-    pGlMapNamedBufferRange = NULL;
-    pGlFlushMappedNamedBufferRange = NULL;
-    pGlUnmapNamedBuffer = NULL;
-    pGlClearNamedBufferData = NULL;
-    pGlClearNamedBufferSubData = NULL;
-    pGlCopyNamedBufferSubData = NULL;
-    pGlCreateVertexArrays = NULL;
-    pGlVertexArrayElementBuffer = NULL;
-    pGlVertexArrayVertexBuffer = NULL;
-    pGlVertexArrayAttribBinding = NULL;
-    pGlEnableVertexArrayAttrib = NULL;
-    pGlDisableVertexArrayAttrib = NULL;
-    pGlVertexArrayAttribFormat = NULL;
-    pGlVertexArrayAttribIFormat = NULL;
-    pGlVertexArrayAttribLFormat = NULL;
-    pGlVertexArrayBindingDivisor = NULL;
-    pGlBlendFuncIndexedAMD = NULL;
-    pGlBlendEquationIndexedAMD = NULL;
-    pGlBlendEquationiARB = NULL;
+
+	//! For EXT-DSA testing
+	if (IsIntelGPU)
+	{
+		Version = 440;
+		FeatureAvailable[IRR_ARB_direct_state_access] = false;
+		pGlBindTextureUnit = NULL;
+		pGlCreateTextures = NULL;
+		pGlTextureStorage1D = NULL;
+		pGlTextureStorage2D = NULL;
+		pGlTextureStorage3D = NULL;
+		pGlTextureSubImage1D = NULL;
+		pGlTextureSubImage2D = NULL;
+		pGlTextureSubImage3D = NULL;
+		pGlCompressedTextureSubImage1D = NULL;
+		pGlCompressedTextureSubImage2D = NULL;
+		pGlCompressedTextureSubImage3D = NULL;
+		pGlCopyTextureSubImage1D = NULL;
+		pGlCopyTextureSubImage2D = NULL;
+		pGlCopyTextureSubImage3D = NULL;
+		pGlGenerateTextureMipmap = NULL;
+		pGlCreateSamplers = NULL;
+		pGlBindAttribLocation = NULL;
+		pGlBlitNamedFramebuffer = NULL;
+		pGlCreateFramebuffers = NULL;
+		pGlCheckNamedFramebufferStatus = NULL;
+		pGlNamedFramebufferTexture = NULL;
+		pGlNamedFramebufferTextureLayer = NULL;
+		pGlCreateRenderbuffers = NULL;
+		pGlNamedRenderbufferStorage = NULL;
+		pGlNamedFramebufferRenderbuffer = NULL;
+		pGlActiveStencilFaceEXT = NULL;
+		pGlNamedFramebufferReadBuffer = NULL;
+		pGlNamedFramebufferDrawBuffer = NULL;
+		pGlNamedFramebufferDrawBuffers = NULL;
+		pGlClearNamedFramebufferiv = NULL;
+		pGlClearNamedFramebufferuiv = NULL;
+		pGlClearNamedFramebufferfv = NULL;
+		pGlClearNamedFramebufferfi = NULL;
+		pGlCreateBuffers = NULL;
+		pGlNamedBufferStorage = NULL;
+		pGlNamedBufferSubData = NULL;
+		pGlGetNamedBufferSubData = NULL;
+		pGlMapNamedBuffer = NULL;
+		pGlMapNamedBufferRange = NULL;
+		pGlFlushMappedNamedBufferRange = NULL;
+		pGlUnmapNamedBuffer = NULL;
+		pGlClearNamedBufferData = NULL;
+		pGlClearNamedBufferSubData = NULL;
+		pGlCopyNamedBufferSubData = NULL;
+		pGlCreateVertexArrays = NULL;
+		pGlVertexArrayElementBuffer = NULL;
+		pGlVertexArrayVertexBuffer = NULL;
+		pGlVertexArrayAttribBinding = NULL;
+		pGlEnableVertexArrayAttrib = NULL;
+		pGlDisableVertexArrayAttrib = NULL;
+		pGlVertexArrayAttribFormat = NULL;
+		pGlVertexArrayAttribIFormat = NULL;
+		pGlVertexArrayAttribLFormat = NULL;
+		pGlVertexArrayBindingDivisor = NULL;
+		pGlBlendFuncIndexedAMD = NULL;
+		pGlBlendEquationIndexedAMD = NULL;
+		pGlBlendEquationiARB = NULL;
+	}/*
     //! Non-DSA testing
     Version = 430;
     FeatureAvailable[IRR_EXT_direct_state_access] = FeatureAvailable[IRR_ARB_direct_state_access] = false;
@@ -963,8 +1048,13 @@ void COpenGLExtensionHandler::loadFunctions()
     #define IRR_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
 #endif // Windows, SDL, or Linux
 
+    pGlIsEnabledi = (PFNGLISENABLEDIPROC) IRR_OGL_LOAD_EXTENSION("glIsEnabledi");
+    pGlEnablei = (PFNGLENABLEIPROC) IRR_OGL_LOAD_EXTENSION("glEnablei");
+    pGlDisablei = (PFNGLDISABLEIPROC) IRR_OGL_LOAD_EXTENSION("glDisablei");
+    pGlGetBooleani_v = (PFNGLGETBOOLEANI_VPROC) IRR_OGL_LOAD_EXTENSION("glGetBooleani_v");
+    pGlGetFloati_v = (PFNGLGETFLOATI_VPROC) IRR_OGL_LOAD_EXTENSION("glGetFloati_v");
+    pGlGetIntegeri_v = (PFNGLGETINTEGERI_VPROC) IRR_OGL_LOAD_EXTENSION("glGetIntegeri_v");
     pGlGetStringi = (PFNGLGETSTRINGIPROC) IRR_OGL_LOAD_EXTENSION("glGetStringi");
-
 #else
 
     pGlGetStringi = &glGetStringi;
@@ -1004,6 +1094,11 @@ void COpenGLExtensionHandler::loadFunctions()
     MaxXFormFeedbackComponents = num;
 	glGetIntegerv(GL_MAX_SERVER_WAIT_TIMEOUT, &num);
     MaxGPUWaitTimeout = reinterpret_cast<const uint32_t&>(num);
+
+    /**
+    pGl = () IRR_OGL_LOAD_EXTENSION("gl");
+    **/
+    pGlProvokingVertex = (PFNGLPROVOKINGVERTEXPROC) IRR_OGL_LOAD_EXTENSION("glProvokingVertex");
 
     //fences
     pGlFenceSync = (PFNGLFENCESYNCPROC) IRR_OGL_LOAD_EXTENSION("glFenceSync");
@@ -1062,6 +1157,7 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlGenerateMipmap = (PFNGLGENERATEMIPMAPPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateMipmap");
     pGlGenerateTextureMipmap = (PFNGLGENERATETEXTUREMIPMAPPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateTextureMipmap");
     pGlGenerateTextureMipmapEXT = (PFNGLGENERATETEXTUREMIPMAPEXTPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateTextureMipmapEXT");
+    pGlClampColor = (PFNGLCLAMPCOLORPROC) IRR_OGL_LOAD_EXTENSION( "glClampColor");
 
     //samplers
     pGlGenSamplers = (PFNGLGENSAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glGenSamplers");
@@ -1069,6 +1165,10 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlBindSampler = (PFNGLBINDSAMPLERPROC) IRR_OGL_LOAD_EXTENSION( "glBindSampler");
     pGlSamplerParameteri = (PFNGLSAMPLERPARAMETERIPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameteri");
     pGlSamplerParameterf = (PFNGLSAMPLERPARAMETERFPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameterf");
+
+    //
+    pGlBindImageTexture = (PFNGLBINDIMAGETEXTUREPROC) IRR_OGL_LOAD_EXTENSION( "glBindImageTexture");
+
 
     //
     pGlBindBufferBase = (PFNGLBINDBUFFERBASEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferBase");
@@ -1113,16 +1213,26 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlProgramUniformMatrix3x4fv = (PFNGLPROGRAMUNIFORMMATRIX3X4FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix3x4fv");
 	pGlProgramUniformMatrix4x3fv = (PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix4x3fv");
 	pGlGetActiveUniform = (PFNGLGETACTIVEUNIFORMPROC) IRR_OGL_LOAD_EXTENSION("glGetActiveUniform");
+    pGlBindProgramPipeline = (PFNGLBINDPROGRAMPIPELINEPROC) IRR_OGL_LOAD_EXTENSION("glBindProgramPipeline");
 
 	// get point parameter extension
 	pGlPointParameterf = (PFNGLPOINTPARAMETERFARBPROC) IRR_OGL_LOAD_EXTENSION("glPointParameterf");
 	pGlPointParameterfv = (PFNGLPOINTPARAMETERFVARBPROC) IRR_OGL_LOAD_EXTENSION("glPointParameterfv");
 
-	// get stencil extension
+    //ROP
+	pGlBlendColor = (PFNGLBLENDCOLORPROC)IRR_OGL_LOAD_EXTENSION("glBlendColor");
+    pGlDepthRangeIndexed = (PFNGLDEPTHRANGEINDEXEDPROC) IRR_OGL_LOAD_EXTENSION("glDepthRangeIndexed");
+    pGlViewportIndexedfv = (PFNGLVIEWPORTINDEXEDFVPROC) IRR_OGL_LOAD_EXTENSION("glViewportIndexedfv");
+    pGlScissorIndexedv = (PFNGLSCISSORINDEXEDVPROC) IRR_OGL_LOAD_EXTENSION("glScissorIndexedv");
+    pGlSampleCoverage = (PFNGLSAMPLECOVERAGEPROC) IRR_OGL_LOAD_EXTENSION("glSampleCoverage");
+	pGlSampleMaski = (PFNGLSAMPLEMASKIPROC) IRR_OGL_LOAD_EXTENSION("glSampleMaski");
+	pGlMinSampleShading = (PFNGLMINSAMPLESHADINGPROC) IRR_OGL_LOAD_EXTENSION("glMinSampleShading");
+    pGlBlendEquationSeparatei = (PFNGLBLENDEQUATIONSEPARATEIPROC) IRR_OGL_LOAD_EXTENSION("glBlendEquationSeparatei");
+    pGlBlendFuncSeparatei = (PFNGLBLENDFUNCSEPARATEIPROC) IRR_OGL_LOAD_EXTENSION("glBlendFuncSeparatei");
+    pGlColorMaski = (PFNGLCOLORMASKIPROC) IRR_OGL_LOAD_EXTENSION("glColorMaski");
 	pGlStencilFuncSeparate = (PFNGLSTENCILFUNCSEPARATEPROC) IRR_OGL_LOAD_EXTENSION("glStencilFuncSeparate");
 	pGlStencilOpSeparate = (PFNGLSTENCILOPSEPARATEPROC) IRR_OGL_LOAD_EXTENSION("glStencilOpSeparate");
-	pGlStencilFuncSeparateATI = (PFNGLSTENCILFUNCSEPARATEATIPROC) IRR_OGL_LOAD_EXTENSION("glStencilFuncSeparateATI");
-	pGlStencilOpSeparateATI = (PFNGLSTENCILOPSEPARATEATIPROC) IRR_OGL_LOAD_EXTENSION("glStencilOpSeparateATI");
+	pGlStencilMaskSeparate = (PFNGLSTENCILMASKSEPARATEPROC) IRR_OGL_LOAD_EXTENSION("glStencilMaskSeparate");
 
 	// ARB FrameBufferObjects
 	pGlBlitNamedFramebuffer = (PFNGLBLITNAMEDFRAMEBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glBlitNamedFramebuffer");
@@ -1233,6 +1343,7 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlVertexArrayVertexBindingDivisorEXT = (PFNGLVERTEXARRAYVERTEXBINDINGDIVISOREXTPROC) IRR_OGL_LOAD_EXTENSION("glVertexArrayVertexBindingDivisorEXT");
     pGlVertexBindingDivisor = (PFNGLVERTEXBINDINGDIVISORPROC) IRR_OGL_LOAD_EXTENSION("glVertexBindingDivisor");
     //
+    pGlPrimitiveRestartIndex = (PFNGLPRIMITIVERESTARTINDEXPROC) IRR_OGL_LOAD_EXTENSION("glPrimitiveRestartIndex");
     pGlDrawArraysInstanced = (PFNGLDRAWARRAYSINSTANCEDPROC) IRR_OGL_LOAD_EXTENSION("glDrawArraysInstanced");
     pGlDrawArraysInstancedBaseInstance = (PFNGLDRAWARRAYSINSTANCEDBASEINSTANCEPROC) IRR_OGL_LOAD_EXTENSION("glDrawArraysInstancedBaseInstance");
     pGlDrawElementsInstancedBaseVertex = (PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC) IRR_OGL_LOAD_EXTENSION("glDrawElementsInstancedBaseVertex");
@@ -1258,8 +1369,6 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlTransformFeedbackBufferRange = (PFNGLTRANSFORMFEEDBACKBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION("glTransformFeedbackBufferRange");
 	//
 	pGlBlendFuncSeparate = (PFNGLBLENDFUNCSEPARATEPROC) IRR_OGL_LOAD_EXTENSION("glBlendFuncSeparate");
-	pGlProvokingVertex = (PFNGLPROVOKINGVERTEXPROC) IRR_OGL_LOAD_EXTENSION("glProvokingVertex");
-	pGlColorMaski= (PFNGLCOLORMASKIPROC) IRR_OGL_LOAD_EXTENSION("glColorMaski");
 	pGlEnablei = (PFNGLENABLEIPROC) IRR_OGL_LOAD_EXTENSION("glEnablei");
 	pGlDisablei = (PFNGLDISABLEIPROC) IRR_OGL_LOAD_EXTENSION("glDisablei");
 	pGlBlendFuncIndexedAMD= (PFNGLBLENDFUNCINDEXEDAMDPROC) IRR_OGL_LOAD_EXTENSION("glBlendFuncIndexedAMD");

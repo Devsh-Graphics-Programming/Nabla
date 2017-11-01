@@ -33,9 +33,6 @@ namespace video
 		/** Overrides EMF_BACK_FACE_CULLING if both are enabled. */
 		EMF_FRONT_FACE_CULLING = 0x80,
 
-		//! AntiAliasing mode
-		EMF_ANTI_ALIASING = 0x4000,
-
 		//! ColorMask bits, for enabling the color planes
 		EMF_COLOR_MASK = 0x8000,
 

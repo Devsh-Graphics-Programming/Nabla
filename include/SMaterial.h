@@ -76,32 +76,6 @@ namespace video
 	};
 
 
-	//! These flags are used to specify the anti-aliasing and smoothing modes
-	/** Techniques supported are multisampling, geometry smoothing, and alpha
-	to coverage.
-	Some drivers don't support a per-material setting of the anti-aliasing
-	modes. In those cases, FSAA/multisampling is defined by the device mode
-	chosen upon creation via irr::SIrrCreationParameters.
-	*/
-	enum E_ANTI_ALIASING_MODE
-	{
-		//! Use to turn off anti-aliasing for this material
-		EAAM_OFF=0,
-		//! Default anti-aliasing mode
-		EAAM_SIMPLE=1,
-		//! High-quality anti-aliasing, not always supported, automatically enables SIMPLE mode
-		EAAM_QUALITY=3,
-		//! Line smoothing
-		EAAM_LINE_SMOOTH=4,
-		//! point smoothing, often in software and slow, only with OpenGL
-		EAAM_POINT_SMOOTH=8,
-		//! All typical anti-alias and smooth modes
-		EAAM_FULL_BASIC=15,
-		//! Enhanced anti-aliasing for transparent materials
-		/** Usually used with EMT_TRANSPARENT_ALPHA_REF and multisampling. */
-		EAAM_ALPHA_TO_COVERAGE=16
-	};
-
 
 	//! Maximum number of texture an SMaterial can have.
 	const uint32_t MATERIAL_MAX_TEXTURES = _IRR_MATERIAL_MAX_TEXTURES_;
@@ -115,7 +89,7 @@ namespace video
 		: MaterialType(EMT_SOLID), AmbientColor(255,255,255,255), DiffuseColor(255,255,255,255),
 			EmissiveColor(0,0,0,0), SpecularColor(255,255,255,255),
 			Shininess(0.0f), MaterialTypeParam(0.0f), MaterialTypeParam2(0.0f), userData(NULL), Thickness(1.0f),
-			ZBuffer(ECFN_GREATEREQUAL), AntiAliasing(EAAM_SIMPLE), ColorMask(ECP_ALL),
+			ZBuffer(ECFN_GREATEREQUAL), ColorMask(ECP_ALL),
 			BlendOperation(EBO_NONE),
 			PolygonOffsetConstantMultiplier(0.f), PolygonOffsetGradientMultiplier(0.f),
 			Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false), RasterizerDiscard(false)
@@ -159,7 +133,6 @@ namespace video
 			FrontfaceCulling = other.FrontfaceCulling;
 			RasterizerDiscard = other.RasterizerDiscard;
 			ZBuffer = other.ZBuffer;
-			AntiAliasing = other.AntiAliasing;
 			ColorMask = other.ColorMask;
 			BlendOperation = other.BlendOperation;
 			PolygonOffsetConstantMultiplier = other.PolygonOffsetConstantMultiplier;
@@ -241,12 +214,6 @@ namespace video
 		/** Values are from E_COMPARISON_FUNC. */
 		uint8_t ZBuffer;
 
-		//! Sets the antialiasing mode
-		/** Values are chosen from E_ANTI_ALIASING_MODE. Default is
-		EAAM_SIMPLE|EAAM_LINE_SMOOTH, i.e. simple multi-sample
-		anti-aliasing and lime smoothing is enabled. */
-		uint8_t AntiAliasing;
-
 		//! Defines the enabled color planes
 		/** Values are defined as or'ed values of the E_COLOR_PLANE enum.
 		Only enabled color planes will be rendered to the current render
@@ -324,8 +291,6 @@ namespace video
 					BackfaceCulling = value; break;
 				case EMF_FRONT_FACE_CULLING:
 					FrontfaceCulling = value; break;
-				case EMF_ANTI_ALIASING:
-					AntiAliasing = value?EAAM_SIMPLE:EAAM_OFF; break;
 				case EMF_COLOR_MASK:
 					ColorMask = value?ECP_ALL:ECP_NONE; break;
 				case EMF_BLEND_OPERATION:
@@ -354,8 +319,6 @@ namespace video
 					return BackfaceCulling;
 				case EMF_FRONT_FACE_CULLING:
 					return FrontfaceCulling;
-				case EMF_ANTI_ALIASING:
-					return (AntiAliasing==1);
 				case EMF_COLOR_MASK:
 					return (ColorMask!=ECP_NONE);
 				case EMF_BLEND_OPERATION:
@@ -388,7 +351,6 @@ namespace video
 				BackfaceCulling != b.BackfaceCulling ||
 				FrontfaceCulling != b.FrontfaceCulling ||
 				RasterizerDiscard != b.RasterizerDiscard ||
-				AntiAliasing != b.AntiAliasing ||
 				ColorMask != b.ColorMask ||
 				BlendOperation != b.BlendOperation ||
 				PolygonOffsetConstantMultiplier != b.PolygonOffsetConstantMultiplier ||

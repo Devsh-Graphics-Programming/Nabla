@@ -71,6 +71,8 @@
 					<Add library="OpenCL" />
 					<Add library="pthread" />
 					<Add library="dl" />
+					<Add library="unwind" />
+					<Add library="unwind-x86_64" />
 					<Add directory="../../lib/Linux" />
 				</Linker>
 			</Target>

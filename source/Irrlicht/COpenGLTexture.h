@@ -89,6 +89,9 @@ public:
 	     GLenum type;
 	     return getOpenGLFormatAndParametersFromColorFormat(format,colorformat,type);
 	}
+
+	//!
+	static ECOLOR_FORMAT getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat);
 protected:
 
 	//! protected constructor with basic setup, no GL texture name created, for derived classes

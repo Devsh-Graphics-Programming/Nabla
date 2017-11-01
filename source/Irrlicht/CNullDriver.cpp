@@ -213,7 +213,6 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>&
 	for (uint32_t i=0; i<video::EVDF_COUNT; ++i)
 		FeatureEnabled[i]=true;
 
-	InitMaterial2D.AntiAliasing=video::EAAM_OFF;
 	InitMaterial2D.ZWriteEnable=false;
 	InitMaterial2D.ZBuffer=video::ECFN_NEVER;
 	for (uint32_t i=0; i<video::MATERIAL_MAX_TEXTURES; ++i)

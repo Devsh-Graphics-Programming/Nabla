@@ -948,17 +948,15 @@ class COpenGLExtensionHandler
 	//!
 	static uint32_t MaxArrayTextureLayers;
 	//! Maxmimum texture layers supported by the engine
-	uint8_t MaxTextureUnits;
-	//! Maximum hardware lights supported
-	uint8_t MaxLights;
+	static uint8_t MaxTextureUnits;
 	//! Maximal Anisotropy
-	uint8_t MaxAnisotropy;
+	static uint8_t MaxAnisotropy;
 	//! Number of user clipplanes
-	uint8_t MaxUserClipPlanes;
+	static uint8_t MaxUserClipPlanes;
 	//! Number of auxiliary buffers
-	uint8_t MaxAuxBuffers;
+	static uint8_t MaxAuxBuffers;
 	//! Number of rendertargets available as MRTs
-	uint8_t MaxMultipleRenderTargets;
+	static uint8_t MaxMultipleRenderTargets;
 	//! Optimal number of indices per meshbuffer
 	static uint32_t MaxIndices;
 	//! Optimal number of vertices per meshbuffer
@@ -966,7 +964,7 @@ class COpenGLExtensionHandler
 	//! Maximal vertices handled by geometry shaders
 	static uint32_t MaxGeometryVerticesOut;
 	//! Maximal LOD Bias
-	float MaxTextureLODBias;
+	static float MaxTextureLODBias;
 	//!
 	static uint32_t MaxVertexStreams;
 	//!
@@ -985,10 +983,18 @@ class COpenGLExtensionHandler
 	//! OpenGL version as Integer: 100*Major+Minor, i.e. 2.1 becomes 201
 	static uint16_t Version;
 	//! GLSL version as Integer: 100*Major+Minor
-	uint16_t ShaderLanguageVersion;
+	static uint16_t ShaderLanguageVersion;
 
 	static bool IsIntelGPU;
 
+	//
+    static bool extGlIsEnabledi(GLenum cap, GLuint index);
+    static void extGlEnablei(GLenum cap, GLuint index);
+    static void extGlDisablei(GLenum cap, GLuint index);
+    static void extGlGetBooleani_v(GLenum pname, GLuint index, GLboolean* data);
+    static void extGlGetFloati_v(GLenum pname, GLuint index, float* data);
+    static void extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data);
+    static void extGlProvokingVertex(GLenum provokeMode);
     //
     static GLsync extGlFenceSync(GLenum condition, GLbitfield flags);
     static void extGlDeleteSync(GLsync sync);
@@ -996,6 +1002,7 @@ class COpenGLExtensionHandler
     static void extGlWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout);
 
 	// public access to the (loaded) extensions.
+	static void extGlActiveTexture(GLenum target);
     static void extGlBindTextureUnit(GLuint unit, GLuint texture, GLenum target);
     static void extGlCreateTextures(GLenum target, GLsizei n, GLuint *textures);
 
@@ -1019,6 +1026,7 @@ class COpenGLExtensionHandler
     static void extGlCopyTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height);
     static void extGlCopyTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
     static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
+    static void extGlClampColor(GLenum target, GLenum clamp);
     static void setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr);
 
     static void extGlGenSamplers(GLsizei n, GLuint* samplers);
@@ -1027,10 +1035,15 @@ class COpenGLExtensionHandler
     static void extGlSamplerParameteri(GLuint sampler, GLenum pname, GLint param);
     static void extGlSamplerParameterf(GLuint sampler, GLenum pname, GLfloat param);
 
+    //
+    static void extGlBindImageTexture(GLuint index, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
+
+
 	static void extGlPointParameterf(GLint loc, GLfloat f);
 	static void extGlPointParameterfv(GLint loc, const GLfloat *v);
-	static void extGlStencilFuncSeparate (GLenum frontfunc, GLenum backfunc, GLint ref, GLuint mask);
-	static void extGlStencilOpSeparate (GLenum face, GLenum fail, GLenum zfail, GLenum zpass);
+	static void extGlStencilFuncSeparate(GLenum face, GLenum func, GLint ref, GLuint mask);
+	static void extGlStencilOpSeparate(GLenum face, GLenum fail, GLenum zfail, GLenum zpass);
+	static void extGlStencilMaskSeparate(GLenum face, GLuint mask);
 
 
 	// shader programming
@@ -1076,6 +1089,7 @@ class COpenGLExtensionHandler
 	static void extGlProgramUniformMatrix4x2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
 	static void extGlProgramUniformMatrix4x3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
 	static void extGlGetActiveUniform(GLuint program, GLuint index, GLsizei maxlength, GLsizei *length, GLint *size, GLenum *type, GLchar *name);
+	static void extGlBindProgramPipeline(GLuint pipeline);
 
 	// framebuffer objects
 	static void extGlDeleteFramebuffers(GLsizei n, const GLuint *framebuffers);
@@ -1093,6 +1107,7 @@ class COpenGLExtensionHandler
 	static void extGlClearNamedFramebufferuiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLuint* value);
 	static void extGlClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value);
 	static void extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLfloat depth, GLint stencil);
+
 	// renderbuffers
 	static void extGlDeleteRenderbuffers(GLsizei n, const GLuint *renderbuffers);
 	static void extGlCreateRenderbuffers(GLsizei n, GLuint *renderbuffers);
@@ -1102,6 +1117,7 @@ class COpenGLExtensionHandler
 	// vertex buffer object
 	static void extGlCreateBuffers(GLsizei n, GLuint *buffers);
 	static void extGlBindBuffer(const GLenum& target, const GLuint& buffer);
+    static void extGlBindBufferRange(const GLenum& target, const GLuint& index, const GLuint& buffer, const GLintptr& offset, const GLsizeiptr& size);
 	static void extGlDeleteBuffers(GLsizei n, const GLuint *buffers);
     static void extGlNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void *data, GLbitfield flags);
 	static void extGlNamedBufferSubData (GLuint buffer, GLintptr offset, GLsizeiptr size, const void *data);
@@ -1142,6 +1158,7 @@ class COpenGLExtensionHandler
 
 
     //draw
+    static void extGlPrimitiveRestartIndex(GLuint index);
     static void extGlDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount);
     static void extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance);
 	static void extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex);
@@ -1155,16 +1172,27 @@ class COpenGLExtensionHandler
     static void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride);
     static void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride);
 
+	// ROP
+	static void extGlBlendColor(float red, float green, float blue, float alpha);
+    static void extGlDepthRangeIndexed(GLuint index, GLdouble nearVal, GLdouble farVal);
+    static void extGlViewportIndexedfv(GLuint index, const GLfloat* v);
+    static void extGlScissorIndexedv(GLuint index, const GLint* v);
+    static void extGlSampleCoverage(float value, bool invert);
+    static void extGlSampleMaski(GLuint maskNumber, GLbitfield mask);
+    static void extGlMinSampleShading(float value);
+    static void extGlBlendEquationSeparatei(GLuint buf, GLenum modeRGB, GLenum modeAlpha);
+    static void extGlBlendFuncSeparatei(GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
+    static void extGlColorMaski(GLuint buf, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
+
 	//
 	static void extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
-	static void extGlProvokingVertex(GLenum mode);
 	static void extGlColorMaskIndexed(GLuint buf, GLboolean r, GLboolean g, GLboolean b, GLboolean a);
 	static void extGlEnableIndexed(GLenum target, GLuint index);
 	static void extGlDisableIndexed(GLenum target, GLuint index);
 	static void extGlBlendFuncIndexed(GLuint buf, GLenum src, GLenum dst);
 	static void extGlBlendEquationIndexed(GLuint buf, GLenum mode);
 	static void extGlProgramParameteri(GLuint program, GLenum pname, GLint value);
-	static void extGlPatchParameterfv(GLenum pname, GLfloat* values);
+	static void extGlPatchParameterfv(GLenum pname, const float* values);
     static void extGlPatchParameteri(GLenum pname, GLuint value);
 
 	// queries
@@ -1194,7 +1222,14 @@ class COpenGLExtensionHandler
 
 #if defined(_IRR_OPENGL_USE_EXTPOINTER_)
     //
+    static PFNGLISENABLEDIPROC pGlIsEnabledi;
+    static PFNGLENABLEIPROC pGlEnablei;
+    static PFNGLDISABLEIPROC pGlDisablei;
+    static PFNGLGETBOOLEANI_VPROC pGlGetBooleani_v;
+    static PFNGLGETFLOATI_VPROC pGlGetFloati_v;
+    static PFNGLGETINTEGERI_VPROC pGlGetIntegeri_v;
     static PFNGLGETSTRINGIPROC pGlGetStringi;
+    static PFNGLPROVOKINGVERTEXPROC pGlProvokingVertex;
 
     //fences
     static PFNGLFENCESYNCPROC pGlFenceSync;
@@ -1253,6 +1288,7 @@ class COpenGLExtensionHandler
     static PFNGLGENERATEMIPMAPPROC pGlGenerateMipmap;
     static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap; //NULL
     static PFNGLGENERATETEXTUREMIPMAPEXTPROC pGlGenerateTextureMipmapEXT;
+    static PFNGLCLAMPCOLORPROC pGlClampColor;
 
     //samplers
     static PFNGLGENSAMPLERSPROC pGlGenSamplers;
@@ -1261,6 +1297,9 @@ class COpenGLExtensionHandler
     static PFNGLBINDSAMPLERPROC pGlBindSampler;
     static PFNGLSAMPLERPARAMETERIPROC pGlSamplerParameteri;
     static PFNGLSAMPLERPARAMETERFPROC pGlSamplerParameterf;
+
+    //
+    static PFNGLBINDIMAGETEXTUREPROC pGlBindImageTexture;
 
     // stuff
     static PFNGLBINDBUFFERBASEPROC pGlBindBufferBase;
@@ -1308,10 +1347,22 @@ class COpenGLExtensionHandler
     static PFNGLGETACTIVEUNIFORMPROC pGlGetActiveUniform;
     static PFNGLPOINTPARAMETERFPROC  pGlPointParameterf;
     static PFNGLPOINTPARAMETERFVPROC pGlPointParameterfv;
+    static PFNGLBINDPROGRAMPIPELINEPROC pGlBindProgramPipeline;
+
+    //ROP
+	static PFNGLBLENDCOLORPROC pGlBlendColor;
+    static PFNGLDEPTHRANGEINDEXEDPROC pGlDepthRangeIndexed;
+    static PFNGLVIEWPORTINDEXEDFVPROC pGlViewportIndexedfv;
+    static PFNGLSCISSORINDEXEDVPROC pGlScissorIndexedv;
+    static PFNGLSAMPLECOVERAGEPROC pGlSampleCoverage;
+	static PFNGLSAMPLEMASKIPROC pGlSampleMaski;
+	static PFNGLMINSAMPLESHADINGPROC pGlMinSampleShading;
+    static PFNGLBLENDEQUATIONSEPARATEIPROC pGlBlendEquationSeparatei;
+    static PFNGLBLENDFUNCSEPARATEIPROC pGlBlendFuncSeparatei;
+    static PFNGLCOLORMASKIPROC pGlColorMaski;
     static PFNGLSTENCILFUNCSEPARATEPROC pGlStencilFuncSeparate;
     static PFNGLSTENCILOPSEPARATEPROC pGlStencilOpSeparate;
-    static PFNGLSTENCILFUNCSEPARATEATIPROC pGlStencilFuncSeparateATI;
-    static PFNGLSTENCILOPSEPARATEATIPROC pGlStencilOpSeparateATI;
+    static PFNGLSTENCILMASKSEPARATEPROC pGlStencilMaskSeparate;
 
     // ARB framebuffer object
     static PFNGLBLITNAMEDFRAMEBUFFERPROC pGlBlitNamedFramebuffer; //NULL
@@ -1340,6 +1391,7 @@ class COpenGLExtensionHandler
     static PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC pGlNamedFramebufferRenderbuffer; //NULL
     static PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC pGlNamedFramebufferRenderbufferEXT;
 
+    //! REMOVE ALL BELOW
     // EXT framebuffer object
     static PFNGLACTIVESTENCILFACEEXTPROC pGlActiveStencilFaceEXT; //NULL
     static PFNGLNAMEDFRAMEBUFFERREADBUFFERPROC pGlNamedFramebufferReadBuffer; //NULL
@@ -1424,6 +1476,7 @@ class COpenGLExtensionHandler
     static PFNGLVERTEXARRAYVERTEXBINDINGDIVISOREXTPROC pGlVertexArrayVertexBindingDivisorEXT;
     static PFNGLVERTEXBINDINGDIVISORPROC pGlVertexBindingDivisor;
     //
+    static PFNGLPRIMITIVERESTARTINDEXPROC pGlPrimitiveRestartIndex;
     static PFNGLDRAWARRAYSINSTANCEDPROC pGlDrawArraysInstanced;
     static PFNGLDRAWARRAYSINSTANCEDBASEINSTANCEPROC pGlDrawArraysInstancedBaseInstance;
 	static PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC pGlDrawElementsInstancedBaseVertex;
@@ -1447,16 +1500,13 @@ class COpenGLExtensionHandler
 	static PFNGLENDTRANSFORMFEEDBACKPROC pGlEndTransformFeedback;
 	static PFNGLTRANSFORMFEEDBACKBUFFERBASEPROC pGlTransformFeedbackBufferBase;
 	static PFNGLTRANSFORMFEEDBACKBUFFERRANGEPROC pGlTransformFeedbackBufferRange;
-    //
+    //! REMOVE ALL BELOW
     static PFNGLBLENDFUNCSEPARATEPROC pGlBlendFuncSeparate;
-    static PFNGLPROVOKINGVERTEXPROC pGlProvokingVertex;
-    static PFNGLCOLORMASKIPROC pGlColorMaski;
-    static PFNGLENABLEIPROC pGlEnablei;
-    static PFNGLDISABLEIPROC pGlDisablei;
     static PFNGLBLENDFUNCINDEXEDAMDPROC pGlBlendFuncIndexedAMD; //NULL
     static PFNGLBLENDFUNCIPROC pGlBlendFunciARB;
     static PFNGLBLENDEQUATIONINDEXEDAMDPROC pGlBlendEquationIndexedAMD; //NULL
     static PFNGLBLENDEQUATIONIPROC pGlBlendEquationiARB; //NULL
+    //
     static PFNGLPROGRAMPARAMETERIPROC pGlProgramParameteri;
     static PFNGLPATCHPARAMETERIPROC pGlPatchParameteri;
     static PFNGLPATCHPARAMETERFVPROC pGlPatchParameterfv;
@@ -1506,6 +1556,86 @@ private:
 };
 
 
+
+
+/**
+inline bla extGl()
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGl)
+        return pGl();
+#else
+    return glA();
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+**/
+inline bool COpenGLExtensionHandler::extGlIsEnabledi(GLenum cap, GLuint index)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlIsEnabledi)
+        return pGlIsEnabledi(cap,index);
+    return false;
+#else
+    return glIsEnabledi(cap,index);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+inline void COpenGLExtensionHandler::extGlEnablei(GLenum cap, GLuint index)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlEnablei)
+        return pGlEnablei(cap,index);
+#else
+    return glEnablei(cap,index);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+inline void COpenGLExtensionHandler::extGlDisablei(GLenum cap, GLuint index)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlDisablei)
+        return pGlDisablei(cap,index);
+#else
+    return glDisablei(cap,index);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+inline void COpenGLExtensionHandler::extGlGetBooleani_v(GLenum pname, GLuint index, GLboolean* data)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlGetBooleani_v)
+        return pGlGetBooleani_v(pname,index,data);
+#else
+    return glGetBooleani_v(pname,index,data);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+inline void COpenGLExtensionHandler::extGlGetFloati_v(GLenum pname, GLuint index, float* data)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlGetFloati_v)
+        return pGlGetFloati_v(pname,index,data);
+#else
+    return glGetFloati_v(pname,index,data);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+inline void COpenGLExtensionHandler::extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlGetIntegeri_v)
+        return pGlGetIntegeri_v(pname,index,data);
+#else
+    return glGetIntegeri_v(pname,index,data);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+inline void COpenGLExtensionHandler::extGlProvokingVertex(GLenum provokeMode)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlProvokingVertex)
+        return pGlProvokingVertex(provokeMode);
+#else
+    return glProvokingVertex(provokeMode);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+
+
 inline GLsync COpenGLExtensionHandler::extGlFenceSync(GLenum condition, GLbitfield flags)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -1545,6 +1675,16 @@ inline void COpenGLExtensionHandler::extGlWaitSync(GLsync sync, GLbitfield flags
         pGlWaitSync(sync,flags,timeout);
 #else
     glWaitSync(sync,flags,timeout);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+inline void COpenGLExtensionHandler::extGlActiveTexture(GLenum target)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlActiveTexture)
+		pGlActiveTexture(target);
+#else
+	glActiveTexture(target);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
@@ -2364,6 +2504,16 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
     }
 }
 
+inline void COpenGLExtensionHandler::extGlClampColor(GLenum target, GLenum clamp)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlClampColor)
+        pGlClampColor(GL_CLAMP_READ_COLOR,clamp);
+#else
+    glClampColor(GL_CLAMP_READ_COLOR,clamp);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
 inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr)
 {
 #if _MSC_VER && !__INTEL_COMPILER
@@ -2440,6 +2590,17 @@ inline void COpenGLExtensionHandler::extGlSamplerParameterf(GLuint sampler, GLen
         pGlSamplerParameterf(sampler,pname,param);
 #else
     glSamplerParameterf(sampler,pname,param);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+
+
+inline void COpenGLExtensionHandler::extGlBindImageTexture(GLuint index, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlBindImageTexture)
+        pGlBindImageTexture(index,texture,level,layered,layer,access,format);
+#else
+    glBindImageTexture(index,texture,level,layered,layer,access,format);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
@@ -2837,6 +2998,19 @@ inline void COpenGLExtensionHandler::extGlGetActiveUniform(GLuint program,
 #endif
 }
 
+inline void COpenGLExtensionHandler::extGlBindProgramPipeline(GLuint pipeline)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBindProgramPipeline)
+		pGlBindProgramPipeline(pipeline);
+#else
+	glBindProgramPipeline(pipeline);
+#endif
+}
+
+
+
+
 inline void COpenGLExtensionHandler::extGlPointParameterf(GLint loc, GLfloat f)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -2857,23 +3031,33 @@ inline void COpenGLExtensionHandler::extGlPointParameterfv(GLint loc, const GLfl
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlStencilFuncSeparate (GLenum frontfunc, GLenum backfunc, GLint ref, GLuint mask)
+inline void COpenGLExtensionHandler::extGlStencilFuncSeparate(GLenum face, GLenum func, GLint ref, GLuint mask)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlStencilFuncSeparate)
-		pGlStencilFuncSeparate(frontfunc, backfunc, ref, mask);
+		pGlStencilFuncSeparate(face, func, ref, mask);
 #else
-	glStencilFuncSeparate(frontfunc, backfunc, ref, mask);
+	glStencilFuncSeparate(face, func, ref, mask);
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlStencilOpSeparate (GLenum face, GLenum fail, GLenum zfail, GLenum zpass)
+inline void COpenGLExtensionHandler::extGlStencilOpSeparate(GLenum face, GLenum fail, GLenum zfail, GLenum zpass)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlStencilOpSeparate)
 		pGlStencilOpSeparate(face, fail, zfail, zpass);
 #else
 	glStencilOpSeparate(face, fail, zfail, zpass);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlStencilMaskSeparate(GLenum face, GLuint mask)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlStencilMaskSeparate)
+		pGlStencilMaskSeparate(face, mask);
+#else
+	glStencilMaskSeparate(face, mask);
 #endif
 }
 
@@ -3545,6 +3729,16 @@ inline void COpenGLExtensionHandler::extGlBindBuffer(const GLenum& target, const
 		pGlBindBuffer(target, buffer);
 #else
 	glBindBuffer(target, buffer);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlBindBufferRange(const GLenum& target, const GLuint& index, const GLuint& buffer, const GLintptr& offset, const GLsizeiptr& size)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlBindBufferRange)
+        pGlBindBufferRange(target,index,buffer,offset,size);
+#else
+    glBindBufferRange(target,index,buffer,offset,size);
 #endif
 }
 
@@ -4515,6 +4709,15 @@ inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferRange(GLuint xf
 }
 
 
+inline void COpenGLExtensionHandler::extGlPrimitiveRestartIndex(GLuint index)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlPrimitiveRestartIndex)
+        pGlPrimitiveRestartIndex(index);
+#else
+    glPrimitiveRestartIndex(index);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
 
 inline void COpenGLExtensionHandler::extGlDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount)
 {
@@ -4636,6 +4839,103 @@ inline void COpenGLExtensionHandler::extGlMultiDrawElementsIndirect(GLenum mode,
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
+
+
+
+// ROP
+inline void COpenGLExtensionHandler::extGlBlendColor(float red, float green, float blue, float alpha)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBlendColor)
+		pGlBlendColor(red,green,blue,alpha);
+#else
+	glBlendColor(red, green, blue, alpha);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlDepthRangeIndexed(GLuint index, GLdouble nearVal, GLdouble farVal)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDepthRangeIndexed)
+		pGlDepthRangeIndexed(index,nearVal,farVal);
+#else
+	glDepthRangeIndexed(index,nearVal,farVal);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlViewportIndexedfv(GLuint index, const GLfloat* v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlViewportIndexedfv)
+		pGlViewportIndexedfv(index,v);
+#else
+	glViewportIndexedfv(index,v);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlScissorIndexedv(GLuint index, const GLint* v)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlScissorIndexedv)
+		pGlScissorIndexedv(index,v);
+#else
+	glScissorIndexedv(index,v);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlSampleCoverage(float value, bool invert)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlSampleCoverage)
+		pGlSampleCoverage(value,invert);
+#else
+	glSampleCoverage(value,invert);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlSampleMaski(GLuint maskNumber, GLbitfield mask)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlSampleMaski)
+		pGlSampleMaski(maskNumber,mask);
+#else
+	glSampleMaski(maskNumber,mask);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlMinSampleShading(float value)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlMinSampleShading)
+		pGlMinSampleShading(value);
+#else
+	glMinSampleShading(value);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlBlendEquationSeparatei(GLuint buf, GLenum modeRGB, GLenum modeAlpha)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBlendEquationSeparatei)
+		pGlBlendEquationSeparatei(buf,modeRGB,modeAlpha);
+#else
+	glBlendEquationSeparatei(buf,modeRGB,modeAlpha);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlBlendFuncSeparatei(GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlBlendFuncSeparatei)
+		pGlBlendFuncSeparatei(buf,srcRGB,dstRGB,srcAlpha,dstAlpha);
+#else
+	glBlendFuncSeparatei(buf,srcRGB,dstRGB,srcAlpha,dstAlpha);
+#endif
+}
+inline void COpenGLExtensionHandler::extGlColorMaski(GLuint buf, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlColorMaski)
+		pGlColorMaski(buf,red,green,blue,alpha);
+#else
+	glColorMaski(buf,red,green,blue,alpha);
+#endif
+}
+
+
+
 inline void COpenGLExtensionHandler::extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
 {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
@@ -4643,16 +4943,6 @@ inline void COpenGLExtensionHandler::extGlBlendFuncSeparate(GLenum srcRGB, GLenu
 		pGlBlendFuncSeparate(srcRGB,dstRGB,srcAlpha,dstAlpha);
 #else
 	glBlendFuncSeparate(srcRGB,dstRGB,srcAlpha,dstAlpha);
-#endif
-}
-
-inline void COpenGLExtensionHandler::extGlProvokingVertex(GLenum mode)
-{
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlProvokingVertex)
-		pGlProvokingVertex(mode);
-#else
-	glProvokingVertex(mode);
 #endif
 }
 
@@ -4720,7 +5010,7 @@ inline void COpenGLExtensionHandler::extGlBlendEquationIndexed(GLuint buf, GLenu
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlPatchParameterfv(GLenum pname, GLfloat* values)
+inline void COpenGLExtensionHandler::extGlPatchParameterfv(GLenum pname, const float* values)
 {
 #if defined(_IRR_OPENGL_USE_EXTPOINTER_)
     if (pGlPatchParameterfv)
@@ -4991,14 +5281,14 @@ inline void COpenGLExtensionHandler::extGlSwapInterval(int interval)
 	if (pGlxSwapIntervalEXT)
 		pGlxSwapIntervalEXT(dpy, drawable, interval);
 #else
-	pGlXSwapIntervalEXT(dpy, drawable, interval);
+    glXSwapIntervalEXT(dpy, drawable, interval);
 #endif
 #elif defined(GLX_MESA_swap_control)
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlxSwapIntervalMESA)
 		pGlxSwapIntervalMESA(interval);
 #else
-	pGlXSwapIntervalMESA(interval);
+	glXSwapIntervalMESA(interval);
 #endif
 #endif
 #endif

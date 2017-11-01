@@ -159,7 +159,6 @@ void CMeshSceneNode::render()
         driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
 		video::SMaterial m;
-		m.AntiAliasing=0;
 		driver->setMaterial(m);
 
 		if (DebugDataVisible & scene::EDS_BBOX)

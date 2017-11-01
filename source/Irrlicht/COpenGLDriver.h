@@ -330,7 +330,6 @@ namespace video
 		E_RENDER_MODE CurrentRenderMode;
 		//! bool to make all renderstates reset if set to true.
 		bool ResetRenderStates;
-		uint8_t AntiAlias;
 
 		SMaterial Material, LastMaterial;
 		COpenGLFrameBuffer* CurrentFBO;

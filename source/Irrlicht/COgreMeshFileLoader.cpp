@@ -1043,8 +1043,6 @@ void COgreMeshFileLoader::readPass(io::IReadFile* file, OgreTechnique& technique
 		else if (token=="alpha_to_coverage")
 		{
 			getMaterialToken(file, token);
-			if (token=="on")
-				pass.Material.AntiAliasing |= video::EAAM_ALPHA_TO_COVERAGE;
 		}
 		else if (token=="colour_write")
 		{

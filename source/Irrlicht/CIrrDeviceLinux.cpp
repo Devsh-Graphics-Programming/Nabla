@@ -440,6 +440,7 @@ bool CIrrDeviceLinux::createWindow()
         GLX_STEREO          , CreationParams.Stereobuffer ? True:False,
         GLX_SAMPLE_BUFFERS  , 0,
         GLX_SAMPLES         , 0,
+        CreationParams.HandleSRGB ? GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB:None, CreationParams.HandleSRGB ? True:None,
         None
     };
 
@@ -486,7 +487,7 @@ bool CIrrDeviceLinux::createWindow()
                     XVisualInfo *vi = glXGetVisualFromFBConfig( display, fbc[i] );
                     if ( vi )
                     {
-                        int obtainedFBConfigAttrs[11];
+                        int obtainedFBConfigAttrs[12];
                         glXGetFBConfigAttrib( display, fbc[i], GLX_RED_SIZE, obtainedFBConfigAttrs+0 );
                         glXGetFBConfigAttrib( display, fbc[i], GLX_GREEN_SIZE, obtainedFBConfigAttrs+1 );
                         glXGetFBConfigAttrib( display, fbc[i], GLX_BLUE_SIZE, obtainedFBConfigAttrs+2 );
@@ -500,6 +501,8 @@ bool CIrrDeviceLinux::createWindow()
                         glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , obtainedFBConfigAttrs+9  );
 
                         glXGetFBConfigAttrib( display, fbc[i], GLX_FBCONFIG_ID       , obtainedFBConfigAttrs+10  );
+
+                        glXGetFBConfigAttrib( display, fbc[i], GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB, obtainedFBConfigAttrs+11  );
 
                         if (CreationParams.WithAlphaChannel)
                         {
@@ -532,6 +535,12 @@ bool CIrrDeviceLinux::createWindow()
 
                         if (best_fbc >= 0)
                         {
+                            if (obtainedFBConfigAttrs[11]!=(CreationParams.HandleSRGB ? True:False))
+                            {
+                                XFree( vi );
+                                continue;
+                            }
+
                             if (desiredSamples>1) //want AA
                             {
                                 if (obtainedFBConfigAttrs[8]!=1 || obtainedFBConfigAttrs[9]<desiredSamples || bestSamples<1024&&obtainedFBConfigAttrs[9]>bestSamples)

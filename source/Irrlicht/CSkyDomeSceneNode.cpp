@@ -49,7 +49,6 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(video::ITexture* sky, uint32_t horiRes, uin
 	Buffer->getMaterial().ZBuffer = video::ECFN_NEVER;
 	Buffer->getMaterial().BackfaceCulling = false;
 	Buffer->getMaterial().ZWriteEnable = false;
-	Buffer->getMaterial().AntiAliasing = video::EAAM_OFF;
 	Buffer->getMaterial().setTexture(0, sky);
 	BoundingBox.MaxEdge.set(0,0,0);
 	BoundingBox.MinEdge.set(0,0,0);

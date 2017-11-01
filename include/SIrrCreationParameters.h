@@ -28,7 +28,6 @@ namespace irr
 			Fullscreen(false),
 			Stencilbuffer(false),
 			Vsync(false),
-			AntiAlias(0),
 			HandleSRGB(false),
 			WithAlphaChannel(false),
 			Doublebuffer(true),
@@ -63,7 +62,6 @@ namespace irr
 			Fullscreen = other.Fullscreen;
 			Stencilbuffer = other.Stencilbuffer;
 			Vsync = other.Vsync;
-			AntiAlias = other.AntiAlias;
 			HandleSRGB = other.HandleSRGB;
 			WithAlphaChannel = other.WithAlphaChannel;
 			Doublebuffer = other.Doublebuffer;
@@ -125,24 +123,6 @@ namespace irr
 		retrace period, otherwise not. May be silently ignored.
 		Default: false */
 		bool Vsync;
-
-		//! Specifies if the device should use fullscreen anti aliasing
-		/** Makes sharp/pixelated edges softer, but requires more
-		performance. Also, 2D elements might look blurred with this
-		switched on. The resulting rendering quality also depends on
-		the hardware and driver you are using, your program might look
-		different on different hardware with this. So if you are
-		writing a game/application with AntiAlias switched on, it would
-		be a good idea to make it possible to switch this option off
-		again by the user.
-		The value is the maximal antialiasing factor requested for
-		the device. The cretion method will automatically try smaller
-		values if no window can be created with the given value.
-		Value one is usually the same as 0 (disabled), but might be a
-		special value on some platforms. On D3D devices it maps to
-		NONMASKABLE.
-		Default value: 0 - disabled */
-		uint8_t AntiAlias;
 
 		//! Flag to enable proper sRGB and linear color handling
 		/** In most situations, it is desireable to have the color handling in

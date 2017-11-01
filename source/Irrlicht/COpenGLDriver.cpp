@@ -44,7 +44,7 @@ COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
+	CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
 	CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	DeviceType(EIDT_WIN32), AuxContexts(0)
@@ -253,8 +253,6 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 		wglExtensions = irrGetExtensionsString(HDc);
 #endif
 	const bool pixel_format_supported = (wglExtensions.find("WGL_ARB_pixel_format") != -1);
-	const bool multi_sample_supported = ((wglExtensions.find("WGL_ARB_multisample") != -1) ||
-		(wglExtensions.find("WGL_EXT_multisample") != -1) || (wglExtensions.find("WGL_3DFX_multisample") != -1) );
 #ifdef _DEBUG
 	os::Printer::log("WGL_extensions", wglExtensions.c_str());
 #endif
@@ -263,14 +261,6 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormat_ARB = (PFNWGLCHOOSEPIXELFORMATARBPROC)wglGetProcAddress("wglChoosePixelFormatARB");
 	if (pixel_format_supported && wglChoosePixelFormat_ARB)
 	{
-		// This value determines the number of samples used for antialiasing
-		// My experience is that 8 does not show a big
-		// improvement over 4, but 4 shows a big improvement
-		// over 2.
-
-		if(AntiAlias > 32)
-			AntiAlias = 32;
-
 		float fAttributes[] = {0.0, 0.0};
 		int32_t iAttributes[] =
 		{
@@ -284,61 +274,19 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 			WGL_DOUBLE_BUFFER_ARB,Params.Doublebuffer ? 1 : 0,
 			WGL_STEREO_ARB,Params.Stereobuffer ? 1 : 0,
 			WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
-#ifdef WGL_ARB_multisample
-			WGL_SAMPLES_ARB,AntiAlias, // 20,21
-			WGL_SAMPLE_BUFFERS_ARB, 1,
-#elif defined(WGL_EXT_multisample)
-			WGL_SAMPLES_EXT,AntiAlias, // 20,21
-			WGL_SAMPLE_BUFFERS_EXT, 1,
-#elif defined(WGL_3DFX_multisample)
-			WGL_SAMPLES_3DFX,AntiAlias, // 20,21
-			WGL_SAMPLE_BUFFERS_3DFX, 1,
-#endif
-#ifdef WGL_ARB_framebuffer_sRGB
 			WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, Params.HandleSRGB ? 1:0,
-#elif defined(WGL_EXT_framebuffer_sRGB)
-			WGL_FRAMEBUFFER_SRGB_CAPABLE_EXT, Params.HandleSRGB ? 1:0,
-#endif
 //			WGL_DEPTH_FLOAT_EXT, 1,
 			0,0,0,0
 		};
-		int iAttrSize = sizeof(iAttributes)/sizeof(int);
-		const bool framebuffer_srgb_supported = ((wglExtensions.find("WGL_ARB_framebuffer_sRGB") != -1) ||
-			(wglExtensions.find("WGL_EXT_framebuffer_sRGB") != -1));
-		if (!framebuffer_srgb_supported)
-		{
-			memmove(&iAttributes[24],&iAttributes[26],sizeof(int)*(iAttrSize-26));
-			iAttrSize -= 2;
-		}
-		if (!multi_sample_supported)
-		{
-			memmove(&iAttributes[20],&iAttributes[24],sizeof(int)*(iAttrSize-24));
-			iAttrSize -= 4;
-		}
 
-		int32_t rv=0;
 		// Try to get an acceptable pixel format
-		do
-		{
-			int pixelFormat=0;
-			UINT numFormats=0;
-			const BOOL valid = wglChoosePixelFormat_ARB(HDc,iAttributes,fAttributes,1,&pixelFormat,&numFormats);
-
-			if (valid && numFormats)
-				rv = pixelFormat;
-			else
-				iAttributes[21] -= 1;
-		}
-		while(rv==0 && iAttributes[21]>1);
-		if (rv)
-		{
-			PixelFormat=rv;
-			AntiAlias=iAttributes[21];
-		}
+        int pixelFormat=0;
+        UINT numFormats=0;
+        const BOOL valid = wglChoosePixelFormat_ARB(HDc,iAttributes,fAttributes,1,&pixelFormat,&numFormats);
+        if (valid && numFormats && pixelFormat)
+            PixelFormat = pixelFormat;
 	}
-	else
 #endif
-		AntiAlias=0;
 
 	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribs_ARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
 	wglMakeCurrent(HDc, NULL);
@@ -537,7 +485,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceMacOSX *device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
+	CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
 	CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8),
 	Params(params),
 	OSXDevice(device), DeviceType(EIDT_OSX), AuxContexts(0)
@@ -560,7 +508,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
+	CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), CurrentXFormFeedback(0), XFormFeedbackRunning(false),
 	CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8),
 	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0)
 {
@@ -697,7 +645,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-    AntiAlias(params.AntiAlias), CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0),
+    CurrentFBO(0), CurrentVAO(0), currentIndirectDrawBuff(0),
      lastValidatedIndirectBuffer(0), CurrentRendertargetSize(0,0), ColorFormat(ECF_R8G8B8),
 	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
 	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0)
@@ -924,27 +872,24 @@ bool COpenGLDriver::genericDriverInit()
 
 	// Reset The Current Viewport
 	glViewport(0, 0, Params.WindowSize.Width, Params.WindowSize.Height);
-
+/*
 	Params.HandleSRGB &= ((FeatureAvailable[IRR_ARB_framebuffer_sRGB] || FeatureAvailable[IRR_EXT_framebuffer_sRGB]) &&
 		FeatureAvailable[IRR_EXT_texture_sRGB]);
-#if defined(GL_ARB_framebuffer_sRGB)
+
 	if (Params.HandleSRGB)
 		glEnable(GL_FRAMEBUFFER_SRGB);
-#elif defined(GL_EXT_framebuffer_sRGB)
-	if (Params.HandleSRGB)
-		glEnable(GL_FRAMEBUFFER_SRGB_EXT);
-#endif
-
-
+*/
+    glDisable(GL_DITHER);
+    glDisable(GL_MULTISAMPLE);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 	glClearDepth(0.0);
-	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	///glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 	glDepthFunc(GL_GEQUAL);
 	glDepthRange(1.0,0.0);
 	glFrontFace(GL_CW);
+
 	// adjust flat coloring scheme to DirectX version
-#if defined(GL_ARB_provoking_vertex) || defined(GL_EXT_provoking_vertex)
-	extGlProvokingVertex(GL_FIRST_VERTEX_CONVENTION_EXT);
-#endif
+	///extGlProvokingVertex(GL_FIRST_VERTEX_CONVENTION_EXT);
 
 	// create material renderers
 	createMaterialRenderers();
@@ -2675,44 +2620,8 @@ void COpenGLDriver::setBasicRenderStates(const SMaterial& material, const SMater
 	// thickness
 	if (resetAllRenderStates || lastmaterial.Thickness != material.Thickness)
 	{
-		if (AntiAlias)
-		{
-//			glPointSize(core::clamp(static_cast<GLfloat>(material.Thickness), DimSmoothedPoint[0], DimSmoothedPoint[1]));
-			// we don't use point smoothing
-			glPointSize(core::clamp(static_cast<GLfloat>(material.Thickness), DimAliasedPoint[0], DimAliasedPoint[1]));
-			glLineWidth(core::clamp(static_cast<GLfloat>(material.Thickness), DimSmoothedLine[0], DimSmoothedLine[1]));
-		}
-		else
-		{
-			glPointSize(core::clamp(static_cast<GLfloat>(material.Thickness), DimAliasedPoint[0], DimAliasedPoint[1]));
-			glLineWidth(core::clamp(static_cast<GLfloat>(material.Thickness), DimAliasedLine[0], DimAliasedLine[1]));
-		}
-	}
-
-	// Anti aliasing
-	if (resetAllRenderStates || lastmaterial.AntiAliasing != material.AntiAliasing)
-	{
-		if (FeatureAvailable[IRR_ARB_multisample])
-		{
-			if (material.AntiAliasing & EAAM_ALPHA_TO_COVERAGE)
-				glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE_ARB);
-			else if (lastmaterial.AntiAliasing & EAAM_ALPHA_TO_COVERAGE)
-				glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE_ARB);
-
-			if ((AntiAlias >= 2) && (material.AntiAliasing & (EAAM_SIMPLE|EAAM_QUALITY)))
-			{
-				glEnable(GL_MULTISAMPLE_ARB);
-			}
-			else
-				glDisable(GL_MULTISAMPLE_ARB);
-		}
-		if ((material.AntiAliasing & EAAM_LINE_SMOOTH) != (lastmaterial.AntiAliasing & EAAM_LINE_SMOOTH))
-		{
-			if (material.AntiAliasing & EAAM_LINE_SMOOTH)
-				glEnable(GL_LINE_SMOOTH);
-			else if (lastmaterial.AntiAliasing & EAAM_LINE_SMOOTH)
-				glDisable(GL_LINE_SMOOTH);
-		}
+        glPointSize(core::clamp(static_cast<GLfloat>(material.Thickness), DimAliasedPoint[0], DimAliasedPoint[1]));
+        glLineWidth(core::clamp(static_cast<GLfloat>(material.Thickness), DimAliasedLine[0], DimAliasedLine[1]));
 	}
 }
 

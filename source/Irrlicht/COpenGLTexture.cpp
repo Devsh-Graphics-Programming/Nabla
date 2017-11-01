@@ -148,7 +148,7 @@ COpenGLTexture::COpenGLTexture(GLenum internalFormat, core::dimension2du size, c
 
     COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_2D,1,&TextureName);
 
-    ColorFormat = ECF_UNKNOWN;
+    ColorFormat = getColorFormatFromSizedOpenGLFormat(InternalFormat);
     bool compressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
     //! we're going to have problems with uploading lower mip levels
     uint32_t bpp = getOpenGLFormatBpp(InternalFormat);
@@ -751,6 +751,238 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_F
 #endif
 
 	return internalformat;
+}
+
+ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat)
+{
+    switch(sizedFormat)
+    {
+        case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+            return ECF_RGB_BC1;
+            break;
+        case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+            return ECF_RGBA_BC1;
+            break;
+        case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+            return ECF_RGBA_BC2;
+            break;
+        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+            return ECF_RGBA_BC3;
+            break;
+        case GL_COMPRESSED_RED_RGTC1_EXT:
+            return ECF_R_BC4;
+            break;
+        case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+            return ECF_RG_BC5;
+            break;
+        case GL_STENCIL_INDEX8:
+            ///return ECF_;
+            break;
+        case GL_RGBA2:
+            ///return ECF_8BIT_PIX;
+            break;
+        case GL_R3_G3_B2:
+            ///return ECF_8BIT_PIX;
+            break;
+        case GL_R8:
+            return ECF_R8;
+            break;
+        case GL_R8I:
+            ///return ECF_R8;
+            break;
+        case GL_R8UI:
+            ///return ECF_R8;
+            break;
+        case GL_R8_SNORM:
+            ///return ECF_R8;
+            break;
+        case GL_RGB4:
+            ///return ECF_16BIT_PIX;
+            break;
+        case GL_RGB5:
+            ///return ECF_;
+            break;
+        case GL_DEPTH_COMPONENT16:
+            return ECF_DEPTH16;
+            break;
+        case GL_RGBA4:
+            ///return ECF_;
+            break;
+        case GL_RGB5_A1:
+            return ECF_A1R5G5B5;
+            break;
+        case GL_RG8:
+            return ECF_R8G8;
+            break;
+        case GL_RG8I:
+            ///return ECF_R8G8;
+            break;
+        case GL_RG8UI:
+            ///return ECF_R8G8;
+            break;
+        case GL_RG8_SNORM:
+            ///return ECF_R8G8;
+            break;
+        case GL_R16:
+            ///return ECF_R16;
+            break;
+        case GL_R16I:
+            ///return ECF_R16;
+            break;
+        case GL_R16UI:
+            ///return ECF_R16;
+            break;
+        case GL_R16_SNORM:
+            ///return ECF_R16;
+            break;
+        case GL_R16F:
+            return ECF_R16F;
+            break;
+        case GL_DEPTH_COMPONENT24:
+            return ECF_DEPTH24;
+            break;
+        case GL_RGB8:
+            return ECF_R8G8B8;
+            break;
+        case GL_RGB8I:
+            ///return ECF_R8G8B8;
+            break;
+        case GL_RGB8UI:
+            ///return ECF_R8G8B8;
+            break;
+        case GL_RGB8_SNORM:
+            ///return ECF_R8G8B8;
+            break;
+        case GL_SRGB8:
+            ///return ECF_;
+            break;
+        case GL_RGB10:
+            ///return ECF_;
+            break;
+        case GL_DEPTH24_STENCIL8:
+            return ECF_DEPTH24_STENCIL8;
+            break;
+        case GL_DEPTH_COMPONENT32:
+            ///return ECF_DEPTH32;
+            break;
+        case GL_DEPTH_COMPONENT32F:
+            return ECF_DEPTH32F;
+            break;
+        case GL_RGBA8:
+            return ECF_A8R8G8B8;
+            break;
+        case GL_RGBA8I:
+            ///return ECF_;
+            break;
+        case GL_RGBA8UI:
+            ///return ECF_;
+            break;
+        case GL_RGBA8_SNORM:
+            ///return ECF_;
+            break;
+        case GL_SRGB8_ALPHA8:
+            ///return ECF_;
+            break;
+        case GL_RGB10_A2:
+            ///return ECF_;
+            break;
+        case GL_RGB10_A2UI:
+            ///return ECF_;
+            break;
+        case GL_R11F_G11F_B10F:
+            ///return ECF_;
+            break;
+        case GL_RGB9_E5:
+            ///return ECF_;
+            break;
+        case GL_RG16:
+            ///return ECF_;
+            break;
+        case GL_RG16I:
+            ///return ECF_;
+            break;
+        case GL_RG16UI:
+            ///return ECF_;
+            break;
+        case GL_RG16F:
+            ///return ECF_;
+            break;
+        case GL_R32I:
+            ///return ECF_;
+            break;
+        case GL_R32UI:
+            ///return ECF_;
+            break;
+        case GL_R32F:
+            return ECF_R32F;
+            break;
+        case GL_RGB12:
+            ///return ECF_;
+            break;
+        case GL_DEPTH32F_STENCIL8:
+            return ECF_DEPTH32F_STENCIL8;
+            break;
+        case GL_RGBA12:
+            ///return ECF_;
+            break;
+        case GL_RGB16:
+            ///return ECF_;
+            break;
+        case GL_RGB16I:
+            ///return ECF_;
+            break;
+        case GL_RGB16UI:
+            ///return ECF_;
+            break;
+        case GL_RGB16_SNORM:
+            ///return ECF_;
+            break;
+        case GL_RGB16F:
+            ///return ECF_;
+            break;
+        case GL_RGBA16:
+            ///return ECF_;
+            break;
+        case GL_RGBA16I:
+            ///return ECF_;
+            break;
+        case GL_RGBA16UI:
+            ///return ECF_;
+            break;
+        case GL_RGBA16F:
+            return ECF_A16B16G16R16F;
+            break;
+        case GL_RG32I:
+            ///return ECF_;
+            break;
+        case GL_RG32UI:
+            ///return ECF_;
+            break;
+        case GL_RG32F:
+            ///return ECF_R;
+            break;
+        case GL_RGB32I:
+            ///return ECF_;
+            break;
+        case GL_RGB32UI:
+            ///return ECF_;
+            break;
+        case GL_RGB32F:
+            ///return ECF_R32;
+            break;
+        case GL_RGBA32I:
+            ///return ECF_;
+            break;
+        case GL_RGBA32UI:
+            ///return ECF_;
+            break;
+        case GL_RGBA32F:
+            return ECF_A32B32G32R32F;
+            break;
+        default:
+            break;
+    }
+    return ECF_UNKNOWN;
 }
 
 

@@ -8,6 +8,7 @@
 #include "IReferenceCounted.h"
 #include "ISceneNodeAnimator.h"
 #include <vector>
+#include <algorithm>
 #include "matrix4x3.h"
 #include "ESceneNodeTypes.h"
 

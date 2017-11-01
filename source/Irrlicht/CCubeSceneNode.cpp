@@ -79,7 +79,6 @@ void CCubeSceneNode::render()
 	if (DebugDataVisible)
 	{
 		video::SMaterial m;
-		m.AntiAliasing=0;
 		driver->setMaterial(m);
 
 		if (DebugDataVisible & scene::EDS_BBOX)
