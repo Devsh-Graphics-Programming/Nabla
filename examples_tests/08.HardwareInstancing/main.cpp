@@ -424,7 +424,8 @@ int main()
             LevelsOfDetail[1].mesh = gpumesh2;
             LevelsOfDetail[1].lodDistance = instanceLoDDistances[1];
 
-            assert(node->setLoDMeshes(LevelsOfDetail,28*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,2,NULL,0,CPUCullingFunc));
+            bool success = node->setLoDMeshes(LevelsOfDetail,28*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,2,NULL,0,CPUCullingFunc);
+            assert(success);
             node->setGPUCullingThresholdMultiplier(0.25f);
             cb->instanceLoDInvariantBBox = node->getLoDInvariantBBox();
         }
