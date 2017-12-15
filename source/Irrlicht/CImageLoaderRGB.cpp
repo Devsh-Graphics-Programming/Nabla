@@ -167,13 +167,13 @@ bool CImageLoaderRGB::isALoadableFileFormat(io::IReadFile* file) const
 /** The main entry point, read and format the image file.
 \return Pointer to the image data on success
 				null pointer on fail */
-IImage* CImageLoaderRGB::loadImage(io::IReadFile* file) const
+std::vector<CImageData*> CImageLoaderRGB::loadImage(io::IReadFile* file) const
 {
-	IImage* image = 0;
 	int32_t* paletteData = 0;
 
 	rgbStruct rgb;   // construct our structure for holding data
 
+    std::vector<CImageData*> retval;
 	// read Header information
 	if (checkFormat(file, rgb))
 	{
@@ -225,7 +225,9 @@ IImage* CImageLoaderRGB::loadImage(io::IReadFile* file) const
 
 			Alternatively, the RGB files could use another blending technique entirely
 */
-
+            CImageData* image = NULL;
+            uint32_t nullOffset[3] = {0,0,0};
+            uint32_t imageSize[3] = {rgb.Header.Xsize,rgb.Header.Ysize,1};
 			switch (rgb.Header.Zsize)
 			{
 			case 1:
@@ -234,16 +236,16 @@ IImage* CImageLoaderRGB::loadImage(io::IReadFile* file) const
 				for (int n=0; n<256; n++)
 					paletteData[n] = n;
 
-				image = new CImage(ECF_A1R5G5B5, core::dimension2d<uint32_t>(rgb.Header.Xsize, rgb.Header.Ysize));
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A1R5G5B5);
 				if (image)
-					CColorConverter::convert8BitTo16Bit(rgb.rgbData, (int16_t*)image->lock(), rgb.Header.Xsize, rgb.Header.Ysize, paletteData, 0, true);
+					CColorConverter::convert8BitTo16Bit(rgb.rgbData, (int16_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, paletteData, 0, true);
 				break;
 			case 3:
 				// RGB image
 				// one byte per COLOR VALUE, eg, 24bpp
-				image = new CImage(ECF_R8G8B8, core::dimension2d<uint32_t>(rgb.Header.Xsize, rgb.Header.Ysize));
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
 				if (image)
-					CColorConverter::convert24BitTo24Bit(rgb.rgbData, (uint8_t*)image->lock(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true, false);
+					CColorConverter::convert24BitTo24Bit(rgb.rgbData, (uint8_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true, false);
 				break;
 			case 4:
 				// RGBa image with one alpha channel (32bpp)
@@ -251,9 +253,9 @@ IImage* CImageLoaderRGB::loadImage(io::IReadFile* file) const
 
 				converttoARGB(reinterpret_cast<uint32_t*>(rgb.rgbData), 	rgb.Header.Ysize * rgb.Header.Xsize);
 
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(rgb.Header.Xsize, rgb.Header.Ysize));
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
 				if (image)
-					CColorConverter::convert32BitTo32Bit((int32_t*)rgb.rgbData, (int32_t*)image->lock(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true);
+					CColorConverter::convert32BitTo32Bit((int32_t*)rgb.rgbData, (int32_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true);
 
 				break;
 			default:
@@ -262,14 +264,14 @@ IImage* CImageLoaderRGB::loadImage(io::IReadFile* file) const
 			}
 
 			if (image)
-				image->unlock();
+				retval.push_back(image);
 		}
 	}
 
 	// and tidy up allocated memory
 	delete [] paletteData;
 
-	return image;
+	return retval;
 }
 
 // returns true on success

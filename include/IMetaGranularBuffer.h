@@ -78,6 +78,14 @@ class IMetaGranularBuffer : public virtual IReferenceCounted
                 }
             }
         }
+        virtual ~IMetaGranularBuffer()
+        {
+            if (B)
+                B->drop();
+
+            if (residencyRedirectTo)
+                free(residencyRedirectTo);
+        }
     public:
         IMetaGranularBuffer(const size_t& granuleSize, const size_t& granuleCount, const size_t& bufferGrowStep=512, const size_t& bufferShrinkStep=2048)
                             :   Allocated(0), Granules(granuleCount), GranuleByteSize(granuleSize), residencyRedirectTo(NULL),
@@ -98,14 +106,6 @@ class IMetaGranularBuffer : public virtual IReferenceCounted
                     free(residencyRedirectTo);
                 residencyRedirectTo = NULL;
             }
-        }
-        virtual ~IMetaGranularBuffer()
-        {
-            if (B)
-                B->drop();
-
-            if (residencyRedirectTo)
-                free(residencyRedirectTo);
         }
 
         virtual T* getFrontBuffer() = 0;
@@ -298,6 +298,12 @@ class IMetaGranularBuffer : public virtual IReferenceCounted
 class IMetaGranularCPUBuffer : public IMetaGranularBuffer<core::ICPUBuffer>
 {
     protected:
+        virtual ~IMetaGranularCPUBuffer()
+        {
+            if (A)
+                A->drop();
+        }
+
         core::ICPUBuffer* A;
     public:
         IMetaGranularCPUBuffer(const size_t& granuleSize, const size_t& granuleCount, const bool& clientMemeory=true, const size_t& bufferGrowStep=512, const size_t& bufferShrinkStep=2048)
@@ -317,12 +323,6 @@ class IMetaGranularCPUBuffer : public IMetaGranularBuffer<core::ICPUBuffer>
                     free(residencyRedirectTo);
                 residencyRedirectTo = NULL;
             }
-        }
-
-        virtual ~IMetaGranularCPUBuffer()
-        {
-            if (A)
-                A->drop();
         }
 
         virtual core::ICPUBuffer* getFrontBuffer() {return A;}
@@ -353,6 +353,13 @@ namespace video
 
 class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGPUBuffer>
 {
+    protected:
+        virtual ~IMetaGranularGPUMappedBuffer()
+        {
+            if (A)
+                A->drop();
+        }
+
         video::IVideoDriver* Driver;
         video::IGPUBuffer* A;
 
@@ -375,11 +382,6 @@ class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGP
                     free(residencyRedirectTo);
                 residencyRedirectTo = NULL;
             }
-        }
-        virtual ~IMetaGranularGPUMappedBuffer()
-        {
-            if (A)
-                A->drop();
         }
 
         virtual video::IGPUBuffer* getFrontBuffer() {return A;}

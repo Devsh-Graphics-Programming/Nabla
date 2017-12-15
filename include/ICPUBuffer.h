@@ -16,6 +16,12 @@ namespace core
 //! Persistently Mapped buffer
 class ICPUBuffer : public IBuffer
 {
+    protected:
+        virtual ~ICPUBuffer()
+        {
+            if (data)
+                free(data);
+        }
     public:
         ICPUBuffer(const size_t &sizeInBytes) : size(0), data(NULL)
         {
@@ -24,11 +30,6 @@ class ICPUBuffer : public IBuffer
                 return;
 
             size = sizeInBytes;
-        }
-        virtual ~ICPUBuffer()
-        {
-            if (data)
-                free(data);
         }
 
         virtual E_BUFFER_TYPE getBufferType() const {return EBT_UNSPECIFIED_BUFFER;}

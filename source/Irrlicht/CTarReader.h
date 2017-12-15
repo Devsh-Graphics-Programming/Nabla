@@ -101,11 +101,11 @@ namespace io
 
 	class CTarReader : public virtual IFileArchive, virtual CFileList
 	{
-	public:
-
-		CTarReader(IReadFile* file, bool ignoreCase, bool ignorePaths);
-
+    protected:
 		virtual ~CTarReader();
+
+	public:
+		CTarReader(IReadFile* file, bool ignoreCase, bool ignorePaths);
 
 		//! opens a file by file name
 		virtual IReadFile* createAndOpenFile(const io::path& filename);

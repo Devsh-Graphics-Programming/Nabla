@@ -177,45 +177,45 @@ namespace io
 */
 	class CZipReader : public virtual IFileArchive, virtual CFileList
 	{
-	public:
+        protected:
+            //! destructor
+            virtual ~CZipReader();
 
-		//! constructor
-		CZipReader(IReadFile* file, bool ignoreCase, bool ignorePaths, bool isGZip=false);
+        public:
+            //! constructor
+            CZipReader(IReadFile* file, bool ignoreCase, bool ignorePaths, bool isGZip=false);
 
-		//! destructor
-		virtual ~CZipReader();
+            //! opens a file by file name
+            virtual IReadFile* createAndOpenFile(const io::path& filename);
 
-		//! opens a file by file name
-		virtual IReadFile* createAndOpenFile(const io::path& filename);
+            //! opens a file by index
+            virtual IReadFile* createAndOpenFile(uint32_t index);
 
-		//! opens a file by index
-		virtual IReadFile* createAndOpenFile(uint32_t index);
+            //! returns the list of files
+            virtual const IFileList* getFileList() const;
 
-		//! returns the list of files
-		virtual const IFileList* getFileList() const;
+            //! get the archive type
+            virtual E_FILE_ARCHIVE_TYPE getType() const;
 
-		//! get the archive type
-		virtual E_FILE_ARCHIVE_TYPE getType() const;
+        protected:
 
-	protected:
+            //! reads the next file header from a ZIP file, returns false if there are no more headers.
+            /* if ignoreGPBits is set, the item will be read despite missing
+            file information. This is used when reading items from the central
+            directory. */
+            bool scanZipHeader(bool ignoreGPBits=false);
 
-		//! reads the next file header from a ZIP file, returns false if there are no more headers.
-		/* if ignoreGPBits is set, the item will be read despite missing
-		file information. This is used when reading items from the central
-		directory. */
-		bool scanZipHeader(bool ignoreGPBits=false);
+            //! the same but for gzip files
+            bool scanGZipHeader();
 
-		//! the same but for gzip files
-		bool scanGZipHeader();
+            bool scanCentralDirectoryHeader();
 
-		bool scanCentralDirectoryHeader();
+            IReadFile* File;
 
-		IReadFile* File;
+            // holds extended info about files
+            core::array<SZipFileEntry> FileInfo;
 
-		// holds extended info about files
-		core::array<SZipFileEntry> FileInfo;
-
-		bool IsGZip;
+            bool IsGZip;
 	};
 
 

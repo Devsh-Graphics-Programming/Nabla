@@ -29,13 +29,10 @@ namespace scene
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f))
 			: ISceneNode(parent, mgr, id, position, rotation, scale) {}
 
-		//! Destructor
-		virtual ~ISkinnedMeshSceneNode() {}
-
 		//! Returns type of the scene node
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKINNED_MESH; }
 
-		virtual video::ITexture* getBonePoseTBO() const =0;
+		virtual video::ITextureBufferObject* getBonePoseTBO() const =0;
 
 		//! Sets the current frame number.
 		/** From now on the animation is played from this frame.

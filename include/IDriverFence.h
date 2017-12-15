@@ -25,7 +25,7 @@ enum E_DRIVER_FENCE_RETVAL
 };
 
 //! Persistently Mapped buffer
-class IDriverFence : public virtual IReferenceCounted
+class IDriverFence : public IReferenceCounted
 {
     public:
         //! If timeout​ is zero, the function will simply check to see if the sync object is signaled and return immediately.

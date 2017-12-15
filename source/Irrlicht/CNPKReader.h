@@ -85,38 +85,37 @@ namespace io
 	//! reads from NPK
 	class CNPKReader : public virtual IFileArchive, virtual CFileList
 	{
-	public:
+        protected:
+            virtual ~CNPKReader();
+        public:
+            CNPKReader(IReadFile* file, bool ignoreCase, bool ignorePaths);
 
-		CNPKReader(IReadFile* file, bool ignoreCase, bool ignorePaths);
-		virtual ~CNPKReader();
+            // file archive methods
+            //! return the id of the file Archive
+            virtual const io::path& getArchiveName() const
+            {
+                return File->getFileName();
+            }
 
-		// file archive methods
+            //! opens a file by file name
+            virtual IReadFile* createAndOpenFile(const io::path& filename);
 
-		//! return the id of the file Archive
-		virtual const io::path& getArchiveName() const
-		{
-			return File->getFileName();
-		}
+            //! opens a file by index
+            virtual IReadFile* createAndOpenFile(uint32_t index);
 
-		//! opens a file by file name
-		virtual IReadFile* createAndOpenFile(const io::path& filename);
+            //! returns the list of files
+            virtual const IFileList* getFileList() const;
 
-		//! opens a file by index
-		virtual IReadFile* createAndOpenFile(uint32_t index);
+            //! get the class Type
+            virtual E_FILE_ARCHIVE_TYPE getType() const { return EFAT_NPK; }
 
-		//! returns the list of files
-		virtual const IFileList* getFileList() const;
+        private:
 
-		//! get the class Type
-		virtual E_FILE_ARCHIVE_TYPE getType() const { return EFAT_NPK; }
+            //! scans for a local header, returns false if the header is invalid
+            bool scanLocalHeader();
+            void readString(core::stringc& name);
 
-	private:
-
-		//! scans for a local header, returns false if the header is invalid
-		bool scanLocalHeader();
-		void readString(core::stringc& name);
-
-		IReadFile* File;
+            IReadFile* File;
 	};
 
 } // end namespace io

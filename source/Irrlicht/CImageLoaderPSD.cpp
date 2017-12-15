@@ -50,10 +50,8 @@ bool CImageLoaderPSD::isALoadableFileFormat(io::IReadFile* file) const
 
 
 //! creates a surface from the file
-IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
+std::vector<CImageData*> CImageLoaderPSD::loadImage(io::IReadFile* file) const
 {
-	uint32_t* imageData = 0;
-
 	PsdHeader header;
 	file->read(&header, sizeof(PsdHeader));
 
@@ -66,22 +64,24 @@ IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
 	header.mode = os::Byteswap::byteswap(header.mode);
 #endif
 
+    std::vector<CImageData*> retval;
+
 	if (header.signature[0] != '8' ||
 		header.signature[1] != 'B' ||
 		header.signature[2] != 'P' ||
 		header.signature[3] != 'S')
-		return 0;
+		return retval;
 
 	if (header.version != 1)
 	{
 		os::Printer::log("Unsupported PSD file version", file->getFileName().c_str(), ELL_ERROR);
-		return 0;
+		return retval;
 	}
 
 	if (header.mode != 3 || header.depth != 8)
 	{
 		os::Printer::log("Unsupported PSD color mode or depth.\n", file->getFileName().c_str(), ELL_ERROR);
-		return 0;
+		return retval;
 	}
 
 	// skip color mode data
@@ -94,7 +94,7 @@ IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
 	if (!file->seek(l, true))
 	{
 		os::Printer::log("Error seeking file pos to image resources.\n", file->getFileName().c_str(), ELL_ERROR);
-		return 0;
+		return retval;
 	}
 
 	// skip image resources
@@ -106,7 +106,7 @@ IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
 	if (!file->seek(l, true))
 	{
 		os::Printer::log("Error seeking file pos to layer and mask.\n", file->getFileName().c_str(), ELL_ERROR);
-		return 0;
+		return retval;
 	}
 
 	// skip layer & mask
@@ -118,7 +118,7 @@ IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
 	if (!file->seek(l, true))
 	{
 		os::Printer::log("Error seeking file pos to image data section.\n", file->getFileName().c_str(), ELL_ERROR);
-		return 0;
+		return retval;
 	}
 
 	// read image data
@@ -132,34 +132,26 @@ IImage* CImageLoaderPSD::loadImage(io::IReadFile* file) const
 	if (compressionType != 1 && compressionType != 0)
 	{
 		os::Printer::log("Unsupported psd compression mode.\n", file->getFileName().c_str(), ELL_ERROR);
-		return 0;
+		return retval;
 	}
 
 	// create image data block
-
-	imageData = new uint32_t[header.width * header.height];
+	uint32_t nullOffset[3] = {0,0,0};
+	uint32_t imageSize[3] = {header.width,header.height,1};
+	video::CImageData* image = new video::CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
 
 	bool res = false;
-
 	if (compressionType == 0)
-		res = readRawImageData(file, header, imageData); // RAW image data
+		res = readRawImageData(file, header, reinterpret_cast<uint32_t*>(image->getData())); // RAW image data
 	else
-		res = readRLEImageData(file, header, imageData); // RLE compressed data
-
-	video::IImage* image = 0;
+		res = readRLEImageData(file, header, reinterpret_cast<uint32_t*>(image->getData())); // RLE compressed data
 
 	if (res)
-	{
-		// create surface
-		image = new CImage(ECF_A8R8G8B8,
-			core::dimension2d<uint32_t>(header.width, header.height), imageData);
-	}
+        retval.push_back(image);
+    else
+        image->drop();
 
-	if (!image)
-		delete [] imageData;
-	imageData = 0;
-
-	return image;
+	return retval;
 }
 
 

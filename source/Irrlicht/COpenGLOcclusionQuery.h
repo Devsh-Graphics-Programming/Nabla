@@ -14,11 +14,10 @@ class COpenGLOcclusionQuery : public IOcclusionQuery, public COpenGLQuery
 {
     public:
         COpenGLOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic);
-        //virtual ~COpenGLOcclusionQuery() {}
+
 
 		virtual void setCondWaitMode(const E_CONDITIONAL_RENDERING_WAIT_MODE& mode);
 		inline GLenum getCondWaitModeGL() const {return condModeGL;}
-
 
 
         /// ALL will STALL CPU IF QUERY NOT READY

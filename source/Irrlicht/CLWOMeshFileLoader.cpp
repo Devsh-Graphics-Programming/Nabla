@@ -37,7 +37,7 @@ struct tLWOTextureInfo
 {
 	tLWOTextureInfo() : UVTag(0), DUVTag(0), Flags(0), WidthWrap(2),
 			HeightWrap(2), OpacType(0), Color(0xffffffff),
-			Value(0.0f), AntiAliasing(1.0f), Opacity(1.0f),
+			Value(0.0f), Opacity(1.0f),
 			Axis(255), Projection(0), Active(false) {}
 	core::stringc Type;
 	core::stringc Map;
@@ -56,7 +56,6 @@ struct tLWOTextureInfo
 	core::vector3df Velocity;
 	video::SColor Color;
 	float Value;
-	float AntiAliasing;
 	float Opacity;
 	float FParam[3];
 	uint8_t Axis;
@@ -1621,7 +1620,7 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 				os::Printer::log("LWO loader: loading texture color.");
 #endif
 				size -= readColor(mat->Texture[currTexture].Color);
-				break;
+				break;/**
 			case charsToUIntD('A','A','S','T'):
 			case charsToUIntD('T','A','A','S'):
 #ifdef LWO_READER_DEBUG
@@ -1645,7 +1644,7 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 						mat->Texture[currTexture].AntiAliasing=0.0f; // disabled
 					size -= 4;
 				}
-				break;
+				break;*/
 			case charsToUIntD('T','O','P','C'):
 #ifdef LWO_READER_DEBUG
 				os::Printer::log("LWO loader: loading texture opacity.");

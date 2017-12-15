@@ -283,7 +283,7 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 				if (color.getAlpha()!=255 && materiali[i].textureBlend==4)
 					driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT,true);
 
-				video::IImage *immagine= driver->createImage(video::ECF_A8R8G8B8,
+				video::IImage *immagine = new CImage(video::ECF_A8R8G8B8,
 					core::dimension2d<uint32_t>(8,8));
 				immagine->fill(color);
 				tex = driver->addTexture("", immagine);

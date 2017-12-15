@@ -33,11 +33,10 @@ namespace scene
 
 class CLMTSMeshFileLoader : public IMeshLoader
 {
-public:
-
-	CLMTSMeshFileLoader(io::IFileSystem* fs, video::IVideoDriver* driver);
-
+protected:
 	virtual ~CLMTSMeshFileLoader();
+public:
+	CLMTSMeshFileLoader(io::IFileSystem* fs, video::IVideoDriver* driver);
 
 	virtual bool isALoadableFileExtension(const io::path& filename) const;
 

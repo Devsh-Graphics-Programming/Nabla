@@ -24,16 +24,16 @@ namespace scene
 	//! Special scene node animator for FPS cameras
 	class CSceneNodeAnimatorCameraFPS : public ISceneNodeAnimatorCameraFPS
 	{
-	public:
+    protected:
+		//! Destructor
+		virtual ~CSceneNodeAnimatorCameraFPS();
 
+	public:
 		//! Constructor
 		CSceneNodeAnimatorCameraFPS(gui::ICursorControl* cursorControl,
 			float rotateSpeed = 100.0f, float moveSpeed = .5f, float jumpSpeed=0.f,
 			SKeyMap* keyMapArray=0, uint32_t keyMapSize=0, bool noVerticalMovement=false,
 			bool invertY=false);
-
-		//! Destructor
-		virtual ~CSceneNodeAnimatorCameraFPS();
 
 		//! Animates the scene node, currently only works on cameras
 		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);

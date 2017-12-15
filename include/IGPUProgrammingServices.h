@@ -29,9 +29,6 @@ class IGPUProgrammingServices
 {
 public:
 
-	//! Destructor
-	virtual ~IGPUProgrammingServices() {}
-
 	virtual int32_t addHighLevelShaderMaterial(
 		const char* vertexShaderProgram,
 		const char* controlShaderProgram,

@@ -10,6 +10,7 @@
 #include "EDebugSceneTypes.h"
 #include "ISceneNodeAnimator.h"
 #include "SMaterial.h"
+#include "ITexture.h"
 #include "irrString.h"
 #include "aabbox3d.h"
 #include "matrix4.h"
@@ -49,17 +50,6 @@ namespace scene
                 DebugDataVisible(EDS_OFF), mobid(0), mobtype(0), IsVisible(true),
                 IsDebugObject(false), staticmeshid(0),blockposX(0),blockposY(0),blockposZ(0), renderPriority(0x80000000u)
 		{
-		}
-
-
-		//! Destructor
-		virtual ~ISceneNode()
-		{
-            if (query)
-                query->drop();
-
-            if (renderFence)
-                renderFence->drop();
 		}
 
         virtual const bool isISceneNode() const {return true;}
@@ -290,7 +280,7 @@ namespace scene
 		/** \param textureLayer Layer of texture to be set. Must be a
 		value smaller than MATERIAL_MAX_TEXTURES.
 		\param texture New texture to be used. */
-		void setMaterialTexture(uint32_t textureLayer, video::ITexture* texture)
+		void setMaterialTexture(uint32_t textureLayer, video::IVirtualTexture* texture)
 		{
 			if (textureLayer >= video::MATERIAL_MAX_TEXTURES)
 				return;
@@ -393,6 +383,15 @@ namespace scene
 		int32_t blockposX,blockposY,blockposZ;
 
 	protected:
+		//! Destructor
+		virtual ~ISceneNode()
+		{
+            if (query)
+                query->drop();
+
+            if (renderFence)
+                renderFence->drop();
+		}
 
 		//! A clone function for the ISceneNode members.
 		/** This method can be used by clone() implementations of

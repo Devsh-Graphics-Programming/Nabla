@@ -203,6 +203,7 @@ namespace scene
                     uint64_t lastTimePulledAbsoluteTFormForBoning;
             };
 
+            //! Constructor
             ISkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const CFinalBoneHierarchy* sourceHierarchy)
                     : usingGPUorCPUBoning(-100), boneControlMode(boneControl), referenceHierarchy(sourceHierarchy), instanceData(NULL), instanceDataSize(0),
                     firstDirtyInstance(0xdeadbeefu), lastDirtyInstance(0), firstDirtyBone(0xdeadbeefu), lastDirtyBone(0)
@@ -217,30 +218,9 @@ namespace scene
                 actualSizeOfInstanceDataElement = sizeof(BoneHierarchyInstanceData)+referenceHierarchy->getBoneCount()*(sizeof(IBoneSceneNode*)+sizeof(core::matrix4x3));
             }
 
-            virtual ~ISkinningStateManager()
-            {
-                for (size_t j=0; j<getDataInstanceCount(); j++)
-                {
-                    BoneHierarchyInstanceData* instance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+j*actualSizeOfInstanceDataElement);
-                    for (size_t i=0; i<referenceHierarchy->getBoneLevelRangeEnd(0); i++)
-                    {
-                        if (getBones(instance)[i])
-                        {
-                            getBones(instance)[i]->remove();
-                            getBones(instance)[i]->drop();
-                        }
-                    }
-                }
-                referenceHierarchy->drop();
-                finalBoneDataInstanceBuffer->drop();
-
-                if (instanceData)
-                    free(instanceData);
-            }
-
             inline const E_BONE_UPDATE_MODE& getBoneUpdateMode() const {return boneControlMode;}
 
-            virtual video::ITexture* getBoneDataTBO() const = 0;
+            virtual video::ITextureBufferObject* getBoneDataTBO() const = 0;
 
 
             virtual void implicitBone(const size_t& instanceID, const size_t& boneID) = 0;
@@ -341,6 +321,27 @@ namespace scene
             inline const size_t& getDataInstanceCount() const {return finalBoneDataInstanceBuffer->getAllocatedCount();}
 
         protected:
+            virtual ~ISkinningStateManager()
+            {
+                for (size_t j=0; j<getDataInstanceCount(); j++)
+                {
+                    BoneHierarchyInstanceData* instance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+j*actualSizeOfInstanceDataElement);
+                    for (size_t i=0; i<referenceHierarchy->getBoneLevelRangeEnd(0); i++)
+                    {
+                        if (getBones(instance)[i])
+                        {
+                            getBones(instance)[i]->remove();
+                            getBones(instance)[i]->drop();
+                        }
+                    }
+                }
+                referenceHierarchy->drop();
+                finalBoneDataInstanceBuffer->drop();
+
+                if (instanceData)
+                    free(instanceData);
+            }
+
             int8_t usingGPUorCPUBoning;
             const E_BONE_UPDATE_MODE boneControlMode;
             const CFinalBoneHierarchy* referenceHierarchy;

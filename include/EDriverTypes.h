@@ -18,13 +18,6 @@ namespace video
 		render and display any graphics. */
 		EDT_NULL,
 
-		//! The Irrlicht Engine Software renderer.
-		/** Runs on all platforms, with every hardware. It should only
-		be used for 2d graphics, but it can also perform some primitive
-		3d functions. These 3d drawing functions are quite fast, but
-		very inaccurate, and don't even support clipping in 3D mode. */
-		EDT_SOFTWARE,
-
 		//! The Burning's Software Renderer, an alternative software renderer
 		/** Basically it can be described as the Irrlicht Software
 		renderer on steroids. It rasterizes 3D geometry perfectly: It

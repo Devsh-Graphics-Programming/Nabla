@@ -14,6 +14,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-fexpensive-optimizations" />
+					<Add option="-O3" />
 					<Add option="-w" />
 					<Add option="-g" />
 					<Add option="-fno-omit-frame-pointer" />
@@ -21,33 +22,16 @@
 					<Add option="-mfpmath=sse" />
 					<Add option="-ggdb3" />
 					<Add option="-D_AMD64_" />
-					<Add option="-DLINUX" />
-					<Add option="-DGLUT_DISABLE_ATEXIT_HACK" />
 				</Compiler>
 				<Linker>
+					<Add option="-fuse-ld=gold" />
 					<Add option="-msse3" />
-					<Add library="../../../silverlining/lib/linux/libSilverLiningOpenGL32Core.a" />
 					<Add library="Irrlicht" />
 					<Add library="Xrandr" />
 					<Add library="GL" />
-					<Add library="Xxf86vm" />
 					<Add library="X11" />
-					<Add library="OpenCL" />
 					<Add library="pthread" />
 					<Add library="dl" />
-					<Add library="unwind" />
-					<Add library="unwind-x86_64" />
-					<Add library="../../../silverlining/lib/linux/libSilverLiningOpenGL32Core.a" />
-					<Add library="Irrlicht" />
-					<Add library="Xrandr" />
-					<Add library="GL" />
-					<Add library="Xxf86vm" />
-					<Add library="X11" />
-					<Add library="OpenCL" />
-					<Add library="pthread" />
-					<Add library="dl" />
-					<Add library="unwind" />
-					<Add library="unwind-x86_64" />
 					<Add directory="../../lib/Linux" />
 				</Linker>
 			</Target>
@@ -71,7 +55,7 @@
 				</Compiler>
 				<Linker>
 					<Add option="-msse3" />
-					<Add library="../../../silverlining/lib/linux/libSilverLiningOpenGL32Core.a" />
+					<Add library="../../../silverlining/POSIX/lib/linux/libSilverLiningOpenGL32Core.a" />
 					<Add library="Irrlicht" />
 					<Add library="Xrandr" />
 					<Add library="GL" />
@@ -93,7 +77,7 @@
 			<Add option="-g" />
 			<Add option="-W" />
 			<Add directory="../../include" />
-			<Add directory="../../../silverlining/Public Headers" />
+			<Add directory="../../../silverlining/POSIX/Public Headers" />
 		</Compiler>
 		<Unit filename="main.cpp" />
 		<Unit filename="mesh.frag" />

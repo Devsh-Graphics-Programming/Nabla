@@ -594,14 +594,15 @@ void executeGLDiff(const COpenGLStateDiff& diff)
 
     if (diff.setColorMask)
     {
-        size_t j=0;
         for (uint32_t i=0; i<OGL_STATE_MAX_DRAW_BUFFERS; i++)
         {
             if (diff.setColorMask&(uint16_t(1)<<i))
             {
-                uint64_t compareShift = j*4;
-                glColorMaski_MACRO(i,diff.glColorMaski_vals[j/16]&(0x1ull<<compareShift),diff.glColorMaski_vals[j/16]&(0x2ull<<compareShift),diff.glColorMaski_vals[j/16]&(0x4ull<<compareShift),diff.glColorMaski_vals[j/16]&(0x8ull<<compareShift));
-                j++;
+                uint64_t compareShift = (i%16)*4;
+                glColorMaski_MACRO(i,   diff.glColorMaski_vals[i/16]&(0x1ull<<compareShift) ? GL_TRUE:GL_FALSE,
+                                        diff.glColorMaski_vals[i/16]&(0x2ull<<compareShift) ? GL_TRUE:GL_FALSE,
+                                        diff.glColorMaski_vals[i/16]&(0x4ull<<compareShift) ? GL_TRUE:GL_FALSE,
+                                        diff.glColorMaski_vals[i/16]&(0x8ull<<compareShift) ? GL_TRUE:GL_FALSE);
             }
         }
     }

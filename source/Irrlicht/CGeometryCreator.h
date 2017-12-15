@@ -20,17 +20,6 @@ public:
 	ICPUMesh* createCubeMeshCPU(const core::vector3df& size) const;
 	IGPUMesh* createCubeMeshGPU(video::IVideoDriver* driver, const core::vector3df& size) const;
 
-	ICPUMesh* createTerrainMeshCPU(video::IImage* texture,
-		video::IImage* heightmap, const core::dimension2d<float>& stretchSize,
-		float maxHeight, video::IVideoDriver* driver,
-		const core::dimension2d<uint32_t>& defaultVertexBlockSize,
-		bool debugBorders=false) const;
-	IGPUMesh* createTerrainMeshGPU(video::IImage* texture,
-		video::IImage* heightmap, const core::dimension2d<float>& stretchSize,
-		float maxHeight, video::IVideoDriver* driver,
-		const core::dimension2d<uint32_t>& defaultVertexBlockSize,
-		bool debugBorders=false) const;
-
 	ICPUMesh* createArrowMeshCPU(const uint32_t tesselationCylinder,
 			const uint32_t tesselationCone, const float height,
 			const float cylinderHeight, const float width0,

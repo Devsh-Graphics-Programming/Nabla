@@ -48,7 +48,7 @@ bool CImageLoaderPCX::isALoadableFileFormat(io::IReadFile* file) const
 
 
 //! creates a image from the file
-IImage* CImageLoaderPCX::loadImage(io::IReadFile* file) const
+std::vector<CImageData*> CImageLoaderPCX::loadImage(io::IReadFile* file) const
 {
 	SPCXHeader header;
 	int32_t* paletteData = 0;
@@ -67,16 +67,17 @@ IImage* CImageLoaderPCX::loadImage(io::IReadFile* file) const
 		header.VScrSize = os::Byteswap::byteswap(header.VScrSize);
 	#endif
 
+    std::vector<CImageData*> retval;
 	//! return if the header is wrong
 	if (header.Manufacturer != 0x0a && header.Encoding != 0x01)
-		return 0;
+		return retval;
 
 	// return if this isn't a supported type
 	if ((header.BitsPerPixel != 8) && (header.BitsPerPixel != 4) && (header.BitsPerPixel != 1))
 	{
 		os::Printer::log("Unsupported bits per pixel in PCX file.",
 			file->getFileName().c_str(), irr::ELL_WARNING);
-		return 0;
+		return retval;
 	}
 
 	// read palette
@@ -158,25 +159,27 @@ IImage* CImageLoaderPCX::loadImage(io::IReadFile* file) const
 	}
 
 	// create image
-	video::IImage* image = 0;
+	video::CImageData* image = 0;
 	int32_t pad = (header.BytesPerLine - width * header.BitsPerPixel / 8) * header.Planes;
 
 	if (pad < 0)
 		pad = -pad;
 
+    uint32_t nullOffset[3] = {0,0,0};
+    uint32_t imageSize[3] = {width,height,1};
 	if (header.BitsPerPixel==8)
 	{
 		switch(header.Planes) // TODO: Other formats
 		{
 		case 1:
-			image = new CImage(ECF_A1R5G5B5, core::dimension2d<uint32_t>(width, height));
+			image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_A1R5G5B5);
 			if (image)
-				CColorConverter::convert8BitTo16Bit(PCXData, (int16_t*)image->lock(), width, height, paletteData, pad);
+				CColorConverter::convert8BitTo16Bit(PCXData, (int16_t*)image->getData(), width, height, paletteData, pad);
 			break;
 		case 3:
-			image = new CImage(ECF_R8G8B8, core::dimension2d<uint32_t>(width, height));
+			image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_R8G8B8);
 			if (image)
-				CColorConverter::convert24BitTo24Bit(PCXData, (uint8_t*)image->lock(), width, height, pad);
+				CColorConverter::convert24BitTo24Bit(PCXData, (uint8_t*)image->getData(), width, height, pad);
 			break;
 		}
 	}
@@ -184,35 +187,34 @@ IImage* CImageLoaderPCX::loadImage(io::IReadFile* file) const
 	{
 		if (header.Planes==1)
 		{
-			image = new CImage(ECF_A1R5G5B5, core::dimension2d<uint32_t>(width, height));
+			image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_A1R5G5B5);
 			if (image)
-				CColorConverter::convert4BitTo16Bit(PCXData, (int16_t*)image->lock(), width, height, paletteData, pad);
+				CColorConverter::convert4BitTo16Bit(PCXData, (int16_t*)image->getData(), width, height, paletteData, pad);
 		}
 	}
 	else if (header.BitsPerPixel==1)
 	{
 		if (header.Planes==4)
 		{
-			image = new CImage(ECF_A1R5G5B5, core::dimension2d<uint32_t>(width, height));
+			image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_A1R5G5B5);
 			if (image)
-				CColorConverter::convert4BitTo16Bit(PCXData, (int16_t*)image->lock(), width, height, paletteData, pad);
+				CColorConverter::convert4BitTo16Bit(PCXData, (int16_t*)image->getData(), width, height, paletteData, pad);
 		}
 		else if (header.Planes==1)
 		{
-			image = new CImage(ECF_A1R5G5B5, core::dimension2d<uint32_t>(width, height));
+			image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_A1R5G5B5);
 			if (image)
-				CColorConverter::convert1BitTo16Bit(PCXData, (int16_t*)image->lock(), width, height, pad);
+				CColorConverter::convert1BitTo16Bit(PCXData, (int16_t*)image->getData(), width, height, pad);
 		}
 	}
-	if (image)
-		image->unlock();
 
 	// clean up
 
 	delete [] paletteData;
 	delete [] PCXData;
 
-	return image;
+	retval.push_back(image);
+	return retval;
 }
 
 

@@ -15,11 +15,11 @@ class COpenGLBuffer;
 
 class COpenGLTransformFeedback : public ITransformFeedback
 {
-    public:
-        COpenGLTransformFeedback();
-
+    protected:
         virtual ~COpenGLTransformFeedback();
 
+    public:
+        COpenGLTransformFeedback();
 
         virtual bool rebindRevalidate();
 

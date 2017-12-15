@@ -361,23 +361,9 @@ CBurningVideoDriver::CBurningVideoDriver(const irr::SIrrlichtCreationParameters&
 	// create triangle renderers
 
 	irr::memset32 ( BurningShader, 0, sizeof ( BurningShader ) );
-	//BurningShader[ETR_FLAT] = createTRFlat2(DepthBuffer);
-	//BurningShader[ETR_FLAT_WIRE] = createTRFlatWire2(DepthBuffer);
 	BurningShader[ETR_GOURAUD] = createTriangleRendererGouraud2(this);
-	BurningShader[ETR_GOURAUD_ALPHA] = createTriangleRendererGouraudAlpha2(this );
-	BurningShader[ETR_GOURAUD_ALPHA_NOZ] = createTRGouraudAlphaNoZ2(this );
-	//BurningShader[ETR_GOURAUD_WIRE] = createTriangleRendererGouraudWire2(DepthBuffer);
-	//BurningShader[ETR_TEXTURE_FLAT] = createTriangleRendererTextureFlat2(DepthBuffer);
-	//BurningShader[ETR_TEXTURE_FLAT_WIRE] = createTriangleRendererTextureFlatWire2(DepthBuffer);
 	BurningShader[ETR_TEXTURE_GOURAUD] = createTriangleRendererTextureGouraud2(this);
-	BurningShader[ETR_TEXTURE_GOURAUD_LIGHTMAP_M1] = createTriangleRendererTextureLightMap2_M1(this);
-	BurningShader[ETR_TEXTURE_GOURAUD_LIGHTMAP_M2] = createTriangleRendererTextureLightMap2_M2(this);
-	BurningShader[ETR_TEXTURE_GOURAUD_LIGHTMAP_M4] = createTriangleRendererGTextureLightMap2_M4(this);
-	BurningShader[ETR_TEXTURE_LIGHTMAP_M4] = createTriangleRendererTextureLightMap2_M4(this);
-	BurningShader[ETR_TEXTURE_GOURAUD_LIGHTMAP_ADD] = createTriangleRendererTextureLightMap2_Add(this);
-	BurningShader[ETR_TEXTURE_GOURAUD_DETAIL_MAP] = createTriangleRendererTextureDetailMap2(this);
 
-	BurningShader[ETR_TEXTURE_GOURAUD_WIRE] = createTriangleRendererTextureGouraudWire2(this);
 	BurningShader[ETR_TEXTURE_GOURAUD_NOZ] = createTRTextureGouraudNoZ2(this);
 	BurningShader[ETR_TEXTURE_GOURAUD_ADD] = createTRTextureGouraudAdd2(this);
 	BurningShader[ETR_TEXTURE_GOURAUD_ADD_NO_Z] = createTRTextureGouraudAddNoZ2(this);
@@ -385,10 +371,6 @@ CBurningVideoDriver::CBurningVideoDriver(const irr::SIrrlichtCreationParameters&
 
 	BurningShader[ETR_TEXTURE_GOURAUD_ALPHA] = createTRTextureGouraudAlpha(this );
 	BurningShader[ETR_TEXTURE_GOURAUD_ALPHA_NOZ] = createTRTextureGouraudAlphaNoZ( this );
-
-	BurningShader[ETR_NORMAL_MAP_SOLID] = createTRNormalMap ( this );
-	BurningShader[ETR_STENCIL_SHADOW] = createTRStencilShadow ( this );
-	BurningShader[ETR_TEXTURE_BLEND] = createTRTextureBlend( this );
 
 	BurningShader[ETR_REFERENCE] = createTriangleRendererReference ( this );
 
@@ -455,8 +437,7 @@ CBurningVideoDriver::~CBurningVideoDriver()
 */
 void CBurningVideoDriver::setCurrentShader()
 {
-	ITexture *texture0 = Material.org.getTexture(0);
-	ITexture *texture1 = Material.org.getTexture(1);
+	IVirtualTexture *texture0 = Material.org.getTexture(0);
 
 	bool zMaterialTest =	Material.org.ZBuffer != ECFN_NEVER &&
 							Material.org.ZWriteEnable &&
@@ -490,13 +471,18 @@ void CBurningVideoDriver::setCurrentShader()
 	}
 
 	if ( !texture0 )
+        shader = ETR_GOURAUD;
+    else
 	{
-		shader = ETR_GOURAUD;
-	}
-
-	if ( Material.org.Wireframe )
-	{
-		shader = ETR_TEXTURE_GOURAUD_WIRE;
+	    switch (texture0->getVirtualTextureType())
+	    {
+            case IVirtualTexture::EVTT_OPAQUE_FILTERABLE:
+	        case IVirtualTexture::EVTT_VIEW:
+                break;
+            default:
+                shader = ETR_GOURAUD;
+                break;
+	    }
 	}
 
 	//shader = ETR_REFERENCE;
@@ -513,7 +499,6 @@ void CBurningVideoDriver::setCurrentShader()
 		{
 			case ETR_TEXTURE_GOURAUD_ALPHA:
 			case ETR_TEXTURE_GOURAUD_ALPHA_NOZ:
-			case ETR_TEXTURE_BLEND:
 				CurrentShader->setParam ( 0, Material.org.MaterialTypeParam );
 				break;
 			default:
@@ -1945,47 +1930,7 @@ void CBurningVideoDriver::draw2DRectangle(const core::rect<int32_t>& position,
 void CBurningVideoDriver::draw3DLine(const core::vector3df& start,
 	const core::vector3df& end, SColor color)
 {
-	getTransform(EPTS_PROJ_VIEW_WORLD).transformVect ( &CurrentOut.data[0].Pos.x, start );
-	getTransform(EPTS_PROJ_VIEW_WORLD).transformVect ( &CurrentOut.data[2].Pos.x, end );
-
-	uint32_t g;
-	uint32_t vOut;
-
-	// no clipping flags
-	for ( g = 0; g != CurrentOut.ElementSize; ++g )
-	{
-		CurrentOut.data[g].flag = 0;
-		Temp.data[g].flag = 0;
-	}
-
-	// vertices count per line
-	vOut = clipToFrustum ( CurrentOut.data, Temp.data, 2 );
-	if ( vOut < 2 )
-		return;
-
-	vOut <<= 1;
-
-	IBurningShader * line;
-	line = BurningShader [ ETR_TEXTURE_GOURAUD_WIRE ];
-	line->setRenderTarget(RenderTargetSurface, ViewPort);
-
-	// to DC Space, project homogenous vertex
-	ndc_2_dc_and_project ( CurrentOut.data + 1, CurrentOut.data, vOut );
-
-	// unproject vertex color
-#ifdef SOFTWARE_DRIVER_2_USE_VERTEX_COLOR
-	for ( g = 0; g != vOut; g+= 2 )
-	{
-		CurrentOut.data[ g + 1].Color[0].setA8R8G8B8 ( color.color );
-	}
-#endif
-
-
-	for ( g = 0; g <= vOut - 4; g += 2 )
-	{
-		// rasterize
-		line->drawLine ( CurrentOut.data + 1, CurrentOut.data + g + 3 );
-	}
+    os::Printer::log("Fatal Error: Drawing 3D lines not supported in this driver!", ELL_ERROR);
 }
 
 
@@ -2024,20 +1969,6 @@ ECOLOR_FORMAT CBurningVideoDriver::getColorFormat() const
 	return BURNINGSHADER_COLOR_FORMAT;
 }
 
-
-//! Creates a render target texture.
-ITexture* CBurningVideoDriver::addRenderTargetTexture(const core::dimension2d<uint32_t>& size,
-		const io::path& name, const ECOLOR_FORMAT format)
-{
-	IImage* img = createImage(BURNINGSHADER_COLOR_FORMAT, size);
-	ITexture* tex = new CSoftwareTexture2(img, name, 0 );
-	img->drop();
-	addToTextureCache(tex);
-	tex->drop();
-	return tex;
-}
-
-
 //! Clears the DepthBuffer.
 void CBurningVideoDriver::clearZBuffer()
 {
@@ -2049,13 +1980,19 @@ void CBurningVideoDriver::clearZBuffer()
 
 //! returns a device dependent texture from a software surface (IImage)
 //! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-ITexture* CBurningVideoDriver::createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData)
+ITexture* CBurningVideoDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name)
 {
-	return new CSoftwareTexture2(
-		surface, name,
-		(getTextureCreationFlag(ETCF_CREATE_MIP_MAPS) ? CSoftwareTexture2::GEN_MIPMAP : 0 ) |
-		(getTextureCreationFlag(ETCF_ALLOW_NON_POWER_2) ? 0 : CSoftwareTexture2::NP2_SIZE ), mipmapData);
+    //better safe than sorry
+    if (type!=ITexture::ETT_2D)
+        return NULL;
+    if (format!=BURNINGSHADER_COLOR_FORMAT&&format!=ECF_UNKNOWN)
+        return NULL;
 
+    if (images.size()<1)
+        return NULL;
+
+	return  new CSoftwareTexture2(images[0], name,
+                                    (getTextureCreationFlag(ETCF_CREATE_MIP_MAPS) ? CSoftwareTexture2::GEN_MIPMAP : 0 ) | CSoftwareTexture2::NP2_SIZE);
 }
 
 

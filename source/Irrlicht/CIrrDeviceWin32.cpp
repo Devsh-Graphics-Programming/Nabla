@@ -1114,18 +1114,6 @@ void CIrrDeviceWin32::createDriver()
 		#endif
 		break;
 
-	case video::EDT_SOFTWARE:
-
-		#ifdef _IRR_COMPILE_WITH_SOFTWARE_
-		switchToFullScreen();
-
-		VideoDriver = video::createSoftwareDriver(CreationParams.WindowSize, CreationParams.Fullscreen, FileSystem, this);
-		#else
-		os::Printer::log("Software driver was not compiled in.", ELL_ERROR);
-		#endif
-
-		break;
-
 	case video::EDT_BURNINGSVIDEO:
 		#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
 		switchToFullScreen();
@@ -1852,7 +1840,7 @@ HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, co
 
 
 	video::ECOLOR_FORMAT format = tex->getColorFormat();
-	uint32_t bytesPerPixel = video::IImage::getBitsPerPixelFromFormat(format) / 8;
+	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
 	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
 	const uint8_t* data = (const uint8_t*)tex->lock();

@@ -9,6 +9,7 @@
 #include "SColor.h"
 #include "IGPUMappedBuffer.h"
 #include "ITexture.h"
+#include "ITextureBufferObject.h"
 #include "IRenderBuffer.h"
 #include "IFrameBuffer.h"
 #include "irrArray.h"
@@ -37,6 +38,8 @@ namespace io
 
 namespace video
 {
+	class CImageData;
+	class IImage;
 	class IImageLoader;
 	class IImageWriter;
 	class IMaterialRenderer;
@@ -111,6 +114,15 @@ namespace video
 	    EMDCB_PACK_ALL_SINGLE_BUFFER,
 	    EMDCB_INTERLEAVED_PACK_ATTRIBUTES_SINGLE_BUFFER,
 	    EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER
+	};
+
+	enum E_MIP_CHAIN_ERROR
+	{
+	    EMCE_NO_ERR=0,
+	    EMCE_SUB_IMAGE_OUT_OF_BOUNDS,
+	    EMCE_MIP_LEVEL_OUT_OF_BOUND,
+	    EMCE_INVALID_IMAGE,
+	    EMCE_OTHER_ERR
 	};
 
 
@@ -293,7 +305,7 @@ namespace video
 		\return Pointer to the texture, or 0 if the texture
 		could not be loaded. This pointer should not be dropped. See
 		IReferenceCounted::drop() for more information. */
-		virtual ITexture* getTexture(const io::path& filename) = 0;
+		virtual ITexture* getTexture(const io::path& filename, ECOLOR_FORMAT format = ECF_UNKNOWN) = 0;
 
 		//! Get access to a named texture.
 		/** Loads the texture from disk if it is not
@@ -305,7 +317,7 @@ namespace video
 		\return Pointer to the texture, or 0 if the texture
 		could not be loaded. This pointer should not be dropped. See
 		IReferenceCounted::drop() for more information. */
-		virtual ITexture* getTexture(io::IReadFile* file) =0;
+		virtual ITexture* getTexture(io::IReadFile* file, ECOLOR_FORMAT format = ECF_UNKNOWN) =0;
 
 		//! Returns a texture by index
 		/** \param index: Index of the texture, must be smaller than
@@ -338,20 +350,19 @@ namespace video
 		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
 
-		//! Creates a texture from an IImage.
-		/** \param name A name for the texture. Later calls of
-		getTexture() with this name will return this texture
-		\param image Image the texture is created from.
-		\param mipmapData Optional pointer to a set of images which
-		build up the whole mipmap set. Must be images of the same color
-		type as image. If this parameter is not given, the mipmaps are
-		derived from image.
-		\return Pointer to the newly created texture. This pointer
-		should not be dropped. See IReferenceCounted::drop() for more
-		information. */
-		virtual ITexture* addTexture(const io::path& name, IImage* image, void* mipmapData=0) = 0;
+		//! A.
+		/** \param B
+		\param C
+		\return D. */
+        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain) = 0;
 
+        //! A.
+        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0) = 0;
+
+		//! A.
 		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
+
+		virtual IRenderBuffer* addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
 
         virtual IFrameBuffer* addFrameBuffer() = 0;
 
@@ -370,6 +381,8 @@ namespace video
 		\param texture Texture to delete from the engine cache. */
 		virtual void removeTexture(ITexture* texture) =0;
 
+		virtual void removeTextureBufferObject(ITextureBufferObject* tbo) =0;
+
 		virtual void removeRenderBuffer(IRenderBuffer* renderbuf) =0;
 
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf) =0;
@@ -382,6 +395,8 @@ namespace video
 		good idea to set all materials which are using this texture to
 		0 or another texture first. */
 		virtual void removeAllTextures() =0;
+
+		virtual void removeAllTextureBufferObjects() =0;
 
 		virtual void removeAllRenderBuffers() =0;
 
@@ -729,26 +744,33 @@ namespace video
 		\return The current texture creation flag enabled mode. */
 		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const =0;
 
-		//! Creates a software image from a file.
-		/** No hardware texture will be created for this image. This
-		method is useful for example if you want to read a heightmap
-		for a terrain renderer.
-		\param filename Name of the file from which the image is
-		created.
-		\return The created image.
-		If you no longer need the image, you should call IImage::drop().
+		//! Creates a ... from a file.
+		/**
+		\param filename .
+		\return .
+		If you no longer need the image data, you should call CImageData::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual IImage* createImageFromFile(const io::path& filename) = 0;
+		virtual std::vector<CImageData*> createImageFromFile(const io::path& filename) = 0;
 
-		//! Creates a software image from a file.
-		/** No hardware texture will be created for this image. This
-		method is useful for example if you want to read a heightmap
-		for a terrain renderer.
-		\param file File from which the image is created.
-		\return The created image.
-		If you no longer need the image, you should call IImage::drop().
+		//! Creates a ... from a file.
+		/**
+		\param file .
+		\return .
+		If you no longer need the image data, you should call CImageData::drop()
+		on all vector members.
 		See IReferenceCounted::drop() for more information. */
-		virtual IImage* createImageFromFile(io::IReadFile* file) =0;
+		virtual std::vector<CImageData*> createImageFromFile(io::IReadFile* file) =0;
+
+		//! Convenience function for releasing all images in a mip chain.
+		/**
+		\param List of .
+		\return .
+		Bla bla. */
+		void dropWholeMipChain(const std::vector<CImageData*>& mipImages)
+		{
+		    for (std::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
+                (*it)->drop();
+		}
 
 		//! Writes the provided image to a file.
 		/** Requires that there is a suitable image writer registered
@@ -772,54 +794,15 @@ namespace video
 		virtual bool writeImageToFile(IImage* image, io::IWriteFile* file, uint32_t param =0) =0;
 
 		//! Creates a software image from a byte array.
-		/** No hardware texture will be created for this image. This
-		method is useful for example if you want to read a heightmap
-		for a terrain renderer.
-		\param format Desired color format of the texture
-		\param size Desired size of the image
-		\param data A byte array with pixel color information
+		/** No hardware texture will be created for this image.
+		\param imageData
 		\param ownForeignMemory If true, the image will use the data
 		pointer directly and own it afterwards. If false, the memory
 		will by copied internally.
-		\param deleteMemory Whether the memory is deallocated upon
-		destruction.
 		\return The created image.
 		If you no longer need the image, you should call IImage::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual IImage* createImageFromData(ECOLOR_FORMAT format,
-			const core::dimension2d<uint32_t>& size, void *data,
-			bool ownForeignMemory=false,
-			bool deleteMemory = true) =0;
-
-		//! Creates an empty software image.
-		/**
-		\param format Desired color format of the image.
-		\param size Size of the image to create.
-		\return The created image.
-		If you no longer need the image, you should call IImage::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual IImage* createImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size) =0;
-
-		//! Creates a software image by converting it to given format from another image.
-		/** \deprecated Create an empty image and use copyTo(). This method may be removed by Irrlicht 1.9.
-		\param format Desired color format of the image.
-		\param imageToCopy Image to copy to the new image.
-		\return The created image.
-		If you no longer need the image, you should call IImage::drop().
-		See IReferenceCounted::drop() for more information. */
-		_IRR_DEPRECATED_ virtual IImage* createImage(ECOLOR_FORMAT format, IImage *imageToCopy) =0;
-
-		//! Creates a software image from a part of another image.
-		/** \deprecated Create an empty image and use copyTo(). This method may be removed by Irrlicht 1.9.
-		\param imageToCopy Image to copy to the new image in part.
-		\param pos Position of rectangle to copy.
-		\param size Extents of rectangle to copy.
-		\return The created image.
-		If you no longer need the image, you should call IImage::drop().
-		See IReferenceCounted::drop() for more information. */
-		_IRR_DEPRECATED_ virtual IImage* createImage(IImage* imageToCopy,
-				const core::position2d<int32_t>& pos,
-				const core::dimension2d<uint32_t>& size) =0;
+		virtual IImage* createImageFromData(CImageData* imageData, bool ownForeignMemory=true) =0;
 
 		//! Event handler for resize events. Only used by the engine internally.
 		/** Used to notify the driver that the window was resized.

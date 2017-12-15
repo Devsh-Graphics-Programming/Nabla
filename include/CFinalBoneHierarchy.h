@@ -16,8 +16,28 @@ namespace scene
 {
 
     //! If it has no animation, make 1 frame of animation with LocalMatrix
-    class CFinalBoneHierarchy : public virtual IReferenceCounted
+    class CFinalBoneHierarchy : public IReferenceCounted
     {
+        protected:
+            virtual ~CFinalBoneHierarchy()
+            {
+                if (boneNames)
+                    delete [] boneNames;
+                if (boneFlatArray)
+                    free(boneFlatArray);
+                if (boneTreeLevelEnd)
+                    free(boneTreeLevelEnd);
+/**
+                if (boundBuffer)
+                    boundBuffer->drop();
+**/
+                if (keyframes)
+                    free(keyframes);
+                if (interpolatedAnimations)
+                    free(interpolatedAnimations);
+                if (nonInterpolatedAnimations)
+                    free(nonInterpolatedAnimations);
+            }
         public:
             #include "irrpack.h"
             struct BoneReferenceData
@@ -78,26 +98,6 @@ namespace scene
                 memcpy(boneTreeLevelEnd,inJointsLevelEnd.data(),sizeof(size_t)*NumLevelsInHierarchy);
 
                 createAnimationKeys(inLevelFixedJoints);
-            }
-
-            ~CFinalBoneHierarchy()
-            {
-                if (boneNames)
-                    delete [] boneNames;
-                if (boneFlatArray)
-                    free(boneFlatArray);
-                if (boneTreeLevelEnd)
-                    free(boneTreeLevelEnd);
-/**
-                if (boundBuffer)
-                    boundBuffer->drop();
-**/
-                if (keyframes)
-                    free(keyframes);
-                if (interpolatedAnimations)
-                    free(interpolatedAnimations);
-                if (nonInterpolatedAnimations)
-                    free(nonInterpolatedAnimations);
             }
 
             inline const size_t& getBoneCount() const {return boneCount;}

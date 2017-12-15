@@ -22,12 +22,12 @@ CImage::CImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size)
 
 //! Constructor from raw data
 CImage::CImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size, void* data,
-			bool ownForeignMemory, bool deleteForeignMemory)
-: Data(0), Size(size), Format(format), DeleteMemory(deleteForeignMemory)
+			bool ownForeignMemory)
+: Data(0), Size(size), Format(format), DeleteMemory(!ownForeignMemory)
 {
 	if (ownForeignMemory)
 	{
-		Data = (uint8_t*)0xbadf00d;
+		Data = (uint8_t*)0xdeadbeefu;
 		initData();
 		Data = (uint8_t*)data;
 	}
@@ -46,17 +46,16 @@ void CImage::initData()
 #ifdef _DEBUG
 	setDebugName("CImage");
 #endif
-	BitsPerPixel = getBitsPerPixelFromFormat(Format);
 
 	// Pitch should be aligned...
-	Pitch = BitsPerPixel * Size.Width;
+	Pitch = getBitsPerPixel() * Size.Width;
 
 	Pitch /= 8;
 
 	if (!Data)
 	{
-		DeleteMemory=true;
 		Data = new uint8_t[Size.Height * Pitch];
+		DeleteMemory=true;
 	}
 }
 
@@ -79,13 +78,13 @@ const core::dimension2d<uint32_t>& CImage::getDimension() const
 //! Returns bits per pixel.
 uint32_t CImage::getBitsPerPixel() const
 {
-	return BitsPerPixel;
+	return getBitsPerPixelFromFormat(Format);
 }
 
 //! Returns image data size in bytes
 uint32_t CImage::getImageDataSizeInBytes() const
 {
-	return (BitsPerPixel * Size.Width * Size.Height)/8;
+	return (getBitsPerPixel() * Size.Width * Size.Height)/8;
 }
 
 
@@ -313,97 +312,6 @@ void CImage::copyToWithAlpha(IImage* target, const core::position2d<int32_t>& po
 	// color blend only necessary on not full spectrum aka. color.color != 0xFFFFFFFF
 	Blit(color.color == 0xFFFFFFFF ? BLITTER_TEXTURE_ALPHA_BLEND: BLITTER_TEXTURE_ALPHA_COLOR_BLEND,
 			target, clipRect, &pos, this, &sourceRect, color.color);
-}
-
-
-//! copies this surface into another, scaling it to the target image size
-// note: this is very very slow.
-void CImage::copyToScaling(void* target, uint32_t width, uint32_t height, ECOLOR_FORMAT format, uint32_t pitch)
-{
-	if (!target || !width || !height)
-		return;
-
-    /// we don't want to support block compression XD - even if we wanted.. PATENTS!
-    if ((format>=video::ECF_RGB_BC1&&format<=video::ECF_RG_BC5)||(Format>=video::ECF_RGB_BC1&&Format<=video::ECF_RG_BC5))
-        return;
-
-	const uint32_t bpp=getBitsPerPixelFromFormat(format);
-	if (0==pitch)
-		pitch = (width*bpp)/8;
-
-	if (Format==format && Size.Width==width && Size.Height==height)
-	{
-		if (pitch==Pitch)
-		{
-			memcpy(target, Data, height*pitch);
-			return;
-		}
-		else
-		{
-			uint8_t* tgtpos = (uint8_t*) target;
-			uint8_t* srcpos = Data;
-			const uint32_t bwidth = (width*bpp)/8;
-			const uint32_t rest = pitch-bwidth;
-			for (uint32_t y=0; y<height; ++y)
-			{
-				// copy scanline
-				memcpy(tgtpos, srcpos, bwidth);
-				// clear pitch
-				memset(tgtpos+bwidth, 0, rest);
-				tgtpos += pitch;
-				srcpos += Pitch;
-			}
-			return;
-		}
-	}
-
-    /// there aint no interpolation && scaling for depth
-    /// and we dont know the bit && channel layout for bit-width pixels
-    if (format>=ECF_8BIT_PIX&&format<=ECF_UNKNOWN)
-        return;
-
-    if (format==ECF_R8||format==ECF_R8G8)
-    {
-		//irr::os::Printer::log("DevSH will support conversion from and to GL_R8 and GL_R8G8 when he has absolutely nothing else to do.", ELL_ERROR);
-        return;
-    }
-
-	const float sourceXStep = (float)Size.Width / (float)width;
-	const float sourceYStep = (float)Size.Height / (float)height;
-	int32_t yval=0, syval=0;
-	float sy = 0.0f;
-	for (uint32_t y=0; y<height; ++y)
-	{
-		float sx = 0.0f;
-		for (uint32_t x=0; x<width; ++x)
-		{
-			CColorConverter::convert_viaFormat(Data+ syval + (((int32_t)sx)*BitsPerPixel)/8, Format, 1, ((uint8_t*)target)+ yval + (x*bpp)/8, format);
-			sx+=sourceXStep;
-		}
-		sy+=sourceYStep;
-		syval=((int32_t)sy)*Pitch;
-		yval+=pitch;
-	}
-}
-
-
-//! copies this surface into another, scaling it to the target image size
-// note: this is very very slow.
-void CImage::copyToScaling(IImage* target)
-{
-	if (!target)
-		return;
-
-	const core::dimension2d<uint32_t>& targetSize = target->getDimension();
-
-	if (targetSize==Size)
-	{
-		copyTo(target);
-		return;
-	}
-
-	copyToScaling(target->lock(), targetSize.Width, targetSize.Height, target->getColorFormat());
-	target->unlock();
 }
 
 

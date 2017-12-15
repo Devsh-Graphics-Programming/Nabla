@@ -21,6 +21,11 @@ namespace scene
     class IGPUSkinnedMesh : public IGPUMesh
     {
         protected:
+            virtual ~IGPUSkinnedMesh()
+            {
+                //referenceHierarchy drop in child classes
+            }
+
             const CFinalBoneHierarchy* referenceHierarchy;
             //! The bounding box of this mesh
             core::aabbox3d<float> Box;
@@ -28,11 +33,6 @@ namespace scene
             IGPUSkinnedMesh(CFinalBoneHierarchy* boneHierarchy) : referenceHierarchy(boneHierarchy)
             {
                 //referenceHierarchy grab in child classes
-            }
-
-            virtual ~IGPUSkinnedMesh()
-            {
-                //referenceHierarchy drop in child classes
             }
 
             //!

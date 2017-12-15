@@ -43,6 +43,16 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 
         uint64_t relativeTransChanged;
         bool relativeTransNeedsUpdate;
+
+        virtual ~IDummyTransformationSceneNode()
+        {
+            removeAll();
+
+			// delete all animators
+			ISceneNodeAnimatorArray::iterator ait = Animators.begin();
+			for (; ait != Animators.end(); ++ait)
+				(*ait)->drop();
+        }
     public:
 
         //! Constructor
@@ -59,16 +69,6 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 				parent->addChild(this);
 
 			updateAbsolutePosition();
-        }
-
-        virtual ~IDummyTransformationSceneNode()
-        {
-            removeAll();
-
-			// delete all animators
-			ISceneNodeAnimatorArray::iterator ait = Animators.begin();
-			for (; ait != Animators.end(); ++ait)
-				(*ait)->drop();
         }
 
         virtual const bool isISceneNode() const {return false;}

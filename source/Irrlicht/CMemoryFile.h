@@ -20,39 +20,39 @@ namespace io
 	*/
 	class CMemoryFile : public IReadFile, public IWriteFile
 	{
-	public:
+	    protected:
+            //! Destructor
+            virtual ~CMemoryFile();
 
-		//! Constructor
-		CMemoryFile(void* memory, long len, const io::path& fileName, bool deleteMemoryWhenDropped);
+        public:
+            //! Constructor
+            CMemoryFile(void* memory, long len, const io::path& fileName, bool deleteMemoryWhenDropped);
 
-		//! Destructor
-		virtual ~CMemoryFile();
+            //! returns how much was read
+            virtual int32_t read(void* buffer, uint32_t sizeToRead);
 
-		//! returns how much was read
-		virtual int32_t read(void* buffer, uint32_t sizeToRead);
+            //! returns how much was written
+            virtual int32_t write(const void* buffer, uint32_t sizeToWrite);
 
-		//! returns how much was written
-		virtual int32_t write(const void* buffer, uint32_t sizeToWrite);
+            //! changes position in file, returns true if successful
+            virtual bool seek(long finalPos, bool relativeMovement = false);
 
-		//! changes position in file, returns true if successful
-		virtual bool seek(long finalPos, bool relativeMovement = false);
+            //! returns size of file
+            virtual long getSize() const;
 
-		//! returns size of file
-		virtual long getSize() const;
+            //! returns where in the file we are.
+            virtual long getPos() const;
 
-		//! returns where in the file we are.
-		virtual long getPos() const;
+            //! returns name of file
+            virtual const io::path& getFileName() const;
 
-		//! returns name of file
-		virtual const io::path& getFileName() const;
+        private:
 
-	private:
-
-		void *Buffer;
-		long Len;
-		long Pos;
-		io::path Filename;
-		bool deleteMemoryWhenDropped;
+            void *Buffer;
+            long Len;
+            long Pos;
+            io::path Filename;
+            bool deleteMemoryWhenDropped;
 	};
 
 } // end namespace io

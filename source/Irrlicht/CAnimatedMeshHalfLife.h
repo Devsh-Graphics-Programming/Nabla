@@ -476,13 +476,14 @@ namespace scene
 #ifndef NEW_MESHES
 	class CAnimatedMeshHalfLife : public IAnimatedMesh
 	{
+	protected:
+		//! destructor
+		virtual ~CAnimatedMeshHalfLife();
+
 	public:
 
 		//! constructor
 		CAnimatedMeshHalfLife();
-
-		//! destructor
-		virtual ~CAnimatedMeshHalfLife();
 
 		//! loads a Halflife mdl file
 		virtual bool loadModelFile( io::IReadFile* file, ISceneManager * smgr );

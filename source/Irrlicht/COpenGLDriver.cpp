@@ -11,9 +11,11 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
+#include "COpenGL2DTexture.h"
+#include "COpenGL2DTextureArray.h"
 #include "COpenGL3DTexture.h"
-#include "COpenGLTexture.h"
 #include "COpenGLTextureBufferObject.h"
+
 #include "COpenGLRenderBuffer.h"
 #include "COpenGLPersistentlyMappedBuffer.h"
 #include "COpenGLFrameBuffer.h"
@@ -2220,21 +2222,21 @@ GLuint COpenGLDriver::constructSamplerInCache(const uint64_t &hashVal)
     return samplerHandle;
 }
 
-bool COpenGLDriver::setActiveTexture(uint32_t stage, video::ITexture* texture, const video::STextureSamplingParams &sampleParams)
+bool COpenGLDriver::setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams)
 {
 	if (stage >= MaxTextureUnits)
 		return false;
 
 
-    if (texture&&texture->getTextureType()==ITexture::ETT_TEXTURE_BUFFER&&!static_cast<COpenGLTextureBufferObject*>(texture)->rebindRevalidate())
+    if (texture&&texture->getVirtualTextureType()==IVirtualTexture::EVTT_BUFFER_OBJECT&&!static_cast<COpenGLTextureBufferObject*>(texture)->rebindRevalidate())
         return false;
 
 	if (CurrentTexture[stage]!=texture)
     {
-        const video::COpenGLTexture* oldTexture = static_cast<const COpenGLTexture*>(CurrentTexture[stage]);
+        const video::COpenGLTexture* oldTexture = dynamic_cast<const COpenGLTexture*>(CurrentTexture[stage]);
         GLenum oldTexType = GL_INVALID_ENUM;
         if (oldTexture)
-            oldTexType = static_cast<const COpenGLTexture*>(oldTexture)->getOpenGLTextureType();
+            oldTexType = oldTexture->getOpenGLTextureType();
         CurrentTexture.set(stage,texture);
 
         if (!texture)
@@ -2253,16 +2255,20 @@ bool COpenGLDriver::setActiveTexture(uint32_t stage, video::ITexture* texture, c
             }
             else
             {
-                if (oldTexture&&oldTexType!=static_cast<const COpenGLTexture*>(texture)->getOpenGLTextureType())
+                const video::COpenGLTexture* newTexture = dynamic_cast<const COpenGLTexture*>(texture);
+                GLenum newTexType = newTexture->getOpenGLTextureType();
+
+                if (oldTexture&&oldTexType!=newTexType)
                     extGlBindTextureUnit(stage,0,oldTexType);
-                extGlBindTextureUnit(stage,static_cast<const COpenGLTexture*>(texture)->getOpenGLName(),static_cast<const COpenGLTexture*>(texture)->getOpenGLTextureType());
+                extGlBindTextureUnit(stage,newTexture->getOpenGLName(),newTexType);
             }
         }
     }
 
     if (CurrentTexture[stage])
     {
-        if (CurrentTexture[stage]->getTextureType()!=ITexture::ETT_TEXTURE_BUFFER)
+        if (CurrentTexture[stage]->getVirtualTextureType()!=IVirtualTexture::EVTT_BUFFER_OBJECT&&
+            CurrentTexture[stage]->getVirtualTextureType()!=IVirtualTexture::EVTT_2D_MULTISAMPLE)
         {
             uint64_t hashVal = sampleParams.calculateHash(CurrentTexture[stage]);
             if (CurrentSamplerHash[stage]!=hashVal)
@@ -2290,13 +2296,13 @@ bool COpenGLDriver::setActiveTexture(uint32_t stage, video::ITexture* texture, c
 }
 
 
-void COpenGLDriver::STextureStageCache::remove(const ITexture* tex)
+void COpenGLDriver::STextureStageCache::remove(const IVirtualTexture* tex)
 {
     for (int32_t i = MATERIAL_MAX_TEXTURES-1; i>= 0; --i)
     {
         if (CurrentTexture[i] == tex)
         {
-            COpenGLExtensionHandler::extGlBindTextureUnit(i,0,static_cast<const COpenGLTexture*>(tex)->getOpenGLTextureType());
+            COpenGLExtensionHandler::extGlBindTextureUnit(i,0,dynamic_cast<const COpenGLTexture*>(tex)->getOpenGLTextureType());
             COpenGLExtensionHandler::extGlBindSampler(i,0);
             tex->drop();
             CurrentTexture[i] = 0;
@@ -2311,7 +2317,7 @@ void COpenGLDriver::STextureStageCache::clear()
     {
         if (CurrentTexture[i])
         {
-            COpenGLExtensionHandler::extGlBindTextureUnit(i,0,static_cast<const COpenGLTexture*>(CurrentTexture[i])->getOpenGLTextureType());
+            COpenGLExtensionHandler::extGlBindTextureUnit(i,0,dynamic_cast<const COpenGLTexture*>(CurrentTexture[i])->getOpenGLTextureType());
             COpenGLExtensionHandler::extGlBindSampler(i,0);
             CurrentTexture[i]->drop();
             CurrentTexture[i] = 0;
@@ -2320,36 +2326,207 @@ void COpenGLDriver::STextureStageCache::clear()
 }
 
 
+bool orderByMip(CImageData* a, CImageData* b)
+{
+    return a->getSupposedMipLevel() < b->getSupposedMipLevel();
+}
 
 //! returns a device dependent texture from a software surface (IImage)
-video::ITexture* COpenGLDriver::createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData)
+video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name)
 {
-	return new COpenGLTexture(surface, name, mipmapData, this);
+    if (!images.size())
+        return NULL;
+
+    //validate a bit
+    uint32_t initialMaxCoord[3] = {0,0,0};
+    uint32_t highestMip = 0;
+    ECOLOR_FORMAT candidateFormat = format;
+    for (std::vector<CImageData*>::const_iterator it=images.begin(); it!=images.end(); it++)
+    {
+        CImageData* img = *it;
+        if (!img||img->getColorFormat()==ECF_UNKNOWN)
+        {
+#ifdef _DEBUG
+            os::Printer::log("Very invalid mip-chain!", ELL_ERROR);
+#endif // _DEBUG
+            return NULL;
+        }
+
+        for (size_t i=0; i<3; i++)
+        {
+            uint32_t sideSize = img->getSliceMax()[i]<<img->getSupposedMipLevel();
+            if (initialMaxCoord[i] < sideSize)
+                initialMaxCoord[i] = sideSize;
+        }
+        if (highestMip < img->getSupposedMipLevel())
+            highestMip = img->getSupposedMipLevel();
+
+        //figure out the format
+        if (format==ECF_UNKNOWN)
+        {
+            if (candidateFormat==ECF_UNKNOWN)
+                candidateFormat = img->getColorFormat();
+            else if (candidateFormat!=img->getColorFormat())
+            {
+#ifdef _DEBUG
+                os::Printer::log("Can't pick a default texture format if the mip-chain doesn't have a consistent one!", ELL_ERROR);
+#endif // _DEBUG
+                return NULL;
+            }
+        }
+    }
+    //haven't figured best format out
+    if (format==ECF_UNKNOWN)
+    {
+        if (candidateFormat==ECF_UNKNOWN)
+        {
+    #ifdef _DEBUG
+            os::Printer::log("Couldn't pick a texture format, entire mip-chain doesn't know!", ELL_ERROR);
+    #endif // _DEBUG
+            return NULL;
+        }
+        else
+            candidateFormat = candidateFormat;
+    }
+
+    //! Sort the mipchain!!!
+    std::vector<CImageData*> sortedMipchain(images);
+    std::sort(sortedMipchain.begin(),sortedMipchain.end(),orderByMip);
+
+    //figure out the texture type if not provided
+    ITexture::E_TEXTURE_TYPE actualType = type;
+    if (type>=ITexture::ETT_COUNT)
+    {
+        if (initialMaxCoord[2]>1)
+        {
+            //! with this little info I literally can't guess if you want a cubemap!
+            if (sortedMipchain.size()>1&&sortedMipchain.front()->getSliceMax()[2]==sortedMipchain.back()->getSliceMax()[2])
+                actualType = ITexture::ETT_2D_ARRAY;
+            else
+                actualType = ITexture::ETT_3D;
+        }
+        else if (initialMaxCoord[1]>1)
+        {
+            if (sortedMipchain.size()>1&&sortedMipchain.front()->getSliceMax()[1]==sortedMipchain.back()->getSliceMax()[1])
+                actualType = ITexture::ETT_1D_ARRAY;
+            else
+                actualType = ITexture::ETT_2D;
+        }
+        else
+        {
+            actualType = ITexture::ETT_2D; //should be ETT_1D but 2D is default since forever
+        }
+    }
+
+    //get out max texture size
+    uint32_t maxCoord[3] = {initialMaxCoord[0],initialMaxCoord[1],initialMaxCoord[2]};
+    for (std::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
+    {
+        CImageData* img = *it;
+        if (img->getSliceMax()[0]>getMaxTextureSize(actualType)[0]||
+            (actualType==ITexture::ETT_2D||actualType==ITexture::ETT_1D_ARRAY||actualType==ITexture::ETT_CUBE_MAP||actualType==ITexture::ETT_2D_MULTISAMPLE)
+                &&img->getSliceMax()[1]>getMaxTextureSize(actualType)[1]||
+            (actualType==ITexture::ETT_3D||actualType==ITexture::ETT_2D_ARRAY||actualType==ITexture::ETT_CUBE_MAP_ARRAY||actualType==ITexture::ETT_2D_MULTISAMPLE_ARRAY)
+                &&img->getSliceMax()[2]>getMaxTextureSize(actualType)[2])
+        {
+#ifdef _DEBUG
+            os::Printer::log("Attemped to create a larger texture than supported (we should implement mip-chain dropping)!", ELL_ERROR);
+#endif // _DEBUG
+            return NULL;
+        }
+    }
+
+    video::ITexture* texture = createDeviceDependentTexture(actualType,maxCoord,highestMip ? (highestMip+1):0,name,candidateFormat);
+
+    for (std::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
+    {
+        CImageData* img = *it;
+        if (!img)
+            continue;
+
+        texture->updateSubRegion(img->getColorFormat(),img->getData(),img->getSliceMin(),img->getSliceMax(),img->getSupposedMipLevel(),img->getUnpackAlignment());
+    }
+
+    //has mipmap but no explicit chain
+    if (highestMip==0&&texture->hasMipMaps())
+        texture->regenerateMipMapLevels();
+
+    return texture;
 }
 
 //! returns a device dependent texture from a software surface (IImage)
 video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, ECOLOR_FORMAT format)
 {
+    //if the max coords are not 0, then there is something seriously wrong
+    switch (type)
+    {
+        case ITexture::ETT_1D:
+        case ITexture::ETT_TEXTURE_BUFFER:
+            assert(size[0]>0);
+            break;
+        case ITexture::ETT_2D:
+        case ITexture::ETT_1D_ARRAY:
+        case ITexture::ETT_2D_MULTISAMPLE:
+            assert(size[0]>0&&size[1]>0);
+            break;
+        default:
+            assert(size[0]>0&&size[1]>0&&size[2]>0);
+            break;
+    }
+
+    //do the texture creation flag mumbo jumbo of death.
+    if (mipmapLevels==0)
+    {
+        if (getTextureCreationFlag(ETCF_CREATE_MIP_MAPS))
+        {
+            uint32_t maxSideLen = size[0];
+            switch (type)
+            {
+                case ITexture::ETT_1D:
+                case ITexture::ETT_TEXTURE_BUFFER:
+                    break;
+                case ITexture::ETT_2D:
+                case ITexture::ETT_1D_ARRAY:
+                case ITexture::ETT_2D_MULTISAMPLE:
+                    if (maxSideLen < size[1])
+                        maxSideLen = size[1];
+                default:// YAY FALL THROUGH!!!
+                    if (maxSideLen < size[2])
+                        maxSideLen = size[2];
+                    break;
+            }
+            mipmapLevels = 1u+uint32_t(floorf(log2(float(maxSideLen))));
+        }
+        else
+            mipmapLevels = 1;
+    }
+
     switch (type)
     {
         ///case ITexture::ETT_1D:
             ///break;
         case ITexture::ETT_2D:
-            return new COpenGLTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),*reinterpret_cast<const core::dimension2du*>(size),NULL, GL_INVALID_ENUM,GL_INVALID_ENUM, name, NULL, this, mipmapLevels);
+            return new COpenGL2DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
             break;
         case ITexture::ETT_3D:
-            return new COpenGL3DTexture(*reinterpret_cast<const core::vector3d<uint32_t>* >(size),COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),GL_INVALID_ENUM,GL_INVALID_ENUM,name,NULL,NULL,this,mipmapLevels);
+            return new COpenGL3DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
         ///case ITexture::ETT_1D_ARRAY:
             ///break;
         case ITexture::ETT_2D_ARRAY:
-            return new COpenGL2DTextureArray(*reinterpret_cast<const core::vector3d<uint32_t>* >(size),format,name,NULL,this,mipmapLevels);
+            return new COpenGL2DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
-        default:
-            return NULL; // ETT_CUBE_MAP, ETT_CUBE_MAP_ARRAY, ETT_TEXTURE_BUFFER
+#ifdef _DEBUG
+        case ITexture::ETT_TEXTURE_BUFFER:
+            os::Printer::log("Use IVideoDriver::addTextureBufferObject() instead.", ELL_ERROR);
+            break;
+#endif
+        default:// ETT_CUBE_MAP, ETT_CUBE_MAP_ARRAY, ETT_TEXTURE_BUFFER
             break;
     }
+
+    return NULL;
 }
 
 
@@ -2571,44 +2748,6 @@ void COpenGLDriver::setBasicRenderStates(const SMaterial& material, const SMater
 			case EBO_MAX:
                 extGlBlendEquation(GL_MAX);
 				break;
-			case EBO_MIN_FACTOR:
-#if defined(GL_AMD_blend_minmax_factor)
-				if (FeatureAvailable[IRR_AMD_blend_minmax_factor])
-					extGlBlendEquation(GL_FACTOR_MIN_AMD);
-				// fallback in case of missing extension
-				else
-#endif
-				extGlBlendEquation(GL_MIN);
-				break;
-			case EBO_MAX_FACTOR:
-#if defined(GL_AMD_blend_minmax_factor)
-				if (FeatureAvailable[IRR_AMD_blend_minmax_factor])
-					extGlBlendEquation(GL_FACTOR_MAX_AMD);
-				// fallback in case of missing extension
-				else
-#endif
-				extGlBlendEquation(GL_MAX);
-				break;
-			case EBO_MIN_ALPHA:
-#if defined(GL_SGIX_blend_alpha_minmax)
-				if (FeatureAvailable[IRR_SGIX_blend_alpha_minmax])
-					extGlBlendEquation(GL_ALPHA_MIN_SGIX);
-				// fallback in case of missing extension
-				else
-					if (FeatureAvailable[IRR_EXT_blend_minmax])
-						extGlBlendEquation(GL_MIN_EXT);
-#endif
-				break;
-			case EBO_MAX_ALPHA:
-#if defined(GL_SGIX_blend_alpha_minmax)
-				if (FeatureAvailable[IRR_SGIX_blend_alpha_minmax])
-					extGlBlendEquation(GL_ALPHA_MAX_SGIX);
-				// fallback in case of missing extension
-				else
-					if (FeatureAvailable[IRR_EXT_blend_minmax])
-						extGlBlendEquation(GL_MAX_EXT);
-#endif
-				break;
 			default:
 				extGlBlendEquation(GL_FUNC_ADD);
 				break;
@@ -2663,10 +2802,27 @@ void COpenGLDriver::setViewPort(const core::rect<int32_t>& area)
 	}
 }
 
+ITextureBufferObject* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format, const size_t& offset, const size_t& length)
+{
+    COpenGLBuffer* buffer = dynamic_cast<COpenGLBuffer*>(buf);
+    if (!buffer)
+        return NULL;
+
+    ITextureBufferObject* tbo = new COpenGLTextureBufferObject(buffer,format,offset,length);
+	CNullDriver::addTextureBufferObject(tbo);
+    return tbo;
+}
 
 IRenderBuffer* COpenGLDriver::addRenderBuffer(const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
 {
-	IRenderBuffer* buffer = new COpenGLRenderBuffer(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,this);
+	IRenderBuffer* buffer = new COpenGLRenderBuffer(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size);
+	CNullDriver::addRenderBuffer(buffer);
+	return buffer;
+}
+
+IRenderBuffer* COpenGLDriver::addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
+{
+	IRenderBuffer* buffer = new COpenGLMultisampleRenderBuffer(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,samples);
 	CNullDriver::addRenderBuffer(buffer);
 	return buffer;
 }

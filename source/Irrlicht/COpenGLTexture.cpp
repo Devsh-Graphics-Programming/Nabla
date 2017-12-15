@@ -19,204 +19,11 @@ namespace irr
 namespace video
 {
 
-//! constructor for usual textures
-COpenGLTexture::COpenGLTexture(IImage* origImage, const io::path& name, void* mipmapData, COpenGLDriver* driver, uint32_t mipmapLevels)
-	: ITexture(name), ColorFormat(ECF_A8R8G8B8), Driver(driver),
-	TextureName(0), InternalFormat(GL_RGBA), MipLevelsStored(0x1),
-	TextureNameHasChanged(0)
-{
-    TextureSize[2] = 1;
-	#ifdef _DEBUG
-	setDebugName("COpenGLTexture");
-	#endif
-	core::dimension2du ImageSize2 = getImageValues(origImage);
-
-    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(TextureSize[0],TextureSize[1]),Driver->getMaxTextureSize(ETT_2D)[0])))));
-    if (mipmapLevels==0)
-    {
-        HasMipMaps = Driver->getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
-        MipLevelsStored = HasMipMaps ? defaultMipMapCount:1;
-    }
-    else
-    {
-        HasMipMaps = mipmapLevels>1;
-        MipLevelsStored = core::min_(mipmapLevels,defaultMipMapCount);
-    }
-
-
-    COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_2D,1,&TextureName);
-
-    GLenum PixelFormat = GL_BGRA;
-    GLenum PixelType = GL_UNSIGNED_BYTE;
-	InternalFormat = getOpenGLFormatAndParametersFromColorFormat(ColorFormat, PixelFormat, PixelType);
-    IImage* Image = 0;
-
-	if (ImageSize2!=*reinterpret_cast<core::dimension2du*>(TextureSize)||ColorFormat!=origImage->getColorFormat())
-	{
-		Image = Driver->createImage(ColorFormat, *reinterpret_cast<core::dimension2du*>(TextureSize));
-		// scale texture
-		origImage->copyToScaling(Image);
-		os::Printer::log("DevSH is very disappointed with you for creating a weird size texture.", ELL_ERROR);
-	}
-	void* data = Image ? Image->lock():origImage->lock();
-    //! we're going to have problems with uploading lower mip levels
-    uint32_t bpp = IImage::getBitsPerPixelFromFormat(ColorFormat);
-
-    COpenGLExtensionHandler::extGlTextureStorage2D(TextureName,GL_TEXTURE_2D,MipLevelsStored,InternalFormat,TextureSize[0], TextureSize[1]);
-
-
-    uint8_t* tmpMipmapDataPTr = NULL;
-    if (data)
-    {
-        size_t levelByteSize;
-        if (ColorFormat>=ECF_RGB_BC1&&ColorFormat<=ECF_RG_BC5)
-        {
-            levelByteSize = (((TextureSize[0]+3)&0xfffffc)*((TextureSize[1]+3)&0xfffffc)*bpp)/8;
-            COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(TextureName,GL_TEXTURE_2D,0,0,0,TextureSize[0], TextureSize[1], InternalFormat, levelByteSize,data);
-        }
-        else
-        {
-            levelByteSize = (TextureSize[0]*TextureSize[1]*bpp)/8;
-            COpenGLExtensionHandler::setPixelUnpackAlignment((TextureSize[0]*bpp)/8,data);
-            COpenGLExtensionHandler::extGlTextureSubImage2D(TextureName,GL_TEXTURE_2D,0,0,0,TextureSize[0], TextureSize[1], PixelFormat,PixelType,data);
-        }
-
-       tmpMipmapDataPTr = ((uint8_t*)data)+levelByteSize;
-    }
-
-    if (mipmapLevels>1&&tmpMipmapDataPTr)
-    {
-        for (uint32_t i=1; i<MipLevelsStored; i++)
-        {
-            core::dimension2d<uint32_t> tmpSize;
-            tmpSize.Width = core::max_(TextureSize[0]/(0x1u<<i),0x1u);
-            tmpSize.Height = core::max_(TextureSize[1]/(0x1u<<i),0x1u);
-            size_t levelByteSize;
-            if (ColorFormat>=ECF_RGB_BC1&&ColorFormat<=ECF_RG_BC5)
-            {
-                levelByteSize = (((tmpSize.Width+3)&0xfffffc)*((tmpSize.Height+3)&0xfffffc)*bpp)/8;
-                COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(TextureName,GL_TEXTURE_2D,i,0,0, tmpSize.Width,tmpSize.Height, InternalFormat,levelByteSize,tmpMipmapDataPTr);
-            }
-            else
-            {
-                levelByteSize = (tmpSize.Width*tmpSize.Height*bpp)/8;
-                COpenGLExtensionHandler::setPixelUnpackAlignment((tmpSize.Width*bpp)/8,tmpMipmapDataPTr);
-                COpenGLExtensionHandler::extGlTextureSubImage2D(TextureName,GL_TEXTURE_2D,i,0,0, tmpSize.Width,tmpSize.Height, PixelFormat, PixelType, (void*)tmpMipmapDataPTr);
-            }
-            tmpMipmapDataPTr += levelByteSize;
-        }
-    }
-    else if (HasMipMaps)
-    {
-        COpenGLExtensionHandler::extGlGenerateTextureMipmap(TextureName,GL_TEXTURE_2D);
-    }
-
-	if (Image)
-	{
-		Image->drop();
-	}
-
-#ifdef OPENGL_LEAK_DEBUG
-    COpenGLExtensionHandler::textureLeaker.registerObj(this);
-#endif // OPENGL_LEAK_DEBUG
-}
-
-COpenGLTexture::COpenGLTexture(GLenum internalFormat, core::dimension2du size, const void* data, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, void* mipmapData, COpenGLDriver* driver, uint32_t mipmapLevels)
-	: ITexture(name), Driver(driver), TextureName(0),
-	InternalFormat(internalFormat),
-	TextureNameHasChanged(0)
-{
-    TextureSize[0] = size.Width;
-    TextureSize[1] = size.Height;
-    TextureSize[2] = 1;
-	#ifdef _DEBUG
-	setDebugName("COpenGLTexture");
-	#endif
-
-    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(size.Width,size.Height),Driver->getMaxTextureSize(ETT_2D)[0])))));
-    if (mipmapLevels==0)
-    {
-        HasMipMaps = Driver->getTextureCreationFlag(ETCF_CREATE_MIP_MAPS);
-        MipLevelsStored = HasMipMaps ? defaultMipMapCount:1;
-    }
-    else
-    {
-        HasMipMaps = mipmapLevels>1;
-        MipLevelsStored = core::min_(mipmapLevels,defaultMipMapCount);
-    }
-
-
-    COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_2D,1,&TextureName);
-
-    ColorFormat = getColorFormatFromSizedOpenGLFormat(InternalFormat);
-    bool compressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
-    //! we're going to have problems with uploading lower mip levels
-    uint32_t bpp = getOpenGLFormatBpp(InternalFormat);
-
-
-
-    COpenGLExtensionHandler::extGlTextureStorage2D(TextureName,GL_TEXTURE_2D,MipLevelsStored,InternalFormat,size.Width, size.Height);
-    if (data)
-    {
-        if (compressed)
-        {
-            size_t levelByteSize = (((size.Width+3)&0xfffffc)*((size.Height+3)&0xfffffc)*bpp)/8;
-            COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(TextureName,GL_TEXTURE_2D,0,0,0,size.Width, size.Height, InternalFormat,levelByteSize,data);
-        }
-        else
-        {
-            COpenGLExtensionHandler::setPixelUnpackAlignment((TextureSize[0]*bpp)/8,const_cast<void*>(data));
-            COpenGLExtensionHandler::extGlTextureSubImage2D(TextureName,GL_TEXTURE_2D,0,0,0,size.Width, size.Height, inDataFmt,inDataTpe,data);
-        }
-    }
-
-    if (mipmapData)
-    {
-        uint8_t* tmpMipmapDataPTr = (uint8_t*)mipmapData;
-        for (uint32_t i=1; i<MipLevelsStored; i++)
-        {
-            core::dimension2d<uint32_t> tmpSize = size;
-            tmpSize.Width = core::max_(tmpSize.Width/(0x1u<<i),0x1u);
-            tmpSize.Height = core::max_(tmpSize.Height/(0x1u<<i),0x1u);
-            size_t levelByteSize;
-            if (compressed)
-            {
-                levelByteSize = (((tmpSize.Width+3)&0xfffffc)*((tmpSize.Height+3)&0xfffffc)*bpp)/8;
-                COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(TextureName,GL_TEXTURE_2D,i,0,0, tmpSize.Width,tmpSize.Height, InternalFormat,levelByteSize,tmpMipmapDataPTr);
-            }
-            else
-            {
-                levelByteSize = (tmpSize.Width*tmpSize.Height*bpp)/8;
-                COpenGLExtensionHandler::setPixelUnpackAlignment((tmpSize.Width*bpp)/8,tmpMipmapDataPTr);
-                COpenGLExtensionHandler::extGlTextureSubImage2D(TextureName,GL_TEXTURE_2D,i,0,0, tmpSize.Width,tmpSize.Height, inDataFmt, inDataTpe, (void*)tmpMipmapDataPTr);
-            }
-            tmpMipmapDataPTr += levelByteSize;
-        }
-    }
-    else if (HasMipMaps)
-    {
-        COpenGLExtensionHandler::extGlGenerateTextureMipmap(TextureName,GL_TEXTURE_2D);
-    }
-
-#ifdef OPENGL_LEAK_DEBUG
-    COpenGLExtensionHandler::textureLeaker.registerObj(this);
-#endif // OPENGL_LEAK_DEBUG
-}
-
 
 //! constructor for basic setup (only for derived classes)
-COpenGLTexture::COpenGLTexture(const io::path& name, COpenGLDriver* driver)
-	: ITexture(name), ColorFormat(ECF_UNKNOWN), Driver(driver),
-	TextureName(0), InternalFormat(GL_RGBA), MipLevelsStored(0), HasMipMaps(false),
-	TextureNameHasChanged(0)
+COpenGLTexture::COpenGLTexture()
+	: TextureName(0), TextureNameHasChanged(0)
 {
-    TextureSize[0] = 1;
-    TextureSize[1] = 1;
-    TextureSize[2] = 1;
-	#ifdef _DEBUG
-	setDebugName("COpenGLTexture");
-	#endif
-
 #ifdef OPENGL_LEAK_DEBUG
     COpenGLExtensionHandler::textureLeaker.registerObj(this);
 #endif // OPENGL_LEAK_DEBUG
@@ -235,56 +42,33 @@ COpenGLTexture::~COpenGLTexture()
 }
 
 
-//! Choose best matching color format, based on texture creation flags
-ECOLOR_FORMAT COpenGLTexture::getBestColorFormat(ECOLOR_FORMAT format)
+
+//! constructor for basic setup (only for derived classes)
+COpenGLFilterableTexture::COpenGLFilterableTexture(const io::path& name)
+                                : ITexture(name), ColorFormat(ECF_UNKNOWN),
+                                InternalFormat(GL_RGBA), MipLevelsStored(0)
 {
-	ECOLOR_FORMAT destFormat = ECF_A8R8G8B8;
-	switch (format)
-	{
-		case ECF_A1R5G5B5:
-			if (!Driver->getTextureCreationFlag(ETCF_ALWAYS_32_BIT))
-				destFormat = ECF_A1R5G5B5;
-		break;
-		case ECF_R5G6B5:
-			if (!Driver->getTextureCreationFlag(ETCF_ALWAYS_32_BIT))
-				destFormat = ECF_R5G6B5;
-		break;
-		//! NO IRRLICHT, JUST NO - you will strip the ALPHA CHANNEL!
-		/*
-		case ECF_A8R8G8B8:
-			if (Driver->getTextureCreationFlag(ETCF_ALWAYS_16_BIT) ||
-					Driver->getTextureCreationFlag(ETCF_OPTIMIZED_FOR_SPEED))
-				destFormat = ECF_A1R5G5B5;
-		break;*/
-		case ECF_R8G8B8:
-			if (Driver->getTextureCreationFlag(ETCF_ALWAYS_16_BIT) ||
-					Driver->getTextureCreationFlag(ETCF_OPTIMIZED_FOR_SPEED))
-				destFormat = ECF_R5G6B5;
-            else
-                destFormat = ECF_R8G8B8;
-		default:
-            destFormat = format;
-		break;
-	}
-	if (Driver->getTextureCreationFlag(ETCF_NO_ALPHA_CHANNEL))
-	{
-		switch (destFormat)
-		{
-			case ECF_A1R5G5B5:
-				destFormat = ECF_R5G6B5;
-			break;
-			case ECF_A8R8G8B8:
-			case ECF_R8G8B8A8:
-				destFormat = ECF_R8G8B8;
-			break;
-			default:
-			break;
-		}
-	}
-	return destFormat;
+    TextureSize[0] = 1;
+    TextureSize[1] = 1;
+    TextureSize[2] = 1;
+	#ifdef _DEBUG
+	setDebugName("COpenGLFilterableTexture");
+	#endif
 }
 
-uint32_t COpenGLTexture::getOpenGLFormatBpp(const GLenum& colorformat) const
+
+//! Regenerates the mip map levels of the texture. Useful after locking and
+//! modifying the texture
+void COpenGLFilterableTexture::regenerateMipMapLevels()
+{
+	if (MipLevelsStored<=1)
+		return;
+
+    COpenGLExtensionHandler::extGlGenerateTextureMipmap(TextureName,getOpenGLTextureType());
+}
+
+
+uint32_t COpenGLTexture::getOpenGLFormatBpp(const GLenum& colorformat)
 {
     switch(colorformat)
     {
@@ -746,10 +530,6 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_F
 		}
 	}
 
-#ifndef GL_ARB_texture_rg
-    os::Printer::log("DevSH recommends you send this machine to a museum, GL_ARB_texture_rg unsupported.", ELL_ERROR);
-#endif
-
 	return internalformat;
 }
 
@@ -984,139 +764,6 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
     }
     return ECF_UNKNOWN;
 }
-
-
-// prepare values ImageSize, TextureSize, and ColorFormat based on image
-core::dimension2du COpenGLTexture::getImageValues(IImage* image)
-{
-	if (!image)
-	{
-		os::Printer::log("No image for OpenGL texture.", ELL_ERROR);
-		return core::dimension2du(0,0);
-	}
-
-	core::dimension2du ImageSize = image->getDimension();
-
-	if ( !ImageSize.Width || !ImageSize.Height)
-	{
-		os::Printer::log("Invalid size of image for OpenGL Texture.", ELL_ERROR);
-		return ImageSize;
-	}
-
-	const float ratio = (float)ImageSize.Width/(float)ImageSize.Height;
-	if ((ImageSize.Width>Driver->getMaxTextureSize(ETT_2D)[0]) && (ratio >= 1.0f))
-	{
-		ImageSize.Width = Driver->getMaxTextureSize(ETT_2D)[0];
-		ImageSize.Height = (uint32_t)(Driver->getMaxTextureSize(ETT_2D)[1]/ratio);
-	}
-	else if (ImageSize.Height>Driver->getMaxTextureSize(ETT_2D)[1])
-	{
-		ImageSize.Height = Driver->getMaxTextureSize(ETT_2D)[1];
-		ImageSize.Width = (uint32_t)(Driver->getMaxTextureSize(ETT_2D)[0]*ratio);
-	}
-	TextureSize[0] = ImageSize.Width;
-	TextureSize[1] = ImageSize.Height;
-
-	ColorFormat = getBestColorFormat(image->getColorFormat());
-
-	return ImageSize;
-}
-
-
-
-//! returns color format of texture
-ECOLOR_FORMAT COpenGLTexture::getColorFormat() const
-{
-	return ColorFormat;
-}
-
-
-//! returns pitch of texture (in bytes)
-uint32_t COpenGLTexture::getPitch() const
-{
-	return IImage::getBitsPerPixelFromFormat(ColorFormat)*TextureSize[0]/8;
-}
-
-/**
-GLenum COpenGLTexture::getOpenGLPixelFormat() const
-{
-    return PixelFormat;
-}
-GLenum COpenGLTexture::getOpenGLPixelType() const
-{
-    return PixelType;
-}**/
-
-
-//! Returns whether this texture has mipmaps
-bool COpenGLTexture::hasMipMaps() const
-{
-	return HasMipMaps;
-}
-
-
-//! Regenerates the mip map levels of the texture. Useful after locking and
-//! modifying the texture
-void COpenGLTexture::regenerateMipMapLevels()
-{
-	if (!HasMipMaps)
-		return;
-
-    COpenGLExtensionHandler::extGlGenerateTextureMipmap(TextureName,getOpenGLTextureType());
-}
-
-
-bool COpenGLTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap)
-{
-    bool compressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
-    if (compressed&&(minimum[0]||minimum[1]))
-        return false;
-
-    GLenum pixFmt,pixType;
-	getOpenGLFormatAndParametersFromColorFormat(inDataColorFormat, pixFmt, pixType);
-
-    if (compressed)
-    {
-        size_t levelByteSize = ((((maximum[0]-minimum[0])/(0x1u<<mipmap)+3)&0xfffffc)*(((maximum[1]-minimum[1])/(0x1u<<mipmap)+3)&0xfffffc)*COpenGLTexture::getOpenGLFormatBpp(InternalFormat))/8;
-
-        COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(TextureName,GL_TEXTURE_2D, mipmap, minimum[0],minimum[1],maximum[0]-minimum[0],maximum[1]-minimum[1], InternalFormat, levelByteSize, data);
-    }
-    else
-    {
-        //! we're going to have problems with uploading lower mip levels
-        uint32_t bpp = IImage::getBitsPerPixelFromFormat(inDataColorFormat);
-        uint32_t pitchInBits = ((maximum[0]-minimum[0])>>mipmap)*bpp/8;
-
-        COpenGLExtensionHandler::setPixelUnpackAlignment(pitchInBits,const_cast<void*>(data));
-        COpenGLExtensionHandler::extGlTextureSubImage2D(TextureName, GL_TEXTURE_2D, mipmap, minimum[0],minimum[1], maximum[0]-minimum[0],maximum[1]-minimum[1], pixFmt, pixType, data);
-    }
-    return true;
-}
-
-bool COpenGLTexture::resize(const uint32_t* size, const uint32_t &mipLevels)
-{
-    memcpy(TextureSize,size,12);
-
-    if (TextureName)
-        glDeleteTextures(1,&TextureName);
-    COpenGLExtensionHandler::extGlCreateTextures(getOpenGLTextureType(),1,&TextureName);
-    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::min_(core::max_(size[0],size[1]),Driver->getMaxTextureSize(ETT_2D)[0])))));
-    if (HasMipMaps)
-    {
-        if (mipLevels==0)
-            MipLevelsStored = defaultMipMapCount;
-        else
-            MipLevelsStored = core::min_(mipLevels,defaultMipMapCount);
-    }
-    else
-        MipLevelsStored = 1;
-	COpenGLExtensionHandler::extGlTextureStorage2D(TextureName,getOpenGLTextureType(), MipLevelsStored, InternalFormat, TextureSize[0], TextureSize[1]);
-
-	TextureNameHasChanged = CNullDriver::incrementAndFetchReallocCounter();
-	return true;
-}
-
-
 
 
 } // end namespace video

@@ -31,6 +31,8 @@ namespace core
 		explicit vector3d(T n) : X(n), Y(n), Z(n) {}
 		//! Copy constructor
 		vector3d(const vector3d<T>& other) : X(other.X), Y(other.Y), Z(other.Z) {}
+		//!
+		vector3d(const T* pointerToArray) : X(pointerToArray[0]), Y(pointerToArray[1]), Z(pointerToArray[2]) {}
 
 		// operators
 

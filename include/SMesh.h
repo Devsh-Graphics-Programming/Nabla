@@ -18,203 +18,204 @@ namespace scene
 	//! Simple implementation of the IMesh interface.
 	class SCPUMesh : public ICPUMesh
 	{
-	    core::LeakDebugger* leakDebugger;
+            core::LeakDebugger* leakDebugger;
+        protected:
+            //! destructor
+            virtual ~SCPUMesh()
+            {
+                if (leakDebugger)
+                    leakDebugger->deregisterObj(this);
+
+                // drop buffers
+                for (uint32_t i=0; i<MeshBuffers.size(); ++i)
+                    MeshBuffers[i]->drop();
+            }
 	    public:
-		//! constructor
-		SCPUMesh(core::LeakDebugger* dbgr=NULL) : leakDebugger(dbgr)
-		{
-		    if (leakDebugger)
-                leakDebugger->registerObj(this);
+            //! constructor
+            SCPUMesh(core::LeakDebugger* dbgr=NULL) : leakDebugger(dbgr)
+            {
+                if (leakDebugger)
+                    leakDebugger->registerObj(this);
 
-			#ifdef _DEBUG
-			setDebugName("SCPUMesh");
-			#endif
-		}
+                #ifdef _DEBUG
+                setDebugName("SCPUMesh");
+                #endif
+            }
 
-		//! destructor
-		virtual ~SCPUMesh()
-		{
-		    if (leakDebugger)
-                leakDebugger->deregisterObj(this);
-
-			// drop buffers
-			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
-				MeshBuffers[i]->drop();
-		}
-
-		//! clean mesh
-		virtual void clear()
-		{
-			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
-				MeshBuffers[i]->drop();
-			MeshBuffers.clear();
-			BoundingBox.reset ( 0.f, 0.f, 0.f );
-		}
+            //! clean mesh
+            virtual void clear()
+            {
+                for (uint32_t i=0; i<MeshBuffers.size(); ++i)
+                    MeshBuffers[i]->drop();
+                MeshBuffers.clear();
+                BoundingBox.reset ( 0.f, 0.f, 0.f );
+            }
 
 
-		//! returns amount of mesh buffers.
-		virtual uint32_t getMeshBufferCount() const
-		{
-			return MeshBuffers.size();
-		}
+            //! returns amount of mesh buffers.
+            virtual uint32_t getMeshBufferCount() const
+            {
+                return MeshBuffers.size();
+            }
 
-		//! returns pointer to a mesh buffer
-		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const
-		{
-		    if (MeshBuffers.size())
-                return MeshBuffers[nr];
-            else
-                return NULL;
-		}
+            //! returns pointer to a mesh buffer
+            virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const
+            {
+                if (MeshBuffers.size())
+                    return MeshBuffers[nr];
+                else
+                    return NULL;
+            }
 
-		//! returns an axis aligned bounding box
-		virtual const core::aabbox3d<float>& getBoundingBox() const
-		{
-			return BoundingBox;
-		}
+            //! returns an axis aligned bounding box
+            virtual const core::aabbox3d<float>& getBoundingBox() const
+            {
+                return BoundingBox;
+            }
 
-		//! set user axis aligned bounding box
-		virtual void setBoundingBox( const core::aabbox3df& box)
-		{
-			BoundingBox = box;
-		}
+            //! set user axis aligned bounding box
+            virtual void setBoundingBox( const core::aabbox3df& box)
+            {
+                BoundingBox = box;
+            }
 
-		//! recalculates the bounding box
-		void recalculateBoundingBox(const bool recomputeSubBoxes=false)
-		{
-			if (MeshBuffers.size())
-			{
-			    if (recomputeSubBoxes)
-                    MeshBuffers[0]->recalculateBoundingBox();
-
-				BoundingBox = MeshBuffers[0]->getBoundingBox();
-				for (uint32_t i=1; i<MeshBuffers.size(); ++i)
+            //! recalculates the bounding box
+            void recalculateBoundingBox(const bool recomputeSubBoxes=false)
+            {
+                if (MeshBuffers.size())
                 {
                     if (recomputeSubBoxes)
-                        MeshBuffers[i]->recalculateBoundingBox();
+                        MeshBuffers[0]->recalculateBoundingBox();
 
-					BoundingBox.addInternalBox(MeshBuffers[i]->getBoundingBox());
+                    BoundingBox = MeshBuffers[0]->getBoundingBox();
+                    for (uint32_t i=1; i<MeshBuffers.size(); ++i)
+                    {
+                        if (recomputeSubBoxes)
+                            MeshBuffers[i]->recalculateBoundingBox();
+
+                        BoundingBox.addInternalBox(MeshBuffers[i]->getBoundingBox());
+                    }
                 }
-			}
-			else
-				BoundingBox.reset(0.0f, 0.0f, 0.0f);
-		}
+                else
+                    BoundingBox.reset(0.0f, 0.0f, 0.0f);
+            }
 
-		//! adds a MeshBuffer
-		/** The bounding box is not updated automatically. */
-		void addMeshBuffer(ICPUMeshBuffer* buf)
-		{
-			if (buf)
-			{
-				buf->grab();
-				MeshBuffers.push_back(buf);
-			}
-		}
+            //! adds a MeshBuffer
+            /** The bounding box is not updated automatically. */
+            void addMeshBuffer(ICPUMeshBuffer* buf)
+            {
+                if (buf)
+                {
+                    buf->grab();
+                    MeshBuffers.push_back(buf);
+                }
+            }
 
-		//! sets a flag of all contained materials to a new value
-		virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
-		{
-			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
-				MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
-		}
+            //! sets a flag of all contained materials to a new value
+            virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
+            {
+                for (uint32_t i=0; i<MeshBuffers.size(); ++i)
+                    MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
+            }
 
-		virtual E_MESH_TYPE getMeshType() const {return EMT_NOT_ANIMATED;}
+            virtual E_MESH_TYPE getMeshType() const {return EMT_NOT_ANIMATED;}
 
-		//! The bounding box of this mesh
-		core::aabbox3d<float> BoundingBox;
-    //private:
-		//! The meshbuffers of this mesh
-		core::array<ICPUMeshBuffer*> MeshBuffers;
+            //! The bounding box of this mesh
+            core::aabbox3d<float> BoundingBox;
+
+        //private:
+            //! The meshbuffers of this mesh
+            core::array<ICPUMeshBuffer*> MeshBuffers;
 	};
 
 	//! Simple implementation of the IMesh interface.
 	class SGPUMesh : public IGPUMesh
 	{
-	    core::LeakDebugger* leakDebugger;
-    public:
-		//! constructor
-		SGPUMesh(core::LeakDebugger* dbgr=NULL) : leakDebugger(dbgr)
-		{
-		    if (leakDebugger)
-                leakDebugger->registerObj(this);
+            core::LeakDebugger* leakDebugger;
+        protected:
+            //! destructor
+            virtual ~SGPUMesh()
+            {
+                if (leakDebugger)
+                    leakDebugger->deregisterObj(this);
 
-			#ifdef _DEBUG
-			setDebugName("SGPUMesh");
-			#endif
-		}
+                // drop buffers
+                for (uint32_t i=0; i<MeshBuffers.size(); ++i)
+                    MeshBuffers[i]->drop();
+            }
+        public:
+            //! constructor
+            SGPUMesh(core::LeakDebugger* dbgr=NULL) : leakDebugger(dbgr)
+            {
+                if (leakDebugger)
+                    leakDebugger->registerObj(this);
 
-		//! destructor
-		virtual ~SGPUMesh()
-		{
-		    if (leakDebugger)
-                leakDebugger->deregisterObj(this);
+                #ifdef _DEBUG
+                setDebugName("SGPUMesh");
+                #endif
+            }
 
-			// drop buffers
-			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
-				MeshBuffers[i]->drop();
-		}
-
-		//! clean mesh
-		virtual void clear()
-		{
-			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
-				MeshBuffers[i]->drop();
-		}
+            //! clean mesh
+            virtual void clear()
+            {
+                for (uint32_t i=0; i<MeshBuffers.size(); ++i)
+                    MeshBuffers[i]->drop();
+            }
 
 
-		//! returns amount of mesh buffers.
-		virtual uint32_t getMeshBufferCount() const
-		{
-            return MeshBuffers.size();
-		}
+            //! returns amount of mesh buffers.
+            virtual uint32_t getMeshBufferCount() const
+            {
+                return MeshBuffers.size();
+            }
 
-		//! returns pointer to a mesh buffer
-		virtual IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const
-		{
-		    if (MeshBuffers.size())
-                return MeshBuffers[nr];
-            else
-                return NULL;
-		}
+            //! returns pointer to a mesh buffer
+            virtual IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const
+            {
+                if (MeshBuffers.size())
+                    return MeshBuffers[nr];
+                else
+                    return NULL;
+            }
 
-		//! returns an axis aligned bounding box
-		virtual const core::aabbox3d<float>& getBoundingBox() const
-		{
-			return BoundingBox;
-		}
+            //! returns an axis aligned bounding box
+            virtual const core::aabbox3d<float>& getBoundingBox() const
+            {
+                return BoundingBox;
+            }
 
-		//! set user axis aligned bounding box
-		virtual void setBoundingBox( const core::aabbox3df& box)
-		{
-			BoundingBox = box;
-		}
+            //! set user axis aligned bounding box
+            virtual void setBoundingBox( const core::aabbox3df& box)
+            {
+                BoundingBox = box;
+            }
 
-		//! adds a MeshBuffer
-		/** The bounding box is not updated automatically. */
-		void addMeshBuffer(IGPUMeshBuffer* buf)
-		{
-			if (buf)
-			{
-				buf->grab();
-				MeshBuffers.push_back(buf);
-			}
-		}
+            //! adds a MeshBuffer
+            /** The bounding box is not updated automatically. */
+            void addMeshBuffer(IGPUMeshBuffer* buf)
+            {
+                if (buf)
+                {
+                    buf->grab();
+                    MeshBuffers.push_back(buf);
+                }
+            }
 
-		//! sets a flag of all contained materials to a new value
-		virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
-		{
-			for (uint32_t i=0; i<MeshBuffers.size(); ++i)
-				MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
-		}
+            //! sets a flag of all contained materials to a new value
+            virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
+            {
+                for (uint32_t i=0; i<MeshBuffers.size(); ++i)
+                    MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
+            }
 
-		virtual E_MESH_TYPE getMeshType() const {return EMT_NOT_ANIMATED;}
+            virtual E_MESH_TYPE getMeshType() const {return EMT_NOT_ANIMATED;}
 
-    //private:
-		//! The bounding box of this mesh
-		core::aabbox3d<float> BoundingBox;
+        //private:
+            //! The bounding box of this mesh
+            core::aabbox3d<float> BoundingBox;
 
-		//! The meshbuffers of this mesh
-		core::array<IGPUMeshBuffer*> MeshBuffers;
+            //! The meshbuffers of this mesh
+            core::array<IGPUMeshBuffer*> MeshBuffers;
 	};
 
 

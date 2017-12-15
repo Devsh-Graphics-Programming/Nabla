@@ -48,11 +48,6 @@ namespace irr
 		{
 		}
 
-		//! Destructor.
-		virtual ~IReferenceCounted()
-		{
-		}
-
 		//! Grabs the object. Increments the reference counter by one.
 		/** Someone who calls grab() to an object, should later also
 		call drop() to it. If an object never gets as much drop() as
@@ -145,6 +140,10 @@ namespace irr
 		}
 
 	protected:
+		//! Destructor.
+		virtual ~IReferenceCounted()
+		{
+		}
 
 		//! Sets the debug name of the object.
 		/** The Debugname may only be set and changed by the object

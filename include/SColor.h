@@ -7,6 +7,7 @@
 
 #include "irrTypes.h"
 #include "irrMath.h"
+#include "vectorSIMD.h"
 
 namespace irr
 {
@@ -86,6 +87,77 @@ namespace video
 		//! Unknown color format:
 		ECF_UNKNOWN
 	};
+
+	//! get the amount of Bits per Pixel of the given color format
+	static uint32_t getBitsPerPixelFromFormat(const ECOLOR_FORMAT format)
+	{
+		switch(format)
+		{
+		case ECF_A1R5G5B5:
+			return 16;
+		case ECF_R5G6B5:
+			return 16;
+		case ECF_R8G8B8:
+			return 24;
+		case ECF_A8R8G8B8:
+			return 32;
+		case ECF_R16F:
+			return 16;
+		case ECF_G16R16F:
+			return 32;
+		case ECF_A16B16G16R16F:
+			return 64;
+		case ECF_R32F:
+			return 32;
+		case ECF_G32R32F:
+			return 64;
+		case ECF_A32B32G32R32F:
+			return 128;
+		case ECF_R8:
+			return 8;
+		case ECF_R8G8:
+			return 16;
+        case ECF_R8G8B8A8:
+            return 32;
+        case ECF_RGB_BC1:
+        case ECF_RGBA_BC1:
+            return 4;
+        case ECF_RGBA_BC2:
+        case ECF_RGBA_BC3:
+            return 8;
+        case ECF_R_BC4:
+            return 4;
+        case ECF_RG_BC5:
+            return 8;
+        case ECF_8BIT_PIX:
+			return 8;
+		case ECF_16BIT_PIX:
+			return 16;
+		case ECF_24BIT_PIX:
+			return 24;
+		case ECF_32BIT_PIX:
+			return 32;
+		case ECF_48BIT_PIX: // rgb @ 16bit
+            return 48;
+        case ECF_64BIT_PIX:
+			return 64;
+		case ECF_96BIT_PIX:
+			return 96;
+		case ECF_128BIT_PIX:
+            return 128;
+        case ECF_DEPTH16:
+            return 16;
+        case ECF_DEPTH24:
+            return 24;
+        case ECF_DEPTH32F:
+        case ECF_DEPTH24_STENCIL8:
+            return 32;
+        case ECF_DEPTH32F_STENCIL8:
+            return 40;
+		default:
+			return 0;
+		}
+	}
 
 
 	//! Creates a 16 bit A1R5G5B5 color
@@ -487,12 +559,12 @@ namespace video
 	Another, faster way to define colors is using the class SColor, which
 	stores the color values in a single 32 bit integer.
 	*/
-	class SColorf
+	class SColorf : private core::vectorSIMDf
 	{
 	public:
 		//! Default constructor for SColorf.
 		/** Sets red, green and blue to 0.0f and alpha to 1.0f. */
-		SColorf() : r(0.0f), g(0.0f), b(0.0f), a(1.0f) {}
+		SColorf() : vectorSIMDf(0.f,0.f,0.f,1.f) {}
 
 		//! Constructs a color from up to four color values: red, green, blue, and alpha.
 		/** \param r: Red color component. Should be a value between
@@ -505,24 +577,30 @@ namespace video
 		component defines how transparent a color should be. Has to be
 		a value between 0.0f and 1.0f, 1.0f means not transparent
 		(opaque), 0.0f means fully transparent. */
-		SColorf(float r_in, float g_in, float b_in, float a_in = 1.0f) : r(r_in), g(g_in), b(b_in), a(a_in) {}
+		SColorf(float r_in, float g_in, float b_in, float a_in = 1.0f) : vectorSIMDf(r_in,g_in,b_in,a_in) {}
+
+		SColorf(const vectorSIMDf& fromVec4) : vectorSIMDf(fromVec4) {}
 
 		//! Constructs a color from 32 bit Color.
 		/** \param c: 32 bit color from which this SColorf class is
 		constructed from. */
 		SColorf(SColor c)
 		{
+			r = c.getRed();
+			g = c.getGreen();
+			b = c.getBlue();
+			a = c.getAlpha();
+
 			const float inv = 1.0f / 255.0f;
-			r = c.getRed() * inv;
-			g = c.getGreen() * inv;
-			b = c.getBlue() * inv;
-			a = c.getAlpha() * inv;
+			*this *= inv;
 		}
 
 		//! Converts this color to a SColor without floats.
-		SColor toSColor() const
+		inline SColor toSColor() const
 		{
-			return SColor((uint32_t)core::round32(a*255.0f), (uint32_t)core::round32(r*255.0f), (uint32_t)core::round32(g*255.0f), (uint32_t)core::round32(b*255.0f));
+		    vectorSIMDf tmp = (*this) * 255.f;
+
+			return SColor((uint32_t)core::round32(tmp.a), (uint32_t)core::round32(tmp.r), (uint32_t)core::round32(tmp.g), (uint32_t)core::round32(tmp.b));
 		}
 
 		//! Sets three color components to new values at once.
@@ -532,7 +610,7 @@ namespace video
 		no green (=black) and 1.0f, meaning full green.
 		\param bb: Blue color component. Should be a value between 0.0f meaning
 		no blue (=black) and 1.0f, meaning full blue. */
-		void set(float rr, float gg, float bb) {r = rr; g =gg; b = bb; }
+		inline void set(float rr, float gg, float bb) {r = rr; g =gg; b = bb; }
 
 		//! Sets all four color components to new values at once.
 		/** \param aa: Alpha component. Should be a value between 0.0f meaning
@@ -543,185 +621,26 @@ namespace video
 		no green and 1.0f, meaning full green.
 		\param bb: Blue color component. Should be a value between 0.0f meaning
 		no blue and 1.0f, meaning full blue. */
-		void set(float aa, float rr, float gg, float bb) {a = aa; r = rr; g =gg; b = bb; }
-
-		//! Interpolates the color with a float value to another color
-		/** \param other: Other color
-		\param d: value between 0.0f and 1.0f
-		\return Interpolated color. */
-		SColorf getInterpolated(const SColorf &other, float d) const
-		{
-			d = core::clamp(d, 0.f, 1.f);
-			const float inv = 1.0f - d;
-			return SColorf(other.r*inv + r*d,
-				other.g*inv + g*d, other.b*inv + b*d, other.a*inv + a*d);
-		}
-
-		//! Returns interpolated color. ( quadratic )
-		/** \param c1: first color to interpolate with
-		\param c2: second color to interpolate with
-		\param d: value between 0.0f and 1.0f. */
-		inline SColorf getInterpolated_quadratic(const SColorf& c1, const SColorf& c2,
-				float d) const
-		{
-			d = core::clamp(d, 0.f, 1.f);
-			// this*(1-d)*(1-d) + 2 * c1 * (1-d) + c2 * d * d;
-			const float inv = 1.f - d;
-			const float mul0 = inv * inv;
-			const float mul1 = 2.f * d * inv;
-			const float mul2 = d * d;
-
-			return SColorf (r * mul0 + c1.r * mul1 + c2.r * mul2,
-					g * mul0 + c1.g * mul1 + c2.g * mul2,
-					b * mul0 + c1.b * mul1 + c2.b * mul2,
-					a * mul0 + c1.a * mul1 + c2.a * mul2);
-		}
-
-
-		//! Sets a color component by index. R=0, G=1, B=2, A=3
-		void setColorComponentValue(int32_t index, float value)
-		{
-			switch(index)
-			{
-			case 0: r = value; break;
-			case 1: g = value; break;
-			case 2: b = value; break;
-			case 3: a = value; break;
-			}
-		}
+		inline void set(float aa, float rr, float gg, float bb) {a = aa; r = rr; g =gg; b = bb; }
 
 		//! Returns the alpha component of the color in the range 0.0 (transparent) to 1.0 (opaque)
-		float getAlpha() const { return a; }
+		inline float getAlpha() const { return a; }
 
 		//! Returns the red component of the color in the range 0.0 to 1.0
-		float getRed() const { return r; }
+		inline float getRed() const { return r; }
 
 		//! Returns the green component of the color in the range 0.0 to 1.0
-		float getGreen() const { return g; }
+		inline float getGreen() const { return g; }
 
 		//! Returns the blue component of the color in the range 0.0 to 1.0
-		float getBlue() const { return b; }
+		inline float getBlue() const { return b; }
 
-		//! red color component
-		float r;
 
-		//! green color component
-		float g;
-
-		//! blue component
-		float b;
-
-		//! alpha color component
-		float a;
+		//!
+		inline vectorSIMDf& getAsVectorSIMDf() {return *this;}
+		inline const vectorSIMDf& getAsVectorSIMDf() const {return *this;}
 	};
 
-
-	//! Class representing a color in HSL format
-	/** The color values for hue, saturation, luminance
-	are stored in 32bit floating point variables. Hue is in range [0,360],
-	Luminance and Saturation are in percent [0,100]
-	*/
-	class SColorHSL
-	{
-	public:
-		SColorHSL ( float h = 0.f, float s = 0.f, float l = 0.f )
-			: Hue ( h ), Saturation ( s ), Luminance ( l ) {}
-
-		void fromRGB(const SColorf &color);
-		void toRGB(SColorf &color) const;
-
-		float Hue;
-		float Saturation;
-		float Luminance;
-
-	private:
-		inline float toRGB1(float rm1, float rm2, float rh) const;
-
-	};
-
-	inline void SColorHSL::fromRGB(const SColorf &color)
-	{
-		const float maxVal = core::max_(color.getRed(), color.getGreen(), color.getBlue());
-		const float minVal = (float)core::min_(color.getRed(), color.getGreen(), color.getBlue());
-		Luminance = (maxVal+minVal)*50;
-		if (core::equals(maxVal, minVal))
-		{
-			Hue=0.f;
-			Saturation=0.f;
-			return;
-		}
-
-		const float delta = maxVal-minVal;
-		if ( Luminance <= 50 )
-		{
-			Saturation = (delta)/(maxVal+minVal);
-		}
-		else
-		{
-			Saturation = (delta)/(2-maxVal-minVal);
-		}
-		Saturation *= 100;
-
-		if (core::equals(maxVal, color.getRed()))
-			Hue = (color.getGreen()-color.getBlue())/delta;
-		else if (core::equals(maxVal, color.getGreen()))
-			Hue = 2+((color.getBlue()-color.getRed())/delta);
-		else // blue is max
-			Hue = 4+((color.getRed()-color.getGreen())/delta);
-
-		Hue *= 60.0f;
-		while ( Hue < 0.f )
-			Hue += 360;
-	}
-
-
-	inline void SColorHSL::toRGB(SColorf &color) const
-	{
-		const float l = Luminance/100;
-		if (core::iszero(Saturation)) // grey
-		{
-			color.set(l, l, l);
-			return;
-		}
-
-		float rm2;
-
-		if ( Luminance <= 50 )
-		{
-			rm2 = l + l * (Saturation/100);
-		}
-		else
-		{
-			rm2 = l + (1 - l) * (Saturation/100);
-		}
-
-		const float rm1 = 2.0f * l - rm2;
-
-		const float h = Hue / 360.0f;
-		color.set( toRGB1(rm1, rm2, h + 1.f/3.f),
-			toRGB1(rm1, rm2, h),
-			toRGB1(rm1, rm2, h - 1.f/3.f)
-			);
-	}
-
-
-	// algorithm from Foley/Van-Dam
-	inline float SColorHSL::toRGB1(float rm1, float rm2, float rh) const
-	{
-		if (rh<0)
-			rh += 1;
-		if (rh>1)
-			rh -= 1;
-
-		if (rh < 1.f/6.f)
-			rm1 = rm1 + (rm2 - rm1) * rh*6.f;
-		else if (rh < 0.5f)
-			rm1 = rm2;
-		else if (rh < 2.f/3.f)
-			rm1 = rm1 + (rm2 - rm1) * ((2.f/3.f)-rh)*6.f;
-
-		return rm1;
-	}
 
 } // end namespace video
 } // end namespace irr

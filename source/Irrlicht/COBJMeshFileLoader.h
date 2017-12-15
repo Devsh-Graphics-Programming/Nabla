@@ -99,13 +99,13 @@ public:
 //! Meshloader capable of loading obj meshes.
 class COBJMeshFileLoader : public IMeshLoader
 {
-public:
-
-	//! Constructor
-	COBJMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs);
-
+protected:
 	//! destructor
 	virtual ~COBJMeshFileLoader();
+
+public:
+	//! Constructor
+	COBJMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs);
 
 	//! returns true if the file maybe is able to be loaded by this class
 	//! based on the file extension (e.g. ".obj")

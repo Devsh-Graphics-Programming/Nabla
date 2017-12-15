@@ -306,10 +306,6 @@ path it takes through the system. */
 class IEventReceiver
 {
 public:
-
-	//! Destructor
-	virtual ~IEventReceiver() {}
-
 	//! Called if an event happened.
 	/** Please take care that you should only return 'true' when you want to _prevent_ Irrlicht
 	* from processing the event any further. So 'true' does mean that an event is completely done.

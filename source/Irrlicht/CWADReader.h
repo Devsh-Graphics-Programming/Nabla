@@ -120,51 +120,51 @@ namespace io
 	//! reads from WAD
 	class CWADReader : public IFileArchive, virtual CFileList
 	{
-	public:
+        protected:
+            virtual ~CWADReader();
 
-		CWADReader(IReadFile* file, bool ignoreCase, bool ignorePaths);
-		virtual ~CWADReader();
+        public:
+            CWADReader(IReadFile* file, bool ignoreCase, bool ignorePaths);
 
-		// file archive methods
+            // file archive methods
 
-		//! return the id of the file Archive
-		virtual const io::path& getArchiveName() const;
+            //! return the id of the file Archive
+            virtual const io::path& getArchiveName() const;
 
-		//! opens a file by file name
-		virtual IReadFile* createAndOpenFile(const io::path& filename);
+            //! opens a file by file name
+            virtual IReadFile* createAndOpenFile(const io::path& filename);
 
-		//! opens a file by index
-		virtual IReadFile* createAndOpenFile(uint32_t index);
+            //! opens a file by index
+            virtual IReadFile* createAndOpenFile(uint32_t index);
 
-		//! returns the list of files
-		virtual const IFileList* getFileList() const;
+            //! returns the list of files
+            virtual const IFileList* getFileList() const;
 
-		//! get the class Type
-		virtual E_FILE_ARCHIVE_TYPE getType() const { return EFAT_WAD; }
-
-
-	private:
-
-		io::path Type;
-
-		//! scans for a local header, returns false if there is no more local file header.
-		bool scanLocalHeader();
-
-		//! splits filename from zip file into useful filenames and paths
-		void extractFilename(SWADFileEntry* entry);
+            //! get the class Type
+            virtual E_FILE_ARCHIVE_TYPE getType() const { return EFAT_WAD; }
 
 
-		io::path Base;
-		io::path MountPoint;
+        private:
+            io::path Type;
 
-		IReadFile* File;
+            //! scans for a local header, returns false if there is no more local file header.
+            bool scanLocalHeader();
 
-		eWADFileTypes WadType;
-		SWADFileHeader Header;
+            //! splits filename from zip file into useful filenames and paths
+            void extractFilename(SWADFileEntry* entry);
 
-		//core::array<SWADFileEntry> FileInfo;
 
-		io::IFileSystem* FileSystem;
+            io::path Base;
+            io::path MountPoint;
+
+            IReadFile* File;
+
+            eWADFileTypes WadType;
+            SWADFileHeader Header;
+
+            //core::array<SWADFileEntry> FileInfo;
+
+            io::IFileSystem* FileSystem;
 	};
 
 } // end namespace io

@@ -16,10 +16,6 @@ namespace video
 	class IDepthBuffer : public virtual IReferenceCounted
 	{
 	public:
-
-		//! destructor
-		virtual ~IDepthBuffer() {};
-
 		//! clears the zbuffer
 		virtual void clear() = 0;
 
@@ -47,10 +43,6 @@ namespace video
 	class IStencilBuffer : public virtual IReferenceCounted
 	{
 	public:
-
-		//! destructor
-		virtual ~IStencilBuffer() {};
-
 		//! clears the zbuffer
 		virtual void clear() = 0;
 

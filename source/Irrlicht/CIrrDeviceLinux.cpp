@@ -845,7 +845,7 @@ bool CIrrDeviceLinux::createWindow()
 	// create an XImage for the software renderer
 	//(thx to Nadav for some clues on how to do that!)
 
-	if (CreationParams.DriverType == video::EDT_SOFTWARE || CreationParams.DriverType == video::EDT_BURNINGSVIDEO)
+	if (CreationParams.DriverType == video::EDT_BURNINGSVIDEO)
 	{
 		SoftwareImage = XCreateImage(display,
 			visual->visual, visual->depth,
@@ -870,14 +870,6 @@ void CIrrDeviceLinux::createDriver()
 	switch(CreationParams.DriverType)
 	{
 #ifdef _IRR_COMPILE_WITH_X11_
-
-	case video::EDT_SOFTWARE:
-		#ifdef _IRR_COMPILE_WITH_SOFTWARE_
-		VideoDriver = video::createSoftwareDriver(CreationParams.WindowSize, CreationParams.Fullscreen, FileSystem, this);
-		#else
-		os::Printer::log("No Software driver support compiled in.", ELL_ERROR);
-		#endif
-		break;
 
 	case video::EDT_BURNINGSVIDEO:
 		#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
@@ -1964,7 +1956,7 @@ Cursor CIrrDeviceLinux::TextureToMonochromeCursor(irr::video::IImage * tex, cons
 
 	// write texture into XImage
 	video::ECOLOR_FORMAT format = tex->getColorFormat();
-	uint32_t bytesPerPixel = video::IImage::getBitsPerPixelFromFormat(format) / 8;
+	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
 	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
 	const uint8_t* data = (const uint8_t*)tex->lock();
@@ -2039,7 +2031,7 @@ Cursor CIrrDeviceLinux::TextureToARGBCursor(irr::video::IImage * tex, const core
 
 	// write texture into XcursorImage
 	video::ECOLOR_FORMAT format = tex->getColorFormat();
-	uint32_t bytesPerPixel = video::IImage::getBitsPerPixelFromFormat(format) / 8;
+	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
 	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
 	XcursorPixel* target = image->pixels;

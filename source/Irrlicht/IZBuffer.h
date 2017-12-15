@@ -15,25 +15,21 @@ namespace video
 {
 	class IZBuffer : public virtual IReferenceCounted
 	{
-	public:
+        public:
+            //! clears the zbuffer
+            virtual void clear() = 0;
 
-		//! destructor
-		virtual ~IZBuffer() {};
+            //! sets the new size of the zbuffer
+            virtual void setSize(const core::dimension2d<uint32_t>& size) = 0;
 
-		//! clears the zbuffer
-		virtual void clear() = 0;
+            //! returns the size of the zbuffer
+            virtual const core::dimension2d<uint32_t>& getSize() const = 0;
 
-		//! sets the new size of the zbuffer
-		virtual void setSize(const core::dimension2d<uint32_t>& size) = 0;
+            //! locks the zbuffer
+            virtual TZBufferType* lock() = 0;
 
-		//! returns the size of the zbuffer
-		virtual const core::dimension2d<uint32_t>& getSize() const = 0;
-
-		//! locks the zbuffer
-		virtual TZBufferType* lock() = 0;
-
-		//! unlocks the zbuffer
-		virtual void unlock() = 0;
+            //! unlocks the zbuffer
+            virtual void unlock() = 0;
 	};
 
 

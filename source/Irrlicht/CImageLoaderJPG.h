@@ -33,13 +33,13 @@ namespace video
 //! Surface Loader for JPG images
 class CImageLoaderJPG : public IImageLoader
 {
-public:
-
-	//! constructor
-	CImageLoaderJPG();
-
+protected:
 	//! destructor
 	virtual ~CImageLoaderJPG();
+
+public:
+	//! constructor
+	CImageLoaderJPG();
 
 	//! returns true if the file maybe is able to be loaded by this class
 	//! based on the file extension (e.g. ".tga")
@@ -49,7 +49,7 @@ public:
 	virtual bool isALoadableFileFormat(io::IReadFile* file) const;
 
 	//! creates a surface from the file
-	virtual IImage* loadImage(io::IReadFile* file) const;
+	virtual std::vector<CImageData*> loadImage(io::IReadFile* file) const;
 
 private:
 

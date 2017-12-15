@@ -22,32 +22,33 @@ namespace scene
 	//! class to write meshes, implementing a OBJ writer
 	class COBJMeshWriter : public IMeshWriter
 	{
-	public:
+        protected:
+            virtual ~COBJMeshWriter();
 
-		COBJMeshWriter(scene::ISceneManager* smgr, io::IFileSystem* fs);
-		virtual ~COBJMeshWriter();
+        public:
+            COBJMeshWriter(scene::ISceneManager* smgr, io::IFileSystem* fs);
 
-		//! Returns the type of the mesh writer
-		virtual EMESH_WRITER_TYPE getType() const;
+            //! Returns the type of the mesh writer
+            virtual EMESH_WRITER_TYPE getType() const;
 
-		//! writes a mesh
-		virtual bool writeMesh(io::IWriteFile* file, scene::IMesh* mesh, int32_t flags=EMWF_NONE);
+            //! writes a mesh
+            virtual bool writeMesh(io::IWriteFile* file, scene::IMesh* mesh, int32_t flags=EMWF_NONE);
 
-	protected:
-		// create vector output with line end into string
-		void getVectorAsStringLine(const core::vector3df& v,
-				core::stringc& s) const;
+        protected:
+            // create vector output with line end into string
+            void getVectorAsStringLine(const core::vector3df& v,
+                    core::stringc& s) const;
 
-		// create vector output with line end into string
-		void getVectorAsStringLine(const core::vector2df& v,
-				core::stringc& s) const;
+            // create vector output with line end into string
+            void getVectorAsStringLine(const core::vector2df& v,
+                    core::stringc& s) const;
 
-		// create color output with line end into string
-		void getColorAsStringLine(const video::SColor& color,
-				const char* const prefix, core::stringc& s) const;
+            // create color output with line end into string
+            void getColorAsStringLine(const video::SColor& color,
+                    const char* const prefix, core::stringc& s) const;
 
-		scene::ISceneManager* SceneManager;
-		io::IFileSystem* FileSystem;
+            scene::ISceneManager* SceneManager;
+            io::IFileSystem* FileSystem;
 	};
 #endif // NEW_MESHES
 

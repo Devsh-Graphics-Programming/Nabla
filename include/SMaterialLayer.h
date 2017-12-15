@@ -12,7 +12,7 @@ namespace irr
 {
 namespace video
 {
-	class ITexture;
+	class IVirtualTexture;
 
 	//! Texture coord clamp mode outside [0.0, 1.0]
 	enum E_TEXTURE_CLAMP
@@ -129,7 +129,7 @@ namespace video
             return retval;
 		}
 
-		uint64_t calculateHash(const ITexture* tex) const;
+		uint64_t calculateHash(const IVirtualTexture* tex) const;
     };
 
 	//! Struct for holding material parameters which exist per texture layer
@@ -184,7 +184,7 @@ namespace video
 		{ return !(b!=*this); }
 
 		//! Texture
-		ITexture* Texture;
+		IVirtualTexture* Texture;
 
         STextureSamplingParams SamplingParams;
 

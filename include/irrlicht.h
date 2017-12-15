@@ -56,6 +56,7 @@
 #include "IGeometryCreator.h"
 #include "IGPUTransientBuffer.h"
 #include "IGPUProgrammingServices.h"
+#include "CImageData.h"
 #include "IImage.h"
 #include "IImageLoader.h"
 #include "IImageWriter.h"
@@ -92,6 +93,7 @@
 #include "ISkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "ITexture.h"
+#include "ITextureBufferObject.h"
 #include "ITimer.h"
 #include "ITransformFeedback.h"
 #include "IVideoDriver.h"
@@ -136,7 +138,7 @@ namespace irr
 	/** If you need more parameters to be passed to the creation of the Irrlicht Engine device,
 	use the createDeviceEx() function.
 	\param deviceType: Type of the device. This can currently be video::EDT_NULL,
-	video::EDT_SOFTWARE, video::EDT_BURNINGSVIDEO, video::EDT_DIRECT3D8, video::EDT_DIRECT3D9 and video::EDT_OPENGL.
+	video::EDT_BURNINGSVIDEO, and video::EDT_OPENGL.
 	\param windowSize: Size of the window or the video mode in fullscreen mode.
 	\param bits: Bits per pixel in fullscreen mode. Ignored if windowed mode.
 	\param fullscreen: Should be set to true if the device should run in fullscreen. Otherwise
@@ -151,7 +153,7 @@ namespace irr
 	device could not be created.
 	*/
 	extern "C" IRRLICHT_API IrrlichtDevice* IRRCALLCONV createDevice(
-		video::E_DRIVER_TYPE deviceType = video::EDT_SOFTWARE,
+		video::E_DRIVER_TYPE deviceType = video::EDT_BURNINGSVIDEO,
 		// parantheses are necessary for some compilers
 		const core::dimension2d<uint32_t>& windowSize = (core::dimension2d<uint32_t>(640,480)),
 		uint32_t bits = 16,

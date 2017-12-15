@@ -22,11 +22,9 @@ namespace video
 
 	class IImagePresenter
 	{
-	public:
-
-		virtual ~IImagePresenter() {};
-		//! presents a surface in the client area
-		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0 ) = 0;
+        public:
+            //! presents a surface in the client area
+            virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0 ) = 0;
 	};
 
 } // end namespace video

@@ -28,13 +28,13 @@ namespace scene
 //! Meshloader capable of loading Lightwave 3D meshes.
 class CLWOMeshFileLoader : public IMeshLoader
 {
-public:
-
-	//! Constructor
-	CLWOMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs);
-
+protected:
 	//! destructor
 	virtual ~CLWOMeshFileLoader();
+
+public:
+	//! Constructor
+	CLWOMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs);
 
 	//! returns true if the file maybe is able to be loaded by this class
 	//! based on the file extension (e.g. ".bsp")

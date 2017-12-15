@@ -21,39 +21,59 @@ class COpenGLDriver;
 //! OpenGL texture.
 class COpenGLRenderBuffer : public IRenderBuffer
 {
+    public:
+        //! constructor
+        COpenGLRenderBuffer(GLenum internalFormat, core::dimension2du size);
+
+        //! Returns size of the texture.
+        virtual const core::dimension2d<uint32_t>& getSize() const {return RenderBufferSize;}
+        virtual core::dimension2du getRenderableSize() const {return RenderBufferSize;}
+
+        //! returns driver type of texture (=the driver, that created it)
+        virtual const E_DRIVER_TYPE getDriverType() const {return EDT_OPENGL;}
+
+        //! return open gl texture name
+        const GLuint& getOpenGLName() const {return RenderBufferName;}
+        GLuint* getOpenGLNamePtr() {return &RenderBufferName;}
+
+        GLint getOpenGLInternalFormat() const {return InternalFormat;}
+
+        virtual void resize(const core::dimension2du &newSize);
+
+        const uint64_t& hasOpenGLNameChanged() const {return RenderBufferNameHasChanged;}
+
+
+    protected:
+        COpenGLRenderBuffer(GLenum internalFormat, core::dimension2du size, const float DONT_CREATE_NORMAL_RBUFFER)
+            : RenderBufferSize(size), InternalFormat(internalFormat), RenderBufferName(0), RenderBufferNameHasChanged(0)
+        {
+        }
+
+        //! destructor
+        virtual ~COpenGLRenderBuffer();
+
+        core::dimension2d<uint32_t> RenderBufferSize;
+        GLint InternalFormat;
+
+        GLuint RenderBufferName;
+        uint64_t RenderBufferNameHasChanged;
+};
+
+
+
+class COpenGLMultisampleRenderBuffer : public COpenGLRenderBuffer
+{
 public:
-
 	//! constructor
-	COpenGLRenderBuffer(GLenum internalFormat, core::dimension2du size, COpenGLDriver* driver=0);
+    COpenGLMultisampleRenderBuffer(GLenum internalFormat, core::dimension2du size, uint32_t sampleCount);
 
-	//! destructor
-	virtual ~COpenGLRenderBuffer();
-
-	//! Returns size of the texture.
-	virtual const core::dimension2d<uint32_t>& getSize() const {return RenderBufferSize;}
-    virtual core::dimension2du getRenderableSize() const {return RenderBufferSize;}
-
-	//! returns driver type of texture (=the driver, that created it)
-	virtual const E_DRIVER_TYPE getDriverType() const {return EDT_OPENGL;}
-
-	//! return open gl texture name
-	const GLuint& getOpenGLName() const {return RenderBufferName;}
-	GLuint* getOpenGLNamePtr() {return &RenderBufferName;}
-
-	GLint getOpenGLInternalFormat() const {return InternalFormat;}
 
 	virtual void resize(const core::dimension2du &newSize);
 
-	const uint64_t& hasOpenGLNameChanged() const {return RenderBufferNameHasChanged;}
+	virtual int32_t getSampleCount() const {return static_cast<uint32_t>(SampleCount);}
 
-
-protected:
-	core::dimension2d<uint32_t> RenderBufferSize;
-	COpenGLDriver* Driver;
-
-	GLuint RenderBufferName;
-	uint64_t RenderBufferNameHasChanged;
-	GLint InternalFormat;
+private:
+    uint32_t SampleCount;
 };
 
 

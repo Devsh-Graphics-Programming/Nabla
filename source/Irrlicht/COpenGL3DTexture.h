@@ -14,70 +14,25 @@ namespace video
 {
 
 //! OpenGL texture.
-class COpenGL3DTexture : public COpenGLTexture
+class COpenGL3DTexture : public COpenGLFilterableTexture
 {
 public:
 
 	//! constructor
-	COpenGL3DTexture(core::vector3d<uint32_t> size, GLenum format, GLenum inDataFmt, GLenum inDataTpe, const io::path& name, const void* data, void* mipmapData=0, COpenGLDriver* driver=0, uint32_t mipmapLevels=0);
+	COpenGL3DTexture(GLenum internalFormat, const uint32_t* size, uint32_t mipmapLevels, const io::path& name="");
 
 
 	virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_THREE;}
 
     virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_3D;}
 
-	//! returns pitch of texture (in bytes)
-	virtual uint32_t getPitch() const;
-
-
-    //!
-    virtual core::dimension2du getRenderableSize() const {return *reinterpret_cast<const core::dimension2du*>(TextureSize);}
-
 
 	//! returns the opengl texture type
-	virtual GLenum getOpenGLTextureType() const;
+	virtual GLenum getOpenGLTextureType() const {return GL_TEXTURE_3D;}
 
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0);
-    virtual bool resize(const uint32_t* size, uint32_t mipLevels=0);
-
-
-protected:
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0);
+    virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0);
 };
-
-//! OpenGL texture.
-class COpenGL2DTextureArray : public COpenGLTexture
-{
-public:
-
-//! needs my attention
-	//! constructor
-	COpenGL2DTextureArray(core::vector3d<uint32_t> size, ECOLOR_FORMAT format, const io::path& name, void* mipmapData, COpenGLDriver* driver=0, uint32_t mipmapLevels=0);
-
-
-	virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_THREE;}
-
-    virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D_ARRAY;}
-
-	//! returns pitch of texture (in bytes)
-	virtual uint32_t getPitch() const;
-
-
-    //!
-    virtual core::dimension2du getRenderableSize() const {return *reinterpret_cast<const core::dimension2du*>(TextureSize);}
-
-
-
-	//! returns the opengl texture type
-	virtual GLenum getOpenGLTextureType() const;
-
-
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0);
-    virtual bool resize(const uint32_t* size, uint32_t mipLevels=0);
-
-
-protected:
-};
-
 
 } // end namespace video
 } // end namespace irr

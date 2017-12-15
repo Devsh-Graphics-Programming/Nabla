@@ -26,9 +26,6 @@ class IMeshLoader : public virtual IReferenceCounted
 {
 public:
 
-	//! Destructor
-	virtual ~IMeshLoader() {}
-
 	//! Returns true if the file might be loaded by this class.
 	/** This decision should be based on the file extension (e.g. ".cob")
 	only.

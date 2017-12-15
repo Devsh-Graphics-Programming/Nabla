@@ -35,14 +35,14 @@ namespace scene
 	*/
 	class CSceneManager : public ISceneManager, public ISceneNode
 	{
-	public:
+    protected:
+		//! destructor
+		virtual ~CSceneManager();
 
+	public:
 		//! constructor
 		CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 			gui::ICursorControl* cursorControl);
-
-		//! destructor
-		virtual ~CSceneManager();
 
 		//! gets a mesh. loads it if needed. returned pointer must not be dropped.
 		virtual ICPUMesh* getMesh(const io::path& filename);
@@ -149,7 +149,7 @@ namespace scene
 
 		//! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 		//! panoramic texture on it and is drawn around the camera position.
-		virtual ISceneNode* addSkyDomeSceneNode(video::ITexture* texture,
+		virtual ISceneNode* addSkyDomeSceneNode(video::IVirtualTexture* texture,
 			uint32_t horiRes=16, uint32_t vertRes=8,
 			float texturePercentage=0.9, float spherePercentage=2.0,float radius = 1000.f,
 			IDummyTransformationSceneNode* parent=0, int32_t id=-1);

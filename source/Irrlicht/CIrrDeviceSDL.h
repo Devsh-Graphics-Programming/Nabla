@@ -24,202 +24,202 @@ namespace irr
 
 	class CIrrDeviceSDL : public CIrrDeviceStub, video::IImagePresenter
 	{
-	public:
+        protected:
+            //! destructor
+            virtual ~CIrrDeviceSDL();
 
-		//! constructor
-		CIrrDeviceSDL(const SIrrlichtCreationParameters& param);
+        public:
+            //! constructor
+            CIrrDeviceSDL(const SIrrlichtCreationParameters& param);
 
-		//! destructor
-		virtual ~CIrrDeviceSDL();
+            //! runs the device. Returns false if device wants to be deleted
+            virtual bool run();
 
-		//! runs the device. Returns false if device wants to be deleted
-		virtual bool run();
+            //! pause execution temporarily
+            virtual void yield();
 
-		//! pause execution temporarily
-		virtual void yield();
+            //! pause execution for a specified time
+            virtual void sleep(uint32_t timeMs, bool pauseTimer);
 
-		//! pause execution for a specified time
-		virtual void sleep(uint32_t timeMs, bool pauseTimer);
+            //! sets the caption of the window
+            virtual void setWindowCaption(const std::wstring& text);
 
-		//! sets the caption of the window
-		virtual void setWindowCaption(const std::wstring& text);
+            //! returns if window is active. if not, nothing need to be drawn
+            virtual bool isWindowActive() const;
 
-		//! returns if window is active. if not, nothing need to be drawn
-		virtual bool isWindowActive() const;
+            //! returns if window has focus.
+            bool isWindowFocused() const;
 
-		//! returns if window has focus.
-		bool isWindowFocused() const;
+            //! returns if window is minimized.
+            bool isWindowMinimized() const;
 
-		//! returns if window is minimized.
-		bool isWindowMinimized() const;
+            //! returns color format of the window.
+            video::ECOLOR_FORMAT getColorFormat() const;
 
-		//! returns color format of the window.
-		video::ECOLOR_FORMAT getColorFormat() const;
+            //! presents a surface in the client area
+            virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0);
 
-		//! presents a surface in the client area
-		virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0);
+            //! notifies the device that it should close itself
+            virtual void closeDevice();
 
-		//! notifies the device that it should close itself
-		virtual void closeDevice();
+            //! \return Returns a pointer to a list with all video modes supported
+            video::IVideoModeList* getVideoModeList();
 
-		//! \return Returns a pointer to a list with all video modes supported
-		video::IVideoModeList* getVideoModeList();
+            //! Sets if the window should be resizable in windowed mode.
+            virtual void setResizable(bool resize=false);
 
-		//! Sets if the window should be resizable in windowed mode.
-		virtual void setResizable(bool resize=false);
+            //! Minimizes the window.
+            virtual void minimizeWindow();
 
-		//! Minimizes the window.
-		virtual void minimizeWindow();
+            //! Maximizes the window.
+            virtual void maximizeWindow();
 
-		//! Maximizes the window.
-		virtual void maximizeWindow();
+            //! Restores the window size.
+            virtual void restoreWindow();
 
-		//! Restores the window size.
-		virtual void restoreWindow();
+            //! Activate any joysticks, and generate events for them.
+            virtual bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo);
 
-		//! Activate any joysticks, and generate events for them.
-		virtual bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo);
+            //! Get the device type
+            virtual E_DEVICE_TYPE getType() const
+            {
+                    return EIDT_SDL;
+            }
 
-		//! Get the device type
-		virtual E_DEVICE_TYPE getType() const
-		{
-				return EIDT_SDL;
-		}
+            //! Implementation of the linux cursor control
+            class CCursorControl : public gui::ICursorControl
+            {
+            public:
 
-		//! Implementation of the linux cursor control
-		class CCursorControl : public gui::ICursorControl
-		{
-		public:
+                CCursorControl(CIrrDeviceSDL* dev)
+                    : Device(dev), IsVisible(true)
+                {
+                }
 
-			CCursorControl(CIrrDeviceSDL* dev)
-				: Device(dev), IsVisible(true)
-			{
-			}
+                //! Changes the visible state of the mouse cursor.
+                virtual void setVisible(bool visible)
+                {
+                    IsVisible = visible;
+                    if ( visible )
+                        SDL_ShowCursor( SDL_ENABLE );
+                    else
+                        SDL_ShowCursor( SDL_DISABLE );
+                }
 
-			//! Changes the visible state of the mouse cursor.
-			virtual void setVisible(bool visible)
-			{
-				IsVisible = visible;
-				if ( visible )
-					SDL_ShowCursor( SDL_ENABLE );
-				else
-					SDL_ShowCursor( SDL_DISABLE );
-			}
+                //! Returns if the cursor is currently visible.
+                virtual bool isVisible() const
+                {
+                    return IsVisible;
+                }
 
-			//! Returns if the cursor is currently visible.
-			virtual bool isVisible() const
-			{
-				return IsVisible;
-			}
+                //! Sets the new position of the cursor.
+                virtual void setPosition(const core::position2d<float> &pos)
+                {
+                    setPosition(pos.X, pos.Y);
+                }
 
-			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<float> &pos)
-			{
-				setPosition(pos.X, pos.Y);
-			}
+                //! Sets the new position of the cursor.
+                virtual void setPosition(float x, float y)
+                {
+                    setPosition((int32_t)(x*Device->Width), (int32_t)(y*Device->Height));
+                }
 
-			//! Sets the new position of the cursor.
-			virtual void setPosition(float x, float y)
-			{
-				setPosition((int32_t)(x*Device->Width), (int32_t)(y*Device->Height));
-			}
+                //! Sets the new position of the cursor.
+                virtual void setPosition(const core::position2d<int32_t> &pos)
+                {
+                    setPosition(pos.X, pos.Y);
+                }
 
-			//! Sets the new position of the cursor.
-			virtual void setPosition(const core::position2d<int32_t> &pos)
-			{
-				setPosition(pos.X, pos.Y);
-			}
+                //! Sets the new position of the cursor.
+                virtual void setPosition(int32_t x, int32_t y)
+                {
+                    SDL_WarpMouse( x, y );
+                }
 
-			//! Sets the new position of the cursor.
-			virtual void setPosition(int32_t x, int32_t y)
-			{
-				SDL_WarpMouse( x, y );
-			}
+                //! Returns the current position of the mouse cursor.
+                virtual const core::position2d<int32_t>& getPosition()
+                {
+                    updateCursorPos();
+                    return CursorPos;
+                }
 
-			//! Returns the current position of the mouse cursor.
-			virtual const core::position2d<int32_t>& getPosition()
-			{
-				updateCursorPos();
-				return CursorPos;
-			}
+                //! Returns the current position of the mouse cursor.
+                virtual core::position2d<float> getRelativePosition()
+                {
+                    updateCursorPos();
+                    return core::position2d<float>(CursorPos.X / (float)Device->Width,
+                        CursorPos.Y / (float)Device->Height);
+                }
 
-			//! Returns the current position of the mouse cursor.
-			virtual core::position2d<float> getRelativePosition()
-			{
-				updateCursorPos();
-				return core::position2d<float>(CursorPos.X / (float)Device->Width,
-					CursorPos.Y / (float)Device->Height);
-			}
+                virtual void setReferenceRect(core::rect<int32_t>* rect=0)
+                {
+                }
 
-			virtual void setReferenceRect(core::rect<int32_t>* rect=0)
-			{
-			}
+            private:
 
-		private:
+                void updateCursorPos()
+                {
+                    CursorPos.X = Device->MouseX;
+                    CursorPos.Y = Device->MouseY;
 
-			void updateCursorPos()
-			{
-				CursorPos.X = Device->MouseX;
-				CursorPos.Y = Device->MouseY;
+                    if (CursorPos.X < 0)
+                        CursorPos.X = 0;
+                    if (CursorPos.X > (int32_t)Device->Width)
+                        CursorPos.X = Device->Width;
+                    if (CursorPos.Y < 0)
+                        CursorPos.Y = 0;
+                    if (CursorPos.Y > (int32_t)Device->Height)
+                        CursorPos.Y = Device->Height;
+                }
 
-				if (CursorPos.X < 0)
-					CursorPos.X = 0;
-				if (CursorPos.X > (int32_t)Device->Width)
-					CursorPos.X = Device->Width;
-				if (CursorPos.Y < 0)
-					CursorPos.Y = 0;
-				if (CursorPos.Y > (int32_t)Device->Height)
-					CursorPos.Y = Device->Height;
-			}
+                CIrrDeviceSDL* Device;
+                core::position2d<int32_t> CursorPos;
+                bool IsVisible;
+            };
 
-			CIrrDeviceSDL* Device;
-			core::position2d<int32_t> CursorPos;
-			bool IsVisible;
-		};
+        private:
 
-	private:
+            //! create the driver
+            void createDriver();
 
-		//! create the driver
-		void createDriver();
+            bool createWindow();
 
-		bool createWindow();
+            void createKeyMap();
 
-		void createKeyMap();
+            SDL_Surface* Screen;
+            int SDL_Flags;
+    #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
+            core::array<SDL_Joystick*> Joysticks;
+    #endif
 
-		SDL_Surface* Screen;
-		int SDL_Flags;
-#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
-		core::array<SDL_Joystick*> Joysticks;
-#endif
+            int32_t MouseX, MouseY;
+            uint32_t MouseButtonStates;
 
-		int32_t MouseX, MouseY;
-		uint32_t MouseButtonStates;
+            uint32_t Width, Height;
 
-		uint32_t Width, Height;
+            bool Resizable;
+            bool WindowHasFocus;
+            bool WindowMinimized;
 
-		bool Resizable;
-		bool WindowHasFocus;
-		bool WindowMinimized;
+            struct SKeyMap
+            {
+                SKeyMap() {}
+                SKeyMap(int32_t x11, int32_t win32)
+                    : SDLKey(x11), Win32Key(win32)
+                {
+                }
 
-		struct SKeyMap
-		{
-			SKeyMap() {}
-			SKeyMap(int32_t x11, int32_t win32)
-				: SDLKey(x11), Win32Key(win32)
-			{
-			}
+                int32_t SDLKey;
+                int32_t Win32Key;
 
-			int32_t SDLKey;
-			int32_t Win32Key;
+                bool operator<(const SKeyMap& o) const
+                {
+                    return SDLKey<o.SDLKey;
+                }
+            };
 
-			bool operator<(const SKeyMap& o) const
-			{
-				return SDLKey<o.SDLKey;
-			}
-		};
-
-		core::array<SKeyMap> KeyMap;
-		SDL_SysWMinfo Info;
+            core::array<SKeyMap> KeyMap;
+            SDL_SysWMinfo Info;
 	};
 
 } // end namespace irr

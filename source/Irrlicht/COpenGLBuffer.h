@@ -73,6 +73,22 @@ inline uint32_t getBitsPerPixelFromGLenum(const GLenum& format)
 
 class COpenGLBuffer : public virtual IGPUBuffer
 {
+    protected:
+        virtual ~COpenGLBuffer()
+        {
+#ifdef OPENGL_LEAK_DEBUG
+            assert(concurrentAccessGuard[0]==0);
+            FW_AtomicCounterIncr(concurrentAccessGuard[0]);
+#endif // OPENGL_LEAK_DEBUG
+            if (BufferName)
+                COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
+
+#ifdef OPENGL_LEAK_DEBUG
+            assert(concurrentAccessGuard[0]==1);
+            FW_AtomicCounterDecr(concurrentAccessGuard[0]);
+#endif // OPENGL_LEAK_DEBUG
+        }
+
     public:
         COpenGLBuffer(const size_t &size, const void* data, const GLbitfield &flags) : BufferName(0), BufferSize(0), cachedFlags(0)
         {
@@ -88,21 +104,6 @@ class COpenGLBuffer : public virtual IGPUBuffer
 #ifdef OPENGL_LEAK_DEBUG
             for (size_t i=0; i<3; i++)
                 concurrentAccessGuard[i] = 0;
-#endif // OPENGL_LEAK_DEBUG
-        }
-
-        virtual ~COpenGLBuffer()
-        {
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard[0]==0);
-            FW_AtomicCounterIncr(concurrentAccessGuard[0]);
-#endif // OPENGL_LEAK_DEBUG
-            if (BufferName)
-                COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
-
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard[0]==1);
-            FW_AtomicCounterDecr(concurrentAccessGuard[0]);
 #endif // OPENGL_LEAK_DEBUG
         }
 

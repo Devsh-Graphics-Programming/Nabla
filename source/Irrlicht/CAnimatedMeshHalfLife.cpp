@@ -1021,7 +1021,7 @@ SHalflifeHeader* CAnimatedMeshHalfLife::loadModel(io::IReadFile* file, const io:
 				}
 			}
 
-			IImage* image = SceneManager->getVideoDriver()->createImage(ECF_R8G8B8, core::dimension2d<uint32_t>(tex[i].width, tex[i].height));
+			IImage* image = new CImage(ECF_R8G8B8, core::dimension2d<uint32_t>(tex[i].width, tex[i].height));
 
 			CColorConverter::convert8BitTo24Bit(src, (uint8_t*)image->lock(), tex[i].width, tex[i].height, (uint8_t*) palette, 0, false);
 			image->unlock();

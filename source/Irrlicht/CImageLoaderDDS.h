@@ -135,7 +135,7 @@ struct ddsBuffer
 		int32_t				pitch;
 		uint32_t	linearSize;
 	};//20
-	uint32_t		backBufferCount;//24
+	uint32_t		depth;//24
 	union
 	{
 		uint32_t	mipMapCount;
@@ -232,10 +232,10 @@ public:
 	virtual bool isALoadableFileFormat(io::IReadFile* file) const;
 
 	//! creates a surface from the file
-	virtual IImage* loadImage(io::IReadFile* file) const;
+	virtual std::vector<CImageData*> loadImage(io::IReadFile* file) const;
 
 	//! proper load, returns allocated image data (mip maps inclusif)
-	uint8_t* loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelFormat, int32_t *width, int32_t *height, int32_t *mipmapCnt) const;
+	uint8_t* loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelFormat, int32_t *width, int32_t *height, int32_t *depth, int32_t *mipmapCnt) const;
 };
 
 

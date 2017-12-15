@@ -137,15 +137,15 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* file) const
 }
 
 //! creates a surface from the file
-IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
+std::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 {
-	#ifndef _IRR_COMPILE_WITH_LIBJPEG_
-	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", file->getFileName(), ELL_DEBUG);
-	return 0;
-	#else
+    std::vector<CImageData*> retval;
 
+#ifndef _IRR_COMPILE_WITH_LIBJPEG_
+	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", file->getFileName(), ELL_DEBUG);
+#else
 	if (!file)
-		return 0;
+		return retval;
 
 	Filename = file->getFileName();
 
@@ -182,7 +182,7 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 			delete [] rowPtr;
 
 		// return null pointer
-		return 0;
+		return retval;
 	}
 
 	// Now we can initialize the JPEG decompression object.
@@ -230,11 +230,12 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 
 	// Get image data
 	uint16_t rowspan = cinfo.image_width * cinfo.out_color_components;
-	uint32_t width = cinfo.image_width;
-	uint32_t height = cinfo.image_height;
+	uint32_t imageSize[3] = {cinfo.image_width,cinfo.image_height,1};
+	uint32_t& width = imageSize[0];
+	uint32_t& height = imageSize[1];
 
 	// Allocate memory for buffer
-	uint8_t* output = new uint8_t[rowspan * height];
+	uint8_t* output = reinterpret_cast<uint8_t*>(malloc(rowspan * height));
 
 	// Here we use the library's state variable cinfo.output_scanline as the
 	// loop counter, so that we don't have to keep track ourselves.
@@ -258,14 +259,14 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	// This is an important step since it will release a good deal of memory.
 	jpeg_destroy_decompress(&cinfo);
 
+	uint32_t nullOffset[3] = {0,0,0};
 	// convert image
-	IImage* image = 0;
+	CImageData* image = 0;
 	if (useCMYK)
 	{
-		image = new CImage(ECF_R8G8B8,
-				core::dimension2d<uint32_t>(width, height));
+		image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
 		const uint32_t size = 3*width*height;
-		uint8_t* data = (uint8_t*)image->lock();
+		uint8_t* data = (uint8_t*)image->getData();
 		if (data)
 		{
 			for (uint32_t i=0,j=0; i<size; i+=3, j+=4)
@@ -279,18 +280,17 @@ IImage* CImageLoaderJPG::loadImage(io::IReadFile* file) const
 				data[i+2] = (char)(output[j+0]*(output[j+3]/255.f));
 			}
 		}
-		image->unlock();
-		delete [] output;
+		free(output);
 	}
 	else
-		image = new CImage(ECF_R8G8B8,
-				core::dimension2d<uint32_t>(width, height), output);
+		image = new CImageData(output,nullOffset,imageSize,0,ECF_R8G8B8,1,true);
 
 	delete [] input;
 
-	return image;
+    retval.push_back(image);
+#endif
 
-	#endif
+	return retval;
 }
 
 

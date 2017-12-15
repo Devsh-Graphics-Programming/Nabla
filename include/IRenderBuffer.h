@@ -21,6 +21,8 @@ public:
 
 	virtual void resize(const core::dimension2du &newSize) = 0;
 
+	virtual int32_t getSampleCount() const {return -1;}
+
 protected:
 };
 

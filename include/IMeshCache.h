@@ -25,9 +25,6 @@ namespace scene
 	{
 	public:
 
-		//! Destructor
-		virtual ~IMeshCache() {}
-
 		//! Adds a mesh to the internal list of loaded meshes.
 		/** Usually, ISceneManager::getMesh() is called to load a mesh
 		from a file. That method searches the list of loaded meshes if

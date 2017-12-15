@@ -400,6 +400,9 @@ PFNGLBINDRENDERBUFFERPROC COpenGLExtensionHandler::pGlBindRenderbuffer = NULL;
 PFNGLRENDERBUFFERSTORAGEPROC COpenGLExtensionHandler::pGlRenderbufferStorage = NULL;
 PFNGLNAMEDRENDERBUFFERSTORAGEPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorage = NULL;
 PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorageEXT = NULL;
+PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC COpenGLExtensionHandler::pGlRenderbufferStorageMultisample = NULL;
+PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorageMultisample = NULL;
+PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorageMultisampleEXT = NULL;
 PFNGLFRAMEBUFFERRENDERBUFFERPROC COpenGLExtensionHandler::pGlFramebufferRenderbuffer = NULL;
 PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC COpenGLExtensionHandler::pGlNamedFramebufferRenderbuffer = NULL;
 PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC COpenGLExtensionHandler::pGlNamedFramebufferRenderbufferEXT = NULL;
@@ -916,6 +919,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 		pGlNamedFramebufferTextureLayer = NULL;
 		pGlCreateRenderbuffers = NULL;
 		pGlNamedRenderbufferStorage = NULL;
+		pGlNamedRenderbufferStorageMultisample = NULL;
 		pGlNamedFramebufferRenderbuffer = NULL;
 		pGlActiveStencilFaceEXT = NULL;
 		pGlNamedFramebufferReadBuffer = NULL;
@@ -971,6 +975,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     pGlNamedFramebufferTextureEXT = NULL;
     pGlNamedFramebufferTextureLayerEXT = NULL;
     pGlNamedRenderbufferStorageEXT = NULL;
+    pGlNamedRenderbufferStorageMultisampleEXT = NULL;
     pGlNamedFramebufferRenderbufferEXT = NULL;
     pGlFramebufferReadBufferEXT = NULL;
     pGlFramebufferDrawBufferEXT = NULL;
@@ -1257,6 +1262,9 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC) IRR_OGL_LOAD_EXTENSION("glRenderbufferStorage");
 	pGlNamedRenderbufferStorage = (PFNGLNAMEDRENDERBUFFERSTORAGEPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorage");
 	pGlNamedRenderbufferStorageEXT = (PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorageEXT");
+	pGlRenderbufferStorageMultisample = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION("glRenderbufferStorageMultisample");
+	pGlNamedRenderbufferStorageMultisample = (PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorageMultisample");
+	pGlNamedRenderbufferStorageMultisampleEXT = (PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorageMultisampleEXT");
 	pGlFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glFramebufferRenderbuffer");
 	pGlNamedFramebufferRenderbuffer = (PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferRenderbuffer");
 	pGlNamedFramebufferRenderbufferEXT = (PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferRenderbufferEXT");

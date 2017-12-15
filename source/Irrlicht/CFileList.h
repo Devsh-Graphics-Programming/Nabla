@@ -65,68 +65,65 @@ struct SFileListEntry
 //! Implementation of a file list
 class CFileList : public IFileList
 {
-public:
+    protected:
+        //! Destructor
+        virtual ~CFileList();
+    public:
+        //! Constructor
+        /** \param path The path of this file archive */
+        CFileList(const io::path& path, bool ignoreCase, bool ignorePaths);
 
-	// CFileList methods
+        //! Add as a file or folder to the list
+        /** \param fullPath The file name including path, up to the root of the file list.
+        \param isDirectory True if this is a directory rather than a file.
+        \param offset The offset where the file is stored in an archive
+        \param size The size of the file in bytes.
+        \param id The ID of the file in the archive which owns it */
+        virtual uint32_t addItem(const io::path& fullPath, uint32_t offset, uint32_t size, bool isDirectory, uint32_t id=0);
 
-	//! Constructor
-	/** \param path The path of this file archive */
-	CFileList(const io::path& path, bool ignoreCase, bool ignorePaths);
+        //! Sorts the file list. You should call this after adding any items to the file list
+        virtual void sort();
 
-	//! Destructor
-	virtual ~CFileList();
+        //! Returns the amount of files in the filelist.
+        virtual uint32_t getFileCount() const;
 
-	//! Add as a file or folder to the list
-	/** \param fullPath The file name including path, up to the root of the file list.
-	\param isDirectory True if this is a directory rather than a file.
-	\param offset The offset where the file is stored in an archive
-	\param size The size of the file in bytes.
-	\param id The ID of the file in the archive which owns it */
-	virtual uint32_t addItem(const io::path& fullPath, uint32_t offset, uint32_t size, bool isDirectory, uint32_t id=0);
+        //! Gets the name of a file in the list, based on an index.
+        virtual const io::path& getFileName(uint32_t index) const;
 
-	//! Sorts the file list. You should call this after adding any items to the file list
-	virtual void sort();
+        //! Gets the full name of a file in the list, path included, based on an index.
+        virtual const io::path& getFullFileName(uint32_t index) const;
 
-	//! Returns the amount of files in the filelist.
-	virtual uint32_t getFileCount() const;
+        //! Returns the ID of a file in the file list, based on an index.
+        virtual uint32_t getID(uint32_t index) const;
 
-	//! Gets the name of a file in the list, based on an index.
-	virtual const io::path& getFileName(uint32_t index) const;
+        //! Returns true if the file is a directory
+        virtual bool isDirectory(uint32_t index) const;
 
-	//! Gets the full name of a file in the list, path included, based on an index.
-	virtual const io::path& getFullFileName(uint32_t index) const;
+        //! Returns the size of a file
+        virtual uint32_t getFileSize(uint32_t index) const;
 
-	//! Returns the ID of a file in the file list, based on an index.
-	virtual uint32_t getID(uint32_t index) const;
+        //! Returns the offest of a file
+        virtual uint32_t getFileOffset(uint32_t index) const;
 
-	//! Returns true if the file is a directory
-	virtual bool isDirectory(uint32_t index) const;
+        //! Searches for a file or folder within the list, returns the index
+        virtual int32_t findFile(const io::path& filename, bool isFolder) const;
 
-	//! Returns the size of a file
-	virtual uint32_t getFileSize(uint32_t index) const;
+        //! Returns the base path of the file list
+        virtual const io::path& getPath() const;
 
-	//! Returns the offest of a file
-	virtual uint32_t getFileOffset(uint32_t index) const;
+    protected:
 
-	//! Searches for a file or folder within the list, returns the index
-	virtual int32_t findFile(const io::path& filename, bool isFolder) const;
+        //! Ignore paths when adding or searching for files
+        bool IgnorePaths;
 
-	//! Returns the base path of the file list
-	virtual const io::path& getPath() const;
+        //! Ignore case when adding or searching for files
+        bool IgnoreCase;
 
-protected:
+        //! Path to the file list
+        io::path Path;
 
-	//! Ignore paths when adding or searching for files
-	bool IgnorePaths;
-
-	//! Ignore case when adding or searching for files
-	bool IgnoreCase;
-
-	//! Path to the file list
-	io::path Path;
-
-	//! List of files
-	core::array<SFileListEntry> Files;
+        //! List of files
+        core::array<SFileListEntry> Files;
 };
 
 

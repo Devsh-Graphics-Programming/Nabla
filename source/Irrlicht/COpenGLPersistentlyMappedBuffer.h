@@ -14,9 +14,13 @@ namespace video
 
 class COpenGLPersistentlyMappedBuffer : public IGPUMappedBuffer, COpenGLBuffer
 {
+    protected:
+        virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart);
+
+        virtual ~COpenGLPersistentlyMappedBuffer();
+
     public:
         COpenGLPersistentlyMappedBuffer(const size_t &size, const void* data, const GLbitfield &flags, const GLbitfield &mapOnCreation_andFlags);
-        virtual ~COpenGLPersistentlyMappedBuffer();
 
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false);
 
@@ -57,10 +61,6 @@ class COpenGLPersistentlyMappedBuffer : public IGPUMappedBuffer, COpenGLBuffer
         //! WARNING: RESIZE will invalidate pointer
         //! WARNING: NEED TO FENCE BEFORE USE!!!!!!!!!!!!!
         virtual void* getPointer() {return persistentPointer;}
-
-
-    protected:
-        virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart);
 
     private:
         void* persistentPointer;

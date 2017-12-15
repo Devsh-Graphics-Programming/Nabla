@@ -16,55 +16,55 @@ namespace scene
 	// Skybox, rendered with zbuffer turned off, before all other nodes.
 	class CSkyBoxSceneNode : public ISceneNode
 	{
-	public:
+        protected:
+            virtual ~CSkyBoxSceneNode()
+            {
+                for (size_t i=0; i<6; i++)
+                    sides[i]->drop();
+            }
 
-		//! constructor
-		CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
-			video::ITexture* right, video::ITexture* front, video::ITexture* back,
-			video::IGPUBuffer* vertPositions, size_t positionsOffsetInBuf,
-			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
-        //! clone Ctor
-		CSkyBoxSceneNode(CSkyBoxSceneNode* other,
-			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
+        public:
+            //! constructor
+            CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
+                video::ITexture* right, video::ITexture* front, video::ITexture* back,
+                video::IGPUBuffer* vertPositions, size_t positionsOffsetInBuf,
+                IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
+            //! clone Ctor
+            CSkyBoxSceneNode(CSkyBoxSceneNode* other,
+                IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
 
-        virtual ~CSkyBoxSceneNode()
-        {
-            for (size_t i=0; i<6; i++)
-                sides[i]->drop();
-        }
+            //!
+            virtual const bool supportsDriverFence() const {return true;}
 
-		//!
-		virtual const bool supportsDriverFence() const {return true;}
+            virtual void OnRegisterSceneNode();
 
-		virtual void OnRegisterSceneNode();
+            //! renders the node.
+            virtual void render();
 
-		//! renders the node.
-		virtual void render();
+            //! returns the axis aligned bounding box of this node
+            virtual const core::aabbox3d<float>& getBoundingBox();
 
-		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<float>& getBoundingBox();
+            //! returns the material based on the zero based index i. To get the amount
+            //! of materials used by this scene node, use getMaterialCount().
+            //! This function is needed for inserting the node into the scene hirachy on a
+            //! optimal position for minimizing renderstate changes, but can also be used
+            //! to directly modify the material of a scene node.
+            virtual video::SMaterial& getMaterial(uint32_t i);
 
-		//! returns the material based on the zero based index i. To get the amount
-		//! of materials used by this scene node, use getMaterialCount().
-		//! This function is needed for inserting the node into the scene hirachy on a
-		//! optimal position for minimizing renderstate changes, but can also be used
-		//! to directly modify the material of a scene node.
-		virtual video::SMaterial& getMaterial(uint32_t i);
+            //! returns amount of materials used by this scene node.
+            virtual uint32_t getMaterialCount() const;
 
-		//! returns amount of materials used by this scene node.
-		virtual uint32_t getMaterialCount() const;
+            //! Returns type of the scene node
+            virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_BOX; }
 
-		//! Returns type of the scene node
-		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_BOX; }
+            //! Creates a clone of this scene node and its children.
+            virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
 
-		//! Creates a clone of this scene node and its children.
-		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
+        private:
 
-	private:
-
-		core::aabbox3d<float> Box;
-		IGPUMeshBuffer* sides[6];
-		video::SMaterial Material[6];
+            core::aabbox3d<float> Box;
+            IGPUMeshBuffer* sides[6];
+            video::SMaterial Material[6];
 	};
 
 } // end namespace scene

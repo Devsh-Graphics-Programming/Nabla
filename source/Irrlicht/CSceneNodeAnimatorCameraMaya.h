@@ -26,13 +26,14 @@ namespace scene
 	*/
 	class CSceneNodeAnimatorCameraMaya : public ISceneNodeAnimatorCameraMaya
 	{
+    protected:
+		//! Destructor
+		virtual ~CSceneNodeAnimatorCameraMaya();
+
 	public:
 		//! Constructor
 		CSceneNodeAnimatorCameraMaya(gui::ICursorControl* cursor, float rotateSpeed = -1500.f,
 			float zoomSpeed = 200.f, float translationSpeed = 1500.f, float distance=70.f);
-
-		//! Destructor
-		virtual ~CSceneNodeAnimatorCameraMaya();
 
 		//! Animates the scene node, currently only works on cameras
 		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);

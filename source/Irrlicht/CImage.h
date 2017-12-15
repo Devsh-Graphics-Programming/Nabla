@@ -17,20 +17,20 @@ namespace video
 //! 16 bit A1R5G5B5/32 Bit A8R8G8B8 images, which are used by the SoftwareDevice.
 class CImage : public IImage
 {
-public:
+protected:
+	//! destructor
+	virtual ~CImage();
 
+public:
 	//! constructor from raw image data
 	/** \param useForeignMemory: If true, the image will use the data pointer
 	directly and own it from now on, which means it will also try to delete [] the
 	data when the image will be destructed. If false, the memory will by copied. */
 	CImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size,
-		void* data, bool ownForeignMemory=true, bool deleteMemory = true);
+		void* data, bool ownForeignMemory=true);
 
 	//! constructor for empty image
 	CImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size);
-
-	//! destructor
-	virtual ~CImage();
 
 	//! Lock function.
 	virtual void* lock()
@@ -77,12 +77,6 @@ public:
 	//! returns pitch of image
 	virtual uint32_t getPitch() const { return Pitch; }
 
-	//! copies this surface into another, scaling it to fit.
-	virtual void copyToScaling(void* target, uint32_t width, uint32_t height, ECOLOR_FORMAT format, uint32_t pitch=0);
-
-	//! copies this surface into another, scaling it to fit.
-	virtual void copyToScaling(IImage* target);
-
 	//! copies this surface into another
 	virtual void copyTo(IImage* target, const core::position2d<int32_t>& pos=core::position2d<int32_t>(0,0));
 
@@ -109,7 +103,6 @@ private:
 
 	uint8_t* Data;
 	core::dimension2d<uint32_t> Size;
-	uint32_t BitsPerPixel;
 	uint32_t Pitch;
 	ECOLOR_FORMAT Format;
 

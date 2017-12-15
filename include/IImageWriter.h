@@ -5,7 +5,7 @@
 #ifndef _I_IMAGE_WRITER_H_INCLUDED__
 #define _I_IMAGE_WRITER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "IImage.h"
 #include "irrString.h"
 #include "coreutil.h"
 
@@ -18,7 +18,6 @@ namespace io
 
 namespace video
 {
-	class IImage;
 
 
 //! Interface for writing software image data.

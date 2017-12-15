@@ -657,7 +657,7 @@ ISceneNode* CSceneManager::addSkyBoxSceneNode(video::ITexture* top, video::IText
 
 //! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 //! panoramic texture on it and is drawn around the camera position.
-ISceneNode* CSceneManager::addSkyDomeSceneNode(video::ITexture* texture,
+ISceneNode* CSceneManager::addSkyDomeSceneNode(video::IVirtualTexture* texture,
 	uint32_t horiRes, uint32_t vertRes, float texturePercentage,float spherePercentage, float radius,
 	IDummyTransformationSceneNode* parent, int32_t id)
 {

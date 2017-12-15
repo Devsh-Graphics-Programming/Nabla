@@ -27,13 +27,13 @@ enum E_PLY_PROPERTY_TYPE
 //! Meshloader capable of loading obj meshes.
 class CPLYMeshFileLoader : public IMeshLoader
 {
-public:
-
-	//! Constructor
-	CPLYMeshFileLoader(scene::ISceneManager* smgr);
-
+protected:
 	//! Destructor
 	virtual ~CPLYMeshFileLoader();
+
+public:
+	//! Constructor
+	CPLYMeshFileLoader(scene::ISceneManager* smgr);
 
 	//! returns true if the file maybe is able to be loaded by this class
 	//! based on the file extension (e.g. ".ply")

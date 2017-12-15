@@ -13,9 +13,11 @@ namespace video
 
 class COpenGLQuery : public virtual IQueryObject
 {
+    protected:
+        virtual ~COpenGLQuery();
+
     public:
         COpenGLQuery(const GLenum& type_in);
-        virtual ~COpenGLQuery();
 
 		virtual const E_QUERY_OBJECT_TYPE getQueryObjectType() const {return cachedIrrType;}
 
@@ -33,7 +35,7 @@ class COpenGLQuery : public virtual IQueryObject
 
         inline void flagBegun() {active=true; queryIsReady=false;}
         inline void flagEnded() {active=false; queryNeedsUpdate=true;}
-    protected:
+
     private:
         GLuint object;
         GLenum type;

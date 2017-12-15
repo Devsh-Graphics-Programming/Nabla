@@ -30,80 +30,80 @@ class IShaderConstantSetCallBack;
 //! Please note: This renderer implements its own IMaterialRendererServices
 class COpenGLSLMaterialRenderer : public IMaterialRenderer, public IMaterialRendererServices
 {
-public:
+    protected:
+        //! Destructor
+        virtual ~COpenGLSLMaterialRenderer();
 
-	//! Constructor
-	COpenGLSLMaterialRenderer(
-		COpenGLDriver* driver,
-		int32_t& outMaterialTypeNr,
-		const char* vertexShaderProgram = 0,
-		const char* vertexShaderEntryPointName = 0,
-		const char* pixelShaderProgram = 0,
-		const char* pixelShaderEntryPointName = 0,
-		const char* geometryShaderProgram = 0,
-		const char* geometryShaderEntryPointName = "main",
-		const char* controlShaderProgram = 0,
-		const char* controlShaderEntryPointName="main",
-		const char* evaluationShaderProgram = 0,
-		const char* evaluationShaderEntryPointName="main",
-		uint32_t patchVertices=3,
-		IShaderConstantSetCallBack* callback = 0,
-		E_MATERIAL_TYPE baseMaterial = EMT_SOLID,
-        const char** xformFeedbackOutputs = NULL,
-        const uint32_t& xformFeedbackOutputCount = 0,
-		int32_t userData = 0);
+    public:
+        //! Constructor
+        COpenGLSLMaterialRenderer(
+            COpenGLDriver* driver,
+            int32_t& outMaterialTypeNr,
+            const char* vertexShaderProgram = 0,
+            const char* vertexShaderEntryPointName = 0,
+            const char* pixelShaderProgram = 0,
+            const char* pixelShaderEntryPointName = 0,
+            const char* geometryShaderProgram = 0,
+            const char* geometryShaderEntryPointName = "main",
+            const char* controlShaderProgram = 0,
+            const char* controlShaderEntryPointName="main",
+            const char* evaluationShaderProgram = 0,
+            const char* evaluationShaderEntryPointName="main",
+            uint32_t patchVertices=3,
+            IShaderConstantSetCallBack* callback = 0,
+            E_MATERIAL_TYPE baseMaterial = EMT_SOLID,
+            const char** xformFeedbackOutputs = NULL,
+            const uint32_t& xformFeedbackOutputCount = 0,
+            int32_t userData = 0);
 
-	//! Destructor
-	virtual ~COpenGLSLMaterialRenderer();
+        virtual void OnSetMaterial(const SMaterial& material, const SMaterial& lastMaterial,
+            bool resetAllRenderstates, IMaterialRendererServices* services);
 
-	virtual void OnSetMaterial(const SMaterial& material, const SMaterial& lastMaterial,
-		bool resetAllRenderstates, IMaterialRendererServices* services);
+        virtual bool OnRender(IMaterialRendererServices* service);
 
-	virtual bool OnRender(IMaterialRendererServices* service);
+        virtual void OnUnsetMaterial();
 
-	virtual void OnUnsetMaterial();
+        //! Returns if the material is transparent.
+        virtual bool isTransparent() const;
 
-	//! Returns if the material is transparent.
-	virtual bool isTransparent() const;
+        //! Returns if it's a tessellation shader.
+        virtual bool isTessellation() const {return tessellationPatchVertices!=-1;}
 
-	//! Returns if it's a tessellation shader.
-	virtual bool isTessellation() const {return tessellationPatchVertices!=-1;}
+        // implementations for the render services
+        virtual void setBasicRenderStates(const SMaterial& material, const SMaterial& lastMaterial, bool resetAllRenderstates);
+        virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
+        virtual void setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
+        virtual IVideoDriver* getVideoDriver();
 
-	// implementations for the render services
-	virtual void setBasicRenderStates(const SMaterial& material, const SMaterial& lastMaterial, bool resetAllRenderstates);
-	virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
-    virtual void setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
-	virtual IVideoDriver* getVideoDriver();
+    protected:
 
-protected:
+        void init(int32_t& outMaterialTypeNr,
+            const char* vertexShaderProgram,
+            const char* pixelShaderProgram,
+            const char* geometryShaderProgram,
+            const char* controlShaderProgram,
+            const char* evaluationShaderProgram,
+            uint32_t patchVertices=3,
+            const char** xformFeedbackOutputs = NULL,
+            const uint32_t& xformFeedbackOutputCount = 0);
 
-	void init(int32_t& outMaterialTypeNr,
-		const char* vertexShaderProgram,
-		const char* pixelShaderProgram,
-		const char* geometryShaderProgram,
-		const char* controlShaderProgram,
-		const char* evaluationShaderProgram,
-		uint32_t patchVertices=3,
-        const char** xformFeedbackOutputs = NULL,
-        const uint32_t& xformFeedbackOutputCount = 0);
+        bool createProgram();
+        bool createShader(GLenum shaderType, const char* shader);
+        bool linkProgram();
 
-	bool createProgram();
-	bool createShader(GLenum shaderType, const char* shader);
-	bool linkProgram();
+        COpenGLDriver* Driver;
+        IShaderConstantSetCallBack* CallBack;
+        E_MATERIAL_TYPE BaseMaterial;
 
-	COpenGLDriver* Driver;
-	IShaderConstantSetCallBack* CallBack;
-	E_MATERIAL_TYPE BaseMaterial;
+        int32_t tessellationPatchVertices;//is a Tesselation Shader?
 
-	int32_t tessellationPatchVertices;//is a Tesselation Shader?
-
-	GLuint Program2;
-	GLint activeUniformCount;
-	int32_t UserData;
-#ifdef _DEBUG
-    core::array<SConstantLocationNamePair> debugConstants;
-    core::array<GLuint> debugConstantIndices;
-#endif
+        GLuint Program2;
+        GLint activeUniformCount;
+        int32_t UserData;
+    #ifdef _DEBUG
+        core::array<SConstantLocationNamePair> debugConstants;
+        core::array<GLuint> debugConstantIndices;
+    #endif
 };
 
 

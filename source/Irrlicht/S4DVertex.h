@@ -88,10 +88,7 @@ struct sCompressedVec4
 
 	void setColorf ( const video::SColorf & color )
 	{
-		argb = 	core::floor32 ( color.a * 255.f ) << 24 |
-				core::floor32 ( color.r * 255.f ) << 16 |
-				core::floor32 ( color.g * 255.f ) << 8  |
-				core::floor32 ( color.b * 255.f );
+		argb = 	color.toSColor().color;
 	}
 
 	void setVec4 ( const sVec4 & v );
@@ -143,10 +140,10 @@ struct sVec4
 
 	void setColorf ( const video::SColorf & color )
 	{
-		x = color.a;
-		y = color.r;
-		z = color.g;
-		w = color.b;
+		x = color.getAsVectorSIMDf().a;
+		y = color.getAsVectorSIMDf().r;
+		z = color.getAsVectorSIMDf().g;
+		w = color.getAsVectorSIMDf().b;
 	}
 
 
@@ -300,9 +297,9 @@ struct sVec3
 
 	void setColorf ( const video::SColorf & color )
 	{
-		r = color.r;
-		g = color.g;
-		b = color.b;
+		r = color.getAsVectorSIMDf().r;
+		g = color.getAsVectorSIMDf().g;
+		b = color.getAsVectorSIMDf().b;
 	}
 
 	void add (const sVec3& other)

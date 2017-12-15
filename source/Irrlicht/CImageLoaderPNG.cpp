@@ -86,13 +86,14 @@ bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* file) const
 
 
 // load in the image data
-IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
+std::vector<CImageData*> CImageLoaderPng::loadImage(io::IReadFile* file) const
 {
+    std::vector<CImageData*> retval;
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 	if (!file)
-		return 0;
+		return retval;
 
-	video::IImage* image = 0;
+	video::CImageData* image = 0;
 	//Used to point to image rows
 	uint8_t** RowPointers = 0;
 
@@ -101,14 +102,14 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	if( file->read(buffer, 8) != 8 )
 	{
 		os::Printer::log("LOAD PNG: can't read file\n", file->getFileName().c_str(), ELL_ERROR);
-		return 0;
+		return retval;
 	}
 
 	// Check if it really is a PNG file
 	if( png_sig_cmp(buffer, 0, 8) )
 	{
 		os::Printer::log("LOAD PNG: not really a png\n", file->getFileName().c_str(), ELL_ERROR);
-		return 0;
+		return retval;
 	}
 
 	// Allocate the png read struct
@@ -117,7 +118,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	if (!png_ptr)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create read struct failure\n", file->getFileName().c_str(), ELL_ERROR);
-		return 0;
+		return retval;
 	}
 
 	// Allocate the png info struct
@@ -126,7 +127,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create info struct failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_read_struct(&png_ptr, NULL, NULL);
-		return 0;
+		return retval;
 	}
 
 	// for proper error handling
@@ -135,7 +136,7 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 		if (RowPointers)
 			delete [] RowPointers;
-		return 0;
+		return retval;
 	}
 
 	// changed by zola so we don't need to have public FILE pointers
@@ -145,8 +146,9 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 
 	png_read_info(png_ptr, info_ptr); // Read the info section of the png file
 
-	uint32_t Width;
-	uint32_t Height;
+	uint32_t imageSize[3] = {1,1,1};
+	uint32_t& Width = imageSize[0];
+	uint32_t& Height = imageSize[1];
 	int32_t BitDepth;
 	int32_t ColorType;
 	{
@@ -223,15 +225,16 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	}
 
 	// Create the image structure to be filled by png data
+	uint32_t nullOffset[3] = {0,0,0};
 	if (ColorType==PNG_COLOR_TYPE_RGB_ALPHA)
-		image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(Width, Height));
+		image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_A8R8G8B8);
 	else
-		image = new CImage(ECF_R8G8B8, core::dimension2d<uint32_t>(Width, Height));
+		image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_R8G8B8);
 	if (!image)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_read_struct(&png_ptr, NULL, NULL);
-		return 0;
+		return retval;
 	}
 
 	// Create array of pointers to rows in image data
@@ -240,12 +243,12 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_read_struct(&png_ptr, NULL, NULL);
-		delete image;
-		return 0;
+		image->drop();
+		return retval;
 	}
 
 	// Fill array of pointers to rows in image data
-	unsigned char* data = (unsigned char*)image->lock();
+	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData());
 	for (uint32_t i=0; i<Height; ++i)
 	{
 		RowPointers[i]=data;
@@ -257,9 +260,8 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 	{
 		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 		delete [] RowPointers;
-		image->unlock();
-		delete image;
-		return 0;
+		image->drop();
+		return retval;
 	}
 
 	// Read data using the library function that handles all transformations including interlacing
@@ -267,13 +269,12 @@ IImage* CImageLoaderPng::loadImage(io::IReadFile* file) const
 
 	png_read_end(png_ptr, NULL);
 	delete [] RowPointers;
-	image->unlock();
 	png_destroy_read_struct(&png_ptr,&info_ptr, 0); // Clean up memory
 
-	return image;
-#else
-	return 0;
+	retval.push_back(image);
 #endif // _IRR_COMPILE_WITH_LIBPNG_
+
+    return retval;
 }
 
 

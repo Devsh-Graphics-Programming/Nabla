@@ -216,7 +216,7 @@ void CImageLoaderBMP::decompress4BitRLE(uint8_t*& bmpData, int32_t size, int32_t
 
 
 //! creates a surface from the file
-IImage* CImageLoaderBMP::loadImage(io::IReadFile* file) const
+std::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
 {
 	SBMPHeader header;
 
@@ -244,12 +244,12 @@ IImage* CImageLoaderBMP::loadImage(io::IReadFile* file) const
 	//! return if the header is false
 
 	if (header.Id != 0x4d42)
-		return 0;
+		return std::vector<CImageData*>();
 
 	if (header.Compression > 2) // we'll only handle RLE-Compression
 	{
 		os::Printer::log("Compression mode not supported.", ELL_ERROR);
-		return 0;
+		return std::vector<CImageData*>();
 	}
 
 	// adjust bitmap data size to dword boundary
@@ -308,53 +308,50 @@ IImage* CImageLoaderBMP::loadImage(io::IReadFile* file) const
 	// create surface
 
 	// no default constructor from packed area! ARM problem!
-	core::dimension2d<uint32_t> dim;
-	dim.Width = header.Width;
-	dim.Height = header.Height;
+	uint32_t offset[3] = {0,0,0};
+	uint32_t dim[3] = {header.Width,header.Height,1};
 
-	IImage* image = 0;
+	std::vector<CImageData*> images;
 	switch(header.BPP)
 	{
 	case 1:
-		image = new CImage(ECF_A1R5G5B5, dim);
-		if (image)
-			CColorConverter::convert1BitTo16Bit(bmpData, (int16_t*)image->lock(), header.Width, header.Height, pitch, true);
+		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A1R5G5B5));
+		if (images[0])
+			CColorConverter::convert1BitTo16Bit(bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;
 	case 4:
-		image = new CImage(ECF_A1R5G5B5, dim);
-		if (image)
-			CColorConverter::convert4BitTo16Bit(bmpData, (int16_t*)image->lock(), header.Width, header.Height, paletteData, pitch, true);
+		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A1R5G5B5));
+		if (images[0])
+			CColorConverter::convert4BitTo16Bit(bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, paletteData, pitch, true);
 		break;
 	case 8:
-		image = new CImage(ECF_A1R5G5B5, dim);
-		if (image)
-			CColorConverter::convert8BitTo16Bit(bmpData, (int16_t*)image->lock(), header.Width, header.Height, paletteData, pitch, true);
+		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A1R5G5B5));
+		if (images[0])
+			CColorConverter::convert8BitTo16Bit(bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, paletteData, pitch, true);
 		break;
 	case 16:
-		image = new CImage(ECF_A1R5G5B5, dim);
-		if (image)
-			CColorConverter::convert16BitTo16Bit((int16_t*)bmpData, (int16_t*)image->lock(), header.Width, header.Height, pitch, true);
+		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A1R5G5B5));
+		if (images[0])
+			CColorConverter::convert16BitTo16Bit((int16_t*)bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;
 	case 24:
-		image = new CImage(ECF_R8G8B8, dim);
-		if (image)
-			CColorConverter::convert24BitTo24Bit(bmpData, (uint8_t*)image->lock(), header.Width, header.Height, pitch, true, true);
+		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_R8G8B8));
+		if (images[0])
+			CColorConverter::convert24BitTo24Bit(bmpData, (uint8_t*)images[0]->getData(), header.Width, header.Height, pitch, true, true);
 		break;
 	case 32: // thx to Reinhard Ostermeier
-		image = new CImage(ECF_A8R8G8B8, dim);
-		if (image)
-			CColorConverter::convert32BitTo32Bit((int32_t*)bmpData, (int32_t*)image->lock(), header.Width, header.Height, pitch, true);
+		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A8R8G8B8));
+		if (images[0])
+			CColorConverter::convert32BitTo32Bit((int32_t*)bmpData, (int32_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;
 	};
-	if (image)
-		image->unlock();
 
 	// clean up
 
 	delete [] paletteData;
 	delete [] bmpData;
 
-	return image;
+	return images;
 }
 
 

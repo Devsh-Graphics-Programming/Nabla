@@ -6,7 +6,7 @@
 #define __C_COLOR_CONVERTER_H_INCLUDED__
 
 #include "irrTypes.h"
-#include "IImage.h"
+#include "SColor.h"
 
 namespace irr
 {

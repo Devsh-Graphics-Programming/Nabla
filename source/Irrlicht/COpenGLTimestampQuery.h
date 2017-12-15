@@ -13,15 +13,17 @@ namespace video
 
 class COpenGLTimestampQuery : public IGPUTimestampQuery
 {
+    protected:
+        virtual ~COpenGLTimestampQuery()
+        {
+            COpenGLExtensionHandler::extGlDeleteQueries(1,&object);
+        }
+
     public:
         COpenGLTimestampQuery() : object(0), ready(false), hasResult(false), cachedCompletedTime(0xdeadbeefbadc0ffeu)
         {
             COpenGLExtensionHandler::extGlCreateQueries(GL_TIMESTAMP,1,&object);
             COpenGLExtensionHandler::extGlQueryCounter(object,GL_TIMESTAMP);
-        }
-        virtual ~COpenGLTimestampQuery()
-        {
-            COpenGLExtensionHandler::extGlDeleteQueries(1,&object);
         }
 
 		virtual bool isQueryReady()

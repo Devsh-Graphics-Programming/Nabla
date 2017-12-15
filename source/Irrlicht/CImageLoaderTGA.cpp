@@ -87,13 +87,22 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* file) const
 	memset(&footer, 0, sizeof(STGAFooter));
 	file->seek(file->getSize()-sizeof(STGAFooter));
 	file->read(&footer, sizeof(STGAFooter));
-	return (!strcmp(footer.Signature,"TRUEVISION-XFILE.")); // very old tgas are refused.
+
+	if (strcmp(footer.Signature,"TRUEVISION-XFILE.")) // very old tgas are refused.
+	{
+#ifdef _DEBUG
+		os::Printer::log("Unsupported, very old TGA", file->getFileName().c_str(), ELL_ERROR);
+#endif // _DEBUG
+	    return false;
+	}
+    else
+        return true;
 }
 
 
 
 //! creates a surface from the file
-IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
+std::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 {
 	STGAHeader header;
 	uint32_t *palette = 0;
@@ -135,8 +144,8 @@ IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
 		delete [] colorMap;
 	}
 
+	std::vector<CImageData*> retval;
 	// read image
-
 	uint8_t* data = 0;
 
 	if (	header.ImageType == 1 || // Uncompressed, color-mapped images.
@@ -158,10 +167,13 @@ IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
 	{
 		os::Printer::log("Unsupported TGA file type", file->getFileName().c_str(), ELL_ERROR);
 		delete [] palette;
-		return 0;
+		return retval;
 	}
 
-	IImage* image = 0;
+	CImageData* image = 0;
+
+	uint32_t nullOffset[3] = {0,0,0};
+	uint32_t imageSize[3] = {header.ImageWidth,header.ImageHeight,0};
 
 	switch(header.PixelDepth)
 	{
@@ -169,21 +181,19 @@ IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
 		{
 			if (header.ImageType==3) // grey image
 			{
-				image = new CImage(ECF_R8G8B8,
-					core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
 				if (image)
 					CColorConverter::convert8BitTo24Bit((uint8_t*)data,
-						(uint8_t*)image->lock(),
+						(uint8_t*)image->getData(),
 						header.ImageWidth,header.ImageHeight,
 						0, 0, (header.ImageDescriptor&0x20)==0);
 			}
 			else
 			{
-				image = new CImage(ECF_A1R5G5B5,
-					core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A1R5G5B5);
 				if (image)
 					CColorConverter::convert8BitTo16Bit((uint8_t*)data,
-						(int16_t*)image->lock(),
+						(int16_t*)image->getData(),
 						header.ImageWidth,header.ImageHeight,
 						(int32_t*) palette, 0,
 						(header.ImageDescriptor&0x20)==0);
@@ -191,37 +201,34 @@ IImage* CImageLoaderTGA::loadImage(io::IReadFile* file) const
 		}
 		break;
 	case 16:
-		image = new CImage(ECF_A1R5G5B5,
-			core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
+		image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A1R5G5B5);
 		if (image)
 			CColorConverter::convert16BitTo16Bit((int16_t*)data,
-				(int16_t*)image->lock(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
+				(int16_t*)image->getData(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
 		break;
 	case 24:
-			image = new CImage(ECF_R8G8B8,
-				core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
+			image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
 			if (image)
 				CColorConverter::convert24BitTo24Bit(
-					(uint8_t*)data, (uint8_t*)image->lock(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
+					(uint8_t*)data, (uint8_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
 		break;
 	case 32:
-			image = new CImage(ECF_A8R8G8B8,
-				core::dimension2d<uint32_t>(header.ImageWidth, header.ImageHeight));
+			image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
 			if (image)
 				CColorConverter::convert32BitTo32Bit((int32_t*)data,
-					(int32_t*)image->lock(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
+					(int32_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
 		break;
 	default:
 		os::Printer::log("Unsupported TGA format", file->getFileName().c_str(), ELL_ERROR);
 		break;
 	}
-	if (image)
-		image->unlock();
+	retval.push_back(image);
+
 
 	delete [] data;
 	delete [] palette;
 
-	return image;
+	return retval;
 }
 
 

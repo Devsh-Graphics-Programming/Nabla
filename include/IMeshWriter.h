@@ -24,9 +24,6 @@ namespace scene
 	{
 	public:
 
-		//! Destructor
-		virtual ~IMeshWriter() {}
-
 		//! Get the type of the mesh writer
 		/** For own implementations, use MAKE_IRR_ID as shown in the
 		EMESH_WRITER_TYPE enumeration to return your own unique mesh

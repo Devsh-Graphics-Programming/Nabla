@@ -7,6 +7,7 @@
 
 #include "IMeshSceneNode.h"
 #include "IMesh.h"
+#include "irrArray.h"
 
 namespace irr
 {
@@ -16,6 +17,10 @@ namespace scene
 
 	class CMeshSceneNode : public IMeshSceneNode
 	{
+    protected:
+		//! destructor
+		virtual ~CMeshSceneNode();
+
 	public:
 
 		//! constructor
@@ -23,9 +28,6 @@ namespace scene
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
-
-		//! destructor
-		virtual ~CMeshSceneNode();
 
 		//!
 		virtual const bool supportsDriverFence() const {return true;}

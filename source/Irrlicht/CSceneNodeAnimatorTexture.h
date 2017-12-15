@@ -10,18 +10,22 @@
 
 namespace irr
 {
+namespace video
+{
+    class ITexture;
+}
 namespace scene
 {
 	class CSceneNodeAnimatorTexture : public ISceneNodeAnimatorFinishing
 	{
-	public:
+    protected:
+		//! destructor
+		virtual ~CSceneNodeAnimatorTexture();
 
+	public:
 		//! constructor
 		CSceneNodeAnimatorTexture(const core::array<video::ITexture*>& textures,
 			int32_t timePerFrame, bool loop, uint32_t now);
-
-		//! destructor
-		virtual ~CSceneNodeAnimatorTexture();
 
 		//! animates a scene node
 		virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);

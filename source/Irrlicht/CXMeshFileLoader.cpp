@@ -2659,9 +2659,9 @@ bool CXMeshFileLoader::readVector3(core::vector3df& vec)
 bool CXMeshFileLoader::readRGB(video::SColor& color)
 {
 	video::SColorf tmpColor;
-	tmpColor.r = readFloat();
-	tmpColor.g = readFloat();
-	tmpColor.b = readFloat();
+	tmpColor.getAsVectorSIMDf().r = readFloat();
+	tmpColor.getAsVectorSIMDf().g = readFloat();
+	tmpColor.getAsVectorSIMDf().b = readFloat();
 	color = tmpColor.toSColor();
 	return checkForOneFollowingSemicolons();
 }
@@ -2671,10 +2671,10 @@ bool CXMeshFileLoader::readRGB(video::SColor& color)
 bool CXMeshFileLoader::readRGBA(video::SColor& color)
 {
 	video::SColorf tmpColor;
-	tmpColor.r = readFloat();
-	tmpColor.g = readFloat();
-	tmpColor.b = readFloat();
-	tmpColor.a = readFloat();
+	tmpColor.getAsVectorSIMDf().r = readFloat();
+	tmpColor.getAsVectorSIMDf().g = readFloat();
+	tmpColor.getAsVectorSIMDf().b = readFloat();
+	tmpColor.getAsVectorSIMDf().a = readFloat();
 	color = tmpColor.toSColor();
 	return checkForOneFollowingSemicolons();
 }

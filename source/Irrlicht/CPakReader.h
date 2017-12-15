@@ -82,10 +82,11 @@ namespace io
 	//! reads from pak
 	class CPakReader : public virtual IFileArchive, virtual CFileList
 	{
-	public:
-
-		CPakReader(IReadFile* file, bool ignoreCase, bool ignorePaths);
+    protected:
 		virtual ~CPakReader();
+
+	public:
+		CPakReader(IReadFile* file, bool ignoreCase, bool ignorePaths);
 
 		// file archive methods
 

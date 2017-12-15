@@ -7,7 +7,6 @@
 
 #include "IReferenceCounted.h"
 #include "IMesh.h"
-#include "IImage.h"
 
 namespace irr
 {
@@ -34,35 +33,6 @@ public:
 	virtual IGPUMesh* createCubeMeshGPU(video::IVideoDriver* driver, const core::vector3df& size=core::vector3df(5.f,5.f,5.f)) const =0;
 	virtual ICPUMesh* createCubeMeshCPU(const core::vector3df& size=core::vector3df(5.f,5.f,5.f)) const =0;
 
-
-	//! Create a terrain mesh from an image representing a heightfield.
-	/**
-	\param texture The texture to apply to the terrain.
-	\param heightmap An image that will be interpreted as a heightmap. The
-	brightness (average color) of each pixel is interpreted as a height,
-	with a 255 brightness pixel producing the maximum height.
-	\param stretchSize The size that each pixel will produce, i.e. a
-	512x512 heightmap
-	and a stretchSize of (10.f, 20.f) will produce a mesh of size
-	5120.f x 10240.f
-	\param maxHeight The maximum height of the terrain.
-	\param driver The current video driver.
-	\param defaultVertexBlockSize (to be documented)
-	\param debugBorders (to be documented)
-	\return Generated mesh.
-	*/
-	virtual IGPUMesh* createTerrainMeshGPU(video::IImage* texture,
-			video::IImage* heightmap,
-			const core::dimension2d<float>& stretchSize,
-			float maxHeight, video::IVideoDriver* driver,
-			const core::dimension2d<uint32_t>& defaultVertexBlockSize,
-			bool debugBorders=false) const =0;
-	virtual ICPUMesh* createTerrainMeshCPU(video::IImage* texture,
-			video::IImage* heightmap,
-			const core::dimension2d<float>& stretchSize,
-			float maxHeight, video::IVideoDriver* driver,
-			const core::dimension2d<uint32_t>& defaultVertexBlockSize,
-			bool debugBorders=false) const =0;
 
 	//! Create an arrow mesh, composed of a cylinder and a cone.
 	/**

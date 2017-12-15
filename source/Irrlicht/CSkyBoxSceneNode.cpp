@@ -218,16 +218,18 @@ void CSkyBoxSceneNode::render()
 			idx = lookVect.Z > 0 ? 1 : 3;
 		}
 
-		video::ITexture* tex = Material[idx].getTexture(0);
+		video::IVirtualTexture* vtex = Material[idx].getTexture(0);
 
-		if ( tex )
+		if ( vtex && vtex->getVirtualTextureType()==video::IVirtualTexture::EVTT_OPAQUE_FILTERABLE )
 		{
+		    video::ITexture* texture = static_cast<video::ITexture*>(vtex);
+
 			core::rect<int32_t> rctDest(core::position2d<int32_t>(-1,0),
 									core::dimension2di(driver->getCurrentRenderTargetSize()));
 			core::rect<int32_t> rctSrc(core::position2d<int32_t>(0,0),
-									core::dimension2di(*reinterpret_cast<const core::dimension2du*>(tex->getSize())));
+									core::dimension2di(*reinterpret_cast<const core::dimension2du*>(texture->getSize())));
 
-			driver->draw2DImage(tex, rctDest, rctSrc);
+			driver->draw2DImage(texture, rctDest, rctSrc);
 		}
 	}
 }

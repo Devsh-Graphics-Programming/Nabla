@@ -20,13 +20,13 @@ namespace scene
 //! Meshloader capable of loading 3ds meshes.
 class C3DSMeshFileLoader : public IMeshLoader
 {
-public:
-
-	//! Constructor
-	C3DSMeshFileLoader(ISceneManager* smgr, io::IFileSystem* fs);
-
+protected:
 	//! destructor
 	virtual ~C3DSMeshFileLoader();
+
+public:
+	//! Constructor
+	C3DSMeshFileLoader(ISceneManager* smgr, io::IFileSystem* fs);
 
 	//! returns true if the file maybe is able to be loaded by this class
 	//! based on the file extension (e.g. ".cob")
@@ -39,7 +39,6 @@ public:
 	virtual IAnimatedMesh* createMesh(io::IReadFile* file);
 
 private:
-
 // byte-align structures
 #include "irrpack.h"
 

@@ -22,32 +22,33 @@ class COpenGLDriver;
 //! OpenGL texture.
 class COpenGLFrameBuffer : public IFrameBuffer
 {
-public:
+    protected:
+        //! destructor
+        virtual ~COpenGLFrameBuffer();
 
-	//! constructor
-	COpenGLFrameBuffer(COpenGLDriver* driver);
+    public:
+        //! constructor
+        COpenGLFrameBuffer(COpenGLDriver* driver);
 
-	//! destructor
-	virtual ~COpenGLFrameBuffer();
+        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, ITexture* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1);
 
-    virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, ITexture* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1);
+        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IRenderBuffer* rbf);
 
-    virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IRenderBuffer* rbf);
+        virtual bool rebindRevalidate();
 
-	virtual bool rebindRevalidate();
+        const GLuint getOpenGLName() const {return frameBuffer;}
 
-	const GLuint getOpenGLName() const {return frameBuffer;}
+        virtual const IRenderable* getAttachment(const size_t &ix) const {return ix<EFAP_MAX_ATTACHMENTS ? attachments[ix]:NULL;}
 
-    virtual const IRenderable* getAttachment(const size_t &ix) const {return ix<EFAP_MAX_ATTACHMENTS ? attachments[ix]:NULL;}
+    protected:
+        COpenGLDriver* Driver;
 
-protected:
-	COpenGLDriver* Driver;
-
-    GLuint frameBuffer;
-    uint64_t lastValidated;
-    IRenderable* attachments[EFAP_MAX_ATTACHMENTS];
-    GLint cachedLevel[EFAP_MAX_ATTACHMENTS];
-    GLint cachedLayer[EFAP_MAX_ATTACHMENTS];
+        GLuint      frameBuffer;
+        bool        forceRevalidate;
+        uint64_t    lastValidated;
+        IRenderable* attachments[EFAP_MAX_ATTACHMENTS];
+        GLint cachedLevel[EFAP_MAX_ATTACHMENTS];
+        GLint cachedLayer[EFAP_MAX_ATTACHMENTS];
 };
 
 

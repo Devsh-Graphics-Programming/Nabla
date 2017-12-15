@@ -17,17 +17,17 @@ namespace video
 
 class COpenGLDriverFence : public IDriverFence
 {
+    protected:
+        virtual ~COpenGLDriverFence()
+        {
+            COpenGLExtensionHandler::extGlDeleteSync(fence);
+        }
+
     public:
         inline COpenGLDriverFence(const bool& implicitFlushOnCPUWait=false) : cachedRetval(EDFR_TIMEOUT_EXPIRED)
         {
             fence = COpenGLExtensionHandler::extGlFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
             firstTimeFlush = implicitFlushOnCPUWait;
-        }
-
-
-        virtual ~COpenGLDriverFence()
-        {
-            COpenGLExtensionHandler::extGlDeleteSync(fence);
         }
 
         virtual E_DRIVER_FENCE_RETVAL waitCPU(const uint64_t &timeout, const bool &flush=false)

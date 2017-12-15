@@ -8,6 +8,7 @@
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
+#include "irrArray.h"
 #include "IMaterialRendererServices.h"
 #include "EDriverFeatures.h"
 #include "irrTypes.h"
@@ -1027,7 +1028,7 @@ class COpenGLExtensionHandler
     static void extGlCopyTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
     static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
     static void extGlClampColor(GLenum target, GLenum clamp);
-    static void setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr);
+    static void setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr, const uint32_t& minimumAlignment=1);
 
     static void extGlGenSamplers(GLsizei n, GLuint* samplers);
     static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
@@ -1112,6 +1113,7 @@ class COpenGLExtensionHandler
 	static void extGlDeleteRenderbuffers(GLsizei n, const GLuint *renderbuffers);
 	static void extGlCreateRenderbuffers(GLsizei n, GLuint *renderbuffers);
 	static void extGlNamedRenderbufferStorage(GLuint renderbuffer, GLenum internalformat, GLsizei width, GLsizei height);
+	static void extGlNamedRenderbufferStorageMultisample(GLuint renderbuffer, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
 	static void extGlActiveStencilFace(GLenum face);
 
 	// vertex buffer object
@@ -1387,6 +1389,9 @@ class COpenGLExtensionHandler
     static PFNGLRENDERBUFFERSTORAGEPROC pGlRenderbufferStorage;
     static PFNGLNAMEDRENDERBUFFERSTORAGEPROC pGlNamedRenderbufferStorage; //NULL
     static PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC pGlNamedRenderbufferStorageEXT;
+    static PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC pGlRenderbufferStorageMultisample;
+    static PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEPROC pGlNamedRenderbufferStorageMultisample; //NULL
+    static PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC pGlNamedRenderbufferStorageMultisampleEXT;
     static PFNGLFRAMEBUFFERRENDERBUFFERPROC pGlFramebufferRenderbuffer;
     static PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC pGlNamedFramebufferRenderbuffer; //NULL
     static PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC pGlNamedFramebufferRenderbufferEXT;
@@ -2514,16 +2519,16 @@ inline void COpenGLExtensionHandler::extGlClampColor(GLenum target, GLenum clamp
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
-inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr)
+inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr, const uint32_t& minimumAlignment)
 {
 #if _MSC_VER && !__INTEL_COMPILER
     DWORD textureUploadAlignment,textureUploadAlignment2;
-    if (!_BitScanForward(&textureUploadAlignment,pitchInBytes))
+    if (!_BitScanForward(&textureUploadAlignment,core::max_(pitchInBytes,minimumAlignment)))
         textureUploadAlignment = 3;
     if (!_BitScanForward64(&textureUploadAlignment2,*reinterpret_cast<size_t*>(&ptr)))
         textureUploadAlignment2 = 3;
 #else
-    int32_t textureUploadAlignment = __builtin_ffs(pitchInBytes);
+    int32_t textureUploadAlignment = __builtin_ffs(core::max_(pitchInBytes,minimumAlignment));
     if (textureUploadAlignment)
         textureUploadAlignment--;
     else
@@ -3355,6 +3360,46 @@ inline void COpenGLExtensionHandler::extGlNamedRenderbufferStorage(GLuint render
 #else
         glBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
         glRenderbufferStorage(GL_RENDERBUFFER,internalformat,width,height);
+        glBindRenderbuffer(GL_RENDERBUFFER,bound);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlNamedRenderbufferStorageMultisample(GLuint renderbuffer, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedRenderbufferStorageMultisample)
+            pGlNamedRenderbufferStorageMultisample(renderbuffer, samples, internalformat, width, height);
+#else
+        glNamedRenderbufferStorageMultisample(renderbuffer, samples, internalformat, width, height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlNamedRenderbufferStorageMultisampleEXT)
+            pGlNamedRenderbufferStorageMultisampleEXT(renderbuffer, samples, internalformat, width, height);
+#else
+        glNamedRenderbufferStorageMultisampleEXT(renderbuffer, samples, internalformat, width, height);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlRenderbufferStorageMultisample&&pGlBindRenderbuffer)
+#else
+    else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    {
+        GLint bound;
+        glGetIntegerv(GL_RENDERBUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
+        pGlRenderbufferStorageMultisample(GL_RENDERBUFFER,samples,internalformat,width,height);
+        pGlBindRenderbuffer(GL_RENDERBUFFER,bound);
+#else
+        glBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER,samples,internalformat,width,height);
         glBindRenderbuffer(GL_RENDERBUFFER,bound);
 #endif // _IRR_OPENGL_USE_EXTPOINTER
     }

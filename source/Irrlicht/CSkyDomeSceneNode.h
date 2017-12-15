@@ -17,13 +17,15 @@ namespace scene
 
 class CSkyDomeSceneNode : public ISceneNode
 {
+    protected:
+		virtual ~CSkyDomeSceneNode();
+
 	public:
-		CSkyDomeSceneNode(video::ITexture* texture, uint32_t horiRes, uint32_t vertRes,
+		CSkyDomeSceneNode(video::IVirtualTexture* texture, uint32_t horiRes, uint32_t vertRes,
 			float texturePercentage, float spherePercentage, float radius,
 			IDummyTransformationSceneNode* parent, ISceneManager* smgr, int32_t id);
 		CSkyDomeSceneNode(CSkyDomeSceneNode* other,
 			IDummyTransformationSceneNode* parent, ISceneManager* smgr, int32_t id);
-		virtual ~CSkyDomeSceneNode();
 
 		//!
 		virtual const bool supportsDriverFence() const {return true;}

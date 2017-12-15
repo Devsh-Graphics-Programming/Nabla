@@ -19,13 +19,13 @@ namespace video
 {
 	class CBurningVideoDriver : public CNullDriver
 	{
-	public:
-
-		//! constructor
-		CBurningVideoDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
-
+    protected:
 		//! destructor
 		virtual ~CBurningVideoDriver();
+
+	public:
+		//! constructor
+		CBurningVideoDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
 
 		//! queries the features of the driver, returns true if feature is available
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const;
@@ -97,10 +97,6 @@ namespace video
 		//! get color format of the current color buffer
 		virtual ECOLOR_FORMAT getColorFormat() const;
 
-		//! Creates a render target texture.
-		virtual ITexture* addRenderTargetTexture(const core::dimension2d<uint32_t>& size,
-			const io::path& name, const ECOLOR_FORMAT format = ECF_UNKNOWN);
-
 		//! Clears the DepthBuffer.
 		virtual void clearZBuffer();
 
@@ -126,7 +122,7 @@ namespace video
 
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-		virtual video::ITexture* createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData=0);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name);
 
 		video::CImage* BackBuffer;
 		video::IImagePresenter* Presenter;

@@ -71,9 +71,10 @@ struct SMyMaterialHeader
 
 class CMY3DMeshFileLoader : public IMeshLoader
 {
+protected:
+	virtual ~CMY3DMeshFileLoader();
 public:
 	CMY3DMeshFileLoader(ISceneManager *scmgr, io::IFileSystem* fs);
-	virtual ~CMY3DMeshFileLoader();
 
 	virtual bool isALoadableFileExtension(const io::path& filename) const;
 

@@ -15,16 +15,16 @@ namespace scene
 
 	class CSphereSceneNode : public IMeshSceneNode
 	{
-	public:
+    protected:
+		//! destructor
+		virtual ~CSphereSceneNode();
 
+	public:
 		//! constructor
 		CSphereSceneNode(float size, uint32_t polyCountX, uint32_t polyCountY, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
-
-		//! destructor
-		virtual ~CSphereSceneNode();
 
 		virtual void OnRegisterSceneNode();
 

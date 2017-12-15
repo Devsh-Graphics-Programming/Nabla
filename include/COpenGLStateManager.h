@@ -64,6 +64,57 @@ namespace irr
 namespace video
 {
 
+/**
+
+New IDEA EVERY DAY
+
+COpenGLHandler:: static calls
+    report to a tracker state
+
+Normal calls take immediate effect they change the tracker state,
+but only call OpenGL if there would actually be any change.
+
+
+Could do deferred calls, then a ghost state gets updated (or first time, created).
+When ExecuteDeferredStateChange gets called, all the ghost state
+updates the tracker state.
+
+APPENDIX: If ghost state is present when immediate state changes are about to run,
+ExecuteDeferredStateChange first.
+
+::extGlSomeCall(std::tuple<COpenGLState,COpenGLState,bool>* stateOfContext, ...)
+{
+    const bool hasGhostState = stateOfContext->third;
+
+    if (hasGhostState) // essentially   ::ExecuteDeferredStateChange()
+    {
+        execGLDiff(stateOfContext->second.stateDiff(stateOfContext->first)); //get diff between actual state and ghost then execute
+        stateOfContext->first = stateOfContext->second; //update the current state to be fully flushed
+        stateOfContext->third = false; //ghost state is clear
+    }
+
+    glSomeCall(..);
+    CHANGE_STATE_FOR_SomeCall(stateOfContext->first) //change current state to include this call too
+}
+
+::Deferred_extGlSomeCall(std::tuple<COpenGLState,COpenGLState,bool>* stateOfContext, ...)
+{
+    const bool hasGhostState = stateOfContext->third;
+
+    if (!hasGhostState)
+    {
+        stateOfContext->second = stateOfContext->first;
+        stateOfContext->third = true;
+    }
+
+    CHANGE_STATE_FOR_SomeCall(stateOfContext->second) //change current state to include this call too
+}
+
+
+P.S. Maybe Ghost == Pending
+
+**/
+
             enum E_GL_HINT_BIT
             {
                 EGHB_FRAGMENT_SHADER_DERIVATIVE_HINT=0,
@@ -422,8 +473,6 @@ namespace video
 
             bool setVAO;
             GLuint bindVAO;
-
-            //UBO
         private:
 	};
 
@@ -1249,15 +1298,13 @@ namespace video
 
                 if (careAboutColorWriteMasks)
                 {
-                    size_t j=0;
                     for (uint32_t i=0; i<OGL_STATE_MAX_DRAW_BUFFERS; i++)
                     {
                         const uint64_t compareMask = 0xfull<<((i%16)*4);
                         if ((glColorMaski_vals[i/16]&compareMask) != (previousState.glColorMaski_vals[i/16]&compareMask))
                         {
                             diff.setColorMask |= 0x1u<<i;
-                            diff.glColorMaski_vals[j/16] &= glColorMaski_vals[i/16] | (~compareMask);
-                            j++;
+                            diff.glColorMaski_vals[i/16] &= glColorMaski_vals[i/16] | (~compareMask);
                         }
                     }
                 }

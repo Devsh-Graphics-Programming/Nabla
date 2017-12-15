@@ -42,16 +42,17 @@ namespace video
 
 	class CNullDriver : public IVideoDriver, public IGPUProgrammingServices
 	{
+    protected:
+		//! destructor
+		virtual ~CNullDriver();
+
 	public:
         static FW_AtomicCounter ReallocationCounter;
-
         static FW_AtomicCounter incrementAndFetchReallocCounter();
 
 		//! constructor
 		CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
-		//! destructor
-		virtual ~CNullDriver();
 
         virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}
@@ -102,10 +103,10 @@ namespace video
         virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) {return NULL;}
 
 		//! loads a Texture
-		virtual ITexture* getTexture(const io::path& filename);
+		virtual ITexture* getTexture(const io::path& filename, ECOLOR_FORMAT format = ECF_UNKNOWN);
 
 		//! loads a Texture
-		virtual ITexture* getTexture(io::IReadFile* file);
+		virtual ITexture* getTexture(io::IReadFile* file, ECOLOR_FORMAT format = ECF_UNKNOWN);
 
 		//! Returns a texture by index
 		virtual ITexture* getTextureByIndex(uint32_t index);
@@ -118,6 +119,45 @@ namespace video
 
 		//! creates a Texture
 		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+
+		//! A.
+        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
+
+		//! A.
+        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain)
+        {
+            if (!tex)
+                return EMCE_OTHER_ERR;
+
+            if (mipChain.size()==0)
+                return EMCE_NO_ERR;
+
+            for (std::vector<CImageData*>::const_iterator it = mipChain.begin(); it!=mipChain.end(); it++)
+            {
+                CImageData* img = *it;
+                if (!img)
+                    return EMCE_INVALID_IMAGE;
+
+                const uint32_t mipLevel = img->getSupposedMipLevel();
+                if (mipLevel>=tex->getMipMapLevelCount())
+                    return EMCE_MIP_LEVEL_OUT_OF_BOUND;
+
+                core::vector3d<uint32_t> textureSizeAtThisMipLevel = *reinterpret_cast< const core::vector3d<uint32_t>* >(tex->getSize());
+                textureSizeAtThisMipLevel /= core::vector3d<uint32_t>(0x1u<<mipLevel);
+                if (textureSizeAtThisMipLevel.X==0)
+                    textureSizeAtThisMipLevel.X = 1;
+                if (textureSizeAtThisMipLevel.Y==0)
+                    textureSizeAtThisMipLevel.Y = 1;
+                if (textureSizeAtThisMipLevel.Z==0)
+                    textureSizeAtThisMipLevel.Z = 1;
+
+                core::aabbox3d<uint32_t> imgCube(core::vector3d<uint32_t>(img->getSliceMin()),core::vector3d<uint32_t>(img->getSliceMax()));
+                if (!imgCube.isFullInside(core::aabbox3d<uint32_t>(core::vector3d<uint32_t>(0,0,0),textureSizeAtThisMipLevel)))
+                    return EMCE_SUB_IMAGE_OUT_OF_BOUNDS;
+            }
+
+            return EMCE_NO_ERR;
+        }
 
 		//! Sets new multiple render targets.
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true);
@@ -292,6 +332,8 @@ namespace video
 		//! memory.
 		virtual void removeTexture(ITexture* texture);
 
+		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
+
 		virtual void removeRenderBuffer(IRenderBuffer* renderbuf);
 
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
@@ -300,11 +342,15 @@ namespace video
 		//! memory.
 		virtual void removeAllTextures();
 
+		virtual void removeAllTextureBufferObjects();
+
 		virtual void removeAllRenderBuffers();
 
 		virtual void removeAllFrameBuffers();
 
 		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+
+		virtual IRenderBuffer* addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
         virtual IFrameBuffer* addFrameBuffer();
 
@@ -329,30 +375,16 @@ namespace video
 		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const;
 
 		//! Creates a software image from a file.
-		virtual IImage* createImageFromFile(const io::path& filename);
+		virtual std::vector<CImageData*> createImageFromFile(const io::path& filename);
 
 		//! Creates a software image from a file.
-		virtual IImage* createImageFromFile(io::IReadFile* file);
+		virtual std::vector<CImageData*> createImageFromFile(io::IReadFile* file);
 
 		//! Creates a software image from a byte array.
 		/** \param useForeignMemory: If true, the image will use the data pointer
 		directly and own it from now on, which means it will also try to delete [] the
 		data when the image will be destructed. If false, the memory will by copied. */
-		virtual IImage* createImageFromData(ECOLOR_FORMAT format,
-			const core::dimension2d<uint32_t>& size, void *data,
-			bool ownForeignMemory=true, bool deleteForeignMemory = true);
-
-		//! Creates an empty software image.
-		virtual IImage* createImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size);
-
-
-		//! Creates a software image from another image.
-		virtual IImage* createImage(ECOLOR_FORMAT format, IImage *imageToCopy);
-
-		//! Creates a software image from part of another image.
-		virtual IImage* createImage(IImage* imageToCopy,
-				const core::position2d<int32_t>& pos,
-				const core::dimension2d<uint32_t>& size);
+		virtual IImage* createImageFromData(CImageData* imageData, bool ownForeignMemory=true);
 
 
 	public:
@@ -535,6 +567,8 @@ namespace video
 		void addToTextureCache(video::ITexture* surface);
 
 	protected:
+        void addTextureBufferObject(ITextureBufferObject* tbo);
+
         void addRenderBuffer(IRenderBuffer* buffer);
 
         void addFrameBuffer(IFrameBuffer* framebuffer);
@@ -543,14 +577,11 @@ namespace video
 		void deleteAllTextures();
 
 		//! opens the file and loads it into the surface
-		video::ITexture* loadTextureFromFile(io::IReadFile* file, const io::path& hashName = "");
-
-		//! Creates a texture from a loaded IImage.
-		virtual ITexture* addTexture(const io::path& name, IImage* image, void* mipmapData=0);
+		video::ITexture* loadTextureFromFile(io::IReadFile* file, ECOLOR_FORMAT format=ECF_UNKNOWN, const io::path& hashName = "");
 
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-		virtual video::ITexture* createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData=NULL);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name);
 		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
 
@@ -586,7 +617,13 @@ namespace video
 
 			bool operator < (const SSurface& other) const
 			{
-				return Surface->getName() < other.Surface->getName();
+			    int res = strcmp(Surface->getName().getInternalName().c_str(),other.Surface->getName().getInternalName().c_str());
+			    if (res<0)
+                    return true;
+                else if (res>0)
+                    return false;
+                else
+                    return Surface < other.Surface;
 			}
 		};
 
@@ -596,25 +633,28 @@ namespace video
 			IMaterialRenderer* Renderer;
 		};
 
-		struct SDummyTexture : public ITexture
+		class SDummyTexture : public ITexture
 		{
-			SDummyTexture(const io::path& name) : ITexture(name), size(0,0) {}
+                core::dimension2d<uint32_t> size;
+		    public:
+                SDummyTexture(const io::path& name) : ITexture(name), size(0,0) {}
 
-			virtual void* lock(uint32_t mipmapLevel=0) { return 0; }
-			virtual void unlock(){}
-            virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
-            virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
-			virtual const uint32_t* getSize() const { return &size.Width; }
-			virtual core::dimension2du getRenderableSize() const { return size; }
-			virtual E_DRIVER_TYPE getDriverType() const { return video::EDT_NULL; }
-			virtual ECOLOR_FORMAT getColorFormat() const { return video::ECF_A1R5G5B5; }
-			virtual uint32_t getPitch() const { return 0; }
-			virtual void regenerateMipMapLevels() {}
-            virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0) {return false;}
-            virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
-			core::dimension2d<uint32_t> size;
+                virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+                virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
+                virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
+                virtual const uint32_t* getSize() const { return &size.Width; }
+                virtual uint32_t getMipMapLevelCount() const {return 1;}
+                virtual core::dimension2du getRenderableSize() const { return size; }
+                virtual E_DRIVER_TYPE getDriverType() const { return video::EDT_NULL; }
+                virtual ECOLOR_FORMAT getColorFormat() const { return video::ECF_A1R5G5B5; }
+                virtual uint32_t getPitch() const { return 0; }
+                virtual void regenerateMipMapLevels() {}
+                virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
+                virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
 		};
-		core::array<SSurface> Textures;
+		std::vector<SSurface> Textures;
+
+		core::array<ITextureBufferObject*> TextureBufferObjects;
 		core::array<IRenderBuffer*> RenderBuffers;
 		core::array<IFrameBuffer*> FrameBuffers;
 

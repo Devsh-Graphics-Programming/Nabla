@@ -20,8 +20,11 @@ namespace video
 */
 class CSoftwareTexture2 : public ITexture
 {
-public:
+protected:
+	//! destructor
+	virtual ~CSoftwareTexture2();
 
+public:
 	//! constructor
 	enum eTex2Flags
 	{
@@ -30,15 +33,14 @@ public:
 		NP2_SIZE	= 4,
 		HAS_ALPHA	= 8
 	};
-	CSoftwareTexture2(IImage* surface, const io::path& name, uint32_t flags, void* mipmapData=0);
-
-	//! destructor
-	virtual ~CSoftwareTexture2();
+	CSoftwareTexture2(CImageData* surface, const io::path& name, uint32_t flags);
 
     virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0) {return false;}
+    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
     virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
+    virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
     virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
+	virtual uint32_t getMipMapLevelCount() const {return 1;}
 
 	//! lock function
 	virtual void* lock(uint32_t mipmapLevel=0)

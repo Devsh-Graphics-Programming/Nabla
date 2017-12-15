@@ -31,9 +31,6 @@ namespace irr
 
 	namespace video
 	{
-		IVideoDriver* createSoftwareDriver(const core::dimension2d<uint32_t>& windowSize,
-				bool fullscreen, io::IFileSystem* io,
-				video::IImagePresenter* presenter);
 		IVideoDriver* createBurningVideoDriver(const irr::SIrrlichtCreationParameters& params,
 				io::IFileSystem* io, video::IImagePresenter* presenter);
 		IVideoDriver* createNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
@@ -44,124 +41,124 @@ namespace irr
 	//! Stub for an Irrlicht Device implementation
 	class CIrrDeviceStub : public IrrlichtDevice
 	{
-	public:
+	    protected:
+            //! destructor
+            virtual ~CIrrDeviceStub();
 
-		//! constructor
-		CIrrDeviceStub(const SIrrlichtCreationParameters& param);
+        public:
+            //! constructor
+            CIrrDeviceStub(const SIrrlichtCreationParameters& param);
 
-		//! destructor
-		virtual ~CIrrDeviceStub();
+            //! returns the video driver
+            virtual video::IVideoDriver* getVideoDriver();
 
-		//! returns the video driver
-		virtual video::IVideoDriver* getVideoDriver();
+            //! return file system
+            virtual io::IFileSystem* getFileSystem();
 
-		//! return file system
-		virtual io::IFileSystem* getFileSystem();
+            //! returns the scene manager
+            virtual scene::ISceneManager* getSceneManager();
 
-		//! returns the scene manager
-		virtual scene::ISceneManager* getSceneManager();
+            //! \return Returns a pointer to the mouse cursor control interface.
+            virtual gui::ICursorControl* getCursorControl();
 
-		//! \return Returns a pointer to the mouse cursor control interface.
-		virtual gui::ICursorControl* getCursorControl();
+            //! Returns a pointer to a list with all video modes supported by the gfx adapter.
+            virtual video::IVideoModeList* getVideoModeList();
 
-		//! Returns a pointer to a list with all video modes supported by the gfx adapter.
-		virtual video::IVideoModeList* getVideoModeList();
+            //! Returns a pointer to the ITimer object. With it the current Time can be received.
+            virtual ITimer* getTimer();
 
-		//! Returns a pointer to the ITimer object. With it the current Time can be received.
-		virtual ITimer* getTimer();
+            //! Returns the version of the engine.
+            virtual const char* getVersion() const;
 
-		//! Returns the version of the engine.
-		virtual const char* getVersion() const;
+            //! send the event to the right receiver
+            virtual bool postEventFromUser(const SEvent& event);
 
-		//! send the event to the right receiver
-		virtual bool postEventFromUser(const SEvent& event);
+            //! Sets a new event receiver to receive events
+            virtual void setEventReceiver(IEventReceiver* receiver);
 
-		//! Sets a new event receiver to receive events
-		virtual void setEventReceiver(IEventReceiver* receiver);
+            //! Returns pointer to the current event receiver. Returns 0 if there is none.
+            virtual IEventReceiver* getEventReceiver();
 
-		//! Returns pointer to the current event receiver. Returns 0 if there is none.
-		virtual IEventReceiver* getEventReceiver();
+            //! Sets the input receiving scene manager.
+            /** If set to null, the main scene manager (returned by GetSceneManager()) will receive the input */
+            virtual void setInputReceivingSceneManager(scene::ISceneManager* sceneManager);
 
-		//! Sets the input receiving scene manager.
-		/** If set to null, the main scene manager (returned by GetSceneManager()) will receive the input */
-		virtual void setInputReceivingSceneManager(scene::ISceneManager* sceneManager);
+            //! Returns a pointer to the logger.
+            virtual ILogger* getLogger();
 
-		//! Returns a pointer to the logger.
-		virtual ILogger* getLogger();
+            //! Provides access to the engine's currently set randomizer.
+            virtual IRandomizer* getRandomizer() const;
 
-		//! Provides access to the engine's currently set randomizer.
-		virtual IRandomizer* getRandomizer() const;
+            //! Sets a new randomizer.
+            virtual void setRandomizer(IRandomizer* r);
 
-		//! Sets a new randomizer.
-		virtual void setRandomizer(IRandomizer* r);
+            //! Creates a new default randomizer.
+            virtual IRandomizer* createDefaultRandomizer() const;
 
-		//! Creates a new default randomizer.
-		virtual IRandomizer* createDefaultRandomizer() const;
+            //! Returns the operation system opertator object.
+            virtual IOSOperator* getOSOperator();
 
-		//! Returns the operation system opertator object.
-		virtual IOSOperator* getOSOperator();
+            //! Checks if the window is running in fullscreen mode.
+            virtual bool isFullscreen() const;
 
-		//! Checks if the window is running in fullscreen mode.
-		virtual bool isFullscreen() const;
+            //! get color format of the current window
+            virtual video::ECOLOR_FORMAT getColorFormat() const;
 
-		//! get color format of the current window
-		virtual video::ECOLOR_FORMAT getColorFormat() const;
+            //! Activate any joysticks, and generate events for them.
+            virtual bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo);
 
-		//! Activate any joysticks, and generate events for them.
-		virtual bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo);
+            //! Set the maximal elapsed time between 2 clicks to generate doubleclicks for the mouse. It also affects tripleclick behavior.
+            //! When set to 0 no double- and tripleclicks will be generated.
+            virtual void setDoubleClickTime( uint32_t timeMs );
 
-		//! Set the maximal elapsed time between 2 clicks to generate doubleclicks for the mouse. It also affects tripleclick behavior.
-		//! When set to 0 no double- and tripleclicks will be generated.
-		virtual void setDoubleClickTime( uint32_t timeMs );
+            //! Get the maximal elapsed time between 2 clicks to generate double- and tripleclicks for the mouse.
+            virtual uint32_t getDoubleClickTime() const;
 
-		//! Get the maximal elapsed time between 2 clicks to generate double- and tripleclicks for the mouse.
-		virtual uint32_t getDoubleClickTime() const;
-
-		//! Remove all messages pending in the system message loop
-		virtual void clearSystemMessages();
+            //! Remove all messages pending in the system message loop
+            virtual void clearSystemMessages();
 
 
-	protected:
+        protected:
 
-		void createGUIAndScene();
+            void createGUIAndScene();
 
-		//! checks version of SDK and prints warning if there might be a problem
-		bool checkVersion(const char* version);
+            //! checks version of SDK and prints warning if there might be a problem
+            bool checkVersion(const char* version);
 
-		//! Compares to the last call of this function to return double and triple clicks.
-		//! \return Returns only 1,2 or 3. A 4th click will start with 1 again.
-		virtual uint32_t checkSuccessiveClicks(int32_t mouseX, int32_t mouseY, EMOUSE_INPUT_EVENT inputEvent );
+            //! Compares to the last call of this function to return double and triple clicks.
+            //! \return Returns only 1,2 or 3. A 4th click will start with 1 again.
+            virtual uint32_t checkSuccessiveClicks(int32_t mouseX, int32_t mouseY, EMOUSE_INPUT_EVENT inputEvent );
 
-		void calculateGammaRamp ( uint16_t *ramp, float gamma, float relativebrightness, float relativecontrast );
-		void calculateGammaFromRamp ( float &gamma, const uint16_t *ramp );
+            void calculateGammaRamp ( uint16_t *ramp, float gamma, float relativebrightness, float relativecontrast );
+            void calculateGammaFromRamp ( float &gamma, const uint16_t *ramp );
 
-		video::IVideoDriver* VideoDriver;
-		scene::ISceneManager* SceneManager;
-		ITimer* Timer;
-		gui::ICursorControl* CursorControl;
-		IEventReceiver* UserReceiver;
-		CLogger* Logger;
-		IOSOperator* Operator;
-		IRandomizer* Randomizer;
-		io::IFileSystem* FileSystem;
-		scene::ISceneManager* InputReceivingSceneManager;
+            video::IVideoDriver* VideoDriver;
+            scene::ISceneManager* SceneManager;
+            ITimer* Timer;
+            gui::ICursorControl* CursorControl;
+            IEventReceiver* UserReceiver;
+            CLogger* Logger;
+            IOSOperator* Operator;
+            IRandomizer* Randomizer;
+            io::IFileSystem* FileSystem;
+            scene::ISceneManager* InputReceivingSceneManager;
 
-		struct SMouseMultiClicks
-		{
-			SMouseMultiClicks()
-				: DoubleClickTime(500), CountSuccessiveClicks(0), LastClickTime(0), LastMouseInputEvent(EMIE_COUNT)
-			{}
+            struct SMouseMultiClicks
+            {
+                SMouseMultiClicks()
+                    : DoubleClickTime(500), CountSuccessiveClicks(0), LastClickTime(0), LastMouseInputEvent(EMIE_COUNT)
+                {}
 
-			uint32_t DoubleClickTime;
-			uint32_t CountSuccessiveClicks;
-			uint32_t LastClickTime;
-			core::position2di LastClick;
-			EMOUSE_INPUT_EVENT LastMouseInputEvent;
-		};
-		SMouseMultiClicks MouseMultiClicks;
-		video::CVideoModeList* VideoModeList;
-		SIrrlichtCreationParameters CreationParams;
-		bool Close;
+                uint32_t DoubleClickTime;
+                uint32_t CountSuccessiveClicks;
+                uint32_t LastClickTime;
+                core::position2di LastClick;
+                EMOUSE_INPUT_EVENT LastMouseInputEvent;
+            };
+            SMouseMultiClicks MouseMultiClicks;
+            video::CVideoModeList* VideoModeList;
+            SIrrlichtCreationParameters CreationParams;
+            bool Close;
 	};
 
 } // end namespace irr

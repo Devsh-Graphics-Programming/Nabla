@@ -61,12 +61,13 @@ namespace scene
 
 	class COCTLoader : public IMeshLoader
 	{
+    protected:
+		//! destructor
+		virtual ~COCTLoader();
+
 	public:
 		//! constructor
 		COCTLoader(ISceneManager* smgr, io::IFileSystem* fs);
-
-		//! destructor
-		virtual ~COCTLoader();
 
 		//! returns true if the file maybe is able to be loaded by this class
 		//! based on the file extension (e.g. ".cob")

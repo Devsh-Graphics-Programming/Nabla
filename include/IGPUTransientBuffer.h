@@ -154,7 +154,6 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
 			buffer->drop();
 			return retval;
         }
-        ~IGPUTransientBuffer();
 
         IGPUBuffer* getUnderlyingBuffer() {return underlyingBuffer;}
         //
@@ -186,6 +185,7 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         const size_t& getFreeSpace() const {return totalFreeSpace;}
         const size_t& getTrueFreeSpace() const {return totalTrueFreeSpace;}
     private:
+        ~IGPUTransientBuffer();
         IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe, core::LeakDebugger* dbgr=NULL);
         FW_Mutex* mutex;
         FW_ConditionVariable* allocationChanged;

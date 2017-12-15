@@ -16,11 +16,18 @@
 
 #include "irrMath.h"
 #include "vector2d.h"
+#include "vector3d.h"
 #include <stdint.h>
 #include "SColor.h"
 
 namespace irr
 {
+
+namespace video
+{
+    class SColor;
+}
+
 namespace core
 {
 	class vectorSIMDf;
@@ -406,6 +413,15 @@ NO BITSHIFTING SUPPORT
 		    return *((vector3df*)pointer);
 		}
 
+		inline void storeTo4Floats(float* out) const
+		{
+		    _mm_storeu_ps(out,_mm_load_ps(pointer));
+		}
+		inline void storeTo4Floats(float* out, bool ALIGNED) const
+		{
+		    _mm_store_ps(out,_mm_load_ps(pointer));
+		}
+
 
 		//! Get length of the vector.
 		inline float getLengthAsFloat() const
@@ -715,11 +731,11 @@ NO BITSHIFTING SUPPORT
 					forwards.Z * pseudoMatrix[8]));
 		}*/
 
-        static inline vectorSIMDf fromSColor(const irr::video::SColor &col)
+        static inline vectorSIMDf fromSColor(const video::SColor &col)
         {
             vectorSIMDf retVal;
 
-            __m128i xmm0 = _mm_castps_si128(_mm_load_ss((float*)&col.color));
+            __m128i xmm0 = _mm_castps_si128(_mm_load_ss((float*)&col));
             xmm0 = _mm_unpacklo_epi8(xmm0,_mm_setzero_si128());
             xmm0 = _mm_unpacklo_epi16(xmm0,_mm_setzero_si128());
             __m128 xmm1 = _mm_div_ps(_mm_cvtepi32_ps(xmm0),_mm_set_ps(255.f,255.f,255.f,255.f));

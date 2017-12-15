@@ -21,11 +21,11 @@ namespace scene
 	//!	Interface making it possible to dynamicly create scene nodes animators
 	class CDefaultSceneNodeAnimatorFactory : public ISceneNodeAnimatorFactory
 	{
+    protected:
+		virtual ~CDefaultSceneNodeAnimatorFactory();
 	public:
 
 		CDefaultSceneNodeAnimatorFactory(ISceneManager* mgr, gui::ICursorControl* crs);
-
-		virtual ~CDefaultSceneNodeAnimatorFactory();
 
 		//! creates a scene node animator based on its type id
 		/** \param type: Type of the scene node animator to add.

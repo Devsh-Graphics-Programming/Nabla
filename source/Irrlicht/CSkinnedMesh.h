@@ -26,6 +26,16 @@ namespace scene
                 uint32_t maxVertexWeightInfluences;
             };
             std::vector<SGPUMeshBufferMetaData> meshbuffers;
+
+        protected:
+            virtual ~CGPUSkinnedMesh()
+            {
+                for (size_t i=0; i<meshbuffers.size(); i++)
+                    meshbuffers[i].mb->drop();
+
+                referenceHierarchy->drop();
+            }
+
         public:
             CGPUSkinnedMesh(CFinalBoneHierarchy* boneHierarchy) : IGPUSkinnedMesh(boneHierarchy)
             {
@@ -34,14 +44,6 @@ namespace scene
                 #endif
 
                 referenceHierarchy->grab();
-            }
-
-            virtual ~CGPUSkinnedMesh()
-            {
-                for (size_t i=0; i<meshbuffers.size(); i++)
-                    meshbuffers[i].mb->drop();
-
-                referenceHierarchy->drop();
             }
 
             //! Get the amount of mesh buffers.
@@ -118,69 +120,69 @@ namespace scene
 
 	class CCPUSkinnedMesh: public ICPUSkinnedMesh
 	{
-	public:
+        protected:
+            //! destructor
+            virtual ~CCPUSkinnedMesh();
 
-		//! constructor
-		CCPUSkinnedMesh();
+        public:
+            //! constructor
+            CCPUSkinnedMesh();
 
-		//! destructor
-		virtual ~CCPUSkinnedMesh();
+            virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy;}
 
-		virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy;}
+            //! returns amount of mesh buffers.
+            virtual uint32_t getMeshBufferCount() const;
 
-		//! returns amount of mesh buffers.
-		virtual uint32_t getMeshBufferCount() const;
+            //! returns pointer to a mesh buffer
+            virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const;
 
-		//! returns pointer to a mesh buffer
-		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const;
+            //! returns an axis aligned bounding box
+            virtual const core::aabbox3d<float>& getBoundingBox() const;
 
-		//! returns an axis aligned bounding box
-		virtual const core::aabbox3d<float>& getBoundingBox() const;
+            //! set user axis aligned bounding box
+            virtual void setBoundingBox( const core::aabbox3df& box);
 
-		//! set user axis aligned bounding box
-		virtual void setBoundingBox( const core::aabbox3df& box);
+            //! sets a flag of all contained materials to a new value
+            virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue);
 
-		//! sets a flag of all contained materials to a new value
-		virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue);
+            //! Does the mesh have no animation
+            virtual bool isStatic();
 
-		//! Does the mesh have no animation
-		virtual bool isStatic();
+            //Interface for the mesh loaders (finalize should lock these functions, and they should have some prefix like loader_
+            //these functions will use the needed arrays, set values, etc to help the loaders
 
-		//Interface for the mesh loaders (finalize should lock these functions, and they should have some prefix like loader_
-		//these functions will use the needed arrays, set values, etc to help the loaders
+            //! exposed for loaders to add mesh buffers
+            virtual core::array<SCPUSkinMeshBuffer*> &getMeshBuffers();
 
-		//! exposed for loaders to add mesh buffers
-		virtual core::array<SCPUSkinMeshBuffer*> &getMeshBuffers();
+            //! alternative method for adding joints
+            virtual std::vector<SJoint*> &getAllJoints();
 
-		//! alternative method for adding joints
-		virtual std::vector<SJoint*> &getAllJoints();
+            //! alternative method for adding joints
+            virtual const std::vector<SJoint*> &getAllJoints() const;
 
-		//! alternative method for adding joints
-		virtual const std::vector<SJoint*> &getAllJoints() const;
+            //! loaders should call this after populating the mesh
+            virtual void finalize();
 
-		//! loaders should call this after populating the mesh
-		virtual void finalize();
+            //! Adds a new meshbuffer to the mesh, access it as last one
+            virtual SCPUSkinMeshBuffer *addMeshBuffer();
 
-		//! Adds a new meshbuffer to the mesh, access it as last one
-		virtual SCPUSkinMeshBuffer *addMeshBuffer();
+            //! Adds a new joint to the mesh, access it as last one
+            virtual SJoint *addJoint(SJoint *parent=0);
 
-		//! Adds a new joint to the mesh, access it as last one
-		virtual SJoint *addJoint(SJoint *parent=0);
+        private:
+            void checkForAnimation();
 
-private:
-		void checkForAnimation();
+            void calculateGlobalMatrices();
 
-		void calculateGlobalMatrices();
+            core::array<SCPUSkinMeshBuffer*> LocalBuffers;
 
-		core::array<SCPUSkinMeshBuffer*> LocalBuffers;
+            std::vector<SJoint*> AllJoints;
 
-        std::vector<SJoint*> AllJoints;
+            CFinalBoneHierarchy* referenceHierarchy;
 
-        CFinalBoneHierarchy* referenceHierarchy;
+            core::aabbox3d<float> BoundingBox;
 
-		core::aabbox3d<float> BoundingBox;
-
-		bool HasAnimation;
+            bool HasAnimation;
 	};
 
 } // end namespace scene

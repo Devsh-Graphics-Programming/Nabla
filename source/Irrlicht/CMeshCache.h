@@ -17,11 +17,13 @@ namespace scene
 template <class T>
 class CMeshCache : public IMeshCache<T>
 {
-	public:
+    protected:
 		virtual ~CMeshCache()
         {
             clear();
         }
+
+	public:
 
 		//! Adds a mesh to the internal list of loaded meshes.
 		/** Usually, ISceneManager::getMesh() is called to load a mesh from file.

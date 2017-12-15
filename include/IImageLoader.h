@@ -6,8 +6,9 @@
 #define __I_SURFACE_LOADER_H_INCLUDED__
 
 #include "IReferenceCounted.h"
-#include "IImage.h"
+#include "CImageData.h"
 #include "path.h"
+#include <vector>
 
 namespace irr
 {
@@ -42,7 +43,7 @@ public:
 	//! Creates a surface from the file
 	/** \param file File handle to check.
 	\return Pointer to newly created image, or 0 upon error. */
-	virtual IImage* loadImage(io::IReadFile* file) const = 0;
+	virtual std::vector<CImageData*> loadImage(io::IReadFile* file) const = 0;
 };
 
 

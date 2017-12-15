@@ -46,18 +46,17 @@ bool CImageLoaderPPM::isALoadableFileFormat(io::IReadFile* file) const
 
 
 //! creates a surface from the file
-IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
+std::vector<CImageData*> CImageLoaderPPM::loadImage(io::IReadFile* file) const
 {
-	IImage* image;
-
+    std::vector<CImageData*> retval;
 	if (file->getSize() < 12)
-		return 0;
+		return retval;
 
 	int8_t id[2];
 	file->read(&id, 2);
 
 	if (id[0]!='P' || id[1]<'1' || id[1]>'6')
-		return 0;
+		return retval;
 
 	const uint8_t format = id[1] - '0';
 	const bool binary = format>3;
@@ -72,6 +71,9 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 	uint32_t height;
 	sscanf(token.c_str(),"%u",&height);
 
+	CImageData* image = NULL;
+	uint32_t nullOffset[3] = {0,0,0};
+	uint32_t imageSize[3] = {width,height,1};
 	uint8_t* data = 0;
 	const uint32_t size = width*height;
 	if (format==1 || format==4)
@@ -82,14 +84,14 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 		if (binary)
 		{
 			if (file->getSize()-file->getPos() < (long)bytesize)
-				return 0;
+				return retval;
 			data = new uint8_t[bytesize];
 			file->read(data, bytesize);
 		}
 		else
 		{
 			if (file->getSize()-file->getPos() < (long)(2*size)) // optimistic test
-				return 0;
+				return retval;
 			data = new uint8_t[bytesize];
 			memset(data, 0, bytesize);
 			uint32_t shift=0;
@@ -102,9 +104,9 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 					shift=0;
 			}
 		}
-		image = new CImage(ECF_A1R5G5B5, core::dimension2d<uint32_t>(width, height));
+		image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A1R5G5B5);
 		if (image)
-			CColorConverter::convert1BitTo16Bit(data, (int16_t*)image->lock(), width, height);
+			CColorConverter::convert1BitTo16Bit(data, (int16_t*)image->getData(), width, height);
 	}
 	else
 	{
@@ -112,7 +114,7 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 		uint32_t maxDepth;
         sscanf(token.c_str(),"%u",&maxDepth);
 		if (maxDepth > 255) // no double bytes yet
-			return 0;
+			return retval;
 
 		skipToNextToken(file); // go to start of data
 
@@ -121,13 +123,13 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 			if (binary)
 			{
 				if (file->getSize()-file->getPos() < (long)size)
-					return 0;
+					return retval;
 				data = new uint8_t[size];
 				file->read(data, size);
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(width, height));
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
 				if (image)
 				{
-					uint8_t* ptr = (uint8_t*)image->lock();
+					uint8_t* ptr = (uint8_t*)image->getData();
 					for (uint32_t i=0; i<size; ++i)
 					{
 						*ptr++ = data[i];
@@ -140,11 +142,11 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 			else
 			{
 				if (file->getSize()-file->getPos() < (long)(2*size)) // optimistic test
-					return 0;
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(width, height));
+					return retval;
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
 				if (image)
 				{
-					uint8_t* ptr = (uint8_t*)image->lock();
+					uint8_t* ptr = (uint8_t*)image->getData();
 					for (uint32_t i=0; i<size; ++i)
 					{
 						getNextToken(file, token);
@@ -164,13 +166,13 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 			if (binary)
 			{
 				if (file->getSize()-file->getPos() < (long)bytesize)
-					return 0;
+					return retval;
 				data = new uint8_t[bytesize];
 				file->read(data, bytesize);
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(width, height));
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
 				if (image)
 				{
-					uint8_t* ptr = (uint8_t*)image->lock();
+					uint8_t* ptr = (uint8_t*)image->getData();
 					for (uint32_t i=0; i<size; ++i)
 					{
 						*ptr++ = data[3*i];
@@ -183,11 +185,11 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 			else
 			{
 				if (file->getSize()-file->getPos() < (long)(2*bytesize)) // optimistic test
-					return 0;
-				image = new CImage(ECF_A8R8G8B8, core::dimension2d<uint32_t>(width, height));
+					return retval;
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
 				if (image)
 				{
-					uint8_t* ptr = (uint8_t*)image->lock();
+					uint8_t* ptr = (uint8_t*)image->getData();
 					for (uint32_t i=0; i<size; ++i)
 					{
 						getNextToken(file, token);
@@ -202,13 +204,10 @@ IImage* CImageLoaderPPM::loadImage(io::IReadFile* file) const
 			}
 		}
 	}
-
-	if (image)
-		image->unlock();
-
 	delete [] data;
 
-	return image;
+	retval.push_back(image);
+	return retval;
 }
 
 

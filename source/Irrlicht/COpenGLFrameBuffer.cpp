@@ -67,7 +67,7 @@ bool checkFBOStatus(const GLuint &fbo, COpenGLDriver* Driver)
 
 //! constructor
 COpenGLFrameBuffer::COpenGLFrameBuffer(COpenGLDriver* driver)
-  : frameBuffer(0), Driver(driver), lastValidated(0)
+  : frameBuffer(0), Driver(driver), forceRevalidate(true), lastValidated(0)
 {
 #ifdef _DEBUG
 	setDebugName("COpenGLFrameBuffer");
@@ -97,7 +97,7 @@ bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IT
 	if (!frameBuffer||attachmenPoint>=EFAP_MAX_ATTACHMENTS)
 		return false;
 
-    COpenGLTexture* glTex = static_cast<COpenGLTexture*>(tex);
+    COpenGLFilterableTexture* glTex = static_cast<COpenGLFilterableTexture*>(tex);
     if (tex&&COpenGLTexture::isInternalFormatCompressed(glTex->getOpenGLInternalFormat()))
         return false;
 
@@ -154,6 +154,8 @@ bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IT
 	if (tex)
         tex->grab(); // grab the depth buffer, not the RTT
 
+    forceRevalidate = true;
+
 	return true;
 }
 
@@ -195,13 +197,15 @@ bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IR
 	if (rbf)
         rbf->grab(); // grab the depth buffer, not the RTT
 
+    forceRevalidate = true;
+
 	return true;
 }
 
 bool COpenGLFrameBuffer::rebindRevalidate()
 {
     bool noAttachments = true;
-    bool revalidate = lastValidated==0;
+    bool revalidate = forceRevalidate;
     uint64_t highestRevalidationStamp = lastValidated;
     //
     size_t enabledBufferCnt = 0;
@@ -220,7 +224,7 @@ bool COpenGLFrameBuffer::rebindRevalidate()
 
         if (attachments[i]->getRenderableType()==ERT_TEXTURE)
         {
-            COpenGLTexture* glTex = static_cast<COpenGLTexture*>(attachments[i]);
+            COpenGLFilterableTexture* glTex = static_cast<COpenGLFilterableTexture*>(attachments[i]);
             uint64_t revalidationStamp = glTex->hasOpenGLNameChanged();
             if (revalidationStamp>lastValidated)
             {
@@ -257,6 +261,7 @@ bool COpenGLFrameBuffer::rebindRevalidate()
             os::Printer::log("FBO incomplete");
             return false;
         }
+        forceRevalidate = false;
         lastValidated = highestRevalidationStamp;
         if (enabledBufferCnt)
             enabledBufferCnt += 1-EFAP_COLOR_ATTACHMENT0;

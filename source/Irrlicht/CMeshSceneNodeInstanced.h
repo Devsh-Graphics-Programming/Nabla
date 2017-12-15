@@ -25,6 +25,9 @@ void inputBuffersOnTransformFeedback(video::IGPUMappedBuffer* buff, void* node);
 //! default instance data is interleaved
 class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 {
+    protected:
+        virtual ~CMeshSceneNodeInstanced();
+
     public:
         static uint32_t recullOrder;
 
@@ -35,8 +38,6 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
                 const core::vector3df& position = core::vector3df(0,0,0),
                 const core::vector3df& rotation = core::vector3df(0,0,0),
                 const core::vector3df& scale = core::vector3df(1,1,1));
-
-        virtual ~CMeshSceneNodeInstanced();
 
         //!
         virtual const bool supportsDriverFence() const {return true;}

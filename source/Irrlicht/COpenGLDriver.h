@@ -41,7 +41,10 @@ namespace video
 
 	class COpenGLDriver : public CNullDriver, public IMaterialRendererServices, public COpenGLExtensionHandler
 	{
-		friend class COpenGLTexture;
+    protected:
+		//! destructor
+		virtual ~COpenGLDriver();
+
 	public:
         struct SAuxContext
         {
@@ -82,9 +85,6 @@ namespace video
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
-
-		//! destructor
-		virtual ~COpenGLDriver();
 
         virtual bool initAuxContext();
         virtual bool deinitAuxContext();
@@ -176,7 +176,7 @@ namespace video
 
 		//! sets the current Texture
 		//! Returns whether setting was a success or not.
-		bool setActiveTexture(uint32_t stage, video::ITexture* texture, const video::STextureSamplingParams &sampleParams);
+		bool setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams);
 
 		GLuint constructSamplerInCache(const uint64_t &hashVal);
 
@@ -207,7 +207,12 @@ namespace video
 		//! call.
 		virtual uint32_t getMaximalIndicesCount() const;
 
+		//! A.
+        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
+
 		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+
+		virtual IRenderBuffer* addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
         virtual IFrameBuffer* addFrameBuffer();
 
@@ -308,7 +313,7 @@ namespace video
 		//! inits the parts of the open gl driver used on all platforms
 		bool genericDriverInit();
 		//! returns a device dependent texture from a software surface (IImage)
-		virtual video::ITexture* createDeviceDependentTexture(IImage* surface, const io::path& name, void* mipmapData=NULL);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name);
 		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
 		// returns the current size of the screen or rendertarget
@@ -335,7 +340,7 @@ namespace video
 		COpenGLFrameBuffer* CurrentFBO;
 		class STextureStageCache
 		{
-			const ITexture* CurrentTexture[MATERIAL_MAX_TEXTURES];
+			const IVirtualTexture* CurrentTexture[MATERIAL_MAX_TEXTURES];
 		public:
 			STextureStageCache()
 			{
@@ -350,11 +355,11 @@ namespace video
 				clear();
 			}
 
-			void set(uint32_t stage, const ITexture* tex)
+			void set(uint32_t stage, const IVirtualTexture* tex)
 			{
 				if (stage<MATERIAL_MAX_TEXTURES)
 				{
-					const ITexture* oldTexture=CurrentTexture[stage];
+					const IVirtualTexture* oldTexture=CurrentTexture[stage];
 					if (tex)
 						tex->grab();
 					CurrentTexture[stage]=tex;
@@ -363,7 +368,7 @@ namespace video
 				}
 			}
 
-			const ITexture* operator[](int stage) const
+			const IVirtualTexture* operator[](int stage) const
 			{
 				if ((uint32_t)stage<MATERIAL_MAX_TEXTURES)
 					return CurrentTexture[stage];
@@ -371,7 +376,7 @@ namespace video
 					return 0;
 			}
 
-			void remove(const ITexture* tex);
+			void remove(const IVirtualTexture* tex);
 
 			void clear();
 		};

@@ -3,7 +3,7 @@
 
 
 #include "ISkinningStateManager.h"
-#include "COpenGLTextureBufferObject.h"
+#include "ITextureBufferObject.h"
 
 ///#define UPDATE_WHOLE_BUFFER
 
@@ -15,29 +15,33 @@ namespace scene
 
     class CSkinningStateManager : public ISkinningStateManager
     {
+            video::IVideoDriver* Driver;
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-            video::COpenGLTextureBufferObject* TBO;
+            video::ITextureBufferObject* TBO;
 #endif
-        public:
-            CSkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const CFinalBoneHierarchy* sourceHierarchy) : ISkinningStateManager(boneControl,driver,sourceHierarchy)
-            {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-                TBO = new video::COpenGLTextureBufferObject(dynamic_cast<video::COpenGLBuffer*>(finalBoneDataInstanceBuffer->getFrontBuffer()),GL_RGBA32F,reinterpret_cast<video::COpenGLDriver*>(driver));
-#endif // _IRR_COMPILE_WITH_OPENGL_
-            }
+        protected:
             virtual ~CSkinningStateManager()
             {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-                TBO->drop();
+                Driver->removeTextureBufferObject(TBO);
+#endif // _IRR_COMPILE_WITH_OPENGL_
+            }
+
+        public:
+            CSkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const CFinalBoneHierarchy* sourceHierarchy)
+                                    : ISkinningStateManager(boneControl,driver,sourceHierarchy), Driver(driver)
+            {
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+                TBO = driver->addTextureBufferObject(finalBoneDataInstanceBuffer->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F);
 #endif // _IRR_COMPILE_WITH_OPENGL_
             }
 
             const void* getRawBoneData() {return finalBoneDataInstanceBuffer->getBackBufferPointer();}
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-            virtual video::ITexture* getBoneDataTBO() const {return TBO;}
+            virtual video::ITextureBufferObject* getBoneDataTBO() const {return TBO;}
 #else
-            virtual video::ITexture* getBoneDataTBO() const {return NULL;}
+            virtual video::ITextureBufferObject* getBoneDataTBO() const {return NULL;}
 #endif // _IRR_COMPILE_WITH_OPENGL_
 
             virtual uint32_t addInstance(ISkinnedMeshSceneNode* attachedNode=NULL, const bool& createBoneNodes=false)
@@ -51,8 +55,8 @@ namespace scene
                 {
                     instanceDataSize = finalBoneDataInstanceBuffer->getCapacity();
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-                    if (TBO->getPitch()!=finalBoneDataInstanceBuffer->getFrontBuffer()->getSize())
-                        TBO->bind(dynamic_cast<video::COpenGLBuffer*>(finalBoneDataInstanceBuffer->getFrontBuffer()),GL_RGBA32F); //can't clandestine re-bind because it won't change the length :D
+                    if (TBO->getByteSize()!=finalBoneDataInstanceBuffer->getFrontBuffer()->getSize())
+                        TBO->bind(finalBoneDataInstanceBuffer->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
 #endif // _IRR_COMPILE_WITH_OPENGL_
                     size_t instanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
                     if (instanceData)
@@ -130,8 +134,8 @@ namespace scene
                 if (ISkinningStateManager::dropInstance(ID))
                 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-                    if (oldInstanceDataSize!=instanceDataSize && TBO->getPitch()!=finalBoneDataInstanceBuffer->getFrontBuffer()->getSize())
-                        TBO->bind(dynamic_cast<video::COpenGLBuffer*>(finalBoneDataInstanceBuffer->getFrontBuffer()),GL_RGBA32F); //can't clandestine re-bind because it won't change the length :D
+                    if (oldInstanceDataSize!=instanceDataSize && TBO->getByteSize()!=finalBoneDataInstanceBuffer->getFrontBuffer()->getSize())
+                        TBO->bind(finalBoneDataInstanceBuffer->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
 #endif // _IRR_COMPILE_WITH_OPENGL_
                     return true;
                 }
@@ -281,8 +285,8 @@ namespace scene
                 {
                     finalBoneDataInstanceBuffer->SwapBuffers();
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-                    if (TBO->getPitch()!=finalBoneDataInstanceBuffer->getFrontBuffer()->getSize())
-                        TBO->bind(dynamic_cast<video::COpenGLBuffer*>(finalBoneDataInstanceBuffer->getFrontBuffer()),GL_RGBA32F); //can't clandestine re-bind because it won't change the length :D
+                    if (TBO->getByteSize()!=finalBoneDataInstanceBuffer->getFrontBuffer()->getSize())
+                        TBO->bind(finalBoneDataInstanceBuffer->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
 #endif // _IRR_COMPILE_WITH_OPENGL_
                     firstDirtyInstance = 0xdeadbeefu;
                     lastDirtyInstance = 0;

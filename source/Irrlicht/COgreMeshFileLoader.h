@@ -26,13 +26,13 @@ namespace scene
 //! Meshloader capable of loading ogre meshes.
 class COgreMeshFileLoader : public IMeshLoader
 {
-public:
-
-	//! Constructor
-	COgreMeshFileLoader(io::IFileSystem* fs, video::IVideoDriver* driver);
-
+protected:
 	//! destructor
 	virtual ~COgreMeshFileLoader();
+
+public:
+	//! Constructor
+	COgreMeshFileLoader(io::IFileSystem* fs, video::IVideoDriver* driver);
 
 	//! returns true if the file maybe is able to be loaded by this class
 	//! based on the file extension (e.g. ".cob")
