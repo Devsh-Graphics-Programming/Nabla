@@ -207,6 +207,9 @@ namespace video
 		//! call.
 		virtual uint32_t getMaximalIndicesCount() const;
 
+		//! .
+        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
+
 		//! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
 
@@ -313,7 +316,6 @@ namespace video
 		//! inits the parts of the open gl driver used on all platforms
 		bool genericDriverInit();
 		//! returns a device dependent texture from a software surface (IImage)
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name);
 		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
 		// returns the current size of the screen or rendertarget

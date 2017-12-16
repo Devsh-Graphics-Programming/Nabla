@@ -350,6 +350,9 @@ namespace video
 		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
 
+        //!
+        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN) = 0;
+
 		//! A.
 		/** \param B
 		\param C
@@ -750,7 +753,7 @@ namespace video
 		\return .
 		If you no longer need the image data, you should call CImageData::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual std::vector<CImageData*> createImageFromFile(const io::path& filename) = 0;
+		virtual std::vector<CImageData*> createImageDataFromFile(const io::path& filename) = 0;
 
 		//! Creates a ... from a file.
 		/**
@@ -759,7 +762,7 @@ namespace video
 		If you no longer need the image data, you should call CImageData::drop()
 		on all vector members.
 		See IReferenceCounted::drop() for more information. */
-		virtual std::vector<CImageData*> createImageFromFile(io::IReadFile* file) =0;
+		virtual std::vector<CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
 
 		//! Convenience function for releasing all images in a mip chain.
 		/**
@@ -803,6 +806,9 @@ namespace video
 		If you no longer need the image, you should call IImage::drop().
 		See IReferenceCounted::drop() for more information. */
 		virtual IImage* createImageFromData(CImageData* imageData, bool ownForeignMemory=true) =0;
+
+		//!
+		virtual IImage* createImage(const ECOLOR_FORMAT& format, const core::dimension2d<uint32_t>& size) =0;
 
 		//! Event handler for resize events. Only used by the engine internally.
 		/** Used to notify the driver that the window was resized.

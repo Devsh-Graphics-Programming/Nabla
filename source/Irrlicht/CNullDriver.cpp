@@ -680,13 +680,9 @@ ITexture* CNullDriver::getTexture(const io::path& filename, ECOLOR_FORMAT format
 		texture = loadTextureFromFile(file,format);
 		file->drop();
 
-		if (texture)
-		{
-			addToTextureCache(texture);
-			texture->drop(); // drop it because we created it, one grab too much
-		}
-		else
+		if (!texture)
 			os::Printer::log("Could not load texture", filename.c_str(), ELL_ERROR);
+
 		return texture;
 	}
 	else
@@ -711,12 +707,6 @@ ITexture* CNullDriver::getTexture(io::IReadFile* file, ECOLOR_FORMAT format)
 
 		texture = loadTextureFromFile(file,format);
 
-		if (texture)
-		{
-			addToTextureCache(texture);
-			texture->drop(); // drop it because we created it, one grab too much
-		}
-
 		if (!texture)
 			os::Printer::log("Could not load texture", file->getFileName().c_str(), ELL_WARNING);
 	}
@@ -728,13 +718,13 @@ ITexture* CNullDriver::getTexture(io::IReadFile* file, ECOLOR_FORMAT format)
 //! opens the file and loads it into the surface
 video::ITexture* CNullDriver::loadTextureFromFile(io::IReadFile* file, ECOLOR_FORMAT format, const io::path& hashName )
 {
-	std::vector<CImageData*> images = createImageFromFile(file);
+	std::vector<CImageData*> images = createImageDataFromFile(file);
 
 	if (images.size()==0)
         return NULL;
 
     // create texture from surface
-    ITexture* texture = createDeviceDependentTexture(ITexture::ETT_COUNT, format, images, hashName.size() ? hashName : file->getFileName() );
+    ITexture* texture = addTexture(ITexture::ETT_COUNT, images, hashName.size() ? hashName : file->getFileName(), format);
     dropWholeMipChain(images);
     os::Printer::log("Loaded texture", file->getFileName().c_str());
 
@@ -798,21 +788,31 @@ ITexture* CNullDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const ui
 	return t;
 }
 
-
-
-//! returns a device dependent texture from a software surface (IImage)
-//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-ITexture* CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name)
+//! .
+ITexture* CNullDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
 {
+	if ( 0 == name.size () )
+		return 0;
+
     if (format==ECF_UNKNOWN)
         format = ECF_A1R5G5B5;
 
     //better safe than sorry
-    if (type!=ITexture::ETT_2D||type!=ECF_A1R5G5B5)
+    if (type!=ITexture::ETT_2D||format!=ECF_A1R5G5B5)
         return NULL;
 
-	return new SDummyTexture(name);
+	ITexture* t = new SDummyTexture(name);
+	addToTextureCache(t);
+
+	if (t)
+		t->drop();
+
+	return t;
 }
+
+
+//! returns a device dependent texture from a software surface (IImage)
+//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 ITexture* CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, ECOLOR_FORMAT format)
 {
@@ -1214,7 +1214,7 @@ bool CNullDriver::getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const
 
 
 //! Creates a software image from a file.
-std::vector<CImageData*> CNullDriver::createImageFromFile(const io::path& filename)
+std::vector<CImageData*> CNullDriver::createImageDataFromFile(const io::path& filename)
 {
 	if (!filename.size())
 		return std::vector<CImageData*>();
@@ -1223,7 +1223,7 @@ std::vector<CImageData*> CNullDriver::createImageFromFile(const io::path& filena
 
 	if (file)
 	{
-		std::vector<CImageData*> imageData = createImageFromFile(file);
+		std::vector<CImageData*> imageData = createImageDataFromFile(file);
 		file->drop();
 		return imageData;
 	}
@@ -1235,7 +1235,7 @@ std::vector<CImageData*> CNullDriver::createImageFromFile(const io::path& filena
 
 
 //! Creates a software image from a file.
-std::vector<CImageData*> CNullDriver::createImageFromFile(io::IReadFile* file)
+std::vector<CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* file)
 {
 	if (!file)
 		return std::vector<CImageData*>();
@@ -1318,6 +1318,12 @@ IImage* CNullDriver::createImageFromData(CImageData* imageData, bool ownForeignM
         imageData->forgetAboutData();
 
 	return img;
+}
+
+//!
+IImage* CNullDriver::createImage(const ECOLOR_FORMAT& format, const core::dimension2d<uint32_t>& size)
+{
+    return new CImage(format, size);
 }
 
 

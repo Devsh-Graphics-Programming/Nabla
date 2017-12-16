@@ -12,8 +12,9 @@
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "COpenGL2DTexture.h"
-#include "COpenGL2DTextureArray.h"
 #include "COpenGL3DTexture.h"
+#include "COpenGL2DTextureArray.h"
+#include "COpenGLCubemapTexture.h"
 #include "COpenGLTextureBufferObject.h"
 
 #include "COpenGLRenderBuffer.h"
@@ -2331,128 +2332,6 @@ bool orderByMip(CImageData* a, CImageData* b)
     return a->getSupposedMipLevel() < b->getSupposedMipLevel();
 }
 
-//! returns a device dependent texture from a software surface (IImage)
-video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name)
-{
-    if (!images.size())
-        return NULL;
-
-    //validate a bit
-    uint32_t initialMaxCoord[3] = {0,0,0};
-    uint32_t highestMip = 0;
-    ECOLOR_FORMAT candidateFormat = format;
-    for (std::vector<CImageData*>::const_iterator it=images.begin(); it!=images.end(); it++)
-    {
-        CImageData* img = *it;
-        if (!img||img->getColorFormat()==ECF_UNKNOWN)
-        {
-#ifdef _DEBUG
-            os::Printer::log("Very invalid mip-chain!", ELL_ERROR);
-#endif // _DEBUG
-            return NULL;
-        }
-
-        for (size_t i=0; i<3; i++)
-        {
-            uint32_t sideSize = img->getSliceMax()[i]<<img->getSupposedMipLevel();
-            if (initialMaxCoord[i] < sideSize)
-                initialMaxCoord[i] = sideSize;
-        }
-        if (highestMip < img->getSupposedMipLevel())
-            highestMip = img->getSupposedMipLevel();
-
-        //figure out the format
-        if (format==ECF_UNKNOWN)
-        {
-            if (candidateFormat==ECF_UNKNOWN)
-                candidateFormat = img->getColorFormat();
-            else if (candidateFormat!=img->getColorFormat())
-            {
-#ifdef _DEBUG
-                os::Printer::log("Can't pick a default texture format if the mip-chain doesn't have a consistent one!", ELL_ERROR);
-#endif // _DEBUG
-                return NULL;
-            }
-        }
-    }
-    //haven't figured best format out
-    if (format==ECF_UNKNOWN)
-    {
-        if (candidateFormat==ECF_UNKNOWN)
-        {
-    #ifdef _DEBUG
-            os::Printer::log("Couldn't pick a texture format, entire mip-chain doesn't know!", ELL_ERROR);
-    #endif // _DEBUG
-            return NULL;
-        }
-        else
-            candidateFormat = candidateFormat;
-    }
-
-    //! Sort the mipchain!!!
-    std::vector<CImageData*> sortedMipchain(images);
-    std::sort(sortedMipchain.begin(),sortedMipchain.end(),orderByMip);
-
-    //figure out the texture type if not provided
-    ITexture::E_TEXTURE_TYPE actualType = type;
-    if (type>=ITexture::ETT_COUNT)
-    {
-        if (initialMaxCoord[2]>1)
-        {
-            //! with this little info I literally can't guess if you want a cubemap!
-            if (sortedMipchain.size()>1&&sortedMipchain.front()->getSliceMax()[2]==sortedMipchain.back()->getSliceMax()[2])
-                actualType = ITexture::ETT_2D_ARRAY;
-            else
-                actualType = ITexture::ETT_3D;
-        }
-        else if (initialMaxCoord[1]>1)
-        {
-            if (sortedMipchain.size()>1&&sortedMipchain.front()->getSliceMax()[1]==sortedMipchain.back()->getSliceMax()[1])
-                actualType = ITexture::ETT_1D_ARRAY;
-            else
-                actualType = ITexture::ETT_2D;
-        }
-        else
-        {
-            actualType = ITexture::ETT_2D; //should be ETT_1D but 2D is default since forever
-        }
-    }
-
-    //get out max texture size
-    uint32_t maxCoord[3] = {initialMaxCoord[0],initialMaxCoord[1],initialMaxCoord[2]};
-    for (std::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
-    {
-        CImageData* img = *it;
-        if (img->getSliceMax()[0]>getMaxTextureSize(actualType)[0]||
-            (actualType==ITexture::ETT_2D||actualType==ITexture::ETT_1D_ARRAY||actualType==ITexture::ETT_CUBE_MAP||actualType==ITexture::ETT_2D_MULTISAMPLE)
-                &&img->getSliceMax()[1]>getMaxTextureSize(actualType)[1]||
-            (actualType==ITexture::ETT_3D||actualType==ITexture::ETT_2D_ARRAY||actualType==ITexture::ETT_CUBE_MAP_ARRAY||actualType==ITexture::ETT_2D_MULTISAMPLE_ARRAY)
-                &&img->getSliceMax()[2]>getMaxTextureSize(actualType)[2])
-        {
-#ifdef _DEBUG
-            os::Printer::log("Attemped to create a larger texture than supported (we should implement mip-chain dropping)!", ELL_ERROR);
-#endif // _DEBUG
-            return NULL;
-        }
-    }
-
-    video::ITexture* texture = createDeviceDependentTexture(actualType,maxCoord,highestMip ? (highestMip+1):0,name,candidateFormat);
-
-    for (std::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
-    {
-        CImageData* img = *it;
-        if (!img)
-            continue;
-
-        texture->updateSubRegion(img->getColorFormat(),img->getData(),img->getSliceMin(),img->getSliceMax(),img->getSupposedMipLevel(),img->getUnpackAlignment());
-    }
-
-    //has mipmap but no explicit chain
-    if (highestMip==0&&texture->hasMipMaps())
-        texture->regenerateMipMapLevels();
-
-    return texture;
-}
 
 //! returns a device dependent texture from a software surface (IImage)
 video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
@@ -2470,6 +2349,12 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
         case ITexture::ETT_2D_MULTISAMPLE:
             assert(size[0]>0&&size[1]>0);
             break;
+        case ITexture::ETT_CUBE_MAP:
+            assert(size[0]>0&&size[1]>0&&size[2]==6);
+            break;
+        case ITexture::ETT_CUBE_MAP_ARRAY:
+            assert(size[0]>0&&size[1]>0&&size[2]&&(size[2]%6==0));
+            break;
         default:
             assert(size[0]>0&&size[1]>0&&size[2]>0);
             break;
@@ -2484,16 +2369,25 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
             switch (type)
             {
                 case ITexture::ETT_1D:
-                case ITexture::ETT_TEXTURE_BUFFER:
+                case ITexture::ETT_1D_ARRAY:
+                case ITexture::ETT_CUBE_MAP:
+                case ITexture::ETT_CUBE_MAP_ARRAY:
                     break;
                 case ITexture::ETT_2D:
-                case ITexture::ETT_1D_ARRAY:
-                case ITexture::ETT_2D_MULTISAMPLE:
+                case ITexture::ETT_2D_ARRAY:
                     if (maxSideLen < size[1])
                         maxSideLen = size[1];
-                default:// YAY FALL THROUGH!!!
+                    break;
+                case ITexture::ETT_3D:
+                    if (maxSideLen < size[1])
+                        maxSideLen = size[1];
                     if (maxSideLen < size[2])
                         maxSideLen = size[2];
+                    break;
+                case ITexture::ETT_2D_MULTISAMPLE:
+                case ITexture::ETT_2D_MULTISAMPLE_ARRAY:
+                case ITexture::ETT_TEXTURE_BUFFER:
+                    maxSideLen = 1;
                     break;
             }
             mipmapLevels = 1u+uint32_t(floorf(log2(float(maxSideLen))));
@@ -2516,6 +2410,9 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
             ///break;
         case ITexture::ETT_2D_ARRAY:
             return new COpenGL2DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            break;
+        case ITexture::ETT_CUBE_MAP:
+            return new COpenGLCubemapTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
 #ifdef _DEBUG
         case ITexture::ETT_TEXTURE_BUFFER:
@@ -2800,6 +2697,131 @@ void COpenGLDriver::setViewPort(const core::rect<int32_t>& area)
 
 		ViewPort = vp;
 	}
+}
+
+ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
+{
+    if (!images.size())
+        return NULL;
+
+    //validate a bit
+    uint32_t initialMaxCoord[3] = {0,0,0};
+    uint32_t highestMip = 0;
+    ECOLOR_FORMAT candidateFormat = format;
+    for (std::vector<CImageData*>::const_iterator it=images.begin(); it!=images.end(); it++)
+    {
+        CImageData* img = *it;
+        if (!img||img->getColorFormat()==ECF_UNKNOWN)
+        {
+#ifdef _DEBUG
+            os::Printer::log("Very invalid mip-chain!", ELL_ERROR);
+#endif // _DEBUG
+            return NULL;
+        }
+
+        for (size_t i=0; i<3; i++)
+        {
+            uint32_t sideSize = img->getSliceMax()[i]<<img->getSupposedMipLevel();
+            if (initialMaxCoord[i] < sideSize)
+                initialMaxCoord[i] = sideSize;
+        }
+        if (highestMip < img->getSupposedMipLevel())
+            highestMip = img->getSupposedMipLevel();
+
+        //figure out the format
+        if (format==ECF_UNKNOWN)
+        {
+            if (candidateFormat==ECF_UNKNOWN)
+                candidateFormat = img->getColorFormat();
+            else if (candidateFormat!=img->getColorFormat())
+            {
+#ifdef _DEBUG
+                os::Printer::log("Can't pick a default texture format if the mip-chain doesn't have a consistent one!", ELL_ERROR);
+#endif // _DEBUG
+                return NULL;
+            }
+        }
+    }
+    //haven't figured best format out
+    if (format==ECF_UNKNOWN)
+    {
+        if (candidateFormat==ECF_UNKNOWN)
+        {
+    #ifdef _DEBUG
+            os::Printer::log("Couldn't pick a texture format, entire mip-chain doesn't know!", ELL_ERROR);
+    #endif // _DEBUG
+            return NULL;
+        }
+        else
+            candidateFormat = candidateFormat;
+    }
+
+    //! Sort the mipchain!!!
+    std::vector<CImageData*> sortedMipchain(images);
+    std::sort(sortedMipchain.begin(),sortedMipchain.end(),orderByMip);
+
+    //figure out the texture type if not provided
+    ITexture::E_TEXTURE_TYPE actualType = type;
+    if (type>=ITexture::ETT_COUNT)
+    {
+        if (initialMaxCoord[2]>1)
+        {
+            //! with this little info I literally can't guess if you want a cubemap!
+            if (sortedMipchain.size()>1&&sortedMipchain.front()->getSliceMax()[2]==sortedMipchain.back()->getSliceMax()[2])
+                actualType = ITexture::ETT_2D_ARRAY;
+            else
+                actualType = ITexture::ETT_3D;
+        }
+        else if (initialMaxCoord[1]>1)
+        {
+            if (sortedMipchain.size()>1&&sortedMipchain.front()->getSliceMax()[1]==sortedMipchain.back()->getSliceMax()[1])
+                actualType = ITexture::ETT_1D_ARRAY;
+            else
+                actualType = ITexture::ETT_2D;
+        }
+        else
+        {
+            actualType = ITexture::ETT_2D; //should be ETT_1D but 2D is default since forever
+        }
+    }
+
+    //get out max texture size
+    uint32_t maxCoord[3] = {initialMaxCoord[0],initialMaxCoord[1],initialMaxCoord[2]};
+    for (std::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
+    {
+        CImageData* img = *it;
+        if (img->getSliceMax()[0]>getMaxTextureSize(actualType)[0]||
+            (actualType==ITexture::ETT_2D||actualType==ITexture::ETT_1D_ARRAY||actualType==ITexture::ETT_CUBE_MAP||actualType==ITexture::ETT_2D_MULTISAMPLE)
+                &&img->getSliceMax()[1]>getMaxTextureSize(actualType)[1]||
+            (actualType==ITexture::ETT_3D||actualType==ITexture::ETT_2D_ARRAY||actualType==ITexture::ETT_CUBE_MAP_ARRAY||actualType==ITexture::ETT_2D_MULTISAMPLE_ARRAY)
+                &&img->getSliceMax()[2]>getMaxTextureSize(actualType)[2])
+        {
+#ifdef _DEBUG
+            os::Printer::log("Attemped to create a larger texture than supported (we should implement mip-chain dropping)!", ELL_ERROR);
+#endif // _DEBUG
+            return NULL;
+        }
+    }
+
+    video::ITexture* texture = createDeviceDependentTexture(actualType,maxCoord,highestMip ? (highestMip+1):0,name,candidateFormat);
+	addToTextureCache(texture);
+	if (texture)
+		texture->drop();
+
+    for (std::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
+    {
+        CImageData* img = *it;
+        if (!img)
+            continue;
+
+        texture->updateSubRegion(img->getColorFormat(),img->getData(),img->getSliceMin(),img->getSliceMax(),img->getSupposedMipLevel(),img->getUnpackAlignment());
+    }
+
+    //has mipmap but no explicit chain
+    if (highestMip==0&&texture->hasMipMaps())
+        texture->regenerateMipMapLevels();
+
+    return texture;
 }
 
 ITextureBufferObject* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format, const size_t& offset, const size_t& length)

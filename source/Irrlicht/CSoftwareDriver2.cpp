@@ -1978,21 +1978,32 @@ void CBurningVideoDriver::clearZBuffer()
 
 
 
-//! returns a device dependent texture from a software surface (IImage)
-//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-ITexture* CBurningVideoDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name)
+//! .
+ITexture* CBurningVideoDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
 {
+	if ( 0 == name.size () )
+		return 0;
+
+    if (format==ECF_UNKNOWN)
+        format = BURNINGSHADER_COLOR_FORMAT;
+
     //better safe than sorry
     if (type!=ITexture::ETT_2D)
         return NULL;
-    if (format!=BURNINGSHADER_COLOR_FORMAT&&format!=ECF_UNKNOWN)
+    if (format!=BURNINGSHADER_COLOR_FORMAT)
         return NULL;
 
     if (images.size()<1)
         return NULL;
 
-	return  new CSoftwareTexture2(images[0], name,
+	ITexture* t = new CSoftwareTexture2(images[0], name,
                                     (getTextureCreationFlag(ETCF_CREATE_MIP_MAPS) ? CSoftwareTexture2::GEN_MIPMAP : 0 ) | CSoftwareTexture2::NP2_SIZE);
+	addToTextureCache(t);
+
+	if (t)
+		t->drop();
+
+	return t;
 }
 
 

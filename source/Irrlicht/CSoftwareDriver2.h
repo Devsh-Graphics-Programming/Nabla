@@ -111,18 +111,16 @@ namespace video
 		virtual IDepthBuffer * getDepthBuffer () { return DepthBuffer; }
 		virtual IStencilBuffer * getStencilBuffer () { return StencilBuffer; }
 
+        //! .
+        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
+
+
 	protected:
-
-
 		//! sets a render target
 		void setRenderTarget(video::CImage* image);
 
 		//! sets the current Texture
 		//bool setTexture(uint32_t stage, video::ITexture* texture);
-
-		//! returns a device dependent texture from a software surface (IImage)
-		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, ECOLOR_FORMAT format, const std::vector<CImageData*>& images, const io::path& name);
 
 		video::CImage* BackBuffer;
 		video::IImagePresenter* Presenter;
