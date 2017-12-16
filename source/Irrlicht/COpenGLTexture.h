@@ -56,13 +56,18 @@ public:
 
 protected:
 	//! protected constructor with basic setup, no GL texture name created, for derived classes
-	COpenGLTexture();
+	COpenGLTexture(const GLenum& textureType_Target);
 
 	//! destructor
 	virtual ~COpenGLTexture();
 
+	//! for resizes
+    void recreateName(const GLenum& textureType_Target);
+
 	GLuint TextureName;
 	uint64_t TextureNameHasChanged;
+private:
+    COpenGLTexture() {}
 };
 
 //! .
@@ -98,7 +103,7 @@ public:
 
 protected:
 	//! protected constructor with basic setup, no GL texture name created, for derived classes
-	COpenGLFilterableTexture(const io::path& name);
+	COpenGLFilterableTexture(const io::path& name, const GLenum& textureType_Target);
 
 
 	uint32_t TextureSize[3];

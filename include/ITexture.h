@@ -75,6 +75,16 @@ public:
         ETT_TEXTURE_BUFFER,
         ETT_COUNT
     };
+    enum E_CUBE_MAP_FACE
+    {
+        ECMF_POSITIVE_X=0,
+        ECMF_NEGATIVE_X,
+        ECMF_POSITIVE_Y,
+        ECMF_NEGATIVE_Y,
+        ECMF_POSITIVE_Z,
+        ECMF_NEGATIVE_Z,
+        ECMF_COUNT
+    };
 
 	//! constructor
 	ITexture(const io::path& name) : NamedPath(name)
@@ -82,10 +92,6 @@ public:
 	}
 
 	virtual const E_TEXTURE_TYPE getTextureType() const = 0;
-
-	//! Get dimension (=size) of the texture.
-	/** \return The size of the texture. */
-	virtual const uint32_t* getSize() const = 0;
 
 	//! Get dimension (=size) of the texture.
 	/** \return The size of the texture. */

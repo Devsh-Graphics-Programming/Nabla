@@ -21,9 +21,11 @@ namespace video
 
 
 //! constructor for basic setup (only for derived classes)
-COpenGLTexture::COpenGLTexture()
+COpenGLTexture::COpenGLTexture(const GLenum& textureType_Target)
 	: TextureName(0), TextureNameHasChanged(0)
 {
+    COpenGLExtensionHandler::extGlCreateTextures(textureType_Target,1,&TextureName);
+
 #ifdef OPENGL_LEAK_DEBUG
     COpenGLExtensionHandler::textureLeaker.registerObj(this);
 #endif // OPENGL_LEAK_DEBUG
@@ -41,11 +43,19 @@ COpenGLTexture::~COpenGLTexture()
 #endif // OPENGL_LEAK_DEBUG
 }
 
+void COpenGLTexture::recreateName(const GLenum& textureType_Target)
+{
+    if (TextureName)
+        glDeleteTextures(1, &TextureName);
+    COpenGLExtensionHandler::extGlCreateTextures(textureType_Target,1,&TextureName);
+	TextureNameHasChanged = CNullDriver::incrementAndFetchReallocCounter();
+}
+
 
 
 //! constructor for basic setup (only for derived classes)
-COpenGLFilterableTexture::COpenGLFilterableTexture(const io::path& name)
-                                : ITexture(name), ColorFormat(ECF_UNKNOWN),
+COpenGLFilterableTexture::COpenGLFilterableTexture(const io::path& name, const GLenum& textureType_Target)
+                                : ITexture(name), COpenGLTexture(textureType_Target), ColorFormat(ECF_UNKNOWN),
                                 InternalFormat(GL_RGBA), MipLevelsStored(0)
 {
     TextureSize[0] = 1;
@@ -64,7 +74,7 @@ void COpenGLFilterableTexture::regenerateMipMapLevels()
 	if (MipLevelsStored<=1)
 		return;
 
-    COpenGLExtensionHandler::extGlGenerateTextureMipmap(TextureName,getOpenGLTextureType());
+    COpenGLExtensionHandler::extGlGenerateTextureMipmap(TextureName,this->getOpenGLTextureType());
 }
 
 

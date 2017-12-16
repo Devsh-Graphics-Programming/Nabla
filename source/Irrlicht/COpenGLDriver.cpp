@@ -1650,7 +1650,7 @@ IQueryObject* COpenGLDriver::createXFormFeedbackPrimitiveQuery()
 
 IQueryObject* COpenGLDriver::createElapsedTimeQuery()
 {
-    return new COpenGLQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
+    return new COpenGLQuery(GL_TIME_ELAPSED);
 }
 
 IGPUTimestampQuery* COpenGLDriver::createTimestampQuery()

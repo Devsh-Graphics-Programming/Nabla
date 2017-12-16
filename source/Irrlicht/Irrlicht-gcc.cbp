@@ -711,6 +711,8 @@
 		<Unit filename="COpenGL3DTexture.cpp" />
 		<Unit filename="COpenGL3DTexture.h" />
 		<Unit filename="COpenGLBuffer.h" />
+		<Unit filename="COpenGLCubemapTexture.cpp" />
+		<Unit filename="COpenGLCubemapTexture.h" />
 		<Unit filename="COpenGLDriver.cpp" />
 		<Unit filename="COpenGLDriver.h" />
 		<Unit filename="COpenGLDriverFence.h" />

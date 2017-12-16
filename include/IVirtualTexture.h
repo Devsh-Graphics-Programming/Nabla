@@ -50,6 +50,10 @@ public:
 
 	virtual const E_DIMENSION_COUNT getDimensionality() const = 0;
 
+	//! Get dimension (=size) of the texture.
+	/** \return The size of the texture. */
+	virtual const uint32_t* getSize() const = 0;
+
     //!
     virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const = 0;
 

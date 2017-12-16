@@ -14,7 +14,7 @@ namespace irr
 namespace video
 {
 
-COpenGL3DTexture::COpenGL3DTexture(GLenum internalFormat, const uint32_t* size, uint32_t mipmapLevels, const io::path& name) : COpenGLFilterableTexture(name)
+COpenGL3DTexture::COpenGL3DTexture(GLenum internalFormat, const uint32_t* size, uint32_t mipmapLevels, const io::path& name) : COpenGLFilterableTexture(name,getOpenGLTextureType())
 {
 #ifdef _DEBUG
 	setDebugName("COpenGL3DTexture");
@@ -23,8 +23,6 @@ COpenGL3DTexture::COpenGL3DTexture(GLenum internalFormat, const uint32_t* size, 
     TextureSize[1] = size[1];
     TextureSize[2] = size[2];
     MipLevelsStored = mipmapLevels;
-
-    COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_3D,1,&TextureName);
 
     InternalFormat = internalFormat;
     COpenGLExtensionHandler::extGlTextureStorage3D(TextureName,GL_TEXTURE_3D,MipLevelsStored,InternalFormat,TextureSize[0],TextureSize[1],TextureSize[2]);
@@ -43,10 +41,10 @@ bool COpenGL3DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, c
     if ((!destinationCompressed)&&sourceCompressed)
         return false;
 
-    if (destinationCompressed&&(minimum[0]||minimum[1]||minimum[2]))
+    if (destinationCompressed&&(minimum[0]||minimum[1]||maximum[0]!=TextureSize[0]||maximum[1]!=TextureSize[1]))
         return false;
 
-    if (destinationCompressed)
+    if (sourceCompressed)
     {
         size_t levelByteSize = (maximum[2]-minimum[2])/(0x1u<<mipmap);
         levelByteSize *= ((((maximum[0]-minimum[0])/(0x1u<<mipmap)+3)&0xfffffc)*(((maximum[1]-minimum[1])/(0x1u<<mipmap)+3)&0xfffffc)*COpenGLTexture::getOpenGLFormatBpp(InternalFormat))/8;
@@ -70,11 +68,7 @@ bool COpenGL3DTexture::resize(const uint32_t* size, const uint32_t& mipLevels)
     if (TextureSize[0]==size[0]&&TextureSize[1]==size[1]&&TextureSize[2]==size[2])
         return true;
 
-
-    if (TextureName)
-        glDeleteTextures(1, &TextureName);
-    COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_3D,1,&TextureName);
-	TextureNameHasChanged = CNullDriver::incrementAndFetchReallocCounter();
+    recreateName(getOpenGLTextureType());
 
     uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::max_(size[0],size[1],size[2])))));
     if (MipLevelsStored>1)
@@ -85,9 +79,8 @@ bool COpenGL3DTexture::resize(const uint32_t* size, const uint32_t& mipLevels)
             MipLevelsStored = core::min_(mipLevels,defaultMipMapCount);
     }
 
-    COpenGLExtensionHandler::extGlTextureStorage3D(TextureName,GL_TEXTURE_3D,MipLevelsStored,InternalFormat,size[0], size[1], size[2]);
-
     memcpy(TextureSize,size,12);
+    COpenGLExtensionHandler::extGlTextureStorage3D(TextureName,GL_TEXTURE_3D,MipLevelsStored,InternalFormat,TextureSize[0], TextureSize[1], TextureSize[2]);
     return true;
 }
 

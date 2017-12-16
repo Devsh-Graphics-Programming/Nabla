@@ -36,20 +36,19 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
     public:
         //! constructor
         COpenGLTextureBufferObject(COpenGLBuffer* buffer, E_TEXURE_BUFFER_OBJECT_FORMAT format, const size_t& offset=0, const size_t& length=0, core::LeakDebugger* dbgr=NULL)
-                                    : COpenGLTexture(), TextureSize(0), lastValidated(0), currentBuffer(NULL), Offset(0), Length(0), leakTracker(dbgr), InternalFormat(GL_INVALID_ENUM), ColorFormat(ECF_UNKNOWN)
+                                    : COpenGLTexture(GL_TEXTURE_BUFFER), lastValidated(0), currentBuffer(NULL), Offset(0), Length(0), leakTracker(dbgr), InternalFormat(GL_INVALID_ENUM), ColorFormat(ECF_UNKNOWN), TextureSize(0)
         {
             if (leakTracker)
                 leakTracker->registerObj(this);
 
-            COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_BUFFER,1,&TextureName);
-
             bind(buffer,format,offset,length);
         }
-
 
         //! returns driver type of texture (=the driver, that created it)
         virtual E_DRIVER_TYPE getDriverType() const {return EDT_OPENGL;}
 
+        //!
+        virtual const uint32_t* getSize() const {return &TextureSize;}
 
         //! Returns size of the texture.
         virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_ONE;}
@@ -61,7 +60,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
         virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_BUFFER_OBJECT;}
 
         //! returns pitch of texture (in bytes)
-        virtual uint64_t getByteSize() const {return video::getBitsPerPixelFromFormat(ColorFormat)*TextureSize/8ull;}
+        virtual uint64_t getByteSize() const {return video::getBitsPerPixelFromFormat(ColorFormat)*uint64_t(TextureSize)/8ull;}
 
 
         //! returns the opengl texture type
@@ -253,14 +252,13 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
         }
 
     protected:
-        uint64_t TextureSize;
-
         uint64_t lastValidated;
         COpenGLBuffer* currentBuffer;
         size_t Length,Offset;
 
         core::LeakDebugger* leakTracker;
 
+        uint32_t TextureSize;
 
         GLint InternalFormat;
         ECOLOR_FORMAT ColorFormat;
