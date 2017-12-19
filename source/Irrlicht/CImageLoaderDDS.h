@@ -233,9 +233,6 @@ public:
 
 	//! creates a surface from the file
 	virtual std::vector<CImageData*> loadImage(io::IReadFile* file) const;
-
-	//! proper load, returns allocated image data (mip maps inclusif)
-	uint8_t* loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelFormat, int32_t *width, int32_t *height, int32_t *depth, int32_t *mipmapCnt) const;
 };
 
 

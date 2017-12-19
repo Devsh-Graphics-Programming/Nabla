@@ -22,18 +22,13 @@ class IImage : public virtual IReferenceCounted
 {
 public:
 
-	//! Lock function. Use this to get a pointer to the image data.
-	/** After you don't need the pointer anymore, you must call unlock().
+	//! Use this to get a pointer to the image data.
+	/**
 	\return Pointer to the image data. What type of data is pointed to
 	depends on the color format of the image. For example if the color
-	format is ECF_A8R8G8B8, it is of uint32_t. Be sure to call unlock() after
-	you don't need the pointer any more. */
-	virtual void* lock() = 0;
-
-	//! Unlock function.
-	/** Should be called after the pointer received by lock() is not
-	needed anymore. */
-	virtual void unlock() = 0;
+	format is ECF_A8R8G8B8, it is of uint32_t. */
+	virtual void* getData() = 0;
+	virtual const void* getData() const = 0;
 
 	//! Returns width and height of image data.
 	virtual const core::dimension2d<uint32_t>& getDimension() const = 0;

@@ -721,7 +721,7 @@ REALINLINE void CBurningShader_Raster_Reference::scanline2()
 		line.t[i][0] += line.t[i][1] * subPixel;
 	}
 
-	pShader.dst = (tVideoSample*) ( (uint8_t*) RenderTarget->lock() + ( line.y * RenderTarget->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
+	pShader.dst = (tVideoSample*) ( (uint8_t*) RenderTarget->getData() + ( line.y * RenderTarget->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
 	pShader.z = (fp24*) ( (uint8_t*) DepthBuffer->lock() + ( line.y * DepthBuffer->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
 
 	for ( pShader.i = 0; pShader.i <= pShader.dx; ++pShader.i )
@@ -804,7 +804,7 @@ REALINLINE void CBurningShader_Raster_Reference::scanline ()
 	line.w[0] = a;
 	line.w[1] = b;
 
-	pShader.dst = (tVideoSample*) ( (uint8_t*) RenderTarget->lock() + ( line.y * RenderTarget->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
+	pShader.dst = (tVideoSample*) ( (uint8_t*) RenderTarget->getData() + ( line.y * RenderTarget->getPitch() ) + ( pShader.xStart << VIDEO_SAMPLE_GRANULARITY ) );
 
 	a = (float) pShader.i + subPixel;
 

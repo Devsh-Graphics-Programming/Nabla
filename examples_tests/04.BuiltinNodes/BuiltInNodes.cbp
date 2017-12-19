@@ -46,12 +46,9 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
-					<Add option="-fexpensive-optimizations" />
-					<Add option="-O3" />
+					<Add option="-O2" />
 					<Add option="-w" />
 					<Add option="-g" />
-					<Add option="-flto" />
-					<Add option="-fuse-linker-plugin" />
 					<Add option="-fno-omit-frame-pointer" />
 					<Add option="-msse3" />
 					<Add option="-mfpmath=sse" />
@@ -60,8 +57,6 @@
 				</Compiler>
 				<Linker>
 					<Add option="-fuse-ld=gold" />
-					<Add option="-flto" />
-					<Add option="-fuse-linker-plugin" />
 					<Add option="-msse3" />
 					<Add library="Irrlicht" />
 					<Add library="Xrandr" />

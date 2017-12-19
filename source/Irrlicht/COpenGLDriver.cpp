@@ -2705,7 +2705,7 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
         return NULL;
 
     //validate a bit
-    uint32_t initialMaxCoord[3] = {0,0,0};
+    uint32_t initialMaxCoord[3] = {1,1,1};
     uint32_t highestMip = 0;
     ECOLOR_FORMAT candidateFormat = format;
     for (std::vector<CImageData*>::const_iterator it=images.begin(); it!=images.end(); it++)
@@ -2721,7 +2721,7 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
 
         for (size_t i=0; i<3; i++)
         {
-            uint32_t sideSize = img->getSliceMax()[i]<<img->getSupposedMipLevel();
+            const uint32_t& sideSize = img->getSliceMax()[i];
             if (initialMaxCoord[i] < sideSize)
                 initialMaxCoord[i] = sideSize;
         }

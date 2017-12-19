@@ -199,13 +199,10 @@ int32_t DDSGetInfo( ddsBuffer *dds, int32_t *width, int32_t *height, int32_t *de
 		*width = DDSLittleLong( dds->width );
 	if ( height != NULL )
 		*height = DDSLittleLong( dds->height );
-    if ( dds->flags & 0x800000u)//DDSD_DEPTH)
-    {
-        if ( depth != NULL )
-            *depth = DDSLittleLong( dds->depth );
-        else
-            *depth = 1;
-    }
+    if ( depth != NULL && (dds->flags & 0x800000u) )//DDSD_DEPTH)
+        *depth = DDSLittleLong( dds->depth );
+    else
+        *depth = 1;
 
 	/* get pixel format */
 	DDSDecodePixelFormat( dds, pf );
@@ -242,139 +239,152 @@ bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* file) const
 }
 
 
-//! proper load, returns allocated image data (mip maps inclusif)
-uint8_t* CImageLoaderDDS::loadDataBuffer(io::IReadFile* file, eDDSPixelFormat *pixelFormat, int32_t *width, int32_t *height, int32_t *depth, int32_t *mipmapCnt) const
+//! creates a surface from the file
+std::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
 {
-	uint8_t *memFile = new uint8_t [ file->getSize() ];
-	file->read ( memFile, file->getSize() );
+	std::vector<CImageData*> images;
 
-	ddsBuffer *header = (ddsBuffer*) memFile;
-	uint8_t* data = 0;
+    video::eDDSPixelFormat pixelFormat;
+    int32_t width, height, depth, mipmapCnt;
 
-	if ( 0 == DDSGetInfo( header, width, height, depth, pixelFormat) )
+	ddsBuffer header;
+	file->read(&header, sizeof(header)-4);
+
+	if ( 0 == DDSGetInfo( &header, &width, &height, &depth, &pixelFormat) )
 	{
-	    size_t dataSize = 0;
-
-	    if (header->flags & 0x20000)//DDSD_MIPMAPCOUNT)
-            *mipmapCnt = header->mipMapCount;
+	    if (header.flags & 0x20000)//DDSD_MIPMAPCOUNT)
+            mipmapCnt = header.mipMapCount;
 	    else
-            *mipmapCnt = 1;
+            mipmapCnt = 1;
 
 
-        int32_t r = 1;
-        for (int32_t i=0; i<*mipmapCnt; i++)
+        for (int32_t i=0; i<mipmapCnt; i++)
         {
-            uint32_t tmpWidth;
-            switch( *pixelFormat )
+            uint32_t zeroDummy[3] = {0,0,0};
+            uint32_t mipSize[3] = {0,height,depth};
+            uint32_t& tmpWidth = mipSize[0];
+            switch( pixelFormat )
             {
                 case DDS_PF_DXT1:
                 case DDS_PF_DXT2:
                 case DDS_PF_DXT3:
                 case DDS_PF_DXT4:
                 case DDS_PF_DXT5:
-                    tmpWidth = *width;
+                    tmpWidth = width;
                     break;
                 default:
-                    tmpWidth = header->pitch;
+                    tmpWidth = header.pitch;
                     break;
             }
-            uint32_t tmpHeight = *height;
-            uint32_t tmpDepth = *depth;
+            uint32_t& tmpHeight = mipSize[1];
+            uint32_t& tmpDepth = mipSize[2];
             tmpWidth += (uint32_t(1)<<i)-1;
             tmpHeight += (uint32_t(1)<<i)-1;
-            tmpDepth += (uint32_t(1)<<i)-1; //! CHANGE AGAIN FOR 2D ARRAY AND CUBEMAP TEXTURES
+            if (false)
+                tmpDepth += (uint32_t(1)<<i)-1; //! CHANGE AGAIN FOR 2D ARRAY AND CUBEMAP TEXTURES
             tmpWidth /= uint32_t(1)<<i;
             tmpHeight /= uint32_t(1)<<i;
-            tmpDepth /= uint32_t(1)<<i; //! CHANGE AGAIN FOR 2D ARRAY AND CUBEMAP TEXTURES
+            if (false)
+                tmpDepth /= uint32_t(1)<<i; //! CHANGE AGAIN FOR 2D ARRAY AND CUBEMAP TEXTURES
 
             /* decompress */
-            switch( *pixelFormat )
+            ECOLOR_FORMAT colorFormat = ECF_UNKNOWN;
+            switch( pixelFormat )
             {
                 case DDS_PF_ARGB8888:
                 case DDS_PF_ABGR8888:
                     /* fixme: support other [a]rgb formats */
-                    dataSize += tmpWidth*tmpHeight*tmpDepth;
+                    {
+                        colorFormat = pixelFormat==DDS_PF_ABGR8888 ? ECF_R8G8B8A8:ECF_A8R8G8B8;
+                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,4);
+                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        images.push_back(data);
+                    }
                     break;
                 case DDS_PF_RGB888:
                     /* fixme: support other [a]rgb formats */
                     {
-                        size_t bytes = tmpWidth*tmpHeight*tmpDepth;
-                        for (uint32_t j=0; j<bytes; j+=3)
-                        {
-                            uint8_t byte1 = header->data[dataSize+j];
-                            uint8_t byte2 = header->data[dataSize+j+1];
-                            uint8_t byte3 = header->data[dataSize+j+2];
+                        colorFormat = ECF_R8G8B8;
+                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
+                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        images.push_back(data);
 
-                            header->data[dataSize+j] = byte3;
-                            header->data[dataSize+j+1] = byte2;
-                            header->data[dataSize+j+2] = byte1;
+                        uint8_t* dataToManipulate = reinterpret_cast<uint8_t*>(data->getData());
+                        for (uint32_t j=0; j<data->getImageDataSizeInBytes(); j+=3)
+                        {
+                            uint8_t byte1 = dataToManipulate[j+0];
+                            uint8_t byte2 = dataToManipulate[j+1];
+                            uint8_t byte3 = dataToManipulate[j+2];
+
+                            dataToManipulate[j+0] = byte3;
+                            dataToManipulate[j+1] = byte2;
+                            dataToManipulate[j+2] = byte1;
                         }
-                        dataSize += bytes;
                     }
                     break;
                 case DDS_PF_ARGB1555:
+                    /* fixme: support other [a]rgb formats */
+                    {
+                        colorFormat = ECF_A1R5G5B5;
+                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
+                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        images.push_back(data);
+                    }
+                    break;
                 case DDS_PF_RGB565:
+                    break;
                 case DDS_PF_LA88:
+                    /* fixme: support other [a]rgb formats */
+                    {
+                        colorFormat = ECF_R8G8;
+                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
+                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        images.push_back(data);
+                    }
+                    break;
                 case DDS_PF_L8:
                 case DDS_PF_A8:
                     /* fixme: support other [a]rgb formats */
-                    dataSize += tmpWidth*tmpHeight*tmpDepth;
+                    {
+                        colorFormat = ECF_R8;
+                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
+                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        images.push_back(data);
+                    }
                     break;
 
                 case DDS_PF_DXT1:
-                    dataSize += ((tmpWidth+3)&0xfffffc)*((tmpHeight+3)&0xfffffc)*tmpDepth/2;
-                    break;
-
                 case DDS_PF_DXT2:
                 case DDS_PF_DXT3:
                 case DDS_PF_DXT4:
                 case DDS_PF_DXT5:
-                    dataSize += ((tmpWidth+3)&0xfffffc)*((tmpHeight+3)&0xfffffc)*tmpDepth;
+                    {
+                        if (pixelFormat==video::DDS_PF_DXT2||pixelFormat==video::DDS_PF_DXT3)
+                            colorFormat = video::ECF_RGBA_BC2;
+                        else if (pixelFormat==video::DDS_PF_DXT4||pixelFormat==video::DDS_PF_DXT5)
+                            colorFormat = video::ECF_RGBA_BC3;
+                        else if (pixelFormat==video::DDS_PF_DXT1_ALPHA)
+                            colorFormat = video::ECF_RGBA_BC1;
+                        else if (pixelFormat==video::DDS_PF_DXT1)
+                            colorFormat = video::ECF_RGB_BC1;
+
+                        mipSize[0] += 3;
+                        mipSize[1] += 3;
+                        mipSize[0] &= 0xfffffc;
+                        mipSize[1] &= 0xfffffc;
+                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
+                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        images.push_back(data);
+                    }
                     break;
 
                 default:
                 case DDS_PF_UNKNOWN:
-                    r = -1;
                     break;
             }
         }
-
-
-		if ( r != -1 && dataSize>0)
-		{
-            data = new uint8_t[dataSize];
-		    memcpy(data,header->data,dataSize);
-		}
 	}
 
-	if (!data)
-	{
-	    *pixelFormat = DDS_PF_UNKNOWN;
-	    *width = -1;
-	    *height = -1;
-	    *depth = -1;
-	    *mipmapCnt = -1;
-	}
-
-	delete [] memFile;
-
-	return data;
-}
-
-//! creates a surface from the file
-std::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
-{
-	uint8_t *memFile = new uint8_t [ file->getSize() ];
-	file->read ( memFile, file->getSize() );
-
-	ddsBuffer *header = (ddsBuffer*) memFile;
-	std::vector<CImageData*> images;
-	int32_t width, height, depth;
-	eDDSPixelFormat pixelFormat;
-
-	DDSGetInfo( header, &width, &height, &depth, &pixelFormat);
-
-	delete [] memFile;
 
 	return images;
 }

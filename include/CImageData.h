@@ -34,17 +34,34 @@ class CImageData : public IReferenceCounted
                 free(data);
         }
 
-        void setupMemory(void* inData, const bool& dataAllocatedWithMallocAndCanTake)
+        inline void setupMemory(void* inData, const bool& dataAllocatedWithMallocAndCanTake)
         {
             if (inData&&dataAllocatedWithMallocAndCanTake)
                 data = inData;
             else
-            {
-                size_t imgByteSize = getImageDataSizeInBytes();
-                data = malloc(imgByteSize);
-                if (inData)
-                    memcpy(data,inData,imgByteSize);
-            }
+                setupMemory(inData,dataAllocatedWithMallocAndCanTake);
+        }
+
+        inline void setupMemory(const void* inData)
+        {
+            size_t imgByteSize = getImageDataSizeInBytes();
+            data = malloc(imgByteSize);
+            if (inData)
+                memcpy(data,inData,imgByteSize);
+        }
+
+
+        inline const void* getSliceRowPointer_helper(uint32_t slice, uint32_t row) const
+        {
+            if (row<minCoord[0]||row>=maxCoord[0])
+                return NULL;
+            if (slice<minCoord[1]||slice>=maxCoord[1])
+                return NULL;
+
+            size_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
+            row     -= minCoord[0];
+            slice   -= minCoord[1];
+            return reinterpret_cast<uint8_t*>(data)+(slice*size[1]+row)*getPitchIncludingAlignment();
         }
 
     public:
@@ -62,13 +79,27 @@ class CImageData : public IReferenceCounted
             mipLevelHint = inMipLevel;
             unpackAlignment = 1;
 
-            setupMemory(fromImage->lock(),dataAllocatedWithMallocAndCanTake);
+            setupMemory(fromImage->getData(),dataAllocatedWithMallocAndCanTake);
+        }
+
+        CImageData(const void* inData, uint32_t inMinCoord[3], uint32_t inMaxCoord[3],
+                   const uint32_t& inMipLevel, const ECOLOR_FORMAT& inFmt,
+                   const uint32_t& inUnpackLineAlignment=1)
+        {
+            memcpy(minCoord,inMinCoord,3*sizeof(uint32_t));
+            memcpy(maxCoord,inMaxCoord,3*sizeof(uint32_t));
+
+            mipLevelHint = inMipLevel;
+            colorFormat = inFmt;
+            unpackAlignment = inUnpackLineAlignment;
+
+            setupMemory(inData);
         }
 
         CImageData(void* inData, uint32_t inMinCoord[3], uint32_t inMaxCoord[3],
                    const uint32_t& inMipLevel, const ECOLOR_FORMAT& inFmt,
-                   const uint32_t& inUnpackLineAlignment=1,
-                   const bool& dataAllocatedWithMallocAndCanTake=false)
+                   const uint32_t& inUnpackLineAlignment,
+                   const bool& dataAllocatedWithMallocAndCanTake)
         {
             memcpy(minCoord,inMinCoord,3*sizeof(uint32_t));
             memcpy(maxCoord,inMaxCoord,3*sizeof(uint32_t));
@@ -108,7 +139,7 @@ class CImageData : public IReferenceCounted
         {
             size_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
 
-            size_t lineSize = getPitch();
+            size_t lineSize = getPitchIncludingAlignment();
             return lineSize*size[1]*size[2];
         }
 
@@ -136,6 +167,16 @@ class CImageData : public IReferenceCounted
 
         //!
         inline uint32_t getUnpackAlignment() const {return unpackAlignment;}
+
+        //!
+        inline void* getSliceRowPointer(const uint32_t& slice, const uint32_t& row)
+        {
+            return const_cast<void*>(getSliceRowPointer_helper(slice,row)); // I know what I'm doing
+        }
+        inline const void* getSliceRowPointer(const uint32_t& slice, const uint32_t& row) const
+        {
+            return getSliceRowPointer_helper(slice,row);
+        }
 };
 
 } // end namespace video

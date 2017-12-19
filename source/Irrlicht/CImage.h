@@ -32,14 +32,9 @@ public:
 	//! constructor for empty image
 	CImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size);
 
-	//! Lock function.
-	virtual void* lock()
-	{
-		return Data;
-	}
-
-	//! Unlock function.
-	virtual void unlock() {}
+	//! .
+	virtual void* getData() {return Data;}
+	virtual const void* getData() const {return Data;}
 
 	//! Returns width and height of image data.
 	virtual const core::dimension2d<uint32_t>& getDimension() const;

@@ -1293,7 +1293,7 @@ bool CIrrDeviceLinux::present(video::IImage* image, void* windowId, core::rect<i
 			return false;
 	}
 
-	uint8_t* srcdata = reinterpret_cast<uint8_t*>(image->lock());
+	uint8_t* srcdata = reinterpret_cast<uint8_t*>(image->getData());
 	uint8_t* destData = reinterpret_cast<uint8_t*>(SoftwareImage->data);
 
 	const uint32_t destheight = SoftwareImage->height;
@@ -1305,7 +1305,6 @@ bool CIrrDeviceLinux::present(video::IImage* image, void* windowId, core::rect<i
 		srcdata+=srcPitch;
 		destData+=destPitch;
 	}
-	image->unlock();
 
 	GC gc = DefaultGC(display, DefaultScreen(display));
 	Window myWindow=window;
@@ -1959,7 +1958,7 @@ Cursor CIrrDeviceLinux::TextureToMonochromeCursor(irr::video::IImage * tex, cons
 	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
 	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
-	const uint8_t* data = (const uint8_t*)tex->lock();
+	const uint8_t* data = (const uint8_t*)tex->getData();
 	data += sourceRect.UpperLeftCorner.Y*tex->getPitch();
 	for ( int32_t y = 0; y < sourceRect.getHeight(); ++y )
 	{
@@ -1986,7 +1985,6 @@ Cursor CIrrDeviceLinux::TextureToMonochromeCursor(irr::video::IImage * tex, cons
 		}
 		data += bytesRightGap;
 	}
-	tex->unlock();
 
 	Pixmap sourcePixmap = XCreatePixmap(display, window, sourceImage->width, sourceImage->height, sourceImage->depth);
 	Pixmap maskPixmap = XCreatePixmap(display, window, maskImage->width, maskImage->height, maskImage->depth);

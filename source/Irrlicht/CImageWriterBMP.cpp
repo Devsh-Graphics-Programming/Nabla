@@ -94,7 +94,7 @@ bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, uint32_t p
 	if (file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
 		return false;
 
-	uint8_t* scan_lines = (uint8_t*)image->lock();
+	uint8_t* scan_lines = (uint8_t*)image->getData();
 	if (!scan_lines)
 		return false;
 
@@ -126,9 +126,6 @@ bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, uint32_t p
 
 	// clean up our scratch area
 	delete [] row_pointer;
-
-	// give back image handle
-	image->unlock();
 
 	return y < 0;
 }

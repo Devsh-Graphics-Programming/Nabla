@@ -65,12 +65,25 @@ bool COpenGL2DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, c
     if ((!destinationCompressed)&&sourceCompressed)
         return false;
 
-    if (destinationCompressed&&(minimum[0]||minimum[1]||maximum[0]!=TextureSize[0]||maximum[1]!=TextureSize[1]))
-        return false;
+    if (destinationCompressed)
+    {
+        if (minimum[0]||minimum[1])
+            return false;
+
+        uint32_t adjustedTexSize[2] = {TextureSize[0],TextureSize[1]};
+        adjustedTexSize[0] /= 0x1u<<mipmap;
+        adjustedTexSize[1] /= 0x1u<<mipmap;
+        adjustedTexSize[0] += 3u;
+        adjustedTexSize[1] += 3u;
+        adjustedTexSize[0] &= 0xfffffc;
+        adjustedTexSize[1] &= 0xfffffc;
+        if (maximum[0]!=adjustedTexSize[0]||maximum[1]!=adjustedTexSize[1])
+            return false;
+    }
 
     if (sourceCompressed)
     {
-        size_t levelByteSize = ((((maximum[0]-minimum[0])/(0x1u<<mipmap)+3)&0xfffffc)*(((maximum[1]-minimum[1])/(0x1u<<mipmap)+3)&0xfffffc)*COpenGLTexture::getOpenGLFormatBpp(InternalFormat))/8;
+        size_t levelByteSize = (((maximum[0]-minimum[0]+3)&0xfffffc)*((maximum[1]-minimum[1]+3)&0xfffffc)*COpenGLTexture::getOpenGLFormatBpp(InternalFormat))/8;
 
         COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(TextureName,GL_TEXTURE_2D, mipmap, minimum[0],minimum[1],maximum[0]-minimum[0],maximum[1]-minimum[1], InternalFormat, levelByteSize, data);
     }
@@ -78,7 +91,7 @@ bool COpenGL2DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, c
     {
         //! we're going to have problems with uploading lower mip levels
         uint32_t bpp = video::getBitsPerPixelFromFormat(inDataColorFormat);
-        uint32_t pitchInBits = ((maximum[0]-minimum[0])>>mipmap)*bpp/8;
+        uint32_t pitchInBits = ((maximum[0]-minimum[0])*bpp)/8;
 
         COpenGLExtensionHandler::setPixelUnpackAlignment(pitchInBits,const_cast<void*>(data),unpackRowByteAlignment);
         COpenGLExtensionHandler::extGlTextureSubImage2D(TextureName, GL_TEXTURE_2D, mipmap, minimum[0],minimum[1], maximum[0]-minimum[0],maximum[1]-minimum[1], pixFmt, pixType, data);

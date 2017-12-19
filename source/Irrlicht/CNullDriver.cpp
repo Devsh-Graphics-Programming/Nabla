@@ -725,7 +725,7 @@ video::ITexture* CNullDriver::loadTextureFromFile(io::IReadFile* file, ECOLOR_FO
 
     // create texture from surface
     ITexture* texture = addTexture(ITexture::ETT_COUNT, images, hashName.size() ? hashName : file->getFileName(), format);
-    dropWholeMipChain(images);
+    dropWholeMipChain(images.begin(),images.end());
     os::Printer::log("Loaded texture", file->getFileName().c_str());
 
 	return texture;

@@ -118,7 +118,7 @@ int main()
     sphere->setPosition(core::vector3df(4,0,0));
 
 	scene::ISceneNode* billboard = smgr->addBillboardSceneNode(0,core::dimension2df(1.f,1.f),core::vector3df(-4,0,0));
-    billboard->getMaterial(0).setTexture(0,driver->getTexture("../../media/wall.jpg"));
+    billboard->getMaterial(0).setTexture(0,driver->getTexture("../../media/yellowflowers.dds")); //loads all mipmap levels
 
     //scene::CGeometryCreator* geom = new scene::CGeometryCreator();
 

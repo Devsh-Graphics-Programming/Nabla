@@ -47,13 +47,12 @@ public:
 	{
 		if (Flags & GEN_MIPMAP)
 			MipMapLOD=mipmapLevel;
-		return MipMap[MipMapLOD]->lock();
+		return MipMap[MipMapLOD]->getData();
 	}
 
 	//! unlock function
 	virtual void unlock()
 	{
-		MipMap[MipMapLOD]->unlock();
 	}
 
 	//! Returns original size of the texture.

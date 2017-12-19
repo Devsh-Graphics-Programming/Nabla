@@ -41,13 +41,29 @@ bool COpenGL3DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, c
     if ((!destinationCompressed)&&sourceCompressed)
         return false;
 
-    if (destinationCompressed&&(minimum[0]||minimum[1]||maximum[0]!=TextureSize[0]||maximum[1]!=TextureSize[1]))
-        return false;
+    if (destinationCompressed)
+    {
+        if (minimum[0]||minimum[1]||minimum[2])
+            return false;
+
+        uint32_t adjustedTexSize[3] = {TextureSize[0],TextureSize[1],TextureSize[2]};
+        adjustedTexSize[0] /= 0x1u<<mipmap;
+        adjustedTexSize[1] /= 0x1u<<mipmap;
+        adjustedTexSize[2] /= 0x1u<<mipmap;
+        adjustedTexSize[0] += 3u;
+        adjustedTexSize[1] += 3u;
+        adjustedTexSize[2] += 3u;
+        adjustedTexSize[0] &= 0xfffffc;
+        adjustedTexSize[1] &= 0xfffffc;
+        adjustedTexSize[2] &= 0xfffffc;
+        if (maximum[0]!=adjustedTexSize[0]||maximum[1]!=adjustedTexSize[1]||maximum[2]!=adjustedTexSize[2])
+            return false;
+    }
 
     if (sourceCompressed)
     {
-        size_t levelByteSize = (maximum[2]-minimum[2])/(0x1u<<mipmap);
-        levelByteSize *= ((((maximum[0]-minimum[0])/(0x1u<<mipmap)+3)&0xfffffc)*(((maximum[1]-minimum[1])/(0x1u<<mipmap)+3)&0xfffffc)*COpenGLTexture::getOpenGLFormatBpp(InternalFormat))/8;
+        size_t levelByteSize = maximum[2]-minimum[2];
+        levelByteSize *= (((maximum[0]-minimum[0]+3)&0xfffffc)*((maximum[1]-minimum[1]+3)&0xfffffc)*COpenGLTexture::getOpenGLFormatBpp(InternalFormat))/8;
 
         COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(TextureName,GL_TEXTURE_3D, mipmap, minimum[0],minimum[1],minimum[2], maximum[0]-minimum[0],maximum[1]-minimum[1],maximum[2]-minimum[2], InternalFormat, levelByteSize, data);
     }
@@ -55,7 +71,7 @@ bool COpenGL3DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, c
     {
         //! we're going to have problems with uploading lower mip levels
         uint32_t bpp = video::getBitsPerPixelFromFormat(inDataColorFormat);
-        uint32_t pitchInBits = ((maximum[0]-minimum[0])>>mipmap)*bpp/8;
+        uint32_t pitchInBits = ((maximum[0]-minimum[0])*bpp)/8;
 
         COpenGLExtensionHandler::setPixelUnpackAlignment(pitchInBits,const_cast<void*>(data),unpackRowByteAlignment);
         COpenGLExtensionHandler::extGlTextureSubImage3D(TextureName,GL_TEXTURE_3D, mipmap, minimum[0],minimum[1],minimum[2], maximum[0]-minimum[0],maximum[1]-minimum[1],maximum[2]-minimum[2], pixFmt, pixType, data);

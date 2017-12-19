@@ -769,9 +769,16 @@ namespace video
 		\param List of .
 		\return .
 		Bla bla. */
-		void dropWholeMipChain(const std::vector<CImageData*>& mipImages)
+		static void dropWholeMipChain(const std::vector<CImageData*>& mipImages)
 		{
 		    for (std::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
+                (*it)->drop();
+		}
+		//!
+		template< class Iter >
+		static void dropWholeMipChain(Iter it, Iter limit)
+		{
+		    for (; it!=limit; it++)
                 (*it)->drop();
 		}
 
