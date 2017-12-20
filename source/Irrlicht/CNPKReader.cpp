@@ -144,10 +144,6 @@ bool CNPKReader::scanLocalHeader()
 		return false;
 
 	// Seek to the table of contents
-#ifdef __BIG_ENDIAN__
-	header.Offset = os::Byteswap::byteswap(header.Offset);
-	header.Length = os::Byteswap::byteswap(header.Length);
-#endif
 	header.Offset += 8;
 	core::stringc dirName;
 	bool inTOC=true;
@@ -185,10 +181,6 @@ bool CNPKReader::scanLocalHeader()
 				isDir=false;
 #ifdef IRR_DEBUG_NPK_READER
                 os::Printer::log("File", entry.Name.c_str());
-#endif
-#ifdef __BIG_ENDIAN__
-				entry.Offset = os::Byteswap::byteswap(entry.Offset);
-				entry.Length = os::Byteswap::byteswap(entry.Length);
 #endif
 			}
 				break;
@@ -255,9 +247,7 @@ void CNPKReader::readString(core::stringc& name)
 	short stringSize;
 	char buf[256];
 	File->read(&stringSize, 2);
-#ifdef __BIG_ENDIAN__
-	stringSize = os::Byteswap::byteswap(stringSize);
-#endif
+
 	name.reserve(stringSize);
 	while(stringSize)
 	{

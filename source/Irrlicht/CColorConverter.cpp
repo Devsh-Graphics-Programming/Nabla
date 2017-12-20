@@ -130,15 +130,9 @@ void CColorConverter::convert8BitTo24Bit(const uint8_t* in, uint8_t* out, int32_
 		{
 			if ( palette )
 			{
-#ifdef __BIG_ENDIAN__
-				out[x+0] = palette[ (in[0] << 2 ) + 0];
-				out[x+1] = palette[ (in[0] << 2 ) + 1];
-				out[x+2] = palette[ (in[0] << 2 ) + 2];
-#else
 				out[x+0] = palette[ (in[0] << 2 ) + 2];
 				out[x+1] = palette[ (in[0] << 2 ) + 1];
 				out[x+2] = palette[ (in[0] << 2 ) + 0];
-#endif
 			}
 			else
 			{
@@ -184,11 +178,8 @@ void CColorConverter::convert8BitTo32Bit(const uint8_t* in, uint8_t* out, int32_
 			for (x=0; x < (uint32_t) width; x += 1)
 			{
 				c = in[x];
-#ifdef __BIG_ENDIAN__
-				((uint32_t*)out)[x] = c << 24 | c << 16 | c << 8 | 0x000000FF;
-#else
+
 				((uint32_t*)out)[x] = 0xFF000000 | c << 16 | c << 8 | c;
-#endif
 			}
 
 		}
@@ -214,12 +205,9 @@ void CColorConverter::convert16BitTo16Bit(const int16_t* in, int16_t* out, int32
 	{
 		if (flip)
 			out -= width;
-#ifdef __BIG_ENDIAN__
-		for (int32_t x=0; x<width; ++x)
-			out[x]=os::Byteswap::byteswap(in[x]);
-#else
+
 		memcpy(out, in, width*sizeof(int16_t));
-#endif
+
 		if (!flip)
 			out += width;
 		in += width;
@@ -311,12 +299,9 @@ void CColorConverter::convert32BitTo32Bit(const int32_t* in, int32_t* out, int32
 	{
 		if (flip)
 			out -= width;
-#ifdef __BIG_ENDIAN__
-		for (int32_t x=0; x<width; ++x)
-			out[x]=os::Byteswap::byteswap(in[x]);
-#else
+
 		memcpy(out, in, width*sizeof(int32_t));
-#endif
+
 		if (!flip)
 			out += width;
 		in += width;

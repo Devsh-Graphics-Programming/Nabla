@@ -2542,12 +2542,8 @@ uint16_t CXMeshFileLoader::readBinWord()
 
     char P[2];
     fileContents.read(P,2);
-#ifdef __BIG_ENDIAN__
-	const uint16_t tmp = os::Byteswap::byteswap(*(uint16_t *)P);
-#else
-	const uint16_t tmp = *(uint16_t *)P;
-#endif
-	return tmp;
+
+    return *(uint16_t *)P;
 }
 
 
@@ -2558,12 +2554,8 @@ uint32_t CXMeshFileLoader::readBinDWord()
 
     char P[4];
     fileContents.read(P,4);
-#ifdef __BIG_ENDIAN__
-	const uint32_t tmp = os::Byteswap::byteswap(*(uint32_t *)P);
-#else
-	const uint32_t tmp = *(uint32_t *)P;
-#endif
-	return tmp;
+
+	return *(uint32_t *)P;
 }
 
 
@@ -2610,22 +2602,12 @@ float CXMeshFileLoader::readFloat()
 		{
 		    double tmp;
 		    fileContents.read(reinterpret_cast<char*>(&tmp),8);
-#ifdef __BIG_ENDIAN__
-			//TODO: Check if data is properly converted here
-			float ctmp[2];
-			ctmp[1] = os::Byteswap::byteswap(*reinterpret_cast<float*>(&tmp));
-			ctmp[0] = os::Byteswap::byteswap(*reinterpret_cast<float*>(&tmp)+4);
-			tmp = *reinterpret_cast<double*>(ctmp);
-#endif
 			return tmp;
 		}
 		else
 		{
 		    float tmp;
 		    fileContents.read(reinterpret_cast<char*>(&tmp),4);
-#ifdef __BIG_ENDIAN__
-			tmp = os::Byteswap::byteswap(tmp);
-#endif
 			return tmp;
 		}
 	}

@@ -82,9 +82,6 @@ bool CB3DMeshFileLoader::load()
 
 	SB3dChunkHeader header;
 	B3DFile->read(&header, sizeof(header));
-#ifdef __BIG_ENDIAN__
-	header.size = os::Byteswap::byteswap(header.size);
-#endif
 
 	if ( strncmp( header.name, "BB3D", 4 ) != 0 )
 	{
@@ -98,18 +95,12 @@ bool CB3DMeshFileLoader::load()
 	// Get file version, but ignore it, as it's not important with b3d files...
 	int32_t fileVersion;
 	B3DFile->read(&fileVersion, sizeof(fileVersion));
-#ifdef __BIG_ENDIAN__
-	fileVersion = os::Byteswap::byteswap(fileVersion);
-#endif
 
 	//------ Read main chunk ------
 
 	while ( (B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos() )
 	{
 		B3DFile->read(&header, sizeof(header));
-#ifdef __BIG_ENDIAN__
-		header.size = os::Byteswap::byteswap(header.size);
-#endif
 		B3dStack.push_back(SB3dChunk(header, B3DFile->getPos()-8));
 
 		if ( strncmp( B3dStack.getLast().name, "TEXS", 4 ) == 0 )
@@ -193,9 +184,6 @@ _
 	{
 		SB3dChunkHeader header;
 		B3DFile->read(&header, sizeof(header));
-#ifdef __BIG_ENDIAN__
-		header.size = os::Byteswap::byteswap(header.size);
-#endif
 
 		B3dStack.push_back(SB3dChunk(header, B3DFile->getPos()-8));
 
@@ -251,9 +239,6 @@ bool CB3DMeshFileLoader::readChunkMESH(CSkinnedMesh::SJoint *inJoint)
 
 	int32_t brushID;
 	B3DFile->read(&brushID, sizeof(brushID));
-#ifdef __BIG_ENDIAN__
-	brushID = os::Byteswap::byteswap(brushID);
-#endif
 
 	NormalsInFile=false;
 	HasVertexColors=false;
@@ -262,9 +247,6 @@ bool CB3DMeshFileLoader::readChunkMESH(CSkinnedMesh::SJoint *inJoint)
 	{
 		SB3dChunkHeader header;
 		B3DFile->read(&header, sizeof(header));
-#ifdef __BIG_ENDIAN__
-		header.size = os::Byteswap::byteswap(header.size);
-#endif
 
 		B3dStack.push_back(SB3dChunk(header, B3DFile->getPos()-8));
 
@@ -351,11 +333,6 @@ bool CB3DMeshFileLoader::readChunkVRTS(CSkinnedMesh::SJoint *inJoint)
 	B3DFile->read(&flags, sizeof(flags));
 	B3DFile->read(&tex_coord_sets, sizeof(tex_coord_sets));
 	B3DFile->read(&tex_coord_set_size, sizeof(tex_coord_set_size));
-#ifdef __BIG_ENDIAN__
-	flags = os::Byteswap::byteswap(flags);
-	tex_coord_sets = os::Byteswap::byteswap(tex_coord_sets);
-	tex_coord_set_size = os::Byteswap::byteswap(tex_coord_set_size);
-#endif
 
 	if (tex_coord_sets >= max_tex_coords || tex_coord_set_size >= 4) // Something is wrong
 	{
@@ -455,9 +432,6 @@ bool CB3DMeshFileLoader::readChunkTRIS(scene::SSkinMeshBuffer *meshBuffer, uint3
 
 	int32_t triangle_brush_id; // Note: Irrlicht can't have different brushes for each triangle (using a workaround)
 	B3DFile->read(&triangle_brush_id, sizeof(triangle_brush_id));
-#ifdef __BIG_ENDIAN__
-	triangle_brush_id = os::Byteswap::byteswap(triangle_brush_id);
-#endif
 
 	SB3dMaterial *B3dMaterial;
 
@@ -478,11 +452,6 @@ bool CB3DMeshFileLoader::readChunkTRIS(scene::SSkinMeshBuffer *meshBuffer, uint3
 		int32_t vertex_id[3];
 
 		B3DFile->read(vertex_id, 3*sizeof(int32_t));
-#ifdef __BIG_ENDIAN__
-		vertex_id[0] = os::Byteswap::byteswap(vertex_id[0]);
-		vertex_id[1] = os::Byteswap::byteswap(vertex_id[1]);
-		vertex_id[2] = os::Byteswap::byteswap(vertex_id[2]);
-#endif
 
 		//Make Ids global:
 		vertex_id[0] += vertices_Start;
@@ -581,10 +550,7 @@ bool CB3DMeshFileLoader::readChunkBONE(CSkinnedMesh::SJoint *inJoint)
 			float strength;
 			B3DFile->read(&globalVertexID, sizeof(globalVertexID));
 			B3DFile->read(&strength, sizeof(strength));
-#ifdef __BIG_ENDIAN__
-			globalVertexID = os::Byteswap::byteswap(globalVertexID);
-			strength = os::Byteswap::byteswap(strength);
-#endif
+
 			globalVertexID += VerticesStart;
 
 			if (AnimatedVertices_VertexID[globalVertexID]==-1)
@@ -623,9 +589,6 @@ bool CB3DMeshFileLoader::readChunkKEYS(CSkinnedMesh::SJoint *inJoint)
 
 	int32_t flags;
 	B3DFile->read(&flags, sizeof(flags));
-#ifdef __BIG_ENDIAN__
-	flags = os::Byteswap::byteswap(flags);
-#endif
 
 	CSkinnedMesh::SPositionKey *oldPosKey=0;
 	core::vector3df oldPos[2];
@@ -782,11 +745,6 @@ bool CB3DMeshFileLoader::readChunkANIM()
 		AnimatedMesh->setAnimationSpeed(animFPS);
 	os::Printer::log("FPS", io::path((double)animFPS), ELL_DEBUG);
 
-	#ifdef __BIG_ENDIAN__
-		animFlags = os::Byteswap::byteswap(animFlags);
-		animFrames = os::Byteswap::byteswap(animFrames);
-	#endif
-
 	B3dStack.erase(B3dStack.size()-1);
 	return true;
 }
@@ -815,10 +773,7 @@ bool CB3DMeshFileLoader::readChunkTEXS()
 
 		B3DFile->read(&B3dTexture.Flags, sizeof(int32_t));
 		B3DFile->read(&B3dTexture.Blend, sizeof(int32_t));
-#ifdef __BIG_ENDIAN__
-		B3dTexture.Flags = os::Byteswap::byteswap(B3dTexture.Flags);
-		B3dTexture.Blend = os::Byteswap::byteswap(B3dTexture.Blend);
-#endif
+
 #ifdef _B3D_READER_DEBUG
 		os::Printer::log("Flags", core::stringc(B3dTexture.Flags).c_str());
 		os::Printer::log("Blend", core::stringc(B3dTexture.Blend).c_str());
@@ -848,9 +803,6 @@ bool CB3DMeshFileLoader::readChunkBRUS()
 
 	uint32_t n_texs;
 	B3DFile->read(&n_texs, sizeof(uint32_t));
-#ifdef __BIG_ENDIAN__
-	n_texs = os::Byteswap::byteswap(n_texs);
-#endif
 
 	// number of texture ids read for Irrlicht
 	const uint32_t num_textures = core::min_(n_texs, video::MATERIAL_MAX_TEXTURES);
@@ -877,10 +829,7 @@ bool CB3DMeshFileLoader::readChunkBRUS()
 
 		B3DFile->read(&B3dMaterial.blend, sizeof(B3dMaterial.blend));
 		B3DFile->read(&B3dMaterial.fx, sizeof(B3dMaterial.fx));
-#ifdef __BIG_ENDIAN__
-		B3dMaterial.blend = os::Byteswap::byteswap(B3dMaterial.blend);
-		B3dMaterial.fx = os::Byteswap::byteswap(B3dMaterial.fx);
-#endif
+
 #ifdef _B3D_READER_DEBUG
 		os::Printer::log("Blend", core::stringc(B3dMaterial.blend).c_str());
 		os::Printer::log("FX", core::stringc(B3dMaterial.fx).c_str());
@@ -891,9 +840,7 @@ bool CB3DMeshFileLoader::readChunkBRUS()
 		{
 			int32_t texture_id=-1;
 			B3DFile->read(&texture_id, sizeof(int32_t));
-#ifdef __BIG_ENDIAN__
-			texture_id = os::Byteswap::byteswap(texture_id);
-#endif
+
 			//--- Get pointers to the texture, based on the IDs ---
 			if ((uint32_t)texture_id < Textures.size())
 			{
@@ -911,9 +858,7 @@ bool CB3DMeshFileLoader::readChunkBRUS()
 		{
 			int32_t texture_id=-1;
 			B3DFile->read(&texture_id, sizeof(int32_t));
-#ifdef __BIG_ENDIAN__
-			texture_id = os::Byteswap::byteswap(texture_id);
-#endif
+
 			if (ShowWarning && (texture_id != -1) && (n_texs>video::MATERIAL_MAX_TEXTURES))
 			{
 				os::Printer::log("Too many textures used in one material", B3DFile->getFileName().c_str(), ELL_WARNING);
@@ -1096,10 +1041,6 @@ void CB3DMeshFileLoader::readString(core::stringc& newstring)
 void CB3DMeshFileLoader::readFloats(float* vec, uint32_t count)
 {
 	B3DFile->read(vec, count*sizeof(float));
-	#ifdef __BIG_ENDIAN__
-	for (uint32_t n=0; n<count; ++n)
-		vec[n] = os::Byteswap::byteswap(vec[n]);
-	#endif
 }
 
 } // end namespace scene

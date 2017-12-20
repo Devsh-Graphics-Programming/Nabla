@@ -104,19 +104,13 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 				word = getNextWord();
 
 				if (strcmp(word, "binary_little_endian") == 0)
- {
+                {
 					IsBinaryFile = true;
-#ifdef __BIG_ENDIAN__
-					IsWrongEndian = true;
-#endif
-
 				}
 				else if (strcmp(word, "binary_big_endian") == 0)
 				{
 					IsBinaryFile = true;
-#ifndef __BIG_ENDIAN__
 					IsWrongEndian = true;
-#endif
 				}
 				else if (strcmp(word, "ascii"))
 				{

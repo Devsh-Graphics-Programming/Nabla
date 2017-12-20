@@ -55,14 +55,13 @@ std::vector<CImageData*> CImageLoaderPSD::loadImage(io::IReadFile* file) const
 	PsdHeader header;
 	file->read(&header, sizeof(PsdHeader));
 
-#ifndef __BIG_ENDIAN__
 	header.version = os::Byteswap::byteswap(header.version);
 	header.channels = os::Byteswap::byteswap(header.channels);
 	header.height = os::Byteswap::byteswap(header.height);
 	header.width = os::Byteswap::byteswap(header.width);
 	header.depth = os::Byteswap::byteswap(header.depth);
 	header.mode = os::Byteswap::byteswap(header.mode);
-#endif
+
 
     std::vector<CImageData*> retval;
 
@@ -88,9 +87,8 @@ std::vector<CImageData*> CImageLoaderPSD::loadImage(io::IReadFile* file) const
 
 	uint32_t l;
 	file->read(&l, sizeof(uint32_t));
-#ifndef __BIG_ENDIAN__
 	l = os::Byteswap::byteswap(l);
-#endif
+
 	if (!file->seek(l, true))
 	{
 		os::Printer::log("Error seeking file pos to image resources.\n", file->getFileName().c_str(), ELL_ERROR);
@@ -100,9 +98,8 @@ std::vector<CImageData*> CImageLoaderPSD::loadImage(io::IReadFile* file) const
 	// skip image resources
 
 	file->read(&l, sizeof(uint32_t));
-#ifndef __BIG_ENDIAN__
 	l = os::Byteswap::byteswap(l);
-#endif
+
 	if (!file->seek(l, true))
 	{
 		os::Printer::log("Error seeking file pos to layer and mask.\n", file->getFileName().c_str(), ELL_ERROR);
@@ -112,9 +109,8 @@ std::vector<CImageData*> CImageLoaderPSD::loadImage(io::IReadFile* file) const
 	// skip layer & mask
 
 	file->read(&l, sizeof(uint32_t));
-#ifndef __BIG_ENDIAN__
 	l = os::Byteswap::byteswap(l);
-#endif
+
 	if (!file->seek(l, true))
 	{
 		os::Printer::log("Error seeking file pos to image data section.\n", file->getFileName().c_str(), ELL_ERROR);
@@ -125,9 +121,7 @@ std::vector<CImageData*> CImageLoaderPSD::loadImage(io::IReadFile* file) const
 
 	uint16_t compressionType;
 	file->read(&compressionType, sizeof(uint16_t));
-#ifndef __BIG_ENDIAN__
 	compressionType = os::Byteswap::byteswap(compressionType);
-#endif
 
 	if (compressionType != 1 && compressionType != 0)
 	{
@@ -243,9 +237,8 @@ bool CImageLoaderPSD::readRLEImageData(io::IReadFile* file, const PsdHeader& hea
 			return false;
 		}
 
-#ifndef __BIG_ENDIAN__
 		rleCount[y] = os::Byteswap::byteswap(rleCount[y]);
-#endif
+
 		size += rleCount[y];
 	}
 

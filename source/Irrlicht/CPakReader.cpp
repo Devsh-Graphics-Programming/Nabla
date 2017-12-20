@@ -137,10 +137,6 @@ bool CPakReader::scanLocalHeader()
 		return false;
 
 	// Seek to the table of contents
-#ifdef __BIG_ENDIAN__
-	header.offset = os::Byteswap::byteswap(header.offset);
-	header.length = os::Byteswap::byteswap(header.length);
-#endif
 	File->seek(header.offset);
 
 	const int numberOfFiles = header.length / sizeof(SPAKFileEntry);
@@ -154,11 +150,6 @@ bool CPakReader::scanLocalHeader()
 
 #ifdef _DEBUG
 		os::Printer::log(entry.name);
-#endif
-
-#ifdef __BIG_ENDIAN__
-		entry.offset = os::Byteswap::byteswap(entry.offset);
-		entry.length = os::Byteswap::byteswap(entry.length);
 #endif
 
 		addItem(io::path(entry.name), entry.offset, entry.length, false );

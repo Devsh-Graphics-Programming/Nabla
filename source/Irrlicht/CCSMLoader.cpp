@@ -819,9 +819,7 @@ namespace scene
 	{
 		int ret = 0;
 		readBuffer(&ret,sizeof(int));
-#ifdef __BIG_ENDIAN__
-		ret = os::Byteswap::byteswap(ret);
-#endif
+
 		return ret;
 	}
 
@@ -829,9 +827,7 @@ namespace scene
 	{
 		float ret = 0;
 		readBuffer(&ret,sizeof(float));
-#ifdef __BIG_ENDIAN__
-		ret = os::Byteswap::byteswap(ret);
-#endif
+
 		return ret;
 	}
 

@@ -91,10 +91,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 	// read file into memory
 	SMyFileHeader fileHeader;
 	file->read(&fileHeader, sizeof(SMyFileHeader));
-#ifdef __BIG_ENDIAN__
-	fileHeader.MyId = os::Byteswap::byteswap(fileHeader.MyId);
-	fileHeader.Ver = os::Byteswap::byteswap(fileHeader.Ver);
-#endif
 
 	if (fileHeader.MyId!=MY3D_ID || fileHeader.Ver!=MY3D_VER)
 	{
@@ -105,9 +101,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 	uint16_t id;
 
 	file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-	id = os::Byteswap::byteswap(id);
-#endif
 
 	if (id!=MY3D_SCENE_HEADER_ID)
 	{
@@ -117,15 +110,8 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 
 	SMySceneHeader sceneHeader;
 	file->read(&sceneHeader, sizeof(SMySceneHeader));
-#ifdef __BIG_ENDIAN__
-	sceneHeader.MaterialCount = os::Byteswap::byteswap(sceneHeader.MaterialCount);
-	sceneHeader.MeshCount = os::Byteswap::byteswap(sceneHeader.MeshCount);
-#endif
 
 	file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-	id = os::Byteswap::byteswap(id);
-#endif
 
 	if (id!=MY3D_MAT_LIST_ID)
 	{
@@ -137,9 +123,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 		SceneManager->getParameters()->getAttributeAsString(MY3D_TEXTURE_PATH);
 
 	file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-	id = os::Byteswap::byteswap(id);
-#endif
 
 	char namebuf[256];
 	for (int32_t m=0; m<sceneHeader.MaterialCount; ++m)
@@ -157,9 +140,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 
 		// read next identificator
 		file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-		id = os::Byteswap::byteswap(id);
-#endif
 
 		bool gotLightMap=false, gotMainMap=false;
 
@@ -228,9 +208,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 			}
 
 			file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-			id = os::Byteswap::byteswap(id);
-#endif
 		}
 
 		// override material types based on their names
@@ -250,9 +227,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 	}
 
 	file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-	id = os::Byteswap::byteswap(id);
-#endif
 
 	for (int32_t mesh_id=0; mesh_id<sceneHeader.MeshCount; mesh_id++)
 	{
@@ -281,9 +255,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 
 		// vertices
 		file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-	id = os::Byteswap::byteswap(id);
-#endif
 		if (id!=MY3D_VERTS_ID)
 		{
 			os::Printer::log("Can not find MY3D_VERTS_ID, loading failed!", ELL_ERROR);
@@ -296,9 +267,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 
 		// faces
 		file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-		id = os::Byteswap::byteswap(id);
-#endif
 		if (id!=MY3D_FACES_ID)
 		{
 			os::Printer::log("Can not find MY3D_FACES_ID, loading failed!", ELL_ERROR);
@@ -317,9 +285,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 
 			// reading texture coords
 			file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-			id = os::Byteswap::byteswap(id);
-#endif
 
 			if (id!=MY3D_TVERTS_ID)
 			{
@@ -353,9 +318,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 
 			// reading texture faces
 			file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-			id = os::Byteswap::byteswap(id);
-#endif
 
 			if (id!=MY3D_TFACES_ID)
 			{
@@ -626,9 +588,6 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 			}
 		}
 		file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-		id = os::Byteswap::byteswap(id);
-#endif
 	}
 
 	// creating mesh
@@ -667,9 +626,6 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 	static int LightMapIndex=0;
 	uint16_t id;
 	file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-	id = os::Byteswap::byteswap(id);
-#endif
 	if (id!=MY3D_TEXDATA_HEADER_ID)
 	{
 		os::Printer::log("Can not find MY3D_TEXDATA_HEADER_ID, loading failed!", ELL_ERROR);
@@ -731,9 +687,6 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 	{
 		// read RLE header identificator
 		file->read(&id, sizeof(id));
-#ifdef __BIG_ENDIAN__
-		id = os::Byteswap::byteswap(id);
-#endif
 		if (id!=MY3D_TEXDATA_RLE_HEADER_ID)
 		{
 			os::Printer::log("Can not find MY3D_TEXDATA_RLE_HEADER_ID, loading failed!", ELL_ERROR);

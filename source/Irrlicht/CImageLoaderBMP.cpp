@@ -41,9 +41,7 @@ bool CImageLoaderBMP::isALoadableFileFormat(io::IReadFile* file) const
 {
 	uint16_t headerID;
 	file->read(&headerID, sizeof(uint16_t));
-#ifdef __BIG_ENDIAN__
-	headerID = os::Byteswap::byteswap(headerID);
-#endif
+
 	return headerID == 0x4d42;
 }
 
@@ -221,23 +219,6 @@ std::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
 	SBMPHeader header;
 
 	file->read(&header, sizeof(header));
-
-#ifdef __BIG_ENDIAN__
-	header.Id = os::Byteswap::byteswap(header.Id);
-	header.FileSize = os::Byteswap::byteswap(header.FileSize);
-	header.BitmapDataOffset = os::Byteswap::byteswap(header.BitmapDataOffset);
-	header.BitmapHeaderSize = os::Byteswap::byteswap(header.BitmapHeaderSize);
-	header.Width = os::Byteswap::byteswap(header.Width);
-	header.Height = os::Byteswap::byteswap(header.Height);
-	header.Planes = os::Byteswap::byteswap(header.Planes);
-	header.BPP = os::Byteswap::byteswap(header.BPP);
-	header.Compression = os::Byteswap::byteswap(header.Compression);
-	header.BitmapDataSize = os::Byteswap::byteswap(header.BitmapDataSize);
-	header.PixelPerMeterX = os::Byteswap::byteswap(header.PixelPerMeterX);
-	header.PixelPerMeterY = os::Byteswap::byteswap(header.PixelPerMeterY);
-	header.Colors = os::Byteswap::byteswap(header.Colors);
-	header.ImportantColors = os::Byteswap::byteswap(header.ImportantColors);
-#endif
 
 	int32_t pitch = 0;
 

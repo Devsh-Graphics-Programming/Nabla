@@ -29,46 +29,6 @@ namespace video
 {
 
 
-#ifndef __BIG_ENDIAN__
-#ifdef _SGI_SOURCE
-#define	__BIG_ENDIAN__
-#endif
-#endif
-
-
-#ifdef __BIG_ENDIAN__
-
-	int32_t   DDSBigLong( int32_t src ) { return src; }
-	int16_t DDSBigShort( int16_t src ) { return src; }
-	float DDSBigFloat( float src ) { return src; }
-
-	int32_t DDSLittleLong( int32_t src )
-	{
-		return ((src & 0xFF000000) >> 24) |
-			((src & 0x00FF0000) >> 8) |
-			((src & 0x0000FF00) << 8) |
-			((src & 0x000000FF) << 24);
-	}
-
-	int16_t DDSLittleShort( int16_t src )
-	{
-		return ((src & 0xFF00) >> 8) |
-			((src & 0x00FF) << 8);
-	}
-
-	float DDSLittleFloat( float src )
-	{
-		floatSwapUnion in,out;
-		in.f = src;
-		out.c[ 0 ] = in.c[ 3 ];
-		out.c[ 1 ] = in.c[ 2 ];
-		out.c[ 2 ] = in.c[ 1 ];
-		out.c[ 3 ] = in.c[ 0 ];
-		return out.f;
-	}
-
-#else /*__BIG_ENDIAN__*/
-
 	int32_t   DDSLittleLong( int32_t src ) { return src; }
 	int16_t DDSLittleShort( int16_t src ) { return src; }
 	float DDSLittleFloat( float src ) { return src; }
@@ -98,7 +58,6 @@ namespace video
 		return out.f;
 	}
 
-#endif /*__BIG_ENDIAN__*/
 
 namespace
 {

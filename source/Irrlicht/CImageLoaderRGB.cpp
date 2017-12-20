@@ -283,7 +283,6 @@ bool CImageLoaderRGB::readHeader(io::IReadFile* file, rgbStruct& rgb) const
 	// test for INTEL or BIG ENDIAN processor
 	// if INTEL, then swap the byte order on 16 bit INT's to make them BIG ENDIAN
 	// because that is the native format for the .rgb file
-#ifndef __BIG_ENDIAN__
 	rgb.Header.Magic     = os::Byteswap::byteswap(rgb.Header.Magic);
 	rgb.Header.Storage   = os::Byteswap::byteswap(rgb.Header.Storage);
 	rgb.Header.Dimension = os::Byteswap::byteswap(rgb.Header.Dimension);
@@ -293,7 +292,6 @@ bool CImageLoaderRGB::readHeader(io::IReadFile* file, rgbStruct& rgb) const
 	rgb.Header.Pixmin    = os::Byteswap::byteswap(rgb.Header.Pixmin);
 	rgb.Header.Pixmax    = os::Byteswap::byteswap(rgb.Header.Pixmax);
 	rgb.Header.Colormap  = os::Byteswap::byteswap(rgb.Header.Colormap);
-#endif
 
 	// calculate the size of the buffer needed: XSIZE * YSIZE * ZSIZE * BPC
 	rgb.ImageSize = (rgb.Header.Xsize)*(rgb.Header.Ysize)*(rgb.Header.Zsize)*(rgb.Header.BPC);
@@ -369,14 +367,12 @@ bool CImageLoaderRGB::readOffsetTables(io::IReadFile* file, rgbStruct& rgb) cons
 	file->read(rgb.LengthTable, rgb.TableLen* sizeof(uint32_t));
 
 	// if we are on an INTEL platform, swap the bytes
-#ifndef __BIG_ENDIAN__
 	const uint32_t length = rgb.TableLen;
 	for (uint32_t i=0; i<length; ++i)
 	{
 		rgb.StartTable[i] = os::Byteswap::byteswap(rgb.StartTable[i]);
 		rgb.LengthTable[i] = os::Byteswap::byteswap(rgb.LengthTable[i]);
 	}
-#endif
 
 	return true;
 }
@@ -508,14 +504,13 @@ void CImageLoaderRGB::readRGBrow(uint8_t *buf, int y, int z, io::IReadFile* file
 		file->seek(512+(y*rgb.Header.Xsize * rgb.Header.BPC)+(z* rgb.Header.Xsize * rgb.Header.Ysize * rgb.Header.BPC));
 		file->read(buf, rgb.Header.Xsize * rgb.Header.BPC);
 
-#ifndef __BIG_ENDIAN__
 		if (rgb.Header.BPC != 1)
 		{
 			uint16_t* tmpbuf = reinterpret_cast<uint16_t*>(buf);
 			for (uint16_t i=0; i<rgb.Header.Xsize; ++i)
 				tmpbuf[i] = os::Byteswap::byteswap(tmpbuf[i]);
 		}
-#endif
+
 		return;
 	}
 
@@ -550,10 +545,8 @@ void CImageLoaderRGB::readRGBrow(uint8_t *buf, int y, int z, io::IReadFile* file
 			iPtr = (uint8_t *) tempShort;
 		}
 
-#ifndef __BIG_ENDIAN__
 		if (rgb.Header.BPC != 1)
 			pixel = os::Byteswap::byteswap(pixel);
-#endif
 
 		int32_t count = (int32_t)(pixel & 0x7F);
 
@@ -580,10 +573,9 @@ void CImageLoaderRGB::readRGBrow(uint8_t *buf, int y, int z, io::IReadFile* file
 					tempShort = (uint16_t *) (iPtr);
 					pixel = *tempShort;
 					tempShort++;
-					iPtr = (uint8_t *) (tempShort);
-#ifndef __BIG_ENDIAN__
+					iPtr = (uint8_t *) (tempShort);_
 					pixel = os::Byteswap::byteswap(pixel);
-#endif
+
 					tempShort = (uint16_t *) (oPtr);
 					*tempShort = pixel;
 					tempShort++;
@@ -605,10 +597,8 @@ void CImageLoaderRGB::readRGBrow(uint8_t *buf, int y, int z, io::IReadFile* file
 				iPtr = (uint8_t *) (tempShort);
 			}
 
-#ifndef __BIG_ENDIAN__
 			if (rgb.Header.BPC != 1)
 				pixel = os::Byteswap::byteswap(pixel);
-#endif
 
 			while (count--)
 			{

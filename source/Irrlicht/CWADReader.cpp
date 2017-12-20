@@ -173,10 +173,6 @@ bool CWADReader::scanLocalHeader()
 	if ( WadType == WAD_FORMAT_UNKNOWN )
 		return false;
 
-#ifdef __BIG_ENDIAN__
-	Header.numlumps = os::Byteswap::byteswap(Header.numlumps);
-	Header.infotableofs = os::Byteswap::byteswap(Header.infotableofs);
-#endif
 
 	File->seek ( Header.infotableofs );
 

@@ -54,18 +54,6 @@ std::vector<CImageData*> CImageLoaderPCX::loadImage(io::IReadFile* file) const
 	int32_t* paletteData = 0;
 
 	file->read(&header, sizeof(header));
-	#ifdef __BIG_ENDIAN__
-		header.XMin = os::Byteswap::byteswap(header.XMin);
-		header.YMin = os::Byteswap::byteswap(header.YMin);
-		header.XMax = os::Byteswap::byteswap(header.XMax);
-		header.YMax = os::Byteswap::byteswap(header.YMax);
-		header.HorizDPI = os::Byteswap::byteswap(header.HorizDPI);
-		header.VertDPI = os::Byteswap::byteswap(header.VertDPI);
-		header.BytesPerLine = os::Byteswap::byteswap(header.BytesPerLine);
-		header.PaletteType = os::Byteswap::byteswap(header.PaletteType);
-		header.HScrSize = os::Byteswap::byteswap(header.HScrSize);
-		header.VScrSize = os::Byteswap::byteswap(header.VScrSize);
-	#endif
 
     std::vector<CImageData*> retval;
 	//! return if the header is wrong

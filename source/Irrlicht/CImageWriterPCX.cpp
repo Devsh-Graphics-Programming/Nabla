@@ -54,19 +54,16 @@ bool CImageWriterPCX::writeImage(io::IWriteFile *file, IImage *image,uint32_t pa
 	file->write(&d2, 2);
 	file->write(&d2, 2);
 	d2 = image->getDimension().Width-1; // width
-#ifdef __BIG_ENDIAN__
-	d2 = os::Byteswap::byteswap(d2);
-#endif
+
+
 	file->write(&d2, 2);
 	d2 = image->getDimension().Height-1; // height
-#ifdef __BIG_ENDIAN__
-	d2 = os::Byteswap::byteswap(d2);
-#endif
+
+
 	file->write(&d2, 2);
 	d2 = 300; // dpi
-#ifdef __BIG_ENDIAN__
-	d2 = os::Byteswap::byteswap(d2);
-#endif
+
+
 	file->write(&d2, 2);
 	file->write(&d2, 2);
 	d2 = 0; // palette (not used)
@@ -81,24 +78,19 @@ bool CImageWriterPCX::writeImage(io::IWriteFile *file, IImage *image,uint32_t pa
 	d2 = image->getDimension().Width; // pitch
 	if (d2&0x0001) // must be even
 		++d2;
-#ifdef __BIG_ENDIAN__
-	d2 = os::Byteswap::byteswap(d2);
-#endif
+
+
 	file->write(&d2, 2);
 	d2 = 1; // color mode
-#ifdef __BIG_ENDIAN__
-	d2 = os::Byteswap::byteswap(d2);
-#endif
+
+
 	file->write(&d2, 2);
 	d2 = 800; // screen width
-#ifdef __BIG_ENDIAN__
-	d2 = os::Byteswap::byteswap(d2);
-#endif
+
+
 	file->write(&d2, 2);
 	d2 = 600; // screen height
-#ifdef __BIG_ENDIAN__
-	d2 = os::Byteswap::byteswap(d2);
-#endif
+
 	file->write(&d2, 2);
 	d2 = 0; // filler (not used)
 	for (i=0; i<27; ++i)

@@ -180,9 +180,6 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 		return false;
 	}
 
-#ifdef __BIG_ENDIAN__
-	pHeader->Version = os::Byteswap::byteswap(pHeader->Version);
-#endif
 	if ( pHeader->Version < 3 || pHeader->Version > 4 )
 	{
 		delete [] buffer;
@@ -197,9 +194,6 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 
 	// vertices
 	uint16_t numVertices = *(uint16_t*)pPtr;
-#ifdef __BIG_ENDIAN__
-	numVertices = os::Byteswap::byteswap(numVertices);
-#endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Load vertices", core::stringc(numVertices).c_str());
 #endif
@@ -214,20 +208,11 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	}
 	for (uint16_t tmp=0; tmp<numVertices; ++tmp)
 	{
-#ifdef __BIG_ENDIAN__
-		vertices[tmp].Vertex[0] = os::Byteswap::byteswap(vertices[tmp].Vertex[0]);
-		vertices[tmp].Vertex[1] = os::Byteswap::byteswap(vertices[tmp].Vertex[1]);
-		vertices[tmp].Vertex[2] = -os::Byteswap::byteswap(vertices[tmp].Vertex[2]);
-#else
 		vertices[tmp].Vertex[2] = -vertices[tmp].Vertex[2];
-#endif
 	}
 
 	// triangles
 	uint16_t numTriangles = *(uint16_t*)pPtr;
-#ifdef __BIG_ENDIAN__
-	numTriangles = os::Byteswap::byteswap(numTriangles);
-#endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Load Triangles", core::stringc(numTriangles).c_str());
 #endif
@@ -242,29 +227,13 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	}
 	for (uint16_t tmp=0; tmp<numTriangles; ++tmp)
 	{
-#ifdef __BIG_ENDIAN__
-		triangles[tmp].Flags = os::Byteswap::byteswap(triangles[tmp].Flags);
-		for (uint16_t j=0; j<3; ++j)
-		{
-			triangles[tmp].VertexIndices[j] = os::Byteswap::byteswap(triangles[tmp].VertexIndices[j]);
-			triangles[tmp].VertexNormals[j][0] = os::Byteswap::byteswap(triangles[tmp].VertexNormals[j][0]);
-			triangles[tmp].VertexNormals[j][1] = os::Byteswap::byteswap(triangles[tmp].VertexNormals[j][1]);
-			triangles[tmp].VertexNormals[j][2] = -os::Byteswap::byteswap(triangles[tmp].VertexNormals[j][2]);
-			triangles[tmp].S[j] = os::Byteswap::byteswap(triangles[tmp].S[j]);
-			triangles[tmp].T[j] = os::Byteswap::byteswap(triangles[tmp].T[j]);
-		}
-#else
 		triangles[tmp].VertexNormals[0][2] = -triangles[tmp].VertexNormals[0][2];
 		triangles[tmp].VertexNormals[1][2] = -triangles[tmp].VertexNormals[1][2];
 		triangles[tmp].VertexNormals[2][2] = -triangles[tmp].VertexNormals[2][2];
-#endif
 	}
 
 	// groups
 	uint16_t numGroups = *(uint16_t*)pPtr;
-#ifdef __BIG_ENDIAN__
-	numGroups = os::Byteswap::byteswap(numGroups);
-#endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Load Groups", core::stringc(numGroups).c_str());
 #endif
@@ -285,20 +254,13 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 
 		pPtr += 33; // name and 1 byte flags
 		uint16_t triangleCount = *(uint16_t*)pPtr;
-#ifdef __BIG_ENDIAN__
-		triangleCount = os::Byteswap::byteswap(triangleCount);
-#endif
 		pPtr += sizeof(uint16_t);
 		grp.VertexIds.reallocate(triangleCount);
 
 		//pPtr += sizeof(uint16_t) * triangleCount; // triangle indices
 		for (uint16_t j=0; j<triangleCount; ++j)
 		{
-#ifdef __BIG_ENDIAN__
-			grp.VertexIds.push_back(os::Byteswap::byteswap(*(uint16_t*)pPtr));
-#else
 			grp.VertexIds.push_back(*(uint16_t*)pPtr);
-#endif
 			pPtr += sizeof (uint16_t);
 		}
 
@@ -317,9 +279,6 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 
 	// load materials
 	uint16_t numMaterials = *(uint16_t*)pPtr;
-#ifdef __BIG_ENDIAN__
-	numMaterials = os::Byteswap::byteswap(numMaterials);
-#endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Load Materials", core::stringc(numMaterials).c_str());
 #endif
@@ -334,18 +293,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	for (i=0; i<numMaterials; ++i)
 	{
 		MS3DMaterial *material = (MS3DMaterial*)pPtr;
-#ifdef __BIG_ENDIAN__
-		for (uint16_t j=0; j<4; ++j)
-			material->Ambient[j] = os::Byteswap::byteswap(material->Ambient[j]);
-		for (uint16_t j=0; j<4; ++j)
-			material->Diffuse[j] = os::Byteswap::byteswap(material->Diffuse[j]);
-		for (uint16_t j=0; j<4; ++j)
-			material->Specular[j] = os::Byteswap::byteswap(material->Specular[j]);
-		for (uint16_t j=0; j<4; ++j)
-			material->Emissive[j] = os::Byteswap::byteswap(material->Emissive[j]);
-		material->Shininess = os::Byteswap::byteswap(material->Shininess);
-		material->Transparency = os::Byteswap::byteswap(material->Transparency);
-#endif
+
 		pPtr += sizeof(MS3DMaterial);
 		if (pPtr > buffer+fileSize)
 		{
@@ -381,9 +329,6 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 
 	// animation time
 	float framesPerSecond = *(float*)pPtr;
-#ifdef __BIG_ENDIAN__
-	framesPerSecond = os::Byteswap::byteswap(framesPerSecond);
-#endif
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("FPS", core::stringc(framesPerSecond).c_str());
 #endif
@@ -395,15 +340,10 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 
 // ignore, calculated inside SkinnedMesh
 //	int32_t frameCount = *(int*)pPtr;
-#ifdef __BIG_ENDIAN__
-//	frameCount = os::Byteswap::byteswap(frameCount);
-#endif
 	pPtr += sizeof(int);
 
 	uint16_t jointCount = *(uint16_t*)pPtr;
-#ifdef __BIG_ENDIAN__
-	jointCount = os::Byteswap::byteswap(jointCount);
-#endif
+
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 	os::Printer::log("Joints", core::stringc(jointCount).c_str());
 #endif
@@ -423,14 +363,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	{
 		uint32_t j;
 		MS3DJoint *pJoint = (MS3DJoint*)pPtr;
-#ifdef __BIG_ENDIAN__
-		for (j=0; j<3; ++j)
-			pJoint->Rotation[j] = os::Byteswap::byteswap(pJoint->Rotation[j]);
-		for (j=0; j<3; ++j)
-			pJoint->Translation[j] = os::Byteswap::byteswap(pJoint->Translation[j]);
-		pJoint->NumRotationKeyframes= os::Byteswap::byteswap(pJoint->NumRotationKeyframes);
-		pJoint->NumTranslationKeyframes = os::Byteswap::byteswap(pJoint->NumTranslationKeyframes);
-#endif
+
 		pPtr += sizeof(MS3DJoint);
 		if (pPtr > buffer+fileSize)
 		{
@@ -473,11 +406,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 		for (j=0; j < numRotationKeyframes; ++j)
 		{
 			MS3DKeyframe* kf = (MS3DKeyframe*)pPtr;
-#ifdef __BIG_ENDIAN__
-			kf->Time = os::Byteswap::byteswap(kf->Time);
-			for (uint32_t l=0; l<3; ++l)
-				kf->Parameter[l] = os::Byteswap::byteswap(kf->Parameter[l]);
-#endif
+
 			pPtr += sizeof(MS3DKeyframe);
 			if (pPtr > buffer+fileSize)
 			{
@@ -542,9 +471,7 @@ _
 	if (jointCount && (pHeader->Version == 4) && (pPtr < buffer+fileSize))
 	{
 		int32_t subVersion = *(int32_t*)pPtr; // comment subVersion, always 1
-#ifdef __BIG_ENDIAN__
-		subVersion = os::Byteswap::byteswap(subVersion);
-#endif
+
 		pPtr += sizeof(int32_t);
 
 		for (uint32_t j=0; j<4; ++j) // four comment groups
@@ -553,9 +480,7 @@ _
 			os::Printer::log("Skipping comment group", core::stringc(j+1).c_str());
 #endif
 			uint32_t numComments = *(uint32_t*)pPtr;
-#ifdef __BIG_ENDIAN__
-			numComments = os::Byteswap::byteswap(numComments);
-#endif
+
 			pPtr += sizeof(uint32_t);
 			for (i=0; i<numComments; ++i)
 			{
@@ -565,9 +490,7 @@ _
 				if (j!=3)
 					pPtr += sizeof(int32_t); // index
 				int32_t commentLength = *(int32_t*)pPtr;
-#ifdef __BIG_ENDIAN__
-				commentLength = os::Byteswap::byteswap(commentLength);
-#endif
+
 				pPtr += sizeof(int32_t);
 				pPtr += commentLength;
 			}
@@ -583,9 +506,7 @@ _
 		if (pPtr < buffer+fileSize)
 		{
 			subVersion = *(int32_t*)pPtr; // vertex subVersion, 1 or 2
-#ifdef __BIG_ENDIAN__
-			subVersion = os::Byteswap::byteswap(subVersion);
-#endif
+
 			if (subVersion==1)
 				weightFactor=1.f/255.f;
 			else
@@ -615,9 +536,7 @@ _
 		if (pPtr < buffer+fileSize)
 		{
 			subVersion = *(int32_t*)pPtr; // joint subVersion, 1 or 2
-#ifdef __BIG_ENDIAN__
-			subVersion = os::Byteswap::byteswap(subVersion);
-#endif
+
 			pPtr += sizeof(int32_t);
 			// skip joint colors
 #ifdef _IRR_DEBUG_MS3D_LOADER_
@@ -636,9 +555,7 @@ _
 		if (pPtr < buffer+fileSize)
 		{
 			subVersion = *(int32_t*)pPtr; // model subVersion, 1 or 2
-#ifdef __BIG_ENDIAN__
-			subVersion = os::Byteswap::byteswap(subVersion);
-#endif
+
 			pPtr += sizeof(int32_t);
 #ifdef _IRR_DEBUG_MS3D_LOADER_
 			os::Printer::log("Skip model extra information");

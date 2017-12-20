@@ -429,9 +429,8 @@ bool CLWOMeshFileLoader::readChunks()
 		//Makes it possible to do a switch statement
 		uiType = charsToUInt(type);
 		File->read(&size, 4);
-#ifndef __BIG_ENDIAN__
 		size=os::Byteswap::byteswap(size);
-#endif
+
 		lastPos=File->getPos();
 
 		switch(uiType)
@@ -445,9 +444,8 @@ bool CLWOMeshFileLoader::readChunks()
 					File->read(&tmp16, 2); // number
 					File->read(&tmp16, 2); // flags
 					size -= 4;
-#ifndef __BIG_ENDIAN__
 					tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 					if (((FormatVersion==1)&&(tmp16!=1)) ||
 						((FormatVersion==2)&&(tmp16&1)))
 						layer.Active=false;
@@ -459,9 +457,8 @@ bool CLWOMeshFileLoader::readChunks()
 					if (size)
 					{
 						File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 						tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 						layer.Parent = tmp16;
 					}
 				}
@@ -541,17 +538,15 @@ bool CLWOMeshFileLoader::readChunks()
 					uint32_t index;
 					uint16_t subsize;
 					File->read(&index, 4);
-#ifndef __BIG_ENDIAN__
 					index=os::Byteswap::byteswap(index);
-#endif
+
 					size -= 4;
 					while (size != 0)
 					{
 						File->read(&type, 4);
 						File->read(&subsize, 2);
-#ifndef __BIG_ENDIAN__
 						subsize=os::Byteswap::byteswap(subsize);
-#endif
+
 						size -= 6;
 						if (strncmp(type, "STIL", 4))
 						{
@@ -625,16 +620,14 @@ void CLWOMeshFileLoader::readObj1(uint32_t size)
 	while (size!=0)
 	{
 		File->read(&numVerts, 2);
-#ifndef __BIG_ENDIAN__
 		numVerts=os::Byteswap::byteswap(numVerts);
-#endif
+
 		pos=File->getPos();
 		// skip forward to material number
 		File->seek(2*numVerts, true);
 		File->read(&material, 2);
-#ifndef __BIG_ENDIAN__
 		material=os::Byteswap::byteswap(material);
-#endif
+
 		size -=2*numVerts+4;
 		// detail meshes ?
 		scene::SMeshBuffer *mb;
@@ -649,9 +642,8 @@ void CLWOMeshFileLoader::readObj1(uint32_t size)
 		for (uint16_t i=0; i<numVerts; ++i)
 		{
 			File->read(&vertIndex, 2);
-#ifndef __BIG_ENDIAN__
 			vertIndex=os::Byteswap::byteswap(vertIndex);
-#endif
+
 			vertex.Pos=Points[vertIndex];
 			mb->Vertices.push_back(vertex);
 		}
@@ -680,9 +672,8 @@ void CLWOMeshFileLoader::readVertexMapping(uint32_t size)
 	os::Printer::log("LWO loader: Vertex map type", type);
 #endif
 	File->read(&dimension,2);
-#ifndef __BIG_ENDIAN__
 	dimension=os::Byteswap::byteswap(dimension);
-#endif
+
 	size -= 6;
 	size -= readString(name);
 #ifdef LWO_READER_DEBUG
@@ -710,11 +701,10 @@ void CLWOMeshFileLoader::readVertexMapping(uint32_t size)
 		File->read(&tcoord.X, 4);
 		File->read(&tcoord.Y, 4);
 		size -= 8;
-#ifndef __BIG_ENDIAN__
 		index=os::Byteswap::byteswap(index);
 		tcoord.X=os::Byteswap::byteswap(tcoord.X);
 		tcoord.Y=os::Byteswap::byteswap(tcoord.Y);
-#endif
+
 		UvCoords.push_back(tcoord);
 		UvPointsArray.push_back(index);
 	}
@@ -734,9 +724,8 @@ void CLWOMeshFileLoader::readDiscVertexMapping(uint32_t size)
 	os::Printer::log("LWO loader: Discontinuous vertex map type", type);
 #endif
 	File->read(&dimension,2);
-#ifndef __BIG_ENDIAN__
 	dimension=os::Byteswap::byteswap(dimension);
-#endif
+
 	size -= 6;
 	size -= readString(name);
 #ifdef LWO_READER_DEBUG
@@ -764,12 +753,11 @@ void CLWOMeshFileLoader::readDiscVertexMapping(uint32_t size)
 		File->read(&vmcoords.X, 4);
 		File->read(&vmcoords.Y, 4);
 		size -= 8;
-#ifndef __BIG_ENDIAN__
 		vmpoints=os::Byteswap::byteswap(vmpoints);
 		vmpolys=os::Byteswap::byteswap(vmpolys);
 		vmcoords.X=os::Byteswap::byteswap(vmcoords.X);
 		vmcoords.Y=os::Byteswap::byteswap(vmcoords.Y);
-#endif
+
 		VmCoords.push_back(vmcoords);
 		VmPolyPoints.push_back(vmpolys);
 		VmPolyPoints.push_back(vmpoints);
@@ -798,9 +786,8 @@ void CLWOMeshFileLoader::readTagMapping(uint32_t size)
 		uint32_t polyIndex;
 		size-=readVX(polyIndex);
 		File->read(&tag, 2);
-#ifndef __BIG_ENDIAN__
 		tag=os::Byteswap::byteswap(tag);
-#endif
+
 		size -= 2;
 		MaterialMapping[polyIndex]=tag;
 		Materials[tag]->TagType=1;
@@ -824,9 +811,8 @@ void CLWOMeshFileLoader::readObj2(uint32_t size)
 	while (size!=0)
 	{
 		File->read(&numVerts, 2);
-#ifndef __BIG_ENDIAN__
 		numVerts=os::Byteswap::byteswap(numVerts);
-#endif
+
 		// mask out flags
 		numVerts &= 0x03FF;
 
@@ -888,9 +874,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 		//Makes it possible to do a switch statement
 		uiType = charsToUInt(type);
 		File->read(&subsize, 2);
-#ifndef __BIG_ENDIAN__
 		subsize=os::Byteswap::byteswap(subsize);
-#endif
+
 		size -= 6;
 		switch (uiType)
 		{
@@ -915,9 +900,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					if (FormatVersion==2)
 					{
 						File->read(&mat->Diffuse, 4);
-#ifndef __BIG_ENDIAN__
 						mat->Diffuse=os::Byteswap::byteswap(mat->Diffuse);
-#endif
+
 						size -= 4;
 						subsize -= 4;
 						size -= readVX(mat->Envelope[1]);
@@ -925,9 +909,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					else
 					{
 						File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 						tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 						mat->Diffuse=tmp16/256.0f;
 						size -= 2;
 						subsize -= 2;
@@ -940,9 +923,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Diffuse, 4);
-#ifndef __BIG_ENDIAN__
 					mat->Diffuse=os::Byteswap::byteswap(mat->Diffuse);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -954,9 +936,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					if (FormatVersion==2)
 					{
 						File->read(&mat->Luminance, 4);
-#ifndef __BIG_ENDIAN__
 						mat->Luminance=os::Byteswap::byteswap(mat->Luminance);
-#endif
+
 						size -= 4;
 						subsize -= 4;
 						size -= readVX(mat->Envelope[2]);
@@ -964,9 +945,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					else
 					{
 						File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 						tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 						mat->Luminance=tmp16/256.0f;
 						size -= 2;
 						subsize -= 2;
@@ -978,9 +958,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Luminance, 4);
-#ifndef __BIG_ENDIAN__
 					mat->Luminance=os::Byteswap::byteswap(mat->Luminance);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -992,9 +971,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					if (FormatVersion==2)
 					{
 						File->read(&mat->Specular, 4);
-#ifndef __BIG_ENDIAN__
 						mat->Specular=os::Byteswap::byteswap(mat->Specular);
-#endif
+
 						size -= 4;
 						subsize -= 4;
 						size -= readVX(mat->Envelope[3]);
@@ -1002,9 +980,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					else
 					{
 						File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 						tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 						mat->Specular=tmp16/256.0f;;
 						size -= 2;
 						subsize -= 2;
@@ -1017,9 +994,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Specular, 4);
-#ifndef __BIG_ENDIAN__
 					mat->Specular=os::Byteswap::byteswap(mat->Specular);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1031,9 +1007,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					if (FormatVersion==2)
 					{
 						File->read(&mat->Reflection, 4);
-#ifndef __BIG_ENDIAN__
 						mat->Reflection=os::Byteswap::byteswap(mat->Reflection);
-#endif
+
 						size -= 4;
 						subsize -= 4;
 						size -= readVX(mat->Envelope[4]);
@@ -1041,9 +1016,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					else
 					{
 						File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 						tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 						mat->Reflection=tmp16/256.0f;
 						size -= 2;
 						subsize -= 2;
@@ -1056,9 +1030,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Reflection, 4);
-#ifndef __BIG_ENDIAN__
 					mat->Reflection=os::Byteswap::byteswap(mat->Reflection);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1067,9 +1040,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					if (FormatVersion==2)
 					{
 						File->read(&mat->Transparency, 4);
-#ifndef __BIG_ENDIAN__
 						mat->Transparency=os::Byteswap::byteswap(mat->Transparency);
-#endif
+
 						size -= 4;
 						subsize -= 4;
 						size -= readVX(mat->Envelope[5]);
@@ -1077,9 +1049,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					else
 					{
 						File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 						tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 						mat->Transparency=tmp16/256.0f;
 						size -= 2;
 						subsize -= 2;
@@ -1092,9 +1063,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 			case charsToUIntD('V','T','R','N'):
 				{
 					File->read(&mat->Transparency, 4);
-#ifndef __BIG_ENDIAN__
 					mat->Transparency=os::Byteswap::byteswap(mat->Transparency);
-#endif
+
 					size -= 4;
 				}
 #ifdef LWO_READER_DEBUG
@@ -1107,9 +1077,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Translucency, 4);
-#ifndef __BIG_ENDIAN__
 					mat->Translucency=os::Byteswap::byteswap(mat->Translucency);
-#endif
+
 					size -= 4;
 					subsize -= 4;
 					if (FormatVersion==2)
@@ -1124,9 +1093,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					if (FormatVersion == 2)
 					{
 						File->read(&irrMat.Shininess, 4);
-#ifndef __BIG_ENDIAN__
 						irrMat.Shininess=os::Byteswap::byteswap(irrMat.Shininess);
-#endif
+
 						size -= 4;
 						subsize -= 4;
 						size -= readVX(mat->Envelope[7]);
@@ -1134,9 +1102,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					else
 					{
 						File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 						tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 						irrMat.Shininess=tmp16/16.f;
 						size -= 2;
 						subsize -= 2;
@@ -1149,9 +1116,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Sharpness, 4);
-#ifndef __BIG_ENDIAN__
 					mat->Sharpness=os::Byteswap::byteswap(mat->Sharpness);
-#endif
+
 					size -= 4;
 					subsize -= 4;
 					if (FormatVersion==2)
@@ -1165,9 +1131,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&tmpf32, 4);
-#ifndef __BIG_ENDIAN__
 						tmpf32=os::Byteswap::byteswap(tmpf32);
-#endif
+
 					if (currTexture==6)
 						irrMat.MaterialTypeParam=tmpf32;
 					size -= 4;
@@ -1182,9 +1147,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 					tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 					if (tmp16==1)
 						irrMat.BackfaceCulling=true;
 					else if (tmp16==3)
@@ -1198,9 +1162,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->SmoothingAngle, 4);
-#ifndef __BIG_ENDIAN__
 					mat->SmoothingAngle=os::Byteswap::byteswap(mat->SmoothingAngle);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1211,9 +1174,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->ReflMode, 2);
-#ifndef __BIG_ENDIAN__
 					mat->ReflMode=os::Byteswap::byteswap(mat->ReflMode);
-#endif
+
 					size -= 2;
 				}
 				break;
@@ -1238,9 +1200,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->ReflSeamAngle, 4);
-#ifndef __BIG_ENDIAN__
 					mat->ReflSeamAngle=os::Byteswap::byteswap(mat->ReflSeamAngle);
-#endif
+
 					size -= 4;
 					if (FormatVersion==2)
 						size -= readVX(mat->Envelope[10]);
@@ -1252,9 +1213,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->ReflBlur, 4);
-#ifndef __BIG_ENDIAN__
 					mat->ReflBlur=os::Byteswap::byteswap(mat->ReflBlur);
-#endif
+
 					size -= 4;
 					if (FormatVersion==2)
 						size -= readVX(mat->Envelope[11]);
@@ -1266,9 +1226,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->RefrIndex, 4);
-#ifndef __BIG_ENDIAN__
 					mat->RefrIndex=os::Byteswap::byteswap(mat->RefrIndex);
-#endif
+
 					size -= 4;
 					subsize -= 4;
 					if (FormatVersion==2)
@@ -1281,9 +1240,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->TranspMode, 2);
-#ifndef __BIG_ENDIAN__
 					mat->TranspMode=os::Byteswap::byteswap(mat->TranspMode);
-#endif
+
 					size -= 2;
 				}
 				break;
@@ -1295,9 +1253,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 						os::Printer::log("LWO loader: loading refraction map.");
 #endif
 						size -= readVX(tmp32);
-#ifndef __BIG_ENDIAN__
 						tmp32=os::Byteswap::byteswap(tmp32);
-#endif
+
 						if (tmp32)
 							mat->Texture[currTexture].Map=Images[tmp32-1];
 					}
@@ -1316,9 +1273,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->TranspBlur, 4);
-#ifndef __BIG_ENDIAN__
 					mat->TranspBlur=os::Byteswap::byteswap(mat->TranspBlur);
-#endif
+
 					size -= 4;
 					if (FormatVersion==2)
 						size -= readVX(mat->Envelope[13]);
@@ -1330,9 +1286,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->HighlightColor, 4);
-#ifndef __BIG_ENDIAN__
 					mat->HighlightColor=os::Byteswap::byteswap(mat->HighlightColor);
-#endif
+
 					size -= 4;
 					if (FormatVersion==2)
 						size -= readVX(mat->Envelope[14]);
@@ -1344,9 +1299,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->ColorFilter, 4);
-#ifndef __BIG_ENDIAN__
 					mat->ColorFilter=os::Byteswap::byteswap(mat->ColorFilter);
-#endif
+
 					size -= 4;
 					if (FormatVersion==2)
 						size -= readVX(mat->Envelope[15]);
@@ -1358,9 +1312,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->AdditiveTransparency, 4);
-#ifndef __BIG_ENDIAN__
 					mat->AdditiveTransparency=os::Byteswap::byteswap(mat->AdditiveTransparency);
-#endif
+
 					size -= 4;
 					if (FormatVersion==2)
 						size -= readVX(mat->Envelope[16]);
@@ -1374,29 +1327,25 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					if (FormatVersion==0)
 					{
 						File->read(&mat->GlowIntensity, 4);
-#ifndef __BIG_ENDIAN__
 						mat->GlowIntensity=os::Byteswap::byteswap(mat->GlowIntensity);
-#endif
+
 						size -= 4;
 					}
 					else
 					{
 						File->read(&mat->Glow, 2);
-#ifndef __BIG_ENDIAN__
 						mat->Glow=os::Byteswap::byteswap(mat->Glow);
-#endif
+
 						size -= 2;
 						File->read(&mat->GlowIntensity, 4);
-#ifndef __BIG_ENDIAN__
 						mat->GlowIntensity=os::Byteswap::byteswap(mat->GlowIntensity);
-#endif
+
 						size -= 4;
 						if (FormatVersion==2)
 							size -= readVX(mat->Envelope[17]);
 						File->read(&mat->GlowSize, 4);
-#ifndef __BIG_ENDIAN__
 						mat->GlowSize=os::Byteswap::byteswap(mat->GlowSize);
-#endif
+
 						size -= 4;
 						if (FormatVersion==2)
 							size -= readVX(mat->Envelope[18]);
@@ -1409,9 +1358,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->GlowIntensity, 4);
-#ifndef __BIG_ENDIAN__
 					mat->GlowIntensity=os::Byteswap::byteswap(mat->GlowIntensity);
-#endif
+
 					size -= 4;
 					if (FormatVersion==2)
 						size -= readVX(mat->Envelope[17]);
@@ -1423,18 +1371,16 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 					tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 					if (tmp16&1)
 						irrMat.Wireframe=true;
 					size -= 2;
 					if (size!=0)
 					{
 						File->read(&irrMat.Thickness, 4);
-#ifndef __BIG_ENDIAN__
 						irrMat.Thickness=os::Byteswap::byteswap(irrMat.Thickness);
-#endif
+
 						size -= 4;
 						if (FormatVersion==2)
 							size -= readVX(mat->Envelope[19]);
@@ -1454,14 +1400,12 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->AlphaMode, 2);
-#ifndef __BIG_ENDIAN__
 					mat->AlphaMode=os::Byteswap::byteswap(mat->AlphaMode);
-#endif
+
 					size -= 2;
 					File->read(&mat->AlphaValue, 4);
-#ifndef __BIG_ENDIAN__
 					mat->AlphaValue=os::Byteswap::byteswap(mat->AlphaValue);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1471,9 +1415,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->VertexColorIntensity, 4);
-#ifndef __BIG_ENDIAN__
+
 					mat->VertexColorIntensity=os::Byteswap::byteswap(mat->VertexColorIntensity);
-#endif
+
 					size -= 4;
 					if (FormatVersion==2)
 						size -= readVX(mat->Envelope[21]);
@@ -1490,9 +1434,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Flags, 2);
-#ifndef __BIG_ENDIAN__
+
 					mat->Flags=os::Byteswap::byteswap(mat->Flags);
-#endif
+
 					if (mat->Flags&1)
 						mat->Luminance=1.0f;
 					if (mat->Flags&256)
@@ -1506,9 +1450,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->EdgeTransparency, 4);
-#ifndef __BIG_ENDIAN__
+
 					mat->EdgeTransparency=os::Byteswap::byteswap(mat->EdgeTransparency);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1573,9 +1517,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Texture[currTexture].Flags, 2);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].Flags=os::Byteswap::byteswap(mat->Texture[currTexture].Flags);
-#endif
+
 					size -= 2;
 				}
 				break;
@@ -1585,9 +1529,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
+
 					tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 					mat->Texture[currTexture].Active=(tmp16!=0);
 					size -= 2;
 				}
@@ -1599,13 +1543,13 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Texture[currTexture].WidthWrap, 2);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].WidthWrap=os::Byteswap::byteswap(mat->Texture[currTexture].WidthWrap);
-#endif
+
 					File->read(&mat->Texture[currTexture].HeightWrap, 2);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].HeightWrap=os::Byteswap::byteswap(mat->Texture[currTexture].HeightWrap);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1631,15 +1575,15 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					if (FormatVersion==2)
 					{
 						File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
+
 						tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 						size -= 2;
 					}
 					File->read(&mat->Texture[currTexture].AntiAliasing, 4);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].AntiAliasing=os::Byteswap::byteswap(mat->Texture[currTexture].AntiAliasing);
-#endif
+
 					if (tmp16 & ~0x01)
 						mat->Texture[currTexture].AntiAliasing=0.0f; // disabled
 					size -= 4;
@@ -1651,9 +1595,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Texture[currTexture].Opacity, 4);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].Opacity=os::Byteswap::byteswap(mat->Texture[currTexture].Opacity);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1663,13 +1607,12 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					os::Printer::log("LWO loader: loading texture opacity and type.");
 #endif
 					File->read(&mat->Texture[currTexture].OpacType, 2);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].OpacType=os::Byteswap::byteswap(mat->Texture[currTexture].OpacType);
-#endif
+
 					File->read(&mat->Texture[currTexture].Opacity, 4);
-#ifndef __BIG_ENDIAN__
 					mat->Texture[currTexture].Opacity=os::Byteswap::byteswap(mat->Texture[currTexture].Opacity);
-#endif
+
 					size -= 6;
 					subsize -= 6;
 					if (FormatVersion==2)
@@ -1679,9 +1622,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 			case charsToUIntD('A','X','I','S'):
 				{
 					File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
 					tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 					mat->Texture[currTexture].Axis=(uint8_t)tmp16;
 					size -= 2;
 #ifdef LWO_READER_DEBUG
@@ -1743,9 +1685,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 						uint16_t tmp16;
 						File->read(&tmp16, 2);
 						size -= 2;
-#ifndef __BIG_ENDIAN__
+
 						tmp16=os::Byteswap::byteswap(tmp16);
-#endif
 					}
 
 					core::vector3df& falloff=mat->Texture[currTexture].Falloff;
@@ -1762,9 +1703,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					uint16_t tmp16;
 					File->read(&tmp16, 2);
 					size -= 2;
-#ifndef __BIG_ENDIAN__
 					tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 #ifdef LWO_READER_DEBUG
 					os::Printer::log("LWO loader: texture coordinate system", tmp16==0?"object coords":"world coords");
 #endif
@@ -1776,9 +1716,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&tmp16, 2);
-#ifndef __BIG_ENDIAN__
+
 					tmp16=os::Byteswap::byteswap(tmp16);
-#endif
+
 					mat->Texture[currTexture].Value=tmp16/256.0f;
 					size -= 2;
 				}
@@ -1790,9 +1730,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Texture[currTexture].FParam[0], 4);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].FParam[0]=os::Byteswap::byteswap(mat->Texture[currTexture].FParam[0]);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1803,9 +1743,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Texture[currTexture].FParam[1], 4);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].FParam[1]=os::Byteswap::byteswap(mat->Texture[currTexture].FParam[1]);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1816,9 +1756,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Texture[currTexture].FParam[2], 4);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].FParam[2]=os::Byteswap::byteswap(mat->Texture[currTexture].FParam[2]);
-#endif
+
 					size -= 4;
 				}
 				break;
@@ -1829,9 +1769,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Texture[currTexture].IParam[0], 2);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].IParam[0]=os::Byteswap::byteswap(mat->Texture[currTexture].IParam[0]);
-#endif
+
 					size -= 2;
 				}
 				break;
@@ -1841,9 +1781,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Texture[currTexture].IParam[1], 2);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].IParam[1]=os::Byteswap::byteswap(mat->Texture[currTexture].IParam[1]);
-#endif
+
 					size -= 2;
 				}
 				break;
@@ -1853,9 +1793,9 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 #endif
 				{
 					File->read(&mat->Texture[currTexture].IParam[2], 2);
-#ifndef __BIG_ENDIAN__
+
 					mat->Texture[currTexture].IParam[2]=os::Byteswap::byteswap(mat->Texture[currTexture].IParam[2]);
-#endif
+
 					size -= 2;
 				}
 				break;
@@ -1875,9 +1815,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 					core::stringc ordinal;
 					File->read(&type, 4);
 					File->read(&subsize, 2);
-#ifndef __BIG_ENDIAN__
 					subsize=os::Byteswap::byteswap(subsize);
-#endif
+
 					size -= 6;
 					size -= readString(ordinal, size);
 				}
@@ -1912,9 +1851,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 				{
 					uint16_t index;
 					File->read(&index, 2);
-#ifndef __BIG_ENDIAN__
 					index=os::Byteswap::byteswap(index);
-#endif
+
 					size -= 2;
 					if (index)
 						mat->Texture[currTexture].Map=Images[index-1];
@@ -1927,9 +1865,8 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 				{
 					uint16_t index;
 					File->read(&index, 2);
-#ifndef __BIG_ENDIAN__
 					index=os::Byteswap::byteswap(index);
-#endif
+
 					size -= 2;
 #ifdef LWO_READER_DEBUG
 					if (index != 5)
@@ -1977,17 +1914,11 @@ uint32_t CLWOMeshFileLoader::readColor(video::SColor& color)
 	{
 		video::SColorf col;
 		File->read(&col.r, 4);
-#ifndef __BIG_ENDIAN__
 		col.r=os::Byteswap::byteswap(col.r);
-#endif
 		File->read(&col.g, 4);
-#ifndef __BIG_ENDIAN__
 		col.g=os::Byteswap::byteswap(col.g);
-#endif
 		File->read(&col.b, 4);
-#ifndef __BIG_ENDIAN__
 		col.b=os::Byteswap::byteswap(col.b);
-#endif
 		color=col.toSColor();
 		return 12;
 	}
@@ -2019,17 +1950,11 @@ uint32_t CLWOMeshFileLoader::readString(core::stringc& name, uint32_t size)
 uint32_t CLWOMeshFileLoader::readVec(core::vector3df& vec)
 {
 	File->read(&vec.X, 4);
-#ifndef __BIG_ENDIAN__
 	vec.X=os::Byteswap::byteswap(vec.X);
-#endif
 	File->read(&vec.Y, 4);
-#ifndef __BIG_ENDIAN__
 	vec.Y=os::Byteswap::byteswap(vec.Y);
-#endif
 	File->read(&vec.Z, 4);
-#ifndef __BIG_ENDIAN__
 	vec.Z=os::Byteswap::byteswap(vec.Z);
-#endif
 	return 12;
 }
 
@@ -2039,16 +1964,14 @@ uint32_t CLWOMeshFileLoader::readVX(uint32_t& num)
 	uint16_t tmpIndex;
 
 	File->read(&tmpIndex, 2);
-#ifndef __BIG_ENDIAN__
 	tmpIndex=os::Byteswap::byteswap(tmpIndex);
-#endif
+
 	num=tmpIndex;
 	if (num >= 0xFF00)
 	{
 		File->read(&tmpIndex, 2);
-#ifndef __BIG_ENDIAN__
 		tmpIndex=os::Byteswap::byteswap(tmpIndex);
-#endif
+
 		num=((num << 16)|tmpIndex) & ~0xFF000000;
 		return 4;
 	}
@@ -2061,9 +1984,7 @@ bool CLWOMeshFileLoader::readFileHeader()
 	uint32_t Id;
 
 	File->read(&Id, 4);
-#ifndef __BIG_ENDIAN__
 	Id=os::Byteswap::byteswap(Id);
-#endif
 	if (Id != 0x464f524d) // FORM
 		return false;
 
@@ -2071,9 +1992,8 @@ bool CLWOMeshFileLoader::readFileHeader()
 	File->read(&Id, 4);
 
 	File->read(&Id, 4);
-#ifndef __BIG_ENDIAN__
 	Id=os::Byteswap::byteswap(Id);
-#endif
+
 	// Currently supported: LWOB, LWLO, LWO2
 	switch (Id)
 	{

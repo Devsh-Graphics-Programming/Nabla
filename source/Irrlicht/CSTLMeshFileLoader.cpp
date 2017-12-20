@@ -84,9 +84,6 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 	{
 		file->seek(80);
 		file->read(&binFaceCount, 4);
-#ifdef __BIG_ENDIAN__
-		binFaceCount = os::Byteswap::byteswap(binFaceCount);
-#endif
         vertices.reserve(binFaceCount);
 	}
 	else
@@ -154,9 +151,6 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 		else
 		{
 			file->read(&attrib, 2);
-#ifdef __BIG_ENDIAN__
-			attrib = os::Byteswap::byteswap(attrib);
-#endif
 		}
 
 		video::SColor color(0xffffffff);
@@ -188,11 +182,6 @@ void CSTLMeshFileLoader::getNextVector(io::IReadFile* file, core::vectorSIMDf& v
 		file->read(&vec.X, 4);
 		file->read(&vec.Y, 4);
 		file->read(&vec.Z, 4);
-#ifdef __BIG_ENDIAN__
-		vec.X = os::Byteswap::byteswap(vec.X);
-		vec.Y = os::Byteswap::byteswap(vec.Y);
-		vec.Z = os::Byteswap::byteswap(vec.Z);
-#endif
 	}
 	else
 	{

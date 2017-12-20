@@ -696,9 +696,6 @@ precision will be lower but speed higher. currently X86 only
 	#undef _IRR_WCHAR_FILESYSTEM
 #endif
 
-#if defined(__sparc__) || defined(__sun__)
-#define __BIG_ENDIAN__
-#endif
 
 #if defined(_IRR_SOLARIS_PLATFORM_)
 	#undef _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
