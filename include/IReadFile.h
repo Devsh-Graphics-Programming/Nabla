@@ -29,15 +29,15 @@ namespace io
 		changed relative to current position. Otherwise the position is changed
 		from beginning of file.
 		\return True if successful, otherwise false. */
-		virtual bool seek(long finalPos, bool relativeMovement = false) = 0;
+		virtual bool seek(const size_t& finalPos, bool relativeMovement = false) = 0;
 
 		//! Get size of file.
 		/** \return Size of the file in bytes. */
-		virtual long getSize() const = 0;
+		virtual size_t getSize() const = 0;
 
 		//! Get the current position in the file.
 		/** \return Current position in the file in bytes. */
-		virtual long getPos() const = 0;
+		virtual size_t getPos() const = 0;
 
 		//! Get name of file.
 		/** \return File name as zero terminated character string. */
@@ -47,9 +47,9 @@ namespace io
 	//! Internal function, please do not use.
 	IReadFile* createReadFile(const io::path& fileName);
 	//! Internal function, please do not use.
-	IReadFile* createLimitReadFile(const io::path& fileName, IReadFile* alreadyOpenedFile, long pos, long areaSize);
+	IReadFile* createLimitReadFile(const io::path& fileName, IReadFile* alreadyOpenedFile, const size_t& pos, const size_t& areaSize);
 	//! Internal function, please do not use.
-	IReadFile* createMemoryReadFile(void* memory, long size, const io::path& fileName, bool deleteMemoryWhenDropped);
+	IReadFile* createMemoryReadFile(const void* memory, const size_t& size, const io::path& fileName, bool deleteMemoryWhenDropped);
 
 } // end namespace io
 } // end namespace irr

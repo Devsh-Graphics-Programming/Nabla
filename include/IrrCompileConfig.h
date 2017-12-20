@@ -704,30 +704,6 @@ precision will be lower but speed higher. currently X86 only
 	#undef _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
 #endif
 
-//! Define __IRR_HAS_S64 if the irr::int64_t type should be enable (needs long long, available on most platforms, but not part of ISO C++ 98)
-#define __IRR_HAS_S64
-#ifdef NO__IRR_HAS_S64
-#undef __IRR_HAS_S64
-#endif
-
-#if defined(__BORLANDC__)
-	#include <tchar.h>
-
-	// Borland 5.5.1 does not have _strcmpi defined
-	#if __BORLANDC__ == 0x551
-	//    #define _strcmpi strcmpi
-		#undef _tfinddata_t
-		#undef _tfindfirst
-		#undef _tfindnext
-
-		#define _tfinddata_t __tfinddata_t
-		#define _tfindfirst  __tfindfirst
-		#define _tfindnext   __tfindnext
-		typedef long intptr_t;
-	#endif
-
-#endif
-
 #ifdef _DEBUG
 	//! A few attributes are written in CSceneManager when _IRR_SCENEMANAGER_DEBUG is enabled
 	// NOTE: Those attributes were used always until 1.8.0 and became a global define for 1.8.1

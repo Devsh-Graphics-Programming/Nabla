@@ -119,19 +119,19 @@ IReadFile* CFileSystem::createAndOpenFile(const io::path& filename)
 
 
 //! Creates an IReadFile interface for treating memory like a file.
-IReadFile* CFileSystem::createMemoryReadFile(void* memory, int32_t len,
+IReadFile* CFileSystem::createMemoryReadFile(const void* memory, const size_t& len,
 		const io::path& fileName, bool deleteMemoryWhenDropped)
 {
 	if (!memory)
 		return 0;
 	else
-		return new CMemoryFile(memory, len, fileName, deleteMemoryWhenDropped);
-			}
+		return new CMemoryReadFile(memory, len, fileName, deleteMemoryWhenDropped);
+}
 
 
 //! Creates an IReadFile interface for reading files inside files
 IReadFile* CFileSystem::createLimitReadFile(const io::path& fileName,
-		IReadFile* alreadyOpenedFile, long pos, long areaSize)
+		IReadFile* alreadyOpenedFile, const size_t& pos, const size_t& areaSize)
 {
 	if (!alreadyOpenedFile)
 		return 0;
@@ -141,13 +141,13 @@ IReadFile* CFileSystem::createLimitReadFile(const io::path& fileName,
 
 
 //! Creates an IReadFile interface for treating memory like a file.
-IWriteFile* CFileSystem::createMemoryWriteFile(void* memory, int32_t len,
+IWriteFile* CFileSystem::createMemoryWriteFile(void* memory, const size_t& len,
 		const io::path& fileName, bool deleteMemoryWhenDropped)
 {
 	if (!memory)
 		return 0;
 	else
-		return new CMemoryFile(memory, len, fileName, deleteMemoryWhenDropped);
+		return new CMemoryWriteFile(memory, len, fileName, deleteMemoryWhenDropped);
 }
 
 

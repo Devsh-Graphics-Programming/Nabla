@@ -29,11 +29,11 @@ namespace io
 		changed relative to current position. Otherwise the position is changed
 		from begin of file.
 		\return True if successful, otherwise false. */
-		virtual bool seek(long finalPos, bool relativeMovement = false) = 0;
+		virtual bool seek(const size_t& finalPos, bool relativeMovement = false) = 0;
 
 		//! Get the current position in the file.
 		/** \return Current position in the file in bytes. */
-		virtual long getPos() const = 0;
+		virtual size_t getPos() const = 0;
 
 		//! Get name of file.
 		/** \return File name as zero terminated character string. */

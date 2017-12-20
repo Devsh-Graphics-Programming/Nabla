@@ -126,6 +126,16 @@ class CImageData : public IReferenceCounted
         inline const uint32_t* getSliceMax() const {return maxCoord;}
 
         //!
+        inline void addOffset(const uint32_t offset[3])
+        {
+            for (size_t i=0; i<3; i++)
+            {
+                minCoord[i] += offset[i];
+                maxCoord[i] += offset[i];
+            }
+        }
+
+        //!
         inline uint32_t getSupposedMipLevel() const {return mipLevelHint;}
 
         //! Returns bits per pixel.

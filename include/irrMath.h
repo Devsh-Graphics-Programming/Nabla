@@ -43,9 +43,8 @@ namespace core
 	//! Rounding error constant often used when comparing float values.
 
 	const int32_t ROUNDING_ERROR_S32 = 0;
-#ifdef __IRR_HAS_S64
 	const int64_t ROUNDING_ERROR_S64 = 0;
-#endif
+
 	const float ROUNDING_ERROR_f32 = 0.000001f;
 	const double ROUNDING_ERROR_f64 = 0.00000001;
 
@@ -258,13 +257,11 @@ namespace core
 		return (a + tolerance >= b) && (a - tolerance <= b);
 	}
 
-#ifdef __IRR_HAS_S64
 	//! returns if a equals b, taking an explicit rounding tolerance into account
 	inline bool equals(const int64_t a, const int64_t b, const int64_t tolerance = ROUNDING_ERROR_S64)
 	{
 		return (a + tolerance >= b) && (a - tolerance <= b);
 	}
-#endif
 
 	//! returns if a equals zero, taking rounding errors into account
 	inline bool iszero(const double a, const double tolerance = ROUNDING_ERROR_f64)
@@ -296,13 +293,11 @@ namespace core
 		return a <= tolerance;
 	}
 
-#ifdef __IRR_HAS_S64
 	//! returns if a equals zero, taking rounding errors into account
 	inline bool iszero(const int64_t a, const int64_t tolerance = 0)
 	{
 		return abs_(a) <= tolerance;
 	}
-#endif
 
 	inline int32_t s32_min(int32_t a, int32_t b)
 	{
@@ -473,13 +468,11 @@ namespace core
 		return static_cast<int32_t>(squareroot(static_cast<float>(f)));
 	}
 
-#ifdef __IRR_HAS_S64
 	// calculate: sqrt ( x )
 	REALINLINE int64_t squareroot(const int64_t f)
 	{
 		return static_cast<int64_t>(squareroot(static_cast<double>(f)));
 	}
-#endif
 
 	// calculate: 1 / sqrt ( x )
 	REALINLINE double reciprocal_squareroot(const double x)

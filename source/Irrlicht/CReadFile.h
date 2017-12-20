@@ -30,10 +30,10 @@ namespace io
             virtual int32_t read(void* buffer, uint32_t sizeToRead);
 
             //! changes position in file, returns true if successful
-            virtual bool seek(long finalPos, bool relativeMovement = false);
+            virtual bool seek(const size_t& finalPos, bool relativeMovement = false);
 
             //! returns size of file
-            virtual long getSize() const;
+            virtual size_t getSize() const;
 
             //! returns if file is open
             virtual bool isOpen() const
@@ -42,7 +42,7 @@ namespace io
             }
 
             //! returns where in the file we are.
-            virtual long getPos() const;
+            virtual size_t getPos() const;
 
             //! returns name of file
             virtual const io::path& getFileName() const;
@@ -53,7 +53,7 @@ namespace io
             void openFile();
 
             FILE* File;
-            long FileSize;
+            size_t FileSize;
             io::path Filename;
 	};
 

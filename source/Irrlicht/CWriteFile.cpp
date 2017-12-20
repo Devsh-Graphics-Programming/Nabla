@@ -54,7 +54,7 @@ int32_t CWriteFile::write(const void* buffer, uint32_t sizeToWrite)
 //! changes position in file, returns true if successful
 //! if relativeMovement==true, the pos is changed relative to current pos,
 //! otherwise from begin of file
-bool CWriteFile::seek(long finalPos, bool relativeMovement)
+bool CWriteFile::seek(const size_t& finalPos, bool relativeMovement)
 {
 	if (!isOpen())
 		return false;
@@ -65,7 +65,7 @@ bool CWriteFile::seek(long finalPos, bool relativeMovement)
 
 
 //! returns where in the file we are.
-long CWriteFile::getPos() const
+size_t CWriteFile::getPos() const
 {
 	return ftell(File);
 }

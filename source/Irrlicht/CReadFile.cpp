@@ -41,7 +41,7 @@ int32_t CReadFile::read(void* buffer, uint32_t sizeToRead)
 //! changes position in file, returns true if successful
 //! if relativeMovement==true, the pos is changed relative to current pos,
 //! otherwise from begin of file
-bool CReadFile::seek(long finalPos, bool relativeMovement)
+bool CReadFile::seek(const size_t& finalPos, bool relativeMovement)
 {
 	if (!isOpen())
 		return false;
@@ -51,14 +51,14 @@ bool CReadFile::seek(long finalPos, bool relativeMovement)
 
 
 //! returns size of file
-long CReadFile::getSize() const
+size_t CReadFile::getSize() const
 {
 	return FileSize;
 }
 
 
 //! returns where in the file we are.
-long CReadFile::getPos() const
+size_t CReadFile::getPos() const
 {
 	return ftell(File);
 }
