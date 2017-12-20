@@ -573,7 +573,7 @@ void CImageLoaderRGB::readRGBrow(uint8_t *buf, int y, int z, io::IReadFile* file
 					tempShort = (uint16_t *) (iPtr);
 					pixel = *tempShort;
 					tempShort++;
-					iPtr = (uint8_t *) (tempShort);_
+					iPtr = (uint8_t *) (tempShort);
 					pixel = os::Byteswap::byteswap(pixel);
 
 					tempShort = (uint16_t *) (oPtr);
