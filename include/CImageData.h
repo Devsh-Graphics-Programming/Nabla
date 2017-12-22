@@ -39,7 +39,7 @@ class CImageData : public IReferenceCounted
             if (inData&&dataAllocatedWithMallocAndCanTake)
                 data = inData;
             else
-                setupMemory(inData,dataAllocatedWithMallocAndCanTake);
+                setupMemory(inData);
         }
 
         inline void setupMemory(const void* inData)
@@ -53,6 +53,9 @@ class CImageData : public IReferenceCounted
 
         inline const void* getSliceRowPointer_helper(uint32_t slice, uint32_t row) const
         {
+            if (getCompressedFormatBlockSize(getColorFormat())!=1)
+                return NULL;
+
             if (row<minCoord[0]||row>=maxCoord[0])
                 return NULL;
             if (slice<minCoord[1]||slice>=maxCoord[1])
@@ -126,6 +129,16 @@ class CImageData : public IReferenceCounted
         inline const uint32_t* getSliceMax() const {return maxCoord;}
 
         //!
+        /*
+        inline bool addOffset(const uint32_t offset[3])
+        {
+            if (getCompressedFormatBlockSize(getColorFormat())!=1)
+                return false; //special error val
+
+            (void)addOffset(offset);
+            return true;
+        }
+        */
         inline void addOffset(const uint32_t offset[3])
         {
             for (size_t i=0; i<3; i++)
@@ -137,6 +150,8 @@ class CImageData : public IReferenceCounted
 
         //!
         inline uint32_t getSupposedMipLevel() const {return mipLevelHint;}
+        //!
+        inline void setSupposedMipLevel(const uint32_t& newMipLevel) {mipLevelHint = newMipLevel;}
 
         //! Returns bits per pixel.
         inline uint32_t getBitsPerPixel() const
@@ -147,10 +162,29 @@ class CImageData : public IReferenceCounted
         //! Returns image data size in bytes
         inline size_t getImageDataSizeInBytes() const
         {
-            size_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
+            uint32_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
+            const uint32_t blockAlignment = getCompressedFormatBlockSize(getColorFormat());
 
-            size_t lineSize = getPitchIncludingAlignment();
-            return lineSize*size[1]*size[2];
+            if (blockAlignment!=1)
+            {
+                size[0] += blockAlignment-1;
+                size[1] += blockAlignment-1;
+                /*
+                size[0] /= blockAlignment;
+                size[1] /= blockAlignment;
+                size[0] *= blockAlignment;
+                size[1] *= blockAlignment;
+                */
+                size[0] &= ~(blockAlignment-1);
+                size[1] &= ~(blockAlignment-1);
+
+                return (size[0]*size[1]*getBitsPerPixel())/8*size[2];
+            }
+            else
+            {
+                size_t lineSize = getPitchIncludingAlignment();
+                return lineSize*size[1]*size[2];
+            }
         }
 
         //! Returns image data size in pixels
@@ -172,6 +206,9 @@ class CImageData : public IReferenceCounted
         //!
         inline uint32_t getPitchIncludingAlignment() const
         {
+            if (getCompressedFormatBlockSize(getColorFormat())!=1)
+                return 0; //special error val
+
             return (getPitch()+unpackAlignment-1)/unpackAlignment;
         }
 

@@ -248,7 +248,7 @@ std::vector<CImageData*> CImageLoaderPng::loadImage(io::IReadFile* file) const
 	for (uint32_t i=0; i<Height; ++i)
 	{
 		RowPointers[i]=data;
-		data += image->getPitch();
+		data += image->getPitchIncludingAlignment();
 	}
 
 	// for proper error handling

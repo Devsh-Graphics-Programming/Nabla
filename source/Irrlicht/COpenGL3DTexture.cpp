@@ -50,12 +50,12 @@ bool COpenGL3DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, c
         adjustedTexSize[0] /= 0x1u<<mipmap;
         adjustedTexSize[1] /= 0x1u<<mipmap;
         adjustedTexSize[2] /= 0x1u<<mipmap;
+        /*
         adjustedTexSize[0] += 3u;
         adjustedTexSize[1] += 3u;
-        adjustedTexSize[2] += 3u;
         adjustedTexSize[0] &= 0xfffffc;
         adjustedTexSize[1] &= 0xfffffc;
-        adjustedTexSize[2] &= 0xfffffc;
+        */
         if (maximum[0]!=adjustedTexSize[0]||maximum[1]!=adjustedTexSize[1]||maximum[2]!=adjustedTexSize[2])
             return false;
     }

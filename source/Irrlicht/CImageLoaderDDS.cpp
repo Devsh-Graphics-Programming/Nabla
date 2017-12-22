@@ -327,10 +327,6 @@ std::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
                         else if (pixelFormat==video::DDS_PF_DXT1)
                             colorFormat = video::ECF_RGB_BC1;
 
-                        mipSize[0] += 3;
-                        mipSize[1] += 3;
-                        mipSize[0] &= 0xfffffc;
-                        mipSize[1] &= 0xfffffc;
                         CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
                         file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
