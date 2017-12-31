@@ -131,7 +131,7 @@ struct SNamedPath
 		path name(p);
 		//handleBackslashes(&name);
 		name.replace('\\' , '/'); //! On Linux just delete them
-#ifdef _IRR_POSIX_API_
+#ifndef _IRR_POSIX_API_
 		name.make_lower();
 #endif // _IRR_POSIX_API_
 		return name;
