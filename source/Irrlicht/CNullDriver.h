@@ -622,6 +622,8 @@ namespace video
 
 			bool operator < (const SSurface& other) const
 			{
+			    return Surface->getName()<other.Surface->getName();
+			    /*
 			    int res = strcmp(Surface->getName().getInternalName().c_str(),other.Surface->getName().getInternalName().c_str());
 			    if (res<0)
                     return true;
@@ -629,6 +631,7 @@ namespace video
                     return false;
                 else
                     return Surface < other.Surface;
+                */
 			}
 		};
 

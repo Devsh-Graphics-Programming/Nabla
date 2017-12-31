@@ -23,7 +23,7 @@ CFileList::CFileList(const io::path& path, bool ignoreCase, bool ignorePaths)
 	setDebugName("CFileList");
 	#endif
 
-	Path.replace('\\', '/');
+	handleBackslashes(&Path);
 }
 
 CFileList::~CFileList()
@@ -67,7 +67,7 @@ uint32_t CFileList::addItem(const io::path& fullPath, uint32_t offset, uint32_t 
 	entry.Offset = offset;
 	entry.Size = size;
 	entry.Name = fullPath;
-	entry.Name.replace('\\', '/');
+	handleBackslashes(&entry.Name);
 	entry.IsDirectory = isDirectory;
 
 	// remove trailing slash
@@ -132,7 +132,7 @@ int32_t CFileList::findFile(const io::path& filename, bool isDirectory = false) 
 	entry.IsDirectory = isDirectory;
 
 	// exchange
-	entry.FullName.replace('\\', '/');
+	handleBackslashes(&entry.FullName);
 
 	// remove trailing slash
 	if (entry.FullName.lastChar() == '/')

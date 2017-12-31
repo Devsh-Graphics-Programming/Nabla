@@ -176,7 +176,7 @@ inline io::path& deletePathFromFilename(io::path& filename)
 	const char* p = s + filename.size();
 
 	// search for path separator or beginning
-	while ( *p != '/' && *p != '\\' && p != s )
+	while ( *p != '/' && *p != '\\' && p != s ) //! On Linux just delete them
 		p--;
 
 	if ( p != s )
@@ -196,7 +196,7 @@ inline io::path& deletePathFromPath(io::path& filename, int32_t pathCount)
 	// search for path separator or beginning
 	while ( i>=0 )
 	{
-		if ( filename[i] == '/' || filename[i] == '\\' )
+		if ( filename[i] == '/' || filename[i] == '\\' ) //! On Linux just delete the '\\' from path
 		{
 			if ( --pathCount <= 0 )
 				break;
@@ -242,8 +242,14 @@ inline int32_t isInSameDirectory ( const io::path& path, const io::path& file )
 	return subB - subA;
 }
 
+// expect change soon
+inline void handleBackslashes(io::path* inout)
+{
+    inout->replace('\\' , '/'); //! On Linux just delete them
+}
+
 // splits a path into components
-static inline void splitFilename(const io::path &name, io::path* path=0,
+inline void splitFilename(const io::path &name, io::path* path=0,
 		io::path* filename=0, io::path* extension=0, bool make_lower=false)
 {
 	int32_t i = name.size();
@@ -259,14 +265,14 @@ static inline void splitFilename(const io::path &name, io::path* path=0,
 				*extension = name.subString ( extpos + 1, name.size() - (extpos + 1), make_lower );
 		}
 		else
-		if ( name[i] == '/' || name[i] == '\\' )
+		if ( name[i] == '/' || name[i] == '\\' ) //! On Linux just delete them
 		{
 			if ( filename )
 				*filename = name.subString ( i + 1, extpos - (i + 1), make_lower );
 			if ( path )
 			{
 				*path = name.subString ( 0, i + 1, make_lower );
-				path->replace ( '\\', '/' );
+				handleBackslashes(path);
 			}
 			return;
 		}
@@ -275,7 +281,6 @@ static inline void splitFilename(const io::path &name, io::path* path=0,
 	if ( filename )
 		*filename = name.subString ( 0, extpos, make_lower );
 }
-
 
 //! some standard function ( to remove dependencies )
 #undef isdigit

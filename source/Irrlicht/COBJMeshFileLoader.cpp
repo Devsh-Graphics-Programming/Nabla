@@ -76,7 +76,7 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 	uint32_t smoothingGroup=0;
 
 	const io::path fullName = file->getFileName();
-	const io::path relPath = FileSystem->getFileDir(fullName)+"/";
+	const io::path relPath = io::IFileSystem::getFileDir(fullName)+"/";
 
 	char* buf = new char[filesize];
 	memset(buf, 0, filesize);
@@ -512,7 +512,7 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
     }
 
 	io::path texname(textureNameBuf);
-	texname.replace('\\', '/');
+	handleBackslashes(&texname);
 
 	video::ITexture * texture = 0;
 	bool newTexture=false;
@@ -577,10 +577,10 @@ void COBJMeshFileLoader::readMTL(const char* fileName, const io::path& relPath)
 		mtlReader = FileSystem->createAndOpenFile(realFile);
 	else if (FileSystem->existFile(relPath + realFile))
 		mtlReader = FileSystem->createAndOpenFile(relPath + realFile);
-	else if (FileSystem->existFile(FileSystem->getFileBasename(realFile)))
-		mtlReader = FileSystem->createAndOpenFile(FileSystem->getFileBasename(realFile));
+	else if (FileSystem->existFile(io::IFileSystem::getFileBasename(realFile)))
+		mtlReader = FileSystem->createAndOpenFile(io::IFileSystem::getFileBasename(realFile));
 	else
-		mtlReader = FileSystem->createAndOpenFile(relPath + FileSystem->getFileBasename(realFile));
+		mtlReader = FileSystem->createAndOpenFile(relPath + io::IFileSystem::getFileBasename(realFile));
 	if (!mtlReader)	// fail to open and read file
 	{
 		os::Printer::log("Could not open material file", realFile.c_str(), ELL_WARNING);

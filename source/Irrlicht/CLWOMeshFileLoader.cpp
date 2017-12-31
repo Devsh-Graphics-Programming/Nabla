@@ -2021,10 +2021,10 @@ video::ITexture* CLWOMeshFileLoader::loadTexture(const core::stringc& file)
 	if (FileSystem->existFile(file))
 		return driver->getTexture(file);
 
-	core::stringc strippedName=FileSystem->getFileBasename(file);
+	core::stringc strippedName=IFileSystem::getFileBasename(file);
 	if (FileSystem->existFile(strippedName))
 		return driver->getTexture(strippedName);
-	core::stringc newpath = FileSystem->getFileDir(File->getFileName());
+	core::stringc newpath = io::IFileSystem::getFileDir(File->getFileName());
 	newpath.append("/");
 	newpath.append(strippedName);
 	if (FileSystem->existFile(newpath))

@@ -11,8 +11,6 @@ namespace irr
 namespace scene
 {
 
-static const io::SNamedPath emptyNamedPath;
-
 
 
 //! adds a mesh to the list
@@ -94,29 +92,29 @@ T* CMeshCache<T>::getMeshByName(const io::path& name)
 
 //! Get the name of a loaded mesh, based on its index.
 template<class T>
-const io::SNamedPath& CMeshCache<T>::getMeshName(uint32_t index) const
+const char* CMeshCache<T>::getMeshName(uint32_t index) const
 {
 	if (index >= Meshes.size())
-		return emptyNamedPath;
+		return NULL;
 
-	return Meshes[index].NamedPath;
+	return Meshes[index].NamedPath.getInternalName().c_str();
 }
 
 
 //! Get the name of a loaded mesh, if there is any.
 template<class T>
-const io::SNamedPath& CMeshCache<T>::getMeshName(const T* const mesh) const
+const char* CMeshCache<T>::getMeshName(const T* const mesh) const
 {
 	if (!mesh)
-		return emptyNamedPath;
+		return NULL;
 
 	for (uint32_t i=0; i<Meshes.size(); ++i)
 	{
 		if (Meshes[i].Mesh == mesh)
-			return Meshes[i].NamedPath;
+			return Meshes[i].NamedPath.getInternalName().c_str();
 	}
 
-	return emptyNamedPath;
+	return NULL;
 }
 
 //! Renames a loaded mesh.

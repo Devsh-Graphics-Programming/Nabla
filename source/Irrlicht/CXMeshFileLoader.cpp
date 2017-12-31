@@ -683,7 +683,7 @@ bool CXMeshFileLoader::readFileIntoMemory(io::IReadFile* file)
         std::string stmp;
         std::getline(fileContents,stmp);
 	}
-	FilePath = FileSystem->getFileDir(file->getFileName()) + "/";
+	FilePath = io::IFileSystem::getFileDir(file->getFileName()) + "/";
 
 	return true;
 }
@@ -1791,12 +1791,12 @@ bool CXMeshFileLoader::parseDataObjectMaterial(video::SMaterial& material)
 			// mesh path
 			else
 			{
-				TextureFileName=FilePath + FileSystem->getFileBasename(TextureFileName);
+				TextureFileName=FilePath + io::IFileSystem::getFileBasename(TextureFileName);
 				if (FileSystem->existFile(TextureFileName))
 					material.setTexture(textureLayer, SceneManager->getVideoDriver()->getTexture(TextureFileName));
 				// working directory
 				else
-					material.setTexture(textureLayer, SceneManager->getVideoDriver()->getTexture(FileSystem->getFileBasename(TextureFileName)));
+					material.setTexture(textureLayer, SceneManager->getVideoDriver()->getTexture(io::IFileSystem::getFileBasename(TextureFileName)));
 			}
 			++textureLayer;
 		}
@@ -1815,12 +1815,12 @@ bool CXMeshFileLoader::parseDataObjectMaterial(video::SMaterial& material)
 			// mesh path
 			else
 			{
-				TextureFileName=FilePath + FileSystem->getFileBasename(TextureFileName);
+				TextureFileName=FilePath + io::IFileSystem::getFileBasename(TextureFileName);
 				if (FileSystem->existFile(TextureFileName))
 					material.setTexture(1, SceneManager->getVideoDriver()->getTexture(TextureFileName));
 				// working directory
 				else
-					material.setTexture(1, SceneManager->getVideoDriver()->getTexture(FileSystem->getFileBasename(TextureFileName)));
+					material.setTexture(1, SceneManager->getVideoDriver()->getTexture(io::IFileSystem::getFileBasename(TextureFileName)));
 			}
 			if (textureLayer==1)
 				++textureLayer;

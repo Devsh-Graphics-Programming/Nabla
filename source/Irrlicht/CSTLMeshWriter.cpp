@@ -13,6 +13,7 @@
 #include "ISceneManager.h"
 #include "IMeshCache.h"
 #include "IWriteFile.h"
+#include "IFileSystem.h"
 #include <sstream>
 
 namespace irr
@@ -95,17 +96,15 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh
 	// write STL MESH header
 
 	file->write("binary ",7);
-	const core::stringc name(SceneManager->getMeshCache()->getMeshName(mesh));
+	const core::stringc name(io::IFileSystem::getFileBasename(file->getFileName(),false));
 	const int32_t sizeleft = 73-name.size(); // 80 byte header
 	if (sizeleft<0)
 		file->write(name.c_str(),73);
 	else
 	{
-		char* buf = new char[80];
-		memset(buf, 0, 80);
+		const char buf[80] = {0};
 		file->write(name.c_str(),name.size());
 		file->write(buf,sizeleft);
-		delete [] buf;
 	}
 	uint32_t facenum = 0;
 	for (uint32_t j=0; j<mesh->getMeshBufferCount(); ++j)
@@ -148,7 +147,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
 	// write STL MESH header
 
 	file->write("solid ",6);
-	const core::stringc name(SceneManager->getMeshCache()->getMeshName(mesh));
+	const core::stringc name(io::IFileSystem::getFileBasename(file->getFileName(),false));
 	file->write(name.c_str(),name.size());
 	file->write("\n\n",2);
 

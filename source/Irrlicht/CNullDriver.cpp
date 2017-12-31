@@ -541,11 +541,18 @@ void CNullDriver::removeTexture(ITexture* texture)
     SSurface s;
     s.Surface = texture;
 
-    std::vector<SSurface>::iterator found = std::lower_bound(Textures.begin(),Textures.end(),s);
-    if (found!=Textures.end()&&found->Surface==texture)
+	std::vector<SSurface>::iterator found = std::lower_bound(Textures.begin(),Textures.end(),s);
+	if (found==Textures.end())
+        return;
+
+	std::vector<SSurface>::iterator foundHi = std::upper_bound(found,Textures.end(),s);
+	for (; found!=foundHi; found++)
     {
-        Textures.erase(found);
-        texture->drop();
+        if (found->Surface==texture)
+        {
+            Textures.erase(found);
+            texture->drop();
+        }
     }
 }
 
@@ -724,7 +731,7 @@ video::ITexture* CNullDriver::loadTextureFromFile(io::IReadFile* file, ECOLOR_FO
         return NULL;
 
     // create texture from surface
-    ITexture* texture = addTexture(ITexture::ETT_COUNT, images, hashName.size() ? hashName : file->getFileName(), format);
+    ITexture* texture = this->addTexture(ITexture::ETT_COUNT, images, hashName.size() ? hashName : file->getFileName(), format);
     dropWholeMipChain(images.begin(),images.end());
     os::Printer::log("Loaded texture", file->getFileName().c_str());
 
@@ -735,26 +742,25 @@ video::ITexture* CNullDriver::loadTextureFromFile(io::IReadFile* file, ECOLOR_FO
 //! adds a surface, not loaded or created by the Irrlicht Engine
 void CNullDriver::addToTextureCache(video::ITexture* texture)
 {
-	if (texture)
-	{
-		SSurface s;
-		s.Surface = texture;
+	if (!texture)
+        return;
 
-        std::vector<SSurface>::iterator found = std::lower_bound(Textures.begin(),Textures.end(),s);
-        if (found!=Textures.end())
+    SSurface s;
+    s.Surface = texture;
+
+    std::vector<SSurface>::iterator found = std::lower_bound(Textures.begin(),Textures.end(),s);
+    if (found!=Textures.end())
+    {
+        std::vector<SSurface>::iterator foundHi = std::upper_bound(found,Textures.end(),s);
+        for (; found!=foundHi; found++)
         {
-            if (found->Surface!=texture)
-            {
-                Textures.push_back(s);
-                texture->grab();
-            }
+            if (found->Surface==texture)
+                return;
         }
-        else
-        {
-            Textures.push_back(s);
-            texture->grab();
-        }
-	}
+    }
+
+    Textures.insert(found,s);
+    texture->grab();
 }
 
 
@@ -766,10 +772,17 @@ video::ITexture* CNullDriver::findTexture(const io::path& filename)
 	s.Surface = &dummy;
 
 	std::vector<SSurface>::iterator found = std::lower_bound(Textures.begin(),Textures.end(),s);
-	if (found!=Textures.end() && found->Surface->getName().getInternalName()==filename )
-        return found->Surface;
+	if (found==Textures.end())
+        return NULL;
 
-	return 0;
+	std::vector<SSurface>::iterator foundHi = std::upper_bound(found,Textures.end(),s);
+	for (; found!=foundHi; found++)
+    {
+        if (found->Surface->getName().getInternalName()==io::SNamedPath::PathToName(filename))
+            return found->Surface;
+    }
+
+	return NULL;
 }
 
 //! creates a Texture

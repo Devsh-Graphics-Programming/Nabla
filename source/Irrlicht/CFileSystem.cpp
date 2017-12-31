@@ -504,12 +504,11 @@ const io::path& CFileSystem::getWorkingDirectory()
 			#if defined(_IRR_WCHAR_FILESYSTEM )
 				_wgetcwd(tmp, _MAX_PATH);
 				WorkingDirectory[FILESYSTEM_NATIVE] = tmp;
-				WorkingDirectory[FILESYSTEM_NATIVE].replace(L'\\', L'/');
 			#else
 				_getcwd(tmp, _MAX_PATH);
 				WorkingDirectory[FILESYSTEM_NATIVE] = tmp;
-				WorkingDirectory[FILESYSTEM_NATIVE].replace('\\', '/');
 			#endif
+            handleBackslashes(&WorkingDirectory[FILESYSTEM_NATIVE]);
 		#endif
 
 		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
@@ -599,12 +598,11 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 	#if defined(_IRR_WCHAR_FILESYSTEM )
 		p = _wfullpath(fpath, filename.c_str(), _MAX_PATH);
 		core::stringw tmp(p);
-		tmp.replace(L'\\', L'/');
 	#else
 		p = _fullpath(fpath, filename.c_str(), _MAX_PATH);
 		core::stringc tmp(p);
-		tmp.replace('\\', '/');
 	#endif
+	handleBackslashes(&tmp);
 	return tmp;
 #elif (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
 	char* p=0;
@@ -632,100 +630,7 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 }
 
 
-//! returns the directory part of a filename, i.e. all until the first
-//! slash or backslash, excluding it. If no directory path is prefixed, a '.'
-//! is returned.
-io::path CFileSystem::getFileDir(const io::path& filename) const
-{
-	// find last forward or backslash
-	int32_t lastSlash = filename.findLast('/');
-	const int32_t lastBackSlash = filename.findLast('\\');
-	lastSlash = lastSlash > lastBackSlash ? lastSlash : lastBackSlash;
 
-	if ((uint32_t)lastSlash < filename.size())
-		return filename.subString(0, lastSlash);
-	else
-		return _IRR_TEXT(".");
-}
-
-
-//! returns the base part of a filename, i.e. all except for the directory
-//! part. If no directory path is prefixed, the full name is returned.
-io::path CFileSystem::getFileBasename(const io::path& filename, bool keepExtension) const
-{
-	// find last forward or backslash
-	int32_t lastSlash = filename.findLast('/');
-	const int32_t lastBackSlash = filename.findLast('\\');
-	lastSlash = core::max_(lastSlash, lastBackSlash);
-
-	// get number of chars after last dot
-	int32_t end = 0;
-	if (!keepExtension)
-	{
-		// take care to search only after last slash to check only for
-		// dots in the filename
-		end = filename.findLast('.');
-		if (end == -1 || end < lastSlash)
-			end=0;
-		else
-			end = filename.size()-end;
-	}
-
-	if ((uint32_t)lastSlash < filename.size())
-		return filename.subString(lastSlash+1, filename.size()-lastSlash-1-end);
-	else if (end != 0)
-		return filename.subString(0, filename.size()-end);
-	else
-		return filename;
-}
-
-
-//! flatten a path and file name for example: "/you/me/../." becomes "/you"
-io::path& CFileSystem::flattenFilename(io::path& directory, const io::path& root) const
-{
-	directory.replace('\\', '/');
-	if (directory.lastChar() != '/')
-		directory.append('/');
-
-	io::path dir;
-	io::path subdir;
-
-	int32_t lastpos = 0;
-	int32_t pos = 0;
-	bool lastWasRealDir=false;
-
-	while ((pos = directory.findNext('/', lastpos)) >= 0)
-	{
-		subdir = directory.subString(lastpos, pos - lastpos + 1);
-
-		if (subdir == _IRR_TEXT("../"))
-		{
-			if (lastWasRealDir)
-			{
-				deletePathFromPath(dir, 2);
-				lastWasRealDir=(dir.size()!=0);
-			}
-			else
-			{
-				dir.append(subdir);
-				lastWasRealDir=false;
-			}
-		}
-		else if (subdir == _IRR_TEXT("/"))
-		{
-			dir = root;
-		}
-		else if (subdir != _IRR_TEXT("./"))
-		{
-			dir.append(subdir);
-			lastWasRealDir=true;
-		}
-
-		lastpos = pos + 1;
-	}
-	directory = dir;
-	return directory;
-}
 /*
 	template<class container>
 	uint32_t split(container& ret, const T* const c, uint32_t count=1, bool ignoreEmptyTokens=true, bool keepSeparators=false) const
@@ -839,7 +744,7 @@ IFileList* CFileSystem::createFileList()
 {
 	CFileList* r = 0;
 	io::path Path = getWorkingDirectory();
-	Path.replace('\\', '/');
+	handleBackslashes(&Path);
 	if (Path.lastChar() != '/')
 		Path.append('/');
 

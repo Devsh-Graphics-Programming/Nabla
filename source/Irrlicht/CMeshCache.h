@@ -66,12 +66,12 @@ class CMeshCache : public IMeshCache<T>
 		//! Get the name of a loaded mesh, based on its index.
 		/** \param index: Index of the mesh, number between 0 and getMeshCount()-1.
 		\return The name if mesh was found and has a name, else	the path is empty. */
-		virtual const io::SNamedPath& getMeshName(uint32_t index) const;
+		virtual const char* getMeshName(uint32_t index) const;
 
 		//! Get the name of a loaded mesh, if there is any.
 		/** \param mesh Pointer to mesh to query.
 		\return The name if mesh was found and has a name, else	the path is empty. */
-		virtual const io::SNamedPath& getMeshName(const /*IAnimatedMesh*/T* const mesh) const;
+		virtual const char* getMeshName(const /*IAnimatedMesh*/T* const mesh) const;
 
 		//! Renames a loaded mesh.
 		/** Note that renaming meshes might change the ordering of the

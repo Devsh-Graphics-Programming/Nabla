@@ -102,7 +102,7 @@ CWADReader::CWADReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
 		File->grab();
 
 		Base = File->getFileName();
-		Base.replace ( '\\', '/' );
+		handleBackslashes(&Base);
 
 		// scan local headers
 		scanLocalHeader();

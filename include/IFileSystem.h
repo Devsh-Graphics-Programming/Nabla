@@ -210,58 +210,6 @@ public:
 	\return A pointer to the specified loader, 0 if the index is incorrect. */
 	virtual IArchiveLoader* getArchiveLoader(uint32_t index) const = 0;
 
-	//! Adds a zip archive to the file system.
-	/** \deprecated This function is provided for compatibility
-	with older versions of Irrlicht and may be removed in Irrlicht 1.9,
-	you should use addFileArchive instead.
-	After calling this, the Irrlicht Engine will search and open files directly from this archive too.
-	This is useful for hiding data from the end user, speeding up file access and making it possible to
-	access for example Quake3 .pk3 files, which are no different than .zip files.
-	\param filename: Filename of the zip archive to add to the file system.
-	\param ignoreCase: If set to true, files in the archive can be accessed without
-	writing all letters in the right case.
-	\param ignorePaths: If set to true, files in the added archive can be accessed
-	without its complete path.
-	\return True if the archive was added successfully, false if not. */
-	_IRR_DEPRECATED_ virtual bool addZipFileArchive(const char* filename, bool ignoreCase=true, bool ignorePaths=true)
-	{
-		return addFileArchive(filename, ignoreCase, ignorePaths, EFAT_ZIP);
-	}
-
-	//! Adds an unzipped archive (or basedirectory with subdirectories..) to the file system.
-	/** \deprecated This function is provided for compatibility
-	with older versions of Irrlicht and may be removed in Irrlicht 1.9,
-	you should use addFileArchive instead.
-	Useful for handling data which will be in a zip file
-	\param filename: Filename of the unzipped zip archive base directory to add to the file system.
-	\param ignoreCase: If set to true, files in the archive can be accessed without
-	writing all letters in the right case.
-	\param ignorePaths: If set to true, files in the added archive can be accessed
-	without its complete path.
-	\return True if the archive was added successful, false if not. */
-	_IRR_DEPRECATED_ virtual bool addFolderFileArchive(const char* filename, bool ignoreCase=true, bool ignorePaths=true)
-	{
-		return addFileArchive(filename, ignoreCase, ignorePaths, EFAT_FOLDER);
-	}
-
-	//! Adds a pak archive to the file system.
-	/** \deprecated This function is provided for compatibility
-	with older versions of Irrlicht and may be removed in Irrlicht 1.9,
-	you should use addFileArchive instead.
-	After calling this, the Irrlicht Engine will search and open files directly from this archive too.
-	This is useful for hiding data from the end user, speeding up file access and making it possible to
-	access for example Quake2/KingPin/Hexen2 .pak files
-	\param filename: Filename of the pak archive to add to the file system.
-	\param ignoreCase: If set to true, files in the archive can be accessed without
-	writing all letters in the right case.
-	\param ignorePaths: If set to true, files in the added archive can be accessed
-	without its complete path.(should not use with Quake2 paks
-	\return True if the archive was added successful, false if not. */
-	_IRR_DEPRECATED_ virtual bool addPakFileArchive(const char* filename, bool ignoreCase=true, bool ignorePaths=true)
-	{
-		return addFileArchive(filename, ignoreCase, ignorePaths, EFAT_PAK);
-	}
-
 	//! Get the current working directory.
 	/** \return Current working directory as a string. */
 	virtual const path& getWorkingDirectory() =0;
@@ -277,21 +225,6 @@ public:
 	/** \param filename Possibly relative file or directory name to query.
 	\result Absolute filename which points to the same file. */
 	virtual path getAbsolutePath(const path& filename) const =0;
-
-	//! Get the directory a file is located in.
-	/** \param filename: The file to get the directory from.
-	\return String containing the directory of the file. */
-	virtual path getFileDir(const path& filename) const =0;
-
-	//! Get the base part of a filename, i.e. the name without the directory part.
-	/** If no directory is prefixed, the full name is returned.
-	\param filename: The file to get the basename from
-	\param keepExtension True if filename with extension is returned otherwise everything
-	after the final '.' is removed as well. */
-	virtual path getFileBasename(const path& filename, bool keepExtension=true) const =0;
-
-	//! flatten a path and file name for example: "/you/me/../." becomes "/you"
-	virtual path& flattenFilename(path& directory, const path& root="/") const =0;
 
 	//! Get the relative filename, relative to the given directory
 	virtual path getRelativeFilename(const path& filename, const path& directory) const =0;
@@ -315,6 +248,104 @@ public:
 	/** \param filename is the string identifying the file which should be tested for existence.
 	\return True if file exists, and false if it does not exist or an error occured. */
 	virtual bool existFile(const path& filename) const =0;
+
+
+
+	//! Get the directory a file is located in.
+	/** \param filename: The file to get the directory from.
+	\return String containing the directory of the file. */
+	static inline path getFileDir(const path& filename)
+    {
+        // find last forward or backslash
+        int32_t lastSlash = filename.findLast('/');
+        const int32_t lastBackSlash = filename.findLast('\\'); //! Just remove those '\' on Linux
+        lastSlash = core::max_(lastSlash, lastBackSlash);
+
+        if ((uint32_t)lastSlash < filename.size())
+            return filename.subString(0, lastSlash);
+        else
+            return path(".");
+    }
+
+	//! flatten a path and file name for example: "/you/me/../." becomes "/you"
+	static inline path& flattenFilename(path& directory, const path& root="/")
+    {
+        handleBackslashes(&directory);
+        if (directory.lastChar() != '/')
+            directory.append('/');
+
+        io::path dir;
+        io::path subdir;
+
+        int32_t lastpos = 0;
+        int32_t pos = 0;
+        bool lastWasRealDir=false;
+
+        while ((pos = directory.findNext('/', lastpos)) >= 0)
+        {
+            subdir = directory.subString(lastpos, pos - lastpos + 1);
+
+            if (subdir == _IRR_TEXT("../"))
+            {
+                if (lastWasRealDir)
+                {
+                    deletePathFromPath(dir, 2);
+                    lastWasRealDir=(dir.size()!=0);
+                }
+                else
+                {
+                    dir.append(subdir);
+                    lastWasRealDir=false;
+                }
+            }
+            else if (subdir == _IRR_TEXT("/"))
+            {
+                dir = root;
+            }
+            else if (subdir != _IRR_TEXT("./"))
+            {
+                dir.append(subdir);
+                lastWasRealDir=true;
+            }
+
+            lastpos = pos + 1;
+        }
+        directory = dir;
+        return directory;
+    }
+
+	//! Get the base part of a filename, i.e. the name without the directory part.
+	/** If no directory is prefixed, the full name is returned.
+	\param filename: The file to get the basename from
+	\param keepExtension True if filename with extension is returned otherwise everything
+	after the final '.' is removed as well. */
+	static inline path getFileBasename(const path& filename, bool keepExtension=true)
+	{
+        // find last forward or backslash
+        int32_t lastSlash = filename.findLast('/');
+        const int32_t lastBackSlash = filename.findLast('\\'); //! Just remove those '\' on Linux
+        lastSlash = core::max_(lastSlash, lastBackSlash);
+
+        // get number of chars after last dot
+        int32_t end = 0;
+        if (!keepExtension)
+        {
+            // take care to search only after last slash to check only for
+            // dots in the filename
+            end = filename.findLast('.'); //! Use a reverse search with iterators to give a limit on how far back to search
+            if (end == -1 || end < lastSlash)
+                end=0;
+            else
+                end = filename.size()-end;
+        }
+
+        if ((uint32_t)lastSlash < filename.size())
+            return filename.subString(lastSlash+1, filename.size()-lastSlash-1-end);
+        else if (end != 0)
+            return filename.subString(0, filename.size()-end);
+        else
+            return filename;
+	}
 };
 
 

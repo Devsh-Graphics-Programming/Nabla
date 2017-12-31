@@ -200,11 +200,11 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 	tex.reallocate(header.numTextures + 1);
 	tex.push_back(0);
 
-	const core::stringc relpath = FileSystem->getFileDir(file->getFileName())+"/";
+	const core::stringc relpath = io::IFileSystem::getFileDir(file->getFileName())+"/";
 	for (i = 1; i < (header.numTextures + 1); i++)
 	{
 		core::stringc path(textures[i-1].fileName);
-		path.replace('\\','/');
+		handleBackslashes(&path);
 		if (FileSystem->existFile(path))
 			tex.push_back(SceneManager->getVideoDriver()->getTexture(path));
 		else

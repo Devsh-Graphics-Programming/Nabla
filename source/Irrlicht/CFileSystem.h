@@ -100,18 +100,6 @@ class CFileSystem : public IFileSystem
         //! Converts a relative path to an absolute (unique) path, resolving symbolic links
         virtual io::path getAbsolutePath(const io::path& filename) const;
 
-        //! Returns the directory a file is located in.
-        /** \param filename: The file to get the directory from */
-        virtual io::path getFileDir(const io::path& filename) const;
-
-        //! Returns the base part of a filename, i.e. the name without the directory
-        //! part. If no directory is prefixed, the full name is returned.
-        /** \param filename: The file to get the basename from */
-        virtual io::path getFileBasename(const io::path& filename, bool keepExtension=true) const;
-
-        //! flatten a path and file name for example: "/you/me/../." becomes "/you"
-        virtual io::path& flattenFilename( io::path& directory, const io::path& root = "/" ) const;
-
         //! Get the relative filename, relative to the given directory
         virtual path getRelativeFilename(const path& filename, const path& directory) const;
 

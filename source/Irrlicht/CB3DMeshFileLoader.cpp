@@ -766,7 +766,7 @@ bool CB3DMeshFileLoader::readChunkTEXS()
 		SB3dTexture& B3dTexture = Textures.getLast();
 
 		readString(B3dTexture.TextureName);
-		B3dTexture.TextureName.replace('\\','/');
+		handleBackslashes(&B3dTexture.TextureName);
 #ifdef _B3D_READER_DEBUG
 		os::Printer::log("read Texture", B3dTexture.TextureName.c_str());
 #endif
@@ -1005,10 +1005,10 @@ void CB3DMeshFileLoader::loadTextures(SB3dMaterial& material) const
 					tex = SceneManager->getVideoDriver()->getTexture(texnameWithUserPath);
 				else if (fs->existFile(B3dTexture->TextureName))
 					tex = SceneManager->getVideoDriver()->getTexture(B3dTexture->TextureName);
-				else if (fs->existFile(fs->getFileDir(B3DFile->getFileName()) +"/"+ fs->getFileBasename(B3dTexture->TextureName)))
-					tex = SceneManager->getVideoDriver()->getTexture(fs->getFileDir(B3DFile->getFileName()) +"/"+ fs->getFileBasename(B3dTexture->TextureName));
+				else if (fs->existFile(IFileSystem::getFileDir(B3DFile->getFileName()) +"/"+ IFileSystem::getFileBasename(B3dTexture->TextureName)))
+					tex = SceneManager->getVideoDriver()->getTexture(IFileSystem::getFileDir(B3DFile->getFileName()) +"/"+ IFileSystem::getFileBasename(B3dTexture->TextureName));
 				else
-					tex = SceneManager->getVideoDriver()->getTexture(fs->getFileBasename(B3dTexture->TextureName));
+					tex = SceneManager->getVideoDriver()->getTexture(IFileSystem::getFileBasename(B3dTexture->TextureName));
 
 				material.Material.setTexture(i, tex);
 			}

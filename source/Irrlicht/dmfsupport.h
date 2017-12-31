@@ -326,7 +326,7 @@ bool GetDMFMaterials(const StringList& RawFile,
 		materials[i].materialID = i;
 		// The path used for the texture
 		materials[i].pathName = temp[2];
-		materials[i].pathName.replace('\\','/');
+		handleBackslashes(&materials[i].pathName);
 		materials[i].pathName += "/";
 		// temp[3] is reserved, temp[4] is the number of texture layers
 		materials[i].textureLayers = core::strtoul10(temp[4].c_str());
@@ -335,14 +335,14 @@ bool GetDMFMaterials(const StringList& RawFile,
 
 		materials[i].textureFlag = atoi(temp1[0].c_str());
 		materials[i].textureName=temp1[1];
-		materials[i].textureName.replace('\\','/');
+		handleBackslashes(&materials[i].textureName);
 		materials[i].textureBlend = atoi(temp1[2].c_str());
 		if(temp.size()>=9)
 		{
 			temp1=SubdivideString(temp[temp.size() - 1],",");
 			materials[i].lightmapFlag=atoi(temp1[0].c_str());
 			materials[i].lightmapName=temp1[1];
-			materials[i].lightmapName.replace('\\','/');
+			handleBackslashes(&materials[i].lightmapName);
 			materials[i].lightmapBlend = atoi(temp1[2].c_str());
 		}
 		else

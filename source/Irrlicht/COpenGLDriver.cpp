@@ -2337,6 +2337,7 @@ bool orderByMip(CImageData* a, CImageData* b)
 video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, ECOLOR_FORMAT format)
 {
+#ifdef _DEBUG
     //if the max coords are not 0, then there is something seriously wrong
     switch (type)
     {
@@ -2359,7 +2360,7 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
             assert(size[0]>0&&size[1]>0&&size[2]>0);
             break;
     }
-
+#endif // _DEBUG
     //do the texture creation flag mumbo jumbo of death.
     if (mipmapLevels==0)
     {
@@ -2752,8 +2753,8 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
     #endif // _DEBUG
             return NULL;
         }
-        else
-            candidateFormat = candidateFormat;
+        //else
+            //candidateFormat = candidateFormat;
     }
 
     //! Sort the mipchain!!!

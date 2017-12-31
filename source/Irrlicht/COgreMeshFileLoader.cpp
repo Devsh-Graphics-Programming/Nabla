@@ -127,7 +127,7 @@ IAnimatedMesh* COgreMeshFileLoader::createMesh(io::IReadFile* file)
 	if (Mesh)
 		Mesh->drop();
 
-	CurrentlyLoadingFromPath = FileSystem->getFileDir(file->getFileName());
+	CurrentlyLoadingFromPath = io::IFileSystem::getFileDir(file->getFileName());
 	loadMaterials(file);
 
 	if (readChunk(file))
@@ -265,7 +265,7 @@ bool COgreMeshFileLoader::readObjectChunk(io::IReadFile* file, ChunkData& parent
 		parent.read += data.read;
 	}
 	if (!skeleton_loaded)
-		loadSkeleton(file, FileSystem->getFileBasename(file->getFileName(), false));
+		loadSkeleton(file, IFileSystem::getFileBasename(file->getFileName(), false));
 	return true;
 }
 
@@ -471,7 +471,7 @@ void COgreMeshFileLoader::composeMeshBufferMaterial(scene::IMeshBuffer* mb, cons
 				if (FileSystem->existFile(Materials[k].Techniques[0].Passes[0].Texture.Filename[i]))
 					material.setTexture(i, Driver->getTexture(Materials[k].Techniques[0].Passes[0].Texture.Filename[i]));
 				else
-					material.setTexture(i, Driver->getTexture((CurrentlyLoadingFromPath+"/"+FileSystem->getFileBasename(Materials[k].Techniques[0].Passes[0].Texture.Filename[i]))));
+					material.setTexture(i, Driver->getTexture((CurrentlyLoadingFromPath+"/"+IFileSystem::getFileBasename(Materials[k].Techniques[0].Passes[0].Texture.Filename[i]))));
 			}
 			break;
 		}
@@ -1256,11 +1256,11 @@ void COgreMeshFileLoader::loadMaterials(io::IReadFile* meshFile)
 #endif
 	core::stringc token;
 	io::IReadFile* file = 0;
-	io::path filename = FileSystem->getFileBasename(meshFile->getFileName(), false) + ".material";
+	io::path filename = IFileSystem::getFileBasename(meshFile->getFileName(), false) + ".material";
 	if (FileSystem->existFile(filename))
 		file = FileSystem->createAndOpenFile(filename);
 	else
-		file = FileSystem->createAndOpenFile(FileSystem->getFileDir(meshFile->getFileName())+"/"+filename);
+		file = FileSystem->createAndOpenFile(io::IFileSystem::getFileDir(meshFile->getFileName())+"/"+filename);
 
 	if (!file)
 	{
@@ -1349,12 +1349,12 @@ bool COgreMeshFileLoader::loadSkeleton(io::IReadFile* meshFile, const core::stri
 	io::path filename;
 	if (FileSystem->existFile(name))
 		file = FileSystem->createAndOpenFile(name);
-	else if (FileSystem->existFile(filename = FileSystem->getFileDir(meshFile->getFileName())+"/"+name))
+	else if (FileSystem->existFile(filename = io::IFileSystem::getFileDir(meshFile->getFileName())+"/"+name))
 		file = FileSystem->createAndOpenFile(filename);
-	else if (FileSystem->existFile(filename = FileSystem->getFileBasename(meshFile->getFileName(), false) + ".skeleton"))
+	else if (FileSystem->existFile(filename = IFileSystem::getFileBasename(meshFile->getFileName(), false) + ".skeleton"))
 		file = FileSystem->createAndOpenFile(filename);
 	else
-		file = FileSystem->createAndOpenFile(FileSystem->getFileDir(meshFile->getFileName())+"/"+filename);
+		file = FileSystem->createAndOpenFile(io::IFileSystem::getFileDir(meshFile->getFileName())+"/"+filename);
 	if (!file)
 	{
 		os::Printer::log("Could not load matching skeleton", name);

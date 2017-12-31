@@ -53,20 +53,20 @@ void CDMFLoader::findFile(bool use_mat_dirs, const core::stringc& path, const co
 	else if (FileSystem->existFile(path+filename))
 		filename = path+filename;
 	// path + texpath + base name
-	else if (use_mat_dirs && FileSystem->existFile(path+matPath+FileSystem->getFileBasename(filename)))
-		filename = path+matPath+FileSystem->getFileBasename(filename);
+	else if (use_mat_dirs && FileSystem->existFile(path+matPath+IFileSystem::getFileBasename(filename)))
+		filename = path+matPath+IFileSystem::getFileBasename(filename);
 	// path + base name
-	else if (FileSystem->existFile(path+FileSystem->getFileBasename(filename)))
-		filename = path+FileSystem->getFileBasename(filename);
+	else if (FileSystem->existFile(path+IFileSystem::getFileBasename(filename)))
+		filename = path+IFileSystem::getFileBasename(filename);
 	// texpath + full name
 	else if (use_mat_dirs && FileSystem->existFile(matPath+filename))
 		filename = matPath+filename;
 	// texpath + base name
-	else if (use_mat_dirs && FileSystem->existFile(matPath+FileSystem->getFileBasename(filename)))
-		filename = matPath+FileSystem->getFileBasename(filename);
+	else if (use_mat_dirs && FileSystem->existFile(matPath+IFileSystem::getFileBasename(filename)))
+		filename = matPath+IFileSystem::getFileBasename(filename);
 	// base name
-	else if (FileSystem->existFile(FileSystem->getFileBasename(filename)))
-		filename = FileSystem->getFileBasename(filename);
+	else if (FileSystem->existFile(IFileSystem::getFileBasename(filename)))
+		filename = IFileSystem::getFileBasename(filename);
 }
 
 
@@ -253,7 +253,7 @@ IAnimatedMesh* CDMFLoader::createMesh(io::IReadFile* file)
 		if ( SceneMgr->getParameters()->existsAttribute(DMF_TEXTURE_PATH) )
 			path = SceneMgr->getParameters()->getAttributeAsString(DMF_TEXTURE_PATH);
 		else
-			path = FileSystem->getFileDir(file->getFileName());
+			path = io::IFileSystem::getFileDir(file->getFileName());
 		path += ('/');
 
 		for (i=0; i<mesh->getMeshBufferCount(); i++)

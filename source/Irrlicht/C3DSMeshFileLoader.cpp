@@ -1038,7 +1038,7 @@ void C3DSMeshFileLoader::loadMaterials(io::IReadFile* file)
 				texture = SceneManager->getVideoDriver()->getTexture(Materials[i].Filename[0]);
 			if (!texture)
 			{
-				const std::string fname = FileSystem->getFileDir(modelFilename) + "/" + FileSystem->getFileBasename(Materials[i].Filename[0]);
+				const std::string fname = IFileSystem::getFileDir(modelFilename) + "/" + IFileSystem::getFileBasename(Materials[i].Filename[0]);
 				if (FileSystem->existFile(fname))
 					texture = SceneManager->getVideoDriver()->getTexture(fname);
 			}
@@ -1056,7 +1056,7 @@ void C3DSMeshFileLoader::loadMaterials(io::IReadFile* file)
 				texture = SceneManager->getVideoDriver()->getTexture(Materials[i].Filename[2]);
 			if (!texture)
 			{
-				const std::string fname = FileSystem->getFileDir(modelFilename) + "/" + FileSystem->getFileBasename(Materials[i].Filename[2]);
+				const std::string fname = IFileSystem::getFileDir(modelFilename) + "/" + IFileSystem::getFileBasename(Materials[i].Filename[2]);
 				if (FileSystem->existFile(fname))
 					texture = SceneManager->getVideoDriver()->getTexture(fname);
 			}
@@ -1079,7 +1079,7 @@ void C3DSMeshFileLoader::loadMaterials(io::IReadFile* file)
 				texture = SceneManager->getVideoDriver()->getTexture(Materials[i].Filename[3]);
 			if (!texture)
 			{
-				const std::string fname = FileSystem->getFileDir(modelFilename) + "/" + FileSystem->getFileBasename(Materials[i].Filename[3]);
+				const std::string fname = IFileSystem::getFileDir(modelFilename) + "/" + IFileSystem::getFileBasename(Materials[i].Filename[3]);
 				if (FileSystem->existFile(fname))
 					texture = SceneManager->getVideoDriver()->getTexture(fname);
 			}
@@ -1104,7 +1104,7 @@ void C3DSMeshFileLoader::loadMaterials(io::IReadFile* file)
 				texture = SceneManager->getVideoDriver()->getTexture(Materials[i].Filename[4]);
 			if (!texture)
 			{
-				const std::string fname = FileSystem->getFileDir(modelFilename) + "/" + FileSystem->getFileBasename(Materials[i].Filename[4]);
+				const std::string fname = IFileSystem::getFileDir(modelFilename) + "/" + IFileSystem::getFileBasename(Materials[i].Filename[4]);
 				if (FileSystem->existFile(fname))
 					texture = SceneManager->getVideoDriver()->getTexture(fname);
 			}

@@ -19,7 +19,7 @@ typedef core::string<char> path;
 //! Used in places where we identify objects by a filename, but don't actually work with the real filename
 /** Irrlicht is internally not case-sensitive when it comes to names.
     Also this class is a first step towards support for correctly serializing renamed objects.
-*/
+*
 struct SNamedPath
 {
 	//! Constructor
@@ -67,9 +67,10 @@ struct SNamedPath
 		return core::stringw(getPath());
 	}
 
-protected:
+
+
 	// convert the given path string to a name string.
-	path PathToName(const path& p) const
+	static inline path PathToName(const path& p)
 	{
 		path name(p);
 		name.replace( '\\', '/' );
@@ -79,6 +80,64 @@ protected:
 
 private:
 	path Path;
+	path InternalName;
+};
+*/
+
+struct SNamedPath
+{
+	//! Constructor
+	SNamedPath() {}
+
+	//! Constructor
+	SNamedPath(const path& p) : InternalName( PathToName(p) )
+	{
+	}
+
+	//! Is smaller comparator
+	inline bool operator <(const SNamedPath& other) const
+	{
+		return InternalName < other.InternalName;
+	}
+
+	//! Set the path.
+	inline void setPath(const path& p)
+	{
+		InternalName = PathToName(p);
+	}
+
+	//! Get the name which is used to identify the file.
+	//! This string is similar to the names and filenames used before Irrlicht 1.7
+	inline const path& getInternalName() const
+	{
+		return InternalName;
+	}
+/*
+	//! Implicit cast to io::path
+	operator core::stringc() const
+	{
+		return getInternalName();
+	}
+	//! Implicit cast to io::path
+	operator core::stringw() const
+	{
+		return core::stringw(getInternalName());
+	}
+*/
+
+	// convert the given path string to a name string.
+	static inline path PathToName(const path& p)
+	{
+		path name(p);
+		//handleBackslashes(&name);
+		name.replace('\\' , '/'); //! On Linux just delete them
+#ifdef _IRR_POSIX_API_
+		name.make_lower();
+#endif // _IRR_POSIX_API_
+		return name;
+	}
+
+private:
 	path InternalName;
 };
 
