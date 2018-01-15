@@ -135,7 +135,6 @@ P.S. Maybe Ghost == Pending
                 ///====>ALWAYS FORCE TO FALSE<====
                 EGEB_POLYGON_SMOOTH,
                 EGEB_LINE_SMOOTH,
-                EGEB_POINT_SMOOTH,
                 EGEB_COLOR_LOGIC_OP,
                 EGEB_DEPTH_CLAMP,
                 EGEB_PROGRAM_POINT_SIZE,
@@ -179,7 +178,6 @@ P.S. Maybe Ghost == Pending
                 EGPP_COMPRESSED_BLOCK_SIZE,
                 EGPP_ROW_LENGTH,
                 EGPP_IMAGE_HEIGHT,
-                EGPP_LSB_FIRST,
                 EGPP_SWAP_BYTES,
                 EGPP_SKIP_PIXELS,
                 EGPP_SKIP_ROWS,
@@ -196,7 +194,6 @@ P.S. Maybe Ghost == Pending
                 EGUPA_COMPRESSED_BLOCK_SIZE,
                 EGUPA_ROW_LENGTH,
                 EGUPA_IMAGE_HEIGHT,
-                EGUPA_LSB_FIRST,
                 EGUPA_SWAP_BYTES,
                 EGUPA_SKIP_PIXELS,
                 EGUPA_SKIP_ROWS,
@@ -510,9 +507,6 @@ P.S. Maybe Ghost == Pending
                     case EGEB_LINE_SMOOTH:
                         return GL_LINE_SMOOTH;
                         break;
-                    case EGEB_POINT_SMOOTH:
-                        return GL_POINT_SMOOTH;
-                        break;
                     case EGEB_COLOR_LOGIC_OP:
                         return GL_COLOR_LOGIC_OP;
                         break;
@@ -633,9 +627,6 @@ P.S. Maybe Ghost == Pending
                         case (EGPP_IMAGE_HEIGHT):
                             return GL_PACK_IMAGE_HEIGHT;
                             break;
-                        case (EGPP_LSB_FIRST):
-                            return GL_PACK_LSB_FIRST;
-                            break;
                         case (EGPP_SWAP_BYTES):
                             return GL_PACK_SWAP_BYTES;
                             break;
@@ -677,9 +668,6 @@ P.S. Maybe Ghost == Pending
                             break;
                         case (EGPP_IMAGE_HEIGHT+EGPP_COUNT):
                             return GL_UNPACK_IMAGE_HEIGHT;
-                            break;
-                        case (EGPP_LSB_FIRST+EGPP_COUNT):
-                            return GL_UNPACK_LSB_FIRST;
                             break;
                         case (EGPP_SWAP_BYTES+EGPP_COUNT):
                             return GL_UNPACK_SWAP_BYTES;

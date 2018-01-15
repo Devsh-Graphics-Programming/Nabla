@@ -213,7 +213,6 @@ uint32_t COpenGLExtensionHandler::MaxArrayTextureLayers = 2048;
 uint8_t COpenGLExtensionHandler::MaxTextureUnits = 96;
 uint8_t COpenGLExtensionHandler::MaxAnisotropy = 8;
 uint8_t COpenGLExtensionHandler::MaxUserClipPlanes = 8;
-uint8_t COpenGLExtensionHandler::MaxAuxBuffers = 0;
 uint8_t COpenGLExtensionHandler::MaxMultipleRenderTargets = 4;
 uint32_t COpenGLExtensionHandler::MaxIndices = 65535;
 uint32_t COpenGLExtensionHandler::MaxVertices = 0xffffffffu;
@@ -874,8 +873,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
 	glGetIntegerv(GL_MAX_CLIP_DISTANCES, &num);
 	MaxUserClipPlanes=static_cast<uint8_t>(num);
-	glGetIntegerv(GL_AUX_BUFFERS, &num);
-	MaxAuxBuffers=static_cast<uint8_t>(num);
     glGetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
     MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 

@@ -94,6 +94,8 @@ namespace scene
 		/** \return True if the line was clipped, false if not */
 		bool clipLine(core::line3d<float>& line) const;
 
+		bool cullPoint(const core::vector3d<float>& point) const;
+
 		//! the position of the camera
 		core::vector3df cameraPosition;
 
@@ -305,6 +307,17 @@ namespace scene
 			}
 		}
 		return wasClipped;
+	}
+
+
+	inline bool SViewFrustum::cullPoint(const core::vector3d<float>& point) const
+	{
+		for (uint32_t i = 0; i < VF_PLANE_COUNT; ++i)
+		{
+			if (planes[i].classifyPointRelation(point) == core::ISREL3D_FRONT)
+				return true;
+		}
+		return false;
 	}
 
 

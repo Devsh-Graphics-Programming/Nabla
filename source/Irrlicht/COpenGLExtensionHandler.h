@@ -954,8 +954,6 @@ class COpenGLExtensionHandler
 	static uint8_t MaxAnisotropy;
 	//! Number of user clipplanes
 	static uint8_t MaxUserClipPlanes;
-	//! Number of auxiliary buffers
-	static uint8_t MaxAuxBuffers;
 	//! Number of rendertargets available as MRTs
 	static uint8_t MaxMultipleRenderTargets;
 	//! Optimal number of indices per meshbuffer

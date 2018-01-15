@@ -903,7 +903,9 @@
     <ClInclude Include="CDefaultSceneNodeAnimatorFactory.h" />
     <ClInclude Include="CDefaultSceneNodeFactory.h" />
     <ClInclude Include="CGeometryCreator.h" />
-    <ClInclude Include="CIrrDeviceWin32.h" />
+    <ClInclude Include="CIrrDeviceWin32.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="CMeshCache.h" />
     <ClInclude Include="CMeshManipulator.h" />
     <ClInclude Include="CMeshSceneNodeInstanced.h" />
@@ -983,10 +985,6 @@
     <ClInclude Include="CPLYMeshWriter.h" />
     <ClInclude Include="CSTLMeshWriter.h" />
     <ClInclude Include="CVideoModeList.h" />
-    <ClInclude Include="CSoftwareDriver.h" />
-    <ClInclude Include="CSoftwareTexture.h" />
-    <ClInclude Include="CTRTextureGouraud.h" />
-    <ClInclude Include="CZBuffer.h" />
     <ClInclude Include="ITriangleRenderer.h" />
     <ClInclude Include="IZBuffer.h" />
     <ClInclude Include="resource.h" />
@@ -1034,10 +1032,11 @@
     <ClInclude Include="CImageLoaderPSD.h" />
     <ClInclude Include="CImageLoaderRGB.h" />
     <ClInclude Include="CImageLoaderTGA.h" />
-    <ClInclude Include="CImageLoaderWAL.h" />
     <ClInclude Include="CDepthBuffer.h" />
     <ClInclude Include="CSoftware2MaterialRenderer.h" />
-    <ClInclude Include="CSoftwareDriver2.h" />
+    <ClInclude Include="CSoftwareDriver2.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="CSoftwareTexture2.h" />
     <ClInclude Include="IBurningShader.h" />
     <ClInclude Include="IDepthBuffer.h" />
@@ -1083,7 +1082,6 @@
     <ClInclude Include="bzip2\bzlib.h" />
     <ClInclude Include="bzip2\bzlib_private.h" />
     <ClInclude Include="CIrrDeviceConsole.h" />
-    <ClInclude Include="CIrrDeviceFB.h" />
     <ClInclude Include="CIrrDeviceLinux.h" />
     <ClInclude Include="CIrrDeviceSDL.h" />
     <ClInclude Include="CIrrDeviceStub.h" />
@@ -1112,13 +1110,18 @@
     <ClCompile Include="CDefaultSceneNodeFactory.cpp" />
     <ClCompile Include="CGeometryCreator.cpp" />
     <ClCompile Include="CGPUTransientBuffer.cpp" />
-    <ClCompile Include="CIrrDeviceWin32.cpp" />
+    <ClCompile Include="CIrrDeviceWin32.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="CMeshCache.cpp" />
     <ClCompile Include="CMeshManipulator.cpp" />
     <ClCompile Include="CMeshSceneNodeInstanced.cpp" />
     <ClCompile Include="convert_utf\ConvertUTF.c" />
     <ClCompile Include="COpenCLHandler.cpp" />
+    <ClCompile Include="COpenGL2DTexture.cpp" />
+    <ClCompile Include="COpenGL2DTextureArray.cpp" />
     <ClCompile Include="COpenGL3DTexture.cpp" />
+    <ClCompile Include="COpenGLCubemapTexture.cpp" />
     <ClCompile Include="COpenGLFrameBuffer.cpp" />
     <ClCompile Include="COpenGLOcclusionQuery.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|Win32'">true</ExcludedFromBuild>
@@ -1172,6 +1175,8 @@
     <ClCompile Include="CPLYMeshFileLoader.cpp" />
     <ClCompile Include="CSkinnedMesh.cpp" />
     <ClCompile Include="CSTLMeshFileLoader.cpp" />
+    <ClCompile Include="CTRTextureGouraudAlpha.cpp" />
+    <ClCompile Include="CTRTextureGouraudAlphaNoZ.cpp" />
     <ClCompile Include="CXMeshFileLoader.cpp" />
     <ClCompile Include="CAnimatedMeshSceneNode.cpp" />
     <ClCompile Include="CBillboardSceneNode.cpp" />
@@ -1194,19 +1199,6 @@
     <ClCompile Include="CPLYMeshWriter.cpp" />
     <ClCompile Include="CSTLMeshWriter.cpp" />
     <ClCompile Include="CVideoModeList.cpp" />
-    <ClCompile Include="CSoftwareDriver.cpp" />
-    <ClCompile Include="CSoftwareTexture.cpp" />
-    <ClCompile Include="CTRFlat.cpp" />
-    <ClCompile Include="CTRFlatWire.cpp" />
-    <ClCompile Include="CTRGouraud.cpp" />
-    <ClCompile Include="CTRGouraudWire.cpp" />
-    <ClCompile Include="CTRTextureFlat.cpp" />
-    <ClCompile Include="CTRTextureFlatWire.cpp" />
-    <ClCompile Include="CTRTextureGouraud.cpp" />
-    <ClCompile Include="CTRTextureGouraudAdd.cpp" />
-    <ClCompile Include="CTRTextureGouraudNoZ.cpp" />
-    <ClCompile Include="CTRTextureGouraudWire.cpp" />
-    <ClCompile Include="CZBuffer.cpp" />
     <ClCompile Include="COpenGLDriver.cpp" />
     <ClCompile Include="COpenGLExtensionHandler.cpp" />
     <ClCompile Include="COpenGLShaderMaterialRenderer.cpp">
@@ -1247,31 +1239,18 @@
     <ClCompile Include="CImageLoaderPSD.cpp" />
     <ClCompile Include="CImageLoaderRGB.cpp" />
     <ClCompile Include="CImageLoaderTGA.cpp" />
-    <ClCompile Include="CImageLoaderWAL.cpp" />
     <ClCompile Include="CBurningShader_Raster_Reference.cpp" />
     <ClCompile Include="CDepthBuffer.cpp" />
-    <ClCompile Include="CSoftwareDriver2.cpp" />
+    <ClCompile Include="CSoftwareDriver2.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="CSoftwareTexture2.cpp" />
     <ClCompile Include="CTRGouraud2.cpp" />
-    <ClCompile Include="CTRGouraudAlpha2.cpp" />
-    <ClCompile Include="CTRGouraudAlphaNoZ2.cpp" />
-    <ClCompile Include="CTRNormalMap.cpp" />
-    <ClCompile Include="CTRStencilShadow.cpp" />
-    <ClCompile Include="CTRTextureBlend.cpp" />
-    <ClCompile Include="CTRTextureDetailMap2.cpp" />
     <ClCompile Include="CTRTextureGouraud2.cpp" />
     <ClCompile Include="CTRTextureGouraudAdd2.cpp" />
     <ClCompile Include="CTRTextureGouraudAddNoZ2.cpp" />
-    <ClCompile Include="CTRTextureGouraudAlpha.cpp" />
-    <ClCompile Include="CTRTextureGouraudAlphaNoZ.cpp" />
     <ClCompile Include="CTRTextureGouraudNoZ2.cpp" />
     <ClCompile Include="CTRTextureGouraudVertexAlpha2.cpp" />
-    <ClCompile Include="CTRTextureLightMap2_Add.cpp" />
-    <ClCompile Include="CTRTextureLightMap2_M1.cpp" />
-    <ClCompile Include="CTRTextureLightMap2_M2.cpp" />
-    <ClCompile Include="CTRTextureLightMap2_M4.cpp" />
-    <ClCompile Include="CTRTextureLightMapGouraud2_M4.cpp" />
-    <ClCompile Include="CTRTextureWire2.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
     <ClCompile Include="Irrlicht.cpp" />
@@ -1368,7 +1347,6 @@
     <ClCompile Include="bzip2\huffman.c" />
     <ClCompile Include="bzip2\randtable.c" />
     <ClCompile Include="CIrrDeviceConsole.cpp" />
-    <ClCompile Include="CIrrDeviceFB.cpp" />
     <ClCompile Include="CIrrDeviceLinux.cpp" />
     <ClCompile Include="CIrrDeviceSDL.cpp" />
     <ClCompile Include="CIrrDeviceStub.cpp" />

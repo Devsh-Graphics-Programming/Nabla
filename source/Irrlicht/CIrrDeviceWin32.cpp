@@ -1228,7 +1228,7 @@ bool CIrrDeviceWin32::present(video::IImage* image, void* windowId, core::rect<i
 	{
 		RECT rect;
 		GetClientRect(hwnd, &rect);
-		const void* memory = (const void *)image->lock();
+		const void* memory = (const void *)image->getData();
 
 		BITMAPV4HEADER bi;
 		ZeroMemory (&bi, sizeof(bi));
@@ -1257,7 +1257,7 @@ bool CIrrDeviceWin32::present(video::IImage* image, void* windowId, core::rect<i
 					memory, (const BITMAPINFO*)(&bi), DIB_RGB_COLORS, SRCCOPY);
 		}
 
-		image->unlock();
+//		image->unlock();
 
 		ReleaseDC(hwnd, dc);
 	}
@@ -1843,7 +1843,7 @@ HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, co
 	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
 	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
-	const uint8_t* data = (const uint8_t*)tex->lock();
+	const uint8_t* data = (const uint8_t*)tex->getData();
 	data += sourceRect.UpperLeftCorner.Y*tex->getPitch();
 	for ( int32_t y = 0; y < sourceRect.getHeight(); ++y )
 	{
@@ -1867,7 +1867,7 @@ HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, co
 		}
 		data += bytesRightGap;
 	}
-	tex->unlock();
+//	tex->unlock();
 
 	SelectObject(andDc, oldAndBitmap);
 	SelectObject(xorDc, oldXorBitmap);

@@ -681,18 +681,6 @@
     <ClInclude Include="CVideoModeList.h">
       <Filter>Irrlicht\video</Filter>
     </ClInclude>
-    <ClInclude Include="CSoftwareDriver.h">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClInclude>
-    <ClInclude Include="CSoftwareTexture.h">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClInclude>
-    <ClInclude Include="CTRTextureGouraud.h">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClInclude>
-    <ClInclude Include="CZBuffer.h">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClInclude>
     <ClInclude Include="ITriangleRenderer.h">
       <Filter>Irrlicht\video\Software</Filter>
     </ClInclude>
@@ -787,9 +775,6 @@
       <Filter>Irrlicht\video\Null\Loader</Filter>
     </ClInclude>
     <ClInclude Include="CImageLoaderTGA.h">
-      <Filter>Irrlicht\video\Null\Loader</Filter>
-    </ClInclude>
-    <ClInclude Include="CImageLoaderWAL.h">
       <Filter>Irrlicht\video\Null\Loader</Filter>
     </ClInclude>
     <ClInclude Include="CDepthBuffer.h">
@@ -928,9 +913,6 @@
       <Filter>Irrlicht\irr\extern\bzip2</Filter>
     </ClInclude>
     <ClInclude Include="CIrrDeviceConsole.h">
-      <Filter>Irrlicht\irr\device</Filter>
-    </ClInclude>
-    <ClInclude Include="CIrrDeviceFB.h">
       <Filter>Irrlicht\irr\device</Filter>
     </ClInclude>
     <ClInclude Include="CIrrDeviceLinux.h">
@@ -1176,45 +1158,6 @@
     <ClCompile Include="CVideoModeList.cpp">
       <Filter>Irrlicht\video</Filter>
     </ClCompile>
-    <ClCompile Include="CSoftwareDriver.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CSoftwareTexture.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRFlat.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRFlatWire.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRGouraud.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRGouraudWire.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureFlat.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureFlatWire.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureGouraud.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureGouraudAdd.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureGouraudNoZ.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureGouraudWire.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
-    <ClCompile Include="CZBuffer.cpp">
-      <Filter>Irrlicht\video\Software</Filter>
-    </ClCompile>
     <ClCompile Include="COpenGLDriver.cpp">
       <Filter>Irrlicht\video\OpenGL</Filter>
     </ClCompile>
@@ -1290,9 +1233,6 @@
     <ClCompile Include="CImageLoaderTGA.cpp">
       <Filter>Irrlicht\video\Null\Loader</Filter>
     </ClCompile>
-    <ClCompile Include="CImageLoaderWAL.cpp">
-      <Filter>Irrlicht\video\Null\Loader</Filter>
-    </ClCompile>
     <ClCompile Include="CBurningShader_Raster_Reference.cpp">
       <Filter>Irrlicht\video\Burning Video</Filter>
     </ClCompile>
@@ -1308,24 +1248,6 @@
     <ClCompile Include="CTRGouraud2.cpp">
       <Filter>Irrlicht\video\Burning Video</Filter>
     </ClCompile>
-    <ClCompile Include="CTRGouraudAlpha2.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRGouraudAlphaNoZ2.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRNormalMap.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRStencilShadow.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureBlend.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureDetailMap2.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
     <ClCompile Include="CTRTextureGouraud2.cpp">
       <Filter>Irrlicht\video\Burning Video</Filter>
     </ClCompile>
@@ -1335,34 +1257,10 @@
     <ClCompile Include="CTRTextureGouraudAddNoZ2.cpp">
       <Filter>Irrlicht\video\Burning Video</Filter>
     </ClCompile>
-    <ClCompile Include="CTRTextureGouraudAlpha.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureGouraudAlphaNoZ.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
     <ClCompile Include="CTRTextureGouraudNoZ2.cpp">
       <Filter>Irrlicht\video\Burning Video</Filter>
     </ClCompile>
     <ClCompile Include="CTRTextureGouraudVertexAlpha2.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureLightMap2_Add.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureLightMap2_M1.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureLightMap2_M2.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureLightMap2_M4.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureLightMapGouraud2_M4.cpp">
-      <Filter>Irrlicht\video\Burning Video</Filter>
-    </ClCompile>
-    <ClCompile Include="CTRTextureWire2.cpp">
       <Filter>Irrlicht\video\Burning Video</Filter>
     </ClCompile>
     <ClCompile Include="IBurningShader.cpp">
@@ -1644,9 +1542,6 @@
     <ClCompile Include="CIrrDeviceConsole.cpp">
       <Filter>Irrlicht\irr\device</Filter>
     </ClCompile>
-    <ClCompile Include="CIrrDeviceFB.cpp">
-      <Filter>Irrlicht\irr\device</Filter>
-    </ClCompile>
     <ClCompile Include="CIrrDeviceLinux.cpp">
       <Filter>Irrlicht\irr\device</Filter>
     </ClCompile>
@@ -1734,6 +1629,15 @@
     <ClCompile Include="COSOperator.cpp" />
     <ClCompile Include="convert_utf\ConvertUTF.c" />
     <ClCompile Include="coreutil.cpp" />
+    <ClCompile Include="CTRTextureGouraudAlpha.cpp">
+      <Filter>Irrlicht\video\Burning Video</Filter>
+    </ClCompile>
+    <ClCompile Include="CTRTextureGouraudAlphaNoZ.cpp">
+      <Filter>Irrlicht\video\Burning Video</Filter>
+    </ClCompile>
+    <ClCompile Include="COpenGLCubemapTexture.cpp" />
+    <ClCompile Include="COpenGL2DTexture.cpp" />
+    <ClCompile Include="COpenGL2DTextureArray.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Irrlicht.rc" />
