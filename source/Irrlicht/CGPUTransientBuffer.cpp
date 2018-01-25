@@ -314,7 +314,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
                                     }
                                 }
 
-                                if (j<i-1)
+                                if (j+1<i)
                                 {
                                     j++;
                                     for (; i<allocs.size(); i++,j++)
@@ -348,7 +348,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
                     continue;
                 }
 
-                if (j<i-1)
+                if (j+1<i)
                 {
                     allocs[j].end = allocs[i].start;
                     j++;
@@ -1043,7 +1043,7 @@ bool IGPUTransientBuffer::waitRangeFences(const size_t& start, const size_t& end
                         {
                             case EDFR_TIMEOUT_EXPIRED:
                                 allocs[j].end = allocs[i].start;
-                                if (j<i-1)
+                                if (j+1<i)
                                 {
                                     j++;
                                     for (; i<allocs.size(); i++,j++)
@@ -1080,7 +1080,8 @@ bool IGPUTransientBuffer::waitRangeFences(const size_t& start, const size_t& end
                                 allocs[j].fence->drop();
                                 allocs[j].fence = NULL;
 
-                                totalTrueFreeSpace += allocs[i].start-allocs[j].start;
+                                if (allocs[j].state==Allocation::EAS_FREE)
+                                    totalTrueFreeSpace += allocs[i].start-allocs[j].start;
 
                                 retest = !allocs[i].fence;
                                 break;
@@ -1097,7 +1098,7 @@ bool IGPUTransientBuffer::waitRangeFences(const size_t& start, const size_t& end
                 continue;
             }
 
-            if (j<i-1)
+            if (j+1<i)
             {
                 allocs[j].end = allocs[i].start;
                 j++;
@@ -1125,7 +1126,8 @@ bool IGPUTransientBuffer::waitRangeFences(const size_t& start, const size_t& end
                     allocs[j].fence->drop();
                     allocs[j].fence = NULL;
 
-                    totalTrueFreeSpace += allocs.back().end-allocs[j].start;
+                    if (allocs[j].state==Allocation::EAS_FREE)
+                        totalTrueFreeSpace += allocs[i-1].end-allocs[j].start;
 
                     break;
             }
@@ -1205,7 +1207,7 @@ void IGPUTransientBuffer::DefragDescriptor()
                 trueFreeIntervalSize = 0;
             }
 
-            if (j<i-1)
+            if (j+1<i)
             {
                 allocs[j].end = allocs[i].start;
                 j++;

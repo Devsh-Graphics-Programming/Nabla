@@ -56,9 +56,9 @@ ICPUMesh* CXMeshFileLoader::createMesh(io::IReadFile* f)
 	if (!f)
 		return 0;
 
-#ifdef _XREADER_DEBUG
+//#ifdef _XREADER_DEBUG
 	uint32_t time = os::Timer::getRealTime();
-#endif
+//#endif
 
 	AnimatedMesh = new CCPUSkinnedMesh();
     ICPUMesh* retVal = NULL;
@@ -169,13 +169,13 @@ ICPUMesh* CXMeshFileLoader::createMesh(io::IReadFile* f)
 		AnimatedMesh->drop();
 		AnimatedMesh = 0;
 	}
-#ifdef _XREADER_DEBUG
+//#ifdef _XREADER_DEBUG
 	time = os::Timer::getRealTime() - time;
 	std::ostringstream tmpString("Time to load ");
 	tmpString.seekp(0,std::ios_base::end);
 	tmpString << (BinaryFormat ? "binary" : "ascii") << " X file: " << time << "ms";
 	os::Printer::log(tmpString.str());
-#endif
+//#endif
 	//Clear up
 
 	MajorVersion=0;
