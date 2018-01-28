@@ -447,6 +447,11 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_STL_WRITER_
 #undef _IRR_COMPILE_WITH_STL_WRITER_
 #endif
+//! Define _IRR_COMPILE_WITH_BAW_WRITER_ if you want to write .baw files
+#define _IRR_COMPILE_WITH_BAW_WRITER_
+#ifdef NO_IRR_COMPILE_WITH_BAW_WRITER_
+#undef _IRR_COMPILE_WITH_BAW_WRITER_
+#endif
 #ifndef NEW_MESHES
 //! Define _IRR_COMPILE_WITH_OBJ_WRITER_ if you want to write .obj files
 #define _IRR_COMPILE_WITH_OBJ_WRITER_

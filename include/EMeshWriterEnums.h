@@ -25,7 +25,10 @@ namespace scene
 		EMWT_OBJ          = MAKE_IRR_ID('o','b','j',0),
 
 		//! PLY mesh writer for .ply files
-		EMWT_PLY          = MAKE_IRR_ID('p','l','y',0)
+		EMWT_PLY          = MAKE_IRR_ID('p','l','y',0),
+
+		//! BAW mesh writer for .baw files (custom BaW format)
+		EMWT_BAW		  = MAKE_IRR_ID('b', 'a', 'w', 0)
 	};
 
 

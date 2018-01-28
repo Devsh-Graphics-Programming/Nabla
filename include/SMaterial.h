@@ -116,6 +116,7 @@ namespace video
 	//! Maximum number of texture an SMaterial can have.
 	const uint32_t MATERIAL_MAX_TEXTURES = _IRR_MATERIAL_MAX_TEXTURES_;
 
+#include "irrpack.h"
 	//! Struct for holding parameters for a material renderer
 	class SMaterial
 	{
@@ -410,7 +411,9 @@ namespace video
 				MaterialType==EMT_TRANSPARENT_ALPHA_CHANNEL ||
 				MaterialType==EMT_TRANSPARENT_VERTEX_ALPHA;
 		}
-	};
+	} PACK_STRUCT;
+
+#include "irrunpack.h"
 
 	//! global const identity Material
 	IRRLICHT_API extern SMaterial IdentityMaterial;

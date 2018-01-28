@@ -56,6 +56,7 @@ namespace video
 	static const char* const aMaxFilterNames[] = {
 			"NEAREST","LINEAR", 0};
 
+#include "irrpack.h"
     //! Things I have Purposefully Omitted:
     /** - Texture Border Colors (deprecated in openGL)
     **  - Texture lod range (not used yet)
@@ -130,7 +131,7 @@ namespace video
 		}
 
 		uint64_t calculateHash(const IVirtualTexture* tex) const;
-    };
+    } PACK_STRUCT;
 
 	//! Struct for holding material parameters which exist per texture layer
 	class SMaterialLayer
@@ -191,7 +192,9 @@ namespace video
 
 	private:
 		friend class SMaterial;
-	};
+	} PACK_STRUCT;
+
+#include "irrunpack.h"
 
 } // end namespace video
 } // end namespace irr
