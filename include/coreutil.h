@@ -26,25 +26,6 @@ namespace core
 	\brief File containing useful basic utility functions
 */
 
-//depr
-inline int64_t atolonglong(
-	const std::string& inString)
-{
-    int64_t x;
-    std::istringstream tmp(inString);
-    tmp >> x;
-	return x;
-}
-
-//depr
-inline std::string longlongtoa(
-	int64_t inVal)
-{
-    std::ostringstream tmp;
-    tmp << inVal;
-	return tmp.str();
-}
-
 template<class T>
 inline void findAndReplaceAll(T& source, T const& findStr, T const& replaceStr)
 {

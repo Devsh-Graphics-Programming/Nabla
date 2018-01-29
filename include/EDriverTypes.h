@@ -18,16 +18,12 @@ namespace video
 		render and display any graphics. */
 		EDT_NULL,
 
-		//! The Burning's Software Renderer, an alternative software renderer
-		/** Basically it can be described as the Irrlicht Software
-		renderer on steroids. It rasterizes 3D geometry perfectly: It
-		is able to perform correct 3d clipping, perspective correct
-		texture mapping, perspective correct color mapping, and renders
-		sub pixel correct, sub texel correct primitives. In addition,
-		it does bilinear texel filtering and supports more materials
-		than the EDT_SOFTWARE driver. This renderer has been written
-		entirely by Thomas Alten, thanks a lot for this huge
-		contribution. */
+		//! The Burning's Software Renderer, stripped down
+		/** Basically it's the Burning's Software Renderer from vanilla Irrlicht.
+		It was stripped down to only provide rendering simple textured polygons
+		for a GUI rendering fallback when OpenGL is not available.
+        It still can do bilinear texel filtering. This renderer has been written
+		entirely by Thomas Alten, and backported by DevSH. */
 		EDT_BURNINGSVIDEO,
 
 		//! OpenGL device, available on most platforms.

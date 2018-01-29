@@ -783,10 +783,14 @@ bool IGPUTransientBuffer::Free(const size_t& start, const size_t& end)
 #endif // _DEBUG
         return false;
     }
+
     for (; index<allocs.size()&&allocs[index].end<=end; index++)
     {
         if (allocs[index].state==Allocation::EAS_PENDING_RENDER_CMD||allocs[index].state==Allocation::EAS_ALLOCATED)
         {
+            if (!allocs[index].fence)
+                totalTrueFreeSpace += allocs[index].end-allocs[index].start;
+
             allocs[index].state = Allocation::EAS_FREE;
         }
         else
@@ -803,6 +807,7 @@ bool IGPUTransientBuffer::Free(const size_t& start, const size_t& end)
             return false;
         }
     }
+
     if (index<allocs.size()&&allocs[index].start<end)
     {
         if (allocs[index].state==Allocation::EAS_PENDING_RENDER_CMD||allocs[index].state==Allocation::EAS_ALLOCATED)
@@ -815,7 +820,10 @@ bool IGPUTransientBuffer::Free(const size_t& start, const size_t& end)
                 tmp.fence->grab();
             }
             else
+            {
                 tmp.fence = NULL;
+                totalTrueFreeSpace += end-allocs[index].start;
+            }
             tmp.start = end;
             tmp.end = allocs[index].end;
             allocs[index].end = end;
@@ -930,7 +938,7 @@ bool IGPUTransientBuffer::fenceRangeUsedByGPU(const size_t& start, const size_t&
         else if (allocs[index].state==Allocation::EAS_ALLOCATED)
         {
 #ifdef _DEBUG
-            os::Printer::log("BAD FREE ATTEMPTED",ELL_WARNING);
+            os::Printer::log("BAD FENCE ATTEMPTED",ELL_WARNING);
 #endif // _DEBUG
             if (mutex)
                 mutex->Release();
@@ -962,7 +970,7 @@ bool IGPUTransientBuffer::fenceRangeUsedByGPU(const size_t& start, const size_t&
         else if (allocs[index].state==Allocation::EAS_ALLOCATED)
         {
 #ifdef _DEBUG
-            os::Printer::log("BAD FREE ATTEMPTED",ELL_WARNING);
+            os::Printer::log("BAD FENCE ATTEMPTED",ELL_WARNING);
 #endif // _DEBUG
             if (mutex)
                 mutex->Release();
@@ -1075,7 +1083,7 @@ bool IGPUTransientBuffer::waitRangeFences(const size_t& start, const size_t& end
                                         timeOutNs -= timeDiff;
                                     lastMeasuredTime = timeMeasuredNs;
                                 }
-                                break;
+                                //! NO BREAK ON PURPOSE
                             default: //any other thing
                                 allocs[j].fence->drop();
                                 allocs[j].fence = NULL;
@@ -1137,9 +1145,15 @@ bool IGPUTransientBuffer::waitRangeFences(const size_t& start, const size_t& end
     //trim and fix the end
     if (j+1<i)
     {
-        allocs[j++].end = allocs[i-1].end;
-        for (; i<allocs.size(); i++,j++)
-            allocs[j] = allocs[i];
+        if (i<allocs.size())
+        {
+            allocs[j++].end = allocs[i].start;
+            for (; i<allocs.size(); i++,j++)
+                allocs[j] = allocs[i];
+        }
+        else
+            allocs[j++].end = allocs.back().end;
+
         allocs.resize(j);
     }
 

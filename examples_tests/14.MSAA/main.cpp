@@ -168,11 +168,22 @@ int main()
 
     //! We use a renderbuffer because we don't intend on reading from it
     const uint32_t numberOfSamples = 8;
-    video::IRenderBuffer* color = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_A8R8G8B8);
-    video::IRenderBuffer* depth = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_DEPTH32F);
     video::IFrameBuffer* framebuffer = driver->addFrameBuffer();
-    framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,color);
-    framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depth);
+    if (true)
+    {
+        video::IRenderBuffer* color = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_A8R8G8B8);
+        video::IRenderBuffer* depth = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_DEPTH32F);
+        framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,color);
+        framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depth);
+    }/*
+    else
+    {
+        numberOfSamples,&params.WindowSize.Width
+        video::ITexture* color = driver->addTexture(,video::ECF_A8R8G8B8);
+        video::ITexture* depth = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_DEPTH32F);
+        framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,color);
+        framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depth);
+    }*/
 
 
 	uint64_t lastFPSTime = 0;

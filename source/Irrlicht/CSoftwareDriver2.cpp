@@ -513,17 +513,7 @@ void CBurningVideoDriver::setCurrentShader()
 //! queries the features of the driver, returns true if feature is available
 bool CBurningVideoDriver::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
 {
-	if (!FeatureEnabled[feature])
-		return false;
-
-	switch (feature)
-	{
-	case EVDF_STENCIL_BUFFER:
-		return true;
-
-	default:
-		return false;
-	}
+	return false;
 }
 
 
