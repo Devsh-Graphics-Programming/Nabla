@@ -62,6 +62,7 @@ namespace irr {
 			video::ITexture* tex;
 			if (!(tex = dynamic_cast<video::ITexture*>(_obj)))
 				return;
+			//! @todo @bug here we get absolute path and we want relative
 			const io::path path = tex->getName().getInternalName();
 			const uint32_t len = std::strlen(path.c_str()) + 1;
 
@@ -142,8 +143,7 @@ namespace irr {
 				case core::Blob::EBT_MESH_BUFFER:
 					exportAsBlob(reinterpret_cast<ICPUMeshBuffer*>(m_headers[i].handle), i, _file);
 					break;
-				case core::Blob::EBT_IDX_BUFFER:
-				case core::Blob::EBT_ATTR_BUFFER:
+				case core::Blob::EBT_RAW_DATA_BUFFER:
 					exportAsBlob(reinterpret_cast<core::ICPUBuffer*>(m_headers[i].handle), i, _file);
 					break;
 				case core::Blob::EBT_DATA_FORMAT_DESC:
@@ -222,7 +222,7 @@ namespace irr {
 					core::BlobHeader bh;
 					bh.handle = reinterpret_cast<uint64_t>(idxBuffer);
 					bh.compressionType = core::Blob::EBCT_NONE;
-					bh.blobType = core::Blob::EBT_IDX_BUFFER;
+					bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
 					bh.blobSize = bh.blobSizeDecompr = idxBuffer->getSize();
 					m_headers.push_back(bh);
 					countedBuffers.emplace(desc->getIndexBuffer());
@@ -236,7 +236,7 @@ namespace irr {
 						core::BlobHeader bh;
 						bh.handle = reinterpret_cast<uint64_t>(attBuffer);
 						bh.compressionType = core::Blob::EBCT_NONE;
-						bh.blobType = core::Blob::EBT_ATTR_BUFFER;
+						bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
 						bh.blobSize = bh.blobSizeDecompr = attBuffer->getSize();
 						m_headers.push_back(bh);
 						countedBuffers.emplace(attBuffer);

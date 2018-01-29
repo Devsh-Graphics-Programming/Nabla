@@ -39,8 +39,7 @@ namespace irr { namespace core
 		enum E_BLOB_TYPE
 		{
 			EBT_MESH_BUFFER = 0,
-			EBT_ATTR_BUFFER,
-			EBT_IDX_BUFFER,
+			EBT_RAW_DATA_BUFFER,
 			EBT_DATA_FORMAT_DESC,
 			EBT_TEXTURE_PATH,
 			EBT_COUNT
