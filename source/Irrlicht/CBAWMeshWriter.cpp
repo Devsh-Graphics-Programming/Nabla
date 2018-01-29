@@ -1,3 +1,8 @@
+// Copyright (C) 2018 Krzysztof "Criss" Szenk
+// This file is part of the "Irrlicht Engine" and "Build A World".
+// For conditions of distribution and use, see copyright notice in irrlicht.h
+// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+
 #include "CBAWMeshWriter.h"
 
 #include "IFileSystem.h"
@@ -172,74 +177,83 @@ namespace irr {
 		uint32_t CBAWMeshWriter::genHeaders(ICPUMesh * _mesh)
 		{
 			m_headers.clear();
-			std::set<const core::ICPUBuffer*> countedBuffers;
+			std::set<const IReferenceCounted*> countedObjects;
 			for (uint32_t i = 0; i < _mesh->getMeshBufferCount(); ++i)
 			{
 				const ICPUMeshBuffer * const meshBuffer = _mesh->getMeshBuffer(i);
 				const IMeshDataFormatDesc<core::ICPUBuffer> * const desc = meshBuffer->getMeshDataAndFormat();
 
-				if (meshBuffer)
+				if (!meshBuffer || !desc)
+					continue;
+
+				if (countedObjects.find(meshBuffer) == countedObjects.end())
 				{
 					core::BlobHeader bh;
 					bh.handle = reinterpret_cast<uint64_t>(meshBuffer);
-					bh.compressionType = core::Blob::EBCT_NONE;
+					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_MESH_BUFFER;
 					bh.blobSize = bh.blobSizeDecompr = // size of significant members of ICPUMeshBuffer
-						sizeof(uint64_t) + sizeof(video::E_INDEX_TYPE) + 2*sizeof(uint32_t) + 2*sizeof(size_t) + sizeof(uint64_t) + sizeof(E_PRIMITIVE_TYPE) + sizeof(E_VERTEX_ATTRIBUTE_ID)
+						sizeof(uint64_t) + sizeof(video::E_INDEX_TYPE) + 2 * sizeof(uint32_t) + 2 * sizeof(size_t) + sizeof(uint64_t) + sizeof(E_PRIMITIVE_TYPE) + sizeof(E_VERTEX_ATTRIBUTE_ID)
 						+ sizeof(video::SMaterial)
 						+ sizeof(core::aabbox3df);
 					m_headers.push_back(bh);
+					countedObjects.emplace(meshBuffer);
+
 					const video::SMaterial & mat = meshBuffer->getMaterial();
 					for (int tid = 0; tid < _IRR_MATERIAL_MAX_TEXTURES_; ++tid) // texture path blob headers
 					{
-						if (!mat.getTexture(tid))
-							continue;
-						bh.handle = reinterpret_cast<uint64_t>(mat.getTexture(tid));
-						bh.compressionType = core::Blob::EBCT_NONE;
-						bh.blobType = core::Blob::EBT_TEXTURE_PATH;
-						bh.blobSize = bh.blobSizeDecompr = 0; // must be overwritten while exporting blobs
-						m_headers.push_back(bh);
+						video::IVirtualTexture* texture = mat.getTexture(tid);
+						if (mat.getTexture(tid) && countedObjects.find(texture) == countedObjects.end())
+						{
+							bh.handle = reinterpret_cast<uint64_t>(texture);
+							bh.compressionType = core::Blob::EBCT_RAW;
+							bh.blobType = core::Blob::EBT_TEXTURE_PATH;
+							bh.blobSize = bh.blobSizeDecompr = 0; // must be overwritten while exporting blobs
+							m_headers.push_back(bh);
+							countedObjects.emplace(texture);
+						}
+						else continue;
 					}
 				}
-				else continue;
-				if (desc)
+
+				if (countedObjects.find(desc) == countedObjects.end())
 				{
 					core::BlobHeader bh;
 					bh.handle = reinterpret_cast<uint64_t>(desc);
-					bh.compressionType = core::Blob::EBCT_NONE;
+					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_DATA_FORMAT_DESC;
 					bh.blobSize = bh.blobSizeDecompr = // size of members of ICPUMeshDataFormatDesc
 						EVAI_COUNT
-						* (sizeof(E_COMPONENTS_PER_ATTRIBUTE) + sizeof(E_COMPONENT_TYPE) + 2*sizeof(size_t) + sizeof(uint32_t) + sizeof(uint64_t))
+						* (sizeof(E_COMPONENTS_PER_ATTRIBUTE) + sizeof(E_COMPONENT_TYPE) + 2 * sizeof(size_t) + sizeof(uint32_t) + sizeof(uint64_t))
 						+ sizeof(uint64_t);
 					m_headers.push_back(bh);
+					countedObjects.emplace(desc);
 				}
-				else continue;
 
 				const core::ICPUBuffer* idxBuffer = desc->getIndexBuffer();
-				if (idxBuffer && countedBuffers.find(idxBuffer) == countedBuffers.end())
+				if (idxBuffer && countedObjects.find(idxBuffer) == countedObjects.end())
 				{
 					core::BlobHeader bh;
 					bh.handle = reinterpret_cast<uint64_t>(idxBuffer);
-					bh.compressionType = core::Blob::EBCT_NONE;
+					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
 					bh.blobSize = bh.blobSizeDecompr = idxBuffer->getSize();
 					m_headers.push_back(bh);
-					countedBuffers.emplace(desc->getIndexBuffer());
+					countedObjects.emplace(desc->getIndexBuffer());
 				}
 
 				for (int attId = 0; attId < EVAI_COUNT; ++attId)
 				{
 					const core::ICPUBuffer* attBuffer = desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)attId);
-					if (attBuffer && countedBuffers.find(attBuffer) == countedBuffers.end())
+					if (attBuffer && countedObjects.find(attBuffer) == countedObjects.end())
 					{
 						core::BlobHeader bh;
 						bh.handle = reinterpret_cast<uint64_t>(attBuffer);
-						bh.compressionType = core::Blob::EBCT_NONE;
+						bh.compressionType = core::Blob::EBCT_RAW;
 						bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
 						bh.blobSize = bh.blobSizeDecompr = attBuffer->getSize();
 						m_headers.push_back(bh);
-						countedBuffers.emplace(attBuffer);
+						countedObjects.emplace(attBuffer);
 					}
 				}
 			}

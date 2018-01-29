@@ -1,3 +1,8 @@
+// Copyright (C) 2018 Krzysztof "Criss" Szenk
+// This file is part of the "Irrlicht Engine" and "Build A World".
+// For conditions of distribution and use, see copyright notice in irrlicht.h
+// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+
 #ifndef __IRR_BAW_MESH_WRITER_H_INCLUDED__
 #define __IRR_BAW_MESH_WRITER_H_INCLUDED__
 
