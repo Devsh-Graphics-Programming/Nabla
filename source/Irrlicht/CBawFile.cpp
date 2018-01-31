@@ -5,6 +5,9 @@
 
 #include "CBawFile.h"
 
+//! for C++11
+//using namespace std;
+
 namespace irr { namespace core
 {
 
@@ -14,8 +17,8 @@ namespace irr { namespace core
 
 	MeshBufferBlobV1::MeshBufferBlobV1(const scene::ICPUMeshBuffer* _mb)
 	{
-		std::memcpy(&mat, &_mb->getMaterial(), sizeof(video::SMaterial));
-		std::memcpy(&box, &_mb->getBoundingBox(), sizeof(core::aabbox3df));
+		memcpy(&mat, &_mb->getMaterial(), sizeof(video::SMaterial));
+		memcpy(&box, &_mb->getBoundingBox(), sizeof(core::aabbox3df));
 		descPtr = reinterpret_cast<uint64_t>(_mb->getMeshDataAndFormat());
 		indexType = _mb->getIndexType();
 		baseVertex = _mb->getBaseVertex();

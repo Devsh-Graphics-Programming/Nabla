@@ -751,7 +751,7 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 			for (int i=1; i<count; ++i)
 			{
 				memset(vals,0,sizeof(vals));
-#define tmplog(x,y) os::Printer::log(x, core::longlongtoa(y))
+#define tmplog(x,y) os::Printer::log(x, std::to_string(y))
 				const BOOL res = wglGetPixelFormatAttribiv_ARB(hdc,i,0,nums,atts,vals);
 				if (FALSE==res)
 					continue;
@@ -1003,29 +1003,28 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
     //num=100000000u;
 	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES,&num);
-
+#ifdef WIN32
 #ifdef _DEBUG
 	if (FeatureAvailable[IRR_NVX_gpu_memory_info])
 	{
 		// undocumented flags, so use the RAW values
 		GLint val;
 		glGetIntegerv(0x9047, &val);
-		os::Printer::log("Dedicated video memory (kB)", core::longlongtoa(val));
+		os::Printer::log("Dedicated video memory (kB)", std::to_string(val));
 		glGetIntegerv(0x9048, &val);
-		os::Printer::log("Total video memory (kB)", core::longlongtoa(val));
+		os::Printer::log("Total video memory (kB)", std::to_string(val));
 		glGetIntegerv(0x9049, &val);
-		os::Printer::log("Available video memory (kB)", core::longlongtoa(val));
+		os::Printer::log("Available video memory (kB)", std::to_string(val));
 	}
-#ifdef GL_ATI_meminfo
 	if (FeatureAvailable[IRR_ATI_meminfo])
 	{
 		GLint val[4];
 		glGetIntegerv(GL_TEXTURE_FREE_MEMORY_ATI, val);
-		os::Printer::log("Free texture memory (kB)", core::longlongtoa(val[0]));
+		os::Printer::log("Free texture memory (kB)", std::to_string(val[0]));
 		glGetIntegerv(GL_VBO_FREE_MEMORY_ATI, val);
-		os::Printer::log("Free VBO memory (kB)", core::longlongtoa(val[0]));
+		os::Printer::log("Free VBO memory (kB)", std::to_string(val[0]));
 		glGetIntegerv(GL_RENDERBUFFER_FREE_MEMORY_ATI, val);
-		os::Printer::log("Free render buffer memory (kB)", core::longlongtoa(val[0]));
+		os::Printer::log("Free render buffer memory (kB)", std::to_string(val[0]));
 	}
 #endif
 #endif
@@ -1435,25 +1434,14 @@ bool COpenGLExtensionHandler::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature
 {
 	switch (feature)
 	{
-	case EVDF_STENCIL_BUFFER:
-	case EVDF_ARB_GLSL:
-	case EVDF_COLOR_MASK:
-		return true;
-	case EVDF_ALPHA_TO_COVERAGE:
-		return FeatureAvailable[IRR_ARB_multisample];
-	case EVDF_GEOMETRY_SHADER:
-		return true;
-	case EVDF_MRT_BLEND:
-	case EVDF_MRT_COLOR_MASK:
-		return FeatureAvailable[IRR_EXT_draw_buffers2] || FeatureAvailable[IRR_ARB_draw_buffers_blend];
-	case EVDF_MRT_BLEND_FUNC:
-		return FeatureAvailable[IRR_ARB_draw_buffers_blend] || FeatureAvailable[IRR_AMD_draw_buffers_blend];
-	case EVDF_OCCLUSION_QUERY:
-	case EVDF_POLYGON_OFFSET:
-	case EVDF_BLEND_OPERATIONS:
-		return true;
-	default:
-		return false;
+        case EVDF_ALPHA_TO_COVERAGE:
+            return FeatureAvailable[IRR_ARB_multisample]||true;
+        case EVDF_GEOMETRY_SHADER:
+            return FeatureAvailable[IRR_ARB_geometry_shader4]||true;
+        case EVDF_TESSELLATION_SHADER:
+            return FeatureAvailable[IRR_ARB_tessellation_shader]||true;
+        default:
+            return false;
 	};
 }
 

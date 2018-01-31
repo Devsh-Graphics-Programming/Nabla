@@ -304,25 +304,6 @@ class quaternion : private vectorSIMDf
 		void getMatrix( matrix4x3 &dest, const vector3df_SIMD &translation=vectorSIMDf() ) const;
 		void getMatrix_Sub3x3Transposed( matrix4x3 &dest, const vector3df_SIMD &translation=vectorSIMDf() ) const;
 
-		/*!
-			Creates a matrix from this quaternion
-			Rotate about a center point
-			shortcut for
-			quaternion q;
-			q.rotationFromTo ( vin[i].Normal, forward );
-			q.getMatrixCenter ( lookat, center, newPos );
-
-			matrix4x3 m2;
-			m2.setInverseTranslation ( center );
-			lookat *= m2;
-
-			matrix4x3 m3;
-			m2.setTranslation ( newPos );
-			lookat *= m3;
-
-		*/
-		void getMatrixCenter( matrix4x3 &dest, const vector3df_SIMD &center, const vector3df_SIMD &translation ) const;
-
 		//! Inverts this quaternion
 		inline void makeInverse()
 		{
@@ -350,28 +331,48 @@ class quaternion : private vectorSIMDf
             return tmp;
         }
 
+        //! Helper func
+		static quaternion lerp(const quaternion &q1, const quaternion &q2, const float& interpolant, const bool& wrongDoubleCover);
+
 		//! Set this quaternion to the linear interpolation between two quaternions
 		/** \param q1 First quaternion to be interpolated.
 		\param q2 Second quaternion to be interpolated.
-		\param time Progress of interpolation. For time=0 the result is
-		q1, for time=1 the result is q2. Otherwise interpolation
+		\param interpolant Progress of interpolation. For interpolant=0 the result is
+		q1, for interpolant=1 the result is q2. Otherwise interpolation
 		between q1 and q2.
 		*/
 		static quaternion lerp(const quaternion &q1, const quaternion &q2, const float& interpolant);
 
+        //! Helper func
+		static inline void flerp_interpolant_terms(float& interpolantPrecalcTerm2, float& interpolantPrecalcTerm3, const float& interpolant)
+        {
+            interpolantPrecalcTerm2 = (interpolant - 0.5f) * (interpolant - 0.5f);
+            interpolantPrecalcTerm3 = interpolant * (interpolant - 0.5f) * (interpolant - 1.f);
+        }
+
+		static float flerp_adjustedinterpolant(const float& angle, const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3);
+
+		//! Set this quaternion to the approximate slerp between two quaternions
+		/** \param q1 First quaternion to be interpolated.
+		\param q2 Second quaternion to be interpolated.
+		\param interpolant Progress of interpolation. For interpolant=0 the result is
+		q1, for interpolant=1 the result is q2. Otherwise interpolation
+		between q1 and q2.
+		*/
+		static quaternion flerp(const quaternion &q1, const quaternion &q2, const float& interpolant);
+
 		//! Set this quaternion to the result of the spherical interpolation between two quaternions
 		/** \param q1 First quaternion to be interpolated.
 		\param q2 Second quaternion to be interpolated.
-		\param time Progress of interpolation. For time=0 the result is
-		q1, for time=1 the result is q2. Otherwise interpolation
+		\param time Progress of interpolation. For interpolant=0 the result is
+		q1, for interpolant=1 the result is q2. Otherwise interpolation
 		between q1 and q2.
-		\param threshold To avoid inaccuracies at the end (time=1) the
+		\param threshold To avoid inaccuracies the
 		interpolation switches to linear interpolation at some point.
-		This value defines how much of the remaining interpolation will
-		be calculated with lerp. Everything from 1-threshold up will be
-		linear interpolation.
+		This value defines how much of the interpolation will
+		be calculated with lerp.
 		*/
-		static quaternion slerp(quaternion q1, const quaternion& q2,
+		static quaternion slerp(const quaternion& q1, const quaternion& q2,
 				const float& interpolant, const float& threshold=.05f);
 
 		inline static quaternion fromEuler(const vector3df_SIMD& euler)
@@ -445,63 +446,76 @@ inline void quaternion::getMatrix_Sub3x3Transposed(matrix4x3 &dest,
 	dest(2,3) = center.Z;
 }
 
-/*!
-	Creates a matrix from this quaternion
-	Rotate about a center point
-	shortcut for
-	quaternion q;
-	q.rotationFromTo(vin[i].Normal, forward);
-	q.getMatrix(lookat, center);
 
-	matrix4x3 m2;
-	m2.setInverseTranslation(center);
-	lookat *= m2;
-*/
-inline void quaternion::getMatrixCenter(matrix4x3 &dest,
-					const vector3df_SIMD &center,
-					const vector3df_SIMD &translation) const
+// set this quaternion to the result of the linear interpolation between two quaternions
+inline quaternion quaternion::lerp(const quaternion &q1, const quaternion &q2, const float& interpolant, const bool& wrongDoubleCover)
 {
-    getMatrix(dest);
-
-	dest.setRotationCenter ( center.getAsVector3df(), translation.getAsVector3df() );
+    vectorSIMDf retval;
+	if (wrongDoubleCover)
+        retval = mix(reinterpret_cast<const vectorSIMDf&>(q1),-reinterpret_cast<const vectorSIMDf&>(q2),vectorSIMDf(interpolant));
+    else
+        retval = mix(reinterpret_cast<const vectorSIMDf&>(q1), reinterpret_cast<const vectorSIMDf&>(q2),vectorSIMDf(interpolant));
+    return reinterpret_cast<const quaternion&>(retval);
 }
-
 
 // set this quaternion to the result of the linear interpolation between two quaternions
 inline quaternion quaternion::lerp(const quaternion &q1, const quaternion &q2, const float& interpolant)
 {
-	vectorSIMDf tmp = reinterpret_cast<const vectorSIMDf&>(q1) + (reinterpret_cast<const vectorSIMDf&>(q2)-reinterpret_cast<const vectorSIMDf&>(q1))*interpolant;
-	return reinterpret_cast<quaternion&>(tmp);
+	const float angle = q1.dotProductAsFloat(q2);
+    return lerp(q1,q2,interpolant,angle < 0.0f);
+}
+
+// Arseny Kapoulkine
+inline float quaternion::flerp_adjustedinterpolant(const float& angle, const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3)
+{
+    float A = 1.0904f + angle * (-3.2452f + angle * (3.55645f - angle * 1.43519f));
+    float B = 0.848013f + angle * (-1.06021f + angle * 0.215638f);
+    float k = A * interpolantPrecalcTerm2 + B;
+    float ot = interpolant + interpolantPrecalcTerm3 * k;
+    return ot;
+}
+
+// set this quaternion to the result of an approximate slerp
+inline quaternion quaternion::flerp(const quaternion &q1, const quaternion &q2, const float& interpolant)
+{
+	const float angle = q1.dotProductAsFloat(q2);
+    return lerp(q1,q2,flerp_adjustedinterpolant(fabsf(angle),interpolant,(interpolant - 0.5f) * (interpolant - 0.5f),interpolant * (interpolant - 0.5f) * (interpolant - 1.f)),angle < 0.0f);
+}
+
+
+// set this quaternion to the result of the interpolation between two quaternions
+inline quaternion quaternion::slerp(const quaternion &q1, const quaternion &q2, const float& interpolant, const float& threshold)
+{
+	float angle = q1.dotProductAsFloat(q2);
+
+	// make sure we use the short rotation
+	bool wrongDoubleCover = angle < 0.0f;
+	if (wrongDoubleCover)
+		angle *= -1.f;
+
+	if (angle <= (1.f-threshold)) // spherical interpolation
+	{ // acosf + sinf
+        vectorSIMDf retval;
+
+		const float sinARcp  = reciprocal_squareroot(1.f-angle*angle);
+		const float sinAt = sinf(acosf(angle) * interpolant); // could this line be optimized?
+		//1sqrt 3min/add 5mul from now on
+		const float sinAt_over_sinA = sinAt*sinARcp;
+
+        const float scale = sqrtf(1.f-sinAt*sinAt)-angle*sinAt_over_sinA; //cosAt-cos(A)sin(tA)/sin(A) = (sin(A)cos(tA)-cos(A)sin(tA))/sin(A)
+        if (wrongDoubleCover) // make sure we use the short rotation
+            retval = reinterpret_cast<const vectorSIMDf&>(q1)*scale - reinterpret_cast<const vectorSIMDf&>(q2)*sinAt_over_sinA;
+        else
+            retval = reinterpret_cast<const vectorSIMDf&>(q1)*scale + reinterpret_cast<const vectorSIMDf&>(q2)*sinAt_over_sinA;
+
+        return reinterpret_cast<const quaternion&>(retval);
+	}
+	else
+        return normalize(lerp(q1,q2,interpolant,wrongDoubleCover));
 }
 
 
 #if !IRR_TEST_BROKEN_QUATERNION_USE
-// set this quaternion to the result of the interpolation between two quaternions
-inline quaternion quaternion::slerp(quaternion q1, const quaternion &q2, const float& interpolant, const float& threshold)
-{
-	vectorSIMDf angle = q1.dotProduct(q2);
-
-	// make sure we use the short rotation
-	if (angle.X < 0.0f)
-	{
-		q1 *= -1.0f;
-		angle *= -1.0f;
-	}
-
-	if (angle.X <= (1.f-threshold)) // spherical interpolation
-	{
-		const float theta = acosf(angle.X);
-		const vectorSIMDf sintheta(sinf(theta));
-        const vectorSIMDf scale(sinf(theta * (1.0f-interpolant)));
-		const vectorSIMDf invscale(sinf(theta * interpolant));
-		vectorSIMDf retval = (reinterpret_cast<vectorSIMDf&>(q1)*scale + reinterpret_cast<const vectorSIMDf&>(q2)*invscale)/sintheta;
-		return reinterpret_cast<quaternion&>(retval);
-	}
-	else // linear interploation
-		return lerp(q1,q2,interpolant);
-}
-
-
 //! axis must be unit length, angle in radians
 inline quaternion quaternion::fromAngleAxis(const float& angle, const vector3df_SIMD& axis)
 {

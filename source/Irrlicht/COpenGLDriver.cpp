@@ -360,7 +360,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
             return false;
         }
     }
-	os::Printer::log("Pixel Format", core::longlongtoa(PixelFormat), ELL_DEBUG);
+	os::Printer::log("Pixel Format", std::to_string(PixelFormat), ELL_DEBUG);
 
 	int iAttribs[] =
 	{
@@ -847,18 +847,11 @@ bool COpenGLDriver::genericDriverInit()
 	CurrentTexture.clear();
 	// load extensions
 	initExtensions(Params.Stencilbuffer);
-	if (queryFeature(EVDF_ARB_GLSL))
-	{
-		char buf[32];
-		const uint32_t maj = ShaderLanguageVersion/10;
-		snprintf(buf, 32, "%u.%u", maj, ShaderLanguageVersion-maj*10);
-		os::Printer::log("GLSL version", buf, ELL_INFORMATION);
-	}
-	else
-    {
-		os::Printer::log("GLSL not available.", ELL_ERROR);
-		return false;
-    }
+
+    char buf[32];
+    const uint32_t maj = ShaderLanguageVersion/10;
+    snprintf(buf, 32, "%u.%u", maj, ShaderLanguageVersion-maj*10);
+    os::Printer::log("GLSL version", buf, ELL_INFORMATION);
 
     if (Version<430)
     {
@@ -2624,8 +2617,7 @@ void COpenGLDriver::setBasicRenderStates(const SMaterial& material, const SMater
 			(material.ColorMask & ECP_ALPHA)?GL_TRUE:GL_FALSE);
 	}
 
-	if (queryFeature(EVDF_BLEND_OPERATIONS) &&
-		(resetAllRenderStates|| lastmaterial.BlendOperation != material.BlendOperation))
+	if (resetAllRenderStates|| lastmaterial.BlendOperation != material.BlendOperation)
 	{
 		if (material.BlendOperation==EBO_NONE)
 			glDisable(GL_BLEND);

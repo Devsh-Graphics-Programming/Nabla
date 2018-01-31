@@ -660,8 +660,9 @@ bool CIrrDeviceLinux::createWindow()
 		return false;
 	}
 #ifdef _DEBUG
-	else
-		os::Printer::log("Visual chosen: ", core::longlongtoa(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
+    //! ENABLE AFTER C++11
+	///else
+		///os::Printer::log("Visual chosen: ", std::to_string(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
 #endif
 
 	// create color map
