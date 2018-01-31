@@ -109,12 +109,6 @@ std::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 
 	file->read(&header, sizeof(STGAHeader));
 
-#ifdef __BIG_ENDIAN__
-	header.ColorMapLength = os::Byteswap::byteswap(header.ColorMapLength);
-	header.ImageWidth = os::Byteswap::byteswap(header.ImageWidth);
-	header.ImageHeight = os::Byteswap::byteswap(header.ImageHeight);
-#endif
-
 	// skip image identification field
 	if (header.IdLength)
 		file->seek(header.IdLength, true);
@@ -166,14 +160,17 @@ std::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 	else
 	{
 		os::Printer::log("Unsupported TGA file type", file->getFileName().c_str(), ELL_ERROR);
-		delete [] palette;
+
+		if (palette)
+            delete [] palette;
+
 		return retval;
 	}
 
 	CImageData* image = 0;
 
 	uint32_t nullOffset[3] = {0,0,0};
-	uint32_t imageSize[3] = {header.ImageWidth,header.ImageHeight,0};
+	uint32_t imageSize[3] = {header.ImageWidth,header.ImageHeight,1};
 
 	switch(header.PixelDepth)
 	{
