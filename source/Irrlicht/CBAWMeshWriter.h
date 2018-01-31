@@ -52,7 +52,7 @@ namespace scene
 		/** After calling this method headers are NOT ready yet. Hashes (and also size in case of texture path blob) are calculated while writing blob data.
 		@param _mesh Pointer to the mesh object.
 		@return Amount of generated headers.*/
-		uint32_t genHeaders(ICPUMesh * _mesh, SContext& _ctx);
+		uint32_t genHeaders(ICPUMesh* _mesh, SContext& _ctx);
 
 		//! Pushes new offset value to `m_offsets` array.
 		/** @param _blobSize Byte-distance from previous blob's first byte (i.e. size of previous blob).

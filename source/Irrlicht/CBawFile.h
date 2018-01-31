@@ -78,7 +78,7 @@ namespace irr { namespace core
 	struct MeshBufferBlobV1 : Blob
 	{
 		//! Constructor filling all members
-		explicit MeshBufferBlobV1(const scene::ICPUMeshBuffer&);
+		explicit MeshBufferBlobV1(const scene::ICPUMeshBuffer*);
 
 		video::SMaterial mat;
 		core::aabbox3df box;
@@ -97,7 +97,7 @@ namespace irr { namespace core
 	struct MeshDataFormatDescBlobV1 : Blob
 	{
 		//! Constructor filling all members
-		explicit MeshDataFormatDescBlobV1(const scene::IMeshDataFormatDesc<core::ICPUBuffer>&);
+		explicit MeshDataFormatDescBlobV1(const scene::IMeshDataFormatDesc<core::ICPUBuffer>*);
 
 		scene::E_COMPONENTS_PER_ATTRIBUTE cpa[scene::EVAI_COUNT];
 		scene::E_COMPONENT_TYPE attrType[scene::EVAI_COUNT];

@@ -46,7 +46,7 @@ namespace irr {
 		template<>
 		void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
-			const core::MeshBufferBlobV1 data(*_obj);
+			const core::MeshBufferBlobV1 data(_obj);
 
 			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = sizeof(data);
 			core::XXHash_256(&data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
@@ -74,7 +74,7 @@ namespace irr {
 		template<>
 		void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(IMeshDataFormatDesc<core::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
-			const core::MeshDataFormatDescBlobV1 data(*_obj);
+			const core::MeshDataFormatDescBlobV1 data(_obj);
 
 			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = sizeof(data);
 			core::XXHash_256(&data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
