@@ -21,11 +21,18 @@ namespace scene
 
 	class CBAWMeshWriter : public IMeshWriter
 	{
+	private:
+		struct SContext
+		{
+			core::array<core::BlobHeader> headers;
+			core::array<uint32_t> offsets;
+		};
+
 	protected:
-		~CBAWMeshWriter();
+		~CBAWMeshWriter() {}
 
 	public:
-		CBAWMeshWriter();
+		explicit CBAWMeshWriter(io::IFileSystem*);
 
 		//! @copydoc irr::scene::IMeshWriter::getType()
 		EMESH_WRITER_TYPE getType() const { return EMWT_BAW; }
@@ -39,22 +46,21 @@ namespace scene
 		@param _headersIdx Corresponding index of headers array.
 		@param _file Target file.*/
 		template<typename T>
-		void exportAsBlob(T* _obj, uint32_t _headerIdx, io::IWriteFile* _file);
+		void exportAsBlob(T* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx);
 
 		//! Generates header of blobs from mesh object and pushes them to `m_headers`.
 		/** After calling this method headers are NOT ready yet. Hashes (and also size in case of texture path blob) are calculated while writing blob data.
 		@param _mesh Pointer to the mesh object.
 		@return Amount of generated headers.*/
-		uint32_t genHeaders(ICPUMesh * _mesh);
+		uint32_t genHeaders(ICPUMesh * _mesh, SContext& _ctx);
 
 		//! Pushes new offset value to `m_offsets` array.
 		/** @param _blobSize Byte-distance from previous blob's first byte (i.e. size of previous blob).
 		*/
-		void calcAndPushNextOffset(uint32_t _blobSize);
+		void calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx);
 
 	private:
-		core::array<core::BlobHeader> m_headers;
-		core::array<uint32_t> m_offsets;
+		io::IFileSystem* m_fileSystem;
 
 		static const char * const BAW_FILE_HEADER;
 	};

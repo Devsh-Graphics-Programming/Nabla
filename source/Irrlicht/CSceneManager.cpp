@@ -1573,7 +1573,7 @@ IMeshWriter* CSceneManager::createMeshWriter(EMESH_WRITER_TYPE type)
 
 	case EMWT_BAW:
 #ifdef _IRR_COMPILE_WITH_BAW_WRITER_
-		return new CBAWMeshWriter();
+		return new CBAWMeshWriter(FileSystem);
 #else
 		return 0;
 #endif

@@ -18,9 +18,7 @@ namespace irr {
 
 		const char * const CBAWMeshWriter::BAW_FILE_HEADER = "IrrlichtBaW BinaryFile\0\0\0\0\0\0\0\0\0";
 
-		CBAWMeshWriter::~CBAWMeshWriter() {}
-
-		CBAWMeshWriter::CBAWMeshWriter()
+		CBAWMeshWriter::CBAWMeshWriter(io::IFileSystem* _fs) : m_fileSystem(_fs)
 		{
 #ifdef _DEBUG
 			setDebugName("CBAWMeshWriter");
@@ -28,7 +26,7 @@ namespace irr {
 		}
 
 		template<>
-		void CBAWMeshWriter::exportAsBlob<ICPUMesh>(ICPUMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file)
+		void CBAWMeshWriter::exportAsBlob<ICPUMesh>(ICPUMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
 			const uint32_t cnt = _obj->getMeshBufferCount();
 			const uint32_t size = sizeof(uint32_t) + sizeof(core::aabbox3df) + cnt*sizeof(uint64_t);
@@ -38,56 +36,58 @@ namespace irr {
 			for (uint32_t i = 0; i < cnt; ++i)
 				((uint64_t*)(data + (size - cnt*sizeof(uint64_t)) + i*sizeof(uint64_t)))[0] = reinterpret_cast<uint64_t>(_obj->getMeshBuffer(i));
 
-			m_headers[_headerIdx].blobSize = m_headers[_headerIdx].blobSizeDecompr = size;
-			core::XXHash_256(data, m_headers[_headerIdx].blobSizeDecompr, m_headers[_headerIdx].blobHash);
-			_file->write(data, m_headers[_headerIdx].blobSizeDecompr);
-			calcAndPushNextOffset(!_headerIdx ? 0 : m_headers[_headerIdx - 1].blobSizeDecompr);
+			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = size;
+			core::XXHash_256(data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
+			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
+			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 
 			std::free(data);
 		}
 		template<>
-		void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file)
+		void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
 			const core::MeshBufferBlobV1 data(*_obj);
 
-			m_headers[_headerIdx].blobSize = m_headers[_headerIdx].blobSizeDecompr = sizeof(data);
-			core::XXHash_256(&data, m_headers[_headerIdx].blobSizeDecompr, m_headers[_headerIdx].blobHash);
-			_file->write(&data, m_headers[_headerIdx].blobSizeDecompr);
-			calcAndPushNextOffset(!_headerIdx ? 0 : m_headers[_headerIdx-1].blobSizeDecompr);
+			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = sizeof(data);
+			core::XXHash_256(&data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
+			_file->write(&data, _ctx.headers[_headerIdx].blobSizeDecompr);
+			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 		}
 		template<>
-		void CBAWMeshWriter::exportAsBlob<video::IVirtualTexture>(video::IVirtualTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file)
+		void CBAWMeshWriter::exportAsBlob<video::IVirtualTexture>(video::IVirtualTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
 			video::ITexture* tex;
 			if (!(tex = dynamic_cast<video::ITexture*>(_obj)))
 				return;
-			//! @todo @bug here we get absolute path and we want relative
-			const io::path path = tex->getName().getInternalName();
+
+			io::path fileDir = m_fileSystem->getAbsolutePath(_file->getFileName());
+			fileDir = fileDir.subString(0, fileDir.findLast('/')); // get out-file's directory
+			const io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to out-file's directory
 			const uint32_t len = std::strlen(path.c_str()) + 1;
 
-			m_headers[_headerIdx].blobSize = m_headers[_headerIdx].blobSizeDecompr = len;
-			core::XXHash_256(path.c_str(), len, m_headers[_headerIdx].blobHash);
-			calcAndPushNextOffset(!_headerIdx ? 0 : m_headers[_headerIdx-1].blobSizeDecompr);
+			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = len;
+			core::XXHash_256(path.c_str(), len, _ctx.headers[_headerIdx].blobHash);
+			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 
 			_file->write(path.c_str(), len);
 		}
 		template<>
-		void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(IMeshDataFormatDesc<core::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file)
+		void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(IMeshDataFormatDesc<core::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
 			const core::MeshDataFormatDescBlobV1 data(*_obj);
 
-			m_headers[_headerIdx].blobSize = m_headers[_headerIdx].blobSizeDecompr = sizeof(data);
-			core::XXHash_256(&data, m_headers[_headerIdx].blobSizeDecompr, m_headers[_headerIdx].blobHash);
-			_file->write(&data, m_headers[_headerIdx].blobSizeDecompr);
-			calcAndPushNextOffset(!_headerIdx ? 0 : m_headers[_headerIdx-1].blobSizeDecompr);
+			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = sizeof(data);
+			core::XXHash_256(&data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
+			_file->write(&data, _ctx.headers[_headerIdx].blobSizeDecompr);
+			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 		}
 		template<>
-		void CBAWMeshWriter::exportAsBlob<core::ICPUBuffer>(core::ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file)
+		void CBAWMeshWriter::exportAsBlob<core::ICPUBuffer>(core::ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
-			m_headers[_headerIdx].blobSize = m_headers[_headerIdx].blobSizeDecompr = _obj->getSize();
-			core::XXHash_256(_obj->getPointer(), _obj->getSize(), m_headers[_headerIdx].blobHash);
+			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = _obj->getSize();
+			core::XXHash_256(_obj->getPointer(), _obj->getSize(), _ctx.headers[_headerIdx].blobHash);
 			_file->write(_obj->getPointer(), _obj->getSize());
-			calcAndPushNextOffset(!_headerIdx ? 0 : m_headers[_headerIdx-1].blobSizeDecompr);
+			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 		}
 
 		bool CBAWMeshWriter::writeMesh(io::IWriteFile* _file, ICPUMesh* _mesh, int32_t _flags)
@@ -100,38 +100,40 @@ namespace irr {
 
 			_file->write(BAW_FILE_HEADER, FILE_HEADER_SIZE);
 
-			const uint32_t numOfInternalBlobs = genHeaders(_mesh);
-			const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t);
-			const uint32_t HEADERS_FILE_OFFSET = OFFSETS_FILE_OFFSET + numOfInternalBlobs*sizeof(m_offsets[0]);
+			SContext ctx; // context of this call of `writeMesh`
 
-			m_offsets.set_used(numOfInternalBlobs);
+			const uint32_t numOfInternalBlobs = genHeaders(_mesh, ctx);
+			const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t);
+			const uint32_t HEADERS_FILE_OFFSET = OFFSETS_FILE_OFFSET + numOfInternalBlobs*sizeof(ctx.offsets[0]);
+
+			ctx.offsets.set_used(numOfInternalBlobs);
 
 			_file->write(&numOfInternalBlobs, sizeof(numOfInternalBlobs));
 			// will be overwritten after actually calculating offsets
-			_file->write(m_offsets.const_pointer(), m_offsets.size() * sizeof(m_offsets[0]));
+			_file->write(ctx.offsets.const_pointer(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 
 			// will be overwritten after calculating not known yet data (hash and size for texture paths)
-			_file->write(m_headers.const_pointer(), m_headers.size() * sizeof(core::BlobHeader));
+			_file->write(ctx.headers.const_pointer(), ctx.headers.size() * sizeof(core::BlobHeader));
 
-			m_offsets.set_used(0); // set `used` to 0, to allow push starting from 0 index
-			for (int i = 0; i < m_headers.size(); ++i)
+			ctx.offsets.set_used(0); // set `used` to 0, to allow push starting from 0 index
+			for (int i = 0; i < ctx.headers.size(); ++i)
 			{
-				switch (m_headers[i].blobType)
+				switch (ctx.headers[i].blobType)
 				{
 				case core::Blob::EBT_MESH:
-					exportAsBlob(reinterpret_cast<ICPUMesh*>(m_headers[i].handle), i, _file);
+					exportAsBlob(reinterpret_cast<ICPUMesh*>(ctx.headers[i].handle), i, _file, ctx);
 					break;
 				case core::Blob::EBT_MESH_BUFFER:
-					exportAsBlob(reinterpret_cast<ICPUMeshBuffer*>(m_headers[i].handle), i, _file);
+					exportAsBlob(reinterpret_cast<ICPUMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 					break;
 				case core::Blob::EBT_RAW_DATA_BUFFER:
-					exportAsBlob(reinterpret_cast<core::ICPUBuffer*>(m_headers[i].handle), i, _file);
+					exportAsBlob(reinterpret_cast<core::ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 					break;
 				case core::Blob::EBT_DATA_FORMAT_DESC:
-					exportAsBlob(reinterpret_cast<IMeshDataFormatDesc<core::ICPUBuffer>*>(m_headers[i].handle), i, _file);
+					exportAsBlob(reinterpret_cast<IMeshDataFormatDesc<core::ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx);
 					break;
 				case core::Blob::EBT_TEXTURE_PATH:
-					exportAsBlob(reinterpret_cast<video::IVirtualTexture*>(m_headers[i].handle), i, _file);
+					exportAsBlob(reinterpret_cast<video::IVirtualTexture*>(ctx.headers[i].handle), i, _file, ctx);
 					break;
 				}
 			}
@@ -140,19 +142,19 @@ namespace irr {
 
 			// overwrite offsets
 			_file->seek(OFFSETS_FILE_OFFSET);
-			_file->write(m_offsets.const_pointer(), m_offsets.size() * sizeof(m_offsets[0]));
+			_file->write(ctx.offsets.const_pointer(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 			// overwrite headers
 			_file->seek(HEADERS_FILE_OFFSET);
-			_file->write(m_headers.const_pointer(), m_headers.size() * sizeof(core::BlobHeader));
+			_file->write(ctx.headers.const_pointer(), ctx.headers.size() * sizeof(core::BlobHeader));
 
 			_file->seek(prevPos);
 
 			return true;
 		}
 
-		uint32_t CBAWMeshWriter::genHeaders(ICPUMesh* _mesh)
+		uint32_t CBAWMeshWriter::genHeaders(ICPUMesh* _mesh, SContext& _ctx)
 		{
-			m_headers.clear();
+			_ctx.headers.clear();
 
 			if (_mesh)
 			{
@@ -160,7 +162,7 @@ namespace irr {
 				bh.handle = reinterpret_cast<uint64_t>(_mesh);
 				bh.compressionType = core::Blob::EBCT_RAW;
 				bh.blobType = core::Blob::EBT_MESH;
-				m_headers.push_back(bh);
+				_ctx.headers.push_back(bh);
 				// no need to add to `countedObjects` set since there's only one mesh
 			}
 			else return 0;
@@ -180,7 +182,7 @@ namespace irr {
 					bh.handle = reinterpret_cast<uint64_t>(meshBuffer);
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_MESH_BUFFER;
-					m_headers.push_back(bh);
+					_ctx.headers.push_back(bh);
 					countedObjects.emplace(meshBuffer);
 
 					const video::SMaterial & mat = meshBuffer->getMaterial();
@@ -192,7 +194,7 @@ namespace irr {
 							bh.handle = reinterpret_cast<uint64_t>(texture);
 							bh.compressionType = core::Blob::EBCT_RAW;
 							bh.blobType = core::Blob::EBT_TEXTURE_PATH;
-							m_headers.push_back(bh);
+							_ctx.headers.push_back(bh);
 							countedObjects.emplace(texture);
 						}
 						else continue;
@@ -205,7 +207,7 @@ namespace irr {
 					bh.handle = reinterpret_cast<uint64_t>(desc);
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_DATA_FORMAT_DESC;
-					m_headers.push_back(bh);
+					_ctx.headers.push_back(bh);
 					countedObjects.emplace(desc);
 				}
 
@@ -216,7 +218,7 @@ namespace irr {
 					bh.handle = reinterpret_cast<uint64_t>(idxBuffer);
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
-					m_headers.push_back(bh);
+					_ctx.headers.push_back(bh);
 					countedObjects.emplace(desc->getIndexBuffer());
 				}
 
@@ -230,18 +232,17 @@ namespace irr {
 						bh.compressionType = core::Blob::EBCT_RAW;
 						bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
 						bh.blobSize = bh.blobSizeDecompr = attBuffer->getSize();
-						m_headers.push_back(bh);
+						_ctx.headers.push_back(bh);
 						countedObjects.emplace(attBuffer);
 					}
 				}
 			}
-			return m_headers.size();
+			return _ctx.headers.size();
 		}
 
-		void CBAWMeshWriter::calcAndPushNextOffset(uint32_t _blobSize)
+		void CBAWMeshWriter::calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx)
 		{
-			m_offsets.push_back(!m_offsets.size() ? 0 : m_offsets.getLast() + _blobSize);
+			_ctx.offsets.push_back(!_ctx.offsets.size() ? 0 : _ctx.offsets.getLast() + _blobSize);
 		}
 
-	}
-} // end ns irr::scene
+}} // end ns irr::scene
