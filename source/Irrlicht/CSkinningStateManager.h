@@ -219,19 +219,21 @@ namespace scene
                     lastDirtyBone = boneID;
                 boneStackSize++;
 
+                float interpolationFactor;
+                size_t foundKeyIx = referenceHierarchy->getLowerBoundBoneKeyframes(interpolationFactor,currentInstance->frame);
+                float interpolantPrecalcTerm2,interpolantPrecalcTerm3;
+                core::quaternion::flerp_interpolant_terms(interpolantPrecalcTerm2,interpolantPrecalcTerm3,interpolationFactor);
 
                 while (boneStackSize--)
                 {
                     size_t j = boneStack[boneStackSize];
-                    float interpolationFactor;
-                    size_t foundKeyIx = referenceHierarchy->getLowerBoundBoneKeyframes(interpolationFactor,currentInstance->frame);
                     CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx];
 
                     core::matrix4x3 interpolatedLocalTform;
                     if (currentInstance->interpolateAnimation&&interpolationFactor<1.f)
                     {
                         CFinalBoneHierarchy::AnimationKeyData lowerFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx-1];
-                        interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor);
+                        interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
                     }
                     else
                         interpolatedLocalTform = referenceHierarchy->getMatrixFromKey(upperFrame);
@@ -326,6 +328,13 @@ namespace scene
                                     if (currentInstance->attachedNode)
                                         attachedNodeTform = currentInstance->attachedNode->getAbsoluteTransformation();
 
+
+                                    float interpolationFactor;
+                                    size_t foundBoneIx = referenceHierarchy->getLowerBoundBoneKeyframes(interpolationFactor,currentInstance->frame);
+                                    float interpolantPrecalcTerm2,interpolantPrecalcTerm3;
+                                    core::quaternion::flerp_interpolant_terms(interpolantPrecalcTerm2,interpolantPrecalcTerm3,interpolationFactor);
+
+
                                     FinalBoneData* boneDataForInstance = boneData+referenceHierarchy->getBoneCount()*i;
                                     for (size_t j=0; j<referenceHierarchy->getBoneCount(); j++)
                                     {
@@ -341,15 +350,13 @@ namespace scene
                                         lastBone = j;
                                         boneDataForInstance[j].lastAnimatedFrame = currentInstance->frame;
 
-                                        float interpolationFactor;
-                                        size_t foundBoneIx = referenceHierarchy->getLowerBoundBoneKeyframes(interpolationFactor,currentInstance->frame);
                                         CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundBoneIx];
 
                                         core::matrix4x3 interpolatedLocalTform;
                                         if (currentInstance->interpolateAnimation&&interpolationFactor<1.f)
                                         {
                                             CFinalBoneHierarchy::AnimationKeyData lowerFrame =  (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundBoneIx-1];
-                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor);
+                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
                                         }
                                         else
                                             interpolatedLocalTform = referenceHierarchy->getMatrixFromKey(upperFrame);

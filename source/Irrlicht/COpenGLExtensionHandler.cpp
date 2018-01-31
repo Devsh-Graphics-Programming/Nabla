@@ -1003,7 +1003,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
     //num=100000000u;
 	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES,&num);
-
+#ifdef WIN32
 #ifdef _DEBUG
 	if (FeatureAvailable[IRR_NVX_gpu_memory_info])
 	{
@@ -1016,7 +1016,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 		glGetIntegerv(0x9049, &val);
 		os::Printer::log("Available video memory (kB)", std::to_string(val));
 	}
-#ifdef GL_ATI_meminfo
 	if (FeatureAvailable[IRR_ATI_meminfo])
 	{
 		GLint val[4];

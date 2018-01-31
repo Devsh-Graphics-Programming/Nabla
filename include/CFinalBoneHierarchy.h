@@ -211,7 +211,7 @@ namespace scene
 
 
             //interpolant of 1 means full B
-            static inline core::matrix4x3 getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant)
+            static inline core::matrix4x3 getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3)
             {
                 core::matrix4x3 outMatrix;
 
@@ -221,7 +221,8 @@ namespace scene
 
                 core::quaternion tmpRotA(keyframeA.Rotation);
                 core::quaternion tmpRotB(keyframeB.Rotation);
-                core::quaternion tmpRot = core::quaternion::slerp(tmpRotA, tmpRotB, interpolant);
+                const float angle = tmpRotA.dotProduct(tmpRotB).X;
+                core::quaternion tmpRot = core::quaternion::normalize(core::quaternion::lerp(tmpRotA,tmpRotB,core::quaternion::flerp_adjustedinterpolant(fabsf(angle),interpolant,interpolantPrecalcTerm2,interpolantPrecalcTerm3),angle<0.f));
                 tmpRot.getMatrix(outMatrix,tmpPos);
 
                 core::vectorSIMDf tmpScaleA(keyframeA.Scale);
@@ -239,9 +240,15 @@ namespace scene
 
                 return outMatrix;
             }
+            static inline core::matrix4x3 getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant)
+            {
+                float interpolantPrecalcTerm2,interpolantPrecalcTerm3;
+                core::quaternion::flerp_interpolant_terms(interpolantPrecalcTerm2,interpolantPrecalcTerm3,interpolant);
+                return getMatrixFromKeys(keyframeA,keyframeB,interpolant,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
+            }
             static inline core::matrix4x3 getMatrixFromKey(const AnimationKeyData& keyframe)
             {
-                return getMatrixFromKeys(keyframe,keyframe,1.f);
+                return getMatrixFromKeys(keyframe,keyframe,1.f,0.25f,0.f);
             }
 
         private:
