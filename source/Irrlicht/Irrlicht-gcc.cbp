@@ -588,6 +588,10 @@
 		<Unit filename="CAnimatedMeshSceneNode.h" />
 		<Unit filename="CB3DMeshFileLoader.cpp" />
 		<Unit filename="CB3DMeshFileLoader.h" />
+		<Unit filename="CBAWMeshWriter.cpp" />
+		<Unit filename="CBAWMeshWriter.h" />
+		<Unit filename="CBawFile.cpp" />
+		<Unit filename="CBawFile.h" />
 		<Unit filename="CBillboardSceneNode.cpp" />
 		<Unit filename="CBillboardSceneNode.h" />
 		<Unit filename="CBlit.h" />

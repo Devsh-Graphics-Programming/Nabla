@@ -12,6 +12,9 @@
 #include "coreutil.h"
 #include "irrTypes.h"
 
+//! for C++11
+//using namespace std;
+
 namespace irr {
 	namespace scene
 	{
@@ -32,7 +35,7 @@ namespace irr {
 			const uint32_t size = sizeof(uint32_t) + sizeof(core::aabbox3df) + cnt*sizeof(uint64_t);
 			uint8_t* const data = (uint8_t*)std::malloc(size);
 			((uint32_t*)data)[0] = cnt;
-			std::memcpy(data + sizeof(uint32_t), &_obj->getBoundingBox(), sizeof(core::aabbox3df));
+			memcpy(data + sizeof(uint32_t), &_obj->getBoundingBox(), sizeof(core::aabbox3df));
 			for (uint32_t i = 0; i < cnt; ++i)
 				((uint64_t*)(data + (size - cnt*sizeof(uint64_t)) + i*sizeof(uint64_t)))[0] = reinterpret_cast<uint64_t>(_obj->getMeshBuffer(i));
 
@@ -63,7 +66,7 @@ namespace irr {
 			io::path fileDir = m_fileSystem->getAbsolutePath(_file->getFileName());
 			fileDir = fileDir.subString(0, fileDir.findLast('/')); // get out-file's directory
 			const io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to out-file's directory
-			const uint32_t len = std::strlen(path.c_str()) + 1;
+			const uint32_t len = strlen(path.c_str()) + 1;
 
 			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = len;
 			core::XXHash_256(path.c_str(), len, _ctx.headers[_headerIdx].blobHash);
@@ -183,7 +186,7 @@ namespace irr {
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_MESH_BUFFER;
 					_ctx.headers.push_back(bh);
-					countedObjects.emplace(meshBuffer);
+					countedObjects.insert(meshBuffer);
 
 					const video::SMaterial & mat = meshBuffer->getMaterial();
 					for (int tid = 0; tid < _IRR_MATERIAL_MAX_TEXTURES_; ++tid) // texture path blob headers
@@ -195,7 +198,7 @@ namespace irr {
 							bh.compressionType = core::Blob::EBCT_RAW;
 							bh.blobType = core::Blob::EBT_TEXTURE_PATH;
 							_ctx.headers.push_back(bh);
-							countedObjects.emplace(texture);
+							countedObjects.insert(texture);
 						}
 						else continue;
 					}
@@ -208,7 +211,7 @@ namespace irr {
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_DATA_FORMAT_DESC;
 					_ctx.headers.push_back(bh);
-					countedObjects.emplace(desc);
+					countedObjects.insert(desc);
 				}
 
 				const core::ICPUBuffer* idxBuffer = desc->getIndexBuffer();
@@ -219,7 +222,7 @@ namespace irr {
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
 					_ctx.headers.push_back(bh);
-					countedObjects.emplace(desc->getIndexBuffer());
+					countedObjects.insert(desc->getIndexBuffer());
 				}
 
 				for (int attId = 0; attId < EVAI_COUNT; ++attId)
@@ -233,7 +236,7 @@ namespace irr {
 						bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
 						bh.blobSize = bh.blobSizeDecompr = attBuffer->getSize();
 						_ctx.headers.push_back(bh);
-						countedObjects.emplace(attBuffer);
+						countedObjects.insert(attBuffer);
 					}
 				}
 			}

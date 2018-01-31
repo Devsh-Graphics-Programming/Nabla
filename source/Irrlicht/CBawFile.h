@@ -6,7 +6,7 @@
 #ifndef __IRR_BAW_FILE_H_INCLUDED__
 #define __IRR_BAW_FILE_H_INCLUDED__
 
-#include <cstdint>
+#include "stdint.h"
 #include "IMeshBuffer.h"
 
 namespace irr { namespace core
