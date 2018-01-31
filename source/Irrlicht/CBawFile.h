@@ -7,6 +7,7 @@
 #define __IRR_BAW_FILE_H_INCLUDED__
 
 #include <cstdint>
+#include "IMeshBuffer.h"
 
 namespace irr { namespace core
 {
@@ -53,16 +54,60 @@ namespace irr { namespace core
 		//! Type of blob enumeration
 		enum E_BLOB_TYPE
 		{
-			EBT_MESH_BUFFER = 0,
+			EBT_MESH = 0,
+			EBT_MESH_BUFFER,
 			EBT_RAW_DATA_BUFFER,
 			EBT_DATA_FORMAT_DESC,
 			EBT_TEXTURE_PATH,
 			EBT_COUNT
 		};
 
-		//! Meant to be used as pointer to blob's data
-		uint8_t data[1];
+		void* getData() { return this; }
 	};
+
+#include "irrpack.h"
+	//! Utility struct. Used only while loading (CBAWMeshLoader). Cast blob pointer to MeshBlob* to make life easier.
+	struct MeshBlob : Blob
+	{
+		uint32_t meshBufCnt;
+		aabbox3df box;
+		uint64_t meshBufPtrs[1];
+	} PACK_STRUCT;
+
+	//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
+	struct MeshBufferBlobV1 : Blob
+	{
+		//! Constructor filling all members
+		explicit MeshBufferBlobV1(const scene::ICPUMeshBuffer&);
+
+		video::SMaterial mat;
+		core::aabbox3df box;
+		uint64_t descPtr;
+		video::E_INDEX_TYPE indexType;
+		uint32_t baseVertex;
+		uint64_t indexCount;
+		size_t indexBufOffset;
+		size_t instanceCount;
+		uint32_t baseInstance;
+		scene::E_PRIMITIVE_TYPE primitiveType;
+		scene::E_VERTEX_ATTRIBUTE_ID posAttrId;
+	} PACK_STRUCT;
+
+	//! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
+	struct MeshDataFormatDescBlobV1 : Blob
+	{
+		//! Constructor filling all members
+		explicit MeshDataFormatDescBlobV1(const scene::IMeshDataFormatDesc<core::ICPUBuffer>&);
+
+		scene::E_COMPONENTS_PER_ATTRIBUTE cpa[scene::EVAI_COUNT];
+		scene::E_COMPONENT_TYPE attrType[scene::EVAI_COUNT];
+		size_t attrStride[scene::EVAI_COUNT];
+		size_t attrOffset[scene::EVAI_COUNT];
+		uint32_t attrDivisor[scene::EVAI_COUNT];
+		uint64_t attrBufPtrs[scene::EVAI_COUNT];
+		uint64_t idxBufPtr;
+	} PACK_STRUCT;
+#include "irrunpack.h"
 
 }} // irr::core
 
