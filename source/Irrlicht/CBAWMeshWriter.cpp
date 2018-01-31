@@ -12,6 +12,8 @@
 #include "coreutil.h"
 #include "irrTypes.h"
 
+#define BAW_FILE_VERSION 0
+
 namespace irr {
 	namespace scene
 	{
@@ -30,18 +32,17 @@ namespace irr {
 		{
 			const uint32_t cnt = _obj->getMeshBufferCount();
 			const uint32_t size = sizeof(uint32_t) + sizeof(core::aabbox3df) + cnt*sizeof(uint64_t);
-			uint8_t* const data = (uint8_t*)std::malloc(size);
-			((uint32_t*)data)[0] = cnt;
-			std::memcpy(data + sizeof(uint32_t), &_obj->getBoundingBox(), sizeof(core::aabbox3df));
+			uint8_t data[1u<<14];
+			new (data) core::MeshBlobV1(_obj->getBoundingBox(), _obj->getMeshBufferCount());
+			core::MeshBlobV1* const blob = (core::MeshBlobV1*)data;
+
 			for (uint32_t i = 0; i < cnt; ++i)
-				((uint64_t*)(data + (size - cnt*sizeof(uint64_t)) + i*sizeof(uint64_t)))[0] = reinterpret_cast<uint64_t>(_obj->getMeshBuffer(i));
+				blob->meshBufPtrs[i] = reinterpret_cast<uint64_t>(_obj->getMeshBuffer(i));
 
 			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = size;
 			core::XXHash_256(data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
-
-			std::free(data);
 		}
 		template<>
 		void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
@@ -96,9 +97,13 @@ namespace irr {
 				return false;
 
 			const uint32_t FILE_HEADER_SIZE = 32;
-			_IRR_DEBUG_BREAK_IF(FILE_HEADER_SIZE != sizeof(core::BawFile::fileHeader))
+			_IRR_DEBUG_BREAK_IF(FILE_HEADER_SIZE != sizeof(core::BawFileV1::fileHeader))
 
-			_file->write(BAW_FILE_HEADER, FILE_HEADER_SIZE);
+			uint64_t header[4];
+			std::memcpy(header, BAW_FILE_HEADER, FILE_HEADER_SIZE);
+			header[3] = BAW_FILE_VERSION;
+
+			_file->write(header, FILE_HEADER_SIZE);
 
 			SContext ctx; // context of this call of `writeMesh`
 
@@ -113,7 +118,7 @@ namespace irr {
 			_file->write(ctx.offsets.const_pointer(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 
 			// will be overwritten after calculating not known yet data (hash and size for texture paths)
-			_file->write(ctx.headers.const_pointer(), ctx.headers.size() * sizeof(core::BlobHeader));
+			_file->write(ctx.headers.const_pointer(), ctx.headers.size() * sizeof(core::BlobHeaderV1));
 
 			ctx.offsets.set_used(0); // set `used` to 0, to allow push starting from 0 index
 			for (int i = 0; i < ctx.headers.size(); ++i)
@@ -145,7 +150,7 @@ namespace irr {
 			_file->write(ctx.offsets.const_pointer(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 			// overwrite headers
 			_file->seek(HEADERS_FILE_OFFSET);
-			_file->write(ctx.headers.const_pointer(), ctx.headers.size() * sizeof(core::BlobHeader));
+			_file->write(ctx.headers.const_pointer(), ctx.headers.size() * sizeof(core::BlobHeaderV1));
 
 			_file->seek(prevPos);
 
@@ -158,7 +163,7 @@ namespace irr {
 
 			if (_mesh)
 			{
-				core::BlobHeader bh;
+				core::BlobHeaderV1 bh;
 				bh.handle = reinterpret_cast<uint64_t>(_mesh);
 				bh.compressionType = core::Blob::EBCT_RAW;
 				bh.blobType = core::Blob::EBT_MESH;
@@ -178,7 +183,7 @@ namespace irr {
 
 				if (countedObjects.find(meshBuffer) == countedObjects.end())
 				{
-					core::BlobHeader bh;
+					core::BlobHeaderV1 bh;
 					bh.handle = reinterpret_cast<uint64_t>(meshBuffer);
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_MESH_BUFFER;
@@ -203,7 +208,7 @@ namespace irr {
 
 				if (countedObjects.find(desc) == countedObjects.end())
 				{
-					core::BlobHeader bh;
+					core::BlobHeaderV1 bh;
 					bh.handle = reinterpret_cast<uint64_t>(desc);
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_DATA_FORMAT_DESC;
@@ -214,7 +219,7 @@ namespace irr {
 				const core::ICPUBuffer* idxBuffer = desc->getIndexBuffer();
 				if (idxBuffer && countedObjects.find(idxBuffer) == countedObjects.end())
 				{
-					core::BlobHeader bh;
+					core::BlobHeaderV1 bh;
 					bh.handle = reinterpret_cast<uint64_t>(idxBuffer);
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
@@ -227,7 +232,7 @@ namespace irr {
 					const core::ICPUBuffer* attBuffer = desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)attId);
 					if (attBuffer && countedObjects.find(attBuffer) == countedObjects.end())
 					{
-						core::BlobHeader bh;
+						core::BlobHeaderV1 bh;
 						bh.handle = reinterpret_cast<uint64_t>(attBuffer);
 						bh.compressionType = core::Blob::EBCT_RAW;
 						bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;

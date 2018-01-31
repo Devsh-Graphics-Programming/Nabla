@@ -8,6 +8,10 @@
 namespace irr { namespace core
 {
 
+	MeshBlobV1::MeshBlobV1(const aabbox3df & _box, uint32_t _cnt) : box(_box), meshBufCnt(_cnt)
+	{
+	}
+
 	MeshBufferBlobV1::MeshBufferBlobV1(const scene::ICPUMeshBuffer* _mb)
 	{
 		std::memcpy(&mat, &_mb->getMaterial(), sizeof(video::SMaterial));
@@ -42,6 +46,7 @@ namespace irr { namespace core
 
 		idxBufPtr = reinterpret_cast<uint64_t>(_desc->getIndexBuffer());
 	}
+
 
 }
 

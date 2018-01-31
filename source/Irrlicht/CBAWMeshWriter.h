@@ -24,7 +24,7 @@ namespace scene
 	private:
 		struct SContext
 		{
-			core::array<core::BlobHeader> headers;
+			core::array<core::BlobHeaderV1> headers;
 			core::array<uint32_t> offsets;
 		};
 

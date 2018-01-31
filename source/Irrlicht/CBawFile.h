@@ -14,20 +14,21 @@ namespace irr { namespace core
 
 #include "irrpack.h"
 	//! Cast pointer to block of blob-headers to BlobHeader* and easily iterate and/or access members
-	struct BlobHeader
+	struct BlobHeaderV1
 	{
 		uint32_t blobSize;
 		uint32_t blobSizeDecompr;
 
-		uint64_t compressionType : 3;
-		uint64_t blobType : 7;
+		uint8_t compressionType;
+		uint8_t blobType;
+		uint8_t dummy[6];
 		uint64_t handle;
 
 		uint64_t blobHash[4];
 	} PACK_STRUCT;
 
-	//! Cast pointer to (first byte of) file buffer to BaWFile*
-	struct BawFile {
+	//! Cast pointer to (first byte of) file buffer to BaWFile*. 256bit header must be first member (start of file).
+	struct BawFileV1 {
 		//! 32-byte BaW binary format header, currently equal to "IrrlichtBaW BinaryFile" (and the rest filled with zeroes)
 		uint64_t fileHeader[4];
 
@@ -67,10 +68,13 @@ namespace irr { namespace core
 
 #include "irrpack.h"
 	//! Utility struct. Used only while loading (CBAWMeshLoader). Cast blob pointer to MeshBlob* to make life easier.
-	struct MeshBlob : Blob
+	struct MeshBlobV1 : Blob
 	{
-		uint32_t meshBufCnt;
+		//! WARNING: Constructor saves only bounding box and mesh buffer count
+		explicit MeshBlobV1(const aabbox3df & _box, uint32_t _cnt);
+
 		aabbox3df box;
+		uint32_t meshBufCnt;
 		uint64_t meshBufPtrs[1];
 	} PACK_STRUCT;
 
