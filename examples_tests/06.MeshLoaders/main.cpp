@@ -3,6 +3,7 @@
 #include "driverChoice.h"
 
 #include "../source/Irrlicht/CGeometryCreator.h"
+#include "../source/Irrlicht/CBAWMeshWriter.h"
 
 using namespace irr;
 using namespace core;
@@ -136,8 +137,16 @@ int main()
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
+	io::IFileSystem* fs = device->getFileSystem();
+	scene::IMeshWriter* writer = smgr->createMeshWriter(irr::scene::EMWT_BAW);
+
 	//! Test Loading of Obj
     scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/extrusionLogo_TEST_fixed.stl");
+	// export mesh
+	io::IWriteFile* file = fs->createAndWriteFile("extrusionLogo_TEST_fixed.baw");
+	writer->writeMesh(file, cpumesh);
+	file->drop();
+	// end export
     if (cpumesh)
     {
         scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
@@ -145,7 +154,14 @@ int main()
         smgr->addMeshSceneNode(gpumesh)->setMaterialType(newMaterialType);
         gpumesh->drop();
     }
+
     cpumesh = smgr->getMesh("../../media/cow.obj");
+	// export mesh
+	file = fs->createAndWriteFile("cow.baw");
+	writer->writeMesh(file, cpumesh);
+	file->drop();
+	writer->drop();
+	// end export
     if (cpumesh)
     {
         scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));

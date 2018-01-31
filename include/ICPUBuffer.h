@@ -23,9 +23,10 @@ class ICPUBuffer : public IBuffer
                 free(data);
         }
     public:
-        ICPUBuffer(const size_t &sizeInBytes) : size(0), data(NULL)
+        ICPUBuffer(const size_t &sizeInBytes, void *dat = NULL) : size(0), data(dat)
         {
-            data = malloc(sizeInBytes);
+			if (!data)
+				data = malloc(sizeInBytes);
             if (!data)
                 return;
 
