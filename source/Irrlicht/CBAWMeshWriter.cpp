@@ -37,7 +37,7 @@ namespace irr {
 			uint8_t stackData[1u<<14];
 
 			uint8_t* data;
-			if (core::MeshBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData))
+			if (core::MeshBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData)) // use heap when it's really needed
 				data = (uint8_t*)core::MeshBlobV1::allocMemForBlob(_obj);
 			else data = stackData;
 
@@ -50,6 +50,9 @@ namespace irr {
 			finalizeHeader(_ctx.headers[_headerIdx], data, size);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
+
+			if (data != stackData)
+				free(data);
 		}
 		template<>
 		void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMesh>(ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
@@ -59,7 +62,7 @@ namespace irr {
 			uint8_t stackData[1u << 14];
 
 			uint8_t* data;
-			if (core::SkinnedMeshBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData))
+			if (core::SkinnedMeshBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData)) // use heap when it's really needed
 				data = (uint8_t*)core::SkinnedMeshBlobV1::allocMemForBlob(_obj);
 			else data = stackData;
 
@@ -72,6 +75,9 @@ namespace irr {
 			finalizeHeader(_ctx.headers[_headerIdx], data, size);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
+
+			if (data != stackData)
+				free(data);
 		}
 		template<>
 		void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
@@ -114,7 +120,7 @@ namespace irr {
 			uint8_t stackData[1u<<14]; // 16kB
 
 			uint8_t* data;
-			if (core::FinalBoneHierarchyBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData))
+			if (core::FinalBoneHierarchyBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData)) // use heap when it's really needed
 				data = (uint8_t*)core::FinalBoneHierarchyBlobV1::allocMemForBlob(_obj);
 			else data = stackData;
 
@@ -124,6 +130,9 @@ namespace irr {
 			finalizeHeader(_ctx.headers[_headerIdx], data, size);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
+
+			if (data != stackData)
+				free(data);
 		}
 		template<>
 		void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(IMeshDataFormatDesc<core::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
