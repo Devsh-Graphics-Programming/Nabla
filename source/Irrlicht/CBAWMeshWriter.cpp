@@ -34,15 +34,20 @@ namespace irr {
 		{
 			const uint32_t cnt = _obj->getMeshBufferCount();
 			const uint32_t size = sizeof(uint32_t) + sizeof(core::aabbox3df) + cnt*sizeof(uint64_t);
-			uint8_t data[1u<<14];
+			uint8_t stackData[1u<<14];
+
+			uint8_t* data;
+			if (core::MeshBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData))
+				data = (uint8_t*)core::MeshBlobV1::allocMemForBlob(_obj);
+			else data = stackData;
+
 			new (data) core::MeshBlobV1(_obj->getBoundingBox(), _obj->getMeshBufferCount());
 			core::MeshBlobV1* const blob = (core::MeshBlobV1*)data;
 
 			for (uint32_t i = 0; i < cnt; ++i)
 				blob->meshBufPtrs[i] = reinterpret_cast<uint64_t>(_obj->getMeshBuffer(i));
 
-			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = size;
-			core::XXHash_256(data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
+			finalizeHeader(_ctx.headers[_headerIdx], data, size);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 		}
@@ -51,15 +56,20 @@ namespace irr {
 		{
 			const uint32_t cnt = _obj->getMeshBufferCount();
 			const uint32_t size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(core::aabbox3df) + cnt*sizeof(uint64_t);
-			uint8_t data[1u << 14];
+			uint8_t stackData[1u << 14];
+
+			uint8_t* data;
+			if (core::SkinnedMeshBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData))
+				data = (uint8_t*)core::SkinnedMeshBlobV1::allocMemForBlob(_obj);
+			else data = stackData;
+
 			new (data) core::SkinnedMeshBlobV1(_obj->getBoneReferenceHierarchy(), _obj->getBoundingBox(), _obj->getMeshBufferCount());
 			core::SkinnedMeshBlobV1* const blob = (core::SkinnedMeshBlobV1*)data;
 
 			for (uint32_t i = 0; i < cnt; ++i)
 				blob->meshBufPtrs[i] = reinterpret_cast<uint64_t>(_obj->getMeshBuffer(i));
 
-			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = size;
-			core::XXHash_256(data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
+			finalizeHeader(_ctx.headers[_headerIdx], data, size);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 		}
@@ -68,8 +78,7 @@ namespace irr {
 		{
 			const core::MeshBufferBlobV1 data(_obj);
 
-			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = sizeof(data);
-			core::XXHash_256(&data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
+			finalizeHeader(_ctx.headers[_headerIdx], &data, sizeof(data));
 			_file->write(&data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 		}
@@ -78,8 +87,7 @@ namespace irr {
 		{
 			const core::SkinnedMeshBufferBlobV1 data(_obj);
 
-			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = sizeof(data);
-			core::XXHash_256(&data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
+			finalizeHeader(_ctx.headers[_headerIdx], &data, sizeof(data));
 			_file->write(&data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 		}
@@ -95,8 +103,7 @@ namespace irr {
 			const io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to out-file's directory
 			const uint32_t len = std::strlen(path.c_str()) + 1;
 
-			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = len;
-			core::XXHash_256(path.c_str(), len, _ctx.headers[_headerIdx].blobHash);
+			finalizeHeader(_ctx.headers[_headerIdx], path.c_str(), len);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 
 			_file->write(path.c_str(), len);
@@ -104,12 +111,17 @@ namespace irr {
 		template<>
 		void CBAWMeshWriter::exportAsBlob<scene::CFinalBoneHierarchy>(scene::CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
-			uint8_t data[1u<<14]; // 16kB
+			uint8_t stackData[1u<<14]; // 16kB
+
+			uint8_t* data;
+			if (core::FinalBoneHierarchyBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData))
+				data = (uint8_t*)core::FinalBoneHierarchyBlobV1::allocMemForBlob(_obj);
+			else data = stackData;
+
 			uint32_t size;
 			_obj->fillExportBlob(data, &size);
 
-			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = size;
-			core::XXHash_256(&data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
+			finalizeHeader(_ctx.headers[_headerIdx], data, size);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 		}
@@ -118,16 +130,14 @@ namespace irr {
 		{
 			const core::MeshDataFormatDescBlobV1 data(_obj);
 
-			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = sizeof(data);
-			core::XXHash_256(&data, _ctx.headers[_headerIdx].blobSizeDecompr, _ctx.headers[_headerIdx].blobHash);
+			finalizeHeader(_ctx.headers[_headerIdx], &data, sizeof(data));
 			_file->write(&data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 		}
 		template<>
 		void CBAWMeshWriter::exportAsBlob<core::ICPUBuffer>(core::ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
-			_ctx.headers[_headerIdx].blobSize = _ctx.headers[_headerIdx].blobSizeDecompr = _obj->getSize();
-			core::XXHash_256(_obj->getPointer(), _obj->getSize(), _ctx.headers[_headerIdx].blobHash);
+			finalizeHeader(_ctx.headers[_headerIdx], _obj->getPointer(), _obj->getSize());
 			_file->write(_obj->getPointer(), _obj->getSize());
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 		}
@@ -315,6 +325,12 @@ namespace irr {
 		void CBAWMeshWriter::calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx)
 		{
 			_ctx.offsets.push_back(!_ctx.offsets.size() ? 0 : _ctx.offsets.getLast() + _blobSize);
+		}
+
+		void CBAWMeshWriter::finalizeHeader(core::BlobHeaderV1 & _header, const void* _data, uint32_t _size)
+		{
+			_header.blobSize = _header.blobSizeDecompr = _size;
+			core::XXHash_256(_data, _size, _header.blobHash);
 		}
 
 }} // end ns irr::scene

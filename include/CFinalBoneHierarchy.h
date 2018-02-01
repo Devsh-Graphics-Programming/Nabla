@@ -130,12 +130,22 @@ namespace scene
 				*_size = ptr - (uint8_t*)_dataPtr;
 			}
 
+			inline size_t getSizeOfAllBoneNames() const
+			{
+				size_t sum = 0;
+				for (int i = 0; i < boneCount; ++i)
+					sum += boneNames[i].size()+1;
+				return sum;
+			}
+
             inline const size_t& getBoneCount() const {return boneCount;}
 
             inline const BoneReferenceData* getBoneData() const
             {
                 return boneFlatArray;
             }
+
+			const size_t* getBoneTreeLevelEnd() const { return boneTreeLevelEnd; }
 
             inline const core::stringc& getBoneName(const size_t& boneID) const
             {
