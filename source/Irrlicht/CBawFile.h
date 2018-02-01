@@ -9,7 +9,15 @@
 #include "stdint.h"
 #include "IMeshBuffer.h"
 
-namespace irr { namespace core
+namespace irr { 
+
+namespace scene 
+{ 
+	class SCPUSkinMeshBuffer;
+	class CFinalBoneHierarchy;
+}
+
+namespace core
 {
 
 #include "irrpack.h"
@@ -56,9 +64,12 @@ namespace irr { namespace core
 		enum E_BLOB_TYPE
 		{
 			EBT_MESH = 0,
+			EBT_SKINNED_MESH,
 			EBT_MESH_BUFFER,
+			EBT_SKINNED_MESH_BUFFER,
 			EBT_RAW_DATA_BUFFER,
 			EBT_DATA_FORMAT_DESC,
+			EBT_FINAL_BONE_HIERARCHY,
 			EBT_TEXTURE_PATH,
 			EBT_COUNT
 		};
@@ -67,12 +78,24 @@ namespace irr { namespace core
 	};
 
 #include "irrpack.h"
-	//! Utility struct. Used only while loading (CBAWMeshLoader). Cast blob pointer to MeshBlob* to make life easier.
+	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 	struct MeshBlobV1 : Blob
 	{
-		//! WARNING: Constructor saves only bounding box and mesh buffer count
+		//! WARNING: Constructor saves only bounding box and mesh buffer count (not mesh buffer pointers)
 		explicit MeshBlobV1(const aabbox3df & _box, uint32_t _cnt);
 
+		aabbox3df box;
+		uint32_t meshBufCnt;
+		uint64_t meshBufPtrs[1];
+	} PACK_STRUCT;
+
+	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
+	struct SkinnedMeshBlobV1 : Blob
+	{
+		//! WARNING: Constructor saves only bone hierarchy, bounding box and mesh buffer count (not mesh buffer pointers)
+		explicit SkinnedMeshBlobV1(scene::CFinalBoneHierarchy* _fbh, const aabbox3df & _box, uint32_t _cnt);
+
+		uint64_t boneHierarchyPtr;
 		aabbox3df box;
 		uint32_t meshBufCnt;
 		uint64_t meshBufPtrs[1];
@@ -97,6 +120,16 @@ namespace irr { namespace core
 		scene::E_VERTEX_ATTRIBUTE_ID posAttrId;
 	} PACK_STRUCT;
 
+	struct SkinnedMeshBufferBlobV1 : MeshBufferBlobV1
+	{
+		//! Constructor filling all members
+		explicit SkinnedMeshBufferBlobV1(const scene::SCPUSkinMeshBuffer*);
+
+		uint32_t indexValMin;
+		uint32_t indexValMax;
+		uint32_t maxVertexBoneInfluences;
+	} PACK_STRUCT;
+
 	//! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
 	struct MeshDataFormatDescBlobV1 : Blob
 	{
@@ -110,6 +143,15 @@ namespace irr { namespace core
 		uint32_t attrDivisor[scene::EVAI_COUNT];
 		uint64_t attrBufPtrs[scene::EVAI_COUNT];
 		uint64_t idxBufPtr;
+	} PACK_STRUCT;
+
+	struct FinalBoneHierarchyBlobV1 : Blob
+	{
+		FinalBoneHierarchyBlobV1(size_t _bCnt, size_t _numLvls, size_t _kfCnt);
+
+		size_t boneCount;
+		size_t numLevelsInHierarchy;
+		size_t keyframeCount;
 	} PACK_STRUCT;
 #include "irrunpack.h"
 

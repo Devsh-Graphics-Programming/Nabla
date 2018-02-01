@@ -42,8 +42,8 @@ class IBuffer : public virtual IReferenceCounted
         //virtual E_BUFFER_CLASS getBufferClass() const = 0;
         //! size in BYTES
         virtual const uint64_t& getSize() const = 0;
-        //! returns true on success (some types always return false since they dont support resize)
         //! This function will invalidate any sizes, pointers etc. returned before!
+        /** @returns True on success (some types always return false since they dont support resize) */
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false) = 0;
 
         virtual const uint64_t& getLastTimeReallocated() const {return lastTimeReallocated;}

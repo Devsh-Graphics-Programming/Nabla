@@ -1019,6 +1019,9 @@
     </ClInclude>
     <ClInclude Include="COSOperator.h" />
     <ClInclude Include="utf8\source\utf8.h" />
+    <ClInclude Include="CBawFile.h" />
+    <ClInclude Include="CBAWMeshWriter.h" />
+    <ClInclude Include="FW_Mutex.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\changes.txt">
@@ -1638,6 +1641,12 @@
     <ClCompile Include="COpenGLCubemapTexture.cpp" />
     <ClCompile Include="COpenGL2DTexture.cpp" />
     <ClCompile Include="COpenGL2DTextureArray.cpp" />
+    <ClCompile Include="CBAWMeshWriter.cpp" />
+<<<<<<< Updated upstream
+=======
+    <ClCompile Include="FW_Mutex.cpp" />
+>>>>>>> Stashed changes
+    <ClCompile Include="CBawFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Irrlicht.rc" />

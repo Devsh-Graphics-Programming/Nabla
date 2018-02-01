@@ -5,13 +5,23 @@
 
 #include "CBawFile.h"
 
+#include "ISkinnedMesh.h"
+#include "SSkinMeshBuffer.h"
+#include "CFinalBoneHierarchy.h"
+
 //! for C++11
 //using namespace std;
+
 
 namespace irr { namespace core
 {
 
-	MeshBlobV1::MeshBlobV1(const aabbox3df & _box, uint32_t _cnt) : box(_box), meshBufCnt(_cnt)
+	MeshBlobV1::MeshBlobV1(const aabbox3df& _box, uint32_t _cnt) : box(_box), meshBufCnt(_cnt)
+	{
+	}
+
+	SkinnedMeshBlobV1::SkinnedMeshBlobV1(scene::CFinalBoneHierarchy* _fbh, const aabbox3df & _box, uint32_t _cnt)
+		: boneHierarchyPtr(reinterpret_cast<uint64_t>(_fbh)), box(_box), meshBufCnt(_cnt)
 	{
 	}
 
@@ -28,6 +38,13 @@ namespace irr { namespace core
 		baseInstance = _mb->getBaseInstance();
 		primitiveType = _mb->getPrimitiveType();
 		posAttrId = _mb->getPositionAttributeIx();
+	}
+
+	SkinnedMeshBufferBlobV1::SkinnedMeshBufferBlobV1(const scene::SCPUSkinMeshBuffer* _smb) : MeshBufferBlobV1(_smb)
+	{
+		indexValMin = _smb->getIndexMinBound();
+		indexValMax = _smb->getIndexMaxBound();
+		maxVertexBoneInfluences = _smb->getMaxVertexBoneInfluences();
 	}
 
 	MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _desc)
@@ -50,7 +67,8 @@ namespace irr { namespace core
 		idxBufPtr = reinterpret_cast<uint64_t>(_desc->getIndexBuffer());
 	}
 
+	FinalBoneHierarchyBlobV1::FinalBoneHierarchyBlobV1(size_t _bCnt, size_t _numLvls, size_t _kfCnt) 
+		: boneCount(_bCnt), numLevelsInHierarchy(_numLvls), keyframeCount(_kfCnt)
+	{}
 
-}
-
-} // irr::core
+}} // irr::core

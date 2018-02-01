@@ -23,6 +23,10 @@ class ICPUBuffer : public IBuffer
                 free(data);
         }
     public:
+		//! Constructor. 
+		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
+		@param dat Optional parameter. Pointer to data, must be allocated with `malloc`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
+		*/
         ICPUBuffer(const size_t &sizeInBytes, void *dat = NULL) : size(0), data(dat)
         {
 			if (!data)
@@ -37,8 +41,6 @@ class ICPUBuffer : public IBuffer
         //! size in BYTES
         virtual const uint64_t& getSize() const {return size;}
 
-        //! returns true on success (some types always return false since they dont support resize)
-        //! This function will invalidate any sizes, pointers etc. returned before!
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)
         {
             if (size==newSize)

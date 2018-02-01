@@ -9,6 +9,7 @@
 #include "IGPUMappedBuffer.h"
 #include "quaternion.h"
 #include "irrString.h"
+#include "CBawFile.h"
 
 namespace irr
 {
@@ -99,6 +100,35 @@ namespace scene
 
                 createAnimationKeys(inLevelFixedJoints);
             }
+
+			void fillExportBlob(void* _dataPtr, uint32_t* _size)
+			{
+				new (_dataPtr) core::FinalBoneHierarchyBlobV1(boneCount, NumLevelsInHierarchy, keyframeCount);
+				uint8_t* ptr = (uint8_t*)_dataPtr + sizeof(core::FinalBoneHierarchyBlobV1);
+
+				memcpy(ptr, boneFlatArray, boneCount * sizeof(BoneReferenceData));
+				ptr += boneCount * sizeof(BoneReferenceData);
+
+				for (size_t i = 0; i < boneCount; ++i)
+				{
+					memcpy(ptr, boneNames[i].c_str(), boneNames[i].size() + 1);
+					ptr += boneNames[i].size() + 1;
+				}
+
+				memcpy(ptr, boneTreeLevelEnd, NumLevelsInHierarchy*sizeof(size_t));
+				ptr += NumLevelsInHierarchy * sizeof(size_t);
+
+				memcpy(ptr, keyframes, keyframeCount*sizeof(float));
+				ptr += keyframeCount * sizeof(float);
+
+				memcpy(ptr, interpolatedAnimations, keyframeCount * sizeof(AnimationKeyData));
+				ptr += keyframeCount * sizeof(AnimationKeyData);
+
+				memcpy(ptr, nonInterpolatedAnimations, keyframeCount * sizeof(AnimationKeyData));
+				ptr += keyframeCount * sizeof(AnimationKeyData);
+
+				*_size = ptr - (uint8_t*)_dataPtr;
+			}
 
             inline const size_t& getBoneCount() const {return boneCount;}
 
