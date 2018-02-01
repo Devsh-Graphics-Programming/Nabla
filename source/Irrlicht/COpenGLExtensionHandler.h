@@ -178,6 +178,7 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_texture_rg",
 	"GL_ARB_texture_rgb10_a2ui",
 	"GL_ARB_texture_storage",
+	"GL_ARB_texture_storage_multisample",
 	"GL_ARB_texture_swizzle",
 	"GL_ARB_texture_view",
 	"GL_ARB_timer_query",
@@ -612,6 +613,7 @@ class COpenGLExtensionHandler
 		IRR_ARB_texture_rg,
 		IRR_ARB_texture_rgb10_a2ui,
 		IRR_ARB_texture_storage,
+		IRR_ARB_texture_storage_multisample,
 		IRR_ARB_texture_swizzle,
 		IRR_ARB_texture_view,
 		IRR_ARB_timer_query,
@@ -1012,8 +1014,8 @@ class COpenGLExtensionHandler
     static void extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
     static void extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
     //multisample textures
-    ///static void extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
-    ///static void extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations);
+    static void extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
+    static void extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations);
     //texture update functions
     static void extGlTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void *pixels);
     static void extGlTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels);
@@ -1245,11 +1247,15 @@ class COpenGLExtensionHandler
     static PFNGLTEXSTORAGE1DPROC pGlTexStorage1D;
     static PFNGLTEXSTORAGE2DPROC pGlTexStorage2D;
     static PFNGLTEXSTORAGE3DPROC pGlTexStorage3D;
+    static PFNGLTEXSTORAGE2DMULTISAMPLEPROC pGlTexStorage2DMultisample;
+    static PFNGLTEXSTORAGE3DMULTISAMPLEPROC pGlTexStorage3DMultisample;
     static PFNGLTEXBUFFERPROC pGlTexBuffer;
     static PFNGLTEXBUFFERRANGEPROC pGlTexBufferRange;
     static PFNGLTEXTURESTORAGE1DPROC pGlTextureStorage1D; //NULL
     static PFNGLTEXTURESTORAGE2DPROC pGlTextureStorage2D; //NULL
     static PFNGLTEXTURESTORAGE3DPROC pGlTextureStorage3D; //NULL
+    static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC pGlTextureStorage2DMultisample;
+    static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC pGlTextureStorage3DMultisample;
     static PFNGLTEXTUREBUFFERPROC pGlTextureBuffer; //NULL
     static PFNGLTEXTUREBUFFERRANGEPROC pGlTextureBufferRange; //NULL
     static PFNGLTEXTURESTORAGE1DEXTPROC pGlTextureStorage1DEXT;
@@ -1257,8 +1263,8 @@ class COpenGLExtensionHandler
     static PFNGLTEXTURESTORAGE3DEXTPROC pGlTextureStorage3DEXT;
     static PFNGLTEXTUREBUFFEREXTPROC pGlTextureBufferEXT;
     static PFNGLTEXTUREBUFFERRANGEEXTPROC pGlTextureBufferRangeEXT;
-    ///static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC pGlTextureStorage2DMultisample;
-    ///static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC pGlTextureStorage3DMultisample;
+    static PFNGLTEXTURESTORAGE2DMULTISAMPLEEXTPROC pGlTextureStorage2DMultisampleEXT;
+    static PFNGLTEXTURESTORAGE3DMULTISAMPLEEXTPROC pGlTextureStorage3DMultisampleEXT;
     static PFNGLTEXSUBIMAGE3DPROC pGlTexSubImage3D;
     static PFNGLMULTITEXSUBIMAGE1DEXTPROC pGlMultiTexSubImage1DEXT;
     static PFNGLMULTITEXSUBIMAGE2DEXTPROC pGlMultiTexSubImage2DEXT;
@@ -1902,9 +1908,6 @@ inline void COpenGLExtensionHandler::extGlTextureStorage2D(GLuint texture, GLenu
             case GL_TEXTURE_2D:
                 glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
                 break;
-            case GL_TEXTURE_2D_MULTISAMPLE:
-                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
-                break;
             case GL_TEXTURE_CUBE_MAP:
                 glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
                 break;
@@ -1956,9 +1959,6 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenu
             case GL_TEXTURE_2D_ARRAY:
                 glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
                 break;
-            case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
-                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
-                break;
             case GL_TEXTURE_3D:
                 glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
                 break;
@@ -1976,6 +1976,93 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenu
         glTexStorage3D(target,levels,internalformat,width,height,depth);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage2DMultisample)
+            pGlTextureStorage2DMultisample(texture,samples,internalformat,width,height,fixedsamplelocations);
+#else
+        glTextureStorage2DMultisample(texture,samples,internalformat,width,height,fixedsamplelocations);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage2DMultisampleEXT)
+            pGlTextureStorage2DMultisampleEXT(texture,target,samples,internalformat,width,height,fixedsamplelocations);
+#else
+        glTextureStorage2DMultisampleEXT(texture,target,samples,internalformat,width,height,fixedsamplelocations);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlTexStorage2DMultisample)
+#else
+    else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    {
+        GLint bound;
+        if (target!=GL_TEXTURE_2D_MULTISAMPLE)
+        {
+            os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+            return;
+        }
+        else
+            glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE,samples,internalformat,width,height,fixedsamplelocations);
+#else
+        glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE,samples,internalformat,width,height,fixedsamplelocations);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, bound);
+    }
+}
+inline void COpenGLExtensionHandler::extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage3DMultisample)
+            pGlTextureStorage3DMultisample(texture,samples,internalformat,width,height,depth,fixedsamplelocations);
+#else
+        glTextureStorage3DMultisample(texture,samples,internalformat,width,height,depth,fixedsamplelocations);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlTextureStorage3DMultisampleEXT)
+            pGlTextureStorage3DMultisampleEXT(texture,target,samples,internalformat,width,height,depth,fixedsamplelocations);
+#else
+        glTextureStorage3DMultisampleEXT(texture,target,samples,internalformat,width,height,depth,fixedsamplelocations);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlTexStorage3DMultisample)
+#else
+    else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    {
+        GLint bound;
+        if (target!=GL_TEXTURE_2D_MULTISAMPLE_ARRAY)
+        {
+            os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+            return;
+        }
+        else
+            glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, texture);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY,samples,internalformat,width,height,depth,fixedsamplelocations);
+#else
+        glTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY,samples,internalformat,width,height,depth,fixedsamplelocations);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, bound);
     }
 }
 

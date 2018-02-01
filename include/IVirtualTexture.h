@@ -33,20 +33,6 @@ public:
         EVTT_VIEW,
         EVTT_COUNT
     };
-    enum E_TEXTURE_TYPE
-    {
-        ETT_1D=0,
-        ETT_2D,
-        ETT_3D,
-        ETT_1D_ARRAY,
-        ETT_2D_ARRAY,
-        ETT_CUBE_MAP,
-        ETT_CUBE_MAP_ARRAY,
-        ETT_2D_MULTISAMPLE,
-        ETT_2D_MULTISAMPLE_ARRAY,
-        ETT_TEXTURE_BUFFER,
-        ETT_COUNT
-    };
 
 	virtual const E_DIMENSION_COUNT getDimensionality() const = 0;
 

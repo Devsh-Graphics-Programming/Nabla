@@ -45,12 +45,15 @@ class IRenderable : public virtual IReferenceCounted
 };
 
 class ITexture;
+class IMultisampleTexture;
 class IRenderBuffer;
 
 class IFrameBuffer : public virtual IReferenceCounted
 {
     public:
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, ITexture* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1) = 0;
+
+        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IMultisampleTexture* tex, const int32_t &layer=-1) = 0;
 
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IRenderBuffer* rbf) = 0;
 

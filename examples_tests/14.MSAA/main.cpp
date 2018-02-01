@@ -1,5 +1,7 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
+#include <iostream>
+#include <cstdio>
 
 #include "COpenGLStateManager.h"
 
@@ -97,6 +99,29 @@ public:
 
 int main()
 {
+	printf("Enter the number of samples to use for MSAA: ");
+
+	uint32_t numberOfSamples = 8;
+	std::cin >> numberOfSamples;
+	// yeah yeah I'll add a query mechanism for the max in IVideoDriver
+	if (numberOfSamples>64)
+        numberOfSamples = 64;
+    if (numberOfSamples<=1)
+        numberOfSamples = 2;
+
+	printf("\nPlease select the MSAA FBO attachment type to use:\n");
+	printf(" (0 : default) Use Texture\n");
+	printf(" (1) Use Renderbuffer\n");
+
+	bool useRenderbuffer = false;
+	uint32_t c;
+	std::cin >> c;
+	if (c==1)
+        useRenderbuffer = true;
+
+    //You may find while experimenting that you can only create a texture with 8 samples but renderbuffer with 32 !
+    printf("\nUsing %s with %d samples.\n",useRenderbuffer ? "Renderbuffer":"Texture",numberOfSamples);
+
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
@@ -167,23 +192,23 @@ int main()
     }
 
     //! We use a renderbuffer because we don't intend on reading from it
-    const uint32_t numberOfSamples = 8;
+    video::IRenderBuffer* colorRB=NULL,* depthRB=NULL;
+    video::IMultisampleTexture* colorMT=NULL,* depthMT=NULL;
     video::IFrameBuffer* framebuffer = driver->addFrameBuffer();
-    if (true)
+    if (useRenderbuffer)
     {
-        video::IRenderBuffer* color = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_A8R8G8B8);
-        video::IRenderBuffer* depth = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_DEPTH32F);
-        framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,color);
-        framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depth);
-    }/*
+        colorRB = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_A8R8G8B8);
+        depthRB = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_DEPTH32F);
+        framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorRB);
+        framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depthRB);
+    }
     else
     {
-        numberOfSamples,&params.WindowSize.Width
-        video::ITexture* color = driver->addTexture(,video::ECF_A8R8G8B8);
-        video::ITexture* depth = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_DEPTH32F);
-        framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,color);
-        framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depth);
-    }*/
+        colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_A8R8G8B8);
+        depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_DEPTH32F);
+        framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorMT);
+        framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depthMT);
+    }
 
 
 	uint64_t lastFPSTime = 0;
@@ -200,6 +225,7 @@ int main()
         //! This animates (moves) the camera and sets the transforms
         //! Also draws the meshbuffer
 
+        //yeah we dont have the state tracker yet
         glEnable(GL_MULTISAMPLE);
         smgr->drawAll();
         glDisable(GL_MULTISAMPLE);
@@ -222,8 +248,16 @@ int main()
 	}
 
 	driver->removeFrameBuffer(framebuffer);
-	driver->removeRenderBuffer(color);
-	driver->removeRenderBuffer(depth);
+	if (useRenderbuffer)
+    {
+        driver->removeRenderBuffer(colorRB);
+        driver->removeRenderBuffer(depthRB);
+    }
+    else
+    {
+        driver->removeMultisampleTexture(colorMT);
+        driver->removeMultisampleTexture(depthMT);
+    }
 
     for (size_t x=0; x<kInstanceSquareSize; x++)
     for (size_t z=0; z<kInstanceSquareSize; z++)

@@ -1,5 +1,6 @@
 #include <irrlicht.h>
-#include "driverChoice.h"
+#include <iostream>
+#include <cstdio>
 
 
 using namespace irr;
@@ -73,7 +74,7 @@ int main()
 	printf(" (0 : default) Use SkyDome\n");
 	printf(" (1) Use SkyBox\n");
 
-	char c = 0;
+	uint8_t c = 0;
 	std::cin >> c;
 
 	// create device with full flexibility over creation parameters

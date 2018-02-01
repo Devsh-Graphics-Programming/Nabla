@@ -123,6 +123,9 @@ namespace video
         //!
         virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN);
 
+        //!
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false);
+
 		//! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
 
@@ -335,6 +338,8 @@ namespace video
 		//! memory.
 		virtual void removeTexture(ITexture* texture);
 
+		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
+
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
 
 		virtual void removeRenderBuffer(IRenderBuffer* renderbuf);
@@ -344,6 +349,8 @@ namespace video
 		//! Removes all texture from the texture cache and deletes them, freeing lot of
 		//! memory.
 		virtual void removeAllTextures();
+
+		virtual void removeAllMultisampleTextures();
 
 		virtual void removeAllTextureBufferObjects();
 
@@ -573,6 +580,8 @@ namespace video
 		void addToTextureCache(video::ITexture* surface);
 
 	protected:
+        void addMultisampleTexture(IMultisampleTexture* tex);
+
         void addTextureBufferObject(ITextureBufferObject* tbo);
 
         void addRenderBuffer(IRenderBuffer* buffer);
@@ -662,6 +671,7 @@ namespace video
 		};
 		std::vector<SSurface> Textures;
 
+		core::array<IMultisampleTexture*> MultisampleTextures;
 		core::array<ITextureBufferObject*> TextureBufferObjects;
 		core::array<IRenderBuffer*> RenderBuffers;
 		core::array<IFrameBuffer*> FrameBuffers;

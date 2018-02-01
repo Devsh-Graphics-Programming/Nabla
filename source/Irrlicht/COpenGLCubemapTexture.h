@@ -39,23 +39,23 @@ public:
     {
         switch (face)
         {
-            case ECMF_POSITIVE_X:
-                return GL_TEXTURE_CUBE_MAP_POSITIVE_X;
-                break;
             case ECMF_NEGATIVE_X:
                 return GL_TEXTURE_CUBE_MAP_NEGATIVE_X;
                 break;
-            case ECMF_POSITIVE_Y:
-                return GL_TEXTURE_CUBE_MAP_POSITIVE_Y;
+            case ECMF_POSITIVE_X:
+                return GL_TEXTURE_CUBE_MAP_POSITIVE_X;
                 break;
             case ECMF_NEGATIVE_Y:
                 return GL_TEXTURE_CUBE_MAP_NEGATIVE_Y;
                 break;
-            case ECMF_POSITIVE_Z:
-                return GL_TEXTURE_CUBE_MAP_POSITIVE_Z;
+            case ECMF_POSITIVE_Y:
+                return GL_TEXTURE_CUBE_MAP_POSITIVE_Y;
                 break;
             case ECMF_NEGATIVE_Z:
                 return GL_TEXTURE_CUBE_MAP_NEGATIVE_Z;
+                break;
+            case ECMF_POSITIVE_Z:
+                return GL_TEXTURE_CUBE_MAP_POSITIVE_Z;
                 break;
         }
         return GL_INVALID_ENUM;

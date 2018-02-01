@@ -94,6 +94,7 @@
 #include "ISkinnedMeshSceneNode.h"
 #include "ITexture.h"
 #include "ITextureBufferObject.h"
+#include "IMultisampleTexture.h"
 #include "ITimer.h"
 #include "ITransformFeedback.h"
 #include "IVideoDriver.h"

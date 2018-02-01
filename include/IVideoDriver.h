@@ -9,6 +9,7 @@
 #include "SColor.h"
 #include "IGPUMappedBuffer.h"
 #include "ITexture.h"
+#include "IMultisampleTexture.h"
 #include "ITextureBufferObject.h"
 #include "IRenderBuffer.h"
 #include "IFrameBuffer.h"
@@ -360,6 +361,9 @@ namespace video
         virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain) = 0;
 
         //! A.
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) = 0;
+
+        //! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0) = 0;
 
 		//! A.
@@ -384,6 +388,8 @@ namespace video
 		\param texture Texture to delete from the engine cache. */
 		virtual void removeTexture(ITexture* texture) =0;
 
+		virtual void removeMultisampleTexture(IMultisampleTexture* tex) =0;
+
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo) =0;
 
 		virtual void removeRenderBuffer(IRenderBuffer* renderbuf) =0;
@@ -398,6 +404,8 @@ namespace video
 		good idea to set all materials which are using this texture to
 		0 or another texture first. */
 		virtual void removeAllTextures() =0;
+
+		virtual void removeAllMultisampleTextures() =0;
 
 		virtual void removeAllTextureBufferObjects() =0;
 
