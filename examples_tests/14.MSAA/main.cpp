@@ -96,6 +96,51 @@ public:
     virtual void OnUnsetMaterial() {}
 };
 
+class PostProcCallBack : public video::IShaderConstantSetCallBack
+{
+    int32_t sampleCountUniformLocation;
+    video::E_SHADER_CONSTANT_TYPE sampleCountUniformType;
+public:
+    PostProcCallBack() {}
+
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    {
+        /**
+        Shader Unigorms get saved as Program (Shader state)
+        So we can perma-assign texture slots to sampler uniforms
+        **/
+        int32_t id[] = {0,1,2,3};
+        for (size_t i=0; i<constants.size(); i++)
+        {
+            if (constants[i].name=="tex0")
+                services->setShaderTextures(id+0,constants[i].location,constants[i].type,1);
+            else if (constants[i].name=="tex1")
+                services->setShaderTextures(id+1,constants[i].location,constants[i].type,1);
+            else if (constants[i].name=="sampleCount")
+            {
+                sampleCountUniformLocation = constants[i].location;
+                sampleCountUniformType = constants[i].type;
+            }
+        }
+    }
+
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
+    {
+        if (sampleCountUniformLocation!=-1)
+            services->setShaderConstant(&userData,sampleCountUniformLocation,sampleCountUniformType,1);
+    }
+
+    virtual void OnUnsetMaterial() {}
+};
+
+
+#include "irrpack.h"
+struct ScreenQuadVertexStruct
+{
+    float Pos[3];
+    uint8_t TexCoord[2];
+} PACK_STRUCT;
+#include "irrunpack.h"
 
 int main()
 {
@@ -194,6 +239,8 @@ int main()
     //! We use a renderbuffer because we don't intend on reading from it
     video::IRenderBuffer* colorRB=NULL,* depthRB=NULL;
     video::IMultisampleTexture* colorMT=NULL,* depthMT=NULL;
+    scene::IGPUMeshBuffer* screenQuadMeshBuffer=NULL;
+    video::SMaterial postProcMaterial;
     video::IFrameBuffer* framebuffer = driver->addFrameBuffer();
     if (useRenderbuffer)
     {
@@ -208,6 +255,69 @@ int main()
         depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_DEPTH32F);
         framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorMT);
         framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depthMT);
+
+        /**
+        This extra stuff is to show off programmable resolve with a shader.
+        **/
+        screenQuadMeshBuffer = new scene::IGPUMeshBuffer();
+        scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+        screenQuadMeshBuffer->setMeshDataAndFormat(desc);
+        desc->drop();
+
+        ScreenQuadVertexStruct vertices[4];
+        vertices[0].Pos[0] = -1.f;
+        vertices[0].Pos[1] = -1.f;
+        vertices[0].Pos[2] = 0.5f;
+        vertices[0].TexCoord[0] = 0;
+        vertices[0].TexCoord[1] = 0;
+        vertices[1].Pos[0] = 1.f;
+        vertices[1].Pos[1] = -1.f;
+        vertices[1].Pos[2] = 0.5f;
+        vertices[1].TexCoord[0] = 1;
+        vertices[1].TexCoord[1] = 0;
+        vertices[2].Pos[0] = -1.f;
+        vertices[2].Pos[1] = 1.f;
+        vertices[2].Pos[2] = 0.5f;
+        vertices[2].TexCoord[0] = 0;
+        vertices[2].TexCoord[1] = 1;
+        vertices[3].Pos[0] = 1.f;
+        vertices[3].Pos[1] = 1.f;
+        vertices[3].Pos[2] = 0.5f;
+        vertices[3].TexCoord[0] = 1;
+        vertices[3].TexCoord[1] = 1;
+
+        uint16_t indices_indexed16[] = {0,1,2,2,1,3};
+
+        void* tmpMem = malloc(sizeof(vertices)+sizeof(indices_indexed16));
+        memcpy(tmpMem,vertices,sizeof(vertices));
+        memcpy(tmpMem+sizeof(vertices),indices_indexed16,sizeof(indices_indexed16));
+        video::IGPUBuffer* buff = driver->createGPUBuffer(sizeof(vertices)+sizeof(indices_indexed16),tmpMem);
+        free(tmpMem);
+
+        desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(ScreenQuadVertexStruct),0);
+        desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
+        desc->mapIndexBuffer(buff);
+        screenQuadMeshBuffer->setIndexBufferOffset(sizeof(vertices));
+        screenQuadMeshBuffer->setIndexType(video::EIT_16BIT);
+        screenQuadMeshBuffer->setIndexCount(6);
+        buff->drop();
+
+        PostProcCallBack* callBack = new PostProcCallBack();
+        //! First need to make a material other than default to be able to draw with custom shader
+        postProcMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
+        postProcMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
+        postProcMaterial.ZWriteEnable = false; //! Why even write depth?
+        postProcMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../screenquad.vert",
+                                                                            "","","", //! No Geometry or Tessellation Shaders
+                                                                            "../postproc.frag",
+                                                                            3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only)
+                                                                            callBack,
+                                                                            NULL,0, //! Xform feedback stuff, irrelevant here
+                                                                            numberOfSamples); //! custom user data
+        //! Need to bind our Multisample Textures to the correct texture units upon draw
+        postProcMaterial.setTexture(0,colorMT);
+        postProcMaterial.setTexture(1,depthMT);
+        callBack->drop();
     }
 
 
@@ -230,8 +340,24 @@ int main()
         smgr->drawAll();
         glDisable(GL_MULTISAMPLE);
 
-        const bool needToCopyDepth = false;
-        driver->blitRenderTargets(framebuffer,0,needToCopyDepth);
+        /**
+        We could use the same codepath for MultisampleTextures as for Renderbuffers,
+        since blit works on FBOs it would work here to as a resolve.
+
+        But instead we show off programmable resolve with a shader.
+        **/
+        if (useRenderbuffer)
+        {
+            //notice how I dont even have to set the current FBO (render target) to 0 (the screen) for results to display
+            const bool needToCopyDepth = false;
+            driver->blitRenderTargets(framebuffer,0,needToCopyDepth);
+        }
+        else
+        {
+            driver->setRenderTarget(0);
+            driver->setMaterial(postProcMaterial);
+            driver->drawMeshBuffer(screenQuadMeshBuffer);
+        }
 
 		driver->endScene();
 
@@ -257,6 +383,8 @@ int main()
     {
         driver->removeMultisampleTexture(colorMT);
         driver->removeMultisampleTexture(depthMT);
+
+        screenQuadMeshBuffer->drop();
     }
 
     for (size_t x=0; x<kInstanceSquareSize; x++)
