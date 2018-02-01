@@ -34,6 +34,9 @@ namespace core
 		uint64_t handle;
 
 		uint64_t blobHash[4];
+
+		//! Assigns size and calculates hash of data
+		void finalize(const void* _data, size_t _size);
 	} PACK_STRUCT;
 
 	//! Cast pointer to (first byte of) file buffer to BaWFile*. 256bit header must be first member (start of file).

@@ -9,7 +9,6 @@
 #include "IWriteFile.h"
 #include "irrArray.h"
 #include "ITexture.h"
-#include "coreutil.h"
 #include "irrTypes.h"
 #include "ISkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
@@ -47,7 +46,7 @@ namespace irr {
 			for (uint32_t i = 0; i < cnt; ++i)
 				blob->meshBufPtrs[i] = reinterpret_cast<uint64_t>(_obj->getMeshBuffer(i));
 
-			finalizeHeader(_ctx.headers[_headerIdx], data, size);
+			_ctx.headers[_headerIdx].finalize(data, size);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 
@@ -72,7 +71,7 @@ namespace irr {
 			for (uint32_t i = 0; i < cnt; ++i)
 				blob->meshBufPtrs[i] = reinterpret_cast<uint64_t>(_obj->getMeshBuffer(i));
 
-			finalizeHeader(_ctx.headers[_headerIdx], data, size);
+			_ctx.headers[_headerIdx].finalize(data, size);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 
@@ -84,7 +83,7 @@ namespace irr {
 		{
 			const core::MeshBufferBlobV1 data(_obj);
 
-			finalizeHeader(_ctx.headers[_headerIdx], &data, sizeof(data));
+			_ctx.headers[_headerIdx].finalize(&data, sizeof(data));
 			_file->write(&data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 		}
@@ -93,7 +92,7 @@ namespace irr {
 		{
 			const core::SkinnedMeshBufferBlobV1 data(_obj);
 
-			finalizeHeader(_ctx.headers[_headerIdx], &data, sizeof(data));
+			_ctx.headers[_headerIdx].finalize(&data, sizeof(data));
 			_file->write(&data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 		}
@@ -109,7 +108,7 @@ namespace irr {
 			const io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to out-file's directory
 			const uint32_t len = std::strlen(path.c_str()) + 1;
 
-			finalizeHeader(_ctx.headers[_headerIdx], path.c_str(), len);
+			_ctx.headers[_headerIdx].finalize(path.c_str(), len);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 
 			_file->write(path.c_str(), len);
@@ -127,7 +126,7 @@ namespace irr {
 			uint32_t size;
 			_obj->fillExportBlob(data, &size);
 
-			finalizeHeader(_ctx.headers[_headerIdx], data, size);
+			_ctx.headers[_headerIdx].finalize(data, size);
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 
@@ -139,14 +138,14 @@ namespace irr {
 		{
 			const core::MeshDataFormatDescBlobV1 data(_obj);
 
-			finalizeHeader(_ctx.headers[_headerIdx], &data, sizeof(data));
+			_ctx.headers[_headerIdx].finalize(&data, sizeof(data));
 			_file->write(&data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 		}
 		template<>
 		void CBAWMeshWriter::exportAsBlob<core::ICPUBuffer>(core::ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 		{
-			finalizeHeader(_ctx.headers[_headerIdx], _obj->getPointer(), _obj->getSize());
+			_ctx.headers[_headerIdx].finalize(_obj->getPointer(), _obj->getSize());
 			_file->write(_obj->getPointer(), _obj->getSize());
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
 		}
@@ -334,12 +333,6 @@ namespace irr {
 		void CBAWMeshWriter::calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx)
 		{
 			_ctx.offsets.push_back(!_ctx.offsets.size() ? 0 : _ctx.offsets.getLast() + _blobSize);
-		}
-
-		void CBAWMeshWriter::finalizeHeader(core::BlobHeaderV1 & _header, const void* _data, uint32_t _size)
-		{
-			_header.blobSize = _header.blobSizeDecompr = _size;
-			core::XXHash_256(_data, _size, _header.blobHash);
 		}
 
 }} // end ns irr::scene

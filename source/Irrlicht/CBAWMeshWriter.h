@@ -59,8 +59,6 @@ namespace scene
 		*/
 		void calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx);
 
-		void finalizeHeader(core::BlobHeaderV1& _header, const void* _data, uint32_t _size);
-
 	private:
 		io::IFileSystem* m_fileSystem;
 
