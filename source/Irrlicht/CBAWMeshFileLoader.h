@@ -20,16 +20,18 @@ namespace irr { namespace scene
 class CBAWMeshFileLoader : public IMeshLoader
 {
 private:
-	struct SPair
+	struct SBlobData
 	{
-		core::BlobHeaderV1* header;
-		void* blob;
+		const core::BlobHeaderV1* header;
+		const void* blob;
+		bool wasCreated;
 	};
 
 	struct SContext
 	{
 		io::path filePath;
-		std::map<uint64_t, SPair> blobs;
+		std::map<uint64_t, SBlobData> blobs;
+		std::map<uint64_t, IReferenceCounted*> createdObjects;
 	};
 
 protected:
@@ -52,7 +54,9 @@ public:
 
 private:
 	template<typename T>
-	T* make(SPair&, SContext&) const;
+	T* make(SBlobData&, SContext&) const;
+
+	void registerObject(SBlobData& _data, SContext& _ctx, IReferenceCounted* _obj) const;
 
 private:
 	scene::ISceneManager* m_sceneMgr;

@@ -219,7 +219,7 @@ namespace core
 	struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef Blob type; };
 
 	template<typename T> 
-	typename CorrespondingBlobTypeFor<T>::type* toBlobPtr(void* _blob)
+	typename CorrespondingBlobTypeFor<T>::type* toBlobPtr(const void* _blob)
 	{
 		return (typename CorrespondingBlobTypeFor<T>::type*)_blob;
 	}
