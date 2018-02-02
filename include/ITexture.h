@@ -74,12 +74,12 @@ public:
     };
     enum E_CUBE_MAP_FACE
     {
-        ECMF_NEGATIVE_X=0,
-        ECMF_POSITIVE_X,
-        ECMF_NEGATIVE_Y,
+        ECMF_POSITIVE_X=0,
+        ECMF_NEGATIVE_X,
         ECMF_POSITIVE_Y,
-        ECMF_NEGATIVE_Z,
+        ECMF_NEGATIVE_Y,
         ECMF_POSITIVE_Z,
+        ECMF_NEGATIVE_Z,
         ECMF_COUNT
     };
 

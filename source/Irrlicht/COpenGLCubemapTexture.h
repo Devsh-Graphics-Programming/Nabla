@@ -35,7 +35,7 @@ public:
     virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0);
 
     //!
-    static inline GLenum faceEnumToGLenum(const E_CUBE_MAP_FACE& face)
+     static inline GLenum faceEnumToGLenum(const E_CUBE_MAP_FACE& face)
     {
         switch (face)
         {
