@@ -81,10 +81,14 @@
 			<Add option="-W" />
 			<Add directory="../../include" />
 		</Compiler>
+		<Unit filename="cubeMapLayerDispatch.geom" />
 		<Unit filename="main.cpp" />
 		<Unit filename="mesh.frag" />
 		<Unit filename="mesh.vert" />
+		<Unit filename="meshShadow.vert" />
+		<Unit filename="shadow.frag" />
 		<Unit filename="skinnedMesh.vert" />
+		<Unit filename="skinnedMeshShadow.vert" />
 		<Extensions>
 			<code_completion />
 			<debugger />

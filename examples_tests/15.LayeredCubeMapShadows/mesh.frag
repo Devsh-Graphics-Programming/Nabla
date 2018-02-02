@@ -50,4 +50,5 @@ void main()
     float shadowFactor = clamp((lightChebyshev-epsilon-linearizeZBufferVal(zBufferVal))*ramp,0.0,1.0);
 
     pixelColor = texture(tex0,TexCoord)*(1.0-shadowFactor)*lightIntensity;
+    //pixelColor = vec4(vec3(linearizeZBufferVal(zBufferVal)/far),1.0);
 }

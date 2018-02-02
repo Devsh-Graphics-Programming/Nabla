@@ -1,5 +1,6 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
+#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 
 using namespace irr;
@@ -36,7 +37,8 @@ public:
 private:
 };
 
-scene::IDummyTransformationSceneNode* dummyLightNode = NULL;
+core::vector3df absoluteLightPos;
+core::matrix4 ViewProjCubeMatrices[6];
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -44,12 +46,14 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
     int32_t worldMatUniformLocation;
     int32_t normalMatUniformLocation;
     int32_t mvpUniformLocation;
+    int32_t vpcmUniformLocation;
     video::E_SHADER_CONSTANT_TYPE worldspaceLightPosUniformType;
     video::E_SHADER_CONSTANT_TYPE worldMatUniformType;
     video::E_SHADER_CONSTANT_TYPE normalMatUniformType;
     video::E_SHADER_CONSTANT_TYPE mvpUniformType;
+    video::E_SHADER_CONSTANT_TYPE vpcmUniformType;
 public:
-    SimpleCallBack() : worldspaceLightPosUniformLocation(-1), worldMatUniformLocation(-1), normalMatUniformLocation(-1), mvpUniformLocation(-1) {}
+    SimpleCallBack() : worldspaceLightPosUniformLocation(-1), worldMatUniformLocation(-1), normalMatUniformLocation(-1), mvpUniformLocation(-1), vpcmUniformLocation(-1) {}
 
     virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
     {
@@ -75,6 +79,11 @@ public:
             {
                 mvpUniformLocation = constants[i].location;
                 mvpUniformType = constants[i].type;
+            }
+            else if (constants[i].name=="ViewProjCubeMatrices"||constants[i].name=="ViewProjCubeMatrices[0]") //nvidia intel and amd report names differently
+            {
+                vpcmUniformLocation = constants[i].location;
+                vpcmUniformType = constants[i].type;
             } //! permabind texture slots
             else if (constants[i].name=="tex0")
                 services->setShaderTextures(id+0,constants[i].location,constants[i].type,1);
@@ -87,10 +96,9 @@ public:
 
     virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
-        if (worldspaceLightPosUniformLocation!=-1 && dummyLightNode)
+        if (worldspaceLightPosUniformLocation!=-1)
         {
-            core::vector3df worldSpaceLightPos = dummyLightNode->getAbsolutePosition();
-            services->setShaderConstant(&worldSpaceLightPos.X,worldspaceLightPosUniformLocation,worldspaceLightPosUniformType,1);
+            services->setShaderConstant(&absoluteLightPos.X,worldspaceLightPosUniformLocation,worldspaceLightPosUniformType,1);
         }
         if (worldMatUniformLocation!=-1)
             services->setShaderConstant(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD).pointer(),worldMatUniformLocation,worldMatUniformType,1);
@@ -102,6 +110,13 @@ public:
         }
         if (mvpUniformLocation!=-1)
             services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
+        if (vpcmUniformLocation!=-1)
+        {
+            core::matrix4 ModelViewProjCubeMatrices[6];
+            for (size_t i=0; i<6; i++)
+                ModelViewProjCubeMatrices[i] = core::concatenateBFollowedByA(ViewProjCubeMatrices[i],services->getVideoDriver()->getTransform(video::E4X3TS_WORLD));
+            services->setShaderConstant(ModelViewProjCubeMatrices,vpcmUniformLocation,vpcmUniformType,6);
+        }
     }
 
     virtual void OnUnsetMaterial() {}
@@ -138,8 +153,10 @@ int main()
     //! we could use the same shader callback for many materials, but then have to keep track of uniforms separately!
     cb->drop();
     cb = new SimpleCallBack();
-    video::E_MATERIAL_TYPE skinnedShadowMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../skinnedMesh.vert",
-                                                        "","","", //! No Geometry or Tessellation Shaders
+    //! Oh the stuff we could do with this shader, output transform feedback for main-view drawing and saving the GPU skinning results.
+    video::E_MATERIAL_TYPE skinnedShadowMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../skinnedMeshShadow.vert",
+                                                        "","", //! Tessellation Shaders
+                                                        "../cubeMapLayerDispatch.geom", //! Geometry Shader to amplify geometry and set gl_Layer
                                                         "../shadow.frag",
                                                         3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
                                                         cb); //! Our Shader Callback
@@ -154,8 +171,9 @@ int main()
     //! we could use the same shader callback for many materials, but then have to keep track of uniforms separately!
     cb->drop();
     cb = new SimpleCallBack();
-    video::E_MATERIAL_TYPE shadowMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
-                                                        "","","", //! No Geometry or Tessellation Shaders
+    video::E_MATERIAL_TYPE shadowMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../meshShadow.vert",
+                                                        "","", //! Tessellation Shaders
+                                                        "../cubeMapLayerDispatch.geom", //! Geometry Shader to amplify geometry and set gl_Layer
                                                         "../shadow.frag",
                                                         3,video::EMT_SOLID,
                                                         cb);
@@ -167,12 +185,12 @@ int main()
 
 
     //! Create our dummy scene-node signfying the light and lets get the view and projection matrices!
-    dummyLightNode = smgr->addDummyTransformationSceneNode();
-    dummyLightNode->setPosition(core::vector3df(kInstanceSquareSize,5,kInstanceSquareSize)*2.f);
+    scene::IDummyTransformationSceneNode* dummyLightNode = smgr->addDummyTransformationSceneNode();
+    dummyLightNode->setPosition(core::vector3df(2.f,0.5f,2.f)*kInstanceSquareSize);
+    scene::ISceneNodeAnimator* anim = smgr->createFlyCircleAnimator(dummyLightNode->getPosition(),10.f);
+    dummyLightNode->addAnimator(anim);
+    anim->drop();
 
-    //preconfig stuff for camera orientations
-    core::vector3df lookat[6] = {core::vector3df( 1, 0, 0),core::vector3df(-1, 0, 0),core::vector3df( 0, 1, 0),core::vector3df( 0,-1, 0),core::vector3df( 0, 0, 1),core::vector3df( 0, 0,-1)};
-    core::vector3df up[6] = {core::vector3df( 0, 1, 0),core::vector3df( 0, 1, 0),core::vector3df( 1, 0, 0),core::vector3df( 0, 0, 1),core::vector3df( 0, 1, 0),core::vector3df( 0, 1, 0)};
     // could fish this proj matrix from the envMapCam, but I know better and that all of them would be equal
     // set near value to be as far as possible to increase our precision in Z-Buffer (definitely want it to be same size as the light-bulb)
     // set far value to be the range of the light (or farthest shadow caster away from the light)
@@ -182,43 +200,29 @@ int main()
     ProjMatrix[0] = 1.f;
     ProjMatrix[5] = -1.f;
     core::matrix4x3 ViewMatricesWithoutTranslation[6];
-    core::matrix4x3 ViewMatricesWithoutTranslationInv[6];
-    scene::ICameraSceneNode* envMapCams[6];
     for (size_t i=0; i<6; i++)
     {
-        scene::ICameraSceneNode* envMapCam = envMapCams[i] = smgr->addCameraSceneNode();
-        envMapCam->setFOV(0.5f*core::PI);
-        envMapCam->setAspectRatio(1.f);
-        envMapCam->setNearValue(0.1f);
-        envMapCam->setFarValue(250.f);
-        envMapCam->setProjectionMatrix(ProjMatrix);
+        //preconfig stuff for camera orientations
+        core::vector3df lookat[6] = {core::vector3df( 1, 0, 0),core::vector3df(-1, 0, 0),core::vector3df( 0, 1, 0),core::vector3df( 0,-1, 0),core::vector3df( 0, 0, 1),core::vector3df( 0, 0,-1)};
+        core::vector3df up[6] = {core::vector3df( 0, 1, 0),core::vector3df( 0, 1, 0),core::vector3df( 0, 0, -1),core::vector3df( 0, 0, 1),core::vector3df( 0, 1, 0),core::vector3df( 0, 1, 0)};
+
+        scene::ICameraSceneNode* envMapCam = smgr->addCameraSceneNode();
         envMapCam->setTarget(lookat[i]);
         envMapCam->setUpVector(up[i]);
         envMapCam->OnAnimate(0);
         envMapCam->render();
         ViewMatricesWithoutTranslation[i] = envMapCam->getViewMatrix();
-        ViewMatricesWithoutTranslation[i].getInverse(ViewMatricesWithoutTranslationInv[i]); //need this to bring back translation
-        //! COMING SOON with gl_Layer
-        //envMapCam->remove();
-        envMapCam->setParent(dummyLightNode);
+        envMapCam->remove();
     }
-    //! COMING SOON with gl_Layer
-    //scene::ICameraSceneNode* dummyCubeMapCam = NULL; //some sort of ortho camera to only have camera BBOX culling (without frustum)
-    //dummyCubeMapCam->setParent(dummyLightNode);
 
 
-    uint32_t size[3] = {2048,2048,6};
+    #define kCubeMapSize 2048
+    uint32_t size[3] = {kCubeMapSize,kCubeMapSize,6};
     video::ITexture* cubeMap = driver->addTexture(video::ITexture::ETT_CUBE_MAP,size,1,"shadowmap",video::ECF_DEPTH32F); //dat ZBuffer Precision, may be excessive
     //notice this FBO only has a depth attachment, no colour!
-    //! COMING SOON with gl_Layer
-    //video::IFrameBuffer* fbo = driver->addFrameBuffer();
-    //fbo->attach(video::EFAP_DEPTH_ATTACHMENT,cubeMap,0); //attach all 6 faces at once
-    video::IFrameBuffer* fbo[6];
-    for (size_t i=0; i<6; i++)
-    {
-        fbo[i] = driver->addFrameBuffer();
-        fbo[i]->attach(video::EFAP_DEPTH_ATTACHMENT,cubeMap,0,i);
-    }
+    video::IFrameBuffer* fbo = driver->addFrameBuffer();
+    fbo->attach(video::EFAP_DEPTH_ATTACHMENT,cubeMap,0); //attach all 6 faces at once
+    //! REMEMBER THIS IS NOT THE END OF THE OPTIMIZATIONS, WE COULD ALWAYS USE TRANSFORM FEEDBACK TO SAVE GPU SKINNING AND NOT HAVE TO DO IT AGAIN (100% FASTER RENDER on second pass)
 
 
 	scene::ICameraSceneNode* camera =
@@ -234,7 +238,7 @@ int main()
 
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	//add a floor
-	scene::ISceneNode* floor = smgr->addCubeSceneNode(200.f,0,-1,core::vector3df(0,-0.75f,0),core::vector3df(0,0,0),core::vector3df(1.f,1.f/200.f,1.f));
+	scene::ISceneNode* floor = smgr->addCubeSceneNode(kInstanceSquareSize*20.f,0,-1,core::vector3df(0,-0.75f,0),core::vector3df(0,0,0),core::vector3df(1.f,1.f/(kInstanceSquareSize*20.f),1.f));
 	video::SMaterial& floorMaterial = floor->getMaterial(0);
 	floorMaterial.setTexture(0,driver->getTexture("../../media/wall.jpg"));
 	floorMaterial.setTexture(1,cubeMap);
@@ -242,7 +246,9 @@ int main()
 
 	scene::ISceneNode* anodes[kInstanceSquareSize*kInstanceSquareSize] = {0};
 
-	//! Test Loading of Obj
+	//! For Shadow Optimization
+	scene::ISkinnedMeshSceneNode* fastestNode = NULL;
+	//
     scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/dwarf.x");
     if (cpumesh&&cpumesh->getMeshType()==scene::EMT_ANIMATED_SKINNED)
     {
@@ -259,55 +265,75 @@ int main()
             anode->setPosition((core::vector3df(x,0.f,z)+core::vector3df(0.5f,0.f,0.5f))*4.f);
             anode->setAnimationSpeed(18.f*float(x+1+(z+1)*kInstanceSquareSize)/float(kInstanceSquareSize*kInstanceSquareSize));
             anode->setMaterialType(skinnedMaterialType);
-            anode->setMaterialFlag(video::EMF_BACK_FACE_CULLING,false);
             anode->setMaterialTexture(1,cubeMap);
             anode->setMaterialTexture(3,anode->getBonePoseTBO());
         }
+        fastestNode = anode;
 
         gpumesh->drop();
     }
 
 
 	uint64_t lastFPSTime = 0;
+	float lastFastestMeshFrameNr = -1.f;
 
 	while(device->run()&&(!quit))
 	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
-		//! draw shadows
-		floor->setMaterialType(shadowMaterialType);
-        for (size_t x=0; x<kInstanceSquareSize; x++)
-        for (size_t z=0; z<kInstanceSquareSize; z++)
-            anodes[x+kInstanceSquareSize*z]->setMaterialType(skinnedShadowMaterialType);
+		//! Animate first
+		smgr->getRootSceneNode()->OnAnimate(os::Timer::getTime());
 
-        for (size_t i=0; i<6; i++)
+		// without this optimization FPS is 400 instead of 1000 FPS
+		if (fastestNode->getFrameNr()!=lastFastestMeshFrameNr)
         {
-            driver->setRenderTarget(fbo[i],i==0);
+            lastFastestMeshFrameNr = fastestNode->getFrameNr();
+            //! its a bit stupid that I update light position only when animations update
+            //! but in the internals of the engine animations only update every 120Hz (we can set this individually per mesh)
+            //! so I'm just syncing everything up to the fastest mesh
+            absoluteLightPos = dummyLightNode->getAbsolutePosition();
+
+            //! draw shadows
+            smgr->setActiveCamera(NULL);
+
+            floor->setMaterialType(shadowMaterialType);
+            for (size_t x=0; x<kInstanceSquareSize; x++)
+            for (size_t z=0; z<kInstanceSquareSize; z++)
+            {
+                anodes[x+kInstanceSquareSize*z]->setMaterialType(skinnedShadowMaterialType);
+                anodes[x+kInstanceSquareSize*z]->setMaterialFlag(video::EMF_BACK_FACE_CULLING,false);
+            }
+
+            driver->setRenderTarget(fbo,true);
             driver->clearZBuffer();
-            float vals[] = {1.f,0.f,0.f,1.f};
-            driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,vals);
-            envMapCams[i]->setTarget(dummyLightNode->getAbsolutePosition()+lookat[i]);
-            smgr->setActiveCamera(envMapCams[i]);
+            for (size_t i=0; i<6; i++)
+            {
+                matrix4x3 viewMatModified(ViewMatricesWithoutTranslation[i]);
+
+                //put the 'camera' position in
+                ViewMatricesWithoutTranslation[i].mulSub3x3With3x1(&viewMatModified.getColumn(3).X,&absoluteLightPos.X);
+                viewMatModified.getColumn(3) *= -1.f;
+
+                //
+                ViewProjCubeMatrices[i] = core::concatenateBFollowedByA(ProjMatrix,viewMatModified);
+            }
             smgr->drawAll();
+
+            floor->setMaterialType(litSolidMaterialType);
+            for (size_t x=0; x<kInstanceSquareSize; x++)
+            for (size_t z=0; z<kInstanceSquareSize; z++)
+            {
+                anodes[x+kInstanceSquareSize*z]->setMaterialType(skinnedMaterialType);
+                anodes[x+kInstanceSquareSize*z]->setMaterialFlag(video::EMF_BACK_FACE_CULLING,true);
+            }
+
+            driver->setRenderTarget(0,true);
+
+            smgr->setActiveCamera(camera);
         }
-		//! COMING SOON with gl_Layer
-		//driver->setRenderTarget(fbo,true);
-		//driver->clearZBuffer();
-		//dummyCubeMapCam->setTarget(dummyLightNode->getAbsolutePosition()+vector3df(0,-1,0));
-        //smgr->setActiveCamera(dummyCubeMapCam);
-		//smgr->drawAll();
 
-		floor->setMaterialType(litSolidMaterialType);
-        for (size_t x=0; x<kInstanceSquareSize; x++)
-        for (size_t z=0; z<kInstanceSquareSize; z++)
-            anodes[x+kInstanceSquareSize*z]->setMaterialType(skinnedMaterialType);
-
-		driver->setRenderTarget(0,true);
-
-        smgr->setActiveCamera(camera);
-        //! This animates (moves) the camera and sets the transforms
-        //! Also draws the meshbuffer
+        //! Draw the view
         smgr->drawAll();
 
 		driver->endScene();
@@ -323,6 +349,30 @@ int main()
 			lastFPSTime = time;
 		}
 	}
+
+    //create a screenshot
+	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
+    {
+        // images are horizontally flipped, so we have to fix that here.
+        uint8_t* pixels = (uint8_t*)screenshot->getData();
+
+        const int32_t pitch=screenshot->getPitch();
+        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
+        uint8_t* tmpBuffer = new uint8_t[pitch];
+        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
+        {
+            memcpy(tmpBuffer, pixels, pitch);
+            memcpy(pixels, p2, pitch);
+            memcpy(p2, tmpBuffer, pitch);
+            pixels += pitch;
+            p2 -= pitch;
+        }
+        delete [] tmpBuffer;
+    }
+	driver->writeImageToFile(screenshot,"./screenshot.png");
+	screenshot->drop();
+
 
     for (size_t x=0; x<kInstanceSquareSize; x++)
     for (size_t z=0; z<kInstanceSquareSize; z++)

@@ -15,6 +15,7 @@
 //! for C++11
 //using namespace std;
 
+
 namespace irr {
 	namespace scene
 	{
@@ -33,7 +34,7 @@ namespace irr {
 		{
 			const uint32_t cnt = _obj->getMeshBufferCount();
 			const uint32_t size = sizeof(uint32_t) + sizeof(core::aabbox3df) + cnt*sizeof(uint64_t);
-			uint8_t* const data = (uint8_t*)std::malloc(size);
+			uint8_t* const data = (uint8_t*)malloc(size);
 			((uint32_t*)data)[0] = cnt;
 			memcpy(data + sizeof(uint32_t), &_obj->getBoundingBox(), sizeof(core::aabbox3df));
 			for (uint32_t i = 0; i < cnt; ++i)
@@ -44,7 +45,7 @@ namespace irr {
 			_file->write(data, _ctx.headers[_headerIdx].blobSizeDecompr);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSizeDecompr, _ctx);
 
-			std::free(data);
+			free(data);
 		}
 		template<>
 		void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
