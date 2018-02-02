@@ -12,7 +12,7 @@
 namespace irr { 
 
 namespace scene 
-{ 
+{
 	class ICPUSkinnedMesh;
 	class SCPUSkinMeshBuffer;
 	class CFinalBoneHierarchy;
@@ -29,8 +29,8 @@ namespace core
 		uint32_t blobSizeDecompr;
 
 		uint8_t compressionType;
-		uint8_t blobType;
-		uint8_t dummy[6];
+		uint8_t dummy[3];
+		uint32_t blobType;
 		uint64_t handle;
 
 		uint64_t blobHash[4];
@@ -82,7 +82,7 @@ namespace core
 	};
 
 	template<typename T>
-	struct VariableSizeBlob : Blob {};
+	struct VariableSizeBlob;
 
 	template<>
 	struct VariableSizeBlob<scene::ICPUMesh> : Blob
@@ -173,13 +173,56 @@ namespace core
 
 	struct FinalBoneHierarchyBlobV1 : VariableSizeBlob<scene::CFinalBoneHierarchy>
 	{
+		friend class scene::CFinalBoneHierarchy;
+	private:
+		//! For filling you are supposed to use scene::CFinalBoneHierarchy::fillExportBlob()
 		FinalBoneHierarchyBlobV1(size_t _bCnt, size_t _numLvls, size_t _kfCnt);
+
+	public:
+		static size_t calcBonesOffset(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcBoneNamesOffset(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcLevelsOffset(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcKeyFramesOffset(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcInterpolatedAnimsOffset(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcNonInterpolatedAnimsOffset(scene::CFinalBoneHierarchy* _fbh);
+
+		static size_t calcBonesByteSize(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcBoneNamesByteSize(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcLevelsByteSize(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcKeyFramesByteSize(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcInterpolatedAnimsByteSize(scene::CFinalBoneHierarchy* _fbh);
+		static size_t calcNonInterpolatedAnimsByteSize(scene::CFinalBoneHierarchy* _fbh);
 
 		size_t boneCount;
 		size_t numLevelsInHierarchy;
 		size_t keyframeCount;
 	} PACK_STRUCT;
 #include "irrunpack.h"
+
+	template<typename>
+	struct CorrespondingBlobTypeFor;
+	template<>
+	struct CorrespondingBlobTypeFor<ICPUBuffer> { typedef Blob type; };
+	template<>
+	struct CorrespondingBlobTypeFor<scene::ICPUMesh> { typedef MeshBlobV1 type; };
+	template<>
+	struct CorrespondingBlobTypeFor<scene::ICPUSkinnedMesh> { typedef SkinnedMeshBlobV1 type; };
+	template<>
+	struct CorrespondingBlobTypeFor<scene::ICPUMeshBuffer> { typedef MeshBufferBlobV1 type; };
+	template<>
+	struct CorrespondingBlobTypeFor<scene::SCPUSkinMeshBuffer> { typedef SkinnedMeshBufferBlobV1 type; };
+	template<>
+	struct CorrespondingBlobTypeFor<scene::IMeshDataFormatDesc<core::ICPUBuffer> > { typedef MeshDataFormatDescBlobV1 type; };
+	template<>
+	struct CorrespondingBlobTypeFor<scene::CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV1 type; };
+	template<>
+	struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef Blob type; };
+
+	template<typename T> 
+	typename CorrespondingBlobTypeFor<T>::type* toBlobPtr(void* _blob)
+	{
+		return (typename CorrespondingBlobTypeFor<T>::type*)_blob;
+	}
 
 }} // irr::core
 

@@ -429,6 +429,10 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_STL_LOADER_
 #undef _IRR_COMPILE_WITH_STL_LOADER_
 #endif
+#define _IRR_COMPILE_WITH_BAW_LOADER_
+#ifdef NO_IRR_COMPILE_WITH_BAW_LOADER_
+#undef _IRR_COMPILE_WITH_BAW_LOADER_
+#endif
 //! Define _IRR_COMPILE_WITH_PLY_LOADER_ if you want to load Polygon (Stanford Triangle) files
 #ifndef NEW_MESHES
 #define _IRR_COMPILE_WITH_PLY_LOADER_

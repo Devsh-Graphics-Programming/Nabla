@@ -13,7 +13,6 @@
 //! for C++11
 //using namespace std;
 
-
 namespace irr { namespace core
 {
 
@@ -103,5 +102,55 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const scene::IMeshDataFormatD
 FinalBoneHierarchyBlobV1::FinalBoneHierarchyBlobV1(size_t _bCnt, size_t _numLvls, size_t _kfCnt)
 	: boneCount(_bCnt), numLevelsInHierarchy(_numLvls), keyframeCount(_kfCnt)
 {}
+
+size_t FinalBoneHierarchyBlobV1::calcBonesOffset(scene::CFinalBoneHierarchy* _fbh)
+{
+	return sizeof(FinalBoneHierarchyBlobV1);
+}
+size_t FinalBoneHierarchyBlobV1::calcBoneNamesOffset(scene::CFinalBoneHierarchy* _fbh)
+{
+	return calcBonesOffset(_fbh) + calcBonesByteSize(_fbh);
+}
+size_t FinalBoneHierarchyBlobV1::calcLevelsOffset(scene::CFinalBoneHierarchy * _fbh)
+{
+	return calcBoneNamesOffset(_fbh) + calcBoneNamesByteSize(_fbh);
+}
+size_t FinalBoneHierarchyBlobV1::calcKeyFramesOffset(scene::CFinalBoneHierarchy * _fbh)
+{
+	return calcLevelsOffset(_fbh) + calcLevelsByteSize(_fbh);
+}
+size_t FinalBoneHierarchyBlobV1::calcInterpolatedAnimsOffset(scene::CFinalBoneHierarchy * _fbh)
+{
+	return calcKeyFramesOffset(_fbh) + calcKeyFramesByteSize(_fbh);
+}
+size_t FinalBoneHierarchyBlobV1::calcNonInterpolatedAnimsOffset(scene::CFinalBoneHierarchy * _fbh)
+{
+	return calcInterpolatedAnimsOffset(_fbh) + calcInterpolatedAnimsByteSize(_fbh);
+}
+
+size_t FinalBoneHierarchyBlobV1::calcBonesByteSize(scene::CFinalBoneHierarchy * _fbh)
+{
+	return _fbh->getBoneCount()*sizeof(*_fbh->getBoneData());
+}
+size_t FinalBoneHierarchyBlobV1::calcBoneNamesByteSize(scene::CFinalBoneHierarchy * _fbh)
+{
+	return _fbh->getSizeOfAllBoneNames();
+}
+size_t FinalBoneHierarchyBlobV1::calcLevelsByteSize(scene::CFinalBoneHierarchy * _fbh)
+{
+	return _fbh->getHierarchyLevels()*sizeof(*_fbh->getBoneTreeLevelEnd());
+}
+size_t FinalBoneHierarchyBlobV1::calcKeyFramesByteSize(scene::CFinalBoneHierarchy * _fbh)
+{
+	return _fbh->getKeyFrameCount()*sizeof(*_fbh->getKeys());
+}
+size_t FinalBoneHierarchyBlobV1::calcInterpolatedAnimsByteSize(scene::CFinalBoneHierarchy * _fbh)
+{
+	return _fbh->getKeyFrameCount()*sizeof(*_fbh->getInterpolatedAnimationData());
+}
+size_t FinalBoneHierarchyBlobV1::calcNonInterpolatedAnimsByteSize(scene::CFinalBoneHierarchy * _fbh)
+{
+	return _fbh->getKeyFrameCount()*sizeof(*_fbh->getNonInterpolatedAnimationData());
+}
 
 }} // irr::core

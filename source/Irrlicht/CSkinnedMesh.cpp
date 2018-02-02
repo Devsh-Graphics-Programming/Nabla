@@ -44,6 +44,15 @@ CCPUSkinnedMesh::~CCPUSkinnedMesh()
 }
 
 
+void CCPUSkinnedMesh::setBoneReferenceHierarchy(CFinalBoneHierarchy* fbh)
+{
+	if (fbh)
+	{
+		fbh->grab();
+		referenceHierarchy = fbh;
+	}
+}
+
 
 //! returns amount of mesh buffers.
 uint32_t CCPUSkinnedMesh::getMeshBufferCount() const
@@ -430,6 +439,16 @@ scene::SCPUSkinMeshBuffer *CCPUSkinnedMesh::addMeshBuffer()
 	scene::SCPUSkinMeshBuffer *buffer=new scene::SCPUSkinMeshBuffer();
 	LocalBuffers.push_back(buffer);
 	return buffer;
+}
+
+
+void CCPUSkinnedMesh::addMeshBuffer(SCPUSkinMeshBuffer* buf)
+{
+	if (buf)
+	{
+		buf->grab();
+		LocalBuffers.push_back(buf);
+	}
 }
 
 

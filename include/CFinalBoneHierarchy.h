@@ -101,6 +101,42 @@ namespace scene
                 createAnimationKeys(inLevelFixedJoints);
             }
 
+			//! Constructor from blob.
+			/**It's the only class in which such constructor exists since a lot of private members are copied with just `memcpy` call. Blob's data should be filled by fillExportBlob().
+			Meant to be used by loaders only.
+			@see @ref CBAWMeshFileLoader CBAWMeshWriter
+			*/
+			explicit CFinalBoneHierarchy(typename core::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type* _blob) :
+				boneCount(_blob->boneCount), NumLevelsInHierarchy(_blob->numLevelsInHierarchy), keyframeCount(_blob->keyframeCount)
+			{
+				const uint8_t* const blobData = (const uint8_t*)_blob;
+
+				boneFlatArray = (BoneReferenceData*)malloc(_blob->calcBonesByteSize(this));
+				boneTreeLevelEnd = (size_t*)malloc(_blob->calcLevelsByteSize(this));
+				keyframes = (float*)malloc(_blob->calcKeyFramesByteSize(this));
+				interpolatedAnimations = (AnimationKeyData*)malloc(_blob->calcInterpolatedAnimsByteSize(this));
+				nonInterpolatedAnimations = (AnimationKeyData*)malloc(_blob->calcNonInterpolatedAnimsByteSize(this));
+				boneNames = new core::stringc[boneCount];
+
+				memcpy(boneFlatArray, blobData + _blob->calcBonesOffset(this), _blob->calcBonesByteSize(this));
+				memcpy(boneTreeLevelEnd, blobData + _blob->calcLevelsOffset(this), _blob->calcLevelsByteSize(this));
+				memcpy(keyframes, blobData + _blob->calcKeyFramesOffset(this), _blob->calcKeyFramesByteSize(this));
+				memcpy(interpolatedAnimations, blobData + _blob->calcInterpolatedAnimsOffset(this), _blob->calcInterpolatedAnimsByteSize(this));
+				memcpy(nonInterpolatedAnimations, blobData + _blob->calcNonInterpolatedAnimsOffset(this), _blob->calcNonInterpolatedAnimsByteSize(this));
+				const char* strings = (const char*)(blobData + _blob->calcBoneNamesOffset(this));
+				for (int i = 0; i < boneCount; ++i)
+				{
+					boneNames[i] = core::stringc(strings);
+					strings += strlen(strings)+1;
+				}
+			}
+
+			//! Function filling blob's storage with the object's data. Meant to be used by loaders only.
+			/**
+			@param _dataPtr Pointer to pre-allocated memory (heap or stack - doesn't matter) of size sufficient to hold all object's data. This size can be calculated with core::FinalBoneHierarchyBlobV1::calcBlobSizeForObj().
+			@param[out] _size Through this parameter size (in bytes) of written data is returned.
+			@see @ref CBAWMeshFileLoader CBAWMeshWriter
+			*/
 			void fillExportBlob(void* _dataPtr, uint32_t* _size)
 			{
 				new (_dataPtr) core::FinalBoneHierarchyBlobV1(boneCount, NumLevelsInHierarchy, keyframeCount);
