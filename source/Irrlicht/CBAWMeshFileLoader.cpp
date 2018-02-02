@@ -210,8 +210,9 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	const uint32_t filesize = _file->getSize();
 	uint8_t* const fileBuffer = (uint8_t*)malloc(filesize);
 	_file->read(fileBuffer, filesize);
-	core::BawFileV1* const bawFile = (core::BawFileV1*)fileBuffer;
-	const uint32_t HEADERS_FILE_OFFSET = sizeof(core::BawFileV1::fileHeader) + sizeof(core::BawFileV1::numOfInternalBlobs) + sizeof(core::BawFileV1::blobOffsets[0])*bawFile->numOfInternalBlobs;
+	const core::BawFileV1* const bawFile = (core::BawFileV1*)fileBuffer;
+	const uint32_t HEADERS_FILE_OFFSET = bawFile->calcHeadersOffset();
+	const uint32_t BLOBS_FILE_OFFSET = bawFile->calcBlobsOffset();
 
 	SContext ctx;
 	ctx.filePath = _file->getFileName();
@@ -219,10 +220,10 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 		ctx.filePath += "/";
 	std::map<uint64_t, SBlobData>::iterator meshBlobData;
 
-	core::BlobHeaderV1* const headers = (core::BlobHeaderV1*)(fileBuffer + HEADERS_FILE_OFFSET);
+	const core::BlobHeaderV1* const headers = (core::BlobHeaderV1*)(fileBuffer + HEADERS_FILE_OFFSET);
 	for (int i = 0; i < bawFile->numOfInternalBlobs; ++i)
 	{
-		SBlobData pair = SBlobData{headers+i, (uint8_t*)(headers) + bawFile->numOfInternalBlobs*sizeof(core::BlobHeaderV1) + bawFile->blobOffsets[i], false};
+		SBlobData pair = SBlobData{headers+i, fileBuffer + BLOBS_FILE_OFFSET + bawFile->blobOffsets[i], false};
 		const std::map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, pair)).first;
 		if (pair.header->blobType == core::Blob::EBT_MESH || pair.header->blobType == core::Blob::EBT_SKINNED_MESH)
 			meshBlobData = it;

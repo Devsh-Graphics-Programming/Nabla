@@ -48,6 +48,10 @@ namespace core
 		uint32_t numOfInternalBlobs;
 		//! Blobs offsets counted from after blob-headers block
 		uint32_t blobOffsets[1];
+
+		size_t calcOffsetsOffset() const { return sizeof(fileHeader) + sizeof(numOfInternalBlobs); }
+		size_t calcHeadersOffset() const { return calcOffsetsOffset() + numOfInternalBlobs*sizeof(blobOffsets[0]); }
+		size_t calcBlobsOffset() const { return calcHeadersOffset() + numOfInternalBlobs*sizeof(BlobHeaderV1); }
 	} PACK_STRUCT;
 #include "irrunpack.h"
 
