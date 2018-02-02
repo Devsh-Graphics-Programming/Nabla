@@ -1,3 +1,8 @@
+// Copyright (C) 2018 Krzysztof "Criss" Szenk
+// This file is part of the "Irrlicht Engine" and "Build A World".
+// For conditions of distribution and use, see copyright notice in irrlicht.h
+// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+
 #include "CBAWMeshFileLoader.h"
 
 #include "CFinalBoneHierarchy.h"
@@ -169,7 +174,6 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	const uint32_t filesize = _file->getSize();
 	uint8_t* const fileBuffer = (uint8_t*)malloc(filesize);
 	_file->read(fileBuffer, filesize);
-	printf("XDDDDDDDDDDDDD\n");
 	core::BawFileV1* const bawFile = (core::BawFileV1*)fileBuffer;
 	const uint32_t HEADERS_FILE_OFFSET = sizeof(core::BawFileV1::fileHeader) + sizeof(core::BawFileV1::numOfInternalBlobs) + sizeof(core::BawFileV1::blobOffsets[0])*bawFile->numOfInternalBlobs;
 
