@@ -2,6 +2,5 @@
 *.depend
 *.layout
 *.objs*
-*bin*
 source/obj
 
