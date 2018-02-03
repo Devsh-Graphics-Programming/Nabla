@@ -207,6 +207,10 @@ ICPUSkinnedMesh* CBAWMeshFileLoader::make<ICPUSkinnedMesh>(SBlobData& _data, SCo
 
 ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 {
+	SContext ctx;
+	if (!verifyFile(_file, ctx))
+		return 0;
+
 	const uint32_t filesize = _file->getSize();
 	uint8_t* const fileBuffer = (uint8_t*)malloc(filesize);
 	_file->read(fileBuffer, filesize);
@@ -214,7 +218,6 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	const uint32_t HEADERS_FILE_OFFSET = bawFile->calcHeadersOffset();
 	const uint32_t BLOBS_FILE_OFFSET = bawFile->calcBlobsOffset();
 
-	SContext ctx;
 	ctx.filePath = _file->getFileName();
 	if (ctx.filePath[ctx.filePath.size()-1] != '/')
 		ctx.filePath += "/";
@@ -242,6 +245,24 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 
 	free(fileBuffer);
 	return mesh;
+}
+
+bool CBAWMeshFileLoader::verifyFile(io::IReadFile * _file, SContext& _ctx) const
+{
+	if (_file->getSize() < sizeof(core::BawFileV1::fileHeader))
+		return false;
+
+	const char * const headerStrPattern = "IrrlichtBaW BinaryFile";
+	char headerStr[sizeof(core::BawFileV1::fileHeader)];
+	_file->read(headerStr, sizeof(headerStr));
+
+	if (strcmp(headerStr, headerStrPattern) != 0)
+		return false;
+	_ctx.fileVersion = ((uint64_t*)headerStr)[3];
+
+	_file->seek(0);
+
+	return true;
 }
 
 void CBAWMeshFileLoader::registerObject(SBlobData & _data, SContext & _ctx, IReferenceCounted* _obj) const

@@ -30,6 +30,7 @@ private:
 	struct SContext
 	{
 		io::path filePath;
+		uint64_t fileVersion;
 		std::map<uint64_t, SBlobData> blobs;
 		std::map<uint64_t, IReferenceCounted*> createdObjects;
 	};
@@ -53,6 +54,8 @@ public:
 	virtual ICPUMesh* createMesh(io::IReadFile* file);
 
 private:
+	bool verifyFile(io::IReadFile* _file, SContext& _ctx) const;
+
 	template<typename T>
 	T* make(SBlobData&, SContext&) const;
 
