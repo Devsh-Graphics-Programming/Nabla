@@ -19,7 +19,23 @@ namespace irr { namespace core
 void core::BlobHeaderV1::finalize(const void * _data, size_t _size)
 {
 	blobSize = blobSizeDecompr = _size;
+
+	//compress before encrypting, increased entropy makes compression hard
+
+	//compress and encrypt before hashing
+
 	core::XXHash_256(_data, _size, blobHash);
+}
+
+bool core::BlobHeaderV1::validate(const void * _data) const
+{
+    uint64_t tmpHash[4];
+	core::XXHash_256(_data, blobSize, tmpHash);
+	for (size_t i=0; i<4; i++)
+    if (tmpHash[i]!=blobHash[i])
+        return false;
+
+    return true;
 }
 
 
@@ -28,7 +44,7 @@ MeshBlobV1::MeshBlobV1(const aabbox3df& _box, uint32_t _cnt) : box(_box), meshBu
 }
 
 template<>
-size_t VariableSizeBlob<MeshBlobV1,scene::ICPUMesh>::calcBlobSizeForObj(scene::ICPUMesh* _obj)
+size_t VariableSizeBlob<MeshBlobV1,scene::ICPUMesh>::calcBlobSizeForObj(const scene::ICPUMesh* _obj)
 {
 	return sizeof(MeshBlobV1) + (_obj->getMeshBufferCount()-1) * sizeof(uint64_t);
 }
@@ -39,7 +55,7 @@ SkinnedMeshBlobV1::SkinnedMeshBlobV1(scene::CFinalBoneHierarchy* _fbh, const aab
 }
 
 template<>
-size_t VariableSizeBlob<SkinnedMeshBlobV1,scene::ICPUSkinnedMesh>::calcBlobSizeForObj(scene::ICPUSkinnedMesh* _obj)
+size_t VariableSizeBlob<SkinnedMeshBlobV1,scene::ICPUSkinnedMesh>::calcBlobSizeForObj(const scene::ICPUSkinnedMesh* _obj)
 {
 	return sizeof(SkinnedMeshBlobV1) + (_obj->getMeshBufferCount() - 1) * sizeof(uint64_t);
 }
@@ -91,12 +107,12 @@ FinalBoneHierarchyBlobV1::FinalBoneHierarchyBlobV1(size_t _bCnt, size_t _numLvls
 {}
 
 template<>
-size_t VariableSizeBlob<FinalBoneHierarchyBlobV1,scene::CFinalBoneHierarchy>::calcBlobSizeForObj(scene::CFinalBoneHierarchy* _obj)
+size_t VariableSizeBlob<FinalBoneHierarchyBlobV1,scene::CFinalBoneHierarchy>::calcBlobSizeForObj(const scene::CFinalBoneHierarchy* _obj)
 {
 	const uint32_t boneCnt = _obj->getBoneCount();
 	const uint32_t levelsCnt = _obj->getHierarchyLevels();
 	const uint32_t kfCnt = _obj->getKeyFrameCount();
-	return
+	return //! Calculate this using your own functions, be consistent
 		sizeof(FinalBoneHierarchyBlobV1) +
 		sizeof(*_obj->getBoneData())*boneCnt +
 		_obj->getSizeOfAllBoneNames() +

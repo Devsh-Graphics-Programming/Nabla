@@ -195,11 +195,17 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	const core::BlobHeaderV1* const headers = (core::BlobHeaderV1*)(fileBuffer + HEADERS_FILE_OFFSET);
 	for (int i = 0; i < bawFile->numOfInternalBlobs; ++i)
 	{
-		SBlobData pair = SBlobData{headers+i, fileBuffer + BLOBS_FILE_OFFSET + bawFile->blobOffsets[i], false};
+		SBlobData pair = SBlobData{headers+i, fileBuffer + BLOBS_FILE_OFFSET + bawFile->blobOffsets[i], NULL};
 		const std::map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, pair)).first;
 		if (pair.header->blobType == core::Blob::EBT_MESH || pair.header->blobType == core::Blob::EBT_SKINNED_MESH)
 			meshBlobData = it;
 	}
+
+	/** Validate your headers here, that:
+    A-their blobs do not run over each other
+    B-that their data's offsets are in ascending order
+    C-that the last blob's data does not run past the end of the array
+    **/
 
 	ICPUMesh* mesh;
 	switch (meshBlobData->second.header->blobType)
@@ -224,7 +230,12 @@ T* CBAWMeshFileLoader::loadBlob(SBlobData& _data, SContext& _ctx) const
 	if (_data.createdObj)
 		return reinterpret_cast<T*>(_data.createdObj==specialDeadPtr ? NULL:_data.createdObj); //faster this way
 
-    T* retval = make<T>(_data,_ctx);
+    //! Here you should actually seek, and load from the file
+
+    T* retval = NULL;
+    if (_data.header->validate(_data.blob))
+        retval = make<T>(_data,_ctx);
+
 	_data.createdObj = retval ? retval:specialDeadPtr;
 	return retval;
 }

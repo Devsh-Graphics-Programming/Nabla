@@ -37,6 +37,7 @@ namespace core
 
 		//! Assigns size and calculates hash of data
 		void finalize(const void* _data, size_t _size);
+		bool validate(const void* _data) const;
 	} PACK_STRUCT;
 
 	//! Cast pointer to (first byte of) file buffer to BaWFile*. 256bit header must be first member (start of file).
@@ -88,35 +89,58 @@ namespace core
 	template<typename B, typename T>
 	struct VariableSizeBlob : Blob
 	{
-		static size_t calcBlobSizeForObj(T* _obj);
-		static B* allocMemForBlob(T* _obj)
-		{
-            return (B*)malloc(calcBlobSizeForObj(_obj));
-		}
+	    protected: //not intended for direct usage
+            VariableSizeBlob() {}
+            ~VariableSizeBlob() {}
+	    public:
+            static size_t calcBlobSizeForObj(const T* _obj);
+            static B* allocMemForBlob(const T* _obj) // get rid of this in the guture
+            {
+                return (B*)malloc(calcBlobSizeForObj(_obj));
+            }
+
+			//! Utility function for making VariableSizeBlobs
+			/**
+			@param _obj Pointer to the object for which the blob will be made.
+			@param _dataPtr Pointer to stack memory, usually you'd declare it as 'uint8_t _dataPtr[_size]'.
+			@param _size The size of the stack memory available.
+			@return Pointer to created blob, if it does not equal _dataPtr then new memory was malloc'ed which needs to be free'd
+			*/
+            //static B* createAndTryOnStack(const T* _obj, B* _dataPtr, const size_t& _size=0) FOR WHEN ALL CONSTRUCTORS TAKE ONLY OBJECT POINTERS!!!
+            static B* tryXXXOnStack(const T* _obj, void* _dataPtr=NULL, const size_t& _size=0)
+            {
+                size_t actualObjSize = calcBlobSizeForObj(_obj);
+                if (!_dataPtr || actualObjSize > _size) // use heap when it's really needed
+                    return (B*)malloc(calcBlobSizeForObj(_obj));
+                else
+                    return (B*)_dataPtr;
+            }
 	};
 
 #include "irrpack.h"
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 	struct MeshBlobV1 : VariableSizeBlob<MeshBlobV1,scene::ICPUMesh>
 	{
-		//! WARNING: Constructor saves only bounding box and mesh buffer count (not mesh buffer pointers)
-		explicit MeshBlobV1(const aabbox3df & _box, uint32_t _cnt);
+	    public:
+            //! WARNING: Constructor saves only bounding box and mesh buffer count (not mesh buffer pointers)
+            explicit MeshBlobV1(const aabbox3df & _box, uint32_t _cnt); //make constructors private and take only object pointer!
 
-		aabbox3df box;
-		uint32_t meshBufCnt;
-		uint64_t meshBufPtrs[1];
+            aabbox3df box;
+            uint32_t meshBufCnt;
+            uint64_t meshBufPtrs[1];
 	} PACK_STRUCT;
 
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 	struct SkinnedMeshBlobV1 : VariableSizeBlob<SkinnedMeshBlobV1,scene::ICPUSkinnedMesh>
 	{
-		//! WARNING: Constructor saves only bone hierarchy, bounding box and mesh buffer count (not mesh buffer pointers)
-		explicit SkinnedMeshBlobV1(scene::CFinalBoneHierarchy* _fbh, const aabbox3df & _box, uint32_t _cnt);
+	    public:
+            //! WARNING: Constructor saves only bone hierarchy, bounding box and mesh buffer count (not mesh buffer pointers)
+            explicit SkinnedMeshBlobV1(scene::CFinalBoneHierarchy* _fbh, const aabbox3df & _box, uint32_t _cnt); //make constructors private and take only object pointer!
 
-		uint64_t boneHierarchyPtr;
-		aabbox3df box;
-		uint32_t meshBufCnt;
-		uint64_t meshBufPtrs[1];
+            uint64_t boneHierarchyPtr;
+            aabbox3df box;
+            uint32_t meshBufCnt;
+            uint64_t meshBufPtrs[1];
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
@@ -165,29 +189,29 @@ namespace core
 
 	struct FinalBoneHierarchyBlobV1 : VariableSizeBlob<FinalBoneHierarchyBlobV1,scene::CFinalBoneHierarchy>
 	{
-		friend class scene::CFinalBoneHierarchy;
-	private:
-		//! For filling you are supposed to use scene::CFinalBoneHierarchy::fillExportBlob()
-		FinalBoneHierarchyBlobV1(size_t _bCnt, size_t _numLvls, size_t _kfCnt);
+            friend class scene::CFinalBoneHierarchy;
+        private:
+            //! For filling you are supposed to use scene::CFinalBoneHierarchy::fillExportBlob()
+            FinalBoneHierarchyBlobV1(size_t _bCnt, size_t _numLvls, size_t _kfCnt); //make it take the CFinalBoneHierarchy pointer
 
-	public:
-		static size_t calcBonesOffset(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcBoneNamesOffset(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcLevelsOffset(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcKeyFramesOffset(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcInterpolatedAnimsOffset(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcNonInterpolatedAnimsOffset(scene::CFinalBoneHierarchy* _fbh);
+        public:
+            static size_t calcBonesOffset(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcBoneNamesOffset(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcLevelsOffset(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcKeyFramesOffset(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcInterpolatedAnimsOffset(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcNonInterpolatedAnimsOffset(scene::CFinalBoneHierarchy* _fbh);
 
-		static size_t calcBonesByteSize(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcBoneNamesByteSize(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcLevelsByteSize(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcKeyFramesByteSize(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcInterpolatedAnimsByteSize(scene::CFinalBoneHierarchy* _fbh);
-		static size_t calcNonInterpolatedAnimsByteSize(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcBonesByteSize(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcBoneNamesByteSize(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcLevelsByteSize(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcKeyFramesByteSize(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcInterpolatedAnimsByteSize(scene::CFinalBoneHierarchy* _fbh);
+            static size_t calcNonInterpolatedAnimsByteSize(scene::CFinalBoneHierarchy* _fbh);
 
-		size_t boneCount;
-		size_t numLevelsInHierarchy;
-		size_t keyframeCount;
+            size_t boneCount;
+            size_t numLevelsInHierarchy;
+            size_t keyframeCount;
 	} PACK_STRUCT;
 #include "irrunpack.h"
 

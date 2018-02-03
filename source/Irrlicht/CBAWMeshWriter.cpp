@@ -35,10 +35,7 @@ namespace irr {
 			const uint32_t size = sizeof(uint32_t) + sizeof(core::aabbox3df) + cnt*sizeof(uint64_t);
 			uint8_t stackData[1u<<14];
 
-			uint8_t* data;
-			if (core::MeshBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData)) // use heap when it's really needed
-				data = (uint8_t*)core::MeshBlobV1::allocMemForBlob(_obj);
-			else data = stackData;
+			uint8_t* data = (uint8_t*)core::MeshBlobV1::tryXXXOnStack(_obj,stackData,sizeof(stackData));
 
 			new (data) core::MeshBlobV1(_obj->getBoundingBox(), _obj->getMeshBufferCount());
 			core::MeshBlobV1* const blob = (core::MeshBlobV1*)data;
@@ -60,10 +57,7 @@ namespace irr {
 			const uint32_t size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(core::aabbox3df) + cnt*sizeof(uint64_t);
 			uint8_t stackData[1u << 14];
 
-			uint8_t* data;
-			if (core::SkinnedMeshBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData)) // use heap when it's really needed
-				data = (uint8_t*)core::SkinnedMeshBlobV1::allocMemForBlob(_obj);
-			else data = stackData;
+			uint8_t* data = (uint8_t*)core::SkinnedMeshBlobV1::tryXXXOnStack(_obj,stackData,sizeof(stackData));
 
 			new (data) core::SkinnedMeshBlobV1(_obj->getBoneReferenceHierarchy(), _obj->getBoundingBox(), _obj->getMeshBufferCount());
 			core::SkinnedMeshBlobV1* const blob = (core::SkinnedMeshBlobV1*)data;
@@ -118,10 +112,7 @@ namespace irr {
 		{
 			uint8_t stackData[1u<<14]; // 16kB
 
-			uint8_t* data;
-			if (core::FinalBoneHierarchyBlobV1::calcBlobSizeForObj(_obj) > sizeof(stackData)) // use heap when it's really needed
-				data = (uint8_t*)core::FinalBoneHierarchyBlobV1::allocMemForBlob(_obj);
-			else data = stackData;
+			uint8_t* data = (uint8_t*)core::FinalBoneHierarchyBlobV1::tryXXXOnStack(_obj,stackData,sizeof(stackData));
 
 			uint32_t size;
 			_obj->fillExportBlob(data, &size);
@@ -234,7 +225,7 @@ namespace irr {
 
 			if (_mesh)
 			{
-				skinnedMesh = dynamic_cast<ICPUSkinnedMesh*>(_mesh);
+				skinnedMesh = _mesh->getMeshType()!=EMT_ANIMATED_SKINNED ? NULL:reinterpret_cast<ICPUSkinnedMesh*>(_mesh); //ICPUSkinnedMesh is a direct non-virtual inheritor
 				if (!skinnedMesh || (skinnedMesh && skinnedMesh->isStatic()))
 					isMeshAnimated = false;
 
