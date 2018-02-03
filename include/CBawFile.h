@@ -9,9 +9,9 @@
 #include "stdint.h"
 #include "IMesh.h"
 
-namespace irr { 
+namespace irr {
 
-namespace scene 
+namespace scene
 {
 	class ICPUSkinnedMesh;
 	class SCPUSkinMeshBuffer;
@@ -85,31 +85,19 @@ namespace core
 		void* getData() { return this; }
 	};
 
-	template<typename T>
-	struct VariableSizeBlob;
-
-	template<>
-	struct VariableSizeBlob<scene::ICPUMesh> : Blob
+	template<typename B, typename T>
+	struct VariableSizeBlob : Blob
 	{
-		static size_t calcBlobSizeForObj(scene::ICPUMesh* _obj);
-		static void* allocMemForBlob(scene::ICPUMesh* _obj);
-	};
-	template<>
-	struct VariableSizeBlob<scene::ICPUSkinnedMesh> : Blob
-	{
-		static size_t calcBlobSizeForObj(scene::ICPUSkinnedMesh* _obj);
-		static void* allocMemForBlob(scene::ICPUSkinnedMesh* _obj);
-	};
-	template<>
-	struct VariableSizeBlob<scene::CFinalBoneHierarchy> : Blob
-	{
-		static size_t calcBlobSizeForObj(scene::CFinalBoneHierarchy* _obj);
-		static void* allocMemForBlob(scene::CFinalBoneHierarchy* _obj);
+		static size_t calcBlobSizeForObj(T* _obj);
+		static B* allocMemForBlob(T* _obj)
+		{
+            return (B*)malloc(calcBlobSizeForObj(_obj));
+		}
 	};
 
 #include "irrpack.h"
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-	struct MeshBlobV1 : VariableSizeBlob<scene::ICPUMesh>
+	struct MeshBlobV1 : VariableSizeBlob<MeshBlobV1,scene::ICPUMesh>
 	{
 		//! WARNING: Constructor saves only bounding box and mesh buffer count (not mesh buffer pointers)
 		explicit MeshBlobV1(const aabbox3df & _box, uint32_t _cnt);
@@ -120,7 +108,7 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-	struct SkinnedMeshBlobV1 : VariableSizeBlob<scene::ICPUSkinnedMesh>
+	struct SkinnedMeshBlobV1 : VariableSizeBlob<SkinnedMeshBlobV1,scene::ICPUSkinnedMesh>
 	{
 		//! WARNING: Constructor saves only bone hierarchy, bounding box and mesh buffer count (not mesh buffer pointers)
 		explicit SkinnedMeshBlobV1(scene::CFinalBoneHierarchy* _fbh, const aabbox3df & _box, uint32_t _cnt);
@@ -175,7 +163,7 @@ namespace core
 		uint64_t idxBufPtr;
 	} PACK_STRUCT;
 
-	struct FinalBoneHierarchyBlobV1 : VariableSizeBlob<scene::CFinalBoneHierarchy>
+	struct FinalBoneHierarchyBlobV1 : VariableSizeBlob<FinalBoneHierarchyBlobV1,scene::CFinalBoneHierarchy>
 	{
 		friend class scene::CFinalBoneHierarchy;
 	private:
@@ -222,7 +210,7 @@ namespace core
 	template<>
 	struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef Blob type; };
 
-	template<typename T> 
+	template<typename T>
 	typename CorrespondingBlobTypeFor<T>::type* toBlobPtr(const void* _blob)
 	{
 		return (typename CorrespondingBlobTypeFor<T>::type*)_blob;

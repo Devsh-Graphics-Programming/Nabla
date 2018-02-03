@@ -24,7 +24,7 @@ private:
 	{
 		const core::BlobHeaderV1* header;
 		const void* blob;
-		bool wasCreated;
+		void* createdObj;
 	};
 
 	struct SContext
@@ -32,7 +32,6 @@ private:
 		io::path filePath;
 		uint64_t fileVersion;
 		std::map<uint64_t, SBlobData> blobs;
-		std::map<uint64_t, IReferenceCounted*> createdObjects;
 	};
 
 protected:
@@ -57,9 +56,10 @@ private:
 	bool verifyFile(io::IReadFile* _file, SContext& _ctx) const;
 
 	template<typename T>
-	T* make(SBlobData&, SContext&) const;
+	T* loadBlob(SBlobData&, SContext&) const;
 
-	void registerObject(SBlobData& _data, SContext& _ctx, IReferenceCounted* _obj) const;
+	template<typename T>
+	T* make(SBlobData&, SContext&) const;
 
 private:
 	scene::ISceneManager* m_sceneMgr;

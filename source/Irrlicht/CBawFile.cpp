@@ -22,39 +22,26 @@ void core::BlobHeaderV1::finalize(const void * _data, size_t _size)
 	core::XXHash_256(_data, _size, blobHash);
 }
 
-size_t VariableSizeBlob<scene::ICPUMesh>::calcBlobSizeForObj(scene::ICPUMesh* _obj)
-{
-	return sizeof(MeshBlobV1) + (_obj->getMeshBufferCount()-1) * sizeof(uint64_t);
-}
-void* VariableSizeBlob<scene::ICPUMesh>::allocMemForBlob(scene::ICPUMesh* _obj) { return malloc(calcBlobSizeForObj(_obj)); }
-
-size_t VariableSizeBlob<scene::ICPUSkinnedMesh>::calcBlobSizeForObj(scene::ICPUSkinnedMesh* _obj)
-{
-	return sizeof(SkinnedMeshBlobV1) + (_obj->getMeshBufferCount() - 1) * sizeof(uint64_t);
-}
-void* VariableSizeBlob<scene::ICPUSkinnedMesh>::allocMemForBlob(scene::ICPUSkinnedMesh* _obj) { return malloc(calcBlobSizeForObj(_obj)); }
-
-size_t VariableSizeBlob<scene::CFinalBoneHierarchy>::calcBlobSizeForObj(scene::CFinalBoneHierarchy* _obj)
-{
-	const uint32_t boneCnt = _obj->getBoneCount();
-	const uint32_t levelsCnt = _obj->getHierarchyLevels();
-	const uint32_t kfCnt = _obj->getKeyFrameCount();
-	return
-		sizeof(FinalBoneHierarchyBlobV1) +
-		sizeof(*_obj->getBoneData())*boneCnt +
-		_obj->getSizeOfAllBoneNames() +
-		kfCnt*(sizeof(*_obj->getInterpolatedAnimationData()) + sizeof(*_obj->getNonInterpolatedAnimationData()) + sizeof(*_obj->getKeys())) +
-		levelsCnt * sizeof(*_obj->getBoneTreeLevelEnd());
-}
-void* VariableSizeBlob<scene::CFinalBoneHierarchy>::allocMemForBlob(scene::CFinalBoneHierarchy* _obj) { return malloc(calcBlobSizeForObj(_obj)); }
 
 MeshBlobV1::MeshBlobV1(const aabbox3df& _box, uint32_t _cnt) : box(_box), meshBufCnt(_cnt)
 {
 }
 
+template<>
+size_t VariableSizeBlob<MeshBlobV1,scene::ICPUMesh>::calcBlobSizeForObj(scene::ICPUMesh* _obj)
+{
+	return sizeof(MeshBlobV1) + (_obj->getMeshBufferCount()-1) * sizeof(uint64_t);
+}
+
 SkinnedMeshBlobV1::SkinnedMeshBlobV1(scene::CFinalBoneHierarchy* _fbh, const aabbox3df & _box, uint32_t _cnt)
 	: boneHierarchyPtr(reinterpret_cast<uint64_t>(_fbh)), box(_box), meshBufCnt(_cnt)
 {
+}
+
+template<>
+size_t VariableSizeBlob<SkinnedMeshBlobV1,scene::ICPUSkinnedMesh>::calcBlobSizeForObj(scene::ICPUSkinnedMesh* _obj)
+{
+	return sizeof(SkinnedMeshBlobV1) + (_obj->getMeshBufferCount() - 1) * sizeof(uint64_t);
 }
 
 MeshBufferBlobV1::MeshBufferBlobV1(const scene::ICPUMeshBuffer* _mb)
@@ -102,6 +89,20 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const scene::IMeshDataFormatD
 FinalBoneHierarchyBlobV1::FinalBoneHierarchyBlobV1(size_t _bCnt, size_t _numLvls, size_t _kfCnt)
 	: boneCount(_bCnt), numLevelsInHierarchy(_numLvls), keyframeCount(_kfCnt)
 {}
+
+template<>
+size_t VariableSizeBlob<FinalBoneHierarchyBlobV1,scene::CFinalBoneHierarchy>::calcBlobSizeForObj(scene::CFinalBoneHierarchy* _obj)
+{
+	const uint32_t boneCnt = _obj->getBoneCount();
+	const uint32_t levelsCnt = _obj->getHierarchyLevels();
+	const uint32_t kfCnt = _obj->getKeyFrameCount();
+	return
+		sizeof(FinalBoneHierarchyBlobV1) +
+		sizeof(*_obj->getBoneData())*boneCnt +
+		_obj->getSizeOfAllBoneNames() +
+		kfCnt*(sizeof(*_obj->getInterpolatedAnimationData()) + sizeof(*_obj->getNonInterpolatedAnimationData()) + sizeof(*_obj->getKeys())) +
+		levelsCnt * sizeof(*_obj->getBoneTreeLevelEnd());
+}
 
 size_t FinalBoneHierarchyBlobV1::calcBonesOffset(scene::CFinalBoneHierarchy* _fbh)
 {

@@ -29,23 +29,17 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSyste
 template<>
 core::ICPUBuffer* CBAWMeshFileLoader::make<core::ICPUBuffer>(SBlobData& _data, SContext& _ctx) const
 {
-	if (_data.wasCreated)
-		return dynamic_cast<core::ICPUBuffer*>(_ctx.createdObjects[_data.header->handle]);
-
 	typename core::CorrespondingBlobTypeFor<core::ICPUBuffer>::type* blob = core::toBlobPtr<core::ICPUBuffer>(_data.blob);
 
 	void* blobData = malloc(_data.header->blobSizeDecompr);
 	memcpy(blobData, blob->getData(), _data.header->blobSizeDecompr);
 	core::ICPUBuffer* buf = new core::ICPUBuffer(_data.header->blobSizeDecompr, blobData);
-	registerObject(_data, _ctx, buf);
+
 	return buf;
 }
 template<>
 IMeshDataFormatDesc<core::ICPUBuffer>* CBAWMeshFileLoader::make<IMeshDataFormatDesc<core::ICPUBuffer> >(SBlobData& _data, SContext& _ctx) const
 {
-	if (_data.wasCreated)
-		return dynamic_cast<IMeshDataFormatDesc<core::ICPUBuffer>*>(_ctx.createdObjects[_data.header->handle]);
-
 	typename core::CorrespondingBlobTypeFor<IMeshDataFormatDesc<core::ICPUBuffer> >::type* blob = core::toBlobPtr<IMeshDataFormatDesc<core::ICPUBuffer> >(_data.blob);
 
 	IMeshDataFormatDesc<core::ICPUBuffer>* desc = new scene::ICPUMeshDataFormatDesc();
@@ -53,7 +47,7 @@ IMeshDataFormatDesc<core::ICPUBuffer>* CBAWMeshFileLoader::make<IMeshDataFormatD
 	{
 		if (blob->attrBufPtrs[(int)i])
 			desc->mapVertexAttrBuffer(
-				make<core::ICPUBuffer>(_ctx.blobs[blob->attrBufPtrs[(int)i]], _ctx),
+				loadBlob<core::ICPUBuffer>(_ctx.blobs[blob->attrBufPtrs[(int)i]], _ctx),
 				i,
 				blob->cpa[(int)i],
 				blob->attrType[(int)i],
@@ -63,17 +57,13 @@ IMeshDataFormatDesc<core::ICPUBuffer>* CBAWMeshFileLoader::make<IMeshDataFormatD
 			);
 	}
 	if (blob->idxBufPtr)
-		desc->mapIndexBuffer(make<core::ICPUBuffer>(_ctx.blobs[blob->idxBufPtr], _ctx));
+		desc->mapIndexBuffer(loadBlob<core::ICPUBuffer>(_ctx.blobs[blob->idxBufPtr], _ctx));
 
-	registerObject(_data, _ctx, desc);
 	return desc;
 }
 template<>
 video::IVirtualTexture* CBAWMeshFileLoader::make<video::IVirtualTexture>(SBlobData& _data, SContext& _ctx) const
 {
-	if (_data.wasCreated)
-		return dynamic_cast<video::IVirtualTexture*>(_ctx.createdObjects[_data.header->handle]);
-
 	typename core::CorrespondingBlobTypeFor<video::IVirtualTexture>::type* blob = core::toBlobPtr<video::IVirtualTexture>(_data.blob);
 
 	video::ITexture* texture;
@@ -93,21 +83,17 @@ video::IVirtualTexture* CBAWMeshFileLoader::make<video::IVirtualTexture>(SBlobDa
 	}
 	//! @todo @bug Do somemthing with `newTexture`? In obj loader something happens in case where newTexture is true
 
-	registerObject(_data, _ctx, texture);
 	return texture;
 }
 template<>
 ICPUMeshBuffer* CBAWMeshFileLoader::make<ICPUMeshBuffer>(SBlobData& _data, SContext& _ctx) const
 {
-	if (_data.wasCreated)
-		return dynamic_cast<ICPUMeshBuffer*>(_ctx.createdObjects[_data.header->handle]);
-
 	typename core::CorrespondingBlobTypeFor<ICPUMeshBuffer>::type* blob = core::toBlobPtr<ICPUMeshBuffer>(_data.blob);
 
 	ICPUMeshBuffer* buf = new scene::ICPUMeshBuffer();
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SMaterial));
 	buf->setBoundingBox(blob->box);
-	buf->setMeshDataAndFormat(make<IMeshDataFormatDesc<core::ICPUBuffer> >(_ctx.blobs[blob->descPtr], _ctx));
+	buf->setMeshDataAndFormat(loadBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(_ctx.blobs[blob->descPtr], _ctx));
 	buf->setIndexType(blob->indexType);
 	buf->setBaseVertex(blob->baseVertex);
 	buf->setIndexCount(blob->indexCount);
@@ -120,24 +106,20 @@ ICPUMeshBuffer* CBAWMeshFileLoader::make<ICPUMeshBuffer>(SBlobData& _data, SCont
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
 		if (tex)
-			buf->getMaterial().setTexture(i, make<video::IVirtualTexture>(_ctx.blobs[tex], _ctx));
+			buf->getMaterial().setTexture(i, loadBlob<video::IVirtualTexture>(_ctx.blobs[tex], _ctx));
 	}
 
-	registerObject(_data, _ctx, buf);
 	return buf;
 }
 template<>
 SCPUSkinMeshBuffer* CBAWMeshFileLoader::make<SCPUSkinMeshBuffer>(SBlobData& _data, SContext& _ctx) const
 {
-	if (_data.wasCreated)
-		return dynamic_cast<SCPUSkinMeshBuffer*>(_ctx.createdObjects[_data.header->handle]);
-
 	typename core::CorrespondingBlobTypeFor<SCPUSkinMeshBuffer>::type* blob = core::toBlobPtr<SCPUSkinMeshBuffer>(_data.blob);
 
 	SCPUSkinMeshBuffer* buf = new scene::SCPUSkinMeshBuffer();
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SMaterial));
 	buf->setBoundingBox(blob->box);
-	buf->setMeshDataAndFormat(make<IMeshDataFormatDesc<core::ICPUBuffer> >(_ctx.blobs[blob->descPtr], _ctx));
+	buf->setMeshDataAndFormat(loadBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(_ctx.blobs[blob->descPtr], _ctx));
 	buf->setIndexType(blob->indexType);
 	buf->setBaseVertex(blob->baseVertex);
 	buf->setIndexCount(blob->indexCount);
@@ -152,56 +134,43 @@ SCPUSkinMeshBuffer* CBAWMeshFileLoader::make<SCPUSkinMeshBuffer>(SBlobData& _dat
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
 		if (tex)
-			buf->getMaterial().setTexture(i, make<video::IVirtualTexture>(_ctx.blobs[tex], _ctx));
+			buf->getMaterial().setTexture(i, loadBlob<video::IVirtualTexture>(_ctx.blobs[tex], _ctx));
 	}
 
-	registerObject(_data, _ctx, buf);
 	return buf;
 }
 template<>
 CFinalBoneHierarchy* CBAWMeshFileLoader::make<CFinalBoneHierarchy>(SBlobData& _data, SContext& _ctx) const
-{
-	if (_data.wasCreated)
-		return dynamic_cast<CFinalBoneHierarchy*>(_ctx.createdObjects[_data.header->handle]);
-
-	typename core::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type* blob = core::toBlobPtr<CFinalBoneHierarchy>(_data.blob);
+{	typename core::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type* blob = core::toBlobPtr<CFinalBoneHierarchy>(_data.blob);
 
 	CFinalBoneHierarchy* fbh = new CFinalBoneHierarchy(blob);
 
-	registerObject(_data, _ctx, fbh);
 	return new CFinalBoneHierarchy(blob);
 }
 template<>
 ICPUMesh* CBAWMeshFileLoader::make<ICPUMesh>(SBlobData& _data, SContext& _ctx) const
 {
-	if (_data.wasCreated)
-		return dynamic_cast<ICPUMesh*>(_ctx.createdObjects[_data.header->handle]);
-
 	typename core::CorrespondingBlobTypeFor<ICPUMesh>::type* blob = core::toBlobPtr<ICPUMesh>(_data.blob);
 
 	SCPUMesh* mesh = new scene::SCPUMesh();
 	mesh->setBoundingBox(blob->box);
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
-		mesh->addMeshBuffer(make<ICPUMeshBuffer>(_ctx.blobs[blob->meshBufPtrs[i]], _ctx));
+		mesh->addMeshBuffer(loadBlob<ICPUMeshBuffer>(_ctx.blobs[blob->meshBufPtrs[i]], _ctx));
 
-	registerObject(_data, _ctx, mesh);
 	return mesh;
 }
 template<>
 ICPUSkinnedMesh* CBAWMeshFileLoader::make<ICPUSkinnedMesh>(SBlobData& _data, SContext& _ctx) const
 {
-	if (_data.wasCreated)
-		return dynamic_cast<ICPUSkinnedMesh*>(_ctx.createdObjects[_data.header->handle]);
-
 	typename core::CorrespondingBlobTypeFor<ICPUSkinnedMesh>::type* blob = core::toBlobPtr<ICPUSkinnedMesh>(_data.blob);
 
 	CCPUSkinnedMesh* mesh = new scene::CCPUSkinnedMesh();
-	mesh->setBoneReferenceHierarchy(make<CFinalBoneHierarchy>(_ctx.blobs[blob->boneHierarchyPtr], _ctx));
+	mesh->setBoneReferenceHierarchy(loadBlob<CFinalBoneHierarchy>(_ctx.blobs[blob->boneHierarchyPtr], _ctx));
 	mesh->setBoundingBox(blob->box);
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
-		mesh->addMeshBuffer(make<SCPUSkinMeshBuffer>(_ctx.blobs[blob->meshBufPtrs[i]], _ctx));
+		mesh->addMeshBuffer(loadBlob<SCPUSkinMeshBuffer>(_ctx.blobs[blob->meshBufPtrs[i]], _ctx));
 	// shall i call mesh->finalize()?
-	registerObject(_data, _ctx, mesh);
+
 	return mesh;
 }
 
@@ -236,15 +205,28 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	switch (meshBlobData->second.header->blobType)
 	{
 	case core::Blob::EBT_MESH:
-		mesh = make<ICPUMesh>(meshBlobData->second, ctx);
+		mesh = loadBlob<ICPUMesh>(meshBlobData->second, ctx);
 		break;
 	case core::Blob::EBT_SKINNED_MESH:
-		mesh = make<ICPUSkinnedMesh>(meshBlobData->second, ctx);
+		mesh = loadBlob<ICPUSkinnedMesh>(meshBlobData->second, ctx);
 		break;
 	}
 
 	free(fileBuffer);
 	return mesh;
+}
+
+template<typename T>
+T* CBAWMeshFileLoader::loadBlob(SBlobData& _data, SContext& _ctx) const
+{
+    void* const specialDeadPtr = reinterpret_cast<void* const>(0xdeadbeefDEADBEEFull);
+
+	if (_data.createdObj)
+		return reinterpret_cast<T*>(_data.createdObj==specialDeadPtr ? NULL:_data.createdObj); //faster this way
+
+    T* retval = make<T>(_data,_ctx);
+	_data.createdObj = retval ? retval:specialDeadPtr;
+	return retval;
 }
 
 bool CBAWMeshFileLoader::verifyFile(io::IReadFile * _file, SContext& _ctx) const
@@ -259,16 +241,12 @@ bool CBAWMeshFileLoader::verifyFile(io::IReadFile * _file, SContext& _ctx) const
 	if (strcmp(headerStr, headerStrPattern) != 0)
 		return false;
 	_ctx.fileVersion = ((uint64_t*)headerStr)[3];
+	if (_ctx.fileVersion>=1)
+        return false;
 
 	_file->seek(0);
 
 	return true;
-}
-
-void CBAWMeshFileLoader::registerObject(SBlobData & _data, SContext & _ctx, IReferenceCounted* _obj) const
-{
-	_data.wasCreated = true;
-	_ctx.createdObjects.insert(std::make_pair(_data.header->handle, _obj));
 }
 
 }} // irr::scene

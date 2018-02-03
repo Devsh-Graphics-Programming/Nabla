@@ -106,7 +106,7 @@ namespace irr {
 			io::path fileDir = m_fileSystem->getAbsolutePath(_file->getFileName());
 			fileDir = fileDir.subString(0, fileDir.findLast('/')); // get out-file's directory
 			const io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to out-file's directory
-			const uint32_t len = std::strlen(path.c_str()) + 1;
+			const uint32_t len = strlen(path.c_str()) + 1;
 
 			_ctx.headers[_headerIdx].finalize(path.c_str(), len);
 			calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx-1].blobSizeDecompr, _ctx);
@@ -159,7 +159,7 @@ namespace irr {
 			_IRR_DEBUG_BREAK_IF(FILE_HEADER_SIZE != sizeof(core::BawFileV1::fileHeader))
 
 			uint64_t header[4];
-			std::memcpy(header, BAW_FILE_HEADER, FILE_HEADER_SIZE);
+			memcpy(header, BAW_FILE_HEADER, FILE_HEADER_SIZE);
 			header[3] = BAW_FILE_VERSION;
 
 			_file->write(header, FILE_HEADER_SIZE);
@@ -187,7 +187,7 @@ namespace irr {
 				case core::Blob::EBT_MESH:
 					exportAsBlob(reinterpret_cast<ICPUMesh*>(ctx.headers[i].handle), i, _file, ctx);
 					break;
-				case core::Blob::EBT_SKINNED_MESH: 
+				case core::Blob::EBT_SKINNED_MESH:
 					exportAsBlob(reinterpret_cast<ICPUSkinnedMesh*>(ctx.headers[i].handle), i, _file, ctx);
 					break;
 				case core::Blob::EBT_MESH_BUFFER:
@@ -273,7 +273,7 @@ namespace irr {
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = isMeshAnimated ? core::Blob::EBT_SKINNED_MESH_BUFFER : core::Blob::EBT_MESH_BUFFER;
 					_ctx.headers.push_back(bh);
-					countedObjects.emplace(meshBuffer);
+					countedObjects.insert(meshBuffer);
 
 					const video::SMaterial & mat = meshBuffer->getMaterial();
 					for (int tid = 0; tid < _IRR_MATERIAL_MAX_TEXTURES_; ++tid) // texture path blob headers
@@ -285,7 +285,7 @@ namespace irr {
 							bh.compressionType = core::Blob::EBCT_RAW;
 							bh.blobType = core::Blob::EBT_TEXTURE_PATH;
 							_ctx.headers.push_back(bh);
-							countedObjects.emplace(texture);
+							countedObjects.insert(texture);
 						}
 						else continue;
 					}
@@ -298,7 +298,7 @@ namespace irr {
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_DATA_FORMAT_DESC;
 					_ctx.headers.push_back(bh);
-					countedObjects.emplace(desc);
+					countedObjects.insert(desc);
 				}
 
 				const core::ICPUBuffer* idxBuffer = desc->getIndexBuffer();
@@ -309,7 +309,7 @@ namespace irr {
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
 					_ctx.headers.push_back(bh);
-					countedObjects.emplace(desc->getIndexBuffer());
+					countedObjects.insert(desc->getIndexBuffer());
 				}
 
 				for (int attId = 0; attId < EVAI_COUNT; ++attId)
@@ -323,7 +323,7 @@ namespace irr {
 						bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
 						bh.blobSize = bh.blobSizeDecompr = attBuffer->getSize();
 						_ctx.headers.push_back(bh);
-						countedObjects.emplace(attBuffer);
+						countedObjects.insert(attBuffer);
 					}
 				}
 			}
