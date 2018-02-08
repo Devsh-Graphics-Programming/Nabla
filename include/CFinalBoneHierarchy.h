@@ -101,69 +101,70 @@ namespace scene
                 createAnimationKeys(inLevelFixedJoints);
             }
 
-			//! Constructor from blob.
-			/**It's the only class in which such constructor exists since a lot of private members are copied with just `memcpy` call. Blob's data should be filled by fillExportBlob().
-			Meant to be used by loaders only.
-			@see @ref CBAWMeshFileLoader CBAWMeshWriter
-			*/
-			explicit CFinalBoneHierarchy(typename core::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type* _blob) :
-				boneCount(_blob->boneCount), NumLevelsInHierarchy(_blob->numLevelsInHierarchy), keyframeCount(_blob->keyframeCount)
+			CFinalBoneHierarchy(const void* _bonesBegin, const void* _bonesEnd,
+				core::stringc* _boneNamesBegin, core::stringc* _boneNamesEnd,
+				const std::size_t* _levelsBegin, const std::size_t* _levelsEnd,
+				const float* _keyframesBegin, const float* _keyframesEnd,
+				const void* _interpAnimsBegin, const void* _interpAnimsEnd,
+				const void* _nonInterpAnimsBegin, const void* _nonInterpAnimsEnd)
+			: boneCount((BoneReferenceData*)_bonesEnd - (BoneReferenceData*)_bonesBegin), NumLevelsInHierarchy(_levelsEnd - _levelsBegin), keyframeCount(_keyframesEnd - _keyframesBegin)
 			{
-				const uint8_t* const blobData = (const uint8_t*)_blob;
+				_IRR_DEBUG_BREAK_IF(_bonesBegin > _bonesEnd ||
+					_boneNamesBegin > _boneNamesEnd ||
+					_levelsBegin > _levelsEnd ||
+					_keyframesBegin > _keyframesEnd ||
+					_interpAnimsBegin > _interpAnimsEnd ||
+					_nonInterpAnimsBegin > _nonInterpAnimsEnd
+				)
+				_IRR_DEBUG_BREAK_IF(_boneNamesBegin - _boneNamesEnd != boneCount)
+				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsBegin - (AnimationKeyData*)_interpAnimsEnd != keyframeCount)
+				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsBegin - (AnimationKeyData*)_nonInterpAnimsEnd != keyframeCount)
 
-				boneFlatArray = (BoneReferenceData*)malloc(_blob->calcBonesByteSize(this));
-				boneTreeLevelEnd = (size_t*)malloc(_blob->calcLevelsByteSize(this));
-				keyframes = (float*)malloc(_blob->calcKeyFramesByteSize(this));
-				interpolatedAnimations = (AnimationKeyData*)malloc(_blob->calcInterpolatedAnimsByteSize(this));
-				nonInterpolatedAnimations = (AnimationKeyData*)malloc(_blob->calcNonInterpolatedAnimsByteSize(this));
 				boneNames = new core::stringc[boneCount];
-
-				memcpy(boneFlatArray, blobData + _blob->calcBonesOffset(this), _blob->calcBonesByteSize(this));
-				memcpy(boneTreeLevelEnd, blobData + _blob->calcLevelsOffset(this), _blob->calcLevelsByteSize(this));
-				memcpy(keyframes, blobData + _blob->calcKeyFramesOffset(this), _blob->calcKeyFramesByteSize(this));
-				memcpy(interpolatedAnimations, blobData + _blob->calcInterpolatedAnimsOffset(this), _blob->calcInterpolatedAnimsByteSize(this));
-				memcpy(nonInterpolatedAnimations, blobData + _blob->calcNonInterpolatedAnimsOffset(this), _blob->calcNonInterpolatedAnimsByteSize(this));
-				const char* strings = (const char*)(blobData + _blob->calcBoneNamesOffset(this));
-				for (int i = 0; i < boneCount; ++i)
-				{
-					boneNames[i] = core::stringc(strings);
-					strings += strlen(strings)+1;
-				}
-			}
-
-			//! Function filling blob's storage with the object's data. Meant to be used by loaders only.
-			/**
-			@param _dataPtr Pointer to pre-allocated memory (heap or stack - doesn't matter) of size sufficient to hold all object's data. This size can be calculated with core::FinalBoneHierarchyBlobV1::calcBlobSizeForObj().
-			@param[out] _size Through this parameter size (in bytes) of written data is returned.
-			@see @ref CBAWMeshFileLoader CBAWMeshWriter
-			*/
-			void fillExportBlob(void* _dataPtr, uint32_t* _size)
-			{
-				new (_dataPtr) core::FinalBoneHierarchyBlobV1(boneCount, NumLevelsInHierarchy, keyframeCount);
-				uint8_t* ptr = (uint8_t*)_dataPtr + sizeof(core::FinalBoneHierarchyBlobV1);
-
-				memcpy(ptr, boneFlatArray, boneCount * sizeof(BoneReferenceData));
-				ptr += boneCount * sizeof(BoneReferenceData);
+				boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
+				boneTreeLevelEnd = (size_t*)malloc(sizeof(size_t)*NumLevelsInHierarchy);
+				keyframes = (float*)malloc(sizeof(float)*keyframeCount);
+				interpolatedAnimations = (AnimationKeyData*)malloc(sizeof(AnimationKeyData)*keyframeCount);
+				nonInterpolatedAnimations = (AnimationKeyData*)malloc(sizeof(AnimationKeyData)*keyframeCount);
 
 				for (size_t i = 0; i < boneCount; ++i)
+					boneNames[i] = _boneNamesBegin[i];
+				memcpy(boneFlatArray, _bonesBegin, sizeof(BoneReferenceData)*boneCount);
+				memcpy(boneTreeLevelEnd, _levelsBegin, sizeof(size_t)*NumLevelsInHierarchy);
+				memcpy(keyframes, _keyframesBegin, sizeof(float)*keyframeCount);
+				memcpy(interpolatedAnimations, _interpAnimsBegin, sizeof(AnimationKeyData)*keyframeCount);
+				memcpy(interpolatedAnimations, _nonInterpAnimsBegin, sizeof(AnimationKeyData)*keyframeCount);
+			}
+
+			//! Function filling blob's storage with the object's data. Meant to be used by exporters only.
+			/**
+			@param _dataPtr Pointer to pre-allocated memory (heap or stack - doesn't matter) of size sufficient to hold all object's data. This size can be calculated with core::FinalBoneHierarchyBlobV1::calcBlobSizeForObj().
+			@see @ref CBAWMeshFileLoader CBAWMeshWriter
+			*/
+			size_t serializeToBlob(void* _dataPtr) const
+			{
+				//! @todo @bug Not a bug but not looking nice either
+				if (!_dataPtr)
+					return 0;
+				
+				uint8_t* const ptr = (uint8_t*)_dataPtr;
+				((size_t*)(ptr + offsetof(core::FinalBoneHierarchyBlobV0, boneCount)))[0] = boneCount;
+				((size_t*)(ptr + offsetof(core::FinalBoneHierarchyBlobV0, numLevelsInHierarchy)))[0] = NumLevelsInHierarchy;
+				((size_t*)(ptr + offsetof(core::FinalBoneHierarchyBlobV0, keyframeCount)))[0] = keyframeCount;
+
+				memcpy(ptr + core::FinalBoneHierarchyBlobV0::calcBonesOffset(this), boneFlatArray, core::FinalBoneHierarchyBlobV0::calcBonesByteSize(this));
+				memcpy(ptr + core::FinalBoneHierarchyBlobV0::calcLevelsOffset(this), boneTreeLevelEnd, core::FinalBoneHierarchyBlobV0::calcLevelsByteSize(this));
+				memcpy(ptr + core::FinalBoneHierarchyBlobV0::calcKeyFramesOffset(this), keyframes, core::FinalBoneHierarchyBlobV0::calcKeyFramesByteSize(this));
+				memcpy(ptr + core::FinalBoneHierarchyBlobV0::calcInterpolatedAnimsOffset(this), interpolatedAnimations, core::FinalBoneHierarchyBlobV0::calcInterpolatedAnimsByteSize(this));
+				memcpy(ptr + core::FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsOffset(this), nonInterpolatedAnimations, core::FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize(this));
+				uint8_t* strPtr = ptr + core::FinalBoneHierarchyBlobV0::calcBoneNamesOffset(this);
+				for (size_t i = 0; i < boneCount; ++i)
 				{
-					memcpy(ptr, boneNames[i].c_str(), boneNames[i].size() + 1);
-					ptr += boneNames[i].size() + 1;
+					memcpy(strPtr, boneNames[i].c_str(), boneNames[i].size() + 1);
+					strPtr += boneNames[i].size() + 1;
 				}
 
-				memcpy(ptr, boneTreeLevelEnd, NumLevelsInHierarchy*sizeof(size_t));
-				ptr += NumLevelsInHierarchy * sizeof(size_t);
-
-				memcpy(ptr, keyframes, keyframeCount*sizeof(float));
-				ptr += keyframeCount * sizeof(float);
-
-				memcpy(ptr, interpolatedAnimations, keyframeCount * sizeof(AnimationKeyData));
-				ptr += keyframeCount * sizeof(AnimationKeyData);
-
-				memcpy(ptr, nonInterpolatedAnimations, keyframeCount * sizeof(AnimationKeyData));
-				ptr += keyframeCount * sizeof(AnimationKeyData);
-
-				*_size = ptr - (uint8_t*)_dataPtr;
+				return core::FinalBoneHierarchyBlobV0::calcBlobSizeForObj(this);
 			}
 
 			inline size_t getSizeOfAllBoneNames() const
@@ -172,6 +173,14 @@ namespace scene
 				for (int i = 0; i < boneCount; ++i)
 					sum += boneNames[i].size()+1;
 				return sum;
+			}
+			static inline size_t getSizeOfSingleBone()
+			{
+				return sizeof(*boneFlatArray);
+			}
+			static inline size_t getSizeOfSingleAnimationData()
+			{
+				return sizeof(*interpolatedAnimations);
 			}
 
             inline const size_t& getBoneCount() const {return boneCount;}

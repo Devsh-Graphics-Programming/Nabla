@@ -24,7 +24,7 @@ namespace scene
 	private:
 		struct SContext
 		{
-			core::array<core::BlobHeaderV1> headers;
+			core::array<core::BlobHeaderV0> headers;
 			core::array<uint32_t> offsets;
 		};
 
@@ -48,16 +48,22 @@ namespace scene
 		template<typename T>
 		void exportAsBlob(T* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx);
 
-		//! Generates header of blobs from mesh object and pushes them to `m_headers`.
+		//! Generates header of blobs from mesh object and pushes them to `SContext::headers`.
 		/** After calling this method headers are NOT ready yet. Hashes (and also size in case of texture path blob) are calculated while writing blob data.
 		@param _mesh Pointer to the mesh object.
 		@return Amount of generated headers.*/
 		uint32_t genHeaders(ICPUMesh* _mesh, SContext& _ctx);
 
-		//! Pushes new offset value to `m_offsets` array.
+		//! Pushes new offset value to `SContext::offsets` array.
 		/** @param _blobSize Byte-distance from previous blob's first byte (i.e. size of previous blob).
 		*/
-		void calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx);
+		void calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx) const;
+
+		//! Pushes corrupted offset so that, while loading resulting .baw file, it will be easy to find out something went wrong.
+		void pushCorruptedOffset(SContext& _ctx) const { _ctx.offsets.push_back(0xffffffff); }
+
+		//! Tries to write given data to file. If not possible (i.e. _data is NULL) - pushes "corrupted offset" and does not call .finalize() on blob-header.
+		void tryWrite(const void* _data, io::IWriteFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx) const;
 
 	private:
 		io::IFileSystem* m_fileSystem;
