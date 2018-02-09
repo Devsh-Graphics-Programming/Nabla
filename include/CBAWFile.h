@@ -17,7 +17,7 @@ namespace irr {
 
 namespace scene
 {
-	class ISceneManager;
+	class ISceneManager; 
 	class ICPUSkinnedMesh;
 	class SCPUSkinMeshBuffer;
 	class CFinalBoneHierarchy;
@@ -89,8 +89,8 @@ namespace core
 		bool validate(const void* _data) const;
 	} PACK_STRUCT;
 
-	//! Cast pointer to (first byte of) file buffer to BaWFile*. 256bit header must be first member (start of file).
-	struct BawFileV0 {
+	//! Cast pointer to (first byte of) file buffer to BAWFile*. 256bit header must be first member (start of file).
+	struct BAWFileV0 {
 		//! 32-byte BaW binary format header, currently equal to "IrrlichtBaW BinaryFile" (and the rest filled with zeroes).
 		//! Also: last 8 bytes of file header is file-version number.
 		uint64_t fileHeader[4];
@@ -194,30 +194,27 @@ namespace core
             }
 	};
 
-	struct RawBufferBlobV0 : Blob
+	template<typename B, typename T>
+	struct TypedBlob : Blob
 	{
-		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q) { return 0; }
+		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q);
 		static void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
 	};
 
-	struct TexturePathBlobV0 : Blob
-	{
-		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q) { return 0; }
-		static void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
-	};
+	struct RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>
+	{};
+
+	struct TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, video::IVirtualTexture>
+	{};
 
 #include "irrpack.h"
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-	struct MeshBlobV0 : VariableSizeBlob<MeshBlobV0,scene::ICPUMesh>
+	struct MeshBlobV0 : VariableSizeBlob<MeshBlobV0,scene::ICPUMesh>, TypedBlob<MeshBlobV0, scene::ICPUMesh>
 	{
 		friend struct VariableSizeBlob<MeshBlobV0, scene::ICPUMesh>;
 	private:
             //! WARNING: Constructor saves only bounding box and mesh buffer count (not mesh buffer pointers)
 		explicit MeshBlobV0(const scene::ICPUMesh* _mesh);
-
-	public:
-		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q);
-		static void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
 
 	public:
         aabbox3df box;
@@ -226,16 +223,12 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-	struct SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,scene::ICPUSkinnedMesh>
+	struct SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,scene::ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>
 	{
 		friend struct VariableSizeBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>;
 	private:
             //! WARNING: Constructor saves only bone hierarchy, bounding box and mesh buffer count (not mesh buffer pointers)
         explicit SkinnedMeshBlobV0(const scene::ICPUSkinnedMesh* _sm);
-
-	public:
-		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q);
-		static void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
 
 	public:
         uint64_t boneHierarchyPtr;
@@ -245,13 +238,10 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-	struct MeshBufferBlobV0 : Blob
+	struct MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>
 	{
 		//! Constructor filling all members
 		explicit MeshBufferBlobV0(const scene::ICPUMeshBuffer*);
-
-		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q);
-		static void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
 
 		video::SMaterial mat;
 		core::aabbox3df box;
@@ -266,27 +256,32 @@ namespace core
 		scene::E_VERTEX_ATTRIBUTE_ID posAttrId;
 	} PACK_STRUCT;
 
-	struct SkinnedMeshBufferBlobV0 : MeshBufferBlobV0
+	struct SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>
 	{
 		//! Constructor filling all members
 		explicit SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer*);
 
-		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q);
-		static void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
-
+		video::SMaterial mat;
+		core::aabbox3df box;
+		uint64_t descPtr;
+		video::E_INDEX_TYPE indexType;
+		uint32_t baseVertex;
+		uint64_t indexCount;
+		size_t indexBufOffset;
+		size_t instanceCount;
+		uint32_t baseInstance;
+		scene::E_PRIMITIVE_TYPE primitiveType;
+		scene::E_VERTEX_ATTRIBUTE_ID posAttrId;
 		uint32_t indexValMin;
 		uint32_t indexValMax;
 		uint32_t maxVertexBoneInfluences;
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
-	struct MeshDataFormatDescBlobV0 : Blob
+	struct MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >
 	{
 		//! Constructor filling all members
 		explicit MeshDataFormatDescBlobV0(const scene::IMeshDataFormatDesc<core::ICPUBuffer>*);
-
-		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q);
-		static void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
 
 		scene::E_COMPONENTS_PER_ATTRIBUTE cpa[scene::EVAI_COUNT];
 		scene::E_COMPONENT_TYPE attrType[scene::EVAI_COUNT];
@@ -297,16 +292,13 @@ namespace core
 		uint64_t idxBufPtr;
 	} PACK_STRUCT;
 
-	struct FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>
+	struct FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>
 	{
 		friend struct VariableSizeBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>;
 	private:
 		FinalBoneHierarchyBlobV0(const scene::CFinalBoneHierarchy* _fbh);
 
 	public:
-		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q) { return 0; }
-		static void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
-
 		//! Used for creating a blob. Calculates offset of the block of blob resulting from exporting `*_fbh` object.
 		/** @param _fbh Pointer to object on the basis of which offset of the block will be calculated.
 		@return Offset where the block must begin (used while writing blob data (exporting)).
@@ -377,7 +369,7 @@ namespace core
 	template<typename>
 	struct CorrespondingBlobTypeFor;
 	template<>
-	struct CorrespondingBlobTypeFor<ICPUBuffer> { typedef Blob type; };
+	struct CorrespondingBlobTypeFor<ICPUBuffer> { typedef RawBufferBlobV0 type; };
 	template<>
 	struct CorrespondingBlobTypeFor<scene::ICPUMesh> { typedef MeshBlobV0 type; };
 	template<>
@@ -391,13 +383,30 @@ namespace core
 	template<>
 	struct CorrespondingBlobTypeFor<scene::CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV0 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef Blob type; };
+	struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV0 type; };
 
 	template<typename T>
 	typename CorrespondingBlobTypeFor<T>::type* toBlobPtr(const void* _blob)
 	{
 		return (typename CorrespondingBlobTypeFor<T>::type*)_blob;
 	}
+
+	template<typename T>
+	struct VariableSizeBlobSerializable
+	{
+		typename CorrespondingBlobTypeFor<T>::type* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const
+		{
+			return CorrespondingBlobTypeFor<T>::type::createAndTryOnStack(static_cast<const T*>(this), _stackPtr, _stackSize);
+		}
+	};
+	template<typename T>
+	struct FixedSizeBlobSerializable
+	{
+		typename CorrespondingBlobTypeFor<T>::type serializeToBlob() const
+		{
+			return typename CorrespondingBlobTypeFor<T>::type(static_cast<const T*>(this));
+		}
+	};
 
 }} // irr::core
 

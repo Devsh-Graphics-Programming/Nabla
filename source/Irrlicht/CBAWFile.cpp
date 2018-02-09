@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 // and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
 
-#include "CBawFile.h"
+#include "CBAWFile.h"
 
 #include "ISkinnedMesh.h"
 #include "SSkinMeshBuffer.h"
@@ -78,8 +78,19 @@ MeshBufferBlobV0::MeshBufferBlobV0(const scene::ICPUMeshBuffer* _mb)
 	posAttrId = _mb->getPositionAttributeIx();
 }
 
-SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer* _smb) : MeshBufferBlobV0(_smb)
+SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer* _smb)
 {
+	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SMaterial));
+	memcpy(&box, &_smb->getBoundingBox(), sizeof(core::aabbox3df));
+	descPtr = reinterpret_cast<uint64_t>(_smb->getMeshDataAndFormat());
+	indexType = _smb->getIndexType();
+	baseVertex = _smb->getBaseVertex();
+	indexCount = _smb->getIndexCount();
+	indexBufOffset = _smb->getIndexBufferOffset();
+	instanceCount = _smb->getInstanceCount();
+	baseInstance = _smb->getBaseInstance();
+	primitiveType = _smb->getPrimitiveType();
+	posAttrId = _smb->getPositionAttributeIx();
 	indexValMin = _smb->getIndexMinBound();
 	indexValMax = _smb->getIndexMaxBound();
 	maxVertexBoneInfluences = _smb->getMaxVertexBoneInfluences();
@@ -106,9 +117,23 @@ MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatD
 }
 
 FinalBoneHierarchyBlobV0::FinalBoneHierarchyBlobV0(const scene::CFinalBoneHierarchy* _fbh)
-{
-	//!@todo @bug not looking good
-	_fbh->serializeToBlob(this);
+{	
+	boneCount = _fbh->getBoneCount();
+	numLevelsInHierarchy = _fbh->getHierarchyLevels();
+	keyframeCount = _fbh->getKeyFrameCount();
+
+	uint8_t* const ptr = ((uint8_t*)this);
+	memcpy(ptr + calcBonesOffset(_fbh), _fbh->getBoneData(), calcBonesByteSize(_fbh));
+	memcpy(ptr + calcLevelsOffset(_fbh), _fbh->getBoneTreeLevelEnd(), calcLevelsByteSize(_fbh));
+	memcpy(ptr + calcKeyFramesOffset(_fbh), _fbh->getKeys(), calcKeyFramesByteSize(_fbh));
+	memcpy(ptr + calcInterpolatedAnimsOffset(_fbh), _fbh->getInterpolatedAnimationData(), calcInterpolatedAnimsByteSize(_fbh));
+	memcpy(ptr + calcNonInterpolatedAnimsOffset(_fbh), _fbh->getNonInterpolatedAnimationData(), calcNonInterpolatedAnimsByteSize(_fbh));
+	uint8_t* strPtr = ptr + calcBoneNamesOffset(_fbh);
+	for (size_t i = 0; i < boneCount; ++i)
+	{
+		memcpy(strPtr, _fbh->getBoneName(i).c_str(), _fbh->getBoneName(i).size() + 1);
+		strPtr += _fbh->getBoneName(i).size() + 1;
+	}
 }
 
 template<>
@@ -117,11 +142,11 @@ size_t VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>::ca
 	return
 		sizeof(FinalBoneHierarchyBlobV0) +
 		FinalBoneHierarchyBlobV0::calcBonesByteSize(_obj) +
-		FinalBoneHierarchyBlobV0::calcBoneNamesByteSize(_obj) +
 		FinalBoneHierarchyBlobV0::calcLevelsByteSize(_obj) +
 		FinalBoneHierarchyBlobV0::calcKeyFramesByteSize(_obj) +
 		FinalBoneHierarchyBlobV0::calcInterpolatedAnimsByteSize(_obj) +
-		FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize(_obj);
+		FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize(_obj) +
+		FinalBoneHierarchyBlobV0::calcBoneNamesByteSize(_obj);
 }
 
 size_t FinalBoneHierarchyBlobV0::calcBonesOffset(const scene::CFinalBoneHierarchy* _fbh)

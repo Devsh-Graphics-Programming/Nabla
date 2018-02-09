@@ -42,7 +42,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	if (ctx.filePath[ctx.filePath.size() - 1] != '/')
 		ctx.filePath += "/";
 
-	const uint32_t BLOBS_FILE_OFFSET = core::BawFileV0{{}, blobCnt}.calcBlobsOffset();
+	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{{}, blobCnt}.calcBlobsOffset();
 
 	std::map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
@@ -122,7 +122,7 @@ bool CBAWMeshFileLoader::loadBlob(SBlobData& _data, SContext& _ctx) const
 
 bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const
 {
-	char headerStr[sizeof(core::BawFileV0::fileHeader)];
+	char headerStr[sizeof(core::BAWFileV0::fileHeader)];
 	_ctx.file->seek(0);
 	if (!safeRead(_ctx.file, headerStr, sizeof(headerStr)))
 		return false;
@@ -144,7 +144,7 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 	if (!_blobCnt)
 		return false;
 
-	_ctx.file->seek(sizeof(core::BawFileV0::fileHeader));
+	_ctx.file->seek(sizeof(core::BAWFileV0::fileHeader));
 	if (!safeRead(_ctx.file, _blobCnt, sizeof(*_blobCnt)))
 		return false;
 
@@ -158,7 +158,7 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 		nope = true;
 	if (!safeRead(_ctx.file, headers, *_blobCnt * sizeof(core::BlobHeaderV0)))
 		nope = true;
-	const uint32_t offsetRelByte = core::BawFileV0{{}, *_blobCnt}.calcBlobsOffset(); // num of byte to which offsets are relative
+	const uint32_t offsetRelByte = core::BAWFileV0{{}, *_blobCnt}.calcBlobsOffset(); // num of byte to which offsets are relative
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether offsets are in ascending order none of them points past the end of file
 		if (offsets[i] >= offsets[i+1] || offsetRelByte + offsets[i] >= _ctx.file->getSize())
 			nope = true;

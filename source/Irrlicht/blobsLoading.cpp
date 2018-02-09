@@ -49,7 +49,14 @@ void * BlobsLoadingManager::tryMake(uint32_t _blobType, void * _blob, size_t _bl
 
 // Loading-related blobs' function implementations
 
-void* RawBufferBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
+template<>
+uint32_t TypedBlob<RawBufferBlobV0, ICPUBuffer>::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
+{
+	return 0;
+}
+
+template<>
+void* TypedBlob<RawBufferBlobV0, ICPUBuffer>::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
 {
 	RawBufferBlobV0* blob = (RawBufferBlobV0*)_blob;
 	core::ICPUBuffer* buf = new core::ICPUBuffer(_blobSize);
@@ -58,7 +65,14 @@ void* RawBufferBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t,
 	return buf;
 }
 
-void* TexturePathBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
+template<>
+uint32_t TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
+{
+	return 0;
+}
+
+template<>
+void* TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
 {
 	if (!_params.fs || !_params.sm)
 		return NULL;
@@ -85,7 +99,8 @@ void* TexturePathBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_
 	return texture;
 }
 
-uint32_t MeshBlobV0::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
+template<>
+uint32_t TypedBlob<MeshBlobV0, scene::ICPUMesh>::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
 {
 	MeshBlobV0* blob = (MeshBlobV0*)_blob;
 	uint32_t needCnt = 0;
@@ -98,7 +113,8 @@ uint32_t MeshBlobV0::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
 	return needCnt;
 }
 
-void* MeshBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
+template<>
+void* TypedBlob<MeshBlobV0, scene::ICPUMesh>::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
 {
 	MeshBlobV0* blob = (MeshBlobV0*)_blob;
 	scene::SCPUMesh* mesh = new scene::SCPUMesh();
@@ -109,7 +125,8 @@ void* MeshBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void
 	return mesh;
 }
 
-uint32_t SkinnedMeshBlobV0::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
+template<>
+uint32_t TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
 {
 	SkinnedMeshBlobV0* blob = (SkinnedMeshBlobV0*)_blob;
 	uint32_t needCnt = 1;
@@ -123,7 +140,8 @@ uint32_t SkinnedMeshBlobV0::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
 	return needCnt;
 }
 
-void* SkinnedMeshBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
+template<>
+void* TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
 {
 	SkinnedMeshBlobV0* blob = (SkinnedMeshBlobV0*)_blob;
 	scene::CCPUSkinnedMesh* mesh = new scene::CCPUSkinnedMesh();
@@ -136,7 +154,8 @@ void* SkinnedMeshBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_
 	return mesh;
 }
 
-uint32_t MeshBufferBlobV0::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
+template<>
+uint32_t TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
 {
 	MeshBufferBlobV0* blob = (MeshBufferBlobV0*)_blob;
 	uint32_t needCnt = 1;
@@ -153,7 +172,8 @@ uint32_t MeshBufferBlobV0::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
 	return needCnt;
 }
 
-void* MeshBufferBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
+template<>
+void* TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
 {
 	MeshBufferBlobV0* blob = (MeshBufferBlobV0*)_blob;
 	scene::ICPUMeshBuffer* buf = new scene::ICPUMeshBuffer();
@@ -178,12 +198,14 @@ void* MeshBufferBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t
 	return buf;
 }
 
-uint32_t SkinnedMeshBufferBlobV0::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
+template<>
+uint32_t TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
 {
-	return MeshBufferBlobV0::getNeededDeps(_blob, _q);
+	return TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::getNeededDeps(_blob, _q);
 }
 
-void* SkinnedMeshBufferBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
+template<>
+void* TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
 {
 	SkinnedMeshBufferBlobV0* blob = (SkinnedMeshBufferBlobV0*)_blob;
 	scene::SCPUSkinMeshBuffer* buf = new scene::SCPUSkinMeshBuffer();
@@ -210,7 +232,8 @@ void* SkinnedMeshBufferBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<u
 	return buf;
 }
 
-uint32_t MeshDataFormatDescBlobV0::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
+template<>
+uint32_t TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
 {
 	MeshDataFormatDescBlobV0* blob = (MeshDataFormatDescBlobV0*)_blob;
 	uint32_t needCnt = blob->idxBufPtr ? 1 : 0;
@@ -225,7 +248,8 @@ uint32_t MeshDataFormatDescBlobV0::getNeededDeps(void* _blob, std::deque<uint64_
 	return needCnt;
 }
 
-void* MeshDataFormatDescBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
+template<>
+void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
 {
 	using namespace scene;
 
@@ -251,7 +275,14 @@ void* MeshDataFormatDescBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<
 	return desc;
 }
 
-void* FinalBoneHierarchyBlobV0::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
+template<>
+uint32_t TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::getNeededDeps(void* _blob, std::deque<uint64_t>& _q)
+{
+	return 0;
+}
+
+template<>
+void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params)
 {
 	const uint8_t* const data = (uint8_t*)_blob;
 	FinalBoneHierarchyBlobV0* blob = (FinalBoneHierarchyBlobV0*)_blob;

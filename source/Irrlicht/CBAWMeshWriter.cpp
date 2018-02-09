@@ -107,7 +107,7 @@ namespace irr {
 				return false;
 
 			const uint32_t FILE_HEADER_SIZE = 32;
-			_IRR_DEBUG_BREAK_IF(FILE_HEADER_SIZE != sizeof(core::BawFileV0::fileHeader))
+			_IRR_DEBUG_BREAK_IF(FILE_HEADER_SIZE != sizeof(core::BAWFileV0::fileHeader))
 
 			uint64_t header[4];
 			memcpy(header, BAW_FILE_HEADER, FILE_HEADER_SIZE);
