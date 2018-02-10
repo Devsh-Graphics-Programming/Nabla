@@ -1919,7 +1919,7 @@ void CNullDriver::addFrameBuffer(IFrameBuffer* framebuffer)
 }
 
 
-void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth,
+void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth, bool copyStencil,
 									core::recti srcRect, core::recti dstRect,
 									bool bilinearFilter)
 {

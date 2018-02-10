@@ -369,7 +369,8 @@ namespace video
 
         virtual IFrameBuffer* addFrameBuffer() = 0;
 
-		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth=true,
+		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
+                                        bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false) = 0;

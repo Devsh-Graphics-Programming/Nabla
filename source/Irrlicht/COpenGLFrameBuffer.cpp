@@ -299,14 +299,16 @@ bool COpenGLFrameBuffer::rebindRevalidate()
                     {
                         ITexture* typeTex = static_cast<ITexture*>(attachments[i]);
                         revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
-                        attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLevel[i],cachedLayer[i]);
+                        if (revalidationStamp>lastValidated)
+                            attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLevel[i],cachedLayer[i]);
                     }
                     break;
                 case IVirtualTexture::EVTT_2D_MULTISAMPLE:
                     {
                         IMultisampleTexture* typeTex = static_cast<IMultisampleTexture*>(attachments[i]);
                         revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
-                        attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLayer[i]);
+                        if (revalidationStamp>lastValidated)
+                            attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLayer[i]);
                     }
                     break;
                 default:

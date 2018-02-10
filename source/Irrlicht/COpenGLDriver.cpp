@@ -2960,9 +2960,10 @@ IVideoDriver* COpenGLDriver::getVideoDriver()
 
 
 
-void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth,
-									core::recti srcRect, core::recti dstRect,
-									bool bilinearFilter)
+void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
+                                        bool copyDepth, bool copyStencil,
+                                        core::recti srcRect, core::recti dstRect,
+                                        bool bilinearFilter)
 {
 	GLuint inFBOHandle = 0;
 	GLuint outFBOHandle = 0;
@@ -3038,7 +3039,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool 
         else
             dstRect = core::recti(0,0,ScreenSize.Width,ScreenSize.Height);
 	}
-	if (srcRect==dstRect||copyDepth)
+	if (srcRect==dstRect||copyDepth||copyStencil) //and some checks for multisample
 		bilinearFilter = false;
 
     setViewPort(dstRect);
@@ -3051,7 +3052,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool 
     extGlBlitNamedFramebuffer(inFBOHandle,outFBOHandle,
                         srcRect.UpperLeftCorner.X,srcRect.UpperLeftCorner.Y,srcRect.LowerRightCorner.X,srcRect.LowerRightCorner.Y,
                         dstRect.UpperLeftCorner.X,dstRect.UpperLeftCorner.Y,dstRect.LowerRightCorner.X,dstRect.LowerRightCorner.Y,
-						GL_COLOR_BUFFER_BIT|(copyDepth ? GL_DEPTH_BUFFER_BIT:0),
+						/*GL_COLOR_BUFFER_BIT|*/(copyDepth ? GL_DEPTH_BUFFER_BIT:0)|(copyStencil ? GL_STENCIL_BUFFER_BIT:0),
 						bilinearFilter ? GL_LINEAR:GL_NEAREST);
 }
 
@@ -3113,6 +3114,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
         }
     }
 
+    //! Get rid of this!
     if (firstAttached)
     {
         os::Printer::log("FBO has no attachments! (We don't support that OpenGL 4.3 feature yet!).", ELL_ERROR);

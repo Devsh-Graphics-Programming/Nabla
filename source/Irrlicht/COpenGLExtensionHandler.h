@@ -3792,7 +3792,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebu
         if (pGlClearNamedFramebufferfi)
             pGlClearNamedFramebufferfi(framebuffer, buffer, drawbuffer, depth, stencil);
 #else
-        glClearFramebufferfi(framebuffer, buffer, depth, drawbuffer, stencil);
+        glClearNamedFramebufferfi(framebuffer, buffer, drawbuffer, depth, stencil);
 #endif
     }
     else

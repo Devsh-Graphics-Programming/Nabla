@@ -91,8 +91,8 @@ void main()
     vec3 pos,nml;
     linearSkin(pos,nml,vBoneIDs,vBoneWeights);
 
-    gl_Position = MVP*vec4(vPos,1.0); //only thing preventing the shader from being core-compliant
-    Normal = normalize(vNormal); //have to normalize twice because of normal quantization
+    gl_Position = MVP*vec4(pos,1.0); //only thing preventing the shader from being core-compliant
+    Normal = normalize(nml); //have to normalize twice because of normal quantization
     lightDir = vec3(100.0,0.0,0.0)-vPos.xyz;
     TexCoord = vTC;
 }
