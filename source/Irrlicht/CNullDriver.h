@@ -74,11 +74,11 @@ namespace video
 
 		virtual bool endScene();
 
-		//! Disable a feature of the driver.
-		virtual void disableFeature(E_VIDEO_DRIVER_FEATURE feature, bool flag=true);
-
 		//! queries the features of the driver, returns true if feature is available
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const;
+
+		//!
+		virtual void issueGPUTextureBarrier() {}
 
 		//! sets transformation
 		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
@@ -709,8 +709,6 @@ namespace video
 		bool OverrideMaterial2DEnabled;
 
 		bool AllowZWriteOnTransparent;
-
-		bool FeatureEnabled[video::EVDF_COUNT];
 
 		uint32_t MaxTextureSizes[ITexture::ETT_COUNT][3];
 	};

@@ -33,9 +33,7 @@ COpenGL2DTextureArray::COpenGL2DTextureArray(GLenum internalFormat, const uint32
 
 bool COpenGL2DTextureArray::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
 {
-    GLenum pixFmt,pixType;
-	GLenum pixFmtSized = getOpenGLFormatAndParametersFromColorFormat(inDataColorFormat, pixFmt, pixType);
-    bool sourceCompressed = COpenGLTexture::isInternalFormatCompressed(pixFmtSized);
+    bool sourceCompressed = isFormatCompressed(inDataColorFormat);
 
     bool destinationCompressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
     if ((!destinationCompressed)&&sourceCompressed)
@@ -68,6 +66,13 @@ bool COpenGL2DTextureArray::updateSubRegion(const ECOLOR_FORMAT &inDataColorForm
     }
     else
     {
+        GLenum pixFmt,pixType;
+        getOpenGLFormatAndParametersFromColorFormat(inDataColorFormat, pixFmt, pixType);
+        //! replace with
+        ///COpenGLExtensionHandler::extGlGetInternalFormativ(GL_TEXTURE_2D,InternalFormat,GL_TEXTURE_IMAGE_FORMAT,1,&pixFmt);
+        ///COpenGLExtensionHandler::extGlGetInternalFormativ(GL_TEXTURE_2D,InternalFormat,GL_TEXTURE_IMAGE_FORMAT,1,&pixType);
+
+
         //! we're going to have problems with uploading lower mip levels
         uint32_t bpp = video::getBitsPerPixelFromFormat(inDataColorFormat);
         uint32_t pitchInBits = ((maximum[0]-minimum[0])*bpp)/8;

@@ -545,6 +545,9 @@ PFNGLQUERYCOUNTERPROC COpenGLExtensionHandler::pGlQueryCounter = NULL;
 PFNGLBEGINCONDITIONALRENDERPROC COpenGLExtensionHandler::pGlBeginConditionalRender = NULL;
 PFNGLENDCONDITIONALRENDERPROC COpenGLExtensionHandler::pGlEndConditionalRender = NULL;
 //
+PFNGLTEXTUREBARRIERPROC COpenGLExtensionHandler::pGlTextureBarrier = NULL;
+PFNGLTEXTUREBARRIERNVPROC COpenGLExtensionHandler::pGlTextureBarrierNV = NULL;
+//
 PFNGLBLENDEQUATIONEXTPROC COpenGLExtensionHandler::pGlBlendEquationEXT = NULL;
 PFNGLBLENDEQUATIONPROC COpenGLExtensionHandler::pGlBlendEquation = NULL;
 
@@ -956,6 +959,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 		pGlBlendFuncIndexedAMD = NULL;
 		pGlBlendEquationIndexedAMD = NULL;
 		pGlBlendEquationiARB = NULL;
+		pGlCreateQueries = NULL;
 	}/*
     //! Non-DSA testing
     Version = 430;
@@ -1003,6 +1007,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     pGlVertexArrayVertexAttribIFormatEXT = NULL;
     pGlVertexArrayVertexAttribLFormatEXT = NULL;
     pGlVertexArrayVertexBindingDivisorEXT = NULL;
+    pGlCreateQueries = NULL;
 **/
 
     num=0;
@@ -1413,6 +1418,10 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlBeginConditionalRender = (PFNGLBEGINCONDITIONALRENDERPROC) IRR_OGL_LOAD_EXTENSION("glBeginConditionalRender");
     pGlEndConditionalRender = (PFNGLENDCONDITIONALRENDERPROC) IRR_OGL_LOAD_EXTENSION("glEndConditionalRender");
 
+    if (FeatureAvailable[IRR_ARB_texture_barrier])
+        pGlTextureBarrier = (PFNGLTEXTUREBARRIERPROC) IRR_OGL_LOAD_EXTENSION("glTextureBarrier");
+    else if (FeatureAvailable[IRR_NV_texture_barrier])
+        pGlTextureBarrierNV = (PFNGLTEXTUREBARRIERNVPROC) IRR_OGL_LOAD_EXTENSION("glTextureBarrierNV");
 
 
     pGlDebugMessageControl = (PFNGLDEBUGMESSAGECONTROLPROC) IRR_OGL_LOAD_EXTENSION("glDebugMessageControl");
@@ -1452,6 +1461,10 @@ bool COpenGLExtensionHandler::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature
             return FeatureAvailable[IRR_ARB_geometry_shader4]||true;
         case EVDF_TESSELLATION_SHADER:
             return FeatureAvailable[IRR_ARB_tessellation_shader]||true;
+        case EVDF_TEXTURE_BARRIER:
+            return FeatureAvailable[IRR_ARB_texture_barrier]||FeatureAvailable[IRR_NV_texture_barrier];
+        case EVDF_STENCIL_ONLY_TEXTURE:
+            return FeatureAvailable[IRR_ARB_texture_stencil8];
         default:
             return false;
 	};

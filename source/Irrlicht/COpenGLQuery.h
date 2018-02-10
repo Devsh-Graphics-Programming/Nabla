@@ -35,6 +35,7 @@ class COpenGLQuery : public virtual IQueryObject
 
         inline void flagBegun() {active=true; queryIsReady=false;}
         inline void flagEnded() {active=false; queryNeedsUpdate=true;}
+        inline bool isActive() const {return active;}
 
     private:
         GLuint object;

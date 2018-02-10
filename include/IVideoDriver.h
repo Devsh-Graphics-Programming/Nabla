@@ -234,12 +234,8 @@ namespace video
 		\return True if the feature is available, false if not. */
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const =0;
 
-		//! Disable a feature of the driver.
-		/** Can also be used to enable the features again. It is not
-		possible to enable unsupported features this way, though.
-		\param feature Feature to disable.
-		\param flag When true the feature is disabled, otherwise it is enabled. */
-		virtual void disableFeature(E_VIDEO_DRIVER_FEATURE feature, bool flag=true) =0;
+		//!
+		virtual void issueGPUTextureBarrier() =0;
 
 		//! Check if the driver was recently reset.
 		/** For d3d devices you will need to recreate the RTTs if the

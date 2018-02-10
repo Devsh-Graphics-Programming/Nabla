@@ -1660,7 +1660,7 @@ void COpenGLDriver::beginQuery(IQueryObject* query)
         return; //error
 
     COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0)
+    if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
     if (currentQuery[query->getQueryObjectType()][0])
@@ -1681,7 +1681,7 @@ void COpenGLDriver::endQuery(IQueryObject* query)
         return; //error
 
     COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0)
+    if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
     if (currentQuery[query->getQueryObjectType()][0])
@@ -1702,7 +1702,7 @@ void COpenGLDriver::beginQuery(IQueryObject* query, const size_t& index)
         return; //error
 
     COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0)
+    if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
     if (currentQuery[query->getQueryObjectType()][index])
@@ -1726,7 +1726,7 @@ void COpenGLDriver::endQuery(IQueryObject* query, const size_t& index)
         return; //error
 
     COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0)
+    if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
     if (currentQuery[query->getQueryObjectType()][index])
@@ -1976,7 +1976,7 @@ void COpenGLDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene
     COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
 
     bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0))
+    if (queryGL&&(queryGL->getGLHandle()!=0)&&(!queryGL->isActive()))
     {
         extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
         didConditional = true;
@@ -2074,7 +2074,7 @@ void COpenGLDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scen
     COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
 
     bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0))
+    if (queryGL&&(queryGL->getGLHandle()!=0)&&(!queryGL->isActive()))
     {
         extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
         didConditional = true;
@@ -3170,9 +3170,9 @@ void COpenGLDriver::clearStencilBuffer(const int32_t &stencil)
 void COpenGLDriver::clearZStencilBuffers(const float &depth, const int32_t &stencil)
 {
     if (CurrentFBO)
-        extGlClearNamedFramebufferfi(CurrentFBO->getOpenGLName(),GL_DEPTH_STENCIL,depth,stencil);
+        extGlClearNamedFramebufferfi(CurrentFBO->getOpenGLName(),GL_DEPTH_STENCIL,0,depth,stencil);
     else
-        extGlClearNamedFramebufferfi(0,GL_DEPTH_STENCIL,depth,stencil);
+        extGlClearNamedFramebufferfi(0,GL_DEPTH_STENCIL,0,depth,stencil);
 }
 
 void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals)

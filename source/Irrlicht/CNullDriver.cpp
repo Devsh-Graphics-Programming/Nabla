@@ -199,8 +199,6 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>&
 
 	// set ExposedData to 0
 	memset(&ExposedData, 0, sizeof(ExposedData));
-	for (uint32_t i=0; i<video::EVDF_COUNT; ++i)
-		FeatureEnabled[i]=true;
 
 	InitMaterial2D.ZWriteEnable=false;
 	InitMaterial2D.ZBuffer=video::ECFN_NEVER;
@@ -334,13 +332,6 @@ bool CNullDriver::endScene()
 	FPSCounter.registerFrame(os::Timer::getRealTime(), PrimitivesDrawn);
 
 	return true;
-}
-
-
-//! Disable a feature of the driver.
-void CNullDriver::disableFeature(E_VIDEO_DRIVER_FEATURE feature, bool flag)
-{
-	FeatureEnabled[feature]=!flag;
 }
 
 

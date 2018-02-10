@@ -171,6 +171,7 @@ int main()
     }
 	driver->writeImageToFile(screenshot,"./screenshot.png");
 	screenshot->drop();
+	device->sleep(3000);
 
 	device->drop();
 

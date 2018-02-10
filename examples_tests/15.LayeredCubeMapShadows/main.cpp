@@ -280,7 +280,7 @@ int main()
 	while(device->run()&&(!quit))
 	//if (device->isWindowActive())
 	{
-		driver->beginScene(true, true, video::SColor(255,0,0,255) );
+		driver->beginScene(true, true, video::SColor(255,0,0,0) );
 
 		//! Animate first
 		smgr->getRootSceneNode()->OnAnimate(os::Timer::getTime());

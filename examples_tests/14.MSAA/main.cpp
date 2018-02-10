@@ -394,6 +394,7 @@ int main()
 
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+        video::COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(0,GL_FRONT_LEFT);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.

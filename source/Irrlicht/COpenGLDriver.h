@@ -133,8 +133,12 @@ namespace video
 		//! queries the features of the driver, returns true if feature is available
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
 		{
-			return FeatureEnabled[feature] && COpenGLExtensionHandler::queryFeature(feature);
+			return COpenGLExtensionHandler::queryFeature(feature);
 		}
+
+		//!
+		virtual void issueGPUTextureBarrier() {COpenGLExtensionHandler::extGlTextureBarrier();}
+
 
 		virtual const video::SMaterial& getCurrentMaterial() const {return Material;}
 

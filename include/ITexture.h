@@ -9,8 +9,8 @@
 #include "dimension2d.h"
 #include "EDriverTypes.h"
 #include "CImageData.h"
-#include "IVirtualTexture.h"
 #include "IFrameBuffer.h"
+#include "IVirtualTexture.h"
 
 namespace irr
 {
@@ -58,7 +58,7 @@ NULL device, their textures are compatible. If you try to use a texture
 created by one device with an other device, the device will refuse to do that
 and write a warning or an error message to the output buffer.
 */
-class ITexture : public IVirtualTexture, public IRenderable
+class ITexture : public IRenderableVirtualTexture
 {
 public:
     enum E_TEXTURE_TYPE

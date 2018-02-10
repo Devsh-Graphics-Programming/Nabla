@@ -17,7 +17,7 @@ namespace irr
 namespace video
 {
 
-class IMultisampleTexture : public IVirtualTexture, public IRenderable
+class IMultisampleTexture : public IRenderableVirtualTexture
 {
 public:
     enum E_MULTISAMPLE_TEXTURE_TYPE

@@ -7,6 +7,7 @@
 
 #include "EDriverTypes.h"
 #include "CImageData.h"
+#include "IFrameBuffer.h"
 
 namespace irr
 {
@@ -59,6 +60,10 @@ public:
 		return getColorFormat () == video::ECF_A8R8G8B8 || video::ECF_R8G8B8A8 || getColorFormat () == video::ECF_A1R5G5B5 || getColorFormat () == video::ECF_A16B16G16R16F || getColorFormat () == ECF_A32B32G32R32F
                                             || getColorFormat() == ECF_RGBA_BC1 || getColorFormat() == ECF_RGBA_BC2 || getColorFormat() == ECF_RGBA_BC3;
 	}
+};
+
+class IRenderableVirtualTexture : public IRenderable, public IVirtualTexture
+{
 };
 
 }

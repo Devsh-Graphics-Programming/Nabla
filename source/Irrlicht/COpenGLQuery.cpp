@@ -86,7 +86,7 @@ void COpenGLQuery::getQueryResult(uint64_t* queryResult)
 #endif // _DEBUG
 
     updateQueryResult();
-    *queryResult = cachedCounter32;
+    *queryResult = cachedCounter64;
 }
 
 bool COpenGLQuery::getQueryResult32(IGPUBuffer* buffer, const size_t& offset, const bool& conditionalWrite)

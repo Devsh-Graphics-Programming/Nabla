@@ -39,14 +39,9 @@ public:
     static bool isInternalFormatCompressed(GLenum format);
 
 	//! Get the OpenGL color format parameters based on the given Irrlicht color format
-	static GLint getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format, GLenum& colorformat, GLenum& type);
+	static void getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format, GLenum& colorformat, GLenum& type); //kill this
 
-	static GLint getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format)
-	{
-	     GLenum colorformat;
-	     GLenum type;
-	     return getOpenGLFormatAndParametersFromColorFormat(format,colorformat,type);
-	}
+	static GLint getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format);
 
 	//!
 	static ECOLOR_FORMAT getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat);

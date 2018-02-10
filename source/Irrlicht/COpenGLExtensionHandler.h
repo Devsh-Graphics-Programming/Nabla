@@ -177,6 +177,7 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_texture_rectangle",
 	"GL_ARB_texture_rg",
 	"GL_ARB_texture_rgb10_a2ui",
+	"GL_ARB_texture_stencil8",
 	"GL_ARB_texture_storage",
 	"GL_ARB_texture_storage_multisample",
 	"GL_ARB_texture_swizzle",
@@ -612,6 +613,7 @@ class COpenGLExtensionHandler
 		IRR_ARB_texture_rectangle,
 		IRR_ARB_texture_rg,
 		IRR_ARB_texture_rgb10_a2ui,
+		IRR_ARB_texture_stencil8,
 		IRR_ARB_texture_storage,
 		IRR_ARB_texture_storage_multisample,
 		IRR_ARB_texture_swizzle,
@@ -1107,7 +1109,7 @@ class COpenGLExtensionHandler
 	static void extGlClearNamedFramebufferiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLint* value);
 	static void extGlClearNamedFramebufferuiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLuint* value);
 	static void extGlClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value);
-	static void extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLfloat depth, GLint stencil);
+	static void extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLint drawbuffer, GLfloat depth, GLint stencil);
 
 	// renderbuffers
 	static void extGlDeleteRenderbuffers(GLsizei n, const GLuint *renderbuffers);
@@ -1212,6 +1214,9 @@ class COpenGLExtensionHandler
 	static void extGlQueryCounter(GLuint id, GLenum target);
 	static void extGlBeginConditionalRender(GLuint id, GLenum mode);
 	static void extGlEndConditionalRender();
+
+	//
+	static void extGlTextureBarrier();
 
 	// generic vsync setting method for several extensions
 	static void extGlSwapInterval(int interval);
@@ -1536,6 +1541,9 @@ class COpenGLExtensionHandler
     static PFNGLQUERYCOUNTERPROC pGlQueryCounter;
     static PFNGLBEGINCONDITIONALRENDERPROC pGlBeginConditionalRender;
     static PFNGLENDCONDITIONALRENDERPROC pGlEndConditionalRender;
+    //
+    static PFNGLTEXTUREBARRIERPROC pGlTextureBarrier;
+    static PFNGLTEXTUREBARRIERNVPROC pGlTextureBarrierNV;
     //
     static PFNGLBLENDEQUATIONEXTPROC pGlBlendEquationEXT;
     static PFNGLBLENDEQUATIONPROC pGlBlendEquation;
@@ -3776,15 +3784,15 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfv(GLuint framebu
     }
 }
 
-inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLfloat depth, GLint stencil)
+inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLint drawbuffer, GLfloat depth, GLint stencil)
 {
-/*    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearNamedFramebufferfi)
-            pGlClearNamedFramebufferfi(framebuffer, buffer, depth, stencil);
+            pGlClearNamedFramebufferfi(framebuffer, buffer, drawbuffer, depth, stencil);
 #else
-        glClearFramebufferfi(framebuffer, buffer, depth, stencil);
+        glClearFramebufferfi(framebuffer, buffer, depth, drawbuffer, stencil);
 #endif
     }
     else
@@ -3796,12 +3804,12 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebu
         extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearBufferfi)
-            pGlClearBufferfi(buffer, depth, stencil);
+            pGlClearBufferfi(buffer, drawbuffer, depth, stencil);
 #else
-        glClearBufferfi(buffer, depth, stencil);
+        glClearBufferfi(buffer, drawbuffer, depth, stencil);
 #endif
         extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
-    }*/
+    }
 }
 
 
@@ -5381,6 +5389,24 @@ inline void COpenGLExtensionHandler::extGlEndConditionalRender()
 }
 
 
+inline void COpenGLExtensionHandler::extGlTextureBarrier()
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (FeatureAvailable[IRR_ARB_texture_barrier])
+		pGlTextureBarrier();
+	else if (FeatureAvailable[IRR_NV_texture_barrier])
+		pGlTextureBarrierNV();
+#else
+	if (FeatureAvailable[IRR_ARB_texture_barrier])
+		glTextureBarrier();
+	else if (FeatureAvailable[IRR_NV_texture_barrier])
+		glTextureBarrierNV();
+#endif
+#ifdef _DEBUG
+    else
+        os::Printer::log("EVDF_TEXTURE_BARRIER Not Available!\n",ELL_ERROR);
+#endif // _DEBUG
+}
 
 
 inline void COpenGLExtensionHandler::extGlSwapInterval(int interval)

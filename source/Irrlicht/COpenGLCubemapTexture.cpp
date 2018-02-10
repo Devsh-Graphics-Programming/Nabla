@@ -33,18 +33,7 @@ COpenGLCubemapTexture::COpenGLCubemapTexture(GLenum internalFormat, const uint32
 
 bool COpenGLCubemapTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
 {
-    /*
-    if (minimum[3]!=maximum[3])
-    {
-#ifdef _DEBUG
-        os::Printer::log(ELL_ERROR,"Can only update one face of the cubemap at a time!");
-#endif // _DEBUG
-        return false;
-    }
-    */
-    GLenum pixFmt,pixType;
-	GLenum pixFmtSized = getOpenGLFormatAndParametersFromColorFormat(inDataColorFormat, pixFmt, pixType);
-    bool sourceCompressed = COpenGLTexture::isInternalFormatCompressed(pixFmtSized);
+    bool sourceCompressed = isFormatCompressed(inDataColorFormat);
 
     bool destinationCompressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
     if ((!destinationCompressed)&&sourceCompressed)
@@ -77,6 +66,13 @@ bool COpenGLCubemapTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorForm
     }
     else
     {
+        GLenum pixFmt,pixType;
+        getOpenGLFormatAndParametersFromColorFormat(inDataColorFormat, pixFmt, pixType);
+        //! replace with
+        ///COpenGLExtensionHandler::extGlGetInternalFormativ(GL_TEXTURE_2D,InternalFormat,GL_TEXTURE_IMAGE_FORMAT,1,&pixFmt);
+        ///COpenGLExtensionHandler::extGlGetInternalFormativ(GL_TEXTURE_2D,InternalFormat,GL_TEXTURE_IMAGE_FORMAT,1,&pixType);
+
+
         //! we're going to have problems with uploading lower mip levels
         uint32_t bpp = video::getBitsPerPixelFromFormat(inDataColorFormat);
         uint32_t pitchInBits = ((maximum[0]-minimum[0])*bpp)/8;

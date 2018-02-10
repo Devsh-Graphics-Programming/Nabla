@@ -105,7 +105,7 @@ const std::vector<CCPUSkinnedMesh::SJoint*> &CCPUSkinnedMesh::getAllJoints() con
 
 void CCPUSkinnedMesh::checkForAnimation()
 {
-	uint32_t i,j;
+	uint32_t i;
 	//Check for animation...
 	HasAnimation = false;
 	for(i=0;i<AllJoints.size();++i)

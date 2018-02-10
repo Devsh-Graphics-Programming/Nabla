@@ -291,14 +291,33 @@ bool COpenGLFrameBuffer::rebindRevalidate()
 
         if (attachments[i]->getRenderableType()==ERT_TEXTURE)
         {
-            COpenGLFilterableTexture* glTex = static_cast<COpenGLFilterableTexture*>(attachments[i]);
-            uint64_t revalidationStamp = glTex->hasOpenGLNameChanged();
+            IRenderableVirtualTexture* rvt = static_cast<IRenderableVirtualTexture*>(attachments[i]);
+            uint64_t revalidationStamp = 0;
+            switch (rvt->getVirtualTextureType())
+            {
+                case IVirtualTexture::EVTT_OPAQUE_FILTERABLE:
+                    {
+                        ITexture* typeTex = static_cast<ITexture*>(attachments[i]);
+                        revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
+                        attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLevel[i],cachedLayer[i]);
+                    }
+                    break;
+                case IVirtualTexture::EVTT_2D_MULTISAMPLE:
+                    {
+                        IMultisampleTexture* typeTex = static_cast<IMultisampleTexture*>(attachments[i]);
+                        revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
+                        attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLayer[i]);
+                    }
+                    break;
+                default:
+                    os::Printer::log("WTF are you trying to render into!?");
+                    break;
+            }
             if (revalidationStamp>lastValidated)
             {
                 if (revalidationStamp>highestRevalidationStamp)
                     highestRevalidationStamp = revalidationStamp;
                 revalidate = true;
-                attach((E_FBO_ATTACHMENT_POINT)i,glTex,cachedLevel[i],cachedLayer[i]);
             }
         }
         else
