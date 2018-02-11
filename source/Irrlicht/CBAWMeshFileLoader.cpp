@@ -44,80 +44,72 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 
 	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{{}, blobCnt}.calcBlobsOffset();
 
-	std::map<uint64_t, SBlobData>::iterator meshBlobDataIter;
+	uint64_t meshHandle = NULL;
 
 	for (int i = 0; i < blobCnt; ++i)
 	{
-		SBlobData data = SBlobData{headers+i, BLOBS_FILE_OFFSET + offsets[i], NULL};
-		const std::map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, data)).first;
+		SBlobData data = SBlobData{headers+i, BLOBS_FILE_OFFSET + offsets[i], false};
+		ctx.blobs.push_back(data);
+		ctx.createdObjs.insert(std::make_pair(headers[i].handle, (void*)NULL));
 		if (data.header->blobType == core::Blob::EBT_MESH || data.header->blobType == core::Blob::EBT_SKINNED_MESH)
-			meshBlobDataIter = it;
+			meshHandle = headers[i].handle;
 	}
 	free(offsets);
-
-	ctx.queue.push_back(meshBlobDataIter->second.header->handle);
-	while (!ctx.queue.empty())
+	if (!meshHandle)
 	{
-		uint64_t handle = ctx.queue.front();
-		ctx.queue.pop_front();
-		if (!loadBlob(ctx.blobs[handle], ctx))
-		{
-			free(headers);
-			ctx.freeLoadedObjects();
-			return NULL;
-		}
+		free(headers);
+		return NULL;
 	}
 
+	uint8_t stack[1u<<14];
+	for (size_t i = 0; i < ctx.blobs.size(); ++i)
+		if (!(ctx.createdObjs[ctx.blobs[i].header->handle] = instantiateObjWithoutDeps(ctx.blobs[i], ctx, stack, sizeof(stack))))
+		{
+			free(headers);
+			ctx.releaseLoadedObjects();
+			return NULL;
+		}
+
+	for (size_t i = 0; i < ctx.blobs.size(); ++i)
+		finalizeObj(ctx.blobs[i], ctx, stack, sizeof(stack));
+
 	free(headers);
-	return reinterpret_cast<ICPUMesh*>(meshBlobDataIter->second.createdObj);
+	return reinterpret_cast<ICPUMesh*>(ctx.createdObjs[meshHandle]);
 }
 
-bool CBAWMeshFileLoader::loadBlob(SBlobData& _data, SContext& _ctx) const
+void* CBAWMeshFileLoader::instantiateObjWithoutDeps(const SBlobData & _data, SContext & _ctx, void* const _stackData, size_t _stackSize)
 {
-	if (_data.createdObj)
-		return true;
-
-	uint8_t stackData[1u<<14]; // 16kB
-	void* blob = tryReadBlobOnStack(_data, _ctx, stackData, sizeof(stackData));
+	const core::BlobHeaderV0* header = _data.header;
+	core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, _ctx.filePath };
+	void* blob = tryReadBlobOnStack(_data, _ctx, _stackData, _stackSize);
 
 	if (!_data.validate(blob))
 	{
-		if (blob != stackData)
+		if (blob != _stackData)
 			free(blob);
-		return false;
+		return NULL;
 	}
 
-	const uint32_t neededDepsCount = _ctx.loadingMgr.getNeededDeps(_data.header->blobType, blob, _ctx.queue);
-	bool readyToLoad = true;
-	std::map<uint64_t, void*> deps;
-	for (uint32_t i = 0; i < neededDepsCount; ++i)
-	{
-		std::deque<uint64_t>::iterator it = (_ctx.queue.begin() + (_ctx.queue.size()-1-i));
-		if (!_ctx.blobs[*it].isLoaded())
-			readyToLoad = false;
-		else if(readyToLoad) // if it still makes sense to put values to `deps`
-			deps[*it] = _ctx.blobs[*it].createdObj;
-	}
-	if (readyToLoad)
-	{
-		core::BlobLoadingParams params{m_sceneMgr, m_fileSystem, _ctx.filePath};
-		void* objPtr = _ctx.loadingMgr.tryMake(_data.header->blobType, blob, _data.header->blobSizeDecompr, deps, params);
-		if (objPtr)
-			_data.createdObj = objPtr;
-		else
-		{
-			if (blob != stackData)
-				free(blob);
-			return false;
-		}
-	}
-	else
-		_ctx.queue.push_back(_data.header->handle); // try loading again after loading its deps
+	void* retval = _ctx.loadingMgr.instantiateEmpty(header->blobType, blob, header->blobSizeDecompr, params);
 
-	if (blob != stackData)
+	if (blob != _stackData)
 		free(blob);
 
-	return true;
+	return retval;
+}
+
+bool CBAWMeshFileLoader::finalizeObj(const SBlobData & _data, SContext & _ctx, void * const _stackData, size_t _stackSize)
+{
+	const core::BlobHeaderV0* header = _data.header;
+	core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, _ctx.filePath };
+	void* blob = tryReadBlobOnStack(_data, _ctx, _stackData, _stackSize);
+
+	void* retval = _ctx.loadingMgr.finalize(header->blobType, _ctx.createdObjs[header->handle], blob, header->blobSizeDecompr, _ctx.createdObjs, params);
+
+	if (blob != _stackData)
+		free(blob);
+
+	return bool(retval);
 }
 
 bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const
@@ -132,7 +124,6 @@ bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const
 		return false;
 
 	_ctx.fileVersion = ((uint64_t*)headerStr)[3];
-	_ctx.loadingMgr.setFileVer(_ctx.fileVersion);
 	if (_ctx.fileVersion >= 1)
         return false;
 
@@ -190,7 +181,7 @@ bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _si
 	return true;
 }
 
-void* CBAWMeshFileLoader::tryReadBlobOnStack(SBlobData & _data, SContext & _ctx, void * _stackPtr, size_t _stackSize) const
+void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext & _ctx, void * _stackPtr, size_t _stackSize) const
 {
 	void* dst;
 	if (_data.header->blobSizeDecompr <= _stackSize)

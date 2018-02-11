@@ -7,13 +7,14 @@
 #define __C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 
 #include <map>
-#include <queue>
+#include <vector>
 
 #include "IMeshLoader.h"
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "IMesh.h"
 #include "CBawFile.h"
+#include "CBlobsLoadingManager.h"
 
 namespace irr { namespace scene
 {
@@ -25,31 +26,28 @@ private:
 	{
 		const core::BlobHeaderV0* header;
 		size_t absOffset; // absolute
-		void* createdObj;
 		mutable bool validated;
 
 		bool validate(const void* _data) const { 
 			validated = true;
 			return validated ? true : header->validate(_data); 
 		}
-		bool isLoaded() const { return createdObj; }
 	};
 
 	struct SContext
 	{
-		void freeLoadedObjects()
+		void releaseLoadedObjects()
 		{
-			for (std::map<uint64_t, SBlobData>::iterator it = blobs.begin(); it != blobs.end(); ++it)
-				if (it->second.createdObj)
-					delete it->second.createdObj;
+			for (size_t i = 0; i < blobs.size(); ++i)
+				loadingMgr.releaseObj(blobs[i].header->blobType, createdObjs[blobs[i].header->handle]);
 		}
 
 		io::IReadFile* file;
 		io::path filePath;
 		uint64_t fileVersion;
-		std::map<uint64_t, SBlobData> blobs;
-		std::deque<uint64_t> queue;
-		core::BlobsLoadingManager loadingMgr;
+		std::vector<SBlobData> blobs;
+		std::map<uint64_t, void*> createdObjs;
+		core::CBlobsLoadingManager loadingMgr;
 	};
 
 protected:
@@ -71,6 +69,14 @@ public:
 	virtual ICPUMesh* createMesh(io::IReadFile* file);
 
 private:
+	//! Instantiates new object of appropriate type dependent of blob's type but does not assign dependencies.
+	/** @returns Pointer to just created object.
+	*/
+	void* instantiateObjWithoutDeps(const SBlobData& _data, SContext& _ctx, void* const _stackData, size_t _stackSize);
+	//! Finalizes object (i.e. assigns dependcy objects to appropriate fields in the object).
+	/** @returns whether everything went ok or not.
+	*/
+	bool finalizeObj(const SBlobData& _data, SContext& _ctx, void* const _stackData, size_t _stackSize);
 	//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
 	bool verifyFile(SContext& _ctx) const;
 	//! Loads and checks correctness of offsets and headers. Also let us know blob count.
@@ -80,13 +86,9 @@ private:
 	//! Reads `_size` bytes to `_buf` from `_file`, but previously checks whether file is big enough and returns true/false appropriately.
 	bool safeRead(io::IReadFile* _file, void* _buf, size_t _size) const;
 
-	//! Loads a blob (i.e. creates object and assigns its address to _data.createdObj) defined by `_data` parameter/
-	/** @returns false if loading/creating an object failed or true otherwise.*/
-	bool loadBlob(SBlobData& _data, SContext&) const;
-
 	//! Reads blob to memory on stack or allocates sufficient amount on heap if provided stack storage was not big enough.
 	/** @returns `_stackPtr` if blob was read to it or pointer to malloc'd memory otherwise.*/
-	void* tryReadBlobOnStack(SBlobData& _data, SContext& _ctx, void* _stackPtr, size_t _stackSize) const;
+	void* tryReadBlobOnStack(const SBlobData& _data, SContext& _ctx, void* _stackPtr, size_t _stackSize) const;
 
 private:
 	scene::ISceneManager* m_sceneMgr;

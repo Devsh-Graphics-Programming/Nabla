@@ -6,12 +6,9 @@
 #ifndef __IRR_BAW_FILE_H_INCLUDED__
 #define __IRR_BAW_FILE_H_INCLUDED__
 
-#include <deque>
-
 #include "stdint.h"
 #include "IMesh.h"
 #include "irrArray.h"
-#include "path.h"
 
 namespace irr {
 
@@ -29,45 +26,7 @@ namespace io
 
 namespace core
 {
-
-	struct BlobLoadingParams
-	{
-		scene::ISceneManager* sm;
-		io::IFileSystem* fs;
-		io::path filePath;
-	};
-
-	//! Class abstracting blobs version from process of loading them.
-	/** 
-	If you wish to extend .baw format by you own blob types, here's what you have to do:
-		- add a corresponding to your blob value to Blob::E_BLOB_TYPE enum
-		- make a class (or struct, a matter of keyword) representing your blob
-		- your class must contain following static member functions:
-			-# `uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q);` - pushes (push_back) to the end of `_q` 'handles' (i.e. pointers/addresses) of other blobs that `_blob` depends on (i.e. are its members)
-			-# `void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);` - creates an object from blob. `_deps` is map of mentioned dependencies (key is 'handle' and value is pointer to existing object)
-		- Let `BlobsLoadingManager` know about your blob type, by using _IRR_ADD_BLOB_SUPPORT_ inside definition of the manager's constructor. See existing code for example.
-
-	Feature not ready yet. (only loading actually)
-	*/
-	class BlobsLoadingManager
-	{
-	public:
-		explicit BlobsLoadingManager(uint64_t _fileVer = 0);
-
-		uint32_t getNeededDeps(uint32_t _blobType, void* _blob, std::deque<uint64_t>& _q);
-		void* tryMake(uint32_t _blobType, void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
-
-		const uint64_t & getFileVer() const { return m_fileVer; }
-		void setFileVer(uint64_t _fver) { m_fileVer = _fver; }
-
-	private:
-		typedef uint32_t(*EvalFunc_t)(void*, std::deque<uint64_t>&);
-		typedef void*(*MakeFunc_t)(void*, size_t, std::map<uint64_t, void*>, const BlobLoadingParams&);
-
-		uint64_t m_fileVer;
-		std::map<uint32_t, std::map<uint64_t, EvalFunc_t>> m_evalFunctions;
-		std::map<uint32_t, std::map<uint64_t, MakeFunc_t>> m_makeFunctions;
-	};
+	struct BlobLoadingParams;
 
 #include "irrpack.h"
 	//! Cast pointer to block of blob-headers to BlobHeader* and easily iterate and/or access members
@@ -133,25 +92,6 @@ namespace core
 			EBT_COUNT
 		};
 
-		static uint32_t getLoadPriorityForType(E_BLOB_TYPE _t)
-		{
-			switch (_t)
-			{
-			case EBT_MESH:
-			case EBT_SKINNED_MESH:
-				return 1e6;
-			case EBT_MESH_BUFFER:
-			case EBT_SKINNED_MESH_BUFFER:
-			case EBT_FINAL_BONE_HIERARCHY:
-				return 2e6;
-			case EBT_DATA_FORMAT_DESC:
-			case EBT_TEXTURE_PATH:
-				return 3e6;
-			case EBT_RAW_DATA_BUFFER:
-				return 4e6;
-			}
-		}
-
 		void* getData() { return this; }
 		const void* getData() const { return this; }
 	};
@@ -197,8 +137,9 @@ namespace core
 	template<typename B, typename T>
 	struct TypedBlob : Blob
 	{
-		static uint32_t getNeededDeps(void* _blob, std::deque<uint64_t>& _q);
-		static void* tryMake(void* _blob, size_t _blobSize, std::map<uint64_t, void*> _deps, const BlobLoadingParams& _params);
+		static void* instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);
+		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, std::map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
+		static void releaseObj(const void* _obj);
 	};
 
 	struct RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>
