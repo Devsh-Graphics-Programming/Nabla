@@ -54,7 +54,7 @@
     <ProjectName>Irrlicht</ProjectName>
     <ProjectGuid>{E08E042A-6C45-411B-92BE-3CC31331019F}</ProjectGuid>
     <RootNamespace>Irrlicht</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SDL-Debug|Win32'" Label="Configuration">
@@ -944,6 +944,7 @@
     <ClInclude Include="COSOperator.h" />
     <ClInclude Include="CSceneManager.h" />
     <ClInclude Include="CSkinnedMeshSceneNode.h" />
+    <ClInclude Include="FW_Mutex.h" />
     <ClInclude Include="Octree.h" />
     <ClInclude Include="CSMFMeshFileLoader.h" />
     <ClInclude Include="C3DSMeshFileLoader.h" />
@@ -1106,6 +1107,11 @@
     <None Include="..\..\readme.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="blobsLoading.cpp" />
+    <ClCompile Include="CBAWFile.cpp" />
+    <ClCompile Include="CBAWMeshFileLoader.cpp" />
+    <ClCompile Include="CBAWMeshWriter.cpp" />
+    <ClCompile Include="CBlobsLoadingManager.cpp" />
     <ClCompile Include="CDefaultSceneNodeAnimatorFactory.cpp" />
     <ClCompile Include="CDefaultSceneNodeFactory.cpp" />
     <ClCompile Include="CGeometryCreator.cpp" />
@@ -1251,6 +1257,7 @@
     <ClCompile Include="CTRTextureGouraudAddNoZ2.cpp" />
     <ClCompile Include="CTRTextureGouraudNoZ2.cpp" />
     <ClCompile Include="CTRTextureGouraudVertexAlpha2.cpp" />
+    <ClCompile Include="FW_Mutex.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
     <ClCompile Include="Irrlicht.cpp" />
