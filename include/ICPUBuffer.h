@@ -37,10 +37,18 @@ class ICPUBuffer : public IBuffer
             size = sizeInBytes;
         }
 
+		//! Returns buffer's type which in this case is always equal to `E_BUFFER_TYPE::EBT_UNSPECIFIED_BUFFER`.
         virtual E_BUFFER_TYPE getBufferType() const {return EBT_UNSPECIFIED_BUFFER;}
-        //! size in BYTES
+
+        //! Returns size in bytes.
         virtual const uint64_t& getSize() const {return size;}
 
+		//! Reallocates internal data. Invalidate any sizes, pointers etc. returned before!
+		/** @param newSize New size of memory.
+		@param forceRetentionOfData Doesn't matter.
+		@param reallocateIfShrink Whether to perform reallocation even if it means to shrink the buffer (lose some data).
+		@returns True on success or false otherwise.
+		*/
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)
         {
             if (size==newSize)
@@ -63,8 +71,13 @@ class ICPUBuffer : public IBuffer
             return true;
         }
 
-        //! WARNING: RESIZE will invalidate pointer
+		//! Returns pointer to data.
+        /** WARNING: RESIZE will invalidate pointer.
+		*/
         virtual const void* getPointer() const {return data;}
+		//! Returns pointer to data.
+		/** WARNING: RESIZE will invalidate pointer.
+		*/
         virtual void* getPointer() {return data;}
 
     private:

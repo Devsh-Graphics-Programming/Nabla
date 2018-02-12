@@ -17,10 +17,13 @@ namespace video
 class IGPUMappedBuffer : public virtual video::IGPUBuffer
 {
     public:
-        //! WARNING: RESIZE will invalidate pointer
-        //! WARNING: NEED TO FENCE BEFORE USE!!!!!!!!!!!!!
+		//! Gets internal pointer.
+        /** WARNING: RESIZE will invalidate pointer!
+        WARNING: NEED TO FENCE BEFORE USE!
+		@returns Internal pointer. */
         virtual void* getPointer() = 0;
 
+		//! @returns Always true.
         virtual const bool isMappedBuffer() const {return true;}
     private:
         //
@@ -30,3 +33,4 @@ class IGPUMappedBuffer : public virtual video::IGPUBuffer
 } // end namespace irr
 
 #endif
+// documented by Krzysztof Szenk on 12-02-2018

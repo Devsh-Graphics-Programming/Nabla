@@ -36,11 +36,14 @@ enum E_RENDERABLE_TYPE
     ERT_RENDERBUFFER
 };
 
+//! Base class for render targets
 class IRenderable : public virtual IReferenceCounted
 {
     public:
+		//! Returns type
         virtual E_RENDERABLE_TYPE getRenderableType() const = 0;
 
+		//! Returns two-dimensional size
         virtual core::dimension2du getRenderableSize() const = 0;
 };
 
@@ -50,12 +53,31 @@ class IRenderBuffer;
 class IFrameBuffer : public virtual IReferenceCounted
 {
     public:
+		//! Attaches given texture to given attachment point.
+		/** @param attachmentPoint Identifies attchment point.
+		@param tex Texture being attached.
+		@param mipMapLayer
+		@param layer
+		@returns Whether attachment operation went succesfully.
+		*/
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, ITexture* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1) = 0;
 
+		//! Attaches given render buffer to given attachment point.
+		/** @param attachmentPoint Identifies attchment point.
+		@param rbf Render buffer being attached.
+		@returns Whether attachment operation went succesfully.
+		*/
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IRenderBuffer* rbf) = 0;
 
+		//! Rebinds frame buffer object.
+		/** @returns whether FBO is bound or was successfully rebound.
+		*/
         virtual bool rebindRevalidate() = 0;
 
+		//! Gets attachment accessible at the given index.
+		/** @param ix Given index.
+		@returns Attached at given index object or NULL if nothing is bound there.
+		*/
         virtual const IRenderable* getAttachment(const size_t &ix) const = 0;
 
     protected:
