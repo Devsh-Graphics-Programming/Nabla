@@ -279,217 +279,173 @@ bool COpenGLTexture::isInternalFormatCompressed(GLenum format)
 }
 
 //! Get opengl values for the GPU texture storage
-GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format,
+void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format,
 				GLenum& colorformat,
 				GLenum& type)
 {
 	// default
 	colorformat = GL_RGBA;
 	type = GL_UNSIGNED_BYTE;
-	GLenum internalformat = GL_RGBA;
 
 	switch(format)
 	{
 		case ECF_A1R5G5B5:
 			colorformat=GL_BGRA_EXT;
 			type=GL_UNSIGNED_SHORT_1_5_5_5_REV;
-			internalformat =  GL_RGB5_A1;
 			break;
 		case ECF_R5G6B5:
 			colorformat=GL_RGB;
 			type=GL_UNSIGNED_SHORT_5_6_5;
-			internalformat =  GL_RGB565;
 			break;
 		case ECF_R8G8B8:
 			colorformat=GL_RGB;
 			type=GL_UNSIGNED_BYTE;
-			internalformat =  GL_RGB8;
 			break;
 		case ECF_A8R8G8B8:
 			colorformat=GL_BGRA_EXT;
             type=GL_UNSIGNED_INT_8_8_8_8_REV;
-			internalformat =  GL_RGBA8;
 			break;
 		case ECF_R8G8B8A8:
 			colorformat=GL_RGBA;
             type=GL_UNSIGNED_BYTE;
-			internalformat =  GL_RGBA8;
 			break;
 		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
+		case ECF_R11G11B10F:
+		{
+			colorformat = GL_RGB;
+			type = GL_FLOAT;
+		}
+			break;
 		case ECF_R16F:
 		{
 			colorformat = GL_RED;
 			type = GL_FLOAT;
-
-			internalformat =  GL_R16F;
 		}
 			break;
 		case ECF_G16R16F:
 		{
 			colorformat = GL_RG;
 			type = GL_FLOAT;
-
-			internalformat =  GL_RG16F;
 		}
 			break;
 		case ECF_A16B16G16R16F:
 		{
 			colorformat = GL_RGBA;
 			type = GL_FLOAT;
-
-			internalformat =  GL_RGBA16F_ARB;
 		}
 			break;
 		case ECF_R32F:
 		{
 			colorformat = GL_RED;
 			type = GL_FLOAT;
-
-			internalformat =  GL_R32F;
 		}
 			break;
 		case ECF_G32R32F:
 		{
 			colorformat = GL_RG;
 			type = GL_FLOAT;
-
-			internalformat =  GL_RG32F;
 		}
 			break;
 		case ECF_A32B32G32R32F:
 		{
 			colorformat = GL_RGBA;
 			type = GL_FLOAT;
-
-			internalformat =  GL_RGBA32F_ARB;
 		}
 			break;
 		case ECF_R8:
 		{
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_R8;
 		}
 			break;
 		case ECF_R8G8:
 		{
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_RGB8;
 		}
 			break;
 		case ECF_RGB_BC1:
 		{
 			colorformat = GL_RGB;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
 		}
 			break;
 		case ECF_RGBA_BC1:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
 		}
 			break;
 		case ECF_RGBA_BC2:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
 		}
 			break;
 		case ECF_RGBA_BC3:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 		}
 			break;
 		case ECF_R_BC4:
 		{
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_COMPRESSED_RED_RGTC1_EXT;
 		}
 			break;
 		case ECF_RG_BC5:
 		{
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_COMPRESSED_RED_GREEN_RGTC2_EXT;
 		}
 			break;
 		case ECF_8BIT_PIX:
 		{
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_R8;
 		}
 			break;
 		case ECF_16BIT_PIX:
 		{
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_RG8;
 		}
 			break;
 		case ECF_24BIT_PIX:
 		{
 			colorformat = GL_RGB;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_RGB8;
 		}
 			break;
 		case ECF_32BIT_PIX:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_RGBA8;
 		}
 			break;
 		case ECF_48BIT_PIX:
 		{
 			colorformat = GL_RGB;
 			type = GL_UNSIGNED_SHORT;
-
-			internalformat =  GL_RGB16;
 		}
 			break;
 		case ECF_64BIT_PIX:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_SHORT;
-
-			internalformat =  GL_RGBA16;
 		}
 			break;
 		case ECF_96BIT_PIX:
 		{
 			colorformat = GL_RGB;
 			type = GL_FLOAT;
-
-			internalformat =  GL_RGB32F;
 		}
 			break;
 		case ECF_128BIT_PIX:
 		{
 			colorformat = GL_RGBA;
 			type = GL_FLOAT;
-
-			internalformat =  GL_RGBA32F;
 		}
 			break;
         /// this is totally wrong but safe - most probs have to reupload
@@ -497,50 +453,161 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_F
 		{
 			colorformat = GL_DEPTH;
 			type = GL_UNSIGNED_SHORT;
-
-			internalformat =  GL_DEPTH_COMPONENT16;
 		}
 			break;
 		case ECF_DEPTH24:
 		{
 			colorformat = GL_DEPTH;
 			type = GL_UNSIGNED_SHORT;
-
-			internalformat =  GL_DEPTH_COMPONENT24;
 		}
 			break;
 		case ECF_DEPTH24_STENCIL8:
 		{
 			colorformat = GL_DEPTH_STENCIL;
 			type = GL_UNSIGNED_INT_24_8_EXT;
-
-			internalformat =  GL_DEPTH24_STENCIL8;
 		}
 			break;
 		case ECF_DEPTH32F:
 		{
 			colorformat = GL_DEPTH;
 			type = GL_FLOAT;
-
-			internalformat =  GL_DEPTH_COMPONENT32F;
 		}
 			break;
 		case ECF_DEPTH32F_STENCIL8:
 		{
 			colorformat = GL_DEPTH_STENCIL;
 			type = GL_UNSIGNED_BYTE;
-
-			internalformat =  GL_DEPTH32F_STENCIL8;
+		}
+			break;
+		case ECF_STENCIL8:
+		{
+			colorformat = GL_STENCIL;
+			type = GL_UNSIGNED_BYTE;
 		}
 			break;
 		default:
 		{
-			os::Printer::log("Unsupported texture format", ELL_ERROR);
-			internalformat =  GL_RGBA8;
+			os::Printer::log("Unsupported upload format", ELL_ERROR);
 		}
 	}
+}
 
-	return internalformat;
+GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format)
+{
+	switch(format)
+	{
+		case ECF_A1R5G5B5:
+			return GL_RGB5_A1;
+			break;
+		case ECF_R5G6B5:
+			return GL_RGB565;
+			break;
+		case ECF_R8G8B8:
+			return GL_RGB8;
+			break;
+		case ECF_A8R8G8B8:
+			return GL_RGBA8;
+			break;
+		case ECF_R8G8B8A8:
+            return GL_RGBA8;
+			break;
+		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
+		case ECF_R11G11B10F:
+            return GL_R11F_G11F_B10F;
+			break;
+		case ECF_R16F:
+		    return GL_R16F;
+			break;
+		case ECF_G16R16F:
+		    return GL_RG16F;
+			break;
+		case ECF_A16B16G16R16F:
+		    return GL_RGBA16F;
+			break;
+		case ECF_R32F:
+		    return GL_R32F;
+			break;
+		case ECF_G32R32F:
+		    return GL_RG32F;
+			break;
+		case ECF_A32B32G32R32F:
+		    return GL_RGBA32F;
+			break;
+		case ECF_R8:
+		    return GL_R8;
+			break;
+		case ECF_R8G8:
+		    return GL_RGB8;
+			break;
+		case ECF_RGB_BC1:
+		    return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+			break;
+		case ECF_RGBA_BC1:
+		    return GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+			break;
+		case ECF_RGBA_BC2:
+		    return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+			break;
+		case ECF_RGBA_BC3:
+		    return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+			break;
+		case ECF_R_BC4:
+		    return GL_COMPRESSED_RED_RGTC1_EXT;
+			break;
+		case ECF_RG_BC5:
+		    return GL_COMPRESSED_RED_GREEN_RGTC2_EXT;
+			break;
+		case ECF_8BIT_PIX:
+		    return GL_R8;
+			break;
+		case ECF_16BIT_PIX:
+		    return GL_RG8;
+			break;
+		case ECF_24BIT_PIX:
+		    return GL_RGB8;
+			break;
+		case ECF_32BIT_PIX:
+		    return GL_RGBA8;
+			break;
+		case ECF_48BIT_PIX:
+		    return GL_RGB16;
+			break;
+		case ECF_64BIT_PIX:
+		    return GL_RGBA16;
+			break;
+		case ECF_96BIT_PIX:
+		    return GL_RGB32F;
+			break;
+		case ECF_128BIT_PIX:
+		    return GL_RGBA32F;
+			break;
+        /// this is totally wrong but safe - most probs have to reupload
+		case ECF_DEPTH16:
+		    return GL_DEPTH_COMPONENT16;
+			break;
+		case ECF_DEPTH24:
+		    return GL_DEPTH_COMPONENT24;
+			break;
+		case ECF_DEPTH24_STENCIL8:
+		    return GL_DEPTH24_STENCIL8;
+			break;
+		case ECF_DEPTH32F:
+		    return GL_DEPTH_COMPONENT32F;
+			break;
+		case ECF_DEPTH32F_STENCIL8:
+		    return GL_DEPTH32F_STENCIL8;
+			break;
+		case ECF_STENCIL8:
+            return GL_STENCIL_INDEX8;
+			break;
+		default:
+		{
+#ifdef _DEBUG
+			os::Printer::log("Unsupported texture format", ELL_ERROR);
+#endif // _DEBUG
+			return GL_INVALID_ENUM;
+		}
+	}
 }
 
 ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat)
@@ -566,7 +633,7 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             return ECF_RG_BC5;
             break;
         case GL_STENCIL_INDEX8:
-            ///return ECF_;
+            return ECF_STENCIL8;
             break;
         case GL_RGBA2:
             ///return ECF_8BIT_PIX;
@@ -680,7 +747,7 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             ///return ECF_;
             break;
         case GL_R11F_G11F_B10F:
-            ///return ECF_;
+            return ECF_R11G11B10F;
             break;
         case GL_RGB9_E5:
             ///return ECF_;

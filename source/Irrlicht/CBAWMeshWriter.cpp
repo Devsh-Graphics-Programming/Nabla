@@ -15,6 +15,7 @@
 
 #define BAW_FILE_VERSION 0
 
+
 namespace irr {
 	namespace scene
 	{

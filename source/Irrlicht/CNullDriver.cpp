@@ -196,15 +196,9 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>&
     MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][1] = 0x80u;
     MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][2] = 0x800u*6;
 
-    MaxTextureSizes[ITexture::ETT_TEXTURE_BUFFER][0] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_TEXTURE_BUFFER][1] = 0x1u;
-    MaxTextureSizes[ITexture::ETT_TEXTURE_BUFFER][2] = 0x1u;
-
 
 	// set ExposedData to 0
 	memset(&ExposedData, 0, sizeof(ExposedData));
-	for (uint32_t i=0; i<video::EVDF_COUNT; ++i)
-		FeatureEnabled[i]=true;
 
 	InitMaterial2D.ZWriteEnable=false;
 	InitMaterial2D.ZBuffer=video::ECFN_NEVER;
@@ -338,13 +332,6 @@ bool CNullDriver::endScene()
 	FPSCounter.registerFrame(os::Timer::getRealTime(), PrimitivesDrawn);
 
 	return true;
-}
-
-
-//! Disable a feature of the driver.
-void CNullDriver::disableFeature(E_VIDEO_DRIVER_FEATURE feature, bool flag)
-{
-	FeatureEnabled[feature]=!flag;
 }
 
 
@@ -557,6 +544,16 @@ void CNullDriver::removeTexture(ITexture* texture)
     }
 }
 
+void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
+{
+    int32_t ix = MultisampleTextures.binary_search(tex);
+    if (ix<0)
+        return;
+    MultisampleTextures.erase(ix);
+
+    tex->drop();
+}
+
 void CNullDriver::removeTextureBufferObject(ITextureBufferObject* tbo)
 {
     int32_t ix = TextureBufferObjects.binary_search(tbo);
@@ -594,6 +591,15 @@ void CNullDriver::removeAllTextures()
 {
 	setMaterial ( SMaterial() );
 	deleteAllTextures();
+}
+
+void CNullDriver::removeAllMultisampleTextures()
+{
+	setMaterial ( SMaterial() );
+
+	for (uint32_t i=0; i<MultisampleTextures.size(); ++i)
+		MultisampleTextures[i]->drop();
+    MultisampleTextures.clear();
 }
 
 void CNullDriver::removeAllTextureBufferObjects()
@@ -1863,7 +1869,10 @@ int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
 	return result;
 }
 
-
+IMultisampleTexture* CNullDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format, const bool& fixedSampleLocation)
+{
+    return NULL;
+}
 
 ITextureBufferObject* CNullDriver::addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format, const size_t& offset, const size_t& length)
 {
@@ -1878,6 +1887,12 @@ IRenderBuffer* CNullDriver::addRenderBuffer(const core::dimension2d<uint32_t>& s
 IRenderBuffer* CNullDriver::addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
 {
 	return 0;
+}
+
+void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
+{
+	MultisampleTextures.push_back(tex);
+	MultisampleTextures.sort();
 }
 
 void CNullDriver::addTextureBufferObject(ITextureBufferObject* tbo)
@@ -1904,7 +1919,7 @@ void CNullDriver::addFrameBuffer(IFrameBuffer* framebuffer)
 }
 
 
-void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth,
+void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth, bool copyStencil,
 									core::recti srcRect, core::recti dstRect,
 									bool bilinearFilter)
 {

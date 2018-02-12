@@ -7,6 +7,7 @@
 
 #include "EDriverTypes.h"
 #include "CImageData.h"
+#include "IFrameBuffer.h"
 
 namespace irr
 {
@@ -32,20 +33,6 @@ public:
         EVTT_BUFFER_OBJECT,
         EVTT_VIEW,
         EVTT_COUNT
-    };
-    enum E_TEXTURE_TYPE
-    {
-        ETT_1D=0,
-        ETT_2D,
-        ETT_3D,
-        ETT_1D_ARRAY,
-        ETT_2D_ARRAY,
-        ETT_CUBE_MAP,
-        ETT_CUBE_MAP_ARRAY,
-        ETT_2D_MULTISAMPLE,
-        ETT_2D_MULTISAMPLE_ARRAY,
-        ETT_TEXTURE_BUFFER,
-        ETT_COUNT
     };
 
 	virtual const E_DIMENSION_COUNT getDimensionality() const = 0;
@@ -73,6 +60,10 @@ public:
 		return getColorFormat () == video::ECF_A8R8G8B8 || video::ECF_R8G8B8A8 || getColorFormat () == video::ECF_A1R5G5B5 || getColorFormat () == video::ECF_A16B16G16R16F || getColorFormat () == ECF_A32B32G32R32F
                                             || getColorFormat() == ECF_RGBA_BC1 || getColorFormat() == ECF_RGBA_BC2 || getColorFormat() == ECF_RGBA_BC3;
 	}
+};
+
+class IRenderableVirtualTexture : public IRenderable, public IVirtualTexture
+{
 };
 
 }

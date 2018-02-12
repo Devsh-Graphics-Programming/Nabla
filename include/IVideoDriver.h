@@ -9,6 +9,7 @@
 #include "SColor.h"
 #include "IGPUMappedBuffer.h"
 #include "ITexture.h"
+#include "IMultisampleTexture.h"
 #include "ITextureBufferObject.h"
 #include "IRenderBuffer.h"
 #include "IFrameBuffer.h"
@@ -233,12 +234,8 @@ namespace video
 		\return True if the feature is available, false if not. */
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const =0;
 
-		//! Disable a feature of the driver.
-		/** Can also be used to enable the features again. It is not
-		possible to enable unsupported features this way, though.
-		\param feature Feature to disable.
-		\param flag When true the feature is disabled, otherwise it is enabled. */
-		virtual void disableFeature(E_VIDEO_DRIVER_FEATURE feature, bool flag=true) =0;
+		//!
+		virtual void issueGPUTextureBarrier() =0;
 
 		//! Check if the driver was recently reset.
 		/** For d3d devices you will need to recreate the RTTs if the
@@ -360,6 +357,9 @@ namespace video
         virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain) = 0;
 
         //! A.
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) = 0;
+
+        //! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0) = 0;
 
 		//! A.
@@ -369,7 +369,8 @@ namespace video
 
         virtual IFrameBuffer* addFrameBuffer() = 0;
 
-		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth=true,
+		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
+                                        bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false) = 0;
@@ -383,6 +384,8 @@ namespace video
 		0 or another texture first.
 		\param texture Texture to delete from the engine cache. */
 		virtual void removeTexture(ITexture* texture) =0;
+
+		virtual void removeMultisampleTexture(IMultisampleTexture* tex) =0;
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo) =0;
 
@@ -398,6 +401,8 @@ namespace video
 		good idea to set all materials which are using this texture to
 		0 or another texture first. */
 		virtual void removeAllTextures() =0;
+
+		virtual void removeAllMultisampleTextures() =0;
 
 		virtual void removeAllTextureBufferObjects() =0;
 

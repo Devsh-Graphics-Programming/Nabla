@@ -82,6 +82,8 @@
 		<Unit filename="main.cpp" />
 		<Unit filename="mesh.frag" />
 		<Unit filename="mesh.vert" />
+		<Unit filename="postproc.frag" />
+		<Unit filename="screenquad.vert" />
 		<Extensions>
 			<code_completion />
 			<debugger />

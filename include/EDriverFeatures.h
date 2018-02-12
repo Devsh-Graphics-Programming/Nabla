@@ -22,6 +22,12 @@ namespace video
 		//!
 		EVDF_TESSELLATION_SHADER,
 
+		//!
+		EVDF_TEXTURE_BARRIER,
+
+		//!
+		EVDF_STENCIL_ONLY_TEXTURE,
+
 		//! Only used for counting the elements of this enum
 		EVDF_COUNT
 	};

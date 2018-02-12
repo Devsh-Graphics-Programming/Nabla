@@ -64,8 +64,10 @@ void linearSkin(out vec3 skinnedPos, out vec3 skinnedNormal, in ivec4 boneIDs, i
         boneData[15+4] = texelFetch(tex3,boneOffset+4);
         lastBoneData[3] = texelFetch(tex3,boneOffset+5).x;
     }
-    float lastWeight = 1.0-boneWeightsXYZBoneCountNormalized.x-boneWeightsXYZBoneCountNormalized.y-boneWeightsXYZBoneCountNormalized.z;
 
+    //adding transformed weighted vertices is better than adding weighted matrices and then transforming
+    //averaging matrices            = [1,4]*(21 fmads) + 15 fmads
+    //averaging transformed verts   = [1,4]*(15 fmads + 7 muls)
     skinnedPos = mat4x3(boneData[0],boneData[1],boneData[2])*vec4(vPos*boneWeightsXYZBoneCountNormalized.x,boneWeightsXYZBoneCountNormalized.x);
     skinnedNormal = mat3(boneData[3],boneData[4],lastBoneData[0])*(vNormal*boneWeightsXYZBoneCountNormalized.x);
 	// we have a choice, either branch and waste 8 cycles on if-statements, or waste 84 on zeroing out the arrays
@@ -81,6 +83,7 @@ void linearSkin(out vec3 skinnedPos, out vec3 skinnedNormal, in ivec4 boneIDs, i
     }
     if (boneWeightsXYZBoneCountNormalized.w>0.75) //1.0
     {
+        float lastWeight = 1.0-boneWeightsXYZBoneCountNormalized.x-boneWeightsXYZBoneCountNormalized.y-boneWeightsXYZBoneCountNormalized.z;
         skinnedPos += mat4x3(boneData[15],boneData[15+1],boneData[15+2])*vec4(vPos*lastWeight,lastWeight);
         skinnedNormal += mat3(boneData[15+3],boneData[15+4],lastBoneData[3])*(vNormal*lastWeight);
     }

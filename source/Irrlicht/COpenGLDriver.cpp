@@ -15,6 +15,8 @@
 #include "COpenGL3DTexture.h"
 #include "COpenGL2DTextureArray.h"
 #include "COpenGLCubemapTexture.h"
+#include "COpenGLMultisampleTexture.h"
+#include "COpenGLMultisampleTextureArray.h"
 #include "COpenGLTextureBufferObject.h"
 
 #include "COpenGLRenderBuffer.h"
@@ -840,7 +842,7 @@ bool COpenGLDriver::genericDriverInit()
 
 
 	glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE , &num);
-	MaxTextureSizes[ITexture::ETT_TEXTURE_BUFFER][0] = static_cast<uint32_t>(num);
+	///MaxTextureSizes[ITexture::ETT_TEXTURE_BUFFER][0] = static_cast<uint32_t>(num);
 
 
 	uint32_t i;
@@ -1658,7 +1660,7 @@ void COpenGLDriver::beginQuery(IQueryObject* query)
         return; //error
 
     COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0)
+    if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
     if (currentQuery[query->getQueryObjectType()][0])
@@ -1679,7 +1681,7 @@ void COpenGLDriver::endQuery(IQueryObject* query)
         return; //error
 
     COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0)
+    if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
     if (currentQuery[query->getQueryObjectType()][0])
@@ -1700,7 +1702,7 @@ void COpenGLDriver::beginQuery(IQueryObject* query, const size_t& index)
         return; //error
 
     COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0)
+    if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
     if (currentQuery[query->getQueryObjectType()][index])
@@ -1724,7 +1726,7 @@ void COpenGLDriver::endQuery(IQueryObject* query, const size_t& index)
         return; //error
 
     COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0)
+    if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
     if (currentQuery[query->getQueryObjectType()][index])
@@ -1974,7 +1976,7 @@ void COpenGLDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene
     COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
 
     bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0))
+    if (queryGL&&(queryGL->getGLHandle()!=0)&&(!queryGL->isActive()))
     {
         extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
         didConditional = true;
@@ -2072,7 +2074,7 @@ void COpenGLDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scen
     COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
 
     bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0))
+    if (queryGL&&(queryGL->getGLHandle()!=0)&&(!queryGL->isActive()))
     {
         extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
         didConditional = true;
@@ -2335,12 +2337,10 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
     switch (type)
     {
         case ITexture::ETT_1D:
-        case ITexture::ETT_TEXTURE_BUFFER:
             assert(size[0]>0);
             break;
         case ITexture::ETT_2D:
         case ITexture::ETT_1D_ARRAY:
-        case ITexture::ETT_2D_MULTISAMPLE:
             assert(size[0]>0&&size[1]>0);
             break;
         case ITexture::ETT_CUBE_MAP:
@@ -2378,9 +2378,7 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
                     if (maxSideLen < size[2])
                         maxSideLen = size[2];
                     break;
-                case ITexture::ETT_2D_MULTISAMPLE:
-                case ITexture::ETT_2D_MULTISAMPLE_ARRAY:
-                case ITexture::ETT_TEXTURE_BUFFER:
+                default:
                     maxSideLen = 1;
                     break;
             }
@@ -2408,11 +2406,9 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
         case ITexture::ETT_CUBE_MAP:
             return new COpenGLCubemapTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
-#ifdef _DEBUG
-        case ITexture::ETT_TEXTURE_BUFFER:
-            os::Printer::log("Use IVideoDriver::addTextureBufferObject() instead.", ELL_ERROR);
-            break;
-#endif
+        ///case ITexture::ETT_CUBE_MAP_ARRAY:
+            ///return new COpenGLCubemapArrayTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            ///break;
         default:// ETT_CUBE_MAP, ETT_CUBE_MAP_ARRAY, ETT_TEXTURE_BUFFER
             break;
     }
@@ -2784,9 +2780,9 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
     {
         CImageData* img = *it;
         if (img->getSliceMax()[0]>getMaxTextureSize(actualType)[0]||
-            (actualType==ITexture::ETT_2D||actualType==ITexture::ETT_1D_ARRAY||actualType==ITexture::ETT_CUBE_MAP||actualType==ITexture::ETT_2D_MULTISAMPLE)
+            (actualType==ITexture::ETT_2D||actualType==ITexture::ETT_1D_ARRAY||actualType==ITexture::ETT_CUBE_MAP)
                 &&img->getSliceMax()[1]>getMaxTextureSize(actualType)[1]||
-            (actualType==ITexture::ETT_3D||actualType==ITexture::ETT_2D_ARRAY||actualType==ITexture::ETT_CUBE_MAP_ARRAY||actualType==ITexture::ETT_2D_MULTISAMPLE_ARRAY)
+            (actualType==ITexture::ETT_3D||actualType==ITexture::ETT_2D_ARRAY||actualType==ITexture::ETT_CUBE_MAP_ARRAY)
                 &&img->getSliceMax()[2]>getMaxTextureSize(actualType)[2])
         {
 #ifdef _DEBUG
@@ -2815,6 +2811,32 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
         texture->regenerateMipMapLevels();
 
     return texture;
+}
+
+IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format, const bool& fixedSampleLocations)
+{
+    //check to implement later on renderbuffer creation and attachment of textures to FBO
+    //if (!isFormatRenderable(glTex->getOpenGLInternalFormat()))
+        //return NULL;
+
+	IMultisampleTexture* tex;
+	switch (type)
+	{
+        case IMultisampleTexture::EMTT_2D:
+            tex = new COpenGLMultisampleTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),samples,size,fixedSampleLocations);
+            break;
+        case IMultisampleTexture::EMTT_2D_ARRAY:
+            tex = new COpenGLMultisampleTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),samples,size,fixedSampleLocations);
+            break;
+        default:
+            tex = NULL;
+            break;
+	}
+
+	if (tex)
+        CNullDriver::addMultisampleTexture(tex);
+
+	return tex;
 }
 
 ITextureBufferObject* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format, const size_t& offset, const size_t& length)
@@ -2938,9 +2960,10 @@ IVideoDriver* COpenGLDriver::getVideoDriver()
 
 
 
-void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth,
-									core::recti srcRect, core::recti dstRect,
-									bool bilinearFilter)
+void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
+                                        bool copyDepth, bool copyStencil,
+                                        core::recti srcRect, core::recti dstRect,
+                                        bool bilinearFilter)
 {
 	GLuint inFBOHandle = 0;
 	GLuint outFBOHandle = 0;
@@ -3016,7 +3039,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool 
         else
             dstRect = core::recti(0,0,ScreenSize.Width,ScreenSize.Height);
 	}
-	if (srcRect==dstRect||copyDepth)
+	if (srcRect==dstRect||copyDepth||copyStencil) //and some checks for multisample
 		bilinearFilter = false;
 
     setViewPort(dstRect);
@@ -3029,7 +3052,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool 
     extGlBlitNamedFramebuffer(inFBOHandle,outFBOHandle,
                         srcRect.UpperLeftCorner.X,srcRect.UpperLeftCorner.Y,srcRect.LowerRightCorner.X,srcRect.LowerRightCorner.Y,
                         dstRect.UpperLeftCorner.X,dstRect.UpperLeftCorner.Y,dstRect.LowerRightCorner.X,dstRect.LowerRightCorner.Y,
-						GL_COLOR_BUFFER_BIT|(copyDepth ? GL_DEPTH_BUFFER_BIT:0),
+						/*GL_COLOR_BUFFER_BIT|*/(copyDepth ? GL_DEPTH_BUFFER_BIT:0)|(copyStencil ? GL_STENCIL_BUFFER_BIT:0),
 						bilinearFilter ? GL_LINEAR:GL_NEAREST);
 }
 
@@ -3091,6 +3114,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
         }
     }
 
+    //! Get rid of this!
     if (firstAttached)
     {
         os::Printer::log("FBO has no attachments! (We don't support that OpenGL 4.3 feature yet!).", ELL_ERROR);
@@ -3148,9 +3172,9 @@ void COpenGLDriver::clearStencilBuffer(const int32_t &stencil)
 void COpenGLDriver::clearZStencilBuffers(const float &depth, const int32_t &stencil)
 {
     if (CurrentFBO)
-        extGlClearNamedFramebufferfi(CurrentFBO->getOpenGLName(),GL_DEPTH_STENCIL,depth,stencil);
+        extGlClearNamedFramebufferfi(CurrentFBO->getOpenGLName(),GL_DEPTH_STENCIL,0,depth,stencil);
     else
-        extGlClearNamedFramebufferfi(0,GL_DEPTH_STENCIL,depth,stencil);
+        extGlClearNamedFramebufferfi(0,GL_DEPTH_STENCIL,0,depth,stencil);
 }
 
 void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals)

@@ -133,8 +133,12 @@ namespace video
 		//! queries the features of the driver, returns true if feature is available
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
 		{
-			return FeatureEnabled[feature] && COpenGLExtensionHandler::queryFeature(feature);
+			return COpenGLExtensionHandler::queryFeature(feature);
 		}
+
+		//!
+		virtual void issueGPUTextureBarrier() {COpenGLExtensionHandler::extGlTextureBarrier();}
+
 
 		virtual const video::SMaterial& getCurrentMaterial() const {return Material;}
 
@@ -210,6 +214,9 @@ namespace video
 		//! .
         virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
 
+        //!
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false);
+
 		//! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
 
@@ -221,7 +228,8 @@ namespace video
 
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true);
 
-		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth=true,
+		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
+                                        bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false);

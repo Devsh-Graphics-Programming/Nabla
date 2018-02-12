@@ -506,6 +506,7 @@
 		<Unit filename="../../include/IMeshSceneNodeInstanced.h" />
 		<Unit filename="../../include/IMeshWriter.h" />
 		<Unit filename="../../include/IMetaGranularBuffer.h" />
+		<Unit filename="../../include/IMultisampleTexture.h" />
 		<Unit filename="../../include/IOSOperator.h" />
 		<Unit filename="../../include/IOcclusionQuery.h" />
 		<Unit filename="../../include/IQueryObject.h" />
@@ -727,6 +728,10 @@
 		<Unit filename="COpenGLExtensionHandler.h" />
 		<Unit filename="COpenGLFrameBuffer.cpp" />
 		<Unit filename="COpenGLFrameBuffer.h" />
+		<Unit filename="COpenGLMultisampleTexture.cpp" />
+		<Unit filename="COpenGLMultisampleTexture.h" />
+		<Unit filename="COpenGLMultisampleTextureArray.cpp" />
+		<Unit filename="COpenGLMultisampleTextureArray.h" />
 		<Unit filename="COpenGLOcclusionQuery.cpp" />
 		<Unit filename="COpenGLOcclusionQuery.h" />
 		<Unit filename="COpenGLPersistentlyMappedBuffer.cpp" />

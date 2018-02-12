@@ -20,7 +20,7 @@
 -msse3
 */
 #include <irrlicht.h>
-#include "driverChoice.h"
+#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 /**
 This example shows how to:
@@ -167,6 +167,29 @@ int main()
 		}
 	}
 	mb->drop();
+
+    //create a screenshot
+	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
+    {
+        // images are horizontally flipped, so we have to fix that here.
+        uint8_t* pixels = (uint8_t*)screenshot->getData();
+
+        const int32_t pitch=screenshot->getPitch();
+        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
+        uint8_t* tmpBuffer = new uint8_t[pitch];
+        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
+        {
+            memcpy(tmpBuffer, pixels, pitch);
+            memcpy(pixels, p2, pitch);
+            memcpy(p2, tmpBuffer, pitch);
+            pixels += pitch;
+            p2 -= pitch;
+        }
+        delete [] tmpBuffer;
+    }
+	driver->writeImageToFile(screenshot,"./screenshot.png");
+	screenshot->drop();
 
 	device->drop();
 
