@@ -17,7 +17,7 @@ namespace scene
 {
 
     //! If it has no animation, make 1 frame of animation with LocalMatrix
-    class CFinalBoneHierarchy : public IReferenceCounted, public core::VariableSizeBlobSerializable<CFinalBoneHierarchy>
+    class CFinalBoneHierarchy : public IReferenceCounted, public core::BlobSerializable<CFinalBoneHierarchy>
     {
         protected:
             virtual ~CFinalBoneHierarchy()

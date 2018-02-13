@@ -216,6 +216,8 @@
     <ClCompile Include="CBAWFile.cpp" />
     <ClCompile Include="blobsLoading.cpp" />
     <ClCompile Include="CBlobsLoadingManager.cpp" />
+    <ClCompile Include="COpenGLMultisampleTexture.cpp" />
+    <ClCompile Include="COpenGLMultisampleTextureArray.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\EDriverFeatures.h" />

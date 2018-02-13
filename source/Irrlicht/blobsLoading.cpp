@@ -11,11 +11,6 @@
 #include "CSkinnedMesh.h"
 #include "CBlobsLoadingManager.h"
 
-//! Adds support of given blob type to BlobsLoadingManager. For use ONLY inside BlobsLoadingManager's constructor.
-#define _IRR_ADD_BLOB_SUPPORT_(ClassName, EnumValue, Version) \
-m_instantiateFunctions[(uint32_t)Blob::EnumValue][Version] = &ClassName::instantiateEmpty; \
-m_finalizeFunctions[(uint32_t)Blob::EnumValue][Version] = &ClassName::finalize;
-
 namespace irr { namespace core
 {
 
@@ -165,14 +160,14 @@ void* TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::instantiateEmpty(const
 	scene::ICPUMeshBuffer* buf = new scene::ICPUMeshBuffer();
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SMaterial));
 	buf->setBoundingBox(blob->box);
-	buf->setIndexType(blob->indexType);
+	buf->setIndexType((video::E_INDEX_TYPE)blob->indexType);
 	buf->setBaseVertex(blob->baseVertex);
 	buf->setIndexCount(blob->indexCount);
 	buf->setIndexBufferOffset(blob->indexBufOffset);
 	buf->setInstanceCount(blob->instanceCount);
 	buf->setBaseInstance(blob->baseInstance);
-	buf->setPrimitiveType(blob->primitiveType);
-	buf->setPositionAttributeIx(blob->posAttrId);
+	buf->setPrimitiveType((scene::E_PRIMITIVE_TYPE)blob->primitiveType);
+	buf->setPositionAttributeIx((scene::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
 
 	return buf;
 }
@@ -212,14 +207,14 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::instantiate
 	scene::SCPUSkinMeshBuffer* buf = new scene::SCPUSkinMeshBuffer();
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SMaterial));
 	buf->setBoundingBox(blob->box);
-	buf->setIndexType(blob->indexType);
+	buf->setIndexType((video::E_INDEX_TYPE)blob->indexType);
 	buf->setBaseVertex(blob->baseVertex);
 	buf->setIndexCount(blob->indexCount);
 	buf->setIndexBufferOffset(blob->indexBufOffset);
 	buf->setInstanceCount(blob->instanceCount);
 	buf->setBaseInstance(blob->baseInstance);
-	buf->setPrimitiveType(blob->primitiveType);
-	buf->setPositionAttributeIx(blob->posAttrId);
+	buf->setPrimitiveType((scene::E_PRIMITIVE_TYPE)blob->primitiveType);
+	buf->setPositionAttributeIx((scene::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
 	buf->setIndexRange(blob->indexValMin, blob->indexValMax);
 	buf->setMaxVertexBoneInfluences(blob->maxVertexBoneInfluences);
 
@@ -273,8 +268,8 @@ void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUB
 			desc->mapVertexAttrBuffer(
 				reinterpret_cast<ICPUBuffer*>(_deps[blob->attrBufPtrs[(int)i]]),
 				i,
-				blob->cpa[(int)i],
-				blob->attrType[(int)i],
+				(scene::E_COMPONENTS_PER_ATTRIBUTE)blob->cpa[(int)i],
+				(scene::E_COMPONENT_TYPE)blob->attrType[(int)i],
 				blob->attrStride[(int)i],
 				blob->attrOffset[(int)i],
 				blob->attrDivisor[(int)i]

@@ -6,22 +6,39 @@
 #ifndef __IRR_BAW_FILE_H_INCLUDED__
 #define __IRR_BAW_FILE_H_INCLUDED__
 
+#include <map>
+
 #include "stdint.h"
-#include "IMesh.h"
+#include "irrTypes.h"
 #include "irrArray.h"
+#include "aabbox3d.h"
+#include "SMaterial.h"
 
 namespace irr {
 
+namespace core
+{
+	class ICPUBuffer;
+}
+
 namespace scene
 {
+	class ICPUMeshBuffer;
+	template<typename> class IMesh;
+	typedef IMesh<ICPUMeshBuffer> ICPUMesh;
 	class ISceneManager; 
 	class ICPUSkinnedMesh;
 	class SCPUSkinMeshBuffer;
+	template<typename> class IMeshDataFormatDesc;
 	class CFinalBoneHierarchy;
 }
 namespace io
 {
 	class IFileSystem;
+}
+namespace video
+{
+	class IVirtualTexture;
 }
 
 namespace core
@@ -96,42 +113,55 @@ namespace core
 		const void* getData() const { return this; }
 	};
 
-	template<typename B, typename T>
-	struct VariableSizeBlob : Blob
+	template<template<typename, typename> class SizingT, typename B, typename T>
+	struct SizedBlob
 	{
-	    protected: //not intended for direct usage
-            VariableSizeBlob() {}
-            ~VariableSizeBlob() {}
-	    public:
-            static size_t calcBlobSizeForObj(const T* _obj);
-            static B* allocMemForBlob(const T* _obj) // get rid of this in the future
-            {
-                return (B*)malloc(calcBlobSizeForObj(_obj));
-            }
+	protected: // not intended for direct usage
+		SizedBlob() {}
+		~SizedBlob() {}
 
-			//! Utility function for making VariableSizeBlobs
-			/**
-			@param _obj Pointer to the object for which the blob will be made.
-			@param _stackPtr Pointer to stack memory, usually you'd declare it as `uint8_t _stackPtr[_size]`.
-			@param _size The size of the stack memory available.
-			@return Pointer to created blob, if it does not equal _stackPtr then new memory was malloc'd which needs to be free'd
-			*/
-            static B* createAndTryOnStack(const T* _obj, void* _stackPtr=NULL, const size_t& _size=0)
-            {
-				const size_t actualObjSize = calcBlobSizeForObj(_obj);
-				void* mem;
-				if (!_stackPtr || actualObjSize > _size)
-					mem = malloc(actualObjSize);
-				else if (_stackPtr && _size >= actualObjSize)
-					mem = _stackPtr;
-				else
-					mem = NULL;
+	public:
+		static size_t calcBlobSizeForObj(const T*) { return sizeof(B); }
 
-				if (!mem)
-					return (B*)mem;
-				new (mem) B(_obj);
+		//! Utility function for making blobs
+		/**
+		@param _obj Pointer to the object for which the blob will be made.
+		@param _stackPtr Pointer to stack memory, usually you'd declare it as `uint8_t _stackPtr[_size]`.
+		@param _size The size of the stack memory available.
+		@return Pointer to created blob, if it does not equal _stackPtr then new memory was malloc'd which needs to be free'd.
+		*/
+		static B* createAndTryOnStack(const T* _obj, void* _stackPtr=NULL, const size_t& _size=0)
+		{
+			const size_t actualObjSize = calcBlobSizeForObj(_obj);
+			void* mem;
+			if (!_stackPtr || actualObjSize > _size)
+				mem = malloc(actualObjSize);
+			else if (_stackPtr && _size >= actualObjSize)
+				mem = _stackPtr;
+			else
+				mem = NULL;
+
+			if (!mem)
 				return (B*)mem;
-            }
+			new (mem) B(_obj);
+			return (B*)mem;
+		}
+	};
+
+	template<typename B, typename T>
+	struct VariableSizeBlob : SizedBlob<VariableSizeBlob, B, T>
+	{
+	protected: // not intended for direct usage
+        VariableSizeBlob() {}
+        ~VariableSizeBlob() {}
+	};
+
+	template<typename B, typename T>
+	struct FixedSizeBlob : SizedBlob<FixedSizeBlob, B, T>
+	{
+	protected: // not intended for direct usage
+		FixedSizeBlob() {}
+		~FixedSizeBlob() {}
 	};
 
 	template<typename B, typename T>
@@ -142,17 +172,17 @@ namespace core
 		static void releaseObj(const void* _obj);
 	};
 
-	struct RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>
+	struct RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, FixedSizeBlob<RawBufferBlobV0, ICPUBuffer>
 	{};
 
-	struct TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, video::IVirtualTexture>
+	struct TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, video::IVirtualTexture>, FixedSizeBlob<TexturePathBlobV0, video::IVirtualTexture>
 	{};
 
 #include "irrpack.h"
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 	struct MeshBlobV0 : VariableSizeBlob<MeshBlobV0,scene::ICPUMesh>, TypedBlob<MeshBlobV0, scene::ICPUMesh>
 	{
-		friend struct VariableSizeBlob<MeshBlobV0, scene::ICPUMesh>;
+		friend struct SizedBlob<core::VariableSizeBlob, MeshBlobV0, scene::ICPUMesh>;
 	private:
             //! WARNING: Constructor saves only bounding box and mesh buffer count (not mesh buffer pointers)
 		explicit MeshBlobV0(const scene::ICPUMesh* _mesh);
@@ -166,7 +196,7 @@ namespace core
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 	struct SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,scene::ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>
 	{
-		friend struct VariableSizeBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>;
+		friend struct SizedBlob<core::VariableSizeBlob, SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>;
 	private:
             //! WARNING: Constructor saves only bone hierarchy, bounding box and mesh buffer count (not mesh buffer pointers)
         explicit SkinnedMeshBlobV0(const scene::ICPUSkinnedMesh* _sm);
@@ -179,7 +209,7 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-	struct MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>
+	struct MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>
 	{
 		//! Constructor filling all members
 		explicit MeshBufferBlobV0(const scene::ICPUMeshBuffer*);
@@ -187,17 +217,17 @@ namespace core
 		video::SMaterial mat;
 		core::aabbox3df box;
 		uint64_t descPtr;
-		video::E_INDEX_TYPE indexType;
+		uint32_t indexType;
 		uint32_t baseVertex;
 		uint64_t indexCount;
 		size_t indexBufOffset;
 		size_t instanceCount;
 		uint32_t baseInstance;
-		scene::E_PRIMITIVE_TYPE primitiveType;
-		scene::E_VERTEX_ATTRIBUTE_ID posAttrId;
+		uint32_t primitiveType;
+		uint32_t posAttrId;
 	} PACK_STRUCT;
 
-	struct SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>
+	struct SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>
 	{
 		//! Constructor filling all members
 		explicit SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer*);
@@ -205,37 +235,40 @@ namespace core
 		video::SMaterial mat;
 		core::aabbox3df box;
 		uint64_t descPtr;
-		video::E_INDEX_TYPE indexType;
+		uint32_t indexType;
 		uint32_t baseVertex;
 		uint64_t indexCount;
 		size_t indexBufOffset;
 		size_t instanceCount;
 		uint32_t baseInstance;
-		scene::E_PRIMITIVE_TYPE primitiveType;
-		scene::E_VERTEX_ATTRIBUTE_ID posAttrId;
+		uint32_t primitiveType;
+		uint32_t posAttrId;
 		uint32_t indexValMin;
 		uint32_t indexValMax;
 		uint32_t maxVertexBoneInfluences;
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
-	struct MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >
+	struct MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >
 	{
+	private:
+		enum { VERTEX_ATTRIB_CNT = 16 };
+	public:
 		//! Constructor filling all members
 		explicit MeshDataFormatDescBlobV0(const scene::IMeshDataFormatDesc<core::ICPUBuffer>*);
 
-		scene::E_COMPONENTS_PER_ATTRIBUTE cpa[scene::EVAI_COUNT];
-		scene::E_COMPONENT_TYPE attrType[scene::EVAI_COUNT];
-		size_t attrStride[scene::EVAI_COUNT];
-		size_t attrOffset[scene::EVAI_COUNT];
-		uint32_t attrDivisor[scene::EVAI_COUNT];
-		uint64_t attrBufPtrs[scene::EVAI_COUNT];
+		uint32_t cpa[VERTEX_ATTRIB_CNT];
+		uint32_t attrType[VERTEX_ATTRIB_CNT];
+		size_t attrStride[VERTEX_ATTRIB_CNT];
+		size_t attrOffset[VERTEX_ATTRIB_CNT];
+		uint32_t attrDivisor[VERTEX_ATTRIB_CNT];
+		uint64_t attrBufPtrs[VERTEX_ATTRIB_CNT];
 		uint64_t idxBufPtr;
 	} PACK_STRUCT;
 
 	struct FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>
 	{
-		friend struct VariableSizeBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>;
+		friend struct SizedBlob<core::VariableSizeBlob, FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>;
 	private:
 		FinalBoneHierarchyBlobV0(const scene::CFinalBoneHierarchy* _fbh);
 
@@ -333,19 +366,11 @@ namespace core
 	}
 
 	template<typename T>
-	struct VariableSizeBlobSerializable
+	struct BlobSerializable
 	{
 		typename CorrespondingBlobTypeFor<T>::type* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const
 		{
 			return CorrespondingBlobTypeFor<T>::type::createAndTryOnStack(static_cast<const T*>(this), _stackPtr, _stackSize);
-		}
-	};
-	template<typename T>
-	struct FixedSizeBlobSerializable
-	{
-		typename CorrespondingBlobTypeFor<T>::type serializeToBlob() const
-		{
-			return typename CorrespondingBlobTypeFor<T>::type(static_cast<const T*>(this));
 		}
 	};
 

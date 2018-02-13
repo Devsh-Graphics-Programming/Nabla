@@ -45,7 +45,7 @@ MeshBlobV0::MeshBlobV0(const scene::ICPUMesh* _mesh) : box(_mesh->getBoundingBox
 }
 
 template<>
-size_t VariableSizeBlob<MeshBlobV0,scene::ICPUMesh>::calcBlobSizeForObj(const scene::ICPUMesh* _obj)
+size_t SizedBlob<VariableSizeBlob, MeshBlobV0, scene::ICPUMesh>::calcBlobSizeForObj(const scene::ICPUMesh* _obj)
 {
 	return sizeof(MeshBlobV0) + (_obj->getMeshBufferCount()-1) * sizeof(uint64_t);
 }
@@ -58,7 +58,7 @@ SkinnedMeshBlobV0::SkinnedMeshBlobV0(const scene::ICPUSkinnedMesh* _sm)
 }
 
 template<>
-size_t VariableSizeBlob<SkinnedMeshBlobV0,scene::ICPUSkinnedMesh>::calcBlobSizeForObj(const scene::ICPUSkinnedMesh* _obj)
+size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::calcBlobSizeForObj(const scene::ICPUSkinnedMesh* _obj)
 {
 	return sizeof(SkinnedMeshBlobV0) + (_obj->getMeshBufferCount() - 1) * sizeof(uint64_t);
 }
@@ -100,6 +100,8 @@ MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatD
 {
 	using namespace scene;
 
+	_IRR_DEBUG_BREAK_IF(VERTEX_ATTRIB_CNT != EVAI_COUNT) // could be static_assert if had c++11
+
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
 		cpa[(int)i] = _desc->getAttribComponentCount(i);
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
@@ -137,7 +139,7 @@ FinalBoneHierarchyBlobV0::FinalBoneHierarchyBlobV0(const scene::CFinalBoneHierar
 }
 
 template<>
-size_t VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>::calcBlobSizeForObj(const scene::CFinalBoneHierarchy* _obj)
+size_t SizedBlob<VariableSizeBlob, FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>::calcBlobSizeForObj(const scene::CFinalBoneHierarchy* _obj)
 {
 	return
 		sizeof(FinalBoneHierarchyBlobV0) +
