@@ -7,6 +7,7 @@
 #define __IRR_BAW_FILE_H_INCLUDED__
 
 #include <map>
+#include <vector>
 
 #include "stdint.h"
 #include "irrTypes.h"
@@ -167,6 +168,7 @@ namespace core
 	template<typename B, typename T>
 	struct TypedBlob : Blob
 	{
+		static std::vector<uint64_t> getNeededDeps(const void* _blob);
 		static void* instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);
 		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, std::map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
 		static void releaseObj(const void* _obj);

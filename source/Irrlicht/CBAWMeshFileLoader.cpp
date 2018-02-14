@@ -5,6 +5,8 @@
 
 #include "CBAWMeshFileLoader.h"
 
+#include <stack>
+
 #include "CFinalBoneHierarchy.h"
 #include "SMesh.h"
 #include "CSkinnedMesh.h"
@@ -44,72 +46,65 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 
 	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{{}, blobCnt}.calcBlobsOffset();
 
-	uint64_t meshHandle = NULL;
+	std::map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
 	for (int i = 0; i < blobCnt; ++i)
 	{
-		SBlobData data = SBlobData{headers+i, BLOBS_FILE_OFFSET + offsets[i], false};
-		ctx.blobs.push_back(data);
-		ctx.createdObjs.insert(std::make_pair(headers[i].handle, (void*)NULL));
+		SBlobData data = SBlobData{ headers + i, BLOBS_FILE_OFFSET + offsets[i], NULL };
+		const std::map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, data)).first;
 		if (data.header->blobType == core::Blob::EBT_MESH || data.header->blobType == core::Blob::EBT_SKINNED_MESH)
-			meshHandle = headers[i].handle;
+			meshBlobDataIter = it;
 	}
 	free(offsets);
-	if (!meshHandle)
-	{
-		free(headers);
-		return NULL;
-	}
 
+	const core::BlobLoadingParams params{m_sceneMgr, m_fileSystem, ctx.filePath};
 	uint8_t stack[1u<<14];
-	for (size_t i = 0; i < ctx.blobs.size(); ++i)
-		if (!(ctx.createdObjs[ctx.blobs[i].header->handle] = instantiateObjWithoutDeps(ctx.blobs[i], ctx, stack, sizeof(stack))))
+	std::stack<SBlobData> toLoad, toFinalize;
+	toLoad.push(meshBlobDataIter->second);
+	while (!toLoad.empty())
+	{
+		SBlobData data = toLoad.top();
+		toLoad.pop();
+		void* const blob = tryReadBlobOnStack(data, ctx, stack, sizeof(stack));
+		if (!data.validate(blob))
 		{
-			free(headers);
+			if (blob != stack)
+				free(blob);
 			ctx.releaseLoadedObjects();
+			free(headers);
 			return NULL;
 		}
 
-	for (size_t i = 0; i < ctx.blobs.size(); ++i)
-		finalizeObj(ctx.blobs[i], ctx, stack, sizeof(stack));
+		toFinalize.push(data);
+		std::vector<uint64_t> deps = ctx.loadingMgr.getNeededDeps(data.header->blobType, blob);
+		for (size_t i = 0; i < deps.size(); ++i)
+			toLoad.push(ctx.blobs[deps[i]]);
+		bool fail = !(ctx.createdObjs[data.header->handle] = ctx.loadingMgr.instantiateEmpty(data.header->blobType, blob, data.header->blobSizeDecompr, params));
 
-	free(headers);
-	return reinterpret_cast<ICPUMesh*>(ctx.createdObjs[meshHandle]);
-}
-
-void* CBAWMeshFileLoader::instantiateObjWithoutDeps(const SBlobData & _data, SContext & _ctx, void* const _stackData, size_t _stackSize)
-{
-	const core::BlobHeaderV0* header = _data.header;
-	core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, _ctx.filePath };
-	void* blob = tryReadBlobOnStack(_data, _ctx, _stackData, _stackSize);
-
-	if (!_data.validate(blob))
-	{
-		if (blob != _stackData)
+		if (blob != stack)
 			free(blob);
-		return NULL;
+		if (fail)
+		{
+			ctx.releaseLoadedObjects();
+			free(headers);
+			return NULL;
+		}
 	}
 
-	void* retval = _ctx.loadingMgr.instantiateEmpty(header->blobType, blob, header->blobSizeDecompr, params);
+	void* retval = NULL;
+	while (!toFinalize.empty())
+	{
+		SBlobData data = toFinalize.top();
+		toFinalize.pop();
+		void* blob = tryReadBlobOnStack(data, ctx, stack, sizeof(stack));
+		const uint64_t handle = data.header->handle;
+		retval = ctx.loadingMgr.finalize(data.header->blobType, ctx.createdObjs[handle], blob, ctx.blobs[handle].header->blobSizeDecompr, ctx.createdObjs, params); // last one will always be mesh
+		if (blob != stack)
+			free(blob);
+	}
 
-	if (blob != _stackData)
-		free(blob);
-
-	return retval;
-}
-
-bool CBAWMeshFileLoader::finalizeObj(const SBlobData & _data, SContext & _ctx, void * const _stackData, size_t _stackSize)
-{
-	const core::BlobHeaderV0* header = _data.header;
-	core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, _ctx.filePath };
-	void* blob = tryReadBlobOnStack(_data, _ctx, _stackData, _stackSize);
-
-	void* retval = _ctx.loadingMgr.finalize(header->blobType, _ctx.createdObjs[header->handle], blob, header->blobSizeDecompr, _ctx.createdObjs, params);
-
-	if (blob != _stackData)
-		free(blob);
-
-	return bool(retval);
+	free(headers);
+	return reinterpret_cast<ICPUMesh*>(retval);
 }
 
 bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const

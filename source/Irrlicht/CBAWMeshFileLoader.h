@@ -38,14 +38,14 @@ private:
 	{
 		void releaseLoadedObjects()
 		{
-			for (size_t i = 0; i < blobs.size(); ++i)
-				loadingMgr.releaseObj(blobs[i].header->blobType, createdObjs[blobs[i].header->handle]);
+			for (std::map<uint64_t, void*>::iterator it = createdObjs.begin(); it != createdObjs.end(); ++it)
+				loadingMgr.releaseObj(blobs[it->first].header->blobType, it->second);
 		}
 
 		io::IReadFile* file;
 		io::path filePath;
 		uint64_t fileVersion;
-		std::vector<SBlobData> blobs;
+		std::map<uint64_t, SBlobData> blobs;
 		std::map<uint64_t, void*> createdObjs;
 		core::CBlobsLoadingManager loadingMgr;
 	};
@@ -69,14 +69,6 @@ public:
 	virtual ICPUMesh* createMesh(io::IReadFile* file);
 
 private:
-	//! Instantiates new object of appropriate type dependent of blob's type but does not assign dependencies.
-	/** @returns Pointer to just created object.
-	*/
-	void* instantiateObjWithoutDeps(const SBlobData& _data, SContext& _ctx, void* const _stackData, size_t _stackSize);
-	//! Finalizes object (i.e. assigns dependcy objects to appropriate fields in the object).
-	/** @returns whether everything went ok or not.
-	*/
-	bool finalizeObj(const SBlobData& _data, SContext& _ctx, void* const _stackData, size_t _stackSize);
 	//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
 	bool verifyFile(SContext& _ctx) const;
 	//! Loads and checks correctness of offsets and headers. Also let us know blob count.

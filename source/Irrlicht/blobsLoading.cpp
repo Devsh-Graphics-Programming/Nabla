@@ -16,6 +16,12 @@ namespace irr { namespace core
 
 // Loading-related blobs' function implementations
 template<>
+std::vector<uint64_t> TypedBlob<RawBufferBlobV0, ICPUBuffer>::getNeededDeps(const void* _blob)
+{
+	return std::vector<uint64_t>();
+}
+
+template<>
 void* TypedBlob<RawBufferBlobV0, ICPUBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
@@ -39,6 +45,12 @@ void TypedBlob<RawBufferBlobV0, ICPUBuffer>::releaseObj(const void* _obj)
 {
 	if (_obj)
 		reinterpret_cast<const ICPUBuffer*>(_obj)->drop();
+}
+
+template<>
+std::vector<uint64_t> TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::getNeededDeps(const void* _blob)
+{
+	return std::vector<uint64_t>();
 }
 
 template<>
@@ -83,6 +95,18 @@ void TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::releaseObj(const void
 }
 
 template<>
+std::vector<uint64_t> TypedBlob<MeshBlobV0, scene::ICPUMesh>::getNeededDeps(const void* _blob)
+{
+	MeshBlobV0* blob = (MeshBlobV0*)_blob;
+	std::vector<uint64_t> deps;
+	deps.reserve(blob->meshBufCnt);
+	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
+		if (blob->meshBufPtrs[i])
+			deps.push_back(blob->meshBufPtrs[i]);
+	return deps;
+}
+
+template<>
 void* TypedBlob<MeshBlobV0, scene::ICPUMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
@@ -113,6 +137,19 @@ void TypedBlob<MeshBlobV0, scene::ICPUMesh>::releaseObj(const void* _obj)
 {
 	if (_obj)
 		reinterpret_cast<const scene::ICPUMesh*>(_obj)->drop();
+}
+
+template<>
+std::vector<uint64_t> TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::getNeededDeps(const void* _blob)
+{
+	SkinnedMeshBlobV0* blob = (SkinnedMeshBlobV0*)_blob;
+	std::vector<uint64_t> deps;
+	deps.reserve(blob->meshBufCnt + 1);
+	deps.push_back(blob->boneHierarchyPtr);
+	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
+		if (blob->meshBufPtrs[i])
+			deps.push_back(blob->meshBufPtrs[i]);
+	return deps;
 }
 
 template<>
@@ -148,6 +185,22 @@ void TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::releaseObj(const void
 {
 	if (_obj)
 		reinterpret_cast<const scene::ICPUSkinnedMesh*>(_obj)->drop();
+}
+
+template<>
+std::vector<uint64_t> TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::getNeededDeps(const void* _blob)
+{
+	MeshBufferBlobV0* blob = (MeshBufferBlobV0*)_blob;
+	std::vector<uint64_t> deps;
+	deps.reserve(_IRR_MATERIAL_MAX_TEXTURES_ + 1);
+	deps.push_back(blob->descPtr);
+	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	{
+		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
+		if (tex)
+			deps.push_back(tex);
+	}
+	return deps;
 }
 
 template<>
@@ -195,6 +248,12 @@ void TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::releaseObj(const void* 
 {
 	if (_obj)
 		reinterpret_cast<const scene::ICPUMeshBuffer*>(_obj)->drop();
+}
+
+template<>
+std::vector<uint64_t> TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::getNeededDeps(const void* _blob)
+{
+	return TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::getNeededDeps(_blob);
 }
 
 template<>
@@ -247,6 +306,20 @@ void TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::releaseObj(c
 }
 
 template<>
+std::vector<uint64_t> TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::getNeededDeps(const void* _blob)
+{
+	MeshDataFormatDescBlobV0* blob = (MeshDataFormatDescBlobV0*)_blob;
+	std::vector<uint64_t> deps;
+	deps.reserve(scene::EVAI_COUNT + 1);
+	if (blob->idxBufPtr)
+		deps.push_back(blob->idxBufPtr);
+	for (uint32_t i = 0; i < scene::EVAI_COUNT; ++i)
+		if (blob->attrBufPtrs[i])
+			deps.push_back(blob->attrBufPtrs[i]);
+	return deps;
+}
+
+template<>
 void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	return new scene::ICPUMeshDataFormatDesc();
@@ -285,6 +358,12 @@ void TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBu
 {
 	if (_obj)
 		reinterpret_cast<const scene::IMeshDataFormatDesc<core::ICPUBuffer>*>(_obj)->drop();
+}
+
+template<>
+std::vector<uint64_t> TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::getNeededDeps(const void* _blob)
+{
+	return std::vector<uint64_t>();
 }
 
 template<>
