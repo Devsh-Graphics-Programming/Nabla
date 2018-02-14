@@ -15,6 +15,7 @@ namespace irr
 namespace core
 {
 
+//! @deprecated
 enum E_BUFFER_TYPE
 {
     EBT_VERTEX_ATTRIBUTE = 0,
@@ -38,6 +39,7 @@ enum E_BUFFER_TYPE
 class IBuffer : public virtual IReferenceCounted
 {
     public:
+		//! @deprecated
         virtual E_BUFFER_TYPE getBufferType() const = 0;
         //virtual E_BUFFER_CLASS getBufferClass() const = 0;
         //! size in BYTES

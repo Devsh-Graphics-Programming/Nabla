@@ -37,6 +37,7 @@ class ICPUBuffer : public IBuffer
             size = sizeInBytes;
         }
 
+		//! @deprecated
 		//! Returns buffer's type which in this case is always equal to `E_BUFFER_TYPE::EBT_UNSPECIFIED_BUFFER`.
         virtual E_BUFFER_TYPE getBufferType() const {return EBT_UNSPECIFIED_BUFFER;}
 

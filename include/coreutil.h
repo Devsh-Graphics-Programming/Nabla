@@ -478,7 +478,7 @@ inline void XXHash_256(const void* input, size_t len, uint64_t* out)
     out[3] += v4;
 }
 
-//! Utility class easing the process of finding memory leaks. Usable only in debug build. Thread-safe.
+//! Utility class easing the process of finding memory leaks. Usable only in debug build. Thread-safe. No Windows implementation yet.
 class LeakDebugger
 {
         std::string name;

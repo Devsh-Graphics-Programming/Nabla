@@ -24,7 +24,7 @@ class SCollisionEngine
 
 		//! Returns a 3d ray which would go through the 2d screen coodinates.
 		/**
-		@param[out] origin Attachment point of the output ray
+		@param[out] origin Start point point of the output ray
 		@param[out] direction Normalized vector denoting direction of the output ray
 		@param[out] rayLen Length of the output ray
 		@param[in] uv Screen coordinates
@@ -69,7 +69,7 @@ class SCollisionEngine
 		@param driver Driver
 		@param camera Camera on which calculations will depend
 		@param iseViewPort Whether to use viewport or current render target's size
-		@returns {-100000, -100000} (minus ten thousand) if an error occured
+		@returns 2d position or {-100000, -100000} (minus ten thousand) if the point is behind camera.
 		*/
 		inline static position2di getScreenCoordinatesFrom3DPosition(const vector3df& pos, video::IVideoDriver* driver, scene::ICameraSceneNode* camera, bool useViewPort=false)
 		{
@@ -138,7 +138,7 @@ class SCollisionEngine
 		/**
 		@param[out] hitPointObjectData Data of collider with which the collision occured. Does not get touched if no collision occured.
 		@param[out] collisionDistance If no collision occured - gets value of `maxRayLen` parameter. Otherwise - ???
-		@param[in] origin Attachment point of the input ray
+		@param[in] origin Start point point of the input ray
 		@param[in] direction Normalized vector denoting direction of the input ray
 		@param[in] maxRayLen Length of the input ray
 		*/

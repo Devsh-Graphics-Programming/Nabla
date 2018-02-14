@@ -55,25 +55,47 @@ class IFrameBuffer : public virtual IReferenceCounted
 {
     public:
 		//! Attaches given texture to given attachment point.
-		/** @param attachmentPoint Identifies attchment point.
+		/** @param attachmentPoint Identifies attachment point.
 		@param tex Texture being attached.
-		@param mipMapLayer
+		@param mipMapLayer Mipmap level of the texture image to be attached.
 		@param layer
-		@returns Whether attachment operation went succesfully.
+		@parblock
+		Layer of the framebuffer to attach to.
+
+		values >=0 mean that a particular layer of a 2D or cubemap texture array, or 3D texture is attached to the FrameBuffer.
+
+		value <0 means the entire 3D texture or, 2D texture or cubemap array is bound making the FrameBuffer layered, and enabling you to use gl_Layer for layered rendering.
+		@endparblock
+		@returns Whether attachment has been attached.
+			Only after rebindRevalidate() is called by the driver internally or by the user manually do the attachments drawn into by the FrameBuffer change.
+		@see @ref rebindRevalidate()
 		*/
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, ITexture* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1) = 0;
+
+		//! Attaches given multisample texture to given attachment point.
+		/** 
+		@param attachmentPoint Identifies attachment point.
+		@param tex Multisample texture being attached.
+		@param layer Layer of the framebuffer to attach to.
+		@returns Whether attachment has been attached.
+			Only after rebindRevalidate() is called by the driver internally or by the user manually do the attachments drawn into by the FrameBuffer change.
+		@see @ref rebindRevalidate()
+		*/
+        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IMultisampleTexture* tex, const int32_t &layer=-1) = 0;
 
 		//! Attaches given render buffer to given attachment point.
 		/** @param attachmentPoint Identifies attchment point.
 		@param rbf Render buffer being attached.
-		@returns Whether attachment operation went succesfully.
+		@returns Whether attachment has been attached.
+			Note that return value of `true` does not mean that the attachment color format is renderable or that the combination of attachments is valid.
+			Also: only after rebindRevalidate() is called by the driver internally or by the user manually do the attachments drawn into by the FrameBuffer change.
+		@see @ref rebindRevalidate()
 		*/
-        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IMultisampleTexture* tex, const int32_t &layer=-1) = 0;
-
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IRenderBuffer* rbf) = 0;
 
-		//! Rebinds frame buffer object.
-		/** @returns whether FBO is bound or was successfully rebound.
+		//! Binds possibly respicified attachments.
+		/** @returns true when everything is right or when no work was necessary to do;
+				false when color formats you are trying to render to are invalid or if current combination of attachments is invalid.
 		*/
         virtual bool rebindRevalidate() = 0;
 
