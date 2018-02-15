@@ -50,7 +50,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 
 	for (int i = 0; i < blobCnt; ++i)
 	{
-		SBlobData data = SBlobData{ headers + i, BLOBS_FILE_OFFSET + offsets[i], NULL };
+		SBlobData data(headers + i, BLOBS_FILE_OFFSET + offsets[i]);
 		const std::map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, data)).first;
 		if (data.header->blobType == core::Blob::EBT_MESH || data.header->blobType == core::Blob::EBT_SKINNED_MESH)
 			meshBlobDataIter = it;
@@ -58,49 +58,59 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	free(offsets);
 
 	const core::BlobLoadingParams params{m_sceneMgr, m_fileSystem, ctx.filePath};
-	uint8_t stack[1u<<14];
-	std::stack<SBlobData> toLoad, toFinalize;
-	toLoad.push(meshBlobDataIter->second);
+	std::stack<SBlobData*> toLoad, toFinalize;
+	toLoad.push(&meshBlobDataIter->second);
 	while (!toLoad.empty())
 	{
-		SBlobData data = toLoad.top();
+		SBlobData* data = toLoad.top();
 		toLoad.pop();
-		void* const blob = tryReadBlobOnStack(data, ctx, stack, sizeof(stack));
-		if (!data.validate(blob))
+
+		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx);
+		const uint64_t handle = data->header->handle;
+		const uint32_t size = data->header->blobSizeDecompr;
+		const uint32_t blobType = data->header->blobType;
+
+		if (!data->validate())
 		{
-			if (blob != stack)
-				free(blob);
 			ctx.releaseLoadedObjects();
 			free(headers);
 			return NULL;
 		}
 
-		toFinalize.push(data);
-		std::vector<uint64_t> deps = ctx.loadingMgr.getNeededDeps(data.header->blobType, blob);
+		std::vector<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
 		for (size_t i = 0; i < deps.size(); ++i)
-			toLoad.push(ctx.blobs[deps[i]]);
-		bool fail = !(ctx.createdObjs[data.header->handle] = ctx.loadingMgr.instantiateEmpty(data.header->blobType, blob, data.header->blobSizeDecompr, params));
+			toLoad.push(&ctx.blobs[deps[i]]);
+		bool fail = !(ctx.createdObjs[handle] = ctx.loadingMgr.instantiateEmpty(blobType, blob, size, params));
 
-		if (blob != stack)
-			free(blob);
 		if (fail)
 		{
 			ctx.releaseLoadedObjects();
 			free(headers);
 			return NULL;
 		}
+
+		if (!deps.size())
+		{
+			ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params);
+			free(data->heapBlob);
+			blob = data->heapBlob = NULL;
+		}
+		else
+			toFinalize.push(data);
 	}
 
 	void* retval = NULL;
 	while (!toFinalize.empty())
 	{
-		SBlobData data = toFinalize.top();
+		SBlobData* data = toFinalize.top();
 		toFinalize.pop();
-		void* blob = tryReadBlobOnStack(data, ctx, stack, sizeof(stack));
-		const uint64_t handle = data.header->handle;
-		retval = ctx.loadingMgr.finalize(data.header->blobType, ctx.createdObjs[handle], blob, ctx.blobs[handle].header->blobSizeDecompr, ctx.createdObjs, params); // last one will always be mesh
-		if (blob != stack)
-			free(blob);
+
+		const void* blob = data->heapBlob;
+		const uint64_t handle = data->header->handle;
+		const uint32_t size = data->header->blobSizeDecompr;
+		const uint32_t blobType = data->header->blobType;
+
+		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
 	}
 
 	free(headers);
@@ -179,7 +189,7 @@ bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _si
 void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext & _ctx, void * _stackPtr, size_t _stackSize) const
 {
 	void* dst;
-	if (_data.header->blobSizeDecompr <= _stackSize)
+	if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize)
 		dst = _stackPtr;
 	else
 		dst = malloc(_data.header->blobSizeDecompr);
