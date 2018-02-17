@@ -38,6 +38,8 @@ namespace scene
 	template <class T>
 	class IMesh : public virtual IReferenceCounted
 	{
+	protected:
+		virtual ~IMesh() {}
 	public:
 
 		//! Get the amount of mesh buffers.
@@ -87,7 +89,15 @@ namespace scene
 		virtual E_MESH_TYPE getMeshType() const = 0;
 	};
 
-	typedef IMesh<scene::ICPUMeshBuffer> ICPUMesh;
+	class ICPUMesh : public IMesh<scene::ICPUMeshBuffer>, public core::BlobSerializable
+	{
+	public:
+		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
+		{
+			return core::CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+		}
+	};
+
 	typedef IMesh<scene::IGPUMeshBuffer> IGPUMesh;
 
 } // end namespace scene

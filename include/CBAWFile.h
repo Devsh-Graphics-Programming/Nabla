@@ -25,8 +25,7 @@ namespace core
 namespace scene
 {
 	class ICPUMeshBuffer;
-	template<typename> class IMesh;
-	typedef IMesh<ICPUMeshBuffer> ICPUMesh;
+	class ICPUMesh;
 	class ISceneManager; 
 	class ICPUSkinnedMesh;
 	class SCPUSkinMeshBuffer;
@@ -366,13 +365,12 @@ namespace core
 		return (typename CorrespondingBlobTypeFor<T>::type*)_blob;
 	}
 
-	template<typename T>
-	struct BlobSerializable
+	class BlobSerializable
 	{
-		typename CorrespondingBlobTypeFor<T>::type* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const
-		{
-			return CorrespondingBlobTypeFor<T>::type::createAndTryOnStack(static_cast<const T*>(this), _stackPtr, _stackSize);
-		}
+	public:
+		virtual ~BlobSerializable() {}
+
+		virtual void* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const = 0;
 	};
 
 }} // irr::core

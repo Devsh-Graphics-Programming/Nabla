@@ -176,7 +176,7 @@ void* TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::finalize(void* _obj,
 	mesh->setBoneReferenceHierarchy(reinterpret_cast<scene::CFinalBoneHierarchy*>(_deps[blob->boneHierarchyPtr]));
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
 		mesh->addMeshBuffer(reinterpret_cast<scene::SCPUSkinMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
-	//shall i call mesh->finalize()?
+
 	return _obj;
 }
 

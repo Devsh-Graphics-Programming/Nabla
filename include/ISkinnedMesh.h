@@ -85,7 +85,10 @@ namespace scene
 			return EMT_ANIMATED_SKINNED;
 		}
 
-
+		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
+		{
+			return core::CorrespondingBlobTypeFor<ICPUSkinnedMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+		}
 
 		//! Animation keyframe which describes a new position
 		class SPositionKey
