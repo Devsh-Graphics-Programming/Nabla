@@ -46,7 +46,7 @@ CCPUSkinnedMesh::~CCPUSkinnedMesh()
 
 void CCPUSkinnedMesh::setBoneReferenceHierarchy(CFinalBoneHierarchy* fbh)
 {
-	CFinalBoneHierarchy* referenceHierarchyOld = fbh;
+	CFinalBoneHierarchy* referenceHierarchyOld = referenceHierarchy;
 
 	if (fbh)
 		fbh->grab();
