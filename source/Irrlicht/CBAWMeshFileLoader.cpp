@@ -10,6 +10,7 @@
 #include "CFinalBoneHierarchy.h"
 #include "SMesh.h"
 #include "CSkinnedMesh.h"
+#include "os.h"
 
 namespace irr { namespace scene
 {
@@ -30,6 +31,10 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSyste
 
 ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 {
+#ifdef _DEBUG
+	uint32_t time = os::Timer::getRealTime();
+#endif // _DEBUG
+
 	SContext ctx{_file};
 	if (!verifyFile(ctx))
 		return NULL;
@@ -65,10 +70,10 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 		SBlobData* data = toLoad.top();
 		toLoad.pop();
 
-		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx);
 		const uint64_t handle = data->header->handle;
 		const uint32_t size = data->header->blobSizeDecompr;
 		const uint32_t blobType = data->header->blobType;
+		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx);
 
 		if (!data->validate())
 		{
@@ -80,6 +85,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 		std::vector<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
 		for (size_t i = 0; i < deps.size(); ++i)
 			toLoad.push(&ctx.blobs[deps[i]]);
+
 		bool fail = !(ctx.createdObjs[handle] = ctx.loadingMgr.instantiateEmpty(blobType, blob, size, params));
 
 		if (fail)
@@ -114,6 +120,15 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	}
 
 	free(headers);
+
+#ifdef _DEBUG
+	time = os::Timer::getRealTime() - time;
+	std::ostringstream tmpString("Time to load ");
+	tmpString.seekp(0, std::ios_base::end);
+	tmpString << "BAW file: " << time << "ms";
+	os::Printer::log(tmpString.str());
+#endif // _DEBUG
+
 	return reinterpret_cast<ICPUMesh*>(retval);
 }
 
@@ -195,6 +210,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 		dst = malloc(_data.header->blobSizeDecompr);
 	_ctx.file->seek(_data.absOffset);
 	_ctx.file->read(dst, _data.header->blobSizeDecompr);
+
 	return dst;
 }
 

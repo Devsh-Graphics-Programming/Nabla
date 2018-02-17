@@ -82,6 +82,8 @@ namespace scene
 		\param newvalue: New value to set in all materials. */
 		virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue) = 0;
 
+		//! Get mesh type.
+		/** @returns Mesh type. */
 		virtual E_MESH_TYPE getMeshType() const = 0;
 	};
 

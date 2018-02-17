@@ -32,12 +32,12 @@ private:
 		SBlobData(const core::BlobHeaderV0* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
 		~SBlobData() { free(heapBlob); }
 		bool validate() const { 
-			validated = true;
-			return validated ? true : (heapBlob && header->validate(heapBlob)); 
+			validated = false;
+			return validated ? true : (validated = (heapBlob && header->validate(heapBlob)));
 		}
 	private:
 		// a bit dangerous to leave it copyable but until c++11 I have to to be able to store it in map
-		//SBlobData(const SBlobData&) {}
+		// SBlobData(const SBlobData&) {}
 		SBlobData& operator=(const SBlobData&) {}
 	};
 

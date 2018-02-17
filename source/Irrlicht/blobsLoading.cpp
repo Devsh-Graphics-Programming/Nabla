@@ -238,7 +238,7 @@ void* TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::finalize(void* _obj, c
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
 		if (tex)
-			buf->getMaterial().setTexture(i, reinterpret_cast<video::IVirtualTexture*>(_deps[tex]));
+			buf->getMaterial().setTexture(i, reinterpret_cast<video::ITexture*>(_deps[tex])); // ITexture* since VideoDriver returns ITexture*
 	}
 	return _obj;
 }
@@ -293,7 +293,9 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::finalize(vo
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
 		if (tex)
-			buf->getMaterial().setTexture(i, reinterpret_cast<video::IVirtualTexture*>(_deps[tex]));
+		{
+			buf->getMaterial().setTexture(i, reinterpret_cast<video::ITexture*>(_deps[tex])); // ITexture* since VideoDriver returns ITexture*
+		}
 	}
 	return _obj;
 }

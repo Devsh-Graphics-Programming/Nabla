@@ -117,23 +117,23 @@ namespace scene
 					_nonInterpAnimsBegin > _nonInterpAnimsEnd
 				)
 				_IRR_DEBUG_BREAK_IF(_boneNamesEnd - _boneNamesBegin != boneCount)
-				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != keyframeCount)
-				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != keyframeCount)
+				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != getAnimationCount())
+				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != getAnimationCount())
 
 				boneNames = new core::stringc[boneCount];
 				boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
 				boneTreeLevelEnd = (size_t*)malloc(sizeof(size_t)*NumLevelsInHierarchy);
 				keyframes = (float*)malloc(sizeof(float)*keyframeCount);
-				interpolatedAnimations = (AnimationKeyData*)malloc(sizeof(AnimationKeyData)*keyframeCount);
-				nonInterpolatedAnimations = (AnimationKeyData*)malloc(sizeof(AnimationKeyData)*keyframeCount);
+				interpolatedAnimations = (AnimationKeyData*)malloc(sizeof(AnimationKeyData)*getAnimationCount());
+				nonInterpolatedAnimations = (AnimationKeyData*)malloc(sizeof(AnimationKeyData)*getAnimationCount());
 
 				for (size_t i = 0; i < boneCount; ++i)
 					boneNames[i] = _boneNamesBegin[i];
 				memcpy(boneFlatArray, _bonesBegin, sizeof(BoneReferenceData)*boneCount);
 				memcpy(boneTreeLevelEnd, _levelsBegin, sizeof(size_t)*NumLevelsInHierarchy);
 				memcpy(keyframes, _keyframesBegin, sizeof(float)*keyframeCount);
-				memcpy(interpolatedAnimations, _interpAnimsBegin, sizeof(AnimationKeyData)*keyframeCount);
-				memcpy(nonInterpolatedAnimations, _nonInterpAnimsBegin, sizeof(AnimationKeyData)*keyframeCount);
+				memcpy(interpolatedAnimations, _interpAnimsBegin, sizeof(AnimationKeyData)*getAnimationCount());
+				memcpy(nonInterpolatedAnimations, _nonInterpAnimsBegin, sizeof(AnimationKeyData)*getAnimationCount());
 			}
 
 			inline size_t getSizeOfAllBoneNames() const
@@ -202,6 +202,8 @@ namespace scene
             inline const size_t& getKeyFrameCount() const {return keyframeCount;}
 
             inline const float* getKeys() const {return keyframes;}
+
+			inline size_t getAnimationCount() const { return getKeyFrameCount()*getBoneCount(); }
 /**
             //! ready but untested
             inline void putInGPUBuffer(video::IGPUBuffer* buffer, const size_t& byteOffset=0)
@@ -519,6 +521,8 @@ namespace scene
                     }*/
                 }
             }
+
+private:
 
             const size_t boneCount;
             BoneReferenceData* boneFlatArray;

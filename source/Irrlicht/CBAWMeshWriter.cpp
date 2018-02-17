@@ -186,7 +186,7 @@ namespace irr {
 
 			if (_mesh)
 			{
-				skinnedMesh = _mesh->getMeshType()!=EMT_ANIMATED_SKINNED ? NULL:reinterpret_cast<ICPUSkinnedMesh*>(_mesh); //ICPUSkinnedMesh is a direct non-virtual inheritor
+				skinnedMesh = _mesh->getMeshType()!=EMT_ANIMATED_SKINNED ? NULL:dynamic_cast<ICPUSkinnedMesh*>(_mesh); //ICPUSkinnedMesh is a direct non-virtual inheritor
 				if (!skinnedMesh || (skinnedMesh && skinnedMesh->isStatic()))
 					isMeshAnimated = false;
 

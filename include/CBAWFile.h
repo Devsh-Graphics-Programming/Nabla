@@ -122,7 +122,7 @@ namespace core
 		~SizedBlob() {}
 
 	public:
-		static size_t calcBlobSizeForObj(const T*) { return sizeof(B); }
+		static size_t calcBlobSizeForObj(const T*);// { return sizeof(B); }
 
 		//! Utility function for making blobs
 		/**
@@ -200,7 +200,6 @@ namespace core
 	{
 		friend struct SizedBlob<core::VariableSizeBlob, SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>;
 	private:
-            //! WARNING: Constructor saves only bone hierarchy, bounding box and mesh buffer count (not mesh buffer pointers)
         explicit SkinnedMeshBlobV0(const scene::ICPUSkinnedMesh* _sm);
 
 	public:
