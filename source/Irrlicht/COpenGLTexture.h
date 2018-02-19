@@ -8,7 +8,7 @@
 #include "IrrCompileConfig.h"
 #include "ITexture.h"
 #include "IImage.h"
-#include "COpenGLExtensionHandler.h"
+#include "COpenGLStateManager.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 

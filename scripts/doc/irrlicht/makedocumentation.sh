@@ -1,5 +1,5 @@
 rm tut.txt || true;
-for i in ../../../examples/[012]*/main.cpp; do
+for i in ../../../examples_tests/[012]*/main.cpp; do
   sed -f tutorials.sed $i >>tut.txt;
 done
 

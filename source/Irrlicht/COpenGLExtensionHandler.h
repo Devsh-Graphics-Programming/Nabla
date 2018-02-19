@@ -16,6 +16,7 @@
 #include "coreutil.h"
 
 #include "COpenGLStateManager.h"
+#include "COpenGLCubemapTexture.h"
 
 namespace irr
 {
@@ -1100,7 +1101,7 @@ class COpenGLExtensionHandler
 	static void extGlBindFramebuffer(GLenum target, GLuint framebuffer);
 	static GLenum extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target);
 	static void extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level);
-	static void extGlNamedFramebufferTextureLayer(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLint layer);
+	static void extGlNamedFramebufferTextureLayer(GLuint framebuffer, GLenum attachment, GLuint texture, GLenum textureType, GLint level, GLint layer);
 	static void extGlNamedFramebufferRenderbuffer(GLuint framebuffer, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
 	static void extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
     static void extGlNamedFramebufferReadBuffer(GLuint framebuffer, GLenum mode);
@@ -1391,6 +1392,8 @@ class COpenGLExtensionHandler
     static PFNGLFRAMEBUFFERTEXTURELAYERPROC pGlFramebufferTextureLayer;
     static PFNGLNAMEDFRAMEBUFFERTEXTURELAYERPROC pGlNamedFramebufferTextureLayer; //NULL
     static PFNGLNAMEDFRAMEBUFFERTEXTURELAYEREXTPROC pGlNamedFramebufferTextureLayerEXT;
+	static PFNGLFRAMEBUFFERTEXTURE2DPROC pGlFramebufferTexture2D;
+	static PFNGLNAMEDFRAMEBUFFERTEXTURE2DEXTPROC pGlNamedFramebufferTexture2DEXT;
     static PFNGLDELETERENDERBUFFERSPROC pGlDeleteRenderbuffers;
     static PFNGLGENRENDERBUFFERSPROC pGlGenRenderbuffers;
     static PFNGLCREATERENDERBUFFERSPROC pGlCreateRenderbuffers; //NULL
@@ -3303,7 +3306,7 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTexture(GLuint framebu
     }
 }
 
-inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLint layer)
+inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint framebuffer, GLenum attachment, GLuint texture, GLenum textureType, GLint level, GLint layer)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
@@ -3314,37 +3317,74 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
         glNamedFramebufferTextureLayer(framebuffer, attachment, texture, level, layer);
     #endif
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlNamedFramebufferTextureLayerEXT)
-            pGlNamedFramebufferTextureLayerEXT(framebuffer, attachment, texture, level, layer);
-    #else
-        glNamedFramebufferTextureLayerEXT(framebuffer, attachment, texture, level, layer);
-    #endif
-    }
+	else if (textureType!=GL_TEXTURE_CUBE_MAP)
+	{
+		if (FeatureAvailable[IRR_EXT_direct_state_access])
+		{
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    else if (pGlFramebufferTextureLayer&&pGlBindFramebuffer)
+			if (pGlNamedFramebufferTextureLayerEXT)
+				pGlNamedFramebufferTextureLayerEXT(framebuffer, attachment, texture, level, layer);
 #else
-    else
+			glNamedFramebufferTextureLayerEXT(framebuffer, attachment, texture, level, layer);
+#endif
+		}
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+		else if (pGlFramebufferTextureLayer&&pGlBindFramebuffer)
+#else
+		else
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
-    {
-        GLint bound;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&bound);
+		{
+			GLint bound;
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (bound!=framebuffer)
-	        pGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
-        pGlFramebufferTextureLayer(GL_FRAMEBUFFER,attachment,texture,level, layer);
-        if (bound!=framebuffer)
-	        pGlBindFramebuffer(GL_FRAMEBUFFER,bound);
+			if (bound != framebuffer)
+				pGlBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+			pGlFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, texture, level, layer);
+			if (bound != framebuffer)
+				pGlBindFramebuffer(GL_FRAMEBUFFER, bound);
 #else
-        if (bound!=framebuffer)
-	        glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER,attachment,texture,level, layer);
-        if (bound!=framebuffer)
-	        glBindFramebuffer(GL_FRAMEBUFFER,bound);
+			if (bound != framebuffer)
+				glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+			glFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, texture, level, layer);
+			if (bound != framebuffer)
+				glBindFramebuffer(GL_FRAMEBUFFER, bound);
 #endif // _IRR_OPENGL_USE_EXTPOINTER
-    }
+		}
+	}
+	else
+	{
+		if (FeatureAvailable[IRR_EXT_direct_state_access])
+		{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+			if (pGlNamedFramebufferTexture2DEXT)
+				pGlNamedFramebufferTexture2DEXT(framebuffer, attachment, COpenGLCubemapTexture::faceEnumToGLenum((ITexture::E_CUBE_MAP_FACE)layer), texture, level);
+#else
+			glNamedFramebufferTexture2DEXT(framebuffer, attachment, COpenGLCubemapTexture::faceEnumToGLenum((ITexture::E_CUBE_MAP_FACE)layer), texture, level);
+#endif
+		}
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+		else if (pGlFramebufferTexture2D&&pGlBindFramebuffer)
+#else
+		else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+		{
+			GLint bound;
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+			if (bound != framebuffer)
+				pGlBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+			pGlFramebufferTexture2D(GL_FRAMEBUFFER, attachment, COpenGLCubemapTexture::faceEnumToGLenum((ITexture::E_CUBE_MAP_FACE)layer), texture, level);
+			if (bound != framebuffer)
+				pGlBindFramebuffer(GL_FRAMEBUFFER, bound);
+#else
+			if (bound != framebuffer)
+				glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, COpenGLCubemapTexture::faceEnumToGLenum((ITexture::E_CUBE_MAP_FACE)layer), texture, level);
+			if (bound != framebuffer)
+				glBindFramebuffer(GL_FRAMEBUFFER, bound);
+#endif // _IRR_OPENGL_USE_EXTPOINTER
+		}
+	}
 }
 
 inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
