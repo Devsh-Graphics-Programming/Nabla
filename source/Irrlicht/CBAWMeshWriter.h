@@ -8,7 +8,7 @@
 
 #include "IMeshWriter.h"
 #include "IMesh.h"
-#include "CBawFile.h"
+#include "CBAWFile.h"
 #include "irrArray.h"
 
 namespace irr {
@@ -39,7 +39,7 @@ namespace scene
 
 		//! @copydoc irr::scene::IMeshWriter::writeMesh()
 		bool writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags = EMWF_NONE);
-		
+
 	private:
 		//! Takes object and exports (writes to file) its data as another blob.
 		/** @param _obj Pointer to object which is to be exported.

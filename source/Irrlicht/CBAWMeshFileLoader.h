@@ -13,7 +13,7 @@
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "IMesh.h"
-#include "CBawFile.h"
+#include "CBAWFile.h"
 #include "CBlobsLoadingManager.h"
 
 namespace irr { namespace scene
@@ -31,7 +31,7 @@ private:
 
 		SBlobData(const core::BlobHeaderV0* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
 		~SBlobData() { free(heapBlob); }
-		bool validate() const { 
+		bool validate() const {
 			validated = false;
 			return validated ? true : (validated = (heapBlob && header->validate(heapBlob)));
 		}

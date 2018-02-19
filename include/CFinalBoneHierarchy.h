@@ -9,7 +9,7 @@
 #include "IGPUMappedBuffer.h"
 #include "quaternion.h"
 #include "irrString.h"
-#include "CBawFile.h"
+#include "CBAWFile.h"
 
 namespace irr
 {
