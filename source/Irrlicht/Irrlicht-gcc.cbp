@@ -590,15 +590,16 @@
 		<Unit filename="CAnimatedMeshSceneNode.h" />
 		<Unit filename="CB3DMeshFileLoader.cpp" />
 		<Unit filename="CB3DMeshFileLoader.h" />
+		<Unit filename="CBAWFile.cpp" />
 		<Unit filename="CBAWMeshFileLoader.cpp" />
 		<Unit filename="CBAWMeshFileLoader.h" />
 		<Unit filename="CBAWMeshWriter.cpp" />
 		<Unit filename="CBAWMeshWriter.h" />
-		<Unit filename="CBawFile.cpp" />
 		<Unit filename="CBawFile.h" />
 		<Unit filename="CBillboardSceneNode.cpp" />
 		<Unit filename="CBillboardSceneNode.h" />
 		<Unit filename="CBlit.h" />
+		<Unit filename="CBlobsLoadingManager.cpp" />
 		<Unit filename="CBurningShader_Raster_Reference.cpp" />
 		<Unit filename="CCSMLoader.cpp" />
 		<Unit filename="CCSMLoader.h" />
@@ -835,6 +836,7 @@
 		<Unit filename="STextureSamplingParams.cpp" />
 		<Unit filename="SoftwareDriver2_compile_config.h" />
 		<Unit filename="SoftwareDriver2_helper.h" />
+		<Unit filename="TypedBlob.cpp" />
 		<Unit filename="aesGladman/aes.h" />
 		<Unit filename="aesGladman/aescrypt.cpp" />
 		<Unit filename="aesGladman/aeskey.cpp" />
