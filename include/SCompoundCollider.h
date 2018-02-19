@@ -41,7 +41,9 @@ class SCompoundCollider : public IReferenceCounted
         array<SCollisionShapeDef> Shapes;
         SColliderData colliderData;
     public:
+		//! Default constructor.
         SCompoundCollider() : BBox(aabbox3df()) {}
+		//! Destructor.
         ~SCompoundCollider()
         {
             for (size_t i=0; i<Shapes.size(); i++)
@@ -76,7 +78,7 @@ class SCompoundCollider : public IReferenceCounted
             }
         }
 
-/**
+/*
         static inline void* operator new(size_t size) throw(std::bad_alloc)
         {
             void *memoryallocatedaligned = 0;
@@ -123,9 +125,10 @@ class SCompoundCollider : public IReferenceCounted
             return p;
         }
         static inline void  operator delete[](void* p,void* t) throw() {}
-**/
+*/
 
 
+		//! @returns Pointer to brand new copy of `this` collider. The copy object is allocated with `new`.
         inline SCompoundCollider* clone()
         {
             SCompoundCollider* coll = new SCompoundCollider();
@@ -170,6 +173,13 @@ class SCompoundCollider : public IReferenceCounted
             return coll;
         }
 
+		//! Performs collision test with given ray.
+		/** 
+		@param[out] collisionDistance Distance between collider and ray.
+		@param[in] origin Attachment point of the ray.
+		@param[in] direction Normalized drection vector of the ray.
+		@param[in] dirMaxMultiplier 
+		*/
         inline bool CollideWithRay(float& collisionDistance, vectorSIMDf origin, vectorSIMDf direction, const float& dirMaxMultiplier) const
         {
             if (colliderData.attachedNode)
@@ -250,11 +260,18 @@ class SCompoundCollider : public IReferenceCounted
 
         inline const SColliderData& getColliderData() const {return colliderData;}
 
+		//! Sets collider data.
+		/** @param data The collider data.
+		*/
         inline void setColliderData(const SColliderData& data)
         {
             colliderData = data;
         }
 
+		//! Adds axis-aligned box collider.
+		/** @param collider The box collider.
+		@returns whether collider was succesfully added.
+		*/
         inline bool AddBox(const SAABoxCollider& collider)
         {
             if (collider.Box.getVolume()<=0.f)
@@ -272,6 +289,11 @@ class SCompoundCollider : public IReferenceCounted
             Shapes.push_back(newShape);
             return true;
         }
+		//! Adds ellipsoid collider previosly creating it from center point and three axis lengths.
+		/** @param center Center point (in 3d space) of the ellipsoid.
+		@param axisLengths 3d vector denoting axis lengths of ellipsoid.
+		@returns Whether collider was successfully added.
+		*/
         inline bool AddEllipsoid(const vectorSIMDf& centr, const vectorSIMDf& axisLengths)
         {
             bool retval = true;
@@ -299,6 +321,13 @@ class SCompoundCollider : public IReferenceCounted
             Shapes.push_back(newShape);
             return true;
         }
+		//! Adds triangle collider previously creating it from three given points.
+		/**
+		@param A First point.
+		@param B Second point.
+		@param C Third point.
+		@returns Whether collider was successfully added.
+		*/
         inline bool AddTriangle(const vectorSIMDf& A, const vectorSIMDf& B, const vectorSIMDf& C)
         {
             bool retval = true;
@@ -322,6 +351,9 @@ class SCompoundCollider : public IReferenceCounted
             Shapes.push_back(newShape);
             return true;
         }
+		//! Adds triangle mesh collider.
+		/** @param collider Pointer to triangle mesh collider.
+		*/
         inline bool AddTriangleMesh(STriangleMeshCollider* collider)
         {
             if (collider->getTriangleCount()==0)
@@ -347,6 +379,6 @@ class SCompoundCollider : public IReferenceCounted
 }
 
 #endif
-
+// documented by Krzysztof Szenk on 12-02-2018
 
 

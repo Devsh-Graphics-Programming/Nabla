@@ -28,6 +28,11 @@ class SCPUSkinMeshBuffer : public ICPUMeshBuffer
             #endif
         }
 
+		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
+		{
+			return core::CorrespondingBlobTypeFor<SCPUSkinMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+		}
+
         inline void setIndexRange(const uint32_t &minBeforeBaseVxAdd, const uint32_t &maxBeforeBaseVxAdd)
         {
             indexValMin = minBeforeBaseVxAdd;

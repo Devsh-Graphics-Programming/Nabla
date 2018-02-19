@@ -26,6 +26,11 @@ namespace core
 	\brief File containing useful basic utility functions
 */
 
+//! Replaces all occurences of `findStr` in `source` string with `replaceStr`.
+/** @param source String that is to be modified.
+@param findStr String to look for in source.
+@param replaceStr String replacing found occurences of `findStr`.
+*/
 template<class T>
 inline void findAndReplaceAll(T& source, T const& findStr, T const& replaceStr)
 {
@@ -36,6 +41,11 @@ inline void findAndReplaceAll(T& source, T const& findStr, T const& replaceStr)
     }
 }
 
+//! Replaces all occurences of `findStr` in `source` string with `replaceStr`.
+/** @param source String that is to be modified.
+@param findStr String to look for in source.
+@param replaceStr String replacing found occurences of `findStr`.
+*/
 template<class T>
 inline void findAndReplaceAll(std::basic_string<T>& source, const T* findStr, const T* replaceStr)
 {
@@ -43,6 +53,14 @@ inline void findAndReplaceAll(std::basic_string<T>& source, const T* findStr, co
 }
 
 
+//! Compares two strings, or their substrings, ignoring case of characters.
+/** @param str1 First string to compare.
+@param pos1 Position of the first to compare character in the first string.
+@param str2 Second string to compare.
+@param pos2 Position of the first to compare character in the second string.
+@param len Amount of characters to compare.
+@returns Whether strings are ignore-case-equal or not. `false` is also returned when comparing either of strings would result in going out of its range.
+*/
 template<typename T>
 inline bool equalsIgnoreCaseSubStr(const T& str1, const size_t& pos1, const T& str2, const size_t& pos2, const size_t& len)
 {
@@ -59,6 +77,11 @@ inline bool equalsIgnoreCaseSubStr(const T& str1, const size_t& pos1, const T& s
     return true;
 }
 
+//! Compares two strings ignoring case of characters.
+/** @param str1 First string to compare.
+@param str2 Second string to compare.
+@returns Whether strings are ignore-case-equal or not. `false` is also returned when comparing either of strings would result in going out of its range.
+*/
 template<typename T>
 inline bool equalsIgnoreCase(const T& str1, const T& str2)
 {
@@ -68,7 +91,16 @@ inline bool equalsIgnoreCase(const T& str1, const T& str2)
     return equalsIgnoreCaseSubStr<T>(str1,0,str2,0,str2.size());
 }
 
-
+//! Compares two strings.
+/**
+@param str1 First string to compare.
+@param str2 Second string to compare.
+@returns If sizes of the two strings differ - signed difference between two sizes (i.e. (str1.size()-str2.size()) );
+	Otherwise - an integral value indicating the relationship between the strings:
+		<0 - the first character that does not match has a lower value in str1 than in str2
+		0  - both strings are equal
+		>0 - the first character that does not match has a greater value in str1 than in str2
+*/
 template<typename T>
 inline int32_t strcmpi(const T& str1, const T& str2)
 {
@@ -85,6 +117,10 @@ inline int32_t strcmpi(const T& str1, const T& str2)
     return 0;
 }
 
+//! Gets the the last character of given string.
+/** @param str1 Given string.
+@returns Last character of the string or 0 if contains no characters.
+*/
 template<typename T>
 inline T lastChar(const std::basic_string<T>& str1)
 {
@@ -104,8 +140,15 @@ extern std::wstring UTF8StringToWString(const std::string& inString, uint32_t in
 
 // ----------- some basic quite often used string functions -----------------
 
-//! search if a filename has a proper extension
-inline int32_t isFileExtension (	const io::path& filename,
+//! Search if a filename has a proper extension.
+/** Compares file's extension to three given extensions ignoring case.
+@param filename String being the file's name.
+@param ext0 The first extension to compare with.
+@param ext1 The second extension to compare with.
+@param ext2 The third extension to compare with.
+@returns 0 if `filename` does not contain '.' (dot) character or neither of given extensions match. Otherwise an integral value indicating which of given extension matched.
+*/
+inline int32_t isFileExtension (const io::path& filename,
 								const io::path& ext0,
 								const io::path& ext1,
 								const io::path& ext2)
@@ -121,7 +164,14 @@ inline int32_t isFileExtension (	const io::path& filename,
 	return 0;
 }
 
-//! search if a filename has a proper extension
+//! Search if a filename has a proper extension.
+/** Compares file's extension to three given extensions ignoring case.
+@param filename String being the file's name.
+@param ext0 The first extension to compare with.
+@param ext1 The second extension to compare with. Defaulted to empty string.
+@param ext2 The third extension to compare with. Defaulted to empty string.
+@returns Boolean value indicating whether file is of one of given extensions.
+*/
 inline bool hasFileExtension (	const io::path& filename,
 								const io::path& ext0,
 								const io::path& ext1 = "",
@@ -130,7 +180,11 @@ inline bool hasFileExtension (	const io::path& filename,
 	return isFileExtension ( filename, ext0, ext1, ext2 ) > 0;
 }
 
-//! cut the filename extension from a source file path and store it in a dest file path
+//! Cuts the filename extension from a source file path and store it in a dest file path.
+/** @param dest String to save the result.
+@param source Source string.
+@returns Reference to string with the result (i.e. first parameter).
+*/
 inline io::path& cutFilenameExtension ( io::path &dest, const io::path &source )
 {
 	int32_t endPos = source.findLast ( '.' );
@@ -138,7 +192,11 @@ inline io::path& cutFilenameExtension ( io::path &dest, const io::path &source )
 	return dest;
 }
 
-//! get the filename extension from a file path
+//! Gets the filename extension from a file path.
+/** @param dest String to save the result.
+@param source Source string.
+@returns Reference to string with the result (i.e. first parameter).
+*/
 inline io::path& getFileNameExtension ( io::path &dest, const io::path &source )
 {
 	int32_t endPos = source.findLast ( '.' );
@@ -149,7 +207,11 @@ inline io::path& getFileNameExtension ( io::path &dest, const io::path &source )
 	return dest;
 }
 
-//! delete path from filename
+//! Delete path from filename.
+/** Clips given file name path to just the file's name without the rest of path.
+@param filename File names string.
+@returns Reference to filename (i.e. the parameter).
+*/
 inline io::path& deletePathFromFilename(io::path& filename)
 {
 	// delete path from filename
@@ -168,7 +230,11 @@ inline io::path& deletePathFromFilename(io::path& filename)
 	return filename;
 }
 
-//! trim paths
+//! Clips given file name string to given number of least significant path-tokens.
+/** @param filename File name string.
+@param pathCount Number of path-tokens to clip the given path to.
+@returns Reference to the first parameter.
+*/
 inline io::path& deletePathFromPath(io::path& filename, int32_t pathCount)
 {
 	// delete path from filename
@@ -195,8 +261,11 @@ inline io::path& deletePathFromPath(io::path& filename, int32_t pathCount)
 	return filename;
 }
 
-//! looks if file is in the same directory of path. returns offset of directory.
-//! 0 means in same directory. 1 means file is direct child of path
+//! Looks if `file` is in the same directory of `path`. Returns offset of directory.
+/** @param path Path to compare with.
+@param file File name string.
+@returns offset of directory. 0 means in same directory; 1 means file is direct child of path, etc.
+*/
 inline int32_t isInSameDirectory ( const io::path& path, const io::path& file )
 {
 	int32_t subA = 0;
@@ -223,13 +292,22 @@ inline int32_t isInSameDirectory ( const io::path& path, const io::path& file )
 	return subB - subA;
 }
 
-// expect change soon
+//! Replaces all occurences of backslash with regular slashes.
+/** @param inout Pointer to string to modify.
+*/
 inline void handleBackslashes(io::path* inout)
 {
     inout->replace('\\' , '/'); //! On Linux just delete them
 }
 
-// splits a path into components
+//! Splits a path into essential components.
+/** Each of output parameters can be NULL - then this component will not be returned.
+@param[in] name Input path string.
+@param[out] path Pointer to string where path component will be returned.
+@param[out] filename Pointer to string where filename component will be returned.
+@param[out] extension Pointer to string where extension component will be returned.
+@param[in] make_lower Whether to return all components as lower-case-only strings.
+*/
 inline void splitFilename(const io::path &name, io::path* path=0,
 		io::path* filename=0, io::path* extension=0, bool make_lower=false)
 {
@@ -267,8 +345,11 @@ inline void splitFilename(const io::path &name, io::path* path=0,
 #undef isdigit
 #undef isspace
 #undef isupper
+//! Returns 0 or 1 indicating whether given character is a digit.
 inline int32_t isdigit(int32_t c) { return c >= '0' && c <= '9'; }
+//! Returns 0 or 1 indicating whether given character is a whitespace character.
 inline int32_t isspace(int32_t c) { return c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v'; }
+//! Returns 0 or 1 indicating whether given character is an upper-case letter character.
 inline int32_t isupper(int32_t c) { return c >= 'A' && c <= 'Z'; }
 
 
@@ -323,7 +404,11 @@ std::vector<std::string> getBackTrace(void);
     v1: the strong hash is faster and stronger, it obsoletes the fast one
 */
 
-
+//! Super-fast function for checksuming purposes. Designed for large (>1KB) inputs.
+/** @param[in] input Pointer to data being the input for hasing algorithm.
+@param[in] len Size in bytes of data pointed by `input`.
+@param[out] out Pointer to 8byte memory to which result will be written. 
+*/
 inline void XXHash_256(const void* input, size_t len, uint64_t* out)
 {
 //**************************************
@@ -393,6 +478,7 @@ inline void XXHash_256(const void* input, size_t len, uint64_t* out)
     out[3] += v4;
 }
 
+//! Utility class easing the process of finding memory leaks. Usable only in debug build. Thread-safe. No Windows implementation yet.
 class LeakDebugger
 {
         std::string name;
@@ -401,16 +487,19 @@ class LeakDebugger
         {
                 std::vector<std::string> stackTrace;
             public:
+				//! Default constructor.
                 StackTrace()
                 {
                 }
 
+				//!
                 StackTrace(const std::vector<std::string>& trc) : stackTrace(trc)
                 {
                 }
 
                 const std::vector<std::string>& getTrace() const {return stackTrace;}
 
+				//! Comparison operator. Needed for map/sorting.
                 bool operator<(const StackTrace& o) const
                 {
                     if (stackTrace.size()<o.stackTrace.size())
@@ -430,6 +519,7 @@ class LeakDebugger
                         return false;
                 }
 
+				//! Prints stack to given output stream.
                 inline void printStackToOStream(std::ostringstream& strm) const
                 {
                     for (size_t i=0; i<stackTrace.size(); i++)
@@ -460,3 +550,4 @@ class LeakDebugger
 } // end namespace irr
 
 #endif
+// documented by Krzysztof Szenk on 12-02-2018

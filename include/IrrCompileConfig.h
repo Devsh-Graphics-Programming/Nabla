@@ -429,6 +429,10 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_STL_LOADER_
 #undef _IRR_COMPILE_WITH_STL_LOADER_
 #endif
+#define _IRR_COMPILE_WITH_BAW_LOADER_
+#ifdef NO_IRR_COMPILE_WITH_BAW_LOADER_
+#undef _IRR_COMPILE_WITH_BAW_LOADER_
+#endif
 //! Define _IRR_COMPILE_WITH_PLY_LOADER_ if you want to load Polygon (Stanford Triangle) files
 #ifndef NEW_MESHES
 #define _IRR_COMPILE_WITH_PLY_LOADER_
@@ -719,6 +723,22 @@ precision will be lower but speed higher. currently X86 only
 		#undef _IRR_SCENEMANAGER_DEBUG
 	#endif
 #endif
+
+//! @see @ref CBlobsLoadingManager
+#define _IRR_ADD_BLOB_SUPPORT(BlobClassName, EnumValue, Function, ...) \
+case core::Blob::EnumValue:\
+	return core::BlobClassName::Function(__VA_ARGS__);
+
+//! Used inside CBlobsLoadingManager. Adds support of given blob types.
+#define _IRR_SUPPORTED_BLOBS(Function, ...) \
+_IRR_ADD_BLOB_SUPPORT(RawBufferBlobV0, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(TexturePathBlobV0, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshBlobV0, EBT_MESH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV0, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV0, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV0, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV0, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV0, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
 
 #endif // __IRR_COMPILE_CONFIG_H_INCLUDED__
 

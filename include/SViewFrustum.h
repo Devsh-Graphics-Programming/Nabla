@@ -44,74 +44,77 @@ namespace scene
 		};
 
 
-		//! Default Constructor
+		//! Default Constructor.
 		SViewFrustum() {}
 
-		//! Copy Constructor
+		//! Copy Constructor.
 		SViewFrustum(const SViewFrustum& other);
 
 		//! This constructor creates a view frustum based on a projection and/or view matrix.
+		/** @param mat Source matrix. */
 		SViewFrustum(const core::matrix4& mat);
 
-		//! This constructor creates a view frustum based on a projection and/or view matrix.
+		//! Modifies frustum as if it was constructed with a matrix.
+		/** @param mat Source matrix.
+		@see @ref SViewFrustum(const core::matrix4&)
+		*/
 		inline void setFrom(const core::matrix4& mat);
 
-		//! transforms the frustum by the matrix
-		/** \param mat: Matrix by which the view frustum is transformed.*/
+		//! Transforms the frustum by the matrix
+		/** @param mat: Matrix by which the view frustum is transformed.*/
 		void transform(const core::matrix4& mat);
 
-		//! returns the point which is on the far left upper corner inside the the view frustum.
+		//! @returns the point which is on the far left upper corner inside the the view frustum.
 		core::vector3df getFarLeftUp() const;
 
-		//! returns the point which is on the far left bottom corner inside the the view frustum.
+		//! @returns the point which is on the far left bottom corner inside the the view frustum.
 		core::vector3df getFarLeftDown() const;
 
-		//! returns the point which is on the far right top corner inside the the view frustum.
+		//! @returns the point which is on the far right top corner inside the the view frustum.
 		core::vector3df getFarRightUp() const;
 
-		//! returns the point which is on the far right bottom corner inside the the view frustum.
+		//! @returns the point which is on the far right bottom corner inside the the view frustum.
 		core::vector3df getFarRightDown() const;
 
-		//! returns the point which is on the near left upper corner inside the the view frustum.
+		//! @returns the point which is on the near left upper corner inside the the view frustum.
 		core::vector3df getNearLeftUp() const;
 
-		//! returns the point which is on the near left bottom corner inside the the view frustum.
+		//! @returns the point which is on the near left bottom corner inside the the view frustum.
 		core::vector3df getNearLeftDown() const;
 
-		//! returns the point which is on the near right top corner inside the the view frustum.
+		//! @returns the point which is on the near right top corner inside the the view frustum.
 		core::vector3df getNearRightUp() const;
 
-		//! returns the point which is on the near right bottom corner inside the the view frustum.
+		//! @returns the point which is on the near right bottom corner inside the the view frustum.
 		core::vector3df getNearRightDown() const;
 
-		//! returns a bounding box enclosing the whole view frustum
+		//! @returns a bounding box enclosing the whole view frustum.
 		const core::aabbox3d<float> &getBoundingBox() const;
 
-		//! recalculates the bounding box member based on the planes
+		//! Recalculates the bounding box member based on the planes.
 		inline void recalculateBoundingBox();
 
-		//! clips a line to the view frustum.
-		/** \return True if the line was clipped, false if not */
+		//! Clips a line to the view frustum.
+		/** @return True if the line was clipped, false if not. */
 		bool clipLine(core::line3d<float>& line) const;
 
+		//! Is point lying within the frustum?
+		/** @returns Whether point is lying within the frustum. */
 		bool cullPoint(const core::vector3d<float>& point) const;
 
-		//! the position of the camera
+		//! The position of the camera.
 		core::vector3df cameraPosition;
 
-		//! all planes enclosing the view frustum.
+		//! All planes enclosing the view frustum.
 		core::plane3d<float> planes[VF_PLANE_COUNT];
 
-		//! bounding box around the view frustum
+		//! Bounding box around the view frustum.
 		core::aabbox3d<float> boundingBox;
 
 	private:
 	};
 
 
-	/*!
-		Copy constructor ViewFrustum
-	*/
 	inline SViewFrustum::SViewFrustum(const SViewFrustum& other)
 	{
 		cameraPosition=other.cameraPosition;

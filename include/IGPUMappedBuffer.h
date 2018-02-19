@@ -17,10 +17,21 @@ namespace video
 class IGPUMappedBuffer : public virtual video::IGPUBuffer
 {
     public:
-        //! WARNING: RESIZE will invalidate pointer
-        //! WARNING: NEED TO FENCE BEFORE USE!!!!!!!!!!!!!
+		//! Gets internal pointer.
+        /**
+		It's best you use a GPU Fence to ensure any operations which you've queued up that are writing to this buffer or reading from it have completed before you start using this pointer.
+		Otherwise you will have a race condition.
+		WARNING: RESIZE will invalidate pointer!
+        WARNING: NEED TO FENCE BEFORE USE!
+		@returns Internal pointer. */
         virtual void* getPointer() = 0;
 
+		//! @returns Always true.
+		/**
+		We only support persistently mapped buffers with ARB_buffer_storage.
+		It's almost the fastest across all cards, and is more in line with what Vulkan has.
+		Please don't ask us to support Buffer Orphaning, or Map/Unmap.
+		*/
         virtual const bool isMappedBuffer() const {return true;}
     private:
         //
@@ -30,3 +41,4 @@ class IGPUMappedBuffer : public virtual video::IGPUBuffer
 } // end namespace irr
 
 #endif
+// documented by Krzysztof Szenk on 12-02-2018

@@ -23,6 +23,10 @@ class ICPUBuffer : public IBuffer
                 free(data);
         }
     public:
+		//! Constructor. 
+		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
+		@param dat Optional parameter. Pointer to data, must be allocated with `malloc`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
+		*/
         ICPUBuffer(const size_t &sizeInBytes, void *dat = NULL) : size(0), data(dat)
         {
 			if (!data)
@@ -33,12 +37,19 @@ class ICPUBuffer : public IBuffer
             size = sizeInBytes;
         }
 
+		//! @deprecated
+		//! Returns buffer's type which in this case is always equal to `E_BUFFER_TYPE::EBT_UNSPECIFIED_BUFFER`.
         virtual E_BUFFER_TYPE getBufferType() const {return EBT_UNSPECIFIED_BUFFER;}
-        //! size in BYTES
+
+        //! Returns size in bytes.
         virtual const uint64_t& getSize() const {return size;}
 
-        //! returns true on success (some types always return false since they dont support resize)
-        //! This function will invalidate any sizes, pointers etc. returned before!
+		//! Reallocates internal data. Invalidate any sizes, pointers etc. returned before!
+		/** @param newSize New size of memory.
+		@param forceRetentionOfData Doesn't matter.
+		@param reallocateIfShrink Whether to perform reallocation even if it means to shrink the buffer (lose some data).
+		@returns True on success or false otherwise.
+		*/
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)
         {
             if (size==newSize)
@@ -61,8 +72,13 @@ class ICPUBuffer : public IBuffer
             return true;
         }
 
-        //! WARNING: RESIZE will invalidate pointer
+		//! Returns pointer to data.
+        /** WARNING: RESIZE will invalidate pointer.
+		*/
         virtual const void* getPointer() const {return data;}
+		//! Returns pointer to data.
+		/** WARNING: RESIZE will invalidate pointer.
+		*/
         virtual void* getPointer() {return data;}
 
     private:

@@ -454,6 +454,7 @@
 		<Compiler>
 			<Add option="-D_IRR_COMPILE_WITH_OPENGL_" />
 		</Compiler>
+		<Unit filename="../../include/CBawFile.h" />
 		<Unit filename="../../include/CFinalBoneHierarchy.h" />
 		<Unit filename="../../include/CImageData.h" />
 		<Unit filename="../../include/COpenGLStateManager.h" />
@@ -589,6 +590,8 @@
 		<Unit filename="CAnimatedMeshSceneNode.h" />
 		<Unit filename="CB3DMeshFileLoader.cpp" />
 		<Unit filename="CB3DMeshFileLoader.h" />
+		<Unit filename="CBAWMeshFileLoader.cpp" />
+		<Unit filename="CBAWMeshFileLoader.h" />
 		<Unit filename="CBAWMeshWriter.cpp" />
 		<Unit filename="CBAWMeshWriter.h" />
 		<Unit filename="CBawFile.cpp" />

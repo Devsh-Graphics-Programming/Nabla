@@ -130,6 +130,9 @@ namespace scene
 
             virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy;}
 
+			//! Meant to be used by loaders only
+			void setBoneReferenceHierarchy(CFinalBoneHierarchy* fbh);
+
             //! returns amount of mesh buffers.
             virtual uint32_t getMeshBufferCount() const;
 
@@ -165,6 +168,9 @@ namespace scene
 
             //! Adds a new meshbuffer to the mesh, access it as last one
             virtual SCPUSkinMeshBuffer *addMeshBuffer();
+
+			//! Adds a new meshbuffer to the mesh
+			virtual void addMeshBuffer(SCPUSkinMeshBuffer* buf);
 
             //! Adds a new joint to the mesh, access it as last one
             virtual SJoint *addJoint(SJoint *parent=0);

@@ -84,6 +84,10 @@
 #include "CSMFMeshFileLoader.h"
 #endif
 
+#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
+#include "CBAWMeshFileLoader.h"
+#endif
+
 #ifdef _IRR_COMPILE_WITH_COLLADA_WRITER_
 #include "CColladaMeshWriter.h"
 #endif
@@ -337,7 +341,9 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 	#ifdef _IRR_COMPILE_WITH_B3D_LOADER_
 	MeshLoaderList.push_back(new CB3DMeshFileLoader(this));
 	#endif
-
+	#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
+	MeshLoaderList.push_back(new CBAWMeshFileLoader(this, FileSystem));
+	#endif
 
 	// factories
 	ISceneNodeFactory* factory = new CDefaultSceneNodeFactory(this);

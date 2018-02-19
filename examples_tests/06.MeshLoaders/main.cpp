@@ -140,6 +140,11 @@ int main()
 	io::IFileSystem* fs = device->getFileSystem();
 	scene::IMeshWriter* writer = smgr->createMeshWriter(irr::scene::EMWT_BAW);
 
+	// from Criss:
+	// here i'm testing baw mesh writer and loader
+	// (import from .stl/.obj, then export to .baw, then import from .baw :D)
+	// Seems to work for those two simple meshes, but need more testing!
+
 	//! Test Loading of Obj
     scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/extrusionLogo_TEST_fixed.stl");
 	// export mesh
@@ -147,6 +152,11 @@ int main()
 	writer->writeMesh(file, cpumesh);
 	file->drop();
 	// end export
+
+	// import .baw mesh (test)
+	cpumesh = smgr->getMesh("extrusionLogo_TEST_fixed.baw");
+	// end import
+
     if (cpumesh)
     {
         scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
@@ -162,6 +172,11 @@ int main()
 	file->drop();
 	writer->drop();
 	// end export
+
+	// import .baw mesh (test)
+	cpumesh = smgr->getMesh("cow.baw");
+	// end import
+
     if (cpumesh)
     {
         scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
