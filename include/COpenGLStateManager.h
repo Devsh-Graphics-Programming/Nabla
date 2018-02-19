@@ -5,6 +5,7 @@
 #define __C_OPENGL_STATE_MANAGER_H_INCLUDED__
 
 #include <limits>       // std::numeric_limits
+#include <utility>
 
 #if defined(_IRR_WINDOWS_API_)
 	// include windows headers for HWND

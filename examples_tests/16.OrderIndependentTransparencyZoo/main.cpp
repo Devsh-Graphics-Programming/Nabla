@@ -143,9 +143,9 @@ int main()
 	printf(" (2) Stencil Routed Original\n"); //records k-first fragments (needs sorting for depth complexity>k)
 	printf(" (3) Stencil Routed A-la DevSH\n"); //records k nearest fragments from k disjoint sets
 	printf(" (4) Stencil Routed Min-Transmission\n"); //records k most opaque fragments from k disjoint sets (by putting the alpha value into the Z-buffer)
-	printf(" (5) Weighted Average\n"); //would benefit from transmittance thresholding
-	printf(" (6) Weighted Blended\n"); //would benefit from transmittance thresholding
-	printf(" (7) Bin Sorted\n");
+	printf(" (5) Bin Sorted\n");
+	printf(" (6) Stochastic\n");
+	printf(" (7) AMD DX11 Method\n");
 	printf(" (X) XXX\n");
 	/** TODO
 	+ A-Buffer http://www.icare3d.org/codes-and-projects/codes/opengl-4-0-abuffer-v2-0-linked-lists-of-fragment-pages.html
