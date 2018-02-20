@@ -130,7 +130,7 @@ bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IT
     {
         if (layer>=0)
         {
-            Driver->extGlNamedFramebufferTextureLayer(frameBuffer,attachment,glTex->getOpenGLName(),mipMapLayer,layer);
+            Driver->extGlNamedFramebufferTextureLayer(frameBuffer,attachment,glTex->getOpenGLName(),glTex->getOpenGLTextureType(),mipMapLayer,layer);
             cachedLayer[attachmenPoint] = layer;
         }
         else
@@ -198,7 +198,7 @@ bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IM
     {
         if (layer>=0)
         {
-            Driver->extGlNamedFramebufferTextureLayer(frameBuffer,attachment,glTex->getOpenGLName(),0,layer);
+            Driver->extGlNamedFramebufferTextureLayer(frameBuffer,attachment,glTex->getOpenGLName(), glTex->getOpenGLTextureType(),0,layer);
             cachedLayer[attachmenPoint] = layer;
         }
         else

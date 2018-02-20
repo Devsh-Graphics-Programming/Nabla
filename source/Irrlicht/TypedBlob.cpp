@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 // and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
 
-#include "CBawFile.h"
+#include "CBAWFile.h"
 
 #include "ISceneManager.h"
 #include "IFileSystem.h"

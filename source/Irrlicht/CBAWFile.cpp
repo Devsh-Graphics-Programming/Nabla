@@ -133,13 +133,13 @@ MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatD
 }
 
 template<>
-size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer>>::calcBlobSizeForObj(const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _obj)
+size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::calcBlobSizeForObj(const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _obj)
 {
 	return sizeof(MeshDataFormatDescBlobV0);
 }
 
 FinalBoneHierarchyBlobV0::FinalBoneHierarchyBlobV0(const scene::CFinalBoneHierarchy* _fbh)
-{	
+{
 	boneCount = _fbh->getBoneCount();
 	numLevelsInHierarchy = _fbh->getHierarchyLevels();
 	keyframeCount = _fbh->getKeyFrameCount();

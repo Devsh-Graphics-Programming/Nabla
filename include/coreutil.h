@@ -407,7 +407,7 @@ std::vector<std::string> getBackTrace(void);
 //! Super-fast function for checksuming purposes. Designed for large (>1KB) inputs.
 /** @param[in] input Pointer to data being the input for hasing algorithm.
 @param[in] len Size in bytes of data pointed by `input`.
-@param[out] out Pointer to 8byte memory to which result will be written. 
+@param[out] out Pointer to 8byte memory to which result will be written.
 */
 inline void XXHash_256(const void* input, size_t len, uint64_t* out)
 {
@@ -470,7 +470,11 @@ inline void XXHash_256(const void* input, size_t len, uint64_t* out)
         v1 += v4 *= PRIME;
     }
 #undef _rotl
-    memcpy(out, p, bEnd - p);
+    size_t leftOverBytes = bEnd - p;
+    memcpy(out, p, leftOverBytes);
+    for (uint8_t* leftOverZeroP = reinterpret_cast<uint8_t*>(out)+leftOverBytes; leftOverZeroP<reinterpret_cast<uint8_t*>(out+4); leftOverZeroP++)
+        *leftOverZeroP = 0;
+
 
     out[0] += v1;
     out[1] += v2;
