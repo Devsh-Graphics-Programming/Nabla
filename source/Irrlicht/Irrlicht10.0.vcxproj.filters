@@ -188,7 +188,6 @@
     <ClCompile Include="aesGladman\sha1.cpp" />
     <ClCompile Include="aesGladman\sha2.cpp" />
     <ClCompile Include="bzip2\blocksort.c" />
-    <ClCompile Include="bzip2\bzcompress.c" />
     <ClCompile Include="bzip2\bzlib.c" />
     <ClCompile Include="bzip2\crctable.c" />
     <ClCompile Include="bzip2\decompress.c" />
@@ -214,10 +213,15 @@
     <ClCompile Include="CBAWMeshWriter.cpp" />
     <ClCompile Include="CBAWMeshFileLoader.cpp" />
     <ClCompile Include="CBAWFile.cpp" />
-    <ClCompile Include="blobsLoading.cpp" />
     <ClCompile Include="CBlobsLoadingManager.cpp" />
     <ClCompile Include="COpenGLMultisampleTexture.cpp" />
     <ClCompile Include="COpenGLMultisampleTextureArray.cpp" />
+    <ClCompile Include="TypedBlob.cpp" />
+    <ClCompile Include="bzip2\compress.c" />
+    <ClCompile Include="lz4\lz4.c" />
+    <ClCompile Include="lz4\lz4frame.c" />
+    <ClCompile Include="lz4\lz4hc.c" />
+    <ClCompile Include="lz4\xxhash.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
@@ -534,6 +538,8 @@
     <ClInclude Include="CZipReader.h" />
     <ClInclude Include="IAttribute.h" />
     <ClInclude Include="FW_Mutex.h" />
+    <ClInclude Include="lzma\Precomp.h" />
+    <ClInclude Include="lzma\Compiler.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />

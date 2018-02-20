@@ -229,7 +229,7 @@ void CBAWMeshFileLoader::SContext::regularDrop()
 			Blob::EBT_SKINNED_MESH_BUFFER,
 			Blob::EBT_RAW_DATA_BUFFER,
 			Blob::EBT_DATA_FORMAT_DESC,
-			Blob::EBT_FINAL_BONE_HIERARCHY,
+			Blob::EBT_FINAL_BONE_HIERARCHY
 		};
 
 		bool dropIt = false;
