@@ -48,6 +48,7 @@ private:
 			for (std::map<uint64_t, void*>::iterator it = createdObjs.begin(); it != createdObjs.end(); ++it)
 				loadingMgr.releaseObj(blobs[it->first].header->blobType, it->second);
 		}
+		void regularDrop();
 
 		io::IReadFile* file;
 		io::path filePath;

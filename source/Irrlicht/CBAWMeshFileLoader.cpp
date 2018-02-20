@@ -119,6 +119,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
 	}
 
+	ctx.regularDrop();
 	free(headers);
 
 #ifdef _DEBUG
@@ -212,6 +213,35 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 	_ctx.file->read(dst, _data.header->blobSizeDecompr);
 
 	return dst;
+}
+
+void CBAWMeshFileLoader::SContext::regularDrop()
+{
+	for (std::map<uint64_t, SBlobData>::iterator it = blobs.begin(); it != blobs.end(); ++it)
+	{
+		const uint32_t type = it->second.header->blobType;
+		const uint64_t handle = it->second.header->handle;
+
+		using namespace core;
+		uint32_t typesNeededToBeDropped[]
+		{
+			Blob::EBT_MESH_BUFFER,
+			Blob::EBT_SKINNED_MESH_BUFFER,
+			Blob::EBT_RAW_DATA_BUFFER,
+			Blob::EBT_DATA_FORMAT_DESC,
+			Blob::EBT_FINAL_BONE_HIERARCHY,
+		};
+
+		bool dropIt = false;
+		for (size_t i = 0; i < sizeof(typesNeededToBeDropped) / sizeof(*typesNeededToBeDropped); ++i)
+			if (type == typesNeededToBeDropped[i])
+			{
+				dropIt = true;
+				break;
+			}
+		if (dropIt)
+			loadingMgr.releaseObj(type, createdObjs[handle]);
+	}
 }
 
 }} // irr::scene
