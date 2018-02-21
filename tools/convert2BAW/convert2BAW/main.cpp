@@ -12,8 +12,6 @@ enum E_GATHER_TARGET
 	EGT_OUTPUTS
 };
 
-int32_t strcmpIgnoreCase(const char * _str1, const char * _str2);
-
 int main(int _optCnt, char** _options)
 {
 	--_optCnt;
@@ -39,9 +37,9 @@ int main(int _optCnt, char** _options)
 	{
 		if (_options[i][0] == '-')
 		{
-			if (!strcmpIgnoreCase("i", _options[i]+1))
+			if (core::equalsIgnoreCase("i", _options[i]+1))
 				gatherWhat = EGT_INPUTS;
-			else if (!strcmpIgnoreCase("o", _options[i]+1))
+			else if (core::equalsIgnoreCase("o", _options[i]+1))
 				gatherWhat = EGT_OUTPUTS;
 			else
 			{
@@ -95,21 +93,5 @@ int main(int _optCnt, char** _options)
 	}
 	device->drop();
 
-	return 0;
-}
-
-int32_t strcmpIgnoreCase(const char * _str1, const char * _str2)
-{
-	const size_t len1 = strlen(_str1);
-	const size_t len2 = strlen(_str2);
-	if (len1 != len2)
-		return (int32_t)len1 - (int32_t)len2;
-
-	for (size_t i = 0; i < len1; ++i)
-	{
-		const char c1 = ::tolower(_str1[i]), c2 = ::tolower(_str2[i]);
-		if (c1 != c2)
-			return c1 - c2;
-	}
 	return 0;
 }
