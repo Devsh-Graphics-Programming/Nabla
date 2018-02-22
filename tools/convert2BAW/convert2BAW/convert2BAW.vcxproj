@@ -70,14 +70,14 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir)..\..\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)..\..\source\Irrlicht;$(SolutionDir)..\..\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)..\..\lib\Win64-VisualStudio;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)\bin\Win64-VisualStudio</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)64\</IntDir>
     <TargetName>$(ProjectName)_x64_debug</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(SolutionDir)..\..\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)..\..\source\Irrlicht;$(SolutionDir)..\..\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)..\..\lib\\Win64-VisualStudio;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)\bin\Win64-VisualStudio</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)64\</IntDir>

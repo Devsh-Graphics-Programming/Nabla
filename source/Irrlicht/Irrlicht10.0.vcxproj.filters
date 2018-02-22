@@ -108,7 +108,6 @@
     <ClCompile Include="lzma\LzmaDec.c" />
     <ClCompile Include="STextureSamplingParams.cpp" />
     <ClCompile Include="zlib\adler32.c" />
-    <ClCompile Include="zlib\compress.c" />
     <ClCompile Include="zlib\crc32.c" />
     <ClCompile Include="zlib\deflate.c" />
     <ClCompile Include="zlib\inffast.c" />
@@ -222,6 +221,11 @@
     <ClCompile Include="lz4\lz4frame.c" />
     <ClCompile Include="lz4\lz4hc.c" />
     <ClCompile Include="lz4\xxhash.c" />
+    <ClCompile Include="lzma\LzmaEnc.c" />
+    <ClCompile Include="lzma\LzFind.c" />
+    <ClCompile Include="lzma\LzFindMt.c" />
+    <ClCompile Include="lzma\Threads.c" />
+    <ClCompile Include="zlib\zcompress.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
@@ -486,7 +490,6 @@
     <ClInclude Include="CTimer.h" />
     <ClInclude Include="os.h" />
     <ClInclude Include="lzma\LzmaDec.h" />
-    <ClInclude Include="lzma\Types.h" />
     <ClInclude Include="zlib\crc32.h" />
     <ClInclude Include="zlib\deflate.h" />
     <ClInclude Include="zlib\inffast.h" />
@@ -540,6 +543,12 @@
     <ClInclude Include="FW_Mutex.h" />
     <ClInclude Include="lzma\Precomp.h" />
     <ClInclude Include="lzma\Compiler.h" />
+    <ClInclude Include="lzma\7zTypes.h" />
+    <ClInclude Include="lzma\LzmaEnc.h" />
+    <ClInclude Include="lzma\LzFind.h" />
+    <ClInclude Include="lzma\LzFindMt.h" />
+    <ClInclude Include="lzma\LzHash.h" />
+    <ClInclude Include="lzma\Threads.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />
