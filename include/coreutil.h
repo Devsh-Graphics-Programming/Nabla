@@ -10,6 +10,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <cwchar>
 #include "stddef.h"
 #include "string.h"
 #include "irrString.h"
@@ -52,6 +53,18 @@ inline void findAndReplaceAll(std::basic_string<T>& source, const T* findStr, co
     findAndReplaceAll(source,std::basic_string<T>(findStr),std::basic_string<T>(replaceStr));
 }
 
+template<typename T>
+inline size_t length(const T*);
+template<>
+inline size_t length<char>(const char* str)
+{
+	return strlen(str);
+}
+template<>
+inline size_t length<wchar_t>(const wchar_t* str)
+{
+	return wcslen(str);
+}
 //! Calculates length of given string by trying to reach 0 (of type T) starting from `str` address.
 template<typename T>
 inline size_t length(const T* str)
