@@ -16,23 +16,25 @@
 namespace irr { namespace core
 {
 
-void core::BlobHeaderV0::finalize(const void * _data, size_t _size)
+void core::BlobHeaderV0::finalize(const void* _notCompressedData, const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType)
 {
-	blobSize = blobSizeDecompr = _size;
+	blobSizeDecompr = _sizeDecompr;
+	blobSize = _sizeCompr;
+	compressionType = _comprType;
 
 	//compress before encrypting, increased entropy makes compression hard
 
 	//compress and encrypt before hashing
 
-	core::XXHash_256(_data, _size, blobHash);
+	core::XXHash_256(_notCompressedData, blobSizeDecompr, blobHash);
 }
 
-bool core::BlobHeaderV0::validate(const void * _data) const
+bool core::BlobHeaderV0::validate(const void* _decomprData) const
 {
     uint64_t tmpHash[4];
-	core::XXHash_256(_data, blobSize, tmpHash);
+	core::XXHash_256(_decomprData, blobSizeDecompr, tmpHash);
 	for (size_t i=0; i<4; i++)
-		if (tmpHash[i]!=blobHash[i])
+		if (tmpHash[i] != blobHash[i])
 			return false;
     return true;
 }

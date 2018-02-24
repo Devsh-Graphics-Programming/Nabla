@@ -11,6 +11,8 @@
 #include "CBAWFile.h"
 #include "irrArray.h"
 
+struct ISzAlloc;
+
 namespace irr {
 
 namespace io { class IFileSystem; }
@@ -21,11 +23,42 @@ namespace scene
 
 	class CBAWMeshWriter : public IMeshWriter
 	{
+	public:
+		enum E_COMPRESSION_TARGETS
+		{
+			ECT_NOTHING = 0x00,
+			ECT_RAW_BUFFERS = 0x01,
+			ECT_TEXTURES = 0x02,
+			ECT_MESH_BUFFERS = 0x04,
+			ECT_DATA_FORMAT_DESC = 0x08,
+			ECT_ANIMATION_DATA = 0x10,
+			ECT_MESHES = 0x20,
+			ECT_EVERYTHING = 0xffffffffu
+		};
+
+		struct WriteProperties
+		{
+			WriteProperties() : blobLz4EncrThresh(4096), blobLzmaEncrThresh(32768), encryptBlobBitField(ECT_RAW_BUFFERS) {}
+			size_t blobLz4EncrThresh;
+			size_t blobLzmaEncrThresh;
+			char encryptionPassPhrase[16];
+			char initializationVector[16];
+			uint64_t encryptBlobBitField;
+		};
+
 	private:
 		struct SContext
 		{
 			core::array<core::BlobHeaderV0> headers;
 			core::array<uint32_t> offsets;
+			const WriteProperties* props;
+		};
+		struct LzmaMemMngmnt
+		{
+			static void *alloc(const ISzAlloc*, size_t _size) { return malloc(_size); }
+			static void release(const ISzAlloc*, void* _addr) { free(_addr); }
+		private:
+			LzmaMemMngmnt() {}
 		};
 
 	protected:
@@ -39,6 +72,7 @@ namespace scene
 
 		//! @copydoc irr::scene::IMeshWriter::writeMesh()
 		bool writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags = EMWF_NONE);
+		bool writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, WriteProperties& propsStruct);
 
 	private:
 		//! Takes object and exports (writes to file) its data as another blob.
@@ -46,7 +80,7 @@ namespace scene
 		@param _headersIdx Corresponding index of headers array.
 		@param _file Target file.*/
 		template<typename T>
-		void exportAsBlob(T* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx);
+		void exportAsBlob(T* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress);
 
 		//! Generates header of blobs from mesh object and pushes them to `SContext::headers`.
 		/** After calling this method headers are NOT ready yet. Hashes (and also size in case of texture path blob) are calculated while writing blob data.
@@ -63,7 +97,12 @@ namespace scene
 		void pushCorruptedOffset(SContext& _ctx) const { _ctx.offsets.push_back(0xffffffff); }
 
 		//! Tries to write given data to file. If not possible (i.e. _data is NULL) - pushes "corrupted offset" and does not call .finalize() on blob-header.
-		void tryWrite(const void* _data, io::IWriteFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx) const;
+		void tryWrite(const void* _data, io::IWriteFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx, bool _compress) const;
+
+		bool toCompressOrNotToCompress(const WriteProperties& _wp, E_COMPRESSION_TARGETS _req) const;
+
+		void* compressWithLz4AndTryOnStack(const void* _input, size_t _inputSize, void* _stack, size_t _stackSize, size_t& _outComprSize) const;
+		void* compressWithLzma(const void* _input, size_t _inputSize, size_t& _outComprSize) const;
 
 	private:
 		io::IFileSystem* m_fileSystem;

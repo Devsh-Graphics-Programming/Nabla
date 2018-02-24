@@ -11,6 +11,8 @@
 #include "SMesh.h"
 #include "CSkinnedMesh.h"
 #include "os.h"
+#include "lzma/LzmaDec.h"
+#include "lz4/lz4.h"
 
 namespace irr { namespace scene
 {
@@ -75,7 +77,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 		const uint32_t blobType = data->header->blobType;
 		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx);
 
-		if (!data->validate())
+		if (!blob || !data->validate())
 		{
 			ctx.releaseLoadedObjects();
 			free(headers);
@@ -179,10 +181,10 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 		nope = true;
 
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether blobs are tightly packed (do not overlays each other and there's no space bewteen any pair)
-		if (offsets[i] + headers[i].blobSizeDecompr != offsets[i+1])
+		if (offsets[i] + headers[i].blobSize != offsets[i+1])
 			nope = true;
 
-	if (offsets[*_blobCnt-1] + headers[*_blobCnt-1].blobSizeDecompr >= _ctx.file->getSize()) // whether last blob doesn't "go out of file"
+	if (offsets[*_blobCnt-1] + headers[*_blobCnt-1].blobSize >= _ctx.file->getSize()) // whether last blob doesn't "go out of file"
 		nope = true;
 
 	if (nope)
@@ -209,10 +211,62 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 		dst = _stackPtr;
 	else
 		dst = malloc(_data.header->blobSizeDecompr);
+
+	const bool compressed = (_data.header->compressionType != core::Blob::EBCT_RAW);
+
+	uint8_t stackCompressed[1u<<14];
+	void* dstCompressed = stackCompressed; // ptr to mem to load possibly compressed data
+	if (!compressed)
+		dstCompressed = dst;
+	else if (_data.header->blobSize > sizeof(stackCompressed))
+		dstCompressed = malloc(_data.header->blobSize);
+
 	_ctx.file->seek(_data.absOffset);
-	_ctx.file->read(dst, _data.header->blobSizeDecompr);
+	_ctx.file->read(dstCompressed, _data.header->blobSize);
+
+	if (compressed)
+	{
+		const uint8_t comprType = _data.header->compressionType;
+		bool res = false;
+		switch (comprType)
+		{
+			case core::Blob::EBCT_LZ4:
+				res = decompressLz4(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
+				break;
+			case core::Blob::EBCT_LZMA:
+				res = decompressLzma(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
+				break;
+		}
+
+		if (dstCompressed != stackCompressed)
+			free(dstCompressed);
+		if (!res)
+		{
+			if (dst != _stackPtr)
+				free(dst);
+			return NULL;
+		}
+	}
 
 	return dst;
+}
+
+bool CBAWMeshFileLoader::decompressLzma(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const
+{
+	SizeT dstSize = _dstSize;
+	SizeT srcSize = _srcSize - LZMA_PROPS_SIZE;
+	ELzmaStatus status;
+	ISzAlloc alloc{&LzmaMemMngmnt::alloc, &LzmaMemMngmnt::release};
+	const SRes res = LzmaDecode((Byte*)_dst, &dstSize, (const Byte*)(_src)+LZMA_PROPS_SIZE, &srcSize, (const Byte*)_src, LZMA_PROPS_SIZE, LZMA_FINISH_ANY, &status, &alloc);
+	if (res != SZ_OK)
+		return false;
+	return true;
+}
+
+bool CBAWMeshFileLoader::decompressLz4(void * _dst, size_t _dstSize, const void * _src, size_t _srcSize) const
+{
+	int res = LZ4_decompress_safe((const char*)_src, (char*)_dst, _srcSize, _dstSize);
+	return res >= 0;
 }
 
 void CBAWMeshFileLoader::SContext::regularDrop()

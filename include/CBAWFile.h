@@ -59,10 +59,10 @@ namespace core
 
 		uint64_t blobHash[4];
 
-		//! Assigns size and calculates hash of data.
-		void finalize(const void* _data, size_t _size);
+		//! Assigns sizes and calculates hash of data.
+		void finalize(const void* _notCompressedData, const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType);
 		//! Calculates hash from `_data` and compares to current one (`blobHash` member).
-		bool validate(const void* _data) const;
+		bool validate(const void* _decomprData) const;
 	} PACK_STRUCT;
 
 	//! Cast pointer to (first byte of) file buffer to BAWFile*. 256bit header must be first member (start of file).

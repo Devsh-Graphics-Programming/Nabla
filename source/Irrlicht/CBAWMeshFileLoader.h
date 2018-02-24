@@ -16,6 +16,8 @@
 #include "CBAWFile.h"
 #include "CBlobsLoadingManager.h"
 
+struct ISzAlloc;
+
 namespace irr { namespace scene
 {
 
@@ -57,6 +59,13 @@ private:
 		std::map<uint64_t, void*> createdObjs;
 		core::CBlobsLoadingManager loadingMgr;
 	};
+	struct LzmaMemMngmnt
+	{
+		static void* alloc(const ISzAlloc*, size_t _size) { return malloc(_size); }
+		static void release(const ISzAlloc*, void* _addr) { free(_addr); }
+	private:
+		LzmaMemMngmnt() {}
+	};
 
 protected:
 	//! Destructor
@@ -89,6 +98,9 @@ private:
 	//! Reads blob to memory on stack or allocates sufficient amount on heap if provided stack storage was not big enough.
 	/** @returns `_stackPtr` if blob was read to it or pointer to malloc'd memory otherwise.*/
 	void* tryReadBlobOnStack(const SBlobData& _data, SContext& _ctx, void* _stackPtr=NULL, size_t _stackSize=0) const;
+
+	bool decompressLzma(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
+	bool decompressLz4(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
 
 private:
 	scene::ISceneManager* m_sceneMgr;

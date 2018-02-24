@@ -149,7 +149,7 @@ int main()
     scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/extrusionLogo_TEST_fixed.stl");
 	// export mesh
 	io::IWriteFile* file = fs->createAndWriteFile("extrusionLogo_TEST_fixed.baw");
-	writer->writeMesh(file, cpumesh);
+	writer->writeMesh(file, cpumesh, scene::EMWF_WRITE_COMPRESSED);
 	file->drop();
 	// end export
 
@@ -168,7 +168,7 @@ int main()
     cpumesh = smgr->getMesh("../../media/cow.obj");
 	// export mesh
 	file = fs->createAndWriteFile("cow.baw");
-	writer->writeMesh(file, cpumesh);
+	writer->writeMesh(file, cpumesh, scene::EMWF_WRITE_COMPRESSED);
 	file->drop();
 	writer->drop();
 	// end export
