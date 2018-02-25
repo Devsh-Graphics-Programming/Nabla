@@ -42,7 +42,6 @@
 #include "hmac.h"
 #include "pwd2key.h"
 
-#define	BLOCK_SIZE AES_BLOCK_SIZE
 #define PASSWORD_VERIFIER
 
 #define MAX_KEY_LENGTH        32
@@ -77,9 +76,14 @@
 
 /* the context for file encryption   */
 
+#if defined(__cplusplus)
+extern "C"
+{
+#endif
+
 typedef struct
-{   unsigned char   nonce[BLOCK_SIZE];          /* the CTR nonce          */
-    unsigned char   encr_bfr[BLOCK_SIZE];       /* encrypt buffer         */
+{   unsigned char   nonce[AES_BLOCK_SIZE];      /* the CTR nonce          */
+    unsigned char   encr_bfr[AES_BLOCK_SIZE];   /* encrypt buffer         */
     aes_encrypt_ctx encr_ctx[1];                /* encryption context     */
     hmac_ctx        auth_ctx[1];                /* authentication context */
     unsigned int    encr_pos;                   /* block position (enc)   */
@@ -110,5 +114,8 @@ void fcrypt_decrypt(unsigned char data[], unsigned int data_len, fcrypt_ctx cx[1
 int fcrypt_end(unsigned char mac[],     /* the MAC value (output)   */
                fcrypt_ctx cx[1]);       /* the context (input)      */
 
+#if defined(__cplusplus)
+}
 #endif
 
+#endif
