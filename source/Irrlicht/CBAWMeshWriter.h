@@ -10,6 +10,7 @@
 #include "IMesh.h"
 #include "CBAWFile.h"
 #include "irrArray.h"
+#include "aesGladman/fileenc.h"
 
 struct ISzAlloc;
 
@@ -24,26 +25,26 @@ namespace scene
 	class CBAWMeshWriter : public IMeshWriter
 	{
 	public:
-		enum E_COMPRESSION_TARGETS
+		enum E_ENCRYPTION_TARGETS
 		{
-			ECT_NOTHING = 0x00,
-			ECT_RAW_BUFFERS = 0x01,
-			ECT_TEXTURES = 0x02,
-			ECT_TEXTURE_PATHS = 0x04,
-			ECT_MESH_BUFFERS = 0x08,
-			ECT_DATA_FORMAT_DESC = 0x10,
-			ECT_ANIMATION_DATA = 0x20,
-			ECT_MESHES = 0x40,
-			ECT_EVERYTHING = 0xffffffffu
+			EET_NOTHING = 0x00,
+			EET_RAW_BUFFERS = 0x01,
+			EET_TEXTURES = 0x02,
+			EET_TEXTURE_PATHS = 0x04,
+			EET_MESH_BUFFERS = 0x08,
+			EET_DATA_FORMAT_DESC = 0x10,
+			EET_ANIMATION_DATA = 0x20,
+			EET_MESHES = 0x40,
+			EET_EVERYTHING = 0xffffffffu
 		};
 
 		struct WriteProperties
 		{
-			WriteProperties() : blobLz4EncrThresh(4096), blobLzmaEncrThresh(32768), encryptBlobBitField(ECT_RAW_BUFFERS) {}
+			WriteProperties() : blobLz4EncrThresh(4096), blobLzmaEncrThresh(32768), encryptionPassPhrase{0 /*no pwd*/}, encryptBlobBitField(EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES) {}
 			size_t blobLz4EncrThresh;
 			size_t blobLzmaEncrThresh;
-			char encryptionPassPhrase[16];
-			char initializationVector[16];
+			unsigned char encryptionPassPhrase[16];
+			unsigned char initializationVector[16];
 			uint64_t encryptBlobBitField;
 		};
 
@@ -53,13 +54,7 @@ namespace scene
 			core::array<core::BlobHeaderV0> headers;
 			core::array<uint32_t> offsets;
 			const WriteProperties* props;
-		};
-		struct LzmaMemMngmnt
-		{
-			static void *alloc(const ISzAlloc*, size_t _size) { return malloc(_size); }
-			static void release(const ISzAlloc*, void* _addr) { free(_addr); }
-		private:
-			LzmaMemMngmnt() {}
+			unsigned char pwdVer[2];
 		};
 
 	protected:
@@ -98,9 +93,9 @@ namespace scene
 		void pushCorruptedOffset(SContext& _ctx) const { _ctx.offsets.push_back(0xffffffff); }
 
 		//! Tries to write given data to file. If not possible (i.e. _data is NULL) - pushes "corrupted offset" and does not call .finalize() on blob-header.
-		void tryWrite(const void* _data, io::IWriteFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx, bool _compress) const;
+		void tryWrite(void* _data, io::IWriteFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx, bool _encrypt) const;
 
-		bool toCompressOrNotToCompress(const WriteProperties& _wp, E_COMPRESSION_TARGETS _req) const;
+		bool toEncrypt(const WriteProperties& _wp, E_ENCRYPTION_TARGETS _req) const;
 
 		void* compressWithLz4AndTryOnStack(const void* _input, size_t _inputSize, void* _stack, size_t _stackSize, size_t& _outComprSize) const;
 		void* compressWithLzma(const void* _input, size_t _inputSize, size_t& _outComprSize) const;

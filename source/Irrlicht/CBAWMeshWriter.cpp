@@ -55,14 +55,14 @@ namespace irr {namespace scene {
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
 	{
-		const core::MeshBufferBlobV0 data(_obj);
+		core::MeshBufferBlobV0 data(_obj);
 
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, _compress);
 	}
 	template<>
 	void CBAWMeshWriter::exportAsBlob<SCPUSkinMeshBuffer>(SCPUSkinMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
 	{
-		const core::SkinnedMeshBufferBlobV0 data(_obj);
+		core::SkinnedMeshBufferBlobV0 data(_obj);
 
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, _compress);
 	}
@@ -74,10 +74,10 @@ namespace irr {namespace scene {
 			return pushCorruptedOffset(_ctx);
 
 		const io::path fileDir = io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get out-file directory
-		const io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to out-file's directory
+		io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to out-file's directory
 		const uint32_t len = strlen(path.c_str()) + 1;
 
-		tryWrite(path.c_str(), _file, _ctx, len, _headerIdx, _compress);
+		tryWrite(&path[0], _file, _ctx, len, _headerIdx, _compress);
 	}
 	template<>
 	void CBAWMeshWriter::exportAsBlob<scene::CFinalBoneHierarchy>(scene::CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
@@ -93,7 +93,7 @@ namespace irr {namespace scene {
 	template<>
 	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(IMeshDataFormatDesc<core::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
 	{
-		const core::MeshDataFormatDescBlobV0 data(_obj);
+		core::MeshDataFormatDescBlobV0 data(_obj);
 
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, _compress);
 	}
@@ -106,16 +106,16 @@ namespace irr {namespace scene {
 	bool CBAWMeshWriter::writeMesh(io::IWriteFile* _file, ICPUMesh* _mesh, int32_t _flags)
 	{
 		WriteProperties wp;
-		if (_flags & EMWF_WRITE_COMPRESSED)
-			wp.encryptBlobBitField = ECT_RAW_BUFFERS | ECT_ANIMATION_DATA | ECT_TEXTURES;
-		else
-			wp.encryptBlobBitField = ECT_NOTHING;
+		//if (_flags & EMWF_WRITE_COMPRESSED)
+		//	wp.encryptBlobBitField = EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES;
+		//else
+		//	wp.encryptBlobBitField = EET_NOTHING;
 		return writeMesh(_file, _mesh, wp);
 	}
 
-	bool CBAWMeshWriter::writeMesh(io::IWriteFile * _file, scene::ICPUMesh * _mesh, WriteProperties & _propsStruct)
+	bool CBAWMeshWriter::writeMesh(io::IWriteFile* _file, scene::ICPUMesh* _mesh, WriteProperties& _propsStruct)
 	{
-		if (!_mesh || !_file || (_propsStruct.encryptBlobBitField != ECT_NOTHING && _propsStruct.blobLz4EncrThresh > _propsStruct.blobLzmaEncrThresh))
+		if (!_mesh || !_file || _propsStruct.blobLz4EncrThresh > _propsStruct.blobLzmaEncrThresh)
 			return false;
 
 		const uint32_t FILE_HEADER_SIZE = 32;
@@ -130,13 +130,28 @@ namespace irr {namespace scene {
 		SContext ctx; // context of this call of `writeMesh`
 		ctx.props = &_propsStruct;
 
+		if (_propsStruct.encryptBlobBitField != EET_NOTHING)
+		{
+			if (*_propsStruct.encryptionPassPhrase) // starts with non-zero
+			{
+				fcrypt_ctx cryptCtx;
+				fcrypt_init(1, _propsStruct.encryptionPassPhrase, 16, _propsStruct.initializationVector, ctx.pwdVer, &cryptCtx);
+				unsigned char dummy[10];
+				fcrypt_end(dummy, &cryptCtx);
+			}
+			else
+				memset(ctx.pwdVer, 0xff, 2);
+		}
+
 		const uint32_t numOfInternalBlobs = genHeaders(_mesh, ctx);
-		const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t);
+		const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t) + sizeof(core::BAWFileV0::pwdVer) + sizeof(core::BAWFileV0::iv);
 		const uint32_t HEADERS_FILE_OFFSET = OFFSETS_FILE_OFFSET + numOfInternalBlobs * sizeof(ctx.offsets[0]);
 
 		ctx.offsets.set_used(numOfInternalBlobs);
 
 		_file->write(&numOfInternalBlobs, sizeof(numOfInternalBlobs));
+		_file->write(ctx.pwdVer, 2);
+		_file->write(_propsStruct.initializationVector, 16);
 		// will be overwritten after actually calculating offsets
 		_file->write(ctx.offsets.const_pointer(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 
@@ -149,28 +164,28 @@ namespace irr {namespace scene {
 			switch (ctx.headers[i].blobType)
 			{
 			case core::Blob::EBT_MESH:
-				exportAsBlob(reinterpret_cast<ICPUMesh*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_MESHES));
+				exportAsBlob(reinterpret_cast<ICPUMesh*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_MESHES));
 				break;
 			case core::Blob::EBT_SKINNED_MESH:
-				exportAsBlob(reinterpret_cast<ICPUSkinnedMesh*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_MESHES));
+				exportAsBlob(reinterpret_cast<ICPUSkinnedMesh*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_MESHES));
 				break;
 			case core::Blob::EBT_MESH_BUFFER:
-				exportAsBlob(reinterpret_cast<ICPUMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_MESH_BUFFERS));
+				exportAsBlob(reinterpret_cast<ICPUMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_MESH_BUFFERS));
 				break;
 			case core::Blob::EBT_SKINNED_MESH_BUFFER:
-				exportAsBlob(reinterpret_cast<SCPUSkinMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_MESH_BUFFERS));
+				exportAsBlob(reinterpret_cast<SCPUSkinMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_MESH_BUFFERS));
 				break;
 			case core::Blob::EBT_RAW_DATA_BUFFER:
-				exportAsBlob(reinterpret_cast<core::ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_RAW_BUFFERS));
+				exportAsBlob(reinterpret_cast<core::ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_RAW_BUFFERS));
 				break;
 			case core::Blob::EBT_DATA_FORMAT_DESC:
-				exportAsBlob(reinterpret_cast<IMeshDataFormatDesc<core::ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_DATA_FORMAT_DESC));
+				exportAsBlob(reinterpret_cast<IMeshDataFormatDesc<core::ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_DATA_FORMAT_DESC));
 				break;
 			case core::Blob::EBT_FINAL_BONE_HIERARCHY:
-				exportAsBlob(reinterpret_cast<CFinalBoneHierarchy*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_ANIMATION_DATA));
+				exportAsBlob(reinterpret_cast<CFinalBoneHierarchy*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_ANIMATION_DATA));
 				break;
 			case core::Blob::EBT_TEXTURE_PATH:
-				exportAsBlob(reinterpret_cast<video::IVirtualTexture*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_TEXTURE_PATHS));
+				exportAsBlob(reinterpret_cast<video::IVirtualTexture*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_TEXTURE_PATHS));
 				break;
 			}
 		}
@@ -299,7 +314,7 @@ namespace irr {namespace scene {
 		_ctx.offsets.push_back(!_ctx.offsets.size() ? 0 : _ctx.offsets.getLast() + _blobSize);
 	}
 
-	void CBAWMeshWriter::tryWrite(const void * _data, io::IWriteFile * _file, SContext & _ctx, size_t _size, uint32_t _headerIdx, bool _compress) const
+	void CBAWMeshWriter::tryWrite(void* _data, io::IWriteFile * _file, SContext & _ctx, size_t _size, uint32_t _headerIdx, bool _encrypt) const
 	{
 		if (!_data)
 			return pushCorruptedOffset(_ctx);
@@ -307,22 +322,31 @@ namespace irr {namespace scene {
 		uint8_t stack[1u<<14];
 
 		size_t compressedSize = _size;
-		const void* data = _data;
+		void* data = _data;
 		uint8_t comprType = core::Blob::EBCT_RAW;
-		if (_compress)
+
+		if (_size >= _ctx.props->blobLzmaEncrThresh)
 		{
-			if (_size >= _ctx.props->blobLzmaEncrThresh)
-			{
-				data = compressWithLzma(data, _size, compressedSize);
-				if (data != _data)
-					comprType |= core::Blob::EBCT_LZMA;
-			}
-			else if (_size >= _ctx.props->blobLz4EncrThresh)
-			{
-				data = compressWithLz4AndTryOnStack(data, _size, stack, sizeof(stack), compressedSize);
-				if (data != _data)
-					comprType |= core::Blob::EBCT_LZ4;
-			}
+			data = compressWithLzma(data, _size, compressedSize);
+			if (data != _data)
+				comprType |= core::Blob::EBCT_LZMA;
+		}
+		else if (_size >= _ctx.props->blobLz4EncrThresh)
+		{
+			data = compressWithLz4AndTryOnStack(data, _size, stack, sizeof(stack), compressedSize);
+			if (data != _data)
+				comprType |= core::Blob::EBCT_LZ4;
+		}
+
+		if (_encrypt)
+		{
+			fcrypt_ctx cryptCtx;
+			unsigned char dummy[10];
+			const unsigned char* pwd = (_ctx.pwdVer[0] == 0xff && _ctx.pwdVer[1] == 0xff) ? /* "no password" */ (const unsigned char*)"hejkahejkahejkaa" : _ctx.props->encryptionPassPhrase;
+			fcrypt_init(1, pwd, 16, _ctx.props->initializationVector, dummy, &cryptCtx);
+			fcrypt_encrypt(reinterpret_cast<unsigned char*>(data), compressedSize, &cryptCtx);
+			comprType |= core::Blob::EBCT_AES128_GCM;
+			fcrypt_end(dummy, &cryptCtx);
 		}
 
 		_ctx.headers[_headerIdx].finalize(data, _size, compressedSize, comprType);
@@ -333,7 +357,7 @@ namespace irr {namespace scene {
 			free(const_cast<void*>(data)); // safe const_cast since the only case when this executes is when `data` points to malloc'd memory
 	}
 
-	bool CBAWMeshWriter::toCompressOrNotToCompress(const WriteProperties& _wp, E_COMPRESSION_TARGETS _req) const
+	bool CBAWMeshWriter::toEncrypt(const WriteProperties& _wp, E_ENCRYPTION_TARGETS _req) const
 	{
 		return (_wp.encryptBlobBitField & _req);
 	}
@@ -370,23 +394,22 @@ namespace irr {namespace scene {
 
 	void* CBAWMeshWriter::compressWithLzma(const void* _input, size_t _inputSize, size_t& _outComprSize) const
 	{
-		ISzAlloc alloc{&LzmaMemMngmnt::alloc, &LzmaMemMngmnt::release};
+		ISzAlloc alloc{&core::LzmaMemMngmnt::alloc, &core::LzmaMemMngmnt::release};
 		SizeT propsSize = LZMA_PROPS_SIZE;
 
-		UInt32 dictSize = _inputSize;
-		{ // next highest (to input size) power of two times two
+		UInt32 dictSize = _inputSize; // next nearest (to input size) power of two times two
 		--dictSize;
 		for (uint32_t p = 1; p < 32; p <<= 1)
 			dictSize |= dictSize>>p;
 		++dictSize;
 		dictSize <<= 1;
-		}
+
 		// Lzma props: https://stackoverflow.com/a/21384797/5538150
 		CLzmaEncProps props;
 		LzmaEncProps_Init(&props);
 		props.dictSize = dictSize;
 		props.level = 5; // compression level [0;9]
-		props.algo = 0; // fast algo: a little worse compression, a little less time
+		props.algo = 0; // fast algo: a little worse compression, a little less loading time
 		props.lp = 2; // 2^2==sizeof(float)
 
 		const SizeT heapSize = _inputSize + LZMA_PROPS_SIZE;

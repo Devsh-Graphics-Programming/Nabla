@@ -33,17 +33,24 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSyste
 
 ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 {
+	unsigned char pwd[16] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+	return createMesh(_file, pwd);
+}
+
+ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _pwd[16])
+{
 #ifdef _DEBUG
 	uint32_t time = os::Timer::getRealTime();
 #endif // _DEBUG
 
-	SContext ctx{_file};
+	SContext ctx{ _file };
 	if (!verifyFile(ctx))
 		return NULL;
 
 	uint32_t blobCnt;
 	uint32_t* offsets;
 	core::BlobHeaderV0* headers;
+
 	if (!validateHeaders(&blobCnt, &offsets, (void**)&headers, ctx))
 		return NULL;
 
@@ -51,7 +58,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	if (ctx.filePath[ctx.filePath.size() - 1] != '/')
 		ctx.filePath += "/";
 
-	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{{}, blobCnt}.calcBlobsOffset();
+	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{ {}, blobCnt }.calcBlobsOffset();
 
 	std::map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
@@ -64,7 +71,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	}
 	free(offsets);
 
-	const core::BlobLoadingParams params{m_sceneMgr, m_fileSystem, ctx.filePath};
+	const core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, ctx.filePath };
 	std::stack<SBlobData*> toLoad, toFinalize;
 	toLoad.push(&meshBlobDataIter->second);
 	while (!toLoad.empty())
@@ -75,7 +82,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 		const uint64_t handle = data->header->handle;
 		const uint32_t size = data->header->blobSizeDecompr;
 		const uint32_t blobType = data->header->blobType;
-		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx);
+		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, _pwd);
 
 		if (!blob)
 		{
@@ -161,6 +168,10 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 	_ctx.file->seek(sizeof(core::BAWFileV0::fileHeader));
 	if (!safeRead(_ctx.file, _blobCnt, sizeof(*_blobCnt)))
 		return false;
+	if (!safeRead(_ctx.file, _ctx.pwdVer, 2))
+		return false;
+	if (!safeRead(_ctx.file, _ctx.iv, 16))
+		return false;
 
 	uint32_t* const offsets = *_offsets = (uint32_t*)malloc(*_blobCnt * sizeof(uint32_t));
 	*_headers = malloc(*_blobCnt * sizeof(core::BlobHeaderV0));
@@ -204,7 +215,7 @@ bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _si
 	return true;
 }
 
-void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext & _ctx, void * _stackPtr, size_t _stackSize) const
+void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext & _ctx, unsigned char _pwd[16], void * _stackPtr, size_t _stackSize) const
 {
 	void* dst;
 	if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize)
@@ -212,6 +223,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 	else
 		dst = malloc(_data.header->blobSizeDecompr);
 
+	const bool encrypted = (_data.header->compressionType & core::Blob::EBCT_AES128_GCM);
 	const bool compressed = (_data.header->compressionType & core::Blob::EBCT_LZ4) || (_data.header->compressionType & core::Blob::EBCT_LZMA);
 
 	void* dstCompressed = dst; // ptr to mem to load possibly compressed data
@@ -223,10 +235,34 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 
 	if (!_data.header->validate(dstCompressed))
 	{
+#ifdef _DEBUG
+		os::Printer::log("Blob validation failed!", ELL_ERROR);
+#endif
 		free(dstCompressed);
-		if (dst != _stackPtr)
+		if (dst != _stackPtr && dst != dstCompressed)
 			free(dst);
 		return NULL;
+	}
+
+	if (encrypted)
+	{
+		fcrypt_ctx cryptCtx;
+		unsigned char pwdVer[2];
+		const unsigned char* pwd = (_ctx.pwdVer[0] == 0xff && _ctx.pwdVer[1] == 0xff) ? (const unsigned char*)"hejkahejkahejkaa" : _pwd;
+		fcrypt_init(1, pwd, 16, _ctx.iv, pwdVer, &cryptCtx);
+		if (pwd == _pwd /* only if no "no-passowrd"*/ && (pwdVer[0] != _ctx.pwdVer[0] || pwdVer[1] != _ctx.pwdVer[1]))
+		{
+			free(dstCompressed);
+			if (dst != _stackPtr && dst != dstCompressed)
+				free(dst);
+#ifdef _DEBUG
+			os::Printer::log("Failed to decrypt blob! Wrong password.", ELL_ERROR);
+#endif
+			return NULL;
+		}
+		fcrypt_decrypt((unsigned char*)dstCompressed, _data.header->blobSize, &cryptCtx);
+		unsigned char dummy[10];
+		fcrypt_end(dummy, &cryptCtx);
 	}
 
 	if (compressed)
@@ -242,7 +278,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 		free(dstCompressed);
 		if (!res)
 		{
-			if (dst != _stackPtr)
+			if (dst != _stackPtr && dst != dstCompressed)
 				free(dst);
 			return NULL;
 		}
@@ -256,7 +292,7 @@ bool CBAWMeshFileLoader::decompressLzma(void* _dst, size_t _dstSize, const void*
 	SizeT dstSize = _dstSize;
 	SizeT srcSize = _srcSize - LZMA_PROPS_SIZE;
 	ELzmaStatus status;
-	ISzAlloc alloc{&LzmaMemMngmnt::alloc, &LzmaMemMngmnt::release};
+	ISzAlloc alloc{&core::LzmaMemMngmnt::alloc, &core::LzmaMemMngmnt::release};
 	const SRes res = LzmaDecode((Byte*)_dst, &dstSize, (const Byte*)(_src)+LZMA_PROPS_SIZE, &srcSize, (const Byte*)_src, LZMA_PROPS_SIZE, LZMA_FINISH_ANY, &status, &alloc);
 	if (res != SZ_OK)
 		return false;

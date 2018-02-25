@@ -15,6 +15,8 @@
 #include "aabbox3d.h"
 #include "SMaterial.h"
 
+struct ISzAlloc;
+
 namespace irr {
 
 namespace core
@@ -73,10 +75,14 @@ namespace core
 
 		//! Number of internal blobs
 		uint32_t numOfInternalBlobs;
+		//! Password verification
+		unsigned char pwdVer[2];
+		//! Init vector
+		unsigned char iv[16];
 		//! Blobs offsets counted from after blob-headers block
 		uint32_t blobOffsets[1];
 
-		size_t calcOffsetsOffset() const { return sizeof(fileHeader) + sizeof(numOfInternalBlobs); }
+		size_t calcOffsetsOffset() const { return sizeof(fileHeader) + sizeof(numOfInternalBlobs) + sizeof(pwdVer) + sizeof(iv); }
 		size_t calcHeadersOffset() const { return calcOffsetsOffset() + numOfInternalBlobs*sizeof(blobOffsets[0]); }
 		size_t calcBlobsOffset() const { return calcHeadersOffset() + numOfInternalBlobs*sizeof(BlobHeaderV0); }
 	} PACK_STRUCT;
@@ -370,6 +376,14 @@ namespace core
 		virtual ~BlobSerializable() {}
 
 		virtual void* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const = 0;
+	};
+
+	struct LzmaMemMngmnt
+	{
+		static void *alloc(const ISzAlloc*, size_t _size) { return malloc(_size); }
+		static void release(const ISzAlloc*, void* _addr) { free(_addr); }
+	private:
+		LzmaMemMngmnt() {}
 	};
 
 }} // irr::core
