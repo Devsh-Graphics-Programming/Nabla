@@ -107,7 +107,7 @@ namespace irr {namespace scene {
 	{
 		WriteProperties wp;
 		if (_flags & EMWF_WRITE_COMPRESSED)
-			wp.encryptBlobBitField = ECT_EVERYTHING;
+			wp.encryptBlobBitField = ECT_RAW_BUFFERS | ECT_ANIMATION_DATA | ECT_TEXTURES;
 		else
 			wp.encryptBlobBitField = ECT_NOTHING;
 		return writeMesh(_file, _mesh, wp);
@@ -170,7 +170,7 @@ namespace irr {namespace scene {
 				exportAsBlob(reinterpret_cast<CFinalBoneHierarchy*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_ANIMATION_DATA));
 				break;
 			case core::Blob::EBT_TEXTURE_PATH:
-				exportAsBlob(reinterpret_cast<video::IVirtualTexture*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_TEXTURES));
+				exportAsBlob(reinterpret_cast<video::IVirtualTexture*>(ctx.headers[i].handle), i, _file, ctx, toCompressOrNotToCompress(_propsStruct, ECT_TEXTURE_PATHS));
 				break;
 			}
 		}
@@ -315,17 +315,17 @@ namespace irr {namespace scene {
 			{
 				data = compressWithLzma(data, _size, compressedSize);
 				if (data != _data)
-					comprType = core::Blob::EBCT_LZMA;
+					comprType |= core::Blob::EBCT_LZMA;
 			}
 			else if (_size >= _ctx.props->blobLz4EncrThresh)
 			{
 				data = compressWithLz4AndTryOnStack(data, _size, stack, sizeof(stack), compressedSize);
 				if (data != _data)
-					comprType = core::Blob::EBCT_LZ4;
+					comprType |= core::Blob::EBCT_LZ4;
 			}
 		}
 
-		_ctx.headers[_headerIdx].finalize(_data, data, _size, compressedSize, comprType);
+		_ctx.headers[_headerIdx].finalize(data, _size, compressedSize, comprType);
 		_file->write(data, _ctx.headers[_headerIdx].blobSize);
 		calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].blobSize, _ctx);
 
@@ -389,7 +389,7 @@ namespace irr {namespace scene {
 		props.algo = 0; // fast algo: a little worse compression, a little less time
 		props.lp = 2; // 2^2==sizeof(float)
 
-		const SizeT heapSize = _inputSize + LZMA_PROPS_SIZE; //! @todo Get to know some kind of upper bound of lzma compression size
+		const SizeT heapSize = _inputSize + LZMA_PROPS_SIZE;
 		uint8_t* data = (uint8_t*)malloc(heapSize);
 		SizeT destSize = heapSize;
 

@@ -60,9 +60,9 @@ namespace core
 		uint64_t blobHash[4];
 
 		//! Assigns sizes and calculates hash of data.
-		void finalize(const void* _notCompressedData, const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType);
+		void finalize(const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType);
 		//! Calculates hash from `_data` and compares to current one (`blobHash` member).
-		bool validate(const void* _decomprData) const;
+		bool validate(const void* _data) const;
 	} PACK_STRUCT;
 
 	//! Cast pointer to (first byte of) file buffer to BAWFile*. 256bit header must be first member (start of file).
@@ -87,13 +87,12 @@ namespace core
 		//! Coding method of blob's data enumeration
 		enum E_BLOB_CODING_TYPE
 		{
-			EBCT_RAW = 0,
-			EBCT_AES128_GCM,
-			EBCT_LZ4,
-			EBCT_LZ4_AES128_GCM,
-			EBCT_LZMA,
-			EBCT_LZMA_AES128_GCM,
-			EBCT_COUNT
+			EBCT_RAW = 0x00,
+			EBCT_AES128_GCM = 0x01,
+			EBCT_LZ4 = 0x02,
+			EBCT_LZ4_AES128_GCM = 0x03,
+			EBCT_LZMA = 0x04,
+			EBCT_LZMA_AES128_GCM = 0x05
 		};
 		//! Type of blob enumeration
 		enum E_BLOB_TYPE

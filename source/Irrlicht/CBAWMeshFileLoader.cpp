@@ -77,7 +77,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 		const uint32_t blobType = data->header->blobType;
 		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx);
 
-		if (!blob || !data->validate())
+		if (!blob)
 		{
 			ctx.releaseLoadedObjects();
 			free(headers);
@@ -212,34 +212,34 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 	else
 		dst = malloc(_data.header->blobSizeDecompr);
 
-	const bool compressed = (_data.header->compressionType != core::Blob::EBCT_RAW);
+	const bool compressed = (_data.header->compressionType & core::Blob::EBCT_LZ4) || (_data.header->compressionType & core::Blob::EBCT_LZMA);
 
-	uint8_t stackCompressed[1u<<14];
-	void* dstCompressed = stackCompressed; // ptr to mem to load possibly compressed data
-	if (!compressed)
-		dstCompressed = dst;
-	else if (_data.header->blobSize > sizeof(stackCompressed))
+	void* dstCompressed = dst; // ptr to mem to load possibly compressed data
+	if (compressed)
 		dstCompressed = malloc(_data.header->blobSize);
 
 	_ctx.file->seek(_data.absOffset);
 	_ctx.file->read(dstCompressed, _data.header->blobSize);
 
+	if (!_data.header->validate(dstCompressed))
+	{
+		free(dstCompressed);
+		if (dst != _stackPtr)
+			free(dst);
+		return NULL;
+	}
+
 	if (compressed)
 	{
 		const uint8_t comprType = _data.header->compressionType;
 		bool res = false;
-		switch (comprType)
-		{
-			case core::Blob::EBCT_LZ4:
-				res = decompressLz4(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
-				break;
-			case core::Blob::EBCT_LZMA:
-				res = decompressLzma(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
-				break;
-		}
 
-		if (dstCompressed != stackCompressed)
-			free(dstCompressed);
+		if (comprType & core::Blob::EBCT_LZ4)
+			res = decompressLz4(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
+		else if (comprType & core::Blob::EBCT_LZMA)
+			res = decompressLzma(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
+
+		free(dstCompressed);
 		if (!res)
 		{
 			if (dst != _stackPtr)
