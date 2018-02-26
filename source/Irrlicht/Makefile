@@ -29,14 +29,14 @@ VERSION_RELEASE = 3
 #
 
 #List of object files, separated based on engine architecture
-IRRMESHLOADER = CMS3DMeshFileLoader.o CB3DMeshFileLoader.o C3DSMeshFileLoader.o COgreMeshFileLoader.o COBJMeshFileLoader.o CCSMLoader.o CDMFLoader.o CLMTSMeshFileLoader.o CMY3DMeshFileLoader.o COCTLoader.o CXMeshFileLoader.o CSTLMeshFileLoader.o CLWOMeshFileLoader.o CPLYMeshFileLoader.o CSMFMeshFileLoader.o
+IRRMESHLOADER = CMS3DMeshFileLoader.o CB3DMeshFileLoader.o C3DSMeshFileLoader.o COgreMeshFileLoader.o COBJMeshFileLoader.o CCSMLoader.o CDMFLoader.o CLMTSMeshFileLoader.o CMY3DMeshFileLoader.o COCTLoader.o CXMeshFileLoader.o CSTLMeshFileLoader.o CLWOMeshFileLoader.o CPLYMeshFileLoader.o CSMFMeshFileLoader.o CBAWMeshFileLoader.o
 IRRMESHWRITER = CSTLMeshWriter.o COBJMeshWriter.o CPLYMeshWriter.o CBAWMeshWriter.o
 IRRMESHOBJ = $(IRRMESHLOADER) $(IRRMESHWRITER) \
 	CSkinnedMesh.o CMeshSceneNode.o CMeshSceneNodeInstanced.o \
 	CSkinnedMeshSceneNode.o \
 	CAnimatedMeshSceneNode.o \
 	CAnimatedMeshHalfLife.o \
-	CBawFile.o
+	CBAWFile.o CBlobsLoadingManager.o TypedBlob.o
 IRROBJ = CBillboardSceneNode.o CCameraSceneNode.o CEmptySceneNode.o CGeometryCreator.o CMeshManipulator.o CSceneManager.o CSkyBoxSceneNode.o CSkyDomeSceneNode.o CCubeSceneNode.o CSphereSceneNode.o CMeshCache.o CDefaultSceneNodeAnimatorFactory.o CDefaultSceneNodeFactory.o
 IRRANIMOBJ = CSceneNodeAnimatorCameraFPS.o CSceneNodeAnimatorCameraMaya.o CSceneNodeAnimatorDelete.o CSceneNodeAnimatorFlyCircle.o CSceneNodeAnimatorFlyStraight.o CSceneNodeAnimatorFollowSpline.o CSceneNodeAnimatorRotation.o CSceneNodeAnimatorTexture.o
 IRRDRVROBJ = FW_Mutex.o CNullDriver.o COpenGLDriver.o COpenGLTexture.o COpenGLSLMaterialRenderer.o COpenGLExtensionHandler.o COpenGLFrameBuffer.o COpenGLRenderBuffer.o STextureSamplingParams.o
