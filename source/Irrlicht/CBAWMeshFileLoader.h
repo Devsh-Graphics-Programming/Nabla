@@ -59,7 +59,6 @@ private:
 		std::map<uint64_t, SBlobData> blobs;
 		std::map<uint64_t, void*> createdObjs;
 		core::CBlobsLoadingManager loadingMgr;
-		//fcrypt_ctx cryptCtx;
 		unsigned char pwdVer[2];
 		unsigned char iv[16];
 	};

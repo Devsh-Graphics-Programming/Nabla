@@ -116,7 +116,13 @@ namespace irr {namespace scene {
 	bool CBAWMeshWriter::writeMesh(io::IWriteFile* _file, scene::ICPUMesh* _mesh, WriteProperties& _propsStruct)
 	{
 		if (!_mesh || !_file || _propsStruct.blobLz4EncrThresh > _propsStruct.blobLzmaEncrThresh)
+		{
+#ifdef _DEBUG
+			if (_propsStruct.blobLz4EncrThresh > _propsStruct.blobLzmaEncrThresh)
+				os::Printer::log("LZMA threshold must be greater or equal LZ4 threshold!", ELL_ERROR);
+#endif
 			return false;
+		}
 
 		const uint32_t FILE_HEADER_SIZE = 32;
 		_IRR_DEBUG_BREAK_IF(FILE_HEADER_SIZE != sizeof(core::BAWFileV0::fileHeader))
@@ -132,7 +138,7 @@ namespace irr {namespace scene {
 
 		if (_propsStruct.encryptBlobBitField != EET_NOTHING)
 		{
-			if (*_propsStruct.encryptionPassPhrase) // starts with non-zero
+			if (*_propsStruct.encryptionPassPhrase) // starts with non-zero, i.e. no password
 			{
 				fcrypt_ctx cryptCtx;
 				fcrypt_init(1, _propsStruct.encryptionPassPhrase, 16, _propsStruct.initializationVector, ctx.pwdVer, &cryptCtx);
