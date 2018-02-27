@@ -31,7 +31,7 @@ void COpenGLRenderBuffer::resize(const core::dimension2du &newSize)
 
     if (RenderBufferName)
     {
-        glDeleteTextures(1,&RenderBufferName);
+        COpenGLExtensionHandler::extGlDeleteRenderbuffers(1,&RenderBufferName);
         RenderBufferName = 0;
     }
     COpenGLExtensionHandler::extGlCreateRenderbuffers(1,&RenderBufferName);
@@ -58,7 +58,7 @@ void COpenGLMultisampleRenderBuffer::resize(const core::dimension2du &newSize)
 
     if (RenderBufferName)
     {
-        glDeleteTextures(1,&RenderBufferName);
+        COpenGLExtensionHandler::extGlDeleteRenderbuffers(1,&RenderBufferName);
         RenderBufferName = 0;
     }
     COpenGLExtensionHandler::extGlCreateRenderbuffers(1,&RenderBufferName);
