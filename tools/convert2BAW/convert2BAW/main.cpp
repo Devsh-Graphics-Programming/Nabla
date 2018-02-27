@@ -1,6 +1,7 @@
 #define _IRR_STATIC_LIB_
 
 #include <irrlicht.h>
+#include <CBAWMeshWriter.h>
 #include <vector>
 
 using namespace irr;
@@ -27,12 +28,13 @@ int main(int _optCnt, char** _options)
 
 	scene::ISceneManager* const smgr = device->getSceneManager();
 	io::IFileSystem* const fs = device->getFileSystem();
-	scene::IMeshWriter* const writer = smgr->createMeshWriter(irr::scene::EMWT_BAW);
+	scene::CBAWMeshWriter* const writer = dynamic_cast<scene::CBAWMeshWriter*>(smgr->createMeshWriter(irr::scene::EMWT_BAW));
 
 	std::vector<const char*> inNames;
 	std::vector<const char*> outNames;
 
 	E_GATHER_TARGET gatherWhat = EGT_UNDEFINED;
+	scene::CBAWMeshWriter::WriteProperties properties;
 	for (size_t i = 0; i < _optCnt; ++i)
 	{
 		if (_options[i][0] == '-')
@@ -41,6 +43,30 @@ int main(int _optCnt, char** _options)
 				gatherWhat = EGT_INPUTS;
 			else if (core::equalsIgnoreCase("o", _options[i]+1))
 				gatherWhat = EGT_OUTPUTS;
+			else if (i+1 != _optCnt && core::equalsIgnoreCase("iv", _options[i]+1))
+			{
+				++i;
+				gatherWhat = EGT_UNDEFINED;
+				if (core::length(_options[i]) != 16)
+				{
+					printf("Initialization vector length must be 16! Ignored - IV not set.");
+					continue;
+				}
+				memcpy(properties.initializationVector, _options[i], 16);
+				continue;
+			}
+			else if (i+1 != _optCnt && core::equalsIgnoreCase("pwd", _options[i]+1))
+			{
+				++i;
+				gatherWhat = EGT_UNDEFINED;
+				if (core::length(_options[i]) != 16)
+				{
+					printf("Password length must be 16! Ignored - password not set.");
+					continue;
+				}
+				memcpy(properties.encryptionPassPhrase, _options[i], 16);
+				continue;
+			}
 			else
 			{
 				gatherWhat = EGT_UNDEFINED;
@@ -51,10 +77,10 @@ int main(int _optCnt, char** _options)
 
 		switch (gatherWhat)
 		{
-		case 1:
+		case EGT_INPUTS:
 			inNames.push_back(_options[i]);
 			break;
-		case 2:
+		case EGT_OUTPUTS:
 			if (!core::hasFileExtension(_options[i], "baw"))
 			{
 				printf("Output filename must be of 'baw' extension. Ignored.\n");
@@ -88,9 +114,10 @@ int main(int _optCnt, char** _options)
 			printf("Could not create/open file %s.", outNames[i]);
 			continue;
 		}
-		writer->writeMesh(outfile, inmesh);
+		writer->writeMesh(outfile, inmesh, properties);
 		outfile->drop();
 	}
+	writer->drop();
 	device->drop();
 
 	return 0;
