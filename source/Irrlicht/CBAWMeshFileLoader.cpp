@@ -33,7 +33,7 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSyste
 
 ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 {
-	unsigned char pwd[16] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+	unsigned char pwd[16] = "hejkahejkahejka";
 	return createMesh(_file, pwd);
 }
 
@@ -50,10 +50,8 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 	uint32_t blobCnt;
 	uint32_t* offsets;
 	core::BlobHeaderV0* headers;
-
 	if (!validateHeaders(&blobCnt, &offsets, (void**)&headers, ctx))
 		return NULL;
-
 	ctx.filePath = ctx.file->getFileName();
 	if (ctx.filePath[ctx.filePath.size() - 1] != '/')
 		ctx.filePath += "/";
@@ -128,7 +126,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
 	}
 
-	ctx.regularDrop();
+	ctx.releaseAllButMesh(); // call drop on all loaded objects except mesh
 	free(headers);
 
 #ifdef _DEBUG
@@ -168,11 +166,8 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 	_ctx.file->seek(sizeof(core::BAWFileV0::fileHeader));
 	if (!safeRead(_ctx.file, _blobCnt, sizeof(*_blobCnt)))
 		return false;
-	if (!safeRead(_ctx.file, _ctx.pwdVer, 2))
-		return false;
 	if (!safeRead(_ctx.file, _ctx.iv, 16))
 		return false;
-
 	uint32_t* const offsets = *_offsets = (uint32_t*)malloc(*_blobCnt * sizeof(uint32_t));
 	*_headers = malloc(*_blobCnt * sizeof(core::BlobHeaderV0));
 	core::BlobHeaderV0* const headers = (core::BlobHeaderV0*)*_headers;
@@ -183,6 +178,7 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 		nope = true;
 	if (!safeRead(_ctx.file, headers, *_blobCnt * sizeof(core::BlobHeaderV0)))
 		nope = true;
+
 	const uint32_t offsetRelByte = core::BAWFileV0{{}, *_blobCnt}.calcBlobsOffset(); // num of byte to which offsets are relative
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether offsets are in ascending order none of them points past the end of file
 		if (offsets[i] >= offsets[i+1] || offsetRelByte + offsets[i] >= _ctx.file->getSize())
@@ -192,10 +188,10 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 		nope = true;
 
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether blobs are tightly packed (do not overlays each other and there's no space bewteen any pair)
-		if (offsets[i] + headers[i].blobSize != offsets[i+1])
+		if (offsets[i] + headers[i].effectiveSize() != offsets[i+1])
 			nope = true;
 
-	if (offsets[*_blobCnt-1] + headers[*_blobCnt-1].blobSize >= _ctx.file->getSize()) // whether last blob doesn't "go out of file"
+	if (offsets[*_blobCnt-1] + headers[*_blobCnt-1].effectiveSize() >= _ctx.file->getSize()) // whether last blob doesn't "go out of file"
 		nope = true;
 
 	if (nope)
@@ -218,20 +214,20 @@ bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _si
 void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext & _ctx, unsigned char _pwd[16], void * _stackPtr, size_t _stackSize) const
 {
 	void* dst;
-	if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize)
+	if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
 		dst = _stackPtr;
 	else
-		dst = malloc(_data.header->blobSizeDecompr);
+		dst = malloc(core::BlobHeaderV0::calcEncSize(_data.header->blobSizeDecompr));
 
 	const bool encrypted = (_data.header->compressionType & core::Blob::EBCT_AES128_GCM);
 	const bool compressed = (_data.header->compressionType & core::Blob::EBCT_LZ4) || (_data.header->compressionType & core::Blob::EBCT_LZMA);
 
 	void* dstCompressed = dst; // ptr to mem to load possibly compressed data
 	if (compressed)
-		dstCompressed = malloc(_data.header->blobSize);
+		dstCompressed = malloc(_data.header->effectiveSize());
 
 	_ctx.file->seek(_data.absOffset);
-	_ctx.file->read(dstCompressed, _data.header->blobSize);
+	_ctx.file->read(dstCompressed, _data.header->effectiveSize());
 
 	if (!_data.header->validate(dstCompressed))
 	{
@@ -246,23 +242,23 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 
 	if (encrypted)
 	{
-		fcrypt_ctx cryptCtx;
-		unsigned char pwdVer[2];
-		const unsigned char* pwd = (_ctx.pwdVer[0] == 0xff && _ctx.pwdVer[1] == 0xff) ? (const unsigned char*)"hejkahejkahejkaa" : _pwd;
-		fcrypt_init(1, pwd, 16, _ctx.iv, pwdVer, &cryptCtx);
-		if (pwd == _pwd /* only if no "no-passowrd"*/ && (pwdVer[0] != _ctx.pwdVer[0] || pwdVer[1] != _ctx.pwdVer[1]))
-		{
+		const size_t size = _data.header->effectiveSize();
+		void* out = malloc(size);
+		const bool ok = core::runAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, false);
+		if (dstCompressed != _stackPtr && dstCompressed != dst)
 			free(dstCompressed);
-			if (dst != _stackPtr && dst != dstCompressed)
+		if (!ok)
+		{
+			if (dst != _stackPtr)
 				free(dst);
+			free(out);
 #ifdef _DEBUG
-			os::Printer::log("Failed to decrypt blob! Wrong password.", ELL_ERROR);
+			os::Printer::log("Blob decryption failed!", ELL_ERROR);
 #endif
-			return NULL;
 		}
-		fcrypt_decrypt((unsigned char*)dstCompressed, _data.header->blobSize, &cryptCtx);
-		unsigned char dummy[10];
-		fcrypt_end(dummy, &cryptCtx);
+		dstCompressed = out;
+		if (!compressed)
+			dst = dstCompressed;
 	}
 
 	if (compressed)
@@ -280,6 +276,9 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 		{
 			if (dst != _stackPtr && dst != dstCompressed)
 				free(dst);
+#ifdef _DEBUG
+			os::Printer::log("Blob decompression failed!", ELL_ERROR);
+#endif
 			return NULL;
 		}
 	}
@@ -303,35 +302,6 @@ bool CBAWMeshFileLoader::decompressLz4(void * _dst, size_t _dstSize, const void 
 {
 	int res = LZ4_decompress_safe((const char*)_src, (char*)_dst, _srcSize, _dstSize);
 	return res >= 0;
-}
-
-void CBAWMeshFileLoader::SContext::regularDrop()
-{
-	for (std::map<uint64_t, SBlobData>::iterator it = blobs.begin(); it != blobs.end(); ++it)
-	{
-		const uint32_t type = it->second.header->blobType;
-		const uint64_t handle = it->second.header->handle;
-
-		using namespace core;
-		uint32_t typesNeededToBeDropped[]
-		{
-			Blob::EBT_MESH_BUFFER,
-			Blob::EBT_SKINNED_MESH_BUFFER,
-			Blob::EBT_RAW_DATA_BUFFER,
-			Blob::EBT_DATA_FORMAT_DESC,
-			Blob::EBT_FINAL_BONE_HIERARCHY
-		};
-
-		bool dropIt = false;
-		for (size_t i = 0; i < sizeof(typesNeededToBeDropped) / sizeof(*typesNeededToBeDropped); ++i)
-			if (type == typesNeededToBeDropped[i])
-			{
-				dropIt = true;
-				break;
-			}
-		if (dropIt)
-			loadingMgr.releaseObj(type, createdObjs[handle]);
-	}
 }
 
 }} // irr::scene

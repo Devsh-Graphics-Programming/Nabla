@@ -361,7 +361,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\openssl\openssl-build\include;.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_7ZIP_ST;WIN32;WIN64;_DEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -378,9 +378,10 @@
       <Culture>0x0c07</Culture>
     </ResourceCompile>
     <Lib>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libeay32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <TargetMachine>MachineX64</TargetMachine>
+      <AdditionalLibraryDirectories>..\..\..\openssl\openssl-build\debug\lib</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">
@@ -510,7 +511,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\openssl\openssl-build\include;.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_7ZIP_ST;WIN32;WIN64;NDEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>false</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -535,9 +536,10 @@
       <Culture>0x0c07</Culture>
     </ResourceCompile>
     <Lib>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libeay32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <TargetMachine>MachineX64</TargetMachine>
+      <AdditionalLibraryDirectories>..\..\..\openssl\openssl-build\release\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Server|x64'">
@@ -900,6 +902,10 @@
     <ClInclude Include="..\..\include\IGUITreeView.h" />
     <ClInclude Include="..\..\include\IGUIWindow.h" />
     <ClInclude Include="..\..\include\vectorSIMD.h" />
+    <ClInclude Include="aesGladman\aestab.h" />
+    <ClInclude Include="aesGladman\aes_ni.h" />
+    <ClInclude Include="aesGladman\brg_endian.h" />
+    <ClInclude Include="aesGladman\brg_types.h" />
     <ClInclude Include="CDefaultSceneNodeAnimatorFactory.h" />
     <ClInclude Include="CDefaultSceneNodeFactory.h" />
     <ClInclude Include="CGeometryCreator.h" />
@@ -1116,6 +1122,15 @@
     <None Include="..\..\readme.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="aesGladman\aescrypt.c" />
+    <ClCompile Include="aesGladman\aeskey.c" />
+    <ClCompile Include="aesGladman\aestab.c" />
+    <ClCompile Include="aesGladman\aes_ni.c" />
+    <ClCompile Include="aesGladman\fileenc.c" />
+    <ClCompile Include="aesGladman\hmac.c" />
+    <ClCompile Include="aesGladman\prng.c" />
+    <ClCompile Include="aesGladman\pwd2key.c" />
+    <ClCompile Include="aesGladman\sha1.c" />
     <ClCompile Include="bzip2\compress.c" />
     <ClCompile Include="CBAWFile.cpp" />
     <ClCompile Include="CBAWMeshFileLoader.cpp" />
@@ -1359,15 +1374,6 @@
     <ClCompile Include="libpng\pngwrite.c" />
     <ClCompile Include="libpng\pngwtran.c" />
     <ClCompile Include="libpng\pngwutil.c" />
-    <ClCompile Include="aesGladman\aescrypt.cpp" />
-    <ClCompile Include="aesGladman\aeskey.cpp" />
-    <ClCompile Include="aesGladman\aestab.cpp" />
-    <ClCompile Include="aesGladman\fileenc.cpp" />
-    <ClCompile Include="aesGladman\hmac.cpp" />
-    <ClCompile Include="aesGladman\prng.cpp" />
-    <ClCompile Include="aesGladman\pwd2key.cpp" />
-    <ClCompile Include="aesGladman\sha1.cpp" />
-    <ClCompile Include="aesGladman\sha2.cpp" />
     <ClCompile Include="bzip2\blocksort.c" />
     <ClCompile Include="bzip2\bzlib.c" />
     <ClCompile Include="bzip2\crctable.c" />

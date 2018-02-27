@@ -40,9 +40,9 @@ namespace scene
 
 		struct WriteProperties
 		{
-			WriteProperties() : blobLz4EncrThresh(4096), blobLzmaEncrThresh(32768), encryptionPassPhrase{0 /*no pwd*/}, encryptBlobBitField(EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES) {}
-			size_t blobLz4EncrThresh;
-			size_t blobLzmaEncrThresh;
+			WriteProperties() : blobLz4ComprThresh(4096), blobLzmaComprThresh(32768), encryptionPassPhrase{"hejkahejkahejka"}, initializationVector{"hejkahejkahejka"}, encryptBlobBitField(EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES) {}
+			size_t blobLz4ComprThresh;
+			size_t blobLzmaComprThresh;
 			unsigned char encryptionPassPhrase[16];
 			unsigned char initializationVector[16];
 			uint64_t encryptBlobBitField;
@@ -54,7 +54,6 @@ namespace scene
 			core::array<core::BlobHeaderV0> headers;
 			core::array<uint32_t> offsets;
 			const WriteProperties* props;
-			unsigned char pwdVer[2];
 		};
 
 	protected:

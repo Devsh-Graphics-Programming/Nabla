@@ -51,7 +51,15 @@ private:
 			for (std::map<uint64_t, void*>::iterator it = createdObjs.begin(); it != createdObjs.end(); ++it)
 				loadingMgr.releaseObj(blobs[it->first].header->blobType, it->second);
 		}
-		void regularDrop();
+		void releaseAllButMesh()
+		{
+			for (std::map<uint64_t, void*>::iterator it = createdObjs.begin(); it != createdObjs.end(); ++it)
+			{
+				const uint32_t t = blobs[it->first].header->blobType;
+				if (t != core::Blob::EBT_MESH && t != core::Blob::EBT_SKINNED_MESH)
+					loadingMgr.releaseObj(t, it->second);
+			}
+		}
 
 		io::IReadFile* file;
 		io::path filePath;
@@ -59,7 +67,6 @@ private:
 		std::map<uint64_t, SBlobData> blobs;
 		std::map<uint64_t, void*> createdObjs;
 		core::CBlobsLoadingManager loadingMgr;
-		unsigned char pwdVer[2];
 		unsigned char iv[16];
 	};
 

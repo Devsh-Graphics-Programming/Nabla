@@ -90,8 +90,6 @@ void* TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::finalize(void* _obj,
 template<>
 void TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::releaseObj(const void* _obj)
 {
-	if (_obj)
-		reinterpret_cast<const video::IVirtualTexture*>(_obj)->drop();
 }
 
 template<>
