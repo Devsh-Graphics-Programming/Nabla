@@ -16,6 +16,23 @@ namespace scene
 //! class for creating geometry on the fly
 class CGeometryCreator : public IGeometryCreator
 {
+private:
+#include "irrpack.h"
+	struct CubeVertex
+	{
+		float pos[3];
+		uint8_t color[4]; // normalized
+		uint8_t uv[2];
+		int8_t normal[3];
+		uint8_t dummy[3];
+
+		void setPos(float x, float y, float z) { pos[0] = x; pos[1] = y; pos[2] = z; }
+		void translate(float dx, float dy, float dz) { pos[0] += dx; pos[1] += dy; pos[2] += dz; }
+		void setColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) { color[0] = r; color[1] = g; color[2] = b; color[3] = a; }
+		void setNormal(int8_t x, int8_t y, int8_t z) { normal[0] = x; normal[1] = y; normal[2] = z; }
+		void setUv(uint8_t u, uint8_t v) { uv[0] = u; uv[1] = v; }
+	} PACK_STRUCT;
+#include "irrunpack.h"
 public:
 	ICPUMesh* createCubeMeshCPU(const core::vector3df& size) const;
 	IGPUMesh* createCubeMeshGPU(video::IVideoDriver* driver, const core::vector3df& size) const;

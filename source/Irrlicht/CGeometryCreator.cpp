@@ -22,144 +22,127 @@ ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
 	buffer->setMeshDataAndFormat(desc);
 	desc->drop();
 
-    //! This is a baaaad mesh, you dont share vertices in a cube across faces
 	// Create indices
-	const uint16_t u[36] = {   0,2,1,   0,3,2,   1,5,4,   1,2,5,   4,6,7,   4,5,6,
-            7,3,0,   7,6,3,   9,5,2,   9,8,5,   0,11,10,   0,10,7};
+	uint16_t u[36];
+	for (int i = 0; i < 6; ++i)
+	{
+		u[i*6+0] = 4*i+0;
+		u[i*6+1] = 4*i+1;
+		u[i*6+2] = 4*i+3;
+		u[i*6+3] = 4*i+1;
+		u[i*6+4] = 4*i+2;
+		u[i*6+5] = 4*i+3;
+	}
 
     core::ICPUBuffer* indices = new core::ICPUBuffer(sizeof(u));
     memcpy(indices->getPointer(),u,sizeof(u));
     desc->mapIndexBuffer(indices);
     buffer->setIndexType(video::EIT_16BIT);
-    buffer->setIndexCount(36);
-    //buffer->setIndexRange(0,11);
+    buffer->setIndexCount(sizeof(u)/sizeof(*u));
     indices->drop();
 
-
 	// Create vertices
-	size_t vertexSize = 3*4+4+2+3;
-    core::ICPUBuffer* vertices = new core::ICPUBuffer(12*vertexSize);
-	uint8_t* tmpMem = (uint8_t*)vertices->getPointer();
-	for (size_t i=0; i<12; i++)
-    {
-        tmpMem[i*vertexSize+3*4+0] = 255;
-        tmpMem[i*vertexSize+3*4+1] = 255;
-        tmpMem[i*vertexSize+3*4+2] = 255;
-        tmpMem[i*vertexSize+3*4+3] = 255;
-    }
-    tmpMem[0*vertexSize+3*4+4+0] = 0;
-    tmpMem[0*vertexSize+3*4+4+1] = 1;
-    tmpMem[1*vertexSize+3*4+4+0] = 1;
-    tmpMem[1*vertexSize+3*4+4+1] = 1;
-    tmpMem[2*vertexSize+3*4+4+0] = 1;
-    tmpMem[2*vertexSize+3*4+4+1] = 0;
-    tmpMem[3*vertexSize+3*4+4+0] = 0;
-    tmpMem[3*vertexSize+3*4+4+1] = 0;
-    tmpMem[4*vertexSize+3*4+4+0] = 0;
-    tmpMem[4*vertexSize+3*4+4+1] = 1;
-    tmpMem[5*vertexSize+3*4+4+0] = 0;
-    tmpMem[5*vertexSize+3*4+4+1] = 0;
-    tmpMem[6*vertexSize+3*4+4+0] = 1;
-    tmpMem[6*vertexSize+3*4+4+1] = 0;
-    tmpMem[7*vertexSize+3*4+4+0] = 1;
-    tmpMem[7*vertexSize+3*4+4+1] = 1;
-    tmpMem[8*vertexSize+3*4+4+0] = 0;
-    tmpMem[8*vertexSize+3*4+4+1] = 1;
-    tmpMem[9*vertexSize+3*4+4+0] = 1;
-    tmpMem[9*vertexSize+3*4+4+1] = 1;
-    tmpMem[10*vertexSize+3*4+4+0] = 1;
-    tmpMem[10*vertexSize+3*4+4+1] = 0;
-    tmpMem[11*vertexSize+3*4+4+0] = 0;
-    tmpMem[11*vertexSize+3*4+4+1] = 0;
-    ((float*)(tmpMem+0*vertexSize))[0] = 0;
-    ((float*)(tmpMem+0*vertexSize))[1] = 0;
-    ((float*)(tmpMem+0*vertexSize))[2] = 0;
-    ((float*)(tmpMem+1*vertexSize))[0] = 1;
-    ((float*)(tmpMem+1*vertexSize))[1] = 0;
-    ((float*)(tmpMem+1*vertexSize))[2] = 0;
-    ((float*)(tmpMem+2*vertexSize))[0] = 1;
-    ((float*)(tmpMem+2*vertexSize))[1] = 1;
-    ((float*)(tmpMem+2*vertexSize))[2] = 0;
-    ((float*)(tmpMem+3*vertexSize))[0] = 0;
-    ((float*)(tmpMem+3*vertexSize))[1] = 1;
-    ((float*)(tmpMem+3*vertexSize))[2] = 0;
-    ((float*)(tmpMem+4*vertexSize))[0] = 1;
-    ((float*)(tmpMem+4*vertexSize))[1] = 0;
-    ((float*)(tmpMem+4*vertexSize))[2] = 1;
-    ((float*)(tmpMem+5*vertexSize))[0] = 1;
-    ((float*)(tmpMem+5*vertexSize))[1] = 1;
-    ((float*)(tmpMem+5*vertexSize))[2] = 1;
-    ((float*)(tmpMem+6*vertexSize))[0] = 0;
-    ((float*)(tmpMem+6*vertexSize))[1] = 1;
-    ((float*)(tmpMem+6*vertexSize))[2] = 1;
-    ((float*)(tmpMem+7*vertexSize))[0] = 0;
-    ((float*)(tmpMem+7*vertexSize))[1] = 0;
-    ((float*)(tmpMem+7*vertexSize))[2] = 1;
-    ((float*)(tmpMem+8*vertexSize))[0] = 0;
-    ((float*)(tmpMem+8*vertexSize))[1] = 1;
-    ((float*)(tmpMem+8*vertexSize))[2] = 1;
-    ((float*)(tmpMem+9*vertexSize))[0] = 0;
-    ((float*)(tmpMem+9*vertexSize))[1] = 1;
-    ((float*)(tmpMem+9*vertexSize))[2] = 0;
-    ((float*)(tmpMem+10*vertexSize))[0] = 1;
-    ((float*)(tmpMem+10*vertexSize))[1] = 0;
-    ((float*)(tmpMem+10*vertexSize))[2] = 1;
-    ((float*)(tmpMem+11*vertexSize))[0] = 1;
-    ((float*)(tmpMem+11*vertexSize))[1] = 0;
-    ((float*)(tmpMem+11*vertexSize))[2] = 0;
-    tmpMem[0*vertexSize+3*4+4+2+0] = 0;
-    tmpMem[0*vertexSize+3*4+4+2+1] = 0;
-    tmpMem[0*vertexSize+3*4+4+2+2] = -1;
-    tmpMem[1*vertexSize+3*4+4+2+0] = 0;
-    tmpMem[1*vertexSize+3*4+4+2+1] = 0;
-    tmpMem[1*vertexSize+3*4+4+2+2] = -1;
-    tmpMem[2*vertexSize+3*4+4+2+0] = 0;
-    tmpMem[2*vertexSize+3*4+4+2+1] = 0;
-    tmpMem[2*vertexSize+3*4+4+2+2] = -1;
-    tmpMem[3*vertexSize+3*4+4+2+0] = 0;
-    tmpMem[3*vertexSize+3*4+4+2+1] = 0;
-    tmpMem[3*vertexSize+3*4+4+2+2] = -1;
-    tmpMem[4*vertexSize+3*4+4+2+0] = 0xfu;
-    tmpMem[4*vertexSize+3*4+4+2+1] = 0xfu;
-    tmpMem[4*vertexSize+3*4+4+2+2] = 0xfu;
-    tmpMem[5*vertexSize+3*4+4+2+0] = 0xfu;
-    tmpMem[5*vertexSize+3*4+4+2+1] = 0xfu;
-    tmpMem[5*vertexSize+3*4+4+2+2] = 0xfu;
-    tmpMem[6*vertexSize+3*4+4+2+0] = 0xfu;
-    tmpMem[6*vertexSize+3*4+4+2+1] = 0xfu;
-    tmpMem[6*vertexSize+3*4+4+2+2] = 0xfu;
-    tmpMem[7*vertexSize+3*4+4+2+0] = 0xfu;
-    tmpMem[7*vertexSize+3*4+4+2+1] = 0xfu;
-    tmpMem[7*vertexSize+3*4+4+2+2] = 0xfu;
-    tmpMem[8*vertexSize+3*4+4+2+0] = 0xfu;
-    tmpMem[8*vertexSize+3*4+4+2+1] = 0xfu;
-    tmpMem[8*vertexSize+3*4+4+2+2] = 0xfu;
-    tmpMem[9*vertexSize+3*4+4+2+0] = 0xfu;
-    tmpMem[9*vertexSize+3*4+4+2+1] = 0xfu;
-    tmpMem[9*vertexSize+3*4+4+2+2] = 0xfu;
-    tmpMem[10*vertexSize+3*4+4+2+0] = 0xfu;
-    tmpMem[10*vertexSize+3*4+4+2+1] = 0xfu;
-    tmpMem[10*vertexSize+3*4+4+2+2] = 0xfu;
-    tmpMem[11*vertexSize+3*4+4+2+0] = 0xfu;
-    tmpMem[11*vertexSize+3*4+4+2+1] = 0xfu;
-    tmpMem[11*vertexSize+3*4+4+2+2] = 0xfu;
+	const size_t vertexSize = sizeof(CGeometryCreator::CubeVertex);
+	core::ICPUBuffer* vertices = new core::ICPUBuffer(24*vertexSize);
+	CubeVertex* ptr = (CubeVertex*)vertices->getPointer();
+
+	const core::vector3d<int8_t> normals[6] =
+	{
+		core::vector3d<int8_t>(0, 0, 1),
+		core::vector3d<int8_t>(1, 0, 0),
+		core::vector3d<int8_t>(0, 0, -1),
+		core::vector3d<int8_t>(-1, 0, 0),
+		core::vector3d<int8_t>(0, 1, 0),
+		core::vector3d<int8_t>(0, -1, 0)
+	};
+	const core::vector3df pos[8] =
+	{
+		core::vector3df(0, 0, 0),
+		core::vector3df(1, 0, 0),
+		core::vector3df(1, 1, 0),
+		core::vector3df(0, 1, 0),
+		core::vector3df(1, 0, -1),
+		core::vector3df(0, 1, -1),
+		core::vector3df(0, 0, -1),
+		core::vector3df(1, 1, -1)
+	};
+	const core::vector2d<uint8_t> uvs[4] = 
+	{
+		core::vector2d<uint8_t>(0, 1),
+		core::vector2d<uint8_t>(1, 1),
+		core::vector2d<uint8_t>(1, 0),
+		core::vector2d<uint8_t>(0, 0)
+	};
+
+	for (size_t f = 0; f < 6; ++f)
+	{
+		const size_t v = f * 4;
+
+		for (size_t i = 0; i < 4; ++i)
+		{
+			const core::vector3d<int8_t>& n = normals[f];
+			const core::vector2d<uint8_t>& uv = uvs[i];
+			ptr[v+i].setColor(255, 255, 255, 255);
+			ptr[v+i].setNormal(n.X, n.Y, n.Z);
+			ptr[v+i].setUv(uv.X, uv.Y);
+		}
+
+		switch (f)
+		{
+		case 0:
+			ptr[v+0].setPos(pos[0].X, pos[0].Y, pos[0].Z);
+			ptr[v+1].setPos(pos[1].X, pos[1].Y, pos[1].Z);
+			ptr[v+2].setPos(pos[2].X, pos[2].Y, pos[2].Z);
+			ptr[v+3].setPos(pos[3].X, pos[3].Y, pos[3].Z);
+			break;
+		case 1:
+			ptr[v+0].setPos(pos[1].X, pos[1].Y, pos[1].Z);
+			ptr[v+1].setPos(pos[4].X, pos[4].Y, pos[4].Z);
+			ptr[v+2].setPos(pos[7].X, pos[7].Y, pos[7].Z);
+			ptr[v+3].setPos(pos[2].X, pos[2].Y, pos[2].Z);
+			break;
+		case 2:
+			ptr[v+0].setPos(pos[4].X, pos[4].Y, pos[4].Z);
+			ptr[v+1].setPos(pos[6].X, pos[6].Y, pos[6].Z);
+			ptr[v+2].setPos(pos[5].X, pos[5].Y, pos[5].Z);
+			ptr[v+3].setPos(pos[7].X, pos[7].Y, pos[7].Z);
+			break;
+		case 3:
+			ptr[v+0].setPos(pos[6].X, pos[6].Y, pos[6].Z);
+			ptr[v+2].setPos(pos[3].X, pos[3].Y, pos[3].Z);
+			ptr[v+1].setPos(pos[0].X, pos[0].Y, pos[0].Z);
+			ptr[v+3].setPos(pos[5].X, pos[5].Y, pos[5].Z);
+			break;
+		case 4:
+			ptr[v+0].setPos(pos[3].X, pos[3].Y, pos[3].Z);
+			ptr[v+1].setPos(pos[2].X, pos[2].Y, pos[2].Z);
+			ptr[v+2].setPos(pos[7].X, pos[7].Y, pos[7].Z);
+			ptr[v+3].setPos(pos[5].X, pos[5].Y, pos[5].Z);
+			break;
+		case 5:
+			ptr[v+0].setPos(pos[0].X, pos[0].Y, pos[0].Z);
+			ptr[v+1].setPos(pos[6].X, pos[6].Y, pos[6].Z);
+			ptr[v+2].setPos(pos[4].X, pos[4].Y, pos[4].Z);
+			ptr[v+3].setPos(pos[1].X, pos[1].Y, pos[1].Z);
+			break;
+		}
+	}
 
 	// Recalculate bounding box
 	buffer->setBoundingBox(core::aabbox3df(-size*0.5f,size*0.5f));
 
-	for (uint32_t i=0; i<12; ++i)
+	for (uint32_t i = 0; i < 24; ++i)
 	{
-	    core::vector3df& Pos = *((core::vector3df*)(tmpMem+i*vertexSize));
-		Pos -= core::vector3df(0.5f, 0.5f, 0.5f);
-		Pos *= size;
+		ptr[i].translate(-0.5f, -0.5f, 0.5f);
+		core::vector3df& pos = *((core::vector3df*)(ptr[i].pos));
+		pos *= size;
 	}
     //mapVertexAttrBuffer(core::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,vertexSize);
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR1,scene::ECPA_FOUR,scene::ECT_NORMALIZED_UNSIGNED_BYTE,vertexSize,4*3);
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,vertexSize,4*3+4);
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR3,scene::ECPA_THREE,scene::ECT_BYTE,vertexSize,4*3+4+2);
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,vertexSize, offsetof(CubeVertex, pos));
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR1,scene::ECPA_FOUR,scene::ECT_NORMALIZED_UNSIGNED_BYTE,vertexSize,offsetof(CubeVertex, color));
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,vertexSize,offsetof(CubeVertex, uv));
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR3,scene::ECPA_THREE,scene::ECT_BYTE,vertexSize,offsetof(CubeVertex, normal));
     vertices->drop();
-
 
 	SCPUMesh* mesh = new SCPUMesh;
 	mesh->addMeshBuffer(buffer);
