@@ -39,13 +39,11 @@
 					<Add option="-mfpmath=sse" />
 					<Add option="-ggdb3" />
 					<Add option="-std=c++03" />
-					<Add option="-fsanitize=address" />
 					<Add option="-D_AMD64_" />
 				</Compiler>
 				<Linker>
 					<Add option="-fuse-ld=gold" />
 					<Add option="-msse3" />
-					<Add option="-fsanitize=address" />
 					<Add library="Irrlicht" />
 					<Add library="Xrandr" />
 					<Add library="GL" />
@@ -54,8 +52,6 @@
 					<Add library="OpenCL" />
 					<Add library="pthread" />
 					<Add library="dl" />
-					<Add library="unwind" />
-					<Add library="unwind-x86_64" />
 					<Add directory="../../lib/Linux" />
 				</Linker>
 			</Target>

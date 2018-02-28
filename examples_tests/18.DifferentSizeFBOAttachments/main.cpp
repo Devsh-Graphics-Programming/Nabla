@@ -73,7 +73,7 @@ int main()
 	while(device->run())
 	if (device->isWindowActive())
 	{
-		driver->beginScene(true, false, video::SColor(255,255,0,0) ); //this gets 11k FPS
+		driver->beginScene(true, false, video::SColor(255,255,0,0) );
 
 		bool success = driver->setRenderTarget(fbo);
 
@@ -86,6 +86,9 @@ int main()
         }
 
 		driver->endScene();
+
+		//speed limiter
+		device->sleep(10);
 
 		// display frames per second in window title
 		uint64_t time = device->getTimer()->getRealTime();
