@@ -73,8 +73,8 @@ namespace irr {namespace scene {
 		if (!(tex = dynamic_cast<video::ITexture*>(_obj)))
 			return pushCorruptedOffset(_ctx);
 
-		const io::path fileDir = io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get out-file directory
-		io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to out-file's directory
+		const io::path fileDir = _ctx.props->relPath.size() ? _ctx.props->relPath : io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get relative-file's directory
+		io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to the file's directory
 		const uint32_t len = strlen(path.c_str()) + 1;
 
 		tryWrite(&path[0], _file, _ctx, len, _headerIdx, _compress);

@@ -33,7 +33,7 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSyste
 
 ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 {
-	unsigned char pwd[16] = "hejkahejkahejka";
+	unsigned char pwd[16] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 	return createMesh(_file, pwd);
 }
 
@@ -126,7 +126,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
 	}
 
-	ctx.releaseAllButMesh(); // call drop on all loaded objects except mesh
+	ctx.releaseAllThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
 	free(headers);
 
 #ifdef _DEBUG

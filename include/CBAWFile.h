@@ -96,7 +96,7 @@ namespace core
 		//! Calculates hash from `_data` and compares to current one (`blobHash` member).
 		bool validate(const void* _data) const;
 		//! Calculates size of blob along with required padding
-		static uint32_t calcEncSize(uint32_t _size) { return (_size/16 + 1)*16; }
+		static uint32_t calcEncSize(uint32_t _size) { return (_size+15) & uint32_t(-16); }
 		uint32_t calcEncSize() const { return calcEncSize(blobSize); }
 		uint32_t effectiveSize() const { return (compressionType & Blob::EBCT_AES128_GCM) ? calcEncSize() : blobSize; }
 	} PACK_STRUCT;

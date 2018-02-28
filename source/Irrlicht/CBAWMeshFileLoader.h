@@ -51,13 +51,13 @@ private:
 			for (std::map<uint64_t, void*>::iterator it = createdObjs.begin(); it != createdObjs.end(); ++it)
 				loadingMgr.releaseObj(blobs[it->first].header->blobType, it->second);
 		}
-		void releaseAllButMesh()
+		void releaseAllThisOne(std::map<uint64_t, SBlobData>::iterator _thisIt)
 		{
+			const uint64_t theHandle = _thisIt != blobs.end() ? _thisIt->second.header->handle : 0;
 			for (std::map<uint64_t, void*>::iterator it = createdObjs.begin(); it != createdObjs.end(); ++it)
 			{
-				const uint32_t t = blobs[it->first].header->blobType;
-				if (t != core::Blob::EBT_MESH && t != core::Blob::EBT_SKINNED_MESH)
-					loadingMgr.releaseObj(t, it->second);
+				if (it->first != theHandle)
+					loadingMgr.releaseObj(blobs[it->first].header->blobType, it->second);
 			}
 		}
 

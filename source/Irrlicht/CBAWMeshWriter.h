@@ -40,12 +40,13 @@ namespace scene
 
 		struct WriteProperties
 		{
-			WriteProperties() : blobLz4ComprThresh(4096), blobLzmaComprThresh(32768), encryptionPassPhrase{"hejkahejkahejka"}, initializationVector{"hejkahejkahejka"}, encryptBlobBitField(EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES) {}
+			WriteProperties() : blobLz4ComprThresh(4096), blobLzmaComprThresh(32768), encryptBlobBitField(EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES) {}
 			size_t blobLz4ComprThresh;
 			size_t blobLzmaComprThresh;
 			unsigned char encryptionPassPhrase[16];
 			unsigned char initializationVector[16];
 			uint64_t encryptBlobBitField;
+			io::path relPath;
 		};
 
 	private:

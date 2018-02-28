@@ -13,6 +13,11 @@ enum E_GATHER_TARGET
 	EGT_OUTPUTS
 };
 
+bool checkHex(const char* _str);
+//! Input must be 32 bytes long. Output buffer must be at least 16 bytes.
+void hexStrToIntegers(const char* _input, unsigned char* _out);
+uint8_t hexCharToUint8(char _c);
+
 int main(int _optCnt, char** _options)
 {
 	--_optCnt;
@@ -47,24 +52,41 @@ int main(int _optCnt, char** _options)
 			{
 				++i;
 				gatherWhat = EGT_UNDEFINED;
-				if (core::length(_options[i]) != 16)
+				if (core::length(_options[i]) != 32)
 				{
-					printf("Initialization vector length must be 16! Ignored - IV not set.");
+					printf("Initialization vector length must be 32! Ignored - IV not set.\n");
 					continue;
 				}
-				memcpy(properties.initializationVector, _options[i], 16);
+				if (!checkHex(_options[i]))
+				{
+					printf("Initialization vector must consist of only hex digits! Ignore - IV not set.\n");
+					continue;
+				}
+				hexStrToIntegers(_options[i], properties.initializationVector);
 				continue;
 			}
 			else if (i+1 != _optCnt && core::equalsIgnoreCase("pwd", _options[i]+1))
 			{
 				++i;
 				gatherWhat = EGT_UNDEFINED;
-				if (core::length(_options[i]) != 16)
+				if (core::length(_options[i]) != 32)
 				{
-					printf("Password length must be 16! Ignored - password not set.");
+					printf("Password length must be 32! Ignored - password not set.\n");
 					continue;
 				}
-				memcpy(properties.encryptionPassPhrase, _options[i], 16);
+				if (!checkHex(_options[i]))
+				{
+					printf("Password must consist of only hex digits! Ignore - password not set.\n");
+					continue;
+				}
+				hexStrToIntegers(_options[i], properties.encryptionPassPhrase);
+				continue;
+			}
+			else if (i+1 != _optCnt && core::equalsIgnoreCase("rel", _options[i]+1))
+			{
+				++i;
+				gatherWhat = EGT_UNDEFINED;
+				properties.relPath = _options[i];
 				continue;
 			}
 			else
@@ -105,13 +127,13 @@ int main(int _optCnt, char** _options)
 		scene::ICPUMesh* inmesh = smgr->getMesh(inNames[i]);
 		if (!inmesh)
 		{
-			printf("Could not load mesh %s.", inNames[i]);
+			printf("Could not load mesh %s.\n", inNames[i]);
 			continue;
 		}
 		io::IWriteFile* outfile = fs->createAndWriteFile(outNames[i]);
 		if (!outfile)
 		{
-			printf("Could not create/open file %s.", outNames[i]);
+			printf("Could not create/open file %s.\n", outNames[i]);
 			continue;
 		}
 		writer->writeMesh(outfile, inmesh, properties);
@@ -121,4 +143,33 @@ int main(int _optCnt, char** _options)
 	device->drop();
 
 	return 0;
+}
+
+bool checkHex(const char* _str)
+{
+	const size_t len = core::length(_str);
+
+	for (size_t i = 0; i < len; ++i)
+	{
+		const char c = tolower(_str[i]);
+		if ((c < 'a' || c > 'f') && !isdigit(c))
+			return false;
+	}
+	return true;
+}
+
+void hexStrToIntegers(const char* _input, unsigned char* _out)
+{
+	for (size_t i = 0; i < 32; i += 2, ++_out)
+	{
+		const uint8_t val = hexCharToUint8(_input[i]) + hexCharToUint8(_input[i+1])*16;
+		*_out = val;
+	}
+}
+
+uint8_t hexCharToUint8(char _c)
+{
+	if (isdigit(_c))
+		return _c - '0';
+	return tolower(_c) - 'a' + 10;
 }
