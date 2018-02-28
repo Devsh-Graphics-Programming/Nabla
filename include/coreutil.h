@@ -10,6 +10,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <cwchar>
 #include "stddef.h"
 #include "string.h"
 #include "irrString.h"
@@ -52,6 +53,50 @@ inline void findAndReplaceAll(std::basic_string<T>& source, const T* findStr, co
     findAndReplaceAll(source,std::basic_string<T>(findStr),std::basic_string<T>(replaceStr));
 }
 
+template<typename T>
+inline size_t length(const T*);
+template<>
+inline size_t length<char>(const char* str)
+{
+	return strlen(str);
+}
+template<>
+inline size_t length<wchar_t>(const wchar_t* str)
+{
+	return wcslen(str);
+}
+//! Calculates length of given string by trying to reach 0 (of type T) starting from `str` address.
+template<typename T>
+inline size_t length(const T* str)
+{
+	for (size_t i = 0;; ++i)
+		if (str[i] == T(0))
+			return i;
+}
+
+//! Compares two strings, or their substrings, ignoring case of characters.
+/** @param str1 First cstring (i.e. const char*) to compare.
+@param pos1 Position of the first to compare character in the first string.
+@param str2 Second cstring (i.e. const char*) to compare.
+@param pos2 Position of the first to compare character in the second string.
+@param len Amount of characters to compare.
+@returns Whether strings are ignore-case-equal or not. `false` is also returned when comparing either of strings would result in going out of its range.
+*/
+template<typename T>
+inline bool equalsIgnoreCaseSubStr(const T* str1, const size_t& pos1, const T* str2, const size_t& pos2, const size_t& len)
+{
+	if (pos1 + len > length(str1))
+		return false;
+	if (pos2 + len > length(str2))
+		return false;
+
+	for (const T* c1 = str1 + pos1, *c2 = str2 + pos2; c1 != str1 + pos1 + len; ++c1, ++c2)
+	{
+		if (tolower(*c1) != tolower(*c2))
+			return false;
+	}
+	return true;
+}
 
 //! Compares two strings, or their substrings, ignoring case of characters.
 /** @param str1 First string to compare.
@@ -64,17 +109,22 @@ inline void findAndReplaceAll(std::basic_string<T>& source, const T* findStr, co
 template<typename T>
 inline bool equalsIgnoreCaseSubStr(const T& str1, const size_t& pos1, const T& str2, const size_t& pos2, const size_t& len)
 {
-    if (str1.begin()+len+pos1>str1.end())
-        return false;
-    if (str2.begin()+len+pos2>str2.end())
-        return false;
+	return equalsIgnoreCaseSubStr(str1.c_str(), pos1, str2.c_str(), pos2, len);
+}
 
-    for (typename T::const_iterator c1 = str1.begin()+pos1, c2 = str2.begin()+pos2; c1 != str1.begin()+pos1+len; ++c1, ++c2)
-    {
-        if (tolower(*c1) != tolower(*c2))
-            return false;
-    }
-    return true;
+//! Compares two strings ignoring case of characters.
+/** @param str1 First cstring to compare.
+@param str2 Second cstring to compare.
+@returns Whether strings are ignore-case-equal or not. `false` is also returned when comparing either of strings would result in going out of its range.
+*/
+template<typename T>
+inline bool equalsIgnoreCase(const T* str1, const T* str2)
+{
+	const size_t size2 = length(str2);
+	if (length(str1) != size2)
+		return false;
+
+	return equalsIgnoreCaseSubStr<T>(str1, 0, str2, 0, size2);
 }
 
 //! Compares two strings ignoring case of characters.

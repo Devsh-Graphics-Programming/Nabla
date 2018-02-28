@@ -23,16 +23,19 @@ namespace irr { namespace core
 std::vector<uint64_t> CBlobsLoadingManager::getNeededDeps(uint32_t _blobType, const void * _blob)
 {
 	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(getNeededDeps, _blobType, _blob)
+	return std::vector<uint64_t>();
 }
 
 void* CBlobsLoadingManager::instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(instantiateEmpty, _blobType, _blob, _blobSize, _params)
+	return NULL;
 }
 
 void* CBlobsLoadingManager::finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, std::map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(finalize, _blobType, _obj, _blob, _blobSize, _deps, _params)
+	return NULL;
 }
 
 void CBlobsLoadingManager::releaseObj(uint32_t _blobType, void * _obj)

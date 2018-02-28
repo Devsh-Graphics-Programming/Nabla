@@ -11,6 +11,8 @@
 #include "SMesh.h"
 #include "CSkinnedMesh.h"
 #include "os.h"
+#include "lzma/LzmaDec.h"
+#include "lz4/lz4.h"
 
 namespace irr { namespace scene
 {
@@ -31,11 +33,17 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSyste
 
 ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 {
+	unsigned char pwd[16] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+	return createMesh(_file, pwd);
+}
+
+ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _pwd[16])
+{
 #ifdef _DEBUG
 	uint32_t time = os::Timer::getRealTime();
 #endif // _DEBUG
 
-	SContext ctx{_file};
+	SContext ctx{ _file };
 	if (!verifyFile(ctx))
 		return NULL;
 
@@ -44,12 +52,11 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	core::BlobHeaderV0* headers;
 	if (!validateHeaders(&blobCnt, &offsets, (void**)&headers, ctx))
 		return NULL;
-
 	ctx.filePath = ctx.file->getFileName();
 	if (ctx.filePath[ctx.filePath.size() - 1] != '/')
 		ctx.filePath += "/";
 
-	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{{}, blobCnt}.calcBlobsOffset();
+	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{ {}, blobCnt }.calcBlobsOffset();
 
 	std::map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
@@ -62,7 +69,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 	}
 	free(offsets);
 
-	const core::BlobLoadingParams params{m_sceneMgr, m_fileSystem, ctx.filePath};
+	const core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, ctx.filePath };
 	std::stack<SBlobData*> toLoad, toFinalize;
 	toLoad.push(&meshBlobDataIter->second);
 	while (!toLoad.empty())
@@ -73,9 +80,9 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 		const uint64_t handle = data->header->handle;
 		const uint32_t size = data->header->blobSizeDecompr;
 		const uint32_t blobType = data->header->blobType;
-		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx);
+		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, _pwd);
 
-		if (!data->validate())
+		if (!blob)
 		{
 			ctx.releaseLoadedObjects();
 			free(headers);
@@ -119,6 +126,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
 	}
 
+	ctx.releaseAllThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
 	free(headers);
 
 #ifdef _DEBUG
@@ -158,7 +166,8 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 	_ctx.file->seek(sizeof(core::BAWFileV0::fileHeader));
 	if (!safeRead(_ctx.file, _blobCnt, sizeof(*_blobCnt)))
 		return false;
-
+	if (!safeRead(_ctx.file, _ctx.iv, 16))
+		return false;
 	uint32_t* const offsets = *_offsets = (uint32_t*)malloc(*_blobCnt * sizeof(uint32_t));
 	*_headers = malloc(*_blobCnt * sizeof(core::BlobHeaderV0));
 	core::BlobHeaderV0* const headers = (core::BlobHeaderV0*)*_headers;
@@ -169,6 +178,7 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 		nope = true;
 	if (!safeRead(_ctx.file, headers, *_blobCnt * sizeof(core::BlobHeaderV0)))
 		nope = true;
+
 	const uint32_t offsetRelByte = core::BAWFileV0{{}, *_blobCnt}.calcBlobsOffset(); // num of byte to which offsets are relative
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether offsets are in ascending order none of them points past the end of file
 		if (offsets[i] >= offsets[i+1] || offsetRelByte + offsets[i] >= _ctx.file->getSize())
@@ -178,10 +188,10 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 		nope = true;
 
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether blobs are tightly packed (do not overlays each other and there's no space bewteen any pair)
-		if (offsets[i] + headers[i].blobSizeDecompr != offsets[i+1])
+		if (offsets[i] + headers[i].effectiveSize() != offsets[i+1])
 			nope = true;
 
-	if (offsets[*_blobCnt-1] + headers[*_blobCnt-1].blobSizeDecompr >= _ctx.file->getSize()) // whether last blob doesn't "go out of file"
+	if (offsets[*_blobCnt-1] + headers[*_blobCnt-1].effectiveSize() >= _ctx.file->getSize()) // whether last blob doesn't "go out of file"
 		nope = true;
 
 	if (nope)
@@ -201,17 +211,97 @@ bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _si
 	return true;
 }
 
-void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext & _ctx, void * _stackPtr, size_t _stackSize) const
+void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext & _ctx, unsigned char _pwd[16], void * _stackPtr, size_t _stackSize) const
 {
 	void* dst;
-	if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize)
+	if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
 		dst = _stackPtr;
 	else
-		dst = malloc(_data.header->blobSizeDecompr);
+		dst = malloc(core::BlobHeaderV0::calcEncSize(_data.header->blobSizeDecompr));
+
+	const bool encrypted = (_data.header->compressionType & core::Blob::EBCT_AES128_GCM);
+	const bool compressed = (_data.header->compressionType & core::Blob::EBCT_LZ4) || (_data.header->compressionType & core::Blob::EBCT_LZMA);
+
+	void* dstCompressed = dst; // ptr to mem to load possibly compressed data
+	if (compressed)
+		dstCompressed = malloc(_data.header->effectiveSize());
+
 	_ctx.file->seek(_data.absOffset);
-	_ctx.file->read(dst, _data.header->blobSizeDecompr);
+	_ctx.file->read(dstCompressed, _data.header->effectiveSize());
+
+	if (!_data.header->validate(dstCompressed))
+	{
+#ifdef _DEBUG
+		os::Printer::log("Blob validation failed!", ELL_ERROR);
+#endif
+		free(dstCompressed);
+		if (dst != _stackPtr && dst != dstCompressed)
+			free(dst);
+		return NULL;
+	}
+
+	if (encrypted)
+	{
+		const size_t size = _data.header->effectiveSize();
+		void* out = malloc(size);
+		const bool ok = core::runAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, false);
+		if (dstCompressed != _stackPtr && dstCompressed != dst)
+			free(dstCompressed);
+		if (!ok)
+		{
+			if (dst != _stackPtr)
+				free(dst);
+			free(out);
+#ifdef _DEBUG
+			os::Printer::log("Blob decryption failed!", ELL_ERROR);
+#endif
+		}
+		dstCompressed = out;
+		if (!compressed)
+			dst = dstCompressed;
+	}
+
+	if (compressed)
+	{
+		const uint8_t comprType = _data.header->compressionType;
+		bool res = false;
+
+		if (comprType & core::Blob::EBCT_LZ4)
+			res = decompressLz4(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
+		else if (comprType & core::Blob::EBCT_LZMA)
+			res = decompressLzma(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
+
+		free(dstCompressed);
+		if (!res)
+		{
+			if (dst != _stackPtr && dst != dstCompressed)
+				free(dst);
+#ifdef _DEBUG
+			os::Printer::log("Blob decompression failed!", ELL_ERROR);
+#endif
+			return NULL;
+		}
+	}
 
 	return dst;
+}
+
+bool CBAWMeshFileLoader::decompressLzma(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const
+{
+	SizeT dstSize = _dstSize;
+	SizeT srcSize = _srcSize - LZMA_PROPS_SIZE;
+	ELzmaStatus status;
+	ISzAlloc alloc{&core::LzmaMemMngmnt::alloc, &core::LzmaMemMngmnt::release};
+	const SRes res = LzmaDecode((Byte*)_dst, &dstSize, (const Byte*)(_src)+LZMA_PROPS_SIZE, &srcSize, (const Byte*)_src, LZMA_PROPS_SIZE, LZMA_FINISH_ANY, &status, &alloc);
+	if (res != SZ_OK)
+		return false;
+	return true;
+}
+
+bool CBAWMeshFileLoader::decompressLz4(void * _dst, size_t _dstSize, const void * _src, size_t _srcSize) const
+{
+	int res = LZ4_decompress_safe((const char*)_src, (char*)_dst, _srcSize, _dstSize);
+	return res >= 0;
 }
 
 }} // irr::scene

@@ -9,6 +9,7 @@
 #include "SSkinMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 #include "coreutil.h"
+#include <openssl/evp.h>
 
 //! for C++11
 //using namespace std;
@@ -16,23 +17,25 @@
 namespace irr { namespace core
 {
 
-void core::BlobHeaderV0::finalize(const void * _data, size_t _size)
+void core::BlobHeaderV0::finalize(const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType)
 {
-	blobSize = blobSizeDecompr = _size;
+	blobSizeDecompr = _sizeDecompr;
+	blobSize = _sizeCompr;
+	compressionType = _comprType;
 
 	//compress before encrypting, increased entropy makes compression hard
 
 	//compress and encrypt before hashing
 
-	core::XXHash_256(_data, _size, blobHash);
+	core::XXHash_256(_data, blobSize, blobHash);
 }
 
-bool core::BlobHeaderV0::validate(const void * _data) const
+bool core::BlobHeaderV0::validate(const void* _data) const
 {
     uint64_t tmpHash[4];
 	core::XXHash_256(_data, blobSize, tmpHash);
 	for (size_t i=0; i<4; i++)
-		if (tmpHash[i]!=blobHash[i])
+		if (tmpHash[i] != blobHash[i])
 			return false;
     return true;
 }
@@ -267,6 +270,25 @@ size_t FinalBoneHierarchyBlobV0::calcInterpolatedAnimsByteSize() const
 size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize() const
 {
 	return keyframeCount * boneCount * scene::CFinalBoneHierarchy::getSizeOfSingleAnimationData();
+}
+
+bool runAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, bool _encrypt)
+{
+	const EVP_CIPHER* cipherType = EVP_aes_128_gcm();
+	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+
+	if (!ctx)
+		return false;
+
+	EVP_CipherInit_ex(ctx, cipherType, NULL, _key, _iv, _encrypt);
+	EVP_CIPHER_CTX_set_padding(ctx, 0);
+
+	int outSize = 0;
+	EVP_CipherUpdate(ctx, (unsigned char*)_output, &outSize, (unsigned char*)_input, int(_inSize));
+	EVP_CipherFinal_ex(ctx, (unsigned char*)_output, &outSize);
+
+	EVP_CIPHER_CTX_cleanup(ctx);
+	return true;
 }
 
 }} // irr::core
