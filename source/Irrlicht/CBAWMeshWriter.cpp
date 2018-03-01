@@ -108,6 +108,7 @@ namespace irr {namespace scene {
 		WriteProperties wp;
 		if (!(_flags & EMWF_WRITE_COMPRESSED))
 			wp.blobLz4ComprThresh = wp.blobLzmaComprThresh = 0xffffffffFFFFFFFFU;
+		wp.encryptBlobBitField = EET_NOTHING;
 		return writeMesh(_file, _mesh, wp);
 	}
 

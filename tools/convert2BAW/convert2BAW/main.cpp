@@ -39,6 +39,7 @@ int main(int _optCnt, char** _options)
 	std::vector<const char*> outNames;
 
 	E_GATHER_TARGET gatherWhat = EGT_UNDEFINED;
+	bool usePwd = 0;
 	scene::CBAWMeshWriter::WriteProperties properties;
 	for (size_t i = 0; i < _optCnt; ++i)
 	{
@@ -80,6 +81,7 @@ int main(int _optCnt, char** _options)
 					continue;
 				}
 				hexStrToIntegers(_options[i], properties.encryptionPassPhrase);
+				usePwd = 1;
 				continue;
 			}
 			else if (i+1 != _optCnt && core::equalsIgnoreCase("rel", _options[i]+1))
@@ -136,7 +138,10 @@ int main(int _optCnt, char** _options)
 			printf("Could not create/open file %s.\n", outNames[i]);
 			continue;
 		}
-		writer->writeMesh(outfile, inmesh, properties);
+		if (usePwd)
+			writer->writeMesh(outfile, inmesh, properties);
+		else
+			writer->writeMesh(outfile, inmesh, scene::EMWF_WRITE_COMPRESSED);
 		outfile->drop();
 	}
 	writer->drop();
