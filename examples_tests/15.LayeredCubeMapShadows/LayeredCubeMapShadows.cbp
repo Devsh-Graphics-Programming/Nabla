@@ -60,6 +60,7 @@
 					<Add option="-msse3" />
 					<Add option="-fsanitize=address" />
 					<Add library="Irrlicht" />
+					<Add library="crypto" />
 					<Add library="Xrandr" />
 					<Add library="GL" />
 					<Add library="Xxf86vm" />
@@ -70,6 +71,7 @@
 					<Add library="unwind" />
 					<Add library="unwind-x86_64" />
 					<Add directory="../../lib/Linux" />
+					<Add directory="../../../openssl" />
 				</Linker>
 			</Target>
 		</Build>

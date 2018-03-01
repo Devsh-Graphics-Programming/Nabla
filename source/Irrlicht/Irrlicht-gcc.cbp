@@ -6,136 +6,6 @@
 		<Option pch_mode="0" />
 		<Option compiler="gcc" />
 		<Build>
-			<Target title="Win32 - Debug - dll">
-				<Option platforms="Windows;" />
-				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
-				<Option object_output="../obj/win32-gcc-debug-dll" />
-				<Option type="3" />
-				<Option compiler="gcc" />
-				<Option createDefFile="1" />
-				<Option createStaticLib="1" />
-				<Compiler>
-					<Add option="-Wextra" />
-					<Add option="-Wall" />
-					<Add option="-g" />
-					<Add option="-W" />
-					<Add option="-O0" />
-					<Add option="-Wno-unused-parameter" />
-					<Add option="-DWIN32" />
-					<Add option="-D_DEBUG" />
-					<Add option="-D_WINDOWS" />
-					<Add option="-D_USRDLL" />
-					<Add option="-DIRRLICHT_EXPORTS" />
-					<Add option="-D_CRT_SECURE_NO_DEPRECATE" />
-					<Add option="-D__GNUWIN32__" />
-					<Add directory="../../include" />
-					<Add directory="zlib" />
-				</Compiler>
-				<Linker>
-					<Add library="kernel32" />
-					<Add library="user32" />
-					<Add library="gdi32" />
-					<Add library="winspool" />
-					<Add library="comdlg32" />
-					<Add library="advapi32" />
-					<Add library="shell32" />
-					<Add library="ole32" />
-					<Add library="oleaut32" />
-					<Add library="uuid" />
-					<Add library="opengl32" />
-					<Add library="winmm" />
-				</Linker>
-				<ExtraCommands>
-					<Add after="cmd /c del ..\..\bin\Win32-gcc\Irrlicht.dll" />
-					<Add after="cmd /c move ..\..\lib\Win32-gcc\Irrlicht.dll ..\..\bin\Win32-gcc\Irrlicht.dll" />
-				</ExtraCommands>
-			</Target>
-			<Target title="Win32 - Release - accurate math - dll">
-				<Option platforms="Windows;" />
-				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
-				<Option object_output="../obj/win32-gcc-release-dll" />
-				<Option type="3" />
-				<Option compiler="gcc" />
-				<Option createDefFile="1" />
-				<Option createStaticLib="1" />
-				<Compiler>
-					<Add option="-O2" />
-					<Add option="-W" />
-					<Add option="-Wall" />
-					<Add option="-Wno-unused-parameter" />
-					<Add option="-DWIN32" />
-					<Add option="-DNDEBUG" />
-					<Add option="-D_WINDOWS" />
-					<Add option="-D_USRDLL" />
-					<Add option="-DIRRLICHT_EXPORTS" />
-					<Add option="-D_CRT_SECURE_NO_DEPRECATE" />
-					<Add option="-D__GNUWIN32__" />
-					<Add directory="../../include" />
-					<Add directory="zlib" />
-				</Compiler>
-				<Linker>
-					<Add option="-s" />
-					<Add library="kernel32" />
-					<Add library="user32" />
-					<Add library="gdi32" />
-					<Add library="winspool" />
-					<Add library="comdlg32" />
-					<Add library="advapi32" />
-					<Add library="shell32" />
-					<Add library="ole32" />
-					<Add library="oleaut32" />
-					<Add library="uuid" />
-					<Add library="opengl32" />
-					<Add library="winmm" />
-				</Linker>
-				<ExtraCommands>
-					<Add after="cmd /c del ..\..\bin\Win32-gcc\Irrlicht.dll" />
-					<Add after="cmd /c move ..\..\lib\Win32-gcc\Irrlicht.dll ..\..\bin\Win32-gcc\Irrlicht.dll" />
-				</ExtraCommands>
-			</Target>
-			<Target title="Win32 - Release - fast math - dll">
-				<Option platforms="Windows;" />
-				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
-				<Option object_output="../obj/win32-gcc-release-fast-dll" />
-				<Option type="3" />
-				<Option compiler="gcc" />
-				<Option createDefFile="1" />
-				<Option createStaticLib="1" />
-				<Compiler>
-					<Add option="-O3" />
-					<Add option="-W" />
-					<Add option="-Wall" />
-					<Add option="-ffast-math" />
-					<Add option="-Wno-unused-parameter" />
-					<Add option="-DWIN32" />
-					<Add option="-DNDEBUG" />
-					<Add option="-D_WINDOWS" />
-					<Add option="-D_USRDLL" />
-					<Add option="-DIRRLICHT_EXPORTS" />
-					<Add option="-D_CRT_SECURE_NO_DEPRECATE" />
-					<Add option="-D__GNUWIN32__" />
-					<Add directory="../../include" />
-					<Add directory="zlib" />
-				</Compiler>
-				<Linker>
-					<Add library="kernel32" />
-					<Add library="user32" />
-					<Add library="gdi32" />
-					<Add library="winspool" />
-					<Add library="comdlg32" />
-					<Add library="advapi32" />
-					<Add library="shell32" />
-					<Add library="ole32" />
-					<Add library="oleaut32" />
-					<Add library="uuid" />
-					<Add library="opengl32" />
-					<Add library="winmm" />
-				</Linker>
-				<ExtraCommands>
-					<Add after="cmd /c del ..\..\bin\Win32-gcc\Irrlicht.dll" />
-					<Add after="cmd /c move ..\..\lib\Win32-gcc\Irrlicht.dll ..\..\bin\Win32-gcc\Irrlicht.dll" />
-				</ExtraCommands>
-			</Target>
 			<Target title="Win32 - Debug - static">
 				<Option platforms="Windows;" />
 				<Option output="../../lib/Win32-gcc/Irrlicht" prefix_auto="1" extension_auto="1" />
@@ -256,90 +126,6 @@
 					<Add library="winmm" />
 				</Linker>
 			</Target>
-			<Target title="Linux - Debug - shared">
-				<Option platforms="Unix;" />
-				<Option output="../../lib/Linux/libIrrlicht" prefix_auto="0" extension_auto="1" />
-				<Option object_output="../obj/linux-gcc-debug-shared" />
-				<Option type="3" />
-				<Option compiler="gcc" />
-				<Option createDefFile="1" />
-				<Option createStaticLib="1" />
-				<Compiler>
-					<Add option="-Wextra" />
-					<Add option="-Wall" />
-					<Add option="-g" />
-					<Add option="-W" />
-					<Add option="-O0" />
-					<Add option="-Wno-unused-parameter" />
-					<Add option="-fPIC" />
-					<Add option="-fno-exceptions" />
-					<Add option="-D_DEBUG" />
-					<Add directory="../../include" />
-					<Add directory="zlib" />
-					<Add directory="libpng" />
-					<Add directory="jpeglib" />
-				</Compiler>
-				<Linker>
-					<Add library="GL" />
-					<Add library="Xxf86vm" />
-					<Add directory="/usr/X11R6/lib" />
-					<Add directory="/usr/local/lib" />
-				</Linker>
-			</Target>
-			<Target title="Linux - Release - accurate math - shared">
-				<Option platforms="Unix;" />
-				<Option output="../../lib/Linux/libIrrlicht" prefix_auto="0" extension_auto="1" />
-				<Option object_output="../obj/linux-gcc-release-shared" />
-				<Option type="3" />
-				<Option compiler="gcc" />
-				<Option createDefFile="1" />
-				<Option createStaticLib="1" />
-				<Compiler>
-					<Add option="-O3" />
-					<Add option="-Wextra" />
-					<Add option="-W" />
-					<Add option="-Wno-unused-parameter" />
-					<Add option="-fPIC" />
-					<Add option="-fno-exceptions" />
-					<Add directory="../../include" />
-					<Add directory="zlib" />
-					<Add directory="libpng" />
-					<Add directory="jpeglib" />
-				</Compiler>
-				<Linker>
-					<Add library="GL" />
-					<Add library="Xxf86vm" />
-					<Add directory="/usr/X11R6/lib" />
-					<Add directory="/usr/local/lib" />
-				</Linker>
-			</Target>
-			<Target title="Linux - Release - fast math - shared">
-				<Option platforms="Unix;" />
-				<Option output="../../lib/Linux/libIrrlicht" prefix_auto="0" extension_auto="1" />
-				<Option object_output="../obj/linux-gcc-release-fast-shared" />
-				<Option type="3" />
-				<Option compiler="gcc" />
-				<Option createDefFile="1" />
-				<Option createStaticLib="1" />
-				<Compiler>
-					<Add option="-O3" />
-					<Add option="-Wextra" />
-					<Add option="-W" />
-					<Add option="-Wno-unused-parameter" />
-					<Add option="-ffast-math" />
-					<Add option="-fno-exceptions" />
-					<Add directory="../../include" />
-					<Add directory="zlib" />
-					<Add directory="libpng" />
-					<Add directory="jpeglib" />
-				</Compiler>
-				<Linker>
-					<Add library="GL" />
-					<Add library="Xxf86vm" />
-					<Add directory="/usr/X11R6/lib" />
-					<Add directory="/usr/local/lib" />
-				</Linker>
-			</Target>
 			<Target title="Linux - Debug - static">
 				<Option platforms="Unix;" />
 				<Option output="../../lib/Linux/libIrrlicht" prefix_auto="0" extension_auto="1" />
@@ -370,6 +156,7 @@
 					<Add directory="convert_utf" />
 					<Add directory="utf8/source/utf8" />
 					<Add directory="utf8/source" />
+					<Add directory="../../../openssl/include" />
 				</Compiler>
 				<Linker>
 					<Add option="-fuse-ld=gold" />
@@ -401,6 +188,7 @@
 					<Add directory="../../include" />
 					<Add directory="zlib" />
 					<Add directory="libpng" />
+					<Add directory="../../../openssl/include" />
 				</Compiler>
 				<Linker>
 					<Add option="-fuse-ld=gold" />
@@ -438,6 +226,7 @@
 					<Add directory="convert_utf" />
 					<Add directory="utf8/source/utf8" />
 					<Add directory="utf8/source" />
+					<Add directory="../../../openssl/include" />
 				</Compiler>
 				<Linker>
 					<Add option="-msse3" />
@@ -448,11 +237,9 @@
 				</Linker>
 			</Target>
 		</Build>
-		<VirtualTargets>
-			<Add alias="All" targets="Win32 - Debug - dll;Win32 - Release - accurate math - dll;Win32 - Release - fast math - dll;" />
-		</VirtualTargets>
 		<Compiler>
 			<Add option="-D_IRR_COMPILE_WITH_OPENGL_" />
+			<Add option="-D_7ZIP_ST" />
 		</Compiler>
 		<Unit filename="../../include/CBawFile.h" />
 		<Unit filename="../../include/CFinalBoneHierarchy.h" />
@@ -838,26 +625,45 @@
 		<Unit filename="SoftwareDriver2_helper.h" />
 		<Unit filename="TypedBlob.cpp" />
 		<Unit filename="aesGladman/aes.h" />
-		<Unit filename="aesGladman/aescrypt.cpp" />
-		<Unit filename="aesGladman/aeskey.cpp" />
-		<Unit filename="aesGladman/aesopt.h" />
-		<Unit filename="aesGladman/aestab.cpp" />
-		<Unit filename="aesGladman/fileenc.cpp" />
-		<Unit filename="aesGladman/fileenc.h" />
-		<Unit filename="aesGladman/hmac.cpp" />
-		<Unit filename="aesGladman/hmac.h" />
-		<Unit filename="aesGladman/prng.cpp" />
-		<Unit filename="aesGladman/prng.h" />
-		<Unit filename="aesGladman/pwd2key.cpp" />
-		<Unit filename="aesGladman/pwd2key.h" />
-		<Unit filename="aesGladman/sha1.cpp" />
-		<Unit filename="aesGladman/sha1.h" />
-		<Unit filename="aesGladman/sha2.cpp" />
-		<Unit filename="aesGladman/sha2.h" />
-		<Unit filename="bzip2/blocksort.c">
+		<Unit filename="aesGladman/aes_ni.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="bzip2/bzcompress.c">
+		<Unit filename="aesGladman/aes_ni.h" />
+		<Unit filename="aesGladman/aescrypt.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="aesGladman/aeskey.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="aesGladman/aesopt.h" />
+		<Unit filename="aesGladman/aestab.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="aesGladman/aestab.h" />
+		<Unit filename="aesGladman/brg_endian.h" />
+		<Unit filename="aesGladman/brg_types.h" />
+		<Unit filename="aesGladman/fileenc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="aesGladman/fileenc.h" />
+		<Unit filename="aesGladman/hmac.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="aesGladman/hmac.h" />
+		<Unit filename="aesGladman/prng.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="aesGladman/prng.h" />
+		<Unit filename="aesGladman/pwd2key.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="aesGladman/pwd2key.h" />
+		<Unit filename="aesGladman/sha1.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="aesGladman/sha1.h" />
+		<Unit filename="aesGladman/sha2.h" />
+		<Unit filename="bzip2/blocksort.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="bzip2/bzlib.c">
@@ -865,6 +671,9 @@
 		</Unit>
 		<Unit filename="bzip2/bzlib.h" />
 		<Unit filename="bzip2/bzlib_private.h" />
+		<Unit filename="bzip2/compress.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="bzip2/crctable.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1080,17 +889,35 @@
 		<Unit filename="libpng/pngwutil.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="lz4/lz4.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lz4/lz4frame.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lz4/lz4hc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lz4/xxhash.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lzma/Alloc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lzma/LzFind.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="lzma/LzmaDec.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="lzma/LzmaDec.h" />
+		<Unit filename="lzma/LzmaEnc.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="lzma/Types.h" />
 		<Unit filename="os.cpp" />
 		<Unit filename="os.h" />
 		<Unit filename="zlib/adler32.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="zlib/compress.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="zlib/crc32.c">
@@ -1101,6 +928,9 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="zlib/deflate.h" />
+		<Unit filename="zlib/infback.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="zlib/inffast.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1118,6 +948,9 @@
 		</Unit>
 		<Unit filename="zlib/trees.h" />
 		<Unit filename="zlib/uncompr.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="zlib/zcompress.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="zlib/zconf.h" />
