@@ -180,6 +180,8 @@ int main()
 		gpumesh->drop();
 	}
 
+	writer->drop();
+
 
 	uint64_t lastFPSTime = 0;
 

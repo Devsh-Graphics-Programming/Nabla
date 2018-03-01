@@ -1,9 +1,10 @@
 #define _IRR_STATIC_LIB_
 
 #include <irrlicht.h>
-#include <CBAWMeshWriter.h>
+#include "../source/Irrlicht/CBAWMeshWriter.h"
 #include <vector>
 #include <cstdlib>
+#include <chrono>
 
 using namespace irr;
 
@@ -26,7 +27,7 @@ int main(int _optCnt, char** _options)
 
 	irr::SIrrlichtCreationParameters params;
 	params.DriverType = video::EDT_OPENGL;
-	params.WindowSize = core::dimension2d<uint32_t>(0, 0);
+	params.WindowSize = core::dimension2d<uint32_t>(128, 128);
 	IrrlichtDevice* device = createDeviceEx(params);
 
 	if (!device)
@@ -43,9 +44,13 @@ int main(int _optCnt, char** _options)
 	bool usePwd = 0;
 	scene::CBAWMeshWriter::WriteProperties properties;
 
-	srand(2);
-	for (size_t i = 0; i < 4; ++i)
-		((int*)properties.initializationVector)[i] = rand();
+	srand(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+	for (size_t i = 0; i < 16; ++i)
+    {
+		reinterpret_cast<uint8_t*>(properties.initializationVector)[i] = rand()%256;
+		reinterpret_cast<uint8_t*>(properties.initializationVector)[i] ^= std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    }
+
 	for (size_t i = 0; i < _optCnt; ++i)
 	{
 		if (_options[i][0] == '-')
@@ -109,6 +114,8 @@ int main(int _optCnt, char** _options)
 	if (inNames.size() != outNames.size())
 	{
 		printf("Fatal error. Amounts of input and output filenames doesn't match. Exiting.\n");
+        writer->drop();
+        device->drop();
 		return 1;
 	}
 
@@ -124,12 +131,16 @@ int main(int _optCnt, char** _options)
 		if (!outfile)
 		{
 			printf("Could not create/open file %s.\n", outNames[i]);
+            smgr->getMeshCache()->removeMesh(inmesh);
+            outfile->drop();
 			continue;
 		}
 		if (usePwd)
 			writer->writeMesh(outfile, inmesh, properties);
 		else
 			writer->writeMesh(outfile, inmesh, scene::EMWF_WRITE_COMPRESSED);
+
+        smgr->getMeshCache()->removeMesh(inmesh);
 		outfile->drop();
 	}
 	writer->drop();

@@ -72,14 +72,14 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(SolutionDir)..\..\source\Irrlicht;$(SolutionDir)..\..\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)..\..\lib\Win64-VisualStudio;$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)\bin\Win64-VisualStudio</OutDir>
+    <OutDir>$(SolutionDir)\bin</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)64\</IntDir>
     <TargetName>$(ProjectName)_x64_debug</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>$(SolutionDir)..\..\source\Irrlicht;$(SolutionDir)..\..\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)..\..\lib\\Win64-VisualStudio;$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)\bin\Win64-VisualStudio</OutDir>
+    <OutDir>$(SolutionDir)\bin</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)64\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
