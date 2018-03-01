@@ -20,10 +20,10 @@ _IRR_SUPPORTED_BLOBS(Function, __VA_ARGS__)\
 
 namespace irr { namespace core
 {
-std::vector<uint64_t> CBlobsLoadingManager::getNeededDeps(uint32_t _blobType, const void * _blob)
+std::set<uint64_t> CBlobsLoadingManager::getNeededDeps(uint32_t _blobType, const void * _blob)
 {
 	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(getNeededDeps, _blobType, _blob)
-	return std::vector<uint64_t>();
+	return std::set<uint64_t>();
 }
 
 void* CBlobsLoadingManager::instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)

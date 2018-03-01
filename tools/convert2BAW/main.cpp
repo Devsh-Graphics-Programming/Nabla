@@ -3,6 +3,7 @@
 #include <irrlicht.h>
 #include <CBAWMeshWriter.h>
 #include <vector>
+#include <cstdlib>
 
 using namespace irr;
 
@@ -41,6 +42,10 @@ int main(int _optCnt, char** _options)
 	E_GATHER_TARGET gatherWhat = EGT_UNDEFINED;
 	bool usePwd = 0;
 	scene::CBAWMeshWriter::WriteProperties properties;
+
+	srand(2);
+	for (size_t i = 0; i < 4; ++i)
+		((int*)properties.initializationVector)[i] = rand();
 	for (size_t i = 0; i < _optCnt; ++i)
 	{
 		if (_options[i][0] == '-')
@@ -49,23 +54,6 @@ int main(int _optCnt, char** _options)
 				gatherWhat = EGT_INPUTS;
 			else if (core::equalsIgnoreCase("o", _options[i]+1))
 				gatherWhat = EGT_OUTPUTS;
-			else if (i+1 != _optCnt && core::equalsIgnoreCase("iv", _options[i]+1))
-			{
-				++i;
-				gatherWhat = EGT_UNDEFINED;
-				if (core::length(_options[i]) != 32)
-				{
-					printf("Initialization vector length must be 32! Ignored - IV not set.\n");
-					continue;
-				}
-				if (!checkHex(_options[i]))
-				{
-					printf("Initialization vector must consist of only hex digits! Ignore - IV not set.\n");
-					continue;
-				}
-				hexStrToIntegers(_options[i], properties.initializationVector);
-				continue;
-			}
 			else if (i+1 != _optCnt && core::equalsIgnoreCase("pwd", _options[i]+1))
 			{
 				++i;

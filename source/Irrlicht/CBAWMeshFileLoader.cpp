@@ -89,9 +89,10 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 			return NULL;
 		}
 
-		std::vector<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
-		for (size_t i = 0; i < deps.size(); ++i)
-			toLoad.push(&ctx.blobs[deps[i]]);
+		std::set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
+		for (std::set<uint64_t>::iterator it = deps.begin(); it != deps.end(); ++it)
+			if (ctx.createdObjs.find(*it) == ctx.createdObjs.end())
+				toLoad.push(&ctx.blobs[*it]);
 
 		bool fail = !(ctx.createdObjs[handle] = ctx.loadingMgr.instantiateEmpty(blobType, blob, size, params));
 
@@ -126,7 +127,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
 	}
 
-	ctx.releaseAllThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
+	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
 	free(headers);
 
 #ifdef _DEBUG
@@ -245,11 +246,11 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 		const size_t size = _data.header->effectiveSize();
 		void* out = malloc(size);
 		const bool ok = core::runAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, false);
-		if (dstCompressed != _stackPtr && dstCompressed != dst)
+		if (dstCompressed != _stackPtr)
 			free(dstCompressed);
 		if (!ok)
 		{
-			if (dst != _stackPtr)
+			if (dst != _stackPtr && dstCompressed != dst)
 				free(dst);
 			free(out);
 #ifdef _DEBUG
