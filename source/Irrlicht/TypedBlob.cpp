@@ -24,7 +24,6 @@ std::set<uint64_t> TypedBlob<RawBufferBlobV0, ICPUBuffer>::getNeededDeps(const v
 template<>
 void* TypedBlob<RawBufferBlobV0, ICPUBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
-	printf("inst empty rawbuf\n");
 	if (!_blob)
 		return NULL;
 
@@ -44,7 +43,6 @@ void* TypedBlob<RawBufferBlobV0, ICPUBuffer>::finalize(void* _obj, const void* _
 template<>
 void TypedBlob<RawBufferBlobV0, ICPUBuffer>::releaseObj(const void* _obj)
 {
-	printf("release raw buf\n");
 	if (_obj)
 		reinterpret_cast<const ICPUBuffer*>(_obj)->drop();
 }

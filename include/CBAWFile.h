@@ -7,7 +7,6 @@
 #define __IRR_BAW_FILE_H_INCLUDED__
 
 #include <map>
-#include <vector>
 #include <set>
 
 #include "stdint.h"

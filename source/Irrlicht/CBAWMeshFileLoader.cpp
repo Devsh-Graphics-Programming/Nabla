@@ -95,8 +95,6 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 				toLoad.push(&ctx.blobs[*it]);
 
 		bool fail = !(ctx.createdObjs[handle] = ctx.loadingMgr.instantiateEmpty(blobType, blob, size, params));
-		if (blobType == core::Blob::EBT_RAW_DATA_BUFFER)
-			printf("inst empty handle %u\n", handle);
 
 		if (fail)
 		{
