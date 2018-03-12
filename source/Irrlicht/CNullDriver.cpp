@@ -26,7 +26,10 @@ FW_AtomicCounter CNullDriver::ReallocationCounter = 0;
 
 FW_AtomicCounter CNullDriver::incrementAndFetchReallocCounter()
 {
-#if _MSC_VER && !__INTEL_COMPILER
+// omg this has to be rewritten
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	return ReallocationCounter += 1;
+#elif _MSC_VER && !__INTEL_COMPILER
     return InterlockedIncrement(&ReallocationCounter);
 #elif defined(__GNUC__)
     return __sync_add_and_fetch(&ReallocationCounter,int32_t(1));

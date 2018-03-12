@@ -17,12 +17,13 @@
 #include "CFPSCounter.h"
 #include "SVertexIndex.h"
 #include "SExposedVideoData.h"
+#include "FW_Mutex.h"
 
-#if _MSC_VER && !__INTEL_COMPILER
-	#define FW_AtomicCounter volatile long
-#elif defined(__GNUC__)
-	#define FW_AtomicCounter volatile int32_t
-#endif
+//#if _MSC_VER && !__INTEL_COMPILER
+//	#define FW_AtomicCounter volatile long
+//#elif defined(__GNUC__)
+//	#define FW_AtomicCounter volatile int32_t
+//#endif
 
 #ifdef _MSC_VER
 #pragma warning( disable: 4996)

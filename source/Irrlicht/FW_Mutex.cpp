@@ -23,12 +23,15 @@ using namespace irr;
 
 FW_Mutex::FW_Mutex()
 {
+	bool fail = 0;
+#ifndef FW_MUTEX_H_CXX11_IMPL
 #if _MSC_VER && !__INTEL_COMPILER
     //maybe have more spins? - currently 1024 before Kernel scheduler sleep
-	bool fail = !InitializeCriticalSectionAndSpinCount(&hMutex,100);
+	fail = !InitializeCriticalSectionAndSpinCount(&hMutex,100);
 #else
-    bool fail = pthread_mutex_init(&hMutex, NULL) != 0;
+    fail = pthread_mutex_init(&hMutex, NULL) != 0;
 #endif
+#endif // FW_MUTEX_H_CXX11_IMPL
 
 #ifdef _DEBUG
     if (fail)
@@ -43,12 +46,14 @@ FW_Mutex::FW_Mutex()
 
 FW_Mutex::~FW_Mutex()
 {
+#ifndef FW_MUTEX_H_CXX11_IMPL
 #if _MSC_VER && !__INTEL_COMPILER
 //	if (hMutex)
 		DeleteCriticalSection(&hMutex);
 #else
     pthread_mutex_destroy(&hMutex);
 #endif
+#endif // FW_MUTEX_H_CXX11_IMPL
 }
 
 
@@ -65,11 +70,13 @@ FW_ConditionVariable::FW_ConditionVariable(FW_Mutex *mutex)
 #endif // _DEBUG
     bool fail = false;
 
+#ifndef FW_MUTEX_H_CXX11_IMPL
 #if _MSC_VER && !__INTEL_COMPILER
     InitializeConditionVariable(&conditionVar);
 #else
     fail = pthread_cond_init(&conditionVar,NULL);
 #endif // _MSC_VER
+#endif // FW_MUTEX_H_CXX11_IMPL
 
 #ifdef _DEBUG
     if (fail)
@@ -82,12 +89,12 @@ FW_ConditionVariable::FW_ConditionVariable(FW_Mutex *mutex)
 //
 FW_ConditionVariable::~FW_ConditionVariable()
 {
-#if _MSC_VER && !__INTEL_COMPILER
-    //no need to delete cond var on windows
+#if (_MSC_VER && !__INTEL_COMPILER) || defined(FW_MUTEX_H_CXX11_IMPL)
+    //no need to delete cond var on windows nor using c++11
     bool fail = false;
 #else
     bool fail = pthread_cond_destroy(&conditionVar);
-#endif // _MSC_VER
+#endif // _MSC_VER || FW_MUTEX_H_CXX11_IMPL
 
 #ifdef _DEBUG
     if (fail)
@@ -108,10 +115,14 @@ void FW_ConditionVariable::WaitForCondition(FW_Mutex *mutex)
     }
 #endif // _DEBUG
 
-#if _MSC_VER && !__INTEL_COMPILER
-    bool fail = !SleepConditionVariableCS(&conditionVar,&mutex->hMutex,INFINITE);
+	bool fail = 0;
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	std::unique_lock<std::mutex> ul(mutex->hMutex, std::defer_lock);
+	conditionVar.wait(ul);
+#elif _MSC_VER && !__INTEL_COMPILER
+    fail = !SleepConditionVariableCS(&conditionVar,&mutex->hMutex,INFINITE);
 #else
-    bool fail = pthread_cond_wait(&conditionVar,&mutex->hMutex);
+    fail = pthread_cond_wait(&conditionVar,&mutex->hMutex);
 #endif // _MSC_VER
 
 #ifdef _DEBUG
@@ -132,7 +143,10 @@ void FW_ConditionVariable::TimedWaitForCondition(FW_Mutex *mutex, const uint64_t
     }
 #endif // _DEBUG
 
-#if _MSC_VER && !__INTEL_COMPILER
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	std::unique_lock<std::mutex> ul(mutex->hMutex, std::defer_lock);
+	bool fail = conditionVar.wait_for(ul, std::chrono::duration<uint64_t, std::nano>(nanosec)) == std::cv_status::no_timeout;
+#elif _MSC_VER && !__INTEL_COMPILER
     bool fail = !SleepConditionVariableCS(&conditionVar,&mutex->hMutex,(nanosec+999999ull)/1000000ull);
 	if (fail)
 	{
@@ -162,7 +176,9 @@ void FW_ConditionVariable::TimedWaitForCondition(FW_Mutex *mutex, const uint64_t
 void FW_ConditionVariable::SignalConditionOnce()
 {
     bool fail = false;
-#if _MSC_VER && !__INTEL_COMPILER
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	conditionVar.notify_one();
+#elif _MSC_VER && !__INTEL_COMPILER
     WakeConditionVariable(&conditionVar);
 #else
     fail = pthread_cond_signal(&conditionVar);
@@ -180,7 +196,9 @@ void FW_ConditionVariable::SignalConditionOnce()
 void FW_ConditionVariable::SignalConditionToAll()
 {
     bool fail = false;
-#if _MSC_VER && !__INTEL_COMPILER
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	conditionVar.notify_all();
+#elif _MSC_VER && !__INTEL_COMPILER
     WakeAllConditionVariable(&conditionVar);
 #else
     fail = pthread_cond_broadcast(&conditionVar);
