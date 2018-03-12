@@ -89,7 +89,10 @@ namespace core
 		uint32_t blobType;
 		uint64_t handle;
 
-		uint64_t blobHash[4];
+		union {
+			uint64_t blobHash[4];
+			uint8_t gcmTag[16];
+		};
 
 		//! Assigns sizes and calculates hash of data.
 		void finalize(const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType);
@@ -388,7 +391,8 @@ namespace core
 		LzmaMemMngmnt() {}
 	};
 
-	bool runAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, bool _encrypt);
+	bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag);
+	bool decAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag);
 
 }} // irr::core
 
