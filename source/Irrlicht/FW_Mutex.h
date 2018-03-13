@@ -229,17 +229,17 @@ not using add because we atomically wait for value to be 0 before swapping
 #define FW_AtomicCounter std::atomic_int
 inline void FW_AtomicCounterIncr(FW_AtomicCounter &lock)
 {
-	if (lock.fetch_add(1, std::memory_order_release)+1 > FW_AtomicCounterMagicBlockVal)
+	if (lock.fetch_add(1, std::memory_order_acquire)+1 > FW_AtomicCounterMagicBlockVal)
 		while (lock >= FW_AtomicCounterMagicBlockVal) ;
 }
 inline void FW_AtomicCounterDecr(FW_AtomicCounter &lock)
 {
-	lock.fetch_sub(1, std::memory_order_acquire);
+	lock.fetch_sub(1, std::memory_order_release);
 }
 inline void FW_AtomicCounterBlock(FW_AtomicCounter &lock)
 {
 	int zero = 0;
-	while (!lock.compare_exchange_weak(zero, FW_AtomicCounterMagicBlockVal, std::memory_order_acquire))
+	while (!lock.compare_exchange_weak(zero, FW_AtomicCounterMagicBlockVal, std::memory_order_acq_rel))
 		zero = 0;
 }
 inline void FW_AtomicCounterDecrBlock(FW_AtomicCounter &lock)
@@ -267,7 +267,7 @@ inline void FW_AtomicCounterUnBlockIncr(FW_AtomicCounter &lock)
 	//because we got there before and value of lock was never 0 between this thread
 	//grabbing the write lock and now - trying to release it
 	//so we don't need to wait for write lock to be released to grab the read lock
-	lock.fetch_sub(FW_AtomicCounterMagicBlockVal-1, std::memory_order_release);
+	lock.fetch_sub(FW_AtomicCounterMagicBlockVal-1, std::memory_order_acq_rel);
 }
 
 #elif _MSC_VER && !__INTEL_COMPILER
