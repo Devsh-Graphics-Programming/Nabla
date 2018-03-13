@@ -1,6 +1,5 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include <intrin.h>
 #include <immintrin.h>
 
 #include <chrono>
@@ -14,7 +13,7 @@
 #define EXEC_CNT (1e7)
 #define BROADCAST32(fpx) _MM_SHUFFLE(fpx, fpx, fpx, fpx)
 
-#define AVX 0 // set to 0 or 1 (sse3/avx), set appropriate compiler flags and run
+#define AVX 1 // set to 0 or 1 (sse3/avx), set appropriate compiler flags and run
 
 #if AVX
 #define ALIGN 32
@@ -213,18 +212,32 @@ static double run(void*);
 
 int main()
 {
-	void* data = _aligned_malloc(16*4*(size_t)EXEC_CNT, ALIGN);
-	for (size_t i = 0; i < 100; ++i)
+	void* data = malloc(16*4*(size_t)EXEC_CNT+ALIGN);
+
+	uint8_t* alignedData = reinterpret_cast<uint8_t*>(data);
+	size_t offset = reinterpret_cast<const size_t&>(alignedData)%ALIGN;
+	alignedData += ALIGN-offset;
+
+	double rowtime = 0.0;
+	double coltime = 0.0;
+	for (size_t i = 0; i < 10; ++i)
 	{
 #if AVX
-		printf("avx  row: %f\n", run<avx::matrix4x3_row>(data));
-		printf("avx  col: %f\n", run<avx::matrix4x3_col>(data));
+		rowtime += run<avx::matrix4x3_row>(alignedData);
+		coltime += run<avx::matrix4x3_col>(alignedData);
 #else
-		printf("sse3 row: %f\n", run<sse3::matrix4x3_row>(data));
-		printf("sse3 col: %f\n", run<sse3::matrix4x3_col>(data));
+		rowtime += run<sse3::matrix4x3_row>(alignedData);
+		coltime += run<sse3::matrix4x3_col>(alignedData);
 #endif
 	}
-	_aligned_free(data);
+#if AVX
+	printf("avx  row: %f\n", rowtime);
+    printf("avx  col: %f\n", coltime);
+#else
+    printf("sse3 row: %f\n", rowtime);
+    printf("sse3 col: %f\n", coltime);
+#endif
+	free(data);
 
 	return 0;
 }
