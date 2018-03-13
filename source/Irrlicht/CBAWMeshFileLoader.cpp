@@ -245,7 +245,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 	{
 		const size_t size = _data.header->effectiveSize();
 		void* out = malloc(size);
-		const bool ok = core::runAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, false);
+		const bool ok = core::decAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, _data.header->gcmTag);
 		if (dstCompressed != _stackPtr)
 			free(dstCompressed);
 		if (!ok)
@@ -256,6 +256,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 #ifdef _DEBUG
 			os::Printer::log("Blob decryption failed!", ELL_ERROR);
 #endif
+			return NULL;
 		}
 		dstCompressed = out;
 		if (!compressed)

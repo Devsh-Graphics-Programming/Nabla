@@ -10,9 +10,6 @@
 #include "IMesh.h"
 #include "CBAWFile.h"
 #include "irrArray.h"
-#include "aesGladman/fileenc.h"
-
-struct ISzAlloc;
 
 namespace irr {
 

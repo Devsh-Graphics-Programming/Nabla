@@ -15,9 +15,6 @@
 #include "IMesh.h"
 #include "CBAWFile.h"
 #include "CBlobsLoadingManager.h"
-#include "aesGladman/fileenc.h"
-
-struct ISzAlloc;
 
 namespace irr { namespace scene
 {
@@ -27,12 +24,12 @@ class CBAWMeshFileLoader : public IMeshLoader
 private:
 	struct SBlobData
 	{
-		const core::BlobHeaderV0* header;
+		core::BlobHeaderV0* header;
 		size_t absOffset; // absolute
 		void* heapBlob;
 		mutable bool validated;
 
-		SBlobData(const core::BlobHeaderV0* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
+		SBlobData(core::BlobHeaderV0* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
 		~SBlobData() { free(heapBlob); }
 		bool validate() const {
 			validated = false;

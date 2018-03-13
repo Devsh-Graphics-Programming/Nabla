@@ -337,7 +337,7 @@ namespace irr {namespace scene {
 			memset(((uint8_t*)in) + (compressedSize-16), 0, 16);
 			memcpy(in, data, compressedSize);
 			void* out = malloc(encrSize);
-			if (core::runAes128gcm(data, encrSize, out, encrSize, _ctx.props->encryptionPassPhrase, _ctx.props->initializationVector, true))
+			if (core::encAes128gcm(data, encrSize, out, encrSize, _ctx.props->encryptionPassPhrase, _ctx.props->initializationVector, _ctx.headers[_headerIdx].gcmTag))
 			{
 				if (data != _data && data != stack) // allocated in compressing functions?
 					free(data);
