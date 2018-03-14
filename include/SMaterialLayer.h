@@ -65,18 +65,18 @@ namespace video
     class STextureSamplingParams
     {
         public:
-        //! Texture Clamp Mode
+		//! Texture Clamp Mode
 		/** Values are taken from E_TEXTURE_CLAMP. */
-		uint32_t TextureWrapU:3;
-		uint32_t TextureWrapV:3;
-		uint32_t TextureWrapW:3;
+		uint32_t TextureWrapU : 3;
+		uint32_t TextureWrapV : 3;
+		uint32_t TextureWrapW : 3;
 
 		//! filter type to use
-		uint32_t MinFilter:3;
-		uint32_t MaxFilter:1;
+		uint32_t MinFilter : 3;
+		uint32_t MaxFilter : 1;
 
 		//! quick setting
-		uint32_t UseMipmaps:1;
+		uint32_t UseMipmaps : 1;
 
 		//! Is anisotropic filtering enabled? Default: 0, disabled
 		/** In Irrlicht you can use anisotropic texture filtering
@@ -85,9 +85,9 @@ namespace video
 		will look less blurry with this flag switched on. The number gives
 		the maximal anisotropy degree, and is often in the range 2-16.
 		Value 1 is equivalent to 0, but should be avoided. */
-		uint32_t AnisotropicFilter:5; //allows for 32x filter
+		uint32_t AnisotropicFilter : 5; //allows for 32x filter
 
-		uint32_t SeamlessCubeMap:1;
+		uint32_t SeamlessCubeMap : 1;
 
 		//! Bias for the mipmap choosing decision.
 		/** This value can make the textures more or less blurry than with the
@@ -95,6 +95,37 @@ namespace video
 		chosen initially, and thus takes a smaller mipmap for a region
 		if the value is positive. */
 		float LODBias;
+
+		void serializeBitfields(uint32_t* dst) const
+		{
+			*dst = TextureWrapU;
+			*dst |= TextureWrapV<<3;
+			*dst |= TextureWrapW<<6;
+			*dst |= MinFilter<<9;
+			*dst |= MaxFilter<<12;
+			*dst |= UseMipmaps<<13;
+			*dst |= AnisotropicFilter<<14;
+			*dst |= SeamlessCubeMap<<19;
+		}
+		void setBitfields(const uint32_t& src)
+		{
+			TextureWrapU = src & 0x07;
+			TextureWrapV = (src>>3) & 0x07;
+			TextureWrapW = (src>>6) & 0x07;
+			MinFilter = (src>>9) & 0x07;
+			MaxFilter = (src>>12) & 0x01;
+			UseMipmaps = (src>>13) & 0x01;
+			AnisotropicFilter = (src>>14) & 0x1f;
+			SeamlessCubeMap = (src>>19) & 0x01;
+		}
+		const uint32_t* bitfieldsPtr() const
+		{
+			return (uint32_t*)((uint8_t*)(this) + sizeof(*this) - sizeof(uint32_t));
+		}
+		uint32_t* bitfieldsPtr()
+		{
+			return const_cast<uint32_t*>(static_cast<const STextureSamplingParams&>(*this).bitfieldsPtr());
+		}
 
         STextureSamplingParams()
         {

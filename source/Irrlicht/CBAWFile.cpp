@@ -70,6 +70,10 @@ size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::c
 MeshBufferBlobV0::MeshBufferBlobV0(const scene::ICPUMeshBuffer* _mb)
 {
 	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SMaterial));
+	_mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
+	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+		_mb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
+
 	memcpy(&box, &_mb->getBoundingBox(), sizeof(core::aabbox3df));
 	descPtr = reinterpret_cast<uint64_t>(_mb->getMeshDataAndFormat());
 	indexType = _mb->getIndexType();
@@ -91,6 +95,10 @@ size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV0, scene::ICPUMeshBuffer>::calcBl
 SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer* _smb)
 {
 	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SMaterial));
+	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
+	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+		_smb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
+
 	memcpy(&box, &_smb->getBoundingBox(), sizeof(core::aabbox3df));
 	descPtr = reinterpret_cast<uint64_t>(_smb->getMeshDataAndFormat());
 	indexType = _smb->getIndexType();
