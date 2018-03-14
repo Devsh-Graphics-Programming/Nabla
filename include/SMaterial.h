@@ -251,44 +251,75 @@ namespace video
 		/** Values are from E_COMPARISON_FUNC. */
 		uint8_t ZBuffer;
 
+		float PolygonOffsetConstantMultiplier;
+
+		float PolygonOffsetGradientMultiplier;
+
 		//! Defines the enabled color planes
 		/** Values are defined as or'ed values of the E_COLOR_PLANE enum.
 		Only enabled color planes will be rendered to the current render
 		target. Typical use is to disable all colors when rendering only to
 		depth or stencil buffer, or using Red and Green for Stereo rendering. */
-		uint8_t ColorMask:4;
+		uint64_t ColorMask:4;
 
 		//! Store the blend operation of choice
 		/** Values to be chosen from E_BLEND_OPERATION. The actual way to use this value
 		is not yet determined, so ignore it for now. */
-		E_BLEND_OPERATION BlendOperation:4;
-
-		float PolygonOffsetConstantMultiplier;
-
-		float PolygonOffsetGradientMultiplier;
+		uint64_t BlendOperation:4;
 
 		//! Draw as wireframe or filled triangles? Default: false
 		/** The user can access a material flag using
 		\code material.Wireframe=true \endcode
 		or \code material.setFlag(EMF_WIREFRAME, true); \endcode */
-		bool Wireframe:1;
+		uint64_t Wireframe:1;
 
 		//! Draw as point cloud or filled triangles? Default: false
-		bool PointCloud:1;
+		uint64_t PointCloud:1;
 
 		//! Is the zbuffer writeable or is it read-only. Default: true.
 		/** This flag is forced to false if the MaterialType is a
 		transparent type and the scene parameter
 		ALLOW_ZWRITE_ON_TRANSPARENT is not set. */
-		bool ZWriteEnable:1;
+		uint64_t ZWriteEnable:1;
 
 		//! Is backface culling enabled? Default: true
-		bool BackfaceCulling:1;
+		uint64_t BackfaceCulling:1;
 
 		//! Is frontface culling enabled? Default: false
-		bool FrontfaceCulling:1;
+		uint64_t FrontfaceCulling:1;
 
-		bool RasterizerDiscard:1;
+		uint64_t RasterizerDiscard:1;
+
+		void serializeBitfields(uint64_t* dst) const
+		{
+			*dst = ColorMask;
+			*dst |= BlendOperation<<4;
+			*dst |= Wireframe<<8;
+			*dst |= PointCloud<<9;
+			*dst |= ZWriteEnable<<10;
+			*dst |= BackfaceCulling<<11;
+			*dst |= FrontfaceCulling<<12;
+			*dst |= RasterizerDiscard<<13;
+		}
+		void setBitfields(const uint64_t& src)
+		{
+			ColorMask = src & 0x0f;
+			BlendOperation = (src>>4) & 0x0f;
+			Wireframe = (src>>8) & 0x01;
+			PointCloud = (src>>9) & 0x01;
+			ZWriteEnable = (src>>10) & 0x01;
+			BackfaceCulling = (src>>11) & 0x01;
+			FrontfaceCulling = (src>>12) & 0x01;
+			RasterizerDiscard = (src>>13) & 0x01;
+		}
+		const uint64_t* bitfieldsPtr() const
+		{
+			return (uint64_t*)((uint8_t*)(this) + sizeof(*this) - sizeof(uint64_t));
+		}
+		uint64_t* bitfieldsPtr()
+		{
+			return const_cast<uint64_t*>(static_cast<const SMaterial&>(*this).bitfieldsPtr());
+		}
 
 		//! Gets the i-th texture
 		/** \param i The desired level.
