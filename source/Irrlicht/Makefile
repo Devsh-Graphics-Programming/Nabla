@@ -76,13 +76,13 @@ ifdef INTELCC
 CXXFLAGS += -axCORE-AVX2,CORE-AVX-I,AVX -msse4.2 -opt-prefetch -multiple-processes=8 -prec-sqrt -fast -rcd -ip -ipo -ipo-jobs8 -fma -fp-relaxed -m64 -opt-loadpair 
 endif
 ifdef BAW_SERVER
-CXXFLAGS += -DBAW_SERVER
+CXXFLAGS += -DBAW_SERVER -DNO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 ifndef INTELCC
 CXXFLAGS += -march=native
 endif
 endif
 ifdef BAW_SERVER_RELEASE
-CXXFLAGS += -DBAW_SERVER
+CXXFLAGS += -DBAW_SERVER -DNO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 ifndef INTELCC
 CXXFLAGS +=
 CPPFLAGS +=

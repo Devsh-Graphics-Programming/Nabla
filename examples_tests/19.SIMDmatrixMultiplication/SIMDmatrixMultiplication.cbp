@@ -35,10 +35,9 @@
 					<Add option="-g" />
 					<Add option="-fuse-ld=gold" />
 					<Add option="-fno-omit-frame-pointer" />
-					<Add option="-msse3" />
+					<Add option="-mavx" />
 					<Add option="-mfpmath=sse" />
 					<Add option="-ggdb3" />
-					<Add option="-std=c++03" />
 					<Add option="-D_AMD64_" />
 				</Compiler>
 				<Linker>

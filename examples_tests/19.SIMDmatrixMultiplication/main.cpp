@@ -12,7 +12,7 @@
 // _mm256_extractf128_ps for extracting hi part
 // _mm256_castps256_ps128 for extracting lo part (no cycles!)
 
-#define EXEC_CNT (1e4)
+#define EXEC_CNT (1e6)
 #define BROADCAST32(fpx) _MM_SHUFFLE(fpx, fpx, fpx, fpx)
 
 #define AVX 1 // set to 0 or 1 (sse3/avx), set appropriate compiler flags and run
@@ -50,7 +50,7 @@ namespace avx
 			matrix4x3_row out;
 
 			_mm256_store_ps(&out.m[0][0], doJob(A01, _other));
-			_mm256_store_ps(&out.m[2][0], doJob(A23, _other));
+			_mm256_store_ps(&out.m[2][0], doJob(A23, _other));//do special AVX 128bit ops to only load, calculate and store only one row
 
 			return out;
 		}
@@ -61,17 +61,13 @@ namespace avx
 	private:
 		static inline __m256 doJob(__m256 _A01, const matrix4x3_row& _mtx)
 		{
-			__m256 r01 = _mm256_load_ps(&_mtx.m[0][0]);
-			__m256 r23 = _mm256_load_ps(&_mtx.m[2][0]);
-			__m128 r0 = _mm256_extractf128_ps(r01, 0);
-			__m128 r1 = _mm256_extractf128_ps(r01, 1);
-			__m128 r2 = _mm256_extractf128_ps(r23, 0);
-			__m128 r3 = _mm256_extractf128_ps(r23, 1);
+			__m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0xffffffff, 0, 0, 0, 0xffffffff));
+
 			__m256 res;
-			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&r0));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&r1)));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&r2)));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(3)), _mm256_broadcast_ps(&r3)));
+			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&_mtx.row[0]));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&_mtx.row[1])));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&_mtx.row[2])));
+			res = _mm256_add_ps(res, _mm256_and_ps(_A01,mask));
 			return res;
 		}
 	}
@@ -104,14 +100,13 @@ namespace avx
 
 		inline matrix4x3_col concatenate(const matrix4x3_col& _other)
 		{
-			_mm256_zeroupper();
-			__m256 A01 = _mm256_load_ps(&m[0][0]);
-			__m256 A23 = _mm256_load_ps(&m[2][0]);
+			__m256 A01 = _mm256_load_ps(&_other.m[0][0]);
+			__m256 A23 = _mm256_load_ps(&_other.m[2][0]);
 
 			matrix4x3_col out;
 
-			_mm256_store_ps(&out.m[0][0], doJob(A01, _other));
-			_mm256_store_ps(&out.m[2][0], doJob(A23, _other));
+			_mm256_store_ps(&out.m[0][0], doJob(A01, 0, *this));
+			_mm256_store_ps(&out.m[2][0], doJob(A23, 2, *this));
 
 			return out;
 		}
@@ -120,19 +115,17 @@ namespace avx
 		const float& operator()(size_t _i, size_t _j) const { return m[_j][_i]; }
 
 	private:
-		static inline __m256 doJob(__m256 _A01, const matrix4x3_col& _mtx)
+		static inline __m256 doJob(__m256 _A01, size_t j, const matrix4x3_col& _mtx)
 		{
-			__m256 c01 = _mm256_load_ps(&_mtx.m[0][0]);
-			__m256 c23 = _mm256_load_ps(&_mtx.m[2][0]);
-			__m128 c0 = _mm256_extractf128_ps(c01, 0);
-			__m128 c1 = _mm256_extractf128_ps(c01, 1);
-			__m128 c2 = _mm256_extractf128_ps(c23, 0);
-			__m128 c3 = _mm256_extractf128_ps(c23, 1);
 			__m256 res;
-			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&c0));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&c1)));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&c2)));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(3)), _mm256_broadcast_ps(&c3)));
+			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&_mtx.col[0]));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&_mtx.col[1])));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&_mtx.col[2])));
+			if (j)
+            {
+                __m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff));
+                res = _mm256_add_ps(res, _mm256_and_ps(mask, _mm256_broadcast_ps(&_mtx.col[3])));
+            }
 			return res;
 		}
 	}
@@ -190,16 +183,17 @@ namespace sse3
 		{
 			__m128 res;
 
-			__m128 r0 = _mm_load_ps(_mtx.m[0]); 
+			__m128 r0 = _mm_load_ps(_mtx.m[0]);
 			__m128 r1 = _mm_load_ps(_mtx.m[1]);
 			__m128 r2 = _mm_load_ps(_mtx.m[2]);
+			__m128 r3 = _mm_load_ps(_mtx.m[3]);
 
 			__m128 mask = _mm_castsi128_ps(_mm_setr_epi32(0, 0, 0, 0xffffffff));
 
 			res = _mm_mul_ps(_mm_shuffle_ps(a, a, BROADCAST32(0)), r0);
 			res = _mm_add_ps(res, _mm_mul_ps(_mm_shuffle_ps(a, a, BROADCAST32(1)), r1));
 			res = _mm_add_ps(res, _mm_mul_ps(_mm_shuffle_ps(a, a, BROADCAST32(2)), r2));
-			res = _mm_add_ps(res, _mm_and_ps(_mm_shuffle_ps(a, a, BROADCAST32(3)), mask)); // always 0 0 0 a3
+			res = _mm_add_ps(res, _mm_and_ps(a, mask)); // always 0 0 0 a3 -- no shuffle needed
 			return res;
 		}
 	}
@@ -369,8 +363,8 @@ int main()
 	}
 	}
 
-	void* dataOut = malloc(16*4*(size_t)EXEC_CNT);
-	void* nosimdOut = malloc(16*4*(size_t)EXEC_CNT);
+	void* dataOut = alignedData+(16*4*(size_t)EXEC_CNT);
+	void* nosimdOut = alignedData+2*(16*4*(size_t)EXEC_CNT);
 
 	double nosimdtime = 0.0;
 	double simdtime = 0.0;
@@ -415,32 +409,33 @@ int main()
 	return 0;
 }
 
-static bool cmpf(float _a, float _b)
-{
-	if (_a != _b)
-	{
-		printf("a: %f  b: %f\n", _a, _b);
-		return false;
-	}
-	return true;
-	/* http://floating-point-gui.de/errors/comparison/ */
-	if (_a == _b) return true;
-
-	const float absDiff = std::abs(_a - _b);
-
-	if (_a == 0.f || _b == 0.f || absDiff < std::numeric_limits<float>::epsilon())
-		return absDiff < std::numeric_limits<float>::epsilon();
-
-	return absDiff / (std::abs(_a) + std::abs(_b)) < std::numeric_limits<float>::epsilon();
-}
-
 template<typename T>
 static bool compare(T* _m1, T* _m2)
 {
-	for (size_t i = 0; i < 4; ++i)
-		for (size_t j = 0; j < 4; ++j)
-		if (!cmpf(_m1->m[i][j], _m2->m[i][j]))
-			return false;
+    const float size_thresh = 0.000001f;
+
+	for (size_t i=0; i<4; i++)
+	for (size_t j=0; j<4; j++)
+    {
+        const float a = (*_m1)(i,j);
+        const float b = (*_m2)(i,j);
+        const uint32_t& aAsInt = reinterpret_cast<const uint32_t&>(a);
+        const uint32_t& bAsInt = reinterpret_cast<const uint32_t&>(b);
+
+        if (abs(b)>size_thresh)
+        {
+            if (abs(1.f-abs(a/b))>0.001f)
+            {
+                printf("%f,%f\n",a,b);
+                return false;
+            }
+        }
+        else if ( (aAsInt&0x80000000ull)!=(bAsInt&0x80000000ull) || abs(a)>size_thresh)
+        {
+            printf("ZERO %f,%f\n",a,b);
+            return false;
+        }
+    }
 	return true;
 }
 
