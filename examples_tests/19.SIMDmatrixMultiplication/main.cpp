@@ -145,7 +145,7 @@ namespace sse3
 		{
 			__m128 res;
 
-			__m128 r0 = _mm_load_ps(_mtx.m[0]); 
+			__m128 r0 = _mm_load_ps(_mtx.m[0]);
 			__m128 r1 = _mm_load_ps(_mtx.m[1]);
 			__m128 r2 = _mm_load_ps(_mtx.m[2]);
 			__m128 r3 = _mm_load_ps(_mtx.m[3]);
@@ -255,26 +255,29 @@ static double run(void*, void*, void*);
 
 int main()
 {
-	void* data = malloc(16*4*(size_t)EXEC_CNT+ALIGN);
+	void* data = malloc(16*4*(size_t)EXEC_CNT*3+ALIGN);
 
 	uint8_t* alignedData = reinterpret_cast<uint8_t*>(data);
 	size_t offset = reinterpret_cast<const size_t&>(alignedData)%ALIGN;
 	alignedData += ALIGN-offset;
 
 	for (uint32_t* p = (uint32_t*)alignedData; (void*)p != (void*)(alignedData + (size_t)EXEC_CNT*16*4); ++p)
+    {
 		*p = rand();
+		*p /= 1024.f;
+    }
 
-	void* dataOut = malloc(16*4*(size_t)EXEC_CNT);
-	void* nosimdOut = malloc(16*4*(size_t)EXEC_CNT);
+	void* dataOut = alignedData+(16*4*(size_t)EXEC_CNT);
+	void* nosimdOut = alignedData+2*(16*4*(size_t)EXEC_CNT);
 
 	double nosimdtime = 0.0;
 	double rowtime = 0.0;
 	double coltime = 0.0;
 
-	for (size_t i = 0; i < 10; ++i)
+	for (size_t i = 0; i < 100; ++i)
 		nosimdtime += run<matrix4x3_col_nosimd>(alignedData, nosimdOut, 0);
 
-	for (size_t i = 0; i < 10; ++i)
+	for (size_t i = 0; i < 100; ++i)
 	{
 #if AVX
 		rowtime += run<avx::matrix4x3_row>(alignedData, dataOut, nosimdOut);
@@ -301,9 +304,28 @@ int main()
 template<typename T>
 static bool compare(T* _m1, T* _m2) // naive cmp function for now
 {
-	for (float* p1 = (float*)_m1, *p2 = (float*)_m2; (uint8_t*)p1 != (uint8_t*)(p1)+16*4; ++p1, ++p2)
-		if (p1 != p2)
-			return false;
+	for (size_t i=0; i<4; i++)
+	for (size_t j=0; j<4; j++)
+    {
+        const float a = (*_m1)(i,j);
+        const float b = (*_m2)(i,j);
+        const uint32_t& aAsInt = reinterpret_cast<const uint32_t&>(a);
+        const uint32_t& bAsInt = reinterpret_cast<const uint32_t&>(b);
+
+        if (abs(b)>0.000001f)
+        {
+            if (abs(1.f-abs(a/b))<0.999f)
+            {
+                printf("%f,%f\n",a,b);
+                return false;
+            }
+        }
+        else if ( (aAsInt&0x80000000ull)!=(bAsInt&0x80000000ull) || abs(a)>0.000000001f)
+        {
+            printf("ZERO %f,%f\n",a,b);
+            return false;
+        }
+    }
 	return true;
 }
 
@@ -318,7 +340,7 @@ static double run(void* _data, void* _out, void* _cmp)
 	{
 		out[i] = mtx[i].concatenate(mtx[i+1]);
 #if VERIFY
-		if (!compare<T>(out+i, ((T*)_cmp)+i))
+		if (_cmp && !compare<T>(out+i, ((T*)_cmp)+i))
 			printf("???\n");
 #endif
 	}
