@@ -28,11 +28,7 @@ namespace avx
 #endif
 		struct matrix4x3_row
 	{
-		union
-		{
-			float m[4][4];
-			__m256 row[2];
-		};
+		float m[4][4];
 
 		matrix4x3_row(const float* _data = 0)
 		{
@@ -63,10 +59,17 @@ namespace avx
 		{
 			__m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0xffffffff, 0, 0, 0, 0xffffffff));
 
+			__m256 r01 = _mm256_load_ps(&_mtx.m[0][0]);
+			__m256 r23 = _mm256_load_ps(&_mtx.m[2][0]);
+			__m128 r0 = _mm256_extractf128_ps(r01, 0);
+			__m128 r1 = _mm256_extractf128_ps(r01, 1);
+			__m128 r2 = _mm256_extractf128_ps(r23, 0);
+			__m128 r3 = _mm256_extractf128_ps(r23, 1);
+
 			__m256 res;
-			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&_mtx.row[0]));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&_mtx.row[1])));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&_mtx.row[2])));
+			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&r0));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&r1)));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&r2)));
 			res = _mm256_add_ps(res, _mm256_and_ps(_A01,mask));
 			return res;
 		}
@@ -81,11 +84,7 @@ namespace avx
 #endif
 		struct matrix4x3_col
 	{
-		union
-		{
-			float m[4][4];
-			__m256 col[2];
-		};
+		float m[4][4];
 
 		matrix4x3_col(const float* _data = 0)
 		{
@@ -117,14 +116,21 @@ namespace avx
 	private:
 		static inline __m256 doJob(__m256 _A01, size_t j, const matrix4x3_col& _mtx)
 		{
+			__m256 c01 = _mm256_load_ps(&_mtx.m[0][0]);
+			__m256 c23 = _mm256_load_ps(&_mtx.m[2][0]);
+			__m128 c0 = _mm256_extractf128_ps(c01, 0);
+			__m128 c1 = _mm256_extractf128_ps(c01, 1);
+			__m128 c2 = _mm256_extractf128_ps(c23, 0);
+			__m128 c3 = _mm256_extractf128_ps(c23, 1);
+
 			__m256 res;
-			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&_mtx.col[0]));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&_mtx.col[1])));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&_mtx.col[2])));
+			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&c0));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&c1)));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&c2)));
 			if (j)
             {
                 __m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff));
-                res = _mm256_add_ps(res, _mm256_and_ps(mask, _mm256_broadcast_ps(&_mtx.col[3])));
+                res = _mm256_add_ps(res, _mm256_and_ps(mask, _mm256_broadcast_ps(&c3)));
             }
 			return res;
 		}
@@ -145,11 +151,7 @@ namespace sse3
 #endif
 		struct matrix4x3_row
 	{
-		union
-		{
-			float m[4][4];
-			__m128 row[4];
-		};
+		float m[4][4];
 
 		matrix4x3_row(const float* _data = 0)
 		{
@@ -207,11 +209,7 @@ namespace sse3
 #endif
 		struct matrix4x3_col
 	{
-		union
-		{
-			float m[4][4];
-			__m128 col[4];
-		};
+		float m[4][4];
 
 		matrix4x3_col(const float* _data = 0)
 		{
@@ -304,6 +302,43 @@ struct matrix4x3_col_nosimd
 	const float& operator()(size_t _i, size_t _j) const { return m[_j][_i]; }
 };
 
+struct matrix4x3_row_nosimd
+{
+	float m[4][4];
+
+	matrix4x3_row_nosimd(const float* _data = 0)
+	{
+		if (!_data)
+			return;
+		//printf("nosimd row ctor:\n");
+		//for (size_t i = 0; i < 16; ++i)
+		//	printf("%f ", _data[i]);
+		//printf("\n");
+		memcpy(m, _data, 16 * 4);
+	}
+
+	inline matrix4x3_row_nosimd concatenate(const matrix4x3_row_nosimd& _other)
+	{
+		matrix4x3_row_nosimd ret;
+		for (size_t i = 0; i < 4; i++)
+		{
+			for (size_t j = 0; j < 4; j++)
+			{
+				float sum = 0.f;
+				for (size_t e = 0; e < 4; e++)
+				{
+					sum += m[i][e] * _other.m[e][j];
+				}
+				ret.m[i][j] = sum;
+			}
+		}
+		return ret;
+	}
+
+	float& operator()(size_t _i, size_t _j) { return m[_i][_j]; }
+	const float& operator()(size_t _i, size_t _j) const { return m[_i][_j]; }
+};
+
 namespace measure
 {
 	using Clock = std::chrono::high_resolution_clock;
@@ -316,25 +351,9 @@ static bool compare(T* _m1, T* _m2);
 template<typename T>
 static double run(void*, void*, void*);
 
-size_t cnt = 0;
 int main()
 {
-	//const float dat1[16]{ 12, 28, 3, 0, 44, 5, 61, 0, 72, 8, 99, 0, 41, 71, 24, 1 }; // col
-	//const float dat2[16]{ 22, 12, 133, 0, 44, 72, 6, 0, 17, 81, 24, 0, 14, 47, 16, 1 }; //col
-	////const float dat1[16]{ 1, 2, 3, 4, 4, 5, 6, 6, 7, 8, 9, 7, 0, 0, 0, 1 }; //row
-	////const float dat2[16]{ 22, 12, 133, 24, 44, 72, 6, 32, 17, 81, 24, 18, 0, 0, 0, 1 }; //row
-	//avx::matrix4x3_col m1(dat1), m2(dat2);
-	//avx::matrix4x3_col m3 = m1.concatenate(m2);
-	//for (size_t i = 0; i < 4; ++i)
-	//{
-	//	for (size_t j = 0; j < 4; ++j)
-	//		printf("%f ", m3.m[j][i]);
-	//	printf("\n");
-	//}
-
-	//return 0; //!!!!!!!!!!
-
-	void* data = malloc(16*4*(size_t)EXEC_CNT+ALIGN);
+	void* data = malloc(16*4*(size_t)EXEC_CNT*3+ALIGN);
 
 	uint8_t* alignedData = reinterpret_cast<uint8_t*>(data);
 	size_t offset = reinterpret_cast<const size_t&>(alignedData)%ALIGN;
@@ -370,7 +389,13 @@ int main()
 	double simdtime = 0.0;
 
 	for (size_t i = 0; i < 10; ++i)
+	{
+#if COL_MAJOR
 		nosimdtime += run<matrix4x3_col_nosimd>(alignedData, nosimdOut, 0);
+#else
+		nosimdtime += run<matrix4x3_row_nosimd>(alignedData, nosimdOut, 0);
+#endif
+	}
 
 	for (size_t i = 0; i < 10; ++i)
 	{
@@ -390,6 +415,9 @@ int main()
 	}
 
 	printf("nosimd  : %f\n", nosimdtime);
+#if VERIFY
+	printf("SIMD time distorted by comparisons!\n");
+#endif
 #if AVX
 #if COL_MAJOR
     printf("avx  col: %f\n", simdtime);
@@ -404,7 +432,6 @@ int main()
 #endif
 #endif
 	free(data);
-	printf("cnt: %u\n", cnt);
 
 	return 0;
 }
@@ -426,13 +453,13 @@ static bool compare(T* _m1, T* _m2)
         {
             if (abs(1.f-abs(a/b))>0.001f)
             {
-                printf("%f,%f\n",a,b);
+                //printf("%f,%f\n",a,b);
                 return false;
             }
         }
         else if ( (aAsInt&0x80000000ull)!=(bAsInt&0x80000000ull) || abs(a)>size_thresh)
         {
-            printf("ZERO %f,%f\n",a,b);
+            //printf("ZERO %f,%f\n",a,b);
             return false;
         }
     }
@@ -448,34 +475,13 @@ static double run(void* _data, void* _out, void* _cmp)
 	T* out = (T*)_out;
 	for (size_t i = 0; i < (size_t)EXEC_CNT-1; ++i)
 	{
-		T m1(mtx+16*i), m2(mtx+16*(i+1));
-		out[i] = m1.concatenate(m2);
+		T* m1 = (T*)(mtx+16*i), *m2 = (T*)(mtx+16*(i+1));
+		out[i] = m1->concatenate(*m2);
 #if VERIFY
 		if (_cmp && !compare<T>(out+i, ((T*)_cmp)+i))
 		{
-			printf("???\n");
-			cnt++;
+			printf("Matrices don't match!\n");
 		}
-		//if (_cmp)
-		//{
-		//	T& nosimd = *(((T*)_cmp) + i);
-		//	printf("nosimd:\n");
-		//	for (size_t i = 0; i < 4; ++i)
-		//	{
-		//		for (size_t j = 0; j < 4; ++j)
-		//			printf("%f ", nosimd.m[j][i]);
-		//		printf("\n");
-		//	}
-		//	T& m3 = out[i];
-		//	printf("simd:\n");
-		//	for (size_t i = 0; i < 4; ++i)
-		//	{
-		//		for (size_t j = 0; j < 4; ++j)
-		//			printf("%f ", m3.m[j][i]);
-		//		printf("\n");
-		//	}
-		//int a = 0; // breakpoint here
-		//}
 #endif
 	}
 
