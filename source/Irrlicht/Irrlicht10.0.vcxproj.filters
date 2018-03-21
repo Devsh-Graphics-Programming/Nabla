@@ -228,6 +228,7 @@
     <ClCompile Include="aesGladman\sha1.c" />
     <ClCompile Include="lzma\Alloc.c" />
     <ClCompile Include="lzma\LzmaLib.c" />
+    <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
@@ -557,6 +558,7 @@
     <ClInclude Include="aesGladman\brg_types.h" />
     <ClInclude Include="lzma\Alloc.h" />
     <ClInclude Include="lzma\LzmaLib.h" />
+    <ClInclude Include="..\..\include\CForsythVertexCacheOptimizer.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />

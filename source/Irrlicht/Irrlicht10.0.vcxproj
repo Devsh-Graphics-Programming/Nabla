@@ -744,6 +744,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\include\CForsythVertexCacheOptimizer.h" />
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
     <ClInclude Include="..\..\include\EMaterialFlags.h" />
     <ClInclude Include="..\..\include\IAnimatedMeshMD3.h" />
@@ -1138,6 +1139,7 @@
     <ClCompile Include="CBlobsLoadingManager.cpp" />
     <ClCompile Include="CDefaultSceneNodeAnimatorFactory.cpp" />
     <ClCompile Include="CDefaultSceneNodeFactory.cpp" />
+    <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="CGeometryCreator.cpp" />
     <ClCompile Include="CGPUTransientBuffer.cpp" />
     <ClCompile Include="CIrrDeviceWin32.cpp">
