@@ -11,7 +11,6 @@
 #include "CTimer.h"
 #include "CLogger.h"
 #include "irrString.h"
-#include "IRandomizer.h"
 
 namespace irr
 {
@@ -19,7 +18,7 @@ namespace irr
 CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 : IrrlichtDevice(), VideoDriver(0), SceneManager(0),
 	Timer(0), CursorControl(0), UserReceiver(params.EventReceiver),
-	Logger(0), Operator(0), Randomizer(0), FileSystem(0),
+	Logger(0), Operator(0), FileSystem(0),
 	InputReceivingSceneManager(0), VideoModeList(0),
 	CreationParams(params), Close(false)
 {
@@ -38,7 +37,6 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 	Logger->setLogLevel(CreationParams.LoggingLevel);
 
 	os::Printer::Logger = Logger;
-	Randomizer = createDefaultRandomizer();
 
 	FileSystem = io::createFileSystem();
 	VideoModeList = new video::CVideoModeList();
@@ -58,9 +56,6 @@ CIrrDeviceStub::~CIrrDeviceStub()
 
 	if (Operator)
 		Operator->drop();
-
-	if (Randomizer)
-		Randomizer->drop();
 
 	if (Timer)
 		Timer->drop();
@@ -226,61 +221,6 @@ ILogger* CIrrDeviceStub::getLogger()
 IOSOperator* CIrrDeviceStub::getOSOperator()
 {
 	return Operator;
-}
-
-
-//! Provides access to the engine's currently set randomizer.
-IRandomizer* CIrrDeviceStub::getRandomizer() const
-{
-	return Randomizer;
-}
-
-//! Sets a new randomizer.
-void CIrrDeviceStub::setRandomizer(IRandomizer* r)
-{
-	if (r!=Randomizer)
-	{
-		if (Randomizer)
-			Randomizer->drop();
-		Randomizer=r;
-		if (Randomizer)
-			Randomizer->grab();
-	}
-}
-
-namespace
-{
-	struct SDefaultRandomizer : public IRandomizer
-	{
-		virtual void reset(int32_t value=0x0f0f0f0f)
-		{
-			os::Randomizer::reset(value);
-		}
-
-		virtual int32_t rand() const
-		{
-			return os::Randomizer::rand();
-		}
-
-		virtual float frand() const
-		{
-			return os::Randomizer::frand();
-		}
-
-		virtual int32_t randMax() const
-		{
-			return os::Randomizer::randMax();
-		}
-	};
-}
-
-//! Creates a new default randomizer.
-IRandomizer* CIrrDeviceStub::createDefaultRandomizer() const
-{
-	IRandomizer* r = new SDefaultRandomizer();
-	if (r)
-		r->reset();
-	return r;
 }
 
 

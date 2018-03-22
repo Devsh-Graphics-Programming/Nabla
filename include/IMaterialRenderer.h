@@ -77,7 +77,7 @@ public:
 	//! Returns if the material is transparent.
 	/** The scene managment needs to know this
 	for being able to sort the materials by opaque and transparent. */
-	virtual bool isTransparent() const { return false; }
+	virtual bool isTransparent() const { return false; } //depr
 
 	//! Returns the render capability of the material.
 	/** Because some more complex materials
@@ -89,7 +89,7 @@ public:
 	it cannot use the latest shaders. More specific examples:
 	Fixed function pipeline materials should return 0 in most cases, parallax mapped
 	material will only return 0 when at least pixel shader 1.4 is available on that machine. */
-	virtual int32_t getRenderCapability() const { return 0; }
+	virtual int32_t getRenderCapability() const { return 0; } //depr
 };
 
 
