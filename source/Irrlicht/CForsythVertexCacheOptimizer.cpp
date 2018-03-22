@@ -40,7 +40,7 @@ namespace irr { namespace scene
 		}
 
 		const uint32_t NumPrimitives = _numIndices / 3;
-		_IRR_DEBUG_BREAK_IF(NumPrimitives != uint32_t(std::floor(numIndices / 3.0f))); // Number of indicies not divisible by 3, not a good triangle list.
+		_IRR_DEBUG_BREAK_IF(NumPrimitives != uint32_t(std::floor(_numIndices / 3.0f))); // Number of indicies not divisible by 3, not a good triangle list.
 
 		//
 		// Step 1: Run through the data, and initialize
@@ -56,7 +56,7 @@ namespace irr { namespace scene
 			for (int32_t c = 0; c < 3; c++)
 			{
 				const IdxT &curVIdx = _indices[curIdx];
-				_IRR_DEBUG_BREAK_IF(curVIdx >= numVerts); // Out of range index.
+				_IRR_DEBUG_BREAK_IF(curVIdx >= _numVerts); // Out of range index.
 
 				// Add this vert to the list of verts that define the triangle
 				curTri.vertIdx[c] = curVIdx;
@@ -72,11 +72,11 @@ namespace irr { namespace scene
 
 		// Allocate per-vertex triangle lists, and calculate the starting score of
 		// each of the verts
-		for (int32_t v = 0; v < numVerts; v++)
+		for (int32_t v = 0; v < _numVerts; v++)
 		{
 			VertData &curVert = vertexData[v];
 			curVert.triIndex = new int32_t[curVert.numUnaddedReferences];
-			curVert.score = FindVertexScore::score(curVert);
+			curVert.score = score(curVert);
 		}
 
 		// These variables will be used later, but need to be declared now
@@ -84,8 +84,8 @@ namespace irr { namespace scene
 		float nextNextBestTriScore = -1.0f, nextBestTriScore = -1.0f;
 
 #define _VALIDATE_TRI_IDX(idx) if(idx > -1) { _IRR_DEBUG_BREAK_IF(idx >= NumPrimitives); /*Out of range triangle index.*/ _IRR_DEBUG_BREAK_IF(triangleData[idx].isInList); /*Triangle already in list, bad.*/ }
-#define _CHECK_NEXT_NEXT_BEST(score, idx) { if(score > nextNextBestTriScore) { nextNextBestTriIdx = idx; nextNextBestTriScore = score; } }
-#define _CHECK_NEXT_BEST(score, idx) { if(score > nextBestTriScore) { _CHECK_NEXT_NEXT_BEST(nextBestTriScore, nextBestTriIdx); nextBestTriIdx = idx; nextBestTriScore = score; } _VALIDATE_TRI_IDX(nextBestTriIdx); }
+#define _CHECK_NEXT_NEXT_BEST(scr, idx) { if(scr > nextNextBestTriScore) { nextNextBestTriIdx = idx; nextNextBestTriScore = scr; } }
+#define _CHECK_NEXT_BEST(scr, idx) { if(scr > nextBestTriScore) { _CHECK_NEXT_NEXT_BEST(nextBestTriScore, nextBestTriIdx); nextBestTriIdx = idx; nextBestTriScore = scr; } _VALIDATE_TRI_IDX(nextBestTriIdx); }
 
 		// Fill-in per-vertex triangle lists, and sum the scores of each vertex used
 		// per-triangle, to get the starting triangle score
@@ -97,7 +97,7 @@ namespace irr { namespace scene
 			for (int32_t c = 0; c < 3; c++)
 			{
 				const IdxT &curVIdx = _indices[curIdx];
-				_IRR_DEBUG_BREAK_IF(curVIdx >= numVerts); // Out of range index.
+				_IRR_DEBUG_BREAK_IF(curVIdx >= _numVerts); // Out of range index.
 				VertData &curVert = vertexData[curVIdx];
 
 				// Add triangle to triangle list
@@ -118,7 +118,7 @@ namespace irr { namespace scene
 		// Step 2: Start emitting triangles...this is the emit loop
 		//
 		LRUCacheModel lruCache;
-		for (int32_t outIdx = 0; outIdx < numIndices; /* this space intentionally left blank */)
+		for (int32_t outIdx = 0; outIdx < _numIndices; /* this space intentionally left blank */)
 		{
 			// If there is no next best triangle, than search for the next highest
 			// scored triangle that isn't in the list already
@@ -147,7 +147,7 @@ namespace irr { namespace scene
 			for (int32_t i = 0; i < 3; i++)
 			{
 				// Emit index
-				outIndices[outIdx++] = IdxT(nextBestTri.vertIdx[i]);
+				_outIndices[outIdx++] = IdxT(nextBestTri.vertIdx[i]);
 
 				// Update the list of triangles on the vert
 				VertData &curVert = vertexData[nextBestTri.vertIdx[i]];

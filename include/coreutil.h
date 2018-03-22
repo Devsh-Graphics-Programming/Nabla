@@ -546,10 +546,15 @@ inline float unpack11bitFloat(uint32_t _fp)
 
 	const uint32_t mant = _fp & mantissaMask;
 	const uint32_t exp = (_fp & expMask) >> 6;
-	if (!exp && mant)
-		return pow(2.f, -14.f) * mant/64.f;
-	else if (exp && exp < 31)
-		return pow(2.f, exp - 15.f) * (1 + mant/64.f);
+	if (exp < 31 && mant)
+	{
+	    float f32 = 0.f;
+	    uint32_t& if32 = *((uint32_t*)&f32);
+	    
+	    if32 |= (mant << (23-6));
+	    if32 |= ((exp+(127-15)) << 23);
+	    return f32;
+	}
 	else if (exp == 31 && !mant)
 		return INFINITY;
 	else if (exp == 31 && mant)
@@ -605,10 +610,15 @@ inline float unpack10bitFloat(uint32_t _fp)
 
 	const uint32_t mant = _fp & mantissaMask;
 	const uint32_t exp = (_fp & expMask) >> 5;
-	if (!exp && mant)
-		return pow(2.f, -14.f) * mant/32.f;
-	else if (exp && exp < 31)
-		return pow(2.f, exp - 15.f) * (1 + mant / 32.f);
+	if (exp < 31)
+	{
+		float f32 = 0.f;
+		uint32_t& if32 = *((uint32_t*)&f32);
+
+		if32 |= (mant << (23 - 5));
+		if32 |= ((exp + (127 - 15)) << 23);
+		return f32;
+	}
 	else if (exp == 31 && !mant)
 		return INFINITY;
 	else if (exp == 31 && mant)
@@ -642,7 +652,7 @@ inline uint32_t to10bitFloat(float _f32)
 	else if (exp > -15)
 	{
 		const int32_t e = exp + 15;
-		const uint32_t m = mantissa >> (23 - 6);
+		const uint32_t m = mantissa >> (23 - 5);
 		f10 = (e << 5) | m;
 	}
 
