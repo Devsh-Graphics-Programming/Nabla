@@ -223,7 +223,6 @@ CNullDriver::~CNullDriver()
 	if (FileSystem)
 		FileSystem->drop();
 
-    removeAllFrameBuffers();
     removeAllRenderBuffers();
 	deleteAllTextures();
 
@@ -576,12 +575,6 @@ void CNullDriver::removeRenderBuffer(IRenderBuffer* renderbuf)
 
 void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 {
-    int32_t ix = FrameBuffers.binary_search(framebuf);
-    if (ix<0)
-        return;
-    FrameBuffers.erase(ix);
-
-    framebuf->drop();
 }
 
 
@@ -620,9 +613,6 @@ void CNullDriver::removeAllRenderBuffers()
 
 void CNullDriver::removeAllFrameBuffers()
 {
-	for (uint32_t i=0; i<FrameBuffers.size(); ++i)
-		FrameBuffers[i]->drop();
-    FrameBuffers.clear();
 }
 
 
@@ -1910,12 +1900,6 @@ void CNullDriver::addRenderBuffer(IRenderBuffer* buffer)
 IFrameBuffer* CNullDriver::addFrameBuffer()
 {
 	return 0;
-}
-
-void CNullDriver::addFrameBuffer(IFrameBuffer* framebuffer)
-{
-    FrameBuffers.push_back(framebuffer);
-    FrameBuffers.sort();
 }
 
 

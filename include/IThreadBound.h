@@ -12,6 +12,21 @@ namespace irr
 namespace core
 {
 
+#ifdef _DEBUG
+    #define _IRR_CHECK_OWNING_THREAD(_obj, EXTRA_BODY_TO_EXEC) \
+        if (!_obj->belongsToCurrentThread()) \
+        { \
+            os::Printer::log("Attemped to use an IThreadBound object from a thread that did not create it!", ELL_ERROR);\
+            EXTRA_BODY_TO_EXEC \
+        }
+#else
+    #define _IRR_CHECK_OWNING_THREAD(_obj, EXTRA_BODY_TO_EXEC) \
+        if (!_obj->belongsToCurrentThread()) \
+        { \
+            EXTRA_BODY_TO_EXEC \
+        }
+#endif
+
 //! Base class for things that cannot be shared between threads
 class IThreadBound
 {

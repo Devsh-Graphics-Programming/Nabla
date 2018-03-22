@@ -408,6 +408,7 @@ namespace video
 
 		virtual void removeAllRenderBuffers() =0;
 
+		//! This only removes all IFrameBuffers created in the calling thread.
 		virtual void removeAllFrameBuffers() =0;
 
 

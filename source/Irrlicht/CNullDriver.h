@@ -587,8 +587,6 @@ namespace video
 
         void addRenderBuffer(IRenderBuffer* buffer);
 
-        void addFrameBuffer(IFrameBuffer* framebuffer);
-
 		//! deletes all textures
 		void deleteAllTextures();
 
@@ -675,7 +673,6 @@ namespace video
 		core::array<IMultisampleTexture*> MultisampleTextures;
 		core::array<ITextureBufferObject*> TextureBufferObjects;
 		core::array<IRenderBuffer*> RenderBuffers;
-		core::array<IFrameBuffer*> FrameBuffers;
 
 		core::array<video::IImageLoader*> SurfaceLoader;
 		core::array<video::IImageWriter*> SurfaceWriter;
