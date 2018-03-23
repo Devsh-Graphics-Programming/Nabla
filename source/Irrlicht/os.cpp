@@ -227,40 +227,6 @@ namespace os
 			Logger->log(message, hint, ll);
 	}
 
-	// our Randomizer is not really os specific, so we
-	// code one for all, which should work on every platform the same,
-	// which is desireable.
-
-	int32_t Randomizer::seed = 0x0f0f0f0f;
-
-	//! generates a pseudo random number
-	int32_t Randomizer::rand()
-	{
-		// (a*seed)%m with Schrage's method
-		seed = a * (seed%q) - r* (seed/q);
-		if (seed<0)
-			seed += m;
-
-		return seed;
-	}
-
-	//! generates a pseudo random number
-	float Randomizer::frand()
-	{
-		return rand()*(1.f/rMax);
-	}
-
-	int32_t Randomizer::randMax()
-	{
-		return rMax;
-	}
-
-	//! resets the randomizer
-	void Randomizer::reset(int32_t value)
-	{
-		seed = value;
-	}
-
 
 	// ------------------------------------------------------
 	// virtual timer implementation

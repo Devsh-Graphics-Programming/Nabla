@@ -68,7 +68,9 @@
 					<Add library="dl" />
 					<Add library="unwind" />
 					<Add library="unwind-x86_64" />
+					<Add library="crypto" />
 					<Add directory="../../lib/Linux" />
+					<Add directory="../../../openssl" />
 				</Linker>
 			</Target>
 		</Build>

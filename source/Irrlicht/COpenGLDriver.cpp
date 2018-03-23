@@ -2913,6 +2913,9 @@ IFrameBuffer* COpenGLDriver::addFrameBuffer()
 
 void COpenGLDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 {
+    if (!framebuf)
+        return;
+
     _IRR_CHECK_OWNING_THREAD(framebuf,return;);
 
     SAuxContext* found = getThreadContext_helper(false);
@@ -3142,8 +3145,6 @@ uint32_t COpenGLDriver::getMaximalIndicesCount() const
 //! Sets multiple render targets
 bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport)
 {
-    _IRR_CHECK_OWNING_THREAD(frameBuffer,return false;);
-
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return false;
@@ -3164,6 +3165,8 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
 
         return true;
     }
+
+    _IRR_CHECK_OWNING_THREAD(frameBuffer,return false;);
 
     if (!frameBuffer->rebindRevalidate())
     {
@@ -3362,8 +3365,6 @@ ITransformFeedback* COpenGLDriver::createTransformFeedback()
 
 void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback)
 {
-    _IRR_CHECK_OWNING_THREAD(xformFeedback,return;);
-
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return;
@@ -3373,7 +3374,10 @@ void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback)
 
 void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback, SAuxContext* toContext)
 {
-    _IRR_CHECK_OWNING_THREAD(xformFeedback,return;);
+    if (xformFeedback)
+    {
+        _IRR_CHECK_OWNING_THREAD(xformFeedback,return;);
+    }
 
     if (toContext->CurrentXFormFeedback==xformFeedback)
         return;
@@ -3407,7 +3411,10 @@ void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback, SAu
 
 void COpenGLDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType)
 {
-    _IRR_CHECK_OWNING_THREAD(xformFeedback,return;);
+    if (xformFeedback)
+    {
+        _IRR_CHECK_OWNING_THREAD(xformFeedback,return;);
+    }
 
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
