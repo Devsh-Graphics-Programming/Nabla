@@ -7,6 +7,7 @@
 
 #include "stdint.h"
 #include "IReferenceCounted.h"
+#include "IThreadBound.h"
 #include "dimension2d.h"
 
 namespace irr
@@ -40,10 +41,16 @@ enum E_RENDERABLE_TYPE
 class IRenderable : public virtual IReferenceCounted
 {
     public:
-		//! Returns type
+		//! Returns the underlying type of the IRenderable object
+		/**
+		@returns Returns the underlying type of the IRenderable object; ERT_TEXTURE for ITexture and IMultisampleTexture or ERT_RENDERBUFFER for IRenderBuffer
+		*/
         virtual E_RENDERABLE_TYPE getRenderableType() const = 0;
 
-		//! Returns two-dimensional size
+		//! Returns the two dimensional size of an IFrameBuffer attachment
+		/**
+		@returns The two dimensional size of the max rendering viewport which could be configured on an IFrameBuffer with this object attached.
+		*/
         virtual core::dimension2du getRenderableSize() const = 0;
 };
 
@@ -51,7 +58,7 @@ class ITexture;
 class IMultisampleTexture;
 class IRenderBuffer;
 
-class IFrameBuffer : public virtual IReferenceCounted
+class IFrameBuffer : public virtual IReferenceCounted, public core::IThreadBound
 {
     public:
 		//! Attaches given texture to given attachment point.
@@ -73,7 +80,7 @@ class IFrameBuffer : public virtual IReferenceCounted
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, ITexture* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1) = 0;
 
 		//! Attaches given multisample texture to given attachment point.
-		/** 
+		/**
 		@param attachmentPoint Identifies attachment point.
 		@param tex Multisample texture being attached.
 		@param layer Layer of the framebuffer to attach to.
@@ -93,7 +100,7 @@ class IFrameBuffer : public virtual IReferenceCounted
 		*/
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IRenderBuffer* rbf) = 0;
 
-		//! Binds possibly respicified attachments.
+		//! Binds possibly respecified attachments.
 		/** @returns true when everything is right or when no work was necessary to do;
 				false when color formats you are trying to render to are invalid or if current combination of attachments is invalid.
 		*/
