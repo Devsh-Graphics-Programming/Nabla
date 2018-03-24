@@ -19,6 +19,19 @@ not intended for doing mesh modifications and/or animations during runtime.
 */
 class CMeshManipulator : public IMeshManipulator
 {
+	struct Attrib
+	{
+		E_COMPONENT_TYPE type;
+		size_t size;
+		E_VERTEX_ATTRIBUTE_ID vaid;
+		E_COMPONENTS_PER_ATTRIBUTE cpa;
+		size_t offset;
+
+		Attrib() : type(ECT_COUNT), size(0), vaid(EVAI_COUNT) {}
+
+		friend bool operator>(const Attrib& _a, const Attrib& _b) { return _a.size > _b.size; }
+	};
+
 public:
 #ifndef NEW_MESHES
     virtual void isolateAndExtractMeshBuffer(ICPUMeshBuffer* inbuffer, const bool& interleaved=true) const = 0;
@@ -69,10 +82,24 @@ public:
 	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
 	virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const;
 
+	virtual ICPUMeshBuffer* createOptimizedMeshBuffer(ICPUMeshBuffer* inbuffer) const;
+
 #ifndef NEW_MESHES
 	//! create a mesh optimized for the vertex cache
 	virtual ICPUMeshBuffer* createForsythOptimizedMeshBuffer(const ICPUMeshBuffer *meshbuffer) const;
 #endif // NEW_MESHES
+
+private:
+	std::vector<core::vectorSIMDf> findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId) const;
+	
+	struct SIntegerAttr
+	{
+		uint32_t pointer[4];
+	};
+	std::vector<SIntegerAttr> findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId) const;
+
+	E_COMPONENT_TYPE getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const;
+	E_COMPONENT_TYPE getBestTypeI(bool _nativeInt, bool _unsigned, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const uint32_t* _min, const uint32_t* _max) const;
 };
 
 

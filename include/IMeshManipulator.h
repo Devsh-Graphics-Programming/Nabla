@@ -53,6 +53,8 @@ namespace scene
 		IReferenceCounted::drop() for more information. */
 		virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer* inbuffer, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const = 0;
 
+		virtual ICPUMeshBuffer* createOptimizedMeshBuffer(ICPUMeshBuffer* inbuffer) const = 0;
+
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
 		\param Outputted Number of polygons in mesh buffer, if successful.

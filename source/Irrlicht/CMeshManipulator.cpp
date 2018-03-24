@@ -3,11 +3,18 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CMeshManipulator.h"
+
+#include <vector>
+#include <numeric>
+#include <functional>
+#include <algorithm>
+
 #include "SMesh.h"
 #include "IMeshBuffer.h"
 #include "SAnimatedMesh.h"
 #include "os.h"
-#include <vector>
+#include "CForsythVertexCacheOptimizer.h"
+#include "SSkinMeshBuffer.h"
 
 namespace irr
 {
@@ -955,6 +962,487 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
         return clone;
     else
         return inbuffer;
+}
+
+ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inbuffer) const
+{
+	if (!_inbuffer->getMeshDataAndFormat())
+		return NULL;
+
+	ICPUMeshBuffer* outbuffer;
+	if (SCPUSkinMeshBuffer* inb = dynamic_cast<SCPUSkinMeshBuffer*>(_inbuffer))
+	{
+		outbuffer = new SCPUSkinMeshBuffer();
+		SCPUSkinMeshBuffer* outb = dynamic_cast<SCPUSkinMeshBuffer*>(outbuffer);
+		outb->setIndexRange(inb->getIndexMinBound(), inb->getIndexMaxBound());
+		outb->setMaxVertexBoneInfluences(inb->getMaxVertexBoneInfluences());
+	}
+	else
+		outbuffer = new ICPUMeshBuffer();
+
+	ICPUMeshDataFormatDesc* newDesc = new ICPUMeshDataFormatDesc();
+	outbuffer->setMeshDataAndFormat(newDesc);
+	newDesc->drop();
+	outbuffer->setPrimitiveType(_inbuffer->getPrimitiveType());
+	outbuffer->getMaterial() = _inbuffer->getMaterial();
+	outbuffer->setBoundingBox(_inbuffer->getBoundingBox());
+	outbuffer->setPositionAttributeIx(_inbuffer->getPositionAttributeIx());
+
+	std::set<uint32_t> uniqIdxs;
+
+	const void* const idxs = _inbuffer->getIndices();
+	const video::E_INDEX_TYPE idxType =  _inbuffer->getIndexType();
+
+	bool continuous = true; // indices are i.e. 0,1,2,3,4,5,... (also implies indices being unique)
+	bool unique = true; // indices are unique (but not necessarily continuos)
+	for (size_t i = 0; i < _inbuffer->getIndexCount(); ++i)
+	{
+		uint32_t idx = 0, prevIdx = 0xffffffff;
+		if (idxType == video::EIT_16BIT)
+		{
+			idx = ((uint16_t*)idxs)[i];
+			if (i)
+				prevIdx = ((uint16_t*)idxs)[i-1];
+		}
+		else if (idxType == video::EIT_32BIT)
+		{
+			idx = ((uint32_t*)idxs)[i];
+			if (i)
+				prevIdx = ((uint32_t*)idxs)[i-1];
+		}
+
+		if (idx != prevIdx+1)
+			continuous = false;
+
+		unique = !uniqIdxs.insert(idx).second ? false : unique;
+	}
+
+	core::ICPUBuffer* newIdxBuffer = NULL;
+	bool verticesMustBeReordered = false;
+	bool needToRunForsyth = false;
+
+	if (!continuous)
+	{
+		if (unique)
+		{
+			// no index buffer
+			// vertices have to be reordered
+			verticesMustBeReordered = true;
+		}
+		else
+		{
+			const uint32_t minIdx = *uniqIdxs.begin();
+			video::E_INDEX_TYPE newIdxType = video::EIT_32BIT;
+
+			if (*uniqIdxs.rbegin() - minIdx <= USHRT_MAX)
+				newIdxType = video::EIT_16BIT;
+
+			newIdxBuffer = new core::ICPUBuffer(_inbuffer->getIndexCount() * (newIdxType == video::EIT_16BIT ? 2 : 4));
+			outbuffer->setIndexType(newIdxType);
+			outbuffer->setIndexCount(_inbuffer->getIndexCount());
+			outbuffer->setBaseVertex(minIdx); // needed???
+
+			if (idxType == newIdxType)
+				memcpy(newIdxBuffer->getPointer(), idxs, newIdxBuffer->getSize());
+			else
+			{
+				for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
+					((uint16_t*)newIdxBuffer->getPointer())[i] = ((uint32_t*)idxs)[i] - minIdx;
+			}
+
+			if (outbuffer->getPrimitiveType() == EPT_TRIANGLES)
+			{
+				needToRunForsyth = true;
+			}
+		}
+	}
+	// else -- no index buffer and no need to do anything
+
+	if (newIdxBuffer)
+	{
+		outbuffer->getMeshDataAndFormat()->mapIndexBuffer(newIdxBuffer);
+		newIdxBuffer->drop();
+	}
+
+	Attrib newAttribs[EVAI_COUNT];
+	for (size_t i = 0; i < EVAI_COUNT; ++i)
+		newAttribs[i].vaid = (E_VERTEX_ATTRIBUTE_ID)i;
+	std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>> attribsI;
+	std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>> attribsF;
+	for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
+	{
+		const E_COMPONENT_TYPE type = _inbuffer->getMeshDataAndFormat()->getAttribType((E_VERTEX_ATTRIBUTE_ID)vaid);
+
+		if (_inbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
+		{
+			if (!scene::isNormalized(type) && (scene::isNativeInteger(type) || scene::isWeakInteger(type)))
+				attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, _inbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
+			else
+				attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, _inbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
+		}
+	}
+
+	size_t vertexSize = 0;
+	for (size_t i = 0; i < EVAI_COUNT; ++i)
+		vertexSize += newAttribs[i].size;
+	// round up vertexSize to some val
+	// ((X+(MUL-1))/MUL)*MUL
+#ifdef _DEBUG
+	{
+		std::set<size_t> sizesSet;
+		for (std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
+			sizesSet.insert(it->second.size());
+		for (std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
+			sizesSet.insert(it->second.size());
+		_IRR_DEBUG_BREAK_IF(sizesSet.size() != 1);
+	}
+#endif
+	const size_t vertexCnt = (!attribsI.empty() ? attribsI.begin()->second.size() : (!attribsF.empty() ? attribsF.begin()->second.size() : 0));
+
+	if (needToRunForsyth)
+	{
+		CForsythVertexCacheOptimizer forsyth;
+		void* indices = newIdxBuffer->getPointer();
+		if (outbuffer->getIndexType() == video::EIT_16BIT)
+			forsyth.optimizeTriangleOrdering<uint16_t>(vertexCnt, outbuffer->getIndexCount(), (uint16_t*)indices, (uint16_t*)indices);
+		else
+			forsyth.optimizeTriangleOrdering<uint32_t>(vertexCnt, outbuffer->getIndexCount(), (uint32_t*)indices, (uint32_t*)indices);
+	}
+
+	core::ICPUBuffer* newVertexBuffer = new core::ICPUBuffer(vertexCnt * vertexSize);
+
+	std::sort(newAttribs, newAttribs+EVAI_COUNT, std::greater<Attrib>());
+	for (size_t i = 0; i < EVAI_COUNT; ++i)
+	{
+		newAttribs[i].offset = (i ? newAttribs[i-1].offset + newAttribs[i-1].size : 0);
+		if (newAttribs[i].size)
+			newDesc->mapVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].cpa, newAttribs[i].type, vertexSize, newAttribs[i].offset);
+
+		std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator iti = attribsI.find((E_VERTEX_ATTRIBUTE_ID)i);
+		if (iti != attribsI.end())
+		{
+			std::vector<SIntegerAttr>& a = iti->second;
+			for (size_t ai = 0; ai < a.size(); ++ai)
+				outbuffer->setAttribute(a[ai].pointer, (E_VERTEX_ATTRIBUTE_ID)i, ai);
+			continue;
+		}
+
+		std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator itf = attribsF.find((E_VERTEX_ATTRIBUTE_ID)i);
+		if (itf != attribsF.end())
+		{
+			std::vector<core::vectorSIMDf>& a = itf->second;
+			for (size_t ai = 0; ai < a.size(); ++ai)
+				outbuffer->setAttribute(a[ai], (E_VERTEX_ATTRIBUTE_ID)i, ai);
+		}
+	}
+	newVertexBuffer->drop();
+
+	if (verticesMustBeReordered)
+	{
+		// reorder vertices according to OLD index buffer
+#define ACCESS_IDX(n) ((idxType == video::EIT_32BIT) ? *((uint32_t*)(idxs)+n) : *((uint16_t*)(idxs)+n))
+		uint8_t* v = (uint8_t*)newVertexBuffer->getPointer();
+		for (size_t s = 1, d; s < outbuffer->getIndexCount(); ++s)
+		{
+			for (d = ACCESS_IDX(s); d < s; d = ACCESS_IDX(d)) ;
+			if (d == s)
+			{
+				while (d = ACCESS_IDX(d), d != s)
+				{
+					uint8_t tmp[1000];
+					_IRR_DEBUG_BREAK_IF(vertexSize > sizeof(tmp));
+					memcpy(tmp, v + (vertexSize*s), vertexSize);
+					memcpy(v + (vertexSize*s), v + (vertexSize*d), vertexSize);
+					memcpy(v + (vertexSize*d), tmp, vertexSize);
+				}
+			}
+		}
+#undef ACCESS_IDX
+	}
+
+	return outbuffer;
+}
+
+std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId) const
+{
+	const E_COMPONENT_TYPE suppTypes[]
+	{
+		ECT_FLOAT,
+		ECT_HALF_FLOAT,
+		ECT_DOUBLE_IN_FLOAT_OUT,
+		ECT_UNSIGNED_INT_10F_11F_11F_REV,
+		ECT_DOUBLE_IN_DOUBLE_OUT,
+		ECT_NORMALIZED_INT_2_10_10_10_REV,
+		ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV,
+		ECT_NORMALIZED_BYTE,
+		ECT_NORMALIZED_UNSIGNED_BYTE,
+		ECT_NORMALIZED_SHORT,
+		ECT_NORMALIZED_UNSIGNED_SHORT,
+		ECT_NORMALIZED_INT,
+		ECT_NORMALIZED_UNSIGNED_INT
+	};
+
+	const E_COMPONENT_TYPE thisType = _meshbuffer->getMeshDataAndFormat()->getAttribType(_attrId);
+	{
+		bool ok = false;
+		for (size_t i = 0; i < sizeof(suppTypes)/sizeof(*suppTypes); ++i)
+		{
+			if (suppTypes[i] == thisType)
+			{
+				ok = true;
+				break;
+			}
+		}
+		if (!ok)
+			return std::vector<core::vectorSIMDf>();
+	}
+
+	std::vector<core::vectorSIMDf> attribs;
+
+	if (!_meshbuffer->getMeshDataAndFormat())
+		return attribs;
+
+	E_COMPONENTS_PER_ATTRIBUTE cpa = _meshbuffer->getMeshDataAndFormat()->getAttribComponentCount(_attrId);
+	if (cpa == ECPA_REVERSED_OR_BGRA)
+		cpa = ECPA_FOUR;
+
+	float min[4]{ FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX };
+	float max[4]{ -FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
+	core::vectorSIMDf attr;
+	size_t idx = 0;
+	while (_meshbuffer->getAttribute(attr, _attrId, idx++)) // getAttribute returns false when idx goes out of buffer's range
+	{
+		attribs.push_back(attr);
+		for (size_t i = 0; i < cpa; ++i)
+		{
+			if (attr.pointer[i] < min[i])
+				min[i] = attr.pointer[i];
+			if (attr.pointer[i] > max[i])
+				max[i] = attr.pointer[i];
+		}
+	}
+
+	*_outType = getBestTypeF(scene::isNormalized(thisType), cpa, _outSize, _outCpa, min, max);
+	return attribs;
+}
+
+std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId) const
+{
+	const E_COMPONENT_TYPE suppTypes[]
+	{
+		ECT_INT_2_10_10_10_REV,
+		ECT_UNSIGNED_INT_2_10_10_10_REV,
+		ECT_BYTE,
+		ECT_UNSIGNED_BYTE,
+		ECT_SHORT,
+		ECT_UNSIGNED_SHORT,
+		ECT_INT,
+		ECT_UNSIGNED_INT,
+		ECT_INTEGER_INT_2_10_10_10_REV,
+		ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV,
+		ECT_INTEGER_BYTE,
+		ECT_INTEGER_UNSIGNED_BYTE,
+		ECT_INTEGER_SHORT,
+		ECT_INTEGER_UNSIGNED_SHORT,
+		ECT_INTEGER_INT,
+		ECT_INTEGER_UNSIGNED_INT
+	};
+
+	const E_COMPONENT_TYPE thisType = _meshbuffer->getMeshDataAndFormat()->getAttribType(_attrId);
+	{
+		bool ok = false;
+		for (size_t i = 0; i < sizeof(suppTypes)/sizeof(*suppTypes); ++i)
+		{
+			if (suppTypes[i] == thisType)
+			{
+				ok = true;
+				break;
+			}
+		}
+		if (!ok)
+			return std::vector<SIntegerAttr>();
+	}
+
+	std::vector<SIntegerAttr> attribs;
+
+	if (!_meshbuffer->getMeshDataAndFormat())
+		return attribs;
+
+	E_COMPONENTS_PER_ATTRIBUTE cpa = _meshbuffer->getMeshDataAndFormat()->getAttribComponentCount(_attrId);
+	if (cpa == ECPA_REVERSED_OR_BGRA)
+		cpa = ECPA_FOUR;
+
+	uint32_t min[4];
+	uint32_t max[4];
+	if (isUnsigned(thisType))
+		for (size_t i = 0; i < 4; ++i)
+			min[i] = UINT_MAX;
+	else
+		for (size_t i = 0; i < 4; ++i)
+			min[i] = INT_MAX;
+	if (isUnsigned(thisType))
+		for (size_t i = 0; i < 4; ++i)
+			max[i] = 0;
+	else
+		for (size_t i = 0; i < 4; ++i)
+			max[i] = INT_MIN;
+
+	SIntegerAttr attr;
+	size_t idx = 0;
+	while (_meshbuffer->getAttribute(attr.pointer, _attrId, idx++)) // getAttribute returns false when idx goes out of buffer's range
+	{
+		attribs.push_back(attr);
+		for (size_t i = 0; i < cpa; ++i)
+		{
+			if (scene::isUnsigned(thisType))
+			{
+				if (attr.pointer[i] < min[i])
+					min[i] = attr.pointer[i];
+				if (attr.pointer[i] > max[i])
+					max[i] = attr.pointer[i];
+			}
+			else
+			{
+				if (((int32_t*)attr.pointer + i)[0] < ((int32_t*)min + i)[0])
+					min[i] = attr.pointer[i];
+				if (((int32_t*)attr.pointer + i)[0] > ((int32_t*)max + i)[0])
+					max[i] = attr.pointer[i];
+			}
+		}
+	}
+
+	*_outType = getBestTypeI(scene::isNativeInteger(thisType), scene::isUnsigned(thisType), cpa, _outSize, _outCpa, min, max);
+	return attribs;
+}
+
+E_COMPONENT_TYPE CMeshManipulator::getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const
+{
+	std::set<E_COMPONENT_TYPE> all;
+	{
+		E_COMPONENT_TYPE arrayAll[]{ ECT_FLOAT, ECT_HALF_FLOAT, ECT_DOUBLE_IN_FLOAT_OUT, ECT_DOUBLE_IN_DOUBLE_OUT, ECT_UNSIGNED_INT_10F_11F_11F_REV, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT};
+		for (size_t i = 0; i < sizeof(arrayAll)/sizeof(*arrayAll); ++i)
+			all.insert(arrayAll[i]);
+	}
+	std::set<E_COMPONENT_TYPE> normalized;
+	{
+		E_COMPONENT_TYPE arrayNormalized[]{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
+		for (size_t i = 0; i < sizeof(arrayNormalized)/sizeof(*arrayNormalized); ++i)
+			normalized.insert(arrayNormalized[i]);
+	}
+
+	if (_normalized)
+		all = normalized;
+	else
+	{
+		for (std::set<E_COMPONENT_TYPE>::iterator it = normalized.begin(); it != normalized.end(); ++it)
+			all.erase(*it);
+	}
+
+	E_COMPONENT_TYPE bestType = _normalized ? ECT_NORMALIZED_INT : ECT_DOUBLE_IN_DOUBLE_OUT;
+	for (std::set<E_COMPONENT_TYPE>::iterator it = all.begin(); it != all.end(); ++it)
+	{
+		bool validComb = false;
+		E_COMPONENTS_PER_ATTRIBUTE chosenCpa = _cpa; // find cpa compatible with currently considered type
+		for (size_t c = _cpa; c <= ECPA_FOUR; ++c)
+		{
+			if (validCombination(*it, (E_COMPONENTS_PER_ATTRIBUTE)c))
+			{
+				chosenCpa = (E_COMPONENTS_PER_ATTRIBUTE)c;
+				validComb = true;
+				break;
+			}
+		}
+		if (validComb)
+		{
+			bool ok = true;
+			for (size_t cmpntNum = 0; cmpntNum < _cpa; ++cmpntNum) // check only `_cpa` components because even if (chosenCpa > _cpa), we don't care about extra components
+			{
+				if (!(_min[cmpntNum] >= minValueOfTypeFP(*it, cmpntNum) && _max[cmpntNum] <= maxValueOfTypeFP(*it, cmpntNum)))
+				{
+					ok = false;
+					break;
+				}
+			}
+			if (ok && vertexAttrSize[*it][chosenCpa] < vertexAttrSize[bestType][chosenCpa]) // vertexAttrSize array defined in IMeshBuffer.h
+			{
+				bestType = *it;
+				*_outSize = vertexAttrSize[bestType][chosenCpa];
+				*_outCpa = chosenCpa;
+			}
+		}
+	}
+	return bestType;
+}
+
+E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const uint32_t* _min, const uint32_t* _max) const
+{
+	std::set<E_COMPONENT_TYPE> all;
+	{
+		E_COMPONENT_TYPE arrayAll[]{ ECT_INT_2_10_10_10_REV, ECT_UNSIGNED_INT_2_10_10_10_REV, ECT_BYTE, ECT_UNSIGNED_BYTE, ECT_SHORT, ECT_UNSIGNED_SHORT, ECT_INT, ECT_UNSIGNED_INT, /*ECT_INTEGER_INT_2_10_10_10_REV, ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV,*/ ECT_INTEGER_BYTE, ECT_INTEGER_UNSIGNED_BYTE, ECT_INTEGER_SHORT, ECT_INTEGER_UNSIGNED_SHORT, ECT_INTEGER_INT, ECT_INTEGER_UNSIGNED_INT };
+		for (size_t i = 0; i < sizeof(arrayAll)/sizeof(*arrayAll); ++i)
+			all.insert(arrayAll[i]);
+	}
+	std::set<E_COMPONENT_TYPE> nativeInts;
+	{
+		E_COMPONENT_TYPE arrayNative[]{ ECT_INTEGER_INT_2_10_10_10_REV, ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV, ECT_INTEGER_BYTE, ECT_INTEGER_UNSIGNED_BYTE, ECT_INTEGER_SHORT, ECT_INTEGER_UNSIGNED_SHORT, ECT_INTEGER_INT, ECT_INTEGER_UNSIGNED_INT };
+		for (size_t i = 0; i < sizeof(arrayNative)/sizeof(*arrayNative); ++i)
+			nativeInts.insert(arrayNative[i]);
+	}
+
+	if (_nativeInt)
+		all = nativeInts;
+	else
+	{
+		for (std::set<E_COMPONENT_TYPE>::iterator it = nativeInts.begin(); it != nativeInts.end(); ++it)
+			all.erase(*it);
+	}
+
+	E_COMPONENT_TYPE bestType = _nativeInt ? (_unsigned ? ECT_INTEGER_UNSIGNED_INT : ECT_INTEGER_INT) : (_unsigned ? ECT_UNSIGNED_INT : ECT_INT);
+	for (std::set<E_COMPONENT_TYPE>::iterator it = all.begin(); it != all.end(); ++it)
+	{
+		bool validComb = false;
+		E_COMPONENTS_PER_ATTRIBUTE chosenCpa = _cpa; // cpa compatible with currently considered type
+		for (size_t c = _cpa; c <= ECPA_FOUR; ++c)
+		{
+			if (validCombination(*it, (E_COMPONENTS_PER_ATTRIBUTE)c))
+			{
+				chosenCpa = (E_COMPONENTS_PER_ATTRIBUTE)c;
+				validComb = true;
+				break;
+			}
+		}
+		if (validComb)
+		{
+			bool ok = true;
+			for (size_t cmpntNum = 0; cmpntNum < _cpa; ++cmpntNum) // check only `_cpa` components because even if (chosenCpa > _cpa), we don't care about extra components
+			{
+				if (_unsigned)
+				{
+					if (!(_min[cmpntNum] >= minValueOfTypeINT(*it, cmpntNum) && _max[cmpntNum] <= maxValueOfTypeINT(*it, cmpntNum)))
+					{
+						ok = false;
+						break;
+					}
+				}
+				else
+				{
+					if (!(((int32_t*)(_min + cmpntNum))[0] >= minValueOfTypeINT(*it, cmpntNum) && ((int32_t*)(_max + cmpntNum))[0] <= maxValueOfTypeINT(*it, cmpntNum)))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+			if (ok && vertexAttrSize[*it][chosenCpa] < vertexAttrSize[bestType][chosenCpa]) // vertexAttrSize array defined in IMeshBuffer.h
+			{
+				bestType = *it;
+				*_outSize = vertexAttrSize[bestType][chosenCpa];
+				*_outCpa = chosenCpa;
+			}
+		}
+	}
+	return bestType;
 }
 
 template<>
