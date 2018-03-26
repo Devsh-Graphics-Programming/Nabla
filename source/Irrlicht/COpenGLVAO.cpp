@@ -15,11 +15,6 @@ COpenGLVAO::COpenGLVAO(core::LeakDebugger* dbgr) :  vao(0), lastValidated(0), le
     if (leakDebugger)
         leakDebugger->registerObj(this);
 
-    for (size_t i=0; i<scene::EVAI_COUNT; i++)
-        mappedAttrBuf[i] = NULL;
-
-    mappedIndexBuf = NULL;
-
     COpenGLExtensionHandler::extGlCreateVertexArrays(1,&vao);
 }
 
@@ -30,34 +25,20 @@ COpenGLVAO::~COpenGLVAO()
 
     if (vao)
         COpenGLExtensionHandler::extGlDeleteVertexArrays(1,&vao);
-
-
-    for (size_t i=0; i<scene::EVAI_COUNT; i++)
-    {
-        if (mappedAttrBuf[i])
-            mappedAttrBuf[i]->drop();
-    }
-
-    if (getIndexBuffer())
-        getIndexBuffer()->drop();
 }
 
 
 void COpenGLVAO::mapIndexBuffer(IGPUBuffer* ixbuf)
 {
-    COpenGLBuffer* asGLBuf = dynamic_cast<COpenGLBuffer*>(ixbuf);
+    COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(ixbuf);
     if (ixbuf)
     {
-#ifdef _DEBUG
-        if (!asGLBuf)
-        {
-            os::Printer::log("Non OpenGL Buffer attempted to be mapped!",ELL_ERROR);
-            return;
-        }
-#endif // _IRR_COMPILE_WITH_OPENGL_
         asGLBuf->grab();
         if (asGLBuf!=mappedIndexBuf)
+        {
             COpenGLExtensionHandler::extGlVertexArrayElementBuffer(vao,asGLBuf->getOpenGLName());
+            individualHashFields.elementArrayBinding = asGLBuf->getOpenGLName();
+        }
         if (mappedIndexBuf)
             mappedIndexBuf->drop();
     }
@@ -66,6 +47,7 @@ void COpenGLVAO::mapIndexBuffer(IGPUBuffer* ixbuf)
         if (mappedIndexBuf)
         {
             COpenGLExtensionHandler::extGlVertexArrayElementBuffer(vao,0);
+            individualHashFields.elementArrayBinding = 0;
             mappedIndexBuf->drop();
         }
     }
@@ -93,18 +75,11 @@ void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_
 #endif // _DEBUG
 
 
-    COpenGLBuffer* asGLBuf = dynamic_cast<COpenGLBuffer*>(attrBuf);
+    COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(attrBuf);
     size_t newStride;
 
     if (attrBuf)
     {
-#ifdef _DEBUG
-        if (!asGLBuf)
-        {
-            os::Printer::log("Non OpenGL Buffer attempted to be mapped!",ELL_ERROR);
-            return;
-        }
-#endif // _IRR_COMPILE_WITH_OPENGL_
         asGLBuf->grab();
         newStride = stride!=0 ? stride:scene::vertexAttrSize[type][components];
         //bind new buffer
@@ -112,13 +87,14 @@ void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_
         {
             mappedAttrBuf[attrId]->drop();
             if (newStride!=attrStride[attrId]||offset!=attrOffset[attrId]||asGLBuf!=mappedAttrBuf[attrId]) //dont compare openGL names, could have been recycled
-                COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),offset,newStride);
+                COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),offset,newStride); //kill
         }
         else
         {
+            individualHashFields.enabledAttribs |= 0x1u<<attrId;
             COpenGLExtensionHandler::extGlEnableVertexArrayAttrib(vao,attrId);
             COpenGLExtensionHandler::extGlVertexArrayAttribBinding(vao,attrId,attrId);
-            COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),offset,newStride);
+            COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),offset,newStride); //kill
         }
 
         //! maybe only set format if we're actually going to use the buffer???
@@ -127,8 +103,9 @@ void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_
     {
         if (mappedAttrBuf[attrId])
         {
-            COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,0,0,16);
+            COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,0,0,16); //kill
             COpenGLExtensionHandler::extGlDisableVertexArrayAttrib(vao,attrId);
+            individualHashFields.enabledAttribs &= ~(0x1u<<attrId);
             mappedAttrBuf[attrId]->drop();
         }
         components = scene::ECPA_FOUR;
@@ -166,6 +143,7 @@ void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_
             case scene::ECT_INT:
             case scene::ECT_UNSIGNED_INT:
                 COpenGLExtensionHandler::extGlVertexArrayAttribFormat(vao,attrId,eComponentsPerAttributeToGLint[components],eComponentTypeToGLenum[type],scene::isNormalized(type) ? GL_TRUE:GL_FALSE,0);
+                individualHashFields.setAttrFmtAndCompCnt(attrId,components,type);
                 break;
             case scene::ECT_INTEGER_INT_2_10_10_10_REV:
             case scene::ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV:
@@ -176,17 +154,32 @@ void COpenGLVAO::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_
             case scene::ECT_INTEGER_INT:
             case scene::ECT_INTEGER_UNSIGNED_INT:
                 COpenGLExtensionHandler::extGlVertexArrayAttribIFormat(vao,attrId,eComponentsPerAttributeToGLint[components],eComponentTypeToGLenum[type],0);
+                individualHashFields.setAttrFmtAndCompCnt(attrId,components,type);
                 break;
         //special
             case scene::ECT_DOUBLE_IN_DOUBLE_OUT:
                 COpenGLExtensionHandler::extGlVertexArrayAttribLFormat(vao,attrId,eComponentsPerAttributeToGLint[components],GL_DOUBLE,0);
+                individualHashFields.setAttrFmtAndCompCnt(attrId,components,type);
                 break;
         }
     }
 
+    const uint32_t maxDivisor = 0x1u<<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS;
+    if (divisor>maxDivisor)
+        divisor = maxDivisor;
+
     if (divisor!=attrDivisor[attrId])
     {
         COpenGLExtensionHandler::extGlVertexArrayBindingDivisor(vao,attrId,divisor);
+        for (size_t i=0; i<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS; i++)
+        {
+            uint16_t mask = (0x1u<<attrId);
+            uint16_t invMask = ~mask;
+
+            individualHashFields.attributeDivisors[i] &= invMask; //zero out
+            individualHashFields.attributeDivisors[i] |= divisor&mask; //then possibly set
+        }
+
         attrDivisor[attrId] = divisor;
     }
 
@@ -211,13 +204,13 @@ void COpenGLVAO::setMappedBufferOffset(const scene::E_VERTEX_ATTRIBUTE_ID& attrI
         return;
 #endif // _DEBUG
 
-    COpenGLBuffer* asGLBuf = mappedAttrBuf[attrId];
+    COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(mappedAttrBuf[attrId]);
     if (!asGLBuf)
         return;
 
 
     if (offset!=attrOffset[attrId]) //dont compare openGL names, could have been recycled
-        COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),offset,attrStride[attrId]);
+        COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),offset,attrStride[attrId]); //kill
 
     attrOffset[attrId] = offset;
 }
@@ -233,7 +226,10 @@ bool COpenGLVAO::rebindRevalidate()
         if (revalidateStamp>lastValidated)
         {
             highestRevalidateStamp = revalidateStamp;
-            COpenGLExtensionHandler::extGlVertexArrayElementBuffer(vao,mappedIndexBuf->getOpenGLName());
+
+            COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(mappedIndexBuf);
+            COpenGLExtensionHandler::extGlVertexArrayElementBuffer(vao,asGLBuf->getOpenGLName());
+            individualHashFields.elementArrayBinding = asGLBuf->getOpenGLName();
         }
     }
 
@@ -242,19 +238,14 @@ bool COpenGLVAO::rebindRevalidate()
         if (!mappedAttrBuf[i])
             continue;
 
-        COpenGLBuffer* buffer = mappedAttrBuf[i];
-        if (!buffer)
-        {
-            os::Printer::log("Non-OpenGL IBuffer used in OpenGL VAO!");
-            return false;
-        }
+        COpenGLBuffer* buffer = static_cast<COpenGLBuffer*>(mappedAttrBuf[i]);
 
         uint64_t revalidateStamp = buffer->getLastTimeReallocated();
         if (revalidateStamp>lastValidated)
         {
             if (revalidateStamp>highestRevalidateStamp)
                 highestRevalidateStamp = revalidateStamp;
-            COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,i,buffer->getOpenGLName(),attrOffset[i],attrStride[i]);
+            COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,i,buffer->getOpenGLName(),attrOffset[i],attrStride[i]); //kill
         }
     }
 
@@ -264,14 +255,6 @@ bool COpenGLVAO::rebindRevalidate()
 }
 
 
-
-
-/**
-    void VertexArrayVertexBuffers(uint vaobj, uint first, sizei count,
-                                  const uint *buffers,
-                                  const intptr *offsets,
-                                  const sizei *strides);
-**/
 }
 }
 

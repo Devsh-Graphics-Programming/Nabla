@@ -1185,8 +1185,8 @@ IGPUMappedBuffer* COpenGLDriver::createPersistentlyMappedBuffer(const size_t &si
 
 void COpenGLDriver::bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
 {
-    COpenGLBuffer* readbuffer = dynamic_cast<COpenGLBuffer*>(readBuffer);
-    COpenGLBuffer* writebuffer = dynamic_cast<COpenGLBuffer*>(writeBuffer);
+    COpenGLBuffer* readbuffer = static_cast<COpenGLBuffer*>(readBuffer);
+    COpenGLBuffer* writebuffer = static_cast<COpenGLBuffer*>(writeBuffer);
     extGlCopyNamedBufferSubData(readbuffer->getOpenGLName(),writebuffer->getOpenGLName(),readOffset,writeOffset,length);
 }
 
@@ -1813,10 +1813,10 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
         didConditional = true;
     }
 
-    if (!meshLayoutVAO->rebindRevalidate())
+    if (!meshLayoutVAO->getHash())
     {
 #ifdef _DEBUG
-        os::Printer::log("VAO revalidation failed!",ELL_ERROR);
+        os::Printer::log("VAO-Spec revalidation failed!",ELL_ERROR);
 #endif // _DEBUG
         return;
     }
@@ -1953,7 +1953,7 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
 
 
 //! Indirect Draw
-void COpenGLDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+void COpenGLDriver::drawArraysIndirect(scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
 {
     if (!indirectDrawBuff)
         return;
@@ -1967,7 +1967,7 @@ void COpenGLDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene
         indirectDrawBuff->grab();
         if (currentIndirectDrawBuff)
             currentIndirectDrawBuff->drop();
-        currentIndirectDrawBuff = dynamic_cast<COpenGLBuffer*>(indirectDrawBuff);
+        currentIndirectDrawBuff = static_cast<COpenGLBuffer*>(indirectDrawBuff);
 
         extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
         lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
@@ -2003,10 +2003,10 @@ void COpenGLDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene
         didConditional = true;
     }
 
-    if (!meshLayoutVAO->rebindRevalidate())
+    if (!meshLayoutVAO->getHash())
     {
 #ifdef _DEBUG
-        os::Printer::log("VAO revalidation failed!",ELL_ERROR);
+        os::Printer::log("VAO-Spec revalidation failed!",ELL_ERROR);
 #endif // _DEBUG
         return;
     }
@@ -2055,7 +2055,7 @@ void COpenGLDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene
         extGlEndConditionalRender();
 }
 
-void COpenGLDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+void COpenGLDriver::drawIndexedIndirect(scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
 {
     if (!indirectDrawBuff)
         return;
@@ -2070,7 +2070,7 @@ void COpenGLDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scen
         indirectDrawBuff->grab();
         if (currentIndirectDrawBuff)
             currentIndirectDrawBuff->drop();
-        currentIndirectDrawBuff = dynamic_cast<COpenGLBuffer*>(indirectDrawBuff);
+        currentIndirectDrawBuff = static_cast<COpenGLBuffer*>(indirectDrawBuff);
 
         extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
         lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
@@ -2106,10 +2106,10 @@ void COpenGLDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scen
         didConditional = true;
     }
 
-    if (!meshLayoutVAO->rebindRevalidate())
+    if (!meshLayoutVAO->getHash())
     {
 #ifdef _DEBUG
-        os::Printer::log("VAO revalidation failed!",ELL_ERROR);
+        os::Printer::log("VAO-Spec revalidation failed!",ELL_ERROR);
 #endif // _DEBUG
         return;
     }
@@ -2876,7 +2876,7 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
 
 ITextureBufferObject* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format, const size_t& offset, const size_t& length)
 {
-    COpenGLBuffer* buffer = dynamic_cast<COpenGLBuffer*>(buf);
+    COpenGLBuffer* buffer = static_cast<COpenGLBuffer*>(buf);
     if (!buffer)
         return NULL;
 
@@ -3386,7 +3386,7 @@ void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback, SAu
     {
 #ifdef _DEBUG
         if (!toContext->CurrentXFormFeedback->isEnded())
-            os::Printer::log("FIDDLING WITH XFORM FEEDBACK BINDINGS WHILE BOUND XFORMFEEDBACK HASN't ENDED!\n",ELL_ERROR);
+            os::Printer::log("FIDDLING WITH XFORM FEEDBACK BINDINGS WHILE THE BOUND XFORMFEEDBACK HASN't ENDED!\n",ELL_ERROR);
 #endif // _DEBUG
         toContext->CurrentXFormFeedback->drop();
     }

@@ -114,8 +114,8 @@ namespace video
         virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
-		virtual void drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
+		virtual void drawArraysIndirect(scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
+		virtual void drawIndexedIndirect(scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
 
 
 		//! queries the features of the driver, returns true if feature is available
@@ -340,6 +340,47 @@ namespace video
             core::dimension2d<uint32_t> CurrentRendertargetSize;
 
             COpenGLVAO* CurrentVAO;
+            /** We will operate on some assumptions here:
+
+            1) On all GPU's known to me  GPUs MAX_VERTEX_ATTRIB_BINDINGS <= MAX_VERTEX_ATTRIBS,
+            so it makes absolutely no sense to support buffer binding mix'n'match as it wouldn't
+            get us anything (however if MVAB>MVA then we could have more inputs into a vertex shader).
+            Also the VAO Attrib Binding is a VAO state so more VAOs would have to be created in the cache.
+
+            2) Relative byte offset on VAO Attribute spec is capped to 2047 across all GPUs, which makes it
+            useful only for specifying the offset from a single interleaved buffer, since we have to specify
+            absolute (unbounded) offset and stride when binding a buffer to a VAO bind-point, it makes absolutely
+            no sense to use this feature as its redundant.
+
+            So the only things worth tracking for the VAO are:
+            1) Element Buffer Binding
+            2) Per Attribute (x16)
+                A) Enabled (1 bit)
+                B) Format (5 bits)
+                C) Component Count (3 bits)
+                D) Divisors (32bits - no limit)
+
+            Total 16*4+16+16/8+4 = 11 uint64_t
+
+            If we limit divisors artificially to 1 bit
+
+            16/8+16/8+16+4 = 3 uint64_t
+            **/
+            class COpenGLVAO2
+            {
+                    GLuint vao;
+                protected:
+                    COpenGLVAO2()
+                    {
+                        COpenGLExtensionHandler::extGlCreateVertexArrays(1,&vao);
+                    }
+                    ~COpenGLVAO2()
+                    {
+                        if (vao)
+                            COpenGLExtensionHandler::extGlDeleteVertexArrays(1,&vao);
+                    }
+            };
+
 
             class STextureStageCache
             {

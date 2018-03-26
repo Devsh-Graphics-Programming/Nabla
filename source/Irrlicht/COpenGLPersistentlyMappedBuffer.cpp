@@ -34,11 +34,6 @@ COpenGLPersistentlyMappedBuffer::~COpenGLPersistentlyMappedBuffer()
 }
 
 
-bool COpenGLPersistentlyMappedBuffer::reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink)
-{
-    return COpenGLPersistentlyMappedBuffer::reallocate(newSize,forceRetentionOfData,reallocateIfShrink,0);
-}
-
 bool COpenGLPersistentlyMappedBuffer::reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart)
 {
     GLbitfield flags = cachedMappingFlags;

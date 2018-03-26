@@ -8,6 +8,7 @@
 
 #include <map>
 #include <set>
+#include <sstream>
 
 #include "stdint.h"
 #include "irrTypes.h"
@@ -28,7 +29,7 @@ namespace scene
 {
 	class ICPUMeshBuffer;
 	class ICPUMesh;
-	class ISceneManager; 
+	class ISceneManager;
 	class ICPUSkinnedMesh;
 	class SCPUSkinMeshBuffer;
 	template<typename> class IMeshDataFormatDesc;
@@ -381,6 +382,14 @@ namespace core
 		virtual ~BlobSerializable() {}
 
 		virtual void* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const = 0;
+
+		virtual std::string printMemberPackingDebug() const// = 0;
+		{
+		    std::ostringstream sstr;
+		    sstr << "SomeClassName\n";
+		    sstr << "SomeMember " << this-50 << "\n";
+		    return sstr.str();
+		}
 	};
 
 	struct LzmaMemMngmnt
