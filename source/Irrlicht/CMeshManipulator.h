@@ -19,7 +19,7 @@ not intended for doing mesh modifications and/or animations during runtime.
 */
 class CMeshManipulator : public IMeshManipulator
 {
-	struct Attrib
+	struct SAttrib
 	{
 		E_COMPONENT_TYPE type;
 		size_t size;
@@ -27,9 +27,9 @@ class CMeshManipulator : public IMeshManipulator
 		E_COMPONENTS_PER_ATTRIBUTE cpa;
 		size_t offset;
 
-		Attrib() : type(ECT_COUNT), size(0), vaid(EVAI_COUNT) {}
+		SAttrib() : type(ECT_COUNT), size(0), vaid(EVAI_COUNT) {}
 
-		friend bool operator>(const Attrib& _a, const Attrib& _b) { return _a.size > _b.size; }
+		friend bool operator>(const SAttrib& _a, const SAttrib& _b) { return _a.size > _b.size; }
 	};
 
 public:
@@ -76,11 +76,13 @@ public:
 	virtual void recalculateTangents(IMesh* mesh, bool recalculateNormals=false, bool smooth=false, bool angleWeighted=false) const;
 #endif // NEW_MESHES
 
+	virtual ICPUMeshBuffer* createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer) const;
+
 	//! Creates a copy of the mesh, which will only consist of unique triangles, i.e. no vertices are shared.
 	virtual ICPUMeshBuffer* createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer) const;
 
 	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
-	virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const;
+	virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& reduceIdxBufSize = true, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const;
 
 	virtual ICPUMeshBuffer* createOptimizedMeshBuffer(ICPUMeshBuffer* inbuffer) const;
 
@@ -90,6 +92,8 @@ public:
 #endif // NEW_MESHES
 
 private:
+	core::ICPUBuffer* create32BitFrom16BitIdxBuffer(const core::ICPUBuffer* _in) const;
+
 	std::vector<core::vectorSIMDf> findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId) const;
 	
 	struct SIntegerAttr
@@ -100,8 +104,15 @@ private:
 
 	E_COMPONENT_TYPE getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const;
 	E_COMPONENT_TYPE getBestTypeI(bool _nativeInt, bool _unsigned, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const uint32_t* _min, const uint32_t* _max) const;
-};
 
+	core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const core::ICPUBuffer* _input, video::E_INDEX_TYPE _idxType) const;
+	template<typename T>
+	core::ICPUBuffer* triangleStripsToTriangles(const core::ICPUBuffer* _input) const;
+
+	core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const core::ICPUBuffer* _input, video::E_INDEX_TYPE _idxType) const;
+	template<typename T>
+	core::ICPUBuffer* trianglesFanToTriangles(const core::ICPUBuffer* _input) const;
+};
 
 } // end namespace scene
 } // end namespace irr
