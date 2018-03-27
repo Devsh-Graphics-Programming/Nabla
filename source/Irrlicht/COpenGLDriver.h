@@ -305,13 +305,20 @@ namespace video
         {
 
             SAuxContext() : threadId(std::thread::id()), ctx(NULL), XFormFeedbackRunning(false), CurrentXFormFeedback(NULL),
-                            CurrentFBO(0), CurrentRendertargetSize(0,0), CurrentVAO(0)
+                            CurrentFBO(0), CurrentRendertargetSize(0,0)
             {
+                CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,GLuint>(COpenGLVAOSpec::HashAttribs(),0);
+
                 for (size_t i=0; i<MATERIAL_MAX_TEXTURES; i++)
                 {
                     CurrentSamplerHash[i] = 0xffffffffffffffffuLL;
                 }
             }
+
+
+            bool setActiveVAO(const COpenGLVAOSpec* spec);
+
+            std::pair<COpenGLVAOSpec::HashAttribs,GLuint> constructVAOInCache(const COpenGLVAOSpec* spec);
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
@@ -339,7 +346,6 @@ namespace video
             COpenGLFrameBuffer* CurrentFBO;
             core::dimension2d<uint32_t> CurrentRendertargetSize;
 
-            COpenGLVAO* CurrentVAO;
             /** We will operate on some assumptions here:
 
             1) On all GPU's known to me  GPUs MAX_VERTEX_ATTRIB_BINDINGS <= MAX_VERTEX_ATTRIBS,
@@ -366,20 +372,8 @@ namespace video
 
             16/8+16/8+16+4 = 3 uint64_t
             **/
-            class COpenGLVAO2
-            {
-                    GLuint vao;
-                protected:
-                    COpenGLVAO2()
-                    {
-                        COpenGLExtensionHandler::extGlCreateVertexArrays(1,&vao);
-                    }
-                    ~COpenGLVAO2()
-                    {
-                        if (vao)
-                            COpenGLExtensionHandler::extGlDeleteVertexArrays(1,&vao);
-                    }
-            };
+            std::pair<COpenGLVAOSpec::HashAttribs,GLuint> CurrentVAO;
+            std::map<COpenGLVAOSpec::HashAttribs,GLuint> VAOMap;
 
 
             class STextureStageCache

@@ -766,12 +766,16 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
 		found->CurrentXFormFeedback = NULL;
     }
 
-    extGlBindVertexArray(0);
-    if (found->CurrentVAO)
-        found->CurrentVAO->drop();
 
     extGlUseProgram(0);
     removeAllFrameBuffers();
+
+    extGlBindVertexArray(0);
+	for(std::map<COpenGLVAOSpec::HashAttribs,GLuint>::iterator it = found->VAOMap.begin(); it != found->VAOMap.end(); it++)
+    {
+        extGlDeleteVertexArrays(1,&it->second);
+    }
+    found->VAOMap.clear();
 
 	found->CurrentTexture.clear();
 
@@ -1192,7 +1196,7 @@ void COpenGLDriver::bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, 
 
 scene::IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr)
 {
-    return new COpenGLVAO(dbgr);
+    return new COpenGLVAOSpec(dbgr);
 }
 
 scene::IGPUMesh* COpenGLDriver::createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions)
@@ -1765,30 +1769,11 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
     if (!found)
         return;
 
-	if (!mb)
-    {
-        if (found->CurrentVAO)
-        {
-            found->CurrentVAO->drop();
-            found->CurrentVAO = NULL;
-        }
-        extGlBindVertexArray(0);
-		return;
-    }
-    else if (!mb->getInstanceCount())
+    COpenGLVAOSpec* meshLayoutVAO = static_cast<COpenGLVAOSpec*>(mb->getMeshDataAndFormat());
+    if (!found->setActiveVAO(meshLayoutVAO))
         return;
-
-    COpenGLVAO* meshLayoutVAO = static_cast<COpenGLVAO*>(mb->getMeshDataAndFormat());
-	if (!meshLayoutVAO)
-    {
-        if (found->CurrentVAO)
-        {
-            found->CurrentVAO->drop();
-            found->CurrentVAO = NULL;
-        }
-        extGlBindVertexArray(0);
-		return;
-    }
+	else if (!mb->getInstanceCount())
+        return;
 
 #ifdef _DEBUG
 	if (mb->getIndexCount() > getMaximalIndicesCount())
@@ -1813,22 +1798,16 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
         didConditional = true;
     }
 
-    if (!meshLayoutVAO->getHash())
+    //! KILL
+    for (size_t i=0; i<scene::EVAI_COUNT; i++)
     {
-#ifdef _DEBUG
-        os::Printer::log("VAO-Spec revalidation failed!",ELL_ERROR);
-#endif // _DEBUG
-        return;
-    }
+        scene::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(i);
+        const COpenGLBuffer* asGLBuf = static_cast<const COpenGLBuffer*>(meshLayoutVAO->getMappedBuffer(attrId));
+        if (!asGLBuf)
+            continue;
 
-    if (found->CurrentVAO!=meshLayoutVAO)
-    {
-        meshLayoutVAO->grab();
-        extGlBindVertexArray(meshLayoutVAO->getOpenGLName());
-        if (found->CurrentVAO)
-            found->CurrentVAO->drop();
-
-        found->CurrentVAO = meshLayoutVAO;
+        extGlVertexArrayVertexBuffer(found->CurrentVAO.second,attrId,asGLBuf->getOpenGLName(),
+                                meshLayoutVAO->getMappedBufferOffset(attrId),meshLayoutVAO->getMappedBufferStride(attrId));
     }
 
 	GLenum indexSize=0;
@@ -1849,6 +1828,7 @@ void COpenGLDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* q
             default:
                 break;
         }
+        extGlVertexArrayElementBuffer(found->CurrentVAO.second,static_cast<const COpenGLBuffer*>(meshLayoutVAO->getIndexBuffer())->getOpenGLName());
     }
 
     if (mb->isIndexCountGivenByXFormFeedback())
@@ -1979,17 +1959,9 @@ void COpenGLDriver::drawArraysIndirect(scene::IMeshDataFormatDesc<video::IGPUBuf
     }
 
 
-    COpenGLVAO* meshLayoutVAO = static_cast<COpenGLVAO*>(vao);
-	if (!meshLayoutVAO)
-    {
-        if (found->CurrentVAO)
-        {
-            found->CurrentVAO->drop();
-            found->CurrentVAO = NULL;
-        }
-        extGlBindVertexArray(0);
-		return;
-    }
+    COpenGLVAOSpec* meshLayoutVAO = static_cast<COpenGLVAOSpec*>(vao);
+    if (!found->setActiveVAO(meshLayoutVAO))
+        return;
 
 	// draw everything
 	setRenderStates3DMode();
@@ -2003,23 +1975,18 @@ void COpenGLDriver::drawArraysIndirect(scene::IMeshDataFormatDesc<video::IGPUBuf
         didConditional = true;
     }
 
-    if (!meshLayoutVAO->getHash())
+    //! KILL
+    for (size_t i=0; i<scene::EVAI_COUNT; i++)
     {
-#ifdef _DEBUG
-        os::Printer::log("VAO-Spec revalidation failed!",ELL_ERROR);
-#endif // _DEBUG
-        return;
-    }
+        scene::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(i);
+        const COpenGLBuffer* asGLBuf = static_cast<const COpenGLBuffer*>(meshLayoutVAO->getMappedBuffer(attrId));
+        if (!asGLBuf)
+            continue;
 
-    if (found->CurrentVAO!=meshLayoutVAO)
-    {
-        meshLayoutVAO->grab();
-        extGlBindVertexArray(meshLayoutVAO->getOpenGLName());
-        if (found->CurrentVAO)
-            found->CurrentVAO->drop();
-
-        found->CurrentVAO = meshLayoutVAO;
+        extGlVertexArrayVertexBuffer(found->CurrentVAO.second,attrId,asGLBuf->getOpenGLName(),
+                                meshLayoutVAO->getMappedBufferOffset(attrId),meshLayoutVAO->getMappedBufferStride(attrId));
     }
+    extGlVertexArrayElementBuffer(found->CurrentVAO.second,static_cast<const COpenGLBuffer*>(meshLayoutVAO->getIndexBuffer())->getOpenGLName());
 
     GLenum primType = primitiveTypeToGL(mode);
 	switch (mode)
@@ -2082,17 +2049,9 @@ void COpenGLDriver::drawIndexedIndirect(scene::IMeshDataFormatDesc<video::IGPUBu
     }
 
 
-    COpenGLVAO* meshLayoutVAO = static_cast<COpenGLVAO*>(vao);
-	if (!meshLayoutVAO)
-    {
-        if (found->CurrentVAO)
-        {
-            found->CurrentVAO->drop();
-            found->CurrentVAO = NULL;
-        }
-        extGlBindVertexArray(0);
-		return;
-    }
+    COpenGLVAOSpec* meshLayoutVAO = static_cast<COpenGLVAOSpec*>(vao);
+    if (!found->setActiveVAO(meshLayoutVAO))
+        return;
 
 	// draw everything
 	setRenderStates3DMode();
@@ -2106,23 +2065,18 @@ void COpenGLDriver::drawIndexedIndirect(scene::IMeshDataFormatDesc<video::IGPUBu
         didConditional = true;
     }
 
-    if (!meshLayoutVAO->getHash())
+    //! KILL
+    for (size_t i=0; i<scene::EVAI_COUNT; i++)
     {
-#ifdef _DEBUG
-        os::Printer::log("VAO-Spec revalidation failed!",ELL_ERROR);
-#endif // _DEBUG
-        return;
-    }
+        scene::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(i);
+        const COpenGLBuffer* asGLBuf = static_cast<const COpenGLBuffer*>(meshLayoutVAO->getMappedBuffer(attrId));
+        if (!asGLBuf)
+            continue;
 
-    if (found->CurrentVAO!=meshLayoutVAO)
-    {
-        meshLayoutVAO->grab();
-        extGlBindVertexArray(meshLayoutVAO->getOpenGLName());
-        if (found->CurrentVAO)
-            found->CurrentVAO->drop();
-
-        found->CurrentVAO = meshLayoutVAO;
+        extGlVertexArrayVertexBuffer(found->CurrentVAO.second,attrId,asGLBuf->getOpenGLName(),
+                                meshLayoutVAO->getMappedBufferOffset(attrId),meshLayoutVAO->getMappedBufferStride(attrId));
     }
+    extGlVertexArrayElementBuffer(found->CurrentVAO.second,static_cast<const COpenGLBuffer*>(meshLayoutVAO->getIndexBuffer())->getOpenGLName());
 
 	GLenum indexSize = type!=EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
 
@@ -2162,6 +2116,92 @@ void COpenGLDriver::drawIndexedIndirect(scene::IMeshDataFormatDesc<video::IGPUBu
 }
 
 
+std::pair<COpenGLVAOSpec::HashAttribs,GLuint> COpenGLDriver::SAuxContext::constructVAOInCache(const COpenGLVAOSpec* spec)
+{
+    GLuint vaoHandle;
+    extGlCreateVertexArrays(1,&vaoHandle);
+
+    for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
+    {
+        if (!spec->getMappedBuffer(attrId))
+            continue;
+
+        extGlEnableVertexArrayAttrib(vaoHandle,attrId);
+        extGlVertexArrayAttribBinding(vaoHandle,attrId,attrId);
+
+        scene::E_COMPONENTS_PER_ATTRIBUTE components = spec->getAttribComponentCount(attrId);
+        scene::E_COMPONENT_TYPE type = spec->getAttribType(attrId);
+        switch (spec->getAttribType(attrId))
+        {
+            case scene::ECT_FLOAT:
+            case scene::ECT_HALF_FLOAT:
+            case scene::ECT_DOUBLE_IN_FLOAT_OUT:
+            case scene::ECT_UNSIGNED_INT_10F_11F_11F_REV:
+            //INTEGER FORMS
+            case scene::ECT_NORMALIZED_INT_2_10_10_10_REV:
+            case scene::ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV:
+            case scene::ECT_NORMALIZED_BYTE:
+            case scene::ECT_NORMALIZED_UNSIGNED_BYTE:
+            case scene::ECT_NORMALIZED_SHORT:
+            case scene::ECT_NORMALIZED_UNSIGNED_SHORT:
+            case scene::ECT_NORMALIZED_INT:
+            case scene::ECT_NORMALIZED_UNSIGNED_INT:
+            case scene::ECT_INT_2_10_10_10_REV:
+            case scene::ECT_UNSIGNED_INT_2_10_10_10_REV:
+            case scene::ECT_BYTE:
+            case scene::ECT_UNSIGNED_BYTE:
+            case scene::ECT_SHORT:
+            case scene::ECT_UNSIGNED_SHORT:
+            case scene::ECT_INT:
+            case scene::ECT_UNSIGNED_INT:
+                extGlVertexArrayAttribFormat(vaoHandle,attrId,eComponentsPerAttributeToGLint[components],eComponentTypeToGLenum[type],scene::isNormalized(type) ? GL_TRUE:GL_FALSE,0);
+                break;
+            case scene::ECT_INTEGER_INT_2_10_10_10_REV:
+            case scene::ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV:
+            case scene::ECT_INTEGER_BYTE:
+            case scene::ECT_INTEGER_UNSIGNED_BYTE:
+            case scene::ECT_INTEGER_SHORT:
+            case scene::ECT_INTEGER_UNSIGNED_SHORT:
+            case scene::ECT_INTEGER_INT:
+            case scene::ECT_INTEGER_UNSIGNED_INT:
+                extGlVertexArrayAttribIFormat(vaoHandle,attrId,eComponentsPerAttributeToGLint[components],eComponentTypeToGLenum[type],0);
+                break;
+        //special
+            case scene::ECT_DOUBLE_IN_DOUBLE_OUT:
+                extGlVertexArrayAttribLFormat(vaoHandle,attrId,eComponentsPerAttributeToGLint[components],GL_DOUBLE,0);
+                break;
+        }
+
+        extGlVertexArrayBindingDivisor(vaoHandle,attrId,spec->getAttribDivisor(attrId));
+    }
+
+    VAOMap[spec->getHash()] = vaoHandle;
+    return std::pair<COpenGLVAOSpec::HashAttribs,GLuint>(spec->getHash(),vaoHandle);
+}
+
+bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* spec)
+{
+    if (!spec)
+    {
+        CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,GLuint>(COpenGLVAOSpec::HashAttribs(),0);
+        extGlBindVertexArray(0);
+        return false;
+    }
+
+    const COpenGLVAOSpec::HashAttribs& hashVal = spec->getHash();
+	if (CurrentVAO.first!=hashVal)
+    {
+        std::map<COpenGLVAOSpec::HashAttribs,GLuint>::iterator it = VAOMap.find(hashVal);
+        if (it != VAOMap.end())
+            CurrentVAO = *it;
+        else
+            CurrentVAO = constructVAOInCache(spec);
+
+        extGlBindVertexArray(CurrentVAO.second);
+    }
+    return true;
+}
+
 //! Get native wrap mode value
 inline GLint getTextureWrapMode(const uint8_t &clamp)
 {
@@ -2197,7 +2237,6 @@ inline GLint getTextureWrapMode(const uint8_t &clamp)
 	}
 	return mode;
 }
-
 
 GLuint COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t &hashVal)
 {
