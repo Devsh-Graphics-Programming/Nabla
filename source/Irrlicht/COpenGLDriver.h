@@ -372,6 +372,123 @@ namespace video
 
             16/8+16/8+16+4 = 3 uint64_t
             **/
+            class COpenGLVAO
+            {
+                    //vertices
+                    const COpenGLBuffer* mappedAttrBuf[scene::EVAI_COUNT];
+                    //indices
+                    const COpenGLBuffer* mappedIndexBuf;
+
+                    GLuint vao;
+                    uint64_t lastValidated;
+                #ifdef _DEBUG
+                    COpenGLVAOSpec::HashAttribs debugHash;
+                #endif // _DEBUG
+                public:
+                    _IRR_NO_DEFAULT_FINAL(COpenGLVAO);
+                    _IRR_NO_COPY_FINAL(COpenGLVAO);
+
+                    COpenGLVAO(const COpenGLVAOSpec::HashAttribs& hashVal)
+                        : vao(0), lastValidated(0)
+                #ifdef _DEBUG
+                            ,debugHash(hashVal)
+                #endif // _DEBUG
+                    {
+                        memset(mappedAttrBuf,0,sizeof(mappedAttrBuf));
+                        mappedIndexBuf = NULL;
+
+                        extGlCreateVertexArrays(1,&vao);
+                        for (size_t i=0; i<scene::EVAI_COUNT; i++)
+                        {
+                            if (hashVal.enabledAttribs&(0x1u<<i))
+                            {
+                                extGlEnableVertexArrayAttrib(vao,i);
+                                extGlVertexArrayAttribBinding(vao,i,i);
+                            }
+                        }
+                    }
+                    COpenGLVAO(COpenGLVAO&& other)
+                    {
+                        memcpy(this,&other,sizeof(COpenGLVAO));
+                        memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
+                        other.mappedIndexBuf = NULL;
+                        other.vao = 0;
+                        other.lastValidated = 0;
+                    }
+                    ~COpenGLVAO()
+                    {
+                        extGlDeleteVertexArrays(1,&vao);
+                    }
+
+                    inline const GLuint& getOpenGLName() const {return vao;}
+
+
+                    COpenGLVAO& operator=(COpenGLVAO&& other)
+                    {
+                        memcpy(this,&other,sizeof(COpenGLVAO));
+                        memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
+                        other.mappedIndexBuf = NULL;
+                        other.vao = 0;
+                        other.lastValidated = 0;
+                    }
+
+
+                    inline void bindBuffers(const COpenGLVAOSpec* spec)
+                    {
+                    #ifdef _DEBUG
+                        assert(!(debugHash!=spec->getHash()));
+                    #endif // _DEBUG
+
+                        for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
+                        {
+                            const COpenGLBuffer* asGLBuf = static_cast<const COpenGLBuffer*>(spec->getMappedBuffer(attrId));
+                            if (!asGLBuf)
+                                continue;
+
+                            uint64_t revalidateStamp = asGLBuf->getLastTimeReallocated();
+                            if (mappedAttrBuf[attrId]!=asGLBuf)
+                            {
+                                extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),spec->getMappedBufferOffset(attrId),spec->getMappedBufferStride(attrId));
+                                asGLBuf->grab();
+                                if (mappedAttrBuf[attrId])
+                                    mappedAttrBuf[attrId]->drop();
+
+                                mappedAttrBuf[attrId] = asGLBuf;
+                            }
+                            else if (revalidateStamp>lastValidated)
+                                extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),spec->getMappedBufferOffset(attrId),spec->getMappedBufferStride(attrId));
+                        }
+
+                        const COpenGLBuffer* asGLBuf = static_cast<const COpenGLBuffer*>(spec->getIndexBuffer());
+                        if (asGLBuf)
+                        {
+                            uint64_t revalidateStamp = asGLBuf->getLastTimeReallocated();
+                            if (mappedIndexBuf!=asGLBuf)
+                            {
+                                extGlVertexArrayElementBuffer(vao,asGLBuf->getOpenGLName());
+                                asGLBuf->grab();
+
+                                if (mappedIndexBuf)
+                                    mappedIndexBuf->drop();
+
+                                mappedIndexBuf = asGLBuf;
+                            }
+                            else if (revalidateStamp>lastValidated)
+                                extGlVertexArrayElementBuffer(vao,asGLBuf->getOpenGLName());
+                        }
+                        else if (mappedIndexBuf!=asGLBuf)
+                        {
+                            extGlVertexArrayElementBuffer(vao,0);
+
+                            if (mappedIndexBuf)
+                                mappedIndexBuf->drop();
+
+                            mappedIndexBuf = NULL;
+                        }
+
+                        lastValidated = CNullDriver::ReallocationCounter;
+                    }
+            };
             std::pair<COpenGLVAOSpec::HashAttribs,GLuint> CurrentVAO;
             std::map<COpenGLVAOSpec::HashAttribs,GLuint> VAOMap;
 

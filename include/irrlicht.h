@@ -77,6 +77,7 @@
 #include "IReferenceCounted.h"
 #include "irrArray.h"
 #include "IrrlichtDevice.h"
+#include "irrMacros.h"
 #include "irrMath.h"
 #include "irrString.h"
 #include "irrTypes.h"

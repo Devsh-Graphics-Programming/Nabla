@@ -7,6 +7,7 @@
 
 #include "IrrCompileConfig.h" // for endian check
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include "irrString.h"
 #include "path.h"
 #include "ILogger.h"
