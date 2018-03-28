@@ -62,6 +62,7 @@ namespace video
             {
                 HashAttribs()
                 {
+                    static_assert(scene::ECPA_COUNT==5); //otherwise our hashing system falls apart
                     static_assert(scene::EVAI_COUNT==16); //otherwise our hashing system falls apart
                     static_assert(sizeof(HashAttribs)/sizeof(uint64_t)==(scene::EVAI_COUNT+2+_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS*2+sizeof(uint64_t)-1)/sizeof(uint64_t)); //otherwise our hashing system falls apart
 
@@ -75,6 +76,30 @@ namespace video
                 {
                     attribFormatAndComponentCount[attrId] = components|(type<<3);
                 }
+
+
+                inline scene::E_COMPONENTS_PER_ATTRIBUTE getAttribComponentCount(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                {
+                    return static_cast<scene::E_COMPONENTS_PER_ATTRIBUTE>(attribFormatAndComponentCount[attrId]&0x7u);
+                }
+
+                inline scene::E_COMPONENT_TYPE getAttribType(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                {
+                    return static_cast<scene::E_COMPONENT_TYPE>(attribFormatAndComponentCount[attrId]>>3);
+                }
+
+                inline uint32_t getAttribDivisor(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                {
+                    uint32_t retval = 0;
+                    for (size_t i=0; i<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS; i++)
+                    {
+                        uint16_t mask = 0x1u<<attrId;
+                        if (attributeDivisors[i]&mask)
+                            retval |= 0x1u<<i;
+                    }
+                    return retval;
+                }
+
 
                 inline bool operator<(const HashAttribs& other) const
                 {

@@ -303,11 +303,10 @@ namespace video
 
         struct SAuxContext
         {
-
             SAuxContext() : threadId(std::thread::id()), ctx(NULL), XFormFeedbackRunning(false), CurrentXFormFeedback(NULL),
                             CurrentFBO(0), CurrentRendertargetSize(0,0)
             {
-                CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,GLuint>(COpenGLVAOSpec::HashAttribs(),0);
+                CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),NULL);
 
                 for (size_t i=0; i<MATERIAL_MAX_TEXTURES; i++)
                 {
@@ -317,8 +316,6 @@ namespace video
 
 
             bool setActiveVAO(const COpenGLVAOSpec* spec);
-
-            std::pair<COpenGLVAOSpec::HashAttribs,GLuint> constructVAOInCache(const COpenGLVAOSpec* spec);
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
@@ -398,12 +395,57 @@ namespace video
                         mappedIndexBuf = NULL;
 
                         extGlCreateVertexArrays(1,&vao);
-                        for (size_t i=0; i<scene::EVAI_COUNT; i++)
+                        for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
                         {
-                            if (hashVal.enabledAttribs&(0x1u<<i))
+                            if (hashVal.enabledAttribs&(0x1u<<attrId))
                             {
-                                extGlEnableVertexArrayAttrib(vao,i);
-                                extGlVertexArrayAttribBinding(vao,i,i);
+                                extGlEnableVertexArrayAttrib(vao,attrId);
+                                extGlVertexArrayAttribBinding(vao,attrId,attrId);
+
+                                scene::E_COMPONENTS_PER_ATTRIBUTE components = hashVal.getAttribComponentCount(attrId);
+                                scene::E_COMPONENT_TYPE type = hashVal.getAttribType(attrId);
+                                switch (type)
+                                {
+                                    case scene::ECT_FLOAT:
+                                    case scene::ECT_HALF_FLOAT:
+                                    case scene::ECT_DOUBLE_IN_FLOAT_OUT:
+                                    case scene::ECT_UNSIGNED_INT_10F_11F_11F_REV:
+                                    //INTEGER FORMS
+                                    case scene::ECT_NORMALIZED_INT_2_10_10_10_REV:
+                                    case scene::ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV:
+                                    case scene::ECT_NORMALIZED_BYTE:
+                                    case scene::ECT_NORMALIZED_UNSIGNED_BYTE:
+                                    case scene::ECT_NORMALIZED_SHORT:
+                                    case scene::ECT_NORMALIZED_UNSIGNED_SHORT:
+                                    case scene::ECT_NORMALIZED_INT:
+                                    case scene::ECT_NORMALIZED_UNSIGNED_INT:
+                                    case scene::ECT_INT_2_10_10_10_REV:
+                                    case scene::ECT_UNSIGNED_INT_2_10_10_10_REV:
+                                    case scene::ECT_BYTE:
+                                    case scene::ECT_UNSIGNED_BYTE:
+                                    case scene::ECT_SHORT:
+                                    case scene::ECT_UNSIGNED_SHORT:
+                                    case scene::ECT_INT:
+                                    case scene::ECT_UNSIGNED_INT:
+                                        extGlVertexArrayAttribFormat(vao,attrId,eComponentsPerAttributeToGLint[components],eComponentTypeToGLenum[type],scene::isNormalized(type) ? GL_TRUE:GL_FALSE,0);
+                                        break;
+                                    case scene::ECT_INTEGER_INT_2_10_10_10_REV:
+                                    case scene::ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV:
+                                    case scene::ECT_INTEGER_BYTE:
+                                    case scene::ECT_INTEGER_UNSIGNED_BYTE:
+                                    case scene::ECT_INTEGER_SHORT:
+                                    case scene::ECT_INTEGER_UNSIGNED_SHORT:
+                                    case scene::ECT_INTEGER_INT:
+                                    case scene::ECT_INTEGER_UNSIGNED_INT:
+                                        extGlVertexArrayAttribIFormat(vao,attrId,eComponentsPerAttributeToGLint[components],eComponentTypeToGLenum[type],0);
+                                        break;
+                                //special
+                                    case scene::ECT_DOUBLE_IN_DOUBLE_OUT:
+                                        extGlVertexArrayAttribLFormat(vao,attrId,eComponentsPerAttributeToGLint[components],GL_DOUBLE,0);
+                                        break;
+                                }
+
+                                extGlVertexArrayBindingDivisor(vao,attrId,hashVal.getAttribDivisor(attrId));
                             }
                         }
                     }
@@ -488,9 +530,27 @@ namespace video
 
                         lastValidated = CNullDriver::ReallocationCounter;
                     }
+
+                    inline const uint64_t& getLastBoundStamp() const {return lastValidated;}
             };
-            std::pair<COpenGLVAOSpec::HashAttribs,GLuint> CurrentVAO;
-            std::map<COpenGLVAOSpec::HashAttribs,GLuint> VAOMap;
+            std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> CurrentVAO;
+            std::map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> VAOMap;
+            inline void freeUpVAOCache(bool exitOnFirstDelete)
+            {
+                if (VAOMap.size()>(0x1u<<14)) //make this cache configurable
+                {
+                    for(std::map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.begin(); it != VAOMap.end(); it++)
+                    {
+                        if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
+                        {
+                            delete it->second;
+                            it = VAOMap.erase(it);
+                            if (exitOnFirstDelete)
+                                return;
+                        }
+                    }
+                }
+            }
 
 
             class STextureStageCache
