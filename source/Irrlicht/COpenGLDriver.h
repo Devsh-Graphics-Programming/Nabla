@@ -111,12 +111,19 @@ namespace video
         virtual IGPUTimestampQuery* createTimestampQuery();
 
 
-        virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
+        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
-		virtual void drawIndexedIndirect(scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
-
+		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const scene::E_PRIMITIVE_TYPE& mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        const size_t& offset, const size_t& count, const size_t& stride,
+                                        IOcclusionQuery* query = NULL);
+		virtual void drawIndexedIndirect(   const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                            const scene::E_PRIMITIVE_TYPE& mode,
+                                            const E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
+                                            const size_t& offset, const size_t& count, const size_t& stride,
+                                            IOcclusionQuery* query = NULL);
 
 		//! queries the features of the driver, returns true if feature is available
 		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
@@ -315,7 +322,7 @@ namespace video
             }
 
 
-            bool setActiveVAO(const COpenGLVAOSpec* spec);
+            bool setActiveVAO(const COpenGLVAOSpec* spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
@@ -371,6 +378,8 @@ namespace video
             **/
             class COpenGLVAO
             {
+                    size_t attrOffset[scene::EVAI_COUNT];
+                    uint32_t attrStride[scene::EVAI_COUNT];
                     //vertices
                     const COpenGLBuffer* mappedAttrBuf[scene::EVAI_COUNT];
                     //indices
@@ -385,73 +394,12 @@ namespace video
                     _IRR_NO_DEFAULT_FINAL(COpenGLVAO);
                     _IRR_NO_COPY_FINAL(COpenGLVAO);
 
-                    COpenGLVAO(const COpenGLVAOSpec::HashAttribs& hashVal)
-                        : vao(0), lastValidated(0)
-                #ifdef _DEBUG
-                            ,debugHash(hashVal)
-                #endif // _DEBUG
-                    {
-                        memset(mappedAttrBuf,0,sizeof(mappedAttrBuf));
-                        mappedIndexBuf = NULL;
-
-                        extGlCreateVertexArrays(1,&vao);
-                        for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
-                        {
-                            if (hashVal.enabledAttribs&(0x1u<<attrId))
-                            {
-                                extGlEnableVertexArrayAttrib(vao,attrId);
-                                extGlVertexArrayAttribBinding(vao,attrId,attrId);
-
-                                scene::E_COMPONENTS_PER_ATTRIBUTE components = hashVal.getAttribComponentCount(attrId);
-                                scene::E_COMPONENT_TYPE type = hashVal.getAttribType(attrId);
-                                switch (type)
-                                {
-                                    case scene::ECT_FLOAT:
-                                    case scene::ECT_HALF_FLOAT:
-                                    case scene::ECT_DOUBLE_IN_FLOAT_OUT:
-                                    case scene::ECT_UNSIGNED_INT_10F_11F_11F_REV:
-                                    //INTEGER FORMS
-                                    case scene::ECT_NORMALIZED_INT_2_10_10_10_REV:
-                                    case scene::ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV:
-                                    case scene::ECT_NORMALIZED_BYTE:
-                                    case scene::ECT_NORMALIZED_UNSIGNED_BYTE:
-                                    case scene::ECT_NORMALIZED_SHORT:
-                                    case scene::ECT_NORMALIZED_UNSIGNED_SHORT:
-                                    case scene::ECT_NORMALIZED_INT:
-                                    case scene::ECT_NORMALIZED_UNSIGNED_INT:
-                                    case scene::ECT_INT_2_10_10_10_REV:
-                                    case scene::ECT_UNSIGNED_INT_2_10_10_10_REV:
-                                    case scene::ECT_BYTE:
-                                    case scene::ECT_UNSIGNED_BYTE:
-                                    case scene::ECT_SHORT:
-                                    case scene::ECT_UNSIGNED_SHORT:
-                                    case scene::ECT_INT:
-                                    case scene::ECT_UNSIGNED_INT:
-                                        extGlVertexArrayAttribFormat(vao,attrId,eComponentsPerAttributeToGLint[components],eComponentTypeToGLenum[type],scene::isNormalized(type) ? GL_TRUE:GL_FALSE,0);
-                                        break;
-                                    case scene::ECT_INTEGER_INT_2_10_10_10_REV:
-                                    case scene::ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV:
-                                    case scene::ECT_INTEGER_BYTE:
-                                    case scene::ECT_INTEGER_UNSIGNED_BYTE:
-                                    case scene::ECT_INTEGER_SHORT:
-                                    case scene::ECT_INTEGER_UNSIGNED_SHORT:
-                                    case scene::ECT_INTEGER_INT:
-                                    case scene::ECT_INTEGER_UNSIGNED_INT:
-                                        extGlVertexArrayAttribIFormat(vao,attrId,eComponentsPerAttributeToGLint[components],eComponentTypeToGLenum[type],0);
-                                        break;
-                                //special
-                                    case scene::ECT_DOUBLE_IN_DOUBLE_OUT:
-                                        extGlVertexArrayAttribLFormat(vao,attrId,eComponentsPerAttributeToGLint[components],GL_DOUBLE,0);
-                                        break;
-                                }
-
-                                extGlVertexArrayBindingDivisor(vao,attrId,hashVal.getAttribDivisor(attrId));
-                            }
-                        }
-                    }
-                    COpenGLVAO(COpenGLVAO&& other)
+                    COpenGLVAO(const COpenGLVAOSpec* spec);
+                    inline COpenGLVAO(COpenGLVAO&& other)
                     {
                         memcpy(this,&other,sizeof(COpenGLVAO));
+                        memset(other.attrOffset,0,sizeof(mappedAttrBuf));
+                        memset(other.attrStride,0,sizeof(mappedAttrBuf));
                         memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
                         other.mappedIndexBuf = NULL;
                         other.vao = 0;
@@ -465,9 +413,11 @@ namespace video
                     inline const GLuint& getOpenGLName() const {return vao;}
 
 
-                    COpenGLVAO& operator=(COpenGLVAO&& other)
+                    inline COpenGLVAO& operator=(COpenGLVAO&& other)
                     {
                         memcpy(this,&other,sizeof(COpenGLVAO));
+                        memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
+                        memset(other.attrStride,0,sizeof(mappedAttrBuf));
                         memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
                         other.mappedIndexBuf = NULL;
                         other.vao = 0;
@@ -475,63 +425,16 @@ namespace video
                     }
 
 
-                    inline void bindBuffers(const COpenGLVAOSpec* spec)
-                    {
-                    #ifdef _DEBUG
-                        assert(!(debugHash!=spec->getHash()));
-                    #endif // _DEBUG
-
-                        for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
-                        {
-                            const COpenGLBuffer* asGLBuf = static_cast<const COpenGLBuffer*>(spec->getMappedBuffer(attrId));
-                            if (!asGLBuf)
-                                continue;
-
-                            uint64_t revalidateStamp = asGLBuf->getLastTimeReallocated();
-                            if (mappedAttrBuf[attrId]!=asGLBuf)
-                            {
-                                extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),spec->getMappedBufferOffset(attrId),spec->getMappedBufferStride(attrId));
-                                asGLBuf->grab();
-                                if (mappedAttrBuf[attrId])
-                                    mappedAttrBuf[attrId]->drop();
-
-                                mappedAttrBuf[attrId] = asGLBuf;
-                            }
-                            else if (revalidateStamp>lastValidated)
-                                extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),spec->getMappedBufferOffset(attrId),spec->getMappedBufferStride(attrId));
-                        }
-
-                        const COpenGLBuffer* asGLBuf = static_cast<const COpenGLBuffer*>(spec->getIndexBuffer());
-                        if (asGLBuf)
-                        {
-                            uint64_t revalidateStamp = asGLBuf->getLastTimeReallocated();
-                            if (mappedIndexBuf!=asGLBuf)
-                            {
-                                extGlVertexArrayElementBuffer(vao,asGLBuf->getOpenGLName());
-                                asGLBuf->grab();
-
-                                if (mappedIndexBuf)
-                                    mappedIndexBuf->drop();
-
-                                mappedIndexBuf = asGLBuf;
-                            }
-                            else if (revalidateStamp>lastValidated)
-                                extGlVertexArrayElementBuffer(vao,asGLBuf->getOpenGLName());
-                        }
-                        else if (mappedIndexBuf!=asGLBuf)
-                        {
-                            extGlVertexArrayElementBuffer(vao,0);
-
-                            if (mappedIndexBuf)
-                                mappedIndexBuf->drop();
-
-                            mappedIndexBuf = NULL;
-                        }
-
-                        lastValidated = CNullDriver::ReallocationCounter;
-                    }
+                    void bindBuffers(   const COpenGLBuffer* indexBuf,
+                                        const COpenGLBuffer* const* attribBufs,
+                                        const size_t offsets[scene::EVAI_COUNT],
+                                        const size_t strides[scene::EVAI_COUNT]);
 
                     inline const uint64_t& getLastBoundStamp() const {return lastValidated;}
+
+                #ifdef _DEBUG
+                    inline const COpenGLVAOSpec::HashAttribs& getDebugHash() const {return debugHash;}
+                #endif // _DEBUG
             };
             std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> CurrentVAO;
             std::map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> VAOMap;
@@ -626,7 +529,7 @@ namespace video
 
 		SMaterial Material, LastMaterial;
 
-	    COpenGLBuffer* currentIndirectDrawBuff; //move to per-context storage?
+	    const COpenGLBuffer* currentIndirectDrawBuff; //move to per-context storage?
 	    uint64_t lastValidatedIndirectBuffer; //move to per-context storage?
 
 

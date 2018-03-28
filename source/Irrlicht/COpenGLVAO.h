@@ -156,6 +156,11 @@ namespace video
 
             virtual void mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, scene::E_COMPONENTS_PER_ATTRIBUTE components, scene::E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0, uint32_t divisor=0);
 
+            inline const IGPUBuffer* const* getMappedBuffers() const
+            {
+                return mappedAttrBuf;
+            }
+
             /**
             The function is virtual because it needs the current OpenGL buffer name of the element buffer.
 
