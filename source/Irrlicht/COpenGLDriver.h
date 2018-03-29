@@ -405,10 +405,7 @@ namespace video
                         other.vao = 0;
                         other.lastValidated = 0;
                     }
-                    ~COpenGLVAO()
-                    {
-                        extGlDeleteVertexArrays(1,&vao);
-                    }
+                    ~COpenGLVAO();
 
                     inline const GLuint& getOpenGLName() const {return vao;}
 
@@ -437,12 +434,12 @@ namespace video
                 #endif // _DEBUG
             };
             std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> CurrentVAO;
-            std::map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> VAOMap;
+            std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> VAOMap;
             inline void freeUpVAOCache(bool exitOnFirstDelete)
             {
                 if (VAOMap.size()>(0x1u<<14)) //make this cache configurable
                 {
-                    for(std::map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.begin(); it != VAOMap.end(); it++)
+                    for(std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.begin(); it != VAOMap.end(); it++)
                     {
                         if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
                         {
@@ -501,7 +498,7 @@ namespace video
             STextureStageCache CurrentTexture;
 
             uint64_t CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
-            std::map<uint64_t,GLuint> SamplerMap;
+            std::unordered_map<uint64_t,GLuint> SamplerMap;
         };
 
 

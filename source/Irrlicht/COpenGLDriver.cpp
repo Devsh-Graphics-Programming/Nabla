@@ -771,7 +771,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     removeAllFrameBuffers();
 
     extGlBindVertexArray(0);
-	for(std::map<COpenGLVAOSpec::HashAttribs,SAuxContext::COpenGLVAO*>::iterator it = found->VAOMap.begin(); it != found->VAOMap.end(); it++)
+	for(std::unordered_map<COpenGLVAOSpec::HashAttribs,SAuxContext::COpenGLVAO*>::iterator it = found->VAOMap.begin(); it != found->VAOMap.end(); it++)
     {
         delete it->second;
     }
@@ -779,7 +779,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
 
 	found->CurrentTexture.clear();
 
-	for(std::map<uint64_t,GLuint>::iterator it = found->SamplerMap.begin(); it != found->SamplerMap.end(); it++)
+	for(std::unordered_map<uint64_t,GLuint>::iterator it = found->SamplerMap.begin(); it != found->SamplerMap.end(); it++)
     {
         extGlDeleteSamplers(1,&it->second);
     }
@@ -2118,6 +2118,22 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
     }
 }
 
+COpenGLDriver::SAuxContext::COpenGLVAO::~COpenGLVAO()
+{
+    extGlDeleteVertexArrays(1,&vao);
+
+    for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
+    {
+        if (!mappedAttrBuf[attrId])
+            continue;
+
+        mappedAttrBuf[attrId]->drop();
+    }
+
+    if (mappedIndexBuf)
+        mappedIndexBuf->drop();
+}
+
 void COpenGLDriver::SAuxContext::COpenGLVAO::bindBuffers(   const COpenGLBuffer* indexBuf,
                                                             const COpenGLBuffer* const* attribBufs,
                                                             const size_t offsets[scene::EVAI_COUNT],
@@ -2194,7 +2210,7 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* spec, const 
     const COpenGLVAOSpec::HashAttribs& hashVal = spec->getHash();
 	if (CurrentVAO.first!=hashVal)
     {
-        std::map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.find(hashVal);
+        std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.find(hashVal);
         if (it != VAOMap.end())
             CurrentVAO = *it;
         else
@@ -2372,7 +2388,7 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtua
             if (CurrentSamplerHash[stage]!=hashVal)
             {
                 CurrentSamplerHash[stage] = hashVal;
-                std::map<uint64_t,GLuint>::iterator it = SamplerMap.find(hashVal);
+                std::unordered_map<uint64_t,GLuint>::iterator it = SamplerMap.find(hashVal);
                 if (it != SamplerMap.end())
                 {
                     extGlBindSampler(stage,it->second);

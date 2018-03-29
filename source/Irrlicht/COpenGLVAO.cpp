@@ -4,6 +4,19 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
+namespace std
+{
+    size_t hash<irr::video::COpenGLVAOSpec::HashAttribs>::operator()(const irr::video::COpenGLVAOSpec::HashAttribs &x ) const
+    {
+        size_t retval = hash<uint64_t>()(x.hashVal[0]);
+
+        for (size_t i=1; i<irr::video::COpenGLVAOSpec::HashAttribs::getHashLength(); i++)
+            retval ^= hash<uint64_t>()(x.hashVal[i]);
+
+        return retval;
+    }
+}
+
 namespace irr
 {
 namespace video

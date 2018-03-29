@@ -315,7 +315,7 @@ namespace scene
         private:
             inline void createAnimationKeys(const std::vector<ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints)
             {
-                std::set<float> sortedFrames;
+                std::unordered_set<float> sortedFrames;
                 for (size_t i=0; i<boneCount; i++)
                 {
                     ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];

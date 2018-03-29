@@ -155,7 +155,7 @@ void LeakDebugger::registerObj(const void* obj)
 {
 #ifdef _DEBUG
     tsafer->Get();
-    std::map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
+    std::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
     if (found!=tracker.end())
     {
         printf("BAD REFCOUNTING IN LEAK DEBUGGER %s with item %p \t Previous supposed alloc was:\n",name.c_str(),obj);
@@ -173,7 +173,7 @@ void LeakDebugger::deregisterObj(const void* obj)
 {
 #ifdef _DEBUG
     tsafer->Get();
-    std::map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
+    std::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
     if (found==tracker.end())
     {
         printf("LEAK DEBUGGER %s found DOUBLE FREE item %p \t Allocated from:\n",name.c_str(),obj);
@@ -191,16 +191,16 @@ void LeakDebugger::deregisterObj(const void* obj)
 void LeakDebugger::dumpLeaks()
 {
 #ifdef _DEBUG
-    std::multiset<StackTrace> epicCounter;
+    std::unordered_multiset<StackTrace> epicCounter;
 
     tsafer->Get();
     printf("Printing the leaks of %s\n\n",name.c_str());
 
-    for (std::map<const void*,StackTrace>::iterator it=tracker.begin(); it!=tracker.end(); it++)
+    for (std::unordered_map<const void*,StackTrace>::iterator it=tracker.begin(); it!=tracker.end(); it++)
         epicCounter.insert(it->second);
 
     {
-        std::multiset<StackTrace>::iterator it=epicCounter.begin();
+        std::unordered_multiset<StackTrace>::iterator it=epicCounter.begin();
         while (it!=epicCounter.end())
         {
             size_t occurences = epicCounter.count(*it);
@@ -221,4 +221,17 @@ void LeakDebugger::dumpLeaks()
 }
 
 }
+}
+
+namespace std
+{
+    size_t hash<irr::core::LeakDebugger::StackTrace>::operator()(const irr::core::LeakDebugger::StackTrace &x ) const
+    {
+        size_t retval = 0;
+
+        for (size_t i=0; i<x.getTrace().size(); i++)
+            retval ^= hash<string>()(x.getTrace()[i]);
+
+        return retval;
+    }
 }
