@@ -92,7 +92,8 @@ public:
 #endif // NEW_MESHES
 
 private:
-	core::ICPUBuffer* create32BitFrom16BitIdxBuffer(const core::ICPUBuffer* _in) const;
+	//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
+	core::ICPUBuffer* create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const;
 
 	std::vector<core::vectorSIMDf> findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId) const;
 	
@@ -105,13 +106,13 @@ private:
 	E_COMPONENT_TYPE getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const;
 	E_COMPONENT_TYPE getBestTypeI(bool _nativeInt, bool _unsigned, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const uint32_t* _min, const uint32_t* _max) const;
 
-	core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const core::ICPUBuffer* _input, video::E_INDEX_TYPE _idxType) const;
+	core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
 	template<typename T>
-	core::ICPUBuffer* triangleStripsToTriangles(const core::ICPUBuffer* _input) const;
+	core::ICPUBuffer* triangleStripsToTriangles(const void* _input, size_t _idxCount) const;
 
-	core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const core::ICPUBuffer* _input, video::E_INDEX_TYPE _idxType) const;
+	core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
 	template<typename T>
-	core::ICPUBuffer* trianglesFanToTriangles(const core::ICPUBuffer* _input) const;
+	core::ICPUBuffer* trianglesFanToTriangles(const void* _input, size_t _idxCount) const;
 };
 
 } // end namespace scene
