@@ -55,6 +55,8 @@ namespace scene
 
 		virtual ICPUMeshBuffer* createOptimizedMeshBuffer(ICPUMeshBuffer* inbuffer) const = 0;
 
+		virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const = 0;
+
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
 		\param Outputted Number of polygons in mesh buffer, if successful.

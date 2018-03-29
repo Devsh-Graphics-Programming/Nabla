@@ -659,7 +659,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 	if (!_inbuffer || !_inbuffer->getMeshDataAndFormat() || !_inbuffer->getIndices())
 		return NULL;
 
-	ICPUMeshBuffer* outbuffer = _inbuffer->createCopy();
+	ICPUMeshBuffer* outbuffer = createMeshBufferDuplicate(_inbuffer);
 	IMeshDataFormatDesc<core::ICPUBuffer>* outDesc = outbuffer->getMeshDataAndFormat();
 
 	// Find vertex count
@@ -708,7 +708,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 
 
 	uint32_t* remapBuffer = (uint32_t*)malloc(vertexCount*4);
-	memset(remapBuffer, 0xffffffff, vertexCount*4);
+	memset(remapBuffer, 0xffffffffu, vertexCount*4);
 
 	const video::E_INDEX_TYPE idxType = outbuffer->getIndexType();
 	void* indices = outbuffer->getIndices();
@@ -719,7 +719,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 
 		uint32_t& remap = remapBuffer[index];
 
-		if (remap == 0xffffffff)
+		if (remap == 0xffffffffu)
 		{
 			for (size_t j = 0; j < activeAttribs.size(); ++j)
 			{
@@ -1071,7 +1071,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 	if (!_inbuffer || !_inbuffer->getMeshDataAndFormat())
 		return _inbuffer;
 
-	ICPUMeshBuffer* outbuffer = _inbuffer->createCopy();
+	ICPUMeshBuffer* outbuffer = createMeshBufferDuplicate(_inbuffer);
 
 	// Find vertex count
 	size_t vertexCount = outbuffer->calcVertexCount();
@@ -1242,18 +1242,20 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 
 		for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
 		{
-			uint32_t idx = 0u, prevIdx = 0xffffffffu;
+			uint32_t idx = indicesCopy[i], prevIdx = 0xffffffffu;
 			if (i)
+			{
 				prevIdx = indicesCopy[i-1];
 
-			if (idx == prevIdx)
-			{
-				unique = false;
-				continuous = false;
-				break;
+				if (idx == prevIdx)
+				{
+					unique = false;
+					continuous = false;
+					break;
+				}
+				if (idx != prevIdx + 1)
+					continuous = false;
 			}
-			if (idx != prevIdx + 1)
-				continuous = false;
 		}
 
 		const uint32_t minIdx = indicesCopy[0];
@@ -1330,6 +1332,72 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 	}
 
 	return outbuffer;
+}
+
+ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const
+{
+	if (!_src)
+		return NULL;
+
+	ICPUMeshBuffer* dst = NULL;
+	if (const SCPUSkinMeshBuffer* smb = dynamic_cast<const SCPUSkinMeshBuffer*>(_src))
+		dst = new SCPUSkinMeshBuffer(*smb);
+	else
+		dst = new ICPUMeshBuffer(*_src);
+
+	if (!_src->getMeshDataAndFormat())
+		return dst;
+
+	core::ICPUBuffer* idxBuffer = NULL;
+	if (_src->getIndices())
+	{
+		idxBuffer = new core::ICPUBuffer((_src->getIndexType() == video::EIT_16BIT ? 2 : 4) * _src->getIndexCount());
+		memcpy(idxBuffer->getPointer(), _src->getIndices(), idxBuffer->getSize());
+		dst->setIndexBufferOffset(0);
+	}
+
+	ICPUMeshDataFormatDesc* newDesc = new ICPUMeshDataFormatDesc();
+	const IMeshDataFormatDesc<core::ICPUBuffer>* oldDesc = _src->getMeshDataAndFormat();
+
+	std::map<const core::ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID> oldBuffers;
+	std::vector<core::ICPUBuffer*> newBuffers;
+	for (size_t i = 0; i < EVAI_COUNT; ++i)
+	{
+		const core::ICPUBuffer* oldBuf = oldDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i);
+		if (!oldBuf)
+			continue;
+		core::ICPUBuffer* newBuf = NULL;
+
+		std::map<const core::ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID>::iterator itr = oldBuffers.find(oldBuf);
+		if (itr == oldBuffers.end())
+		{
+			oldBuffers[oldBuf] = (E_VERTEX_ATTRIBUTE_ID)i;
+			newBuf = new core::ICPUBuffer(oldBuf->getSize());
+			memcpy(newBuf->getPointer(), oldBuf->getPointer(), newBuf->getSize());
+			newBuffers.push_back(newBuf);
+		}
+		else
+		{
+			newBuf = const_cast<core::ICPUBuffer*>(newDesc->getMappedBuffer(itr->second));
+		}
+
+		newDesc->mapVertexAttrBuffer(newBuf, (E_VERTEX_ATTRIBUTE_ID)i,
+			oldDesc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i),
+			oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getAttribDivisor((E_VERTEX_ATTRIBUTE_ID)i));
+	}
+	if (idxBuffer)
+	{
+		newDesc->mapIndexBuffer(idxBuffer);
+		idxBuffer->drop();
+	}
+	for (size_t i = 0; i < newBuffers.size(); ++i)
+		newBuffers[i]->drop();
+
+	oldDesc->grab(); // Before setting (setMeshDataAndFormat below) dst has pointer to exact same desc as _src.
+	// Since we don't want to corrupt _src and dst, while setting new desc, would drop the old one we have to cummulate this drop by the grab.
+	dst->setMeshDataAndFormat(newDesc);
+
+	return dst;
 }
 
 core::ICPUBuffer* CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const

@@ -33,13 +33,6 @@ class SCPUSkinMeshBuffer : public ICPUMeshBuffer
 			return core::CorrespondingBlobTypeFor<SCPUSkinMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}
 
-		virtual ICPUMeshBuffer* createCopy() const
-		{
-			SCPUSkinMeshBuffer* output = new SCPUSkinMeshBuffer(*this);
-			copyVertexDataFromThis(output, true);
-			return output;
-		}
-
         inline void setIndexRange(const uint32_t &minBeforeBaseVxAdd, const uint32_t &maxBeforeBaseVxAdd)
         {
             indexValMin = minBeforeBaseVxAdd;

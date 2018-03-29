@@ -86,6 +86,8 @@ public:
 
 	virtual ICPUMeshBuffer* createOptimizedMeshBuffer(ICPUMeshBuffer* inbuffer) const;
 
+	virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const;
+
 #ifndef NEW_MESHES
 	//! create a mesh optimized for the vertex cache
 	virtual ICPUMeshBuffer* createForsythOptimizedMeshBuffer(const ICPUMeshBuffer *meshbuffer) const;
