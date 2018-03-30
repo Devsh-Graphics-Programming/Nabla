@@ -1080,7 +1080,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 	// make index buffer 0,1,2,3,4,... if nothing's mapped
 	if (!outbuffer->getIndices())
 	{
-		core::ICPUBuffer* ib = new core::ICPUBuffer(vertexCount*4);
+		core::ICPUBuffer* ib = new core::ICPUBuffer(vertexCount * 4);
 		IMeshDataFormatDesc<core::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
 		uint32_t* indices = (uint32_t*)ib->getPointer();
 		for (uint32_t i = 0; i < vertexCount; ++i)
@@ -1111,7 +1111,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 		core::ICPUBuffer* newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), video::EIT_32BIT);
 		newDesc->mapIndexBuffer(newIb);
 		outbuffer->setPrimitiveType(EPT_TRIANGLES);
-		outbuffer->setIndexCount(newIb->getSize()/4);
+		outbuffer->setIndexCount(newIb->getSize() / 4);
 		printf("TRIANGLE FAN -> TRIANGLES\n");
 	}
 	else if (outbuffer->getPrimitiveType() == EPT_TRIANGLE_STRIP)
@@ -1120,7 +1120,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 		core::ICPUBuffer* newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), video::EIT_32BIT);
 		newDesc->mapIndexBuffer(newIb);
 		outbuffer->setPrimitiveType(EPT_TRIANGLES);
-		outbuffer->setIndexCount(newIb->getSize()/4);
+		outbuffer->setIndexCount(newIb->getSize() / 4);
 		printf("TRIANGLE STRIPS -> TRIANGLES\n");
 	}
 	else if (outbuffer->getPrimitiveType() != EPT_TRIANGLES)
@@ -1152,83 +1152,102 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 	}
 
 	// STEP: requantization
-	// todo (currently some shit commented out)
-
-	/*
-	SAttrib newAttribs[EVAI_COUNT];
-	for (size_t i = 0; i < EVAI_COUNT; ++i)
-		newAttribs[i].vaid = (E_VERTEX_ATTRIBUTE_ID)i;
-	std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>> attribsI;
-	std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>> attribsF;
-	for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
 	{
-		const E_COMPONENT_TYPE type = _inbuffer->getMeshDataAndFormat()->getAttribType((E_VERTEX_ATTRIBUTE_ID)vaid);
 
-		if (_inbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
+		printf("REQUANTIZATION\n");
+		SAttrib newAttribs[EVAI_COUNT];
+		for (size_t i = 0; i < EVAI_COUNT; ++i)
+			newAttribs[i].vaid = (E_VERTEX_ATTRIBUTE_ID)i;
+		std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>> attribsI;
+		std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>> attribsF;
+		for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
 		{
-			if (!scene::isNormalized(type) && (scene::isNativeInteger(type) || scene::isWeakInteger(type)))
-				attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, _inbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
-			else
-				attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, _inbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
-		}
-	}
+			const E_COMPONENT_TYPE type = _inbuffer->getMeshDataAndFormat()->getAttribType((E_VERTEX_ATTRIBUTE_ID)vaid);
 
-	size_t vertexSize = 0;
-	for (size_t i = 0; i < EVAI_COUNT; ++i)
-		vertexSize += newAttribs[i].size;
-	// round up vertexSize to some val
-	// ((X+(MUL-1))/MUL)*MUL
+			if (_inbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
+			{
+				if (!scene::isNormalized(type) && (scene::isNativeInteger(type) || scene::isWeakInteger(type)))
+					attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, _inbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
+				else
+					attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, _inbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
+			}
+		}
+
+		const size_t activeAttributeCount = attribsI.size() + attribsF.size();
+
 #ifdef _DEBUG
-	{
-		std::set<size_t> sizesSet;
-		for (std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
-			sizesSet.insert(it->second.size());
-		for (std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
-			sizesSet.insert(it->second.size());
-		_IRR_DEBUG_BREAK_IF(sizesSet.size() != 1);
-	}
+		{
+			std::set<size_t> sizesSet;
+			for (std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
+				sizesSet.insert(it->second.size());
+			for (std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
+				sizesSet.insert(it->second.size());
+			_IRR_DEBUG_BREAK_IF(sizesSet.size() != 1);
+		}
 #endif
-	const size_t vertexCnt = (!attribsI.empty() ? attribsI.begin()->second.size() : (!attribsF.empty() ? attribsF.begin()->second.size() : 0));
+		const size_t vertexCnt = (!attribsI.empty() ? attribsI.begin()->second.size() : (!attribsF.empty() ? attribsF.begin()->second.size() : 0));
+		printf("REQ vertexCnt: %u\n", vertexCnt);
 
-	if (needToRunForsyth)
-	{
-		CForsythVertexCacheOptimizer forsyth;
-		void* indices = newIdxBuffer->getPointer();
-		if (outbuffer->getIndexType() == video::EIT_16BIT)
-			forsyth.optimizeTriangleOrdering<uint16_t>(vertexCnt, outbuffer->getIndexCount(), (uint16_t*)indices, (uint16_t*)indices);
-		else
-			forsyth.optimizeTriangleOrdering<uint32_t>(vertexCnt, outbuffer->getIndexCount(), (uint32_t*)indices, (uint32_t*)indices);
-		printf("FORSYTH!\n");
-	}
+		std::sort(newAttribs, newAttribs + EVAI_COUNT, std::greater<SAttrib>()); // sort decreasing by size
 
-	core::ICPUBuffer* newVertexBuffer = new core::ICPUBuffer(vertexCnt * vertexSize);
-
-	std::sort(newAttribs, newAttribs+EVAI_COUNT, std::greater<SAttrib>());
-	for (size_t i = 0; i < EVAI_COUNT; ++i)
-	{
-		newAttribs[i].offset = (i ? newAttribs[i-1].offset + newAttribs[i-1].size : 0);
-		if (newAttribs[i].size)
-			newDesc->mapVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].cpa, newAttribs[i].type, vertexSize, newAttribs[i].offset);
-
-		std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator iti = attribsI.find((E_VERTEX_ATTRIBUTE_ID)i);
-		if (iti != attribsI.end())
+		for (size_t i = 0u; i < activeAttributeCount; ++i)
 		{
-			std::vector<SIntegerAttr>& a = iti->second;
-			for (size_t ai = 0; ai < a.size(); ++ai)
-				outbuffer->setAttribute(a[ai].pointer, (E_VERTEX_ATTRIBUTE_ID)i, ai);
-			continue;
+			const size_t alignment = ((newAttribs[i].type == ECT_DOUBLE_IN_DOUBLE_OUT || newAttribs[i].type == ECT_DOUBLE_IN_FLOAT_OUT) ? 8u : 4u);
+
+			newAttribs[i].offset = (i ? newAttribs[i - 1].offset + newAttribs[i - 1].size : 0u);
+			const size_t mod = newAttribs[i].offset % alignment;
+			if (mod != 0u)
+				newAttribs[i].offset += mod;
 		}
 
-		std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator itf = attribsF.find((E_VERTEX_ATTRIBUTE_ID)i);
-		if (itf != attribsF.end())
+		const size_t vertexSize = newAttribs[activeAttributeCount-1].offset + newAttribs[activeAttributeCount-1].size;
+
+		IMeshDataFormatDesc<core::ICPUBuffer>* desc = outbuffer->getMeshDataAndFormat();
+		core::ICPUBuffer* newVertexBuffer = new core::ICPUBuffer(vertexCnt * vertexSize);
+
+		for (size_t i = 0u; i < activeAttributeCount; ++i)
 		{
-			std::vector<core::vectorSIMDf>& a = itf->second;
-			for (size_t ai = 0; ai < a.size(); ++ai)
-				outbuffer->setAttribute(a[ai], (E_VERTEX_ATTRIBUTE_ID)i, ai);
+			desc->mapVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].cpa, newAttribs[i].type, vertexSize, newAttribs[i].offset);
+
+			std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
+			if (iti != attribsI.end())
+			{
+				printf("map attr I: %d  %d\n", newAttribs[i].vaid, newAttribs[i].type);
+				const std::vector<SIntegerAttr>& attrVec = iti->second;
+				for (size_t ai = 0u; ai < attrVec.size(); ++ai)
+				{
+					printf("original %u %u %u %u\n", attrVec[ai].pointer[0], attrVec[ai].pointer[1], attrVec[ai].pointer[2], attrVec[ai].pointer[3]);
+					bool r = outbuffer->setAttribute(attrVec[ai].pointer, newAttribs[i].vaid, ai);
+					SIntegerAttr c;
+					outbuffer->getAttribute(c.pointer, newAttribs[i].vaid, ai);
+					printf("after %u %u %u %u\n", c.pointer[0], c.pointer[1], c.pointer[2], c.pointer[3]);
+					if (!r)
+						printf("set attrib integer failed!\n");
+				}
+				continue;
+			}
+
+			std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator itf = attribsF.find(newAttribs[i].vaid);
+			if (itf != attribsF.end())
+			{
+				printf("map attr F: %d  %d\n", newAttribs[i].vaid, newAttribs[i].type);
+				const std::vector<core::vectorSIMDf>& attrVec = itf->second;
+				for (size_t ai = 0u; ai < attrVec.size(); ++ai)
+				{
+					printf("original %f %f %f %f\n", attrVec[ai].x, attrVec[ai].y, attrVec[ai].z, attrVec[ai].w);
+					bool r = outbuffer->setAttribute(attrVec[ai], newAttribs[i].vaid, ai);
+					core::vectorSIMDf c;
+					outbuffer->getAttribute(c, newAttribs[i].vaid, ai);
+					printf("after %f %f %f %f\n", c.x, c.y, c.z, c.w);
+					if (!r)
+						printf("set attrib fp failed!\n");
+				}
+			}
 		}
+
+		newVertexBuffer->drop();
+
 	}
-	newVertexBuffer->drop();
-	*/
 
 
 	// STEP: reduce index buffer to 16bit or completely get rid of it
