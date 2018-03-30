@@ -14,6 +14,7 @@
 #include "SAnimatedMesh.h"
 #include "os.h"
 #include "CForsythVertexCacheOptimizer.h"
+#include "COverdrawMeshOptimizer.h"
 #include "SSkinMeshBuffer.h"
 
 namespace irr
@@ -1133,7 +1134,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 	vertexCount = outbuffer->calcVertexCount();
 
 	// STEP: overdraw optimization
-	// todo
+	COverdrawMeshOptimizer::createOptimized(outbuffer, false);
 
 	// STEP: Forsyth
 	{
@@ -1396,6 +1397,9 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 	oldDesc->grab(); // Before setting (setMeshDataAndFormat below) dst has pointer to exact same desc as _src.
 	// Since we don't want to corrupt _src and dst, while setting new desc, would drop the old one we have to cummulate this drop by the grab.
 	dst->setMeshDataAndFormat(newDesc);
+
+	while (dst->getReferenceCount() > 1) // reference counter was also copied, so we're reducing it to 1
+		dst->drop();
 
 	return dst;
 }
