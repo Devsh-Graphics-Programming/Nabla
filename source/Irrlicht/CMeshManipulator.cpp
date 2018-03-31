@@ -1162,14 +1162,14 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 		std::map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>> attribsF;
 		for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
 		{
-			const E_COMPONENT_TYPE type = _inbuffer->getMeshDataAndFormat()->getAttribType((E_VERTEX_ATTRIBUTE_ID)vaid);
+			const E_COMPONENT_TYPE type = outbuffer->getMeshDataAndFormat()->getAttribType((E_VERTEX_ATTRIBUTE_ID)vaid);
 
-			if (_inbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
+			if (outbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
 			{
 				if (!scene::isNormalized(type) && (scene::isNativeInteger(type) || scene::isWeakInteger(type)))
-					attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, _inbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
+					attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, outbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
 				else
-					attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, _inbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
+					attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, outbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
 			}
 		}
 
