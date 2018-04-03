@@ -33,6 +33,27 @@ class SCPUSkinMeshBuffer : public ICPUMeshBuffer
 			return core::CorrespondingBlobTypeFor<SCPUSkinMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}
 
+		virtual std::string printMemberPackingDebug() const
+		{
+			std::ostringstream sstr;
+			sstr << "irr:scene::SCPUSkinMeshBuffer\n";
+			sstr << "Material " << offsetof(SCPUSkinMeshBuffer, Material) << "\n";
+			sstr << "boundingBox " << offsetof(SCPUSkinMeshBuffer, boundingBox) << "\n";
+			sstr << "meshLayout " << offsetof(SCPUSkinMeshBuffer, meshLayout) << "\n";
+			sstr << "indexType " << offsetof(SCPUSkinMeshBuffer, indexType) << "\n";
+			sstr << "baseVertex " << offsetof(SCPUSkinMeshBuffer, baseVertex) << "\n";
+			sstr << "indexCount " << offsetof(SCPUSkinMeshBuffer, indexCount) << "\n";
+			sstr << "indexBufOffset " << offsetof(SCPUSkinMeshBuffer, indexBufOffset) << "\n";
+			sstr << "instanceCount " << offsetof(SCPUSkinMeshBuffer, instanceCount) << "\n";
+			sstr << "baseInstance " << offsetof(SCPUSkinMeshBuffer, baseInstance) << "\n";
+			sstr << "primitiveType " << offsetof(SCPUSkinMeshBuffer, primitiveType) << "\n";
+			sstr << "leakDebugger " << offsetof(SCPUSkinMeshBuffer, leakDebugger) << "\n";
+			sstr << "indexValMin " << offsetof(SCPUSkinMeshBuffer, indexValMin) << "\n";
+			sstr << "indexValMax " << offsetof(SCPUSkinMeshBuffer, indexValMax) << "\n";
+			sstr << "maxVertexBoneInfluences " << offsetof(SCPUSkinMeshBuffer, maxVertexBoneInfluences) << "\n";
+			return sstr.str();
+		}
+
         inline void setIndexRange(const uint32_t &minBeforeBaseVxAdd, const uint32_t &maxBeforeBaseVxAdd)
         {
             indexValMin = minBeforeBaseVxAdd;

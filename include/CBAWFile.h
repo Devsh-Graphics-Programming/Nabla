@@ -381,6 +381,8 @@ namespace core
 		virtual ~BlobSerializable() {}
 
 		virtual void* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const = 0;
+
+		virtual std::string printMemberPackingDebug() const = 0;
 	};
 
 	struct LzmaMemMngmnt
