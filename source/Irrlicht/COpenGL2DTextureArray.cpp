@@ -3,6 +3,7 @@
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include "COpenGL2DTextureArray.h"
 #include "COpenGLDriver.h"
 

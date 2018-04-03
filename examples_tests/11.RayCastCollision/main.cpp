@@ -97,7 +97,7 @@ int main()
     sphere->getMaterial(0).MaterialType = material.MaterialType;
     sphere->setPosition(core::vector3df(4,0,0));
 	compound = new core::SCompoundCollider();
-	compound->AddEllipsoid(core::vectorSIMDf(),core::vectorSIMDf(2.f));
+	compound->AddEllipsoid(core::vectorSIMDf(),core::vectorSIMDf(2.f)); //! TODO see why the collider doesn't exactly match up with the mesh
 	collData.attachedNode = sphere;
 	compound->setColliderData(collData);
     gCollEng->addCompoundCollider(compound);

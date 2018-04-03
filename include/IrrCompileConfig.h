@@ -155,7 +155,10 @@
 //! Maximum number of texture an SMaterial can have, up to 8 are supported by Irrlicht.
 #define _IRR_MATERIAL_MAX_TEXTURES_ 8
 
-//!
+//! Maximum number of bits allowed in the VAO Attribute Divisor
+#define _IRR_VAO_MAX_ATTRIB_DIVISOR_BITS 1
+
+//! Maximum number of output buffers and streams a Transform Feedback Object can have
 #define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4
 #define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4
 

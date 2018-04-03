@@ -6,6 +6,8 @@
 #define __I_IREFERENCE_COUNTED_H_INCLUDED__
 
 #include "irrTypes.h"
+#include "irrMacros.h"
+//#include "irrMemory.h"
 
 namespace irr
 {
@@ -41,13 +43,6 @@ namespace irr
 	class IReferenceCounted
 	{
 	public:
-
-		//! Constructor.
-		IReferenceCounted()
-			: DebugName(0), ReferenceCounter(1)
-		{
-		}
-
 		//! Grabs the object. Increments the reference counter by one.
 		/** Someone who calls grab() to an object, should later also
 		call drop() to it. If an object never gets as much drop() as
@@ -140,6 +135,12 @@ namespace irr
 		}
 
 	protected:
+		//! Constructor.
+		IReferenceCounted()
+			: DebugName(0), ReferenceCounter(1)
+		{
+		}
+
 		//! Destructor.
 		virtual ~IReferenceCounted()
 		{

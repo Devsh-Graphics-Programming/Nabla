@@ -99,7 +99,7 @@ bool COpenGLQuery::getQueryResult32(IGPUBuffer* buffer, const size_t& offset, co
     }
 #endif // _DEBUG
 
-    COpenGLBuffer* asGLBuf = dynamic_cast<COpenGLBuffer*>(buffer);
+    COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(buffer);
     if (!asGLBuf)
     {
 #ifdef _DEBUG
@@ -122,7 +122,7 @@ bool COpenGLQuery::getQueryResult64(IGPUBuffer* buffer, const size_t& offset, co
     }
 #endif // _DEBUG
 
-    COpenGLBuffer* asGLBuf = dynamic_cast<COpenGLBuffer*>(buffer);
+    COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(buffer);
     if (!asGLBuf)
     {
 #ifdef _DEBUG
@@ -161,7 +161,7 @@ void COpenGLQuery::isQueryReady32(IGPUBuffer* buffer, const size_t& offset)
     }
 #endif // _DEBUG
 
-    COpenGLBuffer* asGLBuf = dynamic_cast<COpenGLBuffer*>(buffer);
+    COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(buffer);
     if (!asGLBuf)
     {
 #ifdef _DEBUG
@@ -184,7 +184,7 @@ void COpenGLQuery::isQueryReady64(IGPUBuffer* buffer, const size_t& offset)
     }
 #endif // _DEBUG
 
-    COpenGLBuffer* asGLBuf = dynamic_cast<COpenGLBuffer*>(buffer);
+    COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(buffer);
     if (!asGLBuf)
     {
 #ifdef _DEBUG

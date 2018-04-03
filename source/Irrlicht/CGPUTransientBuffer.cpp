@@ -33,7 +33,8 @@ using namespace video;
 
 
 IGPUTransientBuffer::IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe, core::LeakDebugger* dbgr)
-                                    :   lastChanged(0), canGrow(growable), flushOnWait(autoFlush), Driver(driver), underlyingBuffer(buffer), underlyingBufferAsMapped(dynamic_cast<IGPUMappedBuffer*>(underlyingBuffer)),
+                                    :   lastChanged(0), canGrow(growable), flushOnWait(autoFlush), Driver(driver), underlyingBuffer(buffer),
+                                        underlyingBufferAsMapped(underlyingBuffer->isMappedBuffer() ? static_cast<IGPUMappedBuffer*>(underlyingBuffer):NULL),
                                         totalTrueFreeSpace(0), totalFreeSpace(0), largestFreeChunkSize(0), trueLargestFreeChunkSize(0), leakTracker(dbgr)
 {
     if (leakTracker)

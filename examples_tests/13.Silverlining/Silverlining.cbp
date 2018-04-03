@@ -56,6 +56,7 @@
 				<Linker>
 					<Add option="-msse3" />
 					<Add library="../../../silverlining/POSIX/lib/linux/libSilverLiningOpenGL32Core.a" />
+					<Add library="crypto" />
 					<Add library="Irrlicht" />
 					<Add library="Xrandr" />
 					<Add library="GL" />
@@ -67,6 +68,7 @@
 					<Add library="unwind" />
 					<Add library="unwind-x86_64" />
 					<Add directory="../../lib/Linux" />
+					<Add directory="../../../openssl" />
 				</Linker>
 			</Target>
 		</Build>

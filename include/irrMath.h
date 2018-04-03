@@ -7,6 +7,7 @@
 
 #include "IrrCompileConfig.h"
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include <math.h>
 #include <float.h>
 #include <stdlib.h> // for abs() etc.

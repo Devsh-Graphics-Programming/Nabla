@@ -66,7 +66,7 @@ LINKOBJ = $(IRRMESHOBJ) $(IRROBJ) $(IRRANIMOBJ) \
 #Compiler flags
 CXXINCS = -I../../include -I../../../openssl/include -Izlib -Ijpeglib -Ilibpng -Iconvert_utf -Iutf8/source
 CPPFLAGS += $(CXXINCS) -DIRRLICHT_EXPORTS=1
-CXXFLAGS += -std=c++03 -Wall -pipe -fno-exceptions -fstrict-aliasing
+CXXFLAGS += -Wall -pipe -fno-exceptions -fstrict-aliasing
 ifndef NDEBUG
 CXXFLAGS += -g -D_DEBUG
 else
@@ -76,13 +76,13 @@ ifdef INTELCC
 CXXFLAGS += -axCORE-AVX2,CORE-AVX-I,AVX -msse4.2 -opt-prefetch -multiple-processes=8 -prec-sqrt -fast -rcd -ip -ipo -ipo-jobs8 -fma -fp-relaxed -m64 -opt-loadpair 
 endif
 ifdef BAW_SERVER
-CXXFLAGS += -DBAW_SERVER
+CXXFLAGS += -DBAW_SERVER -DNO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 ifndef INTELCC
 CXXFLAGS += -march=native
 endif
 endif
 ifdef BAW_SERVER_RELEASE
-CXXFLAGS += -DBAW_SERVER
+CXXFLAGS += -DBAW_SERVER -DNO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 ifndef INTELCC
 CXXFLAGS +=
 CPPFLAGS +=

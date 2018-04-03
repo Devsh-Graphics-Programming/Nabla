@@ -33,14 +33,13 @@ namespace avx
 
 		inline matrix4x3_row concatenate(const matrix4x3_row& _other)
 		{
-			_mm256_zeroupper();
 			__m256 A01 = _mm256_load_ps(&m[0][0]);
 			__m256 A23 = _mm256_load_ps(&m[2][0]);
 
 			matrix4x3_row out;
 
 			_mm256_store_ps(&out.m[0][0], doJob(A01, _other));
-			_mm256_store_ps(&out.m[2][0], doJob(A23, _other));
+			_mm256_store_ps(&out.m[2][0], doJob(A23, _other));//do special AVX 128bit ops to only load, calculate and store only one row
 
 			return out;
 		}
@@ -51,11 +50,13 @@ namespace avx
 	private:
 		static inline __m256 doJob(__m256 _A01, const matrix4x3_row& _mtx)
 		{
+			__m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0xffffffff, 0, 0, 0, 0xffffffff));
+
 			__m256 res;
 			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&_mtx.row[0]));
 			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&_mtx.row[1])));
 			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&_mtx.row[2])));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(3)), _mm256_broadcast_ps(&_mtx.row[3])));
+			res = _mm256_add_ps(res, _mm256_and_ps(_A01,mask));
 			return res;
 		}
 	}
@@ -77,14 +78,13 @@ namespace avx
 
 		inline matrix4x3_col concatenate(const matrix4x3_col& _other)
 		{
-			_mm256_zeroupper();
-			__m256 A01 = _mm256_load_ps(&m[0][0]);
-			__m256 A23 = _mm256_load_ps(&m[2][0]);
+			__m256 A01 = _mm256_load_ps(&_other.m[0][0]);
+			__m256 A23 = _mm256_load_ps(&_other.m[2][0]);
 
 			matrix4x3_col out;
 
-			_mm256_store_ps(&out.m[0][0], doJob(A01, _other));
-			_mm256_store_ps(&out.m[2][0], doJob(A23, _other));
+			_mm256_store_ps(&out.m[0][0], doJob(A01, 0, *this));
+			_mm256_store_ps(&out.m[2][0], doJob(A23, 2, *this));
 
 			return out;
 		}
@@ -93,13 +93,17 @@ namespace avx
 		const float& operator()(size_t _i, size_t _j) const { return m[_j][_i]; }
 
 	private:
-		static inline __m256 doJob(__m256 _A01, const matrix4x3_col& _mtx)
+		static inline __m256 doJob(__m256 _A01, size_t j, const matrix4x3_col& _mtx)
 		{
 			__m256 res;
 			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&_mtx.col[0]));
 			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&_mtx.col[1])));
 			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&_mtx.col[2])));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(3)), _mm256_broadcast_ps(&_mtx.col[3])));
+			if (j)
+            {
+                __m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff));
+                res = _mm256_add_ps(res, _mm256_and_ps(mask, _mm256_broadcast_ps(&_mtx.col[3])));
+            }
 			return res;
 		}
 	}
@@ -145,7 +149,7 @@ namespace sse3
 		{
 			__m128 res;
 
-			__m128 r0 = _mm_load_ps(_mtx.m[0]); 
+			__m128 r0 = _mm_load_ps(_mtx.m[0]);
 			__m128 r1 = _mm_load_ps(_mtx.m[1]);
 			__m128 r2 = _mm_load_ps(_mtx.m[2]);
 			__m128 r3 = _mm_load_ps(_mtx.m[3]);
@@ -155,7 +159,7 @@ namespace sse3
 			res = _mm_mul_ps(_mm_shuffle_ps(a, a, BROADCAST32(0)), r0);
 			res = _mm_add_ps(res, _mm_mul_ps(_mm_shuffle_ps(a, a, BROADCAST32(1)), r1));
 			res = _mm_add_ps(res, _mm_mul_ps(_mm_shuffle_ps(a, a, BROADCAST32(2)), r2));
-			res = _mm_add_ps(res, _mm_and_ps(_mm_shuffle_ps(a, a, BROADCAST32(3)), mask)); // always 0 0 0 a3
+			res = _mm_add_ps(res, _mm_and_ps(a, mask)); // always 0 0 0 a3 -- no shuffle needed
 			return res;
 		}
 	}
@@ -255,26 +259,29 @@ static double run(void*, void*, void*);
 
 int main()
 {
-	void* data = malloc(16*4*(size_t)EXEC_CNT+ALIGN);
+	void* data = malloc(16*4*(size_t)EXEC_CNT*3+ALIGN);
 
 	uint8_t* alignedData = reinterpret_cast<uint8_t*>(data);
 	size_t offset = reinterpret_cast<const size_t&>(alignedData)%ALIGN;
 	alignedData += ALIGN-offset;
 
-	for (uint32_t* p = (uint32_t*)alignedData; (void*)p != (void*)(alignedData + (size_t)EXEC_CNT*16*4); ++p)
+	for (float* p = (float*)alignedData; (void*)p != (void*)(alignedData + (size_t)EXEC_CNT*16*4); ++p)
+    {
 		*p = rand();
+		*p /= 1024.f;
+    }
 
-	void* dataOut = malloc(16*4*(size_t)EXEC_CNT);
-	void* nosimdOut = malloc(16*4*(size_t)EXEC_CNT);
+	void* dataOut = alignedData+(16*4*(size_t)EXEC_CNT);
+	void* nosimdOut = alignedData+2*(16*4*(size_t)EXEC_CNT);
 
 	double nosimdtime = 0.0;
 	double rowtime = 0.0;
 	double coltime = 0.0;
 
-	for (size_t i = 0; i < 10; ++i)
+	for (size_t i = 0; i < 100; ++i)
 		nosimdtime += run<matrix4x3_col_nosimd>(alignedData, nosimdOut, 0);
 
-	for (size_t i = 0; i < 10; ++i)
+	for (size_t i = 0; i < 100; ++i)
 	{
 #if AVX
 		rowtime += run<avx::matrix4x3_row>(alignedData, dataOut, nosimdOut);
@@ -301,9 +308,30 @@ int main()
 template<typename T>
 static bool compare(T* _m1, T* _m2) // naive cmp function for now
 {
-	for (float* p1 = (float*)_m1, *p2 = (float*)_m2; (uint8_t*)p1 != (uint8_t*)(p1)+16*4; ++p1, ++p2)
-		if (p1 != p2)
-			return false;
+    const float size_thresh = 0.000001f;
+
+	for (size_t i=0; i<4; i++)
+	for (size_t j=0; j<4; j++)
+    {
+        const float a = (*_m1)(i,j);
+        const float b = (*_m2)(i,j);
+        const uint32_t& aAsInt = reinterpret_cast<const uint32_t&>(a);
+        const uint32_t& bAsInt = reinterpret_cast<const uint32_t&>(b);
+
+        if (abs(b)>size_thresh)
+        {
+            if (abs(1.f-abs(a/b))>0.001f)
+            {
+                printf("%f,%f\n",a,b);
+                return false;
+            }
+        }
+        else if ( (aAsInt&0x80000000ull)!=(bAsInt&0x80000000ull) || abs(a)>size_thresh)
+        {
+            printf("ZERO %f,%f\n",a,b);
+            return false;
+        }
+    }
 	return true;
 }
 
@@ -318,7 +346,7 @@ static double run(void* _data, void* _out, void* _cmp)
 	{
 		out[i] = mtx[i].concatenate(mtx[i+1]);
 #if VERIFY
-		if (!compare<T>(out+i, ((T*)_cmp)+i))
+		if (_cmp && !compare<T>(out+i, ((T*)_cmp)+i))
 			printf("???\n");
 #endif
 	}

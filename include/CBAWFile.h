@@ -8,6 +8,7 @@
 
 #include <map>
 #include <set>
+#include <sstream>
 
 #include "stdint.h"
 #include "irrTypes.h"
@@ -28,7 +29,7 @@ namespace scene
 {
 	class ICPUMeshBuffer;
 	class ICPUMesh;
-	class ISceneManager; 
+	class ISceneManager;
 	class ICPUSkinnedMesh;
 	class SCPUSkinMeshBuffer;
 	template<typename> class IMeshDataFormatDesc;
