@@ -383,13 +383,7 @@ namespace core
 
 		virtual void* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const = 0;
 
-		virtual std::string printMemberPackingDebug() const// = 0;
-		{
-		    std::ostringstream sstr;
-		    sstr << "SomeClassName\n";
-		    sstr << "SomeMember " << this-50 << "\n";
-		    return sstr.str();
-		}
+		virtual std::string printMemberPackingDebug() const = 0;
 	};
 
 	struct LzmaMemMngmnt
