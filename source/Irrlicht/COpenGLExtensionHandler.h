@@ -1095,6 +1095,11 @@ class COpenGLExtensionHandler
 	static void extGlGetActiveUniform(GLuint program, GLuint index, GLsizei maxlength, GLsizei *length, GLint *size, GLenum *type, GLchar *name);
 	static void extGlBindProgramPipeline(GLuint pipeline);
 
+	//compute
+    static void extGlMemoryBarrier(GLbitfield barriers);
+    static void extGlDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z);
+    static void extGlDispatchComputeIndirect(GLintptr indirect);
+
 	// framebuffer objects
 	static void extGlDeleteFramebuffers(GLsizei n, const GLuint *framebuffers);
 	static void extGlCreateFramebuffers(GLsizei n, GLuint *framebuffers);
@@ -1360,6 +1365,11 @@ class COpenGLExtensionHandler
     static PFNGLPOINTPARAMETERFPROC  pGlPointParameterf;
     static PFNGLPOINTPARAMETERFVPROC pGlPointParameterfv;
     static PFNGLBINDPROGRAMPIPELINEPROC pGlBindProgramPipeline;
+
+	//Criss
+	static PFNGLMEMORYBARRIERPROC pGlMemoryBarrier;
+	static PFNGLDISPATCHCOMPUTEPROC pGlDispatchCompute;
+	static PFNGLDISPATCHCOMPUTEINDIRECTPROC pGlDispatchComputeIndirect;
 
     //ROP
 	static PFNGLBLENDCOLORPROC pGlBlendColor;
@@ -3106,6 +3116,38 @@ inline void COpenGLExtensionHandler::extGlBindProgramPipeline(GLuint pipeline)
 		pGlBindProgramPipeline(pipeline);
 #else
 	glBindProgramPipeline(pipeline);
+#endif
+}
+
+
+
+inline void COpenGLExtensionHandler::extGlMemoryBarrier(GLbitfield barriers)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlMemoryBarrier)
+		pGlMemoryBarrier(barriers);
+#else
+	glMemoryBarrier(barriers);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDispatchCompute)
+		pGlDispatchCompute(num_groups_x,num_groups_y,num_groups_z);
+#else
+	glDispatchCompute(num_groups_x,num_groups_y,num_groups_z);
+#endif
+}
+
+inline void COpenGLExtensionHandler::extGlDispatchComputeIndirect(GLintptr indirect)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+	if (pGlDispatchComputeIndirect)
+		pGlDispatchComputeIndirect(indirect);
+#else
+	glDispatchComputeIndirect(indirect);
 #endif
 }
 

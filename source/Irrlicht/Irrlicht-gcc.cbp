@@ -242,6 +242,7 @@
 			<Add option="-D_IRR_COMPILE_WITH_OPENGL_" />
 			<Add option="-D_7ZIP_ST" />
 		</Compiler>
+		<Unit filename="../../include/CBAWFile.h" />
 		<Unit filename="../../include/CFinalBoneHierarchy.h" />
 		<Unit filename="../../include/CImageData.h" />
 		<Unit filename="../../include/COpenGLStateManager.h" />
@@ -382,7 +383,6 @@
 		<Unit filename="CBAWMeshFileLoader.h" />
 		<Unit filename="CBAWMeshWriter.cpp" />
 		<Unit filename="CBAWMeshWriter.h" />
-		<Unit filename="CBawFile.h" />
 		<Unit filename="CBillboardSceneNode.cpp" />
 		<Unit filename="CBillboardSceneNode.h" />
 		<Unit filename="CBlit.h" />

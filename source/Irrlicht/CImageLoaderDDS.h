@@ -84,7 +84,7 @@ struct ddsPixelFormat
 		uint32_t	luminanceBitCount;
 		uint32_t	bumpBitCount;
 		uint32_t	privateFormatBitCount;
-	};
+	} PACK_STRUCT;
 	union
 	{
 		uint32_t	rBitMask;
@@ -93,7 +93,7 @@ struct ddsPixelFormat
 		uint32_t	luminanceBitMask;
 		uint32_t	bumpDuBitMask;
 		uint32_t	operations;
-	};
+	} PACK_STRUCT;
 	union
 	{
 		uint32_t	gBitMask;
@@ -101,14 +101,14 @@ struct ddsPixelFormat
 		uint32_t	zBitMask;
 		uint32_t	bumpDvBitMask;
 		ddsMultiSampleCaps	multiSampleCaps;
-	};
+	} PACK_STRUCT;
 	union
 	{
 		uint32_t	bBitMask;
 		uint32_t	vBitMask;
 		uint32_t	stencilBitMask;
 		uint32_t	bumpLuminanceBitMask;
-	};
+	} PACK_STRUCT;
 	union
 	{
 		uint32_t	rgbAlphaBitMask;
@@ -116,7 +116,7 @@ struct ddsPixelFormat
 		uint32_t	luminanceAlphaBitMask;
 		uint32_t	rgbZBitMask;
 		uint32_t	yuvZBitMask;
-	};
+	} PACK_STRUCT;
 } PACK_STRUCT;
 
 
@@ -134,14 +134,14 @@ struct ddsBuffer
 	{
 		int32_t				pitch;
 		uint32_t	linearSize;
-	};//20
+	} PACK_STRUCT;//20
 	uint32_t		depth;//24
 	union
 	{
 		uint32_t	mipMapCount;
 		uint32_t	refreshRate;
 		uint32_t	srcVBHandle;
-	};//28
+	} PACK_STRUCT;//28
 	uint32_t		alphaBitDepth;//32
 	uint32_t		reserved;//36
 	/// I think its time someone reminded the irrlicht folk that void* is non portable 32-64bit sizewise in structs
@@ -150,7 +150,7 @@ struct ddsBuffer
 	{
 		ddsColorKey	ckDestOverlay;
 		uint32_t	emptyFaceColor;
-	};//44
+	} PACK_STRUCT;//44
 	ddsColorKey		ckDestBlt;//52
 	ddsColorKey		ckSrcOverlay;//60
 	ddsColorKey		ckSrcBlt;//68
@@ -158,7 +158,7 @@ struct ddsBuffer
 	{
 		ddsPixelFormat	pixelFormat;
 		uint32_t	fvf;
-	};//76
+	} PACK_STRUCT;//76
 	ddsCaps			caps;//
 	uint32_t		textureStage;
 
@@ -193,9 +193,6 @@ struct ddsColor
 	uint8_t		r, g, b, a;
 } PACK_STRUCT;*/
 
-// Default alignment
-#include "irrunpack.h"
-
 
 /* endian tomfoolery */
 typedef union
@@ -203,7 +200,10 @@ typedef union
 	float	f;
 	char	c[ 4 ];
 }
-floatSwapUnion;
+floatSwapUnion PACK_STRUCT;
+
+// Default alignment
+#include "irrunpack.h"
 
 
 	int32_t   DDSLittleLong( int32_t src );

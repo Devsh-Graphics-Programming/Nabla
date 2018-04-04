@@ -43,6 +43,18 @@ void CBlobsLoadingManager::releaseObj(uint32_t _blobType, void * _obj)
 	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(releaseObj, _blobType, _obj)
 }
 
+/*
+inline std::string memberPackingDebugSupportFunc(uint32_t _blobType)
+{
+    _IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(printMemberPackingDebug, _blobType)
+}
+
+void CBlobsLoadingManager::printMemberPackingDebug()
+{
+    for (uint32_t blobType=EBT_MESH; blobType<EBT_COUNT; blobType++)
+        printf("%s\n",memberPackingDebugSupportFunc(blobType));
+}*/
+
 #undef _IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER
 
 }} // irr::core

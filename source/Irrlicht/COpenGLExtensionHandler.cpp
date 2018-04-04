@@ -360,6 +360,11 @@ PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC COpenGLExtensionHandler::pGlProgramUniformMat
 //
 PFNGLGETACTIVEUNIFORMPROC COpenGLExtensionHandler::pGlGetActiveUniform = NULL;
 PFNGLBINDPROGRAMPIPELINEPROC COpenGLExtensionHandler::pGlBindProgramPipeline = NULL;
+
+// Criss
+PFNGLMEMORYBARRIERPROC COpenGLExtensionHandler::pGlMemoryBarrier = NULL;
+PFNGLDISPATCHCOMPUTEPROC COpenGLExtensionHandler::pGlDispatchCompute = NULL;
+PFNGLDISPATCHCOMPUTEINDIRECTPROC COpenGLExtensionHandler::pGlDispatchComputeIndirect = NULL;
 //
 PFNGLPOINTPARAMETERFPROC COpenGLExtensionHandler:: pGlPointParameterf = NULL;
 PFNGLPOINTPARAMETERFVPROC COpenGLExtensionHandler::pGlPointParameterfv = NULL;
@@ -1234,6 +1239,11 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlProgramUniformMatrix4x3fv = (PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix4x3fv");
 	pGlGetActiveUniform = (PFNGLGETACTIVEUNIFORMPROC) IRR_OGL_LOAD_EXTENSION("glGetActiveUniform");
     pGlBindProgramPipeline = (PFNGLBINDPROGRAMPIPELINEPROC) IRR_OGL_LOAD_EXTENSION("glBindProgramPipeline");
+
+	//Criss
+	pGlMemoryBarrier = (PFNGLMEMORYBARRIERPROC) IRR_OGL_LOAD_EXTENSION("glMemoryBarrier");
+	pGlDispatchCompute = (PFNGLDISPATCHCOMPUTEPROC) IRR_OGL_LOAD_EXTENSION("glDispatchCompute");
+	pGlDispatchComputeIndirect = (PFNGLDISPATCHCOMPUTEINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glDispatchComputeIndirect");
 
 	// get point parameter extension
 	pGlPointParameterf = (PFNGLPOINTPARAMETERFARBPROC) IRR_OGL_LOAD_EXTENSION("glPointParameterf");

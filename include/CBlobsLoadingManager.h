@@ -12,11 +12,11 @@
 #include "IMesh.h"
 #include "path.h"
 
-namespace irr { 
+namespace irr {
 
 namespace scene
 {
-	class ISceneManager; 
+	class ISceneManager;
 	class ICPUSkinnedMesh;
 	class SCPUSkinMeshBuffer;
 	class CFinalBoneHierarchy;
@@ -37,7 +37,7 @@ namespace core
 	};
 
 	//! Class abstracting blobs version from process of loading them from *.baw file.
-	/** 
+	/**
 	If you wish to extend .baw format by your own blob types, here's what you need to do:
 		- Add a corresponding to your blob value to Blob::E_BLOB_TYPE enum
 		- Make a class (or struct, a matter of keyword) representing your blob
@@ -57,6 +57,8 @@ namespace core
 		void* instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);
 		void* finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, std::map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
 		void releaseObj(uint32_t _blobType, void* _obj);
+
+		//static void printMemberPackingDebug();
 	};
 
 }} // irr::core
