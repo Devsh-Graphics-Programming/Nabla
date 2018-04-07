@@ -22,7 +22,11 @@ namespace irr
 namespace scene
 {
 
+// declared as extern in SVertexManipulator.h
 std::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
+std::vector<QuantizationCacheEntry8_8_8> normalCacheFor8_8_8Quant;
+std::vector<QuantizationCacheEntry16_16_16> normalCacheFor16_16_16Quant;
+std::vector<QuantizationCacheEntryHalfFloat> normalCacheForHalfFloatQuant;
 
 
 static inline core::vector3df getAngleWeight(const core::vector3df& v1,
@@ -1174,8 +1178,8 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 
 			if (outbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
 			{
-				if (!scene::isNormalized(type) && (scene::isNativeInteger(type) || scene::isWeakInteger(type)))
-					attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, &newAttribs[vaid].prevType, outbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid);
+				if (!scene::isNormalized(type) && scene::isNativeInteger(type))
+					attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, &newAttribs[vaid].prevType, outbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, errMetric[vaid]);
 				else
 					attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, &newAttribs[vaid].prevType, outbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, errMetric[vaid]);
 			}
@@ -1242,12 +1246,10 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 				for (size_t ai = 0u; ai < attrVec.size(); ++ai)
 				{
 					core::vectorSIMDf setval = attrVec[ai];
-					if (scene::isNormalized(newAttribs[i].prevType))
-						setval = scene::denormalizeAttribute(newAttribs[i].prevType, setval);
-					if (scene::isNormalized(newAttribs[i].type))
-						setval = scene::normalizeAttribute(newAttribs[i].type, setval);
-					printf("original %f %f %f %f\n", setval.x, setval.y, setval.z, setval.w); // NOTE setval
-					bool r = outbuffer->setAttribute(setval, newAttribs[i].vaid, ai); // NOTE setval
+					//if (!scene::isNormalized(newAttribs[i].prevType) && scene::isNormalized(newAttribs[i].type))
+					//	setval = scene::normalizeAttribute(newAttribs[i].type, setval);
+					printf("original %f %f %f %f\n", setval.x, setval.y, setval.z, setval.w);
+					bool r = outbuffer->setAttribute(setval, newAttribs[i].vaid, ai);
 					core::vectorSIMDf c;
 					outbuffer->getAttribute(c, newAttribs[i].vaid, ai);
 					printf("after %f %f %f %f\n", c.x, c.y, c.z, c.w);
@@ -1466,7 +1468,15 @@ std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_T
 		ECT_NORMALIZED_SHORT,
 		ECT_NORMALIZED_UNSIGNED_SHORT,
 		ECT_NORMALIZED_INT,
-		ECT_NORMALIZED_UNSIGNED_INT
+		ECT_NORMALIZED_UNSIGNED_INT,
+		ECT_INT_2_10_10_10_REV,
+		ECT_UNSIGNED_INT_2_10_10_10_REV,
+		ECT_BYTE,
+		ECT_UNSIGNED_BYTE,
+		ECT_SHORT,
+		ECT_UNSIGNED_SHORT,
+		ECT_INT,
+		ECT_UNSIGNED_INT
 	};
 
 	const E_COMPONENT_TYPE thisType = _meshbuffer->getMeshDataAndFormat()->getAttribType(_attrId);
@@ -1508,16 +1518,16 @@ std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_T
 		}
 	}
 
-	std::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, cpa, vertexAttrSize[thisType][cpa], min, max);
+	std::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, cpa, vertexAttrSize[thisType][cpa], min, max, _errMetric);
 	std::vector<SAttribTypeChoice> finalTypes;
 	finalTypes.reserve(possibleTypes.size());
 	for (const SAttribTypeChoice& t : possibleTypes)
-		if (calcMaxQuantizationError({thisType, cpa}, t, attribs, _errMetric)) // TODO establish some reasonable epsilon for every type (define getReasonableEpsilon function)
+		if (calcMaxQuantizationError({thisType, cpa}, t, attribs, _errMetric))
 			finalTypes.push_back(t);
 
 	std::sort(finalTypes.begin(), finalTypes.end(), [](const SAttribTypeChoice& t1, const SAttribTypeChoice& t2) { return vertexAttrSize[t1.type][t1.cpa] < vertexAttrSize[t2.type][t2.cpa]; });
-	*_outType = finalTypes[0].type;
-	*_outCpa = finalTypes[0].cpa;
+	*_outType = finalTypes.size() ? finalTypes[0].type : thisType;
+	*_outCpa = finalTypes.size() ? finalTypes[0].cpa : cpa;
 	*_outSize = vertexAttrSize[*_outType][*_outCpa];
 
 	*_outPrevType = thisType;
@@ -1527,18 +1537,10 @@ std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_T
 	return attribs;
 }
 
-std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId) const
+std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
 {
 	const E_COMPONENT_TYPE suppTypes[]
 	{
-		ECT_INT_2_10_10_10_REV,
-		ECT_UNSIGNED_INT_2_10_10_10_REV,
-		ECT_BYTE,
-		ECT_UNSIGNED_BYTE,
-		ECT_SHORT,
-		ECT_UNSIGNED_SHORT,
-		ECT_INT,
-		ECT_UNSIGNED_INT,
 		ECT_INTEGER_INT_2_10_10_10_REV,
 		ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV,
 		ECT_INTEGER_BYTE,
@@ -1588,6 +1590,7 @@ std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(
 		for (size_t i = 0; i < 4; ++i)
 			max[i] = INT_MIN;
 
+
 	SIntegerAttr attr;
 	size_t idx = 0;
 	while (_meshbuffer->getAttribute(attr.pointer, _attrId, idx++)) // getAttribute returns false when idx goes out of buffer's range
@@ -1612,7 +1615,14 @@ std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(
 		}
 	}
 
+	*_outPrevType = *_outType = thisType;
+	*_outCpa = cpa;
+	*_outSize = vertexAttrSize[thisType][cpa];
 	*_outPrevType = thisType;
+
+	if (_errMetric.method == EEM_ANGLES) // native integers normals does not change
+		return attribs;
+
 	*_outType = getBestTypeI(scene::isNativeInteger(thisType), scene::isUnsigned(thisType), cpa, _outSize, _outCpa, min, max);
 	printf("bestType: %d -> %d\n", thisType, *_outType);
 	return attribs;
@@ -1765,36 +1775,33 @@ E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned,
 	return bestType;
 }
 
-std::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfProperRangeF(E_COMPONENT_TYPE _type, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t _sizeThreshold, const float * _min, const float * _max) const
+std::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfProperRangeF(E_COMPONENT_TYPE _type, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t _sizeThreshold, const float * _min, const float * _max, const SErrorMetric& _errMetric) const
 {
-	std::set<E_COMPONENT_TYPE> all;
-	{
-		E_COMPONENT_TYPE arrayAll[]{ ECT_FLOAT, ECT_HALF_FLOAT, ECT_DOUBLE_IN_FLOAT_OUT, ECT_DOUBLE_IN_DOUBLE_OUT, ECT_UNSIGNED_INT_10F_11F_11F_REV, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
-		for (size_t i = 0; i < sizeof(arrayAll) / sizeof(*arrayAll); ++i)
-			all.insert(arrayAll[i]);
-	}
-	std::set<E_COMPONENT_TYPE> normalized;
-	{
-		E_COMPONENT_TYPE arrayNormalized[]{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
-		for (size_t i = 0; i < sizeof(arrayNormalized)/sizeof(*arrayNormalized); ++i)
-			normalized.insert(arrayNormalized[i]);
-	}
-	std::set<E_COMPONENT_TYPE> bgra;
-	bgra.insert(ECT_NORMALIZED_INT_2_10_10_10_REV);
-	bgra.insert(ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV);
-	bgra.insert(ECT_NORMALIZED_UNSIGNED_BYTE);
+	std::set<E_COMPONENT_TYPE> all{ ECT_FLOAT, ECT_HALF_FLOAT, ECT_DOUBLE_IN_FLOAT_OUT, ECT_DOUBLE_IN_DOUBLE_OUT, ECT_UNSIGNED_INT_10F_11F_11F_REV, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
+	const std::set<E_COMPONENT_TYPE> normalized{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
+	const std::set<E_COMPONENT_TYPE> bgra{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_BYTE };
+	const std::set<E_COMPONENT_TYPE> normals{ ECT_NORMALIZED_SHORT, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_HALF_FLOAT };
 
-	if (scene::isNormalized(_type))
+	if (scene::isNormalized(_type) || _errMetric.method == EEM_ANGLES)
 	{
-		if (_cpa == ECPA_REVERSED_OR_BGRA)
-			all = bgra;
+		if (_errMetric.method == EEM_ANGLES)
+		{
+			all = std::move(normals);
+			if (_cpa == ECPA_REVERSED_OR_BGRA)
+			{
+				all.erase(ECT_NORMALIZED_SHORT);
+				all.erase(ECT_HALF_FLOAT);
+			}
+		}
+		else if (_cpa == ECPA_REVERSED_OR_BGRA)
+			all = std::move(bgra);
 		else
-			all = normalized;
+			all = std::move(normalized);
 	}
 	else
 	{
-		for (std::set<E_COMPONENT_TYPE>::iterator it = normalized.begin(); it != normalized.end(); ++it)
-			all.erase(*it);
+		for (const auto& t : normalized)
+			all.erase(t);
 	}
 
 	std::vector<SAttribTypeChoice> possibleTypes;
@@ -1854,16 +1861,86 @@ std::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfPr
 
 bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const std::vector<core::vectorSIMDf>& _srcData, const SErrorMetric& _errMetric) const
 {
-	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE);
+	ICPUMeshBuffer* mb = new ICPUMeshBuffer;
+	{
+		core::ICPUBuffer* buf = new core::ICPUBuffer(32u);
+		ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
+		switch (_dstType.type)
+		{
+		case ECT_NORMALIZED_BYTE:
+			desc->mapVertexAttrBuffer(buf, EVAI_ATTR0, ECPA_FOUR, ECT_NORMALIZED_BYTE, 4);
+			break;
+		case ECT_NORMALIZED_INT_2_10_10_10_REV:
+			desc->mapVertexAttrBuffer(buf, EVAI_ATTR0, ECPA_FOUR, ECT_NORMALIZED_INT_2_10_10_10_REV, 4);
+			break;
+		case ECT_NORMALIZED_SHORT:
+			desc->mapVertexAttrBuffer(buf, EVAI_ATTR0, ECPA_FOUR, ECT_NORMALIZED_SHORT, 8);
+			break;
+		case ECT_HALF_FLOAT:
+			desc->mapVertexAttrBuffer(buf, EVAI_ATTR0, ECPA_FOUR, ECT_HALF_FLOAT, 8);
+			break;
+		}
+		buf->drop();
+		mb->setMeshDataAndFormat(desc);
+		desc->drop();
+	}
+
+	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE, ICPUMeshBuffer*);
 
 	QuantF_t quantFunc = nullptr;
 
-	if (scene::isNormalized(_srcType.type) && scene::isNormalized(_dstType.type)) // src type is normalized and dst type is normalized
-		quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE _inType, E_COMPONENT_TYPE _outType, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf {
-			return scene::normalizeAttribute(_outType, scene::denormalizeAttribute(_inType, _in)); // then requantization is renormalization
+	if (_errMetric.method == EEM_ANGLES)
+	{
+		switch (_dstType.type)
+		{
+		case ECT_NORMALIZED_BYTE:
+			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE, ICPUMeshBuffer* _mb) -> core::vectorSIMDf {
+				IMeshDataFormatDesc<core::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
+				((uint32_t*)(desc->getMappedBuffer(EVAI_ATTR0)->getPointer()))[0] = scene::quantizeNormal888(_in);
+				
+				core::vectorSIMDf retval;
+				_mb->getAttribute(retval, EVAI_ATTR0, 0);
+				return retval;
+			};
+			break;
+		case ECT_NORMALIZED_INT_2_10_10_10_REV: // RGB10_A2
+			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE, ICPUMeshBuffer* _mb) -> core::vectorSIMDf {
+				IMeshDataFormatDesc<core::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
+				((uint32_t*)(desc->getMappedBuffer(EVAI_ATTR0)->getPointer()))[0] = scene::quantizeNormal2_10_10_10(_in);
+
+				core::vectorSIMDf retval;
+				_mb->getAttribute(retval, EVAI_ATTR0, 0);
+				return retval;
+			};
+			break;
+		case ECT_NORMALIZED_SHORT:
+			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE, ICPUMeshBuffer* _mb) -> core::vectorSIMDf {
+				IMeshDataFormatDesc<core::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
+				((uint64_t*)(desc->getMappedBuffer(EVAI_ATTR0)->getPointer()))[0] = scene::quantizeNormal16_16_16(_in);
+
+				core::vectorSIMDf retval;
+				_mb->getAttribute(retval, EVAI_ATTR0, 0);
+				return retval;
+			};
+			break;
+		case ECT_HALF_FLOAT:
+			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE _cpa, ICPUMeshBuffer* _mb) -> core::vectorSIMDf {
+				IMeshDataFormatDesc<core::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
+				((uint64_t*)(desc->getMappedBuffer(EVAI_ATTR0)->getPointer()))[0] = scene::quantizeNormalHalfFloat(_in);
+
+				core::vectorSIMDf retval;
+				_mb->getAttribute(retval, EVAI_ATTR0, 0);
+				return retval;
+			};
+			break;
+		}
+	}
+	else if (scene::isNormalized(_srcType.type) && scene::isNormalized(_dstType.type)) // src type is normalized and dst type is normalized
+		quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE _inType, E_COMPONENT_TYPE _outType, E_COMPONENTS_PER_ATTRIBUTE, ICPUMeshBuffer*) -> core::vectorSIMDf {
+			return scene::normalizeAttribute(_outType, scene::denormalizeAttribute(_outType, _in)); // simulating setAttribute-side denormalization and then shader-side normalization
 		};
 	else if (scene::isNormalized(_dstType.type)) // dst type is normalized but src type is not
-		quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE _outType, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf {
+		quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE _outType, E_COMPONENTS_PER_ATTRIBUTE, ICPUMeshBuffer*) -> core::vectorSIMDf {
 			return scene::normalizeAttribute(_outType, _in); // then just normalize as given type
 		};
 	else
@@ -1871,7 +1948,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 		switch (_dstType.type)
 		{
 		case ECT_UNSIGNED_INT_10F_11F_11F_REV:
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf {
+			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE, ICPUMeshBuffer*) -> core::vectorSIMDf {
 				return core::vectorSIMDf(
 					core::unpack11bitFloat(core::to11bitFloat(_in.x)),
 					core::unpack11bitFloat(core::to11bitFloat(_in.y)),
@@ -1880,7 +1957,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 			};
 			break;
 		case ECT_HALF_FLOAT:
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> core::vectorSIMDf {
+			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE _cpa, ICPUMeshBuffer*) -> core::vectorSIMDf {
 				core::vectorSIMDf retval;
 				for (size_t i = 0u; i < (size_t)_cpa; ++i)
 					retval.pointer[i] = core::Float16Compressor::decompress(core::Float16Compressor::compress(_in.pointer[i]));
@@ -1890,7 +1967,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 		case ECT_DOUBLE_IN_FLOAT_OUT:
 		case ECT_DOUBLE_IN_DOUBLE_OUT:
 		case ECT_FLOAT:
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf { return _in; };
+			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE, ICPUMeshBuffer*) -> core::vectorSIMDf { return _in; };
 			break;
 		}
 	}
@@ -1927,7 +2004,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	{
 	case EEM_POSITIONS:
 		cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> bool {
-			for (size_t i = 0u; i < (size_t)_cpa; ++i)
+			for (size_t i = 0u; i < (size_t)(_cpa == ECPA_REVERSED_OR_BGRA ? ECPA_FOUR : _cpa); ++i)
 				if (_err.pointer[i] > _epsilon.pointer[i])
 					return false;
 			return true;
@@ -1952,7 +2029,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 		if (scene::isNormalized(_srcType.type) && !scene::isNormalized(_dstType.type)) // handle comparison between not-normalized (dst) and normalized (src) type -- denormalize src since dst may be not normalizable type
 			d = scene::denormalizeAttribute(_srcType.type, d); // also it has to be done before qunatization (line right below) because otherwise for example quantization to HALF_FLOAT would happen from normalized value (and not the actual object of interest) - we don't want that
 
-		core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type, _dstType.cpa);
+		core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type, _dstType.cpa, mb);
 
 		if (!scene::isNormalized(_srcType.type) && scene::isNormalized(_dstType.type)) // handle comparison between normalized (dst) and not-normalized (src) types -- denormalize dst since src may be not normalizable type
 			quantized = scene::denormalizeAttribute(_dstType.type, quantized);
@@ -1961,6 +2038,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 			return false;
 	}
 
+	mb->drop();
 	return true;
 }
 

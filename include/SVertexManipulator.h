@@ -16,33 +16,47 @@ namespace irr
 {
 namespace scene
 {
+	struct QuantizationCacheEntryBase
+	{
+		core::vectorSIMDf key;
 
-    class QuantizationCacheEntry2_10_10_10
+		inline bool operator<(const QuantizationCacheEntryBase& other) const
+		{
+			if (key.Z<other.key.Z)
+				return true;
+			else if (key.Z == other.key.Z)
+			{
+				if (key.Y<other.key.Y)
+					return true;
+				else if (key.Y == other.key.Y)
+					return key.X<other.key.X;
+				else
+					return false;
+			}
+			else
+				return false;
+		}
+	};
+
+    struct QuantizationCacheEntry2_10_10_10 : QuantizationCacheEntryBase
     {
-    public:
-        core::vector3df_SIMD key;
         uint32_t value;
-
-        inline bool operator<(const QuantizationCacheEntry2_10_10_10& other) const
-        {
-            if (key.Z<other.key.Z)
-                return true;
-            else if (key.Z==other.key.Z)
-            {
-                if (key.Y<other.key.Y)
-                    return true;
-                else if (key.Y==other.key.Y)
-                    return key.X<other.key.X;
-                else
-                    return false;
-            }
-            else
-                return false;
-        }
     };
 
-    extern std::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
+	using QuantizationCacheEntry8_8_8 = QuantizationCacheEntry2_10_10_10;
 
+	struct QuantizationCacheEntry16_16_16 : QuantizationCacheEntryBase
+	{
+		uint64_t value;
+	};
+
+	using QuantizationCacheEntryHalfFloat = QuantizationCacheEntry16_16_16;
+
+	// defined in CMeshManipulator.cpp
+    extern std::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
+	extern std::vector<QuantizationCacheEntry8_8_8> normalCacheFor8_8_8Quant;
+	extern std::vector<QuantizationCacheEntry16_16_16> normalCacheFor16_16_16Quant;
+	extern std::vector<QuantizationCacheEntryHalfFloat> normalCacheForHalfFloatQuant;
 
     inline core::vectorSIMDf findBestFit(const uint32_t& bits, const core::vectorSIMDf& normal)
     {
@@ -128,7 +142,7 @@ namespace scene
             return found->value;
         }
 
-        core::vectorSIMDf fit = findBestFit(10,normal);
+        core::vectorSIMDf fit = findBestFit(10u, normal);
         const uint32_t xorflag = (0x1u<<10)-1;
         uint32_t bestFit = ((uint32_t(fit.X)^(normal.X<0.f ? xorflag:0))+(normal.X<0.f ? 1:0))&xorflag;
         bestFit |= (((uint32_t(fit.Y)^(normal.Y<0.f ? xorflag:0))+(normal.Y<0.f ? 1:0))&xorflag)<<10;
@@ -142,17 +156,75 @@ namespace scene
 
 	inline uint32_t quantizeNormal888(const core::vectorSIMDf &normal)
 	{
-        uint8_t bestFit[4];
+		QuantizationCacheEntry8_8_8 dummySearchVal;
+		dummySearchVal.key = normal;
+		std::vector<QuantizationCacheEntry8_8_8>::iterator found = std::lower_bound(normalCacheFor8_8_8Quant.begin(), normalCacheFor8_8_8Quant.end(), dummySearchVal);
+		if (found != normalCacheFor8_8_8Quant.end() && (found->key == normal).all())
+		{
+			return found->value;
+		}
 
-        core::vectorSIMDf fit = findBestFit(8,normal);
+        uint8_t bestFit[4] {0u,0u,0u,0u};
+
+        core::vectorSIMDf fit = findBestFit(8u,normal);
         const uint32_t xorflag = (0x1u<<8)-1;
         bestFit[0] = (uint32_t(fit.X)^(normal.X<0.f ? xorflag:0))+(normal.X<0.f ? 1:0);
         bestFit[1] = (uint32_t(fit.Y)^(normal.Y<0.f ? xorflag:0))+(normal.Y<0.f ? 1:0);
         bestFit[2] = (uint32_t(fit.Z)^(normal.Z<0.f ? xorflag:0))+(normal.Z<0.f ? 1:0);
 
+		dummySearchVal.value = *reinterpret_cast<uint32_t*>(bestFit);
+		normalCacheFor8_8_8Quant.insert(found, dummySearchVal);
 
 	    return *reinterpret_cast<uint32_t*>(bestFit);
-	}/*
+	}
+	
+	inline uint64_t quantizeNormal16_16_16(const core::vectorSIMDf& normal)
+	{
+		QuantizationCacheEntry16_16_16 dummySearchVal;
+		dummySearchVal.key = normal;
+		std::vector<QuantizationCacheEntry16_16_16>::iterator found = std::lower_bound(normalCacheFor16_16_16Quant.begin(), normalCacheFor16_16_16Quant.end(), dummySearchVal);
+		if (found != normalCacheFor16_16_16Quant.end() && (found->key == normal).all())
+		{
+			return found->value;
+		}
+
+		uint16_t bestFit[4]{0u,0u,0u,0u};
+
+		core::vectorSIMDf fit = findBestFit(16u, normal);
+		const uint32_t xorflag = (1u<<16)-1;
+		bestFit[0] = (uint32_t(fit.x) ^ (normal.x < 0.f ? xorflag : 0u)) + (normal.x < 0.f ? 1u : 0u);
+		bestFit[1] = (uint32_t(fit.y) ^ (normal.y < 0.f ? xorflag : 0u)) + (normal.y < 0.f ? 1u : 0u);
+		bestFit[2] = (uint32_t(fit.z) ^ (normal.z < 0.f ? xorflag : 0u)) + (normal.z < 0.f ? 1u : 0u);
+
+		dummySearchVal.value = *reinterpret_cast<uint64_t*>(bestFit);
+		normalCacheFor16_16_16Quant.insert(found, dummySearchVal);
+
+		return *reinterpret_cast<uint64_t*>(bestFit);
+	}
+
+	inline uint64_t quantizeNormalHalfFloat(const core::vectorSIMDf& normal)
+	{
+		QuantizationCacheEntryHalfFloat dummySearchVal;
+		dummySearchVal.key = normal;
+		std::vector<QuantizationCacheEntryHalfFloat>::iterator found = std::lower_bound(normalCacheForHalfFloatQuant.begin(), normalCacheForHalfFloatQuant.end(), dummySearchVal);
+		if (found != normalCacheForHalfFloatQuant.end() && (found->key == normal).all())
+		{
+			return found->value;
+		}
+
+		uint16_t bestFit[4] {
+			core::Float16Compressor::compress(normal.x),
+			core::Float16Compressor::compress(normal.y),
+			core::Float16Compressor::compress(normal.z),
+			0u
+		};
+
+		dummySearchVal.value = *reinterpret_cast<uint64_t*>(bestFit);
+		normalCacheForHalfFloatQuant.insert(found, dummySearchVal);
+
+		return *reinterpret_cast<uint64_t*>(bestFit);
+	}
+	/*
         ECT_FLOAT=0,
         ECT_HALF_FLOAT,
         ECT_DOUBLE_IN_FLOAT_OUT,
