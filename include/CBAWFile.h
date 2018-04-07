@@ -6,8 +6,8 @@
 #ifndef __IRR_BAW_FILE_H_INCLUDED__
 #define __IRR_BAW_FILE_H_INCLUDED__
 
-#include <map>
-#include <set>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "stdint.h"
 #include "irrTypes.h"
@@ -176,9 +176,9 @@ namespace core
 	template<typename B, typename T>
 	struct FORCE_EMPTY_BASE_OPT TypedBlob : Blob
 	{
-		static std::set<uint64_t> getNeededDeps(const void* _blob);
+		static std::unordered_set<uint64_t> getNeededDeps(const void* _blob);
 		static void* instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);
-		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, std::map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
+		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, std::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
 		static void releaseObj(const void* _obj);
 	};
 

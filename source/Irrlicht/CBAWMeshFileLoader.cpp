@@ -58,12 +58,12 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 
 	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{ {}, blobCnt }.calcBlobsOffset();
 
-	std::map<uint64_t, SBlobData>::iterator meshBlobDataIter;
+	std::unordered_map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
 	for (int i = 0; i < blobCnt; ++i)
 	{
 		SBlobData data(headers + i, BLOBS_FILE_OFFSET + offsets[i]);
-		const std::map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, data)).first;
+		const std::unordered_map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, data)).first;
 		if (data.header->blobType == core::Blob::EBT_MESH || data.header->blobType == core::Blob::EBT_SKINNED_MESH)
 			meshBlobDataIter = it;
 	}
@@ -89,8 +89,8 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 			return NULL;
 		}
 
-		std::set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
-		for (std::set<uint64_t>::iterator it = deps.begin(); it != deps.end(); ++it)
+		std::unordered_set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
+		for (std::unordered_set<uint64_t>::iterator it = deps.begin(); it != deps.end(); ++it)
 			if (ctx.createdObjs.find(*it) == ctx.createdObjs.end())
 				toLoad.push(&ctx.blobs[*it]);
 

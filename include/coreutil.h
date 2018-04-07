@@ -8,8 +8,8 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#include <map>
-#include <set>
+#include <unordered_set>
+#include <unordered_map>
 #include <cwchar>
 #include "stddef.h"
 #include "string.h"
@@ -573,6 +573,21 @@ class LeakDebugger
                         return false;
                 }
 
+				//! Comparison operator. Needed for unordered map/sorting.
+                bool operator==(const StackTrace& o) const
+                {
+                    if (stackTrace.size()!=o.stackTrace.size())
+                        return false;
+
+                    for (size_t i=0; i<stackTrace.size(); i++)
+                    {
+                        if (stackTrace[i]!=o.stackTrace[i])
+                            return false;
+                    }
+
+                    return true;
+                }
+
 				//! Prints stack to given output stream.
                 inline void printStackToOStream(std::ostringstream& strm) const
                 {
@@ -597,7 +612,7 @@ class LeakDebugger
         void dumpLeaks();
     private:
         FW_Mutex* tsafer;
-        std::map<const void*,StackTrace> tracker;
+        std::unordered_map<const void*,StackTrace> tracker;
 };
 
 } // end namespace core

@@ -243,6 +243,7 @@
 			<Add option="-D_7ZIP_ST" />
 		</Compiler>
 		<Unit filename="../../include/CBAWFile.h" />
+		<Unit filename="../../include/CBlobsLoadingManager.h" />
 		<Unit filename="../../include/CFinalBoneHierarchy.h" />
 		<Unit filename="../../include/CImageData.h" />
 		<Unit filename="../../include/COpenGLStateManager.h" />
