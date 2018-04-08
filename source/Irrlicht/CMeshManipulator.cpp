@@ -760,6 +760,9 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 		else
 			((uint16_t*)indices)[i] = remap;
 	}
+
+	free(remapBuffer);
+
 	_IRR_DEBUG_BREAK_IF(nextVert > vertexCount)
 
 	return outbuffer;
@@ -2022,7 +2025,10 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	_IRR_DEBUG_BREAK_IF(!errorFunc)
 	_IRR_DEBUG_BREAK_IF(!cmpFunc)
 	if (!quantFunc || !errorFunc || !cmpFunc)
+	{
+		mb->drop();
 		return false;
+	}
 
 	for (core::vectorSIMDf d : _srcData)
 	{
@@ -2035,7 +2041,10 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 			quantized = scene::denormalizeAttribute(_dstType.type, quantized);
 		core::vectorSIMDf err = errorFunc(d, quantized);
 		if (!cmpFunc(err, _errMetric.epsilon, _srcType.cpa))
+		{
+			mb->drop();
 			return false;
+		}
 	}
 
 	mb->drop();
