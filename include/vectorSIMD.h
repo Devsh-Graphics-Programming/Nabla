@@ -307,9 +307,9 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf& operator=(const vectorSIMDf& other) { _mm_store_ps(pointer,other.getAsRegister()); return *this; }
 
         //! bitwise ops
-        inline vectorSIMDf operator&(const vectorSIMDf& other) {return _mm_and_ps(getAsRegister(),other.getAsRegister());}
-        inline vectorSIMDf operator|(const vectorSIMDf& other) {return _mm_or_ps(getAsRegister(),other.getAsRegister());}
-        inline vectorSIMDf operator^(const vectorSIMDf& other) {return _mm_xor_ps(getAsRegister(),other.getAsRegister());}
+        inline vectorSIMDf operator&(const vectorSIMDf& other) const {return _mm_and_ps(getAsRegister(),other.getAsRegister());}
+        inline vectorSIMDf operator|(const vectorSIMDf& other) const {return _mm_or_ps(getAsRegister(),other.getAsRegister());}
+        inline vectorSIMDf operator^(const vectorSIMDf& other) const {return _mm_xor_ps(getAsRegister(),other.getAsRegister());}
 
         //! in case you want to do your own SSE
         inline __m128 getAsRegister() const {return _mm_load_ps(pointer);}

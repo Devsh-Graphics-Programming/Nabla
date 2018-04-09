@@ -23,12 +23,15 @@ namespace irr
 namespace core
 {
 
+struct matrix3x4SIMD;
 
 //! Quaternion class for representing rotations.
 /** It provides cheap combinations and avoids gimbal locks.
 Also useful for interpolations. */
 class quaternion : private vectorSIMDf
 {
+	friend struct matrix3x4SIMD;
+
 	public:
 /**
         static inline void* operator new(size_t size) throw(std::bad_alloc)
