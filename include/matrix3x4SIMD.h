@@ -13,7 +13,8 @@ struct matrix3x4SIMD
 {
 	core::vectorSIMDf rows[3];
 
-	matrix3x4SIMD(const vectorSIMDf& _r0, const vectorSIMDf& _r1, const vectorSIMDf& _r2) : rows{_r0, _r1, _r2} {}
+	matrix3x4SIMD(const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f), const vectorSIMDf& _r1 = vectorSIMDf(0.f, 1.f, 0.f, 0.f), const vectorSIMDf& _r2 = vectorSIMDf(0.f, 0.f, 1.f, 0.f)) 
+		: rows{_r0, _r1, _r2} {}
 
 	matrix3x4SIMD(
 		float _a00, float _a01, float _a02, float _a03,
@@ -23,7 +24,7 @@ struct matrix3x4SIMD
 	{
 	}
 
-	explicit matrix3x4SIMD(const float* const _data = nullptr)
+	explicit matrix3x4SIMD(const float* const _data)
 	{
 		if (!_data)
 			return;
@@ -170,6 +171,43 @@ struct matrix3x4SIMD
 		return _mm_sqrt_ps(xmm6);
 	}
 
+	inline void transformVect(float* _out, const float* _in) const
+	{
+		vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3(0.f, 0.f, 0.f, 1.f);
+		core::transpose4(c0, c1, c2, c3);
+
+		vectorSIMDf inOut = vectorSIMDf(_in);
+		inOut = c0 * inOut.x + c1 * inOut.y + c2 * inOut.z + c3;
+		memcpy(_out, inOut.pointer, 3 * 4);
+	}
+	inline void transformVect(float* _in_out) const
+	{
+		transformVect(_in_out, _in_out);
+	}
+
+	inline void pseudoMulWith4x1(float* _out, const float* _in) const
+	{
+		transformVect(_out, _in);
+	}
+	inline void pseudoMulWith4x1(float* _in_out) const
+	{
+		transformVect(_in_out);
+	}
+
+	inline void mulSub3x3With3x1(float* _out, const float* _in) const
+	{
+		vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3(0.f, 0.f, 0.f, 1.f);
+		core::transpose4(c0, c1, c2, c3);
+
+		vectorSIMDf inOut = vectorSIMDf(_in);
+		inOut = c0 * inOut.x + c1 * inOut.y + c2 * inOut.z;
+		memcpy(_out, inOut.pointer, 3 * 4);
+	}
+	inline void mulSub3x3With3x1(float* _in_out) const
+	{
+		mulSub3x3With3x1(_in_out, _in_out);
+	}
+
 	inline matrix3x4SIMD& buildCameraLookAtMatrixLH(
 		const core::vectorSIMDf& position,
 		const core::vectorSIMDf& target,
@@ -276,10 +314,11 @@ struct matrix3x4SIMD
 		xmm1 = _mm_hsub_ps(xmm2, preDeterminant.getAsRegister()); // C.z-D.z,E.z,x+y-z-w,x+Y-z-w
 		xmm2 = _mm_hsub_ps(xmm0, xmm1); // C.x-D.x-E.x,C.y-D.y-E.y,C.z-D.z-E.z,0
 
-		_MM_TRANSPOSE4_PS(tmpC.getAsRegister(), tmpD.getAsRegister(), tmpE.getAsRegister(), xmm2);
-		_out.rows[0] = tmpC;
-		_out.rows[1] = tmpD;
-		_out.rows[2] = tmpE;
+		__m128 tc = tmpC.getAsRegister(), td = tmpD.getAsRegister(), te = tmpE.getAsRegister();
+		_MM_TRANSPOSE4_PS(tc, td, td, xmm2);
+		_out.rows[0] = tc;
+		_out.rows[1] = td;
+		_out.rows[2] = te;
 
 		__m128 rdet = _mm_rcp_ps(determinant4.getAsRegister());
 		_out.rows[0] *= rdet;
@@ -287,6 +326,50 @@ struct matrix3x4SIMD
 		_out.rows[2] *= rdet;
 
 		return true;
+	}
+
+	inline void setRotationCenter(const core::vectorSIMDf& center, const core::vectorSIMDf& translation)
+	{
+		__m128 r0 = rows[0].getAsRegister();
+		__m128 r1 = rows[1].getAsRegister();
+		__m128 r2 = rows[2].getAsRegister();
+
+		__m128 c0 = r0;
+		__m128 c1 = r1;
+		__m128 c2 = r2;
+		__m128 c3 = _mm_setr_ps(0.f, 0.f, 0.f, 1.f);
+
+		_MM_TRANSPOSE4_PS(c0, c1, c2, c3);
+
+		const __m128 mask1110 = _mm_castsi128_ps(_mm_setr_epi32(0xffffffff, 0xffffffff, 0xffffffff, 0));
+		vectorSIMDf col3;
+
+		vectorSIMDf tmp = (-vectorSIMDf(r0) & mask1110) * center;
+		__m128 ttmp = tmp.getAsRegister();
+		ttmp = _mm_hadd_ps(ttmp, ttmp);
+		ttmp = _mm_hadd_ps(ttmp, ttmp);
+		col3.x = vectorSIMDf(ttmp).x;
+
+		tmp = (-vectorSIMDf(r1) & mask1110) * center;
+		ttmp = tmp.getAsRegister();
+		ttmp = _mm_hadd_ps(ttmp, ttmp);
+		ttmp = _mm_hadd_ps(ttmp, ttmp);
+		col3.y = vectorSIMDf(ttmp).x;
+
+		tmp = (-vectorSIMDf(r2) & mask1110) * center;
+		ttmp = tmp.getAsRegister();
+		ttmp = _mm_hadd_ps(ttmp, ttmp);
+		ttmp = _mm_hadd_ps(ttmp, ttmp);
+		col3.z = vectorSIMDf(ttmp).x;
+
+		col3 += (center - translation) & mask1110;
+		c3 = col3.getAsRegister();
+
+		_MM_TRANSPOSE4_PS(c0, c1, c2, c3);
+
+		rows[0] = c0;
+		rows[1] = c1;
+		rows[2] = c2;
 	}
 
 	float& operator()(size_t _i, size_t _j) { return rows[_i].pointer[_j]; }
