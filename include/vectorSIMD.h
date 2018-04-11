@@ -1271,6 +1271,23 @@ NO BITSHIFTING SUPPORT
 #else
     } __attribute__ ((__aligned__(SIMD_ALIGNMENT)));
 #endif
+
+	//! Transposes matrix 4x4 given by 4 vectors
+	void transpose4(vectorSIMDf& _a0, vectorSIMDf& _a1, vectorSIMDf& _a2, vectorSIMDf& _a3)
+	{
+		__m128 a0 = _a0.getAsRegister(), a1 = _a1.getAsRegister(), a2 = _a2.getAsRegister(), a3 = _a3.getAsRegister();
+		_MM_TRANSPOSE4_PS(a0, a1, a2, a3)
+		_a0 = a0;
+		_a1 = a1;
+		_a2 = a2;
+		_a3 = a3;
+	}
+	//! Transposes matrix 4x4 given by array of 4 vectors
+	void transpose4(vectorSIMDf* _a0123)
+	{
+		transpose4(_a0123[0], _a0123[1], _a0123[2], _a0123[3]);
+	}
+
 /*
     class vectorSIMDi32 : public vectorSIMD_32<int32_t>
     {
