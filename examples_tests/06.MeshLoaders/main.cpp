@@ -4,6 +4,7 @@
 
 #include "../source/Irrlicht/CGeometryCreator.h"
 #include "../source/Irrlicht/CBAWMeshWriter.h"
+#include <matrix3x4SIMD.h>
 
 using namespace irr;
 using namespace core;
@@ -94,6 +95,19 @@ public:
 
 int main()
 {
+	core::quaternion q(1, 2, 3, 4);
+	core::matrix4x3 m1 = q.getMatrix();
+	core::matrix3x4SIMD m2;
+	m2.setRotation(q);
+
+	//m1.setRotationCenter(core::vector3df(1.f, 3.f, 4.f), core::vector3df(8.f, 4.f, 6.f));
+	//m2.setRotationCenter(core::vectorSIMDf(1.f, 3.f, 4.f), core::vectorSIMDf(8.f, 4.f, 6.f));
+	//core::matrix4x3 im1;
+	//m1.getInverse(im1);
+	//core::matrix3x4SIMD im2;
+	//m2.getInverse(im2);
+
+
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
