@@ -1869,7 +1869,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 				((uint32_t*)buf)[0] = scene::quantizeNormal888(_in);
 
 				core::vectorSIMDf retval;
-				ICPUMeshBuffer::getAttribute(retval, buf, ECT_NORMALIZED_BYTE, ECPA_FOUR, 0U, 3U, buf + sizeof(buf));
+				ICPUMeshBuffer::getAttribute(retval, buf, ECT_NORMALIZED_BYTE, ECPA_FOUR);
 				retval.w = 1.f;
 				return retval;
 			};
@@ -1880,7 +1880,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 				((uint32_t*)buf)[0] = scene::quantizeNormal2_10_10_10(_in);
 
 				core::vectorSIMDf retval;
-				ICPUMeshBuffer::getAttribute(retval, buf, ECT_NORMALIZED_INT_2_10_10_10_REV, ECPA_FOUR, 0U, 4U, buf + sizeof(buf));
+				ICPUMeshBuffer::getAttribute(retval, buf, ECT_NORMALIZED_INT_2_10_10_10_REV, ECPA_FOUR);
 				retval.w = 1.f;
 				return retval;
 			};
@@ -1891,7 +1891,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 				((uint64_t*)buf)[0] = scene::quantizeNormal16_16_16(_in);
 
 				core::vectorSIMDf retval;
-				ICPUMeshBuffer::getAttribute(retval, buf, ECT_NORMALIZED_SHORT, ECPA_FOUR, 0U, 8U, buf + sizeof(buf));
+				ICPUMeshBuffer::getAttribute(retval, buf, ECT_NORMALIZED_SHORT, ECPA_FOUR);
 				retval.w = 1.f;
 				return retval;
 			};
@@ -1902,7 +1902,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 				((uint64_t*)buf)[0] = scene::quantizeNormalHalfFloat(_in);
 
 				core::vectorSIMDf retval;
-				ICPUMeshBuffer::getAttribute(retval, buf, ECT_HALF_FLOAT, ECPA_FOUR, 0U, 8U, buf + sizeof(buf));
+				ICPUMeshBuffer::getAttribute(retval, buf, ECT_HALF_FLOAT, ECPA_FOUR);
 				retval.w = 1.f;
 				return retval;
 			};
@@ -1913,61 +1913,12 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	{
 		quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE _inType, E_COMPONENT_TYPE _outType, E_COMPONENTS_PER_ATTRIBUTE _cpa)->core::vectorSIMDf {
 			uint8_t buf[32];
-			ICPUMeshBuffer::setAttribute(_in, buf, _outType, _cpa, 0u, 0u, buf+sizeof(buf));
+			ICPUMeshBuffer::setAttribute(_in, buf, _outType, _cpa);
 			core::vectorSIMDf out(0.f, 0.f, 0.f, 1.f);
-			ICPUMeshBuffer::getAttribute(out, buf, _outType, _cpa, 0u, 0u, buf+sizeof(buf));
+			ICPUMeshBuffer::getAttribute(out, buf, _outType, _cpa);
 			return out;
 		};
 	}
-	/*
-	else if (scene::isNormalized(_srcType.type) && scene::isNormalized(_dstType.type)) // src type is normalized and dst type is normalized
-		quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE _inType, E_COMPONENT_TYPE _outType, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf {
-			// todo 
-			//ICPUMeshBuffer::setAttribute
-			//ICPUMeshBuffer::getAttribute
-			return scene::normalizeAttribute(_outType, scene::denormalizeAttribute(_outType, _in)); // simulating setAttribute-side denormalization and then shader-side normalization
-		};
-	else if (scene::isNormalized(_dstType.type)) // dst type is normalized but src type is not
-		quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE _outType, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf {
-			// todo 
-			//ICPUMeshBuffer::setAttribute
-			//ICPUMeshBuffer::getAttribute
-			return scene::normalizeAttribute(_outType, _in); // then just normalize as given type
-		};
-	else
-	{
-		switch (_dstType.type)
-		{
-		case ECT_UNSIGNED_INT_10F_11F_11F_REV:
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf {
-				return core::vectorSIMDf(
-					core::unpack11bitFloat(core::to11bitFloat(_in.x)),
-					core::unpack11bitFloat(core::to11bitFloat(_in.y)),
-					core::unpack10bitFloat(core::to10bitFloat(_in.z)),
-					1.f
-				);
-			};
-			break;
-		case ECT_HALF_FLOAT:
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> core::vectorSIMDf {
-				core::vectorSIMDf retval(0.f, 0.f, 0.f, 1.f);
-				for (size_t i = 0u; i < (size_t)_cpa; ++i)
-					retval.pointer[i] = core::Float16Compressor::decompress(core::Float16Compressor::compress(_in.pointer[i]));
-				return retval;
-			};
-			break;
-		case ECT_DOUBLE_IN_FLOAT_OUT:
-		case ECT_DOUBLE_IN_DOUBLE_OUT:
-		case ECT_FLOAT:
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> core::vectorSIMDf { 
-				core::vectorSIMDf out = _in;
-				for (size_t i = _cpa; i < 4u; ++i)
-					out.pointer[i] = i==3u ? 1.f : 0.f;
-				return _in; 
-			};
-			break;
-		}
-	}*/
 
 	using ErrorF_t = core::vectorSIMDf(*)(core::vectorSIMDf, core::vectorSIMDf);
 
