@@ -30,7 +30,6 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 #endif
 		return outbuffer;
 	}
-	printf("XD OVERDRAW\n");
 
 	const size_t idxCount = outbuffer->getIndexType();
 	void* indicesCopy = malloc(indexSize*idxCount);

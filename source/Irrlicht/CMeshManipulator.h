@@ -39,25 +39,6 @@ class CMeshManipulator : public IMeshManipulator
 	};
 
 public:
-	enum E_ERROR_METRIC
-	{
-		EEM_POSITIONS,
-		EEM_ANGLES,
-		EEM_QUATERNION,
-		EEM_COUNT
-	};
-	struct SErrorMetric
-	{
-		// 1.525e-5f is 2^-16
-		SErrorMetric(const core::vectorSIMDf& eps = core::vectorSIMDf(1.525e-5f, 1.525e-5f, 1.525e-5f, 1.525e-5f), E_ERROR_METRIC em = EEM_POSITIONS) : method(em), epsilon(eps) {}
-
-		void set(E_ERROR_METRIC m, const core::vectorSIMDf& e) { method = m; epsilon = e; }
-
-		E_ERROR_METRIC method;
-		core::vectorSIMDf epsilon;
-	};
-
-public:
 #ifndef NEW_MESHES
     virtual void isolateAndExtractMeshBuffer(ICPUMeshBuffer* inbuffer, const bool& interleaved=true) const = 0;
 #endif // NEW_MESHES
@@ -109,7 +90,9 @@ public:
 	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
 	virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& reduceIdxBufSize = true, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const;
 
-	virtual ICPUMeshBuffer* createOptimizedMeshBuffer(ICPUMeshBuffer* inbuffer) const;
+	virtual ICPUMeshBuffer* createOptimizedMeshBuffer(const ICPUMeshBuffer* inbuffer, const SErrorMetric* _requantErrMetric) const;
+
+	virtual void requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const;
 
 	virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const;
 

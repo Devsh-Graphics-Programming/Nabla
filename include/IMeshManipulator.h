@@ -28,6 +28,24 @@ namespace scene
 	class IMeshManipulator : public virtual IReferenceCounted
 	{
 	public:
+		enum E_ERROR_METRIC
+		{
+			EEM_POSITIONS,
+			EEM_ANGLES,
+			EEM_QUATERNION,
+			EEM_COUNT
+		};
+		struct SErrorMetric
+		{
+			// 1.525e-5f is 2^-16
+			SErrorMetric(const core::vectorSIMDf& eps = core::vectorSIMDf(1.525e-5f, 1.525e-5f, 1.525e-5f, 1.525e-5f), E_ERROR_METRIC em = EEM_POSITIONS) : method(em), epsilon(eps) {}
+
+			void set(E_ERROR_METRIC m, const core::vectorSIMDf& e) { method = m; epsilon = e; }
+
+			E_ERROR_METRIC method;
+			core::vectorSIMDf epsilon;
+		};
+	public:
 #ifndef NEW_MESHES
 	    virtual void isolateAndExtractMeshBuffer(ICPUMeshBuffer* inbuffer, const bool& interleaved=true) const = 0;
 #endif // NEW_MESHES
@@ -53,7 +71,18 @@ namespace scene
 		IReferenceCounted::drop() for more information. */
 		virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer* inbuffer, const bool& reduceIdxBufSize = false, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const = 0;
 
-		virtual ICPUMeshBuffer* createOptimizedMeshBuffer(ICPUMeshBuffer* inbuffer) const = 0;
+		//! Throws meshbuffer into full optimizing pipeline consisting of: vertices welding, z-buffer optimization, vertex cache optimization (Forsyth's algorithm), fetch optimization and attributes requantization. A new meshbuffer is created unless given meshbuffer doesn't own a data format descriptor.
+		/**@return A new meshbuffer or input buffer if input buffer does not own data format descriptor or NULL if other error occured. */
+		virtual ICPUMeshBuffer* createOptimizedMeshBuffer(const ICPUMeshBuffer* inbuffer, const SErrorMetric* _requantErrMetric) const = 0;
+
+		//! Requantizes vertex attributes to the smallest possible types taking into account values of the attribute under consideration. A brand new vertex buffer is created and attributes are going to be interleaved in single buffer.
+		/**
+			The function tests type's range and precision loss after eventual requantization. The latter is performed in one of several possible methods specified
+		in array parameter. By this paramater user can define method of comparison (shall depend on what the attribute's data represents) and epsilon (i.e. precision error tolerance).
+		@param _meshbuffer Input meshbuffer that is to be requantized.
+		@param _errMetric Array of structs defining methods of error metrics. The array must be of EVAI_COUNT length since each index of the array directly corresponds to attribute's id.
+		*/
+		virtual void requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const = 0;
 
 		virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const = 0;
 

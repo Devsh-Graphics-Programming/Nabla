@@ -26,7 +26,7 @@
 
 #include "irrTypes.h"
 
-#define MAX_SIZE_VERTEX_CACHE 32
+#define MAX_SIZE_VERTEX_CACHE 16
 
 namespace irr { namespace scene 
 {

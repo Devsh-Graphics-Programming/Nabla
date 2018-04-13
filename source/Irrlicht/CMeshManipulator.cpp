@@ -1083,10 +1083,10 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
         return inbuffer;
 }
 
-ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inbuffer) const
+ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _requantErrMetric) const
 {
 	if (!_inbuffer || !_inbuffer->getMeshDataAndFormat())
-		return _inbuffer;
+		return const_cast<ICPUMeshBuffer*>(_inbuffer);
 
 	ICPUMeshBuffer* outbuffer = createMeshBufferDuplicate(_inbuffer);
 
@@ -1162,112 +1162,8 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 		old->drop();
 	}
 
-#define _WITH_REQUANTIZATION
 	// STEP: requantization
-#ifdef _WITH_REQUANTIZATION
-	{
-		SErrorMetric errMetric[EVAI_COUNT];
-
-		const float NORMAL_EPSILON = float(1u<<9)/(float(1u<<9) + 2 * 0.99f);
-		errMetric[EVAI_ATTR3].set(EEM_ANGLES, core::vectorSIMDf(NORMAL_EPSILON));
-		// error metrics for other attributes are defaulted by SErrorMetric's constructor
-
-		SAttrib newAttribs[EVAI_COUNT];
-		for (size_t i = 0; i < EVAI_COUNT; ++i)
-			newAttribs[i].vaid = (E_VERTEX_ATTRIBUTE_ID)i;
-		std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>> attribsI;
-		std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>> attribsF;
-		for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
-		{
-			const E_COMPONENT_TYPE type = outbuffer->getMeshDataAndFormat()->getAttribType((E_VERTEX_ATTRIBUTE_ID)vaid);
-
-			if (outbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
-			{
-				if (!scene::isNormalized(type) && scene::isNativeInteger(type))
-					attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, &newAttribs[vaid].prevType, outbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, errMetric[vaid]);
-				else
-					attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, &newAttribs[vaid].prevType, outbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, errMetric[vaid]);
-			}
-		}
-
-		const size_t activeAttributeCount = attribsI.size() + attribsF.size();
-
-#ifdef _DEBUG
-		{
-			std::unordered_set<size_t> sizesSet;
-			for (std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
-				sizesSet.insert(it->second.size());
-			for (std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
-				sizesSet.insert(it->second.size());
-			_IRR_DEBUG_BREAK_IF(sizesSet.size() != 1);
-		}
-#endif
-		const size_t vertexCnt = (!attribsI.empty() ? attribsI.begin()->second.size() : (!attribsF.empty() ? attribsF.begin()->second.size() : 0));
-
-		std::sort(newAttribs, newAttribs + EVAI_COUNT, std::greater<SAttrib>()); // sort decreasing by size
-
-		for (size_t i = 0u; i < activeAttributeCount; ++i)
-		{
-			const size_t alignment = ((newAttribs[i].type == ECT_DOUBLE_IN_DOUBLE_OUT || newAttribs[i].type == ECT_DOUBLE_IN_FLOAT_OUT) ? 8u : 4u);
-
-			newAttribs[i].offset = (i ? newAttribs[i - 1].offset + newAttribs[i - 1].size : 0u);
-			const size_t mod = newAttribs[i].offset % alignment;
-			newAttribs[i].offset += mod;
-		}
-
-		const size_t vertexSize = newAttribs[activeAttributeCount-1].offset + newAttribs[activeAttributeCount-1].size;
-
-		IMeshDataFormatDesc<core::ICPUBuffer>* desc = outbuffer->getMeshDataAndFormat();
-		core::ICPUBuffer* newVertexBuffer = new core::ICPUBuffer(vertexCnt * vertexSize);
-
-		for (size_t i = 0u; i < activeAttributeCount; ++i)
-		{
-			desc->mapVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].cpa, newAttribs[i].type, vertexSize, newAttribs[i].offset);
-
-			std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
-			if (iti != attribsI.end())
-			{
-				printf("map attr I: %d  %d\n", newAttribs[i].vaid, newAttribs[i].type);
-				const std::vector<SIntegerAttr>& attrVec = iti->second;
-				for (size_t ai = 0u; ai < attrVec.size(); ++ai)
-				{
-					printf("original %u %u %u %u\n", attrVec[ai].pointer[0], attrVec[ai].pointer[1], attrVec[ai].pointer[2], attrVec[ai].pointer[3]);
-					bool r = outbuffer->setAttribute(attrVec[ai].pointer, newAttribs[i].vaid, ai);
-					SIntegerAttr c;
-					outbuffer->getAttribute(c.pointer, newAttribs[i].vaid, ai);
-					printf("after %u %u %u %u\n", c.pointer[0], c.pointer[1], c.pointer[2], c.pointer[3]);
-					if (!r)
-						printf("set attrib integer failed!\n");
-				}
-				continue;
-			}
-
-			std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator itf = attribsF.find(newAttribs[i].vaid);
-			if (itf != attribsF.end())
-			{
-				printf("map attr F: %d  %d\n", newAttribs[i].vaid, newAttribs[i].type);
-				const std::vector<core::vectorSIMDf>& attrVec = itf->second;
-
-				for (size_t ai = 0u; ai < attrVec.size(); ++ai)
-				{
-					core::vectorSIMDf setval = attrVec[ai];
-					//if (!scene::isNormalized(newAttribs[i].prevType) && scene::isNormalized(newAttribs[i].type))
-					//	setval = scene::normalizeAttribute(newAttribs[i].type, setval);
-					printf("original %f %f %f %f\n", setval.x, setval.y, setval.z, setval.w);
-					bool r = outbuffer->setAttribute(setval, newAttribs[i].vaid, ai);
-					core::vectorSIMDf c;
-					outbuffer->getAttribute(c, newAttribs[i].vaid, ai);
-					printf("after %f %f %f %f\n", c.x, c.y, c.z, c.w);
-					if (!r)
-						printf("set attrib fp failed!\n");
-				}
-			}
-		}
-
-		newVertexBuffer->drop();
-
-	}
-#endif 
+	requantizeMeshBuffer(outbuffer, _requantErrMetric);
 
 	// STEP: reduce index buffer to 16bit or completely get rid of it
 	{
@@ -1305,7 +1201,6 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 		core::ICPUBuffer* newIdxBuffer = NULL;
 		bool verticesMustBeReordered = false;
 		video::E_INDEX_TYPE newIdxType = video::EIT_32BIT;
-		printf("CURR IDX TYPE %d\n", outbuffer->getIndexType());
 
 		if (!continuous)
 		{
@@ -1317,8 +1212,6 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 			}
 			else
 			{
-				printf("IDX BUFFER NOT UNIQUE INDICES\n");
-
 				if (maxIdx - minIdx <= USHRT_MAX)
 					newIdxType = video::EIT_16BIT;
 
@@ -1327,7 +1220,6 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 
 				if (newIdxType == video::EIT_16BIT)
 				{
-					printf("CONVERT TO 16BIT\n");
 					newIdxBuffer = new core::ICPUBuffer(outbuffer->getIndexCount()*2);
 					// no need to change index buffer offset because it's always 0 (after duplicating original mesh)
 					for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
@@ -1349,7 +1241,6 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 
 		if (verticesMustBeReordered)
 		{
-			printf("VERTICES REORDERING!\n");
 			// reorder vertices according to index buffer
 #define _ACCESS_IDX(n) ((newIdxType == video::EIT_32BIT) ? *((uint32_t*)(indices)+(n)) : *((uint16_t*)(indices)+(n)))
 
@@ -1371,6 +1262,88 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(ICPUMeshBuffer* _inb
 	}
 
 	return outbuffer;
+}
+
+void CMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const
+{
+	SAttrib newAttribs[EVAI_COUNT];
+	for (size_t i = 0u; i < EVAI_COUNT; ++i)
+		newAttribs[i].vaid = (E_VERTEX_ATTRIBUTE_ID)i;
+
+	std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>> attribsI;
+	std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>> attribsF;
+	for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
+	{
+		const E_COMPONENT_TYPE type = _meshbuffer->getMeshDataAndFormat()->getAttribType((E_VERTEX_ATTRIBUTE_ID)vaid);
+
+		if (_meshbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
+		{
+			if (!scene::isNormalized(type) && scene::isNativeInteger(type))
+				attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
+			else
+				attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
+		}
+	}
+
+	const size_t activeAttributeCount = attribsI.size() + attribsF.size();
+
+#ifdef _DEBUG
+	{
+		std::unordered_set<size_t> sizesSet;
+		for (std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
+			sizesSet.insert(it->second.size());
+		for (std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
+			sizesSet.insert(it->second.size());
+		_IRR_DEBUG_BREAK_IF(sizesSet.size() != 1);
+	}
+#endif
+	const size_t vertexCnt = (!attribsI.empty() ? attribsI.begin()->second.size() : (!attribsF.empty() ? attribsF.begin()->second.size() : 0));
+
+	std::sort(newAttribs, newAttribs + EVAI_COUNT, std::greater<SAttrib>()); // sort decreasing by size
+
+	for (size_t i = 0u; i < activeAttributeCount; ++i)
+	{
+		const size_t alignment = ((newAttribs[i].type == ECT_DOUBLE_IN_DOUBLE_OUT || newAttribs[i].type == ECT_DOUBLE_IN_FLOAT_OUT) ? 8u : 4u);
+
+		newAttribs[i].offset = (i ? newAttribs[i - 1].offset + newAttribs[i - 1].size : 0u);
+		const size_t mod = newAttribs[i].offset % alignment;
+		newAttribs[i].offset += mod;
+	}
+
+	const size_t vertexSize = newAttribs[activeAttributeCount - 1].offset + newAttribs[activeAttributeCount - 1].size;
+
+	IMeshDataFormatDesc<core::ICPUBuffer>* desc = _meshbuffer->getMeshDataAndFormat();
+	core::ICPUBuffer* newVertexBuffer = new core::ICPUBuffer(vertexCnt * vertexSize);
+
+	for (size_t i = 0u; i < activeAttributeCount; ++i)
+	{
+		desc->mapVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].cpa, newAttribs[i].type, vertexSize, newAttribs[i].offset);
+
+		std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
+		if (iti != attribsI.end())
+		{
+			const std::vector<SIntegerAttr>& attrVec = iti->second;
+			for (size_t ai = 0u; ai < attrVec.size(); ++ai)
+			{
+				const bool check = _meshbuffer->setAttribute(attrVec[ai].pointer, newAttribs[i].vaid, ai);
+				_IRR_DEBUG_BREAK_IF(!check)
+			}
+			continue;
+		}
+
+		std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator itf = attribsF.find(newAttribs[i].vaid);
+		if (itf != attribsF.end())
+		{
+			const std::vector<core::vectorSIMDf>& attrVec = itf->second;
+			for (size_t ai = 0u; ai < attrVec.size(); ++ai)
+			{
+				const bool check = _meshbuffer->setAttribute(attrVec[ai], newAttribs[i].vaid, ai);
+				_IRR_DEBUG_BREAK_IF(!check)
+			}
+		}
+	}
+
+	newVertexBuffer->drop();
 }
 
 ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const
@@ -1535,8 +1508,6 @@ std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_T
 			*_outCpa = t.cpa;
 			*_outSize = vertexAttrSize[*_outType][*_outCpa];
 
-			printf("bestType: %d -> %d\n", thisType, *_outType);
-
 			return attribs;
 		}
 	}
@@ -1544,8 +1515,6 @@ std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_T
 	*_outType = thisType;
 	*_outCpa = cpa;
 	*_outSize = vertexAttrSize[*_outType][*_outCpa];
-
-	printf("bestType: %d -> %d\n", thisType, *_outType);
 
 	return attribs;
 }
@@ -1637,85 +1606,8 @@ std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(
 		return attribs;
 
 	*_outType = getBestTypeI(scene::isNativeInteger(thisType), scene::isUnsigned(thisType), cpa, _outSize, _outCpa, min, max);
-	printf("bestType: %d -> %d\n", thisType, *_outType);
 	return attribs;
 }
-
-/*
-E_COMPONENT_TYPE CMeshManipulator::getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const
-{
-	std::unordered_set<E_COMPONENT_TYPE> all;
-	{
-		E_COMPONENT_TYPE arrayAll[]{ ECT_FLOAT, ECT_HALF_FLOAT, ECT_DOUBLE_IN_FLOAT_OUT, ECT_DOUBLE_IN_DOUBLE_OUT, ECT_UNSIGNED_INT_10F_11F_11F_REV, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT};
-		for (size_t i = 0; i < sizeof(arrayAll)/sizeof(*arrayAll); ++i)
-			all.insert(arrayAll[i]);
-	}
-	std::unordered_set<E_COMPONENT_TYPE> normalized;
-	{
-		E_COMPONENT_TYPE arrayNormalized[]{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
-		for (size_t i = 0; i < sizeof(arrayNormalized)/sizeof(*arrayNormalized); ++i)
-			normalized.insert(arrayNormalized[i]);
-	}
-	std::unordered_set<E_COMPONENT_TYPE> bgra;
-	bgra.insert(ECT_NORMALIZED_INT_2_10_10_10_REV);
-	bgra.insert(ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV);
-	bgra.insert(ECT_NORMALIZED_UNSIGNED_BYTE);
-
-	if (_normalized)
-	{	
-		if (_cpa == ECPA_REVERSED_OR_BGRA)
-			all = bgra;
-		else
-			all = normalized;
-	}
-	else
-	{
-		for (std::unordered_set<E_COMPONENT_TYPE>::iterator it = normalized.begin(); it != normalized.end(); ++it)
-			all.erase(*it);
-	}
-
-	E_COMPONENT_TYPE bestType = _normalized ? ECT_NORMALIZED_INT : ECT_DOUBLE_IN_DOUBLE_OUT;
-	for (std::unordered_set<E_COMPONENT_TYPE>::iterator it = all.begin(); it != all.end(); ++it)
-	{
-		bool validComb = false;
-		E_COMPONENTS_PER_ATTRIBUTE chosenCpa = _cpa; // find cpa compatible with currently considered type
-		if (_cpa != ECPA_REVERSED_OR_BGRA)
-		{
-			for (size_t c = _cpa; c <= ECPA_FOUR; ++c)
-			{
-				if (validCombination(*it, (E_COMPONENTS_PER_ATTRIBUTE)c))
-				{
-					chosenCpa = (E_COMPONENTS_PER_ATTRIBUTE)c;
-					validComb = true;
-					break;
-				}
-			}
-		}
-		else
-			validComb = true; // all types from considered types set support BGRA
-		if (validComb)
-		{
-			bool ok = true;
-			for (size_t cmpntNum = 0; cmpntNum < (_cpa == ECPA_REVERSED_OR_BGRA ? ECPA_FOUR : _cpa); ++cmpntNum) // check only `_cpa` components because even if (chosenCpa > _cpa), we don't care about extra components
-			{
-				if (!(_min[cmpntNum] >= minValueOfTypeFP(*it, cmpntNum) && _max[cmpntNum] <= maxValueOfTypeFP(*it, cmpntNum)))
-				{
-					ok = false;
-					break;
-				}
-			}
-			printf("vertexAttrSize:: ok: %u, *it: %d; chosenCpa: %d; bestType: %d\n", ok, *it, chosenCpa, bestType);
-			if (ok && vertexAttrSize[*it][chosenCpa] < vertexAttrSize[bestType][chosenCpa]) // vertexAttrSize array defined in IMeshBuffer.h
-			{
-				bestType = *it;
-				*_outSize = vertexAttrSize[bestType][chosenCpa];
-				*_outCpa = chosenCpa;
-			}
-		}
-	}
-	return bestType;
-}
-*/
 
 E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const uint32_t* _min, const uint32_t* _max) const
 {
@@ -1776,7 +1668,6 @@ E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned,
 					}
 				}
 			}
-			//printf("vertexAttrSize:: ok: %u *it: %d; chosenCpa: %d; bestType: %d\n", ok, *it, chosenCpa, bestType);
 			if (ok && vertexAttrSize[*it][chosenCpa] < vertexAttrSize[bestType][chosenCpa]) // vertexAttrSize array defined in IMeshBuffer.h
 			{
 				bestType = *it;
