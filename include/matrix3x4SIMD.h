@@ -32,7 +32,7 @@ struct matrix3x4SIMD
 			rows[i] = vectorSIMDf(_data + 4*i);
 	}
 
-	friend inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
+	static inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
 	{
 		__m128 r0 = _a.rows[0].getAsRegister();
 		__m128 r1 = _a.rows[1].getAsRegister();
@@ -42,6 +42,35 @@ struct matrix3x4SIMD
 		_mm_store_ps(out.rows[0].pointer, matrix3x4SIMD::doJob(r0, _b));
 		_mm_store_ps(out.rows[1].pointer, matrix3x4SIMD::doJob(r1, _b));
 		_mm_store_ps(out.rows[2].pointer, matrix3x4SIMD::doJob(r2, _b));
+
+		return out;
+	}
+
+	static inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
+	{
+		__m128d r00 = _a.halfRowAsDouble(0u, 0);
+		__m128d r01 = _a.halfRowAsDouble(0u, 1);
+		__m128d r10 = _a.halfRowAsDouble(1u, 0);
+		__m128d r11 = _a.halfRowAsDouble(1u, 1);
+		__m128d r20 = _a.halfRowAsDouble(2u, 0);
+		__m128d r21 = _a.halfRowAsDouble(2u, 1);
+
+		matrix3x4SIMD out;
+
+		double tmp[4];
+
+		_mm_storeu_pd(tmp, matrix3x4SIMD::doJob_d(r00, r01, _b, 0));
+		_mm_storeu_pd(tmp+2, matrix3x4SIMD::doJob_d(r00, r01, _b, 1));
+		for (size_t i = 0u; i < 4u; ++i)
+			out.rows[0].pointer[i] = tmp[i];
+		_mm_storeu_pd(tmp, matrix3x4SIMD::doJob_d(r10, r11, _b, 0));
+		_mm_storeu_pd(tmp+2, matrix3x4SIMD::doJob_d(r10, r11, _b, 1));
+		for (size_t i = 0u; i < 4u; ++i)
+			out.rows[1].pointer[i] = tmp[i];
+		_mm_storeu_pd(tmp, matrix3x4SIMD::doJob_d(r20, r21, _b, 0));
+		_mm_storeu_pd(tmp+2, matrix3x4SIMD::doJob_d(r20, r21, _b, 1));
+		for (size_t i = 0u; i < 4u; ++i)
+			out.rows[2].pointer[i] = tmp[i];
 
 		return out;
 	}
@@ -182,7 +211,9 @@ struct matrix3x4SIMD
 	}
 	inline void transformVect(float* _in_out) const
 	{
-		transformVect(_in_out, _in_out);
+		float out[3];
+		transformVect(out, _in_out);
+		memcpy(_in_out, out, 3*4);
 	}
 
 	inline void pseudoMulWith4x1(float* _out, const float* _in) const
@@ -276,7 +307,7 @@ struct matrix3x4SIMD
 	}
 
 	//! @bug @todo not fine
-	inline bool getInverse(matrix3x4SIMD& _out)
+	inline bool getInverse(matrix3x4SIMD& _out) const
 	{
 		// assuming 4th row being 0,0,0,1 like in a sane 4x4 matrix used in games
 		vectorSIMDf tmpA = rows[1].zxxw()*rows[2].yzyw();// (m(1, 2) * m(2, 1)
@@ -372,6 +403,83 @@ struct matrix3x4SIMD
 		rows[2] = c2;
 	}
 
+#define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff))
+	inline void buildAxisAlignedBillboard(
+		const core::vectorSIMDf& camPos,
+		const core::vectorSIMDf& center,
+		const core::vectorSIMDf& translation,
+		const core::vectorSIMDf& axis,
+		const core::vectorSIMDf& from)
+	{
+		// axis of rotation
+		const core::vectorSIMDf up = core::normalize(axis);
+		const core::vectorSIMDf forward = core::normalize(camPos - center);
+		const core::vectorSIMDf right = core::normalize(up.crossProduct(forward));
+
+		// correct look vector
+		const core::vectorSIMDf look = right.crossProduct(up);
+
+		// rotate from to
+		// axis multiplication by sin
+		const core::vectorSIMDf vs = look.crossProduct(from);
+
+		// cosinus angle
+		const core::vectorSIMDf ca = from.dotProduct(look);
+
+		const core::vectorSIMDf vt(up * (core::vectorSIMDf(1.f) - ca));
+		const core::vectorSIMDf wt = vt * up.yzxx();
+		const core::vectorSIMDf vtuppca = vt * up + ca;
+
+		core::vectorSIMDf& row0 = rows[0];
+		core::vectorSIMDf& row1 = rows[1];
+		core::vectorSIMDf& row2 = rows[2];
+
+		row0 = vtuppca & BUILD_MASKF(1, 0, 0, 0);
+		row1 = vtuppca & BUILD_MASKF(0, 1, 0, 0);
+		row2 = vtuppca & BUILD_MASKF(0, 0, 1, 0);
+
+		row0 += (wt.xxzx() + vs.xzyx()*core::vectorSIMDf(1.f, 1.f, -1.f, 1.f)) & BUILD_MASKF(0, 1, 1, 0);
+		row1 += (wt.xxyx() + vs.zxxx()*core::vectorSIMDf(-1.f, 1.f, 1.f, 1.f)) & BUILD_MASKF(1, 0, 1, 0);
+		row2 += (wt.zyxx() + vs.yxxx()*core::vectorSIMDf(1.f, -1.f, 1.f, 1.f)) & BUILD_MASKF(1, 1, 0, 0);
+
+		setRotationCenter(center, translation);
+	}
+
+	inline matrix3x4SIMD& buildRotateFromTo(const core::vectorSIMDf& from, const core::vectorSIMDf& to)
+	{
+		// unit vectors
+		const core::vectorSIMDf f = core::normalize(from);
+		const core::vectorSIMDf t = core::normalize(to);
+
+		// axis multiplication by sin
+		const core::vectorSIMDf vs(t.crossProduct(f));
+
+		// axis of rotation
+		const core::vectorSIMDf v = core::normalize(vs);
+
+		// cosinus angle
+		const core::vectorSIMDf ca = f.dotProduct(t);
+
+		const core::vectorSIMDf vt(v * (core::vectorSIMDf(1.f) - ca));
+		const core::vectorSIMDf wt = vt * v.yzxx();
+		const core::vectorSIMDf vtuppca = vt * v + ca;
+
+		core::vectorSIMDf& row0 = rows[0];
+		core::vectorSIMDf& row1 = rows[1];
+		core::vectorSIMDf& row2 = rows[2];
+
+		const core::vectorSIMDf mask0001 = BUILD_MASKF(0, 0, 0, 1);
+		row0 = (row0 & mask0001) + (vtuppca & BUILD_MASKF(1, 0, 0, 0));
+		row1 = (row1 & mask0001) + (vtuppca & BUILD_MASKF(0, 1, 0, 0));
+		row2 = (row2 & mask0001) + (vtuppca & BUILD_MASKF(0, 0, 1, 0));
+
+		row0 += (wt.xxzx() + vs.xzyx()*core::vectorSIMDf(1.f, 1.f, -1.f, 1.f)) & BUILD_MASKF(0, 1, 1, 0);
+		row1 += (wt.xxyx() + vs.zxxx()*core::vectorSIMDf(-1.f, 1.f, 1.f, 1.f)) & BUILD_MASKF(1, 0, 1, 0);
+		row2 += (wt.zyxx() + vs.yxxx()*core::vectorSIMDf(1.f, -1.f, 1.f, 1.f)) & BUILD_MASKF(1, 1, 0, 0);
+
+		return *this;
+	}
+#undef BUILD_MASKF
 	float& operator()(size_t _i, size_t _j) { return rows[_i].pointer[_j]; }
 	const float& operator()(size_t _i, size_t _j) const { return rows[_i].pointer[_j]; }
 
@@ -383,7 +491,7 @@ private:
 		__m128 r1 = _mtx.rows[1].getAsRegister();
 		__m128 r2 = _mtx.rows[2].getAsRegister();
 
-		__m128 mask = _mm_castsi128_ps(_mm_setr_epi32(0, 0, 0, 0xffffffff));
+		const __m128 mask = _mm_castsi128_ps(_mm_setr_epi32(0, 0, 0, 0xffffffff));
 
 		__m128 res;
 		res = _mm_mul_ps(_mm_shuffle_ps(a, a, BROADCAST32(0)), r0);
@@ -392,12 +500,68 @@ private:
 		res = _mm_add_ps(res, _mm_and_ps(a, mask)); // always 0 0 0 a3 -- no shuffle needed
 		return res;
 	}
+
+	inline __m128d halfRowAsDouble(size_t _n, bool _0) const
+	{
+		double tmp[2]{
+			_0 ? rows[_n].x : rows[_n].z,
+			_0 ? rows[_n].y : rows[_n].w
+		};
+		return _mm_loadu_pd(tmp);
+	}
+	static inline __m128d doJob_d(const __m128d& _a0, const __m128d& _a1, const matrix3x4SIMD& _mtx, bool _0)
+	{
+		__m128d r0 = _mtx.halfRowAsDouble(0u, _0);
+		__m128d r1 = _mtx.halfRowAsDouble(1u, _0);
+		__m128d r2 = _mtx.halfRowAsDouble(2u, _0);
+
+		const __m128d mask01 = _mm_castsi128_pd(_mm_setr_epi32(0, 0, 0xffffffff, 0xffffffff));
+
+		__m128d res;
+		res = _mm_mul_pd(_mm_shuffle_pd(_a0, _a0, 0), r0);
+		res = _mm_add_pd(res, _mm_mul_pd(_mm_shuffle_pd(_a0, _a0, 3), r1));
+		res = _mm_add_pd(res, _mm_mul_pd(_mm_shuffle_pd(_a1, _a1, 0), r2));
+		if (!_0)
+			res = _mm_add_pd(res, _mm_and_pd(_a1, mask01));
+		return res;
+	}
 #undef BROADCAST32
 }
 #ifndef _IRR_WINDOWS_
 __attribute__((__aligned__(SIMD_ALIGNMENT)));
 #endif
 ;
+
+inline void transformPlane(const plane3df& _in, plane3df& _out, const matrix3x4SIMD& _mat)
+{
+	matrix3x4SIMD inv;
+	_mat.getInverse(inv);
+
+	vectorSIMDf& c0 = inv.rows[0], &c1 = inv.rows[1], &c2 = inv.rows[2];
+	vectorSIMDf c3(0.f, 0.f, 0.f, 1.f);
+	core::transpose4(c0, c1, c2, c3);
+
+	const vectorSIMDf normal(_in.Normal.X, _in.Normal.Y, _in.Normal.Z, 0.f);
+
+	_out.Normal.X = normal.dotProductAsFloat(c0);
+	_out.Normal.Y = normal.dotProductAsFloat(c1);
+	_out.Normal.Z = normal.dotProductAsFloat(c2);
+	_out.D = normal.dotProductAsFloat(c3) + _in.D;
+}
+
+inline void transformBoxEx(aabbox3df& box, const matrix3x4SIMD& _mat)
+{
+	float min[4]{ 0.f, 0.f, 0.f, 1.f }, max[4]{ 0.f, 0.f, 0.f, 1.f };
+	memcpy(min, &box.MinEdge.X, 3 * 4);
+	memcpy(max, &box.MaxEdge.X, 3 * 4);
+
+	_mat.transformVect(min);
+	_mat.transformVect(max);
+
+	memcpy(&box.MinEdge.X, min, 3 * 4);
+	memcpy(&box.MaxEdge.Y, max, 3 * 4);
+}
+
 }}
 
 #endif
