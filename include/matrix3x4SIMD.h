@@ -13,7 +13,8 @@ struct matrix3x4SIMD
 {
 	core::vectorSIMDf rows[3];
 
-	matrix3x4SIMD(const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f), const vectorSIMDf& _r1 = vectorSIMDf(0.f, 1.f, 0.f, 0.f), const vectorSIMDf& _r2 = vectorSIMDf(0.f, 0.f, 1.f, 0.f)) 
+#define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff))
+	explicit matrix3x4SIMD(const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f), const vectorSIMDf& _r1 = vectorSIMDf(0.f, 1.f, 0.f, 0.f), const vectorSIMDf& _r2 = vectorSIMDf(0.f, 0.f, 1.f, 0.f)) 
 		: rows{_r0, _r1, _r2} {}
 
 	matrix3x4SIMD(
@@ -30,6 +31,13 @@ struct matrix3x4SIMD
 			return;
 		for (size_t i = 0u; i < 3u; ++i)
 			rows[i] = vectorSIMDf(_data + 4*i);
+	}
+	matrix3x4SIMD(const float* const _data, bool ALIGNED)
+	{
+		if (!_data)
+			return;
+		for (size_t i = 0u; i < 3u; ++i)
+			rows[i] = vectorSIMDf(_data + 4*i, ALIGNED);
 	}
 
 	static inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
@@ -48,29 +56,25 @@ struct matrix3x4SIMD
 
 	static inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
 	{
-		__m128d r00 = _a.halfRowAsDouble(0u, 0);
-		__m128d r01 = _a.halfRowAsDouble(0u, 1);
-		__m128d r10 = _a.halfRowAsDouble(1u, 0);
-		__m128d r11 = _a.halfRowAsDouble(1u, 1);
-		__m128d r20 = _a.halfRowAsDouble(2u, 0);
-		__m128d r21 = _a.halfRowAsDouble(2u, 1);
+		__m128d r00 = _a.halfRowAsDouble(0u, true);
+		__m128d r01 = _a.halfRowAsDouble(0u, false);
+		__m128d r10 = _a.halfRowAsDouble(1u, true);
+		__m128d r11 = _a.halfRowAsDouble(1u, false);
+		__m128d r20 = _a.halfRowAsDouble(2u, true);
+		__m128d r21 = _a.halfRowAsDouble(2u, false);
 
 		matrix3x4SIMD out;
 
-		double tmp[4];
+		const __m128 mask0011 = BUILD_MASKF(0, 0, 1, 1);
 
-		_mm_storeu_pd(tmp, matrix3x4SIMD::doJob_d(r00, r01, _b, 0));
-		_mm_storeu_pd(tmp+2, matrix3x4SIMD::doJob_d(r00, r01, _b, 1));
-		for (size_t i = 0u; i < 4u; ++i)
-			out.rows[0].pointer[i] = tmp[i];
-		_mm_storeu_pd(tmp, matrix3x4SIMD::doJob_d(r10, r11, _b, 0));
-		_mm_storeu_pd(tmp+2, matrix3x4SIMD::doJob_d(r10, r11, _b, 1));
-		for (size_t i = 0u; i < 4u; ++i)
-			out.rows[1].pointer[i] = tmp[i];
-		_mm_storeu_pd(tmp, matrix3x4SIMD::doJob_d(r20, r21, _b, 0));
-		_mm_storeu_pd(tmp+2, matrix3x4SIMD::doJob_d(r20, r21, _b, 1));
-		for (size_t i = 0u; i < 4u; ++i)
-			out.rows[2].pointer[i] = tmp[i];
+		__m128 second = _mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r00, r01, _b, false));
+		out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r00, r01, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+
+		second = _mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r10, r11, _b, false));
+		out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r10, r11, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+
+		second = _mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r20, r21, _b, false));
+		out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r20, r21, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
 
 		return out;
 	}
@@ -83,6 +87,16 @@ struct matrix3x4SIMD
 	inline matrix3x4SIMD& concatenateBefore(const matrix3x4SIMD& _other)
 	{
 		return *this = concatenateBFollowedByA(_other, *this);
+	}
+
+	inline matrix3x4SIMD& concatenateAfterPrecisely(const matrix3x4SIMD& _other)
+	{
+		return *this = concatenateBFollowedByAPrecisely(*this, _other);
+	}
+
+	inline matrix3x4SIMD& concatenateBeforePrecisely(const matrix3x4SIMD& _other)
+	{
+		return *this = concatenateBFollowedByAPrecisely(_other, *this);
 	}
 
 	inline bool operator==(const matrix3x4SIMD& _other)
@@ -141,14 +155,10 @@ struct matrix3x4SIMD
 		rows[2].w = _translation.z;
 		return *this;
 	}
-	inline matrix3x4SIMD& setInverseTranslation(const core::vectorSIMDf& _translation)
-	{
-		return setTranslation(-_translation);
-	}
 	inline vectorSIMDf getTranslation() const
 	{
 		__m128 xmm0 = _mm_unpackhi_ps(rows[0].getAsRegister(), rows[1].getAsRegister()); // (0z,1z,0w,1w)
-		__m128 xmm1 = _mm_unpackhi_ps(rows[2].getAsRegister(), rows[3].getAsRegister()); // (2z,3z,2w,3w)
+		__m128 xmm1 = _mm_unpackhi_ps(rows[2].getAsRegister(), _mm_setr_ps(0.f, 0.f, 0.f, 1.f)); // (2z,3z,2w,3w)
 		__m128 xmm2 = _mm_movehl_ps(xmm1, xmm0);// (0w,1w,2w,3w)
 
 		return xmm2;
@@ -164,13 +174,14 @@ struct matrix3x4SIMD
 
 	inline matrix3x4SIMD& setScale(const core::vectorSIMDf& _scale)
 	{
-		rows[0].x = _scale.X;
-		rows[1].y = _scale.Y;
-		rows[2].z = _scale.Z;
+		const vectorSIMDf mask0001 = BUILD_MASKF(0, 0, 0, 1);
+
+		rows[0] = (_scale & BUILD_MASKF(1, 0, 0, 0)) | (rows[0] & mask0001);
+		rows[1] = (_scale & BUILD_MASKF(0, 1, 0, 0)) | (rows[1] & mask0001);
+		rows[2] = (_scale & BUILD_MASKF(0, 0, 1, 0)) | (rows[2] & mask0001);
 
 		return *this;
 	}
-	inline matrix3x4SIMD& setScale(const float _scale) { return setScale(core::vectorSIMDf(_scale, _scale, _scale)); }
 
 	inline core::vectorSIMDf getScale() const
 	{
@@ -306,55 +317,58 @@ struct matrix3x4SIMD
 		return *this;
 	}
 
-	//! @bug @todo not fine
 	inline bool getInverse(matrix3x4SIMD& _out) const
 	{
-		// assuming 4th row being 0,0,0,1 like in a sane 4x4 matrix used in games
-		vectorSIMDf tmpA = rows[1].zxxw()*rows[2].yzyw();// (m(1, 2) * m(2, 1)
-		vectorSIMDf tmpB = rows[1].yzyw()*rows[2].zxxw();// (m(1, 1) * m(2, 2))
-		vectorSIMDf tmpC = tmpA - tmpB; //1st column of _out matrix
-		vectorSIMDf preDeterminant = rows[0] * tmpC;
-		preDeterminant = _mm_hadd_ps(preDeterminant.getAsRegister(), preDeterminant.getAsRegister()); // (x+y,z+w,..)
-		vectorSIMDf determinant4 = _mm_hadd_ps(preDeterminant.getAsRegister(), preDeterminant.getAsRegister());
+		vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
+		core::transpose4(c0, c1, c2, c3);
 
-		if (determinant4.x == 0.f)
+		const vectorSIMDf c1crossc2 = c1.crossProduct(c2);
+
+		const vectorSIMDf d = c0.dotProduct(c1crossc2);
+
+		if (core::iszero(d.x, FLT_MIN))
 			return false;
 
-		tmpA = rows[0].zxyw()*rows[2].yzxw();
-		tmpB = rows[0].yzxw()*rows[2].zxyw();
-		vectorSIMDf tmpD = tmpA - tmpB; // 2nd column of _out matrix
+		_out.rows[0] = c1crossc2 / d;
+		_out.rows[1] = (c2.crossProduct(c0)) / d;
+		_out.rows[2] = (c0.crossProduct(c1)) / d;
 
-		tmpA = rows[0].yzxw()*rows[1].zxyw();
-		tmpB = rows[0].zxyw()*rows[1].yzxw();
-		vectorSIMDf tmpE = tmpA - tmpB; // 3rd column of _out matrix
+		vectorSIMDf outC3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
+		core::transpose4(_out.rows[0], _out.rows[1], _out.rows[2], outC3);
+		mulSub3x3With3x1(outC3.pointer, c3.pointer);
+		outC3 = -outC3;
+		core::transpose4(_out.rows[0], _out.rows[1], _out.rows[2], outC3);
 
-		__m128 xmm0 = tmpC.getAsRegister();
-		__m128 xmm1 = tmpD.getAsRegister();
-		__m128 xmm2 = tmpE.getAsRegister();
-		__m128 xmm3 = _mm_setzero_ps();
+		return true;
+	}
+	bool makeInverse()
+	{
+		matrix3x4SIMD tmp;
 
-		_MM_TRANSPOSE4_PS(xmm0, xmm1, xmm2, xmm3);
+		if (getInverse(tmp))
+		{
+			*this = tmp;
+			return true;
+		}
+		return false;
+	}
 
-		__m128 xmm4 = getTranslation3D().getAsRegister();
+	inline bool getSub3x3Inverse(float* _out) const
+	{
+		vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
+		core::transpose4(c0, c1, c2, c3);
 
-		xmm0 = _mm_mul_ps(xmm0, xmm4); //_out(0,3)
-		xmm1 = _mm_mul_ps(xmm1, xmm4); //_out(1,3)
-		xmm2 = _mm_or_ps(_mm_mul_ps(xmm2, xmm4), _mm_castsi128_ps(_mm_set_epi32(0, -1, 0, -1))); //_out(2,3)
+		const vectorSIMDf c1crossc2 = c1.crossProduct(c2);
 
-		xmm0 = _mm_hsub_ps(xmm0, xmm1); // C.x-D.x,E.x,C.y-D.y,E.y
-		xmm1 = _mm_hsub_ps(xmm2, preDeterminant.getAsRegister()); // C.z-D.z,E.z,x+y-z-w,x+Y-z-w
-		xmm2 = _mm_hsub_ps(xmm0, xmm1); // C.x-D.x-E.x,C.y-D.y-E.y,C.z-D.z-E.z,0
+		const vectorSIMDf d = c0.dotProduct(c1crossc2);
 
-		__m128 tc = tmpC.getAsRegister(), td = tmpD.getAsRegister(), te = tmpE.getAsRegister();
-		_MM_TRANSPOSE4_PS(tc, td, td, xmm2);
-		_out.rows[0] = tc;
-		_out.rows[1] = td;
-		_out.rows[2] = te;
+		if (core::iszero(d.x, FLT_MIN))
+			return false;
 
-		__m128 rdet = _mm_rcp_ps(determinant4.getAsRegister());
-		_out.rows[0] *= rdet;
-		_out.rows[1] *= rdet;
-		_out.rows[2] *= rdet;
+		reinterpret_cast<vectorSIMDf*>(_out)[0] = c1crossc2 / d;
+		reinterpret_cast<vectorSIMDf*>(_out+3)[0] = (c2.crossProduct(c0)) / d;
+		const vectorSIMDf c0crossc1 = (c0.crossProduct(c1)) / d;
+		memcpy(_out+6, c0crossc1.pointer, 3*4);
 
 		return true;
 	}
@@ -403,7 +417,6 @@ struct matrix3x4SIMD
 		rows[2] = c2;
 	}
 
-#define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff))
 	inline void buildAxisAlignedBillboard(
 		const core::vectorSIMDf& camPos,
 		const core::vectorSIMDf& center,
@@ -445,6 +458,7 @@ struct matrix3x4SIMD
 		setRotationCenter(center, translation);
 	}
 
+	//! @bug Something's wrong with row[2].x
 	inline matrix3x4SIMD& buildRotateFromTo(const core::vectorSIMDf& from, const core::vectorSIMDf& to)
 	{
 		// unit vectors
@@ -503,17 +517,13 @@ private:
 
 	inline __m128d halfRowAsDouble(size_t _n, bool _0) const
 	{
-		double tmp[2]{
-			_0 ? rows[_n].x : rows[_n].z,
-			_0 ? rows[_n].y : rows[_n].w
-		};
-		return _mm_loadu_pd(tmp);
+		return _mm_cvtps_pd(_0 ? rows[_n].xyxx().getAsRegister() : rows[_n].zwxx().getAsRegister());
 	}
-	static inline __m128d doJob_d(const __m128d& _a0, const __m128d& _a1, const matrix3x4SIMD& _mtx, bool _0)
+	static inline __m128d doJob_d(const __m128d& _a0, const __m128d& _a1, const matrix3x4SIMD& _mtx, bool _xyHalf)
 	{
-		__m128d r0 = _mtx.halfRowAsDouble(0u, _0);
-		__m128d r1 = _mtx.halfRowAsDouble(1u, _0);
-		__m128d r2 = _mtx.halfRowAsDouble(2u, _0);
+		__m128d r0 = _mtx.halfRowAsDouble(0u, _xyHalf);
+		__m128d r1 = _mtx.halfRowAsDouble(1u, _xyHalf);
+		__m128d r2 = _mtx.halfRowAsDouble(2u, _xyHalf);
 
 		const __m128d mask01 = _mm_castsi128_pd(_mm_setr_epi32(0, 0, 0xffffffff, 0xffffffff));
 
@@ -521,7 +531,7 @@ private:
 		res = _mm_mul_pd(_mm_shuffle_pd(_a0, _a0, 0), r0);
 		res = _mm_add_pd(res, _mm_mul_pd(_mm_shuffle_pd(_a0, _a0, 3), r1));
 		res = _mm_add_pd(res, _mm_mul_pd(_mm_shuffle_pd(_a1, _a1, 0), r2));
-		if (!_0)
+		if (!_xyHalf)
 			res = _mm_add_pd(res, _mm_and_pd(_a1, mask01));
 		return res;
 	}
