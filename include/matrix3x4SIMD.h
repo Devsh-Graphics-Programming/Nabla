@@ -289,7 +289,7 @@ struct matrix3x4SIMD
 		return r;
 	}
 
-	friend inline matrix3x4SIMD mix(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b, const float& _x)
+	static inline matrix3x4SIMD mix(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b, const float& _x)
 	{
 		matrix3x4SIMD mat;
 
