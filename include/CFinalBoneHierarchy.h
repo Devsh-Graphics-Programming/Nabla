@@ -220,7 +220,7 @@ namespace scene
                     return;
                 else if (buffer->isMappedBuffer())
                 {
-                    if (!dynamic_cast<video::IGPUMappedBuffer*>(buffer)->getPointer())
+                    if (!static_cast<video::IGPUMappedBuffer*>(buffer)->getPointer())
                         return;
                 }
                 else if (!buffer->canUpdateSubRange())
@@ -232,7 +232,7 @@ namespace scene
                 boundBuffer = buffer;
 
                 if (buffer->isMappedBuffer())
-                    memcpy(reinterpret_cast<uint8_t*>(dynamic_cast<video::IGPUMappedBuffer*>(buffer)->getPointer())+byteOffset,boneFlatArray,boneDataSize);
+                    memcpy(reinterpret_cast<uint8_t*>(static_cast<video::IGPUMappedBuffer*>(buffer)->getPointer())+byteOffset,boneFlatArray,boneDataSize);
                 else
                     buffer->updateSubRange(byteOffset,boneDataSize,boneFlatArray);
             }

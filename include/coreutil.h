@@ -620,7 +620,7 @@ class LeakDebugger
 } // end namespace core
 } // end namespace irr
 
-
+/*
 namespace std
 {
     template <>
@@ -630,6 +630,7 @@ namespace std
             size_t operator()(const irr::core::LeakDebugger::StackTrace &x ) const;
     };
 }
+*/
 
 #endif
 // documented by Krzysztof Szenk on 12-02-2018

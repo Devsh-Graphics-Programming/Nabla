@@ -6,6 +6,7 @@
 #define __E_CULLING_TYPES_H_INCLUDED__
 
 #include "irrTypes.h"
+#include "irrMacros.h"
 
 namespace irr
 {

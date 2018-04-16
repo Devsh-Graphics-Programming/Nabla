@@ -33,7 +33,7 @@ public:
         float lodDistance;
     };
 
-    typedef scene::IGPUMeshDataFormatDesc* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const scene::IGPUMeshDataFormatDesc*, void* userData);
+    typedef scene::IMeshDataFormatDesc<video::IGPUBuffer>* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const scene::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
     typedef void (*CPUCullingFunc)(uint8_t**,const size_t&,const core::aabbox3df&,const size_t&,const core::matrix4x3&,const uint8_t*,const size_t&,scene::ISceneManager*,void*);
 
 	//! Constructor
