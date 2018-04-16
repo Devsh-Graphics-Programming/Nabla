@@ -6,6 +6,8 @@
 #define __I_IREFERENCE_COUNTED_H_INCLUDED__
 
 #include "irrTypes.h"
+#include "irrMacros.h"
+//#include "irrMemory.h"
 
 namespace irr
 {

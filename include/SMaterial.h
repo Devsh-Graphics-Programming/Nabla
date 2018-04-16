@@ -254,9 +254,10 @@ namespace video
 		float PolygonOffsetConstantMultiplier;
 
 		float PolygonOffsetGradientMultiplier;
-
+#ifdef __GNUC__
 #include "irrunpack.h"
         struct {
+#endif // __GNUC__
             //! Defines the enabled color planes
             /** Values are defined as or'ed values of the E_COLOR_PLANE enum.
             Only enabled color planes will be rendered to the current render
@@ -291,8 +292,10 @@ namespace video
             uint64_t FrontfaceCulling:1;
 
             uint64_t RasterizerDiscard:1;
+#ifdef __GNUC__
         };
 #include "irrpack.h"
+#endif // __GNUC__
 
 		void serializeBitfields(uint64_t* dst) const
 		{

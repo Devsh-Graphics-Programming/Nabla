@@ -1185,8 +1185,8 @@ IGPUMappedBuffer* COpenGLDriver::createPersistentlyMappedBuffer(const size_t &si
 
 void COpenGLDriver::bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
 {
-    COpenGLBuffer* readbuffer = dynamic_cast<COpenGLBuffer*>(readBuffer);
-    COpenGLBuffer* writebuffer = dynamic_cast<COpenGLBuffer*>(writeBuffer);
+    COpenGLBuffer* readbuffer = static_cast<COpenGLBuffer*>(readBuffer);
+    COpenGLBuffer* writebuffer = static_cast<COpenGLBuffer*>(writeBuffer);
     extGlCopyNamedBufferSubData(readbuffer->getOpenGLName(),writebuffer->getOpenGLName(),readOffset,writeOffset,length);
 }
 
@@ -2199,7 +2199,7 @@ inline GLint getTextureWrapMode(const uint8_t &clamp)
 }
 
 
-GLuint COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t &hashVal)
+const GLuint& COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t &hashVal)
 {
     GLuint samplerHandle;
     extGlGenSamplers(1,&samplerHandle);
@@ -2240,8 +2240,7 @@ GLuint COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t &hashV
     extGlSamplerParameterf(samplerHandle, GL_TEXTURE_LOD_BIAS, tmpTSP->LODBias);
     extGlSamplerParameteri(samplerHandle, GL_TEXTURE_CUBE_MAP_SEAMLESS, tmpTSP->SeamlessCubeMap);
 
-    SamplerMap[hashVal] = samplerHandle;
-    return samplerHandle;
+    return (SamplerMap[hashVal] = samplerHandle);
 }
 
 bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams)
@@ -2264,7 +2263,7 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtua
         if (!texture)
         {
             if (oldTexture)
-                extGlBindTextureUnit(stage,0,oldTexType);
+                extGlBindTextures(stage,1,NULL,&oldTexType);
         }
         else
         {
@@ -2272,7 +2271,7 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtua
             {
                 CurrentTexture.set(stage, 0);
                 if (oldTexture)
-                    extGlBindTextureUnit(stage,0,oldTexType);
+                    extGlBindTextures(stage,1,NULL,&oldTexType);
                 os::Printer::log("Fatal Error: Tried to set a texture not owned by this driver.", ELL_ERROR);
             }
             else
@@ -2280,9 +2279,9 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtua
                 const video::COpenGLTexture* newTexture = dynamic_cast<const COpenGLTexture*>(texture);
                 GLenum newTexType = newTexture->getOpenGLTextureType();
 
-                if (oldTexture&&oldTexType!=newTexType)
-                    extGlBindTextureUnit(stage,0,oldTexType);
-                extGlBindTextureUnit(stage,newTexture->getOpenGLName(),newTexType);
+                if (Version<440 && !FeatureAvailable[IRR_ARB_multi_bind] && oldTexture && oldTexType!=newTexType)
+                    extGlBindTextures(stage,1,NULL,&oldTexType);
+                extGlBindTextures(stage,1,&newTexture->getOpenGLName(),&newTexType);
             }
         }
     }
@@ -2299,11 +2298,11 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtua
                 std::map<uint64_t,GLuint>::iterator it = SamplerMap.find(hashVal);
                 if (it != SamplerMap.end())
                 {
-                    extGlBindSampler(stage,it->second);
+                    extGlBindSamplers(stage,1,&it->second);
                 }
                 else
                 {
-                    extGlBindSampler(stage,constructSamplerInCache(hashVal));
+                    extGlBindSamplers(stage,1,&constructSamplerInCache(hashVal));
                 }
             }
         }
@@ -2311,7 +2310,7 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtua
     else if (CurrentSamplerHash[stage]!=0xffffffffffffffffull)
     {
         CurrentSamplerHash[stage] = 0xffffffffffffffffull;
-        extGlBindSampler(stage,0);
+        extGlBindSamplers(stage,1,NULL);
     }
 
 	return true;
@@ -2324,8 +2323,9 @@ void COpenGLDriver::SAuxContext::STextureStageCache::remove(const IVirtualTextur
     {
         if (CurrentTexture[i] == tex)
         {
-            COpenGLExtensionHandler::extGlBindTextureUnit(i,0,dynamic_cast<const COpenGLTexture*>(tex)->getOpenGLTextureType());
-            COpenGLExtensionHandler::extGlBindSampler(i,0);
+            GLenum target = dynamic_cast<const COpenGLTexture*>(tex)->getOpenGLTextureType();
+            COpenGLExtensionHandler::extGlBindTextures(i,1,NULL,&target);
+            COpenGLExtensionHandler::extGlBindSamplers(i,1,NULL);
             tex->drop();
             CurrentTexture[i] = 0;
         }
@@ -2335,16 +2335,23 @@ void COpenGLDriver::SAuxContext::STextureStageCache::remove(const IVirtualTextur
 void COpenGLDriver::SAuxContext::STextureStageCache::clear()
 {
     // Drop all the CurrentTexture handles
+    GLuint textures[MATERIAL_MAX_TEXTURES] = {0};
+    GLenum targets[MATERIAL_MAX_TEXTURES];
+
     for (uint32_t i=0; i<MATERIAL_MAX_TEXTURES; ++i)
     {
         if (CurrentTexture[i])
         {
-            COpenGLExtensionHandler::extGlBindTextureUnit(i,0,dynamic_cast<const COpenGLTexture*>(CurrentTexture[i])->getOpenGLTextureType());
-            COpenGLExtensionHandler::extGlBindSampler(i,0);
+            targets[i] = dynamic_cast<const COpenGLTexture*>(CurrentTexture[i])->getOpenGLTextureType();
             CurrentTexture[i]->drop();
-            CurrentTexture[i] = 0;
+            CurrentTexture[i] = NULL;
         }
+        else
+            targets[i] = GL_INVALID_ENUM;
     }
+
+    COpenGLExtensionHandler::extGlBindTextures(0,MATERIAL_MAX_TEXTURES,textures,targets);
+    COpenGLExtensionHandler::extGlBindSamplers(0,MATERIAL_MAX_TEXTURES,NULL);
 }
 
 
@@ -2876,7 +2883,7 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
 
 ITextureBufferObject* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format, const size_t& offset, const size_t& length)
 {
-    COpenGLBuffer* buffer = dynamic_cast<COpenGLBuffer*>(buf);
+    COpenGLBuffer* buffer = static_cast<COpenGLBuffer*>(buf);
     if (!buffer)
         return NULL;
 
@@ -3386,7 +3393,7 @@ void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback, SAu
     {
 #ifdef _DEBUG
         if (!toContext->CurrentXFormFeedback->isEnded())
-            os::Printer::log("FIDDLING WITH XFORM FEEDBACK BINDINGS WHILE BOUND XFORMFEEDBACK HASN't ENDED!\n",ELL_ERROR);
+            os::Printer::log("FIDDLING WITH XFORM FEEDBACK BINDINGS WHILE THE BOUND XFORMFEEDBACK HASN't ENDED!\n",ELL_ERROR);
 #endif // _DEBUG
         toContext->CurrentXFormFeedback->drop();
     }

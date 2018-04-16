@@ -350,6 +350,8 @@
 		<Unit filename="../../include/heapsort.h" />
 		<Unit filename="../../include/irrAllocator.h" />
 		<Unit filename="../../include/irrArray.h" />
+		<Unit filename="../../include/irrBaseClasses.h" />
+		<Unit filename="../../include/irrMacros.h" />
 		<Unit filename="../../include/irrMath.h" />
 		<Unit filename="../../include/irrString.h" />
 		<Unit filename="../../include/irrTypes.h" />
@@ -384,6 +386,7 @@
 		<Unit filename="CBAWMeshFileLoader.h" />
 		<Unit filename="CBAWMeshWriter.cpp" />
 		<Unit filename="CBAWMeshWriter.h" />
+		<Unit filename="CBAWFile.h" />
 		<Unit filename="CBillboardSceneNode.cpp" />
 		<Unit filename="CBillboardSceneNode.h" />
 		<Unit filename="CBlit.h" />

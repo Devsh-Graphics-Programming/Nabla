@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_set>
 #include <algorithm>
+#include <functional>
 #include "ISkinnedMesh.h"
 #include "IGPUMappedBuffer.h"
 #include "quaternion.h"

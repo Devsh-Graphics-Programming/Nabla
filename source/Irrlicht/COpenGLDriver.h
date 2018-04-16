@@ -317,7 +317,7 @@ namespace video
             //! Returns whether setting was a success or not.
             bool setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams);
 
-            GLuint constructSamplerInCache(const uint64_t &hashVal);
+            const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 
 
             std::thread::id threadId;
@@ -414,7 +414,7 @@ namespace video
 
 		SMaterial Material, LastMaterial;
 
-	    COpenGLBuffer* currentIndirectDrawBuff; //move to per-context storage?
+	    const COpenGLBuffer* currentIndirectDrawBuff; //move to per-context storage?
 	    uint64_t lastValidatedIndirectBuffer; //move to per-context storage?
 
 

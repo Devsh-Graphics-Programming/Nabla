@@ -12,6 +12,7 @@
 #include "IMaterialRendererServices.h"
 #include "EDriverFeatures.h"
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include "os.h"
 #include "coreutil.h"
 
@@ -123,6 +124,7 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_map_buffer_alignment",
 	"GL_ARB_map_buffer_range",
 	"GL_ARB_matrix_palette",
+	"GL_ARB_multi_bind",
 	"GL_ARB_multi_draw_indirect",
 	"GL_ARB_multisample",
 	"GL_ARB_multitexture",
@@ -559,6 +561,7 @@ class COpenGLExtensionHandler
 		IRR_ARB_map_buffer_alignment,
 		IRR_ARB_map_buffer_range,
 		IRR_ARB_matrix_palette,
+		IRR_ARB_multi_bind,
 		IRR_ARB_multi_draw_indirect,
 		IRR_ARB_multisample,
 		IRR_ARB_multitexture,
@@ -1007,7 +1010,7 @@ class COpenGLExtensionHandler
 
 	// public access to the (loaded) extensions.
 	static void extGlActiveTexture(GLenum target);
-    static void extGlBindTextureUnit(GLuint unit, GLuint texture, GLenum target);
+    static void extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets);
     static void extGlCreateTextures(GLenum target, GLsizei n, GLuint *textures);
 
 
@@ -1035,7 +1038,7 @@ class COpenGLExtensionHandler
 
     static void extGlGenSamplers(GLsizei n, GLuint* samplers);
     static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
-    static void extGlBindSampler(GLuint unit, GLuint sampler);
+    static void extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers);
     static void extGlSamplerParameteri(GLuint sampler, GLenum pname, GLint param);
     static void extGlSamplerParameterf(GLuint sampler, GLenum pname, GLfloat param);
 
@@ -1127,7 +1130,8 @@ class COpenGLExtensionHandler
 	// vertex buffer object
 	static void extGlCreateBuffers(GLsizei n, GLuint *buffers);
 	static void extGlBindBuffer(const GLenum& target, const GLuint& buffer);
-    static void extGlBindBufferRange(const GLenum& target, const GLuint& index, const GLuint& buffer, const GLintptr& offset, const GLsizeiptr& size);
+    static void extGlBindBuffersBase(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers);
+    static void extGlBindBuffersRange(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers, const GLintptr* offsets, const GLsizeiptr* sizes);
 	static void extGlDeleteBuffers(GLsizei n, const GLuint *buffers);
     static void extGlNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void *data, GLbitfield flags);
 	static void extGlNamedBufferSubData (GLuint buffer, GLintptr offset, GLsizeiptr size, const void *data);
@@ -1164,7 +1168,7 @@ class COpenGLExtensionHandler
     static void extGlResumeTransformFeedback();
     static void extGlEndTransformFeedback();
     static void extGlTransformFeedbackBufferBase(GLuint xfb, GLuint index, GLuint buffer);
-    static void extGlTransformFeedbackBufferRange(GLuint xfb, GLuint index, GLuint buffer, GLintptr offset, GLsizei size);
+    static void extGlTransformFeedbackBufferRange(GLuint xfb, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size);
 
 
     //draw
@@ -1252,8 +1256,7 @@ class COpenGLExtensionHandler
 
     //textures
     static PFNGLACTIVETEXTUREPROC pGlActiveTexture;
-    static PFNGLBINDTEXTUREUNITPROC pGlBindTextureUnit; //NULL
-    static PFNGLBINDMULTITEXTUREEXTPROC pGlBindMultiTextureEXT;
+    static PFNGLBINDTEXTURESPROC pGlBindTextures; //NULL
     static PFNGLCREATETEXTURESPROC pGlCreateTextures; //NULL
     static PFNGLTEXSTORAGE1DPROC pGlTexStorage1D;
     static PFNGLTEXSTORAGE2DPROC pGlTexStorage2D;
@@ -1312,6 +1315,7 @@ class COpenGLExtensionHandler
     static PFNGLCREATESAMPLERSPROC pGlCreateSamplers; //NULL
     static PFNGLDELETESAMPLERSPROC pGlDeleteSamplers;
     static PFNGLBINDSAMPLERPROC pGlBindSampler;
+    static PFNGLBINDSAMPLERSPROC pGlBindSamplers;
     static PFNGLSAMPLERPARAMETERIPROC pGlSamplerParameteri;
     static PFNGLSAMPLERPARAMETERFPROC pGlSamplerParameterf;
 
@@ -1321,6 +1325,8 @@ class COpenGLExtensionHandler
     // stuff
     static PFNGLBINDBUFFERBASEPROC pGlBindBufferBase;
     static PFNGLBINDBUFFERRANGEPROC pGlBindBufferRange;
+    static PFNGLBINDBUFFERSBASEPROC pGlBindBuffersBase;
+    static PFNGLBINDBUFFERSRANGEPROC pGlBindBuffersRange;
 
     //shaders
     static PFNGLBINDATTRIBLOCATIONPROC pGlBindAttribLocation; //NULL
@@ -1718,35 +1724,54 @@ inline void COpenGLExtensionHandler::extGlActiveTexture(GLenum target)
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
-inline void COpenGLExtensionHandler::extGlBindTextureUnit(GLuint unit, GLuint texture, GLenum target)
+inline void COpenGLExtensionHandler::extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    const GLenum supportedTargets[] = { GL_TEXTURE_1D,GL_TEXTURE_2D, // GL 1.x
+                                        GL_TEXTURE_3D,GL_TEXTURE_RECTANGLE,GL_TEXTURE_CUBE_MAP, // GL 2.x
+                                        GL_TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_BUFFER, // GL 3.x
+                                        GL_TEXTURE_CUBE_MAP_ARRAY,GL_TEXTURE_2D_MULTISAMPLE,GL_TEXTURE_2D_MULTISAMPLE_ARRAY}; // GL 4.x
+
+    if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
     {
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlBindTextureUnit)
-            pGlBindTextureUnit(unit,texture);
+        if (pGlBindTextures)
+            pGlBindTextures(first,count,textures);
 #else
-        glBindTextureUnit(unit,texture);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlBindMultiTextureEXT)
-            pGlBindMultiTextureEXT(GL_TEXTURE0+unit,target,texture);
-#else
-        glBindMultiTextureEXT(GL_TEXTURE0+unit,target,texture);
+        glBindTextures(first,count,textures);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else
     {
+        int32_t activeTex = 0;
+        glGetIntegerv(GL_ACTIVE_TEXTURE,&activeTex);
+
+        for (GLsizei i=0; i<count; i++)
+        {
+            GLuint texture = textures ? textures[i]:0;
+
+            GLuint unit = first+i;
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+            if (pGlActiveTexture)
+                pGlActiveTexture(GL_TEXTURE0+unit);
+#else
+            glActiveTexture(GL_TEXTURE0+unit);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+
+            if (texture)
+                glBindTexture(targets[i],texture);
+            else
+            {
+                for (size_t j=0; j<sizeof(supportedTargets)/sizeof(GLenum); j++)
+                    glBindTexture(supportedTargets[j],0);
+            }
+        }
+
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlActiveTexture)
-            pGlActiveTexture(GL_TEXTURE0+unit);
+            pGlActiveTexture(activeTex);
 #else
-        glActiveTexture(GL_TEXTURE0+unit);
+        glActiveTexture(activeTex);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
-        glBindTexture(target, texture);
     }
 }
 
@@ -1765,17 +1790,7 @@ inline void COpenGLExtensionHandler::extGlCreateTextures(GLenum target, GLsizei 
     }
     else
     {
-        glGenTextures(n,textures);/*
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-#else
-        ///GLuint oldBoundTex = ;
-        for (GLsizei i=0; i<n; n++)
-        {
-            glBindMultiTextureEXT(0,target,textures[i]);
-        }
-        glBindMultiTextureEXT(0,target,oldBoundTex);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-*/
+        glGenTextures(n,textures);
     }
 }
 
@@ -2674,14 +2689,42 @@ inline void COpenGLExtensionHandler::extGlDeleteSamplers(GLsizei n, GLuint* samp
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
-inline void COpenGLExtensionHandler::extGlBindSampler(GLuint unit, GLuint sampler)
+inline void COpenGLExtensionHandler::extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlBindSampler)
-        pGlBindSampler(unit,sampler);
-#else
-    glBindSampler(unit,sampler);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBindSamplers)
+            pGlBindSamplers(first,count,samplers);
+    #else
+        glBindSamplers(first,count,samplers);
+    #endif // _IRR_OPENGL_USE_EXTPOINTER_
+    }
+    else
+    {
+        for (GLsizei i=0; i<count; i++)
+        {
+            GLuint unit = first+i;
+            if (samplers)
+            {
+            #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+                if (pGlBindSampler)
+                    pGlBindSampler(unit,samplers[i]);
+            #else
+                glBindSampler(unit,samplers[i]);
+            #endif // _IRR_OPENGL_USE_EXTPOINTER_
+            }
+            else
+            {
+            #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+                if (pGlBindSampler)
+                    pGlBindSampler(unit,0);
+            #else
+                glBindSampler(unit,0);
+            #endif // _IRR_OPENGL_USE_EXTPOINTER_
+            }
+        }
+    }
 }
 
 inline void COpenGLExtensionHandler::extGlSamplerParameteri(GLuint sampler, GLenum pname, GLint param)
@@ -3952,14 +3995,66 @@ inline void COpenGLExtensionHandler::extGlBindBuffer(const GLenum& target, const
 #endif
 }
 
-inline void COpenGLExtensionHandler::extGlBindBufferRange(const GLenum& target, const GLuint& index, const GLuint& buffer, const GLintptr& offset, const GLsizeiptr& size)
+inline void COpenGLExtensionHandler::extGlBindBuffersBase(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlBindBufferRange)
-        pGlBindBufferRange(target,index,buffer,offset,size);
-#else
-    glBindBufferRange(target,index,buffer,offset,size);
-#endif
+    if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBindBuffersBase)
+            pGlBindBuffersBase(target,first,count,buffers);
+    #else
+        glBindBuffersBase(target,first,count,buffers);
+    #endif
+    }
+    else
+    {
+        for (GLsizei i=0; i<count; i++)
+        {
+        #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+            if (pGlBindBufferBase)
+                pGlBindBufferBase(target,first+i,buffers ? buffers[i]:0);
+        #else
+            glBindBufferBase(target,first+i,buffers ? buffers[i]:0);
+        #endif
+        }
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlBindBuffersRange(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers, const GLintptr* offsets, const GLsizeiptr* sizes)
+{
+    if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlBindBuffersRange)
+            pGlBindBuffersRange(target,first,count,buffers,offsets,sizes);
+    #else
+        glBindBuffersRange(target,first,count,buffers,offsets,sizes);
+    #endif
+    }
+    else
+    {
+        for (GLsizei i=0; i<count; i++)
+        {
+            if (buffers)
+            {
+            #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+                if (pGlBindBufferRange)
+                    pGlBindBufferRange(target,first+i,buffers[i],offsets[i],sizes[i]);
+            #else
+                glBindBufferRange(target,first+i,buffers[i],offsets[i],sizes[i]);
+            #endif
+            }
+            else
+            {
+            #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+                if (pGlBindBufferBase)
+                    pGlBindBufferBase(target,first+i,0);
+            #else
+                glBindBufferBase(target,first+i,0);
+            #endif
+            }
+        }
+    }
 }
 
 inline void COpenGLExtensionHandler::extGlNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void *data, GLbitfield flags)
@@ -4892,17 +4987,12 @@ inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferBase(GLuint xfb
         GLint restoreXFormFeedback;
         glGetIntegerv(GL_TRANSFORM_FEEDBACK_BINDING, &restoreXFormFeedback);
         extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,xfb);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlBindBufferBase)
-            pGlBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,index,buffer);
-#else
-        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,index,buffer);
-#endif
+        extGlBindBuffersBase(GL_TRANSFORM_FEEDBACK_BUFFER,index,1,&buffer);
         extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,restoreXFormFeedback);
     }
 }
 
-inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferRange(GLuint xfb, GLuint index, GLuint buffer, GLintptr offset, GLsizei size)
+inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferRange(GLuint xfb, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
@@ -4918,12 +5008,7 @@ inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferRange(GLuint xf
         GLint restoreXFormFeedback;
         glGetIntegerv(GL_TRANSFORM_FEEDBACK_BINDING, &restoreXFormFeedback);
         extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,xfb);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlBindBufferRange)
-            pGlBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER,index,buffer,offset,size);
-#else
-        glBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER,index,buffer,offset,size);
-#endif
+        extGlBindBuffersRange(GL_TRANSFORM_FEEDBACK_BUFFER,index,1,&buffer,&offset,&size);
         extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,restoreXFormFeedback);
     }
 }

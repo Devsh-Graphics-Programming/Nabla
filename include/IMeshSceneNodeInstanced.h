@@ -5,16 +5,6 @@
 #ifndef __I_MESH_SCENE_NODE_INSTANCED_H_INCLUDED__
 #define __I_MESH_SCENE_NODE_INSTANCED_H_INCLUDED__
 
-/*
-namespace irr
-{
-namespace scene
-{
-
-    class IGPUMeshDataFormatDesc;
-
-}
-}*/
 
 #include "ISceneNode.h"
 #include "SMesh.h"

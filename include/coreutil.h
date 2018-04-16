@@ -8,8 +8,9 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#include <unordered_set>
 #include <unordered_map>
+#include <set>
+#include <unordered_set>
 #include <cwchar>
 #include "stddef.h"
 #include "string.h"
@@ -553,6 +554,7 @@ class LeakDebugger
 
                 const std::vector<std::string>& getTrace() const {return stackTrace;}
 
+                /*
 				//! Comparison operator. Needed for map/sorting.
                 bool operator<(const StackTrace& o) const
                 {
@@ -572,8 +574,9 @@ class LeakDebugger
                     else
                         return false;
                 }
+                */
 
-				//! Comparison operator. Needed for unordered map/sorting.
+				//! Equality operator. Needed for unordered containers.
                 bool operator==(const StackTrace& o) const
                 {
                     if (stackTrace.size()!=o.stackTrace.size())
@@ -584,7 +587,6 @@ class LeakDebugger
                         if (stackTrace[i]!=o.stackTrace[i])
                             return false;
                     }
-
                     return true;
                 }
 
@@ -617,6 +619,17 @@ class LeakDebugger
 
 } // end namespace core
 } // end namespace irr
+
+
+namespace std
+{
+    template <>
+    class hash<irr::core::LeakDebugger::StackTrace>
+    {
+        public :
+            size_t operator()(const irr::core::LeakDebugger::StackTrace &x ) const;
+    };
+}
 
 #endif
 // documented by Krzysztof Szenk on 12-02-2018

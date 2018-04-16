@@ -66,7 +66,7 @@ LINKOBJ = $(IRRMESHOBJ) $(IRROBJ) $(IRRANIMOBJ) \
 #Compiler flags
 CXXINCS = -I../../include -I../../../openssl/include -Izlib -Ijpeglib -Ilibpng -Iconvert_utf -Iutf8/source
 CPPFLAGS += $(CXXINCS) -DIRRLICHT_EXPORTS=1
-CXXFLAGS += -Wall -pipe -fno-exceptions -fstrict-aliasing
+CXXFLAGS += -std=c++11 -Wall -pipe -fno-exceptions -fstrict-aliasing
 ifndef NDEBUG
 CXXFLAGS += -g -D_DEBUG
 else
@@ -192,7 +192,7 @@ TAGS:
 
 # Create dependency files for automatic recompilation
 %.d:%.cpp
-	$(CXX) $(CPPFLAGS) -MM -MF $@ $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM -MF $@ $<
 
 # Create dependency files for automatic recompilation
 %.d:%.c
