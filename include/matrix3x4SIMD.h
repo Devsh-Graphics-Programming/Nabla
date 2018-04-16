@@ -213,12 +213,20 @@ struct matrix3x4SIMD
 
 	inline void transformVect(float* _out, const float* _in) const
 	{
-		vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3(0.f, 0.f, 0.f, 1.f);
-		core::transpose4(c0, c1, c2, c3);
+		vectorSIMDf vec(_in);
+		vectorSIMDf r0 = rows[0] * vec, 
+			r1 = rows[1] * vec, 
+			r2 = rows[2] * vec, 
+			r3 = vec & BUILD_MASKF(0, 0, 0, 1);
 
-		vectorSIMDf inOut = vectorSIMDf(_in);
-		inOut = c0 * inOut.x + c1 * inOut.y + c2 * inOut.z + c3;
-		memcpy(_out, inOut.pointer, 3 * 4);
+		float res[4];
+		_mm_storeu_ps(res,
+		_mm_hadd_ps(
+			_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()),
+			_mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister())
+		));
+
+		memcpy(_out, res, 3 * 4);
 	}
 	inline void transformVect(float* _in_out) const
 	{
@@ -238,12 +246,21 @@ struct matrix3x4SIMD
 
 	inline void mulSub3x3With3x1(float* _out, const float* _in) const
 	{
-		vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3(0.f, 0.f, 0.f, 1.f);
-		core::transpose4(c0, c1, c2, c3);
+		vectorSIMDf mask1110 = BUILD_MASKF(1, 1, 1, 0);
+		vectorSIMDf vec(_in);
+		vectorSIMDf r0 = (rows[0] * vec) & mask1110,
+			r1 = (rows[1] * vec) & mask1110,
+			r2 = (rows[2] * vec) & mask1110,
+			r3 = _mm_setzero_ps();
 
-		vectorSIMDf inOut = vectorSIMDf(_in);
-		inOut = c0 * inOut.x + c1 * inOut.y + c2 * inOut.z;
-		memcpy(_out, inOut.pointer, 3 * 4);
+		float res[4];
+		_mm_storeu_ps(res,
+			_mm_hadd_ps(
+				_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()),
+				_mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister())
+		));
+
+		memcpy(_out, res, 3 * 4);
 	}
 	inline void mulSub3x3With3x1(float* _in_out) const
 	{
@@ -365,15 +382,17 @@ struct matrix3x4SIMD
 		if (core::iszero(d.x, FLT_MIN))
 			return false;
 
-		reinterpret_cast<vectorSIMDf*>(_out)[0] = c1crossc2 / d;
-		reinterpret_cast<vectorSIMDf*>(_out+3)[0] = (c2.crossProduct(c0)) / d;
-		const vectorSIMDf c0crossc1 = (c0.crossProduct(c1)) / d;
-		memcpy(_out+6, c0crossc1.pointer, 3*4);
+		vectorSIMDf tmp = c1crossc2 / d;
+		memcpy(_out, tmp.pointer, 3*4);
+		tmp = (c2.crossProduct(c0)) / d;
+		memcpy(_out+3, tmp.pointer, 3*4);
+		tmp = (c0.crossProduct(c1)) / d;
+		memcpy(_out+6, tmp.pointer, 3*4);
 
 		return true;
 	}
 
-	inline void setRotationCenter(const core::vectorSIMDf& center, const core::vectorSIMDf& translation)
+	inline void setRotationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation)
 	{
 		__m128 r0 = rows[0].getAsRegister();
 		__m128 r1 = rows[1].getAsRegister();
@@ -389,25 +408,28 @@ struct matrix3x4SIMD
 		const __m128 mask1110 = _mm_castsi128_ps(_mm_setr_epi32(0xffffffff, 0xffffffff, 0xffffffff, 0));
 		vectorSIMDf col3;
 
-		vectorSIMDf tmp = (-vectorSIMDf(r0) & mask1110) * center;
-		__m128 ttmp = tmp.getAsRegister();
-		ttmp = _mm_hadd_ps(ttmp, ttmp);
-		ttmp = _mm_hadd_ps(ttmp, ttmp);
-		col3.x = vectorSIMDf(ttmp).x;
+		//vectorSIMDf tmp = (-vectorSIMDf(r0) & mask1110) * _center;
+		//__m128 ttmp = tmp.getAsRegister();
+		//ttmp = _mm_hadd_ps(ttmp, ttmp);
+		//ttmp = _mm_hadd_ps(ttmp, ttmp);
+		//col3.x = vectorSIMDf(ttmp).x;
 
-		tmp = (-vectorSIMDf(r1) & mask1110) * center;
-		ttmp = tmp.getAsRegister();
-		ttmp = _mm_hadd_ps(ttmp, ttmp);
-		ttmp = _mm_hadd_ps(ttmp, ttmp);
-		col3.y = vectorSIMDf(ttmp).x;
+		//tmp = (-vectorSIMDf(r1) & mask1110) * _center;
+		//ttmp = tmp.getAsRegister();
+		//ttmp = _mm_hadd_ps(ttmp, ttmp);
+		//ttmp = _mm_hadd_ps(ttmp, ttmp);
+		//col3.y = vectorSIMDf(ttmp).x;
 
-		tmp = (-vectorSIMDf(r2) & mask1110) * center;
-		ttmp = tmp.getAsRegister();
-		ttmp = _mm_hadd_ps(ttmp, ttmp);
-		ttmp = _mm_hadd_ps(ttmp, ttmp);
-		col3.z = vectorSIMDf(ttmp).x;
+		//tmp = (-vectorSIMDf(r2) & mask1110) * _center;
+		//ttmp = tmp.getAsRegister();
+		//ttmp = _mm_hadd_ps(ttmp, ttmp);
+		//ttmp = _mm_hadd_ps(ttmp, ttmp);
+		//col3.z = vectorSIMDf(ttmp).x;
+		
+		//result slightly (but significantly) differ from above.. why?
+		col3 = (-vectorSIMDf(c0) - c1 - c2) * _center;
 
-		col3 += (center - translation) & mask1110;
+		col3 += (_center - _translation) & mask1110;
 		c3 = col3.getAsRegister();
 
 		_MM_TRANSPOSE4_PS(c0, c1, c2, c3);
