@@ -65,29 +65,33 @@ namespace video
     class STextureSamplingParams
     {
         public:
-		//! Texture Clamp Mode
-		/** Values are taken from E_TEXTURE_CLAMP. */
-		uint32_t TextureWrapU : 3;
-		uint32_t TextureWrapV : 3;
-		uint32_t TextureWrapW : 3;
+#include "irrunpack.h"
+        struct {
+            //! Texture Clamp Mode
+            /** Values are taken from E_TEXTURE_CLAMP. */
+            uint32_t TextureWrapU : 3;
+            uint32_t TextureWrapV : 3;
+            uint32_t TextureWrapW : 3;
 
-		//! filter type to use
-		uint32_t MinFilter : 3;
-		uint32_t MaxFilter : 1;
+            //! filter type to use
+            uint32_t MinFilter : 3;
+            uint32_t MaxFilter : 1;
 
-		//! quick setting
-		uint32_t UseMipmaps : 1;
+            //! quick setting
+            uint32_t UseMipmaps : 1;
 
-		//! Is anisotropic filtering enabled? Default: 0, disabled
-		/** In Irrlicht you can use anisotropic texture filtering
-		in conjunction with bilinear or trilinear texture
-		filtering to improve rendering results. Primitives
-		will look less blurry with this flag switched on. The number gives
-		the maximal anisotropy degree, and is often in the range 2-16.
-		Value 1 is equivalent to 0, but should be avoided. */
-		uint32_t AnisotropicFilter : 5; //allows for 32x filter
+            //! Is anisotropic filtering enabled? Default: 0, disabled
+            /** In Irrlicht you can use anisotropic texture filtering
+            in conjunction with bilinear or trilinear texture
+            filtering to improve rendering results. Primitives
+            will look less blurry with this flag switched on. The number gives
+            the maximal anisotropy degree, and is often in the range 2-16.
+            Value 1 is equivalent to 0, but should be avoided. */
+            uint32_t AnisotropicFilter : 5; //allows for 32x filter
 
-		uint32_t SeamlessCubeMap : 1;
+            uint32_t SeamlessCubeMap : 1;
+        };
+#include "irrpack.h"
 
 		//! Bias for the mipmap choosing decision.
 		/** This value can make the textures more or less blurry than with the

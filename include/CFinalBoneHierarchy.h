@@ -529,6 +529,7 @@ namespace scene
 
 private:
 
+            // bone hierachy independent from animations
             const size_t boneCount;
             BoneReferenceData* boneFlatArray;
             core::stringc* boneNames;
@@ -537,6 +538,7 @@ private:
 
             ///video::IGPUBuffer* boundBuffer;
 
+            // animation data, independent of bone hierarchy to a degree
             size_t keyframeCount;
             float* keyframes;
             AnimationKeyData* interpolatedAnimations;
