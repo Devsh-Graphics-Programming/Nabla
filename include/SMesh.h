@@ -42,16 +42,6 @@ namespace scene
                 #endif
             }
 
-			virtual std::string printMemberPackingDebug() const
-			{
-				std::ostringstream sstr;
-				sstr << "irr::scene::SCPUMesh\n";
-				sstr << "leakDebugger " << offsetof(SCPUMesh, leakDebugger) << "\n";
-				sstr << "BoundingBox " << offsetof(SCPUMesh, BoundingBox) << "\n";
-				sstr << "MeshBuffers " << offsetof(SCPUMesh, MeshBuffers) << "\n";
-				return sstr.str();
-			}
-
             //! clean mesh
             virtual void clear()
             {

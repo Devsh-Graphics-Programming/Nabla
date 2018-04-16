@@ -128,8 +128,6 @@ namespace scene
             //! constructor
             CCPUSkinnedMesh();
 
-			virtual std::string printMemberPackingDebug() const;
-
             virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy;}
 
 			//! Meant to be used by loaders only

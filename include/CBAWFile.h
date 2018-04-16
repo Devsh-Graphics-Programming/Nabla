@@ -182,6 +182,8 @@ namespace core
 		static void* instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);
 		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, std::map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
 		static void releaseObj(const void* _obj);
+
+		//static std::string printMemberPackingDebug();
 	};
 
 	struct RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, FixedSizeBlob<RawBufferBlobV0, ICPUBuffer>
@@ -382,8 +384,6 @@ namespace core
 		virtual ~BlobSerializable() {}
 
 		virtual void* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const = 0;
-
-		virtual std::string printMemberPackingDebug() const = 0;
 	};
 
 	struct LzmaMemMngmnt

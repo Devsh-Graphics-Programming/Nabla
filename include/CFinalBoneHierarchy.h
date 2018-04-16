@@ -141,22 +141,6 @@ namespace scene
 				return core::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type::createAndTryOnStack(static_cast<const CFinalBoneHierarchy*>(this), _stackPtr, _stackSize);
 			}
 
-			virtual std::string printMemberPackingDebug() const
-			{
-				std::ostringstream sstr;
-				sstr << "irr::scene::CFinalBoneHierarchy\n";
-				sstr << "boneCount " << offsetof(CFinalBoneHierarchy, boneCount) << "\n";
-				sstr << "boneFlatArray " << offsetof(CFinalBoneHierarchy, boneFlatArray) << "\n";
-				sstr << "boneNames " << offsetof(CFinalBoneHierarchy, boneNames) << "\n";
-				sstr << "NumLevelsInHierarchy " << offsetof(CFinalBoneHierarchy, NumLevelsInHierarchy) << "\n";
-				sstr << "boneTreeLevelEnd " << offsetof(CFinalBoneHierarchy, boneTreeLevelEnd) << "\n";
-				sstr << "keyframeCount " << offsetof(CFinalBoneHierarchy, keyframeCount) << "\n";
-				sstr << "keyframes " << offsetof(CFinalBoneHierarchy, keyframes) << "\n";
-				sstr << "interpolatedAnimations " << offsetof(CFinalBoneHierarchy, interpolatedAnimations) << "\n";
-				sstr << "nonInterpolatedAnimations " << offsetof(CFinalBoneHierarchy, nonInterpolatedAnimations) << "\n";
-				return sstr.str();
-			}
-
 			inline size_t getSizeOfAllBoneNames() const
 			{
 				size_t sum = 0;

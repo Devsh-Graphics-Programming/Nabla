@@ -43,18 +43,6 @@ CCPUSkinnedMesh::~CCPUSkinnedMesh()
         referenceHierarchy->drop();
 }
 
-std::string CCPUSkinnedMesh::printMemberPackingDebug() const
-{
-	std::ostringstream sstr;
-	sstr << "irr:scene::CCPUSkinnedMesh\n";
-	sstr << "LocalBuffers " << offsetof(CCPUSkinnedMesh, LocalBuffers) << "\n";
-	sstr << "AllJoints " << offsetof(CCPUSkinnedMesh, AllJoints) << "\n";
-	sstr << "referenceHierarchy " << offsetof(CCPUSkinnedMesh, referenceHierarchy) << "\n";
-	sstr << "BoundingBox " << offsetof(CCPUSkinnedMesh, BoundingBox) << "\n";
-	sstr << "HasAnimation " << offsetof(CCPUSkinnedMesh, HasAnimation) << "\n";
-	return sstr.str();
-}
-
 
 void CCPUSkinnedMesh::setBoneReferenceHierarchy(CFinalBoneHierarchy* fbh)
 {
