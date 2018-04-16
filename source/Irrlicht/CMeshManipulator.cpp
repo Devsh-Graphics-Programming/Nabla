@@ -1085,10 +1085,12 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
 
 ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _requantErrMetric) const
 {
-	if (!_inbuffer || !_inbuffer->getMeshDataAndFormat())
-		return const_cast<ICPUMeshBuffer*>(_inbuffer);
+	if (!_inbuffer)
+		return NULL;
 
 	ICPUMeshBuffer* outbuffer = createMeshBufferDuplicate(_inbuffer);
+	if (!outbuffer->getMeshDataAndFormat())
+		return outbuffer;
 
 	// Find vertex count
 	size_t vertexCount = outbuffer->calcVertexCount();

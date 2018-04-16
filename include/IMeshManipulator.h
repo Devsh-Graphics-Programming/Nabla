@@ -28,17 +28,32 @@ namespace scene
 	class IMeshManipulator : public virtual IReferenceCounted
 	{
 	public:
+		//! Comparison methods
 		enum E_ERROR_METRIC
 		{
+			/**
+			Comparison with epsilon is performed by abs(original-quantized) for every significant component.
+			*/
 			EEM_POSITIONS,
+			/**
+			Comparison between vectors is based on the fact that dot product of two normalized vectors tends to 1 as the two vectors are similar.
+			So that comparison is performed by dot(original, quantized)/(len(original) * len(quantized)) < (1-epsilon)
+			*/
 			EEM_ANGLES,
+			/**
+			@copydoc EEM_ANGLES
+			*/
 			EEM_QUATERNION,
 			EEM_COUNT
 		};
+		//! Struct used to pass chosen comparison method and epsilon to functions performing error metrics.
+		/**
+		By default epsilon equals 2^-16 and EEM_POSITIONS comparison method is set.
+		*/
 		struct SErrorMetric
 		{
 			// 1.525e-5f is 2^-16
-			SErrorMetric(const core::vectorSIMDf& eps = core::vectorSIMDf(1.525e-5f, 1.525e-5f, 1.525e-5f, 1.525e-5f), E_ERROR_METRIC em = EEM_POSITIONS) : method(em), epsilon(eps) {}
+			SErrorMetric(const core::vectorSIMDf& eps = core::vectorSIMDf(1.525e-5f), E_ERROR_METRIC em = EEM_POSITIONS) : method(em), epsilon(eps) {}
 
 			void set(E_ERROR_METRIC m, const core::vectorSIMDf& e) { method = m; epsilon = e; }
 
@@ -71,8 +86,8 @@ namespace scene
 		IReferenceCounted::drop() for more information. */
 		virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer* inbuffer, const bool& reduceIdxBufSize = false, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const = 0;
 
-		//! Throws meshbuffer into full optimizing pipeline consisting of: vertices welding, z-buffer optimization, vertex cache optimization (Forsyth's algorithm), fetch optimization and attributes requantization. A new meshbuffer is created unless given meshbuffer doesn't own a data format descriptor.
-		/**@return A new meshbuffer or input buffer if input buffer does not own data format descriptor or NULL if other error occured. */
+		//! Throws meshbuffer into full optimizing pipeline consisting of: vertices welding, z-buffer optimization, vertex cache optimization (Forsyth's algorithm), fetch optimization and attributes requantization. A new meshbuffer is created unless given meshbuffer doesn't own (getMeshDataAndFormat()==NULL) a data format descriptor.
+		/**@return A new meshbuffer or NULL if an error occured. */
 		virtual ICPUMeshBuffer* createOptimizedMeshBuffer(const ICPUMeshBuffer* inbuffer, const SErrorMetric* _requantErrMetric) const = 0;
 
 		//! Requantizes vertex attributes to the smallest possible types taking into account values of the attribute under consideration. A brand new vertex buffer is created and attributes are going to be interleaved in single buffer.
