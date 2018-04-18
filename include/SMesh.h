@@ -42,7 +42,7 @@ namespace scene
                 #endif
             }
 
-            //! clean mesh
+			//! clean mesh
             virtual void clear()
             {
                 for (uint32_t i=0; i<MeshBuffers.size(); ++i)
@@ -51,6 +51,12 @@ namespace scene
                 BoundingBox.reset ( 0.f, 0.f, 0.f );
             }
 
+			virtual void clearMeshBuffers()
+			{
+				for (uint32_t i = 0; i<MeshBuffers.size(); ++i)
+					MeshBuffers[i]->drop();
+				MeshBuffers.clear();
+			}
 
             //! returns amount of mesh buffers.
             virtual uint32_t getMeshBufferCount() const
@@ -102,7 +108,7 @@ namespace scene
 
             //! adds a MeshBuffer
             /** The bounding box is not updated automatically. */
-            void addMeshBuffer(ICPUMeshBuffer* buf)
+            virtual void addMeshBuffer(ICPUMeshBuffer* buf)
             {
                 if (buf)
                 {
@@ -162,6 +168,12 @@ namespace scene
                     MeshBuffers[i]->drop();
             }
 
+			virtual void clearMeshBuffers()
+			{
+				for (uint32_t i = 0; i<MeshBuffers.size(); ++i)
+					MeshBuffers[i]->drop();
+				MeshBuffers.clear();
+			}
 
             //! returns amount of mesh buffers.
             virtual uint32_t getMeshBufferCount() const

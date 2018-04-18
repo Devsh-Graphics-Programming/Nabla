@@ -43,6 +43,12 @@ CCPUSkinnedMesh::~CCPUSkinnedMesh()
         referenceHierarchy->drop();
 }
 
+void CCPUSkinnedMesh::clearMeshBuffers()
+{
+	for (uint32_t i = 0; i<LocalBuffers.size(); ++i)
+		LocalBuffers[i]->drop();
+	LocalBuffers.clear();
+}
 
 void CCPUSkinnedMesh::setBoneReferenceHierarchy(CFinalBoneHierarchy* fbh)
 {
@@ -447,12 +453,12 @@ scene::SCPUSkinMeshBuffer *CCPUSkinnedMesh::addMeshBuffer()
 }
 
 
-void CCPUSkinnedMesh::addMeshBuffer(SCPUSkinMeshBuffer* buf)
+void CCPUSkinnedMesh::addMeshBuffer(ICPUMeshBuffer* buf)
 {
-	if (buf)
+	if (SCPUSkinMeshBuffer* b = dynamic_cast<SCPUSkinMeshBuffer*>(buf))
 	{
-		buf->grab();
-		LocalBuffers.push_back(buf);
+		b->grab();
+		LocalBuffers.push_back(b);
 	}
 }
 

@@ -58,6 +58,13 @@ namespace scene
                 return meshbuffers[nr].mb;
             }
 
+			virtual void clearMeshBuffers()
+			{
+				for (uint32_t i = 0; i<meshbuffers.size(); ++i)
+					meshbuffers[i].mb->drop();
+				meshbuffers.clear();
+			}
+
             //! adds a Mesh
             inline void addMeshBuffer(IGPUMeshBuffer* meshbuffer, const size_t& maxBonesPerVx=4)
             {
@@ -128,6 +135,8 @@ namespace scene
             //! constructor
             CCPUSkinnedMesh();
 
+			virtual void clearMeshBuffers();
+
             virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy;}
 
 			//! Meant to be used by loaders only
@@ -170,7 +179,7 @@ namespace scene
             virtual SCPUSkinMeshBuffer *addMeshBuffer();
 
 			//! Adds a new meshbuffer to the mesh
-			virtual void addMeshBuffer(SCPUSkinMeshBuffer* buf);
+			virtual void addMeshBuffer(ICPUMeshBuffer* buf);
 
             //! Adds a new joint to the mesh, access it as last one
             virtual SJoint *addJoint(SJoint *parent=0);
