@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <chrono>
 
+#include "print.h"
 
 // Usage: convert2BAW [-i [list of input files delimited with spaces]] [-o [list of output files delimited with spaces]]
 //			[-rel <dir>] [-pwd <password>] [-optmesh <{ error metric settings threes delimited with commas }>]
@@ -25,7 +26,7 @@
 //	If passed - mesh will be optimized before export. The option comes along with error metrics settings:
 //	Settings must be enclosed with curly (i.e. {}) braces and grouped in threes. Threes must be delimited with commas. Order of threes is irrelevant.
 //	Elements of each group of three must be delimited with spaces and must come with strict order: atrribute-id epsilon cmp-method
-//	Attribute-id must be integer in range [0; 15]. Cmp-method must be single character, one of those: A - angles, Q - quaternions, P - positions (lower-case are also accepted)
+//	Attribute-id must be integer in range [0; 15]. Epsilon is floating point number. Cmp-method must be single character and one of: A - angles, Q - quaternions, P - positions (lower-case chars are also accepted)
 
 //Example:
 //	convert2BAW -i somefile.obj someotherfile.x -o f1.baw f2.baw -rel /home/me/assets/ -pwd deadbeefbaadf00d0badcafefeeee997 -optmesh { 0 0.02 P, 3 0.003 A }
@@ -70,6 +71,7 @@ int main(int _optCnt, char** _options)
 	E_GATHER_TARGET gatherWhat = EGT_UNDEFINED;
 	bool usePwd = 0;
 	bool optimizeMesh = 0;
+	bool printInfo = 0;
 	scene::CBAWMeshWriter::WriteProperties properties;
 	scene::IMeshManipulator::SErrorMetric errMetrics[16];
 
@@ -113,6 +115,12 @@ int main(int _optCnt, char** _options)
 				properties.relPath = _options[idx];
 				continue;
 			}
+			else if (core::equalsIgnoreCase("info", _options[idx]+1))
+			{
+				gatherWhat = EGT_UNDEFINED;
+				printInfo = 1;
+				continue;
+			}
 			else if (idx+1 != _optCnt && core::equalsIgnoreCase("optmesh", _options[idx]+1))
 			{
 				gatherWhat = EGT_UNDEFINED;
@@ -132,8 +140,9 @@ int main(int _optCnt, char** _options)
 					s += _options[idx];
 
 				} while (!strstr(_options[idx++], "}"));
+				--idx;
 
-				const size_t cnt = std::count(s.begin(), s.end(), ',');
+				const size_t cnt = std::count(s.begin(), s.end(), ',')+1;
 				std::transform(s.cbegin(), s.cend(), s.begin(), [](char c) { return (c == '{' || c == '}' || c == ',') ? ' ' : c; });
 
 				std::stringstream ss(s);
@@ -221,6 +230,10 @@ int main(int _optCnt, char** _options)
             outfile->drop();
 			continue;
 		}
+
+		if (printInfo)
+			printFullMeshInfo(inmesh);
+
 		if (usePwd)
 			writer->writeMesh(outfile, inmesh, properties);
 		else
