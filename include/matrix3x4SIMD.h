@@ -217,7 +217,7 @@ struct matrix3x4SIMD
 		vectorSIMDf r0 = rows[0] * vec, 
 			r1 = rows[1] * vec, 
 			r2 = rows[2] * vec, 
-			r3 = vec & BUILD_MASKF(0, 0, 0, 1);
+			r3;
 
 		float res[4];
 		_mm_storeu_ps(res,
@@ -322,13 +322,14 @@ struct matrix3x4SIMD
 		const __m128 mask0001 = _mm_castsi128_ps(_mm_setr_epi32(0, 0, 0, 0xffffffff));
 		const __m128 mask1110 = _mm_castsi128_ps(_mm_setr_epi32(0xffffffff, 0xffffffff, 0xffffffff, 0));
 
-		rows[0] = ((_quat.yyyy() * ((_quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (_quat.zzzz() * (_quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (rows[0] & mask0001);
+		const core::vectorSIMDf& quat = reinterpret_cast<const core::vectorSIMDf&>(_quat);
+		rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (rows[0] & mask0001);
 		rows[0].x = 1.f - rows[0].x;
 
-		rows[1] = ((_quat.zzzz() * ((_quat.wzyx() & mask1110) * vectorSIMDf(2.f))) + (_quat.xxxx() * (_quat.yxwx() & mask1110) * vectorSIMDf(2.f, 2.f, -2.f, 0.f))) | (rows[1] & mask0001);
+		rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * vectorSIMDf(2.f))) + (quat.xxxx() * (quat.yxwx() & mask1110) * vectorSIMDf(2.f, 2.f, -2.f, 0.f))) | (rows[1] & mask0001);
 		rows[1].y = 1.f - rows[1].y;
 
-		rows[2] = ((_quat.xxxx() * ((_quat.zwxx() & mask1110) * vectorSIMDf(2.f))) + (_quat.yyyy() * (_quat.wzyx() & mask1110) * vectorSIMDf(-2.f, 2.f, 2.f, 0.f))) | (rows[2] & mask0001);
+		rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * vectorSIMDf(2.f))) + (quat.yyyy() * (quat.wzyx() & mask1110) * vectorSIMDf(-2.f, 2.f, 2.f, 0.f))) | (rows[2] & mask0001);
 		rows[2].z = 1.f - rows[2].z;
 
 		return *this;
@@ -394,49 +395,16 @@ struct matrix3x4SIMD
 
 	inline void setRotationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation)
 	{
-		__m128 r0 = rows[0].getAsRegister();
-		__m128 r1 = rows[1].getAsRegister();
-		__m128 r2 = rows[2].getAsRegister();
+		core::vectorSIMDf r0 = rows[0] * _center;
+		core::vectorSIMDf r1 = rows[1] * _center;
+		core::vectorSIMDf r2 = rows[2] * _center;
+		core::vectorSIMDf r3(0.f, 0.f, 0.f, 1.f);
 
-		__m128 c0 = r0;
-		__m128 c1 = r1;
-		__m128 c2 = r2;
-		__m128 c3 = _mm_setr_ps(0.f, 0.f, 0.f, 1.f);
+		__m128 col3 = _mm_hadd_ps(_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()), _mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister()));
+		const vectorSIMDf vcol3 = _center - _translation - col3;
 
-		_MM_TRANSPOSE4_PS(c0, c1, c2, c3);
-
-		const __m128 mask1110 = _mm_castsi128_ps(_mm_setr_epi32(0xffffffff, 0xffffffff, 0xffffffff, 0));
-		vectorSIMDf col3;
-
-		//vectorSIMDf tmp = (-vectorSIMDf(r0) & mask1110) * _center;
-		//__m128 ttmp = tmp.getAsRegister();
-		//ttmp = _mm_hadd_ps(ttmp, ttmp);
-		//ttmp = _mm_hadd_ps(ttmp, ttmp);
-		//col3.x = vectorSIMDf(ttmp).x;
-
-		//tmp = (-vectorSIMDf(r1) & mask1110) * _center;
-		//ttmp = tmp.getAsRegister();
-		//ttmp = _mm_hadd_ps(ttmp, ttmp);
-		//ttmp = _mm_hadd_ps(ttmp, ttmp);
-		//col3.y = vectorSIMDf(ttmp).x;
-
-		//tmp = (-vectorSIMDf(r2) & mask1110) * _center;
-		//ttmp = tmp.getAsRegister();
-		//ttmp = _mm_hadd_ps(ttmp, ttmp);
-		//ttmp = _mm_hadd_ps(ttmp, ttmp);
-		//col3.z = vectorSIMDf(ttmp).x;
-		
-		//result slightly (but significantly) differ from above.. why?
-		col3 = (-vectorSIMDf(c0) - c1 - c2) * _center;
-
-		col3 += (_center - _translation) & mask1110;
-		c3 = col3.getAsRegister();
-
-		_MM_TRANSPOSE4_PS(c0, c1, c2, c3);
-
-		rows[0] = c0;
-		rows[1] = c1;
-		rows[2] = c2;
+		for (size_t i = 0u; i < 3u; ++i)
+			rows[i].w = vcol3.pointer[i];
 	}
 
 	inline void buildAxisAlignedBillboard(

@@ -30,8 +30,6 @@ struct matrix3x4SIMD;
 Also useful for interpolations. */
 class quaternion : private vectorSIMDf
 {
-	friend struct matrix3x4SIMD;
-
 	public:
 /**
         static inline void* operator new(size_t size) throw(std::bad_alloc)

@@ -486,6 +486,7 @@ namespace core
 			inline matrix4x3& setM(const float* data)
 			{
 			    memcpy(column,data,48);
+				return *this;
 			}
 
 
