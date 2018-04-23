@@ -56,6 +56,7 @@
 #ifndef glBindBuffer_MACRO
 #define glBindBuffer_MACRO glBindBuffer
 #endif // glBindBuffer_MACRO
+//! NEEDS AN URGENT CHANGE
 #ifndef glBindBufferRange_MACRO
 #define glBindBufferRange_MACRO glBindBufferRange
 #endif // glBindBufferRange_MACRO
@@ -106,6 +107,7 @@
 #endif // glBlendFuncSeparatei_MACRO
 
 
+//! NEEDS AN URGENT CHANGE
 #ifndef glBindImageTexture_MACRO
 #define glBindImageTexture_MACRO glBindImageTexture
 #endif // glBindImageTexture_MACRO
@@ -114,11 +116,13 @@
 #define glActiveTexture_MACRO glActiveTexture
 #endif // glActiveTexture_MACRO
 
+//! NEEDS AN URGENT CHANGE
 #ifndef SPECIAL_glBindTextureUnit_MACRO
 #error "No Override for Active Texture Setting"
 #endif // SPECIAL_glBindTextureUnit_MACRO
 
 
+//! NEEDS AN URGENT CHANGE
 #ifndef glBindSampler_MACRO
 #define glBindSampler_MACRO glBindSampler
 #endif // glBindSampler_MACRO

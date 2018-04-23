@@ -38,7 +38,6 @@
 					<Add option="-msse3" />
 					<Add option="-mfpmath=sse" />
 					<Add option="-ggdb3" />
-					<Add option="-std=c++03" />
 					<Add option="-fsanitize=address" />
 					<Add option="-D_AMD64_" />
 				</Compiler>

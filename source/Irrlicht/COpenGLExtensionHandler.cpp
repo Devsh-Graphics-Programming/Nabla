@@ -41,7 +41,7 @@ namespace video
 #define glPatchParameterfv_MACRO COpenGLExtensionHandler::extGlPatchParameterfv
 
 #define glBindBuffer_MACRO COpenGLExtensionHandler::extGlBindBuffer
-#define glBindBufferRange_MACRO COpenGLExtensionHandler::extGlBindBufferRange
+#define glBindBufferRange_MACRO(target,index,buffer,offset,size) COpenGLExtensionHandler::extGlBindBuffersRange(target,index,1,&buffer,&offset,&size)
 
 #define glDepthRangeIndexed_MACRO COpenGLExtensionHandler::extGlDepthRangeIndexed
 #define glViewportIndexedfv_MACRO COpenGLExtensionHandler::extGlViewportIndexedfv
@@ -63,8 +63,8 @@ namespace video
 #define glBindImageTexture_MACRO COpenGLExtensionHandler::extGlBindImageTexture
 
 #define glActiveTexture_MACRO COpenGLExtensionHandler::extGlActiveTexture
-#define SPECIAL_glBindTextureUnit_MACRO COpenGLExtensionHandler::extGlBindTextureUnit
-#define glBindSampler_MACRO COpenGLExtensionHandler::extGlBindSampler
+#define SPECIAL_glBindTextureUnit_MACRO(index,texture,target) COpenGLExtensionHandler::extGlBindTextures(index,1,&texture,&target)
+#define glBindSampler_MACRO(index,sampler) COpenGLExtensionHandler::extGlBindSamplers(index,1,&sampler)
 
 #define glBindVertexArray_MACRO COpenGLExtensionHandler::extGlBindVertexArray
 
@@ -246,8 +246,7 @@ PFNGLWAITSYNCPROC COpenGLExtensionHandler::pGlWaitSync = NULL;
 
         //textures
 PFNGLACTIVETEXTUREPROC COpenGLExtensionHandler::pGlActiveTexture = NULL;
-PFNGLBINDTEXTUREUNITPROC COpenGLExtensionHandler::pGlBindTextureUnit = NULL;
-PFNGLBINDMULTITEXTUREEXTPROC COpenGLExtensionHandler::pGlBindMultiTextureEXT = NULL;
+PFNGLBINDTEXTURESPROC COpenGLExtensionHandler::pGlBindTextures = NULL;
 PFNGLCREATETEXTURESPROC COpenGLExtensionHandler::pGlCreateTextures = NULL;
 PFNGLTEXSTORAGE1DPROC COpenGLExtensionHandler::pGlTexStorage1D = NULL;
 PFNGLTEXSTORAGE2DPROC COpenGLExtensionHandler::pGlTexStorage2D = NULL;
@@ -306,6 +305,7 @@ PFNGLGENSAMPLERSPROC COpenGLExtensionHandler::pGlGenSamplers = NULL;
 PFNGLCREATESAMPLERSPROC COpenGLExtensionHandler::pGlCreateSamplers = NULL;
 PFNGLDELETESAMPLERSPROC COpenGLExtensionHandler::pGlDeleteSamplers = NULL;
 PFNGLBINDSAMPLERPROC COpenGLExtensionHandler::pGlBindSampler = NULL;
+PFNGLBINDSAMPLERSPROC COpenGLExtensionHandler::pGlBindSamplers = NULL;
 PFNGLSAMPLERPARAMETERIPROC COpenGLExtensionHandler::pGlSamplerParameteri = NULL;
 PFNGLSAMPLERPARAMETERFPROC COpenGLExtensionHandler::pGlSamplerParameterf = NULL;
 
@@ -315,6 +315,8 @@ PFNGLBINDIMAGETEXTUREPROC COpenGLExtensionHandler::pGlBindImageTexture = NULL;
         //stuff
 PFNGLBINDBUFFERBASEPROC COpenGLExtensionHandler::pGlBindBufferBase = NULL;
 PFNGLBINDBUFFERRANGEPROC COpenGLExtensionHandler::pGlBindBufferRange = NULL;
+PFNGLBINDBUFFERSBASEPROC COpenGLExtensionHandler::pGlBindBuffersBase = NULL;
+PFNGLBINDBUFFERSRANGEPROC COpenGLExtensionHandler::pGlBindBuffersRange = NULL;
 
 
         //shaders
@@ -360,6 +362,11 @@ PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC COpenGLExtensionHandler::pGlProgramUniformMat
 //
 PFNGLGETACTIVEUNIFORMPROC COpenGLExtensionHandler::pGlGetActiveUniform = NULL;
 PFNGLBINDPROGRAMPIPELINEPROC COpenGLExtensionHandler::pGlBindProgramPipeline = NULL;
+
+// Criss
+PFNGLMEMORYBARRIERPROC COpenGLExtensionHandler::pGlMemoryBarrier = NULL;
+PFNGLDISPATCHCOMPUTEPROC COpenGLExtensionHandler::pGlDispatchCompute = NULL;
+PFNGLDISPATCHCOMPUTEINDIRECTPROC COpenGLExtensionHandler::pGlDispatchComputeIndirect = NULL;
 //
 PFNGLPOINTPARAMETERFPROC COpenGLExtensionHandler:: pGlPointParameterf = NULL;
 PFNGLPOINTPARAMETERFVPROC COpenGLExtensionHandler::pGlPointParameterfv = NULL;
@@ -901,7 +908,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	{
 		Version = 440;
 		FeatureAvailable[IRR_ARB_direct_state_access] = false;
-		pGlBindTextureUnit = NULL;
 		pGlCreateTextures = NULL;
 		pGlTextureStorage1D = NULL;
 		pGlTextureStorage2D = NULL;
@@ -966,7 +972,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     //! Non-DSA testing
     Version = 430;
     FeatureAvailable[IRR_EXT_direct_state_access] = FeatureAvailable[IRR_ARB_direct_state_access] = false;
-    pGlBindMultiTextureEXT = NULL;
     pGlTextureStorage1DEXT = NULL;
     pGlTextureStorage2DEXT = NULL;
     pGlTextureStorage3DEXT = NULL;
@@ -1124,8 +1129,7 @@ void COpenGLExtensionHandler::loadFunctions()
 
 	// get multitexturing function pointers
     pGlActiveTexture = (PFNGLACTIVETEXTUREPROC) IRR_OGL_LOAD_EXTENSION("glActiveTexture");
-	pGlBindTextureUnit = (PFNGLBINDTEXTUREUNITPROC) IRR_OGL_LOAD_EXTENSION("glBindTextureUnit");
-	pGlBindMultiTextureEXT = (PFNGLBINDMULTITEXTUREEXTPROC) IRR_OGL_LOAD_EXTENSION("glBindMultiTextureEXT");
+	pGlBindTextures = (PFNGLBINDTEXTURESPROC) IRR_OGL_LOAD_EXTENSION("glBindTextures");
     pGlCreateTextures = (PFNGLCREATETEXTURESPROC) IRR_OGL_LOAD_EXTENSION("glCreateTextures");
     pGlTexStorage1D = (PFNGLTEXSTORAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage1D");
     pGlTexStorage2D = (PFNGLTEXSTORAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage2D");
@@ -1183,6 +1187,7 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlGenSamplers = (PFNGLGENSAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glGenSamplers");
     pGlDeleteSamplers = (PFNGLDELETESAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glDeleteSamplers");
     pGlBindSampler = (PFNGLBINDSAMPLERPROC) IRR_OGL_LOAD_EXTENSION( "glBindSampler");
+    pGlBindSamplers = (PFNGLBINDSAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glBindSamplers");
     pGlSamplerParameteri = (PFNGLSAMPLERPARAMETERIPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameteri");
     pGlSamplerParameterf = (PFNGLSAMPLERPARAMETERFPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameterf");
 
@@ -1193,6 +1198,8 @@ void COpenGLExtensionHandler::loadFunctions()
     //
     pGlBindBufferBase = (PFNGLBINDBUFFERBASEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferBase");
     pGlBindBufferRange = (PFNGLBINDBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferRange");
+    pGlBindBuffersBase = (PFNGLBINDBUFFERSBASEPROC) IRR_OGL_LOAD_EXTENSION("glBindBuffersBase");
+    pGlBindBuffersRange = (PFNGLBINDBUFFERSRANGEPROC) IRR_OGL_LOAD_EXTENSION("glBindBuffersRange");
 
 	// get fragment and vertex program function pointers
 	pGlCreateShader = (PFNGLCREATESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCreateShader");
@@ -1234,6 +1241,11 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlProgramUniformMatrix4x3fv = (PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix4x3fv");
 	pGlGetActiveUniform = (PFNGLGETACTIVEUNIFORMPROC) IRR_OGL_LOAD_EXTENSION("glGetActiveUniform");
     pGlBindProgramPipeline = (PFNGLBINDPROGRAMPIPELINEPROC) IRR_OGL_LOAD_EXTENSION("glBindProgramPipeline");
+
+	//Criss
+	pGlMemoryBarrier = (PFNGLMEMORYBARRIERPROC) IRR_OGL_LOAD_EXTENSION("glMemoryBarrier");
+	pGlDispatchCompute = (PFNGLDISPATCHCOMPUTEPROC) IRR_OGL_LOAD_EXTENSION("glDispatchCompute");
+	pGlDispatchComputeIndirect = (PFNGLDISPATCHCOMPUTEINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glDispatchComputeIndirect");
 
 	// get point parameter extension
 	pGlPointParameterf = (PFNGLPOINTPARAMETERFARBPROC) IRR_OGL_LOAD_EXTENSION("glPointParameterf");

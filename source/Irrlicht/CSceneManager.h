@@ -433,7 +433,7 @@ namespace scene
         {
             uint8_t data[16];
         };
-		std::map<std::string,ParamStorage> Parameters;
+		std::unordered_map<std::string,ParamStorage> Parameters;
 
 		//! Mesh cache
 		IMeshCache<ICPUMesh>* MeshCache;

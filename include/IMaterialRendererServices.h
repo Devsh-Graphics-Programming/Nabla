@@ -96,7 +96,7 @@ public:
 	set, regardless of their current state. */
 	virtual void setBasicRenderStates(const SMaterial& material,
 		const SMaterial& lastMaterial,
-		bool resetAllRenderstates) = 0;
+		bool resetAllRenderstates) = 0; //depr
 
 
 
@@ -106,7 +106,7 @@ public:
 
 	//! Get pointer to the IVideoDriver interface
 	/** \return Pointer to the IVideoDriver interface */
-	virtual IVideoDriver* getVideoDriver() = 0;
+	virtual IVideoDriver* getVideoDriver() = 0; //depr
 };
 
 } // end namespace video

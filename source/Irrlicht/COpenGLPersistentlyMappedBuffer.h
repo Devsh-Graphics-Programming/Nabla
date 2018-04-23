@@ -2,7 +2,6 @@
 #define __C_OPEN_GL_PERSISTENTLY_MAPPED_BUFFER_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
-#include "IGPUMappedBuffer.h"
 #include "COpenGLBuffer.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
@@ -12,7 +11,7 @@ namespace irr
 namespace video
 {
 
-class COpenGLPersistentlyMappedBuffer : public IGPUMappedBuffer, COpenGLBuffer
+class COpenGLPersistentlyMappedBuffer : public COpenGLBuffer
 {
     protected:
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart);
@@ -21,10 +20,6 @@ class COpenGLPersistentlyMappedBuffer : public IGPUMappedBuffer, COpenGLBuffer
 
     public:
         COpenGLPersistentlyMappedBuffer(const size_t &size, const void* data, const GLbitfield &flags, const GLbitfield &mapOnCreation_andFlags);
-
-        virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false);
-
-        virtual const GLuint& getOpenGLName() const {return BufferName;}
 
         inline void* MapBufferRange(const GLbitfield &mapFlags, const size_t& start, const size_t& length)
         {
@@ -57,6 +52,9 @@ class COpenGLPersistentlyMappedBuffer : public IGPUMappedBuffer, COpenGLBuffer
             }
         }
 
+
+
+        virtual const bool isMappedBuffer() const {return true;}
 
         //! WARNING: RESIZE will invalidate pointer
         //! WARNING: NEED TO FENCE BEFORE USE!!!!!!!!!!!!!

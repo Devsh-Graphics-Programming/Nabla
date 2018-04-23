@@ -137,6 +137,7 @@
 				<Compiler>
 					<Add option="-Wextra" />
 					<Add option="-Wall" />
+					<Add option="-std=c++11" />
 					<Add option="-g" />
 					<Add option="-W" />
 					<Add option="-Wno-unused-parameter" />
@@ -145,7 +146,6 @@
 					<Add option="-fuse-ld=gold" />
 					<Add option="-msse3" />
 					<Add option="-ggdb3" />
-					<Add option="-std=c++03" />
 					<Add option="-fstack-protector-strong" />
 					<Add option="-D_IRR_STATIC_LIB_" />
 					<Add option="-D_DEBUG" />
@@ -180,6 +180,7 @@
 				<Compiler>
 					<Add option="-O3" />
 					<Add option="-Wextra" />
+					<Add option="-std=c++11" />
 					<Add option="-W" />
 					<Add option="-Wno-unused-parameter" />
 					<Add option="-fno-exceptions" />
@@ -210,13 +211,13 @@
 					<Add option="-fexpensive-optimizations" />
 					<Add option="-O3" />
 					<Add option="-Wextra" />
+					<Add option="-std=c++11" />
 					<Add option="-W" />
 					<Add option="-Wno-unused-parameter" />
 					<Add option="-ffast-math" />
 					<Add option="-fno-exceptions" />
 					<Add option="-mfpmath=sse" />
 					<Add option="-msse3" />
-					<Add option="-std=c++03" />
 					<Add option="-DIRRLICHT_FAST_MATH" />
 					<Add option="-D_IRR_STATIC_LIB_" />
 					<Add directory="../../include" />
@@ -241,7 +242,8 @@
 			<Add option="-D_IRR_COMPILE_WITH_OPENGL_" />
 			<Add option="-D_7ZIP_ST" />
 		</Compiler>
-		<Unit filename="../../include/CBawFile.h" />
+		<Unit filename="../../include/CBAWFile.h" />
+		<Unit filename="../../include/CBlobsLoadingManager.h" />
 		<Unit filename="../../include/CFinalBoneHierarchy.h" />
 		<Unit filename="../../include/CImageData.h" />
 		<Unit filename="../../include/COpenGLStateManager.h" />
@@ -297,7 +299,6 @@
 		<Unit filename="../../include/IOSOperator.h" />
 		<Unit filename="../../include/IOcclusionQuery.h" />
 		<Unit filename="../../include/IQueryObject.h" />
-		<Unit filename="../../include/IRandomizer.h" />
 		<Unit filename="../../include/IReadFile.h" />
 		<Unit filename="../../include/IReferenceCounted.h" />
 		<Unit filename="../../include/IRenderBuffer.h" />
@@ -314,6 +315,7 @@
 		<Unit filename="../../include/ISkinningStateManager.h" />
 		<Unit filename="../../include/ITexture.h" />
 		<Unit filename="../../include/ITextureBufferObject.h" />
+		<Unit filename="../../include/IThreadBound.h" />
 		<Unit filename="../../include/ITimer.h" />
 		<Unit filename="../../include/ITransformFeedback.h" />
 		<Unit filename="../../include/IVideoDriver.h" />
@@ -348,6 +350,8 @@
 		<Unit filename="../../include/heapsort.h" />
 		<Unit filename="../../include/irrAllocator.h" />
 		<Unit filename="../../include/irrArray.h" />
+		<Unit filename="../../include/irrBaseClasses.h" />
+		<Unit filename="../../include/irrMacros.h" />
 		<Unit filename="../../include/irrMath.h" />
 		<Unit filename="../../include/irrString.h" />
 		<Unit filename="../../include/irrTypes.h" />
@@ -382,7 +386,7 @@
 		<Unit filename="CBAWMeshFileLoader.h" />
 		<Unit filename="CBAWMeshWriter.cpp" />
 		<Unit filename="CBAWMeshWriter.h" />
-		<Unit filename="CBawFile.h" />
+		<Unit filename="CBAWFile.h" />
 		<Unit filename="CBillboardSceneNode.cpp" />
 		<Unit filename="CBillboardSceneNode.h" />
 		<Unit filename="CBlit.h" />

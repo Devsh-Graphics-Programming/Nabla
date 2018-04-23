@@ -46,20 +46,7 @@ namespace video
 		virtual ~COpenGLDriver();
 
 	public:
-        struct SAuxContext
-        {
-            size_t threadId;
-            #ifdef _IRR_WINDOWS_API_
-                HGLRC ctx;
-            #endif
-            #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
-                GLXContext ctx;
-                GLXPbuffer pbuff;
-            #endif
-            #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-                AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
-            #endif
-        };
+        struct SAuxContext;
 
 		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device);
@@ -86,8 +73,9 @@ namespace video
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
 
-        virtual bool initAuxContext();
-        virtual bool deinitAuxContext();
+        bool initAuxContext();
+        const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id()) const;
+        bool deinitAuxContext();
 
 
         virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE);
@@ -178,11 +166,6 @@ namespace video
         virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
         virtual void setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
 
-		//! sets the current Texture
-		//! Returns whether setting was a success or not.
-		bool setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams);
-
-		GLuint constructSamplerInCache(const uint64_t &hashVal);
 
         virtual int32_t addHighLevelShaderMaterial(
             const char* vertexShaderProgram,
@@ -226,6 +209,12 @@ namespace video
 
         virtual IFrameBuffer* addFrameBuffer();
 
+        //! Remove
+        virtual void removeFrameBuffer(IFrameBuffer* framebuf);
+
+        virtual void removeAllFrameBuffers();
+
+
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true);
 
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
@@ -255,7 +244,7 @@ namespace video
 		//!
 		virtual void bindTransformFeedback(ITransformFeedback* xformFeedback);
 
-		virtual ITransformFeedback* getBoundTransformFeedback() {return CurrentXFormFeedback;}
+		virtual ITransformFeedback* getBoundTransformFeedback() {return getThreadContext_helper(false,std::this_thread::get_id())->CurrentXFormFeedback;}
 
         /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
         This issues an implicit call to bindTransformFeedback()
@@ -312,27 +301,104 @@ namespace video
         const size_t& getOpenCLAssociatedPlatformID() const {return clPlatformIx;}
 #endif // _IRR_COMPILE_WITH_OPENCL_
 
-	private:
-	    COpenGLVAO* CurrentVAO;
+        struct SAuxContext
+        {
 
-	    COpenGLBuffer* currentIndirectDrawBuff;
-	    uint64_t lastValidatedIndirectBuffer;
+            SAuxContext() : threadId(std::thread::id()), ctx(NULL), XFormFeedbackRunning(false), CurrentXFormFeedback(NULL),
+                            CurrentFBO(0), CurrentRendertargetSize(0,0), CurrentVAO(0)
+            {
+                for (size_t i=0; i<MATERIAL_MAX_TEXTURES; i++)
+                {
+                    CurrentSamplerHash[i] = 0xffffffffffffffffuLL;
+                }
+            }
 
-        bool XFormFeedbackRunning;
-	    COpenGLTransformFeedback* CurrentXFormFeedback;
+            //! sets the current Texture
+            //! Returns whether setting was a success or not.
+            bool setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams);
 
-		//! inits the parts of the open gl driver used on all platforms
-		bool genericDriverInit();
-		//! returns a device dependent texture from a software surface (IImage)
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
-
-		// returns the current size of the screen or rendertarget
-		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
-
-		void createMaterialRenderers();
+            const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 
 
-		core::stringw Name;
+            std::thread::id threadId;
+            #ifdef _IRR_WINDOWS_API_
+                HGLRC ctx;
+            #endif
+            #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+                GLXContext ctx;
+                GLXPbuffer pbuff;
+            #endif
+            #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
+                AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
+            #endif
+
+            bool XFormFeedbackRunning;
+            COpenGLTransformFeedback* CurrentXFormFeedback;
+
+            core::array<IFrameBuffer*> FrameBuffers;
+            COpenGLFrameBuffer* CurrentFBO;
+            core::dimension2d<uint32_t> CurrentRendertargetSize;
+
+            COpenGLVAO* CurrentVAO;
+
+            class STextureStageCache
+            {
+                const IVirtualTexture* CurrentTexture[MATERIAL_MAX_TEXTURES];
+            public:
+                STextureStageCache()
+                {
+                    for (uint32_t i=0; i<MATERIAL_MAX_TEXTURES; ++i)
+                    {
+                        CurrentTexture[i] = 0;
+                    }
+                }
+
+                ~STextureStageCache()
+                {
+                    clear();
+                }
+
+                void set(uint32_t stage, const IVirtualTexture* tex)
+                {
+                    if (stage<MATERIAL_MAX_TEXTURES)
+                    {
+                        const IVirtualTexture* oldTexture=CurrentTexture[stage];
+                        if (tex)
+                            tex->grab();
+                        CurrentTexture[stage]=tex;
+                        if (oldTexture)
+                            oldTexture->drop();
+                    }
+                }
+
+                const IVirtualTexture* operator[](int stage) const
+                {
+                    if ((uint32_t)stage<MATERIAL_MAX_TEXTURES)
+                        return CurrentTexture[stage];
+                    else
+                        return 0;
+                }
+
+                void remove(const IVirtualTexture* tex);
+
+                void clear();
+            };
+            STextureStageCache CurrentTexture;
+
+            uint64_t CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
+            std::map<uint64_t,GLuint> SamplerMap;
+        };
+
+
+    private:
+        SAuxContext* getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid = std::this_thread::get_id());
+
+        void cleanUpContextBeforeDelete();
+
+
+        void bindTransformFeedback(ITransformFeedback* xformFeedback, SAuxContext* toContext);
+
+
 
 		//! enumeration for rendering modes such as 2d and 3d for minizing the switching of renderStates.
 		enum E_RENDER_MODE
@@ -347,63 +413,30 @@ namespace video
 		bool ResetRenderStates;
 
 		SMaterial Material, LastMaterial;
-		COpenGLFrameBuffer* CurrentFBO;
-		class STextureStageCache
-		{
-			const IVirtualTexture* CurrentTexture[MATERIAL_MAX_TEXTURES];
-		public:
-			STextureStageCache()
-			{
-				for (uint32_t i=0; i<MATERIAL_MAX_TEXTURES; ++i)
-				{
-					CurrentTexture[i] = 0;
-				}
-			}
 
-			~STextureStageCache()
-			{
-				clear();
-			}
-
-			void set(uint32_t stage, const IVirtualTexture* tex)
-			{
-				if (stage<MATERIAL_MAX_TEXTURES)
-				{
-					const IVirtualTexture* oldTexture=CurrentTexture[stage];
-					if (tex)
-						tex->grab();
-					CurrentTexture[stage]=tex;
-					if (oldTexture)
-						oldTexture->drop();
-				}
-			}
-
-			const IVirtualTexture* operator[](int stage) const
-			{
-				if ((uint32_t)stage<MATERIAL_MAX_TEXTURES)
-					return CurrentTexture[stage];
-				else
-					return 0;
-			}
-
-			void remove(const IVirtualTexture* tex);
-
-			void clear();
-		};
-		STextureStageCache CurrentTexture;
-        uint64_t CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
-        std::map<uint64_t,GLuint> SamplerMap;
+	    const COpenGLBuffer* currentIndirectDrawBuff; //move to per-context storage?
+	    uint64_t lastValidatedIndirectBuffer; //move to per-context storage?
 
 
-		core::dimension2d<uint32_t> CurrentRendertargetSize;
+
+		//! inits the parts of the open gl driver used on all platforms
+		bool genericDriverInit();
+		//! returns a device dependent texture from a software surface (IImage)
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+
+		// returns the current size of the screen or rendertarget
+		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
+
+		void createMaterialRenderers();
+
+		core::stringw Name;
 
 		std::string VendorName;
 
 		//! Color buffer format
-		ECOLOR_FORMAT ColorFormat;
+		ECOLOR_FORMAT ColorFormat; //FIXME
 
 		SIrrlichtCreationParameters Params;
-
 
 		#ifdef _IRR_WINDOWS_API_
 			HDC HDc; // Private GDI Device Context
@@ -431,7 +464,7 @@ namespace video
         size_t clPlatformIx, clDeviceIx;
 #endif // _IRR_COMPILE_WITH_OPENCL_
 
-        FW_Mutex* ctxInitMutex;
+        FW_Mutex* glContextMutex;
 		SAuxContext* AuxContexts;
 
 		E_DEVICE_TYPE DeviceType;

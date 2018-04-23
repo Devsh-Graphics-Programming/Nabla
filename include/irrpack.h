@@ -18,9 +18,15 @@
 #	pragma pack( push, packing )
 #	pragma pack( 1 )
 #	define PACK_STRUCT
+
+    #if defined(_MSC_VER)
+    #define FORCE_EMPTY_BASE_OPT __declspec(empty_bases)
+    #endif // defined
+
 #elif defined( __DMC__ )
 #	pragma pack( push, 1 )
 #	define PACK_STRUCT
+#	define FORCE_EMPTY_BASE_OPT
 #elif defined( __GNUC__ )
 	// Using pragma pack might work with earlier gcc versions already, but
 	// it started to be necessary with gcc 4.7 on mingw unless compiled with -mno-ms-bitfields.
@@ -33,6 +39,7 @@
 #	else
 #		define PACK_STRUCT	__attribute__((packed))
 	#endif
+#	define FORCE_EMPTY_BASE_OPT
 #else
 #	error compiler not supported
 #endif

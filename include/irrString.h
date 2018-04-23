@@ -6,6 +6,8 @@
 #define __IRR_STRING_H_INCLUDED__
 
 #include "irrTypes.h"
+#include "irrMacros.h"
+#include "irrMacros.h"
 #include "irrAllocator.h"
 #include "irrMath.h"
 #include <stdio.h>

@@ -1,7 +1,7 @@
 #ifndef __C_OPEN_GL_BUFFER_H_INCLUDED__
 #define __C_OPEN_GL_BUFFER_H_INCLUDED__
 
-#include "IGPUBuffer.h"
+#include "IGPUMappedBuffer.h"
 #include "IrrCompileConfig.h"
 #include "FW_Mutex.h"
 
@@ -71,7 +71,7 @@ inline uint32_t getBitsPerPixelFromGLenum(const GLenum& format)
 }
 
 
-class COpenGLBuffer : public virtual IGPUBuffer
+class COpenGLBuffer : public IGPUMappedBuffer
 {
     protected:
         virtual ~COpenGLBuffer()
@@ -106,6 +106,7 @@ class COpenGLBuffer : public virtual IGPUBuffer
                 concurrentAccessGuard[i] = 0;
 #endif // OPENGL_LEAK_DEBUG
         }
+
 
 
         virtual core::E_BUFFER_TYPE getBufferType() const {return core::EBT_UNSPECIFIED_BUFFER;}
@@ -145,8 +146,13 @@ class COpenGLBuffer : public virtual IGPUBuffer
 
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)
         {
-            return reallocate(newSize,forceRetentionOfData,reallocateIfShrink,0);
+            return this->reallocate(newSize,forceRetentionOfData,reallocateIfShrink,0);
         }
+
+
+        virtual void* getPointer() {return NULL;}
+
+        virtual const bool isMappedBuffer() const {return false;}
 
     protected:
         GLbitfield cachedFlags;

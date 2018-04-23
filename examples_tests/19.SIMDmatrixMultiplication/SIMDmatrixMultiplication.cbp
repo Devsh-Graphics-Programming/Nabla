@@ -35,16 +35,16 @@
 					<Add option="-g" />
 					<Add option="-fuse-ld=gold" />
 					<Add option="-fno-omit-frame-pointer" />
-					<Add option="-msse3" />
+					<Add option="-mavx" />
 					<Add option="-mfpmath=sse" />
 					<Add option="-ggdb3" />
-					<Add option="-std=c++03" />
 					<Add option="-D_AMD64_" />
 				</Compiler>
 				<Linker>
 					<Add option="-fuse-ld=gold" />
 					<Add option="-msse3" />
 					<Add library="Irrlicht" />
+					<Add library="crypto" />
 					<Add library="Xrandr" />
 					<Add library="GL" />
 					<Add library="Xxf86vm" />
@@ -52,7 +52,10 @@
 					<Add library="OpenCL" />
 					<Add library="pthread" />
 					<Add library="dl" />
+					<Add library="unwind" />
+					<Add library="unwind-x86_64" />
 					<Add directory="../../lib/Linux" />
+					<Add directory="../../../openssl" />
 				</Linker>
 			</Target>
 		</Build>
