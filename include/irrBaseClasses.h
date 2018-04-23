@@ -14,40 +14,50 @@
 #define _IRR_INTERFACE_CHILD_DEFAULT(TYPE) \
             _IRR_NO_PUBLIC_DELETE_DEFAULT(TYPE)
 
+namespace irr
+{
+
 class Uncopyable
 {
     public:
-        _IRR_NO_COPY_FINAL(TYPE);
+        Uncopyable() = default;
+        _IRR_NO_COPY_FINAL(Uncopyable);
 };
 
 class Interface : public Uncopyable
 {
-        _IRR_NO_PUBLIC_DELETE_DEFAULT(TYPE);
+        _IRR_NO_PUBLIC_DELETE_DEFAULT(Interface);
+    public:
+        Interface() = default;
 };
 
 class Unmovable
 {
     public:
-        _IRR_NO_MOVE_FINAL(TYPE);
+        Unmovable() = default;
+        _IRR_NO_MOVE_FINAL(Unmovable);
 };
 
 class InterfaceUnmovable : public Interface, public Unmovable
 {
-        _IRR_INTERFACE_CHILD_DEFAULT(TYPE);
+        _IRR_INTERFACE_CHILD_DEFAULT(InterfaceUnmovable);
+    public:
+        InterfaceUnmovable() = default;
 };
 
 class TotalInterface : public Interface
 {
-        _IRR_INTERFACE_CHILD_DEFAULT(TYPE);
+        _IRR_INTERFACE_CHILD_DEFAULT(TotalInterface);
     public:
-        _IRR_NO_DEFAULT_FINAL(TYPE);
+        _IRR_NO_DEFAULT_FINAL(TotalInterface);
 };
 
 class TotalInterfaceUnmovable : public TotalInterface, public Unmovable
 {
-        _IRR_INTERFACE_CHILD_DEFAULT(TYPE);
+        _IRR_INTERFACE_CHILD_DEFAULT(TotalInterfaceUnmovable);
 };
 
+}
 
 /** TODO: Classes for objects requiring memory alignment
 1) Declare alignment on the parent class through a template (hoepfully alignment is inherited in C++11)

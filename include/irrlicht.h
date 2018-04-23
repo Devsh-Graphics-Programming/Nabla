@@ -76,6 +76,7 @@
 #include "IReadFile.h"
 #include "IReferenceCounted.h"
 #include "irrArray.h"
+#include "irrBaseClasses.h"
 #include "IrrlichtDevice.h"
 #include "irrMacros.h"
 #include "irrMath.h"
