@@ -248,55 +248,6 @@ NO BITSHIFTING SUPPORT
 		//! Copy constructor
 		inline vectorSIMDf(const vectorSIMDf& other) {_mm_store_ps(pointer,other.getAsRegister());}
 
-/**
-        static inline void* operator new(size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void operator delete(void* ptr)
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new[](size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void  operator delete[](void* ptr) throw()
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new(std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete(void* p,void* t) throw() {}
-        static inline void* operator new[](std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete[](void* p,void* t) throw() {}
-**/
-
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
 		inline vectorSIMDf(const vectorSIMDi32& other);
@@ -923,55 +874,6 @@ NO BITSHIFTING SUPPORT
 		//! Copy constructor
 		inline vectorSIMD_32(const vectorSIMD_32<T>& other) {_mm_store_si128((__m128i*)pointer,other.getAsRegister());}
 
-/**
-        static inline void* operator new(size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void operator delete(void* ptr)
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new[](size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void  operator delete[](void* ptr) throw()
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new(std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete(void* p,void* t) throw() {}
-        static inline void* operator new[](std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete[](void* p,void* t) throw() {}
-**/
-
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
 		inline vectorSIMDf(const vectorSIMDi32& other);
@@ -1276,7 +1178,7 @@ NO BITSHIFTING SUPPORT
 	inline void transpose4(vectorSIMDf& _a0, vectorSIMDf& _a1, vectorSIMDf& _a2, vectorSIMDf& _a3)
 	{
 		__m128 a0 = _a0.getAsRegister(), a1 = _a1.getAsRegister(), a2 = _a2.getAsRegister(), a3 = _a3.getAsRegister();
-		_MM_TRANSPOSE4_PS(a0, a1, a2, a3)
+		_MM_TRANSPOSE4_PS(a0, a1, a2, a3);
 		_a0 = a0;
 		_a1 = a1;
 		_a2 = a2;
