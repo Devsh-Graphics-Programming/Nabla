@@ -557,6 +557,7 @@
     <ClInclude Include="aesGladman\brg_types.h" />
     <ClInclude Include="lzma\Alloc.h" />
     <ClInclude Include="lzma\LzmaLib.h" />
+    <ClInclude Include="..\..\include\matrix3x4SIMD.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />

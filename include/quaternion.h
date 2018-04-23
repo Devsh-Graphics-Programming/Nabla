@@ -24,6 +24,7 @@ namespace irr
 namespace core
 {
 
+struct matrix3x4SIMD;
 
 //! Quaternion class for representing rotations.
 /** It provides cheap combinations and avoids gimbal locks.

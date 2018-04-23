@@ -320,10 +320,10 @@ class aabbox3d
 		vector3d<T> MaxEdge;
 };
 
-	//! Typedef for a float 3d bounding box.
-	typedef aabbox3d<float> aabbox3df;
-	//! Typedef for an integer 3d bounding box.
-	typedef aabbox3d<int32_t> aabbox3di;
+//! Typedef for a float 3d bounding box.
+typedef aabbox3d<float> aabbox3df;
+//! Typedef for an integer 3d bounding box.
+typedef aabbox3d<int32_t> aabbox3di;
 
 } // end namespace core
 } // end namespace irr
