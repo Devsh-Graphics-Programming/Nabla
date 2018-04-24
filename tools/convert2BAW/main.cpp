@@ -22,6 +22,8 @@
 //	Directory to which textures in output mesh files will be relative.
 // -pwd <password>
 //	Password string consisting of only hex digits. Must be 32 characters long.
+// -info
+// Prints mesh info to stdout.
 // -optmesh <settings>
 //	If passed - mesh will be optimized before export. The option comes along with error metrics settings:
 //	Settings must be enclosed with curly (i.e. {}) braces and grouped in threes. Threes must be delimited with commas. Order of threes is irrelevant.
@@ -146,7 +148,7 @@ int main(int _optCnt, char** _options)
 				std::transform(s.cbegin(), s.cend(), s.begin(), [](char c) { return (c == '{' || c == '}' || c == ',') ? ' ' : c; });
 
 				std::stringstream ss(s);
-				for (size_t i = 0u; i < cnt;)
+				for (size_t i = 0u; i < cnt; ++i)
 				{
 					size_t vaid{};
 					ss >> vaid;
@@ -223,7 +225,7 @@ int main(int _optCnt, char** _options)
             smgr->getMeshCache()->removeMesh(inmesh);
 			continue;
 		}
-		if (optimizeMesh && !optMesh(inmesh, meshManip, errMetrics)) // todo pass error metrics
+		if (optimizeMesh && !optMesh(inmesh, meshManip, errMetrics))
 		{
 			printf("Could not optimize mesh %s. Mesh not exported!\n", inNames[i]);
 			smgr->getMeshCache()->removeMesh(inmesh);
@@ -231,8 +233,11 @@ int main(int _optCnt, char** _options)
 			continue;
 		}
 
-		if (printInfo)
-			printFullMeshInfo(inmesh);
+        if (printInfo)
+        {
+            printf("%s INFO:\n", inNames[i]);
+            printFullMeshInfo(inmesh);
+        }
 
 		if (usePwd)
 			writer->writeMesh(outfile, inmesh, properties);
