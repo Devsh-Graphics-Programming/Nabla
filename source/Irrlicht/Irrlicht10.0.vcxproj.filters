@@ -177,6 +177,15 @@
     <ClCompile Include="libpng\pngwrite.c" />
     <ClCompile Include="libpng\pngwtran.c" />
     <ClCompile Include="libpng\pngwutil.c" />
+    <ClCompile Include="aesGladman\aescrypt.cpp" />
+    <ClCompile Include="aesGladman\aeskey.cpp" />
+    <ClCompile Include="aesGladman\aestab.cpp" />
+    <ClCompile Include="aesGladman\fileenc.cpp" />
+    <ClCompile Include="aesGladman\hmac.cpp" />
+    <ClCompile Include="aesGladman\prng.cpp" />
+    <ClCompile Include="aesGladman\pwd2key.cpp" />
+    <ClCompile Include="aesGladman\sha1.cpp" />
+    <ClCompile Include="aesGladman\sha2.cpp" />
     <ClCompile Include="bzip2\blocksort.c" />
     <ClCompile Include="bzip2\bzlib.c" />
     <ClCompile Include="bzip2\crctable.c" />

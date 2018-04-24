@@ -760,6 +760,7 @@
     <ClInclude Include="..\..\include\irrTypes.h" />
     <ClInclude Include="..\..\include\ITimer.h" />
     <ClInclude Include="..\..\include\Keycodes.h" />
+    <ClInclude Include="..\..\include\matrix3x4SIMD.h" />
     <ClInclude Include="..\..\include\SIrrCreationParameters.h" />
     <ClInclude Include="..\..\include\SKeyMap.h" />
     <ClInclude Include="..\..\include\EDriverTypes.h" />
