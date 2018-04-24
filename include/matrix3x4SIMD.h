@@ -40,6 +40,31 @@ struct matrix3x4SIMD
 			rows[i] = vectorSIMDf(_data + 4*i, ALIGNED);
 	}
 
+    matrix3x4SIMD& set(const matrix4x3& _retarded)
+    {
+        rows[0] = rows[1] = rows[2] = vectorSIMDf();
+        vectorSIMDf c3;
+        for (size_t i = 0u; i < 3u; ++i)
+            rows[i] = vectorSIMDf(&_retarded.getColumn(i).X);
+        memcpy(c3.pointer, &_retarded.getColumn(3).X, 3*4);
+        core::transpose4(rows[0], rows[1], rows[2], c3);
+
+        return *this;
+    }
+	inline matrix4x3 getAsRetardedIrrlichtMatrix() const
+	{
+		matrix4x3 ret;
+
+        vectorSIMDf c[4]{ rows[0], rows[1], rows[2] };
+        core::transpose4(c);
+
+        for (size_t i = 0u; i < 3u; ++i)
+            _mm_storeu_ps(&ret.getColumn(i).X, c[i].getAsRegister());
+        memcpy(&ret.getColumn(3).X, c[3].pointer, 3*4);
+
+		return ret;
+	}
+
 	static inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
 	{
 		__m128 r0 = _a.rows[0].getAsRegister();
@@ -319,8 +344,8 @@ struct matrix3x4SIMD
 
 	inline matrix3x4SIMD& setRotation(const core::quaternion& _quat)
 	{
-		const __m128 mask0001 = _mm_castsi128_ps(_mm_setr_epi32(0, 0, 0, 0xffffffff));
-		const __m128 mask1110 = _mm_castsi128_ps(_mm_setr_epi32(0xffffffff, 0xffffffff, 0xffffffff, 0));
+		const __m128 mask0001 = BUILD_MASKF(0, 0, 0, 1);
+		const __m128 mask1110 = BUILD_MASKF(1, 1, 1, 0);
 
 		const core::vectorSIMDf& quat = reinterpret_cast<const core::vectorSIMDf&>(_quat);
 		rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (rows[0] & mask0001);
@@ -334,6 +359,32 @@ struct matrix3x4SIMD
 
 		return *this;
 	}
+
+#define BUILD_XORMASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0x80000000, _y_*0x80000000, _z_*0x80000000, _w_*0x80000000))
+    inline matrix3x4SIMD& setScaleRotationAndTranslation(const vectorSIMDf& _scale, const core::quaternion& _quat, const vectorSIMDf& _translation)
+    {
+        const __m128 mask1110 = BUILD_MASKF(1, 1, 1, 0);
+
+        const vectorSIMDf& quat = reinterpret_cast<const vectorSIMDf&>(_quat);
+        const vectorSIMDf dblScale = (_scale*2.f) & mask1110;
+
+        vectorSIMDf mlt = dblScale ^ BUILD_XORMASKF(0, 1, 0, 0);
+        rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * dblScale)) + (quat.zzzz() * (quat.zwxx() & mask1110) * mlt));
+        rows[0].x = _scale.x - rows[0].x;
+
+        mlt = dblScale ^ BUILD_XORMASKF(0, 0, 1, 0);
+        rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * dblScale)) + (quat.xxxx() * (quat.yxwx() & mask1110) * mlt));
+        rows[1].y = _scale.y - rows[1].y;
+
+        mlt = dblScale ^ BUILD_XORMASKF(1, 0, 0, 0);
+        rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * dblScale)) + (quat.yyyy() * (quat.wzyx() & mask1110) * mlt));
+        rows[2].z = _scale.z - rows[2].z;
+
+        setTranslation(_translation);
+
+        return *this;
+    }
+#undef BUILD_XORMASKF
 
 	inline bool getInverse(matrix3x4SIMD& _out) const
 	{
