@@ -43,6 +43,8 @@ namespace video
 #define glBindBuffer_MACRO COpenGLExtensionHandler::extGlBindBuffer
 #define glBindBufferRange_MACRO(target,index,buffer,offset,size) COpenGLExtensionHandler::extGlBindBuffersRange(target,index,1,&buffer,&offset,&size)
 
+#define glGetNamedBufferParameteri64v_MACRO COpenGLExtensionHandler::extGlGetNamedBufferParameteri64v
+
 #define glDepthRangeIndexed_MACRO COpenGLExtensionHandler::extGlDepthRangeIndexed
 #define glViewportIndexedfv_MACRO COpenGLExtensionHandler::extGlViewportIndexedfv
 #define glScissorIndexedv_MACRO COpenGLExtensionHandler::extGlScissorIndexedv
@@ -472,6 +474,11 @@ PFNGLCOPYBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlCopyBufferSubData = NULL;
 PFNGLCOPYNAMEDBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlCopyNamedBufferSubData = NULL;
 PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC COpenGLExtensionHandler::pGlNamedCopyBufferSubDataEXT = NULL;
 PFNGLISBUFFERPROC COpenGLExtensionHandler::pGlIsBuffer = NULL;
+PFNGLGETNAMEDBUFFERPARAMETERI64VPROC COpenGLExtensionHandler::pGlGetNamedBufferParameteri64v = NULL;
+PFNGLGETBUFFERPARAMETERI64VPROC COpenGLExtensionHandler::pGlGetBufferParameteri64v = NULL;
+PFNGLGETNAMEDBUFFERPARAMETERIVPROC COpenGLExtensionHandler::pGlGetNamedBufferParameteriv = NULL;
+PFNGLGETNAMEDBUFFERPARAMETERIVEXTPROC COpenGLExtensionHandler::pGlGetNamedBufferParameterivEXT = NULL;
+PFNGLGETBUFFERPARAMETERIVPROC COpenGLExtensionHandler::pGlGetBufferParameteriv = NULL;
 //vao
 PFNGLGENVERTEXARRAYSPROC COpenGLExtensionHandler::pGlGenVertexArrays = NULL;
 PFNGLCREATEVERTEXARRAYSPROC COpenGLExtensionHandler::pGlCreateVertexArrays = NULL;
@@ -1348,7 +1355,12 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlCopyBufferSubData = (PFNGLCOPYBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glCopyBufferSubData");
     pGlCopyNamedBufferSubData = (PFNGLCOPYNAMEDBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glCopyNamedBufferSubData");
     pGlNamedCopyBufferSubDataEXT = (PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedCopyBufferSubDataEXT");
-	pGlIsBuffer= (PFNGLISBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glIsBuffer");
+	pGlIsBuffer = (PFNGLISBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glIsBuffer");
+    pGlGetNamedBufferParameteri64v = (PFNGLGETNAMEDBUFFERPARAMETERI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetNamedBufferParameteri64v");
+    pGlGetBufferParameteri64v = (PFNGLGETBUFFERPARAMETERI64VPROC) IRR_OGL_LOAD_EXTENSION("pGlGetBufferParameteri64v");
+    pGlGetNamedBufferParameteriv = (PFNGLGETNAMEDBUFFERPARAMETERIVPROC) IRR_OGL_LOAD_EXTENSION("pGlGetNamedBufferParameteriv");
+    pGlGetNamedBufferParameterivEXT = (PFNGLGETNAMEDBUFFERPARAMETERIVEXTPROC) IRR_OGL_LOAD_EXTENSION("pGlGetNamedBufferParameterivEXT");
+    pGlGetBufferParameteriv = (PFNGLGETBUFFERPARAMETERIVPROC) IRR_OGL_LOAD_EXTENSION("pGlGetBufferParameteriv");
 	//vao
     pGlGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC) IRR_OGL_LOAD_EXTENSION("glGenVertexArrays");
     pGlCreateVertexArrays = (PFNGLCREATEVERTEXARRAYSPROC) IRR_OGL_LOAD_EXTENSION("glCreateVertexArrays");

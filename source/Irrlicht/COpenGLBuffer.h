@@ -108,9 +108,6 @@ class COpenGLBuffer : public IGPUMappedBuffer
         }
 
 
-
-        virtual core::E_BUFFER_TYPE getBufferType() const {return core::EBT_UNSPECIFIED_BUFFER;}
-
         inline const GLuint& getOpenGLName() const {return BufferName;}
 
         virtual const uint64_t &getSize() const {return BufferSize;}

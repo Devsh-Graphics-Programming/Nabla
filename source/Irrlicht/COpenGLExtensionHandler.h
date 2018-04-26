@@ -1144,6 +1144,8 @@ class COpenGLExtensionHandler
     static void extGlClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void *data);
     static void extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size);
 	static GLboolean extGlIsBuffer (GLuint buffer);
+	static void extGlGetNamedBufferParameteriv(const GLuint& buffer, const GLenum& value, GLint* data);
+	static void extGlGetNamedBufferParameteri64v(const GLuint& buffer, const GLenum& value, GLint64* data);
 
 	//vao
 	static void extGlCreateVertexArrays(GLsizei n, GLuint *arrays);
@@ -1478,6 +1480,11 @@ class COpenGLExtensionHandler
     static PFNGLCOPYNAMEDBUFFERSUBDATAPROC pGlCopyNamedBufferSubData; //NULL
     static PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC pGlNamedCopyBufferSubDataEXT;
     static PFNGLISBUFFERPROC pGlIsBuffer;
+    static PFNGLGETNAMEDBUFFERPARAMETERI64VPROC pGlGetNamedBufferParameteri64v;
+    static PFNGLGETBUFFERPARAMETERI64VPROC pGlGetBufferParameteri64v;
+    static PFNGLGETNAMEDBUFFERPARAMETERIVPROC pGlGetNamedBufferParameteriv;
+    static PFNGLGETNAMEDBUFFERPARAMETERIVEXTPROC pGlGetNamedBufferParameterivEXT;
+    static PFNGLGETBUFFERPARAMETERIVPROC pGlGetBufferParameteriv;
     //vao
     static PFNGLGENVERTEXARRAYSPROC pGlGenVertexArrays;
     static PFNGLCREATEVERTEXARRAYSPROC pGlCreateVertexArrays; //NULL
@@ -4480,6 +4487,77 @@ inline GLboolean COpenGLExtensionHandler::extGlIsBuffer(GLuint buffer)
 #else
 	return glIsBuffer(buffer);
 #endif
+}
+
+inline void COpenGLExtensionHandler::extGlGetNamedBufferParameteriv(const GLuint& buffer, const GLenum& value, GLint* data)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetNamedBufferParameteriv)
+            pGlGetNamedBufferParameteriv(buffer, value, data);
+    #else
+        glGetNamedBufferParameteriv(buffer, value, data);
+    #endif
+    }
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetNamedBufferParameterivEXT)
+            pGlGetNamedBufferParameterivEXT(buffer, value, data);
+    #else
+        glGetNamedBufferParameterivEXT(buffer, value, data);
+    #endif
+    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlGetBufferParameteriv&&pGlBindBuffer)
+#else
+    else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    {
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        pGlGetBufferParameteriv(GL_ARRAY_BUFFER, value, data);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        glGetBufferParameteriv(GL_ARRAY_BUFFER, value, data);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlGetNamedBufferParameteri64v(const GLuint& buffer, const GLenum& value, GLint64* data)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    {
+    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetNamedBufferParameteri64v)
+            pGlGetNamedBufferParameteri64v(buffer, value, data);
+    #else
+        glGetNamedBufferParameteri64v(buffer, value, data);
+    #endif
+    }
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    else if (pGlGetBufferParameteri64v&&pGlBindBuffer)
+#else
+    else
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    {
+        GLint bound;
+        glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
+        pGlGetBufferParameteri64v(GL_ARRAY_BUFFER, value, data);
+        pGlBindBuffer(GL_ARRAY_BUFFER,bound);
+#else
+        glBindBuffer(GL_ARRAY_BUFFER,buffer);
+        glGetBufferParameteri64v(GL_ARRAY_BUFFER, value, data);
+        glBindBuffer(GL_ARRAY_BUFFER,bound);
+#endif
+    }
 }
 
 

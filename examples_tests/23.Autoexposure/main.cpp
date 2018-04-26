@@ -329,8 +329,8 @@ int main()
 
 
     irr::ext::AutoExposure::CToneMapper* toneMapper = irr::ext::AutoExposure::CToneMapper::instantiateTonemapper(driver,
-                                                                                                                 "../lumaHistogramFirstPass.comp",
-                                                                                                                 "../lumaHistogramSecondPass.comp",
+                                                                                                                 "../../../ext/AutoExposure/lumaHistogramFirstPass.comp",
+                                                                                                                 "../../../ext/AutoExposure/lumaHistogramSecondPass.comp",
                                                                                                                  offsetof(PerFrameUniformBlock,autoExposureInput.dynResScale),
                                                                                                                  offsetof(PerFrameUniformBlock,autoExposureInput.percentileSearchVals),
                                                                                                                  offsetof(PerFrameUniformBlock,autoExposureOutput));

@@ -83,8 +83,6 @@
 		</Compiler>
 		<Unit filename="../../ext/AutoExposure/CToneMapper.cpp" />
 		<Unit filename="../../ext/AutoExposure/CToneMapper.h" />
-		<Unit filename="lumaHistogramFirstPass.comp" />
-		<Unit filename="lumaHistogramSecondPass.comp" />
 		<Unit filename="main.cpp" />
 		<Unit filename="postproc.frag" />
 		<Unit filename="screenquad.vert" />

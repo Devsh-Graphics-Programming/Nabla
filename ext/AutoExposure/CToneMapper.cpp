@@ -1,7 +1,7 @@
 #include "../ext/AutoExposure/CToneMapper.h"
 
 #include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Irrlicht/COpenGLDriver.h"
 
 using namespace irr;
 using namespace ext;
@@ -155,7 +155,7 @@ CToneMapper::~CToneMapper()
     m_histogramBuffer->drop();
 }
 
-#define PROFILE_TONEMAPPER
+//#define PROFILE_TONEMAPPER
 
 bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, video::IGPUBuffer* uniformBuffer, video::ITexture* inputTexture)
 {
@@ -170,40 +170,26 @@ bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, vi
     GLint prevProgram;
     glGetIntegerv(GL_CURRENT_PROGRAM,&prevProgram);
 
-    GLint previousTex;
-    video::COpenGLExtensionHandler::extGlGetIntegeri_v(GL_TEXTURE_BINDING_2D,0,&previousTex);
-    GLenum dummyTarget = asGlTex->getOpenGLTextureType();
 
 #ifdef PROFILE_TONEMAPPER
     video::IQueryObject* timeQuery = m_driver->createElapsedTimeQuery();
     m_driver->beginQuery(timeQuery);
 #endif // PROFILE_TONEMAPPER
 
+    video::STextureSamplingParams params;
+    params.MaxFilter = video::ETFT_LINEAR_NO_MIP;
+    params.MinFilter = video::ETFT_LINEAR_NO_MIP;
+    params.UseMipmaps = 0;
+    const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(0,inputTexture,params);
+
+
     video::COpenGLExtensionHandler::extGlUseProgram(m_histogramProgram);
-    video::COpenGLExtensionHandler::extGlBindTextures(0,1,&asGlTex->getOpenGLName(),&dummyTarget);
     video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,
                                                           &static_cast<video::COpenGLBuffer*>(m_histogramBuffer)->getOpenGLName());
     video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,&static_cast<video::COpenGLBuffer*>(uniformBuffer)->getOpenGLName());
 
     video::COpenGLExtensionHandler::pGlDispatchCompute(m_workGroupCount[0],m_workGroupCount[1],1);
     video::COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    /*
-    video::COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
-    uint32_t histo[GLOBAL_REPLICATION*BIN_COUNT];
-    video::COpenGLExtensionHandler::extGlGetNamedBufferSubData(static_cast<video::COpenGLBuffer*>(m_histogramBuffer)->getOpenGLName(),0,sizeof(histo),histo);
-    uint32_t prev=0;
-    for (uint32_t i=0; i<BIN_COUNT; i++)
-    {
-        uint32_t sum = histo[i];
-        for (uint32_t j=1; j<GLOBAL_REPLICATION; j++)
-            sum += histo[i+j*BIN_COUNT];
-
-        prev += sum;
-        printf("%d\n",prev);
-    }
-    exit(0);
-    */
 
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_autoExpParamProgram);
@@ -213,7 +199,6 @@ bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, vi
 
 
     video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
-    video::COpenGLExtensionHandler::extGlBindTextures(0,1,reinterpret_cast<GLuint*>(&previousTex),&dummyTarget);
     video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,2,NULL);
     video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,NULL);
     video::COpenGLExtensionHandler::pGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
