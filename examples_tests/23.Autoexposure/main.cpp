@@ -12,6 +12,9 @@
 using namespace irr;
 using namespace core;
 
+
+#define OPENGL_DEBUG
+
 bool quit = false;
 
 //!Same As Last Example
@@ -42,6 +45,7 @@ public:
 
 private:
 };
+
 
 #ifdef OPENGL_DEBUG
 void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severity,
@@ -234,7 +238,6 @@ int main()
 	if (device == 0)
 		return 1; // could not create selected driver.
 
-
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
@@ -359,7 +362,6 @@ int main()
         driver->setMaterial(postProcMaterial);
         driver->drawMeshBuffer(screenQuadMeshBuffer);
         video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,NULL);
-
 
 		driver->endScene();
 
