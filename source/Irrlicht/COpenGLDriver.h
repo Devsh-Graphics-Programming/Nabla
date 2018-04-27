@@ -111,7 +111,7 @@ namespace video
         virtual IGPUTimestampQuery* createTimestampQuery();
 
 
-        virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
+        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
 		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
@@ -419,6 +419,7 @@ namespace video
                         other.mappedIndexBuf = NULL;
                         other.vao = 0;
                         other.lastValidated = 0;
+                        return *this;
                     }
 
 

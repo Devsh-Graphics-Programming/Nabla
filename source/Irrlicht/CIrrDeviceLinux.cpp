@@ -333,19 +333,19 @@ EKEY_CODE CIrrDeviceLinux::getKeyCode(XEvent &event)
 		{
 			keyCode = (EKEY_CODE)(event.xkey.keycode+KEY_KEY_CODES_COUNT+1);
 #ifdef _DEBUG
-			os::Printer::log("No such X11Key, using event keycode", std::string(event.xkey.keycode), ELL_INFORMATION);
+			os::Printer::log("No such X11Key, using event keycode", std::to_string(event.xkey.keycode).c_str(), ELL_INFORMATION);
 		}
 		else if (it == KeyMap.end())
 		{
 			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
-			os::Printer::log("EKEY_CODE not found, using orig. X11 keycode", std::string(x11Key), ELL_INFORMATION);
+			os::Printer::log("EKEY_CODE not found, using orig. X11 keycode", std::to_string(x11Key).c_str(), ELL_INFORMATION);
 #endif // _DEBUG
 		}
 		else
 		{
 			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
 #ifdef _DEBUG
-			os::Printer::log("EKEY_CODE is 0, using orig. X11 keycode", std::string(x11Key), ELL_INFORMATION);
+			os::Printer::log("EKEY_CODE is 0, using orig. X11 keycode", std::to_string(x11Key).c_str(), ELL_INFORMATION);
 #endif // _DEBUG
 		}
  	}
@@ -530,8 +530,10 @@ void IrrPrintXGrabError(int grabResult, const char * grabCommand )
 bool CIrrDeviceLinux::createWindow()
 {
 #ifdef _IRR_COMPILE_WITH_X11_
-    if (CreationParams.AuxGLContexts)
+    if (CreationParams.AuxGLContexts>1)
+    {
         XInitThreads();
+    }
 
 	os::Printer::log("Creating X window...", ELL_INFORMATION);
 	XSetErrorHandler(IrrPrintXError);
@@ -672,7 +674,7 @@ bool CIrrDeviceLinux::createWindow()
 
                             if (desiredSamples>1) //want AA
                             {
-                                if (obtainedFBConfigAttrs[8]!=1 || obtainedFBConfigAttrs[9]<desiredSamples || bestSamples<1024&&obtainedFBConfigAttrs[9]>bestSamples)
+                                if (obtainedFBConfigAttrs[8]!=1 || obtainedFBConfigAttrs[9]<desiredSamples || (bestSamples<1024&&obtainedFBConfigAttrs[9]>bestSamples))
                                 {
                                     XFree( vi );
                                     continue;
@@ -690,7 +692,7 @@ bool CIrrDeviceLinux::createWindow()
                                 continue;
                             }
 
-                            if (obtainedFBConfigAttrs[4]<CreationParams.ZBufferBits || bestDepth>=0&&obtainedFBConfigAttrs[4]>bestDepth)
+                            if (obtainedFBConfigAttrs[4]<CreationParams.ZBufferBits || (bestDepth>=0&&obtainedFBConfigAttrs[4]>bestDepth))
                             {
                                 XFree( vi );
                                 continue;
@@ -790,7 +792,7 @@ bool CIrrDeviceLinux::createWindow()
 	}
 #ifdef _DEBUG
 	else
-		///os::Printer::log("Visual chosen: ", std::to_string(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
+        os::Printer::log("Visual chosen: ", std::to_string(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
 #endif
 
 	// create color map

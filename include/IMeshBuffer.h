@@ -16,7 +16,7 @@
 #include "vectorSIMD.h"
 #include "coreutil.h"
 #include "CBAWFile.h"
-//#include "os.h"
+#include "assert.h"
 
 namespace irr
 {
