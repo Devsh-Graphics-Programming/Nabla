@@ -247,3 +247,16 @@ void LeakDebugger::dumpLeaks()
 
 }
 }
+
+namespace std
+{
+    size_t hash<irr::core::LeakDebugger::StackTrace>::operator()(const irr::core::LeakDebugger::StackTrace &x ) const
+    {
+        size_t retval = 0;
+
+        for (size_t i=0; i<x.getTrace().size(); i++)
+            retval ^= hash<string>()(x.getTrace()[i]);
+
+        return retval;
+    }
+}

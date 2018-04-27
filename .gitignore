@@ -8,3 +8,5 @@ source/obj
 examples_tests/06.MeshLoaders/bin/cow.baw
 examples_tests/06.MeshLoaders/bin/extrusionLogo_TEST_fixed.baw
 examples_tests/07.HardwareSkinning/bin/dwarf.baw
+source/Irrlicht/libIrrlichtServer.a
+lib/*

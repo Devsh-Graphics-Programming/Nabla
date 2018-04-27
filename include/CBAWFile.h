@@ -180,6 +180,8 @@ namespace core
 		static void* instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);
 		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, std::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
 		static void releaseObj(const void* _obj);
+
+		//static std::string printMemberPackingDebug();
 	};
 
 	struct FORCE_EMPTY_BASE_OPT RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, FixedSizeBlob<RawBufferBlobV0, ICPUBuffer>

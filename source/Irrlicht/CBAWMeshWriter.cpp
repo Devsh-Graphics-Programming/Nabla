@@ -10,6 +10,7 @@
 #include "irrArray.h"
 #include "ITexture.h"
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include "ISkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
 #include "os.h"

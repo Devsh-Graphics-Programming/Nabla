@@ -1337,7 +1337,7 @@ IImage* CNullDriver::createImage(const ECOLOR_FORMAT& format, const core::dimens
 }
 
 
-void CNullDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query)
+void CNullDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query)
 {
 	if (!mb)
 		return;
@@ -1372,11 +1372,19 @@ void CNullDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* que
 
 
 //! Indirect Draw
-void CNullDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+void CNullDriver::drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                     const scene::E_PRIMITIVE_TYPE& mode,
+                                     const IGPUBuffer* indirectDrawBuff,
+                                     const size_t& offset, const size_t& count, const size_t& stride,
+                                     IOcclusionQuery* query)
 {
 }
 
-void CNullDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+void CNullDriver::drawIndexedIndirect(  const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const scene::E_PRIMITIVE_TYPE& mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        const size_t& offset, const size_t& count, const size_t& stride,
+                                        IOcclusionQuery* query)
 {
 }
 

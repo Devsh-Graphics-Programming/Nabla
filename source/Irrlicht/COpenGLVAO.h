@@ -1,5 +1,5 @@
-#ifndef __C_OPEN_GL_VAO_H_INCLUDED__
-#define __C_OPEN_GL_VAO_H_INCLUDED__
+#ifndef __C_OPEN_GL_VAO_SPEC_H_INCLUDED__
+#define __C_OPEN_GL_VAO_SPEC_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
 #include "COpenGLBuffer.h"
@@ -55,99 +55,176 @@ namespace video
     };
 
 
-    class COpenGLVAO : public scene::IGPUMeshDataFormatDesc
+    class COpenGLVAOSpec : public scene::IGPUMeshDataFormatDesc
     {
-            //vertices
-            COpenGLBuffer* mappedAttrBuf[scene::EVAI_COUNT];
-            //indices
-            COpenGLBuffer* mappedIndexBuf;
-
-            inline bool formatCanBeAppended(const COpenGLVAO* other) const
-            {
-                bool retVal = true;
-                for (size_t i=0; retVal&&i<scene::EVAI_COUNT; i++)
-                {
-                    if (mappedAttrBuf[i])
-                    {
-                        if (other->mappedAttrBuf[i])
-                            retVal = retVal&&compntsPerAttr[i]==other->compntsPerAttr[i]&&attrType[i]==other->attrType[i];
-                        else
-                            return false;
-                    }
-                    else
-                    {
-                        if (other->mappedAttrBuf[i])
-                            return false;
-                        else
-                            retVal = retVal&&compntsPerAttr[i]==other->compntsPerAttr[i]&&attrType[i]==other->attrType[i];
-                    }
-                }
-                return retVal;
-            }
-
-
-            GLuint vao;
-            uint64_t lastValidated;
-
-            core::LeakDebugger* leakDebugger;
-
-        protected:
-            virtual ~COpenGLVAO();
-
         public:
-            COpenGLVAO(core::LeakDebugger* dbgr=NULL);
-
-            bool formatCanBeAppended(const scene::IGPUMeshDataFormatDesc* other) const
+            struct HashAttribs
             {
-                return formatCanBeAppended(reinterpret_cast<const COpenGLVAO*>(other));
-            }
+                HashAttribs()
+                {
+                    static_assert(scene::ECPA_COUNT==5); //otherwise our hashing system falls apart
+                    static_assert(scene::EVAI_COUNT==16); //otherwise our hashing system falls apart
+                    static_assert(sizeof(HashAttribs)/sizeof(uint64_t)==(scene::EVAI_COUNT+2+_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS*2+sizeof(uint64_t)-1)/sizeof(uint64_t)); //otherwise our hashing system falls apart
+
+                    for (size_t i=0; i<getHashLength(); i++)
+                        hashVal[i] = 0;
+                }
+
+                constexpr static size_t getHashLength() {return sizeof(hashVal)/sizeof(uint64_t);}
+
+                inline void setAttrFmtAndCompCnt(const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const scene::E_COMPONENTS_PER_ATTRIBUTE& components, const scene::E_COMPONENT_TYPE& type)
+                {
+                    attribFormatAndComponentCount[attrId] = components|(type<<3);
+                }
 
 
-            virtual void mapIndexBuffer(IGPUBuffer* ixbuf);
+                inline scene::E_COMPONENTS_PER_ATTRIBUTE getAttribComponentCount(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                {
+                    return static_cast<scene::E_COMPONENTS_PER_ATTRIBUTE>(attribFormatAndComponentCount[attrId]&0x7u);
+                }
 
-            virtual const video::IGPUBuffer* getIndexBuffer() const
-            {
-                return mappedIndexBuf;
-            }
+                inline scene::E_COMPONENT_TYPE getAttribType(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                {
+                    return static_cast<scene::E_COMPONENT_TYPE>(attribFormatAndComponentCount[attrId]>>3);
+                }
+
+                inline uint32_t getAttribDivisor(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                {
+                    uint32_t retval = 0;
+                    for (size_t i=0; i<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS; i++)
+                    {
+                        uint16_t mask = 0x1u<<attrId;
+                        if (attributeDivisors[i]&mask)
+                            retval |= 0x1u<<i;
+                    }
+                    return retval;
+                }
+
+
+                inline bool operator<(const HashAttribs& other) const
+                {
+                    for (size_t i=0; i<getHashLength()-1; i++)
+                    {
+                        if (hashVal[i]!=other.hashVal[i])
+                            return hashVal[i]<other.hashVal[i];
+                    }
+                    /*
+                    static_if(scene::EVAI_COUNT+2+_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS*2==24)
+                    {
+                        return hashVal[2]<hashVal[2];
+                    }
+                    static_else
+                    {*/
+                        return hashVal[getHashLength()-1]<other.hashVal[getHashLength()-1];
+                    //}
+                }
+
+                inline bool operator!=(const HashAttribs& other) const
+                {
+                    for (size_t i=0; i<getHashLength()-1; i++)
+                    {
+                        if (hashVal[i]!=other.hashVal[i])
+                            return true;
+                    }
+                    /*
+                    static_if(scene::EVAI_COUNT+2+_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS*2==24)
+                    {
+                        return hashVal[2]<hashVal[2];
+                    }
+                    static_else
+                    {*/
+                        return hashVal[getHashLength()-1]!=other.hashVal[getHashLength()-1];
+                    //}
+                }
+
+                inline bool operator==(const HashAttribs& other) const
+                {
+                    return !((*this)!=other);
+                }
+
+                union
+                {
+                    #include "irrpack.h"
+                    struct
+                    {
+                        uint8_t attribFormatAndComponentCount[scene::EVAI_COUNT];
+                        uint16_t enabledAttribs;
+                        uint16_t attributeDivisors[_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS];
+                    } PACK_STRUCT;
+                    #include "irrunpack.h"
+
+                    uint64_t hashVal[(scene::EVAI_COUNT+2*_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS+sizeof(uint64_t)-1)/sizeof(uint64_t)];
+                };
+            };
+
+            COpenGLVAOSpec(core::LeakDebugger* dbgr=NULL);
 
             virtual void mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, scene::E_COMPONENTS_PER_ATTRIBUTE components, scene::E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0, uint32_t divisor=0);
 
-            virtual void setMappedBufferOffset(const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const size_t &offset);
-
-            virtual const video::IGPUBuffer* getMappedBuffer(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+            inline const IGPUBuffer* const* getMappedBuffers() const
             {
-                if (attrId>=scene::EVAI_COUNT)
-                    return NULL;
-
-                return mappedAttrBuf[attrId];
+                return mappedAttrBuf;
             }
 
+            /**
+            The function is virtual because it needs the current OpenGL buffer name of the element buffer.
 
+            We will operate on some assumptions here:
 
-            inline const GLuint& getOpenGLName() const {return vao;}
-            bool rebindRevalidate();
+            1) On all GPU's known to me  GPUs MAX_VERTEX_ATTRIB_BINDINGS <= MAX_VERTEX_ATTRIBS,
+            so it makes absolutely no sense to support buffer binding mix'n'match as it wouldn't
+            get us anything (however if MVAB>MVA then we could have more inputs into a vertex shader).
+            Also the VAO Attrib Binding is a VAO state so more VAOs would have to be created in the cache.
 
+            2) Relative byte offset on VAO Attribute spec is capped to 2047 across all GPUs, which makes it
+            useful only for specifying the offset from a single interleaved buffer, since we have to specify
+            absolute (unbounded) offset and stride when binding a buffer to a VAO bind-point, it makes absolutely
+            no sense to use this feature as its redundant.
 
-            void swapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const size_t& newOffset, const size_t& newStride)
+            So the only things worth tracking for the VAO are:
+            1) Element Buffer Binding
+            2) Per Attribute (x16)
+                A) Enabled (1 bit)
+                B) Format (5 bits)
+                C) Component Count (3 bits)
+                D) Divisors (32bits - no limit)
+
+            Total 16*4+16+16/8+4 = 11 uint64_t
+
+            If we limit divisors artificially to 1 bit
+
+            16/8+16/8+16+4 = 3 uint64_t
+
+            The limit is set at _IRR_VAO_MAX_ATTRIB_DIVISOR_BITS
+            **/
+            inline const HashAttribs& getHash() const
             {
-                if (!mappedAttrBuf[attrId] || !attrBuf)
-                    return;
-
-                attrBuf->grab();
-                mappedAttrBuf[attrId]->drop();
-
-                COpenGLBuffer* asGLBuf = dynamic_cast<COpenGLBuffer*>(attrBuf);
-                mappedAttrBuf[attrId] = asGLBuf;
-                attrOffset[attrId] = newOffset;
-                attrStride[attrId] = newStride;
-
-                COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(vao,attrId,asGLBuf->getOpenGLName(),attrOffset[attrId],attrStride[attrId]);
+                return individualHashFields;
             }
+
+        protected:
+            HashAttribs individualHashFields;
+
+            virtual ~COpenGLVAOSpec();
+
+        private:
+            core::LeakDebugger* leakDebugger;
     };
 
 
 } // end namespace video
 } // end namespace irr
+
+
+namespace std
+{
+    template <>
+    class hash<irr::video::COpenGLVAOSpec::HashAttribs>
+    {
+        public :
+            size_t operator()(const irr::video::COpenGLVAOSpec::HashAttribs &x ) const;
+    };
+}
 
 #endif
 #endif

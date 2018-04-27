@@ -113,9 +113,16 @@ namespace video
 
         virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
-		//! Indirect Draw
-		virtual void drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
-		virtual void drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
+		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const scene::E_PRIMITIVE_TYPE& mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        const size_t& offset, const size_t& count, const size_t& stride,
+                                        IOcclusionQuery* query = NULL);
+		virtual void drawIndexedIndirect(   const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                            const scene::E_PRIMITIVE_TYPE& mode,
+                                            const E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
+                                            const size_t& offset, const size_t& count, const size_t& stride,
+                                            IOcclusionQuery* query = NULL);
 
 
 		//! queries the features of the driver, returns true if feature is available
@@ -303,15 +310,19 @@ namespace video
 
         struct SAuxContext
         {
-
             SAuxContext() : threadId(std::thread::id()), ctx(NULL), XFormFeedbackRunning(false), CurrentXFormFeedback(NULL),
-                            CurrentFBO(0), CurrentRendertargetSize(0,0), CurrentVAO(0)
+                            CurrentFBO(0), CurrentRendertargetSize(0,0)
             {
+                CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),NULL);
+
                 for (size_t i=0; i<MATERIAL_MAX_TEXTURES; i++)
                 {
                     CurrentSamplerHash[i] = 0xffffffffffffffffuLL;
                 }
             }
+
+
+            bool setActiveVAO(const COpenGLVAOSpec* spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
@@ -339,7 +350,107 @@ namespace video
             COpenGLFrameBuffer* CurrentFBO;
             core::dimension2d<uint32_t> CurrentRendertargetSize;
 
-            COpenGLVAO* CurrentVAO;
+            /** We will operate on some assumptions here:
+
+            1) On all GPU's known to me  GPUs MAX_VERTEX_ATTRIB_BINDINGS <= MAX_VERTEX_ATTRIBS,
+            so it makes absolutely no sense to support buffer binding mix'n'match as it wouldn't
+            get us anything (however if MVAB>MVA then we could have more inputs into a vertex shader).
+            Also the VAO Attrib Binding is a VAO state so more VAOs would have to be created in the cache.
+
+            2) Relative byte offset on VAO Attribute spec is capped to 2047 across all GPUs, which makes it
+            useful only for specifying the offset from a single interleaved buffer, since we have to specify
+            absolute (unbounded) offset and stride when binding a buffer to a VAO bind-point, it makes absolutely
+            no sense to use this feature as its redundant.
+
+            So the only things worth tracking for the VAO are:
+            1) Element Buffer Binding
+            2) Per Attribute (x16)
+                A) Enabled (1 bit)
+                B) Format (5 bits)
+                C) Component Count (3 bits)
+                D) Divisors (32bits - no limit)
+
+            Total 16*4+16+16/8+4 = 11 uint64_t
+
+            If we limit divisors artificially to 1 bit
+
+            16/8+16/8+16+4 = 3 uint64_t
+            **/
+            class COpenGLVAO
+            {
+                    size_t attrOffset[scene::EVAI_COUNT];
+                    uint32_t attrStride[scene::EVAI_COUNT];
+                    //vertices
+                    const COpenGLBuffer* mappedAttrBuf[scene::EVAI_COUNT];
+                    //indices
+                    const COpenGLBuffer* mappedIndexBuf;
+
+                    GLuint vao;
+                    uint64_t lastValidated;
+                #ifdef _DEBUG
+                    COpenGLVAOSpec::HashAttribs debugHash;
+                #endif // _DEBUG
+                public:
+                    _IRR_NO_DEFAULT_FINAL(COpenGLVAO);
+                    _IRR_NO_COPY_FINAL(COpenGLVAO);
+
+                    COpenGLVAO(const COpenGLVAOSpec* spec);
+                    inline COpenGLVAO(COpenGLVAO&& other)
+                    {
+                        memcpy(this,&other,sizeof(COpenGLVAO));
+                        memset(other.attrOffset,0,sizeof(mappedAttrBuf));
+                        memset(other.attrStride,0,sizeof(mappedAttrBuf));
+                        memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
+                        other.mappedIndexBuf = NULL;
+                        other.vao = 0;
+                        other.lastValidated = 0;
+                    }
+                    ~COpenGLVAO();
+
+                    inline const GLuint& getOpenGLName() const {return vao;}
+
+
+                    inline COpenGLVAO& operator=(COpenGLVAO&& other)
+                    {
+                        memcpy(this,&other,sizeof(COpenGLVAO));
+                        memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
+                        memset(other.attrStride,0,sizeof(mappedAttrBuf));
+                        memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
+                        other.mappedIndexBuf = NULL;
+                        other.vao = 0;
+                        other.lastValidated = 0;
+                    }
+
+
+                    void bindBuffers(   const COpenGLBuffer* indexBuf,
+                                        const COpenGLBuffer* const* attribBufs,
+                                        const size_t offsets[scene::EVAI_COUNT],
+                                        const size_t strides[scene::EVAI_COUNT]);
+
+                    inline const uint64_t& getLastBoundStamp() const {return lastValidated;}
+
+                #ifdef _DEBUG
+                    inline const COpenGLVAOSpec::HashAttribs& getDebugHash() const {return debugHash;}
+                #endif // _DEBUG
+            };
+            std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> CurrentVAO;
+            std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> VAOMap;
+            inline void freeUpVAOCache(bool exitOnFirstDelete)
+            {
+                if (VAOMap.size()>(0x1u<<14)) //make this cache configurable
+                {
+                    for(std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.begin(); it != VAOMap.end(); it++)
+                    {
+                        if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
+                        {
+                            delete it->second;
+                            it = VAOMap.erase(it);
+                            if (exitOnFirstDelete)
+                                return;
+                        }
+                    }
+                }
+            }
 
             class STextureStageCache
             {
@@ -386,7 +497,7 @@ namespace video
             STextureStageCache CurrentTexture;
 
             uint64_t CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
-            std::map<uint64_t,GLuint> SamplerMap;
+            std::unordered_map<uint64_t,GLuint> SamplerMap;
         };
 
 

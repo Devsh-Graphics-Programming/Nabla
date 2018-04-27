@@ -16,8 +16,6 @@ namespace irr
 {
 namespace scene
 {
-    class CFinalBoneHierarchy;
-
     //! If it has no animation, make 1 frame of animation with LocalMatrix
     class CFinalBoneHierarchy : public IReferenceCounted, public core::BlobSerializable
     {
