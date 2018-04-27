@@ -67,51 +67,51 @@ static std::string cmpntTypeToStr(scene::E_COMPONENT_TYPE _cp)
 	return "";
 }
 
-void printFullMeshInfo(const irr::scene::ICPUMesh * _mesh, size_t _indent)
+void printFullMeshInfo(FILE* _ostream, const irr::scene::ICPUMesh * _mesh, size_t _indent)
 {
 	const std::string indent(_indent, '\t');
 
-	printf("Mesh %p:\n", _mesh);
-	printMeshInfo(_mesh, _indent+1);
+	fprintf(_ostream, "Mesh %p:\n", _mesh);
+	printMeshInfo(_ostream, _mesh, _indent+1);
 }
 
-void printMeshInfo(const scene::ICPUMesh* _mesh, size_t _indent)
+void printMeshInfo(FILE* _ostream, const scene::ICPUMesh* _mesh, size_t _indent)
 {
 	const std::string indent(_indent, '\t');
 
 	for (size_t i = 0u; i < _mesh->getMeshBufferCount(); ++i)
 	{
-		printf("%sMesh buffer %u:\n", indent.c_str(), i);
-		printMeshBufferInfo(_mesh->getMeshBuffer(i), _indent+1);
+		fprintf(_ostream, "%sMesh buffer %u:\n", indent.c_str(), i);
+		printMeshBufferInfo(_ostream, _mesh->getMeshBuffer(i), _indent+1);
 	}
 }
 
-void printMeshBufferInfo(const scene::ICPUMeshBuffer* _buf, size_t _indent)
+void printMeshBufferInfo(FILE* _ostream, const scene::ICPUMeshBuffer* _buf, size_t _indent)
 {
 	const std::string indent(_indent, '\t');
 
-	printf("%sindexType: %s\n", indent.c_str(), idxTypeToStr(_buf->getIndexType()).c_str());
-	printf("%sbaseVertex: %d\n", indent.c_str(), _buf->getBaseVertex());
-	printf("%sindexCount: %u\n", indent.c_str(), _buf->getIndexCount());
-	printf("%sindexBufOffset: %u\n", indent.c_str(), _buf->getIndexBufferOffset());
-	printf("%sinstanceCount: %u\n", indent.c_str(), _buf->getInstanceCount());
-	printf("%sbaseInstance: %u\n", indent.c_str(), _buf->getBaseInstance());
-	printf("%sprimitiveType: %s\n", indent.c_str(), primitiveTypeToStr(_buf->getPrimitiveType()).c_str());
-	printf("%smeshLayout:\n", indent.c_str());
-	printDescInfo(_buf->getMeshDataAndFormat(), _indent+1);
+	fprintf(_ostream, "%sindexType: %s\n", indent.c_str(), idxTypeToStr(_buf->getIndexType()).c_str());
+	fprintf(_ostream, "%sbaseVertex: %d\n", indent.c_str(), _buf->getBaseVertex());
+	fprintf(_ostream, "%sindexCount: %u\n", indent.c_str(), _buf->getIndexCount());
+	fprintf(_ostream, "%sindexBufOffset: %u\n", indent.c_str(), _buf->getIndexBufferOffset());
+	fprintf(_ostream, "%sinstanceCount: %u\n", indent.c_str(), _buf->getInstanceCount());
+	fprintf(_ostream, "%sbaseInstance: %u\n", indent.c_str(), _buf->getBaseInstance());
+	fprintf(_ostream, "%sprimitiveType: %s\n", indent.c_str(), primitiveTypeToStr(_buf->getPrimitiveType()).c_str());
+	fprintf(_ostream, "%smeshLayout:\n", indent.c_str());
+	printDescInfo(_ostream, _buf->getMeshDataAndFormat(), _indent+1);
 }
 
-static void printAttributeInfo(const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _desc, scene::E_VERTEX_ATTRIBUTE_ID _vaid, size_t _indent)
+static void printAttributeInfo(FILE* _ostream, const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _desc, scene::E_VERTEX_ATTRIBUTE_ID _vaid, size_t _indent)
 {
 	const std::string indent(_indent, '\t');
 
-	printf("%scompntsPerAttr: %u\n", indent.c_str(), (size_t)_desc->getAttribComponentCount(_vaid));
-	printf("%sattrType: %s\n", indent.c_str(), cmpntTypeToStr(_desc->getAttribType(_vaid)).c_str());
-	printf("%sstride: %u\n", indent.c_str(), _desc->getMappedBufferStride(_vaid));
-	printf("%soffset: %u\n", indent.c_str(), _desc->getMappedBufferOffset(_vaid));
-	printf("%sdivisor: %u\n", indent.c_str(), _desc->getAttribDivisor(_vaid));
+	fprintf(_ostream, "%scompntsPerAttr: %u\n", indent.c_str(), (size_t)_desc->getAttribComponentCount(_vaid));
+	fprintf(_ostream, "%sattrType: %s\n", indent.c_str(), cmpntTypeToStr(_desc->getAttribType(_vaid)).c_str());
+	fprintf(_ostream, "%sstride: %u\n", indent.c_str(), _desc->getMappedBufferStride(_vaid));
+	fprintf(_ostream, "%soffset: %u\n", indent.c_str(), _desc->getMappedBufferOffset(_vaid));
+	fprintf(_ostream, "%sdivisor: %u\n", indent.c_str(), _desc->getAttribDivisor(_vaid));
 }
-void printDescInfo(const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _desc, size_t _indent)
+void printDescInfo(FILE* _ostream, const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _desc, size_t _indent)
 {
 	const std::string indent(_indent, '\t');
 
@@ -119,8 +119,8 @@ void printDescInfo(const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _desc, si
 	{
 		if (const void* b = _desc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)vaid))
 		{
-			printf("%sAttribute %u in buffer %p:\n", indent.c_str(), vaid, b);
-			printAttributeInfo(_desc, (scene::E_VERTEX_ATTRIBUTE_ID)vaid, _indent+1);
+			fprintf(_ostream, "%sAttribute %u in buffer %p:\n", indent.c_str(), vaid, b);
+			printAttributeInfo(_ostream, _desc, (scene::E_VERTEX_ATTRIBUTE_ID)vaid, _indent+1);
 		}
 	}
 }

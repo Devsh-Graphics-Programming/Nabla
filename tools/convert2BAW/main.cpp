@@ -236,7 +236,7 @@ int main(int _optCnt, char** _options)
         if (printInfo)
         {
             printf("%s INFO:\n", inNames[i]);
-            printFullMeshInfo(inmesh);
+            printFullMeshInfo(stdout, inmesh);
         }
 
 		if (usePwd)
