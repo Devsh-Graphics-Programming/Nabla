@@ -465,7 +465,7 @@ bool COpenGLDriver::deinitAuxContext()
         cleanUpContextBeforeDelete();
         retval = wglMakeCurrent(NULL,NULL);
         if (retval)
-            found->threadId = std::thread:id();
+            found->threadId = std::thread::id();
     }
     glContextMutex->Release();
     return retval;
