@@ -7,6 +7,7 @@
 
 #include "stdint.h"
 #include "IReferenceCounted.h"
+#include "IThreadBound.h"
 
 namespace irr
 {
@@ -16,7 +17,7 @@ namespace video
 class IGPUBuffer;
 
 
-class ITransformFeedback : public virtual IReferenceCounted
+class ITransformFeedback : public virtual IReferenceCounted, public core::IThreadBound
 {
     public:
         ITransformFeedback() : active(false) {}

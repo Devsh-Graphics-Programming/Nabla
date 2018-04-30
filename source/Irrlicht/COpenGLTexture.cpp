@@ -7,6 +7,7 @@
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include "COpenGLTexture.h"
 #include "COpenGLDriver.h"
 #include "os.h"
@@ -313,25 +314,25 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FO
 		case ECF_R11G11B10F:
 		{
 			colorformat = GL_RGB;
-			type = GL_FLOAT;
+			type = GL_HALF_FLOAT;
 		}
 			break;
 		case ECF_R16F:
 		{
 			colorformat = GL_RED;
-			type = GL_FLOAT;
+			type = GL_HALF_FLOAT;
 		}
 			break;
 		case ECF_G16R16F:
 		{
 			colorformat = GL_RG;
-			type = GL_FLOAT;
+			type = GL_HALF_FLOAT;
 		}
 			break;
 		case ECF_A16B16G16R16F:
 		{
 			colorformat = GL_RGBA;
-			type = GL_FLOAT;
+			type = GL_HALF_FLOAT;
 		}
 			break;
 		case ECF_R32F:

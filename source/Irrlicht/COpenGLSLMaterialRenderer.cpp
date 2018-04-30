@@ -375,36 +375,6 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t loca
 #endif
         return;
     }
-/*
-#ifdef _DEBUG
-    GLuint index = 0;
-    bool found = false;
-    for (uint32_t i=0; i<debugConstants.size(); i++)
-    {
-        if (debugConstants[i].location==location)
-        {
-            found = true;
-            index = debugConstantIndices[i];
-            break;
-        }
-    }
-
-    if (!found)
-    {
-        os::Printer::log("Uniform not found.", ELL_ERROR);
-        return;
-    }
-    GLint length;
-    GLenum type2;
-    GLchar buf[1024];
-    COpenGLExtensionHandler::extGlGetActiveUniform(Program2, index, 1023, NULL, &length, &type2, buf);
-    if (number>length||type!=getIrrUniformType(type2))
-    {
-        os::Printer::log("Number of elements or uniform type are ALL WRONG.", ELL_ERROR);
-        return;
-    }
-#endif
-*/
 
     GLsizei cnt = int32_t(number);
     GLint loc = int32_t(location);

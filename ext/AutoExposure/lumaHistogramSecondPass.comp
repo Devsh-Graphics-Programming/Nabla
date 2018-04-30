@@ -1,0 +1,129 @@
+//! MAIN DEFINES PROVIDED IN PRE_ATTACHED HEADER
+
+#define RESOLVE_THREADS 1024u
+layout(local_size_x = RESOLVE_THREADS) in;
+
+layout(std140, binding = 0) uniform AutoExposureInput {
+	uvec4 autoExposureInput[(PERCENTILE_UBO_OFFSET+2u)/4u];
+};
+
+layout(std430, binding = 0) restrict buffer InputData {
+	uint packedHistogram[GLOBAL_REPLICATION*BIN_COUNTu];
+};
+layout(std430, binding = 1) buffer AutoExposureParams {
+	float autoExposureParameters[OUTPUT_UBO_OFFSET+2u];
+};
+
+
+shared uint histogram[RESOLVE_THREADS>(2u*BIN_COUNTu) ? RESOLVE_THREADS:(2u*BIN_COUNTu)];
+
+shared float foundPercentiles[2u];
+
+uint upper_bound__minus_one1024(in uint val)
+{
+#if BIN_COUNTu==1024u
+    uint ret = (val < histogram[512]) ? 0:512u;
+    ret += (val < histogram[ret+256]) ? 0:256u;
+    ret += (val < histogram[ret+128]) ? 0:128u;
+#elif BIN_COUNTu==512u
+    uint ret = (val < histogram[256]) ? 0:256u;
+    ret += (val < histogram[ret+128]) ? 0:128u;
+#elif   BIN_COUNTu==256u
+    uint ret = (val < histogram[128]) ? 0:128u;
+#endif // BIN_COUNTu
+    ret += (val < histogram[ret+ 64]) ? 0: 64u;
+    ret += (val < histogram[ret+ 32]) ? 0: 32u;
+    ret += (val < histogram[ret+ 16]) ? 0: 16u;
+    ret += (val < histogram[ret+  8]) ? 0:  8u;
+    ret += (val < histogram[ret+  4]) ? 0:  4u;
+    ret += (val < histogram[ret+  2]) ? 0:  2u;
+    ret += (val < histogram[ret+  1]) ? 0:  1u;
+    return ret;
+}
+
+//! Bad INEFFICIENT Kogge-Stone adder
+// can change to a Up-sweep down-sweep scanner but makes >1% perf diff
+void parallelPrefixPass(in uint pass, in uint srcAddr, in uint dstAddr)
+{
+    if (gl_LocalInvocationIndex<BIN_COUNTu)
+    {
+        uint tmp = histogram[srcAddr];
+        if (gl_LocalInvocationIndex>=pass)
+            tmp += histogram[srcAddr-pass];
+        histogram[dstAddr] = tmp;
+    }
+    memoryBarrierShared();
+    barrier();
+}
+
+void main()
+{
+    histogram[gl_LocalInvocationIndex] = packedHistogram[gl_LocalInvocationIndex];
+    packedHistogram[gl_LocalInvocationIndex] = 0;
+#if GLOBAL_REPLICATION>RESOLVE_THREADS/BIN_COUNTu
+    histogram[gl_LocalInvocationIndex] += packedHistogram[gl_LocalInvocationIndex+1u*RESOLVE_THREADS];
+    packedHistogram[gl_LocalInvocationIndex+1u*RESOLVE_THREADS] = 0;
+#if GLOBAL_REPLICATION>RESOLVE_THREADS/BIN_COUNTu*2u
+    histogram[gl_LocalInvocationIndex] += packedHistogram[gl_LocalInvocationIndex+2u*RESOLVE_THREADS];
+    packedHistogram[gl_LocalInvocationIndex+2u*RESOLVE_THREADS] = 0;
+    histogram[gl_LocalInvocationIndex] += packedHistogram[gl_LocalInvocationIndex+3u*RESOLVE_THREADS];
+    packedHistogram[gl_LocalInvocationIndex+3u*RESOLVE_THREADS] = 0;
+#endif // GLOBAL_REPLICATION
+#endif // GLOBAL_REPLICATION
+    // what order to put the barriers?
+    memoryBarrierShared();
+    barrier();
+
+#if GLOBAL_REPLICATION>=4u&&RESOLVE_THREADS/BIN_COUNTu>=4u
+    if (gl_LocalInvocationIndex<512)
+        histogram[gl_LocalInvocationIndex] += histogram[gl_LocalInvocationIndex+512];
+    // what order to put the barriers?
+    memoryBarrierShared();
+    barrier();
+#endif
+#if GLOBAL_REPLICATION>=2u&&RESOLVE_THREADS/BIN_COUNTu>=2u
+    if (gl_LocalInvocationIndex<256)
+        histogram[gl_LocalInvocationIndex] += histogram[gl_LocalInvocationIndex+256];
+    // what order to put the barriers?
+    memoryBarrierShared();
+    barrier();
+#endif
+
+    //! Bad INEFFICIENT Kogge-Stone adder
+    parallelPrefixPass(1u   ,gl_LocalInvocationIndex,gl_LocalInvocationIndex+BIN_COUNTu);
+    parallelPrefixPass(2u   ,gl_LocalInvocationIndex+BIN_COUNTu,gl_LocalInvocationIndex);
+    parallelPrefixPass(4u   ,gl_LocalInvocationIndex,gl_LocalInvocationIndex+BIN_COUNTu);
+    parallelPrefixPass(8u   ,gl_LocalInvocationIndex+BIN_COUNTu,gl_LocalInvocationIndex);
+    parallelPrefixPass(16u  ,gl_LocalInvocationIndex,gl_LocalInvocationIndex+BIN_COUNTu);
+    parallelPrefixPass(32u  ,gl_LocalInvocationIndex+BIN_COUNTu,gl_LocalInvocationIndex);
+    parallelPrefixPass(64u  ,gl_LocalInvocationIndex,gl_LocalInvocationIndex+BIN_COUNTu);
+    parallelPrefixPass(128u ,gl_LocalInvocationIndex+BIN_COUNTu,gl_LocalInvocationIndex);
+#if BIN_COUNTu>=512u
+    parallelPrefixPass(256u ,gl_LocalInvocationIndex+BIN_COUNTu,gl_LocalInvocationIndex);
+#if BIN_COUNTu>=1024u
+    parallelPrefixPass(1024u,gl_LocalInvocationIndex+BIN_COUNTu,gl_LocalInvocationIndex);
+#endif // BIN_COUNTu
+#endif // BIN_COUNTu
+
+    bool lower2Threads = gl_LocalInvocationIndex<2u;
+    if (lower2Threads)
+    {
+        uint foundVal = upper_bound__minus_one1024(autoExposureInput[PERCENTILE_UBO_OFFSET/4u][(PERCENTILE_UBO_OFFSET%4u)+gl_LocalInvocationIndex]);
+
+        foundPercentiles[gl_LocalInvocationIndex] = unpackHalf2x16((foundVal<<HISTOGRAM_POT2_RAW16F_BIN_SIZE)+uint(MIN_HISTOGRAM_RAW16F_AS_UINT)).x;
+    }
+    // what order to put the barriers?
+    memoryBarrierShared();
+    barrier();
+
+    if (lower2Threads)
+    {
+        float pickedExposureLuma = sqrt(foundPercentiles[0]*foundPercentiles[1]);
+
+        float krawczyk = (1.03 - 6.643856/(log2(pickedExposureLuma+1.0)+6.643856))/0.18;
+        float p_krawczyk = P_EXP*krawczyk;
+
+        autoExposureParameters[OUTPUT_UBO_OFFSET+0u] = p_krawczyk/pickedExposureLuma;
+        autoExposureParameters[OUTPUT_UBO_OFFSET+1u] = 1.0-exp2(p_krawczyk*BURNOUT_THRESH_EXP);
+    }
+}

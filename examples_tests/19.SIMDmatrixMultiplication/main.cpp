@@ -39,7 +39,6 @@ namespace avx
 
 		inline matrix4x3_row concatenate(const matrix4x3_row& _other)
 		{
-			_mm256_zeroupper();
 			__m256 A01 = _mm256_load_ps(&m[0][0]);
 			__m256 A23 = _mm256_load_ps(&m[2][0]);
 
@@ -397,7 +396,7 @@ int main()
 #endif
 	}
 
-	for (size_t i = 0; i < 10; ++i)
+	for (size_t i = 0; i < 100; ++i)
 	{
 #if AVX
 	#if COL_MAJOR

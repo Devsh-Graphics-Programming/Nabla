@@ -48,6 +48,7 @@ private:
 	{
 		core::stringc Name;
 		E_PLY_PROPERTY_TYPE Type;
+		#include "irrpack.h"
 		union
 		{
 			uint8_t  Int8;
@@ -59,9 +60,10 @@ private:
 			{
 				E_PLY_PROPERTY_TYPE CountType;
 				E_PLY_PROPERTY_TYPE ItemType;
-			} List;
+			} List PACK_STRUCT;
 
-		} Data;
+		} Data PACK_STRUCT;
+		#include "irrunpack.h"
 
 		inline uint32_t size() const
 		{

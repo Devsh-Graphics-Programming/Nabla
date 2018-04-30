@@ -62,6 +62,7 @@
 					<Add option="-fuse-linker-plugin" />
 					<Add option="-msse3" />
 					<Add library="Irrlicht" />
+					<Add library="crypto" />
 					<Add library="Xrandr" />
 					<Add library="GL" />
 					<Add library="Xxf86vm" />
@@ -69,7 +70,10 @@
 					<Add library="OpenCL" />
 					<Add library="pthread" />
 					<Add library="dl" />
+					<Add library="unwind" />
+					<Add library="unwind-x86_64" />
 					<Add directory="../../lib/Linux" />
+					<Add directory="../../../openssl" />
 				</Linker>
 			</Target>
 		</Build>

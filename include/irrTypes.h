@@ -32,41 +32,6 @@
 
 
 
-//! define a break macro for debugging.
-#if defined(_DEBUG)
-#if defined(_IRR_WINDOWS_API_) && defined(_MSC_VER) && !defined (_WIN32_WCE)
-  #if defined(WIN64) || defined(_WIN64) // using portable common solution for x64 configuration
-  #include <crtdbg.h>
-  #define _IRR_DEBUG_BREAK_IF( _CONDITION_ ) if (_CONDITION_) {_CrtDbgBreak();}
-  #else
-  #define _IRR_DEBUG_BREAK_IF( _CONDITION_ ) if (_CONDITION_) {_asm int 3}
-  #endif
-#else
-#include "assert.h"
-#define _IRR_DEBUG_BREAK_IF( _CONDITION_ ) assert( !(_CONDITION_) );
-#endif
-#else
-#define _IRR_DEBUG_BREAK_IF( _CONDITION_ )
-#endif
-
-//! Defines a deprecated macro which generates a warning at compile time
-/** The usage is simple
-For typedef:		typedef _IRR_DEPRECATED_ int test1;
-For classes/structs:	class _IRR_DEPRECATED_ test2 { ... };
-For methods:		class test3 { _IRR_DEPRECATED_ virtual void foo() {} };
-For functions:		template<class T> _IRR_DEPRECATED_ void test4(void) {}
-**/
-#if defined(IGNORE_DEPRECATED_WARNING)
-#define _IRR_DEPRECATED_
-#elif _MSC_VER >= 1310 //vs 2003 or higher
-#define _IRR_DEPRECATED_ __declspec(deprecated)
-#elif (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)) // all versions above 3.0 should support this feature
-#define _IRR_DEPRECATED_  __attribute__ ((deprecated))
-#else
-#define _IRR_DEPRECATED_
-#endif
-
-
 
 // memory debugging
 #if defined(_DEBUG) && defined(IRRLICHT_EXPORTS) && defined(_MSC_VER) && \

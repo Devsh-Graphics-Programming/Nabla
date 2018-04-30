@@ -7,6 +7,7 @@
 
 
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include "irrMath.h"
 #include "matrix4.h"
 #include "matrix4x3.h"
@@ -23,7 +24,6 @@ namespace irr
 namespace core
 {
 
-struct matrix3x4SIMD;
 
 //! Quaternion class for representing rotations.
 /** It provides cheap combinations and avoids gimbal locks.

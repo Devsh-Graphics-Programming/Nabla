@@ -216,11 +216,19 @@ namespace video
 		//! gets the area of the current viewport
 		virtual const core::rect<int32_t>& getViewPort() const;
 
-        virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
+        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
-		virtual void drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
+		virtual void drawArraysIndirect( const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                         const scene::E_PRIMITIVE_TYPE& mode,
+                                         const IGPUBuffer* indirectDrawBuff,
+                                         const size_t& offset, const size_t& count, const size_t& stride,
+                                         IOcclusionQuery* query = NULL);
+		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                         const scene::E_PRIMITIVE_TYPE& mode,
+                                         const IGPUBuffer* indirectDrawBuff,
+                                         const size_t& offset, const size_t& count, const size_t& stride,
+                                         IOcclusionQuery* query = NULL);
 
 		//! Draws a 3d line.
 		virtual void draw3DLine(const core::vector3df& start,
@@ -587,8 +595,6 @@ namespace video
 
         void addRenderBuffer(IRenderBuffer* buffer);
 
-        void addFrameBuffer(IFrameBuffer* framebuffer);
-
 		//! deletes all textures
 		void deleteAllTextures();
 
@@ -675,7 +681,6 @@ namespace video
 		core::array<IMultisampleTexture*> MultisampleTextures;
 		core::array<ITextureBufferObject*> TextureBufferObjects;
 		core::array<IRenderBuffer*> RenderBuffers;
-		core::array<IFrameBuffer*> FrameBuffers;
 
 		core::array<video::IImageLoader*> SurfaceLoader;
 		core::array<video::IImageWriter*> SurfaceWriter;

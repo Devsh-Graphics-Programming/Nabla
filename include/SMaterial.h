@@ -254,41 +254,48 @@ namespace video
 		float PolygonOffsetConstantMultiplier;
 
 		float PolygonOffsetGradientMultiplier;
+#ifdef __GNUC__
+#include "irrunpack.h"
+        struct {
+#endif // __GNUC__
+            //! Defines the enabled color planes
+            /** Values are defined as or'ed values of the E_COLOR_PLANE enum.
+            Only enabled color planes will be rendered to the current render
+            target. Typical use is to disable all colors when rendering only to
+            depth or stencil buffer, or using Red and Green for Stereo rendering. */
+            uint64_t ColorMask:4;
 
-		//! Defines the enabled color planes
-		/** Values are defined as or'ed values of the E_COLOR_PLANE enum.
-		Only enabled color planes will be rendered to the current render
-		target. Typical use is to disable all colors when rendering only to
-		depth or stencil buffer, or using Red and Green for Stereo rendering. */
-		uint64_t ColorMask:4;
+            //! Store the blend operation of choice
+            /** Values to be chosen from E_BLEND_OPERATION. The actual way to use this value
+            is not yet determined, so ignore it for now. */
+            uint64_t BlendOperation:4;
 
-		//! Store the blend operation of choice
-		/** Values to be chosen from E_BLEND_OPERATION. The actual way to use this value
-		is not yet determined, so ignore it for now. */
-		uint64_t BlendOperation:4;
+            //! Draw as wireframe or filled triangles? Default: false
+            /** The user can access a material flag using
+            \code material.Wireframe=true \endcode
+            or \code material.setFlag(EMF_WIREFRAME, true); \endcode */
+            uint64_t Wireframe:1;
 
-		//! Draw as wireframe or filled triangles? Default: false
-		/** The user can access a material flag using
-		\code material.Wireframe=true \endcode
-		or \code material.setFlag(EMF_WIREFRAME, true); \endcode */
-		uint64_t Wireframe:1;
+            //! Draw as point cloud or filled triangles? Default: false
+            uint64_t PointCloud:1;
 
-		//! Draw as point cloud or filled triangles? Default: false
-		uint64_t PointCloud:1;
+            //! Is the zbuffer writeable or is it read-only. Default: true.
+            /** This flag is forced to false if the MaterialType is a
+            transparent type and the scene parameter
+            ALLOW_ZWRITE_ON_TRANSPARENT is not set. */
+            uint64_t ZWriteEnable:1;
 
-		//! Is the zbuffer writeable or is it read-only. Default: true.
-		/** This flag is forced to false if the MaterialType is a
-		transparent type and the scene parameter
-		ALLOW_ZWRITE_ON_TRANSPARENT is not set. */
-		uint64_t ZWriteEnable:1;
+            //! Is backface culling enabled? Default: true
+            uint64_t BackfaceCulling:1;
 
-		//! Is backface culling enabled? Default: true
-		uint64_t BackfaceCulling:1;
+            //! Is frontface culling enabled? Default: false
+            uint64_t FrontfaceCulling:1;
 
-		//! Is frontface culling enabled? Default: false
-		uint64_t FrontfaceCulling:1;
-
-		uint64_t RasterizerDiscard:1;
+            uint64_t RasterizerDiscard:1;
+#ifdef __GNUC__
+        };
+#include "irrpack.h"
+#endif // __GNUC__
 
 		void serializeBitfields(uint64_t* dst) const
 		{

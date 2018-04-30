@@ -238,7 +238,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, 
             meshBuff->setIndexType(origBuff->getIndexType());
             meshBuff->setPrimitiveType(origBuff->getPrimitiveType());
 
-            IGPUMeshDataFormatDesc* vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
+            IMeshDataFormatDesc<video::IGPUBuffer>* vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
             meshBuff->setMeshDataAndFormat(vao);
             vao->drop();
 
@@ -493,7 +493,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
             for (size_t j=0; j<LoD.size(); j++)
             for (size_t i=0; i<LoD[j].mesh->getMeshBufferCount(); i++)
             {
-                scene::IGPUMeshDataFormatDesc* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
+                scene::IMeshDataFormatDesc<video::IGPUBuffer>* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
                 for (size_t k=0; k<scene::EVAI_COUNT; k++)
                 {
                     if (desc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)k)==gpuCulledLodInstanceDataBuffer)
@@ -543,7 +543,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
             for (size_t j=0; j<LoD.size(); j++)
             for (size_t i=0; i<LoD[j].mesh->getMeshBufferCount(); i++)
             {
-                scene::IGPUMeshDataFormatDesc* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
+                scene::IMeshDataFormatDesc<video::IGPUBuffer>* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
                 for (size_t k=0; k<scene::EVAI_COUNT; k++)
                 {
                     if (desc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)k)==cpuCulledLodInstanceDataBuffer)

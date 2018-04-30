@@ -10,6 +10,7 @@
 #include "irrArray.h"
 #include "ITexture.h"
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include "ISkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
 #include "os.h"
@@ -228,7 +229,7 @@ namespace irr {namespace scene {
 			// no need to add to `countedObjects` set since there's only one bone hierarchy
 		}
 
-		std::set<const IReferenceCounted*> countedObjects;
+		std::unordered_set<const IReferenceCounted*> countedObjects;
 		for (uint32_t i = 0; i < _mesh->getMeshBufferCount(); ++i)
 		{
 			const ICPUMeshBuffer* const meshBuffer = _mesh->getMeshBuffer(i);

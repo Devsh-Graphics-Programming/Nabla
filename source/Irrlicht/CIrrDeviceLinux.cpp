@@ -6,6 +6,7 @@
 
 #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/utsname.h>
@@ -86,6 +87,7 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	: CIrrDeviceStub(param),
 #ifdef _IRR_COMPILE_WITH_X11_
 	display(0), visual(0), screennr(0), window(0), StdHints(0), SoftwareImage(0),
+	XInputMethod(0), XInputContext(0),
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 	glxWin(0),	Context(0), AuxContexts(0),
 #endif
@@ -140,6 +142,10 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	if (!VideoDriver)
 		return;
 
+#ifdef _IRR_COMPILE_WITH_X11_
+    createInputContext();
+#endif // _IRR_COMPILE_WITH_X11_
+
 	createGUIAndScene();
 }
 
@@ -173,6 +179,8 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 		VideoDriver->drop();
 		VideoDriver = NULL;
 	}
+
+	destroyInputContext();
 
 	if (display)
 	{
@@ -223,6 +231,127 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 	}
 #endif
 }
+
+#ifdef _IRR_COMPILE_WITH_X11_
+bool CIrrDeviceLinux::createInputContext()
+{
+	// One one side it would be nicer to let users do that - on the other hand
+	// not setting the environment locale will not work when using i18n X11 functions.
+	// So users would have to call it always or their input is broken badly.
+	// We can restore immediately - so shouldn't mess with anything in users apps.
+	std::string oldLocale(setlocale(LC_CTYPE, NULL));
+	setlocale(LC_CTYPE, "");	// use environmenbt locale
+
+	if ( !XSupportsLocale() )
+	{
+		os::Printer::log("Locale not supported. Falling back to non-i18n input.", ELL_WARNING);
+		setlocale(LC_CTYPE, oldLocale.c_str());
+		return false;
+	}
+
+	XInputMethod = XOpenIM(display, NULL, NULL, NULL);
+	if ( !XInputMethod )
+	{
+		setlocale(LC_CTYPE, oldLocale.c_str());
+		os::Printer::log("XOpenIM failed to create an input method. Falling back to non-i18n input.", ELL_WARNING);
+		return false;
+	}
+
+	XIMStyles *im_supported_styles;
+	XGetIMValues(XInputMethod, XNQueryInputStyle, &im_supported_styles, (char*)NULL);
+	XIMStyle bestStyle = 0;
+	// TODO: If we want to support languages like chinese or japanese as well we probably have to work with callbacks here.
+	XIMStyle supportedStyle = XIMPreeditNone | XIMStatusNone;
+    for(int i=0; i < im_supported_styles->count_styles; ++i)
+	{
+        XIMStyle style = im_supported_styles->supported_styles[i];
+        if ((style & supportedStyle) == style) /* if we can handle it */
+		{
+            bestStyle = style;
+			break;
+		}
+    }
+	XFree(im_supported_styles);
+
+	if ( !bestStyle )
+	{
+		XDestroyIC(XInputContext);
+		XInputContext = 0;
+
+		os::Printer::log("XInputMethod has no input style we can use. Falling back to non-i18n input.", ELL_WARNING);
+		setlocale(LC_CTYPE, oldLocale.c_str());
+		return false;
+	}
+
+	XInputContext = XCreateIC(XInputMethod,
+							XNInputStyle, bestStyle,
+							XNClientWindow, window,
+							(char*)NULL);
+	if (!XInputContext )
+	{
+		os::Printer::log("XInputContext failed to create an input context. Falling back to non-i18n input.", ELL_WARNING);
+		setlocale(LC_CTYPE, oldLocale.c_str());
+		return false;
+	}
+	XSetICFocus(XInputContext);
+	setlocale(LC_CTYPE, oldLocale.c_str());
+	return true;
+}
+
+void CIrrDeviceLinux::destroyInputContext()
+{
+	if ( XInputContext )
+	{
+		XUnsetICFocus(XInputContext);
+		XDestroyIC(XInputContext);
+		XInputContext = 0;
+	}
+	if ( XInputMethod )
+	{
+		XCloseIM(XInputMethod);
+		XInputMethod = 0;
+	}
+}
+
+EKEY_CODE CIrrDeviceLinux::getKeyCode(XEvent &event)
+{
+	EKEY_CODE keyCode = (EKEY_CODE)0;
+
+	KeySym x11Key = XkbKeycodeToKeysym(display, event.xkey.keycode, 0, 0);
+
+	std::unordered_map<KeySym,int32_t>::const_iterator it = KeyMap.find(x11Key);
+	if (it != KeyMap.end())
+	{
+		keyCode = (EKEY_CODE)it->second;
+	}
+	if (keyCode == 0)
+	{
+		// Any value is better than none, that allows at least using the keys.
+		// Worst case is that some keys will be identical, still better than _all_
+		// unknown keys being identical.
+		if ( !x11Key )
+		{
+			keyCode = (EKEY_CODE)(event.xkey.keycode+KEY_KEY_CODES_COUNT+1);
+#ifdef _DEBUG
+			os::Printer::log("No such X11Key, using event keycode", std::to_string(event.xkey.keycode).c_str(), ELL_INFORMATION);
+		}
+		else if (it == KeyMap.end())
+		{
+			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
+			os::Printer::log("EKEY_CODE not found, using orig. X11 keycode", std::to_string(x11Key).c_str(), ELL_INFORMATION);
+#endif // _DEBUG
+		}
+		else
+		{
+			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
+#ifdef _DEBUG
+			os::Printer::log("EKEY_CODE is 0, using orig. X11 keycode", std::to_string(x11Key).c_str(), ELL_INFORMATION);
+#endif // _DEBUG
+		}
+ 	}
+	return keyCode;
+}
+#endif
 
 
 #if defined(_IRR_COMPILE_WITH_X11_)
@@ -401,8 +530,10 @@ void IrrPrintXGrabError(int grabResult, const char * grabCommand )
 bool CIrrDeviceLinux::createWindow()
 {
 #ifdef _IRR_COMPILE_WITH_X11_
-    if (CreationParams.AuxGLContexts)
+    if (CreationParams.AuxGLContexts>1)
+    {
         XInitThreads();
+    }
 
 	os::Printer::log("Creating X window...", ELL_INFORMATION);
 	XSetErrorHandler(IrrPrintXError);
@@ -543,7 +674,7 @@ bool CIrrDeviceLinux::createWindow()
 
                             if (desiredSamples>1) //want AA
                             {
-                                if (obtainedFBConfigAttrs[8]!=1 || obtainedFBConfigAttrs[9]<desiredSamples || bestSamples<1024&&obtainedFBConfigAttrs[9]>bestSamples)
+                                if (obtainedFBConfigAttrs[8]!=1 || obtainedFBConfigAttrs[9]<desiredSamples || (bestSamples<1024&&obtainedFBConfigAttrs[9]>bestSamples))
                                 {
                                     XFree( vi );
                                     continue;
@@ -561,7 +692,7 @@ bool CIrrDeviceLinux::createWindow()
                                 continue;
                             }
 
-                            if (obtainedFBConfigAttrs[4]<CreationParams.ZBufferBits || bestDepth>=0&&obtainedFBConfigAttrs[4]>bestDepth)
+                            if (obtainedFBConfigAttrs[4]<CreationParams.ZBufferBits || (bestDepth>=0&&obtainedFBConfigAttrs[4]>bestDepth))
                             {
                                 XFree( vi );
                                 continue;
@@ -660,9 +791,8 @@ bool CIrrDeviceLinux::createWindow()
 		return false;
 	}
 #ifdef _DEBUG
-    //! ENABLE AFTER C++11
-	///else
-		///os::Printer::log("Visual chosen: ", std::to_string(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
+	else
+        os::Printer::log("Visual chosen: ", std::to_string(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
 #endif
 
 	// create color map
@@ -770,8 +900,12 @@ bool CIrrDeviceLinux::createWindow()
 
                 if (Context)
                 {
-                    if (CreationParams.AuxGLContexts)
-                        AuxContexts = new video::COpenGLDriver::SAuxContext[CreationParams.AuxGLContexts];
+                    AuxContexts = new video::COpenGLDriver::SAuxContext[CreationParams.AuxGLContexts+1];
+                    {
+                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].threadId = std::this_thread::get_id();
+                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].ctx = Context;
+                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].pbuff = NULL;
+                    }
 
                     const int pboAttribs[] =
                     {
@@ -781,9 +915,9 @@ bool CIrrDeviceLinux::createWindow()
                         None
                     };
 
-                    for (uint8_t i=0; i<CreationParams.AuxGLContexts; i++)
+                    for (uint8_t i=1; i<=CreationParams.AuxGLContexts; i++)
                     {
-                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].threadId = 0xdeadbeefbadc0ffeu;
+                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].threadId = std::thread::id(); //invalid ID
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].ctx = pGlxCreateContextAttribsARB( display, bestFbc, Context, True, context_attribs );
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].pbuff = glXCreatePbuffer( display, bestFbc, pboAttribs);
                     }
@@ -792,14 +926,13 @@ bool CIrrDeviceLinux::createWindow()
                     {
                         os::Printer::log("Could not make context current.", ELL_WARNING);
 
-                        for (uint8_t i=0; i<CreationParams.AuxGLContexts; i++)
+                        for (uint8_t i=1; i<=CreationParams.AuxGLContexts; i++)
                         {
                             glXDestroyPbuffer(display,reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].pbuff);
                             glXDestroyContext(display,reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].ctx);
                         }
 
-                        if (CreationParams.AuxGLContexts)
-                            delete [] reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts);
+                        delete [] reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts);
 
                         glXDestroyContext(display, Context);
                         glXMakeCurrent(display, None, NULL);
@@ -1083,54 +1216,68 @@ bool CIrrDeviceLinux::run()
 						(next_event.xkey.keycode == event.xkey.keycode) &&
 						(next_event.xkey.time - event.xkey.time) < 2)	// usually same time, but on some systems a difference of 1 is possible
 					{
-						/* Ignore the key release event */
+						// Ignore the key release event
 						break;
 					}
+
+                    irrevent.EventType = irr::EET_KEY_INPUT_EVENT;
+                    irrevent.KeyInput.PressedDown = false;
+                    irrevent.KeyInput.Char = 0;	// on release that's undefined
+                    irrevent.KeyInput.Control = (event.xkey.state & ControlMask) != 0;
+                    irrevent.KeyInput.Shift = (event.xkey.state & ShiftMask) != 0;
+                    irrevent.KeyInput.Key = getKeyCode(event);
+
+                    postEventFromUser(irrevent);
+                    break;
 				}
 				// fall-through in case the release should be handled
 			case KeyPress:
 				{
-					SKeyMap mp;
-					char buf[8]={0};
-					XLookupString(&event.xkey, buf, sizeof(buf), &mp.X11Key, NULL);
+                    KeySym x11Key;
+					if ( XInputContext )
+					{
+					    wchar_t buf[8]={0};
+						Status status;
+						int strLen = XwcLookupString(XInputContext, &event.xkey, buf, sizeof(buf), &x11Key, &status);
+						if ( status == XBufferOverflow )
+ 						{
+ 						    os::Printer::log("XwcLookupString needs a larger buffer", ELL_INFORMATION);
+						}
+						if ( strLen > 0 && (status == XLookupChars || status == XLookupBoth) )
+						{
+							if ( strLen > 1 )
+								os::Printer::log("Additional returned characters dropped", ELL_INFORMATION);
+							irrevent.KeyInput.Char = buf[0];
+ 						}
+ 						else
+                        {
+#if 0 // Most of those are fine - but useful to have the info when debugging Irrlicht itself.
+							if ( status == XLookupNone )
+								os::Printer::log("XLookupNone", ELL_INFORMATION);
+							else if ( status ==  XLookupKeySym )
+								// Getting this also when user did not set setlocale(LC_ALL, ""); and using an unknown locale
+								// XSupportsLocale doesn't seeem to catch that unfortunately - any other ideas to catch it are welcome.
+								os::Printer::log("XLookupKeySym", ELL_INFORMATION);
+							else if ( status ==  XBufferOverflow )
+								os::Printer::log("XBufferOverflow", ELL_INFORMATION);
+							else if ( strLen == 0 )
+								os::Printer::log("no string", ELL_INFORMATION);
+#endif
+							irrevent.KeyInput.Char = 0;
+                        }
+					}
+                    else	// Old version without InputContext. Does not support i18n, but good to have as fallback.
+					{
+						char buf[8]={0};
+						XLookupString(&event.xkey, buf, sizeof(buf), &x11Key, NULL);
+						irrevent.KeyInput.Char = ((wchar_t*)(buf))[0];
+					}
 
 					irrevent.EventType = irr::EET_KEY_INPUT_EVENT;
-					irrevent.KeyInput.PressedDown = (event.type == KeyPress);
-//					mbtowc(&irrevent.KeyInput.Char, buf, sizeof(buf));
-					irrevent.KeyInput.Char = ((wchar_t*)(buf))[0];
+					irrevent.KeyInput.PressedDown = true;
 					irrevent.KeyInput.Control = (event.xkey.state & ControlMask) != 0;
 					irrevent.KeyInput.Shift = (event.xkey.state & ShiftMask) != 0;
-
-					event.xkey.state = 0; // ignore shift-ctrl states for figuring out the key
-					XLookupString(&event.xkey, buf, sizeof(buf), &mp.X11Key, NULL);
-					const int32_t idx = KeyMap.binary_search(mp);
-					if (idx != -1)
-					{
-						irrevent.KeyInput.Key = (EKEY_CODE)KeyMap[idx].Win32Key;
-					}
-					else
-					{
-						irrevent.KeyInput.Key = (EKEY_CODE)0;
-					}
-					if (irrevent.KeyInput.Key == 0)
-					{
-						// 1:1 mapping to windows-keys would require testing for keyboard type (us, ger, ...)
-						// So unless we do that we will have some unknown keys here.
-                        std::ostringstream tmp;
-                        tmp << event.xkey.keycode;
-						if (idx == -1)
-						{
-							os::Printer::log("Could not find EKEY_CODE, using orig. X11 keycode instead", tmp.str().c_str(), ELL_INFORMATION);
-						}
-						else
-						{
-							os::Printer::log("EKEY_CODE is 0, using orig. X11 keycode instead", tmp.str().c_str(), ELL_INFORMATION);
-						}
-						// Any value is better than none, that allows at least using the keys.
-						// Worst case is that some keys will be identical, still better than _all_
-						// unknown keys being identical.
-						irrevent.KeyInput.Key = (EKEY_CODE)event.xkey.keycode;
-					}
+					irrevent.KeyInput.Key = getKeyCode(event);
 
 					postEventFromUser(irrevent);
 				}
@@ -1496,199 +1643,201 @@ void CIrrDeviceLinux::createKeyMap()
 	// I don't know if this is the best method  to create
 	// the lookuptable, but I'll leave it like that until
 	// I find a better version.
+	// Search for missing numbers in keysymdef.h
 
 #ifdef _IRR_COMPILE_WITH_X11_
-	KeyMap.reallocate(84);
-	KeyMap.push_back(SKeyMap(XK_BackSpace, KEY_BACK));
-	KeyMap.push_back(SKeyMap(XK_Tab, KEY_TAB));
-	KeyMap.push_back(SKeyMap(XK_ISO_Left_Tab, KEY_TAB));
-	KeyMap.push_back(SKeyMap(XK_Linefeed, 0)); // ???
-	KeyMap.push_back(SKeyMap(XK_Clear, KEY_CLEAR));
-	KeyMap.push_back(SKeyMap(XK_Return, KEY_RETURN));
-	KeyMap.push_back(SKeyMap(XK_Pause, KEY_PAUSE));
-	KeyMap.push_back(SKeyMap(XK_Scroll_Lock, KEY_SCROLL));
-	KeyMap.push_back(SKeyMap(XK_Sys_Req, 0)); // ???
-	KeyMap.push_back(SKeyMap(XK_Escape, KEY_ESCAPE));
-	KeyMap.push_back(SKeyMap(XK_Insert, KEY_INSERT));
-	KeyMap.push_back(SKeyMap(XK_Delete, KEY_DELETE));
-	KeyMap.push_back(SKeyMap(XK_Home, KEY_HOME));
-	KeyMap.push_back(SKeyMap(XK_Left, KEY_LEFT));
-	KeyMap.push_back(SKeyMap(XK_Up, KEY_UP));
-	KeyMap.push_back(SKeyMap(XK_Right, KEY_RIGHT));
-	KeyMap.push_back(SKeyMap(XK_Down, KEY_DOWN));
-	KeyMap.push_back(SKeyMap(XK_Prior, KEY_PRIOR));
-	KeyMap.push_back(SKeyMap(XK_Page_Up, KEY_PRIOR));
-	KeyMap.push_back(SKeyMap(XK_Next, KEY_NEXT));
-	KeyMap.push_back(SKeyMap(XK_Page_Down, KEY_NEXT));
-	KeyMap.push_back(SKeyMap(XK_End, KEY_END));
-	KeyMap.push_back(SKeyMap(XK_Begin, KEY_HOME));
-	KeyMap.push_back(SKeyMap(XK_Num_Lock, KEY_NUMLOCK));
-	KeyMap.push_back(SKeyMap(XK_KP_Space, KEY_SPACE));
-	KeyMap.push_back(SKeyMap(XK_KP_Tab, KEY_TAB));
-	KeyMap.push_back(SKeyMap(XK_KP_Enter, KEY_RETURN));
-	KeyMap.push_back(SKeyMap(XK_KP_F1, KEY_F1));
-	KeyMap.push_back(SKeyMap(XK_KP_F2, KEY_F2));
-	KeyMap.push_back(SKeyMap(XK_KP_F3, KEY_F3));
-	KeyMap.push_back(SKeyMap(XK_KP_F4, KEY_F4));
-	KeyMap.push_back(SKeyMap(XK_KP_Home, KEY_HOME));
-	KeyMap.push_back(SKeyMap(XK_KP_Left, KEY_LEFT));
-	KeyMap.push_back(SKeyMap(XK_KP_Up, KEY_UP));
-	KeyMap.push_back(SKeyMap(XK_KP_Right, KEY_RIGHT));
-	KeyMap.push_back(SKeyMap(XK_KP_Down, KEY_DOWN));
-	KeyMap.push_back(SKeyMap(XK_Print, KEY_PRINT));
-	KeyMap.push_back(SKeyMap(XK_KP_Prior, KEY_PRIOR));
-	KeyMap.push_back(SKeyMap(XK_KP_Page_Up, KEY_PRIOR));
-	KeyMap.push_back(SKeyMap(XK_KP_Next, KEY_NEXT));
-	KeyMap.push_back(SKeyMap(XK_KP_Page_Down, KEY_NEXT));
-	KeyMap.push_back(SKeyMap(XK_KP_End, KEY_END));
-	KeyMap.push_back(SKeyMap(XK_KP_Begin, KEY_HOME));
-	KeyMap.push_back(SKeyMap(XK_KP_Insert, KEY_INSERT));
-	KeyMap.push_back(SKeyMap(XK_KP_Delete, KEY_DELETE));
-	KeyMap.push_back(SKeyMap(XK_KP_Equal, 0)); // ???
-	KeyMap.push_back(SKeyMap(XK_KP_Multiply, KEY_MULTIPLY));
-	KeyMap.push_back(SKeyMap(XK_KP_Add, KEY_ADD));
-	KeyMap.push_back(SKeyMap(XK_KP_Separator, KEY_SEPARATOR));
-	KeyMap.push_back(SKeyMap(XK_KP_Subtract, KEY_SUBTRACT));
-	KeyMap.push_back(SKeyMap(XK_KP_Decimal, KEY_DECIMAL));
-	KeyMap.push_back(SKeyMap(XK_KP_Divide, KEY_DIVIDE));
-	KeyMap.push_back(SKeyMap(XK_KP_0, KEY_KEY_0));
-	KeyMap.push_back(SKeyMap(XK_KP_1, KEY_KEY_1));
-	KeyMap.push_back(SKeyMap(XK_KP_2, KEY_KEY_2));
-	KeyMap.push_back(SKeyMap(XK_KP_3, KEY_KEY_3));
-	KeyMap.push_back(SKeyMap(XK_KP_4, KEY_KEY_4));
-	KeyMap.push_back(SKeyMap(XK_KP_5, KEY_KEY_5));
-	KeyMap.push_back(SKeyMap(XK_KP_6, KEY_KEY_6));
-	KeyMap.push_back(SKeyMap(XK_KP_7, KEY_KEY_7));
-	KeyMap.push_back(SKeyMap(XK_KP_8, KEY_KEY_8));
-	KeyMap.push_back(SKeyMap(XK_KP_9, KEY_KEY_9));
-	KeyMap.push_back(SKeyMap(XK_F1, KEY_F1));
-	KeyMap.push_back(SKeyMap(XK_F2, KEY_F2));
-	KeyMap.push_back(SKeyMap(XK_F3, KEY_F3));
-	KeyMap.push_back(SKeyMap(XK_F4, KEY_F4));
-	KeyMap.push_back(SKeyMap(XK_F5, KEY_F5));
-	KeyMap.push_back(SKeyMap(XK_F6, KEY_F6));
-	KeyMap.push_back(SKeyMap(XK_F7, KEY_F7));
-	KeyMap.push_back(SKeyMap(XK_F8, KEY_F8));
-	KeyMap.push_back(SKeyMap(XK_F9, KEY_F9));
-	KeyMap.push_back(SKeyMap(XK_F10, KEY_F10));
-	KeyMap.push_back(SKeyMap(XK_F11, KEY_F11));
-	KeyMap.push_back(SKeyMap(XK_F12, KEY_F12));
-	KeyMap.push_back(SKeyMap(XK_Shift_L, KEY_LSHIFT));
-	KeyMap.push_back(SKeyMap(XK_Shift_R, KEY_RSHIFT));
-	KeyMap.push_back(SKeyMap(XK_Control_L, KEY_LCONTROL));
-	KeyMap.push_back(SKeyMap(XK_Control_R, KEY_RCONTROL));
-	KeyMap.push_back(SKeyMap(XK_Caps_Lock, KEY_CAPITAL));
-	KeyMap.push_back(SKeyMap(XK_Shift_Lock, KEY_CAPITAL));
-	KeyMap.push_back(SKeyMap(XK_Meta_L, KEY_LWIN));
-	KeyMap.push_back(SKeyMap(XK_Meta_R, KEY_RWIN));
-	KeyMap.push_back(SKeyMap(XK_Alt_L, KEY_LMENU));
-	KeyMap.push_back(SKeyMap(XK_Alt_R, KEY_RMENU));
-	KeyMap.push_back(SKeyMap(XK_ISO_Level3_Shift, KEY_RMENU));
-	KeyMap.push_back(SKeyMap(XK_Menu, KEY_MENU));
-	KeyMap.push_back(SKeyMap(XK_space, KEY_SPACE));
-	KeyMap.push_back(SKeyMap(XK_exclam, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_quotedbl, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_section, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_numbersign, KEY_OEM_2));
-	KeyMap.push_back(SKeyMap(XK_dollar, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_percent, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_ampersand, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_apostrophe, KEY_OEM_7));
-	KeyMap.push_back(SKeyMap(XK_parenleft, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_parenright, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_asterisk, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_plus, KEY_PLUS)); //?
-	KeyMap.push_back(SKeyMap(XK_comma, KEY_COMMA)); //?
-	KeyMap.push_back(SKeyMap(XK_minus, KEY_MINUS)); //?
-	KeyMap.push_back(SKeyMap(XK_period, KEY_PERIOD)); //?
-	KeyMap.push_back(SKeyMap(XK_slash, KEY_OEM_2)); //?
-	KeyMap.push_back(SKeyMap(XK_0, KEY_KEY_0));
-	KeyMap.push_back(SKeyMap(XK_1, KEY_KEY_1));
-	KeyMap.push_back(SKeyMap(XK_2, KEY_KEY_2));
-	KeyMap.push_back(SKeyMap(XK_3, KEY_KEY_3));
-	KeyMap.push_back(SKeyMap(XK_4, KEY_KEY_4));
-	KeyMap.push_back(SKeyMap(XK_5, KEY_KEY_5));
-	KeyMap.push_back(SKeyMap(XK_6, KEY_KEY_6));
-	KeyMap.push_back(SKeyMap(XK_7, KEY_KEY_7));
-	KeyMap.push_back(SKeyMap(XK_8, KEY_KEY_8));
-	KeyMap.push_back(SKeyMap(XK_9, KEY_KEY_9));
-	KeyMap.push_back(SKeyMap(XK_colon, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_semicolon, KEY_OEM_1));
-	KeyMap.push_back(SKeyMap(XK_less, KEY_OEM_102));
-	KeyMap.push_back(SKeyMap(XK_equal, KEY_PLUS));
-	KeyMap.push_back(SKeyMap(XK_greater, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_question, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_at, KEY_KEY_2)); //?
-	KeyMap.push_back(SKeyMap(XK_mu, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_EuroSign, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_A, KEY_KEY_A));
-	KeyMap.push_back(SKeyMap(XK_B, KEY_KEY_B));
-	KeyMap.push_back(SKeyMap(XK_C, KEY_KEY_C));
-	KeyMap.push_back(SKeyMap(XK_D, KEY_KEY_D));
-	KeyMap.push_back(SKeyMap(XK_E, KEY_KEY_E));
-	KeyMap.push_back(SKeyMap(XK_F, KEY_KEY_F));
-	KeyMap.push_back(SKeyMap(XK_G, KEY_KEY_G));
-	KeyMap.push_back(SKeyMap(XK_H, KEY_KEY_H));
-	KeyMap.push_back(SKeyMap(XK_I, KEY_KEY_I));
-	KeyMap.push_back(SKeyMap(XK_J, KEY_KEY_J));
-	KeyMap.push_back(SKeyMap(XK_K, KEY_KEY_K));
-	KeyMap.push_back(SKeyMap(XK_L, KEY_KEY_L));
-	KeyMap.push_back(SKeyMap(XK_M, KEY_KEY_M));
-	KeyMap.push_back(SKeyMap(XK_N, KEY_KEY_N));
-	KeyMap.push_back(SKeyMap(XK_O, KEY_KEY_O));
-	KeyMap.push_back(SKeyMap(XK_P, KEY_KEY_P));
-	KeyMap.push_back(SKeyMap(XK_Q, KEY_KEY_Q));
-	KeyMap.push_back(SKeyMap(XK_R, KEY_KEY_R));
-	KeyMap.push_back(SKeyMap(XK_S, KEY_KEY_S));
-	KeyMap.push_back(SKeyMap(XK_T, KEY_KEY_T));
-	KeyMap.push_back(SKeyMap(XK_U, KEY_KEY_U));
-	KeyMap.push_back(SKeyMap(XK_V, KEY_KEY_V));
-	KeyMap.push_back(SKeyMap(XK_W, KEY_KEY_W));
-	KeyMap.push_back(SKeyMap(XK_X, KEY_KEY_X));
-	KeyMap.push_back(SKeyMap(XK_Y, KEY_KEY_Y));
-	KeyMap.push_back(SKeyMap(XK_Z, KEY_KEY_Z));
-	KeyMap.push_back(SKeyMap(XK_bracketleft, KEY_OEM_4));
-	KeyMap.push_back(SKeyMap(XK_backslash, KEY_OEM_5));
-	KeyMap.push_back(SKeyMap(XK_bracketright, KEY_OEM_6));
-	KeyMap.push_back(SKeyMap(XK_asciicircum, KEY_OEM_5));
-	KeyMap.push_back(SKeyMap(XK_degree, 0)); //?
-	KeyMap.push_back(SKeyMap(XK_underscore, KEY_MINUS)); //?
-	KeyMap.push_back(SKeyMap(XK_grave, KEY_OEM_3));
-	KeyMap.push_back(SKeyMap(XK_acute, KEY_OEM_6));
-	KeyMap.push_back(SKeyMap(XK_a, KEY_KEY_A));
-	KeyMap.push_back(SKeyMap(XK_b, KEY_KEY_B));
-	KeyMap.push_back(SKeyMap(XK_c, KEY_KEY_C));
-	KeyMap.push_back(SKeyMap(XK_d, KEY_KEY_D));
-	KeyMap.push_back(SKeyMap(XK_e, KEY_KEY_E));
-	KeyMap.push_back(SKeyMap(XK_f, KEY_KEY_F));
-	KeyMap.push_back(SKeyMap(XK_g, KEY_KEY_G));
-	KeyMap.push_back(SKeyMap(XK_h, KEY_KEY_H));
-	KeyMap.push_back(SKeyMap(XK_i, KEY_KEY_I));
-	KeyMap.push_back(SKeyMap(XK_j, KEY_KEY_J));
-	KeyMap.push_back(SKeyMap(XK_k, KEY_KEY_K));
-	KeyMap.push_back(SKeyMap(XK_l, KEY_KEY_L));
-	KeyMap.push_back(SKeyMap(XK_m, KEY_KEY_M));
-	KeyMap.push_back(SKeyMap(XK_n, KEY_KEY_N));
-	KeyMap.push_back(SKeyMap(XK_o, KEY_KEY_O));
-	KeyMap.push_back(SKeyMap(XK_p, KEY_KEY_P));
-	KeyMap.push_back(SKeyMap(XK_q, KEY_KEY_Q));
-	KeyMap.push_back(SKeyMap(XK_r, KEY_KEY_R));
-	KeyMap.push_back(SKeyMap(XK_s, KEY_KEY_S));
-	KeyMap.push_back(SKeyMap(XK_t, KEY_KEY_T));
-	KeyMap.push_back(SKeyMap(XK_u, KEY_KEY_U));
-	KeyMap.push_back(SKeyMap(XK_v, KEY_KEY_V));
-	KeyMap.push_back(SKeyMap(XK_w, KEY_KEY_W));
-	KeyMap.push_back(SKeyMap(XK_x, KEY_KEY_X));
-	KeyMap.push_back(SKeyMap(XK_y, KEY_KEY_Y));
-	KeyMap.push_back(SKeyMap(XK_z, KEY_KEY_Z));
-	KeyMap.push_back(SKeyMap(XK_ssharp, KEY_OEM_4));
-	KeyMap.push_back(SKeyMap(XK_adiaeresis, KEY_OEM_7));
-	KeyMap.push_back(SKeyMap(XK_odiaeresis, KEY_OEM_3));
-	KeyMap.push_back(SKeyMap(XK_udiaeresis, KEY_OEM_1));
-	KeyMap.push_back(SKeyMap(XK_Super_L, KEY_LWIN));
-	KeyMap.push_back(SKeyMap(XK_Super_R, KEY_RWIN));
-
-	KeyMap.sort();
+	KeyMap.reserve(256);
+	KeyMap[XK_BackSpace] = KEY_BACK;
+	KeyMap[XK_Tab] = KEY_TAB;
+	KeyMap[XK_ISO_Left_Tab] = KEY_TAB;
+	KeyMap[XK_Linefeed] = 0; // ???
+	KeyMap[XK_Clear] = KEY_CLEAR;
+	KeyMap[XK_Return] = KEY_RETURN;
+	KeyMap[XK_Pause] = KEY_PAUSE;
+	KeyMap[XK_Scroll_Lock] = KEY_SCROLL;
+	KeyMap[XK_Sys_Req] = 0; // ???
+	KeyMap[XK_Escape] = KEY_ESCAPE;
+	KeyMap[XK_Insert] = KEY_INSERT;
+	KeyMap[XK_Delete] = KEY_DELETE;
+	KeyMap[XK_Home] = KEY_HOME;
+	KeyMap[XK_Left] = KEY_LEFT;
+	KeyMap[XK_Up] = KEY_UP;
+	KeyMap[XK_Right] = KEY_RIGHT;
+	KeyMap[XK_Down] = KEY_DOWN;
+	KeyMap[XK_Prior] = KEY_PRIOR;
+	KeyMap[XK_Page_Up] = KEY_PRIOR;
+	KeyMap[XK_Next] = KEY_NEXT;
+	KeyMap[XK_Page_Down] = KEY_NEXT;
+	KeyMap[XK_End] = KEY_END;
+	KeyMap[XK_Begin] = KEY_HOME;
+	KeyMap[XK_Num_Lock] = KEY_NUMLOCK;
+	KeyMap[XK_KP_Space] = KEY_SPACE;
+	KeyMap[XK_KP_Tab] = KEY_TAB;
+	KeyMap[XK_KP_Enter] = KEY_RETURN;
+	KeyMap[XK_KP_F1] = KEY_F1;
+	KeyMap[XK_KP_F2] = KEY_F2;
+	KeyMap[XK_KP_F3] = KEY_F3;
+	KeyMap[XK_KP_F4] = KEY_F4;
+	KeyMap[XK_KP_Home] = KEY_HOME;
+	KeyMap[XK_KP_Left] = KEY_LEFT;
+	KeyMap[XK_KP_Up] = KEY_UP;
+	KeyMap[XK_KP_Right] = KEY_RIGHT;
+	KeyMap[XK_KP_Down] = KEY_DOWN;
+	KeyMap[XK_Print] = KEY_PRINT;
+	KeyMap[XK_KP_Prior] = KEY_PRIOR;
+	KeyMap[XK_KP_Page_Up] = KEY_PRIOR;
+	KeyMap[XK_KP_Next] = KEY_NEXT;
+	KeyMap[XK_KP_Page_Down] = KEY_NEXT;
+	KeyMap[XK_KP_End] = KEY_END;
+	KeyMap[XK_KP_Begin] = KEY_HOME;
+	KeyMap[XK_KP_Insert] = KEY_INSERT;
+	KeyMap[XK_KP_Delete] = KEY_DELETE;
+	KeyMap[XK_KP_Equal] = 0; // ???
+	KeyMap[XK_KP_Multiply] = KEY_MULTIPLY;
+	KeyMap[XK_KP_Add] = KEY_ADD;
+	KeyMap[XK_KP_Separator] = KEY_SEPARATOR;
+	KeyMap[XK_KP_Subtract] = KEY_SUBTRACT;
+	KeyMap[XK_KP_Decimal] = KEY_DECIMAL;
+	KeyMap[XK_KP_Divide] = KEY_DIVIDE;
+	KeyMap[XK_KP_0] = KEY_KEY_0;
+	KeyMap[XK_KP_1] = KEY_KEY_1;
+	KeyMap[XK_KP_2] = KEY_KEY_2;
+	KeyMap[XK_KP_3] = KEY_KEY_3;
+	KeyMap[XK_KP_4] = KEY_KEY_4;
+	KeyMap[XK_KP_5] = KEY_KEY_5;
+	KeyMap[XK_KP_6] = KEY_KEY_6;
+	KeyMap[XK_KP_7] = KEY_KEY_7;
+	KeyMap[XK_KP_8] = KEY_KEY_8;
+	KeyMap[XK_KP_9] = KEY_KEY_9;
+	KeyMap[XK_F1] = KEY_F1;
+	KeyMap[XK_F2] = KEY_F2;
+	KeyMap[XK_F3] = KEY_F3;
+	KeyMap[XK_F4] = KEY_F4;
+	KeyMap[XK_F5] = KEY_F5;
+	KeyMap[XK_F6] = KEY_F6;
+	KeyMap[XK_F7] = KEY_F7;
+	KeyMap[XK_F8] = KEY_F8;
+	KeyMap[XK_F9] = KEY_F9;
+	KeyMap[XK_F10] = KEY_F10;
+	KeyMap[XK_F11] = KEY_F11;
+	KeyMap[XK_F12] = KEY_F12;
+	KeyMap[XK_Shift_L] = KEY_LSHIFT;
+	KeyMap[XK_Shift_R] = KEY_RSHIFT;
+	KeyMap[XK_Control_L] = KEY_LCONTROL;
+	KeyMap[XK_Control_R] = KEY_RCONTROL;
+	KeyMap[XK_Caps_Lock] = KEY_CAPITAL;
+	KeyMap[XK_Shift_Lock] = KEY_CAPITAL;
+	KeyMap[XK_Meta_L] = KEY_LWIN;
+	KeyMap[XK_Meta_R] = KEY_RWIN;
+	KeyMap[XK_Alt_L] = KEY_LMENU;
+	KeyMap[XK_Alt_R] = KEY_RMENU;
+	KeyMap[XK_ISO_Level3_Shift] = KEY_RMENU;
+	KeyMap[XK_Menu] = KEY_MENU;
+	KeyMap[XK_space] = KEY_SPACE;
+	KeyMap[XK_exclam] = 0; //?
+	KeyMap[XK_quotedbl] = 0; //?
+	KeyMap[XK_section] = 0; //?
+	KeyMap[XK_numbersign] = KEY_OEM_2;
+	KeyMap[XK_dollar] = 0; //?
+	KeyMap[XK_percent] = 0; //?
+	KeyMap[XK_ampersand] = 0; //?
+	KeyMap[XK_apostrophe] = KEY_OEM_7;
+	KeyMap[XK_parenleft] = 0; //?
+	KeyMap[XK_parenright] = 0; //?
+	KeyMap[XK_asterisk] = 0; //?
+	KeyMap[XK_plus] = KEY_PLUS; //?
+	KeyMap[XK_comma] = KEY_COMMA; //?
+	KeyMap[XK_minus] = KEY_MINUS; //?
+	KeyMap[XK_period] = KEY_PERIOD; //?
+	KeyMap[XK_slash] = KEY_OEM_2; //?
+	KeyMap[XK_0] = KEY_KEY_0;
+	KeyMap[XK_1] = KEY_KEY_1;
+	KeyMap[XK_2] = KEY_KEY_2;
+	KeyMap[XK_3] = KEY_KEY_3;
+	KeyMap[XK_4] = KEY_KEY_4;
+	KeyMap[XK_5] = KEY_KEY_5;
+	KeyMap[XK_6] = KEY_KEY_6;
+	KeyMap[XK_7] = KEY_KEY_7;
+	KeyMap[XK_8] = KEY_KEY_8;
+	KeyMap[XK_9] = KEY_KEY_9;
+	KeyMap[XK_colon] = 0; //?
+	KeyMap[XK_semicolon] = KEY_OEM_1;
+	KeyMap[XK_less] = KEY_OEM_102;
+	KeyMap[XK_equal] = KEY_PLUS;
+	KeyMap[XK_greater] = 0; //?
+	KeyMap[XK_question] = 0; //?
+	KeyMap[XK_at] = KEY_KEY_2; //?
+	KeyMap[XK_mu] = 0; //?
+	KeyMap[XK_EuroSign] = 0; //?
+	KeyMap[XK_A] = KEY_KEY_A;
+	KeyMap[XK_B] = KEY_KEY_B;
+	KeyMap[XK_C] = KEY_KEY_C;
+	KeyMap[XK_D] = KEY_KEY_D;
+	KeyMap[XK_E] = KEY_KEY_E;
+	KeyMap[XK_F] = KEY_KEY_F;
+	KeyMap[XK_G] = KEY_KEY_G;
+	KeyMap[XK_H] = KEY_KEY_H;
+	KeyMap[XK_I] = KEY_KEY_I;
+	KeyMap[XK_J] = KEY_KEY_J;
+	KeyMap[XK_K] = KEY_KEY_K;
+	KeyMap[XK_L] = KEY_KEY_L;
+	KeyMap[XK_M] = KEY_KEY_M;
+	KeyMap[XK_N] = KEY_KEY_N;
+	KeyMap[XK_O] = KEY_KEY_O;
+	KeyMap[XK_P] = KEY_KEY_P;
+	KeyMap[XK_Q] = KEY_KEY_Q;
+	KeyMap[XK_R] = KEY_KEY_R;
+	KeyMap[XK_S] = KEY_KEY_S;
+	KeyMap[XK_T] = KEY_KEY_T;
+	KeyMap[XK_U] = KEY_KEY_U;
+	KeyMap[XK_V] = KEY_KEY_V;
+	KeyMap[XK_W] = KEY_KEY_W;
+	KeyMap[XK_X] = KEY_KEY_X;
+	KeyMap[XK_Y] = KEY_KEY_Y;
+	KeyMap[XK_Z] = KEY_KEY_Z;
+	KeyMap[XK_bracketleft] = KEY_OEM_4;
+	KeyMap[XK_backslash] = KEY_OEM_5;
+	KeyMap[XK_bracketright] = KEY_OEM_6;
+	KeyMap[XK_asciicircum] = KEY_OEM_5;
+	KeyMap[XK_dead_circumflex] = KEY_OEM_5;
+	KeyMap[XK_degree] = 0; //?
+	KeyMap[XK_underscore] = KEY_MINUS; //?
+	KeyMap[XK_grave] = KEY_OEM_3;
+	KeyMap[XK_dead_grave] = KEY_OEM_3;
+	KeyMap[XK_acute] = KEY_OEM_6;
+	KeyMap[XK_dead_acute] = KEY_OEM_6;
+	KeyMap[XK_a] = KEY_KEY_A;
+	KeyMap[XK_b] = KEY_KEY_B;
+	KeyMap[XK_c] = KEY_KEY_C;
+	KeyMap[XK_d] = KEY_KEY_D;
+	KeyMap[XK_e] = KEY_KEY_E;
+	KeyMap[XK_f] = KEY_KEY_F;
+	KeyMap[XK_g] = KEY_KEY_G;
+	KeyMap[XK_h] = KEY_KEY_H;
+	KeyMap[XK_i] = KEY_KEY_I;
+	KeyMap[XK_j] = KEY_KEY_J;
+	KeyMap[XK_k] = KEY_KEY_K;
+	KeyMap[XK_l] = KEY_KEY_L;
+	KeyMap[XK_m] = KEY_KEY_M;
+	KeyMap[XK_n] = KEY_KEY_N;
+	KeyMap[XK_o] = KEY_KEY_O;
+	KeyMap[XK_p] = KEY_KEY_P;
+	KeyMap[XK_q] = KEY_KEY_Q;
+	KeyMap[XK_r] = KEY_KEY_R;
+	KeyMap[XK_s] = KEY_KEY_S;
+	KeyMap[XK_t] = KEY_KEY_T;
+	KeyMap[XK_u] = KEY_KEY_U;
+	KeyMap[XK_v] = KEY_KEY_V;
+	KeyMap[XK_w] = KEY_KEY_W;
+	KeyMap[XK_x] = KEY_KEY_X;
+	KeyMap[XK_y] = KEY_KEY_Y;
+	KeyMap[XK_z] = KEY_KEY_Z;
+	KeyMap[XK_ssharp] = KEY_OEM_4;
+	KeyMap[XK_adiaeresis] = KEY_OEM_7;
+	KeyMap[XK_odiaeresis] = KEY_OEM_3;
+	KeyMap[XK_udiaeresis] = KEY_OEM_1;
+	KeyMap[XK_Super_L] = KEY_LWIN;
+	KeyMap[XK_Super_R] = KEY_RWIN;
 #endif
 }
 

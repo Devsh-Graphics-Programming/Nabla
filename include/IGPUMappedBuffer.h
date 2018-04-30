@@ -14,7 +14,7 @@ namespace video
 {
 
 //! Persistently Mapped buffer
-class IGPUMappedBuffer : public virtual video::IGPUBuffer
+class IGPUMappedBuffer : public video::IGPUBuffer
 {
     public:
 		//! Gets internal pointer.
@@ -32,7 +32,7 @@ class IGPUMappedBuffer : public virtual video::IGPUBuffer
 		It's almost the fastest across all cards, and is more in line with what Vulkan has.
 		Please don't ask us to support Buffer Orphaning, or Map/Unmap.
 		*/
-        virtual const bool isMappedBuffer() const {return true;}
+        virtual const bool isMappedBuffer() const = 0;
     private:
         //
 };

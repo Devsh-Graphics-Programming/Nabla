@@ -9,12 +9,14 @@ void main()
 {
     vec3 normal = normalize(Normal);
 
-    float ambient = 0.5;
-    float diffuse = 0.5;
+    float ambient = 0.2;
+    float diffuse = 0.8;
     float cos_theta_term = max(dot(normal,vec3(1.0,1.0,1.0)),0.0);
 
     float fresnel = 0.0; //not going to implement yet, not important
     float specular = 0.0;///pow(max(dot(halfVector,normal),0.0),shininess);
 
-    pixelColor = Color*(ambient+mix(diffuse,specular,fresnel)*cos_theta_term/3.14159);
+    const float sunPower = 3.14156*0.5;
+
+    pixelColor = Color*sunPower*(ambient+mix(diffuse,specular,fresnel)*cos_theta_term/3.14159);
 }
