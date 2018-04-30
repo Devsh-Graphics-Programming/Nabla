@@ -246,6 +246,7 @@ add_library(lzma OBJECT
 	lzma/LzmaDec.c
 	lzma/LzmaEnc.c
 )
+target_compile_definitions(lzma PRIVATE _7ZIP_ST)
 
 add_library(zlib OBJECT
 	zlib/adler32.c
@@ -273,11 +274,18 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:zlib>
 )
 
-target_include_directories(Irrlicht PRIVATE zlib)
 target_include_directories(Irrlicht PUBLIC ../../include)
+
+target_include_directories(Irrlicht PRIVATE
+	convert_utf
+	libpng
+	utf8/source
+	zlib
+)
 
 target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
+	_IRR_COMPILE_WITH_OPENGL_
 	$<$<CONFIG:Debug>:_DEBUG>
 	$<$<BOOL:FAST_MATH>:IRRLICHT_FAST_MATH>
 )
