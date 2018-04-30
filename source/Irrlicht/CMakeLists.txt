@@ -1,4 +1,13 @@
+cmake_minimum_required(VERSION 3.0)
 project(Irrlicht)
+
+set(CMAKE_CXX_STANDARD 11)
+
+if(NOT CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
+endif()
+
+option(FAST_MATH "Enable fast math" ON)
 
 set(Irrlicht_SRCS
 	C3DSMeshFileLoader.cpp
@@ -252,7 +261,7 @@ add_library(zlib OBJECT
 	zlib/zutil.c
 )
 
-add_library(Irrlicht
+add_library(Irrlicht STATIC
 	${Irrlicht_SRCS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
@@ -264,4 +273,43 @@ add_library(Irrlicht
 	$<TARGET_OBJECTS:zlib>
 )
 
-target_include_directories(Irrlicht PUBLIC ../../include/)
+target_include_directories(Irrlicht PRIVATE zlib)
+target_include_directories(Irrlicht PUBLIC ../../include)
+
+target_compile_definitions(Irrlicht PRIVATE
+	_IRR_STATIC_LIB_
+	$<$<CONFIG:Debug>:_DEBUG>
+	$<$<BOOL:FAST_MATH>:IRRLICHT_FAST_MATH>
+)
+
+if(WIN32)
+	target_compile_definitions(Irrlicht PRIVATE
+		"WIN32"
+		__GNUWIN32__
+		_CRT_SECURE_NO_DEPRECATE
+	)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	target_compile_options(Irrlicht PRIVATE
+		-W
+		-Wall
+		-Wextra
+		-Wno-unused-parameter
+		-fno-exceptions
+		-msse3
+	)
+	if($<CONFIG:Debug>)
+		target_compile_options(Irrlicht PRIVATE
+			-fno-omit-frame-pointer
+			-fstack-protector-strong
+		)
+	endif()
+	if(FAST_MATH)
+		target_compile_options(Irrlicht PRIVATE
+			-fexpensive-optimizations
+			-ffast-math
+			-mfpmath=sse
+		)
+	endif()
+endif()
