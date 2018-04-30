@@ -24,7 +24,7 @@
 
 #include <cmath>
 
-#include "irrTypes.h"
+#include "irrMacros.h"
 
 #define MAX_SIZE_VERTEX_CACHE 16
 

@@ -62,9 +62,9 @@ namespace video
             {
                 HashAttribs()
                 {
-                    static_assert(scene::ECPA_COUNT==5); //otherwise our hashing system falls apart
-                    static_assert(scene::EVAI_COUNT==16); //otherwise our hashing system falls apart
-                    static_assert(sizeof(HashAttribs)/sizeof(uint64_t)==(scene::EVAI_COUNT+2+_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS*2+sizeof(uint64_t)-1)/sizeof(uint64_t)); //otherwise our hashing system falls apart
+                    static_assert(scene::ECPA_COUNT==5, "scene::ECPA_COUNT != 5"); //otherwise our hashing system falls apart
+                    static_assert(scene::EVAI_COUNT==16, "scene::EVAI_COUNT != 16"); //otherwise our hashing system falls apart
+                    static_assert(sizeof(HashAttribs)/sizeof(uint64_t)==(scene::EVAI_COUNT+2+_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS*2+sizeof(uint64_t)-1)/sizeof(uint64_t), ""); //otherwise our hashing system falls apart
 
                     for (size_t i=0; i<getHashLength(); i++)
                         hashVal[i] = 0;
