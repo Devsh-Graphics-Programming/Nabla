@@ -1,0 +1,267 @@
+project(Irrlicht)
+
+set(Irrlicht_SRCS
+	C3DSMeshFileLoader.cpp
+	CAnimatedMeshHalfLife.cpp
+	CAnimatedMeshSceneNode.cpp
+	CB3DMeshFileLoader.cpp
+	CBAWFile.cpp
+	CBAWMeshFileLoader.cpp
+	CBAWMeshWriter.cpp
+	CBillboardSceneNode.cpp
+	CBlobsLoadingManager.cpp
+	CBurningShader_Raster_Reference.cpp
+	CCameraSceneNode.cpp
+	CColorConverter.cpp
+	CCSMLoader.cpp
+	CCubeSceneNode.cpp
+	CDefaultSceneNodeAnimatorFactory.cpp
+	CDefaultSceneNodeFactory.cpp
+	CDepthBuffer.cpp
+	CDMFLoader.cpp
+	CEmptySceneNode.cpp
+	CFileList.cpp
+	CFileSystem.cpp
+	CFPSCounter.cpp
+	CGeometryCreator.cpp
+	CGPUTransientBuffer.cpp
+	CImage.cpp
+	CImageLoaderBMP.cpp
+	CImageLoaderDDS.cpp
+	CImageLoaderJPG.cpp
+	CImageLoaderPCX.cpp
+	CImageLoaderPNG.cpp
+	CImageLoaderPPM.cpp
+	CImageLoaderPSD.cpp
+	CImageLoaderRGB.cpp
+	CImageLoaderTGA.cpp
+	CImageWriterBMP.cpp
+	CImageWriterJPG.cpp
+	CImageWriterPCX.cpp
+	CImageWriterPNG.cpp
+	CImageWriterPPM.cpp
+	CImageWriterPSD.cpp
+	CImageWriterTGA.cpp
+	CIrrDeviceConsole.cpp
+	CIrrDeviceLinux.cpp
+	CIrrDeviceSDL.cpp
+	CIrrDeviceStub.cpp
+	CIrrDeviceWin32.cpp
+	CLimitReadFile.cpp
+	CLMTSMeshFileLoader.cpp
+	CLogger.cpp
+	CLWOMeshFileLoader.cpp
+	CMemoryFile.cpp
+	CMeshCache.cpp
+	CMeshManipulator.cpp
+	CMeshSceneNode.cpp
+	CMeshSceneNodeInstanced.cpp
+	CMountPointReader.cpp
+	CMS3DMeshFileLoader.cpp
+	CMY3DMeshFileLoader.cpp
+	CNPKReader.cpp
+	CNullDriver.cpp
+	COBJMeshFileLoader.cpp
+	COBJMeshWriter.cpp
+	COCTLoader.cpp
+	COgreMeshFileLoader.cpp
+	COpenCLHandler.cpp
+	COpenGL2DTextureArray.cpp
+	COpenGL2DTexture.cpp
+	COpenGL3DTexture.cpp
+	COpenGLCubemapTexture.cpp
+	COpenGLDriver.cpp
+	COpenGLExtensionHandler.cpp
+	COpenGLFrameBuffer.cpp
+	COpenGLMultisampleTextureArray.cpp
+	COpenGLMultisampleTexture.cpp
+	COpenGLOcclusionQuery.cpp
+	COpenGLPersistentlyMappedBuffer.cpp
+	COpenGLQuery.cpp
+	COpenGLRenderBuffer.cpp
+	COpenGLSLMaterialRenderer.cpp
+	COpenGLTexture.cpp
+	COpenGLTransformFeedback.cpp
+	COpenGLVAO.cpp
+	COSOperator.cpp
+	CPakReader.cpp
+	CPLYMeshFileLoader.cpp
+	CPLYMeshWriter.cpp
+	CReadFile.cpp
+	CSceneManager.cpp
+	CSceneNodeAnimatorCameraFPS.cpp
+	CSceneNodeAnimatorCameraMaya.cpp
+	CSceneNodeAnimatorDelete.cpp
+	CSceneNodeAnimatorFlyCircle.cpp
+	CSceneNodeAnimatorFlyStraight.cpp
+	CSceneNodeAnimatorFollowSpline.cpp
+	CSceneNodeAnimatorRotation.cpp
+	CSceneNodeAnimatorTexture.cpp
+	CSkinnedMesh.cpp
+	CSkinnedMeshSceneNode.cpp
+	CSkyBoxSceneNode.cpp
+	CSkyDomeSceneNode.cpp
+	CSMFMeshFileLoader.cpp
+	CSoftwareDriver2.cpp
+	CSoftwareTexture2.cpp
+	CSphereSceneNode.cpp
+	CSTLMeshFileLoader.cpp
+	CSTLMeshWriter.cpp
+	CTarReader.cpp
+	CTRGouraud2.cpp
+	CTRTextureGouraud2.cpp
+	CTRTextureGouraudAdd2.cpp
+	CTRTextureGouraudAddNoZ2.cpp
+	CTRTextureGouraudAlpha.cpp
+	CTRTextureGouraudAlphaNoZ.cpp
+	CTRTextureGouraudNoZ2.cpp
+	CTRTextureGouraudVertexAlpha2.cpp
+	CVideoModeList.cpp
+	CWADReader.cpp
+	CWriteFile.cpp
+	CXMeshFileLoader.cpp
+	CZipReader.cpp
+	FW_Mutex.cpp
+	IBurningShader.cpp
+	Irrlicht.cpp
+#	MacOSX/CIrrDeviceMacOSX.mm # missing!
+	STextureSamplingParams.cpp
+	TypedBlob.cpp
+	coreutil.cpp
+	os.cpp
+)
+
+add_library(aesGladman OBJECT
+	aesGladman/aes_ni.c
+	aesGladman/aescrypt.c
+	aesGladman/aeskey.c
+	aesGladman/aestab.c
+	aesGladman/fileenc.c
+	aesGladman/hmac.c
+	aesGladman/prng.c
+	aesGladman/pwd2key.c
+	aesGladman/sha1.c
+)
+
+add_library(bzip2 OBJECT
+	bzip2/blocksort.c
+	bzip2/bzlib.c
+	bzip2/compress.c
+	bzip2/crctable.c
+	bzip2/decompress.c
+	bzip2/huffman.c
+	bzip2/randtable.c
+)
+
+add_library(convert_utf OBJECT
+	convert_utf/ConvertUTF.c
+)
+
+add_library(jpeglib OBJECT
+	jpeglib/jaricom.c
+	jpeglib/jcapimin.c
+	jpeglib/jcapistd.c
+	jpeglib/jcarith.c
+	jpeglib/jccoefct.c
+	jpeglib/jccolor.c
+	jpeglib/jcdctmgr.c
+	jpeglib/jchuff.c
+	jpeglib/jcinit.c
+	jpeglib/jcmainct.c
+	jpeglib/jcmarker.c
+	jpeglib/jcmaster.c
+	jpeglib/jcomapi.c
+	jpeglib/jcparam.c
+	jpeglib/jcprepct.c
+	jpeglib/jcsample.c
+	jpeglib/jctrans.c
+	jpeglib/jdapimin.c
+	jpeglib/jdapistd.c
+	jpeglib/jdarith.c
+	jpeglib/jdatadst.c
+	jpeglib/jdatasrc.c
+	jpeglib/jdcoefct.c
+	jpeglib/jdcolor.c
+	jpeglib/jddctmgr.c
+	jpeglib/jdhuff.c
+	jpeglib/jdinput.c
+	jpeglib/jdmainct.c
+	jpeglib/jdmarker.c
+	jpeglib/jdmaster.c
+	jpeglib/jdmerge.c
+	jpeglib/jdpostct.c
+	jpeglib/jdsample.c
+	jpeglib/jdtrans.c
+	jpeglib/jerror.c
+	jpeglib/jfdctflt.c
+	jpeglib/jfdctfst.c
+	jpeglib/jfdctint.c
+	jpeglib/jidctflt.c
+	jpeglib/jidctfst.c
+	jpeglib/jidctint.c
+	jpeglib/jmemmgr.c
+	jpeglib/jmemnobs.c
+	jpeglib/jquant1.c
+	jpeglib/jquant2.c
+	jpeglib/jutils.c
+)
+
+add_library(libpng OBJECT
+	libpng/png.c
+	libpng/pngerror.c
+	libpng/pngget.c
+	libpng/pngmem.c
+	libpng/pngpread.c
+	libpng/pngread.c
+	libpng/pngrio.c
+	libpng/pngrtran.c
+	libpng/pngrutil.c
+	libpng/pngset.c
+	libpng/pngtrans.c
+	libpng/pngwio.c
+	libpng/pngwrite.c
+	libpng/pngwtran.c
+	libpng/pngwutil.c
+)
+
+add_library(lz4 OBJECT
+	lz4/lz4.c
+	lz4/lz4frame.c
+	lz4/lz4hc.c
+	lz4/xxhash.c
+)
+
+add_library(lzma OBJECT
+	lzma/Alloc.c
+	lzma/LzFind.c
+	lzma/LzmaDec.c
+	lzma/LzmaEnc.c
+)
+
+add_library(zlib OBJECT
+	zlib/adler32.c
+	zlib/crc32.c
+	zlib/deflate.c
+	zlib/infback.c
+	zlib/inffast.c
+	zlib/inflate.c
+	zlib/inftrees.c
+	zlib/trees.c
+	zlib/uncompr.c
+	zlib/zcompress.c
+	zlib/zutil.c
+)
+
+add_library(Irrlicht
+	${Irrlicht_SRCS}
+	$<TARGET_OBJECTS:aesGladman>
+	$<TARGET_OBJECTS:bzip2>
+	$<TARGET_OBJECTS:convert_utf>
+	$<TARGET_OBJECTS:jpeglib>
+	$<TARGET_OBJECTS:libpng>
+	$<TARGET_OBJECTS:lz4>
+	$<TARGET_OBJECTS:lzma>
+	$<TARGET_OBJECTS:zlib>
+)
+
+target_include_directories(Irrlicht PUBLIC ../../include/)
