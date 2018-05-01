@@ -9,6 +9,8 @@ endif()
 
 option(FAST_MATH "Enable fast math" ON)
 
+find_package(OpenSSL REQUIRED)
+
 set(Irrlicht_SRCS
 	C3DSMeshFileLoader.cpp
 	CAnimatedMeshHalfLife.cpp
@@ -272,6 +274,11 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
+)
+
+target_link_libraries(Irrlicht PUBLIC
+	OpenSSL::Crypto
+	OpenSSL::SSL
 )
 
 target_include_directories(Irrlicht PUBLIC ../../include)
