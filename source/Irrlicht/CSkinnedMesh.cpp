@@ -453,12 +453,12 @@ scene::SCPUSkinMeshBuffer *CCPUSkinnedMesh::addMeshBuffer()
 }
 
 
-void CCPUSkinnedMesh::addMeshBuffer(ICPUMeshBuffer* buf)
+void CCPUSkinnedMesh::addMeshBuffer(SCPUSkinMeshBuffer* buf)
 {
-	if (SCPUSkinMeshBuffer* b = dynamic_cast<SCPUSkinMeshBuffer*>(buf))
+	if (buf)
 	{
-		b->grab();
-		LocalBuffers.push_back(b);
+		buf->grab();
+		LocalBuffers.push_back(buf);
 	}
 }
 

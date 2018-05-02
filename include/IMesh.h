@@ -42,9 +42,6 @@ namespace scene
 		virtual ~IMesh() {}
 	public:
 
-		//! Resets bounding box and removes all meshbuffers (calls drop() on each).
-		virtual void clearMeshBuffers() = 0;
-
 		//! Get the amount of mesh buffers.
 		/** \return Amount of mesh buffers (IMeshBuffer) in this mesh. */
 		virtual uint32_t getMeshBufferCount() const = 0;
@@ -104,9 +101,6 @@ namespace scene
 		{
 			return core::CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}
-
-		//! Adds a mesh buffer.
-		virtual void addMeshBuffer(ICPUMeshBuffer* buf) = 0;
 	};
 
 	typedef IMesh<scene::IGPUMeshBuffer> IGPUMesh;

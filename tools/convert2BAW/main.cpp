@@ -282,32 +282,71 @@ static uint8_t hexCharToUint8(char _c)
 	return tolower(_c) - 'a' + 10;
 }
 
+//static bool optMesh(scene::ICPUMesh* _mesh, const scene::IMeshManipulator* _manip, const scene::IMeshManipulator::SErrorMetric* _errMetrics)
+//{
+//	std::vector<scene::ICPUMeshBuffer*> buffers;
+//
+//	bool status = true;
+//	size_t c = _mesh->getMeshBufferCount();
+//	for (size_t i = 0u; i < _mesh->getMeshBufferCount(); ++i)
+//	{
+//		scene::ICPUMeshBuffer* optdBuf = _manip->createOptimizedMeshBuffer(_mesh->getMeshBuffer(i), _errMetrics);
+//		if (!optdBuf)
+//		{
+//			status = false;
+//			break;
+//		}
+//		buffers.push_back(optdBuf);
+//	}
+//
+//	if (status)
+//	{
+//		_mesh->clearMeshBuffers();
+//		for (scene::ICPUMeshBuffer* b : buffers)
+//			_mesh->addMeshBuffer(b);
+//	}
+//
+//	for (const scene::ICPUMeshBuffer* b : buffers)
+//		b->drop();
+//
+//	return status;
+//}
+template<typename MeshT, typename MeshBufT>
+static bool _optMesh(MeshT* _mesh, const scene::IMeshManipulator* _manip, const scene::IMeshManipulator::SErrorMetric* _errMetrics)
+{
+    std::vector<scene::ICPUMeshBuffer*> buffers;
+
+    bool status = true;
+    size_t c = _mesh->getMeshBufferCount();
+    for (size_t i = 0u; i < _mesh->getMeshBufferCount(); ++i)
+    {
+        scene::ICPUMeshBuffer* optdBuf = _manip->createOptimizedMeshBuffer(_mesh->getMeshBuffer(i), _errMetrics);
+        if (!optdBuf)
+        {
+            status = false;
+            break;
+        }
+        buffers.push_back(optdBuf);
+    }
+
+    if (status)
+    {
+        _mesh->clearMeshBuffers();
+        for (scene::ICPUMeshBuffer* b : buffers)
+            if (MeshBufT* bb = dynamic_cast<MeshBufT*>(b))
+            _mesh->addMeshBuffer(bb);
+    }
+
+    for (const scene::ICPUMeshBuffer* b : buffers)
+        b->drop();
+
+    return status;
+}
 static bool optMesh(scene::ICPUMesh* _mesh, const scene::IMeshManipulator* _manip, const scene::IMeshManipulator::SErrorMetric* _errMetrics)
 {
-	std::vector<scene::ICPUMeshBuffer*> buffers;
-
-	bool status = true;
-	size_t c = _mesh->getMeshBufferCount();
-	for (size_t i = 0u; i < _mesh->getMeshBufferCount(); ++i)
-	{
-		scene::ICPUMeshBuffer* optdBuf = _manip->createOptimizedMeshBuffer(_mesh->getMeshBuffer(i), _errMetrics);
-		if (!optdBuf)
-		{
-			status = false;
-			break;
-		}
-		buffers.push_back(optdBuf);
-	}
-
-	if (status)
-	{
-		_mesh->clearMeshBuffers();
-		for (scene::ICPUMeshBuffer* b : buffers)
-			_mesh->addMeshBuffer(b);
-	}
-
-	for (const scene::ICPUMeshBuffer* b : buffers)
-		b->drop();
-
-	return status;
+    if (scene::CCPUSkinnedMesh* m = dynamic_cast<scene::CCPUSkinnedMesh*>(_mesh))
+        return _optMesh<scene::CCPUSkinnedMesh, scene::SCPUSkinMeshBuffer>(m, _manip, _errMetrics);
+    else if (scene::SCPUMesh* m = dynamic_cast<scene::SCPUMesh*>(_mesh))
+        return _optMesh<scene::SCPUMesh, scene::ICPUMeshBuffer>(m, _manip, _errMetrics);
+    return false;
 }
