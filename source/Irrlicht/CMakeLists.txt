@@ -7,35 +7,84 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
 
-option(FAST_MATH "Enable fast math" ON)
+option(FAST_MATH "Enable fast low-precision math" ON)
 
 find_package(OpenSSL REQUIRED)
 
-set(Irrlicht_SRCS
+set(IRRLICHT_SRCS_COMMON
+# Mesh loaders
 	C3DSMeshFileLoader.cpp
+	CB3DMeshFileLoader.cpp
+	CBAWMeshFileLoader.cpp
+	CCSMLoader.cpp
+	CDMFLoader.cpp
+	CLMTSMeshFileLoader.cpp
+	CLWOMeshFileLoader.cpp
+	CMS3DMeshFileLoader.cpp
+	CMY3DMeshFileLoader.cpp
+	COBJMeshFileLoader.cpp
+	COCTLoader.cpp
+	COgreMeshFileLoader.cpp
+	CPLYMeshFileLoader.cpp
+	CSMFMeshFileLoader.cpp
+	CSTLMeshFileLoader.cpp
+	CXMeshFileLoader.cpp
+
+# Mesh writers
+	CBAWMeshWriter.cpp
+	COBJMeshWriter.cpp
+	CPLYMeshWriter.cpp
+	CSTLMeshWriter.cpp
+
+# Other mesh-related stuff
 	CAnimatedMeshHalfLife.cpp
 	CAnimatedMeshSceneNode.cpp
-	CB3DMeshFileLoader.cpp
 	CBAWFile.cpp
-	CBAWMeshFileLoader.cpp
-	CBAWMeshWriter.cpp
-	CBillboardSceneNode.cpp
 	CBlobsLoadingManager.cpp
-	CBurningShader_Raster_Reference.cpp
+	CMeshSceneNode.cpp
+	CMeshSceneNodeInstanced.cpp
+	CSkinnedMesh.cpp
+	CSkinnedMeshSceneNode.cpp
+	TypedBlob.cpp
+
+# Scene objects
+	CBillboardSceneNode.cpp
 	CCameraSceneNode.cpp
-	CColorConverter.cpp
-	CCSMLoader.cpp
 	CCubeSceneNode.cpp
 	CDefaultSceneNodeAnimatorFactory.cpp
 	CDefaultSceneNodeFactory.cpp
-	CDepthBuffer.cpp
-	CDMFLoader.cpp
 	CEmptySceneNode.cpp
-	CFileList.cpp
-	CFileSystem.cpp
-	CFPSCounter.cpp
 	CGeometryCreator.cpp
-	CGPUTransientBuffer.cpp
+	CMeshCache.cpp
+	CMeshManipulator.cpp
+	CSceneManager.cpp
+	CSkyBoxSceneNode.cpp
+	CSkyDomeSceneNode.cpp
+	CSphereSceneNode.cpp
+
+# Animators
+	CSceneNodeAnimatorCameraFPS.cpp
+	CSceneNodeAnimatorCameraMaya.cpp
+	CSceneNodeAnimatorDelete.cpp
+	CSceneNodeAnimatorFlyCircle.cpp
+	CSceneNodeAnimatorFlyStraight.cpp
+	CSceneNodeAnimatorFollowSpline.cpp
+	CSceneNodeAnimatorRotation.cpp
+	CSceneNodeAnimatorTexture.cpp
+
+# Driver-specific objects
+	CNullDriver.cpp
+	COpenGLDriver.cpp
+	COpenGLExtensionHandler.cpp
+	COpenGLFrameBuffer.cpp
+	COpenGLRenderBuffer.cpp
+	COpenGLSLMaterialRenderer.cpp
+	COpenGLTexture.cpp
+	STextureSamplingParams.cpp
+	FW_Mutex.cpp
+
+# Image processing
+	CColorConverter.cpp
 	CImage.cpp
 	CImageLoaderBMP.cpp
 	CImageLoaderDDS.cpp
@@ -53,93 +102,70 @@ set(Irrlicht_SRCS
 	CImageWriterPPM.cpp
 	CImageWriterPSD.cpp
 	CImageWriterTGA.cpp
-	CIrrDeviceConsole.cpp
-	CIrrDeviceLinux.cpp
+
+# Video
+	CFPSCounter.cpp
+	CVideoModeList.cpp
+
+# Software renderer
+	CBurningShader_Raster_Reference.cpp
+	CDepthBuffer.cpp
+	CSoftwareDriver2.cpp
+	CSoftwareTexture2.cpp
+	CTRGouraud2.cpp
+	CTRTextureGouraud2.cpp
+	CTRTextureGouraudNoZ2.cpp
+	CTRTextureGouraudAdd2.cpp
+	CTRTextureGouraudAddNoZ2.cpp
+	CTRTextureGouraudVertexAlpha2.cpp
+	IBurningShader.cpp
+
+# Input/output
+	CFileList.cpp
+	CFileSystem.cpp
+	CLimitReadFile.cpp
+	CMemoryFile.cpp
+	CReadFile.cpp
+	CWriteFile.cpp
+	CMountPointReader.cpp
+	CNPKReader.cpp
+	CPakReader.cpp
+	CTarReader.cpp
+	CWADReader.cpp
+	CZipReader.cpp
+
+# Other
 	CIrrDeviceSDL.cpp
+	CIrrDeviceLinux.cpp
+	CIrrDeviceConsole.cpp
 	CIrrDeviceStub.cpp
 	CIrrDeviceWin32.cpp
-	CLimitReadFile.cpp
-	CLMTSMeshFileLoader.cpp
 	CLogger.cpp
-	CLWOMeshFileLoader.cpp
-	CMemoryFile.cpp
-	CMeshCache.cpp
-	CMeshManipulator.cpp
-	CMeshSceneNode.cpp
-	CMeshSceneNodeInstanced.cpp
-	CMountPointReader.cpp
-	CMS3DMeshFileLoader.cpp
-	CMY3DMeshFileLoader.cpp
-	CNPKReader.cpp
-	CNullDriver.cpp
-	COBJMeshFileLoader.cpp
-	COBJMeshWriter.cpp
-	COCTLoader.cpp
-	COgreMeshFileLoader.cpp
+	COSOperator.cpp
+	Irrlicht.cpp
+	os.cpp
+)
+
+set(IRRLICHT_SRCS_NORMAL
+	CGPUTransientBuffer.cpp
 	COpenCLHandler.cpp
 	COpenGL2DTextureArray.cpp
 	COpenGL2DTexture.cpp
 	COpenGL3DTexture.cpp
 	COpenGLCubemapTexture.cpp
-	COpenGLDriver.cpp
-	COpenGLExtensionHandler.cpp
-	COpenGLFrameBuffer.cpp
 	COpenGLMultisampleTextureArray.cpp
 	COpenGLMultisampleTexture.cpp
 	COpenGLOcclusionQuery.cpp
 	COpenGLPersistentlyMappedBuffer.cpp
 	COpenGLQuery.cpp
-	COpenGLRenderBuffer.cpp
-	COpenGLSLMaterialRenderer.cpp
-	COpenGLTexture.cpp
 	COpenGLTransformFeedback.cpp
 	COpenGLVAO.cpp
-	COSOperator.cpp
-	CPakReader.cpp
-	CPLYMeshFileLoader.cpp
-	CPLYMeshWriter.cpp
-	CReadFile.cpp
-	CSceneManager.cpp
-	CSceneNodeAnimatorCameraFPS.cpp
-	CSceneNodeAnimatorCameraMaya.cpp
-	CSceneNodeAnimatorDelete.cpp
-	CSceneNodeAnimatorFlyCircle.cpp
-	CSceneNodeAnimatorFlyStraight.cpp
-	CSceneNodeAnimatorFollowSpline.cpp
-	CSceneNodeAnimatorRotation.cpp
-	CSceneNodeAnimatorTexture.cpp
-	CSkinnedMesh.cpp
-	CSkinnedMeshSceneNode.cpp
-	CSkyBoxSceneNode.cpp
-	CSkyDomeSceneNode.cpp
-	CSMFMeshFileLoader.cpp
-	CSoftwareDriver2.cpp
-	CSoftwareTexture2.cpp
-	CSphereSceneNode.cpp
-	CSTLMeshFileLoader.cpp
-	CSTLMeshWriter.cpp
-	CTarReader.cpp
-	CTRGouraud2.cpp
-	CTRTextureGouraud2.cpp
-	CTRTextureGouraudAdd2.cpp
-	CTRTextureGouraudAddNoZ2.cpp
 	CTRTextureGouraudAlpha.cpp
 	CTRTextureGouraudAlphaNoZ.cpp
-	CTRTextureGouraudNoZ2.cpp
-	CTRTextureGouraudVertexAlpha2.cpp
-	CVideoModeList.cpp
-	CWADReader.cpp
-	CWriteFile.cpp
-	CXMeshFileLoader.cpp
-	CZipReader.cpp
-	FW_Mutex.cpp
-	IBurningShader.cpp
-	Irrlicht.cpp
-#	MacOSX/CIrrDeviceMacOSX.mm # missing!
-	STextureSamplingParams.cpp
-	TypedBlob.cpp
 	coreutil.cpp
-	os.cpp
+)
+
+set(IRRLICHT_SRCS_SERVER
 )
 
 add_library(aesGladman OBJECT
@@ -264,8 +290,58 @@ add_library(zlib OBJECT
 	zlib/zutil.c
 )
 
+if(WIN32)
+	add_definitions(
+		"WIN32"
+		__GNUWIN32__
+		_CRT_SECURE_NO_DEPRECATE
+	)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	add_compile_options(
+		-W
+		-Wall
+		-Wextra
+		-Wno-unused-parameter
+		-fno-exceptions
+		-msse3
+	)
+	if($<CONFIG:Debug>)
+		add_compile_options(
+			-fno-omit-frame-pointer
+			-fstack-protector-strong
+		)
+	endif()
+	if(FAST_MATH)
+		add_compile_options(
+			-fexpensive-optimizations
+			-ffast-math
+			-mfpmath=sse
+		)
+	endif()
+endif()
+
+link_libraries(
+	OpenSSL::Crypto
+	OpenSSL::SSL
+)
+
+include_directories(
+	convert_utf
+	libpng
+	utf8/source
+	zlib
+)
+
+add_definitions(
+	$<$<CONFIG:Debug>:_DEBUG>
+	$<$<BOOL:FAST_MATH>:IRRLICHT_FAST_MATH>
+)
+
 add_library(Irrlicht STATIC
-	${Irrlicht_SRCS}
+	${IRRLICHT_SRCS_COMMON}
+	${IRRLICHT_SRCS_NORMAL}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
@@ -276,55 +352,31 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:zlib>
 )
 
-target_link_libraries(Irrlicht PUBLIC
-	OpenSSL::Crypto
-	OpenSSL::SSL
-)
-
 target_include_directories(Irrlicht PUBLIC ../../include)
-
-target_include_directories(Irrlicht PRIVATE
-	convert_utf
-	libpng
-	utf8/source
-	zlib
-)
 
 target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
 	_IRR_COMPILE_WITH_OPENGL_
-	$<$<CONFIG:Debug>:_DEBUG>
-	$<$<BOOL:FAST_MATH>:IRRLICHT_FAST_MATH>
 )
 
-if(WIN32)
-	target_compile_definitions(Irrlicht PRIVATE
-		"WIN32"
-		__GNUWIN32__
-		_CRT_SECURE_NO_DEPRECATE
-	)
-endif()
+add_library(IrrlichtServer STATIC
+	${IRRLICHT_SRCS_COMMON}
+	${IRRLICHT_SRCS_SERVER}
+	$<TARGET_OBJECTS:aesGladman>
+	$<TARGET_OBJECTS:bzip2>
+	$<TARGET_OBJECTS:convert_utf>
+	$<TARGET_OBJECTS:jpeglib>
+	$<TARGET_OBJECTS:libpng>
+	$<TARGET_OBJECTS:lz4>
+	$<TARGET_OBJECTS:lzma>
+	$<TARGET_OBJECTS:zlib>
+)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	target_compile_options(Irrlicht PRIVATE
-		-W
-		-Wall
-		-Wextra
-		-Wno-unused-parameter
-		-fno-exceptions
-		-msse3
-	)
-	if($<CONFIG:Debug>)
-		target_compile_options(Irrlicht PRIVATE
-			-fno-omit-frame-pointer
-			-fstack-protector-strong
-		)
-	endif()
-	if(FAST_MATH)
-		target_compile_options(Irrlicht PRIVATE
-			-fexpensive-optimizations
-			-ffast-math
-			-mfpmath=sse
-		)
-	endif()
-endif()
+target_include_directories(IrrlichtServer PUBLIC ../../include)
+
+target_compile_definitions(IrrlichtServer PRIVATE
+	_IRR_STATIC_LIB_
+	BAW_SERVER
+	NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
+	NO_IRR_COMPILE_WITH_OPENGL_
+)
