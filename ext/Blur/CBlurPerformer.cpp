@@ -15,8 +15,8 @@ constexpr const char* CS_DOWNSAMPLE_SRC = R"XDDD(
     #version 430 core
     layout(local_size_x = 16, local_size_y = 16) in; // 16*16==256
 
-    layout(std430, binding = 0) restrict writeonly buffer b0 {
-	    vec3 ssbo0[];
+    layout(std430, binding = 0) restrict writeonly buffer b {
+	    vec3 ssbo[];
     };
 
     layout(binding = 0, location = 0) uniform sampler2D in_tex;
@@ -37,48 +37,40 @@ constexpr const char* CS_DOWNSAMPLE_SRC = R"XDDD(
 
 	    const uint HBUF_IDX = IDX.y * OUT_SIZE.x + IDX.x;
 	
-	    ssbo0[HBUF_IDX] = avg.xyz;
+	    ssbo[HBUF_IDX] = avg.xyz;
     }
 )XDDD";
 constexpr const char* CS_BLUR_SRC = R"XDDD(
     #version 430 core
     layout(local_size_x = 16, local_size_y = 16) in; // 16*16==256
 
-    layout(std430, binding = 0) restrict buffer b0 {
-	    vec3 ssbo0[];
-    };
-    layout(std430, binding = 1) restrict buffer b1 {
-	    vec3 ssbo1[];
+    layout(std430, binding = 0) restrict buffer b {
+	    vec3 ssbo[];
     };
 
-    #define IN_BUF %s
-    #define OUT_BUF %s
-    #define IN_IDX %s
-    #define OUT_IDX %s
     #define FINAL_PASS %d
 
     #if FINAL_PASS
     layout(location = 1, binding = 0, rgba8) uniform writeonly image2D out_img;
     #endif
 
+    layout(location = 2) uniform uint inOffset;
+    layout(location = 3) uniform uint outOffset;
+    layout(location = 4) uniform uvec2 inMlt;
+    layout(location = 5) uniform uvec2 outMlt;
+
     void main()
     {
 	    const uvec2 IDX = gl_GlobalInvocationID.xy; // each index corresponds to one pixel in downsampled texture
-	
-	    const ivec2 OUT_SIZE = ivec2(512, 512);
-
-	    const uint HBUF_IDX = IDX.y * OUT_SIZE.x + IDX.x;
-	
-	    const int VBUF_IDX = int(IDX.x) * OUT_SIZE.y + int(IDX.y);
 
 	    vec3 res = vec3(0.f);
 	    for (int i = -4; i < 5; ++i)
-		    res += IN_BUF[IN_IDX + i];
+		    res += ssbo[uint(dot(IDX, inMlt)) + inOffset + i];
 	    res/=9.f;
     #if FINAL_PASS
         imageStore(out_img, ivec2(IDX), vec4(res, 1.f));
     #else
-        OUT_BUF[OUT_IDX] = res;
+        ssbo[uint(dot(IDX, outMlt)) + outOffset] = res;
     #endif
     }
 )XDDD";
@@ -125,84 +117,90 @@ inline unsigned createComputeShader(const char* _src)
 
 
 uint32_t CBlurPerformer::s_texturesEverCreatedCount{};
+core::vector2d<size_t> CBlurPerformer::s_outTexSize(512u, 512); // if changing here, remember to also change in dsample shader source
 
 CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver)
 {
-    unsigned ds{}, hb1{}, hb2{}, hb3{}, vb1{}, vb2{}, vb3{};
+    unsigned ds{}, gblur{}, fblur{};
 
     ds = createComputeShader(CS_DOWNSAMPLE_SRC);
     
     const size_t bufSize = strlen(CS_BLUR_SRC) + 100u;
     char* src = (char*)malloc(bufSize);
 
-    auto deleteShadersF = [&, ds, hb1, hb2, hb3, vb1, vb2, vb3, src]() {
-        for (auto s : { ds, hb1, hb2, hb3, vb1, vb2, vb3 })
+    auto doCleaning = [&, ds, gblur, fblur, src]() {
+        for (unsigned s : { ds, gblur, fblur })
             video::COpenGLExtensionHandler::extGlDeleteProgram(s);
         free(src);
         return nullptr;
     };
 
-    if (!genBlurPassCs(src, bufSize, "ssbo0", "ssbo1", "HBUF_IDX", "HBUF_IDX", 0))
-        return nullptr;
-    hb1 = createComputeShader(src);
+    if (!genBlurPassCs(src, bufSize, 0))
+        return doCleaning();
+    gblur = createComputeShader(src);
     
-    if (!genBlurPassCs(src, bufSize, "ssbo1", "ssbo0", "HBUF_IDX", "HBUF_IDX", 0))
-        return deleteShadersF();
-    hb2 = createComputeShader(src);
+    if (!genBlurPassCs(src, bufSize, 1))
+        return doCleaning();
+    fblur = createComputeShader(src);
 
-    if (!genBlurPassCs(src, bufSize, "ssbo0", "ssbo1", "HBUF_IDX", "VBUF_IDX", 0))
-        return deleteShadersF();
-    hb3 = createComputeShader(src);
-
-    if (!genBlurPassCs(src, bufSize, "ssbo1", "ssbo0", "VBUF_IDX", "VBUF_IDX", 0))
-        return deleteShadersF();
-    vb1 = createComputeShader(src);
-
-    if (!genBlurPassCs(src, bufSize, "ssbo0", "ssbo1", "VBUF_IDX", "VBUF_IDX", 0))
-        return deleteShadersF();
-    vb2 = createComputeShader(src);
-
-    if (!genBlurPassCs(src, bufSize, "ssbo1", "ssbo0", "VBUF_IDX", "whatever", 1))
-        return deleteShadersF();
-    vb3 = createComputeShader(src);
-
-    for (unsigned s : {ds, hb1, hb2, hb3, vb1, vb2, vb3})
+    for (unsigned s : {ds, gblur, fblur})
     {
         if (!s)
-            return deleteShadersF();
+            return doCleaning();
     }
     free(src);
 
-    return new CBlurPerformer(_driver, ds, hb1, hb2, hb3, vb1, vb2, vb3);
+    return new CBlurPerformer(_driver, ds, gblur, fblur);
 }
 
 video::ITexture* CBlurPerformer::createBlurredTexture(const video::ITexture* _inputTex) const
 {
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_SSBO0_BINDING, 1, &static_cast<video::COpenGLBuffer*>(m_ssbo0)->getOpenGLName());
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_SSBO1_BINDING, 1, &static_cast<video::COpenGLBuffer*>(m_ssbo1)->getOpenGLName());
+    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_SSBO_BINDING, 1, &static_cast<video::COpenGLBuffer*>(m_ssbo)->getOpenGLName());
 
     const GLenum target = GL_TEXTURE_2D;
     video::COpenGLExtensionHandler::extGlBindTextures(0, 1, &static_cast<const video::COpenGL2DTexture*>(_inputTex)->getOpenGLName(), &target);
 
-    const uint32_t size[]{ 512u, 512u };
+    const uint32_t size[]{ s_outTexSize.X, s_outTexSize.Y};
     video::ITexture* outputTex = m_driver->addTexture(video::ITexture::ETT_2D, size, 1, ("blur_out" + std::to_string(s_texturesEverCreatedCount++)).c_str(), video::ECF_A8R8G8B8);
 
     video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(outputTex)->getOpenGLName(),
         0, GL_FALSE, 0, GL_WRITE_ONLY, video::COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(static_cast<const video::COpenGL2DTexture*>(outputTex)->getColorFormat()));
+
+
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_dsampleCs);
 
     video::COpenGLExtensionHandler::extGlDispatchCompute(32u, 32u, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
+    unsigned inOffset{}, outOffset{};
+    const core::vector2d<unsigned> HMLT(1u, s_outTexSize.X), VMLT(s_outTexSize.Y, 1u);
+    const core::vector2d<unsigned> imultipliers[5]{ HMLT, HMLT, HMLT, VMLT, VMLT };
+    const core::vector2d<unsigned> omultipliers[5]{ HMLT, HMLT, VMLT, VMLT, VMLT };
+
+    inOffset = 0u;
+    outOffset = s_outTexSize.X * s_outTexSize.Y;
+
+    video::COpenGLExtensionHandler::extGlUseProgram(m_blurGeneralCs);
     for (size_t i = 0u; i < 5u; ++i)
     {
-        video::COpenGLExtensionHandler::extGlUseProgram(m_blurCs[i]);
+        video::COpenGLExtensionHandler::extGlProgramUniform2uiv(m_blurGeneralCs, E_IN_MLT_LOC, 1, &imultipliers[i].X);
+        video::COpenGLExtensionHandler::extGlProgramUniform2uiv(m_blurGeneralCs, E_OUT_MLT_LOC, 1, &omultipliers[i].X);
+        video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurGeneralCs, E_IN_OFFSET_LOC, 1, &inOffset);
+        video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurGeneralCs, E_OUT_OFFSET_LOC, 1, &outOffset);
 
         video::COpenGLExtensionHandler::extGlDispatchCompute(32u, 32u, 1u);
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        std::swap(inOffset, outOffset);
     }
-    video::COpenGLExtensionHandler::extGlUseProgram(m_blurCs[5]);
+
+    video::COpenGLExtensionHandler::extGlUseProgram(m_blurFinalCs);
+
+    video::COpenGLExtensionHandler::extGlProgramUniform2uiv(m_blurFinalCs, E_IN_MLT_LOC, 1, &VMLT.X);
+    video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurFinalCs, E_IN_OFFSET_LOC, 1, &inOffset);
+    video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurFinalCs, E_OUT_OFFSET_LOC, 1, &outOffset);
+
     video::COpenGLExtensionHandler::extGlDispatchCompute(32u, 32u, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 
@@ -211,14 +209,13 @@ video::ITexture* CBlurPerformer::createBlurredTexture(const video::ITexture* _in
 
 CBlurPerformer::~CBlurPerformer()
 {
-    m_ssbo0->drop();
-    m_ssbo1->drop();
+    m_ssbo->drop();
     video::COpenGLExtensionHandler::extGlDeleteProgram(m_dsampleCs);
-    for (size_t i = 0u; i < 6u; ++i)
-        video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurCs[i]);
+    video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurGeneralCs);
+    video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurFinalCs);
 }
 
-bool CBlurPerformer::genBlurPassCs(char * _out, size_t _outSize, const char * _inBufName, const char * _outBufName, const char * _inIdxName, const char * _outIdxName, int _finalPass)
+bool CBlurPerformer::genBlurPassCs(char* _out, size_t _outSize, int _finalPass)
 {
-    return snprintf(_out, _outSize, CS_BLUR_SRC, _inBufName, _outBufName, _inIdxName, _outIdxName, _finalPass) > 0;
+    return snprintf(_out, _outSize, CS_BLUR_SRC, _finalPass) > 0;
 }

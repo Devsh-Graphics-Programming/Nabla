@@ -25,8 +25,11 @@ class CBlurPerformer : public IReferenceCounted
 {
     enum 
     {
-        E_SSBO0_BINDING = 0,
-        E_SSBO1_BINDING = 1
+        E_SSBO_BINDING = 0,
+        E_IN_OFFSET_LOC = 2,
+        E_OUT_OFFSET_LOC = 3,
+        E_IN_MLT_LOC = 4,
+        E_OUT_MLT_LOC = 5
     };
 
 public:
@@ -38,23 +41,24 @@ protected:
     ~CBlurPerformer();
 
 private:
-    CBlurPerformer(video::IVideoDriver* _driver, unsigned _sample, unsigned _hblur1, unsigned _hblur2, unsigned _hblur3, unsigned _vblur1, unsigned _vblur2, unsigned _vblur3) :
+    CBlurPerformer(video::IVideoDriver* _driver, unsigned _sample, unsigned _gblur, unsigned _fblur) :
         m_driver(_driver),
         m_dsampleCs(_sample),
-        m_blurCs {_hblur1, _hblur2, _hblur3, _vblur1, _vblur2, _vblur3}
+        m_blurGeneralCs(_gblur),
+        m_blurFinalCs(_fblur)
     {
-        m_ssbo0 = m_driver->createGPUBuffer(4 * 512 * 512 * sizeof(float), nullptr);
-        m_ssbo1 = m_driver->createGPUBuffer(4 * 512 * 512 * sizeof(float), nullptr);
+        m_ssbo = m_driver->createGPUBuffer(2 * 4 * 512 * 512 * sizeof(float), nullptr);
     }
 private:
-    static bool genBlurPassCs(char* _out, size_t _outSize, const char* _inBufName, const char* _outBufName, const char* _inIdxName, const char* _outIdxName, int _finalPass);
+    static bool genBlurPassCs(char* _out, size_t _outSize, int _finalPass);
 
 private:
     video::IVideoDriver* m_driver;
-    unsigned m_dsampleCs, m_blurCs[6];
-    video::IGPUBuffer* m_ssbo0, *m_ssbo1;
+    unsigned m_dsampleCs, m_blurGeneralCs, m_blurFinalCs;
+    video::IGPUBuffer* m_ssbo;
 
     static uint32_t s_texturesEverCreatedCount;
+    static core::vector2d<size_t> s_outTexSize;
 };
 
 }
