@@ -1217,18 +1217,17 @@ bool CIrrDeviceLinux::run()
 						// Ignore the key release event
 						break;
 					}
-
-                    irrevent.EventType = irr::EET_KEY_INPUT_EVENT;
-                    irrevent.KeyInput.PressedDown = false;
-                    irrevent.KeyInput.Char = 0;	// on release that's undefined
-                    irrevent.KeyInput.Control = (event.xkey.state & ControlMask) != 0;
-                    irrevent.KeyInput.Shift = (event.xkey.state & ShiftMask) != 0;
-                    irrevent.KeyInput.Key = getKeyCode(event.xkey.keycode);
-
-                    postEventFromUser(irrevent);
-                    break;
 				}
-				// fall-through in case the release should be handled
+
+                irrevent.EventType = irr::EET_KEY_INPUT_EVENT;
+                irrevent.KeyInput.PressedDown = false;
+                irrevent.KeyInput.Char = 0;	// on release that's undefined
+                irrevent.KeyInput.Control = (event.xkey.state & ControlMask) != 0;
+                irrevent.KeyInput.Shift = (event.xkey.state & ShiftMask) != 0;
+                irrevent.KeyInput.Key = getKeyCode(event.xkey.keycode);
+
+                postEventFromUser(irrevent);
+                break;
 			case KeyPress:
 				{
                     KeySym x11Key;
