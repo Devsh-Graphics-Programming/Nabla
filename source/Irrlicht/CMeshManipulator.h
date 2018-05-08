@@ -39,10 +39,6 @@ class CMeshManipulator : public IMeshManipulator
 	};
 
 public:
-#ifndef NEW_MESHES
-    virtual void isolateAndExtractMeshBuffer(ICPUMeshBuffer* inbuffer, const bool& interleaved=true) const = 0;
-#endif // NEW_MESHES
-
 	//! Flips the direction of surfaces.
 	/** Changes backfacing triangles to frontfacing triangles and vice versa.
 	\param mesh: Mesh on which the operation is performed. */
@@ -58,22 +54,6 @@ public:
 	/** \param buffer: Mesh buffer on which the operation is performed.
 	    \param smooth: Whether to use smoothed normals. */
 	virtual void recalculateNormals(IMeshBuffer* buffer, bool smooth = false, bool angleWeighted = false) const;
-
-	//! Creates a planar texture mapping on the mesh
-	/** \param mesh: Mesh on which the operation is performed.
-	\param resolution: resolution of the planar mapping. This is the value
-	specifying which is the relation between world space and
-	texture coordinate space. */
-	virtual void makePlanarTextureMapping(scene::IMesh* mesh, float resolution=0.001f) const;
-
-	//! Creates a planar texture mapping on the meshbuffer
-	virtual void makePlanarTextureMapping(scene::IMeshBuffer* meshbuffer, float resolution=0.001f) const;
-
-	//! Creates a planar texture mapping on the meshbuffer
-	void makePlanarTextureMapping(scene::IMeshBuffer* buffer, float resolutionS, float resolutionT, uint8_t axis, const core::vector3df& offset) const;
-
-	//! Creates a planar texture mapping on the mesh
-	void makePlanarTextureMapping(scene::IMesh* mesh, float resolutionS, float resolutionT, uint8_t axis, const core::vector3df& offset) const;
 
 	//! Recalculates tangents, requires a tangent mesh buffer
 	virtual void recalculateTangents(IMeshBuffer* buffer, bool recalculateNormals=false, bool smooth=false, bool angleWeighted=false) const;
@@ -95,11 +75,6 @@ public:
 	virtual void requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const;
 
 	virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const;
-
-#ifndef NEW_MESHES
-	//! create a mesh optimized for the vertex cache
-	virtual ICPUMeshBuffer* createForsythOptimizedMeshBuffer(const ICPUMeshBuffer *meshbuffer) const;
-#endif // NEW_MESHES
 
 private:
 	//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.

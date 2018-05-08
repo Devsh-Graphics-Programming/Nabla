@@ -61,9 +61,6 @@ namespace scene
 			core::vectorSIMDf epsilon;
 		};
 	public:
-#ifndef NEW_MESHES
-	    virtual void isolateAndExtractMeshBuffer(ICPUMeshBuffer* inbuffer, const bool& interleaved=true) const = 0;
-#endif // NEW_MESHES
 		//! Flips the direction of surfaces.
 		/** Changes backfacing triangles to frontfacing
 		triangles and vice versa.
@@ -114,20 +111,6 @@ namespace scene
 		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
 		template<typename T>
 		static bool getPolyCount(uint32_t& outCount, IMesh<T>* mesh);
-
-#ifndef NEW_MESHES
-		//! Vertex cache optimization according to the Forsyth paper
-		/** More information can be found at
-		http://home.comcast.net/~tom_forsyth/papers/fast_vert_cache_opt.html
-
-		The function is thread-safe (read: you can optimize several
-		meshes in different threads).
-
-		\param mesh Source mesh for the operation.
-		\return A new mesh optimized for the vertex cache. */
-        virtual ICPUMeshBuffer* createForsythOptimizedMeshBuffer(const ICPUMeshBuffer *meshbuffer) const = 0;
-#endif // NEW_MESHES
-
 protected:
 };
 
