@@ -148,7 +148,7 @@ namespace irr
 #ifdef _IRR_COMPILE_WITH_X11_
             bool createInputContext();
             void destroyInputContext();
-            EKEY_CODE getKeyCode(XEvent &event);
+            EKEY_CODE getKeyCode(const uint32_t& xEventKey);
 #endif
 
             //! Implementation of the linux cursor control

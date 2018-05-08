@@ -265,7 +265,7 @@ bool CIrrDeviceLinux::createInputContext()
     for(int i=0; i < im_supported_styles->count_styles; ++i)
 	{
         XIMStyle style = im_supported_styles->supported_styles[i];
-        if ((style & supportedStyle) == style) /* if we can handle it */
+        if ((style & supportedStyle) == style) // if we can handle it
 		{
             bestStyle = style;
 			break;
@@ -313,11 +313,11 @@ void CIrrDeviceLinux::destroyInputContext()
 	}
 }
 
-EKEY_CODE CIrrDeviceLinux::getKeyCode(XEvent &event)
+EKEY_CODE CIrrDeviceLinux::getKeyCode(const uint32_t& xEventKey)
 {
 	EKEY_CODE keyCode = (EKEY_CODE)0;
 
-	KeySym x11Key = XkbKeycodeToKeysym(display, event.xkey.keycode, 0, 0);
+	KeySym x11Key = XkbKeycodeToKeysym(display, xEventKey, 0, 0);
 
 	std::unordered_map<KeySym,int32_t>::const_iterator it = KeyMap.find(x11Key);
 	if (it != KeyMap.end())
@@ -331,21 +331,21 @@ EKEY_CODE CIrrDeviceLinux::getKeyCode(XEvent &event)
 		// unknown keys being identical.
 		if ( !x11Key )
 		{
-			keyCode = (EKEY_CODE)(event.xkey.keycode+KEY_KEY_CODES_COUNT+1);
+			keyCode = (EKEY_CODE)(xEventKey+KEY_KEY_CODES_COUNT+1);
 #ifdef _DEBUG
-			os::Printer::log("No such X11Key, using event keycode", std::to_string(event.xkey.keycode).c_str(), ELL_INFORMATION);
+			os::Printer::log("No such X11Key, using event keycode", std::to_string(xEventKey), ELL_INFORMATION);
 		}
 		else if (it == KeyMap.end())
 		{
 			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
-			os::Printer::log("EKEY_CODE not found, using orig. X11 keycode", std::to_string(x11Key).c_str(), ELL_INFORMATION);
+			os::Printer::log("EKEY_CODE not found, using orig. X11 keycode", std::to_string(x11Key), ELL_INFORMATION);
 #endif // _DEBUG
 		}
 		else
 		{
 			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
 #ifdef _DEBUG
-			os::Printer::log("EKEY_CODE is 0, using orig. X11 keycode", std::to_string(x11Key).c_str(), ELL_INFORMATION);
+			os::Printer::log("EKEY_CODE is 0, using orig. X11 keycode", std::to_string(x11Key), ELL_INFORMATION);
 #endif // _DEBUG
 		}
  	}
@@ -530,10 +530,8 @@ void IrrPrintXGrabError(int grabResult, const char * grabCommand )
 bool CIrrDeviceLinux::createWindow()
 {
 #ifdef _IRR_COMPILE_WITH_X11_
-    if (CreationParams.AuxGLContexts>1)
-    {
+    if (CreationParams.AuxGLContexts)
         XInitThreads();
-    }
 
 	os::Printer::log("Creating X window...", ELL_INFORMATION);
 	XSetErrorHandler(IrrPrintXError);
@@ -674,7 +672,7 @@ bool CIrrDeviceLinux::createWindow()
 
                             if (desiredSamples>1) //want AA
                             {
-                                if (obtainedFBConfigAttrs[8]!=1 || obtainedFBConfigAttrs[9]<desiredSamples || (bestSamples<1024&&obtainedFBConfigAttrs[9]>bestSamples))
+                                if (obtainedFBConfigAttrs[8]!=1 || obtainedFBConfigAttrs[9]<desiredSamples || bestSamples<1024&&obtainedFBConfigAttrs[9]>bestSamples)
                                 {
                                     XFree( vi );
                                     continue;
@@ -692,7 +690,7 @@ bool CIrrDeviceLinux::createWindow()
                                 continue;
                             }
 
-                            if (obtainedFBConfigAttrs[4]<CreationParams.ZBufferBits || (bestDepth>=0&&obtainedFBConfigAttrs[4]>bestDepth))
+                            if (obtainedFBConfigAttrs[4]<CreationParams.ZBufferBits || bestDepth>=0&&obtainedFBConfigAttrs[4]>bestDepth)
                             {
                                 XFree( vi );
                                 continue;
@@ -792,7 +790,7 @@ bool CIrrDeviceLinux::createWindow()
 	}
 #ifdef _DEBUG
 	else
-        os::Printer::log("Visual chosen: ", std::to_string(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
+		os::Printer::log("Visual chosen: ", std::to_string(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
 #endif
 
 	// create color map
@@ -1110,15 +1108,15 @@ bool CIrrDeviceLinux::run()
 			case MotionNotify:
 				irrevent.EventType = irr::EET_MOUSE_INPUT_EVENT;
 				irrevent.MouseInput.Event = irr::EMIE_MOUSE_MOVED;
-				irrevent.MouseInput.X = event.xbutton.x;
-				irrevent.MouseInput.Y = event.xbutton.y;
-				irrevent.MouseInput.Control = (event.xkey.state & ControlMask) != 0;
-				irrevent.MouseInput.Shift = (event.xkey.state & ShiftMask) != 0;
+				irrevent.MouseInput.X = event.xmotion.x;
+				irrevent.MouseInput.Y = event.xmotion.y;
+				irrevent.MouseInput.Control = (event.xmotion.state & ControlMask) != 0;
+				irrevent.MouseInput.Shift = (event.xmotion.state & ShiftMask) != 0;
 
 				// mouse button states
-				irrevent.MouseInput.ButtonStates = (event.xbutton.state & Button1Mask) ? irr::EMBSM_LEFT : 0;
-				irrevent.MouseInput.ButtonStates |= (event.xbutton.state & Button3Mask) ? irr::EMBSM_RIGHT : 0;
-				irrevent.MouseInput.ButtonStates |= (event.xbutton.state & Button2Mask) ? irr::EMBSM_MIDDLE : 0;
+				irrevent.MouseInput.ButtonStates = (event.xmotion.state & Button1Mask) ? irr::EMBSM_LEFT : 0;
+				irrevent.MouseInput.ButtonStates |= (event.xmotion.state & Button3Mask) ? irr::EMBSM_RIGHT : 0;
+				irrevent.MouseInput.ButtonStates |= (event.xmotion.state & Button2Mask) ? irr::EMBSM_MIDDLE : 0;
 
 				postEventFromUser(irrevent);
 				break;
@@ -1129,8 +1127,8 @@ bool CIrrDeviceLinux::run()
 				irrevent.EventType = irr::EET_MOUSE_INPUT_EVENT;
 				irrevent.MouseInput.X = event.xbutton.x;
 				irrevent.MouseInput.Y = event.xbutton.y;
-				irrevent.MouseInput.Control = (event.xkey.state & ControlMask) != 0;
-				irrevent.MouseInput.Shift = (event.xkey.state & ShiftMask) != 0;
+				irrevent.MouseInput.Control = (event.xbutton.state & ControlMask) != 0;
+				irrevent.MouseInput.Shift = (event.xbutton.state & ShiftMask) != 0;
 
 				// mouse button states
 				// This sets the state which the buttons had _prior_ to the event.
@@ -1219,18 +1217,17 @@ bool CIrrDeviceLinux::run()
 						// Ignore the key release event
 						break;
 					}
-
-                    irrevent.EventType = irr::EET_KEY_INPUT_EVENT;
-                    irrevent.KeyInput.PressedDown = false;
-                    irrevent.KeyInput.Char = 0;	// on release that's undefined
-                    irrevent.KeyInput.Control = (event.xkey.state & ControlMask) != 0;
-                    irrevent.KeyInput.Shift = (event.xkey.state & ShiftMask) != 0;
-                    irrevent.KeyInput.Key = getKeyCode(event);
-
-                    postEventFromUser(irrevent);
-                    break;
 				}
-				// fall-through in case the release should be handled
+
+                irrevent.EventType = irr::EET_KEY_INPUT_EVENT;
+                irrevent.KeyInput.PressedDown = false;
+                irrevent.KeyInput.Char = 0;	// on release that's undefined
+                irrevent.KeyInput.Control = (event.xkey.state & ControlMask) != 0;
+                irrevent.KeyInput.Shift = (event.xkey.state & ShiftMask) != 0;
+                irrevent.KeyInput.Key = getKeyCode(event.xkey.keycode);
+
+                postEventFromUser(irrevent);
+                break;
 			case KeyPress:
 				{
                     KeySym x11Key;
@@ -1277,7 +1274,7 @@ bool CIrrDeviceLinux::run()
 					irrevent.KeyInput.PressedDown = true;
 					irrevent.KeyInput.Control = (event.xkey.state & ControlMask) != 0;
 					irrevent.KeyInput.Shift = (event.xkey.state & ShiftMask) != 0;
-					irrevent.KeyInput.Key = getKeyCode(event);
+					irrevent.KeyInput.Key = getKeyCode(event.xkey.keycode);
 
 					postEventFromUser(irrevent);
 				}

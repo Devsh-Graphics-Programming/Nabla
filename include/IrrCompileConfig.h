@@ -305,31 +305,6 @@ the engine will no longer read .png images. */
 #undef _IRR_USE_NON_SYSTEM_LIB_PNG_
 #endif
 
-//! Define _IRR_D3D_NO_SHADER_DEBUGGING to disable shader debugging in D3D9
-/** If _IRR_D3D_NO_SHADER_DEBUGGING is undefined in IrrCompileConfig.h,
-it is possible to debug all D3D9 shaders in VisualStudio. All shaders
-(which have been generated in memory or read from archives for example) will be emitted
-into a temporary file at runtime for this purpose. To debug your shaders, choose
-Debug->Direct3D->StartWithDirect3DDebugging in Visual Studio, and for every shader a
-file named 'irr_dbg_shader_%%.vsh' or 'irr_dbg_shader_%%.psh' will be created. Drag'n'drop
-the file you want to debug into visual studio. That's it. You can now set breakpoints and
-watch registers, variables etc. This works with ASM, HLSL, and both with pixel and vertex shaders.
-Note that the engine will run in D3D REF for this, which is a lot slower than HAL. */
-#define _IRR_D3D_NO_SHADER_DEBUGGING
-#ifdef NO_IRR_D3D_NO_SHADER_DEBUGGING
-#undef _IRR_D3D_NO_SHADER_DEBUGGING
-#endif
-
-//! Define _IRR_D3D_USE_LEGACY_HLSL_COMPILER to enable the old HLSL compiler in recent DX SDKs
-/** This enables support for ps_1_x shaders for recent DX SDKs. Otherwise, support
-for this shader model is not available anymore in SDKs after Oct2006. You need to
-distribute the OCT2006_d3dx9_31_x86.cab or OCT2006_d3dx9_31_x64.cab though, in order
-to provide the user with the proper DLL. That's why it's disabled by default. */
-//#define _IRR_D3D_USE_LEGACY_HLSL_COMPILER
-#ifdef NO_IRR_D3D_USE_LEGACY_HLSL_COMPILER
-#undef _IRR_D3D_USE_LEGACY_HLSL_COMPILER
-#endif
-
 
 //! Define _IRR_USE_NVIDIA_PERFHUD_ to opt-in to using the nVidia PerHUD tool
 /** Enable, by opting-in, to use the nVidia PerfHUD performance analysis driver

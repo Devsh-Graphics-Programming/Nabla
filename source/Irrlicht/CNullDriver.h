@@ -226,6 +226,7 @@ namespace video
                                          IOcclusionQuery* query = NULL);
 		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                          const scene::E_PRIMITIVE_TYPE& mode,
+                                         const E_INDEX_TYPE& type,
                                          const IGPUBuffer* indirectDrawBuff,
                                          const size_t& offset, const size_t& count, const size_t& stride,
                                          IOcclusionQuery* query = NULL);
