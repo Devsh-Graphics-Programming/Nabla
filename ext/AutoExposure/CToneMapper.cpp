@@ -12,7 +12,7 @@ using namespace AutoExposure;
 #define MAX_HISTOGRAM_RAW16F_AS_UINT    21503 // Float16Compressor::compress(MAX_HISTOGRAM_VAL)-1
 
 //don't touch this, tis optimized
-constexpr uint32_t BIN_COUNT = 256;
+constexpr uint32_t _BIN_COUNT_ = 256;
 constexpr uint32_t GLOBAL_REPLICATION = 4;
 
 //! related constants
@@ -20,8 +20,8 @@ constexpr uint32_t HISTOGRAM_POT2_RAW16F_BIN_SIZE = 5; //would be cool to have a
 // the ix of the bin for a value is calculated by ix = (float16BitsAsUint(value)-MIN_HISTOGRAM_RAW16F_AS_UINT)>>HISTOGRAM_POT2_RAW16F_BIN_SIZE
 
 //checks
-static_assert(BIN_COUNT==SUBCELL_SIZE*SUBCELL_SIZE); //"Super Optimizations required BIN_COUNT==LOCAL_THREADS code broken otherwise"
-static_assert((MAX_HISTOGRAM_RAW16F_AS_UINT-MIN_HISTOGRAM_RAW16F_AS_UINT+1)==(BIN_COUNT<<HISTOGRAM_POT2_RAW16F_BIN_SIZE)); //"Mismatched Histogram Parameters"
+static_assert(_BIN_COUNT_==SUBCELL_SIZE*SUBCELL_SIZE, "Super Optimizations required BIN_COUNT==LOCAL_THREADS code broken otherwise");
+static_assert((MAX_HISTOGRAM_RAW16F_AS_UINT-MIN_HISTOGRAM_RAW16F_AS_UINT+1)==(_BIN_COUNT_<<HISTOGRAM_POT2_RAW16F_BIN_SIZE), "Mismatched Histogram Parameters");
 
 
 const char shaderHeaderDefines[] = R"======(
@@ -116,7 +116,7 @@ CToneMapper* CToneMapper::instantiateTonemapper(video::IVideoDriver* _driver,
     //! For Vulkan http://vulkan-spec-chunked.ahcox.com/ch09s07.html
     char* header = new char[sizeof(shaderHeaderDefines)+9*10+1];
     sprintf(header,shaderHeaderDefines,MIN_HISTOGRAM_RAW16F_AS_UINT,MAX_HISTOGRAM_RAW16F_AS_UINT,
-            HISTOGRAM_POT2_RAW16F_BIN_SIZE,BIN_COUNT,BIN_COUNT,SUBCELL_SIZE,GLOBAL_REPLICATION,
+            HISTOGRAM_POT2_RAW16F_BIN_SIZE,_BIN_COUNT_,_BIN_COUNT_,SUBCELL_SIZE,GLOBAL_REPLICATION,
             inputTexScaleOff/sizeof(core::vectorSIMDf),percentilesOff/sizeof(float),outputOff/sizeof(float));
 
 
@@ -144,7 +144,7 @@ CToneMapper::CToneMapper(video::IVideoDriver* _driver, const uint32_t& _histoPro
     m_workGroupCount[0] = m_totalThreadCount[0]/SUBCELL_SIZE;
     m_workGroupCount[1] = m_totalThreadCount[1]/SUBCELL_SIZE;
 
-    m_histogramBuffer = m_driver->createGPUBuffer(GLOBAL_REPLICATION*BIN_COUNT*sizeof(uint32_t),NULL);
+    m_histogramBuffer = m_driver->createGPUBuffer(GLOBAL_REPLICATION*_BIN_COUNT_*sizeof(uint32_t),NULL);
 }
 
 CToneMapper::~CToneMapper()
