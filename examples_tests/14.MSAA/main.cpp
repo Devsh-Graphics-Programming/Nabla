@@ -289,7 +289,7 @@ int main()
 
         uint16_t indices_indexed16[] = {0,1,2,2,1,3};
 
-        void* tmpMem = malloc(sizeof(vertices)+sizeof(indices_indexed16));
+        uint8_t* tmpMem = (uint8_t*)malloc(sizeof(vertices)+sizeof(indices_indexed16));
         memcpy(tmpMem,vertices,sizeof(vertices));
         memcpy(tmpMem+sizeof(vertices),indices_indexed16,sizeof(indices_indexed16));
         video::IGPUBuffer* buff = driver->createGPUBuffer(sizeof(vertices)+sizeof(indices_indexed16),tmpMem);

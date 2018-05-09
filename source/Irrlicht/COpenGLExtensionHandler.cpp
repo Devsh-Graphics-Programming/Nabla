@@ -1357,10 +1357,10 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlNamedCopyBufferSubDataEXT = (PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedCopyBufferSubDataEXT");
 	pGlIsBuffer = (PFNGLISBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glIsBuffer");
     pGlGetNamedBufferParameteri64v = (PFNGLGETNAMEDBUFFERPARAMETERI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetNamedBufferParameteri64v");
-    pGlGetBufferParameteri64v = (PFNGLGETBUFFERPARAMETERI64VPROC) IRR_OGL_LOAD_EXTENSION("pGlGetBufferParameteri64v");
-    pGlGetNamedBufferParameteriv = (PFNGLGETNAMEDBUFFERPARAMETERIVPROC) IRR_OGL_LOAD_EXTENSION("pGlGetNamedBufferParameteriv");
-    pGlGetNamedBufferParameterivEXT = (PFNGLGETNAMEDBUFFERPARAMETERIVEXTPROC) IRR_OGL_LOAD_EXTENSION("pGlGetNamedBufferParameterivEXT");
-    pGlGetBufferParameteriv = (PFNGLGETBUFFERPARAMETERIVPROC) IRR_OGL_LOAD_EXTENSION("pGlGetBufferParameteriv");
+    pGlGetBufferParameteri64v = (PFNGLGETBUFFERPARAMETERI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetBufferParameteri64v");
+    pGlGetNamedBufferParameteriv = (PFNGLGETNAMEDBUFFERPARAMETERIVPROC) IRR_OGL_LOAD_EXTENSION("glGetNamedBufferParameteriv");
+    pGlGetNamedBufferParameterivEXT = (PFNGLGETNAMEDBUFFERPARAMETERIVEXTPROC) IRR_OGL_LOAD_EXTENSION("glGetNamedBufferParameterivEXT");
+    pGlGetBufferParameteriv = (PFNGLGETBUFFERPARAMETERIVPROC) IRR_OGL_LOAD_EXTENSION("glGetBufferParameteriv");
 	//vao
     pGlGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC) IRR_OGL_LOAD_EXTENSION("glGenVertexArrays");
     pGlCreateVertexArrays = (PFNGLCREATEVERTEXARRAYSPROC) IRR_OGL_LOAD_EXTENSION("glCreateVertexArrays");

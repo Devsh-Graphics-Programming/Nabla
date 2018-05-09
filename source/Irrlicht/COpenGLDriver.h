@@ -25,7 +25,7 @@ namespace irr
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLDriverFence.h"
 #include "COpenGLTransformFeedback.h"
-#include "COpenGLVAO.h"
+#include "COpenGLVAOSpec.h"
 #include "COpenCLHandler.h"
 
 #include <map>
