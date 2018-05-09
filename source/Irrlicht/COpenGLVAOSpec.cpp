@@ -1,5 +1,5 @@
 #include "IrrCompileConfig.h"
-#include "COpenGLVAO.h"
+#include "COpenGLVAOSpec.h"
 
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_

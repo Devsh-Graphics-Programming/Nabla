@@ -382,11 +382,11 @@
 		<Unit filename="CB3DMeshFileLoader.cpp" />
 		<Unit filename="CB3DMeshFileLoader.h" />
 		<Unit filename="CBAWFile.cpp" />
+		<Unit filename="CBAWFile.h" />
 		<Unit filename="CBAWMeshFileLoader.cpp" />
 		<Unit filename="CBAWMeshFileLoader.h" />
 		<Unit filename="CBAWMeshWriter.cpp" />
 		<Unit filename="CBAWMeshWriter.h" />
-		<Unit filename="CBAWFile.h" />
 		<Unit filename="CBillboardSceneNode.cpp" />
 		<Unit filename="CBillboardSceneNode.h" />
 		<Unit filename="CBlit.h" />
@@ -540,8 +540,8 @@
 		<Unit filename="COpenGLTimestampQuery.h" />
 		<Unit filename="COpenGLTransformFeedback.cpp" />
 		<Unit filename="COpenGLTransformFeedback.h" />
-		<Unit filename="COpenGLVAO.cpp" />
-		<Unit filename="COpenGLVAO.h" />
+		<Unit filename="COpenGLVAOSpec.cpp" />
+		<Unit filename="COpenGLVAOSpec.h" />
 		<Unit filename="CPLYMeshFileLoader.cpp" />
 		<Unit filename="CPLYMeshFileLoader.h" />
 		<Unit filename="CPLYMeshWriter.cpp" />
