@@ -30,7 +30,7 @@
     <ProjectName>Irrlicht</ProjectName>
     <ProjectGuid>{E08E042A-6C45-411B-92BE-3CC31331019F}</ProjectGuid>
     <RootNamespace>Irrlicht</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SDL-Debug|x64'" Label="Configuration">
@@ -556,7 +556,7 @@
     <ClInclude Include="COpenGLOcclusionQuery.h" />
     <ClInclude Include="COpenGLQuery.h" />
     <ClInclude Include="COpenGLTransformFeedback.h" />
-    <ClInclude Include="COpenGLVAO.h" />
+    <ClInclude Include="COpenGLVAOSpec.h" />
     <ClInclude Include="COSOperator.h" />
     <ClInclude Include="COverdrawMeshOptimizer.h" />
     <ClInclude Include="CSceneManager.h" />
@@ -762,7 +762,7 @@
     <ClCompile Include="COpenGLQuery.cpp" />
     <ClCompile Include="COpenGLRenderBuffer.cpp" />
     <ClCompile Include="COpenGLTransformFeedback.cpp" />
-    <ClCompile Include="COpenGLVAO.cpp">
+    <ClCompile Include="COpenGLVAOSpec.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Server|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Fast FPU|x64'">false</ExcludedFromBuild>
