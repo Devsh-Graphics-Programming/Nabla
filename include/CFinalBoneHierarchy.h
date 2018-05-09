@@ -3,14 +3,16 @@
 
 #include "assert.h"
 #include <vector>
-#include <unordered_set>
+#include <set>
 #include <algorithm>
 #include <functional>
+#include <unordered_set>
 #include "ISkinnedMesh.h"
 #include "IGPUMappedBuffer.h"
 #include "quaternion.h"
 #include "irrString.h"
 #include "CBAWFile.h"
+#include "matrix3x4SIMD.h"
 
 namespace irr
 {
@@ -293,7 +295,7 @@ namespace scene
                 core::vectorSIMDf tmpScaleB(keyframeB.Scale);
                 outScale = (tmpScaleB-tmpScaleA)*interpolant+tmpScaleA;
             }
-            static inline core::matrix4x3 getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3)
+            static inline core::matrix3x4SIMD getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3)
             {
                 core::vectorSIMDf   tmpPos;
                 core::quaternion    tmpRot;
@@ -301,27 +303,18 @@ namespace scene
 
                 getMatrixFromKeys(tmpPos,tmpRot,tmpScale,keyframeA,keyframeB,interpolant,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
 
-                core::matrix4x3 outMatrix;
-                tmpRot.getMatrix(outMatrix,tmpPos);
-                outMatrix(0,0) *= tmpScale.X;
-                outMatrix(1,0) *= tmpScale.X;
-                outMatrix(2,0) *= tmpScale.X;
-                outMatrix(0,1) *= tmpScale.Y;
-                outMatrix(1,1) *= tmpScale.Y;
-                outMatrix(2,1) *= tmpScale.Y;
-                outMatrix(0,2) *= tmpScale.Z;
-                outMatrix(1,2) *= tmpScale.Z;
-                outMatrix(2,2) *= tmpScale.Z;
+                core::matrix3x4SIMD outMatrix;
+                outMatrix.setScaleRotationAndTranslation(tmpScale, tmpRot, tmpPos);
 
                 return outMatrix;
             }
-            static inline core::matrix4x3 getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant)
+            static inline core::matrix3x4SIMD getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant)
             {
                 float interpolantPrecalcTerm2,interpolantPrecalcTerm3;
                 core::quaternion::flerp_interpolant_terms(interpolantPrecalcTerm2,interpolantPrecalcTerm3,interpolant);
                 return getMatrixFromKeys(keyframeA,keyframeB,interpolant,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
             }
-            static inline core::matrix4x3 getMatrixFromKey(const AnimationKeyData& keyframe)
+            static inline core::matrix3x4SIMD getMatrixFromKey(const AnimationKeyData& keyframe)
             {
                 return getMatrixFromKeys(keyframe,keyframe,1.f,0.25f,0.f);
             }

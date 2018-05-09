@@ -97,6 +97,7 @@
 #define _IRR_WINDOWS_
 #define _IRR_WINDOWS_API_
 #define _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#define NOMINMAX
 #endif
 
 #if defined(_MSC_VER) && (_MSC_VER < 1300)
