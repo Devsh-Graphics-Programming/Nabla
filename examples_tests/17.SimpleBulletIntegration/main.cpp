@@ -137,10 +137,10 @@ public:
 };
 
 
- IGPUMeshDataFormatDesc* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const scene::IGPUMeshDataFormatDesc* oldVAO, void* userData)
+ scene::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const scene::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
  {
     video::IVideoDriver* driver = smgr->getVideoDriver();
-    scene::IGPUMeshDataFormatDesc* vao = driver->createGPUMeshDataFormatDesc();
+    scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao = driver->createGPUMeshDataFormatDesc();
 
     //
     for (size_t k=0; k<EVAI_COUNT; k++)
