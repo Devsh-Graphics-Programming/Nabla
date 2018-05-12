@@ -47,9 +47,10 @@ private:
         m_blurGeneralCs(_gblur),
         m_blurFinalCs(_fblur)
     {
-        m_ssbo = m_driver->createGPUBuffer(2 * 4 * 512 * 512 * sizeof(float), nullptr);
+        m_ssbo = m_driver->createGPUBuffer(2 * 2 * s_outTexSize.X * s_outTexSize.Y * sizeof(uint32_t), nullptr);
     }
 private:
+    static bool genDsampleCs(char* _out, size_t _outSize);
     static bool genBlurPassCs(char* _out, size_t _outSize, int _finalPass);
 
 private:
