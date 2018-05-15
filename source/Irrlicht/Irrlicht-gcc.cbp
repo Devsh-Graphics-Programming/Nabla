@@ -416,6 +416,7 @@
 		<Unit filename="CFileList.h" />
 		<Unit filename="CFileSystem.cpp" />
 		<Unit filename="CFileSystem.h" />
+		<Unit filename="CForsythVertexCacheOptimizer.cpp" />
 		<Unit filename="CGPUTransientBuffer.cpp" />
 		<Unit filename="CGeometryCreator.cpp" />
 		<Unit filename="CGeometryCreator.h" />
@@ -542,6 +543,8 @@
 		<Unit filename="COpenGLTransformFeedback.h" />
 		<Unit filename="COpenGLVAOSpec.cpp" />
 		<Unit filename="COpenGLVAOSpec.h" />
+		<Unit filename="COverdrawMeshOptimizer.cpp" />
+		<Unit filename="COverdrawMeshOptimizer.h" />
 		<Unit filename="CPLYMeshFileLoader.cpp" />
 		<Unit filename="CPLYMeshFileLoader.h" />
 		<Unit filename="CPLYMeshWriter.cpp" />
