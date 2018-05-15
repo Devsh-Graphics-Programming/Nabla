@@ -139,7 +139,6 @@ int main()
 
     #define kInstanceCount 4096
     #define kTotalTriangleLimit (64*1024*1024)
-    #define kMinTriangleLimit 64
 
 	scene::ICameraSceneNode* camera =
 		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
@@ -183,8 +182,7 @@ int main()
 
         std::random_device rd;
         std::mt19937 mt(rd());
-        //std::uniform_int_distribution<uint32_t> dist(kMinTriangleLimit, kTotalTriangleLimit*2/kInstanceCount-kMinTriangleLimit);
-        std::uniform_int_distribution<uint32_t> dist(kMinTriangleLimit, kMinTriangleLimit*18);
+        std::uniform_int_distribution<uint32_t> dist(16, 4*1024);
         for (size_t i=0; i<kInstanceCount; i++)
         {
             float poly = sqrtf(dist(mt))+0.5f;
