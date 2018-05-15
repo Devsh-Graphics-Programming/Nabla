@@ -12,57 +12,26 @@ using namespace Blur;
 namespace // traslation-unit-local things
 {
 constexpr const char* CS_CONVERSIONS = R"XDDD(
-uint toFloat16(float _f32)
-{
-    const uint f32 = floatBitsToUint(_f32);
-    const uint mantissaMask = 0x7fffff;
-    const uint expMask = 0x7f8 << 20;
-
-    // ignoring sign bit (always 0, i.e. +)
-    uint f16 = 0;
-    f16 |= (f32 & mantissaMask) >> 13;
-    int exp = int((f32 & expMask) >> 23);
-    exp -= (127 - 15);
-    f16 |= (exp & 0x1f) << 10;
-
-    return f16;
-}
-float fromFloat16(uint _f16)
-{
-    const uint mantissaMask = 0x3ff;
-    const uint expMask = 0x1f << 10;
-
-    // ignoring sign bit (always 0, i.e. +)
-    uint f32 = 0;
-    f32 |= ((_f16 & mantissaMask) << 13);
-    int exp = int((_f16 & expMask) >> 10);
-    exp -= (15 - 127);
-    f32 |= ((exp & 0xff) << 23);
-
-    return uintBitsToFloat(f32);
-}
 uvec2 encodeRgb(vec3 _rgb)
 {
     uvec2 ret;
-    ret.x = toFloat16(_rgb.r);
-    ret.x |= (toFloat16(_rgb.g) << 16);
-    ret.y = toFloat16(_rgb.b);
+    ret.x = packHalf2x16(_rgb.rg);
+    ret.y = packHalf2x16(vec2(_rgb.b, 0.f));
 
     return ret;
 }
 vec3 decodeRgb(uvec2 _rgb)
 {
     vec3 ret;
-    ret.x = fromFloat16(_rgb.x);
-    ret.y = fromFloat16(_rgb.x >> 16);
-    ret.z = fromFloat16(_rgb.y);
+    ret.rg = unpackHalf2x16(_rgb.x);
+    ret.b = unpackHalf2x16(_rgb.y).x;
 
     return ret;
 }
 )XDDD";
 constexpr const char* CS_DOWNSAMPLE_SRC = R"XDDD(
 #version 430 core
-layout(local_size_x = 512) in;
+layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(std430, binding = 0) restrict writeonly buffer b {
 	uvec2 ssbo[];
@@ -75,19 +44,20 @@ layout(binding = 0, location = 0) uniform sampler2D in_tex;
 void main()
 {
     const uvec2 IDX = gl_GlobalInvocationID.xy; // each index corresponds to one pixel in downsampled texture
-	const ivec2 OUT_SIZE = ivec2(512, 512);
 	
-	vec2 coords = vec2(1.f) / vec2(OUT_SIZE);
-	vec4 avg = (
-		texture(in_tex, min(coords * vec2(IDX), vec2(1, 1))) +
-		texture(in_tex, min(coords * (vec2(IDX) + vec2(1.f, 0.f)), vec2(1, 1))) +
-		texture(in_tex, min(coords * (vec2(IDX) + vec2(0.f, 1.f)), vec2(1, 1))) +
-		texture(in_tex, min(coords * (vec2(IDX) + vec2(1.f, 1.f)), vec2(1, 1)))
-	) / 4.f;
+    const ivec2 OUT_SIZE = ivec2(512, 512);
+	
+    vec2 coords = vec2(1.f) / vec2(OUT_SIZE);
+    vec4 avg = (
+        texture(in_tex, coords * vec2(IDX)) +
+        texture(in_tex, coords * (vec2(IDX) + vec2(1.f, 0.f))) +
+        texture(in_tex, coords * (vec2(IDX) + vec2(0.f, 1.f))) +
+        texture(in_tex, coords * (vec2(IDX) + vec2(1.f, 1.f)))
+    ) / 4.f;
 
-	const uint HBUF_IDX = IDX.y * OUT_SIZE.x + IDX.x;
-	
-	ssbo[HBUF_IDX] = encodeRgb(avg.xyz);
+    const uint HBUF_IDX = IDX.y * OUT_SIZE.x + IDX.x;
+
+    ssbo[HBUF_IDX] = encodeRgb(avg.xyz);
 }
 )XDDD";
 constexpr const char* CS_BLUR_SRC = R"XDDD(
@@ -110,17 +80,22 @@ layout(location = 3) uniform uint outOffset;
 layout(location = 4) uniform uvec2 inMlt;
 layout(location = 5) uniform uvec2 outMlt;
 
-shared uvec2 smem[512];
+shared float smem_r[512];
+shared float smem_g[512];
+shared float smem_b[512];
 
 %s
 
 void storeShared(uint _idx, uvec2 _val)
 {
-    smem[_idx] = _val;
+    const vec3 rgb = decodeRgb(_val);
+    smem_r[_idx] = rgb.r;
+    smem_g[_idx] = rgb.g;
+    smem_b[_idx] = rgb.b;
 }
 vec3 loadShared(uint _idx)
 {
-    return decodeRgb(smem[_idx]);
+    return vec3(smem_r[_idx], smem_g[_idx], smem_b[_idx]);
 }
 
 void main()
@@ -229,12 +204,17 @@ CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver)
     return new CBlurPerformer(_driver, ds, gblur, fblur);
 }
 
-video::ITexture* CBlurPerformer::createBlurredTexture(const video::ITexture* _inputTex) const
+video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex) const
 {
     video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_SSBO_BINDING, 1, &static_cast<video::COpenGLBuffer*>(m_ssbo)->getOpenGLName());
 
-    const GLenum target = GL_TEXTURE_2D;
-    video::COpenGLExtensionHandler::extGlBindTextures(0, 1, &static_cast<const video::COpenGL2DTexture*>(_inputTex)->getOpenGLName(), &target);
+    {
+    video::STextureSamplingParams params;
+    params.UseMipmaps = 0;
+    params.MaxFilter = params.MinFilter = video::ETFT_LINEAR_NO_MIP;
+    params.TextureWrapU = params.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+    const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(0, _inputTex, params);
+    }
 
     const uint32_t size[]{ s_outTexSize.X, s_outTexSize.Y};
     video::ITexture* outputTex = m_driver->addTexture(video::ITexture::ETT_2D, size, 1, ("blur_out" + std::to_string(s_texturesEverCreatedCount++)).c_str(), video::ECF_A16B16G16R16F);
@@ -246,7 +226,7 @@ video::ITexture* CBlurPerformer::createBlurredTexture(const video::ITexture* _in
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_dsampleCs);
 
-    video::COpenGLExtensionHandler::extGlDispatchCompute(1u, s_outTexSize.Y, 1u);
+    video::COpenGLExtensionHandler::extGlDispatchCompute(32u, 32u, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     unsigned inOffset{}, outOffset{};
@@ -265,7 +245,7 @@ video::ITexture* CBlurPerformer::createBlurredTexture(const video::ITexture* _in
         video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurGeneralCs, E_IN_OFFSET_LOC, 1, &inOffset);
         video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurGeneralCs, E_OUT_OFFSET_LOC, 1, &outOffset);
 
-        video::COpenGLExtensionHandler::extGlDispatchCompute(1u, s_outTexSize.Y, 1u);
+        video::COpenGLExtensionHandler::extGlDispatchCompute(1u, (i >= 3u ? s_outTexSize.X : s_outTexSize.Y), 1u);
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         std::swap(inOffset, outOffset);
@@ -277,7 +257,7 @@ video::ITexture* CBlurPerformer::createBlurredTexture(const video::ITexture* _in
     video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurFinalCs, E_IN_OFFSET_LOC, 1, &inOffset);
     video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurFinalCs, E_OUT_OFFSET_LOC, 1, &outOffset);
 
-    video::COpenGLExtensionHandler::extGlDispatchCompute(1u, s_outTexSize.Y, 1u);
+    video::COpenGLExtensionHandler::extGlDispatchCompute(1u, s_outTexSize.X, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 
     return outputTex;

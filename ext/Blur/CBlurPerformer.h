@@ -35,7 +35,7 @@ class CBlurPerformer : public IReferenceCounted
 public:
     static CBlurPerformer* instantiate(video::IVideoDriver* _driver);
 
-    video::ITexture* createBlurredTexture(const video::ITexture* _inputTex) const;
+    video::ITexture* createBlurredTexture(video::ITexture* _inputTex) const;
 
 protected:
     ~CBlurPerformer();
