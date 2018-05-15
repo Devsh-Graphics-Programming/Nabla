@@ -11,7 +11,8 @@ using namespace core;
 
 bool quit = false;
 
-bool doGPUCulling = false;
+bool doCulling = false;
+bool useDrawIndirect = false;
 
 //!Same As Last Example
 class MyEventReceiver : public IEventReceiver
@@ -31,8 +32,11 @@ public:
             case irr::KEY_KEY_Q: // so we can quit
                 quit = true;
                 return true;
+            case irr::KEY_KEY_C: // so we can quit
+                ///doCulling = !doCulling; // Not enabled/necessary yet
+                return true;
             case irr::KEY_SPACE: // toggle between gpu and cpu cull
-                doGPUCulling = !doGPUCulling;
+                useDrawIndirect = !useDrawIndirect;
                 return true;
             default:
                 break;
@@ -86,6 +90,15 @@ struct ObjectData_t
     float padding[3];
 };
 
+//
+struct DrawElementsIndirectCommand
+{
+    uint32_t count;
+    uint32_t instanceCount;
+    uint32_t firstIndex;
+    uint32_t baseVertex;
+    uint32_t baseInstance;
+};
 
 int main()
 {
@@ -109,23 +122,24 @@ int main()
 	video::IVideoDriver* driver = device->getVideoDriver();
 
     SimpleCallBack* cb = new SimpleCallBack();
-    video::E_MATERIAL_TYPE litSolidMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
+    video::E_MATERIAL_TYPE cpuCullMaterial = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../meshCPU.vert",
                                                         "","","", //! No Geometry or Tessellation Shaders
                                                         "../mesh.frag",
                                                         3,video::EMT_SOLID,
                                                         cb);
     cb->drop();
 
-    video::SMaterial material;
-	material.setTexture(0,driver->getTexture("../../media/wall.jpg"));
-	material.MaterialType = litSolidMaterialType;
+    video::E_MATERIAL_TYPE gpuCullMaterial = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../meshGPU.vert",
+                                                        "","","", //! No Geometry or Tessellation Shaders
+                                                        "../mesh.frag",
+                                                        3,video::EMT_SOLID);
 
 
 	scene::ISceneManager* smgr = device->getSceneManager();
 
-    #define kInstanceCount 2048
-    #define kTotalTriangleLimit (32*1024*1024)
-    #define kMinTriangleLimit 1024
+    #define kInstanceCount 4096
+    #define kTotalTriangleLimit (64*1024*1024)
+    #define kMinTriangleLimit 64
 
 	scene::ICameraSceneNode* camera =
 		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
@@ -151,25 +165,26 @@ int main()
             cacheFile->drop();
 
             //make sure its still ok
-            std::sort(normalCacheFor2_10_10_10Quant.begin(),normalCacheFor2_10_10_10Quant.end());
+            std::sort(scene::normalCacheFor2_10_10_10Quant.begin(),scene::normalCacheFor2_10_10_10Quant.end());
         }
 	}
 
 	core::matrix4x3 instanceXForm[kInstanceCount];
 	scene::IGPUMeshBuffer* mbuff[kInstanceCount] = {NULL};
+	video::IGPUBuffer* indirectDrawBuffer = NULL;
 
+    scene::IGPUMeshDataFormatDesc* vaospec = driver->createGPUMeshDataFormatDesc();
 	{
         scene::ICPUMesh* cpumesh[kInstanceCount];
 
         size_t vertexSize = 0;
         std::vector<uint8_t> vertexData;
         std::vector<uint32_t> indexData;
-        scene::IGPUMeshDataFormatDesc* vaospec = driver->createGPUMeshDataFormatDesc();
 
         std::random_device rd;
         std::mt19937 mt(rd());
         //std::uniform_int_distribution<uint32_t> dist(kMinTriangleLimit, kTotalTriangleLimit*2/kInstanceCount-kMinTriangleLimit);
-        std::uniform_int_distribution<uint32_t> dist(kMinTriangleLimit, kMinTriangleLimit*16);
+        std::uniform_int_distribution<uint32_t> dist(kMinTriangleLimit, kMinTriangleLimit*18);
         for (size_t i=0; i<kInstanceCount; i++)
         {
             float poly = sqrtf(dist(mt))+0.5f;
@@ -231,12 +246,16 @@ int main()
         video::IGPUBuffer* vxbuf = driver->createGPUBuffer(vertexData.size(),vertexData.data());
         vertexData.clear();
 
+
+        DrawElementsIndirectCommand indirectDrawData[kInstanceCount];
+
         uint32_t baseVertex = 0;
         uint32_t indexOffset = 0;
-        std::uniform_real_distribution<float> dist3D(0.f,100.f);
+        std::uniform_real_distribution<float> dist3D(0.f,400.f);
         for (size_t i=0; i<kInstanceCount; i++)
         {
-            scene::IMeshDataFormatDesc<core::ICPUBuffer>* format = cpumesh[i]->getMeshBuffer(0)->getMeshDataAndFormat();
+            scene::ICPUMeshBuffer* mbuf = cpumesh[i]->getMeshBuffer(0);
+            scene::IMeshDataFormatDesc<core::ICPUBuffer>* format = mbuf->getMeshDataAndFormat();
             if (i==0)
             {
                 for (size_t j=0; j<scene::EVAI_COUNT; j++)
@@ -251,6 +270,13 @@ int main()
                 }
             }
 
+            indirectDrawData[i].count = mbuf->getIndexCount();
+            indirectDrawData[i].instanceCount = 1;
+            indirectDrawData[i].firstIndex = indexOffset/sizeof(uint32_t);
+            indirectDrawData[i].baseVertex = baseVertex;
+            indirectDrawData[i].baseInstance = 0;
+
+
             mbuff[i] = new scene::IGPUMeshBuffer();
             mbuff[i]->setBaseVertex(baseVertex);
             baseVertex += format->getMappedBuffer(scene::EVAI_ATTR0)->getSize()/vertexSize;
@@ -258,9 +284,9 @@ int main()
             mbuff[i]->setBoundingBox(cpumesh[i]->getBoundingBox());
 
             mbuff[i]->setIndexBufferOffset(indexOffset);
-            indexOffset += cpumesh[i]->getMeshBuffer(0)->getIndexCount()*sizeof(uint32_t);
+            indexOffset += mbuf->getIndexCount()*sizeof(uint32_t);
 
-            mbuff[i]->setIndexCount(cpumesh[i]->getMeshBuffer(0)->getIndexCount());
+            mbuff[i]->setIndexCount(mbuf->getIndexCount());
             mbuff[i]->setIndexType(video::EIT_32BIT);
             mbuff[i]->setMeshDataAndFormat(vaospec);
             mbuff[i]->setPrimitiveType(scene::EPT_TRIANGLES);
@@ -268,14 +294,12 @@ int main()
             cpumesh[i]->drop();
 
 
-            instanceXForm[i].setScale(dist3D(mt)*0.01f+1.f);
+            instanceXForm[i].setScale(dist3D(mt)*0.0025f+1.f);
             instanceXForm[i].setTranslation(core::vector3df(dist3D(mt),dist3D(mt),dist3D(mt)));
         }
         vxbuf->drop();
 
-        //
-
-        vaospec->drop();
+        indirectDrawBuffer = driver->createGPUBuffer(sizeof(indirectDrawData),indirectDrawData);
 	}
 
 	ObjectData_t perObjectData[kInstanceCount];
@@ -292,19 +316,59 @@ int main()
         //! Draw the view
         smgr->drawAll();
 
-        for (size_t i=0; i<kInstanceCount; i++)
+        if (useDrawIndirect)
         {
-            perObjectData[i].modelViewProjMatrix = core::concatenateBFollowedByA(driver->getTransform(video::EPTS_PROJ_VIEW),instanceXForm[i]);
-            instanceXForm[i].getSub3x3InverseTranspose(perObjectData[i].normalMat);
-        }
-        perObjectSSBO->updateSubRange(0,sizeof(perObjectData),perObjectData);
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,
-                                                             &static_cast<video::COpenGLBuffer*>(perObjectSSBO)->getOpenGLName());
-        for (size_t i=0; i<kInstanceCount; i++)
-        {
-            reinterpret_cast<uint32_t&>(material.userData) = i;
+            if (doCulling)
+            {
+                //make sure results are visible
+                video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            }
+            else
+            {
+                //do compute shader to produce indirect draw buffer (and cull)
+                for (size_t i=0; i<kInstanceCount; i++)
+                {
+                    perObjectData[i].modelViewProjMatrix = core::concatenateBFollowedByA(driver->getTransform(video::EPTS_PROJ_VIEW),instanceXForm[i]);
+                    instanceXForm[i].getSub3x3InverseTranspose(perObjectData[i].normalMat);
+                }
+                perObjectSSBO->updateSubRange(0,sizeof(perObjectData),perObjectData);
+            }
+
+            //fire it off
+            video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,
+                                                                 &static_cast<video::COpenGLBuffer*>(perObjectSSBO)->getOpenGLName());
+
+            video::SMaterial material;
+            material.MaterialType = gpuCullMaterial;
             driver->setMaterial(material);
-            driver->drawMeshBuffer(mbuff[i]);
+            driver->drawIndexedIndirect(vaospec,scene::EPT_TRIANGLES,video::EIT_32BIT,indirectDrawBuffer,0,kInstanceCount,sizeof(DrawElementsIndirectCommand));
+        }
+        else
+        {
+            scene::IGPUMeshBuffer* mb2draw[kInstanceCount];
+
+            size_t unculledNum = 0;
+            for (size_t i=0; i<kInstanceCount; i++)
+            {
+                if (doCulling)
+                    continue;
+
+                mb2draw[unculledNum] = mbuff[i];
+                perObjectData[unculledNum].modelViewProjMatrix = core::concatenateBFollowedByA(driver->getTransform(video::EPTS_PROJ_VIEW),instanceXForm[i]);
+                instanceXForm[i].getSub3x3InverseTranspose(perObjectData[unculledNum].normalMat);
+                unculledNum++;
+            }
+            perObjectSSBO->updateSubRange(0,unculledNum*sizeof(ObjectData_t),perObjectData);
+            video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,
+                                                                 &static_cast<video::COpenGLBuffer*>(perObjectSSBO)->getOpenGLName());
+            for (size_t i=0; i<unculledNum; i++)
+            {
+                video::SMaterial material;
+                material.MaterialType = cpuCullMaterial;
+                reinterpret_cast<uint32_t&>(material.userData) = i;
+                driver->setMaterial(material);
+                driver->drawMeshBuffer(mb2draw[i]);
+            }
         }
         video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,NULL);
 
@@ -322,6 +386,8 @@ int main()
 		}
 	}
 	perObjectSSBO->drop();
+	indirectDrawBuffer->drop();
+    vaospec->drop();
 
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);

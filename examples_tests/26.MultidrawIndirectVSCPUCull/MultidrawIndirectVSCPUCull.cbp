@@ -85,7 +85,8 @@
 		</Compiler>
 		<Unit filename="main.cpp" />
 		<Unit filename="mesh.frag" />
-		<Unit filename="mesh.vert" />
+		<Unit filename="meshCPU.vert" />
+		<Unit filename="meshGPU.vert" />
 		<Extensions>
 			<code_completion />
 			<debugger />
