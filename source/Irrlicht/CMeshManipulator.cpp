@@ -1000,6 +1000,12 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 		return NULL;
 	}
 
+    // STEP: filter invalid triangles
+    {
+        auto desc = outbuffer->getMeshDataAndFormat();
+        desc->mapIndexBuffer(createIndexBufferFilteredInvalidTriangles(desc->getIndexBuffer(), outbuffer->getIndexType()));
+    }
+
 	// STEP: weld
 	createMeshBufferWelded(outbuffer, false);
 	vertexCount = outbuffer->calcVertexCount();
@@ -1273,6 +1279,47 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 
 	return dst;
 }
+
+core::ICPUBuffer* CMeshManipulator::createIndexBufferFilteredInvalidTriangles(const core::ICPUBuffer* _input, video::E_INDEX_TYPE _idxType) const
+{
+    if (!_input)
+        return nullptr;
+
+    switch (_idxType)
+    {
+    case video::EIT_16BIT:
+        return createIndexBufferFilteredInvalidTriangles<uint16_t>(_input);
+    case video::EIT_32BIT:
+        return createIndexBufferFilteredInvalidTriangles<uint32_t>(_input);
+    default:
+        return nullptr;
+    }
+}
+
+template<typename IdxT>
+core::ICPUBuffer* CMeshManipulator::createIndexBufferFilteredInvalidTriangles(const core::ICPUBuffer* _input) const
+{
+    const size_t size = _input->getSize();
+    void* const copy = malloc(size);
+    memcpy(copy, _input->getPointer(), size);
+
+    struct Triangle
+    {
+        IdxT i[3];
+    } *const begin = (Triangle*)copy, *const end = (Triangle*)((uint8_t*)copy + size);
+
+    Triangle* newEnd = std::remove_if(begin, end,
+        [](const Triangle& _t) { return _t.i[0] == _t.i[1] || _t.i[0] == _t.i[2] || _t.i[1] == _t.i[2]; }
+    );
+    const size_t newSize = std::distance(begin, newEnd) * sizeof(Triangle);
+
+    auto retval = new core::ICPUBuffer(newSize, copy);
+    free(copy);
+
+    return retval;
+}
+template core::ICPUBuffer* CMeshManipulator::createIndexBufferFilteredInvalidTriangles<uint16_t>(const core::ICPUBuffer* _input) const;
+template core::ICPUBuffer* CMeshManipulator::createIndexBufferFilteredInvalidTriangles<uint32_t>(const core::ICPUBuffer* _input) const;
 
 core::ICPUBuffer* CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const
 {

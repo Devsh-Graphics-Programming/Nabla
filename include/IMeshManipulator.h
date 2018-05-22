@@ -98,6 +98,15 @@ namespace scene
 
 		virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const = 0;
 
+        //! Creates new index buffer with invalid triangles removed.
+        /**
+        Invalid triangle is such consisting of two or more same indices.
+        @param _input Input index buffer.
+        @param _idxType Type of indices in the index buffer.
+        @returns New index buffer or nullptr if input indices were of unknown type or _input was nullptr.
+        */
+        virtual core::ICPUBuffer* createIndexBufferFilteredInvalidTriangles(const core::ICPUBuffer* _input, video::E_INDEX_TYPE _idxType) const = 0;
+
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
 		\param Outputted Number of polygons in mesh buffer, if successful.
