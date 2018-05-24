@@ -334,10 +334,13 @@ include_directories(
 	zlib
 )
 
-add_definitions(
-	$<$<CONFIG:Debug>:_DEBUG>
-	$<$<BOOL:FAST_MATH>:IRRLICHT_FAST_MATH>
-)
+if($<CONFIG:Debug>)
+	add_definitions(_DEBUG)
+endif()
+
+if($<BOOL:FAST_MATH>)
+	add_definitions(IRRLICHT_FAST_MATH)
+endif()
 
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
