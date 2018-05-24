@@ -383,3 +383,17 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 	NO_IRR_COMPILE_WITH_OPENGL_
 )
+
+if(NOT CONFIGURED_ONCE)
+	# Add some optional flags to be used by default
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -g3"
+			CACHE STRING "Flags used by the C compiler during debug build." FORCE)
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -g3"
+			CACHE STRING "Flags used by the C++ compiler during debug build." FORCE)
+	endif()
+
+	# This is to add flags once only
+	set(CONFIGURED_ONCE TRUE
+		CACHE INTERNAL  "A flag showing that CMake has configured at least once.")
+endif()
