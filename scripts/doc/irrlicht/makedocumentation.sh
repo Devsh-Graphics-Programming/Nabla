@@ -1,10 +1,5 @@
-rm tut.txt || true;
-for i in ../../../examples_tests/[012]*/main.cpp; do
-  sed -f tutorials.sed $i >>tut.txt;
-done
-
 doxygen doxygen-pdf.cfg
 
-cp doxygen.css irrlicht.png logobig.png ../../../doctemp/html
+cp doxygen.css logo.png ../../../doctemp/html
 
 
