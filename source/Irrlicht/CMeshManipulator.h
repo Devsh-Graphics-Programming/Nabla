@@ -76,11 +76,11 @@ public:
 
 	virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const;
 
-    virtual core::ICPUBuffer* createIndexBufferFilteredInvalidTriangles(const core::ICPUBuffer* _input, video::E_INDEX_TYPE _idxType) const;
+    virtual void filterInvalidTriangles(ICPUMeshBuffer* _input) const;
 
 private:
     template<typename IdxT>
-    core::ICPUBuffer* createIndexBufferFilteredInvalidTriangles(const core::ICPUBuffer* _input) const;
+    void priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const;
 
 	//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
 	core::ICPUBuffer* create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const;

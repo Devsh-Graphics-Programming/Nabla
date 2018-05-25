@@ -105,7 +105,7 @@ namespace scene
         @param _idxType Type of indices in the index buffer.
         @returns New index buffer or nullptr if input indices were of unknown type or _input was nullptr.
         */
-        virtual core::ICPUBuffer* createIndexBufferFilteredInvalidTriangles(const core::ICPUBuffer* _input, video::E_INDEX_TYPE _idxType) const = 0;
+        virtual void filterInvalidTriangles(ICPUMeshBuffer* _input) const = 0;
 
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer

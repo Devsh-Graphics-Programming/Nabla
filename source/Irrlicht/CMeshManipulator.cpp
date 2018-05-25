@@ -1000,15 +1000,12 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 		return NULL;
 	}
 
-    // STEP: filter invalid triangles
-    {
-        auto desc = outbuffer->getMeshDataAndFormat();
-        desc->mapIndexBuffer(createIndexBufferFilteredInvalidTriangles(desc->getIndexBuffer(), outbuffer->getIndexType()));
-    }
-
 	// STEP: weld
 	createMeshBufferWelded(outbuffer, false);
 	vertexCount = outbuffer->calcVertexCount();
+
+    // STEP: filter invalid triangles
+    filterInvalidTriangles(outbuffer);
 
 	// STEP: overdraw optimization
 	COverdrawMeshOptimizer::createOptimized(outbuffer, false);
@@ -1280,46 +1277,53 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 	return dst;
 }
 
-core::ICPUBuffer* CMeshManipulator::createIndexBufferFilteredInvalidTriangles(const core::ICPUBuffer* _input, video::E_INDEX_TYPE _idxType) const
+void CMeshManipulator::filterInvalidTriangles(ICPUMeshBuffer* _input) const
 {
-    if (!_input)
-        return nullptr;
+    if (!_input || !_input->getMeshDataAndFormat() || !_input->getIndices())
+        return;
 
-    switch (_idxType)
+    switch (_input->getIndexType())
     {
     case video::EIT_16BIT:
-        return createIndexBufferFilteredInvalidTriangles<uint16_t>(_input);
+        return priv_filterInvalidTriangles<uint16_t>(_input);
     case video::EIT_32BIT:
-        return createIndexBufferFilteredInvalidTriangles<uint32_t>(_input);
-    default:
-        return nullptr;
+        return priv_filterInvalidTriangles<uint32_t>(_input);
     }
 }
 
 template<typename IdxT>
-core::ICPUBuffer* CMeshManipulator::createIndexBufferFilteredInvalidTriangles(const core::ICPUBuffer* _input) const
+void CMeshManipulator::priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const
 {
-    const size_t size = _input->getSize();
+    const size_t size = _input->getIndexCount() * sizeof(IdxT);
     void* const copy = malloc(size);
-    memcpy(copy, _input->getPointer(), size);
+    memcpy(copy, _input->getIndices(), size);
 
     struct Triangle
     {
         IdxT i[3];
     } *const begin = (Triangle*)copy, *const end = (Triangle*)((uint8_t*)copy + size);
 
-    Triangle* newEnd = std::remove_if(begin, end,
-        [](const Triangle& _t) { return _t.i[0] == _t.i[1] || _t.i[0] == _t.i[2] || _t.i[1] == _t.i[2]; }
-    );
+    Triangle* const newEnd = std::remove_if(begin, end,
+        [&_input](const Triangle& _t) {
+            core::vectorSIMDf p0, p1, p2;
+            const E_VERTEX_ATTRIBUTE_ID pvaid = _input->getPositionAttributeIx();
+            _input->getAttribute(p0, pvaid, _t.i[0]);
+            _input->getAttribute(p1, pvaid, _t.i[1]);
+            _input->getAttribute(p2, pvaid, _t.i[2]);
+            p0.W = p1.W = p2.W = 0.f;
+            return (p0 == p1).all() || (p0 == p2).all() || (p1 == p2).all(); 
+    });
     const size_t newSize = std::distance(begin, newEnd) * sizeof(Triangle);
 
-    auto retval = new core::ICPUBuffer(newSize, copy);
-    free(copy);
-
-    return retval;
+    auto newBuf = new core::ICPUBuffer(newSize);
+    memcpy(newBuf->getPointer(), copy, newSize);
+    _input->getMeshDataAndFormat()->mapIndexBuffer(newBuf);
+    _input->setIndexBufferOffset(0);
+    _input->setIndexCount(newSize/sizeof(IdxT));
+    newBuf->drop();
 }
-template core::ICPUBuffer* CMeshManipulator::createIndexBufferFilteredInvalidTriangles<uint16_t>(const core::ICPUBuffer* _input) const;
-template core::ICPUBuffer* CMeshManipulator::createIndexBufferFilteredInvalidTriangles<uint32_t>(const core::ICPUBuffer* _input) const;
+template void CMeshManipulator::priv_filterInvalidTriangles<uint16_t>(ICPUMeshBuffer* _input) const;
+template void CMeshManipulator::priv_filterInvalidTriangles<uint32_t>(ICPUMeshBuffer* _input) const;
 
 core::ICPUBuffer* CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const
 {
