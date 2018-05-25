@@ -17,7 +17,7 @@ namespace irr
 namespace scene
 {
 
-#ifndef NEW_MESHES
+#ifdef NEW_MESHES
 CPLYMeshWriter::CPLYMeshWriter()
 {
 	#ifdef _DEBUG
@@ -33,148 +33,193 @@ EMESH_WRITER_TYPE CPLYMeshWriter::getType() const
 }
 
 //! writes a mesh
-bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, int32_t flags)
+bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
 {
-	if (!file || !mesh)
+	if (!file || !mesh || mesh->getMeshBufferCount() > 1)
 		return false;
 
-	os::Printer::log("Writing mesh", file->getFileName());
+	os::Printer::log("Writing mesh", file->getFileName().c_str());
 
 	// write PLY header
-	core::stringc header =
-        	"ply\n"
-		"format ascii 1.0\n"
-		"comment Irrlicht Engine ";
+    std::string header = "ply\n";
+    header += (flags & EMWF_WRITE_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
+	header += "\ncomment Irrlicht Engine ";
 	header +=  IRRLICHT_SDK_VERSION;
 
 	// get vertex and triangle counts
-	uint32_t VertexCount   = 0;
-	uint32_t TriangleCount = 0;
-
-	for (uint32_t i=0; i < mesh->getMeshBufferCount(); ++i)
-	{
-		VertexCount   += mesh->getMeshBuffer(i)->getVertexCount();
-		TriangleCount += mesh->getMeshBuffer(i)->getIndexCount() / 3;
-	}
+	size_t vtxCount = mesh->getMeshBuffer(0)->calcVertexCount();
+    size_t faceCount = mesh->getMeshBuffer(0)->getIndexCount() / 3;
 
 	// vertex definition
 	header += "\nelement vertex ";
-	header += VertexCount;
+	header += std::to_string(vtxCount) + '\n';
 
-	header += "\n"
-		"property float x\n"
-		"property float y\n"
-		"property float z\n"
-		"property float nx\n"
-		"property float ny\n"
-		"property float nz\n";
-	// todo: writer flags for extended (r,g,b,u,v) and non-standard (alpha,u1,uv,tx,ty,tz) properties
-	//	"property uchar red\n"
-	//	"property uchar green\n"
-	//	"property uchar blue\n"
-	//	"property uchar alpha\n"
-	//	"property float u\n"
-	//	"property float v\n";
-	//	"property float u1\n
-	//	"property float v1\n"
-	//	"property float tx\n"
-	//	"property float ty\n"
-	//	"property float tz\n"
+    bool vaidToWrite[4]{ 0, 0, 0, 0 };
+    auto desc = mesh->getMeshBuffer(0)->getMeshDataAndFormat();
+    if (desc->getMappedBuffer(EVAI_ATTR0))
+    {
+        vaidToWrite[0] = true;
+        header +=
+            "property float x\n"
+            "property float y\n"
+            "property float z\n";
+    }
+    if (desc->getMappedBuffer(EVAI_ATTR1))
+    {
+        vaidToWrite[1] = true;
+        header +=
+            "property float red\n"
+            "property float blue\n"
+            "property float green\n";
+        if (desc->getAttribType(EVAI_ATTR1) == ECPA_FOUR || desc->getAttribType(EVAI_ATTR1) == ECPA_REVERSED_OR_BGRA)
+            header += "property float alpha\n";
+    }
+    if (desc->getMappedBuffer(EVAI_ATTR2))
+    {
+        vaidToWrite[2] = true;
+        header +=
+            "property float u\n"
+            "property float v\n";
+    }
+    if (desc->getMappedBuffer(EVAI_ATTR3))
+    {
+        vaidToWrite[3] = true;
+        header +=
+            "property float nx\n"
+            "property float ny\n"
+            "property float nz\n";
+    }
 
-	// face definition
+    if (desc->getIndexBuffer() && mesh->getMeshBuffer(0)->getIndexType() != video::EIT_UNKNOWN)
+    {
+        header += "element face ";
+        header += std::to_string(faceCount) + '\n';
+        const std::string idxType = mesh->getMeshBuffer(0)->getIndexType() == video::EIT_32BIT ? "uint32" : "uint16";
+        header += "property list uchar " + idxType + " vertex_indices\n";
+    }
+    else faceCount = 0u;
+    header += "end_header\n";
 
-	header += "element face ";
-	header += TriangleCount;
-	header += "\n"
-		"property list uchar int vertex_indices\n"
-		"end_header\n";
+    file->write(header.c_str(), header.size());
 
-	// write header
-	file->write(header.c_str(), header.size());
-
-	// write vertices
-
-	char outLine[1024];
-
-	for (uint32_t i=0; i < mesh->getMeshBufferCount(); ++i)
-	{
-		scene::IMeshBuffer* mb = mesh->getMeshBuffer(i);
-		for (uint32_t j=0; j < mb->getVertexCount(); ++j)
-		{
-			const core::vector3df& pos = mb->getPosition(j);
-			const core::vector3df& n   = mb->getNormal(j);
-//			const core::vector2df& tc  = mb->getTCoords(j);
-
-			uint8_t *buf  = (uint8_t*)mb->getVertices();
-			switch(mb->getVertexType())
-			{
-			case video::EVT_STANDARD:
-				buf += sizeof(video::S3DVertex)*j;
-				break;
-			case video::EVT_2TCOORDS:
-				buf += sizeof(video::S3DVertex2TCoords)*j;
-				break;
-			case video::EVT_TANGENTS:
-				buf += sizeof(video::S3DVertexTangents)*j;
-				break;
-			}
-//			video::SColor &col = ( (video::S3DVertex*)buf )->Color;
-
-			// x y z nx ny nz red green blue alpha u v [u1 v1 | tx ty tz]\n
-			snprintf(outLine, 1024,
-				"%f %f %f %f %f %f\n",// %u %u %u %u %f %f\n",
-				pos.X, pos.Z, pos.Y, // Y and Z are flipped
-				n.X, n.Z, n.Y);
-				/*col.getRed(), col.getGreen(), col.getBlue(), col.getAlpha(),
-				tc.X, tc.Y);*/
-
-			// write the line
-			file->write(outLine, strlen(outLine));
-		}
-	}
-
-	// index of the first vertex in the current mesh buffer
-	uint32_t StartOffset = 0;
-
-	// write triangles
-	for (uint32_t i=0; i < mesh->getMeshBufferCount(); ++i)
-	{
-		scene::IMeshBuffer* mb = mesh->getMeshBuffer(i);
-		for (uint32_t j=0; j < mb->getIndexCount(); j+=3)
-		{
-			// y and z are flipped so triangles are reversed
-			uint32_t a=StartOffset,
-			    b=StartOffset,
-			    c=StartOffset;
-
-			switch(mb->getIndexType())
-			{
-			case video::EIT_16BIT:
-				a += ((uint16_t*)mb->getIndices())[j+0];
-				c += ((uint16_t*)mb->getIndices())[j+1];
-				b += ((uint16_t*)mb->getIndices())[j+2];
-				break;
-			case video::EIT_32BIT:
-				a += ((uint32_t*)mb->getIndices()) [j+0];
-				c += ((uint32_t*)mb->getIndices()) [j+0];
-				b += ((uint32_t*)mb->getIndices()) [j+0];
-				break;
-			}
-
-			// count a b c\n
-			snprintf(outLine, 1024, "3 %u %u %u\n", a, b, c);
-			// write the line
-			file->write(outLine, strlen(outLine));
-		}
-
-		// increment offset
-		StartOffset += mb->getVertexCount();
-	}
-
-	// all done!
-
+    if (flags & EMWF_WRITE_BINARY)
+        writeBinary(file, mesh->getMeshBuffer(0), vtxCount, faceCount, vaidToWrite);
+    else
+        writeText(file, mesh->getMeshBuffer(0), vtxCount, faceCount, vaidToWrite);
 
 	return true;
+}
+
+void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, const bool _vaidToWrite[4]) const
+{
+    size_t colCpa = _mbuf->getMeshDataAndFormat()->getAttribComponentCount(EVAI_ATTR1);
+    if (colCpa == ECPA_REVERSED_OR_BGRA)
+        colCpa = 4u;
+
+    for (size_t i = 0u; i < _vtxCount; ++i)
+    {
+        core::vectorSIMDf a;
+        if (_vaidToWrite[EVAI_ATTR0])
+        {
+            _mbuf->getAttribute(a, EVAI_ATTR0, i);
+            _file->write(a.pointer, 3*sizeof(float));
+        }
+        if (_vaidToWrite[EVAI_ATTR1])
+        {
+            _mbuf->getAttribute(a, EVAI_ATTR1, i);
+            _file->write(a.pointer, colCpa*sizeof(float));
+        }
+        if (_vaidToWrite[EVAI_ATTR2])
+        {
+            _mbuf->getAttribute(a, EVAI_ATTR2, i);
+            _file->write(a.pointer, 2*sizeof(float));
+        }
+        if (_vaidToWrite[EVAI_ATTR3])
+        {
+            _mbuf->getAttribute(a, EVAI_ATTR3, i);
+            _file->write(a.pointer, 3*sizeof(float));
+        }
+    }
+    const uint8_t listSize = 3u;
+    if (_mbuf->getIndexType() == video::EIT_32BIT)
+    {
+        uint32_t* indices = (uint32_t*)_mbuf->getIndices();
+        for (size_t i = 0u; i < _fcCount; ++i)
+        {
+            _file->write(&listSize, 1);
+            _file->write(indices, listSize * 4);
+            indices += listSize;
+        }
+    }
+    else
+    {
+        uint16_t* indices = (uint16_t*)_mbuf->getIndices();
+        for (size_t i = 0u; i < _fcCount; ++i)
+        {
+            _file->write(&listSize, 1);
+            _file->write(indices, listSize*2);
+            indices += listSize;
+        }
+    }
+}
+
+void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, const bool _vaidToWrite[4]) const
+{
+    size_t colCpa = _mbuf->getMeshDataAndFormat()->getAttribComponentCount(EVAI_ATTR1);
+    if (colCpa == ECPA_REVERSED_OR_BGRA)
+        colCpa = 4u;
+
+    for (size_t i = 0u; i < _vtxCount; ++i)
+    {
+        core::vectorSIMDf a;
+        if (_vaidToWrite[EVAI_ATTR0])
+        {
+            _mbuf->getAttribute(a, EVAI_ATTR0, i);
+            writeVectorAsText(_file, a.pointer, 3);
+            _file->write("\n", 1);
+        }
+        if (_vaidToWrite[EVAI_ATTR1])
+        {
+            _mbuf->getAttribute(a, EVAI_ATTR1, i);
+            writeVectorAsText(_file, a.pointer, colCpa);
+            _file->write("\n", 1);
+        }
+        if (_vaidToWrite[EVAI_ATTR2])
+        {
+            _mbuf->getAttribute(a, EVAI_ATTR2, i);
+            writeVectorAsText(_file, a.pointer, 2);
+            _file->write("\n", 1);
+        }
+        if (_vaidToWrite[EVAI_ATTR3])
+        {
+            _mbuf->getAttribute(a, EVAI_ATTR3, i);
+            writeVectorAsText(_file, a.pointer, 3);
+            _file->write("\n", 1);
+        }
+    }
+    const char* listSize = "3 ";
+    if (_mbuf->getIndexType() == video::EIT_32BIT)
+    {
+        uint32_t* indices = (uint32_t*)_mbuf->getIndices();
+        for (size_t i = 0u; i < _fcCount; ++i)
+        {
+            _file->write(listSize, 2);
+            writeVectorAsText(_file, indices, 3);
+            _file->write("\n", 1);
+            indices += 3;
+        }
+    }
+    else
+    {
+        uint16_t* indices = (uint16_t*)_mbuf->getIndices();
+        for (size_t i = 0u; i < _fcCount; ++i)
+        {
+            _file->write(&listSize, 2);
+            writeVectorAsText(_file, indices, 3);
+            _file->write("\n", 1);
+            indices += 3;
+        }
+    }
 }
 #endif // NEW_MESHES
 
