@@ -269,15 +269,17 @@ ICPUMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
             }
             if (indices.size())
             {
-                core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * indices.size(), indices.data());
+                core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * indices.size());
+                memcpy(idxBuf->getPointer(), indices.data(), idxBuf->getSize());
                 desc->mapIndexBuffer(idxBuf);
+                idxBuf->drop();
                 mb->setIndexCount(indices.size());
                 mb->setIndexType(video::EIT_32BIT);
             }
 
             mesh = new SCPUMesh();
 
-            mb->setPrimitiveType(EPT_POINTS);
+            mb->setPrimitiveType(EPT_TRIANGLES);
 			mb->recalculateBoundingBox();
 			//if (!hasNormals)
 			//	SceneManager->getMeshManipulator()->recalculateNormals(mb);
@@ -357,7 +359,7 @@ bool CPLYMeshFileLoader::readVertex(const SPLYElement &Element, std::vector<core
 		else if (Element.Properties[i].Name == "red")
 		{
 			float value = Element.Properties[i].isFloat() ? getFloat(t) : float(getInt(t))/255.f;
-			attribs[E_COL].second.X = 0;
+			attribs[E_COL].second.X = value;
             attribs[E_COL].first = true;
 		}
 		else if (Element.Properties[i].Name == "green")
@@ -400,8 +402,8 @@ bool CPLYMeshFileLoader::readFace(const SPLYElement &Element, std::vector<uint32
 		if ( (Element.Properties[i].Name == "vertex_indices" ||
 			Element.Properties[i].Name == "vertex_index") && Element.Properties[i].Type == EPLYPT_LIST)
 		{
-			// get count
 			int32_t count = getInt(Element.Properties[i].Data.List.CountType);
+
 			uint32_t a = getInt(Element.Properties[i].Data.List.ItemType),
 				b = getInt(Element.Properties[i].Data.List.ItemType),
 				c = getInt(Element.Properties[i].Data.List.ItemType);

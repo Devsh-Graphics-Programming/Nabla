@@ -118,7 +118,7 @@ private:
 		uint32_t KnownSize;
 	};
 
-    enum { E_POS = 0, E_UV = 1, E_NORM = 2, E_COL = 3 };
+    enum { E_POS = 0, E_UV = 2, E_NORM = 3, E_COL = 1 };
 
 	bool allocateBuffer();
 	char* getNextLine();
