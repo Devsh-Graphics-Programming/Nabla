@@ -1307,16 +1307,19 @@ void CMeshManipulator::priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const
         [&_input](const Triangle& _t) {
             core::vectorSIMDf p0, p1, p2;
             const E_VERTEX_ATTRIBUTE_ID pvaid = _input->getPositionAttributeIx();
+            uint32_t m = 0xffffffff;
+            const core::vectorSIMDf mask(*(float*)&m, *(float*)&m, *(float*)&m, 0);
             _input->getAttribute(p0, pvaid, _t.i[0]);
             _input->getAttribute(p1, pvaid, _t.i[1]);
             _input->getAttribute(p2, pvaid, _t.i[2]);
-            p0.W = p1.W = p2.W = 0.f;
+            p0 &= mask; p1 &= mask; p2 &= mask;
             return (p0 == p1).all() || (p0 == p2).all() || (p1 == p2).all(); 
     });
     const size_t newSize = std::distance(begin, newEnd) * sizeof(Triangle);
 
     auto newBuf = new core::ICPUBuffer(newSize);
     memcpy(newBuf->getPointer(), copy, newSize);
+    free(copy);
     _input->getMeshDataAndFormat()->mapIndexBuffer(newBuf);
     _input->setIndexBufferOffset(0);
     _input->setIndexCount(newSize/sizeof(IdxT));
