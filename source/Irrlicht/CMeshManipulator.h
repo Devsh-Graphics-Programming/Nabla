@@ -78,6 +78,10 @@ public:
 
     virtual void filterInvalidTriangles(ICPUMeshBuffer* _input) const;
 
+    virtual core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
+
+    virtual core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
+
 private:
     template<typename IdxT>
     void priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const;
@@ -101,11 +105,9 @@ private:
 	/** @returns false when first of calculated errors goes above epsilon or true if reached end without such. */
 	bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const std::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric) const;
 
-	core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
 	template<typename T>
 	core::ICPUBuffer* triangleStripsToTriangles(const void* _input, size_t _idxCount) const;
 
-	core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
 	template<typename T>
 	core::ICPUBuffer* trianglesFanToTriangles(const void* _input, size_t _idxCount) const;
 };

@@ -107,6 +107,22 @@ namespace scene
         */
         virtual void filterInvalidTriangles(ICPUMeshBuffer* _input) const = 0;
 
+        //! Creates index buffer from input converting it to indices for triangle primitives. Input is assumed to be indices for triangle strip.
+        /**
+        @param _input Input index buffer's data.
+        @param _idxCount Index count.
+        @param _idxType Type of indices (16bit or 32bit).
+        */
+        virtual core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const = 0;
+
+        //! Creates index buffer from input converting it to indices for triangle primitives. Input is assumed to be indices for triangle fan.
+        /**
+        @param _input Input index buffer's data.
+        @param _idxCount Index count.
+        @param _idxType Type of indices (16bit or 32bit).
+        */
+        virtual core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const = 0;
+
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
 		\param Outputted Number of polygons in mesh buffer, if successful.

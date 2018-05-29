@@ -275,11 +275,17 @@ ICPUMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
                 idxBuf->drop();
                 mb->setIndexCount(indices.size());
                 mb->setIndexType(video::EIT_32BIT);
+                mb->setPrimitiveType(EPT_TRIANGLES);
+            }
+            else
+            {
+                mb->setPrimitiveType(EPT_POINTS);
+                mb->getMaterial().PointCloud = 1;
+                mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
             }
 
             mesh = new SCPUMesh();
 
-            mb->setPrimitiveType(EPT_TRIANGLES);
 			mb->recalculateBoundingBox();
 			//if (!hasNormals)
 			//	SceneManager->getMeshManipulator()->recalculateNormals(mb);
@@ -403,6 +409,7 @@ bool CPLYMeshFileLoader::readFace(const SPLYElement &Element, std::vector<uint32
 			Element.Properties[i].Name == "vertex_index") && Element.Properties[i].Type == EPLYPT_LIST)
 		{
 			int32_t count = getInt(Element.Properties[i].Data.List.CountType);
+            //_IRR_DEBUG_BREAK_IF(count != 3)
 
 			uint32_t a = getInt(Element.Properties[i].Data.List.ItemType),
 				b = getInt(Element.Properties[i].Data.List.ItemType),
@@ -410,8 +417,8 @@ bool CPLYMeshFileLoader::readFace(const SPLYElement &Element, std::vector<uint32
 			int32_t j = 3;
 
 			_outIndices.push_back(a);
-			_outIndices.push_back(c);
 			_outIndices.push_back(b);
+			_outIndices.push_back(c);
 
 			for (; j < count; ++j)
 			{
@@ -725,6 +732,8 @@ char* CPLYMeshFileLoader::getNextWord()
 {
 	// move the start pointer along
 	StartPointer += WordLength + 1;
+    if (!*StartPointer)
+        getNextLine();
 
 	if (StartPointer == LineEndPointer)
 	{

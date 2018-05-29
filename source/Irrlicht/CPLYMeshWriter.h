@@ -14,7 +14,6 @@ namespace scene
 {
     class ICPUMeshBuffer;
 
-#ifdef NEW_MESHES
 	//! class to write PLY mesh files
 	class CPLYMeshWriter : public IMeshWriter
 	{
@@ -29,8 +28,8 @@ namespace scene
 		virtual bool writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags=EMWF_NONE);
 
     private:
-        void writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, const bool _vaidToWrite[4]) const;
-        void writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, const bool _vaidToWrite[4]) const;
+        void writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, video::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const;
+        void writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, video::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const;
 
         template<typename T>
         void writeVectorAsText(io::IWriteFile* _file, const T* _vec, size_t _elementsToWrite) const
@@ -42,7 +41,6 @@ namespace scene
             _file->write(str.c_str(), str.size());
         }
 	};
-#endif // NEW_MESHES
 
 } // end namespace
 } // end namespace
