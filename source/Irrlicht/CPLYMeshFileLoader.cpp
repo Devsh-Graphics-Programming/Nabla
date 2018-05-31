@@ -280,8 +280,8 @@ ICPUMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
             else
             {
                 mb->setPrimitiveType(EPT_POINTS);
-                mb->getMaterial().PointCloud = 1;
-                mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
+                mb->setIndexCount(attribs[E_POS].size());
+                //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
             }
 
             mesh = new SCPUMesh();
