@@ -1,0 +1,39 @@
+#version 430 core
+#define WG_SIZE 256
+layout(local_size_x = WG_SIZE) in;
+
+#define G_IDX gl_GlobalInvocationID.x
+
+layout(std430, binding = 0) buffer Key { uint keys[]; };
+layout(std430, binding = 1) buffer Val { uint vals[]; };
+
+layout(std430, binding = 5) buffer Histogram { uint histogram[2]; };
+
+layout(location = 0) uniform uint nbit;
+
+shared uint s_histogram[2];
+
+void main()
+{
+	if (gl_LocalInvocationIndex == 0)
+	{
+		s_histogram[0] = s_histogram[1] = 0;
+	}
+	memoryBarrierShared();
+	barrier();
+	
+	uint local_histogram[2];//  = uint[](0, 0);
+	local_histogram[0] = local_histogram[1] = 0u;
+	
+	for (uint i = 2*G_IDX; i < 2*G_IDX+2 && i < keys.length(); ++i)
+		local_histogram[ (keys[i] >> nbit) & 1 ]++;
+		
+	atomicAdd(s_histogram[0], local_histogram[0]);
+	atomicAdd(s_histogram[1], local_histogram[1]);
+	
+	memoryBarrierShared();
+	barrier();
+	
+	atomicAdd(histogram[0], s_histogram[0]);
+	atomicAdd(histogram[1], s_histogram[1]);
+}
