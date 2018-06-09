@@ -360,6 +360,7 @@
 		<Unit filename="../../include/irrunpack.h" />
 		<Unit filename="../../include/line2d.h" />
 		<Unit filename="../../include/line3d.h" />
+		<Unit filename="../../include/matrix3x4SIMD.h" />
 		<Unit filename="../../include/matrix4.h" />
 		<Unit filename="../../include/matrix4x3.h" />
 		<Unit filename="../../include/matrixSIMD4.h" />
