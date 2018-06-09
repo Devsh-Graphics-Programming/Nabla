@@ -48,8 +48,7 @@ namespace video
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), ColorFormat(ECF_R8G8B8), Params(params),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	DeviceType(EIDT_WIN32), AuxContexts(0)
 {
@@ -481,8 +480,7 @@ bool COpenGLDriver::deinitAuxContext()
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceMacOSX *device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), ColorFormat(ECF_R8G8B8),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	Params(params),
 	OSXDevice(device), DeviceType(EIDT_OSX), AuxContexts(0)
 {
@@ -503,8 +501,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), ColorFormat(ECF_R8G8B8),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0)
 {
 	#ifdef _DEBUG
@@ -629,8 +626,7 @@ bool COpenGLDriver::deinitAuxContext()
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-    currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), ColorFormat(ECF_R8G8B8),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
 	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0)
 {
@@ -1883,26 +1879,11 @@ void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video:
     if (!found)
         return;
 
-    if (indirectDrawBuff!=currentIndirectDrawBuff)
-    {
-        indirectDrawBuff->grab();
-        if (currentIndirectDrawBuff)
-            currentIndirectDrawBuff->drop();
-        currentIndirectDrawBuff = static_cast<const COpenGLBuffer*>(indirectDrawBuff);
-
-        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
-        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
-    }
-    else if (lastValidatedIndirectBuffer>currentIndirectDrawBuff->getLastTimeReallocated())
-    {
-        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
-        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
-    }
-
-
     const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(vao);
     if (!found->setActiveVAO(meshLayoutVAO))
         return;
+
+    found->setActiveIndirectDrawBuffer(static_cast<const COpenGLBuffer*>(indirectDrawBuff));
 
 	// draw everything
 	setRenderStates3DMode();
@@ -1963,26 +1944,11 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
     if (!found)
         return;
 
-    if (indirectDrawBuff!=currentIndirectDrawBuff)
-    {
-        indirectDrawBuff->grab();
-        if (currentIndirectDrawBuff)
-            currentIndirectDrawBuff->drop();
-        currentIndirectDrawBuff = static_cast<const COpenGLBuffer*>(indirectDrawBuff);
-
-        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
-        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
-    }
-    else if (lastValidatedIndirectBuffer>currentIndirectDrawBuff->getLastTimeReallocated())
-    {
-        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
-        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
-    }
-
-
     const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(vao);
     if (!found->setActiveVAO(meshLayoutVAO))
         return;
+
+    found->setActiveIndirectDrawBuffer(static_cast<const COpenGLBuffer*>(indirectDrawBuff));
 
 	// draw everything
 	setRenderStates3DMode();
@@ -2031,6 +1997,75 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
 
     if (didConditional)
         extGlEndConditionalRender();
+}
+
+/*
+template<GLenum bindType>
+void COpenGLDriver::BoundIndexedBuffer::set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** buffers)
+{
+    GLuint toBind[BIND_POINTS];
+
+    for (uint32_t i=0; i<count; i++)
+    {
+        uint32_t actualIx = i+first;
+
+        if (!buffers || !buffers[i])
+        {
+            if (boundBuffer[actualIx])
+            {
+                boundBuffer[actualIx]->drop();
+                boundBuffer[actualIx] = NULL;
+            }
+
+            if (buffers)
+                toBind[i] = 0;
+        }
+        else
+        {
+
+        }
+    }
+
+    if (!buffers)
+    {
+        extGlBindBuffersBase(bindType,first,count,NULL);
+        return;
+    }
+
+    //
+}
+*/
+
+template<GLenum BIND_POINT>
+void COpenGLDriver::SAuxContext::BoundBuffer<BIND_POINT>::set(const COpenGLBuffer* buff)
+{
+    if (!buff)
+    {
+        if (boundBuffer)
+        {
+            boundBuffer->drop();
+            boundBuffer = NULL;
+            extGlBindBuffer(BIND_POINT,0);
+        }
+
+        return;
+    }
+
+    if (boundBuffer!=buff)
+    {
+        buff->grab();
+        if (boundBuffer)
+            boundBuffer->drop();
+        boundBuffer = buff;
+
+        extGlBindBuffer(BIND_POINT,boundBuffer->getOpenGLName());
+        lastValidatedBuffer = boundBuffer->getLastTimeReallocated();
+    }
+    else if (lastValidatedBuffer>boundBuffer->getLastTimeReallocated())
+    {
+        extGlBindBuffer(BIND_POINT,boundBuffer->getOpenGLName());
+        lastValidatedBuffer = boundBuffer->getLastTimeReallocated();
+    }
 }
 
 
