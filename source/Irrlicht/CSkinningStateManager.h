@@ -262,7 +262,7 @@ namespace scene
                     bbox.MaxEdge.Y = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[1];
                     bbox.MaxEdge.Z = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[2];
                     //boneDataForInstance[j].SkinningTransform.transformBoxEx(bbox);
-					core::transformBoxEx(bbox, core::matrix3x4SIMD().set(boneDataForInstance[j].SkinningTransform));
+					bbox = core::transformBoxEx(bbox, core::matrix3x4SIMD().set(boneDataForInstance[j].SkinningTransform));
                     //
                     IBoneSceneNode* bone = getBones(currentInstance)[j];
                     if (bone)
@@ -388,7 +388,7 @@ namespace scene
                                         bbox.MaxEdge.Y = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[1];
                                         bbox.MaxEdge.Z = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[2];
                                         //boneDataForInstance[j].SkinningTransform.transformBoxEx(bbox);
-										core::transformBoxEx(bbox, core::matrix3x4SIMD().set(boneDataForInstance[j].SkinningTransform));
+										bbox = core::transformBoxEx(bbox, core::matrix3x4SIMD().set(boneDataForInstance[j].SkinningTransform));
                                         //
                                         if (boneControlMode==EBUM_READ)
                                         {
@@ -520,7 +520,7 @@ namespace scene
                                         bbox.MaxEdge.Y = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[1];
                                         bbox.MaxEdge.Z = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[2];
                                         //boneDataForInstance[j].SkinningTransform.transformBoxEx(bbox);
-										core::transformBoxEx(bbox, core::matrix3x4SIMD().set(boneDataForInstance[j].SkinningTransform));
+										bbox = core::transformBoxEx(bbox, core::matrix3x4SIMD().set(boneDataForInstance[j].SkinningTransform));
                                         boneDataForInstance[j].MinBBoxEdge[0] = bbox.MinEdge.X;
                                         boneDataForInstance[j].MinBBoxEdge[1] = bbox.MinEdge.Y;
                                         boneDataForInstance[j].MinBBoxEdge[2] = bbox.MinEdge.Z;
