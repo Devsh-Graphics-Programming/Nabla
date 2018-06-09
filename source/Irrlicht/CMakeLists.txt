@@ -9,7 +9,9 @@ endif()
 
 option(FAST_MATH "Enable fast low-precision math" ON)
 
-find_package(OpenSSL REQUIRED)
+if(NOT NASTY_OPENSSL_WORKAROUND)
+	find_package(OpenSSL REQUIRED)
+endif()
 
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
@@ -41,8 +43,12 @@ set(IRRLICHT_SRCS_COMMON
 	CAnimatedMeshSceneNode.cpp
 	CBAWFile.cpp
 	CBlobsLoadingManager.cpp
+	CForsythVertexCacheOptimizer.cpp
+	CMeshCache.cpp
+	CMeshManipulator.cpp
 	CMeshSceneNode.cpp
 	CMeshSceneNodeInstanced.cpp
+	COverdrawMeshOptimizer.cpp
 	CSkinnedMesh.cpp
 	CSkinnedMeshSceneNode.cpp
 	TypedBlob.cpp
@@ -55,8 +61,6 @@ set(IRRLICHT_SRCS_COMMON
 	CDefaultSceneNodeFactory.cpp
 	CEmptySceneNode.cpp
 	CGeometryCreator.cpp
-	CMeshCache.cpp
-	CMeshManipulator.cpp
 	CSceneManager.cpp
 	CSkyBoxSceneNode.cpp
 	CSkyDomeSceneNode.cpp
@@ -135,6 +139,7 @@ set(IRRLICHT_SRCS_COMMON
 	CZipReader.cpp
 
 # Other
+	coreutil.cpp
 	CIrrDeviceSDL.cpp
 	CIrrDeviceLinux.cpp
 	CIrrDeviceConsole.cpp
@@ -159,10 +164,9 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLPersistentlyMappedBuffer.cpp
 	COpenGLQuery.cpp
 	COpenGLTransformFeedback.cpp
-	COpenGLVAO.cpp
+	COpenGLVAOSpec.cpp
 	CTRTextureGouraudAlpha.cpp
 	CTRTextureGouraudAlphaNoZ.cpp
-	coreutil.cpp
 )
 
 set(IRRLICHT_SRCS_SERVER
@@ -290,23 +294,50 @@ add_library(zlib OBJECT
 	zlib/zutil.c
 )
 
+add_definitions(
+	-DPNG_THREAD_UNSAFE_OK
+	-DPNG_NO_MMX_CODE
+	-DPNG_NO_MNG_FEATURES
+	-D_7ZIP_ST
+)
+
 if(WIN32)
 	add_definitions(
-		"WIN32"
-		__GNUWIN32__
-		_CRT_SECURE_NO_DEPRECATE
+		-DWIN32
+		-D__GNUWIN32__
+		-D_CRT_SECURE_NO_DEPRECATE
+		-DNOMINMAX
 	)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_compile_options(
-		-W
+		-fuse-ld=gold
+	)
+	link_libraries(
+		-fuse-ld=gold
+	)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	add_compile_options(
+		-std=c++11
 		-Wall
 		-Wextra
 		-Wno-unused-parameter
 		-fno-exceptions
+		-fstrict-aliasing
 		-msse3
+		-mfpmath=sse
 	)
+	if($<CONFIG:Release>)
+		add_compile_options(
+			-O3
+			-fexpensive-optimizations
+			-fno-omit-frame-pointer
+			-fstack-protector-strong
+		)
+	endif()
 	if($<CONFIG:Debug>)
 		add_compile_options(
 			-fno-omit-frame-pointer
@@ -315,17 +346,24 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang
 	endif()
 	if(FAST_MATH)
 		add_compile_options(
-			-fexpensive-optimizations
 			-ffast-math
-			-mfpmath=sse
 		)
 	endif()
+else()
+	message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/buildaworldnet/IrrlichtBAW/issues")
 endif()
 
-link_libraries(
-	OpenSSL::Crypto
-	OpenSSL::SSL
-)
+
+if(NOT NASTY_OPENSSL_WORKAROUND)
+	link_libraries(
+		OpenSSL::Crypto
+		OpenSSL::SSL
+	)
+else()
+	include_directories(
+		../../../openssl/include/
+	)
+endif()
 
 include_directories(
 	convert_utf
@@ -335,11 +373,11 @@ include_directories(
 )
 
 if($<CONFIG:Debug>)
-	add_definitions(_DEBUG)
+	add_definitions(-D_DEBUG)
 endif()
 
 if($<BOOL:FAST_MATH>)
-	add_definitions(IRRLICHT_FAST_MATH)
+	add_definitions(-DIRRLICHT_FAST_MATH)
 endif()
 
 add_library(Irrlicht STATIC
@@ -384,12 +422,32 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	NO_IRR_COMPILE_WITH_OPENGL_
 )
 
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+	if(MSVC)
+		set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/Win64-visualStudio" CACHE PATH "default install path" FORCE )
+	elseif(WIN32)
+		set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/Win64-gcc" CACHE PATH "default install path" FORCE )
+	else()
+		if (APPLE)
+			set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/MacOSX" CACHE PATH "default install path" FORCE )
+		elseif(UNIX)
+			set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/Linux" CACHE PATH "default install path" FORCE )
+		else()
+			message(WARNING "NO INSTALL TARGET COULD BE GENERATED")
+		endif()
+	endif()
+endif()
+
+install(TARGETS Irrlicht DESTINATION .)
+install(TARGETS IrrlichtServer DESTINATION .)
+
+
 if(NOT CONFIGURED_ONCE)
 	# Add some optional flags to be used by default
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -g3"
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb3"
 			CACHE STRING "Flags used by the C compiler during debug build." FORCE)
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -g3"
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3"
 			CACHE STRING "Flags used by the C++ compiler during debug build." FORCE)
 	endif()
 

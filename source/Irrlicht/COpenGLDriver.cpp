@@ -767,6 +767,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     removeAllFrameBuffers();
 
     extGlBindVertexArray(0);
+    found->CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,SAuxContext::COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),nullptr);
 	for(std::unordered_map<COpenGLVAOSpec::HashAttribs,SAuxContext::COpenGLVAO*>::iterator it = found->VAOMap.begin(); it != found->VAOMap.end(); it++)
     {
         delete it->second;

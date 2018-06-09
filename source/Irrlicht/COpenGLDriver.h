@@ -507,19 +507,25 @@ namespace video
             std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>          CurrentVAO;
             std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> VAOMap;
 
+            inline size_t getVAOCacheSize() const
+            {
+                return VAOMap.size();
+            }
+
             inline void freeUpVAOCache(bool exitOnFirstDelete)
             {
-                if (VAOMap.size()>(0x1u<<14)) //make this cache configurable
+                constexpr size_t maxCacheSize = 0x1u<<14; //make this cache configurable
+                for(std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.begin(); VAOMap.size()>maxCacheSize&&it!=VAOMap.end(); it++)
                 {
-                    for(std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.begin(); it != VAOMap.end(); it++)
+                    if (it->first==CurrentVAO.first&&it->second==CurrentVAO.second)
+                        continue;
+
+                    if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
                     {
-                        if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
-                        {
-                            delete it->second;
-                            it = VAOMap.erase(it);
-                            if (exitOnFirstDelete)
-                                return;
-                        }
+                        delete it->second;
+                        it = VAOMap.erase(it);
+                        if (exitOnFirstDelete)
+                            return;
                     }
                 }
             }
