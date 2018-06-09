@@ -214,6 +214,8 @@ NO BITSHIFTING SUPPORT
     inline vectorSIMDf length(const vectorSIMDf& v);
     inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t);
     inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t);
+    inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t);
+    inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t);
     inline vectorSIMDf normalize(const vectorSIMDf& v);
     inline vectorSIMDf radToDeg(const vectorSIMDf& radians);
     inline vectorSIMDf reciprocal(const vectorSIMDf& a);
@@ -737,7 +739,17 @@ NO BITSHIFTING SUPPORT
     {
         return a+(b-a)*t;
     }
+     inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t)
+    {
+        __m128 amask = _mm_castsi128_ps((~t).getAsRegister());
+        __m128 bmask = _mm_castsi128_ps(t.getAsRegister());
+        return (a&amask)|(b&bmask);
+    }
      inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
+    {
+        return mix(a,b,t);
+	}
+     inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t)
     {
         return mix(a,b,t);
 	}
