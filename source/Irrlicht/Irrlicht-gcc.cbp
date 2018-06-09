@@ -279,6 +279,7 @@
 		<Unit filename="../../include/IGPUTimestampQuery.h" />
 		<Unit filename="../../include/IGPUTransientBuffer.h" />
 		<Unit filename="../../include/IGeometryCreator.h" />
+		<Unit filename="../../include/IGraphicsPipeline.h" />
 		<Unit filename="../../include/IImage.h" />
 		<Unit filename="../../include/IImageLoader.h" />
 		<Unit filename="../../include/IImageWriter.h" />
@@ -382,11 +383,11 @@
 		<Unit filename="CB3DMeshFileLoader.cpp" />
 		<Unit filename="CB3DMeshFileLoader.h" />
 		<Unit filename="CBAWFile.cpp" />
+		<Unit filename="CBAWFile.h" />
 		<Unit filename="CBAWMeshFileLoader.cpp" />
 		<Unit filename="CBAWMeshFileLoader.h" />
 		<Unit filename="CBAWMeshWriter.cpp" />
 		<Unit filename="CBAWMeshWriter.h" />
-		<Unit filename="CBAWFile.h" />
 		<Unit filename="CBillboardSceneNode.cpp" />
 		<Unit filename="CBillboardSceneNode.h" />
 		<Unit filename="CBlit.h" />
