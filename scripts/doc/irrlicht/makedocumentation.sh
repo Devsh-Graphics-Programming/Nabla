@@ -1,5 +1,6 @@
-doxygen doxygen-pdf.cfg
+mkdir ../../../doctemp
+mkdir ../../../doctemp/html
+copy logo.png ../../../doctemp/html
 
-cp doxygen.css logo.png ../../../doctemp/html
-
+doxygen doxygen.cfg
 
