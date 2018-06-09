@@ -1484,15 +1484,19 @@ bool COpenGLExtensionHandler::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature
 	switch (feature)
 	{
         case EVDF_ALPHA_TO_COVERAGE:
-            return FeatureAvailable[IRR_ARB_multisample]||true;
+            return FeatureAvailable[IRR_ARB_multisample]||true; //vulkan+android
         case EVDF_GEOMETRY_SHADER:
-            return FeatureAvailable[IRR_ARB_geometry_shader4]||true;
+            return FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
         case EVDF_TESSELLATION_SHADER:
-            return FeatureAvailable[IRR_ARB_tessellation_shader]||true;
+            return FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
         case EVDF_TEXTURE_BARRIER:
-            return FeatureAvailable[IRR_ARB_texture_barrier]||FeatureAvailable[IRR_NV_texture_barrier];
+            return FeatureAvailable[IRR_ARB_texture_barrier]||FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
         case EVDF_STENCIL_ONLY_TEXTURE:
-            return FeatureAvailable[IRR_ARB_texture_stencil8];
+            return FeatureAvailable[IRR_ARB_texture_stencil8]||Version>=440;
+		case EVDF_SHADER_DRAW_PARAMS:
+			return FeatureAvailable[IRR_ARB_shader_draw_parameters]||Version>=460;
+		case EVDF_MULTI_DRAW_INDIRECT_COUNT:
+			return FeatureAvailable[IRR_ARB_indirect_parameters]||Version>=460;
         default:
             return false;
 	};
