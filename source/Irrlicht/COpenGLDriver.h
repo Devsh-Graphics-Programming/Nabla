@@ -25,7 +25,7 @@ namespace irr
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLDriverFence.h"
 #include "COpenGLTransformFeedback.h"
-#include "COpenGLVAO.h"
+#include "COpenGLVAOSpec.h"
 #include "COpenCLHandler.h"
 
 #include <map>
@@ -310,6 +310,7 @@ namespace video
 
         struct SAuxContext
         {
+        //public:
             SAuxContext() : threadId(std::thread::id()), ctx(NULL), XFormFeedbackRunning(false), CurrentXFormFeedback(NULL),
                             CurrentFBO(0), CurrentRendertargetSize(0,0)
             {
@@ -320,7 +321,21 @@ namespace video
                     CurrentSamplerHash[i] = 0xffffffffffffffffuLL;
                 }
             }
+/*
+            inline bool setActiveSSBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** buffers)
+            {
+                shaderStorageBufferObjects.set(first,count,buffers);
+            }
 
+            inline bool setActiveUBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** buffers)
+            {
+                uniformBufferObjects.set(first,count,buffers);
+            }
+*/
+            inline bool setActiveIndirectDrawBuffer(const COpenGLBuffer* buff)
+            {
+                indirectDraw.set(buff);
+            }
 
             bool setActiveVAO(const COpenGLVAOSpec* spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
 
@@ -330,7 +345,7 @@ namespace video
 
             const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 
-
+        //private:
             std::thread::id threadId;
             #ifdef _IRR_WINDOWS_API_
                 HGLRC ctx;
@@ -343,12 +358,65 @@ namespace video
                 AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
             #endif
 
-            bool XFormFeedbackRunning;
-            COpenGLTransformFeedback* CurrentXFormFeedback;
+            bool                        XFormFeedbackRunning; // TODO: delete
+            COpenGLTransformFeedback*   CurrentXFormFeedback; //TODO: delete
 
-            core::array<IFrameBuffer*> FrameBuffers;
-            COpenGLFrameBuffer* CurrentFBO;
+
+            //! FBOs
+            core::array<IFrameBuffer*>  FrameBuffers;
+            COpenGLFrameBuffer*         CurrentFBO;
             core::dimension2d<uint32_t> CurrentRendertargetSize;
+
+/*
+            //! Buffers
+            template<GLenum bindType,size_t BIND_POINTS>
+            class BoundIndexedBuffer
+            {
+                    const COpenGLBuffer* boundBuffers[BIND_POINTS];
+                    uint64_t lastValidatedBuffer[BIND_POINTS];
+                public:
+                    BoundBuffer()
+                    {
+                        memset(boundBuffers,0,sizeof(boundBuffers));
+                        memset(lastValidatedBuffer,0,sizeof(boundBuffers));
+                    }
+
+                    ~BoundBuffer()
+                    {
+                        set(0,BIND_POINTS,NULL);
+                    }
+
+                    void set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** buffers);
+            };
+
+            //! SSBO
+            BoundIndexedBuffer<GL_SHADER_STORAGE_BUFFER,OGL_MAX_BUFFER_BINDINGS>    shaderStorageBufferObjects;
+            //! UBO
+            BoundIndexedBuffer<GL_UNIFORM_BUFFER,OGL_MAX_BUFFER_BINDINGS>           uniformBufferObjects;
+*/
+            //!
+            template<GLenum BIND_POINT>
+            class BoundBuffer
+            {
+                    const COpenGLBuffer* boundBuffer;
+                    uint64_t lastValidatedBuffer;
+                public:
+                    BoundBuffer() : lastValidatedBuffer(0)
+                    {
+                        boundBuffer = NULL;
+                    }
+
+                    ~BoundBuffer()
+                    {
+                        set(NULL);
+                    }
+
+                    void set(const COpenGLBuffer* buff);
+            };
+
+            //! Indirect
+            BoundBuffer<GL_DRAW_INDIRECT_BUFFER> indirectDraw;
+
 
             /** We will operate on some assumptions here:
 
@@ -378,15 +446,15 @@ namespace video
             **/
             class COpenGLVAO
             {
-                    size_t attrOffset[scene::EVAI_COUNT];
-                    uint32_t attrStride[scene::EVAI_COUNT];
+                    size_t                      attrOffset[scene::EVAI_COUNT];
+                    uint32_t                    attrStride[scene::EVAI_COUNT];
                     //vertices
-                    const COpenGLBuffer* mappedAttrBuf[scene::EVAI_COUNT];
+                    const COpenGLBuffer*        mappedAttrBuf[scene::EVAI_COUNT];
                     //indices
-                    const COpenGLBuffer* mappedIndexBuf;
+                    const COpenGLBuffer*        mappedIndexBuf;
 
-                    GLuint vao;
-                    uint64_t lastValidated;
+                    GLuint                      vao;
+                    uint64_t                    lastValidated;
                 #ifdef _DEBUG
                     COpenGLVAOSpec::HashAttribs debugHash;
                 #endif // _DEBUG
@@ -434,8 +502,11 @@ namespace video
                     inline const COpenGLVAOSpec::HashAttribs& getDebugHash() const {return debugHash;}
                 #endif // _DEBUG
             };
-            std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> CurrentVAO;
+
+            //!
+            std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>          CurrentVAO;
             std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> VAOMap;
+
             inline void freeUpVAOCache(bool exitOnFirstDelete)
             {
                 if (VAOMap.size()>(0x1u<<14)) //make this cache configurable
@@ -453,6 +524,7 @@ namespace video
                 }
             }
 
+            //! Textures and Samplers
             class STextureStageCache
             {
                 const IVirtualTexture* CurrentTexture[MATERIAL_MAX_TEXTURES];
@@ -495,9 +567,12 @@ namespace video
 
                 void clear();
             };
-            STextureStageCache CurrentTexture;
 
-            uint64_t CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
+            //!
+            STextureStageCache                  CurrentTexture;
+
+            //! Samplers
+            uint64_t                            CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
             std::unordered_map<uint64_t,GLuint> SamplerMap;
         };
 
@@ -525,9 +600,6 @@ namespace video
 		bool ResetRenderStates;
 
 		SMaterial Material, LastMaterial;
-
-	    const COpenGLBuffer* currentIndirectDrawBuff; //move to per-context storage?
-	    uint64_t lastValidatedIndirectBuffer; //move to per-context storage?
 
 
 

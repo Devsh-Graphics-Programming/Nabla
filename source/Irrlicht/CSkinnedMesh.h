@@ -128,6 +128,9 @@ namespace scene
             //! constructor
             CCPUSkinnedMesh();
 
+            //! Clears internal container of meshbuffers and calls drop() on each
+			virtual void clearMeshBuffers();
+
             virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy;}
 
 			//! Meant to be used by loaders only

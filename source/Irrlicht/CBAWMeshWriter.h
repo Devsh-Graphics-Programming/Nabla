@@ -22,6 +22,9 @@ namespace scene
 	class CBAWMeshWriter : public IMeshWriter
 	{
 	public:
+		//! Flags deciding what will be encrypted.
+		/** @see @ref WriteProperties::encryptBlobBitField
+		*/
 		enum E_ENCRYPTION_TARGETS
 		{
 			EET_NOTHING = 0x00,
@@ -35,14 +38,22 @@ namespace scene
 			EET_EVERYTHING = 0xffffffffu
 		};
 
+		//! Settings struct for mesh export
 		struct WriteProperties
 		{
-			WriteProperties() : blobLz4ComprThresh(4096), blobLzmaComprThresh(32768), encryptBlobBitField(EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES) {}
+			//! Default constructor
+			WriteProperties() : blobLz4ComprThresh(4096u), blobLzmaComprThresh(32768u), encryptBlobBitField(EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES) {}
+			//! Size of blob threshold to be compressed with LZ4. Defaulted to 4096 bytes.
 			size_t blobLz4ComprThresh;
+			//! Size of blob threshold to be compressed with LZMA. Shall always be higher than LZ4 threshold. Defaulted to 32768 bytes.
 			size_t blobLzmaComprThresh;
+			//! Pass-phrase for GCM encryption
 			unsigned char encryptionPassPhrase[16];
+			//! Initialization vector for GCM encryption
 			unsigned char initializationVector[16];
+			//! Flags deciding what will be encrypted. Values come from CBAWMeshWriter::E_ENCRYPTION_TARGETS. Defaulted to (EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES).
 			uint64_t encryptBlobBitField;
+			//! Directory to which texture paths will be relative in output mesh file
 			io::path relPath;
 		};
 

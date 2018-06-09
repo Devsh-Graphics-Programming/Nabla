@@ -43,6 +43,12 @@ CCPUSkinnedMesh::~CCPUSkinnedMesh()
         referenceHierarchy->drop();
 }
 
+void CCPUSkinnedMesh::clearMeshBuffers()
+{
+	for (uint32_t i = 0; i<LocalBuffers.size(); ++i)
+		LocalBuffers[i]->drop();
+	LocalBuffers.clear();
+}
 
 void CCPUSkinnedMesh::setBoneReferenceHierarchy(CFinalBoneHierarchy* fbh)
 {
@@ -233,11 +239,12 @@ void CCPUSkinnedMesh::finalize()
 
             for (size_t j=LocalBuffers[i]->getIndexMinBound(); j<LocalBuffers[i]->getIndexMaxBound(); j++)
             {
-                core::vectorSIMDf origPos,boneIDs,boneWeights;
+                core::vectorSIMDf origPos, boneWeights;
+				uint32_t boneIDs[4];
                 if (!LocalBuffers[i]->getAttribute(origPos,scene::EVAI_ATTR0,j) || !LocalBuffers[i]->getAttribute(boneIDs,scene::EVAI_ATTR5,j) || !LocalBuffers[i]->getAttribute(boneWeights,scene::EVAI_ATTR6,j))
                     continue;
 
-                size_t boneID = size_t(boneIDs.X);
+                size_t boneID = size_t(boneIDs[0]);
                 SJoint* joint = AllJoints[boneID];
                 if (firstTouch[boneID])
                 {
@@ -253,7 +260,7 @@ void CCPUSkinnedMesh::finalize()
 
                 for (size_t k=1; k<boneCount; k++)
                 {
-                    boneID = size_t(boneIDs.pointer[k]);
+                    boneID = size_t(boneIDs[k]);
                     joint = AllJoints[boneID];
                     if (firstTouch[boneID])
                     {
@@ -333,13 +340,13 @@ void CCPUSkinnedMesh::finalize()
 
             for (size_t j=LocalBuffers[i]->getIndexMinBound(); j<LocalBuffers[i]->getIndexMaxBound(); j++)
             {
-                core::vectorSIMDf boneIDs;
+				uint32_t boneIDs[4];
                 if (!LocalBuffers[i]->getAttribute(boneIDs,scene::EVAI_ATTR5,j))
                     continue;
 
                 uint32_t newBoneIDs[4];
                 for (size_t k=0; k<4; k++)
-                    newBoneIDs[k] = reorderIndexRedirect[size_t(boneIDs.pointer[k]+0.4f)];
+                    newBoneIDs[k] = reorderIndexRedirect[boneIDs[k]];
 
                 LocalBuffers[i]->setAttribute(newBoneIDs,scene::EVAI_ATTR5,j);
             }

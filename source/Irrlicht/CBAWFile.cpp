@@ -124,7 +124,7 @@ MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatD
 {
 	using namespace scene;
 
-	_IRR_DEBUG_BREAK_IF(VERTEX_ATTRIB_CNT != EVAI_COUNT) // could be static_assert if had c++11
+	static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");
 
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
 		cpa[(int)i] = _desc->getAttribComponentCount(i);

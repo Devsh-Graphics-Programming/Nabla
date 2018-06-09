@@ -378,7 +378,7 @@ namespace scene
 
 		// sodan
 		int32_t mobtype;
-		int32_t mobid;
+		int32_t mobid; // Should be 64 bit
 		int32_t staticmeshid;
 		int32_t blockposX,blockposY,blockposZ;
 

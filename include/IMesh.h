@@ -92,6 +92,11 @@ namespace scene
 	class ICPUMesh : public IMesh<scene::ICPUMeshBuffer>, public core::BlobSerializable
 	{
 	public:
+		//! Serializes mesh to blob for *.baw file format.
+		/** @param _stackPtr Optional pointer to stack memory to write blob on. If _stackPtr==NULL, sufficient amount of memory will be allocated.
+			@param _stackSize Size of stack memory pointed by _stackPtr.
+			@returns Pointer to memory on which blob was written.
+		*/
 		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
 		{
 			return core::CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
