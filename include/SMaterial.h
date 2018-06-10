@@ -683,16 +683,6 @@ namespace video
             uint32_t    offset,size;
     };
 
-    enum E_RASTER_SHADER_STAGE
-    {
-        ERSS_VERTEX=0,
-        ERSS_TESS_CONTROL,
-        ERSS_TESS_EVALUATION,
-        ERSS_GEOMETRY,
-        ERSS_FRAGMENT,
-        ERSS_COUNT
-    };
-
 /*
 	//! Struct for holding parameters for a material renderer
 	class CMaterial
@@ -807,38 +797,6 @@ namespace video
 		//! UBOs
 		#define MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS 6
 		RangedBufferMapping ShaderUniformBuffers[MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS];
-
-		//! Uniform Subroutines
-		#define MATERIAL_MAX_SUBROUTINES_PER_STAGE 32
-		uint8_t ShaderSubroutineFuncIx[ERSS_COUNT][MATERIAL_MAX_SUBROUTINES_PER_STAGE]; // THIS WILL BE 16BYTE ALIGNED
-
-		inline bool needToResetSubroutines(const E_RASTER_SHADER_STAGE& stage, const CMaterial& other)
-		{
-#ifdef _DEBUG
-            if (stage>=ERSS_COUNT)
-                return false;
-#endif
-
-#ifdef _IRR_WINDOWS_
-            __declspec(align(32)) uint64_t result[4];
-#else
-            uint64_t result[4] __attribute__ ((__aligned__(32)));
-#endif
-
-#ifdef AVX
-            __m256 ymm0 = _mm256_loadu_ps(ShaderSubroutineFuncIx[stage]);
-            __m256 ymm1 = _mm256_loadu_ps(other.ShaderSubroutineFuncIx[stage]);
-            _mm256_store_ps((float*)result,_mm256_xor_ps(ymm0,ymm1));
-#else
-            __m128 xmm0 = _mm_load_ps(ShaderSubroutineFuncIx[stage]);
-            __m128 xmm1 = _mm_load_ps(ShaderSubroutineFuncIx[stage]+16);
-            __m128 xmm2 = _mm_load_ps(other.ShaderSubroutineFuncIx[stage]);
-            __m128 xmm3 = _mm_load_ps(other.ShaderSubroutineFuncIx[stage]+16);
-            _mm_store_ps((float*)(result+0),_mm_xor_ps(xmm0,xmm1));
-            _mm_store_ps((float*)(result+2),_mm_xor_ps(xmm2,xmm3));
-#endif
-            return result[0]|result[1]|result[2]|result[3];
-		}
 
 
 		// GL-STATE VARS
