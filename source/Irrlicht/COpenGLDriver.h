@@ -311,10 +311,13 @@ namespace video
         struct SAuxContext
         {
         //public:
+            constexpr static size_t maxVAOCacheSize = 0x1u<<14; //make this cache configurable
+
             SAuxContext() : threadId(std::thread::id()), ctx(NULL), XFormFeedbackRunning(false), CurrentXFormFeedback(NULL),
                             CurrentFBO(0), CurrentRendertargetSize(0,0)
             {
-                CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),NULL);
+                VAOMap.reserve(maxVAOCacheSize);
+                CurrentVAO = HashVAOPair(COpenGLVAOSpec::HashAttribs(),NULL);
 
                 for (size_t i=0; i<MATERIAL_MAX_TEXTURES; i++)
                 {
@@ -504,22 +507,28 @@ namespace video
             };
 
             //!
-            std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>          CurrentVAO;
-            std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> VAOMap;
+            typedef std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> HashVAOPair;
+            HashVAOPair                 CurrentVAO;
+            std::vector<HashVAOPair>    VAOMap;
+
+            inline size_t getVAOCacheSize() const
+            {
+                return VAOMap.size();
+            }
 
             inline void freeUpVAOCache(bool exitOnFirstDelete)
             {
-                if (VAOMap.size()>(0x1u<<14)) //make this cache configurable
+                for(auto it = VAOMap.begin(); VAOMap.size()>maxVAOCacheSize&&it!=VAOMap.end(); it++)
                 {
-                    for(std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.begin(); it != VAOMap.end(); it++)
+                    if (it->first==CurrentVAO.first)
+                        continue;
+
+                    if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
                     {
-                        if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
-                        {
-                            delete it->second;
-                            it = VAOMap.erase(it);
-                            if (exitOnFirstDelete)
-                                return;
-                        }
+                        delete it->second;
+                        it = VAOMap.erase(it);
+                        if (exitOnFirstDelete)
+                            return;
                     }
                 }
             }

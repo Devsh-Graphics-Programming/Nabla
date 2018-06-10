@@ -767,7 +767,8 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     removeAllFrameBuffers();
 
     extGlBindVertexArray(0);
-	for(std::unordered_map<COpenGLVAOSpec::HashAttribs,SAuxContext::COpenGLVAO*>::iterator it = found->VAOMap.begin(); it != found->VAOMap.end(); it++)
+    found->CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,SAuxContext::COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),nullptr);
+	for(auto it = found->VAOMap.begin(); it != found->VAOMap.end(); it++)
     {
         delete it->second;
     }
@@ -2236,7 +2237,7 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* spec, const 
 {
     if (!spec)
     {
-        CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),NULL);
+        CurrentVAO = HashVAOPair(COpenGLVAOSpec::HashAttribs(),nullptr);
         extGlBindVertexArray(0);
         freeUpVAOCache(true);
         return false;
@@ -2245,14 +2246,14 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* spec, const 
     const COpenGLVAOSpec::HashAttribs& hashVal = spec->getHash();
 	if (CurrentVAO.first!=hashVal)
     {
-        std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.find(hashVal);
-        if (it != VAOMap.end())
+        auto it = std::lower_bound(VAOMap.begin(),VAOMap.end(),HashVAOPair(hashVal,nullptr),[](HashVAOPair lhs, HashVAOPair rhs) -> bool { return lhs.first < rhs.first; });
+        if (it != VAOMap.end() && it->first==hashVal)
             CurrentVAO = *it;
         else
         {
             COpenGLVAO* vao = new COpenGLVAO(spec);
-            VAOMap[hashVal] = vao;
-            CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>(hashVal,vao);
+            CurrentVAO = HashVAOPair(hashVal,vao);
+            VAOMap.insert(it,CurrentVAO);
         }
 
         #ifdef _DEBUG
