@@ -126,10 +126,9 @@ namespace video
 		: MaterialType(EMT_SOLID), AmbientColor(255,255,255,255), DiffuseColor(255,255,255,255),
 			EmissiveColor(0,0,0,0), SpecularColor(255,255,255,255),
 			Shininess(0.0f), MaterialTypeParam(0.0f), MaterialTypeParam2(0.0f), userData(NULL), Thickness(1.0f),
-			ZBuffer(ECFN_GREATEREQUAL), ColorMask(ECP_ALL),
-			BlendOperation(EBO_NONE),
+			ZBuffer(ECFN_GREATEREQUAL),
 			PolygonOffsetConstantMultiplier(0.f), PolygonOffsetGradientMultiplier(0.f),
-			Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false), RasterizerDiscard(false)
+			ColorMask(ECP_ALL), BlendOperation(EBO_NONE), Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false), RasterizerDiscard(false)
 		{ }
 
 		//! Copy constructor
@@ -658,31 +657,6 @@ namespace video
             }
     };
 
-    class RangedBufferMapping
-    {
-        public:
-            RangedBufferMapping() : buffer(NULL), offset(0), size(0)
-            {
-            }
-            RangedBufferMapping(IGPUBuffer* inBuffer, const uint32_t& inOffset, const uint32_t& inSize)
-                : buffer(NULL), offset(0), size(0)
-            {
-                if (!inBuffer)
-                    return;
-
-                uint32_t bufSz = inBuffer->getSize();
-                if (inOffset>bufSz||inSize>bufSz)
-                    return;
-
-                buffer  = inBuffer;
-                offset  = inOffset;
-                size    = inSize;
-            }
-
-            IGPUBuffer* buffer;
-            uint32_t    offset,size;
-    };
-
 /*
 	//! Struct for holding parameters for a material renderer
 	class CMaterial
@@ -699,14 +673,14 @@ namespace video
 			Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false), RasterizerDiscard(false)
 		{
 		}
-
+*/
 		//! Copy constructor
 		/** \param other Material to copy from. *
 		CMaterial(const CMaterial& other)
 		{
 			*this = other;
 		}
-
+*/
 		//! Assignment operator
 		/** \param other Material to copy from. *
 		CMaterial& operator=(const CMaterial& other)
@@ -747,20 +721,20 @@ namespace video
 		}
 
 		// NON GL-STATE MEMBERS
-
+*/
 		//! How much ambient light (a global light) is reflected by this material.
 		/** The default is full white, meaning objects are completely
 		globally illuminated. Reduce this if you want to see diffuse
 		or specular light effects. *
 		vectorSIMDf AmbientColor;
-
+*/
 		//! How much diffuse light coming from a light source is reflected by this material.
 		/** The default is full white. *
 		vectorSIMDf DiffuseColor;
 
 		//! Light emitted by this material. Default is to emit no light.
 		vectorSIMDf EmissiveColor;
-
+*/
 		//! How much specular light (highlights from a light) is reflected.
 		/** The default is to reflect white specular light. See
 		SMaterial::Shininess on how to enable specular lights. *
@@ -768,12 +742,12 @@ namespace video
 
 		//!
 		float RoughnessVariable;
-
+*/
 		//! Free parameter, dependent on the material type.
 		/** Mostly ignored, used for example in EMT_PARALLAX_MAP_SOLID
 		and EMT_TRANSPARENT_ALPHA_CHANNEL. *
 		float MaterialTypeParam;
-
+*/
 		//! Second free parameter, dependent on the material type.
 		/** Mostly ignored. *
 		float MaterialTypeParam2;
@@ -822,7 +796,7 @@ namespace video
         //! All Enabled
         uint32_t SampleMask[OGL_STATE_MAX_SAMPLE_MASK_WORDS];
 
-
+*/
 		//! Inequality operator
 		/** \param b Material to compare to.
 		\return True if the materials differ, else false. *
@@ -856,7 +830,7 @@ namespace video
 			}
 			return different;
 		}
-
+*/
 		//! Equality operator
 		/** \param b Material to compare to.
 		\return True if the materials are equal, else false. *

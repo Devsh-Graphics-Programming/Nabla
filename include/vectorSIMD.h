@@ -127,7 +127,7 @@ NO BITSHIFTING SUPPORT
         xmm0 = _mm_and_si128(xmm0,_mm_slli_si128(xmm0,2)); // (even &&,odd &&,  ...)
         _mm_store_si128((__m128i*)tmpStorage,xmm0);
         return tmpStorage[0]&&tmpStorage[1];
-    }
+    }*/
 
     //! following do ANDs (not bitwise ANDs)
     /*
@@ -576,114 +576,6 @@ NO BITSHIFTING SUPPORT
             _mm_maskmoveu_si128(_mm_castps_si128(xmm0),_mm_set_epi32(0,-1,-1,0),(char*)pointer);// only overwrites the X,Y elements of our vector
 		}
 
-
-
-		//! Get the rotations that would make a (0,0,1) direction vector point in the same direction as this direction vector.
-		/* Thanks to Arras on the Irrlicht forums for this method.  This utility method is very useful for
-		orienting scene nodes towards specific targets.  For example, if this vector represents the difference
-		between two scene nodes, then applying the result of getHorizontalAngle() to one scene node will point
-		it at the other one.
-		Example code:
-		// Where target and seeker are of type ISceneNode*
-		const vector3df toTarget(target->getAbsolutePosition() - seeker->getAbsolutePosition());
-		const vector3df requiredRotation = toTarget.getHorizontalAngle();
-		seeker->setRotation(requiredRotation);
-
-		\return A rotation vector containing the X (pitch) and Y (raw) rotations (in degrees) that when applied to a
-		+Z (e.g. 0, 0, 1) direction vector would make it point in the same direction as this vector. The Z (roll) rotation
-		is always 0, since two Euler rotations are sufficient to point in any given direction. *
-		inline vectorSIMDf getHorizontalAngle3D() const
-		{
-			vectorSIMDf angle;
-
-			const float tmp = atan2f(x,z);
-			angle.y = tmp;
-
-            __m128 xmm0 = ((*this)*(*this)).getAsRegister();
-			xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,1,2)));
-			float z1;
-			_mm_store_ss(&z1,_mm_sqrt_ss(xmm0));
-
-			angle.x = atan2f(z1, y) - core::PI*0.5f;
-
-			return angle;
-		}
-
-		//! Get the spherical coordinate angles, can we do 4-sphere coordinates
-		/** This returns Euler radians for the point represented by
-		this vector.
-		*
-		inline vectorSIMDf getSphericalCoordinates3D() const
-		{
-			vectorSIMDf angle = *this;
-			angle.makeSafe3D();
-			angle = angle.getLength();
-
-			if (angle.w) //doesnt matter which component
-			{
-				if (X!=0)
-				{
-					angle.Y = atan2f(Z,X);
-				}
-				else if (Z<0)
-					angle.Y=180;
-
-				angle.X = (T)(acos(Y * core::reciprocal_squareroot(length)) * RADTODEG64);
-			}
-			else
-                return vectorSIMDf(0.f);
-		}
-
-		//! Builds a direction vector from (this) rotation vector.
-		/** This vector is assumed to be a rotation vector composed of 3 Euler angle rotations, in degrees.
-		The implementation performs the same calculations as using a matrix to do the rotation.
-
-		\param[in] forwards  The direction representing "forwards" which will be rotated by this vector.
-		If you do not provide a direction, then the +Z axis (0, 0, 1) will be assumed to be forwards.
-		\return A direction vector calculated by rotating the forwards direction by the 3 Euler angles
-		(in degrees) represented by this vector. *
-		inline vectorSIMDf rotationToDirection3D() const
-		{
-			const float cr = cosf( x );
-			const float sr = sinf( x );
-			const float cp = cosf( y );
-			const float sp = sinf( y );
-			const float cy = cosf( z );
-			const float sy = sinf( z );
-
-			const float crsp = cr*sp;
-
-			return vectorSIMDf(( crsp*cy+sr*sy ), ( crsp*sy-sr*cy ), ( cr*cp ),0);
-		}
-		inline vectorSIMDf rotationToDirection3D(const vectorSIMDf &forwards = vectorSIMDf(0, 0, 1, 0)) const
-		{
-			const float cr = cosf( x );
-			const float sr = sinf( x );
-			const float cp = cosf( y );
-			const float sp = sinf( y );
-			const float cy = cosf( z );
-			const float sy = sinf( z );
-
-			const float crsp = cr*sp;
-			const float srsp = sr*sp;
-
-			const double pseudoMatrix[] = {
-				( cp*cy ), ( cp*sy ), ( -sp ),
-				( srsp*cy-cr*sy ), ( srsp*sy+cr*cy ), ( sr*cp ),
-				( crsp*cy+sr*sy ), ( crsp*sy-sr*cy ), ( cr*cp )};
-
-			return vector3d<T>(
-				(T)(forwards.X * pseudoMatrix[0] +
-					forwards.Y * pseudoMatrix[3] +
-					forwards.Z * pseudoMatrix[6]),
-				(T)(forwards.X * pseudoMatrix[1] +
-					forwards.Y * pseudoMatrix[4] +
-					forwards.Z * pseudoMatrix[7]),
-				(T)(forwards.X * pseudoMatrix[2] +
-					forwards.Y * pseudoMatrix[5] +
-					forwards.Z * pseudoMatrix[8]));
-		}*/
-
         static inline vectorSIMDf fromSColor(const video::SColor &col)
         {
             vectorSIMDf retVal;
@@ -920,6 +812,7 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf operator/(const vectorSIMDf& other) const { return preciseDivision(other); }
 		inline vectorSIMD_32<T> operator/(const vectorSIMD_32<T>& other) const { return preciseDivision(other); }
 		inline vectorSIMD_32<T>& operator/=(const vectorSIMD_32<T>& other) { (*this) = preciseDivision(other); return *this; }
+*/
 
 /*
 		//operators against scalars
@@ -1004,12 +897,7 @@ NO BITSHIFTING SUPPORT
 		inline float getLengthAsFloat() const
 		{
 		    __m128 xmm0 = getAsRegister();
-		    float result;/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-            xmm0 = _mm_dp_ps(xmm0,xmm0,);
-		    xmm0 = _mm_sqrt_ps(xmm0);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/ /*
+		    float result;
 #ifdef __IRR_COMPILE_WITH_SSE3
 		    xmm0 = _mm_mul_ps(xmm0,xmm0);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
@@ -1048,11 +936,7 @@ NO BITSHIFTING SUPPORT
 		{
 		    float result;
 		    __m128 xmm0 = getAsRegister();
-		    __m128 xmm1 = other.getAsRegister();/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-            xmm0 = _mm_dp_ps(xmm0,xmm1,);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/ /*
+		    __m128 xmm1 = other.getAsRegister();
 #ifdef __IRR_COMPILE_WITH_SSE3
 		    xmm0 = _mm_mul_ps(xmm0,xmm1);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
@@ -1070,11 +954,7 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf dotProduct(const vectorSIMDf& other) const
 		{
 		    __m128 xmm0 = getAsRegister();
-		    __m128 xmm1 = other.getAsRegister();/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-            xmm0 = _mm_dp_ps(xmm0,xmm1,);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/ /*
+		    __m128 xmm1 = other.getAsRegister();
 #ifdef __IRR_COMPILE_WITH_SSE3
 		    xmm0 = _mm_mul_ps(xmm0,xmm1);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
@@ -1085,7 +965,7 @@ NO BITSHIFTING SUPPORT
 		    return _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
 #endif
 		}
-
+*/
 		//! Get squared length of the vector.
 		/** This is useful because it is much faster than getLength().
 		\return Squared length of the vector. *
@@ -1100,7 +980,7 @@ NO BITSHIFTING SUPPORT
 		{
 		    return dotProduct(*this);
         }
-
+*/
 
 		//! Get distance from another point.
 		/** Here, the vector is interpreted as point in 3 dimensional space. *
@@ -1114,7 +994,7 @@ NO BITSHIFTING SUPPORT
 		{
 			return ((*this)-other).getLength();
 		}
-
+*/
 		//! Returns squared distance from another point.
 		/** Here, the vector is interpreted as point in 3 dimensional space. *
 		inline uint32_t getDistanceFromSQAsFloat(const vectorSIMDf& other) const
@@ -1127,7 +1007,7 @@ NO BITSHIFTING SUPPORT
 		{
 			return ((*this)-other).getLengthSQ();
 		}
-
+*/
 		//! Calculates the cross product with another vector.
 		/** \param p Vector to multiply with.
 		\return Crossproduct of this vector with p. *
@@ -1225,7 +1105,7 @@ NO BITSHIFTING SUPPORT
 		inline explicit vectorSIMDu32(const uint32_t &nx, const uint32_t &ny) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0,0,(const int32_t&)ny,(const int32_t&)nx));}
     };
 
-/*
+
     inline vectorSIMDi32 mix(const vectorSIMDi32& a, const vectorSIMDi32& b, const vectorSIMDf& t)
     {
         return a+(b-a)*t;

@@ -16,17 +16,17 @@ namespace video
 class IShaderStage : public virtual IReferenceCounted
 {
     public:
-        enum E_SHADER_STAGE
+        enum E_SHADER_STAGE_FLAG
         {
-            ESS_VERTEX,
-            ESS_TESS_CONTROL,
-            ESS_TESS_EVAL,
-            ESS_GEOMETRY,
-            ESS_FRAGMENT,
-            ESS_COUNT
+            ESS_INVALID_NONE=0x00u,
+            ESS_VERTEX=0x01u,
+            ESS_TESS_CONTROL=0x02u,
+            ESS_TESS_EVAL=0x04u,
+            ESS_GEOMETRY=0x08u,
+            ESS_FRAGMENT=0x10u
         };
 
-        virtual E_SHADER_STAGE getType() const = 0;
+        virtual E_SHADER_STAGE_FLAG getType() const = 0;
     protected:
 };
 

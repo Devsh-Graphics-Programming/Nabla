@@ -31,7 +31,7 @@ class IGPUBuffer : public core::IBuffer
         virtual bool canUpdateSubRange() const = 0;
 
 		//! @returns True if the buffer is actually a mapped buffer.
-        virtual const bool isMappedBuffer() const = 0;
+        virtual bool isMappedBuffer() const = 0;
     private:
         //
 };

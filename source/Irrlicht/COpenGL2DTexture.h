@@ -21,9 +21,9 @@ public:
 	COpenGL2DTexture(GLenum internalFormat, const uint32_t* size, uint32_t mipmapLevels, const io::path& name="");
 
 	//! Returns size of the texture.
-	virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+	virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
 
-    virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
+    virtual E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
 
 	//! returns the opengl texture type
 	virtual GLenum getOpenGLTextureType() const {return GL_TEXTURE_2D;}

@@ -54,7 +54,7 @@ class COpenGLPersistentlyMappedBuffer : public COpenGLBuffer
 
 
 
-        virtual const bool isMappedBuffer() const {return true;}
+        virtual bool isMappedBuffer() const {return true;}
 
         //! WARNING: RESIZE will invalidate pointer
         //! WARNING: NEED TO FENCE BEFORE USE!!!!!!!!!!!!!

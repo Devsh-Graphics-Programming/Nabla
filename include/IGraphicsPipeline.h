@@ -6,9 +6,10 @@
 #define __I_GRAPHICS_PIPELINE_H_INCLUDED__
 
 #include "stdint.h"
-#include "IReferenceCounted.h"
+#include "IVulkanPrebaked.h"
+#include "IShader.h"
 #include "IMeshBuffer.h"
-#include "IShaderProgram.h"
+#include "IDescriptorSetLayout.h"
 ///#include "SRasterState.h"
 
 namespace irr
@@ -38,17 +39,18 @@ class SFixedFuncLayout
 };
 */
 
-class IGraphicsPipeline : public virtual IReferenceCounted
+class IGraphicsPipeline : public virtual IVulkanPrebaked
 {
     public:
         //
     protected:
-        IGraphicsPipeline() : meshFormatDesc(NULL), shader(NULL)
+        IGraphicsPipeline() : meshFormatDesc(NULL), shader(NULL), descLayout(NULL)
         {
         }
 
+        video::IShader* shader;
         scene::IGPUMeshDataFormatDesc* meshFormatDesc; //vkPipelineVertexInputStateCreateInfo,vkPipelineInputAssemblyStateCreateInfo
-        video::IShaderProgram* shader;
+        video::IDescriptorSetLayout* descLayout;
         ///video::SFixedFuncLayout ffLayout;
 };
 

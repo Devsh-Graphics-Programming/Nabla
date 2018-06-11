@@ -19,7 +19,7 @@ class COpenGLQuery : public virtual IQueryObject
     public:
         COpenGLQuery(const GLenum& type_in);
 
-		virtual const E_QUERY_OBJECT_TYPE getQueryObjectType() const {return cachedIrrType;}
+		virtual E_QUERY_OBJECT_TYPE getQueryObjectType() const {return cachedIrrType;}
 
 		virtual void getQueryResult(uint32_t* queryResult);
 		virtual void getQueryResult(uint64_t* queryResult);

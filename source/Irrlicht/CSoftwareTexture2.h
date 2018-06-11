@@ -35,11 +35,11 @@ public:
 	};
 	CSoftwareTexture2(CImageData* surface, const io::path& name, uint32_t flags);
 
-    virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+    virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
     virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
     virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
-    virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
-    virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
+    virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
+    virtual E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
 	virtual uint32_t getMipMapLevelCount() const {return 1;}
 
 	//! lock function
