@@ -292,7 +292,7 @@ struct matrix3x4SIMD
 		mulSub3x3With3x1(_in_out, _in_out);
 	}
 
-	inline matrix3x4SIMD& buildCameraLookAtMatrixLH(
+	inline static matrix3x4SIMD buildCameraLookAtMatrixLH(
 		const core::vectorSIMDf& position,
 		const core::vectorSIMDf& target,
 		const core::vectorSIMDf& upVector)
@@ -311,7 +311,7 @@ struct matrix3x4SIMD
 
 		return r;
 	}
-	inline matrix3x4SIMD& buildCameraLookAtMatrixRH(
+	inline static matrix3x4SIMD buildCameraLookAtMatrixRH(
 		const core::vectorSIMDf& position,
 		const core::vectorSIMDf& target,
 		const core::vectorSIMDf& upVector)

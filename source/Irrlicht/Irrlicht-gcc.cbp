@@ -267,6 +267,7 @@
 		<Unit filename="../../include/ICameraSceneNode.h" />
 		<Unit filename="../../include/ICursorControl.h" />
 		<Unit filename="../../include/IDescriptorSet.h" />
+		<Unit filename="../../include/IDescriptorSetLayout.h" />
 		<Unit filename="../../include/IDriverFence.h" />
 		<Unit filename="../../include/IDummyTransformationSceneNode.h" />
 		<Unit filename="../../include/IEventReceiver.h" />
