@@ -335,7 +335,7 @@ namespace video
                 uniformBufferObjects.set(first,count,buffers);
             }
 */
-            inline bool setActiveIndirectDrawBuffer(const COpenGLBuffer* buff)
+            inline void setActiveIndirectDrawBuffer(const COpenGLBuffer* buff)
             {
                 indirectDraw.set(buff);
             }
