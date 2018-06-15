@@ -3,8 +3,7 @@
 #include <iostream>
 #include <cstdio>
 
-#include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Irrlicht/COpenGLDriver.h"
 #include "COpenGLStateManager.h"
 
 #include "../ext/AutoExposure/CToneMapper.h"
@@ -358,9 +357,21 @@ int main()
         toneMapper->CalculateFrameExposureFactors(frameUniformBuffer,frameUniformBuffer,hdrTex);
 
 
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,&static_cast<video::COpenGLBuffer*>(frameUniformBuffer)->getOpenGLName());
+        const video::COpenGLDriver::SAuxContext* foundConst = static_cast<video::COpenGLDriver*>(driver)->getThreadContext();
+        video::COpenGLDriver::SAuxContext* found = const_cast<video::COpenGLDriver::SAuxContext*>(foundConst);
+        //set UBO
+        {
+            const video::COpenGLBuffer* buffers[1] = {static_cast<const video::COpenGLBuffer*>(frameUniformBuffer)};
+            ptrdiff_t offsets[1] = {0};
+            ptrdiff_t sizes[1] = {frameUniformBuffer->getSize()};
+            found->setActiveUBO(0,1,buffers,offsets,sizes);
+        }
         driver->setMaterial(postProcMaterial);
         driver->drawMeshBuffer(screenQuadMeshBuffer);
+        //unset UBO
+        {
+            found->setActiveUBO(0,1,nullptr,nullptr,nullptr);
+        }
         video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,NULL);
 
 		driver->endScene();

@@ -2000,42 +2000,65 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
         extGlEndConditionalRender();
 }
 
-/*
-template<GLenum bindType>
-void COpenGLDriver::BoundIndexedBuffer::set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** buffers)
+
+template<GLenum BIND_POINT,size_t BIND_POINTS>
+void COpenGLDriver::SAuxContext::BoundIndexedBuffer<BIND_POINT,BIND_POINTS>::set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
 {
-    GLuint toBind[BIND_POINTS];
-
-    for (uint32_t i=0; i<count; i++)
-    {
-        uint32_t actualIx = i+first;
-
-        if (!buffers || !buffers[i])
-        {
-            if (boundBuffer[actualIx])
-            {
-                boundBuffer[actualIx]->drop();
-                boundBuffer[actualIx] = NULL;
-            }
-
-            if (buffers)
-                toBind[i] = 0;
-        }
-        else
-        {
-
-        }
-    }
-
     if (!buffers)
     {
-        extGlBindBuffersBase(bindType,first,count,NULL);
+        bool needRebind = false;
+
+        for (uint32_t i=0; i<count; i++)
+        {
+            uint32_t actualIx = i+first;
+            if (boundBuffer[actualIx])
+            {
+                needRebind = true;
+                boundBuffer[actualIx]->drop();
+                boundBuffer[actualIx] = nullptr;
+            }
+        }
+
+        if (needRebind)
+            extGlBindBuffersRange(BIND_POINT,first,count,nullptr,nullptr,nullptr);
         return;
     }
 
-    //
+    uint32_t newFirst = BIND_POINTS;
+    uint32_t newLast = 0;
+    GLuint toBind[BIND_POINTS];
+    for (uint32_t i=0; i<count; i++)
+    {
+        toBind[i] = buffers[i] ? buffers[i]->getOpenGLName():0;
+
+        uint32_t actualIx = i+first;
+        if (boundBuffer[actualIx]!=buffers[i])
+        {
+            if (buffers[i])
+                buffers[i]->grab();
+            if (boundBuffer[actualIx])
+                boundBuffer[actualIx]->drop();
+            boundBuffer[actualIx] = buffers[i];
+        }
+        else if (!boundBuffer[actualIx]||boundBuffer[actualIx]->getLastTimeReallocated()<=lastValidatedBuffer[actualIx])
+            continue;
+
+        lastValidatedBuffer[actualIx] = boundBuffer[actualIx]->getLastTimeReallocated();
+
+        newLast = i;
+        if (newFirst==BIND_POINTS)
+            newFirst = i;
+    }
+
+    if (newFirst>newLast)
+        return;
+
+    extGlBindBuffersRange(BIND_POINT,first+newFirst,newLast-newFirst+1,toBind+newFirst,offsets+newFirst,sizes+newFirst);
 }
-*/
+
+template class COpenGLDriver::SAuxContext::BoundIndexedBuffer<GL_SHADER_STORAGE_BUFFER,OGL_MAX_BUFFER_BINDINGS>;
+template class COpenGLDriver::SAuxContext::BoundIndexedBuffer<GL_UNIFORM_BUFFER,OGL_MAX_BUFFER_BINDINGS>;
+
 
 template<GLenum BIND_POINT>
 void COpenGLDriver::SAuxContext::BoundBuffer<BIND_POINT>::set(const COpenGLBuffer* buff)
@@ -2045,7 +2068,7 @@ void COpenGLDriver::SAuxContext::BoundBuffer<BIND_POINT>::set(const COpenGLBuffe
         if (boundBuffer)
         {
             boundBuffer->drop();
-            boundBuffer = NULL;
+            boundBuffer = nullptr;
             extGlBindBuffer(BIND_POINT,0);
         }
 
@@ -2058,15 +2081,12 @@ void COpenGLDriver::SAuxContext::BoundBuffer<BIND_POINT>::set(const COpenGLBuffe
         if (boundBuffer)
             boundBuffer->drop();
         boundBuffer = buff;
+    }
+    else if (!boundBuffer||boundBuffer->getLastTimeReallocated()<=lastValidatedBuffer)
+        return;
 
-        extGlBindBuffer(BIND_POINT,boundBuffer->getOpenGLName());
-        lastValidatedBuffer = boundBuffer->getLastTimeReallocated();
-    }
-    else if (lastValidatedBuffer>boundBuffer->getLastTimeReallocated())
-    {
-        extGlBindBuffer(BIND_POINT,boundBuffer->getOpenGLName());
-        lastValidatedBuffer = boundBuffer->getLastTimeReallocated();
-    }
+    extGlBindBuffer(BIND_POINT,boundBuffer->getOpenGLName());
+    lastValidatedBuffer = boundBuffer->getLastTimeReallocated();
 }
 
 
@@ -2233,7 +2253,7 @@ void COpenGLDriver::SAuxContext::COpenGLVAO::bindBuffers(   const COpenGLBuffer*
     lastValidated = beginStamp;
 }
 
-bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw)
+bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw)
 {
     if (!spec)
     {
@@ -3653,31 +3673,6 @@ void COpenGLDriver::enableClipPlane(uint32_t index, bool enable)
 		glDisable(GL_CLIP_DISTANCE0 + index);
 }
 
-
-
-//! Convert E_PRIMITIVE_TYPE to OpenGL equivalent
-GLenum COpenGLDriver::primitiveTypeToGL(scene::E_PRIMITIVE_TYPE type) const
-{
-	switch (type)
-	{
-		case scene::EPT_POINTS:
-			return GL_POINTS;
-		case scene::EPT_LINE_STRIP:
-			return GL_LINE_STRIP;
-		case scene::EPT_LINE_LOOP:
-			return GL_LINE_LOOP;
-		case scene::EPT_LINES:
-			return GL_LINES;
-		case scene::EPT_TRIANGLE_STRIP:
-			return GL_TRIANGLE_STRIP;
-		case scene::EPT_TRIANGLE_FAN:
-			return GL_TRIANGLE_FAN;
-		case scene::EPT_TRIANGLES:
-			return GL_TRIANGLES;
-	}
-	return GL_TRIANGLES;
-}
-
 /*
 GLenum COpenGLDriver::getGLBlend(E_BLEND_FACTOR factor) const
 {
@@ -3698,27 +3693,6 @@ GLenum COpenGLDriver::getGLBlend(E_BLEND_FACTOR factor) const
 	}
 	return r;
 }*/
-
-GLenum COpenGLDriver::getZBufferBits() const
-{
-	GLenum bits = 0;
-	switch (Params.ZBufferBits)
-	{
-	case 16:
-		bits = GL_DEPTH_COMPONENT16;
-		break;
-	case 24:
-		bits = GL_DEPTH_COMPONENT24;
-		break;
-	case 32:
-		bits = GL_DEPTH_COMPONENT32;
-		break;
-	default:
-		bits = GL_DEPTH_COMPONENT;
-		break;
-	}
-	return bits;
-}
 
 
 } // end namespace

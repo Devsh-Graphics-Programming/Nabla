@@ -286,12 +286,6 @@ namespace video
 		//! Removes a texture from the texture cache and deletes it, freeing lot of memory.
 		void removeTexture(ITexture* texture);
 
-		//! Convert E_PRIMITIVE_TYPE to OpenGL equivalent
-		GLenum primitiveTypeToGL(scene::E_PRIMITIVE_TYPE type) const;
-
-		//! Get ZBuffer bits.
-		GLenum getZBufferBits() const;
-
 		//! sets the needed renderstates
 		void setRenderStates3DMode();
 
@@ -324,23 +318,23 @@ namespace video
                     CurrentSamplerHash[i] = 0xffffffffffffffffuLL;
                 }
             }
-/*
-            inline bool setActiveSSBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** buffers)
+
+            inline bool setActiveSSBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
             {
-                shaderStorageBufferObjects.set(first,count,buffers);
+                shaderStorageBufferObjects.set(first,count,buffers,offsets,sizes);
             }
 
-            inline bool setActiveUBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** buffers)
+            inline bool setActiveUBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
             {
-                uniformBufferObjects.set(first,count,buffers);
+                uniformBufferObjects.set(first,count,buffers,offsets,sizes);
             }
-*/
-            inline void setActiveIndirectDrawBuffer(const COpenGLBuffer* buff)
+
+            inline void setActiveIndirectDrawBuffer(const COpenGLBuffer* const buff)
             {
                 indirectDraw.set(buff);
             }
 
-            bool setActiveVAO(const COpenGLVAOSpec* spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
+            bool setActiveVAO(const COpenGLVAOSpec* const spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
@@ -370,33 +364,33 @@ namespace video
             COpenGLFrameBuffer*         CurrentFBO;
             core::dimension2d<uint32_t> CurrentRendertargetSize;
 
-/*
+
             //! Buffers
-            template<GLenum bindType,size_t BIND_POINTS>
+            template<GLenum BIND_POINT,size_t BIND_POINTS>
             class BoundIndexedBuffer
             {
-                    const COpenGLBuffer* boundBuffers[BIND_POINTS];
+                    const COpenGLBuffer* boundBuffer[BIND_POINTS];
                     uint64_t lastValidatedBuffer[BIND_POINTS];
                 public:
-                    BoundBuffer()
+                    BoundIndexedBuffer()
                     {
-                        memset(boundBuffers,0,sizeof(boundBuffers));
-                        memset(lastValidatedBuffer,0,sizeof(boundBuffers));
+                        memset(boundBuffer,0,sizeof(boundBuffer));
+                        memset(lastValidatedBuffer,0,sizeof(boundBuffer));
                     }
 
-                    ~BoundBuffer()
+                    ~BoundIndexedBuffer()
                     {
-                        set(0,BIND_POINTS,NULL);
+                        set(0,BIND_POINTS,nullptr,nullptr,nullptr);
                     }
 
-                    void set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** buffers);
+                    void set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes);
             };
 
             //! SSBO
             BoundIndexedBuffer<GL_SHADER_STORAGE_BUFFER,OGL_MAX_BUFFER_BINDINGS>    shaderStorageBufferObjects;
             //! UBO
             BoundIndexedBuffer<GL_UNIFORM_BUFFER,OGL_MAX_BUFFER_BINDINGS>           uniformBufferObjects;
-*/
+
             //!
             template<GLenum BIND_POINT>
             class BoundBuffer

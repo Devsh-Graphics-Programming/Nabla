@@ -180,27 +180,34 @@ bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, vi
     params.MaxFilter = video::ETFT_LINEAR_NO_MIP;
     params.MinFilter = video::ETFT_LINEAR_NO_MIP;
     params.UseMipmaps = 0;
-    const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(0,inputTexture,params);
+
+    const video::COpenGLDriver::SAuxContext* foundConst = static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext();
+    video::COpenGLDriver::SAuxContext* found = const_cast<video::COpenGLDriver::SAuxContext*>(foundConst);
+    found->setActiveTexture(0,inputTexture,params);
 
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_histogramProgram);
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,
-                                                          &static_cast<video::COpenGLBuffer*>(m_histogramBuffer)->getOpenGLName());
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,&static_cast<video::COpenGLBuffer*>(uniformBuffer)->getOpenGLName());
+
+    const video::COpenGLBuffer* buffers[2] = {static_cast<const video::COpenGLBuffer*>(m_histogramBuffer),static_cast<const video::COpenGLBuffer*>(outBuffer)};
+    ptrdiff_t offsets[2] = {0,0};
+    ptrdiff_t sizes[2] = {m_histogramBuffer->getSize(),outBuffer->getSize()};
+    found->setActiveSSBO(0,2,buffers,offsets,sizes);
+
+    buffers[0] = static_cast<const video::COpenGLBuffer*>(uniformBuffer);
+    sizes[0] = uniformBuffer->getSize();
+    found->setActiveUBO(0,1,buffers,offsets,sizes);
 
     video::COpenGLExtensionHandler::pGlDispatchCompute(m_workGroupCount[0],m_workGroupCount[1],1);
     video::COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_autoExpParamProgram);
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,1,1,
-                                                          &static_cast<video::COpenGLBuffer*>(outBuffer)->getOpenGLName());
     video::COpenGLExtensionHandler::pGlDispatchCompute(1,1, 1);
 
 
     video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,2,NULL);
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,NULL);
+    found->setActiveSSBO(0,2,nullptr,nullptr,nullptr);
+    found->setActiveUBO(0,1,nullptr,nullptr,nullptr);
     video::COpenGLExtensionHandler::pGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
 
 #ifdef PROFILE_TONEMAPPER
