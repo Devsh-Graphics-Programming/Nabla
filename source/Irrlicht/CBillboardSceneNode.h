@@ -26,7 +26,7 @@ public:
 		video::SColor colorBottom=video::SColor(0xFFFFFFFF));
 
     //!
-    virtual const bool supportsDriverFence() const {return true;}
+    virtual bool supportsDriverFence() const {return true;}
 
 	//! pre render event
 	virtual void OnRegisterSceneNode();

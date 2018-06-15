@@ -28,7 +28,7 @@ class ITransformFeedback : public virtual IReferenceCounted, public core::IThrea
 
         virtual const IGPUBuffer* getOutputBuffer(const size_t &ix) const = 0;
 
-        virtual const size_t getOutputBufferOffset(const size_t &ix) const = 0;
+        virtual size_t getOutputBufferOffset(const size_t &ix) const = 0;
 
         //! Will not take place until material is set which matches
 		virtual void pauseTransformFeedback() = 0;

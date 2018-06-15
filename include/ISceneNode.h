@@ -52,10 +52,10 @@ namespace scene
 		{
 		}
 
-        virtual const bool isISceneNode() const {return true;}
+        virtual bool isISceneNode() const {return true;}
 
 
-        virtual const bool supportsDriverFence() const {return false;}
+        virtual bool supportsDriverFence() const {return false;}
 
         enum E_FENCE_RENDER_BEHAVIOUR
         {

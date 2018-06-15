@@ -34,7 +34,7 @@ namespace scene
                 IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
 
             //!
-            virtual const bool supportsDriverFence() const {return true;}
+            virtual bool supportsDriverFence() const {return true;}
 
             virtual void OnRegisterSceneNode();
 
