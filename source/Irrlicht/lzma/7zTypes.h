@@ -78,7 +78,7 @@ typedef unsigned int UInt32;
 #ifdef _SZ_NO_INT_64
 
 /* define _SZ_NO_INT_64, if your compiler doesn't support 64-bit integers.
-NOTES: Some code will work incorrectly in that case! */
+   NOTES: Some code will work incorrectly in that case! */
 
 typedef long Int64;
 typedef unsigned long UInt64;
@@ -152,7 +152,7 @@ typedef int Bool;
 typedef struct IByteIn IByteIn;
 struct IByteIn
 {
-	Byte(*Read)(const IByteIn *p); /* reads one byte, returns 0 in case of EOF or error */
+  Byte (*Read)(const IByteIn *p); /* reads one byte, returns 0 in case of EOF or error */
 };
 #define IByteIn_Read(p) (p)->Read(p)
 
@@ -160,7 +160,7 @@ struct IByteIn
 typedef struct IByteOut IByteOut;
 struct IByteOut
 {
-	void(*Write)(const IByteOut *p, Byte b);
+  void (*Write)(const IByteOut *p, Byte b);
 };
 #define IByteOut_Write(p, b) (p)->Write(p, b)
 
@@ -168,9 +168,9 @@ struct IByteOut
 typedef struct ISeqInStream ISeqInStream;
 struct ISeqInStream
 {
-	SRes(*Read)(const ISeqInStream *p, void *buf, size_t *size);
-	/* if (input(*size) != 0 && output(*size) == 0) means end_of_stream.
-	(output(*size) < input(*size)) is allowed */
+  SRes (*Read)(const ISeqInStream *p, void *buf, size_t *size);
+    /* if (input(*size) != 0 && output(*size) == 0) means end_of_stream.
+       (output(*size) < input(*size)) is allowed */
 };
 #define ISeqInStream_Read(p, buf, size) (p)->Read(p, buf, size)
 
@@ -183,25 +183,25 @@ SRes SeqInStream_ReadByte(const ISeqInStream *stream, Byte *buf);
 typedef struct ISeqOutStream ISeqOutStream;
 struct ISeqOutStream
 {
-	size_t(*Write)(const ISeqOutStream *p, const void *buf, size_t size);
-	/* Returns: result - the number of actually written bytes.
-	(result < size) means error */
+  size_t (*Write)(const ISeqOutStream *p, const void *buf, size_t size);
+    /* Returns: result - the number of actually written bytes.
+       (result < size) means error */
 };
 #define ISeqOutStream_Write(p, buf, size) (p)->Write(p, buf, size)
 
 typedef enum
 {
-	SZ_SEEK_SET = 0,
-	SZ_SEEK_CUR = 1,
-	SZ_SEEK_END = 2
+  SZ_SEEK_SET = 0,
+  SZ_SEEK_CUR = 1,
+  SZ_SEEK_END = 2
 } ESzSeek;
 
 
 typedef struct ISeekInStream ISeekInStream;
 struct ISeekInStream
 {
-	SRes(*Read)(const ISeekInStream *p, void *buf, size_t *size);  /* same as ISeqInStream::Read */
-	SRes(*Seek)(const ISeekInStream *p, Int64 *pos, ESzSeek origin);
+  SRes (*Read)(const ISeekInStream *p, void *buf, size_t *size);  /* same as ISeqInStream::Read */
+  SRes (*Seek)(const ISeekInStream *p, Int64 *pos, ESzSeek origin);
 };
 #define ISeekInStream_Read(p, buf, size)   (p)->Read(p, buf, size)
 #define ISeekInStream_Seek(p, pos, origin) (p)->Seek(p, pos, origin)
@@ -210,16 +210,16 @@ struct ISeekInStream
 typedef struct ILookInStream ILookInStream;
 struct ILookInStream
 {
-	SRes(*Look)(const ILookInStream *p, const void **buf, size_t *size);
-	/* if (input(*size) != 0 && output(*size) == 0) means end_of_stream.
-	(output(*size) > input(*size)) is not allowed
-	(output(*size) < input(*size)) is allowed */
-	SRes(*Skip)(const ILookInStream *p, size_t offset);
-	/* offset must be <= output(*size) of Look */
+  SRes (*Look)(const ILookInStream *p, const void **buf, size_t *size);
+    /* if (input(*size) != 0 && output(*size) == 0) means end_of_stream.
+       (output(*size) > input(*size)) is not allowed
+       (output(*size) < input(*size)) is allowed */
+  SRes (*Skip)(const ILookInStream *p, size_t offset);
+    /* offset must be <= output(*size) of Look */
 
-	SRes(*Read)(const ILookInStream *p, void *buf, size_t *size);
-	/* reads directly (without buffer). It's same as ISeqInStream::Read */
-	SRes(*Seek)(const ILookInStream *p, Int64 *pos, ESzSeek origin);
+  SRes (*Read)(const ILookInStream *p, void *buf, size_t *size);
+    /* reads directly (without buffer). It's same as ISeqInStream::Read */
+  SRes (*Seek)(const ILookInStream *p, Int64 *pos, ESzSeek origin);
 };
 
 #define ILookInStream_Look(p, buf, size)   (p)->Look(p, buf, size)
@@ -239,15 +239,15 @@ SRes LookInStream_Read(const ILookInStream *stream, void *buf, size_t size);
 
 typedef struct
 {
-	ILookInStream vt;
-	const ISeekInStream *realStream;
-
-	size_t pos;
-	size_t size; /* it's data size */
-
-				 /* the following variables must be set outside */
-	Byte *buf;
-	size_t bufSize;
+  ILookInStream vt;
+  const ISeekInStream *realStream;
+ 
+  size_t pos;
+  size_t size; /* it's data size */
+  
+  /* the following variables must be set outside */
+  Byte *buf;
+  size_t bufSize;
 } CLookToRead2;
 
 void LookToRead2_CreateVTable(CLookToRead2 *p, int lookahead);
@@ -257,8 +257,8 @@ void LookToRead2_CreateVTable(CLookToRead2 *p, int lookahead);
 
 typedef struct
 {
-	ISeqInStream vt;
-	const ILookInStream *realStream;
+  ISeqInStream vt;
+  const ILookInStream *realStream;
 } CSecToLook;
 
 void SecToLook_CreateVTable(CSecToLook *p);
@@ -267,8 +267,8 @@ void SecToLook_CreateVTable(CSecToLook *p);
 
 typedef struct
 {
-	ISeqInStream vt;
-	const ILookInStream *realStream;
+  ISeqInStream vt;
+  const ILookInStream *realStream;
 } CSecToRead;
 
 void SecToRead_CreateVTable(CSecToRead *p);
@@ -278,9 +278,9 @@ typedef struct ICompressProgress ICompressProgress;
 
 struct ICompressProgress
 {
-	SRes(*Progress)(const ICompressProgress *p, UInt64 inSize, UInt64 outSize);
-	/* Returns: result. (result != SZ_OK) means break.
-	Value (UInt64)(Int64)-1 for size means unknown value. */
+  SRes (*Progress)(const ICompressProgress *p, UInt64 inSize, UInt64 outSize);
+    /* Returns: result. (result != SZ_OK) means break.
+       Value (UInt64)(Int64)-1 for size means unknown value. */
 };
 #define ICompressProgress_Progress(p, inSize, outSize) (p)->Progress(p, inSize, outSize)
 
@@ -291,8 +291,8 @@ typedef const ISzAlloc * ISzAllocPtr;
 
 struct ISzAlloc
 {
-	void *(*Alloc)(ISzAllocPtr p, size_t size);
-	void(*Free)(ISzAllocPtr p, void *address); /* address can be 0 */
+  void *(*Alloc)(ISzAllocPtr p, size_t size);
+  void (*Free)(ISzAllocPtr p, void *address); /* address can be 0 */
 };
 
 #define ISzAlloc_Alloc(p, size) (p)->Alloc(p, size)
@@ -307,14 +307,14 @@ struct ISzAlloc
 
 
 #ifndef MY_offsetof
-#ifdef offsetof
-#define MY_offsetof(type, m) offsetof(type, m)
-/*
-#define MY_offsetof(type, m) FIELD_OFFSET(type, m)
-*/
-#else
-#define MY_offsetof(type, m) ((size_t)&(((type *)0)->m))
-#endif
+  #ifdef offsetof
+    #define MY_offsetof(type, m) offsetof(type, m)
+    /*
+    #define MY_offsetof(type, m) FIELD_OFFSET(type, m)
+    */
+  #else
+    #define MY_offsetof(type, m) ((size_t)&(((type *)0)->m))
+  #endif
 #endif
 
 
@@ -329,9 +329,9 @@ struct ISzAlloc
 */
 
 /*
-GCC shows warning: "perhaps the 'offsetof' macro was used incorrectly"
-GCC 3.4.4 : classes with constructor
-GCC 4.8.1 : classes with non-public variable members"
+  GCC shows warning: "perhaps the 'offsetof' macro was used incorrectly"
+    GCC 3.4.4 : classes with constructor
+    GCC 4.8.1 : classes with non-public variable members"
 */
 
 #define MY_container_of(ptr, type, m) ((type *)((char *)(1 ? (ptr) : &((type *)0)->m) - MY_offsetof(type, m)))
