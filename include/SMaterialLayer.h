@@ -11,6 +11,9 @@ namespace irr
 {
 namespace video
 {
+
+#include "irrpack.h"
+
 	//! Struct for holding material parameters which exist per texture layer
 	class SMaterialLayer
 	{
