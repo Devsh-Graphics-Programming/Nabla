@@ -368,11 +368,6 @@ int main()
         }
         driver->setMaterial(postProcMaterial);
         driver->drawMeshBuffer(screenQuadMeshBuffer);
-        //unset UBO
-        {
-            found->setActiveUBO(0,1,nullptr,nullptr,nullptr);
-        }
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,NULL);
 
 		driver->endScene();
 

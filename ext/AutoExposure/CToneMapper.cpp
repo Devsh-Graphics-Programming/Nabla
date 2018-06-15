@@ -206,8 +206,6 @@ bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, vi
 
 
     video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
-    found->setActiveSSBO(0,2,nullptr,nullptr,nullptr);
-    found->setActiveUBO(0,1,nullptr,nullptr,nullptr);
     video::COpenGLExtensionHandler::pGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
 
 #ifdef PROFILE_TONEMAPPER
