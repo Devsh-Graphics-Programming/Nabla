@@ -171,6 +171,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
@@ -202,6 +203,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
@@ -244,6 +246,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <FloatingPointModel>Precise</FloatingPointModel>
       <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
       <SDLCheck>false</SDLCheck>
@@ -287,6 +290,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <FloatingPointModel>Precise</FloatingPointModel>
       <SDLCheck>false</SDLCheck>
       <ControlFlowGuard>false</ControlFlowGuard>
