@@ -719,7 +719,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffe
 	return clone;
 }
 
-size_t cmpfunc_vertsz;
+size_t cmpfunc_vertsz; //! BUG: How do you expect this to run in parallel!?
 int cmpfunc (const void * a, const void * b)
 {
    return memcmp((uint8_t*)a+4,(uint8_t*)b+4,cmpfunc_vertsz);
@@ -813,6 +813,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
 
     uint32_t maxRedirect = 0;
 
+    //! What's the +4 about!?
     uint8_t* epicData = (uint8_t*)malloc((vertexSize+4)*vertexCount);
     for (size_t i=0; i < vertexCount; i++)
     {
@@ -835,9 +836,9 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
     qsort(epicData, vertexCount, vertexSize+4, cmpfunc);
     for (size_t i=0; i<vertexCount; i++)
     {
-        uint32_t redir;
+        uint32_t redir = i;
 
-        void* item = bsearch (origData+(vertexSize+4)*i, epicData, vertexCount, vertexSize+4, cmpfunc);
+        void* item = bsearch(origData+(vertexSize+4)*i, epicData, i, vertexSize+4, cmpfunc); //! TODO: change to some sort of epsilon based comparison
         if( item != NULL )
         {
             redir = *reinterpret_cast<uint32_t*>(item);
@@ -1593,7 +1594,7 @@ std::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfPr
 				if (!(min.pointer[cmpntNum] >= minValueOfTypeFP(*it, cmpntNum) && max.pointer[cmpntNum] <= maxValueOfTypeFP(*it, cmpntNum)))
 				{
 					ok = false;
-					break; // break loop comparing (*it)'s range component by component 
+					break; // break loop comparing (*it)'s range component by component
 				}
 			}
 			if (ok && vertexAttrSize[*it][chosenCpa] <= _sizeThreshold) // vertexAttrSize array defined in IMeshBuffer.h
