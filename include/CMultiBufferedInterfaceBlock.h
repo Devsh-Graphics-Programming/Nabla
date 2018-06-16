@@ -18,32 +18,31 @@ namespace irr
 namespace video
 {
 
-//
+//! This is a WRITE-ONLY class!
 template<class BLOCK_STRUCT, class IGPUBufferTYPE, size_t BUFFER_COUNT>
 class CMultiBufferedInterfaceBlockBase : public virtual IReferenceCounted, public TotalInterface //maybe make non ref-counted in the future
 {
     public:
-        //! Modify data here, be sure to call swap() so GPU sees
+        //! Modify data here, be sure to call swap() after all the writing so GPU sees the changes
         virtual BLOCK_STRUCT& getBackBuffer() = 0;
 
         //! Extra parameters to prevent overwrite when you are using the end of the Struct for GPGPU writes
-        //! `nextOffFence` needs to be a fence associated with the last use of the next buffer (i.e. from BUFFER_COUNT-1 swaps ago)
-        //! `copyOverOldData` has different meanings in different implementations
+        //! `copyOverOldData` means whether you'll need to rewrite the entire backbuffer entirely to get sensible results
+        //! If using `nextOffFence` then it needs to be a fence placed after the use of the buffer at offset `getCurrentBindingOffset()` from at most BUFFER_COUNT-1 (copyOverOldData=false) or BUFFER_COUNT-2 (copyOverOldData=true) swaps ago
         inline bool swap(const size_t& flushRangeStart=0, const size_t& flushRangeEndInclusive=sizeof(BLOCK_STRUCT)-1u, const bool& copyOverOldData=false, video::IDriverFence* nextOffFence=NULL)
         {
 #ifdef _DEBUG
             assert(flushRangeStart<sizeof(BLOCK_STRUCT));
             assert(flushRangeEndInclusive<sizeof(BLOCK_STRUCT));
             assert(flushRangeStart<=flushRangeEndInclusive);
+            assert(!nextOffFence || BUFFER_COUNT>1);
 #endif // _DEBUG
             size_t nextSubBuffer = (currentSubBuffer+1)%BUFFER_COUNT;
-
-            size_t prevBufferOff = offsets[currentSubBuffer];
             size_t nextBufferOff = offsets[nextSubBuffer];
 
             size_t flushRangeEndExclusive = flushRangeEndInclusive+1u;
 
-            if (this->internalSwap(flushRangeStart,flushRangeEndExclusive,copyOverOldData,prevBufferOff,nextBufferOff,nextOffFence))
+            if (this->internalSwap(flushRangeStart,flushRangeEndExclusive,copyOverOldData,nextBufferOff,nextOffFence))
             {
                 currentSubBuffer = nextSubBuffer;
                 return true;
@@ -62,6 +61,7 @@ class CMultiBufferedInterfaceBlockBase : public virtual IReferenceCounted, publi
     protected:
         CMultiBufferedInterfaceBlockBase(IGPUBufferTYPE* inBuffer, const size_t inOffsets[BUFFER_COUNT]) : underlyingBuffer(inBuffer)
         {
+            static_assert(BUFFER_COUNT==0,"What on earth are you doing? Zero Buffering is not acceptable!");
             underlyingBuffer->grab();
             memcpy(offsets,inOffsets,sizeof(offsets));
             currentSubBuffer = BUFFER_COUNT-1;
@@ -72,7 +72,7 @@ class CMultiBufferedInterfaceBlockBase : public virtual IReferenceCounted, publi
         }
 
         //
-        virtual bool internalSwap(const size_t& flushRangeStart, const size_t& flushRangeEndExclusive, const bool& copyOverOldData, const size_t& prevBufferOff, const size_t& nextBufferOff, video::IDriverFence* nextOffFence=NULL) = 0;
+        virtual bool internalSwap(const size_t& flushRangeStart, const size_t& flushRangeEndExclusive, const bool& copyOverOldData, const size_t& nextBufferOff, video::IDriverFence* nextOffFence=NULL) = 0;
 
 
         IGPUBufferTYPE* underlyingBuffer;
@@ -90,6 +90,8 @@ template<class BLOCK_STRUCT, class IGPUBufferTYPE, size_t BUFFER_COUNT> class CM
 template<class BLOCK_STRUCT, size_t BUFFER_COUNT>
 class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> : public CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>
 {
+        typedef CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> specBaseType;
+
     protected:
         CMultiBufferedInterfaceBlock(IGPUBuffer* inBuffer, const size_t inOffsets[BUFFER_COUNT], video::IVideoDriver* inDriver)
             : CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>(inBuffer,inOffsets), m_driver(inDriver) {}
@@ -135,7 +137,6 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> : publi
         }
 
 
-        //! Modify data here, be sure to call swap() so GPU sees
         virtual BLOCK_STRUCT& getBackBuffer() {return interfaceBackBuffer;}
     protected:
         IVideoDriver* m_driver;
@@ -143,50 +144,45 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> : publi
         BLOCK_STRUCT interfaceBackBuffer;
 
 
-        virtual bool internalSwap(const size_t& flushRangeStart, const size_t& flushRangeEndExclusive, const bool& copyOverOldData, const size_t& prevBufferOff, const size_t& nextBufferOff, video::IDriverFence* nextOffFence=NULL)
+        virtual bool internalSwap(const size_t& flushRangeStart, const size_t& flushRangeEndExclusive, const bool& copyOverOldData, const size_t& nextBufferOff, video::IDriverFence* nextOffFence=NULL)
         {
             // don't overwrite a buffer in-flight, make GPU wait
             if (nextOffFence)
                 nextOffFence->waitGPU();
 
-            if (copyOverOldData)
-                copyOverHelperFunc();
-
             if (flushRangeEndExclusive>flushRangeStart)
             {
                 uint8_t* ptr = &interfaceBackBuffer;
                 ptr += flushRangeStart;
-                CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>::underlyingBuffer->updateSubRange(nextBufferOff+flushRangeStart,flushRangeEndExclusive-flushRangeStart,ptr);
+                specBaseType::underlyingBuffer->updateSubRange(nextBufferOff+flushRangeStart,flushRangeEndExclusive-flushRangeStart,ptr);
+            }
+
+            if (copyOverOldData && BUFFER_COUNT>=2)
+            {
+                size_t nextNextBufferOff = specBaseType::offsets[(specBaseType::currentSubBuffer+2)%BUFFER_COUNT];
+                m_driver->bufferCopy(specBaseType::underlyingBuffer,specBaseType::underlyingBuffer,nextBufferOff,nextNextBufferOff,sizeof(BLOCK_STRUCT));
             }
 
             return true;
-        }
-
-        inline void copyOverHelperFunc(const size_t& flushRangeStart, const size_t& flushRangeEndExclusive, const size_t& prevBufferOff, const size_t& nextBufferOff)
-        {
-            if (BUFFER_COUNT<2)
-                return;
-
-            size_t copyStart = flushRangeStart ? 0u:flushRangeEndExclusive;
-            if (copyStart==sizeof(BLOCK_STRUCT)) //everything got overwritten
-                return;
-
-            //! TODO: For very large BLOCK_STRUCT (>8mb but needs benchmark) we should really do two copies if flushed region lies in the middle
-            size_t copyEnd = flushRangeEndExclusive==sizeof(BLOCK_STRUCT) ? flushRangeStart:sizeof(BLOCK_STRUCT);
-            if (copyEnd>copyStart)
-            {
-                auto buff = CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>::underlyingBuffer;
-                m_driver->bufferCopy(buff,buff,prevBufferOff+copyStart,nextBufferOff+copyStart,copyEnd-copyStart);
-            }
         }
 };
 
 template<class BLOCK_STRUCT, size_t BUFFER_COUNT>
 class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> : public CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>
 {
+        typedef CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> specBaseType;
+
     protected:
         CMultiBufferedInterfaceBlock(IGPUMappedBuffer* inBuffer, const size_t inOffsets[BUFFER_COUNT])
-            : CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>(inBuffer,inOffsets) {}
+            : CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>(inBuffer,inOffsets)
+        {
+            /*
+            static_assert(BUFFER_COUNT>=4,
+                "You need at least 3 ranges; one for GPU to read from, one to write to, and one to separate the range GPU reads from the one you are writing to while you're swapping.\
+                If you use a fence to wait then you can get away with 1 or 2.\
+                But GPU buffers frames in advance, so you actually need 4+ .");
+            */
+        }
 
     public:
         static inline CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>* createFromBuffer(IGPUMappedBuffer* alreadyMadeBuffer, const size_t& firstOffset=0)
@@ -222,9 +218,13 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> :
             return new CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>(alreadyMadeBuffer,inOffsets);
         }
 
-        //! only creates the GPU local memory variant, if you want something more advanced, then make the buffer yourself and feed it to createFromBuffer
-        static inline CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>* create(IVideoDriver* driver, const E_GPU_BUFFER_ACCESS &usagePattern, const bool& inCPUMem=true)
+        static inline CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>* create(IVideoDriver* driver, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_WRITE, const bool& inCPUMem=true)
         {
+#ifdef _DEBUG
+            if (usagePattern==EGBA_READ||usagePattern==EGBA_NONE)
+                return nullptr;
+#endif // _DEBUG
+
             IGPUMappedBuffer* tmpBuffer = driver->createPersistentlyMappedBuffer(sizeof(BLOCK_STRUCT)*BUFFER_COUNT,nullptr,usagePattern,true,inCPUMem);
             auto retval =  createFromBuffer(tmpBuffer);
             tmpBuffer->drop();
@@ -232,21 +232,20 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> :
         }
 
 
-        //! Modify data here, be sure to call swap() so GPU sees
         virtual BLOCK_STRUCT& getBackBuffer()
         {
-            uint8_t* dstPtr = CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>::underlyingBuffer->getPointer();
-            dstPtr += CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>::offsets[CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>::currentSubBuffer];
+            size_t nextSubBuff = (specBaseType::currentSubBuffer+1)%BUFFER_COUNT;
+
+            uint8_t* dstPtr = specBaseType::underlyingBuffer->getPointer();
+            dstPtr += specBaseType::offsets[nextSubBuff];
             return *reinterpret_cast<BLOCK_STRUCT*>(dstPtr);
         }
     protected:
-        virtual bool internalSwap(const size_t& flushRangeStart, const size_t& flushRangeEndExclusive, const bool& copyOverOldData, const size_t& prevBufferOff, const size_t& nextBufferOff, video::IDriverFence* nextOffFence=NULL)
+        // If you don't want the buffer contents to be preserved, then don't flush
+        virtual bool internalSwap(const size_t& flushRangeStart, const size_t& flushRangeEndExclusive, const bool& copyOverOldData, const size_t& nextBufferOff, video::IDriverFence* nextOffFence=NULL)
         {
-            auto buff = CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT>::underlyingBuffer;
-            uint8_t* dstPtr= buff->getPointer();
-            const uint8_t* srcPtr = buff->getPointer();
-            dstPtr += nextBufferOff;
-            srcPtr += prevBufferOff;
+            auto buff = specBaseType::underlyingBuffer;
+            uint8_t* basePtr = buff->getPointer();
 
             // don't overwrite a buffer in-flight, make GPU wait
             if (nextOffFence)
@@ -265,29 +264,19 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> :
 
             if (copyOverOldData)
             {
-                //copy front if needed
-                if (flushRangeStart)
-                    mempcpy(dstPtr,srcPtr,flushRangeStart);
-
-                //copy back if needed
-                if (flushRangeEndExclusive!=sizeof(BLOCK_STRUCT))
-                    memcpy(dstPtr+flushRangeEndExclusive,srcPtr+flushRangeEndExclusive,sizeof(BLOCK_STRUCT)-flushRangeEndExclusive);
+                size_t nextNextSubBuffer = (specBaseType::currentSubBuffer+2)%BUFFER_COUNT;
+                memcpy(basePtr+nextNextSubBuffer,basePtr+nextBufferOff,sizeof(BLOCK_STRUCT));
             }
 
-            if (flushRangeEndExclusive>flushRangeStart)
-                mempcpy(dstPtr+flushRangeStart,srcPtr+flushRangeStart,flushRangeEndExclusive-flushRangeStart);
+            //! Flush Dest range on the flushable buffer specialization, it should actually be the other way round
+            //if (flushRangeEndExclusive>flushRangeStart)
+            //    underlyingBuffer->flush(nextBufferOff+flushRangeStart,nextBufferOff+flushRangeEndExclusive);
 
             return true;
         }
 };
 
-//! TODO: Persistent Coherent and Persistent Flushed versions needed.
-/* Notes:
-Persistently Mapped Buffer version will need CPU waiting fence on swap
-    Because we can't track what ranges have been written in a coherent buffer, swap will have to memcpy all of the previous scratch area onto the new one
-    For the flushed variant, we memcpy the whole range anyway because the next scratch area is BUFFER_COUNT flushes behind
-    UNLESS we create a history of flush ranges over the last BUFFER_COUNT swaps and min-max them to cull our memcpy (only useful for large structs, 256kB+)
-*/
+//! TODO: Different Persistent Coherent and Persistent Flushed versions needed.
 
 } // end namespace scene
 } // end namespace irr
