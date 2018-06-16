@@ -246,6 +246,7 @@
 		<Unit filename="../../include/CBlobsLoadingManager.h" />
 		<Unit filename="../../include/CFinalBoneHierarchy.h" />
 		<Unit filename="../../include/CImageData.h" />
+		<Unit filename="../../include/CMultiBufferedInterfaceBlock.h" />
 		<Unit filename="../../include/COpenGLStateManager.h" />
 		<Unit filename="../../include/COpenGLStateManagerImpl.h" />
 		<Unit filename="../../include/ECullingTypes.h" />

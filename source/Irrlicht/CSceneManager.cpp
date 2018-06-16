@@ -857,14 +857,14 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 	case ESNRP_TRANSPARENT:
 		if (!isCulled(node))
 		{
-			TransparentNodeList.push_back(TransparentNodeEntry(node, camWorldPos));
+			TransparentNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
 			taken = 1;
 		}
 		break;
 	case ESNRP_TRANSPARENT_EFFECT:
 		if (!isCulled(node))
 		{
-			TransparentEffectNodeList.push_back(TransparentNodeEntry(node, camWorldPos));
+			TransparentEffectNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
 			taken = 1;
 		}
 		break;
@@ -881,7 +881,7 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 				if (rnd && rnd->isTransparent())
 				{
 					// register as transparent node
-					TransparentNodeEntry e(node, camWorldPos);
+					TransparentNodeEntry e(node, ActiveCamera->getAbsolutePosition());
 					TransparentNodeList.push_back(e);
 					taken = 1;
 					break;
@@ -970,11 +970,9 @@ void CSceneManager::drawAll()
 		First Scene Node for prerendering should be the active camera
 		consistent Camera is needed for culling
 	*/
-	camWorldPos.set(0,0,0);
 	if (ActiveCamera)
 	{
 		ActiveCamera->render();
-		camWorldPos = ActiveCamera->getAbsolutePosition();
 	}
 
 	// let all nodes register themselves

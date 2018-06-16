@@ -20,9 +20,11 @@ namespace video
 
 //! This is a WRITE-ONLY class!
 template<class BLOCK_STRUCT, class IGPUBufferTYPE, size_t BUFFER_COUNT>
-class CMultiBufferedInterfaceBlockBase : public virtual IReferenceCounted, public TotalInterface //maybe make non ref-counted in the future
+class CMultiBufferedInterfaceBlockBase : public virtual IReferenceCounted, public Interface //maybe make non ref-counted in the future
 {
     public:
+        typedef BLOCK_STRUCT InterfaceBlockType;
+
         //! Modify data here, be sure to call swap() after all the writing so GPU sees the changes
         virtual BLOCK_STRUCT& getBackBuffer() = 0;
 
@@ -61,7 +63,7 @@ class CMultiBufferedInterfaceBlockBase : public virtual IReferenceCounted, publi
     protected:
         CMultiBufferedInterfaceBlockBase(IGPUBufferTYPE* inBuffer, const size_t inOffsets[BUFFER_COUNT]) : underlyingBuffer(inBuffer)
         {
-            static_assert(BUFFER_COUNT==0,"What on earth are you doing? Zero Buffering is not acceptable!");
+            static_assert(BUFFER_COUNT>0,"What on earth are you doing? Zero Buffering is not acceptable!");
             underlyingBuffer->grab();
             memcpy(offsets,inOffsets,sizeof(offsets));
             currentSubBuffer = BUFFER_COUNT-1;
@@ -97,12 +99,12 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> : publi
             : CMultiBufferedInterfaceBlockBase<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>(inBuffer,inOffsets), m_driver(inDriver) {}
 
     public:
-        static inline CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>* createFromBuffer(IGPUBuffer* alreadyMadeBuffer, const size_t& firstOffset=0)
+        static inline CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>* createFromBuffer(video::IVideoDriver* driver, IGPUBuffer* alreadyMadeBuffer, const size_t& firstOffset=0)
         {
             if (!alreadyMadeBuffer||!alreadyMadeBuffer->canUpdateSubRange())
                 return nullptr;
 
-            if (firstOffset+sizeof(BLOCK_STRUCT)*BUFFER_COUNT>=alreadyMadeBuffer->getSize())
+            if (firstOffset+sizeof(BLOCK_STRUCT)*BUFFER_COUNT>alreadyMadeBuffer->getSize())
                 return nullptr;
 
             size_t tmpOffsets[BUFFER_COUNT];
@@ -110,28 +112,28 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> : publi
             {
                 tmpOffsets[i] = firstOffset+i*BUFFER_COUNT;
             }
-            return new CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>(alreadyMadeBuffer,tmpOffsets);
+            return new CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>(alreadyMadeBuffer,tmpOffsets,driver);
         }
 
-        static inline CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>* createFromBuffer(IGPUBuffer* alreadyMadeBuffer, const size_t inOffsets[BUFFER_COUNT])
+        static inline CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>* createFromBuffer(video::IVideoDriver* driver, IGPUBuffer* alreadyMadeBuffer, const size_t inOffsets[BUFFER_COUNT])
         {
             if (!alreadyMadeBuffer||!alreadyMadeBuffer->canUpdateSubRange())
                 return nullptr;
 
             for (size_t i=0; i<BUFFER_COUNT; i++)
             {
-                if (inOffsets[i]>=alreadyMadeBuffer->getSize())
+                if (inOffsets[i]+sizeof(BLOCK_STRUCT)>alreadyMadeBuffer->getSize())
                     return nullptr;
             }
 
-            return new CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>(alreadyMadeBuffer,inOffsets);
+            return new CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>(alreadyMadeBuffer,inOffsets,driver);
         }
 
         //! only creates the GPU local memory variant, if you want something more advanced, then make the buffer yourself and feed it to createFromBuffer
         static inline CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>* create(IVideoDriver* driver)
         {
             IGPUBuffer* tmpBuffer = driver->createGPUBuffer(sizeof(BLOCK_STRUCT)*BUFFER_COUNT,nullptr,true);
-            auto retval =  createFromBuffer(tmpBuffer);
+            auto retval =  createFromBuffer(driver,tmpBuffer);
             tmpBuffer->drop();
             return retval;
         }
@@ -152,7 +154,7 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> : publi
 
             if (flushRangeEndExclusive>flushRangeStart)
             {
-                uint8_t* ptr = &interfaceBackBuffer;
+                uint8_t* ptr = reinterpret_cast<uint8_t*>(&interfaceBackBuffer);
                 ptr += flushRangeStart;
                 specBaseType::underlyingBuffer->updateSubRange(nextBufferOff+flushRangeStart,flushRangeEndExclusive-flushRangeStart,ptr);
             }
@@ -193,7 +195,7 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> :
             if (!alreadyMadeBuffer->isMappedBuffer())
                 return nullptr;
 #endif // _DEBUG
-            if (firstOffset+sizeof(BLOCK_STRUCT)*BUFFER_COUNT>=alreadyMadeBuffer->getSize())
+            if (firstOffset+sizeof(BLOCK_STRUCT)*BUFFER_COUNT>alreadyMadeBuffer->getSize())
                 return nullptr;
 
             size_t tmpOffsets[BUFFER_COUNT];
@@ -211,7 +213,7 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> :
 
             for (size_t i=0; i<BUFFER_COUNT; i++)
             {
-                if (inOffsets[i]>=alreadyMadeBuffer->getSize())
+                if (inOffsets[i]+sizeof(BLOCK_STRUCT)>alreadyMadeBuffer->getSize())
                     return nullptr;
             }
 
@@ -236,7 +238,7 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> :
         {
             size_t nextSubBuff = (specBaseType::currentSubBuffer+1)%BUFFER_COUNT;
 
-            uint8_t* dstPtr = specBaseType::underlyingBuffer->getPointer();
+            uint8_t* dstPtr = reinterpret_cast<uint8_t*>(specBaseType::underlyingBuffer->getPointer());
             dstPtr += specBaseType::offsets[nextSubBuff];
             return *reinterpret_cast<BLOCK_STRUCT*>(dstPtr);
         }
@@ -245,7 +247,7 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> :
         virtual bool internalSwap(const size_t& flushRangeStart, const size_t& flushRangeEndExclusive, const bool& copyOverOldData, const size_t& nextBufferOff, video::IDriverFence* nextOffFence=NULL)
         {
             auto buff = specBaseType::underlyingBuffer;
-            uint8_t* basePtr = buff->getPointer();
+            uint8_t* basePtr = reinterpret_cast<uint8_t*>(buff->getPointer());
 
             // don't overwrite a buffer in-flight, make GPU wait
             if (nextOffFence)

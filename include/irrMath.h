@@ -156,9 +156,17 @@ namespace core
 	//! returns linear interpolation of a and b with ratio t
 	//! \return: a if t==0, b if t==1, and the linear interpolation else
 	template<class T>
+	inline T mix(const T& a, const T& b, const float t)
+	{
+		return a + (b-a)*t;
+	}
+
+	//! returns linear interpolation of a and b with ratio t
+	//! \return: a if t==0, b if t==1, and the linear interpolation else
+	template<class T>
 	inline T lerp(const T& a, const T& b, const float t)
 	{
-		return (T)(a*(1.f-t)) + (b*t);
+		return mix(a,b,t);
 	}
 
 	//! clamps a value between low and high

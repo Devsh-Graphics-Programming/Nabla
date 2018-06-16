@@ -425,7 +425,6 @@ namespace scene
 
 		//! current active camera
 		ICameraSceneNode* ActiveCamera;
-		core::vector3df camWorldPos; // Position of camera for transparent nodes.
 
 		video::SColorf AmbientLight;
 
