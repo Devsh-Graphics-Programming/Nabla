@@ -27,7 +27,7 @@ class Uncopyable
 class Interface : public Uncopyable
 {
         _IRR_NO_PUBLIC_DELETE_DEFAULT(Interface);
-    public:
+    protected:
         Interface() = default;
 };
 

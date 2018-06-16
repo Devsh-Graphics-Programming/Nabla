@@ -34,6 +34,7 @@
 #include "coreutil.h"
 #include "dimension2d.h"
 #include "CFinalBoneHierarchy.h"
+#include "CMultiBufferedInterfaceBlock.h"
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "EDriverFeatures.h"
