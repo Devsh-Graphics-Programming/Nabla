@@ -274,7 +274,7 @@ const SViewFrustum* CCameraSceneNode::getViewFrustum() const
 
 void CCameraSceneNode::recalculateViewArea()
 {
-	ViewArea.cameraPosition = getAbsolutePosition();
+	ViewArea.cameraPosition.getAsVector3df() = getAbsolutePosition();
 
 	ViewArea.setFrom(concatMatrix);
 }

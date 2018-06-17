@@ -357,11 +357,19 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf& set(const vector2df &p) {_mm_store_ps(pointer,_mm_loadu_ps(&p.X)); makeSafe2D(); return *this;}
 
         //! going directly from vectorSIMD to irrlicht types is safe cause vectorSIMDf is wider
-		inline vector2df getAsVector2df(void) const
+		inline vector2df& getAsVector2df(void)
 		{
 		    return *((vector2df*)pointer);
 		}
-		inline vector3df getAsVector3df(void) const
+		inline const vector2df& getAsVector2df(void) const
+		{
+		    return *((vector2df*)pointer);
+		}
+		inline vector3df& getAsVector3df(void)
+		{
+		    return *((vector3df*)pointer);
+		}
+		inline const vector3df& getAsVector3df(void) const
 		{
 		    return *((vector3df*)pointer);
 		}

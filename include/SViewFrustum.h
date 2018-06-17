@@ -6,7 +6,7 @@
 #define __S_VIEW_FRUSTUM_H_INCLUDED__
 
 #include "plane3d.h"
-#include "vector3d.h"
+#include "vectorSIMD.h"
 #include "line3d.h"
 #include "aabbox3d.h"
 #include "matrix4.h"
@@ -65,28 +65,28 @@ namespace scene
 		void transform(const core::matrix4& mat);
 
 		//! @returns the point which is on the far left upper corner inside the the view frustum.
-		core::vector3df getFarLeftUp() const;
+		core::vector3df_SIMD getFarLeftUp() const;
 
 		//! @returns the point which is on the far left bottom corner inside the the view frustum.
-		core::vector3df getFarLeftDown() const;
+		core::vector3df_SIMD getFarLeftDown() const;
 
 		//! @returns the point which is on the far right top corner inside the the view frustum.
-		core::vector3df getFarRightUp() const;
+		core::vector3df_SIMD getFarRightUp() const;
 
 		//! @returns the point which is on the far right bottom corner inside the the view frustum.
-		core::vector3df getFarRightDown() const;
+		core::vector3df_SIMD getFarRightDown() const;
 
 		//! @returns the point which is on the near left upper corner inside the the view frustum.
-		core::vector3df getNearLeftUp() const;
+		core::vector3df_SIMD getNearLeftUp() const;
 
 		//! @returns the point which is on the near left bottom corner inside the the view frustum.
-		core::vector3df getNearLeftDown() const;
+		core::vector3df_SIMD getNearLeftDown() const;
 
 		//! @returns the point which is on the near right top corner inside the the view frustum.
-		core::vector3df getNearRightUp() const;
+		core::vector3df_SIMD getNearRightUp() const;
 
 		//! @returns the point which is on the near right bottom corner inside the the view frustum.
-		core::vector3df getNearRightDown() const;
+		core::vector3df_SIMD getNearRightDown() const;
 
 		//! @returns a bounding box enclosing the whole view frustum.
 		const core::aabbox3d<float> &getBoundingBox() const;
@@ -103,7 +103,7 @@ namespace scene
 		bool cullPoint(const core::vector3d<float>& point) const;
 
 		//! The position of the camera.
-		core::vector3df cameraPosition;
+		core::vector3df_SIMD cameraPosition;
 
 		//! All planes enclosing the view frustum.
 		core::plane3d<float> planes[VF_PLANE_COUNT];
@@ -136,87 +136,87 @@ namespace scene
 		for (uint32_t i=0; i<VF_PLANE_COUNT; ++i)
 			mat.transformPlane(planes[i]);
 
-		mat.transformVect(cameraPosition);
+		mat.transformVect(cameraPosition.getAsVector3df());
 		recalculateBoundingBox();
 	}
 
 
-	inline core::vector3df SViewFrustum::getFarLeftUp() const
+	inline core::vector3df_SIMD SViewFrustum::getFarLeftUp() const
 	{
-		core::vector3df p;
+		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_FAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_TOP_PLANE],
-			planes[scene::SViewFrustum::VF_LEFT_PLANE], p);
+			planes[scene::SViewFrustum::VF_LEFT_PLANE], p.getAsVector3df());
 
 		return p;
 	}
 
-	inline core::vector3df SViewFrustum::getFarLeftDown() const
+	inline core::vector3df_SIMD SViewFrustum::getFarLeftDown() const
 	{
-		core::vector3df p;
+		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_FAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_BOTTOM_PLANE],
-			planes[scene::SViewFrustum::VF_LEFT_PLANE], p);
+			planes[scene::SViewFrustum::VF_LEFT_PLANE], p.getAsVector3df());
 
 		return p;
 	}
 
-	inline core::vector3df SViewFrustum::getFarRightUp() const
+	inline core::vector3df_SIMD SViewFrustum::getFarRightUp() const
 	{
-		core::vector3df p;
+		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_FAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_TOP_PLANE],
-			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p);
+			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p.getAsVector3df());
 
 		return p;
 	}
 
-	inline core::vector3df SViewFrustum::getFarRightDown() const
+	inline core::vector3df_SIMD SViewFrustum::getFarRightDown() const
 	{
-		core::vector3df p;
+		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_FAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_BOTTOM_PLANE],
-			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p);
+			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p.getAsVector3df());
 
 		return p;
 	}
 
-	inline core::vector3df SViewFrustum::getNearLeftUp() const
+	inline core::vector3df_SIMD SViewFrustum::getNearLeftUp() const
 	{
-		core::vector3df p;
+		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_NEAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_TOP_PLANE],
-			planes[scene::SViewFrustum::VF_LEFT_PLANE], p);
+			planes[scene::SViewFrustum::VF_LEFT_PLANE], p.getAsVector3df());
 
 		return p;
 	}
 
-	inline core::vector3df SViewFrustum::getNearLeftDown() const
+	inline core::vector3df_SIMD SViewFrustum::getNearLeftDown() const
 	{
-		core::vector3df p;
+		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_NEAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_BOTTOM_PLANE],
-			planes[scene::SViewFrustum::VF_LEFT_PLANE], p);
+			planes[scene::SViewFrustum::VF_LEFT_PLANE], p.getAsVector3df());
 
 		return p;
 	}
 
-	inline core::vector3df SViewFrustum::getNearRightUp() const
+	inline core::vector3df_SIMD SViewFrustum::getNearRightUp() const
 	{
-		core::vector3df p;
+		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_NEAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_TOP_PLANE],
-			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p);
+			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p.getAsVector3df());
 
 		return p;
 	}
 
-	inline core::vector3df SViewFrustum::getNearRightDown() const
+	inline core::vector3df_SIMD SViewFrustum::getNearRightDown() const
 	{
-		core::vector3df p;
+		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_NEAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_BOTTOM_PLANE],
-			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p);
+			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p.getAsVector3df());
 
 		return p;
 	}
@@ -228,12 +228,12 @@ namespace scene
 
 	inline void SViewFrustum::recalculateBoundingBox()
 	{
-		boundingBox.reset ( cameraPosition );
+		boundingBox.reset ( cameraPosition.getAsVector3df() );
 
-		boundingBox.addInternalPoint(getFarLeftUp());
-		boundingBox.addInternalPoint(getFarRightUp());
-		boundingBox.addInternalPoint(getFarLeftDown());
-		boundingBox.addInternalPoint(getFarRightDown());
+		boundingBox.addInternalPoint(getFarLeftUp().getAsVector3df());
+		boundingBox.addInternalPoint(getFarRightUp().getAsVector3df());
+		boundingBox.addInternalPoint(getFarLeftDown().getAsVector3df());
+		boundingBox.addInternalPoint(getFarRightDown().getAsVector3df());
 	}
 
 	//! This constructor creates a view frustum based on a projection

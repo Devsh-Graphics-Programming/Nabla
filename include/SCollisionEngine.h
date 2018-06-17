@@ -39,9 +39,9 @@ class SCollisionEngine
 
             const scene::SViewFrustum* f = camera->getViewFrustum();
 
-            vector3df farLeftUp = f->getFarLeftUp();
-            vector3df lefttoright = f->getFarRightUp() - farLeftUp;
-            vector3df uptodown = f->getFarLeftDown() - farLeftUp;
+            vector3df_SIMD farLeftUp = f->getFarLeftUp();
+            vector3df_SIMD lefttoright = f->getFarRightUp() - farLeftUp;
+            vector3df_SIMD uptodown = f->getFarLeftDown() - farLeftUp;
 
             const rect<int32_t>& viewPort = driver->getViewPort();
             dimension2d<uint32_t> screenSize(viewPort.getWidth(), viewPort.getHeight());
@@ -52,9 +52,9 @@ class SCollisionEngine
             dy /= (float)screenSize.Height;
 
             if (camera->isOrthogonal())
-                origin.set(f->cameraPosition + lefttoright * (dx-0.5f) + uptodown * (dy-0.5f));
+                origin = f->cameraPosition + lefttoright * (dx-0.5f) + uptodown * (dy-0.5f);
             else
-                origin.set(f->cameraPosition);
+                origin = f->cameraPosition;
 
             direction.set(farLeftUp + lefttoright * dx + uptodown * dy);
             direction -= origin;
