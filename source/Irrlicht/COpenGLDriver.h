@@ -293,6 +293,9 @@ namespace video
 		const size_t& getMaxConcurrentShaderInvocations() const {return maxConcurrentShaderInvocations;}
 
 		//!
+		const uint32_t& getMaxShaderComputeUnits() const {return maxShaderComputeUnits;}
+
+		//!
 		const size_t& getMaxShaderInvocationsPerALU() const {return maxALUShaderInvocations;}
 
 #ifdef _IRR_COMPILE_WITH_OPENCL_
@@ -319,12 +322,12 @@ namespace video
                 }
             }
 
-            inline bool setActiveSSBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
+            inline void setActiveSSBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
             {
                 shaderStorageBufferObjects.set(first,count,buffers,offsets,sizes);
             }
 
-            inline bool setActiveUBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
+            inline void setActiveUBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
             {
                 uniformBufferObjects.set(first,count,buffers,offsets,sizes);
             }
@@ -646,6 +649,7 @@ namespace video
 
         size_t maxALUShaderInvocations;
         size_t maxConcurrentShaderInvocations;
+        uint32_t maxShaderComputeUnits;
 #ifdef _IRR_COMPILE_WITH_OPENCL_
         cl_device_id clDevice;
         size_t clPlatformIx, clDeviceIx;

@@ -34,6 +34,18 @@ namespace video
 		//! Whether we can indirectly tell how many indirect draws to issue (rather than issuing 0 triangle draw calls)
 		EVDF_MULTI_DRAW_INDIRECT_COUNT,
 
+		//! Whether we can know if the whole warp has a condition true, false, mixed, etc. NV_gpu_shader5 or ARB_shader_group_vote
+		EVDF_SHADER_GROUP_VOTE,
+
+		//! Whether we can know the warp/wavefront size and use ballot operations etc. NV_shader_thread_group or ARB_shader_ballot
+		EVDF_SHADER_GROUP_BALLOT,
+
+		//! Whether we can use Kepler-style shuffle instructions in a shader NV_shader_thread_shuffle
+		EVDF_SHADER_GROUP_SHUFFLE,
+
+		//! Whether we can force overlapping pixels to not rasterize in parallel, INTEL_fragment_shader_ordering, NV_fragment_shader_interlock or ARB_fragment_shader_interlock
+		EVDF_FRAGMENT_SHADER_INTERLOCK,
+
 		//other feature ideas are; bindless, sparse texture, sparse texture 2
 
 		//! Only used for counting the elements of this enum

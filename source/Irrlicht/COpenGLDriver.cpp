@@ -807,8 +807,9 @@ bool COpenGLDriver::genericDriverInit()
 	}
 
 
-    maxConcurrentShaderInvocations = 0;
-    maxALUShaderInvocations = 0;
+    maxConcurrentShaderInvocations = 4;
+    maxALUShaderInvocations = 4;
+    maxShaderComputeUnits = 1;
 #ifdef _IRR_COMPILE_WITH_OPENCL_
     clPlatformIx = 0xdeadbeefu;
     clDeviceIx = 0xdeadbeefu;
@@ -823,6 +824,7 @@ bool COpenGLDriver::genericDriverInit()
                 clPlatformIx = i;
                 clDeviceIx = j;
                 maxALUShaderInvocations = platform.deviceInformation[j].MaxWorkGroupSize;
+                maxShaderComputeUnits = platform.deviceInformation[j].MaxComputeUnits;
                 maxConcurrentShaderInvocations = platform.deviceInformation[j].ProbableUnifiedShaders;
                 break;
             }
