@@ -124,7 +124,7 @@ int main()
     scene::ICPUMesh* cpumesh = smgr->getGeometryCreator()->createCubeMeshCPU();
     video::ITexture* texture = driver->getTexture("../tex.jpg");
 
-    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver);
+    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 4u, { 728u, 728u });
     video::ITexture* newTexture = blur->createBlurredTexture(texture);
     cpumesh->getMeshBuffer(0)->getMaterial().setTexture(0, newTexture);
     blur->drop();
