@@ -33,7 +33,7 @@ class COpenGLTransformFeedback : public ITransformFeedback
             return xformFeedbackBuffers[ix];
         }
 
-        virtual const size_t getOutputBufferOffset(const size_t &ix) const
+        virtual size_t getOutputBufferOffset(const size_t &ix) const
         {
             if (ix>=_IRR_XFORM_FEEDBACK_MAX_BUFFERS_)
                 return 0;

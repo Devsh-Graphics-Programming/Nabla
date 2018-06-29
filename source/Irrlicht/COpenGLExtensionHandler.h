@@ -108,6 +108,7 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_fragment_program",
 	"GL_ARB_fragment_program_shadow",
 	"GL_ARB_fragment_shader",
+	"GL_ARB_fragment_shader_interlock",
 	"GL_ARB_framebuffer_object",
 	"GL_ARB_framebuffer_sRGB",
 	"GL_ARB_get_program_binary",
@@ -142,7 +143,10 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_seamless_cube_map",
 	"GL_ARB_separate_shader_objects",
 	"GL_ARB_shader_atomic_counters",
+	"GL_ARB_shader_ballot",
 	"GL_ARB_shader_bit_encoding",
+	"GL_ARB_shader_draw_parameters",
+	"GL_ARB_shader_group_vote",
 	"GL_ARB_shader_image_load_store",
 	"GL_ARB_shader_objects",
 	"GL_ARB_shader_precision",
@@ -327,6 +331,7 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_INGR_color_clamp",
 	"GL_INGR_interlace_read",
 	"GL_INGR_palette_buffer",
+	"GL_INTEL_fragment_shader_interlock",
 	"GL_INTEL_parallel_arrays",
 	"GL_INTEL_texture_scissor",
 	"GL_KHR_debug",
@@ -350,6 +355,7 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_NV_fragment_program2",
 	"GL_NV_fragment_program4",
 	"GL_NV_fragment_program_option",
+	"GL_NV_fragment_shader_interlock",
 	"GL_NV_framebuffer_multisample_coverage",
 	"GL_NV_geometry_program4",
 	"GL_NV_geometry_shader4",
@@ -372,6 +378,8 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_NV_register_combiners2",
 	"GL_NV_shader_buffer_load",
 	"GL_NV_shader_buffer_store",
+	"GL_NV_shader_thread_group",
+	"GL_NV_shader_thread_shuffle",
 	"GL_NV_tessellation_program5",
 	"GL_NV_texgen_emboss",
 	"GL_NV_texgen_reflection",
@@ -545,6 +553,7 @@ class COpenGLExtensionHandler
 		IRR_ARB_fragment_program,
 		IRR_ARB_fragment_program_shadow,
 		IRR_ARB_fragment_shader,
+		IRR_ARB_fragment_shader_interlock,
 		IRR_ARB_framebuffer_object,
 		IRR_ARB_framebuffer_sRGB,
 		IRR_ARB_geometry_shader4,
@@ -579,7 +588,10 @@ class COpenGLExtensionHandler
 		IRR_ARB_seamless_cube_map,
 		IRR_ARB_separate_shader_objects,
 		IRR_ARB_shader_atomic_counters,
+		IRR_ARB_shader_ballot,
 		IRR_ARB_shader_bit_encoding,
+		IRR_ARB_shader_draw_parameters,
+		IRR_ARB_shader_group_vote,
 		IRR_ARB_shader_image_load_store,
 		IRR_ARB_shader_objects,
 		IRR_ARB_shader_precision,
@@ -764,6 +776,7 @@ class COpenGLExtensionHandler
 		IRR_INGR_color_clamp,
 		IRR_INGR_interlace_read,
 		IRR_INGR_palette_buffer,
+		IRR_INTEL_fragment_shader_ordering,
 		IRR_INTEL_parallel_arrays,
 		IRR_INTEL_texture_scissor,
 		IRR_KHR_debug,
@@ -787,6 +800,7 @@ class COpenGLExtensionHandler
 		IRR_NV_fragment_program2,
 		IRR_NV_fragment_program4,
 		IRR_NV_fragment_program_option,
+		IRR_NV_fragment_shader_interlock,
 		IRR_NV_framebuffer_multisample_coverage,
 		IRR_NV_geometry_program4,
 		IRR_NV_geometry_shader4,
@@ -809,6 +823,8 @@ class COpenGLExtensionHandler
 		IRR_NV_register_combiners2,
 		IRR_NV_shader_buffer_load,
 		IRR_NV_shader_buffer_store,
+		IRR_NV_shader_thread_group,
+		IRR_NV_shader_thread_shuffle,
 		IRR_NV_tessellation_program5,
 		IRR_NV_texgen_emboss,
 		IRR_NV_texgen_reflection,
@@ -978,6 +994,9 @@ class COpenGLExtensionHandler
 	static uint32_t MaxXFormFeedbackComponents;
 	//!
 	static uint32_t MaxGPUWaitTimeout;
+	//! Gives the upper and lower bound on warp/wavefront/SIMD-lane size
+	static uint32_t InvocationSubGroupSize[2];
+
 	//! Minimal and maximal supported thickness for lines without smoothing
 	GLfloat DimAliasedLine[2];
 	//! Minimal and maximal supported thickness for points without smoothing

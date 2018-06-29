@@ -55,6 +55,30 @@ namespace video
     };
 
 
+    //! Convert E_PRIMITIVE_TYPE to OpenGL equivalent
+    inline GLenum primitiveTypeToGL(scene::E_PRIMITIVE_TYPE type)
+    {
+        switch (type)
+        {
+            case scene::EPT_POINTS:
+                return GL_POINTS;
+            case scene::EPT_LINE_STRIP:
+                return GL_LINE_STRIP;
+            case scene::EPT_LINE_LOOP:
+                return GL_LINE_LOOP;
+            case scene::EPT_LINES:
+                return GL_LINES;
+            case scene::EPT_TRIANGLE_STRIP:
+                return GL_TRIANGLE_STRIP;
+            case scene::EPT_TRIANGLE_FAN:
+                return GL_TRIANGLE_FAN;
+            case scene::EPT_TRIANGLES:
+                return GL_TRIANGLES;
+        }
+        return GL_TRIANGLES;
+    }
+
+
     class COpenGLVAOSpec : public scene::IGPUMeshDataFormatDesc
     {
         public:

@@ -241,7 +241,7 @@ P.S. Maybe Ghost == Pending
 
 	const uint32_t OGL_STATE_MAX_SAMPLE_MASK_WORDS = 4;
 
-	const uint32_t OGL_MAX_BUFFER_BINDINGS = 96;
+	const uint32_t OGL_MAX_BUFFER_BINDINGS = 16; //! should be 96
 
 	const uint8_t OGL_MAX_ENDISABLEI_INDICES = 16;//std::max(OGL_STATE_MAX_VIEWPORTS,OGL_STATE_MAX_DRAW_BUFFERS);
 	const uint32_t OGL_STATE_MAX_IMAGES = 8; //! Should be 192

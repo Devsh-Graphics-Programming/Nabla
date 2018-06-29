@@ -154,18 +154,19 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 	// Translation ---------------------------------
 
 	core::vector3df translate(OldTarget);
-	const core::vector3df upVector(camera->getUpVector());
-	const core::vector3df target = camera->getTarget();
 
-	core::vector3df pos = camera->getPosition();
-	core::vector3df tvectX = pos - target;
-	tvectX = tvectX.crossProduct(upVector);
-	tvectX.normalize();
+	core::vector3df_SIMD target,upVector;
+	upVector.getAsVector3df() = camera->getUpVector();
+	target.getAsVector3df() = camera->getTarget();
+
+	core::vector3df_SIMD pos,tvectX;
+	pos.getAsVector3df() = camera->getPosition();
+	tvectX = pos - target;
+	tvectX = normalize(cross(tvectX,upVector));
 
 	const SViewFrustum* const va = camera->getViewFrustum();
-	core::vector3df tvectY = (va->getFarLeftDown() - va->getFarRightDown());
-	tvectY = tvectY.crossProduct(upVector.Y > 0 ? pos - target : target - pos);
-	tvectY.normalize();
+	core::vector3df_SIMD tvectY = (va->getFarLeftDown() - va->getFarRightDown());
+	tvectY = normalize(cross(tvectY,upVector.Y > 0 ? pos - target : target - pos));
 
 	if (isMouseKeyDown(2) && !Zooming)
 	{
@@ -176,14 +177,14 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 		}
 		else
 		{
-			translate +=  tvectX * (TranslateStart.X - MousePos.X)*TranslateSpeed +
-			              tvectY * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
+			translate +=  tvectX.getAsVector3df() * (TranslateStart.X - MousePos.X)*TranslateSpeed +
+			              tvectY.getAsVector3df() * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
 		}
 	}
 	else if (Translating)
 	{
-		translate += tvectX * (TranslateStart.X - MousePos.X)*TranslateSpeed +
-		             tvectY * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
+		translate += tvectX.getAsVector3df() * (TranslateStart.X - MousePos.X)*TranslateSpeed +
+		             tvectY.getAsVector3df() * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
 		OldTarget = translate;
 		Translating = false;
 	}
@@ -216,22 +217,22 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 
 	// Set pos ------------------------------------
 
-	pos = translate;
+	pos.getAsVector3df() = translate;
 	pos.X += nZoom;
 
-	pos.rotateXYBy(nRotY, translate);
-	pos.rotateXZBy(-nRotX, translate);
+	pos.getAsVector3df().rotateXYBy(nRotY, translate);
+	pos.getAsVector3df().rotateXZBy(-nRotX, translate);
 
-	camera->setPosition(pos);
+	camera->setPosition(pos.getAsVector3df());
 	camera->setTarget(translate);
 
 	// Rotation Error ----------------------------
 
 	// jox: fixed bug: jitter when rotating to the top and bottom of y
 	pos.set(0,1,0);
-	pos.rotateXYBy(-nRotY);
-	pos.rotateXZBy(-nRotX+180.f);
-	camera->setUpVector(pos);
+	pos.getAsVector3df().rotateXYBy(-nRotY);
+	pos.getAsVector3df().rotateXZBy(-nRotX+180.f);
+	camera->setUpVector(pos.getAsVector3df());
 	LastCameraTarget = camera->getTarget();
 }
 

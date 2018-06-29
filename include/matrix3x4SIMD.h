@@ -14,13 +14,13 @@ struct matrix3x4SIMD
 	core::vectorSIMDf rows[3];
 
 #define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff))
-	explicit matrix3x4SIMD(const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f), const vectorSIMDf& _r1 = vectorSIMDf(0.f, 1.f, 0.f, 0.f), const vectorSIMDf& _r2 = vectorSIMDf(0.f, 0.f, 1.f, 0.f)) 
+	explicit matrix3x4SIMD(const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f), const vectorSIMDf& _r1 = vectorSIMDf(0.f, 1.f, 0.f, 0.f), const vectorSIMDf& _r2 = vectorSIMDf(0.f, 0.f, 1.f, 0.f))
 		: rows{_r0, _r1, _r2} {}
 
 	matrix3x4SIMD(
 		float _a00, float _a01, float _a02, float _a03,
 		float _a10, float _a11, float _a12, float _a13,
-		float _a20, float _a21, float _a22, float _a23) 
+		float _a20, float _a21, float _a22, float _a23)
 	: matrix3x4SIMD(vectorSIMDf(_a00, _a01, _a02, _a03), vectorSIMDf(_a10, _a11, _a12, _a13), vectorSIMDf(_a20, _a21, _a22, _a23))
 	{
 	}
@@ -239,9 +239,9 @@ struct matrix3x4SIMD
 	inline void transformVect(float* _out, const float* _in) const
 	{
 		vectorSIMDf vec(_in);
-		vectorSIMDf r0 = rows[0] * vec, 
-			r1 = rows[1] * vec, 
-			r2 = rows[2] * vec, 
+		vectorSIMDf r0 = rows[0] * vec,
+			r1 = rows[1] * vec,
+			r2 = rows[2] * vec,
 			r3;
 
 		float res[4];
@@ -292,7 +292,7 @@ struct matrix3x4SIMD
 		mulSub3x3With3x1(_in_out, _in_out);
 	}
 
-	inline matrix3x4SIMD& buildCameraLookAtMatrixLH(
+	inline static matrix3x4SIMD buildCameraLookAtMatrixLH(
 		const core::vectorSIMDf& position,
 		const core::vectorSIMDf& target,
 		const core::vectorSIMDf& upVector)
@@ -311,7 +311,7 @@ struct matrix3x4SIMD
 
 		return r;
 	}
-	inline matrix3x4SIMD& buildCameraLookAtMatrixRH(
+	inline static matrix3x4SIMD buildCameraLookAtMatrixRH(
 		const core::vectorSIMDf& position,
 		const core::vectorSIMDf& target,
 		const core::vectorSIMDf& upVector)
@@ -386,7 +386,7 @@ struct matrix3x4SIMD
     }
 #undef BUILD_XORMASKF
 
-	inline bool getInverse(matrix3x4SIMD& _out) const
+	inline bool getInverse(matrix3x4SIMD& _out) const //! SUBOPTIMAL - OPTIMIZE!
 	{
 		vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 		core::transpose4(c0, c1, c2, c3);
@@ -422,7 +422,7 @@ struct matrix3x4SIMD
 		return false;
 	}
 
-	inline bool getSub3x3Inverse(float* _out) const
+	inline bool getSub3x3Inverse(float* _out) const //! TODO: remove
 	{
 		vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 		core::transpose4(c0, c1, c2, c3);
@@ -583,34 +583,38 @@ __attribute__((__aligned__(SIMD_ALIGNMENT)));
 #endif
 ;
 
-inline void transformPlane(const plane3df& _in, plane3df& _out, const matrix3x4SIMD& _mat)
+inline plane3df transformPlane(const plane3df& _in, const matrix3x4SIMD& _mat)
 {
-	matrix3x4SIMD inv;
-	_mat.getInverse(inv);
+    matrix3x4SIMD inv;
+    _mat.getInverse(inv);
 
-	vectorSIMDf& c0 = inv.rows[0], &c1 = inv.rows[1], &c2 = inv.rows[2];
-	vectorSIMDf c3(0.f, 0.f, 0.f, 1.f);
-	core::transpose4(c0, c1, c2, c3);
+    vectorSIMDf normal(&_in.Normal.X);
+    normal.makeSafe3D();
 
-	const vectorSIMDf normal(_in.Normal.X, _in.Normal.Y, _in.Normal.Z, 0.f);
-
-	_out.Normal.X = normal.dotProductAsFloat(c0);
-	_out.Normal.Y = normal.dotProductAsFloat(c1);
-	_out.Normal.Z = normal.dotProductAsFloat(c2);
-	_out.D = normal.dotProductAsFloat(c3) + _in.D;
+    plane3df _out;
+    _out.Normal = (inv.rows[0]*normal.xxxw()+inv.rows[1]*normal.yyyw()+inv.rows[2]*normal.zzzw()).getAsVector3df();
+    _out.D = normal.dotProductAsFloat(inv.getTranslation()) + _in.D;
+    return _out;
 }
 
-inline void transformBoxEx(aabbox3df& box, const matrix3x4SIMD& _mat)
+inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
 {
-	float min[4]{ 0.f, 0.f, 0.f, 1.f }, max[4]{ 0.f, 0.f, 0.f, 1.f };
-	memcpy(min, &box.MinEdge.X, 3 * 4);
-	memcpy(max, &box.MaxEdge.X, 3 * 4);
+    vectorSIMDf inMinPt(&box.MinEdge.X);
+    vectorSIMDf inMaxPt(&box.MaxEdge.X);
+    inMinPt.makeSafe3D();
+    inMaxPt.makeSafe3D();
 
-	_mat.transformVect(min);
-	_mat.transformVect(max);
+    vectorSIMDf c0 = _mat.rows[0], c1 = _mat.rows[1], c2 = _mat.rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
+    transpose4(c0, c1, c2, c3);
 
-	memcpy(&box.MinEdge.X, min, 3 * 4);
-	memcpy(&box.MaxEdge.Y, max, 3 * 4);
+    const vectorSIMDf zero;
+    vectorSIMDf minPt = c0*mix(inMinPt.xxxw(),inMaxPt.xxxw(),c0<zero)+c1*mix(inMinPt.yyyw(),inMaxPt.yyyw(),c1<zero)+c2*mix(inMinPt.zzzw(),inMaxPt.zzzw(),c2<zero);
+    vectorSIMDf maxPt = c0*mix(inMaxPt.xxxw(),inMinPt.xxxw(),c0<zero)+c1*mix(inMaxPt.yyyw(),inMinPt.yyyw(),c1<zero)+c2*mix(inMaxPt.zzzw(),inMinPt.zzzw(),c2<zero);
+
+	minPt += c3;
+	maxPt += c3;
+
+	return aabbox3df(minPt.getAsVector3df(),maxPt.getAsVector3df());
 }
 
 }}

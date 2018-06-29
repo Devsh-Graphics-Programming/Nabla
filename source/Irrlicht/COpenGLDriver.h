@@ -286,17 +286,14 @@ namespace video
 		//! Removes a texture from the texture cache and deletes it, freeing lot of memory.
 		void removeTexture(ITexture* texture);
 
-		//! Convert E_PRIMITIVE_TYPE to OpenGL equivalent
-		GLenum primitiveTypeToGL(scene::E_PRIMITIVE_TYPE type) const;
-
-		//! Get ZBuffer bits.
-		GLenum getZBufferBits() const;
-
 		//! sets the needed renderstates
 		void setRenderStates3DMode();
 
 		//!
 		const size_t& getMaxConcurrentShaderInvocations() const {return maxConcurrentShaderInvocations;}
+
+		//!
+		const uint32_t& getMaxShaderComputeUnits() const {return maxShaderComputeUnits;}
 
 		//!
 		const size_t& getMaxShaderInvocationsPerALU() const {return maxALUShaderInvocations;}
@@ -310,10 +307,14 @@ namespace video
 
         struct SAuxContext
         {
+        //public:
+            constexpr static size_t maxVAOCacheSize = 0x1u<<14; //make this cache configurable
+
             SAuxContext() : threadId(std::thread::id()), ctx(NULL), XFormFeedbackRunning(false), CurrentXFormFeedback(NULL),
                             CurrentFBO(0), CurrentRendertargetSize(0,0)
             {
-                CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),NULL);
+                VAOMap.reserve(maxVAOCacheSize);
+                CurrentVAO = HashVAOPair(COpenGLVAOSpec::HashAttribs(),NULL);
 
                 for (size_t i=0; i<MATERIAL_MAX_TEXTURES; i++)
                 {
@@ -321,8 +322,22 @@ namespace video
                 }
             }
 
+            inline void setActiveSSBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
+            {
+                shaderStorageBufferObjects.set(first,count,buffers,offsets,sizes);
+            }
 
-            bool setActiveVAO(const COpenGLVAOSpec* spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
+            inline void setActiveUBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
+            {
+                uniformBufferObjects.set(first,count,buffers,offsets,sizes);
+            }
+
+            inline void setActiveIndirectDrawBuffer(const COpenGLBuffer* const buff)
+            {
+                indirectDraw.set(buff);
+            }
+
+            bool setActiveVAO(const COpenGLVAOSpec* const spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
@@ -330,7 +345,7 @@ namespace video
 
             const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 
-
+        //private:
             std::thread::id threadId;
             #ifdef _IRR_WINDOWS_API_
                 HGLRC ctx;
@@ -343,12 +358,65 @@ namespace video
                 AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
             #endif
 
-            bool XFormFeedbackRunning;
-            COpenGLTransformFeedback* CurrentXFormFeedback;
+            bool                        XFormFeedbackRunning; // TODO: delete
+            COpenGLTransformFeedback*   CurrentXFormFeedback; //TODO: delete
 
-            core::array<IFrameBuffer*> FrameBuffers;
-            COpenGLFrameBuffer* CurrentFBO;
+
+            //! FBOs
+            core::array<IFrameBuffer*>  FrameBuffers;
+            COpenGLFrameBuffer*         CurrentFBO;
             core::dimension2d<uint32_t> CurrentRendertargetSize;
+
+
+            //! Buffers
+            template<GLenum BIND_POINT,size_t BIND_POINTS>
+            class BoundIndexedBuffer
+            {
+                    const COpenGLBuffer* boundBuffer[BIND_POINTS];
+                    uint64_t lastValidatedBuffer[BIND_POINTS];
+                public:
+                    BoundIndexedBuffer()
+                    {
+                        memset(boundBuffer,0,sizeof(boundBuffer));
+                        memset(lastValidatedBuffer,0,sizeof(boundBuffer));
+                    }
+
+                    ~BoundIndexedBuffer()
+                    {
+                        set(0,BIND_POINTS,nullptr,nullptr,nullptr);
+                    }
+
+                    void set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes);
+            };
+
+            //! SSBO
+            BoundIndexedBuffer<GL_SHADER_STORAGE_BUFFER,OGL_MAX_BUFFER_BINDINGS>    shaderStorageBufferObjects;
+            //! UBO
+            BoundIndexedBuffer<GL_UNIFORM_BUFFER,OGL_MAX_BUFFER_BINDINGS>           uniformBufferObjects;
+
+            //!
+            template<GLenum BIND_POINT>
+            class BoundBuffer
+            {
+                    const COpenGLBuffer* boundBuffer;
+                    uint64_t lastValidatedBuffer;
+                public:
+                    BoundBuffer() : lastValidatedBuffer(0)
+                    {
+                        boundBuffer = NULL;
+                    }
+
+                    ~BoundBuffer()
+                    {
+                        set(NULL);
+                    }
+
+                    void set(const COpenGLBuffer* buff);
+            };
+
+            //! Indirect
+            BoundBuffer<GL_DRAW_INDIRECT_BUFFER> indirectDraw;
+
 
             /** We will operate on some assumptions here:
 
@@ -378,15 +446,15 @@ namespace video
             **/
             class COpenGLVAO
             {
-                    size_t attrOffset[scene::EVAI_COUNT];
-                    uint32_t attrStride[scene::EVAI_COUNT];
+                    size_t                      attrOffset[scene::EVAI_COUNT];
+                    uint32_t                    attrStride[scene::EVAI_COUNT];
                     //vertices
-                    const COpenGLBuffer* mappedAttrBuf[scene::EVAI_COUNT];
+                    const COpenGLBuffer*        mappedAttrBuf[scene::EVAI_COUNT];
                     //indices
-                    const COpenGLBuffer* mappedIndexBuf;
+                    const COpenGLBuffer*        mappedIndexBuf;
 
-                    GLuint vao;
-                    uint64_t lastValidated;
+                    GLuint                      vao;
+                    uint64_t                    lastValidated;
                 #ifdef _DEBUG
                     COpenGLVAOSpec::HashAttribs debugHash;
                 #endif // _DEBUG
@@ -434,25 +502,35 @@ namespace video
                     inline const COpenGLVAOSpec::HashAttribs& getDebugHash() const {return debugHash;}
                 #endif // _DEBUG
             };
-            std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> CurrentVAO;
-            std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> VAOMap;
+
+            //!
+            typedef std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> HashVAOPair;
+            HashVAOPair                 CurrentVAO;
+            std::vector<HashVAOPair>    VAOMap;
+
+            inline size_t getVAOCacheSize() const
+            {
+                return VAOMap.size();
+            }
+
             inline void freeUpVAOCache(bool exitOnFirstDelete)
             {
-                if (VAOMap.size()>(0x1u<<14)) //make this cache configurable
+                for(auto it = VAOMap.begin(); VAOMap.size()>maxVAOCacheSize&&it!=VAOMap.end(); it++)
                 {
-                    for(std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.begin(); it != VAOMap.end(); it++)
+                    if (it->first==CurrentVAO.first)
+                        continue;
+
+                    if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
                     {
-                        if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
-                        {
-                            delete it->second;
-                            it = VAOMap.erase(it);
-                            if (exitOnFirstDelete)
-                                return;
-                        }
+                        delete it->second;
+                        it = VAOMap.erase(it);
+                        if (exitOnFirstDelete)
+                            return;
                     }
                 }
             }
 
+            //! Textures and Samplers
             class STextureStageCache
             {
                 const IVirtualTexture* CurrentTexture[MATERIAL_MAX_TEXTURES];
@@ -495,9 +573,12 @@ namespace video
 
                 void clear();
             };
-            STextureStageCache CurrentTexture;
 
-            uint64_t CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
+            //!
+            STextureStageCache                  CurrentTexture;
+
+            //! Samplers
+            uint64_t                            CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
             std::unordered_map<uint64_t,GLuint> SamplerMap;
         };
 
@@ -525,9 +606,6 @@ namespace video
 		bool ResetRenderStates;
 
 		SMaterial Material, LastMaterial;
-
-	    const COpenGLBuffer* currentIndirectDrawBuff; //move to per-context storage?
-	    uint64_t lastValidatedIndirectBuffer; //move to per-context storage?
 
 
 
@@ -571,6 +649,7 @@ namespace video
 
         size_t maxALUShaderInvocations;
         size_t maxConcurrentShaderInvocations;
+        uint32_t maxShaderComputeUnits;
 #ifdef _IRR_COMPILE_WITH_OPENCL_
         cl_device_id clDevice;
         size_t clPlatformIx, clDeviceIx;

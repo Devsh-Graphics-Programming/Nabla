@@ -139,8 +139,6 @@
 					<Add option="-Wall" />
 					<Add option="-std=c++11" />
 					<Add option="-g" />
-					<Add option="-W" />
-					<Add option="-Wno-unused-parameter" />
 					<Add option="-fno-omit-frame-pointer" />
 					<Add option="-fno-exceptions" />
 					<Add option="-fuse-ld=gold" />
@@ -182,7 +180,6 @@
 					<Add option="-Wextra" />
 					<Add option="-std=c++11" />
 					<Add option="-W" />
-					<Add option="-Wno-unused-parameter" />
 					<Add option="-fno-exceptions" />
 					<Add option="-fuse-ld=gold" />
 					<Add option="-D_IRR_STATIC_LIB_" />
@@ -213,7 +210,6 @@
 					<Add option="-Wextra" />
 					<Add option="-std=c++11" />
 					<Add option="-W" />
-					<Add option="-Wno-unused-parameter" />
 					<Add option="-ffast-math" />
 					<Add option="-fno-exceptions" />
 					<Add option="-mfpmath=sse" />
@@ -239,13 +235,18 @@
 			</Target>
 		</Build>
 		<Compiler>
-			<Add option="-D_IRR_COMPILE_WITH_OPENGL_" />
+			<Add option="-Wno-sequence-point" />
+			<Add option="-Wno-error=ignored-attributes" />
+			<Add option="-Wno-error=unused-function" />
+			<Add option="-Wno-error=unused-variable" />
+			<Add option="-Wno-unused-parameter" />
 			<Add option="-D_7ZIP_ST" />
 		</Compiler>
 		<Unit filename="../../include/CBAWFile.h" />
 		<Unit filename="../../include/CBlobsLoadingManager.h" />
 		<Unit filename="../../include/CFinalBoneHierarchy.h" />
 		<Unit filename="../../include/CImageData.h" />
+		<Unit filename="../../include/CMultiBufferedInterfaceBlock.h" />
 		<Unit filename="../../include/COpenGLStateManager.h" />
 		<Unit filename="../../include/COpenGLStateManagerImpl.h" />
 		<Unit filename="../../include/ECullingTypes.h" />
@@ -266,6 +267,8 @@
 		<Unit filename="../../include/ICPUBuffer.h" />
 		<Unit filename="../../include/ICameraSceneNode.h" />
 		<Unit filename="../../include/ICursorControl.h" />
+		<Unit filename="../../include/IDescriptorSet.h" />
+		<Unit filename="../../include/IDescriptorSetLayout.h" />
 		<Unit filename="../../include/IDriverFence.h" />
 		<Unit filename="../../include/IDummyTransformationSceneNode.h" />
 		<Unit filename="../../include/IEventReceiver.h" />
@@ -279,6 +282,7 @@
 		<Unit filename="../../include/IGPUTimestampQuery.h" />
 		<Unit filename="../../include/IGPUTransientBuffer.h" />
 		<Unit filename="../../include/IGeometryCreator.h" />
+		<Unit filename="../../include/IGraphicsPipeline.h" />
 		<Unit filename="../../include/IImage.h" />
 		<Unit filename="../../include/IImageLoader.h" />
 		<Unit filename="../../include/IImageWriter.h" />
@@ -309,10 +313,12 @@
 		<Unit filename="../../include/ISceneNodeAnimatorCameraMaya.h" />
 		<Unit filename="../../include/ISceneNodeAnimatorFactory.h" />
 		<Unit filename="../../include/ISceneNodeFactory.h" />
+		<Unit filename="../../include/IShader.h" />
 		<Unit filename="../../include/IShaderConstantSetCallBack.h" />
 		<Unit filename="../../include/ISkinnedMesh.h" />
 		<Unit filename="../../include/ISkinnedMeshSceneNode.h" />
 		<Unit filename="../../include/ISkinningStateManager.h" />
+		<Unit filename="../../include/IStorageImage.h" />
 		<Unit filename="../../include/ITexture.h" />
 		<Unit filename="../../include/ITextureBufferObject.h" />
 		<Unit filename="../../include/IThreadBound.h" />
@@ -321,6 +327,7 @@
 		<Unit filename="../../include/IVideoDriver.h" />
 		<Unit filename="../../include/IVideoModeList.h" />
 		<Unit filename="../../include/IVirtualTexture.h" />
+		<Unit filename="../../include/IVulkanPrebaked.h" />
 		<Unit filename="../../include/IWriteFile.h" />
 		<Unit filename="../../include/IrrCompileConfig.h" />
 		<Unit filename="../../include/IrrlichtDevice.h" />
@@ -339,6 +346,7 @@
 		<Unit filename="../../include/SMaterialLayer.h" />
 		<Unit filename="../../include/SMesh.h" />
 		<Unit filename="../../include/SSkinMeshBuffer.h" />
+		<Unit filename="../../include/STextureSamplingParams.h" />
 		<Unit filename="../../include/STriangleMeshCollider.h" />
 		<Unit filename="../../include/SVertexIndex.h" />
 		<Unit filename="../../include/SVertexManipulator.h" />
@@ -360,6 +368,7 @@
 		<Unit filename="../../include/irrunpack.h" />
 		<Unit filename="../../include/line2d.h" />
 		<Unit filename="../../include/line3d.h" />
+		<Unit filename="../../include/matrix3x4SIMD.h" />
 		<Unit filename="../../include/matrix4.h" />
 		<Unit filename="../../include/matrix4x3.h" />
 		<Unit filename="../../include/matrixSIMD4.h" />
@@ -416,6 +425,7 @@
 		<Unit filename="CFileList.h" />
 		<Unit filename="CFileSystem.cpp" />
 		<Unit filename="CFileSystem.h" />
+		<Unit filename="CForsythVertexCacheOptimizer.cpp" />
 		<Unit filename="CGPUTransientBuffer.cpp" />
 		<Unit filename="CGeometryCreator.cpp" />
 		<Unit filename="CGeometryCreator.h" />
@@ -542,6 +552,8 @@
 		<Unit filename="COpenGLTransformFeedback.h" />
 		<Unit filename="COpenGLVAOSpec.cpp" />
 		<Unit filename="COpenGLVAOSpec.h" />
+		<Unit filename="COverdrawMeshOptimizer.cpp" />
+		<Unit filename="COverdrawMeshOptimizer.h" />
 		<Unit filename="CPLYMeshFileLoader.cpp" />
 		<Unit filename="CPLYMeshFileLoader.h" />
 		<Unit filename="CPLYMeshWriter.cpp" />

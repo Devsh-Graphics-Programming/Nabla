@@ -3,8 +3,7 @@
 #include <iostream>
 #include <cstdio>
 
-#include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Irrlicht/COpenGLDriver.h"
 
 using namespace irr;
 using namespace core;
@@ -154,11 +153,19 @@ int main()
         video::IGPUBuffer* testBuffer = driver->createGPUBuffer(pageSize,clearInitBuffer,true);
 
         //little extra test : bind to UBO+SSBO
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,&reinterpret_cast<video::COpenGLBuffer*>(testBuffer)->getOpenGLName());
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,&reinterpret_cast<video::COpenGLBuffer*>(testBuffer)->getOpenGLName());
-        //comment out to test subUpdate while bound to various UBO+SSBO targets
-        //video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_UNIFORM_BUFFER,0,1,NULL);
-        //video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,NULL);
+        {
+            const video::COpenGLDriver::SAuxContext* foundConst = static_cast<video::COpenGLDriver*>(driver)->getThreadContext();
+            video::COpenGLDriver::SAuxContext* found = const_cast<video::COpenGLDriver::SAuxContext*>(foundConst);
+
+            const video::COpenGLBuffer* buffers[1] = {static_cast<const video::COpenGLBuffer*>(testBuffer)};
+            ptrdiff_t offsets[1] = {0};
+            ptrdiff_t sizes[1] = {testBuffer->getSize()};
+            found->setActiveUBO(0,1,buffers,offsets,sizes);
+            found->setActiveSSBO(0,1,buffers,offsets,sizes);
+            //comment out to test subUpdate while bound to various UBO+SSBO targets
+            //found->setActiveSSBO(0,1,nullptr,nullptr,nullptr);
+            //found->setActiveUBO(0,1,nullptr,nullptr,nullptr);
+        }
 
         //upload
         testBuffer->updateSubRange(startOffset,pageSize-(startOffset+endOffset),setBuffer);
@@ -203,6 +210,8 @@ int main()
 
 	if (globalFail)
         printf("There were failures in SubBuffer updates, if you didn't see any \"[OPENGL ERROR ...\" messages then its a driver bug!\n");
+    else
+        printf("Test OK!\n");
 
 
 

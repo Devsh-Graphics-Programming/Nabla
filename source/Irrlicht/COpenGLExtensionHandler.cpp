@@ -221,6 +221,7 @@ uint32_t COpenGLExtensionHandler::MaxVertices = 0xffffffffu;
 uint32_t COpenGLExtensionHandler::MaxVertexStreams = 1;
 uint32_t COpenGLExtensionHandler::MaxXFormFeedbackComponents = 64;
 uint32_t COpenGLExtensionHandler::MaxGPUWaitTimeout = 0;
+uint32_t COpenGLExtensionHandler::InvocationSubGroupSize[2] = {32,64};
 uint32_t COpenGLExtensionHandler::MaxGeometryVerticesOut = 65535;
 float COpenGLExtensionHandler::MaxTextureLODBias = 0.f;
 
@@ -1123,6 +1124,17 @@ void COpenGLExtensionHandler::loadFunctions()
 	glGetIntegerv(GL_MAX_SERVER_WAIT_TIMEOUT, &num);
     MaxGPUWaitTimeout = reinterpret_cast<const uint32_t&>(num);
 
+    if (FeatureAvailable[IRR_NV_shader_thread_group])
+    {
+        glGetIntegerv(GL_WARP_SIZE_NV, &num);
+        InvocationSubGroupSize[0] = InvocationSubGroupSize[1] = reinterpret_cast<const uint32_t&>(num);
+    }
+    else if (IsIntelGPU)
+    {
+        InvocationSubGroupSize[0] = 4;
+        InvocationSubGroupSize[1] = 32;
+    }
+
     /**
     pGl = () IRR_OGL_LOAD_EXTENSION("gl");
     **/
@@ -1484,15 +1496,27 @@ bool COpenGLExtensionHandler::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature
 	switch (feature)
 	{
         case EVDF_ALPHA_TO_COVERAGE:
-            return FeatureAvailable[IRR_ARB_multisample]||true;
+            return FeatureAvailable[IRR_ARB_multisample]||true; //vulkan+android
         case EVDF_GEOMETRY_SHADER:
-            return FeatureAvailable[IRR_ARB_geometry_shader4]||true;
+            return FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
         case EVDF_TESSELLATION_SHADER:
-            return FeatureAvailable[IRR_ARB_tessellation_shader]||true;
+            return FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
         case EVDF_TEXTURE_BARRIER:
-            return FeatureAvailable[IRR_ARB_texture_barrier]||FeatureAvailable[IRR_NV_texture_barrier];
+            return FeatureAvailable[IRR_ARB_texture_barrier]||FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
         case EVDF_STENCIL_ONLY_TEXTURE:
-            return FeatureAvailable[IRR_ARB_texture_stencil8];
+            return FeatureAvailable[IRR_ARB_texture_stencil8]||Version>=440;
+		case EVDF_SHADER_DRAW_PARAMS:
+			return FeatureAvailable[IRR_ARB_shader_draw_parameters]||Version>=460;
+		case EVDF_MULTI_DRAW_INDIRECT_COUNT:
+			return FeatureAvailable[IRR_ARB_indirect_parameters]||Version>=460;
+        case EVDF_SHADER_GROUP_VOTE:
+            return FeatureAvailable[IRR_NV_gpu_shader5]||FeatureAvailable[IRR_ARB_shader_group_vote]||Version>=460;
+        case EVDF_SHADER_GROUP_BALLOT:
+            return FeatureAvailable[IRR_NV_shader_thread_group]||FeatureAvailable[IRR_ARB_shader_ballot];
+		case EVDF_SHADER_GROUP_SHUFFLE:
+            return FeatureAvailable[IRR_NV_shader_thread_shuffle];
+        case EVDF_FRAGMENT_SHADER_INTERLOCK:
+            return FeatureAvailable[IRR_INTEL_fragment_shader_ordering]||FeatureAvailable[IRR_NV_fragment_shader_interlock]||FeatureAvailable[IRR_ARB_fragment_shader_interlock];
         default:
             return false;
 	};

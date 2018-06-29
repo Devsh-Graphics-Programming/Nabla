@@ -32,7 +32,7 @@ class IGPUMappedBuffer : public video::IGPUBuffer
 		It's almost the fastest across all cards, and is more in line with what Vulkan has.
 		Please don't ask us to support Buffer Orphaning, or Map/Unmap.
 		*/
-        virtual const bool isMappedBuffer() const = 0;
+        virtual bool isMappedBuffer() const = 0;
     private:
         //
 };

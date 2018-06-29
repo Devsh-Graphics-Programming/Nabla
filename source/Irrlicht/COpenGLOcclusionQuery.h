@@ -34,7 +34,7 @@ class COpenGLOcclusionQuery : public IOcclusionQuery, public COpenGLQuery
 		virtual void isQueryReady32(IGPUBuffer* buffer, const size_t& offset=0) {return COpenGLQuery::isQueryReady32(buffer,offset);}
 		virtual void isQueryReady64(IGPUBuffer* buffer, const size_t& offset=0) {return COpenGLQuery::isQueryReady64(buffer,offset);}
 
-		virtual const E_QUERY_OBJECT_TYPE getQueryObjectType() const {return EQOT_OCCLUSION;}
+		virtual E_QUERY_OBJECT_TYPE getQueryObjectType() const {return EQOT_OCCLUSION;}
     protected:
     private:
         GLenum condModeGL;

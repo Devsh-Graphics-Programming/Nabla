@@ -28,7 +28,7 @@ class CSkyDomeSceneNode : public ISceneNode
 			IDummyTransformationSceneNode* parent, ISceneManager* smgr, int32_t id);
 
 		//!
-		virtual const bool supportsDriverFence() const {return true;}
+		virtual bool supportsDriverFence() const {return true;}
 
 		virtual void OnRegisterSceneNode();
 		virtual void render();

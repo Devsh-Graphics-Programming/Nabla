@@ -61,7 +61,7 @@ namespace scene
             }
 
             //!
-            virtual const bool supportsDriverFence() const {return true;}
+            virtual bool supportsDriverFence() const {return true;}
 
             const void* getRawBoneData() {return boneStateManager->getRawBoneData();}
 

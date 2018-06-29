@@ -149,7 +149,7 @@ class COpenGLBuffer : public IGPUMappedBuffer
 
         virtual void* getPointer() {return NULL;}
 
-        virtual const bool isMappedBuffer() const {return false;}
+        virtual bool isMappedBuffer() const {return false;}
 
     protected:
         GLbitfield cachedFlags;

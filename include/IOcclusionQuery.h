@@ -30,7 +30,7 @@ class IOcclusionQuery : public virtual IQueryObject
 		inline E_CONDITIONAL_RENDERING_WAIT_MODE getCondWaitMode() const {return waitMode;}
 		virtual void setCondWaitMode(const E_CONDITIONAL_RENDERING_WAIT_MODE& mode) {waitMode = mode;}
 
-		virtual const E_QUERY_OBJECT_TYPE getQueryObjectType() const {return EQOT_OCCLUSION;}
+		virtual E_QUERY_OBJECT_TYPE getQueryObjectType() const {return EQOT_OCCLUSION;}
 
 		const E_OCCLUSION_QUERY_TYPE& getOcclusionQueryType() const {return oqt;}
     protected:

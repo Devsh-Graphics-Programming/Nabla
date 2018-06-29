@@ -88,7 +88,7 @@ public:
 	{
 	}
 
-	virtual const E_TEXTURE_TYPE getTextureType() const = 0;
+	virtual E_TEXTURE_TYPE getTextureType() const = 0;
 
 	//! Get dimension (=size) of the texture.
 	/** \return The size of the texture. */

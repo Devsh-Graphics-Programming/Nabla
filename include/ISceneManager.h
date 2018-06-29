@@ -617,47 +617,7 @@ namespace scene
 		\return Pointer to the root scene node.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual ISceneNode* getRootSceneNode() = 0;
-/*
-		//! Get the first scene node with the specified id.
-		/** \param id: The id to search for
-		\param start: Scene node to start from. All children of this scene
-		node are searched. If null is specified, the root scene node is
-		taken.
-		\return Pointer to the first scene node with this id,
-		and null if no scene node could be found.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. *
-		virtual ISceneNode* getSceneNodeFromId(int32_t id, IDummyTransformationSceneNode* start=0) = 0;
 
-		//! Get the first scene node with the specified name.
-		/** \param name: The name to search for
-		\param start: Scene node to start from. All children of this scene
-		node are searched. If null is specified, the root scene node is
-		taken.
-		\return Pointer to the first scene node with this id,
-		and null if no scene node could be found.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. *
-		virtual ISceneNode* getSceneNodeFromName(const char* name, IDummyTransformationSceneNode* start=0) = 0;
-
-		//! Get the first scene node with the specified type.
-		/** \param type: The type to search for
-		\param start: Scene node to start from. All children of this scene
-		node are searched. If null is specified, the root scene node is
-		taken.
-		\return Pointer to the first scene node with this type,
-		and null if no scene node could be found.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. *
-		virtual ISceneNode* getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, IDummyTransformationSceneNode* start=0) = 0;
-
-		//! Get scene nodes by type.
-		/** \param type: Type of scene node to find (ESNT_ANY will return all child nodes).
-		\param outNodes: array to be filled with results.
-		\param start: Scene node to start from. All children of this scene
-		node are searched. If null is specified, the root scene node is
-		taken. *
-		virtual void getSceneNodesFromType(ESCENE_NODE_TYPE type,
-				core::array<scene::ISceneNode*>& outNodes,
-				IDummyTransformationSceneNode* start=0) = 0;
-*/
 		//! Get the current active camera.
 		/** \return The active camera is returned. Note that this can
 		be NULL, if there was no camera created yet.

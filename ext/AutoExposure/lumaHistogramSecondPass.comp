@@ -101,7 +101,7 @@ void main()
 #if BIN_COUNTu>=512u
     parallelPrefixPass(256u ,gl_LocalInvocationIndex+BIN_COUNTu,gl_LocalInvocationIndex);
 #if BIN_COUNTu>=1024u
-    parallelPrefixPass(1024u,gl_LocalInvocationIndex+BIN_COUNTu,gl_LocalInvocationIndex);
+    parallelPrefixPass(512u,gl_LocalInvocationIndex+BIN_COUNTu,gl_LocalInvocationIndex);
 #endif // BIN_COUNTu
 #endif // BIN_COUNTu
 

@@ -48,8 +48,7 @@ namespace video
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), ColorFormat(ECF_R8G8B8), Params(params),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	DeviceType(EIDT_WIN32), AuxContexts(0)
 {
@@ -481,8 +480,7 @@ bool COpenGLDriver::deinitAuxContext()
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceMacOSX *device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), ColorFormat(ECF_R8G8B8),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	Params(params),
 	OSXDevice(device), DeviceType(EIDT_OSX), AuxContexts(0)
 {
@@ -503,8 +501,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-	currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), ColorFormat(ECF_R8G8B8),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0)
 {
 	#ifdef _DEBUG
@@ -629,8 +626,7 @@ bool COpenGLDriver::deinitAuxContext()
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true),
-    currentIndirectDrawBuff(0), lastValidatedIndirectBuffer(0), ColorFormat(ECF_R8G8B8),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
 	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0)
 {
@@ -771,7 +767,8 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     removeAllFrameBuffers();
 
     extGlBindVertexArray(0);
-	for(std::unordered_map<COpenGLVAOSpec::HashAttribs,SAuxContext::COpenGLVAO*>::iterator it = found->VAOMap.begin(); it != found->VAOMap.end(); it++)
+    found->CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,SAuxContext::COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),nullptr);
+	for(auto it = found->VAOMap.begin(); it != found->VAOMap.end(); it++)
     {
         delete it->second;
     }
@@ -810,8 +807,9 @@ bool COpenGLDriver::genericDriverInit()
 	}
 
 
-    maxConcurrentShaderInvocations = 0;
-    maxALUShaderInvocations = 0;
+    maxConcurrentShaderInvocations = 4;
+    maxALUShaderInvocations = 4;
+    maxShaderComputeUnits = 1;
 #ifdef _IRR_COMPILE_WITH_OPENCL_
     clPlatformIx = 0xdeadbeefu;
     clDeviceIx = 0xdeadbeefu;
@@ -826,6 +824,7 @@ bool COpenGLDriver::genericDriverInit()
                 clPlatformIx = i;
                 clDeviceIx = j;
                 maxALUShaderInvocations = platform.deviceInformation[j].MaxWorkGroupSize;
+                maxShaderComputeUnits = platform.deviceInformation[j].MaxComputeUnits;
                 maxConcurrentShaderInvocations = platform.deviceInformation[j].ProbableUnifiedShaders;
                 break;
             }
@@ -1883,26 +1882,11 @@ void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video:
     if (!found)
         return;
 
-    if (indirectDrawBuff!=currentIndirectDrawBuff)
-    {
-        indirectDrawBuff->grab();
-        if (currentIndirectDrawBuff)
-            currentIndirectDrawBuff->drop();
-        currentIndirectDrawBuff = static_cast<const COpenGLBuffer*>(indirectDrawBuff);
-
-        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
-        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
-    }
-    else if (lastValidatedIndirectBuffer>currentIndirectDrawBuff->getLastTimeReallocated())
-    {
-        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
-        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
-    }
-
-
     const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(vao);
     if (!found->setActiveVAO(meshLayoutVAO))
         return;
+
+    found->setActiveIndirectDrawBuffer(static_cast<const COpenGLBuffer*>(indirectDrawBuff));
 
 	// draw everything
 	setRenderStates3DMode();
@@ -1963,26 +1947,11 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
     if (!found)
         return;
 
-    if (indirectDrawBuff!=currentIndirectDrawBuff)
-    {
-        indirectDrawBuff->grab();
-        if (currentIndirectDrawBuff)
-            currentIndirectDrawBuff->drop();
-        currentIndirectDrawBuff = static_cast<const COpenGLBuffer*>(indirectDrawBuff);
-
-        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
-        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
-    }
-    else if (lastValidatedIndirectBuffer>currentIndirectDrawBuff->getLastTimeReallocated())
-    {
-        extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER,currentIndirectDrawBuff->getOpenGLName());
-        lastValidatedIndirectBuffer = currentIndirectDrawBuff->getLastTimeReallocated();
-    }
-
-
     const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(vao);
     if (!found->setActiveVAO(meshLayoutVAO))
         return;
+
+    found->setActiveIndirectDrawBuffer(static_cast<const COpenGLBuffer*>(indirectDrawBuff));
 
 	// draw everything
 	setRenderStates3DMode();
@@ -2031,6 +2000,95 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
 
     if (didConditional)
         extGlEndConditionalRender();
+}
+
+
+template<GLenum BIND_POINT,size_t BIND_POINTS>
+void COpenGLDriver::SAuxContext::BoundIndexedBuffer<BIND_POINT,BIND_POINTS>::set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
+{
+    if (!buffers)
+    {
+        bool needRebind = false;
+
+        for (uint32_t i=0; i<count; i++)
+        {
+            uint32_t actualIx = i+first;
+            if (boundBuffer[actualIx])
+            {
+                needRebind = true;
+                boundBuffer[actualIx]->drop();
+                boundBuffer[actualIx] = nullptr;
+            }
+        }
+
+        if (needRebind)
+            extGlBindBuffersRange(BIND_POINT,first,count,nullptr,nullptr,nullptr);
+        return;
+    }
+
+    uint32_t newFirst = BIND_POINTS;
+    uint32_t newLast = 0;
+    GLuint toBind[BIND_POINTS];
+    for (uint32_t i=0; i<count; i++)
+    {
+        toBind[i] = buffers[i] ? buffers[i]->getOpenGLName():0;
+
+        uint32_t actualIx = i+first;
+        if (boundBuffer[actualIx]!=buffers[i])
+        {
+            if (buffers[i])
+                buffers[i]->grab();
+            if (boundBuffer[actualIx])
+                boundBuffer[actualIx]->drop();
+            boundBuffer[actualIx] = buffers[i];
+        }
+        else if (!boundBuffer[actualIx]||boundBuffer[actualIx]->getLastTimeReallocated()<=lastValidatedBuffer[actualIx])
+            continue;
+
+        lastValidatedBuffer[actualIx] = boundBuffer[actualIx]->getLastTimeReallocated();
+
+        newLast = i;
+        if (newFirst==BIND_POINTS)
+            newFirst = i;
+    }
+
+    if (newFirst>newLast)
+        return;
+
+    extGlBindBuffersRange(BIND_POINT,first+newFirst,newLast-newFirst+1,toBind+newFirst,offsets+newFirst,sizes+newFirst);
+}
+
+template class COpenGLDriver::SAuxContext::BoundIndexedBuffer<GL_SHADER_STORAGE_BUFFER,OGL_MAX_BUFFER_BINDINGS>;
+template class COpenGLDriver::SAuxContext::BoundIndexedBuffer<GL_UNIFORM_BUFFER,OGL_MAX_BUFFER_BINDINGS>;
+
+
+template<GLenum BIND_POINT>
+void COpenGLDriver::SAuxContext::BoundBuffer<BIND_POINT>::set(const COpenGLBuffer* buff)
+{
+    if (!buff)
+    {
+        if (boundBuffer)
+        {
+            boundBuffer->drop();
+            boundBuffer = nullptr;
+            extGlBindBuffer(BIND_POINT,0);
+        }
+
+        return;
+    }
+
+    if (boundBuffer!=buff)
+    {
+        buff->grab();
+        if (boundBuffer)
+            boundBuffer->drop();
+        boundBuffer = buff;
+    }
+    else if (!boundBuffer||boundBuffer->getLastTimeReallocated()<=lastValidatedBuffer)
+        return;
+
+    extGlBindBuffer(BIND_POINT,boundBuffer->getOpenGLName());
+    lastValidatedBuffer = boundBuffer->getLastTimeReallocated();
 }
 
 
@@ -2197,11 +2255,11 @@ void COpenGLDriver::SAuxContext::COpenGLVAO::bindBuffers(   const COpenGLBuffer*
     lastValidated = beginStamp;
 }
 
-bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw)
+bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw)
 {
     if (!spec)
     {
-        CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),NULL);
+        CurrentVAO = HashVAOPair(COpenGLVAOSpec::HashAttribs(),nullptr);
         extGlBindVertexArray(0);
         freeUpVAOCache(true);
         return false;
@@ -2210,14 +2268,14 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* spec, const 
     const COpenGLVAOSpec::HashAttribs& hashVal = spec->getHash();
 	if (CurrentVAO.first!=hashVal)
     {
-        std::unordered_map<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>::iterator it = VAOMap.find(hashVal);
-        if (it != VAOMap.end())
+        auto it = std::lower_bound(VAOMap.begin(),VAOMap.end(),HashVAOPair(hashVal,nullptr),[](HashVAOPair lhs, HashVAOPair rhs) -> bool { return lhs.first < rhs.first; });
+        if (it != VAOMap.end() && it->first==hashVal)
             CurrentVAO = *it;
         else
         {
             COpenGLVAO* vao = new COpenGLVAO(spec);
-            VAOMap[hashVal] = vao;
-            CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*>(hashVal,vao);
+            CurrentVAO = HashVAOPair(hashVal,vao);
+            VAOMap.insert(it,CurrentVAO);
         }
 
         #ifdef _DEBUG
@@ -3617,31 +3675,6 @@ void COpenGLDriver::enableClipPlane(uint32_t index, bool enable)
 		glDisable(GL_CLIP_DISTANCE0 + index);
 }
 
-
-
-//! Convert E_PRIMITIVE_TYPE to OpenGL equivalent
-GLenum COpenGLDriver::primitiveTypeToGL(scene::E_PRIMITIVE_TYPE type) const
-{
-	switch (type)
-	{
-		case scene::EPT_POINTS:
-			return GL_POINTS;
-		case scene::EPT_LINE_STRIP:
-			return GL_LINE_STRIP;
-		case scene::EPT_LINE_LOOP:
-			return GL_LINE_LOOP;
-		case scene::EPT_LINES:
-			return GL_LINES;
-		case scene::EPT_TRIANGLE_STRIP:
-			return GL_TRIANGLE_STRIP;
-		case scene::EPT_TRIANGLE_FAN:
-			return GL_TRIANGLE_FAN;
-		case scene::EPT_TRIANGLES:
-			return GL_TRIANGLES;
-	}
-	return GL_TRIANGLES;
-}
-
 /*
 GLenum COpenGLDriver::getGLBlend(E_BLEND_FACTOR factor) const
 {
@@ -3662,27 +3695,6 @@ GLenum COpenGLDriver::getGLBlend(E_BLEND_FACTOR factor) const
 	}
 	return r;
 }*/
-
-GLenum COpenGLDriver::getZBufferBits() const
-{
-	GLenum bits = 0;
-	switch (Params.ZBufferBits)
-	{
-	case 16:
-		bits = GL_DEPTH_COMPONENT16;
-		break;
-	case 24:
-		bits = GL_DEPTH_COMPONENT24;
-		break;
-	case 32:
-		bits = GL_DEPTH_COMPONENT32;
-		break;
-	default:
-		bits = GL_DEPTH_COMPONENT;
-		break;
-	}
-	return bits;
-}
 
 
 } // end namespace

@@ -30,7 +30,7 @@ namespace scene
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
 
 		//!
-		virtual const bool supportsDriverFence() const {return true;}
+		virtual bool supportsDriverFence() const {return true;}
 
 		//! frame
 		virtual void OnRegisterSceneNode();

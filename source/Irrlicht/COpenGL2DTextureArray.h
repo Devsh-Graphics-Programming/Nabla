@@ -22,9 +22,9 @@ public:
 	COpenGL2DTextureArray(GLenum internalFormat, const uint32_t* size, uint32_t mipmapLevels, const io::path& name="");
 
 
-	virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_THREE;}
+	virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_THREE;}
 
-    virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D_ARRAY;}
+    virtual E_TEXTURE_TYPE getTextureType() const {return ETT_2D_ARRAY;}
 
 
 	//! returns the opengl texture type

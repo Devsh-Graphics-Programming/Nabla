@@ -40,7 +40,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
                 const core::vector3df& scale = core::vector3df(1,1,1));
 
         //!
-        virtual const bool supportsDriverFence() const {return true;}
+        virtual bool supportsDriverFence() const {return true;}
 
         virtual const uint32_t& getGPUCullingThreshold() const {return instanceCountThresholdForGPU;}
         virtual void setGPUCullingThresholdMultiplier(const double& multiplier);

@@ -664,9 +664,9 @@ namespace video
 		    public:
                 SDummyTexture(const io::path& name) : ITexture(name), size(0,0) {}
 
-                virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
-                virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
-                virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
+                virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+                virtual E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
+                virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
                 virtual const uint32_t* getSize() const { return &size.Width; }
                 virtual uint32_t getMipMapLevelCount() const {return 1;}
                 virtual core::dimension2du getRenderableSize() const { return size; }

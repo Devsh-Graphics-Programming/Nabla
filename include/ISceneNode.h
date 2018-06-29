@@ -52,10 +52,10 @@ namespace scene
 		{
 		}
 
-        virtual const bool isISceneNode() const {return true;}
+        virtual bool isISceneNode() const {return true;}
 
 
-        virtual const bool supportsDriverFence() const {return false;}
+        virtual bool supportsDriverFence() const {return false;}
 
         enum E_FENCE_RENDER_BEHAVIOUR
         {
@@ -378,7 +378,7 @@ namespace scene
 
 		// sodan
 		int32_t mobtype;
-		int32_t mobid;
+		int32_t mobid; // Should be 64 bit
 		int32_t staticmeshid;
 		int32_t blockposX,blockposY,blockposZ;
 

@@ -32,7 +32,7 @@ class COpenGLMultisampleTexture : public COpenGLTexture, public IMultisampleText
 
 
         //!
-        virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_2D_MULTISAMPLE;}
+        virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_2D_MULTISAMPLE;}
 
         //!
         core::dimension2du getRenderableSize() const {return core::dimension2du(TextureSize[0],TextureSize[1]);}
@@ -45,7 +45,7 @@ class COpenGLMultisampleTexture : public COpenGLTexture, public IMultisampleText
         virtual const uint32_t* getSize() const {return TextureSize;}
 
         //! Returns size of the texture.
-        virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+        virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
 
         //! returns color format of texture
         virtual ECOLOR_FORMAT getColorFormat() const {return ColorFormat;}

@@ -69,7 +69,7 @@ private:
 class COpenGLFilterableTexture : public ITexture, public COpenGLTexture
 {
 public:
-    virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
+    virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
 
 	//! Get size
 	virtual const uint32_t* getSize() const {return TextureSize;}

@@ -139,7 +139,7 @@ int main(int _optCnt, char** _options)
 				std::string s;
 				do
 				{
-					s += _options[idx];
+                    s += std::string(_options[idx]) + ' ';
 
 				} while (!strstr(_options[idx++], "}"));
 				--idx;
