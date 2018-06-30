@@ -70,8 +70,9 @@ private:
     static bool genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTexSize, uint32_t _radius, int _finalPass);
     static bool genPsumCs(char* _out, size_t _bufSize, uint32_t _outTexSize);
 
-    ImageBindingData getCurrentImageBinding(unsigned _imgUnit) const;
-    void bindImage(unsigned _imgUnit, const ImageBindingData& _data) const;
+    void bindSSBuffers() const;
+    static ImageBindingData getCurrentImageBinding(unsigned _imgUnit);
+    static void bindImage(unsigned _imgUnit, const ImageBindingData& _data);
 
     inline static uint32_t nearestPowOf2(uint32_t _x)
     {

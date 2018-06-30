@@ -319,14 +319,10 @@ CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, uint32
 
 video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex) const
 {
-    GLuint prevSsbo[2];
     GLint prevProgram{};
-    video::COpenGLExtensionHandler::extGlGetIntegeri_v(GL_SHADER_STORAGE_BUFFER_BINDING, E_SAMPLES_SSBO_BINDING, (GLint*)prevSsbo);
-    video::COpenGLExtensionHandler::extGlGetIntegeri_v(GL_SHADER_STORAGE_BUFFER_BINDING, E_PSUM_SSBO_BINDING, (GLint*)(prevSsbo+1));
     glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_SAMPLES_SSBO_BINDING, 1, &static_cast<video::COpenGLBuffer*>(m_samplesSsbo)->getOpenGLName());
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_PSUM_SSBO_BINDING, 1, &static_cast<video::COpenGLBuffer*>(m_psumSsbo)->getOpenGLName());
+    bindSSBuffers();
 
     {
     video::STextureSamplingParams params;
@@ -394,7 +390,6 @@ video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 
     video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
-    video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_SAMPLES_SSBO_BINDING, 2u, prevSsbo);
     bindImage(0, prevImgBinding);
 
     return outputTex;
@@ -425,7 +420,18 @@ bool CBlurPerformer::genPsumCs(char * _out, size_t _bufSize, uint32_t _outTexSiz
     return snprintf(_out, _bufSize, CS_PSUM_SRC, _outTexSize, p, p >> 1, CS_CONVERSIONS) > 0;
 }
 
-auto irr::ext::Blur::CBlurPerformer::getCurrentImageBinding(unsigned _imgUnit) const -> ImageBindingData
+void CBlurPerformer::bindSSBuffers() const
+{
+    auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+
+    const video::COpenGLBuffer* bufs[]{ static_cast<const video::COpenGLBuffer*>(m_samplesSsbo), static_cast<const video::COpenGLBuffer*>(m_psumSsbo) };
+    ptrdiff_t offsets[]{ 0, 0 };
+    ptrdiff_t sizes[]{ m_samplesSsbo->getSize(), m_psumSsbo->getSize() };
+
+    auxCtx->setActiveSSBO(E_SAMPLES_SSBO_BINDING, 2u, bufs, offsets, sizes);
+}
+
+auto irr::ext::Blur::CBlurPerformer::getCurrentImageBinding(unsigned _imgUnit) -> ImageBindingData
 {
     using gl = video::COpenGLExtensionHandler;
 
@@ -440,7 +446,7 @@ auto irr::ext::Blur::CBlurPerformer::getCurrentImageBinding(unsigned _imgUnit) c
     return data;
 }
 
-void irr::ext::Blur::CBlurPerformer::bindImage(unsigned _imgUnit, const ImageBindingData& _data) const
+void irr::ext::Blur::CBlurPerformer::bindImage(unsigned _imgUnit, const ImageBindingData& _data)
 {
     video::COpenGLExtensionHandler::extGlBindImageTexture(_imgUnit, _data.name, _data.level, _data.layered, _data.layer, _data.access, _data.format);
 }
