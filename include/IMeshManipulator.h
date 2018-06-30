@@ -77,15 +77,16 @@ namespace scene
 
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh
+        \param errMetrics Array of size EVAI_COUNT. Describes error metric for each vertex attribute (used if attribute is of floating point or normalized type).
 		\param tolerance The threshold for vertex comparisons.
 		\return Mesh without redundant vertices. If you no longer need
 		the cloned mesh, you should call IMesh::drop(). See
 		IReferenceCounted::drop() for more information. */
-		virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer* inbuffer, const bool& reduceIdxBufSize = false, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const = 0;
+		virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh = false) const = 0;
 
 		//! Throws meshbuffer into full optimizing pipeline consisting of: vertices welding, z-buffer optimization, vertex cache optimization (Forsyth's algorithm), fetch optimization and attributes requantization. A new meshbuffer is created unless given meshbuffer doesn't own (getMeshDataAndFormat()==NULL) a data format descriptor.
 		/**@return A new meshbuffer or NULL if an error occured. */
-		virtual ICPUMeshBuffer* createOptimizedMeshBuffer(const ICPUMeshBuffer* inbuffer, const SErrorMetric* _requantErrMetric) const = 0;
+		virtual ICPUMeshBuffer* createOptimizedMeshBuffer(const ICPUMeshBuffer* inbuffer, const SErrorMetric* _errMetric) const = 0;
 
 		//! Requantizes vertex attributes to the smallest possible types taking into account values of the attribute under consideration. A brand new vertex buffer is created and attributes are going to be interleaved in single buffer.
 		/**
@@ -122,6 +123,15 @@ namespace scene
         @param _idxType Type of indices (16bit or 32bit).
         */
         virtual core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const = 0;
+
+        //! Compares two attributes of floating point types in accordance with passed error metric.
+        /**
+        @param _a First attribute.
+        @param _b Second attribute.
+        @param _cpa Component count.
+        @param _errMetric Error metric info.
+        */
+        virtual bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, E_COMPONENTS_PER_ATTRIBUTE _cpa, const SErrorMetric& _errMetric) const = 0;
 
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
