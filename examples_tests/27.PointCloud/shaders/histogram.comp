@@ -22,18 +22,15 @@ void main()
 	memoryBarrierShared();
 	barrier();
 	
-	uint local_histogram[2];//  = uint[](0, 0);
-	local_histogram[0] = local_histogram[1] = 0u;
-	
 	for (uint i = 2*G_IDX; i < 2*G_IDX+2 && i < keys.length(); ++i)
-		local_histogram[ (keys[i] >> nbit) & 1 ]++;
-		
-	atomicAdd(s_histogram[0], local_histogram[0]);
-	atomicAdd(s_histogram[1], local_histogram[1]);
+		atomicAdd(s_histogram[(keys[i] >> nbit) & 1], 1);
 	
 	memoryBarrierShared();
 	barrier();
 	
-	atomicAdd(histogram[0], s_histogram[0]);
-	atomicAdd(histogram[1], s_histogram[1]);
+	if (gl_LocalInvocationIndex == 0)
+	{
+		atomicAdd(histogram[0], s_histogram[0]);
+		atomicAdd(histogram[1], s_histogram[1]);
+	}
 }

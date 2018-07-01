@@ -2,6 +2,7 @@
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../source/Irrlicht/COpenGLBuffer.h"
+#include "../source/Irrlicht/COpenGLDriver.h"
 
 #include "createComputeShader.h"
 
@@ -142,9 +143,9 @@ void main()
         E_IN_VALS_BND = 1,
         E_OUT_KEYS_BND = 2,
         E_OUT_VALS_BND = 3,
-        E_SUMS_BND = 6,
-        E_HISTOGRAM_BND = 5,
         E_PRESUM_BND = 4,
+        E_HISTOGRAM_BND = 5,
+        E_SUMS_BND = 6,
         E_POSITIONS_BND = 7,
 
         E_SHIFT_LOC = 0,
@@ -230,19 +231,34 @@ public:
         m_permuteCs = createComputeShaderFromFile("../shaders/permute.comp");
     }
 
+    void bindSSBuffers() const
+    {
+        auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+
+        const video::COpenGLBuffer* bufs[8]{ 
+            static_cast<const video::COpenGLBuffer*>(m_keyBuf1), 
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf),
+            static_cast<const video::COpenGLBuffer*>(m_keyBuf2),
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf2),
+            static_cast<const video::COpenGLBuffer*>(m_psumBuf),
+            static_cast<const video::COpenGLBuffer*>(m_histogramBuf),
+            static_cast<const video::COpenGLBuffer*>(m_sumsBuf),
+            static_cast<const video::COpenGLBuffer*>(m_posBuf)
+        };
+        ptrdiff_t offsets[8]{ 0, 0, 0, 0, 0, 0, 0, 0 };
+        ptrdiff_t sizes[8];
+        for (size_t i = 0u; i < 8u; ++i)
+            sizes[i] = bufs[i]->getSize();
+
+        auxCtx->setActiveSSBO(0u, 2u, bufs, offsets, sizes);
+    }
+
     void run(const core::vector3df& _camPos) override
     {
         GLint prevProgram;
         glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
-        gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_HISTOGRAM_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_histogramBuf)->getOpenGLName());
-        gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_IN_KEYS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_keyBuf1)->getOpenGLName());
-        gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_OUT_KEYS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_keyBuf2)->getOpenGLName());
-        gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_IN_VALS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_idxBuf)->getOpenGLName());
-        gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_OUT_VALS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_idxBuf2)->getOpenGLName());
-        gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_POSITIONS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_posBuf)->getOpenGLName());
-        gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_PRESUM_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_psumBuf)->getOpenGLName());
-        gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_SUMS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_sumsBuf)->getOpenGLName());
+        bindSSBuffers();
 
         gl::extGlUseProgram(m_genKeysCs);
         gl::extGlProgramUniform3fv(m_genKeysCs, E_CAM_POS_LOC, 1u, &_camPos.X);
@@ -255,10 +271,13 @@ public:
         uint8_t sumsOut[1u<<13];
         for (GLuint nbit = 0u; nbit < 31u; ++nbit)
         {
-            gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_IN_KEYS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_keyBuf1)->getOpenGLName());
-            gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_OUT_KEYS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_keyBuf2)->getOpenGLName());
-            gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_IN_VALS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_idxBuf)->getOpenGLName());
-            gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_OUT_VALS_BND, 1, &static_cast<const video::COpenGLBuffer*>(m_idxBuf2)->getOpenGLName());
+            {
+            auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+            const video::COpenGLBuffer* bufs[4]{ static_cast<const video::COpenGLBuffer*>(m_keyBuf1), static_cast<const video::COpenGLBuffer*>(m_idxBuf), static_cast<const video::COpenGLBuffer*>(m_keyBuf2), static_cast<const video::COpenGLBuffer*>(m_idxBuf2) };
+            const ptrdiff_t off[4]{ 0, 0, 0, 0 };
+            const ptrdiff_t s[4]{ m_keyBuf1->getSize(), m_idxBuf->getSize(), m_keyBuf2->getSize(), m_idxBuf2->getSize() };
+            auxCtx->setActiveSSBO(E_IN_KEYS_BND, 4u, bufs, off, s);
+            }
 
             // zero histogram
             gl::extGlNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_histogramBuf)->getOpenGLName(), 0, sizeof(histogram), histogram);
@@ -294,8 +313,6 @@ public:
 
         // rebind previous program
         gl::extGlUseProgram(prevProgram);
-        // zero ssbo bindings
-        gl::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, 0, 8, nullptr);
     }
 
     void setIndexBuffer(const video::IGPUBuffer* _idxBuf) override
@@ -426,13 +443,26 @@ public:
         printf("wgCount == %u\n", m_wgCount);
     }
 
+    void bindSSBuffers() const
+    {
+        auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+
+        const video::COpenGLBuffer* bufs[2]{
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf),
+            static_cast<const video::COpenGLBuffer*>(m_posBuf)
+        };
+        ptrdiff_t offsets[2]{ 0, 0};
+        ptrdiff_t sizes[2]{ m_idxBuf->getSize(), m_posBuf->getSize() };
+
+        auxCtx->setActiveSSBO(0u, 2u, bufs, offsets, sizes);
+    }
+
     void run(const core::vector3df& _camPos) override
     {
         GLint prevProgram;
         glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_POS_BINDING, 1, &static_cast<video::COpenGLBuffer*>(m_posBuf)->getOpenGLName());
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_INDICES_BIDING, 1, &static_cast<const video::COpenGLBuffer*>(m_idxBuf)->getOpenGLName());
+        bindSSBuffers();
 
         video::COpenGLExtensionHandler::extGlUseProgram(m_cs);
 
@@ -444,7 +474,6 @@ public:
         video::COpenGLExtensionHandler::extGlDispatchCompute(m_wgCount, 1u, 1u);
 
         video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_INDICES_BIDING, 2, nullptr);
 
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 
@@ -565,13 +594,26 @@ public:
         printf("wgCount == %u\n", m_wgCount);
     }
 
+    void bindSSBuffers() const
+    {
+        auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+
+        const video::COpenGLBuffer* bufs[2]{
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf),
+            static_cast<const video::COpenGLBuffer*>(m_posBuf)
+        };
+        ptrdiff_t offsets[2]{ 0, 0 };
+        ptrdiff_t sizes[2]{ m_idxBuf->getSize(), m_posBuf->getSize() };
+
+        auxCtx->setActiveSSBO(0u, 2u, bufs, offsets, sizes);
+    }
+
     void run(const core::vector3df& _camPos) override
     {
         GLint prevProgram;
         glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_POS_BINDING, 1, &static_cast<video::COpenGLBuffer*>(m_posBuf)->getOpenGLName());
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_INDICES_BIDING, 1, &static_cast<const video::COpenGLBuffer*>(m_idxBuf)->getOpenGLName());
+        bindSSBuffers();
 
         video::COpenGLExtensionHandler::extGlUseProgram(m_cs);
 
@@ -589,7 +631,6 @@ public:
         }
 
         video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER, E_INDICES_BIDING, 2, nullptr);
 
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
     }
@@ -659,7 +700,7 @@ int main()
 
     while (device->run())
     {
-        driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
+        driver->beginScene(true, true, video::SColor(255, 255, 255, 255));
 
         //! This animates (moves) the camera and sets the transforms
         //! Also draws the meshbuffer
