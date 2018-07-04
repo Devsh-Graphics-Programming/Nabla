@@ -33,6 +33,8 @@ int main()
         return 1; 
 
     video::IVideoDriver* driver = device->getVideoDriver();
+    uint32_t depthBufSz[]{ 64u, 64u };
+    video::ITexture* depthBuffer = driver->addTexture(video::ITexture::ETT_2D, depthBufSz, 1, "Depth", video::ECF_DEPTH32F);
 
     video::E_MATERIAL_TYPE material[16];
     for (size_t i = 0u; i < 16u; ++i)
@@ -45,6 +47,7 @@ int main()
     }
 
 #define INSTANCE_CNT 10
+#define VERTEX_CNT_PER_MESH (3 * 1000000 / (INSTANCE_CNT * 100))
 
     const size_t batches[16]{ 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 1u, 1u };
     const size_t sizes[16]{ 144u, 144u, 144u, 144u, 128u, 128u, 144u, 80u, 80u, 128u, 112u, 96u, 144u, 96u, 144u, 96u };
@@ -77,28 +80,38 @@ int main()
 
     scene::IGPUMeshBuffer* meshes[100];
     scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-    desc->mapVertexAttrBuffer(buffer, scene::EVAI_ATTR0, scene::ECPA_FOUR, scene::ECT_BYTE); // map whatever buffer just to activate whatever vertex attribute (look below)
-    // however some other buffer needed for TEST_CASE==1... (todo)
+    auto attrBuf = driver->createGPUBuffer(4 * VERTEX_CNT_PER_MESH, nullptr);
+    desc->mapVertexAttrBuffer(attrBuf, scene::EVAI_ATTR0, scene::ECPA_ONE, scene::ECT_FLOAT); // map whatever buffer just to activate whatever vertex attribute (look below)
     for (size_t i = 0u; i < 100u; ++i)
     {
         meshes[i] = new scene::IGPUMeshBuffer();
         meshes[i]->setInstanceCount(INSTANCE_CNT);
-        meshes[i]->setIndexCount(3 * 1000000 / (INSTANCE_CNT * 100));
+        meshes[i]->setIndexCount(VERTEX_CNT_PER_MESH);
         meshes[i]->setMeshDataAndFormat(desc); // apparently glDrawArrays does nothing if no vertex attribs are active
     }
     desc->drop();
 
     uint64_t lastFPSTime = 0;
 
+    //GLint meshVao[100];
+
     video::SMaterial smaterial;
     auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(driver)->getThreadContext());
-    while (device->run())
+    size_t frameNum = 0u;
+
     {
-        driver->beginScene(true, true, video::SColor(255, 255, 255, 255));
+    video::IFrameBuffer* fbo = driver->addFrameBuffer();
+    fbo->attach(video::EFAP_DEPTH_ATTACHMENT, depthBuffer);
+    driver->setRenderTarget(fbo, true);
+    fbo->drop();
+    }
 
-        video::IQueryObject* query = driver->createElapsedTimeQuery();
-        driver->beginQuery(query);
+    driver->beginScene(false, false);
 
+    video::IQueryObject* query = driver->createElapsedTimeQuery();
+    driver->beginQuery(query);
+    while (device->run() && frameNum < 1000u)
+    {
         memset(cpubuffer->getPointer(), 0, bufSize);
 #if TEST_CASE==0
         buffer->updateSubRange(0u, bufSize, cpubuffer->getPointer());
@@ -122,6 +135,9 @@ int main()
                 ptrdiff_t sz = sizes[j] * batches[j] * INSTANCE_CNT;
                 auxCtx->setActiveUBO(0u, 1u, &glbuf, offsets+i, &sz);
                 driver->drawMeshBuffer(meshes[i]);
+                //if (!frameNum)
+                //    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, meshVao+i);
+                //video::COpenGLExtensionHandler::extGlEnableVertexArrayAttrib(meshVao[i], 0u);
             }
         }
 
@@ -130,13 +146,7 @@ int main()
         buffer = nullptr;
 #endif
 
-        driver->endQuery(query);
-        uint32_t dt = 0u;
-        query->getQueryResult(&dt);
-        os::Printer::log("delta time", std::to_string(dt).c_str());
-
-        driver->endScene();
-
+        /*
         // display frames per second in window title
         uint64_t time = device->getTimer()->getRealTime();
         if (time - lastFPSTime > 1000)
@@ -147,7 +157,15 @@ int main()
             device->setWindowCaption(sstr.str().c_str());
             lastFPSTime = time;
         }
+        */
+        ++frameNum;
     }
+    driver->endQuery(query);
+    uint32_t dt = 0u;
+    query->getQueryResult(&dt);
+    os::Printer::log("Elapsed time", std::to_string(dt).c_str());
+
+    driver->endScene();
 
     for (size_t i = 0u; i < 100u; ++i)
         meshes[i]->drop();

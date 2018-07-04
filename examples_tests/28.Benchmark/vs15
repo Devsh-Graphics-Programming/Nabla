@@ -17,4 +17,8 @@ void main()
 {
 	
 	gl_Position = vcolor = ACCESS.m4 * ACCESS.v4 + (mat3(ACCESS.v3, ACCESS.v3, ACCESS.v3) * vec3(ACCESS.f)).xxxx;
+    gl_Position.x /= gl_VertexID;
+    gl_Position.y += gl_VertexID;
+    gl_Position.z = gl_Position.x + 2.f*sin(float(gl_VertexID)/3000.f * 0.5f*3.14f + 0.25f*3.14f); // results in `z` in range [gl_Postion.x + 1.4; gl_Position.x + 2]
+    gl_Position.w = 1.f;
 }
