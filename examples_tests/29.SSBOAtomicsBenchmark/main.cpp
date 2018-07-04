@@ -234,20 +234,27 @@ int main()
     }
 
     //
+    constexpr auto methodCount = 8;
+    constexpr auto methodMax = methodCount-1;
+
     char methodChar = '0';
-	std::cout << "Choose atomic op partitioning method: (0-4)";
+	std::cout << "Choose atomic op partitioning method: (0-" << methodMax << ")";
 	std::cin >> methodChar;
 	uint32_t method = methodChar-'0';
-	if (method>7)
+	if (method>methodMax)
         method = 0;
 
     std::string shaderHeader = R"===(#version 430 core
-#define kSqrtFakeCUCount 2u // will need changing at some point
-#define kSqrtMaxConcurrentInvocations (kSqrtFakeCUCount*8u) // will need changing at some point
+#define kHalfLog2CUCount 2u // will need changing at some point
+#define kSqrtCUCount (1u<<kHalfLog2CUCount)
+#define kSqrtCUCountMask (kSqrtCUCount-1u)
 
 #define BINNING_METHOD )===";
     shaderHeader += std::to_string(method);
     shaderHeader += '\n';
+
+    if (video::COpenGLExtensionHandler::IsIntelGPU)
+        shaderHeader += "#define INTEL\n";
 
     size_t bufSize = 1;
     switch (method)
@@ -277,9 +284,10 @@ int main()
     }
     printf("BuffSize %d\n",bufSize);
 
+    //override anyway for a fair comparison (negate some weird caching effects)
     bufSize = 1024*1024;
     video::IGPUBuffer* atomicSSBOBuf = driver->createGPUBuffer(bufSize,NULL);
-
+/**
 	//
 	char yesOrNo = 'n';
 	std::cout << "Benchmark compute shader? (y/n)";
@@ -292,7 +300,7 @@ int main()
         printf("UNIMPLEMENTED!!!\n");
         exit(2);
     }
-    else
+    else*/
     {
         printf("Benchmarking Pixel %d %d %d\n",method,texSize[0],texSize[1]);
 
@@ -362,6 +370,7 @@ int main()
             driver->setRenderTarget(fbo,true);
             fbo->drop();
         }
+        bool first = true;
         while(device->run()&&(!quit))
         {
             video::IQueryObject* timeQuery = driver->createElapsedTimeQuery();
@@ -379,6 +388,14 @@ int main()
                 }
                 driver->setMaterial(postProcMaterial);
                 driver->drawMeshBuffer(screenQuadMeshBuffer);
+                if (first)
+                {
+                    uint32_t var = 1024;
+                    GLint currProg;
+                    glGetIntegerv(GL_CURRENT_PROGRAM,&currProg);
+                    video::COpenGLExtensionHandler::extGlProgramUniform1uiv(currProg,0,1,&var);
+                    first = false;
+                }
             }
             glFlush();
             driver->endQuery(timeQuery);

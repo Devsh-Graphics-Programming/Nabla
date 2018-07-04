@@ -5,37 +5,63 @@ uint getAtomicOffset() {return 0u;}
 #elif BINNING_METHOD==1
 
 uint getAtomicOffset()
-{
-    uvec2 intPix = uvec2(gl_FragCoord.xy);
-    uvec4 combined = intPix.xyxy&uvec4(1,7,14,8);
-    combined = combined<<uvec4(0,1,3,4);
-    uvec2 tmp = combined.xy|combined.zw;
+{ //! MAPS ONLY TO Nvidia
+    uvec2 intPix = uvec2(gl_FragCoord.xy)&uvec2(12,8);
+    uvec2 tmp = intPix<<uvec2(3,4);
     return tmp.x|tmp.y;
 }
 
 #elif BINNING_METHOD==2
 
+#ifdef INTEL
+	#define RASTER_SIMD_TILE_SZ_LOG2_X 2u
+	#define RASTER_SIMD_TILE_SZ_LOG2_Y 1u
+#else // assume AMD
+	#define RASTER_SIMD_TILE_SZ_LOG2_X 3u
+	#define RASTER_SIMD_TILE_SZ_LOG2_Y 3u
+#endif // INTEL
+
 uint getAtomicOffset()
 {
     uvec2 intPix = uvec2(gl_FragCoord.xy);
-    uvec3 combined = (intPix.xyx&uvec3(1,7,6))<<uvec3(0,1,3);
-    return combined.x|combined.y|combined.z;
+    intPix.x = intPix.x>>RASTER_SIMD_TILE_SZ_LOG2_X;
+    intPix &= uvec2(kSqrtCUCountMask,kSqrtCUCountMask<<RASTER_SIMD_TILE_SZ_LOG2_Y);
+#if   RASTER_SIMD_TILE_SZ_LOG2_Y>kHalfLog2CUCount
+    intPix.y = intPix.y>>(RASTER_SIMD_TILE_SZ_LOG2_Y-kHalfLog2CUCount);
+#elif RASTER_SIMD_TILE_SZ_LOG2_Y<kHalfLog2CUCount
+    intPix.y = intPix.y<<(kHalfLog2CUCount-RASTER_SIMD_TILE_SZ_LOG2_Y);
+#endif
+
+    return intPix.x|intPix.y;
 }
 
 #elif BINNING_METHOD==3
 
+#extension GL_ARB_ES3_1_compatibility: require
 #extension GL_ARB_shader_ballot: require
+#extension GL_ARB_gpu_shader_int64: enable
+#extension GL_NV_gpu_shader5: enable
+
+#ifdef INTEL
+	#define RASTER_SIMD_TILE_SZ_LOG2_X 2u
+	#define RASTER_SIMD_TILE_SZ_LOG2_Y 1u
+#else // assume AMD
+	#define RASTER_SIMD_TILE_SZ_LOG2_X 3u
+	#define RASTER_SIMD_TILE_SZ_LOG2_Y 3u
+#endif // INTEL
+
 uint getAtomicOffset()
 {
     uvec2 intPix = uvec2(gl_FragCoord.xy);
-    uint sqrtSubGroupSize = findMSB(gl_SubGroupSizeARB);
-    uvec2 cuMask = uvec2(kSqrtMaxConcurrentInvocations);
-    cuMask -= uvec2(1u)<<uvec2(sqrtSubGroupSize/2+(sqrtSubGroupSize&0x1u),sqrtSubGroupSize/2);
-    // everything above this line gets constant-folded by compiler
-    intPix &= cuMask;
-    intPix = (intPix^(intPix<<uvec2(2)))&uvec2(0x32u);
-    intPix = (intPix^(intPix<<uvec2(1)))&uvec2(0x54u);
-    return gl_SubGroupInvocationARB|intPix.x|(intPix.y<<1u);
+    intPix.x = intPix.x>>RASTER_SIMD_TILE_SZ_LOG2_X;
+    intPix &= uvec2(kSqrtCUCountMask,kSqrtCUCountMask<<RASTER_SIMD_TILE_SZ_LOG2_Y);
+#if   RASTER_SIMD_TILE_SZ_LOG2_Y>kHalfLog2CUCount
+    intPix.y = intPix.y>>(RASTER_SIMD_TILE_SZ_LOG2_Y-kHalfLog2CUCount);
+#elif RASTER_SIMD_TILE_SZ_LOG2_Y<kHalfLog2CUCount
+    intPix.y = intPix.y<<(kHalfLog2CUCount-RASTER_SIMD_TILE_SZ_LOG2_Y);
+#endif
+
+    return intPix.x|intPix.y;
 }
 
 #elif BINNING_METHOD==4
@@ -43,43 +69,55 @@ uint getAtomicOffset()
 #extension GL_NV_shader_thread_group: require
 uint getAtomicOffset()
 {
-    return gl_ThreadInWarpNV+(gl_SMIDNV<<5u);
+    return gl_SMIDNV;
 }
 
 #elif BINNING_METHOD==5
 
+#extension GL_ARB_ES3_1_compatibility: require
 #extension GL_ARB_shader_ballot: require
+#extension GL_ARB_gpu_shader_int64: enable
+#extension GL_NV_gpu_shader5: enable
 uint getAtomicOffset()
 {
-    return gl_SubGroupInvocationARB;
+    return 0;
 }
 
 #elif BINNING_METHOD==6
 
+
 #extension GL_NV_shader_thread_group: require
 uint getAtomicOffset()
 {
-    return gl_SMIDNV; // why is this faster than gl_ThreadInWarpNV???
+    return 0;
 }
 
 
 #endif // BINNING_METHOD
 
 
-uniform uint optimizerKillerOffset=256;
+layout(location=0) uniform uint optimizerKillerOffset;
 
 
-layout(std430, binding = 0) restrict buffer OutputAtomicData {
-	uint packedHistogram[];
+layout(std430, binding = 0) restrict coherent buffer OutputAtomicData {
+	uint outArray[];
 };
 
 
 void main()
 {
 #if BINNING_METHOD==7
-    packedHistogram[optimizerKillerOffset] = 1u;
+    outArray[optimizerKillerOffset] = 1u;
+#elif BINNING_METHOD==5||BINNING_METHOD==3
+    uint64_t activeThreadMask = ballotARB(!gl_HelperInvocation);
+    if (min(findLSB(uint(activeThreadMask)),findLSB(uint(activeThreadMask>>32u))+32u)==gl_SubGroupInvocationARB)
+        atomicAdd(outArray[optimizerKillerOffset+getAtomicOffset()],bitCount(uint(activeThreadMask))+bitCount(uint(activeThreadMask>>32u)));
+#elif BINNING_METHOD==6||BINNING_METHOD==4
+    uint activeThreadMask = ballotThreadNV(!gl_HelperThreadNV);
+    if (findLSB(activeThreadMask)==gl_ThreadInWarpNV)
+        atomicAdd(outArray[optimizerKillerOffset+getAtomicOffset()],bitCount(activeThreadMask));
 #else
-    atomicAdd(packedHistogram[optimizerKillerOffset+getAtomicOffset()],1u);
+    atomicAdd(outArray[optimizerKillerOffset+getAtomicOffset()],1u);
 #endif // BINNING_METHOD
 }
 
