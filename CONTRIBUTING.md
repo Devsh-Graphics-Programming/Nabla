@@ -8,7 +8,7 @@ https://github.com/buildaworldnet/IrrlichtBAW/issues?q=is%3Aissue+is%3Aopen+sort
 (sorted by the most recently updated)
 
 In order to contribute:
-1. **Do not** open pull requests which "fix" code formatting, or directory structure. This is a "DO NOT WANT"(TM) ESPECIALLY for your first pull requests. If your need to do this is so burning, then provide us with a pull request containing a script to do this instead.
+1. **Do not** open pull requests which "fix" code formatting, the use of `NULL`, C-style casts, C++11, exceptions, or directory structure. This is a "DO NOT WANT"(TM) ESPECIALLY for your first pull requests. If your need to do this is so burning, then provide us with a pull request containing a script to do this instead.
 2. Split your larger contributions into as many separate independent features as practical.
 3. Fork from the master branch or the last stable tag (with exceptions for some features)
 4. Develop your contribution in your fork or a separate branch.
