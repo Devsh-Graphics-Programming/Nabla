@@ -1,3 +1,4 @@
+#include <numeric>
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
@@ -6,9 +7,12 @@
 #include "../source/Irrlicht/COpenGLDriver.h"
 #include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
 
-
-#define TEST_CASE 0
+// benchmark controls
+#define TEST_CASE 3 // [1..4]
 #define INCPUMEM false
+#define RASTERIZER_DISCARD false
+#define LARGE_ATTR_DIVISOR 1 // 0 or 1
+#define DONT_UPDATE_BUFFER 1 // 0 or 1
 
 using namespace irr;
 using namespace core;
@@ -16,6 +20,8 @@ using namespace core;
 
 int main()
 {
+    srand(time(nullptr));
+
     // create device with full flexibility over creation parameters
     // you can add more parameters if desired, check irr::SIrrlichtCreationParameters
     irr::SIrrlichtCreationParameters params;
@@ -46,81 +52,141 @@ int main()
             3, video::EMT_SOLID);
     }
 
-#define INSTANCE_CNT 10
-#define VERTEX_CNT_PER_MESH (3 * 1000000 / (INSTANCE_CNT * 100))
-
-    const size_t batches[16]{ 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 7u, 1u, 1u };
-    const size_t sizes[16]{ 144u, 144u, 144u, 144u, 128u, 128u, 144u, 80u, 80u, 128u, 112u, 96u, 144u, 96u, 144u, 96u };
-    ptrdiff_t offsets[100]{ 0u };
-    {
-        size_t i = 1u;
-        for (size_t j = 0u; j < 16u; ++j)
-        {
-            size_t tmp = i;
-            for (; i < tmp + (i < 98u ? 7u : 1u /* thats ugly af, i'm sorry*/); ++i)
-                offsets[i] = offsets[i - 1] + sizes[j] * (i-1u < 98u ? 7u : 1u /* thats ugly af, i'm sorry*/) * INSTANCE_CNT;
-        }
-    }
-    const size_t bufSize = [&sizes,&batches] {
-        size_t s = 0u;
-        for (size_t i = 0u; i < 16u; ++i)
-            s += sizes[i] * batches[i] * INSTANCE_CNT;
-        return s;
-    }();
-
-    core::ICPUBuffer* cpubuffer = new core::ICPUBuffer(bufSize);
-    video::COpenGLBuffer* buffer;
-#if TEST_CASE==0
-    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createGPUBuffer(bufSize, nullptr, true, INCPUMEM));
-#elif TEST_CASE==3
-    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createPersistentlyMappedBuffer(bufSize*4, nullptr, video::EGBA_WRITE, false, INCPUMEM));
-#elif TEST_CASE==4
-    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createPersistentlyMappedBuffer(bufSize*4, nullptr, video::EGBA_WRITE, true, INCPUMEM));
-#endif
-
     scene::IGPUMeshBuffer* meshes[100];
     scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-    auto attrBuf = driver->createGPUBuffer(4 * VERTEX_CNT_PER_MESH, nullptr);
-    desc->mapVertexAttrBuffer(attrBuf, scene::EVAI_ATTR0, scene::ECPA_ONE, scene::ECT_FLOAT); // map whatever buffer just to activate whatever vertex attribute (look below)
-    for (size_t i = 0u; i < 100u; ++i)
+    auto attrBuf = driver->createGPUBuffer(4
+#if !LARGE_ATTR_DIVISOR
+        * 30000
+#endif
+        , nullptr);
+    desc->mapVertexAttrBuffer(attrBuf, scene::EVAI_ATTR0, scene::ECPA_ONE, scene::ECT_FLOAT, 0, 0,
+#if LARGE_ATTR_DIVISOR
+        1000
+#else
+        0
+#endif
+        ); // map whatever buffer just to activate whatever vertex attribute (look below)
     {
-        meshes[i] = new scene::IGPUMeshBuffer();
-        meshes[i]->setInstanceCount(INSTANCE_CNT);
-        meshes[i]->setIndexCount(VERTEX_CNT_PER_MESH);
-        meshes[i]->setMeshDataAndFormat(desc); // apparently glDrawArrays does nothing if no vertex attribs are active
+        size_t triBudget = 1600000u; //1.6M
+        for (size_t i = 0u; i < 100u; ++i)
+        {
+            meshes[i] = new scene::IGPUMeshBuffer();
+            const size_t instCnt = rand() % 10 + 1;
+            const size_t triCnt = rand() % 3000 + 3000/3;
+            meshes[i]->setInstanceCount(instCnt);
+            if (instCnt * triCnt > triBudget)
+                meshes[i]->setIndexCount(std::max((size_t)30, triBudget/instCnt*3));
+            else
+                meshes[i]->setIndexCount(3 * triCnt);
+            triBudget -= (meshes[i]->getInstanceCount() * meshes[i]->getIndexCount())/3;
+
+            meshes[i]->setMeshDataAndFormat(desc); // apparently glDrawArrays does nothing if no vertex attribs are active
+        }
     }
     desc->drop();
 
-    uint64_t lastFPSTime = 0;
+    size_t batchSizes[16];
+    memset(batchSizes, 0, sizeof(batchSizes));
+    {
+        const size_t triCntMax = 100000u; //100k
+        size_t b = 0u;
+
+        size_t triCnt = 0u;
+        for (size_t i = 0u; i < 100u; ++i)
+        {
+            if (triCnt + (meshes[i]->getInstanceCount() * meshes[i]->getIndexCount())/3 <= triCntMax || b == 15u)
+            {
+                ++batchSizes[b];
+                triCnt += (meshes[i]->getInstanceCount() * meshes[i]->getIndexCount())/3;
+            }
+            else
+            {
+                triCnt = 0u;
+                ++b;
+            }
+        }
+        const size_t sum = std::accumulate(batchSizes, batchSizes + 16, 0ull);
+        for (size_t i = 0; i < 100u - sum; ++i)
+            batchSizes[15 - (i % 16)]++;
+    }
+
+    const size_t uboStructSizes[16]{ 144u, 144u, 144u, 144u, 128u, 128u, 144u, 80u, 80u, 128u, 112u, 96u, 144u, 96u, 144u, 96u };
+    ptrdiff_t offsets[100]{ 0 };
+    {
+        size_t batchesPsum[16]{ batchSizes[0] };
+        for (size_t i = 1u; i < 16u; ++i)
+            batchesPsum[i] = batchesPsum[i-1] + batchSizes[i];
+
+        size_t b = 0u;
+        for (size_t i = 1u; i < 100u; ++i)
+        {
+            if (i >= batchesPsum[b])
+                ++b;
+            offsets[i] = offsets[i-1] + meshes[i-1]->getInstanceCount() * uboStructSizes[b];
+        }
+    }
+    const size_t bufSize = offsets[99] + meshes[99]->getInstanceCount() * uboStructSizes[15];
+
+    core::ICPUBuffer* cpubuffer = new core::ICPUBuffer(bufSize);
+    for (size_t i = 0u; i < bufSize / 2; ++i)
+        ((uint16_t*)(cpubuffer->getPointer()))[i] = rand();
+
+    video::COpenGLBuffer* buffer;
+#if TEST_CASE==2
+    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createGPUBuffer(bufSize, cpubuffer->getPointer(), true, INCPUMEM));
+#elif TEST_CASE==3
+    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createPersistentlyMappedBuffer(bufSize * 4, nullptr, video::EGBA_WRITE, false, INCPUMEM));
+#elif TEST_CASE==4
+    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createPersistentlyMappedBuffer(bufSize * 4, nullptr, video::EGBA_WRITE, true, INCPUMEM));
+#endif
+#if ((TEST_CASE==3 || TEST_CASE==4) && DONT_UPDATE_BUFFER)
+    for (size_t i = 0u; i < 4u; ++i)
+        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(buffer)->getPointer())) + bufSize*i, cpubuffer->getPointer(), bufSize);
+#endif
 
     //GLint meshVao[100];
 
+    video::IFrameBuffer* fbo = driver->addFrameBuffer();
+    fbo->attach(video::EFAP_DEPTH_ATTACHMENT, depthBuffer);
+
     video::SMaterial smaterial;
+    smaterial.RasterizerDiscard = RASTERIZER_DISCARD;
     auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(driver)->getThreadContext());
     size_t frameNum = 0u;
 
-    {
-    video::IFrameBuffer* fbo = driver->addFrameBuffer();
-    fbo->attach(video::EFAP_DEPTH_ATTACHMENT, depthBuffer);
-    driver->setRenderTarget(fbo, true);
-    fbo->drop();
-    }
+#define ITER_CNT 1000
+    video::IQueryObject* queries[ITER_CNT];
 
-    driver->beginScene(false, false);
+#if ((TEST_CASE==3 || TEST_CASE==4) && !DONT_UPDATE_BUFFER)
+    video::IDriverFence* fences[4]{ nullptr, nullptr, nullptr, nullptr };
+#endif
 
-    video::IQueryObject* query = driver->createElapsedTimeQuery();
-    driver->beginQuery(query);
-    while (device->run() && frameNum < 1000u)
+    while (device->run() && frameNum < ITER_CNT)
     {
+        driver->beginScene(false, false);
+        driver->setRenderTarget(fbo, true);
+
+        queries[frameNum] = driver->createElapsedTimeQuery();
+        driver->beginQuery(queries[frameNum]);
+
         memset(cpubuffer->getPointer(), 0, bufSize);
-#if TEST_CASE==0
-        buffer->updateSubRange(0u, bufSize, cpubuffer->getPointer());
-#elif TEST_CASE==1
+#if TEST_CASE==1
         buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createGPUBuffer(bufSize, cpubuffer->getPointer(), false, INCPUMEM));
+#elif TEST_CASE==2
+#if !DONT_UPDATE_BUFFER
+        buffer->updateSubRange(0u, bufSize, cpubuffer->getPointer());
+#endif //!DONT_UPDATE_BUFFER
 #elif (TEST_CASE==3 || TEST_CASE==4)
-        //FENCE
+#if !DONT_UPDATE_BUFFER
         memcpy(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(buffer)->getPointer(), cpubuffer->getPointer(), bufSize);
-        //FLUSH
+        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(buffer->getOpenGLName(), (frameNum%4)*bufSize, bufSize);
+#endif //!DONT_UPDATE_BUFFER
+        {
+        auto glbuf = static_cast<const video::COpenGLBuffer*>(buffer);
+        const ptrdiff_t sz = bufSize;
+        const ptrdiff_t off = (frameNum%4)*bufSize;
+        auxCtx->setActiveUBO(0u, 1u, &glbuf, &off, &sz);
+        }
 #endif
 
         size_t i = 0u;
@@ -130,9 +196,9 @@ int main()
             smaterial.MaterialType = material[j];
             driver->setMaterial(smaterial);
             size_t tmp = i;
-            for (; i < tmp + batches[j]; ++i)
+            for (; i < tmp + batchSizes[j]; ++i)
             {
-                ptrdiff_t sz = sizes[j] * batches[j] * INSTANCE_CNT;
+                const ptrdiff_t sz = (i == 99u ? (ptrdiff_t)bufSize : offsets[i+1]) - offsets[i];
                 auxCtx->setActiveUBO(0u, 1u, &glbuf, offsets+i, &sz);
                 driver->drawMeshBuffer(meshes[i]);
                 //if (!frameNum)
@@ -141,31 +207,31 @@ int main()
             }
         }
 
+#if ((TEST_CASE==3 || TEST_CASE==4) && !DONT_UPDATE_BUFFER)
+        if (!fences[frameNum%4])
+            fences[frameNum%4] = driver->placeFence();
+        fences[frameNum%4]->waitGPU(); // ???
+#endif
+
+        driver->endQuery(queries[frameNum]);
+
 #if TEST_CASE==1
         buffer->drop();
         buffer = nullptr;
 #endif
+        driver->endScene();
 
-        /*
-        // display frames per second in window title
-        uint64_t time = device->getTimer()->getRealTime();
-        if (time - lastFPSTime > 1000)
-        {
-            std::wostringstream sstr;
-            sstr << L"Builtin Nodes Demo - Irrlicht Engine FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
-            //wprintf(L"%s\n", sstr.str().c_str());
-            device->setWindowCaption(sstr.str().c_str());
-            lastFPSTime = time;
-        }
-        */
         ++frameNum;
     }
-    driver->endQuery(query);
-    uint32_t dt = 0u;
-    query->getQueryResult(&dt);
-    os::Printer::log("Elapsed time", std::to_string(dt).c_str());
 
-    driver->endScene();
+    size_t elapsed = 0u;
+    for (size_t i = 0u; i < ITER_CNT; ++i)
+    {
+        uint32_t res{};
+        queries[i]->getQueryResult(&res);
+        elapsed += res;
+    }
+    os::Printer::log("Elapsed time", std::to_string(elapsed).c_str());
 
     for (size_t i = 0u; i < 100u; ++i)
         meshes[i]->drop();
