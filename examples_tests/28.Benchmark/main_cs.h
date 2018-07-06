@@ -157,8 +157,11 @@ int main()
 #if !DONT_UPDATE_BUFFER
         if (fences[frameNum % 4])
         {
-            auto res = fences[frameNum % 4]->waitCPU(10000000000ull);
-            if (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED)
+            auto waitf = [&frameNum, &fences] {
+                auto res = fences[frameNum % 4]->waitCPU(10000000000ull);
+                return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
+            };
+            while (!waitf())
             {
                 fences[frameNum % 4]->drop();
                 fences[frameNum % 4] = nullptr;
@@ -169,17 +172,7 @@ int main()
         video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(buffer->getOpenGLName(), (frameNum % 4)*bufSize, bufSize);
 #endif //TEST_CASE==3
 #endif //!DONT_UPDATE_BUFFER
-        {
-            auto glbuf = static_cast<const video::COpenGLBuffer*>(buffer);
-            const ptrdiff_t sz = bufSize;
-#if DONT_UPDATE_BUFFER
-            const ptrdiff_t off = 0;
-#else
-            const ptrdiff_t off = (frameNum % 4)*bufSize;
-#endif //DONT_UPDATE_BUFFER
-            auxCtx->setActiveUBO(0u, 1u, &glbuf, &off, &sz);
-        }
-#endif
+#endif // this large #if/#elif/#elif
 
         size_t i = 0u;
         for (size_t j = 0u; j < 16u; ++j)

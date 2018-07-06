@@ -11,7 +11,8 @@
 #define TEST_CASE 3 // [1..4]
 #define INCPUMEM false
 #define RASTERIZER_DISCARD false
-#define DONT_UPDATE_BUFFER 0 // 0 or 1
+#define DONT_UPDATE_BUFFER 0 // 0 or 1 (toggle)
+#define ATTRIB_DIVISOR 0 // 0 or 1 (actual value)
 
 using namespace irr;
 using namespace core;
@@ -54,7 +55,7 @@ int main()
     scene::IGPUMeshBuffer* meshes[100];
     scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
     auto attrBuf = driver->createGPUBuffer(4 * 30000, nullptr);
-    desc->mapVertexAttrBuffer(attrBuf, scene::EVAI_ATTR0, scene::ECPA_ONE, scene::ECT_FLOAT); // map whatever buffer just to activate whatever vertex attribute (look below)
+    desc->mapVertexAttrBuffer(attrBuf, scene::EVAI_ATTR0, scene::ECPA_ONE, scene::ECT_FLOAT, 0u, 0u, ATTRIB_DIVISOR); // map whatever buffer just to activate whatever vertex attribute (look below)
     {
         size_t triBudget = 1600000u; //1.6M
         for (size_t i = 0u; i < 100u; ++i)
@@ -180,8 +181,11 @@ int main()
 #if !DONT_UPDATE_BUFFER
         if (fences[frameNum % 4])
         {
-            auto res = fences[frameNum % 4]->waitCPU(10000000000ull);
-            if (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED)
+            auto waitf = [&frameNum, &fences] {
+                auto res = fences[frameNum % 4]->waitCPU(10000000000ull);
+                return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
+            };
+            while (!waitf())
             {
                 fences[frameNum % 4]->drop();
                 fences[frameNum % 4] = nullptr;
@@ -192,17 +196,7 @@ int main()
         video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(buffer->getOpenGLName(), (frameNum%4)*bufSize, bufSize);
 #endif //TEST_CASE==3
 #endif //!DONT_UPDATE_BUFFER
-        {
-        auto glbuf = static_cast<const video::COpenGLBuffer*>(buffer);
-        const ptrdiff_t sz = bufSize;
-#if DONT_UPDATE_BUFFER
-        const ptrdiff_t off = 0;
-#else
-        const ptrdiff_t off = (frameNum%4)*bufSize;
-#endif //DONT_UPDATE_BUFFER
-        auxCtx->setActiveUBO(0u, 1u, &glbuf, &off, &sz);
-        }
-#endif
+#endif // this large #if/#elif/#elif
 
         size_t i = 0u;
         for (size_t j = 0u; j < 16u; ++j)
