@@ -9,10 +9,10 @@
 
 // benchmark controls
 #define TEST_CASE 3 // [1..4]
-#define INCPUMEM false
-#define RASTERIZER_DISCARD false
-#define DONT_UPDATE_BUFFER 0 // 0 or 1 (toggle)
-#define ATTRIB_DIVISOR 0 // 0 or 1 (actual value)
+#define INCPUMEM true
+#define RASTERIZER_DISCARD true
+#define DONT_UPDATE_BUFFER 1 // 0 or 1 (toggle)
+#define ATTRIB_DIVISOR 1 // 0 or 1 (actual value)
 
 using namespace irr;
 using namespace core;
@@ -54,7 +54,13 @@ int main()
 
     scene::IGPUMeshBuffer* meshes[100];
     scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-    auto attrBuf = driver->createGPUBuffer(4 * 30000, nullptr);
+    auto attrBuf = driver->createGPUBuffer(4 * 
+#if ATTRIB_DIVISOR==0
+        30000
+#else
+        10
+#endif
+        , nullptr);
     desc->mapVertexAttrBuffer(attrBuf, scene::EVAI_ATTR0, scene::ECPA_ONE, scene::ECT_FLOAT, 0u, 0u, ATTRIB_DIVISOR); // map whatever buffer just to activate whatever vertex attribute (look below)
     {
         size_t triBudget = 1600000u; //1.6M

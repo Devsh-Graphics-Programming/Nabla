@@ -9,9 +9,9 @@
 #include "createComputeShader.h"
 
 // benchmark controls
-#define TEST_CASE 3 // [1..4]
-#define INCPUMEM false
-#define DONT_UPDATE_BUFFER 0 // 0 or 1
+#define TEST_CASE 4 // [1..4]
+#define INCPUMEM true
+#define DONT_UPDATE_BUFFER 1 // 0 or 1
 
 using namespace irr;
 using namespace core;
