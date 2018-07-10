@@ -719,14 +719,49 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffe
 	return clone;
 }
 
-size_t cmpfunc_vertsz; //! BUG: How do you expect this to run in parallel!?
-int cmpfunc (const void * a, const void * b)
+// Used by createMeshBufferWelded only
+static bool cmpVertices(ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb, size_t _vsize, const IMeshManipulator::SErrorMetric* _errMetrics, const IMeshManipulator* _meshManip)
 {
-   return memcmp((uint8_t*)a+4,(uint8_t*)b+4,cmpfunc_vertsz);
+    auto cmpInteger = [](uint32_t* _a, uint32_t* _b, size_t _n) -> bool {
+        return !memcmp(_a, _b, _n*4);
+    };
+
+    const uint8_t* va = (uint8_t*)_va, *vb = (uint8_t*)_vb;
+    auto desc = _inbuf->getMeshDataAndFormat();
+    for (size_t i = 0u; i < EVAI_COUNT; ++i)
+    {
+        if (!desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
+            continue;
+
+        const auto atype = desc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i);
+        const auto cpa = desc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i);
+
+        if (scene::isNativeInteger(atype) || scene::isWeakInteger(atype))
+        {
+            uint32_t attr[8];
+            ICPUMeshBuffer::getAttribute(attr, va, atype, cpa);
+            ICPUMeshBuffer::getAttribute(attr+4, vb, atype, cpa);
+            if (!cmpInteger(attr, attr+4, cpa == ECPA_REVERSED_OR_BGRA ? ECPA_FOUR : cpa))
+                return false;
+        }
+        else
+        {
+            core::vectorSIMDf attr[2];
+            ICPUMeshBuffer::getAttribute(attr[0], va, atype, cpa);
+            ICPUMeshBuffer::getAttribute(attr[1], vb, atype, cpa);
+            if (!_meshManip->compareFloatingPointAttribute(attr[0], attr[1], cpa, _errMetrics[i]))
+                return false;
+        }
+
+        va += scene::vertexAttrSize[atype][cpa];
+        vb += scene::vertexAttrSize[atype][cpa];
+    }
+
+    return true;
 }
 
 //! Creates a copy of a mesh, which will have identical vertices welded together
-ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& reduceIdxBufSize, const bool& makeNewMesh, float tolerance) const
+ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType, const bool& makeNewMesh) const
 {
     if (!inbuffer)
         return 0;
@@ -765,7 +800,10 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
         else
             bufferPresent[i] = false;
     }
-    cmpfunc_vertsz = vertexSize;
+
+    auto cmpfunc = [&, inbuffer, this, vertexSize, _errMetrics](const void* _va, const void* _vb) {
+        return cmpVertices(inbuffer, _va, _vb, vertexSize, _errMetrics, this);
+    };
 
     size_t vertexCount = 0;
     video::E_INDEX_TYPE oldIndexType = video::EIT_UNKNOWN;
@@ -813,13 +851,10 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
 
     uint32_t maxRedirect = 0;
 
-    //! What's the +4 about!?
-    uint8_t* epicData = (uint8_t*)malloc((vertexSize+4)*vertexCount);
+    uint8_t* epicData = (uint8_t*)malloc(vertexSize*vertexCount);
     for (size_t i=0; i < vertexCount; i++)
     {
-        uint8_t* currentVertexPtr = epicData+i*(vertexSize+4);
-        reinterpret_cast<uint32_t*>(currentVertexPtr)[0] = i;
-        currentVertexPtr+=4;
+        uint8_t* currentVertexPtr = epicData+i*vertexSize;
         for (size_t k=0; k<EVAI_COUNT; k++)
         {
             if (!bufferPresent[k])
@@ -831,24 +866,25 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
             currentVertexPtr += vertexAttrSize[k];
         }
     }
-    uint8_t* origData = (uint8_t*)malloc((vertexSize+4)*vertexCount);
-    memcpy(origData,epicData,(vertexSize+4)*vertexCount);
-    qsort(epicData, vertexCount, vertexSize+4, cmpfunc);
+
     for (size_t i=0; i<vertexCount; i++)
     {
         uint32_t redir = i;
 
-        void* item = bsearch(origData+(vertexSize+4)*i, epicData, i, vertexSize+4, cmpfunc); //! TODO: change to some sort of epsilon based comparison
-        if( item != NULL )
+        for (size_t j = 0u; j < vertexCount; ++j)
         {
-            redir = *reinterpret_cast<uint32_t*>(item);
+            if (i == j)
+                continue;
+            if (cmpfunc(epicData+vertexSize*i, epicData+vertexSize*j))
+            {
+                redir = j;
+            }
         }
 
         redirects[i] = redir;
         if (redir>maxRedirect)
             maxRedirect = redir;
     }
-    free(origData);
     free(epicData);
 
     void* oldIndices = inbuffer->getIndices();
@@ -864,7 +900,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
         clone->setBaseVertex(inbuffer->getBaseVertex());
         clone->setBoundingBox(inbuffer->getBoundingBox());
         clone->setIndexCount(inbuffer->getIndexCount());
-		if (reduceIdxBufSize)
+		if (optimIndexType)
 			clone->setIndexType(maxRedirect>=0x10000u ? video::EIT_32BIT:video::EIT_16BIT);
 		else
 			clone->setIndexType(inbuffer->getIndexType());
@@ -885,7 +921,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
             oldDesc->mapIndexBuffer(indexCpy);
             indexCpy->drop();
         }
-		if (reduceIdxBufSize)
+		if (optimIndexType)
 			inbuffer->setIndexType(maxRedirect>=0x10000u ? video::EIT_32BIT:video::EIT_16BIT);
     }
 
@@ -942,7 +978,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
         return inbuffer;
 }
 
-ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _requantErrMetric) const
+ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _errMetric) const
 {
 	if (!_inbuffer)
 		return NULL;
@@ -1002,8 +1038,11 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 	}
 
 	// STEP: weld
-	createMeshBufferWelded(outbuffer, false);
+	createMeshBufferWelded(outbuffer, _errMetric, false);
 	vertexCount = outbuffer->calcVertexCount();
+
+    // STEP: filter invalid triangles
+    filterInvalidTriangles(outbuffer);
 
 	// STEP: overdraw optimization
 	COverdrawMeshOptimizer::createOptimized(outbuffer, false);
@@ -1023,7 +1062,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 	}
 
 	// STEP: requantization
-	requantizeMeshBuffer(outbuffer, _requantErrMetric);
+	requantizeMeshBuffer(outbuffer, _errMetric);
 
 	// STEP: reduce index buffer to 16bit or completely get rid of it
 	{
@@ -1274,6 +1313,57 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 
 	return dst;
 }
+
+void CMeshManipulator::filterInvalidTriangles(ICPUMeshBuffer* _input) const
+{
+    if (!_input || !_input->getMeshDataAndFormat() || !_input->getIndices())
+        return;
+
+    switch (_input->getIndexType())
+    {
+    case video::EIT_16BIT:
+        return priv_filterInvalidTriangles<uint16_t>(_input);
+    case video::EIT_32BIT:
+        return priv_filterInvalidTriangles<uint32_t>(_input);
+    }
+}
+
+template<typename IdxT>
+void CMeshManipulator::priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const
+{
+    const size_t size = _input->getIndexCount() * sizeof(IdxT);
+    void* const copy = malloc(size);
+    memcpy(copy, _input->getIndices(), size);
+
+    struct Triangle
+    {
+        IdxT i[3];
+    } *const begin = (Triangle*)copy, *const end = (Triangle*)((uint8_t*)copy + size);
+
+    Triangle* const newEnd = std::remove_if(begin, end,
+        [&_input](const Triangle& _t) {
+            core::vectorSIMDf p0, p1, p2;
+            const E_VERTEX_ATTRIBUTE_ID pvaid = _input->getPositionAttributeIx();
+            uint32_t m = 0xffffffff;
+            const core::vectorSIMDf mask(*(float*)&m, *(float*)&m, *(float*)&m, 0);
+            _input->getAttribute(p0, pvaid, _t.i[0]);
+            _input->getAttribute(p1, pvaid, _t.i[1]);
+            _input->getAttribute(p2, pvaid, _t.i[2]);
+            p0 &= mask; p1 &= mask; p2 &= mask;
+            return (p0 == p1).all() || (p0 == p2).all() || (p1 == p2).all(); 
+    });
+    const size_t newSize = std::distance(begin, newEnd) * sizeof(Triangle);
+
+    auto newBuf = new core::ICPUBuffer(newSize);
+    memcpy(newBuf->getPointer(), copy, newSize);
+    free(copy);
+    _input->getMeshDataAndFormat()->mapIndexBuffer(newBuf);
+    _input->setIndexBufferOffset(0);
+    _input->setIndexCount(newSize/sizeof(IdxT));
+    newBuf->drop();
+}
+template void CMeshManipulator::priv_filterInvalidTriangles<uint16_t>(ICPUMeshBuffer* _input) const;
+template void CMeshManipulator::priv_filterInvalidTriangles<uint32_t>(ICPUMeshBuffer* _input) const;
 
 core::ICPUBuffer* CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const
 {
@@ -1671,65 +1761,16 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 		};
 	}
 
-	using ErrorF_t = core::vectorSIMDf(*)(core::vectorSIMDf, core::vectorSIMDf);
-
-	ErrorF_t errorFunc = nullptr;
-
-	switch (_errMetric.method)
-	{
-	case EEM_POSITIONS:
-		errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2) -> core::vectorSIMDf {
-			return core::abs(_d1 - _d2);
-		};
-		break;
-	case EEM_ANGLES:
-		errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
-			_d1.w = _d2.w = 0.f;
-			return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
-		};
-		break;
-	case EEM_QUATERNION:
-		errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
-			return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
-		};
-		break;
-	}
-
-	using CmpF_t = bool(*)(const core::vectorSIMDf&, const core::vectorSIMDf&, E_COMPONENTS_PER_ATTRIBUTE);
-
-	CmpF_t cmpFunc = nullptr;
-
-	switch (_errMetric.method)
-	{
-	case EEM_POSITIONS:
-		cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> bool {
-			for (size_t i = 0u; i < (size_t)(_cpa == ECPA_REVERSED_OR_BGRA ? ECPA_FOUR : _cpa); ++i)
-				if (_err.pointer[i] > _epsilon.pointer[i])
-					return false;
-			return true;
-		};
-		break;
-	case EEM_ANGLES:
-	case EEM_QUATERNION:
-		cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> bool {
-			return _err.x > (1.f - _epsilon.x);
-		};
-		break;
-	}
-
 	_IRR_DEBUG_BREAK_IF(!quantFunc)
-	_IRR_DEBUG_BREAK_IF(!errorFunc)
-	_IRR_DEBUG_BREAK_IF(!cmpFunc)
-	if (!quantFunc || !errorFunc || !cmpFunc)
+	if (!quantFunc)
 		return false;
 
 	for (const core::vectorSIMDf& d : _srcData)
 	{
 		const core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type, _dstType.cpa);
 
-		core::vectorSIMDf err = errorFunc(d, quantized);
-		if (!cmpFunc(err, _errMetric.epsilon, _srcType.cpa))
-			return false;
+        if (!compareFloatingPointAttribute(d, quantized, _srcType.cpa, _errMetric))
+            return false;
 	}
 
 	return true;
@@ -1795,6 +1836,63 @@ inline core::ICPUBuffer* CMeshManipulator::trianglesFanToTriangles(const void* _
 }
 template core::ICPUBuffer* CMeshManipulator::trianglesFanToTriangles<uint16_t>(const void* _input, size_t _idxCount) const;
 template core::ICPUBuffer* CMeshManipulator::trianglesFanToTriangles<uint32_t>(const void* _input, size_t _idxCount) const;
+
+bool CMeshManipulator::compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, E_COMPONENTS_PER_ATTRIBUTE _cpa, const SErrorMetric& _errMetric) const
+{
+	using ErrorF_t = core::vectorSIMDf(*)(core::vectorSIMDf, core::vectorSIMDf);
+
+	ErrorF_t errorFunc = nullptr;
+
+	switch (_errMetric.method)
+	{
+	case EEM_POSITIONS:
+		errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2) -> core::vectorSIMDf {
+			return core::abs(_d1 - _d2);
+		};
+		break;
+	case EEM_ANGLES:
+		errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
+			_d1.w = _d2.w = 0.f;
+			return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
+		};
+		break;
+	case EEM_QUATERNION:
+		errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
+			return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
+		};
+		break;
+	}
+
+	using CmpF_t = bool(*)(const core::vectorSIMDf&, const core::vectorSIMDf&, E_COMPONENTS_PER_ATTRIBUTE);
+
+	CmpF_t cmpFunc = nullptr;
+
+	switch (_errMetric.method)
+	{
+	case EEM_POSITIONS:
+		cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> bool {
+			for (size_t i = 0u; i < (size_t)(_cpa == ECPA_REVERSED_OR_BGRA ? ECPA_FOUR : _cpa); ++i)
+				if (_err.pointer[i] > _epsilon.pointer[i])
+					return false;
+			return true;
+		};
+		break;
+	case EEM_ANGLES:
+	case EEM_QUATERNION:
+		cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> bool {
+			return _err.x > (1.f - _epsilon.x);
+		};
+		break;
+	}
+
+	_IRR_DEBUG_BREAK_IF(!errorFunc)
+	_IRR_DEBUG_BREAK_IF(!cmpFunc)
+	if (!errorFunc || !cmpFunc)
+		return false;
+
+    const core::vectorSIMDf err = errorFunc(_a, _b);
+    return cmpFunc(err, _errMetric.epsilon, _cpa);
+}
 
 template<>
 bool IMeshManipulator::getPolyCount<core::ICPUBuffer>(uint32_t& outCount, IMeshBuffer<core::ICPUBuffer>* meshbuffer)

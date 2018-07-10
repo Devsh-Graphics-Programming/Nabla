@@ -68,15 +68,26 @@ public:
 	virtual ICPUMeshBuffer* createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer) const;
 
 	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
-	virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const bool& reduceIdxBufSize = true, const bool& makeNewMesh=false, float tolerance=core::ROUNDING_ERROR_f32) const;
+	virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh=false) const;
 
-	virtual ICPUMeshBuffer* createOptimizedMeshBuffer(const ICPUMeshBuffer* inbuffer, const SErrorMetric* _requantErrMetric) const;
+	virtual ICPUMeshBuffer* createOptimizedMeshBuffer(const ICPUMeshBuffer* inbuffer, const SErrorMetric* _errMetric) const;
 
 	virtual void requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const;
 
 	virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const;
 
+    virtual void filterInvalidTriangles(ICPUMeshBuffer* _input) const;
+
+    virtual core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
+
+    virtual core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
+
+    virtual bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, E_COMPONENTS_PER_ATTRIBUTE _cpa, const SErrorMetric& _errMetric) const;
+
 private:
+    template<typename IdxT>
+    void priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const;
+
 	//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
 	core::ICPUBuffer* create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const;
 
@@ -96,11 +107,9 @@ private:
 	/** @returns false when first of calculated errors goes above epsilon or true if reached end without such. */
 	bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const std::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric) const;
 
-	core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
 	template<typename T>
 	core::ICPUBuffer* triangleStripsToTriangles(const void* _input, size_t _idxCount) const;
 
-	core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const;
 	template<typename T>
 	core::ICPUBuffer* trianglesFanToTriangles(const void* _input, size_t _idxCount) const;
 };
