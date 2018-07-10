@@ -384,57 +384,6 @@ private:
 
 class ProgressiveSorter : public ISorter
 {
-    enum 
-    {
-        E_OFF_LOC = 0,
-        E_CAM_POS_LOC = 1,
-        E_SIZE_LOC = 2,
-
-        E_INDICES_BIDING = 0,
-        E_POS_BINDING = 1
-    };
-
-    static constexpr const char* CS_SRC = R"XDDD(
-    #version 430 core
-    layout(local_size_x = 256) in;
-
-    layout(std430, binding = 0) restrict buffer b0 {
-	    uint indices[];
-    };
-    layout(std430, binding = 1) restrict readonly buffer b1 {
-	    vec4 pos[];
-    };
-
-    layout(location = 0) uniform uint off;
-    layout(location = 1) uniform vec3 camPos;
-    layout(location = 2) uniform uint size;
-
-    void swap(inout uint idx0, inout uint idx1)
-    {
-	    uint tmp = idx0;
-	    idx0 = idx1;
-	    idx1 = tmp;
-    }
-
-    void main()
-    {
-	    const uint IDX = 2*gl_GlobalInvocationID.x + off;
-	
-	    if (IDX + 1 < size)
-	    {
-		    uint idx0 = indices[IDX], idx1 = indices[IDX+1];
-		    const vec3 v0 = camPos - pos[idx0].xyz, v1 = camPos - pos[idx1].xyz;
-		    const float key0 = dot(v0, v0), key1 = dot(v1, v1);
-		
-		    if (key0 < key1)
-			    swap(idx0, idx1);
-			
-		    indices[IDX] = idx0;
-		    indices[IDX+1] = idx1;
-	    }
-    }
-    )XDDD";
-
 protected:
     ~ProgressiveSorter()
     {
@@ -447,8 +396,9 @@ protected:
 public:
     ProgressiveSorter(video::IVideoDriver* _vd) :
         ISorter(_vd),
-        m_cs{createComputeShader(CS_SRC)},
+        m_cs{createComputeShaderFromFile("../shaders/prog.comp")},
         m_posBuf{nullptr},
+        m_ubo{nullptr},
         m_startIdx{0u},
         m_wgCount{}
     {}
@@ -462,6 +412,7 @@ public:
             pos.push_back(v);
 
         m_posBuf = m_driver->createGPUBuffer(pos.size() * sizeof(v), pos.data());
+        m_ubo = m_driver->createGPUBuffer(24, nullptr, true);
 
         core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * pos.size());
         uint32_t* indices = (uint32_t*)idxBuf->getPointer();
@@ -496,23 +447,31 @@ public:
 
     void run(const core::vector3df& _camPos) override
     {
+        const uint32_t offset[2]{ 0u, 512u };
+        {//bind ubo
+            auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+            const ptrdiff_t off = 0, sz = m_ubo->getSize();
+            auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
+
+            uint32_t m[6];
+            memcpy(m, &_camPos.X, 12);
+            m[4] = offset[m_startIdx];
+            m[5] = m_posBuf->getSize() / 16;
+
+            m_ubo->updateSubRange(0u, 24u, m); // update ubo with cam pos and offset
+        }
+        bindSSBuffers();
+
         GLint prevProgram;
         glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
-        bindSSBuffers();
+        using gl = video::COpenGLExtensionHandler;
+        gl::extGlUseProgram(m_cs);
+        gl::extGlDispatchCompute((m_posBuf->getSize()/16 - offset[m_startIdx] + 1023u) / 1024, 1u, 1u);
+        gl::extGlUseProgram(prevProgram);
 
-        video::COpenGLExtensionHandler::extGlUseProgram(m_cs);
-
-        video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_cs, E_OFF_LOC, 1u, &m_startIdx);
-        video::COpenGLExtensionHandler::extGlProgramUniform3fv(m_cs, E_CAM_POS_LOC, 1u, &_camPos.X);
-        const GLuint size = m_posBuf->getSize() / sizeof(core::vectorSIMDf);
-        video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_cs, E_SIZE_LOC, 1u, &size);
-
-        video::COpenGLExtensionHandler::extGlDispatchCompute(m_wgCount, 1u, 1u);
-
-        video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
-
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+        gl::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 
         m_startIdx = !m_startIdx;
     }
@@ -520,6 +479,7 @@ public:
 private:
     GLuint m_cs;
     video::IGPUBuffer* m_posBuf;
+    video::IGPUBuffer* m_ubo;
     mutable GLuint m_startIdx;
     GLuint m_wgCount;
 };
@@ -717,8 +677,8 @@ int main()
     scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/cow.obj");
     ISorter* sorter =
         //new RadixSorter(driver);
-        //new ProgressiveSorter(driver);
-        new BitonicSorter(driver);
+        new ProgressiveSorter(driver);
+        //new BitonicSorter(driver);
     sorter->init(cpumesh->getMeshBuffer(0));
     scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
     sorter->setIndexBuffer(gpumesh->getMeshBuffer(0));
