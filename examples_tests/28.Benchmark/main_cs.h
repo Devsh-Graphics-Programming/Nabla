@@ -1,20 +1,5 @@
-#include <numeric>
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
-
-#include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLDriver.h"
-#include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
 #include "createComputeShader.h"
 
-// benchmark controls
-#define TEST_CASE 4 // [1..4]
-#define INCPUMEM true
-#define DONT_UPDATE_BUFFER 1 // 0 or 1
-
-using namespace irr;
-using namespace core;
 
 int main()
 {
@@ -30,6 +15,24 @@ int main()
     params.Doublebuffer = true;
     params.Stencilbuffer = false; //! This will not even be a choice soon
     IrrlichtDevice* device = createDeviceEx(params);
+
+#ifdef OPENGL_DEBUG
+    if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::IRR_KHR_debug])
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        //glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        video::COpenGLExtensionHandler::pGlDebugMessageControl(GL_DONT_CARE,GL_DONT_CARE,GL_DONT_CARE,0,NULL,true);
+
+        video::COpenGLExtensionHandler::pGlDebugMessageCallback(openGLCBFunc,NULL);
+    }
+    else
+    {
+        //glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+        video::COpenGLExtensionHandler::pGlDebugMessageControlARB(GL_DONT_CARE,GL_DONT_CARE,GL_DONT_CARE,0,NULL,true);
+
+        video::COpenGLExtensionHandler::pGlDebugMessageCallbackARB(openGLCBFunc,NULL);
+    }
+#endif // OPENGL_DEBUG
 
     if (!device)
         return 1;
@@ -125,36 +128,39 @@ int main()
     buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createPersistentlyMappedBuffer(persistentlyMappedBufSize, nullptr, video::EGBA_WRITE, true, INCPUMEM));
 #endif
 
-#if ((TEST_CASE==3 || TEST_CASE==4) && DONT_UPDATE_BUFFER)
+#if DONT_UPDATE_BUFFER
+#if (TEST_CASE==3 || TEST_CASE==4)
     memcpy(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(buffer)->getPointer(), cpubuffer->getPointer(), persistentlyMappedBufSize);
 #if TEST_CASE==3
     video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(buffer->getOpenGLName(), 0, bufSize);
 #endif
+    video::COpenGLExtensionHandler::extGlUnmapNamedBuffer(buffer->getOpenGLName());
 #endif
+#endif
+    video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT);
 
     auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(driver)->getThreadContext());
     size_t frameNum = 0u;
 
-#define ITER_CNT 1000
+#define ITER_CNT 50000
     video::IQueryObject* queries[ITER_CNT];
 
 #if ((TEST_CASE==3 || TEST_CASE==4) && !DONT_UPDATE_BUFFER)
     video::IDriverFence* fences[4]{ nullptr, nullptr, nullptr, nullptr };
 #endif
 
+    auto cpustart = std::chrono::steady_clock::now();
     while (device->run() && frameNum < ITER_CNT)
     {
         queries[frameNum] = driver->createElapsedTimeQuery();
         driver->beginQuery(queries[frameNum]);
 
-#if (TEST_CASE==1 && !DONT_UPDATE_BUFFER)
+#if !DONT_UPDATE_BUFFER
+#if TEST_CASE==1
         buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createGPUBuffer(bufSize, cpubuffer->getPointer(), false, INCPUMEM));
 #elif TEST_CASE==2
-#if !DONT_UPDATE_BUFFER
         buffer->updateSubRange(0u, bufSize, cpubuffer->getPointer());
-#endif //!DONT_UPDATE_BUFFER
 #elif (TEST_CASE==3 || TEST_CASE==4)
-#if !DONT_UPDATE_BUFFER
         if (fences[frameNum % 4])
         {
             auto waitf = [&frameNum, &fences] {
@@ -171,8 +177,9 @@ int main()
 #if TEST_CASE==3
         video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(buffer->getOpenGLName(), (frameNum % 4)*bufSize, bufSize);
 #endif //TEST_CASE==3
-#endif //!DONT_UPDATE_BUFFER
 #endif // this large #if/#elif/#elif
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT);
+#endif //!DONT_UPDATE_BUFFER
 
         size_t i = 0u;
         for (size_t j = 0u; j < 16u; ++j)
@@ -206,8 +213,11 @@ int main()
         buffer = nullptr;
 #endif
 
+        glFlush();
         ++frameNum;
     }
+    auto diff = std::chrono::steady_clock::now() - cpustart;
+    std::cout << "Elapsed CPU time " << std::chrono::duration <double, std::milli> (diff).count() << " ms\n";
 
     size_t elapsed = 0u;
     for (size_t i = 0u; i < ITER_CNT; ++i)

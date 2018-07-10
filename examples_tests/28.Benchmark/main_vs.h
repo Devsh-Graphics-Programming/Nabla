@@ -1,21 +1,8 @@
-#include <numeric>
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
-
-#include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLDriver.h"
-#include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
-
-// benchmark controls
-#define TEST_CASE 3 // [1..4]
-#define INCPUMEM true
-#define RASTERIZER_DISCARD true
-#define DONT_UPDATE_BUFFER 1 // 0 or 1 (toggle)
+//! driver detects no xform feedback and no shader output writes, so it most probably skips render call
+#define RASTERIZER_DISCARD false
+//! TESTED TO PERFORM BETTER WITH LESS VX INPUT
 #define ATTRIB_DIVISOR 1 // 0 or 1 (actual value)
 
-using namespace irr;
-using namespace core;
 
 
 int main()
@@ -35,8 +22,26 @@ int main()
     params.Stencilbuffer = false; //! This will not even be a choice soon
     IrrlichtDevice* device = createDeviceEx(params);
 
+#ifdef OPENGL_DEBUG
+    if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::IRR_KHR_debug])
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        //glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        video::COpenGLExtensionHandler::pGlDebugMessageControl(GL_DONT_CARE,GL_DONT_CARE,GL_DONT_CARE,0,NULL,true);
+
+        video::COpenGLExtensionHandler::pGlDebugMessageCallback(openGLCBFunc,NULL);
+    }
+    else
+    {
+        //glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+        video::COpenGLExtensionHandler::pGlDebugMessageControlARB(GL_DONT_CARE,GL_DONT_CARE,GL_DONT_CARE,0,NULL,true);
+
+        video::COpenGLExtensionHandler::pGlDebugMessageCallbackARB(openGLCBFunc,NULL);
+    }
+#endif // OPENGL_DEBUG
+
     if (!device)
-        return 1; 
+        return 1;
 
     video::IVideoDriver* driver = device->getVideoDriver();
     uint32_t depthBufSz[]{ 64u, 64u };
@@ -54,7 +59,7 @@ int main()
 
     scene::IGPUMeshBuffer* meshes[100];
     scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-    auto attrBuf = driver->createGPUBuffer(4 * 
+    auto attrBuf = driver->createGPUBuffer(4 *
 #if ATTRIB_DIVISOR==0
         30000
 #else
@@ -145,10 +150,13 @@ int main()
     buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createPersistentlyMappedBuffer(persistentlyMappedBufSize, nullptr, video::EGBA_WRITE, true, INCPUMEM));
 #endif
 
-#if ((TEST_CASE==3 || TEST_CASE==4) && DONT_UPDATE_BUFFER)
+#if DONT_UPDATE_BUFFER
+#if (TEST_CASE==3 || TEST_CASE==4)
     memcpy(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(buffer)->getPointer(), cpubuffer->getPointer(), persistentlyMappedBufSize);
 #if TEST_CASE==3
     video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(buffer->getOpenGLName(), 0, bufSize);
+#endif
+    video::COpenGLExtensionHandler::extGlUnmapNamedBuffer(buffer->getOpenGLName());
 #endif
 #endif
 
@@ -162,17 +170,19 @@ int main()
     auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(driver)->getThreadContext());
     size_t frameNum = 0u;
 
-#define ITER_CNT 1000
+#define ITER_CNT 50000
     video::IQueryObject* queries[ITER_CNT];
 
 #if ((TEST_CASE==3 || TEST_CASE==4) && !DONT_UPDATE_BUFFER)
     video::IDriverFence* fences[4]{ nullptr, nullptr, nullptr, nullptr };
 #endif
 
+    glViewport(0,0,128,128);
+    auto cpustart = std::chrono::steady_clock::now();
+    driver->beginScene(false, false);
     while (device->run() && frameNum < ITER_CNT)
     {
-        driver->beginScene(false, false);
-        driver->setRenderTarget(fbo, true);
+        driver->setRenderTarget(fbo, false);
 
         queries[frameNum] = driver->createElapsedTimeQuery();
         driver->beginQuery(queries[frameNum]);
@@ -239,10 +249,13 @@ int main()
         buffer->drop();
         buffer = nullptr;
 #endif
-        driver->endScene();
 
+        glFlush();
         ++frameNum;
     }
+    auto diff = std::chrono::steady_clock::now() - cpustart;
+    std::cout << "Elapsed CPU time " << std::chrono::duration <double, std::milli> (diff).count() << " ms\n";
+    driver->endScene();
 
     size_t elapsed = 0u;
     for (size_t i = 0u; i < ITER_CNT; ++i)
@@ -251,7 +264,7 @@ int main()
         queries[i]->getQueryResult(&res);
         elapsed += res;
     }
-    os::Printer::log("Elapsed time", std::to_string(elapsed).c_str());
+    os::Printer::log("Elapsed GPU time", std::to_string(elapsed).c_str());
 
     for (size_t i = 0u; i < 100u; ++i)
         meshes[i]->drop();
