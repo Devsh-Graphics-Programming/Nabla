@@ -41,10 +41,10 @@ float calcKey(uint i)
 
 void storeIndicesToSmem(uvec4 d)
 {
-	s_vals[LC_IDX+0] = d.x;
-	s_vals[LC_IDX+1] = d.y;
-	s_vals[LC_IDX+2] = d.z;
-	s_vals[LC_IDX+3] = d.w;
+	s_vals[4*LC_IDX+0] = d.x;
+	s_vals[4*LC_IDX+1] = d.y;
+	s_vals[4*LC_IDX+2] = d.z;
+	s_vals[4*LC_IDX+3] = d.w;
 }
 
 void main()
