@@ -1,0 +1,24 @@
+#version 430 core
+
+layout(std140, binding = 0) uniform InstanceData
+{
+	struct {
+		float f;
+		mat4 m4;
+		vec3 v3;
+		vec4 v4;
+	} data[10];
+} instData;
+
+out vec4 vcolor;
+
+#define ACCESS instData.data[gl_InstanceID]
+void main()
+{
+	
+	gl_Position = vcolor = ACCESS.m4 * ACCESS.v4 + (mat3(ACCESS.v3, ACCESS.v3, ACCESS.v3) * vec3(ACCESS.f)).xxxx;
+    gl_Position.x /= gl_VertexID;
+    gl_Position.y += gl_VertexID;
+    gl_Position.z = abs(gl_Position.x) + inversesqrt(float(gl_VertexID)/12001.f);
+    gl_Position.w = 1.f;
+}
