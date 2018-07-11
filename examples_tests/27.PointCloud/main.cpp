@@ -282,7 +282,7 @@ public:
         {//bind ubo
             auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
             auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
-            const ptrdiff_t off = 0, sz = m_ubo->getSize();
+            const ptrdiff_t off = 0, sz = 16;
             auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
         }
         bindSSBuffers();
@@ -292,6 +292,13 @@ public:
 
         gl::extGlDispatchCompute(m_wgCnt, 1u, 1u);
         gl::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        {//bind ubo
+            auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+            const ptrdiff_t off = 16, sz = m_ubo->getSize()-16;
+            auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
+        }
 
         const GLuint histogram[] {0u, 0u};
         uint8_t sumsIn[1u<<13]; // enough for up to 1024 work groups, i.e. 524288 indices
