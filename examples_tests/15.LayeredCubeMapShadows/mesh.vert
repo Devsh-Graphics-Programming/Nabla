@@ -1,4 +1,4 @@
-#version 330 core
+#version 420 core
 uniform vec3 worldSpaceLightPos;
 uniform mat4x3 worldMat;
 uniform mat3 normalMat;
