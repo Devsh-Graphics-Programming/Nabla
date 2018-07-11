@@ -63,7 +63,8 @@ class COpenGLSLMaterialRenderer : public IMaterialRenderer, public IMaterialRend
 
         virtual void OnUnsetMaterial();
 
-        virtual bool isTransparent() const; //depr
+        //! Returns if the material is transparent.
+        virtual bool isTransparent() const;
 
         //! Returns if it's a tessellation shader.
         virtual bool isTessellation() const {return tessellationPatchVertices!=-1;}
@@ -71,6 +72,7 @@ class COpenGLSLMaterialRenderer : public IMaterialRenderer, public IMaterialRend
         // implementations for the render services
         virtual void setBasicRenderStates(const SMaterial& material, const SMaterial& lastMaterial, bool resetAllRenderstates);
         virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
+        virtual void setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
         virtual IVideoDriver* getVideoDriver();
 
     protected:
