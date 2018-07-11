@@ -26,6 +26,7 @@
     <ProjectGuid>{3E0CB9E7-A1B5-47BE-8171-C5658C290A13}</ProjectGuid>
     <RootNamespace>bench</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+    <ProjectName>UBOBenchmarkV2</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
