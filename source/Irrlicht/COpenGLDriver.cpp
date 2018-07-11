@@ -963,8 +963,7 @@ void COpenGLDriver::createMaterialRenderers()
 {
 	// create OpenGL material renderers
     const char* std_vert =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "uniform mat4 MVPMat;\n"
     "layout(location = 0) in vec4 vPosAttr;\n"
     "layout(location = 2) in vec2 vTCAttr;\n"
@@ -980,42 +979,39 @@ void COpenGLDriver::createMaterialRenderers()
     "   tcCoord = vTCAttr;"
     "}";
     const char* std_solid_frag =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
     "layout(location = 0) out vec4 outColor;\n"
     "\n"
-    "uniform sampler2D tex0;"
+    "layout(location = 0) uniform sampler2D tex0;"
     "\n"
     "void main()\n"
     "{\n"
     "   outColor = texture(tex0,tcCoord);"
     "}";
     const char* std_trans_add_frag =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
     "layout(location = 0) out vec4 outColor;\n"
     "\n"
-    "uniform sampler2D tex0;"
+    "layout(location = 0) uniform sampler2D tex0;"
     "\n"
     "void main()\n"
     "{\n"
     "   outColor = texture(tex0,tcCoord);"
     "}";
     const char* std_trans_alpha_frag =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
     "layout(location = 0) out vec4 outColor;\n"
     "\n"
-    "uniform sampler2D tex0;"
+    "layout(location = 0) uniform sampler2D tex0;"
     "\n"
     "void main()\n"
     "{\n"
@@ -1025,14 +1021,13 @@ void COpenGLDriver::createMaterialRenderers()
     "   outColor = tmp;"
     "}";
     const char* std_trans_vertex_frag =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
     "layout(location = 0) out vec4 outColor;\n"
     "\n"
-    "uniform sampler2D tex0;"
+    "layout(location = 0) uniform sampler2D tex0;"
     "\n"
     "void main()\n"
     "{\n"
@@ -3141,11 +3136,6 @@ ECOLOR_FORMAT COpenGLDriver::getColorFormat() const
 void COpenGLDriver::setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number)
 {
 	os::Printer::log("Error: Please call services->setShaderConstant(), not VideoDriver->setShaderConstant().");
-}
-
-void COpenGLDriver::setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number)
-{
-	os::Printer::log("Error: Please call services->setShaderTextures(), not VideoDriver->setShaderTextures().");
 }
 
 
