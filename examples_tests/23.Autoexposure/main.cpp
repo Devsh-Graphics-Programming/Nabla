@@ -146,17 +146,6 @@ public:
 
     virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
     {
-        /**
-        Shader Unigorms get saved as Program (Shader state)
-        So we can perma-assign texture slots to sampler uniforms
-        **/
-        int32_t id[] = {0,1,2,3};
-        for (size_t i=0; i<constants.size(); i++)
-        {
-            if (constants[i].name=="tex0")
-                services->setShaderTextures(id+0,constants[i].location,constants[i].type,1);
-        }
-    }
 
     virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
