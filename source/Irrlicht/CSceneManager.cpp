@@ -984,7 +984,6 @@ void CSceneManager::drawAll()
 	//render camera scenes
 	{
 		CurrentRendertime = ESNRP_CAMERA;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		if (LightManager)
 			LightManager->OnRenderPassPreRender(CurrentRendertime);
@@ -1001,7 +1000,6 @@ void CSceneManager::drawAll()
 	// render skyboxes
 	{
 		CurrentRendertime = ESNRP_SKY_BOX;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		if (LightManager)
 		{
@@ -1030,7 +1028,6 @@ void CSceneManager::drawAll()
 	// render default objects
 	{
 		CurrentRendertime = ESNRP_SOLID;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		SolidNodeList.sort(); // sort by textures
 
@@ -1063,7 +1060,6 @@ void CSceneManager::drawAll()
 	// render transparent objects.
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		TransparentNodeList.sort(); // sort by distance from camera
 		if (LightManager)
@@ -1096,7 +1092,6 @@ void CSceneManager::drawAll()
 	// render transparent effect objects.
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT_EFFECT;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		TransparentEffectNodeList.sort(); // sort by distance from camera
 

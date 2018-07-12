@@ -324,6 +324,7 @@
 		<Unit filename="../../include/IThreadBound.h" />
 		<Unit filename="../../include/ITimer.h" />
 		<Unit filename="../../include/ITransformFeedback.h" />
+		<Unit filename="../../include/IVideoCapabilityReporter.h" />
 		<Unit filename="../../include/IVideoDriver.h" />
 		<Unit filename="../../include/IVideoModeList.h" />
 		<Unit filename="../../include/IVirtualTexture.h" />

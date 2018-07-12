@@ -75,7 +75,7 @@ namespace video
 		virtual bool endScene();
 
 		//! queries the features of the driver, returns true if feature is available
-		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const;
+		virtual bool queryFeature(const E_VIDEO_DRIVER_FEATURE& feature) const;
 
 		//!
 		virtual void issueGPUTextureBarrier() {}
@@ -379,10 +379,6 @@ namespace video
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false);
 
-		//! Creates a normal map from a height map texture.
-		//! \param amplitude: Constant value by which the height information is multiplied.
-		virtual void makeNormalMapTexture(video::ITexture* texture, float amplitude=1.0f) const;
-
 		//! Returns the maximum amount of primitives (mostly vertices) which
 		//! the device is able to render with one drawIndexedTriangleList
 		//! call.
@@ -548,16 +544,6 @@ namespace video
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
 
-		//! Set the minimum number of vertices for which a hw buffer will be created
-		/** \param count Number of vertices to set as minimum. */
-		virtual void setMinHardwareBufferVertexCount(uint32_t count);
-
-		//! Get the global Material, which might override local materials.
-		/** Depending on the enable flags, values from this Material
-		are used to override those of local materials of some
-		meshbuffer being rendered. */
-		virtual SOverrideMaterial& getOverrideMaterial();
-
 		//! Get the 2d override material for altering its values
 		virtual SMaterial& getMaterial2D();
 
@@ -584,10 +570,18 @@ namespace video
 		virtual void convertColor(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
 				void* dP, ECOLOR_FORMAT dF) const;
 
-		virtual bool checkDriverReset() {return false;}
-
 
 		void addToTextureCache(video::ITexture* surface);
+
+
+		//!
+		virtual uint32_t getRequiredUBOAlignment() const {return 0;}
+
+		//!
+		virtual uint32_t getRequiredSSBOAlignment() const {return 0;}
+
+		//!
+		virtual uint32_t getRequiredTBOAlignment() const {return 0;}
 
 	protected:
         void addMultisampleTexture(IMultisampleTexture* tex);
@@ -704,13 +698,11 @@ namespace video
         scene::IGPUMeshBuffer* boxLineMesh;
 
 		uint32_t PrimitivesDrawn;
-		uint32_t MinVertexCountForVBO;
 
 		uint32_t TextureCreationFlags;
 
 		SExposedVideoData ExposedData;
 
-		SOverrideMaterial OverrideMaterial;
 		SMaterial OverrideMaterial2D;
 		SMaterial InitMaterial2D;
 		bool OverrideMaterial2DEnabled;

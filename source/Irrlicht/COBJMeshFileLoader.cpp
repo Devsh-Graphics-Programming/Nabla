@@ -571,8 +571,11 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
         }
 		else if (type==1)
 		{
-			if (newTexture)
-				SceneManager->getVideoDriver()->makeNormalMapTexture(texture, bumpiness);
+#ifdef _DEBUG
+            os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
+#endif // _DEBUG
+			///if (newTexture)
+				///SceneManager->getVideoDriver()->makeNormalMapTexture(texture, bumpiness);
 			currMaterial->Material.setTexture(1, texture);
 			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;

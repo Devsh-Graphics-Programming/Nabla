@@ -27,9 +27,6 @@ namespace video
 		//! constructor
 		CBurningVideoDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
 
-		//! queries the features of the driver, returns true if feature is available
-		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const;
-
 		//! sets a material
 		virtual void setMaterial(const SMaterial& material);
 

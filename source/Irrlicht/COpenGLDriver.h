@@ -126,10 +126,7 @@ namespace video
 
 
 		//! queries the features of the driver, returns true if feature is available
-		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
-		{
-			return COpenGLExtensionHandler::queryFeature(feature);
-		}
+		virtual bool queryFeature(const E_VIDEO_DRIVER_FEATURE& feature) const;
 
 		//!
 		virtual void issueGPUTextureBarrier() {COpenGLExtensionHandler::extGlTextureBarrier();}
@@ -155,10 +152,6 @@ namespace video
 		//! sets a viewport
 		virtual void setViewPort(const core::rect<int32_t>& area);
 
-		//! Only used by the internal engine. Used to notify the driver that
-		//! the window was resized.
-		virtual void OnResize(const core::dimension2d<uint32_t>& size);
-
 		//! Returns type of video driver
 		virtual E_DRIVER_TYPE getDriverType() const;
 
@@ -171,7 +164,6 @@ namespace video
 
 
         virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
-        virtual void setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
 
 
         virtual int32_t addHighLevelShaderMaterial(
@@ -266,10 +258,6 @@ namespace video
 
 		virtual void endTransformFeedback();
 
-
-		//! checks if an OpenGL error has happend and prints it
-		//! for performance reasons only available in debug mode
-		bool testGLError();
 
 		//! Enable/disable a clipping plane.
 		//! There are at least 6 clipping planes available for the user to set at will.
@@ -581,6 +569,16 @@ namespace video
             uint64_t                            CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
             std::unordered_map<uint64_t,GLuint> SamplerMap;
         };
+
+
+		//!
+		virtual uint32_t getRequiredUBOAlignment() const {return COpenGLExtensionHandler::reqUBOAlignment;}
+
+		//!
+		virtual uint32_t getRequiredSSBOAlignment() const {return COpenGLExtensionHandler::reqSSBOAlignment;}
+
+		//!
+		virtual uint32_t getRequiredTBOAlignment() const {return COpenGLExtensionHandler::reqTBOAlignment;}
 
 
     private:

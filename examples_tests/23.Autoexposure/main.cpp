@@ -139,21 +139,6 @@ void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severit
 #endif // OPENGL_DEBUG
 
 
-class PostProcCallBack : public video::IShaderConstantSetCallBack
-{
-public:
-    PostProcCallBack() {}
-
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
-    {
-
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-    {
-    }
-
-    virtual void OnUnsetMaterial() {}
-};
-
 
 #include "irrpack.h"
 struct ScreenQuadVertexStruct
@@ -303,7 +288,6 @@ int main()
     }
 
     video::SMaterial postProcMaterial;
-    PostProcCallBack* callBack = new PostProcCallBack();
     //! First need to make a material other than default to be able to draw with custom shader
     postProcMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
     postProcMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
@@ -311,11 +295,8 @@ int main()
     postProcMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../screenquad.vert",
                                                                         "","","", //! No Geometry or Tessellation Shaders
                                                                         "../postproc.frag",
-                                                                        3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only)
-                                                                        callBack,
-                                                                        NULL,0); //! custom user data
+                                                                        3,video::EMT_SOLID); //! 3 vertices per primitive (this is tessellation shader relevant only)
     postProcMaterial.setTexture(0,hdrTex);
-    callBack->drop();
 
 
 

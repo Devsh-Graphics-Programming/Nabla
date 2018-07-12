@@ -952,9 +952,6 @@ class COpenGLExtensionHandler
 	bool isDeviceCompatibile(core::array<std::string>* failedExtensions=NULL);
 
 	//! queries the features of the driver, returns true if feature is available
-	static bool queryFeature(const E_VIDEO_DRIVER_FEATURE &feature);
-
-	//! queries the features of the driver, returns true if feature is available
 	inline bool queryOpenGLFeature(EOpenGLFeatures feature) const
 	{
 		return FeatureAvailable[feature];
@@ -970,6 +967,12 @@ class COpenGLExtensionHandler
 	bool TextureCompressionExtension;
 
 	// Some non-boolean properties
+	//!
+	static int32_t reqUBOAlignment;
+	//!
+	static int32_t reqSSBOAlignment;
+	//!
+	static int32_t reqTBOAlignment;
 	//!
 	static uint32_t MaxArrayTextureLayers;
 	//! Maxmimum texture layers supported by the engine
