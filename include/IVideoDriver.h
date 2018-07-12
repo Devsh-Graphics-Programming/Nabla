@@ -27,7 +27,7 @@
 #include "EDriverTypes.h"
 #include "EDriverFeatures.h"
 #include "SExposedVideoData.h"
-#include <string>
+#include "IVideoCapabilityReporter.h"
 
 namespace irr
 {
@@ -84,22 +84,6 @@ namespace video
 		EPTS_COUNT
 	};
 
-	//! enumeration for signaling resources which were lost after the last render cycle
-	/** These values can be signaled by the driver, telling the app that some resources
-	were lost and need to be recreated. Irrlicht will sometimes recreate the actual objects,
-	but the content needs to be recreated by the application. */
-	enum E_LOST_RESOURCE
-	{
-		//! The whole device/driver is lost
-		ELR_DEVICE = 1,
-		//! All texture are lost, rare problem
-		ELR_TEXTURES = 2,
-		//! The Render Target Textures are lost, typical problem for D3D
-		ELR_RTTS = 4,
-		//! The HW buffers are lost, will be recreated automatically, but might require some more time this frame
-		ELR_HW_BUFFERS = 8
-	};
-
 	enum E_SCREEN_BUFFERS
 	{
 		ESB_FRONT_LEFT=0,
@@ -108,7 +92,7 @@ namespace video
 		ESB_BACK_RIGHT
 	};
 
-	enum E_MESH_DESC_CONVERT_BEHAVIOUR
+	enum E_MESH_DESC_CONVERT_BEHAVIOUR //depr
 	{
 	    EMDCB_CLONE_AND_MIRROR_LAYOUT = 0,
 	    EMDCB_PACK_ATTRIBUTES_SINGLE_BUFFER,
@@ -126,53 +110,6 @@ namespace video
 	    EMCE_OTHER_ERR
 	};
 
-
-	struct SOverrideMaterial
-	{
-		//! The Material values
-		SMaterial Material;
-		//! Which values are taken for override
-		/** OR'ed values from E_MATERIAL_FLAGS. */
-		uint32_t EnableFlags;
-		//! Set in which render passes the material override is active.
-		/** OR'ed values from E_SCENE_NODE_RENDER_PASS. */
-		uint16_t EnablePasses;
-		//! Global enable flag, overwritten by the SceneManager in each pass
-		/** The Scenemanager uses the EnablePass array and sets Enabled to
-		true if the Override material is enabled in the current pass. */
-		bool Enabled;
-
-		//! Default constructor
-		SOverrideMaterial() : EnableFlags(0), EnablePasses(0), Enabled(false) {}
-
-		//! Apply the enabled overrides
-		void apply(SMaterial& material)
-		{
-			if (Enabled)
-			{
-				for (uint32_t i=0; i<32; ++i)
-				{
-					const uint32_t num=(1<<i);
-					if (EnableFlags & num)
-					{
-						switch (num)
-						{
-						case EMF_WIREFRAME: material.Wireframe = Material.Wireframe; break;
-						case EMF_POINTCLOUD: material.PointCloud = Material.PointCloud; break;
-						case EMF_ZBUFFER: material.ZBuffer = Material.ZBuffer; break;
-						case EMF_ZWRITE_ENABLE: material.ZWriteEnable = Material.ZWriteEnable; break;
-						case EMF_BACK_FACE_CULLING: material.BackfaceCulling = Material.BackfaceCulling; break;
-						case EMF_FRONT_FACE_CULLING: material.FrontfaceCulling = Material.FrontfaceCulling; break;
-						case EMF_COLOR_MASK: material.ColorMask = Material.ColorMask; break;
-						case EMF_BLEND_OPERATION: material.BlendOperation = Material.BlendOperation; break;
-						}
-					}
-				}
-			}
-		}
-
-	};
-
 	//! Interface to driver which is able to perform 2d and 3d graphics functions.
 	/** This interface is one of the most important interfaces of
 	the Irrlicht Engine: All rendering and texture manipulation is done with
@@ -181,7 +118,7 @@ namespace video
 	irr::scene::ISceneManager interface provides a lot of powerful classes
 	and methods to make the programmer's life easier.
 	*/
-	class IVideoDriver : public virtual IReferenceCounted
+	class IVideoDriver : public virtual IReferenceCounted, public IVideoCapabilityReporter
 	{
 	public:
         virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) = 0;
@@ -232,16 +169,10 @@ namespace video
 		/** Returns true if a feature is available
 		\param feature Feature to query.
 		\return True if the feature is available, false if not. */
-		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const =0;
+		virtual bool queryFeature(const E_VIDEO_DRIVER_FEATURE& feature) const =0;
 
 		//!
 		virtual void issueGPUTextureBarrier() =0;
-
-		//! Check if the driver was recently reset.
-		/** For d3d devices you will need to recreate the RTTs if the
-		driver was reset. Should be queried right after beginScene().
-		*/
-		virtual bool checkDriverReset() =0;
 
 		//! Sets transformation matrices.
 		/** \param state Transformation type to be set, e.g. view,
@@ -424,17 +355,6 @@ namespace video
         virtual IQueryObject* createXFormFeedbackPrimitiveQuery() = 0;
         virtual IQueryObject* createElapsedTimeQuery() = 0;
         virtual IGPUTimestampQuery* createTimestampQuery() = 0;
-
-
-		//! Creates a normal map from a height map texture.
-		/** If the target texture has 32 bit, the height value is
-		stored in the alpha component of the texture as addition. This
-		value is used by the video::EMT_PARALLAX_MAP_SOLID material and
-		similar materials.
-		\param texture Texture whose alpha channel is modified.
-		\param amplitude Constant value by which the height
-		information is multiplied.*/
-		virtual void makeNormalMapTexture(video::ITexture* texture, float amplitude=1.0f) const =0;
 
 
 		//! Sets new multiple render targets.
@@ -716,11 +636,6 @@ namespace video
 		\return Amount of primitives drawn in the last frame. */
 		virtual uint32_t getPrimitiveCountDrawn( uint32_t mode =0 ) const =0;
 
-		//! Gets name of this video driver.
-		/** \return Returns the name of the video driver, e.g. in case
-		of the Direct3D8 driver, it would return "Direct3D 8.1". */
-		virtual const wchar_t* getName() const =0;
-
 		//! Adds an external image loader to the engine.
 		/** This is useful if the Irrlicht Engine should be able to load
 		textures of currently unsupported file formats (e.g. gif). The
@@ -923,16 +838,6 @@ namespace video
 		it. */
 		virtual void enableClipPlane(uint32_t index, bool enable) =0;
 
-		//! Set the minimum number of vertices for which a hw buffer will be created
-		/** \param count Number of vertices to set as minimum. */
-		virtual void setMinHardwareBufferVertexCount(uint32_t count) =0;
-
-		//! Get the global Material, which might override local materials.
-		/** Depending on the enable flags, values from this Material
-		are used to override those of local materials of some
-		meshbuffer being rendered.
-		\return Reference to the Override Material. */
-		virtual SOverrideMaterial& getOverrideMaterial() =0;
 
 		//! Get the 2d override material for altering its values
 		/** The 2d override materual allows to alter certain render
@@ -955,17 +860,11 @@ namespace video
 		enabled or disabled. */
 		virtual void enableMaterial2D(bool enable=true) =0;
 
-		//! Get the graphics card vendor name.
-		virtual std::string getVendorInfo() =0;
-
 		//! Only used by the engine internally.
 		/** Passes the global material flag AllowZWriteOnTransparent.
 		Use the SceneManager attribute to set this value from your app.
 		\param flag Default behavior is to disable ZWrite, i.e. false. */
 		virtual void setAllowZWriteOnTransparent(bool flag) =0;
-
-		//! Get the maximum texture size supported.
-		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const =0;
 
 		//! Color conversion convenience function
 		/** Convert an image (as array of pixels) from source to destination
