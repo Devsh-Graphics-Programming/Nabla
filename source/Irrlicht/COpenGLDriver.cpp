@@ -461,7 +461,9 @@ bool COpenGLDriver::deinitAuxContext()
     SAuxContext* found = getThreadContext_helper(true);
     if (found)
     {
+        glContextMutex->Release();
         cleanUpContextBeforeDelete();
+        glContextMutex->Get();
         retval = wglMakeCurrent(NULL,NULL);
         if (retval)
             found->threadId = std::thread::id();
@@ -606,7 +608,9 @@ bool COpenGLDriver::deinitAuxContext()
     SAuxContext* found = getThreadContext_helper(true);
     if (found)
     {
+        glContextMutex->Release();
         cleanUpContextBeforeDelete();
+        glContextMutex->Get();
         retval = glXMakeCurrent((Display*)ExposedData.OpenGLLinux.X11Display, None, NULL);
         if (retval)
             found->threadId = std::thread::id();
@@ -647,11 +651,30 @@ COpenGLDriver::~COpenGLDriver()
 
 	deleteMaterialRenders();
     removeAllRenderBuffers();
-	// I get a blue screen on my laptop, when I do not delete the
-	// textures manually before releasing the dc. Oh how I love this.
 	deleteAllTextures();
 
-    glContextMutex->Get();
+    //! Spin wait for other contexts to deinit
+    //! @TODO: Change trylock to semaphore
+	while (true)
+    {
+        while (!glContextMutex->TryLock()) {}
+
+        bool allDead = true;
+        for (size_t i=1; i<=Params.AuxGLContexts; i++)
+        {
+            if (AuxContexts[i].threadId==std::thread::id())
+                continue;
+
+            // found one alive
+            glContextMutex->Release();
+            allDead = false;
+            break;
+        }
+
+        if (allDead)
+            break;
+    }
+
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 	if (DeviceType == EIDT_WIN32)
 	{
