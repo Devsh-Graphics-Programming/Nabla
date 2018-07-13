@@ -503,7 +503,7 @@ namespace video
 
             inline void freeUpVAOCache(bool exitOnFirstDelete)
             {
-                for(auto it = VAOMap.begin(); VAOMap.size()>maxVAOCacheSize&&it!=VAOMap.end(); it++)
+                for(auto it = VAOMap.begin(); VAOMap.size()>maxVAOCacheSize&&it!=VAOMap.end();)
                 {
                     if (it->first==CurrentVAO.first)
                         continue;
@@ -515,6 +515,8 @@ namespace video
                         if (exitOnFirstDelete)
                             return;
                     }
+                    else
+                        it++;
                 }
             }
 
