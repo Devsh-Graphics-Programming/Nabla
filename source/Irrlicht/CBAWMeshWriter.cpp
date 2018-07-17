@@ -312,6 +312,10 @@ namespace irr {namespace scene {
 		if (!_data)
 			return pushCorruptedOffset(_ctx);
 
+#ifndef _IRR_COMPILE_WITH_OPENSSL_
+		_encrypt = false;
+#endif // _IRR_COMPILE_WITH_OPENSSL_
+
 		uint8_t stack[1u<<14];
 
 		size_t compressedSize = _size;
