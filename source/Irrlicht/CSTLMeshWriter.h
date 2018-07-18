@@ -41,7 +41,7 @@ namespace scene
                     core::stringc& s) const;
 
             // write face information to file
-            void writeFace(io::IWriteFile* file, const core::vector3df& v1,
+            void writeFaceText(io::IWriteFile* file, const core::vector3df& v1,
                     const core::vector3df& v2, const core::vector3df& v3);
 
             scene::ISceneManager* SceneManager;
