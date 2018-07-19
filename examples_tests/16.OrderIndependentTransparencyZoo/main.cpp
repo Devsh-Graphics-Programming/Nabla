@@ -65,11 +65,6 @@ public:
                 selfPosLocation = constants[i].location;
                 selfPosType = constants[i].type;
             }
-            else if (constants[i].name=="tex0")
-            {
-                texUniformLocation[0] = constants[i].location;
-                texUniformType[0] = constants[i].type;
-            }
         }
     }
 
@@ -80,10 +75,6 @@ public:
             services->setShaderConstant(selfPos.pointer,selfPosLocation,selfPosType,1);
         if (mvpUniformLocation!=-1)
             services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
-
-        int32_t id[] = {0,1,2,3};
-        if (texUniformLocation[0]!=-1)
-            services->setShaderTextures(id+0,texUniformLocation[0],texUniformType[0],1);
     }
 
     virtual void OnUnsetMaterial() {}
@@ -102,14 +93,9 @@ public:
         Shader Unigorms get saved as Program (Shader state)
         So we can perma-assign texture slots to sampler uniforms
         **/
-        int32_t id[] = {0,1,2,3};
         for (size_t i=0; i<constants.size(); i++)
         {
-            if (constants[i].name=="tex0")
-                services->setShaderTextures(id+0,constants[i].location,constants[i].type,1);
-            else if (constants[i].name=="tex1")
-                services->setShaderTextures(id+1,constants[i].location,constants[i].type,1);
-            else if (constants[i].name=="sampleCount")
+            if (constants[i].name=="sampleCount")
             {
                 sampleCountUniformLocation = constants[i].location;
                 sampleCountUniformType = constants[i].type;

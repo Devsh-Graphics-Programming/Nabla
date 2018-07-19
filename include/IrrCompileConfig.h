@@ -19,14 +19,9 @@
 #define __IRR_COMPILE_WITH_X86_SIMD_
 
 #ifdef __IRR_COMPILE_WITH_X86_SIMD_
-#define __IRR_COMPILE_WITH_SSE2
 #define __IRR_COMPILE_WITH_SSE3
 
 #include <immintrin.h>
-
-#ifdef __SSE2__
-#define __IRR_COMPILE_WITH_SSE2
-#endif
 
 #ifdef __SSE3__
 #define __IRR_COMPILE_WITH_SSE3
@@ -239,6 +234,14 @@ define out. */
 
 #endif
 
+
+//! Define _IRR_COMPILE_WITH_OPENSSL_ to enable compiling the engine using libjpeg.
+/** This enables the engine to read and write encrypted BAW format files.
+If you comment this out, the engine will no longer read or write encrypted .baw files! */
+#define _IRR_COMPILE_WITH_OPENSSL_
+#ifdef NO_IRR_COMPILE_WITH_OPENSSL_
+#undef _IRR_COMPILE_WITH_OPENSSL_
+#endif
 
 //! Define _IRR_COMPILE_WITH_JPEGLIB_ to enable compiling the engine using libjpeg.
 /** This enables the engine to read jpeg images. If you comment this out,

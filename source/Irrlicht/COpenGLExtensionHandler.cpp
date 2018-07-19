@@ -130,73 +130,6 @@ E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
     case GL_FLOAT_MAT4x3:
         return ESCT_FLOAT_MAT4x3;
     case GL_SAMPLER_1D:
-        return ESCT_SAMPLER_1D;
-    case GL_SAMPLER_2D:
-        return ESCT_SAMPLER_2D;
-    case GL_SAMPLER_3D:
-        return ESCT_SAMPLER_3D;
-    case GL_SAMPLER_CUBE:
-        return ESCT_SAMPLER_CUBE;
-    case GL_SAMPLER_1D_SHADOW:
-        return ESCT_SAMPLER_1D_SHADOW;
-    case GL_SAMPLER_2D_SHADOW:
-        return ESCT_SAMPLER_2D_SHADOW;
-    case GL_SAMPLER_1D_ARRAY:
-        return ESCT_SAMPLER_1D_ARRAY;
-    case GL_SAMPLER_2D_ARRAY:
-        return ESCT_SAMPLER_2D_ARRAY;
-    case GL_SAMPLER_1D_ARRAY_SHADOW:
-        return ESCT_SAMPLER_1D_ARRAY_SHADOW;
-    case GL_SAMPLER_2D_ARRAY_SHADOW:
-        return ESCT_SAMPLER_2D_ARRAY_SHADOW;
-    case GL_SAMPLER_2D_MULTISAMPLE:
-        return ESCT_SAMPLER_2D_MULTISAMPLE;
-    case GL_SAMPLER_2D_MULTISAMPLE_ARRAY:
-        return ESCT_SAMPLER_2D_MULTISAMPLE_ARRAY;
-    case GL_SAMPLER_CUBE_SHADOW:
-        return ESCT_SAMPLER_CUBE_SHADOW;
-    case GL_SAMPLER_BUFFER:
-        return ESCT_SAMPLER_BUFFER;
-    case GL_SAMPLER_2D_RECT:
-        return ESCT_SAMPLER_2D_RECT;
-    case GL_SAMPLER_2D_RECT_SHADOW:
-        return ESCT_SAMPLER_2D_RECT_SHADOW;
-    case GL_INT_SAMPLER_1D:
-        return ESCT_INT_SAMPLER_1D;
-    case GL_INT_SAMPLER_2D:
-        return ESCT_INT_SAMPLER_2D;
-    case GL_INT_SAMPLER_3D:
-        return ESCT_INT_SAMPLER_3D;
-    case GL_INT_SAMPLER_CUBE:
-        return ESCT_INT_SAMPLER_CUBE;
-    case GL_INT_SAMPLER_1D_ARRAY:
-        return ESCT_INT_SAMPLER_1D_ARRAY;
-    case GL_INT_SAMPLER_2D_ARRAY:
-        return ESCT_INT_SAMPLER_2D_ARRAY;
-    case GL_INT_SAMPLER_2D_MULTISAMPLE:
-        return ESCT_INT_SAMPLER_2D_MULTISAMPLE;
-    case GL_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
-        return ESCT_INT_SAMPLER_2D_MULTISAMPLE_ARRAY;
-    case GL_INT_SAMPLER_BUFFER:
-        return ESCT_INT_SAMPLER_BUFFER;
-    case GL_UNSIGNED_INT_SAMPLER_1D:
-        return ESCT_UINT_SAMPLER_1D;
-    case GL_UNSIGNED_INT_SAMPLER_2D:
-        return ESCT_UINT_SAMPLER_2D;
-    case GL_UNSIGNED_INT_SAMPLER_3D:
-        return ESCT_UINT_SAMPLER_3D;
-    case GL_UNSIGNED_INT_SAMPLER_CUBE:
-        return ESCT_UINT_SAMPLER_CUBE;
-    case GL_UNSIGNED_INT_SAMPLER_1D_ARRAY:
-        return ESCT_UINT_SAMPLER_1D_ARRAY;
-    case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
-        return ESCT_UINT_SAMPLER_2D_ARRAY;
-    case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE:
-        return ESCT_UINT_SAMPLER_2D_MULTISAMPLE;
-    case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
-        return ESCT_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY;
-    case GL_UNSIGNED_INT_SAMPLER_BUFFER:
-        return ESCT_UINT_SAMPLER_BUFFER;
     default:
         return ESCT_INVALID_COUNT;
     }
@@ -210,6 +143,10 @@ uint16_t COpenGLExtensionHandler::ShaderLanguageVersion = 0;
 bool COpenGLExtensionHandler::functionsAlreadyLoaded = false;
 int32_t COpenGLExtensionHandler::pixelUnpackAlignment = 2;
 bool COpenGLExtensionHandler::FeatureAvailable[] = {false};
+
+int32_t COpenGLExtensionHandler::reqUBOAlignment = 0;
+int32_t COpenGLExtensionHandler::reqSSBOAlignment = 0;
+int32_t COpenGLExtensionHandler::reqTBOAlignment = 0;
 
 uint32_t COpenGLExtensionHandler::MaxArrayTextureLayers = 2048;
 uint8_t COpenGLExtensionHandler::MaxTextureUnits = 96;
@@ -872,6 +809,10 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
 	GLint num = 0;
 
+	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &reqUBOAlignment);
+	glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &reqSSBOAlignment);
+	glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &reqTBOAlignment);
+
 
 	glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
 	MaxArrayTextureLayers = num;
@@ -883,14 +824,12 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	}
 
 
-	if (queryFeature(EVDF_GEOMETRY_SHADER))
-	{
-		if (FeatureAvailable[IRR_ARB_geometry_shader4] || FeatureAvailable[IRR_EXT_geometry_shader4])
-		{
-			glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES_EXT, &num);
-			MaxGeometryVerticesOut = static_cast<uint32_t>(num);
-		}
-	}
+    if (FeatureAvailable[IRR_ARB_geometry_shader4])
+    {
+        glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &num);
+        MaxGeometryVerticesOut = static_cast<uint32_t>(num);
+    }
+
 	if (FeatureAvailable[IRR_EXT_texture_lod_bias])
 		glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &MaxTextureLODBias);
 
@@ -1489,37 +1428,6 @@ void COpenGLExtensionHandler::loadFunctions()
 
 	functionsAlreadyLoaded = true;
 #endif // use extension pointer
-}
-
-bool COpenGLExtensionHandler::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature)
-{
-	switch (feature)
-	{
-        case EVDF_ALPHA_TO_COVERAGE:
-            return FeatureAvailable[IRR_ARB_multisample]||true; //vulkan+android
-        case EVDF_GEOMETRY_SHADER:
-            return FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
-        case EVDF_TESSELLATION_SHADER:
-            return FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
-        case EVDF_TEXTURE_BARRIER:
-            return FeatureAvailable[IRR_ARB_texture_barrier]||FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
-        case EVDF_STENCIL_ONLY_TEXTURE:
-            return FeatureAvailable[IRR_ARB_texture_stencil8]||Version>=440;
-		case EVDF_SHADER_DRAW_PARAMS:
-			return FeatureAvailable[IRR_ARB_shader_draw_parameters]||Version>=460;
-		case EVDF_MULTI_DRAW_INDIRECT_COUNT:
-			return FeatureAvailable[IRR_ARB_indirect_parameters]||Version>=460;
-        case EVDF_SHADER_GROUP_VOTE:
-            return FeatureAvailable[IRR_NV_gpu_shader5]||FeatureAvailable[IRR_ARB_shader_group_vote]||Version>=460;
-        case EVDF_SHADER_GROUP_BALLOT:
-            return FeatureAvailable[IRR_NV_shader_thread_group]||FeatureAvailable[IRR_ARB_shader_ballot];
-		case EVDF_SHADER_GROUP_SHUFFLE:
-            return FeatureAvailable[IRR_NV_shader_thread_shuffle];
-        case EVDF_FRAGMENT_SHADER_INTERLOCK:
-            return FeatureAvailable[IRR_INTEL_fragment_shader_ordering]||FeatureAvailable[IRR_NV_fragment_shader_interlock]||FeatureAvailable[IRR_ARB_fragment_shader_interlock];
-        default:
-            return false;
-	};
 }
 
 

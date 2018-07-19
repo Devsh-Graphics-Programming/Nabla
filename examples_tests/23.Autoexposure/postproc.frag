@@ -1,5 +1,5 @@
 #version 420 core
-uniform sampler2D tex0;
+layout(binding = 0) uniform sampler2D tex0;
 
 layout(binding = 0, std140) uniform PerFrameBlock
 {

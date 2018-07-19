@@ -11,6 +11,8 @@
 #include "IVideoDriver.h"
 #include <vector>
 
+#if false
+
 namespace irr
 {
 
@@ -282,6 +284,8 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUMappedBuffer,BUFFER_COUNT> :
 
 } // end namespace scene
 } // end namespace irr
+
+#endif // false
 
 #endif
 

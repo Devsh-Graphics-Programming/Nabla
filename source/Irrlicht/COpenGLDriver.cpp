@@ -461,7 +461,9 @@ bool COpenGLDriver::deinitAuxContext()
     SAuxContext* found = getThreadContext_helper(true);
     if (found)
     {
+        glContextMutex->Release();
         cleanUpContextBeforeDelete();
+        glContextMutex->Get();
         retval = wglMakeCurrent(NULL,NULL);
         if (retval)
             found->threadId = std::thread::id();
@@ -606,7 +608,9 @@ bool COpenGLDriver::deinitAuxContext()
     SAuxContext* found = getThreadContext_helper(true);
     if (found)
     {
+        glContextMutex->Release();
         cleanUpContextBeforeDelete();
+        glContextMutex->Get();
         retval = glXMakeCurrent((Display*)ExposedData.OpenGLLinux.X11Display, None, NULL);
         if (retval)
             found->threadId = std::thread::id();
@@ -647,11 +651,30 @@ COpenGLDriver::~COpenGLDriver()
 
 	deleteMaterialRenders();
     removeAllRenderBuffers();
-	// I get a blue screen on my laptop, when I do not delete the
-	// textures manually before releasing the dc. Oh how I love this.
 	deleteAllTextures();
 
-    glContextMutex->Get();
+    //! Spin wait for other contexts to deinit
+    //! @TODO: Change trylock to semaphore
+	while (true)
+    {
+        while (!glContextMutex->TryLock()) {}
+
+        bool allDead = true;
+        for (size_t i=1; i<=Params.AuxGLContexts; i++)
+        {
+            if (AuxContexts[i].threadId==std::thread::id())
+                continue;
+
+            // found one alive
+            glContextMutex->Release();
+            allDead = false;
+            break;
+        }
+
+        if (allDead)
+            break;
+    }
+
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 	if (DeviceType == EIDT_WIN32)
 	{
@@ -963,8 +986,7 @@ void COpenGLDriver::createMaterialRenderers()
 {
 	// create OpenGL material renderers
     const char* std_vert =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "uniform mat4 MVPMat;\n"
     "layout(location = 0) in vec4 vPosAttr;\n"
     "layout(location = 2) in vec2 vTCAttr;\n"
@@ -980,42 +1002,39 @@ void COpenGLDriver::createMaterialRenderers()
     "   tcCoord = vTCAttr;"
     "}";
     const char* std_solid_frag =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
     "layout(location = 0) out vec4 outColor;\n"
     "\n"
-    "uniform sampler2D tex0;"
+    "layout(location = 0) uniform sampler2D tex0;"
     "\n"
     "void main()\n"
     "{\n"
     "   outColor = texture(tex0,tcCoord);"
     "}";
     const char* std_trans_add_frag =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
     "layout(location = 0) out vec4 outColor;\n"
     "\n"
-    "uniform sampler2D tex0;"
+    "layout(location = 0) uniform sampler2D tex0;"
     "\n"
     "void main()\n"
     "{\n"
     "   outColor = texture(tex0,tcCoord);"
     "}";
     const char* std_trans_alpha_frag =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
     "layout(location = 0) out vec4 outColor;\n"
     "\n"
-    "uniform sampler2D tex0;"
+    "layout(location = 0) uniform sampler2D tex0;"
     "\n"
     "void main()\n"
     "{\n"
@@ -1025,14 +1044,13 @@ void COpenGLDriver::createMaterialRenderers()
     "   outColor = tmp;"
     "}";
     const char* std_trans_vertex_frag =
-    //"#version 430 core\n"
-    "#version 400 core\n"
+    "#version 430 core\n"
     "in vec4 vxCol;\n"
     "in vec2 tcCoord;\n"
     "\n"
     "layout(location = 0) out vec4 outColor;\n"
     "\n"
-    "uniform sampler2D tex0;"
+    "layout(location = 0) uniform sampler2D tex0;"
     "\n"
     "void main()\n"
     "{\n"
@@ -1934,6 +1952,39 @@ void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video:
         extGlEndConditionalRender();
 }
 
+
+bool COpenGLDriver::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature) const
+{
+	switch (feature)
+	{
+        case EVDF_ALPHA_TO_COVERAGE:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_multisample]||true; //vulkan+android
+        case EVDF_GEOMETRY_SHADER:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
+        case EVDF_TESSELLATION_SHADER:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
+        case EVDF_TEXTURE_BARRIER:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
+        case EVDF_STENCIL_ONLY_TEXTURE:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_stencil8]||Version>=440;
+		case EVDF_SHADER_DRAW_PARAMS:
+			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_draw_parameters]||Version>=460;
+		case EVDF_MULTI_DRAW_INDIRECT_COUNT:
+			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_indirect_parameters]||Version>=460;
+        case EVDF_SHADER_GROUP_VOTE:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_gpu_shader5]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_group_vote]||Version>=460;
+        case EVDF_SHADER_GROUP_BALLOT:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_group]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_ballot];
+		case EVDF_SHADER_GROUP_SHUFFLE:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_shuffle];
+        case EVDF_FRAGMENT_SHADER_INTERLOCK:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_INTEL_fragment_shader_ordering]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_fragment_shader_interlock]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_fragment_shader_interlock];
+        default:
+            break;
+	};
+	return false;
+}
+
 void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
                                         const E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
@@ -2610,48 +2661,12 @@ void COpenGLDriver::setMaterial(const SMaterial& material)
 
 
 	Material = material;
-	OverrideMaterial.apply(Material);
 
 	for (int32_t i = MaxTextureUnits-1; i>= 0; --i)
 	{
 		found->setActiveTexture(i, material.getTexture(i), material.TextureLayer[i].SamplingParams);
 	}
 }
-
-
-//! prints error if an error happened.
-bool COpenGLDriver::testGLError()
-{
-#ifdef _DEBUG
-	GLenum g = glGetError();
-	switch (g)
-	{
-	case GL_NO_ERROR:
-		return false;
-	case GL_INVALID_ENUM:
-		os::Printer::log("GL_INVALID_ENUM", ELL_ERROR); break;
-	case GL_INVALID_VALUE:
-		os::Printer::log("GL_INVALID_VALUE", ELL_ERROR); break;
-	case GL_INVALID_OPERATION:
-		os::Printer::log("GL_INVALID_OPERATION", ELL_ERROR); break;
-	case GL_STACK_OVERFLOW:
-		os::Printer::log("GL_STACK_OVERFLOW", ELL_ERROR); break;
-	case GL_STACK_UNDERFLOW:
-		os::Printer::log("GL_STACK_UNDERFLOW", ELL_ERROR); break;
-	case GL_OUT_OF_MEMORY:
-		os::Printer::log("GL_OUT_OF_MEMORY", ELL_ERROR); break;
-	case GL_TABLE_TOO_LARGE:
-		os::Printer::log("GL_TABLE_TOO_LARGE", ELL_ERROR); break;
-	case GL_INVALID_FRAMEBUFFER_OPERATION_EXT:
-		os::Printer::log("GL_INVALID_FRAMEBUFFER_OPERATION", ELL_ERROR); break;
-	};
-//	_IRR_DEBUG_BREAK_IF(true);
-	return true;
-#else
-	return false;
-#endif
-}
-
 
 //! sets the needed renderstates
 void COpenGLDriver::setRenderStates3DMode()
@@ -3115,14 +3130,6 @@ void COpenGLDriver::removeTexture(ITexture* texture)
 	found->CurrentTexture.remove(texture);
 }
 
-//! Only used by the internal engine. Used to notify the driver that
-//! the window was resized.
-void COpenGLDriver::OnResize(const core::dimension2d<uint32_t>& size)
-{
-	CNullDriver::OnResize(size);
-	glViewport(0, 0, size.Width, size.Height);
-}
-
 
 //! Returns type of video driver
 E_DRIVER_TYPE COpenGLDriver::getDriverType() const
@@ -3141,11 +3148,6 @@ ECOLOR_FORMAT COpenGLDriver::getColorFormat() const
 void COpenGLDriver::setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number)
 {
 	os::Printer::log("Error: Please call services->setShaderConstant(), not VideoDriver->setShaderConstant().");
-}
-
-void COpenGLDriver::setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number)
-{
-	os::Printer::log("Error: Please call services->setShaderTextures(), not VideoDriver->setShaderTextures().");
 }
 
 

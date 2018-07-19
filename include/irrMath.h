@@ -499,7 +499,7 @@ namespace core
 	// calculate: 1 / sqrtf ( x )
 	REALINLINE float reciprocal_squareroot(const float f)
 	{
-#if defined ( IRRLICHT_FAST_MATH ) && defined ( __IRR_COMPILE_WITH_SSE2 )
+#if defined ( IRRLICHT_FAST_MATH ) && defined ( __IRR_COMPILE_WITH_X86_SIMD_ )
         float result;
         _mm_store_ss(&result,_mm_rsqrt_ps(_mm_load_ss(&f)));
         return result;
@@ -517,7 +517,7 @@ namespace core
 	// calculate: 1 / x
 	REALINLINE float reciprocal( const float f )
 	{
-#if defined (IRRLICHT_FAST_MATH) && defined ( __IRR_COMPILE_WITH_SSE2 )
+#if defined (IRRLICHT_FAST_MATH) && defined ( __IRR_COMPILE_WITH_X86_SIMD_ )
         float result;
         _mm_store_ss(&result,_mm_rcp_ps(_mm_load_ss(&f)));
         return result;

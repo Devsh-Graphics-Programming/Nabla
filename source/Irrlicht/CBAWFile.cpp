@@ -9,7 +9,12 @@
 #include "SSkinMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 #include "coreutil.h"
+
+#ifdef _IRR_COMPILE_WITH_OPENSSL_
 #include <openssl/evp.h>
+#pragma comment(lib, "libeay32.lib")
+#endif
+
 
 //! for C++11
 //using namespace std;
@@ -281,6 +286,7 @@ size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize() const
 
 bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {
+#ifdef _IRR_COMPILE_WITH_OPENSSL_
 	EVP_CIPHER_CTX *ctx;
 	int outlen;
 
@@ -297,9 +303,13 @@ bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _out
 
 	EVP_CIPHER_CTX_free(ctx);
 	return true;
+#else
+	return false;
+#endif
 }
 bool decAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {
+#ifdef _IRR_COMPILE_WITH_OPENSSL_
 	EVP_CIPHER_CTX *ctx;
 	int outlen;
 
@@ -317,6 +327,9 @@ bool decAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _out
 
 	EVP_CIPHER_CTX_free(ctx);
 	return retval > 0;
+#else
+	return false;
+#endif
 }
 
 }} // irr::core

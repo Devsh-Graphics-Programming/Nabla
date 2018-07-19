@@ -1,4 +1,4 @@
-#version 330 core
+#version 420 core
 layout(location = 0) in vec3 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
 
 void main()

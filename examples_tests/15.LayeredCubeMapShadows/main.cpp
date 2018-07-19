@@ -84,13 +84,7 @@ public:
             {
                 vpcmUniformLocation = constants[i].location;
                 vpcmUniformType = constants[i].type;
-            } //! permabind texture slots
-            else if (constants[i].name=="tex0")
-                services->setShaderTextures(id+0,constants[i].location,constants[i].type,1);
-            else if (constants[i].name=="tex1")
-                services->setShaderTextures(id+1,constants[i].location,constants[i].type,1);
-            else if (constants[i].name=="tex3")
-                services->setShaderTextures(id+3,constants[i].location,constants[i].type,1);
+            }
         }
     }
 

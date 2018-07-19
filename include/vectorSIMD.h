@@ -10,9 +10,9 @@
 
 #ifdef __IRR_COMPILE_WITH_X86_SIMD_
 
-#ifndef __IRR_COMPILE_WITH_SSE2
-#error "Either give up on SIMD vectors, check your compiler settings for the -m*sse* flag, or upgrade your CPU"
-#endif // __IRR_COMPILE_WITH_SSE2
+#ifndef __IRR_COMPILE_WITH_X86_SIMD_
+#error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
+#endif // __IRR_COMPILE_WITH_X86_SIMD_
 
 #include "irrMath.h"
 #include "vector2d.h"
@@ -729,17 +729,13 @@ NO BITSHIFTING SUPPORT
         xmm0 = _mm_mul_ps(xmm0,xmm1);
         xmm0 = _mm_hadd_ps(xmm0,xmm0);
         return _mm_hadd_ps(xmm0,xmm0);
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-        xmm0 = _mm_mul_ps(xmm0,xmm1);
-        xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-        return _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
 #endif
     }
 	inline vectorSIMDf cross(const vectorSIMDf& a, const vectorSIMDf& b)
     {
+#ifdef __IRR_COMPILE_WITH_X86_SIMD_
         __m128 xmm0 = a.getAsRegister();
         __m128 xmm1 = b.getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE2 //! SSE2 implementation is faster than previous SSE3 implementation
         __m128 backslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,2,1)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,1,0,2)));
         __m128 forwardslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,1,0,2)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,0,2,1)));
         return _mm_sub_ps(backslash,forwardslash); //returns 0 in the last component :D
@@ -752,11 +748,6 @@ NO BITSHIFTING SUPPORT
         xmm0 = _mm_mul_ps(xmm0,xmm0);
         xmm0 = _mm_hadd_ps(xmm0,xmm0);
         return _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-        xmm0 = _mm_mul_ps(xmm0,xmm0);
-        xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-        xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-        return _mm_sqrt_ps(xmm0);
 #endif
     }
     inline vectorSIMDf normalize(const vectorSIMDf& v)
@@ -918,13 +909,6 @@ NO BITSHIFTING SUPPORT
 		    xmm0 = _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
 		    _mm_store_ss(&result,xmm0);
 		    return result;
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm0);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-		    xmm0 = _mm_sqrt_ps(xmm0);
-		    _mm_store_ss(&result,xmm0);
-		    return result;
 #endif
         }
         //! Useful when you have to divide a vector by another vector's length (so you dont convert/store to a scalar)
@@ -937,11 +921,6 @@ NO BITSHIFTING SUPPORT
 		    xmm0 = _mm_mul_ps(xmm0,xmm0);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
 		    return _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm0);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-		    return _mm_sqrt_ps(xmm0);
 #endif
         }
 
@@ -957,12 +936,6 @@ NO BITSHIFTING SUPPORT
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
 		    _mm_store_ss(&result,xmm0);
 		    return result;
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm1);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-		    _mm_store_ss(&result,xmm0);
-		    return result;
 #endif
 		}
 		inline vectorSIMDf dotProduct(const vectorSIMDf& other) const
@@ -973,10 +946,6 @@ NO BITSHIFTING SUPPORT
 		    xmm0 = _mm_mul_ps(xmm0,xmm1);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
 		    return _mm_hadd_ps(xmm0,xmm0);
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm1);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    return _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
 #endif
 		}
 */
@@ -1029,7 +998,7 @@ NO BITSHIFTING SUPPORT
 		{
 		    __m128 xmm0 = getAsRegister();
 		    __m128 xmm1 = p.getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE2 //! SSE2 implementation is faster than previous SSE3 implementation
+#ifdef __IRR_COMPILE_WITH_X86_SIMD_
 		    __m128 backslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,2,1)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,1,0,2)));
 		    __m128 forwardslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,1,0,2)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,0,2,1)));
 			return _mm_sub_ps(backslash,forwardslash); //returns 0 in the last component :D

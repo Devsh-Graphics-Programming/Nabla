@@ -1,6 +1,6 @@
-#version 330 core
-uniform sampler2DMS tex0; //color
-uniform sampler2DMS tex1; //depth
+#version 420 core
+layout(binding = 0) uniform sampler2DMS tex0; //color
+layout(binding = 1) uniform sampler2DMS tex1; //depth
 
 //! Unfortunately there is no textureSampleCount() like textureSize()
 uniform int sampleCount;

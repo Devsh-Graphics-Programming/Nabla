@@ -1,6 +1,7 @@
-#version 330 core
-uniform sampler2D tex0;
-uniform samplerCube tex1; //shadow cubemap
+#version 420 core
+
+layout(binding = 0) uniform sampler2D tex0;
+layout(binding = 1) uniform samplerCube tex1; //shadow cubemap
 // could do a shadow sampler, but would have to extend the engine to support hardware PCF
 //these are the far and near values of the shadow camera... will just hardcode them here for now
 const float near = 0.1;

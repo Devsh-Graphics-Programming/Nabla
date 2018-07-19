@@ -62,16 +62,6 @@ public:
 				cameraDirUniformLocation = constants[i].location;
 				cameraDirUniformType = constants[i].type;
 			}
-			else if (constants[i].name == "tex0")
-			{
-				texUniformLocation[0] = constants[i].location;
-				texUniformType[0] = constants[i].type;
-			}
-			else if (constants[i].name == "tex3")
-			{
-				texUniformLocation[3] = constants[i].location;
-				texUniformType[3] = constants[i].type;
-			}
 		}
 	}
 

@@ -95,7 +95,7 @@ IImageWriter* createImageWriterPPM();
 //! constructor
 CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
 : FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
-	PrimitivesDrawn(0), MinVertexCountForVBO(500), TextureCreationFlags(0),
+	PrimitivesDrawn(0), TextureCreationFlags(0),
 	OverrideMaterial2DEnabled(false), AllowZWriteOnTransparent(false),
 	matrixModifiedBits(0)
 {
@@ -335,7 +335,7 @@ bool CNullDriver::endScene()
 
 
 //! queries the features of the driver, returns true if feature is available
-bool CNullDriver::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
+bool CNullDriver::queryFeature(const E_VIDEO_DRIVER_FEATURE& feature) const
 {
 	return false;
 }
@@ -1067,130 +1067,6 @@ const wchar_t* CNullDriver::getName() const
 
 
 
-
-
-
-//! Creates a normal map from a height map texture.
-//! \param amplitude: Constant value by which the height information is multiplied.
-void CNullDriver::makeNormalMapTexture(video::ITexture* texture, float amplitude) const
-{
-    /*
-	if (!texture)
-		return;
-
-	if (texture->getColorFormat() != ECF_A1R5G5B5 &&
-		texture->getColorFormat() != ECF_A8R8G8B8 )
-	{
-		os::Printer::log("Error: Unsupported texture color format for making normal map.", ELL_ERROR);
-		return;
-	}
-
-	core::dimension2d<uint32_t> dim = texture->getSize();
-	amplitude = amplitude / 255.0f;
-	float vh = dim.Height / (float)dim.Width;
-	float hh = dim.Width / (float)dim.Height;
-
-	if (texture->getColorFormat() == ECF_A8R8G8B8)
-	{
-		// ECF_A8R8G8B8 version
-
-		int32_t *p = (int32_t*)texture->lock();
-
-		if (!p)
-		{
-			os::Printer::log("Could not lock texture for making normal map.", ELL_ERROR);
-			return;
-		}
-
-		// copy texture
-
-		uint32_t pitch = texture->getPitch() / 4;
-
-		int32_t* in = new int32_t[dim.Height * pitch];
-		memcpy(in, p, dim.Height * pitch * 4);
-
-		for (int32_t x=0; x < int32_t(pitch); ++x)
-			for (int32_t y=0; y < int32_t(dim.Height); ++y)
-			{
-				// TODO: this could be optimized really a lot
-
-				core::vector3df h1((x-1)*hh, nml32(x-1, y, pitch, dim.Height, in)*amplitude, y*vh);
-				core::vector3df h2((x+1)*hh, nml32(x+1, y, pitch, dim.Height, in)*amplitude, y*vh);
-				//core::vector3df v1(x*hh, nml32(x, y-1, pitch, dim.Height, in)*amplitude, (y-1)*vh);
-				//core::vector3df v2(x*hh, nml32(x, y+1, pitch, dim.Height, in)*amplitude, (y+1)*vh);
-				core::vector3df v1(x*hh, nml32(x, y+1, pitch, dim.Height, in)*amplitude, (y-1)*vh);
-				core::vector3df v2(x*hh, nml32(x, y-1, pitch, dim.Height, in)*amplitude, (y+1)*vh);
-
-				core::vector3df v = v1-v2;
-				core::vector3df h = h1-h2;
-
-				core::vector3df n = v.crossProduct(h);
-				n.normalize();
-				n *= 0.5f;
-				n += core::vector3df(0.5f,0.5f,0.5f); // now between 0 and 1
-				n *= 255.0f;
-
-				int32_t height = (int32_t)nml32(x, y, pitch, dim.Height, in);
-				p[y*pitch + x] = video::SColor(
-					height, // store height in alpha
-					(int32_t)n.X, (int32_t)n.Z, (int32_t)n.Y).color;
-			}
-
-		delete [] in;
-		texture->unlock();
-	}
-	else
-	{
-		// ECF_A1R5G5B5 version
-
-		int16_t *p = (int16_t*)texture->lock();
-
-		if (!p)
-		{
-			os::Printer::log("Could not lock texture for making normal map.", ELL_ERROR);
-			return;
-		}
-
-		uint32_t pitch = texture->getPitch() / 2;
-
-		// copy texture
-
-		int16_t* in = new int16_t[dim.Height * pitch];
-		memcpy(in, p, dim.Height * pitch * 2);
-
-		for (int32_t x=0; x < int32_t(pitch); ++x)
-			for (int32_t y=0; y < int32_t(dim.Height); ++y)
-			{
-				// TODO: this could be optimized really a lot
-
-				core::vector3df h1((x-1)*hh, nml16(x-1, y, pitch, dim.Height, in)*amplitude, y*vh);
-				core::vector3df h2((x+1)*hh, nml16(x+1, y, pitch, dim.Height, in)*amplitude, y*vh);
-				core::vector3df v1(x*hh, nml16(x, y-1, pitch, dim.Height, in)*amplitude, (y-1)*vh);
-				core::vector3df v2(x*hh, nml16(x, y+1, pitch, dim.Height, in)*amplitude, (y+1)*vh);
-
-				core::vector3df v = v1-v2;
-				core::vector3df h = h1-h2;
-
-				core::vector3df n = v.crossProduct(h);
-				n.normalize();
-				n *= 0.5f;
-				n += core::vector3df(0.5f,0.5f,0.5f); // now between 0 and 1
-				n *= 255.0f;
-
-				p[y*pitch + x] = video::RGBA16((uint32_t)n.X, (uint32_t)n.Z, (uint32_t)n.Y);
-			}
-
-		delete [] in;
-		texture->unlock();
-	}
-
-	texture->regenerateMipMapLevels();*/
-
-		os::Printer::log("DevSH thinks you're a retard for using the CPU for processing pixels, go use an FBO and a fragment shader.", ELL_ERROR);
-		return;
-}
-
-
 //! Returns the maximum amount of primitives (mostly vertices) which
 //! the device is able to render with one drawIndexedTriangleList
 //! call.
@@ -1472,11 +1348,6 @@ void CNullDriver::endQuery(IQueryObject* query, const size_t& index)
 //! the window was resized.
 void CNullDriver::OnResize(const core::dimension2d<uint32_t>& size)
 {
-	if (ViewPort.getWidth() == (int32_t)ScreenSize.Width &&
-		ViewPort.getHeight() == (int32_t)ScreenSize.Height)
-		ViewPort = core::rect<int32_t>(core::position2d<int32_t>(0,0),
-									core::dimension2di(size));
-
 	ScreenSize = size;
 }
 
@@ -2003,19 +1874,6 @@ void CNullDriver::enableClipPlane(uint32_t index, bool enable)
 {
 	// not necessary
 }
-
-
-void CNullDriver::setMinHardwareBufferVertexCount(uint32_t count)
-{
-	MinVertexCountForVBO = count;
-}
-
-
-SOverrideMaterial& CNullDriver::getOverrideMaterial()
-{
-	return OverrideMaterial;
-}
-
 
 //! Get the 2d override material for altering its values
 SMaterial& CNullDriver::getMaterial2D()

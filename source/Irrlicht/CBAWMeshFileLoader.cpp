@@ -235,14 +235,20 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 #ifdef _DEBUG
 		os::Printer::log("Blob validation failed!", ELL_ERROR);
 #endif
-		free(dstCompressed);
-		if (dst != _stackPtr && dst != dstCompressed)
-			free(dst);
+		if (compressed)
+		{
+			free(dstCompressed);
+			if (dst != _stackPtr)
+				free(dst);
+		}
+		else if (dst != _stackPtr)
+			free(dstCompressed);
 		return NULL;
 	}
 
 	if (encrypted)
 	{
+#ifdef _IRR_COMPILE_WITH_OPENSSL_
 		const size_t size = _data.header->effectiveSize();
 		void* out = malloc(size);
 		const bool ok = core::decAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, _data.header->gcmTag);
@@ -261,6 +267,17 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 		dstCompressed = out;
 		if (!compressed)
 			dst = dstCompressed;
+#else
+		if (compressed)
+		{
+			free(dstCompressed);
+			if (dst != _stackPtr)
+				free(dst);
+		}
+		else if (dst != _stackPtr)
+			free(dstCompressed);
+		return NULL;
+#endif
 	}
 
 	if (compressed)
