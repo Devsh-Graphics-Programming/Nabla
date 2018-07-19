@@ -36,6 +36,8 @@ class CBlurPerformer : public IReferenceCounted
     {
         E_SAMPLES_SSBO_BINDING = 0,
         E_PSUM_SSBO_BINDING = 1,
+        E_UBO_BINDING = 0,
+        
         E_IN_OFFSET_LOC = 2,
         E_OUT_OFFSET_LOC = 3,
         E_ITER_NUM_LOC = 4,
@@ -63,7 +65,9 @@ private:
         assert(m_outSize.X == m_outSize.Y);
 
         m_samplesSsbo = m_driver->createGPUBuffer(2 * 2 * m_outSize.X * m_outSize.Y * sizeof(uint32_t), nullptr);
-        m_psumSsbo = m_driver->createGPUBuffer(4 * nearestPowOf2(m_outSize.X) * m_outSize.Y * sizeof(float), nullptr);
+        m_psumSsbo = m_driver->createGPUBuffer(4 * padToPoT(m_outSize.X) * m_outSize.Y * sizeof(float), nullptr);
+        m_ubo = nullptr;
+        setUpUbo();
     }
 private:
     static bool genDsampleCs(char* _out, size_t _bufSize, uint32_t _outTexSize);
@@ -74,7 +78,10 @@ private:
     static ImageBindingData getCurrentImageBinding(unsigned _imgUnit);
     static void bindImage(unsigned _imgUnit, const ImageBindingData& _data);
 
-    inline static uint32_t nearestPowOf2(uint32_t _x)
+    void setUpUbo();
+    void bindUbo(uint32_t _bnd, uint32_t _part) const;
+
+    inline static uint32_t padToPoT(uint32_t _x)
     {
         --_x;
         for (unsigned i = 1u; i <= 16u; i <<= 1)
@@ -86,6 +93,7 @@ private:
     video::IVideoDriver* m_driver;
     unsigned m_dsampleCs, m_psumCs, m_blurGeneralCs, m_blurFinalCs;
     video::IGPUBuffer* m_samplesSsbo, *m_psumSsbo;
+    video::IGPUBuffer* m_ubo;
 
     const uint32_t m_radius;
     const core::vector2d<uint32_t> m_outSize;
