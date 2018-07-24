@@ -237,7 +237,7 @@ CNullDriver::~CNullDriver()
 	deleteMaterialRenders();
 }
 
-void CNullDriver::bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
+void CNullDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
 {
     os::Printer::log("Copying Buffers Not supported by this Driver!\n",ELL_ERROR);
 }

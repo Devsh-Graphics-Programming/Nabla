@@ -1206,7 +1206,7 @@ IGPUMappedBuffer* COpenGLDriver::createPersistentlyMappedBuffer(const size_t &si
     }
 }
 
-void COpenGLDriver::bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
+void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
 {
     COpenGLBuffer* readbuffer = static_cast<COpenGLBuffer*>(readBuffer);
     COpenGLBuffer* writebuffer = static_cast<COpenGLBuffer*>(writeBuffer);
@@ -1957,27 +1957,27 @@ bool COpenGLDriver::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature) const
 {
 	switch (feature)
 	{
-        case EVDF_ALPHA_TO_COVERAGE:
+        case EDF_ALPHA_TO_COVERAGE:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_multisample]||true; //vulkan+android
-        case EVDF_GEOMETRY_SHADER:
+        case EDF_GEOMETRY_SHADER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
-        case EVDF_TESSELLATION_SHADER:
+        case EDF_TESSELLATION_SHADER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
-        case EVDF_TEXTURE_BARRIER:
+        case EDF_TEXTURE_BARRIER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
-        case EVDF_STENCIL_ONLY_TEXTURE:
+        case EDF_STENCIL_ONLY_TEXTURE:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_stencil8]||Version>=440;
-		case EVDF_SHADER_DRAW_PARAMS:
+		case EDF_SHADER_DRAW_PARAMS:
 			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_draw_parameters]||Version>=460;
-		case EVDF_MULTI_DRAW_INDIRECT_COUNT:
+		case EDF_MULTI_DRAW_INDIRECT_COUNT:
 			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_indirect_parameters]||Version>=460;
-        case EVDF_SHADER_GROUP_VOTE:
+        case EDF_SHADER_GROUP_VOTE:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_gpu_shader5]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_group_vote]||Version>=460;
-        case EVDF_SHADER_GROUP_BALLOT:
+        case EDF_SHADER_GROUP_BALLOT:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_group]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_ballot];
-		case EVDF_SHADER_GROUP_SHUFFLE:
+		case EDF_SHADER_GROUP_SHUFFLE:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_shuffle];
-        case EVDF_FRAGMENT_SHADER_INTERLOCK:
+        case EDF_FRAGMENT_SHADER_INTERLOCK:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_INTEL_fragment_shader_ordering]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_fragment_shader_interlock]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_fragment_shader_interlock];
         default:
             break;

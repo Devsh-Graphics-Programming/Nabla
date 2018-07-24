@@ -5671,7 +5671,7 @@ inline void COpenGLExtensionHandler::extGlTextureBarrier()
 #endif
 #ifdef _DEBUG
     else
-        os::Printer::log("EVDF_TEXTURE_BARRIER Not Available!\n",ELL_ERROR);
+        os::Printer::log("EDF_TEXTURE_BARRIER Not Available!\n",ELL_ERROR);
 #endif // _DEBUG
 }
 

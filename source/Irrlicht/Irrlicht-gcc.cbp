@@ -252,7 +252,6 @@
 		<Unit filename="../../include/ECullingTypes.h" />
 		<Unit filename="../../include/EDebugSceneTypes.h" />
 		<Unit filename="../../include/EDeviceTypes.h" />
-		<Unit filename="../../include/EDriverFeatures.h" />
 		<Unit filename="../../include/EDriverTypes.h" />
 		<Unit filename="../../include/EMaterialFlags.h" />
 		<Unit filename="../../include/EMaterialTypes.h" />
@@ -269,7 +268,10 @@
 		<Unit filename="../../include/ICursorControl.h" />
 		<Unit filename="../../include/IDescriptorSet.h" />
 		<Unit filename="../../include/IDescriptorSetLayout.h" />
+		<Unit filename="../../include/IDriver.h" />
 		<Unit filename="../../include/IDriverFence.h" />
+		<Unit filename="../../include/IDriverMemoryAllocation.h" />
+		<Unit filename="../../include/IDriverMemoryBacked.h" />
 		<Unit filename="../../include/IDummyTransformationSceneNode.h" />
 		<Unit filename="../../include/IEventReceiver.h" />
 		<Unit filename="../../include/IFileArchive.h" />
@@ -277,7 +279,6 @@
 		<Unit filename="../../include/IFileSystem.h" />
 		<Unit filename="../../include/IFrameBuffer.h" />
 		<Unit filename="../../include/IGPUBuffer.h" />
-		<Unit filename="../../include/IGPUMappedBuffer.h" />
 		<Unit filename="../../include/IGPUProgrammingServices.h" />
 		<Unit filename="../../include/IGPUTimestampQuery.h" />
 		<Unit filename="../../include/IGPUTransientBuffer.h" />
@@ -305,7 +306,6 @@
 		<Unit filename="../../include/IQueryObject.h" />
 		<Unit filename="../../include/IReadFile.h" />
 		<Unit filename="../../include/IReferenceCounted.h" />
-		<Unit filename="../../include/IRenderBuffer.h" />
 		<Unit filename="../../include/ISceneManager.h" />
 		<Unit filename="../../include/ISceneNode.h" />
 		<Unit filename="../../include/ISceneNodeAnimator.h" />

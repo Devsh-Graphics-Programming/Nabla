@@ -5,7 +5,6 @@
 #ifndef __I_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __I_VIRTUAL_TEXTURE_H_INCLUDED__
 
-#include "EDriverTypes.h"
 #include "CImageData.h"
 #include "IFrameBuffer.h"
 

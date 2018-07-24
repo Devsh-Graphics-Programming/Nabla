@@ -8,6 +8,7 @@
 #include "stdint.h"
 #include "IReferenceCounted.h"
 #include "IThreadBound.h"
+#include "EDriverTypes.h"
 #include "dimension2d.h"
 
 namespace irr

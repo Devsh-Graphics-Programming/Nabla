@@ -118,27 +118,6 @@ class COpenGLBuffer : public IGPUMappedBuffer
                 COpenGLExtensionHandler::extGlNamedBufferSubData(BufferName,offset,size,data);
         }
 
-        virtual void clandestineRecreate(const size_t& size, const void* data)
-        {
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard[1]==0);
-            FW_AtomicCounterIncr(concurrentAccessGuard[1]);
-#endif // OPENGL_LEAK_DEBUG
-            COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
-            COpenGLExtensionHandler::extGlCreateBuffers(1,&BufferName);
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard[1]==1);
-            FW_AtomicCounterDecr(concurrentAccessGuard[1]);
-#endif // OPENGL_LEAK_DEBUG
-            if (BufferName==0)
-                return;
-
-            COpenGLExtensionHandler::extGlNamedBufferStorage(BufferName,size,data,cachedFlags);
-            BufferSize = size;
-
-            lastTimeReallocated = CNullDriver::incrementAndFetchReallocCounter();
-        }
-
         virtual bool canUpdateSubRange() const {return cachedFlags&GL_DYNAMIC_STORAGE_BIT;}
 
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)

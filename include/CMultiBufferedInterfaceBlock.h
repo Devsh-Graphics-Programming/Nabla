@@ -164,7 +164,7 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> : publi
             if (copyOverOldData && BUFFER_COUNT>=2)
             {
                 size_t nextNextBufferOff = specBaseType::offsets[(specBaseType::currentSubBuffer+2)%BUFFER_COUNT];
-                m_driver->bufferCopy(specBaseType::underlyingBuffer,specBaseType::underlyingBuffer,nextBufferOff,nextNextBufferOff,sizeof(BLOCK_STRUCT));
+                m_driver->copyBuffer(specBaseType::underlyingBuffer,specBaseType::underlyingBuffer,nextBufferOff,nextNextBufferOff,sizeof(BLOCK_STRUCT));
             }
 
             return true;

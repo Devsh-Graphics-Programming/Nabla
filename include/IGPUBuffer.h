@@ -7,33 +7,24 @@
 #define __I_GPU_BUFFER_H_INCLUDED__
 
 #include "IBuffer.h"
+#include "IDriverMemoryBacked.h"
 
 namespace irr
 {
 namespace video
 {
 
-enum E_GPU_BUFFER_ACCESS
-{
-    EGBA_READ=0,
-    EGBA_WRITE,
-    EGBA_READ_WRITE,
-    EGBA_NONE
-};
-
-class IGPUBuffer : public core::IBuffer
+//! GPU Buffer class, where the memory is provided by the driver, does not support resizing.
+/** For additional OpenGL DSA state-free operations such as flushing mapped ranges or
+buffer to buffer copies, one needs a command buffer in Vulkan as these operations are
+performed by the GPU and not wholly by the driver, so look for them in IDriver and IVideoDriver. */
+class IGPUBuffer : public core::IBuffer, public IDriverMemoryBacked
 {
     public:
-        virtual void clandestineRecreate(const size_t& size, const void* data) = 0;
-
+        //deprecated, delegate this to command buffer
         virtual void updateSubRange(const size_t& offset, const size_t& size, const void* data) = 0;
 
         virtual bool canUpdateSubRange() const = 0;
-
-		//! @returns True if the buffer is actually a mapped buffer.
-        virtual bool isMappedBuffer() const = 0;
-    private:
-        //
 };
 
 } // end namespace scene

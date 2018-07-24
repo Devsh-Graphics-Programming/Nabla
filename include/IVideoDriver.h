@@ -7,12 +7,6 @@
 
 #include "rect.h"
 #include "SColor.h"
-#include "IGPUMappedBuffer.h"
-#include "ITexture.h"
-#include "IMultisampleTexture.h"
-#include "ITextureBufferObject.h"
-#include "IRenderBuffer.h"
-#include "IFrameBuffer.h"
 #include "irrArray.h"
 #include "matrix4x3.h"
 #include "plane3d.h"
@@ -21,13 +15,9 @@
 #include "SMaterial.h"
 #include "IDriverFence.h"
 #include "SMesh.h"
-#include "IGPUTimestampQuery.h"
-#include "IOcclusionQuery.h"
 #include "triangle3d.h"
-#include "EDriverTypes.h"
-#include "EDriverFeatures.h"
 #include "SExposedVideoData.h"
-#include "IVideoCapabilityReporter.h"
+#include "IDriver.h"
 
 namespace irr
 {
@@ -118,18 +108,16 @@ namespace video
 	irr::scene::ISceneManager interface provides a lot of powerful classes
 	and methods to make the programmer's life easier.
 	*/
-	class IVideoDriver : public virtual IReferenceCounted, public IVideoCapabilityReporter
+	class IVideoDriver : public IDriver
 	{
 	public:
-        virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) = 0;
-
-	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) = 0;
-
+	    //! Following are marked for deprecation
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) = 0;
 
 	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) = 0;
 
-        virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;
+	    //! make with VkBufferCopy
+        virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;
 
 
         virtual bool initAuxContext() = 0;
@@ -164,12 +152,6 @@ namespace video
 		rendering.
 		\return False if failed and true if succeeded. */
 		virtual bool endScene() =0;
-
-		//! Queries the features of the driver.
-		/** Returns true if a feature is available
-		\param feature Feature to query.
-		\return True if the feature is available, false if not. */
-		virtual bool queryFeature(const E_VIDEO_DRIVER_FEATURE& feature) const =0;
 
 		//!
 		virtual void issueGPUTextureBarrier() =0;
@@ -293,13 +275,6 @@ namespace video
         //! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0) = 0;
 
-		//! A.
-		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
-
-		virtual IRenderBuffer* addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
-
-        virtual IFrameBuffer* addFrameBuffer() = 0;
-
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),
@@ -320,8 +295,6 @@ namespace video
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo) =0;
 
-		virtual void removeRenderBuffer(IRenderBuffer* renderbuf) =0;
-
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf) =0;
 
 		//! Removes all textures from the texture cache and deletes them.
@@ -337,8 +310,6 @@ namespace video
 
 		virtual void removeAllTextureBufferObjects() =0;
 
-		virtual void removeAllRenderBuffers() =0;
-
 		//! This only removes all IFrameBuffers created in the calling thread.
 		virtual void removeAllFrameBuffers() =0;
 
@@ -349,12 +320,7 @@ namespace video
 		virtual void beginQuery(IQueryObject* query, const size_t& index) = 0;
 		virtual void endQuery(IQueryObject* query, const size_t& index) = 0;
 
-        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic) = 0;
-
-        virtual IQueryObject* createPrimitivesGeneratedQuery() = 0;
         virtual IQueryObject* createXFormFeedbackPrimitiveQuery() = 0;
-        virtual IQueryObject* createElapsedTimeQuery() = 0;
-        virtual IGPUTimestampQuery* createTimestampQuery() = 0;
 
 
 		//! Sets new multiple render targets.
@@ -606,10 +572,6 @@ namespace video
                                         const size_t& offset, const size_t& count, const size_t& stride,
                                         IOcclusionQuery* query = NULL) =0;
 
-		//! Get the current color format of the color buffer
-		/** \return Color format of the color buffer. */
-		virtual ECOLOR_FORMAT getColorFormat() const =0;
-
 		//! Get the size of the screen or render window.
 		/** \return Size of screen or render window. */
 		virtual const core::dimension2d<uint32_t>& getScreenSize() const =0;
@@ -693,24 +655,6 @@ namespace video
 		on all vector members.
 		See IReferenceCounted::drop() for more information. */
 		virtual std::vector<CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
-
-		//! Convenience function for releasing all images in a mip chain.
-		/**
-		\param List of .
-		\return .
-		Bla bla. */
-		static void dropWholeMipChain(const std::vector<CImageData*>& mipImages)
-		{
-		    for (std::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
-                (*it)->drop();
-		}
-		//!
-		template< class Iter >
-		static void dropWholeMipChain(Iter it, Iter limit)
-		{
-		    for (; it!=limit; it++)
-                (*it)->drop();
-		}
 
 		//! Writes the provided image to a file.
 		/** Requires that there is a suitable image writer registered
@@ -811,10 +755,6 @@ namespace video
 		extended without having to modify the source of the engine.
 		\return Collection of device dependent pointers. */
 		virtual const SExposedVideoData& getExposedVideoData() =0;
-
-		//! Get type of video driver
-		/** \return Type of driver. */
-		virtual E_DRIVER_TYPE getDriverType() const =0;
 
 		//! Gets the IGPUProgrammingServices interface.
 		/** \return Pointer to the IGPUProgrammingServices. Returns 0
