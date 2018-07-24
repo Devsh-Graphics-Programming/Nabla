@@ -79,12 +79,16 @@ class IDriverMemoryAllocation : public virtual IReferenceCounted
         inline bool isMappable() const {return this->getMappingCaps()!=EMCF_CANNOT_MAP;}
 
         //! Utility function, tells if mapMemoryRange has been already called and unmapMemory was not called after.
-        inline bool isCurrentlyMapped() const {return this->getMappedPointer()!=nullptr;}
+        inline bool isCurrentlyMapped() const {return mappedPtr!=nullptr;}
 
         //! Utility function, tell us if writes through the mapping's pointer need to be flushed to become visible to the GPU.
         /** Only execute flushes if the allocation requires them, and batch them (flush one combined range instead of two or more)
         for greater efficiency. To execute a flush, use IDriver::flushMappedAllocationRange. */
-        inline bool haveToFlushWrites() const {return this->getMappingCaps()!=EMCF_COHERENT;}
+        inline bool haveToFlushWrites() const
+        {
+            auto caps = this->getMappingCaps();
+            return (caps&EMCF_COHERENT)==0u&&(caps&EMCF_CAN_MAP_FOR_WRITE)!=0u;
+        }
 
         //! For details @see E_MAPPING_CAPABILITY_FLAGS
         virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
@@ -104,10 +108,10 @@ class IDriverMemoryAllocation : public virtual IReferenceCounted
         WARNING: NEED TO FENCE BEFORE USE!
 		@returns Internal pointer with 0 offset into the mapped memory, so the address that it is pointing to may be unsafe
 		to access without an offset if a memory range. */
-        virtual void* getMappedPointer() {return nullptr;}
+        inline void* getMappedPointer() {return mappedPtr;}
 
         //! Constant variant of getMappedPointer
-        virtual const void* getMappedPointer() const {return nullptr;}
+        inline const void* getMappedPointer() const {return mappedPtr;}
 
         //! Unmaps mapped memory
         /** Unmaps memory, does not perform the implicit flush even in OpenGL (because we use ARB_buffer_storage).
@@ -117,6 +121,9 @@ class IDriverMemoryAllocation : public virtual IReferenceCounted
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
         virtual bool isDedicated() const = 0;
+
+    protected:
+        uint8_t* mappedPtr;
 };
 
 } // end namespace scene

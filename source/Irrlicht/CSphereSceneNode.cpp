@@ -47,7 +47,7 @@ void CSphereSceneNode::render()
 		driver->setMaterial(Mesh->getMeshBuffer(0)->getMaterial());
 		driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
-		driver->drawMeshBuffer(Mesh->getMeshBuffer(0), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+		driver->drawMeshBuffer(Mesh->getMeshBuffer(0));
 
 		if ( DebugDataVisible & scene::EDS_BBOX )
 		{

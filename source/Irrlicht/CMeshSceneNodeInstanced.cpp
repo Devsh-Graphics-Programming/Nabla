@@ -155,7 +155,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, 
 
     xfb.resize((levelsOfDetail.size()+gpuLoDsPerPass-1)/gpuLoDsPerPass);
 
-	gpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createGPUBuffer(dataSizePerInstanceOutput*instanceBBoxesCount*gpuLoDsPerPass*xfb.size(),NULL);
+	gpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createDeviceLocalGPUBufferOnDedMem(dataSizePerInstanceOutput*instanceBBoxesCount*gpuLoDsPerPass*xfb.size());
 	instanceDataBufferChanged = false;
 
     if (cpuCullFunc)
@@ -167,7 +167,15 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, 
 #endif // _IRR_COMPILE_WITH_OPENGL_
         cpuCullingFunction = cpuCullFunc;
 
-        cpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createGPUBuffer(gpuCulledLodInstanceDataBuffer->getSize(),NULL,true);
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.size = gpuCulledLodInstanceDataBuffer->getSize();
+        reqs.vulkanReqs.alignment = 0;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        cpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createGPUBuffer(reqs,true);
 #ifdef _IRR_WINDOWS_
         cpuCullingScratchSpace = (uint8_t*)_aligned_malloc(gpuCulledLodInstanceDataBuffer->getSize(),SIMD_ALIGNMENT);
 #else
@@ -657,7 +665,7 @@ void CMeshSceneNodeInstanced::render()
             if (transparent == isTransparentPass)
             {
                 driver->setMaterial(material);
-                driver->drawMeshBuffer(LoD[i].mesh->getMeshBuffer(j), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+                driver->drawMeshBuffer(LoD[i].mesh->getMeshBuffer(j));
             }
         }
     }

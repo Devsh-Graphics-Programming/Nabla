@@ -302,7 +302,6 @@
 		<Unit filename="../../include/IMetaGranularBuffer.h" />
 		<Unit filename="../../include/IMultisampleTexture.h" />
 		<Unit filename="../../include/IOSOperator.h" />
-		<Unit filename="../../include/IOcclusionQuery.h" />
 		<Unit filename="../../include/IQueryObject.h" />
 		<Unit filename="../../include/IReadFile.h" />
 		<Unit filename="../../include/IReferenceCounted.h" />
@@ -535,14 +534,8 @@
 		<Unit filename="COpenGLMultisampleTexture.h" />
 		<Unit filename="COpenGLMultisampleTextureArray.cpp" />
 		<Unit filename="COpenGLMultisampleTextureArray.h" />
-		<Unit filename="COpenGLOcclusionQuery.cpp" />
-		<Unit filename="COpenGLOcclusionQuery.h" />
-		<Unit filename="COpenGLPersistentlyMappedBuffer.cpp" />
-		<Unit filename="COpenGLPersistentlyMappedBuffer.h" />
 		<Unit filename="COpenGLQuery.cpp" />
 		<Unit filename="COpenGLQuery.h" />
-		<Unit filename="COpenGLRenderBuffer.cpp" />
-		<Unit filename="COpenGLRenderBuffer.h" />
 		<Unit filename="COpenGLSLMaterialRenderer.cpp" />
 		<Unit filename="COpenGLSLMaterialRenderer.h" />
 		<Unit filename="COpenGLTexture.cpp" />

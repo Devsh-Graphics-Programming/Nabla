@@ -1,7 +1,7 @@
 #ifndef __C_OPEN_GL_BUFFER_H_INCLUDED__
 #define __C_OPEN_GL_BUFFER_H_INCLUDED__
 
-#include "IGPUMappedBuffer.h"
+#include "IGPUBuffer.h"
 #include "IrrCompileConfig.h"
 #include "FW_Mutex.h"
 
@@ -71,7 +71,7 @@ inline uint32_t getBitsPerPixelFromGLenum(const GLenum& format)
 }
 
 
-class COpenGLBuffer : public IGPUMappedBuffer
+class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
 {
     protected:
         virtual ~COpenGLBuffer()
@@ -90,16 +90,19 @@ class COpenGLBuffer : public IGPUMappedBuffer
         }
 
     public:
-        COpenGLBuffer(const size_t &size, const void* data, const GLbitfield &flags) : BufferName(0), BufferSize(0), cachedFlags(0)
+        COpenGLBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements &mreqs, const bool& canModifySubData) : IGPUBuffer(mreqs), BufferName(0), cachedFlags(0)
         {
 			lastTimeReallocated = 0;
             COpenGLExtensionHandler::extGlCreateBuffers(1,&BufferName);
             if (BufferName==0)
                 return;
 
-            COpenGLExtensionHandler::extGlNamedBufferStorage(BufferName,size,data,flags);
-            cachedFlags = flags;
-            BufferSize = size;
+            cachedFlags =   (canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)||
+                            (mreqs.memoryHeapLocation==IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL ? GL_CLIENT_STORAGE_BIT:0)||
+                            ((mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? (GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT):0)||
+                            ((mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)!=0u ? (GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT):0)||
+                            ((mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_COHERENT)!=0u ? GL_MAP_COHERENT_BIT:GL_MAP_FLUSH_EXPLICIT_BIT);
+            COpenGLExtensionHandler::extGlNamedBufferStorage(BufferName,cachedMemoryReqs.vulkanReqs.size,nullptr,cachedFlags);
 
 #ifdef OPENGL_LEAK_DEBUG
             for (size_t i=0; i<3; i++)
@@ -107,34 +110,58 @@ class COpenGLBuffer : public IGPUMappedBuffer
 #endif // OPENGL_LEAK_DEBUG
         }
 
-
+        //!
         inline const GLuint& getOpenGLName() const {return BufferName;}
 
-        virtual const uint64_t &getSize() const {return BufferSize;}
 
+        //!
+        virtual bool canUpdateSubRange() const {return cachedFlags&GL_DYNAMIC_STORAGE_BIT;}
+
+        //!
         virtual void updateSubRange(const size_t& offset, const size_t& size, const void* data)
         {
-            if (cachedFlags&GL_DYNAMIC_STORAGE_BIT)
+            if (canUpdateSubRange())
                 COpenGLExtensionHandler::extGlNamedBufferSubData(BufferName,offset,size,data);
         }
 
-        virtual bool canUpdateSubRange() const {return cachedFlags&GL_DYNAMIC_STORAGE_BIT;}
 
-        virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)
+        //! Returns the allocation which is bound to the resource
+        virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
+
+        //! Constant version
+        virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
+
+        //! Returns the offset in the allocation at which it is bound to the resource
+        virtual size_t getBoundMemoryOffset() const {return 0ull;}
+
+
+        //!
+        virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DONT_KNOW;}
+
+        //!
+        virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
+
+        //!
+        virtual void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const size_t& offset, const size_t& size)
         {
-            return this->reallocate(newSize,forceRetentionOfData,reallocateIfShrink,0);
+            GLbitfield flags = ((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? GL_MAP_READ_BIT:0)||((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)!=0u ? GL_MAP_WRITE_BIT:0);
+            flags |= cachedFlags&(GL_MAP_PERSISTENT_BIT|GL_MAP_COHERENT_BIT|GL_MAP_FLUSH_EXPLICIT_BIT);
+            mappedPtr = reinterpret_cast<uint8_t*>(COpenGLExtensionHandler::extGlMapNamedBufferRange(BufferName,offset,size,flags))-offset;
         }
 
+        //!
+        virtual void unmapMemory()
+        {
+            if (mappedPtr)
+                COpenGLExtensionHandler::extGlUnmapNamedBuffer(BufferName);
+        }
 
-        virtual void* getPointer() {return NULL;}
-
-        virtual bool isMappedBuffer() const {return false;}
-
+        //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
+        virtual bool isDedicated() const {return true;}
     protected:
         GLbitfield cachedFlags;
-        size_t BufferSize;
         GLuint BufferName;
-
+        /*
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart)
         {
 #ifdef OPENGL_LEAK_DEBUG
@@ -210,6 +237,7 @@ class COpenGLBuffer : public IGPUMappedBuffer
 #endif // OPENGL_LEAK_DEBUG
             return true;
         }
+        */
     private:
 #ifdef OPENGL_LEAK_DEBUG
         FW_AtomicCounter concurrentAccessGuard[3];

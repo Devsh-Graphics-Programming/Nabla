@@ -320,8 +320,6 @@ namespace video
 		virtual void beginQuery(IQueryObject* query, const size_t& index) = 0;
 		virtual void endQuery(IQueryObject* query, const size_t& index) = 0;
 
-        virtual IQueryObject* createXFormFeedbackPrimitiveQuery() = 0;
-
 
 		//! Sets new multiple render targets.
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true) = 0;
@@ -379,37 +377,6 @@ namespace video
 		//! Gets the area of the current viewport.
 		/** \return Rectangle of the current viewport. */
 		virtual const core::rect<int32_t>& getViewPort() const =0;
-
-		//! Draws a 3d line.
-		/** Note that the line is drawn using the current transformation
-		matrix and material. So if you need to draw the 3D line
-		independently of the current transformation, use
-		\code
-		driver->setMaterial(someMaterial);
-		driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
-		\endcode
-		for some properly set up material before drawing the line.
-		Some drivers support line thickness set in the material.
-		\param start Start of the 3d line.
-		\param end End of the 3d line.
-		\param color Color of the line. */
-		virtual void draw3DLine(const core::vector3df& start,
-			const core::vector3df& end, SColor color = SColor(255,255,255,255)) =0;
-
-		//! Draws a 3d axis aligned box.
-		/** This method simply calls draw3DLine for the edges of the
-		box. Note that the box is drawn using the current transformation
-		matrix and material. So if you need to draw it independently of
-		the current transformation, use
-		\code
-		driver->setMaterial(someMaterial);
-		driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
-		\endcode
-		for some properly set up material before drawing the box.
-		\param box The axis aligned box to draw
-		\param color Color to use while drawing the box. */
-		virtual void draw3DBox(const core::aabbox3d<float>& box,
-			SColor color = SColor(255,255,255,255)) =0;
 
 		//! Draws a 2d image without any special effects
 		/** \param texture Pointer to texture to use.
@@ -557,20 +524,18 @@ namespace video
 
 		//! Draws a mesh buffer
 		/** \param mb Buffer to draw */
-		virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query = NULL) =0;
+		virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb) =0;
 
 		//! Indirect Draw
 		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride,
-                                        IOcclusionQuery* query = NULL) =0;
+                                        const size_t& offset, const size_t& count, const size_t& stride) =0;
 		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
                                         const E_INDEX_TYPE& type,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride,
-                                        IOcclusionQuery* query = NULL) =0;
+                                        const size_t& offset, const size_t& count, const size_t& stride) =0;
 
 		//! Get the size of the screen or render window.
 		/** \return Size of screen or render window. */

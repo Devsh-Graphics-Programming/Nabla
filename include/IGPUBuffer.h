@@ -20,10 +20,17 @@ buffer to buffer copies, one needs a command buffer in Vulkan as these operation
 performed by the GPU and not wholly by the driver, so look for them in IDriver and IVideoDriver. */
 class IGPUBuffer : public core::IBuffer, public IDriverMemoryBacked
 {
+    protected:
+        IGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) : IDriverMemoryBacked(reqs) {}
+
     public:
+        //!
+        virtual const uint64_t& getSize() const {return cachedMemoryReqs.vulkanReqs.size;}
+
         //deprecated, delegate this to command buffer
         virtual void updateSubRange(const size_t& offset, const size_t& size, const void* data) = 0;
 
+        //!
         virtual bool canUpdateSubRange() const = 0;
 };
 

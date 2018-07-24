@@ -372,10 +372,10 @@ class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGP
 	        reqs.vulkanReqs.size = GranuleByteSize*granuleCount;
 	        reqs.vulkanReqs.alignment = 0;
 	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
             reqs.memoryHeapLocation = InClientMemeory ? IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL:IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
             reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+	        reqs.prefersDedicatedAllocation = true;
+	        reqs.requiresDedicatedAllocation = true;
             A = Driver->createGPUBufferOnDedMem(reqs,true);
             if (!A)
             {

@@ -14,7 +14,6 @@
 #include "irrString.h"
 #include "aabbox3d.h"
 #include "matrix4.h"
-#include "IOcclusionQuery.h"
 #include "IDummyTransformationSceneNode.h"
 #include "IDriverFence.h"
 
@@ -45,7 +44,7 @@ namespace scene
 				const core::vector3df& rotation = core::vector3df(0,0,0),
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f))
 			:   IDummyTransformationSceneNode(parent,position,rotation,scale),
-                SceneManager(mgr), renderFence(0), fenceBehaviour(EFRB_SKIP_DRAW), query(0),
+                SceneManager(mgr), renderFence(0), fenceBehaviour(EFRB_SKIP_DRAW),
                 ID(id), AutomaticCullingState(EAC_FRUSTUM_BOX),
                 DebugDataVisible(EDS_OFF), mobid(0), mobtype(0), IsVisible(true),
                 IsDebugObject(false), staticmeshid(0),blockposX(0),blockposY(0),blockposZ(0), renderPriority(0x80000000u)
@@ -95,24 +94,6 @@ namespace scene
 		{
 			OnRegisterSceneNode_static(this);
 		}
-
-
-		virtual void setOcclusionQuery(video::IOcclusionQuery* query_in)
-		{
-		    video::IOcclusionQuery* old_query = query;
-
-            query = query_in;
-
-            if (query)
-                query->grab();
-
-            if (old_query)
-                old_query->drop();
-		}
-
-		virtual video::IOcclusionQuery* getOcclusionQuery() {return query;}
-		virtual video::IOcclusionQuery const* getOcclusionQuery() const {return query;}
-
 
 		//! Adds a child to this scene node.
 		/** If the scene node already has a parent it is first removed
@@ -386,9 +367,6 @@ namespace scene
 		//! Destructor
 		virtual ~ISceneNode()
 		{
-            if (query)
-                query->drop();
-
             if (renderFence)
                 renderFence->drop();
 		}
@@ -480,9 +458,6 @@ namespace scene
             }
             return false;
         }
-
-		//! Pointer to the attached occlusion query
-		video::IOcclusionQuery* query;
 
 		//! ID of the node.
 		int32_t ID;

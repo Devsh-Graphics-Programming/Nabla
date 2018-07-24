@@ -71,7 +71,7 @@ namespace irr {namespace scene {
 	void CBAWMeshWriter::exportAsBlob<video::IVirtualTexture>(video::IVirtualTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
 	{
 		video::ITexture* tex;
-		if (!(tex = dynamic_cast<video::ITexture*>(_obj)))
+		if (!(tex = dynamic_cast<video::ITexture*>(_obj))) // can we static_cast please?
 			return pushCorruptedOffset(_ctx);
 
 		const io::path fileDir = _ctx.props->relPath.size() ? _ctx.props->relPath : io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get relative-file's directory

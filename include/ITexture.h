@@ -83,11 +83,6 @@ public:
         ECMF_COUNT
     };
 
-	//! constructor
-	ITexture(const io::path& name) : NamedPath(name)
-	{
-	}
-
 	virtual E_TEXTURE_TYPE getTextureType() const = 0;
 
 	//! Get dimension (=size) of the texture.
@@ -120,9 +115,11 @@ public:
 	//! Get name of texture (in most cases this is the filename)
 	const io::SNamedPath& getName() const { return NamedPath; }
 
-	E_RENDERABLE_TYPE getRenderableType() const {return ERT_TEXTURE;}
-
 protected:
+	//! constructor
+	ITexture(const SDriverMemoryRequirements& reqs, const io::path& name) : IDriverMemoryBacked(reqs), NamedPath(name)
+	{
+	}
 
 	io::SNamedPath NamedPath;
 };

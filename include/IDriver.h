@@ -12,8 +12,8 @@
 #include "ITextureBufferObject.h"
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
+#include "IQueryObject.h"
 #include "IGPUTimestampQuery.h"
-#include "IOcclusionQuery.h"
 
 namespace irr
 {
@@ -125,11 +125,10 @@ namespace video
 
 
         //these will have to be created by a query pool anyway
-        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic) = 0;
-        virtual IQueryObject* createPrimitivesGeneratedQuery() = 0;
-        virtual IQueryObject* createXFormFeedbackPrimitiveQuery() = 0;
-        virtual IQueryObject* createElapsedTimeQuery() = 0;
-        virtual IGPUTimestampQuery* createTimestampQuery() = 0;
+        virtual IQueryObject* createPrimitivesGeneratedQuery() {return nullptr;}
+        virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} //depr
+        virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
+        virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
 
 
 		//! Convenience function for releasing all images in a mip chain.

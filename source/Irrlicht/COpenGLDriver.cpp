@@ -19,11 +19,10 @@
 #include "COpenGLMultisampleTextureArray.h"
 #include "COpenGLTextureBufferObject.h"
 
-#include "COpenGLRenderBuffer.h"
-#include "COpenGLPersistentlyMappedBuffer.h"
+#include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLSLMaterialRenderer.h"
-#include "COpenGLOcclusionQuery.h"
+#include "COpenGLQuery.h"
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
 
@@ -1176,34 +1175,15 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 }
 
 
-IGPUBuffer* COpenGLDriver::createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData, const bool &inCPUMem, const E_GPU_BUFFER_ACCESS &usagePattern)
+IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false)
 {
-    switch (usagePattern)
-    {
-        case EGBA_READ:
-            return new COpenGLBuffer(size,data,(canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT);
-        case EGBA_WRITE:
-            return new COpenGLBuffer(size,data,(canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_WRITE_BIT);
-        case EGBA_READ_WRITE:
-            return new COpenGLBuffer(size,data,(canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT|GL_MAP_WRITE_BIT);
-        default:
-            return new COpenGLBuffer(size,data,(canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0));
-    }
-}
+    auto extraMreqs = intialMreqs;
 
-IGPUMappedBuffer* COpenGLDriver::createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem)
-{
-    switch (usagePattern)
-    {
-        case EGBA_READ:
-            return new COpenGLPersistentlyMappedBuffer(size,data,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT);
-        case EGBA_WRITE:
-            return new COpenGLPersistentlyMappedBuffer(size,data,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_WRITE_BIT,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:GL_MAP_FLUSH_EXPLICIT_BIT)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_WRITE_BIT);
-        case EGBA_READ_WRITE:
-            return new COpenGLPersistentlyMappedBuffer(size,data,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT|GL_MAP_WRITE_BIT,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:GL_MAP_FLUSH_EXPLICIT_BIT)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT|GL_MAP_WRITE_BIT);
-        default:
-            return NULL;
-    }
+    auto bufferSourceHeap = intialMreqs.memoryHeapLocation;
+    if (bufferSourceHeap!=IDriverMemoryAllocation::ESMT_DONT_KNOW)
+        extraMreqs = (intialMreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL:IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+
+    return new COpenGLBuffer(extraMreqs, canModifySubData);
 }
 
 void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
@@ -1665,11 +1645,6 @@ scene::IGPUMesh* COpenGLDriver::createGPUMeshFromCPU(scene::ICPUMesh* mesh, cons
 }
 
 
-IOcclusionQuery* COpenGLDriver::createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic)
-{
-    return new COpenGLOcclusionQuery(heuristic);
-}
-
 IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()
 {
     return new COpenGLQuery(GL_PRIMITIVES_GENERATED);
@@ -1695,7 +1670,7 @@ void COpenGLDriver::beginQuery(IQueryObject* query)
     if (!query)
         return; //error
 
-    COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
+    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
@@ -1716,7 +1691,7 @@ void COpenGLDriver::endQuery(IQueryObject* query)
     if (currentQuery[query->getQueryObjectType()][0]!=query)
         return; //error
 
-    COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
+    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
@@ -1737,7 +1712,7 @@ void COpenGLDriver::beginQuery(IQueryObject* query, const size_t& index)
     if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
         return; //error
 
-    COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
+    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
@@ -1761,7 +1736,7 @@ void COpenGLDriver::endQuery(IQueryObject* query, const size_t& index)
     if (currentQuery[query->getQueryObjectType()][index]!=query)
         return; //error
 
-    COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
+    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
@@ -1782,7 +1757,7 @@ static inline uint8_t* buffer_offset(const long offset)
 
 
 
-void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query)
+void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
 {
     if (mb && !mb->getInstanceCount())
         return;
@@ -1804,20 +1779,10 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQu
 	}
 #endif // _DEBUG
 
-	CNullDriver::drawMeshBuffer(mb,query);
+	CNullDriver::drawMeshBuffer(mb);
 
 	// draw everything
 	setRenderStates3DMode();
-
-    COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
-
-    bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0))
-    {
-        extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
-        didConditional = true;
-    }
-
 
 	GLenum indexSize=0;
     if (meshLayoutVAO->getIndexBuffer())
@@ -1880,9 +1845,6 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQu
     }
     else
         extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
-
-    if (didConditional)
-        extGlEndConditionalRender();
 }
 
 
@@ -1890,8 +1852,7 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQu
 void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                          const scene::E_PRIMITIVE_TYPE& mode,
                                          const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride,
-                                         IOcclusionQuery* query)
+                                         const size_t& offset, const size_t& count, const size_t& stride)
 {
     if (!indirectDrawBuff)
         return;
@@ -1908,15 +1869,6 @@ void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video:
 
 	// draw everything
 	setRenderStates3DMode();
-
-    COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
-
-    bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0)&&(!queryGL->isActive()))
-    {
-        extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
-        didConditional = true;
-    }
 
     GLenum primType = primitiveTypeToGL(mode);
 	switch (mode)
@@ -1946,10 +1898,6 @@ void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video:
 
     //actual drawing
     extGlMultiDrawArraysIndirect(primType,(void*)offset,count,stride);
-
-
-    if (didConditional)
-        extGlEndConditionalRender();
 }
 
 
@@ -1988,8 +1936,7 @@ bool COpenGLDriver::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature) const
 void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
                                         const E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride,
-                                        IOcclusionQuery* query)
+                                        const size_t& offset, const size_t& count, const size_t& stride)
 {
     if (!indirectDrawBuff)
         return;
@@ -2007,17 +1954,7 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
 	// draw everything
 	setRenderStates3DMode();
 
-    COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
-
-    bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0)&&(!queryGL->isActive()))
-    {
-        extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
-        didConditional = true;
-    }
-
 	GLenum indexSize = type!=EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
-
     GLenum primType = primitiveTypeToGL(mode);
 	switch (mode)
 	{
@@ -2046,11 +1983,6 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
 
     //actual drawing
     extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,count,stride);
-
-
-
-    if (didConditional)
-        extGlEndConditionalRender();
 }
 
 
@@ -3058,20 +2990,6 @@ ITextureBufferObject* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, con
     return tbo;
 }
 
-IRenderBuffer* COpenGLDriver::addRenderBuffer(const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
-{
-	IRenderBuffer* buffer = new COpenGLRenderBuffer(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size);
-	CNullDriver::addRenderBuffer(buffer);
-	return buffer;
-}
-
-IRenderBuffer* COpenGLDriver::addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
-{
-	IRenderBuffer* buffer = new COpenGLMultisampleRenderBuffer(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,samples);
-	CNullDriver::addRenderBuffer(buffer);
-	return buffer;
-}
-
 IFrameBuffer* COpenGLDriver::addFrameBuffer()
 {
     SAuxContext* found = getThreadContext_helper(false);
@@ -3214,7 +3132,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
             uint32_t width,height;
             for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
             {
-                const IRenderable* rndrbl = in->getAttachment(i);
+                const IRenderableVirtualTexture* rndrbl = in->getAttachment(i);
                 if (!rndrbl)
                     continue;
 
@@ -3249,7 +3167,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
             uint32_t width,height;
             for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
             {
-                const IRenderable* rndrbl = out->getAttachment(i);
+                const IRenderableVirtualTexture* rndrbl = out->getAttachment(i);
                 if (!rndrbl)
                     continue;
 
@@ -3338,7 +3256,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
     core::dimension2du newRTTSize;
     for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
     {
-        const IRenderable* attachment = frameBuffer->getAttachment(i);
+        const IRenderableVirtualTexture* attachment = frameBuffer->getAttachment(i);
         if (!attachment)
             continue;
 

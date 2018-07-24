@@ -8,7 +8,6 @@
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLDriver.h"
 #include "COpenGLMultisampleTexture.h"
-#include "COpenGLRenderBuffer.h"
 
 #include "os.h"
 
@@ -226,49 +225,6 @@ bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IM
 	return true;
 }
 
-bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IRenderBuffer* rbf)
-{
-	if (!frameBuffer||attachmenPoint>=EFAP_MAX_ATTACHMENTS)
-		return false;
-
-    COpenGLRenderBuffer* glRBuf = static_cast<COpenGLRenderBuffer*>(rbf);
-
-    GLenum attachment = GL_INVALID_ENUM;
-    switch (attachmenPoint)
-    {
-        case EFAP_DEPTH_ATTACHMENT:
-            attachment = GL_DEPTH_ATTACHMENT;
-            break;
-        case EFAP_STENCIL_ATTACHMENT:
-            attachment = GL_STENCIL_ATTACHMENT;
-            break;
-        case EFAP_DEPTH_STENCIL_ATTACHMENT:
-            attachment = GL_DEPTH_STENCIL_ATTACHMENT;
-            break;
-        default:
-            attachment = GL_COLOR_ATTACHMENT0+(attachmenPoint-EFAP_COLOR_ATTACHMENT0);
-            break;
-    }
-
-    if (glRBuf)
-        Driver->extGlNamedFramebufferRenderbuffer(frameBuffer,attachment,GL_RENDERBUFFER,glRBuf->getOpenGLName());
-    else
-        Driver->extGlNamedFramebufferRenderbuffer(frameBuffer,attachment,GL_RENDERBUFFER,0);
-
-    cachedLevel[attachmenPoint] = -1;
-    cachedLayer[attachmenPoint] = -1;
-
-    if (attachments[attachmenPoint])
-        attachments[attachmenPoint]->drop();
-    attachments[attachmenPoint] = rbf;
-	if (rbf)
-        rbf->grab(); // grab the depth buffer, not the RTT
-
-    forceRevalidate = true;
-
-	return true;
-}
-
 bool COpenGLFrameBuffer::rebindRevalidate()
 {
     bool noAttachments = true;
@@ -289,50 +245,34 @@ bool COpenGLFrameBuffer::rebindRevalidate()
             enabledBufferCnt = i;
         }
 
-        if (attachments[i]->getRenderableType()==ERT_TEXTURE)
+        uint64_t revalidationStamp = 0;
+        switch (attachments[i]->getVirtualTextureType())
         {
-            IRenderableVirtualTexture* rvt = static_cast<IRenderableVirtualTexture*>(attachments[i]);
-            uint64_t revalidationStamp = 0;
-            switch (rvt->getVirtualTextureType())
-            {
-                case IVirtualTexture::EVTT_OPAQUE_FILTERABLE:
-                    {
-                        ITexture* typeTex = static_cast<ITexture*>(attachments[i]);
-                        revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
-                        if (revalidationStamp>lastValidated)
-                            attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLevel[i],cachedLayer[i]);
-                    }
-                    break;
-                case IVirtualTexture::EVTT_2D_MULTISAMPLE:
-                    {
-                        IMultisampleTexture* typeTex = static_cast<IMultisampleTexture*>(attachments[i]);
-                        revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
-                        if (revalidationStamp>lastValidated)
-                            attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLayer[i]);
-                    }
-                    break;
-                default:
-                    os::Printer::log("WTF are you trying to render into!?");
-                    break;
-            }
-            if (revalidationStamp>lastValidated)
-            {
-                if (revalidationStamp>highestRevalidationStamp)
-                    highestRevalidationStamp = revalidationStamp;
-                revalidate = true;
-            }
+            case IVirtualTexture::EVTT_OPAQUE_FILTERABLE:
+                {
+                    ITexture* typeTex = static_cast<ITexture*>(attachments[i]);
+                    revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
+                    if (revalidationStamp>lastValidated)
+                        attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLevel[i],cachedLayer[i]);
+                }
+                break;
+            case IVirtualTexture::EVTT_2D_MULTISAMPLE:
+                {
+                    IMultisampleTexture* typeTex = static_cast<IMultisampleTexture*>(attachments[i]);
+                    revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
+                    if (revalidationStamp>lastValidated)
+                        attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLayer[i]);
+                }
+                break;
+            default:
+                os::Printer::log("WTF are you trying to render into!?");
+                break;
         }
-        else
+        if (revalidationStamp>lastValidated)
         {
-            COpenGLRenderBuffer* glRBuf = static_cast<COpenGLRenderBuffer*>(attachments[i]);
-            uint64_t revalidationStamp = glRBuf->hasOpenGLNameChanged();
-            if (revalidationStamp>lastValidated)
-            {
-                if (revalidationStamp>highestRevalidationStamp)
-                    highestRevalidationStamp = revalidationStamp;
-                revalidate = true;
-                attach((E_FBO_ATTACHMENT_POINT)i,glRBuf);
-            }
+            if (revalidationStamp>highestRevalidationStamp)
+                highestRevalidationStamp = revalidationStamp;
+            revalidate = true;
         }
     }
 

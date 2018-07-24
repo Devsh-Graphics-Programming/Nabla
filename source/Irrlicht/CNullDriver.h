@@ -53,13 +53,13 @@ namespace video
 		//! constructor
 		CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
+		//!
+		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) {return nullptr;}
+
 
         virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}
 
-        virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) {return NULL;}
-
-	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) {return NULL;}
 
 	    virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
 
@@ -73,9 +73,6 @@ namespace video
 				core::rect<int32_t>* sourceRect=0);
 
 		virtual bool endScene();
-
-		//! queries the features of the driver, returns true if feature is available
-		virtual bool queryFeature(const E_VIDEO_DRIVER_FEATURE& feature) const;
 
 		//!
 		virtual void issueGPUTextureBarrier() {}
@@ -216,20 +213,18 @@ namespace video
 		//! gets the area of the current viewport
 		virtual const core::rect<int32_t>& getViewPort() const;
 
-        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
+        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb);
 
 		//! Indirect Draw
 		virtual void drawArraysIndirect( const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                          const scene::E_PRIMITIVE_TYPE& mode,
                                          const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride,
-                                         IOcclusionQuery* query = NULL);
+                                         const size_t& offset, const size_t& count, const size_t& stride);
 		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                          const scene::E_PRIMITIVE_TYPE& mode,
                                          const E_INDEX_TYPE& type,
                                          const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride,
-                                         IOcclusionQuery* query = NULL);
+                                         const size_t& offset, const size_t& count, const size_t& stride);
 
 		//! Draws a 3d line.
 		virtual void draw3DLine(const core::vector3df& start,
@@ -351,8 +346,6 @@ namespace video
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
 
-		virtual void removeRenderBuffer(IRenderBuffer* renderbuf);
-
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
 
 		//! Removes all texture from the texture cache and deletes them, freeing lot of
@@ -366,10 +359,6 @@ namespace video
 		virtual void removeAllRenderBuffers();
 
 		virtual void removeAllFrameBuffers();
-
-		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
-
-		virtual IRenderBuffer* addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
         virtual IFrameBuffer* addFrameBuffer();
 
@@ -411,13 +400,6 @@ namespace video
 		virtual void endQuery(IQueryObject* query);
 		virtual void beginQuery(IQueryObject* query, const size_t& index);
 		virtual void endQuery(IQueryObject* query, const size_t& index);
-
-        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic);
-
-        virtual IQueryObject* createPrimitivesGeneratedQuery();
-        virtual IQueryObject* createXFormFeedbackPrimitiveQuery();
-        virtual IQueryObject* createElapsedTimeQuery();
-        virtual IGPUTimestampQuery* createTimestampQuery();
 
 		//! Only used by the engine internally.
 		/** Used to notify the driver that the window was resized. */
@@ -588,8 +570,6 @@ namespace video
 
         void addTextureBufferObject(ITextureBufferObject* tbo);
 
-        void addRenderBuffer(IRenderBuffer* buffer);
-
 		//! deletes all textures
 		void deleteAllTextures();
 
@@ -656,7 +636,9 @@ namespace video
 		{
                 core::dimension2d<uint32_t> size;
 		    public:
-                SDummyTexture(const io::path& name) : ITexture(name), size(0,0) {}
+                SDummyTexture(const io::path& name) : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,0,0},name), size(0,0)
+                {
+                }
 
                 virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
                 virtual E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
@@ -670,12 +652,15 @@ namespace video
                 virtual void regenerateMipMapLevels() {}
                 virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
                 virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
+
+                virtual IDriverMemoryAllocation* getBoundMemory() {return nullptr;}
+                virtual const IDriverMemoryAllocation* getBoundMemory() const {return nullptr;}
+                virtual size_t getBoundMemoryOffset() const {return 0u;}
 		};
 		std::vector<SSurface> Textures;
 
 		core::array<IMultisampleTexture*> MultisampleTextures;
 		core::array<ITextureBufferObject*> TextureBufferObjects;
-		core::array<IRenderBuffer*> RenderBuffers;
 
 		core::array<video::IImageLoader*> SurfaceLoader;
 		core::array<video::IImageWriter*> SurfaceWriter;

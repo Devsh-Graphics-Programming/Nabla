@@ -59,7 +59,7 @@ class IDriverMemoryBacked : public virtual IReferenceCounted
             out.requiresDedicatedAllocation = a.requiresDedicatedAllocation|b.requiresDedicatedAllocation;
 
             //! Not on Vulkan, then OpenGL doesn't need more checks
-            if (a.vulkanReqs.size==0u&&b.vulkanReqs.size==0u)
+            if (a.vulkanReqs.alignment==0u&&b.vulkanReqs.alignment==0u)
                 return true;
 
             //! On Vulkan and don't know is not an option [can be removed later]
@@ -80,13 +80,16 @@ class IDriverMemoryBacked : public virtual IReferenceCounted
         }
 
         //! Before allocating memory from the driver or trying to bind a range of an existing allocation
-        virtual const SDriverMemoryRequirements& getMemoryReqs() const = 0;
+        inline const SDriverMemoryRequirements& getMemoryReqs() const {return cachedMemoryReqs;}
 
         //! Returns the allocation which is bound to the resource
         virtual IDriverMemoryAllocation* getBoundMemory() = 0;
 
         //! Constant version
         virtual const IDriverMemoryAllocation* getBoundMemory() const = 0;
+
+        //! Returns the offset in the allocation at which it is bound to the resource
+        virtual size_t getBoundMemoryOffset() const = 0;
 
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
@@ -95,7 +98,12 @@ class IDriverMemoryBacked : public virtual IReferenceCounted
         Actually all resource classes in OpenGL implement both IDriverMemoryBacked and IDriverMemoryAllocation,
         so effectively the memory is pre-bound at the time of creation.
         \return true on success, always false under OpenGL.*/
-        virtual bool bindMemory(IDriverMemoryAllocation* allocation, const size_t& offset, const size_t& size) {return false;}
+        virtual bool bindMemory(IDriverMemoryAllocation* allocation, const size_t& offset) {return false;}
+
+    protected:
+        IDriverMemoryBacked(const SDriverMemoryRequirements& reqs) : cachedMemoryReqs(reqs) {}
+
+        SDriverMemoryRequirements cachedMemoryReqs;
 };
 
 } // end namespace scene

@@ -29,8 +29,21 @@ class IDriverFence : public IReferenceCounted
 {
     public:
         //! If timeout​ is zero, the function will simply check to see if the sync object is signaled and return immediately.
+        /** \param timeout in nanoseconds.
+        \param whether to perform a special implicit flush in OpenGL (quite useless).
+        IMPORTANT: In OpenGL you need to glFlush at some point in the thread (context) AFTER you create this fence with
+        IVideoDriver::placeFence and BEFORE you waitCPU on it in the same thread or another.
+        https://www.khronos.org/opengl/wiki/Sync_Object#Flushing_and_contexts
+        If you don't THE FENCE MAY NEVER BE SIGNALLED because the signalling command has never been flushed to the device queue.
+        The `flush` parameter can do this glFlush for you just before the wait, BUT ONLY IF you've placed the fence in the same
+        thread as the one you are waiting on the fence. So if you want to use IDriverFence for inter-context coordination you
+        are screwed and must call glFlush manually.*/
         virtual E_DRIVER_FENCE_RETVAL waitCPU(const uint64_t &timeout, const bool &flush=false) = 0;
 
+        //! This makes the GPU pause executing commands in the current context until commands before the fence in the context which created it, have completed
+        /** You may be shocked to learn that OpenGL allows for commands in the same context to execute simultaneously or out of order as long as the result
+        of these commands is the same as if they have been executed strictly in-order (except the memory effects on the objects following the incoherent memory model).
+        For solving the above within a context you want to issue memory barriers, however for ensuring the order of commands between contexts you want to use waitGPU.*/
         virtual void waitGPU() = 0;
 };
 

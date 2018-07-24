@@ -10,7 +10,6 @@
 
 #include "irrArray.h"
 #include "IMaterialRendererServices.h"
-#include "EDriverFeatures.h"
 #include "irrTypes.h"
 #include "irrMacros.h"
 #include "os.h"

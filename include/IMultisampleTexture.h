@@ -26,9 +26,6 @@ public:
         EMTT_COUNT
     };
 
-    //!
-	E_RENDERABLE_TYPE getRenderableType() const {return ERT_TEXTURE;}
-
 
 	//!
 	virtual const E_MULTISAMPLE_TEXTURE_TYPE getTextureType() const = 0;

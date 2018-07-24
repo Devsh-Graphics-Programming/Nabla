@@ -766,14 +766,6 @@ bool CSceneManager::isCulled(ISceneNode* node) const
 	}
 	bool result = false;
 
-	// has occlusion query information
-	if ((node->getAutomaticCulling() & scene::EAC_OCC_QUERY)&&node->getOcclusionQuery())
-	{
-	    uint32_t tmp;
-	    node->getOcclusionQuery()->getQueryResult(&tmp);
-		result = tmp==0;
-	}
-
 	// can be seen by a bounding box ?
 	if (!result && (node->getAutomaticCulling() & scene::EAC_BOX))
 	{

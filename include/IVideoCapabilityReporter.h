@@ -66,7 +66,7 @@ namespace video
 		/** Returns true if a feature is available
 		\param feature Feature to query.
 		\return True if the feature is available, false if not. */
-		virtual bool queryFeature(const E_DRIVER_FEATURE& feature) const =0;
+		virtual bool queryFeature(const E_DRIVER_FEATURE& feature) const {return false;}
 
 		//! Gets name of this video driver.
 		/** \return Returns the name of the video driver, e.g. in case

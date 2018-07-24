@@ -33,7 +33,15 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
     meshbuffer->setMeshDataAndFormat(desc);
     desc->drop();
 
-    vertexBuffer = SceneManager->getVideoDriver()->createGPUBuffer(4*sizeof(float)*3,NULL,true,true);
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.size = 4*sizeof(float)*3;
+    reqs.vulkanReqs.alignment = 0;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    vertexBuffer = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
     desc->mapVertexAttrBuffer(vertexBuffer,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT);
     vertexBuffer->drop();
 
@@ -94,22 +102,13 @@ void CBillboardSceneNode::render()
 	vertexBuffer->updateSubRange(0,sizeof(vertices),vertices);
 
 	// draw
-
-	if (DebugDataVisible & scene::EDS_BBOX)
-	{
-		driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
-		video::SMaterial m;
-		driver->setMaterial(m);
-		driver->draw3DBox(BBox, video::SColor(0,208,195,152));
-	}
-
     if (canProceedPastFence())
     {
         driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
 
         driver->setMaterial(Material);
 
-        driver->drawMeshBuffer(meshbuffer, (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+        driver->drawMeshBuffer(meshbuffer);
     }
 }
 
@@ -191,8 +190,16 @@ void CBillboardSceneNode::setColor(const video::SColor& topColor,
     staticVxData[16+6] = 0;
     staticVxData[16+7] = 0;
 
-
-    video::IGPUBuffer* buf = SceneManager->getVideoDriver()->createGPUBuffer(sizeof(staticVxData),staticVxData);
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.size = sizeof(staticVxData);
+    reqs.vulkanReqs.alignment = 0;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    video::IGPUBuffer* buf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+    buf->updateSubRange(0,sizeof(staticVxData),staticVxData);
     desc->mapVertexAttrBuffer(buf,EVAI_ATTR1,ECPA_REVERSED_OR_BGRA,ECT_NORMALIZED_UNSIGNED_BYTE);
     desc->mapVertexAttrBuffer(buf,EVAI_ATTR2,ECPA_TWO,ECT_UNSIGNED_BYTE,0,16);
     buf->drop();
