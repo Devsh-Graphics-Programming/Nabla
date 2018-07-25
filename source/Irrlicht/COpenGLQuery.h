@@ -11,7 +11,7 @@ namespace irr
 namespace video
 {
 
-class COpenGLQuery : public virtual IQueryObject
+class COpenGLQuery : public IQueryObject
 {
     protected:
         virtual ~COpenGLQuery();

@@ -1201,31 +1201,31 @@ std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<
 {
     std::vector<scene::IGPUMesh*> retval;
 
-    std::unordered_map<scene::ICPUMeshBuffer*,video::IGPUMeshBuffer*> createdMeshBuffers;
-    std::unordered_map<scene::ICPUMeshDataFormatDesc*,video::IGPUMeshDataFormatDesc*> createdVAOs;
-    std::unordered_map<ICPUBuffer*,IGPUBuffer*> createdGPUBuffers;
+    std::unordered_map<const scene::ICPUMeshBuffer*,scene::IGPUMeshBuffer*> createdMeshBuffers;
+    std::unordered_map<const scene::ICPUMeshDataFormatDesc*,scene::IGPUMeshDataFormatDesc*> createdVAOs;
+    std::unordered_map<const core::ICPUBuffer*,IGPUBuffer*> createdGPUBuffers;
 
-    auto findOrCreateBuffer = [&] (ICPUBuffer* cpubuffer)
+    auto findOrCreateBuffer = [&] (const core::ICPUBuffer* cpubuffer) -> video::IGPUBuffer*
             {
                 auto foundGPUBuff = createdGPUBuffers.find(cpubuffer);
                 if (foundGPUBuff!=createdGPUBuffers.end())
-                    return foundGPUBuff.second;
+                    return foundGPUBuff->second;
                 else
                 {
                     IDriverMemoryBacked::SDriverMemoryRequirements reqs;
                     reqs.vulkanReqs.size = cpubuffer->getSize();
                     reqs.vulkanReqs.alignment = 8;
-                    reqs.vulkanReqs.memoryTypes = 0xffffffffu;
-                    reqs.ssss = ;
-                    reqs.ssss = ;
-                    reqs.prefersDedicated = true;
-                    reqs.requiresDedicated = true;
+                    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+                    reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+                    reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+                    reqs.prefersDedicatedAllocation = true;
+                    reqs.requiresDedicatedAllocation = true;
                     IGPUBuffer* buffer = createGPUBufferOnDedMem(reqs,true);
                     if (!buffer)
                         return nullptr;
 
                     buffer->updateSubRange(0,cpubuffer->getSize(),cpubuffer->getPointer());
-                    createdGPUBuffers.insert(std::pair(cpubuffer,buffer));
+                    createdGPUBuffers.insert(std::pair<const core::ICPUBuffer*,IGPUBuffer*>(cpubuffer,buffer));
                     return buffer;
                 }
 
@@ -1234,16 +1234,16 @@ std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<
 
     for (auto it=meshes.begin(); it!=meshes.end(); it++)
     {
-        #define _DEBUG
+        #if _DEBUG
         for (auto it2=meshes.begin(); it2!=it; it2++)
         {
             if (*it==*it2)
                 os::Printer::log("Why are you creating duplicate GPU copies of ICPUMeshes?",ELL_WARNING);
         }
-        #endif // _IRR_COMPILE_WITH_OPENGL_
+        #endif // _DEBUG
         auto mesh = *it;
 
-        IGPUMesh* gpumesh;
+        scene::IGPUMesh* gpumesh;
         switch (mesh->getMeshType())
         {
             case scene::EMT_ANIMATED_SKINNED:
@@ -1257,20 +1257,20 @@ std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<
         for (size_t i=0; i<mesh->getMeshBufferCount(); i++)
         {
             scene::ICPUMeshBuffer* origmeshbuf = mesh->getMeshBuffer(i);
-            scene::ICPUMeshDataFormatDesc* origdesc = static_cast<scene::ICPUMeshDataFormatDesc*>(origmeshbuf->getMeshDataAndFormat());
+            const scene::ICPUMeshDataFormatDesc* origdesc = static_cast<scene::ICPUMeshDataFormatDesc*>(origmeshbuf->getMeshDataAndFormat());
             if (!origdesc)
                 continue;
 
-            IGPUMeshBuffer* meshbuffer = nullptr;
+            scene::IGPUMeshBuffer* meshbuffer = nullptr;
             auto foundMB = createdMeshBuffers.find(origmeshbuf);
             if (foundMB!=createdMeshBuffers.end())
-                meshbuffer = foundMB.second;
+                meshbuffer = foundMB->second;
             else
             {
-                IGPUMeshDataFormatDesc* vao = nullptr;
+                scene::IGPUMeshDataFormatDesc* vao = nullptr;
                 auto foundVAO = createdVAOs.find(origdesc);
                 if (foundVAO!=createdVAOs.end())
-                    vao = foundVAO.second;
+                    vao = foundVAO->second;
                 else
                 {
                     const core::ICPUBuffer* oldbuffer[scene::EVAI_COUNT];
@@ -1305,7 +1305,6 @@ std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<
                             if (!oldbuffer[attrId])
                                 continue;
 
-                            scene::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(j);
                             vao->mapVertexAttrBuffer(findOrCreateBuffer(oldbuffer[attrId]),
                                                      attrId,components[attrId],componentTypes[attrId],
                                                      origdesc->getMappedBufferStride(attrId),
@@ -1314,7 +1313,7 @@ std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<
                         }
                         if (origdesc->getIndexBuffer())
                             vao->mapIndexBuffer(findOrCreateBuffer(origdesc->getIndexBuffer()));
-                        createdVAOs.insert(std::pair(origdesc,vao));
+                        createdVAOs.insert(std::pair<const scene::ICPUMeshDataFormatDesc*,scene::IGPUMeshDataFormatDesc*>(origdesc,vao));
                     }
                 }
 
@@ -1340,7 +1339,7 @@ std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<
                 meshbuffer->setInstanceCount(origmeshbuf->getInstanceCount());
                 meshbuffer->setBaseInstance(origmeshbuf->getBaseInstance());
                 meshbuffer->setPrimitiveType(origmeshbuf->getPrimitiveType());
-                createdMeshBuffers.insert(std::pair(origmeshbuf,meshbuffer));
+                createdMeshBuffers.insert(std::pair<const scene::ICPUMeshBuffer*,scene::IGPUMeshBuffer*>(origmeshbuf,meshbuffer));
             }
 
             if (!meshbuffer)
@@ -1361,11 +1360,11 @@ std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<
     }
 
     for (auto it=createdGPUBuffers.begin(); it!=createdGPUBuffers.end(); it++)
-        (*it)->drop();
+        it->second->drop();
     for (auto it=createdVAOs.begin(); it!=createdVAOs.end(); it++)
-        (*it)->drop();
+        it->second->drop();
     for (auto it=createdMeshBuffers.begin(); it!=createdMeshBuffers.end(); it++)
-        (*it)->drop();
+        it->second->drop();
 
     return retval;
 }
