@@ -7,7 +7,7 @@
 #define __C_MULTI_BUFFERED_INTERFACE_BLOCK_H_INCLUDED__
 
 #include "irrBaseClasses.h"
-#include "IGPUMappedBuffer.h"
+#include "IGPUBuffer.h"
 #include "IVideoDriver.h"
 #include <vector>
 

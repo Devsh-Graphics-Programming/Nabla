@@ -391,7 +391,6 @@
 		<Unit filename="CB3DMeshFileLoader.cpp" />
 		<Unit filename="CB3DMeshFileLoader.h" />
 		<Unit filename="CBAWFile.cpp" />
-		<Unit filename="CBAWFile.h" />
 		<Unit filename="CBAWMeshFileLoader.cpp" />
 		<Unit filename="CBAWMeshFileLoader.h" />
 		<Unit filename="CBAWMeshWriter.cpp" />

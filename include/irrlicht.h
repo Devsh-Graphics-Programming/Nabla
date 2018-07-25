@@ -37,7 +37,6 @@
 #include "CMultiBufferedInterfaceBlock.h"
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
-#include "EDriverFeatures.h"
 #include "EDriverTypes.h"
 #include "EMaterialFlags.h"
 #include "EMaterialTypes.h"

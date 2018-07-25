@@ -18,6 +18,8 @@ namespace video
 
 class IMultisampleTexture : public IRenderableVirtualTexture, public IDriverMemoryBacked
 {
+protected:
+    IMultisampleTexture(const SDriverMemoryRequirements& reqs) : IDriverMemoryBacked(reqs) {}
 public:
     enum E_MULTISAMPLE_TEXTURE_TYPE
     {

@@ -82,15 +82,6 @@ namespace video
 		ESB_BACK_RIGHT
 	};
 
-	enum E_MESH_DESC_CONVERT_BEHAVIOUR //depr
-	{
-	    EMDCB_CLONE_AND_MIRROR_LAYOUT = 0,
-	    EMDCB_PACK_ATTRIBUTES_SINGLE_BUFFER,
-	    EMDCB_PACK_ALL_SINGLE_BUFFER,
-	    EMDCB_INTERLEAVED_PACK_ATTRIBUTES_SINGLE_BUFFER,
-	    EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER
-	};
-
 	enum E_MIP_CHAIN_ERROR
 	{
 	    EMCE_NO_ERR=0,
@@ -111,10 +102,8 @@ namespace video
 	class IVideoDriver : public IDriver
 	{
 	public:
-	    //! Following are marked for deprecation
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) = 0;
-
-	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) = 0;
+	    //! This is marked for deprecation
+	    virtual std::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> mesh) {return std::vector<scene::IGPUMesh*>();}
 
 	    //! make with VkBufferCopy
         virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;

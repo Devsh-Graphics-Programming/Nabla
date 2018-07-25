@@ -77,15 +77,15 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         virtual ~COpenGLBuffer()
         {
 #ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard[0]==0);
-            FW_AtomicCounterIncr(concurrentAccessGuard[0]);
+            assert(concurrentAccessGuard==0);
+            FW_AtomicCounterIncr(concurrentAccessGuard);
 #endif // OPENGL_LEAK_DEBUG
             if (BufferName)
                 COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
 
 #ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard[0]==1);
-            FW_AtomicCounterDecr(concurrentAccessGuard[0]);
+            assert(concurrentAccessGuard==1);
+            FW_AtomicCounterDecr(concurrentAccessGuard);
 #endif // OPENGL_LEAK_DEBUG
         }
 
@@ -139,11 +139,15 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DONT_KNOW;}
 
         //!
-        virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
+        virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return static_cast<E_MAPPING_CAPABILITY_FLAGS>(cachedMemoryReqs.mappingCapability);} //move up?
 
         //!
         virtual void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const size_t& offset, const size_t& size)
         {
+        #ifdef _DEBUG
+            assert(!mappedPtr&&BufferName);
+        #endif // _DEBUG
+            currentMappingAccess = accessType;
             GLbitfield flags = ((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? GL_MAP_READ_BIT:0)||((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)!=0u ? GL_MAP_WRITE_BIT:0);
             flags |= cachedFlags&(GL_MAP_PERSISTENT_BIT|GL_MAP_COHERENT_BIT|GL_MAP_FLUSH_EXPLICIT_BIT);
             mappedPtr = reinterpret_cast<uint8_t*>(COpenGLExtensionHandler::extGlMapNamedBufferRange(BufferName,offset,size,flags))-offset;
@@ -152,8 +156,12 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         //!
         virtual void unmapMemory()
         {
-            if (mappedPtr)
-                COpenGLExtensionHandler::extGlUnmapNamedBuffer(BufferName);
+        #ifdef _DEBUG
+            assert(mappedPtr&&BufferName);
+        #endif // _DEBUG
+            COpenGLExtensionHandler::extGlUnmapNamedBuffer(BufferName);
+            mappedPtr = nullptr;
+            currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
         }
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
@@ -161,86 +169,56 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
     protected:
         GLbitfield cachedFlags;
         GLuint BufferName;
-        /*
-        virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData, const bool &reallocateIfShrink, const size_t& wraparoundStart)
+
+        virtual bool pseudoMoveAssign(IGPUBuffer* other)
         {
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard[2]==0);
-            FW_AtomicCounterIncr(concurrentAccessGuard[2]);
-#endif // OPENGL_LEAK_DEBUG
-            if (newSize==BufferSize)
-            {
-#ifdef OPENGL_LEAK_DEBUG
-                assert(concurrentAccessGuard[2]==1);
-                FW_AtomicCounterDecr(concurrentAccessGuard[2]);
-#endif // OPENGL_LEAK_DEBUG
-                return true;
-            }
+            COpenGLBuffer* otherAsGL = static_cast<COpenGLBuffer*>(other);
+            if (!otherAsGL || otherAsGL==this || otherAsGL->cachedFlags!=cachedFlags || otherAsGL->BufferName==0)
+                return false;
 
-            if (newSize<BufferSize&&(!reallocateIfShrink))
-            {
-#ifdef OPENGL_LEAK_DEBUG
-                assert(concurrentAccessGuard[2]==1);
-                FW_AtomicCounterDecr(concurrentAccessGuard[2]);
-#endif // OPENGL_LEAK_DEBUG
-                return true;
-            }
+            #ifdef _DEBUG
+            if (otherAsGL->getReferenceCount()!=1)
+                os::Printer::log("What are you doing!? You should only swap internals with an IGPUBuffer that is unused yet!",ELL_ERROR);
+            #endif // _DEBUG
 
-            if (forceRetentionOfData)
-            {
-                GLuint newBufferHandle = 0;
-                COpenGLExtensionHandler::extGlCreateBuffers(1,&newBufferHandle);
-                if (newBufferHandle==0)
-                {
-    #ifdef OPENGL_LEAK_DEBUG
-                    assert(concurrentAccessGuard[2]==1);
-                    FW_AtomicCounterDecr(concurrentAccessGuard[2]);
-    #endif // OPENGL_LEAK_DEBUG
-                    return false;
-                }
+            #ifdef OPENGL_LEAK_DEBUG
+                assert(otherAsGL->concurrentAccessGuard==0);
+                FW_AtomicCounterIncr(otherAsGL->concurrentAccessGuard);
+                assert(concurrentAccessGuard==0);
+                FW_AtomicCounterIncr(concurrentAccessGuard);
+            #endif // OPENGL_LEAK_DEBUG
 
-                COpenGLExtensionHandler::extGlNamedBufferStorage(newBufferHandle,newSize,NULL,cachedFlags);
-                if (wraparoundStart&&newSize>BufferSize)
-                {
-                    size_t wrap = wraparoundStart%BufferSize;
-                    COpenGLExtensionHandler::extGlCopyNamedBufferSubData(BufferName,newBufferHandle,wrap,wrap,BufferSize-wrap);
-                    COpenGLExtensionHandler::extGlCopyNamedBufferSubData(BufferName,newBufferHandle,0,BufferSize,wrap);
-                }
-                else
-                    COpenGLExtensionHandler::extGlCopyNamedBufferSubData(BufferName,newBufferHandle,0,0,core::min_(newSize,BufferSize));
-                BufferSize = newSize;
-
+            if (BufferName)
                 COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
-                BufferName = newBufferHandle;
-            }
-            else
-            {
-                COpenGLExtensionHandler::extGlDeleteBuffers(1,&BufferName);
-                COpenGLExtensionHandler::extGlCreateBuffers(1,&BufferName);
-                if (BufferName==0)
-                {
-#ifdef OPENGL_LEAK_DEBUG
-                    assert(concurrentAccessGuard[2]==1);
-                    FW_AtomicCounterDecr(concurrentAccessGuard[2]);
-#endif // OPENGL_LEAK_DEBUG
-                    return false;
-                }
 
-                COpenGLExtensionHandler::extGlNamedBufferStorage(BufferName,newSize,NULL,cachedFlags);
-                BufferSize = newSize;
-            }
+            cachedMemoryReqs = otherAsGL->cachedMemoryReqs;
+
+            cachedFlags = otherAsGL->cachedFlags;
+            BufferName = otherAsGL->BufferName;
+
             lastTimeReallocated = CNullDriver::incrementAndFetchReallocCounter();
 
-#ifdef OPENGL_LEAK_DEBUG
-            assert(concurrentAccessGuard[2]==1);
-            FW_AtomicCounterDecr(concurrentAccessGuard[2]);
-#endif // OPENGL_LEAK_DEBUG
+
+            otherAsGL->cachedMemoryReqs = {{0,0,0},0,0,0,0};
+
+            otherAsGL->cachedFlags = 0;
+            otherAsGL->BufferName = 0;
+
+            otherAsGL->lastTimeReallocated = CNullDriver::incrementAndFetchReallocCounter();
+
+            #ifdef OPENGL_LEAK_DEBUG
+                assert(concurrentAccessGuard==1);
+                FW_AtomicCounterDecr(concurrentAccessGuard);
+                assert(otherAsGL->concurrentAccessGuard==1);
+                FW_AtomicCounterDecr(otherAsGL->concurrentAccessGuard);
+            #endif // OPENGL_LEAK_DEBUG
+
             return true;
         }
-        */
+
     private:
 #ifdef OPENGL_LEAK_DEBUG
-        FW_AtomicCounter concurrentAccessGuard[3];
+        FW_AtomicCounter concurrentAccessGuard;
 #endif // OPENGL_LEAK_DEBUG
 };
 

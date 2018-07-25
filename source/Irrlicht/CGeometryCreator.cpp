@@ -66,7 +66,7 @@ ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
 		core::vector3df(0, 0, -1),
 		core::vector3df(1, 1, -1)
 	};
-	const core::vector2d<uint8_t> uvs[4] = 
+	const core::vector2d<uint8_t> uvs[4] =
 	{
 		core::vector2d<uint8_t>(0, 1),
 		core::vector2d<uint8_t>(1, 1),
@@ -157,8 +157,13 @@ IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const
     if (!driver)
         return NULL;
 
-	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createCubeMeshCPU(size));
-	IGPUMesh* mesh = driver->createGPUMeshFromCPU(cpumesh,video::EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER);
+	ICPUMesh* cpumesh = createCubeMeshCPU(size);
+
+	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	IGPUMesh* mesh = nullptr;
+	if (retval.size())
+        mesh = retval[0];
+
 	cpumesh->drop();
 
 	return mesh;
@@ -214,7 +219,12 @@ IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
         return NULL;
 
 	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createArrowMeshCPU(tesselationCylinder,tesselationCone,height,cylinderHeight,width0,width1,vtxColor0,vtxColor1));
-	IGPUMesh* mesh = driver->createGPUMeshFromCPU(cpumesh,video::EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER);
+
+	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	IGPUMesh* mesh = nullptr;
+	if (retval.size())
+        mesh = retval[0];
+
 	cpumesh->drop();
 
 	return mesh;
@@ -430,7 +440,12 @@ IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, flo
         return NULL;
 
 	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createSphereMeshCPU(radius,polyCountX,polyCountY));
-	IGPUMesh* mesh = driver->createGPUMeshFromCPU(cpumesh,video::EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER);
+
+	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	IGPUMesh* mesh = nullptr;
+	if (retval.size())
+        mesh = retval[0];
+
 	cpumesh->drop();
 
 	return mesh;
@@ -587,7 +602,12 @@ IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
         return NULL;
 
 	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createCylinderMeshCPU(radius,length,tesselation,color,closeTop,oblique));
-	IGPUMesh* mesh = driver->createGPUMeshFromCPU(cpumesh,video::EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER);
+
+	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	IGPUMesh* mesh = nullptr;
+	if (retval.size())
+        mesh = retval[0];
+
 	cpumesh->drop();
 
 	return mesh;
@@ -699,7 +719,12 @@ IGPUMesh* CGeometryCreator::createConeMeshGPU(video::IVideoDriver* driver,
         return NULL;
 
 	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createConeMeshCPU(radius,length,tesselation,colorTop,colorBottom,oblique));
-	IGPUMesh* mesh = driver->createGPUMeshFromCPU(cpumesh,video::EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER);
+
+	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	IGPUMesh* mesh = nullptr;
+	if (retval.size())
+        mesh = retval[0];
+
 	cpumesh->drop();
 
 	return mesh;

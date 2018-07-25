@@ -397,9 +397,7 @@ class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGP
             {
                 IDriverMemoryBacked::SDriverMemoryRequirements reqs = A->getMemoryReqs();
                 reqs.vulkanReqs.size = B->getSize();
-                IGPUBuffer* rep = Driver->createGPUBufferOnDedMem(reqs,true);
-                A->drop();
-                A = rep;
+                {auto rep = Driver->createGPUBufferOnDedMem(reqs,true); A->pseudoMoveAssign(rep); rep->drop();}
             }
 
             if (Allocated)

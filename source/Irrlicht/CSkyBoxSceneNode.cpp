@@ -88,7 +88,16 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 	texcoords[13] = t;
 	texcoords[14] = o;
 	texcoords[15] = t;
-	video::IGPUBuffer* texcoordBuf = driver->createGPUBuffer(sizeof(texcoords),texcoords);
+	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	reqs.vulkanReqs.size = sizeof(texcoords);
+	reqs.vulkanReqs.alignment = 4;
+	reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+	reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+	reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+	reqs.prefersDedicatedAllocation = true;
+	reqs.requiresDedicatedAllocation = true;
+    video::IGPUBuffer* texcoordBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+    texcoordBuf->updateSubRange(0,reqs.vulkanReqs.size,texcoords);
 
 	// create left side
 	Material[1] = mat;

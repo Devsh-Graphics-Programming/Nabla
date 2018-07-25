@@ -93,6 +93,9 @@ class IDriverMemoryAllocation : public virtual IReferenceCounted
         //! For details @see E_MAPPING_CAPABILITY_FLAGS
         virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
 
+        //!
+        inline E_MAPPING_CPU_ACCESS_FLAG getCurrentMappingCaps() const {return currentMappingAccess;}
+
 		//! Maps the memory sub-range of the allocation for reading, writing or both, @see getMappingCaps and @see getMappedPointer.
         /** This differs from the pointer returned by getMappedPointer, as it already has the offset of the mapping applied to the base pointer.
         Accessing the memory using the returned pointer with an offset which results in an address before or after the mapped range,
@@ -123,7 +126,10 @@ class IDriverMemoryAllocation : public virtual IReferenceCounted
         virtual bool isDedicated() const = 0;
 
     protected:
+        IDriverMemoryAllocation() : mappedPtr(nullptr), currentMappingAccess(EMCAF_NO_MAPPING_ACCESS) {}
+
         uint8_t* mappedPtr;
+        E_MAPPING_CPU_ACCESS_FLAG currentMappingAccess;
 };
 
 } // end namespace scene

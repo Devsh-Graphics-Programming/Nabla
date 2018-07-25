@@ -48,13 +48,6 @@ void CSphereSceneNode::render()
 		driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
 		driver->drawMeshBuffer(Mesh->getMeshBuffer(0));
-
-		if ( DebugDataVisible & scene::EDS_BBOX )
-		{
-			video::SMaterial m;
-			driver->setMaterial(m);
-			driver->draw3DBox(Mesh->getMeshBuffer(0)->getBoundingBox(), video::SColor(255,255,255,255));
-		}
 	}
 }
 

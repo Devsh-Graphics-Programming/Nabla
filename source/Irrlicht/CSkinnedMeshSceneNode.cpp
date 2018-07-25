@@ -189,7 +189,7 @@ void CSkinnedMeshSceneNode::render()
                 if (transparent == isTransparentPass)
                 {
                     driver->setMaterial(material);
-                    driver->drawMeshBuffer(mb,(AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+                    driver->drawMeshBuffer(mb);
                 }
             }
         }
@@ -203,38 +203,7 @@ void CSkinnedMeshSceneNode::render()
 		video::SMaterial debug_mat;
         debug_mat.Thickness = 3.f;
 		driver->setMaterial(debug_mat);
-
-		if (DebugDataVisible & scene::EDS_BBOX)
-			driver->draw3DBox(Box, video::SColor(255,255,255,255));
-
-		// show bounding box
-		if (DebugDataVisible & scene::EDS_BBOX_BUFFERS)
-		{
-			for (uint32_t g=0; g< mesh->getMeshBufferCount(); ++g)
-			{
-				const IGPUMeshBuffer* mb = mesh->getMeshBuffer(g);
-
-				driver->draw3DBox(mb->getBoundingBox(), video::SColor(255,190,128,128));
-			}
-		}
 /**
-		// show skeleton
-		if (DebugDataVisible & scene::EDS_SKELETON)
-		{
-			if (mesh->getMeshType() == EMT_ANIMATED_SKINNED)
-			{
-				// draw skeleton
-
-				for (uint32_t g=0; g < static_cast<ICPUSkinnedMesh*>(mesh)->getAllJoints().size(); ++g)
-				{
-					ICPUSkinnedMesh::SJoint *joint = static_cast<ICPUSkinnedMesh*>(Mesh)->getAllJoints()[g];
-
-					driver->setTransform(video::E4X3TS_WORLD, concatenateBFollowedByA(AbsoluteTransformation,concatenateBFollowedByA(joint->GlobalAnimatedMatrix,joint->GlobalInversedMatrix)));
-                    driver->draw3DBox(joint->bbox, video::SColor(255,51,66,255));
-				}
-			}
-		}
-
 		// show mesh
 		if (DebugDataVisible & scene::EDS_MESH_WIRE_OVERLAY)
 		{

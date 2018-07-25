@@ -120,6 +120,10 @@ namespace video
         virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) = 0;
 
 
+        //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively
+	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) {return nullptr;}
+
+
         //! Creates a framebuffer object with no attachments
         virtual IFrameBuffer* addFrameBuffer() = 0;
 

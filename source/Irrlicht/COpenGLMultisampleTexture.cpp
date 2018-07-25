@@ -13,7 +13,8 @@ namespace video
 {
 
 COpenGLMultisampleTexture::COpenGLMultisampleTexture(GLenum internalFormat, const uint32_t& samples, const uint32_t* size, const bool& fixedSampleLocations)
-                                                        : COpenGLTexture(GL_TEXTURE_2D_MULTISAMPLE), SampleCount(samples), FixedSampleLocations(fixedSampleLocations), InternalFormat(internalFormat)
+                                                        :   COpenGLTexture(GL_TEXTURE_2D_MULTISAMPLE), IMultisampleTexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,0,0}),
+                                                            SampleCount(samples), FixedSampleLocations(fixedSampleLocations), InternalFormat(internalFormat)
 {
 #ifdef _DEBUG
 	setDebugName("COpenGLMultisampleTexture");
