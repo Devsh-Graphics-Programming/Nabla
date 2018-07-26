@@ -145,10 +145,13 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         virtual void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const size_t& offset, const size_t& size)
         {
         #ifdef _DEBUG
-            assert(!mappedPtr&&BufferName);
+            assert(!mappedPtr&&accessType!=EMCAF_NO_MAPPING_ACCESS&&BufferName);
+            assert(accessType);
         #endif // _DEBUG
-            currentMappingAccess = accessType;
             GLbitfield flags = ((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? GL_MAP_READ_BIT:0)||((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)!=0u ? GL_MAP_WRITE_BIT:0);
+        #ifdef _DEBUG
+            assert((flags&(~cachedFlags))&(GL_MAP_READ_BIT|GL_MAP_WRITE_BIT)==0u);
+        #endif // _DEBUG
             flags |= cachedFlags&(GL_MAP_PERSISTENT_BIT|GL_MAP_COHERENT_BIT|GL_MAP_FLUSH_EXPLICIT_BIT);
             mappedPtr = reinterpret_cast<uint8_t*>(COpenGLExtensionHandler::extGlMapNamedBufferRange(BufferName,offset,size,flags))-offset;
         }

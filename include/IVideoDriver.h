@@ -259,10 +259,12 @@ namespace video
         virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain) = 0;
 
         //! A.
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) = 0;
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
+                                                           ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) {return nullptr;}
 
         //! A.
-        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0) = 0;
+        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8,
+                                                             const size_t& offset=0, const size_t& length=0) {return nullptr;}
 
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth=true, bool copyStencil=true,

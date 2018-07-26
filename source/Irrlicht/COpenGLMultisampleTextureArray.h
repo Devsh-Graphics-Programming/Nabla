@@ -6,6 +6,7 @@
 #define __C_OPEN_GL_MULTISAMPLE_TEXTURE_ARRAY_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
+#include "IDriverMemoryAllocation.h"
 #include "IMultisampleTexture.h"
 #include "COpenGLTexture.h"
 #include "COpenGLExtensionHandler.h"
@@ -18,7 +19,7 @@ namespace irr
 namespace video
 {
 
-class COpenGLMultisampleTextureArray : public COpenGLTexture, public IMultisampleTexture
+class COpenGLMultisampleTextureArray : public COpenGLTexture, public IMultisampleTexture, public IDriverMemoryAllocation
 {
     protected:
 
@@ -64,6 +65,18 @@ class COpenGLMultisampleTextureArray : public COpenGLTexture, public IMultisampl
 
         //!
         virtual bool usesFixedSampleLocations() const {return FixedSampleLocations;}
+
+
+        //!
+        virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
+        virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
+        virtual size_t getBoundMemoryOffset() const {return 0ll;}
+
+
+        //!
+        virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DEVICE_LOCAL;}
+        virtual void unmapMemory() {}
+        virtual bool isDedicated() const {return true;}
 
     protected:
         uint32_t TextureSize[3];

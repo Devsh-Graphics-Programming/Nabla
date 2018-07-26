@@ -137,15 +137,6 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         {
             return new IGPUTransientBuffer(driver,buffer,threadSafe,dbgr);
         }
-        //! Handles mapped and unmapped cases
-        static IGPUTransientBuffer* createTransientBuffer(IVideoDriver* driver, const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, const bool& canModifySubData=false,
-                                                          const bool& threadSafe=true, core::LeakDebugger* dbgr=NULL)
-        {
-            IGPUBuffer* buffer = driver->createGPUBuffer(reqs,canModifySubData);
-            IGPUTransientBuffer* retval = new IGPUTransientBuffer(driver,buffer,threadSafe,dbgr);
-			buffer->drop();
-			return retval;
-        }
 
         IGPUBuffer* getUnderlyingBuffer() {return underlyingBuffer;}
         //

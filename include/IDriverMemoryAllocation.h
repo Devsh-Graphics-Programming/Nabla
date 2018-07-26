@@ -120,7 +120,7 @@ class IDriverMemoryAllocation : public virtual IReferenceCounted
         /** Unmaps memory, does not perform the implicit flush even in OpenGL (because we use ARB_buffer_storage).
         Any pointers obtained through mapMemoryRange or getMappedPointer before invoking this function will become invalid to use.
         */
-        virtual void unmapMemory();
+        virtual void unmapMemory() = 0;
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
         virtual bool isDedicated() const = 0;

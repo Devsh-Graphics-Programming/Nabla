@@ -457,7 +457,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
         {
             video::IDriverMemoryBacked::SDriverMemoryRequirements reqs = cpuCulledLodInstanceDataBuffer->getMemoryReqs();
             reqs.vulkanReqs.size = LoD.size()*outputSizePerLoD;
-            {auto rep = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true); cpuCulledLodInstanceDataBuffer->pseudoMoveAssign(rep); rep->drop();}
+            {auto rep = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,cpuCulledLodInstanceDataBuffer->canUpdateSubRange()); cpuCulledLodInstanceDataBuffer->pseudoMoveAssign(rep); rep->drop();}
 #ifdef _IRR_WINDOWS_
             _aligned_free(cpuCullingScratchSpace);
             cpuCullingScratchSpace = (uint8_t*)_aligned_malloc(cpuCulledLodInstanceDataBuffer->getSize(),SIMD_ALIGNMENT);
@@ -527,7 +527,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
         {
             video::IDriverMemoryBacked::SDriverMemoryRequirements reqs = gpuCulledLodInstanceDataBuffer->getMemoryReqs();
             reqs.vulkanReqs.size = xfb.size()*gpuLoDsPerPass*outputSizePerLoD;
-            {auto rep = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true); gpuCulledLodInstanceDataBuffer->pseudoMoveAssign(rep); rep->drop();}
+            {auto rep = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,gpuCulledLodInstanceDataBuffer->canUpdateSubRange()); gpuCulledLodInstanceDataBuffer->pseudoMoveAssign(rep); rep->drop();}
             for (size_t i=0; i<xfb.size(); i++)
             {
                 for (size_t j=0; j<gpuLoDsPerPass; j++)

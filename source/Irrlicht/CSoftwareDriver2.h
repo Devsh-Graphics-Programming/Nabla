@@ -63,10 +63,6 @@ namespace video
 				const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect = 0,
 				const video::SColor* const colors=0, bool useAlphaChannelOfTexture=false);
 
-		//! Draws a 3d line.
-		virtual void draw3DLine(const core::vector3df& start,
-			const core::vector3df& end, SColor color = SColor(255,255,255,255));
-
 		//! draw an 2d rectangle
 		virtual void draw2DRectangle(SColor color, const core::rect<int32_t>& pos,
 			const core::rect<int32_t>* clip = 0);

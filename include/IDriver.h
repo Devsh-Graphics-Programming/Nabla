@@ -125,7 +125,7 @@ namespace video
 
 
         //! Creates a framebuffer object with no attachments
-        virtual IFrameBuffer* addFrameBuffer() = 0;
+        virtual IFrameBuffer* addFrameBuffer() {return nullptr;}
 
 
         //these will have to be created by a query pool anyway

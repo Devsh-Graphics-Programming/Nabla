@@ -513,6 +513,10 @@
 		<Unit filename="COgreMeshFileLoader.h" />
 		<Unit filename="COpenCLHandler.cpp" />
 		<Unit filename="COpenCLHandler.h" />
+		<Unit filename="COpenGL1DTexture.cpp" />
+		<Unit filename="COpenGL1DTexture.h" />
+		<Unit filename="COpenGL1DTextureArray.cpp" />
+		<Unit filename="COpenGL1DTextureArray.h" />
 		<Unit filename="COpenGL2DTexture.cpp" />
 		<Unit filename="COpenGL2DTexture.h" />
 		<Unit filename="COpenGL2DTextureArray.cpp" />
@@ -520,6 +524,8 @@
 		<Unit filename="COpenGL3DTexture.cpp" />
 		<Unit filename="COpenGL3DTexture.h" />
 		<Unit filename="COpenGLBuffer.h" />
+		<Unit filename="COpenGLCubemapArrayTexture.cpp" />
+		<Unit filename="COpenGLCubemapArrayTexture.h" />
 		<Unit filename="COpenGLCubemapTexture.cpp" />
 		<Unit filename="COpenGLCubemapTexture.h" />
 		<Unit filename="COpenGLDriver.cpp" />

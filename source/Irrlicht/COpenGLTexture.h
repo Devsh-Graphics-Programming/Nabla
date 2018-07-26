@@ -66,7 +66,7 @@ private:
 };
 
 //! .
-class COpenGLFilterableTexture : public ITexture, public COpenGLTexture
+class COpenGLFilterableTexture : public ITexture, public COpenGLTexture, public IDriverMemoryAllocation
 {
 public:
     virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
@@ -95,6 +95,14 @@ public:
 	//! Regenerates the mip map levels of the texture.
 	virtual void regenerateMipMapLevels();
 
+
+    virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
+    virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
+    virtual size_t getBoundMemoryOffset() const {return 0ll;}
+
+    virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DEVICE_LOCAL;}
+    virtual void unmapMemory() {}
+    virtual bool isDedicated() const {return true;}
 
 protected:
 	//! protected constructor with basic setup, no GL texture name created, for derived classes

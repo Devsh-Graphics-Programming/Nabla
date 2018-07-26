@@ -223,7 +223,6 @@ CNullDriver::~CNullDriver()
 	if (FileSystem)
 		FileSystem->drop();
 
-    removeAllRenderBuffers();
 	deleteAllTextures();
 
 	uint32_t i;

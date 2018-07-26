@@ -280,7 +280,16 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
             skyBoxesVxPositions[23*3+1] =-1;
             skyBoxesVxPositions[23*3+2] = 1;
         }
-        redundantMeshDataBuf = Driver->createGPUBuffer(redundantMeshDataBufSize,tmpMem);
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.size = redundantMeshDataBufSize;
+        reqs.vulkanReqs.alignment = 4;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+        redundantMeshDataBuf->updateSubRange(0,reqs.vulkanReqs.size,tmpMem);
         free(tmpMem);
 	}
 

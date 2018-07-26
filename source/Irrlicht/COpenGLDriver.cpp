@@ -11,10 +11,13 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
+#include "COpenGL1DTexture.h"
+#include "COpenGL1DTextureArray.h"
 #include "COpenGL2DTexture.h"
 #include "COpenGL3DTexture.h"
 #include "COpenGL2DTextureArray.h"
 #include "COpenGLCubemapTexture.h"
+#include "COpenGLCubemapArrayTexture.h"
 #include "COpenGLMultisampleTexture.h"
 #include "COpenGLMultisampleTextureArray.h"
 #include "COpenGLTextureBufferObject.h"
@@ -649,7 +652,6 @@ COpenGLDriver::~COpenGLDriver()
     cleanUpContextBeforeDelete();
 
 	deleteMaterialRenders();
-    removeAllRenderBuffers();
 	deleteAllTextures();
 
     //! Spin wait for other contexts to deinit
@@ -2282,25 +2284,27 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
 
     switch (type)
     {
-        ///case ITexture::ETT_1D:
-            ///break;
+        case ITexture::ETT_1D:
+            return new COpenGL1DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
+            break;
         case ITexture::ETT_2D:
             return new COpenGL2DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
             break;
         case ITexture::ETT_3D:
             return new COpenGL3DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
-        ///case ITexture::ETT_1D_ARRAY:
-            ///break;
+        case ITexture::ETT_1D_ARRAY:
+            return new COpenGL1DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            break;
         case ITexture::ETT_2D_ARRAY:
             return new COpenGL2DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
         case ITexture::ETT_CUBE_MAP:
             return new COpenGLCubemapTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
-        ///case ITexture::ETT_CUBE_MAP_ARRAY:
-            ///return new COpenGLCubemapArrayTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
-            ///break;
+        case ITexture::ETT_CUBE_MAP_ARRAY:
+            return new COpenGLCubemapArrayTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            break;
         default:// ETT_CUBE_MAP, ETT_CUBE_MAP_ARRAY, ETT_TEXTURE_BUFFER
             break;
     }
