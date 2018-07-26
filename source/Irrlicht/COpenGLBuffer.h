@@ -97,11 +97,14 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
             if (BufferName==0)
                 return;
 
-            cachedFlags =   (canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)||
-                            (mreqs.memoryHeapLocation==IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL ? GL_CLIENT_STORAGE_BIT:0)||
-                            ((mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? (GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT):0)||
-                            ((mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)!=0u ? (GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT):0)||
-                            ((mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_COHERENT)!=0u ? GL_MAP_COHERENT_BIT:GL_MAP_FLUSH_EXPLICIT_BIT);
+            cachedFlags =   (canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|
+                            (mreqs.memoryHeapLocation==IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL ? GL_CLIENT_STORAGE_BIT:0);
+            if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)
+                cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
+            if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)
+                cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
+            if (mreqs.mappingCapability&(IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE))
+                cachedFlags |= (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_COHERENT)!=0u ? GL_MAP_COHERENT_BIT:GL_MAP_FLUSH_EXPLICIT_BIT;
             COpenGLExtensionHandler::extGlNamedBufferStorage(BufferName,cachedMemoryReqs.vulkanReqs.size,nullptr,cachedFlags);
 
 #ifdef OPENGL_LEAK_DEBUG
@@ -148,7 +151,7 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
             assert(!mappedPtr&&accessType!=EMCAF_NO_MAPPING_ACCESS&&BufferName);
             assert(accessType);
         #endif // _DEBUG
-            GLbitfield flags = ((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? GL_MAP_READ_BIT:0)||((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)!=0u ? GL_MAP_WRITE_BIT:0);
+            GLbitfield flags = ((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? GL_MAP_READ_BIT:0)|((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)!=0u ? GL_MAP_WRITE_BIT:0);
         #ifdef _DEBUG
             assert((flags&(~cachedFlags))&(GL_MAP_READ_BIT|GL_MAP_WRITE_BIT)==0u);
         #endif // _DEBUG
