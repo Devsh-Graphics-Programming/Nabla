@@ -147,10 +147,10 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         E_ALLOC_RETURN_STATUS Alloc(size_t &offsetOut, const size_t &maxSize, const size_t& alignment=32, E_WAIT_POLICY waitPolicy=EWP_DONT_WAIT);
 
         //! Record the range as committed and if necessary tell us of ranges we need to flush
-        bool Commit(const size_t& start, const size_t& end, std::vector<std::pair<uint64_t,uint64_t> >& flushRanges);
+        bool Commit(const size_t& start, const size_t& end, std::vector<IDriverMemoryAllocation::MemoryRange>& flushRanges);
 
         //!
-        bool Place(size_t &offsetOut, const void* data, const size_t& dataSize, std::vector<std::pair<uint64_t,uint64_t> >& flushRanges, const size_t& alignment=32, const E_WAIT_POLICY &waitPolicy=EWP_DONT_WAIT);
+        bool Place(size_t &offsetOut, const void* data, const size_t& dataSize, std::vector<IDriverMemoryAllocation::MemoryRange>& flushRanges, const size_t& alignment=32, const E_WAIT_POLICY &waitPolicy=EWP_DONT_WAIT);
 
         //! Unless memory is being used by GPU it will be returned to free pool straight away
         //! Useful if you dont end up using comitted memory by GPU

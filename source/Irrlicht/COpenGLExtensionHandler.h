@@ -1157,8 +1157,8 @@ class COpenGLExtensionHandler
     static void extGlNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void *data, GLbitfield flags);
 	static void extGlNamedBufferSubData (GLuint buffer, GLintptr offset, GLsizeiptr size, const void *data);
 	static void extGlGetNamedBufferSubData (GLuint buffer, GLintptr offset, GLsizeiptr size, void *data);
-    static void* extGlMapNamedBuffer(GLuint buffer, GLenum access);
-    static void* extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLenum access);
+    static void* extGlMapNamedBuffer(GLuint buffer, GLbitfield access);
+    static void* extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access);
     static void extGlFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length);
     static GLboolean extGlUnmapNamedBuffer(GLuint buffer);
     static void extGlClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void *data);
@@ -4205,7 +4205,7 @@ inline void COpenGLExtensionHandler::extGlGetNamedBufferSubData(GLuint buffer, G
     }
 }
 
-inline void *COpenGLExtensionHandler::extGlMapNamedBuffer(GLuint buffer, GLenum access)
+inline void *COpenGLExtensionHandler::extGlMapNamedBuffer(GLuint buffer, GLbitfield access)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
@@ -4248,7 +4248,7 @@ inline void *COpenGLExtensionHandler::extGlMapNamedBuffer(GLuint buffer, GLenum 
     return NULL;
 }
 
-inline void *COpenGLExtensionHandler::extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLenum access)
+inline void *COpenGLExtensionHandler::extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
@@ -4283,7 +4283,7 @@ inline void *COpenGLExtensionHandler::extGlMapNamedBufferRange(GLuint buffer, GL
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
 #else
         glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        retval = pGlMapBufferRange(GL_ARRAY_BUFFER,offset,length,access);
+        retval = glMapBufferRange(GL_ARRAY_BUFFER,offset,length,access);
         glBindBuffer(GL_ARRAY_BUFFER,bound);
 #endif
         return retval;

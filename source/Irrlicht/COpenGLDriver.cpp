@@ -1226,7 +1226,7 @@ std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<
                     if (!buffer)
                         return nullptr;
 
-                    buffer->updateSubRange(0,cpubuffer->getSize(),cpubuffer->getPointer());
+                    buffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,cpubuffer->getSize()),cpubuffer->getPointer());
                     createdGPUBuffers.insert(std::pair<const core::ICPUBuffer*,IGPUBuffer*>(cpubuffer,buffer));
                     return buffer;
                 }

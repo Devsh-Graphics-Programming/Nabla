@@ -247,8 +247,7 @@ int main()
     if (cpumesh&&cpumesh->getMeshType()==scene::EMT_ANIMATED_SKINNED)
     {
         scene::ISkinnedMeshSceneNode* anode = 0;
-        scene::ICPUSkinnedMesh* animMesh = dynamic_cast<scene::ICPUSkinnedMesh*>(cpumesh);
-        scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(cpumesh);
+        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
         smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
 
         for (size_t x=0; x<kInstanceSquareSize; x++)

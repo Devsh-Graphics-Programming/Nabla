@@ -31,7 +31,7 @@ class IGPUBuffer : public core::IBuffer, public IDriverMemoryBacked
         virtual bool canUpdateSubRange() const = 0;
 
         //deprecated, delegate this to command buffer
-        virtual void updateSubRange(const size_t& offset, const size_t& size, const void* data) = 0;
+        virtual void updateSubRange(const IDriverMemoryAllocation::MemoryRange& memrange, const void* data) = 0;
 
 
         //! A C++11 style move assignment, used for reallocation-like functionality.

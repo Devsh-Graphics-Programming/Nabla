@@ -203,8 +203,8 @@ int main()
             reqs.prefersDedicatedAllocation = true;
             reqs.requiresDedicatedAllocation = true;
             video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
-            buff->updateSubRange(0,sizeof(vertices),vertices);
-            buff->updateSubRange(sizeof(vertices),sizeof(indices_indexed16),indices_indexed16);
+            buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
+            buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
 
 
             scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();

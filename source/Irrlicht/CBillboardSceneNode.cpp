@@ -99,7 +99,7 @@ void CBillboardSceneNode::render()
 	vertices[2] = pos + topHorizontal - vertical;
 	vertices[3] = pos - topHorizontal - vertical;
 
-	vertexBuffer->updateSubRange(0,sizeof(vertices),vertices);
+	vertexBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
 
 	// draw
     if (canProceedPastFence())
@@ -199,7 +199,7 @@ void CBillboardSceneNode::setColor(const video::SColor& topColor,
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
     video::IGPUBuffer* buf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-    buf->updateSubRange(0,sizeof(staticVxData),staticVxData);
+    buf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(staticVxData)),staticVxData);
     desc->mapVertexAttrBuffer(buf,EVAI_ATTR1,ECPA_REVERSED_OR_BGRA,ECT_NORMALIZED_UNSIGNED_BYTE);
     desc->mapVertexAttrBuffer(buf,EVAI_ATTR2,ECPA_TWO,ECT_UNSIGNED_BYTE,0,16);
     buf->drop();

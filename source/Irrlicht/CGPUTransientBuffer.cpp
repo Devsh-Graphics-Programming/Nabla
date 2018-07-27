@@ -41,8 +41,8 @@ IGPUTransientBuffer::IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffe
     {
         if (backingMem->isCurrentlyMapped())
         {
-            backingMem->mapMemoryRange(static_cast<video::IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(backingMem->getMappingCaps()&video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE),
-                                       underlyingBuffer->getBoundMemoryOffset(),underlyingBuffer->getSize());
+            backingMem->mapMemoryRange( static_cast<video::IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(backingMem->getMappingCaps()&video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE),
+                                        video::IDriverMemoryAllocation::MemoryRange(underlyingBuffer->getBoundMemoryOffset(),underlyingBuffer->getSize()));
         }
         mappedPointer = reinterpret_cast<uint8_t*>(backingMem->getMappedPointer())+underlyingBuffer->getBoundMemoryOffset();
     }
@@ -485,7 +485,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
 }
 
 
-bool IGPUTransientBuffer::Commit(const size_t& start, const size_t& end, std::vector<std::pair<uint64_t,uint64_t> >& flushRanges)
+bool IGPUTransientBuffer::Commit(const size_t& start, const size_t& end, std::vector<IDriverMemoryAllocation::MemoryRange>& flushRanges)
 {
     if (start>end)
         return false;
@@ -616,7 +616,7 @@ bool IGPUTransientBuffer::Commit(const size_t& start, const size_t& end, std::ve
     }
 
     if (underlyingBuffer->getBoundMemory()->haveToFlushWrites())
-        flushRanges.push_back(std::pair<uint64_t,uint64_t>(underlyingBuffer->getBoundMemoryOffset()+start,end-start));
+        flushRanges.push_back(video::IDriverMemoryAllocation::MemoryRange(underlyingBuffer->getBoundMemoryOffset()+start,end-start));
 
     return true;
 }
@@ -659,7 +659,7 @@ bool IGPUTransientBuffer::queryRange(const size_t& start, const size_t& end, con
     return true;
 }
 //
-bool IGPUTransientBuffer::Place(size_t &offsetOut, const void* data, const size_t& dataSize, std::vector<std::pair<uint64_t,uint64_t> >& flushRanges, const size_t& alignment, const E_WAIT_POLICY &waitPolicy)
+bool IGPUTransientBuffer::Place(size_t &offsetOut, const void* data, const size_t& dataSize, std::vector<IDriverMemoryAllocation::MemoryRange>& flushRanges, const size_t& alignment, const E_WAIT_POLICY &waitPolicy)
 {
     if (!data||dataSize==0)
     {
@@ -675,7 +675,7 @@ bool IGPUTransientBuffer::Place(size_t &offsetOut, const void* data, const size_
     if (mappedPointer)
         memcpy(mappedPointer+offset,data,dataSize);
     else if (underlyingBuffer->canUpdateSubRange())
-        underlyingBuffer->updateSubRange(offset,dataSize,data);
+        underlyingBuffer->updateSubRange(IDriverMemoryAllocation::MemoryRange(offset,dataSize),data);
     else
         result = false;
 

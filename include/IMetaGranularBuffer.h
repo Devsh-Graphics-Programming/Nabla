@@ -401,7 +401,7 @@ class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGP
             }
 
             if (Allocated)
-                A->updateSubRange(0,Allocated*GranuleByteSize,B->getPointer());
+                A->updateSubRange(IDriverMemoryAllocation::MemoryRange(0,Allocated*GranuleByteSize),B->getPointer());
 
             if (StuffToDoToNewBuffer)
                 StuffToDoToNewBuffer(A,userData);

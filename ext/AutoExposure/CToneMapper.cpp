@@ -144,7 +144,15 @@ CToneMapper::CToneMapper(video::IVideoDriver* _driver, const uint32_t& _histoPro
     m_workGroupCount[0] = m_totalThreadCount[0]/SUBCELL_SIZE;
     m_workGroupCount[1] = m_totalThreadCount[1]/SUBCELL_SIZE;
 
-    m_histogramBuffer = m_driver->createGPUBuffer(GLOBAL_REPLICATION*_BIN_COUNT_*sizeof(uint32_t),NULL);
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.size = GLOBAL_REPLICATION*_BIN_COUNT_*sizeof(uint32_t);
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    m_histogramBuffer = m_driver->createGPUBufferOnDedMem(reqs);
 }
 
 CToneMapper::~CToneMapper()

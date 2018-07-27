@@ -7,7 +7,6 @@
 
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
-#include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
 
 using namespace irr;
 using namespace core;

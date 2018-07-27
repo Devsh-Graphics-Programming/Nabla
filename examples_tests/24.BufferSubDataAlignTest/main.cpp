@@ -159,7 +159,7 @@ int main()
         reqs.prefersDedicatedAllocation = true;
         reqs.requiresDedicatedAllocation = true;
         video::IGPUBuffer* testBuffer = driver->createGPUBufferOnDedMem(reqs,true);
-        testBuffer->updateSubRange(0,reqs.vulkanReqs.size,clearInitBuffer);
+        testBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),clearInitBuffer);
 
         //little extra test : bind to UBO+SSBO
         {
@@ -177,7 +177,7 @@ int main()
         }
 
         //upload
-        testBuffer->updateSubRange(startOffset,pageSize-(startOffset+endOffset),setBuffer);
+        testBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(startOffset,pageSize-(startOffset+endOffset)),setBuffer);
         //get back
         uint8_t resultBuffer[pageSize];
         video::COpenGLExtensionHandler::extGlGetNamedBufferSubData(reinterpret_cast<video::COpenGLBuffer*>(testBuffer)->getOpenGLName(),0,pageSize,resultBuffer);

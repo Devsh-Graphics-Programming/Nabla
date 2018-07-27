@@ -289,7 +289,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
         reqs.prefersDedicatedAllocation = true;
         reqs.requiresDedicatedAllocation = true;
         redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-        redundantMeshDataBuf->updateSubRange(0,reqs.vulkanReqs.size,tmpMem);
+        redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
         free(tmpMem);
 	}
 

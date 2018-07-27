@@ -76,6 +76,9 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
     protected:
         virtual ~COpenGLBuffer()
         {
+            if (isCurrentlyMapped())
+                unmapMemory();
+
 #ifdef OPENGL_LEAK_DEBUG
             assert(concurrentAccessGuard==0);
             FW_AtomicCounterIncr(concurrentAccessGuard);
@@ -103,8 +106,8 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
             if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
-            if (mreqs.mappingCapability&(IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE))
-                cachedFlags |= (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_COHERENT)!=0u ? GL_MAP_COHERENT_BIT:GL_MAP_FLUSH_EXPLICIT_BIT;
+            if (mreqs.mappingCapability&IDriverMemoryAllocation::EMCF_COHERENT)
+                cachedFlags |= GL_MAP_COHERENT_BIT;
             COpenGLExtensionHandler::extGlNamedBufferStorage(BufferName,cachedMemoryReqs.vulkanReqs.size,nullptr,cachedFlags);
 
 #ifdef OPENGL_LEAK_DEBUG
@@ -121,10 +124,10 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         virtual bool canUpdateSubRange() const {return cachedFlags&GL_DYNAMIC_STORAGE_BIT;}
 
         //!
-        virtual void updateSubRange(const size_t& offset, const size_t& size, const void* data)
+        virtual void updateSubRange(const MemoryRange& memrange, const void* data)
         {
             if (canUpdateSubRange())
-                COpenGLExtensionHandler::extGlNamedBufferSubData(BufferName,offset,size,data);
+                COpenGLExtensionHandler::extGlNamedBufferSubData(BufferName,memrange.offset,memrange.length,data);
         }
 
 
@@ -145,18 +148,25 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return static_cast<E_MAPPING_CAPABILITY_FLAGS>(cachedMemoryReqs.mappingCapability);} //move up?
 
         //!
-        virtual void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const size_t& offset, const size_t& size)
+        virtual void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const MemoryRange& memrange)
         {
         #ifdef _DEBUG
             assert(!mappedPtr&&accessType!=EMCAF_NO_MAPPING_ACCESS&&BufferName);
             assert(accessType);
         #endif // _DEBUG
-            GLbitfield flags = ((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? GL_MAP_READ_BIT:0)|((accessType&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE)!=0u ? GL_MAP_WRITE_BIT:0);
+            GLbitfield flags = GL_MAP_PERSISTENT_BIT|((accessType&EMCAF_READ) ? GL_MAP_READ_BIT:0u);
+            if (cachedFlags&GL_MAP_COHERENT_BIT)
+            {
+                flags |= GL_MAP_COHERENT_BIT|((accessType&EMCAF_WRITE) ? GL_MAP_WRITE_BIT:0u);
+            }
+            else if (accessType&EMCAF_WRITE)
+            {
+                flags |= GL_MAP_FLUSH_EXPLICIT_BIT|GL_MAP_WRITE_BIT;
+            }
         #ifdef _DEBUG
-            assert((flags&(~cachedFlags))&(GL_MAP_READ_BIT|GL_MAP_WRITE_BIT)==0u);
+            assert(((flags&(~cachedFlags))&(GL_MAP_READ_BIT|GL_MAP_WRITE_BIT))==0u);
         #endif // _DEBUG
-            flags |= cachedFlags&(GL_MAP_PERSISTENT_BIT|GL_MAP_COHERENT_BIT|GL_MAP_FLUSH_EXPLICIT_BIT);
-            mappedPtr = reinterpret_cast<uint8_t*>(COpenGLExtensionHandler::extGlMapNamedBufferRange(BufferName,offset,size,flags))-offset;
+            mappedPtr = reinterpret_cast<uint8_t*>(COpenGLExtensionHandler::extGlMapNamedBufferRange(BufferName,memrange.offset,memrange.length,flags))-memrange.offset;
         }
 
         //!

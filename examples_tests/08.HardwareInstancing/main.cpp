@@ -289,8 +289,8 @@ int main()
     if (!cpumesh||!cpumesh2)
         return 0;
 
-    scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
-    scene::IGPUMesh* gpumesh2 = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh2));
+    scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
+    scene::IGPUMesh* gpumesh2 = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh2))[0];
     smgr->getMeshCache()->removeMesh(cpumesh);
     smgr->getMeshCache()->removeMesh(cpumesh2);
     for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)

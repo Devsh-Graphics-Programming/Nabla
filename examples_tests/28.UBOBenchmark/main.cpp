@@ -7,19 +7,23 @@
 
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
-#include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
 
 using namespace irr;
 using namespace core;
 
 
-//#define WITH_COMPUTE_SHADER
+#define WITH_COMPUTE_SHADER
 
 
 // benchmark controls
-#define TEST_CASE 4 // [1..4]
-#define INCPUMEM true
-#define DONT_UPDATE_BUFFER 1 // 0 or 1
+#define TEST_CASE 4 // [2..4]
+
+#if TEST_CASE==1
+    #error "This is not possible in Vulkan, cannot create buffer with already intialized data. This would basically devolve to a staging buffer."
+#endif // TEST_CASE
+
+#define INCPUMEM false
+#define DONT_UPDATE_BUFFER 0 // 0 or 1
 
 
 //#define OPENGL_DEBUG

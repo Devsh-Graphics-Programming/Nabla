@@ -235,13 +235,31 @@ int main()
 
         //
         {
-            video::IGPUBuffer* ixbuf = driver->createGPUBuffer(indexData.size()*sizeof(uint32_t),indexData.data());
+            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.size = indexData.size()*sizeof(uint32_t);
+            reqs.vulkanReqs.alignment = 4;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+            reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            video::IGPUBuffer* ixbuf = driver->createGPUBufferOnDedMem(reqs,true);
+            ixbuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),indexData.data());
             vaospec->mapIndexBuffer(ixbuf);
             indexData.clear();
             ixbuf->drop();
         }
 
-        video::IGPUBuffer* vxbuf = driver->createGPUBuffer(vertexData.size(),vertexData.data());
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.size = vertexData.size();
+        reqs.vulkanReqs.alignment = 4;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        video::IGPUBuffer* vxbuf = driver->createGPUBufferOnDedMem(reqs,true);
+        vxbuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),vertexData.data());
         vertexData.clear();
 
 
@@ -297,11 +315,29 @@ int main()
         }
         vxbuf->drop();
 
-        indirectDrawBuffer = driver->createGPUBuffer(sizeof(indirectDrawData),indirectDrawData);
+        reqs.vulkanReqs.size = sizeof(indirectDrawData);
+        reqs.vulkanReqs.alignment = 4;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        indirectDrawBuffer = driver->createGPUBufferOnDedMem(reqs,true);
+        indirectDrawBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),indirectDrawData);
 	}
 
 	ObjectData_t perObjectData[kInstanceCount];
-	video::IGPUBuffer* perObjectSSBO = driver->createGPUBuffer(sizeof(perObjectData),perObjectData,true);
+
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.size = sizeof(perObjectData);
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+	video::IGPUBuffer* perObjectSSBO = driver->createGPUBufferOnDedMem(reqs,true);
+	perObjectSSBO->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),perObjectData);
 
 	uint64_t lastFPSTime = 0;
 	float lastFastestMeshFrameNr = -1.f;
@@ -329,7 +365,7 @@ int main()
                     perObjectData[i].modelViewProjMatrix = core::concatenateBFollowedByA(driver->getTransform(video::EPTS_PROJ_VIEW),instanceXForm[i]);
                     instanceXForm[i].getSub3x3InverseTranspose(perObjectData[i].normalMat);
                 }
-                perObjectSSBO->updateSubRange(0,sizeof(perObjectData),perObjectData);
+                perObjectSSBO->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(perObjectData)),perObjectData);
             }
 
             //fire it off
@@ -356,7 +392,7 @@ int main()
                 instanceXForm[i].getSub3x3InverseTranspose(perObjectData[unculledNum].normalMat);
                 unculledNum++;
             }
-            perObjectSSBO->updateSubRange(0,unculledNum*sizeof(ObjectData_t),perObjectData);
+            perObjectSSBO->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,unculledNum*sizeof(ObjectData_t)),perObjectData);
             video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,
                                                                  &static_cast<video::COpenGLBuffer*>(perObjectSSBO)->getOpenGLName());
             for (size_t i=0; i<unculledNum; i++)

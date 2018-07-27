@@ -157,7 +157,7 @@ void CSkyDomeSceneNode::generateMesh()
 	reqs.prefersDedicatedAllocation = true;
 	reqs.requiresDedicatedAllocation = true;
     video::IGPUBuffer* indexBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-    indexBuf->updateSubRange(0,reqs.vulkanReqs.size,indices);
+    indexBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),indices);
     free(indices);
 	vao->mapIndexBuffer(indexBuf);
 	Buffer->setIndexType(video::EIT_16BIT);
@@ -167,7 +167,7 @@ void CSkyDomeSceneNode::generateMesh()
 	reqs.vulkanReqs.size = 4*numberOfVertices*(3+2);
 	reqs.vulkanReqs.alignment = 4;
     video::IGPUBuffer* vAttr = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-    vAttr->updateSubRange(0,reqs.vulkanReqs.size,vertices);
+    vAttr->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),vertices);
     free(vertices);
     vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,4*(3+2),0);
     vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,4*(3+2),4*3);

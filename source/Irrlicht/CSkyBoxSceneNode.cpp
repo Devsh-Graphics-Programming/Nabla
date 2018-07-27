@@ -97,7 +97,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 	reqs.prefersDedicatedAllocation = true;
 	reqs.requiresDedicatedAllocation = true;
     video::IGPUBuffer* texcoordBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-    texcoordBuf->updateSubRange(0,reqs.vulkanReqs.size,texcoords);
+    texcoordBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),texcoords);
 
 	// create left side
 	Material[1] = mat;

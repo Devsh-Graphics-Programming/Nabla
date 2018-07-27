@@ -496,7 +496,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
                 LoD[j].mesh->getMeshBuffer(i)->setInstanceCount(localDataSize/dataPerInstanceOutputSize);
         }
         if (farSizeToUpdate)
-            cpuCulledLodInstanceDataBuffer->updateSubRange(0,farSizeToUpdate,cpuCullingScratchSpace);
+            cpuCulledLodInstanceDataBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,farSizeToUpdate),cpuCullingScratchSpace);
 
         if (lastTimeUsedGPU)
         {

@@ -23,6 +23,15 @@ Please don't ask us to support Buffer Orphaning. */
 class IDriverMemoryAllocation : public virtual IReferenceCounted
 {
     public:
+        //!
+        struct MemoryRange
+        {
+            MemoryRange(const size_t& off, const size_t& len) : offset(off), length(len) {}
+
+            size_t offset;
+            size_t length;
+        };
+
         //! Enumeration for Driver allocated memory location
         /**  For specifying your wish as to where you want the memory to live.
         This can only be guaranteed on Vulkan, in OpenGL these are just hints.
@@ -102,7 +111,7 @@ class IDriverMemoryAllocation : public virtual IReferenceCounted
         or after calling unmapeMemory, will cause undefined behaviour, including program termination.
         For further advice and restrictions on the pointer usage @see getMappedPointer
 		@returns Internal pointer to access driver allocated memory with the offset already applied. */
-        virtual void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const size_t& offset, const size_t& size) {return nullptr;}
+        virtual void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const MemoryRange& memrange) {return nullptr;}
 
 		//! Gets internal pointer.
         /** It is best you use a GPU Fence to ensure any operations that you have queued up which are or will be writing to this memory
