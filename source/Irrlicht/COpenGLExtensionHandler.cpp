@@ -41,7 +41,9 @@ namespace video
 #define glPatchParameterfv_MACRO COpenGLExtensionHandler::extGlPatchParameterfv
 
 #define glBindBuffer_MACRO COpenGLExtensionHandler::extGlBindBuffer
-#define glBindBufferRange_MACRO COpenGLExtensionHandler::extGlBindBufferRange
+#define glBindBufferRange_MACRO(target,index,buffer,offset,size) COpenGLExtensionHandler::extGlBindBuffersRange(target,index,1,&buffer,&offset,&size)
+
+#define glGetNamedBufferParameteri64v_MACRO COpenGLExtensionHandler::extGlGetNamedBufferParameteri64v
 
 #define glDepthRangeIndexed_MACRO COpenGLExtensionHandler::extGlDepthRangeIndexed
 #define glViewportIndexedfv_MACRO COpenGLExtensionHandler::extGlViewportIndexedfv
@@ -63,8 +65,8 @@ namespace video
 #define glBindImageTexture_MACRO COpenGLExtensionHandler::extGlBindImageTexture
 
 #define glActiveTexture_MACRO COpenGLExtensionHandler::extGlActiveTexture
-#define SPECIAL_glBindTextureUnit_MACRO COpenGLExtensionHandler::extGlBindTextureUnit
-#define glBindSampler_MACRO COpenGLExtensionHandler::extGlBindSampler
+#define SPECIAL_glBindTextureUnit_MACRO(index,texture,target) COpenGLExtensionHandler::extGlBindTextures(index,1,&texture,&target)
+#define glBindSampler_MACRO(index,sampler) COpenGLExtensionHandler::extGlBindSamplers(index,1,&sampler)
 
 #define glBindVertexArray_MACRO COpenGLExtensionHandler::extGlBindVertexArray
 
@@ -128,73 +130,6 @@ E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
     case GL_FLOAT_MAT4x3:
         return ESCT_FLOAT_MAT4x3;
     case GL_SAMPLER_1D:
-        return ESCT_SAMPLER_1D;
-    case GL_SAMPLER_2D:
-        return ESCT_SAMPLER_2D;
-    case GL_SAMPLER_3D:
-        return ESCT_SAMPLER_3D;
-    case GL_SAMPLER_CUBE:
-        return ESCT_SAMPLER_CUBE;
-    case GL_SAMPLER_1D_SHADOW:
-        return ESCT_SAMPLER_1D_SHADOW;
-    case GL_SAMPLER_2D_SHADOW:
-        return ESCT_SAMPLER_2D_SHADOW;
-    case GL_SAMPLER_1D_ARRAY:
-        return ESCT_SAMPLER_1D_ARRAY;
-    case GL_SAMPLER_2D_ARRAY:
-        return ESCT_SAMPLER_2D_ARRAY;
-    case GL_SAMPLER_1D_ARRAY_SHADOW:
-        return ESCT_SAMPLER_1D_ARRAY_SHADOW;
-    case GL_SAMPLER_2D_ARRAY_SHADOW:
-        return ESCT_SAMPLER_2D_ARRAY_SHADOW;
-    case GL_SAMPLER_2D_MULTISAMPLE:
-        return ESCT_SAMPLER_2D_MULTISAMPLE;
-    case GL_SAMPLER_2D_MULTISAMPLE_ARRAY:
-        return ESCT_SAMPLER_2D_MULTISAMPLE_ARRAY;
-    case GL_SAMPLER_CUBE_SHADOW:
-        return ESCT_SAMPLER_CUBE_SHADOW;
-    case GL_SAMPLER_BUFFER:
-        return ESCT_SAMPLER_BUFFER;
-    case GL_SAMPLER_2D_RECT:
-        return ESCT_SAMPLER_2D_RECT;
-    case GL_SAMPLER_2D_RECT_SHADOW:
-        return ESCT_SAMPLER_2D_RECT_SHADOW;
-    case GL_INT_SAMPLER_1D:
-        return ESCT_INT_SAMPLER_1D;
-    case GL_INT_SAMPLER_2D:
-        return ESCT_INT_SAMPLER_2D;
-    case GL_INT_SAMPLER_3D:
-        return ESCT_INT_SAMPLER_3D;
-    case GL_INT_SAMPLER_CUBE:
-        return ESCT_INT_SAMPLER_CUBE;
-    case GL_INT_SAMPLER_1D_ARRAY:
-        return ESCT_INT_SAMPLER_1D_ARRAY;
-    case GL_INT_SAMPLER_2D_ARRAY:
-        return ESCT_INT_SAMPLER_2D_ARRAY;
-    case GL_INT_SAMPLER_2D_MULTISAMPLE:
-        return ESCT_INT_SAMPLER_2D_MULTISAMPLE;
-    case GL_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
-        return ESCT_INT_SAMPLER_2D_MULTISAMPLE_ARRAY;
-    case GL_INT_SAMPLER_BUFFER:
-        return ESCT_INT_SAMPLER_BUFFER;
-    case GL_UNSIGNED_INT_SAMPLER_1D:
-        return ESCT_UINT_SAMPLER_1D;
-    case GL_UNSIGNED_INT_SAMPLER_2D:
-        return ESCT_UINT_SAMPLER_2D;
-    case GL_UNSIGNED_INT_SAMPLER_3D:
-        return ESCT_UINT_SAMPLER_3D;
-    case GL_UNSIGNED_INT_SAMPLER_CUBE:
-        return ESCT_UINT_SAMPLER_CUBE;
-    case GL_UNSIGNED_INT_SAMPLER_1D_ARRAY:
-        return ESCT_UINT_SAMPLER_1D_ARRAY;
-    case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
-        return ESCT_UINT_SAMPLER_2D_ARRAY;
-    case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE:
-        return ESCT_UINT_SAMPLER_2D_MULTISAMPLE;
-    case GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
-        return ESCT_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY;
-    case GL_UNSIGNED_INT_SAMPLER_BUFFER:
-        return ESCT_UINT_SAMPLER_BUFFER;
     default:
         return ESCT_INVALID_COUNT;
     }
@@ -209,6 +144,10 @@ bool COpenGLExtensionHandler::functionsAlreadyLoaded = false;
 int32_t COpenGLExtensionHandler::pixelUnpackAlignment = 2;
 bool COpenGLExtensionHandler::FeatureAvailable[] = {false};
 
+int32_t COpenGLExtensionHandler::reqUBOAlignment = 0;
+int32_t COpenGLExtensionHandler::reqSSBOAlignment = 0;
+int32_t COpenGLExtensionHandler::reqTBOAlignment = 0;
+
 uint32_t COpenGLExtensionHandler::MaxArrayTextureLayers = 2048;
 uint8_t COpenGLExtensionHandler::MaxTextureUnits = 96;
 uint8_t COpenGLExtensionHandler::MaxAnisotropy = 8;
@@ -219,6 +158,7 @@ uint32_t COpenGLExtensionHandler::MaxVertices = 0xffffffffu;
 uint32_t COpenGLExtensionHandler::MaxVertexStreams = 1;
 uint32_t COpenGLExtensionHandler::MaxXFormFeedbackComponents = 64;
 uint32_t COpenGLExtensionHandler::MaxGPUWaitTimeout = 0;
+uint32_t COpenGLExtensionHandler::InvocationSubGroupSize[2] = {32,64};
 uint32_t COpenGLExtensionHandler::MaxGeometryVerticesOut = 65535;
 float COpenGLExtensionHandler::MaxTextureLODBias = 0.f;
 
@@ -246,8 +186,7 @@ PFNGLWAITSYNCPROC COpenGLExtensionHandler::pGlWaitSync = NULL;
 
         //textures
 PFNGLACTIVETEXTUREPROC COpenGLExtensionHandler::pGlActiveTexture = NULL;
-PFNGLBINDTEXTUREUNITPROC COpenGLExtensionHandler::pGlBindTextureUnit = NULL;
-PFNGLBINDMULTITEXTUREEXTPROC COpenGLExtensionHandler::pGlBindMultiTextureEXT = NULL;
+PFNGLBINDTEXTURESPROC COpenGLExtensionHandler::pGlBindTextures = NULL;
 PFNGLCREATETEXTURESPROC COpenGLExtensionHandler::pGlCreateTextures = NULL;
 PFNGLTEXSTORAGE1DPROC COpenGLExtensionHandler::pGlTexStorage1D = NULL;
 PFNGLTEXSTORAGE2DPROC COpenGLExtensionHandler::pGlTexStorage2D = NULL;
@@ -306,6 +245,7 @@ PFNGLGENSAMPLERSPROC COpenGLExtensionHandler::pGlGenSamplers = NULL;
 PFNGLCREATESAMPLERSPROC COpenGLExtensionHandler::pGlCreateSamplers = NULL;
 PFNGLDELETESAMPLERSPROC COpenGLExtensionHandler::pGlDeleteSamplers = NULL;
 PFNGLBINDSAMPLERPROC COpenGLExtensionHandler::pGlBindSampler = NULL;
+PFNGLBINDSAMPLERSPROC COpenGLExtensionHandler::pGlBindSamplers = NULL;
 PFNGLSAMPLERPARAMETERIPROC COpenGLExtensionHandler::pGlSamplerParameteri = NULL;
 PFNGLSAMPLERPARAMETERFPROC COpenGLExtensionHandler::pGlSamplerParameterf = NULL;
 
@@ -315,6 +255,8 @@ PFNGLBINDIMAGETEXTUREPROC COpenGLExtensionHandler::pGlBindImageTexture = NULL;
         //stuff
 PFNGLBINDBUFFERBASEPROC COpenGLExtensionHandler::pGlBindBufferBase = NULL;
 PFNGLBINDBUFFERRANGEPROC COpenGLExtensionHandler::pGlBindBufferRange = NULL;
+PFNGLBINDBUFFERSBASEPROC COpenGLExtensionHandler::pGlBindBuffersBase = NULL;
+PFNGLBINDBUFFERSRANGEPROC COpenGLExtensionHandler::pGlBindBuffersRange = NULL;
 
 
         //shaders
@@ -360,6 +302,11 @@ PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC COpenGLExtensionHandler::pGlProgramUniformMat
 //
 PFNGLGETACTIVEUNIFORMPROC COpenGLExtensionHandler::pGlGetActiveUniform = NULL;
 PFNGLBINDPROGRAMPIPELINEPROC COpenGLExtensionHandler::pGlBindProgramPipeline = NULL;
+
+// Criss
+PFNGLMEMORYBARRIERPROC COpenGLExtensionHandler::pGlMemoryBarrier = NULL;
+PFNGLDISPATCHCOMPUTEPROC COpenGLExtensionHandler::pGlDispatchCompute = NULL;
+PFNGLDISPATCHCOMPUTEINDIRECTPROC COpenGLExtensionHandler::pGlDispatchComputeIndirect = NULL;
 //
 PFNGLPOINTPARAMETERFPROC COpenGLExtensionHandler:: pGlPointParameterf = NULL;
 PFNGLPOINTPARAMETERFVPROC COpenGLExtensionHandler::pGlPointParameterfv = NULL;
@@ -465,6 +412,11 @@ PFNGLCOPYBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlCopyBufferSubData = NULL;
 PFNGLCOPYNAMEDBUFFERSUBDATAPROC COpenGLExtensionHandler::pGlCopyNamedBufferSubData = NULL;
 PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC COpenGLExtensionHandler::pGlNamedCopyBufferSubDataEXT = NULL;
 PFNGLISBUFFERPROC COpenGLExtensionHandler::pGlIsBuffer = NULL;
+PFNGLGETNAMEDBUFFERPARAMETERI64VPROC COpenGLExtensionHandler::pGlGetNamedBufferParameteri64v = NULL;
+PFNGLGETBUFFERPARAMETERI64VPROC COpenGLExtensionHandler::pGlGetBufferParameteri64v = NULL;
+PFNGLGETNAMEDBUFFERPARAMETERIVPROC COpenGLExtensionHandler::pGlGetNamedBufferParameteriv = NULL;
+PFNGLGETNAMEDBUFFERPARAMETERIVEXTPROC COpenGLExtensionHandler::pGlGetNamedBufferParameterivEXT = NULL;
+PFNGLGETBUFFERPARAMETERIVPROC COpenGLExtensionHandler::pGlGetBufferParameteriv = NULL;
 //vao
 PFNGLGENVERTEXARRAYSPROC COpenGLExtensionHandler::pGlGenVertexArrays = NULL;
 PFNGLCREATEVERTEXARRAYSPROC COpenGLExtensionHandler::pGlCreateVertexArrays = NULL;
@@ -857,6 +809,10 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
 	GLint num = 0;
 
+	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &reqUBOAlignment);
+	glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &reqSSBOAlignment);
+	glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &reqTBOAlignment);
+
 
 	glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
 	MaxArrayTextureLayers = num;
@@ -868,14 +824,12 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	}
 
 
-	if (queryFeature(EVDF_GEOMETRY_SHADER))
-	{
-		if (FeatureAvailable[IRR_ARB_geometry_shader4] || FeatureAvailable[IRR_EXT_geometry_shader4])
-		{
-			glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES_EXT, &num);
-			MaxGeometryVerticesOut = static_cast<uint32_t>(num);
-		}
-	}
+    if (FeatureAvailable[IRR_ARB_geometry_shader4])
+    {
+        glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &num);
+        MaxGeometryVerticesOut = static_cast<uint32_t>(num);
+    }
+
 	if (FeatureAvailable[IRR_EXT_texture_lod_bias])
 		glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &MaxTextureLODBias);
 
@@ -901,7 +855,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	{
 		Version = 440;
 		FeatureAvailable[IRR_ARB_direct_state_access] = false;
-		pGlBindTextureUnit = NULL;
 		pGlCreateTextures = NULL;
 		pGlTextureStorage1D = NULL;
 		pGlTextureStorage2D = NULL;
@@ -966,7 +919,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     //! Non-DSA testing
     Version = 430;
     FeatureAvailable[IRR_EXT_direct_state_access] = FeatureAvailable[IRR_ARB_direct_state_access] = false;
-    pGlBindMultiTextureEXT = NULL;
     pGlTextureStorage1DEXT = NULL;
     pGlTextureStorage2DEXT = NULL;
     pGlTextureStorage3DEXT = NULL;
@@ -1111,6 +1063,17 @@ void COpenGLExtensionHandler::loadFunctions()
 	glGetIntegerv(GL_MAX_SERVER_WAIT_TIMEOUT, &num);
     MaxGPUWaitTimeout = reinterpret_cast<const uint32_t&>(num);
 
+    if (FeatureAvailable[IRR_NV_shader_thread_group])
+    {
+        glGetIntegerv(GL_WARP_SIZE_NV, &num);
+        InvocationSubGroupSize[0] = InvocationSubGroupSize[1] = reinterpret_cast<const uint32_t&>(num);
+    }
+    else if (IsIntelGPU)
+    {
+        InvocationSubGroupSize[0] = 4;
+        InvocationSubGroupSize[1] = 32;
+    }
+
     /**
     pGl = () IRR_OGL_LOAD_EXTENSION("gl");
     **/
@@ -1124,8 +1087,7 @@ void COpenGLExtensionHandler::loadFunctions()
 
 	// get multitexturing function pointers
     pGlActiveTexture = (PFNGLACTIVETEXTUREPROC) IRR_OGL_LOAD_EXTENSION("glActiveTexture");
-	pGlBindTextureUnit = (PFNGLBINDTEXTUREUNITPROC) IRR_OGL_LOAD_EXTENSION("glBindTextureUnit");
-	pGlBindMultiTextureEXT = (PFNGLBINDMULTITEXTUREEXTPROC) IRR_OGL_LOAD_EXTENSION("glBindMultiTextureEXT");
+	pGlBindTextures = (PFNGLBINDTEXTURESPROC) IRR_OGL_LOAD_EXTENSION("glBindTextures");
     pGlCreateTextures = (PFNGLCREATETEXTURESPROC) IRR_OGL_LOAD_EXTENSION("glCreateTextures");
     pGlTexStorage1D = (PFNGLTEXSTORAGE1DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage1D");
     pGlTexStorage2D = (PFNGLTEXSTORAGE2DPROC) IRR_OGL_LOAD_EXTENSION( "glTexStorage2D");
@@ -1183,6 +1145,7 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlGenSamplers = (PFNGLGENSAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glGenSamplers");
     pGlDeleteSamplers = (PFNGLDELETESAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glDeleteSamplers");
     pGlBindSampler = (PFNGLBINDSAMPLERPROC) IRR_OGL_LOAD_EXTENSION( "glBindSampler");
+    pGlBindSamplers = (PFNGLBINDSAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glBindSamplers");
     pGlSamplerParameteri = (PFNGLSAMPLERPARAMETERIPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameteri");
     pGlSamplerParameterf = (PFNGLSAMPLERPARAMETERFPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameterf");
 
@@ -1193,6 +1156,8 @@ void COpenGLExtensionHandler::loadFunctions()
     //
     pGlBindBufferBase = (PFNGLBINDBUFFERBASEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferBase");
     pGlBindBufferRange = (PFNGLBINDBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferRange");
+    pGlBindBuffersBase = (PFNGLBINDBUFFERSBASEPROC) IRR_OGL_LOAD_EXTENSION("glBindBuffersBase");
+    pGlBindBuffersRange = (PFNGLBINDBUFFERSRANGEPROC) IRR_OGL_LOAD_EXTENSION("glBindBuffersRange");
 
 	// get fragment and vertex program function pointers
 	pGlCreateShader = (PFNGLCREATESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCreateShader");
@@ -1234,6 +1199,11 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlProgramUniformMatrix4x3fv = (PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix4x3fv");
 	pGlGetActiveUniform = (PFNGLGETACTIVEUNIFORMPROC) IRR_OGL_LOAD_EXTENSION("glGetActiveUniform");
     pGlBindProgramPipeline = (PFNGLBINDPROGRAMPIPELINEPROC) IRR_OGL_LOAD_EXTENSION("glBindProgramPipeline");
+
+	//Criss
+	pGlMemoryBarrier = (PFNGLMEMORYBARRIERPROC) IRR_OGL_LOAD_EXTENSION("glMemoryBarrier");
+	pGlDispatchCompute = (PFNGLDISPATCHCOMPUTEPROC) IRR_OGL_LOAD_EXTENSION("glDispatchCompute");
+	pGlDispatchComputeIndirect = (PFNGLDISPATCHCOMPUTEINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glDispatchComputeIndirect");
 
 	// get point parameter extension
 	pGlPointParameterf = (PFNGLPOINTPARAMETERFARBPROC) IRR_OGL_LOAD_EXTENSION("glPointParameterf");
@@ -1336,7 +1306,12 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlCopyBufferSubData = (PFNGLCOPYBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glCopyBufferSubData");
     pGlCopyNamedBufferSubData = (PFNGLCOPYNAMEDBUFFERSUBDATAPROC) IRR_OGL_LOAD_EXTENSION("glCopyNamedBufferSubData");
     pGlNamedCopyBufferSubDataEXT = (PFNGLNAMEDCOPYBUFFERSUBDATAEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedCopyBufferSubDataEXT");
-	pGlIsBuffer= (PFNGLISBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glIsBuffer");
+	pGlIsBuffer = (PFNGLISBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glIsBuffer");
+    pGlGetNamedBufferParameteri64v = (PFNGLGETNAMEDBUFFERPARAMETERI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetNamedBufferParameteri64v");
+    pGlGetBufferParameteri64v = (PFNGLGETBUFFERPARAMETERI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetBufferParameteri64v");
+    pGlGetNamedBufferParameteriv = (PFNGLGETNAMEDBUFFERPARAMETERIVPROC) IRR_OGL_LOAD_EXTENSION("glGetNamedBufferParameteriv");
+    pGlGetNamedBufferParameterivEXT = (PFNGLGETNAMEDBUFFERPARAMETERIVEXTPROC) IRR_OGL_LOAD_EXTENSION("glGetNamedBufferParameterivEXT");
+    pGlGetBufferParameteriv = (PFNGLGETBUFFERPARAMETERIVPROC) IRR_OGL_LOAD_EXTENSION("glGetBufferParameteriv");
 	//vao
     pGlGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC) IRR_OGL_LOAD_EXTENSION("glGenVertexArrays");
     pGlCreateVertexArrays = (PFNGLCREATEVERTEXARRAYSPROC) IRR_OGL_LOAD_EXTENSION("glCreateVertexArrays");
@@ -1453,25 +1428,6 @@ void COpenGLExtensionHandler::loadFunctions()
 
 	functionsAlreadyLoaded = true;
 #endif // use extension pointer
-}
-
-bool COpenGLExtensionHandler::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature)
-{
-	switch (feature)
-	{
-        case EVDF_ALPHA_TO_COVERAGE:
-            return FeatureAvailable[IRR_ARB_multisample]||true;
-        case EVDF_GEOMETRY_SHADER:
-            return FeatureAvailable[IRR_ARB_geometry_shader4]||true;
-        case EVDF_TESSELLATION_SHADER:
-            return FeatureAvailable[IRR_ARB_tessellation_shader]||true;
-        case EVDF_TEXTURE_BARRIER:
-            return FeatureAvailable[IRR_ARB_texture_barrier]||FeatureAvailable[IRR_NV_texture_barrier];
-        case EVDF_STENCIL_ONLY_TEXTURE:
-            return FeatureAvailable[IRR_ARB_texture_stencil8];
-        default:
-            return false;
-	};
 }
 
 

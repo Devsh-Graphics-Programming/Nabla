@@ -10,9 +10,9 @@
 
 #ifdef __IRR_COMPILE_WITH_X86_SIMD_
 
-#ifndef __IRR_COMPILE_WITH_SSE2
-#error "Either give up on SIMD vectors, check your compiler settings for the -m*sse* flag, or upgrade your CPU"
-#endif // __IRR_COMPILE_WITH_SSE2
+#ifndef __IRR_COMPILE_WITH_X86_SIMD_
+#error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
+#endif // __IRR_COMPILE_WITH_X86_SIMD_
 
 #include "irrMath.h"
 #include "vector2d.h"
@@ -127,7 +127,7 @@ NO BITSHIFTING SUPPORT
         xmm0 = _mm_and_si128(xmm0,_mm_slli_si128(xmm0,2)); // (even &&,odd &&,  ...)
         _mm_store_si128((__m128i*)tmpStorage,xmm0);
         return tmpStorage[0]&&tmpStorage[1];
-    }
+    }*/
 
     //! following do ANDs (not bitwise ANDs)
     /*
@@ -214,6 +214,8 @@ NO BITSHIFTING SUPPORT
     inline vectorSIMDf length(const vectorSIMDf& v);
     inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t);
     inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t);
+    inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t);
+    inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t);
     inline vectorSIMDf normalize(const vectorSIMDf& v);
     inline vectorSIMDf radToDeg(const vectorSIMDf& radians);
     inline vectorSIMDf reciprocal(const vectorSIMDf& a);
@@ -248,55 +250,6 @@ NO BITSHIFTING SUPPORT
 		//! Copy constructor
 		inline vectorSIMDf(const vectorSIMDf& other) {_mm_store_ps(pointer,other.getAsRegister());}
 
-/**
-        static inline void* operator new(size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void operator delete(void* ptr)
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new[](size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void  operator delete[](void* ptr) throw()
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new(std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete(void* p,void* t) throw() {}
-        static inline void* operator new[](std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete[](void* p,void* t) throw() {}
-**/
-
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
 		inline vectorSIMDf(const vectorSIMDi32& other);
@@ -307,9 +260,15 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf& operator=(const vectorSIMDf& other) { _mm_store_ps(pointer,other.getAsRegister()); return *this; }
 
         //! bitwise ops
-        inline vectorSIMDf operator&(const vectorSIMDf& other) {return _mm_and_ps(getAsRegister(),other.getAsRegister());}
-        inline vectorSIMDf operator|(const vectorSIMDf& other) {return _mm_or_ps(getAsRegister(),other.getAsRegister());}
-        inline vectorSIMDf operator^(const vectorSIMDf& other) {return _mm_xor_ps(getAsRegister(),other.getAsRegister());}
+        inline vectorSIMDf operator&(const vectorSIMDf& other) const {return _mm_and_ps(getAsRegister(),other.getAsRegister());}
+        inline vectorSIMDf& operator&=(const vectorSIMDf& other) { return *this = *this & other; };
+
+        inline vectorSIMDf operator|(const vectorSIMDf& other) const {return _mm_or_ps(getAsRegister(),other.getAsRegister());}
+        inline vectorSIMDf& operator|=(const vectorSIMDf& other) { return *this = *this | other; };
+
+        inline vectorSIMDf operator^(const vectorSIMDf& other) const {return _mm_xor_ps(getAsRegister(),other.getAsRegister());}
+        inline vectorSIMDf& operator^=(const vectorSIMDf& other) { return *this = *this ^ other; };
+
 
         //! in case you want to do your own SSE
         inline __m128 getAsRegister() const {return _mm_load_ps(pointer);}
@@ -404,11 +363,19 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf& set(const vector2df &p) {_mm_store_ps(pointer,_mm_loadu_ps(&p.X)); makeSafe2D(); return *this;}
 
         //! going directly from vectorSIMD to irrlicht types is safe cause vectorSIMDf is wider
-		inline vector2df getAsVector2df(void) const
+		inline vector2df& getAsVector2df(void)
 		{
 		    return *((vector2df*)pointer);
 		}
-		inline vector3df getAsVector3df(void) const
+		inline const vector2df& getAsVector2df(void) const
+		{
+		    return *((vector2df*)pointer);
+		}
+		inline vector3df& getAsVector3df(void)
+		{
+		    return *((vector3df*)pointer);
+		}
+		inline const vector3df& getAsVector3df(void) const
 		{
 		    return *((vector3df*)pointer);
 		}
@@ -623,114 +590,6 @@ NO BITSHIFTING SUPPORT
             _mm_maskmoveu_si128(_mm_castps_si128(xmm0),_mm_set_epi32(0,-1,-1,0),(char*)pointer);// only overwrites the X,Y elements of our vector
 		}
 
-
-
-		//! Get the rotations that would make a (0,0,1) direction vector point in the same direction as this direction vector.
-		/* Thanks to Arras on the Irrlicht forums for this method.  This utility method is very useful for
-		orienting scene nodes towards specific targets.  For example, if this vector represents the difference
-		between two scene nodes, then applying the result of getHorizontalAngle() to one scene node will point
-		it at the other one.
-		Example code:
-		// Where target and seeker are of type ISceneNode*
-		const vector3df toTarget(target->getAbsolutePosition() - seeker->getAbsolutePosition());
-		const vector3df requiredRotation = toTarget.getHorizontalAngle();
-		seeker->setRotation(requiredRotation);
-
-		\return A rotation vector containing the X (pitch) and Y (raw) rotations (in degrees) that when applied to a
-		+Z (e.g. 0, 0, 1) direction vector would make it point in the same direction as this vector. The Z (roll) rotation
-		is always 0, since two Euler rotations are sufficient to point in any given direction. *
-		inline vectorSIMDf getHorizontalAngle3D() const
-		{
-			vectorSIMDf angle;
-
-			const float tmp = atan2f(x,z);
-			angle.y = tmp;
-
-            __m128 xmm0 = ((*this)*(*this)).getAsRegister();
-			xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,1,2)));
-			float z1;
-			_mm_store_ss(&z1,_mm_sqrt_ss(xmm0));
-
-			angle.x = atan2f(z1, y) - core::PI*0.5f;
-
-			return angle;
-		}
-
-		//! Get the spherical coordinate angles, can we do 4-sphere coordinates
-		/** This returns Euler radians for the point represented by
-		this vector.
-		*
-		inline vectorSIMDf getSphericalCoordinates3D() const
-		{
-			vectorSIMDf angle = *this;
-			angle.makeSafe3D();
-			angle = angle.getLength();
-
-			if (angle.w) //doesnt matter which component
-			{
-				if (X!=0)
-				{
-					angle.Y = atan2f(Z,X);
-				}
-				else if (Z<0)
-					angle.Y=180;
-
-				angle.X = (T)(acos(Y * core::reciprocal_squareroot(length)) * RADTODEG64);
-			}
-			else
-                return vectorSIMDf(0.f);
-		}
-
-		//! Builds a direction vector from (this) rotation vector.
-		/** This vector is assumed to be a rotation vector composed of 3 Euler angle rotations, in degrees.
-		The implementation performs the same calculations as using a matrix to do the rotation.
-
-		\param[in] forwards  The direction representing "forwards" which will be rotated by this vector.
-		If you do not provide a direction, then the +Z axis (0, 0, 1) will be assumed to be forwards.
-		\return A direction vector calculated by rotating the forwards direction by the 3 Euler angles
-		(in degrees) represented by this vector. *
-		inline vectorSIMDf rotationToDirection3D() const
-		{
-			const float cr = cosf( x );
-			const float sr = sinf( x );
-			const float cp = cosf( y );
-			const float sp = sinf( y );
-			const float cy = cosf( z );
-			const float sy = sinf( z );
-
-			const float crsp = cr*sp;
-
-			return vectorSIMDf(( crsp*cy+sr*sy ), ( crsp*sy-sr*cy ), ( cr*cp ),0);
-		}
-		inline vectorSIMDf rotationToDirection3D(const vectorSIMDf &forwards = vectorSIMDf(0, 0, 1, 0)) const
-		{
-			const float cr = cosf( x );
-			const float sr = sinf( x );
-			const float cp = cosf( y );
-			const float sp = sinf( y );
-			const float cy = cosf( z );
-			const float sy = sinf( z );
-
-			const float crsp = cr*sp;
-			const float srsp = sr*sp;
-
-			const double pseudoMatrix[] = {
-				( cp*cy ), ( cp*sy ), ( -sp ),
-				( srsp*cy-cr*sy ), ( srsp*sy+cr*cy ), ( sr*cp ),
-				( crsp*cy+sr*sy ), ( crsp*sy-sr*cy ), ( cr*cp )};
-
-			return vector3d<T>(
-				(T)(forwards.X * pseudoMatrix[0] +
-					forwards.Y * pseudoMatrix[3] +
-					forwards.Z * pseudoMatrix[6]),
-				(T)(forwards.X * pseudoMatrix[1] +
-					forwards.Y * pseudoMatrix[4] +
-					forwards.Z * pseudoMatrix[7]),
-				(T)(forwards.X * pseudoMatrix[2] +
-					forwards.Y * pseudoMatrix[5] +
-					forwards.Z * pseudoMatrix[8]));
-		}*/
-
         static inline vectorSIMDf fromSColor(const video::SColor &col)
         {
             vectorSIMDf retVal;
@@ -786,7 +645,17 @@ NO BITSHIFTING SUPPORT
     {
         return a+(b-a)*t;
     }
+     inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t)
+    {
+        __m128 amask = _mm_castsi128_ps((~t).getAsRegister());
+        __m128 bmask = _mm_castsi128_ps(t.getAsRegister());
+        return (a&amask)|(b&bmask);
+    }
      inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
+    {
+        return mix(a,b,t);
+	}
+     inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t)
     {
         return mix(a,b,t);
 	}
@@ -860,17 +729,13 @@ NO BITSHIFTING SUPPORT
         xmm0 = _mm_mul_ps(xmm0,xmm1);
         xmm0 = _mm_hadd_ps(xmm0,xmm0);
         return _mm_hadd_ps(xmm0,xmm0);
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-        xmm0 = _mm_mul_ps(xmm0,xmm1);
-        xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-        return _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
 #endif
     }
 	inline vectorSIMDf cross(const vectorSIMDf& a, const vectorSIMDf& b)
     {
+#ifdef __IRR_COMPILE_WITH_X86_SIMD_
         __m128 xmm0 = a.getAsRegister();
         __m128 xmm1 = b.getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE2 //! SSE2 implementation is faster than previous SSE3 implementation
         __m128 backslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,2,1)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,1,0,2)));
         __m128 forwardslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,1,0,2)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,0,2,1)));
         return _mm_sub_ps(backslash,forwardslash); //returns 0 in the last component :D
@@ -883,11 +748,6 @@ NO BITSHIFTING SUPPORT
         xmm0 = _mm_mul_ps(xmm0,xmm0);
         xmm0 = _mm_hadd_ps(xmm0,xmm0);
         return _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-        xmm0 = _mm_mul_ps(xmm0,xmm0);
-        xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-        xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-        return _mm_sqrt_ps(xmm0);
 #endif
     }
     inline vectorSIMDf normalize(const vectorSIMDf& v)
@@ -923,55 +783,6 @@ NO BITSHIFTING SUPPORT
 		//! Copy constructor
 		inline vectorSIMD_32(const vectorSIMD_32<T>& other) {_mm_store_si128((__m128i*)pointer,other.getAsRegister());}
 
-/**
-        static inline void* operator new(size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void operator delete(void* ptr)
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new[](size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void  operator delete[](void* ptr) throw()
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new(std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete(void* p,void* t) throw() {}
-        static inline void* operator new[](std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete[](void* p,void* t) throw() {}
-**/
-
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
 		inline vectorSIMDf(const vectorSIMDi32& other);
@@ -1006,6 +817,7 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf operator/(const vectorSIMDf& other) const { return preciseDivision(other); }
 		inline vectorSIMD_32<T> operator/(const vectorSIMD_32<T>& other) const { return preciseDivision(other); }
 		inline vectorSIMD_32<T>& operator/=(const vectorSIMD_32<T>& other) { (*this) = preciseDivision(other); return *this; }
+*/
 
 /*
 		//operators against scalars
@@ -1090,23 +902,11 @@ NO BITSHIFTING SUPPORT
 		inline float getLengthAsFloat() const
 		{
 		    __m128 xmm0 = getAsRegister();
-		    float result;/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-            xmm0 = _mm_dp_ps(xmm0,xmm0,);
-		    xmm0 = _mm_sqrt_ps(xmm0);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/ /*
+		    float result;
 #ifdef __IRR_COMPILE_WITH_SSE3
 		    xmm0 = _mm_mul_ps(xmm0,xmm0);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
 		    xmm0 = _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
-		    _mm_store_ss(&result,xmm0);
-		    return result;
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm0);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-		    xmm0 = _mm_sqrt_ps(xmm0);
 		    _mm_store_ss(&result,xmm0);
 		    return result;
 #endif
@@ -1121,11 +921,6 @@ NO BITSHIFTING SUPPORT
 		    xmm0 = _mm_mul_ps(xmm0,xmm0);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
 		    return _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm0);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
-		    return _mm_sqrt_ps(xmm0);
 #endif
         }
 
@@ -1134,21 +929,11 @@ NO BITSHIFTING SUPPORT
 		{
 		    float result;
 		    __m128 xmm0 = getAsRegister();
-		    __m128 xmm1 = other.getAsRegister();/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-            xmm0 = _mm_dp_ps(xmm0,xmm1,);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/ /*
+		    __m128 xmm1 = other.getAsRegister();
 #ifdef __IRR_COMPILE_WITH_SSE3
 		    xmm0 = _mm_mul_ps(xmm0,xmm1);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
-		    _mm_store_ss(&result,xmm0);
-		    return result;
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm1);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
 		    _mm_store_ss(&result,xmm0);
 		    return result;
 #endif
@@ -1156,22 +941,14 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf dotProduct(const vectorSIMDf& other) const
 		{
 		    __m128 xmm0 = getAsRegister();
-		    __m128 xmm1 = other.getAsRegister();/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-            xmm0 = _mm_dp_ps(xmm0,xmm1,);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/ /*
+		    __m128 xmm1 = other.getAsRegister();
 #ifdef __IRR_COMPILE_WITH_SSE3
 		    xmm0 = _mm_mul_ps(xmm0,xmm1);
 		    xmm0 = _mm_hadd_ps(xmm0,xmm0);
 		    return _mm_hadd_ps(xmm0,xmm0);
-#elif defined(__IRR_COMPILE_WITH_SSE2)
-		    xmm0 = _mm_mul_ps(xmm0,xmm1);
-		    xmm0 = _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(0,1,2,3)));
-		    return _mm_add_ps(xmm0,FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(2,3,0,1)));
 #endif
 		}
-
+*/
 		//! Get squared length of the vector.
 		/** This is useful because it is much faster than getLength().
 		\return Squared length of the vector. *
@@ -1186,7 +963,7 @@ NO BITSHIFTING SUPPORT
 		{
 		    return dotProduct(*this);
         }
-
+*/
 
 		//! Get distance from another point.
 		/** Here, the vector is interpreted as point in 3 dimensional space. *
@@ -1200,7 +977,7 @@ NO BITSHIFTING SUPPORT
 		{
 			return ((*this)-other).getLength();
 		}
-
+*/
 		//! Returns squared distance from another point.
 		/** Here, the vector is interpreted as point in 3 dimensional space. *
 		inline uint32_t getDistanceFromSQAsFloat(const vectorSIMDf& other) const
@@ -1213,7 +990,7 @@ NO BITSHIFTING SUPPORT
 		{
 			return ((*this)-other).getLengthSQ();
 		}
-
+*/
 		//! Calculates the cross product with another vector.
 		/** \param p Vector to multiply with.
 		\return Crossproduct of this vector with p. *
@@ -1221,7 +998,7 @@ NO BITSHIFTING SUPPORT
 		{
 		    __m128 xmm0 = getAsRegister();
 		    __m128 xmm1 = p.getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE2 //! SSE2 implementation is faster than previous SSE3 implementation
+#ifdef __IRR_COMPILE_WITH_X86_SIMD_
 		    __m128 backslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,2,1)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,1,0,2)));
 		    __m128 forwardslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,1,0,2)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,0,2,1)));
 			return _mm_sub_ps(backslash,forwardslash); //returns 0 in the last component :D
@@ -1271,6 +1048,23 @@ NO BITSHIFTING SUPPORT
 #else
     } __attribute__ ((__aligned__(SIMD_ALIGNMENT)));
 #endif
+
+	//! Transposes matrix 4x4 given by 4 vectors
+	inline void transpose4(vectorSIMDf& _a0, vectorSIMDf& _a1, vectorSIMDf& _a2, vectorSIMDf& _a3)
+	{
+		__m128 a0 = _a0.getAsRegister(), a1 = _a1.getAsRegister(), a2 = _a2.getAsRegister(), a3 = _a3.getAsRegister();
+		_MM_TRANSPOSE4_PS(a0, a1, a2, a3);
+		_a0 = a0;
+		_a1 = a1;
+		_a2 = a2;
+		_a3 = a3;
+	}
+	//! Transposes matrix 4x4 given by array of 4 vectors
+	inline void transpose4(vectorSIMDf* _a0123)
+	{
+		transpose4(_a0123[0], _a0123[1], _a0123[2], _a0123[3]);
+	}
+
 /*
     class vectorSIMDi32 : public vectorSIMD_32<int32_t>
     {
@@ -1294,7 +1088,7 @@ NO BITSHIFTING SUPPORT
 		inline explicit vectorSIMDu32(const uint32_t &nx, const uint32_t &ny) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0,0,(const int32_t&)ny,(const int32_t&)nx));}
     };
 
-/*
+
     inline vectorSIMDi32 mix(const vectorSIMDi32& a, const vectorSIMDi32& b, const vectorSIMDf& t)
     {
         return a+(b-a)*t;

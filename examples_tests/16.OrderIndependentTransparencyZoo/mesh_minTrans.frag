@@ -1,6 +1,6 @@
 #version 420 core
 
-uniform sampler2D tex0;
+layout(binding = 0) uniform sampler2D tex0;
 uniform vec3 selfPos;
 
 in vec2 TexCoord;

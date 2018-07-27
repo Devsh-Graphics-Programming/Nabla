@@ -1,0 +1,85 @@
+#version 430 core
+
+layout(local_size_x = 256) in;
+
+#define LC_IDX gl_LocalInvocationIndex
+#define G_IDX gl_GlobalInvocationID.x
+
+layout(std430, binding = 0) readonly buffer Keys { uint in_keys[]; };
+layout(std430, binding = 4) writeonly buffer Presum { uvec2 out_presum[]; };
+layout(std430, binding = 6) writeonly buffer Sums { uvec2 out_sums[]; };
+
+layout(location = 0) uniform uint nbit;
+
+shared uvec2 smem[512];
+
+void main()
+{
+	int offset = 1;
+	
+	if (2*G_IDX < in_keys.length())
+	{
+		const uint i = in_keys[2*G_IDX];
+		smem[2*LC_IDX] = ( ((i>>nbit)&1) == 1 ) ? uvec2(0, 1) : uvec2(1, 0);
+	}
+	else
+		smem[2*LC_IDX] = uvec2(0);
+	
+	if (2*G_IDX+1 < in_keys.length())
+	{
+		const uint i = in_keys[2*G_IDX+1];
+		smem[2*LC_IDX+1] = ( ((i>>nbit)&1) == 1 ) ? uvec2(0, 1) : uvec2(1, 0);
+	}
+	else
+		smem[2*LC_IDX+1] = uvec2(0);
+		
+	
+	for (int d = 256/2; d > 0; d /= 2)
+	{
+		memoryBarrierShared();
+		barrier();
+		
+		if (LC_IDX < d)
+		{
+			uint ai = offset*(2*LC_IDX+1)-1;
+			uint bi = offset*(2*LC_IDX+2)-1;
+			
+			smem[bi] += smem[ai];
+		}
+		offset *= 2;
+	}
+	
+	memoryBarrierShared();
+	barrier();
+	
+	if (LC_IDX == 0)
+	{
+		out_sums[gl_WorkGroupID.x] = smem[256-1]; // sum of all elements in subarray
+		smem[256-1] = uvec2(0); // because of **exclusive** presum
+	}
+		
+	for (int d = 1; d < 256; d *= 2)
+	{
+		offset /= 2;
+		memoryBarrierShared();
+		barrier();
+
+		if (LC_IDX < d)
+		{
+			uint ai = offset*(2*LC_IDX+1)-1;
+			uint bi = offset*(2*LC_IDX+2)-1;
+			
+			uvec2 t = smem[ai];
+			smem[ai] = smem[bi];
+			smem[bi] += t;
+		}
+	}
+	
+	memoryBarrierShared();
+	barrier();
+	
+	if (2*G_IDX < out_presum.length())
+		out_presum[2*G_IDX] = smem[2*LC_IDX];
+	if (2*G_IDX+1 < out_presum.length())
+		out_presum[2*G_IDX+1] = smem[2*LC_IDX+1];
+}

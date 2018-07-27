@@ -6,7 +6,7 @@
 #ifndef __I_GPU_TRANSIENT_BUFFER_H_INCLUDED__
 #define __I_GPU_TRANSIENT_BUFFER_H_INCLUDED__
 
-#include "IGPUMappedBuffer.h"
+#include "IGPUBuffer.h"
 #include "IVideoDriver.h"
 #include "IDriverFence.h"
 #include <vector>
@@ -96,10 +96,9 @@ Thread Safeness:
     2) Using the pointer returned by getRangePointer(size_t start) is NOT THREAD SAFE,
         UNLESS AT LEAST one sub-range remains allocated, that is Commit() has not been called on a Alloc()'ed subrange yet
     3) fenceRangeUsedByGPU() most probably should be calle donly by the OpenGL THREAD!!!!
-    4) Alloc(,growIfTooSmall=true) CAN ONLY BE CALLED FROM THE OpenGL THREAD!!!
-    5) Alloc(), Commit(), Place(), Free(), fenceRangeUsedByGPU() and DefragDescriptor() are all thread safe
-    6) Using EWP_WAIT_FOR_CPU_UNMAP bit on any call while having un-Commit()'ed ranges (which will not be Commit()'ed by other Threads) will DEADLOCK
-    7) Using EWP_WAIT_FOR_GPU_FREE bit on Alloc() while having un-Free()'ed ranges (which will not be Free()'ed by other Threads) will DEADLOCK
+    4) Alloc(), Commit(), Place(), Free(), fenceRangeUsedByGPU() and DefragDescriptor() are all thread safe
+    5) Using EWP_WAIT_FOR_CPU_UNMAP bit on any call while having un-Commit()'ed ranges (which will not be Commit()'ed by other Threads) will DEADLOCK
+    6) Using EWP_WAIT_FOR_GPU_FREE bit on Alloc() while having un-Free()'ed ranges (which will not be Free()'ed by other Threads) will DEADLOCK
 
 **/
 class IGPUTransientBuffer : public virtual IReferenceCounted
@@ -133,26 +132,10 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
             EWP_WAIT_FOR_GPU_FREE=2
         };
 
-
-        static IGPUTransientBuffer* createMappedTransientBuffer(IVideoDriver* driver, const size_t& bufsize=0x100000u, const E_GPU_BUFFER_ACCESS& accessPattern=EGBA_WRITE,
-                                                                const bool& inCPUMem=true, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true, core::LeakDebugger* dbgr=NULL)
+        //! Make sure that the buffer you provide is appropriate for what you want to do
+        static IGPUTransientBuffer* createTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& threadSafe=true, core::LeakDebugger* dbgr=NULL)
         {
-            IGPUMappedBuffer* buffer = driver->createPersistentlyMappedBuffer(bufsize,NULL,accessPattern,true,inCPUMem);
-            IGPUTransientBuffer* retval = new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe,dbgr);
-			buffer->drop();
-			return retval;
-        }
-        static IGPUTransientBuffer* createMappedTransientBuffer(IVideoDriver* driver, IGPUMappedBuffer* buffer, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true, core::LeakDebugger* dbgr=NULL)
-        {
-            return new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe,dbgr);
-        }
-        static IGPUTransientBuffer* createTransientBuffer(IVideoDriver* driver, const size_t& bufsize=0x100000u, const E_GPU_BUFFER_ACCESS& accessPattern=EGBA_WRITE,
-                                                          const bool& inCPUMem=true, const bool& canModifySubData=false, const bool& growable=false, const bool& autoFlush=true, const bool& threadSafe=true, core::LeakDebugger* dbgr=NULL)
-        {
-            IGPUBuffer* buffer = driver->createGPUBuffer(bufsize,NULL,canModifySubData,inCPUMem,accessPattern);
-            IGPUTransientBuffer* retval = new IGPUTransientBuffer(driver,buffer,growable,autoFlush,threadSafe,dbgr);
-			buffer->drop();
-			return retval;
+            return new IGPUTransientBuffer(driver,buffer,threadSafe,dbgr);
         }
 
         IGPUBuffer* getUnderlyingBuffer() {return underlyingBuffer;}
@@ -161,15 +144,19 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         void PrintDebug(bool needsMutex=true);
         //
         //do more defragmentation in alloc()
-        E_ALLOC_RETURN_STATUS Alloc(size_t &offsetOut, const size_t &maxSize, const size_t& alignment=32, E_WAIT_POLICY waitPolicy=EWP_DONT_WAIT, bool growIfTooSmall = false);
-        //
-        bool Commit(const size_t& start, const size_t& end);
-        //
-        bool Place(size_t &offsetOut, const void* data, const size_t& dataSize, const size_t& alignment=32, const E_WAIT_POLICY &waitPolicy=EWP_DONT_WAIT, const bool &growIfTooSmall = false);
+        E_ALLOC_RETURN_STATUS Alloc(size_t &offsetOut, const size_t &maxSize, const size_t& alignment=32, E_WAIT_POLICY waitPolicy=EWP_DONT_WAIT);
+
+        //! Record the range as committed and if necessary tell us of ranges we need to flush
+        bool Commit(const size_t& start, const size_t& end, std::vector<IDriverMemoryAllocation::MemoryRange>& flushRanges);
+
+        //!
+        bool Place(size_t &offsetOut, const void* data, const size_t& dataSize, std::vector<IDriverMemoryAllocation::MemoryRange>& flushRanges, const size_t& alignment=32, const E_WAIT_POLICY &waitPolicy=EWP_DONT_WAIT);
+
         //! Unless memory is being used by GPU it will be returned to free pool straight away
         //! Useful if you dont end up using comitted memory by GPU
         bool Free(const size_t& start, const size_t& end);
-        // GPU side calls
+
+        //! You SHOULD call a glFlush after calling this function in the same thread and before the next call to IGPUTransientBuffer::Alloc from any thread.
         bool fenceRangeUsedByGPU(const size_t& start, const size_t& end);
         //
         inline bool queryRangeCommitted(const size_t& start, const size_t& end)
@@ -177,7 +164,8 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
             return queryRange(start,end,Allocation::EAS_PENDING_RENDER_CMD);
         }
         bool queryRange(const size_t& start, const size_t& end, const Allocation::E_ALLOCATION_STATE& state);
-        //
+
+        //!
         bool waitRangeFences(const size_t& start, const size_t& end, size_t timeOutNs);
 
         void DefragDescriptor();
@@ -186,7 +174,7 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         const size_t& getTrueFreeSpace() const {return totalTrueFreeSpace;}
     private:
         ~IGPUTransientBuffer();
-        IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe, core::LeakDebugger* dbgr=NULL);
+        IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& threadSafe, core::LeakDebugger* dbgr=NULL);
         FW_Mutex* mutex;
         FW_ConditionVariable* allocationChanged;
         size_t lastChanged;
@@ -197,11 +185,9 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         size_t largestFreeChunkSize; //! unifinished
         size_t trueLargestFreeChunkSize; //! unfinished
 
-		bool flushOnWait;
-        const bool canGrow;
         IVideoDriver* Driver;
         IGPUBuffer* underlyingBuffer;
-        IGPUMappedBuffer* underlyingBufferAsMapped;
+        uint8_t* mappedPointer;
 
         std::vector<Allocation> allocs;
         inline bool invalidState(const Allocation& a)

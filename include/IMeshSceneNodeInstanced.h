@@ -5,16 +5,6 @@
 #ifndef __I_MESH_SCENE_NODE_INSTANCED_H_INCLUDED__
 #define __I_MESH_SCENE_NODE_INSTANCED_H_INCLUDED__
 
-/*
-namespace irr
-{
-namespace scene
-{
-
-    class IGPUMeshDataFormatDesc;
-
-}
-}*/
 
 #include "ISceneNode.h"
 #include "SMesh.h"
@@ -43,7 +33,7 @@ public:
         float lodDistance;
     };
 
-    typedef scene::IGPUMeshDataFormatDesc* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const scene::IGPUMeshDataFormatDesc*, void* userData);
+    typedef scene::IMeshDataFormatDesc<video::IGPUBuffer>* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const scene::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
     typedef void (*CPUCullingFunc)(uint8_t**,const size_t&,const core::aabbox3df&,const size_t&,const core::matrix4x3&,const uint8_t*,const size_t&,scene::ISceneManager*,void*);
 
 	//! Constructor

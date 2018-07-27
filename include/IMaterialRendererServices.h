@@ -42,40 +42,6 @@ enum E_SHADER_CONSTANT_TYPE
     ESCT_FLOAT_MAT3x4,
     ESCT_FLOAT_MAT4x2,
     ESCT_FLOAT_MAT4x3,
-    ESCT_SAMPLER_1D,
-    ESCT_SAMPLER_2D,
-    ESCT_SAMPLER_3D,
-    ESCT_SAMPLER_CUBE,
-    ESCT_SAMPLER_1D_SHADOW,
-    ESCT_SAMPLER_2D_SHADOW,
-    ESCT_SAMPLER_1D_ARRAY,
-    ESCT_SAMPLER_2D_ARRAY,
-    ESCT_SAMPLER_1D_ARRAY_SHADOW,
-    ESCT_SAMPLER_2D_ARRAY_SHADOW,
-    ESCT_SAMPLER_2D_MULTISAMPLE,
-    ESCT_SAMPLER_2D_MULTISAMPLE_ARRAY,
-    ESCT_SAMPLER_CUBE_SHADOW,
-    ESCT_SAMPLER_BUFFER,
-    ESCT_SAMPLER_2D_RECT,
-    ESCT_SAMPLER_2D_RECT_SHADOW,
-    ESCT_INT_SAMPLER_1D,
-    ESCT_INT_SAMPLER_2D,
-    ESCT_INT_SAMPLER_3D,
-    ESCT_INT_SAMPLER_CUBE,
-    ESCT_INT_SAMPLER_1D_ARRAY,
-    ESCT_INT_SAMPLER_2D_ARRAY,
-    ESCT_INT_SAMPLER_2D_MULTISAMPLE,
-    ESCT_INT_SAMPLER_2D_MULTISAMPLE_ARRAY,
-    ESCT_INT_SAMPLER_BUFFER,
-    ESCT_UINT_SAMPLER_1D,
-    ESCT_UINT_SAMPLER_2D,
-    ESCT_UINT_SAMPLER_3D,
-    ESCT_UINT_SAMPLER_CUBE,
-    ESCT_UINT_SAMPLER_1D_ARRAY,
-    ESCT_UINT_SAMPLER_2D_ARRAY,
-    ESCT_UINT_SAMPLER_2D_MULTISAMPLE,
-    ESCT_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY,
-    ESCT_UINT_SAMPLER_BUFFER,
     ESCT_INVALID_COUNT
 };
 
@@ -96,17 +62,16 @@ public:
 	set, regardless of their current state. */
 	virtual void setBasicRenderStates(const SMaterial& material,
 		const SMaterial& lastMaterial,
-		bool resetAllRenderstates) = 0;
+		bool resetAllRenderstates) = 0; //depr
 
 
 
 	virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1) = 0;
-    virtual void setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1) = 0;
 
 
 	//! Get pointer to the IVideoDriver interface
 	/** \return Pointer to the IVideoDriver interface */
-	virtual IVideoDriver* getVideoDriver() = 0;
+	virtual IVideoDriver* getVideoDriver() = 0; //depr
 };
 
 } // end namespace video

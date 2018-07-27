@@ -27,9 +27,6 @@ namespace video
 		//! constructor
 		CBurningVideoDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
 
-		//! queries the features of the driver, returns true if feature is available
-		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const;
-
 		//! sets a material
 		virtual void setMaterial(const SMaterial& material);
 
@@ -65,10 +62,6 @@ namespace video
 		virtual void draw2DImage(const video::ITexture* texture, const core::rect<int32_t>& destRect,
 				const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect = 0,
 				const video::SColor* const colors=0, bool useAlphaChannelOfTexture=false);
-
-		//! Draws a 3d line.
-		virtual void draw3DLine(const core::vector3df& start,
-			const core::vector3df& end, SColor color = SColor(255,255,255,255));
 
 		//! draw an 2d rectangle
 		virtual void draw2DRectangle(SColor color, const core::rect<int32_t>& pos,

@@ -115,7 +115,17 @@ int main()
     {
         mem[i+xComps*(j+yComps*k)] = (i<<20)|(j<<10)|(k);
     }
-    video::IGPUBuffer* positionBuf = driver->createGPUBuffer(bufSize,mem);
+
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.size = bufSize;
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    video::IGPUBuffer* positionBuf = driver->createGPUBufferOnDedMem(reqs,true);
+    positionBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),mem);
     free(mem);
 
 

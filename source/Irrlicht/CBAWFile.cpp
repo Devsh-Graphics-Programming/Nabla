@@ -9,7 +9,12 @@
 #include "SSkinMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 #include "coreutil.h"
+
+#ifdef _IRR_COMPILE_WITH_OPENSSL_
 #include <openssl/evp.h>
+#pragma comment(lib, "libeay32.lib")
+#endif
+
 
 //! for C++11
 //using namespace std;
@@ -23,15 +28,14 @@ void core::BlobHeaderV0::finalize(const void* _data, size_t _sizeDecompr, size_t
 	blobSize = _sizeCompr;
 	compressionType = _comprType;
 
-	//compress before encrypting, increased entropy makes compression hard
-
-	//compress and encrypt before hashing
-
-	core::XXHash_256(_data, blobSize, blobHash);
+	if (!(compressionType & core::Blob::EBCT_AES128_GCM)) // use gcmTag instead (set while encrypting).
+		core::XXHash_256(_data, blobSize, blobHash);
 }
 
 bool core::BlobHeaderV0::validate(const void* _data) const
 {
+	if (compressionType & core::Blob::EBCT_AES128_GCM) // use gcm authentication instead. Decryption will fail if data is corrupted.
+		return true;
     uint64_t tmpHash[4];
 	core::XXHash_256(_data, blobSize, tmpHash);
 	for (size_t i=0; i<4; i++)
@@ -71,6 +75,10 @@ size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::c
 MeshBufferBlobV0::MeshBufferBlobV0(const scene::ICPUMeshBuffer* _mb)
 {
 	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SMaterial));
+	_mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
+	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+		_mb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
+
 	memcpy(&box, &_mb->getBoundingBox(), sizeof(core::aabbox3df));
 	descPtr = reinterpret_cast<uint64_t>(_mb->getMeshDataAndFormat());
 	indexType = _mb->getIndexType();
@@ -92,6 +100,10 @@ size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV0, scene::ICPUMeshBuffer>::calcBl
 SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer* _smb)
 {
 	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SMaterial));
+	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
+	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+		_smb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
+
 	memcpy(&box, &_smb->getBoundingBox(), sizeof(core::aabbox3df));
 	descPtr = reinterpret_cast<uint64_t>(_smb->getMeshDataAndFormat());
 	indexType = _smb->getIndexType();
@@ -117,7 +129,7 @@ MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatD
 {
 	using namespace scene;
 
-	_IRR_DEBUG_BREAK_IF(VERTEX_ATTRIB_CNT != EVAI_COUNT) // could be static_assert if had c++11
+	static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");
 
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
 		cpa[(int)i] = _desc->getAttribComponentCount(i);
@@ -272,23 +284,52 @@ size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize() const
 	return keyframeCount * boneCount * scene::CFinalBoneHierarchy::getSizeOfSingleAnimationData();
 }
 
-bool runAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, bool _encrypt)
+bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {
-	const EVP_CIPHER* cipherType = EVP_aes_128_gcm();
-	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+#ifdef _IRR_COMPILE_WITH_OPENSSL_
+	EVP_CIPHER_CTX *ctx;
+	int outlen;
 
-	if (!ctx)
+	if (!(ctx = EVP_CIPHER_CTX_new()))
 		return false;
 
-	EVP_CipherInit_ex(ctx, cipherType, NULL, _key, _iv, _encrypt);
-	EVP_CIPHER_CTX_set_padding(ctx, 0);
+	EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL);
+	EVP_CIPHER_CTX_set_padding(ctx, 0); // disable padding
+	EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 16, NULL);
+	EVP_EncryptInit_ex(ctx, NULL, NULL, _key, _iv);
+	EVP_EncryptUpdate(ctx, (unsigned char*)_output, &outlen, (const unsigned char*)_input, int(_inSize));
+	EVP_EncryptFinal_ex(ctx, (unsigned char*)_output, &outlen);
+	EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, _tag); // save tag
 
-	int outSize = 0;
-	EVP_CipherUpdate(ctx, (unsigned char*)_output, &outSize, (unsigned char*)_input, int(_inSize));
-	EVP_CipherFinal_ex(ctx, (unsigned char*)_output, &outSize);
-
-	EVP_CIPHER_CTX_cleanup(ctx);
+	EVP_CIPHER_CTX_free(ctx);
 	return true;
+#else
+	return false;
+#endif
+}
+bool decAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
+{
+#ifdef _IRR_COMPILE_WITH_OPENSSL_
+	EVP_CIPHER_CTX *ctx;
+	int outlen;
+
+	if (!(ctx = EVP_CIPHER_CTX_new()))
+		return false;
+
+	EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL);
+	EVP_CIPHER_CTX_set_padding(ctx, 0); // disable apdding
+	EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 16, NULL);
+	EVP_DecryptInit_ex(ctx, NULL, NULL, _key, _iv);
+	EVP_DecryptUpdate(ctx, (unsigned char*)_output, &outlen, (const unsigned char*)_input, int(_inSize));
+	EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, _tag); // set expected tag value
+
+	int retval = EVP_DecryptFinal_ex(ctx, (unsigned char*)_output, &outlen);
+
+	EVP_CIPHER_CTX_free(ctx);
+	return retval > 0;
+#else
+	return false;
+#endif
 }
 
 }} // irr::core

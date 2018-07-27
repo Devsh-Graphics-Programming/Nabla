@@ -84,13 +84,7 @@ public:
             {
                 vpcmUniformLocation = constants[i].location;
                 vpcmUniformType = constants[i].type;
-            } //! permabind texture slots
-            else if (constants[i].name=="tex0")
-                services->setShaderTextures(id+0,constants[i].location,constants[i].type,1);
-            else if (constants[i].name=="tex1")
-                services->setShaderTextures(id+1,constants[i].location,constants[i].type,1);
-            else if (constants[i].name=="tex3")
-                services->setShaderTextures(id+3,constants[i].location,constants[i].type,1);
+            }
         }
     }
 
@@ -253,8 +247,7 @@ int main()
     if (cpumesh&&cpumesh->getMeshType()==scene::EMT_ANIMATED_SKINNED)
     {
         scene::ISkinnedMeshSceneNode* anode = 0;
-        scene::ICPUSkinnedMesh* animMesh = dynamic_cast<scene::ICPUSkinnedMesh*>(cpumesh);
-        scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(cpumesh);
+        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
         smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
 
         for (size_t x=0; x<kInstanceSquareSize; x++)

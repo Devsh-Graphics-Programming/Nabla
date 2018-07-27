@@ -1,7 +1,7 @@
 #version 420 core
 layout(early_fragment_tests) in;
 
-uniform sampler2D tex0;
+layout(binding = 0) uniform sampler2D tex0;
 uniform vec3 selfPos;
 
 in vec2 TexCoord;

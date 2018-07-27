@@ -6,6 +6,7 @@
 #define __C_OPEN_GL_MULTISAMPLE_TEXTURE_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
+#include "IDriverMemoryAllocation.h"
 #include "IMultisampleTexture.h"
 #include "COpenGLTexture.h"
 #include "COpenGLExtensionHandler.h"
@@ -18,7 +19,7 @@ namespace irr
 namespace video
 {
 
-class COpenGLMultisampleTexture : public COpenGLTexture, public IMultisampleTexture
+class COpenGLMultisampleTexture : public COpenGLTexture, public IMultisampleTexture, public IDriverMemoryAllocation
 {
     protected:
 
@@ -32,7 +33,7 @@ class COpenGLMultisampleTexture : public COpenGLTexture, public IMultisampleText
 
 
         //!
-        virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_2D_MULTISAMPLE;}
+        virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_2D_MULTISAMPLE;}
 
         //!
         core::dimension2du getRenderableSize() const {return core::dimension2du(TextureSize[0],TextureSize[1]);}
@@ -45,7 +46,7 @@ class COpenGLMultisampleTexture : public COpenGLTexture, public IMultisampleText
         virtual const uint32_t* getSize() const {return TextureSize;}
 
         //! Returns size of the texture.
-        virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+        virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
 
         //! returns color format of texture
         virtual ECOLOR_FORMAT getColorFormat() const {return ColorFormat;}
@@ -64,6 +65,18 @@ class COpenGLMultisampleTexture : public COpenGLTexture, public IMultisampleText
 
         //!
         virtual bool usesFixedSampleLocations() const {return FixedSampleLocations;}
+
+
+        //!
+        virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
+        virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
+        virtual size_t getBoundMemoryOffset() const {return 0ll;}
+
+
+        //!
+        virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DEVICE_LOCAL;}
+        virtual void unmapMemory() {}
+        virtual bool isDedicated() const {return true;}
 
     protected:
         uint32_t TextureSize[2];

@@ -21,7 +21,6 @@
     <ClCompile Include="COpenGLQuery.cpp" />
     <ClCompile Include="COpenGLRenderBuffer.cpp" />
     <ClCompile Include="COpenGLTransformFeedback.cpp" />
-    <ClCompile Include="COpenGLVAO.cpp" />
     <ClCompile Include="coreutil.cpp" />
     <ClCompile Include="COSOperator.cpp" />
     <ClCompile Include="CSceneManager.cpp" />
@@ -177,15 +176,6 @@
     <ClCompile Include="libpng\pngwrite.c" />
     <ClCompile Include="libpng\pngwtran.c" />
     <ClCompile Include="libpng\pngwutil.c" />
-    <ClCompile Include="aesGladman\aescrypt.cpp" />
-    <ClCompile Include="aesGladman\aeskey.cpp" />
-    <ClCompile Include="aesGladman\aestab.cpp" />
-    <ClCompile Include="aesGladman\fileenc.cpp" />
-    <ClCompile Include="aesGladman\hmac.cpp" />
-    <ClCompile Include="aesGladman\prng.cpp" />
-    <ClCompile Include="aesGladman\pwd2key.cpp" />
-    <ClCompile Include="aesGladman\sha1.cpp" />
-    <ClCompile Include="aesGladman\sha2.cpp" />
     <ClCompile Include="bzip2\blocksort.c" />
     <ClCompile Include="bzip2\bzlib.c" />
     <ClCompile Include="bzip2\crctable.c" />
@@ -226,6 +216,20 @@
     <ClCompile Include="lzma\LzFindMt.c" />
     <ClCompile Include="lzma\Threads.c" />
     <ClCompile Include="zlib\zcompress.c" />
+    <ClCompile Include="aesGladman\aescrypt.c" />
+    <ClCompile Include="aesGladman\aeskey.c" />
+    <ClCompile Include="aesGladman\aestab.c" />
+    <ClCompile Include="aesGladman\aes_ni.c" />
+    <ClCompile Include="aesGladman\fileenc.c" />
+    <ClCompile Include="aesGladman\hmac.c" />
+    <ClCompile Include="aesGladman\prng.c" />
+    <ClCompile Include="aesGladman\pwd2key.c" />
+    <ClCompile Include="aesGladman\sha1.c" />
+    <ClCompile Include="lzma\Alloc.c" />
+    <ClCompile Include="lzma\LzmaLib.c" />
+    <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
+    <ClCompile Include="COverdrawMeshOptimizer.cpp" />
+    <ClCompile Include="COpenGLVAOSpec.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
@@ -398,7 +402,6 @@
     <ClInclude Include="COpenGLOcclusionQuery.h" />
     <ClInclude Include="COpenGLQuery.h" />
     <ClInclude Include="COpenGLTransformFeedback.h" />
-    <ClInclude Include="COpenGLVAO.h" />
     <ClInclude Include="COSOperator.h" />
     <ClInclude Include="CSceneManager.h" />
     <ClInclude Include="CSkinnedMeshSceneNode.h" />
@@ -549,12 +552,19 @@
     <ClInclude Include="lzma\LzFindMt.h" />
     <ClInclude Include="lzma\LzHash.h" />
     <ClInclude Include="lzma\Threads.h" />
+    <ClInclude Include="aesGladman\aestab.h" />
+    <ClInclude Include="aesGladman\aes_ni.h" />
+    <ClInclude Include="aesGladman\brg_endian.h" />
+    <ClInclude Include="aesGladman\brg_types.h" />
+    <ClInclude Include="lzma\Alloc.h" />
+    <ClInclude Include="lzma\LzmaLib.h" />
+    <ClInclude Include="..\..\include\CForsythVertexCacheOptimizer.h" />
+    <ClInclude Include="COverdrawMeshOptimizer.h" />
+    <ClInclude Include="..\..\include\matrix3x4SIMD.h" />
+    <ClInclude Include="COpenGLVAOSpec.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="Irrlicht.rc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\changes.txt" />

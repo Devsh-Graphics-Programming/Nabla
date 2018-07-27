@@ -57,7 +57,7 @@ class ITextureBufferObject : public IVirtualTexture
             ETBOF_COUNT
         };
 
-        virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_BUFFER_OBJECT;}
+        virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_BUFFER_OBJECT;}
 
         // Use ETBOF_COUNT to keep current format
         virtual bool bind(IGPUBuffer* buffer, E_TEXURE_BUFFER_OBJECT_FORMAT format=ETBOF_COUNT, const size_t& offset=0, const size_t& length=0) = 0;

@@ -246,19 +246,32 @@ int main()
             }
         }
 
-        //instancePosBuf = driver->createGPUBuffer(sizeof(core::vector3df)*kHardwareInstancesTOTAL,instancePositions,true);
-        instancePosBuf = driver->createPersistentlyMappedBuffer(sizeof(core::vector3df)*kHardwareInstancesTOTAL,instancePositions,EGBA_WRITE,false,false);
-        void* ptr;
-        GLuint handle;
-        {
-            COpenGLBuffer* bufGL = dynamic_cast<COpenGLBuffer*>(instancePosBuf);
-            handle = bufGL->getOpenGLName();
-            COpenGLExtensionHandler::extGlUnmapNamedBuffer(handle);
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.size = sizeof(core::vector3df)*kHardwareInstancesTOTAL;
+        reqs.vulkanReqs.alignment = 4;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
 
-            ptr = COpenGLExtensionHandler::extGlMapNamedBufferRange(handle,0,instancePosBuf->getSize(),GL_MAP_WRITE_BIT|GL_MAP_PERSISTENT_BIT|GL_MAP_FLUSH_EXPLICIT_BIT);
+        GLuint handle;
+        /*
+        {
+            reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+            instancePosBuf = driver->createGPUBufferOnDedMem(reqs,true);
+            instancePosBuf->updateSubRange(0,reqs.vulkanReqs.size,instancePositions);
+        }*/
+        {
+            reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE;
+            instancePosBuf = driver->createGPUBufferOnDedMem(reqs,false);
+            instancePosBuf->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE,video::IDriverMemoryAllocation::MemoryRange(0,instancePosBuf->getSize()));
+            {
+                COpenGLBuffer* bufGL = static_cast<COpenGLBuffer*>(instancePosBuf);
+                handle = bufGL->getOpenGLName();
+            }
+            gpumesh->getMeshBuffer(0)->getMeshDataAndFormat()->mapVertexAttrBuffer(instancePosBuf,scene::EVAI_ATTR2,scene::ECPA_THREE,scene::ECT_FLOAT,12,0,1);
+            instancePosBuf->drop();
         }
-        gpumesh->getMeshBuffer(0)->getMeshDataAndFormat()->mapVertexAttrBuffer(instancePosBuf,scene::EVAI_ATTR2,scene::ECPA_THREE,scene::ECT_FLOAT,12,0,1);
-        instancePosBuf->drop();
 
         //set instance count on mesh
         gpumesh->getMeshBuffer(0)->setInstanceCount(kHardwareInstancesTOTAL);
@@ -291,7 +304,7 @@ int main()
 		///case 0:
 		//instancePosBuf->updateSubRange(0,instancePosBuf->getSize(),instanceNewPositions);
 		///case 1:
-        memcpy(ptr,instanceNewPositions,instancePosBuf->getSize());
+        memcpy(instancePosBuf->getBoundMemory()->getMappedPointer(),instanceNewPositions,instancePosBuf->getSize());
         COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(handle,0,instancePosBuf->getSize());
 
         //! This animates (moves) the camera and sets the transforms
@@ -316,7 +329,7 @@ int main()
 			lastFPSTime = time;
 		}
 	}
-    COpenGLExtensionHandler::extGlUnmapNamedBuffer(handle);
+    instancePosBuf->getBoundMemory()->unmapMemory();
 
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);

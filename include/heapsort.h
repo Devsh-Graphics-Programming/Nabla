@@ -6,6 +6,7 @@
 #define __IRR_HEAPSORT_H_INCLUDED__
 
 #include "irrTypes.h"
+#include "irrMacros.h"
 
 namespace irr
 {

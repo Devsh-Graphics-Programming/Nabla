@@ -10,6 +10,7 @@
 #include "irrArray.h"
 #include "ITexture.h"
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include "ISkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
 #include "os.h"
@@ -70,7 +71,7 @@ namespace irr {namespace scene {
 	void CBAWMeshWriter::exportAsBlob<video::IVirtualTexture>(video::IVirtualTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
 	{
 		video::ITexture* tex;
-		if (!(tex = dynamic_cast<video::ITexture*>(_obj)))
+		if (!(tex = dynamic_cast<video::ITexture*>(_obj))) // can we static_cast please?
 			return pushCorruptedOffset(_ctx);
 
 		const io::path fileDir = _ctx.props->relPath.size() ? _ctx.props->relPath : io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get relative-file's directory
@@ -228,7 +229,7 @@ namespace irr {namespace scene {
 			// no need to add to `countedObjects` set since there's only one bone hierarchy
 		}
 
-		std::set<const IReferenceCounted*> countedObjects;
+		std::unordered_set<const IReferenceCounted*> countedObjects;
 		for (uint32_t i = 0; i < _mesh->getMeshBufferCount(); ++i)
 		{
 			const ICPUMeshBuffer* const meshBuffer = _mesh->getMeshBuffer(i);
@@ -311,6 +312,10 @@ namespace irr {namespace scene {
 		if (!_data)
 			return pushCorruptedOffset(_ctx);
 
+#ifndef _IRR_COMPILE_WITH_OPENSSL_
+		_encrypt = false;
+#endif // _IRR_COMPILE_WITH_OPENSSL_
+
 		uint8_t stack[1u<<14];
 
 		size_t compressedSize = _size;
@@ -337,7 +342,7 @@ namespace irr {namespace scene {
 			memset(((uint8_t*)in) + (compressedSize-16), 0, 16);
 			memcpy(in, data, compressedSize);
 			void* out = malloc(encrSize);
-			if (core::runAes128gcm(data, encrSize, out, encrSize, _ctx.props->encryptionPassPhrase, _ctx.props->initializationVector, true))
+			if (core::encAes128gcm(data, encrSize, out, encrSize, _ctx.props->encryptionPassPhrase, _ctx.props->initializationVector, _ctx.headers[_headerIdx].gcmTag))
 			{
 				if (data != _data && data != stack) // allocated in compressing functions?
 					free(data);

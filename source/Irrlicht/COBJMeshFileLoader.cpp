@@ -14,6 +14,30 @@
 #include "coreutil.h"
 #include "os.h"
 
+/*
+namespace std
+{
+    template <>
+    struct hash<irr::scene::SObjVertex>
+    {
+        std::size_t operator()(const irr::scene::SObjVertex& k) const
+        {
+            using std::size_t;
+            using std::hash;
+
+            return hash(k.normal32bit)^
+                    (reinterpret_cast<const uint32_t&>(k.pos[0])*4996156539000000107ull)^
+                    (reinterpret_cast<const uint32_t&>(k.pos[1])*620612627000000023ull)^
+                    (reinterpret_cast<const uint32_t&>(k.pos[2])*1231379668000000199ull)^
+                    (reinterpret_cast<const uint32_t&>(k.uv[0])*1099543332000000001ull)^
+                    (reinterpret_cast<const uint32_t&>(k.uv[1])*1123461104000000009ull);
+        }
+    };
+
+}
+*/
+
+
 namespace irr
 {
 namespace scene
@@ -547,8 +571,11 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
         }
 		else if (type==1)
 		{
-			if (newTexture)
-				SceneManager->getVideoDriver()->makeNormalMapTexture(texture, bumpiness);
+#ifdef _DEBUG
+            os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
+#endif // _DEBUG
+			///if (newTexture)
+				///SceneManager->getVideoDriver()->makeNormalMapTexture(texture, bumpiness);
 			currMaterial->Material.setTexture(1, texture);
 			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;

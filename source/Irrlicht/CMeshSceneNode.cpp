@@ -147,7 +147,7 @@ void CMeshSceneNode::render()
                 if (transparent == isTransparentPass)
                 {
                     driver->setMaterial(material);
-                    driver->drawMeshBuffer(mb, (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+                    driver->drawMeshBuffer(mb);
                 }
             }
         }
@@ -161,21 +161,6 @@ void CMeshSceneNode::render()
 		video::SMaterial m;
 		driver->setMaterial(m);
 
-		if (DebugDataVisible & scene::EDS_BBOX)
-		{
-            Box = Mesh->getBoundingBox();
-			driver->draw3DBox(Box, video::SColor(255,255,255,255));
-		}
-		if (DebugDataVisible & scene::EDS_BBOX_BUFFERS)
-		{
-			for (uint32_t g=0; g<Mesh->getMeshBufferCount(); ++g)
-			{
-				driver->draw3DBox(
-					Mesh->getMeshBuffer(g)->getBoundingBox(),
-					video::SColor(255,190,128,128));
-			}
-		}
-
 		// show mesh
 		if (DebugDataVisible & scene::EDS_MESH_WIRE_OVERLAY)
 		{
@@ -184,7 +169,7 @@ void CMeshSceneNode::render()
 
 			for (uint32_t g=0; g<Mesh->getMeshBufferCount(); ++g)
 			{
-				driver->drawMeshBuffer(Mesh->getMeshBuffer(g), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+				driver->drawMeshBuffer(Mesh->getMeshBuffer(g));
 			}
 		}
 	}

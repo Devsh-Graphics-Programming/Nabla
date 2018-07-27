@@ -44,10 +44,8 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
     int32_t mvpUniformLocation;
     int32_t cameraDirUniformLocation;
-    int32_t texUniformLocation[4];
     video::E_SHADER_CONSTANT_TYPE mvpUniformType;
     video::E_SHADER_CONSTANT_TYPE cameraDirUniformType;
-    video::E_SHADER_CONSTANT_TYPE texUniformType[4];
 public:
     SimpleCallBack() : cameraDirUniformLocation(-1), cameraDirUniformType(video::ESCT_FLOAT_VEC3) {}
 
@@ -65,16 +63,6 @@ public:
                 cameraDirUniformLocation = constants[i].location;
                 cameraDirUniformType = constants[i].type;
             }
-            else if (constants[i].name=="tex0")
-            {
-                texUniformLocation[0] = constants[i].location;
-                texUniformType[0] = constants[i].type;
-            }
-            else if (constants[i].name=="tex3")
-            {
-                texUniformLocation[3] = constants[i].location;
-                texUniformType[3] = constants[i].type;
-            }
         }
     }
 
@@ -87,11 +75,6 @@ public:
         if (mvpUniformLocation!=-1)
             services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
 
-        int32_t id[] = {0,1,2,3};
-        if (texUniformLocation[0]!=-1)
-            services->setShaderTextures(id+0,texUniformLocation[0],texUniformType[0],1);
-        if (texUniformLocation[3]!=-1)
-            services->setShaderTextures(id+3,texUniformLocation[3],texUniformType[3],1);
     }
 
     virtual void OnUnsetMaterial() {}
@@ -110,14 +93,9 @@ public:
         Shader Unigorms get saved as Program (Shader state)
         So we can perma-assign texture slots to sampler uniforms
         **/
-        int32_t id[] = {0,1,2,3};
         for (size_t i=0; i<constants.size(); i++)
         {
-            if (constants[i].name=="tex0")
-                services->setShaderTextures(id+0,constants[i].location,constants[i].type,1);
-            else if (constants[i].name=="tex1")
-                services->setShaderTextures(id+1,constants[i].location,constants[i].type,1);
-            else if (constants[i].name=="sampleCount")
+            if (constants[i].name=="sampleCount")
             {
                 sampleCountUniformLocation = constants[i].location;
                 sampleCountUniformType = constants[i].type;
@@ -155,18 +133,8 @@ int main()
     if (numberOfSamples<=1)
         numberOfSamples = 2;
 
-	printf("\nPlease select the MSAA FBO attachment type to use:\n");
-	printf(" (0 : default) Use Texture\n");
-	printf(" (1) Use Renderbuffer\n");
-
-	bool useRenderbuffer = false;
-	uint32_t c;
-	std::cin >> c;
-	if (c==1)
-        useRenderbuffer = true;
-
     //You may find while experimenting that you can only create a texture with 8 samples but renderbuffer with 32 !
-    printf("\nUsing %s with %d samples.\n",useRenderbuffer ? "Renderbuffer":"Texture",numberOfSamples);
+    printf("\nUsing %d samples.\n",numberOfSamples);
 
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
@@ -219,8 +187,7 @@ int main()
     if (cpumesh&&cpumesh->getMeshType()==scene::EMT_ANIMATED_SKINNED)
     {
         scene::ISkinnedMeshSceneNode* anode = 0;
-        scene::ICPUSkinnedMesh* animMesh = dynamic_cast<scene::ICPUSkinnedMesh*>(cpumesh);
-        scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(cpumesh);
+        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
         smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
 
         for (size_t x=0; x<kInstanceSquareSize; x++)
@@ -238,19 +205,10 @@ int main()
     }
 
     //! We use a renderbuffer because we don't intend on reading from it
-    video::IRenderBuffer* colorRB=NULL,* depthRB=NULL;
     video::IMultisampleTexture* colorMT=NULL,* depthMT=NULL;
     scene::IGPUMeshBuffer* screenQuadMeshBuffer=NULL;
     video::SMaterial postProcMaterial;
     video::IFrameBuffer* framebuffer = driver->addFrameBuffer();
-    if (useRenderbuffer)
-    {
-        colorRB = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_A8R8G8B8);
-        depthRB = driver->addMultisampleRenderBuffer(numberOfSamples,params.WindowSize,video::ECF_DEPTH32F);
-        framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorRB);
-        framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depthRB);
-    }
-    else
     {
         colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_A8R8G8B8);
         depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_DEPTH32F);
@@ -289,11 +247,18 @@ int main()
 
         uint16_t indices_indexed16[] = {0,1,2,2,1,3};
 
-        void* tmpMem = malloc(sizeof(vertices)+sizeof(indices_indexed16));
-        memcpy(tmpMem,vertices,sizeof(vertices));
-        memcpy(tmpMem+sizeof(vertices),indices_indexed16,sizeof(indices_indexed16));
-        video::IGPUBuffer* buff = driver->createGPUBuffer(sizeof(vertices)+sizeof(indices_indexed16),tmpMem);
-        free(tmpMem);
+
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.size = sizeof(vertices)+sizeof(indices_indexed16);
+        reqs.vulkanReqs.alignment = 4;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
+        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
+        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
 
         desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(ScreenQuadVertexStruct),0);
         desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
@@ -342,12 +307,11 @@ int main()
         glDisable(GL_MULTISAMPLE);
 
         /**
-        We could use the same codepath for MultisampleTextures as for Renderbuffers,
-        since blit works on FBOs it would work here to as a resolve.
+        We could use blit, since works on FBOs it would work here to as a resolve.
 
         But instead we show off programmable resolve with a shader.
         **/
-        if (useRenderbuffer)
+        if (false)
         {
             //notice how I dont even have to set the current FBO (render target) to 0 (the screen) for results to display
             const bool needToCopyDepth = false;
@@ -375,18 +339,10 @@ int main()
 	}
 
 	driver->removeFrameBuffer(framebuffer);
-	if (useRenderbuffer)
-    {
-        driver->removeRenderBuffer(colorRB);
-        driver->removeRenderBuffer(depthRB);
-    }
-    else
-    {
-        driver->removeMultisampleTexture(colorMT);
-        driver->removeMultisampleTexture(depthMT);
+    driver->removeMultisampleTexture(colorMT);
+    driver->removeMultisampleTexture(depthMT);
 
-        screenQuadMeshBuffer->drop();
-    }
+    screenQuadMeshBuffer->drop();
 
     for (size_t x=0; x<kInstanceSquareSize; x++)
     for (size_t z=0; z<kInstanceSquareSize; z++)

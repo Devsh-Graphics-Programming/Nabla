@@ -70,7 +70,7 @@ void CCubeSceneNode::render()
         video::SMaterial mat = Mesh->getMeshBuffer(0)->getMaterial();
 
         driver->setMaterial(mat);
-        driver->drawMeshBuffer(Mesh->getMeshBuffer(0), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+        driver->drawMeshBuffer(Mesh->getMeshBuffer(0));
     }
     else if (DebugDataVisible)
         driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
@@ -81,23 +81,13 @@ void CCubeSceneNode::render()
 		video::SMaterial m;
 		driver->setMaterial(m);
 
-		if (DebugDataVisible & scene::EDS_BBOX)
-		{
-			driver->draw3DBox(Mesh->getMeshBuffer(0)->getBoundingBox(), video::SColor(255,255,255,255));
-		}
-		if (DebugDataVisible & scene::EDS_BBOX_BUFFERS)
-		{
-			driver->draw3DBox(Mesh->getMeshBuffer(0)->getBoundingBox(),
-					video::SColor(255,190,128,128));
-		}
-
 		// show mesh
 		if (DebugDataVisible & scene::EDS_MESH_WIRE_OVERLAY)
 		{
 			m.Wireframe = true;
 			driver->setMaterial(m);
 
-			driver->drawMeshBuffer(Mesh->getMeshBuffer(0), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+			driver->drawMeshBuffer(Mesh->getMeshBuffer(0));
 		}
 	}
 }

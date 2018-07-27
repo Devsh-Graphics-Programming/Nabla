@@ -7,6 +7,7 @@
 
 #include "stdint.h"
 #include "IReferenceCounted.h"
+#include "IThreadBound.h"
 
 namespace irr
 {
@@ -16,7 +17,7 @@ namespace video
 class IGPUBuffer;
 
 
-class ITransformFeedback : public virtual IReferenceCounted
+class ITransformFeedback : public virtual IReferenceCounted, public core::IThreadBound
 {
     public:
         ITransformFeedback() : active(false) {}
@@ -27,7 +28,7 @@ class ITransformFeedback : public virtual IReferenceCounted
 
         virtual const IGPUBuffer* getOutputBuffer(const size_t &ix) const = 0;
 
-        virtual const size_t getOutputBufferOffset(const size_t &ix) const = 0;
+        virtual size_t getOutputBufferOffset(const size_t &ix) const = 0;
 
         //! Will not take place until material is set which matches
 		virtual void pauseTransformFeedback() = 0;

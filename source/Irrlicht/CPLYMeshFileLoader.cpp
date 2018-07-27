@@ -5,6 +5,8 @@
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 
+#include <numeric>
+
 #include "CPLYMeshFileLoader.h"
 #include "IMeshManipulator.h"
 #include "SMesh.h"
@@ -53,7 +55,7 @@ bool CPLYMeshFileLoader::isALoadableFileExtension(const io::path& filename) cons
 
 
 //! creates/loads an animated mesh from the file.
-IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
+ICPUMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 {
 	if (!file)
 		return 0;
@@ -70,7 +72,7 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 	}
 
 	// start with empty mesh
-	SAnimatedMesh* animMesh = 0;
+    SCPUMesh* mesh = nullptr;
 	uint32_t vertCount=0;
 
 	// Currently only supports ASCII meshes
@@ -83,7 +85,7 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 		// cut the next line out
 		getNextLine();
 		// grab the word from this line
-		int8_t *word = getNextWord();
+		char *word = getNextWord();
 
 		// ignore comments
 		while (strcmp(word, "comment") == 0)
@@ -223,9 +225,13 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 		if (continueReading)
 		{
 			// create a mesh buffer
-			CDynamicMeshBuffer *mb = new CDynamicMeshBuffer(video::EVT_STANDARD, vertCount > 65565 ? video::EIT_32BIT : video::EIT_16BIT);
-			mb->getVertexBuffer().reallocate(vertCount);
-			mb->getIndexBuffer().reallocate(vertCount);
+            ICPUMeshBuffer *mb = new ICPUMeshBuffer();
+            auto desc = new ICPUMeshDataFormatDesc();
+            mb->setMeshDataAndFormat(desc);
+            desc->drop();
+
+            std::vector<core::vectorSIMDf> attribs[4];
+            std::vector<uint32_t> indices;
 
 			bool hasNormals=true;
 			// loop through each of the elements
@@ -236,13 +242,13 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 				{
 					// loop through vertex properties
 					for (uint32_t j=0; j < ElementList[i]->Count; ++j)
-						hasNormals &= readVertex(*ElementList[i], mb);
+						hasNormals &= readVertex(*ElementList[i], attribs);
 				}
 				else if (ElementList[i]->Name == "face")
 				{
 					// read faces
 					for (uint32_t j=0; j < ElementList[i]->Count; ++j)
-						readFace(*ElementList[i], mb);
+						readFace(*ElementList[i], indices);
 				}
 				else
 				{
@@ -251,106 +257,148 @@ IAnimatedMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 						skipElement(*ElementList[i]);
 				}
 			}
+
+            if (!genVertBuffersForMBuffer(mb, attribs))
+            {
+                mb->drop();
+                delete [] Buffer;
+                Buffer = nullptr;
+                File->drop();
+                File = nullptr;
+                return nullptr;
+            }
+            if (indices.size())
+            {
+                core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * indices.size());
+                memcpy(idxBuf->getPointer(), indices.data(), idxBuf->getSize());
+                desc->mapIndexBuffer(idxBuf);
+                idxBuf->drop();
+                mb->setIndexCount(indices.size());
+                mb->setIndexType(video::EIT_32BIT);
+                mb->setPrimitiveType(EPT_TRIANGLES);
+            }
+            else
+            {
+                mb->setPrimitiveType(EPT_POINTS);
+                mb->setIndexCount(attribs[E_POS].size());
+                //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
+            }
+
+            mesh = new SCPUMesh();
+
 			mb->recalculateBoundingBox();
-			if (!hasNormals)
-				SceneManager->getMeshManipulator()->recalculateNormals(mb);
-			SMesh* m = new SMesh();
-			m->addMeshBuffer(mb);
-			m->recalculateBoundingBox();
+			//if (!hasNormals)
+			//	SceneManager->getMeshManipulator()->recalculateNormals(mb);
+			mesh->addMeshBuffer(mb);
+			mesh->recalculateBoundingBox();
 			mb->drop();
-			animMesh = new SAnimatedMesh();
-			animMesh->addMesh(m);
-			animMesh->recalculateBoundingBox();
-			m->drop();
 		}
 	}
 
 
 	// free the buffer
 	delete [] Buffer;
-	Buffer = 0;
+	Buffer = nullptr;
 	File->drop();
-	File = 0;
+    File = nullptr;
 
 	// if we managed to create a mesh, return it
-	return animMesh;
+	return mesh;
 }
 
 
-bool CPLYMeshFileLoader::readVertex(const SPLYElement &Element, scene::CDynamicMeshBuffer* mb)
+bool CPLYMeshFileLoader::readVertex(const SPLYElement &Element, std::vector<core::vectorSIMDf> _outAttribs[4])
 {
 	if (!IsBinaryFile)
 		getNextLine();
 
-	video::S3DVertex vert;
-	vert.Color.set(255,255,255,255);
-	vert.TCoords.X = 0.0f;
-	vert.TCoords.Y = 0.0f;
-	vert.Normal.X = 0.0f;
-	vert.Normal.Y = 1.0f;
-	vert.Normal.Z = 0.0f;
+    std::pair<bool, core::vectorSIMDf> attribs[4];
+    attribs[E_COL].second.W = 1.f;
+    attribs[E_NORM].second.Y = 1.f;
 
 	bool result=false;
 	for (uint32_t i=0; i < Element.Properties.size(); ++i)
 	{
 		E_PLY_PROPERTY_TYPE t = Element.Properties[i].Type;
 
-		if (Element.Properties[i].Name == "x")
-			vert.Pos.X = getFloat(t);
-		else if (Element.Properties[i].Name == "y")
-			vert.Pos.Z = getFloat(t);
-		else if (Element.Properties[i].Name == "z")
-			vert.Pos.Y = getFloat(t);
+        if (Element.Properties[i].Name == "x")
+        {
+            attribs[E_POS].second.X = getFloat(t);
+            attribs[E_POS].first = true;
+        }
+        else if (Element.Properties[i].Name == "y")
+        {
+            attribs[E_POS].second.Y = getFloat(t);
+            attribs[E_POS].first = true;
+        }
+        else if (Element.Properties[i].Name == "z")
+        {
+            attribs[E_POS].second.Z = getFloat(t);
+            attribs[E_POS].first = true;
+        }
 		else if (Element.Properties[i].Name == "nx")
 		{
-			vert.Normal.X = getFloat(t);
-			result=true;
+			attribs[E_NORM].second.X = getFloat(t);
+			attribs[E_NORM].first = result=true;
 		}
 		else if (Element.Properties[i].Name == "ny")
 		{
-			vert.Normal.Z = getFloat(t);
-			result=true;
+			attribs[E_NORM].second.Y = getFloat(t);
+            attribs[E_NORM].first = result=true;
 		}
 		else if (Element.Properties[i].Name == "nz")
 		{
-			vert.Normal.Y = getFloat(t);
-			result=true;
+			attribs[E_NORM].second.Z = getFloat(t);
+            attribs[E_NORM].first = result=true;
 		}
-		else if (Element.Properties[i].Name == "u")
-			vert.TCoords.X = getFloat(t);
-		else if (Element.Properties[i].Name == "v")
-			vert.TCoords.Y = getFloat(t);
+        // there isn't a single convention for the UV, some softwares like Blender or Assimp use "st" instead of "uv"
+        else if (Element.Properties[i].Name == "u" || Element.Properties[i].Name == "s")
+        {
+            attribs[E_UV].second.X = getFloat(t);
+            attribs[E_UV].first = true;
+        }
+        else if (Element.Properties[i].Name == "v" || Element.Properties[i].Name == "t")
+        {
+            attribs[E_UV].second.Y = getFloat(t);
+            attribs[E_UV].first = true;
+        }
 		else if (Element.Properties[i].Name == "red")
 		{
-			uint32_t value = Element.Properties[i].isFloat() ? (uint32_t)(getFloat(t)*255.0f) : getInt(t);
-			vert.Color.setRed(value);
+			float value = Element.Properties[i].isFloat() ? getFloat(t) : float(getInt(t))/255.f;
+			attribs[E_COL].second.X = value;
+            attribs[E_COL].first = true;
 		}
 		else if (Element.Properties[i].Name == "green")
 		{
-			uint32_t value = Element.Properties[i].isFloat() ? (uint32_t)(getFloat(t)*255.0f) : getInt(t);
-			vert.Color.setGreen(value);
+			float value = Element.Properties[i].isFloat() ? getFloat(t) : float(getInt(t))/255.f;
+			attribs[E_COL].second.Y = value;
+            attribs[E_COL].first = true;
 		}
 		else if (Element.Properties[i].Name == "blue")
 		{
-			uint32_t value = Element.Properties[i].isFloat() ? (uint32_t)(getFloat(t)*255.0f) : getInt(t);
-			vert.Color.setBlue(value);
+			float value = Element.Properties[i].isFloat() ? getFloat(t) : float(getInt(t))/255.f;
+			attribs[E_COL].second.Z = value;
+            attribs[E_COL].first = true;
 		}
 		else if (Element.Properties[i].Name == "alpha")
 		{
-			uint32_t value = Element.Properties[i].isFloat() ? (uint32_t)(getFloat(t)*255.0f) : getInt(t);
-			vert.Color.setAlpha(value);
+			float value = Element.Properties[i].isFloat() ? getFloat(t) : float(getInt(t))/255.f;
+			attribs[E_COL].second.W = value;
+            attribs[E_COL].first = true;
 		}
 		else
 			skipProperty(Element.Properties[i]);
 	}
 
-	mb->getVertexBuffer().push_back(vert);
+    for(size_t i = 0u; i < 4u; ++i)
+        if (attribs[i].first)
+            _outAttribs[i].push_back(attribs[i].second);
 
 	return result;
 }
 
 
-bool CPLYMeshFileLoader::readFace(const SPLYElement &Element, scene::CDynamicMeshBuffer* mb)
+bool CPLYMeshFileLoader::readFace(const SPLYElement &Element, std::vector<uint32_t>& _outIndices)
 {
 	if (!IsBinaryFile)
 		getNextLine();
@@ -360,24 +408,25 @@ bool CPLYMeshFileLoader::readFace(const SPLYElement &Element, scene::CDynamicMes
 		if ( (Element.Properties[i].Name == "vertex_indices" ||
 			Element.Properties[i].Name == "vertex_index") && Element.Properties[i].Type == EPLYPT_LIST)
 		{
-			// get count
 			int32_t count = getInt(Element.Properties[i].Data.List.CountType);
+            //_IRR_DEBUG_BREAK_IF(count != 3)
+
 			uint32_t a = getInt(Element.Properties[i].Data.List.ItemType),
 				b = getInt(Element.Properties[i].Data.List.ItemType),
 				c = getInt(Element.Properties[i].Data.List.ItemType);
 			int32_t j = 3;
 
-			mb->getIndexBuffer().push_back(a);
-			mb->getIndexBuffer().push_back(c);
-			mb->getIndexBuffer().push_back(b);
+			_outIndices.push_back(a);
+			_outIndices.push_back(b);
+			_outIndices.push_back(c);
 
 			for (; j < count; ++j)
 			{
 				b = c;
 				c = getInt(Element.Properties[i].Data.List.ItemType);
-				mb->getIndexBuffer().push_back(a);
-				mb->getIndexBuffer().push_back(c);
-				mb->getIndexBuffer().push_back(b);
+				_outIndices.push_back(a);
+				_outIndices.push_back(c);
+				_outIndices.push_back(b);
 			}
 		}
 		else if (Element.Properties[i].Name == "intensity")
@@ -433,7 +482,7 @@ bool CPLYMeshFileLoader::allocateBuffer()
 	ElementList.clear();
 
 	if (!Buffer)
-		Buffer = new int8_t[PLY_INPUT_BUFFER_SIZE];
+		Buffer = new char[PLY_INPUT_BUFFER_SIZE];
 
 	// not enough memory?
 	if (!Buffer)
@@ -507,8 +556,70 @@ void CPLYMeshFileLoader::moveForward(uint32_t bytes)
 		StartPointer = EndPointer;
 }
 
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const std::vector<core::vectorSIMDf> _attribs[4]) const
+{
+    {
+    size_t check = _attribs[0].size();
+    for (size_t i = 1u; i < 4u; ++i)
+    {
+        if (_attribs[i].size() != 0u && _attribs[i].size() != check)
+            return false;
+        else if (_attribs[i].size() != 0u)
+            check = _attribs[i].size();
+    }
+    }
+    auto putAttr = [&_attribs](ICPUMeshBuffer* _buf, size_t _attr, E_VERTEX_ATTRIBUTE_ID _vaid)
+    {
+        size_t i = 0u;
+        for (const core::vectorSIMDf& v : _attribs[_attr])
+            _buf->setAttribute(v, _vaid, i++);
+    };
 
-E_PLY_PROPERTY_TYPE CPLYMeshFileLoader::getPropertyType(const int8_t* typeString) const
+    size_t sizes[4];
+    sizes[E_POS] = !_attribs[E_POS].empty() * 3 * sizeof(float);
+    sizes[E_COL] = !_attribs[E_COL].empty() * 4 * sizeof(float);
+    sizes[E_UV] = !_attribs[E_UV].empty() * 2 * sizeof(float);
+    sizes[E_NORM] = !_attribs[E_NORM].empty() * 3 * sizeof(float);
+
+    size_t offsets[4]{ 0u };
+    for (size_t i = 1u; i < 4u; ++i)
+        offsets[i] = offsets[i-1] + sizes[i-1];
+
+    const size_t stride = std::accumulate(sizes, sizes+4, 0u);
+
+    core::ICPUBuffer* buf = new core::ICPUBuffer(_attribs[E_POS].size() * stride);
+
+    auto desc = _mbuf->getMeshDataAndFormat();
+    if (sizes[E_POS])
+        desc->mapVertexAttrBuffer(buf, EVAI_ATTR0, ECPA_THREE, ECT_FLOAT, stride, offsets[E_POS]);
+    if (sizes[E_COL])
+        desc->mapVertexAttrBuffer(buf, EVAI_ATTR1, ECPA_FOUR, ECT_FLOAT, stride, offsets[E_COL]);
+    if (sizes[E_UV])
+        desc->mapVertexAttrBuffer(buf, EVAI_ATTR2, ECPA_TWO, ECT_FLOAT, stride, offsets[E_UV]);
+    if (sizes[E_NORM])
+        desc->mapVertexAttrBuffer(buf, EVAI_ATTR3, ECPA_THREE, ECT_FLOAT, stride, offsets[E_NORM]);
+    buf->drop();
+
+    E_VERTEX_ATTRIBUTE_ID vaids[4];
+    vaids[E_POS] = EVAI_ATTR0;
+    vaids[E_COL] = EVAI_ATTR1;
+    vaids[E_UV] = EVAI_ATTR2;
+    vaids[E_NORM] = EVAI_ATTR3;
+
+    for (size_t i = 0u; i < 4u; ++i)
+    {
+        if (sizes[i])
+            putAttr(_mbuf, i, vaids[i]);
+    }
+
+    float d[100];
+    memcpy(d, buf->getPointer(), 400);
+
+    return true;
+}
+
+
+E_PLY_PROPERTY_TYPE CPLYMeshFileLoader::getPropertyType(const char* typeString) const
 {
 	if (strcmp(typeString, "char") == 0 ||
 		strcmp(typeString, "uchar") == 0 ||
@@ -557,7 +668,7 @@ E_PLY_PROPERTY_TYPE CPLYMeshFileLoader::getPropertyType(const int8_t* typeString
 
 
 // Split the string data into a line in place by terminating it instead of copying.
-int8_t* CPLYMeshFileLoader::getNextLine()
+char* CPLYMeshFileLoader::getNextLine()
 {
 	// move the start pointer along
 	StartPointer = LineEndPointer + 1;
@@ -570,7 +681,7 @@ int8_t* CPLYMeshFileLoader::getNextLine()
 	}
 
 	// begin at the start of the next line
-	int8_t* pos = StartPointer;
+	char* pos = StartPointer;
 	while (pos < EndPointer && *pos && *pos != '\r' && *pos != '\n')
 		++pos;
 
@@ -617,10 +728,12 @@ int8_t* CPLYMeshFileLoader::getNextLine()
 
 // null terminate the next word on the previous line and move the next word pointer along
 // since we already have a full line in the buffer, we never need to retrieve more data
-int8_t* CPLYMeshFileLoader::getNextWord()
+char* CPLYMeshFileLoader::getNextWord()
 {
 	// move the start pointer along
 	StartPointer += WordLength + 1;
+    if (!*StartPointer)
+        getNextLine();
 
 	if (StartPointer == LineEndPointer)
 	{
@@ -628,7 +741,7 @@ int8_t* CPLYMeshFileLoader::getNextWord()
 		return LineEndPointer;
 	}
 	// begin at the start of the next word
-	int8_t* pos = StartPointer;
+	char* pos = StartPointer;
 	while (*pos && pos < LineEndPointer && pos < EndPointer && *pos != ' ' && *pos != '\t')
 		++pos;
 
@@ -685,8 +798,12 @@ float CPLYMeshFileLoader::getFloat(E_PLY_PROPERTY_TYPE t)
 				StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT64:
-				// todo: byteswap 64-bit
-				retVal = float(*(reinterpret_cast<double*>(StartPointer)));
+                char tmp[8];
+                memcpy(tmp, StartPointer, 8);
+                if (IsWrongEndian)
+                    for (size_t i = 0u; i < 4u; ++i)
+                        std::swap(tmp[i], tmp[7u-i]);
+				retVal = float(*(reinterpret_cast<double*>(tmp)));
 				StartPointer += 8;
 				break;
 			case EPLYPT_LIST:
@@ -701,7 +818,7 @@ float CPLYMeshFileLoader::getFloat(E_PLY_PROPERTY_TYPE t)
 	}
 	else
 	{
-		int8_t* word = getNextWord();
+		char* word = getNextWord();
 		switch (t)
 		{
 		case EPLYPT_INT8:
@@ -719,6 +836,7 @@ float CPLYMeshFileLoader::getFloat(E_PLY_PROPERTY_TYPE t)
 			retVal = 0.0f;
 		}
 	}
+
 	return retVal;
 }
 
@@ -779,7 +897,7 @@ uint32_t CPLYMeshFileLoader::getInt(E_PLY_PROPERTY_TYPE t)
 	}
 	else
 	{
-		int8_t* word = getNextWord();
+		char* word = getNextWord();
 		switch (t)
 		{
 		case EPLYPT_INT8:

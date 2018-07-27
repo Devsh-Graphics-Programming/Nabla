@@ -145,6 +145,12 @@ namespace irr
 
             bool switchToFullscreen(bool reset=false);
 
+#ifdef _IRR_COMPILE_WITH_X11_
+            bool createInputContext();
+            void destroyInputContext();
+            EKEY_CODE getKeyCode(const uint32_t& xEventKey);
+#endif
+
             //! Implementation of the linux cursor control
             class CCursorControl : public gui::ICursorControl
             {
@@ -382,6 +388,8 @@ namespace irr
             XSetWindowAttributes attributes;
             XSizeHints* StdHints;
             XImage* SoftwareImage;
+            XIM XInputMethod;
+            XIC XInputContext;
             mutable core::stringc Clipboard;
             #ifdef _IRR_LINUX_X11_VIDMODE_
             XF86VidModeModeInfo oldVideoMode;
@@ -404,24 +412,7 @@ namespace irr
             bool ExternalWindow;
             int AutorepeatSupport;
 
-            struct SKeyMap
-            {
-                SKeyMap() {}
-                SKeyMap(int32_t x11, int32_t win32)
-                    : X11Key(x11), Win32Key(win32)
-                {
-                }
-
-                KeySym X11Key;
-                int32_t Win32Key;
-
-                bool operator<(const SKeyMap& o) const
-                {
-                    return X11Key<o.X11Key;
-                }
-            };
-
-            core::array<SKeyMap> KeyMap;
+            std::unordered_map<KeySym,int32_t> KeyMap;
 
     #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
             struct JoystickInfo

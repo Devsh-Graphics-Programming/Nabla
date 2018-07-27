@@ -778,16 +778,6 @@ REALINLINE void CBurningShader_Raster_Reference::scanline ()
 
 	if ( ShaderParam.RenderState [ BD3DRS_ZENABLE ] )
 	{
-		uint32_t condition;
-		switch ( ShaderParam.RenderState [ BD3DRS_ZFUNC ] )
-		{
-			case BD3DCMP_LESSEQUAL:
-				condition = a < pShader.z[pShader.i];
-				break;
-			case BD3DCMP_EQUAL:
-				condition = a != pShader.z[pShader.i];
-				break;
-		}
 		while ( a < pShader.z[pShader.i] )
 		{
 			a += b;

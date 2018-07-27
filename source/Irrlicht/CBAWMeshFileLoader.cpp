@@ -58,12 +58,12 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 
 	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{ {}, blobCnt }.calcBlobsOffset();
 
-	std::map<uint64_t, SBlobData>::iterator meshBlobDataIter;
+	std::unordered_map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
 	for (int i = 0; i < blobCnt; ++i)
 	{
 		SBlobData data(headers + i, BLOBS_FILE_OFFSET + offsets[i]);
-		const std::map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, data)).first;
+		const std::unordered_map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, data)).first;
 		if (data.header->blobType == core::Blob::EBT_MESH || data.header->blobType == core::Blob::EBT_SKINNED_MESH)
 			meshBlobDataIter = it;
 	}
@@ -89,8 +89,8 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 			return NULL;
 		}
 
-		std::set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
-		for (std::set<uint64_t>::iterator it = deps.begin(); it != deps.end(); ++it)
+		std::unordered_set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
+		for (std::unordered_set<uint64_t>::iterator it = deps.begin(); it != deps.end(); ++it)
 			if (ctx.createdObjs.find(*it) == ctx.createdObjs.end())
 				toLoad.push(&ctx.blobs[*it]);
 
@@ -185,7 +185,7 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 		if (offsets[i] >= offsets[i+1] || offsetRelByte + offsets[i] >= _ctx.file->getSize())
 			nope = true;
 
-	if (offsetRelByte + offsets[0] >= _ctx.file->getSize()) // in case there's only one blob and so previous loop did not run at all
+	if (offsetRelByte + offsets[*_blobCnt-1] >= _ctx.file->getSize()) // check the last offset
 		nope = true;
 
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether blobs are tightly packed (do not overlays each other and there's no space bewteen any pair)
@@ -235,17 +235,23 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 #ifdef _DEBUG
 		os::Printer::log("Blob validation failed!", ELL_ERROR);
 #endif
-		free(dstCompressed);
-		if (dst != _stackPtr && dst != dstCompressed)
-			free(dst);
+		if (compressed)
+		{
+			free(dstCompressed);
+			if (dst != _stackPtr)
+				free(dst);
+		}
+		else if (dst != _stackPtr)
+			free(dstCompressed);
 		return NULL;
 	}
 
 	if (encrypted)
 	{
+#ifdef _IRR_COMPILE_WITH_OPENSSL_
 		const size_t size = _data.header->effectiveSize();
 		void* out = malloc(size);
-		const bool ok = core::runAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, false);
+		const bool ok = core::decAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, _data.header->gcmTag);
 		if (dstCompressed != _stackPtr)
 			free(dstCompressed);
 		if (!ok)
@@ -256,10 +262,22 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 #ifdef _DEBUG
 			os::Printer::log("Blob decryption failed!", ELL_ERROR);
 #endif
+			return NULL;
 		}
 		dstCompressed = out;
 		if (!compressed)
 			dst = dstCompressed;
+#else
+		if (compressed)
+		{
+			free(dstCompressed);
+			if (dst != _stackPtr)
+				free(dst);
+		}
+		else if (dst != _stackPtr)
+			free(dstCompressed);
+		return NULL;
+#endif
 	}
 
 	if (compressed)

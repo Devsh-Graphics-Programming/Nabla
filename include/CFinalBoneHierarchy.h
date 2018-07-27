@@ -5,17 +5,19 @@
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <functional>
+#include <unordered_set>
 #include "ISkinnedMesh.h"
-#include "IGPUMappedBuffer.h"
+#include "IGPUBuffer.h"
 #include "quaternion.h"
 #include "irrString.h"
 #include "CBAWFile.h"
+#include "matrix3x4SIMD.h"
 
 namespace irr
 {
 namespace scene
 {
-
     //! If it has no animation, make 1 frame of animation with LocalMatrix
     class CFinalBoneHierarchy : public IReferenceCounted, public core::BlobSerializable
     {
@@ -218,7 +220,7 @@ namespace scene
                     return;
                 else if (buffer->isMappedBuffer())
                 {
-                    if (!dynamic_cast<video::IGPUMappedBuffer*>(buffer)->getPointer())
+                    if (!static_cast<video::IGPUMappedBuffer*>(buffer)->getPointer())
                         return;
                 }
                 else if (!buffer->canUpdateSubRange())
@@ -230,34 +232,37 @@ namespace scene
                 boundBuffer = buffer;
 
                 if (buffer->isMappedBuffer())
-                    memcpy(reinterpret_cast<uint8_t*>(dynamic_cast<video::IGPUMappedBuffer*>(buffer)->getPointer())+byteOffset,boneFlatArray,boneDataSize);
+                    memcpy(reinterpret_cast<uint8_t*>(static_cast<video::IGPUMappedBuffer*>(buffer)->getPointer())+byteOffset,boneFlatArray,boneDataSize);
                 else
                     buffer->updateSubRange(byteOffset,boneDataSize,boneFlatArray);
             }
 **/
 
 
-            inline size_t getLowerBoundBoneKeyframes(float& interpolationFactor, const float& frame) const
+            inline size_t getLowerBoundBoneKeyframes(float& interpolationFactor, const float& frame, const float* found) const
             {
-
-                size_t foundFrameIx = std::lower_bound(keyframes,keyframes+keyframeCount,frame)-keyframes;
-
-                if (foundFrameIx)
-                {
-                    if (foundFrameIx==keyframeCount)
-                    {
-                        interpolationFactor = 1.f;
-                        foundFrameIx--;
-                    }
-                    else//interpolationFactor will always be >0.f
-                        interpolationFactor = (frame-keyframes[foundFrameIx-1])/(keyframes[foundFrameIx]-keyframes[foundFrameIx-1]); //! never a divide by zero, asserts make sure!!!
-                }
-                else
+                if (found==keyframes) //first or before start
                 {
                     interpolationFactor = 1.f;
+                    return 0;
                 }
+                else if (found==keyframes+keyframeCount) //last or after start
+                {
+                    interpolationFactor = 1.f;
+                    return keyframeCount-1;
+                }
+                //else
 
-                return foundFrameIx;
+                //interpolationFactor will always be >0.f
+                float prevKeyframe = *(found-1);
+                interpolationFactor = (frame-prevKeyframe)/(*found-prevKeyframe); //! never a divide by zero, asserts make sure!!!
+                return found-keyframes;
+            }
+
+            inline size_t getLowerBoundBoneKeyframes(float& interpolationFactor, const float& frame) const
+            {
+                const float* found = std::lower_bound(keyframes,keyframes+keyframeCount,frame);
+                return getLowerBoundBoneKeyframes(interpolationFactor, frame, found);
             }
 
             inline size_t getLowerBoundBoneKeyframes(const float& frame) const
@@ -272,50 +277,231 @@ namespace scene
 
 
             //interpolant of 1 means full B
-            static inline core::matrix4x3 getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3)
+            static inline void getMatrixFromKeys(core::vectorSIMDf& outPos, core::quaternion& outQuat, core::vectorSIMDf& outScale,
+                                                 const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB,
+                                                 const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3)
             {
-                core::matrix4x3 outMatrix;
-
                 core::vectorSIMDf tmpPosA(keyframeA.Position);
                 core::vectorSIMDf tmpPosB(keyframeB.Position);
-                core::vectorSIMDf tmpPos = (tmpPosB-tmpPosA)*interpolant+tmpPosA;
+                outPos = (tmpPosB-tmpPosA)*interpolant+tmpPosA;
 
                 core::quaternion tmpRotA(keyframeA.Rotation);
                 core::quaternion tmpRotB(keyframeB.Rotation);
                 const float angle = tmpRotA.dotProduct(tmpRotB).X;
-                core::quaternion tmpRot = core::quaternion::normalize(core::quaternion::lerp(tmpRotA,tmpRotB,core::quaternion::flerp_adjustedinterpolant(fabsf(angle),interpolant,interpolantPrecalcTerm2,interpolantPrecalcTerm3),angle<0.f));
-                tmpRot.getMatrix(outMatrix,tmpPos);
+                outQuat = core::quaternion::normalize(core::quaternion::lerp(tmpRotA,tmpRotB,core::quaternion::flerp_adjustedinterpolant(fabsf(angle),interpolant,interpolantPrecalcTerm2,interpolantPrecalcTerm3),angle<0.f));
+
 
                 core::vectorSIMDf tmpScaleA(keyframeA.Scale);
                 core::vectorSIMDf tmpScaleB(keyframeB.Scale);
-                core::vectorSIMDf tmpScale = (tmpScaleB-tmpScaleA)*interpolant+tmpScaleA;
-                outMatrix(0,0) *= tmpScale.X;
-                outMatrix(1,0) *= tmpScale.X;
-                outMatrix(2,0) *= tmpScale.X;
-                outMatrix(0,1) *= tmpScale.Y;
-                outMatrix(1,1) *= tmpScale.Y;
-                outMatrix(2,1) *= tmpScale.Y;
-                outMatrix(0,2) *= tmpScale.Z;
-                outMatrix(1,2) *= tmpScale.Z;
-                outMatrix(2,2) *= tmpScale.Z;
+                outScale = (tmpScaleB-tmpScaleA)*interpolant+tmpScaleA;
+            }
+            static inline core::matrix3x4SIMD getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3)
+            {
+                core::vectorSIMDf   tmpPos;
+                core::quaternion    tmpRot;
+                core::vectorSIMDf   tmpScale;
+
+                getMatrixFromKeys(tmpPos,tmpRot,tmpScale,keyframeA,keyframeB,interpolant,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
+
+                core::matrix3x4SIMD outMatrix;
+                outMatrix.setScaleRotationAndTranslation(tmpScale, tmpRot, tmpPos);
 
                 return outMatrix;
             }
-            static inline core::matrix4x3 getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant)
+            static inline core::matrix3x4SIMD getMatrixFromKeys(const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB, const float& interpolant)
             {
                 float interpolantPrecalcTerm2,interpolantPrecalcTerm3;
                 core::quaternion::flerp_interpolant_terms(interpolantPrecalcTerm2,interpolantPrecalcTerm3,interpolant);
                 return getMatrixFromKeys(keyframeA,keyframeB,interpolant,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
             }
-            static inline core::matrix4x3 getMatrixFromKey(const AnimationKeyData& keyframe)
+            static inline core::matrix3x4SIMD getMatrixFromKey(const AnimationKeyData& keyframe)
             {
                 return getMatrixFromKeys(keyframe,keyframe,1.f,0.25f,0.f);
+            }
+
+            //effectively downsamples our animation
+            inline void deleteKeyframes(const size_t& keyframesToRemoveCount, const float* sortedKeyFramesToRemove)
+            {
+                const float* keyframesIn = keyframes;
+                const float* const keyframesEnd = keyframes+keyframeCount;
+                const AnimationKeyData* inAnimationsIn = interpolatedAnimations;
+                const AnimationKeyData* const inAnimationsEnd = interpolatedAnimations+keyframeCount*boneCount;
+                const AnimationKeyData* noAnimationsIn = nonInterpolatedAnimations;
+                const AnimationKeyData* const noAnimationsEnd = nonInterpolatedAnimations+keyframeCount*boneCount;
+
+                float* keyframesOut = keyframes;
+                AnimationKeyData* inAnimationsOut = interpolatedAnimations;
+                AnimationKeyData* noAnimationsOut = nonInterpolatedAnimations;
+
+                auto copyKeyframesFunc = [&](const float* rangeEnd)
+                {
+                    if (keyframesOut==keyframesIn)
+                    {
+                        size_t amountToMove = rangeEnd-keyframesIn;
+                        keyframesOut += amountToMove;
+                        keyframesIn += amountToMove;
+                        inAnimationsOut += boneCount*amountToMove;
+                        inAnimationsIn += boneCount*amountToMove;
+                        noAnimationsOut += boneCount*amountToMove;
+                        noAnimationsIn += boneCount*amountToMove;
+                        return;
+                    }
+
+                    while (keyframesIn<rangeEnd)
+                    {
+                        *(keyframesOut++) = *(keyframesIn++);
+                        for (size_t i=0; i<boneCount; i++)
+                        {
+                            *(inAnimationsOut++) = *(inAnimationsIn++);
+                            *(noAnimationsOut++) = *(noAnimationsIn++);
+                        }
+                    }
+                };
+
+                for (const float* keyFramesToRemoveTmp=sortedKeyFramesToRemove; keyFramesToRemoveTmp<sortedKeyFramesToRemove+keyframesToRemoveCount; keyFramesToRemoveTmp++)
+                {
+                    const float* found = std::lower_bound(keyframesIn,keyframesEnd,*keyFramesToRemoveTmp);
+
+                    //copy over the lower items
+                    copyKeyframesFunc(found);
+
+                    if (found==keyframesEnd) //smallest keyframe to remove is past the range of the array
+                        break; //no point cheking the rest
+                    else if (*found!=*keyFramesToRemoveTmp) //keyframe not found so can't be removed
+                        continue;
+
+                    //need to remove
+                    keyframesIn++;
+                    inAnimationsIn += boneCount;
+                    noAnimationsIn += boneCount;
+                }
+
+                //copy over greater items
+                copyKeyframesFunc(keyframesEnd);
+
+                //won't resize data buffers because cba
+                keyframeCount = keyframesOut-keyframes;
+            }
+
+            //effectively upsamples our animation
+            inline void insertKeyframes(const size_t& keyframesToAddCount, const float* sortedKeyFramesToAdd)
+            {
+                const float* keyframesIn = keyframes;
+                const float* const keyframesEnd = keyframes+keyframeCount;
+                const AnimationKeyData* inAnimationsIn = interpolatedAnimations;
+                const AnimationKeyData* const inAnimationsEnd = interpolatedAnimations+keyframeCount*boneCount;
+                const AnimationKeyData* noAnimationsIn = nonInterpolatedAnimations;
+                const AnimationKeyData* const noAnimationsEnd = nonInterpolatedAnimations+keyframeCount*boneCount;
+
+                float* newKeyframes = (float*)malloc(keyframeCount+keyframesToAddCount);
+                float* newKeyframesOut = newKeyframes;
+                AnimationKeyData* newInAnimations = (AnimationKeyData*)malloc((keyframeCount+keyframesToAddCount)*boneCount);
+                AnimationKeyData* newInAnimationsOut = newInAnimations;
+                AnimationKeyData* newNoAnimations = (AnimationKeyData*)malloc((keyframeCount+keyframesToAddCount)*boneCount);
+                AnimationKeyData* newNoAnimationsOut = newNoAnimations;
+
+                auto copyKeyframeFunc = [&]()
+                {
+                    *(newKeyframesOut++) = *(keyframesIn++);
+                    for (size_t i=0; i<boneCount; i++)
+                    {
+                        *(newInAnimationsOut++) = *(inAnimationsIn++);
+                        *(newNoAnimationsOut++) = *(noAnimationsIn++);
+                    }
+                };
+
+                for (const float* keyFramesToAddTmp=sortedKeyFramesToAdd; keyFramesToAddTmp<sortedKeyFramesToAdd+keyframesToAddCount; keyFramesToAddTmp++)
+                {
+                    const float* found = std::lower_bound(keyframesIn,keyframesEnd,*keyFramesToAddTmp);
+                    //copy over the lower items
+                    while (keyframesIn<found)
+                        copyKeyframeFunc();
+                    //need to insert
+                    if (found==keyframesEnd||(*found)!=(*keyFramesToAddTmp))
+                    {
+                        *(newKeyframesOut++) = *keyFramesToAddTmp;
+
+                        float interpolationFactor;
+                        getLowerBoundBoneKeyframes(interpolationFactor,*keyFramesToAddTmp,found);
+                        float interpolantPrecalcTerm2,interpolantPrecalcTerm3;
+                        core::quaternion::flerp_interpolant_terms(interpolantPrecalcTerm2,interpolantPrecalcTerm3,interpolationFactor);
+                        for (size_t i=0; i<boneCount; i++)
+                        {
+                            if (interpolationFactor<1.f)
+                            {
+                                core::vectorSIMDf   tmpPos;
+                                core::quaternion    tmpRot;
+                                core::vectorSIMDf   tmpScale;
+
+                                getMatrixFromKeys(tmpPos,tmpRot,tmpScale,*(inAnimationsIn-1),*inAnimationsIn,interpolationFactor,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
+
+                                newInAnimationsOut->Rotation[0] = tmpRot.getPointer()[0];
+                                newInAnimationsOut->Rotation[1] = tmpRot.getPointer()[1];
+                                newInAnimationsOut->Rotation[2] = tmpRot.getPointer()[2];
+                                newInAnimationsOut->Rotation[3] = tmpRot.getPointer()[3];
+                                newInAnimationsOut->Position[0] = tmpPos.x; newInAnimationsOut->Position[1] = tmpPos.y; newInAnimationsOut->Position[2] = tmpPos.z;
+                                newInAnimationsOut->Scale[0] = tmpScale.x; newInAnimationsOut->Scale[1] = tmpScale.y; newInAnimationsOut->Scale[2] = tmpScale.z;
+                                newInAnimationsOut++;
+                            }
+                            else
+                                *(newInAnimationsOut++) = *inAnimationsIn;
+
+                            *(newNoAnimationsOut++) = *noAnimationsIn;
+                        }
+                    }
+                    else //no need to insert
+                        copyKeyframeFunc();
+                }
+
+                //copy over greater items
+                while (keyframesIn<keyframesEnd)
+                    copyKeyframeFunc();
+
+                //swap data buffers
+                if (keyframes)
+                    free(keyframes);
+                if (interpolatedAnimations)
+                    free(interpolatedAnimations);
+                if (nonInterpolatedAnimations)
+                    free(nonInterpolatedAnimations);
+                keyframes = newKeyframes;
+                interpolatedAnimations = newInAnimations;
+                nonInterpolatedAnimations = newNoAnimations;
+                keyframeCount = newKeyframesOut-newKeyframes;
+            }
+
+            //typedef for an interpolation function when adding interpolated offsets to animation
+            //keyframe and bone data to transform, keyframe timestamp, this pointer to the CFBH, and whether the keyframe is interpolated
+            typedef std::function<void(AnimationKeyData*,const uint32_t&,const float&,const CFinalBoneHierarchy*,const bool&)> AnimationKeyframeTransformFunc;
+
+            // transform animation by the root node in the inclusive range
+            inline void transformAnimation(const float& rangeStart, const float& rangeEnd, AnimationKeyframeTransformFunc transformFunc,
+                                           const size_t& keyframesToAddCount=0, const float* keyFramesToAdd=NULL)
+            {
+                //add keyframes if needed
+                if (keyframesToAddCount)
+                    insertKeyframes(keyframesToAddCount,keyFramesToAdd);
+
+                // apply the transform the the keyframes in the range
+                float* start = std::lower_bound(keyframes,keyframes+keyframeCount,rangeStart);
+                float* end = std::upper_bound(start,keyframes+keyframeCount,rangeEnd);
+
+                for (size_t i=0; i<boneCount; i++)
+                {
+                    AnimationKeyData* it = interpolatedAnimations+keyframeCount*i+(start-keyframes);
+                    for (float* found=start; found<end; found++)
+                        transformFunc(it++,i,*found,this,true);
+
+                    it = nonInterpolatedAnimations+keyframeCount*i+(start-keyframes);
+                    for (float* found=start; found<end; found++)
+                        transformFunc(it++,i,*found,this,true);
+                }
             }
 
         private:
             inline void createAnimationKeys(const std::vector<ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints)
             {
-                std::set<float> sortedFrames;
+                std::unordered_set<float> sortedFrames;
                 for (size_t i=0; i<boneCount; i++)
                 {
                     ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
@@ -529,6 +715,7 @@ namespace scene
 
 private:
 
+            // bone hierachy independent from animations
             const size_t boneCount;
             BoneReferenceData* boneFlatArray;
             core::stringc* boneNames;
@@ -537,6 +724,7 @@ private:
 
             ///video::IGPUBuffer* boundBuffer;
 
+            // animation data, independent of bone hierarchy to a degree
             size_t keyframeCount;
             float* keyframes;
             AnimationKeyData* interpolatedAnimations;

@@ -148,14 +148,26 @@ void CSkyDomeSceneNode::generateMesh()
 	scene::IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
 	Buffer->setMeshDataAndFormat(vao);
 
-    video::IGPUBuffer* indexBuf = SceneManager->getVideoDriver()->createGPUBuffer(numOfIndices*2,indices);
+	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	reqs.vulkanReqs.size = numOfIndices*sizeof(uint16_t);
+	reqs.vulkanReqs.alignment = 2;
+	reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+	reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+	reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+	reqs.prefersDedicatedAllocation = true;
+	reqs.requiresDedicatedAllocation = true;
+    video::IGPUBuffer* indexBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+    indexBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),indices);
     free(indices);
 	vao->mapIndexBuffer(indexBuf);
 	Buffer->setIndexType(video::EIT_16BIT);
 	Buffer->setIndexCount(numOfIndices);
 	indexBuf->drop();
 
-    video::IGPUBuffer* vAttr = SceneManager->getVideoDriver()->createGPUBuffer(4*numberOfVertices*(3+2),vertices);
+	reqs.vulkanReqs.size = 4*numberOfVertices*(3+2);
+	reqs.vulkanReqs.alignment = 4;
+    video::IGPUBuffer* vAttr = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+    vAttr->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),vertices);
     free(vertices);
     vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,4*(3+2),0);
     vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,4*(3+2),4*3);

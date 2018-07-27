@@ -14,9 +14,6 @@ class IGPUMappedBuffer;
 #include "ICPUBuffer.h"
 #include "IVideoDriver.h"
 
-// 20% slower
-//#define _IRR_SWAP_BY_RECREATE_
-
 namespace irr
 {
 namespace core
@@ -371,7 +368,15 @@ class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGP
             if (!B)
                 return;
 
-            A = Driver->createGPUBuffer(GranuleByteSize*granuleCount,NULL,true,InClientMemeory);
+	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        reqs.vulkanReqs.size = GranuleByteSize*granuleCount;
+	        reqs.vulkanReqs.alignment = 0;
+	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = InClientMemeory ? IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL:IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+	        reqs.prefersDedicatedAllocation = true;
+	        reqs.requiresDedicatedAllocation = true;
+            A = Driver->createGPUBufferOnDedMem(reqs,true);
             if (!A)
             {
                 B->drop();
@@ -388,15 +393,16 @@ class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGP
 
         virtual void SwapBuffers(void (*StuffToDoToNewBuffer)(video::IGPUBuffer*,void*)=NULL,void* userData=NULL)
         {
-#ifdef _IRR_SWAP_BY_RECREATE_
-            A->clandestineRecreate(Allocated*GranuleByteSize,B->getPointer());
-#else
             if (A->getSize()!=B->getSize())
-                A->reallocate(B->getSize(),false,true);
+            {
+                IDriverMemoryBacked::SDriverMemoryRequirements reqs = A->getMemoryReqs();
+                reqs.vulkanReqs.size = B->getSize();
+                {auto rep = Driver->createGPUBufferOnDedMem(reqs,true); A->pseudoMoveAssign(rep); rep->drop();}
+            }
 
             if (Allocated)
-                A->updateSubRange(0,Allocated*GranuleByteSize,B->getPointer());
-#endif // _IRR_SWAP_BY_RECREATE_
+                A->updateSubRange(IDriverMemoryAllocation::MemoryRange(0,Allocated*GranuleByteSize),B->getPointer());
+
             if (StuffToDoToNewBuffer)
                 StuffToDoToNewBuffer(A,userData);
         }

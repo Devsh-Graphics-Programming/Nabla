@@ -97,7 +97,7 @@ namespace scene
                         for (size_t i=0; i<referenceHierarchy->getBoneCount(); i++)
                         {
                             const CFinalBoneHierarchy::BoneReferenceData& boneData = referenceHierarchy->getBoneData()[i];
-                            core::matrix4x3 localMatrix = CFinalBoneHierarchy::getMatrixFromKey(referenceHierarchy->getNonInterpolatedAnimationData(i)[0]);
+                            core::matrix4x3 localMatrix = CFinalBoneHierarchy::getMatrixFromKey(referenceHierarchy->getNonInterpolatedAnimationData(i)[0]).getAsRetardedIrrlichtMatrix();
 
                             IBoneSceneNode* tmpBone;
                             if (boneData.parentOffsetRelative)
@@ -157,9 +157,12 @@ namespace scene
                         continue;
 
                     const CFinalBoneHierarchy::BoneReferenceData& boneData = referenceHierarchy->getBoneData()[i];
-                    core::matrix4x3 parentInverse;
-                    getGlobalMatrices(tmp)[boneData.parentOffsetFromTop].getInverse(parentInverse);
-                    core::matrix4x3 localMatrix = concatenateBFollowedByA(parentInverse,getGlobalMatrices(tmp)[i]);
+                    //core::matrix4x3 parentInverse;
+                    //getGlobalMatrices(tmp)[boneData.parentOffsetFromTop].getInverse(parentInverse); // todo maybe inversion simd?
+					core::matrix3x4SIMD parentInverse;
+					core::matrix3x4SIMD().set(getGlobalMatrices(tmp)[boneData.parentOffsetFromTop]).getInverse(parentInverse);
+					const core::matrix4x3 localMatrix = core::matrix3x4SIMD::concatenateBFollowedByA(parentInverse, core::matrix3x4SIMD().set(getGlobalMatrices(tmp)[i])).getAsRetardedIrrlichtMatrix();
+					//concatenateBFollowedByA(parentInverse,getGlobalMatrices(tmp)[i]);
 
                     IBoneSceneNode* tmpBone;
                     if (boneData.parentOffsetRelative)
@@ -229,7 +232,8 @@ namespace scene
                     size_t j = boneStack[boneStackSize];
                     CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx];
 
-                    core::matrix4x3 interpolatedLocalTform;
+                    //core::matrix4x3 interpolatedLocalTform;
+                    core::matrix3x4SIMD interpolatedLocalTform;
                     if (currentInstance->interpolateAnimation&&interpolationFactor<1.f)
                     {
                         CFinalBoneHierarchy::AnimationKeyData lowerFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx-1];
@@ -239,13 +243,15 @@ namespace scene
                         interpolatedLocalTform = referenceHierarchy->getMatrixFromKey(upperFrame);
 
                     if (j < referenceHierarchy->getBoneLevelRangeEnd(0))
-                        getGlobalMatrices(currentInstance)[j] = interpolatedLocalTform;
+                        getGlobalMatrices(currentInstance)[j] = interpolatedLocalTform.getAsRetardedIrrlichtMatrix();
                     else
                     {
                         const core::matrix4x3& parentTform = getGlobalMatrices(currentInstance)[referenceHierarchy->getBoneData()[j].parentOffsetFromTop];
-                        getGlobalMatrices(currentInstance)[j] = concatenateBFollowedByA(parentTform,interpolatedLocalTform);
+                        getGlobalMatrices(currentInstance)[j] = core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(parentTform), interpolatedLocalTform).getAsRetardedIrrlichtMatrix();
+						//concatenateBFollowedByA(parentTform,interpolatedLocalTform);
                     }
-                    boneDataForInstance[j].SkinningTransform = concatenateBFollowedByA(getGlobalMatrices(currentInstance)[j],referenceHierarchy->getBoneData()[j].PoseBindMatrix);
+					boneDataForInstance[j].SkinningTransform = core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(getGlobalMatrices(currentInstance)[j]), core::matrix3x4SIMD().set(referenceHierarchy->getBoneData()[j].PoseBindMatrix)).getAsRetardedIrrlichtMatrix();
+					//concatenateBFollowedByA(getGlobalMatrices(currentInstance)[j],referenceHierarchy->getBoneData()[j].PoseBindMatrix);
 
 
                     core::aabbox3df bbox;
@@ -255,16 +261,17 @@ namespace scene
                     bbox.MaxEdge.X = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[0];
                     bbox.MaxEdge.Y = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[1];
                     bbox.MaxEdge.Z = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[2];
-                    boneDataForInstance[j].SkinningTransform.transformBoxEx(bbox);
+                    //boneDataForInstance[j].SkinningTransform.transformBoxEx(bbox);
+					bbox = core::transformBoxEx(bbox, core::matrix3x4SIMD().set(boneDataForInstance[j].SkinningTransform));
                     //
                     IBoneSceneNode* bone = getBones(currentInstance)[j];
                     if (bone)
                     {
                         if (bone->getSkinningSpace()!=IBoneSceneNode::EBSS_LOCAL)
-                            bone->setRelativeTransformationMatrix(concatenateBFollowedByA(attachedNodeTform,getGlobalMatrices(currentInstance)[j]));
+                            bone->setRelativeTransformationMatrix(core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(attachedNodeTform), core::matrix3x4SIMD().set(getGlobalMatrices(currentInstance)[j])).getAsRetardedIrrlichtMatrix()/*concatenateBFollowedByA(attachedNodeTform,getGlobalMatrices(currentInstance)[j])*/);
                         else
                         {
-                            bone->setRelativeTransformationMatrix(interpolatedLocalTform);
+                            bone->setRelativeTransformationMatrix(interpolatedLocalTform.getAsRetardedIrrlichtMatrix());
                             bone->updateAbsolutePosition();
                         }
                     }
@@ -356,19 +363,21 @@ namespace scene
                                         if (currentInstance->interpolateAnimation&&interpolationFactor<1.f)
                                         {
                                             CFinalBoneHierarchy::AnimationKeyData lowerFrame =  (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundBoneIx-1];
-                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
+                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor,interpolantPrecalcTerm2,interpolantPrecalcTerm3).getAsRetardedIrrlichtMatrix();
                                         }
                                         else
-                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKey(upperFrame);
+                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKey(upperFrame).getAsRetardedIrrlichtMatrix();
 
                                         if (j < referenceHierarchy->getBoneLevelRangeEnd(0))
                                             getGlobalMatrices(currentInstance)[j] = interpolatedLocalTform;
                                         else
                                         {
                                             const core::matrix4x3& parentTform = getGlobalMatrices(currentInstance)[referenceHierarchy->getBoneData()[j].parentOffsetFromTop];
-                                            getGlobalMatrices(currentInstance)[j] = concatenateBFollowedByA(parentTform,interpolatedLocalTform);
+                                            getGlobalMatrices(currentInstance)[j] = core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(parentTform), core::matrix3x4SIMD().set(interpolatedLocalTform)).getAsRetardedIrrlichtMatrix();
+											//concatenateBFollowedByA(parentTform,interpolatedLocalTform);
                                         }
-                                        boneDataForInstance[j].SkinningTransform = concatenateBFollowedByA(getGlobalMatrices(currentInstance)[j],referenceHierarchy->getBoneData()[j].PoseBindMatrix);
+                                        boneDataForInstance[j].SkinningTransform = core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(getGlobalMatrices(currentInstance)[j]), core::matrix3x4SIMD().set(referenceHierarchy->getBoneData()[j].PoseBindMatrix)).getAsRetardedIrrlichtMatrix();
+										//concatenateBFollowedByA(getGlobalMatrices(currentInstance)[j],referenceHierarchy->getBoneData()[j].PoseBindMatrix);
 
 
                                         core::aabbox3df bbox;
@@ -378,15 +387,16 @@ namespace scene
                                         bbox.MaxEdge.X = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[0];
                                         bbox.MaxEdge.Y = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[1];
                                         bbox.MaxEdge.Z = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[2];
-                                        boneDataForInstance[j].SkinningTransform.transformBoxEx(bbox);
+                                        //boneDataForInstance[j].SkinningTransform.transformBoxEx(bbox);
+										bbox = core::transformBoxEx(bbox, core::matrix3x4SIMD().set(boneDataForInstance[j].SkinningTransform));
                                         //
                                         if (boneControlMode==EBUM_READ)
                                         {
                                             IBoneSceneNode* bone = getBones(currentInstance)[j];
                                             if (bone)
                                             {
-                                                if (bone->getSkinningSpace()!=IBoneSceneNode::EBSS_LOCAL)
-                                                    bone->setRelativeTransformationMatrix(concatenateBFollowedByA(attachedNodeTform,getGlobalMatrices(currentInstance)[j]));
+												if (bone->getSkinningSpace() != IBoneSceneNode::EBSS_LOCAL)
+													bone->setRelativeTransformationMatrix(core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(attachedNodeTform), core::matrix3x4SIMD().set(getGlobalMatrices(currentInstance)[j])).getAsRetardedIrrlichtMatrix()/*concatenateBFollowedByA(attachedNodeTform,getGlobalMatrices(currentInstance)[j])*/);
                                                 else
                                                 {
                                                     bone->setRelativeTransformationMatrix(interpolatedLocalTform);
@@ -476,11 +486,13 @@ namespace scene
                                     BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+i*actualSizeOfInstanceDataElement);
                                     FinalBoneData* boneDataForInstance = boneData+referenceHierarchy->getBoneCount()*i;
 
-                                    core::matrix4x3 attachedNodeInverse;
+                                    core::matrix3x4SIMD attachedNodeInverse;
+									//core::matrix4x3 attachedNodeInverse;
                                     if (currentInstance->attachedNode)
                                     {
                                         currentInstance->attachedNode->updateAbsolutePosition();
-                                        currentInstance->attachedNode->getAbsoluteTransformation().getInverse(attachedNodeInverse);
+                                        //currentInstance->attachedNode->getAbsoluteTransformation().getInverse(attachedNodeInverse); // todo maybe simd inversion?
+										core::matrix3x4SIMD().set(currentInstance->attachedNode->getAbsoluteTransformation()).getInverse(attachedNodeInverse);
                                     }
 
                                     bool localNotModified = true;
@@ -495,7 +507,8 @@ namespace scene
                                         bone->setTransformChangedBoningHint();
 
 
-                                        boneDataForInstance[j].SkinningTransform = concatenateBFollowedByA(attachedNodeInverse,concatenateBFollowedByA(bone->getAbsoluteTransformation(),referenceHierarchy->getBoneData()[j].PoseBindMatrix)); //!may not be FP precise enough :(
+										boneDataForInstance[j].SkinningTransform = core::matrix3x4SIMD::concatenateBFollowedByA(attachedNodeInverse, core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(bone->getAbsoluteTransformation()), core::matrix3x4SIMD().set(referenceHierarchy->getBoneData()[j].PoseBindMatrix))).getAsRetardedIrrlichtMatrix();
+											//concatenateBFollowedByA(attachedNodeInverse,concatenateBFollowedByA(bone->getAbsoluteTransformation(),referenceHierarchy->getBoneData()[j].PoseBindMatrix)); //!may not be FP precise enough :(
 
                                         boneDataForInstance[j].SkinningTransform.getSub3x3InverseTranspose(boneDataForInstance[j].SkinningNormalMatrix);
 
@@ -506,7 +519,8 @@ namespace scene
                                         bbox.MaxEdge.X = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[0];
                                         bbox.MaxEdge.Y = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[1];
                                         bbox.MaxEdge.Z = referenceHierarchy->getBoneData()[j].MaxBBoxEdge[2];
-                                        boneDataForInstance[j].SkinningTransform.transformBoxEx(bbox);
+                                        //boneDataForInstance[j].SkinningTransform.transformBoxEx(bbox);
+										bbox = core::transformBoxEx(bbox, core::matrix3x4SIMD().set(boneDataForInstance[j].SkinningTransform));
                                         boneDataForInstance[j].MinBBoxEdge[0] = bbox.MinEdge.X;
                                         boneDataForInstance[j].MinBBoxEdge[1] = bbox.MinEdge.Y;
                                         boneDataForInstance[j].MinBBoxEdge[2] = bbox.MinEdge.Z;

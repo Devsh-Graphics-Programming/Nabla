@@ -51,13 +51,13 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
         virtual const uint32_t* getSize() const {return &TextureSize;}
 
         //! Returns size of the texture.
-        virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_ONE;}
+        virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_ONE;}
 
         //! returns color format of texture
         virtual ECOLOR_FORMAT getColorFormat() const {return ColorFormat;}
 
         //!
-        virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_BUFFER_OBJECT;}
+        virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_BUFFER_OBJECT;}
 
         //! returns pitch of texture (in bytes)
         virtual uint64_t getByteSize() const {return video::getBitsPerPixelFromFormat(ColorFormat)*uint64_t(TextureSize)/8ull;}
@@ -69,7 +69,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
 
         virtual bool bind(IGPUBuffer* buffer, E_TEXURE_BUFFER_OBJECT_FORMAT format=ETBOF_COUNT, const size_t& offset=0, const size_t& length=0)
         {
-            COpenGLBuffer* glbuf = dynamic_cast<COpenGLBuffer*>(buffer);
+            COpenGLBuffer* glbuf = static_cast<COpenGLBuffer*>(buffer);
             if (!glbuf)
                 return false;
 

@@ -1,5 +1,5 @@
-#version 330 core
-uniform sampler2D tex0;
+#version 420 core
+layout(binding = 0) uniform sampler2D tex0;
 
 in vec3 Normal;
 in vec2 TexCoord;

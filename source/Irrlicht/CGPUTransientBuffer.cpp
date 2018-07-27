@@ -1,5 +1,5 @@
 #include "IGPUTransientBuffer.h"
-#include "COpenGLPersistentlyMappedBuffer.h"
+#include "COpenGLBuffer.h"
 #include "os.h"
 #include "FW_Mutex.h"
 #include <sstream>
@@ -32,10 +32,21 @@ using namespace video;
 //#define _EXTREME_DEBUG
 
 
-IGPUTransientBuffer::IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& growable, const bool& autoFlush, const bool& threadSafe, core::LeakDebugger* dbgr)
-                                    :   lastChanged(0), canGrow(growable), flushOnWait(autoFlush), Driver(driver), underlyingBuffer(buffer), underlyingBufferAsMapped(dynamic_cast<IGPUMappedBuffer*>(underlyingBuffer)),
+IGPUTransientBuffer::IGPUTransientBuffer(IVideoDriver* driver, IGPUBuffer* buffer, const bool& threadSafe, core::LeakDebugger* dbgr)
+                                    :   lastChanged(0), Driver(driver), underlyingBuffer(buffer), mappedPointer(nullptr),
                                         totalTrueFreeSpace(0), totalFreeSpace(0), largestFreeChunkSize(0), trueLargestFreeChunkSize(0), leakTracker(dbgr)
 {
+    auto backingMem = underlyingBuffer->getBoundMemory();
+    if (backingMem->isMappable())
+    {
+        if (backingMem->isCurrentlyMapped())
+        {
+            backingMem->mapMemoryRange( static_cast<video::IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(backingMem->getMappingCaps()&video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE),
+                                        video::IDriverMemoryAllocation::MemoryRange(underlyingBuffer->getBoundMemoryOffset(),underlyingBuffer->getSize()));
+        }
+        mappedPointer = reinterpret_cast<uint8_t*>(backingMem->getMappedPointer())+underlyingBuffer->getBoundMemoryOffset();
+    }
+
     if (leakTracker)
         leakTracker->registerObj(this);
 
@@ -185,14 +196,11 @@ inline size_t roundUpStart(size_t index, const size_t& alignment)
     return index*alignment;
 }
 
-IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &offsetOut, const size_t &maxSize, const size_t& alignment, E_WAIT_POLICY waitPolicy, bool growIfTooSmall)
+IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &offsetOut, const size_t &maxSize, const size_t& alignment, E_WAIT_POLICY waitPolicy)
 {
     if (maxSize==0)
         return EARS_FAIL;
 
-
-    if (!canGrow)
-        growIfTooSmall = false;
 
     if (!allocMutex)
         waitPolicy = EWP_DONT_WAIT;
@@ -204,7 +212,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
 
     if (mutex)
         mutex->Get();
-    if (!underlyingBuffer||(!canGrow&&maxSize>underlyingBuffer->getSize()))
+    if (!underlyingBuffer||maxSize>underlyingBuffer->getSize())
     {
         if (mutex)
             mutex->Release();
@@ -242,7 +250,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
                         //only wait on fence if free
                         if (allocs[j].fence)
                         {
-                            switch (allocs[j].fence->waitCPU(0,flushOnWait))
+                            switch (allocs[j].fence->waitCPU(0,false))
                             {
                                 case EDFR_TIMEOUT_EXPIRED:
                                     noFencesToCycle = false;
@@ -373,7 +381,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
         {
             if (allocs[j].fence)
             {
-                switch (allocs[j].fence->waitCPU(0,flushOnWait))
+                switch (allocs[j].fence->waitCPU(0,false))
                 {
                     case EDFR_TIMEOUT_EXPIRED:
                         noFencesToCycle = false;
@@ -450,53 +458,8 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
         }
 #endif // _EXTREME_DEBUG
 
-        if (allFree)
-        {
-            if (growIfTooSmall)
-            {
-                //grow and quit
-                size_t oldBufferSz = allocs.back().end;
-                bool lastChunkFree = allocs.back().state==Allocation::EAS_FREE&&(!allocs.back().fence);
-                if (!underlyingBuffer->reallocate(maxSize+(lastChunkFree ? allocs.back().start:oldBufferSz), true, false))
-                {
-                    underlyingBuffer->drop();
-                    underlyingBuffer = NULL;
-                    if (mutex)
-                        mutex->Release();
-                    if (waitPolicy&&allocMutex)
-                        allocMutex->Release();
-                    return EARS_ERROR;
-                }
-
-                if (lastChunkFree)
-                {
-                    totalTrueFreeSpace -= oldBufferSz-allocs.back().start;
-                    totalFreeSpace -= oldBufferSz-allocs.back().start;
-
-                    offsetOut = allocs.back().start;
-                    allocs.back().end = allocs.back().start+maxSize;
-                    allocs.back().state = Allocation::EAS_ALLOCATED;
-                }
-                else
-                {
-                    offsetOut = oldBufferSz;
-                    Allocation newLast;
-                    newLast.state = Allocation::EAS_ALLOCATED;
-                    newLast.fence = NULL;
-                    newLast.start = oldBufferSz;
-                    newLast.end = oldBufferSz+maxSize;
-                    allocs.push_back(newLast);
-                }
-
-                if (mutex)
-                    mutex->Release();
-                if (waitPolicy&&allocMutex)
-                    allocMutex->Release();
-                return EARS_SUCCESS;
-            }
-			else if (noFencesToCycle||(!noFencesToCycle&&waitPolicy<EWP_WAIT_FOR_GPU_FREE))
-                break;
-        }
+        if (allFree&&(noFencesToCycle||(!noFencesToCycle&&waitPolicy<EWP_WAIT_FOR_GPU_FREE)))
+            break;
 
         //allocationChanged condition not changed when new fence placed
         //we already had too little sequential memory to allocate,
@@ -522,7 +485,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
 }
 
 
-bool IGPUTransientBuffer::Commit(const size_t& start, const size_t& end)
+bool IGPUTransientBuffer::Commit(const size_t& start, const size_t& end, std::vector<IDriverMemoryAllocation::MemoryRange>& flushRanges)
 {
     if (start>end)
         return false;
@@ -651,6 +614,10 @@ bool IGPUTransientBuffer::Commit(const size_t& start, const size_t& end)
         allocationChanged->SignalConditionToAll();
         mutex->Release();
     }
+
+    if (underlyingBuffer->getBoundMemory()->haveToFlushWrites())
+        flushRanges.push_back(video::IDriverMemoryAllocation::MemoryRange(underlyingBuffer->getBoundMemoryOffset()+start,end-start));
+
     return true;
 }
 //
@@ -692,7 +659,7 @@ bool IGPUTransientBuffer::queryRange(const size_t& start, const size_t& end, con
     return true;
 }
 //
-bool IGPUTransientBuffer::Place(size_t &offsetOut, const void* data, const size_t& dataSize, const size_t& alignment, const E_WAIT_POLICY &waitPolicy, const bool &growIfTooSmall)
+bool IGPUTransientBuffer::Place(size_t &offsetOut, const void* data, const size_t& dataSize, std::vector<IDriverMemoryAllocation::MemoryRange>& flushRanges, const size_t& alignment, const E_WAIT_POLICY &waitPolicy)
 {
     if (!data||dataSize==0)
     {
@@ -701,18 +668,18 @@ bool IGPUTransientBuffer::Place(size_t &offsetOut, const void* data, const size_
     }
 
     size_t offset;
-    if (Alloc(offset,dataSize,alignment,waitPolicy,growIfTooSmall)!=EARS_SUCCESS)
+    if (Alloc(offset,dataSize,alignment,waitPolicy)!=EARS_SUCCESS)
         return false;
 
     bool result = true;
-    if (underlyingBufferAsMapped)
-        memcpy(((uint8_t*)underlyingBufferAsMapped->getPointer())+offset,data,dataSize);
+    if (mappedPointer)
+        memcpy(mappedPointer+offset,data,dataSize);
     else if (underlyingBuffer->canUpdateSubRange())
-        underlyingBuffer->updateSubRange(offset,dataSize,data);
+        underlyingBuffer->updateSubRange(IDriverMemoryAllocation::MemoryRange(offset,dataSize),data);
     else
         result = false;
 
-    if (!Commit(offset,offset+dataSize))
+    if (!Commit(offset,offset+dataSize,flushRanges))
     {
         Free(offset,offset+dataSize);
         return false;
@@ -1047,7 +1014,7 @@ bool IGPUTransientBuffer::waitRangeFences(const size_t& start, const size_t& end
                     //only wait on fence if free
                     if (allocs[j].fence)
                     {
-                        switch (allocs[j].fence->waitCPU(timeOutNs,flushOnWait))
+                        switch (allocs[j].fence->waitCPU(timeOutNs,false))
                         {
                             case EDFR_TIMEOUT_EXPIRED:
                                 allocs[j].end = allocs[i].start;
@@ -1125,7 +1092,7 @@ bool IGPUTransientBuffer::waitRangeFences(const size_t& start, const size_t& end
     {
         if (allocs[j].fence)
         {
-            switch (allocs[j].fence->waitCPU(timeOutNs,flushOnWait))
+            switch (allocs[j].fence->waitCPU(timeOutNs,false))
             {
                 case EDFR_TIMEOUT_EXPIRED:
                     returnTrue = false;
