@@ -49,7 +49,7 @@ namespace video
 
 	public:
         static FW_AtomicCounter ReallocationCounter;
-        static FW_AtomicCounter incrementAndFetchReallocCounter();
+        static int32_t incrementAndFetchReallocCounter();
 
 		//! constructor
 		CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);

@@ -14,7 +14,6 @@
 #include "CColorConverter.h"
 #include "CMeshManipulator.h"
 #include "CMeshSceneNodeInstanced.h"
-#include "FW_Mutex.h"
 
 
 namespace irr
@@ -23,8 +22,7 @@ namespace video
 {
 
 FW_AtomicCounter CNullDriver::ReallocationCounter = 0;
-
-FW_AtomicCounter CNullDriver::incrementAndFetchReallocCounter()
+int32_t CNullDriver::incrementAndFetchReallocCounter()
 {
 // omg this has to be rewritten
 #if defined(FW_MUTEX_H_CXX11_IMPL)
