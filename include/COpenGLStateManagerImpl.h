@@ -56,11 +56,14 @@
 #ifndef glBindBuffer_MACRO
 #define glBindBuffer_MACRO glBindBuffer
 #endif // glBindBuffer_MACRO
+//! NEEDS AN URGENT CHANGE
 #ifndef glBindBufferRange_MACRO
 #define glBindBufferRange_MACRO glBindBufferRange
 #endif // glBindBufferRange_MACRO
 
-
+#ifndef glGetNamedBufferParameteri64v_MACRO
+#define glGetNamedBufferParameteri64v_MACRO glGetNamedBufferParameteri64v
+#endif
 
 #ifndef glDepthRangeIndexed_MACRO
 #define glDepthRangeIndexed_MACRO glDepthRangeIndexed
@@ -106,6 +109,7 @@
 #endif // glBlendFuncSeparatei_MACRO
 
 
+//! NEEDS AN URGENT CHANGE
 #ifndef glBindImageTexture_MACRO
 #define glBindImageTexture_MACRO glBindImageTexture
 #endif // glBindImageTexture_MACRO
@@ -114,11 +118,13 @@
 #define glActiveTexture_MACRO glActiveTexture
 #endif // glActiveTexture_MACRO
 
+//! NEEDS AN URGENT CHANGE
 #ifndef SPECIAL_glBindTextureUnit_MACRO
 #error "No Override for Active Texture Setting"
 #endif // SPECIAL_glBindTextureUnit_MACRO
 
 
+//! NEEDS AN URGENT CHANGE
 #ifndef glBindSampler_MACRO
 #define glBindSampler_MACRO glBindSampler
 #endif // glBindSampler_MACRO
@@ -360,19 +366,17 @@ COpenGLState COpenGLState::collectGLState(  const bool& careAboutHints, //should
         for (int32_t i=0; i<maxSSBOs; i++)
         {
             glGetIntegeri_v_MACRO(GL_SHADER_STORAGE_BUFFER_BINDING,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][i].object));
-            glGetIntegeri_v_MACRO(GL_SHADER_STORAGE_BUFFER_START,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][i].offset));
-            glGetIntegeri_v_MACRO(GL_SHADER_STORAGE_BUFFER_SIZE,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][i].size));
-        }
-        int32_t maxAtomicCounters = 0;
-        glGetIntegerv(GL_MAX_ATOMIC_COUNTER_BUFFER_BINDINGS,&maxAtomicCounters);
-        if (maxAtomicCounters>OGL_MAX_BUFFER_BINDINGS)
-            maxAtomicCounters = OGL_MAX_BUFFER_BINDINGS;
-
-        for (int32_t i=0; i<maxAtomicCounters; i++)
-        {
-            glGetIntegeri_v_MACRO(GL_ATOMIC_COUNTER_BUFFER_BINDING,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_ATOMIC_COUNTER_BUFFER][i].object));
-            glGetIntegeri_v_MACRO(GL_ATOMIC_COUNTER_BUFFER_START,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_ATOMIC_COUNTER_BUFFER][i].offset));
-            glGetIntegeri_v_MACRO(GL_ATOMIC_COUNTER_BUFFER_SIZE,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_ATOMIC_COUNTER_BUFFER][i].size));
+            if (retval.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][i].object)
+            {
+                glGetIntegeri_v_MACRO(GL_SHADER_STORAGE_BUFFER_SIZE,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][i].size));
+                if (retval.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][i].size)
+                    glGetIntegeri_v_MACRO(GL_SHADER_STORAGE_BUFFER_START,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][i].offset));
+                else
+                {
+                    glGetNamedBufferParameteri64v_MACRO(retval.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][i].object,GL_BUFFER_SIZE,
+                                                        reinterpret_cast<GLint64*>(&retval.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][i].size));
+                }
+            }
         }
     }
 
@@ -438,8 +442,17 @@ COpenGLState COpenGLState::collectGLState(  const bool& careAboutHints, //should
     for (int32_t i=0; i<maxUBOs; i++)
     {
         glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_BINDING,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].object));
-        glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_START,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].offset));
-        glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_SIZE,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size));
+        if (retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].object)
+        {
+            glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_SIZE,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size));
+            if (retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size)
+                glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_START,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].offset));
+            else
+            {
+                    glGetNamedBufferParameteri64v_MACRO(retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].object,GL_BUFFER_SIZE,
+                                                        reinterpret_cast<GLint64*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size));
+            }
+        }
     }
 
     return retval;
@@ -514,9 +527,20 @@ void executeGLDiff(const COpenGLStateDiff& diff)
 
     //
     for (uint32_t i=0; i<diff.setBufferRanges; i++)
-        glBindBufferRange_MACRO(diff.bindBufferRange[i].bindPoint,diff.bindBufferRange[i].index,
-                                diff.bindBufferRange[i].object,
-                                diff.bindBufferRange[i].offset,diff.bindBufferRange[i].size);
+    {
+        if (diff.bindBufferRange[i].object)
+        {
+            glBindBufferRange_MACRO(diff.bindBufferRange[i].bindPoint,diff.bindBufferRange[i].index,
+                                    diff.bindBufferRange[i].object,
+                                    diff.bindBufferRange[i].offset,diff.bindBufferRange[i].size);
+        }
+        else
+        {
+            COpenGLExtensionHandler::extGlBindBuffersRange(diff.bindBufferRange[i].bindPoint,
+                                    diff.bindBufferRange[i].index,1,
+                                    NULL,NULL,NULL);
+        }
+    }
 
 
     //change ROP

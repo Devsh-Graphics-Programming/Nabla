@@ -98,7 +98,7 @@ IImageWriter* createImageWriterPPM();
 //! constructor
 CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
 : FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
-	PrimitivesDrawn(0), MinVertexCountForVBO(500), TextureCreationFlags(0),
+	PrimitivesDrawn(0), TextureCreationFlags(0),
 	OverrideMaterial2DEnabled(false), AllowZWriteOnTransparent(false),
 	matrixModifiedBits(0)
 {
@@ -226,8 +226,6 @@ CNullDriver::~CNullDriver()
 	if (FileSystem)
 		FileSystem->drop();
 
-    removeAllFrameBuffers();
-    removeAllRenderBuffers();
 	deleteAllTextures();
 
 	uint32_t i;
@@ -241,7 +239,7 @@ CNullDriver::~CNullDriver()
 	deleteMaterialRenders();
 }
 
-void CNullDriver::bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
+void CNullDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
 {
     os::Printer::log("Copying Buffers Not supported by this Driver!\n",ELL_ERROR);
 }
@@ -335,13 +333,6 @@ bool CNullDriver::endScene()
 	FPSCounter.registerFrame(os::Timer::getRealTime(), PrimitivesDrawn);
 
 	return true;
-}
-
-
-//! queries the features of the driver, returns true if feature is available
-bool CNullDriver::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
-{
-	return false;
 }
 
 
@@ -567,24 +558,8 @@ void CNullDriver::removeTextureBufferObject(ITextureBufferObject* tbo)
     tbo->drop();
 }
 
-void CNullDriver::removeRenderBuffer(IRenderBuffer* renderbuf)
-{
-    int32_t ix = RenderBuffers.binary_search(renderbuf);
-    if (ix<0)
-        return;
-    RenderBuffers.erase(ix);
-
-    renderbuf->drop();
-}
-
 void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 {
-    int32_t ix = FrameBuffers.binary_search(framebuf);
-    if (ix<0)
-        return;
-    FrameBuffers.erase(ix);
-
-    framebuf->drop();
 }
 
 
@@ -614,18 +589,8 @@ void CNullDriver::removeAllTextureBufferObjects()
     TextureBufferObjects.clear();
 }
 
-void CNullDriver::removeAllRenderBuffers()
-{
-	for (uint32_t i=0; i<RenderBuffers.size(); ++i)
-		RenderBuffers[i]->drop();
-    RenderBuffers.clear();
-}
-
 void CNullDriver::removeAllFrameBuffers()
 {
-	for (uint32_t i=0; i<FrameBuffers.size(); ++i)
-		FrameBuffers[i]->drop();
-    FrameBuffers.clear();
 }
 
 
@@ -868,59 +833,6 @@ const core::rect<int32_t>& CNullDriver::getViewPort() const
 
 
 
-//! Draws a 3d line.
-void CNullDriver::draw3DLine(const core::vector3df& start,
-				const core::vector3df& end, SColor color)
-{
-}
-
-//! Draws a 3d axis aligned box.
-void CNullDriver::draw3DBox(const core::aabbox3d<float>& box, SColor color)
-{
-	core::vector3df edges[8];
-	box.getEdges(edges);
-	uint32_t colors[8];
-	for (uint32_t i=0; i<8; i++)
-    {
-        colors[8] = color.color;
-    }
-    uint16_t indices[24] = {5,1,1,3,3,7,7,5,0,2,2,6,6,4,4,0,1,0,3,2,7,6,5,4};
-
-    if (!boxLineMesh)
-    {
-        video::IGPUBuffer* indexBuf = createGPUBuffer(sizeof(indices),indices);
-        video::IGPUBuffer* vposBuf = createGPUBuffer(sizeof(edges),edges,true,true);
-        video::IGPUBuffer* vcolBuf = createGPUBuffer(sizeof(colors),colors,true,true);
-        scene::IGPUMeshDataFormatDesc* desc = createGPUMeshDataFormatDesc();
-        if (!indexBuf||!vposBuf||!vcolBuf||!desc)
-            return;
-
-        scene::IGPUMeshBuffer* boxLineMesh =  new scene::IGPUMeshBuffer();
-        boxLineMesh->setIndexCount(24);
-        boxLineMesh->setIndexType(EIT_16BIT);
-        boxLineMesh->setMeshDataAndFormat(desc);
-        desc->drop();
-        boxLineMesh->setPrimitiveType(scene::EPT_LINES);
-
-        desc->mapVertexAttrBuffer(vposBuf,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT);
-        vposBuf->drop();
-        desc->mapVertexAttrBuffer(vcolBuf,scene::EVAI_ATTR2,scene::ECPA_REVERSED_OR_BGRA,scene::ECT_NORMALIZED_UNSIGNED_BYTE);
-        vposBuf->drop();
-        desc->mapIndexBuffer(indexBuf);
-        indexBuf->drop();
-    }
-    else
-    {
-        const_cast<IGPUBuffer*>(boxLineMesh->getMeshDataAndFormat()->getMappedBuffer(scene::EVAI_ATTR0))->updateSubRange(0,sizeof(edges),edges);
-        const_cast<IGPUBuffer*>(boxLineMesh->getMeshDataAndFormat()->getMappedBuffer(scene::EVAI_ATTR2))->updateSubRange(0,sizeof(colors),colors);
-    }
-
-    if (boxLineMesh)
-        drawMeshBuffer(boxLineMesh,NULL);
-}
-
-
-
 //! draws an 2d image
 void CNullDriver::draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos)
 {
@@ -1080,130 +992,6 @@ const wchar_t* CNullDriver::getName() const
 
 
 
-
-
-
-//! Creates a normal map from a height map texture.
-//! \param amplitude: Constant value by which the height information is multiplied.
-void CNullDriver::makeNormalMapTexture(video::ITexture* texture, float amplitude) const
-{
-    /*
-	if (!texture)
-		return;
-
-	if (texture->getColorFormat() != ECF_A1R5G5B5 &&
-		texture->getColorFormat() != ECF_A8R8G8B8 )
-	{
-		os::Printer::log("Error: Unsupported texture color format for making normal map.", ELL_ERROR);
-		return;
-	}
-
-	core::dimension2d<uint32_t> dim = texture->getSize();
-	amplitude = amplitude / 255.0f;
-	float vh = dim.Height / (float)dim.Width;
-	float hh = dim.Width / (float)dim.Height;
-
-	if (texture->getColorFormat() == ECF_A8R8G8B8)
-	{
-		// ECF_A8R8G8B8 version
-
-		int32_t *p = (int32_t*)texture->lock();
-
-		if (!p)
-		{
-			os::Printer::log("Could not lock texture for making normal map.", ELL_ERROR);
-			return;
-		}
-
-		// copy texture
-
-		uint32_t pitch = texture->getPitch() / 4;
-
-		int32_t* in = new int32_t[dim.Height * pitch];
-		memcpy(in, p, dim.Height * pitch * 4);
-
-		for (int32_t x=0; x < int32_t(pitch); ++x)
-			for (int32_t y=0; y < int32_t(dim.Height); ++y)
-			{
-				// TODO: this could be optimized really a lot
-
-				core::vector3df h1((x-1)*hh, nml32(x-1, y, pitch, dim.Height, in)*amplitude, y*vh);
-				core::vector3df h2((x+1)*hh, nml32(x+1, y, pitch, dim.Height, in)*amplitude, y*vh);
-				//core::vector3df v1(x*hh, nml32(x, y-1, pitch, dim.Height, in)*amplitude, (y-1)*vh);
-				//core::vector3df v2(x*hh, nml32(x, y+1, pitch, dim.Height, in)*amplitude, (y+1)*vh);
-				core::vector3df v1(x*hh, nml32(x, y+1, pitch, dim.Height, in)*amplitude, (y-1)*vh);
-				core::vector3df v2(x*hh, nml32(x, y-1, pitch, dim.Height, in)*amplitude, (y+1)*vh);
-
-				core::vector3df v = v1-v2;
-				core::vector3df h = h1-h2;
-
-				core::vector3df n = v.crossProduct(h);
-				n.normalize();
-				n *= 0.5f;
-				n += core::vector3df(0.5f,0.5f,0.5f); // now between 0 and 1
-				n *= 255.0f;
-
-				int32_t height = (int32_t)nml32(x, y, pitch, dim.Height, in);
-				p[y*pitch + x] = video::SColor(
-					height, // store height in alpha
-					(int32_t)n.X, (int32_t)n.Z, (int32_t)n.Y).color;
-			}
-
-		delete [] in;
-		texture->unlock();
-	}
-	else
-	{
-		// ECF_A1R5G5B5 version
-
-		int16_t *p = (int16_t*)texture->lock();
-
-		if (!p)
-		{
-			os::Printer::log("Could not lock texture for making normal map.", ELL_ERROR);
-			return;
-		}
-
-		uint32_t pitch = texture->getPitch() / 2;
-
-		// copy texture
-
-		int16_t* in = new int16_t[dim.Height * pitch];
-		memcpy(in, p, dim.Height * pitch * 2);
-
-		for (int32_t x=0; x < int32_t(pitch); ++x)
-			for (int32_t y=0; y < int32_t(dim.Height); ++y)
-			{
-				// TODO: this could be optimized really a lot
-
-				core::vector3df h1((x-1)*hh, nml16(x-1, y, pitch, dim.Height, in)*amplitude, y*vh);
-				core::vector3df h2((x+1)*hh, nml16(x+1, y, pitch, dim.Height, in)*amplitude, y*vh);
-				core::vector3df v1(x*hh, nml16(x, y-1, pitch, dim.Height, in)*amplitude, (y-1)*vh);
-				core::vector3df v2(x*hh, nml16(x, y+1, pitch, dim.Height, in)*amplitude, (y+1)*vh);
-
-				core::vector3df v = v1-v2;
-				core::vector3df h = h1-h2;
-
-				core::vector3df n = v.crossProduct(h);
-				n.normalize();
-				n *= 0.5f;
-				n += core::vector3df(0.5f,0.5f,0.5f); // now between 0 and 1
-				n *= 255.0f;
-
-				p[y*pitch + x] = video::RGBA16((uint32_t)n.X, (uint32_t)n.Z, (uint32_t)n.Y);
-			}
-
-		delete [] in;
-		texture->unlock();
-	}
-
-	texture->regenerateMipMapLevels();*/
-
-		os::Printer::log("DevSH thinks you're a retard for using the CPU for processing pixels, go use an FBO and a fragment shader.", ELL_ERROR);
-		return;
-}
-
-
 //! Returns the maximum amount of primitives (mostly vertices) which
 //! the device is able to render with one drawIndexedTriangleList
 //! call.
@@ -1350,7 +1138,7 @@ IImage* CNullDriver::createImage(const ECOLOR_FORMAT& format, const core::dimens
 }
 
 
-void CNullDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query)
+void CNullDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
 {
 	if (!mb)
 		return;
@@ -1385,37 +1173,19 @@ void CNullDriver::drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* que
 
 
 //! Indirect Draw
-void CNullDriver::drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+void CNullDriver::drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                     const scene::E_PRIMITIVE_TYPE& mode,
+                                     const IGPUBuffer* indirectDrawBuff,
+                                     const size_t& offset, const size_t& count, const size_t& stride)
 {
 }
 
-void CNullDriver::drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query)
+void CNullDriver::drawIndexedIndirect(  const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const scene::E_PRIMITIVE_TYPE& mode,
+                                        const E_INDEX_TYPE& type,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        const size_t& offset, const size_t& count, const size_t& stride)
 {
-}
-
-
-
-
-IOcclusionQuery* CNullDriver::createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic)
-{
-    return NULL;
-}
-
-IQueryObject* CNullDriver::createPrimitivesGeneratedQuery()
-{
-    return NULL;
-}
-IQueryObject* CNullDriver::createXFormFeedbackPrimitiveQuery()
-{
-    return NULL;
-}
-IQueryObject* CNullDriver::createElapsedTimeQuery()
-{
-    return NULL;
-}
-IGPUTimestampQuery* CNullDriver::createTimestampQuery()
-{
-    return NULL;
 }
 
 
@@ -1476,11 +1246,6 @@ void CNullDriver::endQuery(IQueryObject* query, const size_t& index)
 //! the window was resized.
 void CNullDriver::OnResize(const core::dimension2d<uint32_t>& size)
 {
-	if (ViewPort.getWidth() == (int32_t)ScreenSize.Width &&
-		ViewPort.getHeight() == (int32_t)ScreenSize.Height)
-		ViewPort = core::rect<int32_t>(core::position2d<int32_t>(0,0),
-									core::dimension2di(size));
-
 	ScreenSize = size;
 }
 
@@ -1872,26 +1637,6 @@ int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
 	return result;
 }
 
-IMultisampleTexture* CNullDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format, const bool& fixedSampleLocation)
-{
-    return NULL;
-}
-
-ITextureBufferObject* CNullDriver::addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format, const size_t& offset, const size_t& length)
-{
-    return NULL;
-}
-
-IRenderBuffer* CNullDriver::addRenderBuffer(const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
-{
-	return 0;
-}
-
-IRenderBuffer* CNullDriver::addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
-{
-	return 0;
-}
-
 void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
 {
 	MultisampleTextures.push_back(tex);
@@ -1902,23 +1647,6 @@ void CNullDriver::addTextureBufferObject(ITextureBufferObject* tbo)
 {
 	TextureBufferObjects.push_back(tbo);
 	TextureBufferObjects.sort();
-}
-
-void CNullDriver::addRenderBuffer(IRenderBuffer* buffer)
-{
-	RenderBuffers.push_back(buffer);
-	RenderBuffers.sort();
-}
-
-IFrameBuffer* CNullDriver::addFrameBuffer()
-{
-	return 0;
-}
-
-void CNullDriver::addFrameBuffer(IFrameBuffer* framebuffer)
-{
-    FrameBuffers.push_back(framebuffer);
-    FrameBuffers.sort();
 }
 
 
@@ -2013,19 +1741,6 @@ void CNullDriver::enableClipPlane(uint32_t index, bool enable)
 {
 	// not necessary
 }
-
-
-void CNullDriver::setMinHardwareBufferVertexCount(uint32_t count)
-{
-	MinVertexCountForVBO = count;
-}
-
-
-SOverrideMaterial& CNullDriver::getOverrideMaterial()
-{
-	return OverrideMaterial;
-}
-
 
 //! Get the 2d override material for altering its values
 SMaterial& CNullDriver::getMaterial2D()

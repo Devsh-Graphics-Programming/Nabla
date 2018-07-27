@@ -425,7 +425,6 @@ namespace scene
 
 		//! current active camera
 		ICameraSceneNode* ActiveCamera;
-		core::vector3df camWorldPos; // Position of camera for transparent nodes.
 
 		video::SColorf AmbientLight;
 
@@ -433,7 +432,7 @@ namespace scene
         {
             uint8_t data[16];
         };
-		std::map<std::string,ParamStorage> Parameters;
+		std::unordered_map<std::string,ParamStorage> Parameters;
 
 		//! Mesh cache
 		IMeshCache<ICPUMesh>* MeshCache;

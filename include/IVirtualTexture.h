@@ -5,7 +5,6 @@
 #ifndef __I_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __I_VIRTUAL_TEXTURE_H_INCLUDED__
 
-#include "EDriverTypes.h"
 #include "CImageData.h"
 #include "IFrameBuffer.h"
 
@@ -35,14 +34,14 @@ public:
         EVTT_COUNT
     };
 
-	virtual const E_DIMENSION_COUNT getDimensionality() const = 0;
+	virtual E_DIMENSION_COUNT getDimensionality() const = 0;
 
 	//! Get dimension (=size) of the texture.
 	/** \return The size of the texture. */
 	virtual const uint32_t* getSize() const = 0;
 
     //!
-    virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const = 0;
+    virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const = 0;
 
 	//! Get driver type of texture.
 	/** This is the driver, which created the texture. This method is used
@@ -62,8 +61,14 @@ public:
 	}
 };
 
-class IRenderableVirtualTexture : public IRenderable, public IVirtualTexture
+class IRenderableVirtualTexture : public IVirtualTexture
 {
+    public:
+		//! Returns the two dimensional size of an IFrameBuffer attachment
+		/**
+		@returns The two dimensional size of the max rendering viewport which could be configured on an IFrameBuffer with this object attached.
+		*/
+        virtual core::dimension2du getRenderableSize() const = 0;
 };
 
 }

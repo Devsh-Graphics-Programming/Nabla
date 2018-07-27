@@ -71,7 +71,7 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 			updateAbsolutePosition();
         }
 
-        virtual const bool isISceneNode() const {return false;}
+        virtual bool isISceneNode() const {return false;}
 
         //! Returns a reference to the current relative transformation matrix.
         /** This is the matrix, this scene node uses instead of scale, translation

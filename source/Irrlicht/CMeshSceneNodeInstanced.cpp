@@ -155,7 +155,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, 
 
     xfb.resize((levelsOfDetail.size()+gpuLoDsPerPass-1)/gpuLoDsPerPass);
 
-	gpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createGPUBuffer(dataSizePerInstanceOutput*instanceBBoxesCount*gpuLoDsPerPass*xfb.size(),NULL);
+	gpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createDeviceLocalGPUBufferOnDedMem(dataSizePerInstanceOutput*instanceBBoxesCount*gpuLoDsPerPass*xfb.size());
 	instanceDataBufferChanged = false;
 
     if (cpuCullFunc)
@@ -167,7 +167,15 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, 
 #endif // _IRR_COMPILE_WITH_OPENGL_
         cpuCullingFunction = cpuCullFunc;
 
-        cpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createGPUBuffer(gpuCulledLodInstanceDataBuffer->getSize(),NULL,true);
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.size = gpuCulledLodInstanceDataBuffer->getSize();
+        reqs.vulkanReqs.alignment = 0;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        cpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createGPUBuffer(reqs,true);
 #ifdef _IRR_WINDOWS_
         cpuCullingScratchSpace = (uint8_t*)_aligned_malloc(gpuCulledLodInstanceDataBuffer->getSize(),SIMD_ALIGNMENT);
 #else
@@ -238,7 +246,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, 
             meshBuff->setIndexType(origBuff->getIndexType());
             meshBuff->setPrimitiveType(origBuff->getPrimitiveType());
 
-            IGPUMeshDataFormatDesc* vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
+            IMeshDataFormatDesc<video::IGPUBuffer>* vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
             meshBuff->setMeshDataAndFormat(vao);
             vao->drop();
 
@@ -447,7 +455,9 @@ void CMeshSceneNodeInstanced::RecullInstances()
         size_t outputSizePerLoD = dataPerInstanceOutputSize*instanceDataBuffer->getCapacity();
         if (cpuCulledLodInstanceDataBuffer->getSize()!=LoD.size()*outputSizePerLoD)
         {
-            cpuCulledLodInstanceDataBuffer->reallocate(LoD.size()*outputSizePerLoD,false,true);
+            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs = cpuCulledLodInstanceDataBuffer->getMemoryReqs();
+            reqs.vulkanReqs.size = LoD.size()*outputSizePerLoD;
+            {auto rep = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,cpuCulledLodInstanceDataBuffer->canUpdateSubRange()); cpuCulledLodInstanceDataBuffer->pseudoMoveAssign(rep); rep->drop();}
 #ifdef _IRR_WINDOWS_
             _aligned_free(cpuCullingScratchSpace);
             cpuCullingScratchSpace = (uint8_t*)_aligned_malloc(cpuCulledLodInstanceDataBuffer->getSize(),SIMD_ALIGNMENT);
@@ -486,14 +496,14 @@ void CMeshSceneNodeInstanced::RecullInstances()
                 LoD[j].mesh->getMeshBuffer(i)->setInstanceCount(localDataSize/dataPerInstanceOutputSize);
         }
         if (farSizeToUpdate)
-            cpuCulledLodInstanceDataBuffer->updateSubRange(0,farSizeToUpdate,cpuCullingScratchSpace);
+            cpuCulledLodInstanceDataBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,farSizeToUpdate),cpuCullingScratchSpace);
 
         if (lastTimeUsedGPU)
         {
             for (size_t j=0; j<LoD.size(); j++)
             for (size_t i=0; i<LoD[j].mesh->getMeshBufferCount(); i++)
             {
-                scene::IGPUMeshDataFormatDesc* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
+                scene::IMeshDataFormatDesc<video::IGPUBuffer>* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
                 for (size_t k=0; k<scene::EVAI_COUNT; k++)
                 {
                     if (desc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)k)==gpuCulledLodInstanceDataBuffer)
@@ -515,7 +525,9 @@ void CMeshSceneNodeInstanced::RecullInstances()
         size_t outputSizePerLoD = dataPerInstanceOutputSize*instanceDataBuffer->getCapacity();
         if (gpuCulledLodInstanceDataBuffer->getSize()!=xfb.size()*gpuLoDsPerPass*outputSizePerLoD)
         {
-            gpuCulledLodInstanceDataBuffer->reallocate(xfb.size()*gpuLoDsPerPass*outputSizePerLoD,false,true);
+            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs = gpuCulledLodInstanceDataBuffer->getMemoryReqs();
+            reqs.vulkanReqs.size = xfb.size()*gpuLoDsPerPass*outputSizePerLoD;
+            {auto rep = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,gpuCulledLodInstanceDataBuffer->canUpdateSubRange()); gpuCulledLodInstanceDataBuffer->pseudoMoveAssign(rep); rep->drop();}
             for (size_t i=0; i<xfb.size(); i++)
             {
                 for (size_t j=0; j<gpuLoDsPerPass; j++)
@@ -543,7 +555,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
             for (size_t j=0; j<LoD.size(); j++)
             for (size_t i=0; i<LoD[j].mesh->getMeshBufferCount(); i++)
             {
-                scene::IGPUMeshDataFormatDesc* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
+                scene::IMeshDataFormatDesc<video::IGPUBuffer>* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
                 for (size_t k=0; k<scene::EVAI_COUNT; k++)
                 {
                     if (desc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)k)==cpuCulledLodInstanceDataBuffer)
@@ -657,7 +669,7 @@ void CMeshSceneNodeInstanced::render()
             if (transparent == isTransparentPass)
             {
                 driver->setMaterial(material);
-                driver->drawMeshBuffer(LoD[i].mesh->getMeshBuffer(j), (AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
+                driver->drawMeshBuffer(LoD[i].mesh->getMeshBuffer(j));
             }
         }
     }

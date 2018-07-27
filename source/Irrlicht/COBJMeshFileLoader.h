@@ -9,6 +9,7 @@
 #include "IFileSystem.h"
 #include "ISceneManager.h"
 #include "irrString.h"
+#include <map>
 #include <vector>
 
 namespace irr

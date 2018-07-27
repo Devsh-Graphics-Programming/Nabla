@@ -249,13 +249,6 @@ void COpenGLSLMaterialRenderer::OnUnsetMaterial()
 }
 
 
-//! Returns if the material is transparent.
-bool COpenGLSLMaterialRenderer::isTransparent() const
-{
-	return BaseMaterial>=EMT_TRANSPARENT_ADD_COLOR&&BaseMaterial<=EMT_TRANSPARENT_VERTEX_ALPHA;
-}
-
-
 bool COpenGLSLMaterialRenderer::createProgram()
 {
 	Program2 = COpenGLExtensionHandler::extGlCreateProgram();
@@ -375,36 +368,6 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t loca
 #endif
         return;
     }
-/*
-#ifdef _DEBUG
-    GLuint index = 0;
-    bool found = false;
-    for (uint32_t i=0; i<debugConstants.size(); i++)
-    {
-        if (debugConstants[i].location==location)
-        {
-            found = true;
-            index = debugConstantIndices[i];
-            break;
-        }
-    }
-
-    if (!found)
-    {
-        os::Printer::log("Uniform not found.", ELL_ERROR);
-        return;
-    }
-    GLint length;
-    GLenum type2;
-    GLchar buf[1024];
-    COpenGLExtensionHandler::extGlGetActiveUniform(Program2, index, 1023, NULL, &length, &type2, buf);
-    if (number>length||type!=getIrrUniformType(type2))
-    {
-        os::Printer::log("Number of elements or uniform type are ALL WRONG.", ELL_ERROR);
-        return;
-    }
-#endif
-*/
 
     GLsizei cnt = int32_t(number);
     GLint loc = int32_t(location);
@@ -497,101 +460,17 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t loca
     }
 }
 
-void COpenGLSLMaterialRenderer::setShaderTextures(const int32_t* textureIndices, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number)
-{
-    if (location<0)
-    {
-#ifdef _DEBUG
-        os::Printer::log("Cannot set shader constant, uniform index out of range.", ELL_ERROR);
-#endif
-        return;
-    }
-    /*
-#ifdef _DEBUG
-    GLuint index = 0;
-    bool found = false;
-    for (uint32_t i=0; i<debugConstants.size(); i++)
-    {
-        if (debugConstants[i].location==location)
-        {
-            found = true;
-            index = debugConstantIndices[i];
-            break;
-        }
-    }
-
-    if (!found)
-    {
-        os::Printer::log("Uniform not found.", ELL_ERROR);
-        return;
-    }
-    GLint length;
-    GLenum type2;
-    GLchar buf[1024];
-    COpenGLExtensionHandler::extGlGetActiveUniform(Program2, index, 1023, NULL, &length, &type2, buf);
-    if (number>length||type!=getIrrUniformType(type2))
-    {
-        os::Printer::log("Number of elements or uniform type are ALL WRONG.", ELL_ERROR);
-        return;
-    }
-#endif
-*/
-
-    GLsizei cnt = number;
-    GLint loc = location;
-
-    switch (type)
-    {
-    case ESCT_SAMPLER_1D:
-    case ESCT_SAMPLER_2D:
-    case ESCT_SAMPLER_3D:
-    case ESCT_SAMPLER_CUBE:
-    case ESCT_SAMPLER_1D_SHADOW:
-    case ESCT_SAMPLER_2D_SHADOW:
-    case ESCT_SAMPLER_1D_ARRAY:
-    case ESCT_SAMPLER_2D_ARRAY:
-    case ESCT_SAMPLER_1D_ARRAY_SHADOW:
-    case ESCT_SAMPLER_2D_ARRAY_SHADOW:
-    case ESCT_SAMPLER_2D_MULTISAMPLE:
-    case ESCT_SAMPLER_2D_MULTISAMPLE_ARRAY:
-    case ESCT_SAMPLER_CUBE_SHADOW:
-    case ESCT_SAMPLER_BUFFER:
-    case ESCT_SAMPLER_2D_RECT:
-    case ESCT_SAMPLER_2D_RECT_SHADOW:
-    case ESCT_INT_SAMPLER_1D:
-    case ESCT_INT_SAMPLER_2D:
-    case ESCT_INT_SAMPLER_3D:
-    case ESCT_INT_SAMPLER_CUBE:
-    case ESCT_INT_SAMPLER_1D_ARRAY:
-    case ESCT_INT_SAMPLER_2D_ARRAY:
-    case ESCT_INT_SAMPLER_2D_MULTISAMPLE:
-    case ESCT_INT_SAMPLER_2D_MULTISAMPLE_ARRAY:
-    case ESCT_INT_SAMPLER_BUFFER:
-    case ESCT_UINT_SAMPLER_1D:
-    case ESCT_UINT_SAMPLER_2D:
-    case ESCT_UINT_SAMPLER_3D:
-    case ESCT_UINT_SAMPLER_CUBE:
-    case ESCT_UINT_SAMPLER_1D_ARRAY:
-    case ESCT_UINT_SAMPLER_2D_ARRAY:
-    case ESCT_UINT_SAMPLER_2D_MULTISAMPLE:
-    case ESCT_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY:
-    case ESCT_UINT_SAMPLER_BUFFER:
-        COpenGLExtensionHandler::extGlProgramUniform1iv(Program2,loc,cnt,(GLint*)textureIndices);
-        break;
-#ifdef _DEBUG
-    default:
-        os::Printer::log("Cannot set shader constant, wrong uniform type or wrong call type used.", ELL_ERROR);
-        return;
-#else
-    default:
-        return;
-#endif
-    }
-}
-
 IVideoDriver* COpenGLSLMaterialRenderer::getVideoDriver()
 {
 	return Driver;
+}
+
+
+
+//! Returns if the material is transparent.
+bool COpenGLSLMaterialRenderer::isTransparent() const
+{
+	return BaseMaterial>=EMT_TRANSPARENT_ADD_COLOR&&BaseMaterial<=EMT_TRANSPARENT_VERTEX_ALPHA;
 }
 
 } // end namespace video

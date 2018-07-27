@@ -1,3 +1,4 @@
+#define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 #include "driverChoice.h"
 
@@ -54,7 +55,6 @@ int main()
 	irr::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
-    params.AntiAlias = 0; //No AA, yet
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
 	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
@@ -79,8 +79,15 @@ int main()
 	device->setEventReceiver(&receiver);
 
 
-    video::IGPUTransientBuffer* buffer = video::IGPUTransientBuffer::createMappedTransientBuffer(driver,0x1000000u,video::EGBA_WRITE,false,true,true,false);
-
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.size = 0x1000000u;
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|video::IDriverMemoryAllocation::EMCF_COHERENT;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    video::IGPUTransientBuffer* buffer = video::IGPUTransientBuffer::createTransientBuffer(driver,driver->createGPUBufferOnDedMem(reqs,false),false);
 
 	uint64_t lastFPSTime = 0;
 
@@ -94,9 +101,11 @@ int main()
         {
             size_t offset;
             #define ALIGNMENT 32
-            if (buffer->Alloc(offset,allocSize,ALIGNMENT,video::IGPUTransientBuffer::EWP_DONT_WAIT,true)==video::IGPUTransientBuffer::EARS_SUCCESS)
+            if (buffer->Alloc(offset,allocSize,ALIGNMENT,video::IGPUTransientBuffer::EWP_DONT_WAIT)==video::IGPUTransientBuffer::EARS_SUCCESS)
             {
-                buffer->Commit(offset,offset+allocSize);
+                std::vector<video::IDriverMemoryAllocation::MemoryRange> dummyFlushRanges;
+                buffer->Commit(offset,offset+allocSize,dummyFlushRanges);
+                assert(dummyFlushRanges.size()==0);
                 buffer->fenceRangeUsedByGPU(offset,offset+allocSize);
                 buffer->Free(offset,offset+allocSize);
             }
@@ -108,12 +117,10 @@ int main()
 		uint64_t time = device->getTimer()->getRealTime();
 		if (time-lastFPSTime > 1000)
 		{
-			stringw str = L"Builtin Nodes Demo - Irrlicht Engine [";
-			str += driver->getName();
-			str += "] FPS:";
-			str += driver->getFPS();
+		    std::wostringstream sstr;
+		    sstr << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS();
 
-			device->setWindowCaption(str.c_str());
+			device->setWindowCaption(sstr.str().c_str());
 			lastFPSTime = time;
 		}
 	}

@@ -7,12 +7,6 @@
 
 #include "rect.h"
 #include "SColor.h"
-#include "IGPUMappedBuffer.h"
-#include "ITexture.h"
-#include "IMultisampleTexture.h"
-#include "ITextureBufferObject.h"
-#include "IRenderBuffer.h"
-#include "IFrameBuffer.h"
 #include "irrArray.h"
 #include "matrix4x3.h"
 #include "plane3d.h"
@@ -21,13 +15,9 @@
 #include "SMaterial.h"
 #include "IDriverFence.h"
 #include "SMesh.h"
-#include "IGPUTimestampQuery.h"
-#include "IOcclusionQuery.h"
 #include "triangle3d.h"
-#include "EDriverTypes.h"
-#include "EDriverFeatures.h"
 #include "SExposedVideoData.h"
-#include <string>
+#include "IDriver.h"
 
 namespace irr
 {
@@ -84,37 +74,12 @@ namespace video
 		EPTS_COUNT
 	};
 
-	//! enumeration for signaling resources which were lost after the last render cycle
-	/** These values can be signaled by the driver, telling the app that some resources
-	were lost and need to be recreated. Irrlicht will sometimes recreate the actual objects,
-	but the content needs to be recreated by the application. */
-	enum E_LOST_RESOURCE
-	{
-		//! The whole device/driver is lost
-		ELR_DEVICE = 1,
-		//! All texture are lost, rare problem
-		ELR_TEXTURES = 2,
-		//! The Render Target Textures are lost, typical problem for D3D
-		ELR_RTTS = 4,
-		//! The HW buffers are lost, will be recreated automatically, but might require some more time this frame
-		ELR_HW_BUFFERS = 8
-	};
-
 	enum E_SCREEN_BUFFERS
 	{
 		ESB_FRONT_LEFT=0,
 		ESB_FRONT_RIGHT,
 		ESB_BACK_LEFT,
 		ESB_BACK_RIGHT
-	};
-
-	enum E_MESH_DESC_CONVERT_BEHAVIOUR
-	{
-	    EMDCB_CLONE_AND_MIRROR_LAYOUT = 0,
-	    EMDCB_PACK_ATTRIBUTES_SINGLE_BUFFER,
-	    EMDCB_PACK_ALL_SINGLE_BUFFER,
-	    EMDCB_INTERLEAVED_PACK_ATTRIBUTES_SINGLE_BUFFER,
-	    EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER
 	};
 
 	enum E_MIP_CHAIN_ERROR
@@ -126,53 +91,6 @@ namespace video
 	    EMCE_OTHER_ERR
 	};
 
-
-	struct SOverrideMaterial
-	{
-		//! The Material values
-		SMaterial Material;
-		//! Which values are taken for override
-		/** OR'ed values from E_MATERIAL_FLAGS. */
-		uint32_t EnableFlags;
-		//! Set in which render passes the material override is active.
-		/** OR'ed values from E_SCENE_NODE_RENDER_PASS. */
-		uint16_t EnablePasses;
-		//! Global enable flag, overwritten by the SceneManager in each pass
-		/** The Scenemanager uses the EnablePass array and sets Enabled to
-		true if the Override material is enabled in the current pass. */
-		bool Enabled;
-
-		//! Default constructor
-		SOverrideMaterial() : EnableFlags(0), EnablePasses(0), Enabled(false) {}
-
-		//! Apply the enabled overrides
-		void apply(SMaterial& material)
-		{
-			if (Enabled)
-			{
-				for (uint32_t i=0; i<32; ++i)
-				{
-					const uint32_t num=(1<<i);
-					if (EnableFlags & num)
-					{
-						switch (num)
-						{
-						case EMF_WIREFRAME: material.Wireframe = Material.Wireframe; break;
-						case EMF_POINTCLOUD: material.PointCloud = Material.PointCloud; break;
-						case EMF_ZBUFFER: material.ZBuffer = Material.ZBuffer; break;
-						case EMF_ZWRITE_ENABLE: material.ZWriteEnable = Material.ZWriteEnable; break;
-						case EMF_BACK_FACE_CULLING: material.BackfaceCulling = Material.BackfaceCulling; break;
-						case EMF_FRONT_FACE_CULLING: material.FrontfaceCulling = Material.FrontfaceCulling; break;
-						case EMF_COLOR_MASK: material.ColorMask = Material.ColorMask; break;
-						case EMF_BLEND_OPERATION: material.BlendOperation = Material.BlendOperation; break;
-						}
-					}
-				}
-			}
-		}
-
-	};
-
 	//! Interface to driver which is able to perform 2d and 3d graphics functions.
 	/** This interface is one of the most important interfaces of
 	the Irrlicht Engine: All rendering and texture manipulation is done with
@@ -181,18 +99,14 @@ namespace video
 	irr::scene::ISceneManager interface provides a lot of powerful classes
 	and methods to make the programmer's life easier.
 	*/
-	class IVideoDriver : public virtual IReferenceCounted
+	class IVideoDriver : public IDriver
 	{
 	public:
-        virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) = 0;
+	    //! This is marked for deprecation
+	    virtual std::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> mesh) {return std::vector<scene::IGPUMesh*>();}
 
-	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) = 0;
-
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) = 0;
-
-	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) = 0;
-
-        virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;
+	    //! make with VkBufferCopy
+        virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;
 
 
         virtual bool initAuxContext() = 0;
@@ -228,20 +142,8 @@ namespace video
 		\return False if failed and true if succeeded. */
 		virtual bool endScene() =0;
 
-		//! Queries the features of the driver.
-		/** Returns true if a feature is available
-		\param feature Feature to query.
-		\return True if the feature is available, false if not. */
-		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const =0;
-
 		//!
 		virtual void issueGPUTextureBarrier() =0;
-
-		//! Check if the driver was recently reset.
-		/** For d3d devices you will need to recreate the RTTs if the
-		driver was reset. Should be queried right after beginScene().
-		*/
-		virtual bool checkDriverReset() =0;
 
 		//! Sets transformation matrices.
 		/** \param state Transformation type to be set, e.g. view,
@@ -357,17 +259,12 @@ namespace video
         virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain) = 0;
 
         //! A.
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) = 0;
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
+                                                           ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) {return nullptr;}
 
         //! A.
-        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0) = 0;
-
-		//! A.
-		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
-
-		virtual IRenderBuffer* addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
-
-        virtual IFrameBuffer* addFrameBuffer() = 0;
+        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8,
+                                                             const size_t& offset=0, const size_t& length=0) {return nullptr;}
 
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth=true, bool copyStencil=true,
@@ -389,8 +286,6 @@ namespace video
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo) =0;
 
-		virtual void removeRenderBuffer(IRenderBuffer* renderbuf) =0;
-
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf) =0;
 
 		//! Removes all textures from the texture cache and deletes them.
@@ -406,8 +301,7 @@ namespace video
 
 		virtual void removeAllTextureBufferObjects() =0;
 
-		virtual void removeAllRenderBuffers() =0;
-
+		//! This only removes all IFrameBuffers created in the calling thread.
 		virtual void removeAllFrameBuffers() =0;
 
 
@@ -416,24 +310,6 @@ namespace video
 		virtual void endQuery(IQueryObject* query) = 0;
 		virtual void beginQuery(IQueryObject* query, const size_t& index) = 0;
 		virtual void endQuery(IQueryObject* query, const size_t& index) = 0;
-
-        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic) = 0;
-
-        virtual IQueryObject* createPrimitivesGeneratedQuery() = 0;
-        virtual IQueryObject* createXFormFeedbackPrimitiveQuery() = 0;
-        virtual IQueryObject* createElapsedTimeQuery() = 0;
-        virtual IGPUTimestampQuery* createTimestampQuery() = 0;
-
-
-		//! Creates a normal map from a height map texture.
-		/** If the target texture has 32 bit, the height value is
-		stored in the alpha component of the texture as addition. This
-		value is used by the video::EMT_PARALLAX_MAP_SOLID material and
-		similar materials.
-		\param texture Texture whose alpha channel is modified.
-		\param amplitude Constant value by which the height
-		information is multiplied.*/
-		virtual void makeNormalMapTexture(video::ITexture* texture, float amplitude=1.0f) const =0;
 
 
 		//! Sets new multiple render targets.
@@ -492,37 +368,6 @@ namespace video
 		//! Gets the area of the current viewport.
 		/** \return Rectangle of the current viewport. */
 		virtual const core::rect<int32_t>& getViewPort() const =0;
-
-		//! Draws a 3d line.
-		/** Note that the line is drawn using the current transformation
-		matrix and material. So if you need to draw the 3D line
-		independently of the current transformation, use
-		\code
-		driver->setMaterial(someMaterial);
-		driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
-		\endcode
-		for some properly set up material before drawing the line.
-		Some drivers support line thickness set in the material.
-		\param start Start of the 3d line.
-		\param end End of the 3d line.
-		\param color Color of the line. */
-		virtual void draw3DLine(const core::vector3df& start,
-			const core::vector3df& end, SColor color = SColor(255,255,255,255)) =0;
-
-		//! Draws a 3d axis aligned box.
-		/** This method simply calls draw3DLine for the edges of the
-		box. Note that the box is drawn using the current transformation
-		matrix and material. So if you need to draw it independently of
-		the current transformation, use
-		\code
-		driver->setMaterial(someMaterial);
-		driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
-		\endcode
-		for some properly set up material before drawing the box.
-		\param box The axis aligned box to draw
-		\param color Color to use while drawing the box. */
-		virtual void draw3DBox(const core::aabbox3d<float>& box,
-			SColor color = SColor(255,255,255,255)) =0;
 
 		//! Draws a 2d image without any special effects
 		/** \param texture Pointer to texture to use.
@@ -670,15 +515,18 @@ namespace video
 
 		//! Draws a mesh buffer
 		/** \param mb Buffer to draw */
-		virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query = NULL) =0;
+		virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb) =0;
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL) =0;
-		virtual void drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL) =0;
-
-		//! Get the current color format of the color buffer
-		/** \return Color format of the color buffer. */
-		virtual ECOLOR_FORMAT getColorFormat() const =0;
+		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const scene::E_PRIMITIVE_TYPE& mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        const size_t& offset, const size_t& count, const size_t& stride) =0;
+		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const scene::E_PRIMITIVE_TYPE& mode,
+                                        const E_INDEX_TYPE& type,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        const size_t& offset, const size_t& count, const size_t& stride) =0;
 
 		//! Get the size of the screen or render window.
 		/** \return Size of screen or render window. */
@@ -705,11 +553,6 @@ namespace video
 		counted per frame.
 		\return Amount of primitives drawn in the last frame. */
 		virtual uint32_t getPrimitiveCountDrawn( uint32_t mode =0 ) const =0;
-
-		//! Gets name of this video driver.
-		/** \return Returns the name of the video driver, e.g. in case
-		of the Direct3D8 driver, it would return "Direct3D 8.1". */
-		virtual const wchar_t* getName() const =0;
 
 		//! Adds an external image loader to the engine.
 		/** This is useful if the Irrlicht Engine should be able to load
@@ -768,24 +611,6 @@ namespace video
 		on all vector members.
 		See IReferenceCounted::drop() for more information. */
 		virtual std::vector<CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
-
-		//! Convenience function for releasing all images in a mip chain.
-		/**
-		\param List of .
-		\return .
-		Bla bla. */
-		static void dropWholeMipChain(const std::vector<CImageData*>& mipImages)
-		{
-		    for (std::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
-                (*it)->drop();
-		}
-		//!
-		template< class Iter >
-		static void dropWholeMipChain(Iter it, Iter limit)
-		{
-		    for (; it!=limit; it++)
-                (*it)->drop();
-		}
 
 		//! Writes the provided image to a file.
 		/** Requires that there is a suitable image writer registered
@@ -887,10 +712,6 @@ namespace video
 		\return Collection of device dependent pointers. */
 		virtual const SExposedVideoData& getExposedVideoData() =0;
 
-		//! Get type of video driver
-		/** \return Type of driver. */
-		virtual E_DRIVER_TYPE getDriverType() const =0;
-
 		//! Gets the IGPUProgrammingServices interface.
 		/** \return Pointer to the IGPUProgrammingServices. Returns 0
 		if the video driver does not support this. For example the
@@ -913,16 +734,6 @@ namespace video
 		it. */
 		virtual void enableClipPlane(uint32_t index, bool enable) =0;
 
-		//! Set the minimum number of vertices for which a hw buffer will be created
-		/** \param count Number of vertices to set as minimum. */
-		virtual void setMinHardwareBufferVertexCount(uint32_t count) =0;
-
-		//! Get the global Material, which might override local materials.
-		/** Depending on the enable flags, values from this Material
-		are used to override those of local materials of some
-		meshbuffer being rendered.
-		\return Reference to the Override Material. */
-		virtual SOverrideMaterial& getOverrideMaterial() =0;
 
 		//! Get the 2d override material for altering its values
 		/** The 2d override materual allows to alter certain render
@@ -945,17 +756,11 @@ namespace video
 		enabled or disabled. */
 		virtual void enableMaterial2D(bool enable=true) =0;
 
-		//! Get the graphics card vendor name.
-		virtual std::string getVendorInfo() =0;
-
 		//! Only used by the engine internally.
 		/** Passes the global material flag AllowZWriteOnTransparent.
 		Use the SceneManager attribute to set this value from your app.
 		\param flag Default behavior is to disable ZWrite, i.e. false. */
 		virtual void setAllowZWriteOnTransparent(bool flag) =0;
-
-		//! Get the maximum texture size supported.
-		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const =0;
 
 		//! Color conversion convenience function
 		/** Convert an image (as array of pixels) from source to destination

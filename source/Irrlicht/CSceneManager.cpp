@@ -280,7 +280,16 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
             skyBoxesVxPositions[23*3+1] =-1;
             skyBoxesVxPositions[23*3+2] = 1;
         }
-        redundantMeshDataBuf = Driver->createGPUBuffer(redundantMeshDataBufSize,tmpMem);
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.size = redundantMeshDataBufSize;
+        reqs.vulkanReqs.alignment = 4;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+        redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
         free(tmpMem);
 	}
 
@@ -766,14 +775,6 @@ bool CSceneManager::isCulled(ISceneNode* node) const
 	}
 	bool result = false;
 
-	// has occlusion query information
-	if ((node->getAutomaticCulling() & scene::EAC_OCC_QUERY)&&node->getOcclusionQuery())
-	{
-	    uint32_t tmp;
-	    node->getOcclusionQuery()->getQueryResult(&tmp);
-		result = tmp==0;
-	}
-
 	// can be seen by a bounding box ?
 	if (!result && (node->getAutomaticCulling() & scene::EAC_BOX))
 	{
@@ -857,14 +858,14 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 	case ESNRP_TRANSPARENT:
 		if (!isCulled(node))
 		{
-			TransparentNodeList.push_back(TransparentNodeEntry(node, camWorldPos));
+			TransparentNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
 			taken = 1;
 		}
 		break;
 	case ESNRP_TRANSPARENT_EFFECT:
 		if (!isCulled(node))
 		{
-			TransparentEffectNodeList.push_back(TransparentNodeEntry(node, camWorldPos));
+			TransparentEffectNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
 			taken = 1;
 		}
 		break;
@@ -881,7 +882,7 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 				if (rnd && rnd->isTransparent())
 				{
 					// register as transparent node
-					TransparentNodeEntry e(node, camWorldPos);
+					TransparentNodeEntry e(node, ActiveCamera->getAbsolutePosition());
 					TransparentNodeList.push_back(e);
 					taken = 1;
 					break;
@@ -970,11 +971,9 @@ void CSceneManager::drawAll()
 		First Scene Node for prerendering should be the active camera
 		consistent Camera is needed for culling
 	*/
-	camWorldPos.set(0,0,0);
 	if (ActiveCamera)
 	{
 		ActiveCamera->render();
-		camWorldPos = ActiveCamera->getAbsolutePosition();
 	}
 
 	// let all nodes register themselves
@@ -986,7 +985,6 @@ void CSceneManager::drawAll()
 	//render camera scenes
 	{
 		CurrentRendertime = ESNRP_CAMERA;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		if (LightManager)
 			LightManager->OnRenderPassPreRender(CurrentRendertime);
@@ -1003,7 +1001,6 @@ void CSceneManager::drawAll()
 	// render skyboxes
 	{
 		CurrentRendertime = ESNRP_SKY_BOX;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		if (LightManager)
 		{
@@ -1032,7 +1029,6 @@ void CSceneManager::drawAll()
 	// render default objects
 	{
 		CurrentRendertime = ESNRP_SOLID;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		SolidNodeList.sort(); // sort by textures
 
@@ -1065,7 +1061,6 @@ void CSceneManager::drawAll()
 	// render transparent objects.
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		TransparentNodeList.sort(); // sort by distance from camera
 		if (LightManager)
@@ -1098,7 +1093,6 @@ void CSceneManager::drawAll()
 	// render transparent effect objects.
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT_EFFECT;
-		Driver->getOverrideMaterial().Enabled = ((Driver->getOverrideMaterial().EnablePasses & CurrentRendertime) != 0);
 
 		TransparentEffectNodeList.sort(); // sort by distance from camera
 

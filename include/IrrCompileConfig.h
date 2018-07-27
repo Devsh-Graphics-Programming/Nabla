@@ -19,14 +19,9 @@
 #define __IRR_COMPILE_WITH_X86_SIMD_
 
 #ifdef __IRR_COMPILE_WITH_X86_SIMD_
-#define __IRR_COMPILE_WITH_SSE2
 #define __IRR_COMPILE_WITH_SSE3
 
 #include <immintrin.h>
-
-#ifdef __SSE2__
-#define __IRR_COMPILE_WITH_SSE2
-#endif
 
 #ifdef __SSE3__
 #define __IRR_COMPILE_WITH_SSE3
@@ -97,6 +92,7 @@
 #define _IRR_WINDOWS_
 #define _IRR_WINDOWS_API_
 #define _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#define NOMINMAX
 #endif
 
 #if defined(_MSC_VER) && (_MSC_VER < 1300)
@@ -152,54 +148,24 @@
 #endif
 
 
-//! Maximum number of texture an SMaterial can have, up to 8 are supported by Irrlicht.
+//! Maximum number of textures and input images we can feed to a shader
+/** These limits will most likely be below your GPU hardware limits
+**/
 #define _IRR_MATERIAL_MAX_TEXTURES_ 8
+#define _IRR_MATERIAL_MAX_IMAGES_ 8
 
-//!
+//! Maximum of other shader input (output) slots
+#define _IRR_MATERIAL_MAX_DYNAMIC_SHADER_STORAGE_OBJECTS_ 4
+#define _IRR_MATERIAL_MAX_SHADER_STORAGE_OBJECTS_ (16-_IRR_MATERIAL_MAX_DYNAMIC_SHADER_STORAGE_OBJECTS_) //opengl has one set of slots for both
+#define _IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_ 8
+#define _IRR_MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS_ (24-_IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_) //opengl has one set of slots for both
+
+//! Maximum number of bits allowed in the VAO Attribute Divisor
+#define _IRR_VAO_MAX_ATTRIB_DIVISOR_BITS 1
+
+//! Maximum number of output buffers and streams a Transform Feedback Object can have
 #define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4
 #define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4
-
-//! Define _IRR_COMPILE_WITH_DIRECT3D_8_ and _IRR_COMPILE_WITH_DIRECT3D_9_ to
-//! compile the Irrlicht engine with Direct3D8 and/or DIRECT3D9.
-/** If you only want to use the software device or opengl you can disable those defines.
-This switch is mostly disabled because people do not get the g++ compiler compile
-directX header files, and directX is only available on Windows platforms. If you
-are using Dev-Cpp, and want to compile this using a DX dev pack, you can define
-_IRR_COMPILE_WITH_DX9_DEV_PACK_. So you simply need to add something like this
-to the compiler settings: -DIRR_COMPILE_WITH_DX9_DEV_PACK
-and this to the linker settings: -ld3dx9 -ld3dx8
-
-Microsoft have chosen to remove D3D8 headers from their recent DXSDKs, and
-so D3D8 support is now disabled by default.  If you really want to build
-with D3D8 support, then you will have to source a DXSDK with the appropriate
-headers, e.g. Summer 2004.  This is a Microsoft issue, not an Irrlicht one.
-*/
-#if defined(_IRR_WINDOWS_API_) && (!defined(__GNUC__) || defined(IRR_COMPILE_WITH_DX9_DEV_PACK))
-
-//! Define _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_ if you want to use DirectInput for joystick handling.
-/** This only applies to Windows devices, currently only supported under Win32 device.
-If not defined, Windows Multimedia library is used, which offers also broad support for joystick devices. */
-//#define _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_ // sodan
-#ifdef NO_IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
-#undef _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
-#endif
-// can't get this to compile currently under borland, can be removed if someone has a better solution
-#if defined(__BORLANDC__)
-#undef _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
-#endif
-
-//! Only define _IRR_COMPILE_WITH_DIRECT3D_8_ if you have an appropriate DXSDK, e.g. Summer 2004
-// #define _IRR_COMPILE_WITH_DIRECT3D_8_
-//#define _IRR_COMPILE_WITH_DIRECT3D_9_ // sodan
-
-#ifdef NO_IRR_COMPILE_WITH_DIRECT3D_8_
-#undef _IRR_COMPILE_WITH_DIRECT3D_8_
-#endif
-#ifdef NO_IRR_COMPILE_WITH_DIRECT3D_9_
-#undef _IRR_COMPILE_WITH_DIRECT3D_9_
-#endif
-
-#endif
 
 
 
@@ -269,6 +235,14 @@ define out. */
 #endif
 
 
+//! Define _IRR_COMPILE_WITH_OPENSSL_ to enable compiling the engine using libjpeg.
+/** This enables the engine to read and write encrypted BAW format files.
+If you comment this out, the engine will no longer read or write encrypted .baw files! */
+#define _IRR_COMPILE_WITH_OPENSSL_
+#ifdef NO_IRR_COMPILE_WITH_OPENSSL_
+#undef _IRR_COMPILE_WITH_OPENSSL_
+#endif
+
 //! Define _IRR_COMPILE_WITH_JPEGLIB_ to enable compiling the engine using libjpeg.
 /** This enables the engine to read jpeg images. If you comment this out,
 the engine will no longer read .jpeg images. */
@@ -299,31 +273,6 @@ the engine will no longer read .png images. */
 #define _IRR_USE_NON_SYSTEM_LIB_PNG_
 #ifdef NO_IRR_USE_NON_SYSTEM_LIB_PNG_
 #undef _IRR_USE_NON_SYSTEM_LIB_PNG_
-#endif
-
-//! Define _IRR_D3D_NO_SHADER_DEBUGGING to disable shader debugging in D3D9
-/** If _IRR_D3D_NO_SHADER_DEBUGGING is undefined in IrrCompileConfig.h,
-it is possible to debug all D3D9 shaders in VisualStudio. All shaders
-(which have been generated in memory or read from archives for example) will be emitted
-into a temporary file at runtime for this purpose. To debug your shaders, choose
-Debug->Direct3D->StartWithDirect3DDebugging in Visual Studio, and for every shader a
-file named 'irr_dbg_shader_%%.vsh' or 'irr_dbg_shader_%%.psh' will be created. Drag'n'drop
-the file you want to debug into visual studio. That's it. You can now set breakpoints and
-watch registers, variables etc. This works with ASM, HLSL, and both with pixel and vertex shaders.
-Note that the engine will run in D3D REF for this, which is a lot slower than HAL. */
-#define _IRR_D3D_NO_SHADER_DEBUGGING
-#ifdef NO_IRR_D3D_NO_SHADER_DEBUGGING
-#undef _IRR_D3D_NO_SHADER_DEBUGGING
-#endif
-
-//! Define _IRR_D3D_USE_LEGACY_HLSL_COMPILER to enable the old HLSL compiler in recent DX SDKs
-/** This enables support for ps_1_x shaders for recent DX SDKs. Otherwise, support
-for this shader model is not available anymore in SDKs after Oct2006. You need to
-distribute the OCT2006_d3dx9_31_x86.cab or OCT2006_d3dx9_31_x64.cab though, in order
-to provide the user with the proper DLL. That's why it's disabled by default. */
-//#define _IRR_D3D_USE_LEGACY_HLSL_COMPILER
-#ifdef NO_IRR_D3D_USE_LEGACY_HLSL_COMPILER
-#undef _IRR_D3D_USE_LEGACY_HLSL_COMPILER
 #endif
 
 

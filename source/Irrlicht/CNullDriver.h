@@ -54,19 +54,15 @@ namespace video
 		//! constructor
 		CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
+		//!
+		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) {return nullptr;}
+
 
         virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}
 
-        virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) {return NULL;}
 
-	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) {return NULL;}
-
-	    virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
-
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) {return NULL;}
-
-	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) {return NULL;}
+	    virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
 
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
 				SColor color=SColor(255,0,0,0),
@@ -74,9 +70,6 @@ namespace video
 				core::rect<int32_t>* sourceRect=0);
 
 		virtual bool endScene();
-
-		//! queries the features of the driver, returns true if feature is available
-		virtual bool queryFeature(E_VIDEO_DRIVER_FEATURE feature) const;
 
 		//!
 		virtual void issueGPUTextureBarrier() {}
@@ -123,12 +116,6 @@ namespace video
 
         //!
         virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN);
-
-        //!
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false);
-
-		//! A.
-        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
 
 		//! A.
         virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain)
@@ -217,19 +204,18 @@ namespace video
 		//! gets the area of the current viewport
 		virtual const core::rect<int32_t>& getViewPort() const;
 
-        virtual void drawMeshBuffer(scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
+        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb);
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
-		virtual void drawIndexedIndirect(scene::IGPUMeshDataFormatDesc* vao, scene::E_PRIMITIVE_TYPE& mode, const E_INDEX_TYPE& type, IGPUBuffer* indirectDrawBuff, const size_t& offset, const size_t& count, const size_t& stride, IOcclusionQuery* query = NULL);
-
-		//! Draws a 3d line.
-		virtual void draw3DLine(const core::vector3df& start,
-			const core::vector3df& end, SColor color = SColor(255,255,255,255));
-
-		//! Draws a 3d axis aligned box.
-		virtual void draw3DBox(const core::aabbox3d<float>& box,
-			SColor color = SColor(255,255,255,255));
+		virtual void drawArraysIndirect( const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                         const scene::E_PRIMITIVE_TYPE& mode,
+                                         const IGPUBuffer* indirectDrawBuff,
+                                         const size_t& offset, const size_t& count, const size_t& stride);
+		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                         const scene::E_PRIMITIVE_TYPE& mode,
+                                         const E_INDEX_TYPE& type,
+                                         const IGPUBuffer* indirectDrawBuff,
+                                         const size_t& offset, const size_t& count, const size_t& stride);
 
 		//! draws an 2d image
 		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos);
@@ -343,8 +329,6 @@ namespace video
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
 
-		virtual void removeRenderBuffer(IRenderBuffer* renderbuf);
-
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
 
 		//! Removes all texture from the texture cache and deletes them, freeing lot of
@@ -355,25 +339,13 @@ namespace video
 
 		virtual void removeAllTextureBufferObjects();
 
-		virtual void removeAllRenderBuffers();
-
 		virtual void removeAllFrameBuffers();
-
-		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
-
-		virtual IRenderBuffer* addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
-
-        virtual IFrameBuffer* addFrameBuffer();
 
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false);
-
-		//! Creates a normal map from a height map texture.
-		//! \param amplitude: Constant value by which the height information is multiplied.
-		virtual void makeNormalMapTexture(video::ITexture* texture, float amplitude=1.0f) const;
 
 		//! Returns the maximum amount of primitives (mostly vertices) which
 		//! the device is able to render with one drawIndexedTriangleList
@@ -407,13 +379,6 @@ namespace video
 		virtual void endQuery(IQueryObject* query);
 		virtual void beginQuery(IQueryObject* query, const size_t& index);
 		virtual void endQuery(IQueryObject* query, const size_t& index);
-
-        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic);
-
-        virtual IQueryObject* createPrimitivesGeneratedQuery();
-        virtual IQueryObject* createXFormFeedbackPrimitiveQuery();
-        virtual IQueryObject* createElapsedTimeQuery();
-        virtual IGPUTimestampQuery* createTimestampQuery();
 
 		//! Only used by the engine internally.
 		/** Used to notify the driver that the window was resized. */
@@ -540,16 +505,6 @@ namespace video
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
 
-		//! Set the minimum number of vertices for which a hw buffer will be created
-		/** \param count Number of vertices to set as minimum. */
-		virtual void setMinHardwareBufferVertexCount(uint32_t count);
-
-		//! Get the global Material, which might override local materials.
-		/** Depending on the enable flags, values from this Material
-		are used to override those of local materials of some
-		meshbuffer being rendered. */
-		virtual SOverrideMaterial& getOverrideMaterial();
-
 		//! Get the 2d override material for altering its values
 		virtual SMaterial& getMaterial2D();
 
@@ -576,19 +531,23 @@ namespace video
 		virtual void convertColor(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
 				void* dP, ECOLOR_FORMAT dF) const;
 
-		virtual bool checkDriverReset() {return false;}
-
 
 		void addToTextureCache(video::ITexture* surface);
+
+
+		//!
+		virtual uint32_t getRequiredUBOAlignment() const {return 0;}
+
+		//!
+		virtual uint32_t getRequiredSSBOAlignment() const {return 0;}
+
+		//!
+		virtual uint32_t getRequiredTBOAlignment() const {return 0;}
 
 	protected:
         void addMultisampleTexture(IMultisampleTexture* tex);
 
         void addTextureBufferObject(ITextureBufferObject* tbo);
-
-        void addRenderBuffer(IRenderBuffer* buffer);
-
-        void addFrameBuffer(IFrameBuffer* framebuffer);
 
 		//! deletes all textures
 		void deleteAllTextures();
@@ -656,11 +615,13 @@ namespace video
 		{
                 core::dimension2d<uint32_t> size;
 		    public:
-                SDummyTexture(const io::path& name) : ITexture(name), size(0,0) {}
+                SDummyTexture(const io::path& name) : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,0,0},name), size(0,0)
+                {
+                }
 
-                virtual const E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
-                virtual const E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
-                virtual const E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
+                virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
+                virtual E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
+                virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
                 virtual const uint32_t* getSize() const { return &size.Width; }
                 virtual uint32_t getMipMapLevelCount() const {return 1;}
                 virtual core::dimension2du getRenderableSize() const { return size; }
@@ -670,13 +631,15 @@ namespace video
                 virtual void regenerateMipMapLevels() {}
                 virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
                 virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
+
+                virtual IDriverMemoryAllocation* getBoundMemory() {return nullptr;}
+                virtual const IDriverMemoryAllocation* getBoundMemory() const {return nullptr;}
+                virtual size_t getBoundMemoryOffset() const {return 0u;}
 		};
 		std::vector<SSurface> Textures;
 
 		core::array<IMultisampleTexture*> MultisampleTextures;
 		core::array<ITextureBufferObject*> TextureBufferObjects;
-		core::array<IRenderBuffer*> RenderBuffers;
-		core::array<IFrameBuffer*> FrameBuffers;
 
 		core::array<video::IImageLoader*> SurfaceLoader;
 		core::array<video::IImageWriter*> SurfaceWriter;
@@ -699,13 +662,11 @@ namespace video
         scene::IGPUMeshBuffer* boxLineMesh;
 
 		uint32_t PrimitivesDrawn;
-		uint32_t MinVertexCountForVBO;
 
 		uint32_t TextureCreationFlags;
 
 		SExposedVideoData ExposedData;
 
-		SOverrideMaterial OverrideMaterial;
 		SMaterial OverrideMaterial2D;
 		SMaterial InitMaterial2D;
 		bool OverrideMaterial2DEnabled;

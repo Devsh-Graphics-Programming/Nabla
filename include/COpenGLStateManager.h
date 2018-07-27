@@ -216,7 +216,6 @@ P.S. Maybe Ghost == Pending
             {
                 EGRBT_UNIFORM_BUFFER=0,
                 EGRBT_SHADER_STORAGE_BUFFER,
-                EGRBT_ATOMIC_COUNTER_BUFFER,
                 EGRBT_COUNT,
             };
 
@@ -242,7 +241,7 @@ P.S. Maybe Ghost == Pending
 
 	const uint32_t OGL_STATE_MAX_SAMPLE_MASK_WORDS = 4;
 
-	const uint32_t OGL_MAX_BUFFER_BINDINGS = 96;
+	const uint32_t OGL_MAX_BUFFER_BINDINGS = 16; //! should be 96
 
 	const uint8_t OGL_MAX_ENDISABLEI_INDICES = 16;//std::max(OGL_STATE_MAX_VIEWPORTS,OGL_STATE_MAX_DRAW_BUFFERS);
 	const uint32_t OGL_STATE_MAX_IMAGES = 8; //! Should be 192
@@ -784,9 +783,6 @@ P.S. Maybe Ghost == Pending
                         break;
                     case EGRBT_SHADER_STORAGE_BUFFER:
                         return GL_SHADER_STORAGE_BUFFER;
-                        break;
-                    case EGRBT_ATOMIC_COUNTER_BUFFER:
-                        return GL_ATOMIC_COUNTER_BUFFER;
                         break;
                     default:
                         return GL_INVALID_ENUM;
@@ -1392,8 +1388,6 @@ P.S. Maybe Ghost == Pending
                     {
                         if (boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][j]!=previousState.boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][j])
                             diff.bindBufferRange[diff.setBufferRanges++] = COpenGLStateDiff::RangedBufferBindingDiff(GL_SHADER_STORAGE_BUFFER,j,boundBufferRanges[EGRBT_SHADER_STORAGE_BUFFER][j]);
-                        if (boundBufferRanges[EGRBT_ATOMIC_COUNTER_BUFFER][j]!=previousState.boundBufferRanges[EGRBT_ATOMIC_COUNTER_BUFFER][j])
-                            diff.bindBufferRange[diff.setBufferRanges++] = COpenGLStateDiff::RangedBufferBindingDiff(GL_ATOMIC_COUNTER_BUFFER,j,boundBufferRanges[EGRBT_ATOMIC_COUNTER_BUFFER][j]);
                     }
                 }
 

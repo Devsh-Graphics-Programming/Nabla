@@ -6,6 +6,7 @@
 #define __IRR_ARRAY_H_INCLUDED__
 
 #include "irrTypes.h"
+#include "irrMacros.h"
 #include "heapsort.h"
 #include "irrAllocator.h"
 #include "irrMath.h"

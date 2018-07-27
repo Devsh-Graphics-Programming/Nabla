@@ -126,10 +126,9 @@ namespace video
 		: MaterialType(EMT_SOLID), AmbientColor(255,255,255,255), DiffuseColor(255,255,255,255),
 			EmissiveColor(0,0,0,0), SpecularColor(255,255,255,255),
 			Shininess(0.0f), MaterialTypeParam(0.0f), MaterialTypeParam2(0.0f), userData(NULL), Thickness(1.0f),
-			ZBuffer(ECFN_GREATEREQUAL), ColorMask(ECP_ALL),
-			BlendOperation(EBO_NONE),
+			ZBuffer(ECFN_GREATEREQUAL),
 			PolygonOffsetConstantMultiplier(0.f), PolygonOffsetGradientMultiplier(0.f),
-			Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false), RasterizerDiscard(false)
+			ColorMask(ECP_ALL), BlendOperation(EBO_NONE), Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false), RasterizerDiscard(false)
 		{ }
 
 		//! Copy constructor
@@ -251,44 +250,82 @@ namespace video
 		/** Values are from E_COMPARISON_FUNC. */
 		uint8_t ZBuffer;
 
-		//! Defines the enabled color planes
-		/** Values are defined as or'ed values of the E_COLOR_PLANE enum.
-		Only enabled color planes will be rendered to the current render
-		target. Typical use is to disable all colors when rendering only to
-		depth or stencil buffer, or using Red and Green for Stereo rendering. */
-		uint8_t ColorMask:4;
-
-		//! Store the blend operation of choice
-		/** Values to be chosen from E_BLEND_OPERATION. The actual way to use this value
-		is not yet determined, so ignore it for now. */
-		E_BLEND_OPERATION BlendOperation:4;
-
 		float PolygonOffsetConstantMultiplier;
 
 		float PolygonOffsetGradientMultiplier;
+#ifdef __GNUC__
+#include "irrunpack.h"
+        struct {
+#endif // __GNUC__
+            //! Defines the enabled color planes
+            /** Values are defined as or'ed values of the E_COLOR_PLANE enum.
+            Only enabled color planes will be rendered to the current render
+            target. Typical use is to disable all colors when rendering only to
+            depth or stencil buffer, or using Red and Green for Stereo rendering. */
+            uint64_t ColorMask:4;
 
-		//! Draw as wireframe or filled triangles? Default: false
-		/** The user can access a material flag using
-		\code material.Wireframe=true \endcode
-		or \code material.setFlag(EMF_WIREFRAME, true); \endcode */
-		bool Wireframe:1;
+            //! Store the blend operation of choice
+            /** Values to be chosen from E_BLEND_OPERATION. The actual way to use this value
+            is not yet determined, so ignore it for now. */
+            uint64_t BlendOperation:4;
 
-		//! Draw as point cloud or filled triangles? Default: false
-		bool PointCloud:1;
+            //! Draw as wireframe or filled triangles? Default: false
+            /** The user can access a material flag using
+            \code material.Wireframe=true \endcode
+            or \code material.setFlag(EMF_WIREFRAME, true); \endcode */
+            uint64_t Wireframe:1;
 
-		//! Is the zbuffer writeable or is it read-only. Default: true.
-		/** This flag is forced to false if the MaterialType is a
-		transparent type and the scene parameter
-		ALLOW_ZWRITE_ON_TRANSPARENT is not set. */
-		bool ZWriteEnable:1;
+            //! Draw as point cloud or filled triangles? Default: false
+            uint64_t PointCloud:1;
 
-		//! Is backface culling enabled? Default: true
-		bool BackfaceCulling:1;
+            //! Is the zbuffer writeable or is it read-only. Default: true.
+            /** This flag is forced to false if the MaterialType is a
+            transparent type and the scene parameter
+            ALLOW_ZWRITE_ON_TRANSPARENT is not set. */
+            uint64_t ZWriteEnable:1;
 
-		//! Is frontface culling enabled? Default: false
-		bool FrontfaceCulling:1;
+            //! Is backface culling enabled? Default: true
+            uint64_t BackfaceCulling:1;
 
-		bool RasterizerDiscard:1;
+            //! Is frontface culling enabled? Default: false
+            uint64_t FrontfaceCulling:1;
+
+            uint64_t RasterizerDiscard:1;
+#ifdef __GNUC__
+        };
+#include "irrpack.h"
+#endif // __GNUC__
+
+		void serializeBitfields(uint64_t* dst) const
+		{
+			*dst = ColorMask;
+			*dst |= BlendOperation<<4;
+			*dst |= Wireframe<<8;
+			*dst |= PointCloud<<9;
+			*dst |= ZWriteEnable<<10;
+			*dst |= BackfaceCulling<<11;
+			*dst |= FrontfaceCulling<<12;
+			*dst |= RasterizerDiscard<<13;
+		}
+		void setBitfields(const uint64_t& src)
+		{
+			ColorMask = src & 0x0f;
+			BlendOperation = (src>>4) & 0x0f;
+			Wireframe = (src>>8) & 0x01;
+			PointCloud = (src>>9) & 0x01;
+			ZWriteEnable = (src>>10) & 0x01;
+			BackfaceCulling = (src>>11) & 0x01;
+			FrontfaceCulling = (src>>12) & 0x01;
+			RasterizerDiscard = (src>>13) & 0x01;
+		}
+		const uint64_t* bitfieldsPtr() const
+		{
+			return (uint64_t*)((uint8_t*)(this) + sizeof(*this) - sizeof(uint64_t));
+		}
+		uint64_t* bitfieldsPtr()
+		{
+			return const_cast<uint64_t*>(static_cast<const SMaterial&>(*this).bitfieldsPtr());
+		}
 
 		//! Gets the i-th texture
 		/** \param i The desired level.
@@ -620,41 +657,6 @@ namespace video
             }
     };
 
-    class RangedBufferMapping
-    {
-        public:
-            RangedBufferMapping() : buffer(NULL), offset(0), size(0)
-            {
-            }
-            RangedBufferMapping(IGPUBuffer* inBuffer, const uint32_t& inOffset, const uint32_t& inSize)
-                : buffer(NULL), offset(0), size(0)
-            {
-                if (!inBuffer)
-                    return;
-
-                uint32_t bufSz = inBuffer->getSize();
-                if (inOffset>bufSz||inSize>bufSz)
-                    return;
-
-                buffer  = inBuffer;
-                offset  = inOffset;
-                size    = inSize;
-            }
-
-            IGPUBuffer* buffer;
-            uint32_t    offset,size;
-    };
-
-    enum E_RASTER_SHADER_STAGE
-    {
-        ERSS_VERTEX=0,
-        ERSS_TESS_CONTROL,
-        ERSS_TESS_EVALUATION,
-        ERSS_GEOMETRY,
-        ERSS_FRAGMENT,
-        ERSS_COUNT
-    };
-
 /*
 	//! Struct for holding parameters for a material renderer
 	class CMaterial
@@ -671,14 +673,14 @@ namespace video
 			Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false), RasterizerDiscard(false)
 		{
 		}
-
+*/
 		//! Copy constructor
 		/** \param other Material to copy from. *
 		CMaterial(const CMaterial& other)
 		{
 			*this = other;
 		}
-
+*/
 		//! Assignment operator
 		/** \param other Material to copy from. *
 		CMaterial& operator=(const CMaterial& other)
@@ -719,20 +721,20 @@ namespace video
 		}
 
 		// NON GL-STATE MEMBERS
-
+*/
 		//! How much ambient light (a global light) is reflected by this material.
 		/** The default is full white, meaning objects are completely
 		globally illuminated. Reduce this if you want to see diffuse
 		or specular light effects. *
 		vectorSIMDf AmbientColor;
-
+*/
 		//! How much diffuse light coming from a light source is reflected by this material.
 		/** The default is full white. *
 		vectorSIMDf DiffuseColor;
 
 		//! Light emitted by this material. Default is to emit no light.
 		vectorSIMDf EmissiveColor;
-
+*/
 		//! How much specular light (highlights from a light) is reflected.
 		/** The default is to reflect white specular light. See
 		SMaterial::Shininess on how to enable specular lights. *
@@ -740,12 +742,12 @@ namespace video
 
 		//!
 		float RoughnessVariable;
-
+*/
 		//! Free parameter, dependent on the material type.
 		/** Mostly ignored, used for example in EMT_PARALLAX_MAP_SOLID
 		and EMT_TRANSPARENT_ALPHA_CHANNEL. *
 		float MaterialTypeParam;
-
+*/
 		//! Second free parameter, dependent on the material type.
 		/** Mostly ignored. *
 		float MaterialTypeParam2;
@@ -769,38 +771,6 @@ namespace video
 		//! UBOs
 		#define MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS 6
 		RangedBufferMapping ShaderUniformBuffers[MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS];
-
-		//! Uniform Subroutines
-		#define MATERIAL_MAX_SUBROUTINES_PER_STAGE 32
-		uint8_t ShaderSubroutineFuncIx[ERSS_COUNT][MATERIAL_MAX_SUBROUTINES_PER_STAGE]; // THIS WILL BE 16BYTE ALIGNED
-
-		inline bool needToResetSubroutines(const E_RASTER_SHADER_STAGE& stage, const CMaterial& other)
-		{
-#ifdef _DEBUG
-            if (stage>=ERSS_COUNT)
-                return false;
-#endif
-
-#ifdef _IRR_WINDOWS_
-            __declspec(align(32)) uint64_t result[4];
-#else
-            uint64_t result[4] __attribute__ ((__aligned__(32)));
-#endif
-
-#ifdef AVX
-            __m256 ymm0 = _mm256_loadu_ps(ShaderSubroutineFuncIx[stage]);
-            __m256 ymm1 = _mm256_loadu_ps(other.ShaderSubroutineFuncIx[stage]);
-            _mm256_store_ps((float*)result,_mm256_xor_ps(ymm0,ymm1));
-#else
-            __m128 xmm0 = _mm_load_ps(ShaderSubroutineFuncIx[stage]);
-            __m128 xmm1 = _mm_load_ps(ShaderSubroutineFuncIx[stage]+16);
-            __m128 xmm2 = _mm_load_ps(other.ShaderSubroutineFuncIx[stage]);
-            __m128 xmm3 = _mm_load_ps(other.ShaderSubroutineFuncIx[stage]+16);
-            _mm_store_ps((float*)(result+0),_mm_xor_ps(xmm0,xmm1));
-            _mm_store_ps((float*)(result+2),_mm_xor_ps(xmm2,xmm3));
-#endif
-            return result[0]|result[1]|result[2]|result[3];
-		}
 
 
 		// GL-STATE VARS
@@ -826,7 +796,7 @@ namespace video
         //! All Enabled
         uint32_t SampleMask[OGL_STATE_MAX_SAMPLE_MASK_WORDS];
 
-
+*/
 		//! Inequality operator
 		/** \param b Material to compare to.
 		\return True if the materials differ, else false. *
@@ -860,7 +830,7 @@ namespace video
 			}
 			return different;
 		}
-
+*/
 		//! Equality operator
 		/** \param b Material to compare to.
 		\return True if the materials are equal, else false. *

@@ -13,8 +13,7 @@ class IGPUBuffer;
 
 enum E_QUERY_OBJECT_TYPE
 {
-    EQOT_OCCLUSION=0,
-    EQOT_PRIMITIVES_GENERATED,
+    EQOT_PRIMITIVES_GENERATED=0u,
     EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN,
     EQOT_TIME_ELAPSED,
     //EQOT_TIMESTAMP,
@@ -38,7 +37,7 @@ class IQueryObject : public IReferenceCounted
 		virtual void isQueryReady32(IGPUBuffer* buffer, const size_t& offset=0) = 0;
 		virtual void isQueryReady64(IGPUBuffer* buffer, const size_t& offset=0) = 0;
 
-		virtual const E_QUERY_OBJECT_TYPE getQueryObjectType() const =0 ;
+		virtual E_QUERY_OBJECT_TYPE getQueryObjectType() const =0 ;
 };
 
 }

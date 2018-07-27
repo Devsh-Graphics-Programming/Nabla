@@ -31,7 +31,8 @@ namespace core
     matrix4 concatenateBFollowedByA(const matrix4& other_a,const matrix4x3& other_b );
 
     matrix4 concatenatePreciselyBFollowedByA(const matrix4& other_a,const matrix4x3& other_b );
-
+
+
 	class matrix4x3
 	{
 		public:
@@ -376,12 +377,11 @@ namespace core
                 return false;
 			}
 
-
-			//! Gets the inversed matrix of this one
-			/** \param out: where result matrix is written to.
+			//! For internal use, it calculates the 3x3 inverse transpose columns with padding
+			/** \param out: the padded columns of a 3x3 inverse transpose
 			\return Returns false if there is no inverse matrix. */
-			inline bool getInverse(matrix4x3& out) const
-			{
+            inline bool getSub3x3InverseTransposePaddedSIMDColumns(vectorSIMDf outCols[3]) const
+            {
                 /// Calculates the inverse of this Matrix
                 /// The inverse is calculated using Cramers rule.
                 /// If no inverse exists then 'false' is returned.
@@ -390,18 +390,30 @@ namespace core
                 if( core::iszero ( d, FLT_MIN ) )
                     return false;
 
-                vectorSIMDf rows[3];
-                rows[0].set(column[1].crossProduct(column[2]));
-                rows[1].set(column[2].crossProduct(column[0]));
-                rows[2].set(column[0].crossProduct(column[1]));
+                outCols[0].set(column[1].crossProduct(column[2]));
+                outCols[1].set(column[2].crossProduct(column[0]));
+                outCols[2].set(column[0].crossProduct(column[1]));
 
-                rows[0] /= d;
-                rows[1] /= d;
-                rows[2] /= d;
+                outCols[0] /= d;
+                outCols[1] /= d;
+                outCols[2] /= d;
+                return true;
+            }
+
+
+			//! Gets the inversed matrix of this one
+			/** \param out: where result matrix is written to.
+			\return Returns false if there is no inverse matrix. */
+			inline bool getInverse(matrix4x3& out) const
+			{
+                vectorSIMDf tcols[3];
+                if (!getSub3x3InverseTransposePaddedSIMDColumns(tcols))
+                    return false;
+
                 //transpose
-                out.column[0].set(rows[0].X,rows[1].X,rows[2].X);
-                out.column[1].set(rows[0].Y,rows[1].Y,rows[2].Y);
-                out.column[2].set(rows[0].Z,rows[1].Z,rows[2].Z);
+                out.column[0].set(tcols[0].X,tcols[1].X,tcols[2].X);
+                out.column[1].set(tcols[0].Y,tcols[1].Y,tcols[2].Y);
+                out.column[2].set(tcols[0].Z,tcols[1].Z,tcols[2].Z);
 
                 //out.column[3] = out.column[0]*m.column[3].X+out.column[1]*m.column[3].Y+out.column[2]*m.column[3].Z;
                 out.mulSub3x3With3x1(reinterpret_cast<float*>(out.column+3),reinterpret_cast<const float*>(column+3));
@@ -412,32 +424,19 @@ namespace core
 
 			inline bool getSub3x3InverseTranspose(float* out) const
 			{
-                /// Calculates the inverse of this Matrix
-                /// The inverse is calculated using Cramers rule.
-                /// If no inverse exists then 'false' is returned.
-                float d = column[0].dotProduct(column[1].crossProduct(column[2]));
-
-                if( core::iszero ( d, FLT_MIN ) )
+                vectorSIMDf cols[3];
+                if (!getSub3x3InverseTransposePaddedSIMDColumns(cols))
                     return false;
 
-                vectorSIMDf rows[3];
-                rows[0].set(column[1].crossProduct(column[2]));
-                rows[1].set(column[2].crossProduct(column[0]));
-                rows[2].set(column[0].crossProduct(column[1]));
-
-                rows[0] /= d;
-                rows[1] /= d;
-                rows[2] /= d;
-
-                out[0] = rows[0].pointer[0];
-                out[1] = rows[0].pointer[1];
-                out[2] = rows[0].pointer[2];
-                out[3] = rows[1].pointer[0];
-                out[4] = rows[1].pointer[1];
-                out[5] = rows[1].pointer[2];
-                out[6] = rows[2].pointer[0];
-                out[7] = rows[2].pointer[1];
-                out[8] = rows[2].pointer[2];
+                out[0] = cols[0].pointer[0];
+                out[1] = cols[0].pointer[1];
+                out[2] = cols[0].pointer[2];
+                out[3] = cols[1].pointer[0];
+                out[4] = cols[1].pointer[1];
+                out[5] = cols[1].pointer[2];
+                out[6] = cols[2].pointer[0];
+                out[7] = cols[2].pointer[1];
+                out[8] = cols[2].pointer[2];
 
                 return true;
 			}
@@ -486,6 +485,7 @@ namespace core
 			inline matrix4x3& setM(const float* data)
 			{
 			    memcpy(column,data,48);
+				return *this;
 			}
 
 
@@ -577,7 +577,8 @@ namespace core
         return ret;
     }
 
-
+
+
 	inline matrix4x3& matrix4x3::setRotationRadians( const vector3df& rotation )
 	{
 		const float cr = cosf( rotation.X );
@@ -653,7 +654,8 @@ namespace core
 		return vector3df((float)X,(float)Y,(float)Z);
 	}
 
-	//! Sets matrix to rotation matrix defined by axis and angle, assuming LH rotation
+	//! Sets matrix to rotation matrix defined by axis and angle, assuming LH rotation
+
 	inline matrix4x3& matrix4x3::setRotationAxisRadians( const float& angle, const vector3df& axis )
 	{
  		const float c = cosf(angle);
@@ -674,7 +676,8 @@ namespace core
 
 		return *this;
 	}
-
+
+
 	inline matrix4x3& matrix4x3::setScale( const vector3df& scale )
 	{
 		column[0].X = scale.X;
@@ -691,7 +694,8 @@ namespace core
 	values. The best that we could do would be to arbitrarily make one scale
 	negative if one or three of them were negative.
 	FIXME - return the original values.
-	*/
+	*/
+
 	inline vector3df matrix4x3::getScale() const
 	{
 		// See http://www.robertblum.com/articles/2005/02/14/decomposing-matrices
@@ -703,7 +707,8 @@ namespace core
 	}
 
 
-	// Builds a left-handed look-at matrix.
+	// Builds a left-handed look-at matrix.
+
 	inline matrix4x3& matrix4x3::buildCameraLookAtMatrixLH(
 				const vector3df& position,
 				const vector3df& target,
@@ -739,7 +744,8 @@ namespace core
 	}
 
 
-	// Builds a right-handed look-at matrix.
+	// Builds a right-handed look-at matrix.
+
 	inline matrix4x3& matrix4x3::buildCameraLookAtMatrixRH(
 				const vector3df& position,
 				const vector3df& target,
@@ -775,7 +781,8 @@ namespace core
 	}
 
 
-	// creates a new matrix as interpolated matrix from this and the passed one.
+	// creates a new matrix as interpolated matrix from this and the passed one.
+
 	inline matrix4x3 mix(const core::matrix4x3& a, const core::matrix4x3& b, const float& x)
 	{
 		matrix4x3 mat ( matrix4x3::EM4CONST_NOTHING );
@@ -794,7 +801,8 @@ namespace core
 	\param to: vector to rotate to
 
 		http://www.euclideanspace.com/maths/geometry/rotations/conversions/angleToMatrix/index.htm
-	 */
+	 */
+
 	inline matrix4x3& matrix4x3::buildRotateFromTo(const core::vector3df& from, const core::vector3df& to)
 	{
 		// unit vectors
@@ -843,7 +851,8 @@ namespace core
 	\param translation: object final translation from center
 	\param axis: axis to rotate about
 	\param from: source vector to rotate from
-	 */
+	 */
+
 	inline void matrix4x3::buildAxisAlignedBillboard(
 				const core::vector3df& camPos,
 				const core::vector3df& center,
@@ -890,7 +899,8 @@ namespace core
 	}
 
 
-	//! Builds a combined matrix which translate to a center before rotation and translate afterwards
+	//! Builds a combined matrix which translate to a center before rotation and translate afterwards
+
 	inline void matrix4x3::setRotationCenter(const core::vector3df& center, const core::vector3df& translation)
 	{
 		column[3].X = -column[0].X*center.X - column[1].X*center.Y - column[2].X*center.Z + (center.X - translation.X );

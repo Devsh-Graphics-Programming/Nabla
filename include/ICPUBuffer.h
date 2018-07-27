@@ -23,7 +23,7 @@ class ICPUBuffer : public IBuffer
                 free(data);
         }
     public:
-		//! Constructor. 
+		//! Constructor.
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
 		@param dat Optional parameter. Pointer to data, must be allocated with `malloc`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
 		*/
@@ -36,10 +36,6 @@ class ICPUBuffer : public IBuffer
 
             size = sizeInBytes;
         }
-
-		//! @deprecated
-		//! Returns buffer's type which in this case is always equal to `E_BUFFER_TYPE::EBT_UNSPECIFIED_BUFFER`.
-        virtual E_BUFFER_TYPE getBufferType() const {return EBT_UNSPECIFIED_BUFFER;}
 
         //! Returns size in bytes.
         virtual const uint64_t& getSize() const {return size;}

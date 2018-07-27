@@ -510,15 +510,6 @@ void CBurningVideoDriver::setCurrentShader()
 
 
 
-//! queries the features of the driver, returns true if feature is available
-bool CBurningVideoDriver::queryFeature(E_VIDEO_DRIVER_FEATURE feature) const
-{
-	return false;
-}
-
-
-
-
 //! clears the zbuffer
 bool CBurningVideoDriver::beginScene(bool backBuffer, bool zBuffer,
 		SColor color, const SExposedVideoData& videoData,
@@ -1771,15 +1762,6 @@ void CBurningVideoDriver::OnResize(const core::dimension2d<uint32_t>& size)
 
 	if (ScreenSize != realSize)
 	{
-		if (ViewPort.getWidth() == (int32_t)ScreenSize.Width &&
-			ViewPort.getHeight() == (int32_t)ScreenSize.Height)
-		{
-			ViewPort.UpperLeftCorner.X = 0;
-			ViewPort.UpperLeftCorner.Y = 0;
-			ViewPort.LowerRightCorner.X = realSize.Width;
-			ViewPort.LowerRightCorner.X = realSize.Height;
-		}
-
 		ScreenSize = realSize;
 
 		bool resetRT = (RenderTargetSurface == BackBuffer);
@@ -1915,13 +1897,6 @@ void CBurningVideoDriver::draw2DRectangle(const core::rect<int32_t>& position,
 #endif
 }
 
-
-//! Draws a 3d line.
-void CBurningVideoDriver::draw3DLine(const core::vector3df& start,
-	const core::vector3df& end, SColor color)
-{
-    os::Printer::log("Fatal Error: Drawing 3D lines not supported in this driver!", ELL_ERROR);
-}
 
 
 //! \return Returns the name of the video driver. Example: In case of the DirectX8

@@ -41,10 +41,8 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
 	int32_t mvpUniformLocation;
 	int32_t cameraDirUniformLocation;
-	int32_t texUniformLocation[4];
 	video::E_SHADER_CONSTANT_TYPE mvpUniformType;
 	video::E_SHADER_CONSTANT_TYPE cameraDirUniformType;
-	video::E_SHADER_CONSTANT_TYPE texUniformType[4];
 public:
 	SimpleCallBack() : cameraDirUniformLocation(-1), cameraDirUniformType(video::ESCT_FLOAT_VEC3) {}
 
@@ -62,16 +60,6 @@ public:
 				cameraDirUniformLocation = constants[i].location;
 				cameraDirUniformType = constants[i].type;
 			}
-			else if (constants[i].name == "tex0")
-			{
-				texUniformLocation[0] = constants[i].location;
-				texUniformType[0] = constants[i].type;
-			}
-			else if (constants[i].name == "tex3")
-			{
-				texUniformLocation[3] = constants[i].location;
-				texUniformType[3] = constants[i].type;
-			}
 		}
 	}
 
@@ -83,12 +71,6 @@ public:
 			services->setShaderConstant(&modelSpaceCamPos, cameraDirUniformLocation, cameraDirUniformType, 1);
 		if (mvpUniformLocation != -1)
 			services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation, mvpUniformType, 1);
-
-		int32_t id[] = { 0,1,2,3 };
-		if (texUniformLocation[0] != -1)
-			services->setShaderTextures(id + 0, texUniformLocation[0], texUniformType[0], 1);
-		if (texUniformLocation[3] != -1)
-			services->setShaderTextures(id + 3, texUniformLocation[3], texUniformType[3], 1);
 	}
 
 	virtual void OnUnsetMaterial() {}
@@ -162,8 +144,7 @@ int main()
 	if (cpumesh&&cpumesh->getMeshType() == scene::EMT_ANIMATED_SKINNED)
 	{
 		scene::ISkinnedMeshSceneNode* anode = 0;
-		scene::ICPUSkinnedMesh* animMesh = dynamic_cast<scene::ICPUSkinnedMesh*>(cpumesh);
-		scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(cpumesh);
+		scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
 		smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
 
 		for (size_t x = 0; x<kInstanceSquareSize; x++)

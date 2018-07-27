@@ -6,6 +6,7 @@
 #define __E_CULLING_TYPES_H_INCLUDED__
 
 #include "irrTypes.h"
+#include "irrMacros.h"
 
 namespace irr
 {
@@ -18,9 +19,7 @@ namespace scene
 		EAC_OFF = 0,
 		EAC_BOX = 1,
 		EAC_FRUSTUM_BOX = 2,
-		EAC_FRUSTUM_SPHERE = 4,
-		EAC_OCC_QUERY = 8,
-		EAC_COND_RENDER = 16
+		EAC_FRUSTUM_SPHERE = 4
 	};
 
 	//! Names for culling type
@@ -30,8 +29,6 @@ namespace scene
 		"box",			// camera box against node box
 		"frustum_box",		// camera frustum against node box
 		"frustum_sphere",	// camera frustum against node sphere
-		"occ_query",	// occlusion query
-		"cond_render",
 		0
 	};
 

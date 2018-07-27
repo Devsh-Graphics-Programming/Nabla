@@ -1,5 +1,5 @@
-#version 330 core
-uniform samplerBuffer tex3;
+#version 420 core
+layout(binding = 3) uniform samplerBuffer tex3;
 uniform vec3 worldSpaceLightPos;
 uniform mat4x3 worldMat;
 uniform mat3 normalMat;

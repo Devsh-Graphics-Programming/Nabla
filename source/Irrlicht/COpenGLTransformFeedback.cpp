@@ -98,7 +98,7 @@ bool COpenGLTransformFeedback::bindOutputBuffer(const size_t& index, IGPUBuffer*
         return true;
     }
 
-    xformFeedbackBuffers[index] = dynamic_cast<COpenGLBuffer*>(buffer);
+    xformFeedbackBuffers[index] = static_cast<COpenGLBuffer*>(buffer);
     xformFeedbackBuffersOffset[index] = offset;
     xformFeedbackBuffersSize[index] = tmpSize;
 

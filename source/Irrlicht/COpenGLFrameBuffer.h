@@ -34,13 +34,11 @@ class COpenGLFrameBuffer : public IFrameBuffer
 
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IMultisampleTexture* tex, const int32_t &layer=-1);
 
-        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IRenderBuffer* rbf);
-
         virtual bool rebindRevalidate();
 
         const GLuint getOpenGLName() const {return frameBuffer;}
 
-        virtual const IRenderable* getAttachment(const size_t &ix) const {return ix<EFAP_MAX_ATTACHMENTS ? attachments[ix]:NULL;}
+        virtual const IRenderableVirtualTexture* getAttachment(const size_t &ix) const {return ix<EFAP_MAX_ATTACHMENTS ? attachments[ix]:NULL;}
 
     protected:
         COpenGLDriver* Driver;
@@ -48,7 +46,7 @@ class COpenGLFrameBuffer : public IFrameBuffer
         GLuint      frameBuffer;
         bool        forceRevalidate;
         uint64_t    lastValidated;
-        IRenderable* attachments[EFAP_MAX_ATTACHMENTS];
+        IRenderableVirtualTexture* attachments[EFAP_MAX_ATTACHMENTS];
         GLint cachedLevel[EFAP_MAX_ATTACHMENTS];
         GLint cachedLayer[EFAP_MAX_ATTACHMENTS];
 };
