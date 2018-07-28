@@ -6,6 +6,7 @@
 #include <utility>
 #include <algorithm>
 #include <cstdlib>
+#include <functional>
 
 namespace irr { namespace core
 {
@@ -21,16 +22,30 @@ namespace impl
     template<
         template<typename...> class ContainerT,
         typename T, //value type for container
-        typename ...Ts //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CObjectCacheBase
     {
     protected:
-        ContainerT<Ts..., T> m_container;
+        ContainerT<K..., T> m_container;
 
-        using PtrToConstVal_t = typename std::remove_pointer<typename ContainerT<Ts..., T>::value_type::second_type>::type const*; // container's value_type is always instantiation of std::pair
+        using ValueType = typename ContainerT<K..., T>::value_type::second_type; // container's value_type is always instantiation of std::pair
+        using PtrToConstVal_t = typename std::remove_pointer<ValueType>::type const*; // ValueType is always pointer to derivative of irr::IReferenceCounted type
+
+        std::function<void(ValueType)> m_disposalFunc;
+
+    protected:
+        void dispose(ValueType _object) const
+        {
+            if (m_disposalFunc == nullptr)
+                _object->drop();
+            else
+                m_disposalFunc(_object);
+        }
 
     public:
+        explicit CObjectCacheBase(const std::function<void(ValueType)>& _disposal) : m_disposalFunc(_disposal) {}
+
         bool contains(PtrToConstVal_t _object) const
         {
             for (const auto& e : m_container)
@@ -58,16 +73,16 @@ template<
 >
 class CObjectCache<K, T, ContainerT, true> : public impl::CObjectCacheBase<ContainerT, std::pair<K, T*>>
 {
-    using value_type = std::pair<K, T*>;
+    using ValueType = std::pair<K, T*>;
 
-    static bool compare(const value_type& _a, const value_type& _b)
+    static bool compare(const ValueType& _a, const ValueType& _b)
     {
         return _a.first < _b.first;
     }
     static int bs_compare(const void* _a, const void* _b)
     {
-        const value_type& a = *reinterpret_cast<const value_type*>(_a);
-        const value_type& b = *reinterpret_cast<const value_type*>(_b);
+        const ValueType& a = *reinterpret_cast<const ValueType*>(_a);
+        const ValueType& b = *reinterpret_cast<const ValueType*>(_b);
 
         if (a.first < b.first)
             return -1;
@@ -77,13 +92,15 @@ class CObjectCache<K, T, ContainerT, true> : public impl::CObjectCacheBase<Conta
     }
 
 public:
+    explicit CObjectCache(const std::function<void(T*)>& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT, std::pair<K, T*>>(_disposal) {}
+
     bool insert(const K& _key, T* _val)
     {
         if (_val)
             _val->grab();
         else
             return false;
-        const value_type newVal{_key, _val};
+        const ValueType newVal{_key, _val};
         auto it = std::lower_bound(std::begin(m_container), std::end(m_container), newVal, &compare);
         m_container.insert(it, newVal);
         return true;
@@ -91,9 +108,9 @@ public:
 
     T* getByKey(const K& _key)
     {
-        const value_type lookingFor{_key, nullptr};
-        value_type* found = reinterpret_cast<value_type*>(
-            std::bsearch(&lookingFor, m_container.data(), getSize(), sizeof(value_type), &bs_compare)
+        const ValueType lookingFor{_key, nullptr};
+        ValueType* found = reinterpret_cast<ValueType*>(
+            std::bsearch(&lookingFor, m_container.data(), getSize(), sizeof(ValueType), &bs_compare)
         );
         if (found)
             return found->second;
@@ -106,11 +123,11 @@ public:
 
     void removeByKey(const K& _key)
     {
-        const auto it = std::remove_if(std::begin(m_container), std::end(m_container), [&_key] (const value_type& _a) { return _a.first == _key; });
+        const auto it = std::remove_if(std::begin(m_container), std::end(m_container), [&_key] (const ValueType& _a) { return _a.first == _key; });
         auto itr = it;
         while (itr != std::end(m_container))
         {
-            itr->second->drop();
+            dispose(itr->second);
             std::advance(itr, 1);
         }
         m_container.erase(it, std::end(m_container));
@@ -127,6 +144,8 @@ template<
 class CObjectCache<K, T, ContainerT, false> : public impl::CObjectCacheBase<ContainerT, T*, K>
 {
 public:
+    explicit CObjectCache(const std::function<void(T*)>& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT, T*, K>(_disposal) {}
+
     bool insert(const K& _key, T* _val)
     {
         if (!_val)
@@ -152,7 +171,7 @@ public:
         auto it = m_container.find(_key);
         if (it != std::end(m_container))
         {
-            it->second->drop();
+            dispose(it->second);
             m_container.erase(it);
         }
     }
