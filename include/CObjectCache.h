@@ -7,6 +7,9 @@
 #include <algorithm>
 #include <cstdlib>
 #include <functional>
+#include <map>
+#include <unordered_map>
+#include "IReferenceCounted.h"
 
 namespace irr { namespace core
 {
@@ -30,7 +33,10 @@ namespace impl
         ContainerT<K..., T> m_container;
 
         using ValueType = typename ContainerT<K..., T>::value_type::second_type; // container's value_type is always instantiation of std::pair
-        using PtrToConstVal_t = typename std::remove_pointer<ValueType>::type const*; // ValueType is always pointer to derivative of irr::IReferenceCounted type
+        using NoPtrValueType = typename std::remove_pointer<ValueType>::type;
+        using PtrToConstVal_t = const NoPtrValueType*; // ValueType is always pointer to derivative of irr::IReferenceCounted type
+
+        static_assert(std::is_base_of<IReferenceCounted, NoPtrValueType>::value, "CObjectCache<K, T, ContainerT>: T must be derivative of irr::IReferenceCounted");
 
         std::function<void(ValueType)> m_disposalFunc;
 
@@ -143,6 +149,8 @@ template<
 >
 class CObjectCache<K, T, ContainerT, false> : public impl::CObjectCacheBase<ContainerT, T*, K>
 {
+    static_assert(impl::is_same_templ<ContainerT, std::map>::value || impl::is_same_templ<ContainerT, std::unordered_map>::value, "ContainerT must be one of: std::vector, std::map, std::unordered_map");
+
 public:
     explicit CObjectCache(const std::function<void(T*)>& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT, T*, K>(_disposal) {}
 
