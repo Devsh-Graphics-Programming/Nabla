@@ -27,14 +27,15 @@ namespace impl
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT = std::vector
+    template<typename...> class ContainerT_T = std::vector
 >
-class CConcurrentObjectCache : private impl::CConcurrentObjectCacheBase, private CObjectCache<K, T, ContainerT>
+class CConcurrentObjectCache : private impl::CConcurrentObjectCacheBase, private CObjectCache<K, T, ContainerT_T>
 {
-    using Base = CObjectCache<K, T, ContainerT>;
+    using Base = CObjectCache<K, T, ContainerT_T>;
 
 public:
-    explicit CConcurrentObjectCache(const std::function<void(T*)>& _disposal = nullptr) : CObjectCache<K, T, ContainerT>(_disposal) {}
+    explicit CConcurrentObjectCache(const std::function<void(T*)>& _disposal) : CObjectCache<K, T, ContainerT_T>(_disposal) {}
+    explicit CConcurrentObjectCache(std::function<void(T*)>&& _disposal = nullptr) : CObjectCache<K, T, ContainerT_T>(std::move(_disposal)) {}
 
     bool insert(const K& _key, T* _val)
     {

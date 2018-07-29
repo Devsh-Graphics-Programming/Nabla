@@ -23,20 +23,21 @@ namespace impl
     struct is_same_templ<T, T> : std::true_type {};
 
     template<
-        template<typename...> class ContainerT,
+        template<typename...> class ContainerT_T,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CObjectCacheBase
     {
     protected:
-        ContainerT<K..., T> m_container;
+        using ContainerT = ContainerT_T<K..., T>;
+        ContainerT m_container;
 
-        using ValueType = typename ContainerT<K..., T>::value_type::second_type; // container's value_type is always instantiation of std::pair
+        using ValueType = typename ContainerT_T<K..., T>::value_type::second_type; // container's value_type is always instantiation of std::pair
         using NoPtrValueType = typename std::remove_pointer<ValueType>::type;
         using PtrToConstVal_t = const NoPtrValueType*; // ValueType is always pointer to derivative of irr::IReferenceCounted type
 
-        static_assert(std::is_base_of<IReferenceCounted, NoPtrValueType>::value, "CObjectCache<K, T, ContainerT>: T must be derivative of irr::IReferenceCounted");
+        static_assert(std::is_base_of<IReferenceCounted, NoPtrValueType>::value, "CObjectCache<K, T, ContainerT_T>: T must be derivative of irr::IReferenceCounted");
 
         std::function<void(ValueType)> m_disposalFunc;
 
@@ -51,6 +52,7 @@ namespace impl
 
     public:
         explicit CObjectCacheBase(const std::function<void(ValueType)>& _disposal) : m_disposalFunc(_disposal) {}
+        explicit CObjectCacheBase(std::function<void(ValueType)>&& _disposal) : m_disposalFunc(std::move(_disposal)) {}
 
         bool contains(PtrToConstVal_t _object) const
         {
@@ -67,17 +69,17 @@ namespace impl
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT = std::vector,
-    bool = impl::is_same_templ<ContainerT, std::vector>::value
+    template<typename...> class ContainerT_T = std::vector,
+    bool = impl::is_same_templ<ContainerT_T, std::vector>::value
 >
 class CObjectCache;
 
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT
+    template<typename...> class ContainerT_T
 >
-class CObjectCache<K, T, ContainerT, true> : public impl::CObjectCacheBase<ContainerT, std::pair<K, T*>>
+class CObjectCache<K, T, ContainerT_T, true> : public impl::CObjectCacheBase<ContainerT_T, std::pair<K, T*>>
 {
     using ValueType = std::pair<K, T*>;
 
@@ -85,20 +87,10 @@ class CObjectCache<K, T, ContainerT, true> : public impl::CObjectCacheBase<Conta
     {
         return _a.first < _b.first;
     }
-    static int bs_compare(const void* _a, const void* _b)
-    {
-        const ValueType& a = *reinterpret_cast<const ValueType*>(_a);
-        const ValueType& b = *reinterpret_cast<const ValueType*>(_b);
-
-        if (a.first < b.first)
-            return -1;
-        else if (b.first < a.first)
-            return 1;
-        return 0;
-    }
 
 public:
-    explicit CObjectCache(const std::function<void(T*)>& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT, std::pair<K, T*>>(_disposal) {}
+    explicit CObjectCache(const std::function<void(T*)>& _disposal) : impl::CObjectCacheBase<ContainerT_T, std::pair<K, T*>>(_disposal) {}
+    explicit CObjectCache(std::function<void(T*)>&& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT_T, std::pair<K, T*>>(std::move(_disposal)) {}
 
     bool insert(const K& _key, T* _val)
     {
@@ -108,36 +100,43 @@ public:
             return false;
         const ValueType newVal{_key, _val};
         auto it = std::lower_bound(std::begin(m_container), std::end(m_container), newVal, &compare);
+        if (it != std::end(m_container) && !(_key < it->first)) // used `<` instead of `==` operator here to keep consistency with std::map (so key type doesn't need to define operator==)
+            return false;
         m_container.insert(it, newVal);
         return true;
     }
 
     T* getByKey(const K& _key)
     {
-        const ValueType lookingFor{_key, nullptr};
-        ValueType* found = reinterpret_cast<ValueType*>(
-            std::bsearch(&lookingFor, m_container.data(), getSize(), sizeof(ValueType), &bs_compare)
-        );
-        if (found)
-            return found->second;
+        auto it = this->find(_key);
+        if (it != std::end(m_container))
+            return it->second;
         return nullptr;
     }
     const T* getByKey(const K& _key) const
     {
-        return const_cast<typename std::remove_const<decltype(*this)>::type*>(this)->getByKey(_key);
+        using MeT = typename std::remove_reference<decltype(*this)>::type; // decltype(*this) gives reference type
+        return const_cast<typename std::remove_const<MeT>::type*>(this)->getByKey(_key);
     }
 
     void removeByKey(const K& _key)
     {
-        const auto it = std::remove_if(std::begin(m_container), std::end(m_container), [&_key] (const ValueType& _a) { return _a.first == _key; });
-        auto itr = it;
-        while (itr != std::end(m_container))
+        auto it = this->find(_key);
+        if (it != std::end(m_container))
         {
-            dispose(itr->second);
-            std::advance(itr, 1);
+            dispose(it->second);
+            m_container.erase(it);
         }
-        m_container.erase(it, std::end(m_container));
         std::sort(std::begin(m_container), std::end(m_container), &compare);
+    }
+
+private:
+    typename ContainerT::iterator find(const K& _key)
+    {
+        auto it = std::lower_bound(std::begin(m_container), std::end(m_container), ValueType{_key, nullptr}, &compare);
+        if (it == std::end(m_container) || it->first < _key || _key < it->first)
+            return std::end(m_container);
+        return it;
     }
 };
 
@@ -145,14 +144,15 @@ public:
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT
+    template<typename...> class ContainerT_T
 >
-class CObjectCache<K, T, ContainerT, false> : public impl::CObjectCacheBase<ContainerT, T*, K>
+class CObjectCache<K, T, ContainerT_T, false> : public impl::CObjectCacheBase<ContainerT_T, T*, K>
 {
-    static_assert(impl::is_same_templ<ContainerT, std::map>::value || impl::is_same_templ<ContainerT, std::unordered_map>::value, "ContainerT must be one of: std::vector, std::map, std::unordered_map");
+    static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
 
 public:
-    explicit CObjectCache(const std::function<void(T*)>& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT, T*, K>(_disposal) {}
+    explicit CObjectCache(const std::function<void(T*)>& _disposal) : impl::CObjectCacheBase<ContainerT_T, T*, K>(_disposal) {}
+    explicit CObjectCache(std::function<void(T*)>&& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT_T, T*, K>(std::move(_disposal)) {}
 
     bool insert(const K& _key, T* _val)
     {
