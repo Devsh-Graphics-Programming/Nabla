@@ -17,12 +17,13 @@
 #include "CFPSCounter.h"
 #include "SVertexIndex.h"
 #include "SExposedVideoData.h"
+#include "FW_Mutex.h"
 
-#if _MSC_VER && !__INTEL_COMPILER
-	#define FW_AtomicCounter volatile long
-#elif defined(__GNUC__)
-	#define FW_AtomicCounter volatile int32_t
-#endif
+//#if _MSC_VER && !__INTEL_COMPILER
+//	#define FW_AtomicCounter volatile long
+//#elif defined(__GNUC__)
+//	#define FW_AtomicCounter volatile int32_t
+//#endif
 
 #ifdef _MSC_VER
 #pragma warning( disable: 4996)
@@ -48,7 +49,7 @@ namespace video
 
 	public:
         static FW_AtomicCounter ReallocationCounter;
-        static FW_AtomicCounter incrementAndFetchReallocCounter();
+        static int32_t incrementAndFetchReallocCounter();
 
 		//! constructor
 		CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);

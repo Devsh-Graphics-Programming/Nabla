@@ -8,6 +8,18 @@
 #ifndef _FW_MUTEX_H_
 #define _FW_MUTEX_H_
 
+#define FW_MUTEX_H_CXX11_IMPL
+
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+#endif
+
+
 #ifdef __GNUC__
 #include <pthread.h>
 #endif
@@ -19,7 +31,12 @@
 
 inline void FW_SleepMs(const uint64_t &milliseconds)
 {
-#ifdef WIN32
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	if (!milliseconds)
+		std::this_thread::yield();
+	else
+		std::this_thread::sleep_for(std::chrono::duration<uint64_t, std::milli>(milliseconds));
+#elif defined(WIN32)
     if (!milliseconds)
         SwitchToThread();
 	else
@@ -40,7 +57,12 @@ inline void FW_SleepMs(const uint64_t &milliseconds)
 //nanoseconds :D
 inline void FW_SleepNano(const uint64_t &nanoseconds)
 {
-#ifdef WIN32
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	if (!nanoseconds)
+		std::this_thread::yield();
+	else
+		std::this_thread::sleep_for(std::chrono::duration<uint64_t, std::nano>(nanoseconds));
+#elif defined(WIN32)
     if (!nanoseconds)
         SwitchToThread();
     else
@@ -71,7 +93,9 @@ inline void FW_SleepNano(const uint64_t &nanoseconds)
 
 inline uint64_t FW_GetTimestampNs()
 {
-#ifdef WIN32
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	return std::chrono::steady_clock::now().time_since_epoch().count();
+#elif defined(WIN32)
     __int64 time1 = 0, freq = 0;
 
     QueryPerformanceCounter((LARGE_INTEGER*)&time1);
@@ -96,7 +120,9 @@ public:
 
 	inline  void	Get(void)
     {
-    #if _MSC_VER && !__INTEL_COMPILER
+	#if defined(FW_MUTEX_H_CXX11_IMPL)
+		hMutex.lock();
+    #elif _MSC_VER && !__INTEL_COMPILER
         EnterCriticalSection(&hMutex);
     #else
         pthread_mutex_lock(&hMutex);
@@ -104,7 +130,9 @@ public:
     }
 	inline  void	Release(void)
     {
-    #if _MSC_VER && !__INTEL_COMPILER
+	#if defined(FW_MUTEX_H_CXX11_IMPL)
+		hMutex.unlock();
+    #elif _MSC_VER && !__INTEL_COMPILER
         LeaveCriticalSection(&hMutex);
     #else
         pthread_mutex_unlock(&hMutex);
@@ -112,7 +140,9 @@ public:
     }
 	inline  bool    TryLock(void)
 	{
-    #if _MSC_VER && !__INTEL_COMPILER
+	#if defined(FW_MUTEX_H_CXX11_IMPL)
+		return hMutex.try_lock();
+    #elif _MSC_VER && !__INTEL_COMPILER
         return TryEnterCriticalSection(&hMutex);
     #else
         return pthread_mutex_trylock(&hMutex)==0;
@@ -123,7 +153,9 @@ private:
     friend class FW_ConditionVariable;
     FW_Mutex(const FW_Mutex&); // no implementation
     FW_Mutex& operator=(const FW_Mutex&); // no implementation
-#if _MSC_VER && !__INTEL_COMPILER
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	std::mutex hMutex;
+#elif _MSC_VER && !__INTEL_COMPILER
 	CRITICAL_SECTION hMutex;
 #elif defined(_PTHREAD_H)
     pthread_mutex_t hMutex;
@@ -180,7 +212,9 @@ class FW_ConditionVariable
 #ifdef _DEBUG
         FW_Mutex*      mutexAttachedTo;
 #endif // _DEBUG
-#if _MSC_VER && !__INTEL_COMPILER
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+		std::condition_variable conditionVar;
+#elif _MSC_VER && !__INTEL_COMPILER
         CONDITION_VARIABLE      conditionVar;
 #elif defined(_PTHREAD_H)
         pthread_cond_t conditionVar;
@@ -198,7 +232,69 @@ not using add because we atomically wait for value to be 0 before swapping
 **/
 #define FW_AtomicCounterMagicBlockVal 0x1000000
 
-#if _MSC_VER && !__INTEL_COMPILER
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+
+#define FW_FastLock(lock) std::atomic_int lock; std::atomic_init(&lock, 0)
+#define FW_FastLockGet(lock) { int zero = 0;\
+	while (!lock.compare_exchange_weak(zero, 1, std::memory_order_acq_rel)) { \
+	zero = 0;\
+	std::this_thread::yield();\
+	}\
+}
+#define FW_FastLockRelease(lock) lock.store(0, std::memory_order_release)
+
+#define FW_AtomicCounter std::atomic_int
+inline void FW_AtomicCounterIncr(FW_AtomicCounter &lock)
+{
+	if (lock.fetch_add(1, std::memory_order_acq_rel)+1 > FW_AtomicCounterMagicBlockVal)
+		while (lock >= FW_AtomicCounterMagicBlockVal) ;
+}
+inline void FW_AtomicCounterDecr(FW_AtomicCounter &lock)
+{
+	lock.fetch_sub(1, std::memory_order_acq_rel);
+}
+inline void FW_AtomicCounterBlock(FW_AtomicCounter &lock)
+{
+	typename FW_AtomicCounter::value_type zero = 0;
+
+	for (size_t i = 0; (!lock.compare_exchange_weak(zero, FW_AtomicCounterMagicBlockVal, std::memory_order_acq_rel) && i < 1000); ++i)
+		zero = 0;
+
+	while (!lock.compare_exchange_weak(zero, FW_AtomicCounterMagicBlockVal, std::memory_order_acq_rel))
+	{
+		zero = 0;
+		std::this_thread::yield();
+	}
+}
+inline void FW_AtomicCounterDecrBlock(FW_AtomicCounter &lock)
+{
+	//to make sure we get lock first, and dont keep waiting forever because every read op has priority
+	//but we check if someone else has a read or write block, in that case we're not the only ones having the lock
+	//so lock value is more than the intended FW_AtomicCounterMagicBlockVal
+	if (lock.fetch_add(FW_AtomicCounterMagicBlockVal - 1, std::memory_order_acq_rel) > 1)
+	{
+		//someone has a read or write block before we tried to swap access types
+		//so we release our lock completely and wait
+		lock.fetch_sub(FW_AtomicCounterMagicBlockVal, std::memory_order_relaxed); // acq_rel?
+		//we now own no locks and wait for a free gap
+		FW_AtomicCounterBlock(lock);
+	}
+}
+inline void FW_AtomicCounterUnBlock(FW_AtomicCounter &lock)
+{
+	lock.fetch_sub(FW_AtomicCounterMagicBlockVal, std::memory_order_acq_rel);
+}
+inline void FW_AtomicCounterUnBlockIncr(FW_AtomicCounter &lock)
+{
+	//we had the lock value at >=FW_AtomicCounterMagicBlockVal
+	//no other write thread could have gotten out of FW_AtomicCounter***Block()
+	//because we got there before and value of lock was never 0 between this thread
+	//grabbing the write lock and now - trying to release it
+	//so we don't need to wait for write lock to be released to grab the read lock
+	lock.fetch_sub(FW_AtomicCounterMagicBlockVal-1, std::memory_order_acq_rel);
+}
+
+#elif _MSC_VER && !__INTEL_COMPILER
 
 #define FW_FastLock(lock) volatile long lock = 0
 #define FW_FastLockGet(lock) while(InterlockedCompareExchange(&lock, 1, 0)) \
