@@ -149,7 +149,7 @@ int main()
 
     if (cpumesh)
     {
-        scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
+        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
         smgr->getMeshCache()->removeMesh(cpumesh);
         smgr->addMeshSceneNode(gpumesh)->setMaterialType(newMaterialType);
         gpumesh->drop();
@@ -169,7 +169,7 @@ int main()
 
     if (cpumesh)
     {
-        scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
+        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
         smgr->getMeshCache()->removeMesh(cpumesh);
         smgr->addMeshSceneNode(gpumesh,0,-1,core::vector3df(3.f,1.f,0.f))->setMaterialType(newMaterialType);
         gpumesh->drop();

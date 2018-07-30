@@ -1,6 +1,6 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include <intrin.h>
+//#include <intrin.h>
 #include <immintrin.h>
 
 #include <chrono>

@@ -1251,7 +1251,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 		return NULL;
 
 	ICPUMeshBuffer* dst = NULL;
-	if (const SCPUSkinMeshBuffer* smb = dynamic_cast<const SCPUSkinMeshBuffer*>(_src))
+	if (const SCPUSkinMeshBuffer* smb = dynamic_cast<const SCPUSkinMeshBuffer*>(_src)) // we can do other checks for meshbuffer type than dynamic_cast
 		dst = new SCPUSkinMeshBuffer(*smb);
 	else
 		dst = new ICPUMeshBuffer(*_src);
@@ -1350,7 +1350,7 @@ void CMeshManipulator::priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const
             _input->getAttribute(p1, pvaid, _t.i[1]);
             _input->getAttribute(p2, pvaid, _t.i[2]);
             p0 &= mask; p1 &= mask; p2 &= mask;
-            return (p0 == p1).all() || (p0 == p2).all() || (p1 == p2).all(); 
+            return (p0 == p1).all() || (p0 == p2).all() || (p1 == p2).all();
     });
     const size_t newSize = std::distance(begin, newEnd) * sizeof(Triangle);
 

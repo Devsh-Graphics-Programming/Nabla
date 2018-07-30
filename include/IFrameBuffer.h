@@ -8,6 +8,7 @@
 #include "stdint.h"
 #include "IReferenceCounted.h"
 #include "IThreadBound.h"
+#include "EDriverTypes.h"
 #include "dimension2d.h"
 
 namespace irr
@@ -31,32 +32,9 @@ enum E_FBO_ATTACHMENT_POINT
     EFAP_MAX_ATTACHMENTS
 };
 
-enum E_RENDERABLE_TYPE
-{
-    ERT_TEXTURE=0,
-    ERT_RENDERBUFFER
-};
-
-//! Base class for render targets
-class IRenderable : public virtual IReferenceCounted
-{
-    public:
-		//! Returns the underlying type of the IRenderable object
-		/**
-		@returns Returns the underlying type of the IRenderable object; ERT_TEXTURE for ITexture and IMultisampleTexture or ERT_RENDERBUFFER for IRenderBuffer
-		*/
-        virtual E_RENDERABLE_TYPE getRenderableType() const = 0;
-
-		//! Returns the two dimensional size of an IFrameBuffer attachment
-		/**
-		@returns The two dimensional size of the max rendering viewport which could be configured on an IFrameBuffer with this object attached.
-		*/
-        virtual core::dimension2du getRenderableSize() const = 0;
-};
-
 class ITexture;
 class IMultisampleTexture;
-class IRenderBuffer;
+class IRenderableVirtualTexture;
 
 class IFrameBuffer : public virtual IReferenceCounted, public core::IThreadBound
 {
@@ -90,16 +68,6 @@ class IFrameBuffer : public virtual IReferenceCounted, public core::IThreadBound
 		*/
         virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IMultisampleTexture* tex, const int32_t &layer=-1) = 0;
 
-		//! Attaches given render buffer to given attachment point.
-		/** @param attachmentPoint Identifies attchment point.
-		@param rbf Render buffer being attached.
-		@returns Whether attachment has been attached.
-			Note that return value of `true` does not mean that the attachment color format is renderable or that the combination of attachments is valid.
-			Also: only after rebindRevalidate() is called by the driver internally or by the user manually do the attachments drawn into by the FrameBuffer change.
-		@see @ref rebindRevalidate()
-		*/
-        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IRenderBuffer* rbf) = 0;
-
 		//! Binds possibly respecified attachments.
 		/** @returns true when everything is right or when no work was necessary to do;
 				false when color formats you are trying to render to are invalid or if current combination of attachments is invalid.
@@ -110,7 +78,7 @@ class IFrameBuffer : public virtual IReferenceCounted, public core::IThreadBound
 		/** @param ix Given index.
 		@returns Attached at given index object or NULL if nothing is bound there.
 		*/
-        virtual const IRenderable* getAttachment(const size_t &ix) const = 0;
+        virtual const IRenderableVirtualTexture* getAttachment(const size_t &ix) const = 0;
 
     protected:
 };

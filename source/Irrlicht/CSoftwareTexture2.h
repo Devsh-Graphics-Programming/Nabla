@@ -18,7 +18,7 @@ namespace video
 /*!
 	interface for a Video Driver dependent Texture.
 */
-class CSoftwareTexture2 : public ITexture
+class CSoftwareTexture2 : public ITexture, public IDriverMemoryAllocation
 {
 protected:
 	//! destructor
@@ -41,6 +41,16 @@ public:
     virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
     virtual E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
 	virtual uint32_t getMipMapLevelCount() const {return 1;}
+
+	//!
+    virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_NOT_DEVICE_LOCAL;}
+    virtual void unmapMemory() {}
+	virtual bool isDedicated() const {return true;}
+
+	//!
+	virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
+	virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
+	virtual size_t getBoundMemoryOffset() const {return 0ull;}
 
 	//! lock function
 	virtual void* lock(uint32_t mipmapLevel=0)

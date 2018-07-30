@@ -7,7 +7,6 @@
 
 #include "path.h"
 #include "dimension2d.h"
-#include "EDriverTypes.h"
 #include "CImageData.h"
 #include "IVirtualTexture.h"
 #include "IFrameBuffer.h"
@@ -17,8 +16,10 @@ namespace irr
 namespace video
 {
 
-class IMultisampleTexture : public IRenderableVirtualTexture
+class IMultisampleTexture : public IRenderableVirtualTexture, public IDriverMemoryBacked
 {
+protected:
+    IMultisampleTexture(const SDriverMemoryRequirements& reqs) : IDriverMemoryBacked(reqs) {}
 public:
     enum E_MULTISAMPLE_TEXTURE_TYPE
     {
@@ -26,9 +27,6 @@ public:
         EMTT_2D_ARRAY,
         EMTT_COUNT
     };
-
-    //!
-	E_RENDERABLE_TYPE getRenderableType() const {return ERT_TEXTURE;}
 
 
 	//!

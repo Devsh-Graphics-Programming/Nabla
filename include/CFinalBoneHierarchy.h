@@ -8,7 +8,7 @@
 #include <functional>
 #include <unordered_set>
 #include "ISkinnedMesh.h"
-#include "IGPUMappedBuffer.h"
+#include "IGPUBuffer.h"
 #include "quaternion.h"
 #include "irrString.h"
 #include "CBAWFile.h"

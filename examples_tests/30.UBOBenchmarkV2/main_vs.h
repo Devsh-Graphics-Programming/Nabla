@@ -57,13 +57,21 @@ int main()
 
     scene::IGPUMeshBuffer* meshes[100];
     scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-    auto attrBuf = driver->createGPUBuffer(4 *
+
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 #if ATTRIB_DIVISOR==0
-        30000
+    reqs.vulkanReqs.size = 4 * 30000;
 #else
-        10
-#endif
-        , nullptr);
+    reqs.vulkanReqs.size = 4 * 10;
+#endif // ATTRIB_DIVISOR
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+
+    auto attrBuf = driver->createGPUBufferOnDedMem(reqs,false);
     desc->mapVertexAttrBuffer(attrBuf, scene::EVAI_ATTR0, scene::ECPA_ONE, scene::ECT_FLOAT, 0u, 0u, ATTRIB_DIVISOR); // map whatever buffer just to activate whatever vertex attribute (look below)
     {
         size_t triBudget = 1600000u; //1.6M
@@ -132,12 +140,25 @@ int main()
         ((uint16_t*)(cpubuffer->getPointer()))[i] = rand();
 
     //! Set up immutable device local buffer to use as UBO
-    video::COpenGLBuffer* buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createGPUBuffer(bufSize, cpubuffer->getPointer(), false, INCPUMEM));
+    reqs.vulkanReqs.size = bufSize;
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    video::IGPUBuffer* buffer = driver->createGPUBufferOnDedMem(reqs,false);
 
 
     //! Set up staging buffer
-    const size_t persistentlyMappedBufSize = 4*bufSize;
-    video::COpenGLBuffer* stagingBuffer = dynamic_cast<video::COpenGLBuffer*>(driver->createPersistentlyMappedBuffer(persistentlyMappedBufSize, nullptr, video::EGBA_WRITE, !FLUSH_EXPLICIT, INCPUMEM));
+    reqs.vulkanReqs.size = 4*bufSize;
+    reqs.memoryHeapLocation = INCPUMEM ? video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL:video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|(FLUSH_EXPLICIT ? 0u:video::IDriverMemoryAllocation::EMCF_COHERENT);
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    video::IGPUBuffer* stagingBuffer = driver->createGPUBufferOnDedMem(reqs,false);
+    stagingBuffer->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE,video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size));
+
 
     //GLint meshVao[100];
 
@@ -177,13 +198,13 @@ int main()
                 fences[frameNum % 4] = nullptr;
             }
         }
-        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(stagingBuffer)->getPointer()))+(frameNum%4)*bufSize, cpubuffer->getPointer(), bufSize);
+        memcpy(reinterpret_cast<uint8_t*>(stagingBuffer->getBoundMemory()->getMappedPointer())+(frameNum%4)*bufSize, cpubuffer->getPointer(), bufSize);
 #if FLUSH_EXPLICIT==true
-        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(stagingBuffer->getOpenGLName(), (frameNum%4)*bufSize, bufSize);
+        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(static_cast<video::COpenGLBuffer*>(stagingBuffer)->getOpenGLName(), (frameNum%4)*bufSize, bufSize);
 #endif
 
         //! copy from staging to local
-        driver->bufferCopy(stagingBuffer,buffer,(frameNum % 4) * bufSize,0,bufSize);
+        driver->copyBuffer(stagingBuffer,buffer,(frameNum % 4) * bufSize,0,bufSize);
 
         if (!fences[frameNum%4])
             fences[frameNum%4] = driver->placeFence();

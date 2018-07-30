@@ -79,8 +79,15 @@ int main()
 	device->setEventReceiver(&receiver);
 
 
-    video::IGPUTransientBuffer* buffer = video::IGPUTransientBuffer::createMappedTransientBuffer(driver,0x1000000u,video::EGBA_WRITE,false,true,true,false);
-
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.size = 0x1000000u;
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|video::IDriverMemoryAllocation::EMCF_COHERENT;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    video::IGPUTransientBuffer* buffer = video::IGPUTransientBuffer::createTransientBuffer(driver,driver->createGPUBufferOnDedMem(reqs,false),false);
 
 	uint64_t lastFPSTime = 0;
 
@@ -94,9 +101,11 @@ int main()
         {
             size_t offset;
             #define ALIGNMENT 32
-            if (buffer->Alloc(offset,allocSize,ALIGNMENT,video::IGPUTransientBuffer::EWP_DONT_WAIT,true)==video::IGPUTransientBuffer::EARS_SUCCESS)
+            if (buffer->Alloc(offset,allocSize,ALIGNMENT,video::IGPUTransientBuffer::EWP_DONT_WAIT)==video::IGPUTransientBuffer::EARS_SUCCESS)
             {
-                buffer->Commit(offset,offset+allocSize);
+                std::vector<video::IDriverMemoryAllocation::MemoryRange> dummyFlushRanges;
+                buffer->Commit(offset,offset+allocSize,dummyFlushRanges);
+                assert(dummyFlushRanges.size()==0);
                 buffer->fenceRangeUsedByGPU(offset,offset+allocSize);
                 buffer->Free(offset,offset+allocSize);
             }

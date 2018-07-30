@@ -59,13 +59,21 @@ int main()
 
     scene::IGPUMeshBuffer* meshes[100];
     scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-    auto attrBuf = driver->createGPUBuffer(4 *
+
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 #if ATTRIB_DIVISOR==0
-        30000
+    reqs.vulkanReqs.size = 4 * 30000;
 #else
-        10
-#endif
-        , nullptr);
+    reqs.vulkanReqs.size = 4 * 10;
+#endif // ATTRIB_DIVISOR
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+
+    auto attrBuf = driver->createGPUBufferOnDedMem(reqs,false);
     desc->mapVertexAttrBuffer(attrBuf, scene::EVAI_ATTR0, scene::ECPA_ONE, scene::ECT_FLOAT, 0u, 0u, ATTRIB_DIVISOR); // map whatever buffer just to activate whatever vertex attribute (look below)
     {
         size_t triBudget = 1600000u; //1.6M
@@ -139,24 +147,36 @@ int main()
     for (size_t i = 0u; i < bufSize / 2; ++i)
         ((uint16_t*)(cpubuffer->getPointer()))[i] = rand();
 
-    video::COpenGLBuffer* buffer = nullptr;
-#if ((TEST_CASE==1 || TEST_CASE==2) && DONT_UPDATE_BUFFER)
-    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createGPUBuffer(bufSize, cpubuffer->getPointer(), false, INCPUMEM));
-#elif TEST_CASE==2
-    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createGPUBuffer(bufSize, cpubuffer->getPointer(), true, INCPUMEM));
+    video::IGPUBuffer* buffer = nullptr;
+    reqs.memoryHeapLocation = INCPUMEM ? video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL:video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+#if TEST_CASE==2
+    reqs.vulkanReqs.size = bufSize;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+    #if DONT_UPDATE_BUFFER
+        #error "Need a discardable staging buffer upload here."
+    #else
+        buffer = driver->createGPUBufferOnDedMem(reqs,true);
+        buffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size), cpubuffer->getPointer());
+    #endif // DONT_UPDATE_BUFFER
 #elif TEST_CASE==3
-    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createPersistentlyMappedBuffer(persistentlyMappedBufSize, nullptr, video::EGBA_WRITE, false, INCPUMEM));
+    reqs.vulkanReqs.size = persistentlyMappedBufSize;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE;
+    buffer = driver->createGPUBufferOnDedMem(reqs,false);
+    buffer->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE,video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size));
 #elif TEST_CASE==4
-    buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createPersistentlyMappedBuffer(persistentlyMappedBufSize, nullptr, video::EGBA_WRITE, true, INCPUMEM));
+    reqs.vulkanReqs.size = persistentlyMappedBufSize;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|video::IDriverMemoryAllocation::EMCF_COHERENT;
+    buffer = driver->createGPUBufferOnDedMem(reqs,false);
+    buffer->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE,video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size));
 #endif
 
 #if DONT_UPDATE_BUFFER
 #if (TEST_CASE==3 || TEST_CASE==4)
-    memcpy(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(buffer)->getPointer(), cpubuffer->getPointer(), persistentlyMappedBufSize);
+    memcpy(buffer->getBoundMemory()->getMappedPointer(), cpubuffer->getPointer(), reqs.vulkanReqs.size);
 #if TEST_CASE==3
-    video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(buffer->getOpenGLName(), 0, bufSize);
+    video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(static_cast<video::COpenGLBuffer*>(buffer)->getOpenGLName(), 0, bufSize);
 #endif
-    video::COpenGLExtensionHandler::extGlUnmapNamedBuffer(buffer->getOpenGLName());
+    buffer->getBoundMemory()->unmapMemory();
 #endif
 #endif
 
@@ -187,14 +207,10 @@ int main()
         queries[frameNum] = driver->createElapsedTimeQuery();
         driver->beginQuery(queries[frameNum]);
 
-#if (TEST_CASE==1 && !DONT_UPDATE_BUFFER)
-        buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createGPUBuffer(bufSize, cpubuffer->getPointer(), false, INCPUMEM));
-#elif TEST_CASE==2
 #if !DONT_UPDATE_BUFFER
-        buffer->updateSubRange(0u, bufSize, cpubuffer->getPointer());
-#endif //!DONT_UPDATE_BUFFER
+#if TEST_CASE==2
+        buffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0u, bufSize), cpubuffer->getPointer());
 #elif (TEST_CASE==3 || TEST_CASE==4)
-#if !DONT_UPDATE_BUFFER
         if (fences[frameNum % 4])
         {
             auto waitf = [&frameNum, &fences] {
@@ -207,12 +223,12 @@ int main()
                 fences[frameNum % 4] = nullptr;
             }
         }
-        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(buffer)->getPointer()))+(frameNum%4)*bufSize, cpubuffer->getPointer(), bufSize);
+        memcpy(reinterpret_cast<uint8_t*>(buffer->getBoundMemory()->getMappedPointer())+(frameNum%4)*bufSize, cpubuffer->getPointer(), bufSize);
 #if TEST_CASE==3
-        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(buffer->getOpenGLName(), (frameNum%4)*bufSize, bufSize);
+        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(static_cast<video::COpenGLBuffer*>(buffer)->getOpenGLName(), (frameNum%4)*bufSize, bufSize);
 #endif //TEST_CASE==3
-#endif //!DONT_UPDATE_BUFFER
 #endif // this large #if/#elif/#elif
+#endif //!DONT_UPDATE_BUFFER
 
         size_t i = 0u;
         for (size_t j = 0u; j < 16u; ++j)
@@ -245,11 +261,6 @@ int main()
 
         driver->endQuery(queries[frameNum]);
 
-#if (TEST_CASE==1 && !DONT_UPDATE_BUFFER)
-        buffer->drop();
-        buffer = nullptr;
-#endif
-
         glFlush();
         ++frameNum;
     }
@@ -268,9 +279,7 @@ int main()
 
     for (size_t i = 0u; i < 100u; ++i)
         meshes[i]->drop();
-#if TEST_CASE!=1
     buffer->drop();
-#endif
     cpubuffer->drop();
 
     //device->sleep(3000);

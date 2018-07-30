@@ -11,19 +11,21 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
+#include "COpenGL1DTexture.h"
+#include "COpenGL1DTextureArray.h"
 #include "COpenGL2DTexture.h"
 #include "COpenGL3DTexture.h"
 #include "COpenGL2DTextureArray.h"
 #include "COpenGLCubemapTexture.h"
+#include "COpenGLCubemapArrayTexture.h"
 #include "COpenGLMultisampleTexture.h"
 #include "COpenGLMultisampleTextureArray.h"
 #include "COpenGLTextureBufferObject.h"
 
-#include "COpenGLRenderBuffer.h"
-#include "COpenGLPersistentlyMappedBuffer.h"
+#include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLSLMaterialRenderer.h"
-#include "COpenGLOcclusionQuery.h"
+#include "COpenGLQuery.h"
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
 
@@ -650,7 +652,6 @@ COpenGLDriver::~COpenGLDriver()
     cleanUpContextBeforeDelete();
 
 	deleteMaterialRenders();
-    removeAllRenderBuffers();
 	deleteAllTextures();
 
     //! Spin wait for other contexts to deinit
@@ -1176,37 +1177,17 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 }
 
 
-IGPUBuffer* COpenGLDriver::createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData, const bool &inCPUMem, const E_GPU_BUFFER_ACCESS &usagePattern)
+IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData)
 {
-    switch (usagePattern)
-    {
-        case EGBA_READ:
-            return new COpenGLBuffer(size,data,(canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT);
-        case EGBA_WRITE:
-            return new COpenGLBuffer(size,data,(canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_WRITE_BIT);
-        case EGBA_READ_WRITE:
-            return new COpenGLBuffer(size,data,(canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT|GL_MAP_WRITE_BIT);
-        default:
-            return new COpenGLBuffer(size,data,(canModifySubData ? GL_DYNAMIC_STORAGE_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0));
-    }
+    auto extraMreqs = initialMreqs;
+
+    if (extraMreqs.memoryHeapLocation!=IDriverMemoryAllocation::ESMT_DONT_KNOW)
+        extraMreqs.memoryHeapLocation = (initialMreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL:IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+
+    return new COpenGLBuffer(extraMreqs, canModifySubData);
 }
 
-IGPUMappedBuffer* COpenGLDriver::createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem)
-{
-    switch (usagePattern)
-    {
-        case EGBA_READ:
-            return new COpenGLPersistentlyMappedBuffer(size,data,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT);
-        case EGBA_WRITE:
-            return new COpenGLPersistentlyMappedBuffer(size,data,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_WRITE_BIT,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:GL_MAP_FLUSH_EXPLICIT_BIT)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_WRITE_BIT);
-        case EGBA_READ_WRITE:
-            return new COpenGLPersistentlyMappedBuffer(size,data,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:0)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT|GL_MAP_WRITE_BIT,GL_MAP_PERSISTENT_BIT|(assumedCoherent ? GL_MAP_COHERENT_BIT:GL_MAP_FLUSH_EXPLICIT_BIT)|(inCPUMem ? GL_CLIENT_STORAGE_BIT:0)|GL_MAP_READ_BIT|GL_MAP_WRITE_BIT);
-        default:
-            return NULL;
-    }
-}
-
-void COpenGLDriver::bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
+void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
 {
     COpenGLBuffer* readbuffer = static_cast<COpenGLBuffer*>(readBuffer);
     COpenGLBuffer* writebuffer = static_cast<COpenGLBuffer*>(writeBuffer);
@@ -1218,457 +1199,178 @@ scene::IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::
     return new COpenGLVAOSpec(dbgr);
 }
 
-scene::IGPUMesh* COpenGLDriver::createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions)
+std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> meshes)
 {
-    scene::IGPUMesh* outmesh;
-    switch (mesh->getMeshType())
-    {
-        case scene::EMT_ANIMATED_SKINNED:
-            outmesh = new scene::CGPUSkinnedMesh(static_cast<scene::ICPUSkinnedMesh*>(mesh)->getBoneReferenceHierarchy());
-            break;
-        default:
-            outmesh = new scene::SGPUMesh();
-            break;
-    }
+    std::vector<scene::IGPUMesh*> retval;
 
+    std::unordered_map<const scene::ICPUMeshBuffer*,scene::IGPUMeshBuffer*> createdMeshBuffers;
+    std::unordered_map<const scene::ICPUMeshDataFormatDesc*,scene::IGPUMeshDataFormatDesc*> createdVAOs;
+    std::unordered_map<const core::ICPUBuffer*,IGPUBuffer*> createdGPUBuffers;
 
-    for (size_t i=0; i<mesh->getMeshBufferCount(); i++)
-    {
-        scene::ICPUMeshBuffer* origmeshbuf = mesh->getMeshBuffer(i);
-        scene::ICPUMeshDataFormatDesc* origdesc = static_cast<scene::ICPUMeshDataFormatDesc*>(origmeshbuf->getMeshDataAndFormat());
-        if (!origdesc)
-            continue;
-
-        bool success = true;
-        bool noAttributes = true;
-        const core::ICPUBuffer* oldbuffer[scene::EVAI_COUNT];
-        scene::E_COMPONENTS_PER_ATTRIBUTE components[scene::EVAI_COUNT];
-        scene::E_COMPONENT_TYPE componentTypes[scene::EVAI_COUNT];
-        for (size_t j=0; j<scene::EVAI_COUNT; j++)
-        {
-            oldbuffer[j] = origdesc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)j);
-            if (oldbuffer[j])
-                noAttributes = false;
-
-            scene::E_VERTEX_ATTRIBUTE_ID attrId = (scene::E_VERTEX_ATTRIBUTE_ID)j;
-            components[attrId] = origdesc->getAttribComponentCount(attrId);
-            componentTypes[attrId] = origdesc->getAttribType(attrId);
-            if (scene::vertexAttrSize[componentTypes[attrId]][components[attrId]]>=0xdeadbeefu)
+    auto findOrCreateBuffer = [&] (const core::ICPUBuffer* cpubuffer) -> video::IGPUBuffer*
             {
-                os::Printer::log("createGPUMeshFromCPU input ICPUMeshBuffer(s) have one or more invalid attribute specs!\n",ELL_ERROR);
-                success = false;
-            }
-        }
-        if (noAttributes||!success)
-            continue;
-        //
-        int64_t oldBaseVertex;
-        size_t indexBufferByteSize = 0;
-        void* newIndexBuffer = NULL;
-        uint32_t indexRange;
-        //set indexCount
-        scene::IGPUMeshBuffer* meshbuffer = new scene::IGPUMeshBuffer();
-        meshbuffer->setIndexCount(origmeshbuf->getIndexCount());
-        if (origdesc->getIndexBuffer())
-        {
-            //set indices
-            uint32_t minIx = 0xffffffffu;
-            uint32_t maxIx = 0;
-            bool success = origmeshbuf->getIndexCount()>0;
-            for (size_t j=0; success&&j<origmeshbuf->getIndexCount(); j++)
-            {
-                uint32_t ix;
-                switch (origmeshbuf->getIndexType())
-                {
-                    case EIT_16BIT:
-                        ix = ((uint16_t*)origmeshbuf->getIndices())[j];
-                        break;
-                    case EIT_32BIT:
-                        ix = ((uint32_t*)origmeshbuf->getIndices())[j];
-                        break;
-                    default:
-                        success = false;
-                        break;
-                }
-                if (ix<minIx)
-                    minIx = ix;
-                if (ix>maxIx)
-                    maxIx = ix;
-            }
-
-            if (int64_t(minIx)+origmeshbuf->getBaseVertex()<0)
-            {
-                meshbuffer->drop();
-                continue;
-            }
-
-            //nothing will work if this is fucked
-            for (size_t j=0; j<scene::EVAI_COUNT; j++)
-            {
-                if (!oldbuffer[j])
-                    continue;
-
-                scene::E_VERTEX_ATTRIBUTE_ID attrId = (scene::E_VERTEX_ATTRIBUTE_ID)j;
-
-                size_t byteEnd = origdesc->getMappedBufferOffset(attrId);
-                if (origdesc->getAttribDivisor(attrId))
-                    byteEnd += (origmeshbuf->getInstanceCount()+origmeshbuf->getBaseInstance()-1)*origdesc->getMappedBufferStride(attrId);
+                auto foundGPUBuff = createdGPUBuffers.find(cpubuffer);
+                if (foundGPUBuff!=createdGPUBuffers.end())
+                    return foundGPUBuff->second;
                 else
-                    byteEnd += (int64_t(maxIx)+origmeshbuf->getBaseVertex())*origdesc->getMappedBufferStride(attrId);
-                byteEnd += scene::vertexAttrSize[componentTypes[attrId]][components[attrId]];
-
-                if (byteEnd>oldbuffer[j]->getSize())
-                    success = false;
-            }
-            // kill MB
-            if (!success)
-            {
-                meshbuffer->drop();
-                continue;
-            }
-            oldBaseVertex = int64_t(minIx)+origmeshbuf->getBaseVertex();
-            indexRange = maxIx-minIx;
-            if (indexRange<0x10000u)
-            {
-                meshbuffer->setIndexType(EIT_16BIT);
-                indexBufferByteSize = meshbuffer->getIndexCount()*2;
-            }
-            else
-            {
-                meshbuffer->setIndexType(EIT_32BIT);
-                indexBufferByteSize = meshbuffer->getIndexCount()*4;
-            }
-            newIndexBuffer = malloc(indexBufferByteSize);
-            //doesnt matter if shared VAO or not, range gets checked before baseVx
-
-            if (origmeshbuf->getIndexType()==meshbuffer->getIndexType()&&minIx==0)
-                memcpy(newIndexBuffer,origmeshbuf->getIndices(),indexBufferByteSize);
-            else
-            {
-                for (size_t j=0; j<origmeshbuf->getIndexCount(); j++)
                 {
-                    uint32_t ix;
-                    if (origmeshbuf->getIndexType()==EIT_16BIT)
-                        ix = ((uint16_t*)origmeshbuf->getIndices())[j];
-                    else
-                        ix = ((uint32_t*)origmeshbuf->getIndices())[j];
+                    IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+                    reqs.vulkanReqs.size = cpubuffer->getSize();
+                    reqs.vulkanReqs.alignment = 8;
+                    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+                    reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+                    reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+                    reqs.prefersDedicatedAllocation = true;
+                    reqs.requiresDedicatedAllocation = true;
+                    IGPUBuffer* buffer = createGPUBufferOnDedMem(reqs,true);
+                    if (!buffer)
+                        return nullptr;
 
-                    ix -= minIx;
-                    if (indexRange<0x10000u)
-                        ((uint16_t*)newIndexBuffer)[j] = ix;
-                    else
-                        ((uint32_t*)newIndexBuffer)[j] = ix;
+                    buffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,cpubuffer->getSize()),cpubuffer->getPointer());
+                    createdGPUBuffers.insert(std::pair<const core::ICPUBuffer*,IGPUBuffer*>(cpubuffer,buffer));
+                    return buffer;
                 }
-            }
-        }
-        else
+
+                return nullptr;
+            };
+
+    for (auto it=meshes.begin(); it!=meshes.end(); it++)
+    {
+        #if _DEBUG
+        for (auto it2=meshes.begin(); it2!=it; it2++)
         {
-            oldBaseVertex = origmeshbuf->getBaseVertex();
-            //
-            int64_t bigIx = origmeshbuf->getIndexCount();
-            bool success = bigIx!=0;
-            bigIx--;
-            bigIx += oldBaseVertex;
-            //check for overflow
-            for (size_t j=0; success&&j<scene::EVAI_COUNT; j++)
-            {
-                if (!oldbuffer[j])
-                    continue;
-
-                scene::E_VERTEX_ATTRIBUTE_ID attrId = (scene::E_VERTEX_ATTRIBUTE_ID)j;
-
-                int64_t byteEnd = origdesc->getMappedBufferOffset(attrId);
-                if (origdesc->getAttribDivisor(attrId))
-                    byteEnd += (origmeshbuf->getInstanceCount()+origmeshbuf->getBaseInstance()-1)*origdesc->getMappedBufferStride(attrId);
-                else
-                    byteEnd += bigIx*origdesc->getMappedBufferStride(attrId);
-                byteEnd += scene::vertexAttrSize[componentTypes[attrId]][components[attrId]];
-
-                if (byteEnd>oldbuffer[j]->getSize())
-                    success = false;
-            }
-            // kill MB
-            if (!success)
-            {
-                meshbuffer->drop();
-                continue;
-            }
-            indexRange = origmeshbuf->getIndexCount()-1;
+            if (*it==*it2)
+                os::Printer::log("Why are you creating duplicate GPU copies of ICPUMeshes?",ELL_WARNING);
         }
-        //set bbox
-        core::aabbox3df oldBBox = origmeshbuf->getBoundingBox();
-	if (mesh->getMeshType()!=scene::EMT_ANIMATED_SKINNED)
-		origmeshbuf->recalculateBoundingBox();
-        meshbuffer->setBoundingBox(origmeshbuf->getBoundingBox());
-	if (mesh->getMeshType()!=scene::EMT_ANIMATED_SKINNED)
-        	origmeshbuf->setBoundingBox(oldBBox);
-        //set primitive type
-        meshbuffer->setPrimitiveType(origmeshbuf->getPrimitiveType());
-        //set material
-        meshbuffer->getMaterial() = origmeshbuf->getMaterial();
+        #endif // _DEBUG
+        auto mesh = *it;
 
-
-        size_t bufferBindings[scene::EVAI_COUNT] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-        int64_t attrStride[scene::EVAI_COUNT];
-        size_t attrOffset[scene::EVAI_COUNT];
-        size_t bufferMin[scene::EVAI_COUNT];
-        size_t bufferMax[scene::EVAI_COUNT];
-        for (size_t j=0; j<scene::EVAI_COUNT; j++)
-        {
-            if (!oldbuffer[j])
-                continue;
-
-            bool alternateBinding = false;
-            for (size_t k=0; k<j; k++)
-            {
-                if (oldbuffer[j]==oldbuffer[k])
-                {
-                    alternateBinding = true;
-                    bufferBindings[j] = k;
-                    break;
-                }
-            }
-
-
-            scene::E_VERTEX_ATTRIBUTE_ID attrId = (scene::E_VERTEX_ATTRIBUTE_ID)j;
-
-            attrStride[j] = origdesc->getMappedBufferStride(attrId);
-            attrOffset[j] = origdesc->getMappedBufferOffset(attrId);
-            //
-            size_t minMemPos = attrOffset[j];
-            if (origdesc->getAttribDivisor(attrId))
-                minMemPos += origmeshbuf->getBaseInstance()*attrStride[j];
-            else
-                minMemPos += oldBaseVertex*attrStride[j];
-
-            if (!alternateBinding)
-                bufferMin[j] = minMemPos;
-            else if (minMemPos<bufferMin[bufferBindings[j]])
-                bufferMin[bufferBindings[j]] = minMemPos;
-            //
-            size_t maxMemPos = minMemPos;
-            if (origdesc->getAttribDivisor(attrId))
-                maxMemPos += (origmeshbuf->getInstanceCount()-1)*attrStride[j];
-            else
-                maxMemPos += indexRange*attrStride[j];
-            maxMemPos += scene::vertexAttrSize[componentTypes[attrId]][components[attrId]];
-
-            if (!alternateBinding)
-                bufferMax[j] = maxMemPos;
-            else if (maxMemPos>bufferMax[bufferBindings[j]])
-                bufferMax[bufferBindings[j]] = maxMemPos;
-        }
-        scene::IGPUMeshDataFormatDesc* desc = createGPUMeshDataFormatDesc();
-        meshbuffer->setMeshDataAndFormat(desc);
-        desc->drop();
-        ///since we only copied relevant shit over
-        //meshbuffer->setBaseVertex(0);
-        //if (newIndexBuffer)
-            //meshbuffer->setIndexBufferOffset(0);
-        switch (bufferOptions)
-        {
-            //! It would be beneficial if this function compacted subdata ranges of used buffers to eliminate unused bytes
-            //! But for This maybe a ICPUMeshBuffer "isolate" function is needed outside of this API, so we dont bother here?
-            case EMDCB_CLONE_AND_MIRROR_LAYOUT:
-                {
-                    if (newIndexBuffer)
-                    {
-                        IGPUBuffer* indexBuf = createGPUBuffer(indexBufferByteSize,newIndexBuffer);
-                        desc->mapIndexBuffer(indexBuf);
-                        indexBuf->drop();
-                    }
-
-                    size_t allocatedGPUBuffers = 0;
-                    IGPUBuffer* attrBuf[scene::EVAI_COUNT] = {NULL};
-                    for (size_t j=0; j<scene::EVAI_COUNT; j++)
-                    {
-                        if (!oldbuffer[j])
-                            continue;
-
-                        if (bufferBindings[j]==j)
-                            attrBuf[j] = createGPUBuffer(bufferMax[j]-bufferMin[j],((uint8_t*)oldbuffer[j]->getPointer())+bufferMin[j]);
-
-                        scene::E_VERTEX_ATTRIBUTE_ID attrId = (scene::E_VERTEX_ATTRIBUTE_ID)j;
-                        desc->mapVertexAttrBuffer(attrBuf[bufferBindings[j]],attrId,components[attrId],componentTypes[attrId],attrStride[attrId],attrOffset[attrId]+oldBaseVertex*attrStride[j]-bufferMin[bufferBindings[j]],origdesc->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)j));
-                        if (bufferBindings[j]==j)
-                            attrBuf[bufferBindings[j]]->drop();
-                    }
-                }
-                break;
-            /**
-            These conversion functions need to take into account the empty space (unused data) in buffers to avoid duplication
-            This is why they are unfinished
-            case EMDCB_PACK_ATTRIBUTES_SINGLE_BUFFER:
-                {
-                    if (newIndexBuffer)
-                    {
-                        IGPUBuffer* indexBuf = createGPUBuffer(indexBufferByteSize,newIndexBuffer);
-                        desc->mapIndexBuffer(indexBuf);
-                        indexBuf->drop();
-                    }
-
-                    size_t allocatedGPUBuffers = 0;
-                    for (size_t j=0; j<scene::EVAI_COUNT; j++)
-                    {
-                        if (!oldbuffer[j])
-                            continue;
-
-                        if (bufferBindings[j]==j)
-                            attrBuf[j] = createGPUBuffer(bufferMax[j]-bufferMin[j],((uint8_t*)oldbuffer[j]->getPointer())+bufferMin[j]);
-
-                        scene::E_VERTEX_ATTRIBUTE_ID attrId = (scene::E_VERTEX_ATTRIBUTE_ID)j;
-                        desc->mapVertexAttrBuffer(attrBuf[bufferBindings[j]],attrId,components[attrId],componentTypes[attrId],attrStride[attrId],attrOffset[attrId]+oldBaseVertex*attrStride[j]-bufferMin[bufferBindings[j]]);
-                        if (bufferBindings[j]==j)
-                            attrBuf[bufferBindings[j]]->drop();
-                    }
-                }
-                break;
-            case EMDCB_PACK_ALL_SINGLE_BUFFER:
-                break;**/
-            case EMDCB_INTERLEAVED_PACK_ATTRIBUTES_SINGLE_BUFFER:
-            case EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER:
-                {
-                    size_t vertexSize = 0;
-                    uint8_t* inPtr[scene::EVAI_COUNT] = {NULL};
-                    for (size_t j=0; j<scene::EVAI_COUNT; j++)
-                    {
-                        if (!oldbuffer[j])
-                            continue;
-
-                        inPtr[j] = (uint8_t*)oldbuffer[j]->getPointer();
-                        inPtr[j] += attrOffset[j]+oldBaseVertex*attrStride[j];
-
-                        vertexSize += scene::vertexAttrSize[componentTypes[j]][components[j]];
-                    }
-
-                    size_t vertexBufferSize = vertexSize*(indexRange+1);
-                    void* mem = malloc(vertexBufferSize+indexBufferByteSize);
-                    uint8_t* memPtr = (uint8_t*)mem;
-                    for (uint8_t* memPtrLimit = memPtr+vertexBufferSize; memPtr<memPtrLimit; )
-                    {
-                        for (size_t j=0; j<scene::EVAI_COUNT; j++)
-                        {
-                            if (!oldbuffer[j])
-                                continue;
-
-                            switch (scene::vertexAttrSize[componentTypes[j]][components[j]])
-                            {
-                                case 1:
-                                    ((uint8_t*)memPtr)[0] = ((uint8_t*)inPtr[j])[0];
-                                    break;
-                                case 2:
-                                    ((uint16_t*)memPtr)[0] = ((uint16_t*)inPtr[j])[0];
-                                    break;
-                                case 3:
-                                    ((uint16_t*)memPtr)[0] = ((uint16_t*)inPtr[j])[0];
-                                    ((uint8_t*)memPtr)[2] = ((uint8_t*)inPtr[j])[2];
-                                    break;
-                                case 4:
-                                    ((uint32_t*)memPtr)[0] = ((uint32_t*)inPtr[j])[0];
-                                    break;
-                                case 6:
-                                    ((uint32_t*)memPtr)[0] = ((uint32_t*)inPtr[j])[0];
-                                    ((uint16_t*)memPtr)[2] = ((uint16_t*)inPtr[j])[2];
-                                    break;
-                                case 8:
-                                    ((uint64_t*)memPtr)[0] = ((uint64_t*)inPtr[j])[0];
-                                    break;
-                                case 12:
-                                    ((uint64_t*)memPtr)[0] = ((uint64_t*)inPtr[j])[0];
-                                    ((uint32_t*)memPtr)[2] = ((uint32_t*)inPtr[j])[2];
-                                    break;
-                                case 16:
-                                    ((uint64_t*)memPtr)[0] = ((uint64_t*)inPtr[j])[0];
-                                    ((uint64_t*)memPtr)[1] = ((uint64_t*)inPtr[j])[1];
-                                    break;
-                                case 24:
-                                    ((uint64_t*)memPtr)[0] = ((uint64_t*)inPtr[j])[0];
-                                    ((uint64_t*)memPtr)[1] = ((uint64_t*)inPtr[j])[1];
-                                    ((uint64_t*)memPtr)[2] = ((uint64_t*)inPtr[j])[2];
-                                    break;
-                                case 32:
-                                    ((uint64_t*)memPtr)[0] = ((uint64_t*)inPtr[j])[0];
-                                    ((uint64_t*)memPtr)[1] = ((uint64_t*)inPtr[j])[1];
-                                    ((uint64_t*)memPtr)[2] = ((uint64_t*)inPtr[j])[2];
-                                    ((uint64_t*)memPtr)[3] = ((uint64_t*)inPtr[j])[3];
-                                    break;
-                            }
-                            memPtr += scene::vertexAttrSize[componentTypes[j]][components[j]];
-
-                            inPtr[j] += attrStride[j];
-                        }
-                    }
-                    IGPUBuffer* vertexbuffer;
-                    if (newIndexBuffer&&bufferOptions==EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER)
-                    {
-                        memcpy(memPtr,newIndexBuffer,indexBufferByteSize);
-                        vertexbuffer = createGPUBuffer(vertexBufferSize+indexBufferByteSize,mem);
-                    }
-                    else
-                        vertexbuffer = createGPUBuffer(vertexBufferSize,mem);
-                    free(mem);
-
-                    size_t offset = 0;
-                    for (size_t j=0; j<scene::EVAI_COUNT; j++)
-                    {
-                        if (!oldbuffer[j])
-                            continue;
-
-                        desc->mapVertexAttrBuffer(vertexbuffer,(scene::E_VERTEX_ATTRIBUTE_ID)j,components[j],componentTypes[j],vertexSize,offset);
-                        offset += scene::vertexAttrSize[componentTypes[j]][components[j]];
-                    }
-                    vertexbuffer->drop();
-
-                    if (newIndexBuffer)
-                    {
-                        if (bufferOptions==EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER)
-                        {
-                            desc->mapIndexBuffer(vertexbuffer);
-                            meshbuffer->setIndexBufferOffset(vertexBufferSize);
-                        }
-                        else
-                        {
-                            IGPUBuffer* indexBuf = createGPUBuffer(indexBufferByteSize,newIndexBuffer);
-                            desc->mapIndexBuffer(indexBuf);
-                            indexBuf->drop();
-                        }
-                    }
-                }
-                break;
-            default:
-                os::Printer::log("THIS CPU to GPU Mesh CONVERSION NOT SUPPORTED YET!\n",ELL_ERROR);
-                if (newIndexBuffer)
-                    free(newIndexBuffer);
-                meshbuffer->drop();
-                outmesh->drop();
-                return NULL;
-                break;
-        }
-
-        if (newIndexBuffer)
-            free(newIndexBuffer);
-
+        scene::IGPUMesh* gpumesh;
         switch (mesh->getMeshType())
         {
             case scene::EMT_ANIMATED_SKINNED:
-                static_cast<scene::CGPUSkinnedMesh*>(outmesh)->addMeshBuffer(meshbuffer,static_cast<scene::SCPUSkinMeshBuffer*>(origmeshbuf)->getMaxVertexBoneInfluences());
+                gpumesh = new scene::CGPUSkinnedMesh(static_cast<scene::ICPUSkinnedMesh*>(mesh)->getBoneReferenceHierarchy());
                 break;
             default:
-                static_cast<scene::SGPUMesh*>(outmesh)->addMeshBuffer(meshbuffer);
+                gpumesh = new scene::SGPUMesh();
                 break;
         }
-        meshbuffer->drop();
+
+        for (size_t i=0; i<mesh->getMeshBufferCount(); i++)
+        {
+            scene::ICPUMeshBuffer* origmeshbuf = mesh->getMeshBuffer(i);
+            const scene::ICPUMeshDataFormatDesc* origdesc = static_cast<scene::ICPUMeshDataFormatDesc*>(origmeshbuf->getMeshDataAndFormat());
+            if (!origdesc)
+                continue;
+
+            scene::IGPUMeshBuffer* meshbuffer = nullptr;
+            auto foundMB = createdMeshBuffers.find(origmeshbuf);
+            if (foundMB!=createdMeshBuffers.end())
+                meshbuffer = foundMB->second;
+            else
+            {
+                scene::IGPUMeshDataFormatDesc* vao = nullptr;
+                auto foundVAO = createdVAOs.find(origdesc);
+                if (foundVAO!=createdVAOs.end())
+                    vao = foundVAO->second;
+                else
+                {
+                    const core::ICPUBuffer* oldbuffer[scene::EVAI_COUNT];
+                    scene::E_COMPONENTS_PER_ATTRIBUTE components[scene::EVAI_COUNT];
+                    scene::E_COMPONENT_TYPE componentTypes[scene::EVAI_COUNT];
+
+                    bool success = true;
+                    bool noAttributes = true;
+                    for (size_t j=0; j<scene::EVAI_COUNT; j++)
+                    {
+                        scene::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(j);
+                        oldbuffer[attrId] = origdesc->getMappedBuffer(attrId);
+                        if (oldbuffer[attrId])
+                            noAttributes = false;
+
+                        components[attrId] = origdesc->getAttribComponentCount(attrId);
+                        componentTypes[attrId] = origdesc->getAttribType(attrId);
+                        if (!scene::validCombination(componentTypes[attrId],components[attrId]))
+                        {
+                            os::Printer::log("createGPUMeshFromCPU input ICPUMeshBuffer(s) have one or more invalid attribute specs!\n",ELL_ERROR);
+                            success = false;
+                            break;
+                        }
+                    }
+
+                    if (!noAttributes&&success)
+                    {
+                        vao = this->createGPUMeshDataFormatDesc();
+                        for (size_t j=0; j<scene::EVAI_COUNT; j++)
+                        {
+                            scene::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(j);
+                            if (!oldbuffer[attrId])
+                                continue;
+
+                            vao->mapVertexAttrBuffer(findOrCreateBuffer(oldbuffer[attrId]),
+                                                     attrId,components[attrId],componentTypes[attrId],
+                                                     origdesc->getMappedBufferStride(attrId),
+                                                     origdesc->getMappedBufferOffset(attrId),
+                                                     origdesc->getAttribDivisor(attrId));
+                        }
+                        if (origdesc->getIndexBuffer())
+                            vao->mapIndexBuffer(findOrCreateBuffer(origdesc->getIndexBuffer()));
+                        createdVAOs.insert(std::pair<const scene::ICPUMeshDataFormatDesc*,scene::IGPUMeshDataFormatDesc*>(origdesc,vao));
+                    }
+                }
+
+                if (!vao)
+                    continue;
+
+                meshbuffer = new scene::IGPUMeshBuffer();
+                meshbuffer->getMaterial() = origmeshbuf->getMaterial();
+                meshbuffer->setMeshDataAndFormat(vao);
+                {
+                    //set bbox
+                    core::aabbox3df oldBBox = origmeshbuf->getBoundingBox();
+                    if (mesh->getMeshType()!=scene::EMT_ANIMATED_SKINNED)
+                        origmeshbuf->recalculateBoundingBox();
+                    meshbuffer->setBoundingBox(origmeshbuf->getBoundingBox());
+                    if (mesh->getMeshType()!=scene::EMT_ANIMATED_SKINNED)
+                        origmeshbuf->setBoundingBox(oldBBox);
+                }
+                meshbuffer->setIndexType(origmeshbuf->getIndexType());
+                meshbuffer->setBaseVertex(origmeshbuf->getBaseVertex());
+                meshbuffer->setIndexCount(origmeshbuf->getIndexCount());
+                meshbuffer->setIndexBufferOffset(origmeshbuf->getIndexBufferOffset());
+                meshbuffer->setInstanceCount(origmeshbuf->getInstanceCount());
+                meshbuffer->setBaseInstance(origmeshbuf->getBaseInstance());
+                meshbuffer->setPrimitiveType(origmeshbuf->getPrimitiveType());
+                createdMeshBuffers.insert(std::pair<const scene::ICPUMeshBuffer*,scene::IGPUMeshBuffer*>(origmeshbuf,meshbuffer));
+            }
+
+            if (!meshbuffer)
+                continue;
+
+            switch (mesh->getMeshType())
+            {
+                case scene::EMT_ANIMATED_SKINNED:
+                    static_cast<scene::CGPUSkinnedMesh*>(gpumesh)->addMeshBuffer(meshbuffer,static_cast<scene::SCPUSkinMeshBuffer*>(origmeshbuf)->getMaxVertexBoneInfluences());
+                    break;
+                default:
+                    static_cast<scene::SGPUMesh*>(gpumesh)->addMeshBuffer(meshbuffer);
+                    break;
+            }
+        }
+        gpumesh->recalculateBoundingBox();
+        retval.push_back(gpumesh);
     }
-    outmesh->recalculateBoundingBox();
 
-    return outmesh;
+    for (auto it=createdGPUBuffers.begin(); it!=createdGPUBuffers.end(); it++)
+        it->second->drop();
+    for (auto it=createdVAOs.begin(); it!=createdVAOs.end(); it++)
+        it->second->drop();
+    for (auto it=createdMeshBuffers.begin(); it!=createdMeshBuffers.end(); it++)
+        it->second->drop();
+
+    return retval;
 }
 
-
-IOcclusionQuery* COpenGLDriver::createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic)
-{
-    return new COpenGLOcclusionQuery(heuristic);
-}
 
 IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()
 {
@@ -1695,7 +1397,7 @@ void COpenGLDriver::beginQuery(IQueryObject* query)
     if (!query)
         return; //error
 
-    COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
+    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
@@ -1716,7 +1418,7 @@ void COpenGLDriver::endQuery(IQueryObject* query)
     if (currentQuery[query->getQueryObjectType()][0]!=query)
         return; //error
 
-    COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
+    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
@@ -1737,7 +1439,7 @@ void COpenGLDriver::beginQuery(IQueryObject* query, const size_t& index)
     if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
         return; //error
 
-    COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
+    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
@@ -1761,7 +1463,7 @@ void COpenGLDriver::endQuery(IQueryObject* query, const size_t& index)
     if (currentQuery[query->getQueryObjectType()][index]!=query)
         return; //error
 
-    COpenGLQuery* queryGL = dynamic_cast<COpenGLQuery*>(query);
+    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
@@ -1782,7 +1484,7 @@ static inline uint8_t* buffer_offset(const long offset)
 
 
 
-void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query)
+void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
 {
     if (mb && !mb->getInstanceCount())
         return;
@@ -1804,20 +1506,10 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQu
 	}
 #endif // _DEBUG
 
-	CNullDriver::drawMeshBuffer(mb,query);
+	CNullDriver::drawMeshBuffer(mb);
 
 	// draw everything
 	setRenderStates3DMode();
-
-    COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
-
-    bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0))
-    {
-        extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
-        didConditional = true;
-    }
-
 
 	GLenum indexSize=0;
     if (meshLayoutVAO->getIndexBuffer())
@@ -1880,9 +1572,6 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQu
     }
     else
         extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
-
-    if (didConditional)
-        extGlEndConditionalRender();
 }
 
 
@@ -1890,8 +1579,7 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQu
 void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                          const scene::E_PRIMITIVE_TYPE& mode,
                                          const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride,
-                                         IOcclusionQuery* query)
+                                         const size_t& offset, const size_t& count, const size_t& stride)
 {
     if (!indirectDrawBuff)
         return;
@@ -1908,15 +1596,6 @@ void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video:
 
 	// draw everything
 	setRenderStates3DMode();
-
-    COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
-
-    bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0)&&(!queryGL->isActive()))
-    {
-        extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
-        didConditional = true;
-    }
 
     GLenum primType = primitiveTypeToGL(mode);
 	switch (mode)
@@ -1946,38 +1625,34 @@ void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video:
 
     //actual drawing
     extGlMultiDrawArraysIndirect(primType,(void*)offset,count,stride);
-
-
-    if (didConditional)
-        extGlEndConditionalRender();
 }
 
 
-bool COpenGLDriver::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature) const
+bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 {
 	switch (feature)
 	{
-        case EVDF_ALPHA_TO_COVERAGE:
+        case EDF_ALPHA_TO_COVERAGE:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_multisample]||true; //vulkan+android
-        case EVDF_GEOMETRY_SHADER:
+        case EDF_GEOMETRY_SHADER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
-        case EVDF_TESSELLATION_SHADER:
+        case EDF_TESSELLATION_SHADER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
-        case EVDF_TEXTURE_BARRIER:
+        case EDF_TEXTURE_BARRIER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
-        case EVDF_STENCIL_ONLY_TEXTURE:
+        case EDF_STENCIL_ONLY_TEXTURE:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_stencil8]||Version>=440;
-		case EVDF_SHADER_DRAW_PARAMS:
+		case EDF_SHADER_DRAW_PARAMS:
 			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_draw_parameters]||Version>=460;
-		case EVDF_MULTI_DRAW_INDIRECT_COUNT:
+		case EDF_MULTI_DRAW_INDIRECT_COUNT:
 			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_indirect_parameters]||Version>=460;
-        case EVDF_SHADER_GROUP_VOTE:
+        case EDF_SHADER_GROUP_VOTE:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_gpu_shader5]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_group_vote]||Version>=460;
-        case EVDF_SHADER_GROUP_BALLOT:
+        case EDF_SHADER_GROUP_BALLOT:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_group]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_ballot];
-		case EVDF_SHADER_GROUP_SHUFFLE:
+		case EDF_SHADER_GROUP_SHUFFLE:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_shuffle];
-        case EVDF_FRAGMENT_SHADER_INTERLOCK:
+        case EDF_FRAGMENT_SHADER_INTERLOCK:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_INTEL_fragment_shader_ordering]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_fragment_shader_interlock]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_fragment_shader_interlock];
         default:
             break;
@@ -1988,8 +1663,7 @@ bool COpenGLDriver::queryFeature(const E_VIDEO_DRIVER_FEATURE &feature) const
 void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
                                         const E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride,
-                                        IOcclusionQuery* query)
+                                        const size_t& offset, const size_t& count, const size_t& stride)
 {
     if (!indirectDrawBuff)
         return;
@@ -2007,17 +1681,7 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
 	// draw everything
 	setRenderStates3DMode();
 
-    COpenGLOcclusionQuery* queryGL = (static_cast<COpenGLOcclusionQuery*>(query));
-
-    bool didConditional = false;
-    if (queryGL&&(queryGL->getGLHandle()!=0)&&(!queryGL->isActive()))
-    {
-        extGlBeginConditionalRender(queryGL->getGLHandle(),queryGL->getCondWaitModeGL());
-        didConditional = true;
-    }
-
 	GLenum indexSize = type!=EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
-
     GLenum primType = primitiveTypeToGL(mode);
 	switch (mode)
 	{
@@ -2046,11 +1710,6 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
 
     //actual drawing
     extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,count,stride);
-
-
-
-    if (didConditional)
-        extGlEndConditionalRender();
 }
 
 
@@ -2625,25 +2284,27 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
 
     switch (type)
     {
-        ///case ITexture::ETT_1D:
-            ///break;
+        case ITexture::ETT_1D:
+            return new COpenGL1DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
+            break;
         case ITexture::ETT_2D:
             return new COpenGL2DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
             break;
         case ITexture::ETT_3D:
             return new COpenGL3DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
-        ///case ITexture::ETT_1D_ARRAY:
-            ///break;
+        case ITexture::ETT_1D_ARRAY:
+            return new COpenGL1DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            break;
         case ITexture::ETT_2D_ARRAY:
             return new COpenGL2DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
         case ITexture::ETT_CUBE_MAP:
             return new COpenGLCubemapTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
-        ///case ITexture::ETT_CUBE_MAP_ARRAY:
-            ///return new COpenGLCubemapArrayTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
-            ///break;
+        case ITexture::ETT_CUBE_MAP_ARRAY:
+            return new COpenGLCubemapArrayTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            break;
         default:// ETT_CUBE_MAP, ETT_CUBE_MAP_ARRAY, ETT_TEXTURE_BUFFER
             break;
     }
@@ -3058,20 +2719,6 @@ ITextureBufferObject* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, con
     return tbo;
 }
 
-IRenderBuffer* COpenGLDriver::addRenderBuffer(const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
-{
-	IRenderBuffer* buffer = new COpenGLRenderBuffer(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size);
-	CNullDriver::addRenderBuffer(buffer);
-	return buffer;
-}
-
-IRenderBuffer* COpenGLDriver::addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
-{
-	IRenderBuffer* buffer = new COpenGLMultisampleRenderBuffer(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,samples);
-	CNullDriver::addRenderBuffer(buffer);
-	return buffer;
-}
-
 IFrameBuffer* COpenGLDriver::addFrameBuffer()
 {
     SAuxContext* found = getThreadContext_helper(false);
@@ -3214,7 +2861,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
             uint32_t width,height;
             for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
             {
-                const IRenderable* rndrbl = in->getAttachment(i);
+                const IRenderableVirtualTexture* rndrbl = in->getAttachment(i);
                 if (!rndrbl)
                     continue;
 
@@ -3249,7 +2896,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
             uint32_t width,height;
             for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
             {
-                const IRenderable* rndrbl = out->getAttachment(i);
+                const IRenderableVirtualTexture* rndrbl = out->getAttachment(i);
                 if (!rndrbl)
                     continue;
 
@@ -3338,7 +2985,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
     core::dimension2du newRTTSize;
     for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
     {
-        const IRenderable* attachment = frameBuffer->getAttachment(i);
+        const IRenderableVirtualTexture* attachment = frameBuffer->getAttachment(i);
         if (!attachment)
             continue;
 

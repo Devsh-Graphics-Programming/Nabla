@@ -5,7 +5,6 @@
 #ifndef __I_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __I_VIRTUAL_TEXTURE_H_INCLUDED__
 
-#include "EDriverTypes.h"
 #include "CImageData.h"
 #include "IFrameBuffer.h"
 
@@ -62,8 +61,14 @@ public:
 	}
 };
 
-class IRenderableVirtualTexture : public IRenderable, public IVirtualTexture
+class IRenderableVirtualTexture : public IVirtualTexture
 {
+    public:
+		//! Returns the two dimensional size of an IFrameBuffer attachment
+		/**
+		@returns The two dimensional size of the max rendering viewport which could be configured on an IFrameBuffer with this object attached.
+		*/
+        virtual core::dimension2du getRenderableSize() const = 0;
 };
 
 }

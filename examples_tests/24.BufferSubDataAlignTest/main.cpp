@@ -150,7 +150,16 @@ int main()
     for (size_t startOffset=0; startOffset<testOffsetRange; startOffset++)
     for (size_t endOffset=0; endOffset<testOffsetRange; endOffset++)
 	{
-        video::IGPUBuffer* testBuffer = driver->createGPUBuffer(pageSize,clearInitBuffer,true);
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.size = pageSize;
+        reqs.vulkanReqs.alignment = 4;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        video::IGPUBuffer* testBuffer = driver->createGPUBufferOnDedMem(reqs,true);
+        testBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),clearInitBuffer);
 
         //little extra test : bind to UBO+SSBO
         {
@@ -168,7 +177,7 @@ int main()
         }
 
         //upload
-        testBuffer->updateSubRange(startOffset,pageSize-(startOffset+endOffset),setBuffer);
+        testBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(startOffset,pageSize-(startOffset+endOffset)),setBuffer);
         //get back
         uint8_t resultBuffer[pageSize];
         video::COpenGLExtensionHandler::extGlGetNamedBufferSubData(reinterpret_cast<video::COpenGLBuffer*>(testBuffer)->getOpenGLName(),0,pageSize,resultBuffer);

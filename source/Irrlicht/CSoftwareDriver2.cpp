@@ -1898,13 +1898,6 @@ void CBurningVideoDriver::draw2DRectangle(const core::rect<int32_t>& position,
 }
 
 
-//! Draws a 3d line.
-void CBurningVideoDriver::draw3DLine(const core::vector3df& start,
-	const core::vector3df& end, SColor color)
-{
-    os::Printer::log("Fatal Error: Drawing 3D lines not supported in this driver!", ELL_ERROR);
-}
-
 
 //! \return Returns the name of the video driver. Example: In case of the DirectX8
 //! driver, it would return "Direct3D8.1".

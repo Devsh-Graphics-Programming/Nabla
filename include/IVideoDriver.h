@@ -7,12 +7,6 @@
 
 #include "rect.h"
 #include "SColor.h"
-#include "IGPUMappedBuffer.h"
-#include "ITexture.h"
-#include "IMultisampleTexture.h"
-#include "ITextureBufferObject.h"
-#include "IRenderBuffer.h"
-#include "IFrameBuffer.h"
 #include "irrArray.h"
 #include "matrix4x3.h"
 #include "plane3d.h"
@@ -21,13 +15,9 @@
 #include "SMaterial.h"
 #include "IDriverFence.h"
 #include "SMesh.h"
-#include "IGPUTimestampQuery.h"
-#include "IOcclusionQuery.h"
 #include "triangle3d.h"
-#include "EDriverTypes.h"
-#include "EDriverFeatures.h"
 #include "SExposedVideoData.h"
-#include "IVideoCapabilityReporter.h"
+#include "IDriver.h"
 
 namespace irr
 {
@@ -92,15 +82,6 @@ namespace video
 		ESB_BACK_RIGHT
 	};
 
-	enum E_MESH_DESC_CONVERT_BEHAVIOUR //depr
-	{
-	    EMDCB_CLONE_AND_MIRROR_LAYOUT = 0,
-	    EMDCB_PACK_ATTRIBUTES_SINGLE_BUFFER,
-	    EMDCB_PACK_ALL_SINGLE_BUFFER,
-	    EMDCB_INTERLEAVED_PACK_ATTRIBUTES_SINGLE_BUFFER,
-	    EMDCB_INTERLEAVED_PACK_ALL_SINGLE_BUFFER
-	};
-
 	enum E_MIP_CHAIN_ERROR
 	{
 	    EMCE_NO_ERR=0,
@@ -118,18 +99,14 @@ namespace video
 	irr::scene::ISceneManager interface provides a lot of powerful classes
 	and methods to make the programmer's life easier.
 	*/
-	class IVideoDriver : public virtual IReferenceCounted, public IVideoCapabilityReporter
+	class IVideoDriver : public IDriver
 	{
 	public:
-        virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE) = 0;
+	    //! This is marked for deprecation
+	    virtual std::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> mesh) {return std::vector<scene::IGPUMesh*>();}
 
-	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true) = 0;
-
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) = 0;
-
-	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT) = 0;
-
-        virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;
+	    //! make with VkBufferCopy
+        virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;
 
 
         virtual bool initAuxContext() = 0;
@@ -164,12 +141,6 @@ namespace video
 		rendering.
 		\return False if failed and true if succeeded. */
 		virtual bool endScene() =0;
-
-		//! Queries the features of the driver.
-		/** Returns true if a feature is available
-		\param feature Feature to query.
-		\return True if the feature is available, false if not. */
-		virtual bool queryFeature(const E_VIDEO_DRIVER_FEATURE& feature) const =0;
 
 		//!
 		virtual void issueGPUTextureBarrier() =0;
@@ -288,17 +259,12 @@ namespace video
         virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain) = 0;
 
         //! A.
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) = 0;
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
+                                                           ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) {return nullptr;}
 
         //! A.
-        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0) = 0;
-
-		//! A.
-		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
-
-		virtual IRenderBuffer* addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
-
-        virtual IFrameBuffer* addFrameBuffer() = 0;
+        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8,
+                                                             const size_t& offset=0, const size_t& length=0) {return nullptr;}
 
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth=true, bool copyStencil=true,
@@ -320,8 +286,6 @@ namespace video
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo) =0;
 
-		virtual void removeRenderBuffer(IRenderBuffer* renderbuf) =0;
-
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf) =0;
 
 		//! Removes all textures from the texture cache and deletes them.
@@ -337,8 +301,6 @@ namespace video
 
 		virtual void removeAllTextureBufferObjects() =0;
 
-		virtual void removeAllRenderBuffers() =0;
-
 		//! This only removes all IFrameBuffers created in the calling thread.
 		virtual void removeAllFrameBuffers() =0;
 
@@ -348,13 +310,6 @@ namespace video
 		virtual void endQuery(IQueryObject* query) = 0;
 		virtual void beginQuery(IQueryObject* query, const size_t& index) = 0;
 		virtual void endQuery(IQueryObject* query, const size_t& index) = 0;
-
-        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic) = 0;
-
-        virtual IQueryObject* createPrimitivesGeneratedQuery() = 0;
-        virtual IQueryObject* createXFormFeedbackPrimitiveQuery() = 0;
-        virtual IQueryObject* createElapsedTimeQuery() = 0;
-        virtual IGPUTimestampQuery* createTimestampQuery() = 0;
 
 
 		//! Sets new multiple render targets.
@@ -413,37 +368,6 @@ namespace video
 		//! Gets the area of the current viewport.
 		/** \return Rectangle of the current viewport. */
 		virtual const core::rect<int32_t>& getViewPort() const =0;
-
-		//! Draws a 3d line.
-		/** Note that the line is drawn using the current transformation
-		matrix and material. So if you need to draw the 3D line
-		independently of the current transformation, use
-		\code
-		driver->setMaterial(someMaterial);
-		driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
-		\endcode
-		for some properly set up material before drawing the line.
-		Some drivers support line thickness set in the material.
-		\param start Start of the 3d line.
-		\param end End of the 3d line.
-		\param color Color of the line. */
-		virtual void draw3DLine(const core::vector3df& start,
-			const core::vector3df& end, SColor color = SColor(255,255,255,255)) =0;
-
-		//! Draws a 3d axis aligned box.
-		/** This method simply calls draw3DLine for the edges of the
-		box. Note that the box is drawn using the current transformation
-		matrix and material. So if you need to draw it independently of
-		the current transformation, use
-		\code
-		driver->setMaterial(someMaterial);
-		driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
-		\endcode
-		for some properly set up material before drawing the box.
-		\param box The axis aligned box to draw
-		\param color Color to use while drawing the box. */
-		virtual void draw3DBox(const core::aabbox3d<float>& box,
-			SColor color = SColor(255,255,255,255)) =0;
 
 		//! Draws a 2d image without any special effects
 		/** \param texture Pointer to texture to use.
@@ -591,24 +515,18 @@ namespace video
 
 		//! Draws a mesh buffer
 		/** \param mb Buffer to draw */
-		virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query = NULL) =0;
+		virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb) =0;
 
 		//! Indirect Draw
 		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride,
-                                        IOcclusionQuery* query = NULL) =0;
+                                        const size_t& offset, const size_t& count, const size_t& stride) =0;
 		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
                                         const E_INDEX_TYPE& type,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride,
-                                        IOcclusionQuery* query = NULL) =0;
-
-		//! Get the current color format of the color buffer
-		/** \return Color format of the color buffer. */
-		virtual ECOLOR_FORMAT getColorFormat() const =0;
+                                        const size_t& offset, const size_t& count, const size_t& stride) =0;
 
 		//! Get the size of the screen or render window.
 		/** \return Size of screen or render window. */
@@ -693,24 +611,6 @@ namespace video
 		on all vector members.
 		See IReferenceCounted::drop() for more information. */
 		virtual std::vector<CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
-
-		//! Convenience function for releasing all images in a mip chain.
-		/**
-		\param List of .
-		\return .
-		Bla bla. */
-		static void dropWholeMipChain(const std::vector<CImageData*>& mipImages)
-		{
-		    for (std::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
-                (*it)->drop();
-		}
-		//!
-		template< class Iter >
-		static void dropWholeMipChain(Iter it, Iter limit)
-		{
-		    for (; it!=limit; it++)
-                (*it)->drop();
-		}
 
 		//! Writes the provided image to a file.
 		/** Requires that there is a suitable image writer registered
@@ -811,10 +711,6 @@ namespace video
 		extended without having to modify the source of the engine.
 		\return Collection of device dependent pointers. */
 		virtual const SExposedVideoData& getExposedVideoData() =0;
-
-		//! Get type of video driver
-		/** \return Type of driver. */
-		virtual E_DRIVER_TYPE getDriverType() const =0;
 
 		//! Gets the IGPUProgrammingServices interface.
 		/** \return Pointer to the IGPUProgrammingServices. Returns 0

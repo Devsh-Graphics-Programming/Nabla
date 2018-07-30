@@ -81,10 +81,8 @@
 			<Add option="-W" />
 			<Add directory="../../include" />
 		</Compiler>
-		<Unit filename="atomics.comp" />
 		<Unit filename="atomics.frag" />
 		<Unit filename="main.cpp" />
-		<Unit filename="screenquad.vert" />
 		<Extensions>
 			<code_completion />
 			<debugger />

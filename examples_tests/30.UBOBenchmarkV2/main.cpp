@@ -7,18 +7,17 @@
 
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
-#include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
 
 using namespace irr;
 using namespace core;
 
 
-#define WITH_COMPUTE_SHADER
+//#define WITH_COMPUTE_SHADER
 
 
 // benchmark controls
-#define INCPUMEM true
-#define FLUSH_EXPLICIT false
+#define INCPUMEM false
+#define FLUSH_EXPLICIT true
 
 
 //#define OPENGL_DEBUG

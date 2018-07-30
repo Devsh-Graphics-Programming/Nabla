@@ -17,7 +17,7 @@ namespace video
 
 //! constructor
 CSoftwareTexture2::CSoftwareTexture2(CImageData* image, const io::path& name, uint32_t flags)
-                        : ITexture(name), MipMapLOD(0), Flags ( flags ),
+                        : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,0,0},name), MipMapLOD(0), Flags ( flags ),
                             OriginalFormat(video::ECF_UNKNOWN)
 {
 	#ifdef _DEBUG

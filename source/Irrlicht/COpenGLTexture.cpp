@@ -56,7 +56,7 @@ void COpenGLTexture::recreateName(const GLenum& textureType_Target)
 
 //! constructor for basic setup (only for derived classes)
 COpenGLFilterableTexture::COpenGLFilterableTexture(const io::path& name, const GLenum& textureType_Target)
-                                : ITexture(name), COpenGLTexture(textureType_Target), ColorFormat(ECF_UNKNOWN),
+                                : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,1,1},name), COpenGLTexture(textureType_Target), ColorFormat(ECF_UNKNOWN),
                                 InternalFormat(GL_RGBA), MipLevelsStored(0)
 {
     TextureSize[0] = 1;

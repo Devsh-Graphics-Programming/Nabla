@@ -187,7 +187,7 @@ int main()
     scene::IGPUMesh* gpumesh = NULL;
     if (cpumesh)
     {
-        gpumesh = driver->createGPUMeshFromCPU(cpumesh);
+        gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
         smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
 
         for (size_t z=0; z<kInstanceSquareSize; z++)
@@ -226,11 +226,17 @@ int main()
 
         uint16_t indices_indexed16[] = {0,1,2,2,1,3};
 
-        uint8_t* tmpMem = (uint8_t*)malloc(sizeof(vertices)+sizeof(indices_indexed16));
-        memcpy(tmpMem,vertices,sizeof(vertices));
-        memcpy(tmpMem+sizeof(vertices),indices_indexed16,sizeof(indices_indexed16));
-        video::IGPUBuffer* buff = driver->createGPUBuffer(sizeof(vertices)+sizeof(indices_indexed16),tmpMem);
-        free(tmpMem);
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.size = sizeof(vertices)+sizeof(indices_indexed16);
+        reqs.vulkanReqs.alignment = 4;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
+        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
+        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
 
         scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
         screenQuadMeshBuffer->setMeshDataAndFormat(desc);
@@ -603,7 +609,6 @@ int main()
     //! Cleanup
     driver->removeAllFrameBuffers();
     driver->removeAllMultisampleTextures();
-    driver->removeAllRenderBuffers();
 
     if (screenQuadMeshBuffer)
         screenQuadMeshBuffer->drop();

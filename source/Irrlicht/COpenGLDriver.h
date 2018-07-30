@@ -78,15 +78,15 @@ namespace video
         bool deinitAuxContext();
 
 
-        virtual IGPUBuffer* createGPUBuffer(const size_t &size, const void* data, const bool canModifySubData=false, const bool &inCPUMem=false, const E_GPU_BUFFER_ACCESS &usagePattern=EGBA_NONE);
-
-	    virtual IGPUMappedBuffer* createPersistentlyMappedBuffer(const size_t &size, const void* data, const E_GPU_BUFFER_ACCESS &usagePattern, const bool &assumedCoherent, const bool &inCPUMem=true);
-
-        virtual void bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
+		//!
+		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false);
 
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
 
-	    virtual scene::IGPUMesh* createGPUMeshFromCPU(scene::ICPUMesh* mesh, const E_MESH_DESC_CONVERT_BEHAVIOUR& bufferOptions=EMDCB_CLONE_AND_MIRROR_LAYOUT);
+
+	    virtual std::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> mesh);
+
+        virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
 
 		//! clears the zbuffer
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
@@ -103,30 +103,26 @@ namespace video
 		virtual void beginQuery(IQueryObject* query, const size_t& index);
 		virtual void endQuery(IQueryObject* query, const size_t& index);
 
-        virtual IOcclusionQuery* createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic);
-
         virtual IQueryObject* createPrimitivesGeneratedQuery();
         virtual IQueryObject* createXFormFeedbackPrimitiveQuery();
         virtual IQueryObject* createElapsedTimeQuery();
         virtual IGPUTimestampQuery* createTimestampQuery();
 
 
-        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query);
+        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb);
 
 		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride,
-                                        IOcclusionQuery* query = NULL);
+                                        const size_t& offset, const size_t& count, const size_t& stride);
 		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                             const scene::E_PRIMITIVE_TYPE& mode,
                                             const E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
-                                            const size_t& offset, const size_t& count, const size_t& stride,
-                                            IOcclusionQuery* query = NULL);
+                                            const size_t& offset, const size_t& count, const size_t& stride);
 
 
 		//! queries the features of the driver, returns true if feature is available
-		virtual bool queryFeature(const E_VIDEO_DRIVER_FEATURE& feature) const;
+		virtual bool queryFeature(const E_DRIVER_FEATURE& feature) const;
 
 		//!
 		virtual void issueGPUTextureBarrier() {COpenGLExtensionHandler::extGlTextureBarrier();}
@@ -201,10 +197,6 @@ namespace video
 
 		//! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
-
-		virtual IRenderBuffer* addRenderBuffer(const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
-
-		virtual IRenderBuffer* addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
         virtual IFrameBuffer* addFrameBuffer();
 

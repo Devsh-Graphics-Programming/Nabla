@@ -1,7 +1,7 @@
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include <iostream>
 #include <cstdio>
+#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 
 using namespace irr;
@@ -64,8 +64,10 @@ public:
 #include "irrpack.h"
 struct VertexStruct
 {
-    float Pos[3];
-    uint8_t Col[2];
+    /// every member needs to be at location aligned to its type size for GLSL
+    float Pos[3]; /// uses float hence need 4 byte alignment
+    uint8_t Col[2]; /// same logic needs 1 byte alignment
+    uint8_t uselessPadding[2]; /// so if there is a member with 4 byte alignment then whole struct needs 4 byte align, so pad it
 } PACK_STRUCT;
 #include "irrunpack.h"
 
@@ -160,7 +162,6 @@ int main()
 	device->setEventReceiver(&receiver);
 
 	uint64_t lastFPSTime = 0;
-	printf("%d\n",sizeof(VertexStruct));
 
 	while(device->run())
 	//if (device->isWindowActive())
@@ -173,52 +174,15 @@ int main()
 
         //! Stress test for memleaks aside from demo how to create meshes that live on the GPU RAM
         {
-            scene::IGPUMeshBuffer* mb = new scene::IGPUMeshBuffer();
-            scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-            mb->setMeshDataAndFormat(desc);
-            desc->drop();
-
             VertexStruct vertices[8];
-            vertices[0].Pos[0] = -1.f;
-            vertices[0].Pos[1] = -1.f;
-            vertices[0].Pos[2] = -1.f;
-            vertices[0].Col[0] = 0;
-            vertices[0].Col[1] = 0;
-            vertices[1].Pos[0] = 1.f;
-            vertices[1].Pos[1] = -1.f;
-            vertices[1].Pos[2] = -1.f;
-            vertices[1].Col[0] = 127;
-            vertices[1].Col[1] = 0;
-            vertices[2].Pos[0] = -1.f;
-            vertices[2].Pos[1] = 1.f;
-            vertices[2].Pos[2] = -1.f;
-            vertices[2].Col[0] = 255;
-            vertices[2].Col[1] = 0;
-            vertices[3].Pos[0] = 1.f;
-            vertices[3].Pos[1] = 1.f;
-            vertices[3].Pos[2] = -1.f;
-            vertices[3].Col[0] = 0;
-            vertices[3].Col[1] = 127;
-            vertices[4].Pos[0] = -1.f;
-            vertices[4].Pos[1] = -1.f;
-            vertices[4].Pos[2] = 1.f;
-            vertices[4].Col[0] = 127;
-            vertices[4].Col[1] = 127;
-            vertices[5].Pos[0] = 1.f;
-            vertices[5].Pos[1] = -1.f;
-            vertices[5].Pos[2] = 1.f;
-            vertices[5].Col[0] = 255;
-            vertices[5].Col[1] = 127;
-            vertices[6].Pos[0] = -1.f;
-            vertices[6].Pos[1] = 1.f;
-            vertices[6].Pos[2] = 1.f;
-            vertices[6].Col[0] = 0;
-            vertices[6].Col[1] = 255;
-            vertices[7].Pos[0] = 1.f;
-            vertices[7].Pos[1] = 1.f;
-            vertices[7].Pos[2] = 1.f;
-            vertices[7].Col[0] = 127;
-            vertices[7].Col[1] = 255;
+            vertices[0] = VertexStruct{{-1.f,-1.f,-1.f},{  0,  0}};
+            vertices[1] = VertexStruct{{ 1.f,-1.f,-1.f},{127,  0}};
+            vertices[2] = VertexStruct{{-1.f, 1.f,-1.f},{255,  0}};
+            vertices[3] = VertexStruct{{ 1.f, 1.f,-1.f},{  0,127}};
+            vertices[4] = VertexStruct{{-1.f,-1.f, 1.f},{127,127}};
+            vertices[5] = VertexStruct{{ 1.f,-1.f, 1.f},{255,127}};
+            vertices[6] = VertexStruct{{-1.f, 1.f, 1.f},{  0,255}};
+            vertices[7] = VertexStruct{{ 1.f, 1.f, 1.f},{127,255}};
 
             uint16_t indices_indexed16[] =
             {
@@ -230,19 +194,33 @@ int main()
                 1,3,5,3,5,7
             };
 
-            void* tmpMem = malloc(sizeof(vertices)+2+sizeof(indices_indexed16));
-            memcpy(tmpMem,vertices,sizeof(vertices));
-            memcpy(tmpMem+sizeof(vertices)+2,indices_indexed16,sizeof(indices_indexed16));
-            video::IGPUBuffer* buff = driver->createGPUBuffer(sizeof(vertices)+sizeof(indices_indexed16)+2,tmpMem);
-            free(tmpMem);
+            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.size = sizeof(vertices)+sizeof(indices_indexed16);
+            reqs.vulkanReqs.alignment = 4;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+            reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
+            buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
+            buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
 
-            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(VertexStruct),0);
-            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_NORMALIZED_UNSIGNED_BYTE,sizeof(VertexStruct),12);
+
+            scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0]));
+            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_NORMALIZED_UNSIGNED_BYTE,sizeof(VertexStruct),offsetof(VertexStruct,Col[0]));
             desc->mapIndexBuffer(buff);
-            mb->setIndexBufferOffset(sizeof(vertices)+2);
+            buff->drop();
+
+
+            scene::IGPUMeshBuffer* mb = new scene::IGPUMeshBuffer();
+            mb->setMeshDataAndFormat(desc);
+            mb->setIndexBufferOffset(sizeof(vertices));
             mb->setIndexType(video::EIT_16BIT);
             mb->setIndexCount(2*3*6);
-            buff->drop();
+            desc->drop();
+
 
             driver->setTransform(video::E4X3TS_WORLD,core::matrix4x3());
             driver->setMaterial(material);

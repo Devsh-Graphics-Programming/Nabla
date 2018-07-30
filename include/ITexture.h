@@ -7,10 +7,10 @@
 
 #include "path.h"
 #include "dimension2d.h"
-#include "EDriverTypes.h"
 #include "CImageData.h"
 #include "IFrameBuffer.h"
 #include "IVirtualTexture.h"
+#include "IDriverMemoryBacked.h"
 
 namespace irr
 {
@@ -19,7 +19,7 @@ namespace video
 
 
 //! Enumeration flags telling the video driver in which format textures should be created.
-enum E_TEXTURE_CREATION_FLAG
+enum E_TEXTURE_CREATION_FLAG //depr
 {
 	/** Forces the driver to create 16 bit textures always, independent of
 	which format the file on disk has. When choosing this you may lose
@@ -58,7 +58,7 @@ NULL device, their textures are compatible. If you try to use a texture
 created by one device with an other device, the device will refuse to do that
 and write a warning or an error message to the output buffer.
 */
-class ITexture : public IRenderableVirtualTexture
+class ITexture : public IRenderableVirtualTexture, public IDriverMemoryBacked
 {
 public:
     enum E_TEXTURE_TYPE
@@ -82,11 +82,6 @@ public:
         ECMF_NEGATIVE_Z,
         ECMF_COUNT
     };
-
-	//! constructor
-	ITexture(const io::path& name) : NamedPath(name)
-	{
-	}
 
 	virtual E_TEXTURE_TYPE getTextureType() const = 0;
 
@@ -120,9 +115,11 @@ public:
 	//! Get name of texture (in most cases this is the filename)
 	const io::SNamedPath& getName() const { return NamedPath; }
 
-	E_RENDERABLE_TYPE getRenderableType() const {return ERT_TEXTURE;}
-
 protected:
+	//! constructor
+	ITexture(const SDriverMemoryRequirements& reqs, const io::path& name) : IDriverMemoryBacked(reqs), NamedPath(name)
+	{
+	}
 
 	io::SNamedPath NamedPath;
 };

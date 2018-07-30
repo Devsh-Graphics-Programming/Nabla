@@ -14,7 +14,6 @@
 #include "CColorConverter.h"
 #include "CMeshManipulator.h"
 #include "CMeshSceneNodeInstanced.h"
-#include "FW_Mutex.h"
 
 
 namespace irr
@@ -23,10 +22,12 @@ namespace video
 {
 
 FW_AtomicCounter CNullDriver::ReallocationCounter = 0;
-
-FW_AtomicCounter CNullDriver::incrementAndFetchReallocCounter()
+int32_t CNullDriver::incrementAndFetchReallocCounter()
 {
-#if _MSC_VER && !__INTEL_COMPILER
+// omg this has to be rewritten
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+	return ReallocationCounter += 1;
+#elif _MSC_VER && !__INTEL_COMPILER
     return InterlockedIncrement(&ReallocationCounter);
 #elif defined(__GNUC__)
     return __sync_add_and_fetch(&ReallocationCounter,int32_t(1));
@@ -223,7 +224,6 @@ CNullDriver::~CNullDriver()
 	if (FileSystem)
 		FileSystem->drop();
 
-    removeAllRenderBuffers();
 	deleteAllTextures();
 
 	uint32_t i;
@@ -237,7 +237,7 @@ CNullDriver::~CNullDriver()
 	deleteMaterialRenders();
 }
 
-void CNullDriver::bufferCopy(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
+void CNullDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
 {
     os::Printer::log("Copying Buffers Not supported by this Driver!\n",ELL_ERROR);
 }
@@ -331,13 +331,6 @@ bool CNullDriver::endScene()
 	FPSCounter.registerFrame(os::Timer::getRealTime(), PrimitivesDrawn);
 
 	return true;
-}
-
-
-//! queries the features of the driver, returns true if feature is available
-bool CNullDriver::queryFeature(const E_VIDEO_DRIVER_FEATURE& feature) const
-{
-	return false;
 }
 
 
@@ -563,16 +556,6 @@ void CNullDriver::removeTextureBufferObject(ITextureBufferObject* tbo)
     tbo->drop();
 }
 
-void CNullDriver::removeRenderBuffer(IRenderBuffer* renderbuf)
-{
-    int32_t ix = RenderBuffers.binary_search(renderbuf);
-    if (ix<0)
-        return;
-    RenderBuffers.erase(ix);
-
-    renderbuf->drop();
-}
-
 void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 {
 }
@@ -602,13 +585,6 @@ void CNullDriver::removeAllTextureBufferObjects()
 	for (uint32_t i=0; i<TextureBufferObjects.size(); ++i)
 		TextureBufferObjects[i]->drop();
     TextureBufferObjects.clear();
-}
-
-void CNullDriver::removeAllRenderBuffers()
-{
-	for (uint32_t i=0; i<RenderBuffers.size(); ++i)
-		RenderBuffers[i]->drop();
-    RenderBuffers.clear();
 }
 
 void CNullDriver::removeAllFrameBuffers()
@@ -851,59 +827,6 @@ void CNullDriver::setViewPort(const core::rect<int32_t>& area)
 const core::rect<int32_t>& CNullDriver::getViewPort() const
 {
 	return ViewPort;
-}
-
-
-
-//! Draws a 3d line.
-void CNullDriver::draw3DLine(const core::vector3df& start,
-				const core::vector3df& end, SColor color)
-{
-}
-
-//! Draws a 3d axis aligned box.
-void CNullDriver::draw3DBox(const core::aabbox3d<float>& box, SColor color)
-{
-	core::vector3df edges[8];
-	box.getEdges(edges);
-	uint32_t colors[8];
-	for (uint32_t i=0; i<8; i++)
-    {
-        colors[8] = color.color;
-    }
-    uint16_t indices[24] = {5,1,1,3,3,7,7,5,0,2,2,6,6,4,4,0,1,0,3,2,7,6,5,4};
-
-    if (!boxLineMesh)
-    {
-        video::IGPUBuffer* indexBuf = createGPUBuffer(sizeof(indices),indices);
-        video::IGPUBuffer* vposBuf = createGPUBuffer(sizeof(edges),edges,true,true);
-        video::IGPUBuffer* vcolBuf = createGPUBuffer(sizeof(colors),colors,true,true);
-        scene::IGPUMeshDataFormatDesc* desc = createGPUMeshDataFormatDesc();
-        if (!indexBuf||!vposBuf||!vcolBuf||!desc)
-            return;
-
-        scene::IGPUMeshBuffer* boxLineMesh =  new scene::IGPUMeshBuffer();
-        boxLineMesh->setIndexCount(24);
-        boxLineMesh->setIndexType(EIT_16BIT);
-        boxLineMesh->setMeshDataAndFormat(desc);
-        desc->drop();
-        boxLineMesh->setPrimitiveType(scene::EPT_LINES);
-
-        desc->mapVertexAttrBuffer(vposBuf,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT);
-        vposBuf->drop();
-        desc->mapVertexAttrBuffer(vcolBuf,scene::EVAI_ATTR2,scene::ECPA_REVERSED_OR_BGRA,scene::ECT_NORMALIZED_UNSIGNED_BYTE);
-        vposBuf->drop();
-        desc->mapIndexBuffer(indexBuf);
-        indexBuf->drop();
-    }
-    else
-    {
-        const_cast<IGPUBuffer*>(boxLineMesh->getMeshDataAndFormat()->getMappedBuffer(scene::EVAI_ATTR0))->updateSubRange(0,sizeof(edges),edges);
-        const_cast<IGPUBuffer*>(boxLineMesh->getMeshDataAndFormat()->getMappedBuffer(scene::EVAI_ATTR2))->updateSubRange(0,sizeof(colors),colors);
-    }
-
-    if (boxLineMesh)
-        drawMeshBuffer(boxLineMesh,NULL);
 }
 
 
@@ -1213,7 +1136,7 @@ IImage* CNullDriver::createImage(const ECOLOR_FORMAT& format, const core::dimens
 }
 
 
-void CNullDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuery* query)
+void CNullDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
 {
 	if (!mb)
 		return;
@@ -1251,8 +1174,7 @@ void CNullDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb, IOcclusionQuer
 void CNullDriver::drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                      const scene::E_PRIMITIVE_TYPE& mode,
                                      const IGPUBuffer* indirectDrawBuff,
-                                     const size_t& offset, const size_t& count, const size_t& stride,
-                                     IOcclusionQuery* query)
+                                     const size_t& offset, const size_t& count, const size_t& stride)
 {
 }
 
@@ -1260,34 +1182,8 @@ void CNullDriver::drawIndexedIndirect(  const scene::IMeshDataFormatDesc<video::
                                         const scene::E_PRIMITIVE_TYPE& mode,
                                         const E_INDEX_TYPE& type,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride,
-                                        IOcclusionQuery* query)
+                                        const size_t& offset, const size_t& count, const size_t& stride)
 {
-}
-
-
-
-
-IOcclusionQuery* CNullDriver::createOcclusionQuery(const E_OCCLUSION_QUERY_TYPE& heuristic)
-{
-    return NULL;
-}
-
-IQueryObject* CNullDriver::createPrimitivesGeneratedQuery()
-{
-    return NULL;
-}
-IQueryObject* CNullDriver::createXFormFeedbackPrimitiveQuery()
-{
-    return NULL;
-}
-IQueryObject* CNullDriver::createElapsedTimeQuery()
-{
-    return NULL;
-}
-IGPUTimestampQuery* CNullDriver::createTimestampQuery()
-{
-    return NULL;
 }
 
 
@@ -1739,26 +1635,6 @@ int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
 	return result;
 }
 
-IMultisampleTexture* CNullDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format, const bool& fixedSampleLocation)
-{
-    return NULL;
-}
-
-ITextureBufferObject* CNullDriver::addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format, const size_t& offset, const size_t& length)
-{
-    return NULL;
-}
-
-IRenderBuffer* CNullDriver::addRenderBuffer(const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
-{
-	return 0;
-}
-
-IRenderBuffer* CNullDriver::addMultisampleRenderBuffer(const uint32_t& samples, const core::dimension2d<uint32_t>& size, const ECOLOR_FORMAT format)
-{
-	return 0;
-}
-
 void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
 {
 	MultisampleTextures.push_back(tex);
@@ -1769,17 +1645,6 @@ void CNullDriver::addTextureBufferObject(ITextureBufferObject* tbo)
 {
 	TextureBufferObjects.push_back(tbo);
 	TextureBufferObjects.sort();
-}
-
-void CNullDriver::addRenderBuffer(IRenderBuffer* buffer)
-{
-	RenderBuffers.push_back(buffer);
-	RenderBuffers.sort();
-}
-
-IFrameBuffer* CNullDriver::addFrameBuffer()
-{
-	return 0;
 }
 
 

@@ -7,7 +7,7 @@
 #define __C_MULTI_BUFFERED_INTERFACE_BLOCK_H_INCLUDED__
 
 #include "irrBaseClasses.h"
-#include "IGPUMappedBuffer.h"
+#include "IGPUBuffer.h"
 #include "IVideoDriver.h"
 #include <vector>
 
@@ -134,7 +134,15 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> : publi
         //! only creates the GPU local memory variant, if you want something more advanced, then make the buffer yourself and feed it to createFromBuffer
         static inline CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT>* create(IVideoDriver* driver)
         {
-            IGPUBuffer* tmpBuffer = driver->createGPUBuffer(sizeof(BLOCK_STRUCT)*BUFFER_COUNT,nullptr,true);
+            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.size = sizeof(BLOCK_STRUCT)*BUFFER_COUNT;
+            reqs.vulkanReqs.alignment = 8;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+            reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            video::IGPUBuffer* tmpBuffer = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,false);
             auto retval =  createFromBuffer(driver,tmpBuffer);
             tmpBuffer->drop();
             return retval;
@@ -164,7 +172,7 @@ class CMultiBufferedInterfaceBlock<BLOCK_STRUCT,IGPUBuffer,BUFFER_COUNT> : publi
             if (copyOverOldData && BUFFER_COUNT>=2)
             {
                 size_t nextNextBufferOff = specBaseType::offsets[(specBaseType::currentSubBuffer+2)%BUFFER_COUNT];
-                m_driver->bufferCopy(specBaseType::underlyingBuffer,specBaseType::underlyingBuffer,nextBufferOff,nextNextBufferOff,sizeof(BLOCK_STRUCT));
+                m_driver->copyBuffer(specBaseType::underlyingBuffer,specBaseType::underlyingBuffer,nextBufferOff,nextNextBufferOff,sizeof(BLOCK_STRUCT));
             }
 
             return true;

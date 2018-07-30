@@ -284,9 +284,16 @@ int main()
     }
     printf("BuffSize %d\n",bufSize);
 
-    //override anyway for a fair comparison (negate some weird caching effects)
-    bufSize = 1024*1024;
-    video::IGPUBuffer* atomicSSBOBuf = driver->createGPUBuffer(bufSize,NULL);
+
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.size = 1024*1024;
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    video::IGPUBuffer* atomicSSBOBuf = driver->createGPUBufferOnDedMem(reqs,false);
 /**
 	//
 	char yesOrNo = 'n';
@@ -337,11 +344,17 @@ int main()
 
             uint16_t indices_indexed16[] = {0,1,2,2,1,3};
 
-            void* tmpMem = malloc(sizeof(vertices)+sizeof(indices_indexed16));
-            memcpy(tmpMem,vertices,sizeof(vertices));
-            memcpy((uint8_t*)tmpMem+sizeof(vertices),indices_indexed16,sizeof(indices_indexed16));
-            video::IGPUBuffer* buff = driver->createGPUBuffer(sizeof(vertices)+sizeof(indices_indexed16),tmpMem);
-            free(tmpMem);
+            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.size = sizeof(vertices)+sizeof(indices_indexed16);
+            reqs.vulkanReqs.alignment = 4;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+            reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
+            buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
+            buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
 
             desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(ScreenQuadVertexStruct),0);
             desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized

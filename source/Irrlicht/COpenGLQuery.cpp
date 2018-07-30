@@ -14,11 +14,6 @@ COpenGLQuery::COpenGLQuery(const GLenum& type_in) :  object(0), type(type_in), a
 
     switch (type)
     {
-        case GL_SAMPLES_PASSED:
-        case GL_ANY_SAMPLES_PASSED:
-        case GL_ANY_SAMPLES_PASSED_CONSERVATIVE:
-            cachedIrrType = EQOT_OCCLUSION;
-            break;
         case GL_PRIMITIVES_GENERATED:
             cachedIrrType = EQOT_PRIMITIVES_GENERATED;
             break;
@@ -45,7 +40,6 @@ void COpenGLQuery::updateQueryResult()
     {
         switch (cachedIrrType)
         {
-            case EQOT_OCCLUSION:
             case EQOT_PRIMITIVES_GENERATED:
             case EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN:
                 COpenGLExtensionHandler::extGlGetQueryObjectuiv(object,GL_QUERY_RESULT,&cachedCounter32);

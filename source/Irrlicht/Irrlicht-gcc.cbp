@@ -252,7 +252,6 @@
 		<Unit filename="../../include/ECullingTypes.h" />
 		<Unit filename="../../include/EDebugSceneTypes.h" />
 		<Unit filename="../../include/EDeviceTypes.h" />
-		<Unit filename="../../include/EDriverFeatures.h" />
 		<Unit filename="../../include/EDriverTypes.h" />
 		<Unit filename="../../include/EMaterialFlags.h" />
 		<Unit filename="../../include/EMaterialTypes.h" />
@@ -269,7 +268,10 @@
 		<Unit filename="../../include/ICursorControl.h" />
 		<Unit filename="../../include/IDescriptorSet.h" />
 		<Unit filename="../../include/IDescriptorSetLayout.h" />
+		<Unit filename="../../include/IDriver.h" />
 		<Unit filename="../../include/IDriverFence.h" />
+		<Unit filename="../../include/IDriverMemoryAllocation.h" />
+		<Unit filename="../../include/IDriverMemoryBacked.h" />
 		<Unit filename="../../include/IDummyTransformationSceneNode.h" />
 		<Unit filename="../../include/IEventReceiver.h" />
 		<Unit filename="../../include/IFileArchive.h" />
@@ -277,7 +279,6 @@
 		<Unit filename="../../include/IFileSystem.h" />
 		<Unit filename="../../include/IFrameBuffer.h" />
 		<Unit filename="../../include/IGPUBuffer.h" />
-		<Unit filename="../../include/IGPUMappedBuffer.h" />
 		<Unit filename="../../include/IGPUProgrammingServices.h" />
 		<Unit filename="../../include/IGPUTimestampQuery.h" />
 		<Unit filename="../../include/IGPUTransientBuffer.h" />
@@ -301,11 +302,9 @@
 		<Unit filename="../../include/IMetaGranularBuffer.h" />
 		<Unit filename="../../include/IMultisampleTexture.h" />
 		<Unit filename="../../include/IOSOperator.h" />
-		<Unit filename="../../include/IOcclusionQuery.h" />
 		<Unit filename="../../include/IQueryObject.h" />
 		<Unit filename="../../include/IReadFile.h" />
 		<Unit filename="../../include/IReferenceCounted.h" />
-		<Unit filename="../../include/IRenderBuffer.h" />
 		<Unit filename="../../include/ISceneManager.h" />
 		<Unit filename="../../include/ISceneNode.h" />
 		<Unit filename="../../include/ISceneNodeAnimator.h" />
@@ -392,7 +391,6 @@
 		<Unit filename="CB3DMeshFileLoader.cpp" />
 		<Unit filename="CB3DMeshFileLoader.h" />
 		<Unit filename="CBAWFile.cpp" />
-		<Unit filename="CBAWFile.h" />
 		<Unit filename="CBAWMeshFileLoader.cpp" />
 		<Unit filename="CBAWMeshFileLoader.h" />
 		<Unit filename="CBAWMeshWriter.cpp" />
@@ -515,6 +513,10 @@
 		<Unit filename="COgreMeshFileLoader.h" />
 		<Unit filename="COpenCLHandler.cpp" />
 		<Unit filename="COpenCLHandler.h" />
+		<Unit filename="COpenGL1DTexture.cpp" />
+		<Unit filename="COpenGL1DTexture.h" />
+		<Unit filename="COpenGL1DTextureArray.cpp" />
+		<Unit filename="COpenGL1DTextureArray.h" />
 		<Unit filename="COpenGL2DTexture.cpp" />
 		<Unit filename="COpenGL2DTexture.h" />
 		<Unit filename="COpenGL2DTextureArray.cpp" />
@@ -522,6 +524,8 @@
 		<Unit filename="COpenGL3DTexture.cpp" />
 		<Unit filename="COpenGL3DTexture.h" />
 		<Unit filename="COpenGLBuffer.h" />
+		<Unit filename="COpenGLCubemapArrayTexture.cpp" />
+		<Unit filename="COpenGLCubemapArrayTexture.h" />
 		<Unit filename="COpenGLCubemapTexture.cpp" />
 		<Unit filename="COpenGLCubemapTexture.h" />
 		<Unit filename="COpenGLDriver.cpp" />
@@ -535,14 +539,8 @@
 		<Unit filename="COpenGLMultisampleTexture.h" />
 		<Unit filename="COpenGLMultisampleTextureArray.cpp" />
 		<Unit filename="COpenGLMultisampleTextureArray.h" />
-		<Unit filename="COpenGLOcclusionQuery.cpp" />
-		<Unit filename="COpenGLOcclusionQuery.h" />
-		<Unit filename="COpenGLPersistentlyMappedBuffer.cpp" />
-		<Unit filename="COpenGLPersistentlyMappedBuffer.h" />
 		<Unit filename="COpenGLQuery.cpp" />
 		<Unit filename="COpenGLQuery.h" />
-		<Unit filename="COpenGLRenderBuffer.cpp" />
-		<Unit filename="COpenGLRenderBuffer.h" />
 		<Unit filename="COpenGLSLMaterialRenderer.cpp" />
 		<Unit filename="COpenGLSLMaterialRenderer.h" />
 		<Unit filename="COpenGLTexture.cpp" />
