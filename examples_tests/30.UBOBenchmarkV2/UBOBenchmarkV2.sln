@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26730.16
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UBOBenchmarkV2", "UBOBenchmarkV2.vcxproj", "{3E0CB9E7-A1B5-47BE-8171-C5658C290A13}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3E0CB9E7-A1B5-47BE-8171-C5658C290A13}.Debug|x64.ActiveCfg = Debug|x64
+		{3E0CB9E7-A1B5-47BE-8171-C5658C290A13}.Debug|x64.Build.0 = Debug|x64
+		{3E0CB9E7-A1B5-47BE-8171-C5658C290A13}.Release|x64.ActiveCfg = Release|x64
+		{3E0CB9E7-A1B5-47BE-8171-C5658C290A13}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {63C1883B-0110-4DBE-905A-BF44D6194969}
+	EndGlobalSection
+EndGlobal

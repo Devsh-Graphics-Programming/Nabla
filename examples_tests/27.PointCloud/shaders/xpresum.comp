@@ -9,7 +9,10 @@ layout(std430, binding = 0) readonly buffer Keys { uint in_keys[]; };
 layout(std430, binding = 4) writeonly buffer Presum { uvec2 out_presum[]; };
 layout(std430, binding = 6) writeonly buffer Sums { uvec2 out_sums[]; };
 
-layout(location = 0) uniform uint nbit;
+layout(std140, binding = 0) uniform Control
+{
+	uint nbit;
+} ctrl;
 
 shared uvec2 smem[512];
 
@@ -20,7 +23,7 @@ void main()
 	if (2*G_IDX < in_keys.length())
 	{
 		const uint i = in_keys[2*G_IDX];
-		smem[2*LC_IDX] = ( ((i>>nbit)&1) == 1 ) ? uvec2(0, 1) : uvec2(1, 0);
+		smem[2*LC_IDX] = ( ((i>>ctrl.nbit)&1) == 1 ) ? uvec2(0, 1) : uvec2(1, 0);
 	}
 	else
 		smem[2*LC_IDX] = uvec2(0);
@@ -28,7 +31,7 @@ void main()
 	if (2*G_IDX+1 < in_keys.length())
 	{
 		const uint i = in_keys[2*G_IDX+1];
-		smem[2*LC_IDX+1] = ( ((i>>nbit)&1) == 1 ) ? uvec2(0, 1) : uvec2(1, 0);
+		smem[2*LC_IDX+1] = ( ((i>>ctrl.nbit)&1) == 1 ) ? uvec2(0, 1) : uvec2(1, 0);
 	}
 	else
 		smem[2*LC_IDX+1] = uvec2(0);

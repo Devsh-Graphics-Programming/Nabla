@@ -3,6 +3,7 @@
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
+#include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
 
 #include "createComputeShader.h"
 
@@ -80,18 +81,51 @@ public:
 class ISorter : public IReferenceCounted
 {
 protected:
-    explicit ISorter(video::IVideoDriver* _vd) : m_driver{_vd}, m_idxBuf{nullptr} {}
+    explicit ISorter(video::IVideoDriver* _vd) : m_driver{_vd}, m_idxBuf{nullptr}, m_16to32Cs{0u} {}
     virtual ~ISorter() = default;
 
 public:
     virtual void init(scene::ICPUMeshBuffer* _mb) = 0;
     virtual void run(const core::vector3df& _camPos) = 0;
-    virtual void setIndexBuffer(const video::IGPUBuffer* _idxBuf)
+
+    //! Takes index buffer from passed meshbuffer and converts it (creates new buffer and overrides old one in meshbuffer) to 32bit indices if they're 16bit.
+    //! Assumues that index count is always power of two.
+    virtual void setIndexBuffer(scene::IGPUMeshBuffer* _mb)
     {
-        if (_idxBuf)
+        if (_mb)
         {
+            const video::IGPUBuffer* idxBuf = nullptr;
+            if (_mb->getIndexType() == video::EIT_16BIT)
+            {
+                if (!m_16to32Cs)
+                    m_16to32Cs = createComputeShaderFromFile("../shaders/16to32.comp");
+                auto idxBuf16 = _mb->getMeshDataAndFormat()->getIndexBuffer();
+                idxBuf = m_driver->createGPUBuffer(4*_mb->getIndexCount(), nullptr);
+
+                auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+                const video::COpenGLBuffer* bufs[2]{ static_cast<const video::COpenGLBuffer*>(idxBuf16), static_cast<const video::COpenGLBuffer*>(idxBuf) };
+                const ptrdiff_t off[2]{ _mb->getIndexBufferOffset(), 0 }, sz[2]{ 2*_mb->getIndexCount(), 4*_mb->getIndexCount()};
+                auxCtx->setActiveSSBO(0, 2, bufs, off, sz);
+
+                GLint prevProgram = 0;
+                glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+                
+                using gl = video::COpenGLExtensionHandler;
+                gl::extGlUseProgram(m_16to32Cs);
+                gl::extGlDispatchCompute(_mb->getIndexCount()/2/256, 1, 1);
+                gl::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+                gl::extGlUseProgram(prevProgram);
+
+                _mb->getMeshDataAndFormat()->mapIndexBuffer(const_cast<video::IGPUBuffer*>(idxBuf));
+                _mb->setIndexBufferOffset(0u);
+                _mb->setIndexType(video::EIT_32BIT);
+                idxBuf->drop();
+            }
+            else idxBuf = _mb->getMeshDataAndFormat()->getIndexBuffer();
+
             const video::IGPUBuffer* prev = m_idxBuf;
-            m_idxBuf = _idxBuf;
+            m_idxBuf = idxBuf;
             printf("IDXISZE: %u\n", m_idxBuf->getSize());
             m_idxBuf->grab();
             if (prev)
@@ -103,6 +137,9 @@ public:
 protected:
     video::IVideoDriver* m_driver;
     const video::IGPUBuffer* m_idxBuf;
+
+private:
+    GLuint m_16to32Cs;
 };
 
 class RadixSorter : public ISorter
@@ -118,7 +155,10 @@ layout(std430, binding = 7) buffer Pos { vec4 pos[]; };
 layout(std430, binding = 0) buffer Key { float key[]; };
 layout(std430, binding = 1) buffer Indices { uint indices[]; };
 
-layout(location = 1) uniform vec3 camPos;
+layout(std140, binding = 0) uniform Control
+{
+	vec4 camPos;
+} ctrl;
 
 void main()
 {
@@ -126,12 +166,12 @@ void main()
     
     if (2*G_IDX < indices.length())
     {
-        v = camPos - pos[indices[2*G_IDX]].xyz;
+        v = ctrl.camPos.xyz - pos[indices[2*G_IDX]].xyz;
         key[2*G_IDX] = dot(v, v);
     }
     if (2*G_IDX+1 < indices.length())
     {
-        v = camPos - pos[indices[2*G_IDX+1]].xyz;
+        v = ctrl.camPos.xyz - pos[indices[2*G_IDX+1]].xyz;
         key[2*G_IDX+1] = dot(v, v);
     }
 }
@@ -146,10 +186,7 @@ void main()
         E_PRESUM_BND = 4,
         E_HISTOGRAM_BND = 5,
         E_SUMS_BND = 6,
-        E_POSITIONS_BND = 7,
-
-        E_SHIFT_LOC = 0,
-        E_CAM_POS_LOC = 1
+        E_POSITIONS_BND = 7
     };
     using gl = video::COpenGLExtensionHandler;
 
@@ -178,6 +215,10 @@ protected:
             m_sumsBuf->drop();
         if (m_histogramBuf)
             m_histogramBuf->drop();
+        if (m_ubo)
+            m_ubo->drop();
+        if (m_mappedBuf)
+            m_mappedBuf->drop();
     }
 
 public:
@@ -224,6 +265,8 @@ public:
         m_sumsBuf = m_driver->createGPUBuffer(m_wgCnt * 2 * sizeof(GLuint), nullptr);
         m_histogramBuf = m_driver->createGPUBuffer(2 * sizeof(GLuint), nullptr);
         m_psumBuf = m_driver->createGPUBuffer(idxCount * 2 * sizeof(GLuint), nullptr);
+        m_ubo = m_driver->createGPUBuffer(s_uboSize, nullptr);
+        m_mappedBuf = m_driver->createPersistentlyMappedBuffer(4*s_uboSize, nullptr, video::EGBA_WRITE, false, false);
 
         m_genKeysCs = createComputeShader(CS_GEN_KEYS_SRC);
         m_histogramCs = createComputeShaderFromFile("../shaders/histogram.comp");
@@ -231,40 +274,31 @@ public:
         m_permuteCs = createComputeShaderFromFile("../shaders/permute.comp");
     }
 
-    void bindSSBuffers() const
-    {
-        auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
-
-        const video::COpenGLBuffer* bufs[8]{ 
-            static_cast<const video::COpenGLBuffer*>(m_keyBuf1), 
-            static_cast<const video::COpenGLBuffer*>(m_idxBuf),
-            static_cast<const video::COpenGLBuffer*>(m_keyBuf2),
-            static_cast<const video::COpenGLBuffer*>(m_idxBuf2),
-            static_cast<const video::COpenGLBuffer*>(m_psumBuf),
-            static_cast<const video::COpenGLBuffer*>(m_histogramBuf),
-            static_cast<const video::COpenGLBuffer*>(m_sumsBuf),
-            static_cast<const video::COpenGLBuffer*>(m_posBuf)
-        };
-        ptrdiff_t offsets[8]{ 0, 0, 0, 0, 0, 0, 0, 0 };
-        ptrdiff_t sizes[8];
-        for (size_t i = 0u; i < 8u; ++i)
-            sizes[i] = bufs[i]->getSize();
-
-        auxCtx->setActiveSSBO(0u, 2u, bufs, offsets, sizes);
-    }
-
     void run(const core::vector3df& _camPos) override
     {
         GLint prevProgram;
         glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
+        {//bind ubo
+            auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+            const ptrdiff_t off = 0, sz = 16;
+            auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
+        }
         bindSSBuffers();
+        updateUbo(0, 12, _camPos, 0u);
 
         gl::extGlUseProgram(m_genKeysCs);
-        gl::extGlProgramUniform3fv(m_genKeysCs, E_CAM_POS_LOC, 1u, &_camPos.X);
 
         gl::extGlDispatchCompute(m_wgCnt, 1u, 1u);
         gl::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        {//bind ubo
+            auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+            const ptrdiff_t off = 16, sz = m_ubo->getSize()-16;
+            auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
+        }
 
         const GLuint histogram[] {0u, 0u};
         uint8_t sumsIn[1u<<13]; // enough for up to 1024 work groups, i.e. 524288 indices
@@ -278,17 +312,16 @@ public:
             const ptrdiff_t s[4]{ m_keyBuf1->getSize(), m_idxBuf->getSize(), m_keyBuf2->getSize(), m_idxBuf2->getSize() };
             auxCtx->setActiveSSBO(E_IN_KEYS_BND, 4u, bufs, off, s);
             }
+            updateUbo(16, 4, _camPos, nbit);
 
             // zero histogram
             gl::extGlNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_histogramBuf)->getOpenGLName(), 0, sizeof(histogram), histogram);
 
             gl::extGlUseProgram(m_histogramCs);
-            gl::extGlProgramUniform1uiv(m_histogramCs, E_SHIFT_LOC, 1, &nbit);
             gl::extGlDispatchCompute(m_wgCnt, 1u, 1u);
             gl::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
             gl::extGlUseProgram(m_presumCs);
-            gl::extGlProgramUniform1uiv(m_presumCs, E_SHIFT_LOC, 1, &nbit);
             gl::extGlDispatchCompute(m_wgCnt, 1u, 1u);
             gl::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             // some other barrier needed here?
@@ -297,7 +330,6 @@ public:
             gl::extGlNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_sumsBuf)->getOpenGLName(), 0, 2*m_wgCnt*sizeof(GLuint), sumsOut);
 
             gl::extGlUseProgram(m_permuteCs);
-            gl::extGlProgramUniform1uiv(m_permuteCs, E_SHIFT_LOC, 1, &nbit);
             gl::extGlDispatchCompute(m_wgCnt, 1u, 1u);
             gl::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
@@ -315,15 +347,68 @@ public:
         gl::extGlUseProgram(prevProgram);
     }
 
-    void setIndexBuffer(const video::IGPUBuffer* _idxBuf) override
+    void setIndexBuffer(scene::IGPUMeshBuffer* _mb) override
     {
-        ISorter::setIndexBuffer(_idxBuf);
+        ISorter::setIndexBuffer(_mb);
         if (m_idxBuf)
         {
             if (m_idxBuf2)
                 m_idxBuf2->drop();
             m_idxBuf2 = m_driver->createGPUBuffer(m_idxBuf->getSize(), nullptr);
         }
+    }
+
+private:
+    void updateUbo(ptrdiff_t _offset, ptrdiff_t _size, const core::vector3df& _camPos, GLuint _nbit)
+    {
+        if (m_fences[m_updateNum])
+        {
+            auto waitf = [this] {
+                auto res = m_fences[m_updateNum]->waitCPU(10000000000ull);
+                return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
+            };
+            while (!waitf())
+            {
+                m_fences[m_updateNum]->drop();
+                m_fences[m_updateNum] = nullptr;
+            }
+        }
+
+        uint32_t m[5];
+        memcpy(m, &_camPos.X, 12);
+        m[4] = _nbit;
+        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getPointer())) + m_updateNum*s_uboSize + _offset, (uint8_t*)m + _offset, _size);
+        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getOpenGLName(), m_updateNum * 24 + _offset, _size);
+
+        m_driver->bufferCopy(m_mappedBuf, m_ubo, m_updateNum*s_uboSize + _offset, _offset, _size);
+
+        if (!m_fences[m_updateNum])
+            m_fences[m_updateNum] = m_driver->placeFence();
+
+        if (++m_updateNum == 4u)
+            m_updateNum = 0u;
+    }
+
+    void bindSSBuffers() const
+    {
+        auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+
+        const video::COpenGLBuffer* bufs[8]{
+            static_cast<const video::COpenGLBuffer*>(m_keyBuf1),
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf),
+            static_cast<const video::COpenGLBuffer*>(m_keyBuf2),
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf2),
+            static_cast<const video::COpenGLBuffer*>(m_psumBuf),
+            static_cast<const video::COpenGLBuffer*>(m_histogramBuf),
+            static_cast<const video::COpenGLBuffer*>(m_sumsBuf),
+            static_cast<const video::COpenGLBuffer*>(m_posBuf)
+        };
+        ptrdiff_t offsets[8]{ 0, 0, 0, 0, 0, 0, 0, 0 };
+        ptrdiff_t sizes[8];
+        for (size_t i = 0u; i < 8u; ++i)
+            sizes[i] = bufs[i]->getSize();
+
+        auxCtx->setActiveSSBO(0u, 2u, bufs, offsets, sizes);
     }
 
     void xpsum(const void* _in, void* _out, size_t _cnt)
@@ -342,62 +427,17 @@ public:
 private:
     GLuint m_genKeysCs, m_histogramCs, m_presumCs, m_permuteCs;
     const video::IGPUBuffer *m_posBuf, *m_keyBuf1, *m_keyBuf2, *m_idxBuf2, *m_histogramBuf, *m_psumBuf, *m_sumsBuf;
+    video::IGPUBuffer* m_ubo, *m_mappedBuf;
     GLuint m_wgCnt;
+
+    video::IDriverFence* m_fences[4];
+    uint8_t m_updateNum;
+
+    constexpr static size_t s_uboSize = 20u;
 };
 
 class ProgressiveSorter : public ISorter
 {
-    enum 
-    {
-        E_OFF_LOC = 0,
-        E_CAM_POS_LOC = 1,
-        E_SIZE_LOC = 2,
-
-        E_INDICES_BIDING = 0,
-        E_POS_BINDING = 1
-    };
-
-    static constexpr const char* CS_SRC = R"XDDD(
-    #version 430 core
-    layout(local_size_x = 256) in;
-
-    layout(std430, binding = 0) restrict buffer b0 {
-	    uint indices[];
-    };
-    layout(std430, binding = 1) restrict readonly buffer b1 {
-	    vec4 pos[];
-    };
-
-    layout(location = 0) uniform uint off;
-    layout(location = 1) uniform vec3 camPos;
-    layout(location = 2) uniform uint size;
-
-    void swap(inout uint idx0, inout uint idx1)
-    {
-	    uint tmp = idx0;
-	    idx0 = idx1;
-	    idx1 = tmp;
-    }
-
-    void main()
-    {
-	    const uint IDX = 2*gl_GlobalInvocationID.x + off;
-	
-	    if (IDX + 1 < size)
-	    {
-		    uint idx0 = indices[IDX], idx1 = indices[IDX+1];
-		    const vec3 v0 = camPos - pos[idx0].xyz, v1 = camPos - pos[idx1].xyz;
-		    const float key0 = dot(v0, v0), key1 = dot(v1, v1);
-		
-		    if (key0 < key1)
-			    swap(idx0, idx1);
-			
-		    indices[IDX] = idx0;
-		    indices[IDX+1] = idx1;
-	    }
-    }
-    )XDDD";
-
 protected:
     ~ProgressiveSorter()
     {
@@ -405,13 +445,18 @@ protected:
             m_posBuf->drop();
         if (m_idxBuf)
             m_idxBuf->drop();
+        if (m_ubo)
+            m_ubo->drop();
+        if (m_mappedBuf)
+            m_mappedBuf->drop();
     }
 
 public:
     ProgressiveSorter(video::IVideoDriver* _vd) :
         ISorter(_vd),
-        m_cs{createComputeShader(CS_SRC)},
+        m_cs{createComputeShaderFromFile("../shaders/prog.comp")},
         m_posBuf{nullptr},
+        m_ubo{nullptr},
         m_startIdx{0u},
         m_wgCount{}
     {}
@@ -425,6 +470,8 @@ public:
             pos.push_back(v);
 
         m_posBuf = m_driver->createGPUBuffer(pos.size() * sizeof(v), pos.data());
+        m_ubo = m_driver->createGPUBuffer(s_uboSize, nullptr);
+        m_mappedBuf = m_driver->createPersistentlyMappedBuffer(s_uboSize*4, nullptr, video::EGBA_WRITE, false, false);
 
         core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * pos.size());
         uint32_t* indices = (uint32_t*)idxBuf->getPointer();
@@ -443,6 +490,64 @@ public:
         printf("wgCount == %u\n", m_wgCount);
     }
 
+    void run(const core::vector3df& _camPos) override
+    {
+        const uint32_t offset[2]{ 0u, 512u };
+        {//bind ubo
+            auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+            const ptrdiff_t off = 0, sz = m_ubo->getSize();
+            auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
+        }
+        bindSSBuffers();
+
+        updateUbo(0, s_uboSize, _camPos, offset[m_startIdx], m_posBuf->getSize()/16u);
+
+        GLint prevProgram;
+        glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+
+        using gl = video::COpenGLExtensionHandler;
+        gl::extGlUseProgram(m_cs);
+        gl::extGlDispatchCompute((m_posBuf->getSize()/16 - offset[m_startIdx] + 1023u) / 1024, 1u, 1u);
+        gl::extGlUseProgram(prevProgram);
+
+        gl::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+
+        m_startIdx = !m_startIdx;
+    }
+
+private:
+    void updateUbo(ptrdiff_t _offset, ptrdiff_t _size, const core::vector3df& _camPos, GLuint _off, GLuint _sz)
+    {
+        if (m_fences[m_updateNum])
+        {
+            auto waitf = [this] {
+                auto res = m_fences[m_updateNum]->waitCPU(10000000000ull);
+                return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
+            };
+            while (!waitf())
+            {
+                m_fences[m_updateNum]->drop();
+                m_fences[m_updateNum] = nullptr;
+            }
+        }
+
+        uint32_t m[6];
+        memcpy(m, &_camPos.X, 12);
+        m[4] = _off;
+        m[5] = _sz;
+        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getPointer())) + m_updateNum*s_uboSize + _offset, (uint8_t*)m + _offset, _size);
+        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getOpenGLName(), m_updateNum * 24 + _offset, _size);
+
+        m_driver->bufferCopy(m_mappedBuf, m_ubo, m_updateNum*s_uboSize + _offset, _offset, _size);
+
+        if (!m_fences[m_updateNum])
+            m_fences[m_updateNum] = m_driver->placeFence();
+
+        if (++m_updateNum == 4u)
+            m_updateNum = 0u;
+    }
+
     void bindSSBuffers() const
     {
         auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
@@ -451,103 +556,28 @@ public:
             static_cast<const video::COpenGLBuffer*>(m_idxBuf),
             static_cast<const video::COpenGLBuffer*>(m_posBuf)
         };
-        ptrdiff_t offsets[2]{ 0, 0};
+        ptrdiff_t offsets[2]{ 0, 0 };
         ptrdiff_t sizes[2]{ m_idxBuf->getSize(), m_posBuf->getSize() };
 
         auxCtx->setActiveSSBO(0u, 2u, bufs, offsets, sizes);
     }
 
-    void run(const core::vector3df& _camPos) override
-    {
-        GLint prevProgram;
-        glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
-
-        bindSSBuffers();
-
-        video::COpenGLExtensionHandler::extGlUseProgram(m_cs);
-
-        video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_cs, E_OFF_LOC, 1u, &m_startIdx);
-        video::COpenGLExtensionHandler::extGlProgramUniform3fv(m_cs, E_CAM_POS_LOC, 1u, &_camPos.X);
-        const GLuint size = m_posBuf->getSize() / sizeof(core::vectorSIMDf);
-        video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_cs, E_SIZE_LOC, 1u, &size);
-
-        video::COpenGLExtensionHandler::extGlDispatchCompute(m_wgCount, 1u, 1u);
-
-        video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
-
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
-
-        m_startIdx = !m_startIdx;
-    }
-
 private:
     GLuint m_cs;
     video::IGPUBuffer* m_posBuf;
+    video::IGPUBuffer* m_ubo;
+    video::IGPUBuffer* m_mappedBuf;
     mutable GLuint m_startIdx;
     GLuint m_wgCount;
+
+    video::IDriverFence* m_fences[4];
+    uint8_t m_updateNum;
+    constexpr static size_t s_uboSize = 24u;
 };
 
 
 class BitonicSorter : public ISorter
 {
-    enum
-    {
-        E_J_LOC = 0,
-        E_K_LOC = 1,
-        E_CAM_POS_LOC = 2,
-
-        E_INDICES_BIDING = 0,
-        E_POS_BINDING = 1
-    };
-
-    static constexpr const char* CS_SRC = R"XDDD(
-    #version 430 core
-
-    layout(local_size_x = 256) in;
-
-    layout(std430, binding = 0) restrict buffer b0 {
-	    uint indices[];
-    };
-    layout(std430, binding = 1) restrict readonly buffer b1 {
-	    vec4 pos[];
-    };
-
-    layout(location = 0) uniform uint j;
-    layout(location = 1) uniform uint k;
-    layout(location = 2) uniform vec3 camPos;
-
-    void swap(inout uint idx0, inout uint idx1)
-    {
-	    uint tmp = idx0;
-	    idx0 = idx1;
-	    idx1 = tmp;
-    }
-
-    void main() {
-	    const uint i = gl_GlobalInvocationID.x;
-	    const uint ixorj = i ^ j;
-	
-	    uint idx0 = indices[ixorj], idx1 = indices[i];
-	    const vec3 v0 = camPos - pos[idx0].xyz, v1 = camPos - pos[idx1].xyz;
-	    const float key0 = dot(v0, v0), key1 = dot(v1, v1);
-	
-	    if (ixorj > i) {
-		    if ((i & k) == 0) { /*sort asc*/
-			    if (key0 < key1) {
-				    swap(idx0, idx1);
-			    }
-		    }
-		    else { /*sort desc*/
-			    if (key1 < key0) {
-				    swap(idx0, idx1);
-			    }
-		    }
-		    indices[ixorj] = idx0;
-		    indices[i] = idx1;
-	    }
-    }
-    )XDDD";
-
 protected:
     ~BitonicSorter()
     {
@@ -555,14 +585,23 @@ protected:
             m_posBuf->drop();
         if (m_idxBuf)
             m_idxBuf->drop();
+        if (m_ubo)
+            m_ubo->drop();
+        if (m_mappedBuf)
+            m_mappedBuf->drop();
     }
 
 public:
     BitonicSorter(video::IVideoDriver* _vd) :
         ISorter(_vd),
-        m_cs{ createComputeShader(CS_SRC) },
+        m_sMergeCs{ createComputeShaderFromFile("../shaders/s_merge.comp") },
+        m_gMergeCs{ createComputeShaderFromFile("../shaders/g_merge.comp") },
+        m_sSortCs{ 0u },
         m_posBuf{ nullptr },
-        m_wgCount{}
+        m_ubo{ nullptr },
+        m_wgCount{},
+        m_fences{nullptr, nullptr, nullptr, nullptr},
+        m_updateNum{}
     {}
     void init(scene::ICPUMeshBuffer* _mb) override
     {
@@ -574,6 +613,8 @@ public:
             pos.push_back(v);
 
         m_posBuf = m_driver->createGPUBuffer(pos.size() * sizeof(v), pos.data());
+        m_ubo = m_driver->createGPUBuffer(s_uboSize, nullptr);
+        m_mappedBuf = m_driver->createPersistentlyMappedBuffer(4*s_uboSize, nullptr, video::EGBA_WRITE, false, false);
 
         const size_t idxCount = 1u << ((size_t)std::ceil(std::log2((double)pos.size())));
         core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * idxCount);
@@ -591,7 +632,110 @@ public:
         printf("pos.size() == %u\n", pos.size());
 
         m_wgCount = idxCount / 256u;
+
+        if (m_wgCount == 2u) // element count == 512
+            m_sSortCs = makeSortCs(512u);
+        else if (m_wgCount > 2u)
+            m_sSortCs = makeSortCs(1024u);
+
+        assert(m_sSortCs);
+
         printf("wgCount == %u\n", m_wgCount);
+    }
+
+    void run(const core::vector3df& _camPos) override
+    {
+        {//bind ubo
+        auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+        auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+        const ptrdiff_t off = 0, sz = m_ubo->getSize();
+        auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
+        }
+        bindSSBuffers();
+
+        GLint prevProgram;
+        glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+
+        const size_t valCnt = m_wgCount * 256u;
+        const size_t sSortWgSize = m_wgCount == 2u ? 512u : 1024u;
+
+        using gl = video::COpenGLExtensionHandler;
+        gl::extGlUseProgram(m_sSortCs);
+        gl::pGlDispatchCompute(valCnt/sSortWgSize, 1, 1);
+        gl::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        bool firstItr = true;
+        for (GLuint sz = 2u*sSortWgSize; sz <= valCnt; sz <<= 1)
+        {
+            for (GLuint str = sz>>1; str > 0u; str >>= 1)
+            {
+                updateUbo(firstItr ? 0 : 16, firstItr ? s_uboSize : 8, _camPos, sz, str);
+                firstItr = false;
+                if (str > 1024)
+                {
+                    gl::extGlUseProgram(m_gMergeCs);
+                    gl::pGlDispatchCompute(m_wgCount, 1, 1);
+                    gl::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                }
+                else
+                {
+                    assert(str == 1024);
+                    gl::extGlUseProgram(m_sMergeCs);
+                    gl::pGlDispatchCompute(valCnt/2048, 1, 1);
+                    gl::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                    break;
+                }
+            }
+        }
+
+        gl::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+        gl::extGlUseProgram(prevProgram);
+    }
+
+private:
+    void updateUbo(ptrdiff_t _offset, ptrdiff_t _size, const core::vector3df& _camPos, GLuint _sz, GLuint _str)
+    {
+        if (m_fences[m_updateNum])
+        {
+            auto waitf = [this] {
+                auto res = m_fences[m_updateNum]->waitCPU(10000000000ull);
+                return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
+            };
+            while (!waitf())
+            {
+                m_fences[m_updateNum]->drop();
+                m_fences[m_updateNum] = nullptr;
+            }
+        }
+
+        uint32_t m[6];
+        memcpy(m, &_camPos.X, 12);
+        m[4] = _sz;
+        m[5] = _str;
+        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getPointer())) + m_updateNum*s_uboSize + _offset, (uint8_t*)m+_offset, _size);
+        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getOpenGLName(), m_updateNum*24 + _offset, _size);
+
+        m_driver->bufferCopy(m_mappedBuf, m_ubo, m_updateNum*s_uboSize + _offset, _offset, _size);
+
+        if (!m_fences[m_updateNum])
+            m_fences[m_updateNum] = m_driver->placeFence();
+
+        if(++m_updateNum == 4u)
+            m_updateNum = 0u;
+    }
+
+    GLuint makeSortCs(size_t _wgSize)
+    {
+        void* source = nullptr;
+        const size_t sz = loadFileContentsAsStr("../shaders/s_sort.comp", source);
+        void* mem = malloc(sz+100);
+        snprintf((char*)mem, sz + 100, (const char*)source, _wgSize);
+
+        const GLuint s = createComputeShader((const char*)mem);
+        free(source);
+        free(mem);
+
+        return s;
     }
 
     void bindSSBuffers() const
@@ -608,37 +752,16 @@ public:
         auxCtx->setActiveSSBO(0u, 2u, bufs, offsets, sizes);
     }
 
-    void run(const core::vector3df& _camPos) override
-    {
-        GLint prevProgram;
-        glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
-
-        bindSSBuffers();
-
-        video::COpenGLExtensionHandler::extGlUseProgram(m_cs);
-
-        video::COpenGLExtensionHandler::extGlProgramUniform3fv(m_cs, E_CAM_POS_LOC, 1u, &_camPos.X);
-
-        for (GLuint k = 2; k <= m_wgCount*256u; k <<= 1)
-        {
-            for (GLuint j = k >> 1; j > 0; j >>= 1)
-            {
-                video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_cs, E_J_LOC, 1, &j);
-                video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_cs, E_K_LOC, 1, &k);
-                video::COpenGLExtensionHandler::pGlDispatchCompute(m_wgCount, 1, 1);
-                video::COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-            }
-        }
-
-        video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
-
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
-    }
-
 private:
-    GLuint m_cs;
+    GLuint m_sMergeCs, m_gMergeCs, m_sSortCs;
     video::IGPUBuffer* m_posBuf;
+    video::IGPUBuffer* m_ubo;
+    video::IGPUBuffer* m_mappedBuf;
     GLuint m_wgCount;
+
+    video::IDriverFence* m_fences[4];
+    uint8_t m_updateNum;
+    constexpr static size_t s_uboSize = 24u;
 };
 
 int main()
@@ -686,12 +809,12 @@ int main()
 
     scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/cow.obj");
     ISorter* sorter =
-        new RadixSorter(driver);
-        //new ProgressiveSorter(driver);
+        //new RadixSorter(driver);
+        new ProgressiveSorter(driver);
         //new BitonicSorter(driver);
     sorter->init(cpumesh->getMeshBuffer(0));
     scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
-    sorter->setIndexBuffer(gpumesh->getMeshBuffer(0)->getMeshDataAndFormat()->getIndexBuffer());
+    sorter->setIndexBuffer(gpumesh->getMeshBuffer(0));
     printf("IDX_TYPE %d\n", gpumesh->getMeshBuffer(0)->getIndexType());
     smgr->addMeshSceneNode(gpumesh, 0, -1, core::vector3df(), core::vector3df(), core::vector3df(4.f))->setMaterialType(newMaterialType);
     gpumesh->drop();

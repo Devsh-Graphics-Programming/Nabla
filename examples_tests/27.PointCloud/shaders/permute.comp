@@ -13,7 +13,10 @@ layout(std430, binding = 4) readonly buffer Presum { uvec2 in_presum[]; };
 layout(std430, binding = 6) readonly buffer Sums { uvec2 in_sums[]; };
 layout(std430, binding = 5) readonly buffer Histogram { uint in_histogram[2]; };
 
-layout(location = 0) uniform uint nbit;
+layout(std140, binding = 0) uniform Control
+{
+	uint nbit;
+} ctrl;
 
 void main()
 {
@@ -52,7 +55,7 @@ void main()
 	
 	if (flag1)
 	{
-		if (((k1<<nbit)&1) == 1)
+		if (((k1<<ctrl.nbit)&1) == 1)
 		{
 			out_keys[a.y] = k1;
 			out_vals[a.y] = in_vals[2*G_IDX];
@@ -65,7 +68,7 @@ void main()
 	}
 	if (flag2)
 	{
-		if (((k2<<nbit)&1) == 1)
+		if (((k2<<ctrl.nbit)&1) == 1)
 		{
 			out_keys[b.y] = k2;
 			out_vals[b.y] = in_vals[2*G_IDX+1];

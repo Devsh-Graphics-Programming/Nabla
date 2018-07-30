@@ -55,51 +55,86 @@ bool CSTLMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
 
 	os::Printer::log("Writing mesh", file->getFileName().c_str());
 
-	if (flags & scene::EMWF_WRITE_COMPRESSED)
+	if ((flags & scene::EMWF_WRITE_COMPRESSED) || (flags & scene::EMWF_WRITE_BINARY))
 		return writeMeshBinary(file, mesh, flags);
 	else
 		return writeMeshASCII(file, mesh, flags);
 }
 
-
-template <class I>
-inline void writePositions(ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file)
+namespace
 {
+template <class I>
+inline void writeFacesBinary(ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, scene::E_VERTEX_ATTRIBUTE_ID _colorVaid)
+{
+    bool hasColor = buffer->getMeshDataAndFormat()->getMappedBuffer(_colorVaid);
+    const scene::E_COMPONENT_TYPE colorType = buffer->getMeshDataAndFormat()->getAttribType(_colorVaid);
+
     const uint32_t indexCount = buffer->getIndexCount();
-    const uint16_t attributes = 0;
-    for (uint32_t j=0; j<indexCount; j+=3)
+    for (uint32_t j = 0u; j < indexCount; j += 3u)
     {
-        core::vectorSIMDf v1,v2,v3;
-        if (noIndices)
+        I idx[3];
+        for (uint32_t i = 0u; i < 3u; ++i)
         {
-            v1 = buffer->getPosition(j);
-            v1 = buffer->getPosition(j+1);
-            v1 = buffer->getPosition(j+2);
+            if (noIndices)
+                idx[i] = j + i;
+            else
+                idx[i] = ((I*)buffer->getIndices())[j + i];
         }
-        else
+
+        core::vectorSIMDf v[3];
+        for (uint32_t i = 0u; i < 3u; ++i)
+            v[i] = buffer->getPosition(idx[i]);
+
+        uint16_t color = 0u;
+        if (hasColor)
         {
-            v1 = buffer->getPosition(((I*)buffer->getIndices())[j]);
-            v2 = buffer->getPosition(((I*)buffer->getIndices())[j+1]);
-            v3 = buffer->getPosition(((I*)buffer->getIndices())[j+2]);
+            if (scene::isNativeInteger(colorType))
+            {
+                uint32_t res[4];
+                for (uint32_t i = 0u; i < 3u; ++i)
+                {
+                    uint32_t d[4];
+                    buffer->getAttribute(d, _colorVaid, idx[i]);
+                    res[0] += d[0]; res[1] += d[1]; res[2] += d[2];
+                }
+                color = video::RGB16(res[0]/3, res[1]/3, res[2]/3);
+            }
+            else
+            {
+                core::vectorSIMDf res;
+                for (uint32_t i = 0u; i < 3u; ++i)
+                {
+                    core::vectorSIMDf d;
+                    buffer->getAttribute(d, _colorVaid, idx[i]);
+                    res += d;
+                }
+                res /= 3.f;
+                color = video::RGB16(res.X, res.Y, res.Z);
+            }
         }
-        const core::plane3df tmpplane(v1.getAsVector3df(),v2.getAsVector3df(),v3.getAsVector3df());
-        file->write(&tmpplane.Normal, 12);
-        file->write(&v1, 12);
-        file->write(&v2, 12);
-        file->write(&v3, 12);
-        file->write(&attributes, 2);
+
+
+        const core::plane3df plane(v[0].getAsVector3df(),v[1].getAsVector3df(),v[2].getAsVector3df());
+        file->write(&plane.Normal, 12);
+        file->write(v+0, 12);
+        file->write(v+1, 12);
+        file->write(v+2, 12);
+        file->write(&color, 2); // saving color using non-standard VisCAM/SolidView trick
     }
+}
 }
 
 bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
 {
 	// write STL MESH header
+    const char headerTxt[] = "Irrlicht-baw Engine";
+    constexpr size_t HEADER_SIZE = 80u;
 
-	file->write("binary ",7);
+	file->write(headerTxt,sizeof(headerTxt));
 	const core::stringc name(io::IFileSystem::getFileBasename(file->getFileName(),false));
-	const int32_t sizeleft = 73-name.size(); // 80 byte header
+	const int32_t sizeleft = HEADER_SIZE - sizeof(headerTxt) - name.size();
 	if (sizeleft<0)
-		file->write(name.c_str(),73);
+		file->write(name.c_str(), HEADER_SIZE - sizeof(headerTxt));
 	else
 	{
 		const char buf[80] = {0};
@@ -123,18 +158,15 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh
                 type = video::EIT_UNKNOWN;
 			if (type==video::EIT_16BIT)
             {
-                //os::Printer::log("Writing mesh with 16bit indices");
-                writePositions<uint16_t>(buffer,false,file);
+                writeFacesBinary<uint16_t>(buffer, false, file, scene::EVAI_ATTR1);
             }
 			else if (type==video::EIT_32BIT)
             {
-                //os::Printer::log("Writing mesh with 32bit indices");
-                writePositions<uint32_t>(buffer,false,file);
+                writeFacesBinary<uint32_t>(buffer, false, file, scene::EVAI_ATTR1);
             }
 			else
             {
-                //os::Printer::log("Writing mesh with 32bit indices");
-                writePositions<uint64_t>(buffer,true,file); //uint64_t dummy
+                writeFacesBinary<uint16_t>(buffer, true, file, scene::EVAI_ATTR1); //template param doesn't matter if there's no indices
             }
 		}
 	}
@@ -145,11 +177,13 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh
 bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
 {
 	// write STL MESH header
+    const char headerTxt[] = "Irrlicht-baw Engine ";
 
 	file->write("solid ",6);
-	const core::stringc name(io::IFileSystem::getFileBasename(file->getFileName(),false));
-	file->write(name.c_str(),name.size());
-	file->write("\n\n",2);
+    file->write(headerTxt, sizeof(headerTxt)-1);
+	const core::stringc name(io::IFileSystem::getFileBasename(file->getFileName(), false));
+	file->write(name.c_str(), name.size());
+	file->write("\n", 1);
 
 	// write mesh buffers
 
@@ -167,10 +201,11 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
                 //os::Printer::log("Writing mesh with 16bit indices");
                 for (uint32_t j=0; j<indexCount; j+=3)
                 {
-                    writeFace(file,
+                    writeFaceText(file,
                         buffer->getPosition(((uint16_t*)buffer->getIndices())[j]).getAsVector3df(),
                         buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]).getAsVector3df(),
-                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]).getAsVector3df());
+                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]).getAsVector3df()
+                    );
                 }
 			}
 			else if (type==video::EIT_32BIT)
@@ -178,10 +213,11 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
                 //os::Printer::log("Writing mesh with 32bit indices");
                 for (uint32_t j=0; j<indexCount; j+=3)
                 {
-                    writeFace(file,
+                    writeFaceText(file,
                         buffer->getPosition(((uint32_t*)buffer->getIndices())[j]).getAsVector3df(),
                         buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]).getAsVector3df(),
-                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]).getAsVector3df());
+                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]).getAsVector3df()
+                    );
                 }
 			}
 			else
@@ -189,10 +225,11 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
                 //os::Printer::log("Writing mesh with no indices");
                 for (uint32_t j=0; j<indexCount; j+=3)
                 {
-                    writeFace(file,
+                    writeFaceText(file,
                         buffer->getPosition(j).getAsVector3df(),
                         buffer->getPosition(j+1).getAsVector3df(),
-                        buffer->getPosition(j+2).getAsVector3df());
+                        buffer->getPosition(j+2).getAsVector3df()
+                    );
                 }
             }
 			file->write("\n",1);
@@ -200,6 +237,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
 	}
 
 	file->write("endsolid ",9);
+    file->write(headerTxt, sizeof(headerTxt)-1);
 	file->write(name.c_str(),name.size());
 
 	return true;
@@ -214,7 +252,7 @@ void CSTLMeshWriter::getVectorAsStringLine(const core::vector3df& v, core::strin
 }
 
 
-void CSTLMeshWriter::writeFace(io::IWriteFile* file,
+void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
 		const core::vector3df& v1,
 		const core::vector3df& v2,
 		const core::vector3df& v3)

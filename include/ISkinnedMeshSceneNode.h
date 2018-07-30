@@ -72,6 +72,8 @@ namespace scene
 		//! returns amount of materials used by this scene node.
 		virtual uint32_t getMaterialCount() const = 0;
 
+        virtual size_t getBoneCount() const = 0;
+
 		//! frame
 		virtual void OnRegisterSceneNode() = 0;
 

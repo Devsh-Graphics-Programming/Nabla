@@ -121,6 +121,9 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
             return true;
         }
 
+        virtual IGPUBuffer* getBoundBuffer() { return currentBuffer; }
+        virtual const IGPUBuffer* getBoundBuffer() const { return currentBuffer; }
+
         virtual bool rebindRevalidate()
         {
             if (!currentBuffer)

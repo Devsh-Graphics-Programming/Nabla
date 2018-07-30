@@ -222,6 +222,8 @@ namespace scene
 
             virtual video::ITextureBufferObject* getBoneDataTBO() const = 0;
 
+            size_t getBoneCount() const { return referenceHierarchy->getBoneCount(); }
+
 
             virtual void implicitBone(const size_t& instanceID, const size_t& boneID) = 0;
 

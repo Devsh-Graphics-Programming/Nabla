@@ -21,34 +21,11 @@ namespace irr
 namespace scene
 {
 
-#include "irrpack.h"
-struct STLVertex
-{
-    float pos[3];
-    uint32_t normal32bit;
-    uint32_t color;
-} PACK_STRUCT;
-#include "irrunpack.h"
-
-//! returns true if the file maybe is able to be loaded by this class
-//! based on the file extension (e.g. ".bsp")
+//! \returns true if the file maybe is able to be loaded by this class
+//! based on the file extension (e.g. ".stl")
 bool CSTLMeshFileLoader::isALoadableFileExtension(const io::path& filename) const
 {
 	return core::hasFileExtension ( filename, "stl" );
-}
-
-
-inline void addTriangleToMesh(std::vector<STLVertex> &verticesOut, const core::vectorSIMDf* positions, const core::vectorSIMDf &normal, const video::SColor &color)
-{
-    STLVertex vertex;
-    vertex.normal32bit = quantizeNormal2_10_10_10(normal);
-    vertex.color = color.color;
-    memcpy(vertex.pos,positions+2,12);
-    verticesOut.push_back(vertex);
-    memcpy(vertex.pos,positions+1,12);
-    verticesOut.push_back(vertex);
-    memcpy(vertex.pos,positions+0,12);
-    verticesOut.push_back(vertex);
 }
 
 //! creates/loads an animated mesh from the file.
@@ -59,38 +36,47 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 {
 	const long filesize = file->getSize();
 	if (filesize < 6) // we need a header
-		return 0;
+		return nullptr;
 
+    bool hasColor = false;
+
+	SCPUMesh* mesh = new SCPUMesh();
 	ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
+    {
 	ICPUMeshBuffer* meshbuffer = new ICPUMeshBuffer();
 	meshbuffer->setMeshDataAndFormat(desc);
 	desc->drop();
 
-	SCPUMesh* mesh = new SCPUMesh();
 	mesh->addMeshBuffer(meshbuffer);
 	meshbuffer->drop();
-
-	core::vectorSIMDf vertex[3];
-	core::vectorSIMDf normal;
+    }
 
 	bool binary = false;
 	core::stringc token;
 	if (getNextToken(file, token) != "solid")
-		binary = true;
-	// read/skip header
-	uint32_t binFaceCount = 0;
-	std::vector<STLVertex> vertices;
+		binary = hasColor = true;
+
+    std::vector<core::vectorSIMDf> positions, normals;
+    std::vector<uint32_t> colors;
 	if (binary)
 	{
-		file->seek(80);
-		file->read(&binFaceCount, 4);
-        vertices.reserve(binFaceCount);
+        if (file->getSize() < 80)
+        {
+            mesh->drop();
+            return nullptr;
+        }
+		file->seek(80); // skip header
+        uint32_t vtxCnt = 0u;
+		file->read(&vtxCnt, 4);
+        positions.reserve(3*vtxCnt);
+        normals.reserve(vtxCnt);
+        colors.reserve(vtxCnt);
 	}
 	else
-		goNextLine(file);
+		goNextLine(file); // skip header
 
 
-	uint16_t attrib=0;
+	uint16_t attrib=0u;
 	token.reserve(32);
 	while (file->getPos() < filesize)
 	{
@@ -101,51 +87,64 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 				if (token=="endsolid")
 					break;
 				mesh->drop();
-				return 0;
+				return nullptr;
 			}
 			if (getNextToken(file, token) != "normal")
 			{
 				mesh->drop();
-				return 0;
+				return nullptr;
 			}
 		}
-		getNextVector(file, normal, binary);
+
+        {
+        core::vectorSIMDf n;
+		getNextVector(file, n, binary);
+        normals.push_back(n);
+        }
+
 		if (!binary)
 		{
 			if (getNextToken(file, token) != "outer")
 			{
 				mesh->drop();
-				return 0;
+				return nullptr;
 			}
 			if (getNextToken(file, token) != "loop")
 			{
 				mesh->drop();
-				return 0;
+				return nullptr;
 			}
 		}
-		for (uint32_t i=0; i<3; ++i)
+
+        {
+        core::vectorSIMDf p[3];
+		for (uint32_t i = 0u; i < 3u; ++i)
 		{
 			if (!binary)
 			{
 				if (getNextToken(file, token) != "vertex")
 				{
 					mesh->drop();
-					return 0;
+					return nullptr;
 				}
 			}
-			getNextVector(file, vertex[i], binary);
+			getNextVector(file, p[i], binary);
 		}
+        for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
+            positions.push_back(p[2u-i]);
+        }
+
 		if (!binary)
 		{
 			if (getNextToken(file, token) != "endloop")
 			{
 				mesh->drop();
-				return 0;
+				return nullptr;
 			}
 			if (getNextToken(file, token) != "endfacet")
 			{
 				mesh->drop();
-				return 0;
+				return nullptr;
 			}
 		}
 		else
@@ -153,21 +152,50 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 			file->read(&attrib, 2);
 		}
 
-		video::SColor color(0xffffffff);
-		if (attrib & 0x8000)
-			color = video::A1R5G5B5toA8R8G8B8(attrib);
-		if ((normal==core::vectorSIMDf()).all())
-			normal.set(core::plane3df(vertex[2].getAsVector3df(),vertex[1].getAsVector3df(),vertex[0].getAsVector3df()).Normal);
-        //
-       addTriangleToMesh(vertices,vertex,normal,color);
-	}	// end while (file->getPos() < filesize)
-	core::ICPUBuffer* vertexBuf = new core::ICPUBuffer(sizeof(STLVertex)*vertices.size());
-	std::copy( vertices.begin(), vertices.end(), (STLVertex*)vertexBuf->getPointer() );
-	desc->mapVertexAttrBuffer(vertexBuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(STLVertex),0);
-	desc->mapVertexAttrBuffer(vertexBuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(STLVertex),12);
-	desc->mapVertexAttrBuffer(vertexBuf,EVAI_ATTR1,ECPA_REVERSED_OR_BGRA,ECT_NORMALIZED_UNSIGNED_BYTE,sizeof(STLVertex),16);
+        if (hasColor && (attrib & 0x8000)) // assuming VisCam/SolidView non-standard trick to store color in 2 bytes of extra attribute
+        {
+            colors.push_back(video::A1R5G5B5toA8R8G8B8(attrib));
+        }
+        else
+        {
+            hasColor = false;
+            colors.clear();
+        }
+
+		if ((normals.back() == core::vectorSIMDf()).all())
+        {
+			normals.back().set(
+                core::plane3df(
+                    (positions.rbegin()+2)->getAsVector3df(),
+                    (positions.rbegin()+1)->getAsVector3df(),
+                    (positions.rbegin()+0)->getAsVector3df()).Normal
+            );
+        }
+	} // end while (file->getPos() < filesize)
+
+    const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
+	core::ICPUBuffer* vertexBuf = new core::ICPUBuffer(vtxSize*positions.size());
+	
+    uint32_t normal{};
+    for (size_t i = 0u; i < positions.size(); ++i)
+    {
+        if (i%3 == 0)
+            normal = quantizeNormal2_10_10_10(normals[i/3]);
+        uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i*vtxSize;
+        memcpy(ptr, positions[i].pointer, 3*4);
+        ((uint32_t*)(ptr+12))[0] = normal;
+        if (hasColor)
+            memcpy(ptr+16, colors.data()+i/3, 4);
+    }
+
+	desc->mapVertexAttrBuffer(vertexBuf, EVAI_ATTR0, ECPA_THREE, ECT_FLOAT, vtxSize, 0);
+	desc->mapVertexAttrBuffer(vertexBuf, EVAI_ATTR3, ECPA_FOUR, ECT_INT_2_10_10_10_REV, vtxSize, 12);
+    if (hasColor)
+	    desc->mapVertexAttrBuffer(vertexBuf, EVAI_ATTR1, ECPA_REVERSED_OR_BGRA, ECT_NORMALIZED_UNSIGNED_BYTE, vtxSize, 16);
 	vertexBuf->drop();
-	meshbuffer->setIndexCount(vertices.size());
+
+	mesh->getMeshBuffer(0)->setIndexCount(positions.size());
+    //mesh->getMeshBuffer(0)->setPrimitiveType(EPT_POINTS);
 	mesh->recalculateBoundingBox(true);
 
 	return mesh;
@@ -253,4 +281,3 @@ void CSTLMeshFileLoader::goNextLine(io::IReadFile* file) const
 
 
 #endif // _IRR_COMPILE_WITH_STL_LOADER_
-

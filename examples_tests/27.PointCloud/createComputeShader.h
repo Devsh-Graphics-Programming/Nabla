@@ -45,9 +45,25 @@ inline unsigned createComputeShader(const char* _src)
     return program;
 }
 
-inline unsigned createComputeShaderFromFile(irr::io::path _path)
+inline size_t loadFileContentsAsStr(const char* _path, void*& _dst)
 {
-    printf("BUILDING CS %s\n", _path.c_str());
+    using namespace irr;
+    using namespace io;
+    IReadFile* file = new CReadFile(_path);
+
+    const size_t fsz = file->getSize();
+
+    _dst = malloc(fsz+1);
+    file->read(_dst, fsz);
+    ((uint8_t*)_dst)[fsz] = 0u;
+
+    file->drop();
+
+    return fsz+1;
+}
+inline unsigned createComputeShaderFromFile(const char* _path)
+{
+    printf("BUILDING CS %s\n", _path);
     using namespace irr;
     using namespace io;
     IReadFile* file = new CReadFile(_path);

@@ -1,0 +1,131 @@
+#version 430 core
+#define WG_SIZE 256
+layout(local_size_x = WG_SIZE) in;
+
+#define G_IDX gl_GlobalInvocationID.x
+#define LC_IDX gl_LocalInvocationIndex
+
+layout(std430, binding = 0) buffer Indices4 {
+	uvec4 indicesv4[];
+};
+layout(std430, binding = 0) buffer Indices {
+	uint indicesui[];
+};
+layout(std430, binding = 1) restrict readonly buffer Positions {
+	vec4 pos[];
+};
+
+layout(std140, binding = 0) uniform Control {
+	vec4 camPos;
+	uint offset;
+	uint size;
+} ctrl;
+
+shared vec4 s_pos[WG_SIZE];
+shared uint s_vals[1024];
+
+vec4 getPos(uint i)
+{
+	if (i/WG_SIZE == gl_WorkGroupID.x)
+		return s_pos[i%WG_SIZE];
+	return pos[i];
+}
+
+float calcKey(uint i)
+{
+	if (i > ctrl.size)
+		return 1.0/0.0; // results in +INF from GLSL 410
+	vec3 v = ctrl.camPos.xyz - getPos(i).xyz;
+	return dot(v, v);
+}
+
+void storeIndicesToSmem(uvec4 d)
+{
+	s_vals[4*LC_IDX+0] = d.x;
+	s_vals[4*LC_IDX+1] = d.y;
+	s_vals[4*LC_IDX+2] = d.z;
+	s_vals[4*LC_IDX+3] = d.w;
+}
+
+void main()
+{
+	if (G_IDX < ctrl.size)
+		s_pos[LC_IDX] = pos[G_IDX];
+		
+	memoryBarrierShared();
+	barrier();
+
+	const uint IDX = G_IDX + ctrl.offset;
+	
+	uvec4 idx = indicesv4[IDX];
+	if (4*IDX+0 >= ctrl.size)
+		idx.x = 0xffffffff;
+	if (4*IDX+1 >= ctrl.size)
+		idx.y = 0xffffffff;
+	if (4*IDX+2 >= ctrl.size)
+		idx.z = 0xffffffff;
+	if (4*IDX+3 >= ctrl.size)
+		idx.w = 0xffffffff;
+	vec4 k = vec4(
+		calcKey(idx.x),
+		calcKey(idx.y),
+		calcKey(idx.z),
+		calcKey(idx.w)
+	);
+	
+	const bool dont = (gl_WorkGroupID.x == gl_NumWorkGroups.x-1 && ctrl.size % (4*WG_SIZE) != 0);
+	bvec2 cmp = (!dont && (LC_IDX & 1) == 0) ? lessThan(k.xz, k.yw) : greaterThan(k.xz, k.yw);
+	k = mix(k, k.yxwz, cmp.xxyy);
+	idx = uvec4(mix(idx, idx.yxwz, cmp.xxyy)); // mix returns vec4 (4 floats) here for some reason...
+	
+	cmp = (!dont && (LC_IDX & 1) == 0) ? lessThan(k.xy, k.zw) : greaterThan(k.xy, k.zw);
+	k = mix(k, k.zwxy, cmp.xyxy);
+	idx = uvec4(mix(idx, idx.zwxy, cmp.xyxy)); // here again
+	
+	cmp.x = (!dont && (LC_IDX & 1) == 0) ? (k.y < k.z) : (k.y > k.z);
+	idx.y = uint(mix(idx.y, idx.z, cmp.x)); // and here float instead of uint..
+	
+	storeIndicesToSmem(idx);
+	memoryBarrierShared();
+	barrier();
+	
+	for (uint sz = 8; sz <= 4*WG_SIZE; sz <<= 1)
+	{
+		for (uint str = sz>>1; str > 0; str >>= 1)
+		{
+			memoryBarrierShared();
+			barrier();
+			for (uint i = 0; i < 4; ++i)
+			{
+				const uint p0 = 4*LC_IDX + i + str, p1 = 4*LC_IDX + i;
+				if (!dont && (p1 ^ str) > p1)
+				{
+					const uint v0 = s_vals[p0], v1 = s_vals[p1];
+					const float k0 = calcKey(v0), k1 = calcKey(v1);
+					
+					if ((p1 & sz) == 0)
+					{
+						if (k0 < k1)
+						{
+							s_vals[p1] = v0;
+							s_vals[p0] = v1;
+						}
+					}
+					else
+					{
+						if (k1 < k0)
+						{
+							s_vals[p1] = v0;
+							s_vals[p0] = v1;
+						}
+					}
+				}
+			}
+		}
+	}
+	memoryBarrierShared();
+	barrier();
+	
+	for (uint i = 0; i < 4 && 4*IDX+i < ctrl.size; ++i)
+		indicesui[4*IDX+i] = s_vals[4*LC_IDX+i];
+}
