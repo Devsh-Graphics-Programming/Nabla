@@ -8,7 +8,7 @@
 #ifndef _FW_MUTEX_H_
 #define _FW_MUTEX_H_
 
-#define FW_MUTEX_H_CXX11_IMPL
+//#define FW_MUTEX_H_CXX11_IMPL
 
 #if defined(FW_MUTEX_H_CXX11_IMPL)
 
