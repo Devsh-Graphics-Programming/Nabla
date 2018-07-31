@@ -124,17 +124,17 @@ int main()
     scene::ICPUMesh* cpumesh = smgr->getGeometryCreator()->createCubeMeshCPU();
     video::ITexture* texture = driver->getTexture("../tex.jpg");
 
-    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 64u, { 728u, 728u });
-    video::ITexture* newTexture = blur->createBlurredTexture(texture);
-    cpumesh->getMeshBuffer(0)->getMaterial().setTexture(0, newTexture);
-    blur->drop();
+    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 17u, { 728u, 728u });
+    cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+    cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
-    scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
-    smgr->addMeshSceneNode(gpumesh)->setMaterialType(newMaterialType);
+    scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
+    video::SMaterial& mutableMaterial = smgr->addMeshSceneNode(gpumesh)->getMaterial(0);
+    mutableMaterial.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     gpumesh->drop();
 
     cpumesh->getMeshBuffer(0)->getMaterial().setTexture(0, texture);
-    gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
+    gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
     smgr->addMeshSceneNode(gpumesh, nullptr, -1, vector3df(10.f, 0.f, 0.f))->setMaterialType(newMaterialType);
     gpumesh->drop();
 
@@ -146,9 +146,16 @@ int main()
     {
         driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 
-        //! This animates (moves) the camera and sets the transforms
-        //! Also draws the meshbuffer
+        //! Split the function, utility createTextureForBlur (optional) and the blur(video::ITexture*) function to blur into custom tex
+        //! Require (with assert) that the texture be ETT_2D, some format of half-float (R,RG,RGBA) and the correct size.
+        video::ITexture* newTexture = blur->createBlurredTexture(texture);
+        mutableMaterial.TextureLayer[0].Texture = newTexture;
+
         smgr->drawAll();
+
+        //! dont want to re-create a texture every frame, do we?
+        if (newTexture)
+            driver->removeTexture(newTexture);
 
         driver->endScene();
 
@@ -163,6 +170,8 @@ int main()
             lastFPSTime = time;
         }
     }
+
+    blur->drop();
 
     //create a screenshot
     video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8, params.WindowSize);

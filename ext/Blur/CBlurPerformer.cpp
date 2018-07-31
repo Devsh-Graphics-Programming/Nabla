@@ -46,9 +46,9 @@ layout(binding = 0) uniform sampler2D in_tex;
 void main()
 {
     const uvec2 IDX = gl_GlobalInvocationID.xy; // each index corresponds to one pixel in downsampled texture
-	
+
     const ivec2 OUT_SIZE = ivec2(SIZE, SIZE);
-	
+
     vec2 coords = vec2(IDX) / vec2(OUT_SIZE);
     vec4 avg = (
         texture(in_tex, coords) +
@@ -70,8 +70,8 @@ constexpr const char* CS_PSUM_SRC = R"XDDD(
 #define WG_SIZE %u
 layout(local_size_x = WG_SIZE) in;
 
-#define NUM_BANKS 16
-#define LOG_NUM_BANKS 4
+#define NUM_BANKS 32
+#define LOG_NUM_BANKS 5
 #define CONFLICT_FREE_OFFSET(n) ((n) >> LOG_NUM_BANKS)
 
 #define LC_IDX gl_LocalInvocationIndex
@@ -84,14 +84,14 @@ layout(std430, binding = 1) restrict writeonly buffer Psum {
     vec3 outPsum[];
 };
 
-layout(location = 2) uniform uint bufoff; // start offset in `inSamples` buffer
-/*layout(std140, binding = 0) uniform Controls
+layout(std140, binding = 0) uniform Controls
 {
-    uvec2 outMlt;
-    uint bufoff; // start offset in `inSamples` buffer
+    uint iterNum;
+    uint padding;
+    uint inOffset;
     uint outOffset;
-    uint itrNum;
-};*/
+    uvec2 outMlt;
+};
 
 %s // here goes CS_CONVERSIONS
 
@@ -125,11 +125,11 @@ void downsweep(int d, inout uint offset)
         uint bi = offset*(2*LC_IDX+2)-1;
         ai += CONFLICT_FREE_OFFSET(ai);
         bi += CONFLICT_FREE_OFFSET(bi);
-            
+
         vec3 tmp = smem[ai];
         smem[ai] = smem[bi];
         smem[bi] += tmp;
-    }    
+    }
 }
 
 void main()
@@ -141,10 +141,10 @@ void main()
     const uint bi = LC_IDX + PS_SIZE/2;
     const uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
     const uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
-    
-    smem[ai + bankOffsetA] = (IN_START_IDX + bufoff + ai < inSamples.length()) ? decodeRgb(inSamples[IN_START_IDX + bufoff + ai]) : vec3(0);
-    smem[bi + bankOffsetB] = (IN_START_IDX + bufoff + bi < inSamples.length()) ? decodeRgb(inSamples[IN_START_IDX + bufoff + bi]) : vec3(0);
-    
+
+    smem[ai + bankOffsetA] = (IN_START_IDX + inOffset + ai < inSamples.length()) ? decodeRgb(inSamples[IN_START_IDX + inOffset + ai]) : vec3(0);
+    smem[bi + bankOffsetB] = (IN_START_IDX + inOffset + bi < inSamples.length()) ? decodeRgb(inSamples[IN_START_IDX + inOffset + bi]) : vec3(0);
+
     memoryBarrierShared();
     barrier();
 
@@ -155,7 +155,7 @@ void main()
     if (LC_IDX == 0) { smem[PS_SIZE-1 + CONFLICT_FREE_OFFSET(PS_SIZE-1)] = vec3(0); }
     memoryBarrierShared();
     barrier();
-   
+
     %s // here goes unrolled downsweep loop
 
     memoryBarrierShared();
@@ -186,16 +186,16 @@ layout(std430, binding = 1) restrict readonly buffer Psum {
 layout(binding = 0, rgba16f) uniform writeonly image2D out_img;
 #endif
 
-layout(location = 3) uniform uint outOffset;
-layout(location = 4) uniform uint iterNum;
-layout(location = 5) uniform uvec2 outMlt;
-/*layout(std140, binding = 0) uniform Controls
+
+layout(std140, binding = 0) uniform Controls
 {
-    uvec2 outMlt;
+    uint iterNum;
+    uint padding;
     uint inOffset;
     uint outOffset;
-    uint iterNum;
-};*/
+    uvec2 outMlt;
+};
+
 
 shared float smem_r[ACTUAL_SIZE];
 shared float smem_g[ACTUAL_SIZE];
@@ -221,7 +221,7 @@ void main()
         IDX = IDX.yx;
 
     const uint READ_IDX = gl_WorkGroupID.y * PS_SIZE + LC_IDX;
-        
+
     storeShared(LC_IDX, inPsum[READ_IDX]);
 
     memoryBarrierShared();
@@ -233,8 +233,8 @@ void main()
     const int L_IDX = int(LC_IDX) - RADIUS;
     const uint R_IDX = LC_IDX + RADIUS + 1;
     const uint R_EDGE_IDX = min(R_IDX, LAST_IDX);
-    
-    vec3 res = 
+
+    vec3 res =
         loadShared(R_EDGE_IDX)
         + (R_IDX - R_EDGE_IDX)*(loadShared(LAST_IDX) - loadShared(LAST_IDX-1)) // handle right overflow
         - ((L_IDX < FIRST_IDX) ? ((L_IDX - FIRST_IDX) * loadShared(FIRST_IDX)) : loadShared(L_IDX)); // also handle left overflow
@@ -247,10 +247,10 @@ void main()
 }
 )XDDD";
 
-inline unsigned createComputeShader(const char* _src)
+inline uint32_t createComputeShader(const char* _src)
 {
-    unsigned program = video::COpenGLExtensionHandler::extGlCreateProgram();
-	unsigned cs = video::COpenGLExtensionHandler::extGlCreateShader(GL_COMPUTE_SHADER);
+    uint32_t program = video::COpenGLExtensionHandler::extGlCreateProgram();
+	uint32_t cs = video::COpenGLExtensionHandler::extGlCreateShader(GL_COMPUTE_SHADER);
 
 	video::COpenGLExtensionHandler::extGlShaderSource(cs, 1, const_cast<const char**>(&_src), NULL);
 	video::COpenGLExtensionHandler::extGlCompileShader(cs);
@@ -289,15 +289,15 @@ inline unsigned createComputeShader(const char* _src)
 
 uint32_t CBlurPerformer::s_texturesEverCreatedCount{};
 
-CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, uint32_t _radius, core::vector2d<uint32_t> _outSize)
+CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, uint32_t _radius, core::vector2d<uint32_t> _outSize, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
 {
-    unsigned ds{}, ps{}, gblur{}, fblur{};
+    uint32_t ds{}, ps{}, gblur{}, fblur{};
 
     const size_t bufSize = std::max(strlen(CS_BLUR_SRC), std::max(strlen(CS_PSUM_SRC), strlen(CS_DOWNSAMPLE_SRC))) + strlen(CS_CONVERSIONS) + 1000u;
     char* src = (char*)malloc(bufSize);
 
     auto doCleaning = [&, ds, ps, gblur, fblur, src]() {
-        for (unsigned s : { ds, ps, gblur, fblur })
+        for (uint32_t s : { ds, ps, gblur, fblur })
             video::COpenGLExtensionHandler::extGlDeleteProgram(s);
         free(src);
         return nullptr;
@@ -310,23 +310,23 @@ CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, uint32
     if (!genPsumCs(src, bufSize, _outSize.X))
         return doCleaning();
     ps = createComputeShader(src);
-    
+
     if (!genBlurPassCs(src, bufSize, _outSize.X, _radius, 0))
         return doCleaning();
     gblur = createComputeShader(src);
-    
+
     if (!genBlurPassCs(src, bufSize, _outSize.X, _radius, 1))
         return doCleaning();
     fblur = createComputeShader(src);
 
-    for (unsigned s : {ds, ps, gblur, fblur})
+    for (uint32_t s : {ds, ps, gblur, fblur})
     {
         if (!s)
             return doCleaning();
     }
     free(src);
 
-    return new CBlurPerformer(_driver, ds, ps, gblur, fblur, _radius, _outSize);
+    return new CBlurPerformer(_driver, ds, ps, gblur, fblur, _radius, _outSize, uboBuffer, uboDataStaticOffset);
 }
 
 video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex) const
@@ -336,12 +336,13 @@ video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex
 
     bindSSBuffers();
 
+    //texture stuff
     {
-    video::STextureSamplingParams params;
-    params.UseMipmaps = 0;
-    params.MaxFilter = params.MinFilter = video::ETFT_LINEAR_NO_MIP;
-    params.TextureWrapU = params.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
-    const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(0, _inputTex, params);
+        video::STextureSamplingParams params;
+        params.UseMipmaps = 0;
+        params.MaxFilter = params.MinFilter = video::ETFT_LINEAR_NO_MIP;
+        params.TextureWrapU = params.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+        const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(0, _inputTex, params);
     }
 
     const uint32_t size[]{ m_outSize.X, m_outSize.Y};
@@ -357,12 +358,6 @@ video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex
     video::COpenGLExtensionHandler::extGlDispatchCompute((m_outSize.X+15)/16, (m_outSize.Y+15)/16, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    unsigned inOffset{}, outOffset{};
-    const core::vector2d<unsigned> HMLT(1u, m_outSize.X), VMLT(m_outSize.Y, 1u);
-    const core::vector2d<unsigned> multipliers[5]{ HMLT, HMLT, VMLT, VMLT, VMLT };
-
-    inOffset = 0u;
-    outOffset = m_outSize.X * m_outSize.Y;
 
     uint32_t i = 0u;
     for (; i < 5u; ++i)
@@ -370,36 +365,26 @@ video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex
         bindUbo(E_UBO_BINDING, i);
 
         video::COpenGLExtensionHandler::extGlUseProgram(m_psumCs);
-        video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_psumCs, E_IN_OFFSET_LOC, 1, &inOffset);
 
         video::COpenGLExtensionHandler::extGlDispatchCompute((i >= 3u ? m_outSize.X : m_outSize.Y), 1u, 1u);
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 
         video::COpenGLExtensionHandler::extGlUseProgram(m_blurGeneralCs);
-        video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurGeneralCs, E_ITER_NUM_LOC, 1, &i);
-        video::COpenGLExtensionHandler::extGlProgramUniform2uiv(m_blurGeneralCs, E_OUT_MLT_LOC, 1, &multipliers[i].X);
-        video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurGeneralCs, E_OUT_OFFSET_LOC, 1, &outOffset);
 
         video::COpenGLExtensionHandler::extGlDispatchCompute(1u, (i >= 3u ? m_outSize.X : m_outSize.Y), 1u);
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-        std::swap(inOffset, outOffset);
     }
 
     bindUbo(E_UBO_BINDING, i);
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_psumCs);
-    video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_psumCs, E_IN_OFFSET_LOC, 1, &inOffset);
 
     video::COpenGLExtensionHandler::extGlDispatchCompute(m_outSize.X, 1u, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_blurFinalCs);
-
-    video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurFinalCs, E_ITER_NUM_LOC, 1, &i);
-    video::COpenGLExtensionHandler::extGlProgramUniform1uiv(m_blurFinalCs, E_OUT_OFFSET_LOC, 1, &outOffset);
 
     video::COpenGLExtensionHandler::extGlDispatchCompute(1u, m_outSize.X, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -464,7 +449,7 @@ void CBlurPerformer::bindSSBuffers() const
     auxCtx->setActiveSSBO(E_SAMPLES_SSBO_BINDING, 2u, bufs, offsets, sizes);
 }
 
-auto irr::ext::Blur::CBlurPerformer::getCurrentImageBinding(unsigned _imgUnit) -> ImageBindingData
+auto irr::ext::Blur::CBlurPerformer::getCurrentImageBinding(uint32_t _imgUnit) -> ImageBindingData
 {
     using gl = video::COpenGLExtensionHandler;
 
@@ -479,30 +464,50 @@ auto irr::ext::Blur::CBlurPerformer::getCurrentImageBinding(unsigned _imgUnit) -
     return data;
 }
 
-void irr::ext::Blur::CBlurPerformer::bindImage(unsigned _imgUnit, const ImageBindingData& _data)
+void irr::ext::Blur::CBlurPerformer::bindImage(uint32_t _imgUnit, const ImageBindingData& _data)
 {
     video::COpenGLExtensionHandler::extGlBindImageTexture(_imgUnit, _data.name, _data.level, _data.layered, _data.layer, _data.access, _data.format);
 }
 
-void CBlurPerformer::setUpUbo()
+void CBlurPerformer::writeUBOData()
 {
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|video::IDriverMemoryAllocation::EMCF_COHERENT;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    reqs.vulkanReqs.size = getRequiredUBOSize(m_driver);
+    video::IGPUBuffer* stagingBuf = m_driver->createGPUBufferOnDedMem(reqs);
+
+    uint8_t* mappedPtr = reinterpret_cast<uint8_t*>(stagingBuf->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE,{0,reqs.vulkanReqs.size}));
+
+    //! all of the above to move out of writeUBOData function
+
     const core::vector2d<uint32_t> HMLT(1u, m_outSize.X), VMLT(m_outSize.Y, 1u);
     const core::vector2d<uint32_t> multipliers[6]{ HMLT, HMLT, VMLT, VMLT, VMLT, HMLT };
     uint32_t inOffset = 0u;
     uint32_t outOffset = m_outSize.X * m_outSize.Y;
-
-    uint32_t data[5 * 6];
     for (uint32_t i = 0u; i < 6u; ++i)
     {
-        memcpy(data + i*5, &multipliers[i].X, 2*4);
-        data[i*5 + 2] = inOffset;
-        data[i*5 + 3] = outOffset;
-        data[i*5 + 4] = i;
+        BlurPassUBO* destPtr = reinterpret_cast<BlurPassUBO*>(mappedPtr+i*m_paddedUBOSize);
+
+        destPtr->iterNum = i;
+        destPtr->inOffset = inOffset;
+        destPtr->outOffset = outOffset;
+        destPtr->outMlt[0] = multipliers[i].X;
+        destPtr->outMlt[1] = multipliers[i].Y;
 
         std::swap(inOffset, outOffset);
     }
 
-    m_ubo = m_driver->createGPUBuffer(sizeof(data), data, false, false, irr::video::EGBA_READ_WRITE);
+    //! all of the below to move out of writeUBOData function
+    stagingBuf->getBoundMemory()->unmapMemory();
+
+    m_driver->copyBuffer(stagingBuf,m_ubo,0,m_uboStaticOffset,reqs.vulkanReqs.size);
+
+    stagingBuf->drop();
 }
 
 void CBlurPerformer::bindUbo(uint32_t _bnd, uint32_t _part) const
@@ -510,8 +515,8 @@ void CBlurPerformer::bindUbo(uint32_t _bnd, uint32_t _part) const
     auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
 
     const video::COpenGLBuffer* buf{ static_cast<const video::COpenGLBuffer*>(m_ubo) };
-    ptrdiff_t offset = _part * (m_ubo->getSize() / 6);
-    ptrdiff_t size = m_ubo->getSize() / 6;
+    ptrdiff_t offset = _part * m_paddedUBOSize+m_uboStaticOffset;
+    ptrdiff_t size = m_paddedUBOSize;
 
     auxCtx->setActiveUBO(_bnd, 1u, &buf, &offset, &size);
 }

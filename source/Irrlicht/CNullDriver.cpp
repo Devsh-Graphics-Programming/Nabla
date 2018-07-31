@@ -21,7 +21,7 @@ namespace irr
 namespace video
 {
 
-FW_AtomicCounter CNullDriver::ReallocationCounter = 0;
+FW_AtomicCounter CNullDriver::ReallocationCounter(0);
 int32_t CNullDriver::incrementAndFetchReallocCounter()
 {
 // omg this has to be rewritten

@@ -1738,13 +1738,14 @@ void COpenGLDriver::SAuxContext::BoundIndexedBuffer<BIND_POINT,BIND_POINTS>::set
 
     uint32_t newFirst = BIND_POINTS;
     uint32_t newLast = 0;
+
     GLuint toBind[BIND_POINTS];
     for (uint32_t i=0; i<count; i++)
     {
         toBind[i] = buffers[i] ? buffers[i]->getOpenGLName():0;
 
         uint32_t actualIx = i+first;
-        if (boundBuffer[actualIx]!=buffers[i])
+        if (boundBuffer[actualIx]!=buffers[i]) //buffers are different
         {
             if (buffers[i])
                 buffers[i]->grab();
@@ -1752,9 +1753,15 @@ void COpenGLDriver::SAuxContext::BoundIndexedBuffer<BIND_POINT,BIND_POINTS>::set
                 boundBuffer[actualIx]->drop();
             boundBuffer[actualIx] = buffers[i];
         }
-        else if (!boundBuffer[actualIx]||boundBuffer[actualIx]->getLastTimeReallocated()<=lastValidatedBuffer[actualIx])
+        else if (!buffers[i]) //change of range on a null binding doesn't matter
+            continue;
+        else if (offsets[i]==boundOffsets[actualIx]&&
+                 sizes[i]==boundSizes[actualIx]&&
+                 buffers[i]->getLastTimeReallocated()<=lastValidatedBuffer[actualIx]) //everything has to be the same and up to date
             continue;
 
+        boundOffsets[actualIx] = offsets[i];
+        boundSizes[actualIx] = sizes[i];
         lastValidatedBuffer[actualIx] = boundBuffer[actualIx]->getLastTimeReallocated();
 
         newLast = i;
