@@ -8,7 +8,7 @@
 #ifndef _FW_MUTEX_H_
 #define _FW_MUTEX_H_
 
-#define FW_MUTEX_H_CXX11_IMPL
+//#define FW_MUTEX_H_CXX11_IMPL
 
 #if defined(FW_MUTEX_H_CXX11_IMPL)
 
@@ -244,10 +244,17 @@ not using add because we atomically wait for value to be 0 before swapping
 #define FW_FastLockRelease(lock) lock.store(0, std::memory_order_release)
 
 #define FW_AtomicCounter std::atomic_int
+
+//! DO WE NEED std::memory_order_seq_cst on THESE? (would really like to avoid)
 inline void FW_AtomicCounterIncr(FW_AtomicCounter &lock)
 {
-	if (lock.fetch_add(1, std::memory_order_acq_rel)+1 > FW_AtomicCounterMagicBlockVal)
-		while (lock >= FW_AtomicCounterMagicBlockVal) ;
+	if (lock.fetch_add(1, std::memory_order_acq_rel) >= FW_AtomicCounterMagicBlockVal)
+    {
+		while (lock >= FW_AtomicCounterMagicBlockVal)
+        {
+            std::this_thread::yield();
+        }
+    }
 }
 inline void FW_AtomicCounterDecr(FW_AtomicCounter &lock)
 {
@@ -255,9 +262,9 @@ inline void FW_AtomicCounterDecr(FW_AtomicCounter &lock)
 }
 inline void FW_AtomicCounterBlock(FW_AtomicCounter &lock)
 {
-	typename FW_AtomicCounter::value_type zero = 0;
+	int32_t zero = 0;
 
-	for (size_t i = 0; (!lock.compare_exchange_weak(zero, FW_AtomicCounterMagicBlockVal, std::memory_order_acq_rel) && i < 1000); ++i)
+	for (size_t i = 0; (!lock.compare_exchange_weak(zero, FW_AtomicCounterMagicBlockVal, std::memory_order_acq_rel) && i < 512); ++i)
 		zero = 0;
 
 	while (!lock.compare_exchange_weak(zero, FW_AtomicCounterMagicBlockVal, std::memory_order_acq_rel))
@@ -275,7 +282,7 @@ inline void FW_AtomicCounterDecrBlock(FW_AtomicCounter &lock)
 	{
 		//someone has a read or write block before we tried to swap access types
 		//so we release our lock completely and wait
-		lock.fetch_sub(FW_AtomicCounterMagicBlockVal, std::memory_order_relaxed); // acq_rel?
+		lock.fetch_sub(FW_AtomicCounterMagicBlockVal, std::memory_order_relaxed);
 		//we now own no locks and wait for a free gap
 		FW_AtomicCounterBlock(lock);
 	}
@@ -475,7 +482,9 @@ inline void FW_AtomicCounterUnBlockIncr(FW_AtomicCounter &lock)
 #endif
 
 #define FW_AtomicCounterInit(lock) FW_AtomicCounter lock = 0;
-
+#if defined(FW_MUTEX_H_CXX11_IMPL)
+    #undef FW_AtomicCounterInit
+#endif // defined
 
 
 #endif // _FW_MUTEX_H_

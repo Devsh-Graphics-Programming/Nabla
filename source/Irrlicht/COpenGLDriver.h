@@ -353,11 +353,15 @@ namespace video
             class BoundIndexedBuffer
             {
                     const COpenGLBuffer* boundBuffer[BIND_POINTS];
+                    ptrdiff_t boundOffsets[BIND_POINTS];
+                    ptrdiff_t boundSizes[BIND_POINTS];
                     uint64_t lastValidatedBuffer[BIND_POINTS];
                 public:
                     BoundIndexedBuffer()
                     {
                         memset(boundBuffer,0,sizeof(boundBuffer));
+                        memset(boundOffsets,0,sizeof(boundOffsets));
+                        memset(boundSizes,0,sizeof(boundSizes));
                         memset(lastValidatedBuffer,0,sizeof(boundBuffer));
                     }
 
