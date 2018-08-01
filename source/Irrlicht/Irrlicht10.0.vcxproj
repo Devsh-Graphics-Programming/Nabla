@@ -30,7 +30,7 @@
     <ProjectName>Irrlicht</ProjectName>
     <ProjectGuid>{E08E042A-6C45-411B-92BE-3CC31331019F}</ProjectGuid>
     <RootNamespace>Irrlicht</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SDL-Debug|x64'" Label="Configuration">
@@ -748,24 +748,17 @@
     <ClCompile Include="CMeshSceneNodeInstanced.cpp" />
     <ClCompile Include="convert_utf\ConvertUTF.c" />
     <ClCompile Include="COpenCLHandler.cpp" />
+    <ClCompile Include="COpenGL1DTexture.cpp" />
+    <ClCompile Include="COpenGL1DTextureArray.cpp" />
     <ClCompile Include="COpenGL2DTexture.cpp" />
     <ClCompile Include="COpenGL2DTextureArray.cpp" />
     <ClCompile Include="COpenGL3DTexture.cpp" />
+    <ClCompile Include="COpenGLCubemapArrayTexture.cpp" />
     <ClCompile Include="COpenGLCubemapTexture.cpp" />
     <ClCompile Include="COpenGLFrameBuffer.cpp" />
     <ClCompile Include="COpenGLMultisampleTexture.cpp" />
     <ClCompile Include="COpenGLMultisampleTextureArray.cpp" />
-    <ClCompile Include="COpenGLOcclusionQuery.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Server|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Fast FPU|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='SDL-Debug|x64'">false</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="COpenGLPersistentlyMappedBuffer.cpp" />
     <ClCompile Include="COpenGLQuery.cpp" />
-    <ClCompile Include="COpenGLRenderBuffer.cpp" />
     <ClCompile Include="COpenGLTransformFeedback.cpp" />
     <ClCompile Include="COpenGLVAOSpec.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">true</ExcludedFromBuild>

@@ -16,10 +16,7 @@
     <ClCompile Include="COpenGL3DTexture.cpp" />
     <ClCompile Include="COpenGLCubemapTexture.cpp" />
     <ClCompile Include="COpenGLFrameBuffer.cpp" />
-    <ClCompile Include="COpenGLOcclusionQuery.cpp" />
-    <ClCompile Include="COpenGLPersistentlyMappedBuffer.cpp" />
     <ClCompile Include="COpenGLQuery.cpp" />
-    <ClCompile Include="COpenGLRenderBuffer.cpp" />
     <ClCompile Include="COpenGLTransformFeedback.cpp" />
     <ClCompile Include="coreutil.cpp" />
     <ClCompile Include="COSOperator.cpp" />
@@ -230,6 +227,9 @@
     <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="COverdrawMeshOptimizer.cpp" />
     <ClCompile Include="COpenGLVAOSpec.cpp" />
+    <ClCompile Include="COpenGL1DTexture.cpp" />
+    <ClCompile Include="COpenGL1DTextureArray.cpp" />
+    <ClCompile Include="COpenGLCubemapArrayTexture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
