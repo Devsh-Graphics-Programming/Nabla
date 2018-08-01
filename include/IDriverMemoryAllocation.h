@@ -32,6 +32,23 @@ class IDriverMemoryAllocation : public virtual IReferenceCounted
             size_t length;
         };
 
+        //! Similar to VkMappedMemoryRange but no pNext
+        struct MappedMemoryRange
+        {
+            MappedMemoryRange(IDriverMemoryAllocation* mem, const size_t& off, const size_t& len) : memory(mem), range(off,len) {}
+
+            IDriverMemoryAllocation* memory;
+            union
+            {
+                MemoryRange range;
+                struct
+                {
+                    size_t offset;
+                    size_t length;
+                };
+            };
+        };
+
         //! Enumeration for Driver allocated memory location
         /**  For specifying your wish as to where you want the memory to live.
         This can only be guaranteed on Vulkan, in OpenGL these are just hints.
