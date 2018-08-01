@@ -10,11 +10,47 @@
 
 //! When a new include file irrMemory.h will be made the following will move there
 //! -- these are stubs not used anywhere yet
-#define _IRR_NEW_OBJ(_obj)      new _obj
-#define _IRR_DELETE_OBJ(_obj)   delete _obj
 
-#define _IRR_NEW_ARRAY(_obj)    new _obj[]
-#define _IRR_DELETE_ARRAY(_obj) delete [] _obj
+//TODO FInal: Allow overrides of Global New and Delete ???
+
+//TODO Mid: Define Lambda functions for _IRR_*_ALIGNED
+
+//TOTO Now: Create a irr::AllocatedByStaticAllocator<StaticAllocator> class
+//TOTO Now: Create a irr::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
+
+
+//! TODO: Implement StaticAllocator<ALIGN> that respects custom alignment with boost::align and progress the defines
+#define _IRR_NEW_ALIGNED_W_ALLOCATOR(_obj_type,_align,_static_allocator)                new _obj_type
+#define _IRR_DELETE_ALIGNED_W_ALLOCATOR(_obj,_static_allocator)                         delete _obj
+
+#define _IRR_NEW_ALIGNED_ARRAY_W_ALLOCATOR(_obj_type,count,_align,_static_allocator)    new _obj_type[count]
+#define _IRR_DELETE_ALIGNED_ARRAY_W_ALLOCATOR(_obj,_static_allocator)                   delete [] _obj
+
+
+#define _IRR_DEFAULT_ALLOCATOR //put std:: global alloc allocators
+#define _IRR_NEW_ALIGNED(_obj_type,_align)                                              _IRR_NEW_ALIGNED_W_ALLOCATOR(_obj_type,_align,_IRR_DEFAULT_ALLOCATOR)
+#define _IRR_DELETE_ALIGNED(_obj)                                                       _IRR_DELETE_ALIGNED_W_ALLOCATOR(_obj,_IRR_DEFAULT_ALLOCATOR)
+
+#define _IRR_NEW_ALIGNED_ARRAY(_obj_type,count,_align)                                  _IRR_NEW_ALIGNED_ARRAY_W_ALLOCATOR(_obj_type,count,_align,_IRR_DEFAULT_ALLOCATOR)
+#define _IRR_DELETE_ALIGNED_ARRAY(_obj)                                                 _IRR_DELETE_ALIGNED_ARRAY_W_ALLOCATOR(_obj,_IRR_DEFAULT_ALLOCATOR)
+
+
+#define _IRR_SIMD_ALIGNMENT                 32 // change to 64 for AVX2 compatibility
+#define _IRR_DEFAULT_ALIGNMENT(_obj_type)   (std::alignment_of<_obj_type>::value>(_IRR_SIMD_ALIGNMENT) ? std::alignment_of<_obj_type>::value:(_IRR_SIMD_ALIGNMENT))
+
+//use these by default instead of new and delete
+#define _IRR_NEW(_obj_type)                                                             _IRR_NEW_ALIGNED(_obj_type,_IRR_DEFAULT_ALIGNMENT(_obj_type))
+#define _IRR_DELETE(_obj)                                                               _IRR_DELETE_ALIGNED(_obj)
+
+#define _IRR_NEW_ARRAY(_obj_type,count)                                                 _IRR_NEW_ALIGNED_ARRAY(_obj_type,count,_IRR_DEFAULT_ALIGNMENT(_obj_type))
+#define _IRR_DELETE_ARRAY(_obj)                                                         _IRR_DELETE_ALIGNED_ARRAY(_obj)
+
+//! Extra Utility Macros for when you don't want to always have to deduce the alignment but want to use a specific allocator
+#define _IRR_NEW_W_ALLOCATOR(_obj_type,_static_allocator)                               _IRR_NEW_ALIGNED_W_ALLOCATOR(_obj_type,_IRR_DEFAULT_ALIGNMENT(_obj_type),_static_allocator)
+#define _IRR_DELETE_W_ALLOCATOR(_obj,_static_allocator)                                 _IRR_DELETE_ALIGNED_W_ALLOCATOR(_obj,_static_allocator)
+
+#define _IRR_NEW_ARRAY_W_ALLOCATOR(_obj_type,_static_allocator)                         _IRR_NEW_ALIGNED_ARRAY_W_ALLOCATOR(_obj_type,_IRR_DEFAULT_ALIGNMENT(_obj_type),_static_allocator)
+#define _IRR_DELETE_ARRAY_W_ALLOCATOR(_obj,_static_allocator)                           _IRR_DELETE_ALIGNED_ARRAY_W_ALLOCATOR(_obj,_static_allocator)
 
 /*
 //this will always allocate to default _IRR_MEMORY_ALIGNMENT =32
@@ -58,18 +94,20 @@
 
 
 //! define a break macro for debugging.
-#if defined(_DEBUG)
 #if defined(_IRR_WINDOWS_API_) && defined(_MSC_VER) && !defined (_WIN32_WCE)
   #if defined(WIN64) || defined(_WIN64) // using portable common solution for x64 configuration
   #include <crtdbg.h>
-  #define _IRR_DEBUG_BREAK_IF( _CONDITION_ ) if (_CONDITION_) {_CrtDbgBreak();}
+  #define _IRR_BREAK_IF( _CONDITION_ ) if (_CONDITION_) {_CrtDbgBreak();}
   #else
-  #define _IRR_DEBUG_BREAK_IF( _CONDITION_ ) if (_CONDITION_) {_asm int 3}
+  #define _IRR_BREAK_IF( _CONDITION_ ) if (_CONDITION_) {_asm int 3}
   #endif
 #else
 #include "assert.h"
-#define _IRR_DEBUG_BREAK_IF( _CONDITION_ ) assert( !(_CONDITION_) );
+#define _IRR_BREAK_IF( _CONDITION_ ) assert( !(_CONDITION_) );
 #endif
+
+#if defined(_DEBUG)
+#define _IRR_DEBUG_BREAK_IF( _CONDITION_ ) _IRR_BREAK_IF(_CONDITION_)
 #else
 #define _IRR_DEBUG_BREAK_IF( _CONDITION_ )
 #endif
