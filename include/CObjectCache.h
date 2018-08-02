@@ -35,24 +35,25 @@ namespace impl
 
         using ValueType = typename ContainerT_T<K..., T>::value_type::second_type; // container's value_type is always instantiation of std::pair
         using NoPtrValueType = typename std::remove_pointer<ValueType>::type;
-        using PtrToConstVal_t = const NoPtrValueType*; // ValueType is always pointer to derivative of irr::IReferenceCounted type
+        using PtrToConstVal_t = const NoPtrValueType*; // ValueType is always pointer type
 
-        static_assert(std::is_base_of<IReferenceCounted, NoPtrValueType>::value, "CObjectCache<K, T, ContainerT_T>: T must be derivative of irr::IReferenceCounted");
-
-        std::function<void(ValueType)> m_disposalFunc;
+        std::function<void(ValueType)> m_greetingFunc, m_disposalFunc;
 
     protected:
+        void greet(ValueType _object) const
+        {
+            if (m_greetingFunc)
+                m_greetingFunc(_object);
+        }
         void dispose(ValueType _object) const
         {
-            if (m_disposalFunc == nullptr)
-                _object->drop();
-            else
+            if (m_disposalFunc)
                 m_disposalFunc(_object);
         }
 
     public:
-        explicit CObjectCacheBase(const std::function<void(ValueType)>& _disposal) : m_disposalFunc(_disposal) {}
-        explicit CObjectCacheBase(std::function<void(ValueType)>&& _disposal) : m_disposalFunc(std::move(_disposal)) {}
+        explicit CObjectCacheBase(const std::function<void(ValueType)>& _greeting, const std::function<void(ValueType)>& _disposal) : m_greetingFunc(_greeting), m_disposalFunc(_disposal) {}
+        explicit CObjectCacheBase(std::function<void(ValueType)>&& _greeting, std::function<void(ValueType)>&& _disposal) : m_greetingFunc(std::move(_greeting)), m_disposalFunc(std::move(_disposal)) {}
 
         bool contains(PtrToConstVal_t _object) const
         {
@@ -89,19 +90,20 @@ class CObjectCache<K, T, ContainerT_T, true> : public impl::CObjectCacheBase<Con
     }
 
 public:
-    explicit CObjectCache(const std::function<void(T*)>& _disposal) : impl::CObjectCacheBase<ContainerT_T, std::pair<K, T*>>(_disposal) {}
-    explicit CObjectCache(std::function<void(T*)>&& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT_T, std::pair<K, T*>>(std::move(_disposal)) {}
+    explicit CObjectCache(const std::function<void(T*)>& _greeting, const std::function<void(T*)>& _disposal) : impl::CObjectCacheBase<ContainerT_T, std::pair<K, T*>>(_greeting, _disposal) {}
+    explicit CObjectCache(std::function<void(T*)>&& _greeting = nullptr, std::function<void(T*)>&& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT_T, std::pair<K, T*>>(std::move(_greeting), std::move(_disposal)) {}
 
     bool insert(const K& _key, T* _val)
     {
-        if (_val)
-            _val->grab();
-        else
+        if (!_val)
             return false;
+
         const ValueType newVal{_key, _val};
         auto it = std::lower_bound(std::begin(m_container), std::end(m_container), newVal, &compare);
         if (it != std::end(m_container) && !(_key < it->first)) // used `<` instead of `==` operator here to keep consistency with std::map (so key type doesn't need to define operator==)
             return false;
+
+        greet(newVal.second);
         m_container.insert(it, newVal);
         return true;
     }
@@ -151,8 +153,8 @@ class CObjectCache<K, T, ContainerT_T, false> : public impl::CObjectCacheBase<Co
     static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
 
 public:
-    explicit CObjectCache(const std::function<void(T*)>& _disposal) : impl::CObjectCacheBase<ContainerT_T, T*, K>(_disposal) {}
-    explicit CObjectCache(std::function<void(T*)>&& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT_T, T*, K>(std::move(_disposal)) {}
+    explicit CObjectCache(const std::function<void(T*)>& _greeting, const std::function<void(T*)>& _disposal) : impl::CObjectCacheBase<ContainerT_T, T*, K>(_greeting, _disposal) {}
+    explicit CObjectCache(std::function<void(T*)>&& _greeting = nullptr, std::function<void(T*)>&& _disposal = nullptr) : impl::CObjectCacheBase<ContainerT_T, T*, K>(std::move(_greeting), std::move(_disposal)) {}
 
     bool insert(const K& _key, T* _val)
     {
