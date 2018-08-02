@@ -46,6 +46,17 @@ namespace video
 	    //! Low level function used to implement the above, use with caution
         virtual IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
 
+
+        //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the writes to become GPU visible
+        virtual void flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
+
+        //! Utility wrapper for the pointer based func
+        inline void flushMappedMemoryRanges(const std::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
+        {
+            flushMappedMemoryRanges(ranges.size(),ranges.data());
+        }
+
+
 	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
 	    inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(const size_t& size)
 	    {
@@ -117,7 +128,7 @@ namespace video
 	    }
 
 	    //! Low level function used to implement the above, use with caution
-        virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) = 0;
+        virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
 
 
         //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively

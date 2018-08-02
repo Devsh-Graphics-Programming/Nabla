@@ -102,11 +102,12 @@ namespace video
 	class IVideoDriver : public IDriver
 	{
 	public:
-	    //! This is marked for deprecation
+	    //! This is marked for deprecation (move to IAssetManager)
 	    virtual std::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> mesh) {return std::vector<scene::IGPUMesh*>();}
 
-	    //! make with VkBufferCopy
-        virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) = 0;
+	    //! make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
+        virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) {}
+
 
 
         virtual bool initAuxContext() = 0;

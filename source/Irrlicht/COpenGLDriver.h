@@ -86,6 +86,9 @@ namespace video
 
 	    virtual std::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> mesh);
 
+
+        virtual void flushBufferRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges);
+
         virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
 
 		//! clears the zbuffer

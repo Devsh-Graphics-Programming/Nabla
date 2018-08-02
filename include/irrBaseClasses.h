@@ -17,6 +17,12 @@
 namespace irr
 {
 
+/** TODO: Classes for objects requiring memory alignment
+1) Declare alignment on the parent class through a template
+**/
+
+
+//! TODO: fix EBO for MSVC on these
 class Uncopyable
 {
     public:
@@ -58,11 +64,5 @@ class TotalInterfaceUnmovable : public TotalInterface, public Unmovable
 };
 
 }
-
-/** TODO: Classes for objects requiring memory alignment
-1) Declare alignment on the parent class through a template (hoepfully alignment is inherited in C++11)
-2) Define a macro to delete the new and delete operators in a class OR override new/delete globally
-3) Also maybe override malloc, calloc, realloc and free
-**/
 
 #endif

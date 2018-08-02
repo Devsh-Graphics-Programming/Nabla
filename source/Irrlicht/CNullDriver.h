@@ -19,11 +19,6 @@
 #include "SExposedVideoData.h"
 #include "FW_Mutex.h"
 
-//#if _MSC_VER && !__INTEL_COMPILER
-//	#define FW_AtomicCounter volatile long
-//#elif defined(__GNUC__)
-//	#define FW_AtomicCounter volatile int32_t
-//#endif
 
 #ifdef _MSC_VER
 #pragma warning( disable: 4996)
@@ -55,14 +50,8 @@ namespace video
 		CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
 		//!
-		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) {return nullptr;}
-
-
         virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}
-
-
-	    virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
 
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
 				SColor color=SColor(255,0,0,0),
