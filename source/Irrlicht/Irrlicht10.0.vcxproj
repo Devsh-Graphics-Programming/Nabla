@@ -391,6 +391,7 @@
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
     <ClInclude Include="..\..\include\EMaterialFlags.h" />
     <ClInclude Include="..\..\include\IAnimatedMeshMD3.h" />
+    <ClInclude Include="..\..\include\IAssetManager.h" />
     <ClInclude Include="..\..\include\IEventReceiver.h" />
     <ClInclude Include="..\..\include\ILogger.h" />
     <ClInclude Include="..\..\include\IMetaGranularBuffer.h" />
@@ -551,6 +552,7 @@
     <ClInclude Include="aesGladman\aes_ni.h" />
     <ClInclude Include="aesGladman\brg_endian.h" />
     <ClInclude Include="aesGladman\brg_types.h" />
+    <ClInclude Include="CAssetManager.h" />
     <ClInclude Include="CDefaultSceneNodeAnimatorFactory.h" />
     <ClInclude Include="CDefaultSceneNodeFactory.h" />
     <ClInclude Include="CGeometryCreator.h" />
@@ -757,9 +759,7 @@
     <ClCompile Include="COpenGLFrameBuffer.cpp" />
     <ClCompile Include="COpenGLMultisampleTexture.cpp" />
     <ClCompile Include="COpenGLMultisampleTextureArray.cpp" />
-    <ClCompile Include="COpenGLPersistentlyMappedBuffer.cpp" />
     <ClCompile Include="COpenGLQuery.cpp" />
-    <ClCompile Include="COpenGLRenderBuffer.cpp" />
     <ClCompile Include="COpenGLTransformFeedback.cpp" />
     <ClCompile Include="COpenGLVAOSpec.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">true</ExcludedFromBuild>
@@ -859,6 +859,7 @@
     <ClCompile Include="CTRTextureGouraudNoZ2.cpp" />
     <ClCompile Include="CTRTextureGouraudVertexAlpha2.cpp" />
     <ClCompile Include="FW_Mutex.cpp" />
+    <ClCompile Include="CAssetManager.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
     <ClCompile Include="Irrlicht.cpp" />

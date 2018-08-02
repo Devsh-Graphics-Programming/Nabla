@@ -34,10 +34,10 @@ class CConcurrentObjectCache : private impl::CConcurrentObjectCacheBase, private
     using Base = CObjectCache<K, T, ContainerT_T>;
 
 public:
-    explicit CConcurrentObjectCache(const std::function<void(T*)>& _disposal) : CObjectCache<K, T, ContainerT_T>(_disposal) {}
-    explicit CConcurrentObjectCache(std::function<void(T*)>&& _disposal = nullptr) : CObjectCache<K, T, ContainerT_T>(std::move(_disposal)) {}
+	inline explicit CConcurrentObjectCache(const std::function<void(T*)>& _disposal) : CObjectCache<K, T, ContainerT_T>(_disposal) {}
+	inline explicit CConcurrentObjectCache(std::function<void(T*)>&& _disposal = nullptr) : CObjectCache<K, T, ContainerT_T>(std::move(_disposal)) {}
 
-    bool insert(const K& _key, T* _val)
+	inline bool insert(const K& _key, T* _val)
     {
         m_lock.lockWrite();
         const bool r = Base::insert(_key, _val);
@@ -45,26 +45,29 @@ public:
         return r;
     }
 
-    T* getByKey(const K& _key)
+	inline T* getByKey(const K& _key)
     {
         m_lock.lockRead();
         T* const r = Base::getByKey(_key);
         m_lock.unlockRead();
         return r;
     }
-    const T* getByKey(const K& _key) const
+	inline const T* getByKey(const K& _key) const
     {
-        return const_cast<typename std::remove_const<decltype(*this)>::type*>(this)->getByKey(_key);
+		m_lock.lockRead();
+		const T* const r = Base::getByKey(_key);
+		m_lock.unlockRead();
+		return r;
     }
 
-    void removeByKey(const K& _key)
+	inline void removeByKey(const K& _key)
     {
         m_lock.lockWrite();
         Base::removeByKey(_key);
         m_lock.unlockWrite();
     }
 
-    bool contains(const T* _object) const
+	inline bool contains(const T* _object) const
     {
         m_lock.lockRead();
         const bool r = Base::contains(_object);
@@ -72,7 +75,7 @@ public:
         return r;
     }
 
-    size_t getSize() const
+    inline size_t getSize() const
     {
         m_lock.lockRead();
         const size_t r = Base::getSize();
