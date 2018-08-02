@@ -34,8 +34,8 @@ class CConcurrentObjectCache : private impl::CConcurrentObjectCacheBase, private
     using Base = CObjectCache<K, T, ContainerT_T>;
 
 public:
-    explicit CConcurrentObjectCache(const std::function<void(T*)>& _disposal) : CObjectCache<K, T, ContainerT_T>(_disposal) {}
-    explicit CConcurrentObjectCache(std::function<void(T*)>&& _disposal = nullptr) : CObjectCache<K, T, ContainerT_T>(std::move(_disposal)) {}
+    explicit CConcurrentObjectCache(const std::function<void(T*)>& _greeting, const std::function<void(T*)>& _disposal) : CObjectCache<K, T, ContainerT_T>(_greeting, _disposal) {}
+    explicit CConcurrentObjectCache(std::function<void(T*)>&& _greeting = nullptr, std::function<void(T*)>&& _disposal = nullptr) : CObjectCache<K, T, ContainerT_T>(std::move(_greeting), std::move(_disposal)) {}
 
     bool insert(const K& _key, T* _val)
     {
