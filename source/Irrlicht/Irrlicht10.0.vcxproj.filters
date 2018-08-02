@@ -16,7 +16,6 @@
     <ClCompile Include="COpenGL3DTexture.cpp" />
     <ClCompile Include="COpenGLCubemapTexture.cpp" />
     <ClCompile Include="COpenGLFrameBuffer.cpp" />
-    <ClCompile Include="COpenGLOcclusionQuery.cpp" />
     <ClCompile Include="COpenGLPersistentlyMappedBuffer.cpp" />
     <ClCompile Include="COpenGLQuery.cpp" />
     <ClCompile Include="COpenGLRenderBuffer.cpp" />
@@ -562,6 +561,8 @@
     <ClInclude Include="COverdrawMeshOptimizer.h" />
     <ClInclude Include="..\..\include\matrix3x4SIMD.h" />
     <ClInclude Include="COpenGLVAOSpec.h" />
+    <ClInclude Include="..\..\include\CConcurrentObjectCache.h" />
+    <ClInclude Include="..\..\include\CObjectCache.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />

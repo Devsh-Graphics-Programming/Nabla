@@ -385,7 +385,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\include\CConcurrentObjectCache.h" />
     <ClInclude Include="..\..\include\CForsythVertexCacheOptimizer.h" />
+    <ClInclude Include="..\..\include\CObjectCache.h" />
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
     <ClInclude Include="..\..\include\EMaterialFlags.h" />
     <ClInclude Include="..\..\include\IAnimatedMeshMD3.h" />
@@ -755,14 +757,6 @@
     <ClCompile Include="COpenGLFrameBuffer.cpp" />
     <ClCompile Include="COpenGLMultisampleTexture.cpp" />
     <ClCompile Include="COpenGLMultisampleTextureArray.cpp" />
-    <ClCompile Include="COpenGLOcclusionQuery.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug - Server|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Server|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release - Fast FPU|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Debug|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='SDL-Debug|x64'">false</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="COpenGLPersistentlyMappedBuffer.cpp" />
     <ClCompile Include="COpenGLQuery.cpp" />
     <ClCompile Include="COpenGLRenderBuffer.cpp" />
