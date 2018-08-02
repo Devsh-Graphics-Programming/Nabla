@@ -1251,10 +1251,16 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 		return NULL;
 
 	ICPUMeshBuffer* dst = NULL;
-	if (const SCPUSkinMeshBuffer* smb = dynamic_cast<const SCPUSkinMeshBuffer*>(_src)) // we can do other checks for meshbuffer type than dynamic_cast
-		dst = new SCPUSkinMeshBuffer(*smb);
-	else
-		dst = new ICPUMeshBuffer(*_src);
+    if (const SCPUSkinMeshBuffer* smb = dynamic_cast<const SCPUSkinMeshBuffer*>(_src)) // we can do other checks for meshbuffer type than dynamic_cast // how then?
+    {
+        dst = new SCPUSkinMeshBuffer();
+        copyMeshBufferMemberVars(static_cast<SCPUSkinMeshBuffer*>(dst), smb);
+    }
+    else
+    {
+        dst = new ICPUMeshBuffer();
+        copyMeshBufferMemberVars(dst, _src);
+    }
 
 	if (!_src->getMeshDataAndFormat())
 		return dst;
@@ -1304,12 +1310,8 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 	for (size_t i = 0; i < newBuffers.size(); ++i)
 		newBuffers[i]->drop();
 
-	oldDesc->grab(); // Before setting (setMeshDataAndFormat below) dst has pointer to exact same desc as _src.
-	// Since we don't want to corrupt _src and dst, while setting new desc, would drop the old one we have to cummulate this drop by the grab.
 	dst->setMeshDataAndFormat(newDesc);
-
-	while (dst->getReferenceCount() > 1) // reference counter was also copied, so we're reducing it to 1
-		dst->drop();
+    newDesc->drop();
 
 	return dst;
 }
@@ -1892,6 +1894,63 @@ bool CMeshManipulator::compareFloatingPointAttribute(const core::vectorSIMDf& _a
 
     const core::vectorSIMDf err = errorFunc(_a, _b);
     return cmpFunc(err, _errMetric.epsilon, _cpa);
+}
+
+template<>
+void CMeshManipulator::copyMeshBufferMemberVars<scene::ICPUMeshBuffer>(scene::ICPUMeshBuffer* _dst, const scene::ICPUMeshBuffer* _src) const
+{
+    _dst->setBaseInstance(
+        _src->getBaseInstance()
+    );
+    _dst->setBaseVertex(
+        _src->getBaseVertex()
+    );
+    _dst->setIndexBufferOffset(
+        _src->getIndexBufferOffset()
+    );
+    _dst->setBoundingBox(
+        _src->getBoundingBox()
+    );
+    _dst->setIndexCount(
+        _src->getIndexCount()
+    );
+    _dst->setIndexType(
+        _src->getIndexType()
+    );
+    _dst->setInstanceCount(
+        _src->getInstanceCount()
+    );
+    _dst->setPrimitiveType(
+        _src->getPrimitiveType()
+    );
+    _dst->setPositionAttributeIx(
+        _src->getPositionAttributeIx()
+    );
+    _dst->getMaterial() = _src->getMaterial();
+    if (auto skinnedDst = dynamic_cast<scene::SCPUSkinMeshBuffer*>(_dst))
+    {
+        //assume that _src is also skinned mesh buf then
+        auto skinnedSrc = static_cast<const scene::SCPUSkinMeshBuffer*>(_src);
+        skinnedDst->setIndexRange(
+            skinnedSrc->getIndexMinBound(),
+            skinnedSrc->getIndexMaxBound()
+        );
+        skinnedDst->setMaxVertexBoneInfluences(
+            skinnedSrc->getMaxVertexBoneInfluences()
+        );
+    }
+}
+template<>
+void CMeshManipulator::copyMeshBufferMemberVars<scene::SCPUSkinMeshBuffer>(scene::SCPUSkinMeshBuffer* _dst, const scene::SCPUSkinMeshBuffer* _src) const
+{
+    copyMeshBufferMemberVars<scene::ICPUMeshBuffer>(_dst, _src);
+    _dst->setIndexRange(
+        _src->getIndexMinBound(),
+        _src->getIndexMaxBound()
+    );
+    _dst->setMaxVertexBoneInfluences(
+        _src->getMaxVertexBoneInfluences()
+    );
 }
 
 template<>
