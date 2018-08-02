@@ -34,8 +34,8 @@ class CConcurrentObjectCache : private impl::CConcurrentObjectCacheBase, private
     using Base = CObjectCache<K, T, ContainerT_T>;
 
 public:
-	inline explicit CConcurrentObjectCache(const std::function<void(T*)>& _disposal) : CObjectCache<K, T, ContainerT_T>(_disposal) {}
-	inline explicit CConcurrentObjectCache(std::function<void(T*)>&& _disposal = nullptr) : CObjectCache<K, T, ContainerT_T>(std::move(_disposal)) {}
+    inline explicit CConcurrentObjectCache(const std::function<void(T*)>& _greeting, const std::function<void(T*)>& _disposal) : CObjectCache<K, T, ContainerT_T>(_greeting, _disposal) {}
+    inline explicit CConcurrentObjectCache(std::function<void(T*)>&& _greeting = nullptr, std::function<void(T*)>&& _disposal = nullptr) : CObjectCache<K, T, ContainerT_T>(std::move(_greeting), std::move(_disposal)) {}
 
 	inline bool insert(const K& _key, T* _val)
     {
@@ -48,10 +48,11 @@ public:
 	inline T* getByKey(const K& _key)
     {
         m_lock.lockRead();
-        T* const r = Base::getByKey(_key);
+        T* r = Base::getByKey(_key);
         m_lock.unlockRead();
         return r;
     }
+
 	inline const T* getByKey(const K& _key) const
     {
 		m_lock.lockRead();

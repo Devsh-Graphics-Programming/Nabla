@@ -228,6 +228,9 @@
     <ClCompile Include="COverdrawMeshOptimizer.cpp" />
     <ClCompile Include="COpenGLVAOSpec.cpp" />
     <ClCompile Include="CAssetManager.cpp" />
+    <ClCompile Include="COpenGL1DTexture.cpp" />
+    <ClCompile Include="COpenGL1DTextureArray.cpp" />
+    <ClCompile Include="COpenGLCubemapArrayTexture.cpp" />  
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\EDriverFeatures.h" />

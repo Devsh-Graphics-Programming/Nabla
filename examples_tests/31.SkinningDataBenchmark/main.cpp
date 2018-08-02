@@ -5,7 +5,7 @@
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/CSkinnedMesh.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
-#include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
+//include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
 
 using namespace irr;
 using namespace core;
@@ -44,10 +44,8 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
 	int32_t mvpUniformLocation;
 	int32_t cameraDirUniformLocation;
-	int32_t texUniformLocation[4];
 	video::E_SHADER_CONSTANT_TYPE mvpUniformType;
 	video::E_SHADER_CONSTANT_TYPE cameraDirUniformType;
-	video::E_SHADER_CONSTANT_TYPE texUniformType[4];
 public:
 	SimpleCallBack() : cameraDirUniformLocation(-1), cameraDirUniformType(video::ESCT_FLOAT_VEC3) {}
 
@@ -65,16 +63,6 @@ public:
 				cameraDirUniformLocation = constants[i].location;
 				cameraDirUniformType = constants[i].type;
 			}
-			else if (constants[i].name == "tex0")
-			{
-				texUniformLocation[0] = constants[i].location;
-				texUniformType[0] = constants[i].type;
-			}
-			else if (constants[i].name == "tex3")
-			{
-				texUniformLocation[3] = constants[i].location;
-				texUniformType[3] = constants[i].type;
-			}
 		}
 	}
 
@@ -86,12 +74,6 @@ public:
 			services->setShaderConstant(&modelSpaceCamPos, cameraDirUniformLocation, cameraDirUniformType, 1);
 		if (mvpUniformLocation != -1)
 			services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation, mvpUniformType, 1);
-
-		int32_t id[] = { 0,1,2,3 };
-		if (texUniformLocation[0] != -1)
-			services->setShaderTextures(id + 0, texUniformLocation[0], texUniformType[0], 1);
-		if (texUniformLocation[3] != -1)
-			services->setShaderTextures(id + 3, texUniformLocation[3], texUniformType[3], 1);
 	}
 
 	virtual void OnUnsetMaterial() {}
@@ -197,12 +179,24 @@ size_t convertBuf5(const float* _src, float* _dst, const size_t _boneCnt, const 
 struct UBOManager
 {
     UBOManager(size_t _sz, video::IVideoDriver* _drv) :
-        ubo(_drv->createGPUBuffer(_sz, nullptr)),
         drv(_drv),
-        mappedBuf(_drv->createPersistentlyMappedBuffer(4*_sz, nullptr, video::EGBA_WRITE, false, false)),
         updateNum{0u},
         fence{nullptr, nullptr, nullptr, nullptr}
-    {}
+    {
+        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+        reqs.vulkanReqs.alignment = 4;
+        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
+        reqs.prefersDedicatedAllocation = true;
+        reqs.requiresDedicatedAllocation = true;
+        reqs.vulkanReqs.size = 4*_sz;
+        mappedBuf = drv->createGPUBufferOnDedMem(reqs);
+
+        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+        reqs.vulkanReqs.size = _sz;
+        ubo = drv->createGPUBufferOnDedMem(reqs);
+    }
     ~UBOManager()
     {
         mappedBuf->drop();
@@ -224,10 +218,10 @@ struct UBOManager
             }
         }
 
-        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(mappedBuf)->getPointer())) + updateNum*ubo->getSize() + _off, _data, _sz);
-        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(mappedBuf)->getOpenGLName(), updateNum*ubo->getSize() + _off, _sz);
+        memcpy(mappedBuf->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE, { updateNum*ubo->getSize(), ubo->getSize() }), _data, _sz);
+        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLBuffer*>(mappedBuf)->getOpenGLName(), updateNum*ubo->getSize() + _off, _sz);
 
-        drv->bufferCopy(mappedBuf, ubo, updateNum*ubo->getSize() + _off, _off, _sz);
+        drv->copyBuffer(mappedBuf, ubo, updateNum*ubo->getSize() + _off, _off, _sz);
 
         if (!fence)
             fence[updateNum] = drv->placeFence();
@@ -323,23 +317,31 @@ int main(int _argCnt, char** _args)
     convfptr_t convFunctions[5]{ &convertBuf1, &convertBuf2, &convertBuf3, &convertBuf4, &convertBuf5 };
 
 #define INSTANCE_CNT 100
-    auto anode = smgr->addSkinnedMeshSceneNode(static_cast<scene::IGPUSkinnedMesh*>(driver->createGPUMeshFromCPU(cpumesh)));
+    auto anode = smgr->addSkinnedMeshSceneNode(static_cast<scene::IGPUSkinnedMesh*>(driver->createGPUMeshesFromCPU({ cpumesh })[0]));
     // ^^ todo: this shouldn't be here. Draw mesh in some different way
     anode->setMaterialType(newMaterialType);
     anode->setScale(core::vector3df(0.5f));
+
     video::ITextureBufferObject* tbo = anode->getBonePoseTBO();
     video::IGPUBuffer* bonePosBuf = tbo->getBoundBuffer();
-    auto bufcopy = driver->createGPUBuffer(bonePosBuf->getSize(), nullptr, true, true, video::EGBA_READ_WRITE);
-    driver->bufferCopy(bonePosBuf, bufcopy, 0u, 0u, bonePosBuf->getSize());
+
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DONT_KNOW;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | video::IDriverMemoryAllocation::EMCF_COHERENT;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    reqs.vulkanReqs.size = bonePosBuf->getSize();
+    auto bufcopy = driver->createGPUBuffer(reqs, true);
+    driver->copyBuffer(bonePosBuf, bufcopy, 0u, 0u, bonePosBuf->getSize());
     void* contents = video::COpenGLExtensionHandler::extGlMapNamedBuffer(static_cast<video::COpenGLBuffer*>(bufcopy)->getOpenGLName(), GL_READ_ONLY);
     void* newContents = malloc(5152/*max possible size of matrices for dwarf mesh*/ * INSTANCE_CNT);
-    auto ssbuf = driver->createGPUBuffer(
-        convFunctions[method]((float*)contents, (float*)newContents, anode->getBoneCount(), INSTANCE_CNT),
-        newContents,
-        false,
-        false,
-        video::EGBA_READ
-    );
+
+    reqs.vulkanReqs.size = convFunctions[method]((float*)contents, (float*)newContents, anode->getBoneCount(), INSTANCE_CNT);
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+    auto ssbuf = driver->createGPUBuffer(reqs, true);
+    ssbuf->updateSubRange({ 0, ssbuf->getSize() }, newContents);
     free(newContents);
     video::COpenGLExtensionHandler::extGlUnmapNamedBuffer(static_cast<video::COpenGLBuffer*>(bufcopy)->getOpenGLName());
 
