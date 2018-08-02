@@ -35,7 +35,7 @@
 #define _IRR_DELETE_ALIGNED_ARRAY(_obj)                                                 _IRR_DELETE_ALIGNED_ARRAY_W_ALLOCATOR(_obj,_IRR_DEFAULT_ALLOCATOR)
 
 
-#define _IRR_SIMD_ALIGNMENT                 32 // change to 64 for AVX2 compatibility
+#define _IRR_SIMD_ALIGNMENT                 16 // change to 32 or 64 for AVX or AVX2 compatibility respectively, might break BaW file format!
 #define _IRR_DEFAULT_ALIGNMENT(_obj_type)   (std::alignment_of<_obj_type>::value>(_IRR_SIMD_ALIGNMENT) ? std::alignment_of<_obj_type>::value:(_IRR_SIMD_ALIGNMENT))
 
 //use these by default instead of new and delete
@@ -65,6 +65,13 @@
 */
 //! END of section
 
+
+//! For dumb MSVC which now has to keep a spec bug to avoid breaking existing source code
+#if defined(_MSC_VER)
+#define FORCE_EMPTY_BASE_OPT __declspec(empty_bases)
+#else
+#define FORCE_EMPTY_BASE_OPT
+#endif
 
 //this one needs to be declared for every single child class for it to work
 #define _IRR_NO_PUBLIC_DELETE(TYPE) \
