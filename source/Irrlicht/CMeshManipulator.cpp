@@ -1927,18 +1927,6 @@ void CMeshManipulator::copyMeshBufferMemberVars<scene::ICPUMeshBuffer>(scene::IC
         _src->getPositionAttributeIx()
     );
     _dst->getMaterial() = _src->getMaterial();
-    if (auto skinnedDst = dynamic_cast<scene::SCPUSkinMeshBuffer*>(_dst))
-    {
-        //assume that _src is also skinned mesh buf then
-        auto skinnedSrc = static_cast<const scene::SCPUSkinMeshBuffer*>(_src);
-        skinnedDst->setIndexRange(
-            skinnedSrc->getIndexMinBound(),
-            skinnedSrc->getIndexMaxBound()
-        );
-        skinnedDst->setMaxVertexBoneInfluences(
-            skinnedSrc->getMaxVertexBoneInfluences()
-        );
-    }
 }
 template<>
 void CMeshManipulator::copyMeshBufferMemberVars<scene::SCPUSkinMeshBuffer>(scene::SCPUSkinMeshBuffer* _dst, const scene::SCPUSkinMeshBuffer* _src) const
