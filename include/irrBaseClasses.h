@@ -5,7 +5,7 @@
 #ifndef __IRR_BASE_CLASSES_H_INCLUDED__
 #define __IRR_BASE_CLASSES_H_INCLUDED__
 
-#include "IrrCompileConfig.h".h"
+#include "IrrCompileConfig.h"
 #include "irrMacros.h"
 
 #define _IRR_INTERFACE_CHILD(TYPE) \
