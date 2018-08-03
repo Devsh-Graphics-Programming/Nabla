@@ -628,6 +628,7 @@
 		<Unit filename="IBurningShader.h" />
 		<Unit filename="IDepthBuffer.h" />
 		<Unit filename="IImagePresenter.h" />
+		<Unit filename="IReferenceCounted.cpp" />
 		<Unit filename="ISceneNodeAnimatorFinishing.h" />
 		<Unit filename="IZBuffer.h" />
 		<Unit filename="Irrlicht.cpp" />
