@@ -6,8 +6,10 @@
 #define __I_IREFERENCE_COUNTED_H_INCLUDED__
 
 #include "irrTypes.h"
-#include "irrMacros.h"
+#include "irrBaseClasses.h"
 //#include "irrMemory.h"
+
+#include <atomic>
 
 namespace irr
 {
@@ -40,7 +42,7 @@ namespace irr
 	the name of the method does not start with 'create'. The texture
 	is stored somewhere by the driver.
 	*/
-	class IReferenceCounted
+	class IReferenceCounted : public InterfaceUnmovable, Uncopyable
 	{
 	public:
 		//! Grabs the object. Increments the reference counter by one.
@@ -73,7 +75,7 @@ namespace irr
 		You will not have to drop the pointer to the loaded texture,
 		because the name of the method does not start with 'create'.
 		The texture is stored somewhere by the driver. */
-		void grab() const { ++ReferenceCounter; }
+		void grab() const { ReferenceCounter++; }
 
 		//! Drops the object. Decrements the reference counter by one.
 		/** The IReferenceCounted class provides a basic reference
@@ -105,24 +107,23 @@ namespace irr
 		\return True, if the object was deleted. */
 		bool drop() const
 		{
+			auto ctrVal = ReferenceCounter--;
 			// someone is doing bad reference counting.
-			_IRR_DEBUG_BREAK_IF(ReferenceCounter <= 0)
-
-			--ReferenceCounter;
-			if (!ReferenceCounter)
+			_IRR_DEBUG_BREAK_IF(ctrVal == 0)
+			if (ctrVal==1)
 			{
-				delete this;
+				delete this; //TODO: but todo much later, change to _IRR_DELETE_ETC
 				return true;
 			}
 
 			return false;
 		}
 
-		//! Get the reference count.
-		/** \return Current value of the reference counter. */
+		//! Get the reference count, due to threading it might be slightly outdated.
+		/** \return Recent value of the reference counter. */
 		int32_t getReferenceCount() const
 		{
-			return ReferenceCounter;
+			return ReferenceCounter.load();
 		}
 
 		//! Returns the debug name of the object.
@@ -139,8 +140,16 @@ namespace irr
 		IReferenceCounted()
 			: DebugName(0), ReferenceCounter(1)
 		{
+			_IRR_DEBUG_BREAK_IF(!ReferenceCounter.is_lock_free()) //incompatibile platform
+			/*
+#ifdef __cplusplus >= 201703L
+			static_assert(decltype(ReferenceCounter)::is_always_lock_free(),"Unsupported Platform, Lock-less Atomic Reference Couting is Impossible!");
+#endif // 
+			*/
 		}
 
+		// Old destructor, but needed virtual for abstractness!
+		// _IRR_INTERFACE_CHILD_DEFAULT(IReferenceCounted);
 		//! Destructor, no need to define really, but make it pure virtual to truly prevent instantiation.
 		virtual ~IReferenceCounted() = 0;
 
@@ -159,7 +168,7 @@ namespace irr
 		const char* DebugName;
 
 		//! The reference counter. Mutable to do reference counting on const objects.
-		mutable int32_t ReferenceCounter;
+		mutable std::atomic_uint32_t ReferenceCounter;
 	};
 
 } // end namespace irr
