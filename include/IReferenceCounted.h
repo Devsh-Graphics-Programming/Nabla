@@ -148,9 +148,10 @@ namespace irr
 			*/
 		}
 
-		//! Destructor.
-		_IRR_INTERFACE_CHILD_DEFAULT(IReferenceCounted);
-	protected:
+		// Old destructor, but needed virtual for abstractness!
+		// _IRR_INTERFACE_CHILD_DEFAULT(IReferenceCounted);
+		//! Destructor, no need to define really, but make it pure virtual to truly prevent instantiation.
+		virtual ~IReferenceCounted() = 0;
 
 		//! Sets the debug name of the object.
 		/** The Debugname may only be set and changed by the object
