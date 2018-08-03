@@ -85,6 +85,11 @@ public:
     virtual bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, E_COMPONENTS_PER_ATTRIBUTE _cpa, const SErrorMetric& _errMetric) const;
 
 private:
+    //! Copies only member variables not being pointers to another dynamically allocated irr::IReferenceCounted derivatives.
+    //! Purely helper function. Not really meant to be used outside createMeshBufferDuplicate().
+    template<typename T>
+    void copyMeshBufferMemberVars(T* _dst, const T* _src) const;
+
     template<typename IdxT>
     void priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const;
 
