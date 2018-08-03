@@ -4,6 +4,14 @@
 #include <cassert>
 #include <random>
 
+uint32_t getRandom(uint32_t min, uint32_t max) 
+{
+    static thread_local std::mt19937 generator;
+    return std::uniform_int_distribution<uint32_t>{min,max}(g);
+}
+#define RANDOM_MIN (1u<<17)
+#define RANDOM_MAX (1u<<19)
+
 class RefCounted : public irr::IReferenceCounted {};
 
 #define TEST_COUNT_AFTER
@@ -11,8 +19,10 @@ int main()
 {
     auto r = new RefCounted();
     omp_set_num_threads(256);
-#pragma omp parallel for schedule(dynamic)
-    for (int i = 0; i<256; i++)
+#pragma omp parallel
+{
+    #pragma omp for
+    for (int i = 0; i<256; ++i)
     {
         r->grab();
 
@@ -22,15 +32,16 @@ int main()
             r->drop();
         }
 #endif TEST_COUNT_AFTER
+    }
 
-//#pragma omp barrier
-//cannot be nested in parallel for
-
-        const size_t cnt = rand();
+    #pragma omp for
+  	for (int i = 0; i < 256; ++i)
+    {
+        const size_t cnt = getRandom(RANDOM_MIN, RANDOM_MAX);
         size_t ctr[2]{ 0u, 0u };
         while (ctr[0] < cnt || ctr[1] < cnt)
         {
-            switch (rand()%2)
+            switch (getRandom(0u, 1u))
             {
             case 0:
                 if (ctr[0] < cnt)
@@ -50,6 +61,7 @@ int main()
         }
         r->drop();
     }
+}//omp parallel
 #ifdef TEST_COUNT_AFTER
     assert(r->getReferenceCount() == 1);
     assert(r->drop());
