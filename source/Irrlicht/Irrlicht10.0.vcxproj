@@ -385,7 +385,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\include\CConcurrentObjectCache.h" />
     <ClInclude Include="..\..\include\CForsythVertexCacheOptimizer.h" />
+    <ClInclude Include="..\..\include\CObjectCache.h" />
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
     <ClInclude Include="..\..\include\EMaterialFlags.h" />
     <ClInclude Include="..\..\include\IAnimatedMeshMD3.h" />

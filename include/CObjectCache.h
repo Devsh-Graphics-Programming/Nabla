@@ -129,7 +129,6 @@ public:
             dispose(it->second);
             m_container.erase(it);
         }
-        std::sort(std::begin(m_container), std::end(m_container), &compare);
     }
 
 private:

@@ -1187,6 +1187,15 @@ IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SD
     return new COpenGLBuffer(extraMreqs, canModifySubData);
 }
 
+void COpenGLDriver::flushBufferRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+{
+    for (uint32_t i=0; i<memoryRangeCount; i++)
+    {
+        auto range = pMemoryRanges+i;
+        extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(range->memory)->getOpenGLName(),range->offset,range->length);
+    }
+}
+
 void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
 {
     COpenGLBuffer* readbuffer = static_cast<COpenGLBuffer*>(readBuffer);
