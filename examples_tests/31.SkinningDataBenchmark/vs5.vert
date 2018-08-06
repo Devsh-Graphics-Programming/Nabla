@@ -1,6 +1,6 @@
 #version 430 core
-layout(std140, binding = 0) uniform U { mat4 MVP; };
-//uniform mat4 MVP;
+//layout(std140, binding = 0) uniform U { mat4 MVP; };
+uniform mat4 MVP;
 
 layout(location = 0) in vec3 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
 layout(location = 2) in vec2 vTC;
@@ -10,31 +10,34 @@ layout(location = 6) in vec4 vBoneWeights;
 
 #define BONE_CNT 46
 #define INSTANCE_CNT 100
+struct PerInstanceData
+{
+	float gmat_00[BONE_CNT];
+	float gmat_01[BONE_CNT];
+	float gmat_02[BONE_CNT];
+	float gmat_03[BONE_CNT];
+	float gmat_10[BONE_CNT];
+	float gmat_11[BONE_CNT];
+	float gmat_12[BONE_CNT];
+	float gmat_13[BONE_CNT];
+	float gmat_20[BONE_CNT];
+	float gmat_21[BONE_CNT];
+	float gmat_22[BONE_CNT];
+	float gmat_23[BONE_CNT];
+	
+	float nmat_00[BONE_CNT];
+	float nmat_01[BONE_CNT];
+	float nmat_02[BONE_CNT];
+	float nmat_10[BONE_CNT];
+	float nmat_11[BONE_CNT];
+	float nmat_12[BONE_CNT];
+	float nmat_20[BONE_CNT];
+	float nmat_21[BONE_CNT];
+	float nmat_22[BONE_CNT];
+};
 layout(std430, binding = 0) readonly buffer InstData
 {
-	//boneCnt*instanceCnt == 46*100
-	float gmat_00[4600];
-	float gmat_01[4600];
-	float gmat_02[4600];
-	float gmat_03[4600];
-	float gmat_10[4600];
-	float gmat_11[4600];
-	float gmat_12[4600];
-	float gmat_13[4600];
-	float gmat_20[4600];
-	float gmat_21[4600];
-	float gmat_22[4600];
-	float gmat_23[4600];
-	
-	float nmat_00[4600];
-	float nmat_01[4600];
-	float nmat_02[4600];
-	float nmat_10[4600];
-	float nmat_11[4600];
-	float nmat_12[4600];
-	float nmat_20[4600];
-	float nmat_21[4600];
-	float nmat_22[4600];
+    PerInstanceData data[INSTANCE_CNT];
 };
 
 out vec3 Normal;
@@ -44,29 +47,29 @@ out vec3 lightDir;
 void fetchMatrices(out mat4x3 _g, out mat3 _n, in int _off)
 {
 	_g = mat4x3(
-		gmat_00[BONE_CNT*gl_InstanceID + _off],
-		gmat_01[BONE_CNT*gl_InstanceID + _off],
-		gmat_02[BONE_CNT*gl_InstanceID + _off],
-		gmat_03[BONE_CNT*gl_InstanceID + _off],
-		gmat_10[BONE_CNT*gl_InstanceID + _off],
-		gmat_11[BONE_CNT*gl_InstanceID + _off],
-		gmat_12[BONE_CNT*gl_InstanceID + _off],
-		gmat_13[BONE_CNT*gl_InstanceID + _off],
-		gmat_20[BONE_CNT*gl_InstanceID + _off],
-		gmat_21[BONE_CNT*gl_InstanceID + _off],
-		gmat_22[BONE_CNT*gl_InstanceID + _off],
-		gmat_23[BONE_CNT*gl_InstanceID + _off]
+		data[gl_InstanceID].gmat_00[_off],
+		data[gl_InstanceID].gmat_01[_off],
+		data[gl_InstanceID].gmat_02[_off],
+		data[gl_InstanceID].gmat_03[_off],
+		data[gl_InstanceID].gmat_10[_off],
+		data[gl_InstanceID].gmat_11[_off],
+		data[gl_InstanceID].gmat_12[_off],
+		data[gl_InstanceID].gmat_13[_off],
+		data[gl_InstanceID].gmat_20[_off],
+		data[gl_InstanceID].gmat_21[_off],
+		data[gl_InstanceID].gmat_22[_off],
+		data[gl_InstanceID].gmat_23[_off]
 	);
 	_n = mat3(
-		nmat_00[BONE_CNT*gl_InstanceID + _off],
-		nmat_01[BONE_CNT*gl_InstanceID + _off],
-		nmat_02[BONE_CNT*gl_InstanceID + _off],
-		nmat_10[BONE_CNT*gl_InstanceID + _off],
-		nmat_11[BONE_CNT*gl_InstanceID + _off],
-		nmat_12[BONE_CNT*gl_InstanceID + _off],
-		nmat_20[BONE_CNT*gl_InstanceID + _off],
-		nmat_21[BONE_CNT*gl_InstanceID + _off],
-		nmat_22[BONE_CNT*gl_InstanceID + _off]
+		data[gl_InstanceID].nmat_00[_off],
+		data[gl_InstanceID].nmat_01[_off],
+		data[gl_InstanceID].nmat_02[_off],
+		data[gl_InstanceID].nmat_10[_off],
+		data[gl_InstanceID].nmat_11[_off],
+		data[gl_InstanceID].nmat_12[_off],
+		data[gl_InstanceID].nmat_20[_off],
+		data[gl_InstanceID].nmat_21[_off],
+		data[gl_InstanceID].nmat_22[_off]
 	);
 }
 

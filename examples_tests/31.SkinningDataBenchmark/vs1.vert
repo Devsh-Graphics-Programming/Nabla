@@ -1,7 +1,7 @@
-#version 330 core
-uniform samplerBuffer tex3;
-layout(std140, binding = 0) uniform U { mat4 MVP; };
-//uniform mat4 MVP;
+#version 430 core
+layout(binding = 3) uniform samplerBuffer tex3;
+//layout(std140, binding = 0) uniform U { mat4 MVP; };
+uniform mat4 MVP;
 
 layout(location = 0) in vec3 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
 layout(location = 2) in vec2 vTC;

@@ -1,5 +1,6 @@
 #version 430 core
-layout(std140, binding = 0) uniform U { mat4 MVP; };
+//layout(std140, binding = 0) uniform U { mat4 MVP; };
+uniform mat4 MVP;
 
 layout(location = 0) in vec3 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
 layout(location = 2) in vec2 vTC;
@@ -9,10 +10,14 @@ layout(location = 6) in vec4 vBoneWeights;
 
 #define BONE_CNT 46
 #define INSTANCE_CNT 100
+struct PerInstanceData
+{
+	mat4x3 gmat[BONE_CNT];
+	mat3 nmat[BONE_CNT];   
+};
 layout(std430, binding = 0) readonly buffer InstData
 {
-	mat4x3 gmat[4600]; //boneCnt*instanceCnt == 46*100
-	mat3 nmat[4600];
+	PerInstanceData data[INSTANCE_CNT];
 };
 
 out vec3 Normal;
@@ -25,24 +30,24 @@ void linearSkin(out vec3 skinnedPos, out vec3 skinnedNormal, in ivec4 boneIDs, i
     //adding transformed weighted vertices is better than adding weighted matrices and then transforming
     //averaging matrices            = [1,4]*(21 fmads) + 15 fmads
     //averaging transformed verts   = [1,4]*(15 fmads + 7 muls)
-    skinnedPos = gmat[BONE_CNT*gl_IntanceID + boneIDs.x]*vec4(vPos*boneWeightsXYZBoneCountNormalized.x,boneWeightsXYZBoneCountNormalized.x);
-    skinnedNormal = nmat[BONE_CNT*gl_InstanceID + boneIDs.x]*(vNormal*boneWeightsXYZBoneCountNormalized.x);
+    skinnedPos = data[gl_InstanceID].gmat[boneIDs.x]*vec4(vPos*boneWeightsXYZBoneCountNormalized.x,boneWeightsXYZBoneCountNormalized.x);
+    skinnedNormal = data[gl_InstanceID].nmat[boneIDs.x]*(vNormal*boneWeightsXYZBoneCountNormalized.x);
 	// we have a choice, either branch and waste 8 cycles on if-statements, or waste 84 on zeroing out the arrays
     if (boneWeightsXYZBoneCountNormalized.w>0.25) //0.33333
     {
-        skinnedPos += gmat[BONE_CNT*gl_IntanceID + boneIDs.y]*vec4(vPos*vBoneWeights.y,vBoneWeights.y);
-        skinnedNormal += nmat[BONE_CNT*gl_InstanceID + boneIDs.y]*(vNormal*vBoneWeights.y);
+        skinnedPos += data[gl_InstanceID].gmat[boneIDs.y]*vec4(vPos*vBoneWeights.y,vBoneWeights.y);
+        skinnedNormal += data[gl_InstanceID].nmat[boneIDs.y]*(vNormal*vBoneWeights.y);
     }
     if (boneWeightsXYZBoneCountNormalized.w>0.5) //0.666666
     {
-        skinnedPos += gmat[BONE_CNT*gl_IntanceID + boneIDs.z]*vec4(vPos*vBoneWeights.z,vBoneWeights.z);
-        skinnedNormal += nmat[BONE_CNT*gl_InstanceID + boneIDs.z]*(vNormal*vBoneWeights.z);
+        skinnedPos += data[gl_InstanceID].gmat[boneIDs.z]*vec4(vPos*vBoneWeights.z,vBoneWeights.z);
+        skinnedNormal += data[gl_InstanceID].nmat[boneIDs.z]*(vNormal*vBoneWeights.z);
     }
     if (boneWeightsXYZBoneCountNormalized.w>0.75) //1.0
     {
         float lastWeight = 1.0-boneWeightsXYZBoneCountNormalized.x-boneWeightsXYZBoneCountNormalized.y-boneWeightsXYZBoneCountNormalized.z;
-        skinnedPos += gmat[BONE_CNT*gl_IntanceID + boneIDs.w]*vec4(vPos*lastWeight,lastWeight);
-        skinnedNormal += nmat[BONE_CNT*gl_InstanceID + boneIDs.w]*(vNormal*lastWeight);
+        skinnedPos += data[gl_InstanceID].gmat[boneIDs.w]*vec4(vPos*lastWeight,lastWeight);
+        skinnedNormal += data[gl_InstanceID].nmat[boneIDs.w]*(vNormal*lastWeight);
     }
 }
 

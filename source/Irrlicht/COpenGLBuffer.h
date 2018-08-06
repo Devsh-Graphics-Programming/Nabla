@@ -166,7 +166,7 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         #ifdef _DEBUG
             assert(((flags&(~cachedFlags))&(GL_MAP_READ_BIT|GL_MAP_WRITE_BIT))==0u);
         #endif // _DEBUG
-            mappedPtr = reinterpret_cast<uint8_t*>(COpenGLExtensionHandler::extGlMapNamedBufferRange(BufferName,memrange.offset,memrange.length,flags))-memrange.offset;`
+            mappedPtr = reinterpret_cast<uint8_t*>(COpenGLExtensionHandler::extGlMapNamedBufferRange(BufferName,memrange.offset,memrange.length,flags))-memrange.offset;
             return mappedPtr;
         }
 
