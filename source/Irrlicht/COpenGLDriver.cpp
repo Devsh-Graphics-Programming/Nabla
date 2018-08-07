@@ -2702,7 +2702,10 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
 {
     //check to implement later on renderbuffer creation and attachment of textures to FBO
     //if (!isFormatRenderable(glTex->getOpenGLInternalFormat()))
-        //return NULL;
+        //return nullptr;
+    //! Vulkan and D3D only allow PoT sample counts
+    if (core::isNPoT(samples))
+        return nullptr;
 
 	IMultisampleTexture* tex;
 	switch (type)
@@ -2714,7 +2717,7 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
             tex = new COpenGLMultisampleTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),samples,size,fixedSampleLocations);
             break;
         default:
-            tex = NULL;
+            tex = nullptr;
             break;
 	}
 
@@ -2728,7 +2731,7 @@ ITextureBufferObject* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, con
 {
     COpenGLBuffer* buffer = static_cast<COpenGLBuffer*>(buf);
     if (!buffer)
-        return NULL;
+        return nullptr;
 
     ITextureBufferObject* tbo = new COpenGLTextureBufferObject(buffer,format,offset,length);
 	CNullDriver::addTextureBufferObject(tbo);
@@ -2739,7 +2742,7 @@ IFrameBuffer* COpenGLDriver::addFrameBuffer()
 {
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
-        return NULL;
+        return nullptr;
 
 	IFrameBuffer* fbo = new COpenGLFrameBuffer(this);
     found->FrameBuffers.push_back(fbo);

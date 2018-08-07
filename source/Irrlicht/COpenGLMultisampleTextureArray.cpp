@@ -18,6 +18,7 @@ COpenGLMultisampleTextureArray::COpenGLMultisampleTextureArray(GLenum internalFo
 {
 #ifdef _DEBUG
 	setDebugName("COpenGLMultisampleTextureArray");
+	assert(core::isPoT(samples));
 #endif
     TextureSize[0] = size[0];
     TextureSize[1] = size[1];
@@ -38,6 +39,9 @@ bool COpenGLMultisampleTextureArray::resize(const uint32_t* size, const uint32_t
 {
     if (TextureSize[0]==size[0]&&TextureSize[1]==size[1]&&TextureSize[2]==size[2]&&SampleCount==sampleCount&&FixedSampleLocations==fixedSampleLocations)
         return true;
+
+    if (core::isNPoT(sampleCount))
+        return false;
 
     recreateName(getOpenGLTextureType());
 

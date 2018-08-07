@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.0)
 project(Irrlicht)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
@@ -320,8 +322,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	add_compile_options(
-		-std=c++11
+	add_compile_options( # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
+		-std=c++11 #add it to all C++ target objects but not C
 		-Wall
 		-Wextra
 		-Wno-unused-parameter
@@ -330,7 +332,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang
 		-msse3
 		-mfpmath=sse
 	)
-	if($<CONFIG:Release>)
+	if($<CONFIG:Release>) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
 		add_compile_options(
 			-O3
 			-fexpensive-optimizations
@@ -338,13 +340,13 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang
 			-fstack-protector-strong
 		)
 	endif()
-	if($<CONFIG:Debug>)
+	if($<CONFIG:Debug>) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
 		add_compile_options(
 			-fno-omit-frame-pointer
 			-fstack-protector-strong
 		)
 	endif()
-	if(FAST_MATH)
+	if(FAST_MATH) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
 		add_compile_options(
 			-ffast-math
 		)
@@ -373,7 +375,7 @@ include_directories(
 )
 
 if($<CONFIG:Debug>)
-	add_definitions(-D_DEBUG)
+	add_definitions(-D_DEBUG) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
 endif()
 
 if($<BOOL:FAST_MATH>)
