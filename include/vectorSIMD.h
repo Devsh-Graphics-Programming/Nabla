@@ -14,11 +14,16 @@
 #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
 #endif // __IRR_COMPILE_WITH_X86_SIMD_
 
-#include "irrMath.h"
+#include "irrMemory.h"
 #include "vector2d.h"
 #include "vector3d.h"
 #include <stdint.h>
 #include "SColor.h"
+
+
+
+#define _IRR_VECTOR_ALIGNMENT _IRR_SIMD_ALIGNMENT // if this gets changed to non-16 it can and will break external code
+
 
 namespace irr
 {
@@ -38,7 +43,7 @@ namespace core
 
 
     //a class for bitwise shizz
-	template <int components> class vectorSIMDBool
+	template <int components> class vectorSIMDBool : private AlignedBase<_IRR_VECTOR_ALIGNMENT>
     {
     public:
         inline vectorSIMDBool() {_mm_store_ps((float*)value,_mm_setzero_ps());}
@@ -88,14 +93,8 @@ NO BITSHIFTING SUPPORT
         //! in case you want to do your own SSE
         inline __m128i getAsRegister() const {return _mm_load_si128((__m128i*)value);}
 
-
-#ifdef _IRR_WINDOWS_
-        __declspec(align(SIMD_ALIGNMENT)) uint8_t value[16];
+        uint8_t value[16];
     };
-#else
-	uint8_t value[16];
-    } __attribute__ ((__aligned__(SIMD_ALIGNMENT)));
-#endif
 
 	//! partial specialization for variable width vectors
 	template <>
@@ -222,11 +221,7 @@ NO BITSHIFTING SUPPORT
     inline vectorSIMDf sqrt(const vectorSIMDf& a);
 
 
-#ifdef _IRR_WINDOWS_
-    __declspec(align(SIMD_ALIGNMENT)) class vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>
-#else
-    class vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>
-#endif
+    class vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, AlignedBase<_IRR_VECTOR_ALIGNMENT>
 	{
 	public:
 		//! Default constructor (null vector).
@@ -621,11 +616,7 @@ NO BITSHIFTING SUPPORT
             };
             float pointer[4];
         };
-#ifdef _IRR_WINDOWS_
-    };
-#else
-    } __attribute__ ((__aligned__(SIMD_ALIGNMENT)));
-#endif
+	};
 
 
     //! Returns component-wise absolute value of a
@@ -720,11 +711,7 @@ NO BITSHIFTING SUPPORT
 	inline vectorSIMDf dot(const vectorSIMDf& a, const vectorSIMDf& b)
     {
         __m128 xmm0 = a.getAsRegister();
-        __m128 xmm1 = b.getAsRegister();/*
-#ifdef __IRR_COMPILE_WITH_SSE4_1
-        xmm0 = _mm_dp_ps(xmm0,xmm1,);
-#error "Implementation in >=SSE4.1 not ready yet"
-#elif __IRR_COMPILE_WITH_SSE3*/
+        __m128 xmm1 = b.getAsRegister();
 #ifdef __IRR_COMPILE_WITH_SSE3
         xmm0 = _mm_mul_ps(xmm0,xmm1);
         xmm0 = _mm_hadd_ps(xmm0,xmm0);
@@ -769,7 +756,7 @@ NO BITSHIFTING SUPPORT
 
 
     template <class T>
-    class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>
+    class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, AlignedBase<_IRR_VECTOR_ALIGNMENT>
 	{
 	public:
 		//! Default constructor (null vector).
@@ -1023,11 +1010,7 @@ NO BITSHIFTING SUPPORT
 		}
 */
 
-#ifdef _IRR_WINDOWS_
-        __declspec(align(SIMD_ALIGNMENT)) union
-#else
-        union
-#endif
+        union alignas(_IRR_VECTOR_ALIGNMENT)
         {
             struct{
                 T X; T Y; T Z; T W;
@@ -1043,11 +1026,7 @@ NO BITSHIFTING SUPPORT
             };
             T pointer[4];
         };
-#ifdef _IRR_WINDOWS_
     };
-#else
-    } __attribute__ ((__aligned__(SIMD_ALIGNMENT)));
-#endif
 
 	//! Transposes matrix 4x4 given by 4 vectors
 	inline void transpose4(vectorSIMDf& _a0, vectorSIMDf& _a1, vectorSIMDf& _a2, vectorSIMDf& _a3)

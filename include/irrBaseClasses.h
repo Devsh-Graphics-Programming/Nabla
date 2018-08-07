@@ -5,8 +5,7 @@
 #ifndef __IRR_BASE_CLASSES_H_INCLUDED__
 #define __IRR_BASE_CLASSES_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-#include "irrMacros.h"
+#include "irrMemory.h"
 
 #define _IRR_INTERFACE_CHILD(TYPE) \
             _IRR_NO_PUBLIC_DELETE(TYPE)
@@ -16,11 +15,6 @@
 
 namespace irr
 {
-
-template<size_t object_alignment=_IRR_SIMD_ALIGNMENT>
-class FORCE_EMPTY_BASE_OPT alignas(object_alignment) AlignedBase
-{
-};
 
 class FORCE_EMPTY_BASE_OPT Uncopyable
 {

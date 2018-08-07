@@ -65,13 +65,7 @@ CMeshSceneNodeInstanced::~CMeshSceneNodeInstanced()
     if (cpuCulledLodInstanceDataBuffer)
         cpuCulledLodInstanceDataBuffer->drop();
     if (cpuCullingScratchSpace)
-    {
-#ifdef _IRR_WINDOWS_
-        _aligned_free(cpuCullingScratchSpace);
-#else
-        free(cpuCullingScratchSpace);
-#endif
-    }
+        _IRR_ALIGNED_FREE(cpuCullingScratchSpace);
 }
 
 void CMeshSceneNodeInstanced::setGPUCullingThresholdMultiplier(const double& multiplier)
@@ -106,13 +100,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, 
     if (cpuCulledLodInstanceDataBuffer)
         cpuCulledLodInstanceDataBuffer->drop();
     if (cpuCullingScratchSpace)
-    {
-#ifdef _IRR_WINDOWS_
-        _aligned_free(cpuCullingScratchSpace);
-#else
-        free(cpuCullingScratchSpace);
-#endif
-    }
+        _IRR_ALIGNED_FREE(cpuCullingScratchSpace);
     instanceDataBuffer = NULL;
     instanceBBoxes = NULL;
     gpuCulledLodInstanceDataBuffer = NULL;
@@ -176,11 +164,8 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(std::vector<MeshLoD> levelsOfDetail, 
         reqs.prefersDedicatedAllocation = true;
         reqs.requiresDedicatedAllocation = true;
         cpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createGPUBuffer(reqs,true);
-#ifdef _IRR_WINDOWS_
-        cpuCullingScratchSpace = (uint8_t*)_aligned_malloc(gpuCulledLodInstanceDataBuffer->getSize(),SIMD_ALIGNMENT);
-#else
-        posix_memalign((void**)&cpuCullingScratchSpace,SIMD_ALIGNMENT,gpuCulledLodInstanceDataBuffer->getSize());
-#endif
+
+        cpuCullingScratchSpace = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(gpuCulledLodInstanceDataBuffer->getSize(),_IRR_SIMD_ALIGNMENT));
     }
     else
         instanceCountThresholdForGPU = 0;
@@ -458,13 +443,8 @@ void CMeshSceneNodeInstanced::RecullInstances()
             video::IDriverMemoryBacked::SDriverMemoryRequirements reqs = cpuCulledLodInstanceDataBuffer->getMemoryReqs();
             reqs.vulkanReqs.size = LoD.size()*outputSizePerLoD;
             {auto rep = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,cpuCulledLodInstanceDataBuffer->canUpdateSubRange()); cpuCulledLodInstanceDataBuffer->pseudoMoveAssign(rep); rep->drop();}
-#ifdef _IRR_WINDOWS_
-            _aligned_free(cpuCullingScratchSpace);
-            cpuCullingScratchSpace = (uint8_t*)_aligned_malloc(cpuCulledLodInstanceDataBuffer->getSize(),SIMD_ALIGNMENT);
-#else
-            free(cpuCullingScratchSpace);
-            posix_memalign((void**)&cpuCullingScratchSpace,SIMD_ALIGNMENT,cpuCulledLodInstanceDataBuffer->getSize());
-#endif
+
+            _IRR_ALIGNED_FREE(cpuCullingScratchSpace);
         }
 
 //typedef uint32_t (*CPUCullingFunc)(uint8_t** outputPtrs, const void* instanceData, const core::matrix4& ProjViewWorldMat, const core::matrix4& ViewWorldMat, const core::matrix4& WorldMat, const float* ViewNormalMat, const float* NormalMat,

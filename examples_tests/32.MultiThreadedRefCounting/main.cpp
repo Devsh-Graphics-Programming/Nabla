@@ -4,12 +4,12 @@
 #include <cassert>
 #include <random>
 
-uint32_t getRandom(uint32_t min, uint32_t max) 
+uint32_t getRandom(uint32_t min, uint32_t max)
 {
     static thread_local std::mt19937 generator;
-    return std::uniform_int_distribution<uint32_t>{min,max}(g);
+    return std::uniform_int_distribution<uint32_t>{min,max}(generator);
 }
-#define RANDOM_MIN (1u<<17)
+#define RANDOM_MIN (1u<<18)
 #define RANDOM_MAX (1u<<19)
 
 class RefCounted : public irr::IReferenceCounted {};

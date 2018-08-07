@@ -141,11 +141,9 @@ namespace irr
 			: DebugName(0), ReferenceCounter(1)
 		{
 			_IRR_DEBUG_BREAK_IF(!ReferenceCounter.is_lock_free()) //incompatibile platform
-			/*
-#ifdef __cplusplus >= 201703L
+#if __cplusplus >= 201703L
 			static_assert(decltype(ReferenceCounter)::is_always_lock_free(),"Unsupported Platform, Lock-less Atomic Reference Couting is Impossible!");
-#endif // 
-			*/
+#endif //
 		}
 
 		// Old destructor, but needed virtual for abstractness!
@@ -168,7 +166,7 @@ namespace irr
 		const char* DebugName;
 
 		//! The reference counter. Mutable to do reference counting on const objects.
-		mutable std::atomic_uint32_t ReferenceCounter;
+		mutable std::atomic<uint32_t> ReferenceCounter;
 	};
 
 } // end namespace irr

@@ -361,8 +361,10 @@
 		<Unit filename="../../include/irrBaseClasses.h" />
 		<Unit filename="../../include/irrMacros.h" />
 		<Unit filename="../../include/irrMath.h" />
+		<Unit filename="../../include/irrMemory.h" />
 		<Unit filename="../../include/irrString.h" />
 		<Unit filename="../../include/irrTypes.h" />
+		<Unit filename="../../include/irrVoid_t.h" />
 		<Unit filename="../../include/irrlicht.h" />
 		<Unit filename="../../include/irrpack.h" />
 		<Unit filename="../../include/irrunpack.h" />

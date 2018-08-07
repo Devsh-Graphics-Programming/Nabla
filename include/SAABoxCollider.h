@@ -14,55 +14,6 @@ class SAABoxCollider
     public:
         SAABoxCollider(const aabbox3df& box) : Box(box) {}
 
-/**
-        static inline void* operator new(size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void operator delete(void* ptr)
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new[](size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void  operator delete[](void* ptr) throw()
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new(std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete(void* p,void* t) throw() {}
-        static inline void* operator new[](std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete[](void* p,void* t) throw() {}
-*/
-
 
         inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier, const vectorSIMDf& reciprocalDirection) const
         {
