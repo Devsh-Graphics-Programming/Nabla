@@ -7,10 +7,7 @@
 namespace irr { namespace core
 {
 
-#ifdef _IRR_WINDOWS_
-    __declspec(align(SIMD_ALIGNMENT))
-#endif
-class matrix4SIMD
+class matrix4SIMD : private AlignedBase<_IRR_SIMD_ALIGNMENT>
 {
     vectorSIMDf rows[4];
 
@@ -281,7 +278,6 @@ public:
         _vect += getTranslation();
     }
 
-#define BUILD_SHUFFLE_MASK(_x_, _y_, _z_, _w_) (_x | (_y<<2) | (z<<4) | (w<<6))
     inline matrix4SIMD& buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
     {
         const double h = core::reciprocal(tan(fieldOfViewRadians*0.5));
@@ -626,11 +622,7 @@ public:
 
 #undef BUILD_MASKF
 #undef BUILD_XORMASKF
-}
-#ifndef _IRR_WINDOWS_
-    __attribute__((__aligned__(SIMD_ALIGNMENT)))
-#endif
-;
+};
 
 inline matrix4SIMD operator*(float _scalar, const matrix4SIMD& _mtx)
 {
