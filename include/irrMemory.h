@@ -247,7 +247,6 @@ namespace impl
     //! Specialization for the base case of a single parameter whose type is AlignedBase (needed to specify default new and delete)
     /** Note regarding C++17, we don't overload the alignment on the versions with std::align_val_t.
     Why? Because we want to respect and not f-up the explicitly requested alignment. **/
-    template <>
     template <size_t object_alignment>
     class FORCE_EMPTY_BASE_OPT ResolveAlignment<AlignedBase<object_alignment> > :  public AlignedBase<object_alignment>
     {
