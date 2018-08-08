@@ -227,9 +227,10 @@
     <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="COverdrawMeshOptimizer.cpp" />
     <ClCompile Include="COpenGLVAOSpec.cpp" />
+    <ClCompile Include="CAssetManager.cpp" />
     <ClCompile Include="COpenGL1DTexture.cpp" />
     <ClCompile Include="COpenGL1DTextureArray.cpp" />
-    <ClCompile Include="COpenGLCubemapArrayTexture.cpp" />
+    <ClCompile Include="COpenGLCubemapArrayTexture.cpp" />  
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
@@ -564,6 +565,8 @@
     <ClInclude Include="COpenGLVAOSpec.h" />
     <ClInclude Include="..\..\include\CConcurrentObjectCache.h" />
     <ClInclude Include="..\..\include\CObjectCache.h" />
+    <ClInclude Include="CAssetManager.h" />
+    <ClInclude Include="..\..\include\IAssetManager.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />

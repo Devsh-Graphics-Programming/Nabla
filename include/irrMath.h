@@ -12,21 +12,8 @@
 #include <float.h>
 #include <stdlib.h> // for abs() etc.
 #include <limits.h> // For INT_MAX / UINT_MAX
+#include <type_traits>
 
-#if defined(_IRR_SOLARIS_PLATFORM_) || defined(__BORLANDC__) || defined (__BCPLUSPLUS__) || defined (_WIN32_WCE)
-	#define sqrtf(X) (float)sqrt((double)(X))
-	#define sinf(X) (float)sin((double)(X))
-	#define cosf(X) (float)cos((double)(X))
-	#define asinf(X) (float)asin((double)(X))
-	#define acosf(X) (float)acos((double)(X))
-	#define atan2f(X,Y) (float)atan2((double)(X),(double)(Y))
-	#define ceilf(X) (float)ceil((double)(X))
-	#define floorf(X) (float)floor((double)(X))
-	#define powf(X,Y) (float)pow((double)(X),(double)(Y))
-	#define fmodf(X,Y) (float)fmod((double)(X),(double)(Y))
-	#define fabsf(X) (float)fabs((double)(X))
-	#define logf(X) (float)log((double)(X))
-#endif
 
 #ifndef FLT_MAX
 #define FLT_MAX 3.402823466E+38F
@@ -339,6 +326,24 @@ namespace core
 	*/
 
 	typedef union { uint32_t u; int32_t s; float f; } inttofloat;
+
+
+    template<typename INT_TYPE>
+    inline constexpr bool isNPoT(INT_TYPE value)
+    {
+        static_assert(std::is_integral<INT_TYPE>::value, "Integral required.");
+        return value & (value - static_cast<INT_TYPE>(1));
+    }
+
+    template<typename INT_TYPE>
+    inline constexpr bool isPoT(INT_TYPE value)
+    {
+        return !isNPoT<INT_TYPE>(value);
+    }
+
+
+	//! KILL EVERYTHING BELOW???
+
 
 	#define F32_AS_S32(f)		(*((int32_t *) &(f)))
 	#define F32_AS_U32(f)		(*((uint32_t *) &(f)))

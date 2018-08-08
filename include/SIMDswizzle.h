@@ -1,24 +1,9 @@
 #ifndef _SIMD_SWIZZLE_H_
 #define _SIMD_SWIZZLE_H_
 
-/*
-class SIMD_SwizzleAbleGeneral
-{
-    public:
-        template<int out0,int out1,int out2,int out3,int out4,int out5,int out6,int out7>
-        inline __m128i shuffleFunc(__m128i reg) const
-        {
-            return;
-        }
-        template<int out0,int out1,int out2,int out3,int out4,int out5,int out6,int out7,int out8,int out9,int out10,int out11,int out12,int out13,int out14,int out15>
-        inline __m128i shuffleFunc(__m128i reg) const
-        {
-            return;
-        }
-};*/
 
 template <class T, class X>
-class SIMD_32bitSwizzleAble
+class FORCE_EMPTY_BASE_OPT SIMD_32bitSwizzleAble
 {
     template<int mask>
     inline X shuffleFunc(X reg) const;
@@ -312,7 +297,7 @@ inline __m128i SIMD_32bitSwizzleAble<vectorSIMD_32<uint32_t>,__m128i>::shuffleFu
 
 
 template <class T, class X>
-class SIMD_8bitSwizzleAble
+class FORCE_EMPTY_BASE_OPT SIMD_8bitSwizzleAble
 {
 	template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H, size_t I, size_t J, size_t K, size_t L, size_t M, size_t N, size_t O, size_t P>
 	inline T swizzle() const
@@ -323,7 +308,7 @@ class SIMD_8bitSwizzleAble
 };
 
 template <class T, class X>
-class SIMD_16bitSwizzleAble
+class FORCE_EMPTY_BASE_OPT SIMD_16bitSwizzleAble
 {
 	template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H>
 	inline T swizzle() const

@@ -36,13 +36,6 @@
 #endif
 
 
-
-#ifdef __IRR_COMPILE_WITH_AVX
-#define SIMD_ALIGNMENT 32
-#else
-#define SIMD_ALIGNMENT 16
-#endif // __IRR_COMPILE_WITH_AVX
-
 #endif
 
 #include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw

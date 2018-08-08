@@ -3,13 +3,16 @@
 
 #include <quaternion.h>
 
-namespace irr { namespace core
+namespace irr
 {
-#ifdef _IRR_WINDOWS_
-__declspec(align(SIMD_ALIGNMENT))
-#endif
+namespace core
+{
+
+#define _IRR_MATRIX_ALIGNMENT _IRR_SIMD_ALIGNMENT
+static_assert(_IRR_MATRIX_ALIGNMENT>=_IRR_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
+
 //! Equivalent of GLSL's mat4x3
-struct matrix3x4SIMD
+struct matrix3x4SIMD : private AlignedBase<_IRR_MATRIX_ALIGNMENT>
 {
 	core::vectorSIMDf rows[3];
 
@@ -577,11 +580,7 @@ private:
 		return res;
 	}
 #undef BROADCAST32
-}
-#ifndef _IRR_WINDOWS_
-__attribute__((__aligned__(SIMD_ALIGNMENT)));
-#endif
-;
+};
 
 inline plane3df transformPlane(const plane3df& _in, const matrix3x4SIMD& _mat)
 {

@@ -5,8 +5,7 @@
 #ifndef __IRR_BASE_CLASSES_H_INCLUDED__
 #define __IRR_BASE_CLASSES_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-#include "irrMacros.h"
+#include "irrMemory.h"
 
 #define _IRR_INTERFACE_CHILD(TYPE) \
             _IRR_NO_PUBLIC_DELETE(TYPE)
@@ -17,48 +16,42 @@
 namespace irr
 {
 
-/** TODO: Classes for objects requiring memory alignment
-1) Declare alignment on the parent class through a template
-**/
-
-
-//! TODO: fix EBO for MSVC on these
-class Uncopyable
+class FORCE_EMPTY_BASE_OPT Uncopyable
 {
     public:
         Uncopyable() = default;
         _IRR_NO_COPY_FINAL(Uncopyable);
 };
 
-class Interface : public Uncopyable
+class FORCE_EMPTY_BASE_OPT Interface : public Uncopyable
 {
         _IRR_NO_PUBLIC_DELETE_DEFAULT(Interface);
     protected:
         Interface() = default;
 };
 
-class Unmovable
+class FORCE_EMPTY_BASE_OPT Unmovable
 {
     public:
         Unmovable() = default;
         _IRR_NO_MOVE_FINAL(Unmovable);
 };
 
-class InterfaceUnmovable : public Interface, public Unmovable
+class FORCE_EMPTY_BASE_OPT InterfaceUnmovable : public Interface, public Unmovable
 {
         _IRR_INTERFACE_CHILD_DEFAULT(InterfaceUnmovable);
     public:
         InterfaceUnmovable() = default;
 };
 
-class TotalInterface : public Interface
+class FORCE_EMPTY_BASE_OPT TotalInterface : public Interface
 {
         _IRR_INTERFACE_CHILD_DEFAULT(TotalInterface);
     public:
         _IRR_NO_DEFAULT_FINAL(TotalInterface);
 };
 
-class TotalInterfaceUnmovable : public TotalInterface, public Unmovable
+class FORCE_EMPTY_BASE_OPT TotalInterfaceUnmovable : public TotalInterface, public Unmovable
 {
         _IRR_INTERFACE_CHILD_DEFAULT(TotalInterfaceUnmovable);
 };

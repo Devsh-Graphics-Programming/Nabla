@@ -7,64 +7,12 @@
 
 #include "IrrCompileConfig.h"
 
-
-//! When a new include file irrMemory.h will be made the following will move there
-//! -- these are stubs not used anywhere yet
-
-//TODO FInal: Allow overrides of Global New and Delete ???
-
-//TODO Mid: Define Lambda functions for _IRR_*_ALIGNED
-
-//TOTO Now: Create a irr::AllocatedByStaticAllocator<StaticAllocator> class
-//TOTO Now: Create a irr::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
-
-
-//! TODO: Implement StaticAllocator<ALIGN> that respects custom alignment with boost::align and progress the defines
-#define _IRR_NEW_ALIGNED_W_ALLOCATOR(_obj_type,_align,_static_allocator)                new _obj_type
-#define _IRR_DELETE_ALIGNED_W_ALLOCATOR(_obj,_static_allocator)                         delete _obj
-
-#define _IRR_NEW_ALIGNED_ARRAY_W_ALLOCATOR(_obj_type,count,_align,_static_allocator)    new _obj_type[count]
-#define _IRR_DELETE_ALIGNED_ARRAY_W_ALLOCATOR(_obj,_static_allocator)                   delete [] _obj
-
-
-#define _IRR_DEFAULT_ALLOCATOR //put std:: global alloc allocators
-#define _IRR_NEW_ALIGNED(_obj_type,_align)                                              _IRR_NEW_ALIGNED_W_ALLOCATOR(_obj_type,_align,_IRR_DEFAULT_ALLOCATOR)
-#define _IRR_DELETE_ALIGNED(_obj)                                                       _IRR_DELETE_ALIGNED_W_ALLOCATOR(_obj,_IRR_DEFAULT_ALLOCATOR)
-
-#define _IRR_NEW_ALIGNED_ARRAY(_obj_type,count,_align)                                  _IRR_NEW_ALIGNED_ARRAY_W_ALLOCATOR(_obj_type,count,_align,_IRR_DEFAULT_ALLOCATOR)
-#define _IRR_DELETE_ALIGNED_ARRAY(_obj)                                                 _IRR_DELETE_ALIGNED_ARRAY_W_ALLOCATOR(_obj,_IRR_DEFAULT_ALLOCATOR)
-
-
-#define _IRR_SIMD_ALIGNMENT                 32 // change to 64 for AVX2 compatibility
-#define _IRR_DEFAULT_ALIGNMENT(_obj_type)   (std::alignment_of<_obj_type>::value>(_IRR_SIMD_ALIGNMENT) ? std::alignment_of<_obj_type>::value:(_IRR_SIMD_ALIGNMENT))
-
-//use these by default instead of new and delete
-#define _IRR_NEW(_obj_type)                                                             _IRR_NEW_ALIGNED(_obj_type,_IRR_DEFAULT_ALIGNMENT(_obj_type))
-#define _IRR_DELETE(_obj)                                                               _IRR_DELETE_ALIGNED(_obj)
-
-#define _IRR_NEW_ARRAY(_obj_type,count)                                                 _IRR_NEW_ALIGNED_ARRAY(_obj_type,count,_IRR_DEFAULT_ALIGNMENT(_obj_type))
-#define _IRR_DELETE_ARRAY(_obj)                                                         _IRR_DELETE_ALIGNED_ARRAY(_obj)
-
-//! Extra Utility Macros for when you don't want to always have to deduce the alignment but want to use a specific allocator
-#define _IRR_NEW_W_ALLOCATOR(_obj_type,_static_allocator)                               _IRR_NEW_ALIGNED_W_ALLOCATOR(_obj_type,_IRR_DEFAULT_ALIGNMENT(_obj_type),_static_allocator)
-#define _IRR_DELETE_W_ALLOCATOR(_obj,_static_allocator)                                 _IRR_DELETE_ALIGNED_W_ALLOCATOR(_obj,_static_allocator)
-
-#define _IRR_NEW_ARRAY_W_ALLOCATOR(_obj_type,_static_allocator)                         _IRR_NEW_ALIGNED_ARRAY_W_ALLOCATOR(_obj_type,_IRR_DEFAULT_ALIGNMENT(_obj_type),_static_allocator)
-#define _IRR_DELETE_ARRAY_W_ALLOCATOR(_obj,_static_allocator)                           _IRR_DELETE_ALIGNED_ARRAY_W_ALLOCATOR(_obj,_static_allocator)
-
-/*
-//this will always allocate to default _IRR_MEMORY_ALIGNMENT =32
-#ifdef _IRR_WINDOWS_
-    #define _IRR_MALLOC(size)       _aligned_malloc(size,32)
-    #define _IRR_FREE(addr)         _aligned_free(addr)
+//! For dumb MSVC which now has to keep a spec bug to avoid breaking existing source code
+#if defined(_MSC_VER)
+#define FORCE_EMPTY_BASE_OPT __declspec(empty_bases)
 #else
-    #define _IRR_MALLOC(size)       posix_memalign(size,32)
-    #define _IRR_FREE(addr)         _aligned_free(addr)
-		posix_memalign((void**)&memoryallocatedaligned,Alignment,cnt);
+#define FORCE_EMPTY_BASE_OPT
 #endif
-*/
-//! END of section
-
 
 //this one needs to be declared for every single child class for it to work
 #define _IRR_NO_PUBLIC_DELETE(TYPE) \
