@@ -116,7 +116,7 @@ namespace scene
 	list of scene nodes for lots of purposes: Indoor rendering scene nodes,
 	different Camera scene nodes (addCameraSceneNode(), addCameraSceneNodeMaya()),
 	Billboards (addBillboardSceneNode()) and so on.
-	A scene node is a node in the hierachical scene graph. Every scene node
+	A scene node is a node in the hierachical scene tree. Every scene node
 	may have children, which are other scene nodes. Children move relative
 	the their parents position. If the parent of a node is not visible, its
 	children won't be visible, too. In this way, it is for example easily
@@ -411,7 +411,7 @@ namespace scene
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
 
-		//! Adds a camera scene node to the scene graph and sets it as active camera.
+		//! Adds a camera scene node to the scene tree and sets it as active camera.
 		/** This camera does not react on user input like for example the one created with
 		addCameraSceneNodeFPS(). If you want to move or animate it, use animators or the
 		ISceneNode::setPosition(), ICameraSceneNode::setTarget() etc methods.
@@ -433,7 +433,7 @@ namespace scene
 			const core::vector3df& lookat = core::vector3df(0,0,100),
 			int32_t id=-1, bool makeActive=true) = 0;
 
-		//! Adds a maya style user controlled camera scene node to the scene graph.
+		//! Adds a maya style user controlled camera scene node to the scene tree.
 		/** This is a standard camera with an animator that provides mouse control similar
 		to camera in the 3D Software Maya by Alias Wavefront.
 		The camera does not react on setPosition anymore after applying this animator. Instead
@@ -526,7 +526,7 @@ namespace scene
 			bool makeActive=true) = 0;
 
 
-		//! Adds a billboard scene node to the scene graph.
+		//! Adds a billboard scene node to the scene tree.
 		/** A billboard is like a 3d sprite: A 2d element,
 		which always looks to the camera. It is usually used for things
 		like explosions, fire, lensflares and things like that.
@@ -550,7 +550,7 @@ namespace scene
 			const core::vector3df& position = core::vector3df(0,0,0), int32_t id=-1,
 			video::SColor colorTop = 0xFFFFFFFF, video::SColor colorBottom = 0xFFFFFFFF) = 0;
 
-		//! Adds a skybox scene node to the scene graph.
+		//! Adds a skybox scene node to the scene tree.
 		/** A skybox is a big cube with 6 textures on it and
 		is drawn around the camera position.
 		\param top: Texture for the top plane of the box.
@@ -569,7 +569,7 @@ namespace scene
 			video::ITexture* left, video::ITexture* right, video::ITexture* front,
 			video::ITexture* back, IDummyTransformationSceneNode* parent = 0, int32_t id=-1) = 0;
 
-		//! Adds a skydome scene node to the scene graph.
+		//! Adds a skydome scene node to the scene tree.
 		/** A skydome is a large (half-) sphere with a panoramic texture
 		on the inside and is drawn around the camera position.
 		\param texture: Texture for the dome.
@@ -592,18 +592,11 @@ namespace scene
 			float texturePercentage=0.9, float spherePercentage=2.0,float radius = 1000.f,
 			IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
 
-		//! Adds an empty scene node to the scene graph.
-		/** Can be used for doing advanced transformations
-		or structuring the scene graph.
-		\return Pointer to the created scene node.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addEmptySceneNode(IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
-
-		//! Adds a dummy transformation scene node to the scene graph.
-		/** This scene node does not render itself, and does not respond to set/getPosition,
-		set/getRotation and set/getScale. Its just a simple scene node that takes a
-		matrix as relative transformation, making it possible to insert any transformation
-		anywhere into the scene graph.
+		//! Adds a dummy transformation scene node to the scene tree.
+		/** This scene node does not render itself, have a bounding box, a render method,
+        and is as-if always visible ISceneNode.
+		Its actually a base of ISceneNode, and it can be used for doing advanced transformations
+		or structuring the scene tree.
 		\return Pointer to the created scene node.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(

@@ -28,11 +28,11 @@ class IDummyTransformationSceneNode;
 	//! Typedef for array of scene node animators
 	typedef std::vector<ISceneNodeAnimator*> ISceneNodeAnimatorArray;
 
-//! Dummy scene node for adding additional transformations to the scene graph.
+//! Dummy scene node for adding additional transformations to the scene tree.
 /** This scene node does not render itself, and does not respond to set/getPosition,
 set/getRotation and set/getScale. Its just a simple scene node that takes a
 matrix as relative transformation, making it possible to insert any transformation
-anywhere into the scene graph.
+anywhere into the scene tree.
 This scene node is for example used by the IAnimatedMeshSceneNode for emulating
 joint scene nodes when playing skeletal animations.
 */
@@ -55,7 +55,7 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
         }
     public:
 
-        //! Constructor
+        //! Constructor (TODO: Move to protected)
         IDummyTransformationSceneNode(IDummyTransformationSceneNode* parent,
 				const core::vector3df& position = core::vector3df(0,0,0),
 				const core::vector3df& rotation = core::vector3df(0,0,0),
@@ -369,7 +369,7 @@ class IDummyTransformationSceneNode : public virtual IReferenceCounted
 
 		//! Get a list of all scene node animators.
 		/** \return The list of animators attached to this node. */
-		const ISceneNodeAnimatorArray& getAnimators() const
+		inline const ISceneNodeAnimatorArray& getAnimators() const
 		{
 			return Animators;
 		}

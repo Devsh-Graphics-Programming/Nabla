@@ -64,10 +64,6 @@ ISceneNode* CDefaultSceneNodeFactory::addSceneNode(ESCENE_NODE_TYPE type, IDummy
 	case ESNT_MESH:
 		return Manager->addMeshSceneNode(0, parent, -1, core::vector3df(),
 										 core::vector3df(), core::vector3df(1,1,1), true);
-	case ESNT_EMPTY:
-		return Manager->addEmptySceneNode(parent);/*
-	case ESNT_DUMMY_TRANSFORMATION:
-		return Manager->addDummyTransformationSceneNode(parent);*/
 	case ESNT_CAMERA:
 		return Manager->addCameraSceneNode(parent);
 	case ESNT_CAMERA_MAYA:

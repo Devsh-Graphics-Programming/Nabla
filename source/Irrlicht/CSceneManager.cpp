@@ -117,7 +117,6 @@
 #include "CMeshSceneNodeInstanced.h"
 #include "CSkyBoxSceneNode.h"
 #include "CSkyDomeSceneNode.h"
-#include "CEmptySceneNode.h"
 
 #include "CDefaultSceneNodeFactory.h"
 
@@ -690,20 +689,7 @@ ISceneNode* CSceneManager::addSkyDomeSceneNode(video::IVirtualTexture* texture,
 	return node;
 }
 
-//! Adds an empty scene node.
-ISceneNode* CSceneManager::addEmptySceneNode(IDummyTransformationSceneNode* parent, int32_t id)
-{
-	if (!parent)
-		parent = this;
-
-	ISceneNode* node = new CEmptySceneNode(parent, this, id);
-	node->drop();
-
-	return node;
-}
-
-
-//! Adds a dummy transformation scene node to the scene graph.
+//! Adds a dummy transformation scene node to the scene tree.
 IDummyTransformationSceneNode* CSceneManager::addDummyTransformationSceneNode(
 	IDummyTransformationSceneNode* parent, int32_t id)
 {

@@ -418,8 +418,6 @@
 		<Unit filename="CDefaultSceneNodeFactory.h" />
 		<Unit filename="CDepthBuffer.cpp" />
 		<Unit filename="CDepthBuffer.h" />
-		<Unit filename="CEmptySceneNode.cpp" />
-		<Unit filename="CEmptySceneNode.h" />
 		<Unit filename="CFPSCounter.cpp" />
 		<Unit filename="CFPSCounter.h" />
 		<Unit filename="CFileList.cpp" />

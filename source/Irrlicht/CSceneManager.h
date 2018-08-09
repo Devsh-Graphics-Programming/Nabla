@@ -154,12 +154,9 @@ namespace scene
 			float texturePercentage=0.9, float spherePercentage=2.0,float radius = 1000.f,
 			IDummyTransformationSceneNode* parent=0, int32_t id=-1);
 
-		//! Adds a dummy transformation scene node to the scene graph.
+		//! Adds a dummy transformation scene node to the scene tree.
 		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
 			IDummyTransformationSceneNode* parent=0, int32_t id=-1);
-
-		//! Adds an empty scene node.
-		virtual ISceneNode* addEmptySceneNode(IDummyTransformationSceneNode* parent, int32_t id=-1);
 
 		//! Returns the root scene node. This is the scene node wich is parent
 		//! of all scene nodes. The root scene node is a special scene node which
