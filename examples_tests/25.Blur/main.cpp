@@ -122,15 +122,20 @@ int main()
 
 
     scene::ICPUMesh* cpumesh = smgr->getGeometryCreator()->createCubeMeshCPU();
-    video::ITexture* texture = driver->getTexture("../tex.jpg");
+    video::ITexture* texture = driver->getTexture("../tex.jpg", video::ECF_A16B16G16R16F);
 
-    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 17u, { 728u, 728u });
+    const core::vector2d<uint32_t> outputSz{ 728u, 728u };
+    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 4u, outputSz);
+
+    video::ITexture* outputTex = driver->addTexture(video::ITexture::ETT_2D, &outputSz.X, 1u, "blur_output", video::ECF_A16B16G16R16F);
+
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
     scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
     video::SMaterial& mutableMaterial = smgr->addMeshSceneNode(gpumesh)->getMaterial(0);
     mutableMaterial.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
+    mutableMaterial.TextureLayer[0].Texture = outputTex;
     gpumesh->drop();
 
     cpumesh->getMeshBuffer(0)->getMaterial().setTexture(0, texture);
@@ -146,16 +151,9 @@ int main()
     {
         driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 
-        //! Split the function, utility createTextureForBlur (optional) and the blur(video::ITexture*) function to blur into custom tex
-        //! Require (with assert) that the texture be ETT_2D, some format of half-float (R,RG,RGBA) and the correct size.
-        video::ITexture* newTexture = blur->createBlurredTexture(texture);
-        mutableMaterial.TextureLayer[0].Texture = newTexture;
+        blur->blurTexture(texture, outputTex);
 
         smgr->drawAll();
-
-        //! dont want to re-create a texture every frame, do we?
-        if (newTexture)
-            driver->removeTexture(newTexture);
 
         driver->endScene();
 

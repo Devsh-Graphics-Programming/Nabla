@@ -57,7 +57,11 @@ public:
     static CBlurPerformer* instantiate(video::IVideoDriver* _driver, uint32_t _radius, core::vector2d<uint32_t> _outSize,
                                        video::IGPUBuffer* uboBuffer=nullptr, const size_t& uboDataStaticOffset=0);
 
-    video::ITexture* createBlurredTexture(video::ITexture* _inputTex) const;
+    video::ITexture* createOutputTexture(video::ITexture* _inputTex) const;
+
+    //! _inputTexture and _outputTexture can be the same texture.
+    //! Output texture's color format must be video::ECF_A16B16G16R16F
+    void blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex) const;
 
 protected:
     static inline size_t getSinglePaddedUBOSize(video::IVideoDriver* driver)

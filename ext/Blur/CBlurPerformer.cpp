@@ -237,7 +237,7 @@ void main()
     vec3 res =
         loadShared(R_EDGE_IDX)
         + (R_IDX - R_EDGE_IDX)*(loadShared(LAST_IDX) - loadShared(LAST_IDX-1)) // handle right overflow
-        - ((L_IDX < FIRST_IDX) ? ((L_IDX - FIRST_IDX) * loadShared(FIRST_IDX)) : loadShared(L_IDX)); // also handle left overflow
+        - ((L_IDX < FIRST_IDX) ? ((L_IDX - FIRST_IDX + 1) * loadShared(FIRST_IDX)) : loadShared(L_IDX)); // also handle left overflow
 	res /= (float(2*RADIUS) + 1.f);
 #if FINAL_PASS
     imageStore(out_img, ivec2(IDX), vec4(res, 1.f));
@@ -329,8 +329,25 @@ CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, uint32
     return new CBlurPerformer(_driver, ds, ps, gblur, fblur, _radius, _outSize, uboBuffer, uboDataStaticOffset);
 }
 
-video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex) const
+video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex) const
 {
+    video::ITexture* outputTex = m_driver->addTexture(video::ITexture::ETT_2D, &m_outSize.X, 1, ("__IRR_blur_out" + std::to_string(s_texturesEverCreatedCount++)).c_str(), video::ECF_A16B16G16R16F);
+
+    blurTexture(_inputTex, outputTex);
+
+    return outputTex;
+}
+
+void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex) const
+{
+    {
+    const uint32_t* sz = _outputTex->getSize();
+    assert(sz[0] >= m_outSize.X && sz[1] >= m_outSize.Y &&
+        _outputTex->getColorFormat() == video::ECF_A16B16G16R16F &&
+        _outputTex->getTextureType() == video::ITexture::ETT_2D
+    );
+    }
+
     GLint prevProgram{};
     glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
@@ -345,12 +362,9 @@ video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex
         const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(0, _inputTex, params);
     }
 
-    const uint32_t size[]{ m_outSize.X, m_outSize.Y};
-    video::ITexture* outputTex = m_driver->addTexture(video::ITexture::ETT_2D, size, 1, ("blur_out" + std::to_string(s_texturesEverCreatedCount++)).c_str(), video::ECF_A16B16G16R16F);
-
     auto prevImgBinding = getCurrentImageBinding(0);
-    video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(outputTex)->getOpenGLName(),
-        0, GL_FALSE, 0, GL_WRITE_ONLY, video::COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(static_cast<const video::COpenGL2DTexture*>(outputTex)->getColorFormat()));
+    video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(_outputTex)->getOpenGLName(),
+        0, GL_FALSE, 0, GL_WRITE_ONLY, video::COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(static_cast<const video::COpenGL2DTexture*>(_outputTex)->getColorFormat()));
 
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_dsampleCs);
@@ -391,8 +405,6 @@ video::ITexture* CBlurPerformer::createBlurredTexture(video::ITexture* _inputTex
 
     video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
     bindImage(0, prevImgBinding);
-
-    return outputTex;
 }
 
 CBlurPerformer::~CBlurPerformer()
