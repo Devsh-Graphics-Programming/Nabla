@@ -75,6 +75,7 @@ public:
         return r *= _scalar;
     }
 
+private:
     inline matrix4SIMD& operator*=(const matrix4SIMD& _other)
     {
         auto calcRow = [&_other](const vectorSIMDf& _v)
@@ -99,6 +100,49 @@ public:
     {
         matrix4SIMD r{*this};
         return r *= _other;
+    }
+
+public:
+    static inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b)
+    {
+        return _b*_a;
+    }
+    static inline matrix4SIMD concatenatePreciselyBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b)
+    {
+        matrix4SIMD out;
+
+        const __m128 mask0011 = BUILD_MASKF(0, 0, 1, 1);
+        __m128 second;
+
+        {
+        __m128d r00 = _a.halfRowAsDouble(0u, true);
+        __m128d r01 = _a.halfRowAsDouble(0u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r00, r01, _b, false));
+        out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r00, r01, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        }
+
+        {
+        __m128d r10 = _a.halfRowAsDouble(1u, true);
+        __m128d r11 = _a.halfRowAsDouble(1u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r10, r11, _b, false));
+        out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r10, r11, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        }
+
+        {
+        __m128d r20 = _a.halfRowAsDouble(2u, true);
+        __m128d r21 = _a.halfRowAsDouble(2u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r20, r21, _b, false));
+        out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r20, r21, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        }
+
+        {
+        __m128d r30 = _a.halfRowAsDouble(3u, true);
+        __m128d r31 = _a.halfRowAsDouble(3u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r30, r31, _b, false));
+        out.rows[3] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r30, r31, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        }
+
+        return out;
     }
 
     inline bool isIdentity() const
@@ -225,30 +269,18 @@ public:
     }
 
     //! W component remains unmodified.
-    inline void rotateVect(vectorSIMDf& _out, const vectorSIMDf& _in) const
+    inline void sub3x3TransformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const
     {
         matrix4SIMD cp{*this};
-        core::transpose4(cp.rows);
-        __m128 m1110 = BUILD_MASKF(1, 1, 1, 0);
-        for (size_t i = 0u; i < 3u; ++i)
-            cp.rows[i] &= m1110;
-
-        _out.X = _in.dotProductAsFloat(cp.rows[0]);
-        _out.Y = _in.dotProductAsFloat(cp.rows[1]);
-        _out.Z = _in.dotProductAsFloat(cp.rows[2]);
+        _out = _in & BUILD_MASKF(1, 1, 1, 0);
+        transformVect(_out);
+        _out = (_out & BUILD_MASKF(1, 1, 1, 0)) | (_in & BUILD_MASKF(0, 0, 0, 1));
     }
     //! W component remains unmodified.
-    inline void rotateVect(vectorSIMDf& _vector) const
+    inline void sub3x3TransformVect(vectorSIMDf& _vector) const
     {
         const vectorSIMDf in = _vector;
-        rotateVect(_vector, in);
-    }
-    //! An alternate transform vector method, writing into an array of 3 floats
-    inline void rotateVect(float* _out, const vectorSIMDf& _in) const
-    {
-        vectorSIMDf out;
-        rotateVect(out, _in);
-        memcpy(_out, out.pointer, 3*4);
+        sub3x3TransformVect(_vector, in);
     }
 
     inline void transformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const
@@ -266,19 +298,13 @@ public:
     {
         transformVect(_vector, _vector);
     }
-    inline void transformVect(float* _out, const vectorSIMDf& _in) const
-    {
-        vectorSIMDf outv;
-        transformVect(outv, _in);
-        _mm_storeu_ps(_out, outv.getAsRegister());
-    }
 
     inline void translateVect(vectorSIMDf& _vect) const
     {
         _vect += getTranslation();
     }
 
-    inline matrix4SIMD& buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
+    inline matrix4SIMD buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
     {
         const double h = core::reciprocal(tan(fieldOfViewRadians*0.5));
         _IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
@@ -286,14 +312,15 @@ public:
 
         _IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
-        rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
-        rows[1] = vectorSIMDf(0.f, (float)h, 0.f, 0.f);
-        rows[2] = vectorSIMDf(0.f, 0.f, zFar + zNear/(zNear - zFar), 0.f);
-        rows[3] = vectorSIMDf(0.f, 0.f, 2.f*zFar*zNear/(zNear-zFar), 0.f);
+        matrix4SIMD m;
+        m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
+        m.rows[1] = vectorSIMDf(0.f, (float)h, 0.f, 0.f);
+        m.rows[2] = vectorSIMDf(0.f, 0.f, zFar + zNear/(zNear - zFar), 0.f);
+        m.rows[3] = vectorSIMDf(0.f, 0.f, 2.f*zFar*zNear/(zNear-zFar), 0.f);
 
-        return *this;
+        return m;
     }
-    inline matrix4SIMD& buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
+    static inline matrix4SIMD buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
     {
         const double h = core::reciprocal(tan(fieldOfViewRadians*0.5));
         _IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
@@ -301,79 +328,89 @@ public:
 
         _IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
-        rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
-        rows[1] = vectorSIMDf(0.f, (float)h, 0.f, 0.f);
-        rows[2] = vectorSIMDf(0.f, 0.f, zFar + zNear / (zFar - zNear), 0.f);
-        rows[3] = vectorSIMDf(0.f, 0.f, -2.f*zFar*zNear / (zFar - zNear), 0.f);
+        matrix4SIMD m;
+        m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
+        m.rows[1] = vectorSIMDf(0.f, (float)h, 0.f, 0.f);
+        m.rows[2] = vectorSIMDf(0.f, 0.f, zFar + zNear / (zFar - zNear), 0.f);
+        m.rows[3] = vectorSIMDf(0.f, 0.f, -2.f*zFar*zNear / (zFar - zNear), 0.f);
 
-        return *this;
+        return m;
     }
 
-    inline matrix4SIMD& buildProjectionMatrixPerspectiveFovInfinityLH(float fieldOfViewRadians, float aspectRatio, float zNear, float epsilon)
+    static inline matrix4SIMD buildProjectionMatrixPerspectiveFovInfinityLH(float fieldOfViewRadians, float aspectRatio, float zNear, float epsilon)
     {
         const double h = core::reciprocal(tan(fieldOfViewRadians*0.5));
         _IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
         const float w = h / aspectRatio;
 
-        rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
-        rows[1] = vectorSIMDf(0.f, (float)h, 0.f, 0.f);
-        rows[2] = vectorSIMDf(0.f, 0.f, 1.f - epsilon, 0.f);
-        rows[3] = vectorSIMDf(0.f, 0.f, zNear*(epsilon - 1.f), 0.f);
+        matrix4SIMD m;
+        m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
+        m.rows[1] = vectorSIMDf(0.f, (float)h, 0.f, 0.f);
+        m.rows[2] = vectorSIMDf(0.f, 0.f, 1.f - epsilon, 0.f);
+        m.rows[3] = vectorSIMDf(0.f, 0.f, zNear*(epsilon - 1.f), 0.f);
 
-        return *this;
+        return m;
     }
 
-    inline matrix4SIMD& buildProjectionMatrixOrthoLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
+    static inline matrix4SIMD buildProjectionMatrixOrthoLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
     {
         _IRR_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
         _IRR_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
         _IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
-        rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
-        rows[1] = vectorSIMDf(0.f, 2.f/heightOfViewVolume, 0.f, 0.f);
-        rows[2] = vectorSIMDf(0.f, 0.f, 1.f/(zFar-zNear), 0.f);
-        rows[3] = vectorSIMDf(0.f, 0.f, zNear/(zNear-zFar), 1.f);
+        matrix4SIMD m;
+        m.rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
+        m.rows[1] = vectorSIMDf(0.f, 2.f/heightOfViewVolume, 0.f, 0.f);
+        m.rows[2] = vectorSIMDf(0.f, 0.f, 1.f/(zFar-zNear), 0.f);
+        m.rows[3] = vectorSIMDf(0.f, 0.f, zNear/(zNear-zFar), 1.f);
+
+        return m;
     }
-    inline matrix4SIMD& buildProjectionMatrixOrthoRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
+    static inline matrix4SIMD buildProjectionMatrixOrthoRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
     {
         _IRR_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
         _IRR_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
         _IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
-        rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
-        rows[1] = vectorSIMDf(0.f, 2.f/heightOfViewVolume, 0.f, 0.f);
-        rows[2] = vectorSIMDf(0.f, 0.f, 1.f/(zNear-zFar), 0.f);
-        rows[3] = vectorSIMDf(0.f, 0.f, zNear/(zNear-zFar), 1.f);
+        matrix4SIMD m;
+        m.rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
+        m.rows[1] = vectorSIMDf(0.f, 2.f/heightOfViewVolume, 0.f, 0.f);
+        m.rows[2] = vectorSIMDf(0.f, 0.f, 1.f/(zNear-zFar), 0.f);
+        m.rows[3] = vectorSIMDf(0.f, 0.f, zNear/(zNear-zFar), 1.f);
+
+        return m;
     }
 
-    inline matrix4SIMD& buildProjectionMatrixPerspectiveRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
+    static inline matrix4SIMD buildProjectionMatrixPerspectiveRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
     {
         _IRR_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
         _IRR_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
         _IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
-        rows[0] = vectorSIMDf(2.f*zNear/widthOfViewVolume, 0.f, 0.f, 0.f);
-        rows[1] = vectorSIMDf(0.f, 2.f*zNear/heightOfViewVolume, 0.f, 0.f);
-        rows[2] = vectorSIMDf(0.f, 0.f, zFar/(zNear-zFar), -1.f);
-        rows[3] = vectorSIMDf(0.f, 0.f, zNear*zFar/(zNear-zFar), 0.f);
+        matrix4SIMD m;
+        m.rows[0] = vectorSIMDf(2.f*zNear/widthOfViewVolume, 0.f, 0.f, 0.f);
+        m.rows[1] = vectorSIMDf(0.f, 2.f*zNear/heightOfViewVolume, 0.f, 0.f);
+        m.rows[2] = vectorSIMDf(0.f, 0.f, zFar/(zNear-zFar), -1.f);
+        m.rows[3] = vectorSIMDf(0.f, 0.f, zNear*zFar/(zNear-zFar), 0.f);
 
-        return *this;
+        return m;
     }
-    inline matrix4SIMD& buildProjectionMatrixPerspectiveLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
+    static inline matrix4SIMD buildProjectionMatrixPerspectiveLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
     {
         _IRR_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
         _IRR_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
         _IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
-        rows[0] = vectorSIMDf(2.f*zNear/widthOfViewVolume, 0.f, 0.f, 0.f);
-        rows[1] = vectorSIMDf(0.f, 2.f*zNear/heightOfViewVolume, 0.f, 0.f);
-        rows[2] = vectorSIMDf(0.f, 0.f, zFar/(zFar-zNear), -1.f);
-        rows[3] = vectorSIMDf(0.f, 0.f, zNear*zFar/(zNear-zFar), 0.f);
+        matrix4SIMD m;
+        m.rows[0] = vectorSIMDf(2.f*zNear/widthOfViewVolume, 0.f, 0.f, 0.f);
+        m.rows[1] = vectorSIMDf(0.f, 2.f*zNear/heightOfViewVolume, 0.f, 0.f);
+        m.rows[2] = vectorSIMDf(0.f, 0.f, zFar/(zFar-zNear), -1.f);
+        m.rows[3] = vectorSIMDf(0.f, 0.f, zNear*zFar/(zNear-zFar), 0.f);
 
-        return *this;
+        return m;
     }
 
-    inline matrix4SIMD& buildShadowMatrix(vectorSIMDf _light, const core::plane3df& _plane, float _point)
+    static inline matrix4SIMD buildShadowMatrix(vectorSIMDf _light, const core::plane3df& _plane, float _point)
     {
         const vectorSIMDf mask1110 = BUILD_MASKF(1, 1, 1, 0);
         vectorSIMDf normal = vectorSIMDf(&_plane.Normal.X) & mask1110;
@@ -383,15 +420,16 @@ public:
 
         _light.w = _point;
 
-        rows[0] = (-normal.xxxx() * _light) + (d & BUILD_MASKF(1, 0, 0, 0));
-        rows[1] = (-normal.yyyy() * _light) + (d & BUILD_MASKF(0, 1, 0, 0));
-        rows[2] = (-normal.zzzz() * _light) + (d & BUILD_MASKF(0, 0, 1, 0));
-        rows[3] = (-normal.wwww() * _light) + (d & BUILD_MASKF(0, 0, 0, 1));
+        matrix4SIMD m;
+        m.rows[0] = (-normal.xxxx() * _light) + (d & BUILD_MASKF(1, 0, 0, 0));
+        m.rows[1] = (-normal.yyyy() * _light) + (d & BUILD_MASKF(0, 1, 0, 0));
+        m.rows[2] = (-normal.zzzz() * _light) + (d & BUILD_MASKF(0, 0, 1, 0));
+        m.rows[3] = (-normal.wwww() * _light) + (d & BUILD_MASKF(0, 0, 0, 1));
 
-        return *this;
+        return m;
     }
 
-    inline static matrix4SIMD buildCameraLookAtMatrixLH(
+    static inline matrix4SIMD buildCameraLookAtMatrixLH(
         const core::vectorSIMDf& position,
         const core::vectorSIMDf& target,
         const core::vectorSIMDf& upVector)
@@ -411,7 +449,7 @@ public:
 
         return r;
     }
-    inline static matrix4SIMD buildCameraLookAtMatrixRH(
+    static inline matrix4SIMD buildCameraLookAtMatrixRH(
         const core::vectorSIMDf& position,
         const core::vectorSIMDf& target,
         const core::vectorSIMDf& upVector)
@@ -432,15 +470,6 @@ public:
         return r;
     }
 
-    inline matrix4SIMD interpolate(const matrix4SIMD& _b, float _x) const
-    {
-        matrix4SIMD m;
-        for (size_t i = 0u; i < 4u; ++i)
-            m.rows[i] = core::mix(rows[i], _b.rows[i], vectorSIMDf(_x));
-
-        return m;
-    }
-
     inline matrix4SIMD getTransposed() const
     {
         matrix4SIMD r{*this};
@@ -452,7 +481,7 @@ public:
         _out = getTransposed();
     }
 
-    inline matrix4SIMD& buildRotateFromTo(const core::vectorSIMDf& from, const core::vectorSIMDf& to)
+    inline matrix4SIMD buildRotateFromTo(const core::vectorSIMDf& from, const core::vectorSIMDf& to)
 	{
 		// unit vectors
 		const core::vectorSIMDf f = core::normalize(from);
@@ -471,22 +500,23 @@ public:
 		const core::vectorSIMDf wt = vt * v.yzxx();
 		const core::vectorSIMDf vtuppca = vt * v + ca;
 
-		core::vectorSIMDf& row0 = rows[0];
-		core::vectorSIMDf& row1 = rows[1];
-		core::vectorSIMDf& row2 = rows[2];
-        core::vectorSIMDf& row3 = rows[3];
+        matrix4SIMD m;
 
-		const core::vectorSIMDf mask0001 = BUILD_MASKF(0, 0, 0, 1);
-		row0 = (row0 & mask0001) + (vtuppca & BUILD_MASKF(1, 0, 0, 0));
-		row1 = (row1 & mask0001) + (vtuppca & BUILD_MASKF(0, 1, 0, 0));
-		row2 = (row2 & mask0001) + (vtuppca & BUILD_MASKF(0, 0, 1, 0));
+		core::vectorSIMDf& row0 = m.rows[0];
+		core::vectorSIMDf& row1 = m.rows[1];
+		core::vectorSIMDf& row2 = m.rows[2];
+        core::vectorSIMDf& row3 = m.rows[3];
+
+		row0 = vtuppca & BUILD_MASKF(1, 0, 0, 0);
+		row1 = vtuppca & BUILD_MASKF(0, 1, 0, 0);
+		row2 = vtuppca & BUILD_MASKF(0, 0, 1, 0);
 
 		row0 += (wt.xxzx() + vs.xzyx()*core::vectorSIMDf(1.f, 1.f, -1.f, 1.f)) & BUILD_MASKF(0, 1, 1, 0);
 		row1 += (wt.xxyx() + vs.zxxx()*core::vectorSIMDf(-1.f, 1.f, 1.f, 1.f)) & BUILD_MASKF(1, 0, 1, 0);
 		row2 += (wt.zyxx() + vs.yxxx()*core::vectorSIMDf(1.f, -1.f, 1.f, 1.f)) & BUILD_MASKF(1, 1, 0, 0);
         row3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 
-		return *this;
+		return m;
 	}
 
     inline void setRotationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation)
@@ -502,13 +532,15 @@ public:
         setTranslation(vcol3);
     }
 
-    inline void buildAxisAlignedBillboard(
+    static inline matrix4SIMD buildAxisAlignedBillboard(
         const core::vectorSIMDf& _camPos,
         const core::vectorSIMDf& _center,
         const core::vectorSIMDf& _translation,
         const core::vectorSIMDf& _axis,
         const core::vectorSIMDf& _from)
     {
+        matrix4SIMD m;
+
         // axis of rotation
         const core::vectorSIMDf up = core::normalize(_axis);
         const core::vectorSIMDf forward = core::normalize(_camPos - _center);
@@ -528,9 +560,9 @@ public:
         const core::vectorSIMDf wt = vt * up.yzxx();
         const core::vectorSIMDf vtuppca = vt * up + ca;
 
-        core::vectorSIMDf& row0 = rows[0];
-        core::vectorSIMDf& row1 = rows[1];
-        core::vectorSIMDf& row2 = rows[2];
+        core::vectorSIMDf& row0 = m.rows[0];
+        core::vectorSIMDf& row1 = m.rows[1];
+        core::vectorSIMDf& row2 = m.rows[2];
 
         row0 = vtuppca & BUILD_MASKF(1, 0, 0, 0);
         row1 = vtuppca & BUILD_MASKF(0, 1, 0, 0);
@@ -540,10 +572,12 @@ public:
         row1 += (wt.xxyx() + vs.zxxx()*core::vectorSIMDf(-1.f, 1.f, 1.f, 1.f)) & BUILD_MASKF(1, 0, 1, 0);
         row2 += (wt.zyxx() + vs.yxxx()*core::vectorSIMDf(1.f, -1.f, 1.f, 1.f)) & BUILD_MASKF(1, 1, 0, 0);
 
-        setRotationCenter(_center, _translation);
+        m.setRotationCenter(_center, _translation);
+
+        return m;
     }
 
-    inline matrix4SIMD& buildNDCToDCMatrix(const core::rect<int32_t>& _viewport, float _zScale)
+    static inline matrix4SIMD buildNDCToDCMatrix(const core::rect<int32_t>& _viewport, float _zScale)
     {
         const float scaleX = (float(_viewport.getWidth()) - 0.75f) * 0.5f;
         const float scaleY = -(float(_viewport.getHeight()) - 0.75f) * 0.5f;
@@ -551,13 +585,13 @@ public:
         const float dx = -0.5f + ((_viewport.UpperLeftCorner.X + _viewport.LowerRightCorner.X) * 0.5f);
         const float dy = -0.5f + ((_viewport.UpperLeftCorner.Y + _viewport.LowerRightCorner.Y) * 0.5f);
 
-        *this = matrix4SIMD();
-        rows[3] = vectorSIMDf(dx, dy, 0.f, 1.f);
-        return setScale(vectorSIMDf(scaleX, scaleY, _zScale, 1.f));
+        matrix4SIMD m;
+        m.rows[3] = vectorSIMDf(dx, dy, 0.f, 1.f);
+        return m.setScale(vectorSIMDf(scaleX, scaleY, _zScale, 1.f));
     }
 
 #define BUILD_XORMASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0x80000000, _y_*0x80000000, _z_*0x80000000, _w_*0x80000000))
-    inline matrix4SIMD& buildTextureTransform(
+    static inline matrix4SIMD buildTextureTransform(
         float _rotateRad,
         const core::vector2df& _rotateCenter,
         const core::vector2df& _translate,
@@ -571,45 +605,13 @@ public:
 
         vectorSIMDf cossin(cosf(_rotateRad), sinf(_rotateRad), 0.f, 0.f);
         
-        rows[0] = cossin * scale;
-        rows[1] = (cossin ^ BUILD_XORMASKF(0, 1, 0, 0)).yxww() * scale;
-        rows[2] = cossin * scale * rotateCenter.xxww() + (cossin.yxww() ^ BUILD_XORMASKF(1, 0, 0, 0)) * rotateCenter.yyww() + translation;
-        rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
+        matrix4SIMD m;
+        m.rows[0] = cossin * scale;
+        m.rows[1] = (cossin ^ BUILD_XORMASKF(0, 1, 0, 0)).yxww() * scale;
+        m.rows[2] = cossin * scale * rotateCenter.xxww() + (cossin.yxww() ^ BUILD_XORMASKF(1, 0, 0, 0)) * rotateCenter.yyww() + translation;
+        m.rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 
-        return *this;
-    }
-
-    inline matrix4SIMD& setTextureRotationCenter(float _rotateRad)
-    {
-        vectorSIMDf cossin(cosf(_rotateRad), sinf(_rotateRad), 0.f, 0.f);
-        const vectorSIMDf mask0011 = BUILD_MASKF(0, 0, 1, 1);
-
-        rows[0] = (rows[0] & mask0011) | cossin;
-        rows[1] = (rows[1] & mask0011) | (cossin.yxww() ^ BUILD_XORMASKF(1, 0, 0, 0));
-        rows[2] = (rows[2] & mask0011) | vectorSIMDf(0.5f * (cossin.y - cossin.x) + 0.5f, 0.5f * (cossin.x + cossin.y) + 0.5f, 0.f, 0.f);
-
-        return *this;
-    }
-
-    inline matrix4SIMD& setTextureTranslate(float _x, float _y)
-    {
-        rows[2] = (rows[2] & BUILD_MASKF(0, 0, 1, 1)) | vectorSIMDf(_x, _y, 0.f, 0.f);
-
-        return *this;
-    }
-
-    inline matrix4SIMD& setTextureScale(float _sx, float _sy)
-    {
-        rows[0].x = _sx;
-        rows[1].y = _sy;
-
-        return *this;
-    }
-
-    inline matrix4SIMD& setTextureScaleCenter(float _sx, float _sy)
-    {
-        rows[2] = (rows[2] & BUILD_MASKF(0, 0, 1, 1)) | vectorSIMDf(0.5f - 0.5f*_sx, 0.5f - 0.5f*_sy, 0.f, 0.f);
-        return setTextureScale(_sx, _sy);
+        return m;
     }
 
     inline bool equals(const matrix4SIMD& _other, float _tolerance) const
@@ -620,6 +622,28 @@ public:
         return true;
     }
 
+private:
+    inline __m128d halfRowAsDouble(size_t _n, bool _firstHalf) const
+    {
+        return _mm_cvtps_pd(_firstHalf ? rows[_n].xyxx().getAsRegister() : rows[_n].zwxx().getAsRegister());
+    }
+    static inline __m128d concat64_helper(const __m128d& _a0, const __m128d& _a1, const matrix4SIMD& _mtx, bool _firstHalf)
+    {
+        __m128d r0 = _mtx.halfRowAsDouble(0u, _firstHalf);
+        __m128d r1 = _mtx.halfRowAsDouble(1u, _firstHalf);
+        __m128d r2 = _mtx.halfRowAsDouble(2u, _firstHalf);
+        __m128d r3 = _mtx.halfRowAsDouble(3u, _firstHalf);
+
+        const __m128d mask01 = _mm_castsi128_pd(_mm_setr_epi32(0, 0, 0xffffffff, 0xffffffff));
+
+        __m128d res;
+        res = _mm_mul_pd(_mm_shuffle_pd(_a0, _a0, 0), r0);
+        res = _mm_add_pd(res, _mm_mul_pd(_mm_shuffle_pd(_a0, _a0, 3/*0b11*/), r1));
+        res = _mm_add_pd(res, _mm_mul_pd(_mm_shuffle_pd(_a1, _a1, 0), r2));
+        res = _mm_add_pd(res, _mm_mul_pd(_mm_shuffle_pd(_a1, _a1, 3/*0b11*/), r3));
+        return res;
+    }
+
 #undef BUILD_MASKF
 #undef BUILD_XORMASKF
 };
@@ -627,6 +651,20 @@ public:
 inline matrix4SIMD operator*(float _scalar, const matrix4SIMD& _mtx)
 {
     return _mtx * _scalar;
+}
+
+inline matrix4SIMD mix(const matrix4SIMD& _a, const matrix4SIMD& _b, float _x)
+{
+    matrix4SIMD m;
+    for (size_t i = 0u; i < 4u; ++i)
+        m[i] = core::mix(_a[i], _b[i], vectorSIMDf(_x));
+
+    return m;
+}
+
+inline matrix4SIMD lerp(const matrix4SIMD& _a, const matrix4SIMD& _b, float _x)
+{
+    return mix(_a, _b, _x);
 }
 
 }} // irr::core
