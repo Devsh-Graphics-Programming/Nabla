@@ -602,10 +602,18 @@ namespace video
 
 		class SDummyTexture : public ITexture
 		{
+                _IRR_INTERFACE_CHILD(SDummyTexture) {}
+
                 core::dimension2d<uint32_t> size;
 		    public:
                 SDummyTexture(const io::path& name) : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,0,0},name), size(0,0)
                 {
+                }
+
+                //special override as this object is always placement new'ed
+                static inline void operator delete(void* ptr) noexcept
+                {
+                    return;
                 }
 
                 virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}

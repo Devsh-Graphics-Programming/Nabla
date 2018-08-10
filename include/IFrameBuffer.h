@@ -81,6 +81,7 @@ class IFrameBuffer : public virtual IReferenceCounted, public core::IThreadBound
         virtual const IRenderableVirtualTexture* getAttachment(const size_t &ix) const = 0;
 
     protected:
+        _IRR_INTERFACE_CHILD(IFrameBuffer) {}
 };
 
 

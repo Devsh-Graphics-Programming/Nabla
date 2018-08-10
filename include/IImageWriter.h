@@ -23,6 +23,7 @@ namespace video
 //! Interface for writing software image data.
 class IImageWriter : public IReferenceCounted
 {
+    _IRR_INTERFACE_CHILD(IImageWriter) {}
 public:
 	//! Check if this writer can write a file with the given extension
 	/** \param filename Name of the file to check.

@@ -23,6 +23,7 @@ namespace scene
 /** You can get an instance of this class through ISceneManager::getGeometryCreator() */
 class IGeometryCreator : public IReferenceCounted
 {
+    _IRR_INTERFACE_CHILD(IGeometryCreator) {}
 public:
 
 	//! Creates a simple cube mesh.

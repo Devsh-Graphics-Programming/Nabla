@@ -200,7 +200,7 @@ namespace video
 		already loaded and generates mipmap levels if desired.
 		Texture loading can be influenced using the
 		setTextureCreationFlag() method. The texture can be in several
-		imageformats, such as BMP, JPG, TGA, PCX, PNG, and PSD.
+		imageformats, such as BMP, JPG, TGA, and PNG.
 		\param filename Filename of the texture to be loaded.
 		\return Pointer to the texture, or 0 if the texture
 		could not be loaded. This pointer should not be dropped. See
@@ -212,7 +212,7 @@ namespace video
 		already loaded and generates mipmap levels if desired.
 		Texture loading can be influenced using the
 		setTextureCreationFlag() method. The texture can be in several
-		imageformats, such as BMP, JPG, TGA, PCX, PNG, and PSD.
+		imageformats, such as BMP, JPG, TGA, and PNG.
 		\param file Pointer to an already opened file.
 		\return Pointer to the texture, or 0 if the texture
 		could not be loaded. This pointer should not be dropped. See

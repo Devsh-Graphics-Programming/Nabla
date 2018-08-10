@@ -14,6 +14,7 @@ namespace video
 
 class ITextureBufferObject : public IVirtualTexture
 {
+        _IRR_INTERFACE_CHILD(ITextureBufferObject) {}
     public:
         enum E_TEXURE_BUFFER_OBJECT_FORMAT
         {

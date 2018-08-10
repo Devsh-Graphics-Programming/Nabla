@@ -60,68 +60,70 @@ and write a warning or an error message to the output buffer.
 */
 class ITexture : public IRenderableVirtualTexture, public IDriverMemoryBacked
 {
-public:
-    enum E_TEXTURE_TYPE
-    {
-        ETT_1D=0,
-        ETT_2D,
-        ETT_3D,
-        ETT_1D_ARRAY,
-        ETT_2D_ARRAY,
-        ETT_CUBE_MAP,
-        ETT_CUBE_MAP_ARRAY,
-        ETT_COUNT
-    };
-    enum E_CUBE_MAP_FACE
-    {
-        ECMF_POSITIVE_X=0,
-        ECMF_NEGATIVE_X,
-        ECMF_POSITIVE_Y,
-        ECMF_NEGATIVE_Y,
-        ECMF_POSITIVE_Z,
-        ECMF_NEGATIVE_Z,
-        ECMF_COUNT
-    };
+    public:
+        enum E_TEXTURE_TYPE
+        {
+            ETT_1D=0,
+            ETT_2D,
+            ETT_3D,
+            ETT_1D_ARRAY,
+            ETT_2D_ARRAY,
+            ETT_CUBE_MAP,
+            ETT_CUBE_MAP_ARRAY,
+            ETT_COUNT
+        };
+        enum E_CUBE_MAP_FACE
+        {
+            ECMF_POSITIVE_X=0,
+            ECMF_NEGATIVE_X,
+            ECMF_POSITIVE_Y,
+            ECMF_NEGATIVE_Y,
+            ECMF_POSITIVE_Z,
+            ECMF_NEGATIVE_Z,
+            ECMF_COUNT
+        };
 
-	virtual E_TEXTURE_TYPE getTextureType() const = 0;
+        virtual E_TEXTURE_TYPE getTextureType() const = 0;
 
-	//! Get dimension (=size) of the texture.
-	/** \return The size of the texture. */
-	virtual uint32_t getMipMapLevelCount() const = 0;
+        //! Get dimension (=size) of the texture.
+        /** \return The size of the texture. */
+        virtual uint32_t getMipMapLevelCount() const = 0;
 
-	//!
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) = 0;
-    virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) = 0;
+        //!
+        virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) = 0;
+        virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) = 0;
 
-	//! Get pitch of the main texture (in bytes).
-	/** The pitch is the amount of bytes used for a row of pixels in a
-	texture.
-	\return Pitch of texture in bytes. */
-	virtual uint32_t getPitch() const = 0;
+        //! Get pitch of the main texture (in bytes).
+        /** The pitch is the amount of bytes used for a row of pixels in a
+        texture.
+        \return Pitch of texture in bytes. */
+        virtual uint32_t getPitch() const = 0;
 
-	//! Check whether the texture has MipMaps
-	/** \return True if texture has MipMaps, else false. */
-	virtual bool hasMipMaps() const { return false; }
+        //! Check whether the texture has MipMaps
+        /** \return True if texture has MipMaps, else false. */
+        virtual bool hasMipMaps() const { return false; }
 
-	//! Regenerates the mip map levels of the texture.
-	/** Required after modifying the texture, usually after calling unlock().
-	\param mipmapData Optional parameter to pass in image data which will be
-	used instead of the previously stored or automatically generated mipmap
-	data. The data has to be a continuous pixel data for all mipmaps until
-	1x1 pixel. Each mipmap has to be half the width and height of the previous
-	level. At least one pixel will be always kept.*/
-	virtual void regenerateMipMapLevels() = 0;
+        //! Regenerates the mip map levels of the texture.
+        /** Required after modifying the texture, usually after calling unlock().
+        \param mipmapData Optional parameter to pass in image data which will be
+        used instead of the previously stored or automatically generated mipmap
+        data. The data has to be a continuous pixel data for all mipmaps until
+        1x1 pixel. Each mipmap has to be half the width and height of the previous
+        level. At least one pixel will be always kept.*/
+        virtual void regenerateMipMapLevels() = 0;
 
-	//! Get name of texture (in most cases this is the filename)
-	const io::SNamedPath& getName() const { return NamedPath; }
+        //! Get name of texture (in most cases this is the filename)
+        const io::SNamedPath& getName() const { return NamedPath; }
 
-protected:
-	//! constructor
-	ITexture(const SDriverMemoryRequirements& reqs, const io::path& name) : IDriverMemoryBacked(reqs), NamedPath(name)
-	{
-	}
+    protected:
+        _IRR_INTERFACE_CHILD(ITexture) {}
 
-	io::SNamedPath NamedPath;
+        //! constructor
+        ITexture(const SDriverMemoryRequirements& reqs, const io::path& name) : IDriverMemoryBacked(reqs), NamedPath(name)
+        {
+        }
+
+        io::SNamedPath NamedPath;
 };
 
 

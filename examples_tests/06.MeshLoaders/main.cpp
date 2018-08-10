@@ -72,10 +72,6 @@ public:
         modelSpaceCamPos.set(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW_INVERSE).getTranslation());
         services->setShaderConstant(&modelSpaceCamPos,cameraDirUniformLocation,cameraDirUniformType,1);
         services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
-/*
-        int32_t id[] = {0,1,2,3};
-        services->setShaderTextures(id+0,texUniformLocation[0],texUniformType[0],1);
-        services->setShaderTextures(id+3,texUniformLocation[3],texUniformType[3],1);*/
     }
 
     virtual void OnUnsetMaterial() {}

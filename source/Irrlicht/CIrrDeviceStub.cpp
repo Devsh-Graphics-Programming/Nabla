@@ -184,12 +184,10 @@ bool CIrrDeviceStub::postEventFromUser(const SEvent& event)
 	if (UserReceiver)
 		absorbed = UserReceiver->OnEvent(event);
 
-	scene::ISceneManager* inputReceiver = InputReceivingSceneManager;
-	if (!inputReceiver)
-		inputReceiver = SceneManager;
+	scene::ISceneManager* inputReceiver = InputReceivingSceneManager ? InputReceivingSceneManager:SceneManager;
 
 	if (!absorbed && inputReceiver)
-		absorbed = inputReceiver->postEventFromUser(event);
+		absorbed = inputReceiver->receiveIfEventReceiverDidNotAbsorb(event);
 
 	return absorbed;
 }

@@ -81,30 +81,22 @@ namespace scene
 		ESNRP_TRANSPARENT =16,
 
 		//! Transparent effect scene nodes, drawn after Transparent nodes. They are sorted from back to front and drawn in that order.
-		ESNRP_TRANSPARENT_EFFECT =32,
-
-		//! Drawn after the solid nodes, before the transparent nodes, the time for drawing shadow volumes
-		ESNRP_SHADOW =64
+		ESNRP_TRANSPARENT_EFFECT =32
 	};
 
 	class IAnimatedMeshSceneNode;
 	class IBillboardSceneNode;
 	class ICameraSceneNode;
 	class IDummyTransformationSceneNode;
-	class ILightManager;
 	class ILightSceneNode;
 	class IMeshLoader;
 	class IMeshManipulator;
 	class IMeshSceneNode;
 	class IMeshSceneNodeInstanced;
 	class IMeshWriter;
-	class IMetaTriangleSelector;
 	class ISceneNode;
 	class ISceneNodeAnimator;
 	class ISceneNodeAnimatorCollisionResponse;
-	class ISceneNodeAnimatorFactory;
-	class ISceneNodeFactory;
-	class ISceneUserDataSerializer;
 
 	namespace quake3
 	{
@@ -147,12 +139,6 @@ namespace scene
 		 *      supported by this importer.</TD>
 		 *  </TR>
 		 *  <TR>
-		 *    <TD>3D World Studio (.smf)</TD>
-		 *    <TD>Loader for Leadwerks SMF mesh files, a simple mesh format
-		 *    containing static geometry for games. The proprietary .STF texture format
-		 *    is not supported yet. This loader was originally written by Joseph Ellis. </TD>
-		 *  </TR>
-		 *  <TR>
 		 *    <TD>Bliz Basic B3D (.b3d)</TD>
 		 *    <TD>Loader for blitz basic files, developed by Mark
 		 *      Sibly. This is the ideal animated mesh format for game
@@ -160,40 +146,6 @@ namespace scene
 		 *      supported by modeling and animation software.
 		 *      As this format supports skeletal animations, an
 		 *      ISkinnedMesh will be returned by this importer.</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>Cartography shop 4 (.csm)</TD>
-		 *    <TD>Cartography Shop is a modeling program for creating
-		 *      architecture and calculating lighting. Irrlicht can
-		 *      directly import .csm files thanks to the IrrCSM library
-		 *      created by Saurav Mohapatra which is now integrated
-		 *      directly in Irrlicht. If you are using this loader,
-		 *      please note that you'll have to set the path of the
-		 *      textures before loading .csm files. You can do this
-		 *      using
-		 *      SceneManager-&gt;getParameters()-&gt;setAttribute(scene::CSM_TEXTURE_PATH,
-		 *      &quot;path/to/your/textures&quot;);</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>Delgine DeleD (.dmf)</TD>
-		 *    <TD>DeleD (delgine.com) is a 3D editor and level-editor
-		 *        combined into one and is specifically designed for 3D
-		 *        game-development. With this loader, it is possible to
-		 *        directly load all geometry is as well as textures and
-		 *        lightmaps from .dmf files. To set texture and
-		 *        material paths, see scene::DMF_USE_MATERIALS_DIRS and
-		 *        scene::DMF_TEXTURE_PATH. It is also possible to flip
-		 *        the alpha texture by setting
-		 *        scene::DMF_FLIP_ALPHA_TEXTURES to true and to set the
-		 *        material transparent reference value by setting
-		 *        scene::DMF_ALPHA_CHANNEL_REF to a float between 0 and
-		 *        1. The loader is based on Salvatore Russo's .dmf
-		 *        loader, I just changed some parts of it. Thanks to
-		 *        Salvatore for his work and for allowing me to use his
-		 *        code in Irrlicht and put it under Irrlicht's license.
-		 *        For newer and more enchanced versions of the loader,
-		 *        take a look at delgine.com.
-		 *    </TD>
 		 *  </TR>
 		 *  <TR>
 		 *    <TD>DirectX (.x)</TD>
@@ -205,11 +157,6 @@ namespace scene
 		 *      is able to play and display them, users can manipulate
 		 *      the joints via the ISkinnedMesh interface. Currently,
 		 *      Irrlicht only supports uncompressed .x files.</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>Half-Life model (.mdl)</TD>
-		 *    <TD>This loader opens Half-life 1 models, it was contributed
-		 *        by Fabio Concas and adapted by Thomas Alten.</TD>
 		 *  </TR>
 		 *  <TR>
 		 *    <TD>LightWave (.lwo)</TD>
@@ -757,7 +704,7 @@ namespace scene
 		//! Posts an input event to the environment.
 		/** Usually you do not have to
 		use this method, it is used by the internal engine. */
-		virtual bool postEventFromUser(const SEvent& event) = 0;
+		virtual bool receiveIfEventReceiverDidNotAbsorb(const SEvent& event) = 0;
 
 		//! Clears the whole scene.
 		/** All scene nodes are removed. */
@@ -772,76 +719,9 @@ namespace scene
 		pass currently is active they can render the correct part of their geometry. */
 		virtual E_SCENE_NODE_RENDER_PASS getSceneNodeRenderPass() const = 0;
 
-		//! Get the default scene node factory which can create all built in scene nodes
-		/** \return Pointer to the default scene node factory
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeFactory* getDefaultSceneNodeFactory() = 0;
-
-		//! Adds a scene node factory to the scene manager.
-		/** Use this to extend the scene manager with new scene node types which it should be
-		able to create automaticly, for example when loading data from xml files. */
-		virtual void registerSceneNodeFactory(ISceneNodeFactory* factoryToAdd) = 0;
-
-		//! Get amount of registered scene node factories.
-		virtual uint32_t getRegisteredSceneNodeFactoryCount() const = 0;
-
-		//! Get a scene node factory by index
-		/** \return Pointer to the requested scene node factory, or 0 if it does not exist.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeFactory* getSceneNodeFactory(uint32_t index) = 0;
-
-		//! Get the default scene node animator factory which can create all built-in scene node animators
-		/** \return Pointer to the default scene node animator factory
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimatorFactory* getDefaultSceneNodeAnimatorFactory() = 0;
-
-		//! Adds a scene node animator factory to the scene manager.
-		/** Use this to extend the scene manager with new scene node animator types which it should be
-		able to create automaticly, for example when loading data from xml files. */
-		virtual void registerSceneNodeAnimatorFactory(ISceneNodeAnimatorFactory* factoryToAdd) = 0;
-
-		//! Get amount of registered scene node animator factories.
-		virtual uint32_t getRegisteredSceneNodeAnimatorFactoryCount() const = 0;
-
-		//! Get scene node animator factory by index
-		/** \return Pointer to the requested scene node animator factory, or 0 if it does not exist.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimatorFactory* getSceneNodeAnimatorFactory(uint32_t index) = 0;
-
-		//! Get typename from a scene node type or null if not found
-		virtual const char* getSceneNodeTypeName(ESCENE_NODE_TYPE type) = 0;
-
-		//! Returns a typename from a scene node animator type or null if not found
-		virtual const char* getAnimatorTypeName(ESCENE_NODE_ANIMATOR_TYPE type) = 0;
-
-		//! Adds a scene node to the scene by name
-		/** \return Pointer to the scene node added by a factory
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addSceneNode(const char* sceneNodeTypeName, IDummyTransformationSceneNode* parent=0) = 0;
-
-		//! creates a scene node animator based on its type name
-		/** \param typeName: Type of the scene node animator to add.
-		\param target: Target scene node of the new animator.
-		\return Returns pointer to the new scene node animator or null if not successful. You need to
-		drop this pointer after calling this, see IReferenceCounted::drop() for details. */
-		virtual ISceneNodeAnimator* createSceneNodeAnimator(const char* typeName, ISceneNode* target=0) = 0;
-
 		//! Creates a new scene manager.
 		/** This can be used to easily draw and/or store two
-		independent scenes at the same time. The mesh cache will be
-		shared between all existing scene managers, which means if you
-		load a mesh in the original scene manager using for example
-		getMesh(), the mesh will be available in all other scene
-		managers too, without loading.
-		The original/main scene manager will still be there and
-		accessible via IrrlichtDevice::getSceneManager(). If you need
-		input event in this new scene manager, for example for FPS
-		cameras, you'll need to forward input to this manually: Just
-		implement an IEventReceiver and call
-		yourNewSceneManager->postEventFromUser(), and return true so
-		that the original scene manager doesn't get the event.
-		Otherwise, all input will go to the main scene manager
-		automatically.
+		independent scenes at the same time.
 		If you no longer need the new scene manager, you should call
 		ISceneManager::drop().
 		See IReferenceCounted::drop() for more information. */
@@ -851,17 +731,6 @@ namespace scene
 		/** Note: You need to drop() the pointer after use again, see IReferenceCounted::drop()
 		for details. */
 		virtual IMeshWriter* createMeshWriter(EMESH_WRITER_TYPE type) = 0;
-
-		//! Sets ambient color of the scene
-		virtual void setAmbientLight(const video::SColorf &ambientColor) = 0;
-
-		//! Get ambient color of the scene
-		virtual const video::SColorf& getAmbientLight() const = 0;
-
-		//! Register a custom callbacks manager which gets callbacks during scene rendering.
-		/** \param[in] lightManager: the new callbacks manager. You may pass 0 to remove the
-			current callbacks manager and restore the default behavior. */
-		virtual void setLightManager(ILightManager* lightManager) = 0;
 
 		//! Get an instance of a geometry creator.
 		/** The geometry creator provides some helper methods to create various types of

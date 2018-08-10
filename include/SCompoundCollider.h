@@ -37,12 +37,11 @@ public:
 
 class SCompoundCollider : public IReferenceCounted
 {
+    protected:
         SAABoxCollider BBox;
         array<SCollisionShapeDef> Shapes;
         SColliderData colliderData;
-    public:
-		//! Default constructor.
-        SCompoundCollider() : BBox(aabbox3df()) {}
+
 		//! Destructor.
         ~SCompoundCollider()
         {
@@ -77,55 +76,9 @@ class SCompoundCollider : public IReferenceCounted
                 }
             }
         }
-
-/*
-        static inline void* operator new(size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void operator delete(void* ptr)
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new[](size_t size) throw(std::bad_alloc)
-        {
-            void *memoryallocatedaligned = 0;
-#ifdef _IRR_WINDOWS_
-            memoryallocatedaligned = _aligned_malloc(size,SIMD_ALIGNMENT);
-#else
-            posix_memalign((void**)&memoryallocatedaligned,SIMD_ALIGNMENT,size);
-#endif
-            return memoryallocatedaligned;
-        }
-        static inline void  operator delete[](void* ptr) throw()
-        {
-#ifdef _IRR_WINDOWS_
-            _aligned_free(ptr);
-#else
-            free(ptr);
-#endif
-        }
-        static inline void* operator new(std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete(void* p,void* t) throw() {}
-        static inline void* operator new[](std::size_t size,void* p) throw(std::bad_alloc)
-        {
-            return p;
-        }
-        static inline void  operator delete[](void* p,void* t) throw() {}
-*/
+    public:
+		//! Default constructor.
+        SCompoundCollider() : BBox(aabbox3df()) {}
 
 
 		//! @returns Pointer to brand new copy of `this` collider. The copy object is allocated with `new`.
@@ -174,11 +127,11 @@ class SCompoundCollider : public IReferenceCounted
         }
 
 		//! Performs collision test with given ray.
-		/** 
+		/**
 		@param[out] collisionDistance Distance between collider and ray.
 		@param[in] origin Attachment point of the ray.
 		@param[in] direction Normalized drection vector of the ray.
-		@param[in] dirMaxMultiplier 
+		@param[in] dirMaxMultiplier
 		*/
         inline bool CollideWithRay(float& collisionDistance, vectorSIMDf origin, vectorSIMDf direction, const float& dirMaxMultiplier) const
         {

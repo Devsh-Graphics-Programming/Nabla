@@ -52,6 +52,8 @@ class IDescriptorSetLayout : public virtual IReferenceCounted
         };
     protected:
         IDescriptorSetLayout(const Binding* bindings, const uint32_t& bindingCount) {}
+
+        _IRR_INTERFACE_CHILD(IDescriptorSetLayout) {}
 };
 
 

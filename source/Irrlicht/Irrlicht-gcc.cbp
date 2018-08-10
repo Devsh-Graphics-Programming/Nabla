@@ -287,7 +287,6 @@
 		<Unit filename="../../include/IImage.h" />
 		<Unit filename="../../include/IImageLoader.h" />
 		<Unit filename="../../include/IImageWriter.h" />
-		<Unit filename="../../include/ILightManager.h" />
 		<Unit filename="../../include/ILogger.h" />
 		<Unit filename="../../include/IMaterialRenderer.h" />
 		<Unit filename="../../include/IMaterialRendererServices.h" />
@@ -310,8 +309,6 @@
 		<Unit filename="../../include/ISceneNodeAnimator.h" />
 		<Unit filename="../../include/ISceneNodeAnimatorCameraFPS.h" />
 		<Unit filename="../../include/ISceneNodeAnimatorCameraMaya.h" />
-		<Unit filename="../../include/ISceneNodeAnimatorFactory.h" />
-		<Unit filename="../../include/ISceneNodeFactory.h" />
 		<Unit filename="../../include/IShader.h" />
 		<Unit filename="../../include/IShaderConstantSetCallBack.h" />
 		<Unit filename="../../include/ISkinnedMesh.h" />
@@ -386,8 +383,6 @@
 		<Unit filename="../../include/vectorSIMD.h" />
 		<Unit filename="C3DSMeshFileLoader.cpp" />
 		<Unit filename="C3DSMeshFileLoader.h" />
-		<Unit filename="CAnimatedMeshHalfLife.cpp" />
-		<Unit filename="CAnimatedMeshHalfLife.h" />
 		<Unit filename="CAnimatedMeshSceneNode.cpp" />
 		<Unit filename="CAnimatedMeshSceneNode.h" />
 		<Unit filename="CB3DMeshFileLoader.cpp" />
@@ -402,20 +397,12 @@
 		<Unit filename="CBlit.h" />
 		<Unit filename="CBlobsLoadingManager.cpp" />
 		<Unit filename="CBurningShader_Raster_Reference.cpp" />
-		<Unit filename="CCSMLoader.cpp" />
-		<Unit filename="CCSMLoader.h" />
 		<Unit filename="CCameraSceneNode.cpp" />
 		<Unit filename="CCameraSceneNode.h" />
 		<Unit filename="CColorConverter.cpp" />
 		<Unit filename="CColorConverter.h" />
 		<Unit filename="CCubeSceneNode.cpp" />
 		<Unit filename="CCubeSceneNode.h" />
-		<Unit filename="CDMFLoader.cpp" />
-		<Unit filename="CDMFLoader.h" />
-		<Unit filename="CDefaultSceneNodeAnimatorFactory.cpp" />
-		<Unit filename="CDefaultSceneNodeAnimatorFactory.h" />
-		<Unit filename="CDefaultSceneNodeFactory.cpp" />
-		<Unit filename="CDefaultSceneNodeFactory.h" />
 		<Unit filename="CDepthBuffer.cpp" />
 		<Unit filename="CDepthBuffer.h" />
 		<Unit filename="CFPSCounter.cpp" />
@@ -436,14 +423,8 @@
 		<Unit filename="CImageLoaderDDS.h" />
 		<Unit filename="CImageLoaderJPG.cpp" />
 		<Unit filename="CImageLoaderJPG.h" />
-		<Unit filename="CImageLoaderPCX.cpp" />
-		<Unit filename="CImageLoaderPCX.h" />
 		<Unit filename="CImageLoaderPNG.cpp" />
 		<Unit filename="CImageLoaderPNG.h" />
-		<Unit filename="CImageLoaderPPM.cpp" />
-		<Unit filename="CImageLoaderPPM.h" />
-		<Unit filename="CImageLoaderPSD.cpp" />
-		<Unit filename="CImageLoaderPSD.h" />
 		<Unit filename="CImageLoaderRGB.cpp" />
 		<Unit filename="CImageLoaderRGB.h" />
 		<Unit filename="CImageLoaderTGA.cpp" />
@@ -452,14 +433,8 @@
 		<Unit filename="CImageWriterBMP.h" />
 		<Unit filename="CImageWriterJPG.cpp" />
 		<Unit filename="CImageWriterJPG.h" />
-		<Unit filename="CImageWriterPCX.cpp" />
-		<Unit filename="CImageWriterPCX.h" />
 		<Unit filename="CImageWriterPNG.cpp" />
 		<Unit filename="CImageWriterPNG.h" />
-		<Unit filename="CImageWriterPPM.cpp" />
-		<Unit filename="CImageWriterPPM.h" />
-		<Unit filename="CImageWriterPSD.cpp" />
-		<Unit filename="CImageWriterPSD.h" />
 		<Unit filename="CImageWriterTGA.cpp" />
 		<Unit filename="CImageWriterTGA.h" />
 		<Unit filename="CIrrDeviceConsole.cpp" />
@@ -561,8 +536,6 @@
 		<Unit filename="CPakReader.h" />
 		<Unit filename="CReadFile.cpp" />
 		<Unit filename="CReadFile.h" />
-		<Unit filename="CSMFMeshFileLoader.cpp" />
-		<Unit filename="CSMFMeshFileLoader.h" />
 		<Unit filename="CSTLMeshFileLoader.cpp" />
 		<Unit filename="CSTLMeshFileLoader.h" />
 		<Unit filename="CSTLMeshWriter.cpp" />
@@ -706,7 +679,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="coreutil.cpp" />
-		<Unit filename="dmfsupport.h" />
 		<Unit filename="glext.h" />
 		<Unit filename="jpeglib/cderror.h" />
 		<Unit filename="jpeglib/jaricom.c">

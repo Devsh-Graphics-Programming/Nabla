@@ -28,11 +28,7 @@ void CSceneNodeAnimatorDelete::animateNode(IDummyTransformationSceneNode* node, 
 	{
 		HasFinished = true;
 		if(node && SceneManager)
-		{
-			// don't delete if scene manager is attached to an editor
-			///if (!SceneManager->getParameters()->getAttributeAsBool(IRR_SCENE_MANAGER_IS_EDITOR))
-				SceneManager->addToDeletionQueue(node);
-		}
+            SceneManager->addToDeletionQueue(node);
 	}
 }
 
