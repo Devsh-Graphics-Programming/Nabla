@@ -33,7 +33,8 @@ constexpr const char* CS_DOWNSAMPLE_SRC = R"XDDD(
 #version 430 core
 layout(local_size_x = 16, local_size_y = 16) in;
 
-#define SIZE %u
+#define SIZEX %u
+#define SIZEY %u
 
 layout(std430, binding = 0) restrict writeonly buffer b {
 	uvec2 ssbo[];
@@ -47,7 +48,7 @@ void main()
 {
     const uvec2 IDX = gl_GlobalInvocationID.xy; // each index corresponds to one pixel in downsampled texture
 
-    const ivec2 OUT_SIZE = ivec2(SIZE, SIZE);
+    const ivec2 OUT_SIZE = ivec2(SIZEX, SIZEY);
 
     vec2 coords = vec2(IDX) / vec2(OUT_SIZE);
     vec4 avg = (
@@ -59,7 +60,7 @@ void main()
 
     const uint HBUF_IDX = IDX.y * OUT_SIZE.x + IDX.x;
 
-    if (HBUF_IDX < SIZE*SIZE)
+    if (IDX.x < SIZEX && IDX.y < SIZEY)
         ssbo[HBUF_IDX] = encodeRgb(avg.xyz);
 }
 )XDDD";
@@ -142,8 +143,8 @@ void main()
     const uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
     const uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
 
-    smem[ai + bankOffsetA] = (IN_START_IDX + inOffset + ai < inSamples.length()) ? decodeRgb(inSamples[IN_START_IDX + inOffset + ai]) : vec3(0);
-    smem[bi + bankOffsetB] = (IN_START_IDX + inOffset + bi < inSamples.length()) ? decodeRgb(inSamples[IN_START_IDX + inOffset + bi]) : vec3(0);
+    smem[ai + bankOffsetA] = (ai < ACTUAL_SIZE) ? decodeRgb(inSamples[IN_START_IDX + inOffset + ai]) : vec3(0);
+    smem[bi + bankOffsetB] = (bi < ACTUAL_SIZE) ? decodeRgb(inSamples[IN_START_IDX + inOffset + bi]) : vec3(0);
 
     memoryBarrierShared();
     barrier();
@@ -182,9 +183,9 @@ layout(std430, binding = 1) restrict readonly buffer Psum {
 #define FINAL_PASS %d
 #define RADIUS %u
 
-#if FINAL_PASS
+//#if FINAL_PASS
 layout(binding = 0, rgba16f) uniform writeonly image2D out_img;
-#endif
+//#endif
 
 
 layout(std140, binding = 0) uniform Controls
@@ -239,11 +240,11 @@ void main()
         + (R_IDX - R_EDGE_IDX)*(loadShared(LAST_IDX) - loadShared(LAST_IDX-1)) // handle right overflow
         - ((L_IDX < FIRST_IDX) ? ((L_IDX - FIRST_IDX + 1) * loadShared(FIRST_IDX)) : loadShared(L_IDX)); // also handle left overflow
 	res /= (float(2*RADIUS) + 1.f);
-#if FINAL_PASS
+//#if FINAL_PASS
     imageStore(out_img, ivec2(IDX), vec4(res, 1.f));
-#else
+//#else
     outSamples[uint(dot(IDX, outMlt)) + outOffset] = encodeRgb(res);
-#endif
+//#endif
 }
 )XDDD";
 
@@ -291,42 +292,56 @@ uint32_t CBlurPerformer::s_texturesEverCreatedCount{};
 
 CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, uint32_t _radius, core::vector2d<uint32_t> _outSize, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
 {
-    uint32_t ds{}, ps{}, gblur{}, fblur{};
+    uint32_t ds{}, psx{}, psy{}, gblurx{}, gblury{}, fblur{};
 
     const size_t bufSize = std::max(strlen(CS_BLUR_SRC), std::max(strlen(CS_PSUM_SRC), strlen(CS_DOWNSAMPLE_SRC))) + strlen(CS_CONVERSIONS) + 1000u;
     char* src = (char*)malloc(bufSize);
 
-    auto doCleaning = [&, ds, ps, gblur, fblur, src]() {
-        for (uint32_t s : { ds, ps, gblur, fblur })
+    auto doCleaning = [&, ds, psx, psy, gblurx, gblury, fblur, src]() {
+        for (uint32_t s : { ds, psx, psy, gblurx, gblury, fblur })
             video::COpenGLExtensionHandler::extGlDeleteProgram(s);
         free(src);
         return nullptr;
     };
 
-    if (!genDsampleCs(src, bufSize, _outSize.X))
+    if (!genDsampleCs(src, bufSize, _outSize))
         return doCleaning();
     ds = createComputeShader(src);
 
     if (!genPsumCs(src, bufSize, _outSize.X))
         return doCleaning();
-    ps = createComputeShader(src);
+    psx = createComputeShader(src);
+    if (_outSize.X != _outSize.Y)
+    {
+        if (!genPsumCs(src, bufSize, _outSize.Y))
+            return doCleaning();
+        psy = createComputeShader(src);
+    }
+    else psy = psx;
 
     if (!genBlurPassCs(src, bufSize, _outSize.X, _radius, 0))
         return doCleaning();
-    gblur = createComputeShader(src);
+    gblurx = createComputeShader(src);
+    if (_outSize.X != _outSize.Y)
+    {
+        if (!genBlurPassCs(src, bufSize, _outSize.Y, _radius, 0))
+            return doCleaning();
+        gblury = createComputeShader(src);
+    }
+    else gblury = gblurx;
 
-    if (!genBlurPassCs(src, bufSize, _outSize.X, _radius, 1))
+    if (!genBlurPassCs(src, bufSize, _outSize.Y, _radius, 1))
         return doCleaning();
     fblur = createComputeShader(src);
 
-    for (uint32_t s : {ds, ps, gblur, fblur})
+    for (uint32_t s : {ds, psx, psy, gblurx, gblury, fblur})
     {
         if (!s)
             return doCleaning();
     }
     free(src);
 
-    return new CBlurPerformer(_driver, ds, ps, gblur, fblur, _radius, _outSize, uboBuffer, uboDataStaticOffset);
+    return new CBlurPerformer(_driver, ds, psx, psy, gblurx, gblury, fblur, _radius, _outSize, uboBuffer, uboDataStaticOffset);
 }
 
 video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex) const
@@ -378,13 +393,13 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
     {
         bindUbo(E_UBO_BINDING, i);
 
-        video::COpenGLExtensionHandler::extGlUseProgram(m_psumCs);
+        video::COpenGLExtensionHandler::extGlUseProgram(m_psumCs[i >= 3u]);
 
         video::COpenGLExtensionHandler::extGlDispatchCompute((i >= 3u ? m_outSize.X : m_outSize.Y), 1u, 1u);
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 
-        video::COpenGLExtensionHandler::extGlUseProgram(m_blurGeneralCs);
+        video::COpenGLExtensionHandler::extGlUseProgram(m_blurGeneralCs[i >= 3u]);
 
         video::COpenGLExtensionHandler::extGlDispatchCompute(1u, (i >= 3u ? m_outSize.X : m_outSize.Y), 1u);
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -392,7 +407,7 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
 
     bindUbo(E_UBO_BINDING, i);
 
-    video::COpenGLExtensionHandler::extGlUseProgram(m_psumCs);
+    video::COpenGLExtensionHandler::extGlUseProgram(m_psumCs[1]);
 
     video::COpenGLExtensionHandler::extGlDispatchCompute(m_outSize.X, 1u, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -413,14 +428,16 @@ CBlurPerformer::~CBlurPerformer()
     m_psumSsbo->drop();
     m_ubo->drop();
     video::COpenGLExtensionHandler::extGlDeleteProgram(m_dsampleCs);
-    video::COpenGLExtensionHandler::extGlDeleteProgram(m_psumCs);
-    video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurGeneralCs);
+    video::COpenGLExtensionHandler::extGlDeleteProgram(m_psumCs[0]);
+    video::COpenGLExtensionHandler::extGlDeleteProgram(m_psumCs[1]);
+    video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurGeneralCs[0]);
+    video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurGeneralCs[1]);
     video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurFinalCs);
 }
 
-bool CBlurPerformer::genDsampleCs(char* _out, size_t _bufSize, uint32_t _outTexSize)
+bool CBlurPerformer::genDsampleCs(char* _out, size_t _bufSize, const core::vector2d<uint32_t>& _outTexSize)
 {
-    return snprintf(_out, _bufSize, CS_DOWNSAMPLE_SRC, _outTexSize, CS_CONVERSIONS) > 0;
+    return snprintf(_out, _bufSize, CS_DOWNSAMPLE_SRC, _outTexSize.X, _outTexSize.Y, CS_CONVERSIONS) > 0;
 }
 bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTexSize, uint32_t _radius, int _finalPass)
 {

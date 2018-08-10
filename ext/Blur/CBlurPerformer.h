@@ -75,12 +75,12 @@ protected:
     ~CBlurPerformer();
 
 private:
-    CBlurPerformer(video::IVideoDriver* _driver, uint32_t _sample, uint32_t _sat, uint32_t _gblur, uint32_t _fblur, uint32_t _radius,
+    CBlurPerformer(video::IVideoDriver* _driver, uint32_t _sample, uint32_t _psx, uint32_t _psy, uint32_t _gblurx, uint32_t _gblury, uint32_t _fblur, uint32_t _radius,
                    core::vector2d<uint32_t> _outSize, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset) :
         m_driver(_driver),
         m_dsampleCs(_sample),
-        m_psumCs(_sat),
-        m_blurGeneralCs(_gblur),
+        m_psumCs{_psx, _psy},
+        m_blurGeneralCs{_gblurx, _gblury},
         m_blurFinalCs(_fblur),
         m_radius(_radius),
         m_paddedUBOSize(getSinglePaddedUBOSize(_driver)),
@@ -88,7 +88,7 @@ private:
         m_ubo(uboBuffer),
         m_uboStaticOffset(uboDataStaticOffset)
     {
-        assert(m_outSize.X == m_outSize.Y);
+        //assert(m_outSize.X == m_outSize.Y);
 
         video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
         reqs.vulkanReqs.alignment = 4;
@@ -101,7 +101,8 @@ private:
         reqs.vulkanReqs.size = 2 * 2 * m_outSize.X * m_outSize.Y * sizeof(uint32_t);
         m_samplesSsbo = m_driver->createGPUBufferOnDedMem(reqs);
 
-        reqs.vulkanReqs.size = 4 * padToPoT(m_outSize.X) * m_outSize.Y * sizeof(float);
+        core::vector2d<uint32_t> sortedSize = [](core::vector2d<uint32_t> _v) { return _v.X < _v.Y ? _v : core::vector2d<uint32_t>{_v.Y, _v.X}; }(m_outSize);
+        reqs.vulkanReqs.size = 4 * padToPoT(sortedSize.Y) * sortedSize.X * sizeof(float);
         m_psumSsbo =  m_driver->createGPUBufferOnDedMem(reqs);
 
         if (!m_ubo)
@@ -124,7 +125,7 @@ private:
     **/
     void writeUBOData();
 private:
-    static bool genDsampleCs(char* _out, size_t _bufSize, uint32_t _outTexSize);
+    static bool genDsampleCs(char* _out, size_t _bufSize, const core::vector2d<uint32_t>& _outTexSize);
     static bool genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTexSize, uint32_t _radius, int _finalPass);
     static bool genPsumCs(char* _out, size_t _bufSize, uint32_t _outTexSize);
 
@@ -144,7 +145,7 @@ private:
 
 private:
     video::IVideoDriver* m_driver;
-    uint32_t m_dsampleCs, m_psumCs, m_blurGeneralCs, m_blurFinalCs;
+    uint32_t m_dsampleCs, m_psumCs[2], m_blurGeneralCs[2], m_blurFinalCs;
     video::IGPUBuffer* m_samplesSsbo, *m_psumSsbo;
     video::IGPUBuffer* m_ubo;
 
