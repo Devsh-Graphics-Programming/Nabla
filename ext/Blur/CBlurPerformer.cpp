@@ -92,6 +92,7 @@ layout(std140, binding = 0) uniform Controls
     uint inOffset;
     uint outOffset;
     uvec2 outMlt;
+    uint radius;
 };
 
 %s // here goes CS_CONVERSIONS
@@ -181,7 +182,6 @@ layout(std430, binding = 1) restrict readonly buffer Psum {
 
 #define LC_IDX gl_LocalInvocationIndex
 #define FINAL_PASS %d
-#define RADIUS %u
 
 //#if FINAL_PASS
 layout(binding = 0, rgba16f) uniform writeonly image2D out_img;
@@ -195,6 +195,7 @@ layout(std140, binding = 0) uniform Controls
     uint inOffset;
     uint outOffset;
     uvec2 outMlt;
+    uint radius;
 };
 
 
@@ -231,15 +232,15 @@ void main()
     // all index constants below (except LAST_IDX) are enlarged by 1 becaue of **exclusive** prefix sum
     const int FIRST_IDX = 1;
     const uint LAST_IDX = ACTUAL_SIZE-1;
-    const int L_IDX = int(LC_IDX) - RADIUS;
-    const uint R_IDX = LC_IDX + RADIUS + 1;
+    const int L_IDX = int(LC_IDX - radius);
+    const uint R_IDX = LC_IDX + radius + 1;
     const uint R_EDGE_IDX = min(R_IDX, LAST_IDX);
 
     vec3 res =
         loadShared(R_EDGE_IDX)
         + (R_IDX - R_EDGE_IDX)*(loadShared(LAST_IDX) - loadShared(LAST_IDX-1)) // handle right overflow
         - ((L_IDX < FIRST_IDX) ? ((L_IDX - FIRST_IDX + 1) * loadShared(FIRST_IDX)) : loadShared(L_IDX)); // also handle left overflow
-	res /= (float(2*RADIUS) + 1.f);
+	res /= (float(2*radius) + 1.f);
 //#if FINAL_PASS
     imageStore(out_img, ivec2(IDX), vec4(res, 1.f));
 //#else
@@ -319,18 +320,18 @@ CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, uint32
     }
     else psy = psx;
 
-    if (!genBlurPassCs(src, bufSize, _outSize.X, _radius, 0))
+    if (!genBlurPassCs(src, bufSize, _outSize.X, 0))
         return doCleaning();
     gblurx = createComputeShader(src);
     if (_outSize.X != _outSize.Y)
     {
-        if (!genBlurPassCs(src, bufSize, _outSize.Y, _radius, 0))
+        if (!genBlurPassCs(src, bufSize, _outSize.Y, 0))
             return doCleaning();
         gblury = createComputeShader(src);
     }
     else gblury = gblurx;
 
-    if (!genBlurPassCs(src, bufSize, _outSize.Y, _radius, 1))
+    if (!genBlurPassCs(src, bufSize, _outSize.Y, 1))
         return doCleaning();
     fblur = createComputeShader(src);
 
@@ -439,9 +440,9 @@ bool CBlurPerformer::genDsampleCs(char* _out, size_t _bufSize, const core::vecto
 {
     return snprintf(_out, _bufSize, CS_DOWNSAMPLE_SRC, _outTexSize.X, _outTexSize.Y, CS_CONVERSIONS) > 0;
 }
-bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTexSize, uint32_t _radius, int _finalPass)
+bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTexSize, int _finalPass)
 {
-    return snprintf(_out, _bufSize, CS_BLUR_SRC, padToPoT(_outTexSize), _outTexSize, _finalPass, _radius, CS_CONVERSIONS) > 0;
+    return snprintf(_out, _bufSize, CS_BLUR_SRC, padToPoT(_outTexSize), _outTexSize, _finalPass, CS_CONVERSIONS) > 0;
 }
 
 bool CBlurPerformer::genPsumCs(char * _out, size_t _bufSize, uint32_t _outTexSize)
@@ -527,6 +528,7 @@ void CBlurPerformer::writeUBOData()
         destPtr->outOffset = outOffset;
         destPtr->outMlt[0] = multipliers[i].X;
         destPtr->outMlt[1] = multipliers[i].Y;
+        destPtr->radius = m_radius;
 
         std::swap(inOffset, outOffset);
     }

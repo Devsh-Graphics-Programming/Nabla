@@ -47,6 +47,7 @@ public:
         uint32_t inOffset;
         uint32_t outOffset;
         uint32_t outMlt[2];
+        uint32_t radius;
     };
 
     static inline size_t getRequiredUBOSize(video::IVideoDriver* driver)
@@ -63,6 +64,15 @@ public:
     //! Output texture's color format must be video::ECF_A16B16G16R16F
     void blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex) const;
 
+    inline void setRadius(uint32_t _radius)
+    { 
+        if (m_radius == _radius)
+            return;
+        m_radius = _radius;
+        writeUBOData();
+    }
+    inline uint32_t getRadius() const { return m_radius; }
+
 protected:
     static inline size_t getSinglePaddedUBOSize(video::IVideoDriver* driver)
     {
@@ -75,7 +85,7 @@ protected:
     ~CBlurPerformer();
 
 private:
-    CBlurPerformer(video::IVideoDriver* _driver, uint32_t _sample, uint32_t _psx, uint32_t _psy, uint32_t _gblurx, uint32_t _gblury, uint32_t _fblur, uint32_t _radius,
+    inline CBlurPerformer(video::IVideoDriver* _driver, uint32_t _sample, uint32_t _psx, uint32_t _psy, uint32_t _gblurx, uint32_t _gblury, uint32_t _fblur, uint32_t _radius,
                    core::vector2d<uint32_t> _outSize, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset) :
         m_driver(_driver),
         m_dsampleCs(_sample),
@@ -126,7 +136,7 @@ private:
     void writeUBOData();
 private:
     static bool genDsampleCs(char* _out, size_t _bufSize, const core::vector2d<uint32_t>& _outTexSize);
-    static bool genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTexSize, uint32_t _radius, int _finalPass);
+    static bool genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTexSize, int _finalPass);
     static bool genPsumCs(char* _out, size_t _bufSize, uint32_t _outTexSize);
 
     void bindSSBuffers() const;
@@ -149,7 +159,7 @@ private:
     video::IGPUBuffer* m_samplesSsbo, *m_psumSsbo;
     video::IGPUBuffer* m_ubo;
 
-    const uint32_t m_radius;
+    uint32_t m_radius;
     const uint32_t m_paddedUBOSize;
     const uint32_t m_uboStaticOffset;
     const core::vector2d<uint32_t> m_outSize;

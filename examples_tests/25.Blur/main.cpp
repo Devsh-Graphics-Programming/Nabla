@@ -12,11 +12,10 @@ using namespace core;
 //!Same As Last Example
 class MyEventReceiver : public IEventReceiver
 {
-public:
+    const uint32_t BLUR_RADIUS_MIN = 2u, BLUR_RADIUS_MAX = 50u;
 
-    MyEventReceiver()
-    {
-    }
+public:
+    ext::Blur::CBlurPerformer* blurPerf = nullptr;
 
     bool OnEvent(const SEvent& event)
     {
@@ -30,6 +29,11 @@ public:
             default:
                 break;
             }
+        }
+        else if (event.EventType == irr::EET_MOUSE_INPUT_EVENT && blurPerf)
+        {
+            uint32_t r = blurPerf->getRadius() + uint32_t(event.MouseInput.Wheel);
+            blurPerf->setRadius(std::max(BLUR_RADIUS_MIN, std::min(r, BLUR_RADIUS_MAX)));
         }
 
         return false;
@@ -124,8 +128,9 @@ int main()
     scene::ICPUMesh* cpumesh = smgr->getGeometryCreator()->createCubeMeshCPU();
     video::ITexture* texture = driver->getTexture("../tex.jpg", video::ECF_A16B16G16R16F);
 
-    const core::vector2d<uint32_t> outputSz{ 728u, 728u };
+    const core::vector2d<uint32_t> outputSz{ 1000u, 1000u };
     ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 4u, outputSz);
+    receiver.blurPerf = blur;
 
     video::ITexture* outputTex = driver->addTexture(video::ITexture::ETT_2D, &outputSz.X, 1u, "blur_output", video::ECF_A16B16G16R16F);
 
