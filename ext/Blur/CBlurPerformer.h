@@ -43,7 +43,7 @@ public:
     struct BlurPassUBO
     {
         uint32_t iterNum;
-        uint32_t radius;
+        float radius;
         uint32_t inOffset;
         uint32_t outOffset;
         uint32_t outMlt[2];
@@ -54,7 +54,7 @@ public:
         return getSinglePaddedUBOSize(driver)*6u;
     }
 
-    static CBlurPerformer* instantiate(video::IVideoDriver* _driver, uint32_t _radius, core::vector2d<uint32_t> _outSize,
+    static CBlurPerformer* instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _outSize,
                                        video::IGPUBuffer* uboBuffer=nullptr, const size_t& uboDataStaticOffset=0);
 
     video::ITexture* createOutputTexture(video::ITexture* _inputTex) const;
@@ -63,14 +63,15 @@ public:
     //! Output texture's color format must be video::ECF_A16B16G16R16F
     void blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex) const;
 
-    inline void setRadius(uint32_t _radius)
+    inline void setRadius(float _radius)
     { 
+        _radius = std::max(0.f, std::min(_radius, 1.f));
         if (m_radius == _radius)
             return;
         m_radius = _radius;
         writeUBOData();
     }
-    inline uint32_t getRadius() const { return m_radius; }
+    inline float getRadius() const { return m_radius; }
 
 protected:
     static inline size_t getSinglePaddedUBOSize(video::IVideoDriver* driver)
@@ -84,7 +85,7 @@ protected:
     ~CBlurPerformer();
 
 private:
-    inline CBlurPerformer(video::IVideoDriver* _driver, uint32_t _sample, uint32_t _gblurx, uint32_t _gblury, uint32_t _fblur, uint32_t _radius,
+    inline CBlurPerformer(video::IVideoDriver* _driver, uint32_t _sample, uint32_t _gblurx, uint32_t _gblury, uint32_t _fblur, float _radius,
                    core::vector2d<uint32_t> _outSize, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset) :
         m_driver(_driver),
         m_dsampleCs(_sample),
@@ -156,7 +157,7 @@ private:
     video::IGPUBuffer* m_samplesSsbo;// , *m_psumSsbo;
     video::IGPUBuffer* m_ubo;
 
-    uint32_t m_radius;
+    float m_radius;
     const uint32_t m_paddedUBOSize;
     const uint32_t m_uboStaticOffset;
     const core::vector2d<uint32_t> m_outSize;

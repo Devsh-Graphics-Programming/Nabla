@@ -89,7 +89,7 @@ layout(binding = 0, rgba16f) uniform writeonly image2D out_img;
 layout(std140, binding = 0) uniform Controls
 {
     uint iterNum;
-    uint radius;
+    float radius;
     uint inOffset;
     uint outOffset;
     uvec2 outMlt;
@@ -182,6 +182,15 @@ uint getAddr(uint _addr)
     return _addr + CONFLICT_FREE_OFFSET(_addr);
 }
 
+// WARNING: calculates resulting address (this function do NOT expect to get address from getAddr())
+vec3 loadSharedInterp(float _idx)
+{
+    float f = fract(_idx);
+    if (f < 0.1f) // I think 0.1 is a reasonable value that wouldn't make any visual difference and we don't have to make second memory fetch
+        return loadShared(getAddr(uint(_idx)));
+    return mix(loadShared(getAddr(uint(_idx))), loadShared(getAddr(uint(_idx)+1u)), f);
+}
+
 void main()
 {
     uvec2 IDX = gl_GlobalInvocationID.xy;
@@ -192,18 +201,21 @@ void main()
     memoryBarrierShared();
     barrier();
 
+    const float RADIUS = float(ACTUAL_SIZE) * radius;
+
     // all index constants below (except LAST_IDX) are enlarged by 1 becaue of **exclusive** prefix sum
-    const int FIRST_IDX = 1;
+    const float FIRST_IDX_F = 1.f;
+    const uint FIRST_IDX = 1;
     const uint LAST_IDX = ACTUAL_SIZE-1;
-    const int L_IDX = int(LC_IDX - radius);
-    const uint R_IDX = LC_IDX + radius + 1;
-    const uint R_EDGE_IDX = min(R_IDX, LAST_IDX);
+    const float L_IDX = float(LC_IDX) - RADIUS;
+    const float R_IDX = float(LC_IDX) + RADIUS + 1.f;
+    const float R_EDGE_IDX = min(R_IDX, float(LAST_IDX));
 
     vec3 res =
-        loadShared(getAddr(R_EDGE_IDX))
+        loadSharedInterp(R_EDGE_IDX)
         + (R_IDX - R_EDGE_IDX)*(loadShared(getAddr(LAST_IDX)) - loadShared(getAddr(LAST_IDX-1))) // handle right overflow
-        - ((L_IDX < FIRST_IDX) ? ((L_IDX - FIRST_IDX + 1) * loadShared(getAddr(FIRST_IDX))) : loadShared(getAddr(L_IDX))); // also handle left overflow
-    res /= (float(2*radius) + 1.f);
+        - ((L_IDX < FIRST_IDX_F) ? ((L_IDX - FIRST_IDX_F + 1.f) * loadShared(getAddr(FIRST_IDX))) : loadSharedInterp(L_IDX)); // also handle left overflow
+    res /= (2.f*RADIUS + 1.f);
 #if FINAL_PASS
     imageStore(out_img, ivec2(IDX), vec4(res, 1.f));
 #else
@@ -254,7 +266,7 @@ inline uint32_t createComputeShader(const char* _src)
 
 uint32_t CBlurPerformer::s_texturesEverCreatedCount{};
 
-CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, uint32_t _radius, core::vector2d<uint32_t> _outSize, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
+CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _outSize, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
 {
     uint32_t ds{},gblurx{}, gblury{}, fblur{};
 
