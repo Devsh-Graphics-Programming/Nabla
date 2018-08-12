@@ -12,7 +12,7 @@ using namespace core;
 //!Same As Last Example
 class MyEventReceiver : public IEventReceiver
 {
-    const float BLUR_RADIUS_MIN = 0.01f, BLUR_RADIUS_MAX = 0.5f;
+    const float BLUR_RADIUS_MIN = 0.f, BLUR_RADIUS_MAX = 0.5f;
 
 public:
     ext::Blur::CBlurPerformer* blurPerf = nullptr;
@@ -128,11 +128,11 @@ int main()
     scene::ICPUMesh* cpumesh = smgr->getGeometryCreator()->createCubeMeshCPU();
     video::ITexture* texture = driver->getTexture("../tex.jpg", video::ECF_A16B16G16R16F);
 
-    const core::vector2d<uint32_t> outputSz{ 900u, 100u };
-    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, outputSz);
+    const core::vector2d<uint32_t> dsFactor{ 7u, 3u };
+    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, dsFactor);
     receiver.blurPerf = blur;
 
-    video::ITexture* outputTex = driver->addTexture(video::ITexture::ETT_2D, &outputSz.X, 1u, "blur_output", video::ECF_A16B16G16R16F);
+    video::ITexture* outputTex = driver->addTexture(video::ITexture::ETT_2D, texture->getSize(), 1u, "blur_output", video::ECF_A16B16G16R16F);
 
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;

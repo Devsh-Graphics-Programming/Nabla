@@ -266,50 +266,12 @@ inline uint32_t createComputeShader(const char* _src)
 
 uint32_t CBlurPerformer::s_texturesEverCreatedCount{};
 
-CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _outSize, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
+CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
 {
-    uint32_t ds{},gblurx{}, gblury{}, fblur{};
-
-    const size_t bufSize = std::max(strlen(CS_BLUR_SRC), strlen(CS_DOWNSAMPLE_SRC)) + strlen(CS_CONVERSIONS) + 1000u;
-    char* src = (char*)malloc(bufSize);
-
-    auto doCleaning = [&, ds, gblurx, gblury, fblur, src]() {
-        for (uint32_t s : { ds, gblurx, gblury, fblur })
-            video::COpenGLExtensionHandler::extGlDeleteProgram(s);
-        free(src);
-        return nullptr;
-    };
-
-    if (!genDsampleCs(src, bufSize, _outSize))
-        return doCleaning();
-    ds = createComputeShader(src);
-
-    if (!genBlurPassCs(src, bufSize, _outSize.X, 0))
-        return doCleaning();
-    gblurx = createComputeShader(src);
-    if (_outSize.X != _outSize.Y)
-    {
-        if (!genBlurPassCs(src, bufSize, _outSize.Y, 0))
-            return doCleaning();
-        gblury = createComputeShader(src);
-    }
-    else gblury = gblurx;
-
-    if (!genBlurPassCs(src, bufSize, _outSize.Y, 1))
-        return doCleaning();
-    fblur = createComputeShader(src);
-
-    for (uint32_t s : {ds, gblurx, gblury, fblur})
-    {
-        if (!s)
-            return doCleaning();
-    }
-    free(src);
-
-    return new CBlurPerformer(_driver, ds, gblurx, gblury, fblur, _radius, _outSize, uboBuffer, uboDataStaticOffset);
+    return new CBlurPerformer(_driver, _radius, _dsFactor, uboBuffer, uboDataStaticOffset);
 }
 
-video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex) const
+video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex)
 {
     video::ITexture* outputTex = m_driver->addTexture(video::ITexture::ETT_2D, &m_outSize.X, 1, ("__IRR_blur_out" + std::to_string(s_texturesEverCreatedCount++)).c_str(), video::ECF_A16B16G16R16F);
 
@@ -318,7 +280,7 @@ video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex)
     return outputTex;
 }
 
-void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex) const
+void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex)
 {
     {
     const uint32_t* sz = _outputTex->getSize();
@@ -326,6 +288,11 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
         _outputTex->getColorFormat() == video::ECF_A16B16G16R16F &&
         _outputTex->getTextureType() == video::ITexture::ETT_2D
     );
+    }
+    {
+    const uint32_t* sz = _inputTex->getSize();
+    prepareForBlur(sz); // recalculate output size and recreate shaders if there's a need
+    assert(m_dsampleCs);
     }
 
     GLint prevProgram{};
@@ -374,14 +341,52 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
     bindImage(0, prevImgBinding);
 }
 
-CBlurPerformer::~CBlurPerformer()
+void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize)
 {
-    m_samplesSsbo->drop();
-    m_ubo->drop();
+    const core::vector2d<uint32_t> outSz = core::vector2d<uint32_t>(_inputSize[0], _inputSize[1]) / m_dsFactor;
+    if (outSz == m_outSize && m_dsampleCs /*if dsample CS is absent, we can be sure that none of the shaders are there*/)
+        return;
+
+    if (m_dsampleCs)
+        deleteShaders(); // or maybe we could cache already compiled shaders (with output size as key) in case they get to be usable again?
+
+    m_outSize = outSz;
+    std::tie(m_dsampleCs, m_blurGeneralCs[0], m_blurGeneralCs[1], m_blurFinalCs) = makeShaders(m_outSize);
+
+    // when output size changes, we also have to reupload new UBO contents
+    writeUBOData();
+
+    if (m_samplesSsbo)
+        m_samplesSsbo->drop();
+
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    reqs.vulkanReqs.size = 2 * 2 * m_outSize.X * m_outSize.Y * sizeof(uint32_t);
+
+    m_samplesSsbo = m_driver->createGPUBufferOnDedMem(reqs);
+}
+
+void CBlurPerformer::deleteShaders() const
+{
     video::COpenGLExtensionHandler::extGlDeleteProgram(m_dsampleCs);
     video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurGeneralCs[0]);
-    video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurGeneralCs[1]);
+    if (m_blurGeneralCs[0] != m_blurGeneralCs[1]) // if output size is square, then those are the same shader
+        video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurGeneralCs[1]);
     video::COpenGLExtensionHandler::extGlDeleteProgram(m_blurFinalCs);
+}
+
+CBlurPerformer::~CBlurPerformer()
+{
+    if (m_samplesSsbo)
+        m_samplesSsbo->drop();
+    if (m_ubo)
+        m_ubo->drop();
+    deleteShaders();
 }
 
 bool CBlurPerformer::genDsampleCs(char* _out, size_t _bufSize, const core::vector2d<uint32_t>& _outTexSize)
@@ -422,7 +427,7 @@ void CBlurPerformer::bindSSBuffers() const
     auxCtx->setActiveSSBO(E_SAMPLES_SSBO_BINDING, 1u, bufs, offsets, sizes);
 }
 
-auto irr::ext::Blur::CBlurPerformer::getCurrentImageBinding(uint32_t _imgUnit) -> ImageBindingData
+auto CBlurPerformer::getCurrentImageBinding(uint32_t _imgUnit) -> ImageBindingData
 {
     using gl = video::COpenGLExtensionHandler;
 
@@ -482,6 +487,49 @@ void CBlurPerformer::writeUBOData()
     m_driver->copyBuffer(stagingBuf,m_ubo,0,m_uboStaticOffset,reqs.vulkanReqs.size);
 
     stagingBuf->drop();
+}
+
+auto CBlurPerformer::makeShaders(const core::vector2d<uint32_t>& _outSize) -> tuple4xu32
+{
+    uint32_t ds{}, gblurx{}, gblury{}, fblur{};
+
+    const size_t bufSize = std::max(strlen(CS_BLUR_SRC), strlen(CS_DOWNSAMPLE_SRC)) + strlen(CS_CONVERSIONS) + 1000u;
+    char* src = (char*)malloc(bufSize);
+
+    auto doCleaning = [&, ds, gblurx, gblury, fblur, src]() {
+        for (uint32_t s : { ds, gblurx, gblury, fblur })
+            video::COpenGLExtensionHandler::extGlDeleteProgram(s);
+        free(src);
+        return tuple4xu32(0u, 0u, 0u, 0u);
+    };
+
+    if (!genDsampleCs(src, bufSize, _outSize))
+        return doCleaning();
+    ds = createComputeShader(src);
+
+    if (!genBlurPassCs(src, bufSize, _outSize.X, 0))
+        return doCleaning();
+    gblurx = createComputeShader(src);
+    if (_outSize.X != _outSize.Y)
+    {
+        if (!genBlurPassCs(src, bufSize, _outSize.Y, 0))
+            return doCleaning();
+        gblury = createComputeShader(src);
+    }
+    else gblury = gblurx;
+
+    if (!genBlurPassCs(src, bufSize, _outSize.Y, 1))
+        return doCleaning();
+    fblur = createComputeShader(src);
+
+    for (uint32_t s : {ds, gblurx, gblury, fblur})
+    {
+        if (!s)
+            return doCleaning();
+    }
+    free(src);
+
+    return std::make_tuple(ds, gblurx, gblury, fblur);
 }
 
 void CBlurPerformer::bindUbo(uint32_t _bnd, uint32_t _part) const
