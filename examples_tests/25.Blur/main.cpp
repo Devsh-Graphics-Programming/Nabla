@@ -25,7 +25,23 @@ public:
             {
             case irr::KEY_KEY_Q: // switch wire frame mode
                 exit(0);
+                return true; 
+            case irr::KEY_KEY_W:
+            case irr::KEY_KEY_S:
+            case irr::KEY_KEY_E:
+            case irr::KEY_KEY_D:
+            {
+                core::vector2d<uint32_t> dsf = blurPerf->getDownsampleFactor();
+                switch (event.KeyInput.Key)
+                {
+                case irr::KEY_KEY_W: ++dsf.X; break;
+                case irr::KEY_KEY_S: --dsf.X; break;
+                case irr::KEY_KEY_E: ++dsf.Y; break;
+                case irr::KEY_KEY_D: --dsf.Y; break;
+                }
+                blurPerf->setDownsampleFactor(dsf);
                 return true;
+            }
             default:
                 break;
             }
@@ -34,6 +50,7 @@ public:
         {
             float r = blurPerf->getRadius() + event.MouseInput.Wheel/100.f;
             blurPerf->setRadius(std::max(BLUR_RADIUS_MIN, std::min(r, BLUR_RADIUS_MAX)));
+            //return true;
         }
 
         return false;
@@ -80,7 +97,8 @@ public:
     virtual void OnUnsetMaterial() {}
 };
 
-
+//! Use scroll to adjust blur radius
+//! Use W/S to incr/decr X of downsample factor and E/D to incr/decr Y
 int main()
 {
     // create device with full flexibility over creation parameters
@@ -128,7 +146,7 @@ int main()
     scene::ICPUMesh* cpumesh = smgr->getGeometryCreator()->createCubeMeshCPU();
     video::ITexture* texture = driver->getTexture("../tex.jpg", video::ECF_A16B16G16R16F);
 
-    const core::vector2d<uint32_t> dsFactor{ 7u, 3u };
+    const core::vector2d<uint32_t> dsFactor{ 1u, 1u };
     ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, dsFactor);
     receiver.blurPerf = blur;
 
