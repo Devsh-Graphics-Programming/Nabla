@@ -163,7 +163,7 @@ private:
 
 private:
     video::IVideoDriver* m_driver;
-    mutable uint32_t m_dsampleCs, m_blurGeneralCs[2], m_blurFinalCs;
+    uint32_t m_dsampleCs, m_blurGeneralCs[2], m_blurFinalCs;
     video::IGPUBuffer* m_samplesSsbo;
     video::IGPUBuffer* m_ubo;
 
@@ -171,7 +171,7 @@ private:
     const uint32_t m_paddedUBOSize;
     const uint32_t m_uboStaticOffset;
     core::vector2d<uint32_t> m_dsFactor;
-    mutable core::vector2d<uint32_t> m_outSize;
+    core::vector2d<uint32_t> m_outSize;
 
     static uint32_t s_texturesEverCreatedCount;
 };

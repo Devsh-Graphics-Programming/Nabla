@@ -273,15 +273,25 @@ CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float 
 
 video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex)
 {
-    video::ITexture* outputTex = m_driver->addTexture(video::ITexture::ETT_2D, &m_outSize.X, 1, ("__IRR_blur_out" + std::to_string(s_texturesEverCreatedCount++)).c_str(), video::ECF_A16B16G16R16F);
+    prepareForBlur(_inputTex->getSize());
 
+    video::ITexture* outputTex = m_driver->addTexture(video::ITexture::ETT_2D, &m_outSize.X, 1, ("__IRR_blur_out" + std::to_string(s_texturesEverCreatedCount++)).c_str(), video::ECF_A16B16G16R16F);
     blurTexture(_inputTex, outputTex);
 
     return outputTex;
 }
 
+//#define PROFILE_BLUR_PERFORMER
 void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex)
 {
+    GLint prevProgram{};
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+
+#ifdef PROFILE_BLUR_PERFORMER
+    video::IQueryObject* timeQuery = m_driver->createElapsedTimeQuery();
+    m_driver->beginQuery(timeQuery);
+#endif // PROFILE_BLUR_PERFORMER
+
     {
     const uint32_t* sz = _outputTex->getSize();
     assert(sz[0] >= m_outSize.X && sz[1] >= m_outSize.Y &&
@@ -289,14 +299,8 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
         _outputTex->getTextureType() == video::ITexture::ETT_2D
     );
     }
-    {
-    const uint32_t* sz = _inputTex->getSize();
-    prepareForBlur(sz); // recalculate output size and recreate shaders if there's a need
+    prepareForBlur(_inputTex->getSize()); // recalculate output size and recreate shaders if there's a need
     assert(m_dsampleCs);
-    }
-
-    GLint prevProgram{};
-    glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
     bindSSBuffers();
 
@@ -339,6 +343,13 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
 
     video::COpenGLExtensionHandler::extGlUseProgram(prevProgram);
     bindImage(0, prevImgBinding);
+
+#ifdef PROFILE_BLUR_PERFORMER
+    m_driver->endQuery(timeQuery);
+    uint32_t timeTaken = 0;
+    timeQuery->getQueryResult(&timeTaken);
+    os::Printer::log("irr::ext::BlurPerformer GPU time taken:", std::to_string(timeTaken).c_str(), ELL_ERROR);
+#endif // PROFILE_BLUR_PERFORMER
 }
 
 void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize)
