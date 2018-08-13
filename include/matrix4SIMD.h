@@ -75,39 +75,31 @@ public:
         return r *= _scalar;
     }
 
-private:
-    inline matrix4SIMD& operator*=(const matrix4SIMD& _other)
+#define BROADCAST32(fpx) _MM_SHUFFLE(fpx, fpx, fpx, fpx)
+    static inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b)
     {
-        auto calcRow = [&_other](const vectorSIMDf& _v)
+        auto calcRow = [](const __m128& _row, const matrix4SIMD& _mtx)
         {
-            __m128 v = _v.getAsRegister();
+            __m128 r0 = _mtx.rows[0].getAsRegister();
+            __m128 r1 = _mtx.rows[1].getAsRegister();
+            __m128 r2 = _mtx.rows[2].getAsRegister();
+            __m128 r3 = _mtx.rows[3].getAsRegister();
 
-            v = _mm_mul_ps(_mm_shuffle_ps(v, v, 0x00), _other.rows[0].getAsRegister());
-            v = _mm_add_ps(v, _mm_mul_ps(_mm_shuffle_ps(v, v, 0x55), _other.rows[1].getAsRegister()));
-            v = _mm_add_ps(v, _mm_mul_ps(_mm_shuffle_ps(v, v, 0xaa), _other.rows[2].getAsRegister()));
-            v = _mm_add_ps(v, _mm_mul_ps(_mm_shuffle_ps(v, v, 0xff), _other.rows[3].getAsRegister()));
-
-            return vectorSIMDf{v};
+            __m128 res;
+            res = _mm_mul_ps(_mm_shuffle_ps(_row, _row, BROADCAST32(0)), r0);
+            res = _mm_add_ps(res, _mm_mul_ps(_mm_shuffle_ps(_row, _row, BROADCAST32(1)), r1));
+            res = _mm_add_ps(res, _mm_mul_ps(_mm_shuffle_ps(_row, _row, BROADCAST32(2)), r2));
+            res = _mm_add_ps(res, _mm_mul_ps(_mm_shuffle_ps(_row, _row, BROADCAST32(3)), r3));
+            return res;
         };
 
         matrix4SIMD r;
         for (size_t i = 0u; i < 4u; ++i)
-            r.rows[i] = calcRow(rows[i]);
+            r.rows[i] = calcRow(_b.rows[i].getAsRegister(), _a);
 
-        *this = r;
+        return r;
     }
-    inline matrix4SIMD operator*(const matrix4SIMD& _other) const
-    {
-        matrix4SIMD r{*this};
-        return r *= _other;
-    }
-
-public:
-    static inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b)
-    {
-        return _b*_a;
-    }
-    static inline matrix4SIMD concatenatePreciselyBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b)
+    static inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const matrix4SIMD& _b)
     {
         matrix4SIMD out;
 
@@ -115,31 +107,31 @@ public:
         __m128 second;
 
         {
-        __m128d r00 = _a.halfRowAsDouble(0u, true);
-        __m128d r01 = _a.halfRowAsDouble(0u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r00, r01, _b, false));
-        out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r00, r01, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        __m128d r00 = _b.halfRowAsDouble(0u, true);
+        __m128d r01 = _b.halfRowAsDouble(0u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r00, r01, _a, false));
+        out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r00, r01, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
         }
 
         {
-        __m128d r10 = _a.halfRowAsDouble(1u, true);
-        __m128d r11 = _a.halfRowAsDouble(1u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r10, r11, _b, false));
-        out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r10, r11, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        __m128d r10 = _b.halfRowAsDouble(1u, true);
+        __m128d r11 = _b.halfRowAsDouble(1u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r10, r11, _a, false));
+        out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r10, r11, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
         }
 
         {
-        __m128d r20 = _a.halfRowAsDouble(2u, true);
-        __m128d r21 = _a.halfRowAsDouble(2u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r20, r21, _b, false));
-        out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r20, r21, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        __m128d r20 = _b.halfRowAsDouble(2u, true);
+        __m128d r21 = _b.halfRowAsDouble(2u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r20, r21, _a, false));
+        out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r20, r21, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
         }
 
         {
-        __m128d r30 = _a.halfRowAsDouble(3u, true);
-        __m128d r31 = _a.halfRowAsDouble(3u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r30, r31, _b, false));
-        out.rows[3] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r30, r31, _b, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        __m128d r30 = _b.halfRowAsDouble(3u, true);
+        __m128d r31 = _b.halfRowAsDouble(3u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r30, r31, _a, false));
+        out.rows[3] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r30, r31, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
         }
 
         return out;
@@ -156,11 +148,11 @@ public:
 
     inline bool isOrthogonal() const
     {
-        return (*this * getTransposed()).isIdentity();
+        return concatenateBFollowedByA(getTransposed(), *this).isIdentity();
     }
     inline bool isOrthogonal(float _tolerance) const
     {
-        return (*this * getTransposed()).isIdentity(_tolerance);
+        return concatenateBFollowedByA(getTransposed(), *this).isIdentity(_tolerance);
     }
 
     inline matrix4SIMD& setScale(const core::vectorSIMDf& _scale)
@@ -268,19 +260,12 @@ public:
         return *this;
     }
 
-    //! W component remains unmodified.
-    inline void sub3x3TransformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const
+    inline vectorSIMDf sub3x3TransformVect(const vectorSIMDf& _in) const
     {
         matrix4SIMD cp{*this};
-        _out = _in & BUILD_MASKF(1, 1, 1, 0);
-        transformVect(_out);
-        _out = (_out & BUILD_MASKF(1, 1, 1, 0)) | (_in & BUILD_MASKF(0, 0, 0, 1));
-    }
-    //! W component remains unmodified.
-    inline void sub3x3TransformVect(vectorSIMDf& _vector) const
-    {
-        const vectorSIMDf in = _vector;
-        sub3x3TransformVect(_vector, in);
+        vectorSIMDf out = _in & BUILD_MASKF(1, 1, 1, 0);
+        transformVect(out);
+        return out;
     }
 
     inline void transformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const
@@ -304,7 +289,7 @@ public:
         _vect += getTranslation();
     }
 
-    inline matrix4SIMD buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
+    static inline matrix4SIMD buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
     {
         const double h = core::reciprocal(tan(fieldOfViewRadians*0.5));
         _IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
@@ -646,11 +631,22 @@ private:
 
 #undef BUILD_MASKF
 #undef BUILD_XORMASKF
+#undef BROADCAST32
 };
 
 inline matrix4SIMD operator*(float _scalar, const matrix4SIMD& _mtx)
 {
     return _mtx * _scalar;
+}
+
+inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b)
+{
+    return matrix4SIMD::concatenateBFollowedByA(_a, _b);
+}
+
+inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const matrix4SIMD& _b)
+{
+    return matrix4SIMD::concatenateBFollowedByAPrecisely(_a, _b);
 }
 
 inline matrix4SIMD mix(const matrix4SIMD& _a, const matrix4SIMD& _b, float _x)

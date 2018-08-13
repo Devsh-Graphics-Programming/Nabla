@@ -582,6 +582,16 @@ private:
 #undef BROADCAST32
 };
 
+inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
+{
+    return matrix3x4SIMD::concatenateBFollowedByA(_a, _b);
+}
+
+inline matrix3x4SIMD concatenatePreciselyBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
+{
+    return matrix3x4SIMD::concatenateBFollowedByAPrecisely(_a, _b);
+}
+
 inline plane3df transformPlane(const plane3df& _in, const matrix3x4SIMD& _mat)
 {
     matrix3x4SIMD inv;
