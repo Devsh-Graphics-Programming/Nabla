@@ -2,8 +2,7 @@
 //layout(std140, binding = 0) uniform U { mat4 MVP; };
 uniform mat4 MVP;
 
-layout(location = 0) in vec3 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
-layout(location = 2) in vec2 vTC;
+layout(location = 0) in vec3 vPos;
 layout(location = 3) in vec3 vNormal;
 layout(location = 5) in ivec4 vBoneIDs;
 layout(location = 6) in vec4 vBoneWeights;
@@ -25,9 +24,6 @@ layout(std430, binding = 0) readonly buffer InstData
 };
 
 out vec3 Normal;
-out vec2 TexCoord;
-out vec3 lightDir;
-
 
 void linearSkin(out vec3 skinnedPos, out vec3 skinnedNormal, in ivec4 boneIDs, in vec4 boneWeightsXYZBoneCountNormalized)
 {
@@ -65,8 +61,6 @@ void main()
     vec3 pos,nml;
     linearSkin(pos,nml,vBoneIDs,vBoneWeights);
 
-    gl_Position = MVP*vec4(pos,1.0); //only thing preventing the shader from being core-compliant
+    gl_Position = MVP*vec4(pos,1.0);
     Normal = normalize(nml); //have to normalize twice because of normal quantization
-    lightDir = vec3(100.0,0.0,0.0)-vPos.xyz;
-    TexCoord = vTC;
 }

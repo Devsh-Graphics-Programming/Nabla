@@ -81,9 +81,15 @@ public:
 
 size_t convertBuf1(const float* _src, float* _dst, const size_t _boneCnt, const size_t _instCnt)
 {
-    for (size_t i = 0u; i < _instCnt; ++i)
-        memcpy(_dst + i*_boneCnt * 4 * 7, _src, sizeof(float) * _boneCnt * 4 * 7);
-    return sizeof(float) * _boneCnt * 4 * 7 * _instCnt;
+    for (size_t i = 0u; i < _boneCnt; ++i)
+        memcpy(_dst + i*4*6, _src + i*4*7, sizeof(float) * _boneCnt * 4 * 6);
+
+    const size_t perInstance = sizeof(float)*_boneCnt*4*6;
+
+    for (size_t i = 1u; i < _instCnt; ++i)
+        memcpy(_dst + i*perInstance, _dst, sizeof(float)*perInstance);
+
+    return sizeof(float) * perInstance * _instCnt;
 }
 size_t convertBuf2(const float* _src, float* _dst, const size_t _boneCnt, const size_t _instCnt)
 {
@@ -325,14 +331,18 @@ int main(int _argCnt, char** _args)
     using convfptr_t = size_t(*)(const float*, float*, const size_t, const size_t);
     convfptr_t convFunctions[5]{ &convertBuf1, &convertBuf2, &convertBuf3, &convertBuf4, &convertBuf5 };
 
-#define INSTANCE_CNT 100
-    auto anode = smgr->addSkinnedMeshSceneNode(static_cast<scene::IGPUSkinnedMesh*>(driver->createGPUMeshesFromCPU({ cpumesh })[0]));
-    // ^^ todo: this shouldn't be here. Draw mesh in some different way
-    anode->setMaterialType(newMaterialType);
-    anode->setScale(core::vector3df(0.5f));
+    video::SMaterial smaterial;
+    smaterial.MaterialType = newMaterialType;
 
-    video::ITextureBufferObject* tbo = anode->getBonePoseTBO();
-    video::IGPUBuffer* bonePosBuf = tbo->getBoundBuffer();
+#define INSTANCE_CNT 100
+    scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU({ cpumesh })[0];
+    for (size_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
+        gpumesh->getMeshBuffer(i)->setInstanceCount(INSTANCE_CNT);
+
+    io::IReadFile* ifile = device->getFileSystem()->createAndOpenFile("../tbo_dump.rgba32f");
+    void* contents = malloc(ifile->getSize());
+    void* newContents = malloc(51520/*some reasonable value surely bigger than any of 5 bone transforms arrangements in the buf*/ * INSTANCE_CNT);
+    ifile->read(contents, ifile->getSize());
 
     video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
     reqs.vulkanReqs.alignment = 4;
@@ -341,18 +351,13 @@ int main(int _argCnt, char** _args)
     reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | video::IDriverMemoryAllocation::EMCF_COHERENT;
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
-    reqs.vulkanReqs.size = bonePosBuf->getSize();
-    auto bufcopy = driver->createGPUBufferOnDedMem(reqs, true);
-    driver->copyBuffer(bonePosBuf, bufcopy, 0u, 0u, bonePosBuf->getSize());
-    void* contents = video::COpenGLExtensionHandler::extGlMapNamedBuffer(static_cast<video::COpenGLBuffer*>(bufcopy)->getOpenGLName(), GL_READ_ONLY);
-    void* newContents = malloc(51520/*max possible size of matrices for dwarf mesh*/ * INSTANCE_CNT);
-
-    reqs.vulkanReqs.size = convFunctions[method]((float*)contents, (float*)newContents, anode->getBoneCount(), INSTANCE_CNT);
+    reqs.vulkanReqs.size = convFunctions[method]((float*)contents, (float*)newContents, 46, INSTANCE_CNT);
     reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
     auto ssbuf = driver->createGPUBufferOnDedMem(reqs, true);
     ssbuf->updateSubRange({ 0, ssbuf->getSize() }, newContents);
     free(newContents);
-    video::COpenGLExtensionHandler::extGlUnmapNamedBuffer(static_cast<video::COpenGLBuffer*>(bufcopy)->getOpenGLName());
+    free(contents);
+    ifile->drop();
 
     video::ITextureBufferObject* newTbo = method==0 ?
         new video::COpenGLTextureBufferObject(static_cast<video::COpenGLBuffer*>(ssbuf), video::ITextureBufferObject::ETBOF_RGBA32F, 0, ssbuf->getSize()) :
@@ -361,7 +366,7 @@ int main(int _argCnt, char** _args)
     {
         assert(newTbo->getBoundBuffer() != nullptr);
         
-        anode->setMaterialTexture(3, newTbo);
+        smaterial.setTexture(3u, newTbo);
     }
     else
     {
@@ -369,24 +374,7 @@ int main(int _argCnt, char** _args)
         const video::COpenGLBuffer* glbuf = static_cast<video::COpenGLBuffer*>(ssbuf);
         const ptrdiff_t off = 0, sz = glbuf->getSize();
         auxCtx->setActiveSSBO(0, 1, &glbuf, &off, &sz);
-        /*
-        const video::COpenGLBuffer* p = static_cast<video::COpenGLBuffer*>(bonePosBuf);
-        ptrdiff_t s = bonePosBuf->getSize();
-        auxCtx->setActiveSSBO(1, 1, &p, &off, &s);*/
     }
-
-    /*
-    if (cpumesh)
-    {
-        for (size_t i = 0u; i < cpumesh->getMeshBufferCount(); ++i)
-        {
-            cpumesh->getMeshBuffer(i)->getMaterial().MaterialType = newMaterialType;
-            cpumesh->getMeshBuffer(i)->setInstanceCount(INSTANCE_CNT);
-        }
-    }
-
-    scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(cpumesh);
-    */
 
 #ifdef BENCH
     video::IFrameBuffer* fbo = driver->addFrameBuffer();
@@ -408,13 +396,19 @@ int main(int _argCnt, char** _args)
         driver->beginQuery(queries[itr]);
 
 		smgr->drawAll();
-        /*
         if (gpumesh)
         {
             for (size_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
+            {
+                smaterial = gpumesh->getMeshBuffer(i)->getMaterial();
+                smaterial.MaterialType = newMaterialType;
+                if (method == 0)
+                    smaterial.setTexture(3u, newTbo);
+
+                driver->setMaterial(smaterial);
                 driver->drawMeshBuffer(gpumesh->getMeshBuffer(i));
+            }
         }
-        */
         driver->endQuery(queries[itr]);
 
 		driver->endScene();
