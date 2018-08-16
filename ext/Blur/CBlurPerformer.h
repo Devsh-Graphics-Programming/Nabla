@@ -70,6 +70,30 @@ public:
     // WARNING: does NOT change values of shader handles
     void deleteShaders() const;
 
+    inline bool setUniformBuffer(video::IGPUBuffer* _ubo)
+    {
+        if (!_ubo || _ubo->getSize() < getRequiredUBOSize(m_driver))
+            return false;
+
+        video::IGPUBuffer* oldUbo = m_ubo;
+        m_ubo = _ubo;
+        if (m_ubo)
+            m_ubo->grab();
+        if (oldUbo)
+            oldUbo->drop();
+
+        return true;
+    }
+
+    inline bool setUBOOffset(uint32_t _offset)
+    {
+        if ((m_ubo && m_ubo->getSize() < _offset) || (m_ubo && m_ubo->getSize() - _offset < getRequiredUBOSize(m_driver)))
+            return false;
+
+        m_uboStaticOffset = _offset;
+        return true;
+    }
+
     //! _radius must be a value from range [0.f, 1.f], otherwise gets clamped.
     //! Radius in this case indicates % of X and Y dimensions of output size.
     inline void setRadius(float _radius)
@@ -169,11 +193,13 @@ private:
 
     float m_radius;
     const uint32_t m_paddedUBOSize;
-    const uint32_t m_uboStaticOffset;
+    uint32_t m_uboStaticOffset;
     core::vector2d<uint32_t> m_dsFactor;
     core::vector2d<uint32_t> m_outSize;
 
     static uint32_t s_texturesEverCreatedCount;
+    static constexpr uint32_t s_MAX_WORK_GROUP_SIZE = 256u;
+    static constexpr uint32_t s_MAX_OUTPUT_SIZE_XY = 1024u;
 };
 
 }

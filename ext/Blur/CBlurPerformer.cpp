@@ -4,6 +4,7 @@
 #include "../../source/Irrlicht/COpenGLDriver.h"
 #include "../../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../../source/Irrlicht/COpenGL2DTexture.h"
+#include "../../source/Irrlicht/CWriteFile.h"
 
 using namespace irr;
 using namespace ext;
@@ -68,7 +69,8 @@ constexpr const char* CS_BLUR_SRC = R"XDDD(
 #version 430 core
 #define PS_SIZE %u // ACTUAL_SIZE padded to PoT
 #define ACTUAL_SIZE %u
-layout(local_size_x = ACTUAL_SIZE) in;
+#define WG_SIZE %u // min(ACTUAL_SIZE, CBlurPerformer::s_MAX_WORK_GROUP_SIZE)
+layout(local_size_x = WG_SIZE) in;
 
 #define NUM_BANKS 32
 #define LOG_NUM_BANKS 5
@@ -104,41 +106,41 @@ shared float smem_b[SMEM_SIZE];
 
 void storeShared(uint _idx, vec3 _val)
 {
+    _idx = clamp(_idx, 0u, uint(SMEM_SIZE));
     smem_r[_idx] = _val.r;
     smem_g[_idx] = _val.g;
     smem_b[_idx] = _val.b;
 }
 vec3 loadShared(uint _idx)
 {
+    _idx = clamp(_idx, 0u, uint(SMEM_SIZE));
     return vec3(smem_r[_idx], smem_g[_idx], smem_b[_idx]);
 }
 
-void upsweep(int d, inout uint offset)
+void upsweep(int d, uint offset, uint _tid)
 {
     memoryBarrierShared();
     barrier();
 
-    if (LC_IDX < d)
+    if (_tid < d)
     {
-        uint ai = offset*(2*LC_IDX+1)-1;
-        uint bi = offset*(2*LC_IDX+2)-1;
+        uint ai = offset*(2*_tid+1)-1;
+        uint bi = offset*(2*_tid+2)-1;
         ai += CONFLICT_FREE_OFFSET(ai);
         bi += CONFLICT_FREE_OFFSET(bi);
 
         storeShared(bi, loadShared(bi) + loadShared(ai));
     }
-    offset *= 2;
 }
-void downsweep(int d, inout uint offset)
+void downsweep(int d, uint offset, uint _tid)
 {
-    offset /= 2;
     memoryBarrierShared();
     barrier();
 
-    if (LC_IDX < d)
+    if (_tid < d)
     {
-        uint ai = offset*(2*LC_IDX+1)-1;
-        uint bi = offset*(2*LC_IDX+2)-1;
+        uint ai = offset*(2*_tid+1)-1;
+        uint bi = offset*(2*_tid+2)-1;
         ai += CONFLICT_FREE_OFFSET(ai);
         bi += CONFLICT_FREE_OFFSET(bi);
 
@@ -147,33 +149,42 @@ void downsweep(int d, inout uint offset)
         storeShared(bi, loadShared(bi) + tmp);
     }
 }
-void exPsumInSmem()
+void prepSmemForPresum(uint _inStartIdx, uint _tid)
 {
-    const uint IN_START_IDX = gl_WorkGroupID.y*ACTUAL_SIZE;
+    if (_tid >= ACTUAL_SIZE)
+        return;
 
-    const uint ai = LC_IDX;
-    const uint bi = LC_IDX + PS_SIZE/2;
+    const uint ai = _tid;
+    const uint bi = _tid + PS_SIZE/2;
     const uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
     const uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
 
     storeShared(ai + bankOffsetA,
-	    (ai < ACTUAL_SIZE) ? decodeRgb(samples[IN_START_IDX + inOffset + ai]) : vec3(0)
+	    (ai < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + inOffset + ai]) : vec3(0)
     );
     storeShared(bi + bankOffsetB,
-	    (bi < ACTUAL_SIZE) ? decodeRgb(samples[IN_START_IDX + inOffset + bi]) : vec3(0)
-    );
+	    (bi < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + inOffset + bi]) : vec3(0)
+    );   
+}
+void exPsumInSmem()
+{
+    const uint IN_START_IDX = gl_WorkGroupID.y*ACTUAL_SIZE;
+
+    %s // here goes prepSmemForPresum unrolled loop
 
     memoryBarrierShared();
     barrier();
 
     uint offset = 1;
 
+    int up_itr = 0;
     %s // here goes unrolled upsweep loop
 
     if (LC_IDX == 0) { storeShared(PS_SIZE-1 + CONFLICT_FREE_OFFSET(PS_SIZE-1), vec3(0)); }
     memoryBarrierShared();
     barrier();
 
+    int down_itr = 0;
     %s // here goes unrolled downsweep loop
 }
 
@@ -191,6 +202,35 @@ vec3 loadSharedInterp(float _idx)
     return mix(loadShared(getAddr(uint(_idx))), loadShared(getAddr(uint(_idx)+1u)), f);
 }
 
+void blurAndOutput(float RADIUS, uint _tid)
+{
+    if (_tid >= ACTUAL_SIZE)
+        return;
+
+    uvec2 IDX = uvec2(_tid, gl_WorkGroupID.y);
+    if (iterNum > 2)
+        IDX = IDX.yx;
+
+    // all index constants below (except LAST_IDX) are enlarged by 1 becaue of **exclusive** prefix sum
+    const float FIRST_IDX_F = 1.f;
+    const uint FIRST_IDX = 1;
+    const uint LAST_IDX = ACTUAL_SIZE-1;
+    const float L_IDX = float(_tid) - RADIUS;
+    const float R_IDX = float(_tid) + RADIUS + 1.f;
+    const float R_EDGE_IDX = min(R_IDX, float(LAST_IDX));
+
+    vec3 res =
+        loadSharedInterp(R_EDGE_IDX)
+        + (R_IDX - R_EDGE_IDX)*(loadShared(getAddr(LAST_IDX)) - loadShared(getAddr(LAST_IDX-1))) // handle right overflow
+        - ((L_IDX < FIRST_IDX_F) ? ((L_IDX - FIRST_IDX_F + 1.f) * loadShared(getAddr(FIRST_IDX))) : loadSharedInterp(L_IDX)); // also handle left overflow
+    res /= (2.f*RADIUS + 1.f);
+#if FINAL_PASS
+    imageStore(out_img, ivec2(IDX), vec4(res, 1.f));
+#else
+    samples[uint(dot(IDX, outMlt)) + outOffset] = encodeRgb(res);
+#endif    
+}
+
 void main()
 {
     uvec2 IDX = gl_GlobalInvocationID.xy;
@@ -203,24 +243,7 @@ void main()
 
     const float RADIUS = float(ACTUAL_SIZE) * radius;
 
-    // all index constants below (except LAST_IDX) are enlarged by 1 becaue of **exclusive** prefix sum
-    const float FIRST_IDX_F = 1.f;
-    const uint FIRST_IDX = 1;
-    const uint LAST_IDX = ACTUAL_SIZE-1;
-    const float L_IDX = float(LC_IDX) - RADIUS;
-    const float R_IDX = float(LC_IDX) + RADIUS + 1.f;
-    const float R_EDGE_IDX = min(R_IDX, float(LAST_IDX));
-
-    vec3 res =
-        loadSharedInterp(R_EDGE_IDX)
-        + (R_IDX - R_EDGE_IDX)*(loadShared(getAddr(LAST_IDX)) - loadShared(getAddr(LAST_IDX-1))) // handle right overflow
-        - ((L_IDX < FIRST_IDX_F) ? ((L_IDX - FIRST_IDX_F + 1.f) * loadShared(getAddr(FIRST_IDX))) : loadSharedInterp(L_IDX)); // also handle left overflow
-    res /= (2.f*RADIUS + 1.f);
-#if FINAL_PASS
-    imageStore(out_img, ivec2(IDX), vec4(res, 1.f));
-#else
-    samples[uint(dot(IDX, outMlt)) + outOffset] = encodeRgb(res);
-#endif
+    %s // here goes blurAndOutput unrolled loop
 }
 )XDDD";
 
@@ -234,7 +257,7 @@ inline uint32_t createComputeShader(const char* _src)
 
 	// check for compilation errors
     GLint success;
-    GLchar infoLog[0x400];
+    GLchar infoLog[0x4000];
     video::COpenGLExtensionHandler::extGlGetShaderiv(cs, GL_COMPILE_STATUS, &success);
     if (!success)
     {
@@ -362,6 +385,7 @@ void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize)
         deleteShaders(); // or maybe we could cache already compiled shaders (with output size as key) in case they get to be usable again?
 
     m_outSize = outSz;
+    assert(m_outSize.X > s_MAX_OUTPUT_SIZE_XY || m_outSize.Y > s_MAX_OUTPUT_SIZE_XY);
     std::tie(m_dsampleCs, m_blurGeneralCs[0], m_blurGeneralCs[1], m_blurFinalCs) = makeShaders(m_outSize);
 
     // when output size changes, we also have to reupload new UBO contents
@@ -406,25 +430,43 @@ bool CBlurPerformer::genDsampleCs(char* _out, size_t _bufSize, const core::vecto
 }
 bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTexSize, int _finalPass)
 {
+    const uint32_t N = (_outTexSize + s_MAX_WORK_GROUP_SIZE-1u) / s_MAX_WORK_GROUP_SIZE;
+
+    const char prepSmemForPresum_fmt[] = "for (uint i = 0; i < %u; ++i) prepSmemForPresum(IN_START_IDX, LC_IDX + i*WG_SIZE);\n";
+
+    const char blurAndOutput_fmt[] = "for (uint i = 0; i < %u; ++i) blurAndOutput(RADIUS, LC_IDX + i*WG_SIZE);\n";
+
+    char buf[1u<<12];
+
+    snprintf(buf, sizeof(buf), prepSmemForPresum_fmt, N);
+    std::string prepSmemForPresum = buf;
+
+    snprintf(buf, sizeof(buf), blurAndOutput_fmt, N);
+    std::string blurAndOutput = buf;
+
+    std::string upsweep_fmt =
+        "for (uint i = 0; i < %u; ++i) upsweep(%u, offset, LC_IDX + i*WG_SIZE);\n"
+        "offset *= 2;\n";
+    std::string downsweep_fmt =
+        "offset /= 2;\n"
+        "for (uint i = 0; i < %u; ++i) downsweep(%u, offset, LC_IDX + i*WG_SIZE);\n";
+
     const uint32_t pot = padToPoT(_outTexSize);
-    const char up_fmt[] = "upsweep(%u, offset);\n";
-    const char down_fmt[] = "downsweep(%u, offset);\n";
-    char buf[sizeof(down_fmt) + 10];
 
     std::string upsweep; // unrolled upsweep loop
-    for (uint32_t d = pot/2u; d > 0; d /= 2u)
+    for (uint32_t up_itr = pot/2u; up_itr > 0; up_itr /= 2u)
     {
-        snprintf(buf, sizeof(buf), up_fmt, d);
+        snprintf(buf, sizeof(buf), upsweep_fmt.c_str(), N, up_itr);
         upsweep += buf;
     }
     std::string downsweep; // unrolled downsweep loop
-    for (uint32_t d = 1u; d < pot; d *= 2u)
+    for (uint32_t down_itr = 1u; down_itr < pot; down_itr *= 2u)
     {
-        snprintf(buf, sizeof(buf), down_fmt, d);
+        snprintf(buf, sizeof(buf), downsweep_fmt.c_str(), N, down_itr);
         downsweep += buf;
     }
 
-    return snprintf(_out, _bufSize, CS_BLUR_SRC, pot, _outTexSize, _finalPass, CS_CONVERSIONS, upsweep.c_str(), downsweep.c_str()) > 0;
+    return snprintf(_out, _bufSize, CS_BLUR_SRC, pot, _outTexSize, std::min(_outTexSize, s_MAX_WORK_GROUP_SIZE), _finalPass, CS_CONVERSIONS, prepSmemForPresum.c_str(), upsweep.c_str(), downsweep.c_str(), blurAndOutput.c_str()) > 0;
 }
 
 void CBlurPerformer::bindSSBuffers() const
@@ -504,7 +546,7 @@ auto CBlurPerformer::makeShaders(const core::vector2d<uint32_t>& _outSize) -> tu
 {
     uint32_t ds{}, gblurx{}, gblury{}, fblur{};
 
-    const size_t bufSize = std::max(strlen(CS_BLUR_SRC), strlen(CS_DOWNSAMPLE_SRC)) + strlen(CS_CONVERSIONS) + 1000u;
+    const size_t bufSize = std::max(strlen(CS_BLUR_SRC), strlen(CS_DOWNSAMPLE_SRC)) + strlen(CS_CONVERSIONS) + 10000u;
     char* src = (char*)malloc(bufSize);
 
     auto doCleaning = [&, ds, gblurx, gblury, fblur, src]() {
@@ -521,6 +563,7 @@ auto CBlurPerformer::makeShaders(const core::vector2d<uint32_t>& _outSize) -> tu
     if (!genBlurPassCs(src, bufSize, _outSize.X, 0))
         return doCleaning();
     gblurx = createComputeShader(src);
+
     if (_outSize.X != _outSize.Y)
     {
         if (!genBlurPassCs(src, bufSize, _outSize.Y, 0))
