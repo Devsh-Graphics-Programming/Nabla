@@ -133,7 +133,7 @@ int main()
     ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, dsFactor);
     receiver.blurPerf = blur;
 
-    video::ITexture* outputTex = driver->addTexture(video::ITexture::ETT_2D, texture->getSize(), 1u, "blur_output", video::ECF_A16B16G16R16F);
+    video::ITexture* outputTex = blur->createOutputTexture(texture, "blur_output");
 
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;

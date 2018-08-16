@@ -196,10 +196,8 @@ uint getAddr(uint _addr)
 // WARNING: calculates resulting address (this function do NOT expect to get address from getAddr())
 vec3 loadSharedInterp(float _idx)
 {
-    float f = fract(_idx);
-    if (f < 0.1f) // I think 0.1 is a reasonable value that wouldn't make any visual difference and we don't have to make second memory fetch
-        return loadShared(getAddr(uint(_idx)));
-    return mix(loadShared(getAddr(uint(_idx))), loadShared(getAddr(uint(_idx)+1u)), f);
+    uint floored = uint(_idx);
+    return mix(loadShared(getAddr(floored)), loadShared(getAddr(floored+1u)), _idx-float(floored));
 }
 
 void blurAndOutput(float RADIUS, uint _tid)
@@ -287,21 +285,17 @@ inline uint32_t createComputeShader(const char* _src)
 }
 } // anon ns end
 
-uint32_t CBlurPerformer::s_texturesEverCreatedCount{};
 
 CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
 {
     return new CBlurPerformer(_driver, _radius, _dsFactor, uboBuffer, uboDataStaticOffset);
 }
 
-video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex)
+video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex, const std::string& _name)
 {
-    prepareForBlur(_inputTex->getSize());
+    prepareForBlur(_inputTex->getSize(), false);
 
-    video::ITexture* outputTex = m_driver->addTexture(video::ITexture::ETT_2D, &m_outSize.X, 1, ("__IRR_blur_out" + std::to_string(s_texturesEverCreatedCount++)).c_str(), video::ECF_A16B16G16R16F);
-    blurTexture(_inputTex, outputTex);
-
-    return outputTex;
+    return m_driver->addTexture(video::ITexture::ETT_2D, &m_outSize.X, 1, _name.c_str(), video::ECF_A16B16G16R16F);
 }
 
 //#define PROFILE_BLUR_PERFORMER
@@ -322,7 +316,7 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
         _outputTex->getTextureType() == video::ITexture::ETT_2D
     );
     }
-    prepareForBlur(_inputTex->getSize());
+    prepareForBlur(_inputTex->getSize(), true);
     assert(m_dsampleCs);
 
     bindSSBuffers();
@@ -375,17 +369,22 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
 #endif // PROFILE_BLUR_PERFORMER
 }
 
-void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize)
+void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize, bool _createGpuStuff)
 {
     core::vector2d<uint32_t> outSz = core::vector2d<uint32_t>(_inputSize[0], _inputSize[1]) / m_dsFactor;
-    if (m_dsampleCs) // already initialized
+    if ((_createGpuStuff && m_dsampleCs) || (!_createGpuStuff && m_outSize != core::vector2d<uint32_t>(0u, 0u))) // already initialized
     {
         assert(outSz == m_outSize); // once initialized and output size is established, other output sizes are not allowed so that we don't have to recompile shaders
         return;
     }
+    printf("prepareForBlur\n");
 
     m_outSize = outSz;
     assert(m_outSize.X <= s_MAX_OUTPUT_SIZE_XY || m_outSize.Y <= s_MAX_OUTPUT_SIZE_XY);
+
+    if (!_createGpuStuff)
+        return;
+
     std::tie(m_dsampleCs, m_blurGeneralCs[0], m_blurGeneralCs[1], m_blurFinalCs) = makeShaders(m_outSize);
 
     writeUBOData();

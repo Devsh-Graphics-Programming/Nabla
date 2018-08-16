@@ -59,13 +59,14 @@ public:
     static CBlurPerformer* instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor,
                                        video::IGPUBuffer* uboBuffer=nullptr, const size_t& uboDataStaticOffset=0);
 
-    video::ITexture* createOutputTexture(video::ITexture* _inputTex);
+    video::ITexture* createOutputTexture(video::ITexture* _inputTex, const std::string& _name);
 
     //! _inputTexture and _outputTexture can be the same texture.
     //! Output texture's color format must be video::ECF_A16B16G16R16F
     void blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex);
 
-    void prepareForBlur(const uint32_t* _inputSize);
+    //! Establishes output size. Also creates shaders and SSBO and fills UBO with proper data if _createGpuStuff is true
+    void prepareForBlur(const uint32_t* _inputSize, bool _createGpuStuff);
     // WARNING: does NOT change values of shader handles
     void deleteShaders() const;
 
@@ -101,7 +102,9 @@ public:
         if (m_radius == _radius)
             return;
         m_radius = _radius;
-        writeUBOData();
+
+        if (m_dsampleCs) // no need to update UBO if no shaders are present yet
+            writeUBOData();
     }
     inline float getRadius() const { return m_radius; }
 
@@ -195,8 +198,6 @@ private:
     uint32_t m_uboStaticOffset;
     const core::vector2d<uint32_t> m_dsFactor;
     core::vector2d<uint32_t> m_outSize;
-
-    static uint32_t s_texturesEverCreatedCount;
 
     static constexpr uint32_t s_MAX_WORK_GROUP_SIZE = 256u;
     static constexpr uint32_t s_MAX_OUTPUT_SIZE_XY = 1024u;
