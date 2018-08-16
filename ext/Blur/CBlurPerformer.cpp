@@ -385,7 +385,7 @@ void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize)
     }
 
     m_outSize = outSz;
-    assert(m_outSize.X >= s_MAX_OUTPUT_SIZE_XY || m_outSize.Y >= s_MAX_OUTPUT_SIZE_XY);
+    assert(m_outSize.X <= s_MAX_OUTPUT_SIZE_XY || m_outSize.Y <= s_MAX_OUTPUT_SIZE_XY);
     std::tie(m_dsampleCs, m_blurGeneralCs[0], m_blurGeneralCs[1], m_blurFinalCs) = makeShaders(m_outSize);
 
     writeUBOData();
