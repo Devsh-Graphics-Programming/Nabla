@@ -26,22 +26,6 @@ public:
             case irr::KEY_KEY_Q: // switch wire frame mode
                 exit(0);
                 return true; 
-            case irr::KEY_KEY_W:
-            case irr::KEY_KEY_S:
-            case irr::KEY_KEY_E:
-            case irr::KEY_KEY_D:
-            {
-                core::vector2d<uint32_t> dsf = blurPerf->getDownsampleFactor();
-                switch (event.KeyInput.Key)
-                {
-                case irr::KEY_KEY_W: ++dsf.X; break;
-                case irr::KEY_KEY_S: --dsf.X; break;
-                case irr::KEY_KEY_E: ++dsf.Y; break;
-                case irr::KEY_KEY_D: --dsf.Y; break;
-                }
-                blurPerf->setDownsampleFactor(dsf);
-                return true;
-            }
             default:
                 break;
             }
@@ -98,7 +82,6 @@ public:
 };
 
 //! Use scroll to adjust blur radius
-//! Use W/S to incr/decr X of downsample factor and E/D to incr/decr Y
 int main()
 {
     // create device with full flexibility over creation parameters

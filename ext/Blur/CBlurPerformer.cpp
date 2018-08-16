@@ -90,11 +90,11 @@ layout(binding = 0, rgba16f) uniform writeonly image2D out_img;
 
 layout(std140, binding = 0) uniform Controls
 {
-    uint iterNum;
-    float radius;
-    uint inOffset;
-    uint outOffset;
-    uvec2 outMlt;
+    uint u_iterNum;
+    float u_radius;
+    uint u_inOffset;
+    uint u_outOffset;
+    uvec2 u_outMlt;
 };
 
 #define SMEM_SIZE (2*PS_SIZE)
@@ -160,10 +160,10 @@ void prepSmemForPresum(uint _inStartIdx, uint _tid)
     const uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
 
     storeShared(ai + bankOffsetA,
-	    (ai < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + inOffset + ai]) : vec3(0)
+	    (ai < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + u_inOffset + ai]) : vec3(0)
     );
     storeShared(bi + bankOffsetB,
-	    (bi < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + inOffset + bi]) : vec3(0)
+	    (bi < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + u_inOffset + bi]) : vec3(0)
     );   
 }
 void exPsumInSmem()
@@ -208,7 +208,7 @@ void blurAndOutput(float RADIUS, uint _tid)
         return;
 
     uvec2 IDX = uvec2(_tid, gl_WorkGroupID.y);
-    if (iterNum > 2)
+    if (u_iterNum > 2)
         IDX = IDX.yx;
 
     // all index constants below (except LAST_IDX) are enlarged by 1 becaue of **exclusive** prefix sum
@@ -227,21 +227,21 @@ void blurAndOutput(float RADIUS, uint _tid)
 #if FINAL_PASS
     imageStore(out_img, ivec2(IDX), vec4(res, 1.f));
 #else
-    samples[uint(dot(IDX, outMlt)) + outOffset] = encodeRgb(res);
+    samples[uint(dot(IDX, u_outMlt)) + u_outOffset] = encodeRgb(res);
 #endif    
 }
 
 void main()
 {
     uvec2 IDX = gl_GlobalInvocationID.xy;
-    if (iterNum > 2)
+    if (u_iterNum > 2)
         IDX = IDX.yx;
 
     exPsumInSmem();
     memoryBarrierShared();
     barrier();
 
-    const float RADIUS = float(ACTUAL_SIZE) * radius;
+    const float RADIUS = float(ACTUAL_SIZE) * u_radius;
 
     %s // here goes blurAndOutput unrolled loop
 }
@@ -322,7 +322,7 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
         _outputTex->getTextureType() == video::ITexture::ETT_2D
     );
     }
-    prepareForBlur(_inputTex->getSize()); // recalculate output size and recreate shaders if there's a need
+    prepareForBlur(_inputTex->getSize());
     assert(m_dsampleCs);
 
     bindSSBuffers();
@@ -377,18 +377,17 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
 
 void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize)
 {
-    const core::vector2d<uint32_t> outSz = core::vector2d<uint32_t>(_inputSize[0], _inputSize[1]) / m_dsFactor;
-    if (outSz == m_outSize && m_dsampleCs /*if dsample CS is absent, we can be sure that none of the shaders are there*/)
+    core::vector2d<uint32_t> outSz = core::vector2d<uint32_t>(_inputSize[0], _inputSize[1]) / m_dsFactor;
+    if (m_dsampleCs) // already initialized
+    {
+        assert(outSz == m_outSize); // once initialized and output size is established, other output sizes are not allowed so that we don't have to recompile shaders
         return;
-
-    if (m_dsampleCs)
-        deleteShaders(); // or maybe we could cache already compiled shaders (with output size as key) in case they get to be usable again?
+    }
 
     m_outSize = outSz;
-    assert(m_outSize.X > s_MAX_OUTPUT_SIZE_XY || m_outSize.Y > s_MAX_OUTPUT_SIZE_XY);
+    assert(m_outSize.X >= s_MAX_OUTPUT_SIZE_XY || m_outSize.Y >= s_MAX_OUTPUT_SIZE_XY);
     std::tie(m_dsampleCs, m_blurGeneralCs[0], m_blurGeneralCs[1], m_blurFinalCs) = makeShaders(m_outSize);
 
-    // when output size changes, we also have to reupload new UBO contents
     writeUBOData();
 
     if (m_samplesSsbo)

@@ -1,7 +1,6 @@
 #ifndef _IRR_EXT_BLUR_C_BLUR_PERFORMER_INCLUDED_
 #define _IRR_EXT_BLUR_C_BLUR_PERFORMER_INCLUDED_
 
-//#include <irrlicht.h>
 #include <cstdint>
 #include <tuple>
 #include <IReferenceCounted.h>
@@ -106,12 +105,6 @@ public:
     }
     inline float getRadius() const { return m_radius; }
 
-    inline void setDownsampleFactor(core::vector2d<uint32_t> _dsFactor) 
-    {
-        _dsFactor.X = std::max(1u, std::min(_dsFactor.X, 16u));
-        _dsFactor.Y = std::max(1u, std::min(_dsFactor.Y, 16u));
-        m_dsFactor = _dsFactor;
-    }
     inline core::vector2d<uint32_t> getDownsampleFactor() const { return m_dsFactor; }
 
 protected:
@@ -127,16 +120,17 @@ protected:
 
 private:
     inline CBlurPerformer(video::IVideoDriver* _driver, float _radius,
-                   core::vector2d<uint32_t> _dsFactor, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset) :
+                   core::vector2d<uint32_t> _dsFactor, video::IGPUBuffer* _uboBuffer, const size_t& _uboDataStaticOffset) :
         m_driver(_driver),
         m_dsampleCs{0u},
         m_blurGeneralCs{0u, 0u},
         m_blurFinalCs{0u},
         m_samplesSsbo{nullptr},
-        m_ubo(uboBuffer),
+        m_ubo(_uboBuffer),
         m_radius{std::max(0.f, std::min(_radius, 1.f))},
         m_paddedUBOSize(getSinglePaddedUBOSize(_driver)),
-        m_uboStaticOffset(uboDataStaticOffset)
+        m_uboStaticOffset(_uboDataStaticOffset),
+        m_dsFactor(clampDsFactor(_dsFactor))
     {
         if (!m_ubo)
         {
@@ -153,8 +147,6 @@ private:
         }
         else
             m_ubo->grab();
-
-        setDownsampleFactor(_dsFactor);
     }
 
     //! TODO: reduce this just to a write AND allow for dynamic `m_uboStaticOffset` (obvs. rename to m_uboOffset)
@@ -183,7 +175,14 @@ private:
         for (uint32_t i = 1u; i <= 16u; i <<= 1)
             _x |= (_x >> i);
         return ++_x;
-    };
+    }
+
+    inline static core::vector2d<uint32_t> clampDsFactor(core::vector2d<uint32_t> _dsf)
+    {
+        _dsf.X = std::max(s_MIN_DS_FACTOR, std::min(_dsf.X, s_MAX_DS_FACTOR));
+        _dsf.Y = std::max(s_MIN_DS_FACTOR, std::min(_dsf.Y, s_MAX_DS_FACTOR));
+        return _dsf;
+    }
 
 private:
     video::IVideoDriver* m_driver;
@@ -194,12 +193,15 @@ private:
     float m_radius;
     const uint32_t m_paddedUBOSize;
     uint32_t m_uboStaticOffset;
-    core::vector2d<uint32_t> m_dsFactor;
+    const core::vector2d<uint32_t> m_dsFactor;
     core::vector2d<uint32_t> m_outSize;
 
     static uint32_t s_texturesEverCreatedCount;
+
     static constexpr uint32_t s_MAX_WORK_GROUP_SIZE = 256u;
     static constexpr uint32_t s_MAX_OUTPUT_SIZE_XY = 1024u;
+    static constexpr uint32_t s_MIN_DS_FACTOR = 1u;
+    static constexpr uint32_t s_MAX_DS_FACTOR = 16u;
 };
 
 }
