@@ -13,9 +13,32 @@ class matrix4SIMD : private AlignedBase<_IRR_SIMD_ALIGNMENT>
 
 #define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff))
 public:
-    inline matrix4SIMD() :
-        rows{vectorSIMDf(1.f, 0.f, 0.f, 0.f), vectorSIMDf(0.f, 1.f, 0.f, 0.f), vectorSIMDf(0.f, 0.f, 1.f, 0.f), vectorSIMDf(0.f, 0.f, 0.f, 1.f)}
-    {}
+    inline explicit matrix4SIMD(const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f), const vectorSIMDf& _r1 = vectorSIMDf(0.f, 1.f, 0.f, 0.f), const vectorSIMDf& _r2 = vectorSIMDf(0.f, 0.f, 1.f, 0.f), const vectorSIMDf& _r3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f))
+        : rows{ _r0, _r1, _r2, _r3 } {}
+
+    inline matrix4SIMD(
+        float _a00, float _a01, float _a02, float _a03,
+        float _a10, float _a11, float _a12, float _a13,
+        float _a20, float _a21, float _a22, float _a23,
+        float _a30, float _a31, float _a32, float _a33)
+        : matrix4SIMD(vectorSIMDf(_a00, _a01, _a02, _a03), vectorSIMDf(_a10, _a11, _a12, _a13), vectorSIMDf(_a20, _a21, _a22, _a23), vectorSIMDf(_a30, _a31, _a32, _a33))
+    {
+    }
+
+    inline explicit matrix4SIMD(const float* const _data)
+    {
+        if (!_data)
+            return;
+        for (size_t i = 0u; i < 4u; ++i)
+            rows[i] = vectorSIMDf(_data + 4 * i);
+    }
+    inline matrix4SIMD(const float* const _data, bool ALIGNED)
+    {
+        if (!_data)
+            return;
+        for (size_t i = 0u; i < 4u; ++i)
+            rows[i] = vectorSIMDf(_data + 4 * i, ALIGNED);
+    }
 
     //! Access by row
     inline const vectorSIMDf& operator[](size_t _rown) const { return rows[_rown]; }
