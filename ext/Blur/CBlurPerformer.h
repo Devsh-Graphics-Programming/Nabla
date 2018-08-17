@@ -199,7 +199,8 @@ private:
     const core::vector2d<uint32_t> m_dsFactor;
     core::vector2d<uint32_t> m_outSize;
 
-    static constexpr uint32_t s_MAX_WORK_GROUP_SIZE = 256u;
+    static uint32_t s_MAX_WORK_GROUP_SIZE;
+    static constexpr uint32_t s_ABSOLUTELY_MAX_WORK_GROUP_SIZE = 1024u;
     static constexpr uint32_t s_MAX_OUTPUT_SIZE_XY = 1024u;
     static constexpr uint32_t s_MIN_DS_FACTOR = 1u;
     static constexpr uint32_t s_MAX_DS_FACTOR = 16u;

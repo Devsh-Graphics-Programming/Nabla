@@ -285,9 +285,13 @@ inline uint32_t createComputeShader(const char* _src)
 }
 } // anon ns end
 
+uint32_t CBlurPerformer::s_MAX_WORK_GROUP_SIZE = 0u;
 
 CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
 {
+    if (s_MAX_WORK_GROUP_SIZE == 0u)
+        s_MAX_WORK_GROUP_SIZE = std::min(s_ABSOLUTELY_MAX_WORK_GROUP_SIZE, _driver->getMaxComputeWorkGroupSize(0u));
+
     return new CBlurPerformer(_driver, _radius, _dsFactor, uboBuffer, uboDataStaticOffset);
 }
 
