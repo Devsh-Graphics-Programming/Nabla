@@ -4,7 +4,6 @@
 #include "../../source/Irrlicht/COpenGLDriver.h"
 #include "../../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../../source/Irrlicht/COpenGL2DTexture.h"
-#include "../../source/Irrlicht/CWriteFile.h"
 
 using namespace irr;
 using namespace ext;
@@ -76,6 +75,10 @@ layout(local_size_x = WG_SIZE) in;
 #define LOG_NUM_BANKS 5
 #define CONFLICT_FREE_OFFSET(n) ((n) >> LOG_NUM_BANKS)
 
+#define BARRIER \
+    memoryBarrierShared();\
+    barrier()
+
 layout(std430, binding = 0) restrict buffer Samples {
     uvec2 samples[];
 };
@@ -119,9 +122,6 @@ vec3 loadShared(uint _idx)
 
 void upsweep(int d, uint offset, uint _tid)
 {
-    memoryBarrierShared();
-    barrier();
-
     if (_tid < d)
     {
         uint ai = offset*(2*_tid+1)-1;
@@ -134,9 +134,6 @@ void upsweep(int d, uint offset, uint _tid)
 }
 void downsweep(int d, uint offset, uint _tid)
 {
-    memoryBarrierShared();
-    barrier();
-
     if (_tid < d)
     {
         uint ai = offset*(2*_tid+1)-1;
@@ -170,21 +167,16 @@ void exPsumInSmem()
 {
     const uint IN_START_IDX = gl_WorkGroupID.y*ACTUAL_SIZE;
 
-    %s // here goes prepSmemForPresum unrolled loop
-
-    memoryBarrierShared();
-    barrier();
+    %s // here goes prepSmemForPresum calls
 
     uint offset = 1;
 
-    int up_itr = 0;
     %s // here goes unrolled upsweep loop
 
     if (LC_IDX == 0) { storeShared(PS_SIZE-1 + CONFLICT_FREE_OFFSET(PS_SIZE-1), vec3(0)); }
     memoryBarrierShared();
     barrier();
 
-    int down_itr = 0;
     %s // here goes unrolled downsweep loop
 }
 
@@ -241,7 +233,7 @@ void main()
 
     const float RADIUS = float(ACTUAL_SIZE) * u_radius;
 
-    %s // here goes blurAndOutput unrolled loop
+    %s // here goes blurAndOutput calls
 }
 )XDDD";
 
@@ -381,7 +373,6 @@ void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize, bool _createGpuS
         assert(outSz == m_outSize); // once initialized and output size is established, other output sizes are not allowed so that we don't have to recompile shaders
         return;
     }
-    printf("prepareForBlur\n");
 
     m_outSize = outSz;
     assert(m_outSize.X <= s_MAX_OUTPUT_SIZE_XY || m_outSize.Y <= s_MAX_OUTPUT_SIZE_XY);
@@ -447,9 +438,11 @@ bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTex
     std::string blurAndOutput = buf;
 
     std::string upsweep_fmt =
+        "BARRIER;\n"
         "for (uint i = 0; i < %u; ++i) upsweep(%u, offset, LC_IDX + i*WG_SIZE);\n"
         "offset *= 2;\n";
     std::string downsweep_fmt =
+        "BARRIER;\n"
         "offset /= 2;\n"
         "for (uint i = 0; i < %u; ++i) downsweep(%u, offset, LC_IDX + i*WG_SIZE);\n";
 
