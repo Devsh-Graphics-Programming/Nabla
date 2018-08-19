@@ -382,7 +382,8 @@ void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize, bool _createGpuS
 
     std::tie(m_dsampleCs, m_blurGeneralCs[0], m_blurGeneralCs[1], m_blurFinalCs) = makeShaders(m_outSize);
 
-    writeUBOData();
+    if (!m_isCustomUbo)
+        updateUBO();
 
     if (m_samplesSsbo)
         m_samplesSsbo->drop();
@@ -495,21 +496,9 @@ void irr::ext::Blur::CBlurPerformer::bindImage(uint32_t _imgUnit, const ImageBin
     video::COpenGLExtensionHandler::extGlBindImageTexture(_imgUnit, _data.name, _data.level, _data.layered, _data.layer, _data.access, _data.format);
 }
 
-void CBlurPerformer::writeUBOData()
+void CBlurPerformer::writeUBOData(void* _dst) const
 {
-    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-    reqs.vulkanReqs.alignment = 4;
-    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|video::IDriverMemoryAllocation::EMCF_COHERENT;
-    reqs.prefersDedicatedAllocation = true;
-    reqs.requiresDedicatedAllocation = true;
-    reqs.vulkanReqs.size = getRequiredUBOSize(m_driver);
-    video::IGPUBuffer* stagingBuf = m_driver->createGPUBufferOnDedMem(reqs);
-
-    uint8_t* mappedPtr = reinterpret_cast<uint8_t*>(stagingBuf->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE,{0,reqs.vulkanReqs.size}));
-
-    //! all of the above to move out of writeUBOData function
+    uint8_t* dst = reinterpret_cast<uint8_t*>(_dst);
 
     const core::vector2d<uint32_t> HMLT(1u, m_outSize.X), VMLT(m_outSize.Y, 1u);
     const core::vector2d<uint32_t> multipliers[6]{ HMLT, HMLT, VMLT, VMLT, VMLT, HMLT };
@@ -517,7 +506,7 @@ void CBlurPerformer::writeUBOData()
     uint32_t outOffset = m_outSize.X * m_outSize.Y;
     for (uint32_t i = 0u; i < 6u; ++i)
     {
-        BlurPassUBO* destPtr = reinterpret_cast<BlurPassUBO*>(mappedPtr+i*m_paddedUBOSize);
+        BlurPassUBO* destPtr = reinterpret_cast<BlurPassUBO*>(dst+i*m_paddedUBOSize);
 
         destPtr->iterNum = i;
         destPtr->inOffset = inOffset;
@@ -528,13 +517,33 @@ void CBlurPerformer::writeUBOData()
 
         std::swap(inOffset, outOffset);
     }
+}
 
-    //! all of the below to move out of writeUBOData function
-    stagingBuf->getBoundMemory()->unmapMemory();
+void CBlurPerformer::updateUBO(const void* _contents)
+{
+    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    reqs.vulkanReqs.alignment = 4;
+    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+    reqs.prefersDedicatedAllocation = true;
+    reqs.requiresDedicatedAllocation = true;
+    reqs.vulkanReqs.size = getRequiredUBOSize(m_driver);
+    video::IGPUBuffer* stagingBuf = m_driver->createGPUBufferOnDedMem(reqs, true);
 
-    m_driver->copyBuffer(stagingBuf,m_ubo,0,m_uboStaticOffset,reqs.vulkanReqs.size);
+    stagingBuf->updateSubRange({0u, reqs.vulkanReqs.size}, _contents);
 
+    m_driver->copyBuffer(stagingBuf, m_ubo, 0u, m_uboOffset, reqs.vulkanReqs.size);
     stagingBuf->drop();
+}
+
+void CBlurPerformer::updateUBO()
+{
+    uint8_t mem[1u<<12];
+    assert(sizeof(mem) >= getRequiredUBOSize(m_driver));
+
+    writeUBOData(mem);
+    updateUBO(mem);
 }
 
 auto CBlurPerformer::makeShaders(const core::vector2d<uint32_t>& _outSize) -> tuple4xu32
@@ -586,7 +595,7 @@ void CBlurPerformer::bindUbo(uint32_t _bnd, uint32_t _part) const
     auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
 
     const video::COpenGLBuffer* buf{ static_cast<const video::COpenGLBuffer*>(m_ubo) };
-    ptrdiff_t offset = _part * m_paddedUBOSize+m_uboStaticOffset;
+    ptrdiff_t offset = _part * m_paddedUBOSize+m_uboOffset;
     ptrdiff_t size = m_paddedUBOSize;
 
     auxCtx->setActiveUBO(_bnd, 1u, &buf, &offset, &size);

@@ -70,10 +70,14 @@ public:
     // WARNING: does NOT change values of shader handles
     void deleteShaders() const;
 
+    void writeUBOData(void* _dst) const;
+
     inline bool setUniformBuffer(video::IGPUBuffer* _ubo)
     {
         if (!_ubo || _ubo->getSize() < getRequiredUBOSize(m_driver))
             return false;
+
+        m_isCustomUbo = true;
 
         video::IGPUBuffer* oldUbo = m_ubo;
         m_ubo = _ubo;
@@ -90,7 +94,7 @@ public:
         if ((m_ubo && m_ubo->getSize() < _offset) || (m_ubo && m_ubo->getSize() - _offset < getRequiredUBOSize(m_driver)))
             return false;
 
-        m_uboStaticOffset = _offset;
+        m_uboOffset = _offset;
         return true;
     }
 
@@ -103,8 +107,9 @@ public:
             return;
         m_radius = _radius;
 
-        if (m_dsampleCs) // no need to update UBO if no shaders are present yet
-            writeUBOData();
+
+        if (m_dsampleCs && !m_isCustomUbo) // no need to update UBO if no shaders are present yet
+            updateUBO();
     }
     inline float getRadius() const { return m_radius; }
 
@@ -123,7 +128,7 @@ protected:
 
 private:
     inline CBlurPerformer(video::IVideoDriver* _driver, float _radius,
-                   core::vector2d<uint32_t> _dsFactor, video::IGPUBuffer* _uboBuffer, const size_t& _uboDataStaticOffset) :
+                   core::vector2d<uint32_t> _dsFactor, video::IGPUBuffer* _uboBuffer, const size_t& _uboOffset) :
         m_driver(_driver),
         m_dsampleCs{0u},
         m_blurGeneralCs{0u, 0u},
@@ -132,8 +137,9 @@ private:
         m_ubo(_uboBuffer),
         m_radius{std::max(0.f, std::min(_radius, 1.f))},
         m_paddedUBOSize(getSinglePaddedUBOSize(_driver)),
-        m_uboStaticOffset(_uboDataStaticOffset),
-        m_dsFactor(clampDsFactor(_dsFactor))
+        m_uboOffset(_uboOffset),
+        m_dsFactor(clampDsFactor(_dsFactor)),
+        m_isCustomUbo(_uboBuffer)
     {
         if (!m_ubo)
         {
@@ -144,22 +150,17 @@ private:
             reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
             reqs.prefersDedicatedAllocation = true;
             reqs.requiresDedicatedAllocation = true;
-            reqs.vulkanReqs.size = getRequiredUBOSize(m_driver)+m_uboStaticOffset;
+            reqs.vulkanReqs.size = getRequiredUBOSize(m_driver)+m_uboOffset;
 
             m_ubo =  m_driver->createGPUBufferOnDedMem(reqs);
+            // ubo gets filled with actual data when output size is established
         }
         else
             m_ubo->grab();
     }
 
-    //! TODO: reduce this just to a write AND allow for dynamic `m_uboStaticOffset` (obvs. rename to m_uboOffset)
-    /**
-    Write should take an already offset (don't add m_uboStaticOffset) BlurPassUBO* pointer and iterate through the 6 things
-    writeUBOData in the constructor, in case of missing m_ubo should handle the staging buffer and upload.
-
-    Add a function to set `m_uboOffset` at will.
-    **/
-    void writeUBOData();
+    void updateUBO(const void* _contents);
+    void updateUBO();
 
     static tuple4xu32 makeShaders(const core::vector2d<uint32_t>& _outSize);
 
@@ -195,9 +196,10 @@ private:
 
     float m_radius;
     const uint32_t m_paddedUBOSize;
-    uint32_t m_uboStaticOffset;
+    uint32_t m_uboOffset;
     const core::vector2d<uint32_t> m_dsFactor;
     core::vector2d<uint32_t> m_outSize;
+    bool m_isCustomUbo;
 
     static uint32_t s_MAX_WORK_GROUP_SIZE;
     static constexpr uint32_t s_ABSOLUTELY_MAX_WORK_GROUP_SIZE = 1024u;
