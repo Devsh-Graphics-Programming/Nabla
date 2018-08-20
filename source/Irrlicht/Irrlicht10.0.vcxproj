@@ -864,6 +864,7 @@
     <ClCompile Include="CAssetManager.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
+    <ClCompile Include="IReferenceCounted.cpp" />
     <ClCompile Include="Irrlicht.cpp" />
     <ClCompile Include="lz4\lz4.c" />
     <ClCompile Include="lz4\lz4frame.c" />
