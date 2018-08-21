@@ -41,7 +41,6 @@ namespace irr
 #else
 			LoggingLevel(ELL_INFORMATION),
 #endif
-			DisplayAdapter(0),
 			AuxGLContexts(0),
 			UsePerformanceTimer(true),
 			SDK_version_do_not_use(IRRLICHT_SDK_VERSION)
@@ -72,7 +71,6 @@ namespace irr
 			WindowId = other.WindowId;
 			LoggingLevel = other.LoggingLevel;
 			AuxGLContexts = other.AuxGLContexts;
-			DisplayAdapter = other.DisplayAdapter;
 			UsePerformanceTimer = other.UsePerformanceTimer;
 			return *this;
 		}
@@ -244,10 +242,7 @@ namespace irr
 		*/
 		ELOG_LEVEL LoggingLevel;
 
-		//! Allows to select which graphic card is used for rendering when more than one card is in the system.
-		/** So far only supported on D3D */
-		uint32_t DisplayAdapter;
-
+		//!
 		uint8_t AuxGLContexts;
 
 		//! Enables use of high performance timers on Windows platform.

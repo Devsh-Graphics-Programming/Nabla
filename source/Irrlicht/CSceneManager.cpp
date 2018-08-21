@@ -20,10 +20,6 @@
 #include "CSkinnedMesh.h"
 
 
-#ifdef _IRR_COMPILE_WITH_HALFLIFE_LOADER_
-#include "CAnimatedMeshHalfLife.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_MS3D_LOADER_
 #include "CMS3DMeshFileLoader.h"
 #endif
@@ -40,20 +36,12 @@
 #include "COCTLoader.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_CSM_LOADER_
-#include "CCSMLoader.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_LMTS_LOADER_
 #include "CLMTSMeshFileLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
 #include "CMY3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_DMF_LOADER_
-#include "CDMFLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
@@ -78,10 +66,6 @@
 
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 #include "CPLYMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_SMF_LOADER_
-#include "CSMFMeshFileLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_BAW_LOADER_
@@ -117,9 +101,6 @@
 #include "CMeshSceneNodeInstanced.h"
 #include "CSkyBoxSceneNode.h"
 #include "CSkyDomeSceneNode.h"
-#include "CEmptySceneNode.h"
-
-#include "CDefaultSceneNodeFactory.h"
 
 #include "CSceneNodeAnimatorRotation.h"
 #include "CSceneNodeAnimatorFlyCircle.h"
@@ -129,7 +110,6 @@
 #include "CSceneNodeAnimatorFollowSpline.h"
 #include "CSceneNodeAnimatorCameraFPS.h"
 #include "CSceneNodeAnimatorCameraMaya.h"
-#include "CDefaultSceneNodeAnimatorFactory.h"
 
 #include "CGeometryCreator.h"
 
@@ -143,8 +123,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 		gui::ICursorControl* cursorControl)
 : ISceneNode(0, 0), Driver(driver), FileSystem(fs),
 	CursorControl(cursorControl),
-	ActiveCamera(0), AmbientLight(0,0,0,0),
-	MeshCache(0), CurrentRendertime(ESNRP_NONE), LightManager(0),
+	ActiveCamera(0), MeshCache(0), CurrentRendertime(ESNRP_NONE),
 	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type")
 {
 	#ifdef _DEBUG
@@ -154,10 +133,6 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 
 	// root node's scene manager
 	SceneManager = this;
-
-	// set scene parameters
-	*((float*)&(Parameters[DEBUG_NORMAL_LENGTH])) = 1.f;
-	*((video::SColor*)&(Parameters[DEBUG_NORMAL_COLOR])) = video::SColor(255, 34, 221, 221);
 
 	if (Driver)
 		Driver->grab();
@@ -308,14 +283,8 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 	#ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 	MeshLoaderList.push_back(new CPLYMeshFileLoader(this));
 	#endif
-	#ifdef _IRR_COMPILE_WITH_SMF_LOADER_
-	MeshLoaderList.push_back(new CSMFMeshFileLoader(Driver));
-	#endif
 	#ifdef _IRR_COMPILE_WITH_OCT_LOADER_
 	MeshLoaderList.push_back(new COCTLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_CSM_LOADER_
-	MeshLoaderList.push_back(new CCSMLoader(this, FileSystem));
 	#endif
 	#ifdef _IRR_COMPILE_WITH_LMTS_LOADER_
 	MeshLoaderList.push_back(new CLMTSMeshFileLoader(FileSystem, Driver));
@@ -323,14 +292,8 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 	#ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
 	MeshLoaderList.push_back(new CMY3DMeshFileLoader(this, FileSystem));
 	#endif
-	#ifdef _IRR_COMPILE_WITH_DMF_LOADER_
-	MeshLoaderList.push_back(new CDMFLoader(this, FileSystem));
-	#endif
 	#ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
 	MeshLoaderList.push_back(new COgreMeshFileLoader(FileSystem, Driver));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_HALFLIFE_LOADER_
-	MeshLoaderList.push_back(new CHalflifeMDLMeshFileLoader( this ));
 	#endif
 	#ifdef _IRR_COMPILE_WITH_LWO_LOADER_
 	MeshLoaderList.push_back(new CLWOMeshFileLoader(this, FileSystem));
@@ -353,15 +316,6 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 	#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
 	MeshLoaderList.push_back(new CBAWMeshFileLoader(this, FileSystem));
 	#endif
-
-	// factories
-	ISceneNodeFactory* factory = new CDefaultSceneNodeFactory(this);
-	registerSceneNodeFactory(factory);
-	factory->drop();
-
-	ISceneNodeAnimatorFactory* animatorFactory = new CDefaultSceneNodeAnimatorFactory(this, CursorControl);
-	registerSceneNodeAnimatorFactory(animatorFactory);
-	animatorFactory->drop();
 }
 
 
@@ -397,15 +351,6 @@ CSceneManager::~CSceneManager()
 
 	if (MeshCache)
 		MeshCache->drop();
-
-	for (i=0; i<SceneNodeFactoryList.size(); ++i)
-		SceneNodeFactoryList[i]->drop();
-
-	for (i=0; i<SceneNodeAnimatorFactoryList.size(); ++i)
-		SceneNodeAnimatorFactoryList[i]->drop();
-
-	if (LightManager)
-		LightManager->drop();
 
 	// remove all nodes and animators before dropping the driver
 	// as render targets may be destroyed twice
@@ -690,20 +635,7 @@ ISceneNode* CSceneManager::addSkyDomeSceneNode(video::IVirtualTexture* texture,
 	return node;
 }
 
-//! Adds an empty scene node.
-ISceneNode* CSceneManager::addEmptySceneNode(IDummyTransformationSceneNode* parent, int32_t id)
-{
-	if (!parent)
-		parent = this;
-
-	ISceneNode* node = new CEmptySceneNode(parent, this, id);
-	node->drop();
-
-	return node;
-}
-
-
-//! Adds a dummy transformation scene node to the scene graph.
+//! Adds a dummy transformation scene node to the scene tree.
 IDummyTransformationSceneNode* CSceneManager::addDummyTransformationSceneNode(
 	IDummyTransformationSceneNode* parent, int32_t id)
 {
@@ -834,16 +766,6 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 		}
 		break;
 
-	case ESNRP_LIGHT:
-		// TODO: Point Light culling..
-		// Lighting model in irrlicht has to be redone..
-		//if (!isCulled(node))
-		{
-			LightList.push_back(node);
-			taken = 1;
-		}
-		break;
-
 	case ESNRP_SKY_BOX:
 		SkyBoxList.push_back(node);
 		taken = 1;
@@ -896,8 +818,6 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 				taken = 1;
 			}
 		}
-		break;
-	case ESNRP_SHADOW:
 		break;
 
 	case ESNRP_NONE: // ignore this one
@@ -979,50 +899,24 @@ void CSceneManager::drawAll()
 	// let all nodes register themselves
 	OnRegisterSceneNode();
 
-	if (LightManager)
-		LightManager->OnPreRender(LightList);
-
 	//render camera scenes
 	{
 		CurrentRendertime = ESNRP_CAMERA;
-
-		if (LightManager)
-			LightManager->OnRenderPassPreRender(CurrentRendertime);
 
 		for (i=0; i<CameraList.size(); ++i)
 			CameraList[i]->render();
 
 		CameraList.set_used(0);
-
-		if (LightManager)
-			LightManager->OnRenderPassPostRender(CurrentRendertime);
 	}
 
 	// render skyboxes
 	{
 		CurrentRendertime = ESNRP_SKY_BOX;
 
-		if (LightManager)
-		{
-			LightManager->OnRenderPassPreRender(CurrentRendertime);
-			for (i=0; i<SkyBoxList.size(); ++i)
-			{
-				ISceneNode* node = SkyBoxList[i];
-				LightManager->OnNodePreRender(node);
-				node->render();
-				LightManager->OnNodePostRender(node);
-			}
-		}
-		else
-		{
-			for (i=0; i<SkyBoxList.size(); ++i)
-				SkyBoxList[i]->render();
-		}
+        for (i=0; i<SkyBoxList.size(); ++i)
+            SkyBoxList[i]->render();
 
 		SkyBoxList.set_used(0);
-
-		if (LightManager)
-			LightManager->OnRenderPassPostRender(CurrentRendertime);
 	}
 
 
@@ -1032,30 +926,13 @@ void CSceneManager::drawAll()
 
 		SolidNodeList.sort(); // sort by textures
 
-		if (LightManager)
-		{
-			LightManager->OnRenderPassPreRender(CurrentRendertime);
-			for (i=0; i<SolidNodeList.size(); ++i)
-			{
-				ISceneNode* node = SolidNodeList[i].Node;
-				LightManager->OnNodePreRender(node);
-				node->render();
-				LightManager->OnNodePostRender(node);
-			}
-		}
-		else
-		{
-			for (i=0; i<SolidNodeList.size(); ++i)
-				SolidNodeList[i].Node->render();
-		}
+        for (i=0; i<SolidNodeList.size(); ++i)
+            SolidNodeList[i].Node->render();
 
 #ifdef _IRR_SCENEMANAGER_DEBUG
 		Parameters.setAttribute("drawn_solid", (int32_t) SolidNodeList.size() );
 #endif
 		SolidNodeList.set_used(0);
-
-		if (LightManager)
-			LightManager->OnRenderPassPostRender(CurrentRendertime);
 	}
 
 	// render transparent objects.
@@ -1063,31 +940,13 @@ void CSceneManager::drawAll()
 		CurrentRendertime = ESNRP_TRANSPARENT;
 
 		TransparentNodeList.sort(); // sort by distance from camera
-		if (LightManager)
-		{
-			LightManager->OnRenderPassPreRender(CurrentRendertime);
-
-			for (i=0; i<TransparentNodeList.size(); ++i)
-			{
-				ISceneNode* node = TransparentNodeList[i].Node;
-				LightManager->OnNodePreRender(node);
-				node->render();
-				LightManager->OnNodePostRender(node);
-			}
-		}
-		else
-		{
-			for (i=0; i<TransparentNodeList.size(); ++i)
-				TransparentNodeList[i].Node->render();
-		}
+        for (i=0; i<TransparentNodeList.size(); ++i)
+            TransparentNodeList[i].Node->render();
 
 #ifdef _IRR_SCENEMANAGER_DEBUG
 		Parameters.setAttribute ( "drawn_transparent", (int32_t) TransparentNodeList.size() );
 #endif
 		TransparentNodeList.set_used(0);
-
-		if (LightManager)
-			LightManager->OnRenderPassPostRender(CurrentRendertime);
 	}
 
 	// render transparent effect objects.
@@ -1095,49 +954,19 @@ void CSceneManager::drawAll()
 		CurrentRendertime = ESNRP_TRANSPARENT_EFFECT;
 
 		TransparentEffectNodeList.sort(); // sort by distance from camera
-
-		if (LightManager)
-		{
-			LightManager->OnRenderPassPreRender(CurrentRendertime);
-
-			for (i=0; i<TransparentEffectNodeList.size(); ++i)
-			{
-				ISceneNode* node = TransparentEffectNodeList[i].Node;
-				LightManager->OnNodePreRender(node);
-				node->render();
-				LightManager->OnNodePostRender(node);
-			}
-		}
-		else
-		{
-			for (i=0; i<TransparentEffectNodeList.size(); ++i)
-				TransparentEffectNodeList[i].Node->render();
-		}
+        for (i=0; i<TransparentEffectNodeList.size(); ++i)
+            TransparentEffectNodeList[i].Node->render();
 #ifdef _IRR_SCENEMANAGER_DEBUG
 		Parameters.setAttribute ( "drawn_transparent_effect", (int32_t) TransparentEffectNodeList.size() );
 #endif
 		TransparentEffectNodeList.set_used(0);
 	}
 
-	if (LightManager)
-		LightManager->OnPostRender();
-
 	LightList.set_used(0);
 	clearDeletionList();
 
 	CurrentRendertime = ESNRP_NONE;
 }
-
-void CSceneManager::setLightManager(ILightManager* lightManager)
-{
-    if (lightManager)
-        lightManager->grab();
-	if (LightManager)
-		LightManager->drop();
-
-	LightManager = lightManager;
-}
-
 
 //! creates a rotation animator, which rotates the attached scene node around itself.
 ISceneNodeAnimator* CSceneManager::createRotationAnimator(const core::vector3df& rotationPerSecond)
@@ -1364,7 +1193,7 @@ void CSceneManager::getSceneNodesFromType(ESCENE_NODE_TYPE type, core::array<sce
 
 //! Posts an input event to the environment. Usually you do not have to
 //! use this method, it is used by the internal engine.
-bool CSceneManager::postEventFromUser(const SEvent& event)
+bool CSceneManager::receiveIfEventReceiverDidNotAbsorb(const SEvent& event)
 {
 	bool ret = false;
 	ICameraSceneNode* cam = getActiveCamera();
@@ -1415,135 +1244,6 @@ ISceneManager* CSceneManager::createNewSceneManager(bool cloneContent)
 		manager->cloneMembers(this, manager);
 
 	return manager;
-}
-
-
-//! Returns the default scene node factory which can create all built in scene nodes
-ISceneNodeFactory* CSceneManager::getDefaultSceneNodeFactory()
-{
-	return getSceneNodeFactory(0);
-}
-
-
-//! Adds a scene node factory to the scene manager.
-void CSceneManager::registerSceneNodeFactory(ISceneNodeFactory* factoryToAdd)
-{
-	if (factoryToAdd)
-	{
-		factoryToAdd->grab();
-		SceneNodeFactoryList.push_back(factoryToAdd);
-	}
-}
-
-
-//! Returns amount of registered scene node factories.
-uint32_t CSceneManager::getRegisteredSceneNodeFactoryCount() const
-{
-	return SceneNodeFactoryList.size();
-}
-
-
-//! Returns a scene node factory by index
-ISceneNodeFactory* CSceneManager::getSceneNodeFactory(uint32_t index)
-{
-	if (index < SceneNodeFactoryList.size())
-		return SceneNodeFactoryList[index];
-
-	return 0;
-}
-
-
-//! Returns the default scene node animator factory which can create all built-in scene node animators
-ISceneNodeAnimatorFactory* CSceneManager::getDefaultSceneNodeAnimatorFactory()
-{
-	return getSceneNodeAnimatorFactory(0);
-}
-
-//! Adds a scene node animator factory to the scene manager.
-void CSceneManager::registerSceneNodeAnimatorFactory(ISceneNodeAnimatorFactory* factoryToAdd)
-{
-	if (factoryToAdd)
-	{
-		factoryToAdd->grab();
-		SceneNodeAnimatorFactoryList.push_back(factoryToAdd);
-	}
-}
-
-
-//! Returns amount of registered scene node animator factories.
-uint32_t CSceneManager::getRegisteredSceneNodeAnimatorFactoryCount() const
-{
-	return SceneNodeAnimatorFactoryList.size();
-}
-
-
-//! Returns a scene node animator factory by index
-ISceneNodeAnimatorFactory* CSceneManager::getSceneNodeAnimatorFactory(uint32_t index)
-{
-	if (index < SceneNodeAnimatorFactoryList.size())
-		return SceneNodeAnimatorFactoryList[index];
-
-	return 0;
-}
-
-
-//! Returns a typename from a scene node type or null if not found
-const char* CSceneManager::getSceneNodeTypeName(ESCENE_NODE_TYPE type)
-{
-	const char* name = 0;
-
-	for (int32_t i=(int32_t)SceneNodeFactoryList.size()-1; !name && i>=0; --i)
-		name = SceneNodeFactoryList[i]->getCreateableSceneNodeTypeName(type);
-
-	return name;
-}
-
-//! Adds a scene node to the scene by name
-ISceneNode* CSceneManager::addSceneNode(const char* sceneNodeTypeName, IDummyTransformationSceneNode* parent)
-{
-	ISceneNode* node = 0;
-
-	for (int32_t i=(int32_t)SceneNodeFactoryList.size()-1; i>=0 && !node; --i)
-			node = SceneNodeFactoryList[i]->addSceneNode(sceneNodeTypeName, parent);
-
-	return node;
-}
-
-ISceneNodeAnimator* CSceneManager::createSceneNodeAnimator(const char* typeName, ISceneNode* target)
-{
-	ISceneNodeAnimator *animator = 0;
-
-	for (int32_t i=(int32_t)SceneNodeAnimatorFactoryList.size()-1; i>=0 && !animator; --i)
-		animator = SceneNodeAnimatorFactoryList[i]->createSceneNodeAnimator(typeName, target);
-
-	return animator;
-}
-
-
-//! Returns a typename from a scene node animator type or null if not found
-const char* CSceneManager::getAnimatorTypeName(ESCENE_NODE_ANIMATOR_TYPE type)
-{
-	const char* name = 0;
-
-	for (int32_t i=SceneNodeAnimatorFactoryList.size()-1; !name && i >= 0; --i)
-		name = SceneNodeAnimatorFactoryList[i]->getCreateableSceneNodeAnimatorTypeName(type);
-
-	return name;
-}
-
-
-
-//! Sets ambient color of the scene
-void CSceneManager::setAmbientLight(const video::SColorf &ambientColor)
-{
-	AmbientLight = ambientColor;
-}
-
-
-//! Returns ambient color of the scene
-const video::SColorf& CSceneManager::getAmbientLight() const
-{
-	return AmbientLight;
 }
 
 //! Returns a mesh writer implementation if available

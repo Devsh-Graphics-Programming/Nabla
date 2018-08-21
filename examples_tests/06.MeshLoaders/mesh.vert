@@ -13,7 +13,7 @@ out vec3 lightDir;
 void main()
 {
     gl_Position = MVP*vPos; //only thing preventing the shader from being core-compliant
-    Color = vCol;
+    Color = vec4(1.0);
     Normal = normalize(vNormal); //have to normalize twice because of normal quantization
     lightDir = cameraPos-vPos.xyz;
 }

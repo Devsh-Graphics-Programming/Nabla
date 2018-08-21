@@ -133,6 +133,12 @@ int main()
     if (numberOfSamples<=1)
         numberOfSamples = 2;
 
+    if (core::isNPoT(numberOfSamples))
+    {
+        printf("\nError, number of samples must be a power-of-two!\n");
+        return 2;
+    }
+
     //You may find while experimenting that you can only create a texture with 8 samples but renderbuffer with 32 !
     printf("\nUsing %d samples.\n",numberOfSamples);
 

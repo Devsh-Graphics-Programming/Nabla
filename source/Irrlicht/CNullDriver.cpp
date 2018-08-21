@@ -44,14 +44,8 @@ IImageLoader* createImageLoaderJPG();
 //! creates a loader which is able to load targa images
 IImageLoader* createImageLoaderTGA();
 
-//! creates a loader which is able to load psd images
-IImageLoader* createImageLoaderPSD();
-
 //! creates a loader which is able to load dds images
 IImageLoader* createImageLoaderDDS();
-
-//! creates a loader which is able to load pcx images
-IImageLoader* createImageLoaderPCX();
 
 //! creates a loader which is able to load png images
 IImageLoader* createImageLoaderPNG();
@@ -59,14 +53,8 @@ IImageLoader* createImageLoaderPNG();
 //! creates a loader which is able to load WAL images
 IImageLoader* createImageLoaderWAL();
 
-//! creates a loader which is able to load halflife images
-IImageLoader* createImageLoaderHalfLife();
-
 //! creates a loader which is able to load lmp images
 IImageLoader* createImageLoaderLMP();
-
-//! creates a loader which is able to load ppm/pgm/pbm images
-IImageLoader* createImageLoaderPPM();
 
 //! creates a loader which is able to load rgb images
 IImageLoader* createImageLoaderRGB();
@@ -81,17 +69,8 @@ IImageWriter* createImageWriterJPG();
 //! creates a writer which is able to save tga images
 IImageWriter* createImageWriterTGA();
 
-//! creates a writer which is able to save psd images
-IImageWriter* createImageWriterPSD();
-
-//! creates a writer which is able to save pcx images
-IImageWriter* createImageWriterPCX();
-
 //! creates a writer which is able to save png images
 IImageWriter* createImageWriterPNG();
-
-//! creates a writer which is able to save ppm images
-IImageWriter* createImageWriterPPM();
 
 //! constructor
 CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
@@ -118,20 +97,11 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>&
 		FileSystem->grab();
 
 	// create surface loader
-#ifdef _IRR_COMPILE_WITH_PPM_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderPPM());
-#endif
 #ifdef _IRR_COMPILE_WITH_RGB_LOADER_
 	SurfaceLoader.push_back(video::createImageLoaderRGB());
 #endif
-#ifdef _IRR_COMPILE_WITH_PSD_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderPSD());
-#endif
 #ifdef _IRR_COMPILE_WITH_DDS_LOADER_
 	SurfaceLoader.push_back(video::createImageLoaderDDS());
-#endif
-#ifdef _IRR_COMPILE_WITH_PCX_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderPCX());
 #endif
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 	SurfaceLoader.push_back(video::createImageLoaderTGA());
@@ -147,15 +117,6 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>&
 #endif
 
 
-#ifdef _IRR_COMPILE_WITH_PPM_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterPPM());
-#endif
-#ifdef _IRR_COMPILE_WITH_PCX_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterPCX());
-#endif
-#ifdef _IRR_COMPILE_WITH_PSD_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterPSD());
-#endif
 #ifdef _IRR_COMPILE_WITH_TGA_WRITER_
 	SurfaceWriter.push_back(video::createImageWriterTGA());
 #endif
@@ -696,7 +657,7 @@ video::ITexture* CNullDriver::loadTextureFromFile(io::IReadFile* file, ECOLOR_FO
 	std::vector<CImageData*> images = createImageDataFromFile(file);
 
 	if (images.size()==0)
-        return NULL;
+        return nullptr;
 
     // create texture from surface
     ITexture* texture = this->addTexture(ITexture::ETT_COUNT, images, hashName.size() ? hashName : file->getFileName(), format);
@@ -735,13 +696,20 @@ void CNullDriver::addToTextureCache(video::ITexture* texture)
 //! looks if the image is already loaded
 video::ITexture* CNullDriver::findTexture(const io::path& filename)
 {
+    uint8_t stackData[sizeof(SDummyTexture)];
+
+    SDummyTexture* dummy = new(stackData) SDummyTexture(filename);
+
+
 	SSurface s;
-	SDummyTexture dummy(filename);
-	s.Surface = &dummy;
+	s.Surface = dummy;
 
 	std::vector<SSurface>::iterator found = std::lower_bound(Textures.begin(),Textures.end(),s);
 	if (found==Textures.end())
-        return NULL;
+    {
+        dummy->drop();
+        return nullptr;
+    }
 
 	std::vector<SSurface>::iterator foundHi = std::upper_bound(found,Textures.end(),s);
 	for (; found!=foundHi; found++)
@@ -750,7 +718,7 @@ video::ITexture* CNullDriver::findTexture(const io::path& filename)
             return found->Surface;
     }
 
-	return NULL;
+	return nullptr;
 }
 
 //! creates a Texture

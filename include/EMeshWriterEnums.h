@@ -39,9 +39,6 @@ namespace scene
 		//! no writer flags
 		EMWF_NONE = 0,
 
-		//! write lightmap textures out if possible
-		EMWF_WRITE_LIGHTMAPS = 0x1,
-
 		//! write in a way that consumes less disk space
 		EMWF_WRITE_COMPRESSED = 0x2,
 

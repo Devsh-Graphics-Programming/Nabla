@@ -22,6 +22,7 @@ enum E_QUERY_OBJECT_TYPE
 
 class IQueryObject : public IReferenceCounted
 {
+	    _IRR_INTERFACE_CHILD(IQueryObject) {}
     public:
         /// ALL will STALL CPU IF QUERY NOT READY
 		virtual void getQueryResult(uint32_t* queryResult) = 0;

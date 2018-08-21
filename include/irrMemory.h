@@ -270,12 +270,12 @@ namespace impl
             static inline void operator delete(void* ptr) noexcept
             {
                 //std::cout << "Delete aligned to " << object_alignment << std::endl;
-                return _IRR_ALIGNED_FREE(ptr);
+                _IRR_ALIGNED_FREE(ptr);
             }
             static inline void  operator delete[](void* ptr) noexcept
             {
                 //std::cout << "Delete aligned to " << object_alignment << std::endl;
-                return _IRR_ALIGNED_FREE(ptr);
+                _IRR_ALIGNED_FREE(ptr);
             }
             static inline void operator delete(void* ptr, size_t size) noexcept {operator delete(ptr);} //roll back to own operator with no size
             static inline void operator delete[](void* ptr, size_t size) noexcept {operator delete[](ptr);} //roll back to own operator with no size

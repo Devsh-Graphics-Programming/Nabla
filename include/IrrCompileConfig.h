@@ -320,26 +320,10 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_OGRE_LOADER_
 #undef _IRR_COMPILE_WITH_OGRE_LOADER_
 #endif
-
-//! Define _IRR_COMPILE_WITH_HALFLIFE_LOADER_ if you want to load Halflife animated files
-//#define _IRR_COMPILE_WITH_HALFLIFE_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_HALFLIFE_LOADER_
-#undef _IRR_COMPILE_WITH_HALFLIFE_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_3DS_LOADER_ if you want to load 3D Studio Max files
 //#define _IRR_COMPILE_WITH_3DS_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_3DS_LOADER_
 #undef _IRR_COMPILE_WITH_3DS_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_CSM_LOADER_ if you want to load Cartography Shop files
-//#define _IRR_COMPILE_WITH_CSM_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_CSM_LOADER_
-#undef _IRR_COMPILE_WITH_CSM_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_DMF_LOADER_ if you want to load DeleD files
-//#define _IRR_COMPILE_WITH_DMF_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_DMF_LOADER_
-#undef _IRR_COMPILE_WITH_DMF_LOADER_
 #endif
 //! Define _IRR_COMPILE_WITH_LMTS_LOADER_ if you want to load LMTools files
 //#define _IRR_COMPILE_WITH_LMTS_LOADER_
@@ -382,11 +366,6 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_PLY_LOADER_
 #undef _IRR_COMPILE_WITH_PLY_LOADER_
 #endif
-//! Define _IRR_COMPILE_WITH_SMF_LOADER_ if you want to load 3D World Studio mesh files
-//#define _IRR_COMPILE_WITH_SMF_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_SMF_LOADER_
-#undef _IRR_COMPILE_WITH_SMF_LOADER_
-#endif
 
 //! Define _IRR_COMPILE_WITH_STL_WRITER_ if you want to write .stl files
 #define _IRR_COMPILE_WITH_STL_WRITER_
@@ -422,25 +401,10 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_JPG_LOADER_
 #undef _IRR_COMPILE_WITH_JPG_LOADER_
 #endif
-//! Define _IRR_COMPILE_WITH_PCX_LOADER_ if you want to load .pcx files
-#define _IRR_COMPILE_WITH_PCX_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_PCX_LOADER_
-#undef _IRR_COMPILE_WITH_PCX_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_PNG_LOADER_ if you want to load .png files
 #define _IRR_COMPILE_WITH_PNG_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_PNG_LOADER_
 #undef _IRR_COMPILE_WITH_PNG_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_PPM_LOADER_ if you want to load .ppm/.pgm/.pbm files
-#define _IRR_COMPILE_WITH_PPM_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_PPM_LOADER_
-#undef _IRR_COMPILE_WITH_PPM_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_PSD_LOADER_ if you want to load .psd files
-#define _IRR_COMPILE_WITH_PSD_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_PSD_LOADER_
-#undef _IRR_COMPILE_WITH_PSD_LOADER_
 #endif
 //! Define _IRR_COMPILE_WITH_DDS_LOADER_ if you want to load .dds files
 // Outcommented because
@@ -473,25 +437,10 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_JPG_WRITER_
 #undef _IRR_COMPILE_WITH_JPG_WRITER_
 #endif
-//! Define _IRR_COMPILE_WITH_PCX_WRITER_ if you want to write .pcx files
-#define _IRR_COMPILE_WITH_PCX_WRITER_
-#ifdef NO_IRR_COMPILE_WITH_PCX_WRITER_
-#undef _IRR_COMPILE_WITH_PCX_WRITER_
-#endif
 //! Define _IRR_COMPILE_WITH_PNG_WRITER_ if you want to write .png files
 #define _IRR_COMPILE_WITH_PNG_WRITER_
 #ifdef NO_IRR_COMPILE_WITH_PNG_WRITER_
 #undef _IRR_COMPILE_WITH_PNG_WRITER_
-#endif
-//! Define _IRR_COMPILE_WITH_PPM_WRITER_ if you want to write .ppm files
-#define _IRR_COMPILE_WITH_PPM_WRITER_
-#ifdef NO_IRR_COMPILE_WITH_PPM_WRITER_
-#undef _IRR_COMPILE_WITH_PPM_WRITER_
-#endif
-//! Define _IRR_COMPILE_WITH_PSD_WRITER_ if you want to write .psd files
-#define _IRR_COMPILE_WITH_PSD_WRITER_
-#ifdef NO_IRR_COMPILE_WITH_PSD_WRITER_
-#undef _IRR_COMPILE_WITH_PSD_WRITER_
 #endif
 //! Define _IRR_COMPILE_WITH_TGA_WRITER_ if you want to write .tga files
 #define _IRR_COMPILE_WITH_TGA_WRITER_

@@ -75,7 +75,7 @@ namespace irr
 		You will not have to drop the pointer to the loaded texture,
 		because the name of the method does not start with 'create'.
 		The texture is stored somewhere by the driver. */
-		void grab() const { ReferenceCounter++; }
+		inline void grab() const { ReferenceCounter++; }
 
 		//! Drops the object. Decrements the reference counter by one.
 		/** The IReferenceCounted class provides a basic reference
@@ -105,7 +105,7 @@ namespace irr
 		because the name of the method does not start with 'create'.
 		The texture is stored somewhere by the driver.
 		\return True, if the object was deleted. */
-		bool drop() const
+		inline bool drop() const
 		{
 			auto ctrVal = ReferenceCounter--;
 			// someone is doing bad reference counting.
@@ -121,7 +121,7 @@ namespace irr
 
 		//! Get the reference count, due to threading it might be slightly outdated.
 		/** \return Recent value of the reference counter. */
-		int32_t getReferenceCount() const
+		inline int32_t getReferenceCount() const
 		{
 			return ReferenceCounter.load();
 		}
@@ -130,7 +130,7 @@ namespace irr
 		/** The Debugname may only be set and changed by the object
 		itself. This method should only be used in Debug mode.
 		\return Returns a string, previously set by setDebugName(); */
-		const char* getDebugName() const
+		inline const char* getDebugName() const
 		{
 			return DebugName;
 		}
@@ -155,7 +155,7 @@ namespace irr
 		/** The Debugname may only be set and changed by the object
 		itself. This method should only be used in Debug mode.
 		\param newName: New debug name to set. */
-		void setDebugName(const char* newName)
+		inline void setDebugName(const char* newName)
 		{
 			DebugName = newName;
 		}

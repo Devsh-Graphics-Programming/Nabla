@@ -12,6 +12,7 @@ namespace video
 
 class IGPUTimestampQuery : public IReferenceCounted
 {
+	    _IRR_INTERFACE_CHILD(IGPUTimestampQuery) {}
     public:
 		virtual bool isQueryReady() = 0;
 

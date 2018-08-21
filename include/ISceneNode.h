@@ -27,7 +27,7 @@ namespace scene
 
 
 	//! Scene node interface.
-	/** A scene node is a node in the hierarchical scene graph. Every scene
+	/** A scene node is a node in the hierarchical scene tree. Every scene
 	node may have children, which are also scene nodes. Children move
 	relative to their parent's position. If the parent of a node is not
 	visible, its children won't be visible either. In this way, it is for
@@ -176,7 +176,7 @@ namespace scene
 		inline void setRenderPriorityScore(const uint32_t& nice) {renderPriority = nice;}
 
 
-		//! Returns whether the node should be visible (if all of its parents are visible).
+		//! Returns whether the node should be visible (only matters if all of its parents are visible).
 		/** This is only an option set by the user, but has nothing to
 		do with geometry culling
 		\return The requested visibility of the node, true means
@@ -350,7 +350,7 @@ namespace scene
 		\return The newly created clone of this node. */
 		virtual IDummyTransformationSceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0)
 		{
-			return 0; // to be implemented by derived classes
+			return nullptr; // to be implemented by derived classes
 		}
 
 		//! Retrieve the scene manager for this node.
@@ -400,7 +400,7 @@ namespace scene
 		}
 
 		//! Name of the scene node.
-		core::stringc Name;
+		core::stringc Name; // could be pushed up to IDummyTransformationSceneNode
 
 		//! Pointer to the scene manager
 		ISceneManager* SceneManager;
@@ -460,7 +460,7 @@ namespace scene
         }
 
 		//! ID of the node.
-		int32_t ID;
+		int32_t ID; // could be pushed up to IDummyTransformationSceneNode
 
 		//! Automatic culling state
 		uint32_t AutomaticCullingState;
@@ -476,14 +476,14 @@ namespace scene
 		//! Is debug object?
 		bool IsDebugObject;
 
-        static void OnAnimate_static(IDummyTransformationSceneNode* node, uint32_t timeMs)
+        static void OnAnimate_static(IDummyTransformationSceneNode* node, uint32_t timeMs) // could be pushed up to IDummyTransformationSceneNode
 		{
             ISceneNode* tmp = static_cast<ISceneNode*>(node);
 			if (!node->isISceneNode()||tmp->IsVisible)
 			{
 				// animate this node with all animators
 
-				//! The bloody animator can remove itself!!!!
+				//! The bloody animator can remove itself during animateNode!!!!
 				const ISceneNodeAnimatorArray& animators = node->getAnimators();
 				size_t prevSize = animators.size();
 				for (size_t i=0; i<prevSize;)
@@ -518,7 +518,7 @@ namespace scene
 			}
 		}
     private:
-        static void OnRegisterSceneNode_static(IDummyTransformationSceneNode* node)
+        static void OnRegisterSceneNode_static(IDummyTransformationSceneNode* node) // could be pushed up to IDummyTransformationSceneNode
         {
             ISceneNode* tmp = static_cast<ISceneNode*>(node);
 			if (!node->isISceneNode()||tmp->IsVisible)
@@ -529,7 +529,7 @@ namespace scene
                 {
                     IDummyTransformationSceneNode* tmpChild = children[i];
                     if (tmpChild->isISceneNode())
-                        static_cast<ISceneNode*>(tmpChild)->OnRegisterSceneNode();
+                        static_cast<ISceneNode*>(tmpChild)->OnRegisterSceneNode(); //specially called via the virtual function so behaviour can be overridden
                     else
                         OnRegisterSceneNode_static(tmpChild);
 

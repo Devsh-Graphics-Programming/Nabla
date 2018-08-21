@@ -11,7 +11,6 @@
 #include "irrString.h"
 #include "irrArray.h"
 #include "IMeshLoader.h"
-#include "ILightManager.h"
 #include "ISkinningStateManager.h"
 #include "CMeshManipulator.h"
 
@@ -154,12 +153,9 @@ namespace scene
 			float texturePercentage=0.9, float spherePercentage=2.0,float radius = 1000.f,
 			IDummyTransformationSceneNode* parent=0, int32_t id=-1);
 
-		//! Adds a dummy transformation scene node to the scene graph.
+		//! Adds a dummy transformation scene node to the scene tree.
 		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
 			IDummyTransformationSceneNode* parent=0, int32_t id=-1);
-
-		//! Adds an empty scene node.
-		virtual ISceneNode* addEmptySceneNode(IDummyTransformationSceneNode* parent, int32_t id=-1);
 
 		//! Returns the root scene node. This is the scene node wich is parent
 		//! of all scene nodes. The root scene node is a special scene node which
@@ -248,7 +244,7 @@ namespace scene
 */
 		//! Posts an input event to the environment. Usually you do not have to
 		//! use this method, it is used by the internal engine.
-		virtual bool postEventFromUser(const SEvent& event);
+		virtual bool receiveIfEventReceiverDidNotAbsorb(const SEvent& event);
 
 		//! Clears the whole scene. All scene nodes are removed.
 		virtual void clear();
@@ -265,55 +261,8 @@ namespace scene
 		//! Returns type of the scene node
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SCENE_MANAGER; }
 
-		//! Returns the default scene node factory which can create all built in scene nodes
-		virtual ISceneNodeFactory* getDefaultSceneNodeFactory();
-
-		//! Adds a scene node factory to the scene manager.
-		/** Use this to extend the scene manager with new scene node types which it should be
-		able to create automaticly, for example when loading data from xml files. */
-		virtual void registerSceneNodeFactory(ISceneNodeFactory* factoryToAdd);
-
-		//! Returns amount of registered scene node factories.
-		virtual uint32_t getRegisteredSceneNodeFactoryCount() const;
-
-		//! Returns a scene node factory by index
-		virtual ISceneNodeFactory* getSceneNodeFactory(uint32_t index);
-
-		//! Returns a typename from a scene node type or null if not found
-		virtual const char* getSceneNodeTypeName(ESCENE_NODE_TYPE type);
-
-		//! Returns a typename from a scene node animator type or null if not found
-		virtual const char* getAnimatorTypeName(ESCENE_NODE_ANIMATOR_TYPE type);
-
-		//! Adds a scene node to the scene by name
-		virtual ISceneNode* addSceneNode(const char* sceneNodeTypeName, IDummyTransformationSceneNode* parent=0);
-
-		//! creates a scene node animator based on its type name
-		virtual ISceneNodeAnimator* createSceneNodeAnimator(const char* typeName, ISceneNode* target=0);
-
-		//! Returns the default scene node animator factory which can create all built-in scene node animators
-		virtual ISceneNodeAnimatorFactory* getDefaultSceneNodeAnimatorFactory();
-
-		//! Adds a scene node animator factory to the scene manager.
-		virtual void registerSceneNodeAnimatorFactory(ISceneNodeAnimatorFactory* factoryToAdd);
-
-		//! Returns amount of registered scene node animator factories.
-		virtual uint32_t getRegisteredSceneNodeAnimatorFactoryCount() const;
-
-		//! Returns a scene node animator factory by index
-		virtual ISceneNodeAnimatorFactory* getSceneNodeAnimatorFactory(uint32_t index);
-
 		//! Returns a mesh writer implementation if available
 		virtual IMeshWriter* createMeshWriter(EMESH_WRITER_TYPE type);
-
-		//! Sets ambient color of the scene
-		virtual void setAmbientLight(const video::SColorf &ambientColor);
-
-		//! Returns ambient color of the scene
-		virtual const video::SColorf& getAmbientLight() const;
-
-		//! Register a custom callbacks manager which gets callbacks during scene rendering.
-		virtual void setLightManager(ILightManager* lightManager);
 
 		//! Get current render time.
 		virtual E_SCENE_NODE_RENDER_PASS getCurrentRendertime() const { return CurrentRendertime; }
@@ -331,9 +280,6 @@ namespace scene
 
 		//! clears the deletion list
 		void clearDeletionList();
-
-		//! writes a scene node
-		void writeSceneNode(io::IXMLWriter* writer, ISceneNode* node, ISceneUserDataSerializer* userDataSerializer, const char* currentPath=0, bool init=false);
 
 		struct DefaultNodeEntry
 		{
@@ -420,13 +366,9 @@ namespace scene
 
 		core::array<IMeshLoader*> MeshLoaderList;
 		core::array<IDummyTransformationSceneNode*> DeletionList;
-		core::array<ISceneNodeFactory*> SceneNodeFactoryList;
-		core::array<ISceneNodeAnimatorFactory*> SceneNodeAnimatorFactoryList;
 
 		//! current active camera
 		ICameraSceneNode* ActiveCamera;
-
-		video::SColorf AmbientLight;
 
         struct ParamStorage
         {
@@ -439,10 +381,6 @@ namespace scene
 		video::IGPUBuffer* redundantMeshDataBuf;
 
 		E_SCENE_NODE_RENDER_PASS CurrentRendertime;
-
-		//! An optional callbacks manager to allow the user app finer control
-		//! over the scene lighting and rendering.
-		ILightManager* LightManager;
 
 		//! constants for reading and writing XML.
 		//! Not made static due to portability problems.
