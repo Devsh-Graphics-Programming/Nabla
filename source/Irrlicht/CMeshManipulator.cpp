@@ -1429,21 +1429,24 @@ std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_T
 	std::sort(possibleTypes.begin(), possibleTypes.end(), [](const SAttribTypeChoice& t1, const SAttribTypeChoice& t2) { return vertexAttrSize[t1.type][t1.cpa] < vertexAttrSize[t2.type][t2.cpa]; });
 
 	*_outPrevType = thisType;
+    *_outType = thisType;
+    *_outCpa = cpa;
+    *_outSize = vertexAttrSize[*_outType][*_outCpa];
+
 	for (const SAttribTypeChoice& t : possibleTypes)
 	{
 		if (calcMaxQuantizationError({ thisType, cpa }, t, attribs, _errMetric))
 		{
-			*_outType = t.type;
-			*_outCpa = t.cpa;
-			*_outSize = vertexAttrSize[*_outType][*_outCpa];
+            if (scene::vertexAttrSize[t.type][t.cpa] < scene::vertexAttrSize[thisType][cpa])
+            {
+                *_outType = t.type;
+                *_outCpa = t.cpa;
+                *_outSize = vertexAttrSize[*_outType][*_outCpa];
+            }
 
 			return attribs;
 		}
 	}
-
-	*_outType = thisType;
-	*_outCpa = cpa;
-	*_outSize = vertexAttrSize[*_outType][*_outCpa];
 
 	return attribs;
 }
@@ -1538,6 +1541,12 @@ std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(
 		return attribs;
 
 	*_outType = getBestTypeI(scene::isNativeInteger(thisType), scene::isUnsigned(thisType), cpa, _outSize, _outCpa, min, max);
+    if (scene::vertexAttrSize[*_outType][*_outCpa] >= scene::vertexAttrSize[thisType][cpa])
+    {
+        *_outType = thisType;
+        *_outCpa = cpa;
+        *_outSize = vertexAttrSize[thisType][cpa];
+    }
 	return attribs;
 }
 
