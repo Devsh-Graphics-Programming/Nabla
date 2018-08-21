@@ -9,7 +9,7 @@ namespace std
     template <>
     struct hash<irr::core::LeakDebugger::StackTrace>
     {
-        std::size_t operator()(const irr::core::LeakDebugger::StackTrace& k) const
+        std::size_t operator()(const irr::core::LeakDebugger::StackTrace& k) const noexcept
         {
             using std::size_t;
             using std::hash;

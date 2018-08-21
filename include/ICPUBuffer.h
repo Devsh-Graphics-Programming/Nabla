@@ -27,7 +27,7 @@ class ICPUBuffer : public IBuffer
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
 		@param dat Optional parameter. Pointer to data, must be allocated with `malloc`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
 		*/
-        ICPUBuffer(const size_t &sizeInBytes, void *dat = NULL) : size(0), data(dat)
+        ICPUBuffer(const size_t &sizeInBytes, const void *dat = NULL) : size(0), data(dat)
         {
 			if (!data)
 				data = malloc(sizeInBytes);
