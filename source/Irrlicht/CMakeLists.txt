@@ -20,8 +20,6 @@ set(IRRLICHT_SRCS_COMMON
 	C3DSMeshFileLoader.cpp
 	CB3DMeshFileLoader.cpp
 	CBAWMeshFileLoader.cpp
-	CCSMLoader.cpp
-	CDMFLoader.cpp
 	CLMTSMeshFileLoader.cpp
 	CLWOMeshFileLoader.cpp
 	CMS3DMeshFileLoader.cpp
@@ -30,7 +28,6 @@ set(IRRLICHT_SRCS_COMMON
 	COCTLoader.cpp
 	COgreMeshFileLoader.cpp
 	CPLYMeshFileLoader.cpp
-	CSMFMeshFileLoader.cpp
 	CSTLMeshFileLoader.cpp
 	CXMeshFileLoader.cpp
 
@@ -41,7 +38,6 @@ set(IRRLICHT_SRCS_COMMON
 	CSTLMeshWriter.cpp
 
 # Other mesh-related stuff
-	CAnimatedMeshHalfLife.cpp
 	CAnimatedMeshSceneNode.cpp
 	CBAWFile.cpp
 	CBlobsLoadingManager.cpp
@@ -59,9 +55,6 @@ set(IRRLICHT_SRCS_COMMON
 	CBillboardSceneNode.cpp
 	CCameraSceneNode.cpp
 	CCubeSceneNode.cpp
-	CDefaultSceneNodeAnimatorFactory.cpp
-	CDefaultSceneNodeFactory.cpp
-	CEmptySceneNode.cpp
 	CGeometryCreator.cpp
 	CSceneManager.cpp
 	CSkyBoxSceneNode.cpp
@@ -83,7 +76,6 @@ set(IRRLICHT_SRCS_COMMON
 	COpenGLDriver.cpp
 	COpenGLExtensionHandler.cpp
 	COpenGLFrameBuffer.cpp
-	COpenGLRenderBuffer.cpp
 	COpenGLSLMaterialRenderer.cpp
 	COpenGLTexture.cpp
 	STextureSamplingParams.cpp
@@ -95,18 +87,12 @@ set(IRRLICHT_SRCS_COMMON
 	CImageLoaderBMP.cpp
 	CImageLoaderDDS.cpp
 	CImageLoaderJPG.cpp
-	CImageLoaderPCX.cpp
 	CImageLoaderPNG.cpp
-	CImageLoaderPPM.cpp
-	CImageLoaderPSD.cpp
 	CImageLoaderRGB.cpp
 	CImageLoaderTGA.cpp
 	CImageWriterBMP.cpp
 	CImageWriterJPG.cpp
-	CImageWriterPCX.cpp
 	CImageWriterPNG.cpp
-	CImageWriterPPM.cpp
-	CImageWriterPSD.cpp
 	CImageWriterTGA.cpp
 
 # Video
@@ -162,8 +148,6 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLCubemapTexture.cpp
 	COpenGLMultisampleTextureArray.cpp
 	COpenGLMultisampleTexture.cpp
-	COpenGLOcclusionQuery.cpp
-	COpenGLPersistentlyMappedBuffer.cpp
 	COpenGLQuery.cpp
 	COpenGLTransformFeedback.cpp
 	COpenGLVAOSpec.cpp
