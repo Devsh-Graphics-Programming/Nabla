@@ -278,6 +278,10 @@ inline uint32_t createComputeShader(const char* _src)
 } // anon ns end
 
 uint32_t CBlurPerformer::s_MAX_WORK_GROUP_SIZE = 0u;
+constexpr uint32_t CBlurPerformer::s_ABSOLUTELY_MAX_WORK_GROUP_SIZE;
+constexpr uint32_t CBlurPerformer::s_MAX_OUTPUT_SIZE_XY;
+constexpr uint32_t CBlurPerformer::s_MIN_DS_FACTOR;
+constexpr uint32_t CBlurPerformer::s_MAX_DS_FACTOR;
 
 CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
 {
@@ -294,13 +298,14 @@ video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex,
     return m_driver->addTexture(video::ITexture::ETT_2D, &m_outSize.X, 1, _name.c_str(), video::ECF_A16B16G16R16F);
 }
 
-//#define PROFILE_BLUR_PERFORMER
+#define PROFILE_BLUR_PERFORMER
 void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex)
 {
     GLint prevProgram{};
     glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
 #ifdef PROFILE_BLUR_PERFORMER
+    uint32_t timeTaken = 0;
     video::IQueryObject* timeQuery = m_driver->createElapsedTimeQuery();
     m_driver->beginQuery(timeQuery);
 #endif // PROFILE_BLUR_PERFORMER
@@ -336,8 +341,8 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
     video::COpenGLExtensionHandler::extGlDispatchCompute((m_outSize.X+15)/16, (m_outSize.Y+15)/16, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    uint32_t i = 0u;
-    for (; i < 5u; ++i)
+    constexpr uint32_t iterationsToDo = 5u;
+    for (uint32_t i = 0u; i < 5u; ++i)
     {
         bindUbo(E_UBO_BINDING, i);
 
@@ -346,8 +351,7 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
         video::COpenGLExtensionHandler::extGlDispatchCompute(1u, (i >= 3u ? m_outSize.X : m_outSize.Y), 1u);
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
-
-    bindUbo(E_UBO_BINDING, i);
+    bindUbo(E_UBO_BINDING, iterationsToDo);
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_blurFinalCs);
 
@@ -359,9 +363,9 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
 
 #ifdef PROFILE_BLUR_PERFORMER
     m_driver->endQuery(timeQuery);
-    uint32_t timeTaken = 0;
     timeQuery->getQueryResult(&timeTaken);
     os::Printer::log("irr::ext::BlurPerformer GPU time taken:", std::to_string(timeTaken).c_str(), ELL_ERROR);
+    timeQuery->drop();
 #endif // PROFILE_BLUR_PERFORMER
 }
 

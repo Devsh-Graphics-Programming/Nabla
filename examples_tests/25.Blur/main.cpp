@@ -32,7 +32,7 @@ public:
         }
         else if (event.EventType == irr::EET_MOUSE_INPUT_EVENT && blurPerf)
         {
-            float r = blurPerf->getRadius() + event.MouseInput.Wheel/100.f;
+            float r = blurPerf->getRadius() + event.MouseInput.Wheel/500.f;
             blurPerf->setRadius(std::max(BLUR_RADIUS_MIN, std::min(r, BLUR_RADIUS_MAX)));
             //return true;
         }
