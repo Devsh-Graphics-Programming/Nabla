@@ -35,7 +35,6 @@ namespace scene
         void writeAttribBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa) const;
 
         //! Creates new mesh buffer with the same attribute buffers mapped but with normalized types changed to corresponding true integer types.
-        //! Any other members of new meshbuffer are defaulted!
         static ICPUMeshBuffer* createCopyMBuffNormalizedReplacedWithTrueInt(const ICPUMeshBuffer* _mbuf);
 
         static std::string getTypeString(E_COMPONENT_TYPE _t);

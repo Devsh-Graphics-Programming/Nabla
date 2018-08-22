@@ -438,6 +438,15 @@ ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(con
     mbCopy->setMeshDataAndFormat(desc);
     desc->drop();
 
+    mbCopy->setBaseVertex(_mbuf->getBaseVertex());
+    mbCopy->setIndexCount(_mbuf->getIndexCount());
+    mbCopy->setBaseInstance(_mbuf->getBaseInstance());
+    mbCopy->setInstanceCount(_mbuf->getInstanceCount());
+    mbCopy->setIndexBufferOffset(_mbuf->getIndexBufferOffset());
+    mbCopy->setIndexType(_mbuf->getIndexType());
+    mbCopy->setPrimitiveType(_mbuf->getPrimitiveType());
+    mbCopy->setPositionAttributeIx(_mbuf->getPositionAttributeIx());
+
     return mbCopy;
 }
 
