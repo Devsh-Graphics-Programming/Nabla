@@ -19,49 +19,6 @@ namespace irr
 namespace scene
 {
 
-static void denormalize(core::vectorSIMDf& _v, E_COMPONENT_TYPE _type, E_COMPONENTS_PER_ATTRIBUTE _cpa)
-{
-    const core::vectorSIMDf mlt[8][scene::ECPA_COUNT] = {
-        { core::vectorSIMDf(1.f,511.f,511.f,511.f),core::vectorSIMDf(511.f,1.f,1.f,1.f),core::vectorSIMDf(511.f,511.f,1.f,1.f),core::vectorSIMDf(511.f,511.f,511.f,1.f),core::vectorSIMDf(511.f,511.f,511.f,1.f) },
-        { core::vectorSIMDf(3.f,1023.f,1023.f,1023.f),core::vectorSIMDf(1023.f,1.f,1.f,1.f),core::vectorSIMDf(1023.f,1023.f,1.f,1.f),core::vectorSIMDf(1023.f,1023.f,1023.f,1.f),core::vectorSIMDf(1023.f,1023.f,1023.f,3.f) },
-        { core::vectorSIMDf(127.f,127.f,127.f,127.f),core::vectorSIMDf(127.f,1.f,1.f,1.f),core::vectorSIMDf(127.f,127.f,1.f,1.f),core::vectorSIMDf(127.f,127.f,127.f,1.f),core::vectorSIMDf(127.f,127.f,127.f,127.f) },
-        { core::vectorSIMDf(255.f,255.f,255.f,255.f),core::vectorSIMDf(255.f,1.f,1.f,1.f),core::vectorSIMDf(255.f,255.f,1.f,1.f),core::vectorSIMDf(255.f,255.f,255.f,1.f),core::vectorSIMDf(255.f,255.f,255.f,255.f) },
-        { core::vectorSIMDf(32767.f,32767.f,32767.f,32767.f),core::vectorSIMDf(32767.f,1.f,1.f,1.f),core::vectorSIMDf(32767.f,32767.f,1.f,1.f),core::vectorSIMDf(32767.f,32767.f,32767.f,1.f),core::vectorSIMDf(32767.f,32767.f,32767.f,32767.f) },
-        { core::vectorSIMDf(65535.f,65535.f,65535.f,65535.f),core::vectorSIMDf(65535.f,1.f,1.f,1.f),core::vectorSIMDf(65535.f,65535.f,1.f,1.f),core::vectorSIMDf(65535.f,65535.f,65535.f,1.f),core::vectorSIMDf(65535.f,65535.f,65535.f,65535.f) },
-        { core::vectorSIMDf(2147483647.f,2147483647.f,2147483647.f,2147483647.f),core::vectorSIMDf(2147483647.f,1.f,1.f,1.f),core::vectorSIMDf(2147483647.f,2147483647.f,1.f,1.f),core::vectorSIMDf(2147483647.f,2147483647.f,2147483647.f,1.f),core::vectorSIMDf(2147483647.f,2147483647.f,2147483647.f,2147483647.f) },
-        { core::vectorSIMDf(4294967295.f,4294967295.f,4294967295.f,4294967295.f),core::vectorSIMDf(4294967295.f,1.f,1.f,1.f),core::vectorSIMDf(4294967295.f,4294967295.f,1.f,1.f),core::vectorSIMDf(4294967295.f,4294967295.f,4294967295.f,1.f),core::vectorSIMDf(4294967295.f,4294967295.f,4294967295.f,4294967295.f) }
-    };
-    switch (_type)
-    {
-    case ECT_NORMALIZED_INT_2_10_10_10_REV:
-        _v *= mlt[0][_cpa];
-        break;
-    case ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV:
-        _v *= mlt[1][_cpa];
-        break;
-    case ECT_NORMALIZED_BYTE:
-        _v *= mlt[2][_cpa];
-        break;
-    case ECT_NORMALIZED_UNSIGNED_BYTE:
-        _v *= mlt[3][_cpa];
-        break;
-    case ECT_NORMALIZED_SHORT:
-        _v *= mlt[4][_cpa];
-        break;
-    case ECT_NORMALIZED_UNSIGNED_SHORT:
-        _v *= mlt[5][_cpa];
-        break;
-    case ECT_NORMALIZED_INT:
-        _v *= mlt[6][_cpa];
-        break;
-    case ECT_NORMALIZED_UNSIGNED_INT:
-        _v *= mlt[7][_cpa];
-        break;
-    default:
-        break;
-    }
-}
-
 CPLYMeshWriter::CPLYMeshWriter()
 {
 	#ifdef _DEBUG
@@ -226,19 +183,20 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
     if (colCpa == ECPA_REVERSED_OR_BGRA)
         colCpa = 4u;
 
+    ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
         core::vectorSIMDf f;
         uint32_t ui[4];
         if (_vaidToWrite[EVAI_ATTR0])
         {
-            writeAttribBinary(_file, _mbuf, EVAI_ATTR0, i, 3u);
+            writeAttribBinary(_file, mbCopy, EVAI_ATTR0, i, 3u);
             /*_mbuf->getAttribute(f, EVAI_ATTR0, i);
             _file->write(f.pointer, 3*sizeof(float));*/
         }
         if (_vaidToWrite[EVAI_ATTR1])
         {
-            writeAttribBinary(_file, _mbuf, EVAI_ATTR1, i, colCpa);
+            writeAttribBinary(_file, mbCopy, EVAI_ATTR1, i, colCpa);
             //const E_COMPONENT_TYPE t = _mbuf->getMeshDataAndFormat()->getAttribType(EVAI_ATTR1);
             //if (scene::isWeakInteger(t) || scene::isNativeInteger(t))
             //{
@@ -257,17 +215,19 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
         }
         if (_vaidToWrite[EVAI_ATTR2])
         {
-            writeAttribBinary(_file, _mbuf, EVAI_ATTR2, i, 2u);
+            writeAttribBinary(_file, mbCopy, EVAI_ATTR2, i, 2u);
             //_mbuf->getAttribute(f, EVAI_ATTR2, i);
             //_file->write(f.pointer, 2*sizeof(float));
         }
         if (_vaidToWrite[EVAI_ATTR3])
         {
-            writeAttribBinary(_file, _mbuf, EVAI_ATTR3, i, 3u);
+            writeAttribBinary(_file, mbCopy, EVAI_ATTR3, i, 3u);
             //_mbuf->getAttribute(f, EVAI_ATTR3, i);
             //_file->write(f.pointer, 3*sizeof(float));
         }
     }
+    mbCopy->drop();
+    mbCopy = nullptr;
 
     const uint8_t listSize = 3u;
     void* indices = _indices;
@@ -312,28 +272,29 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
 
 void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, video::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
 {
-    auto writefunc = [&_file,&_mbuf,this](E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa)
+    ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
+
+    auto writefunc = [&_file,&mbCopy,this](E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa)
     {
         uint32_t ui[4];
         core::vectorSIMDf f;
-        const E_COMPONENT_TYPE t = _mbuf->getMeshDataAndFormat()->getAttribType(_vaid);
+        const E_COMPONENT_TYPE t = mbCopy->getMeshDataAndFormat()->getAttribType(_vaid);
         if (scene::isWeakInteger(t) || scene::isNativeInteger(t))
         {
-            _mbuf->getAttribute(ui, _vaid, _ix);
-            writeVectorAsText(_file, ui, _cpa);
+            mbCopy->getAttribute(ui, _vaid, _ix);
+            if (scene::isUnsigned(t))
+                writeVectorAsText(_file, ui, _cpa);
+            else
+            {
+                int32_t ii[4];
+                memcpy(ii, ui, 4*4);
+                writeVectorAsText(_file, ii, _cpa);
+            }
         }
         else
         {
-            _mbuf->getAttribute(f, _vaid, _ix);
-            if (scene::isNormalized(t))
-            {
-                denormalize(f, t, (E_COMPONENTS_PER_ATTRIBUTE)_cpa);
-                for (uint32_t k = 0u; k < _cpa; ++k)
-                    ui[k] = f.pointer[k];
-                writeVectorAsText(_file, ui, _cpa);
-            }
-            else
-                writeVectorAsText(_file, f.pointer, _cpa);
+            mbCopy->getAttribute(f, _vaid, _ix);
+            writeVectorAsText(_file, f.pointer, _cpa);
         }
     };
 
@@ -373,6 +334,9 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, siz
         }
         _file->write("\n", 1);
     }
+    mbCopy->drop();
+    mbCopy = nullptr;
+
     const char* listSize = "3 ";
     void* indices = _indices;
     if (_forceFaces)
@@ -421,18 +385,9 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, ICPUMeshBuffer* _m
     uint32_t ui[4];
     core::vectorSIMDf f;
     E_COMPONENT_TYPE t = _mbuf->getMeshDataAndFormat()->getAttribType(_vaid);
-    if (scene::isWeakInteger(t) || scene::isNativeInteger(t) || scene::isNormalized(t))
+    if (scene::isWeakInteger(t) || scene::isNativeInteger(t))
     {
-        if (scene::isNormalized(t))
-        {
-            _mbuf->getAttribute(f, _vaid, _ix);
-            denormalize(f, t, (E_COMPONENTS_PER_ATTRIBUTE)_cpa);
-            for (uint32_t k = 0u; k < _cpa; ++k)
-                ui[k] = f.pointer[k];
-            t = scene::getCorrespondingDenormalizedType(t); // so that it gets caught be if statetemnts below
-        }
-        else
-            _mbuf->getAttribute(ui, _vaid, _ix);
+        _mbuf->getAttribute(ui, _vaid, _ix);
 
         if (scene::vertexAttrSize[t][ECPA_ONE] == 1 || t == ECT_INT_2_10_10_10_REV || t == ECT_UNSIGNED_INT_2_10_10_10_REV)
         {
@@ -458,6 +413,32 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, ICPUMeshBuffer* _m
         _mbuf->getAttribute(f, _vaid, _ix);
         _file->write(f.pointer, 4*_cpa);
     }
+}
+
+ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const ICPUMeshBuffer* _mbuf)
+{
+    ICPUMeshBuffer* mbCopy = new ICPUMeshBuffer();
+    auto origDesc = _mbuf->getMeshDataAndFormat();
+    ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
+    for (size_t i = EVAI_ATTR0; i < EVAI_COUNT; ++i)
+    {
+        E_VERTEX_ATTRIBUTE_ID vaid = (E_VERTEX_ATTRIBUTE_ID)i;
+        E_COMPONENT_TYPE t = origDesc->getAttribType(vaid);
+        if (origDesc->getMappedBuffer(vaid))
+            desc->mapVertexAttrBuffer(
+                const_cast<core::ICPUBuffer*>(origDesc->getMappedBuffer(vaid)),
+                vaid,
+                origDesc->getAttribComponentCount(vaid),
+                scene::isNormalized(t) ? scene::getCorrespondingNativeIntType(scene::getCorrespondingDenormalizedType(t)) : t,
+                origDesc->getMappedBufferStride(vaid),
+                origDesc->getMappedBufferOffset(vaid),
+                origDesc->getAttribDivisor(vaid)
+            );
+    }
+    mbCopy->setMeshDataAndFormat(desc);
+    desc->drop();
+
+    return mbCopy;
 }
 
 std::string CPLYMeshWriter::getTypeString(E_COMPONENT_TYPE _t)
