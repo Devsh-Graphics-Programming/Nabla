@@ -1,3 +1,5 @@
+#define _IRR_STATIC_LIB_
+
 /* GCC compile Flags
 -flto
 -fuse-linker-plugin
