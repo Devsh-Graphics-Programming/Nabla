@@ -74,9 +74,9 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
         vaidToWrite[1] = true;
         header +=
             "property " + typeStr + " red\n" +
-            "property " + typeStr + " blue\n" +
-            "property " + typeStr + " green\n";
-        if (desc->getAttribType(EVAI_ATTR1) == ECPA_FOUR || desc->getAttribType(EVAI_ATTR1) == ECPA_REVERSED_OR_BGRA)
+            "property " + typeStr + " green\n" +
+            "property " + typeStr + " blue\n";
+        if (desc->getAttribComponentCount(EVAI_ATTR1) == ECPA_FOUR || desc->getAttribComponentCount(EVAI_ATTR1) == ECPA_REVERSED_OR_BGRA)
         {
             header += "property " + typeStr + " alpha\n";
         }
