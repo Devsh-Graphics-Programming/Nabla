@@ -533,6 +533,8 @@ namespace video
 		//!
 		virtual uint32_t getRequiredTBOAlignment() const {return 0;}
 
+        virtual uint32_t getMaxComputeWorkGroupSize(uint32_t) const { return 0u; }
+
 	protected:
         void addMultisampleTexture(IMultisampleTexture* tex);
 

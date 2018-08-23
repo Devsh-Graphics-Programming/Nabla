@@ -30,7 +30,7 @@
     <ProjectName>Irrlicht</ProjectName>
     <ProjectGuid>{E08E042A-6C45-411B-92BE-3CC31331019F}</ProjectGuid>
     <RootNamespace>Irrlicht</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.10586.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SDL-Debug|x64'" Label="Configuration">
@@ -456,7 +456,6 @@
     <ClInclude Include="..\..\include\IXMLWriter.h" />
     <ClInclude Include="..\..\include\path.h" />
     <ClInclude Include="..\..\include\CDynamicMeshBuffer.h" />
-    <ClInclude Include="..\..\include\CIndexBuffer.h" />
     <ClInclude Include="..\..\include\CMeshBuffer.h" />
     <ClInclude Include="..\..\include\CVertexBuffer.h" />
     <ClInclude Include="..\..\include\ECullingTypes.h" />
@@ -552,9 +551,6 @@
     <ClInclude Include="aesGladman\aes_ni.h" />
     <ClInclude Include="aesGladman\brg_endian.h" />
     <ClInclude Include="aesGladman\brg_types.h" />
-    <ClInclude Include="CAssetManager.h" />
-    <ClInclude Include="CDefaultSceneNodeAnimatorFactory.h" />
-    <ClInclude Include="CDefaultSceneNodeFactory.h" />
     <ClInclude Include="CGeometryCreator.h" />
     <ClInclude Include="CIrrDeviceWin32.h" />
     <ClInclude Include="CMeshCache.h" />
@@ -582,12 +578,8 @@
     <ClInclude Include="lzma\Precomp.h" />
     <ClInclude Include="lzma\Threads.h" />
     <ClInclude Include="Octree.h" />
-    <ClInclude Include="CSMFMeshFileLoader.h" />
     <ClInclude Include="C3DSMeshFileLoader.h" />
-    <ClInclude Include="CAnimatedMeshHalfLife.h" />
     <ClInclude Include="CB3DMeshFileLoader.h" />
-    <ClInclude Include="CCSMLoader.h" />
-    <ClInclude Include="CDMFLoader.h" />
     <ClInclude Include="CLMTSMeshFileLoader.h" />
     <ClInclude Include="CLWOMeshFileLoader.h" />
     <ClInclude Include="CMS3DMeshFileLoader.h" />
@@ -605,7 +597,6 @@
     <ClInclude Include="CBillboardSceneNode.h" />
     <ClInclude Include="CCameraSceneNode.h" />
     <ClInclude Include="CCubeSceneNode.h" />
-    <ClInclude Include="CEmptySceneNode.h" />
     <ClInclude Include="CMeshSceneNode.h" />
     <ClInclude Include="CSkyBoxSceneNode.h" />
     <ClInclude Include="CSkyDomeSceneNode.h" />
@@ -642,18 +633,12 @@
     <ClInclude Include="IImagePresenter.h" />
     <ClInclude Include="CImageWriterBMP.h" />
     <ClInclude Include="CImageWriterJPG.h" />
-    <ClInclude Include="CImageWriterPCX.h" />
     <ClInclude Include="CImageWriterPNG.h" />
-    <ClInclude Include="CImageWriterPPM.h" />
-    <ClInclude Include="CImageWriterPSD.h" />
     <ClInclude Include="CImageWriterTGA.h" />
     <ClInclude Include="CImageLoaderBMP.h" />
     <ClInclude Include="CImageLoaderDDS.h" />
     <ClInclude Include="CImageLoaderJPG.h" />
-    <ClInclude Include="CImageLoaderPCX.h" />
     <ClInclude Include="CImageLoaderPNG.h" />
-    <ClInclude Include="CImageLoaderPPM.h" />
-    <ClInclude Include="CImageLoaderPSD.h" />
     <ClInclude Include="CImageLoaderRGB.h" />
     <ClInclude Include="CImageLoaderTGA.h" />
     <ClInclude Include="CDepthBuffer.h" />
@@ -739,8 +724,6 @@
     <ClCompile Include="CBAWMeshFileLoader.cpp" />
     <ClCompile Include="CBAWMeshWriter.cpp" />
     <ClCompile Include="CBlobsLoadingManager.cpp" />
-    <ClCompile Include="CDefaultSceneNodeAnimatorFactory.cpp" />
-    <ClCompile Include="CDefaultSceneNodeFactory.cpp" />
     <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="CGeometryCreator.cpp" />
     <ClCompile Include="CGPUTransientBuffer.cpp" />
@@ -778,11 +761,7 @@
     <ClCompile Include="CSceneManager.cpp" />
     <ClCompile Include="C3DSMeshFileLoader.cpp" />
     <ClCompile Include="CSkinnedMeshSceneNode.cpp" />
-    <ClCompile Include="CSMFMeshFileLoader.cpp" />
-    <ClCompile Include="CAnimatedMeshHalfLife.cpp" />
     <ClCompile Include="CB3DMeshFileLoader.cpp" />
-    <ClCompile Include="CCSMLoader.cpp" />
-    <ClCompile Include="CDMFLoader.cpp" />
     <ClCompile Include="CLMTSMeshFileLoader.cpp" />
     <ClCompile Include="CLWOMeshFileLoader.cpp" />
     <ClCompile Include="CMS3DMeshFileLoader.cpp" />
@@ -800,7 +779,6 @@
     <ClCompile Include="CBillboardSceneNode.cpp" />
     <ClCompile Include="CCameraSceneNode.cpp" />
     <ClCompile Include="CCubeSceneNode.cpp" />
-    <ClCompile Include="CEmptySceneNode.cpp" />
     <ClCompile Include="CMeshSceneNode.cpp" />
     <ClCompile Include="CSkyBoxSceneNode.cpp" />
     <ClCompile Include="CSkyDomeSceneNode.cpp" />
@@ -835,18 +813,12 @@
     <ClCompile Include="CNullDriver.cpp" />
     <ClCompile Include="CImageWriterBMP.cpp" />
     <ClCompile Include="CImageWriterJPG.cpp" />
-    <ClCompile Include="CImageWriterPCX.cpp" />
     <ClCompile Include="CImageWriterPNG.cpp" />
-    <ClCompile Include="CImageWriterPPM.cpp" />
-    <ClCompile Include="CImageWriterPSD.cpp" />
     <ClCompile Include="CImageWriterTGA.cpp" />
     <ClCompile Include="CImageLoaderBMP.cpp" />
     <ClCompile Include="CImageLoaderDDS.cpp" />
     <ClCompile Include="CImageLoaderJPG.cpp" />
-    <ClCompile Include="CImageLoaderPCX.cpp" />
     <ClCompile Include="CImageLoaderPNG.cpp" />
-    <ClCompile Include="CImageLoaderPPM.cpp" />
-    <ClCompile Include="CImageLoaderPSD.cpp" />
     <ClCompile Include="CImageLoaderRGB.cpp" />
     <ClCompile Include="CImageLoaderTGA.cpp" />
     <ClCompile Include="CBurningShader_Raster_Reference.cpp" />
@@ -865,6 +837,7 @@
     <ClCompile Include="CAssetManager.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
+    <ClCompile Include="IReferenceCounted.cpp" />
     <ClCompile Include="Irrlicht.cpp" />
     <ClCompile Include="lz4\lz4.c" />
     <ClCompile Include="lz4\lz4frame.c" />

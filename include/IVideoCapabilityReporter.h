@@ -85,6 +85,8 @@ namespace video
 		//! Get the graphics card vendor name.
 		virtual std::string getVendorInfo() =0;
 
+        virtual uint32_t getMaxComputeWorkGroupSize(uint32_t _dimension) const = 0;
+
 		//! Get the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const =0;
 

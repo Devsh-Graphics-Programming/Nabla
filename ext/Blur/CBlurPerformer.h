@@ -1,8 +1,8 @@
 #ifndef _IRR_EXT_BLUR_C_BLUR_PERFORMER_INCLUDED_
 #define _IRR_EXT_BLUR_C_BLUR_PERFORMER_INCLUDED_
 
-//#include <irrlicht.h>
 #include <cstdint>
+#include <tuple>
 #include <IReferenceCounted.h>
 #include <IVideoDriver.h>
 
@@ -32,6 +32,8 @@ class CBlurPerformer : public IReferenceCounted
         uint32_t format, access;
     };
 
+    using tuple2xu32 = std::tuple<uint32_t, uint32_t>;
+
     enum
     {
         E_SAMPLES_SSBO_BINDING = 0,
@@ -40,26 +42,77 @@ class CBlurPerformer : public IReferenceCounted
     };
 
 public:
-    struct BlurPassUBO
+    struct BlurPassUBO // i'll leave it as a struct in case of changes in the future
     {
-        uint32_t iterNum;
-        uint32_t padding;
-        uint32_t inOffset;
-        uint32_t outOffset;
-        uint32_t outMlt[2];
+        float radius;
     };
 
-    static inline size_t getRequiredUBOSize(video::IVideoDriver* driver)
+    static inline size_t getRequiredUBOSize(video::IVideoDriver* _driver)
     {
-        return getSinglePaddedUBOSize(driver)*6u;
+        return sizeof(BlurPassUBO);
     }
 
-    static CBlurPerformer* instantiate(video::IVideoDriver* _driver, uint32_t _radius, core::vector2d<uint32_t> _outSize,
+    static CBlurPerformer* instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis = 3u,
                                        video::IGPUBuffer* uboBuffer=nullptr, const size_t& uboDataStaticOffset=0);
 
-    video::ITexture* createBlurredTexture(video::ITexture* _inputTex) const;
+    video::ITexture* createOutputTexture(video::ITexture* _inputTex, const std::string& _name);
+
+    //! _inputTexture and _outputTexture can be the same texture.
+    //! Output texture's color format must be video::ECF_A16B16G16R16F
+    void blurTexture(video::ITexture* _inputTex, video::ITexture* _outputTex);
+
+    //! Establishes output size. Also creates shaders and SSBO and fills UBO with proper data if _createGpuStuff is true
+    void prepareForBlur(const uint32_t* _inputSize, bool _createGpuStuff);
+    // WARNING: does NOT change values of shader handles
+    void deleteShaders() const;
+
+    void writeUBOData(void* _dst) const;
+
+    inline bool setUniformBuffer(video::IGPUBuffer* _ubo)
+    {
+        if (!_ubo || _ubo->getSize() < getRequiredUBOSize(m_driver))
+            return false;
+
+        m_isCustomUbo = true;
+
+        video::IGPUBuffer* oldUbo = m_ubo;
+        m_ubo = _ubo;
+        if (m_ubo)
+            m_ubo->grab();
+        if (oldUbo)
+            oldUbo->drop();
+
+        return true;
+    }
+
+    inline bool setUBOOffset(uint32_t _offset)
+    {
+        if ((m_ubo && m_ubo->getSize() < _offset) || (m_ubo && m_ubo->getSize() - _offset < getRequiredUBOSize(m_driver)))
+            return false;
+
+        m_uboOffset = _offset;
+        return true;
+    }
+
+    //! _radius must be a value from range [0.f, 1.f], otherwise gets clamped.
+    //! Radius in this case indicates % of X and Y dimensions of output size.
+    inline void setRadius(float _radius)
+    { 
+        _radius = std::max(0.f, std::min(_radius, 1.f));
+        if (m_radius == _radius)
+            return;
+        m_radius = _radius;
+
+
+        if (m_blurGeneralCs[0] && !m_isCustomUbo) // no need to update UBO if no shaders are present yet
+            updateUBO();
+    }
+    inline float getRadius() const { return m_radius; }
+
+    inline core::vector2d<uint32_t> getDownsampleFactor() const { return m_dsFactor; }
 
 protected:
+    // Not used as for now
     static inline size_t getSinglePaddedUBOSize(video::IVideoDriver* driver)
     {
         size_t paddedSize = sizeof(BlurPassUBO)+driver->getRequiredUBOAlignment()-1u;
@@ -67,68 +120,58 @@ protected:
         paddedSize *= driver->getRequiredUBOAlignment();
         return paddedSize;
     }
+    inline size_t getUBOSizePerShaderPass() const
+    {
+        return getRequiredUBOSize(m_driver);
+    }
 
     ~CBlurPerformer();
 
 private:
-    CBlurPerformer(video::IVideoDriver* _driver, uint32_t _sample, uint32_t _sat, uint32_t _gblur, uint32_t _fblur, uint32_t _radius,
-                   core::vector2d<uint32_t> _outSize, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset) :
+    inline CBlurPerformer(video::IVideoDriver* _driver, float _radius,
+                   core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis, video::IGPUBuffer* _uboBuffer, const size_t& _uboOffset) :
         m_driver(_driver),
-        m_dsampleCs(_sample),
-        m_psumCs(_sat),
-        m_blurGeneralCs(_gblur),
-        m_blurFinalCs(_fblur),
-        m_radius(_radius),
-        m_paddedUBOSize(getSinglePaddedUBOSize(_driver)),
-        m_outSize(_outSize),
-        m_ubo(uboBuffer),
-        m_uboStaticOffset(uboDataStaticOffset)
+        m_blurGeneralCs{0u, 0u},
+        m_samplesSsbo{nullptr},
+        m_ubo(_uboBuffer),
+        m_radius{std::max(0.f, std::min(_radius, 1.f))},
+        m_passesPerAxisNum{_passesPerAxis},
+        //m_paddedUBOSize(getSinglePaddedUBOSize(_driver)),
+        m_uboOffset(_uboOffset),
+        m_dsFactor(clampDsFactor(_dsFactor)),
+        m_isCustomUbo(_uboBuffer)
     {
-        assert(m_outSize.X == m_outSize.Y);
-
-        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-        reqs.vulkanReqs.alignment = 4;
-        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-        reqs.prefersDedicatedAllocation = true;
-        reqs.requiresDedicatedAllocation = true;
-
-        reqs.vulkanReqs.size = 2 * 2 * m_outSize.X * m_outSize.Y * sizeof(uint32_t);
-        m_samplesSsbo = m_driver->createGPUBufferOnDedMem(reqs);
-
-        reqs.vulkanReqs.size = 4 * padToPoT(m_outSize.X) * m_outSize.Y * sizeof(float);
-        m_psumSsbo =  m_driver->createGPUBufferOnDedMem(reqs);
-
         if (!m_ubo)
         {
-            reqs.vulkanReqs.size = getRequiredUBOSize(m_driver)+m_uboStaticOffset;
+            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.alignment = 4;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+            reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            //reqs.vulkanReqs.size = getRequiredUBOSize(m_driver)+m_uboOffset;
+            reqs.vulkanReqs.size = sizeof(BlurPassUBO) + m_uboOffset;
+
             m_ubo =  m_driver->createGPUBufferOnDedMem(reqs);
+            // ubo gets filled with actual data when output size is established
         }
         else
             m_ubo->grab();
-
-        writeUBOData();
     }
 
-    //! TODO: reduce this just to a write AND allow for dynamic `m_uboStaticOffset` (obvs. rename to m_uboOffset)
-    /**
-    Write should take an already offset (don't add m_uboStaticOffset) BlurPassUBO* pointer and iterate through the 6 things
-    writeUBOData in the constructor, in case of missing m_ubo should handle the staging buffer and upload.
+    void updateUBO(const void* _contents);
+    void updateUBO();
 
-    Add a function to set `m_uboOffset` at will.
-    **/
-    void writeUBOData();
-private:
-    static bool genDsampleCs(char* _out, size_t _bufSize, uint32_t _outTexSize);
-    static bool genBlurPassCs(char* _out, size_t _bufSize, uint32_t _outTexSize, uint32_t _radius, int _finalPass);
-    static bool genPsumCs(char* _out, size_t _bufSize, uint32_t _outTexSize);
+    static tuple2xu32 makeShaders(const core::vector2d<uint32_t>& _outSize, uint32_t _passesPerAxis);
+
+    static bool genBlurPassCs(char* _out, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, int _finalPass);
 
     void bindSSBuffers() const;
     static ImageBindingData getCurrentImageBinding(uint32_t _imgUnit);
     static void bindImage(uint32_t _imgUnit, const ImageBindingData& _data);
 
-    void bindUbo(uint32_t _bnd, uint32_t _part) const;
+    void bindUBO(uint32_t _bnd) const;
 
     inline static uint32_t padToPoT(uint32_t _x)
     {
@@ -136,20 +179,34 @@ private:
         for (uint32_t i = 1u; i <= 16u; i <<= 1)
             _x |= (_x >> i);
         return ++_x;
-    };
+    }
+
+    inline static core::vector2d<uint32_t> clampDsFactor(core::vector2d<uint32_t> _dsf)
+    {
+        _dsf.X = std::max(s_MIN_DS_FACTOR, std::min(_dsf.X, s_MAX_DS_FACTOR));
+        _dsf.Y = std::max(s_MIN_DS_FACTOR, std::min(_dsf.Y, s_MAX_DS_FACTOR));
+        return _dsf;
+    }
 
 private:
     video::IVideoDriver* m_driver;
-    uint32_t m_dsampleCs, m_psumCs, m_blurGeneralCs, m_blurFinalCs;
-    video::IGPUBuffer* m_samplesSsbo, *m_psumSsbo;
+    uint32_t m_blurGeneralCs[2];
+    video::IGPUBuffer* m_samplesSsbo;
     video::IGPUBuffer* m_ubo;
 
-    const uint32_t m_radius;
-    const uint32_t m_paddedUBOSize;
-    const uint32_t m_uboStaticOffset;
-    const core::vector2d<uint32_t> m_outSize;
+    float m_radius;
+    uint32_t m_passesPerAxisNum;
+    //const uint32_t m_paddedUBOSize;
+    uint32_t m_uboOffset;
+    const core::vector2d<uint32_t> m_dsFactor;
+    core::vector2d<uint32_t> m_outSize;
+    bool m_isCustomUbo;
 
-    static uint32_t s_texturesEverCreatedCount;
+    static uint32_t s_MAX_WORK_GROUP_SIZE;
+    static constexpr uint32_t s_ABSOLUTELY_MAX_WORK_GROUP_SIZE = 1024u;
+    static constexpr uint32_t s_MAX_OUTPUT_SIZE_XY = 1024u;
+    static constexpr uint32_t s_MIN_DS_FACTOR = 1u;
+    static constexpr uint32_t s_MAX_DS_FACTOR = 16u;
 };
 
 }

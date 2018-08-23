@@ -5,7 +5,7 @@
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/CSkinnedMesh.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
-//include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
+#include "../source/Irrlicht/COpenGLTextureBufferObject.h"
 
 using namespace irr;
 using namespace core;
@@ -81,23 +81,31 @@ public:
 
 size_t convertBuf1(const float* _src, float* _dst, const size_t _boneCnt, const size_t _instCnt)
 {
-    for (size_t i = 0u; i < _instCnt; ++i)
-        memcpy(_dst + i*_boneCnt * 4 * 7, _src, sizeof(float) * _boneCnt * 4 * 7);
-    printf("%d\n", sizeof(float) * _boneCnt * 4 * 7);
-    return sizeof(float) * _boneCnt * 4 * 7 * _instCnt;
+    for (size_t i = 0u; i < _boneCnt; ++i)
+        memcpy(_dst + i*4*6, _src + i*4*7, sizeof(float) * _boneCnt * 4 * 6);
+
+    const size_t perInstance = sizeof(float)*_boneCnt*4*6;
+
+    for (size_t i = 1u; i < _instCnt; ++i)
+        memcpy(_dst + i*perInstance, _dst, sizeof(float)*perInstance);
+
+    return sizeof(float) * perInstance * _instCnt;
 }
 size_t convertBuf2(const float* _src, float* _dst, const size_t _boneCnt, const size_t _instCnt)
 {
-    float mat4x3[12], mat3[12];
-    const size_t boneSize = (sizeof(mat4x3) + sizeof(mat3)) / sizeof(float);
+    // by mat3x4 (3 rows, 4 columns, column-major layout) i mean glsl's mat4x3...
+    float mat3x4[16]; // layout: m00|m10|m20|---|m01|m11|m21|---|m02|m12|m22|---|m03|m13|m23|--- ("---" is unused padding)
+    float mat3[12];
+    const size_t boneSize = (sizeof(mat3x4) + sizeof(mat3)) / sizeof(float);
     for (size_t i = 0u; i < _boneCnt; ++i)
     {
-        memcpy(mat4x3, _src + 4*7*i, sizeof(mat4x3));
+        for (size_t j = 0u; j < 4u; ++j)
+            memcpy(mat3x4 + 4*j, _src + 4*7*i + 3*j, 3*sizeof(float));
         for (size_t j = 0u; j < 3u; ++j)
-            memcpy(mat3 + 4*j, _src + 4*7*i + sizeof(mat4x3)/sizeof(float) + 3*j, 3*sizeof(float));
+            memcpy(mat3 + 4*j, _src + 4*7*i + sizeof(mat3x4)/sizeof(float) + 3*j, 3*sizeof(float));
 
-        memcpy(_dst + boneSize*i, mat4x3, sizeof(mat4x3));
-        memcpy(_dst + boneSize*i + sizeof(mat4x3)/sizeof(float), mat3, sizeof(mat3));
+        memcpy(_dst + boneSize*i, mat3x4, sizeof(mat3x4));
+        memcpy(_dst + boneSize*i + sizeof(mat3x4)/sizeof(float), mat3, sizeof(mat3));
     }
 
     const size_t perInstance = boneSize * _boneCnt;
@@ -109,17 +117,21 @@ size_t convertBuf2(const float* _src, float* _dst, const size_t _boneCnt, const 
 }
 size_t convertBuf3(const float* _src, float* _dst, const size_t _boneCnt, const size_t _instCnt)
 {
-    const size_t size_mat4x3 = 12u; // 12 floats
-    const size_t offset_mat3 = _boneCnt * size_mat4x3;
+    const size_t size_mat3_dst = 12u; // 12 floats
+    const size_t size_mat4x3_src = 12u; // 12 floats
+    const size_t size_mat4x3_dst = 16u; // 16 floats
+    const size_t offset_mat3_dst = _boneCnt * size_mat4x3_dst;
     for (size_t i = 0u; i < _boneCnt; ++i)
     {
-        memcpy(_dst + i*size_mat4x3, _src + i*4*7, size_mat4x3*sizeof(float));
+        //memcpy(_dst + i*size_mat4x3_dst, _src + i*4*7, size_mat4x3*sizeof(float));
+        for (size_t j = 0u; j < 4u; ++j)
+            memcpy(_dst + i*size_mat4x3_dst + 4*j, _src + i*4*7 + 3*j, 3*sizeof(float));
         // each mat3 column aligned to 4*sizeof(float)
         for (size_t j = 0u; j < 3u; ++j)
-            memcpy(_dst + offset_mat3 + i*size_mat4x3 + j*4, _src + i*4*7 + size_mat4x3 + j*3, 3*sizeof(float));
+            memcpy(_dst + offset_mat3_dst + i*size_mat3_dst + j*4, _src + i*4*7 + size_mat4x3_src + j*3, 3*sizeof(float));
     }
 
-    const size_t perInstance = (3 + 3)*4 * _boneCnt;
+    const size_t perInstance = (size_mat3_dst + size_mat4x3_dst) * _boneCnt;
 
     for (size_t i = 1u; i < _instCnt; ++i)
         memcpy(_dst + i*perInstance, _dst, sizeof(float)*perInstance);
@@ -128,26 +140,28 @@ size_t convertBuf3(const float* _src, float* _dst, const size_t _boneCnt, const 
 }
 size_t convertBuf4(const float* _src, float* _dst, const size_t _boneCnt, const size_t _instCnt)
 {
-    const size_t size_mat4x3 = 12u; // 12 floats
+    const size_t size_mat4x3_src = 12u; // 12 floats
     const size_t 
         offset_mat4x3_0 = 0u,
         offset_mat4x3_1 = _boneCnt*4,
         offset_mat4x3_2 = _boneCnt*8,
-        offset_mat3c0 = _boneCnt*12,
-        offset_mat3c1 = _boneCnt*16,
-        offset_mat3c2 = _boneCnt*20;
+        offset_mat4x3_3 = _boneCnt*12,
+        offset_mat3_0 = _boneCnt*16,
+        offset_mat3_1 = _boneCnt*20,
+        offset_mat3_2 = _boneCnt*24;
     for (size_t i = 0u; i < _boneCnt; ++i)
     {
-        memcpy(_dst + offset_mat4x3_0 + i*4, _src + i*4*7 + 0*4, 4*sizeof(float));
-        memcpy(_dst + offset_mat4x3_1 + i*4, _src + i*4*7 + 1*4, 4*sizeof(float));
-        memcpy(_dst + offset_mat4x3_2 + i*4, _src + i*4*7 + 2*4, 4*sizeof(float));
+        memcpy(_dst + offset_mat4x3_0 + i*4, _src + i*4*7 + 0*3, 3*sizeof(float));
+        memcpy(_dst + offset_mat4x3_1 + i*4, _src + i*4*7 + 1*3, 3*sizeof(float));
+        memcpy(_dst + offset_mat4x3_2 + i*4, _src + i*4*7 + 2*3, 3*sizeof(float));
+        memcpy(_dst + offset_mat4x3_3 + i*4, _src + i*4*7 + 3*3, 3*sizeof(float));
         // each mat3 column aligned to 4*sizeof(float)
-        memcpy(_dst + offset_mat3c0 + i*4, _src + i*4*7 + size_mat4x3 + 0*3, 3*sizeof(float));
-        memcpy(_dst + offset_mat3c1 + i*4, _src + i*4*7 + size_mat4x3 + 1*3, 3*sizeof(float));
-        memcpy(_dst + offset_mat3c2 + i*4, _src + i*4*7 + size_mat4x3 + 2*3, 3*sizeof(float));
+        memcpy(_dst + offset_mat3_0 + i*4, _src + i*4*7 + size_mat4x3_src + 0*3, 3*sizeof(float));
+        memcpy(_dst + offset_mat3_1 + i*4, _src + i*4*7 + size_mat4x3_src + 1*3, 3*sizeof(float));
+        memcpy(_dst + offset_mat3_2 + i*4, _src + i*4*7 + size_mat4x3_src + 2*3, 3*sizeof(float));
     }
 
-    const size_t perInstance = 4 * 6 * _boneCnt;
+    const size_t perInstance = 4 * 7 * _boneCnt;
 
     for (size_t i = 1u; i < _instCnt; ++i)
         memcpy(_dst + i*perInstance, _dst, sizeof(float)*perInstance);
@@ -295,6 +309,7 @@ int main(int _argCnt, char** _args)
 		0); //! No custom user data
 	cb->drop();
 
+
 	scene::ISceneManager* smgr = device->getSceneManager();
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(nullptr, 100.0f, 0.01f);
@@ -316,14 +331,18 @@ int main(int _argCnt, char** _args)
     using convfptr_t = size_t(*)(const float*, float*, const size_t, const size_t);
     convfptr_t convFunctions[5]{ &convertBuf1, &convertBuf2, &convertBuf3, &convertBuf4, &convertBuf5 };
 
-#define INSTANCE_CNT 100
-    auto anode = smgr->addSkinnedMeshSceneNode(static_cast<scene::IGPUSkinnedMesh*>(driver->createGPUMeshesFromCPU({ cpumesh })[0]));
-    // ^^ todo: this shouldn't be here. Draw mesh in some different way
-    anode->setMaterialType(newMaterialType);
-    anode->setScale(core::vector3df(0.5f));
+    video::SMaterial smaterial;
+    smaterial.MaterialType = newMaterialType;
 
-    video::ITextureBufferObject* tbo = anode->getBonePoseTBO();
-    video::IGPUBuffer* bonePosBuf = tbo->getBoundBuffer();
+#define INSTANCE_CNT 100
+    scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU({ cpumesh })[0];
+    for (size_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
+        gpumesh->getMeshBuffer(i)->setInstanceCount(INSTANCE_CNT);
+
+    io::IReadFile* ifile = device->getFileSystem()->createAndOpenFile("../tbo_dump.rgba32f");
+    void* contents = malloc(ifile->getSize());
+    void* newContents = malloc(51520/*some reasonable value surely bigger than any of 5 bone transforms arrangements in the buf*/ * INSTANCE_CNT);
+    ifile->read(contents, ifile->getSize());
 
     video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
     reqs.vulkanReqs.alignment = 4;
@@ -332,23 +351,22 @@ int main(int _argCnt, char** _args)
     reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | video::IDriverMemoryAllocation::EMCF_COHERENT;
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
-    reqs.vulkanReqs.size = bonePosBuf->getSize();
-    auto bufcopy = driver->createGPUBuffer(reqs, true);
-    driver->copyBuffer(bonePosBuf, bufcopy, 0u, 0u, bonePosBuf->getSize());
-    void* contents = video::COpenGLExtensionHandler::extGlMapNamedBuffer(static_cast<video::COpenGLBuffer*>(bufcopy)->getOpenGLName(), GL_READ_ONLY);
-    void* newContents = malloc(5152/*max possible size of matrices for dwarf mesh*/ * INSTANCE_CNT);
-
-    reqs.vulkanReqs.size = convFunctions[method]((float*)contents, (float*)newContents, anode->getBoneCount(), INSTANCE_CNT);
+    reqs.vulkanReqs.size = convFunctions[method]((float*)contents, (float*)newContents, 46, INSTANCE_CNT);
     reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-    auto ssbuf = driver->createGPUBuffer(reqs, true);
+    auto ssbuf = driver->createGPUBufferOnDedMem(reqs, true);
     ssbuf->updateSubRange({ 0, ssbuf->getSize() }, newContents);
     free(newContents);
-    video::COpenGLExtensionHandler::extGlUnmapNamedBuffer(static_cast<video::COpenGLBuffer*>(bufcopy)->getOpenGLName());
+    free(contents);
+    ifile->drop();
 
-    if (method == 1)
+    video::ITextureBufferObject* newTbo = method==0 ?
+        new video::COpenGLTextureBufferObject(static_cast<video::COpenGLBuffer*>(ssbuf), video::ITextureBufferObject::ETBOF_RGBA32F, 0, ssbuf->getSize()) :
+        nullptr;
+    if (method == 0)
     {
-        tbo->bind(ssbuf, video::ITextureBufferObject::ETBOF_RGBA32F, 0, ssbuf->getSize());
-        anode->setMaterialTexture(3, tbo);
+        assert(newTbo->getBoundBuffer() != nullptr);
+        
+        smaterial.setTexture(3u, newTbo);
     }
     else
     {
@@ -357,19 +375,6 @@ int main(int _argCnt, char** _args)
         const ptrdiff_t off = 0, sz = glbuf->getSize();
         auxCtx->setActiveSSBO(0, 1, &glbuf, &off, &sz);
     }
-
-    /*
-    if (cpumesh)
-    {
-        for (size_t i = 0u; i < cpumesh->getMeshBufferCount(); ++i)
-        {
-            cpumesh->getMeshBuffer(i)->getMaterial().MaterialType = newMaterialType;
-            cpumesh->getMeshBuffer(i)->setInstanceCount(INSTANCE_CNT);
-        }
-    }
-
-    scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(cpumesh);
-    */
 
 #ifdef BENCH
     video::IFrameBuffer* fbo = driver->addFrameBuffer();
@@ -391,13 +396,19 @@ int main(int _argCnt, char** _args)
         driver->beginQuery(queries[itr]);
 
 		smgr->drawAll();
-        /*
         if (gpumesh)
         {
             for (size_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
+            {
+                smaterial = gpumesh->getMeshBuffer(i)->getMaterial();
+                smaterial.MaterialType = newMaterialType;
+                if (method == 0)
+                    smaterial.setTexture(3u, newTbo);
+
+                driver->setMaterial(smaterial);
                 driver->drawMeshBuffer(gpumesh->getMeshBuffer(i));
+            }
         }
-        */
         driver->endQuery(queries[itr]);
 
 		driver->endScene();
@@ -413,14 +424,20 @@ int main(int _argCnt, char** _args)
 	}
 
     size_t elapsed = 0u;
-    for (size_t i = 0u; i < ITER_CNT; ++i)
+    for (size_t i = 0u; i < itr; ++i)
     {
         uint32_t res;
         queries[i]->getQueryResult(&res);
         elapsed += res;
     }
-    os::Printer::log("GPU time", std::to_string(elapsed));
+    std::stringstream ss;
+    ss << "GPU time (";
+    ss << itr;
+    ss << " frames)";
+    os::Printer::log(ss.str(), std::to_string(elapsed));
 
+    if (newTbo)
+        newTbo->drop();
 	device->drop();
 
 	return 0;

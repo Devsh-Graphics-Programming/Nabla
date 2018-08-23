@@ -1,7 +1,7 @@
 #ifndef __MATRIX3X4SIMD_H_INCLUDED__
 #define __MATRIX3X4SIMD_H_INCLUDED__
 
-#include <quaternion.h>
+#include "quaternion.h"
 
 namespace irr
 {
@@ -541,6 +541,9 @@ struct matrix3x4SIMD : private AlignedBase<_IRR_MATRIX_ALIGNMENT>
 	float& operator()(size_t _i, size_t _j) { return rows[_i].pointer[_j]; }
 	const float& operator()(size_t _i, size_t _j) const { return rows[_i].pointer[_j]; }
 
+    inline const vectorSIMDf& operator[](size_t _rown) const { return rows[_rown]; }
+    inline vectorSIMDf& operator[](size_t _rown) { return rows[_rown]; }
+
 private:
 #define BROADCAST32(fpx) _MM_SHUFFLE(fpx, fpx, fpx, fpx)
 	static inline __m128 doJob(const __m128& a, const matrix3x4SIMD& _mtx)
@@ -581,6 +584,16 @@ private:
 	}
 #undef BROADCAST32
 };
+
+inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
+{
+    return matrix3x4SIMD::concatenateBFollowedByA(_a, _b);
+}
+
+inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
+{
+    return matrix3x4SIMD::concatenateBFollowedByAPrecisely(_a, _b);
+}
 
 inline plane3df transformPlane(const plane3df& _in, const matrix3x4SIMD& _mat)
 {

@@ -12,11 +12,10 @@ using namespace core;
 //!Same As Last Example
 class MyEventReceiver : public IEventReceiver
 {
-public:
+    const float BLUR_RADIUS_MIN = 0.f, BLUR_RADIUS_MAX = 0.5f;
 
-    MyEventReceiver()
-    {
-    }
+public:
+    ext::Blur::CBlurPerformer* blurPerf = nullptr;
 
     bool OnEvent(const SEvent& event)
     {
@@ -26,10 +25,16 @@ public:
             {
             case irr::KEY_KEY_Q: // switch wire frame mode
                 exit(0);
-                return true;
+                return true; 
             default:
                 break;
             }
+        }
+        else if (event.EventType == irr::EET_MOUSE_INPUT_EVENT && blurPerf)
+        {
+            float r = blurPerf->getRadius() + event.MouseInput.Wheel/500.f;
+            blurPerf->setRadius(std::max(BLUR_RADIUS_MIN, std::min(r, BLUR_RADIUS_MAX)));
+            //return true;
         }
 
         return false;
@@ -76,7 +81,7 @@ public:
     virtual void OnUnsetMaterial() {}
 };
 
-
+//! Use scroll to adjust blur radius
 int main()
 {
     // create device with full flexibility over creation parameters
@@ -122,15 +127,21 @@ int main()
 
 
     scene::ICPUMesh* cpumesh = smgr->getGeometryCreator()->createCubeMeshCPU();
-    video::ITexture* texture = driver->getTexture("../tex.jpg");
+    video::ITexture* texture = driver->getTexture("../tex.jpg", video::ECF_A16B16G16R16F);
 
-    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 17u, { 728u, 728u });
+    const core::vector2d<uint32_t> dsFactor{ 7u, 3u };
+    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, dsFactor);
+    receiver.blurPerf = blur;
+
+    video::ITexture* outputTex = blur->createOutputTexture(texture, "blur_output");
+
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
     scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
     video::SMaterial& mutableMaterial = smgr->addMeshSceneNode(gpumesh)->getMaterial(0);
     mutableMaterial.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
+    mutableMaterial.TextureLayer[0].Texture = outputTex;
     gpumesh->drop();
 
     cpumesh->getMeshBuffer(0)->getMaterial().setTexture(0, texture);
@@ -146,16 +157,9 @@ int main()
     {
         driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 
-        //! Split the function, utility createTextureForBlur (optional) and the blur(video::ITexture*) function to blur into custom tex
-        //! Require (with assert) that the texture be ETT_2D, some format of half-float (R,RG,RGBA) and the correct size.
-        video::ITexture* newTexture = blur->createBlurredTexture(texture);
-        mutableMaterial.TextureLayer[0].Texture = newTexture;
+        blur->blurTexture(texture, outputTex);
 
         smgr->drawAll();
-
-        //! dont want to re-create a texture every frame, do we?
-        if (newTexture)
-            driver->removeTexture(newTexture);
 
         driver->endScene();
 

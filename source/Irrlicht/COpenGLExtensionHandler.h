@@ -972,6 +972,8 @@ class COpenGLExtensionHandler
 	static int32_t reqSSBOAlignment;
 	//!
 	static int32_t reqTBOAlignment;
+    //!
+    static int32_t MaxComputeWGSize[3];
 	//!
 	static uint32_t MaxArrayTextureLayers;
 	//! Maxmimum texture layers supported by the engine
