@@ -129,7 +129,7 @@ int main()
     scene::ICPUMesh* cpumesh = smgr->getGeometryCreator()->createCubeMeshCPU();
     video::ITexture* texture = driver->getTexture("../tex.jpg", video::ECF_A16B16G16R16F);
 
-    const core::vector2d<uint32_t> dsFactor{ 1u, 1u };
+    const core::vector2d<uint32_t> dsFactor{ 7u, 3u };
     ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, dsFactor);
     receiver.blurPerf = blur;
 
