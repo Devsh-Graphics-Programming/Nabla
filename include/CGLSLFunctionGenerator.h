@@ -6,14 +6,17 @@
 #include <string>
 #include <cstdint>
 
-namespace irr { namespace core
+namespace irr { namespace video
 {
 
 class CGLSLFunctionGenerator
 {
+    CGLSLFunctionGenerator() = delete;
+
+public:
     static std::string getLinearSkinningFunction(const uint32_t& maxBoneInfluences = 4u);
 };
 
-}} // irr::core
+}} // irr::video
 
 #endif // __IRR_C_GLSL_FUNCTION_GENERATOR_H_INCLUDED__
