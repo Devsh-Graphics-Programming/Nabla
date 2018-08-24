@@ -1,15 +1,3 @@
-cmake_minimum_required(VERSION 3.1)
-project(Irrlicht)
-
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
-
-if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
-endif()
-
-option(FAST_MATH "Enable fast low-precision math" ON)
 
 if(NOT NASTY_OPENSSL_WORKAROUND)
 	find_package(OpenSSL REQUIRED)
@@ -137,6 +125,7 @@ set(IRRLICHT_SRCS_COMMON
 	COSOperator.cpp
 	Irrlicht.cpp
 	os.cpp
+	IReferenceCounted.cpp
 )
 
 set(IRRLICHT_SRCS_NORMAL
@@ -153,6 +142,10 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLVAOSpec.cpp
 	CTRTextureGouraudAlpha.cpp
 	CTRTextureGouraudAlphaNoZ.cpp
+	COpenGL1DTexture.cpp
+	COpenGL1DTextureArray.cpp
+	COpenGLCubemapArrayTexture.cpp
+	COpenGLCubemapTexture.cpp
 )
 
 set(IRRLICHT_SRCS_SERVER
