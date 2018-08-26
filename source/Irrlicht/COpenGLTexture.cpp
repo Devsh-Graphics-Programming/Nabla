@@ -334,7 +334,6 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FO
 			colorformat = GL_RGBA;
 			type = GL_HALF_FLOAT;
 		}
-			break;
 		case ECF_R32F:
 		{
 			colorformat = GL_RED;
@@ -486,6 +485,12 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FO
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
+        case ECF_RGB9_E5:
+        {
+            colorformat = GL_RGB;
+            type = GL_HALF_FLOAT;
+        }
+            break;
 		default:
 		{
 			os::Printer::log("Unsupported upload format", ELL_ERROR);
@@ -601,6 +606,9 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_F
 		case ECF_STENCIL8:
             return GL_STENCIL_INDEX8;
 			break;
+        case ECF_RGB9_E5:
+            return GL_RGB9_E5;
+            break;
 		default:
 		{
 #ifdef _DEBUG
@@ -751,7 +759,7 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             return ECF_R11G11B10F;
             break;
         case GL_RGB9_E5:
-            ///return ECF_;
+            return ECF_RGB9_E5;
             break;
         case GL_RG16:
             ///return ECF_;

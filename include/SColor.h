@@ -88,6 +88,8 @@ namespace video
         ECF_DEPTH32F_STENCIL8,
         ECF_STENCIL8,
 
+        //! 9 bits for each of R,G,B and 5 bits for shared exponent
+        ECF_RGB9_E5,
 
 		//! Unknown color format:
 		ECF_UNKNOWN
@@ -163,6 +165,8 @@ namespace video
             return 40;
         case ECF_STENCIL8:
             return 8;
+        case ECF_RGB9_E5:
+            return 32;
 		default:
 			return 0;
 		}
