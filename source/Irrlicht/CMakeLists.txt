@@ -273,11 +273,32 @@ add_library(zlib OBJECT
 	zlib/zutil.c
 )
 
+add_library(spirv_cross OBJECT
+	spirv_cross/spirv_cfg.cpp
+	spirv_cross/spirv_cross.cpp
+	spirv_cross/spirv_glsl.cpp
+	spirv_cross/spirv_reflect.cpp
+)
+target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
+
+add_library(libshaderc OBJECT
+	libshaderc/compiler.cc
+	libshaderc/file_finder.cc
+	libshaderc/io.cc
+	libshaderc/message.cc
+	libshaderc/resources.cc
+	libshaderc/shader_stage.cc
+	libshaderc/shaderc.cc
+	libshaderc/spirv_tools_wrapper.cc
+	libshaderc/version_profile.cc
+)
+
 add_definitions(
 	-DPNG_THREAD_UNSAFE_OK
 	-DPNG_NO_MMX_CODE
 	-DPNG_NO_MNG_FEATURES
 	-D_7ZIP_ST
+	-DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 )
 
 if(WIN32)
@@ -370,6 +391,8 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
+	$<TARGET_OBJECTS:spirv_cross>
+	$<TARGET_OBJECTS:libshaderc>
 )
 
 target_include_directories(Irrlicht PUBLIC ../../include)
