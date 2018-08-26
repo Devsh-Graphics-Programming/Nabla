@@ -96,13 +96,15 @@ size_t convertBuf2(const float* _src, float* _dst, const size_t _boneCnt, const 
     // by mat3x4 (3 rows, 4 columns, column-major layout) i mean glsl's mat4x3...
     float mat3x4[16]; // layout: m00|m10|m20|---|m01|m11|m21|---|m02|m12|m22|---|m03|m13|m23|--- ("---" is unused padding)
     float mat3[12];
+    const size_t size_mat3x4_src = 12u;
+
     const size_t boneSize = (sizeof(mat3x4) + sizeof(mat3)) / sizeof(float);
     for (size_t i = 0u; i < _boneCnt; ++i)
     {
         for (size_t j = 0u; j < 4u; ++j)
             memcpy(mat3x4 + 4*j, _src + 4*7*i + 3*j, 3*sizeof(float));
         for (size_t j = 0u; j < 3u; ++j)
-            memcpy(mat3 + 4*j, _src + 4*7*i + sizeof(mat3x4)/sizeof(float) + 3*j, 3*sizeof(float));
+            memcpy(mat3 + 4*j, _src + 4*7*i + size_mat3x4_src + 3*j, 3*sizeof(float));
 
         memcpy(_dst + boneSize*i, mat3x4, sizeof(mat3x4));
         memcpy(_dst + boneSize*i + sizeof(mat3x4)/sizeof(float), mat3, sizeof(mat3));
@@ -326,7 +328,7 @@ int main(int _argCnt, char** _args)
     uboMgr.bind(0u, 0, uboMgr.ubo->getSize());
     // todo: fill ubo with MVP matrix (how to get this from engine?)
 
-	scene::ICPUMesh* cpumesh = smgr->getMesh("dwarf.baw");
+	scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/dwarf.baw");
 
     using convfptr_t = size_t(*)(const float*, float*, const size_t, const size_t);
     convfptr_t convFunctions[5]{ &convertBuf1, &convertBuf2, &convertBuf3, &convertBuf4, &convertBuf5 };
