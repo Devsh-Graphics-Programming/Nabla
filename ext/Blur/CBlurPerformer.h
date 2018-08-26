@@ -5,6 +5,7 @@
 #include <tuple>
 #include <IReferenceCounted.h>
 #include <IVideoDriver.h>
+#include <irrMemory.h>
 
 namespace irr {
     namespace video {
@@ -49,11 +50,20 @@ public:
 
     static inline size_t getRequiredUBOSize(video::IVideoDriver* _driver)
     {
-        return sizeof(BlurPassUBO);
+        return irr::alignUp(sizeof(BlurPassUBO), 16u);
     }
 
-    static CBlurPerformer* instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis = 3u,
-                                       video::IGPUBuffer* uboBuffer=nullptr, const size_t& uboDataStaticOffset=0);
+    //! Instantiates blur performer.
+    /** 
+    @param _radius Radius of blur in both axes. Must be in range [0; 1] since it indicates % of output texture size in X and Y axes.
+    @param _dsFactor Downscale factor of output texture relatively to input texture.
+    @param _passesPerAxis Number of box blur passes that will be executed in both axes.
+    @param _outputColorFmt Format of output texture. Must be video::ECT_A16B16G16R16F or video::ECF_RGB9_E5.
+    @param uboBuffer Optional custom uniform buffer. If nullptr, then Blur performer will create its own. UBO is not updated internally by blur performer if custom uniform buffer is set.
+    @param uboOffset Offset in uniform buffer. Irrelevant if `uboBuffer` is nullptr.
+    */
+    static CBlurPerformer* instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis = 2u,
+                                       video::ECOLOR_FORMAT _outputColorFmt = video::ECF_A16B16G16R16F, video::IGPUBuffer* uboBuffer=nullptr, const size_t& uboOffset=0);
 
     video::ITexture* createOutputTexture(video::ITexture* _inputTex, const std::string& _name);
 
@@ -129,7 +139,7 @@ protected:
 
 private:
     inline CBlurPerformer(video::IVideoDriver* _driver, float _radius,
-                   core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis, video::IGPUBuffer* _uboBuffer, const size_t& _uboOffset) :
+                   core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis, video::ECOLOR_FORMAT _colorFmt, video::IGPUBuffer* _uboBuffer, const size_t& _uboOffset) :
         m_driver(_driver),
         m_blurGeneralCs{0u, 0u},
         m_samplesSsbo{nullptr},
@@ -139,7 +149,8 @@ private:
         //m_paddedUBOSize(getSinglePaddedUBOSize(_driver)),
         m_uboOffset(_uboOffset),
         m_dsFactor(clampDsFactor(_dsFactor)),
-        m_isCustomUbo(_uboBuffer)
+        m_isCustomUbo(_uboBuffer),
+        m_outputColorFormat(_colorFmt)
     {
         if (!m_ubo)
         {
@@ -151,7 +162,7 @@ private:
             reqs.prefersDedicatedAllocation = true;
             reqs.requiresDedicatedAllocation = true;
             //reqs.vulkanReqs.size = getRequiredUBOSize(m_driver)+m_uboOffset;
-            reqs.vulkanReqs.size = sizeof(BlurPassUBO) + m_uboOffset;
+            reqs.vulkanReqs.size = getRequiredUBOSize(_driver);
 
             m_ubo =  m_driver->createGPUBufferOnDedMem(reqs);
             // ubo gets filled with actual data when output size is established
@@ -163,9 +174,9 @@ private:
     void updateUBO(const void* _contents);
     void updateUBO();
 
-    static tuple2xu32 makeShaders(const core::vector2d<uint32_t>& _outSize, uint32_t _passesPerAxis);
+    static tuple2xu32 makeShaders(const core::vector2d<uint32_t>& _outSize, const core::vector2d<uint32_t>& _dsf, uint32_t _passesPerAxis, video::ECOLOR_FORMAT _colorFmt);
 
-    static bool genBlurPassCs(char* _out, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, int _finalPass);
+    static bool genBlurPassCs(char* _out, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, const core::vector2d<uint32_t>& _dsf, video::ECOLOR_FORMAT _colorFmt, int _finalPass);
 
     void bindSSBuffers() const;
     static ImageBindingData getCurrentImageBinding(uint32_t _imgUnit);
@@ -201,6 +212,7 @@ private:
     const core::vector2d<uint32_t> m_dsFactor;
     core::vector2d<uint32_t> m_outSize;
     bool m_isCustomUbo;
+    const video::ECOLOR_FORMAT m_outputColorFormat;
 
     static uint32_t s_MAX_WORK_GROUP_SIZE;
     static constexpr uint32_t s_ABSOLUTELY_MAX_WORK_GROUP_SIZE = 1024u;
