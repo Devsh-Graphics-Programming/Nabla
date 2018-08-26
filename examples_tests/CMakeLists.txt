@@ -27,8 +27,3 @@ add_subdirectory(29.SSBOAtomicsBenchmark)
 add_subdirectory(30.UBOBenchmarkV2)
 add_subdirectory(31.SkinningDataBenchmark)
 add_subdirectory(32.MultiThreadedRefCounting)
-
-#add_custom_command(TARGET Irrlicht POST_BUILD #cmake doesnt see Irrlicht target here.. but in examples' subdirs there's no problem!
-#                   COMMAND ${CMAKE_COMMAND} -E 
-#				   copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/media ${CMAKE_CURRENT_BINARY_DIR}/media
-#)

@@ -1,17 +1,6 @@
 
-add_executable(convert2BAW main.cpp print.cpp)
-add_dependencies(convert2BAW Irrlicht)
-
-target_include_directories(convert2BAW PUBLIC ../../include)
-target_link_libraries(convert2BAW Irrlicht)
-set_target_properties(convert2BAW
-    PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "bin"
-)
-if(MSVC)
-	set_target_properties(convert2BAW
-		PROPERTIES
-		RUNTIME_OUTPUT_DIRECTORY_DEBUG "bin"
-		RUNTIME_OUTPUT_DIRECTORY_RELEASE "bin"
-	)
+set(EXTRA_SOURCES print.cpp)
+include(common RESULT_VARIABLE RES)
+if(NOT RES)
+	message(SEND_ERROR "common.cmake not found. Should be in {repo_root}/cmake directory")
 endif()

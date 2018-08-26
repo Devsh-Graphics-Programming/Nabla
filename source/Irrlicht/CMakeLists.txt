@@ -379,6 +379,13 @@ target_compile_definitions(Irrlicht PRIVATE
 	_IRR_COMPILE_WITH_OPENGL_
 )
 
+if(BUILD_EXAMPLES)
+add_custom_command(TARGET Irrlicht POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E 
+				   copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../../examples_tests/media" "${CMAKE_CURRENT_BINARY_DIR}/../../examples_tests/media"
+)
+endif()
+
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_SERVER}
