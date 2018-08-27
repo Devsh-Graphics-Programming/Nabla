@@ -431,25 +431,47 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	NO_IRR_COMPILE_WITH_OPENGL_
 )
 
-if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-	if(MSVC)
-		set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/Win64-visualStudio" CACHE PATH "default install path" FORCE )
-	elseif(WIN32)
-		set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/Win64-gcc" CACHE PATH "default install path" FORCE )
+if(MSVC)
+	set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Win64-visualStudio")
+elseif(WIN32)
+	set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Win64-gcc")
+else()
+	if (APPLE)
+		set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/MacOSX")
+	elseif(UNIX)
+		set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Linux")
 	else()
-		if (APPLE)
-			set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/MacOSX" CACHE PATH "default install path" FORCE )
-		elseif(UNIX)
-			set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/Linux" CACHE PATH "default install path" FORCE )
-		else()
-			message(WARNING "NO INSTALL TARGET COULD BE GENERATED")
-		endif()
+		set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/unknown_platform")
+	endif()
+endif()
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+	if (${OUTPUT_DIR} MATCHES "*unknown_platform")
+		message(WARNING "NO INSTALL TARGET COULD BE GENERATED")
+	else()
+		set (CMAKE_INSTALL_PREFIX ${OUTPUT_DIR} CACHE PATH "default install path" FORCE )
 	endif()
 endif()
 
+macro(set_irrlicht_output_dir _TRGT_NAME _OUTPATH)
+	set_target_properties(${_TRGT_NAME}
+		PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${_OUTPATH}"
+	)
+	if(MSVC)
+		set_target_properties(${_TRGT_NAME}
+			PROPERTIES
+			RUNTIME_OUTPUT_DIRECTORY_DEBUG "${_OUTPATH}"
+			RUNTIME_OUTPUT_DIRECTORY_RELEASE "${_OUTPATH}"
+		)
+	endif()
+endmacro()
+set_irrlicht_output_dir(Irrlicht "${OUTPUT_DIR}")
+set_irrlicht_output_dir(IrrlichtServer "${OUTPUT_DIR}")
+set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
+set_target_properties(IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
+
 install(TARGETS Irrlicht DESTINATION .)
 install(TARGETS IrrlichtServer DESTINATION .)
-
 
 if(NOT CONFIGURED_ONCE)
 	# Add some optional flags to be used by default

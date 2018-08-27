@@ -1,1 +1,1 @@
-add_subdirectory(convert2BAW)
+add_subdirectory(convert2BAW EXCLUDE_FROM_ALL)
