@@ -346,6 +346,7 @@ int main(int _argCnt, char** _args)
     void* newContents = malloc(51520/*some reasonable value surely bigger than any of 5 bone transforms arrangements in the buf*/ * INSTANCE_CNT);
     ifile->read(contents, ifile->getSize());
 
+    const size_t actualSSBODataSize = convFunctions[method]((float*)contents, (float*)newContents, 46, INSTANCE_CNT);
     video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
     reqs.vulkanReqs.alignment = 4;
     reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
@@ -353,7 +354,7 @@ int main(int _argCnt, char** _args)
     reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | video::IDriverMemoryAllocation::EMCF_COHERENT;
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
-    reqs.vulkanReqs.size = convFunctions[method]((float*)contents, (float*)newContents, 46, INSTANCE_CNT);
+    reqs.vulkanReqs.size = alignUp(actualSSBODataSize, 16u);
     reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
     auto ssbuf = driver->createGPUBufferOnDedMem(reqs, true);
     ssbuf->updateSubRange({ 0, ssbuf->getSize() }, newContents);
