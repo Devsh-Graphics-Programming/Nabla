@@ -319,40 +319,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang
 	)
 endif()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	add_compile_options( # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-		-std=c++11 #add it to all C++ target objects but not C
-		-Wall
-		-Wextra
-		-Wno-unused-parameter
-		-fno-exceptions
-		-fstrict-aliasing
-		-msse3
-		-mfpmath=sse
-	)
-	if($<CONFIG:Release>) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-		add_compile_options(
-			-O3
-			-fexpensive-optimizations
-			-fno-omit-frame-pointer
-			-fstack-protector-strong
-		)
-	endif()
-	if($<CONFIG:Debug>) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-		add_compile_options(
-			-fno-omit-frame-pointer
-			-fstack-protector-strong
-		)
-	endif()
-	if(FAST_MATH) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-		add_compile_options(
-			-ffast-math
-		)
-	endif()
-else()
-	message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/buildaworldnet/IrrlichtBAW/issues")
-endif()
-
+irr_adjust_flags() # macro defined in root CMakeLists
 
 if(NOT NASTY_OPENSSL_WORKAROUND)
 	link_libraries(
@@ -452,7 +419,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	endif()
 endif()
 
-macro(set_irrlicht_output_dir _TRGT_NAME _OUTPATH)
+macro(irr_set_irrlicht_output_dir _TRGT_NAME _OUTPATH)
 	set_target_properties(${_TRGT_NAME}
 		PROPERTIES
 		RUNTIME_OUTPUT_DIRECTORY "${_OUTPATH}"
@@ -465,8 +432,8 @@ macro(set_irrlicht_output_dir _TRGT_NAME _OUTPATH)
 		)
 	endif()
 endmacro()
-set_irrlicht_output_dir(Irrlicht "${OUTPUT_DIR}")
-set_irrlicht_output_dir(IrrlichtServer "${OUTPUT_DIR}")
+irr_set_irrlicht_output_dir(Irrlicht "${OUTPUT_DIR}")
+irr_set_irrlicht_output_dir(IrrlichtServer "${OUTPUT_DIR}")
 set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
 
