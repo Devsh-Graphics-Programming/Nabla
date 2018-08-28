@@ -28,10 +28,18 @@ vec3 decodeRgb(uvec2 _rgb)
 
     return ret;
 }
-uint encodeRgbIntoUi32(vec3 _rgb)
+uint encodeRgbIntoRgb9e5(vec3 _rgb)
 {
-    _rgb *= 255.f;
-    return uint(_rgb.r) | (uint(_rgb.g)<<8) | (uint(_rgb.b)<<16);
+    const uint expMask = 0xff<<23;
+    const uint mantMask = 0x7fffff;
+
+    uvec3 rgb = uvec3(floatBitsToUint(_rgb.r), floatBitsToUint(_rgb.g), floatBitsToUint(_rgb.b));
+
+    uint exp = (rgb.r & expMask) >> 23;
+    exp -= uint(127-15);
+    
+    uint res = ((rgb.r & mantMask) >> 14) | (((rgb.g & mantMask) >> 14) << 9) | (((rgb.b & mantMask) >> 14) << 18) | (exp << 27);
+    return res;
 }
 )XDDD";
 constexpr const char* CS_BLUR_SRC = R"XDDD(
@@ -350,7 +358,6 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
         params.TextureWrapU = params.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
         const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(0, _inputTex, params);
     }
-
     auto prevImgBinding = getCurrentImageBinding(0);
     video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(_outputTex)->getOpenGLName(),
         0, GL_FALSE, 0, GL_WRITE_ONLY, video::COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(static_cast<const video::COpenGL2DTexture*>(_outputTex)->getColorFormat()));
@@ -498,7 +505,7 @@ bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _axisSi
     const char outputFunc_fmt[] = "for (uint i = 0; i < %u; ++i) outputFunc(LC_IDX + i*WG_SIZE);\n";
 
     const std::string outImageDecl = _colorFmt == video::ECF_A16B16G16R16F ? "layout(binding = 0, rgba16f) uniform writeonly image2D out_img;" : "layout(binding = 0, r32ui) uniform writeonly uimage2D out_img;";
-    const std::string imageOutput = _colorFmt == video::ECF_A16B16G16R16F ? "imageStore(out_img, ivec2(IDX), vec4(res, 1.f));" : "imageStore(out_img, ivec2(IDX), uvec4(encodeRgbIntoUi32(res), 0u, 0u, 0u));";
+    const std::string imageOutput = _colorFmt == video::ECF_A16B16G16R16F ? "imageStore(out_img, ivec2(IDX), vec4(res, 1.f));" : "imageStore(out_img, ivec2(IDX), uvec4(encodeRgbIntoRgb9e5(res), 0u, 0u, 0u));";
 
     char buf[1u<<12];
 
