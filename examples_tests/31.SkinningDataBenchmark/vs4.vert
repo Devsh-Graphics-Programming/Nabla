@@ -1,7 +1,7 @@
 #version 430 core
 
-//layout(std140, binding = 0) uniform U { mat4 MVP; };
-uniform mat4 MVP;
+layout(std140, binding = 0) uniform U { mat4 MVP; };
+//uniform mat4 MVP;
 
 layout(location = 0) in vec3 vPos;
 layout(location = 3) in vec3 vNormal;

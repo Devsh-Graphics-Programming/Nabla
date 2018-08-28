@@ -40,45 +40,6 @@ public:
 private:
 };
 
-class SimpleCallBack : public video::IShaderConstantSetCallBack
-{
-	int32_t mvpUniformLocation;
-	int32_t cameraDirUniformLocation;
-	video::E_SHADER_CONSTANT_TYPE mvpUniformType;
-	video::E_SHADER_CONSTANT_TYPE cameraDirUniformType;
-public:
-	SimpleCallBack() : cameraDirUniformLocation(-1), cameraDirUniformType(video::ESCT_FLOAT_VEC3) {}
-
-	virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
-	{
-		for (size_t i = 0; i<constants.size(); i++)
-		{
-			if (constants[i].name == "MVP")
-			{
-				mvpUniformLocation = constants[i].location;
-				mvpUniformType = constants[i].type;
-			}
-			else if (constants[i].name == "cameraPos")
-			{
-				cameraDirUniformLocation = constants[i].location;
-				cameraDirUniformType = constants[i].type;
-			}
-		}
-	}
-
-	virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-	{
-		core::vectorSIMDf modelSpaceCamPos;
-		modelSpaceCamPos.set(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW_INVERSE).getTranslation());
-		if (cameraDirUniformLocation != -1)
-			services->setShaderConstant(&modelSpaceCamPos, cameraDirUniformLocation, cameraDirUniformType, 1);
-		if (mvpUniformLocation != -1)
-			services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation, mvpUniformType, 1);
-	}
-
-	virtual void OnUnsetMaterial() {}
-};
-
 size_t convertBuf1(const float* _src, float* _dst, const size_t _boneCnt, const size_t _instCnt)
 {
     for (size_t i = 0u; i < _boneCnt; ++i)
@@ -212,16 +173,19 @@ struct UBOManager
         reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
         reqs.vulkanReqs.size = _sz;
         ubo = drv->createGPUBufferOnDedMem(reqs);
+
+        mappedMem = (uint8_t*)mappedBuf->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE, { updateNum*ubo->getSize(), ubo->getSize() });
     }
     ~UBOManager()
     {
+        mappedBuf->getBoundMemory()->unmapMemory();
         mappedBuf->drop();
         ubo->drop();
     }
 
     void update(size_t _off, size_t _sz, const void* _data)
     {
-        if (fence)
+        if (fence[updateNum])
         {
             auto waitf = [this] {
                 auto res = fence[updateNum]->waitCPU(10000000000ull);
@@ -234,7 +198,7 @@ struct UBOManager
             }
         }
 
-        memcpy(mappedBuf->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE, { updateNum*ubo->getSize(), ubo->getSize() }), _data, _sz);
+        memcpy(mappedMem + updateNum*ubo->getSize() + _off, _data, _sz);
         video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLBuffer*>(mappedBuf)->getOpenGLName(), updateNum*ubo->getSize() + _off, _sz);
 
         drv->copyBuffer(mappedBuf, ubo, updateNum*ubo->getSize() + _off, _off, _sz);
@@ -257,6 +221,7 @@ struct UBOManager
 private:
     video::IVideoDriver* drv;
     video::IGPUBuffer* mappedBuf;
+    uint8_t* mappedMem;
     uint8_t updateNum;
     video::IDriverFence* fence[4];
 };
@@ -302,15 +267,12 @@ int main(int _argCnt, char** _args)
     }
     --method;
 
-	SimpleCallBack* cb = new SimpleCallBack();
 	video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles((std::string("../vs") + std::to_string(method+1) + ".vert").c_str(),
 		"", "", "", //! No Geometry or Tessellation Shaders
 		"../mesh.frag",
 		3, video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-		cb, //! Our Shader Callback
+		nullptr,
 		0); //! No custom user data
-	cb->drop();
-
 
 	scene::ISceneManager* smgr = device->getSceneManager();
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
@@ -326,7 +288,6 @@ int main(int _argCnt, char** _args)
 
     UBOManager uboMgr(16*sizeof(float)/*mat4*/, driver);
     uboMgr.bind(0u, 0, uboMgr.ubo->getSize());
-    // todo: fill ubo with MVP matrix (how to get this from engine?)
 
 	scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/dwarf.baw");
 
@@ -392,6 +353,9 @@ int main(int _argCnt, char** _args)
 #ifdef BENCH
         driver->setRenderTarget(fbo, false);
 #endif
+
+        uboMgr.update(0u, 16*sizeof(float), driver->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer());
+        uboMgr.bind(0u, 0, 16*sizeof(float));
 
 		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 
