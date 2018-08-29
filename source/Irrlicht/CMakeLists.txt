@@ -4,6 +4,9 @@ if(NOT NASTY_OPENSSL_WORKAROUND)
 endif()
 
 find_package(OpenGL REQUIRED)
+if(UNIX)
+	find_package(X11 REQUIRED)
+endif()
 
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
@@ -342,11 +345,17 @@ add_library(Irrlicht STATIC
 )
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
+if (UNIX)
+	target_link_libraries(Irrlicht INTERFACE ${X11_LIBRARIES})
+endif()
 
 target_include_directories(Irrlicht PUBLIC 
 	../../include
 	${COMMON_INCLUDE_DIRS}
 )
+if (UNIX)
+	target_include_directories(Irrlicht PUBLIC ${X11_INCLUDE_DIR})
+endif()
 
 target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
