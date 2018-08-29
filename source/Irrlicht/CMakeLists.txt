@@ -6,6 +6,8 @@ endif()
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
+	set(CMAKE_THREAD_PREFER_PTHREAD 1)
+	find_package(Threads REQUIRED)
 endif()
 
 set(IRRLICHT_SRCS_COMMON
@@ -347,6 +349,8 @@ add_library(Irrlicht STATIC
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
 	target_link_libraries(Irrlicht INTERFACE ${X11_LIBRARIES})
+	target_link_libraries(Irrlicht INTERFACE ${CMAKE_THREAD_LIBS_INIT})
+	target_link_libraries(Irrlicht INTERFACE ${X11_Xrandr_LIB})
 endif()
 
 target_include_directories(Irrlicht PUBLIC 
@@ -355,6 +359,7 @@ target_include_directories(Irrlicht PUBLIC
 )
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC ${X11_INCLUDE_DIR})
+	target_include_directories(Irrlicht PUBLIC ${X11_Xrandr_INCLUDE_PATH})
 endif()
 
 target_compile_definitions(Irrlicht PRIVATE
