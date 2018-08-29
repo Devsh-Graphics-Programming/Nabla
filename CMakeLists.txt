@@ -38,6 +38,9 @@ macro(irr_adjust_flags)
 				-ffast-math
 			)
 		endif()
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+			add_compile_options("$<$CONFIG:DEBUG>:-ggdb3>")
+		endif()
 	elseif(MSVC)
 		# debug
 		string(REPLACE "/MDd" "/MTd" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")

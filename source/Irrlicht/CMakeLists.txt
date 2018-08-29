@@ -353,6 +353,7 @@ if (UNIX)
 		${X11_Xrandr_LIB} 
 		${X11_Xxf86vm_LIB} 
 		${CMAKE_THREAD_LIBS_INIT})
+		${CMAKE_DL_LIBS}
 endif()
 
 target_include_directories(Irrlicht PUBLIC 
@@ -444,17 +445,3 @@ set_target_properties(IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
 
 install(TARGETS Irrlicht DESTINATION .)
 install(TARGETS IrrlichtServer DESTINATION .)
-
-if(NOT CONFIGURED_ONCE)
-	# Add some optional flags to be used by default
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb3"
-			CACHE STRING "Flags used by the C compiler during debug build." FORCE)
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3"
-			CACHE STRING "Flags used by the C++ compiler during debug build." FORCE)
-	endif()
-
-	# This is to add flags once only
-	set(CONFIGURED_ONCE TRUE
-		CACHE INTERNAL  "A flag showing that CMake has configured at least once.")
-endif()
