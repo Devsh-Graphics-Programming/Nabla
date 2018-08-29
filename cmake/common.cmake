@@ -12,6 +12,7 @@ target_include_directories(${EXECUTABLE_NAME} PUBLIC ../../include)
 target_link_libraries(${EXECUTABLE_NAME} Irrlicht)
 
 irr_adjust_flags() # macro defined in root CMakeLists
+irr_adjust_definitions() # macro defined in root CMakeLists
 
 set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
 set_target_properties(${EXECUTABLE_NAME}

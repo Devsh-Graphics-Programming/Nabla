@@ -151,6 +151,13 @@ set(IRRLICHT_SRCS_NORMAL
 set(IRRLICHT_SRCS_SERVER
 )
 
+set(COMMON_INCLUDE_DIRS
+	convert_utf
+	libpng
+	utf8/source
+	zlib
+)
+
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
 	aesGladman/aescrypt.c
@@ -162,6 +169,7 @@ add_library(aesGladman OBJECT
 	aesGladman/pwd2key.c
 	aesGladman/sha1.c
 )
+target_include_directories(aesGladman PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(bzip2 OBJECT
 	bzip2/blocksort.c
@@ -172,10 +180,12 @@ add_library(bzip2 OBJECT
 	bzip2/huffman.c
 	bzip2/randtable.c
 )
+target_include_directories(bzip2 PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(convert_utf OBJECT
 	convert_utf/ConvertUTF.c
 )
+target_include_directories(convert_utf PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(jpeglib OBJECT
 	jpeglib/jaricom.c
@@ -225,6 +235,7 @@ add_library(jpeglib OBJECT
 	jpeglib/jquant2.c
 	jpeglib/jutils.c
 )
+target_include_directories(jpeglib PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(libpng OBJECT
 	libpng/png.c
@@ -243,6 +254,7 @@ add_library(libpng OBJECT
 	libpng/pngwtran.c
 	libpng/pngwutil.c
 )
+target_include_directories(libpng PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(lz4 OBJECT
 	lz4/lz4.c
@@ -250,6 +262,7 @@ add_library(lz4 OBJECT
 	lz4/lz4hc.c
 	lz4/xxhash.c
 )
+target_include_directories(lz4 PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(lzma OBJECT
 	lzma/Alloc.c
@@ -258,6 +271,7 @@ add_library(lzma OBJECT
 	lzma/LzmaEnc.c
 )
 target_compile_definitions(lzma PRIVATE _7ZIP_ST)
+target_include_directories(lzma PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(zlib OBJECT
 	zlib/adler32.c
@@ -272,6 +286,7 @@ add_library(zlib OBJECT
 	zlib/zcompress.c
 	zlib/zutil.c
 )
+target_include_directories(zlib PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(spirv_cross OBJECT
 	spirv_cross/spirv_cfg.cpp
@@ -280,6 +295,7 @@ add_library(spirv_cross OBJECT
 	spirv_cross/spirv_reflect.cpp
 )
 target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
+target_include_directories(spirv_cross PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(libshaderc OBJECT
 	libshaderc/compiler.cc
@@ -292,34 +308,10 @@ add_library(libshaderc OBJECT
 	libshaderc/spirv_tools_wrapper.cc
 	libshaderc/version_profile.cc
 )
-
-add_definitions(
-	-DPNG_THREAD_UNSAFE_OK
-	-DPNG_NO_MMX_CODE
-	-DPNG_NO_MNG_FEATURES
-	-D_7ZIP_ST
-	-DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
-)
-
-if(WIN32)
-	add_definitions(
-		-DWIN32
-		-D__GNUWIN32__
-		-D_CRT_SECURE_NO_DEPRECATE
-		-DNOMINMAX
-	)
-endif()
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	add_compile_options(
-		-fuse-ld=gold
-	)
-	link_libraries(
-		-fuse-ld=gold
-	)
-endif()
+target_include_directories(libshaderc PUBLIC ${COMMON_INCLUDE_DIRS})
 
 irr_adjust_flags() # macro defined in root CMakeLists
+irr_adjust_definitions() # macro defined in root CMakeLists
 
 if(NOT NASTY_OPENSSL_WORKAROUND)
 	link_libraries(
@@ -330,21 +322,6 @@ else()
 	include_directories(
 		../../../openssl/include/
 	)
-endif()
-
-include_directories(
-	convert_utf
-	libpng
-	utf8/source
-	zlib
-)
-
-if($<CONFIG:Debug>)
-	add_definitions(-D_DEBUG) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-endif()
-
-if($<BOOL:FAST_MATH>)
-	add_definitions(-DIRRLICHT_FAST_MATH)
 endif()
 
 add_library(Irrlicht STATIC
@@ -362,7 +339,10 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:libshaderc>
 )
 
-target_include_directories(Irrlicht PUBLIC ../../include)
+target_include_directories(Irrlicht PUBLIC 
+	../../include
+	${COMMON_INCLUDE_DIRS}
+)
 
 target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
@@ -370,10 +350,10 @@ target_compile_definitions(Irrlicht PRIVATE
 )
 
 if(BUILD_EXAMPLES)
-add_custom_command(TARGET Irrlicht POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E 
-				   copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../../examples_tests/media" "${CMAKE_CURRENT_BINARY_DIR}/../../examples_tests/media"
-)
+	add_custom_command(TARGET Irrlicht POST_BUILD
+					   COMMAND ${CMAKE_COMMAND} -E 
+					   copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../../examples_tests/media" "${CMAKE_CURRENT_BINARY_DIR}/../../examples_tests/media"
+	)
 endif()
 
 add_library(IrrlichtServer STATIC
@@ -389,7 +369,10 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:zlib>
 )
 
-target_include_directories(IrrlichtServer PUBLIC ../../include)
+target_include_directories(IrrlichtServer PUBLIC 
+	../../include
+	${COMMON_INCLUDE_DIRS}
+)
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_
