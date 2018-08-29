@@ -348,9 +348,11 @@ add_library(Irrlicht STATIC
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
-	target_link_libraries(Irrlicht INTERFACE ${X11_LIBRARIES})
-	target_link_libraries(Irrlicht INTERFACE ${CMAKE_THREAD_LIBS_INIT})
-	target_link_libraries(Irrlicht INTERFACE ${X11_Xrandr_LIB})
+	target_link_libraries(Irrlicht INTERFACE 
+		${X11_LIBRARIES} 
+		${X11_Xrandr_LIB} 
+		${X11_Xxf86vm_LIB} 
+		${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 target_include_directories(Irrlicht PUBLIC 
@@ -358,8 +360,10 @@ target_include_directories(Irrlicht PUBLIC
 	${COMMON_INCLUDE_DIRS}
 )
 if (UNIX)
-	target_include_directories(Irrlicht PUBLIC ${X11_INCLUDE_DIR})
-	target_include_directories(Irrlicht PUBLIC ${X11_Xrandr_INCLUDE_PATH})
+	target_include_directories(Irrlicht PUBLIC 
+		${X11_INCLUDE_DIR} 
+		${X11_Xrandr_INCLUDE_PATH} 
+		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
 target_compile_definitions(Irrlicht PRIVATE
