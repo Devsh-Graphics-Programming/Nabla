@@ -122,6 +122,9 @@ namespace irr
 		\return Pointer to the ITimer object. */
 		virtual ITimer* getTimer() = 0;
 
+        //! @returns Current display's refresh rate.
+        virtual uint16_t retrieveDisplayRefreshRate() const = 0;
+
 		//! Sets the caption of the window.
 		/** \param text: New text of the window caption. */
 		virtual void setWindowCaption(const std::wstring& text) = 0;

@@ -88,6 +88,10 @@ namespace irr
             //! supported by the gfx adapter.
             video::IVideoModeList* getVideoModeList();
 
+            //! @returns Current display's refresh rate.
+            //! If the engine was compiled without xrandr, the function always returns 0.
+            virtual uint16_t retrieveDisplayRefreshRate() const;
+
             //! Sets if the window should be resizable in windowed mode.
             virtual void setResizable(bool resize=false);
 
