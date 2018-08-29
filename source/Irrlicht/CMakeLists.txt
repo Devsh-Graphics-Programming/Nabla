@@ -3,6 +3,8 @@ if(NOT NASTY_OPENSSL_WORKAROUND)
 	find_package(OpenSSL REQUIRED)
 endif()
 
+find_package(OpenGL REQUIRED)
+
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
 	C3DSMeshFileLoader.cpp
@@ -338,6 +340,8 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:spirv_cross>
 	$<TARGET_OBJECTS:libshaderc>
 )
+
+target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 
 target_include_directories(Irrlicht PUBLIC 
 	../../include
