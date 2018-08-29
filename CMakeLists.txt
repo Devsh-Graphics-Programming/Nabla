@@ -24,21 +24,11 @@ macro(irr_adjust_flags)
 			-fstrict-aliasing
 			-msse3
 			-mfpmath=sse
+			-fno-omit-frame-pointer
+			-fstack-protector-strong
+			"$<$<CONFIG:RELEASE>:-O3>"
+			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
 		)
-		if($<CONFIG:Release>) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-			add_compile_options(
-				-O3
-				-fexpensive-optimizations
-				-fno-omit-frame-pointer
-				-fstack-protector-strong
-			)
-		endif()
-		if($<CONFIG:Debug>) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-			add_compile_options(
-				-fno-omit-frame-pointer
-				-fstack-protector-strong
-			)
-		endif()
 		if(FAST_MATH) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
 			add_compile_options(
 				-ffast-math
