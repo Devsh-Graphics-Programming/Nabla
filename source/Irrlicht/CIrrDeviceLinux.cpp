@@ -1618,7 +1618,7 @@ uint16_t CIrrDeviceLinux::retrieveDisplayRefreshRate() const
 
     return rate;
 #else
-    return 0u
+    return 0u;
 #endif // _IRR_LINUX_X11_RANDR_
 }
 
