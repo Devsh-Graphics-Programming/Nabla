@@ -24,8 +24,9 @@
 // Changed compared to original
 #include "../spirv-tools/libspirv.hpp"
 
-#include "libshaderc_util/compiler.h"
-#include "libshaderc_util/string_piece.h"
+// Changed compared to original
+#include "compiler.h"
+#include "string_piece.h"
 
 namespace shaderc_util {
 // Assembles the given assembly. On success, returns true, writes the assembled
