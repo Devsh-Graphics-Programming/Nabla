@@ -320,16 +320,17 @@ target_include_directories(libshaderc PUBLIC ${COMMON_INCLUDE_DIRS})
 irr_adjust_flags() # macro defined in root CMakeLists
 irr_adjust_definitions() # macro defined in root CMakeLists
 
-if(NOT NASTY_OPENSSL_WORKAROUND)
-	link_libraries(
-		OpenSSL::Crypto
-		OpenSSL::SSL
-	)
-else()
-	include_directories(
-		../../../openssl/include/
-	)
-endif()
+macro(irr_target_link_openssl _trgt)
+	if(NOT NASTY_OPENSSL_WORKAROUND)
+		target_link_libraries(${_trgt} INTERFACE
+			OpenSSL::Crypto
+			OpenSSL::SSL
+		)
+		target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
+	else()
+		target_include_directories(${_trgt} PUBLIC ../../../openssl/include/)
+	endif()
+endmacro()
 
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
@@ -346,14 +347,17 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:libshaderc>
 )
 
+irr_target_link_openssl(Irrlicht)
+
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
 	target_link_libraries(Irrlicht INTERFACE 
 		${X11_LIBRARIES} 
 		${X11_Xrandr_LIB} 
 		${X11_Xxf86vm_LIB} 
-		${CMAKE_THREAD_LIBS_INIT})
+		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
+	)
 endif()
 
 target_include_directories(Irrlicht PUBLIC 
@@ -391,6 +395,8 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
 )
+
+irr_target_link_openssl(IrrlichtServer)
 
 target_include_directories(IrrlichtServer PUBLIC 
 	../../include
