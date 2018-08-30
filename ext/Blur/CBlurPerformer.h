@@ -148,7 +148,7 @@ private:
         m_passesPerAxisNum{_passesPerAxis},
         //m_paddedUBOSize(getSinglePaddedUBOSize(_driver)),
         m_uboOffset(_uboOffset),
-        m_dsFactor(clampDsFactor(_dsFactor)),
+        m_dsFactor(validateDsFactor(_dsFactor)),
         m_isCustomUbo(_uboBuffer),
         m_outputColorFormat(_colorFmt)
     {
@@ -192,8 +192,11 @@ private:
         return ++_x;
     }
 
-    inline static core::vector2d<uint32_t> clampDsFactor(core::vector2d<uint32_t> _dsf)
+    //! Clamps ds factor and rounds to factor of two
+    inline static core::vector2d<uint32_t> validateDsFactor(core::vector2d<uint32_t> _dsf)
     {
+        _dsf.X += (_dsf.X & 1u);
+        _dsf.Y += (_dsf.Y & 1u);
         _dsf.X = std::max(s_MIN_DS_FACTOR, std::min(_dsf.X, s_MAX_DS_FACTOR));
         _dsf.Y = std::max(s_MIN_DS_FACTOR, std::min(_dsf.Y, s_MAX_DS_FACTOR));
         return _dsf;
