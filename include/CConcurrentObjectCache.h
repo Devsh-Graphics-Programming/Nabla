@@ -11,7 +11,7 @@ namespace impl
 {
     struct CConcurrentObjectCacheBase
     {
-        struct 
+        struct
         {
             void lockRead() const { FW_AtomicCounterIncr(ctr); }
             void unlockRead() const { FW_AtomicCounterDecr(ctr); }
@@ -45,18 +45,18 @@ public:
         return r;
     }
 
-	inline T* getByKey(const K& _key)
+	inline bool getByKey(T** _outval, const K& _key)
     {
         m_lock.lockRead();
-        T* r = Base::getByKey(_key);
+        bool r = Base::getByKey(_outval,_key);
         m_lock.unlockRead();
         return r;
     }
 
-	inline const T* getByKey(const K& _key) const
+	inline bool getByKey(const T** _outval, const K& _key) const
     {
 		m_lock.lockRead();
-		const T* const r = Base::getByKey(_key);
+		bool r = Base::getByKey(_outval,_key);
 		m_lock.unlockRead();
 		return r;
     }

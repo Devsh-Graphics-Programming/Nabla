@@ -95,9 +95,6 @@ public:
 
     inline bool insert(const K& _key, T* _val)
     {
-        if (!_val)
-            return false;
-
         const ValueType newVal{_key, _val};
         auto it = std::lower_bound(std::begin(m_container), std::end(m_container), newVal, [](const ValueType& _a, const ValueType& _b) -> bool {return _a.first < _b.first; });
         if (it != std::end(m_container) && !(_key < it->first)) // used `<` instead of `==` operator here to keep consistency with std::map (so key type doesn't need to define operator==)
@@ -108,22 +105,26 @@ public:
         return true;
     }
 
-	inline T* getByKey(const K& _key)
+	inline bool getByKey(T** _outval, const K& _key)
     {
-        return const_cast<T*>(const_cast<std::remove_reference<decltype(*this)>::type const&>(*this).getByKey(_key));
+        const T** _outval2 = _outval;
+        return const_cast<std::remove_reference<decltype(*this)>::type const&>(*this).getByKey(_outval2,_key);
     }
 
-	inline const T* getByKey(const K& _key) const
+	inline bool getByKey(const T** _outval, const K& _key) const
     {
-		auto it = this->find(_key);
+		auto it = find(_key);
 		if (it != std::end(m_container))
-			return it->second;
-		return nullptr;
+        {
+            *_outval = it->second;
+            return true;
+        }
+		return false;
     }
 
 	inline void removeByKey(const K& _key)
     {
-        auto it = this->find(_key);
+        auto it = find(_key);
         if (it != std::end(m_container))
         {
             dispose(it->second);
@@ -157,22 +158,25 @@ public:
 
 	inline bool insert(const K& _key, T* _val)
     {
-        if (!_val)
-            return false;
-        _val->grab();
-        return m_container.insert({_key, _val}).second;
+        auto retval = m_container.insert({_key, _val});
+        if (retval.second)
+            greet(newVal.second);
+        return retval.second;
     }
 
-	inline T* getByKey(const K& _key)
+	inline bool getByKey(T** _outval, const K& _key)
     {
-		return const_cast<T*>(const_cast<std::remove_reference<decltype(*this)>::type const&>(*this).getByKey(_key));
+        const T** _outval2 = _outval;
+		return const_cast<std::remove_reference<decltype(*this)>::type const&>(*this).getByKey(_outval2,_key);
     }
-	inline const T* getByKey(const K& _key) const
+	inline bool getByKey(const T** _outval, const K& _key) const
     {
 		auto it = m_container.find(_key);
 		if (it == std::end(m_container))
-			return nullptr;
-		return it->second;
+			return false;
+
+		*_outval = it->second;
+		return true;
     }
 
     inline void removeByKey(const K& _key)
