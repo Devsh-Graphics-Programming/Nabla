@@ -25,8 +25,8 @@ macro(irr_adjust_flags)
 			-msse3
 			-mfpmath=sse
 			-fno-omit-frame-pointer
-			-fstack-protector-strong
 			-fuse-ld=gold
+			"$<$<CONFIG:DEBUG>:-fstack-protector-strong>"
 			"$<$<CONFIG:RELEASE>:-O3>"
 			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
 		)
