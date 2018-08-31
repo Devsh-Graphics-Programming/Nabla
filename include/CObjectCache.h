@@ -129,6 +129,7 @@ public:
         {
             m_container.insert(it, {_key, nullptr});
             greet(nullptr);
+            *_outval = nullptr;
             return false;
         }
 
@@ -220,6 +221,7 @@ public:
         {
             m_container.insert(it, {_key, nullptr});
             greet(nullptr);
+            *_outval = nullptr;
             return false;
         }
 
