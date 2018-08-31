@@ -121,6 +121,21 @@ public:
         return true;
     }
 
+    //! Returns false if item with the _key did not exist in the cache and a nullptr was inserted for it
+    inline bool getByKeyOrReserve(T** _outval, const K& _key)
+    {
+		auto it = find(_key);
+		if (it == std::end(m_container))
+        {
+            m_container.insert(it, {_key, nullptr});
+            greet(nullptr);
+            return false;
+        }
+
+		*_outval = it->second;
+		return true;
+    }
+
 	inline bool getByKey(T** _outval, const K& _key)
     {
         const T** _outval2 = _outval;
@@ -186,7 +201,7 @@ public:
         greet(_val); //grab before drop
 
 		auto it = m_container.find(_key);
-		if (it == std::end(m_container))
+		if (it != std::end(m_container))
         {
             dispose(it->second);
             it->second = _val;
@@ -195,6 +210,21 @@ public:
 
         m_container.insert(it, {_key, _val});
         return true;
+    }
+
+    //! Returns false if item with the _key did not exist in the cache and a nullptr was inserted for it
+    inline bool getByKeyOrReserve(T** _outval, const K& _key)
+    {
+		auto it = m_container.find(_key);
+		if (it == std::end(m_container))
+        {
+            m_container.insert(it, {_key, nullptr});
+            greet(nullptr);
+            return false;
+        }
+
+		*_outval = it->second;
+		return true;
     }
 
 	inline bool getByKey(T** _outval, const K& _key)

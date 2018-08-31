@@ -54,6 +54,14 @@ public:
         return r;
     }
 
+    inline bool getByKeyOrReserve(T** _outval, const K& _key)
+    {
+        m_lock.lockWrite();
+        bool r = Base::getByKeyOrReserve(_outval,_key);
+        m_lock.unlockWrite();
+        return r;
+    }
+
 	inline bool getByKey(T** _outval, const K& _key)
     {
         m_lock.lockRead();
