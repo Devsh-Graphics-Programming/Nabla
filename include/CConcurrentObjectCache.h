@@ -45,6 +45,15 @@ public:
         return r;
     }
 
+    //! Returns true if had to insert
+    inline bool swapValue(const K& _key, T* _val)
+    {
+        m_lock.lockWrite();
+        bool r = Base::swapValue(_key,_val);
+        m_lock.unlockWrite();
+        return r;
+    }
+
 	inline bool getByKey(T** _outval, const K& _key)
     {
         m_lock.lockRead();

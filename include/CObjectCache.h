@@ -95,13 +95,29 @@ public:
 
     inline bool insert(const K& _key, T* _val)
     {
-        const ValueType newVal{_key, _val};
-        auto it = std::lower_bound(std::begin(m_container), std::end(m_container), newVal, [](const ValueType& _a, const ValueType& _b) -> bool {return _a.first < _b.first; });
-        if (it != std::end(m_container) && !(_key < it->first)) // used `<` instead of `==` operator here to keep consistency with std::map (so key type doesn't need to define operator==)
+        auto it = find(_key);
+        if (it != std::end(m_container))
             return false;
 
-        greet(newVal.second);
-        m_container.insert(it, newVal);
+        greet(_val);
+        m_container.insert(it, {_key, _val});
+        return true;
+    }
+
+    //! Returns true if had to insert
+    inline bool swapValue(const K& _key, T* _val)
+    {
+        greet(_val); //grab before drop
+
+        auto it = find(_key);
+        if (it != std::end(m_container))
+        {
+            dispose(it->second);
+            it->second = _val;
+            return false;
+        }
+
+        m_container.insert(it, {_key, _val});
         return true;
     }
 
@@ -160,8 +176,25 @@ public:
     {
         auto retval = m_container.insert({_key, _val});
         if (retval.second)
-            greet(newVal.second);
+            greet(_val);
         return retval.second;
+    }
+
+    //! Returns true if had to insert
+    inline bool swapValue(const K& _key, T* _val)
+    {
+        greet(_val); //grab before drop
+
+		auto it = m_container.find(_key);
+		if (it == std::end(m_container))
+        {
+            dispose(it->second);
+            it->second = _val;
+            return false;
+        }
+
+        m_container.insert(it, {_key, _val});
+        return true;
     }
 
 	inline bool getByKey(T** _outval, const K& _key)
