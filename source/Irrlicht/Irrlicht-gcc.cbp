@@ -421,6 +421,7 @@
 		<Unit filename="CFileSystem.cpp" />
 		<Unit filename="CFileSystem.h" />
 		<Unit filename="CForsythVertexCacheOptimizer.cpp" />
+		<Unit filename="CGLSLFunctionGenerator.cpp" />
 		<Unit filename="CGPUTransientBuffer.cpp" />
 		<Unit filename="CGeometryCreator.cpp" />
 		<Unit filename="CGeometryCreator.h" />
