@@ -146,8 +146,23 @@ std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP&
         case CGLSLFunctionGenerator::EGCO_ADD:
             return "\n#define SCAN_OP(X,Y) (X+Y)\n";
             break;
+        case CGLSLFunctionGenerator::EGCO_AND:
+            return "\n#define SCAN_OP(X,Y) (X&Y)\n";
+            break;
+        case CGLSLFunctionGenerator::EGCO_MAX:
+            return "\n#define SCAN_OP(X,Y) max(X,Y)\n";
+            break;
+        case CGLSLFunctionGenerator::EGCO_MIN:
+            return "\n#define SCAN_OP(X,Y) min(X,Y)\n";
+            break;
         case CGLSLFunctionGenerator::EGCO_MUL:
             return "\n#define SCAN_OP(X,Y) (X*Y)\n";
+            break;
+        case CGLSLFunctionGenerator::EGCO_OR:
+            return "\n#define SCAN_OP(X,Y) (X|Y)\n";
+            break;
+        case CGLSLFunctionGenerator::EGCO_XOR:
+            return "\n#define SCAN_OP(X,Y) (X^Y)\n";
             break;
         default:
             return "";

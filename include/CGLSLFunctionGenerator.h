@@ -18,8 +18,13 @@ class CGLSLFunctionGenerator
         static std::string getWarpScanPaddingFunctions();
         enum E_GLSL_COMMUTATIVE_OP
         {
-            EGCO_ADD=0,
+            EGCO_ADD=0, // type supported natively by AMD
+            EGCO_AND,
+            EGCO_MAX, // type supported natively by AMD
+            EGCO_MIN, // type supported natively by AMD
             EGCO_MUL,
+            EGCO_OR,
+            EGCO_XOR,
             EGCO_COUNT
         };
         enum E_GLSL_TYPE //could get some enum from shaderc files instead to not run multiple definitions
