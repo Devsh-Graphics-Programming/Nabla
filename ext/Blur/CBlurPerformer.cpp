@@ -83,6 +83,7 @@ shared float smem_b[SMEM_SIZE];
 
 uint getAddr(uint _addr)
 {
+    //return warpPadAddress32(_addr);
     return _addr + CONFLICT_FREE_OFFSET(_addr);
 }
 void storeShared(uint _idx, vec3 _val)
@@ -120,10 +121,8 @@ void upsweep(int d, uint offset, uint _tid)
 {
     if (_tid < d)
     {
-        uint ai = offset*(2*_tid+1)-1;
-        uint bi = offset*(2*_tid+2)-1;
-        ai += CONFLICT_FREE_OFFSET(ai);
-        bi += CONFLICT_FREE_OFFSET(bi);
+        uint ai = getAddr(offset*(2*_tid+1)-1);
+        uint bi = getAddr(offset*(2*_tid+2)-1);
 
         storeShared(bi, loadShared(bi) + loadShared(ai));
     }
@@ -132,10 +131,8 @@ void downsweep(int d, uint offset, uint _tid)
 {
     if (_tid < d)
     {
-        uint ai = offset*(2*_tid+1)-1;
-        uint bi = offset*(2*_tid+2)-1;
-        ai += CONFLICT_FREE_OFFSET(ai);
-        bi += CONFLICT_FREE_OFFSET(bi);
+        uint ai = getAddr(offset*(2*_tid+1)-1);
+        uint bi = getAddr(offset*(2*_tid+2)-1);
 
         vec3 tmp = loadShared(ai);
         storeShared(ai, loadShared(bi));
@@ -149,13 +146,11 @@ void loadFromGmem(uint _inStartIdx, uint _tid)
 
     const uint ai = _tid;
     const uint bi = _tid + PS_SIZE/2;
-    const uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
-    const uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
 
-    storeShared(ai + bankOffsetA,
+    storeShared(getAddr(ai),
 	    (ai < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + SSBO_OUT_OFFSET + ai]) : vec3(0)
     );
-    storeShared(bi + bankOffsetB,
+    storeShared(getAddr(bi),
 	    (bi < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + SSBO_OUT_OFFSET + bi]) : vec3(0)
     );
 }
@@ -165,12 +160,41 @@ void exPsumInSmem()
 
     %s // here goes unrolled upsweep loop
 
-    if (LC_IDX == 0) { storeShared(PS_SIZE-1 + CONFLICT_FREE_OFFSET(PS_SIZE-1), vec3(0)); } // ARE YOU WRITING TO THE SHARED MEMORY LOCATION YOU "OWN" ?
+    if (LC_IDX == 0) { storeShared(getAddr(PS_SIZE-1), vec3(0)); } // ARE YOU WRITING TO THE SHARED MEMORY LOCATION YOU "OWN" ?
     BARRIER;
 
     %s // here goes unrolled downsweep loop
 
     BARRIER;
+}
+
+// for this to work ACTUAL_SIZE==1024u and getAddr needs to be defined as {return warpPadAddress32(_addr);}
+void exPsumInSmem2()
+{
+    const uint W_LOG2 = 5u;
+    const uint padded_tid = getAddr(gl_LocalInvocationID.x);
+	const uint padded_tid_div_w = getAddr(gl_LocalInvocationID.x>>W_LOG2);
+
+	uint totalOutputOffset = 0u;
+	uint scanningBatchSize = ACTUAL_SIZE;
+
+	BARRIER;
+	vec3 tmp0 = warp_incl_scan_padded32ublur(loadShared(padded_tid),padded_tid);
+	totalOutputOffset += getAddr(scanningBatchSize);
+	if (gl_LocalInvocationID.x<scanningBatchSize)
+	{
+		if (gl_ThreadInWarpNV == (0x1u<<W_LOG2)-1u) // need to replace gl_ThreadInWarpNV with some define
+			storeShared(totalOutputOffset+padded_tid_div_w,tmp0);
+	}
+	scanningBatchSize = scanningBatchSize>>W_LOG2;
+	BARRIER;
+	if (gl_LocalInvocationID.x<scanningBatchSize) // for some other warp_scan types that storeShared shouldn't really be necessary
+		storeShared(totalOutputOffset+padded_tid,warp_incl_scan_padded32ublur(loadShared(totalOutputOffset+padded_tid),totalOutputOffset+padded_tid));
+
+	BARRIER;
+	vec3 tmp1 = padded_tid_div_w!=0u ? loadShared(totalOutputOffset+padded_tid_div_w-1u):vec3(0.0);
+	storeShared(padded_tid,tmp0+tmp1);
+	BARRIER;
 }
 
 // WARNING: calculates resulting address (this function do NOT expect to get address from getAddr())
