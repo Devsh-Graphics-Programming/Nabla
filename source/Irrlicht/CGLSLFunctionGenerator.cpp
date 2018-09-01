@@ -275,8 +275,8 @@ std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP&
     return "";
 }
 
-std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType,
-                                                                        const std::string& namePostfix, const std::string& tmpSharedMemName, const size_t& smemOffset)
+std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix,
+                                                                        const std::string& getterFuncName, const std::string& setterFuncName)
 {
     const std::string includeGuardMacroName = "_IRR_GENERATED_WARP_SCAN_PADDED_"+namePostfix+"_FUNCS_INCLUDED_";
 
@@ -292,7 +292,8 @@ std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_
 
     sourceStr += "\n#undef WARP_SCAN_FUNC_NAME_SIZED(W)\n#define WARP_SCAN_FUNC_NAME_SIZED warp_incl_scan_padded ## W ## "+namePostfix+"\n";
 
-    sourceStr += "\n#undef TMP_SMEM\n#define TMP_SMEM(IDX) "+tmpSharedMemName+"[(IDX)+"+std::to_string(smemOffset)+"]\n";
+    sourceStr += "\n#undef GETTER\n#define GETTER(IDX) "+getterFuncName+"(IDX)\n";
+    sourceStr += "\n#undef SETTER\n#define SETTER(IDX,VAL) "+setterFuncName+"(IDX,VAL)\n";
 
     sourceStr += R"==(
 //! Warning these functions will reduce across the entire warp under GL_KHR_shader_subgroup_arithmetic,GL_AMD_shader_ballot
@@ -314,15 +315,15 @@ TYPE WARP_SCAN_FUNC_NAME_SIZED(4u) (in TYPE val, in uint idx)
     return tmpA;
 #elif defined(GL_KHR_shader_subgroup_basic)
     subgroupBarrier();
-    TMP_SMEM(idx+1u) = COMM_OP(TMP_SMEM(idx),TMP_SMEM(idx+1u));
+    SETTER(idx+1u,COMM_OP(GETTER(idx),GETTER(idx+1u)));
     subgroupBarrier();
-    TMP_SMEM(idx+2u) = COMM_OP(TMP_SMEM(idx),TMP_SMEM(idx+2u));
+    SETTER(idx+2u,COMM_OP(GETTER(idx),GETTER(idx+2u)));
     subgroupBarrier();
-    return TMP_SMEM(idx);
+    return GETTER(idx);
 #else
-    TMP_SMEM(idx+1u) = COMM_OP(TMP_SMEM(idx),TMP_SMEM(idx+1u));
-    TMP_SMEM(idx+2u) = COMM_OP(TMP_SMEM(idx),TMP_SMEM(idx+2u));
-    return TMP_SMEM(idx);
+    SETTER(idx+1u,COMM_OP(GETTER(idx),GETTER(idx+1u)));
+    SETTER(idx+2u,COMM_OP(GETTER(idx),GETTER(idx+2u)));
+    return GETTER(idx);
 #endif
 }
 
@@ -348,15 +349,15 @@ TYPE WARP_SCAN_FUNC_NAME_SIZED(4u) (in TYPE val, in uint idx)
 #elif defined(GL_KHR_shader_subgroup_basic)
     #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
     {\
-        TMP_SMEM(idx+(W/2u)) = COMM_OP(WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx),TMP_SMEM(idx+(W/2u))); \
+        SETTER(idx+(W/2u),COMM_OP(WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx),GETTER(idx+(W/2u)))); \
         subgroupBarrier(); \
-        return TMP_SMEM(idx); \
+        return GETTER(idx); \
     }
 #else
     #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
     {\
-        TMP_SMEM(idx+(W/2u)) = COMM_OP(WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx),TMP_SMEM(idx+(W/2u))); \
-        return TMP_SMEM(idx); \
+        SETTER(idx+(W/2u),COMM_OP(WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx),GETTER(idx+(W/2u)))); \
+        return GETTER(idx); \
     }
 #endif
 
@@ -384,6 +385,8 @@ TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx)
     #endif
 #elif defined(GL_AMD_shader_ballot)
     return COMM_OPInvocationsInclusiveScanAMD(val);
+#elif CONSTANT_PROBABLE_SUBGROUP_SIZE
+    return WARP_SCAN_FUNC_NAME_SIZED(WARP_SCAN_SIZE) (val,idx);
 #else
 	switch(WARP_SCAN_SIZE)
 	{
@@ -417,12 +420,8 @@ TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx)
 #endif
                       )==";
 
-    sourceStr += "\n#ifdef CONSTANT_PROBABLE_SUBGROUP_SIZE\n    #define WARP_INCL_SCAN_PADDED_DEFAULT"+namePostfix+
-                    "(VAL,_IDX) WARP_SCAN_FUNC_NAME ## WARP_SCAN_SIZE (VAL,_IDX)\n#else\n    #define WARP_INCL_SCAN_PADDED_DEFAULT"+namePostfix+
-                    "(VAL,_IDX) WARP_SCAN_FUNC_NAME (VAL,_IDX)\n#endif // CONSTANT_PROBABLE_SUBGROUP_SIZE\n";
-
     // undefine all that stuff
-    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED_DEF\n#undef WARP_INCL_SCAN_PADDED_DECL\n#undef WARP_SCAN_FUNC_NAME_SIZED\n#undef WARP_SCAN_FUNC_NAME_SAFE\n#undef WARP_SCAN_FUNC_NAME\n#undef TMP_SMEM\n";
+    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED_DEF\n#undef WARP_INCL_SCAN_PADDED_DECL\n#undef SETTER\n#undef GETTER\n#undef WARP_SCAN_FUNC_NAME_SIZED\n#undef WARP_SCAN_FUNC_NAME_SAFE\n#undef WARP_SCAN_FUNC_NAME\n";
     sourceStr += "\n#undef TYPE\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n";
 
     sourceStr += "\n#endif //"+includeGuardMacroName+"\n";
@@ -430,8 +429,8 @@ TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx)
 }
 
 /** TODO: Much later
-std::string CGLSLFunctionGenerator::getWarpReduceFunctionsPadded(   const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType,
-                                                                    const std::string& namePostfix, const std::string& tmpSharedMemName, const size_t& smemOffset)
+std::string CGLSLFunctionGenerator::getWarpReduceFunctionsPadded(   const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix,
+                                                                    const std::string& getterFuncName, const std::string& setterFuncName)
 {
     const std::string includeGuardMacroName = "_IRR_GENERATED_WARP_REDUCE_PADDED_"+namePostfix+"_FUNCS_INCLUDED_";
 

@@ -41,7 +41,7 @@ class CGLSLFunctionGenerator
             EGT_VEC4,
             EGT_COUNT
         };
-        static std::string getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& tmpSharedMemName, const size_t& smemOffset=0u);
+        static std::string getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName);
 
         static uint32_t getNeededSharedElementsForBlockScan(const uint32_t& blockSize, const uint32_t& fixedSubgroupSize) {assert(false); return 0u;} //! TO IMPLEMENT THIS
         static inline uint32_t getNeededSharedElementsForBlockScan(const uint32_t& blockSize)
@@ -55,13 +55,14 @@ class CGLSLFunctionGenerator
             }
             return maxMemSize;
         }
-        static std::string getBlockInclusiveScanFunctionsPadded(const uint32_t& elementsToReduce, const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& tmpSharedMemName, const size_t& smemOffset=0u)
+        static std::string getBlockInclusiveScanFunctionsPadded(const uint32_t& elementsToReduce, const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType,
+                                                                const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName)
         {
             return "\n#error \"UNIMPLEMENTED\"\n";
         }
 
         //! TODO: Later
-        //static std::string getWarpReduceFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& tmpSharedMemName. const size_t& smemOffset=0u);
+        //static std::string getWarpReduceFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName);
 };
 
 }} // irr::video
