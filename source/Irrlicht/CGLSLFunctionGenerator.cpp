@@ -162,7 +162,7 @@ std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(IVideoCapab
             #extension GL_KHR_shader_subgroup_shuffle_relative: enable
             #extension GL_KHR_shader_subgroup_shuffle: enable
 
-            #ifdef GL_KHR_shader_subgroup_shuffle||GL_KHR_shader_subgroup_shuffle_relative
+            #if defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
                 #define SUBGROUP_SIZE gl_SubgroupSize
 
                 #ifdef GL_KHR_shader_subgroup_shuffle_relative
@@ -284,19 +284,27 @@ std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_
 
     sourceStr += getWarpPaddingFunctions()+getCommOpDefine(oper)+getTypeDef(dataType);
 
-    sourceStr += "\n#undef WARP_SCAN_SIZE\n#define WARP_SCAN_SIZE PROBABLE_SUBGROUP_SIZE\n";
+    sourceStr += R"==(
+#undef WARP_SCAN_SIZE
+#define WARP_SCAN_SIZE  PROBABLE_SUBGROUP_SIZE
+
+#undef PASTER2
+#undef PASTER3
+#define PASTER2(a,b)    a ## b
+#define PASTER3(a,b,c)  a ## b ## c
+                      )==";
 
     sourceStr += "\n#undef WARP_SCAN_FUNC_NAME\n#define WARP_SCAN_FUNC_NAME warp_incl_scan_padded"+namePostfix+"\n";
 
     sourceStr += "\n#undef WARP_SCAN_FUNC_NAME_SAFE\n#define WARP_SCAN_FUNC_NAME_SAFE warp_incl_scan_padded_safe"+namePostfix+"\n";
 
-    sourceStr += "\n#undef WARP_SCAN_FUNC_NAME_SIZED(W)\n#define WARP_SCAN_FUNC_NAME_SIZED warp_incl_scan_padded ## W ## "+namePostfix+"\n";
+    sourceStr += "\n#undef WARP_SCAN_FUNC_NAME_SIZED\n#define WARP_SCAN_FUNC_NAME_SIZED(W) PASTER3(warp_incl_scan_padded,W,"+namePostfix+")\n";
 
     sourceStr += "\n#undef GETTER\n#define GETTER(IDX) "+getterFuncName+"(IDX)\n";
     sourceStr += "\n#undef SETTER\n#define SETTER(IDX,VAL) "+setterFuncName+"(IDX,VAL)\n";
 
     sourceStr += R"==(
-//! Warning these functions will reduce across the entire warp under GL_KHR_shader_subgroup_arithmetic,GL_AMD_shader_ballot
+//! Warning these functions will reduce across the entire warp under GL_KHR_shader_subgroup_arithmetic and GL_AMD_shader_ballot
 TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx);
 
 // base case
@@ -306,11 +314,11 @@ TYPE WARP_SCAN_FUNC_NAME_SIZED(4u) (in TYPE val, in uint idx)
     return WARP_SCAN_FUNC_NAME (val,idx);
 #elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
     TYPE tmpA = val;
-    TYPE tmpB = subgroupShuffleUpEMUL(tmpA,1);
-    if (gl_ThreadInWarpNV>1)
+    TYPE tmpB = subgroupShuffleUpEMUL(tmpA,1u);
+    if (gl_ThreadInWarpNV>1u)
         tmpA = COMM_OP(tmpA,tmpB);
-    tmpB = subgroupShuffleUpEMUL(tmpA,2);
-    if (gl_ThreadInWarpNV>2)
+    tmpB = subgroupShuffleUpEMUL(tmpA,2u);
+    if (gl_ThreadInWarpNV>2u)
         tmpA = COMM_OP(tmpA,tmpB);
     return tmpA;
 #elif defined(GL_KHR_shader_subgroup_basic)
@@ -331,6 +339,12 @@ TYPE WARP_SCAN_FUNC_NAME_SIZED(4u) (in TYPE val, in uint idx)
 #undef WARP_INCL_SCAN_PADDED_DECL
 #define WARP_INCL_SCAN_PADDED_DECL(W)    TYPE WARP_SCAN_FUNC_NAME_SIZED(W) (in TYPE val, in uint idx)
 
+#define GET_LOWER_WARP_SCAN_FUNC_NAME(currentSize) PASTER2(GET_LOWER_WARP_SCAN_FUNC_NAME_,currentSize)
+#define GET_LOWER_WARP_SCAN_FUNC_NAME_8u WARP_SCAN_FUNC_NAME_SIZED(4u)
+#define GET_LOWER_WARP_SCAN_FUNC_NAME_16u WARP_SCAN_FUNC_NAME_SIZED(8u)
+#define GET_LOWER_WARP_SCAN_FUNC_NAME_32u WARP_SCAN_FUNC_NAME_SIZED(16u)
+#define GET_LOWER_WARP_SCAN_FUNC_NAME_64u WARP_SCAN_FUNC_NAME_SIZED(32u)
+
 #undef WARP_INCL_SCAN_PADDED_DEF
 #if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
     #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
@@ -340,23 +354,23 @@ TYPE WARP_SCAN_FUNC_NAME_SIZED(4u) (in TYPE val, in uint idx)
 #elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
     #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
     {\
-        TYPE tmpA = WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx); \
+        TYPE tmpA = GET_LOWER_WARP_SCAN_FUNC_NAME(W) (val,idx); \
         TYPE tmpB = subgroupShuffleUpEMUL(tmpA,W/2u); \
         if (gl_ThreadInWarpNV>(W/2u)) \
             tmpA = COMM_OP(tmpA,tmpB); \
-        return tmpA;
+        return tmpA; \
     }
 #elif defined(GL_KHR_shader_subgroup_basic)
     #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
     {\
-        SETTER(idx+(W/2u),COMM_OP(WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx),GETTER(idx+(W/2u)))); \
+        SETTER(idx+(W/2u),COMM_OP(GET_LOWER_WARP_SCAN_FUNC_NAME(W) (val,idx),GETTER(idx+(W/2u)))); \
         subgroupBarrier(); \
         return GETTER(idx); \
     }
 #else
     #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
     {\
-        SETTER(idx+(W/2u),COMM_OP(WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx),GETTER(idx+(W/2u)))); \
+        SETTER(idx+(W/2u),COMM_OP(GET_LOWER_WARP_SCAN_FUNC_NAME(W) (val,idx),GETTER(idx+(W/2u)))); \
         return GETTER(idx); \
     }
 #endif
@@ -385,7 +399,7 @@ TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx)
     #endif
 #elif defined(GL_AMD_shader_ballot)
     return COMM_OPInvocationsInclusiveScanAMD(val);
-#elif CONSTANT_PROBABLE_SUBGROUP_SIZE
+#elif defined(CONSTANT_PROBABLE_SUBGROUP_SIZE)
     return WARP_SCAN_FUNC_NAME_SIZED(WARP_SCAN_SIZE) (val,idx);
 #else
 	switch(WARP_SCAN_SIZE)
@@ -421,10 +435,33 @@ TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx)
                       )==";
 
     // undefine all that stuff
-    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED_DEF\n#undef WARP_INCL_SCAN_PADDED_DECL\n#undef SETTER\n#undef GETTER\n#undef WARP_SCAN_FUNC_NAME_SIZED\n#undef WARP_SCAN_FUNC_NAME_SAFE\n#undef WARP_SCAN_FUNC_NAME\n";
-    sourceStr += "\n#undef TYPE\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n";
+    sourceStr += R"==(
+#undef WARP_INCL_SCAN_PADDED_DEF
 
-    sourceStr += "\n#endif //"+includeGuardMacroName+"\n";
+#undef GET_LOWER_WARP_SCAN_FUNC_NAME
+#undef GET_LOWER_WARP_SCAN_FUNC_NAME_8u
+#undef GET_LOWER_WARP_SCAN_FUNC_NAME_16u
+#undef GET_LOWER_WARP_SCAN_FUNC_NAME_32u
+#undef GET_LOWER_WARP_SCAN_FUNC_NAME_64u
+
+#undef WARP_INCL_SCAN_PADDED_DECL
+#undef SETTER
+#undef GETTER
+#undef WARP_SCAN_FUNC_NAME_SIZED
+#undef WARP_SCAN_FUNC_NAME_SAFE
+#undef WARP_SCAN_FUNC_NAME
+
+#undef PASTER2
+#undef PASTER3
+
+#undef TYPE
+#undef COMM_OPInvocationsInclusiveScanAMD
+#undef subgroupInclusiveCOMM_OP
+#undef COMM_OP
+
+#endif // header guard
+                      )==";
+
     return sourceStr;
 }
 
