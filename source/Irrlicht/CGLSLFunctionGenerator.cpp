@@ -315,10 +315,10 @@ TYPE WARP_SCAN_FUNC_NAME_SIZED(4u) (in TYPE val, in uint idx)
 #elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
     TYPE tmpA = val;
     TYPE tmpB = subgroupShuffleUpEMUL(tmpA,1u);
-    if (gl_ThreadInWarpNV>1u)
+    if (gl_ThreadInWarpNV>=1u)
         tmpA = COMM_OP(tmpA,tmpB);
     tmpB = subgroupShuffleUpEMUL(tmpA,2u);
-    if (gl_ThreadInWarpNV>2u)
+    if (gl_ThreadInWarpNV>=2u)
         tmpA = COMM_OP(tmpA,tmpB);
     return tmpA;
 #elif defined(GL_KHR_shader_subgroup_basic)
@@ -356,7 +356,7 @@ TYPE WARP_SCAN_FUNC_NAME_SIZED(4u) (in TYPE val, in uint idx)
     {\
         TYPE tmpA = GET_LOWER_WARP_SCAN_FUNC_NAME(W) (val,idx); \
         TYPE tmpB = subgroupShuffleUpEMUL(tmpA,W/2u); \
-        if (gl_ThreadInWarpNV>(W/2u)) \
+        if (gl_ThreadInWarpNV>=(W/2u)) \
             tmpA = COMM_OP(tmpA,tmpB); \
         return tmpA; \
     }
