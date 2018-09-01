@@ -116,7 +116,7 @@ std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(IVideoCapab
     std::string retval = "\n#define GL_WARP_SIZE_NV ";
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-    if (reporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_group])
+    if (reporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_NV_shader_thread_group])
     {
         int32_t tmp;
         glGetIntegerv(GL_WARP_SIZE_NV,&tmp);
@@ -237,7 +237,7 @@ const char* glslTypeNames[CGLSLFunctionGenerator::EGT_COUNT] = {
     "vec4"
 };
 
-std::string getTypeDef(const CGLSLFunctionGenerator::EGT_COUNT& type)
+std::string getTypeDef(const CGLSLFunctionGenerator::E_GLSL_TYPE& type)
 {
     return std::string("\n#undef TYPE\n#define TYPE ")+glslTypeNames[type]+"\n";
 }
@@ -276,7 +276,7 @@ std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP&
 }
 
 std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType,
-                                                                        const std::string& namePostfix, const std::string& getterFunc, const std::string& setterFunc)
+                                                                        const std::string& namePostfix, const std::string& tmpSharedMemName, const size_t& smemOffset)
 {
     const std::string includeGuardMacroName = "_IRR_GENERATED_WARP_SCAN_PADDED_"+namePostfix+"_FUNCS_INCLUDED_";
 
@@ -284,176 +284,154 @@ std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_
 
     sourceStr += getWarpPaddingFunctions()+getCommOpDefine(oper)+getTypeDef(dataType);
 
-    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED\n#define WARP_INCL_SCAN_PADDED(W) TYPE warp_incl_scan_padded ## W ## (in uint idx)\n";
+    sourceStr += "\n#undef WARP_SCAN_SIZE\n#define WARP_SCAN_SIZE PROBABLE_SUBGROUP_SIZE\n";
+
+    sourceStr += "\n#undef WARP_SCAN_FUNC_NAME\n#define WARP_SCAN_FUNC_NAME warp_incl_scan_padded"+namePostfix+"\n";
+
+    sourceStr += "\n#undef WARP_SCAN_FUNC_NAME_SAFE\n#define WARP_SCAN_FUNC_NAME_SAFE warp_incl_scan_padded_safe"+namePostfix+"\n";
+
+    sourceStr += "\n#undef WARP_SCAN_FUNC_NAME_SIZED(W)\n#define WARP_SCAN_FUNC_NAME_SIZED warp_incl_scan_padded ## W ## "+namePostfix+"\n";
+
+    sourceStr += "\n#undef TMP_SMEM\n#define TMP_SMEM(IDX) "+tmpSharedMemName+"[(IDX)+"+std::to_string(smemOffset)+"]\n";
 
     sourceStr += R"==(
-#undef WARP_SCAN_SIZE
-#define WARP_SCAN_SIZE PROBABLE_SUBGROUP_SIZE
-
-//! safe function which will not reduce more of the warp than VARIABLE_SCAN_SZ
-TYPE warp_incl_scan_padded_safe(in uint VARIABLE_SCAN_SZ, in uint idx);
-
 //! Warning these functions will reduce across the entire warp under GL_KHR_shader_subgroup_arithmetic,GL_AMD_shader_ballot
-TYPE warp_incl_scan_padded(in uint idx);
+TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx);
 
-WARP_INCL_SCAN_PADDED(4)
+// base case
+TYPE WARP_SCAN_FUNC_NAME_SIZED(4u) (in TYPE val, in uint idx)
 {
 #if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
-    return warp_incl_scan_padded(idx);
+    return WARP_SCAN_FUNC_NAME (val,idx);
 #elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
-    TYPE tmpA = getter(idx);
+    TYPE tmpA = val;
     TYPE tmpB = subgroupShuffleUpEMUL(tmpA,1);
     if (gl_ThreadInWarpNV>1)
         tmpA = COMM_OP(tmpA,tmpB);
-    TYPE tmpB = subgroupShuffleUpEMUL(tmpA,2);
+    tmpB = subgroupShuffleUpEMUL(tmpA,2);
     if (gl_ThreadInWarpNV>2)
         tmpA = COMM_OP(tmpA,tmpB);
     return tmpA;
 #elif defined(GL_KHR_shader_subgroup_basic)
     subgroupBarrier();
-    setter(idx+1u,COMM_OP(getter(idx),getter(idx+1u)));
+    TMP_SMEM(idx+1u) = COMM_OP(TMP_SMEM(idx),TMP_SMEM(idx+1u));
     subgroupBarrier();
-    setter(idx+2u,COMM_OP(getter(idx),getter(idx+2u)));
+    TMP_SMEM(idx+2u) = COMM_OP(TMP_SMEM(idx),TMP_SMEM(idx+2u));
     subgroupBarrier();
-    return getter(idx);
+    return TMP_SMEM(idx);
 #else
-    setter(idx+1u,COMM_OP(getter(idx),getter(idx+1u)));
-    setter(idx+2u,COMM_OP(getter(idx),getter(idx+2u)));
-    return getter(idx);
-#endif
-}
-WARP_INCL_SCAN_PADDED(8)
-{
-#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
-    return warp_incl_scan_padded(idx);
-#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
-    TYPE tmpA = warp_incl_scan_padded4(idx);
-    TYPE tmpB = shuffleUpEMUL(tmpA,4,SUBGROUP_SIZE);
-    if (gl_ThreadInWarpNV>4)
-        tmpA = COMM_OP(tmpA,tmpB);
-    return tmpA;
-#elif defined(GL_KHR_shader_subgroup_basic)
-    setter(idx+4u,COMM_OP(warp_incl_scan_padded4(idx),getter(idx+4u)));
-    subgroupBarrier();
-    return getter(idx);
-#else
-    setter(idx+4u,COMM_OP(warp_incl_scan_padded4(idx),getter(idx+4u)));
-    return getter(idx);
-#endif
-}
-WARP_INCL_SCAN_PADDED(16)
-{
-#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
-    return warp_incl_scan_padded(idx);
-#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
-    TYPE tmpA = warp_incl_scan_padded8(idx);
-    TYPE tmpB = shuffleUpEMUL(tmpA,8u);
-    if (gl_ThreadInWarpNV>8u)
-        tmpA = COMM_OP(tmpA,tmpB);
-    return tmpA;
-#elif defined(GL_KHR_shader_subgroup_basic)
-    setter(idx+8u,COMM_OP(warp_incl_scan_padded8(idx),getter(idx+8u)));
-    subgroupBarrier();
-    return getter(idx);
-#else
-    setter(idx+8u,COMM_OP(warp_incl_scan_padded8(idx),getter(idx+8u)));
-    return getter(idx);
-#endif
-}
-WARP_INCL_SCAN_PADDED(32)
-{
-#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
-    return warp_incl_scan_padded(idx);
-#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
-    TYPE tmpA = warp_incl_scan_padded16u(idx);
-    TYPE tmpB = shuffleUpEMUL(tmpA,16);
-    if (gl_ThreadInWarpNV>16)
-        tmpA = COMM_OP(tmpA,tmpB);
-    return tmpA;
-#elif defined(GL_KHR_shader_subgroup_basic)
-    setter(idx+16u,COMM_OP(warp_incl_scan_padded16u(idx),getter(idx+16u)));
-    subgroupBarrier();
-    return getter(idx);
-#else
-    setter(idx+16u,COMM_OP(warp_incl_scan_padded16u(idx),getter(idx+16u)));
-    return getter(idx);
-#endif
-}
-WARP_INCL_SCAN_PADDED(64)
-{
-#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
-    return warp_incl_scan_padded(idx);
-#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
-    TYPE tmpA = warp_incl_scan_padded32u(idx);
-    TYPE tmpB = shuffleUpEMUL(tmpA,32);
-    if (gl_ThreadInWarpNV>32)
-        tmpA = COMM_OP(tmpA,tmpB);
-    return tmpA;
-#elif defined(GL_KHR_shader_subgroup_basic)
-    setter(idx+32u,COMM_OP(warp_incl_scan_padded32u(idx),getter(idx+32u)));
-    subgroupBarrier();
-    return getter(idx);
-#else
-    setter(idx+32u,COMM_OP(warp_incl_scan_padded32u(idx),getter(idx+32u)));
-    return getter(idx);
+    TMP_SMEM(idx+1u) = COMM_OP(TMP_SMEM(idx),TMP_SMEM(idx+1u));
+    TMP_SMEM(idx+2u) = COMM_OP(TMP_SMEM(idx),TMP_SMEM(idx+2u));
+    return TMP_SMEM(idx);
 #endif
 }
 
-TYPE warp_incl_scan_padded(in uint idx)
+// recursive
+#undef WARP_INCL_SCAN_PADDED_DECL
+#define WARP_INCL_SCAN_PADDED_DECL(W)    TYPE WARP_SCAN_FUNC_NAME_SIZED(W) (in TYPE val, in uint idx)
+
+#undef WARP_INCL_SCAN_PADDED_DEF
+#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
+    #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
+    {\
+        return WARP_SCAN_FUNC_NAME (val,idx); \
+    }
+#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
+    #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
+    {\
+        TYPE tmpA = WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx); \
+        TYPE tmpB = subgroupShuffleUpEMUL(tmpA,W/2u); \
+        if (gl_ThreadInWarpNV>(W/2u)) \
+            tmpA = COMM_OP(tmpA,tmpB); \
+        return tmpA;
+    }
+#elif defined(GL_KHR_shader_subgroup_basic)
+    #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
+    {\
+        TMP_SMEM(idx+(W/2u)) = COMM_OP(WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx),TMP_SMEM(idx+(W/2u))); \
+        subgroupBarrier(); \
+        return TMP_SMEM(idx); \
+    }
+#else
+    #define WARP_INCL_SCAN_PADDED_DEF(W) WARP_INCL_SCAN_PADDED_DECL(W) \
+    {\
+        TMP_SMEM(idx+(W/2u)) = COMM_OP(WARP_SCAN_FUNC_NAME_SIZED(W/2u) (idx),TMP_SMEM(idx+(W/2u))); \
+        return TMP_SMEM(idx); \
+    }
+#endif
+
+
+WARP_INCL_SCAN_PADDED_DEF(8u)
+
+WARP_INCL_SCAN_PADDED_DEF(16u)
+
+WARP_INCL_SCAN_PADDED_DEF(32u)
+
+WARP_INCL_SCAN_PADDED_DEF(64u)
+
+
+TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx)
 {
 #ifdef GL_KHR_shader_subgroup_arithmetic
-    return subgroupInclusiveCOMM_OP(getter(idx));
+    return subgroupInclusiveCOMM_OP(val);
 #elif defined(GL_NV_shader_thread_shuffle)
     #if SUBGROUP_SIZE==32u
-        return warp_incl_scan_padded32u(idx);
+        return WARP_SCAN_FUNC_NAME_SIZED(32u) (val,idx);
     #elif SUBGROUP_SIZE==16u
-        return warp_incl_scan_padded16u(idx);
+        return WARP_SCAN_FUNC_NAME_SIZED(16u) (val,idx);
     #else
         #error "What size are your NV warps!?"
     #endif
 #elif defined(GL_AMD_shader_ballot)
-    return COMM_OPInvocationsInclusiveScanAMD(getter(idx));
+    return COMM_OPInvocationsInclusiveScanAMD(val);
 #else
 	switch(WARP_SCAN_SIZE)
 	{
 		case 8u:
-			return warp_incl_scan_padded8u(idx);
+			return WARP_SCAN_FUNC_NAME_SIZED(8u) (val,idx);
             break;
 		case 16u:
-			return warp_incl_scan_padded16u(idx);
+			return WARP_SCAN_FUNC_NAME_SIZED(16u) (val,idx);
             break;
 		case 32u:
-			return warp_incl_scan_padded32u(idx);
+			return WARP_SCAN_FUNC_NAME_SIZED(32u) (val,idx);
             break;
 		case 64u:
-			return warp_incl_scan_padded64u(idx);
+			return WARP_SCAN_FUNC_NAME_SIZED(64u) (val,idx);
             break;
 	}
 
-    return warp_incl_scan_padded4(idx);
+    return WARP_SCAN_FUNC_NAME_SIZED(4u) (val,idx);
 #endif
 }
 
-// optimized for a constant/dynamically uniform VARIABLE_SCAN_SZ
-
-#undef WARP_INCL_SCAN_PADDED_DEFAULT
-#ifdef CONSTANT_PROBABLE_SUBGROUP_SIZE
-    #define WARP_INCL_SCAN_PADDED_DEFAULT(_IDX) warp_incl_scan_padded ## WARP_SCAN_SIZE ## (_IDX)
-#else
-    #define WARP_INCL_SCAN_PADDED_DEFAULT(_IDX) warp_incl_scan_padded(_IDX)
-#endif // CONSTANT_PROBABLE_SUBGROUP_SIZE
+// COMM_OP_IDENTITY will be user provided
+#ifdef COMM_OP_IDENTITY
+    //! safe function which will not reduce more of the warp than VARIABLE_SCAN_SZ
+    // optimized for a constant/dynamically uniform VARIABLE_SCAN_SZ
+    TYPE WARP_SCAN_FUNC_NAME_SAFE (TYPE val, in uint idx,in uint VARIABLE_SCAN_SZ)
+    {
+        val = idx<VARIABLE_SCAN_SZ ? val:COMM_OP_IDENTITY;
+        return WARP_SCAN_FUNC_NAME (val,idx);
+    }
+#endif
                       )==";
 
+    sourceStr += "\n#ifdef CONSTANT_PROBABLE_SUBGROUP_SIZE\n    #define WARP_INCL_SCAN_PADDED_DEFAULT"+namePostfix+
+                    "(VAL,_IDX) WARP_SCAN_FUNC_NAME ## WARP_SCAN_SIZE (VAL,_IDX)\n#else\n    #define WARP_INCL_SCAN_PADDED_DEFAULT"+namePostfix+
+                    "(VAL,_IDX) WARP_SCAN_FUNC_NAME (VAL,_IDX)\n#endif // CONSTANT_PROBABLE_SUBGROUP_SIZE\n";
+
     // undefine all that stuff
-    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED\n#undef WARP_INCL_SCAN_PADDED_DEFAULT\n"; //! GET RID OF THESE / RENAME?
+    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED_DEF\n#undef WARP_INCL_SCAN_PADDED_DECL\n#undef WARP_SCAN_FUNC_NAME_SIZED\n#undef WARP_SCAN_FUNC_NAME_SAFE\n#undef WARP_SCAN_FUNC_NAME\n#undef TMP_SMEM\n";
     sourceStr += "\n#undef TYPE\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n";
 
     sourceStr += "\n#endif //"+includeGuardMacroName+"\n";
     return sourceStr;
 }
 
+/** TODO: Much later
 std::string CGLSLFunctionGenerator::getWarpReduceFunctionsPadded(   const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType,
-                                                                    const std::string& namePostfix, const std::string& getterFunc, const std::string& setterFunc)
+                                                                    const std::string& namePostfix, const std::string& tmpSharedMemName, const size_t& smemOffset)
 {
     const std::string includeGuardMacroName = "_IRR_GENERATED_WARP_REDUCE_PADDED_"+namePostfix+"_FUNCS_INCLUDED_";
 
@@ -470,8 +448,9 @@ std::string CGLSLFunctionGenerator::getWarpReduceFunctionsPadded(   const E_GLSL
     sourceStr += "\n#endif //"+includeGuardMacroName+"\n";
     return sourceStr;
 }
+*/
 
-/** TODO
-Get the correct amount of shared memory to declare
+/** TODO: NOW
 Implement a getBlockReduceFunctionsPadded and getBlockScanFunctionsPadded
+Get the correct amount of shared memory to declare
 .*/
