@@ -1,4 +1,5 @@
 #include "CGLSLFunctionGenerator.h"
+#include "COpenGLExtensionHandler.h"
 
 using namespace irr;
 using namespace video;
@@ -110,25 +111,113 @@ R"(    skinnedPos = vxPos;
     return sourceStr;
 }
 
-std::string CGLSLFunctionGenerator::getWarpScanPaddingFunctions()
+std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(IVideoCapabilityReporter* reporter)
+{
+    std::string retval = "\n#define GL_WARP_SIZE_NV ";
+
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+    if (reporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_group])
+    {
+        int32_t tmp;
+        glGetIntegerv(GL_WARP_SIZE_NV,&tmp);
+        retval += std::to_string(tmp)+"u\n";
+    }
+#endif // _IRR_COMPILE_WITH_OPENGL_
+#ifdef _IRR_COMPILE_WITH_VULKAN_
+    else if (reporter->getDriverType()==EDT_VULKAN)
+    {
+        //! something
+    }
+#endif // _IRR_COMPILE_WITH_VULKAN_
+#if defined(_IRR_COMPILE_WITH_OPENGL_)||defined(_IRR_COMPILE_WITH_VULKAN_)
+    else
+#endif
+        retval += "gl_WarpSizeNV\n";
+
+    retval += R"===(
+#extension GL_KHR_shader_subgroup_arithmetic: enable
+
+#ifdef GL_KHR_shader_subgroup_arithmetic
+    #define SUBGROUP_SIZE gl_SubgroupSize
+#else
+    #extension GL_NV_shader_thread_shuffle: enable
+
+    #ifdef GL_NV_shader_thread_shuffle
+        #extension GL_NV_shader_thread_group: enable
+
+        #ifdef GL_NV_shader_thread_group
+            #define SUBGROUP_SIZE GL_WARP_SIZE_NV
+        #else
+            #define SUBGROUP_SIZE 32u
+        #endif
+        #define CONSTANT_SUBGROUP_SIZE
+    #else
+        #extension GL_AMD_shader_ballot: enable
+
+        #ifdef GL_AMD_shader_ballot
+            #define SUBGROUP_SIZE gl_SubGroupSizeARB
+        #else
+            #extension GL_KHR_shader_subgroup_shuffle: enable
+
+            #ifdef GL_KHR_shader_subgroup_shuffle
+                #define SUBGROUP_SIZE gl_SubgroupSize
+            #else
+                #extension GL_NV_shader_thread_group: enable
+
+                #ifdef GL_NV_shader_thread_group
+                    #define SUBGROUP_SIZE GL_WARP_SIZE_NV
+                    #define CONSTANT_SUBGROUP_SIZE
+                #else
+                    #extension GL_ARB_shader_ballot: enable
+
+                    #ifdef GL_ARB_shader_ballot
+                        #define SUBGROUP_SIZE gl_SubGroupSizeARB
+                    #else
+                        #extension GL_KHR_shader_subgroup_basic: enable
+
+                        #ifdef GL_KHR_shader_subgroup_basic
+                            #define SUBGROUP_SIZE gl_SubgroupSize
+                        #endif // KHR_shader_subgroup_basic
+                    #endif // ARB_shader_ballot
+                #endif // NV_shader_thread_group
+            #endif // KHR_shader_subgroup_shuffle
+        #endif // AMD_shader_ballot
+    #endif // NV_shader_thread_shuffle
+#endif // KHR_shader_subgroup_arithmetic
+
+#ifdef SUBGROUP_SIZE
+    #define PROBABLE_SUBGROUP_SIZE SUBGROUP_SIZE
+    #ifdef CONSTANT_SUBGROUP_SIZE
+        #define CONSTANT_PROBABLE_SUBGROUP_SIZE
+    #endif
+#else
+    #define PROBABLE_SUBGROUP_SIZE 4u //only size we can guarantee on Intel, unless someone can prove to me that Intel uses SIMD16 mode always for Compute
+    #define CONSTANT_PROBABLE_SUBGROUP_SIZE
+#endif // SUBGROUP_SIZE
+                    )===";
+
+    return retval;
+}
+
+std::string CGLSLFunctionGenerator::getWarpPaddingFunctions()
 {
     return R"===(
-#ifndef _IRR_GENERATED_WARP_SCAN_PAD_FUNCS_INCLUDED_
-#define _IRR_GENERATED_WARP_SCAN_PAD_FUNCS_INCLUDED_
-uint scan_warpPadAddress(in uint addr, in uint width) {return addr+((addr>>1u)&(~(width/2u-1u)));}
+#ifndef _IRR_GENERATED_WARP_PAD_FUNCS_INCLUDED_
+#define _IRR_GENERATED_WARP_PAD_FUNCS_INCLUDED_
+uint warpPadAddress(in uint addr, in uint width) {return addr+((addr>>1u)&(~(width/2u-1u)));}
 
-uint scan_warpPadAddress4(in uint addr) {return addr+((addr>>1u)&0xfffffffeu);}
-uint scan_warpPadAddress8(in uint addr) {return addr+((addr>>1u)&0xfffffffcu);}
-uint scan_warpPadAddress16(in uint addr) {return addr+((addr>>1u)&0xfffffff8u);}
-uint scan_warpPadAddress32(in uint addr) {return addr+((addr>>1u)&0xfffffff0u);}
-uint scan_warpPadAddress64(in uint addr) {return addr+((addr>>1u)&0xffffffe0u);}
-uint scan_warpPadAddress128(in uint addr) {return addr+((addr>>1u)&0xffffffc0u);}
-uint scan_warpPadAddress256(in uint addr) {return addr+((addr>>1u)&0xffffff80u);}
-uint scan_warpPadAddress512(in uint addr) {return addr+((addr>>1u)&0xffffff00u);}
-uint scan_warpPadAddress1024(in uint addr) {return addr+((addr>>1u)&0xfffffe00u);}
-uint scan_warpPadAddress2048(in uint addr) {return addr+((addr>>1u)&0xfffffc00u);}
-uint scan_warpPadAddress4096(in uint addr) {return addr+((addr>>1u)&0xfffff800u);}
-#endif //_IRR_GENERATED_WARP_SCAN_PAD_FUNCS_INCLUDED_
+uint warpPadAddress4(in uint addr) {return addr+((addr>>1u)&0xfffffffeu);}
+uint warpPadAddress8(in uint addr) {return addr+((addr>>1u)&0xfffffffcu);}
+uint warpPadAddress16(in uint addr) {return addr+((addr>>1u)&0xfffffff8u);}
+uint warpPadAddress32(in uint addr) {return addr+((addr>>1u)&0xfffffff0u);}
+uint warpPadAddress64(in uint addr) {return addr+((addr>>1u)&0xffffffe0u);}
+uint warpPadAddress128(in uint addr) {return addr+((addr>>1u)&0xffffffc0u);}
+uint warpPadAddress256(in uint addr) {return addr+((addr>>1u)&0xffffff80u);}
+uint warpPadAddress512(in uint addr) {return addr+((addr>>1u)&0xffffff00u);}
+uint warpPadAddress1024(in uint addr) {return addr+((addr>>1u)&0xfffffe00u);}
+uint warpPadAddress2048(in uint addr) {return addr+((addr>>1u)&0xfffffc00u);}
+uint warpPadAddress4096(in uint addr) {return addr+((addr>>1u)&0xfffff800u);}
+#endif //_IRR_GENERATED_WARP_PAD_FUNCS_INCLUDED_
             )===";
 }
 
@@ -139,30 +228,35 @@ const char* glslTypeNames[CGLSLFunctionGenerator::EGT_COUNT] = {
     "vec4"
 };
 
+std::string getTypeDef(const CGLSLFunctionGenerator::EGT_COUNT& type)
+{
+    return std::string("\n#undef TYPE\n#define TYPE ")+glslTypeNames[type]+"\n";
+}
+
 std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP& oper)
 {
     switch (oper)
     {
         case CGLSLFunctionGenerator::EGCO_ADD:
-            return "\n#define SCAN_OP(X,Y) (X+Y)\n";
+            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X+Y)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_AND:
-            return "\n#define SCAN_OP(X,Y) (X&Y)\n";
+            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X&Y)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_MAX:
-            return "\n#define SCAN_OP(X,Y) max(X,Y)\n";
+            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) max(X,Y)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_MIN:
-            return "\n#define SCAN_OP(X,Y) min(X,Y)\n";
+            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) min(X,Y)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_MUL:
-            return "\n#define SCAN_OP(X,Y) (X*Y)\n";
+            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X*Y)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_OR:
-            return "\n#define SCAN_OP(X,Y) (X|Y)\n";
+            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X|Y)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_XOR:
-            return "\n#define SCAN_OP(X,Y) (X^Y)\n";
+            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X^Y)\n";
             break;
         default:
             return "";
@@ -179,9 +273,73 @@ std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_
 
     std::string sourceStr = "\n#ifndef "+includeGuardMacroName+"\n#define "+includeGuardMacroName+"\n";
 
-    sourceStr += getWarpScanPaddingFunctions();
+    sourceStr += getWarpPaddingFunctions()+getCommOpDefine(oper)+getTypeDef(dataType);
 
-    //sourceStr += "\n#undef SCAN_OP\n";
+    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED\n#define WARP_INCL_SCAN_PADDED(W) TYPE warp_incl_scan_padded ## W(in uint idx)\n";
+
+    sourceStr += R"==(
+WARP_INCL_SCAN_PADDED(4)
+{
+    subgroupBarrier();
+    setter(idx+1u,COMM_OP(getter(idx),getter(idx+1u)));
+    subgroupBarrier();
+    setter(idx+2u,COMM_OP(getter(idx),getter(idx+2u)));
+    subgroupBarrier();
+    return getter(idx);
+}
+WARP_INCL_SCAN_PADDED(8)
+{
+    setter(idx+4u,COMM_OP(warp_incl_scan_padded4(idx),getter(idx+4u)));
+    subgroupBarrier();
+    return getter(idx);
+}
+WARP_INCL_SCAN_PADDED(16)
+{
+    setter(idx+8u,COMM_OP(warp_incl_scan_padded8(idx),getter(idx+8u)));
+    subgroupBarrier();
+    return getter(idx);
+}
+WARP_INCL_SCAN_PADDED(32)
+{
+    setter(idx+16u,COMM_OP(warp_incl_scan_padded16(idx),getter(idx+16u)));
+    subgroupBarrier();
+    return getter(idx);
+}
+WARP_INCL_SCAN_PADDED(64)
+{
+    setter(idx+32u,COMM_OP(warp_incl_scan_padded32(idx),getter(idx+32u)));
+    subgroupBarrier();
+    return getter(idx);
+}
+
+// optimized for a constant/dynamically uniform VARIABLE_SCAN_SZ
+TYPE warp_incl_scan_padded(in uint VARIABLE_SCAN_SZ, in uint idx)
+{
+	switch(VARIABLE_SCAN_SZ)
+	{
+		case 8u:
+			return warp_incl_scan_padded8(idx);
+            break;
+		case 16u:
+			return warp_incl_scan_padded16(idx);
+            break;
+		case 32u:
+			return warp_incl_scan_padded32(idx);
+            break;
+		case 64u:
+			return warp_incl_scan_padded64(idx);
+            break;
+	}
+
+    return warp_incl_scan_padded4(idx);
+}
+
+#ifdef
+                      )==";
+
+    // undefine all that stuff
+    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED\n";
+    sourceStr += "\n#undef TYPE\n#undef COMM_OP\n";
 
     sourceStr += "\n#endif //"+includeGuardMacroName+"\n";
     return sourceStr;
@@ -194,10 +352,19 @@ std::string CGLSLFunctionGenerator::getWarpReduceFunctionsPadded(   const E_GLSL
 
     std::string sourceStr = "\n#ifndef "+includeGuardMacroName+"\n#define "+includeGuardMacroName+"\n";
 
-    sourceStr += getWarpScanPaddingFunctions();
+    sourceStr += getWarpPaddingFunctions()+getCommOpDefine(oper)+getTypeDef(dataType);
 
-    //sourceStr += "\n#undef SCAN_OP\n";
+    sourceStr += R"==(
+                      )==";
+
+    // undefine all that stuff
+    sourceStr += "\n#undef TYPE\n#undef COMM_OP\n";
 
     sourceStr += "\n#endif //"+includeGuardMacroName+"\n";
     return sourceStr;
 }
+
+/** TODO
+Get the correct amount of shared memory to declare
+Implement a getBlockReduceFunctionsPadded and getBlockScanFunctionsPadded
+.*/

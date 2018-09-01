@@ -2,6 +2,7 @@
 #define __IRR_C_GLSL_FUNCTION_GENERATOR_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
+#include "IVideoCapabilityReporter.h"
 
 #include <string>
 #include <cstdint>
@@ -14,6 +15,8 @@ class CGLSLFunctionGenerator
         CGLSLFunctionGenerator() = delete;
     public:
         static std::string getLinearSkinningFunction(const uint32_t& maxBoneInfluences = 4u);
+
+        static std::string getReduceAndScanExtensionEnables(IVideoCapabilityReporter* reporter);
 
         static std::string getWarpScanPaddingFunctions();
         enum E_GLSL_COMMUTATIVE_OP
