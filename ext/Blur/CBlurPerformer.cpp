@@ -31,6 +31,9 @@ vec3 decodeRgb(uvec2 _rgb)
 )XDDD";
 constexpr const char* CS_BLUR_SRC = R"XDDD(
 #version 430 core
+
+%s
+
 #define PS_SIZE %u // ACTUAL_SIZE padded to PoT
 #define ACTUAL_SIZE %u
 #define ACTUAL_SIZE_X %u
@@ -45,9 +48,12 @@ layout(local_size_x = WG_SIZE) in;
 #define LOG_NUM_BANKS 5
 #define CONFLICT_FREE_OFFSET(n) ((n) >> LOG_NUM_BANKS)
 
+#define BARRIER barrier()
+/* If we have issues then use this define
 #define BARRIER \
     memoryBarrierShared();\
     barrier()
+*/
 
 layout(std430, binding = 0) restrict buffer Samples {
     uvec2 samples[];
@@ -151,7 +157,7 @@ void loadFromGmem(uint _inStartIdx, uint _tid)
     );
     storeShared(bi + bankOffsetB,
 	    (bi < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + SSBO_OUT_OFFSET + bi]) : vec3(0)
-    );   
+    );
 }
 void exPsumInSmem()
 {
@@ -159,11 +165,12 @@ void exPsumInSmem()
 
     %s // here goes unrolled upsweep loop
 
-    if (LC_IDX == 0) { storeShared(PS_SIZE-1 + CONFLICT_FREE_OFFSET(PS_SIZE-1), vec3(0)); }
-    memoryBarrierShared();
-    barrier();
+    if (LC_IDX == 0) { storeShared(PS_SIZE-1 + CONFLICT_FREE_OFFSET(PS_SIZE-1), vec3(0)); } // ARE YOU WRITING TO THE SHARED MEMORY LOCATION YOU "OWN" ?
+    BARRIER;
 
     %s // here goes unrolled downsweep loop
+
+    BARRIER;
 }
 
 // WARNING: calculates resulting address (this function do NOT expect to get address from getAddr())
@@ -204,7 +211,7 @@ void outputFunc(uint _tid)
     if (_tid >= ACTUAL_SIZE)
         return;
 
-    uvec2 IDX = 
+    uvec2 IDX =
 #if FINAL_PASS
     uvec2(gl_WorkGroupID.y, _tid);
 #else
@@ -233,19 +240,14 @@ void main()
     {
         exPsumInSmem();
 
-        memoryBarrierShared();
-        barrier();
-
         vec3 blurred[SUB_THR_CNT];
         %s // here goes blur() calls
 
-        barrier();
+        BARRIER;
 
         %s // here goes (local array)->(SMEM) output loop
-    
-        memoryBarrierShared();
-        barrier();
     }
+    BARRIER;
     %s // here goes output loop
 }
 )XDDD";
@@ -385,7 +387,7 @@ void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize, bool _createGpuS
     if (!_createGpuStuff)
         return;
 
-    std::tie(m_blurGeneralCs[0], m_blurGeneralCs[1]) = makeShaders(m_outSize, m_passesPerAxisNum);
+    std::tie(m_blurGeneralCs[0], m_blurGeneralCs[1]) = makeShaders(m_driver, m_outSize, m_passesPerAxisNum);
 
     if (!m_isCustomUbo)
         updateUBO();
@@ -421,8 +423,11 @@ CBlurPerformer::~CBlurPerformer()
     deleteShaders();
 }
 
-bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, int _finalPass)
+bool CBlurPerformer::genBlurPassCs(char* _out, video::IVideoDriver* _driver, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, int _finalPass)
 {
+    std::string scan_warp = video::CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(_driver)+video::CGLSLFunctionGenerator::getWarpPaddingFunctions()+
+                            video::CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(video::CGLSLFunctionGenerator::EGCO_ADD,video::CGLSLFunctionGenerator::EGT_VEC3, "blur","loadShared","storeShared");
+
     const uint32_t SIM_THREADS_NUM = (_axisSize + s_MAX_WORK_GROUP_SIZE-1u) / s_MAX_WORK_GROUP_SIZE;
 
     const char loadFromGmem_fmt[] = "for (uint i = 0; i < %u; ++i) loadFromGmem(IN_START_IDX, LC_IDX + i*WG_SIZE);\n";
@@ -485,6 +490,7 @@ bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _axisSi
     }
 
     return snprintf(_out, _bufSize, CS_BLUR_SRC,
+        scan_warp.c_str(),
         pot,
         _axisSize,
         _outTexSize.X,
@@ -568,11 +574,11 @@ void CBlurPerformer::updateUBO()
     updateUBO(mem);
 }
 
-auto CBlurPerformer::makeShaders(const core::vector2d<uint32_t>& _outSize, uint32_t _passesPerAxis) -> tuple2xu32
+auto CBlurPerformer::makeShaders(video::IVideoDriver* _driver, const core::vector2d<uint32_t>& _outSize, uint32_t _passesPerAxis) -> tuple2xu32
 {
     uint32_t blurx{}, blury{};
 
-    const size_t bufSize = strlen(CS_BLUR_SRC) + strlen(CS_CONVERSIONS) + 10000u;
+    const size_t bufSize = strlen(CS_BLUR_SRC) + strlen(CS_CONVERSIONS) + 40000u;
     char* src = (char*)malloc(bufSize);
 
     auto doCleaning = [&, blurx, blury, src]() {
@@ -582,11 +588,12 @@ auto CBlurPerformer::makeShaders(const core::vector2d<uint32_t>& _outSize, uint3
         return tuple2xu32(0u, 0u);
     };
 
-    if (!genBlurPassCs(src, bufSize, _outSize.X, _outSize, _passesPerAxis, 0))
+    if (!genBlurPassCs(src, _driver, bufSize, _outSize.X, _outSize, _passesPerAxis, 0))
         return doCleaning();
+
     blurx = createComputeShader(src);
 
-    if (!genBlurPassCs(src, bufSize, _outSize.Y, _outSize, _passesPerAxis, 1))
+    if (!genBlurPassCs(src, _driver, bufSize, _outSize.Y, _outSize, _passesPerAxis, 1))
         return doCleaning();
     blury = createComputeShader(src);
 
