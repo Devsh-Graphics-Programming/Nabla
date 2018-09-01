@@ -71,8 +71,6 @@ namespace irr
             //! supported by the gfx adapter.
             video::IVideoModeList* getVideoModeList();
 
-            virtual uint16_t retrieveDisplayRefreshRate() const;
-
             //! Notifies the device, that it has been resized
             void OnResized();
 

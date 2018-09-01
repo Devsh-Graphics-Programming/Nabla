@@ -90,8 +90,6 @@ namespace irr
                     return EIDT_CONSOLE;
             }
 
-            virtual uint16_t retrieveDisplayRefreshRate() const { return 0u; }
-
             void addPostPresentText(int16_t X, int16_t Y, const wchar_t *text);
 
             //! Implementation of the win32 console mouse cursor

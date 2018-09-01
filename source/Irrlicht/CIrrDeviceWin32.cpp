@@ -1409,16 +1409,6 @@ video::IVideoModeList* CIrrDeviceWin32::getVideoModeList()
 	return VideoModeList;
 }
 
-uint16_t CIrrDeviceWin32::retrieveDisplayRefreshRate() const
-{
-    DEVMODEA dm;
-    dm.dmSize = sizeof(DEVMODE);
-    dm.dmDriverExtra = 0;
-    if (!EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm))
-        return 0u;
-    return dm.dmDisplayFrequency;
-}
-
 typedef BOOL (WINAPI *PGPI)(DWORD, DWORD, DWORD, DWORD, PDWORD);
 // Needed for old windows apis
 // depending on the SDK version and compilers some defines might be available

@@ -1607,21 +1607,6 @@ video::IVideoModeList* CIrrDeviceLinux::getVideoModeList()
 	return VideoModeList;
 }
 
-uint16_t CIrrDeviceLinux::retrieveDisplayRefreshRate() const
-{
-#ifdef _IRR_LINUX_X11_RANDR_
-    Display *disp = XOpenDisplay(NULL);
-    Window root = RootWindow(disp, 0);
-
-    XRRScreenConfiguration* conf = XRRGetScreenInfo(disp, root);
-    uint16_t rate = XRRConfigCurrentRate(conf);
-
-    return rate;
-#else
-    return 0u;
-#endif // _IRR_LINUX_X11_RANDR_
-}
-
 //! Minimize window
 void CIrrDeviceLinux::minimizeWindow()
 {
