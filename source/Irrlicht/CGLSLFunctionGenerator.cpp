@@ -151,16 +151,25 @@ std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(IVideoCapab
             #define SUBGROUP_SIZE 32u
         #endif
         #define CONSTANT_SUBGROUP_SIZE
+
+        #define subgroupShuffleUpEMUL(VAL,DELTA) shuffleUpNV((VAL),(DELTA),SUBGROUP_SIZE)
     #else
         #extension GL_AMD_shader_ballot: enable
 
         #ifdef GL_AMD_shader_ballot
             #define SUBGROUP_SIZE gl_SubGroupSizeARB
         #else
+            #extension GL_KHR_shader_subgroup_shuffle_relative: enable
             #extension GL_KHR_shader_subgroup_shuffle: enable
 
-            #ifdef GL_KHR_shader_subgroup_shuffle
+            #ifdef GL_KHR_shader_subgroup_shuffle||GL_KHR_shader_subgroup_shuffle_relative
                 #define SUBGROUP_SIZE gl_SubgroupSize
+
+                #ifdef GL_KHR_shader_subgroup_shuffle_relative
+                    #define subgroupShuffleUpEMUL(VAL,DELTA) subgroupShuffleUp((VAL),(DELTA))
+                #else
+                    #define subgroupShuffleUpEMUL(VAL,DELTA) subgroupShuffle((VAL),gl_SubgroupInvocationID-(DELTA))
+                #endif
             #else
                 #extension GL_NV_shader_thread_group: enable
 
@@ -238,25 +247,25 @@ std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP&
     switch (oper)
     {
         case CGLSLFunctionGenerator::EGCO_ADD:
-            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X+Y)\n";
+            return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)+(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveAdd(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) addInvocationsInclusiveScanAMD(val)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_AND:
-            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X&Y)\n";
+            return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)&(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveAnd(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) andInvocationsInclusiveScanAMD(val)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_MAX:
-            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) max(X,Y)\n";
+            return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) max(X,Y)\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveMax(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) maxInvocationsInclusiveScanAMD(val)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_MIN:
-            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) min(X,Y)\n";
-            break;
+            return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) min(X,Y)\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveMin(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) minInvocationsInclusiveScanAMD(val)\n";
+            break;/*
         case CGLSLFunctionGenerator::EGCO_MUL:
-            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X*Y)\n";
-            break;
+            return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)*(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveMul(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) !?!?!?!??!(val)\n";
+            break;*/
         case CGLSLFunctionGenerator::EGCO_OR:
-            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X|Y)\n";
+            return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)|(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveOr(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) orInvocationsInclusiveScanAMD(val)\n";
             break;
         case CGLSLFunctionGenerator::EGCO_XOR:
-            return "\n#undef COMM_OP\n#define COMM_OP(X,Y) (X^Y)\n";
+            return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)^(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveXor(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) xorInvocationsInclusiveScanAMD(val)\n";
             break;
         default:
             return "";
@@ -275,71 +284,169 @@ std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_
 
     sourceStr += getWarpPaddingFunctions()+getCommOpDefine(oper)+getTypeDef(dataType);
 
-    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED\n#define WARP_INCL_SCAN_PADDED(W) TYPE warp_incl_scan_padded ## W(in uint idx)\n";
+    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED\n#define WARP_INCL_SCAN_PADDED(W) TYPE warp_incl_scan_padded ## W ## (in uint idx)\n";
 
     sourceStr += R"==(
+#undef WARP_SCAN_SIZE
+#define WARP_SCAN_SIZE PROBABLE_SUBGROUP_SIZE
+
+//! safe function which will not reduce more of the warp than VARIABLE_SCAN_SZ
+TYPE warp_incl_scan_padded_safe(in uint VARIABLE_SCAN_SZ, in uint idx);
+
+//! Warning these functions will reduce across the entire warp under GL_KHR_shader_subgroup_arithmetic,GL_AMD_shader_ballot
+TYPE warp_incl_scan_padded(in uint idx);
+
 WARP_INCL_SCAN_PADDED(4)
 {
+#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
+    return warp_incl_scan_padded(idx);
+#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
+    TYPE tmpA = getter(idx);
+    TYPE tmpB = subgroupShuffleUpEMUL(tmpA,1);
+    if (gl_ThreadInWarpNV>1)
+        tmpA = COMM_OP(tmpA,tmpB);
+    TYPE tmpB = subgroupShuffleUpEMUL(tmpA,2);
+    if (gl_ThreadInWarpNV>2)
+        tmpA = COMM_OP(tmpA,tmpB);
+    return tmpA;
+#elif defined(GL_KHR_shader_subgroup_basic)
     subgroupBarrier();
     setter(idx+1u,COMM_OP(getter(idx),getter(idx+1u)));
     subgroupBarrier();
     setter(idx+2u,COMM_OP(getter(idx),getter(idx+2u)));
     subgroupBarrier();
     return getter(idx);
+#else
+    setter(idx+1u,COMM_OP(getter(idx),getter(idx+1u)));
+    setter(idx+2u,COMM_OP(getter(idx),getter(idx+2u)));
+    return getter(idx);
+#endif
 }
 WARP_INCL_SCAN_PADDED(8)
 {
+#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
+    return warp_incl_scan_padded(idx);
+#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
+    TYPE tmpA = warp_incl_scan_padded4(idx);
+    TYPE tmpB = shuffleUpEMUL(tmpA,4,SUBGROUP_SIZE);
+    if (gl_ThreadInWarpNV>4)
+        tmpA = COMM_OP(tmpA,tmpB);
+    return tmpA;
+#elif defined(GL_KHR_shader_subgroup_basic)
     setter(idx+4u,COMM_OP(warp_incl_scan_padded4(idx),getter(idx+4u)));
     subgroupBarrier();
     return getter(idx);
+#else
+    setter(idx+4u,COMM_OP(warp_incl_scan_padded4(idx),getter(idx+4u)));
+    return getter(idx);
+#endif
 }
 WARP_INCL_SCAN_PADDED(16)
 {
+#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
+    return warp_incl_scan_padded(idx);
+#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
+    TYPE tmpA = warp_incl_scan_padded8(idx);
+    TYPE tmpB = shuffleUpEMUL(tmpA,8u);
+    if (gl_ThreadInWarpNV>8u)
+        tmpA = COMM_OP(tmpA,tmpB);
+    return tmpA;
+#elif defined(GL_KHR_shader_subgroup_basic)
     setter(idx+8u,COMM_OP(warp_incl_scan_padded8(idx),getter(idx+8u)));
     subgroupBarrier();
     return getter(idx);
+#else
+    setter(idx+8u,COMM_OP(warp_incl_scan_padded8(idx),getter(idx+8u)));
+    return getter(idx);
+#endif
 }
 WARP_INCL_SCAN_PADDED(32)
 {
-    setter(idx+16u,COMM_OP(warp_incl_scan_padded16(idx),getter(idx+16u)));
+#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
+    return warp_incl_scan_padded(idx);
+#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
+    TYPE tmpA = warp_incl_scan_padded16u(idx);
+    TYPE tmpB = shuffleUpEMUL(tmpA,16);
+    if (gl_ThreadInWarpNV>16)
+        tmpA = COMM_OP(tmpA,tmpB);
+    return tmpA;
+#elif defined(GL_KHR_shader_subgroup_basic)
+    setter(idx+16u,COMM_OP(warp_incl_scan_padded16u(idx),getter(idx+16u)));
     subgroupBarrier();
     return getter(idx);
+#else
+    setter(idx+16u,COMM_OP(warp_incl_scan_padded16u(idx),getter(idx+16u)));
+    return getter(idx);
+#endif
 }
 WARP_INCL_SCAN_PADDED(64)
 {
-    setter(idx+32u,COMM_OP(warp_incl_scan_padded32(idx),getter(idx+32u)));
+#if defined(GL_KHR_shader_subgroup_arithmetic)||defined(GL_AMD_shader_ballot)
+    return warp_incl_scan_padded(idx);
+#elif defined(GL_NV_shader_thread_shuffle)||defined(GL_KHR_shader_subgroup_shuffle)||defined(GL_KHR_shader_subgroup_shuffle_relative)
+    TYPE tmpA = warp_incl_scan_padded32u(idx);
+    TYPE tmpB = shuffleUpEMUL(tmpA,32);
+    if (gl_ThreadInWarpNV>32)
+        tmpA = COMM_OP(tmpA,tmpB);
+    return tmpA;
+#elif defined(GL_KHR_shader_subgroup_basic)
+    setter(idx+32u,COMM_OP(warp_incl_scan_padded32u(idx),getter(idx+32u)));
     subgroupBarrier();
     return getter(idx);
+#else
+    setter(idx+32u,COMM_OP(warp_incl_scan_padded32u(idx),getter(idx+32u)));
+    return getter(idx);
+#endif
 }
 
-// optimized for a constant/dynamically uniform VARIABLE_SCAN_SZ
-TYPE warp_incl_scan_padded(in uint VARIABLE_SCAN_SZ, in uint idx)
+TYPE warp_incl_scan_padded(in uint idx)
 {
-	switch(VARIABLE_SCAN_SZ)
+#ifdef GL_KHR_shader_subgroup_arithmetic
+    return subgroupInclusiveCOMM_OP(getter(idx));
+#elif defined(GL_NV_shader_thread_shuffle)
+    #if SUBGROUP_SIZE==32u
+        return warp_incl_scan_padded32u(idx);
+    #elif SUBGROUP_SIZE==16u
+        return warp_incl_scan_padded16u(idx);
+    #else
+        #error "What size are your NV warps!?"
+    #endif
+#elif defined(GL_AMD_shader_ballot)
+    return COMM_OPInvocationsInclusiveScanAMD(getter(idx));
+#else
+	switch(WARP_SCAN_SIZE)
 	{
 		case 8u:
-			return warp_incl_scan_padded8(idx);
+			return warp_incl_scan_padded8u(idx);
             break;
 		case 16u:
-			return warp_incl_scan_padded16(idx);
+			return warp_incl_scan_padded16u(idx);
             break;
 		case 32u:
-			return warp_incl_scan_padded32(idx);
+			return warp_incl_scan_padded32u(idx);
             break;
 		case 64u:
-			return warp_incl_scan_padded64(idx);
+			return warp_incl_scan_padded64u(idx);
             break;
 	}
 
     return warp_incl_scan_padded4(idx);
+#endif
 }
 
-#ifdef
+// optimized for a constant/dynamically uniform VARIABLE_SCAN_SZ
+
+#undef WARP_INCL_SCAN_PADDED_DEFAULT
+#ifdef CONSTANT_PROBABLE_SUBGROUP_SIZE
+    #define WARP_INCL_SCAN_PADDED_DEFAULT(_IDX) warp_incl_scan_padded ## WARP_SCAN_SIZE ## (_IDX)
+#else
+    #define WARP_INCL_SCAN_PADDED_DEFAULT(_IDX) warp_incl_scan_padded(_IDX)
+#endif // CONSTANT_PROBABLE_SUBGROUP_SIZE
                       )==";
 
     // undefine all that stuff
-    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED\n";
-    sourceStr += "\n#undef TYPE\n#undef COMM_OP\n";
+    sourceStr += "\n#undef WARP_INCL_SCAN_PADDED\n#undef WARP_INCL_SCAN_PADDED_DEFAULT\n"; //! GET RID OF THESE / RENAME?
+    sourceStr += "\n#undef TYPE\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n";
 
     sourceStr += "\n#endif //"+includeGuardMacroName+"\n";
     return sourceStr;
@@ -358,7 +465,7 @@ std::string CGLSLFunctionGenerator::getWarpReduceFunctionsPadded(   const E_GLSL
                       )==";
 
     // undefine all that stuff
-    sourceStr += "\n#undef TYPE\n#undef COMM_OP\n";
+    sourceStr += "\n#undef TYPE\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n";
 
     sourceStr += "\n#endif //"+includeGuardMacroName+"\n";
     return sourceStr;
