@@ -51,8 +51,8 @@ layout(local_size_x = WG_SIZE) in;
 #define BARRIER barrier()
 /* If we have issues then use this define
 #define BARRIER \
-    memoryBarrierShared();\
-    barrier()
+    barrier() \
+    memoryBarrierShared()
 */
 
 layout(std430, binding = 0) restrict buffer Samples {
