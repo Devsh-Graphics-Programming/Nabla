@@ -43,7 +43,7 @@ class CGLSLFunctionGenerator
         };
         static std::string getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName);
 
-        static uint32_t getNeededSharedElementsForBlockScan(const uint32_t& blockSize, const uint32_t& fixedSubgroupSize) {assert(false); return 0u;} //! TO IMPLEMENT THIS
+        static uint32_t getNeededSharedElementsForBlockScan(const uint32_t& elementCount, const uint32_t& fixedSubgroupSize) {assert(false); return 0u;} //! TO IMPLEMENT THIS
         static inline uint32_t getNeededSharedElementsForBlockScan(const uint32_t& blockSize)
         {
             uint32_t maxMemSize = blockSize;
@@ -55,7 +55,7 @@ class CGLSLFunctionGenerator
             }
             return maxMemSize;
         }
-        static std::string getBlockInclusiveScanFunctionsPadded(const uint32_t& elementsToReduce, const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType,
+        static std::string getBlockInclusiveScanFunctionsPadded(const uint32_t& elementsToReduce, const uint32_t& workgroupSize, const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType,
                                                                 const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName)
         {
             return "\n#error \"UNIMPLEMENTED\"\n";
