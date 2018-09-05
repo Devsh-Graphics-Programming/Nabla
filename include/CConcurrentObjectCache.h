@@ -36,25 +36,25 @@ namespace impl
 
 	    inline bool insert(const K& _key, T* _val)
         {
-            m_lock.lockWrite();
+            this->m_lock.lockWrite();
             const bool r = CacheBase::insert(_key, _val);
-            m_lock.unlockWrite();
+            this->m_lock.unlockWrite();
             return r;
         }
 
         inline bool contains(const T* _object) const
         {
-            m_lock.lockRead();
+            this->m_lock.lockRead();
             const bool r = CacheBase::contains(_object);
-            m_lock.unlockRead();
+            this->m_lock.unlockRead();
             return r;
         }
 
         inline size_t getSize() const
         {
-            m_lock.lockRead();
+            this->m_lock.lockRead();
             const size_t r = CacheBase::getSize();
-            m_lock.unlockRead();
+            this->m_lock.unlockRead();
             return r;
         }
     };
@@ -70,27 +70,44 @@ namespace impl
         inline explicit CMakeCacheConcurrent(const typename CacheBase::GreetFuncType& _greeting, const typename CacheBase::DisposalFuncType& _disposal) : CMakeCacheConcurrent_common<CacheT>(_greeting, _disposal) {}
         inline explicit CMakeCacheConcurrent(typename CacheBase::GreetFuncType&& _greeting = nullptr, typename CacheBase::DisposalFuncType&& _disposal = nullptr) : CMakeCacheConcurrent_common<CacheT>(std::move(_greeting), std::move(_disposal)) {}
 
-        inline T* getByKey(const K& _key)
+        //! Returns true if had to insert
+        inline bool swapValue(const K& _key, T* _val)
         {
-            m_lock.lockRead();
-            T* r = CacheBase::getByKey(_key);
-            m_lock.unlockRead();
+            this->m_lock.lockWrite();
+            bool r = CacheBase::swapValue(_key, _val);
+            this->m_lock.unlockWrite();
             return r;
         }
 
-        inline const T* getByKey(const K& _key) const
+        inline bool getByKeyOrReserve(T** _outval, const K& _key)
         {
-            m_lock.lockRead();
-            const T* const r = CacheBase::getByKey(_key);
-            m_lock.unlockRead();
+            this->m_lock.lockWrite();
+            bool r = CacheBase::getByKeyOrReserve(_outval, _key);
+            this->m_lock.unlockWrite();
+            return r;
+        }
+
+        inline bool getByKey(T** _outval, const K& _key)
+        {
+            this->m_lock.lockRead();
+            bool r = CacheBase::getByKey(_outval, _key);
+            this->m_lock.unlockRead();
+            return r;
+        }
+
+        inline bool getByKey(const T** _outval, const K& _key) const
+        {
+            this->m_lock.lockRead();
+            bool r = CacheBase::getByKey(_outval, _key);
+            this->m_lock.unlockRead();
             return r;
         }
 
         inline void removeByKey(const K& _key)
         {
-            m_lock.lockWrite();
+            this->m_lock.lockWrite();
             CacheBase::removeByKey(_key);
-            m_lock.unlockWrite();
+            this->m_lock.unlockWrite();
         }
     };
 
@@ -100,33 +117,51 @@ namespace impl
         using CacheBase = CacheT;
         using K = typename CacheBase::KeyType_impl;
         using T = typename CacheBase::CachedType;
-        using RangeType = std::pair<typename CacheBase::IteratorType, typename CacheBase::IteratorType>;
 
     public:
+        using RangeType = std::pair<typename CacheBase::IteratorType, typename CacheBase::IteratorType>;
+
         inline explicit CMakeMultiCacheConcurrent(const typename CacheBase::GreetFuncType& _greeting, const typename CacheBase::DisposalFuncType& _disposal) : CMakeCacheConcurrent_common<CacheT>(_greeting, _disposal) {}
         inline explicit CMakeMultiCacheConcurrent(typename CacheBase::GreetFuncType&& _greeting = nullptr, typename CacheBase::DisposalFuncType&& _disposal = nullptr) : CMakeCacheConcurrent_common<CacheT>(std::move(_greeting), std::move(_disposal)) {}
 
-        inline RangeType findRange(const K& _key)
+        //! Returns true if had to insert
+        bool swapObjectValue(const K& _key, const const T* _obj, T* _val)
         {
-            m_lock.lockRead();
-            RangeType r = CacheBase::findRange(_key);
-            m_lock.unlockRead();
+            this->m_lock.lockWrite();
+            bool r = CacheBase::swapObjectValue(_key, _obj, _val);
+            this->m_lock.unlockWrite();
             return r;
         }
 
-        inline const RangeType findRange(const K& _key) const
+        bool getKeyRangeOrReserve(typename CacheBase::RangeType* _outrange, const K& _key)
         {
-            m_lock.lockRead();
-            const RangeType r = CacheBase::findRange(_key);
-            m_lock.unlockRead();
+            this->m_lock.lockWrite();
+            bool r = CacheBase::getKeyRangeOrReserve(_outrange, _key);
+            this->m_lock.unlockWrite();
+            return r;
+        }
+
+        inline typename CacheBase::RangeType findRange(const K& _key)
+        {
+            this->m_lock.lockRead();
+            typename CacheBase::RangeType r = CacheBase::findRange(_key);
+            this->m_lock.unlockRead();
+            return r;
+        }
+
+        inline const typename CacheBase::RangeType findRange(const K& _key) const
+        {
+            this->m_lock.lockRead();
+            const typename CacheBase::RangeType r = CacheBase::findRange(_key);
+            this->m_lock.unlockRead();
             return r;
         }
 
         inline void removeObject(T* _object, const K& _key)
         {
-            m_lock.lockWrite();
+            this->m_lock.lockWrite();
             CacheBase::removeObject(_object, _key);
-            m_lock.unlockWrite();
+            this->m_lock.unlockWrite();
         }
     };
 }
