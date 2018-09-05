@@ -31,6 +31,9 @@ vec3 decodeRgb(uvec2 _rgb)
 )XDDD";
 constexpr const char* CS_BLUR_SRC = R"XDDD(
 #version 430 core
+
+%s
+
 #define PS_SIZE %u // ACTUAL_SIZE padded to PoT
 #define ACTUAL_SIZE %u
 #define ACTUAL_SIZE_X %u
@@ -45,9 +48,12 @@ layout(local_size_x = WG_SIZE) in;
 #define LOG_NUM_BANKS 5
 #define CONFLICT_FREE_OFFSET(n) ((n) >> LOG_NUM_BANKS)
 
+#define BARRIER barrier()
+/* If we have issues then use this define
 #define BARRIER \
-    memoryBarrierShared();\
-    barrier()
+    barrier() \
+    memoryBarrierShared()
+*/
 
 layout(std430, binding = 0) restrict buffer Samples {
     uvec2 samples[];
@@ -77,6 +83,7 @@ shared float smem_b[SMEM_SIZE];
 
 uint getAddr(uint _addr)
 {
+    //return warpPadAddress32(_addr);
     return _addr + CONFLICT_FREE_OFFSET(_addr);
 }
 void storeShared(uint _idx, vec3 _val)
@@ -114,10 +121,8 @@ void upsweep(int d, uint offset, uint _tid)
 {
     if (_tid < d)
     {
-        uint ai = offset*(2*_tid+1)-1;
-        uint bi = offset*(2*_tid+2)-1;
-        ai += CONFLICT_FREE_OFFSET(ai);
-        bi += CONFLICT_FREE_OFFSET(bi);
+        uint ai = getAddr(offset*(2*_tid+1)-1);
+        uint bi = getAddr(offset*(2*_tid+2)-1);
 
         storeShared(bi, loadShared(bi) + loadShared(ai));
     }
@@ -126,10 +131,8 @@ void downsweep(int d, uint offset, uint _tid)
 {
     if (_tid < d)
     {
-        uint ai = offset*(2*_tid+1)-1;
-        uint bi = offset*(2*_tid+2)-1;
-        ai += CONFLICT_FREE_OFFSET(ai);
-        bi += CONFLICT_FREE_OFFSET(bi);
+        uint ai = getAddr(offset*(2*_tid+1)-1);
+        uint bi = getAddr(offset*(2*_tid+2)-1);
 
         vec3 tmp = loadShared(ai);
         storeShared(ai, loadShared(bi));
@@ -143,15 +146,13 @@ void loadFromGmem(uint _inStartIdx, uint _tid)
 
     const uint ai = _tid;
     const uint bi = _tid + PS_SIZE/2;
-    const uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
-    const uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
 
-    storeShared(ai + bankOffsetA,
+    storeShared(getAddr(ai),
 	    (ai < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + SSBO_OUT_OFFSET + ai]) : vec3(0)
     );
-    storeShared(bi + bankOffsetB,
+    storeShared(getAddr(bi),
 	    (bi < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + SSBO_OUT_OFFSET + bi]) : vec3(0)
-    );   
+    );
 }
 void exPsumInSmem()
 {
@@ -159,11 +160,41 @@ void exPsumInSmem()
 
     %s // here goes unrolled upsweep loop
 
-    if (LC_IDX == 0) { storeShared(PS_SIZE-1 + CONFLICT_FREE_OFFSET(PS_SIZE-1), vec3(0)); }
-    memoryBarrierShared();
-    barrier();
+    if (LC_IDX == 0) { storeShared(getAddr(PS_SIZE-1), vec3(0)); } // ARE YOU WRITING TO THE SHARED MEMORY LOCATION YOU "OWN" ?
+    BARRIER;
 
     %s // here goes unrolled downsweep loop
+
+    BARRIER;
+}
+
+// for this to work ACTUAL_SIZE==1024u and getAddr needs to be defined as {return warpPadAddress32(_addr);}
+void exPsumInSmem2()
+{
+    const uint W_LOG2 = 5u;
+    const uint padded_tid = getAddr(gl_LocalInvocationID.x);
+	const uint padded_tid_div_w = getAddr(gl_LocalInvocationID.x>>W_LOG2);
+
+	uint totalOutputOffset = 0u;
+	uint scanningBatchSize = ACTUAL_SIZE;
+
+	BARRIER;
+	vec3 tmp0 = warp_incl_scan_padded32ublur(loadShared(padded_tid),padded_tid);
+	totalOutputOffset += getAddr(scanningBatchSize);
+	if (gl_LocalInvocationID.x<scanningBatchSize)
+	{
+		if (gl_ThreadInWarpNV == (0x1u<<W_LOG2)-1u) // need to replace gl_ThreadInWarpNV with some define
+			storeShared(totalOutputOffset+padded_tid_div_w,tmp0);
+	}
+	scanningBatchSize = scanningBatchSize>>W_LOG2;
+	BARRIER;
+	if (gl_LocalInvocationID.x<scanningBatchSize) // for some other warp_scan types that storeShared shouldn't really be necessary
+		storeShared(totalOutputOffset+padded_tid,warp_incl_scan_padded32ublur(loadShared(totalOutputOffset+padded_tid),totalOutputOffset+padded_tid));
+
+	BARRIER;
+	vec3 tmp1 = padded_tid_div_w!=0u ? loadShared(totalOutputOffset+padded_tid_div_w-1u):vec3(0.0);
+	storeShared(padded_tid,tmp0+tmp1);
+	BARRIER;
 }
 
 // WARNING: calculates resulting address (this function do NOT expect to get address from getAddr())
@@ -204,7 +235,7 @@ void outputFunc(uint _tid)
     if (_tid >= ACTUAL_SIZE)
         return;
 
-    uvec2 IDX = 
+    uvec2 IDX =
 #if FINAL_PASS
     uvec2(gl_WorkGroupID.y, _tid);
 #else
@@ -233,19 +264,14 @@ void main()
     {
         exPsumInSmem();
 
-        memoryBarrierShared();
-        barrier();
-
         vec3 blurred[SUB_THR_CNT];
         %s // here goes blur() calls
 
-        barrier();
+        BARRIER;
 
         %s // here goes (local array)->(SMEM) output loop
-    
-        memoryBarrierShared();
-        barrier();
     }
+    BARRIER;
     %s // here goes output loop
 }
 )XDDD";
@@ -385,7 +411,7 @@ void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize, bool _createGpuS
     if (!_createGpuStuff)
         return;
 
-    std::tie(m_blurGeneralCs[0], m_blurGeneralCs[1]) = makeShaders(m_outSize, m_passesPerAxisNum);
+    std::tie(m_blurGeneralCs[0], m_blurGeneralCs[1]) = makeShaders(m_driver, m_outSize, m_passesPerAxisNum);
 
     if (!m_isCustomUbo)
         updateUBO();
@@ -421,8 +447,11 @@ CBlurPerformer::~CBlurPerformer()
     deleteShaders();
 }
 
-bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, int _finalPass)
+bool CBlurPerformer::genBlurPassCs(char* _out, video::IVideoDriver* _driver, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, int _finalPass)
 {
+    std::string scan_warp = video::CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(_driver)+video::CGLSLFunctionGenerator::getWarpPaddingFunctions()+
+                            video::CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(video::CGLSLFunctionGenerator::EGCO_ADD,video::CGLSLFunctionGenerator::EGT_VEC3, "blur","loadShared","storeShared");
+
     const uint32_t SIM_THREADS_NUM = (_axisSize + s_MAX_WORK_GROUP_SIZE-1u) / s_MAX_WORK_GROUP_SIZE;
 
     const char loadFromGmem_fmt[] = "for (uint i = 0; i < %u; ++i) loadFromGmem(IN_START_IDX, LC_IDX + i*WG_SIZE);\n";
@@ -485,6 +514,7 @@ bool CBlurPerformer::genBlurPassCs(char* _out, size_t _bufSize, uint32_t _axisSi
     }
 
     return snprintf(_out, _bufSize, CS_BLUR_SRC,
+        scan_warp.c_str(),
         pot,
         _axisSize,
         _outTexSize.X,
@@ -568,11 +598,11 @@ void CBlurPerformer::updateUBO()
     updateUBO(mem);
 }
 
-auto CBlurPerformer::makeShaders(const core::vector2d<uint32_t>& _outSize, uint32_t _passesPerAxis) -> tuple2xu32
+auto CBlurPerformer::makeShaders(video::IVideoDriver* _driver, const core::vector2d<uint32_t>& _outSize, uint32_t _passesPerAxis) -> tuple2xu32
 {
     uint32_t blurx{}, blury{};
 
-    const size_t bufSize = strlen(CS_BLUR_SRC) + strlen(CS_CONVERSIONS) + 10000u;
+    const size_t bufSize = strlen(CS_BLUR_SRC) + strlen(CS_CONVERSIONS) + 40000u;
     char* src = (char*)malloc(bufSize);
 
     auto doCleaning = [&, blurx, blury, src]() {
@@ -582,11 +612,12 @@ auto CBlurPerformer::makeShaders(const core::vector2d<uint32_t>& _outSize, uint3
         return tuple2xu32(0u, 0u);
     };
 
-    if (!genBlurPassCs(src, bufSize, _outSize.X, _outSize, _passesPerAxis, 0))
+    if (!genBlurPassCs(src, _driver, bufSize, _outSize.X, _outSize, _passesPerAxis, 0))
         return doCleaning();
+
     blurx = createComputeShader(src);
 
-    if (!genBlurPassCs(src, bufSize, _outSize.Y, _outSize, _passesPerAxis, 1))
+    if (!genBlurPassCs(src, _driver, bufSize, _outSize.Y, _outSize, _passesPerAxis, 1))
         return doCleaning();
     blury = createComputeShader(src);
 

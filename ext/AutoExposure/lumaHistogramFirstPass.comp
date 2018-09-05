@@ -35,6 +35,14 @@ vec2 getTexCoord()
 #define PADDED_BIN_COUNTu (BIN_COUNTu+1u)
 shared uint histogram[PADDED_BIN_COUNTu*LOCAL_REPLICATION];
 
+
+#define BARRIER barrier()
+/* If we have issues then use this define
+#define BARRIER \
+    barrier() \
+    memoryBarrierShared()
+*/
+
 void clearHistogram()
 {
     //clear histogram
@@ -65,9 +73,7 @@ void clearHistogram()
         histogram[gl_LocalInvocationIndex+LOCAL_REPLICATION*LOCAL_THREADS] = 0u;
 #endif // LOCAL_REPLICATION_POW
 
-    // what order to put the barriers?
-    memoryBarrierShared();
-    barrier();
+    BARRIER;
 }
 
 void putInBin(in vec3 colorVal)
@@ -96,12 +102,8 @@ void main()
 	vec3 colorVal = textureLod(tex0,getTexCoord(),0.0).rgb;
     clearHistogram();
 
-
     putInBin(colorVal);
-    // what order to put the barriers?
-    memoryBarrierShared();
-    barrier();
-
+    BARRIER;
 
     uint writeOutVal = histogram[gl_LocalInvocationIndex];
 #if LOCAL_REPLICATION_POW>0u

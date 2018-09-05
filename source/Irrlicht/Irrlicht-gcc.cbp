@@ -244,9 +244,13 @@
 		</Compiler>
 		<Unit filename="../../include/CBAWFile.h" />
 		<Unit filename="../../include/CBlobsLoadingManager.h" />
+		<Unit filename="../../include/CConcurrentObjectCache.h" />
 		<Unit filename="../../include/CFinalBoneHierarchy.h" />
+		<Unit filename="../../include/CForsythVertexCacheOptimizer.h" />
+		<Unit filename="../../include/CGLSLFunctionGenerator.h" />
 		<Unit filename="../../include/CImageData.h" />
 		<Unit filename="../../include/CMultiBufferedInterfaceBlock.h" />
+		<Unit filename="../../include/CObjectCache.h" />
 		<Unit filename="../../include/COpenGLStateManager.h" />
 		<Unit filename="../../include/COpenGLStateManagerImpl.h" />
 		<Unit filename="../../include/ECullingTypes.h" />
@@ -261,10 +265,12 @@
 		<Unit filename="../../include/ESceneNodeTypes.h" />
 		<Unit filename="../../include/IAnimatedMesh.h" />
 		<Unit filename="../../include/IAnimatedMeshSceneNode.h" />
+		<Unit filename="../../include/IAssetManager.h" />
 		<Unit filename="../../include/IBillboardSceneNode.h" />
 		<Unit filename="../../include/IBuffer.h" />
 		<Unit filename="../../include/ICPUBuffer.h" />
 		<Unit filename="../../include/ICameraSceneNode.h" />
+		<Unit filename="../../include/ICommandBuffer.h" />
 		<Unit filename="../../include/ICursorControl.h" />
 		<Unit filename="../../include/IDescriptorSet.h" />
 		<Unit filename="../../include/IDescriptorSetLayout.h" />
@@ -352,6 +358,7 @@
 		<Unit filename="../../include/aabbox3d.h" />
 		<Unit filename="../../include/coreutil.h" />
 		<Unit filename="../../include/dimension2d.h" />
+		<Unit filename="../../include/driverChoice.h" />
 		<Unit filename="../../include/heapsort.h" />
 		<Unit filename="../../include/irrAllocator.h" />
 		<Unit filename="../../include/irrArray.h" />
@@ -369,8 +376,10 @@
 		<Unit filename="../../include/line3d.h" />
 		<Unit filename="../../include/matrix3x4SIMD.h" />
 		<Unit filename="../../include/matrix4.h" />
+		<Unit filename="../../include/matrix4SIMD.h" />
 		<Unit filename="../../include/matrix4x3.h" />
 		<Unit filename="../../include/matrixSIMD4.h" />
+		<Unit filename="../../include/matrixutil.h" />
 		<Unit filename="../../include/path.h" />
 		<Unit filename="../../include/plane3d.h" />
 		<Unit filename="../../include/position2d.h" />
@@ -412,6 +421,7 @@
 		<Unit filename="CFileSystem.cpp" />
 		<Unit filename="CFileSystem.h" />
 		<Unit filename="CForsythVertexCacheOptimizer.cpp" />
+		<Unit filename="CGLSLFunctionGenerator.cpp" />
 		<Unit filename="CGPUTransientBuffer.cpp" />
 		<Unit filename="CGeometryCreator.cpp" />
 		<Unit filename="CGeometryCreator.h" />
