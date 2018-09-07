@@ -33,8 +33,7 @@ namespace impl
     public:
         using RangeType = std::pair<typename BaseCache::IteratorType, typename BaseCache::IteratorType>;
 
-        inline explicit CMakeCacheConcurrent(const typename BaseCache::GreetFuncType& _greeting, const typename BaseCache::DisposalFuncType& _disposal) : BaseCache(_greeting, _disposal) {}
-        inline explicit CMakeCacheConcurrent(typename BaseCache::GreetFuncType&& _greeting = nullptr, typename BaseCache::DisposalFuncType&& _disposal = nullptr) : BaseCache(std::move(_greeting), std::move(_disposal)) {}
+        using BaseCache::BaseCache;
 
         inline bool insert(const K& _key, T* _val)
         {

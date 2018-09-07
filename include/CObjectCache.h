@@ -10,6 +10,8 @@
 #include <map>
 #include <unordered_map>
 
+#include "IrrCompileConfig.h"
+
 namespace irr { namespace core
 {
 
@@ -36,12 +38,10 @@ namespace impl
     struct is_assoc_container<std::map> : std::true_type {};
     template<>
     struct is_assoc_container<std::unordered_map> : std::true_type {};
-
-    struct Dummy {};
-
-#define DEF_CACHE_CTORS(_Name, _Base) \
-    inline explicit _Name(const typename _Base::GreetFuncType& _greeting, const typename _Base::DisposalFuncType& _disposal) : _Base(_greeting, _disposal) {}\
-    inline explicit _Name(typename _Base::GreetFuncType&& _greeting = nullptr, typename _Base::DisposalFuncType&& _disposal = nullptr) : _Base(std::move(_greeting), std::move(_disposal)) {}
+    template<>
+    struct is_assoc_container<std::multimap> : std::true_type {};
+    template<>
+    struct is_assoc_container<std::unordered_multimap> : std::true_type {};
     
     template<typename K, typename...>
     struct PropagKeyTypeTypedef_ { using KeyType = K; };
@@ -189,12 +189,8 @@ namespace impl
     private:
         using Base = CObjectCacheBase<ContainerT_T, T, K...>;
 
-    protected:
-        using GreetFuncType = typename Base::GreetFuncType;
-        using DisposalFuncType = typename Base::DisposalFuncType;
-
     public:
-        DEF_CACHE_CTORS(CMultiObjectCacheBase, Base)
+        using Base::Base;
 
         inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
         {
@@ -220,12 +216,8 @@ namespace impl
     private:
         using Base = CObjectCacheBase<ContainerT_T, T, K...>;
 
-    protected:
-        using GreetFuncType = typename Base::GreetFuncType;
-        using DisposalFuncType = typename Base::DisposalFuncType;
-
     public:
-        DEF_CACHE_CTORS(CMultiObjectCacheBase, Base)
+        using Base::Base;
 
         inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
         {
@@ -273,7 +265,7 @@ namespace impl
         using Base = CMultiObjectCacheBase<IsMultiContainer, ContainerT_T, T, K...>;
 
     public:
-        DEF_CACHE_CTORS(CMultiObjectCacheBaseExt, Base)
+        using Base::Base;
 
         //! Returns true if had to insert
         bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj, typename Base::ValueType_impl _val)
@@ -353,7 +345,7 @@ namespace impl
         using Base = CObjectCacheBase<ContainerT_T, T, K...>;
 
     public:
-        DEF_CACHE_CTORS(CUniqObjectCacheBase, Base)
+        using Base::Base;
 
         inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
         {
@@ -385,7 +377,7 @@ namespace impl
         using Base = CObjectCacheBase<ContainerT_T, T, K...>;
 
     public:
-        DEF_CACHE_CTORS(CUniqObjectCacheBase, Base)
+        using Base::Base;
 
         inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
         {
@@ -419,7 +411,7 @@ namespace impl
         using Base = CUniqObjectCacheBase<isVectorContainer, ContainerT_T, T, K...>;
 
     public:
-        DEF_CACHE_CTORS(CUniqObjectCacheBaseExt, Base)
+        using Base::Base;
 
         inline void removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
         {
@@ -489,7 +481,7 @@ protected:
     using DisposalFuncType = typename Base::DisposalFuncType;
 
 public:
-    DEF_CACHE_CTORS(CMultiObjectCache, Base)
+    using Base::Base;
 };
 template<
     typename K,
@@ -510,7 +502,7 @@ protected:
     using DisposalFuncType = typename Base::DisposalFuncType;
 
 public:
-    DEF_CACHE_CTORS(CMultiObjectCache, Base)
+    using Base::Base;
 };
 
 
@@ -534,7 +526,7 @@ class CObjectCache<K, T, ContainerT_T, true> :
     using Base = impl::CUniqObjectCacheBaseExt<true, ContainerT_T, std::pair<K, T*>>;
 
 public:
-    DEF_CACHE_CTORS(CObjectCache, Base)
+    using Base::Base;
 };
 
 
@@ -551,7 +543,7 @@ class CObjectCache<K, T, ContainerT_T, false> :
     using Base = impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>;
 
 public:
-    DEF_CACHE_CTORS(CObjectCache, Base)
+    using Base::Base;
 };
 
 }}
@@ -559,5 +551,4 @@ public:
 #undef INSERT_IMPL_VEC
 #undef INSERT_IMPL_ASSOC
 #undef MY_TYPE
-#undef DEF_CACHE_CTORS
 #endif //__C_OBJECT_CACHE_H_INCLUDED__
