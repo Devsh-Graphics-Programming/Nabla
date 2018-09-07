@@ -69,17 +69,23 @@ namespace impl
         ContainerT m_container;
 
         // typedefs for implementation only
-        using PairType = typename ContainerT::value_type;
-        using ValueType = typename PairType::second_type; // container's value_type is always instantiation of std::pair
-        using KeyType_impl = typename PairType::first_type;
-        using NoPtrValueType = typename std::remove_pointer<ValueType>::type;
-        using PtrToConstVal_t = const NoPtrValueType*; // ValueType is always pointer type
+        using PairType_impl = typename ContainerT::value_type;
+        //! Always pointer type
+        using ValueType_impl = typename PairType_impl::second_type; // container's value_type is always instantiation of std::pair
+        static_assert(std::is_pointer<ValueType_impl>::value, "ValueType_impl must be pointer type!");
+        using KeyType_impl = typename PairType_impl::first_type;
+        using NoPtrValueType_impl = typename std::remove_pointer<ValueType_impl>::type;
+        using ValueType_PtrToConst_impl = const NoPtrValueType_impl*; // ValueType_impl is always pointer type
 
     public:
         using RangeType = std::pair<IteratorType, IteratorType>;
+        using ConstRangeType = std::pair<ConstIteratorType, ConstIteratorType>;
 
-        using GreetFuncType = std::function<void(ValueType)>;
-        using DisposalFuncType = std::function<void(ValueType)>;
+        using GreetFuncType = std::function<void(ValueType_impl)>;
+        using DisposalFuncType = std::function<void(ValueType_impl)>;
+
+        template<typename RangeT>
+        static bool isValidRange(const RangeT& _range) { return std::distance(_range.first, _range.second) != 0; }
 
     protected:
         GreetFuncType m_greetingFunc;
@@ -91,12 +97,12 @@ namespace impl
 				dispose(it->second);
 		}
 
-        void dispose(ValueType _object) const        {
+        void dispose(ValueType_impl _object) const        {
             if (m_disposalFunc)
                 m_disposalFunc(_object);
         }
 
-        void greet(ValueType _object) const
+        void greet(ValueType_impl _object) const
         {
             if (m_greetingFunc)
                 m_greetingFunc(_object);
@@ -106,7 +112,7 @@ namespace impl
         inline explicit CObjectCacheBase(const GreetFuncType& _greeting, const DisposalFuncType& _disposal) : m_greetingFunc(_greeting), m_disposalFunc(_disposal) {}
         inline explicit CObjectCacheBase(GreetFuncType&& _greeting, DisposalFuncType&& _disposal) : m_greetingFunc(std::move(_greeting)), m_disposalFunc(std::move(_disposal)) {}
 
-        inline bool contains(PtrToConstVal_t _object) const
+        inline bool contains(ValueType_PtrToConst_impl _object) const
         {
             for (const auto& e : m_container)
                 if (e.second == _object)
@@ -116,7 +122,6 @@ namespace impl
 
 		inline size_t getSize() const { return m_container.size(); }
     };
-
 
     template<template<typename...> class ContainerT_T, typename ContainerT, bool ForMultiCache, bool IsAssocContainer = impl::is_assoc_container<ContainerT_T>::value>
     struct CPreInsertionVerifier;
@@ -131,8 +136,6 @@ namespace impl
     {
         static bool verify(const ContainerT& _container, const typename ContainerT::iterator& _itr, const typename ContainerT::value_type::first_type& _key)
         {
-            using ValueType = typename ContainerT::value_type;
-
             if (_itr != std::cend(_container) && !(_key < _itr->first)) // used `<` instead of `==` operator here to keep consistency with std::map (so key type doesn't need to define operator==)
                 return false;
 
@@ -151,8 +154,8 @@ namespace impl
     //! Use in non-static member functions
 #define MY_TYPE typename std::remove_reference<decltype(*this)>::type
 #define INSERT_IMPL_VEC \
-    const typename Base::PairType newVal{ _key, _val };\
-    auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), newVal, [](const typename Base::PairType& _a, const typename Base::PairType& _b) -> bool {return _a.first < _b.first; });\
+    const typename Base::PairType_impl newVal{ _key, _val };\
+    auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), newVal, [](const typename Base::PairType_impl& _a, const typename Base::PairType_impl& _b) -> bool {return _a.first < _b.first; });\
     if (\
     !impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, MY_TYPE>::value>::verify(this->m_container, it, _key)\
     )\
@@ -191,29 +194,20 @@ namespace impl
         using DisposalFuncType = typename Base::DisposalFuncType;
 
     public:
-        inline explicit CMultiObjectCacheBase(const GreetFuncType& _greeting, const DisposalFuncType& _disposal) : Base(_greeting, _disposal) {}
-        inline explicit CMultiObjectCacheBase(GreetFuncType&& _greeting, DisposalFuncType&& _disposal) : Base(_greeting, _disposal) {}
+        DEF_CACHE_CTORS(CMultiObjectCacheBase, Base)
 
-        inline std::pair<typename Base::IteratorType, typename Base::IteratorType> findRange(const typename Base::KeyType_impl& _key)
+        inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
+        {
+            INSERT_IMPL_ASSOC
+        }
+
+        inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
         {
             return Base::m_container.equal_range(_key);
         }
-        inline std::pair<typename Base::ConstIteratorType, typename Base::ConstIteratorType> findRange(const typename Base::KeyType_impl& _key) const
+        inline typename Base::ConstRangeType findRange(const typename Base::KeyType_impl& _key) const
         {
             return Base::m_container.equal_range(_key);
-        }
-
-        inline void removeObject(const typename Base::ValueType _obj, const typename Base::KeyType_impl& _key)
-        {
-            std::pair<typename Base::IteratorType, typename Base::IteratorType> range = findRange(_key);
-            for (auto it = range.first; it != range.second; ++it)
-            {
-                if (it->second == _obj)
-                {
-                    Base::m_container.erase(it);
-                    break;
-                }
-            }
         }
     };
     template<
@@ -231,17 +225,21 @@ namespace impl
         using DisposalFuncType = typename Base::DisposalFuncType;
 
     public:
-        inline explicit CMultiObjectCacheBase(const GreetFuncType& _greeting, const DisposalFuncType& _disposal) : Base(_greeting, _disposal) {}
-        inline explicit CMultiObjectCacheBase(GreetFuncType&& _greeting, DisposalFuncType&& _disposal) : Base(_greeting, _disposal) {}
+        DEF_CACHE_CTORS(CMultiObjectCacheBase, Base)
+
+        inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
+        {
+            INSERT_IMPL_VEC
+        }
 
     private:
-        template<typename ItrType>
-        inline std::pair<ItrType, ItrType> findRange_(const typename Base::KeyType_impl& _key)
+        template<typename RngType>
+        inline RngType findRange_internal(const typename Base::KeyType_impl& _key)
         {
-            auto cmpf = [](const typename Base::PairType& _a, const typename Base::PairType& _b) -> bool {return _a.first < _b.first; };
-            typename Base::PairType lookingFor{_key, nullptr};
+            auto cmpf = [](const typename Base::PairType_impl& _a, const typename Base::PairType_impl& _b) -> bool {return _a.first < _b.first; };
+            typename Base::PairType_impl lookingFor{_key, nullptr};
 
-            std::pair<ItrType, ItrType> range;
+            RngType range;
             range.first = std::lower_bound(std::begin(Base::m_container), std::end(Base::m_container), lookingFor, cmpf);
             if (range.first == std::end(Base::m_container) || _key < range.first->first)
             {
@@ -253,27 +251,13 @@ namespace impl
         }
 
     public:
-        inline std::pair<typename Base::IteratorType, typename Base::IteratorType> findRange(const typename Base::KeyType_impl& _key)
+        inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
         {
-            return findRange_<typename Base::IteratorType>(_key);
+            return findRange_internal<typename Base::RangeType>(_key);
         }
-        inline std::pair<typename Base::ConstIteratorType, typename Base::ConstIteratorType> findRange(const typename Base::KeyType_impl& _key) const
+        inline typename Base::ConstRangeType findRange(const typename Base::KeyType_impl& _key) const
         {
-            return findRange_<typename Base::ConstIteratorType>(_key);
-        }
-
-        // todo THIS DUPLICATES FUNCTION FROM ABOVE SPECIALIZATION
-        inline void removeObject(const typename Base::ValueType _obj, const typename Base::KeyType_impl& _key)
-        {
-            std::pair<typename Base::IteratorType, typename Base::IteratorType> range = findRange(_key);
-            for (auto it = range.first; it != range.second; ++it)
-            {
-                if (it->second == _obj)
-                {
-                    Base::m_container.erase(it);
-                    break;
-                }
-            }
+            return findRange_internal<typename Base::ConstRangeType>(_key);
         }
     };
 
@@ -292,7 +276,7 @@ namespace impl
         DEF_CACHE_CTORS(CMultiObjectCacheBaseExt, Base)
 
         //! Returns true if had to insert
-        bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::PtrToConstVal_t _obj, typename Base::ValueType _val)
+        bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj, typename Base::ValueType_impl _val)
         {
             greet(_val); // grab before drop
 
@@ -305,7 +289,10 @@ namespace impl
                 found->second = _val;
                 return false;
             }
-            this->m_container.insert(range.second, typename Base::PairType{_key, _val});
+            if (range.second != std::end(this->m_container))
+                this->m_container.insert(range.second, typename Base::PairType_impl{_key, _val});
+            else
+                insert(_key, _val);
             return true;
         }
 
@@ -314,15 +301,28 @@ namespace impl
             *_outrange = findRange(_key);
             if (std::distance(_outrange->first, _outrange->second)==0)
             {
-                this->m_container.insert(_outrange->second, { _key, nullptr });
+                insert(_key, nullptr);
                 greet(nullptr);
                 return false;
             }
             return true;
         }
 
+        inline void removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
+        {
+            typename Base::RangeType range = findRange(_key);
+            for (auto it = range.first; it != range.second; ++it)
+            {
+                if (it->second == _obj)
+                {
+                    Base::m_container.erase(it);
+                    break;
+                }
+            }
+        }
+
     private:
-        typename Base::IteratorType find(const typename Base::RangeType& _range, const typename Base::KeyType_impl& _key, const typename Base::PtrToConstVal_t _obj) const
+        typename Base::IteratorType find(const typename Base::RangeType& _range, const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj) const
         {
             typename Base::IteratorType found = _range.second;
             for (auto it = _range.first; it != _range.second; ++it)
@@ -334,6 +334,135 @@ namespace impl
                 }
             }
             return found;
+        }
+    };
+
+    template<
+        bool isVectorContainer,
+        template<typename...> class ContainerT_T,
+        typename T, //value type for container
+        typename ...K //optionally key type for std::map/std::unordered_map
+    >
+        struct CUniqObjectCacheBase;
+
+    template<
+        template<typename...> class ContainerT_T,
+        typename T, //value type for container
+        typename ...K //optionally key type for std::map/std::unordered_map
+    >
+    struct CUniqObjectCacheBase<true, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>
+    {
+    private:
+        using Base = CObjectCacheBase<ContainerT_T, T, K...>;
+
+    public:
+        DEF_CACHE_CTORS(CUniqObjectCacheBase, Base)
+
+        inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
+        {
+            INSERT_IMPL_VEC
+        }
+
+        inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
+        {
+            auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), typename Base::PairType_impl{ _key, nullptr });
+            if (it == std::end(m_container) || it->first > _key)
+                return { it, it };
+            return { it, std::next(it) };
+        }
+        inline typename Base::ConstRangeType findRange(const typename Base::KeyType_impl& _key) const
+        {
+            typename Base::RangeType range =
+                const_cast<typename std::decay<decltype(*this)>::type&>(*this).findRange(_key);
+            return typename Base::ConstRangeType(range.first, range.second);
+        }
+    };
+    template<
+        template<typename...> class ContainerT_T,
+        typename T, //value type for container
+        typename ...K //optionally key type for std::map/std::unordered_map
+    >
+    struct CUniqObjectCacheBase<false, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>
+    {
+    private:
+        using Base = CObjectCacheBase<ContainerT_T, T, K...>;
+
+    public:
+        DEF_CACHE_CTORS(CUniqObjectCacheBase, Base)
+
+        inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
+        {
+            INSERT_IMPL_ASSOC
+        }
+
+        inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
+        {
+            auto it = this->m_container.lower_bound(_key);
+            if (it == std::end(m_container) || it->first > _key)
+                return { it, it };
+            return { it, std::next(it) };
+        }
+        inline typename Base::ConstRangeType findRange(const typename Base::KeyType_impl& _key) const
+        {
+            typename Base::RangeType range =
+                const_cast<typename std::decay<decltype(*this)>::type&>(*this).findRange(_key);
+            return typename Base::ConstRangeType(range.first, range.second);
+        }
+    };
+
+    template<
+        bool isVectorContainer,
+        template<typename...> class ContainerT_T,
+        typename T, //value type for container
+        typename ...K //optionally key type for std::map/std::unordered_map
+    >
+    struct CUniqObjectCacheBaseExt : public CUniqObjectCacheBase<isVectorContainer, ContainerT_T, T, K...>
+    {
+    private:
+        using Base = CUniqObjectCacheBase<isVectorContainer, ContainerT_T, T, K...>;
+
+    public:
+        DEF_CACHE_CTORS(CUniqObjectCacheBaseExt, Base)
+
+        inline void removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
+        {
+            typename Base::RangeType range = findRange(_key);
+            auto it = range.first;
+            if (Base::isValidRange(range) && it->second == _obj)
+            {
+                dispose(it->second);
+                this->m_container.erase(it);
+            }
+        }
+
+        //! Returns true if had to insert
+        bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj, typename Base::ValueType_impl _val)
+        {
+            greet(_val); // grab before drop
+
+            typename Base::RangeType range = findRange(_key);
+            auto it = range.first;
+
+            if (Base::isValidRange(range) && it->second == _obj)
+            {
+                dispose(it->second);
+                it->second = _val;
+                return false;
+            }
+            this->m_container.insert(it, { _key, _val });
+            return true;
+        }
+
+        bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
+        {
+            *_outrange = findRange(_key);
+            if (!Base::isValidRange(*_outrange))
+            {
+                this->m_container.insert(_outrange->first, { _key, nullptr });
+                greet(nullptr);
+                return false;
+            }
+            return true;
         }
     };
 }
@@ -363,13 +492,7 @@ protected:
     using DisposalFuncType = typename Base::DisposalFuncType;
 
 public:
-    inline explicit CMultiObjectCache(const GreetFuncType& _greeting, const DisposalFuncType& _disposal) : Base(_greeting, _disposal) {}
-    inline explicit CMultiObjectCache(GreetFuncType&& _greeting = nullptr, DisposalFuncType&& _disposal = nullptr) : Base(_greeting, _disposal) {}
-
-    inline bool insert(const K& _key, T* _val)
-    {
-        INSERT_IMPL_VEC
-    }
+    DEF_CACHE_CTORS(CMultiObjectCache, Base)
 };
 template<
     typename K,
@@ -390,14 +513,9 @@ protected:
     using DisposalFuncType = typename Base::DisposalFuncType;
 
 public:
-    inline explicit CMultiObjectCache(const GreetFuncType& _greeting, const DisposalFuncType& _disposal) : Base(_greeting, _disposal) {}
-    inline explicit CMultiObjectCache(GreetFuncType&& _greeting = nullptr, DisposalFuncType&& _disposal = nullptr) : Base(_greeting, _disposal) {}
-
-    inline bool insert(const K& _key, T* _val)
-    {
-        INSERT_IMPL_ASSOC
-    }
+    DEF_CACHE_CTORS(CMultiObjectCache, Base)
 };
+
 
 template<
     typename K,
@@ -413,83 +531,13 @@ template<
     template<typename...> class ContainerT_T
 >
 class CObjectCache<K, T, ContainerT_T, true> : 
-    public impl::CObjectCacheBase<ContainerT_T, std::pair<K, T*>>,
+    public impl::CUniqObjectCacheBaseExt<true, ContainerT_T, std::pair<K, T*>>,
     public impl::PropagTypedefs<T, K>
 {
-    using ValueType = std::pair<K, T*>;
-    using Base = impl::CObjectCacheBase<ContainerT_T, std::pair<K, T*>>;
+    using Base = impl::CUniqObjectCacheBaseExt<true, ContainerT_T, std::pair<K, T*>>;
 
 public:
-    inline explicit CObjectCache(const typename Base::GreetFuncType& _greeting, const typename Base::DisposalFuncType& _disposal) : Base(_greeting, _disposal) {}
-    inline explicit CObjectCache(typename Base::GreetFuncType&& _greeting = nullptr, typename Base::DisposalFuncType&& _disposal = nullptr) : Base(std::move(_greeting), std::move(_disposal)) {}
-
-    inline bool insert(const K& _key, T* _val)
-    {
-        INSERT_IMPL_VEC
-    }
-
-    //! Returns true if had to insert
-    inline bool swapValue(const K& _key, T* _val)
-    {
-        greet(_val); //grab before drop
-
-        auto it = find(_key);
-        if (it != std::end(this->m_container))
-        {
-            dispose(it->second);
-            it->second = _val;
-            return false;
-        }
-
-        this->m_container.insert(it, { _key, _val });
-        return true;
-    }
-
-    inline bool getByKey(T** _outval, const K& _key)
-    {
-        const T** _outval2 = const_cast<const T**>(_outval);
-        return const_cast<typename std::remove_reference<decltype(*this)>::type const&>(*this).getByKey(_outval2, _key);
-    }
-    inline bool getByKey(const T** _outval, const K& _key) const
-    {
-        auto it = find(_key);
-        if (it != std::end(m_container))
-        {
-            *_outval = it->second;
-            return true;
-        }
-        return false;
-    }
-
-	inline void removeByKey(const K& _key)
-    {
-        auto it = this->find(_key);
-        if (it != std::end(this->m_container))
-        {
-            dispose(it->second);
-            this->m_container.erase(it);
-        }
-    }
-
-private:
-    inline typename Base::ConstIteratorType find(const typename Base::KeyType_impl& _key) const
-    {
-        using ValueType = typename Base::PairType;
-
-        const auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), ValueType{ _key, nullptr }, [](const ValueType& _a, const ValueType& _b) -> bool {return _a.first < _b.first; });
-        if (it == std::end(this->m_container) || it->first < _key || _key < it->first)
-            return std::end(this->m_container);
-        return it;
-    }
-    inline typename Base::IteratorType find(const typename Base::KeyType_impl& _key)
-    {
-        using ValueType = typename Base::PairType;
-
-        const auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), ValueType{ _key, nullptr }, [](const ValueType& _a, const ValueType& _b) -> bool {return _a.first < _b.first; });
-        if (it == std::end(this->m_container) || it->first < _key || _key < it->first)
-            return std::end(this->m_container);
-        return it;
-    }
+    DEF_CACHE_CTORS(CObjectCache, Base)
 };
 
 
@@ -499,64 +547,20 @@ template<
     template<typename...> class ContainerT_T
 >
 class CObjectCache<K, T, ContainerT_T, false> : 
-    public impl::CObjectCacheBase<ContainerT_T, T*, K>,
+    public impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>,
     public impl::PropagTypedefs<T, K>
 {
     static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
-    using Base = impl::CObjectCacheBase<ContainerT_T, T*, K>;
+    using Base = impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>;
 
 public:
-    inline explicit CObjectCache(const typename Base::GreetFuncType& _greeting, const typename Base::DisposalFuncType& _disposal) : Base(_greeting, _disposal) {}
-    inline explicit CObjectCache(typename Base::GreetFuncType&& _greeting = nullptr, typename Base::DisposalFuncType&& _disposal = nullptr) : Base(std::move(_greeting), std::move(_disposal)) {}
-
-	inline bool insert(const K& _key, T* _val)
-    {
-        INSERT_IMPL_ASSOC
-    }
-
-    //! Returns true if had to insert
-    inline bool swapValue(const K& _key, T* _val)
-    {
-        greet(_val); //grab before drop
-
-        auto it = this->m_container.find(_key);
-        if (it != std::end(this->m_container))
-        {
-            dispose(it->second);
-            it->second = _val;
-            return false;
-        }
-
-        this->m_container.insert(it, { _key, _val });
-        return true;
-    }
-
-    inline bool getByKey(T** _outval, const K& _key)
-    {
-        const T** _outval2 = const_cast<const T**>(_outval);
-        return const_cast<std::remove_reference<decltype(*this)>::type const&>(*this).getByKey(_outval2, _key);
-    }
-    inline bool getByKey(const T** _outval, const K& _key) const
-    {
-        auto it = this->m_container.find(_key);
-        if (it == std::end(this->m_container))
-            return false;
-
-        *_outval = it->second;
-        return true;
-    }
-
-    inline void removeByKey(const K& _key)
-    {
-        auto it = this->m_container.find(_key);
-        if (it != std::end(this->m_container))
-        {
-            dispose(it->second);
-            this->m_container.erase(it);
-        }
-    }
+    DEF_CACHE_CTORS(CObjectCache, Base)
 };
 
 }}
 
+#undef INSERT_IMPL_VEC
+#undef INSERT_IMPL_ASSOC
+#undef MY_TYPE
+#undef DEF_CACHE_CTORS
 #endif //__C_OBJECT_CACHE_H_INCLUDED__
