@@ -85,7 +85,7 @@ namespace impl
         using DisposalFuncType = std::function<void(ValueType_impl)>;
 
         template<typename RangeT>
-        static bool isValidRange(const RangeT& _range) { return std::distance(_range.first, _range.second) != 0; }
+        static bool isNonZeroRange(const RangeT& _range) { return std::distance(_range.first, _range.second) != 0; }
 
     protected:
         GreetFuncType m_greetingFunc;
@@ -289,19 +289,16 @@ namespace impl
                 found->second = _val;
                 return false;
             }
-            if (range.second != std::end(this->m_container))
-                this->m_container.insert(range.second, typename Base::PairType_impl{_key, _val});
-            else
-                insert(_key, _val);
+            this->m_container.insert(range.second, typename Base::PairType_impl{_key, _val});
             return true;
         }
 
         bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
         {
             *_outrange = findRange(_key);
-            if (std::distance(_outrange->first, _outrange->second)==0)
+            if (!Base::isNonZeroRange(*_outrange))
             {
-                insert(_key, nullptr);
+                this->m_container.insert(_outrange->second, {_key, nullptr});
                 greet(nullptr);
                 return false;
             }
@@ -428,7 +425,7 @@ namespace impl
         {
             typename Base::RangeType range = findRange(_key);
             auto it = range.first;
-            if (Base::isValidRange(range) && it->second == _obj)
+            if (Base::isNonZeroRange(range) && it->second == _obj)
             {
                 dispose(it->second);
                 this->m_container.erase(it);
@@ -443,7 +440,7 @@ namespace impl
             typename Base::RangeType range = findRange(_key);
             auto it = range.first;
 
-            if (Base::isValidRange(range) && it->second == _obj)
+            if (Base::isNonZeroRange(range) && it->second == _obj)
             {
                 dispose(it->second);
                 it->second = _val;
@@ -456,7 +453,7 @@ namespace impl
         bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
         {
             *_outrange = findRange(_key);
-            if (!Base::isValidRange(*_outrange))
+            if (!Base::isNonZeroRange(*_outrange))
             {
                 this->m_container.insert(_outrange->first, { _key, nullptr });
                 greet(nullptr);
