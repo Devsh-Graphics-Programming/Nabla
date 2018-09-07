@@ -11,7 +11,7 @@ namespace impl
 {
     struct CConcurrentObjectCacheBase
     {
-        struct 
+        struct
         {
             void lockRead() const { FW_AtomicCounterIncr(ctr); }
             void unlockRead() const { FW_AtomicCounterDecr(ctr); }

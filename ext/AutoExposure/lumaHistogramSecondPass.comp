@@ -41,6 +41,13 @@ uint upper_bound__minus_one1024(in uint val)
     return ret;
 }
 
+#define BARRIER barrier()
+/* If we have issues then use this define
+#define BARRIER \
+    barrier() \
+    memoryBarrierShared()
+*/
+
 //! Bad INEFFICIENT Kogge-Stone adder
 // can change to a Up-sweep down-sweep scanner but makes >1% perf diff
 void parallelPrefixPass(in uint pass, in uint srcAddr, in uint dstAddr)
@@ -52,8 +59,7 @@ void parallelPrefixPass(in uint pass, in uint srcAddr, in uint dstAddr)
             tmp += histogram[srcAddr-pass];
         histogram[dstAddr] = tmp;
     }
-    memoryBarrierShared();
-    barrier();
+    BARRIER;
 }
 
 void main()
@@ -70,23 +76,17 @@ void main()
     packedHistogram[gl_LocalInvocationIndex+3u*RESOLVE_THREADS] = 0;
 #endif // GLOBAL_REPLICATION
 #endif // GLOBAL_REPLICATION
-    // what order to put the barriers?
-    memoryBarrierShared();
-    barrier();
+    BARRIER;
 
 #if GLOBAL_REPLICATION>=4u&&RESOLVE_THREADS/BIN_COUNTu>=4u
     if (gl_LocalInvocationIndex<512)
         histogram[gl_LocalInvocationIndex] += histogram[gl_LocalInvocationIndex+512];
-    // what order to put the barriers?
-    memoryBarrierShared();
-    barrier();
+    BARRIER;
 #endif
 #if GLOBAL_REPLICATION>=2u&&RESOLVE_THREADS/BIN_COUNTu>=2u
     if (gl_LocalInvocationIndex<256)
         histogram[gl_LocalInvocationIndex] += histogram[gl_LocalInvocationIndex+256];
-    // what order to put the barriers?
-    memoryBarrierShared();
-    barrier();
+    BARRIER;
 #endif
 
     //! Bad INEFFICIENT Kogge-Stone adder
@@ -112,9 +112,7 @@ void main()
 
         foundPercentiles[gl_LocalInvocationIndex] = unpackHalf2x16((foundVal<<HISTOGRAM_POT2_RAW16F_BIN_SIZE)+uint(MIN_HISTOGRAM_RAW16F_AS_UINT)).x;
     }
-    // what order to put the barriers?
-    memoryBarrierShared();
-    barrier();
+    BARRIER;
 
     if (lower2Threads)
     {

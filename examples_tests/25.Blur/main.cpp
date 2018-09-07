@@ -25,7 +25,7 @@ public:
             {
             case irr::KEY_KEY_Q: // switch wire frame mode
                 exit(0);
-                return true; 
+                return true;
             default:
                 break;
             }
