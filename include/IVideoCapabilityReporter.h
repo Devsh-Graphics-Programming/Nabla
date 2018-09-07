@@ -10,17 +10,6 @@
 
 #include "IrrCompileConfig.h"
 
-#if defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
-    #define WIN32_LEAN_AND_MEAN
-    #include <windows.h>
-#elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-    #include <X11/Xlib.h>
-    #include <X11/Xutil.h>
-    #ifdef _IRR_LINUX_X11_RANDR_
-        #include <X11/extensions/Xrandr.h>
-    #endif
-#endif
-
 namespace irr
 {
 namespace video
@@ -112,34 +101,7 @@ namespace video
 		//!
 		virtual uint32_t getRequiredTBOAlignment() const = 0;
 
-        inline uint16_t retrieveDisplayRefreshRate() const
-        {
-#if defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
-            DEVMODEA dm;
-            dm.dmSize = sizeof(DEVMODE);
-            dm.dmDriverExtra = 0;
-            if (!EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm))
-                return 0u;
-            return dm.dmDisplayFrequency;
-#elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-    #ifdef _IRR_LINUX_X11_RANDR_
-            Display* disp = XOpenDisplay(NULL);
-            Window root = RootWindow(disp, 0);
-
-            XRRScreenConfiguration* conf = XRRGetScreenInfo(disp, root);
-            uint16_t rate = XRRConfigCurrentRate(conf);
-
-            return rate;
-    #else
-        #ifdef _DEBUG
-            os::Printer::log("Refresh rate retrieval without Xrandr compiled in is not supprted!\n", ELL_WARNING);
-        #endif
-            return 0u;
-    #endif // _IRR_LINUX_X11_RANDR_
-#elif defined(_IRR_COMPILE_WITH_CONSOLE_DEVICE_)
-            return 0u;
-#endif
-        }
+        virtual uint16_t retrieveDisplayRefreshRate() const = 0;
 
 	};
 
