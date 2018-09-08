@@ -10,14 +10,14 @@
 #include <map>
 #include <unordered_map>
 
-#include "IrrCompileConfig.h"
+#include "irrMacros.h"
 
 namespace irr { namespace core
 {
 
 namespace impl
 {
-    struct CMultiCache_tag {};
+    struct FORCE_EMPTY_BASE_OPT CMultiCache_tag {};
 
     template<template<typename...> class, template<typename...> class>
     struct is_same_templ : std::false_type {};
