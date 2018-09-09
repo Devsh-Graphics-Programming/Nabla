@@ -13,7 +13,6 @@ namespace irr
 namespace core
 {
 
-//! Persistently Mapped buffer
 class ICPUBuffer : public IBuffer
 {
     protected:

@@ -112,7 +112,7 @@ namespace irr
 			_IRR_DEBUG_BREAK_IF(ctrVal == 0)
 			if (ctrVal==1)
 			{
-				delete this; //TODO: but todo much later, change to _IRR_DELETE_ETC
+				delete this; // aligned overrides of delete should do the job :D
 				return true;
 			}
 

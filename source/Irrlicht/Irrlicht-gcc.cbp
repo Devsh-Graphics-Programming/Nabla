@@ -249,7 +249,6 @@
 		<Unit filename="../../include/CForsythVertexCacheOptimizer.h" />
 		<Unit filename="../../include/CGLSLFunctionGenerator.h" />
 		<Unit filename="../../include/CImageData.h" />
-		<Unit filename="../../include/CMultiBufferedInterfaceBlock.h" />
 		<Unit filename="../../include/CObjectCache.h" />
 		<Unit filename="../../include/COpenGLStateManager.h" />
 		<Unit filename="../../include/COpenGLStateManagerImpl.h" />

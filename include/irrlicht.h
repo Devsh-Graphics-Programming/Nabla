@@ -35,7 +35,6 @@
 #include "dimension2d.h"
 #include "CFinalBoneHierarchy.h"
 #include "CGLSLFunctionGenerator.h"
-#include "CMultiBufferedInterfaceBlock.h"
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "EDriverTypes.h"
