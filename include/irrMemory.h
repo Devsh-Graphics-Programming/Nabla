@@ -12,9 +12,12 @@
 #include <cstddef>
 
 
-#define _IRR_SIMD_ALIGNMENT                 16 // change to 32 or 64 for AVX or AVX2 compatibility respectively, might break BaW file format!
+#define _IRR_SIMD_ALIGNMENT                 16u // change to 32 or 64 for AVX or AVX2 compatibility respectively, might break BaW file format!
 //! Default alignment for a type
 #define _IRR_DEFAULT_ALIGNMENT(_obj_type)   (std::alignment_of<_obj_type>::value>(_IRR_SIMD_ALIGNMENT) ? std::alignment_of<_obj_type>::value:(_IRR_SIMD_ALIGNMENT))
+
+#define _IRR_MIN_MAP_BUFFER_ALIGNMENT       64u// GL_MIN_MAP_BUFFER_ALIGNMENT
+
 
 //! Very useful for enabling compiler optimizations
 #if defined(_MSC_VER)
@@ -36,16 +39,6 @@
     #define _IRR_ALIGNED_MALLOC(size,alignment)     ::_aligned_malloc(size,alignment)
     #define _IRR_ALIGNED_FREE(addr)                 ::_aligned_free(addr)
 #else
-    /** TODO: Get that lambda to work!
-    #define _IRR_ALIGNED_MALLOC(size,alignment)     [](size_t size2, size_t alignment2) noexcept -> void* \
-                                                    { \
-                                                        if (size2 == 0) return nullptr; \
-                                                        void* p; \
-                                                        if (::posix_memalign(&p, alignment2<alignof(std::max_align_t) ? alignof(std::max_align_t):alignment2, size2) != 0) p = nullptr; \
-                                                        return p; \
-                                                    }(size,alignment)
-                                                    //immediately invoke lambda
-    .**/
 
 namespace irr
 {
@@ -67,9 +60,8 @@ namespace impl
 
 //TODO FInal: Allow overrides of Global New and Delete ???
 #ifdef _IRR_ALLOW_GLOBAL_NEW_TO_THROW
+#else
 #endif
-
-//TODO Mid: Define Lambda functions for _IRR_*_ALIGNED ?
 
 //TOTO Now: Create a irr::AllocatedByStaticAllocator<StaticAllocator> class
 //TOTO Now: Create a irr::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
@@ -134,13 +126,13 @@ namespace irr
 //! Alignments can only be PoT in C++11 and in GPU APIs, so this is useful if you need to pad
 constexpr inline size_t alignUp(size_t value, size_t alignment)
 {
-    return (value + alignment - 1) & ~(alignment - 1);
+    return (value + alignment - 1ull) & ~(alignment - 1ull);
 }
 
 //! Down-rounding counterpart
 constexpr inline size_t alignDown(size_t value, size_t alignment)
 {
-    return (value - 1) & ~(alignment - 1);
+    return (value - 1ull) & ~(alignment - 1ull);
 }
 
 //! Valid alignments are power of two
