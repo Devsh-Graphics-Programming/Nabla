@@ -9,7 +9,7 @@
 #include "vector2d.h"
 #include "position2d.h"
 #include "SKeyMap.h"
-#include "irrArray.h"
+
 
 namespace irr
 {
@@ -54,16 +54,16 @@ namespace scene
 		virtual void setRotateSpeed(float rotateSpeed);
 
 		//! Sets the keyboard mapping for this animator (old style)
-		//! \param keymap: an array of keyboard mappings, see SKeyMap
-		//! \param count: the size of the keyboard map array
+		//! \param keymap: an vector of keyboard mappings, see SKeyMap
+		//! \param count: the size of the keyboard map vector
 		virtual void setKeyMap(SKeyMap *map, uint32_t count);
 
 		//! Sets the keyboard mapping for this animator
-		//!	\param keymap The new keymap array
-		virtual void setKeyMap(const core::array<SKeyMap>& keymap);
+		//!	\param keymap The new keymap vector
+		virtual void setKeyMap(const core::vector<SKeyMap>& keymap);
 
 		//! Gets the keyboard mapping for this animator
-		virtual const core::array<SKeyMap>& getKeyMap() const;
+		virtual const core::vector<SKeyMap>& getKeyMap() const;
 
 		//! Sets whether vertical movement should be allowed.
 		virtual void setVerticalMovement(bool allow);
@@ -106,7 +106,7 @@ namespace scene
 
 		int32_t LastAnimationTime;
 
-		core::array<SKeyMap> KeyMap;
+		core::vector<SKeyMap> KeyMap;
 		core::position2d<float> CenterCursor, CursorPos;
 
 		bool CursorKeys[EKA_COUNT];

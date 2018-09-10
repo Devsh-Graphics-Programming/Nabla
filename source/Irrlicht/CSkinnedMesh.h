@@ -9,7 +9,7 @@
 
 #include "ISkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
-#include "irrString.h"
+#include "irr/core/irrString.h"
 #include "SSkinMeshBuffer.h"
 
 namespace irr
@@ -25,7 +25,7 @@ namespace scene
                 IGPUMeshBuffer* mb;
                 uint32_t maxVertexWeightInfluences;
             };
-            std::vector<SGPUMeshBufferMetaData> meshbuffers;
+            core::vector<SGPUMeshBufferMetaData> meshbuffers;
 
         protected:
             virtual ~CGPUSkinnedMesh()
@@ -158,13 +158,13 @@ namespace scene
             //these functions will use the needed arrays, set values, etc to help the loaders
 
             //! exposed for loaders to add mesh buffers
-            virtual core::array<SCPUSkinMeshBuffer*> &getMeshBuffers();
+            virtual core::vector<SCPUSkinMeshBuffer*> &getMeshBuffers();
 
             //! alternative method for adding joints
-            virtual std::vector<SJoint*> &getAllJoints();
+            virtual core::vector<SJoint*> &getAllJoints();
 
             //! alternative method for adding joints
-            virtual const std::vector<SJoint*> &getAllJoints() const;
+            virtual const core::vector<SJoint*> &getAllJoints() const;
 
             //! loaders should call this after populating the mesh
             virtual void finalize();
@@ -183,9 +183,9 @@ namespace scene
 
             void calculateGlobalMatrices();
 
-            core::array<SCPUSkinMeshBuffer*> LocalBuffers;
+            core::vector<SCPUSkinMeshBuffer*> LocalBuffers;
 
-            std::vector<SJoint*> AllJoints;
+            core::vector<SJoint*> AllJoints;
 
             CFinalBoneHierarchy* referenceHierarchy;
 

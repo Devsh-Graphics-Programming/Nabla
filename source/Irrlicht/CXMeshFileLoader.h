@@ -10,7 +10,6 @@
 #ifdef _IRR_COMPILE_WITH_X_LOADER_
 
 #include "IMeshLoader.h"
-#include "irrString.h"
 #include "CSkinnedMesh.h"
 #include <sstream>
 
@@ -64,7 +63,7 @@ public:
 		// this mesh contains triangulated texture data.
 		// because in an .x file, faces can be made of more than 3
 		// vertices, the indices data structure is triangulated during the
-		// loading process. The IndexCountPerFace array is filled during
+		// loading process. The IndexCountPerFace vector is filled during
 		// this triangulation process and stores how much indices belong to
 		// every face. This data structure can be ignored, because all data
 		// in this structure is triangulated.
@@ -73,20 +72,20 @@ public:
 
 		uint32_t BoneCount;
 
-		core::array<uint16_t> IndexCountPerFace; // default 3, but could be more
+		core::vector<uint16_t> IndexCountPerFace; // default 3, but could be more
 
-		core::array<SCPUSkinMeshBuffer*> Buffers;
+		core::vector<SCPUSkinMeshBuffer*> Buffers;
 
-		core::array<SXVertex> Vertices;
-		core::array<uint32_t> Colors;
-		core::array<core::vector2df> TCoords2;
-		core::array<SkinnedVertexIntermediateData> VertexSkinWeights;
+		core::vector<SXVertex> Vertices;
+		core::vector<uint32_t> Colors;
+		core::vector<core::vector2df> TCoords2;
+		core::vector<SkinnedVertexIntermediateData> VertexSkinWeights;
 
-		core::array<uint32_t> Indices;
+		core::vector<uint32_t> Indices;
 
-		core::array<uint32_t> FaceMaterialIndices; // index of material for each face
+		core::vector<uint32_t> FaceMaterialIndices; // index of material for each face
 
-		core::array<video::SMaterial> Materials; // material array
+		core::vector<video::SMaterial> Materials; // material vector
 
 		int32_t AttachedJointID;
 
@@ -175,7 +174,7 @@ private:
 	ISceneManager* SceneManager;
 	io::IFileSystem* FileSystem;
 
-	core::array<ICPUSkinnedMesh::SJoint*> *AllJoints;
+	core::vector<ICPUSkinnedMesh::SJoint*> *AllJoints;
 
 	CCPUSkinnedMesh* AnimatedMesh;
 
@@ -186,9 +185,9 @@ private:
 
 	ICPUSkinnedMesh::SJoint *CurFrame;
 
-	core::array<SXMesh*> Meshes;
+	core::vector<SXMesh*> Meshes;
 
-	core::array<SXTemplateMaterial> TemplateMaterials;
+	core::vector<SXTemplateMaterial> TemplateMaterials;
 
 	uint32_t MajorVersion;
 	uint32_t MinorVersion;

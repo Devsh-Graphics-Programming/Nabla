@@ -7,7 +7,6 @@
 
 #include "rect.h"
 #include "SColor.h"
-#include "irrArray.h"
 #include "matrix4x3.h"
 #include "plane3d.h"
 #include "dimension2d.h"
@@ -103,7 +102,7 @@ namespace video
 	{
 	public:
 	    //! This is marked for deprecation (move to IAssetManager)
-	    virtual std::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> mesh) {return std::vector<scene::IGPUMesh*>();}
+	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*> mesh) {return core::vector<scene::IGPUMesh*>();}
 
 	    //! make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
         virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) {}
@@ -251,13 +250,13 @@ namespace video
 			const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
 
         //!
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN) = 0;
+        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN) = 0;
 
 		//! A.
 		/** \param B
 		\param C
 		\return D. */
-        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain) = 0;
+        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<CImageData*>& mipChain) = 0;
 
         //! A.
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
@@ -419,8 +418,8 @@ namespace video
 		the texture is used to draw the image. */
 		virtual void draw2DImageBatch(const video::ITexture* texture,
 				const core::position2d<int32_t>& pos,
-				const core::array<core::rect<int32_t> >& sourceRects,
-				const core::array<int32_t>& indices,
+				const core::vector<core::rect<int32_t> >& sourceRects,
+				const core::vector<int32_t>& indices,
 				int32_t kerningWidth=0,
 				const core::rect<int32_t>* clipRect=0,
 				SColor color=SColor(255,255,255,255),
@@ -443,8 +442,8 @@ namespace video
 		\param useAlphaChannelOfTexture: If true, the alpha channel of
 		the texture is used to draw the image. */
 		virtual void draw2DImageBatch(const video::ITexture* texture,
-				const core::array<core::position2d<int32_t> >& positions,
-				const core::array<core::rect<int32_t> >& sourceRects,
+				const core::vector<core::position2d<int32_t> >& positions,
+				const core::vector<core::rect<int32_t> >& sourceRects,
 				const core::rect<int32_t>* clipRect=0,
 				SColor color=SColor(255,255,255,255),
 				bool useAlphaChannelOfTexture=false) =0;
@@ -525,7 +524,7 @@ namespace video
                                         const size_t& offset, const size_t& count, const size_t& stride) =0;
 		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
-                                        const E_INDEX_TYPE& type,
+                                        const scene::E_INDEX_TYPE& type,
                                         const IGPUBuffer* indirectDrawBuff,
                                         const size_t& offset, const size_t& count, const size_t& stride) =0;
 
@@ -602,7 +601,7 @@ namespace video
 		\return .
 		If you no longer need the image data, you should call CImageData::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual std::vector<CImageData*> createImageDataFromFile(const io::path& filename) = 0;
+		virtual core::vector<CImageData*> createImageDataFromFile(const io::path& filename) = 0;
 
 		//! Creates a ... from a file.
 		/**
@@ -611,7 +610,7 @@ namespace video
 		If you no longer need the image data, you should call CImageData::drop()
 		on all vector members.
 		See IReferenceCounted::drop() for more information. */
-		virtual std::vector<CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
+		virtual core::vector<CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
 
 		//! Writes the provided image to a file.
 		/** Requires that there is a suitable image writer registered

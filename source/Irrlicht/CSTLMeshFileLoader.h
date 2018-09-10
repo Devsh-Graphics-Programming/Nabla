@@ -6,7 +6,7 @@
 #define __C_STL_MESH_FILE_LOADER_H_INCLUDED__
 
 #include "IMeshLoader.h"
-#include "irrString.h"
+
 #include "vectorSIMD.h"
 
 namespace irr

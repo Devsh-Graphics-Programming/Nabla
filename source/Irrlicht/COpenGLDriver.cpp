@@ -800,7 +800,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
 
 	found->CurrentTexture.clear();
 
-	for(std::unordered_map<uint64_t,GLuint>::iterator it = found->SamplerMap.begin(); it != found->SamplerMap.end(); it++)
+	for(core::unordered_map<uint64_t,GLuint>::iterator it = found->SamplerMap.begin(); it != found->SamplerMap.end(); it++)
     {
         extGlDeleteSamplers(1,&it->second);
     }
@@ -958,7 +958,7 @@ public:
     {
         currentMatType = EMT_COUNT;
     }
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE &materialType, const core::array<video::SConstantLocationNamePair> &constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE &materialType, const core::vector<video::SConstantLocationNamePair> &constants)
     {
         for (size_t i=0; i<constants.size(); i++)
         {
@@ -1212,13 +1212,13 @@ scene::IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::
     return new COpenGLVAOSpec(dbgr);
 }
 
-std::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> meshes)
+core::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*> meshes)
 {
-    std::vector<scene::IGPUMesh*> retval;
+    core::vector<scene::IGPUMesh*> retval;
 
-    std::unordered_map<const scene::ICPUMeshBuffer*,scene::IGPUMeshBuffer*> createdMeshBuffers;
-    std::unordered_map<const scene::ICPUMeshDataFormatDesc*,scene::IGPUMeshDataFormatDesc*> createdVAOs;
-    std::unordered_map<const core::ICPUBuffer*,IGPUBuffer*> createdGPUBuffers;
+    core::unordered_map<const scene::ICPUMeshBuffer*,scene::IGPUMeshBuffer*> createdMeshBuffers;
+    core::unordered_map<const scene::ICPUMeshDataFormatDesc*,scene::IGPUMeshDataFormatDesc*> createdVAOs;
+    core::unordered_map<const core::ICPUBuffer*,IGPUBuffer*> createdGPUBuffers;
 
     auto findOrCreateBuffer = [&] (const core::ICPUBuffer* cpubuffer) -> video::IGPUBuffer*
             {
@@ -1529,12 +1529,12 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
     {
         switch (mb->getIndexType())
         {
-            case EIT_16BIT:
+            case scene::EIT_16BIT:
             {
                 indexSize=GL_UNSIGNED_SHORT;
                 break;
             }
-            case EIT_32BIT:
+            case scene::EIT_32BIT:
             {
                 indexSize=GL_UNSIGNED_INT;
                 break;
@@ -1675,7 +1675,7 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 
 void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
-                                        const E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
+                                        const scene::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
                                         const size_t& offset, const size_t& count, const size_t& stride)
 {
     if (!indirectDrawBuff)
@@ -1694,7 +1694,7 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
 	// draw everything
 	setRenderStates3DMode();
 
-	GLenum indexSize = type!=EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
+	GLenum indexSize = type!=scene::EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
     GLenum primType = primitiveTypeToGL(mode);
 	switch (mode)
 	{
@@ -2176,7 +2176,7 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtua
             if (CurrentSamplerHash[stage]!=hashVal)
             {
                 CurrentSamplerHash[stage] = hashVal;
-                std::unordered_map<uint64_t,GLuint>::iterator it = SamplerMap.find(hashVal);
+                auto it = SamplerMap.find(hashVal);
                 if (it != SamplerMap.end())
                 {
                     extGlBindSamplers(stage,1,&it->second);
@@ -2577,7 +2577,7 @@ void COpenGLDriver::setViewPort(const core::rect<int32_t>& area)
 	}
 }
 
-ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
+ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
 {
     if (!images.size())
         return NULL;
@@ -2586,7 +2586,7 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
     uint32_t initialMaxCoord[3] = {1,1,1};
     uint32_t highestMip = 0;
     ECOLOR_FORMAT candidateFormat = format;
-    for (std::vector<CImageData*>::const_iterator it=images.begin(); it!=images.end(); it++)
+    for (core::vector<CImageData*>::const_iterator it=images.begin(); it!=images.end(); it++)
     {
         CImageData* img = *it;
         if (!img||img->getColorFormat()==ECF_UNKNOWN)
@@ -2635,7 +2635,7 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
     }
 
     //! Sort the mipchain!!!
-    std::vector<CImageData*> sortedMipchain(images);
+    core::vector<CImageData*> sortedMipchain(images);
     std::sort(sortedMipchain.begin(),sortedMipchain.end(),orderByMip);
 
     //figure out the texture type if not provided
@@ -2665,7 +2665,7 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
 
     //get out max texture size
     uint32_t maxCoord[3] = {initialMaxCoord[0],initialMaxCoord[1],initialMaxCoord[2]};
-    for (std::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
+    for (core::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
     {
         CImageData* img = *it;
         if (img->getSliceMax()[0]>getMaxTextureSize(actualType)[0]||
@@ -2686,7 +2686,7 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
 	if (texture)
 		texture->drop();
 
-    for (std::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
+    for (core::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
     {
         CImageData* img = *it;
         if (!img)
@@ -2704,7 +2704,7 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
 
 IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format, const bool& fixedSampleLocations)
 {
-    //check to implement later on renderbuffer creation and attachment of textures to FBO
+    //check to implement later on  attachment of textures to FBO
     //if (!isFormatRenderable(glTex->getOpenGLInternalFormat()))
         //return nullptr;
     //! Vulkan and D3D only allow PoT sample counts
@@ -2749,8 +2749,8 @@ IFrameBuffer* COpenGLDriver::addFrameBuffer()
         return nullptr;
 
 	IFrameBuffer* fbo = new COpenGLFrameBuffer(this);
-    found->FrameBuffers.push_back(fbo);
-    found->FrameBuffers.sort();
+	auto it = std::lower_bound(found->FrameBuffers.begin(),found->FrameBuffers.end(),fbo);
+    found->FrameBuffers.insert(it,fbo);
 	return fbo;
 }
 
@@ -2765,10 +2765,11 @@ void COpenGLDriver::removeFrameBuffer(IFrameBuffer* framebuf)
     if (!found)
         return;
 
-    int32_t ix = found->FrameBuffers.binary_search(framebuf);
-    if (ix<0)
+	auto it = std::lower_bound(found->FrameBuffers.begin(),found->FrameBuffers.end(),framebuf);
+	if (it!=found->FrameBuffers.end())
+        found->FrameBuffers.erase(it);
+    else
         return;
-    found->FrameBuffers.erase(ix);
 
     framebuf->drop();
 }
@@ -2779,8 +2780,8 @@ void COpenGLDriver::removeAllFrameBuffers()
     if (!found)
         return;
 
-	for (uint32_t i=0; i<found->FrameBuffers.size(); ++i)
-		found->FrameBuffers[i]->drop();
+	for (auto fb : found->FrameBuffers)
+		fb->drop();
     found->FrameBuffers.clear();
 }
 

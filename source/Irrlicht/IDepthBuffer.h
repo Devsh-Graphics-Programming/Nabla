@@ -5,7 +5,7 @@
 #ifndef __I_Z2_BUFFER_H_INCLUDED__
 #define __I_Z2_BUFFER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "dimension2d.h"
 #include "S4DVertex.h"
 
@@ -13,7 +13,7 @@ namespace irr
 {
 namespace video
 {
-	class IDepthBuffer : public virtual IReferenceCounted
+	class IDepthBuffer : public virtual core::IReferenceCounted
 	{
 	public:
 		//! clears the zbuffer
@@ -40,7 +40,7 @@ namespace video
 	//! creates a ZBuffer
 	IDepthBuffer* createDepthBuffer(const core::dimension2d<uint32_t>& size);
 
-	class IStencilBuffer : public virtual IReferenceCounted
+	class IStencilBuffer : public virtual core::IReferenceCounted
 	{
 	public:
 		//! clears the zbuffer

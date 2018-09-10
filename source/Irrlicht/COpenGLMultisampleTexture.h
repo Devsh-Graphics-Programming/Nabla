@@ -52,7 +52,7 @@ class COpenGLMultisampleTexture : public COpenGLTexture, public IMultisampleText
         virtual ECOLOR_FORMAT getColorFormat() const {return ColorFormat;}
 
         //!
-        virtual const E_MULTISAMPLE_TEXTURE_TYPE getTextureType() const {return EMTT_2D;}
+        virtual E_MULTISAMPLE_TEXTURE_TYPE getTextureType() const {return EMTT_2D;}
 
         //! sampleCount of 0 indicates not 0 samples but the same amount as old texture
         virtual bool resize(const uint32_t* size, const uint32_t& sampleCount=0);

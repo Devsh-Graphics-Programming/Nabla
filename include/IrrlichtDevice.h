@@ -5,7 +5,6 @@
 #ifndef __I_IRRLICHT_DEVICE_H_INCLUDED__
 #define __I_IRRLICHT_DEVICE_H_INCLUDED__
 
-#include "IReferenceCounted.h"
 #include "dimension2d.h"
 #include "IVideoDriver.h"
 #include "EDriverTypes.h"
@@ -35,7 +34,7 @@ namespace irr
 	this class.  There should be only one instance of this class at any
 	time.
 	*/
-	class IrrlichtDevice : public virtual IReferenceCounted
+	class IrrlichtDevice : public virtual core::IReferenceCounted
 	{
 	public:
 		//! Runs the device.
@@ -218,7 +217,7 @@ namespace irr
 		\return true if joysticks are supported on this device and _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
 				is defined, false if joysticks are not supported or support is compiled out.
 		*/
-		virtual bool activateJoysticks(core::array<SJoystickInfo>& joystickInfo) =0;
+		virtual bool activateJoysticks(core::vector<SJoystickInfo>& joystickInfo) =0;
 
 		//! Remove messages pending in the system message loop
 		/** This function is usually used after messages have been buffered for a longer time, for example

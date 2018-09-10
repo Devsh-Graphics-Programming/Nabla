@@ -290,12 +290,12 @@ void CSceneNodeAnimatorCameraFPS::setKeyMap(SKeyMap *map, uint32_t count)
 	}
 }
 
-void CSceneNodeAnimatorCameraFPS::setKeyMap(const core::array<SKeyMap>& keymap)
+void CSceneNodeAnimatorCameraFPS::setKeyMap(const core::vector<SKeyMap>& keymap)
 {
 	KeyMap=keymap;
 }
 
-const core::array<SKeyMap>& CSceneNodeAnimatorCameraFPS::getKeyMap() const
+const core::vector<SKeyMap>& CSceneNodeAnimatorCameraFPS::getKeyMap() const
 {
 	return KeyMap;
 }

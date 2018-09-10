@@ -9,7 +9,7 @@
 #include <functional>
 #include <map>
 #include <unordered_map>
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 
 namespace irr { namespace core
 {
@@ -25,7 +25,7 @@ namespace impl
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
     struct CObjectCacheBase
     {
@@ -75,8 +75,8 @@ namespace impl
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T = std::vector,
-    bool = impl::is_same_templ<ContainerT_T, std::vector>::value
+    template<typename...> class ContainerT_T = core::vector,
+    bool = impl::is_same_templ<ContainerT_T, core::vector>::value
 >
 class CObjectCache;
 
@@ -182,7 +182,8 @@ template<
 >
 class CObjectCache<K, T, ContainerT_T, false> : public impl::CObjectCacheBase<ContainerT_T, T*, K>
 {
-    static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
+    //! This assert will not work with arbitrary allocators
+    //static_assert(impl::is_same_templ<ContainerT_T, core::map>::value || impl::is_same_templ<ContainerT_T, core::unordered_map>::value, "ContainerT_T must be one of: vector, map, unordered_map");
 
 public:
     inline explicit CObjectCache(const std::function<void(T*)>& _greeting, const std::function<void(T*)>& _disposal) : impl::CObjectCacheBase<ContainerT_T, T*, K>(_greeting, _disposal) {}

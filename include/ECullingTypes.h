@@ -5,8 +5,8 @@
 #ifndef __E_CULLING_TYPES_H_INCLUDED__
 #define __E_CULLING_TYPES_H_INCLUDED__
 
-#include "irrTypes.h"
-#include "irrMacros.h"
+#include "irr/core/Types.h"
+#include "irr/macros.h"
 
 namespace irr
 {

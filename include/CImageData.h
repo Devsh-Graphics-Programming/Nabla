@@ -5,9 +5,9 @@
 #ifndef __C_IMAGE_DATA_H_INCLUDED__
 #define __C_IMAGE_DATA_H_INCLUDED__
 
-#include "IReferenceCounted.h"
 #include "string.h"
-#include "SColor.h"
+
+#include "irr/core/IReferenceCounted.h"
 #include "IImage.h"
 
 namespace irr
@@ -15,7 +15,7 @@ namespace irr
 namespace video
 {
 
-class CImageData : public IReferenceCounted
+class CImageData : public core::IReferenceCounted
 {
         void*       data;
 

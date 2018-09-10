@@ -137,9 +137,9 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* file) const
 }
 
 //! creates a surface from the file
-std::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
+core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 {
-    std::vector<CImageData*> retval;
+    core::vector<CImageData*> retval;
 
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", file->getFileName(), ELL_DEBUG);

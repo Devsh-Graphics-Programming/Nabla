@@ -36,7 +36,7 @@ class COpenGLFrameBuffer : public IFrameBuffer
 
         virtual bool rebindRevalidate();
 
-        const GLuint getOpenGLName() const {return frameBuffer;}
+        const GLuint& getOpenGLName() const {return frameBuffer;}
 
         virtual const IRenderableVirtualTexture* getAttachment(const size_t &ix) const {return ix<EFAP_MAX_ATTACHMENTS ? attachments[ix]:NULL;}
 

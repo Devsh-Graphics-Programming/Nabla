@@ -6,7 +6,6 @@
 #define __C_FILE_SYSTEM_H_INCLUDED__
 
 #include "IFileSystem.h"
-#include "irrArray.h"
 
 namespace irr
 {
@@ -127,9 +126,9 @@ class CFileSystem : public IFileSystem
         //! WorkingDirectory for Native and Virtual filesystems
         io::path WorkingDirectory [2];
         //! currently attached ArchiveLoaders
-        core::array<IArchiveLoader*> ArchiveLoader;
+        core::vector<IArchiveLoader*> ArchiveLoader;
         //! currently attached Archives
-        core::array<IFileArchive*> FileArchives;
+        core::vector<IFileArchive*> FileArchives;
 };
 
 

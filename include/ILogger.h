@@ -5,7 +5,7 @@
 #ifndef __I_LOGGER_H_INCLUDED__
 #define __I_LOGGER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include <string>
 
 namespace irr
@@ -36,7 +36,7 @@ enum ELOG_LEVEL
 
 
 //! Interface for logging messages, warnings and errors
-class ILogger : public virtual IReferenceCounted
+class ILogger : public virtual core::IReferenceCounted
 {
 public:
 	//! Returns the current set log level.

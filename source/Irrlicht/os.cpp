@@ -3,9 +3,9 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "os.h"
-#include "irrString.h"
+
 #include "IrrCompileConfig.h"
-#include "irrMath.h"
+#include "irr/core/math/irrMath.h"
 
 #if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
 	#include <SDL/SDL_endian.h>

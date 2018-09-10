@@ -13,7 +13,7 @@ namespace irr
 namespace video
 {
 
-class IVirtualTexture : public virtual IReferenceCounted
+class IVirtualTexture : public virtual core::IReferenceCounted
 {
         _IRR_INTERFACE_CHILD(IVirtualTexture) {}
     public:

@@ -6,7 +6,7 @@
 #ifndef __I_DRIVER_MEMORY_ALLOCATION_H_INCLUDED__
 #define __I_DRIVER_MEMORY_ALLOCATION_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 
 namespace irr
 {
@@ -20,7 +20,7 @@ TO COPY BETWEEN MEMORY ALLOCATIONS you need to have them bound to
 one or two IGPUBuffers and execute IVideoDriver::copyBuffer between them.
 We only support persistently mapped buffers with ARB_buffer_storage.
 Please don't ask us to support Buffer Orphaning. */
-class IDriverMemoryAllocation : public virtual IReferenceCounted
+class IDriverMemoryAllocation : public virtual core::IReferenceCounted
 {
     public:
         //!

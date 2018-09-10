@@ -5,14 +5,12 @@
 #ifndef __IRR_STRING_H_INCLUDED__
 #define __IRR_STRING_H_INCLUDED__
 
-#include "irrTypes.h"
-#include "irrMacros.h"
-#include "irrMacros.h"
-#include "irrAllocator.h"
-#include "irrMath.h"
 #include <stdio.h>
-#include <string.h>
+#include <string>
 #include <stdlib.h>
+
+#include "irr/core/math/irrMath.h"
+#include "irr/core/alloc/aligned_allocator.h"
 
 namespace irr
 {
@@ -71,7 +69,7 @@ static inline uint32_t locale_upper ( uint32_t x )
 }
 
 
-template <typename T, typename TAlloc = irrAllocator<T> >
+template <typename T, typename TAlloc = aligned_allocator<T> >
 class string
 {
 public:
@@ -138,7 +136,7 @@ public:
 	//! Destructor
 	~string()
 	{
-		allocator.deallocate(array); // delete [] array;
+		allocator.deallocate(array,allocated); // delete [] array;
 	}
 
 
@@ -151,7 +149,7 @@ public:
 		used = other.size()+1;
 		if (used>allocated)
 		{
-			allocator.deallocate(array); // delete [] array;
+			allocator.deallocate(array,allocated); // delete [] array;
 			allocated = used;
 			array = allocator.allocate(used); //new T[used];
 		}
@@ -213,7 +211,7 @@ public:
 			array[l] = (T)c[l];
 
 		if (oldArray != array)
-			allocator.deallocate(oldArray); // delete [] oldArray;
+			allocator.deallocate(oldArray,allocated); // delete [] oldArray;
 
 		return *this;
 	}
@@ -1122,7 +1120,7 @@ private:
 		if (allocated < used)
 			used = allocated;
 
-		allocator.deallocate(old_array); // delete [] old_array;
+		allocator.deallocate(old_array,allocated); // delete [] old_array;
 	}
 
 	//--- member variables

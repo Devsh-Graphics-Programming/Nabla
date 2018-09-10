@@ -12,7 +12,7 @@ namespace scene
 
 //! constructor
 CSceneNodeAnimatorFollowSpline::CSceneNodeAnimatorFollowSpline(uint32_t time,
-	const core::array<core::vector3df>& points, float speed,
+	const core::vector<core::vector3df>& points, float speed,
 	float tightness, bool loop, bool pingpong)
 : ISceneNodeAnimatorFinishing(0), Points(points), Speed(speed), Tightness(tightness), StartTime(time)
 , Loop(loop), PingPong(pingpong)

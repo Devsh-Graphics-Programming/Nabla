@@ -2,15 +2,13 @@
 #define __C_FINAL_BONE_HIERARCHY_H_INCLUDED__
 
 #include "assert.h"
-#include <vector>
-#include <set>
 #include <algorithm>
 #include <functional>
-#include <unordered_set>
 #include "ISkinnedMesh.h"
 #include "IGPUBuffer.h"
 #include "quaternion.h"
-#include "irrString.h"
+#include "irr/core/Types.h"
+#include "irr/core/irrString.h"
 #include "CBAWFile.h"
 #include "matrix3x4SIMD.h"
 
@@ -19,7 +17,7 @@ namespace irr
 namespace scene
 {
     //! If it has no animation, make 1 frame of animation with LocalMatrix
-    class CFinalBoneHierarchy : public IReferenceCounted, public core::BlobSerializable
+    class CFinalBoneHierarchy : public core::IReferenceCounted, public core::BlobSerializable
     {
         protected:
             virtual ~CFinalBoneHierarchy()
@@ -42,7 +40,7 @@ namespace scene
                     free(nonInterpolatedAnimations);
             }
         public:
-            #include "irrpack.h"
+            #include "irr/irrpack.h"
             struct BoneReferenceData
             {
                 core::matrix4x3 PoseBindMatrix;
@@ -58,10 +56,10 @@ namespace scene
                 float Scale[3];
                 float Padding[2];
             } PACK_STRUCT;
-            #include "irrunpack.h"
+            #include "irr/irrunpack.h"
 
 
-            CFinalBoneHierarchy(const std::vector<ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints, const std::vector<size_t>& inJointsLevelEnd)
+            CFinalBoneHierarchy(const core::vector<ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints, const core::vector<size_t>& inJointsLevelEnd)
                     : boneCount(inLevelFixedJoints.size()), NumLevelsInHierarchy(inJointsLevelEnd.size()),
                     ///boundBuffer(NULL),
                     keyframeCount(0), keyframes(NULL), interpolatedAnimations(NULL), nonInterpolatedAnimations(NULL)
@@ -146,7 +144,7 @@ namespace scene
 			inline size_t getSizeOfAllBoneNames() const
 			{
 				size_t sum = 0;
-				for (int i = 0; i < boneCount; ++i)
+				for (size_t i = 0; i < boneCount; ++i)
 					sum += boneNames[i].size()+1;
 				return sum;
 			}
@@ -187,14 +185,14 @@ namespace scene
             inline const size_t& getHierarchyLevels() const {return NumLevelsInHierarchy;}
 
 
-            inline const size_t& getBoneLevelRangeStart(const size_t& level) const
+            inline size_t getBoneLevelRangeStart(const size_t& level) const
             {
                 if (level)
                     return boneTreeLevelEnd[level-1];
                 else
                     return 0;
             }
-            inline const size_t& getBoneLevelRangeLength(const size_t& level) const
+            inline size_t getBoneLevelRangeLength(const size_t& level) const
             {
                 if (level)
                     return boneTreeLevelEnd[level]-boneTreeLevelEnd[level-1];
@@ -499,9 +497,9 @@ namespace scene
             }
 
         private:
-            inline void createAnimationKeys(const std::vector<ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints)
+            inline void createAnimationKeys(const core::vector<ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints)
             {
-                std::unordered_set<float> sortedFrames;
+                core::unordered_set<float> sortedFrames;
                 for (size_t i=0; i<boneCount; i++)
                 {
                     ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
@@ -713,8 +711,7 @@ namespace scene
                 }
             }
 
-private:
-
+        private:
             // bone hierachy independent from animations
             const size_t boneCount;
             BoneReferenceData* boneFlatArray;

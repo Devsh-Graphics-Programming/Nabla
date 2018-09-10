@@ -22,7 +22,7 @@ namespace scene
 currently unsupported file formats (e.g. .cob), then implement
 this and add your new Meshloader with
 ISceneManager::addExternalMeshLoader() to the engine. */
-class IMeshLoader : public virtual IReferenceCounted
+class IMeshLoader : public virtual core::IReferenceCounted
 {
 public:
 

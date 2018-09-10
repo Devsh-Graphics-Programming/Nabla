@@ -5,8 +5,8 @@
 #ifndef __C_COLOR_CONVERTER_H_INCLUDED__
 #define __C_COLOR_CONVERTER_H_INCLUDED__
 
-#include "irrTypes.h"
-#include "irrMacros.h"
+#include "irr/core/Types.h"
+#include "irr/macros.h"
 #include "SColor.h"
 
 namespace irr

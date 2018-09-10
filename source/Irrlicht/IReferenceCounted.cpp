@@ -1,6 +1,7 @@
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 
 using namespace irr;
+using namespace core;
 
 IReferenceCounted::~IReferenceCounted()
 {

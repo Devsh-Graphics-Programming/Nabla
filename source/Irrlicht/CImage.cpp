@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CImage.h"
-#include "irrString.h"
 #include "CColorConverter.h"
 #include "CBlit.h"
 

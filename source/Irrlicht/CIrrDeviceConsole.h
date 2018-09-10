@@ -223,8 +223,8 @@ namespace irr
 
             bool IsWindowFocused;
 
-            core::array<core::stringc> OutputBuffer;
-            core::array<SPostPresentText> Text;
+            core::vector<core::stringc> OutputBuffer;
+            core::vector<SPostPresentText> Text;
 
             FILE *OutFile;
 

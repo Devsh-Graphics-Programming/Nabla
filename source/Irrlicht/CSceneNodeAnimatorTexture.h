@@ -5,7 +5,7 @@
 #ifndef __C_SCENE_NODE_ANIMATOR_TEXTURE_H_INCLUDED__
 #define __C_SCENE_NODE_ANIMATOR_TEXTURE_H_INCLUDED__
 
-#include "irrArray.h"
+
 #include "ISceneNodeAnimatorFinishing.h"
 
 namespace irr
@@ -24,7 +24,7 @@ namespace scene
 
 	public:
 		//! constructor
-		CSceneNodeAnimatorTexture(const core::array<video::ITexture*>& textures,
+		CSceneNodeAnimatorTexture(const core::vector<video::ITexture*>& textures,
 			int32_t timePerFrame, bool loop, uint32_t now);
 
 		//! animates a scene node
@@ -43,7 +43,7 @@ namespace scene
 
 		void clearTextures();
 
-		core::array<video::ITexture*> Textures;
+		core::vector<video::ITexture*> Textures;
 		uint32_t TimePerFrame;
 		uint32_t StartTime;
 		bool Loop;

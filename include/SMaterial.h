@@ -5,9 +5,8 @@
 #ifndef __S_MATERIAL_H_INCLUDED__
 #define __S_MATERIAL_H_INCLUDED__
 
-#include "SColor.h"
-#include "irrMath.h"
 #include "vectorSIMD.h"
+#include "SColor.h"
 #include "EMaterialTypes.h"
 #include "EMaterialFlags.h"
 #include "SMaterialLayer.h"
@@ -116,7 +115,7 @@ namespace video
 	//! Maximum number of texture an SMaterial can have.
 	const uint32_t MATERIAL_MAX_TEXTURES = _IRR_MATERIAL_MAX_TEXTURES_;
 
-#include "irrpack.h"
+#include "irr/irrpack.h"
 	//! Struct for holding parameters for a material renderer
 	class SMaterial
 	{
@@ -254,7 +253,7 @@ namespace video
 
 		float PolygonOffsetGradientMultiplier;
 #ifdef __GNUC__
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
         struct {
 #endif // __GNUC__
             //! Defines the enabled color planes
@@ -293,7 +292,7 @@ namespace video
             uint64_t RasterizerDiscard:1;
 #ifdef __GNUC__
         };
-#include "irrpack.h"
+#include "irr/irrpack.h"
 #endif // __GNUC__
 
 		void serializeBitfields(uint64_t* dst) const
@@ -450,7 +449,7 @@ namespace video
 		}
 	} PACK_STRUCT;
 
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 	//! global const identity Material
 	IRRLICHT_API extern SMaterial IdentityMaterial;

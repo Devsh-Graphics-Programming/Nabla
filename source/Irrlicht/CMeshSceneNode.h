@@ -7,7 +7,6 @@
 
 #include "IMeshSceneNode.h"
 #include "IMesh.h"
-#include "irrArray.h"
 
 namespace irr
 {
@@ -75,7 +74,7 @@ namespace scene
 
 		void copyMaterials();
 
-		core::array<video::SMaterial> Materials;
+		core::vector<video::SMaterial> Materials;
 		core::aabbox3d<float> Box;
 
 		IGPUMesh* Mesh;

@@ -22,8 +22,8 @@ void CMeshCache<T>::addMesh(const io::path& filename, T* mesh)
 	MeshEntry<T> e ( filename );
 	e.Mesh = mesh;
 
-	Meshes.push_back(e);
-	Meshes.sort();
+	auto found = std::lower_bound(Meshes.begin(),Meshes.end(),e);
+	Meshes.insert(found,e);
 }
 
 
@@ -35,12 +35,12 @@ void CMeshCache<T>::removeMesh(const T* const mesh)
 		return;
 
 
-	for (uint32_t i=0; i<Meshes.size(); ++i)
+	for (auto it=Meshes.begin(); it!=Meshes.end(); it++)
 	{
-		if (Meshes[i].Mesh == mesh)
+		if (it->Mesh == mesh)
 		{
-			Meshes[i].Mesh->drop();
-			Meshes.erase(i);
+			it->Mesh->drop();
+			Meshes.erase(it);
 			return;
 		}
 	}
@@ -85,8 +85,11 @@ template<class T>
 T* CMeshCache<T>::getMeshByName(const io::path& name)
 {
 	MeshEntry<T> e ( name );
-	int32_t id = Meshes.binary_search(e);
-	return (id != -1) ? Meshes[id].Mesh : 0;
+	auto found = std::lower_bound(Meshes.begin(),Meshes.end(),e);
+	if (found!=Meshes.end())
+        return found->Mesh;
+    else
+        return nullptr;
 }
 
 
@@ -125,7 +128,7 @@ bool CMeshCache<T>::renameMesh(uint32_t index, const io::path& name)
 		return false;
 
 	Meshes[index].NamedPath.setPath(name);
-	Meshes.sort();
+    std::sort(Meshes.begin(),Meshes.end());
 	return true;
 }
 
@@ -139,7 +142,7 @@ bool CMeshCache<T>::renameMesh(const T* const mesh, const io::path& name)
 		if (Meshes[i].Mesh == mesh)
 		{
 			Meshes[i].NamedPath.setPath(name);
-			Meshes.sort();
+			std::sort(Meshes.begin(),Meshes.end());
 			return true;
 		}
 	}
@@ -170,14 +173,15 @@ void CMeshCache<T>::clear()
 template<class T>
 void CMeshCache<T>::clearUnusedMeshes()
 {
-	for (uint32_t i=0; i<Meshes.size(); ++i)
+	for (auto it=Meshes.begin(); it!=Meshes.end();)
 	{
-		if (Meshes[i].Mesh->getReferenceCount() == 1)
+		if (it->Mesh->getReferenceCount() == 1)
 		{
-			Meshes[i].Mesh->drop();
-			Meshes.erase(i);
-			--i;
+			it->Mesh->drop();
+			it = Meshes.erase(it);
 		}
+		else
+            it++;
 	}
 }
 // Instantiate CMeshCache for the supported template type parameters

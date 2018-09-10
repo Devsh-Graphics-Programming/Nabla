@@ -8,7 +8,6 @@
 
 #include "SoftwareDriver2_compile_config.h"
 #include "SoftwareDriver2_helper.h"
-#include "irrAllocator.h"
 
 namespace irr
 {

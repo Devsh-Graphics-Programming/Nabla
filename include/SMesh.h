@@ -8,7 +8,6 @@
 #include "IMesh.h"
 #include "IMeshBuffer.h"
 #include "aabbox3d.h"
-#include "irrArray.h"
 #include "coreutil.h"
 
 namespace irr
@@ -132,7 +131,7 @@ namespace scene
 
         //private:
             //! The meshbuffers of this mesh
-            core::array<ICPUMeshBuffer*> MeshBuffers;
+            core::vector<ICPUMeshBuffer*> MeshBuffers;
 	};
 
 	//! Simple implementation of the IMesh interface.
@@ -221,7 +220,7 @@ namespace scene
             core::aabbox3d<float> BoundingBox;
 
             //! The meshbuffers of this mesh
-            core::array<IGPUMeshBuffer*> MeshBuffers;
+            core::vector<IGPUMeshBuffer*> MeshBuffers;
 	};
 
 

@@ -19,7 +19,7 @@ namespace scene
             IGPUSkinnedMesh* mesh;
             CSkinningStateManager* boneStateManager;
 
-            std::vector<video::SMaterial> Materials;
+            core::vector<video::SMaterial> Materials;
             core::aabbox3d<float> Box;
             IAnimationEndCallBack<ISkinnedMeshSceneNode>* LoopCallBack;
 

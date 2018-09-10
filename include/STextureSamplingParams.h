@@ -5,7 +5,7 @@
 #ifndef __S_TEXTURE_SAMPLING_PARAMS_H_INCLUDED__
 #define __S_TEXTURE_SAMPLING_PARAMS_H_INCLUDED__
 
-#include "irrAllocator.h"
+#include "irr/core/Types.h"
 
 namespace irr
 {
@@ -55,7 +55,7 @@ namespace video
 	static const char* const aMaxFilterNames[] = {
 			"NEAREST","LINEAR", 0};
 
-#include "irrpack.h"
+#include "irr/irrpack.h"
     //! Things I have Purposefully Omitted:
     /** - Texture Border Colors (deprecated in openGL)
     **  - Texture lod range (not used yet)
@@ -64,7 +64,7 @@ namespace video
     class STextureSamplingParams
     {
         public:
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
         struct {
             //! Texture Clamp Mode
             /** Values are taken from E_TEXTURE_CLAMP. */
@@ -90,7 +90,7 @@ namespace video
 
             uint32_t SeamlessCubeMap : 1;
         };
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 		//! Bias for the mipmap choosing decision.
 		/** This value can make the textures more or less blurry than with the
@@ -169,7 +169,7 @@ namespace video
 
 static_assert(sizeof(STextureSamplingParams)==8,"STextureSamplingParams struct wrong size, will break BaW Loader and Writer!");
 
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 } // end namespace video
 } // end namespace irr

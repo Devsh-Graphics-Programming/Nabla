@@ -6,7 +6,6 @@
 #define __C_MESH_CACHE_H_INCLUDED__
 
 #include "IMeshCache.h"
-#include "irrArray.h"
 
 namespace irr
 {
@@ -119,7 +118,7 @@ class CMeshCache : public IMeshCache<T>
 		};
 
 		//! loaded meshes
-		core::array< MeshEntry<T> > Meshes;
+		core::vector< MeshEntry<T> > Meshes;
 };
 
 } // end namespace scene

@@ -42,9 +42,9 @@ namespace core
 		- Add a corresponding to your blob value to Blob::E_BLOB_TYPE enum
 		- Make a class (or struct, a matter of keyword) representing your blob
 		- Your class must inherit from irr::core::TypedBlob<BlobType, Type> and define specialization of its member functions (see blobsLoading.cpp for existing code as an example):
-			-# `std::unordered_set<uint64_t> getNeededDeps(const void* _blob);` - returns vector of handles to dependency blobs
+			-# `core::unordered_set<uint64_t> getNeededDeps(const void* _blob);` - returns vector of handles to dependency blobs
 			-# `void* instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);` - instantiates (i.e. dynamically by `new` allocates) an object without creating any possible dependent objects that have to be loaded from file as another blob
-			-# `void* finalize(void* _obj, const void* _blob, size_t _blobSize, std::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);` - finalizes the object assigning any dependent object to appropriate field of the object being finalized
+			-# `void* finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);` - finalizes the object assigning any dependent object to appropriate field of the object being finalized
 			-# `void releaseObj(const void* _obj);` - destroys given object
 		- Let `BlobsLoadingManager` know about your blob type, by editing _IRR_SUPPORTED_BLOBS accesible in IrrCompileConfig.h.
 
@@ -53,9 +53,9 @@ namespace core
 	class CBlobsLoadingManager
 	{
 	public:
-		std::unordered_set<uint64_t> getNeededDeps(uint32_t _blobType, const void* _blob);
+		core::unordered_set<uint64_t> getNeededDeps(uint32_t _blobType, const void* _blob);
 		void* instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);
-		void* finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, std::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
+		void* finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
 		void releaseObj(uint32_t _blobType, void* _obj);
 
 		//static void printMemberPackingDebug();

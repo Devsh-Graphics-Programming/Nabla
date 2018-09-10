@@ -7,7 +7,6 @@
 
 #include "IVideoModeList.h"
 #include "dimension2d.h"
-#include "irrArray.h"
 
 namespace irr
 {
@@ -67,7 +66,7 @@ namespace video
 			}
 		};
 
-		core::array<SVideoMode> VideoModes;
+		core::vector<SVideoMode> VideoModes;
 		SVideoMode Desktop;
 	};
 

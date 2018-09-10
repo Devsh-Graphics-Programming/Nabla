@@ -7,10 +7,9 @@
 
 #include "IFileSystem.h"
 #include "IWriteFile.h"
-#include "irrArray.h"
 #include "ITexture.h"
-#include "irrTypes.h"
-#include "irrMacros.h"
+#include "irr/core/Types.h"
+#include "irr/macros.h"
 #include "ISkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
 #include "os.h"
@@ -140,18 +139,18 @@ namespace irr {namespace scene {
 		const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t) + sizeof(core::BAWFileV0::iv);
 		const uint32_t HEADERS_FILE_OFFSET = OFFSETS_FILE_OFFSET + numOfInternalBlobs * sizeof(ctx.offsets[0]);
 
-		ctx.offsets.set_used(numOfInternalBlobs);
+		ctx.offsets.resize(numOfInternalBlobs);
 
 		_file->write(&numOfInternalBlobs, sizeof(numOfInternalBlobs));
 		//_file->write(ctx.pwdVer, 2);
 		_file->write(_propsStruct.initializationVector, 16);
 		// will be overwritten after actually calculating offsets
-		_file->write(ctx.offsets.const_pointer(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
+		_file->write(ctx.offsets.data(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 
 		// will be overwritten after calculating not known yet data (hash and size for texture paths)
-		_file->write(ctx.headers.const_pointer(), ctx.headers.size() * sizeof(core::BlobHeaderV0));
+		_file->write(ctx.headers.data(), ctx.headers.size() * sizeof(core::BlobHeaderV0));
 
-		ctx.offsets.set_used(0); // set `used` to 0, to allow push starting from 0 index
+		ctx.offsets.resize(0); // set `used` to 0, to allow push starting from 0 index
 		for (int i = 0; i < ctx.headers.size(); ++i)
 		{
 			switch (ctx.headers[i].blobType)
@@ -187,10 +186,10 @@ namespace irr {namespace scene {
 
 		// overwrite offsets
 		_file->seek(OFFSETS_FILE_OFFSET);
-		_file->write(ctx.offsets.const_pointer(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
+		_file->write(ctx.offsets.data(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 		// overwrite headers
 		_file->seek(HEADERS_FILE_OFFSET);
-		_file->write(ctx.headers.const_pointer(), ctx.headers.size() * sizeof(core::BlobHeaderV0));
+		_file->write(ctx.headers.data(), ctx.headers.size() * sizeof(core::BlobHeaderV0));
 
 		_file->seek(prevPos);
 
@@ -229,7 +228,7 @@ namespace irr {namespace scene {
 			// no need to add to `countedObjects` set since there's only one bone hierarchy
 		}
 
-		std::unordered_set<const IReferenceCounted*> countedObjects;
+		core::unordered_set<const IReferenceCounted*> countedObjects;
 		for (uint32_t i = 0; i < _mesh->getMeshBufferCount(); ++i)
 		{
 			const ICPUMeshBuffer* const meshBuffer = _mesh->getMeshBuffer(i);
@@ -304,7 +303,7 @@ namespace irr {namespace scene {
 
 	void CBAWMeshWriter::calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx) const
 	{
-		_ctx.offsets.push_back(!_ctx.offsets.size() ? 0 : _ctx.offsets.getLast() + _blobSize);
+		_ctx.offsets.push_back(!_ctx.offsets.size() ? 0 : _ctx.offsets.back() + _blobSize);
 	}
 
 	void CBAWMeshWriter::tryWrite(void* _data, io::IWriteFile * _file, SContext & _ctx, size_t _size, uint32_t _headerIdx, bool _encrypt) const

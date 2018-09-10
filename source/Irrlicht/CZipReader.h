@@ -9,9 +9,8 @@
 
 #ifdef __IRR_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 
+#include "irr/core/Types.h"
 #include "IReadFile.h"
-#include "irrArray.h"
-#include "irrString.h"
 #include "IFileSystem.h"
 #include "CFileList.h"
 
@@ -26,7 +25,7 @@ namespace io
 	const int16_t ZIP_INFO_IN_DATA_DESCRIPTOR =	0x0008;
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	struct SZIPFileDataDescriptor
 	{
@@ -123,7 +122,7 @@ namespace io
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 	//! Contains extended info about zip files in the archive
 	struct SZipFileEntry
@@ -213,7 +212,7 @@ namespace io
             IReadFile* File;
 
             // holds extended info about files
-            core::array<SZipFileEntry> FileInfo;
+            core::vector<SZipFileEntry> FileInfo;
 
             bool IsGZip;
 	};

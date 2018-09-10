@@ -87,10 +87,10 @@ ICPUMesh* CXMeshFileLoader::createMesh(io::IReadFile* f)
                 {
                     largestVertex = 0;
 
-                    size_t baseVertex = origMeshBuffer->getIndexType()==video::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[0]:((uint16_t*)origMeshBuffer->getIndices())[0];
+                    size_t baseVertex = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[0]:((uint16_t*)origMeshBuffer->getIndices())[0];
                     for (size_t j=1; j<origMeshBuffer->getIndexCount(); j++)
                     {
-                        uint32_t nextIx = origMeshBuffer->getIndexType()==video::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
+                        uint32_t nextIx = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                         if (nextIx>largestVertex)
                             largestVertex = nextIx;
 
@@ -106,25 +106,25 @@ ICPUMesh* CXMeshFileLoader::createMesh(io::IReadFile* f)
                 }
 
 
-                video::E_INDEX_TYPE indexType;
+                E_INDEX_TYPE indexType;
                 if (doesntNeedIndices)
-                    indexType = video::EIT_UNKNOWN;
+                    indexType = EIT_UNKNOWN;
                 else
                 {
                     core::ICPUBuffer* indexBuffer;
                     if (largestVertex>=0x10000u)
                     {
-                        indexType = video::EIT_32BIT;
+                        indexType = EIT_32BIT;
                         indexBuffer = new core::ICPUBuffer(4*origMeshBuffer->getIndexCount());
                         for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
-                           ((uint32_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==video::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
+                           ((uint32_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                     }
                     else
                     {
-                        indexType = video::EIT_16BIT;
+                        indexType = EIT_16BIT;
                         indexBuffer = new core::ICPUBuffer(2*origMeshBuffer->getIndexCount());
                         for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
-                           ((uint16_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==video::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
+                           ((uint16_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                     }
                     desc->mapIndexBuffer(indexBuffer);
                 }
@@ -243,26 +243,26 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
 
 		uint32_t i;
 
-		mesh->Buffers.reallocate(mesh->Materials.size());
+		mesh->Buffers.reserve(mesh->Materials.size());
 
 		for (i=0; i<mesh->Materials.size(); ++i)
 		{
 			mesh->Buffers.push_back( AnimatedMesh->addMeshBuffer() );
-			mesh->Buffers.getLast()->getMaterial() = mesh->Materials[i];
+			mesh->Buffers.back()->getMaterial() = mesh->Materials[i];
 		}
 
 		if (!mesh->FaceMaterialIndices.size())
 		{
-			mesh->FaceMaterialIndices.set_used(mesh->Indices.size() / 3);
+			mesh->FaceMaterialIndices.resize(mesh->Indices.size() / 3);
 			for (i=0; i<mesh->FaceMaterialIndices.size(); ++i)
 				mesh->FaceMaterialIndices[i]=0;
 		}
 
 
 		{
-			core::array< uint32_t > verticesLinkIndex;
-			core::array< int16_t > verticesLinkBuffer;
-			verticesLinkBuffer.set_used(mesh->Vertices.size());
+			core::vector< uint32_t > verticesLinkIndex;
+			core::vector< int16_t > verticesLinkBuffer;
+			verticesLinkBuffer.resize(mesh->Vertices.size());
 
 			for (i=0;i<mesh->Vertices.size();++i)
 			{
@@ -406,9 +406,9 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
 
                     buffer->setIndexRange(0,vCountArray[i]);
                     if (vCountArray[i]>0x10000u)
-                        buffer->setIndexType(video::EIT_32BIT);
+                        buffer->setIndexType(EIT_32BIT);
                     else
-                        buffer->setIndexType(video::EIT_16BIT);
+                        buffer->setIndexType(EIT_16BIT);
 
                     buffer->setMeshDataAndFormat(desc);
 
@@ -420,7 +420,7 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
 				}
 				desc->drop();
 
-				verticesLinkIndex.set_used(mesh->Vertices.size());
+				verticesLinkIndex.resize(mesh->Vertices.size());
 				memset(vCountArray, 0, mesh->Buffers.size()*sizeof(uint32_t));
 				// actually store vertices
 				for (i=0; i<mesh->Vertices.size(); ++i)
@@ -577,7 +577,7 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
 
 					uint32_t subBufferSz = vCountArray[i]*3;
 					buffer->setIndexCount(subBufferSz);
-                    subBufferSz *= (buffer->getIndexType()==video::EIT_32BIT) ? 4:2;
+                    subBufferSz *= (buffer->getIndexType()==EIT_32BIT) ? 4:2;
 
                     //now cumulative
                     cumBaseVertex[i] = indexBufferSz;
@@ -595,7 +595,7 @@ bool CXMeshFileLoader::load(io::IReadFile* file)
 
 					void* indexBufAlreadyOffset = ((uint8_t*)ixbuf->getPointer())+cumBaseVertex[mesh->FaceMaterialIndices[i]];
 
-                    if (buffer->getIndexType()==video::EIT_32BIT)
+                    if (buffer->getIndexType()==EIT_32BIT)
                     {
                         for (uint32_t id=i*3+0; id!=i*3+3; ++id)
                             ((uint32_t*)indexBufAlreadyOffset)[vCountArray[mesh->FaceMaterialIndices[i]]++] = verticesLinkIndex[ mesh->Indices[id] ];
@@ -744,8 +744,8 @@ bool CXMeshFileLoader::parseDataObject()
 	{
 		// template materials now available thanks to joeWright
 		TemplateMaterials.push_back(SXTemplateMaterial());
-		TemplateMaterials.getLast().Name = getNextToken();
-		return parseDataObjectMaterial(TemplateMaterials.getLast().Material);
+		TemplateMaterials.back().Name = getNextToken();
+		return parseDataObjectMaterial(TemplateMaterials.back().Material);
 	}
 	else
 	if (objectName == "}")
@@ -896,7 +896,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(ICPUSkinnedMesh::SJoint *Parent)
 		{
 			/*
 			frame.Meshes.push_back(SXMesh());
-			if (!parseDataObjectMesh(frame.Meshes.getLast()))
+			if (!parseDataObjectMesh(frame.Meshes.back()))
 				return false;
 			*/
 			SXMesh *mesh=new SXMesh;
@@ -988,7 +988,7 @@ bool CXMeshFileLoader::parseDataObjectMesh(SXMesh &mesh)
 	const uint32_t nVertices = readInt();
 
 	// read vertices
-	mesh.Vertices.set_used(nVertices);
+	mesh.Vertices.resize(nVertices);
 	for (uint32_t n=0; n<nVertices; ++n)
 	{
 		readVector3(mesh.Vertices[n].Pos);
@@ -1003,10 +1003,10 @@ bool CXMeshFileLoader::parseDataObjectMesh(SXMesh &mesh)
 	// read faces
 	const uint32_t nFaces = readInt();
 
-	mesh.Indices.set_used(nFaces * 3);
-	mesh.IndexCountPerFace.set_used(nFaces);
+	mesh.Indices.resize(nFaces * 3);
+	mesh.IndexCountPerFace.resize(nFaces);
 
-	core::array<uint32_t> polygonfaces;
+	core::vector<uint32_t> polygonfaces;
 	uint32_t currentIndex = 0;
 
 	for (uint32_t k=0; k<nFaces; ++k)
@@ -1023,9 +1023,9 @@ bool CXMeshFileLoader::parseDataObjectMesh(SXMesh &mesh)
 			}
 
 			// read face indices
-			polygonfaces.set_used(fcnt);
+			polygonfaces.resize(fcnt);
 			uint32_t triangles = (fcnt-2);
-			mesh.Indices.set_used(mesh.Indices.size() + ((triangles-1)*3));
+			mesh.Indices.resize(mesh.Indices.size() + ((triangles-1)*3));
 			mesh.IndexCountPerFace[k] = (uint16_t)(triangles * 3);
 
 			for (uint32_t f=0; f<fcnt; ++f)
@@ -1238,7 +1238,7 @@ bool CXMeshFileLoader::parseDataObjectMesh(SXMesh &mesh)
 			}
 			uint8_t* dataptr = (uint8_t*) data;
 			if ((uv2pos != -1) && (uv2type == 1))
-				mesh.TCoords2.reallocate(mesh.Vertices.size());
+				mesh.TCoords2.reserve(mesh.Vertices.size());
 			for (j=0; j<mesh.Vertices.size(); ++j)
 			{
 				if ((normalpos != -1) && (normaltype == 2))
@@ -1267,7 +1267,7 @@ bool CXMeshFileLoader::parseDataObjectMesh(SXMesh &mesh)
 				data[j]=readInt();
 			if (dataformat&0x102) // 2nd uv set
 			{
-				mesh.TCoords2.reallocate(mesh.Vertices.size());
+				mesh.TCoords2.reserve(mesh.Vertices.size());
 				uint8_t* dataptr = (uint8_t*) data;
 				const uint32_t size=((dataformat>>8)&0xf)*sizeof(core::vector2df);
 				for (uint32_t j=0; j<mesh.Vertices.size(); ++j)
@@ -1299,7 +1299,7 @@ bool CXMeshFileLoader::parseDataObjectMesh(SXMesh &mesh)
 		if (objectName == "SkinWeights")
 		{
 			//mesh.SkinWeights.push_back(SXSkinWeight());
-			//if (!parseDataObjectSkinWeights(mesh.SkinWeights.getLast()))
+			//if (!parseDataObjectSkinWeights(mesh.SkinWeights.back()))
 			if (!parseDataObjectSkinWeights(mesh))
 				return false;
 		}
@@ -1372,8 +1372,8 @@ bool CXMeshFileLoader::parseDataObjectSkinWeights(SXMesh &mesh)
     size_t oldUsed = mesh.VertexSkinWeights.size();
     if (maxIx>=oldUsed)
     {
-        mesh.VertexSkinWeights.set_used(maxIx+1);
-        memset(mesh.VertexSkinWeights.pointer()+oldUsed,0,(maxIx+1-oldUsed)*sizeof(SkinnedVertexIntermediateData));
+        mesh.VertexSkinWeights.resize(maxIx+1);
+        memset(mesh.VertexSkinWeights.data()+oldUsed,0,(maxIx+1-oldUsed)*sizeof(SkinnedVertexIntermediateData));
     }
 
 	// read vertex weights
@@ -1480,8 +1480,8 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SXMesh &mesh)
 
 	// read count
 	const uint32_t nNormals = readInt();
-	core::array<core::vector3df> normals;
-	normals.set_used(nNormals);
+	core::vector<core::vector3df> normals;
+	normals.resize(nNormals);
 
 	// read normals
 	for (uint32_t i=0; i<nNormals; ++i)
@@ -1493,14 +1493,14 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SXMesh &mesh)
 
 	}
 
-	core::array<uint32_t> normalIndices;
-	normalIndices.set_used(mesh.Indices.size());
+	core::vector<uint32_t> normalIndices;
+	normalIndices.resize(mesh.Indices.size());
 
 	// read face normal indices
 	const uint32_t nFNormals = readInt();
 
 	uint32_t normalidx = 0;
-	core::array<uint32_t> polygonfaces;
+	core::vector<uint32_t> polygonfaces;
 	for (uint32_t k=0; k<nFNormals; ++k)
 	{
 		const uint32_t fcnt = readInt();
@@ -1525,7 +1525,7 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SXMesh &mesh)
 		}
 		else
 		{
-			polygonfaces.set_used(fcnt);
+			polygonfaces.resize(fcnt);
 			// multiple triangles in this face
 			for (uint32_t h=0; h<fcnt; ++h)
 				polygonfaces[h] = readInt();
@@ -1604,8 +1604,8 @@ bool CXMeshFileLoader::parseDataObjectMeshVertexColors(SXMesh &mesh)
 	}
 
 	mesh.HasVertexColors=true;
-	const uint32_t nColors = readInt();
-	mesh.Colors.set_used(core::max_(mesh.Colors.size(),nColors));
+	const typename decltype(mesh.Colors)::size_type nColors = readInt();
+	mesh.Colors.resize(core::max_(mesh.Colors.size(),nColors));
 	for (uint32_t i=0; i<nColors; ++i)
 	{
 		const uint32_t Index=readInt();
@@ -1652,7 +1652,7 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SXMesh &mesh)
 	}
 
 	// read material count
-	mesh.Materials.reallocate(readInt());
+	mesh.Materials.reserve(readInt());
 
 	// read non triangulated face material index count
 	const uint32_t nFaceIndices = readInt();
@@ -1664,7 +1664,7 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SXMesh &mesh)
 	//	os::Printer::log("Index count per face not equal to face material index count in x file.", ELL_WARNING);
 
 	// read non triangulated face indices and create triangulated ones
-	mesh.FaceMaterialIndices.set_used( mesh.Indices.size() / 3);
+	mesh.FaceMaterialIndices.resize( mesh.Indices.size() / 3);
 	uint32_t triangulatedindex = 0;
 	uint32_t ind = 0;
 	for (uint32_t tfi=0; tfi<mesh.IndexCountPerFace.size(); ++tfi)
@@ -1715,7 +1715,7 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SXMesh &mesh)
 		if (objectName == "Material")
 		{
 			mesh.Materials.push_back(video::SMaterial());
-			if (!parseDataObjectMaterial(mesh.Materials.getLast()))
+			if (!parseDataObjectMaterial(mesh.Materials.back()))
 				return false;
 		}
 		else
@@ -1979,19 +1979,19 @@ bool CXMeshFileLoader::parseDataObjectAnimation()
 			joint->Name=FrameName;
 		}
 
-		joint->PositionKeys.reallocate(joint->PositionKeys.size()+animationDump.PositionKeys.size());
+		joint->PositionKeys.reserve(joint->PositionKeys.size()+animationDump.PositionKeys.size());
 		for (n=0; n<animationDump.PositionKeys.size(); ++n)
 		{
 			joint->PositionKeys.push_back(animationDump.PositionKeys[n]);
 		}
 
-		joint->ScaleKeys.reallocate(joint->ScaleKeys.size()+animationDump.ScaleKeys.size());
+		joint->ScaleKeys.reserve(joint->ScaleKeys.size()+animationDump.ScaleKeys.size());
 		for (n=0; n<animationDump.ScaleKeys.size(); ++n)
 		{
 			joint->ScaleKeys.push_back(animationDump.ScaleKeys[n]);
 		}
 
-		joint->RotationKeys.reallocate(joint->RotationKeys.size()+animationDump.RotationKeys.size());
+		joint->RotationKeys.reserve(joint->RotationKeys.size()+animationDump.RotationKeys.size());
 		for (n=0; n<animationDump.RotationKeys.size(); ++n)
 		{
 			joint->RotationKeys.push_back(animationDump.RotationKeys[n]);

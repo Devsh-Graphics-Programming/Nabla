@@ -29,6 +29,17 @@
 #ifndef __IRRLICHT_H_INCLUDED__
 #define __IRRLICHT_H_INCLUDED__
 
+// overarching includes
+#include "irr/core/BaseClasses.h"
+#include "irr/macros.h"
+
+//core
+#include "irr/core/IReferenceCounted.h"
+#include "irr/core/Types.h"
+#include "irr/core/irrString.h"
+#include "irr/core/math/irrMath.h"
+
+
 #include "IrrCompileConfig.h"
 #include "aabbox3d.h"
 #include "coreutil.h"
@@ -43,7 +54,6 @@
 #include "EMeshWriterEnums.h"
 #include "ESceneNodeAnimatorTypes.h"
 #include "ESceneNodeTypes.h"
-#include "heapsort.h"
 #include "IAnimatedMesh.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "IBillboardSceneNode.h"
@@ -74,14 +84,7 @@
 #include "IMetaGranularBuffer.h"
 #include "IOSOperator.h"
 #include "IReadFile.h"
-#include "IReferenceCounted.h"
-#include "irrArray.h"
-#include "irrBaseClasses.h"
 #include "IrrlichtDevice.h"
-#include "irrMacros.h"
-#include "irrMath.h"
-#include "irrString.h"
-#include "irrTypes.h"
 #include "path.h"
 #include "ISceneManager.h"
 #include "ISceneNode.h"
@@ -110,7 +113,7 @@
 #include "rect.h"
 #include "splines.h"
 
-#include "SAnimatedMesh.h"
+
 #include "SceneParameters.h"
 #include "SColor.h"
 #include "SCollisionEngine.h"
@@ -120,7 +123,6 @@
 #include "SMaterial.h"
 #include "SMesh.h"
 #include "SSkinMeshBuffer.h"
-#include "SVertexIndex.h"
 #include "SViewFrustum.h"
 #include "triangle3d.h"
 #include "vector2d.h"

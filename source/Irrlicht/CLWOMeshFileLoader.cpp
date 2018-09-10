@@ -6,7 +6,7 @@
 
 #ifdef _IRR_COMPILE_WITH_LWO_LOADER_
 #include "os.h"
-#include "SAnimatedMesh.h"
+
 #include "SMesh.h"
 #include "IReadFile.h"
 #include "ISceneManager.h"
@@ -687,10 +687,10 @@ void CLWOMeshFileLoader::readVertexMapping(uint32_t size)
 	UvName.push_back(name);
 
 	TCoords.push_back(core::array<core::vector2df>());
-	core::array<core::vector2df>& UvCoords=TCoords.getLast();
+	core::array<core::vector2df>& UvCoords=TCoords.back();
 	UvCoords.reallocate(Points.size());
 	UvIndex.push_back(core::array<uint32_t>());
-	core::array<uint32_t>& UvPointsArray=UvIndex.getLast();
+	core::array<uint32_t>& UvPointsArray=UvIndex.back();
 	UvPointsArray.reallocate(Points.size());
 
 	uint32_t index;
@@ -738,10 +738,10 @@ void CLWOMeshFileLoader::readDiscVertexMapping(uint32_t size)
 	}
 	DUvName.push_back(name);
 	VmPolyPointsIndex.push_back(core::array<uint32_t>());
-	core::array<uint32_t>& VmPolyPoints=VmPolyPointsIndex.getLast();
+	core::array<uint32_t>& VmPolyPoints=VmPolyPointsIndex.back();
 
 	VmCoordsIndex.push_back(core::array<core::vector2df>());
-	core::array<core::vector2df>& VmCoords=VmCoordsIndex.getLast();
+	core::array<core::vector2df>& VmCoords=VmCoordsIndex.back();
 
 	uint32_t vmpolys;
 	uint32_t vmpoints;
@@ -819,7 +819,7 @@ void CLWOMeshFileLoader::readObj2(uint32_t size)
 		size -= 2;
 		Indices.push_back(core::array<uint32_t>());
 		uint32_t vertIndex;
-		core::array<uint32_t>& polyArray = Indices.getLast();
+		core::array<uint32_t>& polyArray = Indices.back();
 		polyArray.reallocate(numVerts);
 		for (uint16_t i=0; i<numVerts; ++i)
 		{

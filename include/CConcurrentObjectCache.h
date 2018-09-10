@@ -27,7 +27,7 @@ namespace impl
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T = std::vector
+    template<typename...> class ContainerT_T = core::vector
 >
 class CConcurrentObjectCache : private impl::CConcurrentObjectCacheBase, private CObjectCache<K, T, ContainerT_T>
 {

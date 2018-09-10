@@ -5,7 +5,7 @@
 #ifndef __I_CURSOR_CONTROL_H_INCLUDED__
 #define __I_CURSOR_CONTROL_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "position2d.h"
 #include "rect.h"
 
@@ -93,7 +93,7 @@ namespace gui
 	};
 
 	//! Interface to manipulate the mouse cursor.
-	class ICursorControl : public IReferenceCounted
+	class ICursorControl : public core::IReferenceCounted
 	{
 	    _IRR_INTERFACE_CHILD(ICursorControl) {}
 	public:

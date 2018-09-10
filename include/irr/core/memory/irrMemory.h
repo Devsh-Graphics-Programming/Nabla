@@ -5,9 +5,8 @@
 #ifndef __IRR_MEMORY_H_INCLUDED__
 #define __IRR_MEMORY_H_INCLUDED__
 
-#include "irrMath.h"
-#include "irrVoid_t.h"
-#include <type_traits>
+#include "irr/core/math/irrMath.h"
+#include "irr/void_t.h"
 #include <typeinfo>
 #include <cstddef>
 
@@ -148,9 +147,8 @@ constexpr inline bool is_alignment(size_t value)
 To make sure your object is aligned on heaps as well you need to inherit from
 `AlignedAllocOverrideBase` or one of its aliases instead. **/
 template<size_t object_alignment=_IRR_SIMD_ALIGNMENT>
-class FORCE_EMPTY_BASE_OPT alignas(object_alignment) AlignedBase
+class IRR_FORCE_EBO alignas(object_alignment) AlignedBase
 {
-
     static_assert(is_alignment(object_alignment),"Alignments must be PoT and positive!");
     static_assert(object_alignment<=128,"Pending migration to GCC 7+ highest alignment on c++ class is 128 bytes");
 };
@@ -159,13 +157,13 @@ namespace impl
 {
     //! Variadic template class for metaprogrammatically resolving max alignment resulting from multiple inheritance of AlignedBase. PLEASE DO NOT USE ANYWHERE ELSE.
     template <class... Ts>
-    class FORCE_EMPTY_BASE_OPT ResolveAlignment
+    class IRR_FORCE_EBO ResolveAlignment
     {
     };
 
     //! Specialization of ResolveAlignment for recursively resolving the alignment of many types.
     template <class T, class... Ts>
-    class FORCE_EMPTY_BASE_OPT ResolveAlignment<T, Ts...> :  public T
+    class IRR_FORCE_EBO ResolveAlignment<T, Ts...> :  public T
     {
         private:
             struct DummyForConditional {typedef void most_aligned_type;};
@@ -240,7 +238,7 @@ namespace impl
     /** Note regarding C++17, we don't overload the alignment on the versions with std::align_val_t.
     Why? Because we want to respect and not f-up the explicitly requested alignment. **/
     template <size_t object_alignment>
-    class FORCE_EMPTY_BASE_OPT ResolveAlignment<AlignedBase<object_alignment> > :  public AlignedBase<object_alignment>
+    class IRR_FORCE_EBO ResolveAlignment<AlignedBase<object_alignment> > :  public AlignedBase<object_alignment>
     {
         public:
             //! The maximally aligned type for this recursion of N template parameters

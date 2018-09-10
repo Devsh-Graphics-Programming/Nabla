@@ -2,12 +2,12 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#include "irrTypes.h"
+#include "irr/core/Types.h"
 #include "COpenGLCubemapTexture.h"
 #include "COpenGLDriver.h"
 
 
-#include "irrString.h"
+
 
 namespace irr
 {

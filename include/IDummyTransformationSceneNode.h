@@ -5,9 +5,8 @@
 #ifndef __I_DUMMY_TRANSFORMATION_SCENE_NODE_H_INCLUDED__
 #define __I_DUMMY_TRANSFORMATION_SCENE_NODE_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "ISceneNodeAnimator.h"
-#include <vector>
 #include <algorithm>
 #include "matrix4x3.h"
 #include "ESceneNodeTypes.h"
@@ -24,9 +23,9 @@ class IDummyTransformationSceneNode;
 
 
 	//! Typedef for array of scene nodes
-	typedef std::vector<IDummyTransformationSceneNode*> IDummyTransformationSceneNodeArray;
+	typedef core::vector<IDummyTransformationSceneNode*> IDummyTransformationSceneNodeArray;
 	//! Typedef for array of scene node animators
-	typedef std::vector<ISceneNodeAnimator*> ISceneNodeAnimatorArray;
+	typedef core::vector<ISceneNodeAnimator*> ISceneNodeAnimatorArray;
 
 //! Dummy scene node for adding additional transformations to the scene tree.
 /** This scene node does not render itself, and does not respond to set/getPosition,
@@ -36,7 +35,7 @@ anywhere into the scene tree.
 This scene node is for example used by the IAnimatedMeshSceneNode for emulating
 joint scene nodes when playing skeletal animations.
 */
-class IDummyTransformationSceneNode : public virtual IReferenceCounted
+class IDummyTransformationSceneNode : public virtual core::IReferenceCounted
 {
     protected:
         uint64_t lastTimeRelativeTransRead[5];

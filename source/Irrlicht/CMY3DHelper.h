@@ -18,7 +18,7 @@
 #ifndef __C_MY3D_HELPER_H_INCLUDED__
 #define __C_MY3D_HELPER_H_INCLUDED__
 
-#include <irrTypes.h>
+#include "irr/core/Types.h"
 
 namespace irr
 {
@@ -30,7 +30,7 @@ namespace scene
 //**********************************************************************
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 struct SMyVector3
 {   SMyVector3 () {;}
@@ -125,7 +125,7 @@ struct SMyRLEHeader
 } PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 } // end namespace
 } // end namespace

@@ -6,7 +6,6 @@
 #ifndef __IRR_MATRIX_4X3_H_INCLUDED__
 #define __IRR_MATRIX_4X3_H_INCLUDED__
 
-#include "irrMath.h"
 #include "vector3d.h"
 #include "vectorSIMD.h"
 #include "plane3d.h"

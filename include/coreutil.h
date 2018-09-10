@@ -7,14 +7,11 @@
 
 #include <string>
 #include <sstream>
-#include <vector>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
 #include <cwchar>
 #include "stddef.h"
 #include "string.h"
-#include "irrString.h"
+#include "irr/core/Types.h"
+#include "irr/core/irrString.h"
 #include "path.h"
 
 class FW_Mutex;
@@ -36,7 +33,7 @@ namespace core
 template<class T>
 inline void findAndReplaceAll(T& source, T const& findStr, T const& replaceStr)
 {
-    for(size_t i = 0; (i = source.find(findStr, i)) != std::string::npos;)
+    for(size_t i = 0; (i = source.find(findStr, i)) != T::npos;)
     {
         source.replace(i, findStr.length(), replaceStr);
         i += replaceStr.length();
@@ -49,9 +46,9 @@ inline void findAndReplaceAll(T& source, T const& findStr, T const& replaceStr)
 @param replaceStr String replacing found occurences of `findStr`.
 */
 template<class T>
-inline void findAndReplaceAll(std::basic_string<T>& source, const T* findStr, const T* replaceStr)
+inline void findAndReplaceAll(T& source, const typename T::pointer findStr, const typename T::pointer replaceStr)
 {
-    findAndReplaceAll(source,std::basic_string<T>(findStr),std::basic_string<T>(replaceStr));
+    findAndReplaceAll(source,T(findStr),T(replaceStr));
 }
 
 template<typename T>
@@ -172,8 +169,8 @@ inline int32_t strcmpi(const T& str1, const T& str2)
 /** @param str1 Given string.
 @returns Last character of the string or 0 if contains no characters.
 */
-template<typename T>
-inline T lastChar(const std::basic_string<T>& str1)
+template<class T>
+inline typename T::value_type lastChar(const T& str1)
 {
     if (str1.size())
     {
@@ -406,7 +403,7 @@ inline int32_t isupper(int32_t c) { return c >= 'A' && c <= 'Z'; }
 
 
 
-std::vector<std::string> getBackTrace(void);
+core::vector<std::string> getBackTrace(void);
 
 
 
@@ -551,7 +548,7 @@ inline float unpack11bitFloat(uint32_t _fp)
 	{
 	    float f32 = 0.f;
 	    uint32_t& if32 = *((uint32_t*)&f32);
-	    
+
 	    if32 |= (mant << (23-6));
 	    if32 |= ((exp+(127-15)) << 23);
 	    return f32;
@@ -743,7 +740,7 @@ class LeakDebugger
     public:
         class StackTrace
         {
-                std::vector<std::string> stackTrace;
+                core::vector<std::string> stackTrace;
             public:
 				//! Default constructor.
                 StackTrace()
@@ -751,11 +748,11 @@ class LeakDebugger
                 }
 
 				//!
-                StackTrace(const std::vector<std::string>& trc) : stackTrace(trc)
+                StackTrace(const core::vector<std::string>& trc) : stackTrace(trc)
                 {
                 }
 
-                const std::vector<std::string>& getTrace() const {return stackTrace;}
+                const core::vector<std::string>& getTrace() const {return stackTrace;}
 
                 /*
 				//! Comparison operator. Needed for map/sorting.
@@ -817,7 +814,7 @@ class LeakDebugger
         void dumpLeaks();
     private:
         FW_Mutex* tsafer;
-        std::unordered_map<const void*,StackTrace> tracker;
+        core::unordered_map<const void*,StackTrace> tracker;
 };
 
 } // end namespace core

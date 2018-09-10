@@ -5,10 +5,11 @@
 #ifndef __C_3DS_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_3DS_MESH_FILE_LOADER_H_INCLUDED__
 
+#include <string>
+
 #include "IMeshLoader.h"
 #include "IFileSystem.h"
 #include "ISceneManager.h"
-#include <string>
 #include "SMesh.h"
 #include "matrix4.h"
 
@@ -40,7 +41,7 @@ public:
 
 private:
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	struct ChunkHeader
 	{
@@ -49,7 +50,7 @@ private:
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 	struct ChunkData
 	{
@@ -143,16 +144,16 @@ private:
 	float* Vertices;
 	uint16_t* Indices;
 	uint32_t* SmoothingGroups;
-	core::array<uint16_t> TempIndices;
+	core::vector<uint16_t> TempIndices;
 	float* TCoords;
 	uint16_t CountVertices;
 	uint16_t CountFaces; // = CountIndices/4
 	uint16_t CountTCoords;
-	core::array<SMaterialGroup> MaterialGroups;
+	core::vector<SMaterialGroup> MaterialGroups;
 
 	SCurrentMaterial CurrentMaterial;
-	core::array<SCurrentMaterial> Materials;
-	core::array<std::string> MeshBufferNames;
+	core::vector<SCurrentMaterial> Materials;
+	core::vector<std::string> MeshBufferNames;
 	core::matrix4 TransformationMatrix;
 
 	SMesh* Mesh;

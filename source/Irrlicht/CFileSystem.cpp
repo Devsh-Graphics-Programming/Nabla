@@ -439,8 +439,9 @@ bool CFileSystem::removeFileArchive(uint32_t index)
 	bool ret = false;
 	if (index < FileArchives.size())
 	{
-		FileArchives[index]->drop();
-		FileArchives.erase(index);
+	    auto it = FileArchives.begin()+index;
+		(*it)->drop();
+		FileArchives.erase(it);
 		ret = true;
 	}
 
@@ -673,11 +674,11 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 	io::path path1, file, ext;
 	core::splitFilename(getAbsolutePath(filename), &path1, &file, &ext);
 	io::path path2(getAbsolutePath(directory));
-	std::list<io::path> list1, list2;
+	core::list<io::path> list1, list2;
 	path1.split(list1, _IRR_TEXT("/\\"), 2);
 	path2.split(list2, _IRR_TEXT("/\\"), 2);
 	uint32_t i=0;
-	std::list<io::path>::const_iterator it1,it2;
+	core::list<io::path>::const_iterator it1,it2;
 	it1=list1.begin();
 	it2=list2.begin();
 

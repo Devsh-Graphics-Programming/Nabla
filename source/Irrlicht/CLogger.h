@@ -7,7 +7,6 @@
 
 #include "ILogger.h"
 #include "os.h"
-#include "irrString.h"
 #include "IEventReceiver.h"
 
 namespace irr

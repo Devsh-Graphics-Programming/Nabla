@@ -5,7 +5,7 @@
 #ifndef __I_SHADER_CONSTANT_SET_CALLBACT_H_INCLUDED__
 #define __I_SHADER_CONSTANT_SET_CALLBACT_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "IMaterialRendererServices.h"
 
 namespace irr
@@ -33,11 +33,11 @@ struct SConstantLocationNamePair
 /** Implement this interface in an own class and pass a pointer to it to one of
 the methods in IGPUProgrammingServices when creating a shader. The
 OnSetConstants method will be called every frame now. */
-class IShaderConstantSetCallBack : public virtual IReferenceCounted
+class IShaderConstantSetCallBack : public virtual core::IReferenceCounted
 {
 public:
     virtual void PreLink(uint32_t program) {}
-    virtual void PostLink(video::IMaterialRendererServices* services, const E_MATERIAL_TYPE &materialType, const irr::core::array<SConstantLocationNamePair> &constants) =0;
+    virtual void PostLink(video::IMaterialRendererServices* services, const E_MATERIAL_TYPE &materialType, const core::vector<SConstantLocationNamePair> &constants) =0;
 
 	//! Called to let the callBack know the used material (optional method)
 	/**

@@ -5,7 +5,7 @@
 #ifndef __I_MESH_CACHE_H_INCLUDED__
 #define __I_MESH_CACHE_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "path.h"
 
 namespace irr
@@ -21,7 +21,7 @@ namespace scene
 	add new loaded meshes (if ISceneManager::getMesh() is not sufficient),
 	to remove them and to iterate through already loaded meshes. */
 	template<class T>
-	class IMeshCache : public virtual IReferenceCounted
+	class IMeshCache : public virtual core::IReferenceCounted
 	{
 	public:
 

@@ -87,7 +87,7 @@ namespace irr
             virtual void restoreWindow();
 
             //! Activate any joysticks, and generate events for them.
-            virtual bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo);
+            virtual bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo);
     /*
             //! Set the current Gamma Value for the Display
             virtual bool setGammaRamp( float red, float green, float blue, float brightness, float contrast );
@@ -377,11 +377,11 @@ namespace irr
                     {
                         Frames.push_back( CursorFrameW32(iconHw) );
                     }
-                    core::array<CursorFrameW32> Frames;
+                    core::vector<CursorFrameW32> Frames;
                     uint32_t FrameTime;
                 };
 
-                core::array<CursorW32> Cursors;
+                core::vector<CursorW32> Cursors;
                 gui::ECURSOR_ICON ActiveIcon;
                 uint32_t ActiveIconStartTime;
 

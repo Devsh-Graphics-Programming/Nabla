@@ -5,8 +5,8 @@
 #ifndef __IRR_RECT_H_INCLUDED__
 #define __IRR_RECT_H_INCLUDED__
 
-#include "irrTypes.h"
-#include "irrMacros.h"
+#include "irr/core/Types.h"
+#include "irr/macros.h"
 #include "dimension2d.h"
 #include "position2d.h"
 

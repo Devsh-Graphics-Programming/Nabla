@@ -108,7 +108,7 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
     {
         void* ind = mesh->getMeshBuffer(0)->getIndices();
         const size_t idxCnt = mesh->getMeshBuffer(0)->getIndexCount();
-        const video::E_INDEX_TYPE idxtype = mesh->getMeshBuffer(0)->getIndexType();
+        const E_INDEX_TYPE idxtype = mesh->getMeshBuffer(0)->getIndexType();
         const E_PRIMITIVE_TYPE primitiveT = mesh->getMeshBuffer(0)->getPrimitiveType();
         if (primitiveT == EPT_TRIANGLE_FAN || primitiveT == EPT_TRIANGLE_STRIP)
         {
@@ -122,7 +122,7 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
                 buf = CMeshManipulator().idxBufferFromTriangleStripsToTriangles(ind, idxCnt, idxtype);
             }
             needToFreeIndices = true;
-            faceCount = buf->getSize() / (idxtype == video::EIT_16BIT ? 2u : 4u) / 3u;
+            faceCount = buf->getSize() / (idxtype == EIT_16BIT ? 2u : 4u) / 3u;
             indices = malloc(buf->getSize());
             memcpy(indices, buf->getPointer(), buf->getSize());
             buf->drop();
@@ -133,18 +133,18 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
         indices = mesh->getMeshBuffer(0)->getIndices();
     }
 
-    video::E_INDEX_TYPE idxT = video::EIT_UNKNOWN;
+    E_INDEX_TYPE idxT = EIT_UNKNOWN;
     bool forceFaces = false;
     if (mesh->getMeshBuffer(0)->getPrimitiveType() == EPT_POINTS)
     {
         faceCount = 0u;
     }
-    else if (indices && mesh->getMeshBuffer(0)->getIndexType() != video::EIT_UNKNOWN)
+    else if (indices && mesh->getMeshBuffer(0)->getIndexType() != EIT_UNKNOWN)
     {
         header += "element face ";
         header += std::to_string(faceCount) + '\n';
         idxT = mesh->getMeshBuffer(0)->getIndexType();
-        const std::string idxTypeStr = idxT == video::EIT_32BIT ? "uint32" : "uint16";
+        const std::string idxTypeStr = idxT == EIT_32BIT ? "uint32" : "uint16";
         header += "property list uchar " + idxTypeStr + " vertex_indices\n";
     }
     else if (mesh->getMeshBuffer(0)->getPrimitiveType() == EPT_TRIANGLES)
@@ -154,8 +154,8 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
 
         header += "element face ";
         header += std::to_string(faceCount) + '\n';
-        idxT = vtxCount <= (1u<<16 - 1) ? video::EIT_16BIT : video::EIT_32BIT;
-        const std::string idxTypeStr = idxT == video::EIT_32BIT ? "uint32" : "uint16";
+        idxT = vtxCount <= (1u<<16 - 1) ? EIT_16BIT : EIT_32BIT;
+        const std::string idxTypeStr = idxT == EIT_32BIT ? "uint32" : "uint16";
         header += "property list uchar " + idxTypeStr + " vertex_indices\n";
     }
     else
@@ -177,7 +177,7 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
 	return true;
 }
 
-void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, video::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
+void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
 {
     size_t colCpa = _mbuf->getMeshDataAndFormat()->getAttribComponentCount(EVAI_ATTR1);
     if (colCpa == ECPA_REVERSED_OR_BGRA)
@@ -233,8 +233,8 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
     void* indices = _indices;
     if (_forceFaces)
     {
-        indices = malloc((_idxType == video::EIT_32BIT ? 4 : 2) * listSize * _fcCount);
-        if (_idxType == video::EIT_16BIT)
+        indices = malloc((_idxType == EIT_32BIT ? 4 : 2) * listSize * _fcCount);
+        if (_idxType == EIT_16BIT)
         {
             for (uint16_t i = 0u; i < _fcCount; ++i)
                 ((uint16_t*)indices)[i] = i;
@@ -245,7 +245,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
                 ((uint32_t*)indices)[i] = i;
         }
     }
-    if (_idxType == video::EIT_32BIT)
+    if (_idxType == EIT_32BIT)
     {
         uint32_t* ind = (uint32_t*)indices;
         for (size_t i = 0u; i < _fcCount; ++i)
@@ -270,7 +270,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
         free(indices);
 }
 
-void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, video::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
+void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
 {
     ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
 
@@ -341,8 +341,8 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, siz
     void* indices = _indices;
     if (_forceFaces)
     {
-        indices = malloc((_idxType == video::EIT_32BIT ? 4 : 2) * 3 * _fcCount);
-        if (_idxType == video::EIT_16BIT)
+        indices = malloc((_idxType == EIT_32BIT ? 4 : 2) * 3 * _fcCount);
+        if (_idxType == EIT_16BIT)
         {
             for (uint16_t i = 0u; i < _fcCount; ++i)
                 ((uint16_t*)indices)[i] = i;
@@ -353,7 +353,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, siz
                 ((uint32_t*)indices)[i] = i;
         }
     }
-    if (_idxType == video::EIT_32BIT)
+    if (_idxType == EIT_32BIT)
     {
         uint32_t* ind = (uint32_t*)indices;
         for (size_t i = 0u; i < _fcCount; ++i)
@@ -456,7 +456,7 @@ std::string CPLYMeshWriter::getTypeString(E_COMPONENT_TYPE _t)
     {
     case ECT_DOUBLE_IN_DOUBLE_OUT:
     case ECT_DOUBLE_IN_FLOAT_OUT:
-    case ECT_FLOAT: 
+    case ECT_FLOAT:
     case ECT_HALF_FLOAT:
     case ECT_UNSIGNED_INT_10F_11F_11F_REV:
         return "float";

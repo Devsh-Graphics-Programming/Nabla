@@ -5,8 +5,7 @@
 #ifndef __I_IMAGE_H_INCLUDED__
 #define __I_IMAGE_H_INCLUDED__
 
-#include "IReferenceCounted.h"
-#include "position2d.h"
+#include "irr/core/IReferenceCounted.h"
 #include "rect.h"
 #include "SColor.h"
 
@@ -18,7 +17,7 @@ namespace video
 //! Interface for software image data.
 /** Image loaders create these images from files.
 */
-class IImage : public virtual IReferenceCounted
+class IImage : public virtual core::IReferenceCounted
 {
 public:
 

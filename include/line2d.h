@@ -5,7 +5,7 @@
 #ifndef __IRR_LINE_2D_H_INCLUDED__
 #define __IRR_LINE_2D_H_INCLUDED__
 
-#include "irrTypes.h"
+#include "irr/core/Types.h"
 #include "vector2d.h"
 
 namespace irr

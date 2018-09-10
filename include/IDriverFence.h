@@ -25,7 +25,7 @@ enum E_DRIVER_FENCE_RETVAL
 };
 
 //! Persistently Mapped buffer
-class IDriverFence : public IReferenceCounted
+class IDriverFence : public core::IReferenceCounted
 {
 	    _IRR_INTERFACE_CHILD(IDriverFence) {}
     public:

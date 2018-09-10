@@ -15,8 +15,8 @@
 #include "IMaterialRendererServices.h"
 #include "IShaderConstantSetCallBack.h"
 #include "IGPUProgrammingServices.h"
-#include "irrArray.h"
-#include "irrString.h"
+
+
 
 namespace irr
 {
@@ -99,8 +99,8 @@ class COpenGLSLMaterialRenderer : public IMaterialRenderer, public IMaterialRend
         GLint activeUniformCount;
         int32_t UserData;
     #ifdef _DEBUG
-        core::array<SConstantLocationNamePair> debugConstants;
-        core::array<GLuint> debugConstantIndices;
+        core::vector<SConstantLocationNamePair> debugConstants;
+        core::vector<GLuint> debugConstantIndices;
     #endif
 };
 

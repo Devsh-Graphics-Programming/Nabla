@@ -5,9 +5,7 @@
 #ifndef __IRR_DIMENSION2D_H_INCLUDED__
 #define __IRR_DIMENSION2D_H_INCLUDED__
 
-#include "irrTypes.h"
-#include "irrMacros.h"
-#include "irrMath.h" // for irr::core::equals()
+#include "irr/core/math/irrMath.h" // for irr::core::equals()
 
 namespace irr
 {

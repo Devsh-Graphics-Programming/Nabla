@@ -5,7 +5,7 @@
 #ifndef __I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 #define __I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 
-#include "stdint.h"
+#include "irr/core/IReferenceCounted.h"
 #include "IShader.h"
 
 namespace irr
@@ -16,7 +16,7 @@ namespace video
 /**
 Could have been a struct, but Vulkan actually creates an object out of it.
 **/
-class IDescriptorSetLayout : public virtual IReferenceCounted
+class IDescriptorSetLayout : public virtual core::IReferenceCounted
 {
     public:
         enum E_DESCRIPTOR_TYPE

@@ -9,7 +9,6 @@
 #include "CColorConverter.h"
 #include "IWriteFile.h"
 #include "CImage.h"
-#include "irrString.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
 #include <stdio.h> // required for jpeglib.h

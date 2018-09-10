@@ -35,7 +35,7 @@
 #include "SMeshBufferLightMap.h"
 #include "IFileSystem.h"
 #include "IVideoDriver.h"
-#include "irrString.h"
+
 #include "ISceneManager.h"
 
 namespace irr
@@ -44,7 +44,7 @@ namespace scene
 {
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 struct SMyColor
 {   SMyColor () {;}
@@ -67,7 +67,7 @@ struct SMyMaterialHeader
 } PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 class CMY3DMeshFileLoader : public IMeshLoader
 {

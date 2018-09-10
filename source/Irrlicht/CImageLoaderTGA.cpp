@@ -10,7 +10,6 @@
 #include "os.h"
 #include "CColorConverter.h"
 #include "CImage.h"
-#include "irrString.h"
 
 
 namespace irr
@@ -102,7 +101,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* file) const
 
 
 //! creates a surface from the file
-std::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
+core::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 {
 	STGAHeader header;
 	uint32_t *palette = 0;
@@ -138,7 +137,7 @@ std::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 		delete [] colorMap;
 	}
 
-	std::vector<CImageData*> retval;
+	core::vector<CImageData*> retval;
 	// read image
 	uint8_t* data = 0;
 

@@ -7,11 +7,11 @@
 
 #include "ISceneNodeAnimator.h"
 #include "IEventReceiver.h"
-#include "irrArray.h"
+
+#include "SKeyMap.h"
 
 namespace irr
 {
-	struct SKeyMap;
 
 namespace scene
 {
@@ -46,10 +46,10 @@ namespace scene
 
 		//! Sets the keyboard mapping for this animator
 		//!	\param keymap The new keymap array
-		virtual void setKeyMap(const core::array<SKeyMap>& keymap) = 0;
+		virtual void setKeyMap(const core::vector<SKeyMap>& keymap) = 0;
 
 		//! Gets the keyboard mapping for this animator
-		virtual const core::array<SKeyMap>& getKeyMap() const = 0;
+		virtual const core::vector<SKeyMap>& getKeyMap() const = 0;
 
 		//! Sets whether vertical movement should be allowed.
 		/** If vertical movement is enabled then the camera may fight with

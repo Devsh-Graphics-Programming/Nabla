@@ -5,7 +5,7 @@
 #ifndef __IRR_I_VIDEO_MODE_LIST_H_INCLUDED__
 #define __IRR_I_VIDEO_MODE_LIST_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "dimension2d.h"
 
 namespace irr
@@ -20,7 +20,7 @@ namespace video
 	there is no need to start up an Irrlicht Device with EDT_DIRECT3D8, EDT_OPENGL or
 	EDT_SOFTWARE: For this (and for lots of other reasons) the null device,
 	EDT_NULL exists.*/
-	class IVideoModeList : public virtual IReferenceCounted
+	class IVideoModeList : public virtual core::IReferenceCounted
 	{
 	public:
 

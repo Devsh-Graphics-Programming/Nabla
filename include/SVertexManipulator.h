@@ -53,10 +53,10 @@ namespace scene
 	using QuantizationCacheEntryHalfFloat = QuantizationCacheEntry16_16_16;
 
 	// defined in CMeshManipulator.cpp
-    extern std::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
-	extern std::vector<QuantizationCacheEntry8_8_8> normalCacheFor8_8_8Quant;
-	extern std::vector<QuantizationCacheEntry16_16_16> normalCacheFor16_16_16Quant;
-	extern std::vector<QuantizationCacheEntryHalfFloat> normalCacheForHalfFloatQuant;
+    extern core::vector<QuantizationCacheEntry2_10_10_10>   normalCacheFor2_10_10_10Quant;
+	extern core::vector<QuantizationCacheEntry8_8_8>        normalCacheFor8_8_8Quant;
+	extern core::vector<QuantizationCacheEntry16_16_16>     normalCacheFor16_16_16Quant;
+	extern core::vector<QuantizationCacheEntryHalfFloat>    normalCacheForHalfFloatQuant;
 
     inline core::vectorSIMDf findBestFit(const uint32_t& bits, const core::vectorSIMDf& normal)
     {
@@ -136,7 +136,7 @@ namespace scene
 	{
         QuantizationCacheEntry2_10_10_10 dummySearchVal;
         dummySearchVal.key = normal;
-        std::vector<QuantizationCacheEntry2_10_10_10>::iterator found = std::lower_bound(normalCacheFor2_10_10_10Quant.begin(),normalCacheFor2_10_10_10Quant.end(),dummySearchVal);
+        auto found = std::lower_bound(normalCacheFor2_10_10_10Quant.begin(),normalCacheFor2_10_10_10Quant.end(),dummySearchVal);
         if (found!=normalCacheFor2_10_10_10Quant.end()&&(found->key==normal).all())
         {
             return found->value;
@@ -158,7 +158,7 @@ namespace scene
 	{
 		QuantizationCacheEntry8_8_8 dummySearchVal;
 		dummySearchVal.key = normal;
-		std::vector<QuantizationCacheEntry8_8_8>::iterator found = std::lower_bound(normalCacheFor8_8_8Quant.begin(), normalCacheFor8_8_8Quant.end(), dummySearchVal);
+		auto found = std::lower_bound(normalCacheFor8_8_8Quant.begin(), normalCacheFor8_8_8Quant.end(), dummySearchVal);
 		if (found != normalCacheFor8_8_8Quant.end() && (found->key == normal).all())
 		{
 			return found->value;
@@ -177,12 +177,12 @@ namespace scene
 
 	    return *reinterpret_cast<uint32_t*>(bestFit);
 	}
-	
+
 	inline uint64_t quantizeNormal16_16_16(const core::vectorSIMDf& normal)
 	{
 		QuantizationCacheEntry16_16_16 dummySearchVal;
 		dummySearchVal.key = normal;
-		std::vector<QuantizationCacheEntry16_16_16>::iterator found = std::lower_bound(normalCacheFor16_16_16Quant.begin(), normalCacheFor16_16_16Quant.end(), dummySearchVal);
+		auto found = std::lower_bound(normalCacheFor16_16_16Quant.begin(), normalCacheFor16_16_16Quant.end(), dummySearchVal);
 		if (found != normalCacheFor16_16_16Quant.end() && (found->key == normal).all())
 		{
 			return found->value;
@@ -206,7 +206,7 @@ namespace scene
 	{
 		QuantizationCacheEntryHalfFloat dummySearchVal;
 		dummySearchVal.key = normal;
-		std::vector<QuantizationCacheEntryHalfFloat>::iterator found = std::lower_bound(normalCacheForHalfFloatQuant.begin(), normalCacheForHalfFloatQuant.end(), dummySearchVal);
+		auto found = std::lower_bound(normalCacheForHalfFloatQuant.begin(), normalCacheForHalfFloatQuant.end(), dummySearchVal);
 		if (found != normalCacheForHalfFloatQuant.end() && (found->key == normal).all())
 		{
 			return found->value;

@@ -12,7 +12,7 @@ namespace core
 
 class SCollisionEngine
 {
-        array<SCompoundCollider*> colliders;
+        vector<SCompoundCollider*> colliders;
 
     public:
 		//! Destructor.
@@ -119,15 +119,15 @@ class SCollisionEngine
             if (!collider)
                 return;
 
-            int32_t ix = colliders.binary_search(collider);
-            if (ix<0)
+            auto found = std::lower_bound(colliders.begin(),colliders.end(),collider);
+            if (found==colliders.end())
 			{
 //				FW_WriteToLog(kLogError,"removeCompoundCollider collider not found!\n");
                 return;
 			}
 
-			collider->drop();
-            colliders.erase(ix);
+			(*found)->drop();
+            colliders.erase(found);
         }
 
 		//! Gets current amount of colliders

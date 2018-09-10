@@ -6,7 +6,7 @@
 #include "CMeshManipulator.h"
 #include "os.h"
 
-namespace irr { namespace scene 
+namespace irr { namespace scene
 {
 
 ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffer, bool _createNew, float _threshold)
@@ -14,11 +14,11 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 	if (!_inbuffer)
 		return NULL;
 
-	const video::E_INDEX_TYPE indexType = _inbuffer->getIndexType();
-	if (indexType == video::EIT_UNKNOWN)
+	const E_INDEX_TYPE indexType = _inbuffer->getIndexType();
+	if (indexType == EIT_UNKNOWN)
 		return NULL;
 
-	const size_t indexSize = indexType == video::EIT_16BIT ? 2u : 4u;
+	const size_t indexSize = indexType == EIT_16BIT ? 2u : 4u;
 
 	ICPUMeshBuffer* outbuffer = _createNew ? CMeshManipulator().createMeshBufferDuplicate(_inbuffer) : _inbuffer;
 
@@ -35,7 +35,7 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 	void* indicesCopy = malloc(indexSize*idxCount);
 	memcpy(indicesCopy, indices, indexSize*idxCount);
 	const size_t vertexCount = outbuffer->calcVertexCount();
-	std::vector<core::vectorSIMDf> vertexPositions;
+	core::vector<core::vectorSIMDf> vertexPositions;
 	{
 		core::vectorSIMDf pos;
 		for (size_t i = 0; i < vertexCount; ++i)
@@ -46,17 +46,17 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 	}
 
 	uint32_t* const hardClusters = (uint32_t*)malloc((idxCount/3) * 4);
-	const size_t hardClusterCount = indexType == video::EIT_16BIT ?
+	const size_t hardClusterCount = indexType == EIT_16BIT ?
 		genHardBoundaries(hardClusters, (uint16_t*)indices, idxCount, vertexCount) :
 		genHardBoundaries(hardClusters, (uint32_t*)indices, idxCount, vertexCount);
 
 	uint32_t* const softClusters = (uint32_t*)malloc((idxCount/3 + 1) * 4);
-	const size_t softClusterCount = indexType == video::EIT_16BIT ?
+	const size_t softClusterCount = indexType == EIT_16BIT ?
 		genSoftBoundaries(softClusters, (uint16_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold) :
 		genSoftBoundaries(softClusters, (uint32_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold);
 
 	ClusterSortData* sortedData = (ClusterSortData*)malloc(softClusterCount*sizeof(ClusterSortData));
-	if (indexType == video::EIT_16BIT)
+	if (indexType == EIT_16BIT)
 		calcSortData(sortedData, (uint16_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
 	else
 		calcSortData(sortedData, (uint32_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
@@ -70,7 +70,7 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 		size_t start = softClusters[cluster];
 		size_t end = (cluster+1 < softClusterCount) ? softClusters[cluster+1] : idxCount/3;
 
-		if (indexType == video::EIT_16BIT)
+		if (indexType == EIT_16BIT)
 		{
 			for (size_t i = start; i < end; ++i)
 			{
@@ -194,7 +194,7 @@ size_t COverdrawMeshOptimizer::genSoftBoundaries(uint32_t* _dst, const IdxT* _in
 }
 
 template<typename IdxT>
-void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _indices, size_t _idxCount, const std::vector<core::vectorSIMDf>& _positions, const uint32_t* _clusters, size_t _clusterCount)
+void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _indices, size_t _idxCount, const core::vector<core::vectorSIMDf>& _positions, const uint32_t* _clusters, size_t _clusterCount)
 {
 	core::vectorSIMDf meshCentroid;
 	for (size_t i = 0u; i < _idxCount; ++i)
