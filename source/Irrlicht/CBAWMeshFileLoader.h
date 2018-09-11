@@ -36,7 +36,7 @@ private:
 	private:
 		// a bit dangerous to leave it copyable but until c++11 I have to to be able to store it in unordered_map
 		// SBlobData(const SBlobData&) {}
-		SBlobData& operator=(const SBlobData&) {}
+		SBlobData& operator=(const SBlobData&) = delete;
 	};
 
 	struct SContext

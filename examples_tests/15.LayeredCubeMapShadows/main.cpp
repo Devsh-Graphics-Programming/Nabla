@@ -55,7 +55,7 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 public:
     SimpleCallBack() : worldspaceLightPosUniformLocation(-1), worldMatUniformLocation(-1), normalMatUniformLocation(-1), mvpUniformLocation(-1), vpcmUniformLocation(-1) {}
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
         int32_t id[] = {0,1,2,3};
         for (size_t i=0; i<constants.size(); i++)
@@ -247,7 +247,7 @@ int main()
     if (cpumesh&&cpumesh->getMeshType()==scene::EMT_ANIMATED_SKINNED)
     {
         scene::ISkinnedMeshSceneNode* anode = 0;
-        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
+        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh))[0];
         smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
 
         for (size_t x=0; x<kInstanceSquareSize; x++)

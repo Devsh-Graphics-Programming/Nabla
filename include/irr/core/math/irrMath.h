@@ -14,7 +14,6 @@
 #include <limits.h> // For INT_MAX / UINT_MAX
 #include <type_traits>
 
-///#include "irr/core/Types.h"
 #include "irr/macros.h"
 
 
@@ -452,10 +451,6 @@ namespace core
 	inline float round_( float x )
 	{
 		return floorf( x + 0.5f );
-	}
-
-	IRR_FORCE_INLINE void clearFPUException ()
-	{
 	}
 
 	// calculate: sqrt ( x )

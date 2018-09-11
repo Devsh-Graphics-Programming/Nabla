@@ -17,7 +17,7 @@ namespace AutoExposure
 //do not touch this, affects compute occupancy
 constexpr uint32_t SUBCELL_SIZE = 16;
 
-class CToneMapper : public IReferenceCounted, public InterfaceUnmovable
+class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmovable
 {
     public:
         static CToneMapper* instantiateTonemapper(video::IVideoDriver* _driver,

@@ -819,7 +819,7 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 		}
 		break;
 
-	case ESNRP_NONE: // ignore this one
+	default: // ignore this one
 		break;
 	}
 

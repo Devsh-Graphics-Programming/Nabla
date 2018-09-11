@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "irr/core/alloc/aligned_allocator.h"
+#include "irr/core/alloc/aligned_allocator_adaptor.h"
 
 namespace irr
 {
@@ -109,11 +110,6 @@ using stack = std::stack<T,Container>;
 	#include <crtdbg.h>
 	#define new DEBUG_CLIENTBLOCK
 #endif
-
-// disable truncated debug information warning in visual studio 6 by default
-#if defined(_MSC_VER) && (_MSC_VER < 1300 )
-#pragma warning( disable: 4786)
-#endif // _MSC
 
 
 //! ignore VC8 warning deprecated

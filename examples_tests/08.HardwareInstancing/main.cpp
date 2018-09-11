@@ -89,7 +89,7 @@ public:
             uniformLocation[j][i] = -1;
     }
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
         for (size_t i=0; i<constants.size(); i++)
         for (size_t j=0; j<EU_COUNT; j++)
@@ -289,8 +289,8 @@ int main()
     if (!cpumesh||!cpumesh2)
         return 0;
 
-    scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
-    scene::IGPUMesh* gpumesh2 = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh2))[0];
+    scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh))[0];
+    scene::IGPUMesh* gpumesh2 = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh2))[0];
     smgr->getMeshCache()->removeMesh(cpumesh);
     smgr->getMeshCache()->removeMesh(cpumesh2);
     for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
@@ -415,7 +415,7 @@ int main()
         node->setBBoxUpdateEnabled();
         node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
         {
-            std::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
+            core::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
             LevelsOfDetail.resize(2);
             LevelsOfDetail[0].mesh = gpumesh;
             LevelsOfDetail[0].lodDistance = instanceLoDDistances[0];

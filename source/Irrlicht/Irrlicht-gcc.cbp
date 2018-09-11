@@ -330,7 +330,6 @@
 		<Unit filename="../../include/IrrlichtDevice.h" />
 		<Unit filename="../../include/Keycodes.h" />
 		<Unit filename="../../include/SAABoxCollider.h" />
-		<Unit filename="../../include/SAnimatedMesh.h" />
 		<Unit filename="../../include/SCollisionEngine.h" />
 		<Unit filename="../../include/SColor.h" />
 		<Unit filename="../../include/SCompoundCollider.h" />
@@ -358,6 +357,11 @@
 		<Unit filename="../../include/irr/core/IReferenceCounted.h" />
 		<Unit filename="../../include/irr/core/IThreadBound.h" />
 		<Unit filename="../../include/irr/core/Types.h" />
+		<Unit filename="../../include/irr/core/alloc/AllocatorTrivialBases.h" />
+		<Unit filename="../../include/irr/core/alloc/IAllocatorInterface.h" />
+		<Unit filename="../../include/irr/core/alloc/aligned_allocator.h" />
+		<Unit filename="../../include/irr/core/alloc/aligned_allocator_adaptor.h" />
+		<Unit filename="../../include/irr/core/irrString.h" />
 		<Unit filename="../../include/irr/core/math/irrMath.h" />
 		<Unit filename="../../include/irr/core/memory/irrMemory.h" />
 		<Unit filename="../../include/irr/macros.h" />

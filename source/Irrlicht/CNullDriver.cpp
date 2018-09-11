@@ -272,8 +272,6 @@ void CNullDriver::deleteAllTextures()
 bool CNullDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 		const SExposedVideoData& videoData, core::rect<int32_t>* sourceRect)
 {
-	core::clearFPUException();
-
 	scene::CMeshSceneNodeInstanced::recullOrder = 0;
 
 	PrimitivesDrawn = 0;
