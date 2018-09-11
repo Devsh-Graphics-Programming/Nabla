@@ -109,11 +109,11 @@ namespace irr
 			if (fileSystem)
 				fileSystem->grab();
 
-			assert(!meshCache.getByKey("test1"));
+			//assert(!meshCache.getByKey("test1"));
 
 			ICPUMesh* testPtr = reinterpret_cast<ICPUMesh*>(0xdeadbeefull);
 			meshCache.insert("test2", testPtr);
-			assert(meshCache.getByKey("test2")==testPtr);
+			//assert(meshCache.getByKey("test2")==testPtr);
 		}
 
 		/*
