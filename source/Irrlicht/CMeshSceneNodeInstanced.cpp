@@ -79,7 +79,7 @@ void CMeshSceneNodeInstanced::setGPUCullingThresholdMultiplier(const double& mul
 
 
 //! Sets a new meshbuffer
-bool CMeshSceneNodeInstanced::setLoDMeshes(core::vector<MeshLoD> levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput, CPUCullingFunc cpuCullFunc)
+bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput, CPUCullingFunc cpuCullFunc)
 {
     for (size_t i=0; i<LoD.size(); i++)
     {

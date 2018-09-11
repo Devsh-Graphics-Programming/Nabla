@@ -120,7 +120,7 @@ class SCollisionEngine
                 return;
 
             auto found = std::lower_bound(colliders.begin(),colliders.end(),collider);
-            if (found==colliders.end())
+            if (found==colliders.end() || *found!=collider)
 			{
 //				FW_WriteToLog(kLogError,"removeCompoundCollider collider not found!\n");
                 return;

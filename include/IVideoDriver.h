@@ -102,7 +102,7 @@ namespace video
 	{
 	public:
 	    //! This is marked for deprecation (move to IAssetManager)
-	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*> mesh) {return core::vector<scene::IGPUMesh*>();}
+	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh) {return core::vector<scene::IGPUMesh*>();}
 
 	    //! make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
         virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) {}

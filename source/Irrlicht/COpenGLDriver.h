@@ -84,7 +84,7 @@ namespace video
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
 
 
-	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*> mesh);
+	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh);
 
 
         virtual void flushBufferRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges);

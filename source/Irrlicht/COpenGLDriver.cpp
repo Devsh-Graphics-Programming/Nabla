@@ -1212,7 +1212,7 @@ scene::IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::
     return new COpenGLVAOSpec(dbgr);
 }
 
-core::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*> meshes)
+core::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& meshes)
 {
     core::vector<scene::IGPUMesh*> retval;
 
@@ -2766,7 +2766,7 @@ void COpenGLDriver::removeFrameBuffer(IFrameBuffer* framebuf)
         return;
 
 	auto it = std::lower_bound(found->FrameBuffers.begin(),found->FrameBuffers.end(),framebuf);
-	if (it!=found->FrameBuffers.end())
+	if (it!=found->FrameBuffers.end() && !(framebuf<*it))
         found->FrameBuffers.erase(it);
     else
         return;

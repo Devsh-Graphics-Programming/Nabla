@@ -150,7 +150,7 @@ int32_t CFileList::findFile(const io::path& filename, bool isDirectory = false) 
 		core::deletePathFromFilename(entry.FullName);
 
     auto retval = std::lower_bound(Files.begin(),Files.end(),entry);
-    if (retval!=Files.end())
+    if (retval!=Files.end() && !(entry<*retval))
         return std::distance(Files.begin(),retval);
     else
         return -1;

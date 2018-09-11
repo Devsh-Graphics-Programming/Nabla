@@ -475,7 +475,7 @@ void CNullDriver::removeTexture(ITexture* texture)
     s.Surface = texture;
 
 	auto found = std::lower_bound(Textures.begin(),Textures.end(),s);
-	if (found==Textures.end())
+	if (found==Textures.end() || s<*found)
         return;
 
 	auto foundHi = std::upper_bound(found,Textures.end(),s);
@@ -493,7 +493,7 @@ void CNullDriver::removeTexture(ITexture* texture)
 void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
 {
     auto it = std::lower_bound(MultisampleTextures.begin(),MultisampleTextures.end(),tex);
-    if (it==MultisampleTextures.end())
+    if (it==MultisampleTextures.end() || tex<*it)
         return;
     MultisampleTextures.erase(it);
 
@@ -503,7 +503,7 @@ void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
 void CNullDriver::removeTextureBufferObject(ITextureBufferObject* tbo)
 {
     auto it = std::lower_bound(TextureBufferObjects.begin(),TextureBufferObjects.end(),tbo);
-    if (it==TextureBufferObjects.end())
+    if (it==TextureBufferObjects.end() || tbo<*it)
         return;
     TextureBufferObjects.erase(it);
 

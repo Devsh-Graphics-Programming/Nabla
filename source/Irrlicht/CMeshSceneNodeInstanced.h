@@ -67,7 +67,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         //! Sets a new mesh to display
         /** \param mesh Mesh to display. */
-        virtual bool setLoDMeshes(core::vector<MeshLoD> levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0, CPUCullingFunc cpuCullFunc=NULL);
+        virtual bool setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0, CPUCullingFunc cpuCullFunc=NULL);
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */

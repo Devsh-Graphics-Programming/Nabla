@@ -86,7 +86,7 @@ T* CMeshCache<T>::getMeshByName(const io::path& name)
 {
 	MeshEntry<T> e ( name );
 	auto found = std::lower_bound(Meshes.begin(),Meshes.end(),e);
-	if (found!=Meshes.end())
+	if (found!=Meshes.end() && !(e<*found))
         return found->Mesh;
     else
         return nullptr;
