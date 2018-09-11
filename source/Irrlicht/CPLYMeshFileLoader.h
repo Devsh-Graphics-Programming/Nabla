@@ -48,7 +48,7 @@ private:
 	{
 		core::stringc Name;
 		E_PLY_PROPERTY_TYPE Type;
-		#include "irrpack.h"
+		#include "irr/irrpack.h"
 		union
 		{
 			uint8_t  Int8;
@@ -63,7 +63,7 @@ private:
 			} List PACK_STRUCT;
 
 		} Data PACK_STRUCT;
-		#include "irrunpack.h"
+		#include "irr/irrunpack.h"
 
 		inline uint32_t size() const
 		{
@@ -111,7 +111,7 @@ private:
 		// The number of elements in the file
 		uint32_t Count;
 		// Properties of this element
-		core::array<SPLYProperty> Properties;
+		core::vector<SPLYProperty> Properties;
 		// in binary files, true if this is a fixed size
 		bool IsFixedWidth;
 		// known size in bytes, 0 if unknown
@@ -126,17 +126,17 @@ private:
 	void fillBuffer();
 	E_PLY_PROPERTY_TYPE getPropertyType(const char* typeString) const;
 
-	bool readVertex(const SPLYElement &Element, std::vector<core::vectorSIMDf> _attribs[4]);
-	bool readFace(const SPLYElement &Element, std::vector<uint32_t>& _outIndices);
+	bool readVertex(const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4]);
+	bool readFace(const SPLYElement &Element, core::vector<uint32_t>& _outIndices);
 	void skipElement(const SPLYElement &Element);
 	void skipProperty(const SPLYProperty &Property);
 	float getFloat(E_PLY_PROPERTY_TYPE t);
 	uint32_t getInt(E_PLY_PROPERTY_TYPE t);
 	void moveForward(uint32_t bytes);
 
-    bool genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const std::vector<core::vectorSIMDf> _attribs[4]) const;
+    bool genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const;
 
-	core::array<SPLYElement*> ElementList;
+	core::vector<SPLYElement*> ElementList;
 
 	scene::ISceneManager* SceneManager;
 	io::IReadFile *File;

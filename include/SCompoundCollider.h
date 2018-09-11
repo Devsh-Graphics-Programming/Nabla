@@ -39,7 +39,7 @@ class SCompoundCollider : public IReferenceCounted
 {
     protected:
         SAABoxCollider BBox;
-        array<SCollisionShapeDef> Shapes;
+        vector<SCollisionShapeDef> Shapes;
         SColliderData colliderData;
 
 		//! Destructor.

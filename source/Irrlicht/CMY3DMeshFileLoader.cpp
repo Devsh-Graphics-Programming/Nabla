@@ -13,7 +13,7 @@
 
 #include "CMY3DMeshFileLoader.h"
 
-#include "SAnimatedMesh.h"
+
 #include "SMeshBuffer.h"
 #include "IReadFile.h"
 
@@ -135,7 +135,7 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 
 		// read material header
 		MaterialEntry.push_back(SMyMaterialEntry());
-		SMyMaterialEntry& me=MaterialEntry.getLast();
+		SMyMaterialEntry& me=MaterialEntry.back();
 		file->read(&(me.Header), sizeof(SMyMaterialHeader));
 
 		// read next identificator
@@ -262,7 +262,7 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 		}
 
 		file->read(&vertsNum, sizeof(vertsNum));
-		Vertex.set_used(vertsNum);
+		Vertex.resize(vertsNum);
 		file->read(Vertex.pointer(), sizeof(SMyVertex)*vertsNum);
 
 		// faces
@@ -274,7 +274,7 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 		}
 
 		file->read(&facesNum, sizeof(facesNum));
-		Face.set_used(facesNum);
+		Face.resize(facesNum);
 		file->read(Face.pointer(), sizeof(SMyFace)*facesNum);
 
 		// reading texture channels
@@ -475,13 +475,13 @@ IAnimatedMesh* CMY3DMeshFileLoader::createMesh(io::IReadFile* file)
 
 		if (buffer->Material.MaterialType == video::EMT_TRANSPARENT_ALPHA_CHANNEL)
 		{
-			buffer->Indices.reallocate(buffer->Indices.size()+6*facesNum);
-			buffer->Vertices.reallocate(buffer->Vertices.size()+6*facesNum);
+			buffer->Indices.reserve(buffer->Indices.size()+6*facesNum);
+			buffer->Vertices.reserve(buffer->Vertices.size()+6*facesNum);
 		}
 		else
 		{
-			buffer->Indices.reallocate(buffer->Indices.size()+3*facesNum);
-			buffer->Vertices.reallocate(buffer->Vertices.size()+3*facesNum);
+			buffer->Indices.reserve(buffer->Indices.size()+3*facesNum);
+			buffer->Vertices.reserve(buffer->Vertices.size()+3*facesNum);
 		}
 		for (int f=0; f<facesNum; f++)
 		{

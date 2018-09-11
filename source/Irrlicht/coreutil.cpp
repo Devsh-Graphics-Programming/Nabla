@@ -14,14 +14,13 @@ namespace std
             using std::size_t;
             using std::hash;
             using std::string;
-            using std::vector;
 
             // Compute individual hash values for first,
             // second and third and combine them using XOR
             // and bit shifting:
             size_t retval = 0;
 
-            for (vector<string>::const_iterator it=k.getTrace().begin(); it!=k.getTrace().end(); it++)
+            for (irr::core::vector<string>::const_iterator it=k.getTrace().begin(); it!=k.getTrace().end(); it++)
                 retval ^= std::hash<string>()(*it) + 0x9e3779b9 + (retval << 6) + (retval >> 2);
 
             return retval;
@@ -107,9 +106,9 @@ T lastChar(const std::basic_string<T>& str1)
 
 
 
-std::vector<std::string> getBackTrace(void)
+core::vector<std::string> getBackTrace(void)
 {
-    std::vector<std::string> retval;
+    core::vector<std::string> retval;
 #ifdef _DEBUG
 #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 /*
@@ -180,7 +179,7 @@ void LeakDebugger::registerObj(const void* obj)
 {
 #ifdef _DEBUG
     tsafer->Get();
-    std::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
+    core::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
     if (found!=tracker.end())
     {
         printf("BAD REFCOUNTING IN LEAK DEBUGGER %s with item %p \t Previous supposed alloc was:\n",name.c_str(),obj);
@@ -198,7 +197,7 @@ void LeakDebugger::deregisterObj(const void* obj)
 {
 #ifdef _DEBUG
     tsafer->Get();
-    std::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
+    core::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
     if (found==tracker.end())
     {
         printf("LEAK DEBUGGER %s found DOUBLE FREE item %p \t Allocated from:\n",name.c_str(),obj);
@@ -216,16 +215,16 @@ void LeakDebugger::deregisterObj(const void* obj)
 void LeakDebugger::dumpLeaks()
 {
 #ifdef _DEBUG
-    std::unordered_multiset<StackTrace> epicCounter;
+    core::unordered_multiset<StackTrace> epicCounter;
 
     tsafer->Get();
     printf("Printing the leaks of %s\n\n",name.c_str());
 
-    for (std::unordered_map<const void*,StackTrace>::iterator it=tracker.begin(); it!=tracker.end(); it++)
+    for (core::unordered_map<const void*,StackTrace>::iterator it=tracker.begin(); it!=tracker.end(); it++)
         epicCounter.insert(it->second);
 
     {
-        std::unordered_multiset<StackTrace>::iterator it=epicCounter.begin();
+        core::unordered_multiset<StackTrace>::iterator it=epicCounter.begin();
         while (it!=epicCounter.end())
         {
             size_t occurences = epicCounter.count(*it);

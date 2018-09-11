@@ -9,7 +9,6 @@
 #include "IMeshWriter.h"
 #include "IMesh.h"
 #include "CBAWFile.h"
-#include "irrArray.h"
 
 namespace irr {
 
@@ -60,8 +59,8 @@ namespace scene
 	private:
 		struct SContext
 		{
-			core::array<core::BlobHeaderV0> headers;
-			core::array<uint32_t> offsets;
+			core::vector<core::BlobHeaderV0> headers;
+			core::vector<uint32_t> offsets;
 			const WriteProperties* props;
 		};
 

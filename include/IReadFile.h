@@ -5,8 +5,9 @@
 #ifndef __I_READ_FILE_H_INCLUDED__
 #define __I_READ_FILE_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "coreutil.h"
+#include "path.h"
 
 namespace irr
 {
@@ -14,7 +15,7 @@ namespace io
 {
 
 	//! Interface providing read acess to a file.
-	class IReadFile : public virtual IReferenceCounted
+	class IReadFile : public virtual core::IReferenceCounted
 	{
 	public:
 		//! Reads an amount of bytes from the file.

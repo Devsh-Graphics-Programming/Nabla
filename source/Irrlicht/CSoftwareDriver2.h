@@ -10,7 +10,7 @@
 #include "CNullDriver.h"
 #include "CImage.h"
 #include "os.h"
-#include "irrString.h"
+#include "irr/core/irrString.h"
 #include "SIrrCreationParameters.h"
 
 namespace irr
@@ -105,7 +105,7 @@ namespace video
 		virtual IStencilBuffer * getStencilBuffer () { return StencilBuffer; }
 
         //! .
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
+        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
 
 
 	protected:
@@ -173,7 +173,7 @@ namespace video
 		void VertexCache_reset (const void* vertices, uint32_t vertexCount,
 					const void* indices, uint32_t indexCount,
 					E_VERTEX_TYPE vType,scene::E_PRIMITIVE_TYPE pType,
-					E_INDEX_TYPE iType);
+					scene::E_INDEX_TYPE iType);
 		void VertexCache_get ( const s4DVertex ** face );
 		void VertexCache_getbypass ( s4DVertex ** face );
 

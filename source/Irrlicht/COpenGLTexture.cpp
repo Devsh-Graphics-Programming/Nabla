@@ -6,14 +6,13 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#include "irrTypes.h"
-#include "irrMacros.h"
+#include "irr/core/Types.h"
 #include "COpenGLTexture.h"
 #include "COpenGLDriver.h"
 #include "os.h"
 #include "CColorConverter.h"
 
-#include "irrString.h"
+
 
 namespace irr
 {

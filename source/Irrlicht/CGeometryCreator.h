@@ -17,7 +17,7 @@ namespace scene
 class CGeometryCreator : public IGeometryCreator
 {
 private:
-#include "irrpack.h"
+#include "irr/irrpack.h"
 	struct CubeVertex
 	{
 		float pos[3];
@@ -32,7 +32,7 @@ private:
 		void setNormal(int8_t x, int8_t y, int8_t z) { normal[0] = x; normal[1] = y; normal[2] = z; }
 		void setUv(uint8_t u, uint8_t v) { uv[0] = u; uv[1] = v; }
 	} PACK_STRUCT;
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 public:
 	ICPUMesh* createCubeMeshCPU(const core::vector3df& size) const;
 	IGPUMesh* createCubeMeshGPU(video::IVideoDriver* driver, const core::vector3df& size) const;

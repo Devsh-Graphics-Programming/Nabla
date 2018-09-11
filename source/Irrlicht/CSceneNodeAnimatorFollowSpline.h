@@ -6,7 +6,7 @@
 #define __C_SCENE_NODE_ANIMATOR_FOLLOW_SPLINE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "irrArray.h"
+
 #include "ISceneNodeAnimatorFinishing.h"
 
 namespace irr
@@ -21,7 +21,7 @@ namespace scene
 
 		//! constructor
 		CSceneNodeAnimatorFollowSpline(uint32_t startTime,
-			const core::array< core::vector3df >& points,
+			const core::vector< core::vector3df >& points,
 			float speed = 1.0f, float tightness = 0.5f, bool loop=true, bool pingpong=false);
 
 		//! animates a scene node
@@ -41,7 +41,7 @@ namespace scene
 		//! clamps a the value idx to fit into range 0..size-1
 		int32_t clamp(int32_t idx, int32_t size);
 
-		core::array< core::vector3df > Points;
+		core::vector< core::vector3df > Points;
 		float Speed;
 		float Tightness;
 		uint32_t StartTime;

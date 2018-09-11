@@ -5,13 +5,13 @@
 #ifndef __I_TIMER_H_INCLUDED__
 #define __I_TIMER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 
 namespace irr
 {
 
 //! Interface for getting and manipulating the virtual time
-class ITimer : public virtual IReferenceCounted
+class ITimer : public virtual core::IReferenceCounted
 {
 public:
 	//! Returns current real time in milliseconds of the system.

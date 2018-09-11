@@ -9,7 +9,7 @@
 #include "COgreMeshFileLoader.h"
 #include "os.h"
 #include "SMeshBuffer.h"
-#include "SAnimatedMesh.h"
+
 #include "IReadFile.h"
 #include "coreutil.h"
 
@@ -479,7 +479,7 @@ void COgreMeshFileLoader::composeMeshBufferMaterial(scene::IMeshBuffer* mb, cons
 }
 
 
-scene::SMeshBuffer* COgreMeshFileLoader::composeMeshBuffer(const core::array<int32_t>& indices, const OgreGeometry& geom)
+scene::SMeshBuffer* COgreMeshFileLoader::composeMeshBuffer(const core::vector<int32_t>& indices, const OgreGeometry& geom)
 {
 	scene::SMeshBuffer *mb=new scene::SMeshBuffer();
 
@@ -547,7 +547,7 @@ scene::SMeshBuffer* COgreMeshFileLoader::composeMeshBuffer(const core::array<int
 }
 
 
-scene::SMeshBufferLightMap* COgreMeshFileLoader::composeMeshBufferLightMap(const core::array<int32_t>& indices, const OgreGeometry& geom)
+scene::SMeshBufferLightMap* COgreMeshFileLoader::composeMeshBufferLightMap(const core::vector<int32_t>& indices, const OgreGeometry& geom)
 {
 	scene::SMeshBufferLightMap *mb=new scene::SMeshBufferLightMap();
 

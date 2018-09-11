@@ -10,7 +10,8 @@
 #include <map>
 #include <unordered_map>
 
-#include "irrMacros.h"
+#include "irr/macros.h"
+#include "irr/core/IReferenceCounted.h"
 
 namespace irr { namespace core
 {
@@ -24,24 +25,24 @@ namespace impl
 
     template<template<typename...> class T>
     struct is_same_templ<T, T> : std::true_type {};
-
+ // can be get some general specialization for any allocator?
     template<template<typename...> class T>
     struct is_multi_container : std::false_type {};
     template<>
-    struct is_multi_container<std::multimap> : std::true_type {};
+    struct is_multi_container<core::multimap> : std::true_type {};
     template<>
-    struct is_multi_container<std::unordered_multimap> : std::true_type {};
-
+    struct is_multi_container<core::unordered_multimap> : std::true_type {};
+ // can be get some general specialization for any allocator?
     template<template<typename...> class T>
     struct is_assoc_container : std::false_type {};
     template<>
-    struct is_assoc_container<std::map> : std::true_type {};
+    struct is_assoc_container<core::map> : std::true_type {};
     template<>
-    struct is_assoc_container<std::unordered_map> : std::true_type {};
+    struct is_assoc_container<core::unordered_map> : std::true_type {};
     template<>
-    struct is_assoc_container<std::multimap> : std::true_type {};
+    struct is_assoc_container<core::multimap> : std::true_type {};
     template<>
-    struct is_assoc_container<std::unordered_multimap> : std::true_type {};
+    struct is_assoc_container<core::unordered_multimap> : std::true_type {};
     
     template<typename K, typename...>
     struct PropagKeyTypeTypedef_ { using KeyType = K; };
@@ -62,7 +63,7 @@ namespace impl
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
     struct CObjectCacheBase
     {
@@ -144,7 +145,7 @@ namespace impl
     {
         static bool verify(const ContainerT& _container, const typename ContainerT::iterator& _itr, const typename ContainerT::value_type::first_type& _key)
         {
-            if (_itr != std::cend(_container) && !(_key < _itr->first)) // used `<` instead of `==` operator here to keep consistency with std::map (so key type doesn't need to define operator==)
+            if (_itr != std::cend(_container) && !(_key < _itr->first)) // used `<` instead of `==` operator here to keep consistency with core::map (so key type doesn't need to define operator==)
                 return false;
 
             return true;
@@ -182,14 +183,14 @@ namespace impl
         bool isMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
     struct CMultiObjectCacheBase;
 
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
     struct CMultiObjectCacheBase<true, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>, public CMultiCache_tag
     {
@@ -216,7 +217,7 @@ namespace impl
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
     struct CMultiObjectCacheBase<false, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>, public CMultiCache_tag
     {
@@ -265,7 +266,7 @@ namespace impl
         bool IsMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
     struct CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<IsMultiContainer, ContainerT_T, T, K...>
     {
@@ -339,14 +340,14 @@ namespace impl
         bool isVectorContainer,
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
         struct CUniqObjectCacheBase;
 
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
     struct CUniqObjectCacheBase<true, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>
     {
@@ -378,7 +379,7 @@ namespace impl
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
     struct CUniqObjectCacheBase<false, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>
     {
@@ -412,7 +413,7 @@ namespace impl
         bool isVectorContainer,
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for std::map/std::unordered_map
+        typename ...K //optionally key type for core::map/core::unordered_map
     >
     struct CUniqObjectCacheBaseExt : public CUniqObjectCacheBase<isVectorContainer, ContainerT_T, T, K...>
     {
@@ -469,8 +470,8 @@ namespace impl
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T = std::vector,
-    bool = impl::is_same_templ<ContainerT_T, std::vector>::value
+    template<typename...> class ContainerT_T = core::vector, // can be get some general specialization for any allocator?
+    bool = impl::is_same_templ<ContainerT_T, core::vector>::value // can be get some general specialization for any allocator?
 >
 class CMultiObjectCache;
 
@@ -502,7 +503,8 @@ class CMultiObjectCache<K, T, ContainerT_T, false> :
     public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, T*, K>,
     public impl::PropagTypedefs<T, K>
 {
-    static_assert(impl::is_same_templ<ContainerT_T, std::multimap>::value || impl::is_same_templ<ContainerT_T, std::unordered_multimap>::value, "ContainerT_T must be one of: std::vector, std::multimap, std::unordered_multimap");
+    //! This assert will not work with arbitrary allocators
+    //static_assert(impl::is_same_templ<ContainerT_T, std::multimap>::value || impl::is_same_templ<ContainerT_T, std::unordered_multimap>::value, "ContainerT_T must be one of: std::vector, std::multimap, std::unordered_multimap");
 
 private:
     using Base = impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, T*, K>;
@@ -519,8 +521,8 @@ public:
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T = std::vector,
-    bool = impl::is_same_templ<ContainerT_T, std::vector>::value
+    template<typename...> class ContainerT_T = core::vector, // can be get some general specialization for any allocator?
+    bool = impl::is_same_templ<ContainerT_T, core::vector>::value // can be get some general specialization for any allocator?
 >
 class CObjectCache;
 
@@ -549,7 +551,8 @@ class CObjectCache<K, T, ContainerT_T, false> :
     public impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>,
     public impl::PropagTypedefs<T, K>
 {
-    static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
+    //! This assert will not work with arbitrary allocators
+    //static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
     using Base = impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>;
 
 public:

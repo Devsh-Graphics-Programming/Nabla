@@ -5,8 +5,7 @@
 #ifndef __I_VULKAN_PREBAKED_H_INCLUDED__
 #define __I_VULKAN_PREBAKED_H_INCLUDED__
 
-#include "stdint.h"
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 
 namespace irr
 {
@@ -21,7 +20,7 @@ created behind the scenes, set up and validated.
 A little bit like our situation with IGPUBuffer::resize() and the fact that those
 buffers are actually immutable in OpenGL.
 **/
-class IVulkanPrebaked : public virtual IReferenceCounted
+class IVulkanPrebaked : public virtual core::IReferenceCounted
 {
     public:
     protected:

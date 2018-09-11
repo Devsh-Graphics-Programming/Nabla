@@ -95,7 +95,7 @@ namespace irr
             virtual video::ECOLOR_FORMAT getColorFormat() const;
 
             //! Activate any joysticks, and generate events for them.
-            virtual bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo);
+            virtual bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo);
 
             //! Set the maximal elapsed time between 2 clicks to generate doubleclicks for the mouse. It also affects tripleclick behavior.
             //! When set to 0 no double- and tripleclicks will be generated.

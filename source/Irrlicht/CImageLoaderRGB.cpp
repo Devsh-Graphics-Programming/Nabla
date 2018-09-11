@@ -130,7 +130,7 @@ DUMMY -		This 404 bytes of data should be set to 0. This makes the Header exactl
 #include "CColorConverter.h"
 #include "CImage.h"
 #include "os.h"
-#include "irrString.h"
+#include "irr/core/irrString.h"
 
 
 namespace irr
@@ -167,13 +167,13 @@ bool CImageLoaderRGB::isALoadableFileFormat(io::IReadFile* file) const
 /** The main entry point, read and format the image file.
 \return Pointer to the image data on success
 				null pointer on fail */
-std::vector<CImageData*> CImageLoaderRGB::loadImage(io::IReadFile* file) const
+core::vector<CImageData*> CImageLoaderRGB::loadImage(io::IReadFile* file) const
 {
 	int32_t* paletteData = 0;
 
 	rgbStruct rgb;   // construct our structure for holding data
 
-    std::vector<CImageData*> retval;
+    core::vector<CImageData*> retval;
 	// read Header information
 	if (checkFormat(file, rgb))
 	{

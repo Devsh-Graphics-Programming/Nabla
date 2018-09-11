@@ -7,7 +7,7 @@
 
 #include "C3DSMeshFileLoader.h"
 #include "os.h"
-#include "SAnimatedMesh.h"
+
 #include "IReadFile.h"
 #include "IVideoDriver.h"
 #include "IMeshManipulator.h"
@@ -965,7 +965,7 @@ void C3DSMeshFileLoader::composeObject(io::IReadFile* file, const std::string& n
 					mb = new SMeshBuffer();
 					Mesh->addMeshBuffer(mb);
 					mb->drop();
-					Mesh->MeshBuffers[mbPos] = Mesh->MeshBuffers.getLast();
+					Mesh->MeshBuffers[mbPos] = Mesh->MeshBuffers.back();
 					Mesh->MeshBuffers[Mesh->MeshBuffers.size()-1] = tmp;
 					mb->getMaterial() = tmp->getMaterial();
 					vtxCount=0;
@@ -1023,7 +1023,7 @@ void C3DSMeshFileLoader::loadMaterials(io::IReadFile* file)
 	if (Materials.empty())
 		os::Printer::log("No materials found in 3ds file.", ELL_INFORMATION);
 
-	MeshBufferNames.reallocate(Materials.size());
+	MeshBufferNames.reserve(Materials.size());
 	for (uint32_t i=0; i<Materials.size(); ++i)
 	{
 		MeshBufferNames.push_back("");

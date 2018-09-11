@@ -8,7 +8,7 @@
 
 #include "CSTLMeshFileLoader.h"
 #include "SMesh.h"
-#include "SAnimatedMesh.h"
+
 #include "IReadFile.h"
 #include "coreutil.h"
 #include "os.h"
@@ -56,8 +56,8 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 	if (getNextToken(file, token) != "solid")
 		binary = hasColor = true;
 
-    std::vector<core::vectorSIMDf> positions, normals;
-    std::vector<uint32_t> colors;
+    core::vector<core::vectorSIMDf> positions, normals;
+    core::vector<uint32_t> colors;
 	if (binary)
 	{
         if (file->getSize() < 80)
@@ -175,7 +175,7 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 
     const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
 	core::ICPUBuffer* vertexBuf = new core::ICPUBuffer(vtxSize*positions.size());
-	
+
     uint32_t normal{};
     for (size_t i = 0u; i < positions.size(); ++i)
     {

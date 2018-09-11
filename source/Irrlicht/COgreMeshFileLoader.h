@@ -9,7 +9,7 @@
 #include "IMeshLoader.h"
 #include "IFileSystem.h"
 #include "IVideoDriver.h"
-#include "irrString.h"
+
 #include "SMesh.h"
 #include "SMeshBuffer.h"
 #include "SMeshBufferLightMap.h"
@@ -47,7 +47,7 @@ public:
 private:
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	struct ChunkHeader
 	{
@@ -56,7 +56,7 @@ private:
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 
 	struct ChunkData

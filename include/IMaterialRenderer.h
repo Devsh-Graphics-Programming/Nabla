@@ -5,7 +5,7 @@
 #ifndef __I_MATERIAL_RENDERER_H_INCLUDED__
 #define __I_MATERIAL_RENDERER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "SMaterial.h"
 
 namespace irr
@@ -20,7 +20,7 @@ class IMaterialRendererServices;
 /** Can be used to extend the engine with new materials. Refer to
 IVideoDriver::addMaterialRenderer() for more informations on how to extend the
 engine with new materials. */
-class IMaterialRenderer : public virtual IReferenceCounted
+class IMaterialRenderer : public virtual core::IReferenceCounted
 {
 public:
 

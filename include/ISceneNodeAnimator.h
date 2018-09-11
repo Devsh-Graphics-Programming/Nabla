@@ -21,7 +21,7 @@ namespace scene
 	change its position, rotation, scale and/or material. There are lots of animators
 	to choose from. You can create scene node animators with the ISceneManager interface.
 	*/
-	class ISceneNodeAnimator : public virtual IReferenceCounted, public IEventReceiver
+	class ISceneNodeAnimator : public virtual core::IReferenceCounted, public IEventReceiver
 	{
 	public:
 		//! Animates a scene node.

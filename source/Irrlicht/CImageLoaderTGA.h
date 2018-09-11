@@ -18,7 +18,7 @@ namespace video
 #if defined(_IRR_COMPILE_WITH_TGA_LOADER_) || defined(_IRR_COMPILE_WITH_TGA_WRITER_)
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	// these structs are also used in the TGA writer
 	struct STGAHeader{
@@ -44,7 +44,7 @@ namespace video
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 #endif // compiled with loader or reader
 
@@ -65,7 +65,7 @@ public:
 	virtual bool isALoadableFileFormat(io::IReadFile* file) const;
 
 	//! creates a surface from the file
-	std::vector<CImageData*> loadImage(io::IReadFile* file) const;
+	core::vector<CImageData*> loadImage(io::IReadFile* file) const;
 
 private:
 

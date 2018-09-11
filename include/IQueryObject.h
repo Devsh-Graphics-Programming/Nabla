@@ -1,8 +1,8 @@
 #ifndef __I_QUERY_OBJECT_H_INCLUDED__
 #define __I_QUERY_OBJECT_H_INCLUDED__
 
-#include <IReferenceCounted.h>
-#include "stdint.h"
+#include "irr/core/Types.h"
+#include "irr/core/IReferenceCounted.h"
 
 namespace irr
 {
@@ -20,7 +20,7 @@ enum E_QUERY_OBJECT_TYPE
     EQOT_COUNT
 };
 
-class IQueryObject : public IReferenceCounted
+class IQueryObject : public core::IReferenceCounted
 {
 	    _IRR_INTERFACE_CHILD(IQueryObject) {}
     public:

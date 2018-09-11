@@ -6,14 +6,14 @@
 #define __I_SHADER_H_INCLUDED__
 
 #include "stdint.h"
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 
 namespace irr
 {
 namespace video
 {
 
-class IShaderStage : public virtual IReferenceCounted
+class IShaderStage : public virtual core::IReferenceCounted
 {
     public:
         enum E_SHADER_STAGE_FLAG
@@ -30,7 +30,7 @@ class IShaderStage : public virtual IReferenceCounted
     protected:
 };
 
-class IShader : public virtual IReferenceCounted
+class IShader : public virtual core::IReferenceCounted
 {
     public:
         enum E_SHADER_TYPE

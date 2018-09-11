@@ -17,7 +17,6 @@
 #include "os.h"
 #include "CTimer.h"
 #include "coreutil.h"
-#include "irrString.h"
 #include "Keycodes.h"
 #include "COSOperator.h"
 #include "CColorConverter.h"
@@ -319,7 +318,7 @@ EKEY_CODE CIrrDeviceLinux::getKeyCode(const uint32_t& xEventKey)
 
 	KeySym x11Key = XkbKeycodeToKeysym(display, xEventKey, 0, 0);
 
-	std::unordered_map<KeySym,int32_t>::const_iterator it = KeyMap.find(x11Key);
+	core::unordered_map<KeySym,int32_t>::const_iterator it = KeyMap.find(x11Key);
 	if (it != KeyMap.end())
 	{
 		keyCode = (EKEY_CODE)it->second;
@@ -1838,7 +1837,7 @@ void CIrrDeviceLinux::createKeyMap()
 #endif
 }
 
-bool CIrrDeviceLinux::activateJoysticks(core::array<SJoystickInfo> & joystickInfo)
+bool CIrrDeviceLinux::activateJoysticks(core::vector<SJoystickInfo> & joystickInfo)
 {
 #if defined (_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
 

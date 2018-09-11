@@ -57,7 +57,7 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 public:
     SimpleCallBack() : drawIDUniformLocation(-1) {}
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
         for (size_t i=0; i<constants.size(); i++)
         {
@@ -190,7 +190,7 @@ int main()
 
             //some assumptions about generated mesh
             assert(cpumesh[i]->getMeshBuffer(0)->getPrimitiveType()==scene::EPT_TRIANGLES);
-            assert(cpumesh[i]->getMeshBuffer(0)->getIndexType()==video::EIT_32BIT);
+            assert(cpumesh[i]->getMeshBuffer(0)->getIndexType()==scene::EIT_32BIT);
             assert(cpumesh[i]->getMeshBuffer(0)->getBaseVertex()==0);
             assert(cpumesh[i]->getMeshBuffer(0)->getIndexBufferOffset()==0);
 
@@ -303,7 +303,7 @@ int main()
             indexOffset += mbuf->getIndexCount()*sizeof(uint32_t);
 
             mbuff[i]->setIndexCount(mbuf->getIndexCount());
-            mbuff[i]->setIndexType(video::EIT_32BIT);
+            mbuff[i]->setIndexType(scene::EIT_32BIT);
             mbuff[i]->setMeshDataAndFormat(vaospec);
             mbuff[i]->setPrimitiveType(scene::EPT_TRIANGLES);
 
@@ -375,7 +375,7 @@ int main()
             video::SMaterial material;
             material.MaterialType = gpuCullMaterial;
             driver->setMaterial(material);
-            driver->drawIndexedIndirect(vaospec,scene::EPT_TRIANGLES,video::EIT_32BIT,indirectDrawBuffer,0,kInstanceCount,sizeof(DrawElementsIndirectCommand));
+            driver->drawIndexedIndirect(vaospec,scene::EPT_TRIANGLES,scene::EIT_32BIT,indirectDrawBuffer,0,kInstanceCount,sizeof(DrawElementsIndirectCommand));
         }
         else
         {

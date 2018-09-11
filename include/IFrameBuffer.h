@@ -5,9 +5,8 @@
 #ifndef __I_FRAMEBUFFER_H_INCLUDED__
 #define __I_FRAMEBUFFER_H_INCLUDED__
 
-#include "stdint.h"
-#include "IReferenceCounted.h"
-#include "IThreadBound.h"
+#include "irr/core/IReferenceCounted.h"
+#include "irr/core/IThreadBound.h"
 #include "EDriverTypes.h"
 #include "dimension2d.h"
 
@@ -36,7 +35,7 @@ class ITexture;
 class IMultisampleTexture;
 class IRenderableVirtualTexture;
 
-class IFrameBuffer : public virtual IReferenceCounted, public core::IThreadBound
+class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThreadBound
 {
     public:
 		//! Attaches given texture to given attachment point.

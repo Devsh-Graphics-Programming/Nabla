@@ -3,7 +3,9 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CVideoModeList.h"
-#include "irrMath.h"
+#include "irr/core/math/irrMath.h"
+
+#include <algorithm>
 
 namespace irr
 {
@@ -123,7 +125,7 @@ void CVideoModeList::addMode(const core::dimension2d<uint32_t>& size, int32_t de
 	}
 
 	VideoModes.push_back(m);
-	VideoModes.sort(); // TODO: could be replaced by inserting into right place
+	std::sort(VideoModes.begin(),VideoModes.end()); // TODO: could be replaced by inserting into right place
 }
 
 

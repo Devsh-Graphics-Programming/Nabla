@@ -101,7 +101,7 @@ namespace irr
             virtual void restoreWindow();
 
             //! Activate any joysticks, and generate events for them.
-            virtual bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo);
+            virtual bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo);
 
             //! gets text from the clipboard
             //! \return Returns 0 if no string is in there.
@@ -361,11 +361,11 @@ namespace irr
                     {
                         Frames.push_back( CursorFrameX11(iconHw) );
                     }
-                    core::array<CursorFrameX11> Frames;
+                    core::vector<CursorFrameX11> Frames;
                     uint32_t FrameTime;
                 };
 
-                core::array<CursorX11> Cursors;
+                core::vector<CursorX11> Cursors;
 
                 void initCursors();
     #endif
@@ -412,7 +412,7 @@ namespace irr
             bool ExternalWindow;
             int AutorepeatSupport;
 
-            std::unordered_map<KeySym,int32_t> KeyMap;
+            core::unordered_map<KeySym,int32_t> KeyMap;
 
     #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
             struct JoystickInfo
@@ -425,7 +425,7 @@ namespace irr
 
                 JoystickInfo() : fd(-1), axes(0), buttons(0) { }
             };
-            core::array<JoystickInfo> ActiveJoysticks;
+            core::vector<JoystickInfo> ActiveJoysticks;
     #endif
 	};
 

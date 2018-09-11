@@ -14,11 +14,10 @@
 #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
 #endif // __IRR_COMPILE_WITH_X86_SIMD_
 
-#include "irrMemory.h"
+#include "irr/core/memory/irrMemory.h"
 #include "vector2d.h"
 #include "vector3d.h"
 #include <stdint.h>
-#include "SColor.h"
 
 
 

@@ -6,7 +6,7 @@
 #ifndef __I_GPU_BUFFER_H_INCLUDED__
 #define __I_GPU_BUFFER_H_INCLUDED__
 
-#include "IBuffer.h"
+#include "irr/core/IBuffer.h"
 #include "IDriverMemoryBacked.h"
 
 namespace irr

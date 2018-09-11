@@ -10,8 +10,6 @@
 #include "IrrCompileConfig.h"
 #include "CTimer.h"
 #include "CLogger.h"
-#include "irrString.h"
-
 namespace irr
 {
 //! constructor
@@ -248,7 +246,7 @@ video::ECOLOR_FORMAT CIrrDeviceStub::getColorFormat() const
 }
 
 //! No-op in this implementation
-bool CIrrDeviceStub::activateJoysticks(core::array<SJoystickInfo> & joystickInfo)
+bool CIrrDeviceStub::activateJoysticks(core::vector<SJoystickInfo> & joystickInfo)
 {
 	return false;
 }

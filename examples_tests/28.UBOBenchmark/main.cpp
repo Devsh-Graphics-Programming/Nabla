@@ -12,7 +12,7 @@ using namespace irr;
 using namespace core;
 
 
-#define WITH_COMPUTE_SHADER
+//#define WITH_COMPUTE_SHADER
 
 
 // benchmark controls

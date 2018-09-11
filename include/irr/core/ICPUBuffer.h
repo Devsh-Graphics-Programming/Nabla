@@ -6,14 +6,13 @@
 #ifndef __I_CPU_BUFFER_H_INCLUDED__
 #define __I_CPU_BUFFER_H_INCLUDED__
 
-#include "IBuffer.h"
+#include "irr/core/IBuffer.h"
 
 namespace irr
 {
 namespace core
 {
 
-//! Persistently Mapped buffer
 class ICPUBuffer : public IBuffer
 {
     protected:

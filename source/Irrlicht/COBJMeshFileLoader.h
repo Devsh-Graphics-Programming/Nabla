@@ -8,16 +8,15 @@
 #include "IMeshLoader.h"
 #include "IFileSystem.h"
 #include "ISceneManager.h"
-#include "irrString.h"
-#include <map>
-#include <vector>
+#include "irr/core/Types.h"
+#include "irr/core/irrString.h"
 
 namespace irr
 {
 namespace scene
 {
 
-#include "irrpack.h"
+#include "irr/irrpack.h"
 class SObjVertex
 {
 public:
@@ -95,7 +94,7 @@ public:
     uint8_t uv[2];
     uint32_t normal32bit;
 } PACK_STRUCT;
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 //! Meshloader capable of loading obj meshes.
 class COBJMeshFileLoader : public IMeshLoader
@@ -140,9 +139,9 @@ private:
                 Material = o.Material;
             }
 
-            std::map<SObjVertex, int> VertMap;
-            std::vector<SObjVertex> Vertices;
-            std::vector<uint32_t> Indices;
+            core::map<SObjVertex, int> VertMap;
+            core::vector<SObjVertex> Vertices;
+            core::vector<uint32_t> Indices;
             video::SMaterial Material;
             std::string Name;
             std::string Group;
@@ -195,7 +194,7 @@ private:
 	bool useGroups;
 	bool useMaterials;
 
-	core::array<SObjMtl*> Materials;
+	core::vector<SObjMtl*> Materials;
 };
 
 } // end namespace scene

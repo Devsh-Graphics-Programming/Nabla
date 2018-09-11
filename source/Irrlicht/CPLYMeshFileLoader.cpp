@@ -10,7 +10,7 @@
 #include "CPLYMeshFileLoader.h"
 #include "IMeshManipulator.h"
 #include "SMesh.h"
-#include "SAnimatedMesh.h"
+
 #include "IReadFile.h"
 #include "os.h"
 
@@ -230,8 +230,8 @@ ICPUMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
             mb->setMeshDataAndFormat(desc);
             desc->drop();
 
-            std::vector<core::vectorSIMDf> attribs[4];
-            std::vector<uint32_t> indices;
+            core::vector<core::vectorSIMDf> attribs[4];
+            core::vector<uint32_t> indices;
 
 			bool hasNormals=true;
 			// loop through each of the elements
@@ -307,7 +307,7 @@ ICPUMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
 }
 
 
-bool CPLYMeshFileLoader::readVertex(const SPLYElement &Element, std::vector<core::vectorSIMDf> _outAttribs[4])
+bool CPLYMeshFileLoader::readVertex(const SPLYElement &Element, core::vector<core::vectorSIMDf> _outAttribs[4])
 {
 	if (!IsBinaryFile)
 		getNextLine();
@@ -398,7 +398,7 @@ bool CPLYMeshFileLoader::readVertex(const SPLYElement &Element, std::vector<core
 }
 
 
-bool CPLYMeshFileLoader::readFace(const SPLYElement &Element, std::vector<uint32_t>& _outIndices)
+bool CPLYMeshFileLoader::readFace(const SPLYElement &Element, core::vector<uint32_t>& _outIndices)
 {
 	if (!IsBinaryFile)
 		getNextLine();
@@ -556,7 +556,7 @@ void CPLYMeshFileLoader::moveForward(uint32_t bytes)
 		StartPointer = EndPointer;
 }
 
-bool CPLYMeshFileLoader::genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const std::vector<core::vectorSIMDf> _attribs[4]) const
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
 {
     {
     size_t check = _attribs[0].size();

@@ -69,9 +69,9 @@ Version 1.0 - 29 July 2004
 #ifdef _IRR_COMPILE_WITH_LMTS_LOADER_
 
 #include "SMeshBufferLightMap.h"
-#include "SAnimatedMesh.h"
+
 #include "SMeshBuffer.h"
-#include "irrString.h"
+
 #include "IReadFile.h"
 #include "ISceneManager.h"
 #include "CLMTSMeshFileLoader.h"
@@ -316,12 +316,12 @@ void CLMTSMeshFileLoader::loadTextures(SMesh* mesh)
 	// load textures
 
 	// a little too much space, but won't matter here
-	core::array<video::ITexture*> tex;
-	tex.reallocate(Header.TextureCount);
-	core::array<video::ITexture*> lig;
-	lig.reallocate(Header.TextureCount);
-	core::array<uint32_t> id2id;
-	id2id.reallocate(Header.TextureCount);
+	core::vector<video::ITexture*> tex;
+	tex.reserve(Header.TextureCount);
+	core::vector<video::ITexture*> lig;
+	lig.reserve(Header.TextureCount);
+	core::vector<uint32_t> id2id;
+	id2id.reserve(Header.TextureCount);
 
 	const core::stringc Path = Parameters->getAttributeAsString(LMTS_TEXTURE_PATH);
 

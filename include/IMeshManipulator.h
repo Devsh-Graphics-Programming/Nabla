@@ -6,7 +6,7 @@
 #define __I_MESH_MANIPULATOR_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "vector3d.h"
 #include "aabbox3d.h"
 #include "matrix4.h"
@@ -25,7 +25,7 @@ namespace scene
 	loading. It is not intended for doing mesh modifications and/or
 	animations during runtime.
 	*/
-	class IMeshManipulator : public virtual IReferenceCounted
+	class IMeshManipulator : public virtual core::IReferenceCounted
 	{
 	public:
 		//! Comparison methods
@@ -114,7 +114,7 @@ namespace scene
         @param _idxCount Index count.
         @param _idxType Type of indices (16bit or 32bit).
         */
-        virtual core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const = 0;
+        virtual core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const = 0;
 
         //! Creates index buffer from input converting it to indices for triangle primitives. Input is assumed to be indices for triangle fan.
         /**
@@ -122,7 +122,7 @@ namespace scene
         @param _idxCount Index count.
         @param _idxType Type of indices (16bit or 32bit).
         */
-        virtual core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const = 0;
+        virtual core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const = 0;
 
         //! Compares two attributes of floating point types in accordance with passed error metric.
         /**
@@ -146,7 +146,7 @@ namespace scene
 		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
 		template<typename T>
 		static bool getPolyCount(uint32_t& outCount, IMesh<T>* mesh);
-protected:
+    protected:
 };
 
 } // end namespace scene

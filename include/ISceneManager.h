@@ -5,9 +5,9 @@
 #ifndef __I_SCENE_MANAGER_H_INCLUDED__
 #define __I_SCENE_MANAGER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
-#include "irrArray.h"
-#include "irrString.h"
+#include "irr/core/IReferenceCounted.h"
+#include "irr/core/Types.h"
+#include "irr/core/irrString.h"
 #include "path.h"
 #include "vector3d.h"
 #include "dimension2d.h"
@@ -119,7 +119,7 @@ namespace scene
 	supported. If these formats are not enough, use
 	addExternalMeshLoader() to add new formats to the engine.
 	*/
-	class ISceneManager : public virtual IReferenceCounted
+	class ISceneManager : public virtual core::IReferenceCounted
 	{
 	public:
 
@@ -642,7 +642,7 @@ namespace scene
 		and the animator will animate it.
 		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createTextureAnimator(const core::array<video::ITexture*>& textures,
+		virtual ISceneNodeAnimator* createTextureAnimator(const core::vector<video::ITexture*>& textures,
 			int32_t timePerFrame, bool loop=true) = 0;
 
 		//! Creates a scene node animator, which deletes the scene node after some time automatically.
@@ -663,7 +663,7 @@ namespace scene
 		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
 		See IReferenceCounted::drop() for more information. */
 		virtual ISceneNodeAnimator* createFollowSplineAnimator(int32_t startTime,
-			const core::array< core::vector3df >& points,
+			const core::vector< core::vector3df >& points,
 			float speed = 1.0f, float tightness = 0.5f, bool loop=true, bool pingpong=false) = 0;
 
 

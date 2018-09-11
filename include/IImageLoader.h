@@ -5,10 +5,9 @@
 #ifndef __I_SURFACE_LOADER_H_INCLUDED__
 #define __I_SURFACE_LOADER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "CImageData.h"
 #include "path.h"
-#include <vector>
 
 namespace irr
 {
@@ -24,7 +23,7 @@ namespace video
 currently unsupported file formats (e.g .gif), then implement
 this and add your new Surface loader with
 IVideoDriver::addExternalImageLoader() to the engine. */
-class IImageLoader : public virtual IReferenceCounted
+class IImageLoader : public virtual core::IReferenceCounted
 {
 public:
 
@@ -43,7 +42,7 @@ public:
 	//! Creates a surface from the file
 	/** \param file File handle to check.
 	\return Pointer to newly created image, or 0 upon error. */
-	virtual std::vector<CImageData*> loadImage(io::IReadFile* file) const = 0;
+	virtual core::vector<CImageData*> loadImage(io::IReadFile* file) const = 0;
 };
 
 

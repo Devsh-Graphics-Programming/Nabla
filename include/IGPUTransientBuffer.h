@@ -101,7 +101,7 @@ Thread Safeness:
     6) Using EWP_WAIT_FOR_GPU_FREE bit on Alloc() while having un-Free()'ed ranges (which will not be Free()'ed by other Threads) will DEADLOCK
 
 **/
-class IGPUTransientBuffer : public virtual IReferenceCounted
+class IGPUTransientBuffer : public virtual core::IReferenceCounted
 {
     public:
         struct Allocation
@@ -147,10 +147,10 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         E_ALLOC_RETURN_STATUS Alloc(size_t &offsetOut, const size_t &maxSize, const size_t& alignment=32, E_WAIT_POLICY waitPolicy=EWP_DONT_WAIT);
 
         //! Record the range as committed and if necessary tell us of ranges we need to flush
-        bool Commit(const size_t& start, const size_t& end, std::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges);
+        bool Commit(const size_t& start, const size_t& end, core::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges);
 
         //!
-        bool Place(size_t &offsetOut, const void* data, const size_t& dataSize, std::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges, const size_t& alignment=32, const E_WAIT_POLICY &waitPolicy=EWP_DONT_WAIT);
+        bool Place(size_t &offsetOut, const void* data, const size_t& dataSize, core::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges, const size_t& alignment=32, const E_WAIT_POLICY &waitPolicy=EWP_DONT_WAIT);
 
         //! Unless memory is being used by GPU it will be returned to free pool straight away
         //! Useful if you dont end up using comitted memory by GPU
@@ -189,7 +189,7 @@ class IGPUTransientBuffer : public virtual IReferenceCounted
         IGPUBuffer* underlyingBuffer;
         uint8_t* mappedPointer;
 
-        std::vector<Allocation> allocs;
+        core::vector<Allocation> allocs;
         inline bool invalidState(const Allocation& a)
         {
             if (a.fence)

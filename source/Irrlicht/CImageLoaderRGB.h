@@ -32,7 +32,7 @@ namespace video
 {
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	// the RGB image file header structure
 
@@ -54,7 +54,7 @@ namespace video
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 	// this structure holds context specific data about the file being loaded.
 
@@ -145,7 +145,7 @@ public:
 	virtual bool isALoadableFileFormat(io::IReadFile* file) const;
 
 	//! creates a surface from the file
-	std::vector<CImageData*> loadImage(io::IReadFile* file) const;
+	core::vector<CImageData*> loadImage(io::IReadFile* file) const;
 
 private:
 

@@ -8,7 +8,7 @@
 #include <iostream>
 #include <cstdio>
 #include "EDriverTypes.h"
-#include "irrTypes.h"
+#include "irr/core/Types.h"
 #include "IrrlichtDevice.h"
 
 namespace irr

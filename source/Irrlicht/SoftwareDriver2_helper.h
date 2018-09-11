@@ -11,7 +11,7 @@
 #define __S_VIDEO_2_SOFTWARE_HELPER_H_INCLUDED__
 
 #include "SoftwareDriver2_compile_config.h"
-#include "irrMath.h"
+#include "irr/core/math/irrMath.h"
 #include "CSoftwareTexture2.h"
 #include "SMaterial.h"
 

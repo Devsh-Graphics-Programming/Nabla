@@ -98,22 +98,22 @@ bool CB3DMeshFileLoader::load()
 
 	//------ Read main chunk ------
 
-	while ( (B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos() )
+	while ( (B3dStack.back().startposition + B3dStack.back().length) > B3DFile->getPos() )
 	{
 		B3DFile->read(&header, sizeof(header));
 		B3dStack.push_back(SB3dChunk(header, B3DFile->getPos()-8));
 
-		if ( strncmp( B3dStack.getLast().name, "TEXS", 4 ) == 0 )
+		if ( strncmp( B3dStack.back().name, "TEXS", 4 ) == 0 )
 		{
 			if (!readChunkTEXS())
 				return false;
 		}
-		else if ( strncmp( B3dStack.getLast().name, "BRUS", 4 ) == 0 )
+		else if ( strncmp( B3dStack.back().name, "BRUS", 4 ) == 0 )
 		{
 			if (!readChunkBRUS())
 				return false;
 		}
-		else if ( strncmp( B3dStack.getLast().name, "NODE", 4 ) == 0 )
+		else if ( strncmp( B3dStack.back().name, "NODE", 4 ) == 0 )
 		{
 			if (!readChunkNODE((CSkinnedMesh::SJoint*)0) )
 				return false;
@@ -121,7 +121,7 @@ bool CB3DMeshFileLoader::load()
 		else
 		{
 			os::Printer::log("Unknown chunk found in mesh base - skipping");
-			B3DFile->seek(B3dStack.getLast().startposition + B3dStack.getLast().length);
+			B3DFile->seek(B3dStack.back().startposition + B3dStack.back().length);
 			B3dStack.erase(B3dStack.size()-1);
 		}
 	}
@@ -180,35 +180,35 @@ _
 	else
 		joint->GlobalMatrix = joint->LocalMatrix;
 
-	while(B3dStack.getLast().startposition + B3dStack.getLast().length > B3DFile->getPos()) // this chunk repeats
+	while(B3dStack.back().startposition + B3dStack.back().length > B3DFile->getPos()) // this chunk repeats
 	{
 		SB3dChunkHeader header;
 		B3DFile->read(&header, sizeof(header));
 
 		B3dStack.push_back(SB3dChunk(header, B3DFile->getPos()-8));
 
-		if ( strncmp( B3dStack.getLast().name, "NODE", 4 ) == 0 )
+		if ( strncmp( B3dStack.back().name, "NODE", 4 ) == 0 )
 		{
 			if (!readChunkNODE(joint))
 				return false;
 		}
-		else if ( strncmp( B3dStack.getLast().name, "MESH", 4 ) == 0 )
+		else if ( strncmp( B3dStack.back().name, "MESH", 4 ) == 0 )
 		{
 			VerticesStart=BaseVertices.size();
 			if (!readChunkMESH(joint))
 				return false;
 		}
-		else if ( strncmp( B3dStack.getLast().name, "BONE", 4 ) == 0 )
+		else if ( strncmp( B3dStack.back().name, "BONE", 4 ) == 0 )
 		{
 			if (!readChunkBONE(joint))
 				return false;
 		}
-		else if ( strncmp( B3dStack.getLast().name, "KEYS", 4 ) == 0 )
+		else if ( strncmp( B3dStack.back().name, "KEYS", 4 ) == 0 )
 		{
 			if(!readChunkKEYS(joint))
 				return false;
 		}
-		else if ( strncmp( B3dStack.getLast().name, "ANIM", 4 ) == 0 )
+		else if ( strncmp( B3dStack.back().name, "ANIM", 4 ) == 0 )
 		{
 			if (!readChunkANIM())
 				return false;
@@ -216,7 +216,7 @@ _
 		else
 		{
 			os::Printer::log("Unknown chunk found in node chunk - skipping");
-			B3DFile->seek(B3dStack.getLast().startposition + B3dStack.getLast().length);
+			B3DFile->seek(B3dStack.back().startposition + B3dStack.back().length);
 			B3dStack.erase(B3dStack.size()-1);
 		}
 	}
@@ -243,19 +243,19 @@ bool CB3DMeshFileLoader::readChunkMESH(CSkinnedMesh::SJoint *inJoint)
 	NormalsInFile=false;
 	HasVertexColors=false;
 
-	while((B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos()) //this chunk repeats
+	while((B3dStack.back().startposition + B3dStack.back().length) > B3DFile->getPos()) //this chunk repeats
 	{
 		SB3dChunkHeader header;
 		B3DFile->read(&header, sizeof(header));
 
 		B3dStack.push_back(SB3dChunk(header, B3DFile->getPos()-8));
 
-		if ( strncmp( B3dStack.getLast().name, "VRTS", 4 ) == 0 )
+		if ( strncmp( B3dStack.back().name, "VRTS", 4 ) == 0 )
 		{
 			if (!readChunkVRTS(inJoint))
 				return false;
 		}
-		else if ( strncmp( B3dStack.getLast().name, "TRIS", 4 ) == 0 )
+		else if ( strncmp( B3dStack.back().name, "TRIS", 4 ) == 0 )
 		{
 			scene::SSkinMeshBuffer *meshBuffer = AnimatedMesh->addMeshBuffer();
 
@@ -293,7 +293,7 @@ bool CB3DMeshFileLoader::readChunkMESH(CSkinnedMesh::SJoint *inJoint)
 		else
 		{
 			os::Printer::log("Unknown chunk found in mesh - skipping");
-			B3DFile->seek(B3dStack.getLast().startposition + B3dStack.getLast().length);
+			B3DFile->seek(B3dStack.back().startposition + B3dStack.back().length);
 			B3dStack.erase(B3dStack.size()-1);
 		}
 	}
@@ -357,14 +357,14 @@ bool CB3DMeshFileLoader::readChunkVRTS(CSkinnedMesh::SJoint *inJoint)
 
 	numberOfReads += tex_coord_sets*tex_coord_set_size;
 
-	const int32_t memoryNeeded = (B3dStack.getLast().length / sizeof(float)) / numberOfReads;
+	const int32_t memoryNeeded = (B3dStack.back().length / sizeof(float)) / numberOfReads;
 
-	BaseVertices.reallocate(memoryNeeded + BaseVertices.size() + 1);
-	AnimatedVertices_VertexID.reallocate(memoryNeeded + AnimatedVertices_VertexID.size() + 1);
+	BaseVertices.reserve(memoryNeeded + BaseVertices.size() + 1);
+	AnimatedVertices_VertexID.reserve(memoryNeeded + AnimatedVertices_VertexID.size() + 1);
 
 	//--------------------------------------------//
 
-	while( (B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos()) // this chunk repeats
+	while( (B3dStack.back().startposition + B3dStack.back().length) > B3DFile->getPos()) // this chunk repeats
 	{
 		float position[3];
 		float normal[3]={0.f, 0.f, 0.f};
@@ -444,10 +444,10 @@ bool CB3DMeshFileLoader::readChunkTRIS(scene::SSkinMeshBuffer *meshBuffer, uint3
 	else
 		B3dMaterial = 0;
 
-	const int32_t memoryNeeded = B3dStack.getLast().length / sizeof(int32_t);
-	meshBuffer->Indices.reallocate(memoryNeeded + meshBuffer->Indices.size() + 1);
+	const int32_t memoryNeeded = B3dStack.back().length / sizeof(int32_t);
+	meshBuffer->Indices.reserve(memoryNeeded + meshBuffer->Indices.size() + 1);
 
-	while((B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos()) // this chunk repeats
+	while((B3dStack.back().startposition + B3dStack.back().length) > B3DFile->getPos()) // this chunk repeats
 	{
 		int32_t vertex_id[3];
 
@@ -542,9 +542,9 @@ bool CB3DMeshFileLoader::readChunkBONE(CSkinnedMesh::SJoint *inJoint)
 	os::Printer::log(logStr.c_str());
 #endif
 
-	if (B3dStack.getLast().length > 8)
+	if (B3dStack.back().length > 8)
 	{
-		while((B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos()) // this chunk repeats
+		while((B3dStack.back().startposition + B3dStack.back().length) > B3DFile->getPos()) // this chunk repeats
 		{
 			uint32_t globalVertexID;
 			float strength;
@@ -599,7 +599,7 @@ bool CB3DMeshFileLoader::readChunkKEYS(CSkinnedMesh::SJoint *inJoint)
 _
 #error "Fix QUATERNIONS FIRST!!!"
 	bool isFirst[3]={true,true,true};
-	while((B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos()) //this chunk repeats
+	while((B3dStack.back().startposition + B3dStack.back().length) > B3DFile->getPos()) //this chunk repeats
 	{
 		int32_t frame;
 
@@ -760,10 +760,10 @@ bool CB3DMeshFileLoader::readChunkTEXS()
 	os::Printer::log(logStr.c_str());
 #endif
 
-	while((B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos()) //this chunk repeats
+	while((B3dStack.back().startposition + B3dStack.back().length) > B3DFile->getPos()) //this chunk repeats
 	{
 		Textures.push_back(SB3dTexture());
-		SB3dTexture& B3dTexture = Textures.getLast();
+		SB3dTexture& B3dTexture = Textures.back();
 
 		readString(B3dTexture.TextureName);
 		handleBackslashes(&B3dTexture.TextureName);
@@ -809,7 +809,7 @@ bool CB3DMeshFileLoader::readChunkBRUS()
 	// number of bytes to skip (for ignored texture ids)
 	const uint32_t n_texs_offset = (num_textures<n_texs)?(n_texs-num_textures):0;
 
-	while((B3dStack.getLast().startposition + B3dStack.getLast().length) > B3DFile->getPos()) //this chunk repeats
+	while((B3dStack.back().startposition + B3dStack.back().length) > B3DFile->getPos()) //this chunk repeats
 	{
 		// This is what blitz basic calls a brush, like a Irrlicht Material
 
@@ -819,7 +819,7 @@ bool CB3DMeshFileLoader::readChunkBRUS()
 		os::Printer::log("read Material", name);
 #endif
 		Materials.push_back(SB3dMaterial());
-		SB3dMaterial& B3dMaterial=Materials.getLast();
+		SB3dMaterial& B3dMaterial=Materials.back();
 
 		readFloats(&B3dMaterial.red, 1);
 		readFloats(&B3dMaterial.green, 1);

@@ -27,7 +27,7 @@
 
 #include <cstdint>
 #include <cstring>
-#include <vector>
+#include "irr/core/Types.h"
 
 namespace irr { namespace scene
 {
@@ -71,7 +71,7 @@ class CForsythVertexCacheOptimizer
 	public:
 		LRUCacheModel() : mCacheHead(NULL) {}
 		~LRUCacheModel();
-		void enforceSize(const size_t maxSize, std::vector<uint32_t> &outTrisToUpdate);
+		void enforceSize(const size_t maxSize, core::vector<uint32_t> &outTrisToUpdate);
 		void useVertex(const uint32_t vIdx, VertData *vData);
 		int32_t getCachePosition(const uint32_t vIdx);
 	};
@@ -81,13 +81,13 @@ public:
 	/**
 	 This method will look at the index buffer for a triangle list, and generate
 	 a new index buffer which is optimized using Tom Forsyth's paper:
-	 "Linear-Speed Vertex Cache Optimization" 
+	 "Linear-Speed Vertex Cache Optimization"
 	 http://home.comcast.net/~tom_forsyth/papers/fast_vert_cache_opt.html
 	 @param   numVerts Number of vertices indexed by the 'indices'
 	 @param numIndices Number of elements in both 'indices' and 'outIndices'
 	 @param    indices Input index buffer
 	 @param outIndices Output index buffer
-	
+
 	 @note Both 'indices' and 'outIndices' can point to the same memory.*/
 	template<typename IdxT> // IdxT is uint16_t or uint32_t
 	void optimizeTriangleOrdering(const size_t _numVerts, const size_t _numIndices, const IdxT* _indices, IdxT* _outIndices) const;

@@ -6,7 +6,6 @@
 #define _I_IMAGE_WRITER_H_INCLUDED__
 
 #include "IImage.h"
-#include "irrString.h"
 #include "coreutil.h"
 
 namespace irr
@@ -21,7 +20,7 @@ namespace video
 
 
 //! Interface for writing software image data.
-class IImageWriter : public IReferenceCounted
+class IImageWriter : public core::IReferenceCounted
 {
     _IRR_INTERFACE_CHILD(IImageWriter) {}
 public:

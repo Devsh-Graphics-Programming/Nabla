@@ -6,8 +6,7 @@
 #define __C_FILE_LIST_H_INCLUDED__
 
 #include "IFileList.h"
-#include "irrString.h"
-#include "irrArray.h"
+#include "irr/core/irrString.h"
 
 
 namespace irr
@@ -123,7 +122,7 @@ class CFileList : public IFileList
         io::path Path;
 
         //! List of files
-        core::array<SFileListEntry> Files;
+        core::vector<SFileListEntry> Files;
 };
 
 

@@ -4,8 +4,9 @@
 
 #include "CFileList.h"
 #include "IrrCompileConfig.h"
-#include "irrArray.h"
 #include "coreutil.h"
+
+#include <algorithm>
 
 #include "os.h"
 
@@ -38,7 +39,7 @@ uint32_t CFileList::getFileCount() const
 
 void CFileList::sort()
 {
-	Files.sort();
+	std::sort(Files.begin(),Files.end());
 }
 
 const io::path& CFileList::getFileName(uint32_t index) const
@@ -148,7 +149,11 @@ int32_t CFileList::findFile(const io::path& filename, bool isDirectory = false) 
 	if (IgnorePaths)
 		core::deletePathFromFilename(entry.FullName);
 
-	return Files.binary_search(entry);
+    auto retval = std::lower_bound(Files.begin(),Files.end(),entry);
+    if (retval!=Files.end() && !(entry<*retval))
+        return std::distance(Files.begin(),retval);
+    else
+        return -1;
 }
 
 

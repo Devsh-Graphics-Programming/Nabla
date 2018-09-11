@@ -11,7 +11,7 @@
 
 #include "os.h"
 
-#include "irrString.h"
+
 
 namespace irr
 {

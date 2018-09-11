@@ -11,7 +11,6 @@
 #include "CColorConverter.h"
 #include "CImage.h"
 #include "os.h"
-#include "irrString.h"
 
 namespace irr
 {
@@ -214,7 +213,7 @@ void CImageLoaderBMP::decompress4BitRLE(uint8_t*& bmpData, int32_t size, int32_t
 
 
 //! creates a surface from the file
-std::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
+core::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
 {
 	SBMPHeader header;
 
@@ -225,12 +224,12 @@ std::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
 	//! return if the header is false
 
 	if (header.Id != 0x4d42)
-		return std::vector<CImageData*>();
+		return core::vector<CImageData*>();
 
 	if (header.Compression > 2) // we'll only handle RLE-Compression
 	{
 		os::Printer::log("Compression mode not supported.", ELL_ERROR);
-		return std::vector<CImageData*>();
+		return core::vector<CImageData*>();
 	}
 
 	// adjust bitmap data size to dword boundary
@@ -292,7 +291,7 @@ std::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
 	uint32_t offset[3] = {0,0,0};
 	uint32_t dim[3] = {header.Width,header.Height,1};
 
-	std::vector<CImageData*> images;
+	core::vector<CImageData*> images;
 	switch(header.BPP)
 	{
 	case 1:

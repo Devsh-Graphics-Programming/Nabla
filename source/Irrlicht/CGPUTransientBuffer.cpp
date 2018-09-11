@@ -485,7 +485,7 @@ IGPUTransientBuffer::E_ALLOC_RETURN_STATUS IGPUTransientBuffer::Alloc(size_t &of
 }
 
 
-bool IGPUTransientBuffer::Commit(const size_t& start, const size_t& end, std::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges)
+bool IGPUTransientBuffer::Commit(const size_t& start, const size_t& end, core::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges)
 {
     if (start>end)
         return false;
@@ -659,7 +659,7 @@ bool IGPUTransientBuffer::queryRange(const size_t& start, const size_t& end, con
     return true;
 }
 //
-bool IGPUTransientBuffer::Place(size_t &offsetOut, const void* data, const size_t& dataSize, std::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges, const size_t& alignment, const E_WAIT_POLICY &waitPolicy)
+bool IGPUTransientBuffer::Place(size_t &offsetOut, const void* data, const size_t& dataSize, core::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges, const size_t& alignment, const E_WAIT_POLICY &waitPolicy)
 {
     if (!data||dataSize==0)
     {

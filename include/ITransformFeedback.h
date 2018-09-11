@@ -5,9 +5,8 @@
 #ifndef __I_TRANSFORM_FEEDBACK_H_INCLUDED__
 #define __I_TRANSFORM_FEEDBACK_H_INCLUDED__
 
-#include "stdint.h"
-#include "IReferenceCounted.h"
-#include "IThreadBound.h"
+#include "irr/core/IReferenceCounted.h"
+#include "irr/core/IThreadBound.h"
 
 namespace irr
 {
@@ -17,7 +16,7 @@ namespace video
 class IGPUBuffer;
 
 
-class ITransformFeedback : public virtual IReferenceCounted, public core::IThreadBound
+class ITransformFeedback : public virtual core::IReferenceCounted, public core::IThreadBound
 {
     public:
         ITransformFeedback() : active(false) {}

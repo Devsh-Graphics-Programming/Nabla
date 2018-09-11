@@ -5,7 +5,7 @@
 #ifndef __E_SCENE_NODE_TYPES_H_INCLUDED__
 #define __E_SCENE_NODE_TYPES_H_INCLUDED__
 
-#include "irrTypes.h"
+#include "irr/core/Types.h"
 
 namespace irr
 {

@@ -5,13 +5,15 @@
 #ifndef __I_IREFERENCE_COUNTED_H_INCLUDED__
 #define __I_IREFERENCE_COUNTED_H_INCLUDED__
 
-#include "irrTypes.h"
-#include "irrBaseClasses.h"
-//#include "irrMemory.h"
+#include "irr/core/Types.h"
+#include "irr/core/BaseClasses.h"
+#include "irr/core/memory/irrMemory.h"
 
 #include <atomic>
 
 namespace irr
+{
+namespace core
 {
 
 	//! Base class of most objects of the Irrlicht Engine.
@@ -42,7 +44,7 @@ namespace irr
 	the name of the method does not start with 'create'. The texture
 	is stored somewhere by the driver.
 	*/
-	class IReferenceCounted : public InterfaceUnmovable, Uncopyable
+	class IReferenceCounted : public InterfaceUnmovable
 	{
 	public:
 		//! Grabs the object. Increments the reference counter by one.
@@ -112,7 +114,7 @@ namespace irr
 			_IRR_DEBUG_BREAK_IF(ctrVal == 0)
 			if (ctrVal==1)
 			{
-				delete this; //TODO: but todo much later, change to _IRR_DELETE_ETC
+				delete this; // aligned overrides of delete should do the job :D
 				return true;
 			}
 
@@ -169,6 +171,7 @@ namespace irr
 		mutable std::atomic<uint32_t> ReferenceCounter;
 	};
 
+}
 } // end namespace irr
 
 #endif

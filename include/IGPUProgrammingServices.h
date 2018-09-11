@@ -6,7 +6,7 @@
 #define __I_GPU_PROGRAMMING_SERVICES_H_INCLUDED__
 
 #include "EMaterialTypes.h"
-#include "EPrimitiveTypes.h"
+#include "IMeshBuffer.h"
 #include "path.h"
 
 namespace irr

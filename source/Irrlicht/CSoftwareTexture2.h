@@ -43,6 +43,7 @@ public:
 	virtual uint32_t getMipMapLevelCount() const {return 1;}
 
 	//!
+    virtual size_t getAllocationSize() const {return 0xdeadbeefu;}
     virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_NOT_DEVICE_LOCAL;}
     virtual void unmapMemory() {}
 	virtual bool isDedicated() const {return true;}

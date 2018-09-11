@@ -347,19 +347,6 @@ PFNGLNAMEDFRAMEBUFFERTEXTURELAYERPROC COpenGLExtensionHandler::pGlNamedFramebuff
 PFNGLNAMEDFRAMEBUFFERTEXTURELAYEREXTPROC COpenGLExtensionHandler::pGlNamedFramebufferTextureLayerEXT = NULL;
 PFNGLFRAMEBUFFERTEXTURE2DPROC COpenGLExtensionHandler::pGlFramebufferTexture2D = NULL;
 PFNGLNAMEDFRAMEBUFFERTEXTURE2DEXTPROC COpenGLExtensionHandler::pGlNamedFramebufferTexture2DEXT = NULL;
-PFNGLDELETERENDERBUFFERSPROC COpenGLExtensionHandler::pGlDeleteRenderbuffers = NULL;
-PFNGLGENRENDERBUFFERSPROC COpenGLExtensionHandler::pGlGenRenderbuffers = NULL;
-PFNGLCREATERENDERBUFFERSPROC COpenGLExtensionHandler::pGlCreateRenderbuffers = NULL;
-PFNGLBINDRENDERBUFFERPROC COpenGLExtensionHandler::pGlBindRenderbuffer = NULL;
-PFNGLRENDERBUFFERSTORAGEPROC COpenGLExtensionHandler::pGlRenderbufferStorage = NULL;
-PFNGLNAMEDRENDERBUFFERSTORAGEPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorage = NULL;
-PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorageEXT = NULL;
-PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC COpenGLExtensionHandler::pGlRenderbufferStorageMultisample = NULL;
-PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorageMultisample = NULL;
-PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC COpenGLExtensionHandler::pGlNamedRenderbufferStorageMultisampleEXT = NULL;
-PFNGLFRAMEBUFFERRENDERBUFFERPROC COpenGLExtensionHandler::pGlFramebufferRenderbuffer = NULL;
-PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC COpenGLExtensionHandler::pGlNamedFramebufferRenderbuffer = NULL;
-PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC COpenGLExtensionHandler::pGlNamedFramebufferRenderbufferEXT = NULL;
 		// EXT framebuffer object
 PFNGLACTIVESTENCILFACEEXTPROC COpenGLExtensionHandler::pGlActiveStencilFaceEXT = NULL;
 PFNGLNAMEDFRAMEBUFFERREADBUFFERPROC COpenGLExtensionHandler::pGlNamedFramebufferReadBuffer = NULL;
@@ -883,10 +870,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 		pGlCheckNamedFramebufferStatus = NULL;
 		pGlNamedFramebufferTexture = NULL;
 		pGlNamedFramebufferTextureLayer = NULL;
-		pGlCreateRenderbuffers = NULL;
-		pGlNamedRenderbufferStorage = NULL;
-		pGlNamedRenderbufferStorageMultisample = NULL;
-		pGlNamedFramebufferRenderbuffer = NULL;
 		pGlActiveStencilFaceEXT = NULL;
 		pGlNamedFramebufferReadBuffer = NULL;
 		pGlNamedFramebufferDrawBuffer = NULL;
@@ -942,9 +925,6 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     pGlCheckNamedFramebufferStatusEXT = NULL;
     pGlNamedFramebufferTextureEXT = NULL;
     pGlNamedFramebufferTextureLayerEXT = NULL;
-    pGlNamedRenderbufferStorageEXT = NULL;
-    pGlNamedRenderbufferStorageMultisampleEXT = NULL;
-    pGlNamedFramebufferRenderbufferEXT = NULL;
     pGlFramebufferReadBufferEXT = NULL;
     pGlFramebufferDrawBufferEXT = NULL;
     pGlFramebufferDrawBuffersEXT = NULL;
@@ -1247,19 +1227,6 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlNamedFramebufferTextureLayerEXT = (PFNGLNAMEDFRAMEBUFFERTEXTURELAYEREXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferTextureLayerEXT");
 	pGlFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)IRR_OGL_LOAD_EXTENSION("glFramebufferTexture2D");
 	pGlNamedFramebufferTexture2DEXT = (PFNGLNAMEDFRAMEBUFFERTEXTURE2DEXTPROC)IRR_OGL_LOAD_EXTENSION("glNamedFramebufferTexture2DEXT");
-	pGlDeleteRenderbuffers = (PFNGLDELETERENDERBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glDeleteRenderbuffers");
-	pGlGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glGenRenderbuffers");
-	pGlCreateRenderbuffers = (PFNGLCREATERENDERBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glCreateRenderbuffers");
-	pGlBindRenderbuffer = (PFNGLBINDRENDERBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glBindRenderbuffer");
-	pGlRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC) IRR_OGL_LOAD_EXTENSION("glRenderbufferStorage");
-	pGlNamedRenderbufferStorage = (PFNGLNAMEDRENDERBUFFERSTORAGEPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorage");
-	pGlNamedRenderbufferStorageEXT = (PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorageEXT");
-	pGlRenderbufferStorageMultisample = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION("glRenderbufferStorageMultisample");
-	pGlNamedRenderbufferStorageMultisample = (PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorageMultisample");
-	pGlNamedRenderbufferStorageMultisampleEXT = (PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedRenderbufferStorageMultisampleEXT");
-	pGlFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glFramebufferRenderbuffer");
-	pGlNamedFramebufferRenderbuffer = (PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferRenderbuffer");
-	pGlNamedFramebufferRenderbufferEXT = (PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferRenderbufferEXT");
 	pGlDrawBuffers = (PFNGLDRAWBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glDrawBuffers");
 	pGlNamedFramebufferDrawBuffers = (PFNGLNAMEDFRAMEBUFFERDRAWBUFFERSPROC) IRR_OGL_LOAD_EXTENSION("glNamedFramebufferDrawBuffers");
 	pGlFramebufferDrawBuffersEXT = (PFNGLFRAMEBUFFERDRAWBUFFERSEXTPROC) IRR_OGL_LOAD_EXTENSION("glFramebufferDrawBuffersEXT");
@@ -1436,7 +1403,7 @@ void COpenGLExtensionHandler::loadFunctions()
 }
 
 
-bool COpenGLExtensionHandler::isDeviceCompatibile(core::array<std::string>* failedExtensions)
+bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* failedExtensions)
 {
     bool retval = true;
 

@@ -6,7 +6,6 @@
 #define __C_LIMIT_READ_FILE_H_INCLUDED__
 
 #include "IReadFile.h"
-#include "irrString.h"
 
 namespace irr
 {

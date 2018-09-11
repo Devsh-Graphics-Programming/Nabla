@@ -6,8 +6,6 @@
 #ifndef __C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 
-#include <map>
-#include <vector>
 
 #include "IMeshLoader.h"
 #include "ISceneManager.h"
@@ -38,20 +36,20 @@ private:
 	private:
 		// a bit dangerous to leave it copyable but until c++11 I have to to be able to store it in unordered_map
 		// SBlobData(const SBlobData&) {}
-		SBlobData& operator=(const SBlobData&) {}
+		SBlobData& operator=(const SBlobData&) = delete;
 	};
 
 	struct SContext
 	{
 		void releaseLoadedObjects()
 		{
-			for (std::unordered_map<uint64_t, void*>::iterator it = createdObjs.begin(); it != createdObjs.end(); ++it)
+			for (auto it = createdObjs.begin(); it != createdObjs.end(); ++it)
 				loadingMgr.releaseObj(blobs[it->first].header->blobType, it->second);
 		}
-		void releaseAllButThisOne(std::unordered_map<uint64_t, SBlobData>::iterator _thisIt)
+		void releaseAllButThisOne(core::unordered_map<uint64_t, SBlobData>::iterator _thisIt)
 		{
 			const uint64_t theHandle = _thisIt != blobs.end() ? _thisIt->second.header->handle : 0;
-			for (std::unordered_map<uint64_t, void*>::iterator it = createdObjs.begin(); it != createdObjs.end(); ++it)
+			for (auto it = createdObjs.begin(); it != createdObjs.end(); ++it)
 			{
 				if (it->first != theHandle)
 					loadingMgr.releaseObj(blobs[it->first].header->blobType, it->second);
@@ -61,8 +59,8 @@ private:
 		io::IReadFile* file;
 		io::path filePath;
 		uint64_t fileVersion;
-		std::unordered_map<uint64_t, SBlobData> blobs;
-		std::unordered_map<uint64_t, void*> createdObjs;
+		core::unordered_map<uint64_t, SBlobData> blobs;
+		core::unordered_map<uint64_t, void*> createdObjs;
 		core::CBlobsLoadingManager loadingMgr;
 		unsigned char iv[16];
 	};

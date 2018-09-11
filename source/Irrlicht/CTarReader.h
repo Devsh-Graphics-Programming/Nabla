@@ -9,10 +9,8 @@
 
 #ifdef __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "IReadFile.h"
-#include "irrArray.h"
-#include "irrString.h"
 #include "IFileSystem.h"
 #include "CFileList.h"
 
@@ -35,7 +33,7 @@ namespace io
 	};
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	struct STarHeader
 	{
@@ -58,7 +56,7 @@ namespace io
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 	//! Archiveloader capable of loading ZIP Archives
 	class CArchiveLoaderTAR : public IArchiveLoader

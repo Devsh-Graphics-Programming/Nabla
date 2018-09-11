@@ -1,5 +1,6 @@
 #ifndef __I_META_GRANULAR_BUFFER_H__
 #define __I_META_GRANULAR_BUFFER_H__
+
 #include "assert.h"
 #include <algorithm>
 
@@ -11,7 +12,7 @@ class IGPUMappedBuffer;
 }
 }
 
-#include "ICPUBuffer.h"
+#include "irr/core/ICPUBuffer.h"
 #include "IVideoDriver.h"
 
 namespace irr
@@ -20,7 +21,7 @@ namespace core
 {
 
 template <class T>
-class IMetaGranularBuffer : public virtual IReferenceCounted
+class IMetaGranularBuffer : public virtual core::IReferenceCounted
 {
     protected:
         size_t Allocated;
@@ -229,7 +230,10 @@ class IMetaGranularBuffer : public virtual IReferenceCounted
 #endif // _DEBUG
             }
             if (count>1)
-                core::heapsort<uint32_t>(indicesTmp,count);
+            {
+                std::make_heap(indicesTmp,indicesTmp+count);
+                std::sort_heap(indicesTmp,indicesTmp+count);
+            }
 
             size_t deletedGranuleCnt=0;
 //            ValidateHashMap(Allocated);
@@ -288,7 +292,7 @@ class IMetaGranularBuffer : public virtual IReferenceCounted
 //			ValidateHashMap(Allocated);
         }
 
-        inline const size_t getGranuleByteSize() const {return GranuleByteSize;}
+        inline size_t getGranuleByteSize() const {return GranuleByteSize;}
 };
 
 

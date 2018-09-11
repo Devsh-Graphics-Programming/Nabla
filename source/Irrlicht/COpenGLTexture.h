@@ -96,6 +96,7 @@ public:
 	virtual void regenerateMipMapLevels();
 
 
+    virtual size_t getAllocationSize() const {return (TextureSize[2]*TextureSize[1]*getPitch()*3u)/2u;} // MipLevelsStored rough estimate
     virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
     virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
     virtual size_t getBoundMemoryOffset() const {return 0ll;}

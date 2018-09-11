@@ -32,7 +32,7 @@ class IMultisampleTexture : public IRenderableVirtualTexture, public IDriverMemo
 
 
         //!
-        virtual const E_MULTISAMPLE_TEXTURE_TYPE getTextureType() const = 0;
+        virtual E_MULTISAMPLE_TEXTURE_TYPE getTextureType() const = 0;
 
         //! sampleCount of 0 indicates not 0 samples but the same amount as old texture
         virtual bool resize(const uint32_t* size, const uint32_t& sampleCount=0) = 0;

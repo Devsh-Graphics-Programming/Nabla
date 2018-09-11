@@ -1395,7 +1395,7 @@ void CBurningVideoDriver::VertexCache_reset ( const void* vertices, uint32_t ver
 											const void* indices, uint32_t primitiveCount,
 											E_VERTEX_TYPE vType,
 											scene::E_PRIMITIVE_TYPE pType,
-											E_INDEX_TYPE iType)
+											scene::E_INDEX_TYPE iType)
 {
 	VertexCache.vertices = vertices;
 	VertexCache.vertexCount = vertexCount;
@@ -1455,7 +1455,7 @@ void CBurningVideoDriver::VertexCache_reset ( const void* vertices, uint32_t ver
 
 void CBurningVideoDriver::drawVertexPrimitiveList(const void* vertices, uint32_t vertexCount,
 				const void* indexList, uint32_t primitiveCount,
-				E_VERTEX_TYPE vType, scene::E_PRIMITIVE_TYPE pType, E_INDEX_TYPE iType)
+				E_VERTEX_TYPE vType, scene::E_PRIMITIVE_TYPE pType, scene::E_INDEX_TYPE iType)
 
 {
 	if (!checkPrimitiveCount(primitiveCount,pType))
@@ -1944,7 +1944,7 @@ void CBurningVideoDriver::clearZBuffer()
 
 
 //! .
-ITexture* CBurningVideoDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
+ITexture* CBurningVideoDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
 {
 	if ( 0 == name.size () )
 		return 0;

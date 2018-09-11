@@ -8,8 +8,6 @@
 #include "ISceneManager.h"
 #include "ISceneNode.h"
 #include "ICursorControl.h"
-#include "irrString.h"
-#include "irrArray.h"
 #include "IMeshLoader.h"
 #include "ISkinningStateManager.h"
 #include "CMeshManipulator.h"
@@ -202,7 +200,7 @@ namespace scene
 
 		//! Creates a texture animator, which switches the textures of the target scene
 		//! node based on a list of textures.
-		virtual ISceneNodeAnimator* createTextureAnimator(const core::array<video::ITexture*>& textures,
+		virtual ISceneNodeAnimator* createTextureAnimator(const core::vector<video::ITexture*>& textures,
 			int32_t timePerFrame, bool loop);
 
 		//! Creates a scene node animator, which deletes the scene node after
@@ -211,7 +209,7 @@ namespace scene
 
 		//! Creates a follow spline animator.
 		virtual ISceneNodeAnimator* createFollowSplineAnimator(int32_t startTime,
-			const core::array< core::vector3df >& points,
+			const core::vector< core::vector3df >& points,
 			float speed, float tightness, bool loop, bool pingpong);
 
 
@@ -240,7 +238,7 @@ namespace scene
 		virtual ISceneNode* getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, IDummyTransformationSceneNode* start=0);
 
 		//! returns scene nodes by type.
-		virtual void getSceneNodesFromType(ESCENE_NODE_TYPE type, core::array<scene::ISceneNode*>& outNodes, IDummyTransformationSceneNode* start=0);
+		virtual void getSceneNodesFromType(ESCENE_NODE_TYPE type, core::vector<scene::ISceneNode*>& outNodes, IDummyTransformationSceneNode* start=0);
 */
 		//! Posts an input event to the environment. Usually you do not have to
 		//! use this method, it is used by the internal engine.
@@ -357,15 +355,15 @@ namespace scene
 		gui::ICursorControl* CursorControl;
 
 		//! render pass lists
-		core::array<ISceneNode*> CameraList;
-		core::array<ISceneNode*> LightList;
-		core::array<ISceneNode*> SkyBoxList;
-		core::array<DefaultNodeEntry> SolidNodeList;
-		core::array<TransparentNodeEntry> TransparentNodeList;
-		core::array<TransparentNodeEntry> TransparentEffectNodeList;
+		core::vector<ISceneNode*> CameraList;
+		core::vector<ISceneNode*> LightList;
+		core::vector<ISceneNode*> SkyBoxList;
+		core::vector<DefaultNodeEntry> SolidNodeList;
+		core::vector<TransparentNodeEntry> TransparentNodeList;
+		core::vector<TransparentNodeEntry> TransparentEffectNodeList;
 
-		core::array<IMeshLoader*> MeshLoaderList;
-		core::array<IDummyTransformationSceneNode*> DeletionList;
+		core::vector<IMeshLoader*> MeshLoaderList;
+		core::vector<IDummyTransformationSceneNode*> DeletionList;
 
 		//! current active camera
 		ICameraSceneNode* ActiveCamera;
@@ -374,7 +372,7 @@ namespace scene
         {
             uint8_t data[16];
         };
-		std::unordered_map<std::string,ParamStorage> Parameters;
+		core::unordered_map<std::string,ParamStorage> Parameters;
 
 		//! Mesh cache
 		IMeshCache<ICPUMesh>* MeshCache;

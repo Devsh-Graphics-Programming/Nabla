@@ -5,7 +5,7 @@
 #ifndef __C_FPSCOUNTER_H_INCLUDED__
 #define __C_FPSCOUNTER_H_INCLUDED__
 
-#include "irrTypes.h"
+#include "irr/core/Types.h"
 
 namespace irr
 {
