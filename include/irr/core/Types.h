@@ -24,6 +24,8 @@
 #include "irr/core/alloc/aligned_allocator.h"
 #include "irr/core/alloc/aligned_allocator_adaptor.h"
 
+#include <mutex>
+
 namespace irr
 {
 namespace core
@@ -73,6 +75,12 @@ template<typename T, class Container=deque<T> >
 using queue = std::queue<T,Container>;
 template<typename T, class Container=deque<T> >
 using stack = std::stack<T,Container>;
+
+
+
+typedef std::mutex  mutex;
+// change to some derivation of FW_FastLock later
+typedef std::mutex  fast_mutex;
 }
 }
 

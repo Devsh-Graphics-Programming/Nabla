@@ -116,6 +116,9 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             return (caps&EMCF_COHERENT)==0u&&(caps&EMCF_CAN_MAP_FOR_WRITE)!=0u;
         }
 
+        //! Returns the size of the memory allocation
+        virtual size_t getAllocationSize() const = 0;
+
         //! For details @see E_MAPPING_CAPABILITY_FLAGS
         virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
 

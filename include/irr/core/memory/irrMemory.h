@@ -57,7 +57,7 @@ namespace impl
 #endif
 
 
-//TODO FInal: Allow overrides of Global New and Delete ???
+//! TODO: FINAL Allow overrides of Global New and Delete ???
 #ifdef _IRR_ALLOW_GLOBAL_NEW_TO_THROW
 #else
 #endif
@@ -65,25 +65,6 @@ namespace impl
 //TOTO Now: Create a irr::AllocatedByStaticAllocator<StaticAllocator> class
 //TOTO Now: Create a irr::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
 
-
-namespace irr
-{
-
-//! Special Class For providing deletion for things like C++11 smart-pointers
-struct alligned_delete
-{
-    template<class T>
-    void operator()(T* ptr) const noexcept(noexcept(ptr->~T()))
-    {
-        if (ptr)
-        {
-            ptr->~T();
-            _IRR_ALIGNED_FREE(ptr);
-        }
-    }
-};
-
-}
 
 //! TODO: Implement StaticAllocator<ALIGN> that respects custom alignment with boost::align and progress the defines
 #define _IRR_ALLOCATE_W_ALLOCATOR //incomplete
@@ -140,6 +121,20 @@ constexpr inline bool is_alignment(size_t value)
     return core::isPoT(value);
 }
 
+
+//! Special Class For providing deletion for things like C++11 smart-pointers
+struct alligned_delete
+{
+    template<class T>
+    void operator()(T* ptr) const noexcept(noexcept(ptr->~T()))
+    {
+        if (ptr)
+        {
+            ptr->~T();
+            _IRR_ALIGNED_FREE(ptr);
+        }
+    }
+};
 
 //! Inherit from this class if you want to make sure all the derivations are aligned.
 /** Any class derived from this, even indirectly will be declared as aligned to

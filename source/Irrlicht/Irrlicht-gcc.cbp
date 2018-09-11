@@ -357,8 +357,15 @@
 		<Unit filename="../../include/irr/core/IReferenceCounted.h" />
 		<Unit filename="../../include/irr/core/IThreadBound.h" />
 		<Unit filename="../../include/irr/core/Types.h" />
+		<Unit filename="../../include/irr/core/alloc/AddressAllocatorAdaptor.h" />
+		<Unit filename="../../include/irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h" />
+		<Unit filename="../../include/irr/core/alloc/AddressAllocatorState.h" />
+		<Unit filename="../../include/irr/core/alloc/AddressAllocatorStateTypes.h" />
 		<Unit filename="../../include/irr/core/alloc/AllocatorTrivialBases.h" />
-		<Unit filename="../../include/irr/core/alloc/IAllocatorInterface.h" />
+		<Unit filename="../../include/irr/core/alloc/IAddressAllocator.h" />
+		<Unit filename="../../include/irr/core/alloc/IAllocator.h" />
+		<Unit filename="../../include/irr/core/alloc/LinearAddressAllocator.h" />
+		<Unit filename="../../include/irr/core/alloc/address_type_traits.h" />
 		<Unit filename="../../include/irr/core/alloc/aligned_allocator.h" />
 		<Unit filename="../../include/irr/core/alloc/aligned_allocator_adaptor.h" />
 		<Unit filename="../../include/irr/core/irrString.h" />

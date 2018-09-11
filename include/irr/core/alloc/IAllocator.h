@@ -2,8 +2,8 @@
 // This file is part of the "IrrlichtBAW Engine"
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#ifndef __IRR_I_ALLOCATOR_INTERFACE_H_INCLUDED__
-#define __IRR_I_ALLOCATOR_INTERFACE_H_INCLUDED__
+#ifndef __IRR_I_ALLOCATOR_H_INCLUDED__
+#define __IRR_I_ALLOCATOR_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
 
@@ -13,10 +13,10 @@ namespace irr
 namespace core
 {
 
-class IAllocatorInterface
+class IAllocator
 {
     public:
-        virtual         ~IAllocatorInterface() {}
+        virtual         ~IAllocator() {}
 
         virtual void*   allocate(size_t n, void* hint=nullptr) noexcept = 0;
         virtual void    deallocate(void* p, size_t n) noexcept = 0;
@@ -26,13 +26,13 @@ class IAllocatorInterface
 
 
 template <class Alloc>
-class AllocatorInterfaceAdaptor final : private Alloc, public IAllocatorInterface
+class IAllocatorAdaptor final : private Alloc, public IAllocator
 {
         inline Alloc& getBaseRef() noexcept {return static_cast<Alloc&>(*this);}
     public:
         using Alloc::Alloc;
 
-        virtual ~AllocatorInterfaceAdaptor() {}
+        virtual ~IAllocatorAdaptor() {}
 
         virtual void*   allocate(size_t n, void* hint=nullptr) noexcept {return getBaseRef().allocate(n,hint);}
         virtual void    deallocate(void* p, size_t n) noexcept
@@ -46,4 +46,4 @@ class AllocatorInterfaceAdaptor final : private Alloc, public IAllocatorInterfac
 }
 }
 
-#endif // __IRR_I_ALLOCATOR_INTERFACE_H_INCLUDED__
+#endif // __IRR_I_ALLOCATOR_H_INCLUDED__
