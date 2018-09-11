@@ -11,6 +11,13 @@ namespace impl
 {
     struct CConcurrentObjectCacheBase
     {
+        CConcurrentObjectCacheBase() = default;
+        // explicitely making concurrent caches non-copy-and-move-constructible and non-copy-and-move-assignable
+        CConcurrentObjectCacheBase(const CConcurrentObjectCacheBase&) = delete;
+        CConcurrentObjectCacheBase(CConcurrentObjectCacheBase&&) = delete;
+        CConcurrentObjectCacheBase& operator=(const CConcurrentObjectCacheBase&) = delete;
+        CConcurrentObjectCacheBase& operator=(CConcurrentObjectCacheBase&&) = delete;
+
         struct
         {
             void lockRead() const { FW_AtomicCounterIncr(ctr); }

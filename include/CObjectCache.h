@@ -51,6 +51,14 @@ namespace impl
     template<typename T, typename ...K>
     struct PropagTypedefs : PropagKeyTypeTypedef<K...> { using CachedType = T; };
 
+    // Macro instead of some contexpr function so we can know which static_assert failed
+    // __VA_ARGS__ is needed because macro treats commas delimiting template paramaters as delimiter for macro parameters
+#define _COPY_MOVE_CTOR_ASSIGNMENT_PRESENCE_CHECK(...) \
+    static_assert(std::is_copy_constructible<__VA_ARGS__>::value, "Copy ctor missing!");\
+    static_assert(std::is_move_constructible<__VA_ARGS__>::value, "Move ctor missing!");\
+    static_assert(std::is_copy_assignable<__VA_ARGS__>::value, "Copy assignment operator missing!");\
+    static_assert(std::is_move_assignable<__VA_ARGS__>::value, "Move assignment operator missing!")
+
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
@@ -85,7 +93,7 @@ namespace impl
         using DisposalFuncType = std::function<void(ValueType_impl)>;
 
         template<typename RangeT>
-        static bool isNonZeroRange(const RangeT& _range) { return std::distance(_range.first, _range.second) != 0; }
+        static bool isNonZeroRange(const RangeT& _range) { return _range.first != _range.second; }
 
     protected:
         GreetFuncType m_greetingFunc;
@@ -152,12 +160,11 @@ namespace impl
     };
 
     //! Use in non-static member functions
-#define MY_TYPE typename std::remove_reference<decltype(*this)>::type
 #define INSERT_IMPL_VEC \
     const typename Base::PairType_impl newVal{ _key, _val };\
     auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), newVal, [](const typename Base::PairType_impl& _a, const typename Base::PairType_impl& _b) -> bool {return _a.first < _b.first; });\
     if (\
-    !impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, MY_TYPE>::value>::verify(this->m_container, it, _key)\
+    !impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value>::verify(this->m_container, it, _key)\
     )\
         return false;\
     \
@@ -166,13 +173,13 @@ namespace impl
     return true;
 #define INSERT_IMPL_ASSOC \
     auto res = this->m_container.insert({ _key, _val });\
-    const bool verif = impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, MY_TYPE>::value>::verify(res);\
+    const bool verif = impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value>::verify(res);\
     if (verif)\
         greet(_val);\
     return verif;
 
     template<
-        bool isMultiContainer,
+        bool isMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
         template<typename...> class ContainerT_T,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
@@ -225,36 +232,37 @@ namespace impl
         }
 
     private:
+        // container not passed by **const** reference so i can take non-const iterators
         template<typename RngType>
-        inline RngType findRange_internal(const typename Base::KeyType_impl& _key)
+        static inline RngType findRange_internal(typename Base::ContainerT& _container, const typename Base::KeyType_impl& _key)
         {
-            auto cmpf = [](const typename Base::PairType_impl& _a, const typename Base::PairType_impl& _b) -> bool {return _a.first < _b.first; };
+            auto cmpf = [](const typename Base::PairType_impl& _a, const typename Base::PairType_impl& _b) -> bool { return _a.first < _b.first; };
             typename Base::PairType_impl lookingFor{_key, nullptr};
 
             RngType range;
-            range.first = std::lower_bound(std::begin(Base::m_container), std::end(Base::m_container), lookingFor, cmpf);
-            if (range.first == std::end(Base::m_container) || _key < range.first->first)
+            range.first = std::lower_bound(std::begin(_container), std::end(_container), lookingFor, cmpf);
+            if (range.first == std::end(_container) || _key < range.first->first)
             {
                 range.second = range.first;
                 return range;
             }
-            range.second = std::upper_bound(range.first, std::end(Base::m_container), lookingFor, cmpf);
+            range.second = std::upper_bound(range.first, std::end(_container), lookingFor, cmpf);
             return range;
         }
 
     public:
         inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
         {
-            return findRange_internal<typename Base::RangeType>(_key);
+            return findRange_internal<typename Base::RangeType>(this->m_container, _key);
         }
         inline typename Base::ConstRangeType findRange(const typename Base::KeyType_impl& _key) const
         {
-            return findRange_internal<typename Base::ConstRangeType>(_key);
+            return findRange_internal<typename Base::ConstRangeType>(this->m_container, _key);
         }
     };
 
     template<
-        bool IsMultiContainer,
+        bool IsMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
         template<typename...> class ContainerT_T,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
@@ -290,7 +298,8 @@ namespace impl
             *_outrange = findRange(_key);
             if (!Base::isNonZeroRange(*_outrange))
             {
-                this->m_container.insert(_outrange->second, {_key, nullptr});
+                _outrange->first = this->m_container.insert(_outrange->second, {_key, nullptr});
+                _outrange->second = std::next(_outrange->first);
                 greet(nullptr);
                 return false;
             }
@@ -447,7 +456,8 @@ namespace impl
             *_outrange = findRange(_key);
             if (!Base::isNonZeroRange(*_outrange))
             {
-                this->m_container.insert(_outrange->first, { _key, nullptr });
+                _outrange->first = this->m_container.insert(_outrange->first, { _key, nullptr });
+                _outrange->second = std::next(_outrange->second);
                 greet(nullptr);
                 return false;
             }
