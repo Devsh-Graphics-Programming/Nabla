@@ -101,7 +101,7 @@ namespace video
 		//!
 		virtual uint32_t getRequiredTBOAlignment() const = 0;
 
-        virtual uint16_t retrieveDisplayRefreshRate() const = 0;
+        virtual uint16_t retrieveDisplayRefreshRate() const { return 0u; }
 
 	};
 
