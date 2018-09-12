@@ -57,10 +57,12 @@ namespace impl
 #endif
 
 
-//! TODO: FINAL Allow overrides of Global New and Delete ???
+/*
+//! TODO: FINAL Allow overrides of Global New and Delete ??? "Override global new and delete with optional disable switch"
 #ifdef _IRR_ALLOW_GLOBAL_NEW_TO_THROW
 #else
 #endif
+*/
 
 //TOTO Now: Create a irr::AllocatedByStaticAllocator<StaticAllocator> class
 //TOTO Now: Create a irr::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter

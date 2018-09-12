@@ -21,12 +21,11 @@ class AddressAllocatorState : public AddressAlloc, public IReferenceCounted
         virtual ~AddressAllocatorState() {}
     public:
 
-#define CALC_RESERVED_SPACE
+#define CALC_RESERVED_SPACE (AddressAlloc::reserved_size(reinterpret_cast<size_t>(buffer),bufSz,std::forward<Args>(args)...))
         template<typename... Args>
         AddressAllocatorState(void* buffer, typename AddressAlloc::size_type bufSz, Args&&... args) noexcept :
-                AddressAlloc(buffer, reinterpret_cast<typename AddressAlloc::size_type>(reinterpret_cast<uint8_t*>(buffer)+AddressAlloc::reserved_size(reinterpret_cast<size_t>(buffer),bufSz,std::forward<Args>(args)...)), bufSz-AddressAlloc::reserved_size(reinterpret_cast<size_t>(buffer),bufSz,std::forward<Args>(args)...), std::forward<Args>(args)...),
-                        reservedSpace(AddressAlloc::reserved_size(reinterpret_cast<size_t>(buffer),bufSz,std::forward<Args>(args)...)),
-                        bufferStart(reinterpret_cast<uint8_t*>(buffer)+reservedSpace)
+                AddressAlloc(buffer, reinterpret_cast<typename AddressAlloc::size_type>(reinterpret_cast<uint8_t*>(buffer)+CALC_RESERVED_SPACE), bufSz-CALC_RESERVED_SPACE, std::forward<Args>(args)...),
+                        reservedSpace(CALC_RESERVED_SPACE), bufferStart(reinterpret_cast<uint8_t*>(buffer)+reservedSpace)
         {
         }
 #undef CALC_RESERVED_SPACE
@@ -49,7 +48,7 @@ class AllocatorStateDriverMemoryAdaptor : public S
     public:
         template<typename... Args>
         AllocatorStateDriverMemoryAdaptor(M* mem, Args&&... args) noexcept :
-                    S(mem->getMappedPointer(),mem->getAllocationSize(),std::forward<Args>(args)...), memory(mem)
+                    S(mem->getMappedPointer(),mem->getCurrentMappedRange().length,std::forward<Args>(args)...), memory(mem)
         {
             memory->grab();
         }
