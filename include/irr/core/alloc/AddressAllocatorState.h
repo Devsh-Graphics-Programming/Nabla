@@ -34,23 +34,23 @@ class AddressAllocatorState : public AddressAlloc, public IReferenceCounted
 };
 
 
-//! B is an IBuffer derived type, S is some AddressAllocatorState
-template<class M, class S>
-class AllocatorStateDriverMemoryAdaptor : public S
+//! I is an IReferenceCounted derived type
+template<class I, class AddressAlloc>
+class AllocatorStateRefCountedAdaptor : public AddressAllocatorState<AddressAlloc>
 {
-        M* const    memory;
+        I* const    associatedObj;
     protected:
-        virtual ~AllocatorStateDriverMemoryAdaptor()
+        virtual ~AllocatorStateRefCountedAdaptor()
         {
-            if (memory) // move constructor compatibility
-                memory->drop();
+            if (associatedObj) // move constructor compatibility
+                associatedObj->drop();
         }
     public:
         template<typename... Args>
-        AllocatorStateDriverMemoryAdaptor(M* mem, Args&&... args) noexcept :
-                    S(mem->getMappedPointer(),mem->getCurrentMappedRange().length,std::forward<Args>(args)...), memory(mem)
+        AllocatorStateRefCountedAdaptor(I* assocObjToBuffmem, void* buffmem, typename AddressAlloc::size_type bufSz, Args&&... args) noexcept :
+                    AddressAllocatorState<AddressAlloc>(buffmem,bufSz,std::forward<Args>(args)...), associatedObj(assocObjToBuffmem)
         {
-            memory->grab();
+            associatedObj->grab();
         }
 };
 

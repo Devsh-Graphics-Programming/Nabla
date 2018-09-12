@@ -35,15 +35,15 @@ using PoolAddressAllocatorStateMT = AddressAllocatorState<PoolAddressAllocatorMT
 //! Buffer States
 
 // linear
-template<class B, typename AddressType>
-using LinearAddressAllocatorDriverMemoryStateST = AllocatorStateDriverMemoryAdaptor<B, LinearAddressAllocatorStateST<AddressType> >;
-template<class B, typename AddressType, class BasicLockable>
-using LinearAddressAllocatorDriverMemoryStateMT = AllocatorStateDriverMemoryAdaptor<B, LinearAddressAllocatorStateMT<AddressType,BasicLockable> >;
+template<class I, typename AddressType>
+using LinearAddressAllocatorRefCountedStateST = AllocatorStateRefCountedAdaptor<I, LinearAddressAllocatorST<AddressType> >;
+template<class I, typename AddressType, class BasicLockable>
+using LinearAddressAllocatorRefCountedStateMT = AllocatorStateRefCountedAdaptor<I, LinearAddressAllocatorMT<AddressType,BasicLockable> >;
 // pool
-template<class B, typename AddressType>
-using PoolAddressAllocatorDriverMemoryStateST = AllocatorStateDriverMemoryAdaptor<B, PoolAddressAllocatorStateST<AddressType> >;
-template<class B, typename AddressType, class BasicLockable>
-using PoolAddressAllocatorDriverMemoryStateMT = AllocatorStateDriverMemoryAdaptor<B, PoolAddressAllocatorStateMT<AddressType,BasicLockable> >;
+template<class I, typename AddressType>
+using PoolAddressAllocatorRefCountedStateST = AllocatorStateRefCountedAdaptor<I, PoolAddressAllocatorST<AddressType> >;
+template<class I, typename AddressType, class BasicLockable>
+using PoolAddressAllocatorRefCountedStateMT = AllocatorStateRefCountedAdaptor<I, PoolAddressAllocatorMT<AddressType,BasicLockable> >;
 
 }
 }
