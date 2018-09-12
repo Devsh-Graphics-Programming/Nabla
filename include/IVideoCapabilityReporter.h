@@ -8,6 +8,8 @@
 #include <string>
 #include "ITexture.h"
 
+#include "IrrCompileConfig.h"
+
 namespace irr
 {
 namespace video
@@ -98,6 +100,9 @@ namespace video
 
 		//!
 		virtual uint32_t getRequiredTBOAlignment() const = 0;
+
+        virtual uint16_t retrieveDisplayRefreshRate() const { return 0u; }
+
 	};
 
 } // end namespace video
