@@ -23,7 +23,7 @@ namespace irr
 
 				virtual const MeshCache_T& getMeshCache() const { return meshCache; }
 
-				virtual const ICPUMesh* getMesh(std::string& path) const { return meshCache.getByKey(path); }
+				//virtual const ICPUMesh* getMesh(std::string& path) const { return meshCache.getByKey(path); }
 		};
 	}
 }
