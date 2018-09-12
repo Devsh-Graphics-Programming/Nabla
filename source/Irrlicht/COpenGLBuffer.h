@@ -171,6 +171,8 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
             assert(((flags&(~cachedFlags))&(GL_MAP_READ_BIT|GL_MAP_WRITE_BIT))==0u);
         #endif // _DEBUG
             mappedPtr = reinterpret_cast<uint8_t*>(COpenGLExtensionHandler::extGlMapNamedBufferRange(BufferName,memrange.offset,memrange.length,flags))-memrange.offset;
+            mappedRange = memrange;
+            currentMappingAccess = static_cast<E_MAPPING_CPU_ACCESS_FLAG>(((flags&GL_MAP_READ_BIT) ? EMCAF_READ:0u)|((flags&GL_MAP_WRITE_BIT) ? EMCAF_WRITE:0u));
             return mappedPtr;
         }
 
@@ -182,6 +184,7 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         #endif // _DEBUG
             COpenGLExtensionHandler::extGlUnmapNamedBuffer(BufferName);
             mappedPtr = nullptr;
+            mappedRange = MemoryRange(0,0);
             currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
         }
 

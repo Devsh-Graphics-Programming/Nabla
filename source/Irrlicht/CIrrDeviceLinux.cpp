@@ -1606,7 +1606,6 @@ video::IVideoModeList* CIrrDeviceLinux::getVideoModeList()
 	return VideoModeList;
 }
 
-
 //! Minimize window
 void CIrrDeviceLinux::minimizeWindow()
 {

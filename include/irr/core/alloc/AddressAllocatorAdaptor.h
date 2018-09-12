@@ -60,7 +60,7 @@ class AddressAllocatorAdaptor : public AllocatorTrivialBase<T>
         inline typename AddressAllocatorAdaptor::pointer    allocate(   typename S::size_type n,
                                                                         typename AddressAllocatorAdaptor::const_void_pointer hint=nullptr) noexcept
         {
-            typename S::size_type addr = state->alloc_addr(n,alignof(T));
+            typename S::size_type addr = state->alloc_addr(n*sizeof(T),alignof(T));
             if (addr==S::invalid_address)
                 return nullptr;
 
@@ -70,6 +70,7 @@ class AddressAllocatorAdaptor : public AllocatorTrivialBase<T>
         inline void                                         deallocate( typename AddressAllocatorAdaptor::pointer p,
                                                                         typename S::size_type n) noexcept
         {
+            state->free_addr(reinterpret_cast<typename S::ubyte_pointer>(p)-state->getBufferStart(),n*sizeof(T));
         }
 
         inline typename S::size_type                        max_size() noexcept

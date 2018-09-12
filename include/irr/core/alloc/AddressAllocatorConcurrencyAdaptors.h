@@ -23,7 +23,6 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
         typedef typename AddressAllocator::ubyte_pointer    ubyte_pointer;
 
         static constexpr size_type  invalid_address = AddressAllocator::invalid_address;
-        static constexpr size_type  max_alignment   = AddressAllocator::max_alignment;
 
 
         using AddressAllocator::AddressAllocator;
@@ -51,7 +50,15 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
             lock.unlock();
         }
 
-        inline size_type    max_size() noexcept {return AddressAllocator::max_size();}
+        inline size_type    max_size() const noexcept {return AddressAllocator::max_size();}
+
+        inline size_type    max_alignment() const noexcept {return AddressAllocator::max_alignment();}
+
+        template<typename... Args>
+        static inline size_type reserved_size(size_t alignOff, size_type bufSz, Args&&... args) noexcept
+        {
+            return AddressAllocator::reserved_size(alignOff,bufSz,std::forward<Args>(args)...);
+        }
 };
 
 }

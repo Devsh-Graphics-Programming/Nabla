@@ -104,9 +104,6 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         //! Utility function, tells whether the allocation can be mapped (whether mapMemory will ever return anything other than nullptr)
         inline bool isMappable() const {return this->getMappingCaps()!=EMCF_CANNOT_MAP;}
 
-        //! Utility function, tells if mapMemoryRange has been already called and unmapMemory was not called after.
-        inline bool isCurrentlyMapped() const {return mappedPtr!=nullptr;}
-
         //! Utility function, tell us if writes through the mapping's pointer need to be flushed to become visible to the GPU.
         /** Only execute flushes if the allocation requires them, and batch them (flush one combined range instead of two or more)
         for greater efficiency. To execute a flush, use IDriver::flushMappedAllocationRange. */
@@ -121,6 +118,13 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
 
         //! For details @see E_MAPPING_CAPABILITY_FLAGS
         virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
+
+
+        //! Utility function, tells if mapMemoryRange has been already called and unmapMemory was not called after.
+        inline bool isCurrentlyMapped() const {return mappedPtr!=nullptr;}
+
+        //! Returns the currently mapped range, only valid if isCurrentlyMapped()==true
+        inline MemoryRange getCurrentMappedRange() const {return mappedRange;}
 
         //!
         inline E_MAPPING_CPU_ACCESS_FLAG getCurrentMappingCaps() const {return currentMappingAccess;}
@@ -155,10 +159,11 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         virtual bool isDedicated() const = 0;
 
     protected:
-        IDriverMemoryAllocation() : mappedPtr(nullptr), currentMappingAccess(EMCAF_NO_MAPPING_ACCESS) {}
+        IDriverMemoryAllocation() : mappedPtr(nullptr), mappedRange(0,0), currentMappingAccess(EMCAF_NO_MAPPING_ACCESS) {}
 
-        uint8_t* mappedPtr;
-        E_MAPPING_CPU_ACCESS_FLAG currentMappingAccess;
+        uint8_t*                    mappedPtr;
+        MemoryRange                 mappedRange;
+        E_MAPPING_CPU_ACCESS_FLAG   currentMappingAccess;
 };
 
 } // end namespace scene

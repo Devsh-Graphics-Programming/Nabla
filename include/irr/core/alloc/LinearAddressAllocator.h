@@ -25,15 +25,14 @@ class LinearAddressAllocator
         typedef uint8_t*                                    ubyte_pointer;
 
         static constexpr size_type                          invalid_address = address_type_traits<size_type>::invalid_address;
-        static constexpr size_type                          max_alignment   = size_type(1)<<size_type(sizeof(size_type)*8-1);
 
 
-        LinearAddressAllocator(size_type alignOff, size_type bufSz) noexcept : alignOffset(alignOff),
-                    bufferSize(bufSz+alignOff), cursor(alignOff) {}
+        LinearAddressAllocator(void* reservedSpc, size_t alignOff, size_type bufSz) noexcept : alignOffset(alignOff&((size_type(0x1u)<<findMSB(bufSz))-1u)),
+                    bufferSize(bufSz+alignOffset), cursor(alignOffset) {}
 
         inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
-            if (bytes==0)
+            if (bytes==0) // || alignment>max_alignment()
                 return invalid_address;
 
             size_type result    = alignUp(cursor,alignment);
@@ -56,16 +55,35 @@ class LinearAddressAllocator
         }
 
         //! conservative estimate, does not account for space lost to alignment
-        inline size_type    max_size() noexcept
+        inline size_type    max_size() const noexcept
         {
             if (cursor>bufferSize)
                 return 0u;
             return bufferSize-cursor;
         }
 
-    protected:
-        virtual ~LinearAddressAllocator() {}
+        inline size_type    max_alignment() const noexcept
+        {
+            size_type tmpSize = bufferSize-alignOffset;
+            size_type align = size_type(0x1u)<<findMSB(tmpSize); // what can fit inside the memory?
 
+            while (align)
+            {
+                size_type tmpStart = alignUp(alignOffset,align); // where would it start if it was aligned to itself
+                if (tmpStart+align<=bufferSize) // could it fit?
+                    return align;
+                align = align>>1u;
+            }
+
+            return 1u;
+        }
+
+        template<typename... Args>
+        static inline size_type reserved_size(size_t alignOff, size_type bufSz, Args&&... args) noexcept
+        {
+            return 0u;
+        }
+    protected:
         const size_type                                     alignOffset;
         const size_type                                     bufferSize;
         size_type                                           cursor;
