@@ -18,7 +18,7 @@ namespace irr { namespace core
 
 namespace impl
 {
-    struct FORCE_EMPTY_BASE_OPT CMultiCache_tag {};
+    struct IRR_FORCE_EBO CMultiCache_tag {};
 
     template<template<typename...> class, template<typename...> class>
     struct is_same_templ : std::false_type {};

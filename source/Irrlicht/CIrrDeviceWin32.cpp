@@ -17,6 +17,7 @@
 #include "COSOperator.h"
 #include "dimension2d.h"
 #include <winuser.h>
+#include "irr/core/Types.h"
 #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
 #ifdef _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
 #define DIRECTINPUT_VERSION 0x0800
@@ -604,7 +605,7 @@ namespace
 		HWND hWnd;
 		irr::CIrrDeviceWin32* irrDev;
 	};
-	core::list<SEnvMapper> EnvMap;
+	irr::core::list<SEnvMapper> EnvMap;
 
 	HKL KEYBOARD_INPUT_HKL=0;
 	unsigned int KEYBOARD_INPUT_CODEPAGE = 1252;
@@ -612,7 +613,7 @@ namespace
 
 SEnvMapper* getEnvMapperFromHWnd(HWND hWnd)
 {
-	core::list<SEnvMapper>::iterator it = EnvMap.begin();
+	irr::core::list<SEnvMapper>::iterator it = EnvMap.begin();
 	for (; it!= EnvMap.end(); ++it)
 		if ((*it).hWnd == hWnd)
 			return &(*it);
@@ -623,7 +624,7 @@ SEnvMapper* getEnvMapperFromHWnd(HWND hWnd)
 
 irr::CIrrDeviceWin32* getDeviceFromHWnd(HWND hWnd)
 {
-	core::list<SEnvMapper>::iterator it = EnvMap.begin();
+	irr::core::list<SEnvMapper>::iterator it = EnvMap.begin();
 	for (; it!= EnvMap.end(); ++it)
 		if ((*it).hWnd == hWnd)
 			return (*it).irrDev;
