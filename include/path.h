@@ -5,7 +5,7 @@
 #ifndef __IRR_PATH_H_INCLUDED__
 #define __IRR_PATH_H_INCLUDED__
 
-#include "irrString.h"
+#include "irr/core/irrString.h"
 
 namespace irr
 {

@@ -19,7 +19,7 @@ namespace scene
 	be notified if an animation playback has ended.
 	**/
 	template<class T>
-	class IAnimationEndCallBack : public virtual IReferenceCounted
+	class IAnimationEndCallBack : public virtual core::IReferenceCounted
 	{
             _IRR_INTERFACE_CHILD(IAnimationEndCallBack) {}
         public:

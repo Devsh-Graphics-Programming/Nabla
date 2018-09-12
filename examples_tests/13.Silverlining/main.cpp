@@ -106,7 +106,7 @@ IrrlichtDevice* device = NULL;
 
 
 vector3df camPos;
-array<vectorSIMDf> controlPts;
+vector<vectorSIMDf> controlPts;
 ISpline* spline = NULL;
 
 //!Same As Last Example
@@ -134,7 +134,7 @@ public:
                             delete spline;
                         spline = NULL;
                         if (controlPts.size())
-                            spline = new CLinearSpline(controlPts.pointer(),controlPts.size());
+                            spline = new CLinearSpline(controlPts.data(),controlPts.size());
 
                         return true;
                     }
@@ -145,7 +145,7 @@ public:
                             delete spline;
                         spline = NULL;
                         if (controlPts.size())
-                            spline = new CLinearSpline(controlPts.pointer(),controlPts.size(),true); //make it loop
+                            spline = new CLinearSpline(controlPts.data(),controlPts.size(),true); //make it loop
 
                         return true;
                     }
@@ -157,7 +157,7 @@ public:
                         spline = NULL;
                         if (controlPts.size())
                         {
-                            spline = new irr::core::CQuadraticBSpline(controlPts.pointer(),controlPts.size(),false);
+                            spline = new irr::core::CQuadraticBSpline(controlPts.data(),controlPts.size(),false);
                             printf("Total Len %f\n",spline->getSplineLength());
                             for (size_t i=0; i<spline->getSegmentCount(); i++)
                                 printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
@@ -173,7 +173,7 @@ public:
                         spline = NULL;
                         if (controlPts.size())
                         {
-                            spline = new CQuadraticBSpline(controlPts.pointer(),controlPts.size(),true); //make it a loop
+                            spline = new CQuadraticBSpline(controlPts.data(),controlPts.size(),true); //make it a loop
                             printf("Total Len %f\n",spline->getSplineLength());
                             for (size_t i=0; i<spline->getSegmentCount(); i++)
                                 printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
@@ -220,9 +220,9 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 public:
     SimpleCallBack() : mvpUniformLocation(-1), mvpUniformType(video::ESCT_FLOAT_VEC3) {}
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
-        //! Normally we'd iterate through the array and check our actual constant names before mapping them to locations but oh well
+        //! Normally we'd iterate through the vector and check our actual constant names before mapping them to locations but oh well
         mvpUniformLocation = constants[0].location;
         mvpUniformType = constants[0].type;
     }

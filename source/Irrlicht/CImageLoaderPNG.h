@@ -33,7 +33,7 @@ public:
    virtual bool isALoadableFileFormat(io::IReadFile* file) const;
 
    //! creates a surface from the file
-   std::vector<CImageData*> loadImage(io::IReadFile* file) const;
+   core::vector<CImageData*> loadImage(io::IReadFile* file) const;
 };
 
 

@@ -23,7 +23,7 @@ typedef struct VkMemoryRequirements {
 } VkMemoryRequirements; //depr
 
 //! Interface from which resources backed by IDriverMemoryAllocation, such as ITexture and IGPUBuffer, inherit from
-class IDriverMemoryBacked : public virtual IReferenceCounted
+class IDriverMemoryBacked : public virtual core::IReferenceCounted
 {
     public:
         struct SDriverMemoryRequirements

@@ -5,7 +5,7 @@
 #ifndef __I_MESH_H_INCLUDED__
 #define __I_MESH_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "SMaterial.h"
 #include "IMeshBuffer.h"
 
@@ -36,7 +36,7 @@ namespace scene
 	A mesh is usually added to an IMeshSceneNode in order to be rendered.
 	*/
 	template <class T>
-	class IMesh : public virtual IReferenceCounted
+	class IMesh : public virtual core::IReferenceCounted
 	{
 	protected:
 		virtual ~IMesh() {}

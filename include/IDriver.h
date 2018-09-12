@@ -24,7 +24,7 @@ namespace video
 	/** This interface only deals with OpenGL and Vulkan concepts which do not require a command to be recorded in a command buffer
 	and then submitted to a command queue, i.e. functions which only require VkDevice or VkPhysicalDevice.
 	Examples of such functionality are the creation of buffers, textures, etc.*/
-	class IDriver : public virtual IReferenceCounted, public IVideoCapabilityReporter
+	class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
 	{
 	public:
 	    //! Best for Mesh data, UBOs, SSBOs, etc.
@@ -51,7 +51,7 @@ namespace video
         virtual void flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
 
         //! Utility wrapper for the pointer based func
-        inline void flushMappedMemoryRanges(const std::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
+        inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
         {
             flushMappedMemoryRanges(ranges.size(),ranges.data());
         }
@@ -151,9 +151,9 @@ namespace video
 		\param List of .
 		\return .
 		Bla bla. */
-		static inline void dropWholeMipChain(const std::vector<CImageData*>& mipImages)
+		static inline void dropWholeMipChain(const core::vector<CImageData*>& mipImages)
 		{
-		    for (std::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
+		    for (core::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
                 (*it)->drop();
 		}
 		//!

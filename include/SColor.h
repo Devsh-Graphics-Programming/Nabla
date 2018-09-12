@@ -5,9 +5,6 @@
 #ifndef __COLOR_H_INCLUDED__
 #define __COLOR_H_INCLUDED__
 
-#include "irrTypes.h"
-#include "irrMacros.h"
-#include "irrMath.h"
 #include "vectorSIMD.h"
 
 namespace irr
@@ -70,7 +67,6 @@ namespace video
 		ECF_RG_BC5,
 
         //! In all freaking honesty, use texture view objects to cast between same bitsize pixel formats
-        //! You can really typecast for renderbuffers
         ECF_8BIT_PIX,
         ECF_16BIT_PIX,
         ECF_24BIT_PIX,

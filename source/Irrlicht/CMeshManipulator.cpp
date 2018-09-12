@@ -13,7 +13,6 @@
 
 #include "SMesh.h"
 #include "IMeshBuffer.h"
-#include "SAnimatedMesh.h"
 #include "os.h"
 #include "CForsythVertexCacheOptimizer.h"
 #include "COverdrawMeshOptimizer.h"
@@ -25,10 +24,10 @@ namespace scene
 {
 
 // declared as extern in SVertexManipulator.h
-std::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
-std::vector<QuantizationCacheEntry8_8_8> normalCacheFor8_8_8Quant;
-std::vector<QuantizationCacheEntry16_16_16> normalCacheFor16_16_16Quant;
-std::vector<QuantizationCacheEntryHalfFloat> normalCacheForHalfFloatQuant;
+core::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
+core::vector<QuantizationCacheEntry8_8_8> normalCacheFor8_8_8Quant;
+core::vector<QuantizationCacheEntry16_16_16> normalCacheFor16_16_16Quant;
+core::vector<QuantizationCacheEntryHalfFloat> normalCacheForHalfFloatQuant;
 
 
 static inline core::vector3df getAngleWeight(const core::vector3df& v1,
@@ -65,7 +64,7 @@ void CMeshManipulator::flipSurfaces(scene::ICPUMeshBuffer* inbuffer) const
         return;
 
 
-    if (inbuffer->getIndexType() == video::EIT_16BIT)
+    if (inbuffer->getIndexType() == EIT_16BIT)
     {
         uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
         switch (inbuffer->getPrimitiveType())
@@ -109,7 +108,7 @@ void CMeshManipulator::flipSurfaces(scene::ICPUMeshBuffer* inbuffer) const
             break;
         }
     }
-    else if (inbuffer->getIndexType() == video::EIT_32BIT)
+    else if (inbuffer->getIndexType() == EIT_32BIT)
     {
         uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
         switch (inbuffer->getPrimitiveType())
@@ -216,7 +215,7 @@ void CMeshManipulator::recalculateNormals(IMeshBuffer* buffer, bool smooth, bool
 	if (!buffer)
 		return;
 
-	if (buffer->getIndexType()==video::EIT_16BIT)
+	if (buffer->getIndexType()==EIT_16BIT)
 		recalculateNormalsT<uint16_t>(buffer, smooth, angleWeighted);
 	else
 		recalculateNormalsT<uint32_t>(buffer, smooth, angleWeighted);
@@ -497,7 +496,7 @@ void CMeshManipulator::recalculateTangents(IMeshBuffer* buffer, bool recalculate
 {
 	if (buffer && (buffer->getVertexType() == video::EVT_TANGENTS))
 	{
-		if (buffer->getIndexType() == video::EIT_16BIT)
+		if (buffer->getIndexType() == EIT_16BIT)
 			recalculateTangentsT<uint16_t>(buffer, recalculateNormals, smooth, angleWeighted);
 		else
 			recalculateTangentsT<uint32_t>(buffer, recalculateNormals, smooth, angleWeighted);
@@ -531,7 +530,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 	size_t vertexCount = _inbuffer->calcVertexCount();
 	const void* ind = _inbuffer->getIndices();
 
-	std::unordered_set<const core::ICPUBuffer*> buffers;
+	core::unordered_set<const core::ICPUBuffer*> buffers;
 	for (size_t i = 0; i < EVAI_COUNT; ++i)
 		buffers.insert(outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i));
 
@@ -573,7 +572,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 	}
 	outbuffer->setBaseVertex(0);
 
-	std::vector<E_VERTEX_ATTRIBUTE_ID> activeAttribs;
+	core::vector<E_VERTEX_ATTRIBUTE_ID> activeAttribs;
 	for (size_t i = 0; i < EVAI_COUNT; ++i)
 		if (outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
 			activeAttribs.push_back((E_VERTEX_ATTRIBUTE_ID)i);
@@ -581,13 +580,13 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 	uint32_t* remapBuffer = (uint32_t*)malloc(vertexCount*4);
 	memset(remapBuffer, 0xffffffffu, vertexCount*4);
 
-	const video::E_INDEX_TYPE idxType = outbuffer->getIndexType();
+	const E_INDEX_TYPE idxType = outbuffer->getIndexType();
 	void* indices = outbuffer->getIndices();
 	size_t nextVert = 0u;
-    
+
 	for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
 	{
-		const uint32_t index = idxType == video::EIT_32BIT ? ((uint32_t*)indices)[i] : ((uint16_t*)indices)[i];
+		const uint32_t index = idxType == EIT_32BIT ? ((uint32_t*)indices)[i] : ((uint16_t*)indices)[i];
 
 		uint32_t& remap = remapBuffer[index];
 
@@ -615,7 +614,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 			remap = nextVert++;
 		}
 
-		if (idxType == video::EIT_32BIT)
+		if (idxType == EIT_32BIT)
 			((uint32_t*)indices)[i] = remap;
 		else
 			((uint16_t*)indices)[i] = remap;
@@ -689,7 +688,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffe
     vertexBuffer->drop();
 
     uint8_t* destPointer = (uint8_t*)vertexBuffer->getPointer();
-    if (inbuffer->getIndexType()==video::EIT_16BIT)
+    if (inbuffer->getIndexType()==EIT_16BIT)
     {
         uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
         for (uint64_t i=0; i<idxCnt; i++,idx++)
@@ -702,7 +701,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffe
             destPointer += newAttribSizes[j];
         }
     }
-    else if (inbuffer->getIndexType()==video::EIT_32BIT)
+    else if (inbuffer->getIndexType()==EIT_32BIT)
     {
         uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
         for (uint64_t i=0; i<idxCnt; i++,idx++)
@@ -791,7 +790,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
     };
 
     size_t vertexCount = inbuffer->calcVertexCount();
-    video::E_INDEX_TYPE oldIndexType = inbuffer->getIndexType();
+    E_INDEX_TYPE oldIndexType = inbuffer->getIndexType();
 
     if (vertexCount==0)
     {
@@ -856,45 +855,45 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
     }
 
 
-    if (oldIndexType==video::EIT_16BIT)
+    if (oldIndexType==EIT_16BIT)
     {
         uint16_t* indicesIn = reinterpret_cast<uint16_t*>(oldIndices);
-        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_32BIT)
+        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_32BIT)
         {
             uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
                 indicesOut[i] = redirects[indicesIn[i]];
         }
-        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_16BIT)
+        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_16BIT)
         {
             uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
                 indicesOut[i] = redirects[indicesIn[i]];
         }
     }
-    else if (oldIndexType==video::EIT_32BIT)
+    else if (oldIndexType==EIT_32BIT)
     {
         uint32_t* indicesIn = reinterpret_cast<uint32_t*>(oldIndices);
-        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_32BIT)
+        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_32BIT)
         {
             uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
                 indicesOut[i] = redirects[indicesIn[i]];
         }
-        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_16BIT)
+        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_16BIT)
         {
             uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
                 indicesOut[i] = redirects[indicesIn[i]];
         }
     }
-    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_32BIT)
+    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_32BIT)
     {
         uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
         for (size_t i=0; i<inbuffer->getIndexCount(); i++)
             indicesOut[i] = redirects[i];
     }
-    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==video::EIT_16BIT)
+    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_16BIT)
     {
         uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
         for (size_t i=0; i<inbuffer->getIndexCount(); i++)
@@ -930,17 +929,17 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 		newDesc->mapIndexBuffer(ib);
 		ib->drop();
 		outbuffer->setIndexCount(vertexCount);
-		outbuffer->setIndexType(video::EIT_32BIT);
+		outbuffer->setIndexType(EIT_32BIT);
 	}
 
 	// make 32bit index buffer if 16bit one is present
-	if (outbuffer->getIndexType() == video::EIT_16BIT)
+	if (outbuffer->getIndexType() == EIT_16BIT)
 	{
 		IMeshDataFormatDesc<core::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
 		core::ICPUBuffer* newIb = create32BitFrom16BitIdxBufferSubrange((uint16_t*)outbuffer->getIndices(), outbuffer->getIndexCount());
 		newDesc->mapIndexBuffer(newIb);
 		// no need to set index buffer offset to 0 because it already is
-		outbuffer->setIndexType(video::EIT_32BIT);
+		outbuffer->setIndexType(EIT_32BIT);
 	}
 
 	// convert index buffer for triangle primitives
@@ -948,7 +947,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 	{
 		IMeshDataFormatDesc<core::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
 		const core::ICPUBuffer* ib = newDesc->getIndexBuffer();
-		core::ICPUBuffer* newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), video::EIT_32BIT);
+		core::ICPUBuffer* newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
 		newDesc->mapIndexBuffer(newIb);
 		outbuffer->setPrimitiveType(EPT_TRIANGLES);
 		outbuffer->setIndexCount(newIb->getSize() / 4);
@@ -956,7 +955,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 	else if (outbuffer->getPrimitiveType() == EPT_TRIANGLE_STRIP)
 	{
 		IMeshDataFormatDesc<core::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
-		core::ICPUBuffer* newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), video::EIT_32BIT);
+		core::ICPUBuffer* newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
 		newDesc->mapIndexBuffer(newIb);
 		outbuffer->setPrimitiveType(EPT_TRIANGLES);
 		outbuffer->setIndexCount(newIb->getSize() / 4);
@@ -1027,7 +1026,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 
 		core::ICPUBuffer* newIdxBuffer = NULL;
 		bool verticesMustBeReordered = false;
-		video::E_INDEX_TYPE newIdxType = video::EIT_32BIT;
+		E_INDEX_TYPE newIdxType = EIT_32BIT;
 
 		if (!continuous)
 		{
@@ -1040,12 +1039,12 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 			else
 			{
 				if (maxIdx - minIdx <= USHRT_MAX)
-					newIdxType = video::EIT_16BIT;
+					newIdxType = EIT_16BIT;
 
 				outbuffer->setIndexType(newIdxType);
 				outbuffer->setBaseVertex(outbuffer->getBaseVertex() + minIdx);
 
-				if (newIdxType == video::EIT_16BIT)
+				if (newIdxType == EIT_16BIT)
 				{
 					newIdxBuffer = new core::ICPUBuffer(outbuffer->getIndexCount()*2);
 					// no need to change index buffer offset because it's always 0 (after duplicating original mesh)
@@ -1069,7 +1068,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 		if (verticesMustBeReordered)
 		{
 			// reorder vertices according to index buffer
-#define _ACCESS_IDX(n) ((newIdxType == video::EIT_32BIT) ? *((uint32_t*)(indices)+(n)) : *((uint16_t*)(indices)+(n)))
+#define _ACCESS_IDX(n) ((newIdxType == EIT_32BIT) ? *((uint32_t*)(indices)+(n)) : *((uint16_t*)(indices)+(n)))
 
 			const size_t vertexSize = outbuffer->getMeshDataAndFormat()->getMappedBufferStride(outbuffer->getPositionAttributeIx());
 			uint8_t* const v = (uint8_t*)(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
@@ -1097,8 +1096,8 @@ void CMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 	for (size_t i = 0u; i < EVAI_COUNT; ++i)
 		newAttribs[i].vaid = (E_VERTEX_ATTRIBUTE_ID)i;
 
-	std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>> attribsI;
-	std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>> attribsF;
+	core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>> attribsI;
+	core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>> attribsF;
 	for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
 	{
 		const E_COMPONENT_TYPE type = _meshbuffer->getMeshDataAndFormat()->getAttribType((E_VERTEX_ATTRIBUTE_ID)vaid);
@@ -1116,10 +1115,10 @@ void CMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 
 #ifdef _DEBUG
 	{
-		std::unordered_set<size_t> sizesSet;
-		for (std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
+		core::unordered_set<size_t> sizesSet;
+		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
 			sizesSet.insert(it->second.size());
-		for (std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
+		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
 			sizesSet.insert(it->second.size());
 		_IRR_DEBUG_BREAK_IF(sizesSet.size() != 1);
 	}
@@ -1146,10 +1145,10 @@ void CMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 	{
 		desc->mapVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].cpa, newAttribs[i].type, vertexSize, newAttribs[i].offset);
 
-		std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
+		core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
 		if (iti != attribsI.end())
 		{
-			const std::vector<SIntegerAttr>& attrVec = iti->second;
+			const core::vector<SIntegerAttr>& attrVec = iti->second;
 			for (size_t ai = 0u; ai < attrVec.size(); ++ai)
 			{
 				const bool check = _meshbuffer->setAttribute(attrVec[ai].pointer, newAttribs[i].vaid, ai);
@@ -1158,10 +1157,10 @@ void CMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 			continue;
 		}
 
-		std::unordered_map<E_VERTEX_ATTRIBUTE_ID, std::vector<core::vectorSIMDf>>::iterator itf = attribsF.find(newAttribs[i].vaid);
+		core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator itf = attribsF.find(newAttribs[i].vaid);
 		if (itf != attribsF.end())
 		{
-			const std::vector<core::vectorSIMDf>& attrVec = itf->second;
+			const core::vector<core::vectorSIMDf>& attrVec = itf->second;
 			for (size_t ai = 0u; ai < attrVec.size(); ++ai)
 			{
 				const bool check = _meshbuffer->setAttribute(attrVec[ai], newAttribs[i].vaid, ai);
@@ -1242,7 +1241,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 	core::ICPUBuffer* idxBuffer = NULL;
 	if (_src->getIndices())
 	{
-		idxBuffer = new core::ICPUBuffer((_src->getIndexType() == video::EIT_16BIT ? 2 : 4) * _src->getIndexCount());
+		idxBuffer = new core::ICPUBuffer((_src->getIndexType() == EIT_16BIT ? 2 : 4) * _src->getIndexCount());
 		memcpy(idxBuffer->getPointer(), _src->getIndices(), idxBuffer->getSize());
 		dst->setIndexBufferOffset(0);
 	}
@@ -1250,8 +1249,8 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 	ICPUMeshDataFormatDesc* newDesc = new ICPUMeshDataFormatDesc();
 	const IMeshDataFormatDesc<core::ICPUBuffer>* oldDesc = _src->getMeshDataAndFormat();
 
-	std::unordered_map<const core::ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID> oldBuffers;
-	std::vector<core::ICPUBuffer*> newBuffers;
+	core::unordered_map<const core::ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID> oldBuffers;
+	core::vector<core::ICPUBuffer*> newBuffers;
 	for (size_t i = 0; i < EVAI_COUNT; ++i)
 	{
 		const core::ICPUBuffer* oldBuf = oldDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i);
@@ -1259,7 +1258,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer
 			continue;
 		core::ICPUBuffer* newBuf = NULL;
 
-		std::unordered_map<const core::ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID>::iterator itr = oldBuffers.find(oldBuf);
+		core::unordered_map<const core::ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID>::iterator itr = oldBuffers.find(oldBuf);
 		if (itr == oldBuffers.end())
 		{
 			oldBuffers[oldBuf] = (E_VERTEX_ATTRIBUTE_ID)i;
@@ -1297,9 +1296,9 @@ void CMeshManipulator::filterInvalidTriangles(ICPUMeshBuffer* _input) const
 
     switch (_input->getIndexType())
     {
-    case video::EIT_16BIT:
+    case EIT_16BIT:
         return priv_filterInvalidTriangles<uint16_t>(_input);
-    case video::EIT_32BIT:
+    case EIT_32BIT:
         return priv_filterInvalidTriangles<uint32_t>(_input);
     }
 }
@@ -1356,7 +1355,7 @@ core::ICPUBuffer* CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(const 
 	return out;
 }
 
-std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
+core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
 {
 	const E_COMPONENT_TYPE suppTypes[]
 	{
@@ -1395,10 +1394,10 @@ std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_T
 			}
 		}
 		if (!ok)
-			return std::vector<core::vectorSIMDf>();
+			return core::vector<core::vectorSIMDf>();
 	}
 
-	std::vector<core::vectorSIMDf> attribs;
+	core::vector<core::vectorSIMDf> attribs;
 
 	if (!_meshbuffer->getMeshDataAndFormat())
 		return attribs;
@@ -1425,7 +1424,7 @@ std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_T
 		}
 	}
 
-	std::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, cpa, vertexAttrSize[thisType][cpa], min, max, _errMetric);
+	core::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, cpa, vertexAttrSize[thisType][cpa], min, max, _errMetric);
 	std::sort(possibleTypes.begin(), possibleTypes.end(), [](const SAttribTypeChoice& t1, const SAttribTypeChoice& t2) { return vertexAttrSize[t1.type][t1.cpa] < vertexAttrSize[t2.type][t2.cpa]; });
 
 	*_outPrevType = thisType;
@@ -1451,7 +1450,7 @@ std::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_T
 	return attribs;
 }
 
-std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
+core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
 {
 	const E_COMPONENT_TYPE suppTypes[]
 	{
@@ -1477,17 +1476,17 @@ std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(
 			}
 		}
 		if (!ok)
-			return std::vector<SIntegerAttr>();
+			return core::vector<SIntegerAttr>();
 	}
 
-	std::vector<SIntegerAttr> attribs;
+	core::vector<SIntegerAttr> attribs;
 
 	if (!_meshbuffer->getMeshDataAndFormat())
 		return attribs;
 
 	E_COMPONENTS_PER_ATTRIBUTE cpa = _meshbuffer->getMeshDataAndFormat()->getAttribComponentCount(_attrId);
 	if (cpa == ECPA_REVERSED_OR_BGRA)
-		return std::vector<SIntegerAttr>(); // BGRA is supported only by a few normalized types (this is function for integer types)
+		return core::vector<SIntegerAttr>(); // BGRA is supported only by a few normalized types (this is function for integer types)
 
 	uint32_t min[4];
 	uint32_t max[4];
@@ -1552,13 +1551,13 @@ std::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(
 
 E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const uint32_t* _min, const uint32_t* _max) const
 {
-	std::unordered_set<E_COMPONENT_TYPE> all;
+	core::unordered_set<E_COMPONENT_TYPE> all;
 	{
 		E_COMPONENT_TYPE arrayAll[]{ ECT_INT_2_10_10_10_REV, ECT_UNSIGNED_INT_2_10_10_10_REV, ECT_BYTE, ECT_UNSIGNED_BYTE, ECT_SHORT, ECT_UNSIGNED_SHORT, ECT_INT, ECT_UNSIGNED_INT, ECT_INTEGER_INT_2_10_10_10_REV, ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV, ECT_INTEGER_BYTE, ECT_INTEGER_UNSIGNED_BYTE, ECT_INTEGER_SHORT, ECT_INTEGER_UNSIGNED_SHORT, ECT_INTEGER_INT, ECT_INTEGER_UNSIGNED_INT };
 		for (size_t i = 0; i < sizeof(arrayAll)/sizeof(*arrayAll); ++i)
 			all.insert(arrayAll[i]);
 	}
-	std::unordered_set<E_COMPONENT_TYPE> nativeInts;
+	core::unordered_set<E_COMPONENT_TYPE> nativeInts;
 	{
 		E_COMPONENT_TYPE arrayNative[]{ ECT_INTEGER_INT_2_10_10_10_REV, ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV, ECT_INTEGER_BYTE, ECT_INTEGER_UNSIGNED_BYTE, ECT_INTEGER_SHORT, ECT_INTEGER_UNSIGNED_SHORT, ECT_INTEGER_INT, ECT_INTEGER_UNSIGNED_INT };
 		for (size_t i = 0; i < sizeof(arrayNative)/sizeof(*arrayNative); ++i)
@@ -1569,12 +1568,12 @@ E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned,
 		all = nativeInts;
 	else
 	{
-		for (std::unordered_set<E_COMPONENT_TYPE>::iterator it = nativeInts.begin(); it != nativeInts.end(); ++it)
+		for (core::unordered_set<E_COMPONENT_TYPE>::iterator it = nativeInts.begin(); it != nativeInts.end(); ++it)
 			all.erase(*it);
 	}
 
 	E_COMPONENT_TYPE bestType = _nativeInt ? (_unsigned ? ECT_INTEGER_UNSIGNED_INT : ECT_INTEGER_INT) : (_unsigned ? ECT_UNSIGNED_INT : ECT_INT);
-	for (std::unordered_set<E_COMPONENT_TYPE>::iterator it = all.begin(); it != all.end(); ++it)
+	for (core::unordered_set<E_COMPONENT_TYPE>::iterator it = all.begin(); it != all.end(); ++it)
 	{
 		bool validComb = false;
 		E_COMPONENTS_PER_ATTRIBUTE chosenCpa = _cpa; // cpa compatible with currently considered type
@@ -1594,7 +1593,7 @@ E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned,
 			{
 				if (_unsigned)
 				{
-					if (!(_min[cmpntNum] >= minValueOfTypeINT(*it, cmpntNum) && _max[cmpntNum] <= maxValueOfTypeINT(*it, cmpntNum)))
+					if (!(_min[cmpntNum] >= minValueOfTypeINT(*it, cmpntNum) && _max[cmpntNum] <= maxValueOfTypeINT(*it, cmpntNum))) //! TODO: FIX signed vs. unsigned comparison
 					{
 						ok = false;
 						break;
@@ -1602,7 +1601,7 @@ E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned,
 				}
 				else
 				{
-					if (!(((int32_t*)(_min + cmpntNum))[0] >= minValueOfTypeINT(*it, cmpntNum) && ((int32_t*)(_max + cmpntNum))[0] <= maxValueOfTypeINT(*it, cmpntNum)))
+					if (!(((int32_t*)(_min + cmpntNum))[0] >= minValueOfTypeINT(*it, cmpntNum) && ((int32_t*)(_max + cmpntNum))[0] <= maxValueOfTypeINT(*it, cmpntNum))) //! TODO: FIX signed vs. unsigned comparison
 					{
 						ok = false;
 						break;
@@ -1620,12 +1619,12 @@ E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned,
 	return bestType;
 }
 
-std::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfProperRangeF(E_COMPONENT_TYPE _type, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t _sizeThreshold, const float * _min, const float * _max, const SErrorMetric& _errMetric) const
+core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfProperRangeF(E_COMPONENT_TYPE _type, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t _sizeThreshold, const float * _min, const float * _max, const SErrorMetric& _errMetric) const
 {
-	std::vector<E_COMPONENT_TYPE> all{ ECT_FLOAT, ECT_HALF_FLOAT, ECT_DOUBLE_IN_FLOAT_OUT, ECT_DOUBLE_IN_DOUBLE_OUT, ECT_UNSIGNED_INT_10F_11F_11F_REV, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
-	std::vector<E_COMPONENT_TYPE> normalized{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
-	std::vector<E_COMPONENT_TYPE> bgra{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_BYTE };
-	std::vector<E_COMPONENT_TYPE> normals{ ECT_NORMALIZED_SHORT, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_HALF_FLOAT };
+	core::vector<E_COMPONENT_TYPE> all{ ECT_FLOAT, ECT_HALF_FLOAT, ECT_DOUBLE_IN_FLOAT_OUT, ECT_DOUBLE_IN_DOUBLE_OUT, ECT_UNSIGNED_INT_10F_11F_11F_REV, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
+	core::vector<E_COMPONENT_TYPE> normalized{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
+	core::vector<E_COMPONENT_TYPE> bgra{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_BYTE };
+	core::vector<E_COMPONENT_TYPE> normals{ ECT_NORMALIZED_SHORT, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_HALF_FLOAT };
 
 	if (scene::isNormalized(_type) || _errMetric.method == EEM_ANGLES)
 	{
@@ -1646,7 +1645,7 @@ std::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfPr
 	else if (scene::isNormalized(_type) && scene::isSigned(_type))
 		all.erase(std::remove_if(all.begin(), all.end(), [](E_COMPONENT_TYPE _t) { return scene::isUnsigned(_t); }), all.end());
 
-	std::vector<SAttribTypeChoice> possibleTypes;
+	core::vector<SAttribTypeChoice> possibleTypes;
 	core::vectorSIMDf min(_min), max(_max);
 
 	for (auto it = all.begin(); it != all.end(); ++it)
@@ -1685,7 +1684,7 @@ std::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfPr
 	return possibleTypes;
 }
 
-bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const std::vector<core::vectorSIMDf>& _srcData, const SErrorMetric& _errMetric) const
+bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _srcData, const SErrorMetric& _errMetric) const
 {
 	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE);
 
@@ -1767,11 +1766,11 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	return true;
 }
 
-core::ICPUBuffer* CMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const
+core::ICPUBuffer* CMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const
 {
-	if (_idxType == video::EIT_16BIT)
+	if (_idxType == EIT_16BIT)
 		return triangleStripsToTriangles<uint16_t>(_input, _idxCount);
-	else if (_idxType == video::EIT_32BIT)
+	else if (_idxType == EIT_32BIT)
 		return triangleStripsToTriangles<uint32_t>(_input, _idxCount);
 	return NULL;
 }
@@ -1800,11 +1799,11 @@ core::ICPUBuffer* CMeshManipulator::triangleStripsToTriangles(const void* _input
 template core::ICPUBuffer* CMeshManipulator::triangleStripsToTriangles<uint16_t>(const void* _input, size_t _idxCount) const;
 template core::ICPUBuffer* CMeshManipulator::triangleStripsToTriangles<uint32_t>(const void* _input, size_t _idxCount) const;
 
-core::ICPUBuffer* CMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, video::E_INDEX_TYPE _idxType) const
+core::ICPUBuffer* CMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const
 {
-	if (_idxType == video::EIT_16BIT)
+	if (_idxType == EIT_16BIT)
 		return trianglesFanToTriangles<uint16_t>(_input, _idxCount);
-	else if (_idxType == video::EIT_32BIT)
+	else if (_idxType == EIT_32BIT)
 		return trianglesFanToTriangles<uint32_t>(_input, _idxCount);
 	return NULL;
 }

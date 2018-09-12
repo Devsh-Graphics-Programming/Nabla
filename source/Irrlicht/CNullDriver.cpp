@@ -272,8 +272,6 @@ void CNullDriver::deleteAllTextures()
 bool CNullDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 		const SExposedVideoData& videoData, core::rect<int32_t>* sourceRect)
 {
-	core::clearFPUException();
-
 	scene::CMeshSceneNodeInstanced::recullOrder = 0;
 
 	PrimitivesDrawn = 0;
@@ -476,11 +474,11 @@ void CNullDriver::removeTexture(ITexture* texture)
     SSurface s;
     s.Surface = texture;
 
-	std::vector<SSurface>::iterator found = std::lower_bound(Textures.begin(),Textures.end(),s);
-	if (found==Textures.end())
+	auto found = std::lower_bound(Textures.begin(),Textures.end(),s);
+	if (found==Textures.end() || s<*found)
         return;
 
-	std::vector<SSurface>::iterator foundHi = std::upper_bound(found,Textures.end(),s);
+	auto foundHi = std::upper_bound(found,Textures.end(),s);
 	for (; found!=foundHi; found++)
     {
         if (found->Surface==texture)
@@ -494,20 +492,20 @@ void CNullDriver::removeTexture(ITexture* texture)
 
 void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
 {
-    int32_t ix = MultisampleTextures.binary_search(tex);
-    if (ix<0)
+    auto it = std::lower_bound(MultisampleTextures.begin(),MultisampleTextures.end(),tex);
+    if (it==MultisampleTextures.end() || tex<*it)
         return;
-    MultisampleTextures.erase(ix);
+    MultisampleTextures.erase(it);
 
     tex->drop();
 }
 
 void CNullDriver::removeTextureBufferObject(ITextureBufferObject* tbo)
 {
-    int32_t ix = TextureBufferObjects.binary_search(tbo);
-    if (ix<0)
+    auto it = std::lower_bound(TextureBufferObjects.begin(),TextureBufferObjects.end(),tbo);
+    if (it==TextureBufferObjects.end() || tbo<*it)
         return;
-    TextureBufferObjects.erase(ix);
+    TextureBufferObjects.erase(it);
 
     tbo->drop();
 }
@@ -654,7 +652,7 @@ ITexture* CNullDriver::getTexture(io::IReadFile* file, ECOLOR_FORMAT format)
 //! opens the file and loads it into the surface
 video::ITexture* CNullDriver::loadTextureFromFile(io::IReadFile* file, ECOLOR_FORMAT format, const io::path& hashName )
 {
-	std::vector<CImageData*> images = createImageDataFromFile(file);
+	auto images = createImageDataFromFile(file);
 
 	if (images.size()==0)
         return nullptr;
@@ -677,10 +675,10 @@ void CNullDriver::addToTextureCache(video::ITexture* texture)
     SSurface s;
     s.Surface = texture;
 
-    std::vector<SSurface>::iterator found = std::lower_bound(Textures.begin(),Textures.end(),s);
+    auto found = std::lower_bound(Textures.begin(),Textures.end(),s);
     if (found!=Textures.end())
     {
-        std::vector<SSurface>::iterator foundHi = std::upper_bound(found,Textures.end(),s);
+        auto foundHi = std::upper_bound(found,Textures.end(),s);
         for (; found!=foundHi; found++)
         {
             if (found->Surface==texture)
@@ -704,14 +702,14 @@ video::ITexture* CNullDriver::findTexture(const io::path& filename)
 	SSurface s;
 	s.Surface = dummy;
 
-	std::vector<SSurface>::iterator found = std::lower_bound(Textures.begin(),Textures.end(),s);
+	auto found = std::lower_bound(Textures.begin(),Textures.end(),s);
 	if (found==Textures.end())
     {
         dummy->drop();
         return nullptr;
     }
 
-	std::vector<SSurface>::iterator foundHi = std::upper_bound(found,Textures.end(),s);
+	auto foundHi = std::upper_bound(found,Textures.end(),s);
 	for (; found!=foundHi; found++)
     {
         if (found->Surface->getName().getInternalName()==io::SNamedPath::PathToName(filename))
@@ -738,7 +736,7 @@ ITexture* CNullDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const ui
 }
 
 //! .
-ITexture* CNullDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
+ITexture* CNullDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
 {
 	if ( 0 == name.size () )
 		return 0;
@@ -813,8 +811,8 @@ void CNullDriver::draw2DImage(const video::ITexture* texture, const core::positi
 //! by the indices given.
 void CNullDriver::draw2DImageBatch(const video::ITexture* texture,
 				const core::position2d<int32_t>& pos,
-				const core::array<core::rect<int32_t> >& sourceRects,
-				const core::array<int32_t>& indices,
+				const core::vector<core::rect<int32_t> >& sourceRects,
+				const core::vector<int32_t>& indices,
 				int32_t kerningWidth,
 				const core::rect<int32_t>* clipRect, SColor color,
 				bool useAlphaChannelOfTexture)
@@ -833,8 +831,8 @@ void CNullDriver::draw2DImageBatch(const video::ITexture* texture,
 //! draws a set of 2d images, using a color and the alpha channel of the
 //! texture if desired.
 void CNullDriver::draw2DImageBatch(const video::ITexture* texture,
-				const core::array<core::position2d<int32_t> >& positions,
-				const core::array<core::rect<int32_t> >& sourceRects,
+				const core::vector<core::position2d<int32_t> >& positions,
+				const core::vector<core::rect<int32_t> >& sourceRects,
 				const core::rect<int32_t>* clipRect,
 				SColor color,
 				bool useAlphaChannelOfTexture)
@@ -986,31 +984,31 @@ bool CNullDriver::getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const
 
 
 //! Creates a software image from a file.
-std::vector<CImageData*> CNullDriver::createImageDataFromFile(const io::path& filename)
+core::vector<CImageData*> CNullDriver::createImageDataFromFile(const io::path& filename)
 {
 	if (!filename.size())
-		return std::vector<CImageData*>();
+		return core::vector<CImageData*>();
 
 	io::IReadFile* file = FileSystem->createAndOpenFile(filename);
 
 	if (file)
 	{
-		std::vector<CImageData*> imageData = createImageDataFromFile(file);
+		core::vector<CImageData*> imageData = createImageDataFromFile(file);
 		file->drop();
 		return imageData;
 	}
 //	else
 //		os::Printer::log("Could not open file of image", filename, ELL_WARNING);	// sodan
 
-	return std::vector<CImageData*>();
+	return core::vector<CImageData*>();
 }
 
 
 //! Creates a software image from a file.
-std::vector<CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* file)
+core::vector<CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* file)
 {
 	if (!file)
-		return std::vector<CImageData*>();
+		return core::vector<CImageData*>();
 
 
 	int32_t i;
@@ -1022,7 +1020,7 @@ std::vector<CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* fil
 		{
 			// reset file position which might have changed due to previous loadImage calls
 			file->seek(0);
-			std::vector<CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
+			core::vector<CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
 			if (imageData.size())
 				return imageData;
 		}
@@ -1036,13 +1034,13 @@ std::vector<CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* fil
 		if (SurfaceLoader[i]->isALoadableFileFormat(file))
 		{
 			file->seek(0);
-			std::vector<CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
+			core::vector<CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
 			if (imageData.size())
 				return imageData;
 		}
 	}
 
-	return std::vector<CImageData*>(); // failed to load
+	return core::vector<CImageData*>(); // failed to load
 }
 
 
@@ -1143,7 +1141,7 @@ void CNullDriver::drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGP
 
 void CNullDriver::drawIndexedIndirect(  const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const scene::E_PRIMITIVE_TYPE& mode,
-                                        const E_INDEX_TYPE& type,
+                                        const scene::E_INDEX_TYPE& type,
                                         const IGPUBuffer* indirectDrawBuff,
                                         const size_t& offset, const size_t& count, const size_t& stride)
 {
@@ -1359,7 +1357,7 @@ bool CNullDriver::replaceHighLevelShaderMaterial(const int32_t &materialIDToRepl
     const char* geometryShaderEntryPointName,
     const char* pixelShaderEntryPointName)
 {
-    if (MaterialRenderers.size()<materialIDToReplace)
+    if (materialIDToReplace<0 || MaterialRenderers.size()<static_cast<uint32_t>(materialIDToReplace))
         return false;
 
     int32_t nr = addHighLevelShaderMaterial(vertexShaderProgram,controlShaderProgram,evaluationShaderProgram,geometryShaderProgram,pixelShaderProgram,
@@ -1371,7 +1369,7 @@ bool CNullDriver::replaceHighLevelShaderMaterial(const int32_t &materialIDToRepl
 	MaterialRenderers[materialIDToReplace].Renderer->drop();
 	MaterialRenderers[materialIDToReplace] = MaterialRenderers[MaterialRenderers.size()-1];
 
-	MaterialRenderers.set_used(MaterialRenderers.size()-1);
+	MaterialRenderers.resize(MaterialRenderers.size()-1);
 
     return true;
 }
@@ -1601,13 +1599,13 @@ int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
 void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
 {
 	MultisampleTextures.push_back(tex);
-	MultisampleTextures.sort();
+	std::sort(MultisampleTextures.begin(),MultisampleTextures.end());
 }
 
 void CNullDriver::addTextureBufferObject(ITextureBufferObject* tbo)
 {
 	TextureBufferObjects.push_back(tbo);
-	TextureBufferObjects.sort();
+	std::sort(TextureBufferObjects.begin(),TextureBufferObjects.end());
 }
 
 

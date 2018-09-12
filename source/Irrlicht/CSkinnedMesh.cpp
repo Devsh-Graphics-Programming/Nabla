@@ -45,8 +45,8 @@ CCPUSkinnedMesh::~CCPUSkinnedMesh()
 
 void CCPUSkinnedMesh::clearMeshBuffers()
 {
-	for (uint32_t i = 0; i<LocalBuffers.size(); ++i)
-		LocalBuffers[i]->drop();
+	for (auto buff : LocalBuffers)
+		buff->drop();
 	LocalBuffers.clear();
 }
 
@@ -97,25 +97,25 @@ void CCPUSkinnedMesh::setBoundingBox( const core::aabbox3df& box)
 //! sets a flag of all contained materials to a new value
 void CCPUSkinnedMesh::setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
 {
-	for (uint32_t i=0; i<LocalBuffers.size(); ++i)
-		LocalBuffers[i]->getMaterial().setFlag(flag,newvalue);
+	for (auto buff : LocalBuffers)
+		buff->getMaterial().setFlag(flag,newvalue);
 }
 
 
 
-core::array<scene::SCPUSkinMeshBuffer*> &CCPUSkinnedMesh::getMeshBuffers()
+core::vector<scene::SCPUSkinMeshBuffer*> &CCPUSkinnedMesh::getMeshBuffers()
 {
 	return LocalBuffers;
 }
 
 
-std::vector<CCPUSkinnedMesh::SJoint*> &CCPUSkinnedMesh::getAllJoints()
+core::vector<CCPUSkinnedMesh::SJoint*> &CCPUSkinnedMesh::getAllJoints()
 {
 	return AllJoints;
 }
 
 
-const std::vector<CCPUSkinnedMesh::SJoint*> &CCPUSkinnedMesh::getAllJoints() const
+const core::vector<CCPUSkinnedMesh::SJoint*> &CCPUSkinnedMesh::getAllJoints() const
 {
 	return AllJoints;
 }
@@ -141,12 +141,12 @@ void CCPUSkinnedMesh::checkForAnimation()
 	//meshes with weights, are still counted as animated for ragdolls, etc
 	if (!HasAnimation && AllJoints.size())
 	{
-		for(i=0;i<LocalBuffers.size();++i)
+		for(auto buff : LocalBuffers)
 		{
-		    if (!LocalBuffers[i])
+		    if (!buff)
                 continue;
 
-			scene::IMeshDataFormatDesc<core::ICPUBuffer>* desc = LocalBuffers[i]->getMeshDataAndFormat();
+			scene::IMeshDataFormatDesc<core::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
 			if (!desc)
                 continue;
 
@@ -186,15 +186,15 @@ void PrintDebugBoneHierarchy(ICPUSkinnedMesh::SJoint* joint, std::string indent=
 //! called by loader after populating with mesh and bone data
 void CCPUSkinnedMesh::finalize()
 {
-	for (size_t i=0; i<LocalBuffers.size(); ++i)
+    for (auto it=LocalBuffers.begin(); it!=LocalBuffers.end();)
 	{
-	    if (!LocalBuffers[i]||LocalBuffers[i]->getIndexCount()==0)
+	    if (!(*it) || (*it)->getIndexCount()==0)
         {
-            LocalBuffers[i]->drop();
-            LocalBuffers.erase(i);
-            i--;
-            continue;
+            (*it)->drop();
+            it = LocalBuffers.erase(it);
         }
+        else
+            it++;
 	}
 
 	//calculate bounding box
@@ -213,35 +213,35 @@ void CCPUSkinnedMesh::finalize()
 	BoundingBox.reset(0,0,0);
 
 	bool firstStaticMesh = true;
-	for (size_t i=0; i<LocalBuffers.size(); ++i)
+	for (auto buff : LocalBuffers)
 	{
-	    IMeshDataFormatDesc<core::ICPUBuffer>* desc = LocalBuffers[i]->getMeshDataAndFormat();
+	    IMeshDataFormatDesc<core::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
 
         if (!desc->getMappedBuffer(scene::EVAI_ATTR5) || !desc->getMappedBuffer(scene::EVAI_ATTR6))
         {
-            LocalBuffers[i]->recalculateBoundingBox();
-            LocalBuffers[i]->setMaxVertexBoneInfluences(0);
+            buff->recalculateBoundingBox();
+            buff->setMaxVertexBoneInfluences(0);
             if (firstStaticMesh)
             {
-                BoundingBox.reset(LocalBuffers[i]->getBoundingBox());
+                BoundingBox.reset(buff->getBoundingBox());
                 firstStaticMesh = false;
             }
             else
-                BoundingBox.addInternalBox(LocalBuffers[i]->getBoundingBox());
+                BoundingBox.addInternalBox(buff->getBoundingBox());
         }
         else
         {
             core::aabbox3df bb;
             bb.reset(core::vector3df(0.f));
-            LocalBuffers[i]->setBoundingBox(bb);
+            buff->setBoundingBox(bb);
 
             uint32_t maxVertexInfluences = 1;
 
-            for (size_t j=LocalBuffers[i]->getIndexMinBound(); j<LocalBuffers[i]->getIndexMaxBound(); j++)
+            for (size_t j=buff->getIndexMinBound(); j<buff->getIndexMaxBound(); j++)
             {
                 core::vectorSIMDf origPos, boneWeights;
 				uint32_t boneIDs[4];
-                if (!LocalBuffers[i]->getAttribute(origPos,scene::EVAI_ATTR0,j) || !LocalBuffers[i]->getAttribute(boneIDs,scene::EVAI_ATTR5,j) || !LocalBuffers[i]->getAttribute(boneWeights,scene::EVAI_ATTR6,j))
+                if (!buff->getAttribute(origPos,scene::EVAI_ATTR0,j) || !buff->getAttribute(boneIDs,scene::EVAI_ATTR5,j) || !buff->getAttribute(boneWeights,scene::EVAI_ATTR6,j))
                     continue;
 
                 size_t boneID = size_t(boneIDs[0]);
@@ -272,18 +272,18 @@ void CCPUSkinnedMesh::finalize()
                 }
             }
 
-            LocalBuffers[i]->setMaxVertexBoneInfluences(maxVertexInfluences);
+            buff->setMaxVertexBoneInfluences(maxVertexInfluences);
         }
 	}
 	if (firstTouch)
         delete [] firstTouch;
 
-    std::vector<size_t> JointIxLevelEnd;
+    core::vector<size_t> JointIxLevelEnd;
 
 	if (AllJoints.size())
 	{
-	    std::vector<SJoint*> jointsReorderedByLevel;
-	    std::vector<uint8_t> reorderIndexRedirect;
+	    core::vector<SJoint*> jointsReorderedByLevel;
+	    core::vector<uint8_t> reorderIndexRedirect;
 	    reorderIndexRedirect.resize(AllJoints.size());
 
 		//fix parents
@@ -329,26 +329,26 @@ void CCPUSkinnedMesh::finalize()
         AllJoints = jointsReorderedByLevel;
 
         // fix the weights
-        for (size_t i=0; i<LocalBuffers.size(); ++i)
+        for (auto buff : LocalBuffers)
         {
-            IMeshDataFormatDesc<core::ICPUBuffer>* desc = LocalBuffers[i]->getMeshDataAndFormat();
+            IMeshDataFormatDesc<core::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
             if (!desc)
                 continue;
 
             if (!desc->getMappedBuffer(scene::EVAI_ATTR5))
                 continue;
 
-            for (size_t j=LocalBuffers[i]->getIndexMinBound(); j<LocalBuffers[i]->getIndexMaxBound(); j++)
+            for (size_t j=buff->getIndexMinBound(); j<buff->getIndexMaxBound(); j++)
             {
 				uint32_t boneIDs[4];
-                if (!LocalBuffers[i]->getAttribute(boneIDs,scene::EVAI_ATTR5,j))
+                if (!buff->getAttribute(boneIDs,scene::EVAI_ATTR5,j))
                     continue;
 
                 uint32_t newBoneIDs[4];
                 for (size_t k=0; k<4; k++)
                     newBoneIDs[k] = reorderIndexRedirect[boneIDs[k]];
 
-                LocalBuffers[i]->setAttribute(newBoneIDs,scene::EVAI_ATTR5,j);
+                buff->setAttribute(newBoneIDs,scene::EVAI_ATTR5,j);
             }
         }
 	}
@@ -357,44 +357,44 @@ void CCPUSkinnedMesh::finalize()
     //--- optimize and check keyframes ---
     for(size_t i=0;i<AllJoints.size();++i)
     {
-        core::array<SPositionKey> &PositionKeys =AllJoints[i]->PositionKeys;
-        core::array<SScaleKey> &ScaleKeys = AllJoints[i]->ScaleKeys;
-        core::array<SRotationKey> &RotationKeys = AllJoints[i]->RotationKeys;
+        core::vector<SPositionKey> &PositionKeys =AllJoints[i]->PositionKeys;
+        core::vector<SScaleKey> &ScaleKeys = AllJoints[i]->ScaleKeys;
+        core::vector<SRotationKey> &RotationKeys = AllJoints[i]->RotationKeys;
 
-        PositionKeys.sort();
+        std::sort(PositionKeys.begin(),PositionKeys.end());
         if (PositionKeys.size()>2)
         {
             for(uint32_t j=0;j<PositionKeys.size()-2;++j)
             {
                 if (PositionKeys[j].position == PositionKeys[j+1].position && PositionKeys[j+1].position == PositionKeys[j+2].position)
                 {
-                    PositionKeys.erase(j+1); //the middle key is unneeded
+                    PositionKeys.erase(PositionKeys.begin()+j+1); //the middle key is unneeded
                     --j;
                 }
             }
         }
 
-        ScaleKeys.sort();
+        std::sort(ScaleKeys.begin(),ScaleKeys.end());
         if (ScaleKeys.size()>2)
         {
             for(uint32_t j=0;j<ScaleKeys.size()-2;++j)
             {
                 if (ScaleKeys[j].scale == ScaleKeys[j+1].scale && ScaleKeys[j+1].scale == ScaleKeys[j+2].scale)
                 {
-                    ScaleKeys.erase(j+1); //the middle key is unneeded
+                    ScaleKeys.erase(ScaleKeys.begin()+j+1); //the middle key is unneeded
                     --j;
                 }
             }
         }
 
-        RotationKeys.sort();
+        std::sort(RotationKeys.begin(),RotationKeys.end());
         if (RotationKeys.size()>2)
         {
             for(uint32_t j=0;j<RotationKeys.size()-2;++j)
             {
                 if ((RotationKeys[j].rotation == RotationKeys[j+1].rotation && RotationKeys[j+1].rotation == RotationKeys[j+2].rotation).all())
                 {
-                    RotationKeys.erase(j+1); //the middle key is unneeded
+                    RotationKeys.erase(RotationKeys.begin()+j+1); //the middle key is unneeded
                     --j;
                 }
             }
@@ -407,8 +407,8 @@ void CCPUSkinnedMesh::finalize()
 
 	if (!HasAnimation)
     {
-        for (size_t i=0; i<LocalBuffers.size(); ++i)
-            LocalBuffers[i]->setMaxVertexBoneInfluences(0);
+        for (auto buff : LocalBuffers)
+            buff->setMaxVertexBoneInfluences(0);
 	}
     else
     {

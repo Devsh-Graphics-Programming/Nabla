@@ -21,7 +21,7 @@ namespace scene
 #endif
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 namespace {
 // File header
@@ -95,7 +95,7 @@ struct MS3DVertexWeights
 } // end namespace
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 struct SGroup
 {
@@ -247,7 +247,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 	for (i=0; i<numGroups; ++i)
 	{
 		groups.push_back(SGroup());
-		SGroup& grp = groups.getLast();
+		SGroup& grp = groups.back();
 
 		// The byte flag is before the name, so add 1
 		grp.Name = ((const char*) pPtr) + 1;

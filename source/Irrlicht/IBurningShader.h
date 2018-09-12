@@ -6,14 +6,13 @@
 #define __I_BURNING_SHADER_H_INCLUDED__
 
 #include "SoftwareDriver2_compile_config.h"
-#include "IReferenceCounted.h"
-#include "irrMath.h"
+#include "irr/core/IReferenceCounted.h"
+#include "irr/core/math/irrMath.h"
 #include "IImage.h"
 #include "S2DVertex.h"
 #include "rect.h"
 #include "CDepthBuffer.h"
 #include "S4DVertex.h"
-#include "irrArray.h"
 #include "SMaterial.h"
 #include "os.h"
 
@@ -82,7 +81,7 @@ namespace video
 
 
 	class CBurningVideoDriver;
-	class IBurningShader : public virtual IReferenceCounted
+	class IBurningShader : public virtual core::IReferenceCounted
 	{
 	public:
 		IBurningShader(CBurningVideoDriver* driver);

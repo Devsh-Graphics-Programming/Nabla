@@ -5,7 +5,7 @@
 #ifndef __I_Z_BUFFER_H_INCLUDED__
 #define __I_Z_BUFFER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "dimension2d.h"
 #include "S2DVertex.h"
 
@@ -13,7 +13,7 @@ namespace irr
 {
 namespace video
 {
-	class IZBuffer : public virtual IReferenceCounted
+	class IZBuffer : public virtual core::IReferenceCounted
 	{
         public:
             //! clears the zbuffer

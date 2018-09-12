@@ -48,7 +48,7 @@ private:
 	void cleanup();
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	struct SLMTSHeader
 	{
@@ -88,7 +88,7 @@ private:
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 	SLMTSHeader Header;
 	SLMTSTextureInfoEntry* Textures;

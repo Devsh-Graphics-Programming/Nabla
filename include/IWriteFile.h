@@ -5,7 +5,7 @@
 #ifndef __I_WRITE_FILE_H_INCLUDED__
 #define __I_WRITE_FILE_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "path.h"
 
 namespace irr
@@ -14,7 +14,7 @@ namespace io
 {
 
 	//! Interface providing write access to a file.
-	class IWriteFile : public virtual IReferenceCounted
+	class IWriteFile : public virtual core::IReferenceCounted
 	{
 	public:
 		//! Writes an amount of bytes to the file.

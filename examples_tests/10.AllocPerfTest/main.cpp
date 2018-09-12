@@ -103,7 +103,7 @@ int main()
             #define ALIGNMENT 32
             if (buffer->Alloc(offset,allocSize,ALIGNMENT,video::IGPUTransientBuffer::EWP_DONT_WAIT)==video::IGPUTransientBuffer::EARS_SUCCESS)
             {
-                std::vector<video::IDriverMemoryAllocation::MemoryRange> dummyFlushRanges;
+                core::vector<video::IDriverMemoryAllocation::MappedMemoryRange> dummyFlushRanges;
                 buffer->Commit(offset,offset+allocSize,dummyFlushRanges);
                 assert(dummyFlushRanges.size()==0);
                 buffer->fenceRangeUsedByGPU(offset,offset+allocSize);

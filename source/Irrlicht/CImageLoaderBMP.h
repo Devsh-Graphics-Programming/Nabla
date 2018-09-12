@@ -19,7 +19,7 @@ namespace video
 
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	struct SBMPHeader
 	{
@@ -57,7 +57,7 @@ namespace video
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 #endif // defined with loader or writer
 
@@ -81,7 +81,7 @@ public:
 	virtual bool isALoadableFileFormat(io::IReadFile* file) const;
 
 	//! creates a surface from the file
-	virtual std::vector<CImageData*> loadImage(io::IReadFile* file) const;
+	virtual core::vector<CImageData*> loadImage(io::IReadFile* file) const;
 
 private:
 

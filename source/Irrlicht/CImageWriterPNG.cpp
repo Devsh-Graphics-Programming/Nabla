@@ -9,7 +9,6 @@
 #include "CImageLoaderPNG.h"
 #include "CColorConverter.h"
 #include "IWriteFile.h"
-#include "irrString.h"
 #include "os.h" // for logging
 
 #ifdef _IRR_COMPILE_WITH_LIBPNG_

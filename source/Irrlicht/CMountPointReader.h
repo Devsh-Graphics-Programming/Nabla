@@ -77,7 +77,7 @@ namespace io
 
 	private:
 
-		core::array<io::path> RealFileNames;
+		core::vector<io::path> RealFileNames;
 
 		IFileSystem *Parent;
 		void buildDirectory();

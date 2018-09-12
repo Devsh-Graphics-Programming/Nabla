@@ -7,8 +7,8 @@
 #ifndef __I_BUFFER_H_INCLUDED__
 #define __I_BUFFER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
-#include "stdint.h"
+#include "irr/core/Types.h"
+#include "irr/core/IReferenceCounted.h"
 
 namespace irr
 {

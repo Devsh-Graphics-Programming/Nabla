@@ -9,13 +9,10 @@
 #include "IFileSystem.h"
 #include "IImagePresenter.h"
 #include "IGPUProgrammingServices.h"
-#include "irrArray.h"
-#include "irrString.h"
 #include "IMesh.h"
 #include "IMeshBuffer.h"
 #include "IMeshSceneNode.h"
 #include "CFPSCounter.h"
-#include "SVertexIndex.h"
 #include "SExposedVideoData.h"
 #include "FW_Mutex.h"
 
@@ -104,10 +101,10 @@ namespace video
 		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
         //!
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN);
+        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN);
 
 		//! A.
-        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const std::vector<CImageData*>& mipChain)
+        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<CImageData*>& mipChain)
         {
             if (!tex)
                 return EMCE_OTHER_ERR;
@@ -115,7 +112,7 @@ namespace video
             if (mipChain.size()==0)
                 return EMCE_NO_ERR;
 
-            for (std::vector<CImageData*>::const_iterator it = mipChain.begin(); it!=mipChain.end(); it++)
+            for (core::vector<CImageData*>::const_iterator it = mipChain.begin(); it!=mipChain.end(); it++)
             {
                 CImageData* img = *it;
                 if (!img)
@@ -202,7 +199,7 @@ namespace video
                                          const size_t& offset, const size_t& count, const size_t& stride);
 		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                          const scene::E_PRIMITIVE_TYPE& mode,
-                                         const E_INDEX_TYPE& type,
+                                         const scene::E_INDEX_TYPE& type,
                                          const IGPUBuffer* indirectDrawBuff,
                                          const size_t& offset, const size_t& count, const size_t& stride);
 
@@ -228,8 +225,8 @@ namespace video
 		used to draw the image. */
 		virtual void draw2DImageBatch(const video::ITexture* texture,
 				const core::position2d<int32_t>& pos,
-				const core::array<core::rect<int32_t> >& sourceRects,
-				const core::array<int32_t>& indices,
+				const core::vector<core::rect<int32_t> >& sourceRects,
+				const core::vector<int32_t>& indices,
 				int32_t kerningWidth = 0,
 				const core::rect<int32_t>* clipRect = 0,
 				SColor color=SColor(255,255,255,255),
@@ -252,8 +249,8 @@ namespace video
 		\param useAlphaChannelOfTexture: If true, the alpha channel of
 		the texture is used to draw the image. */
 		virtual void draw2DImageBatch(const video::ITexture* texture,
-				const core::array<core::position2d<int32_t> >& positions,
-				const core::array<core::rect<int32_t> >& sourceRects,
+				const core::vector<core::position2d<int32_t> >& positions,
+				const core::vector<core::rect<int32_t> >& sourceRects,
 				const core::rect<int32_t>* clipRect=0,
 				SColor color=SColor(255,255,255,255),
 				bool useAlphaChannelOfTexture=false);
@@ -348,10 +345,10 @@ namespace video
 		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const;
 
 		//! Creates a software image from a file.
-		virtual std::vector<CImageData*> createImageDataFromFile(const io::path& filename);
+		virtual core::vector<CImageData*> createImageDataFromFile(const io::path& filename);
 
 		//! Creates a software image from a file.
-		virtual std::vector<CImageData*> createImageDataFromFile(io::IReadFile* file);
+		virtual core::vector<CImageData*> createImageDataFromFile(io::IReadFile* file);
 
 		//! Creates a software image from a byte array.
 		/** \param useForeignMemory: If true, the image will use the data pointer
@@ -635,14 +632,14 @@ namespace video
                 virtual const IDriverMemoryAllocation* getBoundMemory() const {return nullptr;}
                 virtual size_t getBoundMemoryOffset() const {return 0u;}
 		};
-		std::vector<SSurface> Textures;
+		core::vector<SSurface> Textures;
 
-		core::array<IMultisampleTexture*> MultisampleTextures;
-		core::array<ITextureBufferObject*> TextureBufferObjects;
+		core::vector<IMultisampleTexture*> MultisampleTextures;
+		core::vector<ITextureBufferObject*> TextureBufferObjects;
 
-		core::array<video::IImageLoader*> SurfaceLoader;
-		core::array<video::IImageWriter*> SurfaceWriter;
-		core::array<SMaterialRenderer> MaterialRenderers;
+		core::vector<video::IImageLoader*> SurfaceLoader;
+		core::vector<video::IImageWriter*> SurfaceWriter;
+		core::vector<SMaterialRenderer> MaterialRenderers;
 
 
         IQueryObject* currentQuery[EQOT_COUNT][_IRR_XFORM_FEEDBACK_MAX_STREAMS_];

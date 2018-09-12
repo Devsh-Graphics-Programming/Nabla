@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CGeometryCreator.h"
-#include "SAnimatedMesh.h"
 #include "SMesh.h"
 #include "IMesh.h"
 #include "IVideoDriver.h"
@@ -37,7 +36,7 @@ ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
     core::ICPUBuffer* indices = new core::ICPUBuffer(sizeof(u));
     memcpy(indices->getPointer(),u,sizeof(u));
     desc->mapIndexBuffer(indices);
-    buffer->setIndexType(video::EIT_16BIT);
+    buffer->setIndexType(EIT_16BIT);
     buffer->setIndexCount(sizeof(u)/sizeof(*u));
     indices->drop();
 
@@ -159,7 +158,7 @@ IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const
 
 	ICPUMesh* cpumesh = createCubeMeshCPU(size);
 
-	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
@@ -222,7 +221,7 @@ IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
 
 	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createArrowMeshCPU(tesselationCylinder,tesselationCone,height,cylinderHeight,width0,width1,vtxColor0,vtxColor1));
 
-	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
@@ -256,7 +255,7 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t polyCount
     size_t indexCount = (polyCountX * polyCountY) * 6;
     core::ICPUBuffer* indices = new core::ICPUBuffer(indexCount * 4);
     desc->mapIndexBuffer(indices);
-    buffer->setIndexType(video::EIT_32BIT);
+    buffer->setIndexType(EIT_32BIT);
     buffer->setIndexCount(indexCount);
     //buffer->setIndexRange(0,11);
     indices->drop();
@@ -443,7 +442,7 @@ IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, flo
 
 	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createSphereMeshCPU(radius,polyCountX,polyCountY));
 
-	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
@@ -543,7 +542,7 @@ ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float length,
     vtxBuf->drop();
     desc->mapIndexBuffer(idxBuf);
     meshbuf->setIndexCount(idxBuf->getSize()/2u);
-    meshbuf->setIndexType(video::EIT_16BIT);
+    meshbuf->setIndexType(EIT_16BIT);
     meshbuf->setPrimitiveType(EPT_TRIANGLES);
     idxBuf->drop();
     meshbuf->setMeshDataAndFormat(desc);
@@ -566,7 +565,7 @@ IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
 
 	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createCylinderMeshCPU(radius,length,tesselation,color,closeTop,oblique));
 
-	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
@@ -634,7 +633,7 @@ ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length, uint32
     vtxBuf->drop();
     desc->mapIndexBuffer(idxBuf);
     meshbuf->setIndexCount(idxBuf->getSize()/2u);
-    meshbuf->setIndexType(video::EIT_16BIT);
+    meshbuf->setIndexType(EIT_16BIT);
     meshbuf->setPrimitiveType(EPT_TRIANGLES);
     idxBuf->drop();
     meshbuf->setMeshDataAndFormat(desc);
@@ -658,7 +657,7 @@ IGPUMesh* CGeometryCreator::createConeMeshGPU(video::IVideoDriver* driver,
 
 	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createConeMeshCPU(radius,length,tesselation,colorTop,colorBottom,oblique));
 
-	auto retval = driver->createGPUMeshesFromCPU(std::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];

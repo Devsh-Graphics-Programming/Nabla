@@ -49,7 +49,7 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 public:
     SimpleCallBack() : cameraDirUniformLocation(-1), cameraDirUniformType(video::ESCT_FLOAT_VEC3) {}
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
         for (size_t i=0; i<constants.size(); i++)
         {
@@ -87,7 +87,7 @@ class PostProcCallBack : public video::IShaderConstantSetCallBack
 public:
     PostProcCallBack() {}
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
         /**
         Shader Unigorms get saved as Program (Shader state)
@@ -113,13 +113,13 @@ public:
 };
 
 
-#include "irrpack.h"
+#include "irr/irrpack.h"
 struct ScreenQuadVertexStruct
 {
     float Pos[3];
     uint8_t TexCoord[2];
 } PACK_STRUCT;
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 int main()
 {
@@ -193,7 +193,7 @@ int main()
     if (cpumesh&&cpumesh->getMeshType()==scene::EMT_ANIMATED_SKINNED)
     {
         scene::ISkinnedMeshSceneNode* anode = 0;
-        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
+        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh))[0];
         smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
 
         for (size_t x=0; x<kInstanceSquareSize; x++)
@@ -270,7 +270,7 @@ int main()
         desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
         desc->mapIndexBuffer(buff);
         screenQuadMeshBuffer->setIndexBufferOffset(sizeof(vertices));
-        screenQuadMeshBuffer->setIndexType(video::EIT_16BIT);
+        screenQuadMeshBuffer->setIndexType(scene::EIT_16BIT);
         screenQuadMeshBuffer->setIndexCount(6);
         buff->drop();
 

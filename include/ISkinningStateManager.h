@@ -77,7 +77,7 @@ namespace scene
     //! SUPER-CONSTRAINT::::: ALL IAnimatedMeshSceneNodeInstanced LoD Meshes HAVE TO USE THE SAME CFinalBoneHierarchy!!
     /**     Or We need two separate classes, one which makes instances with bones, one that makes them without and these can use different bone hierarchies!
     **/
-    class ISkinningStateManager : public virtual IReferenceCounted
+    class ISkinningStateManager : public virtual core::IReferenceCounted
     {
         public:
             enum E_BONE_UPDATE_MODE
@@ -385,7 +385,7 @@ namespace scene
             size_t instanceDataSize;
 
             size_t instanceFinalBoneDataSize;
-            #include "irrpack.h"
+            #include "irr/irrpack.h"
             struct FinalBoneData
             {
                 core::matrix4x3 SkinningTransform;
@@ -394,7 +394,7 @@ namespace scene
                 float MaxBBoxEdge[3];
                 float lastAnimatedFrame; //to pad to 128bit align, maybe parentOffsetRelative?
             } PACK_STRUCT;
-            #include "irrunpack.h"
+            #include "irr/irrunpack.h"
     };
 
 } // end namespace scene

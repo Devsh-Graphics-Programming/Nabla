@@ -84,7 +84,7 @@ namespace video
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
 
 
-	    virtual std::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*> mesh);
+	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh);
 
 
         virtual void flushBufferRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges);
@@ -120,7 +120,7 @@ namespace video
                                         const size_t& offset, const size_t& count, const size_t& stride);
 		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                             const scene::E_PRIMITIVE_TYPE& mode,
-                                            const E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
+                                            const scene::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
                                             const size_t& offset, const size_t& count, const size_t& stride);
 
 
@@ -193,7 +193,7 @@ namespace video
 		virtual uint32_t getMaximalIndicesCount() const;
 
 		//! .
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const std::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
+        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
 
         //!
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false);
@@ -346,7 +346,7 @@ namespace video
 
 
             //! FBOs
-            core::array<IFrameBuffer*>  FrameBuffers;
+            core::vector<IFrameBuffer*>  FrameBuffers;
             COpenGLFrameBuffer*         CurrentFBO;
             core::dimension2d<uint32_t> CurrentRendertargetSize;
 
@@ -493,7 +493,7 @@ namespace video
             //!
             typedef std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> HashVAOPair;
             HashVAOPair                 CurrentVAO;
-            std::vector<HashVAOPair>    VAOMap;
+            core::vector<HashVAOPair>    VAOMap;
 
             inline size_t getVAOCacheSize() const
             {
@@ -568,7 +568,7 @@ namespace video
 
             //! Samplers
             uint64_t                            CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
-            std::unordered_map<uint64_t,GLuint> SamplerMap;
+            core::unordered_map<uint64_t,GLuint> SamplerMap;
         };
 
 

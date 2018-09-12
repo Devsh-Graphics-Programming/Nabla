@@ -16,9 +16,9 @@
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
 #include "os.h"
-#include "SAnimatedMesh.h"
+
 #include "SMeshBufferLightMap.h"
-#include "irrString.h"
+
 #include "ISceneManager.h"
 
 namespace irr
@@ -196,8 +196,8 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 	}
 
 	// load textures
-	core::array<video::ITexture*> tex;
-	tex.reallocate(header.numTextures + 1);
+	core::vector<video::ITexture*> tex;
+	tex.reserve(header.numTextures + 1);
 	tex.push_back(0);
 
 	const core::stringc relpath = io::IFileSystem::getFileDir(file->getFileName())+"/";
@@ -213,8 +213,8 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 	}
 
 	// prepare lightmaps
-	core::array<video::ITexture*> lig;
-	lig.set_used(header.numLightmaps + 1);
+	core::vector<video::ITexture*> lig;
+	lig.resize(header.numLightmaps + 1);
 	lig[0] = 0;
 
 	const uint32_t lightmapWidth = 128;

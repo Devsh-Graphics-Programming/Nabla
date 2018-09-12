@@ -5,7 +5,6 @@
 #ifndef __IRR_PLANE_3D_H_INCLUDED__
 #define __IRR_PLANE_3D_H_INCLUDED__
 
-#include "irrMath.h"
 #include "vector3d.h"
 
 namespace irr

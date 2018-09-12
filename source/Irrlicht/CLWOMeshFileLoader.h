@@ -9,7 +9,7 @@
 
 #ifdef _IRR_COMPILE_WITH_LWO_LOADER_
 #include "IMeshLoader.h"
-#include "irrString.h"
+
 
 
 namespace irr

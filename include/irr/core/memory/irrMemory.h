@@ -5,16 +5,18 @@
 #ifndef __IRR_MEMORY_H_INCLUDED__
 #define __IRR_MEMORY_H_INCLUDED__
 
-#include "irrMath.h"
-#include "irrVoid_t.h"
-#include <type_traits>
+#include "irr/core/math/irrMath.h"
+#include "irr/void_t.h"
 #include <typeinfo>
 #include <cstddef>
 
 
-#define _IRR_SIMD_ALIGNMENT                 16 // change to 32 or 64 for AVX or AVX2 compatibility respectively, might break BaW file format!
+#define _IRR_SIMD_ALIGNMENT                 16u // change to 32 or 64 for AVX or AVX2 compatibility respectively, might break BaW file format!
 //! Default alignment for a type
 #define _IRR_DEFAULT_ALIGNMENT(_obj_type)   (std::alignment_of<_obj_type>::value>(_IRR_SIMD_ALIGNMENT) ? std::alignment_of<_obj_type>::value:(_IRR_SIMD_ALIGNMENT))
+
+#define _IRR_MIN_MAP_BUFFER_ALIGNMENT       64u// GL_MIN_MAP_BUFFER_ALIGNMENT
+
 
 //! Very useful for enabling compiler optimizations
 #if defined(_MSC_VER)
@@ -36,16 +38,6 @@
     #define _IRR_ALIGNED_MALLOC(size,alignment)     ::_aligned_malloc(size,alignment)
     #define _IRR_ALIGNED_FREE(addr)                 ::_aligned_free(addr)
 #else
-    /** TODO: Get that lambda to work!
-    #define _IRR_ALIGNED_MALLOC(size,alignment)     [](size_t size2, size_t alignment2) noexcept -> void* \
-                                                    { \
-                                                        if (size2 == 0) return nullptr; \
-                                                        void* p; \
-                                                        if (::posix_memalign(&p, alignment2<alignof(std::max_align_t) ? alignof(std::max_align_t):alignment2, size2) != 0) p = nullptr; \
-                                                        return p; \
-                                                    }(size,alignment)
-                                                    //immediately invoke lambda
-    .**/
 
 namespace irr
 {
@@ -65,34 +57,14 @@ namespace impl
 #endif
 
 
-//TODO FInal: Allow overrides of Global New and Delete ???
+//! TODO: FINAL Allow overrides of Global New and Delete ???
 #ifdef _IRR_ALLOW_GLOBAL_NEW_TO_THROW
+#else
 #endif
-
-//TODO Mid: Define Lambda functions for _IRR_*_ALIGNED ?
 
 //TOTO Now: Create a irr::AllocatedByStaticAllocator<StaticAllocator> class
 //TOTO Now: Create a irr::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
 
-
-namespace irr
-{
-
-//! Special Class For providing deletion for things like C++11 smart-pointers
-struct alligned_delete
-{
-    template<class T>
-    void operator()(T* ptr) const noexcept(noexcept(ptr->~T()))
-    {
-        if (ptr)
-        {
-            ptr->~T();
-            _IRR_ALIGNED_FREE(ptr);
-        }
-    }
-};
-
-}
 
 //! TODO: Implement StaticAllocator<ALIGN> that respects custom alignment with boost::align and progress the defines
 #define _IRR_ALLOCATE_W_ALLOCATOR //incomplete
@@ -134,13 +106,13 @@ namespace irr
 //! Alignments can only be PoT in C++11 and in GPU APIs, so this is useful if you need to pad
 constexpr inline size_t alignUp(size_t value, size_t alignment)
 {
-    return (value + alignment - 1) & ~(alignment - 1);
+    return (value + alignment - 1ull) & ~(alignment - 1ull);
 }
 
 //! Down-rounding counterpart
 constexpr inline size_t alignDown(size_t value, size_t alignment)
 {
-    return (value - 1) & ~(alignment - 1);
+    return (value - 1ull) & ~(alignment - 1ull);
 }
 
 //! Valid alignments are power of two
@@ -150,15 +122,28 @@ constexpr inline bool is_alignment(size_t value)
 }
 
 
+//! Special Class For providing deletion for things like C++11 smart-pointers
+struct alligned_delete
+{
+    template<class T>
+    void operator()(T* ptr) const noexcept(noexcept(ptr->~T()))
+    {
+        if (ptr)
+        {
+            ptr->~T();
+            _IRR_ALIGNED_FREE(ptr);
+        }
+    }
+};
+
 //! Inherit from this class if you want to make sure all the derivations are aligned.
 /** Any class derived from this, even indirectly will be declared as aligned to
 `object_alignment`, unfortunately this is only enforced for objects on the stack.
 To make sure your object is aligned on heaps as well you need to inherit from
 `AlignedAllocOverrideBase` or one of its aliases instead. **/
 template<size_t object_alignment=_IRR_SIMD_ALIGNMENT>
-class FORCE_EMPTY_BASE_OPT alignas(object_alignment) AlignedBase
+class IRR_FORCE_EBO alignas(object_alignment) AlignedBase
 {
-
     static_assert(is_alignment(object_alignment),"Alignments must be PoT and positive!");
     static_assert(object_alignment<=128,"Pending migration to GCC 7+ highest alignment on c++ class is 128 bytes");
 };
@@ -167,13 +152,13 @@ namespace impl
 {
     //! Variadic template class for metaprogrammatically resolving max alignment resulting from multiple inheritance of AlignedBase. PLEASE DO NOT USE ANYWHERE ELSE.
     template <class... Ts>
-    class FORCE_EMPTY_BASE_OPT ResolveAlignment
+    class IRR_FORCE_EBO ResolveAlignment
     {
     };
 
     //! Specialization of ResolveAlignment for recursively resolving the alignment of many types.
     template <class T, class... Ts>
-    class FORCE_EMPTY_BASE_OPT ResolveAlignment<T, Ts...> :  public T
+    class IRR_FORCE_EBO ResolveAlignment<T, Ts...> :  public T
     {
         private:
             struct DummyForConditional {typedef void most_aligned_type;};
@@ -248,7 +233,7 @@ namespace impl
     /** Note regarding C++17, we don't overload the alignment on the versions with std::align_val_t.
     Why? Because we want to respect and not f-up the explicitly requested alignment. **/
     template <size_t object_alignment>
-    class FORCE_EMPTY_BASE_OPT ResolveAlignment<AlignedBase<object_alignment> > :  public AlignedBase<object_alignment>
+    class IRR_FORCE_EBO ResolveAlignment<AlignedBase<object_alignment> > :  public AlignedBase<object_alignment>
     {
         public:
             //! The maximally aligned type for this recursion of N template parameters

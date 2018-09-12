@@ -107,7 +107,7 @@ bool COBJMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, int32_t
 
 	// write mesh buffers
 
-	core::array<video::SMaterial*> mat;
+	core::vector<video::SMaterial*> mat;
 
 	uint32_t allVertexCount=1; // count vertices over the whole file
 	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
@@ -161,9 +161,9 @@ bool COBJMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, int32_t
 			file->write(num.c_str(), num.size());
 			file->write("\n",1);
 
-			if (buffer->getIndexType()==video::EIT_16BIT)
+			if (buffer->getIndexType()==EIT_16BIT)
                 writeIndices<uint16_t>(buffer,file,allVertexCount);
-			else if (buffer->getIndexType()==video::EIT_32BIT)
+			else if (buffer->getIndexType()==EIT_32BIT)
                 writeIndices<uint32_t>(buffer,file,allVertexCount);
 			file->write("\n",1);
 			allVertexCount += vertexCount;

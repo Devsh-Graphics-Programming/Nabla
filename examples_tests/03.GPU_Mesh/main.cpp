@@ -47,7 +47,7 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 public:
     SimpleCallBack() : mvpUniformLocation(-1), mvpUniformType(video::ESCT_FLOAT_VEC3) {}
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
         //! Normally we'd iterate through the array and check our actual constant names before mapping them to locations but oh well
         mvpUniformLocation = constants[0].location;
@@ -62,7 +62,7 @@ public:
     virtual void OnUnsetMaterial() {}
 };
 
-#include "irrpack.h"
+#include "irr/irrpack.h"
 struct VertexStruct
 {
     /// every member needs to be at location aligned to its type size for GLSL
@@ -70,7 +70,7 @@ struct VertexStruct
     uint8_t Col[2]; /// same logic needs 1 byte alignment
     uint8_t uselessPadding[2]; /// so if there is a member with 4 byte alignment then whole struct needs 4 byte align, so pad it
 } PACK_STRUCT;
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 int main()
 {
@@ -218,7 +218,7 @@ int main()
             scene::IGPUMeshBuffer* mb = new scene::IGPUMeshBuffer();
             mb->setMeshDataAndFormat(desc);
             mb->setIndexBufferOffset(sizeof(vertices));
-            mb->setIndexType(video::EIT_16BIT);
+            mb->setIndexType(scene::EIT_16BIT);
             mb->setIndexCount(2*3*6);
             desc->drop();
 

@@ -5,7 +5,7 @@
 #ifndef __IRR_I_MESH_WRITER_H_INCLUDED__
 #define __IRR_I_MESH_WRITER_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "EMeshWriterEnums.h"
 #include "IMesh.h"
 
@@ -20,7 +20,7 @@ namespace scene
 {
 
 	//! Interface for writing meshes
-	class IMeshWriter : public virtual IReferenceCounted
+	class IMeshWriter : public virtual core::IReferenceCounted
 	{
 	public:
 

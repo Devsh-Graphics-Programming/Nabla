@@ -108,16 +108,16 @@ private:
 	void readString(core::stringc& newstring);
 	void readFloats(float* vec, uint32_t count);
 
-	core::array<SB3dChunk> B3dStack;
+	core::vector<SB3dChunk> B3dStack;
 
-	core::array<SB3dMaterial> Materials;
-	core::array<SB3dTexture> Textures;
+	core::vector<SB3dMaterial> Materials;
+	core::vector<SB3dTexture> Textures;
 
-	core::array<int32_t> AnimatedVertices_VertexID;
+	core::vector<int32_t> AnimatedVertices_VertexID;
 
-	core::array<int32_t> AnimatedVertices_BufferID;
+	core::vector<int32_t> AnimatedVertices_BufferID;
 
-	core::array<video::S3DVertex2TCoords> BaseVertices;
+	core::vector<video::S3DVertex2TCoords> BaseVertices;
 
 	ISceneManager*	SceneManager;
 	CSkinnedMesh*	AnimatedMesh;

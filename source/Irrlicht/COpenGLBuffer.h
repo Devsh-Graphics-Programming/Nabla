@@ -143,6 +143,9 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
 
 
         //!
+        virtual size_t getAllocationSize() const {return IGPUBuffer::getSize();}
+
+        //!
         virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DONT_KNOW;}
 
         //!

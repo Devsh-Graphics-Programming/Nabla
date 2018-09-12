@@ -9,7 +9,7 @@
 #include "IrrCompileConfig.h"
 #include <cmath>       /* sqrt */
 #include "vectorSIMD.h"
-#include "irrArray.h"
+
 #include <vector>
 
 
@@ -47,7 +47,7 @@ class ISpline
         virtual const bool      canGiveParameterUntilBlockChange() const {return false;}
         // pass in current position
         virtual float           getParameterUntilBlockChange(const uint32_t& segmentID, const float& param) = 0;
-        virtual std::vector<float>   getBlockChangesInSegment(const uint32_t& segmentID, float startParam=0.f) = 0;
+        virtual core::vector<float>   getBlockChangesInSegment(const uint32_t& segmentID, float startParam=0.f) = 0;
 
         //is the distance and parameter the same?
         virtual bool            isArcLengthPrecise() const = 0;
@@ -187,9 +187,9 @@ class CLinearSpline : public ISpline
 
             return segments[segmentID].findNextBlockChange(param);
         }
-        virtual std::vector<float>   getBlockChangesInSegment(const uint32_t& segmentID, float startParam=0.f)
+        virtual core::vector<float>   getBlockChangesInSegment(const uint32_t& segmentID, float startParam=0.f)
         {
-            std::vector<float> changes;
+            core::vector<float> changes;
             if (segmentID>=segments.size())
                 return changes;
 
@@ -296,7 +296,7 @@ class CLinearSpline : public ISpline
             vectorSIMDf weights[2];
         };
 
-        core::array<Segment> segments;
+        core::vector<Segment> segments;
         float splineLen;
 };
 
@@ -467,9 +467,9 @@ class CQuadraticSpline : public ISpline
 
             //return segments[segmentID].findNextBlockChange(param);
         }
-        virtual std::vector<float>   getBlockChangesInSegment(const uint32_t& segmentID, float startParam=0.f)
+        virtual core::vector<float>   getBlockChangesInSegment(const uint32_t& segmentID, float startParam=0.f)
         {
-            std::vector<float> changes;
+            core::vector<float> changes;
             //if (segmentID>=segments.size())
                 return changes;
 /*
@@ -759,7 +759,7 @@ class CQuadraticSpline : public ISpline
                 Segment() {}
         };
 
-        core::array<Segment> segments;
+        core::vector<Segment> segments;
         float splineLen;
 };
 
@@ -944,7 +944,7 @@ class CCubicSpline : public ISpline
 
                 length = 0;
                 vectorSIMDf currentPt = endPt;
-                core::array<vectorSIMDf> lenPoints;
+                core::vector<vectorSIMDf> lenPoints;
                 lenPoints.push_back(startPt);
                 while (lenPoints.size())
                 {
@@ -969,8 +969,8 @@ class CCubicSpline : public ISpline
             vectorSIMDf weights[4];
         };
 
-        //core::array<vectorSIMDf> controls;
-        core::array<Segment> segments;
+        //core::vector<vectorSIMDf> controls;
+        core::vector<Segment> segments;
         float splineLen;
 };
 */

@@ -14,6 +14,8 @@
 #include "coreutil.h"
 #include "os.h"
 
+#include "irr/core/Types.h"
+
 /*
 namespace std
 {
@@ -91,9 +93,9 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 
 	const uint32_t WORD_BUFFER_LENGTH = 512;
 
-	core::array<core::vector3df> vertexBuffer;
-	core::array<core::vector3df> normalsBuffer;
-	core::array<core::vector2df> textureCoordBuffer;
+	core::vector<core::vector3df> vertexBuffer;
+	core::vector<core::vector3df> normalsBuffer;
+	core::vector<core::vector2df> textureCoordBuffer;
 
 	SObjMtl * currMtl = new SObjMtl();
 	Materials.push_back(currMtl);
@@ -224,8 +226,8 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 			const char* linePtr = wordBuffer.c_str();
 			const char* const endPtr = linePtr+wordBuffer.size();
 
-			core::array<uint32_t> faceCorners;
-			faceCorners.reallocate(32); // should be large enough
+			core::vector<uint32_t> faceCorners;
+			faceCorners.reserve(32); // should be large enough
 
 			// read in all vertices
 			linePtr = goNextWord(linePtr, endPtr);
@@ -269,7 +271,7 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 				}
 
 				int vertLocation;
-				std::map<SObjVertex, int>::iterator n = currMtl->VertMap.find(v);
+				core::map<SObjVertex, int>::iterator n = currMtl->VertMap.find(v);
 				if (n!=currMtl->VertMap.end())
 				{
 					vertLocation = n->second;
@@ -295,8 +297,8 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 				currMtl->Indices.push_back( faceCorners[i] );
 				currMtl->Indices.push_back( faceCorners[0] );
 			}
-			faceCorners.set_used(0); // fast clear
-			faceCorners.reallocate(32);
+			faceCorners.resize(0); // fast clear
+			faceCorners.reserve(32);
 		}
 		break;
 
@@ -323,8 +325,8 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 
         if (Materials[m]->RecalculateNormals)
         {
-            core::irrAllocatorFast<core::vectorSIMDf> alctr;
-            core::vectorSIMDf* newNormals = alctr.allocate(sizeof(core::vectorSIMDf)*Materials[m]->Vertices.size());
+            core::allocator<core::vectorSIMDf> alctr;
+            core::vectorSIMDf* newNormals = alctr.allocate(Materials[m]->Vertices.size());
             memset(newNormals,0,sizeof(core::vectorSIMDf)*Materials[m]->Vertices.size());
             for (size_t i=0; i<Materials[m]->Indices.size(); i+=3)
             {
@@ -347,7 +349,7 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
             {
                 Materials[m]->Vertices[i].normal32bit = quantizeNormal2_10_10_10(newNormals[i]);
             }
-            alctr.deallocate(newNormals);
+            alctr.deallocate(newNormals,Materials[m]->Vertices.size());
         }
         if (Materials[m]->Material.MaterialType == -1)
             os::Printer::log("Loading OBJ Models with normal maps and tangents not supported!\n",ELL_ERROR);/*
@@ -398,7 +400,7 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
             indexbuf->drop();
             memcpy(indexbuf->getPointer(),&Materials[m]->Indices[0],indexbuf->getSize());
 
-            meshbuffer->setIndexType(video::EIT_32BIT);
+            meshbuffer->setIndexType(EIT_32BIT);
             meshbuffer->setIndexCount(Materials[m]->Indices.size());
         }
 
@@ -868,15 +870,15 @@ COBJMeshFileLoader::SObjMtl* COBJMeshFileLoader::findMtl(const std::string& mtlN
 	if (defMaterial)
 	{
 		Materials.push_back(new SObjMtl(*defMaterial));
-		Materials.getLast()->Group = grpName;
-		return Materials.getLast();
+		Materials.back()->Group = grpName;
+		return Materials.back();
 	}
 	// we found a new group for a non-existant material
 	else if (grpName.length())
 	{
 		Materials.push_back(new SObjMtl(*Materials[0]));
-		Materials.getLast()->Group = grpName;
-		return Materials.getLast();
+		Materials.back()->Group = grpName;
+		return Materials.back();
 	}
 	return 0;
 }

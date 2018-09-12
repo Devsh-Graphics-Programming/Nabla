@@ -52,7 +52,7 @@ class COpenGLMultisampleTextureArray : public COpenGLTexture, public IMultisampl
         virtual ECOLOR_FORMAT getColorFormat() const {return ColorFormat;}
 
         //!
-        virtual const E_MULTISAMPLE_TEXTURE_TYPE getTextureType() const {return EMTT_2D_ARRAY;}
+        virtual E_MULTISAMPLE_TEXTURE_TYPE getTextureType() const {return EMTT_2D_ARRAY;}
 
         //! sampleCount of 0 indicates not 0 samples but the same amount as old texture
         virtual bool resize(const uint32_t* size, const uint32_t& sampleCount=0);
@@ -68,6 +68,7 @@ class COpenGLMultisampleTextureArray : public COpenGLTexture, public IMultisampl
 
 
         //!
+        virtual size_t getAllocationSize() const {return TextureSize[2]*TextureSize[1]*((TextureSize[0]*SampleCount*getOpenGLFormatBpp(InternalFormat))/8u);}
         virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
         virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
         virtual size_t getBoundMemoryOffset() const {return 0ll;}

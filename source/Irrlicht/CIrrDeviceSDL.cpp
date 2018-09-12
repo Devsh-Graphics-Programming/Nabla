@@ -12,7 +12,7 @@
 
 #include "os.h"
 #include "CTimer.h"
-#include "irrString.h"
+
 #include "Keycodes.h"
 #include "COSOperator.h"
 #include <stdio.h>
@@ -528,15 +528,15 @@ bool CIrrDeviceSDL::run()
 }
 
 //! Activate any joysticks, and generate events for them.
-bool CIrrDeviceSDL::activateJoysticks(core::array<SJoystickInfo> & joystickInfo)
+bool CIrrDeviceSDL::activateJoysticks(core::vector<SJoystickInfo> & joystickInfo)
 {
 #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
 	joystickInfo.clear();
 
 	// we can name up to 256 different joysticks
 	const int numJoysticks = core::min_(SDL_NumJoysticks(), 256);
-	Joysticks.reallocate(numJoysticks);
-	joystickInfo.reallocate(numJoysticks);
+	Joysticks.reserve(numJoysticks);
+	joystickInfo.reserve(numJoysticks);
 
 	int joystick = 0;
 	for (; joystick<numJoysticks; ++joystick)
@@ -801,7 +801,7 @@ void CIrrDeviceSDL::createKeyMap()
 	// the lookuptable, but I'll leave it like that until
 	// I find a better version.
 
-	KeyMap.reallocate(105);
+	KeyMap.reserve(105);
 
 	// buttons missing
 

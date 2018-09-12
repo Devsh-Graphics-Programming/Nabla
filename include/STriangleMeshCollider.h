@@ -2,7 +2,7 @@
 #define __S_TRIANGLE_MESH_COLLIDER_H_INCLUDED__
 
 #include "SAABoxCollider.h"
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 
 namespace irr
 {
@@ -68,7 +68,7 @@ class STriangleMeshCollider : public IReferenceCounted
         SAABoxCollider BBox;
         ///matrix4x3 cachedTransformInverse;
         ///matrix4x3 cachedTransform;
-        array<STriangleCollider> triangles;
+        vector<STriangleCollider> triangles;
     public:
         STriangleMeshCollider() : BBox(core::aabbox3df()) {}
 

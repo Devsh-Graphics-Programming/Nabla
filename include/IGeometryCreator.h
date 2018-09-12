@@ -5,7 +5,7 @@
 #ifndef __I_GEOMETRY_CREATOR_H_INCLUDED__
 #define __I_GEOMETRY_CREATOR_H_INCLUDED__
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "IMesh.h"
 
 namespace irr
@@ -21,7 +21,7 @@ namespace scene
 
 //! Helper class for creating geometry on the fly.
 /** You can get an instance of this class through ISceneManager::getGeometryCreator() */
-class IGeometryCreator : public IReferenceCounted
+class IGeometryCreator : public core::IReferenceCounted
 {
     _IRR_INTERFACE_CHILD(IGeometryCreator) {}
 public:

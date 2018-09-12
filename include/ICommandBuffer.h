@@ -14,7 +14,7 @@ namespace video
 {
 
 //!
-class ICommandBuffer : public virtual IReferenceCounted
+class ICommandBuffer : public virtual core::IReferenceCounted
 {
     public:
     protected:

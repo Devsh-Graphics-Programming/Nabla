@@ -24,11 +24,11 @@
 
 #include <cmath>
 
-#include "irrMacros.h"
+#include "irr/macros.h"
 
 #define MAX_SIZE_VERTEX_CACHE 16
 
-namespace irr { namespace scene 
+namespace irr { namespace scene
 {
 	template<typename IdxT>
 	void CForsythVertexCacheOptimizer::optimizeTriangleOrdering(const size_t _numVerts, const size_t _numIndices, const IdxT* _indices, IdxT* _outIndices) const
@@ -45,8 +45,8 @@ namespace irr { namespace scene
 		//
 		// Step 1: Run through the data, and initialize
 		//
-		std::vector<VertData> vertexData(_numVerts);
-		std::vector<TriData> triangleData(NumPrimitives);
+		core::vector<VertData> vertexData(_numVerts);
+		core::vector<TriData> triangleData(NumPrimitives);
 
 		uint32_t curIdx = 0;
 		for (int32_t tri = 0; tri < NumPrimitives; tri++)
@@ -169,14 +169,14 @@ namespace irr { namespace scene
 			// Enforce cache size, this will update the cache position of all verts
 			// still in the cache. It will also update the score of the verts in the
 			// cache, and give back a list of triangle indicies that need updating.
-			std::vector<uint32_t> trisToUpdate;
+			core::vector<uint32_t> trisToUpdate;
 			lruCache.enforceSize(MAX_SIZE_VERTEX_CACHE, trisToUpdate);
 
 			// Now update scores for triangles that need updates, and find the new best
 			// triangle score/index
 			nextBestTriIdx = -1;
 			nextBestTriScore = -1.0f;
-			for (std::vector<uint32_t>::iterator itr = trisToUpdate.begin(); itr != trisToUpdate.end(); ++itr)
+			for (core::vector<uint32_t>::iterator itr = trisToUpdate.begin(); itr != trisToUpdate.end(); ++itr)
 			{
 				TriData &tri = triangleData[*itr];
 
@@ -276,7 +276,7 @@ namespace irr { namespace scene
 
 	//------------------------------------------------------------------------------
 
-	void CForsythVertexCacheOptimizer::LRUCacheModel::enforceSize(const size_t maxSize, std::vector<uint32_t> &outTrisToUpdate)
+	void CForsythVertexCacheOptimizer::LRUCacheModel::enforceSize(const size_t maxSize, core::vector<uint32_t> &outTrisToUpdate)
 	{
 		// Clear list of triangles to update scores for
 		outTrisToUpdate.clear();

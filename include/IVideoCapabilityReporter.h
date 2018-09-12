@@ -35,7 +35,7 @@ namespace video
             //! Whether one cycle of read->write to the same pixel on an active FBO is supported (always in Vulkan)
             EDF_TEXTURE_BARRIER,
 
-            //! If we can attach a stencil only texture to an FBO, if not must use Depth+Stencil or RenderBuffer
+            //! If we can attach a stencil only texture to an FBO, if not must use Depth+Stencil
             EDF_STENCIL_ONLY_TEXTURE,
 
             //! Whether we can get gl_DrawIDARB in GLSL (if not see https://www.g-truc.net/post-0518.html for ways to circumvent)

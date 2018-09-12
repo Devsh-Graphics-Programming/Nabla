@@ -89,7 +89,7 @@ public:
             uniformLocation[j][i] = -1;
     }
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
         for (size_t i=0; i<constants.size(); i++)
         for (size_t j=0; j<EU_COUNT; j++)
@@ -284,19 +284,19 @@ int main()
 	device->setEventReceiver(&receiver);
 
 	//! Test Loading of Obj
-    scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/cow.obj");
-    scene::ICPUMesh* cpumesh2 = smgr->getMesh("../../media/yellowflower.obj");
-    if (!cpumesh||!cpumesh2)
-        return 0;
+	core::vector<scene::ICPUMesh*> cpumeshes;
+    cpumeshes.push_back(smgr->getMesh("../../media/cow.obj"));
+    cpumeshes.push_back(smgr->getMesh("../../media/yellowflower.obj"));
+    if (cpumeshes.size()!=2u)
+        return 1;
 
-    scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh))[0];
-    scene::IGPUMesh* gpumesh2 = driver->createGPUMeshesFromCPU(std::vector<scene::ICPUMesh*>(1,cpumesh2))[0];
-    smgr->getMeshCache()->removeMesh(cpumesh);
-    smgr->getMeshCache()->removeMesh(cpumesh2);
-    for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
-        gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-    for (size_t i=0; i<gpumesh2->getMeshBufferCount(); i++)
-        gpumesh2->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
+    core::vector<scene::IGPUMesh*> gpumeshes = driver->createGPUMeshesFromCPU(cpumeshes);
+    smgr->getMeshCache()->removeMesh(cpumeshes[0]);
+    smgr->getMeshCache()->removeMesh(cpumeshes[1]);
+    for (size_t i=0; i<gpumeshes[0]->getMeshBufferCount(); i++)
+        gpumeshes[0]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
+    for (size_t i=0; i<gpumeshes[1]->getMeshBufferCount(); i++)
+        gpumeshes[1]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
 
 
     video::SMaterial cullingXFormFeedbackShader;
@@ -339,9 +339,9 @@ int main()
         {
             std::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
             LevelsOfDetail.resize(2);
-            LevelsOfDetail[0].mesh = gpumesh;
+            LevelsOfDetail[0].mesh = gpumeshes[0];
             LevelsOfDetail[0].lodDistance = instanceLoDDistances[0];
-            LevelsOfDetail[1].mesh = gpumesh2;
+            LevelsOfDetail[1].mesh = gpumeshes[1];
             LevelsOfDetail[1].lodDistance = instanceLoDDistances[1];
 
             node->setLoDMeshes(LevelsOfDetail,37*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,NULL,0,CPUCullingFunc);
@@ -415,11 +415,11 @@ int main()
         node->setBBoxUpdateEnabled();
         node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
         {
-            std::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
+            core::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
             LevelsOfDetail.resize(2);
-            LevelsOfDetail[0].mesh = gpumesh;
+            LevelsOfDetail[0].mesh = gpumeshes[0];
             LevelsOfDetail[0].lodDistance = instanceLoDDistances[0];
-            LevelsOfDetail[1].mesh = gpumesh2;
+            LevelsOfDetail[1].mesh = gpumeshes[1];
             LevelsOfDetail[1].lodDistance = instanceLoDDistances[1];
 
             bool success = node->setLoDMeshes(LevelsOfDetail,28*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,2,NULL,0,CPUCullingFunc);
@@ -492,8 +492,8 @@ int main()
         delete [] instancesToRemove;
         node->remove();
 
-    gpumesh->drop();
-    gpumesh2->drop();
+    gpumeshes[0]->drop();
+    gpumeshes[1]->drop();
 
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);

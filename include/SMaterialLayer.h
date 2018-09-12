@@ -12,7 +12,7 @@ namespace irr
 namespace video
 {
 
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	//! Struct for holding material parameters which exist per texture layer
 	class SMaterialLayer
@@ -75,7 +75,7 @@ namespace video
 		friend class SMaterial;
 	} PACK_STRUCT;
 
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 } // end namespace video
 } // end namespace irr

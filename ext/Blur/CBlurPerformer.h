@@ -3,9 +3,9 @@
 
 #include <cstdint>
 #include <tuple>
-#include <IReferenceCounted.h>
+#include <irr/core/IReferenceCounted.h>
 #include <IVideoDriver.h>
-#include <irrMemory.h>
+#include <irr/core/memory/irrMemory.h>
 
 namespace irr {
     namespace video {
@@ -22,7 +22,7 @@ namespace ext
 namespace Blur
 {
 
-class CBlurPerformer : public IReferenceCounted
+class CBlurPerformer : public core::IReferenceCounted
 {
     struct ImageBindingData
     {
@@ -107,7 +107,7 @@ public:
     //! _radius must be a value from range [0.f, 1.f], otherwise gets clamped.
     //! Radius in this case indicates % of X and Y dimensions of output size.
     inline void setRadius(float _radius)
-    { 
+    {
         _radius = std::max(0.f, std::min(_radius, 1.f));
         if (m_radius == _radius)
             return;
@@ -174,9 +174,9 @@ private:
     void updateUBO(const void* _contents);
     void updateUBO();
 
-    static tuple2xu32 makeShaders(const core::vector2d<uint32_t>& _outSize, const core::vector2d<uint32_t>& _dsf, uint32_t _passesPerAxis, video::ECOLOR_FORMAT _colorFmt);
+    static tuple2xu32 makeShaders(video::IVideoDriver* _driver, const core::vector2d<uint32_t>& _outSize, const core::vector2d<uint32_t>& _dsf, uint32_t _passesPerAxis, video::ECOLOR_FORMAT _colorFmt);
 
-    static bool genBlurPassCs(char* _out, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, const core::vector2d<uint32_t>& _dsf, video::ECOLOR_FORMAT _colorFmt, int _finalPass);
+    static bool genBlurPassCs(char* _out, video::IVideoDriver* _driver, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, const core::vector2d<uint32_t>& _dsf, video::ECOLOR_FORMAT _colorFmt, int _finalPass);
 
     void bindSSBuffers() const;
     static ImageBindingData getCurrentImageBinding(uint32_t _imgUnit);

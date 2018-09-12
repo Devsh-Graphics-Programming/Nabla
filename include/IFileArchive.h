@@ -50,7 +50,7 @@ enum E_FILE_ARCHIVE_TYPE
 };
 
 //! The FileArchive manages archives and provides access to files inside them.
-class IFileArchive : public virtual IReferenceCounted
+class IFileArchive : public virtual core::IReferenceCounted
 {
 public:
 
@@ -88,7 +88,7 @@ public:
 currently unsupported file formats (e.g .wad), then implement
 this and add your new Archive loader with
 IFileSystem::addArchiveLoader() to the engine. */
-class IArchiveLoader : public virtual IReferenceCounted
+class IArchiveLoader : public virtual core::IReferenceCounted
 {
 public:
 	//! Check if the file might be loaded by this class

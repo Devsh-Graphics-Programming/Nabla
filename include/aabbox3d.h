@@ -5,7 +5,7 @@
 #ifndef __IRR_AABBOX_3D_H_INCLUDED__
 #define __IRR_AABBOX_3D_H_INCLUDED__
 
-#include "irrMath.h"
+#include "irr/core/math/irrMath.h"
 #include "plane3d.h"
 #include "line3d.h"
 

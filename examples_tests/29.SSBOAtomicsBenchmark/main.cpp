@@ -167,13 +167,13 @@ std::string loadShaderFile(io::IFileSystem* fsys, const irr::io::path &filename,
 }
 
 
-#include "irrpack.h"
+#include "irr/irrpack.h"
 struct ScreenQuadVertexStruct
 {
     float Pos[3];
     uint8_t TexCoord[2];
 } PACK_STRUCT;
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 
 
@@ -360,7 +360,7 @@ int main()
             desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
             desc->mapIndexBuffer(buff);
             screenQuadMeshBuffer->setIndexBufferOffset(sizeof(vertices));
-            screenQuadMeshBuffer->setIndexType(video::EIT_16BIT);
+            screenQuadMeshBuffer->setIndexType(scene::EIT_16BIT);
             screenQuadMeshBuffer->setIndexCount(6);
             buff->drop();
         }

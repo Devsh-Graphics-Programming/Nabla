@@ -46,7 +46,7 @@ enum eDDSPixelFormat
 
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 /* structures */
 struct ddsColorKey
@@ -194,7 +194,7 @@ struct ddsColor
 } PACK_STRUCT;*/
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 
 /* endian tomfoolery */
@@ -232,7 +232,7 @@ public:
 	virtual bool isALoadableFileFormat(io::IReadFile* file) const;
 
 	//! creates a surface from the file
-	virtual std::vector<CImageData*> loadImage(io::IReadFile* file) const;
+	virtual core::vector<CImageData*> loadImage(io::IReadFile* file) const;
 };
 
 

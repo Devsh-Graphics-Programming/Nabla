@@ -8,10 +8,9 @@
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#include "irrArray.h"
 #include "IMaterialRendererServices.h"
-#include "irrTypes.h"
-#include "irrMacros.h"
+#include "irr/core/Types.h"
+#include "irr/macros.h"
 #include "os.h"
 #include "coreutil.h"
 
@@ -948,7 +947,7 @@ class COpenGLExtensionHandler
 
 	static void loadFunctions();
 
-	bool isDeviceCompatibile(core::array<std::string>* failedExtensions=NULL);
+	bool isDeviceCompatibile(core::vector<std::string>* failedExtensions=NULL);
 
 	//! queries the features of the driver, returns true if feature is available
 	inline bool queryOpenGLFeature(EOpenGLFeatures feature) const
@@ -1133,7 +1132,6 @@ class COpenGLExtensionHandler
 	static GLenum extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target);
 	static void extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level);
 	static void extGlNamedFramebufferTextureLayer(GLuint framebuffer, GLenum attachment, GLuint texture, GLenum textureType, GLint level, GLint layer);
-	static void extGlNamedFramebufferRenderbuffer(GLuint framebuffer, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
 	static void extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
     static void extGlNamedFramebufferReadBuffer(GLuint framebuffer, GLenum mode);
 	static void extGlNamedFramebufferDrawBuffers(GLuint framebuffer, GLsizei n, const GLenum *bufs);
@@ -1143,11 +1141,6 @@ class COpenGLExtensionHandler
 	static void extGlClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value);
 	static void extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLint drawbuffer, GLfloat depth, GLint stencil);
 
-	// renderbuffers
-	static void extGlDeleteRenderbuffers(GLsizei n, const GLuint *renderbuffers);
-	static void extGlCreateRenderbuffers(GLsizei n, GLuint *renderbuffers);
-	static void extGlNamedRenderbufferStorage(GLuint renderbuffer, GLenum internalformat, GLsizei width, GLsizei height);
-	static void extGlNamedRenderbufferStorageMultisample(GLuint renderbuffer, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
 	static void extGlActiveStencilFace(GLenum face);
 
 	// vertex buffer object
@@ -1435,19 +1428,6 @@ class COpenGLExtensionHandler
     static PFNGLNAMEDFRAMEBUFFERTEXTURELAYEREXTPROC pGlNamedFramebufferTextureLayerEXT;
 	static PFNGLFRAMEBUFFERTEXTURE2DPROC pGlFramebufferTexture2D;
 	static PFNGLNAMEDFRAMEBUFFERTEXTURE2DEXTPROC pGlNamedFramebufferTexture2DEXT;
-    static PFNGLDELETERENDERBUFFERSPROC pGlDeleteRenderbuffers;
-    static PFNGLGENRENDERBUFFERSPROC pGlGenRenderbuffers;
-    static PFNGLCREATERENDERBUFFERSPROC pGlCreateRenderbuffers; //NULL
-    static PFNGLBINDRENDERBUFFERPROC pGlBindRenderbuffer;
-    static PFNGLRENDERBUFFERSTORAGEPROC pGlRenderbufferStorage;
-    static PFNGLNAMEDRENDERBUFFERSTORAGEPROC pGlNamedRenderbufferStorage; //NULL
-    static PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC pGlNamedRenderbufferStorageEXT;
-    static PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC pGlRenderbufferStorageMultisample;
-    static PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEPROC pGlNamedRenderbufferStorageMultisample; //NULL
-    static PFNGLNAMEDRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC pGlNamedRenderbufferStorageMultisampleEXT;
-    static PFNGLFRAMEBUFFERRENDERBUFFERPROC pGlFramebufferRenderbuffer;
-    static PFNGLNAMEDFRAMEBUFFERRENDERBUFFERPROC pGlNamedFramebufferRenderbuffer; //NULL
-    static PFNGLNAMEDFRAMEBUFFERRENDERBUFFEREXTPROC pGlNamedFramebufferRenderbufferEXT;
 
     //! REMOVE ALL BELOW
     // EXT framebuffer object
@@ -3357,8 +3337,8 @@ inline GLenum COpenGLExtensionHandler::extGlCheckNamedFramebufferStatus(GLuint f
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLenum retval;
-        GLint bound;
-        glGetIntegerv(target==GL_READ_FRAMEBUFFER ? GL_READ_FRAMEBUFFER_BINDING:GL_DRAW_FRAMEBUFFER_BINDING,&bound);
+        GLuint bound;
+        glGetIntegerv(target==GL_READ_FRAMEBUFFER ? GL_READ_FRAMEBUFFER_BINDING:GL_DRAW_FRAMEBUFFER_BINDING,reinterpret_cast<GLint*>(&bound));
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 		if (bound!=framebuffer)
 	        pGlBindFramebuffer(target,framebuffer);
@@ -3403,8 +3383,8 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTexture(GLuint framebu
     else
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
-        GLint bound;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING,&bound);
+        GLuint bound;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING,reinterpret_cast<GLint*>(&bound));
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (bound!=framebuffer)
 	        pGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
@@ -3449,8 +3429,8 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
 		else
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 		{
-			GLint bound;
-			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
+			GLuint bound;
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound));
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 			if (bound != framebuffer)
 				pGlBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -3483,8 +3463,8 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
 		else
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 		{
-			GLint bound;
-			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
+			GLuint bound;
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GLint*>(&bound));
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
 			if (bound != framebuffer)
 				pGlBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -3534,170 +3514,6 @@ inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFrameb
 	        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundReadFBO);
         if (drawFramebuffer!=boundDrawFBO)
 	        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundDrawFBO);
-    }
-}
-
-inline void COpenGLExtensionHandler::extGlDeleteRenderbuffers(GLsizei n, const GLuint *renderbuffers)
-{
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlDeleteRenderbuffers)
-		pGlDeleteRenderbuffers(n, renderbuffers);
-#else
-	glDeleteRenderbuffers(n, renderbuffers);
-#endif
-}
-
-inline void COpenGLExtensionHandler::extGlCreateRenderbuffers(GLsizei n, GLuint *renderbuffers)
-{
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlCreateRenderbuffers)
-            pGlCreateRenderbuffers(n, renderbuffers);
-        else if (renderbuffers)
-            memset(renderbuffers,0,n*sizeof(GLuint));
-#else
-        glCreateRenderbuffers(n, renderbuffers);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlGenRenderbuffers)
-            pGlGenRenderbuffers(n, renderbuffers);
-        else if (renderbuffers)
-            memset(renderbuffers,0,n*sizeof(GLuint));
-#else
-        glGenRenderbuffers(n, renderbuffers);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-}
-
-inline void COpenGLExtensionHandler::extGlNamedRenderbufferStorage(GLuint renderbuffer, GLenum internalformat, GLsizei width, GLsizei height)
-{
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlNamedRenderbufferStorage)
-            pGlNamedRenderbufferStorage(renderbuffer, internalformat, width, height);
-#else
-        glNamedRenderbufferStorage(renderbuffer, internalformat, width, height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlNamedRenderbufferStorageEXT)
-            pGlNamedRenderbufferStorageEXT(renderbuffer, internalformat, width, height);
-#else
-        glNamedRenderbufferStorageEXT(renderbuffer, internalformat, width, height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    else if (pGlRenderbufferStorage&&pGlBindRenderbuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    {
-        GLint bound;
-        glGetIntegerv(GL_RENDERBUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        pGlBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
-        pGlRenderbufferStorage(GL_RENDERBUFFER,internalformat,width,height);
-        pGlBindRenderbuffer(GL_RENDERBUFFER,bound);
-#else
-        glBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER,internalformat,width,height);
-        glBindRenderbuffer(GL_RENDERBUFFER,bound);
-#endif // _IRR_OPENGL_USE_EXTPOINTER
-    }
-}
-
-inline void COpenGLExtensionHandler::extGlNamedRenderbufferStorageMultisample(GLuint renderbuffer, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
-{
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlNamedRenderbufferStorageMultisample)
-            pGlNamedRenderbufferStorageMultisample(renderbuffer, samples, internalformat, width, height);
-#else
-        glNamedRenderbufferStorageMultisample(renderbuffer, samples, internalformat, width, height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlNamedRenderbufferStorageMultisampleEXT)
-            pGlNamedRenderbufferStorageMultisampleEXT(renderbuffer, samples, internalformat, width, height);
-#else
-        glNamedRenderbufferStorageMultisampleEXT(renderbuffer, samples, internalformat, width, height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    else if (pGlRenderbufferStorageMultisample&&pGlBindRenderbuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    {
-        GLint bound;
-        glGetIntegerv(GL_RENDERBUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        pGlBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
-        pGlRenderbufferStorageMultisample(GL_RENDERBUFFER,samples,internalformat,width,height);
-        pGlBindRenderbuffer(GL_RENDERBUFFER,bound);
-#else
-        glBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
-        glRenderbufferStorageMultisample(GL_RENDERBUFFER,samples,internalformat,width,height);
-        glBindRenderbuffer(GL_RENDERBUFFER,bound);
-#endif // _IRR_OPENGL_USE_EXTPOINTER
-    }
-}
-
-
-inline void COpenGLExtensionHandler::extGlNamedFramebufferRenderbuffer(GLuint framebuffer, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)
-{
-    if (!framebuffer)
-        return;
-
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlNamedFramebufferRenderbuffer)
-            pGlNamedFramebufferRenderbuffer(framebuffer, attachment, renderbuffertarget, renderbuffer);
-    #else
-        glNamedFramebufferRenderbuffer(framebuffer, attachment, renderbuffertarget, renderbuffer);
-    #endif
-    }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlNamedFramebufferRenderbufferEXT)
-            pGlNamedFramebufferRenderbufferEXT(framebuffer, attachment, renderbuffertarget, renderbuffer);
-    #else
-        glNamedFramebufferRenderbufferEXT(framebuffer, attachment, renderbuffertarget, renderbuffer);
-    #endif
-    }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    else if (pGlFramebufferRenderbuffer&&pGlBindFramebuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    {
-        GLint boundFBO;
-        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-		if (boundFBO!=framebuffer)
-	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
-        pGlFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, attachment, renderbuffertarget, renderbuffer);
-        if (boundFBO!=framebuffer)
-	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
-#else
-        if (boundFBO!=framebuffer)
-	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
-        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, attachment, renderbuffertarget, renderbuffer);
-        if (boundFBO!=framebuffer)
-	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
-#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 

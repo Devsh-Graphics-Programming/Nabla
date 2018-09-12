@@ -19,7 +19,6 @@
 #include "os.h"
 #include "CColorConverter.h"
 #include "CImage.h"
-#include "irrString.h"
 
 
 namespace irr
@@ -199,9 +198,9 @@ bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* file) const
 
 
 //! creates a surface from the file
-std::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
+core::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
 {
-	std::vector<CImageData*> images;
+	core::vector<CImageData*> images;
 
     video::eDDSPixelFormat pixelFormat;
     int32_t width, height, depth, mipmapCnt;

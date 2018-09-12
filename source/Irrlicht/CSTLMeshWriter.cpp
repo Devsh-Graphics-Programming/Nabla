@@ -153,14 +153,14 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh
 		ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer&&buffer->getMeshDataAndFormat())
 		{
-			video::E_INDEX_TYPE type = buffer->getIndexType();
+			E_INDEX_TYPE type = buffer->getIndexType();
 			if (!buffer->getMeshDataAndFormat()->getIndexBuffer())
-                type = video::EIT_UNKNOWN;
-			if (type==video::EIT_16BIT)
+                type = EIT_UNKNOWN;
+			if (type==EIT_16BIT)
             {
                 writeFacesBinary<uint16_t>(buffer, false, file, scene::EVAI_ATTR1);
             }
-			else if (type==video::EIT_32BIT)
+			else if (type==EIT_32BIT)
             {
                 writeFacesBinary<uint32_t>(buffer, false, file, scene::EVAI_ATTR1);
             }
@@ -192,11 +192,11 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
 		ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer&&buffer->getMeshDataAndFormat())
 		{
-			video::E_INDEX_TYPE type = buffer->getIndexType();
+			E_INDEX_TYPE type = buffer->getIndexType();
 			if (!buffer->getMeshDataAndFormat()->getIndexBuffer())
-                type = video::EIT_UNKNOWN;
+                type = EIT_UNKNOWN;
 			const uint32_t indexCount = buffer->getIndexCount();
-			if (type==video::EIT_16BIT)
+			if (type==EIT_16BIT)
 			{
                 //os::Printer::log("Writing mesh with 16bit indices");
                 for (uint32_t j=0; j<indexCount; j+=3)
@@ -208,7 +208,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh,
                     );
                 }
 			}
-			else if (type==video::EIT_32BIT)
+			else if (type==EIT_32BIT)
 			{
                 //os::Printer::log("Writing mesh with 32bit indices");
                 for (uint32_t j=0; j<indexCount; j+=3)

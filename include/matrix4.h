@@ -5,7 +5,6 @@
 #ifndef __IRR_MATRIX_H_INCLUDED__
 #define __IRR_MATRIX_H_INCLUDED__
 
-#include "irrMath.h"
 #include "vector3d.h"
 #include "vector2d.h"
 #include "plane3d.h"

@@ -168,14 +168,14 @@ namespace video
 
                 union
                 {
-                    #include "irrpack.h"
+                    #include "irr/irrpack.h"
                     struct
                     {
                         uint8_t attribFormatAndComponentCount[scene::EVAI_COUNT];
                         uint16_t enabledAttribs;
                         uint16_t attributeDivisors[_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS];
                     } PACK_STRUCT;
-                    #include "irrunpack.h"
+                    #include "irr/irrunpack.h"
 
                     uint64_t hashVal[(scene::EVAI_COUNT+2*_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS+sizeof(uint64_t)-1)/sizeof(uint64_t)];
                 };

@@ -12,7 +12,7 @@ namespace scene
 
 
 //! constructor
-CSceneNodeAnimatorTexture::CSceneNodeAnimatorTexture(const core::array<video::ITexture*>& textures,
+CSceneNodeAnimatorTexture::CSceneNodeAnimatorTexture(const core::vector<video::ITexture*>& textures,
 					 int32_t timePerFrame, bool loop, uint32_t now)
 : ISceneNodeAnimatorFinishing(0),
 	TimePerFrame(timePerFrame), StartTime(now), Loop(loop)

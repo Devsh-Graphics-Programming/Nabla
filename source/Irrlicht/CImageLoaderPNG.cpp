@@ -86,9 +86,9 @@ bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* file) const
 
 
 // load in the image data
-std::vector<CImageData*> CImageLoaderPng::loadImage(io::IReadFile* file) const
+core::vector<CImageData*> CImageLoaderPng::loadImage(io::IReadFile* file) const
 {
-    std::vector<CImageData*> retval;
+    core::vector<CImageData*> retval;
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 	if (!file)
 		return retval;

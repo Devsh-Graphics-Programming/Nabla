@@ -11,7 +11,7 @@
 #include "ISceneNodeAnimator.h"
 #include "SMaterial.h"
 #include "ITexture.h"
-#include "irrString.h"
+#include "irr/core/irrString.h"
 #include "aabbox3d.h"
 #include "matrix4.h"
 #include "IDummyTransformationSceneNode.h"

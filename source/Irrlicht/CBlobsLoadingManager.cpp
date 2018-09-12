@@ -20,10 +20,10 @@ _IRR_SUPPORTED_BLOBS(Function, __VA_ARGS__)\
 
 namespace irr { namespace core
 {
-std::unordered_set<uint64_t> CBlobsLoadingManager::getNeededDeps(uint32_t _blobType, const void * _blob)
+core::unordered_set<uint64_t> CBlobsLoadingManager::getNeededDeps(uint32_t _blobType, const void * _blob)
 {
 	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(getNeededDeps, _blobType, _blob)
-	return std::unordered_set<uint64_t>();
+	return core::unordered_set<uint64_t>();
 }
 
 void* CBlobsLoadingManager::instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
@@ -32,7 +32,7 @@ void* CBlobsLoadingManager::instantiateEmpty(uint32_t _blobType, const void* _bl
 	return NULL;
 }
 
-void* CBlobsLoadingManager::finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, std::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* CBlobsLoadingManager::finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(finalize, _blobType, _obj, _blob, _blobSize, _deps, _params)
 	return NULL;
@@ -44,7 +44,7 @@ void CBlobsLoadingManager::releaseObj(uint32_t _blobType, void * _obj)
 }
 
 /*
-inline std::string memberPackingDebugSupportFunc(uint32_t _blobType)
+inline core::string memberPackingDebugSupportFunc(uint32_t _blobType)
 {
     _IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(printMemberPackingDebug, _blobType)
 }

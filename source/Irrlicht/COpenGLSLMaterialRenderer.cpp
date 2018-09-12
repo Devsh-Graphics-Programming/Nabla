@@ -159,7 +159,7 @@ void COpenGLSLMaterialRenderer::init(int32_t& outMaterialTypeNr,
     // seems that some implementations use an extra null terminator
     ++maxlen;
 
-    core::array<SConstantLocationNamePair> constants;
+    core::vector<SConstantLocationNamePair> constants;
 
 
     char *buf = new char[maxlen];

@@ -8,10 +8,8 @@
 #include "IrrCompileConfig.h"
 #ifdef __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
 
-#include "IReferenceCounted.h"
+#include "irr/core/IReferenceCounted.h"
 #include "IReadFile.h"
-#include "irrArray.h"
-#include "irrString.h"
 #include "IFileSystem.h"
 #include "CFileList.h"
 
@@ -44,7 +42,7 @@ namespace io
 	};
 
 // byte-align structures
-#include "irrpack.h"
+#include "irr/irrpack.h"
 
 	struct SWADFileHeader
 	{
@@ -55,7 +53,7 @@ namespace io
 
 	struct SWADFileEntryOriginal
 	{
-		uint32_t	filepos;
+		uint32_t filepos;
 		uint32_t disksize;
 		uint32_t size;					// uncompressed
 		uint8_t type;
@@ -65,7 +63,7 @@ namespace io
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 	struct SWADFileEntry
 	{
@@ -162,7 +160,7 @@ namespace io
             eWADFileTypes WadType;
             SWADFileHeader Header;
 
-            //core::array<SWADFileEntry> FileInfo;
+            //core::vector<SWADFileEntry> FileInfo;
 
             io::IFileSystem* FileSystem;
 	};

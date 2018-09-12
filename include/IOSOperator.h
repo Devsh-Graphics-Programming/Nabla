@@ -5,14 +5,14 @@
 #ifndef __I_OS_OPERATOR_H_INCLUDED__
 #define __I_OS_OPERATOR_H_INCLUDED__
 
-#include "IReferenceCounted.h"
-#include "irrString.h"
+#include "irr/core/IReferenceCounted.h"
+#include "irr/core/irrString.h"
 
 namespace irr
 {
 
 //! The Operating system operator provides operation system specific methods and informations.
-class IOSOperator : public virtual IReferenceCounted
+class IOSOperator : public virtual core::IReferenceCounted
 {
 public:
 	//! Get the current operation system version as string.

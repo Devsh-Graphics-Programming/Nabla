@@ -6,12 +6,7 @@
 #ifndef __IRR_BAW_FILE_H_INCLUDED__
 #define __IRR_BAW_FILE_H_INCLUDED__
 
-#include <unordered_map>
-#include <unordered_set>
 
-#include "stdint.h"
-#include "irrTypes.h"
-#include "irrArray.h"
 #include "aabbox3d.h"
 #include "SMaterial.h"
 
@@ -47,8 +42,8 @@ namespace core
 {
 	struct BlobLoadingParams;
 
-#include "irrpack.h"
-	struct FORCE_EMPTY_BASE_OPT Blob
+#include "irr/irrpack.h"
+	struct IRR_FORCE_EBO Blob
 	{
 		//! Coding method of blob's data enumeration
 		enum E_BLOB_CODING_TYPE
@@ -105,7 +100,7 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Cast pointer to (first byte of) file buffer to BAWFile*. 256bit header must be first member (start of file).
-	struct FORCE_EMPTY_BASE_OPT BAWFileV0 {
+	struct IRR_FORCE_EBO BAWFileV0 {
 		//! 32-byte BaW binary format header, currently equal to "IrrlichtBaW BinaryFile" (and the rest filled with zeroes).
 		//! Also: last 8 bytes of file header is file-version number.
 		uint64_t fileHeader[4];
@@ -123,7 +118,7 @@ namespace core
 	} PACK_STRUCT;
 
 	template<template<typename, typename> class SizingT, typename B, typename T>
-	struct FORCE_EMPTY_BASE_OPT SizedBlob
+	struct IRR_FORCE_EBO SizedBlob
 	{
 	protected: // not intended for direct usage
 		SizedBlob() {}
@@ -158,7 +153,7 @@ namespace core
 	};
 
 	template<typename B, typename T>
-	struct FORCE_EMPTY_BASE_OPT VariableSizeBlob : SizedBlob<VariableSizeBlob, B, T>
+	struct IRR_FORCE_EBO VariableSizeBlob : SizedBlob<VariableSizeBlob, B, T>
 	{
 	protected: // not intended for direct usage
         VariableSizeBlob() {}
@@ -166,7 +161,7 @@ namespace core
 	};
 
 	template<typename B, typename T>
-	struct FORCE_EMPTY_BASE_OPT FixedSizeBlob : SizedBlob<FixedSizeBlob, B, T>
+	struct IRR_FORCE_EBO FixedSizeBlob : SizedBlob<FixedSizeBlob, B, T>
 	{
 	protected: // not intended for direct usage
 		FixedSizeBlob() {}
@@ -174,24 +169,24 @@ namespace core
 	};
 
 	template<typename B, typename T>
-	struct FORCE_EMPTY_BASE_OPT TypedBlob : Blob
+	struct IRR_FORCE_EBO TypedBlob : Blob
 	{
-		static std::unordered_set<uint64_t> getNeededDeps(const void* _blob);
+		static core::unordered_set<uint64_t> getNeededDeps(const void* _blob);
 		static void* instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);
-		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, std::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
+		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
 		static void releaseObj(const void* _obj);
 
-		//static std::string printMemberPackingDebug();
+		//static core::string printMemberPackingDebug();
 	};
 
-	struct FORCE_EMPTY_BASE_OPT RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, FixedSizeBlob<RawBufferBlobV0, ICPUBuffer>
+	struct IRR_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, FixedSizeBlob<RawBufferBlobV0, ICPUBuffer>
 	{};
 
-	struct FORCE_EMPTY_BASE_OPT TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, video::IVirtualTexture>, FixedSizeBlob<TexturePathBlobV0, video::IVirtualTexture>
+	struct IRR_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, video::IVirtualTexture>, FixedSizeBlob<TexturePathBlobV0, video::IVirtualTexture>
 	{};
 
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-	struct FORCE_EMPTY_BASE_OPT MeshBlobV0 : VariableSizeBlob<MeshBlobV0,scene::ICPUMesh>, TypedBlob<MeshBlobV0, scene::ICPUMesh>
+	struct IRR_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0,scene::ICPUMesh>, TypedBlob<MeshBlobV0, scene::ICPUMesh>
 	{
 		friend struct SizedBlob<core::VariableSizeBlob, MeshBlobV0, scene::ICPUMesh>;
 	private:
@@ -205,7 +200,7 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-	struct FORCE_EMPTY_BASE_OPT SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,scene::ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>
+	struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,scene::ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>
 	{
 		friend struct SizedBlob<core::VariableSizeBlob, SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>;
 	private:
@@ -219,7 +214,7 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-	struct FORCE_EMPTY_BASE_OPT MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>
+	struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>
 	{
 		//! Constructor filling all members
 		explicit MeshBufferBlobV0(const scene::ICPUMeshBuffer*);
@@ -237,7 +232,7 @@ namespace core
 		uint32_t posAttrId;
 	} PACK_STRUCT;
 
-	struct FORCE_EMPTY_BASE_OPT SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>
+	struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>
 	{
 		//! Constructor filling all members
 		explicit SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer*);
@@ -259,7 +254,7 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
-	struct FORCE_EMPTY_BASE_OPT MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >
+	struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >
 	{
 	private:
 		enum { VERTEX_ATTRIB_CNT = 16 };
@@ -276,7 +271,7 @@ namespace core
 		uint64_t idxBufPtr;
 	} PACK_STRUCT;
 
-	struct FORCE_EMPTY_BASE_OPT FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>
+	struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>
 	{
 		friend struct SizedBlob<core::VariableSizeBlob, FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>;
 	private:
@@ -348,7 +343,7 @@ namespace core
         size_t numLevelsInHierarchy;
         size_t keyframeCount;
 	} PACK_STRUCT;
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 	template<typename>
 	struct CorrespondingBlobTypeFor;

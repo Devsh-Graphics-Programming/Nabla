@@ -160,7 +160,7 @@ void CSkyDomeSceneNode::generateMesh()
     indexBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),indices);
     free(indices);
 	vao->mapIndexBuffer(indexBuf);
-	Buffer->setIndexType(video::EIT_16BIT);
+	Buffer->setIndexType(EIT_16BIT);
 	Buffer->setIndexCount(numOfIndices);
 	indexBuf->drop();
 

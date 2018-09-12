@@ -5,7 +5,7 @@
 #ifndef __I_SKINNED_MESH_H_INCLUDED__
 #define __I_SKINNED_MESH_H_INCLUDED__
 
-#include "irrArray.h"
+#include "irr/core/Types.h"
 #include "IMesh.h"
 #include "quaternion.h"
 #include "matrix4.h"
@@ -142,37 +142,37 @@ namespace scene
 
                 //! List of child joints
                 SJoint* Parent;
-                core::array<SJoint*> Children;
+                core::vector<SJoint*> Children;
 
 
                 inline SPositionKey* addPositionKey()
                 {
                     PositionKeys.push_back(SPositionKey());
-                    return &PositionKeys.getLast();
+                    return &PositionKeys.back();
                 }
 
 
                 inline SScaleKey* addScaleKey()
                 {
                     ScaleKeys.push_back(SScaleKey());
-                    return &ScaleKeys.getLast();
+                    return &ScaleKeys.back();
                 }
 
 
                 inline SRotationKey* addRotationKey()
                 {
                     RotationKeys.push_back(SRotationKey());
-                    return &RotationKeys.getLast();
+                    return &RotationKeys.back();
                 }
 
                 //! Animation keys causing translation change
-                core::array<SPositionKey> PositionKeys;
+                core::vector<SPositionKey> PositionKeys;
 
                 //! Animation keys causing scale change
-                core::array<SScaleKey> ScaleKeys;
+                core::vector<SScaleKey> ScaleKeys;
 
                 //! Animation keys causing rotation change
-                core::array<SRotationKey> RotationKeys;
+                core::vector<SRotationKey> RotationKeys;
 
                 //! Unnecessary for loaders, will be overwritten on finalize
                 core::aabbox3df bbox;
@@ -188,10 +188,10 @@ namespace scene
 		//these functions will use the needed arrays, set values, etc to help the loaders
 
 		//! exposed for loaders: joints list
-		virtual std::vector<SJoint*>& getAllJoints() = 0;
+		virtual core::vector<SJoint*>& getAllJoints() = 0;
 
 		//! exposed for loaders: joints list
-		virtual const std::vector<SJoint*>& getAllJoints() const = 0;
+		virtual const core::vector<SJoint*>& getAllJoints() const = 0;
 
 		//! loaders should call this after populating the mesh
 		virtual void finalize() = 0;

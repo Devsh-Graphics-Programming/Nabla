@@ -78,7 +78,7 @@ namespace irr
             virtual void restoreWindow();
 
             //! Activate any joysticks, and generate events for them.
-            virtual bool activateJoysticks(core::array<SJoystickInfo> & joystickInfo);
+            virtual bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo);
 
             //! Get the device type
             virtual E_DEVICE_TYPE getType() const
@@ -189,7 +189,7 @@ namespace irr
             SDL_Surface* Screen;
             int SDL_Flags;
     #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
-            core::array<SDL_Joystick*> Joysticks;
+            core::vector<SDL_Joystick*> Joysticks;
     #endif
 
             int32_t MouseX, MouseY;
@@ -218,7 +218,7 @@ namespace irr
                 }
             };
 
-            core::array<SKeyMap> KeyMap;
+            core::vector<SKeyMap> KeyMap;
             SDL_SysWMinfo Info;
 	};
 

@@ -6,7 +6,6 @@
 #include "CSceneManager.h"
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
-#include "SAnimatedMesh.h"
 #include "CMeshCache.h"
 #include "IMaterialRenderer.h"
 #include "IReadFile.h"
@@ -820,7 +819,7 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 		}
 		break;
 
-	case ESNRP_NONE: // ignore this one
+	default: // ignore this one
 		break;
 	}
 
@@ -906,7 +905,7 @@ void CSceneManager::drawAll()
 		for (i=0; i<CameraList.size(); ++i)
 			CameraList[i]->render();
 
-		CameraList.set_used(0);
+		CameraList.clear();
 	}
 
 	// render skyboxes
@@ -916,7 +915,7 @@ void CSceneManager::drawAll()
         for (i=0; i<SkyBoxList.size(); ++i)
             SkyBoxList[i]->render();
 
-		SkyBoxList.set_used(0);
+		SkyBoxList.clear();
 	}
 
 
@@ -924,7 +923,7 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_SOLID;
 
-		SolidNodeList.sort(); // sort by textures
+		std::sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
 
         for (i=0; i<SolidNodeList.size(); ++i)
             SolidNodeList[i].Node->render();
@@ -932,37 +931,37 @@ void CSceneManager::drawAll()
 #ifdef _IRR_SCENEMANAGER_DEBUG
 		Parameters.setAttribute("drawn_solid", (int32_t) SolidNodeList.size() );
 #endif
-		SolidNodeList.set_used(0);
+		SolidNodeList.clear();
 	}
 
 	// render transparent objects.
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT;
 
-		TransparentNodeList.sort(); // sort by distance from camera
+		std::sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentNodeList.size(); ++i)
             TransparentNodeList[i].Node->render();
 
 #ifdef _IRR_SCENEMANAGER_DEBUG
 		Parameters.setAttribute ( "drawn_transparent", (int32_t) TransparentNodeList.size() );
 #endif
-		TransparentNodeList.set_used(0);
+		TransparentNodeList.clear();
 	}
 
 	// render transparent effect objects.
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT_EFFECT;
 
-		TransparentEffectNodeList.sort(); // sort by distance from camera
+		std::sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentEffectNodeList.size(); ++i)
             TransparentEffectNodeList[i].Node->render();
 #ifdef _IRR_SCENEMANAGER_DEBUG
 		Parameters.setAttribute ( "drawn_transparent_effect", (int32_t) TransparentEffectNodeList.size() );
 #endif
-		TransparentEffectNodeList.set_used(0);
+		TransparentEffectNodeList.clear();
 	}
 
-	LightList.set_used(0);
+	LightList.clear();
 	clearDeletionList();
 
 	CurrentRendertime = ESNRP_NONE;
@@ -1009,7 +1008,7 @@ ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vector3
 
 //! Creates a texture animator, which switches the textures of the target scene
 //! node based on a list of textures.
-ISceneNodeAnimator* CSceneManager::createTextureAnimator(const core::array<video::ITexture*>& textures,
+ISceneNodeAnimator* CSceneManager::createTextureAnimator(const core::vector<video::ITexture*>& textures,
 	int32_t timePerFrame, bool loop)
 {
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorTexture(textures,
@@ -1029,7 +1028,7 @@ ISceneNodeAnimator* CSceneManager::createDeleteAnimator(uint32_t when)
 
 //! Creates a follow spline animator.
 ISceneNodeAnimator* CSceneManager::createFollowSplineAnimator(int32_t startTime,
-	const core::array< core::vector3df >& points,
+	const core::vector< core::vector3df >& points,
 	float speed, float tightness, bool loop, bool pingpong)
 {
 	ISceneNodeAnimator* a = new CSceneNodeAnimatorFollowSpline(startTime, points,
@@ -1173,7 +1172,7 @@ ISceneNode* CSceneManager::getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, ID
 
 
 //! returns scene nodes by type.
-void CSceneManager::getSceneNodesFromType(ESCENE_NODE_TYPE type, core::array<scene::ISceneNode*>& outNodes, IDummyTransformationSceneNode* start)
+void CSceneManager::getSceneNodesFromType(ESCENE_NODE_TYPE type, core::vector<scene::ISceneNode*>& outNodes, IDummyTransformationSceneNode* start)
 {
 	if (start == 0)
 		start = getRootSceneNode();

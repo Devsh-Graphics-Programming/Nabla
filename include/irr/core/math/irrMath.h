@@ -6,13 +6,15 @@
 #define __IRR_MATH_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
-#include "irrTypes.h"
-#include "irrMacros.h"
+
+#include <stdint.h>
 #include <math.h>
 #include <float.h>
 #include <stdlib.h> // for abs() etc.
 #include <limits.h> // For INT_MAX / UINT_MAX
 #include <type_traits>
+
+#include "irr/macros.h"
 
 
 #ifndef FLT_MAX
@@ -400,46 +402,37 @@ namespace core
 	#define	F32_A_GREATER_B(a,b)	((a) > (b))
 #endif
 
-
-#ifndef REALINLINE
-	#ifdef _MSC_VER
-		#define REALINLINE __forceinline
-	#else
-		#define REALINLINE inline
-	#endif
-#endif
-
 #if defined(__BORLANDC__) || defined (__BCPLUSPLUS__)
 
 	// 8-bit bools in borland builder
 
 	//! conditional set based on mask and arithmetic shift
-	REALINLINE uint32_t if_c_a_else_b ( const int8_t condition, const uint32_t a, const uint32_t b )
+	IRR_FORCE_INLINE uint32_t if_c_a_else_b ( const int8_t condition, const uint32_t a, const uint32_t b )
 	{
 		return ( ( -condition >> 7 ) & ( a ^ b ) ) ^ b;
 	}
 
 	//! conditional set based on mask and arithmetic shift
-	REALINLINE uint32_t if_c_a_else_0 ( const int8_t condition, const uint32_t a )
+	IRR_FORCE_INLINE uint32_t if_c_a_else_0 ( const int8_t condition, const uint32_t a )
 	{
 		return ( -condition >> 31 ) & a;
 	}
 #else
 
 	//! conditional set based on mask and arithmetic shift
-	REALINLINE uint32_t if_c_a_else_b ( const int32_t condition, const uint32_t a, const uint32_t b )
+	IRR_FORCE_INLINE uint32_t if_c_a_else_b ( const int32_t condition, const uint32_t a, const uint32_t b )
 	{
 		return ( ( -condition >> 31 ) & ( a ^ b ) ) ^ b;
 	}
 
 	//! conditional set based on mask and arithmetic shift
-	REALINLINE uint16_t if_c_a_else_b ( const int16_t condition, const uint16_t a, const uint16_t b )
+	IRR_FORCE_INLINE uint16_t if_c_a_else_b ( const int16_t condition, const uint16_t a, const uint16_t b )
 	{
 		return ( ( -condition >> 15 ) & ( a ^ b ) ) ^ b;
 	}
 
 	//! conditional set based on mask and arithmetic shift
-	REALINLINE uint32_t if_c_a_else_0 ( const int32_t condition, const uint32_t a )
+	IRR_FORCE_INLINE uint32_t if_c_a_else_0 ( const int32_t condition, const uint32_t a )
 	{
 		return ( -condition >> 31 ) & a;
 	}
@@ -448,7 +441,7 @@ namespace core
 	/*
 		if (condition) state |= m; else state &= ~m;
 	*/
-	REALINLINE void setbit_cond ( uint32_t &state, int32_t condition, uint32_t mask )
+	IRR_FORCE_INLINE void setbit_cond ( uint32_t &state, int32_t condition, uint32_t mask )
 	{
 		// 0, or any postive to mask
 		//int32_t conmask = -condition >> 31;
@@ -460,36 +453,32 @@ namespace core
 		return floorf( x + 0.5f );
 	}
 
-	REALINLINE void clearFPUException ()
-	{
-	}
-
 	// calculate: sqrt ( x )
-	REALINLINE float squareroot(const float f)
+	IRR_FORCE_INLINE float squareroot(const float f)
 	{
 		return sqrtf(f);
 	}
 
 	// calculate: sqrt ( x )
-	REALINLINE double squareroot(const double f)
+	IRR_FORCE_INLINE double squareroot(const double f)
 	{
 		return sqrt(f);
 	}
 
 	// calculate: sqrt ( x )
-	REALINLINE int32_t squareroot(const int32_t f)
+	IRR_FORCE_INLINE int32_t squareroot(const int32_t f)
 	{
 		return static_cast<int32_t>(squareroot(static_cast<float>(f)));
 	}
 
 	// calculate: sqrt ( x )
-	REALINLINE int64_t squareroot(const int64_t f)
+	IRR_FORCE_INLINE int64_t squareroot(const int64_t f)
 	{
 		return static_cast<int64_t>(squareroot(static_cast<double>(f)));
 	}
 
 	// calculate: 1 / sqrt ( x )
-	REALINLINE double reciprocal_squareroot(const double x)
+	IRR_FORCE_INLINE double reciprocal_squareroot(const double x)
 	{
 #if defined ( IRRLICHT_FAST_MATH )
         double result = 1.0 / sqrt(x);
@@ -502,7 +491,7 @@ namespace core
 	}
 
 	// calculate: 1 / sqrtf ( x )
-	REALINLINE float reciprocal_squareroot(const float f)
+	IRR_FORCE_INLINE float reciprocal_squareroot(const float f)
 	{
 #if defined ( IRRLICHT_FAST_MATH ) && defined ( __IRR_COMPILE_WITH_X86_SIMD_ )
         float result;
@@ -514,13 +503,13 @@ namespace core
 	}
 
 	// calculate: 1 / sqrtf( x )
-	REALINLINE int32_t reciprocal_squareroot(const int32_t x)
+	IRR_FORCE_INLINE int32_t reciprocal_squareroot(const int32_t x)
 	{
 		return static_cast<int32_t>(reciprocal_squareroot(static_cast<float>(x)));
 	}
 
 	// calculate: 1 / x
-	REALINLINE float reciprocal( const float f )
+	IRR_FORCE_INLINE float reciprocal( const float f )
 	{
 #if defined (IRRLICHT_FAST_MATH) && defined ( __IRR_COMPILE_WITH_X86_SIMD_ )
         float result;
@@ -532,34 +521,34 @@ namespace core
 	}
 
 	// calculate: 1 / x
-	REALINLINE double reciprocal ( const double f )
+	IRR_FORCE_INLINE double reciprocal ( const double f )
 	{
 		return 1.0 / f;
 	}
 
 
 	// calculate: 1 / x, low precision allowed
-	REALINLINE float reciprocal_approxim ( const float f )
+	IRR_FORCE_INLINE float reciprocal_approxim ( const float f )
 	{
         //what was here before was not faster
         return reciprocal(f);
     }
 
 
-	REALINLINE int32_t floor32(float x)
+	IRR_FORCE_INLINE int32_t floor32(float x)
 	{
 		return (int32_t) floorf ( x );
 	}
 
 
-	REALINLINE int32_t ceil32 ( float x )
+	IRR_FORCE_INLINE int32_t ceil32 ( float x )
 	{
 		return (int32_t) ceilf ( x );
 	}
 
 
 
-	REALINLINE int32_t round32(float x)
+	IRR_FORCE_INLINE int32_t round32(float x)
 	{
 		return (int32_t) round_(x);
 	}

@@ -27,9 +27,9 @@ namespace irr
 		{
 			public:
 				#ifdef USE_MAPS_FOR_PATH_BASED_CACHE
-					typedef core::CConcurrentObjectCache<std::string, asset::ICPUMesh, std::map> MeshCache_T;
+					typedef core::CConcurrentObjectCache<std::string, asset::ICPUMesh, core::map> MeshCache_T;
 				#else
-					typedef core::CConcurrentObjectCache<std::string, asset::ICPUMesh, std::vector> MeshCache_T;
+					typedef core::CConcurrentObjectCache<std::string, asset::ICPUMesh, core::vector> MeshCache_T;
 				#endif // USE_MAPS_FOR_PATH_BASED_CACHE
 
 			public:
