@@ -24,7 +24,8 @@ class IAddressAllocator
 
         virtual void                reset() noexcept = 0;
 
-        virtual size_t              max_size() noexcept = 0;
+        virtual size_t              max_size() const noexcept = 0;
+        virtual size_t              max_alignment() const noexcept = 0;
 };
 
 
@@ -48,7 +49,9 @@ class IAddressAllocatorAdaptor final : private AddressAllocator, public IAddress
 
         inline virtual void         reset() noexcept {getBaseRef().reset();}
 
-        inline virtual size_t       max_size() noexcept {return getBaseRef().max_size();}
+        inline virtual size_t       max_size() const noexcept {return getBaseRef().max_size();}
+
+        inline virtual size_t       max_alignment() const noexcept {return getBaseRef().max_alignment();}
 };
 
 }

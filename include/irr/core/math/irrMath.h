@@ -75,7 +75,7 @@ namespace core
 	/** Provided as it can be clearer to write radToDeg(X) than RADTODEG * X
 	\param radians	The radians value to convert to degrees.
 	*/
-	inline float radToDeg(float radians)
+	IRR_FORCE_INLINE float radToDeg(float radians)
 	{
 		return RADTODEG * radians;
 	}
@@ -84,7 +84,7 @@ namespace core
 	/** Provided as it can be clearer to write radToDeg(X) than RADTODEG * X
 	\param radians	The radians value to convert to degrees.
 	*/
-	inline double radToDeg(double radians)
+	IRR_FORCE_INLINE double radToDeg(double radians)
 	{
 		return RADTODEG64 * radians;
 	}
@@ -93,7 +93,7 @@ namespace core
 	/** Provided as it can be clearer to write degToRad(X) than DEGTORAD * X
 	\param degrees	The degrees value to convert to radians.
 	*/
-	inline float degToRad(float degrees)
+	IRR_FORCE_INLINE float degToRad(float degrees)
 	{
 		return DEGTORAD * degrees;
 	}
@@ -102,50 +102,50 @@ namespace core
 	/** Provided as it can be clearer to write degToRad(X) than DEGTORAD * X
 	\param degrees	The degrees value to convert to radians.
 	*/
-	inline double degToRad(double degrees)
+	IRR_FORCE_INLINE double degToRad(double degrees)
 	{
 		return DEGTORAD64 * degrees;
 	}
-
+//depr
 	//! returns minimum of two values. Own implementation to get rid of the STL (VS6 problems)
 	template<class T>
-	inline T min_(const T& a, const T& b)
+	IRR_FORCE_INLINE T min_(const T& a, const T& b)
 	{
 		return a < b ? a : b;
 	}
 
 	//! returns minimum of three values. Own implementation to get rid of the STL (VS6 problems)
 	template<class T>
-	inline T min_(const T& a, const T& b, const T& c)
+	IRR_FORCE_INLINE T min_(const T& a, const T& b, const T& c)
 	{
 		return a < b ? min_(a, c) : min_(b, c);
 	}
 
 	//! returns maximum of two values. Own implementation to get rid of the STL (VS6 problems)
 	template<class T>
-	inline T max_(const T& a, const T& b)
+	IRR_FORCE_INLINE T max_(const T& a, const T& b)
 	{
 		return a < b ? b : a;
 	}
 
 	//! returns maximum of three values. Own implementation to get rid of the STL (VS6 problems)
 	template<class T>
-	inline T max_(const T& a, const T& b, const T& c)
+	IRR_FORCE_INLINE T max_(const T& a, const T& b, const T& c)
 	{
 		return a < b ? max_(b, c) : max_(a, c);
 	}
 
 	//! returns abs of two values. Own implementation to get rid of STL (VS6 problems)
 	template<class T>
-	inline T abs_(const T& a)
+	IRR_FORCE_INLINE T abs_(const T& a)
 	{
 		return a < (T)0 ? -a : a;
 	}
-
+//end depr
 	//! returns linear interpolation of a and b with ratio t
 	//! \return: a if t==0, b if t==1, and the linear interpolation else
 	template<class T>
-	inline T mix(const T& a, const T& b, const float t)
+	IRR_FORCE_INLINE T mix(const T& a, const T& b, const float t)
 	{
 		return a + (b-a)*t;
 	}
@@ -153,44 +153,31 @@ namespace core
 	//! returns linear interpolation of a and b with ratio t
 	//! \return: a if t==0, b if t==1, and the linear interpolation else
 	template<class T>
-	inline T lerp(const T& a, const T& b, const float t)
+	IRR_FORCE_INLINE T lerp(const T& a, const T& b, const float t)
 	{
 		return mix(a,b,t);
 	}
 
 	//! clamps a value between low and high
 	template <class T>
-	inline const T clamp (const T& value, const T& low, const T& high)
+	IRR_FORCE_INLINE const T clamp(const T& value, const T& low, const T& high)
 	{
 		return min_ (max_(value,low), high);
 	}
 
-	//! swaps the content of the passed parameters
-	// Note: We use the same trick as boost and use two template arguments to
-	// avoid ambiguity when swapping objects of an Irrlicht type that has not
-	// it's own swap overload. Otherwise we get conflicts with some compilers
-	// in combination with stl.
-	template <class T1, class T2>
-	inline void swap(T1& a, T2& b)
-	{
-		T1 c(a);
-		a = b;
-		b = c;
-	}
-
 	//! returns if a equals b, taking possible rounding errors into account
-	inline bool equals(const double a, const double b, const double tolerance = ROUNDING_ERROR_f64)
+	IRR_FORCE_INLINE bool equals(const double a, const double b, const double tolerance = ROUNDING_ERROR_f64) //consider
 	{
 		return (a + tolerance >= b) && (a - tolerance <= b);
 	}
 
 	//! returns if a equals b, taking possible rounding errors into account
-	inline bool equals(const float a, const float b, const float tolerance = ROUNDING_ERROR_f32)
+	IRR_FORCE_INLINE bool equals(const float a, const float b, const float tolerance = ROUNDING_ERROR_f32) //consider
 	{
 		return (a + tolerance >= b) && (a - tolerance <= b);
 	}
 
-	union FloatIntUnion32
+	union FloatIntUnion32 //todo: rename
 	{
 		FloatIntUnion32(float f1 = 0.0f) : f(f1) {}
 		// Portable sign-extraction
@@ -202,7 +189,7 @@ namespace core
 
 	//! We compare the difference in ULP's (spacing between floating-point numbers, aka ULP=1 means there exists no float between).
 	//\result true when numbers have a ULP <= maxUlpDiff AND have the same sign.
-	inline bool equalsByUlp(float a, float b, int maxUlpDiff)
+	inline bool equalsByUlp(float a, float b, int maxUlpDiff) //consider
 	{
 		// Based on the ideas and code from Bruce Dawson on
 		// http://www.altdevblogaday.com/2012/02/22/comparing-floating-point-numbers-2012-edition/
@@ -232,84 +219,84 @@ namespace core
 
 #if 0
 	//! returns if a equals b, not using any rounding tolerance
-	inline bool equals(const int32_t a, const int32_t b)
+	IRR_FORCE_INLINE bool equals(const int32_t a, const int32_t b) //consider
 	{
 		return (a == b);
 	}
 
 	//! returns if a equals b, not using any rounding tolerance
-	inline bool equals(const uint32_t a, const uint32_t b)
+	IRR_FORCE_INLINE bool equals(const uint32_t a, const uint32_t b) //consider
 	{
 		return (a == b);
 	}
 #endif
 	//! returns if a equals b, taking an explicit rounding tolerance into account
-	inline bool equals(const int32_t a, const int32_t b, const int32_t tolerance = ROUNDING_ERROR_S32)
+	IRR_FORCE_INLINE bool equals(const int32_t a, const int32_t b, const int32_t tolerance = ROUNDING_ERROR_S32) //consider
 	{
 		return (a + tolerance >= b) && (a - tolerance <= b);
 	}
 
 	//! returns if a equals b, taking an explicit rounding tolerance into account
-	inline bool equals(const uint32_t a, const uint32_t b, const int32_t tolerance = ROUNDING_ERROR_S32)
+	IRR_FORCE_INLINE bool equals(const uint32_t a, const uint32_t b, const int32_t tolerance = ROUNDING_ERROR_S32) //consider
 	{
 		return (a + tolerance >= b) && (a - tolerance <= b);
 	}
 
 	//! returns if a equals b, taking an explicit rounding tolerance into account
-	inline bool equals(const int64_t a, const int64_t b, const int64_t tolerance = ROUNDING_ERROR_S64)
+	IRR_FORCE_INLINE bool equals(const int64_t a, const int64_t b, const int64_t tolerance = ROUNDING_ERROR_S64) //consider
 	{
 		return (a + tolerance >= b) && (a - tolerance <= b);
 	}
 
 	//! returns if a equals zero, taking rounding errors into account
-	inline bool iszero(const double a, const double tolerance = ROUNDING_ERROR_f64)
+	IRR_FORCE_INLINE bool iszero(const double a, const double tolerance = ROUNDING_ERROR_f64) //consider
 	{
 		return fabs(a) <= tolerance;
 	}
 
 	//! returns if a equals zero, taking rounding errors into account
-	inline bool iszero(const float a, const float tolerance = ROUNDING_ERROR_f32)
+	IRR_FORCE_INLINE bool iszero(const float a, const float tolerance = ROUNDING_ERROR_f32) //consider
 	{
 		return fabsf(a) <= tolerance;
 	}
 
 	//! returns if a equals not zero, taking rounding errors into account
-	inline bool isnotzero(const float a, const float tolerance = ROUNDING_ERROR_f32)
+	IRR_FORCE_INLINE bool isnotzero(const float a, const float tolerance = ROUNDING_ERROR_f32) //consider
 	{
 		return fabsf(a) > tolerance;
 	}
 
 	//! returns if a equals zero, taking rounding errors into account
-	inline bool iszero(const int32_t a, const int32_t tolerance = 0)
+	IRR_FORCE_INLINE bool iszero(const int32_t a, const int32_t tolerance = 0) //consider
 	{
 		return ( a & 0x7ffffff ) <= tolerance;
 	}
 
 	//! returns if a equals zero, taking rounding errors into account
-	inline bool iszero(const uint32_t a, const uint32_t tolerance = 0)
+	IRR_FORCE_INLINE bool iszero(const uint32_t a, const uint32_t tolerance = 0) //consider
 	{
 		return a <= tolerance;
 	}
 
 	//! returns if a equals zero, taking rounding errors into account
-	inline bool iszero(const int64_t a, const int64_t tolerance = 0)
+	IRR_FORCE_INLINE bool iszero(const int64_t a, const int64_t tolerance = 0) //consider
 	{
 		return abs_(a) <= tolerance;
 	}
-
-	inline int32_t s32_min(int32_t a, int32_t b)
+//depr
+	IRR_FORCE_INLINE int32_t s32_min(int32_t a, int32_t b)
 	{
 		const int32_t mask = (a - b) >> 31;
 		return (a & mask) | (b & ~mask);
 	}
 
-	inline int32_t s32_max(int32_t a, int32_t b)
+	IRR_FORCE_INLINE int32_t s32_max(int32_t a, int32_t b)
 	{
 		const int32_t mask = (a - b) >> 31;
 		return (b & mask) | (a & ~mask);
 	}
 
-	inline int32_t s32_clamp (int32_t value, int32_t low, int32_t high)
+	IRR_FORCE_INLINE int32_t s32_clamp (int32_t value, int32_t low, int32_t high)
 	{
 		return s32_min(s32_max(value,low), high);
 	}
@@ -328,7 +315,7 @@ namespace core
 	*/
 
 	typedef union { uint32_t u; int32_t s; float f; } inttofloat;
-
+//end depr
 
     template<typename INT_TYPE>
     inline constexpr bool isNPoT(INT_TYPE value)
@@ -341,6 +328,60 @@ namespace core
     inline constexpr bool isPoT(INT_TYPE value)
     {
         return !isNPoT<INT_TYPE>(value);
+    }
+
+    template<typename INT_TYPE>
+    inline int32_t findLSB(INT_TYPE x);
+    template<>
+    inline int32_t findLSB<uint32_t>(uint32_t x)
+    {
+#ifdef __GNUC__
+        return __builtin_ffs(reinterpret_cast<const int32_t&>(x))-1;
+#elif defined(_MSC_VER)
+        long index;
+        if (_BitScanForward(&index,reinterpret_cast<const long&>(x)))
+            return index;
+        return -1;
+#endif
+    }
+    template<>
+    inline int32_t findLSB<uint64_t>(uint64_t x)
+    {
+#ifdef __GNUC__
+        return __builtin_ffsl(reinterpret_cast<const int64_t&>(x))-1;
+#elif defined(_MSC_VER)
+        long index;
+        if (_BitScanForward64(&index,reinterpret_cast<const __int64&>(x)))
+            return index;
+        return -1;
+#endif
+    }
+
+    template<typename INT_TYPE>
+    inline int32_t findMSB(INT_TYPE x);
+    template<>
+    inline int32_t findMSB<uint32_t>(uint32_t x)
+    {
+#ifdef __GNUC__
+        return x ? (31-__builtin_clz(x)):(-1);
+#elif defined(_MSC_VER)
+        long index;
+        if (_BitScanReverse(&index,reinterpret_cast<const long&>(x)))
+            return index;
+        return -1;
+#endif
+    }
+    template<>
+    inline int32_t findMSB<uint64_t>(uint64_t x)
+    {
+#ifdef __GNUC__
+        return x ? (31-__builtin_clzl(x)):(-1);
+#elif defined(_MSC_VER)
+        long index;
+        if (_BitScanReverse64(&index,reinterpret_cast<const __int64&>(x)))
+            return index;
+        return -1;
+#endif
     }
 
 
