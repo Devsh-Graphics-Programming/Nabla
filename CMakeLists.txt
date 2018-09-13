@@ -16,8 +16,6 @@ endif()
 macro(irr_adjust_flags)
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		add_compile_options(
-			-std=c++11 
-			-Wall
 			-Wextra
 			-Wno-unused-parameter
 			-fno-exceptions
@@ -38,7 +36,7 @@ macro(irr_adjust_flags)
 			"$<$<CONFIG:DEBUG>:-Wall>"
 			"$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>"
 			"$<$<CONFIG:DEBUG>:-fstack-protector-strong>"
-			"$<$<CONFIG:RELEASE>:-O3>"
+			#"$<$<CONFIG:RELEASE>:-O3>" # added by default and apparently cmake is not clever enough to filter duplicates for this one
 			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
 		)
 		link_libraries(

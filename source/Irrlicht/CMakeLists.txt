@@ -165,6 +165,9 @@ set(COMMON_INCLUDE_DIRS
 	zlib
 )
 
+irr_adjust_flags() # macro defined in root CMakeLists
+irr_adjust_definitions() # macro defined in root CMakeLists
+
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
 	aesGladman/aescrypt.c
@@ -316,9 +319,6 @@ add_library(libshaderc OBJECT
 	libshaderc/version_profile.cc
 )
 target_include_directories(libshaderc PUBLIC ${COMMON_INCLUDE_DIRS})
-
-irr_adjust_flags() # macro defined in root CMakeLists
-irr_adjust_definitions() # macro defined in root CMakeLists
 
 macro(irr_target_link_openssl _trgt)
 	if(NOT NASTY_OPENSSL_WORKAROUND)
