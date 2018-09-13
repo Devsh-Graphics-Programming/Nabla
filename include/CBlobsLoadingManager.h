@@ -50,7 +50,7 @@ namespace core
 
 	Feature not ready yet. (only loading actually)
 	*/
-	class CBlobsLoadingManager
+	class IRR_FORCE_EBO CBlobsLoadingManager
 	{
 	public:
 		core::unordered_set<uint64_t> getNeededDeps(uint32_t _blobType, const void* _blob);

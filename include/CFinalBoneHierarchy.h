@@ -23,7 +23,7 @@ namespace scene
             virtual ~CFinalBoneHierarchy()
             {
                 if (boneNames)
-                    delete [] boneNames;
+                    _IRR_DELETE_ARRAY(boneNames,boneCount);
                 if (boneFlatArray)
                     free(boneFlatArray);
                 if (boneTreeLevelEnd)
@@ -65,7 +65,7 @@ namespace scene
                     keyframeCount(0), keyframes(NULL), interpolatedAnimations(NULL), nonInterpolatedAnimations(NULL)
             {
                 boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
-                boneNames = new core::stringc[boneCount];
+                boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
                 for (size_t i=0; i<boneCount; i++)
                 {
                     ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
@@ -120,7 +120,7 @@ namespace scene
 				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != getAnimationCount())
 				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != getAnimationCount())
 
-				boneNames = new core::stringc[boneCount];
+				boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
 				boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
 				boneTreeLevelEnd = (size_t*)malloc(sizeof(size_t)*NumLevelsInHierarchy);
 				keyframes = (float*)malloc(sizeof(float)*keyframeCount);

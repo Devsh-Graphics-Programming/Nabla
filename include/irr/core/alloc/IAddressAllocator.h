@@ -13,7 +13,7 @@ namespace irr
 namespace core
 {
 
-class IAddressAllocator
+class IRR_FORCE_EBO IAddressAllocator
 {
     public:
         virtual                     ~IAddressAllocator() {}
@@ -30,7 +30,7 @@ class IAddressAllocator
 
 
 template <class AddressAllocator>
-class IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
+class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
 {
         inline AddressAllocator&    getBaseRef() noexcept {return static_cast<AddressAllocator&>(*this);}
     public:

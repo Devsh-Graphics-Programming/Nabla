@@ -58,7 +58,7 @@ NULL device, their textures are compatible. If you try to use a texture
 created by one device with an other device, the device will refuse to do that
 and write a warning or an error message to the output buffer.
 */
-class ITexture : public IRenderableVirtualTexture, public IDriverMemoryBacked
+class ITexture : public core::impl::ResolveAlignment<IDriverMemoryBacked,IRenderableVirtualTexture>
 {
     public:
         enum E_TEXTURE_TYPE
@@ -115,12 +115,15 @@ class ITexture : public IRenderableVirtualTexture, public IDriverMemoryBacked
         //! Get name of texture (in most cases this is the filename)
         const io::SNamedPath& getName() const { return NamedPath; }
 
+
+        _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(IRenderableVirtualTexture,IDriverMemoryBacked)
     protected:
         _IRR_INTERFACE_CHILD(ITexture) {}
 
         //! constructor
-        ITexture(const SDriverMemoryRequirements& reqs, const io::path& name) : IDriverMemoryBacked(reqs), NamedPath(name)
+        ITexture(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, const io::path& name) : NamedPath(name)
         {
+            IDriverMemoryBacked::cachedMemoryReqs = reqs;
         }
 
         io::SNamedPath NamedPath;

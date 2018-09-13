@@ -9,7 +9,7 @@
 
 #include <memory>
 
-#include "irr/core/memory/irrMemory.h"
+#include "irr/core/memory/memory.h"
 
 namespace irr
 {
@@ -17,7 +17,7 @@ namespace core
 {
 
 template <class Alloc, size_t overAlign=_IRR_DEFAULT_ALIGNMENT(typename std::allocator_traits<Alloc>::value_type)>
-class aligned_allocator_adaptor : public Alloc
+class IRR_FORCE_EBO aligned_allocator_adaptor : public Alloc
 {
     public:
         typedef std::allocator_traits<Alloc>                    traits;
@@ -80,6 +80,17 @@ class aligned_allocator_adaptor : public Alloc
             ubyte_ptr actualAlloc = *ptr;
             ptr->~ubyte_ptr();
             cachedAllocator.deallocate(actualAlloc, sizeof(ubyte_ptr) + requestBytes + m_align_minus_1);
+        }
+
+        template<size_t _align>
+        inline bool                                 operator!=(const aligned_allocator_adaptor<Alloc,_align>& other) noexcept
+        {
+            return false;
+        }
+        template<size_t _align>
+        inline bool                                 operator==(const aligned_allocator_adaptor<Alloc,_align>& other) noexcept
+        {
+            return true;
         }
 };
 

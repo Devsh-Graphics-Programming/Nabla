@@ -9,7 +9,7 @@ namespace irr { namespace core
 
 namespace impl
 {
-    struct CConcurrentObjectCacheBase
+    struct IRR_FORCE_EBO CConcurrentObjectCacheBase
     {
         CConcurrentObjectCacheBase() = default;
         // explicitely making concurrent caches non-copy-and-move-constructible and non-copy-and-move-assignable
@@ -123,7 +123,7 @@ template<
     typename T,
     template<typename...> class ContainerT_T = std::vector
 >
-using CConcurrentMultiObjectCache = 
+using CConcurrentMultiObjectCache =
     impl::CMakeCacheConcurrent<
         CMultiObjectCache<K, T, ContainerT_T>
     >;

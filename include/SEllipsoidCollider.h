@@ -8,7 +8,7 @@ namespace irr
 namespace core
 {
 
-class SEllipsoidCollider
+class SEllipsoidCollider : public AllocationOverrideDefault
 {
         vectorSIMDf negativeCenter;
         vectorSIMDf reciprocalAxes;

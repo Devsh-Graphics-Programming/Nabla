@@ -119,7 +119,7 @@ public:
 
 private:
 
-	class SObjMtl
+	class SObjMtl : public core::AllocationOverrideDefault
 	{
         public:
             SObjMtl() : Bumpiness (1.0f), Illumination(0),

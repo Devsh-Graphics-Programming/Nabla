@@ -6,7 +6,7 @@
 #define __IRR_ALIGNED_ALLOCATOR_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
-#include "irr/core/memory/irrMemory.h"
+#include "irr/core/memory/memory.h"
 #include "irr/core/alloc/AllocatorTrivialBases.h"
 
 namespace irr
@@ -15,7 +15,7 @@ namespace core
 {
 
 template <class T, size_t overAlign=_IRR_DEFAULT_ALIGNMENT(T)>
-class aligned_allocator : public irr::core::AllocatorTrivialBase<T>
+class IRR_FORCE_EBO aligned_allocator : public irr::core::AllocatorTrivialBase<T>
 {
     public:
         typedef size_t      size_type;
@@ -34,22 +34,26 @@ class aligned_allocator : public irr::core::AllocatorTrivialBase<T>
         aligned_allocator(aligned_allocator<U,_align>&& other) {}
 
 
-        inline typename aligned_allocator::pointer  allocate(   size_type n, size_type alignment,
-                                                                typename aligned_allocator::const_void_pointer hint=nullptr) noexcept
+        static inline typename aligned_allocator::pointer   allocate(   size_type n, size_type alignment,
+                                                                        typename aligned_allocator::const_void_pointer hint=nullptr) noexcept
         {
             if (n==0)
                 return nullptr;
 
             return reinterpret_cast<typename aligned_allocator::pointer>(_IRR_ALIGNED_MALLOC(n*sizeof(T),alignment));
         }
-        inline typename aligned_allocator::pointer  allocate(   size_type n, typename aligned_allocator::const_void_pointer hint=nullptr) noexcept
+        inline typename aligned_allocator::pointer          allocate(   size_type n, typename aligned_allocator::const_void_pointer hint=nullptr) noexcept
         {
             return allocate(n,overAlign,hint);
         }
 
-        inline void                                 deallocate( typename aligned_allocator::pointer p, size_type n) noexcept
+        static inline void                                  deallocate( typename aligned_allocator::pointer p) noexcept
         {
             _IRR_ALIGNED_FREE(p);
+        }
+        inline void                                         deallocate( typename aligned_allocator::pointer p, size_type n) noexcept
+        {
+            deallocate(p);
         }
 
         template<typename U, size_t _align>

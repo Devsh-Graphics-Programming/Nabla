@@ -14,7 +14,7 @@ namespace core
 template<typename T> class AllocatorTrivialBase;
 
 template<>
-class AllocatorTrivialBase<void>
+class IRR_FORCE_EBO AllocatorTrivialBase<void>
 {
     public:
         typedef void                                            value_type;
@@ -26,7 +26,7 @@ class AllocatorTrivialBase<void>
 };
 
 template<typename T>
-class AllocatorTrivialBase
+class IRR_FORCE_EBO AllocatorTrivialBase
 {
     public:
         typedef T                                               value_type;

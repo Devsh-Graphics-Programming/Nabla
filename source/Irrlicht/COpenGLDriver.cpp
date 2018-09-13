@@ -728,7 +728,7 @@ COpenGLDriver::~COpenGLDriver()
 #endif // _IRR_COMPILE_WITH_X11_DEVICE_
     delete [] AuxContexts;
     glContextMutex->Release();
-    delete glContextMutex;
+    _IRR_DELETE(glContextMutex);
 }
 
 
@@ -854,7 +854,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
 
 bool COpenGLDriver::genericDriverInit()
 {
-    glContextMutex = new FW_Mutex();
+    glContextMutex = _IRR_NEW(FW_Mutex);
 
 	Name=L"OpenGL ";
 	Name.append(glGetString(GL_VERSION));

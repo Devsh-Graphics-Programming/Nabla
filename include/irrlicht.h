@@ -109,7 +109,6 @@
 #include "line2d.h"
 #include "line3d.h"
 #include "matrix4.h"
-#include "matrixSIMD4.h"
 #include "plane3d.h"
 #include "position2d.h"
 #include "quaternion.h"

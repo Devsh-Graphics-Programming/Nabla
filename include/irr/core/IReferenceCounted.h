@@ -7,7 +7,7 @@
 
 #include "irr/core/Types.h"
 #include "irr/core/BaseClasses.h"
-#include "irr/core/memory/irrMemory.h"
+#include "irr/core/alloc/AlignedBase.h"
 
 #include <atomic>
 
@@ -44,7 +44,7 @@ namespace core
 	the name of the method does not start with 'create'. The texture
 	is stored somewhere by the driver.
 	*/
-	class IReferenceCounted : public InterfaceUnmovable
+	class IRR_FORCE_EBO IReferenceCounted : public InterfaceUnmovable, public AllocationOverrideDefault
 	{
 	public:
 		//! Grabs the object. Increments the reference counter by one.

@@ -16,7 +16,7 @@ namespace core
 
 	//! Specifies a 2 dimensional size.
 	template <class T>
-	class dimension2d
+	class dimension2d // : public AllocationOverrideDefault
 	{
 		public:
 			//! Default constructor for empty dimension

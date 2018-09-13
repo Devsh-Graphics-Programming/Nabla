@@ -6,6 +6,7 @@
 #define __C_FPSCOUNTER_H_INCLUDED__
 
 #include "irr/core/Types.h"
+#include "irr/core/alloc/AlignedBase.h"
 
 namespace irr
 {
@@ -13,7 +14,7 @@ namespace video
 {
 
 
-class CFPSCounter
+class CFPSCounter : public core::AllocationOverrideDefault
 {
 public:
 	CFPSCounter();

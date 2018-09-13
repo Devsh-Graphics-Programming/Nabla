@@ -10,7 +10,7 @@ namespace irr
 namespace core
 {
 
-class SCollisionEngine
+class SCollisionEngine : public AllocationOverrideDefault
 {
         vector<SCompoundCollider*> colliders;
 

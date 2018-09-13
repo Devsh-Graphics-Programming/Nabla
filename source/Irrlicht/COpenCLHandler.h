@@ -29,8 +29,9 @@ static const char* const OpenCLFeatureStrings[] = {
 
 class COpenCLHandler
 {
+        COpenCLHandler() = delete;
     public:
-        class SOpenCLPlatformInfo
+        class SOpenCLPlatformInfo : public AllocationOverrideDefault
         {
             public:
                 enum EOpenCLFeatures
@@ -38,7 +39,7 @@ class COpenCLHandler
                     IRR_KHR_GL_SHARING=0,
                     IRR_OpenCL_Feature_Count
                 };
-                class SOpenCLDeviceInfo
+                class SOpenCLDeviceInfo : public AllocationOverrideDefault
                 {
                     public:
                         std::string Name;

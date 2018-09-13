@@ -19,6 +19,7 @@ namespace os
 {
 	class Byteswap
 	{
+	    Byteswap() = delete;
 	public:
 		static uint16_t byteswap(uint16_t num);
 		static int16_t byteswap(int16_t num);
@@ -32,6 +33,7 @@ namespace os
 
 	class Printer
 	{
+	    Printer() = delete;
 	public:
 		// prints out a string to the console out stdout or debug log or whatever
 		static void print(const std::string& message);
@@ -45,6 +47,7 @@ namespace os
 
 	class Timer
 	{
+	    Timer() = delete;
 	public:
 /*	    Timer()
 	    {

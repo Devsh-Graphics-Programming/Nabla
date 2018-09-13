@@ -21,6 +21,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "irr/core/memory/new_delete.h"
+
 #include "irr/core/alloc/aligned_allocator.h"
 #include "irr/core/alloc/aligned_allocator_adaptor.h"
 
@@ -31,7 +33,7 @@ namespace irr
 namespace core
 {
 template<typename T>
-using allocator = core::aligned_allocator<T>;
+using allocator = _IRR_DEFAULT_ALLOCATOR_METATYPE<T>;
 
 
 

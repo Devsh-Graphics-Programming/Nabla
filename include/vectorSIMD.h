@@ -14,7 +14,8 @@
 #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
 #endif // __IRR_COMPILE_WITH_X86_SIMD_
 
-#include "irr/core/memory/irrMemory.h"
+#include "irr/core/memory/memory.h"
+#include "irr/core/alloc/AlignedBase.h"
 #include "vector2d.h"
 #include "vector3d.h"
 #include <stdint.h>
@@ -42,7 +43,7 @@ namespace core
 
 
     //a class for bitwise shizz
-	template <int components> class vectorSIMDBool : private AlignedBase<_IRR_VECTOR_ALIGNMENT>
+	template <int components> class vectorSIMDBool : public AlignedBase<_IRR_VECTOR_ALIGNMENT>
     {
     public:
         inline vectorSIMDBool() {_mm_store_ps((float*)value,_mm_setzero_ps());}
@@ -220,7 +221,7 @@ NO BITSHIFTING SUPPORT
     inline vectorSIMDf sqrt(const vectorSIMDf& a);
 
 
-    class vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, AlignedBase<_IRR_VECTOR_ALIGNMENT>
+    class vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_IRR_VECTOR_ALIGNMENT>
 	{
 	public:
 		//! Default constructor (null vector).
@@ -755,7 +756,7 @@ NO BITSHIFTING SUPPORT
 
 
     template <class T>
-    class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, AlignedBase<_IRR_VECTOR_ALIGNMENT>
+    class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public AlignedBase<_IRR_VECTOR_ALIGNMENT>
 	{
 	public:
 		//! Default constructor (null vector).

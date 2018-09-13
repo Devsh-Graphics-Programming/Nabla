@@ -16,6 +16,7 @@ namespace video
 
 class CColorConverter
 {
+    CColorConverter() = delete;
 public:
 
 	//! converts a monochrome bitmap to A1R5G5B5

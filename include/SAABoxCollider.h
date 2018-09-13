@@ -9,7 +9,7 @@ namespace irr
 namespace core
 {
 
-class SAABoxCollider
+class SAABoxCollider : public AllocationOverrideDefault
 {
     public:
         SAABoxCollider(const aabbox3df& box) : Box(box) {}

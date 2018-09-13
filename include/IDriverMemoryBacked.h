@@ -101,6 +101,7 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
         virtual bool bindMemory(IDriverMemoryAllocation* allocation, const size_t& offset) {return false;}
 
     protected:
+        IDriverMemoryBacked() {}
         IDriverMemoryBacked(const SDriverMemoryRequirements& reqs) : cachedMemoryReqs(reqs) {}
 
         SDriverMemoryRequirements cachedMemoryReqs;

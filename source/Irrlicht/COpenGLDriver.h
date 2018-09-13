@@ -354,7 +354,7 @@ namespace video
 
             //! Buffers
             template<GLenum BIND_POINT,size_t BIND_POINTS>
-            class BoundIndexedBuffer
+            class BoundIndexedBuffer : public core::AllocationOverrideDefault
             {
                     const COpenGLBuffer* boundBuffer[BIND_POINTS];
                     ptrdiff_t boundOffsets[BIND_POINTS];
@@ -384,7 +384,7 @@ namespace video
 
             //!
             template<GLenum BIND_POINT>
-            class BoundBuffer
+            class BoundBuffer : public core::AllocationOverrideDefault
             {
                     const COpenGLBuffer* boundBuffer;
                     uint64_t lastValidatedBuffer;
@@ -432,7 +432,7 @@ namespace video
 
             16/8+16/8+16+4 = 3 uint64_t
             **/
-            class COpenGLVAO
+            class COpenGLVAO : public core::AllocationOverrideDefault
             {
                     size_t                      attrOffset[scene::EVAI_COUNT];
                     uint32_t                    attrStride[scene::EVAI_COUNT];
@@ -521,7 +521,7 @@ namespace video
             }
 
             //! Textures and Samplers
-            class STextureStageCache
+            class STextureStageCache : public core::AllocationOverrideDefault
             {
                 const IVirtualTexture* CurrentTexture[MATERIAL_MAX_TEXTURES];
             public:

@@ -15,6 +15,7 @@
 #include "CMeshManipulator.h"
 #include "CMeshSceneNodeInstanced.h"
 
+#include <new>
 
 namespace irr
 {

@@ -17,7 +17,7 @@ namespace core
 /** As of Irrlicht 1.6, this class supercedes position2d, which should
 	be considered deprecated. */
 template <class T>
-class vector2d
+class vector2d// : public AllocationOverrideDefault
 {
 public:
 	//! Default constructor (null vector)

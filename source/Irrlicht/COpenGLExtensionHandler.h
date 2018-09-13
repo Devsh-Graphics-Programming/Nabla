@@ -939,9 +939,6 @@ class COpenGLExtensionHandler
 	static core::LeakDebugger bufferLeaker;
 	static core::LeakDebugger textureLeaker;
 
-	// constructor
-	COpenGLExtensionHandler();
-
 	// deferred initialization
 	void initExtensions(bool stencilBuffer);
 
@@ -1595,10 +1592,13 @@ class COpenGLExtensionHandler
     static PFNGLXSWAPINTERVALMESAPROC pGlxSwapIntervalMESA;
     #endif
 #endif
+protected:
+	// constructor
+	COpenGLExtensionHandler();
 private:
-        static bool functionsAlreadyLoaded;
+    static bool functionsAlreadyLoaded;
 
-        static int32_t pixelUnpackAlignment;
+    static int32_t pixelUnpackAlignment;
 };
 
 

@@ -26,7 +26,7 @@ class COverdrawMeshOptimizer
 	};
 
 	// private, undefined constructor
-	COverdrawMeshOptimizer();
+	COverdrawMeshOptimizer() = delete;
 
 public:
 	//! Creates new or modifies given mesh reordering indices to reduce pixel overdraw and vertex shader invocations.

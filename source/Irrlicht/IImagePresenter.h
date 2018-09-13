@@ -20,7 +20,7 @@ namespace video
 	This class should be used only internally.
 */
 
-	class IImagePresenter
+	class IRR_FORCE_EBO IImagePresenter
 	{
         public:
             //! presents a surface in the client area

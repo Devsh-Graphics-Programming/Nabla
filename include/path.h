@@ -84,7 +84,7 @@ private:
 };
 */
 
-struct SNamedPath
+struct SNamedPath// : public AllocationOverrideDefault
 {
 	//! Constructor
 	SNamedPath() {}

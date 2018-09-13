@@ -9,7 +9,7 @@ namespace irr
 namespace core
 {
 
-class STriangleCollider
+class STriangleCollider : public AllocationOverrideDefault
 {
     public:
         STriangleCollider() {}

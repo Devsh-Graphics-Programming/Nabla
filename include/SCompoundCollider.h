@@ -11,18 +11,16 @@ namespace irr
 namespace core
 {
 
-class SColliderData
+struct SColliderData
 {
-    public:
-        SColliderData() : attachedNode(NULL), instanceID(0), userData(NULL) {}
-        scene::ISceneNode* attachedNode; //for relative translation
-        uint32_t instanceID;
-        void* userData;
+    SColliderData() : attachedNode(NULL), instanceID(0), userData(NULL) {}
+    scene::ISceneNode* attachedNode; //for relative translation
+    uint32_t instanceID;
+    void* userData;
 };
 
-class SCollisionShapeDef
+struct SCollisionShapeDef
 {
-public:
     enum E_COLLISION_SHAPE_TYPE
     {
         ECST_AABOX=0,

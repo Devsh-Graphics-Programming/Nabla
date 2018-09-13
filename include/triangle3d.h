@@ -17,7 +17,7 @@ namespace core
 
 	//! 3d triangle template class for doing collision detection and other things.
 	template <class T>
-	class triangle3d
+	class triangle3d// : public AllocationOverrideDefault
 	{
 	public:
 

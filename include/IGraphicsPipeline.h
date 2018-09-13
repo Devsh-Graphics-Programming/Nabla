@@ -18,7 +18,7 @@ namespace video
 {
 
 /**
-class SFixedFuncLayout
+class IRR_FORCE_EBO SFixedFuncLayout
 {
     public:
         //some of this shit will be dynamic

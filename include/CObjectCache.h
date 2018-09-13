@@ -43,14 +43,14 @@ namespace impl
     struct is_assoc_container<core::multimap> : std::true_type {};
     template<>
     struct is_assoc_container<core::unordered_multimap> : std::true_type {};
-    
+
     template<typename K, typename...>
-    struct PropagKeyTypeTypedef_ { using KeyType = K; };
+    struct IRR_FORCE_EBO PropagKeyTypeTypedef_ { using KeyType = K; };
     template<typename ...K>
-    struct PropagKeyTypeTypedef : PropagKeyTypeTypedef_<K...> {};
+    struct IRR_FORCE_EBO PropagKeyTypeTypedef : PropagKeyTypeTypedef_<K...> {};
 
     template<typename T, typename ...K>
-    struct PropagTypedefs : PropagKeyTypeTypedef<K...> { using CachedType = T; };
+    struct IRR_FORCE_EBO PropagTypedefs : PropagKeyTypeTypedef<K...> { using CachedType = T; };
 
     // Macro instead of some contexpr function so we can know which static_assert failed
     // __VA_ARGS__ is needed because macro treats commas delimiting template paramaters as delimiter for macro parameters
@@ -480,7 +480,7 @@ template<
     typename T,
     template<typename...> class ContainerT_T
 >
-class CMultiObjectCache<K, T, ContainerT_T, true> : 
+class CMultiObjectCache<K, T, ContainerT_T, true> :
     public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, std::pair<K, T*>>,
     public impl::PropagTypedefs<T, K>
 {
@@ -499,7 +499,7 @@ template<
     typename T,
     template<typename...> class ContainerT_T
 >
-class CMultiObjectCache<K, T, ContainerT_T, false> : 
+class CMultiObjectCache<K, T, ContainerT_T, false> :
     public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, T*, K>,
     public impl::PropagTypedefs<T, K>
 {
@@ -531,7 +531,7 @@ template<
     typename T,
     template<typename...> class ContainerT_T
 >
-class CObjectCache<K, T, ContainerT_T, true> : 
+class CObjectCache<K, T, ContainerT_T, true> :
     public impl::CUniqObjectCacheBaseExt<true, ContainerT_T, std::pair<K, T*>>,
     public impl::PropagTypedefs<T, K>
 {
@@ -547,7 +547,7 @@ template<
     typename T,
     template<typename...> class ContainerT_T
 >
-class CObjectCache<K, T, ContainerT_T, false> : 
+class CObjectCache<K, T, ContainerT_T, false> :
     public impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>,
     public impl::PropagTypedefs<T, K>
 {

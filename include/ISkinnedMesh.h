@@ -91,36 +91,33 @@ namespace scene
 		}
 
 		//! Animation keyframe which describes a new position
-		class SPositionKey
+		struct SPositionKey
 		{
-        public:
-                SPositionKey() {}
-                SPositionKey(const float& mockFrame) : frame(mockFrame) {}
-                inline bool operator<(const SPositionKey& other) const { return (frame < other.frame); }
+            SPositionKey() {}
+            SPositionKey(const float& mockFrame) : frame(mockFrame) {}
+            inline bool operator<(const SPositionKey& other) const { return (frame < other.frame); }
 
-                float frame;
-                core::vector3df position;
+            float frame;
+            core::vector3df position;
 		};
 
 		//! Animation keyframe which describes a new scale
-		class SScaleKey
-		{
-		    public:
-                SScaleKey() {}
-                SScaleKey(const float& mockFrame) : frame(mockFrame) {}
-                inline bool operator<(const SScaleKey& other) const { return (frame < other.frame); }
+		struct SScaleKey
+        {
+            SScaleKey() {}
+            SScaleKey(const float& mockFrame) : frame(mockFrame) {}
+            inline bool operator<(const SScaleKey& other) const { return (frame < other.frame); }
 
 			float frame;
 			core::vector3df scale;
 		};
 
 		//! Animation keyframe which describes a new rotation
-		class SRotationKey
+		struct SRotationKey
 		{
-		    public:
-                SRotationKey() {}
-                SRotationKey(const float& mockFrame) : frame(mockFrame) {}
-                inline bool operator<(const SRotationKey& other) const { return (frame < other.frame); }
+            SRotationKey() {}
+            SRotationKey(const float& mockFrame) : frame(mockFrame) {}
+            inline bool operator<(const SRotationKey& other) const { return (frame < other.frame); }
 
 			float frame;
 			core::quaternion rotation;

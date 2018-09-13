@@ -28,7 +28,7 @@ namespace core
 #endif
 
 //! Base class for things that cannot be shared between threads
-class IThreadBound
+class IRR_FORCE_EBO IThreadBound
 {
         std::thread::id tid;
     protected:

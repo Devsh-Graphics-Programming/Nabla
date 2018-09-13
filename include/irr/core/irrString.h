@@ -9,8 +9,8 @@
 #include <string>
 #include <stdlib.h>
 
-#include "irr/core/math/irrMath.h"
 #include "irr/core/alloc/aligned_allocator.h"
+#include "irr/core/alloc/AlignedBase.h"
 
 namespace irr
 {
@@ -70,7 +70,7 @@ static inline uint32_t locale_upper ( uint32_t x )
 
 
 template <typename T, typename TAlloc = aligned_allocator<T> >
-class string
+class string : public AllocationOverrideDefault
 {
 public:
 

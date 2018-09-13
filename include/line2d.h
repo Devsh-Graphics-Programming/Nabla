@@ -15,7 +15,7 @@ namespace core
 
 //! 2D line between two points with intersection methods.
 template <class T>
-class line2d
+class line2d// : public AllocationOverrideDefault
 {
 	public:
 		//! Default constructor for line going from (0,0) to (1,1).

@@ -23,7 +23,7 @@ namespace irr
 	{
 		typedef scene::ICPUMesh ICPUMesh;
 
-		class IAssetManager
+		class IAssetManager// : public core::IReferenceCounted
 		{
 			public:
 				#ifdef USE_MAPS_FOR_PATH_BASED_CACHE

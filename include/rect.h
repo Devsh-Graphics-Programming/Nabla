@@ -24,7 +24,7 @@ namespace core
 	and to the bottom.
 	*/
 	template <class T>
-	class rect
+	class rect// : public AllocationOverrideDefault
 	{
 	public:
 

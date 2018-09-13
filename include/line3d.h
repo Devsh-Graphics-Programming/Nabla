@@ -14,7 +14,7 @@ namespace core
 
 //! 3D line between two points with intersection methods.
 template <class T>
-class line3d
+class line3d// : public AllocationOverrideDefault
 {
 	public:
 

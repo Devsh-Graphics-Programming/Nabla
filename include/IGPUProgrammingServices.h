@@ -25,7 +25,7 @@ class IShaderConstantSetCallBack;
 
 
 //! Interface making it possible to create and use programs running on the GPU.
-class IGPUProgrammingServices
+class IRR_FORCE_EBO IGPUProgrammingServices
 {
 public:
 

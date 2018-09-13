@@ -5,7 +5,7 @@
 #ifndef __IRR_BASE_CLASSES_H_INCLUDED__
 #define __IRR_BASE_CLASSES_H_INCLUDED__
 
-#include "irr/core/memory/irrMemory.h"
+#include "irr/core/memory/memory.h"
 
 #define _IRR_INTERFACE_CHILD(TYPE) \
             _IRR_NO_PUBLIC_DELETE(TYPE)

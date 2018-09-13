@@ -691,6 +691,8 @@ class Float16Compressor
 	static int32_t const maxD = infC - maxC - 1;
 	static int32_t const minD = minC - subC - 1;
 
+	Float16Compressor() = delete;
+
 public:
 	//! float32 -> float16
 	static inline uint16_t compress(float value)
@@ -734,11 +736,11 @@ public:
 
 
 //! Utility class easing the process of finding memory leaks. Usable only in debug build. Thread-safe. No Windows implementation yet.
-class LeakDebugger
+class LeakDebugger : public AllocationOverrideDefault
 {
         std::string name;
     public:
-        class StackTrace
+        class StackTrace : public AllocationOverrideDefault
         {
                 core::vector<std::string> stackTrace;
             public:

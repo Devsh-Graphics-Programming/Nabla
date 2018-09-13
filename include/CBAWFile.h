@@ -370,7 +370,7 @@ namespace core
 		return (typename CorrespondingBlobTypeFor<T>::type*)_blob;
 	}
 
-	class BlobSerializable
+	class IRR_FORCE_EBO BlobSerializable
 	{
 	public:
 		virtual ~BlobSerializable() {}

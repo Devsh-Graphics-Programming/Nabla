@@ -7,7 +7,7 @@
 namespace irr { namespace core
 {
 
-class matrix4SIMD : private AlignedBase<_IRR_SIMD_ALIGNMENT>
+class matrix4SIMD : public AlignedBase<_IRR_SIMD_ALIGNMENT>
 {
     vectorSIMDf rows[4];
 
@@ -612,7 +612,7 @@ public:
         const vectorSIMDf translation = vectorSIMDf(&_translate.X) & mask1100;
 
         vectorSIMDf cossin(cosf(_rotateRad), sinf(_rotateRad), 0.f, 0.f);
-        
+
         matrix4SIMD m;
         m.rows[0] = cossin * scale;
         m.rows[1] = (cossin ^ BUILD_XORMASKF(0, 1, 0, 0)).yxww() * scale;

@@ -32,7 +32,7 @@ namespace core
     matrix4 concatenatePreciselyBFollowedByA(const matrix4& other_a,const matrix4x3& other_b );
 
 
-	class matrix4x3
+	class matrix4x3 : public AlignedBase<_IRR_SIMD_ALIGNMENT>
 	{
 		public:
 

@@ -19,7 +19,7 @@ namespace core
 {
 
 
-class ISpline
+class ISpline// : public AllocationOverrideDefault
 {
     public:
         virtual ~ISpline() {}

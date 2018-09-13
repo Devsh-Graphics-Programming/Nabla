@@ -29,7 +29,7 @@ enum EIntersectionRelation3D
     made by any of the class methods.
 */
 template <class T>
-class plane3d
+class plane3d// : public AllocationOverrideDefault
 {
 	public:
 

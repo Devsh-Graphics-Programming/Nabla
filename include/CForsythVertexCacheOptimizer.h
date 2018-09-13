@@ -32,7 +32,7 @@
 namespace irr { namespace scene
 {
 
-class CForsythVertexCacheOptimizer
+class IRR_FORCE_EBO CForsythVertexCacheOptimizer
 {
 	struct VertData
 	{
