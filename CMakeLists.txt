@@ -15,8 +15,8 @@ endif()
 
 macro(irr_adjust_flags)
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		add_compile_options( # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-			-std=c++11 #add it to all C++ target objects but not C
+		add_compile_options(
+			-std=c++11 
 			-Wall
 			-Wextra
 			-Wno-unused-parameter
@@ -24,8 +24,19 @@ macro(irr_adjust_flags)
 			-fstrict-aliasing
 			-msse3
 			-mfpmath=sse
-			-fno-omit-frame-pointer
 			-fuse-ld=gold
+			
+			-Wextra
+			-Wno-sequence-point
+			-Wno-error=ignored-attributes
+			-Wno-error=unused-function
+			-Wno-error=unused-variable
+			-Wno-error=unused-parameter
+			
+			"$<$<CONFIG:DEBUG>:-g>"
+			"$<$<CONFIG:DEBUG>:-ggdb3>"
+			"$<$<CONFIG:DEBUG>:-Wall>"
+			"$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>"
 			"$<$<CONFIG:DEBUG>:-fstack-protector-strong>"
 			"$<$<CONFIG:RELEASE>:-O3>"
 			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
@@ -33,9 +44,9 @@ macro(irr_adjust_flags)
 		link_libraries(
 			-fuse-ld=gold
 		)
-		if(FAST_MATH) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
+		if(FAST_MATH)
 			add_compile_options(
-				-ffast-math
+				"$<$<CONFIG:RELEASE>:-ffast-math>"
 			)
 		endif()
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

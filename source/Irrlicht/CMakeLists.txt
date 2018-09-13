@@ -423,13 +423,6 @@ else()
 		set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/unknown_platform")
 	endif()
 endif()
-if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-	if (${OUTPUT_DIR} MATCHES "*unknown_platform")
-		message(WARNING "NO INSTALL TARGET COULD BE GENERATED")
-	else()
-		set (CMAKE_INSTALL_PREFIX ${OUTPUT_DIR} CACHE PATH "default install path" FORCE )
-	endif()
-endif()
 
 macro(irr_set_irrlicht_output_dir _TRGT_NAME _OUTPATH)
 	set_target_properties(${_TRGT_NAME}
