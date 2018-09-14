@@ -31,8 +31,7 @@ macro(irr_adjust_flags)
 			-Wno-error=unused-variable
 			-Wno-error=unused-parameter
 			
-			"$<$<CONFIG:DEBUG>:-g>"
-			"$<$<CONFIG:DEBUG>:-ggdb3>"
+			#"$<$<CONFIG:DEBUG>:-g>" # same as with -O3 below
 			"$<$<CONFIG:DEBUG>:-Wall>"
 			"$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>"
 			"$<$<CONFIG:DEBUG>:-fstack-protector-strong>"
