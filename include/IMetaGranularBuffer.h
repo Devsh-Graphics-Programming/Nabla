@@ -1,19 +1,10 @@
 #ifndef __I_META_GRANULAR_BUFFER_H__
 #define __I_META_GRANULAR_BUFFER_H__
 
-#include "assert.h"
-#include <algorithm>
-
-namespace irr
-{
-namespace video
-{
-class IGPUMappedBuffer;
-}
-}
+#include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
+#include "irr/video/CDoubleBufferingAllocator.h"
 
 #include "irr/core/ICPUBuffer.h"
-#include "IVideoDriver.h"
 
 namespace irr
 {

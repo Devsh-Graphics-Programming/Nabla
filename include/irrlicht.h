@@ -37,9 +37,10 @@
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/Types.h"
 #include "irr/core/irrString.h"
+
+#include "irr/core/alloc/IAddressAllocator.h"
 #include "irr/core/alloc/IAddressAllocator.h"
 #include "irr/core/alloc/IAllocator.h"
-#include "irr/core/alloc/AddressAllocatorStateTypes.h"
 #include "irr/core/math/irrMath.h"
 
 

@@ -7,8 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
-#include "irr/core/alloc/address_allocator_type_traits.h"
-#include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
+#include "irr/core/alloc/AddressAllocatorBase.h"
 
 namespace irr
 {
@@ -17,18 +16,30 @@ namespace core
 
 
 template<typename _size_type>
-class LinearAddressAllocator
+class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocator<_size_type> >
 {
     public:
-        typedef _size_type                                  size_type;
-        typedef typename std::make_signed<size_type>::type  difference_type;
-        typedef uint8_t*                                    ubyte_pointer;
+        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr size_type                          invalid_address = address_type_traits<size_type>::invalid_address;
+        static constexpr bool supportsNullBuffer = true;
 
+        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(PoolAddressAllocator() : alignOffset(0u), bufferSize(0u) {})
 
-        LinearAddressAllocator(void* reservedSpc, size_t alignOff, size_type bufSz) noexcept : alignOffset(alignOff&((size_type(0x1u)<<findMSB(bufSz))-1u)),
-                    bufferSize(bufSz+alignOffset), cursor(alignOffset) {}
+        virtual ~LinearAddressAllocator() {}
+
+        LinearAddressAllocator(void* reservedSpc, void* buffer, size_type buffSz) noexcept : AddressAllocatorBase(reservedSpc,buffer)
+                    alignOffset(calcAlignOffset(buffer,buffSz)), bufferSize(buffSz+alignOffset), cursor(alignOffset) {}
+
+        LinearAddressAllocator(const LinearAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) :
+                    AddressAllocatorBase(other,newReservedSpc,newBuffer,newBuffSz), alignOffset(calcAlignOffset(newBuffer,newBuffSz)),
+                    bufferSize(newBuffSz+alignOffset), cursor(other.cursor+alignOffset-other.alignOffset)
+        {
+#ifdef _DEBUG
+            // new pointer must have greater or equal alignment
+            if (other.bufferStart&&bufferStart)
+                assert(findLSB(reinterpret_cast<size_t>(bufferStart)) >= findLSB(reinterpret_cast<size_t>(other.bufferStart)));
+#endif // _DEBUG
+        }
 
         inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
@@ -78,8 +89,13 @@ class LinearAddressAllocator
             return 1u;
         }
 
+        inline size_type        safe_shrink_size(size_type bound=0u) const noexcept
+        {
+            return cursor-alignOffset;
+        }
+
         template<typename... Args>
-        static inline size_type reserved_size(size_t alignOff, size_type bufSz, Args&&... args) noexcept
+        static inline size_type reserved_size(size_type bufSz, Args&&... args) noexcept
         {
             return 0u;
         }
@@ -87,7 +103,22 @@ class LinearAddressAllocator
         const size_type                                     alignOffset;
         const size_type                                     bufferSize;
         size_type                                           cursor;
+
+        static inline size_type calcAlignOffset(void* ptr, size_type bufSz)
+        {
+            return reinterpret_cast<size_t>(ptr)&((size_type(0x1u)<<findMSB(bufSz))-1u);
+        }
 };
+
+
+}
+}
+
+#include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
+namespace irr
+{
+namespace core
+{
 
 
 // aliases

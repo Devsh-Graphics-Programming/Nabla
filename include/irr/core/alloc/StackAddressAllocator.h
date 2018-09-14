@@ -8,7 +8,6 @@
 #include "IrrCompileConfig.h"
 
 #include "irr/core/alloc/address_allocator_type_traits.h"
-#include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
 
 
 namespace irr
@@ -27,6 +26,17 @@ class StackAddressAllocator;
 template<typename size_type>
 using StackAddressAllocatorST = StackAddressAllocator<size_type>;
 **/
+
+}
+}
+
+#include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
+namespace irr
+{
+namespace core
+{
+
+//
 
 }
 }

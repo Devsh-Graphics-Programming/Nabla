@@ -19,7 +19,6 @@ namespace scene
 
 class CMeshSceneNodeInstanced;
 
-void inputBuffersOnTransformFeedback(video::IGPUMappedBuffer* buff, void* node);
 
 //! A scene node displaying a static mesh
 //! default instance data is interleaved
@@ -140,8 +139,6 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
 
     protected:
-        friend void inputBuffersOnTransformFeedback(video::IGPUBuffer* buff, void* node);
-
         void RecullInstances();
         core::aabbox3d<float> Box;
         core::aabbox3d<float> LoDInvariantBox;

@@ -358,11 +358,11 @@
 		<Unit filename="../../include/irr/core/IThreadBound.h" />
 		<Unit filename="../../include/irr/core/Types.h" />
 		<Unit filename="../../include/irr/core/alloc/AddressAllocatorAdaptor.h" />
+		<Unit filename="../../include/irr/core/alloc/AddressAllocatorBase.h" />
 		<Unit filename="../../include/irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h" />
-		<Unit filename="../../include/irr/core/alloc/AddressAllocatorState.h" />
-		<Unit filename="../../include/irr/core/alloc/AddressAllocatorStateTypes.h" />
 		<Unit filename="../../include/irr/core/alloc/AlignedBase.h" />
 		<Unit filename="../../include/irr/core/alloc/AllocatorTrivialBases.h" />
+		<Unit filename="../../include/irr/core/alloc/ContiguousPoolAddressAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/IAddressAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/IAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/LinearAddressAllocator.h" />
@@ -374,6 +374,7 @@
 		<Unit filename="../../include/irr/core/irrString.h" />
 		<Unit filename="../../include/irr/core/math/irrMath.h" />
 		<Unit filename="../../include/irr/core/memory/memory.h" />
+		<Unit filename="../../include/irr/core/memory/new_delete.h" />
 		<Unit filename="../../include/irr/macros.h" />
 		<Unit filename="../../include/irr/video/CDoubleBufferingAllocator.h" />
 		<Unit filename="../../include/irrlicht.h" />

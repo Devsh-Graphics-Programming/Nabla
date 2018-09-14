@@ -7,33 +7,56 @@
 
 #include "IrrCompileConfig.h"
 
+#include "irr/core/alloc/address_allocator_type_traits.h"
+
 namespace irr
 {
 namespace core
 {
 
 template<class AddressAllocator, class BasicLockable>
-class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
+class AddressAllocatorBasicConcurrencyAdaptor : public address_allocator_traits<AddressAllocator>
 {
         static_assert(std::is_standard_layout<BasicLockable>::value,"Lock class is not standard layout");
         BasicLockable lock;
-    public:
-        typedef typename AddressAllocator::size_type        size_type;
-        typedef typename AddressAllocator::difference_type  difference_type;
-        typedef typename AddressAllocator::ubyte_pointer    ubyte_pointer;
 
-        static constexpr size_type  invalid_address = AddressAllocator::invalid_address;
+        AddressAllocator& getBaseRef() {return reinterpret_cast<AddressAllocator&>(*this);}
+    public:
+        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename AddressAllocator::size_type);
+
+        typedef address_allocator_traits<AddressAllocator> traits;
 
 
         using AddressAllocator::AddressAllocator;
         virtual ~AddressAllocatorBasicConcurrencyAdaptor() {}
 
+        inline size_type    get_real_addr(size_type allocated_addr) const noexcept
+        {
+            ///lock.lock();
+            auto retval = traits::get_real_addr(getBaseRef(),allocated_addr);
+            ///lock.unlock();
+            return retval;
+        }
+        inline void         multi_alloc_addr(size_type* outAddresses, uint32_t count, const size_type* bytes,
+                                             const size_type* alignment, const size_type* hint=nullptr) noexcept
+        {
+            lock.lock();
+            traits::multi_alloc_addr(getBaseRef(),outAddresses,count,bytes,alignment,hint);
+            lock.unlock();
+        }
+        inline void         multi_free_addr(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
+        {
+            lock.lock();
+            traits::multi_free_addr(getBaseRef(),count,addr,bytes);
+            lock.unlock();
+        }
+
         inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
             lock.lock();
-            auto tmp = AddressAllocator::alloc_addr(bytes,alignment,hint);
+            auto retval = AddressAllocator::alloc_addr(bytes,alignment,hint);
             lock.unlock();
-            return tmp;
+            return retval;
         }
 
         inline void         free_addr(size_type addr, size_type bytes) noexcept
@@ -52,12 +75,26 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 
         inline size_type    max_size() const noexcept {return AddressAllocator::max_size();}
 
-        inline size_type    max_alignment() const noexcept {return AddressAllocator::max_alignment();}
+        inline size_type    max_alignment() const noexcept
+        {
+            lock.lock();
+            auto retval = AddressAllocator::max_alignment();
+            lock.unlock();
+            return retval;
+        }
+
+        inline size_type    safe_shrink_size(size_type bound=0u) const noexcept
+        {
+            lock.lock();
+            auto retval = AddressAllocator::safe_shrink_size();
+            lock.unlock();
+            return retval;
+        }
 
         template<typename... Args>
-        static inline size_type reserved_size(size_t alignOff, size_type bufSz, Args&&... args) noexcept
+        static inline size_type reserved_size(size_type bufSz, Args&&... args) noexcept
         {
-            return AddressAllocator::reserved_size(alignOff,bufSz,std::forward<Args>(args)...);
+            return AddressAllocator::reserved_size(bufSz,std::forward<Args>(args)...);
         }
 };
 

@@ -14,7 +14,7 @@ namespace video
 template<class AddressAllocator, bool onlySwapRangesMarkedDirty>
 class CDoubleBufferingAllocatorBase;
 template<class AddressAllocator>
-class CDoubleBufferingAllocatorBase<false>
+class CDoubleBufferingAllocatorBase<AddressAllocator,false>
 {
     protected:
         std::pair<typename AddressAllocator::size_type,typename AddressAllocator::size_type> dirtyRange;
@@ -25,9 +25,11 @@ class CDoubleBufferingAllocatorBase<false>
         inline void resetDirtyRange() {}
 
         static constexpr bool alwaysSwapEntireRange = true;
+    public:
+        inline decltype(dirtyRange) getDirtyRange() const {return dirtyRange;}
 };
 template<class AddressAllocator>
-class CDoubleBufferingAllocatorBase<true>
+class CDoubleBufferingAllocatorBase<AddressAllocator,true>
 {
     protected:
         std::pair<typename AddressAllocator::size_type,typename AddressAllocator::size_type> dirtyRange;
@@ -35,10 +37,12 @@ class CDoubleBufferingAllocatorBase<true>
         CDoubleBufferingAllocatorBase() {resetDirtyRange();}
         virtual ~CDoubleBufferingAllocatorBase() {}
 
-        inline void resetDirtyRange() {dirtyRangeBegin = 0x7fffFFFFu; dirtyRangeEnd = 0;}
+        inline void resetDirtyRange() {dirtyRange.first = 0x7fffFFFFu; dirtyRange.second = 0;}
 
         static constexpr bool alwaysSwapEntireRange = false;
     public:
+        inline decltype(dirtyRange) getDirtyRange() const {return dirtyRange;}
+
         inline void markRangeDirty(typename AddressAllocator::size_type begin, typename AddressAllocator::size_type end)
         {
             if (begin<dirtyRange.first) dirtyRange.first = begin;
@@ -47,11 +51,13 @@ class CDoubleBufferingAllocatorBase<true>
 };
 
 
-template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false>
+template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false, class CPUAllocator=core::allocator<uint8_t> >
 class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty>, public virtual core::IReferenceCounted
 {
+    private:
+        typedef CDoubleBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty> Base;
     protected:
-        IVideoDriver*       mDriver,
+        IVideoDriver*       mDriver;
         IGPUBuffer*         mBackBuffer;
         IGPUBuffer*         mFrontBuffer;
         void*               mStagingPointer;
@@ -61,13 +67,13 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
         size_t              mDestBuffOff;
 
         size_t              mReservedSize; // for allocator external state
+        CPUAllocator        mCPUAllocator;
         void*               mAllocatorState;
-
         AddressAllocator    mAllocator;
 
         virtual ~CDoubleBufferingAllocator()
         {
-            _IRR_ALIGNED_FREE(mAllocatorState);
+            mCPUAllocator.deallocate(mAllocatorState,mReservedSize);
             mBackBuffer->drop();
             mFrontBuffer->drop();
         }
@@ -80,8 +86,8 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
         CDoubleBufferingAllocator(IVideoDriver* driver, const IDriverMemoryAllocation::MemoryRange& rangeToUse, IGPUBuffer* stagingBuff, size_t destBuffOffset, IGPUBuffer* destBuff, Args&&... args) :
                         mDriver(driver), mBackBuffer(stagingBuff), mFrontBuffer(destBuff), mStagingPointer(mBackBuffer->getBoundMemory()->getMappedPointer()),
                         mRangeLength(rangeToUse.length), mRangeStartRelToFB(stagingBuff->getBoundMemoryOffset()-rangeToUse.offset), mDestBuffOff(destBuffOffset),
-                        mReservedSize(AddressAllocator::reserved_size(0xffffffffu,mRangeLength,std::forward<Args>(args)...)),
-                        mAllocatorState(_IRR_ALIGNED_MALLOC(mReservedSize,_IRR_SIMD_ALIGNMENT)),
+                        mReservedSize(AddressAllocator::reserved_size(mRangeLength,std::forward<Args>(args)...)),
+                        mCPUAllocator(), mAllocatorState(mCPUAllocator.allocate(mReservedSize,_IRR_SIMD_ALIGNMENT)),
                         mAllocator(mAllocatorState,mStagingPointer,mRangeLength)
         {
 #ifdef _DEBUG
@@ -98,32 +104,51 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
 
 
         template<typename... Args>
-        inline typename AddressAllocator::size_type alloc_addr(std::forward<Args>(args)...) {return mAllocator.alloc_addr(std::forward<Args>(args)...);}
+        inline typename AddressAllocator::size_type alloc_addr(Args&&... args) {return mAllocator.alloc_addr(std::forward<Args>(args)...);}
 
         template<typename... Args>
-        inline typename AddressAllocator::size_type free_addr(std::forward<Args>(args)...) {return mAllocator.free_addr(std::forward<Args>(args)...);}
+        inline typename AddressAllocator::size_type free_addr(Args&&... args) {return mAllocator.free_addr(std::forward<Args>(args)...);}
 
 
         //! Makes Writes visible
-        inline void swapBuffers(void (*StuffToDoToFrontBuffer)(IGPUBuffer*,void*)=NULL,void* userData=NULL)
+        inline void swapBuffers(void (*StuffToDoToBackBuffer)(IGPUBuffer*,void*)=NULL, void (*StuffToDoToFrontBuffer)(IGPUBuffer*,void*)=NULL,void* userData=NULL)
         {
-            if (CDoubleBufferingAllocatorBase::alwaysSwapEntireRange)
-                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,mRangeStartRelToFB,mDestBuffOff,mRangeLength);
-            else if (CDoubleBufferingAllocatorBase::dirtyRange.first<CDoubleBufferingAllocatorBase::dirtyRange.second)
+            if (StuffToDoToBackBuffer)
+                StuffToDoToBackBuffer(mBackBuffer,userData);
+
+            if (Base::alwaysSwapEntireRange)
             {
-                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,mRangeStartRelToFB,mDestBuffOff,
-                                    CDoubleBufferingAllocatorBase::dirtyRange.second-CDoubleBufferingAllocatorBase::dirtyRange.first);
-                CDoubleBufferingAllocatorBase::resetDirtyRange();
+                IDriverMemoryAllocation::MappedMemoryRange range;
+                range.memory = mBackBuffer->getBoundMemory();
+                range.offset = mDestBuffOff+mBackBuffer->getBoundMemoryOffset();
+                range.length = mRangeLength;
+                mDriver->flushMappedMemoryRanges(1,&range);
+
+                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,mRangeStartRelToFB,mDestBuffOff,mRangeLength);
+            }
+            else if (Base::dirtyRange.first<Base::dirtyRange.second)
+            {
+                size_t tmpBackOffset = mDestBuffOff+Base::dirtyRange.first;
+
+                IDriverMemoryAllocation::MappedMemoryRange range;
+                range.memory = mBackBuffer->getBoundMemory();
+                range.offset = tmpBackOffset+mBackBuffer->getBoundMemoryOffset();
+                range.length = Base::dirtyRange.second-Base::dirtyRange.first;
+                mDriver->flushMappedMemoryRanges(1,&range);
+
+                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,tmpBackOffset,
+                                    mDestBuffOff+Base::dirtyRange.first,range.length);
+                Base::resetDirtyRange();
             }
 
             if (StuffToDoToFrontBuffer)
-                StuffToDoToFrontBuffer(A,userData);
+                StuffToDoToFrontBuffer(mFrontBuffer,userData);
         }
 };
 
 
-template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false>
-class CDoubleBufferingAllocatorExt : public CDoubleBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty>
+template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false, class CPUAllocator=core::allocator<uint8_t> >
+class CDoubleBufferingAllocatorExt : public CDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>
 {
     public:
 };
