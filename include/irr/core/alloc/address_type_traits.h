@@ -16,12 +16,14 @@ namespace core
     template<>
     struct address_type_traits<uint32_t>
     {
+        address_type_traits() = delete;
         static constexpr uint32_t   invalid_address = 0xdeadbeefu;
     };
 
     template<>
     struct address_type_traits<uint64_t>
     {
+        address_type_traits() = delete;
         static constexpr uint64_t   invalid_address = 0xdeadbeefBADC0FFEull;
     };
 

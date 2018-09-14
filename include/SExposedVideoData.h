@@ -5,11 +5,6 @@
 #ifndef __S_EXPOSED_VIDEO_DATA_H_INCLUDED__
 #define __S_EXPOSED_VIDEO_DATA_H_INCLUDED__
 
-// forward declarations for internal pointers
-struct IDirect3D9;
-struct IDirect3DDevice9;
-struct IDirect3D8;
-struct IDirect3DDevice8;
 
 namespace irr
 {
@@ -29,34 +24,6 @@ struct SExposedVideoData
 
 	union
 	{
-		struct
-		{
-			//! Pointer to the IDirect3D9 interface
-			IDirect3D9* D3D9;
-
-			//! Pointer to the IDirect3DDevice9 interface
-			IDirect3DDevice9* D3DDev9;
-
-			//! Window handle.
-			/** Get with for example HWND h = reinterpret_cast<HWND>(exposedData.D3D9.HWnd) */
-			void* HWnd;
-
-		} D3D9;
-
-		struct
-		{
-			//! Pointer to the IDirect3D8 interface
-			IDirect3D8* D3D8;
-
-			//! Pointer to the IDirect3DDevice8 interface
-			IDirect3DDevice8* D3DDev8;
-
-			//! Window handle.
-			/** Get with for example with: HWND h = reinterpret_cast<HWND>(exposedData.D3D8.HWnd) */
-			void* HWnd;
-
-		} D3D8;
-
 		struct
 		{
 			//! Private GDI Device Context.

@@ -18,7 +18,7 @@ namespace video
 
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
 // Static members
-io::path CImageLoaderJPG::Filename;
+io::path CImageLoaderJPG::Filename; //! NOT THREAD SAFE, USE A F***ING CONTEXT
 #endif // _IRR_COMPILE_WITH_LIBJPEG_
 
 //! constructor

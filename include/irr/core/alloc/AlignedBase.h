@@ -179,6 +179,9 @@ namespace impl
 template <size_t _in_alignment>
 using AllocationOverrideBase = impl::ResolveAlignment<AlignedBase<_in_alignment> >;
 
+//#define IRR_TEST_NO_NEW_DELETE_OVERRIDE
+
+#ifndef IRR_TEST_NO_NEW_DELETE_OVERRIDE
 using AllocationOverrideDefault = AllocationOverrideBase<_IRR_SIMD_ALIGNMENT>;
 
 
@@ -192,8 +195,11 @@ using AllocationOverrideDefault = AllocationOverrideBase<_IRR_SIMD_ALIGNMENT>;
             static inline void operator delete[](void* ptr)              noexcept {irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr);} \
             static inline void operator delete(void* ptr, size_t size)   noexcept {irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(ptr,size);} \
             static inline void operator delete[](void* ptr, size_t size) noexcept {irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr,size);}
+#else
+struct IRR_FORCE_EBO AllocationOverrideDefault {};
 
-
+#define _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(...)
+#endif // IRR_TEST_NO_NEW_DELETE_OVERRIDE
 }
 }
 

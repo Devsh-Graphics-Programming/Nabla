@@ -202,16 +202,15 @@ public:
 
 		used = len;
 		if (used>allocated)
-		{
-			allocated = used;
 			array = allocator.allocate(used); //new T[used];
-		}
 
 		for (uint32_t l = 0; l<len; ++l)
 			array[l] = (T)c[l];
 
 		if (oldArray != array)
 			allocator.deallocate(oldArray,allocated); // delete [] oldArray;
+		if (used>allocated)
+			allocated = used;
 
 		return *this;
 	}

@@ -516,7 +516,7 @@ bool CBurningVideoDriver::beginScene(bool backBuffer, bool zBuffer,
 		core::rect<int32_t>* sourceRect)
 {
 	CNullDriver::beginScene(backBuffer, zBuffer, color, videoData, sourceRect);
-	WindowId = videoData.D3D9.HWnd;
+	WindowId = videoData.OpenGLWin32.HWnd;
 	SceneSourceRect = sourceRect;
 
 	if (backBuffer && BackBuffer)

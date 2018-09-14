@@ -711,6 +711,7 @@ video::ITexture* CNullDriver::findTexture(const io::path& filename)
     }
 
 	auto foundHi = std::upper_bound(found,Textures.end(),s);
+    dummy->drop();
 	for (; found!=foundHi; found++)
     {
         if (found->Surface->getName().getInternalName()==io::SNamedPath::PathToName(filename))
