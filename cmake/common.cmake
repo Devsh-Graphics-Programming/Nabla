@@ -16,6 +16,14 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS)
 	target_include_directories(${EXECUTABLE_NAME} PUBLIC ../../include)
 	target_link_libraries(${EXECUTABLE_NAME} Irrlicht)
 	add_compile_options(${_EXTRA_OPTIONS})
+	
+	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+		add_compile_options(-fsanitize=address -fstack-protector-all)
+	
+		set(COMMON_LINKER_OPTIONS "-msse3 -mfpmath=sse -fuse-ld=gold")
+		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
+		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
+	endif()
 
 	irr_adjust_flags() # macro defined in root CMakeLists
 	irr_adjust_definitions() # macro defined in root CMakeLists

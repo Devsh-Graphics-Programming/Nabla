@@ -13,6 +13,9 @@
 #include <stdlib.h> // for abs() etc.
 #include <limits.h> // For INT_MAX / UINT_MAX
 #include <type_traits>
+#ifdef _MSC_VER
+    #include <intrin.h>
+#endif
 
 #include "irr/macros.h"
 
@@ -338,7 +341,7 @@ namespace core
 #ifdef __GNUC__
         return __builtin_ffs(reinterpret_cast<const int32_t&>(x))-1;
 #elif defined(_MSC_VER)
-        long index;
+        unsigned long index;
         if (_BitScanForward(&index,reinterpret_cast<const long&>(x)))
             return index;
         return -1;
@@ -350,7 +353,7 @@ namespace core
 #ifdef __GNUC__
         return __builtin_ffsl(reinterpret_cast<const int64_t&>(x))-1;
 #elif defined(_MSC_VER)
-        long index;
+        unsigned long index;
         if (_BitScanForward64(&index,reinterpret_cast<const __int64&>(x)))
             return index;
         return -1;
@@ -365,7 +368,7 @@ namespace core
 #ifdef __GNUC__
         return x ? (31-__builtin_clz(x)):(-1);
 #elif defined(_MSC_VER)
-        long index;
+        unsigned long index;
         if (_BitScanReverse(&index,reinterpret_cast<const long&>(x)))
             return index;
         return -1;
@@ -377,7 +380,7 @@ namespace core
 #ifdef __GNUC__
         return x ? (31-__builtin_clzl(x)):(-1);
 #elif defined(_MSC_VER)
-        long index;
+        unsigned long index;
         if (_BitScanReverse64(&index,reinterpret_cast<const __int64&>(x)))
             return index;
         return -1;
