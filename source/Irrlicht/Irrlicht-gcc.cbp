@@ -375,6 +375,7 @@
 		<Unit filename="../../include/irr/core/math/irrMath.h" />
 		<Unit filename="../../include/irr/core/memory/memory.h" />
 		<Unit filename="../../include/irr/macros.h" />
+		<Unit filename="../../include/irr/video/CDoubleBufferingAllocator.h" />
 		<Unit filename="../../include/irrlicht.h" />
 		<Unit filename="../../include/line2d.h" />
 		<Unit filename="../../include/line3d.h" />

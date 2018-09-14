@@ -54,15 +54,20 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
         IVideoDriver*       mDriver,
         IGPUBuffer*         mBackBuffer;
         IGPUBuffer*         mFrontBuffer;
-
         void*               mStagingPointer;
+        size_t              mRangeLength;
+
         size_t              mRangeStartRelToFB;
         size_t              mDestBuffOff;
+
         size_t              mReservedSize; // for allocator external state
+        void*               mAllocatorState;
+
         AddressAllocator    mAllocator;
 
         virtual ~CDoubleBufferingAllocator()
         {
+            _IRR_ALIGNED_FREE(mAllocatorState);
             mBackBuffer->drop();
             mFrontBuffer->drop();
         }
@@ -73,11 +78,11 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
 		@param rangeToUse is a memory range relative to the staging buffer's bound memory start, not the buffer start or the mapped IDriverMemoryAllocation offset. */
         template<typename... Args>
         CDoubleBufferingAllocator(IVideoDriver* driver, const IDriverMemoryAllocation::MemoryRange& rangeToUse, IGPUBuffer* stagingBuff, size_t destBuffOffset, IGPUBuffer* destBuff, Args&&... args) :
-                        mDriver(driver), mBackBuffer(stagingBuff), mFrontBuffer(destBuff),
-                        mStagingPointer(reinterpret_cast<uint8_t*>(mBackBuffer->getBoundMemory()->getMappedPointer())+rangeToUse.offset),
-                        mRangeStartRelToFB(stagingBuff->getBoundMemoryOffset()-rangeToUse.offset), mDestBuffOff(destBuffOffset),
-                        mReservedSize(AddressAllocator::reserved_size(reinterpret_cast<size_t>(mStagingPointer),bufSz,std::forward<Args>(args)...))
-                        mAllocator(mStagingPointer,reinterpret_cast<size_t>(mStagingPointer)+mReservedSize,rangeToUse.length-mReservedSize)
+                        mDriver(driver), mBackBuffer(stagingBuff), mFrontBuffer(destBuff), mStagingPointer(mBackBuffer->getBoundMemory()->getMappedPointer()),
+                        mRangeLength(rangeToUse.length), mRangeStartRelToFB(stagingBuff->getBoundMemoryOffset()-rangeToUse.offset), mDestBuffOff(destBuffOffset),
+                        mReservedSize(AddressAllocator::reserved_size(0xffffffffu,mRangeLength,std::forward<Args>(args)...)),
+                        mAllocatorState(_IRR_ALIGNED_MALLOC(mReservedSize,_IRR_SIMD_ALIGNMENT)),
+                        mAllocator(mAllocatorState,mStagingPointer,mRangeLength)
         {
 #ifdef _DEBUG
             assert(stagingBuff->getBoundMemoryOffset()>=rangeToUse.offset);
@@ -103,7 +108,7 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
         inline void swapBuffers(void (*StuffToDoToFrontBuffer)(IGPUBuffer*,void*)=NULL,void* userData=NULL)
         {
             if (CDoubleBufferingAllocatorBase::alwaysSwapEntireRange)
-                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,mRangeStartRelToFB,mDestBuffOff,mEntireRange);
+                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,mRangeStartRelToFB,mDestBuffOff,mRangeLength);
             else if (CDoubleBufferingAllocatorBase::dirtyRange.first<CDoubleBufferingAllocatorBase::dirtyRange.second)
             {
                 mDriver->copyBuffer(mBackBuffer,mFrontBuffer,mRangeStartRelToFB,mDestBuffOff,
@@ -114,6 +119,13 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
             if (StuffToDoToFrontBuffer)
                 StuffToDoToFrontBuffer(A,userData);
         }
+};
+
+
+template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false>
+class CDoubleBufferingAllocatorExt : public CDoubleBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty>
+{
+    public:
 };
 
 }

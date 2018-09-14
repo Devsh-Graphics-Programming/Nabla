@@ -142,8 +142,8 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         or reading from it have completed before you start using the returned pointer. Otherwise this will result in a race condition.
 		WARNING: UNMAP will invalidate pointer!
         WARNING: NEED TO FENCE BEFORE USE!
-		@returns Internal pointer with 0 offset into the mapped memory, so the address that it is pointing to may be unsafe
-		to access without an offset if a memory range. */
+		@returns Internal pointer with 0 offset into the memory allocation, so the address that it is pointing to may be unsafe
+		to access without an offset if a memory range (if a subrange not starting at 0 was mapped). */
         inline void* getMappedPointer() {return mappedPtr;}
 
         //! Constant variant of getMappedPointer
