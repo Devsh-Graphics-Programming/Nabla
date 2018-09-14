@@ -53,12 +53,12 @@ class aligned_allocator : public irr::core::AllocatorTrivialBase<T>
         }
 
         template<typename U, size_t _align>
-        inline bool                                 operator!=(const aligned_allocator<U,_align>& other) noexcept
+        inline bool                                 operator!=(const aligned_allocator<U,_align>& other) const noexcept
         {
             return false;
         }
         template<typename U, size_t _align>
-        inline bool                                 operator==(const aligned_allocator<U,_align>& other) noexcept
+        inline bool                                 operator==(const aligned_allocator<U,_align>& other) const noexcept
         {
             return true;
         }
