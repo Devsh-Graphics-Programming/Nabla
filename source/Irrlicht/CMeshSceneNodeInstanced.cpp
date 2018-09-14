@@ -21,21 +21,15 @@ uint32_t CMeshSceneNodeInstanced::recullOrder;
 CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
         const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
     : IMeshSceneNodeInstanced(parent, mgr, id, position, rotation, scale),
-    cpuCullingFunction(NULL), cpuCullingScratchSpace(NULL),
     instanceDataBufferChanged(false), instanceDataBuffer(NULL), instanceBBoxes(NULL), instanceBBoxesCount(0),
     flagQueryForRetrieval(false),
-    gpuCulledLodInstanceDataBuffer(NULL), cpuCulledLodInstanceDataBuffer(NULL), dataPerInstanceOutputSize(0),
+    gpuCulledLodInstanceDataBuffer(NULL), dataPerInstanceOutputSize(0),
     extraDataInstanceSize(0), visibilityPadding(0), cachedMaterialCount(0)
 {
     #ifdef _DEBUG
     setDebugName("CMeshSceneNodeInstanced");
     #endif
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-    instanceCountThresholdForGPU = static_cast<video::COpenGLDriver*>(SceneManager->getVideoDriver())->getMaxConcurrentShaderInvocations();
-#else
-    instanceCountThresholdForGPU = 0;
-#endif // _IRR_COMPILE_WITH_OPENGL_
 
     renderPriority = 0x80000000u;
 
@@ -62,24 +56,11 @@ CMeshSceneNodeInstanced::~CMeshSceneNodeInstanced()
         free(instanceBBoxes);
     if (gpuCulledLodInstanceDataBuffer)
         gpuCulledLodInstanceDataBuffer->drop();
-    if (cpuCulledLodInstanceDataBuffer)
-        cpuCulledLodInstanceDataBuffer->drop();
-    if (cpuCullingScratchSpace)
-        _IRR_ALIGNED_FREE(cpuCullingScratchSpace);
-}
-
-void CMeshSceneNodeInstanced::setGPUCullingThresholdMultiplier(const double& multiplier)
-{
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-    instanceCountThresholdForGPU = double(static_cast<video::COpenGLDriver*>(SceneManager->getVideoDriver())->getMaxConcurrentShaderInvocations())*multiplier;
-#else
-    instanceCountThresholdForGPU = 0;
-#endif // _IRR_COMPILE_WITH_OPENGL_
 }
 
 
 //! Sets a new meshbuffer
-bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput, CPUCullingFunc cpuCullFunc)
+bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput)
 {
     for (size_t i=0; i<LoD.size(); i++)
     {
@@ -97,16 +78,9 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         free(instanceBBoxes);
     if (gpuCulledLodInstanceDataBuffer)
         gpuCulledLodInstanceDataBuffer->drop();
-    if (cpuCulledLodInstanceDataBuffer)
-        cpuCulledLodInstanceDataBuffer->drop();
-    if (cpuCullingScratchSpace)
-        _IRR_ALIGNED_FREE(cpuCullingScratchSpace);
     instanceDataBuffer = NULL;
     instanceBBoxes = NULL;
     gpuCulledLodInstanceDataBuffer = NULL;
-    cpuCulledLodInstanceDataBuffer = NULL;
-    cpuCullingFunction = NULL;
-    cpuCullingScratchSpace = NULL;
     extraDataInstanceSize = 0;
 
     lodCullingPointMesh->setMeshDataAndFormat(NULL);
@@ -146,30 +120,6 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 	gpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createDeviceLocalGPUBufferOnDedMem(dataSizePerInstanceOutput*instanceBBoxesCount*gpuLoDsPerPass*xfb.size());
 	instanceDataBufferChanged = false;
 
-    if (cpuCullFunc)
-    {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-        instanceCountThresholdForGPU = static_cast<video::COpenGLDriver*>(SceneManager->getVideoDriver())->getMaxConcurrentShaderInvocations();
-#else
-        instanceCountThresholdForGPU = 0;
-#endif // _IRR_COMPILE_WITH_OPENGL_
-        cpuCullingFunction = cpuCullFunc;
-
-        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-        reqs.vulkanReqs.size = gpuCulledLodInstanceDataBuffer->getSize();
-        reqs.vulkanReqs.alignment = 0;
-        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-        reqs.prefersDedicatedAllocation = true;
-        reqs.requiresDedicatedAllocation = true;
-        cpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createGPUBuffer(reqs,true);
-
-        cpuCullingScratchSpace = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(gpuCulledLodInstanceDataBuffer->getSize(),_IRR_SIMD_ALIGNMENT));
-    }
-    else
-        instanceCountThresholdForGPU = 0;
-
 
 	extraDataInstanceSize = extraDataSizePerInstanceInput;
 	dataPerInstanceOutputSize = dataSizePerInstanceOutput;
@@ -204,8 +154,6 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)attr,(E_COMPONENTS_PER_ATTRIBUTE)((leftOverMemory+3)/4),ECT_INTEGER_UNSIGNED_INT,extraDataInstanceSize+12*4+36+visibilityPadding,attr*16);
         }
     }
-
-	lastTimeUsedGPU = true;
 
 
     for (size_t i=0; i<levelsOfDetail.size(); i++)
@@ -435,68 +383,6 @@ void CMeshSceneNodeInstanced::RecullInstances()
 
     video::IVideoDriver* driver = SceneManager->getVideoDriver();
 
-    if (cpuCullingFunction&&(lodCullingPointMesh->getIndexCount()<instanceCountThresholdForGPU))
-    {
-        size_t outputSizePerLoD = dataPerInstanceOutputSize*instanceDataBuffer->getCapacity();
-        if (cpuCulledLodInstanceDataBuffer->getSize()!=LoD.size()*outputSizePerLoD)
-        {
-            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs = cpuCulledLodInstanceDataBuffer->getMemoryReqs();
-            reqs.vulkanReqs.size = LoD.size()*outputSizePerLoD;
-            {auto rep = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,cpuCulledLodInstanceDataBuffer->canUpdateSubRange()); cpuCulledLodInstanceDataBuffer->pseudoMoveAssign(rep); rep->drop();}
-
-            _IRR_ALIGNED_FREE(cpuCullingScratchSpace);
-        }
-
-//typedef uint32_t (*CPUCullingFunc)(uint8_t** outputPtrs, const void* instanceData, const core::matrix4& ProjViewWorldMat, const core::matrix4& ViewWorldMat, const core::matrix4& WorldMat, const float* ViewNormalMat, const float* NormalMat,
-//const core::vectorSIMDf& eyePos, const core::vectorSIMDf& LoDInvariantMinEdge, const core::vectorSIMDf& LoDInvariantMaxEdge, const core::vectorSIMDf& LoDInvariantBBoxCenter, void* userData);
-        uint8_t* pseudoStreamPointers[_IRR_XFORM_FEEDBACK_MAX_STREAMS_];
-        for (size_t j=0; j<LoD.size(); j++)
-        {
-            pseudoStreamPointers[j] = cpuCullingScratchSpace+outputSizePerLoD*j;
-            for (size_t i=0; i<LoD[j].mesh->getMeshBufferCount(); i++)
-                LoD[j].mesh->getMeshBuffer(i)->setBaseInstance(j*outputSizePerLoD/dataPerInstanceOutputSize);
-        }
-
-        cpuCullingFunction(pseudoStreamPointers,dataPerInstanceOutputSize,getLoDInvariantBBox(),instanceDataBuffer->getAllocatedCount(),AbsoluteTransformation,
-                           reinterpret_cast<uint8_t*>(instanceDataBuffer->getBackBufferPointer()),(extraDataInstanceSize+12*4+36+visibilityPadding),SceneManager,cpuCullingUserData);
-
-        //! DO WE NEED TO DO THIS FOR CPU CULLING FRAMES?
-        if (instanceDataBufferChanged)
-            instanceDataBuffer->SwapBuffers();
-
-        size_t farSizeToUpdate=0;
-        for (size_t j=0; j<LoD.size(); j++)
-        {
-            size_t dataEnd = pseudoStreamPointers[j]-cpuCullingScratchSpace;
-            size_t localDataSize = dataEnd-outputSizePerLoD*j;
-            if (localDataSize)
-                farSizeToUpdate = dataEnd;
-
-            for (size_t i=0; i<LoD[j].mesh->getMeshBufferCount(); i++)
-                LoD[j].mesh->getMeshBuffer(i)->setInstanceCount(localDataSize/dataPerInstanceOutputSize);
-        }
-        if (farSizeToUpdate)
-            cpuCulledLodInstanceDataBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,farSizeToUpdate),cpuCullingScratchSpace);
-
-        if (lastTimeUsedGPU)
-        {
-            for (size_t j=0; j<LoD.size(); j++)
-            for (size_t i=0; i<LoD[j].mesh->getMeshBufferCount(); i++)
-            {
-                scene::IMeshDataFormatDesc<video::IGPUBuffer>* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
-                for (size_t k=0; k<scene::EVAI_COUNT; k++)
-                {
-                    if (desc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)k)==gpuCulledLodInstanceDataBuffer)
-                        desc->swapVertexAttrBuffer(cpuCulledLodInstanceDataBuffer,(scene::E_VERTEX_ATTRIBUTE_ID)k);
-                }
-            }
-        }
-
-        renderPriority = 0;
-        flagQueryForRetrieval = false;
-        lastTimeUsedGPU = false;
-    }
-    else
     {
         //can swap before or after, but defubuteky before tform feedback shadeur
         if (instanceDataBufferChanged)
@@ -530,23 +416,8 @@ void CMeshSceneNodeInstanced::RecullInstances()
             driver->endTransformFeedback();
         }
 
-        if (!lastTimeUsedGPU)
-        {
-            for (size_t j=0; j<LoD.size(); j++)
-            for (size_t i=0; i<LoD[j].mesh->getMeshBufferCount(); i++)
-            {
-                scene::IMeshDataFormatDesc<video::IGPUBuffer>* desc = LoD[j].mesh->getMeshBuffer(i)->getMeshDataAndFormat();
-                for (size_t k=0; k<scene::EVAI_COUNT; k++)
-                {
-                    if (desc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)k)==cpuCulledLodInstanceDataBuffer)
-                        desc->swapVertexAttrBuffer(gpuCulledLodInstanceDataBuffer,(scene::E_VERTEX_ATTRIBUTE_ID)k);
-                }
-            }
-        }
-
         renderPriority = 0x80000000u-(++recullOrder);
         flagQueryForRetrieval = true;
-        lastTimeUsedGPU = true;
     }
 }
 

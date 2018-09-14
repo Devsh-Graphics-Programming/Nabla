@@ -42,9 +42,6 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         //!
         virtual bool supportsDriverFence() const {return true;}
 
-        virtual const uint32_t& getGPUCullingThreshold() const {return instanceCountThresholdForGPU;}
-        virtual void setGPUCullingThresholdMultiplier(const double& multiplier);
-
         //! returns the material based on the zero based index i. To get the amount
         //! of materials used by this scene node, use getMaterialCount().
         //! This function is needed for inserting the node into the scene hirachy on a
@@ -67,7 +64,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         //! Sets a new mesh to display
         /** \param mesh Mesh to display. */
-        virtual bool setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0, CPUCullingFunc cpuCullFunc=NULL);
+        virtual bool setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0);
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
@@ -145,11 +142,6 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
     protected:
         friend void inputBuffersOnTransformFeedback(video::IGPUBuffer* buff, void* node);
 
-        uint32_t instanceCountThresholdForGPU;
-        bool lastTimeUsedGPU;
-        CPUCullingFunc cpuCullingFunction;
-        uint8_t* cpuCullingScratchSpace;
-
         void RecullInstances();
         core::aabbox3d<float> Box;
         core::aabbox3d<float> LoDInvariantBox;
@@ -174,7 +166,6 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         bool flagQueryForRetrieval;
         IGPUMeshBuffer* lodCullingPointMesh;
         video::IGPUBuffer* gpuCulledLodInstanceDataBuffer;
-        video::IGPUBuffer* cpuCulledLodInstanceDataBuffer;
 
         size_t dataPerInstanceOutputSize;
         size_t extraDataInstanceSize;

@@ -182,62 +182,6 @@ public:
  }
 
 
-
-void CPUCullingFunc(uint8_t** outputPtrs, const size_t& outputDataStride, const core::aabbox3df& LoDInvariantBBox, const size_t& instanceCount,
-                    const core::matrix4x3& AbsoluteTransformation, const uint8_t* instanceData, const size_t& instanceDataStride, scene::ISceneManager* SceneManager, void* userData)
-{
-    video::IVideoDriver* driver = SceneManager->getVideoDriver();
-
-    core::matrix4x3 ViewWorldMat = concatenateBFollowedByA(driver->getTransform(irr::video::E4X3TS_VIEW),AbsoluteTransformation);
-    core::matrix4 ProjViewWorldMat = concatenateBFollowedByA(driver->getTransform(irr::video::EPTS_PROJ_VIEW),AbsoluteTransformation);
-    float ViewNormalMat[9];
-    ViewWorldMat.getSub3x3InverseTranspose(ViewNormalMat);
-    core::vectorSIMDf eyePos;
-    eyePos.set(driver->getTransform(video::E4X3TS_VIEW_INVERSE).getTranslation());
-
-    core::vectorSIMDf LoDInvariantBBoxCenter;
-    LoDInvariantBBoxCenter.set(LoDInvariantBBox.getCenter());
-
-
-    for (size_t i=0; i<instanceCount; i++)
-    {
-        core::matrix4x3 instanceTform = *reinterpret_cast<const core::matrix4x3*>(instanceData+instanceDataStride*i);
-
-        core::vectorSIMDf instancePos;
-        instanceTform.transformVect(instancePos.pointer,LoDInvariantBBoxCenter.pointer);
-        AbsoluteTransformation.transformVect(instancePos.pointer);
-
-        core::vectorSIMDf eyeToInstance = instancePos-eyePos;
-        float distanceToInstanceSQ = dot(eyeToInstance,eyeToInstance).X;
-
-        uint32_t instanceLoD;
-        if (distanceToInstanceSQ<instanceLoDDistances[0]*instanceLoDDistances[0])
-            instanceLoD = 0;
-        else if (distanceToInstanceSQ<instanceLoDDistances[1]*instanceLoDDistances[1])
-            instanceLoD = 1;
-        else
-            continue;
-
-        core::matrix4 instanceWorldViewProjMat = concatenateBFollowedByA(ProjViewWorldMat,instanceTform);
-
-        ///Do frustum Culling
-        if (!instanceWorldViewProjMat.isBoxInsideFrustum(LoDInvariantBBox))
-            continue;
-
-
-        *reinterpret_cast<core::matrix4*>(outputPtrs[instanceLoD]) = instanceWorldViewProjMat;
-/* OLD EXAMPLE LEFTOVER, just to show normal matrix is still there
-        const float* gNormalMat = reinterpret_cast<const float*>(instanceData+instanceDataStride*i+48);
-        *reinterpret_cast<core::vector3df*>(outputPtrs[instanceLoD]+64+ 0) = reinterpret_cast<core::vector3df*>(ViewNormalMat)[0]*gNormalMat[0]+reinterpret_cast<core::vector3df*>(ViewNormalMat)[1]*gNormalMat[1]+reinterpret_cast<core::vector3df*>(ViewNormalMat)[2]*gNormalMat[2];
-        *reinterpret_cast<core::vector3df*>(outputPtrs[instanceLoD]+64+12) = reinterpret_cast<core::vector3df*>(ViewNormalMat)[0]*gNormalMat[3]+reinterpret_cast<core::vector3df*>(ViewNormalMat)[1]*gNormalMat[4]+reinterpret_cast<core::vector3df*>(ViewNormalMat)[2]*gNormalMat[5];
-        *reinterpret_cast<core::vector3df*>(outputPtrs[instanceLoD]+64+24) = reinterpret_cast<core::vector3df*>(ViewNormalMat)[0]*gNormalMat[6]+reinterpret_cast<core::vector3df*>(ViewNormalMat)[1]*gNormalMat[7]+reinterpret_cast<core::vector3df*>(ViewNormalMat)[2]*gNormalMat[8];
-*/
-        *reinterpret_cast<core::matrix4x3*>(outputPtrs[instanceLoD]+64) = concatenateBFollowedByA(ViewWorldMat,instanceTform);
-
-        outputPtrs[instanceLoD] += outputDataStride;
-    }
-}
-
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -422,9 +366,8 @@ int main()
             LevelsOfDetail[1].mesh = gpumeshes[1];
             LevelsOfDetail[1].lodDistance = instanceLoDDistances[1];
 
-            bool success = node->setLoDMeshes(LevelsOfDetail,28*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,2,NULL,0,CPUCullingFunc);
+            bool success = node->setLoDMeshes(LevelsOfDetail,28*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,2,NULL,0);
             assert(success);
-            node->setGPUCullingThresholdMultiplier(0.25f);
             cb->instanceLoDInvariantBBox = node->getLoDInvariantBBox();
         }
 

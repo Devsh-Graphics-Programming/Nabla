@@ -7,7 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
-#include "irr/core/alloc/address_type_traits.h"
+#include "irr/core/alloc/address_allocator_type_traits.h"
 #include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
 
 namespace irr

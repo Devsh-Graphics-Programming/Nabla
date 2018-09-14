@@ -23,8 +23,6 @@ class IMeshSceneNodeInstanced : public ISceneNode
 {
 protected:
     bool wantBBoxUpdate;
-
-    void* cpuCullingUserData;
 public:
     struct MeshLoD
     {
@@ -34,7 +32,6 @@ public:
     };
 
     typedef scene::IMeshDataFormatDesc<video::IGPUBuffer>* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const scene::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
-    typedef void (*CPUCullingFunc)(uint8_t**,const size_t&,const core::aabbox3df&,const size_t&,const core::matrix4x3&,const uint8_t*,const size_t&,scene::ISceneManager*,void*);
 
 	//! Constructor
 	/** Use setMesh() to set the mesh to display.
@@ -43,14 +40,10 @@ public:
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1,1,1))
-		: ISceneNode(parent, mgr, id, position, rotation, scale), wantBBoxUpdate(false), cpuCullingUserData(NULL)
+		: ISceneNode(parent, mgr, id, position, rotation, scale), wantBBoxUpdate(false)
     {
         setAutomaticCulling(EAC_OFF);
     }
-
-    //!
-    virtual const uint32_t& getGPUCullingThreshold() const =0;
-    virtual void setGPUCullingThresholdMultiplier(const double& multiplier) =0;
 
 	//! Sets a new mesh to display
     /** Extra Per-Instance input data is passed along as floating point components filling attribute slot 5 yzw components, and all components slots in attribute 6 and up
@@ -61,17 +54,12 @@ public:
     FUTURE:
     The compute shader mode can compute ALL LoDs at once and possibly all IMeshSceneNodeInstanced' nodes' culling and instance data at once.
 	\param mesh Mesh to display. */
-	virtual bool setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0, CPUCullingFunc cpuCullFunc=NULL) = 0;
+	virtual bool setLoDMeshes(  const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
+                                const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0) = 0;
 
 	//! Get the currently defined mesh for display.
 	/** \return Pointer to mesh which is displayed by this node. */
 	virtual SGPUMesh* getLoDMesh(const size_t &lod) = 0;
-
-	//!
-	virtual void setUserCPUCullingData(void* data)
-	{
-	    cpuCullingUserData = data;
-	}
 
 	virtual const size_t& getInstanceCount() const = 0;
 

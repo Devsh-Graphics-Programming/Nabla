@@ -368,7 +368,7 @@
 		<Unit filename="../../include/irr/core/alloc/LinearAddressAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/PoolAddressAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/StackAddressAllocator.h" />
-		<Unit filename="../../include/irr/core/alloc/address_type_traits.h" />
+		<Unit filename="../../include/irr/core/alloc/address_allocator_type_traits.h" />
 		<Unit filename="../../include/irr/core/alloc/aligned_allocator.h" />
 		<Unit filename="../../include/irr/core/alloc/aligned_allocator_adaptor.h" />
 		<Unit filename="../../include/irr/core/irrString.h" />
