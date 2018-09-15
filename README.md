@@ -11,5 +11,5 @@ Excuse us for not providing a proper readme, I (devsh) am really busy with my da
 
 If you have ties to original irrlicht and feel like improving this repository's readmes and the wiki, contact devsh.
 
-Words of appreciation for developers of [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) which IrrlichtBAW make use of.  
-Big thanks for developers of [shaderc](https://github.com/google/shaderc) which IrrlichtBAW make use of.
+Words of appreciation for developers of [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) which IrrlichtBAW makes use of.  
+Big thanks for developers of [shaderc](https://github.com/google/shaderc) which IrrlichtBAW makes use of.
