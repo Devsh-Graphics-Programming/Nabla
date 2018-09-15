@@ -55,6 +55,7 @@ inline uint32_t getBitsPerPixelFromGLenum(const GLenum& format)
         case GL_RGBA8:
         case GL_RGBA8I:
         case GL_RGBA8UI:
+        case GL_RGB9_E5:
             return 32;
         case GL_RGBA16:
         case GL_RGBA16F:

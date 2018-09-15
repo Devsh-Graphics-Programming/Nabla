@@ -1,7 +1,7 @@
 #version 430 core
-layout(binding = 3) uniform samplerBuffer tex3;
-//layout(std140, binding = 0) uniform U { mat4 MVP; };
-uniform mat4 MVP;
+layout(binding = 3) uniform samplerBuffer boneTBO;
+layout(std140, binding = 0) uniform U { mat4 MVP; };
+//uniform mat4 MVP;
 
 layout(location = 0) in vec3 vPos;
 layout(location = 3) in vec3 vNormal;
@@ -20,49 +20,49 @@ void linearSkin(out vec3 skinnedPos, out vec3 skinnedNormal, in ivec4 boneIDs, i
 
     int boneOffset = gl_InstanceID*BONE_CNT*6 + boneIDs.x*6;
     //global matrix
-    boneData[0] = texelFetch(tex3,boneOffset);
-    boneData[1] = texelFetch(tex3,boneOffset+1);
-    boneData[2] = texelFetch(tex3,boneOffset+2);
+    boneData[0] = texelFetch(boneTBO,boneOffset);
+    boneData[1] = texelFetch(boneTBO,boneOffset+1);
+    boneData[2] = texelFetch(boneTBO,boneOffset+2);
     //normal matrix
-    boneData[3] = texelFetch(tex3,boneOffset+3);
-    boneData[4] = texelFetch(tex3,boneOffset+4);
-    lastBoneData[0] = texelFetch(tex3,boneOffset+5).x;
+    boneData[3] = texelFetch(boneTBO,boneOffset+3);
+    boneData[4] = texelFetch(boneTBO,boneOffset+4);
+    lastBoneData[0] = texelFetch(boneTBO,boneOffset+5).x;
 
     if (boneWeightsXYZBoneCountNormalized.w>0.25) //0.33333
     {
         boneOffset = gl_InstanceID*BONE_CNT*6 + boneIDs.y*6;
         //global matrix
-        boneData[5+0] = texelFetch(tex3,boneOffset);
-        boneData[5+1] = texelFetch(tex3,boneOffset+1);
-        boneData[5+2] = texelFetch(tex3,boneOffset+2);
+        boneData[5+0] = texelFetch(boneTBO,boneOffset);
+        boneData[5+1] = texelFetch(boneTBO,boneOffset+1);
+        boneData[5+2] = texelFetch(boneTBO,boneOffset+2);
         //normal matrix
-        boneData[5+3] = texelFetch(tex3,boneOffset+3);
-        boneData[5+4] = texelFetch(tex3,boneOffset+4);
-        lastBoneData[1] = texelFetch(tex3,boneOffset+5).x;
+        boneData[5+3] = texelFetch(boneTBO,boneOffset+3);
+        boneData[5+4] = texelFetch(boneTBO,boneOffset+4);
+        lastBoneData[1] = texelFetch(boneTBO,boneOffset+5).x;
     }
     if (boneWeightsXYZBoneCountNormalized.w>0.5) //0.666666
     {
         boneOffset = gl_InstanceID*BONE_CNT*6 + boneIDs.z*6;
         //global matrix
-        boneData[10+0] = texelFetch(tex3,boneOffset);
-        boneData[10+1] = texelFetch(tex3,boneOffset+1);
-        boneData[10+2] = texelFetch(tex3,boneOffset+2);
+        boneData[10+0] = texelFetch(boneTBO,boneOffset);
+        boneData[10+1] = texelFetch(boneTBO,boneOffset+1);
+        boneData[10+2] = texelFetch(boneTBO,boneOffset+2);
         //normal matrix
-        boneData[10+3] = texelFetch(tex3,boneOffset+3);
-        boneData[10+4] = texelFetch(tex3,boneOffset+4);
-        lastBoneData[2] = texelFetch(tex3,boneOffset+5).x;
+        boneData[10+3] = texelFetch(boneTBO,boneOffset+3);
+        boneData[10+4] = texelFetch(boneTBO,boneOffset+4);
+        lastBoneData[2] = texelFetch(boneTBO,boneOffset+5).x;
     }
     if (boneWeightsXYZBoneCountNormalized.w>0.75) //1.0
     {
         boneOffset = gl_InstanceID*BONE_CNT*6 + boneIDs.w*6;
         //global matrix
-        boneData[15+0] = texelFetch(tex3,boneOffset);
-        boneData[15+1] = texelFetch(tex3,boneOffset+1);
-        boneData[15+2] = texelFetch(tex3,boneOffset+2);
+        boneData[15+0] = texelFetch(boneTBO,boneOffset);
+        boneData[15+1] = texelFetch(boneTBO,boneOffset+1);
+        boneData[15+2] = texelFetch(boneTBO,boneOffset+2);
         //normal matrix
-        boneData[15+3] = texelFetch(tex3,boneOffset+3);
-        boneData[15+4] = texelFetch(tex3,boneOffset+4);
-        lastBoneData[3] = texelFetch(tex3,boneOffset+5).x;
+        boneData[15+3] = texelFetch(boneTBO,boneOffset+3);
+        boneData[15+4] = texelFetch(boneTBO,boneOffset+4);
+        lastBoneData[3] = texelFetch(boneTBO,boneOffset+5).x;
     }
 
     //adding transformed weighted vertices is better than adding weighted matrices and then transforming
@@ -94,6 +94,9 @@ void main()
     vec3 pos,nml;
     linearSkin(pos,nml,vBoneIDs,vBoneWeights);
 
-    gl_Position = MVP*vec4(pos,1.0);
+    if (gl_InstanceID%2 == 0)
+        gl_Position = MVP*(vec4(pos,1.0) + 10.f*vec4(float(gl_InstanceID), 0.f, float(gl_InstanceID), 0.f));
+    else
+        gl_Position = vec4(0.f, 0.f, 0.f, 1.f);
     Normal = normalize(nml); //have to normalize twice because of normal quantization
 }

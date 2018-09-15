@@ -10,3 +10,6 @@ http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
 Excuse us for not providing a proper readme, I (devsh) am really busy with my day-business of Build A World EDU.
 
 If you have ties to original irrlicht and feel like improving this repository's readmes and the wiki, contact devsh.
+
+Words of appreciation for developers of [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) which IrrlichtBAW make use of.  
+Big thanks for developers of [shaderc](https://github.com/google/shaderc) which IrrlichtBAW make use of.

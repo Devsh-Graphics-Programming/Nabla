@@ -6,6 +6,7 @@
 
 #include <string>
 #include <cstdint>
+#include <cassert>
 
 namespace irr { namespace video
 {

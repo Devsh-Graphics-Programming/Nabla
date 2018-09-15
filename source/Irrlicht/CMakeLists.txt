@@ -1,18 +1,13 @@
-cmake_minimum_required(VERSION 3.1)
-project(Irrlicht)
-
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
-
-if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
-endif()
-
-option(FAST_MATH "Enable fast low-precision math" ON)
 
 if(NOT NASTY_OPENSSL_WORKAROUND)
 	find_package(OpenSSL REQUIRED)
+endif()
+
+find_package(OpenGL REQUIRED)
+if(UNIX)
+	find_package(X11 REQUIRED)
+	set(CMAKE_THREAD_PREFER_PTHREAD 1)
+	find_package(Threads REQUIRED)
 endif()
 
 set(IRRLICHT_SRCS_COMMON
@@ -137,6 +132,7 @@ set(IRRLICHT_SRCS_COMMON
 	COSOperator.cpp
 	Irrlicht.cpp
 	os.cpp
+	IReferenceCounted.cpp
 )
 
 set(IRRLICHT_SRCS_NORMAL
@@ -153,10 +149,24 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLVAOSpec.cpp
 	CTRTextureGouraudAlpha.cpp
 	CTRTextureGouraudAlphaNoZ.cpp
+	COpenGL1DTexture.cpp
+	COpenGL1DTextureArray.cpp
+	COpenGLCubemapArrayTexture.cpp
+	COpenGLCubemapTexture.cpp
 )
 
 set(IRRLICHT_SRCS_SERVER
 )
+
+set(COMMON_INCLUDE_DIRS
+	convert_utf
+	libpng
+	utf8/source
+	zlib
+)
+
+irr_adjust_flags() # macro defined in root CMakeLists
+irr_adjust_definitions() # macro defined in root CMakeLists
 
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
@@ -169,6 +179,7 @@ add_library(aesGladman OBJECT
 	aesGladman/pwd2key.c
 	aesGladman/sha1.c
 )
+target_include_directories(aesGladman PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(bzip2 OBJECT
 	bzip2/blocksort.c
@@ -179,10 +190,12 @@ add_library(bzip2 OBJECT
 	bzip2/huffman.c
 	bzip2/randtable.c
 )
+target_include_directories(bzip2 PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(convert_utf OBJECT
 	convert_utf/ConvertUTF.c
 )
+target_include_directories(convert_utf PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(jpeglib OBJECT
 	jpeglib/jaricom.c
@@ -232,6 +245,7 @@ add_library(jpeglib OBJECT
 	jpeglib/jquant2.c
 	jpeglib/jutils.c
 )
+target_include_directories(jpeglib PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(libpng OBJECT
 	libpng/png.c
@@ -250,6 +264,7 @@ add_library(libpng OBJECT
 	libpng/pngwtran.c
 	libpng/pngwutil.c
 )
+target_include_directories(libpng PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(lz4 OBJECT
 	lz4/lz4.c
@@ -257,6 +272,7 @@ add_library(lz4 OBJECT
 	lz4/lz4hc.c
 	lz4/xxhash.c
 )
+target_include_directories(lz4 PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(lzma OBJECT
 	lzma/Alloc.c
@@ -265,6 +281,7 @@ add_library(lzma OBJECT
 	lzma/LzmaEnc.c
 )
 target_compile_definitions(lzma PRIVATE _7ZIP_ST)
+target_include_directories(lzma PUBLIC ${COMMON_INCLUDE_DIRS})
 
 add_library(zlib OBJECT
 	zlib/adler32.c
@@ -279,92 +296,41 @@ add_library(zlib OBJECT
 	zlib/zcompress.c
 	zlib/zutil.c
 )
+target_include_directories(zlib PUBLIC ${COMMON_INCLUDE_DIRS})
 
-add_definitions(
-	-DPNG_THREAD_UNSAFE_OK
-	-DPNG_NO_MMX_CODE
-	-DPNG_NO_MNG_FEATURES
-	-D_7ZIP_ST
+add_library(spirv_cross OBJECT
+	spirv_cross/spirv_cfg.cpp
+	spirv_cross/spirv_cross.cpp
+	spirv_cross/spirv_glsl.cpp
+	spirv_cross/spirv_reflect.cpp
 )
+target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
+target_include_directories(spirv_cross PUBLIC ${COMMON_INCLUDE_DIRS})
 
-if(WIN32)
-	add_definitions(
-		-DWIN32
-		-D__GNUWIN32__
-		-D_CRT_SECURE_NO_DEPRECATE
-		-DNOMINMAX
-	)
-endif()
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	add_compile_options(
-		-fuse-ld=gold
-	)
-	link_libraries(
-		-fuse-ld=gold
-	)
-endif()
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	add_compile_options( # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-		-std=c++11 #add it to all C++ target objects but not C
-		-Wall
-		-Wextra
-		-Wno-unused-parameter
-		-fno-exceptions
-		-fstrict-aliasing
-		-msse3
-		-mfpmath=sse
-	)
-	if($<CONFIG:Release>) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-		add_compile_options(
-			-O3
-			-fexpensive-optimizations
-			-fno-omit-frame-pointer
-			-fstack-protector-strong
-		)
-	endif()
-	if($<CONFIG:Debug>) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-		add_compile_options(
-			-fno-omit-frame-pointer
-			-fstack-protector-strong
-		)
-	endif()
-	if(FAST_MATH) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-		add_compile_options(
-			-ffast-math
-		)
-	endif()
-else()
-	message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/buildaworldnet/IrrlichtBAW/issues")
-endif()
-
-
-if(NOT NASTY_OPENSSL_WORKAROUND)
-	link_libraries(
-		OpenSSL::Crypto
-		OpenSSL::SSL
-	)
-else()
-	include_directories(
-		../../../openssl/include/
-	)
-endif()
-
-include_directories(
-	convert_utf
-	libpng
-	utf8/source
-	zlib
+add_library(libshaderc OBJECT
+	libshaderc/compiler.cc
+	libshaderc/file_finder.cc
+	libshaderc/io.cc
+	libshaderc/message.cc
+	libshaderc/resources.cc
+	libshaderc/shader_stage.cc
+	libshaderc/shaderc.cc
+	libshaderc/spirv_tools_wrapper.cc
+	libshaderc/version_profile.cc
 )
+target_include_directories(libshaderc PUBLIC ${COMMON_INCLUDE_DIRS})
 
-if($<CONFIG:Debug>)
-	add_definitions(-D_DEBUG) # TODO: check with make VERBOSE=1 that it gets added to all target objects C++ and C
-endif()
-
-if($<BOOL:FAST_MATH>)
-	add_definitions(-DIRRLICHT_FAST_MATH)
-endif()
+macro(irr_target_link_openssl _trgt)
+	if(NOT NASTY_OPENSSL_WORKAROUND)
+		target_link_libraries(${_trgt} INTERFACE
+			OpenSSL::Crypto
+			OpenSSL::SSL
+		)
+		target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
+	else()
+		target_include_directories(${_trgt} PUBLIC ../../../openssl/include/)
+	endif()
+endmacro()
 
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
@@ -377,14 +343,45 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
+	$<TARGET_OBJECTS:spirv_cross>
+	$<TARGET_OBJECTS:libshaderc>
 )
 
-target_include_directories(Irrlicht PUBLIC ../../include)
+irr_target_link_openssl(Irrlicht)
+
+target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
+if (UNIX)
+	target_link_libraries(Irrlicht INTERFACE 
+		${X11_LIBRARIES} 
+		${X11_Xrandr_LIB} 
+		${X11_Xxf86vm_LIB} 
+		${CMAKE_THREAD_LIBS_INIT}
+		${CMAKE_DL_LIBS}
+	)
+endif()
+
+target_include_directories(Irrlicht PUBLIC 
+	../../include
+	${COMMON_INCLUDE_DIRS}
+)
+if (UNIX)
+	target_include_directories(Irrlicht PUBLIC 
+		${X11_INCLUDE_DIR} 
+		${X11_Xrandr_INCLUDE_PATH} 
+		${X11_xf86vmode_INCLUDE_PATH})
+endif()
 
 target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
 	_IRR_COMPILE_WITH_OPENGL_
 )
+
+if(BUILD_EXAMPLES)
+	add_custom_command(TARGET Irrlicht POST_BUILD
+					   COMMAND ${CMAKE_COMMAND} -E 
+					   copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../../examples_tests/media" "${CMAKE_CURRENT_BINARY_DIR}/../../examples_tests/media"
+	)
+endif()
 
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
@@ -399,7 +396,12 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:zlib>
 )
 
-target_include_directories(IrrlichtServer PUBLIC ../../include)
+irr_target_link_openssl(IrrlichtServer)
+
+target_include_directories(IrrlichtServer PUBLIC 
+	../../include
+	${COMMON_INCLUDE_DIRS}
+)
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_
@@ -408,36 +410,37 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	NO_IRR_COMPILE_WITH_OPENGL_
 )
 
-if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-	if(MSVC)
-		set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/Win64-visualStudio" CACHE PATH "default install path" FORCE )
-	elseif(WIN32)
-		set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/Win64-gcc" CACHE PATH "default install path" FORCE )
+if(MSVC)
+	set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Win64-visualStudio")
+elseif(WIN32)
+	set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Win64-gcc")
+else()
+	if (APPLE)
+		set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/MacOSX")
+	elseif(UNIX)
+		set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Linux")
 	else()
-		if (APPLE)
-			set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/MacOSX" CACHE PATH "default install path" FORCE )
-		elseif(UNIX)
-			set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/../../lib/Linux" CACHE PATH "default install path" FORCE )
-		else()
-			message(WARNING "NO INSTALL TARGET COULD BE GENERATED")
-		endif()
+		set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/unknown_platform")
 	endif()
 endif()
+
+macro(irr_set_irrlicht_output_dir _TRGT_NAME _OUTPATH)
+	set_target_properties(${_TRGT_NAME}
+		PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${_OUTPATH}"
+	)
+	if(MSVC)
+		set_target_properties(${_TRGT_NAME}
+			PROPERTIES
+			RUNTIME_OUTPUT_DIRECTORY_DEBUG "${_OUTPATH}"
+			RUNTIME_OUTPUT_DIRECTORY_RELEASE "${_OUTPATH}"
+		)
+	endif()
+endmacro()
+irr_set_irrlicht_output_dir(Irrlicht "${OUTPUT_DIR}")
+irr_set_irrlicht_output_dir(IrrlichtServer "${OUTPUT_DIR}")
+set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
+set_target_properties(IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
 
 install(TARGETS Irrlicht DESTINATION .)
 install(TARGETS IrrlichtServer DESTINATION .)
-
-
-if(NOT CONFIGURED_ONCE)
-	# Add some optional flags to be used by default
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb3"
-			CACHE STRING "Flags used by the C compiler during debug build." FORCE)
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3"
-			CACHE STRING "Flags used by the C++ compiler during debug build." FORCE)
-	endif()
-
-	# This is to add flags once only
-	set(CONFIGURED_ONCE TRUE
-		CACHE INTERNAL  "A flag showing that CMake has configured at least once.")
-endif()

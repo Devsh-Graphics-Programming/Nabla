@@ -16,7 +16,7 @@
 	#define bswap_16(X) _byteswap_ushort(X)
 	#define bswap_32(X) _byteswap_ulong(X)
 #if (_MSC_VER >= 1400)
-	#define localtime _localtime_s
+	#define localtime localtime_s
 #endif
 #elif defined(_IRR_OSX_PLATFORM_)
 	#include <libkern/OSByteOrder.h>
@@ -245,7 +245,11 @@ namespace os
 		time(&rawtime);
 
 		struct tm * timeinfo;
+#if (_MSC_VER >= 1400)
+        localtime(timeinfo, &rawtime);
+#else
 		timeinfo = localtime(&rawtime);
+#endif
 
 		// init with all 0 to indicate error
 		ITimer::RealTimeDate date={0};

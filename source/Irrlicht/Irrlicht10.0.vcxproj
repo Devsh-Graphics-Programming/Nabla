@@ -726,6 +726,7 @@
     <ClCompile Include="CBlobsLoadingManager.cpp" />
     <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="CGeometryCreator.cpp" />
+    <ClCompile Include="CGLSLFunctionGenerator.cpp" />
     <ClCompile Include="CGPUTransientBuffer.cpp" />
     <ClCompile Include="CIrrDeviceWin32.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
@@ -834,7 +835,6 @@
     <ClCompile Include="CTRTextureGouraudNoZ2.cpp" />
     <ClCompile Include="CTRTextureGouraudVertexAlpha2.cpp" />
     <ClCompile Include="FW_Mutex.cpp" />
-    <ClCompile Include="CAssetManager.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
     <ClCompile Include="IReferenceCounted.cpp" />

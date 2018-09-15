@@ -1,3 +1,4 @@
+#define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 #include <iostream>
 #include <cstdio>

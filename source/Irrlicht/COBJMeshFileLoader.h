@@ -99,6 +99,14 @@ public:
 //! Meshloader capable of loading obj meshes.
 class COBJMeshFileLoader : public IMeshLoader
 {
+    enum E_TEXTURE_TYPE : uint8_t
+    {
+        ETT_COLOR_MAP,
+        ETT_NORMAL_MAP,
+        ETT_OPACITY_MAP,
+        ETT_REFLECTION_MAP
+    };
+
 protected:
 	//! destructor
 	virtual ~COBJMeshFileLoader();

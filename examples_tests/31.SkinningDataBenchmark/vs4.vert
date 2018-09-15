@@ -1,7 +1,7 @@
 #version 430 core
 
-//layout(std140, binding = 0) uniform U { mat4 MVP; };
-uniform mat4 MVP;
+layout(std140, binding = 0) uniform U { mat4 MVP; };
+//uniform mat4 MVP;
 
 layout(location = 0) in vec3 vPos;
 layout(location = 3) in vec3 vNormal;
@@ -111,6 +111,6 @@ void main()
     vec3 pos,nml;
     linearSkin(pos,nml,vBoneIDs,vBoneWeights);
 
-    gl_Position = MVP*vec4(pos,1.0);
+    gl_Position = MVP*(vec4(pos,1.0) + 10.f*vec4(float(gl_InstanceID), 0.f, float(gl_InstanceID), 0.f));
     Normal = normalize(nml); //have to normalize twice because of normal quantization
 }

@@ -432,16 +432,16 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 
 const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath)
 {
-	uint8_t type=0; // map_Kd - diffuse color texture map
+	E_TEXTURE_TYPE type = ETT_COLOR_MAP; // map_Kd - diffuse color texture map
 	// map_Ks - specular color texture map
 	// map_Ka - ambient color texture map
 	// map_Ns - shininess texture map
 	if ((!strncmp(bufPtr,"map_bump",8)) || (!strncmp(bufPtr,"bump",4)))
-		type=1; // normal map
+		type = ETT_NORMAL_MAP;
 	else if ((!strncmp(bufPtr,"map_d",5)) || (!strncmp(bufPtr,"map_opacity",11)))
-		type=2; // opacity map
+		type = ETT_OPACITY_MAP;
 	else if (!strncmp(bufPtr,"map_refl",8))
-		type=3; // reflection map
+		type = ETT_REFLECTION_MAP;
 	// extract new material's name
 	char textureNameBuf[WORD_BUFFER_LENGTH];
 	bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
@@ -522,7 +522,7 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
 		bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 	}
 
-	if ((type==1) && (core::isdigit(textureNameBuf[0])))
+	if ((type==ETT_NORMAL_MAP) && (core::isdigit(textureNameBuf[0])))
 	{
 		sscanf(textureNameBuf,"%f",&currMaterial->Material.MaterialTypeParam);
 		bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
@@ -567,11 +567,11 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
 	}
 	if ( texture )
 	{
-		if (type==0)
+		if (type==ETT_COLOR_MAP)
         {
 			currMaterial->Material.setTexture(0, texture);
         }
-		else if (type==1)
+		else if (type==ETT_NORMAL_MAP)
 		{
 #ifdef _DEBUG
             os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
@@ -582,12 +582,12 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
 			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;
 		}
-		else if (type==2)
+		else if (type==ETT_OPACITY_MAP)
 		{
 			currMaterial->Material.setTexture(0, texture);
 			currMaterial->Material.MaterialType=video::EMT_TRANSPARENT_ADD_COLOR;
 		}
-		else if (type==3)
+		else if (type==ETT_REFLECTION_MAP)
 		{
 //						currMaterial->Material.Textures[1] = texture;
 //						currMaterial->Material.MaterialType=video::EMT_REFLECTION_2_LAYER;
