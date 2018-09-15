@@ -34,13 +34,13 @@ namespace core
             AddressAllocatorBase(void* reservedSpc, void* buffSz) : reservedSpace(reservedSpc), bufferStart(buffSz)
             {
     #ifdef _DEBUG
-                assert(reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u)==0ull); // pointer to reserved memory has to be aligned to SIMD types!
+                assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull); // pointer to reserved memory has to be aligned to SIMD types!
     #endif // _DEBUG
             }
             AddressAllocatorBase(CRTP& other, void* newReservedSpc, void* newBuffSz) : reservedSpace(newReservedSpc), bufferStart(newBuffSz)
             {
     #ifdef _DEBUG
-                assert(reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u)==0ull);
+                assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
                 // cannot reallocate the data into smaller storage than is necessary
                 assert(newBuffSz>=other.safe_shrink_size());
                 if (other.bufferStart&&bufferStart)

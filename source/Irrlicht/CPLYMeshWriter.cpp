@@ -123,7 +123,7 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
             }
             needToFreeIndices = true;
             faceCount = buf->getSize() / (idxtype == EIT_16BIT ? 2u : 4u) / 3u;
-            indices = malloc(buf->getSize());
+            indices = _IRR_ALIGNED_MALLOC(buf->getSize(),_IRR_SIMD_ALIGNMENT);
             memcpy(indices, buf->getPointer(), buf->getSize());
             buf->drop();
         }
@@ -172,7 +172,7 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
         writeText(file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
 
     if (needToFreeIndices)
-        free(indices);
+        _IRR_ALIGNED_FREE(indices);
 
 	return true;
 }
@@ -233,7 +233,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
     void* indices = _indices;
     if (_forceFaces)
     {
-        indices = malloc((_idxType == EIT_32BIT ? 4 : 2) * listSize * _fcCount);
+        indices = _IRR_ALIGNED_MALLOC((_idxType == EIT_32BIT ? 4 : 2) * listSize * _fcCount,_IRR_SIMD_ALIGNMENT);
         if (_idxType == EIT_16BIT)
         {
             for (uint16_t i = 0u; i < _fcCount; ++i)
@@ -267,7 +267,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
     }
 
     if (_forceFaces)
-        free(indices);
+        _IRR_ALIGNED_FREE(indices);
 }
 
 void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
@@ -341,7 +341,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, siz
     void* indices = _indices;
     if (_forceFaces)
     {
-        indices = malloc((_idxType == EIT_32BIT ? 4 : 2) * 3 * _fcCount);
+        indices = _IRR_ALIGNED_MALLOC((_idxType == EIT_32BIT ? 4 : 2) * 3 * _fcCount,_IRR_SIMD_ALIGNMENT);
         if (_idxType == EIT_16BIT)
         {
             for (uint16_t i = 0u; i < _fcCount; ++i)
@@ -377,7 +377,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, siz
     }
 
     if (_forceFaces)
-        free(indices);
+        _IRR_ALIGNED_FREE(indices);
 }
 
 void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa) const

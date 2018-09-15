@@ -19,17 +19,17 @@ class ICPUBuffer : public IBuffer
         virtual ~ICPUBuffer()
         {
             if (data)
-                free(data);
+                _IRR_ALIGNED_FREE(data);
         }
     public:
 		//! Constructor.
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
-		@param dat Optional parameter. Pointer to data, must be allocated with `malloc`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
+		@param dat Optional parameter. Pointer to data, must be allocated with `_IRR_ALIGNED_MALLOC`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
 		*/
         ICPUBuffer(const size_t &sizeInBytes, void *dat = NULL) : size(0), data(dat)
         {
 			if (!data)
-				data = malloc(sizeInBytes);
+				data = _IRR_ALIGNED_MALLOC(sizeInBytes,_IRR_SIMD_ALIGNMENT);
             if (!data)
                 return;
 
@@ -38,13 +38,13 @@ class ICPUBuffer : public IBuffer
 
         //! Returns size in bytes.
         virtual const uint64_t& getSize() const {return size;}
-
+/*
 		//! Reallocates internal data. Invalidate any sizes, pointers etc. returned before!
 		/** @param newSize New size of memory.
 		@param forceRetentionOfData Doesn't matter.
 		@param reallocateIfShrink Whether to perform reallocation even if it means to shrink the buffer (lose some data).
 		@returns True on success or false otherwise.
-		*/
+		*
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)
         {
             if (size==newSize)
@@ -66,7 +66,7 @@ class ICPUBuffer : public IBuffer
             size = newSize;
             return true;
         }
-
+*/
 		//! Returns pointer to data.
         /** WARNING: RESIZE will invalidate pointer.
 		*/

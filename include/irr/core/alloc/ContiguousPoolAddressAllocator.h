@@ -57,7 +57,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             if (count==0)
                 return;
 #ifdef _DEBUG
-            assert(freeStackCtr<=blockCount+count);
+            assert(Base::freeStackCtr<=Base::blockCount+count);
 #endif // _DEBUG
 
             size_type sortedRedirects[maxMultiOps];
@@ -66,7 +66,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             {
                 auto tmp  = addr[i];
 #ifdef _DEBUG
-                assert(tmp>=alignOffset);
+                assert(tmp>=Base::alignOffset);
 #endif // _DEBUG
                 reinterpret_cast<size_type*>(Base::reservedSpace)[Base::freeStackCtr++] = tmp;
                 auto redir = addressRedirects[tmp];
@@ -95,9 +95,6 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                     addressRedirects[i] = rfrnc-difference;
                 }
             }
-#ifdef _DEBUG
-			assert(deletedGranuleCnt==count);
-#endif // _DEBUG
 
             if (Base::bufferStart)
             {
@@ -162,12 +159,9 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
 
 
         template<typename... Args>
-        static inline size_type reserved_size(size_type bufSz, size_type blockSz, Args&&... args) noexcept
+        static inline size_type reserved_size(size_type bufSz, size_type blockSz, const Args&... args) noexcept
         {
-            size_type trueAlign = size_type(1u)<<findLSB(blockSz);
-            size_type truncatedOffset = calcAlignOffset(0x8000000000000000ull-size_t(_IRR_SIMD_ALIGNMENT),trueAlign);
-            size_type probBlockCount =  (bufSz-truncatedOffset)/(blockSz+2ull*sizeof(size_type))+1u;
-            return probBlockCount*sizeof(size_type);
+            return Base::reserved_size(bufSz,blockSz,args...)*2ull;
         }
 
     protected:

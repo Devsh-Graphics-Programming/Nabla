@@ -95,7 +95,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         }
 
         template<typename... Args>
-        static inline size_type reserved_size(size_type bufSz, Args&&... args) noexcept
+        static inline size_type reserved_size(size_type bufSz, const Args&... args) noexcept
         {
             return 0u;
         }

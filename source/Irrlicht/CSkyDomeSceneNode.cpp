@@ -97,10 +97,10 @@ void CSkyDomeSceneNode::generateMesh()
 
 
     size_t numOfIndices = 3 * (2*VerticalResolution - 1) * HorizontalResolution;
-	uint16_t* indices = (uint16_t*)malloc(numOfIndices*2);
+	uint16_t* indices = (uint16_t*)_IRR_ALIGNED_MALLOC(numOfIndices*2,_IRR_SIMD_ALIGNMENT);
 
 	size_t numberOfVertices = (HorizontalResolution + 1) * (VerticalResolution + 1);
-	float* vertices = (float*)malloc(4*numberOfVertices*(3+2));
+	float* vertices = (float*)_IRR_ALIGNED_MALLOC(4*numberOfVertices*(3+2),_IRR_SIMD_ALIGNMENT);
 
 
 	const float tcV = TexturePercentage / VerticalResolution;
@@ -158,7 +158,7 @@ void CSkyDomeSceneNode::generateMesh()
 	reqs.requiresDedicatedAllocation = true;
     video::IGPUBuffer* indexBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
     indexBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),indices);
-    free(indices);
+    _IRR_ALIGNED_FREE(indices);
 	vao->mapIndexBuffer(indexBuf);
 	Buffer->setIndexType(EIT_16BIT);
 	Buffer->setIndexCount(numOfIndices);
@@ -168,7 +168,7 @@ void CSkyDomeSceneNode::generateMesh()
 	reqs.vulkanReqs.alignment = 4;
     video::IGPUBuffer* vAttr = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
     vAttr->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),vertices);
-    free(vertices);
+    _IRR_ALIGNED_FREE(vertices);
     vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,4*(3+2),0);
     vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,4*(3+2),4*3);
     vAttr->drop();

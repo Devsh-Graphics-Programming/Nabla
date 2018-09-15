@@ -92,9 +92,9 @@ class AddressAllocatorBasicConcurrencyAdaptor : public address_allocator_traits<
         }
 
         template<typename... Args>
-        static inline size_type reserved_size(size_type bufSz, Args&&... args) noexcept
+        static inline size_type reserved_size(size_type bufSz, const Args&... args) noexcept
         {
-            return AddressAllocator::reserved_size(bufSz,std::forward<Args>(args)...);
+            return AddressAllocator::reserved_size(bufSz,args...);
         }
 };
 

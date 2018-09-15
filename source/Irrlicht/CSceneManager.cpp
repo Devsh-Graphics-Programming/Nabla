@@ -150,7 +150,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 
         size_t redundantMeshDataBufSize = sizeof(char)*24*3+ //data for the skybox positions
                                         0;
-        void* tmpMem = malloc(redundantMeshDataBufSize);
+        void* tmpMem = _IRR_ALIGNED_MALLOC(redundantMeshDataBufSize,_IRR_SIMD_ALIGNMENT);
         {
             char* skyBoxesVxPositions = (char*)tmpMem;
             skyBoxesVxPositions[0*3+0] = -1;
@@ -264,7 +264,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
         reqs.requiresDedicatedAllocation = true;
         redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
         redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
-        free(tmpMem);
+        _IRR_ALIGNED_FREE(tmpMem);
 	}
 
 	// create mesh cache if not there already

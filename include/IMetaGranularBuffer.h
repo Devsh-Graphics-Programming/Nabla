@@ -5,6 +5,7 @@
 #include "irr/video/CDoubleBufferingAllocator.h"
 
 #include "irr/core/ICPUBuffer.h"
+#include "irr/video/CDoubleBufferingAllocator.h"
 
 namespace irr
 {
@@ -88,13 +89,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
                 residencyRedirectTo[i] = 0xdeadbeefu;
 
             B = new core::ICPUBuffer(GranuleByteSize*granuleCount);
-            if (!B)
-            {
-                Granules = 0;
-                if (residencyRedirectTo)
-                    free(residencyRedirectTo);
-                residencyRedirectTo = NULL;
-            }
         }
 
         virtual T* getFrontBuffer() = 0;
@@ -286,57 +280,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
         inline size_t getGranuleByteSize() const {return GranuleByteSize;}
 };
 
-
-class IMetaGranularCPUBuffer : public IMetaGranularBuffer<core::ICPUBuffer>
-{
-    protected:
-        virtual ~IMetaGranularCPUBuffer()
-        {
-            if (A)
-                A->drop();
-        }
-
-        core::ICPUBuffer* A;
-    public:
-        IMetaGranularCPUBuffer(const size_t& granuleSize, const size_t& granuleCount, const bool& clientMemeory=true, const size_t& bufferGrowStep=512, const size_t& bufferShrinkStep=2048)
-                                    : IMetaGranularBuffer<core::ICPUBuffer>(granuleSize,granuleCount,bufferGrowStep,bufferShrinkStep), A(NULL)
-        {
-            if (!B)
-                return;
-
-            A = new core::ICPUBuffer(GranuleByteSize*granuleCount);
-            if (!A)
-            {
-                B->drop();
-                B = NULL;
-
-                Granules = 0;
-                if (residencyRedirectTo)
-                    free(residencyRedirectTo);
-                residencyRedirectTo = NULL;
-            }
-        }
-
-        virtual core::ICPUBuffer* getFrontBuffer() {return A;}
-
-        virtual void SwapBuffers(void (*StuffToDoToNewBuffer)(core::ICPUBuffer*,void*)=NULL, void* userData=NULL)
-        {
-            if (A->getSize()!=B->getSize())
-            {
-                core::ICPUBuffer* C = new ICPUBuffer(B->getSize());
-                if (!C)
-                    return;
-
-                A->drop();
-                A = C;
-            }
-            if (Allocated)
-                memcpy(A->getPointer(),B->getPointer(),Allocated*GranuleByteSize);
-
-            if (StuffToDoToNewBuffer)
-                StuffToDoToNewBuffer(A,userData);
-        }
-};
 }
 
 
@@ -346,8 +289,12 @@ namespace video
 class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGPUBuffer>
 {
     protected:
+        video::CDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>* alloc;
+
         virtual ~IMetaGranularGPUMappedBuffer()
         {
+            if (alloc)
+                alloc->drop();
             if (A)
                 A->drop();
         }
@@ -356,32 +303,33 @@ class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGP
         video::IGPUBuffer* A;
 
         const bool InClientMemeory;
-    public:
-        IMetaGranularGPUMappedBuffer(video::IVideoDriver* driver, const size_t& granuleSize, const size_t& granuleCount, const bool& clientMemeory=true, const size_t& bufferGrowStep=512, const size_t& bufferShrinkStep=2048)
-                                    : core::IMetaGranularBuffer<video::IGPUBuffer>(granuleSize,granuleCount,bufferGrowStep,bufferShrinkStep), Driver(driver), A(NULL), InClientMemeory(clientMemeory)
-        {
-            if (!B)
-                return;
 
+        static video::IGPUBuffer* createUpBuffer(video::IVideoDriver* driver, const size_t& granuleSize, const size_t& granuleCount)
+        {
+            auto tmp = driver->createUpStreamingGPUBufferOnDedMem(granuleSize*granuleCount);
+            tmp->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_WRITE,video::IDriverMemoryAllocation::MemoryRange(0u,granuleSize*granuleCount));
+            return tmp;
+        }
+        static video::IGPUBuffer* createGPUBuffer(video::IVideoDriver* driver, const size_t& granuleSize, const size_t& granuleCount)
+        {
+            ///return driver->createDeviceLocalGPUBufferOnDedMem(granuleSize*granuleCount);
 	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-	        reqs.vulkanReqs.size = GranuleByteSize*granuleCount;
+	        reqs.vulkanReqs.size = granuleSize*granuleCount;
 	        reqs.vulkanReqs.alignment = 0;
 	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = InClientMemeory ? IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL:IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
 	        reqs.prefersDedicatedAllocation = true;
 	        reqs.requiresDedicatedAllocation = true;
-            A = Driver->createGPUBufferOnDedMem(reqs,true);
-            if (!A)
-            {
-                B->drop();
-                B = NULL;
-
-                Granules = 0;
-                if (residencyRedirectTo)
-                    free(residencyRedirectTo);
-                residencyRedirectTo = NULL;
-            }
+            return driver->createGPUBufferOnDedMem(reqs,true);
+        }
+    public:
+        IMetaGranularGPUMappedBuffer(video::IVideoDriver* driver, const size_t& granuleSize, const size_t& granuleCount, const bool& clientMemeory=true, const size_t& bufferGrowStep=512, const size_t& bufferShrinkStep=2048)
+                                    : core::IMetaGranularBuffer<video::IGPUBuffer>(granuleSize,granuleCount,bufferGrowStep,bufferShrinkStep),
+                                    Driver(driver), A(createGPUBuffer(driver,granuleSize,granuleCount)), InClientMemeory(clientMemeory)
+        {
+            alloc = new video::CDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>(driver,video::IDriverMemoryAllocation::MemoryRange(0u,granuleSize*granuleCount),
+                                                                                                                createUpBuffer(driver,granuleSize,granuleCount),0u,A,granuleSize);
         }
 
         virtual video::IGPUBuffer* getFrontBuffer() {return A;}

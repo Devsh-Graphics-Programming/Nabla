@@ -31,7 +31,7 @@ class CImageData : public core::IReferenceCounted
         virtual ~CImageData()
         {
             if (data)
-                free(data);
+                _IRR_ALIGNED_FREE(data);
         }
 
         inline void setupMemory(void* inData, const bool& dataAllocatedWithMallocAndCanTake)
@@ -45,7 +45,7 @@ class CImageData : public core::IReferenceCounted
         inline void setupMemory(const void* inData)
         {
             size_t imgByteSize = getImageDataSizeInBytes();
-            data = malloc(imgByteSize);
+            data = _IRR_ALIGNED_MALLOC(imgByteSize,32u); // for 4x double formats
             if (inData)
                 memcpy(data,inData,imgByteSize);
         }

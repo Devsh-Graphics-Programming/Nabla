@@ -39,7 +39,7 @@ namespace irr {namespace scene {
 		tryWrite(data, _file, _ctx, core::MeshBlobV0::calcBlobSizeForObj(_obj), _headerIdx, _compress);
 
 		if ((uint8_t*)data != stackData)
-			free(data);
+			_IRR_ALIGNED_FREE(data);
 	}
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMesh>(ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
@@ -50,7 +50,7 @@ namespace irr {namespace scene {
 		tryWrite(data, _file, _ctx, core::SkinnedMeshBlobV0::calcBlobSizeForObj(_obj), _headerIdx, _compress);
 
 		if ((uint8_t*)data != stackData)
-			free(data);
+			_IRR_ALIGNED_FREE(data);
 	}
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
@@ -88,7 +88,7 @@ namespace irr {namespace scene {
 		tryWrite(data, _file, _ctx, core::FinalBoneHierarchyBlobV0::calcBlobSizeForObj(_obj), _headerIdx, _compress);
 
 		if ((uint8_t*)data != stackData)
-			free(data);
+			_IRR_ALIGNED_FREE(data);
 	}
 	template<>
 	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(IMeshDataFormatDesc<core::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
@@ -337,16 +337,16 @@ namespace irr {namespace scene {
 		if (_encrypt)
 		{
 			const size_t encrSize = core::BlobHeaderV0::calcEncSize(compressedSize);
-			void* in = malloc(encrSize);
+			void* in = _IRR_ALIGNED_MALLOC(encrSize,_IRR_SIMD_ALIGNMENT);
 			memset(((uint8_t*)in) + (compressedSize-16), 0, 16);
 			memcpy(in, data, compressedSize);
-			void* out = malloc(encrSize);
+			void* out = _IRR_ALIGNED_MALLOC(encrSize,_IRR_SIMD_ALIGNMENT);
 			if (core::encAes128gcm(data, encrSize, out, encrSize, _ctx.props->encryptionPassPhrase, _ctx.props->initializationVector, _ctx.headers[_headerIdx].gcmTag))
 			{
 				if (data != _data && data != stack) // allocated in compressing functions?
-					free(data);
+					_IRR_ALIGNED_FREE(data);
 				data = out;
-				free(in);
+				_IRR_ALIGNED_FREE(in);
 				comprType |= core::Blob::EBCT_AES128_GCM;
 			}
 			else
@@ -354,8 +354,8 @@ namespace irr {namespace scene {
 #ifdef _DEBUG
 				os::Printer::log("Failed to encrypt! Blob exported without encryption.", ELL_WARNING);
 #endif
-				free(in);
-				free(out);
+				_IRR_ALIGNED_FREE(in);
+				_IRR_ALIGNED_FREE(out);
 			}
 		}
 
@@ -365,7 +365,7 @@ namespace irr {namespace scene {
 		calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].effectiveSize(), _ctx);
 
 		if (data != stack && data != _data)
-			free(const_cast<void*>(data)); // safe const_cast since the only case when this executes is when `data` points to malloc'd memory
+			_IRR_ALIGNED_FREE(const_cast<void*>(data)); // safe const_cast since the only case when this executes is when `data` points to _IRR_ALIGNED_MALLOC'd memory
 	}
 
 	bool CBAWMeshWriter::toEncrypt(const WriteProperties& _wp, E_ENCRYPTION_TARGETS _req) const
@@ -385,14 +385,14 @@ namespace irr {namespace scene {
 			if (lz4CompressBound > _stackSize)
 			{
 				dstSize = core::BlobHeaderV0::calcEncSize(lz4CompressBound);
-				data = malloc(dstSize);
+				data = _IRR_ALIGNED_MALLOC(dstSize,_IRR_SIMD_ALIGNMENT);
 			}
 			compressedSize = LZ4_compress_default((const char*)_input, (char*)data, _inputSize, dstSize);
 		}
 		if (!compressedSize) // if compression did not succeed
 		{
 			if (data != _stack)
-				free(data);
+				_IRR_ALIGNED_FREE(data);
 			compressedSize = _inputSize;
 			data = const_cast<void*>(_input);
 #ifdef _DEBUG
@@ -424,13 +424,13 @@ namespace irr {namespace scene {
 		props.lp = 2; // 2^2==sizeof(float)
 
 		const SizeT heapSize = _inputSize + LZMA_PROPS_SIZE;
-		uint8_t* data = (uint8_t*)malloc(heapSize);
+		uint8_t* data = (uint8_t*)_IRR_ALIGNED_MALLOC(heapSize,_IRR_SIMD_ALIGNMENT);
 		SizeT destSize = heapSize;
 
 		SRes res = LzmaEncode(data+propsSize, &destSize, (const Byte*)_input, _inputSize, &props, data, &propsSize, props.writeEndMark, NULL, &alloc, &alloc);
 		if (res != SZ_OK)
 		{
-			free(data);
+			_IRR_ALIGNED_FREE(data);
 			data = (uint8_t*)const_cast<void*>(_input);
 			destSize = _inputSize;
 #ifdef _DEBUG

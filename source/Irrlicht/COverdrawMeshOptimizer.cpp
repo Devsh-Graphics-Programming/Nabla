@@ -32,7 +32,7 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 	}
 
 	const size_t idxCount = outbuffer->getIndexType();
-	void* indicesCopy = malloc(indexSize*idxCount);
+	void* indicesCopy = _IRR_ALIGNED_MALLOC(indexSize*idxCount,_IRR_SIMD_ALIGNMENT);
 	memcpy(indicesCopy, indices, indexSize*idxCount);
 	const size_t vertexCount = outbuffer->calcVertexCount();
 	core::vector<core::vectorSIMDf> vertexPositions;
@@ -45,17 +45,17 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 		}
 	}
 
-	uint32_t* const hardClusters = (uint32_t*)malloc((idxCount/3) * 4);
+	uint32_t* const hardClusters = (uint32_t*)_IRR_ALIGNED_MALLOC((idxCount/3) * 4,_IRR_SIMD_ALIGNMENT);
 	const size_t hardClusterCount = indexType == EIT_16BIT ?
 		genHardBoundaries(hardClusters, (uint16_t*)indices, idxCount, vertexCount) :
 		genHardBoundaries(hardClusters, (uint32_t*)indices, idxCount, vertexCount);
 
-	uint32_t* const softClusters = (uint32_t*)malloc((idxCount/3 + 1) * 4);
+	uint32_t* const softClusters = (uint32_t*)_IRR_ALIGNED_MALLOC((idxCount/3 + 1) * 4,_IRR_SIMD_ALIGNMENT);
 	const size_t softClusterCount = indexType == EIT_16BIT ?
 		genSoftBoundaries(softClusters, (uint16_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold) :
 		genSoftBoundaries(softClusters, (uint32_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold);
 
-	ClusterSortData* sortedData = (ClusterSortData*)malloc(softClusterCount*sizeof(ClusterSortData));
+	ClusterSortData* sortedData = (ClusterSortData*)_IRR_ALIGNED_MALLOC(softClusterCount*sizeof(ClusterSortData),_IRR_SIMD_ALIGNMENT);
 	if (indexType == EIT_16BIT)
 		calcSortData(sortedData, (uint16_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
 	else
@@ -90,10 +90,10 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 		}
 	}
 
-	free(indicesCopy);
-	free(hardClusters);
-	free(softClusters);
-	free(sortedData);
+	_IRR_ALIGNED_FREE(indicesCopy);
+	_IRR_ALIGNED_FREE(hardClusters);
+	_IRR_ALIGNED_FREE(softClusters);
+	_IRR_ALIGNED_FREE(sortedData);
 
 	return outbuffer;
 }
@@ -101,7 +101,7 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 template<typename IdxT>
 size_t COverdrawMeshOptimizer::genHardBoundaries(uint32_t* _dst, const IdxT* _indices, size_t _idxCount, size_t _vtxCount)
 {
-	size_t* cacheTimestamps = (size_t*)malloc(sizeof(size_t)*_vtxCount);
+	size_t* cacheTimestamps = (size_t*)_IRR_ALIGNED_MALLOC(sizeof(size_t)*_vtxCount,_IRR_SIMD_ALIGNMENT);
 	memset(cacheTimestamps, 0, sizeof(size_t)*_vtxCount);
 
 	size_t timestamp = CACHE_SIZE + 1;
@@ -121,7 +121,7 @@ size_t COverdrawMeshOptimizer::genHardBoundaries(uint32_t* _dst, const IdxT* _in
 			_dst[retval++] = (uint32_t)i;
 	}
 
-	free(cacheTimestamps);
+	_IRR_ALIGNED_FREE(cacheTimestamps);
 
 	return retval;
 }
@@ -129,7 +129,7 @@ size_t COverdrawMeshOptimizer::genHardBoundaries(uint32_t* _dst, const IdxT* _in
 template<typename IdxT>
 size_t COverdrawMeshOptimizer::genSoftBoundaries(uint32_t* _dst, const IdxT* _indices, size_t _idxCount, size_t _vtxCount, const uint32_t* _clusters, size_t _clusterCount, float _threshold)
 {
-	size_t* cacheTimestamps = (size_t*)malloc(sizeof(size_t)*_vtxCount);
+	size_t* cacheTimestamps = (size_t*)_IRR_ALIGNED_MALLOC(sizeof(size_t)*_vtxCount,_IRR_SIMD_ALIGNMENT);
 	memset(cacheTimestamps, 0, sizeof(size_t)*_vtxCount);
 
 	size_t timestamp = 0u;
@@ -186,7 +186,7 @@ size_t COverdrawMeshOptimizer::genSoftBoundaries(uint32_t* _dst, const IdxT* _in
 			--retval;
 	}
 
-	free(cacheTimestamps);
+	_IRR_ALIGNED_FREE(cacheTimestamps);
 
 	_IRR_DEBUG_BREAK_IF(retval < _clusterCount || retval > _idxCount/3u)
 

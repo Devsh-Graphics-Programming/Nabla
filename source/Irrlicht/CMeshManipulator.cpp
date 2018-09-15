@@ -577,7 +577,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 		if (outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
 			activeAttribs.push_back((E_VERTEX_ATTRIBUTE_ID)i);
 
-	uint32_t* remapBuffer = (uint32_t*)malloc(vertexCount*4);
+	uint32_t* remapBuffer = (uint32_t*)_IRR_ALIGNED_MALLOC(vertexCount*4,_IRR_SIMD_ALIGNMENT);
 	memset(remapBuffer, 0xffffffffu, vertexCount*4);
 
 	const E_INDEX_TYPE idxType = outbuffer->getIndexType();
@@ -620,7 +620,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshB
 			((uint16_t*)indices)[i] = remap;
 	}
 
-	free(remapBuffer);
+	_IRR_ALIGNED_FREE(remapBuffer);
 
 	_IRR_DEBUG_BREAK_IF(nextVert > vertexCount)
 
@@ -802,7 +802,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
 
     uint32_t maxRedirect = 0;
 
-    uint8_t* epicData = (uint8_t*)malloc(vertexSize*vertexCount);
+    uint8_t* epicData = (uint8_t*)_IRR_ALIGNED_MALLOC(vertexSize*vertexCount,_IRR_SIMD_ALIGNMENT);
     for (size_t i=0; i < vertexCount; i++)
     {
         uint8_t* currentVertexPtr = epicData+i*vertexSize;
@@ -836,7 +836,7 @@ ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffe
         if (redir>maxRedirect)
             maxRedirect = redir;
     }
-    free(epicData);
+    _IRR_ALIGNED_FREE(epicData);
 
     void* oldIndices = inbuffer->getIndices();
     ICPUMeshBuffer* clone = nullptr;
@@ -994,7 +994,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 	// STEP: reduce index buffer to 16bit or completely get rid of it
 	{
 		const void* const indices = outbuffer->getIndices();
-		uint32_t* indicesCopy = (uint32_t*)malloc(outbuffer->getIndexCount()*4);
+		uint32_t* indicesCopy = (uint32_t*)_IRR_ALIGNED_MALLOC(outbuffer->getIndexCount()*4,_IRR_SIMD_ALIGNMENT);
 		memcpy(indicesCopy, indices, outbuffer->getIndexCount()*4);
 		std::sort(indicesCopy, indicesCopy + outbuffer->getIndexCount());
 
@@ -1022,7 +1022,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 		const uint32_t minIdx = indicesCopy[0];
 		const uint32_t maxIdx = indicesCopy[outbuffer->getIndexCount() - 1];
 
-		free(indicesCopy);
+		_IRR_ALIGNED_FREE(indicesCopy);
 
 		core::ICPUBuffer* newIdxBuffer = NULL;
 		bool verticesMustBeReordered = false;
@@ -1072,7 +1072,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 
 			const size_t vertexSize = outbuffer->getMeshDataAndFormat()->getMappedBufferStride(outbuffer->getPositionAttributeIx());
 			uint8_t* const v = (uint8_t*)(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
-			uint8_t* const vCopy = (uint8_t*)malloc(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getSize());
+			uint8_t* const vCopy = (uint8_t*)_IRR_ALIGNED_MALLOC(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getSize(),_IRR_SIMD_ALIGNMENT);
 			memcpy(vCopy, v, outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getSize());
 
 			size_t baseVtx = outbuffer->getBaseVertex();
@@ -1083,7 +1083,7 @@ ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer
 					memcpy(v + (vertexSize*(i + baseVtx)), vCopy + (vertexSize*idx), vertexSize);
 			}
 #undef _ACCESS_IDX
-			free(vCopy);
+			_IRR_ALIGNED_FREE(vCopy);
 		}
 	}
 
@@ -1307,7 +1307,7 @@ template<typename IdxT>
 void CMeshManipulator::priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const
 {
     const size_t size = _input->getIndexCount() * sizeof(IdxT);
-    void* const copy = malloc(size);
+    void* const copy = _IRR_ALIGNED_MALLOC(size,_IRR_SIMD_ALIGNMENT);
     memcpy(copy, _input->getIndices(), size);
 
     struct Triangle
@@ -1331,7 +1331,7 @@ void CMeshManipulator::priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const
 
     auto newBuf = new core::ICPUBuffer(newSize);
     memcpy(newBuf->getPointer(), copy, newSize);
-    free(copy);
+    _IRR_ALIGNED_FREE(copy);
     _input->getMeshDataAndFormat()->mapIndexBuffer(newBuf);
     _input->setIndexBufferOffset(0);
     _input->setIndexCount(newSize/sizeof(IdxT));

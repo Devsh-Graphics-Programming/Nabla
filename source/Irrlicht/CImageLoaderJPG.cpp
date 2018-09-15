@@ -235,7 +235,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	uint32_t& height = imageSize[1];
 
 	// Allocate memory for buffer
-	uint8_t* output = reinterpret_cast<uint8_t*>(malloc(rowspan * height));
+	uint8_t* output = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(rowspan * height,_IRR_SIMD_ALIGNMENT));
 
 	// Here we use the library's state variable cinfo.output_scanline as the
 	// loop counter, so that we don't have to keep track ourselves.
@@ -280,7 +280,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 				data[i+2] = (char)(output[j+0]*(output[j+3]/255.f));
 			}
 		}
-		free(output);
+		_IRR_ALIGNED_FREE(output);
 	}
 	else
 		image = new CImageData(output,nullOffset,imageSize,0,ECF_R8G8B8,1,true);

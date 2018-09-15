@@ -132,14 +132,14 @@ namespace core
 		@param _obj Pointer to the object for which the blob will be made.
 		@param _stackPtr Pointer to stack memory, usually you'd declare it as `uint8_t _stackPtr[_size]`.
 		@param _size The size of the stack memory available.
-		@return Pointer to created blob, if it does not equal _stackPtr then new memory was malloc'd which needs to be free'd.
+		@return Pointer to created blob, if it does not equal _stackPtr then new memory was dynamically allocated which needs to be freed.
 		*/
 		static B* createAndTryOnStack(const T* _obj, void* _stackPtr=NULL, const size_t& _size=0)
 		{
 			const size_t actualObjSize = calcBlobSizeForObj(_obj);
 			void* mem;
 			if (!_stackPtr || actualObjSize > _size)
-				mem = malloc(actualObjSize);
+				mem = _IRR_ALIGNED_MALLOC(actualObjSize,_IRR_SIMD_ALIGNMENT);
 			else if (_stackPtr && _size >= actualObjSize)
 				mem = _stackPtr;
 			else
@@ -380,8 +380,8 @@ namespace core
 
 	struct LzmaMemMngmnt
 	{
-		static void *alloc(const ISzAlloc*, size_t _size) { return malloc(_size); }
-		static void release(const ISzAlloc*, void* _addr) { free(_addr); }
+		static void *alloc(const ISzAlloc*, size_t _size) { return _IRR_ALIGNED_MALLOC(_size,_IRR_SIMD_ALIGNMENT); }
+		static void release(const ISzAlloc*, void* _addr) { _IRR_ALIGNED_FREE(_addr); }
 	private:
 		LzmaMemMngmnt() {}
 	};

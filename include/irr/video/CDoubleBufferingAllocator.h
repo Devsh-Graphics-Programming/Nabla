@@ -6,6 +6,8 @@
 #include "IDriverMemoryAllocation.h"
 #include "IVideoDriver.h"
 
+#include "irr/core/alloc/address_allocator_type_traits.h"
+
 namespace irr
 {
 namespace video
@@ -55,7 +57,8 @@ template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false, class C
 class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty>, public virtual core::IReferenceCounted
 {
     private:
-        typedef CDoubleBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty> Base;
+        typedef core::address_allocator_traits<AddressAllocator>                            alloc_traits;
+        typedef CDoubleBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty>   Base;
     protected:
         IVideoDriver*       mDriver;
         IGPUBuffer*         mBackBuffer;
@@ -73,7 +76,7 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
 
         virtual ~CDoubleBufferingAllocator()
         {
-            mCPUAllocator.deallocate(mAllocatorState,mReservedSize);
+            mCPUAllocator.deallocate(reinterpret_cast<uint8_t*>(mAllocatorState),mReservedSize);
             mBackBuffer->drop();
             mFrontBuffer->drop();
         }
@@ -84,11 +87,10 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
 		@param rangeToUse is a memory range relative to the staging buffer's bound memory start, not the buffer start or the mapped IDriverMemoryAllocation offset. */
         template<typename... Args>
         CDoubleBufferingAllocator(IVideoDriver* driver, const IDriverMemoryAllocation::MemoryRange& rangeToUse, IGPUBuffer* stagingBuff, size_t destBuffOffset, IGPUBuffer* destBuff, Args&&... args) :
-                        mDriver(driver), mBackBuffer(stagingBuff), mFrontBuffer(destBuff), mStagingPointer(mBackBuffer->getBoundMemory()->getMappedPointer()),
-                        mRangeLength(rangeToUse.length), mRangeStartRelToFB(stagingBuff->getBoundMemoryOffset()-rangeToUse.offset), mDestBuffOff(destBuffOffset),
-                        mReservedSize(AddressAllocator::reserved_size(mRangeLength,std::forward<Args>(args)...)),
-                        mCPUAllocator(), mAllocatorState(mCPUAllocator.allocate(mReservedSize,_IRR_SIMD_ALIGNMENT)),
-                        mAllocator(mAllocatorState,mStagingPointer,mRangeLength)
+                        mDriver(driver), mBackBuffer(stagingBuff), mFrontBuffer(destBuff),
+                        mStagingPointer(reinterpret_cast<uint8_t*>(mBackBuffer->getBoundMemory()->getMappedPointer())+rangeToUse.offset), mRangeLength(rangeToUse.length),
+                        mRangeStartRelToFB(rangeToUse.offset-stagingBuff->getBoundMemoryOffset()), mDestBuffOff(destBuffOffset), mReservedSize(AddressAllocator::reserved_size(mRangeLength,args...)),
+                        mCPUAllocator(), mAllocatorState(mCPUAllocator.allocate(mReservedSize,_IRR_SIMD_ALIGNMENT)), mAllocator(mAllocatorState,mStagingPointer,mRangeLength,std::forward<Args>(args)...)
         {
 #ifdef _DEBUG
             assert(stagingBuff->getBoundMemoryOffset()>=rangeToUse.offset);
@@ -98,31 +100,34 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
         }
 
 
-        inline void* getBackBufferPointer() {return mStagingPointer;}
+        inline void*        getBackBufferPointer() {return mStagingPointer;}
 
-        inline IGPUBuffer* getFrontBuffer() {return mFrontBuffer;}
+        inline IGPUBuffer*  getFrontBuffer() {return mFrontBuffer;}
 
-
-        template<typename... Args>
-        inline typename AddressAllocator::size_type alloc_addr(Args&&... args) {return mAllocator.alloc_addr(std::forward<Args>(args)...);}
 
         template<typename... Args>
-        inline typename AddressAllocator::size_type free_addr(Args&&... args) {return mAllocator.free_addr(std::forward<Args>(args)...);}
+        inline void         multi_alloc_addr(Args&&... args) {alloc_traits::multi_alloc_addr(mAllocator,std::forward<Args>(args)...);}
+
+        template<typename... Args>
+        inline void         multi_free_addr(Args&&... args) {alloc_traits::multi_free_addr(mAllocator,std::forward<Args>(args)...);}
 
 
         //! Makes Writes visible
-        inline void swapBuffers(void (*StuffToDoToBackBuffer)(IGPUBuffer*,void*)=NULL, void (*StuffToDoToFrontBuffer)(IGPUBuffer*,void*)=NULL,void* userData=NULL)
+        inline void         swapBuffers(void (*StuffToDoToBackBuffer)(IGPUBuffer*,void*)=NULL, void (*StuffToDoToFrontBuffer)(IGPUBuffer*,void*)=NULL,void* userData=NULL)
         {
             if (StuffToDoToBackBuffer)
                 StuffToDoToBackBuffer(mBackBuffer,userData);
 
             if (Base::alwaysSwapEntireRange)
             {
-                IDriverMemoryAllocation::MappedMemoryRange range;
-                range.memory = mBackBuffer->getBoundMemory();
-                range.offset = mDestBuffOff+mBackBuffer->getBoundMemoryOffset();
-                range.length = mRangeLength;
-                mDriver->flushMappedMemoryRanges(1,&range);
+                if (mBackBuffer->getBoundMemory()->haveToFlushWrites())
+                {
+                    IDriverMemoryAllocation::MappedMemoryRange range;
+                    range.memory = mBackBuffer->getBoundMemory();
+                    range.offset = mDestBuffOff+mBackBuffer->getBoundMemoryOffset();
+                    range.length = mRangeLength;
+                    mDriver->flushMappedMemoryRanges(1,&range);
+                }
 
                 mDriver->copyBuffer(mBackBuffer,mFrontBuffer,mRangeStartRelToFB,mDestBuffOff,mRangeLength);
             }
@@ -131,10 +136,13 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
                 size_t tmpBackOffset = mDestBuffOff+Base::dirtyRange.first;
 
                 IDriverMemoryAllocation::MappedMemoryRange range;
-                range.memory = mBackBuffer->getBoundMemory();
-                range.offset = tmpBackOffset+mBackBuffer->getBoundMemoryOffset();
                 range.length = Base::dirtyRange.second-Base::dirtyRange.first;
-                mDriver->flushMappedMemoryRanges(1,&range);
+                if (mBackBuffer->getBoundMemory()->haveToFlushWrites())
+                {
+                    range.memory = mBackBuffer->getBoundMemory();
+                    range.offset = tmpBackOffset+mBackBuffer->getBoundMemoryOffset();
+                    mDriver->flushMappedMemoryRanges(1,&range);
+                }
 
                 mDriver->copyBuffer(mBackBuffer,mFrontBuffer,tmpBackOffset,
                                     mDestBuffOff+Base::dirtyRange.first,range.length);
