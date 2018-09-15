@@ -52,22 +52,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
             B->drop();
             B = C;
         }
-
-        inline void ValidateHashMap(const uint32_t& maxAlloc)
-        {
-            for (size_t i=0; i<Granules; i++)
-            {
-                uint32_t key = residencyRedirectTo[i];
-                if (key==0xdeadbeefu)
-                    continue;
-
-                assert(key<maxAlloc);
-                for (size_t j=0; j<i; j++)
-                {
-                    assert(key!=residencyRedirectTo[j]);
-                }
-            }
-        }
         virtual ~IMetaGranularBuffer()
         {
             if (B)
@@ -276,8 +260,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
 
 //			ValidateHashMap(Allocated);
         }
-
-        inline size_t getGranuleByteSize() const {return GranuleByteSize;}
 };
 
 }

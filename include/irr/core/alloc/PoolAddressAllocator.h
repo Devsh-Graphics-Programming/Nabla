@@ -140,6 +140,20 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             size_type probBlockCount =  (bufSz-truncatedOffset)/blockSz;
             return probBlockCount*sizeof(size_type);
         }
+
+
+        inline size_type        get_free_block_count() const noexcept
+        {
+            return freeStackCtr;
+        }
+        inline size_type        get_allocated_block_count() const noexcept
+        {
+            return blockCount-freeStackCtr;
+        }
+        inline size_type        get_total_block_count() const noexcept
+        {
+            return blockCount;
+        }
     protected:
         const size_type                                     maxAlignment;
         const size_type                                     alignOffset;

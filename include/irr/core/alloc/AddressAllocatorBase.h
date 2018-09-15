@@ -6,7 +6,7 @@
 #define __IRR_ADDRESS_ALLOCATOR_BASE_H_INCLUDED__
 
 #include "irr/core/memory/memory.h"
-#include "irr/core/alloc/address_allocator_type_traits.h"
+#include "irr/core/alloc/address_allocator_traits.h"
 
 namespace irr
 {

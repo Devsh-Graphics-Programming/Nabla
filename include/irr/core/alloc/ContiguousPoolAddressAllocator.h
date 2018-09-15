@@ -42,7 +42,9 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                                 addressRedirects(reinterpret_cast<size_type*>(Base::reservedSpace)+Base::blockCount),
                                 addressesAllocated(other.addressesAllocated)
         {
-            memmove(addressRedirects,other.addressRedirects,Base::blockCount*sizeof(size_type));
+            for (auto i=other.blockCount; i<Base::blockCount; i++)
+                addressRedirects[i] = invalid_address;
+            memmove(addressRedirects,other.addressRedirects,std::min(Base::blockCount,other.blockCount)*sizeof(size_type));
         }
 
         // extra
@@ -173,6 +175,20 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             for (size_type i=0ull; i<Base::blockCount; i++)
                 addressRedirects[i] = invalid_address;
             addressesAllocated = 0ull;
+        }
+
+        inline void validateRedirects()
+        {
+            for (size_type i=0; i<Base::blockCount; i++)
+            {
+                size_type key = addressRedirects[i];
+                if (key==invalid_address)
+                    continue;
+
+                assert(key<addressesAllocated);
+                for (size_type j=0; j<i; j++)
+                    assert(key!=addressRedirects[j]);
+            }
         }
 };
 

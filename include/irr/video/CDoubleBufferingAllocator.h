@@ -6,7 +6,7 @@
 #include "IDriverMemoryAllocation.h"
 #include "IVideoDriver.h"
 
-#include "irr/core/alloc/address_allocator_type_traits.h"
+#include "irr/core/alloc/address_allocator_traits.h"
 
 namespace irr
 {
@@ -99,21 +99,22 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
             mFrontBuffer->grab();
         }
 
+        inline const AddressAllocator&  getAllocator() const {return mAllocator;}
 
-        inline void*        getBackBufferPointer() {return mStagingPointer;}
+        inline void*                    getBackBufferPointer() {return mStagingPointer;}
 
-        inline IGPUBuffer*  getFrontBuffer() {return mFrontBuffer;}
+        inline IGPUBuffer*              getFrontBuffer() {return mFrontBuffer;}
 
-
-        template<typename... Args>
-        inline void         multi_alloc_addr(Args&&... args) {alloc_traits::multi_alloc_addr(mAllocator,std::forward<Args>(args)...);}
 
         template<typename... Args>
-        inline void         multi_free_addr(Args&&... args) {alloc_traits::multi_free_addr(mAllocator,std::forward<Args>(args)...);}
+        inline void                     multi_alloc_addr(Args&&... args) {alloc_traits::multi_alloc_addr(mAllocator,std::forward<Args>(args)...);}
+
+        template<typename... Args>
+        inline void                     multi_free_addr(Args&&... args) {alloc_traits::multi_free_addr(mAllocator,std::forward<Args>(args)...);}
 
 
         //! Makes Writes visible
-        inline void         swapBuffers(void (*StuffToDoToBackBuffer)(IGPUBuffer*,void*)=NULL, void (*StuffToDoToFrontBuffer)(IGPUBuffer*,void*)=NULL,void* userData=NULL)
+        inline void                     swapBuffers(void (*StuffToDoToBackBuffer)(IGPUBuffer*,void*)=NULL, void (*StuffToDoToFrontBuffer)(IGPUBuffer*,void*)=NULL,void* userData=NULL)
         {
             if (StuffToDoToBackBuffer)
                 StuffToDoToBackBuffer(mBackBuffer,userData);
@@ -152,13 +153,6 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
             if (StuffToDoToFrontBuffer)
                 StuffToDoToFrontBuffer(mFrontBuffer,userData);
         }
-};
-
-
-template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false, class CPUAllocator=core::allocator<uint8_t> >
-class CDoubleBufferingAllocatorExt : public CDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>
-{
-    public:
 };
 
 }

@@ -27,6 +27,62 @@ namespace video
 	class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
 	{
 	public:
+	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
+	    {
+	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        reqs.vulkanReqs.alignment = 0;
+	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+	        reqs.prefersDedicatedAllocation = true;
+	        reqs.requiresDedicatedAllocation = true;
+	        return reqs;
+	    }
+	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getSpilloverGPUMemoryReqs()
+	    {
+	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        reqs.vulkanReqs.alignment = 0;
+	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+	        reqs.prefersDedicatedAllocation = true;
+	        reqs.requiresDedicatedAllocation = true;
+	        return reqs;
+	    }
+	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
+	    {
+	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        reqs.vulkanReqs.alignment = 0;
+	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE;
+	        reqs.prefersDedicatedAllocation = true;
+	        reqs.requiresDedicatedAllocation = true;
+	        return reqs;
+	    }
+	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getDownStreamingMemoryReqs()
+	    {
+	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        reqs.vulkanReqs.alignment = 0;
+	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
+	        reqs.prefersDedicatedAllocation = true;
+	        reqs.requiresDedicatedAllocation = true;
+	        return reqs;
+	    }
+	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getCPUSideGPUVisibleGPUMemoryReqs()
+	    {
+	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        reqs.vulkanReqs.alignment = 0;
+	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
+	        reqs.prefersDedicatedAllocation = true;
+	        reqs.requiresDedicatedAllocation = true;
+	        return reqs;
+	    }
+
 	    //! Best for Mesh data, UBOs, SSBOs, etc.
 	    virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
@@ -60,70 +116,40 @@ namespace video
 	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
 	    inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(const size_t& size)
 	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        auto reqs = getDeviceLocalGPUMemoryReqs();
 	        reqs.vulkanReqs.size = size;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
             return this->createGPUBufferOnDedMem(reqs,false);
 	    }
 
 	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-	    virtual IGPUBuffer* createSpilloverGPUBufferOnDedMem(const size_t& size)
+	    inline IGPUBuffer* createSpilloverGPUBufferOnDedMem(const size_t& size)
 	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        auto reqs = getSpilloverGPUMemoryReqs();
 	        reqs.vulkanReqs.size = size;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
             return this->createGPUBufferOnDedMem(reqs,false);
 	    }
 
 	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-	    virtual IGPUBuffer* createUpStreamingGPUBufferOnDedMem(const size_t& size)
+	    inline IGPUBuffer* createUpStreamingGPUBufferOnDedMem(const size_t& size)
 	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        auto reqs = getUpStreamingMemoryReqs();
 	        reqs.vulkanReqs.size = size;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
             return this->createGPUBufferOnDedMem(reqs,false);
 	    }
 
 	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-	    virtual IGPUBuffer* createDownStreamingGPUBufferOnDedMem(const size_t& size)
+	    inline IGPUBuffer* createDownStreamingGPUBufferOnDedMem(const size_t& size)
 	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        auto reqs = getDownStreamingMemoryReqs();
 	        reqs.vulkanReqs.size = size;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
             return this->createGPUBufferOnDedMem(reqs,false);
 	    }
 
 	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-	    virtual IGPUBuffer* createCPUSideGPUVisibleGPUBufferOnDedMem(const size_t& size)
+	    inline IGPUBuffer* createCPUSideGPUVisibleGPUBufferOnDedMem(const size_t& size)
 	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+	        auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
 	        reqs.vulkanReqs.size = size;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
             return this->createGPUBufferOnDedMem(reqs,false);
 	    }
 
