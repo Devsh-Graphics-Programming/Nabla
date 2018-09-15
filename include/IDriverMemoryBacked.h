@@ -18,8 +18,8 @@ typedef uint64_t VkDeviceSize;
 //placeholder until we configure Vulkan SDK
 typedef struct VkMemoryRequirements {
     VkDeviceSize    size;
-    VkDeviceSize    alignment;
-    uint32_t        memoryTypeBits;
+    VkDeviceSize    alignment; /// Used and valid only in Vulkan
+    uint32_t        memoryTypeBits; /// Used and valid only in Vulkan
 } VkMemoryRequirements; //depr
 
 //! Interface from which resources backed by IDriverMemoryAllocation, such as ITexture and IGPUBuffer, inherit from
@@ -28,11 +28,11 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
     public:
         struct SDriverMemoryRequirements
         {
-            VkMemoryRequirements vulkanReqs; ///< Used and valid only in Vulkan
+            VkMemoryRequirements vulkanReqs;
             uint32_t memoryHeapLocation             : 2; //IDriverMemoryAllocation::E_SOURCE_MEMORY_TYPE
             uint32_t mappingCapability              : 4; //IDriverMemoryAllocation::E_MAPPING_CAPABILITY_FLAGS
-            uint32_t prefersDedicatedAllocation     : 1;
-            uint32_t requiresDedicatedAllocation    : 1;
+            uint32_t prefersDedicatedAllocation     : 1; /// Used and valid only in Vulkan
+            uint32_t requiresDedicatedAllocation    : 1; /// Used and valid only in Vulkan
         };
         //! Combine requirements
         /** \return true on success, some requirements are mutually exclusive, so it may be impossible to combine them. */

@@ -83,12 +83,12 @@ class IRR_FORCE_EBO aligned_allocator_adaptor : public Alloc
         }
 
         template<size_t _align>
-        inline bool                                 operator!=(const aligned_allocator_adaptor<Alloc,_align>& other) noexcept
+        inline bool                                 operator!=(const aligned_allocator_adaptor<Alloc,_align>& other) const noexcept
         {
             return false;
         }
         template<size_t _align>
-        inline bool                                 operator==(const aligned_allocator_adaptor<Alloc,_align>& other) noexcept
+        inline bool                                 operator==(const aligned_allocator_adaptor<Alloc,_align>& other) const noexcept
         {
             return true;
         }

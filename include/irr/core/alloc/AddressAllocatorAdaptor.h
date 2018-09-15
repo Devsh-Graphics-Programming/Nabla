@@ -80,12 +80,12 @@ class AddressAllocatorAdaptor : public AllocatorTrivialBase<T>
 
 
         template<typename U>
-        inline bool                                         operator!=( const AddressAllocatorAdaptor<U,S>& other) noexcept
+        inline bool                                         operator!=( const AddressAllocatorAdaptor<U,S>& other) const noexcept
         {
             return state!=other.state;
         }
         template<typename U>
-        inline bool                                         operator==( const AddressAllocatorAdaptor<U,S>& other) noexcept
+        inline bool                                         operator==( const AddressAllocatorAdaptor<U,S>& other) const noexcept
         {
             return !(operator!=(other));
         }
