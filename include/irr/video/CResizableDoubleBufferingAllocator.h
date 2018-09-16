@@ -51,6 +51,23 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
 
         inline const auto&  getShrinkPolicy() const {return shrinkPolicy;}
         inline void         setShrinkPolicy(const decltype(shrinkPolicy)& newShrinkPolicy) {shrinkPolicy=newShrinkPolicy;}
+
+
+        template<typename... Args>
+        inline void                     multi_alloc_addr(Args&&... args)
+        {
+            size_type reserveSize = growPolicy(this,);
+            if (reserveSize+Base::mOffset>Base::mBackBuffer->getBoundMemory()->getAllocationSize())
+                swapstuff;
+
+            alloc_traits::multi_alloc_addr(mAllocator,std::forward<Args>(args)...);
+        }
+
+        template<typename... Args>
+        inline void                     multi_free_addr(Args&&... args)
+        {
+            alloc_traits::multi_free_addr(mAllocator,std::forward<Args>(args)...);
+        }
 };
 
 }
