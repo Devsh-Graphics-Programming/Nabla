@@ -329,6 +329,15 @@ macro(irr_target_link_openssl _trgt)
 		target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
 	else()
 		target_include_directories(${_trgt} PUBLIC ../../../openssl/include/)
+		if (UNIX)
+			target_link_libraries(${_trgt} INTERFACE
+				../../../openssl/crypto.a
+			)
+		elif (WIN32)
+			target_link_libraries(${_trgt} INTERFACE
+				../../../openssl/lib/libeay32.lib
+			)
+		endif()
 	endif()
 endmacro()
 
