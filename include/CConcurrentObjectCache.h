@@ -38,9 +38,15 @@ namespace impl
         using T = typename BaseCache::CachedType;
 
     public:
-        using RangeType = std::pair<typename BaseCache::IteratorType, typename BaseCache::IteratorType>;
+        using IteratorType = typename BaseCache::IteratorType;
+        using ConstIteratorType = typename BaseCache::ConstIteratorType;
+        using RangeType = typename BaseCache::RangeType;
+        using ConstRangeType = typename BaseCache::ConstRangeType;
 
         using BaseCache::BaseCache;
+
+        template<typename RngT>
+        static bool isNonZeroRange(const RngT& _rng) { return BaseCache::isNonZeroRange(_rng); }
 
         inline bool insert(const K& _key, T* _val)
         {
@@ -64,6 +70,13 @@ namespace impl
             const size_t r = BaseCache::getSize();
             this->m_lock.unlockRead();
             return r;
+        }
+
+        inline void clear()
+        {
+            this->m_lock.lockWrite();
+            BaseCache::clear();
+            this->m_lock.unlockWrite();
         }
 
         //! Returns true if had to insert
@@ -99,11 +112,12 @@ namespace impl
             return r;
         }
 
-        inline void removeObject(T* _object, const K& _key)
+        inline bool removeObject(T* _object, const K& _key)
         {
             this->m_lock.lockWrite();
-            BaseCache::removeObject(_object, _key);
+            const bool r = BaseCache::removeObject(_object, _key);
             this->m_lock.unlockWrite();
+            return r;
         }
     };
 }

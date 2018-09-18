@@ -2,16 +2,13 @@
 #define __C_OBJECT_CACHE_H_INCLUDED__
 
 #include <type_traits>
-#include <vector>
 #include <utility>
 #include <algorithm>
 #include <cstdlib>
 #include <functional>
-#include <map>
-#include <unordered_map>
 
 #include "irr/macros.h"
-#include "irr/core/IReferenceCounted.h"
+#include "irr/core/Types.h"
 
 namespace irr { namespace core
 {
@@ -25,24 +22,24 @@ namespace impl
 
     template<template<typename...> class T>
     struct is_same_templ<T, T> : std::true_type {};
- // can be get some general specialization for any allocator?
+
     template<template<typename...> class T>
     struct is_multi_container : std::false_type {};
     template<>
-    struct is_multi_container<core::multimap> : std::true_type {};
+    struct is_multi_container<std::multimap> : std::true_type {};
     template<>
-    struct is_multi_container<core::unordered_multimap> : std::true_type {};
- // can be get some general specialization for any allocator?
+    struct is_multi_container<std::unordered_multimap> : std::true_type {};
+
     template<template<typename...> class T>
     struct is_assoc_container : std::false_type {};
     template<>
-    struct is_assoc_container<core::map> : std::true_type {};
+    struct is_assoc_container<std::map> : std::true_type {};
     template<>
-    struct is_assoc_container<core::unordered_map> : std::true_type {};
+    struct is_assoc_container<std::unordered_map> : std::true_type {};
     template<>
-    struct is_assoc_container<core::multimap> : std::true_type {};
+    struct is_assoc_container<std::multimap> : std::true_type {};
     template<>
-    struct is_assoc_container<core::unordered_multimap> : std::true_type {};
+    struct is_assoc_container<std::unordered_multimap> : std::true_type {};
     
     template<typename K, typename...>
     struct PropagKeyTypeTypedef_ { using KeyType = K; };
@@ -63,7 +60,7 @@ namespace impl
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for core::map/core::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CObjectCacheBase
     {
@@ -103,10 +100,10 @@ namespace impl
 		inline virtual ~CObjectCacheBase()
 		{
 			for (auto it=m_container.begin(); it!=m_container.end(); it++)
-				dispose(it->second);
+				this->dispose(it->second);
 		}
 
-        void dispose(ValueType_impl _object) const        {
+        void dispose(ValueType_impl _object) const {
             if (m_disposalFunc)
                 m_disposalFunc(_object);
         }
@@ -118,6 +115,7 @@ namespace impl
         }
 
     public:
+        CObjectCacheBase() = default;
         inline explicit CObjectCacheBase(const GreetFuncType& _greeting, const DisposalFuncType& _disposal) : m_greetingFunc(_greeting), m_disposalFunc(_disposal) {}
         inline explicit CObjectCacheBase(GreetFuncType&& _greeting, DisposalFuncType&& _disposal) : m_greetingFunc(std::move(_greeting)), m_disposalFunc(std::move(_disposal)) {}
 
@@ -127,6 +125,11 @@ namespace impl
                 if (e.second == _object)
                     return true;
             return false;
+        }
+
+        inline void clear()
+        {
+            m_container.clear();
         }
 
 		inline size_t getSize() const { return m_container.size(); }
@@ -145,7 +148,7 @@ namespace impl
     {
         static bool verify(const ContainerT& _container, const typename ContainerT::iterator& _itr, const typename ContainerT::value_type::first_type& _key)
         {
-            if (_itr != std::cend(_container) && !(_key < _itr->first)) // used `<` instead of `==` operator here to keep consistency with core::map (so key type doesn't need to define operator==)
+            if (_itr != std::cend(_container) && !(_key < _itr->first)) // used `<` instead of `==` operator here to keep consistency with std::map (so key type doesn't need to define operator==)
                 return false;
 
             return true;
@@ -169,28 +172,28 @@ namespace impl
     )\
         return false;\
     \
-    greet(newVal.second);\
+    this->greet(newVal.second);\
     this->m_container.insert(it, newVal);\
     return true;
 #define INSERT_IMPL_ASSOC \
     auto res = this->m_container.insert({ _key, _val });\
     const bool verif = impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value>::verify(res);\
     if (verif)\
-        greet(_val);\
+        this->greet(_val);\
     return verif;
 
     template<
         bool isMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for core::map/core::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CMultiObjectCacheBase;
 
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for core::map/core::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CMultiObjectCacheBase<true, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>, public CMultiCache_tag
     {
@@ -217,7 +220,7 @@ namespace impl
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for core::map/core::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CMultiObjectCacheBase<false, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>, public CMultiCache_tag
     {
@@ -266,7 +269,7 @@ namespace impl
         bool IsMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for core::map/core::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<IsMultiContainer, ContainerT_T, T, K...>
     {
@@ -279,14 +282,14 @@ namespace impl
         //! Returns true if had to insert
         bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj, typename Base::ValueType_impl _val)
         {
-            greet(_val); // grab before drop
+            this->greet(_val); // grab before drop
 
-            auto range = findRange(_key);
+            auto range = this->findRange(_key);
             typename Base::IteratorType found = find(range, _key, _obj);
 
             if (found != range.second)
             {
-                dispose(found->second);
+                this->dispose(found->second);
                 found->second = _val;
                 return false;
             }
@@ -296,28 +299,31 @@ namespace impl
 
         bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
         {
-            *_outrange = findRange(_key);
+            *_outrange = this->findRange(_key);
             if (!Base::isNonZeroRange(*_outrange))
             {
                 _outrange->first = this->m_container.insert(_outrange->second, {_key, nullptr});
                 _outrange->second = std::next(_outrange->first);
-                greet(nullptr);
+                this->greet(nullptr);
                 return false;
             }
             return true;
         }
 
-        inline void removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
+        //! @returns true if object was removed (i.e. was present in cache)
+        inline bool removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
         {
-            typename Base::RangeType range = findRange(_key);
+            typename Base::RangeType range = this->findRange(_key);
             for (auto it = range.first; it != range.second; ++it)
             {
                 if (it->second == _obj)
                 {
+                    this->dispose(it->second);
                     Base::m_container.erase(it);
-                    break;
+                    return true;
                 }
             }
+            return false;
         }
 
     private:
@@ -340,14 +346,14 @@ namespace impl
         bool isVectorContainer,
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for core::map/core::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
         struct CUniqObjectCacheBase;
 
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for core::map/core::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CUniqObjectCacheBase<true, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>
     {
@@ -365,7 +371,7 @@ namespace impl
         inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
         {
             auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), typename Base::PairType_impl{ _key, nullptr });
-            if (it == std::end(m_container) || it->first > _key)
+            if (it == std::end(this->m_container) || it->first > _key)
                 return { it, it };
             return { it, std::next(it) };
         }
@@ -379,7 +385,7 @@ namespace impl
     template<
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for core::map/core::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CUniqObjectCacheBase<false, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>
     {
@@ -397,7 +403,7 @@ namespace impl
         inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
         {
             auto it = this->m_container.lower_bound(_key);
-            if (it == std::end(m_container) || it->first > _key)
+            if (it == std::end(this->m_container) || it->first > _key)
                 return { it, it };
             return { it, std::next(it) };
         }
@@ -413,7 +419,7 @@ namespace impl
         bool isVectorContainer,
         template<typename...> class ContainerT_T,
         typename T, //value type for container
-        typename ...K //optionally key type for core::map/core::unordered_map
+        typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CUniqObjectCacheBaseExt : public CUniqObjectCacheBase<isVectorContainer, ContainerT_T, T, K...>
     {
@@ -423,28 +429,31 @@ namespace impl
     public:
         using Base::Base;
 
-        inline void removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
+        //! @returns true if object was removed (i.e. was present in cache)
+        inline bool removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
         {
-            typename Base::RangeType range = findRange(_key);
+            typename Base::RangeType range = this->findRange(_key);
             auto it = range.first;
             if (Base::isNonZeroRange(range) && it->second == _obj)
             {
-                dispose(it->second);
+                this->dispose(it->second);
                 this->m_container.erase(it);
+                return true;
             }
+            return false;
         }
 
         //! Returns true if had to insert
         bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj, typename Base::ValueType_impl _val)
         {
-            greet(_val); // grab before drop
+            this->greet(_val); // grab before drop
 
-            typename Base::RangeType range = findRange(_key);
+            typename Base::RangeType range = this->findRange(_key);
             auto it = range.first;
 
             if (Base::isNonZeroRange(range) && it->second == _obj)
             {
-                dispose(it->second);
+                this->dispose(it->second);
                 it->second = _val;
                 return false;
             }
@@ -454,12 +463,12 @@ namespace impl
 
         bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
         {
-            *_outrange = findRange(_key);
+            *_outrange = this->findRange(_key);
             if (!Base::isNonZeroRange(*_outrange))
             {
                 _outrange->first = this->m_container.insert(_outrange->first, { _key, nullptr });
                 _outrange->second = std::next(_outrange->second);
-                greet(nullptr);
+                this->greet(nullptr);
                 return false;
             }
             return true;
@@ -470,8 +479,8 @@ namespace impl
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T = core::vector, // can be get some general specialization for any allocator?
-    bool = impl::is_same_templ<ContainerT_T, core::vector>::value // can be get some general specialization for any allocator?
+    template<typename...> class ContainerT_T = std::vector,
+    bool = impl::is_same_templ<ContainerT_T, std::vector>::value
 >
 class CMultiObjectCache;
 
@@ -503,8 +512,7 @@ class CMultiObjectCache<K, T, ContainerT_T, false> :
     public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, T*, K>,
     public impl::PropagTypedefs<T, K>
 {
-    //! This assert will not work with arbitrary allocators
-    //static_assert(impl::is_same_templ<ContainerT_T, std::multimap>::value || impl::is_same_templ<ContainerT_T, std::unordered_multimap>::value, "ContainerT_T must be one of: std::vector, std::multimap, std::unordered_multimap");
+    static_assert(impl::is_same_templ<ContainerT_T, std::multimap>::value || impl::is_same_templ<ContainerT_T, std::unordered_multimap>::value, "ContainerT_T must be one of: std::vector, std::multimap, std::unordered_multimap");
 
 private:
     using Base = impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, T*, K>;
@@ -521,8 +529,8 @@ public:
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T = core::vector, // can be get some general specialization for any allocator?
-    bool = impl::is_same_templ<ContainerT_T, core::vector>::value // can be get some general specialization for any allocator?
+    template<typename...> class ContainerT_T = std::vector,
+    bool = impl::is_same_templ<ContainerT_T, std::vector>::value
 >
 class CObjectCache;
 
@@ -551,8 +559,7 @@ class CObjectCache<K, T, ContainerT_T, false> :
     public impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>,
     public impl::PropagTypedefs<T, K>
 {
-    //! This assert will not work with arbitrary allocators
-    //static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
+    static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
     using Base = impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>;
 
 public:
@@ -563,5 +570,4 @@ public:
 
 #undef INSERT_IMPL_VEC
 #undef INSERT_IMPL_ASSOC
-#undef MY_TYPE
 #endif //__C_OBJECT_CACHE_H_INCLUDED__
