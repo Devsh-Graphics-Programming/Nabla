@@ -1,5 +1,5 @@
-#ifndef __C_IASSET_LOADER_H_INCLUDED__
-#define __C_IASSET_LOADER_H_INCLUDED__
+#ifndef __IRR_I_ASSET_LOADER_H_INCLUDED__
+#define __IRR_I_ASSET_LOADER_H_INCLUDED__
 
 #include "IAsset.h"
 #include "CConcurrentObjectCache.h"
@@ -28,13 +28,13 @@ public:
 
     struct SAssetLoadParams
     {
-        SAssetLoadParams(const size_t& _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr, const IAssetLoader::E_CACHING_FLAGS& _cacheFlags = ECF_CACHE_EVERYTHING)
+        SAssetLoadParams(const size_t& _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr, const E_CACHING_FLAGS& _cacheFlags = ECF_CACHE_EVERYTHING)
             : decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey), cacheFlags(_cacheFlags)
         {
         }
         size_t decryptionKeyLen;
         const uint8_t* decryptionKey;
-        const IAssetLoader::E_CACHING_FLAGS cacheFlags;
+        const E_CACHING_FLAGS cacheFlags;
     };
 
 private:
@@ -44,12 +44,8 @@ private:
         const SAssetLoadParams params;
         io::IReadFile* mainFile;
     };
-public:
-    // (Criss) I can't see a member cache? If I remember correctly, loaders should also have its inner cache. Something changed?
-    typedef core::CConcurrentMultiObjectCache<std::string, IAsset, core::unordered_multimap> cache_container;
-    typedef typename cache_container::IteratorType cache_iter;
-    typedef typename cache_container::ConstIteratorType cache_const_iter;
 
+public:
     // following could be inlined
     static E_CACHING_FLAGS ECF_DONT_CACHE_LEVEL(uint64_t N)
     {
@@ -93,29 +89,10 @@ public:
         IAssetManager* m_manager;
         IAssetLoaderOverride(IAssetManager* _manager) : m_manager(_manager) {}
 
-        // for derived classes to abuse the friendship
-        // (Criss) This must go to source file along with #include "IAssetManager.h" so it cannot be inline (#include loop)
-        // Also here i'd use std::result_of to get type returned by IAssetManager::findAssets instead of this pair type as a retval
-        // probably not even worth mentioning, but maybe you want to say something about this?
-        inline std::pair<std::string, cache_iter> findAssets_helper(const std::string& inSearchKey, const E_TYPE* inAssetTypes)
-        {
-            return m_manager->findAssets(inSearchKey, inAssetTypes);
-        }
         //! The only reason these functions are not declared static is to allow stateful overrides
     public:
         //! The most imporant overrides are the ones for caching
-        inline virtual IAsset* findCachedAsset(const std::string& inSearchKey, const E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
-        {
-            auto levelFlag = ctx.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
-            if (levelFlag&ECF_DUPLICATE_TOP_LEVEL)  // default
-                return nullptr;
-
-            auto found = findAssets_helper(inSearchKey, inAssetTypes);
-            if (found.first != found.second)
-                return found.first->second;
-            else
-                return nullptr;
-        }
+        virtual IAsset* findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
 
         //! Only called when the asset was searched for, no correct asset was found
         /** Any non-nullptr asset returned here will not be added to cache,
@@ -142,8 +119,8 @@ public:
         \param attempt if decryption or validation algorithm supports reporting failure, you can try different key*/
         inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& outDecrKeyLen, const size_t& maxDecrKeyLen, const uint32_t& attempt, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
-            outDecrKeyLen = ctx.decryptionKeyLen;
-            memcpy(outDecrKey, ctx.decryptionKey, outDecrKeyLen);
+            outDecrKeyLen = ctx.params.decryptionKeyLen;
+            memcpy(outDecrKey, ctx.params.decryptionKey, outDecrKeyLen);
             return attempt <= 0u; // no failed attempts
         }
 
@@ -157,7 +134,7 @@ public:
         //! After a successful load of an asset or sub-asset
         virtual void insertAssetIntoCache(IAsset* asset, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel) // this function will never compile in a header
         {
-            auto levelFlag = ctx.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
+            auto levelFlag = ctx.params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
             if (levelFlag&ECF_DONT_CACHE_TOP_LEVEL)
                 asset->grab(); // because loader will call drop() straight after insertAssetIntoCache
             else
@@ -165,7 +142,7 @@ public:
         }
     };
 
-
+public:
     //! Check if the file might be loaded by this class
     /** Check might look into the file.
     \param file File handle to check.
@@ -181,7 +158,7 @@ public:
     virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
     //! Loads an asset from an opened file, returns nullptr in case of failure.
-    virtual IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr);
+    virtual IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
 };
 
 }}

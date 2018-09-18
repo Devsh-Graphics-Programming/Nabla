@@ -1,5 +1,5 @@
-#ifndef __C_IASSET_H_INCLUDED__
-#define __C_IASSET_H_INCLUDED__
+#ifndef __IRR_I_ASSET_H_INCLUDED__
+#define __IRR_I_ASSET_H_INCLUDED__
 
 #include <string>
 #include "irr/core/IReferenceCounted.h"
@@ -7,45 +7,56 @@
 namespace irr { namespace asset
 {
 
-    // (Criss) Rename to E_ASSET_TYPE?
-enum E_TYPE
-{
-    //! asset::ICPUBuffer
-    ET_BUFFER,
-    //! asset::CImageData - maybe rename to asset::CSubImageData
-    ET_SUB_IMAGE, 
-    //! asset::ICPUTexture
-    ET_IMAGE,
-    //! asset::ICPUMeshBuffer
-    ET_SUB_MESH,
-    //! asset::ICPUMesh
-    ET_MESH,
-    //! asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
-    ET_SKELETON, 
-    //! asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
-    ET_KEYFRAME_ANIMATION, 
-    //! the coming asset::IProtoShader
-    ET_SHADER, 
-    //! reserved, to implement later
-    ET_GRAPHICS_PIPELINE,
-    //! reserved, to implement later
-    ET_SCENE,
-    //! lights, etc.
-    ET_IMPLEMENTATION_SPECIFIC_METADATA = 64
-};
-
-
 class IAssetManager;
 
-class IAsset : public core::IReferenceCounted
+class IAsset : virtual public core::IReferenceCounted
 {
+public:
+    enum E_TYPE : uint64_t
+    {
+        //! asset::ICPUBuffer
+        ET_BUFFER = 1u<<0u,
+        //! asset::CImageData - maybe rename to asset::CSubImageData
+        ET_SUB_IMAGE = 1u<<1u,
+        //! asset::ICPUTexture
+        ET_IMAGE = 1u<<2u,
+        //! asset::ICPUMeshBuffer
+        ET_SUB_MESH = 1u<<3u,
+        //! asset::ICPUMesh
+        ET_MESH = 1u<<4u,
+        //! asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
+        ET_SKELETON = 1u<<5u,
+        //! asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
+        ET_KEYFRAME_ANIMATION = 1u<<6u,
+        //! the coming asset::IProtoShader
+        ET_SHADER = 1u<<7u,
+        //! reserved, to implement later
+        ET_GRAPHICS_PIPELINE = 1u<<8u,
+        //! reserved, to implement later
+        ET_SCENE = 1u<<9u,
+        //! lights, etc.
+        ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u
+        //! Reserved special value used for things like terminating lists of this enum
+    };
+    constexpr static size_t ET_STANDARD_TYPES_COUNT = 10u;
+
+    static uint32_t typeFlagToIndex(E_TYPE _type)
+    {
+        uint32_t type = (uint32_t)_type;
+        uint32_t r = 0u;
+        while (type >>= 1u) ++r;
+        return r;
+    }
+
 private:
     friend class IAssetManager;
+
     // (Criss) Why this is here?
     std::string cacheKey;
+    bool isCached = true;
+
     // could make a move-ctor version too
     inline void setNewCacheKey(const std::string& newKey) { cacheKey = newKey; }
-    bool isCached;
     inline void setNotCached() { isCached = false; }
     // (Criss) Why this is here if there's convertToDummyObject already
     //! Utility function to call so IAssetManager can call convertToDummyObject
@@ -74,4 +85,4 @@ public:
 
 }}
 
-#endif // __C_IASSET_H_INCLUDED__
+#endif // __IRR_I_ASSET_H_INCLUDED__

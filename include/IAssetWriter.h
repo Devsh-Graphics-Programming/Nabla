@@ -1,5 +1,5 @@
-#ifndef __C_IASSET_WRITER_H_INCLUDED__
-#define __C_IASSET_WRITER_H_INCLUDED__
+#ifndef __IRR_I_ASSET_WRITER_H_INCLUDED__
+#define __IRR_I_ASSET_WRITER_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
 #include "IWriteFile.h"
@@ -11,16 +11,16 @@ namespace irr { namespace asset
 enum E_WRITER_FLAGS : uint32_t
 {
     //! no writer flags (default writer settings)
-    EWF_NONE = 0,
+    EWF_NONE = 0u,
 
     //! write in a way that consumes less disk space if possible
-    EWF_COMPRESSED,
+    EWF_COMPRESSED = 1u<<0u,
 
     //! write encrypted if possible
-    EWF_ENCRYPTED,
+    EWF_ENCRYPTED = 1u<<1u,
 
     //! write in binary format rather than text if possible
-    EWF_BINARY
+    EWF_BINARY = 1u<<2u
 };
 
 class IAssetWriter
@@ -110,4 +110,4 @@ public:
 
 }} //irr::asset
 
-#endif //__C_IASSET_WRITER_H_INCLUDED__
+#endif //__IRR_I_ASSET_WRITER_H_INCLUDED__
