@@ -7,7 +7,7 @@
 #define __C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 
 
-#include "IMeshLoader.h"
+#include "IAssetLoader.h"
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "IMesh.h"
@@ -17,7 +17,7 @@
 namespace irr { namespace scene
 {
 
-class CBAWMeshFileLoader : public IMeshLoader
+class CBAWMeshFileLoader : public asset::IAssetLoader
 {
 private:
 	struct SBlobData
@@ -56,11 +56,12 @@ private:
 			}
 		}
 
-		io::IReadFile* file;
+        asset::IAssetLoader::SAssetLoadContext inner;
 		io::path filePath;
 		uint64_t fileVersion;
 		core::unordered_map<uint64_t, SBlobData> blobs;
 		core::unordered_map<uint64_t, void*> createdObjs;
+        core::unordered_map<void*, uint32_t> hierLvls;
 		core::CBlobsLoadingManager loadingMgr;
 		unsigned char iv[16];
 	};
@@ -81,7 +82,7 @@ public:
 	/** @returns Pointer to the created mesh. Returns 0 if loading failed.
 	If you no longer need the mesh, you should call IAnimatedMesh::drop().
 	See IReferenceCounted::drop() for more information.*/
-	virtual ICPUMesh* createMesh(io::IReadFile* file);
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
 	ICPUMesh* createMesh(io::IReadFile* file, unsigned char pwd[16]);
 
 private:
@@ -96,7 +97,7 @@ private:
 
 	//! Reads blob to memory on stack or allocates sufficient amount on heap if provided stack storage was not big enough.
 	/** @returns `_stackPtr` if blob was read to it or pointer to malloc'd memory otherwise.*/
-	void* tryReadBlobOnStack(const SBlobData& _data, SContext& _ctx, unsigned char pwd[16], void* _stackPtr=NULL, size_t _stackSize=0) const;
+	void* tryReadBlobOnStack(const SBlobData& _data, SContext& _ctx, const unsigned char pwd[16], void* _stackPtr=NULL, size_t _stackSize=0) const;
 
 	bool decompressLzma(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
 	bool decompressLz4(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
