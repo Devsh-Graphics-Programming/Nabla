@@ -7,13 +7,14 @@
 #define __I_CPU_BUFFER_H_INCLUDED__
 
 #include "irr/core/IBuffer.h"
+#include "IAsset.h"
 
 namespace irr
 {
 namespace core
 {
 
-class ICPUBuffer : public IBuffer
+class ICPUBuffer : public IBuffer, public asset::IAsset
 {
     protected:
         virtual ~ICPUBuffer()
@@ -35,6 +36,14 @@ class ICPUBuffer : public IBuffer
 
             size = sizeInBytes;
         }
+
+        virtual void convertToDummyObject() override 
+        {
+            free(data);
+            data = nullptr;
+            size = 0ull;
+        }
+        virtual asset::IAsset::E_TYPE getAssetType() const override { return asset::IAsset::ET_BUFFER; }
 
         //! Returns size in bytes.
         virtual const uint64_t& getSize() const {return size;}
