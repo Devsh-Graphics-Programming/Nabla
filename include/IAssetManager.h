@@ -41,8 +41,10 @@ namespace asset
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
     private:
-        static void assetGreet(IAsset* _asset) { _asset->grab(); }
-        static void assetDispose(IAsset* _asset) { _asset->drop(); }
+        template<typename T>
+        static void refCtrGreet(T* _asset) { _asset->grab(); }
+        template<typename T>
+        static void refCtrDispose(T* _asset) { _asset->drop(); }
 
         io::IFileSystem* m_fileSystem;
 
@@ -52,7 +54,16 @@ namespace asset
         struct {
             core::vector<IAssetLoader*> vector;
             //! The key is file extension
-            core::CMultiObjectCache<std::string, IAssetLoader, std::vector> assoc;
+            core::CMultiObjectCache<std::string, IAssetLoader, std::vector> assoc{ &refCtrGreet<IAssetLoader>, &refCtrDispose<IAssetLoader> };
+
+            void pushToVector(IAssetLoader* _loader) { 
+                _loader->grab();
+                vector.push_back(_loader); 
+            }
+            void eraseFromVector(decltype(vector)::const_iterator _loaderItr) {
+                (*_loaderItr)->drop();
+                vector.erase(_loaderItr);
+            }
         } m_loaders;
 
         struct {
@@ -69,8 +80,8 @@ namespace asset
                 }
             };
 
-            core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt;
-            core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType;
+            core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt{ &refCtrGreet<IAssetWriter>, &refCtrDispose<IAssetWriter> };
+            core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType{ &refCtrGreet<IAssetWriter>, &refCtrDispose<IAssetWriter> };
         } m_writers;
 
         friend IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
@@ -108,7 +119,7 @@ namespace asset
         }
     public:
         //! Constructor
-        explicit IAssetManager(io::IFileSystem* _fs) : m_assetCache(&assetGreet, &assetDispose), m_fileSystem{_fs} 
+        explicit IAssetManager(io::IFileSystem* _fs) : m_assetCache(&refCtrGreet<IAsset>, &refCtrDispose<IAsset>), m_fileSystem{_fs} 
         {
             m_fileSystem->grab();
         }
@@ -256,7 +267,7 @@ namespace asset
             return false;
         }
 
-        //! Asset Loaders [FOLLOWING ARE NOT THREAD SAFE]
+        // Asset Loaders [FOLLOWING ARE NOT THREAD SAFE]
         uint32_t getAssetLoaderCount() { return m_loaders.vector.size(); }
         IAssetLoader* getAssetLoader(const uint32_t& _idx)
         {
@@ -270,14 +281,13 @@ namespace asset
             const char** exts = _loader->getAssociatedFileExtensions();
             size_t extIx = 0u;
             while (const char* ext = exts[extIx++])
-                m_loaders.assoc.insert(ext, _loader); //todo, loaders cache should probably grab? IAssetLoader should be ref counted?
-            m_loaders.vector.push_back(_loader);
+                m_loaders.assoc.insert(ext, _loader);
+            m_loaders.pushToVector(_loader);
             return m_loaders.vector.size()-1u;
         }
         void removeAssetLoader(IAssetLoader* _loader)
         {
-            // todo those removes should probably drop.
-            m_loaders.vector.erase(
+            m_loaders.eraseFromVector(
                 std::find(std::begin(m_loaders.vector), std::end(m_loaders.vector), _loader)
             );
             const char** exts = _loader->getAssociatedFileExtensions();
@@ -287,12 +297,14 @@ namespace asset
         }
         void removeAssetLoader(const uint32_t& _idx)
         {
-            m_loaders.vector.erase(std::begin(m_loaders.vector)+_idx); // todo, i don't see a way to remove from assoc cache knowing only index in vector
+            m_loaders.eraseFromVector(std::begin(m_loaders.vector)+_idx); // todo, i don't see a way to remove from assoc cache knowing only index in vector
         }
 
-        //! Asset Writers [FOLLOWING ARE NOT THREAD SAFE]
+        // Asset Writers [FOLLOWING ARE NOT THREAD SAFE]
         uint32_t getAssetWriterCount() { return m_writers.perType.getSize(); } // todo.. well, it's not really writer count.. but rather type<->writer association count
+
         IAssetWriter* getAssetWriter(const uint32_t& _idx); //todo: how can index be understood here?
+
         uint32_t addAssetWriter(IAssetWriter* _writer)
         {
             const uint64_t suppTypes = _writer->getSupportedAssetTypesBitfield();
@@ -309,7 +321,6 @@ namespace asset
         }
         void removeAssetWriter(IAssetWriter* _writer)
         {
-            // todo those removes should probably drop.
             const uint64_t suppTypes = _writer->getSupportedAssetTypesBitfield();
             const char** exts = _writer->getAssociatedFileExtensions();
             size_t extIx = 0u;

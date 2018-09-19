@@ -2,6 +2,7 @@
 #define __IRR_I_ASSET_WRITER_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
+#include "irr/core/IReferenceCounted.h"
 #include "IWriteFile.h"
 #include "IAsset.h"
 
@@ -23,7 +24,7 @@ enum E_WRITER_FLAGS : uint32_t
     EWF_BINARY = 1u<<2u
 };
 
-class IAssetWriter
+class IAssetWriter : public virtual core::IReferenceCounted
 {
 public:
     struct SAssetWriteParams
@@ -35,7 +36,7 @@ public:
         }
 
         IAsset* rootAsset;
-        E_WRITER_FLAGS flags; // make sure E_WRITER_FLAGS is defined as uint32_t
+        E_WRITER_FLAGS flags;
         float compressionLevel;
         size_t encryptionKeyLen;
         const uint8_t* encryptionKey;

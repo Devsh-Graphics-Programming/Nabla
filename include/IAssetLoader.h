@@ -4,12 +4,11 @@
 #include "IAsset.h"
 #include "CConcurrentObjectCache.h"
 #include "IReadFile.h"
-#include "irr/core/Types.h"
 
 namespace irr { namespace asset
 {
 
-class IAssetLoader
+class IAssetLoader : public virtual core::IReferenceCounted
 {
 public:
     enum E_CACHING_FLAGS : uint64_t
@@ -37,7 +36,7 @@ public:
         const E_CACHING_FLAGS cacheFlags;
     };
 
-private:
+protected:
     //! Struct for keeping the state of the current loadoperation for safe threading
     struct SAssetLoadContext
     {
@@ -132,14 +131,7 @@ public:
         }
 
         //! After a successful load of an asset or sub-asset
-        virtual void insertAssetIntoCache(IAsset* asset, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel) // this function will never compile in a header
-        {
-            auto levelFlag = ctx.params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
-            if (levelFlag&ECF_DONT_CACHE_TOP_LEVEL)
-                asset->grab(); // because loader will call drop() straight after insertAssetIntoCache
-            else
-                m_manager->insertAssetIntoCache(asset);
-        }
+        virtual void insertAssetIntoCache(IAsset* asset, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
     };
 
 public:
@@ -158,7 +150,7 @@ public:
     virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
     //! Loads an asset from an opened file, returns nullptr in case of failure.
-    virtual IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
+    virtual IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) = 0;
 };
 
 }}
