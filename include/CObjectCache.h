@@ -30,7 +30,7 @@ namespace impl
     template<>
     struct is_multi_container<std::unordered_multimap> : std::true_type {};
 
-    template<template<typename...> class T>
+    template<template<typename...> class>
     struct is_assoc_container : std::false_type {};
     template<>
     struct is_assoc_container<std::map> : std::true_type {};
@@ -49,22 +49,36 @@ namespace impl
     template<typename T, typename ...K>
     struct PropagTypedefs : PropagKeyTypeTypedef<K...> { using CachedType = T; };
 
-    // Macro instead of some contexpr function so we can know which static_assert failed
-    // __VA_ARGS__ is needed because macro treats commas delimiting template paramaters as delimiter for macro parameters
-#define _COPY_MOVE_CTOR_ASSIGNMENT_PRESENCE_CHECK(...) \
-    static_assert(std::is_copy_constructible<__VA_ARGS__>::value, "Copy ctor missing!");\
-    static_assert(std::is_move_constructible<__VA_ARGS__>::value, "Move ctor missing!");\
-    static_assert(std::is_copy_assignable<__VA_ARGS__>::value, "Copy assignment operator missing!");\
-    static_assert(std::is_move_assignable<__VA_ARGS__>::value, "Move assignment operator missing!")
 
     template<
         template<typename...> class ContainerT_T,
+        typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
     struct CObjectCacheBase
     {
-        using UnderlyingContainerType = ContainerT_T<K..., T>;
+    private:
+        template<bool isAssoc, template<typename...> class C>
+        struct help;
+
+        template<template<typename...> class C>
+        struct help<true, C>
+        {
+            template<typename K, typename T, typename Alloc>
+            using container_t = C<K, T, std::less<K>, Alloc>;
+        };
+        template<template<typename...> class C>
+        struct help<false, C>
+        {
+            template<typename T, typename Alloc>
+            using container_t = C<T, Alloc>;
+        };
+
+    public:
+        using AllocatorType = Alloc;
+
+        using UnderlyingContainerType = typename help<is_assoc_container<ContainerT_T>::value, ContainerT_T>::template container_t<K..., T, Alloc>;
         using IteratorType = typename UnderlyingContainerType::iterator;
         using ConstIteratorType = typename UnderlyingContainerType::const_iterator;
         using RevIteratorType = typename UnderlyingContainerType::reverse_iterator;
@@ -185,6 +199,7 @@ namespace impl
     template<
         bool isMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
         template<typename...> class ContainerT_T,
+        typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
@@ -192,13 +207,14 @@ namespace impl
 
     template<
         template<typename...> class ContainerT_T,
+        typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CMultiObjectCacheBase<true, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>, public CMultiCache_tag
+    struct CMultiObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
     {
     private:
-        using Base = CObjectCacheBase<ContainerT_T, T, K...>;
+        using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
 
     public:
         using Base::Base;
@@ -219,13 +235,14 @@ namespace impl
     };
     template<
         template<typename...> class ContainerT_T,
+        typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CMultiObjectCacheBase<false, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>, public CMultiCache_tag
+    struct CMultiObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
     {
     private:
-        using Base = CObjectCacheBase<ContainerT_T, T, K...>;
+        using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
 
     public:
         using Base::Base;
@@ -268,13 +285,14 @@ namespace impl
     template<
         bool IsMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
         template<typename...> class ContainerT_T,
+        typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<IsMultiContainer, ContainerT_T, T, K...>
+    struct CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<IsMultiContainer, ContainerT_T, Alloc, T, K...>
     {
     private:
-        using Base = CMultiObjectCacheBase<IsMultiContainer, ContainerT_T, T, K...>;
+        using Base = CMultiObjectCacheBase<IsMultiContainer, ContainerT_T, Alloc, T, K...>;
 
     public:
         using Base::Base;
@@ -345,20 +363,22 @@ namespace impl
     template<
         bool isVectorContainer,
         template<typename...> class ContainerT_T,
+        typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-        struct CUniqObjectCacheBase;
+    struct CUniqObjectCacheBase;
 
     template<
         template<typename...> class ContainerT_T,
+        typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CUniqObjectCacheBase<true, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>
+    struct CUniqObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
     {
     private:
-        using Base = CObjectCacheBase<ContainerT_T, T, K...>;
+        using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
 
     public:
         using Base::Base;
@@ -384,13 +404,14 @@ namespace impl
     };
     template<
         template<typename...> class ContainerT_T,
+        typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CUniqObjectCacheBase<false, ContainerT_T, T, K...> : public CObjectCacheBase<ContainerT_T, T, K...>
+    struct CUniqObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
     {
     private:
-        using Base = CObjectCacheBase<ContainerT_T, T, K...>;
+        using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
 
     public:
         using Base::Base;
@@ -418,13 +439,14 @@ namespace impl
     template<
         bool isVectorContainer,
         template<typename...> class ContainerT_T,
+        typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CUniqObjectCacheBaseExt : public CUniqObjectCacheBase<isVectorContainer, ContainerT_T, T, K...>
+    struct CUniqObjectCacheBaseExt : public CUniqObjectCacheBase<isVectorContainer, ContainerT_T, Alloc, T, K...>
     {
     private:
-        using Base = CUniqObjectCacheBase<isVectorContainer, ContainerT_T, T, K...>;
+        using Base = CUniqObjectCacheBase<isVectorContainer, ContainerT_T, Alloc, T, K...>;
 
     public:
         using Base::Base;
@@ -480,6 +502,7 @@ template<
     typename K,
     typename T,
     template<typename...> class ContainerT_T = std::vector,
+    typename Alloc = core::allocator<std::pair<const K, T*>>,
     bool = impl::is_same_templ<ContainerT_T, std::vector>::value
 >
 class CMultiObjectCache;
@@ -487,18 +510,15 @@ class CMultiObjectCache;
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T
+    template<typename...> class ContainerT_T,
+    typename Alloc
 >
-class CMultiObjectCache<K, T, ContainerT_T, true> : 
-    public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, std::pair<K, T*>>,
+class CMultiObjectCache<K, T, ContainerT_T, Alloc, true> : 
+    public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, Alloc, std::pair<K, T*>>,
     public impl::PropagTypedefs<T, K>
 {
 private:
-    using Base = impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, std::pair<K, T*>>;
-
-protected:
-    using GreetFuncType = typename Base::GreetFuncType;
-    using DisposalFuncType = typename Base::DisposalFuncType;
+    using Base = impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, Alloc, std::pair<K, T*>>;
 
 public:
     using Base::Base;
@@ -506,20 +526,17 @@ public:
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T
+    template<typename...> class ContainerT_T,
+    typename Alloc
 >
-class CMultiObjectCache<K, T, ContainerT_T, false> : 
-    public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, T*, K>,
-    public impl::PropagTypedefs<T, K>
+class CMultiObjectCache<K, T, ContainerT_T, Alloc, false> : 
+    public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, Alloc, T*, const K>,
+    public impl::PropagTypedefs<T, const K>
 {
     static_assert(impl::is_same_templ<ContainerT_T, std::multimap>::value || impl::is_same_templ<ContainerT_T, std::unordered_multimap>::value, "ContainerT_T must be one of: std::vector, std::multimap, std::unordered_multimap");
 
 private:
-    using Base = impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, T*, K>;
-
-protected:
-    using GreetFuncType = typename Base::GreetFuncType;
-    using DisposalFuncType = typename Base::DisposalFuncType;
+    using Base = impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, Alloc, T*, const K>;
 
 public:
     using Base::Base;
@@ -530,6 +547,7 @@ template<
     typename K,
     typename T,
     template<typename...> class ContainerT_T = std::vector,
+    typename Alloc = core::allocator<std::pair<const K, T*>>,
     bool = impl::is_same_templ<ContainerT_T, std::vector>::value
 >
 class CObjectCache;
@@ -537,13 +555,14 @@ class CObjectCache;
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T
+    template<typename...> class ContainerT_T,
+    typename Alloc
 >
-class CObjectCache<K, T, ContainerT_T, true> : 
-    public impl::CUniqObjectCacheBaseExt<true, ContainerT_T, std::pair<K, T*>>,
+class CObjectCache<K, T, ContainerT_T, Alloc, true> : 
+    public impl::CUniqObjectCacheBaseExt<true, ContainerT_T, Alloc, std::pair<K, T*>>,
     public impl::PropagTypedefs<T, K>
 {
-    using Base = impl::CUniqObjectCacheBaseExt<true, ContainerT_T, std::pair<K, T*>>;
+    using Base = impl::CUniqObjectCacheBaseExt<true, ContainerT_T, Alloc, std::pair<K, T*>>;
 
 public:
     using Base::Base;
@@ -553,14 +572,15 @@ public:
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T
+    template<typename...> class ContainerT_T,
+    typename Alloc
 >
-class CObjectCache<K, T, ContainerT_T, false> : 
-    public impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>,
-    public impl::PropagTypedefs<T, K>
+class CObjectCache<K, T, ContainerT_T, Alloc, false> : 
+    public impl::CUniqObjectCacheBaseExt<false, ContainerT_T, Alloc, T*, const K>,
+    public impl::PropagTypedefs<T, const K>
 {
     static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
-    using Base = impl::CUniqObjectCacheBaseExt<false, ContainerT_T, T*, K>;
+    using Base = impl::CUniqObjectCacheBaseExt<false, ContainerT_T, Alloc, T*, const K>;
 
 public:
     using Base::Base;
