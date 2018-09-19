@@ -35,9 +35,9 @@ namespace asset
 
     public:
 #ifdef USE_MAPS_FOR_PATH_BASED_CACHE
-        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, core::multimap>;
+        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, std::multimap>;
 #else
-        using AssetCacheType = core::CConcurrentObjectCache<std::string, IAsset, core::vector>;
+        using AssetCacheType = core::CConcurrentObjectCache<std::string, IAsset, std::vector>;
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
     private:
@@ -123,7 +123,9 @@ namespace asset
     public:
         IAsset* getAssetInHierarchy(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
         {
-            if ((_params.cacheFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
+            const uint64_t levelFlags = _params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
+
+            if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
             {
                 core::array<AssetCacheType::RangeType, IAsset::ET_STANDARD_TYPES_COUNT> found = findAssets(_file->getFileName().c_str());
                 for (const auto& rng : found)
@@ -145,7 +147,7 @@ namespace asset
                     break;
             }
 
-            if (asset && !(_params.cacheFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL))
+            if (asset && !(levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL))
             {
                 asset->setNewCacheKey(_file->getFileName().c_str());
                 insertAssetIntoCache(asset);
@@ -237,27 +239,19 @@ namespace asset
 
         //! Writing an asset
         /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear scale and has different meanings and results with different asset types and writers. */
-        bool writeAsset(IAsset* _asset, const std::string& _filename, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, IAssetWriter::IAssetWriterOverride* _override = nullptr)
+        bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override = nullptr)
         {
             io::IWriteFile* file = m_fileSystem->createAndWriteFile(_filename.c_str());
-            bool res = writeAsset(_asset, file, _flags, _compressionLevel, _encryptionKeyLen, _encryptionKey, _override);
+            bool res = writeAsset(file, _params, _override);
             file->drop();
             return res;
         }
-        bool writeAsset(IAsset* _asset, io::IWriteFile* _file, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, IAssetWriter::IAssetWriterOverride* _override = nullptr)
+        bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override = nullptr)
         {
-            IAssetWriter::SAssetWriteParams params {
-                _asset,
-                _flags,
-                _compressionLevel,
-                _encryptionKeyLen,
-                _encryptionKey
-            };
-
-            auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_asset->getAssetType(), getFileExt(_file->getFileName())});
+            auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), getFileExt(_file->getFileName())});
 
             for (auto it = capableWritersRng.first; it != capableWritersRng.second; ++it)
-                if (it->second->writeAsset(_file, params, _override))
+                if (it->second->writeAsset(_file, _params, _override))
                     return true;
             return false;
         }
