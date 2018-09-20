@@ -143,6 +143,8 @@ namespace impl
 
         inline void clear()
         {
+            for (PairType_impl& e : m_container)
+                dispose(e.second);
             m_container.clear();
         }
 
