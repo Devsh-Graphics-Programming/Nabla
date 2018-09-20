@@ -54,11 +54,11 @@ static const uint32_t WORD_BUFFER_LENGTH = 512;
 
 //! Constructor
 COBJMeshFileLoader::COBJMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs)
-: SceneManager(smgr), FileSystem(fs), useGroups(false), useMaterials(true)
+: SceneManager(smgr), FileSystem(fs)
 {
-	#ifdef _DEBUG
+#ifdef _DEBUG
 	setDebugName("COBJMeshFileLoader");
-	#endif
+#endif
 
 	if (FileSystem)
 		FileSystem->grab();
@@ -81,15 +81,18 @@ bool COBJMeshFileLoader::isALoadableFileExtension(const io::path& filename) cons
 }
 
 
-//! creates/loads an animated mesh from the file.
-//! \return Pointer to the created mesh. Returns 0 if loading failed.
-//! If you no longer need the mesh, you should call ICPUMesh::drop().
-//! See IReferenceCounted::drop() for more information.
-ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
+asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u)
 {
-	const long filesize = file->getSize();
+    SContext ctx{
+        asset::IAssetLoader::SAssetLoadContext{
+            _params,
+            _file
+        }
+    };
+
+	const long filesize = _file->getSize();
 	if (!filesize)
-		return 0;
+		return nullptr;
 
 	const uint32_t WORD_BUFFER_LENGTH = 512;
 
@@ -98,15 +101,15 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 	core::vector<core::vector2df> textureCoordBuffer;
 
 	SObjMtl * currMtl = new SObjMtl();
-	Materials.push_back(currMtl);
+	ctx.Materials.push_back(currMtl);
 	uint32_t smoothingGroup=0;
 
-	const io::path fullName = file->getFileName();
+	const io::path fullName = _file->getFileName();
 	const io::path relPath = io::IFileSystem::getFileDir(fullName)+"/";
 
 	char* buf = new char[filesize];
 	memset(buf, 0, filesize);
-	file->read((void*)buf, filesize);
+	_file->read((void*)buf, filesize);
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information
@@ -119,14 +122,14 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 		{
 		case 'm':	// mtllib (material)
 		{
-			if (useMaterials)
+			if (ctx.useMaterials)
 			{
 				char name[WORD_BUFFER_LENGTH];
 				bufPtr = goAndCopyNextWord(name, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 #ifdef _IRR_DEBUG_OBJ_LOADER_
-				os::Printer::log("Reading material file",name);
+				os::Printer::log("Reading material _file",name);
 #endif
-				readMTL(name, relPath);
+				readMTL(ctx, name, relPath);
 			}
 		}
 			break;
@@ -167,7 +170,7 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 #ifdef _IRR_DEBUG_OBJ_LOADER_
 	os::Printer::log("Loaded group start",grp, ELL_DEBUG);
 #endif
-				if (useGroups)
+				if (ctx.useGroups)
 				{
 					if (0 != grp[0])
 						grpName = grp;
@@ -214,14 +217,14 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 			if (mtlChanged)
 			{
 				// retrieve the material
-				SObjMtl *useMtl = findMtl(mtlName, grpName);
+				SObjMtl *useMtl = findMtl(ctx, mtlName, grpName);
 				// only change material if we found it
 				if (useMtl)
 					currMtl = useMtl;
 				mtlChanged=false;
 			}
 
-			// get all vertices data in this face (current line of obj file)
+			// get all vertices data in this face (current line of obj _file)
 			const core::stringc wordBuffer = copyLine(bufPtr, bufEnd);
 			const char* linePtr = wordBuffer.c_str();
 			const char* const endPtr = linePtr+wordBuffer.size();
@@ -309,53 +312,53 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 		// eat up rest of line
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
-	// Clean up the allocate obj file contents
+	// Clean up the allocate obj _file contents
 	delete [] buf;
 
 	SCPUMesh* mesh = new SCPUMesh();
 
 	// Combine all the groups (meshbuffers) into the mesh
-	for ( uint32_t m = 0; m < Materials.size(); ++m )
+	for ( uint32_t m = 0; m < ctx.Materials.size(); ++m )
 	{
-		if ( Materials[m]->Indices.size() == 0 )
+		if ( ctx.Materials[m]->Indices.size() == 0 )
         {
-            delete Materials[m];
+            delete ctx.Materials[m];
             continue;
         }
 
-        if (Materials[m]->RecalculateNormals)
+        if (ctx.Materials[m]->RecalculateNormals)
         {
             core::allocator<core::vectorSIMDf> alctr;
-            core::vectorSIMDf* newNormals = alctr.allocate(Materials[m]->Vertices.size());
-            memset(newNormals,0,sizeof(core::vectorSIMDf)*Materials[m]->Vertices.size());
-            for (size_t i=0; i<Materials[m]->Indices.size(); i+=3)
+            core::vectorSIMDf* newNormals = alctr.allocate(ctx.Materials[m]->Vertices.size());
+            memset(newNormals,0,sizeof(core::vectorSIMDf)*ctx.Materials[m]->Vertices.size());
+            for (size_t i=0; i<ctx.Materials[m]->Indices.size(); i+=3)
             {
                 core::vectorSIMDf v1;
-                v1.set(Materials[m]->Vertices[Materials[m]->Indices[i+0]].pos);
+                v1.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+0]].pos);
                 core::vectorSIMDf v2;
-                v2.set(Materials[m]->Vertices[Materials[m]->Indices[i+1]].pos);
+                v2.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+1]].pos);
                 core::vectorSIMDf v3;
-                v3.set(Materials[m]->Vertices[Materials[m]->Indices[i+2]].pos);
+                v3.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+2]].pos);
                 v1.makeSafe3D();
                 v2.makeSafe3D();
                 v3.makeSafe3D();
                 core::vectorSIMDf normal;
                 normal.set(core::plane3d<float>(v1.getAsVector3df(), v2.getAsVector3df(), v3.getAsVector3df()).Normal);
-                newNormals[Materials[m]->Indices[i+0]] += normal;
-                newNormals[Materials[m]->Indices[i+1]] += normal;
-                newNormals[Materials[m]->Indices[i+2]] += normal;
+                newNormals[ctx.Materials[m]->Indices[i+0]] += normal;
+                newNormals[ctx.Materials[m]->Indices[i+1]] += normal;
+                newNormals[ctx.Materials[m]->Indices[i+2]] += normal;
             }
-            for (size_t i=0; i<Materials[m]->Vertices.size(); i++)
+            for (size_t i=0; i<ctx.Materials[m]->Vertices.size(); i++)
             {
-                Materials[m]->Vertices[i].normal32bit = quantizeNormal2_10_10_10(newNormals[i]);
+                ctx.Materials[m]->Vertices[i].normal32bit = quantizeNormal2_10_10_10(newNormals[i]);
             }
-            alctr.deallocate(newNormals,Materials[m]->Vertices.size());
+            alctr.deallocate(newNormals,ctx.Materials[m]->Vertices.size());
         }
-        if (Materials[m]->Material.MaterialType == -1)
+        if (ctx.Materials[m]->Material.MaterialType == -1)
             os::Printer::log("Loading OBJ Models with normal maps and tangents not supported!\n",ELL_ERROR);/*
         {
             SMesh tmp;
-            tmp.addMeshBuffer(Materials[m]->Meshbuffer);
+            tmp.addMeshBuffer(ctx.Materials[m]->Meshbuffer);
             IMesh* tangentMesh = SceneManager->getMeshManipulator()->createMeshWithTangents(&tmp);
             mesh->addMeshBuffer(tangentMesh->getMeshBuffer(0));
             tangentMesh->drop();
@@ -366,17 +369,17 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
         mesh->addMeshBuffer(meshbuffer);
         meshbuffer->drop();
 
-        meshbuffer->getMaterial() = Materials[m]->Material;
+        meshbuffer->getMaterial() = ctx.Materials[m]->Material;
 
         ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
         meshbuffer->setMeshDataAndFormat(desc);
         desc->drop();
 
         bool doesntNeedIndices = true;
-        size_t baseVertex = Materials[m]->Indices[0];
-        for (size_t i=1; i<Materials[m]->Indices.size(); i++)
+        size_t baseVertex = ctx.Materials[m]->Indices[0];
+        for (size_t i=1; i<ctx.Materials[m]->Indices.size(); i++)
         {
-            if (baseVertex+i!=Materials[m]->Indices[i])
+            if (baseVertex+i!=ctx.Materials[m]->Indices[i])
             {
                 doesntNeedIndices = false;
                 break;
@@ -387,36 +390,36 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
         size_t actualVertexCount;
         if (doesntNeedIndices)
         {
-            meshbuffer->setIndexCount(Materials[m]->Indices.size()-baseVertex);
+            meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size()-baseVertex);
             actualVertexCount = meshbuffer->getIndexCount();
         }
         else
         {
             baseVertex = 0;
-            actualVertexCount = Materials[m]->Vertices.size();
+            actualVertexCount = ctx.Materials[m]->Vertices.size();
 
-            core::ICPUBuffer* indexbuf = new core::ICPUBuffer(Materials[m]->Indices.size()*4);
+            core::ICPUBuffer* indexbuf = new core::ICPUBuffer(ctx.Materials[m]->Indices.size()*4);
             desc->mapIndexBuffer(indexbuf);
             indexbuf->drop();
-            memcpy(indexbuf->getPointer(),&Materials[m]->Indices[0],indexbuf->getSize());
+            memcpy(indexbuf->getPointer(),&ctx.Materials[m]->Indices[0],indexbuf->getSize());
 
             meshbuffer->setIndexType(EIT_32BIT);
-            meshbuffer->setIndexCount(Materials[m]->Indices.size());
+            meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size());
         }
 
         vertexbuf = new core::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(SObjVertex),0);
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,sizeof(SObjVertex),12);
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(SObjVertex),20); //normal
-        memcpy(vertexbuf->getPointer(),Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
+        memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
 
         //memory is precious
-        delete Materials[m];
+        delete ctx.Materials[m];
 	}
 
 	// more cleaning up
-	Materials.clear();
+	ctx.Materials.clear();
 
 	if ( 0 != mesh->getMeshBufferCount() )
 		mesh->recalculateBoundingBox(true);
@@ -597,7 +600,7 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
 }
 
 
-void COBJMeshFileLoader::readMTL(const char* fileName, const io::path& relPath)
+void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io::path& relPath)
 {
 	const io::path realFile(fileName);
 	io::IReadFile * mtlReader;
@@ -639,7 +642,7 @@ void COBJMeshFileLoader::readMTL(const char* fileName, const io::path& relPath)
 			{
 				// if there's an existing material, store it first
 				if ( currMaterial )
-					Materials.push_back( currMaterial );
+					_ctx.Materials.push_back( currMaterial );
 
 				// extract new material's name
 				char mtlNameBuf[WORD_BUFFER_LENGTH];
@@ -776,7 +779,7 @@ void COBJMeshFileLoader::readMTL(const char* fileName, const io::path& relPath)
 
 	// end of file. if there's an existing material, store it
 	if ( currMaterial )
-		Materials.push_back( currMaterial );
+		_ctx.Materials.push_back( currMaterial );
 
 	delete [] buf;
 	mtlReader->drop();
@@ -851,34 +854,34 @@ const char* COBJMeshFileLoader::readBool(const char* bufPtr, bool& tf, const cha
 }
 
 
-COBJMeshFileLoader::SObjMtl* COBJMeshFileLoader::findMtl(const std::string& mtlName, const std::string& grpName)
+COBJMeshFileLoader::SObjMtl* COBJMeshFileLoader::findMtl(SContext& _ctx, const std::string& mtlName, const std::string& grpName)
 {
 	COBJMeshFileLoader::SObjMtl* defMaterial = 0;
 	// search existing Materials for best match
 	// exact match does return immediately, only name match means a new group
-	for (uint32_t i = 0; i < Materials.size(); ++i)
+	for (uint32_t i = 0; i < _ctx.Materials.size(); ++i)
 	{
-		if ( Materials[i]->Name == mtlName )
+		if (_ctx.Materials[i]->Name == mtlName )
 		{
-			if ( Materials[i]->Group == grpName )
-				return Materials[i];
+			if (_ctx.Materials[i]->Group == grpName )
+				return _ctx.Materials[i];
 			else
-				defMaterial = Materials[i];
+				defMaterial = _ctx.Materials[i];
 		}
 	}
 	// we found a partial match
 	if (defMaterial)
 	{
-		Materials.push_back(new SObjMtl(*defMaterial));
-		Materials.back()->Group = grpName;
-		return Materials.back();
+        _ctx.Materials.push_back(new SObjMtl(*defMaterial));
+        _ctx.Materials.back()->Group = grpName;
+		return _ctx.Materials.back();
 	}
 	// we found a new group for a non-existant material
 	else if (grpName.length())
 	{
-		Materials.push_back(new SObjMtl(*Materials[0]));
-		Materials.back()->Group = grpName;
-		return Materials.back();
+        _ctx.Materials.push_back(new SObjMtl(*_ctx.Materials[0]));
+        _ctx.Materials.back()->Group = grpName;
+		return _ctx.Materials.back();
 	}
 	return 0;
 }

@@ -5,7 +5,7 @@
 #ifndef __C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 
-#include "IMeshLoader.h"
+#include "IAssetLoader.h"
 #include "IFileSystem.h"
 #include "ISceneManager.h"
 #include "irr/core/Types.h"
@@ -97,7 +97,7 @@ public:
 #include "irr/irrunpack.h"
 
 //! Meshloader capable of loading obj meshes.
-class COBJMeshFileLoader : public IMeshLoader
+class COBJMeshFileLoader : public asset::IAssetLoader
 {
     enum E_TEXTURE_TYPE : uint8_t
     {
@@ -105,6 +105,17 @@ class COBJMeshFileLoader : public IMeshLoader
         ETT_NORMAL_MAP,
         ETT_OPACITY_MAP,
         ETT_REFLECTION_MAP
+    };
+
+    class SObjMtl; // forward decl.
+    struct SContext
+    {
+        asset::IAssetLoader::SAssetLoadContext inner;
+
+        const bool useGroups = false;
+        const bool useMaterials = true;
+
+        core::vector<SObjMtl*> Materials;
     };
 
 protected:
@@ -119,11 +130,7 @@ public:
 	//! based on the file extension (e.g. ".obj")
 	virtual bool isALoadableFileExtension(const io::path& filename) const;
 
-	//! creates/loads an animated mesh from the file.
-	//! \return Pointer to the created mesh. Returns 0 if loading failed.
-	//! If you no longer need the mesh, you should call IAnimatedMesh::drop().
-	//! See IReferenceCounted::drop() for more information.
-	virtual ICPUMesh* createMesh(io::IReadFile* file);
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 
@@ -176,10 +183,10 @@ private:
 	const char* goAndCopyNextWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* const pBufEnd);
 
 	//! Read the material from the given file
-	void readMTL(const char* fileName, const io::path& relPath);
+	void readMTL(SContext& _ctx, const char* fileName, const io::path& relPath);
 
 	//! Find and return the material with the given name
-	SObjMtl* findMtl(const std::string& mtlName, const std::string& grpName);
+	SObjMtl* findMtl(SContext& _ctx, const std::string& mtlName, const std::string& grpName);
 
 	//! Read RGB color
 	const char* readColor(const char* bufPtr, video::SColor& color, const char* const pBufEnd);
@@ -198,11 +205,6 @@ private:
 
 	scene::ISceneManager* SceneManager;
 	io::IFileSystem* FileSystem;
-
-	bool useGroups;
-	bool useMaterials;
-
-	core::vector<SObjMtl*> Materials;
 };
 
 } // end namespace scene
