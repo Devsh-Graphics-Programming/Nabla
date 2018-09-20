@@ -120,7 +120,7 @@ public:
         {
             outDecrKeyLen = ctx.params.decryptionKeyLen;
             memcpy(outDecrKey, ctx.params.decryptionKey, outDecrKeyLen);
-            return attempt <= 0u; // no failed attempts
+            return attempt == 0u; // no failed attempts
         }
 
         //! Only called when the was unable to be loaded
@@ -129,6 +129,9 @@ public:
             outAddToCache = false; // if you want to return a “default error asset”
             return nullptr;
         }
+
+        //! Before insert
+        virtual void setAssetCacheKey(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, uint32_t hierarchyLevel);
 
         //! After a successful load of an asset or sub-asset
         virtual void insertAssetIntoCache(IAsset* asset, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
