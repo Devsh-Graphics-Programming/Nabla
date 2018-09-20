@@ -21,7 +21,6 @@ namespace irr
 {
 namespace asset
 {
-    // (Criss) Do we need those typedefs?
 	typedef scene::ICPUMesh ICPUMesh;
     typedef scene::IGPUMesh IGPUMesh;
 
@@ -29,9 +28,9 @@ namespace asset
     // and also there's template member function which cannot be virtual so...
 	class IAssetManager
 	{
-        // (Criss) And same caches for another asset types. Could be array of caches if ET_IMPLEMENTATION_SPECIFIC_METADATA wasn't =64 (and so we could have ET_COUNT)
-        // cached by filename/custom string key
-        // should it be multi-cache?
+        // the point of those functions is that lambdas returned by them "inherits" friendship
+        friend std::function<void(IAsset*)> makeAssetGreetFunc(const IAssetManager* const _mgr);
+        friend std::function<void(IAsset*)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
 
     public:
 #ifdef USE_MAPS_FOR_PATH_BASED_CACHE
@@ -42,9 +41,9 @@ namespace asset
 
     private:
         template<typename T>
-        static void refCtrGreet(T* _asset) { _asset->grab(); }
+        static void refCtdGreet(T* _asset) { _asset->grab(); }
         template<typename T>
-        static void refCtrDispose(T* _asset) { _asset->drop(); }
+        static void refCtdDispose(T* _asset) { _asset->drop(); }
 
         io::IFileSystem* m_fileSystem;
 
@@ -54,7 +53,7 @@ namespace asset
         struct {
             core::vector<IAssetLoader*> vector;
             //! The key is file extension
-            core::CMultiObjectCache<std::string, IAssetLoader, std::vector> assoc{ &refCtrGreet<IAssetLoader>, &refCtrDispose<IAssetLoader> };
+            core::CMultiObjectCache<std::string, IAssetLoader, std::vector> assoc{ &refCtdGreet<IAssetLoader>, &refCtdDispose<IAssetLoader> };
 
             void pushToVector(IAssetLoader* _loader) { 
                 _loader->grab();
@@ -80,8 +79,8 @@ namespace asset
                 }
             };
 
-            core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt{ &refCtrGreet<IAssetWriter>, &refCtrDispose<IAssetWriter> };
-            core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType{ &refCtrGreet<IAssetWriter>, &refCtrDispose<IAssetWriter> };
+            core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt{ &refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter> };
+            core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType{ &refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter> };
         } m_writers;
 
         friend IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
@@ -119,7 +118,12 @@ namespace asset
         }
     public:
         //! Constructor
-        explicit IAssetManager(io::IFileSystem* _fs) : m_assetCache(&refCtrGreet<IAsset>, &refCtrDispose<IAsset>), m_fileSystem{_fs} 
+        explicit IAssetManager(io::IFileSystem* _fs) :
+            m_assetCache(
+                asset::makeAssetGreetFunc(this),
+                asset::makeAssetDisposeFunc(this)
+            ),
+            m_fileSystem{_fs} 
         {
             m_fileSystem->grab();
         }
@@ -203,12 +207,17 @@ namespace asset
         }
 
         //! Changes the lookup key
-        inline void changeAssetKey(IAsset* _asset, std::string& _newKey)
+        inline void changeAssetKey(IAsset* _asset, const std::string& _newKey)
         {
-            for (uint32_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
+            if (!_asset->isCached)
+                _asset->setNewCacheKey(_newKey);
+            else
             {
-                if (m_assetCache[i].removeObject(_asset, _asset->cacheKey))
-                    m_assetCache[i].insert(_newKey, _asset);
+                if (removeAssetFromCache(_asset))
+                {
+                    _asset->setNewCacheKey(_newKey);
+                    insertAssetIntoCache(_asset);
+                }
             }
         }
 
@@ -223,10 +232,10 @@ namespace asset
         }
 
         //! Remove an asset from cache (calls the private methods of IAsset behind the scenes)
-        void removeAssetFromCache(IAsset* _asset) //will actually look up by asset’s key instead
+        bool removeAssetFromCache(IAsset* _asset) //will actually look up by asset’s key instead
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            m_assetCache[ix].removeObject(_asset, _asset->cacheKey);
+            return m_assetCache[ix].removeObject(_asset, _asset->cacheKey);
         }
 
         //! Removes all assets from the specified caches, all caches by default
@@ -346,6 +355,9 @@ namespace asset
                 .make_lower()
                 .c_str();
         }
+
+        // for greet/dispose lambdas for asset caches so we don't have to make another friend decl.
+        inline void setAssetCached(IAsset* _asset, bool _val) const { _asset->isCached = _val; }
 	};
 }
 }
