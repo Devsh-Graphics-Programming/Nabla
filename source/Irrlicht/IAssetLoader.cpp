@@ -22,6 +22,11 @@ IAsset* IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::string& i
     return nullptr;
 }
 
+void IAssetLoader::IAssetLoaderOverride::setAssetCacheKey(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, uint32_t hierarchyLevel)
+{
+    m_manager->changeAssetKey(asset, supposedKey);
+}
+
 void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(IAsset* asset, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
 {
     auto levelFlag = ctx.params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
