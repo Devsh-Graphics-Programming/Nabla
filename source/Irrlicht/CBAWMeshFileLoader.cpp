@@ -57,9 +57,6 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	core::BlobHeaderV0* headers;
 	if (!validateHeaders(&blobCnt, &offsets, (void**)&headers, ctx))
 		return NULL;
-	ctx.filePath = ctx.inner.mainFile->getFileName();
-	if (ctx.filePath[ctx.filePath.size() - 1] != '/')
-		ctx.filePath += "/";
 
 	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{ {}, blobCnt }.calcBlobsOffset();
 
@@ -74,29 +71,34 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	}
 	free(offsets);
 
-	const core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, ctx.filePath };
-    struct Obj {
-        SBlobData* data;
-        uint32_t hierLvl;
-    };
-    core::stack<Obj> toLoad;
-    core::stack<SBlobData*> toFinalize;
-	toLoad.push(Obj{&meshBlobDataIter->second, 0u});
+    const std::string rootCacheKey = ctx.inner.mainFile->getFileName().c_str();
+
+	const core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/" };
+	core::stack<SBlobData*> toLoad, toFinalize;
+	toLoad.push(&meshBlobDataIter->second);
 	while (!toLoad.empty())
 	{
-        SBlobData* data = nullptr;
-        uint32_t hierLvl{};
-        {
-        const Obj& o = toLoad.top();
-        data = o.data;
-        hierLvl = o.hierLvl;
-        }
+		SBlobData* data = toLoad.top();
 		toLoad.pop();
 
 		const uint64_t handle = data->header->handle;
-		const uint32_t size = data->header->blobSizeDecompr;
-		const uint32_t blobType = data->header->blobType;
-		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, ctx.inner.params.decryptionKey);
+        const uint32_t size = data->header->blobSizeDecompr;
+        const uint32_t blobType = data->header->blobType;
+        const std::string thisCacheKey = rootCacheKey + std::to_string(handle);
+
+        uint8_t decrKey[16];
+        size_t decrKeyLen = 0u;
+        uint32_t attempt = 0u;
+        const void* blob = nullptr;
+        // todo: supposedFilename arg is missing (empty string) - what is it? 
+        while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, blobTypeToHierarchyLvl(blobType)))
+        {
+            if (decrKeyLen == 16u)
+                blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, decrKey);
+            if (blob)
+                break;
+            ++attempt;
+        }
 
 		if (!blob)
 		{
@@ -108,10 +110,20 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		core::unordered_set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
 		for (auto it = deps.begin(); it != deps.end(); ++it)
 			if (ctx.createdObjs.find(*it) == ctx.createdObjs.end())
-				toLoad.push(Obj{&ctx.blobs[*it], hierLvl+1u});
+				toLoad.push(&ctx.blobs[*it]);
 
-        void* object = ctx.loadingMgr.instantiateEmpty(blobType, blob, size, params);
-		const bool fail = !(ctx.createdObjs[handle] = object);
+        if (asset::IAsset* found = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, blobTypeToHierarchyLvl(blobType)))
+        {
+            ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(found, blobType);
+            continue;
+        }
+        else if (asset::IAsset* rescue = _override->handleSearchFail(thisCacheKey, ctx.inner, blobTypeToHierarchyLvl(blobType)))
+        {
+            ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(rescue, blobType);
+            continue;
+        }
+
+		bool fail = !(ctx.createdObjs[handle] = ctx.loadingMgr.instantiateEmpty(blobType, blob, size, params));
 
 		if (fail)
 		{
@@ -120,13 +132,13 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 			return NULL;
 		}
 
-        ctx.hierLvls[object] = hierLvl;
-
 		if (!deps.size())
 		{
-			ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params);
+            void* obj = ctx.createdObjs[handle];
+			ctx.loadingMgr.finalize(blobType, obj, blob, size, ctx.createdObjs, params);
 			free(data->heapBlob);
 			blob = data->heapBlob = NULL;
+            insertAssetIntoCache(ctx, _override, obj, blobType, thisCacheKey);
 		}
 		else
 			toFinalize.push(data);
@@ -142,8 +154,10 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		const uint64_t handle = data->header->handle;
 		const uint32_t size = data->header->blobSizeDecompr;
 		const uint32_t blobType = data->header->blobType;
+        const std::string thisCacheKey = rootCacheKey + std::to_string(handle);
 
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
+        insertAssetIntoCache(ctx, _override, retval, blobType, thisCacheKey);
 	}
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh

@@ -57,11 +57,9 @@ private:
 		}
 
         asset::IAssetLoader::SAssetLoadContext inner;
-		io::path filePath;
 		uint64_t fileVersion;
 		core::unordered_map<uint64_t, SBlobData> blobs;
 		core::unordered_map<uint64_t, void*> createdObjs;
-        core::unordered_map<void*, uint32_t> hierLvls;
 		core::CBlobsLoadingManager loadingMgr;
 		unsigned char iv[16];
 	};
@@ -74,16 +72,33 @@ public:
 	//! Constructor
 	CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSystem* _fs);
 
-	//! @returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (e.g. ".baw")
-	virtual bool isALoadableFileExtension(const io::path& filename) const { return core::hasFileExtension(filename, "baw"); }
 
-	//! creates/loads an animated mesh from the file.
-	/** @returns Pointer to the created mesh. Returns 0 if loading failed.
-	If you no longer need the mesh, you should call IAnimatedMesh::drop().
-	See IReferenceCounted::drop() for more information.*/
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
+    {
+        SContext ctx{
+            asset::IAssetLoader::SAssetLoadContext{
+                asset::IAssetLoader::SAssetLoadParams{},
+                _file
+            }
+        };
+        
+        const size_t prevPos = _file->getPos();
+        _file->seek(0u);
+        const bool res = verifyFile(ctx);
+        _file->seek(prevPos);
+
+        return res;
+    }
+
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "baw", nullptr };
+        return ext;
+    }
+
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+
     virtual asset::IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
-	ICPUMesh* createMesh(io::IReadFile* file, unsigned char pwd[16]);
 
 private:
 	//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
@@ -101,6 +116,70 @@ private:
 
 	bool decompressLzma(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
 	bool decompressLz4(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
+
+    static inline void* toAddrUsedByBlobsLoadingMgr(asset::IAsset* _assetAddr, uint32_t _blobType)
+    {
+        // add here when more asset types will be available
+        switch (_blobType)
+        {
+        case core::Blob::EBT_MESH:
+        case core::Blob::EBT_SKINNED_MESH:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_MESH);
+            return static_cast<ICPUMesh*>(_assetAddr);
+        case core::Blob::EBT_MESH_BUFFER:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
+            return static_cast<ICPUMeshBuffer*>(_assetAddr);
+        case core::Blob::EBT_SKINNED_MESH_BUFFER:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
+            return static_cast<SCPUSkinMeshBuffer*>(_assetAddr);
+        case core::Blob::EBT_RAW_DATA_BUFFER:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_BUFFER);
+            return static_cast<core::ICPUBuffer*>(_assetAddr);
+        default: return nullptr;
+        }
+    }
+    static inline uint32_t blobTypeToHierarchyLvl(uint32_t _blobType)
+    {
+        // add here when more asset types will be available
+        switch (_blobType)
+        {
+            case core::Blob::EBT_MESH:
+            case core::Blob::EBT_SKINNED_MESH:
+                return 0u;
+            case core::Blob::EBT_MESH_BUFFER:
+            case core::Blob::EBT_SKINNED_MESH_BUFFER:
+                return 1u;
+            case core::Blob::EBT_RAW_DATA_BUFFER:
+                return 2u;
+            default: return 63u;
+        }
+    }
+    static inline void insertAssetIntoCache(const SContext& _ctx, asset::IAssetLoader::IAssetLoaderOverride* _override, void* _asset, uint32_t _blobType, const std::string& _cacheKey)
+    {
+        // add here when more asset types will be available
+        asset::IAsset* asset = nullptr;
+        switch (_blobType)
+        {
+        case core::Blob::EBT_MESH:
+        case core::Blob::EBT_SKINNED_MESH:
+            asset = reinterpret_cast<ICPUMesh*>(_asset);
+            break;
+        case core::Blob::EBT_MESH_BUFFER:
+            asset = reinterpret_cast<ICPUMeshBuffer*>(_asset);
+            break;
+        case core::Blob::EBT_SKINNED_MESH_BUFFER:
+            asset = reinterpret_cast<SCPUSkinMeshBuffer*>(_asset);
+            break;
+        case core::Blob::EBT_RAW_DATA_BUFFER:
+            asset = reinterpret_cast<core::ICPUBuffer*>(_asset);
+            break;
+        }
+        if (asset)
+        {
+            _override->setAssetCacheKey(asset, _cacheKey, _ctx.inner, blobTypeToHierarchyLvl(_blobType));
+            _override->insertAssetIntoCache(asset, _ctx.inner, blobTypeToHierarchyLvl(_blobType));
+        }
+    }
 
 private:
 	scene::ISceneManager* m_sceneMgr;
