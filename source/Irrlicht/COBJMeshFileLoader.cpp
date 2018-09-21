@@ -72,15 +72,6 @@ COBJMeshFileLoader::~COBJMeshFileLoader()
 		FileSystem->drop();
 }
 
-
-//! returns true if the file maybe is able to be loaded by this class
-//! based on the file extension (e.g. ".bsp")
-bool COBJMeshFileLoader::isALoadableFileExtension(const io::path& filename) const
-{
-	return core::hasFileExtension ( filename, "obj" );
-}
-
-
 asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u)
 {
     SContext ctx{
@@ -116,6 +107,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	const char* bufPtr = buf;
 	std::string grpName, mtlName;
 	bool mtlChanged=false;
+    bool submeshLoadedFromCache = false;
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
@@ -135,6 +127,8 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 			break;
 
 		case 'v':               // v, vn, vt
+            if (submeshLoadedFromCache)
+                break;
 			switch(bufPtr[1])
 			{
 			case ' ':          // vertex
@@ -177,7 +171,17 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 					else
 						grpName = "default";
 
-                    mtlChanged=true;
+                    asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
+                    asset::IAsset* mb = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u);
+                    if (mb)
+                    {
+                        mb->grab();
+                        SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
+                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<ICPUMeshBuffer*>(mb)));
+                    }
+                    else mtlChanged=true;
+
+                    submeshLoadedFromCache = bool(mb);
 				}
 			}
 			break;
@@ -205,12 +209,28 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	os::Printer::log("Loaded material start",matName, ELL_DEBUG);
 #endif
 				mtlName=matName;
-				mtlChanged=true;
+
+                if (ctx.useMaterials && !ctx.useGroups)
+                {
+                    asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
+                    asset::IAsset* mb = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u);
+                    if (mb)
+                    {
+                        mb->grab();
+                        SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
+                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<ICPUMeshBuffer*>(mb)));
+                    }
+                    else mtlChanged=true;
+
+                    submeshLoadedFromCache = bool(mb);
+                }
 			}
 			break;
 
 		case 'f':               // face
 		{
+            if (submeshLoadedFromCache)
+                break;
 			char vertexWord[WORD_BUFFER_LENGTH]; // for retrieving vertex data
 			SObjVertex v;
 			// Assign vertex color from currently active material's diffuse color
@@ -320,6 +340,18 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	// Combine all the groups (meshbuffers) into the mesh
 	for ( uint32_t m = 0; m < ctx.Materials.size(); ++m )
 	{
+        {//arbitrary scope
+            auto preloadedMbItr = ctx.preloadedSubmeshes.find(ctx.Materials[m]);
+            if (preloadedMbItr != ctx.preloadedSubmeshes.end())
+            {
+                mesh->addMeshBuffer(preloadedMbItr->second);
+                preloadedMbItr->second->drop(); // after grab inside addMeshBuffer()
+                preloadedMbItr->second->drop(); // after grab when we got it from cache
+                delete ctx.Materials[m];
+                continue;
+            }
+        }
+
 		if ( ctx.Materials[m]->Indices.size() == 0 )
         {
             delete ctx.Materials[m];
@@ -367,7 +399,6 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
         ICPUMeshBuffer* meshbuffer = new ICPUMeshBuffer();
         mesh->addMeshBuffer(meshbuffer);
-        meshbuffer->drop();
 
         meshbuffer->getMaterial() = ctx.Materials[m]->Material;
 
@@ -413,6 +444,10 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(SObjVertex),20); //normal
         memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
+
+        _override->setAssetCacheKey(meshbuffer, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
+        _override->insertAssetIntoCache(meshbuffer, ctx.inner, 1u);
+        meshbuffer->drop();
 
         //memory is precious
         delete ctx.Materials[m];
@@ -1046,6 +1081,17 @@ bool COBJMeshFileLoader::retrieveVertexIndices(char* vertexData, int32_t* idx, c
 	}
 
 	return true;
+}
+
+std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext & _ctx, const std::string & _baseKey, const std::string & _mtlName, const std::string & _grpName) const
+{
+    if (_ctx.useMaterials)
+    {   
+        if (_ctx.useGroups)
+            return _baseKey + "_" + _grpName + "_" + _mtlName;
+        return _baseKey + "_" +  _mtlName;
+    }
+    return ""; // if nothing's broken this will never happen
 }
 
 

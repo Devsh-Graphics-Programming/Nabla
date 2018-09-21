@@ -116,6 +116,7 @@ class COBJMeshFileLoader : public asset::IAssetLoader
         const bool useMaterials = true;
 
         core::vector<SObjMtl*> Materials;
+        core::unordered_map<SObjMtl*, ICPUMeshBuffer*> preloadedSubmeshes;
     };
 
 protected:
@@ -126,9 +127,19 @@ public:
 	//! Constructor
 	COBJMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs);
 
-	//! returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (e.g. ".obj")
-	virtual bool isALoadableFileExtension(const io::path& filename) const;
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
+    {
+        // OBJ doesn't really have any header
+        return true;
+    }
+
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "obj", nullptr };
+        return ext;
+    }
+
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
     virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
@@ -202,6 +213,7 @@ private:
 	// indices are changed to 0-based index instead of 1-based from the obj file
 	bool retrieveVertexIndices(char* vertexData, int32_t* idx, const char* bufEnd, uint32_t vbsize, uint32_t vtsize, uint32_t vnsize);
 
+    std::string genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const;
 
 	scene::ISceneManager* SceneManager;
 	io::IFileSystem* FileSystem;
