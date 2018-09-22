@@ -63,7 +63,7 @@ private:
     inline void IAssetManager_convertToDummyObject() { this->convertToDummyObject(); }
 
 protected:
-    bool isDummyObjectForCacheAliasing;
+    bool isDummyObjectForCacheAliasing = false;
     //! To be implemented by base classes, dummies must retain references to other assets
     //! but cleans up all other resources which are not assets.
     virtual void convertToDummyObject() = 0;

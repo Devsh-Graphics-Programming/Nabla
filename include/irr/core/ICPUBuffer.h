@@ -42,6 +42,7 @@ class ICPUBuffer : public IBuffer, public asset::IAsset
             free(data);
             data = nullptr;
             size = 0ull;
+            isDummyObjectForCacheAliasing = true;
         }
         virtual asset::IAsset::E_TYPE getAssetType() const override { return asset::IAsset::ET_BUFFER; }
 
