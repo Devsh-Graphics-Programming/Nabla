@@ -133,6 +133,21 @@ private:
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
         char *StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
+
+        ~SContext()
+        {
+            if (File)
+                File->drop();
+            File = nullptr;
+            if (Buffer)
+            {
+                delete[] Buffer;
+                Buffer = nullptr;
+            }
+            for (auto& e : ElementList)
+                delete e;
+            ElementList.clear();
+        }
     };
 
     enum { E_POS = 0, E_UV = 2, E_NORM = 3, E_COL = 1 };

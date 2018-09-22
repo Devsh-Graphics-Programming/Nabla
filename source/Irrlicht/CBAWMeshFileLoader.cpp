@@ -31,12 +31,6 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSyste
 		m_fileSystem->grab();
 }
 
-//ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
-//{
-//	unsigned char pwd[16] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
-//	return createMesh(_file, pwd);
-//}
-
 asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifdef _DEBUG

@@ -14,6 +14,7 @@
 #include "IAssetWriter.h"
 
 #include <array>
+#include <ostream>
 
 #define USE_MAPS_FOR_PATH_BASED_CACHE //benchmark and choose, paths can be full system paths
 
@@ -345,6 +346,11 @@ namespace asset
             }
         }
         void removeAssetWriter(const uint32_t& _idx); // TODO what is _idx here?
+
+        void dumpCachesDebug() const
+        {
+            //todo
+        }
 
     private:
         static inline std::string getFileExt(const io::path& _filename)

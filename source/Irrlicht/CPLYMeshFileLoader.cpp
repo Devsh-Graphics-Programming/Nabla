@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "IrrCompileConfig.h"
-#ifndef _IRR_COMPILE_WITH_PLY_LOADER_
+#ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 
 #include <numeric>
 
@@ -78,8 +78,6 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	// attempt to allocate the buffer and fill with data
 	if (!allocateBuffer(ctx))
 	{
-		ctx.File->drop();
-        ctx.File = 0;
 		return 0;
 	}
 
@@ -273,10 +271,6 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             if (!genVertBuffersForMBuffer(mb, attribs))
             {
                 mb->drop();
-                delete [] ctx.Buffer;
-                ctx.Buffer = nullptr;
-                ctx.File->drop();
-                ctx.File = nullptr;
                 return nullptr;
             }
             if (indices.size())
@@ -307,21 +301,6 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		}
 	}
 
-
-	// free the buffer
-	delete [] ctx.Buffer;
-    ctx.Buffer = nullptr;
-    ctx.File->drop();
-    ctx.File = nullptr;
-
-    //if (!((uint64_t(_params.cacheFlags) >> (1*2)) & asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL)) // first hierarchy level
-    //{
-    //}
-    //if (!((uint64_t(_params.cacheFlags) >> (2*2)) & asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL)) // second hierarchy level
-    //{
-    //}
-
-	// if we managed to create a mesh, return it
 	return mesh;
 }
 
@@ -604,7 +583,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const c
     for (size_t i = 1u; i < 4u; ++i)
         offsets[i] = offsets[i-1] + sizes[i-1];
 
-    const size_t stride = std::accumulate(sizes, sizes+4, (size_t)0);
+    const size_t stride = std::accumulate(sizes, sizes+4, static_cast<size_t>(0));
 
     core::ICPUBuffer* buf = new core::ICPUBuffer(_attribs[E_POS].size() * stride);
 

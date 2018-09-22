@@ -117,6 +117,12 @@ class COBJMeshFileLoader : public asset::IAssetLoader
 
         core::vector<SObjMtl*> Materials;
         core::unordered_map<SObjMtl*, ICPUMeshBuffer*> preloadedSubmeshes;
+
+        ~SContext()
+        {
+            for (auto& m : Materials)
+                delete m;
+        }
     };
 
 protected:

@@ -5,6 +5,7 @@
 using namespace irr;
 using namespace asset;
 
+// todo NEED DOCS
 IAsset* IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
 {
     auto levelFlag = ctx.params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
@@ -12,12 +13,23 @@ IAsset* IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::string& i
         return nullptr;
 
     auto found = m_manager->findAssets(inSearchKey, inAssetTypes);
-    uint32_t i = 0u;
-    while (IAsset::E_TYPE type = inAssetTypes[i++])
+    if (inAssetTypes)
     {
-        const uint32_t ix = IAsset::typeFlagToIndex(type);
-        if (IAssetManager::AssetCacheType::isNonZeroRange(found[ix]))
-            return found[ix].first->second;
+        uint32_t i = 0u;
+        while (IAsset::E_TYPE type = inAssetTypes[i++])
+        {
+            const uint32_t ix = IAsset::typeFlagToIndex(type);
+            if (IAssetManager::AssetCacheType::isNonZeroRange(found[ix]))
+                return found[ix].first->second;
+        }
+    }
+    else
+    {
+        for (uint32_t ix = 0u; ix < IAsset::ET_STANDARD_TYPES_COUNT; ++ix)
+        {
+            if (IAssetManager::AssetCacheType::isNonZeroRange(found[ix]))
+                return found[ix].first->second;
+        }
     }
     return nullptr;
 }

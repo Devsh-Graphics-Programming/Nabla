@@ -347,14 +347,12 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
                 mesh->addMeshBuffer(preloadedMbItr->second);
                 preloadedMbItr->second->drop(); // after grab inside addMeshBuffer()
                 preloadedMbItr->second->drop(); // after grab when we got it from cache
-                delete ctx.Materials[m];
                 continue;
             }
         }
 
 		if ( ctx.Materials[m]->Indices.size() == 0 )
         {
-            delete ctx.Materials[m];
             continue;
         }
 
@@ -448,9 +446,6 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         _override->setAssetCacheKey(meshbuffer, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
         _override->insertAssetIntoCache(meshbuffer, ctx.inner, 1u);
         meshbuffer->drop();
-
-        //memory is precious
-        delete ctx.Materials[m];
 	}
 
 	// more cleaning up
