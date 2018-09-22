@@ -51,12 +51,12 @@ public:
 private:
     friend class IAssetManager;
 
-    // (Criss) Why this is here?
     std::string cacheKey;
     bool isCached = false;
 
     // could make a move-ctor version too
     inline void setNewCacheKey(const std::string& newKey) { cacheKey = newKey; }
+    inline void setNewCacheKey(std::string&& newKey) { cacheKey = std::move(newKey); }
     inline void setCached(bool val) { isCached = val; }
     // (Criss) Why this is here if there's convertToDummyObject already
     //! Utility function to call so IAssetManager can call convertToDummyObject
