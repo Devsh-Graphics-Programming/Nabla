@@ -7,7 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
-#include "IImageLoader.h"
+#include "IAssetLoader.h"
 
 
 namespace irr
@@ -66,22 +66,36 @@ namespace video
 /*!
 	Surface Loader for Windows bitmaps
 */
-class CImageLoaderBMP : public IImageLoader
+class CImageLoaderBMP : public asset::IAssetLoader
 {
 public:
 
 	//! constructor
 	CImageLoaderBMP();
 
-	//! returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (e.g. ".tga")
-	virtual bool isALoadableFileExtension(const io::path& filename) const;
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
+    {
+        const size_t prevPos = _file->getPos();
+        _file->seek(0u);
+        
+        uint16_t headerId;
+        _file->read(&headerId, 2);
 
-	//! returns true if the file maybe is able to be loaded by this class
-	virtual bool isALoadableFileFormat(io::IReadFile* file) const;
+        const bool res = headerId == 0x4d42u;
+        _file->seek(prevPos);
 
-	//! creates a surface from the file
-	virtual core::vector<CImageData*> loadImage(io::IReadFile* file) const;
+        return res;
+    }
+
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "bmp", nullptr };
+        return ext;
+    }
+
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
+
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 

@@ -11,6 +11,8 @@
 #include "CColorConverter.h"
 #include "CImage.h"
 #include "os.h"
+#include "CImageData.h"
+#include "ICPUTexture.h"
 
 namespace irr
 {
@@ -25,25 +27,6 @@ CImageLoaderBMP::CImageLoaderBMP()
 	setDebugName("CImageLoaderBMP");
 	#endif
 }
-
-
-//! returns true if the file maybe is able to be loaded by this class
-//! based on the file extension (e.g. ".tga")
-bool CImageLoaderBMP::isALoadableFileExtension(const io::path& filename) const
-{
-	return core::hasFileExtension ( filename, "bmp" );
-}
-
-
-//! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderBMP::isALoadableFileFormat(io::IReadFile* file) const
-{
-	uint16_t headerID;
-	file->read(&headerID, sizeof(uint16_t));
-
-	return headerID == 0x4d42;
-}
-
 
 void CImageLoaderBMP::decompress8BitRLE(uint8_t*& bmpData, int32_t size, int32_t width, int32_t height, int32_t pitch) const
 {
@@ -213,23 +196,23 @@ void CImageLoaderBMP::decompress4BitRLE(uint8_t*& bmpData, int32_t size, int32_t
 
 
 //! creates a surface from the file
-core::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
+asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u)
 {
 	SBMPHeader header;
 
-	file->read(&header, sizeof(header));
+	_file->read(&header, sizeof(header));
 
 	int32_t pitch = 0;
 
 	//! return if the header is false
 
-	if (header.Id != 0x4d42)
-		return core::vector<CImageData*>();
+    if (header.Id != 0x4d42)
+        return nullptr;
 
 	if (header.Compression > 2) // we'll only handle RLE-Compression
 	{
 		os::Printer::log("Compression mode not supported.", ELL_ERROR);
-		return core::vector<CImageData*>();
+        return nullptr;
 	}
 
 	// adjust bitmap data size to dword boundary
@@ -237,14 +220,14 @@ core::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
 
 	// read palette
 
-	long pos = file->getPos();
+	long pos = _file->getPos();
 	int32_t paletteSize = (header.BitmapDataOffset - pos) / 4;
 
 	int32_t* paletteData = 0;
 	if (paletteSize)
 	{
 		paletteData = new int32_t[paletteSize];
-		file->read(paletteData, paletteSize * sizeof(int32_t));
+		_file->read(paletteData, paletteSize * sizeof(int32_t));
 #ifdef __BIG_ENDIAN__
 		for (int32_t i=0; i<paletteSize; ++i)
 			paletteData[i] = os::Byteswap::byteswap(paletteData[i]);
@@ -257,10 +240,10 @@ core::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
 	{
 		// okay, lets guess the size
 		// some tools simply don't set it
-		header.BitmapDataSize = static_cast<uint32_t>(file->getSize()) - header.BitmapDataOffset;
+		header.BitmapDataSize = static_cast<uint32_t>(_file->getSize()) - header.BitmapDataOffset;
 	}
 
-	file->seek(header.BitmapDataOffset);
+	_file->seek(header.BitmapDataOffset);
 
 	float t = (header.Width) * (header.BPP / 8.0f);
 	int32_t widthInBytes = (int32_t)t;
@@ -272,7 +255,7 @@ core::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
 	pitch = lineData - widthInBytes;
 
 	uint8_t* bmpData = new uint8_t[header.BitmapDataSize];
-	file->read(bmpData, header.BitmapDataSize);
+	_file->read(bmpData, header.BitmapDataSize);
 
 	// decompress data if needed
 	switch(header.Compression)
@@ -331,16 +314,8 @@ core::vector<CImageData*> CImageLoaderBMP::loadImage(io::IReadFile* file) const
 	delete [] paletteData;
 	delete [] bmpData;
 
-	return images;
+	return new asset::ICPUTexture{std::move(images)};
 }
-
-
-//! creates a loader which is able to load windows bitmaps
-IImageLoader* createImageLoaderBMP()
-{
-	return new CImageLoaderBMP;
-}
-
 
 } // end namespace video
 } // end namespace irr

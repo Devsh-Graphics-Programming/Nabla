@@ -4,6 +4,7 @@
 #include <utility>
 #include <algorithm>
 #include "irr/core/Types.h"
+#include <cassert>
 #include "IAsset.h"
 #include "CImageData.h"
 
@@ -15,6 +16,7 @@ class ICPUTexture : public IAsset
 public:
     explicit ICPUTexture(const core::vector<video::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}
     {
+        assert(m_mipmaps.size() != 0u);
         for (const auto& mm : m_mipmaps)
             mm->grab();
         sortMipMaps();
@@ -22,6 +24,7 @@ public:
     }
     explicit ICPUTexture(core::vector<video::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}
     {
+        assert(m_mipmaps.size() != 0u);
         for (const auto& mm : m_mipmaps)
             mm->grab();
         sortMipMaps();
@@ -33,6 +36,10 @@ public:
         for (const auto& mm : m_mipmaps)
             mm->drop();
     }
+
+    virtual void convertToDummyObject() override {}
+
+    virtual E_TYPE getAssetType() const override { return IAsset::ET_IMAGE; }
 
     video::CImageData* getMipMap(uint32_t _mipLvl)
     {
@@ -58,9 +65,9 @@ private:
             [](const video::CImageData* _a, const video::CImageData* _b) { return _a->getSupposedMipLevel() < _b->getSupposedMipLevel(); }
         );
     }
-    void establishFmt() const
+    void establishFmt()
     {
-        video::ECOLOR_FORMAT fmt = m_mipmaps[0];
+        video::ECOLOR_FORMAT fmt = m_mipmaps[0]->getColorFormat();
         for (uint32_t i = 1u; i < m_mipmaps.size(); ++i)
         {
             if (fmt != m_mipmaps[i]->getColorFormat())

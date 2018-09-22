@@ -9,13 +9,14 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "IImage.h"
+#include "IAsset.h"
 
 namespace irr
 {
 namespace video
 {
 
-class CImageData : public core::IReferenceCounted
+class CImageData : public asset::IAsset
 {
         void*       data;
 
@@ -33,6 +34,14 @@ class CImageData : public core::IReferenceCounted
             if (data)
                 free(data);
         }
+
+        virtual void convertToDummyObject() override
+        {
+            free(data);
+            data = nullptr;
+        }
+
+        virtual E_TYPE getAssetType() const override { return asset::IAsset::ET_SUB_IMAGE; }
 
         inline void setupMemory(void* inData, const bool& dataAllocatedWithMallocAndCanTake)
         {
