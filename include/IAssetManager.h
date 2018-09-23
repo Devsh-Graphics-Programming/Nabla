@@ -78,6 +78,11 @@ namespace asset
                         return first < _rhs.first;
                     return second < _rhs.second;
                 }
+
+                inline friend std::ostream& operator<<(std::ostream& _outs, const WriterKey& _item)
+                {
+                    return _outs << "{ " << static_cast<uint64_t>(_item.first) << ", " << _item.second << " }";
+                }
             };
 
             core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt{ &refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter> };
@@ -214,11 +219,8 @@ namespace asset
                 _asset->setNewCacheKey(_newKey);
             else
             {
-                if (removeAssetFromCache(_asset))
-                {
+                if (m_assetCache[IAsset::typeFlagToIndex(_asset->getAssetType())].changeObjectKey(_asset, _asset->cacheKey, _newKey))
                     _asset->setNewCacheKey(_newKey);
-                    insertAssetIntoCache(_asset);
-                }
             }
         }
 
@@ -347,9 +349,29 @@ namespace asset
         }
         void removeAssetWriter(const uint32_t& _idx); // TODO what is _idx here?
 
-        void dumpCachesDebug() const
+        void dumpCachesDebug(std::ostream& _outs) const
         {
-            //todo
+            for (uint32_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
+            {
+                _outs << "Asset cache (asset type " << (1u << i) << "):\n";
+                const size_t sz = m_assetCache[i].getSize();
+                typename AssetCacheType::MutablePairType* storage = new typename AssetCacheType::MutablePairType[sz];
+                m_assetCache[i].outputAll(sz, storage, nullptr);
+                for (uint32_t j = 0u; j < sz; ++j)
+                    _outs << "\tKey: " << storage[j].first << ", Value: " << static_cast<void*>(storage[j].second) << '\n';
+            }
+            _outs << "Loaders vector:\n";
+            for (const auto& ldr : m_loaders.vector)
+                _outs << '\t' << static_cast<void*>(ldr) << '\n';
+            _outs << "Loaders assoc cache:\n";
+            for (const auto& ldr : m_loaders.assoc)
+                _outs << "\tKey: " << ldr.first << ", Value: " << ldr.second << '\n';
+            _outs << "Writers per-asset-type cache:\n";
+            for (const auto& wtr : m_writers.perType)
+                _outs << "\tKey: " << static_cast<uint64_t>(wtr.first) << ", Value: " << static_cast<void*>(wtr.second) << '\n';
+            _outs << "Writers per-asset-type-and-file-ext cache:\n";
+            for (const auto& wtr : m_writers.perTypeAndFileExt)
+                _outs << "\tKey: " << wtr.first << ", Value: " << static_cast<void*>(wtr.second) << '\n';
         }
 
     private:

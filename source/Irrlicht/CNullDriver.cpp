@@ -35,6 +35,7 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 }
 
 
+// todo remove those below
 //! creates a loader which is able to load windows bitmaps
 IImageLoader* createImageLoaderBMP();
 
