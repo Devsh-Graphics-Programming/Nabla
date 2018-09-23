@@ -563,11 +563,14 @@ namespace impl
 
         inline bool changeObjectKey(typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key, const typename Base::KeyType_impl& _newKey)
         {
+            this->greet(_obj);
             if (this->removeObject(_obj, _key))
             {
                 this->insert(_newKey, _obj);
+                this->dispose(_obj);
                 return true;
             }
+            this->dispose(_obj);
             return false;
         }
 
