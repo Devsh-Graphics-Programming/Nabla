@@ -314,7 +314,10 @@ asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAs
 	delete [] paletteData;
 	delete [] bmpData;
 
-	return new asset::ICPUTexture{std::move(images)};
+	asset::ICPUTexture* tex = new asset::ICPUTexture{images};
+    for (auto img : images)
+        img->drop();
+    return tex;
 }
 
 } // end namespace video
