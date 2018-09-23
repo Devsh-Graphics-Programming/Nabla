@@ -165,6 +165,14 @@ namespace impl
             m_lock.unlockRead();
             return r;
         }
+
+        inline bool changeObjectKey(T* _obj, const K& _key, const K& _newKey)
+        {
+            m_lock.lockWrite();
+            const bool r = BaseCache::changeObjectKey(_obj, _key, _newKey);
+            m_lock.unlockWrite();
+            return r;
+        }
     };
 }
 

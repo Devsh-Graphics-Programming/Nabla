@@ -242,16 +242,6 @@ namespace impl
         this->greet(_val);\
     return verif;
 
-#define STORING_FIND_RANGE_DEF \
-inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t _storageSize, typename Base::MutablePairType* _out, bool* _gotAll)\
-{\
-    return Base::outputRange(findRange(_key), _storageSize, _out, _gotAll);\
-}\
-inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t _storageSize, typename Base::MutablePairType* _out, bool* _gotAll) const\
-{\
-    return Base::outputRange(findRange(_key), _storageSize, _out, _gotAll);\
-}
-
     template<
         bool isMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
         template<typename...> class ContainerT_T,
@@ -340,16 +330,16 @@ inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t 
     };
 
     template<
-        bool IsMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
+        bool IsVectorContainer, // is container a vector
         template<typename...> class ContainerT_T,
         typename Alloc,
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<IsMultiContainer, ContainerT_T, Alloc, T, K...>
+    struct CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<!IsVectorContainer, ContainerT_T, Alloc, T, K...>
     {
     private:
-        using Base = CMultiObjectCacheBase<IsMultiContainer, ContainerT_T, Alloc, T, K...>;
+        using Base = CMultiObjectCacheBase<!IsVectorContainer, ContainerT_T, Alloc, T, K...>;
 
     public:
         using Base::Base;
@@ -400,8 +390,6 @@ inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t 
             }
             return false;
         }
-
-        STORING_FIND_RANGE_DEF
 
     private:
         typename Base::IteratorType find(const typename Base::RangeType& _range, const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj) const
@@ -554,9 +542,61 @@ inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t 
             }
             return true;
         }
-
-        STORING_FIND_RANGE_DEF
     };
+
+    template <
+        bool forMultiCache,
+        bool isVectorContainer,
+        template<typename...> class ContainerT_T,
+        typename Alloc,
+        typename T, //value type for container
+        typename ...K //optionally key type for std::map/std::unordered_map
+    >
+    struct CDirectCacheBase : 
+        public std::conditional<forMultiCache, CMultiObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>, CUniqObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>>::type
+    {
+    private:
+        using Base = typename std::conditional<forMultiCache, CMultiObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>, CUniqObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>>::type;
+
+    public:
+        using Base::Base;
+
+        inline bool changeObjectKey(typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key, const typename Base::KeyType_impl& _newKey)
+        {
+            if (this->removeObject(_obj, _key))
+            {
+                this->insert(_newKey, _obj);
+                return true;
+            }
+            return false;
+        }
+
+        inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t _storageSize, typename Base::MutablePairType* _out, bool* _gotAll)
+        {
+            return this->outputRange(this->findRange(_key), _storageSize, _out, _gotAll);
+        }
+        inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t _storageSize, typename Base::MutablePairType* _out, bool* _gotAll) const
+        {
+            return this->outputRange(this->findRange(_key), _storageSize, _out, _gotAll);
+        }
+    };
+
+    template <
+        bool isVectorContainer,
+        template<typename...> class ContainerT_T,
+        typename Alloc,
+        typename T, //value type for container
+        typename ...K //optionally key type for std::map/std::unordered_map
+    >
+    using CDirectMultiCacheBase = CDirectCacheBase<true, isVectorContainer, ContainerT_T, Alloc, T, K...>;
+    template <
+        bool isVectorContainer,
+        template<typename...> class ContainerT_T,
+        typename Alloc,
+        typename T, //value type for container
+        typename ...K //optionally key type for std::map/std::unordered_map
+    >
+    using CDirectUniqCacheBase = CDirectCacheBase<false, isVectorContainer, ContainerT_T, Alloc, T, K...>;
 }
 
 template<
@@ -575,11 +615,11 @@ template<
     typename Alloc
 >
 class CMultiObjectCache<K, T, ContainerT_T, Alloc, true> : 
-    public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, Alloc, std::pair<K, T*>>,
+    public impl::CDirectMultiCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>,
     public impl::PropagTypedefs<T, K>
 {
 private:
-    using Base = impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, Alloc, std::pair<K, T*>>;
+    using Base = impl::CDirectMultiCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>;
 
 public:
     using Base::Base;
@@ -591,13 +631,13 @@ template<
     typename Alloc
 >
 class CMultiObjectCache<K, T, ContainerT_T, Alloc, false> : 
-    public impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, Alloc, T*, const K>,
+    public impl::CDirectMultiCacheBase<false, ContainerT_T, Alloc, T*, const K>,
     public impl::PropagTypedefs<T, const K>
 {
     static_assert(impl::is_same_templ<ContainerT_T, std::multimap>::value || impl::is_same_templ<ContainerT_T, std::unordered_multimap>::value, "ContainerT_T must be one of: std::vector, std::multimap, std::unordered_multimap");
 
 private:
-    using Base = impl::CMultiObjectCacheBaseExt<impl::is_multi_container<ContainerT_T>::value, ContainerT_T, Alloc, T*, const K>;
+    using Base = impl::CDirectMultiCacheBase<false, ContainerT_T, Alloc, T*, const K>;
 
 public:
     using Base::Base;
@@ -620,10 +660,10 @@ template<
     typename Alloc
 >
 class CObjectCache<K, T, ContainerT_T, Alloc, true> : 
-    public impl::CUniqObjectCacheBaseExt<true, ContainerT_T, Alloc, std::pair<K, T*>>,
+    public impl::CDirectUniqCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>,
     public impl::PropagTypedefs<T, K>
 {
-    using Base = impl::CUniqObjectCacheBaseExt<true, ContainerT_T, Alloc, std::pair<K, T*>>;
+    using Base = impl::CDirectUniqCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>;
 
 public:
     using Base::Base;
@@ -637,11 +677,11 @@ template<
     typename Alloc
 >
 class CObjectCache<K, T, ContainerT_T, Alloc, false> : 
-    public impl::CUniqObjectCacheBaseExt<false, ContainerT_T, Alloc, T*, const K>,
+    public impl::CDirectUniqCacheBase<false, ContainerT_T, Alloc, T*, const K>,
     public impl::PropagTypedefs<T, const K>
 {
     static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
-    using Base = impl::CUniqObjectCacheBaseExt<false, ContainerT_T, Alloc, T*, const K>;
+    using Base = impl::CDirectUniqCacheBase<false, ContainerT_T, Alloc, T*, const K>;
 
 public:
     using Base::Base;
@@ -649,7 +689,6 @@ public:
 
 }}
 
-#undef STORING_FIND_RANGE_DEF
 #undef INSERT_IMPL_VEC
 #undef INSERT_IMPL_ASSOC
 #endif //__C_OBJECT_CACHE_H_INCLUDED__
