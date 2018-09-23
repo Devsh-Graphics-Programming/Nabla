@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <functional>
+#include <string>
 
 #include "irr/macros.h"
 #include "irr/core/Types.h"
@@ -22,6 +23,11 @@ namespace impl
 
     template<template<typename...> class T>
     struct is_same_templ<T, T> : std::true_type {};
+
+    template <typename T>
+    struct is_string : std::false_type {};
+    template <typename C, typename T, typename A>
+    struct is_string<std::basic_string<C, T, A>> : std::true_type {};
 
     template<template<typename...> class T>
     struct is_multi_container : std::false_type {};
@@ -88,12 +94,16 @@ namespace impl
         using ContainerT = UnderlyingContainerType;
         ContainerT m_container;
 
+    public:
+        using PairType = typename ContainerT::value_type;
+        using MutablePairType = std::pair<typename std::remove_const<typename PairType::first_type>::type, typename PairType::second_type>;
+
+    protected:
         // typedefs for implementation only
-        using PairType_impl = typename ContainerT::value_type;
         //! Always pointer type
-        using ValueType_impl = typename PairType_impl::second_type; // container's value_type is always instantiation of std::pair
+        using ValueType_impl = typename PairType::second_type; // container's value_type is always instantiation of std::pair
         static_assert(std::is_pointer<ValueType_impl>::value, "ValueType_impl must be pointer type!");
-        using KeyType_impl = typename PairType_impl::first_type;
+        using KeyType_impl = typename PairType::first_type;
         using NoPtrValueType_impl = typename std::remove_pointer<ValueType_impl>::type;
         using ValueType_PtrToConst_impl = const NoPtrValueType_impl*; // ValueType_impl is always pointer type
 
@@ -129,6 +139,28 @@ namespace impl
         }
 
     public:
+        //! Only in non-concurrent cache
+        inline size_t outputRange(const ConstRangeType& _rng, size_t _storageSize, MutablePairType* _out, bool* _gotAll) const
+        {
+            bool dummy;
+            if (!_gotAll)
+                _gotAll = &dummy;
+            *_gotAll = !isNonZeroRange(_rng);
+            size_t i = 0u;
+            for (auto it = _rng.first; it != _rng.second && i < _storageSize; ++it)
+            {
+                _out[i++] = *it;
+                if (it == std::prev(_rng.second))
+                    *_gotAll = true;
+            }
+            return i;
+        }
+
+        inline size_t outputAll(size_t _storageSize, MutablePairType* _out, bool* _gotAll) const
+        {
+            return outputRange({cbegin(), cend()}, _storageSize, _out, _gotAll);
+        }
+
         CObjectCacheBase() = default;
         inline explicit CObjectCacheBase(const GreetFuncType& _greeting, const DisposalFuncType& _disposal) : m_greetingFunc(_greeting), m_disposalFunc(_disposal) {}
         inline explicit CObjectCacheBase(GreetFuncType&& _greeting, DisposalFuncType&& _disposal) : m_greetingFunc(std::move(_greeting)), m_disposalFunc(std::move(_disposal)) {}
@@ -143,12 +175,24 @@ namespace impl
 
         inline void clear()
         {
-            for (PairType_impl& e : m_container)
+            for (PairType& e : m_container)
                 dispose(e.second);
             m_container.clear();
         }
 
 		inline size_t getSize() const { return m_container.size(); }
+
+        // Concurrent cache has only const-iterator getters
+        inline IteratorType begin() { return std::begin(m_container); }
+        inline ConstIteratorType begin() const { return cbegin(); }
+        inline IteratorType end() { return std::end(m_container); }
+        inline ConstIteratorType end() const { return cend(m_container); }
+        inline ConstIteratorType cbegin() const { return std::cbegin(m_container); }
+        inline ConstIteratorType cend() const { return std::cend(m_container); }
+        inline RevIteratorType rbegin() { return std::rbegin(m_container); }
+        inline RevIteratorType rend() { return std::rend(m_container); }
+        inline ConstRevIteratorType crbegin() const { std::crbegin(m_container); }
+        inline ConstRevIteratorType crend() const { std::crend(m_container); }
     };
 
     template<template<typename...> class ContainerT_T, typename ContainerT, bool ForMultiCache, bool IsAssocContainer = impl::is_assoc_container<ContainerT_T>::value>
@@ -181,8 +225,8 @@ namespace impl
 
     //! Use in non-static member functions
 #define INSERT_IMPL_VEC \
-    const typename Base::PairType_impl newVal{ _key, _val };\
-    auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), newVal, [](const typename Base::PairType_impl& _a, const typename Base::PairType_impl& _b) -> bool {return _a.first < _b.first; });\
+    const typename Base::PairType newVal{ _key, _val };\
+    auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), newVal, [](const typename Base::PairType& _a, const typename Base::PairType& _b) -> bool {return _a.first < _b.first; });\
     if (\
     !impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value>::verify(this->m_container, it, _key)\
     )\
@@ -197,6 +241,16 @@ namespace impl
     if (verif)\
         this->greet(_val);\
     return verif;
+
+#define STORING_FIND_RANGE_DEF \
+inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t _storageSize, typename Base::MutablePairType* _out, bool* _gotAll)\
+{\
+    return Base::outputRange(findRange(_key), _storageSize, _out, _gotAll);\
+}\
+inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t _storageSize, typename Base::MutablePairType* _out, bool* _gotAll) const\
+{\
+    return Base::outputRange(findRange(_key), _storageSize, _out, _gotAll);\
+}
 
     template<
         bool isMultiContainer, // is container a multimap or unordered_multimap (all allowed containers are those two and vector)
@@ -226,6 +280,7 @@ namespace impl
             INSERT_IMPL_ASSOC
         }
 
+    public:
         inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
         {
             return Base::m_container.equal_range(_key);
@@ -259,8 +314,8 @@ namespace impl
         template<typename RngType>
         static inline RngType findRange_internal(typename Base::ContainerT& _container, const typename Base::KeyType_impl& _key)
         {
-            auto cmpf = [](const typename Base::PairType_impl& _a, const typename Base::PairType_impl& _b) -> bool { return _a.first < _b.first; };
-            typename Base::PairType_impl lookingFor{_key, nullptr};
+            auto cmpf = [](const typename Base::PairType& _a, const typename Base::PairType& _b) -> bool { return _a.first < _b.first; };
+            typename Base::PairType lookingFor{_key, nullptr};
 
             RngType range;
             range.first = std::lower_bound(std::begin(_container), std::end(_container), lookingFor, cmpf);
@@ -313,7 +368,7 @@ namespace impl
                 found->second = _val;
                 return false;
             }
-            this->m_container.insert(range.second, typename Base::PairType_impl{_key, _val});
+            this->m_container.insert(range.second, typename Base::PairType{_key, _val});
             return true;
         }
 
@@ -345,6 +400,8 @@ namespace impl
             }
             return false;
         }
+
+        STORING_FIND_RANGE_DEF
 
     private:
         typename Base::IteratorType find(const typename Base::RangeType& _range, const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj) const
@@ -392,7 +449,7 @@ namespace impl
 
         inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
         {
-            auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), typename Base::PairType_impl{ _key, nullptr });
+            auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), typename Base::PairType{ _key, nullptr });
             if (it == std::end(this->m_container) || it->first > _key)
                 return { it, it };
             return { it, std::next(it) };
@@ -497,6 +554,8 @@ namespace impl
             }
             return true;
         }
+
+        STORING_FIND_RANGE_DEF
     };
 }
 
@@ -590,6 +649,7 @@ public:
 
 }}
 
+#undef STORING_FIND_RANGE_DEF
 #undef INSERT_IMPL_VEC
 #undef INSERT_IMPL_ASSOC
 #endif //__C_OBJECT_CACHE_H_INCLUDED__
