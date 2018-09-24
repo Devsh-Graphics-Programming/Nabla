@@ -126,9 +126,10 @@ DUMMY -		This 404 bytes of data should be set to 0. This makes the Header exactl
 #ifdef _IRR_COMPILE_WITH_RGB_LOADER_
 
 #include "IReadFile.h"
+#include "ICPUTexture.h"
 #include "SColor.h"
 #include "CColorConverter.h"
-#include "CImage.h"
+#include "CImageData.h"
 #include "os.h"
 #include "irr/core/irrString.h"
 
@@ -148,15 +149,6 @@ CImageLoaderRGB::CImageLoaderRGB()
 
 
 //! returns true if the file maybe is able to be loaded by this class
-//! based on the file extensions listed here
-bool CImageLoaderRGB::isALoadableFileExtension(const io::path& filename) const
-{
-	return core::hasFileExtension( filename, "rgb", "rgba", "sgi" ) ||
-	       core::hasFileExtension( filename, "int", "inta", "bw" );
-}
-
-
-//! returns true if the file maybe is able to be loaded by this class
 bool CImageLoaderRGB::isALoadableFileFormat(io::IReadFile* file) const
 {
 	rgbStruct rgb;
@@ -167,37 +159,37 @@ bool CImageLoaderRGB::isALoadableFileFormat(io::IReadFile* file) const
 /** The main entry point, read and format the image file.
 \return Pointer to the image data on success
 				null pointer on fail */
-core::vector<CImageData*> CImageLoaderRGB::loadImage(io::IReadFile* file) const
+asset::IAsset* CImageLoaderRGB::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	int32_t* paletteData = 0;
 
 	rgbStruct rgb;   // construct our structure for holding data
 
-    core::vector<CImageData*> retval;
+    core::vector<video::CImageData*> images;
 	// read Header information
-	if (checkFormat(file, rgb))
+	if (checkFormat(_file, rgb))
 	{
 		// 16 bits per COLOR VALUE, not supported, this is 48bpp mode
 		if (rgb.Header.BPC != 1)
 		{
-			os::Printer::log("Only one byte per pixel RGB files are supported", file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Only one byte per pixel RGB files are supported", _file->getFileName().c_str(), ELL_ERROR);
 		}
 		else if (rgb.Header.Colormap != 0)
 		{
-			os::Printer::log("Dithered, Screen and Colormap RGB files are not supported", file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Dithered, Screen and Colormap RGB files are not supported", _file->getFileName().c_str(), ELL_ERROR);
 		}
-		else if (rgb.Header.Storage == 1 && !readOffsetTables(file, rgb))
+		else if (rgb.Header.Storage == 1 && !readOffsetTables(_file, rgb))
 		{
-			os::Printer::log("Failed to read RLE table in RGB file", file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Failed to read RLE table in RGB _file", _file->getFileName().c_str(), ELL_ERROR);
 		}
 		else if (!rgb.allocateTemps())
 		{
-			os::Printer::log("Out of memory in RGB file loader", file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Out of memory in RGB _file loader", _file->getFileName().c_str(), ELL_ERROR);
 		}
 		else
 		{
-			// read and process the file to rgbData
-			processFile(file, rgb);
+			// read and process the _file to rgbData
+			processFile(_file, rgb);
 
 /*
 		  ZSIZE		Description
@@ -225,7 +217,7 @@ core::vector<CImageData*> CImageLoaderRGB::loadImage(io::IReadFile* file) const
 
 			Alternatively, the RGB files could use another blending technique entirely
 */
-            CImageData* image = NULL;
+            video::CImageData* image = NULL;
             uint32_t nullOffset[3] = {0,0,0};
             uint32_t imageSize[3] = {rgb.Header.Xsize,rgb.Header.Ysize,1};
 			switch (rgb.Header.Zsize)
@@ -236,14 +228,14 @@ core::vector<CImageData*> CImageLoaderRGB::loadImage(io::IReadFile* file) const
 				for (int n=0; n<256; n++)
 					paletteData[n] = n;
 
-				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A1R5G5B5);
+				image = new video::CImageData(NULL,nullOffset,imageSize,0,ECF_A1R5G5B5);
 				if (image)
 					CColorConverter::convert8BitTo16Bit(rgb.rgbData, (int16_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, paletteData, 0, true);
 				break;
 			case 3:
 				// RGB image
 				// one byte per COLOR VALUE, eg, 24bpp
-				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
+				image = new video::CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
 				if (image)
 					CColorConverter::convert24BitTo24Bit(rgb.rgbData, (uint8_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true, false);
 				break;
@@ -253,25 +245,28 @@ core::vector<CImageData*> CImageLoaderRGB::loadImage(io::IReadFile* file) const
 
 				converttoARGB(reinterpret_cast<uint32_t*>(rgb.rgbData), 	rgb.Header.Ysize * rgb.Header.Xsize);
 
-				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
+				image = new video::CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
 				if (image)
 					CColorConverter::convert32BitTo32Bit((int32_t*)rgb.rgbData, (int32_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true);
 
 				break;
 			default:
 				// Format unknown
-				os::Printer::log("Unsupported pixel format in RGB file", file->getFileName().c_str(), ELL_ERROR);
+				os::Printer::log("Unsupported pixel format in RGB _file", _file->getFileName().c_str(), ELL_ERROR);
 			}
 
 			if (image)
-				retval.push_back(image);
+				images.push_back(image);
 		}
 	}
 
 	// and tidy up allocated memory
 	delete [] paletteData;
 
-	return retval;
+    asset::ICPUTexture* tex = new asset::ICPUTexture{images};
+    for (auto img : images)
+        img->drop();
+    return tex;
 }
 
 // returns true on success
@@ -629,13 +624,6 @@ void CImageLoaderRGB::converttoARGB(uint32_t* in, const uint32_t size) const
 		*in=(*in>>8)|(*in<<24);
 		++in;
 	}
-}
-
-
-//! creates a loader which is able to load SGI RGB images
-IImageLoader* createImageLoaderRGB()
-{
-	return new CImageLoaderRGB;
 }
 
 
