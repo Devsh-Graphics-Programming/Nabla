@@ -9,6 +9,7 @@
 #include "CColorConverter.h"
 #include "IWriteFile.h"
 #include "CImage.h"
+#include "ICPUTexture.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
 #include <stdio.h> // required for jpeglib.h
@@ -23,14 +24,14 @@ extern "C"
 #endif
 }
 
-
-namespace irr
-{
-namespace video
-{
-
 // The writer uses a 4k buffer and flushes to disk each time it's filled
 #define OUTPUT_BUF_SIZE 4096
+
+using namespace irr;
+using namespace video;
+
+namespace 
+{
 typedef struct
 {
 	struct jpeg_destination_mgr pub;/* public fields */
@@ -41,7 +42,7 @@ typedef struct
 
 
 typedef mem_destination_mgr * mem_dest_ptr;
-
+}
 
 // init
 static void jpeg_init_destination(j_compress_ptr cinfo)
@@ -103,7 +104,7 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
-static bool writeJPEGFile(io::IWriteFile* file, IImage* image, uint32_t quality)
+static bool writeJPEGFile(io::IWriteFile* file, const CImageData* image, uint32_t quality)
 {
 	void (*format)(const void*, int32_t, void*) = 0;
 	switch( image->getColorFormat () )
@@ -130,7 +131,7 @@ static bool writeJPEGFile(io::IWriteFile* file, IImage* image, uint32_t quality)
 	if ( 0 == format )
 		return false;
 
-	const core::dimension2du dim = image->getDimension();
+	const core::vector3d<uint32_t> dim = image->getSize();
 
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -138,8 +139,8 @@ static bool writeJPEGFile(io::IWriteFile* file, IImage* image, uint32_t quality)
 
 	jpeg_create_compress(&cinfo);
 	jpeg_file_dest(&cinfo, file);
-	cinfo.image_width = dim.Width;
-	cinfo.image_height = dim.Height;
+	cinfo.image_width = dim.X;
+	cinfo.image_height = dim.Y;
 	cinfo.input_components = 3;
 	cinfo.in_color_space = JCS_RGB;
 
@@ -151,7 +152,7 @@ static bool writeJPEGFile(io::IWriteFile* file, IImage* image, uint32_t quality)
 	jpeg_set_quality(&cinfo, quality, TRUE);
 	jpeg_start_compress(&cinfo, TRUE);
 
-	uint8_t * dest = new uint8_t[dim.Width*3];
+	uint8_t * dest = new uint8_t[dim.X*3];
 
 	if (dest)
 	{
@@ -164,7 +165,7 @@ static bool writeJPEGFile(io::IWriteFile* file, IImage* image, uint32_t quality)
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
 			// convert next line
-			format( src, dim.Width, dest );
+			format( src, dim.X, dest );
 			src += pitch;
 			jpeg_write_scanlines(&cinfo, row_pointer, 1);
 		}
@@ -181,21 +182,7 @@ static bool writeJPEGFile(io::IWriteFile* file, IImage* image, uint32_t quality)
 	return (dest != 0);
 }
 
-
-} // namespace video
-} // namespace irr
-
 #endif // _IRR_COMPILE_WITH_LIBJPEG_
-
-namespace irr
-{
-namespace video
-{
-
-IImageWriter* createImageWriterJPG()
-{
-	return new CImageWriterJPG;
-}
 
 CImageWriterJPG::CImageWriterJPG()
 {
@@ -204,24 +191,24 @@ CImageWriterJPG::CImageWriterJPG()
 #endif
 }
 
-
-bool CImageWriterJPG::isAWriteableFileExtension(const io::path& filename) const
-{
-	return core::hasFileExtension ( filename, "jpg", "jpeg" );
-}
-
-
-bool CImageWriterJPG::writeImage(io::IWriteFile *file, IImage *image, uint32_t quality) const
+bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr)
 {
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	return false;
 #else
-	return writeJPEGFile(file, image, quality);
+    const asset::ICPUTexture* tex =
+#   ifndef _DEBUG
+        static_cast<const asset::ICPUTexture*>(_params.rootAsset);
+#   else
+        dynamic_cast<const asset::ICPUTexture*>(_params.rootAsset);
+#   endif
+    assert(tex);
+    const video::CImageData* image = tex->getMipMap(tex->getLowestMip());
+
+	return writeJPEGFile(_file, image, (!!(_params.flags & asset::EWF_COMPRESSED))*(1.f-_params.compressionLevel)*100.f); // if quality==0, then it defaults to 75
 #endif
 }
 
-} // namespace video
-} // namespace irr
-
+#undef OUTPUT_BUF_SIZE
 #endif
 
