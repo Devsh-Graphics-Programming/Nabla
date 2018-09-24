@@ -9,16 +9,12 @@
 #include "CImageLoaderBMP.h"
 #include "IWriteFile.h"
 #include "CColorConverter.h"
+#include "ICPUTexture.h"
 
 namespace irr
 {
 namespace video
 {
-
-IImageWriter* createImageWriterBMP()
-{
-	return new CImageWriterBMP;
-}
 
 CImageWriterBMP::CImageWriterBMP()
 {
@@ -27,22 +23,25 @@ CImageWriterBMP::CImageWriterBMP()
 #endif
 }
 
-bool CImageWriterBMP::isAWriteableFileExtension(const io::path& filename) const
-{
-	return core::hasFileExtension ( filename, "bmp" );
-}
-
-bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, uint32_t param) const
+bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr)
 {
 	// we always write 24-bit color because nothing really reads 32-bit
+    const asset::ICPUTexture* tex =
+#   ifndef _DEBUG
+        static_cast<const asset::ICPUTexture*>(_params.rootAsset);
+#   else
+        dynamic_cast<const asset::ICPUTexture*>(_params.rootAsset);
+#   endif
+    assert(tex);
+    const video::CImageData* image = tex->getMipMap(tex->getLowestMip());
 
 	SBMPHeader imageHeader;
 	imageHeader.Id = 0x4d42;
 	imageHeader.Reserved = 0;
 	imageHeader.BitmapDataOffset = sizeof(imageHeader);
 	imageHeader.BitmapHeaderSize = 0x28;
-	imageHeader.Width = image->getDimension().Width;
-	imageHeader.Height = image->getDimension().Height;
+	imageHeader.Width = image->getSize().X;
+	imageHeader.Height = image->getSize().Y;
 	imageHeader.Planes = 1;
 	imageHeader.BPP = 24;
 	imageHeader.Compression = 0;
@@ -90,7 +89,7 @@ bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, uint32_t p
 		return false;
 
 	// write the bitmap header
-	if (file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
+	if (_file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
 		return false;
 
 	uint8_t* scan_lines = (uint8_t*)image->getData();
@@ -119,7 +118,7 @@ bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, uint32_t p
 		else
 			// source, length [pixels], destination
 			CColorConverter_convertFORMATtoFORMAT(&scan_lines[y * row_stride], imageHeader.Width, row_pointer);
-		if (file->write(row_pointer, row_size) < row_size)
+		if (_file->write(row_pointer, row_size) < row_size)
 			break;
 	}
 
