@@ -196,11 +196,16 @@ class CImageData : public asset::IAsset
             }
         }
 
+        inline core::vector3d<uint32_t> getSize() const
+        {
+            return core::vector3d<uint32_t>{maxCoord[0]-minCoord[0], maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
+        }
+
         //! Returns image data size in pixels
         inline size_t getImageDataSizeInPixels() const
         {
-            size_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
-            return size[0]*size[1]*size[2];
+            core::vector3d<uint32_t> sz = getSize();
+            return sz.X * sz.Y * sz.Z;
         }
 
         //! Returns the color format

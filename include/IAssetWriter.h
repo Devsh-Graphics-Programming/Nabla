@@ -35,7 +35,7 @@ public:
         {
         }
 
-        IAsset* rootAsset;
+        const IAsset* rootAsset;
         E_WRITER_FLAGS flags;
         float compressionLevel;
         size_t encryptionKeyLen;

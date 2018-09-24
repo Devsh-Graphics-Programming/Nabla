@@ -43,9 +43,9 @@ public:
 
     video::CImageData* getMipMap(uint32_t _mipLvl)
     {
-        if (_mipLvl >= m_mipmaps.size())
-            return nullptr;
-        return m_mipmaps[_mipLvl];
+        auto it = std::lower_bound(m_mipmaps.begin(), m_mipmaps.end(), [](const video::CImageData* _a, const video::CImageData* _b) { return _a->getSupposedMipLevel() < _b->getSupposedMipLevel(); });
+        if (it != m_mipmaps.end() && (*it)->getSupposedMipLevel()==_mipLvl)
+            return *it;
     }
     const video::CImageData* getMipMap(uint32_t _mipLvl) const
     {
@@ -54,6 +54,7 @@ public:
 
     size_t getMipMapCount() const { return m_mipmaps.size(); }
 
+    uint32_t getLowestMip() const { return m_mipmaps.front()->getSupposedMipLevel(); }
     uint32_t getHighestMip() const { return m_mipmaps.back()->getSupposedMipLevel(); }
 
     video::ECOLOR_FORMAT getColorFormat() const { return m_colorFormat; }
