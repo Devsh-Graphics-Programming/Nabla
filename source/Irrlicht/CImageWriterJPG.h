@@ -34,7 +34,6 @@ public:
 
     virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
 
-    //! write image to file
     virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
 
