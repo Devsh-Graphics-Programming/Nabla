@@ -9,17 +9,13 @@
 #include "IReadFile.h"
 #include "CImage.h"
 #include "os.h"
+#include "ICPUTexture.h"
 #include <string>
 
 namespace irr
 {
 namespace video
 {
-
-#ifdef _IRR_COMPILE_WITH_LIBJPEG_
-// Static members
-io::path CImageLoaderJPG::Filename;
-#endif // _IRR_COMPILE_WITH_LIBJPEG_
 
 //! constructor
 CImageLoaderJPG::CImageLoaderJPG()
@@ -34,15 +30,6 @@ CImageLoaderJPG::CImageLoaderJPG()
 //! destructor
 CImageLoaderJPG::~CImageLoaderJPG()
 {
-}
-
-
-
-//! returns true if the file maybe is able to be loaded by this class
-//! based on the file extension (e.g. ".tga")
-bool CImageLoaderJPG::isALoadableFileExtension(const io::path& filename) const
-{
-	return core::hasFileExtension ( filename, "jpg", "jpeg" );
 }
 
 
@@ -113,7 +100,7 @@ void CImageLoaderJPG::output_message(j_common_ptr cinfo)
 	char temp1[JMSG_LENGTH_MAX];
 	(*cinfo->err->format_message)(cinfo, temp1);
 	std::string errMsg("JPEG FATAL ERROR in ");
-	errMsg += std::string(Filename.c_str());
+    errMsg += reinterpret_cast<char*>(cinfo->client_data);
 	os::Printer::log(errMsg,temp1, ELL_ERROR);
 }
 #endif // _IRR_COMPILE_WITH_LIBJPEG_
@@ -137,21 +124,21 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* file) const
 }
 
 //! creates a surface from the file
-core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
+asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-    core::vector<CImageData*> retval;
+    core::vector<CImageData*> images;
 
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
-	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", file->getFileName(), ELL_DEBUG);
+	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", _file->getFileName(), ELL_DEBUG);
 #else
-	if (!file)
-		return retval;
+	if (!_file)
+		return nullptr;
 
-	Filename = file->getFileName();
+	const io::path& Filename = _file->getFileName();
 
 	uint8_t **rowPtr=0;
-	uint8_t* input = new uint8_t[file->getSize()];
-	file->read(input, file->getSize());
+	uint8_t* input = new uint8_t[_file->getSize()];
+	_file->read(input, _file->getSize());
 
 	// allocate and initialize JPEG decompression object
 	struct jpeg_decompress_struct cinfo;
@@ -165,6 +152,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	cinfo.err = jpeg_std_error(&jerr.pub);
 	cinfo.err->error_exit = error_exit;
 	cinfo.err->output_message = output_message;
+    cinfo.client_data = const_cast<char*>(Filename.c_str());
 
 	// compatibility fudge:
 	// we need to use setjmp/longjmp for error handling as gcc-linux
@@ -182,7 +170,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 			delete [] rowPtr;
 
 		// return null pointer
-		return retval;
+		return nullptr;
 	}
 
 	// Now we can initialize the JPEG decompression object.
@@ -192,7 +180,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	jpeg_source_mgr jsrc;
 
 	// Set up data pointer
-	jsrc.bytes_in_buffer = file->getSize();
+	jsrc.bytes_in_buffer = _file->getSize();
 	jsrc.next_input_byte = (JOCTET*)input;
 	cinfo.src = &jsrc;
 
@@ -207,7 +195,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	// and BEFORE jpeg_destroy_decompress
 	// Caller is responsible for arranging these + setting up cinfo
 
-	// read file parameters with jpeg_read_header()
+	// read _file parameters with jpeg_read_header()
 	jpeg_read_header(&cinfo, TRUE);
 
 	bool useCMYK=false;
@@ -287,18 +275,13 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 
 	delete [] input;
 
-    retval.push_back(image);
+    images.push_back(image);
 #endif
 
-	return retval;
-}
-
-
-
-//! creates a loader which is able to load jpeg images
-IImageLoader* createImageLoaderJPG()
-{
-	return new CImageLoaderJPG();
+    asset::ICPUTexture* tex = new asset::ICPUTexture{images};
+    for (auto img : images)
+        img->drop();
+    return tex;
 }
 
 } // end namespace video
