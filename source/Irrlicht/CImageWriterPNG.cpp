@@ -10,6 +10,7 @@
 #include "CColorConverter.h"
 #include "IWriteFile.h"
 #include "os.h" // for logging
+#include "ICPUTexture.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 #ifndef _IRR_USE_NON_SYSTEM_LIB_PNG_
@@ -23,11 +24,6 @@ namespace irr
 {
 namespace video
 {
-
-IImageWriter* createImageWriterPNG()
-{
-	return new CImageWriterPNG;
-}
 
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 // PNG function for error handling
@@ -63,19 +59,19 @@ CImageWriterPNG::CImageWriterPNG()
 #endif
 }
 
-bool CImageWriterPNG::isAWriteableFileExtension(const io::path& filename) const
+bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
-	return core::hasFileExtension ( filename, "png" );
-#else
-	return false;
-#endif
-}
+    const asset::ICPUTexture* tex =
+#   ifndef _DEBUG
+        static_cast<const asset::ICPUTexture*>(_params.rootAsset);
+#   else
+        dynamic_cast<const asset::ICPUTexture*>(_params.rootAsset);
+#   endif
+    assert(tex);
+    const video::CImageData* image = tex->getMipMap(tex->getLowestMip());
 
-bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t param) const
-{
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
-	if (!file || !image)
+	if (!_file || !image)
 		return false;
 
 	// Allocate the png write struct
@@ -83,7 +79,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 		NULL, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warning);
 	if (!png_ptr)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create write struct failure\n", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("PNGWriter: Internal PNG create write struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
 		return false;
 	}
 
@@ -91,7 +87,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 	png_infop info_ptr = png_create_info_struct(png_ptr);
 	if (!info_ptr)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create info struct failure\n", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("PNGWriter: Internal PNG create info struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, NULL);
 		return false;
 	}
@@ -103,7 +99,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 		return false;
 	}
 
-	png_set_write_fn(png_ptr, file, user_write_data_fcn, NULL);
+	png_set_write_fn(png_ptr, _file, user_write_data_fcn, NULL);
 
 	// Set info
 	switch(image->getColorFormat())
@@ -111,18 +107,18 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 		case ECF_A8R8G8B8:
 		case ECF_A1R5G5B5:
 			png_set_IHDR(png_ptr, info_ptr,
-				image->getDimension().Width, image->getDimension().Height,
+				image->getSize().X, image->getSize().Y,
 				8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 		break;
 		default:
 			png_set_IHDR(png_ptr, info_ptr,
-				image->getDimension().Width, image->getDimension().Height,
+				image->getSize().X, image->getSize().Y,
 				8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 	}
 
-	int32_t lineWidth = image->getDimension().Width;
+	int32_t lineWidth = image->getSize().X;
 	switch(image->getColorFormat())
 	{
 	case ECF_R8G8B8:
@@ -137,10 +133,10 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 	default:
 		break;
 	}
-	uint8_t* tmpImage = new uint8_t[image->getDimension().Height*lineWidth];
+	uint8_t* tmpImage = new uint8_t[image->getSize().Y*lineWidth];
 	if (!tmpImage)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create image failure\n", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("PNGWriter: Internal PNG create image failure\n", _file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		return false;
 	}
@@ -149,16 +145,16 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 	switch(image->getColorFormat())
 	{
 	case ECF_R8G8B8:
-		CColorConverter::convert_R8G8B8toR8G8B8(data,image->getDimension().Height*image->getDimension().Width,tmpImage);
+		CColorConverter::convert_R8G8B8toR8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
 	case ECF_A8R8G8B8:
-		CColorConverter::convert_A8R8G8B8toA8R8G8B8(data,image->getDimension().Height*image->getDimension().Width,tmpImage);
+		CColorConverter::convert_A8R8G8B8toA8R8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
 	case ECF_R5G6B5:
-		CColorConverter::convert_R5G6B5toR8G8B8(data,image->getDimension().Height*image->getDimension().Width,tmpImage);
+		CColorConverter::convert_R5G6B5toR8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
 	case ECF_A1R5G5B5:
-		CColorConverter::convert_A1R5G5B5toA8R8G8B8(data,image->getDimension().Height*image->getDimension().Width,tmpImage);
+		CColorConverter::convert_A1R5G5B5toA8R8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
 #ifndef _DEBUG
 		// TODO: Error handling in case of unsupported color format
@@ -170,10 +166,10 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 	// Create array of pointers to rows in image data
 
 	//Used to point to image rows
-	uint8_t** RowPointers = new png_bytep[image->getDimension().Height];
+	uint8_t** RowPointers = new png_bytep[image->getSize().Y];
 	if (!RowPointers)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create row pointers failure\n", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("PNGWriter: Internal PNG create row pointers failure\n", _file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		delete [] tmpImage;
 		return false;
@@ -181,7 +177,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 
 	data=tmpImage;
 	// Fill array of pointers to rows in image data
-	for (uint32_t i=0; i<image->getDimension().Height; ++i)
+	for (uint32_t i=0; i<image->getSize().Y; ++i)
 	{
 		RowPointers[i]=data;
 		data += lineWidth;
