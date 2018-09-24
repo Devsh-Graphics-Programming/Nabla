@@ -7,7 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
-#include "IImageLoader.h"
+#include "IAssetLoader.h"
 
 
 namespace irr
@@ -53,19 +53,20 @@ namespace video
 /*!
 	Surface Loader for targa images
 */
-class CImageLoaderTGA : public IImageLoader
+class CImageLoaderTGA : public asset::IAssetLoader
 {
 public:
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
-	//! returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (e.g. ".tga")
-	virtual bool isALoadableFileExtension(const io::path& filename) const;
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "tga", nullptr };
+        return ext;
+    }
 
-	//! returns true if the file maybe is able to be loaded by this class
-	virtual bool isALoadableFileFormat(io::IReadFile* file) const;
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
 
-	//! creates a surface from the file
-	core::vector<CImageData*> loadImage(io::IReadFile* file) const;
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 
