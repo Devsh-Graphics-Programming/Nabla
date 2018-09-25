@@ -48,11 +48,13 @@ public:
         return r;
     }
 
+    IAsset() : isCached{false}, isDummyObjectForCacheAliasing{false} {}
+
 private:
     friend class IAssetManager;
 
     std::string cacheKey;
-    bool isCached = false;
+    bool isCached;
 
     // could make a move-ctor version too
     inline void setNewCacheKey(const std::string& newKey) { cacheKey = newKey; }
@@ -63,7 +65,7 @@ private:
     inline void IAssetManager_convertToDummyObject() { this->convertToDummyObject(); }
 
 protected:
-    bool isDummyObjectForCacheAliasing = false;
+    bool isDummyObjectForCacheAliasing;
     //! To be implemented by base classes, dummies must retain references to other assets
     //! but cleans up all other resources which are not assets.
     virtual void convertToDummyObject() = 0;

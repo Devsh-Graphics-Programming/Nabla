@@ -140,25 +140,22 @@ namespace impl
 
     public:
         //! Only in non-concurrent cache
-        inline size_t outputRange(const ConstRangeType& _rng, size_t _storageSize, MutablePairType* _out, bool* _gotAll) const
+        inline bool outputRange(const ConstRangeType& _rng, size_t& _inOutStorageSize, MutablePairType* _out) const
         {
-            bool dummy;
-            if (!_gotAll)
-                _gotAll = &dummy;
-            *_gotAll = !isNonZeroRange(_rng);
+            if (_out)
+                return std::distance(_rng.first, _rng.second);
             size_t i = 0u;
-            for (auto it = _rng.first; it != _rng.second && i < _storageSize; ++it)
-            {
+            for (auto it = _rng.first; it != _rng.second && i < _inOutStorageSize; ++it)
                 _out[i++] = *it;
-                if (it == std::prev(_rng.second))
-                    *_gotAll = true;
-            }
-            return i;
+            const size_t reqSize = std::distance(_rng.first, _rng.second);
+            bool res = _inOutStorageSize <= reqSize;
+            _inOutStorageSize = reqSize;
+            return res;
         }
 
-        inline size_t outputAll(size_t _storageSize, MutablePairType* _out, bool* _gotAll) const
+        inline bool outputAll(size_t& _inOutStorageSize, MutablePairType* _out) const
         {
-            return outputRange({cbegin(), cend()}, _storageSize, _out, _gotAll);
+            return outputRange({cbegin(), cend()}, _inOutStorageSize, _out);
         }
 
         CObjectCacheBase() = default;
@@ -183,14 +180,10 @@ namespace impl
 		inline size_t getSize() const { return m_container.size(); }
 
         // Concurrent cache has only const-iterator getters
-        inline IteratorType begin() { return std::begin(m_container); }
         inline ConstIteratorType begin() const { return cbegin(); }
-        inline IteratorType end() { return std::end(m_container); }
         inline ConstIteratorType end() const { return cend(m_container); }
         inline ConstIteratorType cbegin() const { return std::cbegin(m_container); }
         inline ConstIteratorType cend() const { return std::cend(m_container); }
-        inline RevIteratorType rbegin() { return std::rbegin(m_container); }
-        inline RevIteratorType rend() { return std::rend(m_container); }
         inline ConstRevIteratorType crbegin() const { std::crbegin(m_container); }
         inline ConstRevIteratorType crend() const { std::crend(m_container); }
     };
@@ -362,18 +355,36 @@ namespace impl
             return true;
         }
 
-        bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
-        {
-            *_outrange = this->findRange(_key);
-            if (!Base::isNonZeroRange(*_outrange))
-            {
-                _outrange->first = this->m_container.insert(_outrange->second, {_key, nullptr});
-                _outrange->second = std::next(_outrange->first);
-                this->greet(nullptr);
-                return false;
-            }
-            return true;
-        }
+        //bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
+        //{
+        //    *_outrange = this->findRange(_key);
+        //    if (!Base::isNonZeroRange(*_outrange))
+        //    {
+        //        _outrange->first = this->m_container.insert(_outrange->second, {_key, nullptr});
+        //        _outrange->second = std::next(_outrange->first);
+        //        this->greet(nullptr);
+        //        return false;
+        //    }
+        //    return true;
+        //}
+
+        //bool getAndStoreKeyRangeOrReserve(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePair* _out, bool* _gotAll)
+        //{
+        //    bool dummy;
+        //    if (!_gotAll)
+        //        _gotAll = &dummy;
+        //    auto rng = this->findRange(_key);
+        //    bool res = true;
+        //    if (!Base::isNonZeroRange(rng))
+        //    {
+        //        rng.first = this->m_container.insert(rng.second, {_key, nullptr});
+        //        rng.second = std::next(rng.first);
+        //        this->greet(nullptr);
+        //        res = false;
+        //    }
+        //    *_gotAll = this->outputRange(rng, _inOutStorageSize, _out);
+        //    return res;
+        //}
 
         //! @returns true if object was removed (i.e. was present in cache)
         inline bool removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
@@ -530,18 +541,36 @@ namespace impl
             return true;
         }
 
-        bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
-        {
-            *_outrange = this->findRange(_key);
-            if (!Base::isNonZeroRange(*_outrange))
-            {
-                _outrange->first = this->m_container.insert(_outrange->first, { _key, nullptr });
-                _outrange->second = std::next(_outrange->second);
-                this->greet(nullptr);
-                return false;
-            }
-            return true;
-        }
+        //bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
+        //{
+        //    *_outrange = this->findRange(_key);
+        //    if (!Base::isNonZeroRange(*_outrange))
+        //    {
+        //        _outrange->first = this->m_container.insert(_outrange->first, { _key, nullptr });
+        //        _outrange->second = std::next(_outrange->second);
+        //        this->greet(nullptr);
+        //        return false;
+        //    }
+        //    return true;
+        //}
+
+        //bool getAndStoreKeyRangeOrReserve(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePair* _out, bool* _gotAll)
+        //{
+        //    bool dummy;
+        //    if (!_gotAll)
+        //        _gotAll = &dummy;
+        //    auto rng = this->findRange(_key);
+        //    bool res = true;
+        //    if (!Base::isNonZeroRange(rng))
+        //    {
+        //        rng.first = this->m_container.insert(rng.second, { _key, nullptr });
+        //        rng.second = std::next(rng.first);
+        //        this->greet(nullptr);
+        //        res = false;
+        //    }
+        //    *_gotAll = this->outputRange(rng, _inOutStorageSize, _out);
+        //    return res;
+        //}
     };
 
     template <
@@ -574,13 +603,44 @@ namespace impl
             return false;
         }
 
-        inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t _storageSize, typename Base::MutablePairType* _out, bool* _gotAll)
+        inline bool findAndStoreRange(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePairType* _out)
         {
-            return this->outputRange(this->findRange(_key), _storageSize, _out, _gotAll);
+            return this->outputRange(this->findRange(_key), _inOutStorageSize, _out);
         }
-        inline size_t findAndStoreRange(const typename Base::KeyType_impl& _key, size_t _storageSize, typename Base::MutablePairType* _out, bool* _gotAll) const
+        inline bool findAndStoreRange(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePairType* _out) const
         {
-            return this->outputRange(this->findRange(_key), _storageSize, _out, _gotAll);
+            return this->outputRange(this->findRange(_key), _inOutStorageSize, _out);
+        }
+
+        bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
+        {
+            *_outrange = this->findRange(_key);
+            if (!Base::isNonZeroRange(*_outrange))
+            {
+                _outrange->first = this->m_container.insert(_outrange->second, { _key, nullptr });
+                _outrange->second = std::next(_outrange->first);
+                this->greet(nullptr);
+                return false;
+            }
+            return true;
+        }
+
+        bool getAndStoreKeyRangeOrReserve(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePairType* _out, bool* _gotAll)
+        {
+            bool dummy;
+            if (!_gotAll)
+                _gotAll = &dummy;
+            auto rng = this->findRange(_key);
+            bool res = true;
+            if (!Base::isNonZeroRange(rng))
+            {
+                rng.first = this->m_container.insert(rng.second, { _key, nullptr });
+                rng.second = std::next(rng.first);
+                this->greet(nullptr);
+                res = false;
+            }
+            *_gotAll = this->outputRange(rng, _inOutStorageSize, _out);
+            return res;
         }
     };
 

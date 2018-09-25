@@ -37,16 +37,6 @@ namespace impl
         using K = typename BaseCache::KeyType_impl;
         using T = typename BaseCache::CachedType;
 
-        // F must be zero-args, non-void return-type callable
-        template<typename F, typename R = typename std::result_of<F>::type>
-        R threadSafeRead(F _f) const
-        {
-            this->m_lock.lockRead();
-            const R r = static_cast<const BaseCache&>(*this).*_f();
-            this->m_lock.unlockRead();
-            return r;
-        }
-
     public:
         using IteratorType = typename BaseCache::IteratorType;
         using ConstIteratorType = typename BaseCache::ConstIteratorType;
@@ -58,14 +48,6 @@ namespace impl
         using MutablePairType = typename BaseCache::MutablePairType;
 
         using BaseCache::BaseCache;
-
-        // writing/reading from/to retrieved iterators is not thread safe and iterators can become invalidated at any time!
-        inline ConstIteratorType begin() const { return threadSafeRead(CacheBase::begin); }
-        inline ConstIteratorType end() const { return threadSafeRead(CacheBase::end); }
-        inline ConstIteratorType cbegin() const { return threadSafeRead(CacheBase::cbegin); }
-        inline ConstIteratorType cend() const { return threadSafeRead(CacheBase::cend); }
-        inline ConstRevIteratorType crbegin() const { return threadSafeRead(CacheBase::crbegin); }
-        inline ConstRevIteratorType crend() const { return threadSafeRead(CacheBase::crend); }
 
         template<typename RngT>
         static bool isNonZeroRange(const RngT& _rng) { return BaseCache::isNonZeroRange(_rng); }
@@ -110,27 +92,11 @@ namespace impl
             return r;
         }
 
-        bool getKeyRangeOrReserve(typename RangeType* _outrange, const K& _key)
+        bool getAndStoreKeyRangeOrReserve(const K& _key, size_t& _inOutStorageSize, MutablePairType* _out, bool* _gotAll)
         {
             this->m_lock.lockWrite();
-            bool r = BaseCache::getKeyRangeOrReserve(_outrange, _key);
+            const bool r = BaseCache::getAndStoreKeyRangeOrReserve(_key, _inOutStorageSize, _out, _gotAll);
             this->m_lock.unlockWrite();
-            return r;
-        }
-
-        inline typename RangeType findRange(const K& _key)
-        {
-            this->m_lock.lockRead();
-            typename RangeType r = BaseCache::findRange(_key);
-            this->m_lock.unlockRead();
-            return r;
-        }
-
-        inline const typename RangeType findRange(const K& _key) const
-        {
-            this->m_lock.lockRead();
-            const typename RangeType r = BaseCache::findRange(_key);
-            this->m_lock.unlockRead();
             return r;
         }
 
@@ -142,26 +108,26 @@ namespace impl
             return r;
         }
 
-        inline size_t findAndStoreRange(const typename K& _key, size_t _storageSize, typename MutablePairType* _out, bool* _gotAll)
+        inline bool findAndStoreRange(const typename K& _key, size_t& _inOutStorageSize, MutablePairType* _out)
         {
             m_lock.lockRead();
-            const size_t r = BaseCache::findAndStoreRange(_key, _storageSize, _out, _gotAll);
+            const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
             m_lock.unlockRead();
             return r;
         }
 
-        inline size_t findAndStoreRange(const typename K& _key, size_t _storageSize, typename MutablePairType* _out, bool* _gotAll) const
+        inline bool findAndStoreRange(const typename K& _key, size_t& _inOutStorageSize, MutablePairType* _out) const
         {
             m_lock.lockRead();
-            const size_t r = BaseCache::findAndStoreRange(_key, _storageSize, _out, _gotAll);
+            const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
             m_lock.unlockRead();
             return r;
         }
 
-        inline size_t outputAll(size_t _storageSize, MutablePairType* _out, bool* _gotAll) const
+        inline bool outputAll(size_t& _inOutStorageSize, MutablePairType* _out) const
         {
             m_lock.lockRead();
-            const size_t r = BaseCache::outputAll(_storageSize, _out, _gotAll);
+            const bool r = BaseCache::outputAll(_inOutStorageSize, _out);
             m_lock.unlockRead();
             return r;
         }
