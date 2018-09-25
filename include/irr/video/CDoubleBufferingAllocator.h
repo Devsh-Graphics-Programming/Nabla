@@ -88,13 +88,14 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
 		@param rangeToUse is a memory range relative to the staging buffer's bound memory start, not the buffer start or the mapped IDriverMemoryAllocation offset. */
         template<typename... Args>
         CDoubleBufferingAllocator(IVideoDriver* driver, const IDriverMemoryAllocation::MemoryRange& rangeToUse, IGPUBuffer* stagingBuff, size_t destBuffOffset, IGPUBuffer* destBuff, Args&&... args) :
-                        mDriver(driver), mBackBuffer(stagingBuff), mFrontBuffer(destBuff), mStagingBuffOff(range.offset), mRangeLength(rangeToUse.length),
+                        mDriver(driver), mBackBuffer(stagingBuff), mFrontBuffer(destBuff), mStagingBuffOff(rangeToUse.offset), mRangeLength(rangeToUse.length),
                         mStagingPointer(reinterpret_cast<uint8_t*>(mBackBuffer->getBoundMemory()->getMappedPointer())+mStagingBuffOff), mDestBuffOff(destBuffOffset),
                         mReservedSize(AddressAllocator::reserved_size(mRangeLength,args...)), mCPUAllocator(), mAllocatorState(mCPUAllocator.allocate(mReservedSize,_IRR_SIMD_ALIGNMENT)),
                         mAllocator(mAllocatorState,mStagingPointer,mRangeLength,std::forward<Args>(args)...)
         {
 #ifdef _DEBUG
             assert(mStagingBuffOff>=stagingBuff->getBoundMemoryOffset());
+            assert(mStagingBuffOff+mRangeLength>=stagingBuff->getBoundMemory()->getAllocationSize());
 #endif // _DEBUG
             mBackBuffer->grab();
             mFrontBuffer->grab();
@@ -144,7 +145,7 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
                     mDriver->flushMappedMemoryRanges(1,&range);
                 }
 
-                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,tmpBackOffset,
+                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,range.offset,
                                     mDestBuffOff+Base::dirtyRange.first,range.length);
                 Base::resetDirtyRange();
             }

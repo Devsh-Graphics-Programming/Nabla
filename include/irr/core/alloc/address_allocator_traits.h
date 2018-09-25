@@ -55,7 +55,7 @@ namespace core
             }
 
 
-            static inline size_type    get_real_addr(AddressAlloc& alloc, size_type allocated_addr)
+            static inline size_type    get_real_addr(const AddressAlloc& alloc, size_type allocated_addr)
             {
                 return allocated_addr;
             }
@@ -81,7 +81,7 @@ namespace core
             }
 
 
-            static inline size_type    get_real_addr(AddressAlloc& alloc, size_type allocated_addr)
+            static inline size_type    get_real_addr(const AddressAlloc& alloc, size_type allocated_addr)
             {
                 return alloc.get_real_addr(allocated_addr);
             }
@@ -133,7 +133,7 @@ namespace core
             }
 */
 
-            static inline size_type        get_real_addr(AddressAlloc& alloc, size_type allocated_addr) noexcept
+            static inline size_type        get_real_addr(const AddressAlloc& alloc, size_type allocated_addr) noexcept
             {
                 return impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::get_real_addr(allocated_addr);
             }
@@ -152,6 +152,20 @@ namespace core
                 for (uint32_t i=0; i<count; i+=maxMultiOps)
                     impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::multi_free_addr(
                                                                 alloc,std::max(count-i,maxMultiOps),addr+i,bytes+i);
+            }
+
+            //! TODO: implement traits when only 2 of the following are present
+            static inline size_type        get_free_size(const AddressAlloc& alloc) noexcept
+            {
+                return alloc.get_free_size();
+            }
+            static inline size_type        get_allocated_size(const AddressAlloc& alloc) noexcept
+            {
+                return alloc.get_allocated_size();
+            }
+            static inline size_type        get_total_size(const AddressAlloc& alloc) noexcept
+            {
+                return alloc.get_total_size();
             }
     };
 

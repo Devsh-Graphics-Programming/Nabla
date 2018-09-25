@@ -15,6 +15,8 @@ template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false, class C
 class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>
 {
     private:
+        typedef core::address_allocator_traits<AddressAllocator>                            alloc_traits;
+
         typedef CDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>  Base;
         typedef CResizableDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>  ThisType;
 
@@ -22,11 +24,27 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         static size_type defaultGrowPolicy(ThisType* _this, size_type totalRequestedNewMem)
         {
             constexpr size_type growStep = 32u*4096u; //128k at a time
-            return (_this->()+totalRequestedNewMem+growStep)&size_type(growStep-1u);
+            constexpr size_type growStepMinus1 = growStep-1u;
+
+            size_type allAllocatorSpace = alloc_traits::get_total_size(_this->mAllocator);
+            size_type nextAllocTotal = alloc_traits::get_allocated_size(_this->mAllocator)+totalRequestedNewMem;
+            if (nextAllocTotal>allAllocatorSpace)
+                return (nextAllocTotal+growStepMinus1)&(~growStepMinus1);
+
+            return allAllocatorSpace;
         }
-        static size_type defaultShrinkPolicy(ThisType* _this,)
+        static size_type defaultShrinkPolicy(ThisType* _this)
         {
-            return stuffs;
+            constexpr size_type growStep = 32u*4096u; //128k at a time
+            constexpr size_type growStepMinus1 = growStep-1u;
+
+            constexpr size_type shrinkStep = 256u*4096u; //1M at a time
+
+            size_type allFreeSpace = alloc_traits::get_free_size(_this->mAllocator);
+            if (allFreeSpace>shrinkStep)
+                return (alloc_traits::get_allocated_size(_this->mAllocator)+growStepMinus1)&(~growStepMinus1);
+
+            return alloc_traits::get_total_size(_this->mAllocator);
         }
 
         decltype(defaultGrowPolicy) growPolicy;
@@ -72,9 +90,29 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
             for (uint32_t i=1; i<count; i++)
                 totalRequestedNewMem += bytes[i];
 
-            size_type reserveSize = growPolicy(this,totalRequestedNewMem);
-            if (reserveSize+Base::mOffset>Base::mBackBuffer->getBoundMemory()->getAllocationSize())
-                swapstuff;
+            size_type allAllocatorSpace = alloc_traits::get_total_size(this->mAllocator);
+            size_type newSize = growPolicy(this,totalRequestedNewMem);
+            if (newSize>allAllocatorSpace)
+            {
+                void* newAllocatorState = mAllocatorState;
+                size_type newReservedSize = AddressAllocator::reserved_size(newSize,mAllocator);
+                if (newReservedSize>mReservedSize)
+                    newAllocatorState = mCPUAllocator.allocate(newReservedSize,_IRR_SIMD_ALIGNMENT);
+
+                if (newSize+Base::mOffset>Base::mBackBuffer->getBoundMemory()->getAllocationSize())
+                    resizebackbuffer;
+
+                mAllocator = AddressAllocator(mAllocator,newAllocatorState, void* newBuffer,newSize);
+                if (newReservedSize>mReservedSize) // equivalent to (newAllocatorState!=mAllocatorState)
+                {
+                    mCPUAllocator.deallocate(reinterpret_cast<uint8_t*>(mAllocatorState),mReservedSize);
+                    mAllocatorState = newAllocatorState;
+                    mReservedSize = newReservedSize;
+                }
+            }
+
+            if (newSize+Base::mOffset>Base::mFrontBuffer->getSize())
+                resizefrontbuffer;
 
             alloc_traits::multi_alloc_addr(mAllocator,std::forward<Args>(args)...);
         }
@@ -84,14 +122,20 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         {
             alloc_traits::multi_free_addr(mAllocator,std::forward<Args>(args)...);
 
-            size_type reserveSize = shrinkPolicy(this,);
-            if (reserveSize!=)
+            size_type allAllocatorSpace = alloc_traits::get_total_size(this->mAllocator);
+            size_type newSize = shrinkPolicy(this);
+            if (newSize<allAllocatorSpace)
             {
-                reserveSize = mAllocator.safe_shrink_size(reserveSize);
-                if (reserveSize==)
+                // some allocators may not be shrinkable because of fragmentation
+                newSize = mAllocator.safe_shrink_size(newSize);
+                if (newSize>=allAllocatorSpace)
                     return;
 
-                // resize
+                //! don't bother resizing reserved space
+
+                // resize allocator
+
+                // resize buffers
             }
 
         }

@@ -166,6 +166,20 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             return Base::reserved_size(bufSz,blockSz,args...)*2ull;
         }
 
+/*
+        inline size_type        get_free_size() const noexcept
+        {
+            return Base::get_free_size();
+        }
+        inline size_type        get_allocated_size() const noexcept
+        {
+            return Base::get_allocated_size();
+        }
+        inline size_type        get_total_size() const noexcept
+        {
+            return Base::get_total_size();
+        }
+*/
     protected:
         size_type* const                        addressRedirects;
         size_type                               addressesAllocated;

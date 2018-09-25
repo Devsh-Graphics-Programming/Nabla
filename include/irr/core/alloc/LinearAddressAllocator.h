@@ -18,6 +18,7 @@ namespace core
 template<typename _size_type>
 class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocator<_size_type> >
 {
+        typedef AddressAllocatorBase<LinearAddressAllocator<_size_type> > Base;
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
@@ -27,11 +28,11 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
 
         virtual ~LinearAddressAllocator() {}
 
-        LinearAddressAllocator(void* reservedSpc, void* buffer, size_type buffSz) noexcept : AddressAllocatorBase(reservedSpc,buffer)
+        LinearAddressAllocator(void* reservedSpc, void* buffer, size_type buffSz) noexcept : Base(reservedSpc,buffer)
                     alignOffset(calcAlignOffset(buffer,buffSz)), bufferSize(buffSz+alignOffset), cursor(alignOffset) {}
 
         LinearAddressAllocator(const LinearAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) :
-                    AddressAllocatorBase(other,newReservedSpc,newBuffer,newBuffSz), alignOffset(calcAlignOffset(newBuffer,newBuffSz)),
+                    Base(other,newReservedSpc,newBuffer,newBuffSz), alignOffset(calcAlignOffset(newBuffer,newBuffSz)),
                     bufferSize(newBuffSz+alignOffset), cursor(other.cursor+alignOffset-other.alignOffset)
         {
 #ifdef _DEBUG
@@ -91,13 +92,26 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
 
         inline size_type        safe_shrink_size(size_type byteBound=0u) const noexcept
         {
-            return cursor-alignOffset;
+            return get_allocated_size();
         }
 
         template<typename... Args>
         static inline size_type reserved_size(size_type bufSz, const Args&... args) noexcept
         {
             return 0u;
+        }
+
+        inline size_type        get_free_size() const noexcept
+        {
+            return bufferSize-cursor;
+        }
+        inline size_type        get_allocated_size() const noexcept
+        {
+            return cursor-alignOffset;
+        }
+        inline size_type        get_total_size() const noexcept
+        {
+            return bufferSize-alignOffset;
         }
     protected:
         const size_type                                     alignOffset;

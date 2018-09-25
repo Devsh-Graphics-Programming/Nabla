@@ -35,7 +35,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         virtual ~PoolAddressAllocator() {}
 
         PoolAddressAllocator(void* reservedSpc, void* buffer, size_type bufSz, size_type blockSz) noexcept :
-                    AddressAllocatorBase<PoolAddressAllocator<_size_type> >(reservedSpc,buffer), maxAlignment(size_type(1u)<<findLSB(blockSz)),
+                    Base(reservedSpc,buffer), maxAlignment(size_type(1u)<<findLSB(blockSz)),
                     alignOffset(calcAlignOffset(reinterpret_cast<size_t>(buffer),maxAlignment)), blockCount((bufSz-alignOffset)/blockSz),
                     blockSize(blockSz), freeStackCtr(0u)
         {
@@ -43,7 +43,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         }
 
         PoolAddressAllocator(const PoolAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) noexcept :
-                    AddressAllocatorBase<PoolAddressAllocator<_size_type> >(newReservedSpc,newBuffer), maxAlignment(other.maxAlignment),
+                    Base(newReservedSpc,newBuffer,newBuffSz), maxAlignment(other.maxAlignment),
                     alignOffset(calcAlignOffset(reinterpret_cast<size_t>(newBuffer),maxAlignment)),
                     blockCount((newBuffSz-alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
         {
@@ -100,8 +100,8 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
                 return retval;
 
             auto allocSize = (blockCount-freeStackCtr)*blockSize;
-            if (allocSize>bound)
-                bound = allocSize;
+            if (allocSize>byteBound)
+                byteBound = allocSize;
 
             auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
             size_type* tmpStackCopy = _IRR_ALIGNED_MALLOC(freeStackCtr*sizeof(size_type),_IRR_SIMD_ALIGNMENT);
@@ -109,7 +109,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             size_type boundedCount = 0;
             for (size_type i=0; i<freeStackCtr; i++)
             {
-                if (freeStack[i]<bound+alignOffset)
+                if (freeStack[i]<byteBound+alignOffset)
                     continue;
 
                 tmpStackCopy[boundedCount++] = freeStack[i];
@@ -141,18 +141,17 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             return probBlockCount*sizeof(size_type);
         }
 
-
-        inline size_type        get_free_block_count() const noexcept
+        inline size_type        get_free_size() const noexcept
         {
-            return freeStackCtr;
+            return freeStackCtr*blockSize;
         }
-        inline size_type        get_allocated_block_count() const noexcept
+        inline size_type        get_allocated_size() const noexcept
         {
-            return blockCount-freeStackCtr;
+            return (blockCount-freeStackCtr)*blockSize;
         }
-        inline size_type        get_total_block_count() const noexcept
+        inline size_type        get_total_size() const noexcept
         {
-            return blockCount;
+            return blockCount*blockSize;
         }
     protected:
         const size_type                                     maxAlignment;

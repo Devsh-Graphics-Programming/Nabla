@@ -31,21 +31,21 @@ namespace core
         protected:
             virtual ~AddressAllocatorBase() {}
 
-            AddressAllocatorBase(void* reservedSpc, void* buffSz) : reservedSpace(reservedSpc), bufferStart(buffSz)
+            AddressAllocatorBase(void* reservedSpc, void* buffStart) : reservedSpace(reservedSpc), bufferStart(buffStart)
             {
     #ifdef _DEBUG
                 assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull); // pointer to reserved memory has to be aligned to SIMD types!
     #endif // _DEBUG
             }
-            AddressAllocatorBase(CRTP& other, void* newReservedSpc, void* newBuffSz) : reservedSpace(newReservedSpc), bufferStart(newBuffSz)
+            AddressAllocatorBase(CRTP& other, void* newReservedSpc, void* newBuffStart, size_t newBuffSz) : reservedSpace(newReservedSpc), bufferStart(newBuffStart)
             {
     #ifdef _DEBUG
                 assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
                 // cannot reallocate the data into smaller storage than is necessary
                 assert(newBuffSz>=other.safe_shrink_size());
-                if (other.bufferStart&&bufferStart)
-                    memmove(bufferStart,other.bufferStart,newBuffSz);
     #endif // _DEBUG
+                if (other.bufferStart&&bufferStart)
+                    memmove(bufferStart,other.bufferStart,other.get_total_size());
             }
 
             void* const reservedSpace;

@@ -99,19 +99,7 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
             {
                 newAllocCount += BackBufferGrowStep-1;
                 //grow data store
-                if (!GrowBackBuffer(newAllocCount))
-                {
-                    if (residencyRedirectTo)
-                    {
-                        free(residencyRedirectTo);
-                        residencyRedirectTo = NULL;
-                    }
-                    Allocated = 0;
-                    Granules = 0;
-                    for (size_t i=0; i<count; i++)
-                        granuleIDs[i] = 0xdeadbeefu;
-                    return false;
-                }
+                GrowBackBuffer(newAllocCount);
             }
             //allocate more IDs if needed
             if (newAllocCount>Granules)
@@ -119,15 +107,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
                 size_t pseudoNewAllocCount = Allocated+count;
                 newAllocCount = pseudoNewAllocCount+BackBufferGrowStep-1;
                 residencyRedirectTo = (uint32_t*)realloc(residencyRedirectTo,newAllocCount*4);
-
-                if (!residencyRedirectTo)
-                {
-                    Allocated = 0;
-                    Granules = 0;
-                    for (size_t i=0; i<count; i++)
-                        granuleIDs[i] = 0xdeadbeefu;
-                    return false;
-                }
 
                 while (allocationsCount<count&&Granules<pseudoNewAllocCount)
                 {
