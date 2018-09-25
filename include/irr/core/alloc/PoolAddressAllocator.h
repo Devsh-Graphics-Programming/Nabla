@@ -93,7 +93,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             return maxAlignment;
         }
 
-        inline size_type        safe_shrink_size(size_type bound=0u) const noexcept
+        inline size_type        safe_shrink_size(size_type byteBound=0u) const noexcept
         {
             size_type retval = (blockCount+1u)*blockSize;
             if (freeStackCtr==0u)

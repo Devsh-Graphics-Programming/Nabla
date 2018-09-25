@@ -143,20 +143,20 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         }
 
 
-        inline size_type        safe_shrink_size(size_type bound=0u) const noexcept
+        inline size_type        safe_shrink_size(size_type byteBound=0u) const noexcept
         {
-            if (addressesAllocated*Base::blockSize>bound)
-                bound = addressesAllocated*Base::blockSize;
+            if (addressesAllocated*Base::blockSize>byteBound)
+                byteBound = addressesAllocated*Base::blockSize;
 
             size_type newBound = Base::blockCount;
-            for (; newBound*Base::blockSize>bound; newBound--)
+            for (; newBound*Base::blockSize>byteBound; newBound--)
             {
                 if (addressRedirects[newBound-1u]<invalid_address)
                     break;
             }
-            bound = newBound*Base::blockSize;
+            byteBound = newBound*Base::blockSize;
 
-            return Base::safe_shrink_size(bound);
+            return Base::safe_shrink_size(byteBound);
         }
 
 

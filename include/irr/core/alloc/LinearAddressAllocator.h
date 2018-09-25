@@ -89,7 +89,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             return 1u;
         }
 
-        inline size_type        safe_shrink_size(size_type bound=0u) const noexcept
+        inline size_type        safe_shrink_size(size_type byteBound=0u) const noexcept
         {
             return cursor-alignOffset;
         }

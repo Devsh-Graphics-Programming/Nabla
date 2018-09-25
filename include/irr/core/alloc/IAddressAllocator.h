@@ -32,7 +32,7 @@ class IRR_FORCE_EBO IAddressAllocator
         virtual size_t              max_size() const noexcept = 0;
         virtual size_t              max_alignment() const noexcept = 0;
 
-        virtual size_t              safe_shrink_size(size_t bound=0u) const noexcept =0;
+        virtual size_t              safe_shrink_size(size_t byteBound=0u) const noexcept =0;
 };
 
 
@@ -74,7 +74,7 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : public address_allocator_tr
 
         inline virtual size_t       max_alignment() const noexcept {return getBaseRef().max_alignment();}
 
-        inline virtual size_t       safe_shrink_size(size_t bound=0u) const noexcept {return getBaseRef().safe_shrink_size();}
+        inline virtual size_t       safe_shrink_size(size_t byteBound=0u) const noexcept {return getBaseRef().safe_shrink_size(byteBound);}
 
         template<typename... Args>
         static inline size_t reserved_size(size_t bufSz, const Args&... args) noexcept
