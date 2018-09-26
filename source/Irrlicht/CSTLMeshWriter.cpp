@@ -39,26 +39,26 @@ CSTLMeshWriter::~CSTLMeshWriter()
 		SceneManager->drop();
 }
 
-
-//! Returns the type of the mesh writer
-EMESH_WRITER_TYPE CSTLMeshWriter::getType() const
-{
-	return EMWT_STL;
-}
-
-
 //! writes a mesh
-bool CSTLMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
+bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-	if (!file)
+	if (!_file)
 		return false;
 
-	os::Printer::log("Writing mesh", file->getFileName().c_str());
+    const ICPUMesh* mesh =
+#   ifndef _DEBUG
+        static_cast<const ICPUMesh*>(_params.rootAsset);
+#   else
+        dynamic_cast<const ICPUMesh*>(_params.rootAsset);
+#   endif
+    assert(mesh);
 
-	if ((flags & scene::EMWF_WRITE_COMPRESSED) || (flags & scene::EMWF_WRITE_BINARY))
-		return writeMeshBinary(file, mesh, flags);
+	os::Printer::log("Writing mesh", _file->getFileName().c_str());
+
+	if (_params.flags & asset::EWF_BINARY)
+		return writeMeshBinary(_file, mesh);
 	else
-		return writeMeshASCII(file, mesh, flags);
+		return writeMeshASCII(_file, mesh);
 }
 
 namespace
@@ -124,7 +124,7 @@ inline void writeFacesBinary(ICPUMeshBuffer* buffer, const bool& noIndices, io::
 }
 }
 
-bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
+bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const scene::ICPUMesh* mesh)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine";
@@ -174,7 +174,7 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, scene::ICPUMesh* mesh
 }
 
 
-bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
+bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const scene::ICPUMesh* mesh)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine ";
