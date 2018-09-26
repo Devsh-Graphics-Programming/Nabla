@@ -90,38 +90,7 @@ namespace asset
         } m_writers;
 
         friend IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
-    protected:
-        // (Criss) What does it do? And why return value is single pair (range i assume) if we can search multiple types at once.
-        // (Criss) And assume that by IAsset::iterator it's meant to be iterators to asset cache (typename decltype(m_meshCache)::IteratorType)
-        inline core::array<AssetCacheType::RangeType, IAsset::ET_STANDARD_TYPES_COUNT> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr)
-        {
-            core::CConcurrentMultiObjectCache<std::string, int>::RangeType;
-            core::array<AssetCacheType::RangeType, IAsset::ET_STANDARD_TYPES_COUNT> res(m_assetCache[0].findRange("\\")); // filling `res` with zero-ranges ('\' won't ever be a filename)
-            //auto hasFoundAnything = [](const decltype(res)& _res) {
-            //    for (const AssetCacheType::RangeType& range : _res)
-            //        if (AssetCacheType::isNonZeroRange(range))
-            //            return true;
-            //    return false;
-            //};
 
-            if (_types)
-            {
-                uint32_t i = 0u;
-                while (_types[i] != (IAsset::E_TYPE)0u)
-                {
-                    uint32_t typeIx = IAsset::typeFlagToIndex(_types[i]);
-                    res[typeIx] = m_assetCache[typeIx].findRange(_key);
-                    ++i;
-                }
-            }
-            else
-            {
-                for (uint32_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
-                    res[i] = m_assetCache[i].findRange(_key);
-            }
-
-            return res;
-        }
     public:
         //! Constructor
         explicit IAssetManager(io::IFileSystem* _fs) :
@@ -199,17 +168,60 @@ namespace asset
             return getAssetInHierarchy(_file, _params, _override, 0u);
         }
 
-        //! Does not do any loading, but tries to retrieve the asset by key if already loaded
-        /** \param types if not a nullptr, then it must be a 0-terminated list. Then we only retrieve specific types, i.e. when we are only looking for texture. */
-        // (Criss) Same problem as with non-const overload. Single pair and many types. What's the idea behind it?
-        inline core::array<AssetCacheType::ConstRangeType, IAsset::ET_STANDARD_TYPES_COUNT> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr, IAssetLoader::IAssetLoaderOverride* _override = nullptr) const
+        inline bool findAssets(size_t& _inOutStorageSize, IAsset** _out, const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
-            // This isn't right. TODO.
-            // Problem is, the right solution would be the opposite approach (call const function from non-const one), but that would require converting const iterator into non-const ones which is impossible.
-            const core::array<AssetCacheType::RangeType, IAsset::ET_STANDARD_TYPES_COUNT> nonConst = const_cast<IAssetManager*>(this)->findAssets(_key, _types);
-
-            // Here i would probably have to call _override->handleSearchFail ? But seems like not (why handleSearchFail has SAssetLoadContext arg?). There probably should be another handleSearchFail designed to be called from here?
-            // Or why is _override arg here?
+            size_t availableSize = _inOutStorageSize;
+            _inOutStorageSize = 0u;
+            bool res = true;
+            if (_types)
+            {
+                uint32_t i = 0u;
+                while ((_types[i] != (IAsset::E_TYPE)0u) && (availableSize > 0u))
+                {
+                    uint32_t typeIx = IAsset::typeFlagToIndex(_types[i]);
+                    size_t readCnt = availableSize;
+                    res = m_assetCache[typeIx].findAndStoreRange(_key, readCnt, _out);
+                    availableSize -= readCnt;
+                    _inOutStorageSize += readCnt;
+                    _out += readCnt;
+                    ++i;
+                }
+            }
+            else
+            {
+                for (uint32_t typeIx = 0u; typeIx < IAsset::ET_STANDARD_TYPES_COUNT; ++typeIx)
+                {
+                    size_t readCnt = availableSize;
+                    res = m_assetCache[typeIx].findAndStoreRange(_key, readCnt, _out);
+                    availableSize -= readCnt;
+                    _inOutStorageSize += readCnt;
+                    _out += readCnt;
+                }
+            }
+            return res;
+        }
+        inline std::vector<IAsset*> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
+        {
+            size_t reqSz = 0u;
+            if (_types)
+            {
+                uint32_t i = 0u;
+                while ((_types[i] != (IAsset::E_TYPE)0u))
+                {
+                    const uint32_t typeIx = IAsset::typeFlagToIndex(_types[i]);
+                    reqSz += m_assetCache[typeIx].getSize();
+                    ++i;
+                }
+            }
+            else
+            {
+                for (const auto& cache : m_assetCache)
+                    reqSz += cache.getSize();
+            }
+            core::vector<IAsset*> res(reqSz);
+            findAssets(reqSz, res.data(), _key, _types);
+            res.resize(reqSz);
+            return res;
         }
 
         //! Changes the lookup key
@@ -349,16 +361,17 @@ namespace asset
         }
         void removeAssetWriter(const uint32_t& _idx); // TODO what is _idx here?
 
-        void dumpCachesDebug(std::ostream& _outs) const
+        void dumpDebug(std::ostream& _outs) const
         {
             for (uint32_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
             {
                 _outs << "Asset cache (asset type " << (1u << i) << "):\n";
-                const size_t sz = m_assetCache[i].getSize();
+                size_t sz = m_assetCache[i].getSize();
                 typename AssetCacheType::MutablePairType* storage = new typename AssetCacheType::MutablePairType[sz];
-                m_assetCache[i].outputAll(sz, storage, nullptr);
+                m_assetCache[i].outputAll(sz, storage);
                 for (uint32_t j = 0u; j < sz; ++j)
                     _outs << "\tKey: " << storage[j].first << ", Value: " << static_cast<void*>(storage[j].second) << '\n';
+                delete[] storage;
             }
             _outs << "Loaders vector:\n";
             for (const auto& ldr : m_loaders.vector)
