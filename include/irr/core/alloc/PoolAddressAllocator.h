@@ -43,7 +43,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         }
 
         PoolAddressAllocator(const PoolAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) noexcept :
-                    Base(newReservedSpc,newBuffer,newBuffSz), maxAlignment(other.maxAlignment),
+                    Base(other,newReservedSpc,newBuffer,newBuffSz), maxAlignment(other.maxAlignment),
                     alignOffset(calcAlignOffset(reinterpret_cast<size_t>(newBuffer),maxAlignment)),
                     blockCount((newBuffSz-alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
         {
@@ -54,6 +54,13 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
                 auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
                 if (freeEntry<blockCount)
                     freeStack[freeStackCtr++] = freeEntry;
+            }
+
+            if (other.bufferStart&&Base::bufferStart)
+            {
+                memmove(reinterpret_cast<uint8_t*>(Base::bufferStart)+alignOffset,
+                        reinterpret_cast<uint8_t*>(other.bufferStart)+other.alignOffset,
+                        std::min(blockCount,other.blockCount)*blockSize);
             }
         }
 

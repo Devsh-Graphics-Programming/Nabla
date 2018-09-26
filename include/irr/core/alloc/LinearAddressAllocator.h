@@ -35,11 +35,15 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
                     Base(other,newReservedSpc,newBuffer,newBuffSz), alignOffset(calcAlignOffset(newBuffer,newBuffSz)),
                     bufferSize(newBuffSz+alignOffset), cursor(other.cursor+alignOffset-other.alignOffset)
         {
+            if (other.bufferStart&&Base::bufferStart)
+            {
 #ifdef _DEBUG
-            // new pointer must have greater or equal alignment
-            if (other.bufferStart&&bufferStart)
-                assert(findLSB(reinterpret_cast<size_t>(bufferStart)) >= findLSB(reinterpret_cast<size_t>(other.bufferStart)));
+                // new pointer must have greater or equal alignment
+                assert(findLSB(reinterpret_cast<size_t>(Base::bufferStart)) >= findLSB(reinterpret_cast<size_t>(other.bufferStart)));
 #endif // _DEBUG
+                memmove(reinterpret_cast<uint8_t*>(Base::bufferStart)+alignOffset,
+                        reinterpret_cast<uint8_t*>(other.bufferStart)+other.alignOffset, other.get_allocated_size());
+            }
         }
 
         inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept

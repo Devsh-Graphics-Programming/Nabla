@@ -44,8 +44,6 @@ namespace core
                 // cannot reallocate the data into smaller storage than is necessary
                 assert(newBuffSz>=other.safe_shrink_size());
     #endif // _DEBUG
-                if (other.bufferStart&&bufferStart)
-                    memmove(bufferStart,other.bufferStart,other.get_total_size());
             }
 
             void* const reservedSpace;
