@@ -4,12 +4,11 @@
 
 #include "IrrCompileConfig.h"
 
-#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
+//#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
 
 #include "CPLYMeshWriter.h"
 #include "os.h"
 #include "IMesh.h"
-#include "IMeshBuffer.h"
 #include "IWriteFile.h"
 #include "CMeshManipulator.h"
 
@@ -26,24 +25,25 @@ CPLYMeshWriter::CPLYMeshWriter()
 	#endif
 }
 
-
-//! Returns the type of the mesh writer
-EMESH_WRITER_TYPE CPLYMeshWriter::getType() const
-{
-	return EMWT_PLY;
-}
-
 //! writes a mesh
-bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags)
+bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-	if (!file || !mesh || mesh->getMeshBufferCount() > 1)
+    const ICPUMesh* mesh =
+#   ifndef _DEBUG
+        static_cast<const ICPUMesh*>(_params.rootAsset);
+#   else
+        dynamic_cast<const ICPUMesh*>(_params.rootAsset);
+#   endif
+    assert(mesh);
+
+	if (!_file || !mesh || mesh->getMeshBufferCount() > 1)
 		return false;
 
-	os::Printer::log("Writing mesh", file->getFileName().c_str());
+	os::Printer::log("Writing mesh", _file->getFileName().c_str());
 
 	// write PLY header
     std::string header = "ply\n";
-    header += (flags & EMWF_WRITE_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
+    header += (_params.flags & asset::EWF_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
 	header += "\ncomment IrrlichtBAW ";
 	header +=  IRRLICHT_SDK_VERSION;
 
@@ -164,12 +164,12 @@ bool CPLYMeshWriter::writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int3
     }
     header += "end_header\n";
 
-    file->write(header.c_str(), header.size());
+    _file->write(header.c_str(), header.size());
 
-    if (flags & EMWF_WRITE_BINARY)
-        writeBinary(file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
+    if (_params.flags & asset::EWF_BINARY)
+        writeBinary(_file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
     else
-        writeText(file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
+        writeText(_file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
 
     if (needToFreeIndices)
         free(indices);
@@ -197,33 +197,14 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
         if (_vaidToWrite[EVAI_ATTR1])
         {
             writeAttribBinary(_file, mbCopy, EVAI_ATTR1, i, colCpa);
-            //const E_COMPONENT_TYPE t = _mbuf->getMeshDataAndFormat()->getAttribType(EVAI_ATTR1);
-            //if (scene::isWeakInteger(t) || scene::isNativeInteger(t))
-            //{
-            //    _mbuf->getAttribute(ui, EVAI_ATTR1, i);
-            //    uint8_t ui8[4];
-            //    for (uint32_t k = 0u; k < colCpa; ++k)
-            //        ui8[k] = ui[k];
-            //    _file->write(ui8, colCpa);
-            //}
-            //else
-            //{
-            //    _mbuf->getAttribute(f, EVAI_ATTR1, i);
-            //    f *= 255.f;
-            //    _file->write(f.pointer, colCpa * sizeof(float));
-            //}
         }
         if (_vaidToWrite[EVAI_ATTR2])
         {
             writeAttribBinary(_file, mbCopy, EVAI_ATTR2, i, 2u);
-            //_mbuf->getAttribute(f, EVAI_ATTR2, i);
-            //_file->write(f.pointer, 2*sizeof(float));
         }
         if (_vaidToWrite[EVAI_ATTR3])
         {
             writeAttribBinary(_file, mbCopy, EVAI_ATTR3, i, 3u);
-            //_mbuf->getAttribute(f, EVAI_ATTR3, i);
-            //_file->write(f.pointer, 3*sizeof(float));
         }
     }
     mbCopy->drop();
@@ -308,29 +289,19 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, siz
         uint32_t ui[4];
         if (_vaidToWrite[EVAI_ATTR0])
         {
-            //_mbuf->getAttribute(f, EVAI_ATTR0, i);
-            //writeVectorAsText(_file, f.pointer, 3);
             writefunc(EVAI_ATTR0, i, 3u);
-            //_file->write("\n", 1);
         }
         if (_vaidToWrite[EVAI_ATTR1])
         {
             writefunc(EVAI_ATTR1, i, colCpa);
-            //_file->write("\n", 1);
         }
         if (_vaidToWrite[EVAI_ATTR2])
         {
-            //_mbuf->getAttribute(f, EVAI_ATTR2, i);
-            //writeVectorAsText(_file, f.pointer, 2);
             writefunc(EVAI_ATTR2, i, 2u);
-            //_file->write("\n", 1);
         }
         if (_vaidToWrite[EVAI_ATTR3])
         {
-            //_mbuf->getAttribute(f, EVAI_ATTR3, i);
-            //writeVectorAsText(_file, f.pointer, 3);
             writefunc(EVAI_ATTR3, i, 3u);
-            //_file->write("\n", 1);
         }
         _file->write("\n", 1);
     }
@@ -425,6 +396,7 @@ ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(con
         E_VERTEX_ATTRIBUTE_ID vaid = (E_VERTEX_ATTRIBUTE_ID)i;
         E_COMPONENT_TYPE t = origDesc->getAttribType(vaid);
         if (origDesc->getMappedBuffer(vaid))
+        {
             desc->mapVertexAttrBuffer(
                 const_cast<core::ICPUBuffer*>(origDesc->getMappedBuffer(vaid)),
                 vaid,
@@ -434,6 +406,7 @@ ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(con
                 origDesc->getMappedBufferOffset(vaid),
                 origDesc->getAttribDivisor(vaid)
             );
+        }
     }
     mbCopy->setMeshDataAndFormat(desc);
     desc->drop();
@@ -497,5 +470,5 @@ std::string CPLYMeshWriter::getTypeString(E_COMPONENT_TYPE _t)
 } // end namespace
 } // end namespace
 
-#endif // _IRR_COMPILE_WITH_PLY_WRITER_
+//#endif // _IRR_COMPILE_WITH_PLY_WRITER_
 

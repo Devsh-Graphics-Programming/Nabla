@@ -5,7 +5,8 @@
 #ifndef __IRR_PLY_MESH_WRITER_H_INCLUDED__
 #define __IRR_PLY_MESH_WRITER_H_INCLUDED__
 
-#include "IMeshWriter.h"
+#include "IAssetWriter.h"
+#include "IMeshBuffer.h"
 #include <iomanip>
 
 namespace irr
@@ -13,20 +14,26 @@ namespace irr
 
 namespace scene
 {
-    class ICPUMeshBuffer;
-
 	//! class to write PLY mesh files
-	class CPLYMeshWriter : public IMeshWriter
+	class CPLYMeshWriter : public asset::IAssetWriter
 	{
 	public:
 
 		CPLYMeshWriter();
 
-		//! Returns the type of the mesh writer
-		virtual EMESH_WRITER_TYPE getType() const;
+        virtual const char** getAssociatedFileExtensions() const
+        {
+            static const char* ext[]{ "ply", nullptr };
+            return ext;
+        }
 
-		//! writes a mesh
-		virtual bool writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags=EMWF_NONE);
+        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+
+        virtual uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
+
+        virtual uint32_t getForcedFlags() { return 0u; }
+
+        virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
     private:
         void writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const;
