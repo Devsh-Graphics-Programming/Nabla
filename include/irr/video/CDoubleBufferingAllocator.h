@@ -132,7 +132,7 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
                     mDriver->flushMappedMemoryRanges(1,&range);
                 }
 
-                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,mStagingBuffOff,mDestBuffOff,mRangeLength);
+                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,mStagingBuffOff-mBackBuffer->getBoundMemoryOffset(),mDestBuffOff,mRangeLength);
             }
             else if (Base::dirtyRange.first<Base::dirtyRange.second)
             {
@@ -145,7 +145,7 @@ class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAl
                     mDriver->flushMappedMemoryRanges(1,&range);
                 }
 
-                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,range.offset,
+                mDriver->copyBuffer(mBackBuffer,mFrontBuffer,range.offset-mBackBuffer->getBoundMemoryOffset(),
                                     mDestBuffOff+Base::dirtyRange.first,range.length);
                 Base::resetDirtyRange();
             }
