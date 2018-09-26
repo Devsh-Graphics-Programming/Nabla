@@ -97,22 +97,24 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
                     newAllocatorState = mCPUAllocator.allocate(newReservedSize,_IRR_SIMD_ALIGNMENT);
 
                 size_type oldRangeLength = Base::mRangeLength;
-                if (Base::mStagingBuffOff+newSize>Base::mBackBuffer->getBoundMemory()->getAllocationSize())
+                size_type newRangeLength = Base::mBackBuffer->getBoundMemoryOffset()+Base::mStagingBuffOff+newSize;
+                if (newRangeLength>Base::mBackBuffer->getBoundMemory()->getAllocationSize())
                 {
                     //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
                     IDriverMemoryAllocation* oldAlloc = const_cast<IDriverMemoryAllocation*>(Base::mBackBuffer->getBoundMemory());
                     IDriverMemoryBacked::SDriverMemoryRequirements reqs = Base::mBackBuffer->getMemoryReqs();
-                    reqs.vulkanReqs.size = newSize+mStagingBuffOff;
+                    reqs.vulkanReqs.size = newRangeLength;
 
+                    //! No BoundMemoryOffset applied to mStagingBuffOff on new buffer as allocated on dedicated memory
                     IGPUBuffer* rep = Driver->createGPUBufferOnDedMem(reqs,Base::mBackBuffer->canUpdateSubRange());
                     // ignore return value as it has wrong offsets
                     const_cast<IDriverMemoryAllocation*>(rep->getBoundMemory())->mapMemoryRange(oldAlloc->getCurrentMappingCaps(),
                                                                 IDriverMemoryAllocation::MemoryRange{Base::mStagingBuffOff,newSize});
                     {
-                        uint8_t* newMappedMem = reinterpret_cast<uint8_t*>(rep->getBoundMemory()->getMappedPointer());
-                        memcpy(newMappedMem+Base::mStagingBuffOff,mStagingPointer,oldRangeLength);
+                        uint8_t* newMappedMem = reinterpret_cast<uint8_t*>(rep->getBoundMemory()->getMappedPointer())+Base::mStagingBuffOff;
+                        memcpy(newMappedMem,mStagingPointer,oldRangeLength);
                         Base::mRangeLength = newSize;
-                        Base::mStagingPointer = newMappedMem+Base::mStagingBuffOff;
+                        Base::mStagingPointer = newMappedMem;
                     }
                     oldAlloc->unmapMemory();
                     Base::mBackBuffer->pseudoMoveAssign(rep);
@@ -130,7 +132,14 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
 
             if (Base::mFrontBuffer->getBoundMemoryOffset()+Base::mDestBuffOff+newSize>Base::mFrontBuffer->getSize())
             {
-                mDriver->copyBuffer(mFrontBuffer,newFrontBuffer,mDestBuffOff,mDestBuffOff,oldRangeLength);
+                //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
+                IDriverMemoryBacked::SDriverMemoryRequirements reqs = Base::mFrontBuffer->getMemoryReqs();
+                reqs.vulkanReqs.size = newRangeLength;
+
+                IGPUBuffer* newFrontBuffer = Driver->createGPUBufferOnDedMem(reqs,Base::mFrontBuffer->canUpdateSubRange());
+                mDriver->copyBuffer(Base::mFrontBuffer,newFrontBuffer,mDestBuffOff,mDestBuffOff,oldRangeLength);
+                Base::mFrontBuffer->pseudoMoveAssign(newFrontBuffer);
+                newFrontBuffer->drop();
             }
 
             alloc_traits::multi_alloc_addr(mAllocator,outAddresses,count,bytes,std::forward<Args>(args)...);
