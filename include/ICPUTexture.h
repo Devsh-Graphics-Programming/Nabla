@@ -3,8 +3,8 @@
 
 #include <utility>
 #include <algorithm>
-#include "irr/core/Types.h"
 #include <cassert>
+#include "irr/core/Types.h"
 #include "IAsset.h"
 #include "CImageData.h"
 
@@ -13,7 +13,17 @@ namespace irr { namespace asset
 
 class ICPUTexture : public IAsset
 {
+protected:
+    video::ECOLOR_FORMAT m_colorFormat;
+    core::vector<video::CImageData*> m_mipmaps;
+
+    using IteratorType = typename decltype(m_mipmaps)::iterator;
+    using ConstIteratorType = typename decltype(m_mipmaps)::const_iterator;
+
 public:
+    using RangeType = std::pair<IteratorType, IteratorType>;
+    using ConstRangeType = std::pair<ConstIteratorType, ConstIteratorType>;
+
     explicit ICPUTexture(const core::vector<video::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}
     {
         assert(m_mipmaps.size() != 0u);
@@ -41,23 +51,43 @@ public:
 
     virtual E_TYPE getAssetType() const override { return IAsset::ET_IMAGE; }
 
-    video::CImageData* getMipMap(uint32_t _mipLvl)
+    //! @returns {end(), end()} if _mipLvl level mipmap is not present.
+    inline RangeType getMipMap(uint32_t _mipLvl)
     {
-        auto it = std::lower_bound(m_mipmaps.begin(), m_mipmaps.end(), [](const video::CImageData* _a, const video::CImageData* _b) { return _a->getSupposedMipLevel() < _b->getSupposedMipLevel(); });
-        if (it != m_mipmaps.end() && (*it)->getSupposedMipLevel()==_mipLvl)
-            return *it;
+        size_t l = 0u, r = m_mipmaps.size()-1u;
+        IteratorType foundItr = m_mipmaps.end();
+        while (l <= r)
+        {
+            const size_t i = l + (r-l)/2u;
+            if (m_mipmaps[i]->getSupposedMipLevel() == _mipLvl)
+            {
+                foundItr = m_mipmaps.begin()+i;
+                break;
+            }
+            if (m_mipmaps[i]->getSupposedMipLevel() < _mipLvl)
+                l = i+1u;
+            else r = i-1u;
+        }
+        if (foundItr == m_mipmaps.end())
+            return std::make_pair(foundItr, foundItr);
+        RangeType rng;
+        rng.first = rng.second = foundItr;
+        while (rng.second != m_mipmaps.end() && (*rng.second)->getSupposedMipLevel())
+            ++rng.second;
+        return rng;
     }
-    const video::CImageData* getMipMap(uint32_t _mipLvl) const
+    //! @returns {end(), end()} if _mipLvl level mipmap is not present.
+    inline ConstRangeType getMipMap(uint32_t _mipLvl) const
     {
         return const_cast<ICPUTexture*>(this)->getMipMap(_mipLvl);
     }
 
-    size_t getMipMapCount() const { return m_mipmaps.size(); }
+    inline size_t getMipMapCount() const { return m_mipmaps.back()->getSupposedMipLevel(); }
 
-    uint32_t getLowestMip() const { return m_mipmaps.front()->getSupposedMipLevel(); }
-    uint32_t getHighestMip() const { return m_mipmaps.back()->getSupposedMipLevel(); }
+    inline uint32_t getLowestMip() const { return m_mipmaps.front()->getSupposedMipLevel(); }
+    inline uint32_t getHighestMip() const { return m_mipmaps.back()->getSupposedMipLevel(); }
 
-    video::ECOLOR_FORMAT getColorFormat() const { return m_colorFormat; }
+    inline video::ECOLOR_FORMAT getColorFormat() const { return m_colorFormat; }
 
 private:
     void sortMipMaps()
@@ -79,10 +109,6 @@ private:
         }
         m_colorFormat = fmt;
     }
-
-protected:
-    video::ECOLOR_FORMAT m_colorFormat;
-    core::vector<video::CImageData*> m_mipmaps;
 };
 
 }}//irr::asset

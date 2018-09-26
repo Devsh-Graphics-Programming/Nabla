@@ -32,7 +32,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
         dynamic_cast<const asset::ICPUTexture*>(_params.rootAsset);
 #   endif
     assert(tex);
-    const video::CImageData* image = tex->getMipMap(tex->getLowestMip());
+    const video::CImageData* image = *(tex->getMipMap(tex->getLowestMip()).first);
 
 	STGAHeader imageHeader;
 	imageHeader.IdLength = 0;
