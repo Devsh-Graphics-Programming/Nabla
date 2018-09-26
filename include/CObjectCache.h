@@ -138,22 +138,53 @@ namespace impl
                 m_greetingFunc(_object);
         }
 
-    public:
+    private:
+        template<typename StorageT>
+        void outputThis(const ConstIteratorType& _itr, size_t _ix, StorageT* _storage) const;
+        template<>
+        void outputThis<MutablePairType>(const ConstIteratorType& _itr, size_t _ix, MutablePairType* _storage) const
+        {
+            _storage[_ix] = *_itr;
+        }
+        template<>
+        void outputThis<ValueType_impl>(const ConstIteratorType& _itr, size_t _ix, ValueType_impl* _storage) const
+        {
+            _storage[_ix] = _itr->second;
+        }
+
         //! Only in non-concurrent cache
-        inline bool outputRange(const ConstRangeType& _rng, size_t& _inOutStorageSize, MutablePairType* _out) const
+        template<typename StorageT>
+        inline bool outputRange_(const ConstRangeType& _rng, size_t& _inOutStorageSize, StorageT* _out) const
         {
             if (_out)
-                return std::distance(_rng.first, _rng.second);
+            {
+                _inOutStorageSize = std::distance(_rng.first, _rng.second);
+                return false;
+            }
             size_t i = 0u;
             for (auto it = _rng.first; it != _rng.second && i < _inOutStorageSize; ++it)
-                _out[i++] = *it;
+                outputThis(it, i, _out);
             const size_t reqSize = std::distance(_rng.first, _rng.second);
             bool res = _inOutStorageSize <= reqSize;
-            _inOutStorageSize = reqSize;
+            _inOutStorageSize = i;
             return res;
         }
 
+    public:
+        inline bool outputRange(const ConstRangeType& _rng, size_t& _inOutStorageSize, MutablePairType* _out) const
+        {
+            return outputRange_(_rng, _inOutStorageSize, _out);
+        }
+        inline bool outputRange(const ConstRangeType& _rng, size_t& _inOutStorageSize, ValueType_impl* _out) const
+        {
+            return outputRange_(_rng, _inOutStorageSize, _out);
+        }
+
         inline bool outputAll(size_t& _inOutStorageSize, MutablePairType* _out) const
+        {
+            return outputRange({cbegin(), cend()}, _inOutStorageSize, _out);
+        }
+        inline bool outputAll(size_t& _inOutStorageSize, ValueType_impl* _out) const
         {
             return outputRange({cbegin(), cend()}, _inOutStorageSize, _out);
         }
@@ -541,11 +572,12 @@ namespace impl
             return false;
         }
 
-        inline bool findAndStoreRange(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePairType* _out)
+        inline bool findAndStoreRange(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePairType* _out) const
         {
             return this->outputRange(this->findRange(_key), _inOutStorageSize, _out);
         }
-        inline bool findAndStoreRange(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePairType* _out) const
+
+        inline bool findAndStoreRange(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::ValueType_impl* _out) const
         {
             return this->outputRange(this->findRange(_key), _inOutStorageSize, _out);
         }
@@ -563,7 +595,7 @@ namespace impl
             return true;
         }
 
-        bool getAndStoreKeyRangeOrReserve(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePairType* _out, bool* _gotAll)
+        bool getAndStoreKeyRangeOrReserve(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::ValueType_impl* _out, bool* _gotAll)
         {
             bool dummy;
             if (!_gotAll)

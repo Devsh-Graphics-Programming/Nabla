@@ -46,6 +46,8 @@ namespace impl
         using ConstRangeType = typename BaseCache::ConstRangeType;
         using PairType = typename BaseCache::PairType;
         using MutablePairType = typename BaseCache::MutablePairType;
+        using CachedType = T;
+        using KeyType = typename BaseCache::KeyType;
 
         using BaseCache::BaseCache;
 
@@ -117,6 +119,22 @@ namespace impl
         }
 
         inline bool findAndStoreRange(const typename K& _key, size_t& _inOutStorageSize, MutablePairType* _out) const
+        {
+            m_lock.lockRead();
+            const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
+            m_lock.unlockRead();
+            return r;
+        }
+
+        inline bool findAndStoreRange(const typename K& _key, size_t& _inOutStorageSize, CachedType** _out)
+        {
+            m_lock.lockRead();
+            const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
+            m_lock.unlockRead();
+            return r;
+        }
+
+        inline bool findAndStoreRange(const typename K& _key, size_t& _inOutStorageSize, CachedType** _out) const
         {
             m_lock.lockRead();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
