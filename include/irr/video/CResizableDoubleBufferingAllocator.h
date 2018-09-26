@@ -20,7 +20,7 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         typedef CDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>  Base;
         typedef CResizableDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>  ThisType;
 
-        void resizeBackBuffer(size_type newSize, size_type copyOldRangeLen)
+        inline void resizeBackBuffer(size_type newSize, size_type copyOldRangeLen)
         {
             IDriverMemoryAllocation* oldAlloc = const_cast<IDriverMemoryAllocation*>(Base::mBackBuffer->getBoundMemory());
             //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
@@ -42,8 +42,28 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
             Base::mBackBuffer->pseudoMoveAssign(rep);
             rep->drop();
         }
+        inline void resizeFrontBuffer(size_type newSize, size_type copyOldRangeLen)
+        {
+            //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
+            IDriverMemoryBacked::SDriverMemoryRequirements reqs = Base::mFrontBuffer->getMemoryReqs();
+            reqs.vulkanReqs.size = Base::mDestBuffOff+newSize;
+
+            IGPUBuffer* newFrontBuffer = Driver->createGPUBufferOnDedMem(reqs,Base::mFrontBuffer->canUpdateSubRange());
+            mDriver->copyBuffer(Base::mFrontBuffer,newFrontBuffer,mDestBuffOff,mDestBuffOff,copyOldRangeLen);
+            Base::mFrontBuffer->pseudoMoveAssign(newFrontBuffer);
+            newFrontBuffer->drop();
+        }
 
     protected:
+        static IGPUBuffer* createDefaultStagingBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& stagingBufferReqs)
+        {
+            return retval;
+        }
+        static IGPUBuffer* createDefaultFrontBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& stagingBufferReqs)
+        {
+            return retval;
+        }
+
         ///constexpr size_type growStep = 2u; //debug test
         constexpr size_type growStep = 32u*4096u; //128k at a time
         constexpr size_type growStepMinus1 = growStep-1u;
@@ -78,8 +98,8 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
                                             const IDriverMemoryBacked::SDriverMemoryRequirements& frontBufferReqs, Args&&... args) : // delegate
                                             CResizableDoubleBufferingAllocator(driver,
                                                                                IDriverMemoryAllocation::MemoryRange(0,stagingBufferReqs.vulkanReqs.size),
-                                                                               stagingBuffer,
-                                                                               0u, frontBuffer, std::forward<Args>(args)...)
+                                                                               createDefaultStagingBuffer(stagingBufferReqs),
+                                                                               0u, createDefaultFrontBuffer(stagingBufferReqs), std::forward<Args>(args)...)
         {
 #ifdef _DEBUG
             assert(stagingBufferReqs.vulkanReqs.size==frontBufferReqs.vulkanReqs.size);
@@ -133,25 +153,17 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
                 if (Base::mStagingBuffOff+newSize>Base::mBackBuffer->getSize())
                     resizeBackBuffer(newSize,oldRangeLength);
 
-                mAllocator = AddressAllocator(mAllocator,newAllocatorState,Base::mStagingPointer,newSize);
+                mAllocator = AddressAllocator(mAllocator,newAllocatorState,Base::mStagingPointer,newSize); //! handle offset padding impact on newSize
                 if (newReservedSize>mReservedSize) // equivalent to (newAllocatorState!=mAllocatorState)
                 {
                     mCPUAllocator.deallocate(reinterpret_cast<uint8_t*>(mAllocatorState),mReservedSize);
                     mAllocatorState = newAllocatorState;
                     mReservedSize = newReservedSize;
                 }
-            }
 
-            if (Base::mDestBuffOff+newSize>Base::mFrontBuffer->getSize())
-            {
-                //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
-                IDriverMemoryBacked::SDriverMemoryRequirements reqs = Base::mFrontBuffer->getMemoryReqs();
-                reqs.vulkanReqs.size = newRangeLength;
 
-                IGPUBuffer* newFrontBuffer = Driver->createGPUBufferOnDedMem(reqs,Base::mFrontBuffer->canUpdateSubRange());
-                mDriver->copyBuffer(Base::mFrontBuffer,newFrontBuffer,mDestBuffOff,mDestBuffOff,oldRangeLength);
-                Base::mFrontBuffer->pseudoMoveAssign(newFrontBuffer);
-                newFrontBuffer->drop();
+                if (Base::mDestBuffOff+newSize>Base::mFrontBuffer->getSize())
+                    resizeFrontBuffer(newSize,oldRangeLength);
             }
 
             alloc_traits::multi_alloc_addr(mAllocator,outAddresses,count,bytes,std::forward<Args>(args)...);
@@ -164,35 +176,25 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
 
             size_type allAllocatorSpace = alloc_traits::get_total_size(Base::mAllocator);
             size_type newSize = shrinkPolicy(this);
-            if (newSize<allAllocatorSpace)
-            {
-                // some allocators may not be shrinkable because of fragmentation
-                newSize = mAllocator.safe_shrink_size(newSize);
-                if (newSize>=allAllocatorSpace)
-                    return;
+            if (newSize>=allAllocatorSpace)
+                return;
 
-                //! don't bother resizing reserved space
+            // some allocators may not be shrinkable because of fragmentation
+            newSize = mAllocator.safe_shrink_size(newSize);
+            if (newSize>=allAllocatorSpace)
+                return;
 
-                // resize back buffer and allocator
-                if (Base::mStagingBuffOff+newSize<Base::mBackBuffer->getSize())
-                    resizeBackBuffer(newSize,newSize);
+            //! don't bother resizing reserved space
 
-                mAllocator = AddressAllocator(Base::mAllocator,Base::mAllocatorState,Base::mStagingPointer,newSize);
+            // resize back buffer and allocator
+            if (Base::mStagingBuffOff+newSize<Base::mBackBuffer->getSize())
+                resizeBackBuffer(newSize,newSize);
 
-                // resize front buffer
-                if (Base::mDestBuffOff+newSize<Base::mFrontBuffer->getSize())
-                {
-                    //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
-                    IDriverMemoryBacked::SDriverMemoryRequirements reqs = Base::mFrontBuffer->getMemoryReqs();
-                    reqs.vulkanReqs.size = Base::mDestBuffOff+newSize;
+            mAllocator = AddressAllocator(Base::mAllocator,Base::mAllocatorState,Base::mStagingPointer,newSize); //! handle offset padding impact on newSize
 
-                    IGPUBuffer* newFrontBuffer = Driver->createGPUBufferOnDedMem(reqs,Base::mFrontBuffer->canUpdateSubRange());
-                    mDriver->copyBuffer(Base::mFrontBuffer,newFrontBuffer,mDestBuffOff,mDestBuffOff,newSize);
-                    Base::mFrontBuffer->pseudoMoveAssign(newFrontBuffer);
-                    newFrontBuffer->drop();
-                }
-            }
-
+            // resize front buffer
+            if (Base::mDestBuffOff+newSize<Base::mFrontBuffer->getSize())
+                resizeFrontBuffer(newSize,newSize);
         }
 };
 
