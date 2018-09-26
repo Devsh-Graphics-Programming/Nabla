@@ -139,13 +139,16 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         }
 
 
-        template<typename... Args>
-        static inline size_type reserved_size(size_type bufSz, size_type blockSz, const Args&... args) noexcept
+        static inline size_type reserved_size(size_type bufSz, size_type blockSz) noexcept
         {
             size_type trueAlign = size_type(1u)<<findLSB(blockSz);
             size_type truncatedOffset = calcAlignOffset(0x8000000000000000ull-size_t(_IRR_SIMD_ALIGNMENT),trueAlign);
             size_type probBlockCount =  (bufSz-truncatedOffset)/blockSz;
             return probBlockCount*sizeof(size_type);
+        }
+        static inline size_type reserved_size(size_type bufSz, const PoolAddressAllocator<_size_type>& other) noexcept
+        {
+            return reserved_size(bufSz,other.blockSize);
         }
 
         inline size_type        get_free_size() const noexcept

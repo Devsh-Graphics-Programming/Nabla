@@ -96,6 +96,10 @@ class AddressAllocatorBasicConcurrencyAdaptor : public address_allocator_traits<
         {
             return AddressAllocator::reserved_size(bufSz,args...);
         }
+        static inline size_type reserved_size(size_type bufSz, const AddressAllocator& other) noexcept
+        {
+            return AddressAllocator::reserved_size(bufSz,other);
+        }
 };
 
 }

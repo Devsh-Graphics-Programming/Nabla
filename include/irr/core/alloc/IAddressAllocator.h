@@ -77,9 +77,13 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : public address_allocator_tr
         inline virtual size_t       safe_shrink_size(size_t byteBound=0u) const noexcept {return getBaseRef().safe_shrink_size(byteBound);}
 
         template<typename... Args>
-        static inline size_t reserved_size(size_t bufSz, const Args&... args) noexcept
+        static inline size_t        reserved_size(size_t bufSz, const Args&... args) noexcept
         {
             return AddressAllocator::reserved_size(bufSz,args...);
+        }
+        static inline size_t        reserved_size(size_t bufSz, const AddressAllocator& other) noexcept
+        {
+            return AddressAllocator::reserved_size(bufSz,other);
         }
 };
 
