@@ -4,9 +4,6 @@
 #include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
 #include "irr/video/CDoubleBufferingAllocator.h"
 
-#include "irr/core/ICPUBuffer.h"
-#include "irr/video/CDoubleBufferingAllocator.h"
-
 namespace irr
 {
 namespace core
