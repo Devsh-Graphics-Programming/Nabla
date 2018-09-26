@@ -45,7 +45,7 @@ public:
 
     virtual const char** getAssociatedFileExtensions() const override
     {
-        static const char* ext[]{ "jpg", nullptr };
+        static const char* ext[]{ "jpg", "jpeg", nullptr };
         return ext;
     }
 

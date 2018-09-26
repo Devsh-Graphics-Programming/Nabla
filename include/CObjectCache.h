@@ -355,37 +355,6 @@ namespace impl
             return true;
         }
 
-        //bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
-        //{
-        //    *_outrange = this->findRange(_key);
-        //    if (!Base::isNonZeroRange(*_outrange))
-        //    {
-        //        _outrange->first = this->m_container.insert(_outrange->second, {_key, nullptr});
-        //        _outrange->second = std::next(_outrange->first);
-        //        this->greet(nullptr);
-        //        return false;
-        //    }
-        //    return true;
-        //}
-
-        //bool getAndStoreKeyRangeOrReserve(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePair* _out, bool* _gotAll)
-        //{
-        //    bool dummy;
-        //    if (!_gotAll)
-        //        _gotAll = &dummy;
-        //    auto rng = this->findRange(_key);
-        //    bool res = true;
-        //    if (!Base::isNonZeroRange(rng))
-        //    {
-        //        rng.first = this->m_container.insert(rng.second, {_key, nullptr});
-        //        rng.second = std::next(rng.first);
-        //        this->greet(nullptr);
-        //        res = false;
-        //    }
-        //    *_gotAll = this->outputRange(rng, _inOutStorageSize, _out);
-        //    return res;
-        //}
-
         //! @returns true if object was removed (i.e. was present in cache)
         inline bool removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
         {
@@ -540,37 +509,6 @@ namespace impl
             this->m_container.insert(it, { _key, _val });
             return true;
         }
-
-        //bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
-        //{
-        //    *_outrange = this->findRange(_key);
-        //    if (!Base::isNonZeroRange(*_outrange))
-        //    {
-        //        _outrange->first = this->m_container.insert(_outrange->first, { _key, nullptr });
-        //        _outrange->second = std::next(_outrange->second);
-        //        this->greet(nullptr);
-        //        return false;
-        //    }
-        //    return true;
-        //}
-
-        //bool getAndStoreKeyRangeOrReserve(const typename Base::KeyType_impl& _key, size_t& _inOutStorageSize, typename Base::MutablePair* _out, bool* _gotAll)
-        //{
-        //    bool dummy;
-        //    if (!_gotAll)
-        //        _gotAll = &dummy;
-        //    auto rng = this->findRange(_key);
-        //    bool res = true;
-        //    if (!Base::isNonZeroRange(rng))
-        //    {
-        //        rng.first = this->m_container.insert(rng.second, { _key, nullptr });
-        //        rng.second = std::next(rng.first);
-        //        this->greet(nullptr);
-        //        res = false;
-        //    }
-        //    *_gotAll = this->outputRange(rng, _inOutStorageSize, _out);
-        //    return res;
-        //}
     };
 
     template <
