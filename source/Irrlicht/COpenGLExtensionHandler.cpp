@@ -148,6 +148,8 @@ int32_t COpenGLExtensionHandler::reqUBOAlignment = 0;
 int32_t COpenGLExtensionHandler::reqSSBOAlignment = 0;
 int32_t COpenGLExtensionHandler::reqTBOAlignment = 0;
 
+int32_t COpenGLExtensionHandler::minMemoryMapAlignment = 0;
+
 int32_t COpenGLExtensionHandler::MaxComputeWGSize[3]{0, 0, 0};
 
 uint32_t COpenGLExtensionHandler::MaxArrayTextureLayers = 2048;
@@ -801,6 +803,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &reqUBOAlignment);
 	glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &reqSSBOAlignment);
 	glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &reqTBOAlignment);
+	glGetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &minMemoryMapAlignment);
     extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, MaxComputeWGSize);
     extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, MaxComputeWGSize+1);
     extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, MaxComputeWGSize+2);

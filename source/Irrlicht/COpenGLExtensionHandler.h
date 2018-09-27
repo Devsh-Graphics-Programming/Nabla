@@ -968,6 +968,8 @@ class COpenGLExtensionHandler
 	static int32_t reqSSBOAlignment;
 	//!
 	static int32_t reqTBOAlignment;
+	//!
+	static int32_t minMemoryMapAlignment;
     //!
     static int32_t MaxComputeWGSize[3];
 	//!

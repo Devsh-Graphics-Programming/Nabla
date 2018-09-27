@@ -20,6 +20,17 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         typedef CDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>  Base;
         typedef CResizableDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>  ThisType;
 
+        inline size_type calcBufferAlignPadding(size_type newSize)
+        {
+            size_type defaultAlignment = Base::mDriver->getMinimumMemoryMapAlignment();
+            size_type maxPrevPossibleAlignment = Base::mAllocator.max_alignment();
+            if (defaulAlignment>maxPrevPossibleAlignment)
+                return 0u;
+
+            size_type worstPossibleStartAlignment = maxPrevPossibleAlignment-defaultAlignment;
+            return worstPossibleStartAlignment;
+        }
+
         inline void resizeBackBuffer(size_type newSize, size_type copyOldRangeLen)
         {
             IDriverMemoryAllocation* oldAlloc = const_cast<IDriverMemoryAllocation*>(Base::mBackBuffer->getBoundMemory());
@@ -55,15 +66,6 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         }
 
     protected:
-        static IGPUBuffer* createDefaultStagingBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& stagingBufferReqs)
-        {
-            return retval;
-        }
-        static IGPUBuffer* createDefaultFrontBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& stagingBufferReqs)
-        {
-            return retval;
-        }
-
         ///constexpr size_type growStep = 2u; //debug test
         constexpr size_type growStep = 32u*4096u; //128k at a time
         constexpr size_type growStepMinus1 = growStep-1u;
@@ -98,8 +100,8 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
                                             const IDriverMemoryBacked::SDriverMemoryRequirements& frontBufferReqs, Args&&... args) : // delegate
                                             CResizableDoubleBufferingAllocator(driver,
                                                                                IDriverMemoryAllocation::MemoryRange(0,stagingBufferReqs.vulkanReqs.size),
-                                                                               createDefaultStagingBuffer(stagingBufferReqs),
-                                                                               0u, createDefaultFrontBuffer(stagingBufferReqs), std::forward<Args>(args)...)
+                                                                               driver->createGPUBufferOnDedMem(stagingBufferReqs,false), 0u,
+                                                                               driver->createGPUBufferOnDedMem(frontBufferReqs,false), std::forward<Args>(args)...)
         {
 #ifdef _DEBUG
             assert(stagingBufferReqs.vulkanReqs.size==frontBufferReqs.vulkanReqs.size);
@@ -144,6 +146,8 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
 
             if (newSize>allAllocatorSpace)
             {
+                newSize += calcBufferAlignPadding(newSize);
+
                 void* newAllocatorState = mAllocatorState;
                 size_type newReservedSize = AddressAllocator::reserved_size(newSize,mAllocator);
                 if (newReservedSize>mReservedSize)
@@ -181,6 +185,10 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
 
             // some allocators may not be shrinkable because of fragmentation
             newSize = mAllocator.safe_shrink_size(newSize);
+            if (newSize>=allAllocatorSpace)
+                return;
+            // or alignment
+            newSize += calcBufferAlignPadding(newSize);
             if (newSize>=allAllocatorSpace)
                 return;
 
