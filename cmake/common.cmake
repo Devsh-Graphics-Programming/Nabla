@@ -18,7 +18,10 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS)
 	add_compile_options(${_EXTRA_OPTIONS})
 	
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		add_compile_options(-fsanitize=address -fstack-protector-all)
+		add_compile_options(
+			"$<$<CONFIG:DEBUG>:-fsanitize=address>" 
+			"$<$<CONFIG:DEBUG>:-fstack-protector-all>"
+		)
 	
 		set(COMMON_LINKER_OPTIONS "-msse3 -mfpmath=sse -fuse-ld=gold")
 		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
