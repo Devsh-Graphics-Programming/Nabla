@@ -75,7 +75,7 @@ bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* file) const
 
 
 // load in the image data
-asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u)
+asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     core::vector<CImageData*> images;
 #ifdef _IRR_COMPILE_WITH_LIBPNG_

@@ -23,7 +23,7 @@ CImageWriterTGA::CImageWriterTGA()
 #endif
 }
 
-bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr)
+bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
     const asset::ICPUTexture* tex =
 #   ifndef _DEBUG
@@ -32,7 +32,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
         dynamic_cast<const asset::ICPUTexture*>(_params.rootAsset);
 #   endif
     assert(tex);
-    const video::CImageData* image = *(tex->getMipMap(tex->getLowestMip()).first);
+    const video::CImageData* image = *(tex->getMipMap(0u).first); // todo getMipMap
 
 	STGAHeader imageHeader;
 	imageHeader.IdLength = 0;

@@ -23,7 +23,7 @@ CImageWriterBMP::CImageWriterBMP()
 #endif
 }
 
-bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr)
+bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 	// we always write 24-bit color because nothing really reads 32-bit
     const asset::ICPUTexture* tex =
@@ -33,7 +33,7 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
         dynamic_cast<const asset::ICPUTexture*>(_params.rootAsset);
 #   endif
     assert(tex);
-    const video::CImageData* image = *(tex->getMipMap(tex->getLowestMip()).first);
+    const video::CImageData* image = *(tex->getMipMap(0u).first); // todo getMipMap
 
 	SBMPHeader imageHeader;
 	imageHeader.Id = 0x4d42;

@@ -69,7 +69,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
         dynamic_cast<const asset::ICPUTexture*>(_params.rootAsset);
 #   endif
     assert(tex);
-    const video::CImageData* image = *(tex->getMipMap(tex->getLowestMip()).first);
+    const video::CImageData* image = *(tex->getMipMap(0u).first); // todo getMipMap
 
 	if (!_file || !image)
 		return false;

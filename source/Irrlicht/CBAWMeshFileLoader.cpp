@@ -78,16 +78,16 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		const uint64_t handle = data->header->handle;
         const uint32_t size = data->header->blobSizeDecompr;
         const uint32_t blobType = data->header->blobType;
-        const std::string thisCacheKey = rootCacheKey + std::to_string(handle);
+        const std::string thisCacheKey = genSubAssetCacheKey(rootCacheKey, handle);
 
         uint8_t decrKey[16];
-        size_t decrKeyLen = 0u;
+        size_t decrKeyLen = 16u;
         uint32_t attempt = 0u;
         const void* blob = nullptr;
         // todo: supposedFilename arg is missing (empty string) - what is it? 
         while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, blobTypeToHierarchyLvl(blobType)))
         {
-            if (decrKeyLen == 16u)
+            if (!((data->header->compressionType & core::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
                 blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, decrKey);
             if (blob)
                 break;
@@ -148,10 +148,11 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		const uint64_t handle = data->header->handle;
 		const uint32_t size = data->header->blobSizeDecompr;
 		const uint32_t blobType = data->header->blobType;
-        const std::string thisCacheKey = rootCacheKey + std::to_string(handle);
+        const std::string thisCacheKey = genSubAssetCacheKey(rootCacheKey, handle);
 
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
-        insertAssetIntoCache(ctx, _override, retval, blobType, thisCacheKey);
+        if (!toFinalize.empty()) // don't cache root-asset (mesh) as sub-asset because it'll be cached by asset manager directly (and there's only one IAsset::cacheKey)
+            insertAssetIntoCache(ctx, _override, retval, blobType, thisCacheKey);
 	}
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh

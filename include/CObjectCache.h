@@ -212,7 +212,7 @@ namespace impl
 
         // Concurrent cache has only const-iterator getters
         inline ConstIteratorType begin() const { return cbegin(); }
-        inline ConstIteratorType end() const { return cend(m_container); }
+        inline ConstIteratorType end() const { return cend(); }
         inline ConstIteratorType cbegin() const { return std::cbegin(m_container); }
         inline ConstIteratorType cend() const { return std::cend(m_container); }
         inline ConstRevIteratorType crbegin() const { std::crbegin(m_container); }
@@ -338,7 +338,7 @@ namespace impl
                 range.second = range.first;
                 return range;
             }
-            range.second = std::upper_bound(range.first, std::end(_container), lookingFor, cmpf);
+            range.second = std::upper_bound(range.first, typename RngType::first_type(std::end(_container)), lookingFor, cmpf);
             return range;
         }
 
@@ -349,7 +349,7 @@ namespace impl
         }
         inline typename Base::ConstRangeType findRange(const typename Base::KeyType_impl& _key) const
         {
-            return findRange_internal<typename Base::ConstRangeType>(this->m_container, _key);
+            return findRange_internal<typename Base::ConstRangeType>(const_cast<typename Base::ContainerT&>(this->m_container), _key);
         }
     };
 
@@ -448,7 +448,8 @@ namespace impl
 
         inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
         {
-            auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), typename Base::PairType{ _key, nullptr });
+            auto cmpf = [](const typename Base::PairType& _a, const typename Base::PairType& _b) -> bool { return _a.first < _b.first; };
+            auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), typename Base::PairType{ _key, nullptr }, cmpf);
             if (it == std::end(this->m_container) || it->first > _key)
                 return { it, it };
             return { it, std::next(it) };

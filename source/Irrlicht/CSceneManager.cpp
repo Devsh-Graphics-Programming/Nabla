@@ -123,7 +123,8 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 : ISceneNode(0, 0), Driver(driver), FileSystem(fs),
 	CursorControl(cursorControl),
 	ActiveCamera(0), MeshCache(0), CurrentRendertime(ESNRP_NONE),
-	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type")
+	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type"),
+    m_assetMgr(fs)
 {
 	#ifdef _DEBUG
 	ISceneManager::setDebugName("CSceneManager ISceneManager");
@@ -277,43 +278,35 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 	// shallow copies from the previous manager if there is one.
 
 	#ifdef _IRR_COMPILE_WITH_STL_LOADER_
-	MeshLoaderList.push_back(new CSTLMeshFileLoader());
+    {
+    auto ldr = new CSTLMeshFileLoader();
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
 	#endif
 	#ifdef _IRR_COMPILE_WITH_PLY_LOADER_
-	MeshLoaderList.push_back(new CPLYMeshFileLoader(this));
+    {
+    auto ldr = new CPLYMeshFileLoader(this);
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
 	#endif
-	#ifdef _IRR_COMPILE_WITH_OCT_LOADER_
-	MeshLoaderList.push_back(new COCTLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_LMTS_LOADER_
-	MeshLoaderList.push_back(new CLMTSMeshFileLoader(FileSystem, Driver));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
-	MeshLoaderList.push_back(new CMY3DMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
-	MeshLoaderList.push_back(new COgreMeshFileLoader(FileSystem, Driver));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_LWO_LOADER_
-	MeshLoaderList.push_back(new CLWOMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_3DS_LOADER_
-	MeshLoaderList.push_back(new C3DSMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_X_LOADER_
-	MeshLoaderList.push_back(new CXMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_MS3D_LOADER_
-	MeshLoaderList.push_back(new CMS3DMeshFileLoader(Driver));
-	#endif
+	//#ifdef _IRR_COMPILE_WITH_X_LOADER_
+	//MeshLoaderList.push_back(new CXMeshFileLoader(this, FileSystem));
+	//#endif
 	#ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
-	MeshLoaderList.push_back(new COBJMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_B3D_LOADER_
-	MeshLoaderList.push_back(new CB3DMeshFileLoader(this));
+    {
+    auto ldr = new COBJMeshFileLoader(this, FileSystem);
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
 	#endif
 	#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
-	MeshLoaderList.push_back(new CBAWMeshFileLoader(this, FileSystem));
+    {
+    auto ldr = new CBAWMeshFileLoader(this, FileSystem);
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
 	#endif
 }
 
@@ -1248,35 +1241,35 @@ ISceneManager* CSceneManager::createNewSceneManager(bool cloneContent)
 //! Returns a mesh writer implementation if available
 IMeshWriter* CSceneManager::createMeshWriter(EMESH_WRITER_TYPE type)
 {
-	switch(type)
-	{
-	case EMWT_STL:
-#ifdef _IRR_COMPILE_WITH_STL_WRITER_
-		return new CSTLMeshWriter(this);
-#else
-		return 0;
-#endif
-	case EMWT_OBJ:
-#ifdef _IRR_COMPILE_WITH_OBJ_WRITER_
-		return new COBJMeshWriter(this, FileSystem);
-#else
-		return 0;
-#endif
-
-	case EMWT_PLY:
-#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
-		return new CPLYMeshWriter();
-#else
-		return 0;
-#endif
-
-	case EMWT_BAW:
-#ifdef _IRR_COMPILE_WITH_BAW_WRITER_
-		return new CBAWMeshWriter(FileSystem);
-#else
-		return 0;
-#endif
-	}
+//	switch(type)
+//	{
+//	case EMWT_STL:
+//#ifdef _IRR_COMPILE_WITH_STL_WRITER_
+//		return new CSTLMeshWriter(this);
+//#else
+//		return 0;
+//#endif
+//	case EMWT_OBJ:
+//#ifdef _IRR_COMPILE_WITH_OBJ_WRITER_
+//		return new COBJMeshWriter(this, FileSystem);
+//#else
+//		return 0;
+//#endif
+//
+//	case EMWT_PLY:
+//#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
+//		return new CPLYMeshWriter();
+//#else
+//		return 0;
+//#endif
+//
+//	case EMWT_BAW:
+//#ifdef _IRR_COMPILE_WITH_BAW_WRITER_
+//		return new CBAWMeshWriter(FileSystem);
+//#else
+//		return 0;
+//#endif
+//	}
 
 	return 0;
 }

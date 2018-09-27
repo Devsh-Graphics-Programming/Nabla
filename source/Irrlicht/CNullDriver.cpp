@@ -36,42 +36,42 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 
 
 // todo remove those below
-//! creates a loader which is able to load windows bitmaps
-IImageLoader* createImageLoaderBMP();
-
-//! creates a loader which is able to load jpeg images
-IImageLoader* createImageLoaderJPG();
-
-//! creates a loader which is able to load targa images
-IImageLoader* createImageLoaderTGA();
-
-//! creates a loader which is able to load dds images
-IImageLoader* createImageLoaderDDS();
-
-//! creates a loader which is able to load png images
-IImageLoader* createImageLoaderPNG();
-
-//! creates a loader which is able to load WAL images
-IImageLoader* createImageLoaderWAL();
-
-//! creates a loader which is able to load lmp images
-IImageLoader* createImageLoaderLMP();
-
-//! creates a loader which is able to load rgb images
-IImageLoader* createImageLoaderRGB();
-
-
-//! creates a writer which is able to save bmp images
-IImageWriter* createImageWriterBMP();
-
-//! creates a writer which is able to save jpg images
-IImageWriter* createImageWriterJPG();
-
-//! creates a writer which is able to save tga images
-IImageWriter* createImageWriterTGA();
-
-//! creates a writer which is able to save png images
-IImageWriter* createImageWriterPNG();
+////! creates a loader which is able to load windows bitmaps
+//IImageLoader* createImageLoaderBMP();
+//
+////! creates a loader which is able to load jpeg images
+//IImageLoader* createImageLoaderJPG();
+//
+////! creates a loader which is able to load targa images
+//IImageLoader* createImageLoaderTGA();
+//
+////! creates a loader which is able to load dds images
+//IImageLoader* createImageLoaderDDS();
+//
+////! creates a loader which is able to load png images
+//IImageLoader* createImageLoaderPNG();
+//
+////! creates a loader which is able to load WAL images
+//IImageLoader* createImageLoaderWAL();
+//
+////! creates a loader which is able to load lmp images
+//IImageLoader* createImageLoaderLMP();
+//
+////! creates a loader which is able to load rgb images
+//IImageLoader* createImageLoaderRGB();
+//
+//
+////! creates a writer which is able to save bmp images
+//IImageWriter* createImageWriterBMP();
+//
+////! creates a writer which is able to save jpg images
+//IImageWriter* createImageWriterJPG();
+//
+////! creates a writer which is able to save tga images
+//IImageWriter* createImageWriterTGA();
+//
+////! creates a writer which is able to save png images
+//IImageWriter* createImageWriterPNG();
 
 //! constructor
 CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
@@ -98,38 +98,38 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>&
 		FileSystem->grab();
 
 	// create surface loader
-#ifdef _IRR_COMPILE_WITH_RGB_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderRGB());
-#endif
-#ifdef _IRR_COMPILE_WITH_DDS_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderDDS());
-#endif
-#ifdef _IRR_COMPILE_WITH_TGA_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderTGA());
-#endif
-#ifdef _IRR_COMPILE_WITH_PNG_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderPNG());
-#endif
-#ifdef _IRR_COMPILE_WITH_JPG_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderJPG());
-#endif
-#ifdef _IRR_COMPILE_WITH_BMP_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderBMP());
-#endif
-
-
-#ifdef _IRR_COMPILE_WITH_TGA_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterTGA());
-#endif
-#ifdef _IRR_COMPILE_WITH_JPG_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterJPG());
-#endif
-#ifdef _IRR_COMPILE_WITH_PNG_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterPNG());
-#endif
-#ifdef _IRR_COMPILE_WITH_BMP_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterBMP());
-#endif
+//#ifdef _IRR_COMPILE_WITH_RGB_LOADER_
+//	SurfaceLoader.push_back(video::createImageLoaderRGB());
+//#endif
+//#ifdef _IRR_COMPILE_WITH_DDS_LOADER_
+//	SurfaceLoader.push_back(video::createImageLoaderDDS());
+//#endif
+//#ifdef _IRR_COMPILE_WITH_TGA_LOADER_
+//	SurfaceLoader.push_back(video::createImageLoaderTGA());
+//#endif
+//#ifdef _IRR_COMPILE_WITH_PNG_LOADER_
+//	SurfaceLoader.push_back(video::createImageLoaderPNG());
+//#endif
+//#ifdef _IRR_COMPILE_WITH_JPG_LOADER_
+//	SurfaceLoader.push_back(video::createImageLoaderJPG());
+//#endif
+//#ifdef _IRR_COMPILE_WITH_BMP_LOADER_
+//	SurfaceLoader.push_back(video::createImageLoaderBMP());
+//#endif
+//
+//
+//#ifdef _IRR_COMPILE_WITH_TGA_WRITER_
+//	SurfaceWriter.push_back(video::createImageWriterTGA());
+//#endif
+//#ifdef _IRR_COMPILE_WITH_JPG_WRITER_
+//	SurfaceWriter.push_back(video::createImageWriterJPG());
+//#endif
+//#ifdef _IRR_COMPILE_WITH_PNG_WRITER_
+//	SurfaceWriter.push_back(video::createImageWriterPNG());
+//#endif
+//#ifdef _IRR_COMPILE_WITH_BMP_WRITER_
+//	SurfaceWriter.push_back(video::createImageWriterBMP());
+//#endif
 
     MaxTextureSizes[ITexture::ETT_1D][0] = 0x80u;
     MaxTextureSizes[ITexture::ETT_1D][1] = 0x1u;

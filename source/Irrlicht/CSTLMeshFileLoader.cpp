@@ -21,7 +21,7 @@ namespace irr
 namespace scene
 {
 
-asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u)
+asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	const long filesize = _file->getSize();
 	if (filesize < 6) // we need a header
@@ -204,7 +204,7 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile * _file) const
     if (strncmp(header, "solid ", 6u) == 0)
         return true;
     else
-        return _file->getSize() > 80u;
+        return _file->getSize() > 80u; // some other validation also needed here...
 }
 
 //! Read 3d vector of floats

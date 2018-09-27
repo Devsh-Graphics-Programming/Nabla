@@ -13,6 +13,7 @@
 #include "IMesh.h"
 #include "CBAWFile.h"
 #include "CBlobsLoadingManager.h"
+#include "SSkinMeshBuffer.h"
 
 namespace irr { namespace scene
 {
@@ -116,6 +117,8 @@ private:
 
 	bool decompressLzma(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
 	bool decompressLz4(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
+
+    inline std::string genSubAssetCacheKey(const std::string& _rootKey, uint64_t _handle) const { return _rootKey + "?" + std::to_string(_handle); }
 
     static inline void* toAddrUsedByBlobsLoadingMgr(asset::IAsset* _assetAddr, uint32_t _blobType)
     {

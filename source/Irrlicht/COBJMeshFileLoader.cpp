@@ -72,7 +72,7 @@ COBJMeshFileLoader::~COBJMeshFileLoader()
 		FileSystem->drop();
 }
 
-asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u)
+asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     SContext ctx{
         asset::IAssetLoader::SAssetLoadContext{
@@ -1083,8 +1083,8 @@ std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext & _ctx, const st
     if (_ctx.useMaterials)
     {   
         if (_ctx.useGroups)
-            return _baseKey + "_" + _grpName + "_" + _mtlName;
-        return _baseKey + "_" +  _mtlName;
+            return _baseKey + "?" + _grpName + "?" + _mtlName;
+        return _baseKey + "?" +  _mtlName;
     }
     return ""; // if nothing's broken this will never happen
 }
@@ -1096,4 +1096,3 @@ std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext & _ctx, const st
 } // end namespace irr
 
 #endif // _IRR_COMPILE_WITH_OBJ_LOADER_
-

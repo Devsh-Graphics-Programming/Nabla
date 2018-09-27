@@ -20,6 +20,7 @@
 #include "IMeshCache.h"
 #include "ISkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
+#include "IAssetManager.h"
 
 namespace irr
 {
@@ -290,6 +291,8 @@ namespace scene
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual io::IFileSystem* getFileSystem() = 0;
 
+
+        virtual asset::IAssetManager& getAssetManager() = 0;
 
 		//! Adds a cube scene node
 		/** \param size: Size of the cube, uniformly in each dimension.

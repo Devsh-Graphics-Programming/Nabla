@@ -6,6 +6,7 @@
 #define __IRR_STL_MESH_WRITER_H_INCLUDED__
 
 #include "IAssetWriter.h"
+#include "IMesh.h"
 
 
 namespace irr

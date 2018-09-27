@@ -12,6 +12,7 @@
 #include "CGeometryCreator.h"
 #include "IAssetLoader.h"
 #include "IAssetWriter.h"
+#include "irr/core/Types.h"
 
 #include <array>
 #include <ostream>
@@ -37,7 +38,7 @@ namespace asset
 #ifdef USE_MAPS_FOR_PATH_BASED_CACHE
         using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, std::multimap>;
 #else
-        using AssetCacheType = core::CConcurrentObjectCache<std::string, IAsset, std::vector>;
+        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, std::vector>;
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
     private:
@@ -47,9 +48,10 @@ namespace asset
         static void refCtdDispose(T* _asset) { _asset->drop(); }
 
         io::IFileSystem* m_fileSystem;
+        IAssetLoader::IAssetLoaderOverride m_defaultLoaderOverride;
 
         //AssetCacheType m_assetCache[IAsset::ET_STANDARD_TYPES_COUNT];
-        core::array<AssetCacheType, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
+        std::array<AssetCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
 
         struct {
             core::vector<IAssetLoader*> vector;
@@ -71,6 +73,7 @@ namespace asset
             {
                 using Base = std::pair<IAsset::E_TYPE, std::string>;
                 using Base::Base; // inherit std::pair's ctors
+                using Base::operator=;
 
                 bool operator<(const WriterKey& _rhs) const
                 {
@@ -85,25 +88,27 @@ namespace asset
                 }
             };
 
-            core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt{ &refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter> };
+            //core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt{ &refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter> };
             core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType{ &refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter> };
         } m_writers;
 
-        friend IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
+        friend class IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
 
     public:
         //! Constructor
         explicit IAssetManager(io::IFileSystem* _fs) :
-            m_assetCache(
-                asset::makeAssetGreetFunc(this),
-                asset::makeAssetDisposeFunc(this)
-            ),
-            m_fileSystem{_fs} 
+            m_fileSystem{_fs},
+            m_defaultLoaderOverride{nullptr}
         {
+            for (size_t i = 0u; i < m_assetCache.size(); ++i)
+                m_assetCache[i] = new AssetCacheType(asset::makeAssetGreetFunc(this), asset::makeAssetDisposeFunc(this));
             m_fileSystem->grab();
+            m_defaultLoaderOverride = IAssetLoader::IAssetLoaderOverride{this};
         }
         virtual ~IAssetManager()
         {
+            for (size_t i = 0u; i < m_assetCache.size(); ++i)
+                delete m_assetCache[i];
             m_fileSystem->drop();
         }
 
@@ -111,16 +116,15 @@ namespace asset
         //IMeshCreator* getDefaultMeshCreator(); //old IGeometryCreator
 
     public:
-        IAsset* getAssetInHierarchy(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+        IAsset* getAssetInHierarchy(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             const uint64_t levelFlags = _params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
             if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
             {
-                core::array<AssetCacheType::RangeType, IAsset::ET_STANDARD_TYPES_COUNT> found = findAssets(_file->getFileName().c_str());
-                for (const auto& rng : found)
-                    if (AssetCacheType::isNonZeroRange(rng))
-                        return rng.first->second; // return asset in the beginning of first valid range
+                core::vector<IAsset*> found = findAssets(_file->getFileName().c_str());
+                if (found.size())
+                    return found.front();
             }
 
             IAsset* asset = nullptr;
@@ -131,7 +135,7 @@ namespace asset
                 if (loaderItr->second->isALoadableFileFormat(_file) && (asset = loaderItr->second->loadAsset(_file, _params, _override, _hierarchyLevel)))
                     break;
             }
-            for (auto loaderItr = std::begin(m_loaders.vector); loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
+            for (auto loaderItr = std::begin(m_loaders.vector); !asset && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
             {
                 if ((*loaderItr)->isALoadableFileFormat(_file) && (asset = (*loaderItr)->loadAsset(_file, _params, _override, _hierarchyLevel)))
                     break;
@@ -145,27 +149,47 @@ namespace asset
 
             return asset;
         }
-        IAsset* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+        IAsset* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             io::IReadFile* file = m_fileSystem->createAndOpenFile(_filename.c_str());
             if (!file)
                 return nullptr;
 
-            IAsset* asset = getAssetInHierarchy(file, _params, _override, _hierarchyLevel);
+            IAsset* asset = getAssetInHierarchy(file, _params, _hierarchyLevel, _override);
             file->drop();
 
             return asset;
         }
 
+        IAsset* getAssetInHierarchy(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        {
+            return getAssetInHierarchy(_file, _params, _hierarchyLevel, &m_defaultLoaderOverride);
+        }
+
+        IAsset* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        {
+            return getAssetInHierarchy(_filename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
+        }
+
         //! These can be grabbed and dropped, but you must not use drop() to try to unload/release memory of a cached IAsset (which is cached if IAsset::isInAResourceCache() returns true). See IAsset::E_CACHING_FLAGS
         /** Instead for a cached asset you call IAsset::removeSelfFromCache() instead of IAsset::drop() as the cache has an internal grab of the IAsset and it will drop it on removal from cache, which will result in deletion if nothing else is holding onto the IAsset through grabs (in that sense the last drop will delete the object). */
-        IAsset* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr)
+        IAsset* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
         {
-            return getAssetInHierarchy(_filename, _params, _override, 0u);
+            return getAssetInHierarchy(_filename, _params, 0u, _override);
         }
-        IAsset* getAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr)
+        IAsset* getAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
         {
-            return getAssetInHierarchy(_file, _params, _override, 0u);
+            return getAssetInHierarchy(_file, _params,  0u, _override);
+        }
+
+        IAsset* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params)
+        {
+            return getAsset(_filename, _params, &m_defaultLoaderOverride);
+        }
+
+        IAsset* getAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params)
+        {
+            return getAsset(_file, _params, &m_defaultLoaderOverride);
         }
 
         inline bool findAssets(size_t& _inOutStorageSize, IAsset** _out, const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
@@ -180,7 +204,7 @@ namespace asset
                 {
                     uint32_t typeIx = IAsset::typeFlagToIndex(_types[i]);
                     size_t readCnt = availableSize;
-                    res = m_assetCache[typeIx].findAndStoreRange(_key, readCnt, _out);
+                    res = m_assetCache[typeIx]->findAndStoreRange(_key, readCnt, _out);
                     availableSize -= readCnt;
                     _inOutStorageSize += readCnt;
                     _out += readCnt;
@@ -192,7 +216,7 @@ namespace asset
                 for (uint32_t typeIx = 0u; typeIx < IAsset::ET_STANDARD_TYPES_COUNT; ++typeIx)
                 {
                     size_t readCnt = availableSize;
-                    res = m_assetCache[typeIx].findAndStoreRange(_key, readCnt, _out);
+                    res = m_assetCache[typeIx]->findAndStoreRange(_key, readCnt, _out);
                     availableSize -= readCnt;
                     _inOutStorageSize += readCnt;
                     _out += readCnt;
@@ -200,7 +224,7 @@ namespace asset
             }
             return res;
         }
-        inline std::vector<IAsset*> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
+        inline core::vector<IAsset*> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t reqSz = 0u;
             if (_types)
@@ -209,14 +233,14 @@ namespace asset
                 while ((_types[i] != (IAsset::E_TYPE)0u))
                 {
                     const uint32_t typeIx = IAsset::typeFlagToIndex(_types[i]);
-                    reqSz += m_assetCache[typeIx].getSize();
+                    reqSz += m_assetCache[typeIx]->getSize();
                     ++i;
                 }
             }
             else
             {
                 for (const auto& cache : m_assetCache)
-                    reqSz += cache.getSize();
+                    reqSz += cache->getSize();
             }
             core::vector<IAsset*> res(reqSz);
             findAssets(reqSz, res.data(), _key, _types);
@@ -231,7 +255,7 @@ namespace asset
                 _asset->setNewCacheKey(_newKey);
             else
             {
-                if (m_assetCache[IAsset::typeFlagToIndex(_asset->getAssetType())].changeObjectKey(_asset, _asset->cacheKey, _newKey))
+                if (m_assetCache[IAsset::typeFlagToIndex(_asset->getAssetType())]->changeObjectKey(_asset, _asset->cacheKey, _newKey))
                     _asset->setNewCacheKey(_newKey);
             }
         }
@@ -241,7 +265,9 @@ namespace asset
         bool insertAssetIntoCache(IAsset* _asset)
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            if (!m_assetCache[ix].insert(_asset->cacheKey, _asset))
+            bool r = m_assetCache[ix]->insert(_asset->cacheKey, _asset);
+            printf("");
+            if (!r)
                 return false;
             return true;
         }
@@ -250,7 +276,7 @@ namespace asset
         bool removeAssetFromCache(IAsset* _asset) //will actually look up by asset’s key instead
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            return m_assetCache[ix].removeObject(_asset, _asset->cacheKey);
+            return m_assetCache[ix]->removeObject(_asset, _asset->cacheKey);
         }
 
         //! Removes all assets from the specified caches, all caches by default
@@ -258,7 +284,7 @@ namespace asset
         {
             for (size_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
                 if ((_assetTypeBitFlags>>i) & 1ull)
-                    m_assetCache[i].clear();
+                    m_assetCache[i]->clear();
         }
 
         //! This function frees most of the memory consumed by IAssets, but not destroying them.
@@ -269,11 +295,12 @@ namespace asset
         //  we're passing asset as `object` parameter and as `objectToAssociate` we pass corresponding gpu object created from the cpu one completely outside asset-pipeline
         //  the cpu object (asset) frees all memory but object itself remains as key for cpu->gpu assoc cache.
         //Also what if we want to cache gpu stuff but don't want to touch cpu stuff? (e.g. to change one meshbuffer in mesh)
-        template<cpu_t, gpu_t>
-        void convertCPUObjectToEmptyCacheHandle(cpu_t* object, const gpu_t* objectToAssociate);
+        template<typename cpu_t, typename gpu_t>
+        void convertCPUObjectToEmptyCacheHandle(cpu_t* object, const gpu_t* objectToAssociate) {}
 
         //! Writing an asset
         /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear scale and has different meanings and results with different asset types and writers. */
+        /*
         bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override = nullptr)
         {
             io::IWriteFile* file = m_fileSystem->createAndWriteFile(_filename.c_str());
@@ -281,15 +308,16 @@ namespace asset
             file->drop();
             return res;
         }
-        bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override = nullptr)
-        {
-            auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), getFileExt(_file->getFileName())});
+        */
+        //bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override = nullptr)
+        //{
+        //    auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), getFileExt(_file->getFileName())});
 
-            for (auto it = capableWritersRng.first; it != capableWritersRng.second; ++it)
-                if (it->second->writeAsset(_file, _params, _override))
-                    return true;
-            return false;
-        }
+        //    for (auto it = capableWritersRng.first; it != capableWritersRng.second; ++it)
+        //        if (it->second->writeAsset(_file, _params, _override))
+        //            return true;
+        //    return false;
+        //}
 
         // Asset Loaders [FOLLOWING ARE NOT THREAD SAFE]
         uint32_t getAssetLoaderCount() { return m_loaders.vector.size(); }
@@ -327,8 +355,6 @@ namespace asset
         // Asset Writers [FOLLOWING ARE NOT THREAD SAFE]
         uint32_t getAssetWriterCount() { return m_writers.perType.getSize(); } // todo.. well, it's not really writer count.. but rather type<->writer association count
 
-        IAssetWriter* getAssetWriter(const uint32_t& _idx); //todo: how can index be understood here?
-
         uint32_t addAssetWriter(IAssetWriter* _writer)
         {
             const uint64_t suppTypes = _writer->getSupportedAssetTypesBitfield();
@@ -339,8 +365,8 @@ namespace asset
                 if ((suppTypes>>i) & 1u)
                     m_writers.perType.insert(type, _writer);
                 size_t extIx = 0u;
-                while (const char* ext = exts[extIx++])
-                    m_writers.perTypeAndFileExt.insert({type, ext}, _writer);
+                //while (const char* ext = exts[extIx++])
+                //    m_writers.perTypeAndFileExt.insert({type, ext}, _writer);
             }
         }
         void removeAssetWriter(IAssetWriter* _writer)
@@ -354,21 +380,20 @@ namespace asset
                 {
                     const IAsset::E_TYPE type = IAsset::E_TYPE(1u << i);
                     m_writers.perType.removeObject(_writer, type);
-                    while (const char* ext = exts[extIx++])
-                        m_writers.perTypeAndFileExt.removeObject(_writer, {type, ext});
+                    //while (const char* ext = exts[extIx++])
+                        //m_writers.perTypeAndFileExt.removeObject(_writer, {type, ext});
                 }
             }
         }
-        void removeAssetWriter(const uint32_t& _idx); // TODO what is _idx here?
 
         void dumpDebug(std::ostream& _outs) const
         {
             for (uint32_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
             {
                 _outs << "Asset cache (asset type " << (1u << i) << "):\n";
-                size_t sz = m_assetCache[i].getSize();
+                size_t sz = m_assetCache[i]->getSize();
                 typename AssetCacheType::MutablePairType* storage = new typename AssetCacheType::MutablePairType[sz];
-                m_assetCache[i].outputAll(sz, storage);
+                m_assetCache[i]->outputAll(sz, storage);
                 for (uint32_t j = 0u; j < sz; ++j)
                     _outs << "\tKey: " << storage[j].first << ", Value: " << static_cast<void*>(storage[j].second) << '\n';
                 delete[] storage;
@@ -383,8 +408,8 @@ namespace asset
             for (const auto& wtr : m_writers.perType)
                 _outs << "\tKey: " << static_cast<uint64_t>(wtr.first) << ", Value: " << static_cast<void*>(wtr.second) << '\n';
             _outs << "Writers per-asset-type-and-file-ext cache:\n";
-            for (const auto& wtr : m_writers.perTypeAndFileExt)
-                _outs << "\tKey: " << wtr.first << ", Value: " << static_cast<void*>(wtr.second) << '\n';
+            //for (const auto& wtr : m_writers.perTypeAndFileExt)
+            //    _outs << "\tKey: " << wtr.first << ", Value: " << static_cast<void*>(wtr.second) << '\n';
         }
 
     private:

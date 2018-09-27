@@ -12,26 +12,10 @@ IAsset* IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::string& i
     if ((levelFlag & ECF_DUPLICATE_TOP_LEVEL) == ECF_DUPLICATE_TOP_LEVEL)
         return nullptr;
 
-    auto found = m_manager->findAssets(inSearchKey, inAssetTypes);
-    if (inAssetTypes)
-    {
-        uint32_t i = 0u;
-        while (IAsset::E_TYPE type = inAssetTypes[i++])
-        {
-            const uint32_t ix = IAsset::typeFlagToIndex(type);
-            if (IAssetManager::AssetCacheType::isNonZeroRange(found[ix]))
-                return found[ix].first->second;
-        }
-    }
-    else
-    {
-        for (uint32_t ix = 0u; ix < IAsset::ET_STANDARD_TYPES_COUNT; ++ix)
-        {
-            if (IAssetManager::AssetCacheType::isNonZeroRange(found[ix]))
-                return found[ix].first->second;
-        }
-    }
-    return nullptr;
+    core::vector<IAsset*> found = m_manager->findAssets(inSearchKey, inAssetTypes);
+    if (!found.size())
+        return nullptr;
+    return found.front();
 }
 
 void IAssetLoader::IAssetLoaderOverride::setAssetCacheKey(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, uint32_t hierarchyLevel)

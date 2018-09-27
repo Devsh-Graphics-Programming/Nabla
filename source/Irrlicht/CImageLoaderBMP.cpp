@@ -196,7 +196,7 @@ void CImageLoaderBMP::decompress4BitRLE(uint8_t*& bmpData, int32_t size, int32_t
 
 
 //! creates a surface from the file
-asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u)
+asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	SBMPHeader header;
 

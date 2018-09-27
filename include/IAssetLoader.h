@@ -86,10 +86,11 @@ public:
     {
     protected:
         IAssetManager* m_manager;
+    public:
         IAssetLoaderOverride(IAssetManager* _manager) : m_manager(_manager) {}
 
-        //! The only reason these functions are not declared static is to allow stateful overrides
-    public:
+        // The only reason these functions are not declared static is to allow stateful overrides
+
         //! The most imporant overrides are the ones for caching
         virtual IAsset* findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
 

@@ -78,54 +78,6 @@ using queue = std::queue<T,Container>;
 template<typename T, class Container=deque<T> >
 using stack = std::stack<T,Container>;
 
-template<typename T, std::size_t S>
-class array
-{
-    static_assert(S > 0u, "irr::core::array cannot be of size 0");
-
-    T m_array[S];
-
-    static T repeat(T _el, std::size_t) { return _el; }
-
-    template<std::size_t ...Is>
-    array(std::index_sequence<Is...>, T _el) : m_array{ repeat(_el, Is)... } {}
-
-public:
-    using size_type = std::size_t;
-    using value_type = T;
-    using difference_type = std::ptrdiff_t;
-    using reference = T&;
-    using const_reference = const T&;
-    using pointer = T*;
-    using const_pointer = const T*;
-    using iterator = pointer;
-    using const_iterator = const_pointer;
-    using reverse_iterator = std::reverse_iterator<iterator>;
-    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-
-public:
-    array() = default;
-
-    template<typename ...Args>
-    array(Args... _args) : array(std::make_index_sequence<S>{}, T(std::forward(_args)...)) {}
-
-    T& operator[](size_type _ix) { return m_array[_ix]; }
-    const T& operator[](size_type _ix) const { return m_array[_ix]; }
-
-    constexpr size_type size() const { return S; }
-    constexpr bool empty() const { return false; }
-    constexpr size_type max_size() const { return size(); }
-
-    iterator begin() { return m_array; }
-    const_iterator cbegin() const { return m_array; }
-    reverse_iterator rbegin() { return reverse_iterator{begin()}; }
-    const_reverse_iterator crbegin() { return const_reverse_iterator{cbegin()}; }
-    iterator end() { returm m_array+S; }
-    const_iterator cend() const { return m_arrays+S; }
-    reverse_iterator rend() { return reverse_iterator{end()}; }
-    const_reverse_iterator crend() { return const_reverse_iterator{cend()}; }
-};
-
 typedef std::mutex  mutex;
 // change to some derivation of FW_FastLock later
 typedef std::mutex  fast_mutex;
