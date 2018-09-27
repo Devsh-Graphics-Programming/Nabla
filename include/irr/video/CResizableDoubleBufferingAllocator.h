@@ -15,23 +15,15 @@ template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false, class C
 class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>
 {
     private:
-        typedef core::address_allocator_traits<AddressAllocator>                            alloc_traits;
+        typedef core::address_allocator_traits<AddressAllocator>                                            alloc_traits;
 
-        typedef CDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>  Base;
-        typedef CResizableDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>  ThisType;
+        typedef CDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator>          Base;
+        typedef typename AddressAllocator::size_type                                                        size_type;
 
-        inline size_type calcBufferAlignPadding(size_type newSize)
-        {
-            size_type defaultAlignment = Base::mDriver->getMinimumMemoryMapAlignment();
-            size_type maxPrevPossibleAlignment = Base::mAllocator.max_alignment();
-            if (defaulAlignment>maxPrevPossibleAlignment)
-                return 0u;
+        typedef CResizableDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator> ThisType;
 
-            size_type worstPossibleStartAlignment = maxPrevPossibleAlignment-defaultAlignment;
-            return worstPossibleStartAlignment;
-        }
 
-        inline void resizeBackBuffer(size_type newSize, size_type copyOldRangeLen)
+        inline void                             resizeBackBuffer(size_type newSize, size_type copyOldRangeLen)
         {
             IDriverMemoryAllocation* oldAlloc = const_cast<IDriverMemoryAllocation*>(Base::mBackBuffer->getBoundMemory());
             //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
@@ -39,13 +31,13 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
             reqs.vulkanReqs.size = Base::mStagingBuffOff+newSize;
 
             //! No BoundMemoryOffset applied to mStagingBuffOff on new buffer as allocated on dedicated memory
-            IGPUBuffer* rep = Driver->createGPUBufferOnDedMem(reqs,Base::mBackBuffer->canUpdateSubRange());
+            IGPUBuffer* rep = Base::mDriver->createGPUBufferOnDedMem(reqs,Base::mBackBuffer->canUpdateSubRange());
             // ignore return value as it has wrong offsets
             const_cast<IDriverMemoryAllocation*>(rep->getBoundMemory())->mapMemoryRange(oldAlloc->getCurrentMappingCaps(),
                                                         IDriverMemoryAllocation::MemoryRange{Base::mStagingBuffOff,newSize});
             {
                 uint8_t* newMappedMem = reinterpret_cast<uint8_t*>(rep->getBoundMemory()->getMappedPointer())+Base::mStagingBuffOff;
-                memcpy(newMappedMem,mStagingPointer,copyOldRangeLen);
+                memcpy(newMappedMem,Base::mStagingPointer,copyOldRangeLen);
                 Base::mRangeLength = newSize;
                 Base::mStagingPointer = newMappedMem;
             }
@@ -53,23 +45,23 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
             Base::mBackBuffer->pseudoMoveAssign(rep);
             rep->drop();
         }
-        inline void resizeFrontBuffer(size_type newSize, size_type copyOldRangeLen)
+        inline void                             resizeFrontBuffer(size_type newSize, size_type copyOldRangeLen)
         {
             //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
             IDriverMemoryBacked::SDriverMemoryRequirements reqs = Base::mFrontBuffer->getMemoryReqs();
             reqs.vulkanReqs.size = Base::mDestBuffOff+newSize;
 
-            IGPUBuffer* newFrontBuffer = Driver->createGPUBufferOnDedMem(reqs,Base::mFrontBuffer->canUpdateSubRange());
-            mDriver->copyBuffer(Base::mFrontBuffer,newFrontBuffer,mDestBuffOff,mDestBuffOff,copyOldRangeLen);
+            IGPUBuffer* newFrontBuffer = Base::mDriver->createGPUBufferOnDedMem(reqs,Base::mFrontBuffer->canUpdateSubRange());
+            Base::mDriver->copyBuffer(Base::mFrontBuffer,newFrontBuffer,Base::mDestBuffOff,Base::mDestBuffOff,copyOldRangeLen);
             Base::mFrontBuffer->pseudoMoveAssign(newFrontBuffer);
             newFrontBuffer->drop();
         }
 
     protected:
-        ///constexpr size_type growStep = 2u; //debug test
-        constexpr size_type growStep = 32u*4096u; //128k at a time
-        constexpr size_type growStepMinus1 = growStep-1u;
-        static size_type defaultGrowPolicy(ThisType* _this, size_type totalRequestedNewMem)
+        ///constexpr static size_type growStep = 2u; //debug test
+        constexpr static size_type growStep = 32u*4096u; //128k at a time
+        constexpr static size_type growStepMinus1 = growStep-1u;
+        static inline size_type                 defaultGrowPolicy(ThisType* _this, size_type totalRequestedNewMem)
         {
             size_type allAllocatorSpace = alloc_traits::get_total_size(_this->mAllocator);
             size_type nextAllocTotal = alloc_traits::get_allocated_size(_this->mAllocator)+totalRequestedNewMem;
@@ -78,7 +70,7 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
 
             return allAllocatorSpace;
         }
-        static size_type defaultShrinkPolicy(ThisType* _this)
+        static inline size_type                 defaultShrinkPolicy(ThisType* _this)
         {
             ///constexpr size_type shrinkStep = 2u; //debug test
             constexpr size_type shrinkStep = 256u*4096u; //1M at a time
@@ -90,10 +82,20 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
             return alloc_traits::get_total_size(_this->mAllocator);
         }
 
-        decltype(defaultGrowPolicy) growPolicy;
-        decltype(defaultShrinkPolicy) shrinkPolicy;
+        size_type(*growPolicy)(ThisType*,size_type);
+        size_type(*shrinkPolicy)(ThisType*);
 
     public:
+        static inline size_type                 calcBufferAlignPadding(size_type newSize, IVideoDriver* driver, size_type maxReqAlignment)
+        {
+            size_type defaultAlignment = driver->getMinimumMemoryMapAlignment();
+            if (defaultAlignment>maxReqAlignment)
+                return 0u;
+
+            size_type worstPossibleStartAlignment = maxReqAlignment-defaultAlignment;
+            return worstPossibleStartAlignment;
+        }
+
         //! The IDriverMemoryBacked::SDriverMemoryRequirements::size must be identical for both reqs
         template<typename... Args>
         CResizableDoubleBufferingAllocator( IVideoDriver* driver, const IDriverMemoryBacked::SDriverMemoryRequirements& stagingBufferReqs,
@@ -118,15 +120,15 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         }
 
         //! Grow Policies return
-        inline const auto&  getGrowPolicy() const {return growPolicy;}
-        inline void         setGrowPolicy(const decltype(growPolicy)& newGrowPolicy) {growPolicy=newGrowPolicy;}
+        inline const decltype(growPolicy)&      getGrowPolicy() const {return growPolicy;}
+        inline void                             setGrowPolicy(const decltype(growPolicy)& newGrowPolicy) {growPolicy=newGrowPolicy;}
 
-        inline const auto&  getShrinkPolicy() const {return shrinkPolicy;}
-        inline void         setShrinkPolicy(const decltype(shrinkPolicy)& newShrinkPolicy) {shrinkPolicy=newShrinkPolicy;}
+        inline const decltype(shrinkPolicy)&    getShrinkPolicy() const {return shrinkPolicy;}
+        inline void                             setShrinkPolicy(const decltype(shrinkPolicy)& newShrinkPolicy) {shrinkPolicy=newShrinkPolicy;}
 
 
         template<typename... Args>
-        inline void                     multi_alloc_addr(size_type* outAddresses, uint32_t count, const size_type* bytes, Args&&... args)
+        inline void                             multi_alloc_addr(size_type* outAddresses, uint32_t count, const size_type* bytes, Args&&... args)
         {
             size_type maxRequestedAllocSize = bytes[0];
             size_type totalRequestedNewMem = bytes[0];
@@ -146,23 +148,23 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
 
             if (newSize>allAllocatorSpace)
             {
-                newSize += calcBufferAlignPadding(newSize);
+                newSize += calcBufferAlignPadding(newSize,Base::mDriver,Base::mAllocator.max_alignment());
 
-                void* newAllocatorState = mAllocatorState;
-                size_type newReservedSize = AddressAllocator::reserved_size(newSize,mAllocator);
-                if (newReservedSize>mReservedSize)
-                    newAllocatorState = mCPUAllocator.allocate(newReservedSize,_IRR_SIMD_ALIGNMENT);
+                void* newAllocatorState = Base::mAllocatorState;
+                size_type newReservedSize = AddressAllocator::reserved_size(newSize,Base::mAllocator);
+                if (newReservedSize>Base::mReservedSize)
+                    newAllocatorState = Base::mCPUAllocator.allocate(newReservedSize,_IRR_SIMD_ALIGNMENT);
 
                 size_type oldRangeLength = Base::mRangeLength;
                 if (Base::mStagingBuffOff+newSize>Base::mBackBuffer->getSize())
                     resizeBackBuffer(newSize,oldRangeLength);
 
-                mAllocator = AddressAllocator(mAllocator,newAllocatorState,Base::mStagingPointer,newSize); //! handle offset padding impact on newSize
-                if (newReservedSize>mReservedSize) // equivalent to (newAllocatorState!=mAllocatorState)
+                Base::mAllocator = AddressAllocator(Base::mAllocator,newAllocatorState,Base::mStagingPointer,newSize); //! handle offset padding impact on newSize
+                if (newReservedSize>Base::mReservedSize) // equivalent to (newAllocatorState!=mAllocatorState)
                 {
-                    mCPUAllocator.deallocate(reinterpret_cast<uint8_t*>(mAllocatorState),mReservedSize);
-                    mAllocatorState = newAllocatorState;
-                    mReservedSize = newReservedSize;
+                    Base::mCPUAllocator.deallocate(reinterpret_cast<uint8_t*>(Base::mAllocatorState),Base::mReservedSize);
+                    Base::mAllocatorState = newAllocatorState;
+                    Base::mReservedSize = newReservedSize;
                 }
 
 
@@ -170,13 +172,13 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
                     resizeFrontBuffer(newSize,oldRangeLength);
             }
 
-            alloc_traits::multi_alloc_addr(mAllocator,outAddresses,count,bytes,std::forward<Args>(args)...);
+            alloc_traits::multi_alloc_addr(Base::mAllocator,outAddresses,count,bytes,std::forward<Args>(args)...);
         }
 
         template<typename... Args>
-        inline void                     multi_free_addr(Args&&... args)
+        inline void                             multi_free_addr(Args&&... args)
         {
-            alloc_traits::multi_free_addr(mAllocator,std::forward<Args>(args)...);
+            alloc_traits::multi_free_addr(Base::mAllocator,std::forward<Args>(args)...);
 
             size_type allAllocatorSpace = alloc_traits::get_total_size(Base::mAllocator);
             size_type newSize = shrinkPolicy(this);
@@ -184,11 +186,11 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
                 return;
 
             // some allocators may not be shrinkable because of fragmentation
-            newSize = mAllocator.safe_shrink_size(newSize);
+            newSize = Base::mAllocator.safe_shrink_size(newSize);
             if (newSize>=allAllocatorSpace)
                 return;
             // or alignment
-            newSize += calcBufferAlignPadding(newSize);
+            newSize += calcBufferAlignPadding(newSize,Base::mDriver,Base::mAllocator.max_alignment());
             if (newSize>=allAllocatorSpace)
                 return;
 
@@ -198,7 +200,7 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
             if (Base::mStagingBuffOff+newSize<Base::mBackBuffer->getSize())
                 resizeBackBuffer(newSize,newSize);
 
-            mAllocator = AddressAllocator(Base::mAllocator,Base::mAllocatorState,Base::mStagingPointer,newSize); //! handle offset padding impact on newSize
+            Base::mAllocator = AddressAllocator(Base::mAllocator,Base::mAllocatorState,Base::mStagingPointer,newSize); //! handle offset padding impact on newSize
 
             // resize front buffer
             if (Base::mDestBuffOff+newSize<Base::mFrontBuffer->getSize())

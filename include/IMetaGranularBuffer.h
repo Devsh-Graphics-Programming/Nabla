@@ -2,7 +2,7 @@
 #define __I_META_GRANULAR_BUFFER_H__
 
 #include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
-#include "irr/video/CDoubleBufferingAllocator.h"
+#include "irr/video/CResizableDoubleBufferingAllocator.h"
 
 namespace irr
 {
@@ -111,7 +111,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
                     granuleIDs[allocationsCount++] = Granules;
                     Granules++;
                 }
-                //ValidateHashMap(Allocated);
                 while (Granules<newAllocCount)
                 {
                     residencyRedirectTo[Granules++] = 0xdeadbeefu;
@@ -136,7 +135,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
                     }
                 }
             }
-//            ValidateHashMap(Allocated);
 
             for (size_t i=0; allocationsCount<count; i++)
             {
@@ -147,16 +145,12 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
                     granuleIDs[allocationsCount++] = i;
                 }
             }
-//            ValidateHashMap(Allocated);
 
             return true;
         }
 
         inline const uint32_t& getRedirectFromID(const size_t& ix) const
         {
-#ifdef _DEBUG
-            assert(ix<Granules);
-#endif // _DEBUG
             return residencyRedirectTo[ix];
         }
 
@@ -170,9 +164,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
             for (size_t i=0; i<count; i++)
             {
                 indicesTmp[i] = residencyRedirectTo[granuleIDs[i]];
-#ifdef _DEBUG
-                assert(indicesTmp[i]<0xdeadbeefu);
-#endif // _DEBUG
             }
             if (count>1)
             {
@@ -200,10 +191,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
                     residencyRedirectTo[i] = rfrnc-difference;
                 }
             }
-#ifdef _DEBUG
-			assert(deletedGranuleCnt==count);
-#endif // _DEBUG
-//            ValidateHashMap(Allocated-count);
 
             if (deletedGranuleCnt)
             {
@@ -233,8 +220,6 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
 
             if (B->getSize()/GranuleByteSize-Allocated>=BackBufferShrinkStep+BackBufferGrowStep)
                 ShrinkBackBuffer();
-
-//			ValidateHashMap(Allocated);
         }
 };
 
@@ -247,7 +232,7 @@ namespace video
 class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGPUBuffer>
 {
     protected:
-        video::CDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>* alloc;
+        video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>* alloc;
 
         virtual ~IMetaGranularGPUMappedBuffer()
         {
@@ -286,8 +271,12 @@ class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGP
                                     : core::IMetaGranularBuffer<video::IGPUBuffer>(granuleSize,granuleCount,bufferGrowStep,bufferShrinkStep),
                                     Driver(driver), A(createGPUBuffer(driver,granuleSize,granuleCount)), InClientMemeory(clientMemeory)
         {
-            alloc = new video::CDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>(driver,video::IDriverMemoryAllocation::MemoryRange(0u,granuleSize*granuleCount),
-                                                                                                                createUpBuffer(driver,granuleSize,granuleCount),0u,A,granuleSize);
+            video::IDriverMemoryBacked::SDriverMemoryRequirements stagingReqs = driver->getUpStreamingMemoryReqs();
+            video::IDriverMemoryBacked::SDriverMemoryRequirements frontReqs = driver->getDeviceLocalGPUMemoryReqs();
+            size_t buffSize = granuleSize*granuleCount;
+            buffSize += video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>::calcBufferAlignPadding(buffSize,driver,core::findMSB(granuleCount));
+            stagingReqs.vulkanReqs.size = frontReqs.vulkanReqs.size = buffSize;
+            alloc = new video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>(driver,video::IDriverMemoryBacked::SDriverMemoryRequirements{},video::IDriverMemoryBacked::SDriverMemoryRequirements{},granuleSize);
         }
 
         virtual video::IGPUBuffer* getFrontBuffer() {return A;}
