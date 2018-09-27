@@ -84,19 +84,18 @@ public:
 
     inline size_t getMipMapCount() const { return m_mipmaps.back()->getSupposedMipLevel(); }
 
-    inline uint32_t getLowestMip() const { return m_mipmaps.front()->getSupposedMipLevel(); }
     inline uint32_t getHighestMip() const { return m_mipmaps.back()->getSupposedMipLevel(); }
 
     inline video::ECOLOR_FORMAT getColorFormat() const { return m_colorFormat; }
 
 private:
-    void sortMipMaps()
+    inline void sortMipMaps()
     {
         std::sort(std::begin(m_mipmaps), std::end(m_mipmaps), 
             [](const video::CImageData* _a, const video::CImageData* _b) { return _a->getSupposedMipLevel() < _b->getSupposedMipLevel(); }
         );
     }
-    void establishFmt()
+    inline void establishFmt()
     {
         video::ECOLOR_FORMAT fmt = m_mipmaps[0]->getColorFormat();
         for (uint32_t i = 1u; i < m_mipmaps.size(); ++i)
