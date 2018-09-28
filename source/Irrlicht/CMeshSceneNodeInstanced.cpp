@@ -254,6 +254,7 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
         }
         return false;
     }
+
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {
         size_t newCount = getCurrentInstanceCapacity();
@@ -271,8 +272,9 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
     for (size_t i=0; i<instanceCount; i++)
     {
         {
-            instanceBBoxes[instanceIDs[i]] = LoDInvariantBox;
-            relativeTransforms[i].transformBoxEx(instanceBBoxes[instanceIDs[i]]);
+            uint32_t blockID = getBlockIDFromAddr(instanceIDs[i]);
+            instanceBBoxes[blockID] = LoDInvariantBox;
+            relativeTransforms[i].transformBoxEx(instanceBBoxes[blockID]);
         }
         size_t redirect = instanceDataAllocator->getAllocator().get_real_addr(instanceIDs[i]);
         instanceDataAllocator->markRangeDirty(redirect,redirect+dataPerInstanceInputSize);
@@ -304,8 +306,9 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
 void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, const core::matrix4x3& relativeTransform)
 {
     {
-        instanceBBoxes[instanceID] = LoDInvariantBox;
-        relativeTransform.transformBoxEx(instanceBBoxes[instanceID]);
+        uint32_t blockID = getBlockIDFromAddr(instanceID);
+        instanceBBoxes[blockID] = LoDInvariantBox;
+        relativeTransform.transformBoxEx(instanceBBoxes[blockID]);
     }
 
     size_t redirect = instanceDataAllocator->getAllocator().get_real_addr(instanceID);
@@ -372,9 +375,9 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
 {
     for (size_t i=0; i<instanceCount; i++)
     {
-        size_t redirect = instanceDataAllocator->getAllocator().get_real_addr(instanceIDs[i]);
-        instanceBBoxes[instanceIDs[i]].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
-        instanceBBoxes[instanceIDs[i]].MaxEdge.set(-FLT_MAX,-FLT_MAX,-FLT_MAX);
+        uint32_t blockID = getBlockIDFromAddr(instanceIDs[i]);
+        instanceBBoxes[blockID].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
+        instanceBBoxes[blockID].MaxEdge.set(-FLT_MAX,-FLT_MAX,-FLT_MAX);
     }
 
     uint32_t dummyBytes[instanceCount];

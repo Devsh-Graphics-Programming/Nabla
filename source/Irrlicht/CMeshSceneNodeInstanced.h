@@ -177,6 +177,11 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         {
             return instanceDataAllocator->getAllocator().get_total_size()/dataPerInstanceInputSize;
         }
+
+        inline size_t getBlockIDFromAddr(uint32_t instanceID) const
+        {
+            return (instanceID-instanceDataAllocator->getAllocator().get_align_offset())/dataPerInstanceInputSize;
+        }
 };
 
 

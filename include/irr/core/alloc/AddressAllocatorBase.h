@@ -34,6 +34,10 @@ namespace core
                 return maxRequestableAlignment;
             }
 
+            inline _size_type           get_align_offset() const noexcept
+            {
+                return alignOffset;
+            }
 
             static inline _size_type    aligned_start_offset(_size_type globalBufferStartAddress, _size_type maxAlignment)
             {
