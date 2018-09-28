@@ -375,7 +375,7 @@ namespace core
     inline int32_t findMSB<uint64_t>(uint64_t x)
     {
 #ifdef __GNUC__
-        return x ? (31-__builtin_clzl(x)):(-1);
+        return x ? (63-__builtin_clzl(x)):(-1);
 #elif defined(_MSC_VER)
         long index;
         if (_BitScanReverse64(&index,reinterpret_cast<const __int64&>(x)))

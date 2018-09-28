@@ -26,7 +26,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr bool supportsNullBuffer = true;
+        /// C++17 inline static constexpr bool supportsNullBuffer = true;
 
         #define DUMMY_DEFAULT_CONSTRUCTOR PoolAddressAllocator() : blockSize(1u), blockCount(0u) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
@@ -35,11 +35,8 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         virtual ~PoolAddressAllocator() {}
 
         PoolAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type bufSz, size_type blockSz) noexcept :
-                    Base(reservedSpc,buffer,maxAllocatableAlignment), blockCount((bufSz-Base::alignOffset)/blockSz), blockSize(blockSz), freeStackCtr(0u)
+                    Base(reservedSpc,buffer,std::min(size_type(1u)<<size_type(findLSB(blockSz)),maxAllocatableAlignment)), blockCount((bufSz-Base::alignOffset)/blockSz), blockSize(blockSz), freeStackCtr(0u)
         {
-#ifdef _DEBUG
-            assert(Base::maxRequestableAlignment<=(size_type(1u)<<findLSB(blockSize)));
-#endif // _DEBUG
             reset();
         }
 
@@ -145,7 +142,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
         static inline size_type reserved_size(size_type bufSz, size_type maxAlignment, size_type blockSz) noexcept
         {
-            size_type truncatedOffset = Base::aligned_start_offset(0x8000000000000000ull-size_t(_IRR_SIMD_ALIGNMENT),maxAlignment);
+            size_type truncatedOffset = Base::aligned_start_offset(0x7fffFFFFffffFFFFull,maxAlignment);
             size_type probBlockCount =  (bufSz-truncatedOffset)/blockSz;
             return probBlockCount*sizeof(size_type);
         }
@@ -171,6 +168,11 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         size_type   blockSize;
 
         size_type   freeStackCtr;
+
+        inline size_type addressToBlockID(size_type addr) const noexcept
+        {
+            return (addr-Base::alignOffset)/blockSize;
+        }
 };
 
 //! Ideas for general pool allocator (with support for arrays)
