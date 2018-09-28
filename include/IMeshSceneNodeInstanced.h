@@ -61,7 +61,7 @@ public:
 	/** \return Pointer to mesh which is displayed by this node. */
 	virtual SGPUMesh* getLoDMesh(const size_t &lod) = 0;
 
-	virtual const size_t& getInstanceCount() const = 0;
+	virtual size_t getInstanceCount() const = 0;
 
 	virtual const core::aabbox3df& getLoDInvariantBBox() const = 0;
 

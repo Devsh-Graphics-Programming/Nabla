@@ -15,7 +15,7 @@ namespace core
 {
 
 template<class AddressAllocator, class BasicLockable>
-class AddressAllocatorBasicConcurrencyAdaptor : public address_allocator_traits<AddressAllocator>
+class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 {
         static_assert(std::is_standard_layout<BasicLockable>::value,"Lock class is not standard layout");
         BasicLockable lock;
@@ -37,17 +37,19 @@ class AddressAllocatorBasicConcurrencyAdaptor : public address_allocator_traits<
             ///lock.unlock();
             return retval;
         }
-        inline void         multi_alloc_addr(size_type* outAddresses, uint32_t count, const size_type* bytes,
-                                             const size_type* alignment, const size_type* hint=nullptr) noexcept
+
+        template<typename... Args>
+        inline void         multi_alloc_addr(Args&&... args) noexcept
         {
             lock.lock();
-            traits::multi_alloc_addr(getBaseRef(),outAddresses,count,bytes,alignment,hint);
+            traits::multi_alloc_addr(getBaseRef(),std::forward<Args>(args)...);
             lock.unlock();
         }
-        inline void         multi_free_addr(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
+        template<typename... Args>
+        inline void         multi_free_addr(Args&&... args) noexcept
         {
             lock.lock();
-            traits::multi_free_addr(getBaseRef(),count,addr,bytes);
+            traits::multi_free_addr(getBaseRef(),std::forward<Args>(args)...);
             lock.unlock();
         }
 
@@ -83,18 +85,18 @@ class AddressAllocatorBasicConcurrencyAdaptor : public address_allocator_traits<
             return retval;
         }
 
-        inline size_type    safe_shrink_size(size_type bound=0u) const noexcept
+        inline size_type    safe_shrink_size(size_type bound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
             lock.lock();
-            auto retval = AddressAllocator::safe_shrink_size();
+            auto retval = AddressAllocator::safe_shrink_size(bound,newBuffAlignmentWeCanGuarantee);
             lock.unlock();
             return retval;
         }
 
         template<typename... Args>
-        static inline size_type reserved_size(size_type bufSz, const Args&... args) noexcept
+        static inline size_type reserved_size(const Args&... args) noexcept
         {
-            return AddressAllocator::reserved_size(bufSz,args...);
+            return AddressAllocator::reserved_size(args...);
         }
         static inline size_type reserved_size(size_type bufSz, const AddressAllocator& other) noexcept
         {

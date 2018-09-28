@@ -3488,12 +3488,8 @@ inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFrameb
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlBlitNamedFramebuffer)
             pGlBlitNamedFramebuffer(readFramebuffer, drawFramebuffer, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
-    #else
-        glBlitNamedFramebuffer(readFramebuffer, drawFramebuffer, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
-    #endif
     }
     else
     {
@@ -3502,19 +3498,17 @@ inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFrameb
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&boundReadFBO);
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundDrawFBO);
 
-        if (readFramebuffer!=boundReadFBO)
+        if (static_cast<GLuint>(readFramebuffer)!=boundReadFBO)
 	        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,readFramebuffer);
-        if (drawFramebuffer!=boundDrawFBO)
+        if (static_cast<GLuint>(drawFramebuffer)!=boundDrawFBO)
 	        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,drawFramebuffer);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
+
         if (pGlBlitFramebuffer)
             pGlBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
-    #else
-        glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
-    #endif
-        if (readFramebuffer!=boundReadFBO)
+
+        if (static_cast<GLuint>(readFramebuffer)!=boundReadFBO)
 	        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundReadFBO);
-        if (drawFramebuffer!=boundDrawFBO)
+        if (static_cast<GLuint>(drawFramebuffer)!=boundDrawFBO)
 	        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundDrawFBO);
     }
 }
@@ -3552,27 +3546,16 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(GLuint fram
         glFramebufferReadBufferEXT(framebuffer, mode);
     #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlBindFramebuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint boundFBO;
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&boundFBO);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (boundFBO!=framebuffer)
+
+        if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        pGlBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
         glReadBuffer(mode);
-        if (boundFBO!=framebuffer)
+        if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        pGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundFBO);
-#else
-        if (boundFBO!=framebuffer)
-	        glBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
-        glReadBuffer(mode);
-        if (boundFBO!=framebuffer)
-	        glBindFramebuffer(GL_READ_FRAMEBUFFER,boundFBO);
-#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
@@ -3596,27 +3579,16 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffer(GLuint fram
         glFramebufferDrawBufferEXT(framebuffer, buf);
     #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlBindFramebuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint boundFBO;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (boundFBO!=framebuffer)
+
+        if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
         glDrawBuffer(buf);
-        if (boundFBO!=framebuffer)
+        if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
-#else
-        if (boundFBO!=framebuffer)
-	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
-        glDrawBuffer(buf);
-        if (boundFBO!=framebuffer)
-	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
-#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
@@ -3640,27 +3612,16 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffers(GLuint fra
         glFramebufferDrawBuffersEXT(framebuffer, n, bufs);
     #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlDrawBuffers&&pGlBindFramebuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint boundFBO;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundFBO);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (boundFBO!=framebuffer)
+
+        if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
         pGlDrawBuffers(n,bufs);
-        if (boundFBO!=framebuffer)
+        if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        pGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
-#else
-        if (boundFBO!=framebuffer)
-	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);
-        glDrawBuffers(n,bufs);
-        if (boundFBO!=framebuffer)
-	        glBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundFBO);
-#endif // _IRR_OPENGL_USE_EXTPOINTER
     }
 }
 
@@ -3682,15 +3643,11 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferiv(GLuint framebu
         if (boundFBO<0)
             return;
 
-        if (boundFBO!=framebuffer)
+        if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearBufferiv)
             pGlClearBufferiv(buffer, drawbuffer, value);
-#else
-        glClearBufferiv(buffer, drawbuffer, value);
-#endif
-        if (boundFBO!=framebuffer)
+        if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
     }
 }
@@ -3713,7 +3670,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferuiv(GLuint frameb
         if (boundFBO<0)
             return;
 
-		if (boundFBO!=framebuffer)
+		if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearBufferuiv)
@@ -3721,7 +3678,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferuiv(GLuint frameb
 #else
         glClearBufferuiv(buffer, drawbuffer, value);
 #endif
-        if (boundFBO!=framebuffer)
+        if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
     }
 }
@@ -3744,7 +3701,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfv(GLuint framebu
         if (boundFBO<0)
             return;
 
-		if (boundFBO!=framebuffer)
+		if (static_cast<GLuint>(boundFBO)!=framebuffer)
 	        extGlBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
 #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearBufferfv)
@@ -3752,7 +3709,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfv(GLuint framebu
 #else
         glClearBufferfv(buffer, drawbuffer, value);
 #endif
-		if (boundFBO!=framebuffer)
+		if (static_cast<GLuint>(boundFBO)!=framebuffer)
 			extGlBindFramebuffer(GL_FRAMEBUFFER,boundFBO);
     }
 }

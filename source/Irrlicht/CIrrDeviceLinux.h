@@ -20,9 +20,7 @@
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 #include <GL/gl.h>
 #include <GL/glx.h>
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 #include "glxext.h"
-#endif
 #endif
 
 #include <X11/Xlib.h>

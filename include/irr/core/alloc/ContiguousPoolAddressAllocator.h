@@ -27,12 +27,14 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         static constexpr bool supportsNullBuffer = false;
         static constexpr uint32_t maxMultiOps = 4096u;
 
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(ContiguousPoolAddressAllocator() : addressRedirects(nullptr) {})
+        #define DUMMY_DEFAULT_CONSTRUCTOR ContiguousPoolAddressAllocator() : addressRedirects(nullptr), addressesAllocated(0u) {}
+        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
+        #undef DUMMY_DEFAULT_CONSTRUCTOR
 
         virtual ~ContiguousPoolAddressAllocator() {}
 
-        ContiguousPoolAddressAllocator(void* reservedSpc, void* buffer, size_type bufSz, size_type blockSz) noexcept :
-                                PoolAddressAllocator<_size_type>(reservedSpc,buffer,bufSz,blockSz),
+        ContiguousPoolAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type bufSz, size_type blockSz) noexcept :
+                                PoolAddressAllocator<_size_type>(reservedSpc,buffer,maxAllocatableAlignment,bufSz,blockSz),
                                 addressRedirects(reinterpret_cast<size_type*>(Base::reservedSpace)+Base::blockCount)
         {
             selfOnlyReset();
@@ -45,6 +47,14 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             for (auto i=other.blockCount; i<Base::blockCount; i++)
                 addressRedirects[i] = invalid_address;
             memmove(addressRedirects,other.addressRedirects,std::min(Base::blockCount,other.blockCount)*sizeof(size_type));
+        }
+
+        ContiguousPoolAddressAllocator& operator=(ContiguousPoolAddressAllocator&& other)
+        {
+            static_cast<Base&>(*this) = std::move(other);
+            addressRedirects = other.addressRedirects;
+            addressesAllocated = other.addressesAllocated;
+            return *this;
         }
 
         // extra
@@ -63,7 +73,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
 #endif // _DEBUG
 
             size_type sortedRedirects[maxMultiOps];
-            size_type sortedRedirectsEnd = sortedRedirects+count;
+            size_type* sortedRedirectsEnd = sortedRedirects+count;
             for (decltype(count) i=0; i<count; i++)
             {
                 auto tmp  = addr[i];
@@ -143,7 +153,20 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         }
 
 
-        inline size_type        safe_shrink_size(size_type byteBound=0u) const noexcept
+        //! conservative estimate, does not account for space lost to alignment
+        inline size_type        max_size() const noexcept
+        {
+            return Base::max_size();
+        }
+
+        inline size_type        max_alignment() const noexcept
+        {
+            return Base::max_alignment();
+        }
+
+
+
+        inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
             if (addressesAllocated*Base::blockSize>byteBound)
                 byteBound = addressesAllocated*Base::blockSize;
@@ -156,18 +179,14 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             }
             byteBound = newBound*Base::blockSize;
 
-            return Base::safe_shrink_size(byteBound);
+            return Base::safe_shrink_size(byteBound,newBuffAlignmentWeCanGuarantee);
         }
 
 
         template<typename... Args>
-        static inline size_type reserved_size(size_type bufSz, size_type blockSz, const Args&... args) noexcept
+        static inline size_type reserved_size(const Args&... args) noexcept
         {
-            return Base::reserved_size(bufSz,blockSz,args...)*2ull;
-        }
-        static inline size_type reserved_size(size_type bufSz, const ContiguousPoolAddressAllocator<_size_type>& other) noexcept
-        {
-            return Base::reserved_size(bufSz,other)*2ull;
+            return Base::reserved_size(args...)*2ull;
         }
 
 
@@ -184,7 +203,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             return Base::get_total_size();
         }
     protected:
-        size_type* const                        addressRedirects;
+        size_type*                              addressRedirects;
         size_type                               addressesAllocated;
     private:
         inline void selfOnlyReset()

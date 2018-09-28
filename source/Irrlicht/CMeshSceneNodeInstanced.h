@@ -72,7 +72,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         virtual const core::aabbox3df& getLoDInvariantBBox() const {return LoDInvariantBox;}
 
 
-        virtual const size_t& getInstanceCount() const { return instanceDataBuffer->getAllocatedCount(); }
+        virtual size_t getInstanceCount() const { return instanceDataAllocator->getAllocator().get_allocated_size()/dataPerInstanceInputSize; }
 
 
         virtual uint32_t addInstance(const core::matrix4x3& relativeTransform, void* extraData=NULL);
@@ -104,8 +104,11 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
             if (wantBBoxUpdate&&needsBBoxRecompute)
             {
                 Box.reset(0,0,0);
+                size_t instanceCount = getInstanceCount();
+                size_t allocCapacity = getCurrentInstanceCapacity();
+
                 size_t optimCount = 0;
-                for (size_t i=0; optimCount<instanceDataBuffer->getAllocatedCount()&&i<instanceDataBuffer->getCapacity(); i++)
+                for (size_t i=0; optimCount<instanceCount&&i<allocCapacity; i++)
                 {
                     if (instanceBBoxes[i].MinEdge.X>instanceBBoxes[i].MaxEdge.X)
                         continue;
@@ -155,8 +158,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         core::vector<video::ITransformFeedback*> xfb;
         size_t gpuLoDsPerPass;
 
-        bool instanceDataBufferChanged;
-        video::IMetaGranularGPUMappedBuffer* instanceDataBuffer;
+        video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>* instanceDataAllocator;
         bool needsBBoxRecompute;
         size_t instanceBBoxesCount;
         core::aabbox3df* instanceBBoxes;
@@ -167,8 +169,14 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         size_t dataPerInstanceOutputSize;
         size_t extraDataInstanceSize;
         size_t visibilityPadding;
+        size_t dataPerInstanceInputSize;
 
         int32_t PassCount;
+
+        inline size_t getCurrentInstanceCapacity() const
+        {
+            return instanceDataAllocator->getAllocator().get_total_size()/dataPerInstanceInputSize;
+        }
 };
 
 
