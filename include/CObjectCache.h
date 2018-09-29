@@ -156,14 +156,14 @@ namespace impl
         template<typename StorageT>
         inline bool outputRange_(const ConstRangeType& _rng, size_t& _inOutStorageSize, StorageT* _out) const
         {
-            if (_out)
+            if (!_out)
             {
                 _inOutStorageSize = std::distance(_rng.first, _rng.second);
                 return false;
             }
             size_t i = 0u;
             for (auto it = _rng.first; it != _rng.second && i < _inOutStorageSize; ++it)
-                outputThis(it, i, _out);
+                outputThis(it, i++, _out);
             const size_t reqSize = std::distance(_rng.first, _rng.second);
             bool res = _inOutStorageSize <= reqSize;
             _inOutStorageSize = i;
