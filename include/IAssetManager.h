@@ -42,6 +42,24 @@ namespace asset
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
     private:
+        struct WriterKey
+        {
+            IAsset::E_TYPE first;
+            std::string second;
+
+            inline bool operator<(const WriterKey& _rhs) const
+            {
+                if (first != _rhs.first)
+                    return first < _rhs.first;
+                return second < _rhs.second;
+            }
+
+            inline friend std::ostream& operator<<(std::ostream& _outs, const WriterKey& _item)
+            {
+                return _outs << "{ " << static_cast<uint64_t>(_item.first) << ", " << _item.second << " }";
+            }
+        };
+
         template<typename T>
         static void refCtdGreet(T* _asset) { _asset->grab(); }
         template<typename T>
@@ -49,14 +67,17 @@ namespace asset
 
         io::IFileSystem* m_fileSystem;
         IAssetLoader::IAssetLoaderOverride m_defaultLoaderOverride;
+        IAssetWriter::IAssetWriterOverride m_defaultWriterOverride;
 
         //AssetCacheType m_assetCache[IAsset::ET_STANDARD_TYPES_COUNT];
         std::array<AssetCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
 
-        struct {
+        struct Loaders {
+            Loaders() : perFileExt{&refCtdGreet<IAssetLoader>, &refCtdDispose<IAssetLoader>} {}
+
             core::vector<IAssetLoader*> vector;
             //! The key is file extension
-            core::CMultiObjectCache<std::string, IAssetLoader, std::vector> assoc{ &refCtdGreet<IAssetLoader>, &refCtdDispose<IAssetLoader> };
+            core::CMultiObjectCache<std::string, IAssetLoader, std::vector> perFileExt;
 
             void pushToVector(IAssetLoader* _loader) { 
                 _loader->grab();
@@ -68,28 +89,11 @@ namespace asset
             }
         } m_loaders;
 
-        struct {
-            struct WriterKey : public std::pair<IAsset::E_TYPE, std::string>
-            {
-                using Base = std::pair<IAsset::E_TYPE, std::string>;
-                using Base::Base; // inherit std::pair's ctors
-                using Base::operator=;
+        struct Writers {
+            Writers() : perTypeAndFileExt{&refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter>}, perType{&refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter>} {}
 
-                bool operator<(const WriterKey& _rhs) const
-                {
-                    if (first != _rhs.first)
-                        return first < _rhs.first;
-                    return second < _rhs.second;
-                }
-
-                inline friend std::ostream& operator<<(std::ostream& _outs, const WriterKey& _item)
-                {
-                    return _outs << "{ " << static_cast<uint64_t>(_item.first) << ", " << _item.second << " }";
-                }
-            };
-
-            //core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt{ &refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter> };
-            core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType{ &refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter> };
+            core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt;
+            core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType;
         } m_writers;
 
         friend class IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
@@ -128,7 +132,7 @@ namespace asset
             }
 
             IAsset* asset = nullptr;
-            auto capableLoadersRng = m_loaders.assoc.findRange(getFileExt(_file->getFileName()));
+            auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(_file->getFileName()));
 
             for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr) // loaders associated with the file's extension tryout
             {
@@ -300,31 +304,33 @@ namespace asset
 
         //! Writing an asset
         /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear scale and has different meanings and results with different asset types and writers. */
-        /*
-        bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override = nullptr)
+        bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
             io::IWriteFile* file = m_fileSystem->createAndWriteFile(_filename.c_str());
             bool res = writeAsset(file, _params, _override);
             file->drop();
             return res;
         }
-        */
-        //bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override = nullptr)
-        //{
-        //    auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), getFileExt(_file->getFileName())});
+        bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
+        {
+            auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), getFileExt(_file->getFileName())});
 
-        //    for (auto it = capableWritersRng.first; it != capableWritersRng.second; ++it)
-        //        if (it->second->writeAsset(_file, _params, _override))
-        //            return true;
-        //    return false;
-        //}
+            for (auto it = capableWritersRng.first; it != capableWritersRng.second; ++it)
+                if (it->second->writeAsset(_file, _params, _override))
+                    return true;
+            return false;
+        }
+        bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params)
+        {
+            return writeAsset(_filename, _params, &m_defaultWriterOverride);
+        }
+        bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params)
+        {
+            return writeAsset(_file, _params, &m_defaultWriterOverride);
+        }
 
         // Asset Loaders [FOLLOWING ARE NOT THREAD SAFE]
         uint32_t getAssetLoaderCount() { return m_loaders.vector.size(); }
-        IAssetLoader* getAssetLoader(const uint32_t& _idx)
-        {
-            return m_loaders.vector[_idx];
-        }
 
         //! @returns 0xdeadbeefu on failure or 0-based index on success.
         uint32_t addAssetLoader(IAssetLoader* _loader)
@@ -333,7 +339,7 @@ namespace asset
             const char** exts = _loader->getAssociatedFileExtensions();
             size_t extIx = 0u;
             while (const char* ext = exts[extIx++])
-                m_loaders.assoc.insert(ext, _loader);
+                m_loaders.perFileExt.insert(ext, _loader);
             m_loaders.pushToVector(_loader);
             return m_loaders.vector.size()-1u;
         }
@@ -345,11 +351,7 @@ namespace asset
             const char** exts = _loader->getAssociatedFileExtensions();
             size_t extIx = 0u;
             while (const char* ext = exts[extIx++])
-                m_loaders.assoc.removeObject(_loader, ext);
-        }
-        void removeAssetLoader(const uint32_t& _idx)
-        {
-            m_loaders.eraseFromVector(std::begin(m_loaders.vector)+_idx); // todo, i don't see a way to remove from assoc cache knowing only index in vector
+                m_loaders.perFileExt.removeObject(_loader, ext);
         }
 
         // Asset Writers [FOLLOWING ARE NOT THREAD SAFE]
@@ -365,8 +367,8 @@ namespace asset
                 if ((suppTypes>>i) & 1u)
                     m_writers.perType.insert(type, _writer);
                 size_t extIx = 0u;
-                //while (const char* ext = exts[extIx++])
-                //    m_writers.perTypeAndFileExt.insert({type, ext}, _writer);
+                while (const char* ext = exts[extIx++])
+                    m_writers.perTypeAndFileExt.insert({type, ext}, _writer);
             }
         }
         void removeAssetWriter(IAssetWriter* _writer)
@@ -380,8 +382,8 @@ namespace asset
                 {
                     const IAsset::E_TYPE type = IAsset::E_TYPE(1u << i);
                     m_writers.perType.removeObject(_writer, type);
-                    //while (const char* ext = exts[extIx++])
-                        //m_writers.perTypeAndFileExt.removeObject(_writer, {type, ext});
+                    while (const char* ext = exts[extIx++])
+                        m_writers.perTypeAndFileExt.removeObject(_writer, {type, ext});
                 }
             }
         }
@@ -401,15 +403,15 @@ namespace asset
             _outs << "Loaders vector:\n";
             for (const auto& ldr : m_loaders.vector)
                 _outs << '\t' << static_cast<void*>(ldr) << '\n';
-            _outs << "Loaders assoc cache:\n";
-            for (const auto& ldr : m_loaders.assoc)
+            _outs << "Loaders per-file-ext cache:\n";
+            for (const auto& ldr : m_loaders.perFileExt)
                 _outs << "\tKey: " << ldr.first << ", Value: " << ldr.second << '\n';
             _outs << "Writers per-asset-type cache:\n";
             for (const auto& wtr : m_writers.perType)
                 _outs << "\tKey: " << static_cast<uint64_t>(wtr.first) << ", Value: " << static_cast<void*>(wtr.second) << '\n';
             _outs << "Writers per-asset-type-and-file-ext cache:\n";
-            //for (const auto& wtr : m_writers.perTypeAndFileExt)
-            //    _outs << "\tKey: " << wtr.first << ", Value: " << static_cast<void*>(wtr.second) << '\n';
+            for (const auto& wtr : m_writers.perTypeAndFileExt)
+                _outs << "\tKey: " << wtr.first << ", Value: " << static_cast<void*>(wtr.second) << '\n';
         }
 
     private:
