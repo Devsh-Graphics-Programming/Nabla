@@ -62,14 +62,13 @@ CImageWriterPNG::CImageWriterPNG()
 bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
-    const asset::ICPUTexture* tex =
+    const video::CImageData* image =
 #   ifndef _DEBUG
-        static_cast<const asset::ICPUTexture*>(_params.rootAsset);
+        static_cast<const video::CImageData*>(_params.rootAsset);
 #   else
-        dynamic_cast<const asset::ICPUTexture*>(_params.rootAsset);
+        dynamic_cast<const video::CImageData*>(_params.rootAsset);
 #   endif
-    assert(tex);
-    const video::CImageData* image = *(tex->getMipMap(0u).first); // todo getMipMap
+    assert(image);
 
 	if (!_file || !image)
 		return false;

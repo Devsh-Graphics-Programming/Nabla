@@ -196,14 +196,13 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	return false;
 #else
-    const asset::ICPUTexture* tex =
+    const video::CImageData* image =
 #   ifndef _DEBUG
-        static_cast<const asset::ICPUTexture*>(_params.rootAsset);
+        static_cast<const video::CImageData*>(_params.rootAsset);
 #   else
-        dynamic_cast<const asset::ICPUTexture*>(_params.rootAsset);
+        dynamic_cast<const video::CImageData*>(_params.rootAsset);
 #   endif
-    assert(tex);
-    const video::CImageData* image = *(tex->getMipMap(0u).first); // todo getMipMap
+    assert(image);
 
 	return writeJPEGFile(_file, image, (!!(_params.flags & asset::EWF_COMPRESSED))*(1.f-_params.compressionLevel)*100.f); // if quality==0, then it defaults to 75
 #endif
