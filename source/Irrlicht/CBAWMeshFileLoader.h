@@ -27,6 +27,7 @@ private:
 		size_t absOffset; // absolute
 		void* heapBlob;
 		mutable bool validated;
+        uint32_t hierarchyLvl;
 
 		SBlobData(core::BlobHeaderV0* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
 		~SBlobData() { free(heapBlob); }
@@ -141,23 +142,7 @@ private:
         default: return nullptr;
         }
     }
-    static inline uint32_t blobTypeToHierarchyLvl(uint32_t _blobType)
-    {
-        // add here when more asset types will be available
-        switch (_blobType)
-        {
-            case core::Blob::EBT_MESH:
-            case core::Blob::EBT_SKINNED_MESH:
-                return 0u;
-            case core::Blob::EBT_MESH_BUFFER:
-            case core::Blob::EBT_SKINNED_MESH_BUFFER:
-                return 1u;
-            case core::Blob::EBT_RAW_DATA_BUFFER:
-                return 2u;
-            default: return 63u;
-        }
-    }
-    static inline void insertAssetIntoCache(const SContext& _ctx, asset::IAssetLoader::IAssetLoaderOverride* _override, void* _asset, uint32_t _blobType, const std::string& _cacheKey)
+    static inline void insertAssetIntoCache(const SContext& _ctx, asset::IAssetLoader::IAssetLoaderOverride* _override, void* _asset, uint32_t _blobType, uint32_t _hierLvl, const std::string& _cacheKey)
     {
         // add here when more asset types will be available
         asset::IAsset* asset = nullptr;
@@ -179,8 +164,8 @@ private:
         }
         if (asset)
         {
-            _override->setAssetCacheKey(asset, _cacheKey, _ctx.inner, blobTypeToHierarchyLvl(_blobType));
-            _override->insertAssetIntoCache(asset, _ctx.inner, blobTypeToHierarchyLvl(_blobType));
+            _override->setAssetCacheKey(asset, _cacheKey, _ctx.inner, _hierLvl);
+            _override->insertAssetIntoCache(asset, _ctx.inner, _hierLvl);
         }
     }
 

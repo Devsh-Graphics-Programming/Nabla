@@ -70,6 +70,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	const core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/" };
 	core::stack<SBlobData*> toLoad, toFinalize;
 	toLoad.push(&meshBlobDataIter->second);
+    toLoad.top()->hierarchyLvl = 0u;
 	while (!toLoad.empty())
 	{
 		SBlobData* data = toLoad.top();
@@ -79,13 +80,14 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         const uint32_t size = data->header->blobSizeDecompr;
         const uint32_t blobType = data->header->blobType;
         const std::string thisCacheKey = genSubAssetCacheKey(rootCacheKey, handle);
+        const uint32_t hierLvl = data->hierarchyLvl;
 
         uint8_t decrKey[16];
         size_t decrKeyLen = 16u;
         uint32_t attempt = 0u;
         const void* blob = nullptr;
         // todo: supposedFilename arg is missing (empty string) - what is it? 
-        while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, blobTypeToHierarchyLvl(blobType)))
+        while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, hierLvl))
         {
             if (!((data->header->compressionType & core::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
                 blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, decrKey);
@@ -102,16 +104,21 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		}
 
 		core::unordered_set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
-		for (auto it = deps.begin(); it != deps.end(); ++it)
-			if (ctx.createdObjs.find(*it) == ctx.createdObjs.end())
-				toLoad.push(&ctx.blobs[*it]);
+        for (auto it = deps.begin(); it != deps.end(); ++it)
+        {
+            if (ctx.createdObjs.find(*it) == ctx.createdObjs.end())
+            {
+                toLoad.push(&ctx.blobs[*it]);
+                toLoad.top()->hierarchyLvl = hierLvl+1u;
+            }
+        }
 
-        if (asset::IAsset* found = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, blobTypeToHierarchyLvl(blobType)))
+        if (asset::IAsset* found = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, hierLvl))
         {
             ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(found, blobType);
             continue;
         }
-        else if (asset::IAsset* rescue = _override->handleSearchFail(thisCacheKey, ctx.inner, blobTypeToHierarchyLvl(blobType)))
+        else if (asset::IAsset* rescue = _override->handleSearchFail(thisCacheKey, ctx.inner, hierLvl))
         {
             ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(rescue, blobType);
             continue;
@@ -132,7 +139,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 			ctx.loadingMgr.finalize(blobType, obj, blob, size, ctx.createdObjs, params);
 			free(data->heapBlob);
 			blob = data->heapBlob = NULL;
-            insertAssetIntoCache(ctx, _override, obj, blobType, thisCacheKey);
+            insertAssetIntoCache(ctx, _override, obj, blobType, hierLvl, thisCacheKey);
 		}
 		else
 			toFinalize.push(data);
@@ -148,11 +155,12 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		const uint64_t handle = data->header->handle;
 		const uint32_t size = data->header->blobSizeDecompr;
 		const uint32_t blobType = data->header->blobType;
+        const uint32_t hierLvl = data->hierarchyLvl;
         const std::string thisCacheKey = genSubAssetCacheKey(rootCacheKey, handle);
 
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
         if (!toFinalize.empty()) // don't cache root-asset (mesh) as sub-asset because it'll be cached by asset manager directly (and there's only one IAsset::cacheKey)
-            insertAssetIntoCache(ctx, _override, retval, blobType, thisCacheKey);
+            insertAssetIntoCache(ctx, _override, retval, blobType, hierLvl, thisCacheKey);
 	}
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
