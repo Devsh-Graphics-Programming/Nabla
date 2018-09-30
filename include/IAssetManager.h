@@ -122,40 +122,56 @@ namespace asset
     public:
         IAsset* getAssetInHierarchy(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
+            IAssetLoader::SAssetLoadContext ctx{_params, _file};
+            io::IReadFile* file = _override->getLoadFile(_file, _file->getFileName().c_str(), ctx, _hierarchyLevel);
+
             const uint64_t levelFlags = _params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
+            IAsset* asset = nullptr;
             if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
             {
-                core::vector<IAsset*> found = findAssets(_file->getFileName().c_str());
+                core::vector<IAsset*> found = findAssets(file->getFileName().c_str());
                 if (found.size())
                     return found.front();
+                else if (asset = _override->handleSearchFail(file->getFileName().c_str(), ctx, _hierarchyLevel))
+                    return asset;
             }
 
-            IAsset* asset = nullptr;
-            auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(_file->getFileName()));
+            auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(file->getFileName()));
 
             for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr) // loaders associated with the file's extension tryout
             {
-                if (loaderItr->second->isALoadableFileFormat(_file) && (asset = loaderItr->second->loadAsset(_file, _params, _override, _hierarchyLevel)))
+                if (loaderItr->second->isALoadableFileFormat(file) && (asset = loaderItr->second->loadAsset(file, _params, _override, _hierarchyLevel)))
                     break;
             }
             for (auto loaderItr = std::begin(m_loaders.vector); !asset && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
             {
-                if ((*loaderItr)->isALoadableFileFormat(_file) && (asset = (*loaderItr)->loadAsset(_file, _params, _override, _hierarchyLevel)))
+                if ((*loaderItr)->isALoadableFileFormat(file) && (asset = (*loaderItr)->loadAsset(file, _params, _override, _hierarchyLevel)))
                     break;
             }
 
             if (asset && !(levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL))
             {
-                asset->setNewCacheKey(_file->getFileName().c_str());
+                asset->setNewCacheKey(file->getFileName().c_str());
                 insertAssetIntoCache(asset);
+            }
+            else
+            {
+                bool addToCache;
+                asset = _override->handleLoadFail(addToCache, file, file->getFileName().c_str(), file->getFileName().c_str(), ctx, _hierarchyLevel);
+                if (asset && addToCache)
+                    insertAssetIntoCache(asset);
             }
 
             return asset;
         }
         IAsset* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
-            io::IReadFile* file = m_fileSystem->createAndOpenFile(_filename.c_str());
+            IAssetLoader::SAssetLoadContext ctx{_params, nullptr};
+
+            std::string filename = _filename;
+            _override->getLoadFilename(filename, ctx, _hierarchyLevel);
+            io::IReadFile* file = m_fileSystem->createAndOpenFile(filename.c_str());
             if (!file)
                 return nullptr;
 

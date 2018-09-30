@@ -36,7 +36,6 @@ public:
         const E_CACHING_FLAGS cacheFlags;
     };
 
-protected:
     //! Struct for keeping the state of the current loadoperation for safe threading
     struct SAssetLoadContext
     {
@@ -44,7 +43,6 @@ protected:
         io::IReadFile* mainFile;
     };
 
-public:
     // following could be inlined
     static E_CACHING_FLAGS ECF_DONT_CACHE_LEVEL(uint64_t N)
     {

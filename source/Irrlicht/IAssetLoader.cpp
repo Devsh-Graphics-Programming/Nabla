@@ -14,7 +14,7 @@ IAsset* IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::string& i
 
     core::vector<IAsset*> found = m_manager->findAssets(inSearchKey, inAssetTypes);
     if (!found.size())
-        return nullptr;
+        return handleSearchFail(inSearchKey, ctx, hierarchyLevel);
     return found.front();
 }
 

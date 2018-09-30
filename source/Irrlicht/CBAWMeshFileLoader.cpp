@@ -118,11 +118,6 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(found, blobType);
             continue;
         }
-        else if (asset::IAsset* rescue = _override->handleSearchFail(thisCacheKey, ctx.inner, hierLvl))
-        {
-            ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(rescue, blobType);
-            continue;
-        }
 
 		bool fail = !(ctx.createdObjs[handle] = ctx.loadingMgr.instantiateEmpty(blobType, blob, size, params));
 

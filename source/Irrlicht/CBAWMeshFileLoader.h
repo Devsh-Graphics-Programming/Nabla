@@ -166,6 +166,7 @@ private:
         {
             _override->setAssetCacheKey(asset, _cacheKey, _ctx.inner, _hierLvl);
             _override->insertAssetIntoCache(asset, _ctx.inner, _hierLvl);
+            asset->drop();
         }
     }
 
