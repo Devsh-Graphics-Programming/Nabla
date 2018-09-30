@@ -42,13 +42,13 @@ public:
         const uint8_t* encryptionKey;
     };
 
-private:
     //! Struct for keeping the state of the current write operation for safe threading
     struct SAssetWriteContext
     {
         const SAssetWriteParams params;
         io::IWriteFile* outputFile;
     };
+
 public:
     //! Returns an array of string literals terminated by nullptr
     virtual const char** getAssociatedFileExtensions() const = 0;
@@ -70,36 +70,36 @@ public:
         //! The only reason these functions are not declared static is to allow stateful overrides
     public:
         //! To allow the asset writer to write different sub-assets with different flags
-        inline virtual E_WRITER_FLAGS getAssetWritingFlags(const SAssetWriteContext& ctx, IAsset* assetToWrite, const uint32_t& hierarchyLevel)
+        inline virtual E_WRITER_FLAGS getAssetWritingFlags(const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {
             return ctx.params.flags;
         }
 
         //! For altering the compression level for individual assets, i.e. images, etc.
-        inline virtual float getAssetCompressionLevel(const SAssetWriteContext& ctx, IAsset* assetToWrite, const uint32_t& hierarchyLevel)
+        inline virtual float getAssetCompressionLevel(const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {
             return ctx.params.compressionLevel;
         }
 
         //! For writing different sub-assets with different encryption keys (if supported)
         // if not supported then will never get called
-        inline virtual size_t getEncryptionKey(const uint8_t* outEncryptionKey, const SAssetWriteContext& ctx, IAsset* assetToWrite, const uint32_t& hierarchyLevel)
+        inline virtual size_t getEncryptionKey(const uint8_t* outEncryptionKey, const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {
             outEncryptionKey = ctx.params.encryptionKey;
             return ctx.params.encryptionKeyLen;
         }
 
         //! If the writer has to output multiple files (e.g. write out textures)
-        inline virtual void getExtraFilePaths(std::string& inOutAbsoluteFileWritePath, std::string& inOutPathToRecord, const SAssetWriteContext& ctx, std::pair<IAsset*, uint32_t> assetsToWriteAndTheirLevel) {} // do absolutely nothing, no changes to paths
+        inline virtual void getExtraFilePaths(std::string& inOutAbsoluteFileWritePath, std::string& inOutPathToRecord, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLevel) {} // do absolutely nothing, no changes to paths
 
-        inline virtual io::IWriteFile* getOutputFile(io::IWriteFile* origIntendedOutput, const SAssetWriteContext& ctx, std::pair<IAsset*, uint32_t> assetsToWriteAndTheirLeve)
+        inline virtual io::IWriteFile* getOutputFile(io::IWriteFile* origIntendedOutput, const SAssetWriteContext& ctx, std::pair<const IAsset*, uint32_t> assetsToWriteAndTheirLeve)
         {
             // if you want to return something else, better drop origIntendedOutput
             return origIntendedOutput;
         }
 
         //!This function is supposed to give an already seeked file the IAssetWriter can write to 
-        inline virtual io::IWriteFile* handleWriteError(io::IWriteFile* failingFile, const uint32_t& failedPos, const SAssetWriteContext& ctx, IAsset* assetToWrite, const uint32_t& hierarchyLevel)
+        inline virtual io::IWriteFile* handleWriteError(io::IWriteFile* failingFile, const uint32_t& failedPos, const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {
             return nullptr; // no handling of fail
         }

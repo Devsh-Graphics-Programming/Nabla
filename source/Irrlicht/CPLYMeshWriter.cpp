@@ -28,6 +28,8 @@ CPLYMeshWriter::CPLYMeshWriter()
 //! writes a mesh
 bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+    SAssetWriteContext ctx{_params, _file};
+
     const ICPUMesh* mesh =
 #   ifndef _DEBUG
         static_cast<const ICPUMesh*>(_params.rootAsset);
@@ -36,14 +38,18 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 #   endif
     assert(mesh);
 
-	if (!_file || !mesh || mesh->getMeshBufferCount() > 1)
+    io::IWriteFile* file = _override->getOutputFile(_file, ctx, {mesh, 0u});
+
+	if (!file || !mesh || mesh->getMeshBufferCount() > 1)
 		return false;
 
-	os::Printer::log("Writing mesh", _file->getFileName().c_str());
+	os::Printer::log("Writing mesh", file->getFileName().c_str());
+
+    const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, mesh, 0u);
 
 	// write PLY header
     std::string header = "ply\n";
-    header += (_params.flags & asset::EWF_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
+    header += (flags & asset::EWF_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
 	header += "\ncomment IrrlichtBAW ";
 	header +=  IRRLICHT_SDK_VERSION;
 
@@ -164,12 +170,12 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     }
     header += "end_header\n";
 
-    _file->write(header.c_str(), header.size());
+    file->write(header.c_str(), header.size());
 
-    if (_params.flags & asset::EWF_BINARY)
-        writeBinary(_file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
+    if (flags & asset::EWF_BINARY)
+        writeBinary(file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
     else
-        writeText(_file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
+        writeText(file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
 
     if (needToFreeIndices)
         free(indices);

@@ -25,6 +25,8 @@ CImageWriterTGA::CImageWriterTGA()
 
 bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+    SAssetWriteContext ctx{_params, _file};
+
     const video::CImageData* image =
 #   ifndef _DEBUG
         static_cast<const video::CImageData*>(_params.rootAsset);
@@ -32,6 +34,8 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
         dynamic_cast<const video::CImageData*>(_params.rootAsset);
 #   endif
     assert(image);
+
+    io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
 
 	STGAHeader imageHeader;
 	imageHeader.IdLength = 0;
@@ -92,7 +96,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	if (!CColorConverter_convertFORMATtoFORMAT)
 		return false;
 
-	if (_file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
+	if (file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
 		return false;
 
 	uint8_t* scan_lines = (uint8_t*)image->getData();
@@ -119,7 +123,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 			CColorConverter::convert24BitTo24Bit(&scan_lines[y * row_stride], row_pointer, imageHeader.ImageWidth, 1, 0, 0, true);
 		else
 			CColorConverter_convertFORMATtoFORMAT(&scan_lines[y * row_stride], imageHeader.ImageWidth, row_pointer);
-		if (_file->write(row_pointer, row_size) != row_size)
+		if (file->write(row_pointer, row_size) != row_size)
 			break;
 	}
 
@@ -130,7 +134,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	imageFooter.DeveloperOffset = 0;
 	strncpy(imageFooter.Signature, "TRUEVISION-XFILE.", 18);
 
-	if (_file->write(&imageFooter, sizeof(imageFooter)) < (int32_t)sizeof(imageFooter))
+	if (file->write(&imageFooter, sizeof(imageFooter)) < (int32_t)sizeof(imageFooter))
 		return false;
 
 	return imageHeader.ImageHeight <= y;

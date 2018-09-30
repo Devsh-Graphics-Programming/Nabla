@@ -42,8 +42,7 @@ CSTLMeshWriter::~CSTLMeshWriter()
 //! writes a mesh
 bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-	if (!_file)
-		return false;
+    SAssetWriteContext ctx{_params, _file};
 
     const ICPUMesh* mesh =
 #   ifndef _DEBUG
@@ -53,12 +52,18 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 #   endif
     assert(mesh);
 
-	os::Printer::log("Writing mesh", _file->getFileName().c_str());
+    io::IWriteFile* file = _override->getOutputFile(_file, ctx, {mesh, 0u});
 
-	if (_params.flags & asset::EWF_BINARY)
-		return writeMeshBinary(_file, mesh);
+	if (!file)
+		return false;
+
+	os::Printer::log("Writing mesh", file->getFileName().c_str());
+
+    const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, mesh, 0u);
+	if (flags & asset::EWF_BINARY)
+		return writeMeshBinary(file, mesh);
 	else
-		return writeMeshASCII(_file, mesh);
+		return writeMeshASCII(file, mesh);
 }
 
 namespace

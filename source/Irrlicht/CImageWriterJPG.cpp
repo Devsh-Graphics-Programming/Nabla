@@ -196,6 +196,8 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	return false;
 #else
+    SAssetWriteContext ctx{_params, _file};
+
     const video::CImageData* image =
 #   ifndef _DEBUG
         static_cast<const video::CImageData*>(_params.rootAsset);
@@ -204,7 +206,10 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 #   endif
     assert(image);
 
-	return writeJPEGFile(_file, image, (!!(_params.flags & asset::EWF_COMPRESSED))*(1.f-_params.compressionLevel)*100.f); // if quality==0, then it defaults to 75
+    io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
+    const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
+    const float comprLvl = _override->getAssetCompressionLevel(ctx, image, 0u);
+	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED))*(1.f-comprLvl)*100.f); // if quality==0, then it defaults to 75
 #endif
 }
 

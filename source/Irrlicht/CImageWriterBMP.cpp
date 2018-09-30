@@ -25,6 +25,8 @@ CImageWriterBMP::CImageWriterBMP()
 
 bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+    SAssetWriteContext ctx{_params, _file};
+
 	// we always write 24-bit color because nothing really reads 32-bit
     const video::CImageData* image =
 #   ifndef _DEBUG
@@ -33,6 +35,8 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
         dynamic_cast<const video::CImageData*>(_params.rootAsset);
 #   endif
     assert(image);
+
+    io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
 
 	SBMPHeader imageHeader;
 	imageHeader.Id = 0x4d42;
@@ -88,7 +92,7 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		return false;
 
 	// write the bitmap header
-	if (_file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
+	if (file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
 		return false;
 
 	uint8_t* scan_lines = (uint8_t*)image->getData();
@@ -117,7 +121,7 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		else
 			// source, length [pixels], destination
 			CColorConverter_convertFORMATtoFORMAT(&scan_lines[y * row_stride], imageHeader.Width, row_pointer);
-		if (_file->write(row_pointer, row_size) < row_size)
+		if (file->write(row_pointer, row_size) < row_size)
 			break;
 	}
 
