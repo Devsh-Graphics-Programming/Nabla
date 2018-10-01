@@ -114,9 +114,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     video::IDriverMemoryBacked::SDriverMemoryRequirements stagingReqs = driver->getUpStreamingMemoryReqs();
     stagingReqs.mappingCapability |= video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ;
     video::IDriverMemoryBacked::SDriverMemoryRequirements frontReqs = driver->getDeviceLocalGPUMemoryReqs();
-    size_t buffSize = dataPerInstanceInputSize*30*20*40; //! make it 512u
-    buffSize += video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>::calcBufferAlignPadding(buffSize,driver,0x1u<<core::findMSB(dataPerInstanceInputSize));
-    stagingReqs.vulkanReqs.size = frontReqs.vulkanReqs.size = buffSize;
+    stagingReqs.vulkanReqs.size = frontReqs.vulkanReqs.size = dataPerInstanceInputSize*512u;
     instanceDataAllocator = new video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>(driver,stagingReqs,frontReqs,dataPerInstanceInputSize);
 	instanceBBoxesCount = getCurrentInstanceCapacity();
 	instanceBBoxes = (core::aabbox3df*)_IRR_ALIGNED_MALLOC(instanceBBoxesCount*sizeof(core::aabbox3df),_IRR_SIMD_ALIGNMENT);

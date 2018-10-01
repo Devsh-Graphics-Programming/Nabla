@@ -39,6 +39,17 @@ namespace core
                 return alignOffset;
             }
 
+            inline _size_type           safe_shrink_size(_size_type bound, _size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+            {
+                if (newBuffAlignmentWeCanGuarantee<maxRequestableAlignment)
+                    return bound+maxRequestableAlignment-newBuffAlignmentWeCanGuarantee;
+                else if (bound)
+                    return bound;
+                else
+                    return std::max(maxRequestableAlignment,newBuffAlignmentWeCanGuarantee);
+            }
+
+
             static inline _size_type    aligned_start_offset(_size_type globalBufferStartAddress, _size_type maxAlignment)
             {
                 _size_type remainder = globalBufferStartAddress&(maxAlignment-1u);

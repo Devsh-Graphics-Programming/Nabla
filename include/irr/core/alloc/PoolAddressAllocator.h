@@ -41,15 +41,19 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         }
 
         PoolAddressAllocator(const PoolAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) noexcept :
-                    Base(other,newReservedSpc,newBuffer,newBuffSz), blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
+                    Base(other,newReservedSpc,newBuffer,newBuffSz), blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize),
+                    freeStackCtr(blockCount>other.blockCount ? (blockCount-other.blockCount):0u)
         {
+            auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
+            for (size_type i=0u; i<freeStackCtr; i++)
+                freeStack[i] = (blockCount-1u-i)*blockSize+Base::alignOffset;
+
             for (size_type i=0; i<other.freeStackCtr; i++)
             {
-                size_type freeEntry = reinterpret_cast<size_type*>(other.reservedSpace)[i];
+                size_type freeEntry = other.addressToBlockID(reinterpret_cast<size_type*>(other.reservedSpace)[i]);
 
-                auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
                 if (freeEntry<blockCount)
-                    freeStack[freeStackCtr++] = freeEntry;
+                    freeStack[freeStackCtr++] = freeEntry*blockSize+Base::alignOffset;
             }
 
             if (other.bufferStart&&Base::bufferStart)
@@ -103,9 +107,12 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
         inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
-            size_type retval = (blockCount+1u)*blockSize;
+            size_type retval = get_total_size();
+            if (byteBound>=retval)
+                return Base::safe_shrink_size(byteBound,newBuffAlignmentWeCanGuarantee);
+
             if (freeStackCtr==0u)
-                return retval;
+                return Base::safe_shrink_size(retval,newBuffAlignmentWeCanGuarantee);
 
             auto allocSize = (blockCount-freeStackCtr)*blockSize;
             if (allocSize>byteBound)
@@ -117,26 +124,30 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             size_type boundedCount = 0;
             for (size_type i=0; i<freeStackCtr; i++)
             {
-                if (freeStack[i]<byteBound+Base::alignOffset)
+                auto freeAddr = freeStack[i];
+                if (freeAddr<byteBound+Base::alignOffset)
                     continue;
 
-                tmpStackCopy[boundedCount++] = freeStack[i];
+                tmpStackCopy[boundedCount++] = freeAddr;
             }
 
-            std::make_heap(tmpStackCopy,tmpStackCopy+boundedCount);
-            std::sort_heap(tmpStackCopy,tmpStackCopy+boundedCount);
-            // could do sophisticated modified binary search, but f'it
-            size_type i=1u;
-            for (size_type firstWrong = boundedCount-1; i>=boundedCount; firstWrong--,i++)
+            if (boundedCount)
             {
-                if (tmpStackCopy[firstWrong]!=blockCount-i)
-                    break;
+                std::make_heap(tmpStackCopy,tmpStackCopy+boundedCount);
+                std::sort_heap(tmpStackCopy,tmpStackCopy+boundedCount);
+                // could do sophisticated modified binary search, but f'it
+                size_type endAddr = (blockCount-1u)*blockSize+Base::alignOffset;
+                size_type i=0u;
+                for (;i<boundedCount; i++,endAddr-=blockSize)
+                {
+                    if (tmpStackCopy[boundedCount-1u-i]!=endAddr)
+                        break;
+                }
+
+                retval -= i*blockSize;
             }
-
-            retval -= (i-1u)*blockSize;
-
             _IRR_ALIGNED_FREE(tmpStackCopy);
-            return retval;
+            return Base::safe_shrink_size(retval,newBuffAlignmentWeCanGuarantee);
         }
 
 

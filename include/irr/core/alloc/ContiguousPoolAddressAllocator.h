@@ -111,6 +111,12 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 }
             }
 
+            if (addressesAllocated==count)
+            {
+                addressesAllocated = 0u;
+                return;
+            }
+
             if (Base::bufferStart)
             {
                 decltype(count) nextIx=1;
@@ -139,6 +145,9 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         inline size_type        alloc_addr(size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
             auto ID = Base::alloc_addr(bytes,alignment,hint);
+            if (ID==invalid_address)
+                return invalid_address;
+
             addressRedirects[Base::addressToBlockID(ID)] = (addressesAllocated++)*Base::blockSize;
             return ID;
         }
@@ -174,16 +183,19 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
 
         inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
-            if (addressesAllocated*Base::blockSize>byteBound)
-                byteBound = addressesAllocated*Base::blockSize;
+            auto boundByAllocCount = addressesAllocated*Base::blockSize;
+            if (byteBound<boundByAllocCount)
+                byteBound = boundByAllocCount;
 
             size_type newBound = Base::blockCount;
-            for (; newBound*Base::blockSize>byteBound; newBound--)
+            for (; newBound>byteBound/Base::blockSize; newBound--)
             {
                 if (addressRedirects[newBound-1u]<invalid_address)
                     break;
             }
-            byteBound = newBound*Base::blockSize;
+            newBound *= Base::blockSize;
+            if (byteBound<newBound)
+                byteBound = newBound*Base::blockSize;
 
             return Base::safe_shrink_size(byteBound,newBuffAlignmentWeCanGuarantee);
         }

@@ -216,6 +216,10 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
 
             cachedMemoryReqs = otherAsGL->cachedMemoryReqs;
 
+            mappedPtr = otherAsGL->mappedPtr;
+            mappedRange = otherAsGL->mappedRange;
+            currentMappingAccess = otherAsGL->currentMappingAccess;
+
             cachedFlags = otherAsGL->cachedFlags;
             BufferName = otherAsGL->BufferName;
 
@@ -223,6 +227,10 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
 
 
             otherAsGL->cachedMemoryReqs = {{0,0,0},0,0,0,0};
+
+            otherAsGL->mappedPtr = nullptr;
+            otherAsGL->mappedRange = MemoryRange(0,0);
+            otherAsGL->currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
 
             otherAsGL->cachedFlags = 0;
             otherAsGL->BufferName = 0;

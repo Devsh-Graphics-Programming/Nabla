@@ -26,16 +26,6 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         typedef core::address_allocator_traits<AddressAllocator>                                            alloc_traits;
         typedef typename AddressAllocator::size_type                                                        size_type;
 
-        static inline size_type                 calcBufferAlignPadding(size_type newSize, IVideoDriver* driver, size_type maxReqAlignment)
-        {
-            size_type defaultAlignment = driver->getMinimumMemoryMapAlignment();
-            if (defaultAlignment>maxReqAlignment)
-                return 0u;
-
-            size_type worstPossibleStartAlignment = maxReqAlignment-defaultAlignment;
-            return worstPossibleStartAlignment;
-        }
-
         //! The IDriverMemoryBacked::SDriverMemoryRequirements::size must be identical for both reqs
         template<typename... Args>
         CResizableDoubleBufferingAllocator( IVideoDriver* driver, const IDriverMemoryBacked::SDriverMemoryRequirements& stagingBufferReqs,
@@ -48,6 +38,8 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
 #ifdef _DEBUG
             assert(stagingBufferReqs.vulkanReqs.size==frontBufferReqs.vulkanReqs.size);
 #endif // _DEBUG
+            Base::mBackBuffer->drop();
+            Base::mFrontBuffer->drop();
         }
 
         //! DO NOT USE THIS CONTRUCTOR UNLESS YOU MEAN FOR THE IGPUBufferS TO BE RESIZED AT WILL !
@@ -81,7 +73,7 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
 
             if (newSize>allAllocatorSpace)
             {
-                newSize += calcBufferAlignPadding(newSize,Base::mDriver,Base::mAllocator.max_alignment());
+                newSize = Base::mAllocator.safe_shrink_size(newSize,Base::mDriver->getMinimumMemoryMapAlignment()); // for padding
 
                 void* newAllocatorState = Base::mAllocatorState;
                 size_type newReservedSize = AddressAllocator::reserved_size(newSize,Base::mAllocator);
@@ -122,10 +114,6 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
             newSize = Base::mAllocator.safe_shrink_size(newSize,Base::mDriver->getMinimumMemoryMapAlignment());
             if (newSize>=allAllocatorSpace)
                 return;
-            // or alignment
-            newSize += calcBufferAlignPadding(newSize,Base::mDriver,Base::mAllocator.max_alignment());
-            if (newSize>=allAllocatorSpace)
-                return;
 
             //! don't bother resizing reserved space
 
@@ -146,8 +134,8 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         typedef CResizableDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator> ThisType;
 
     protected:
-        ///constexpr static size_type growStep = 2u; //debug test
-        constexpr static size_type growStep = 32u*4096u; //128k at a time
+        constexpr static size_type growStep = 2u; //debug test
+        ///constexpr static size_type growStep = 32u*4096u; //128k at a time
         constexpr static size_type growStepMinus1 = growStep-1u;
         static inline size_type                 defaultGrowPolicy(ThisType* _this, size_type totalRequestedNewMem)
         {
@@ -160,8 +148,8 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         }
         static inline size_type                 defaultShrinkPolicy(ThisType* _this)
         {
-            ///constexpr size_type shrinkStep = 2u; //debug test
-            constexpr size_type shrinkStep = 256u*4096u; //1M at a time
+            constexpr size_type shrinkStep = 2u; //debug test
+            ///constexpr size_type shrinkStep = 256u*4096u; //1M at a time
 
             size_type allFreeSpace = alloc_traits::get_free_size(_this->mAllocator);
             if (allFreeSpace>shrinkStep)

@@ -90,9 +90,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
             size_type retval = get_allocated_size();
-            if (newBuffAlignmentWeCanGuarantee<Base::maxRequestableAlignment)
-                retval += Base::maxRequestableAlignment-newBuffAlignmentWeCanGuarantee;
-            return retval;
+            return Base::safe_shrink_size(std::max(retval,byteBound),newBuffAlignmentWeCanGuarantee);
         }
 
         template<typename... Args>

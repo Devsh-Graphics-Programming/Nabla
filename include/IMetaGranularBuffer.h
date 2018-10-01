@@ -274,7 +274,7 @@ class IMetaGranularGPUMappedBuffer : public core::IMetaGranularBuffer<video::IGP
             video::IDriverMemoryBacked::SDriverMemoryRequirements stagingReqs = driver->getUpStreamingMemoryReqs();
             video::IDriverMemoryBacked::SDriverMemoryRequirements frontReqs = driver->getDeviceLocalGPUMemoryReqs();
             size_t buffSize = granuleSize*granuleCount;
-            buffSize += video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>::calcBufferAlignPadding(buffSize,driver,core::findMSB(granuleCount));
+            buffSize += 4096u;//video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>::calcBufferAlignPadding(buffSize,driver,core::findMSB(granuleCount));
             stagingReqs.vulkanReqs.size = frontReqs.vulkanReqs.size = buffSize;
             alloc = new video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>(driver,video::IDriverMemoryBacked::SDriverMemoryRequirements{},video::IDriverMemoryBacked::SDriverMemoryRequirements{},granuleSize);
         }
