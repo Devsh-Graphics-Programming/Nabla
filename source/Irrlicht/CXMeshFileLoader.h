@@ -9,7 +9,7 @@
 
 #ifdef _IRR_COMPILE_WITH_X_LOADER_
 
-#include "IMeshLoader.h"
+#include "IAssetLoader.h"
 #include "CSkinnedMesh.h"
 #include <sstream>
 
@@ -26,22 +26,25 @@ namespace scene
 class ISceneManager;
 
 //! Meshloader capable of loading x meshes.
-class CXMeshFileLoader : public IMeshLoader
+class CXMeshFileLoader : public asset::IAssetLoader
 {
 public:
 
 	//! Constructor
 	CXMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs);
 
-	//! returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (e.g. ".cob")
-	virtual bool isALoadableFileExtension(const io::path& filename) const;
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
-	//! creates/loads an animated mesh from the file.
-	//! \return Pointer to the created mesh. Returns 0 if loading failed.
-	//! If you no longer need the mesh, you should call IAnimatedMesh::drop().
-	//! See IReferenceCounted::drop() for more information.
-	virtual ICPUMesh* createMesh(io::IReadFile* file);
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "x", nullptr };
+        return ext;
+    }
+
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+
+    //! creates/loads an animated mesh from the file.
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 	struct SXTemplateMaterial
 	{
@@ -93,106 +96,123 @@ public:
 	};
 
 private:
+    struct SContext
+    {
+        SContext(const asset::IAssetLoader::SAssetLoadContext& _inner) :
+            Inner(_inner),
+            AllJoints(0), AnimatedMesh(0),
+            BinaryNumCount(0),
+            CurFrame(0), MajorVersion(0), MinorVersion(0), BinaryFormat(false), FloatSize(0)
+        {}
 
-	bool load(io::IReadFile* file);
+        ~SContext()
+        {
+            for (SXMesh* m : Meshes)
+                delete m;
+        }
 
-	bool readFileIntoMemory(io::IReadFile* file);
+        core::vector<ICPUSkinnedMesh::SJoint*> *AllJoints;
 
-	bool parseFile();
+        CCPUSkinnedMesh* AnimatedMesh;
 
-	bool parseDataObject();
+        std::istringstream fileContents;
+        // counter for number arrays in binary format
+        uint32_t BinaryNumCount;
+        io::path FilePath;
 
-	bool parseDataObjectTemplate();
+        ICPUSkinnedMesh::SJoint *CurFrame;
 
-	bool parseDataObjectFrame(ICPUSkinnedMesh::SJoint *parent);
+        core::vector<SXMesh*> Meshes;
 
-	bool parseDataObjectTransformationMatrix(core::matrix4x3 &mat);
+        core::vector<SXTemplateMaterial> TemplateMaterials;
 
-	bool parseDataObjectMesh(SXMesh &mesh);
+        uint32_t MajorVersion;
+        uint32_t MinorVersion;
+        bool BinaryFormat;
+        int8_t FloatSize;
 
-	bool parseDataObjectSkinWeights(SXMesh &mesh);
+        asset::IAssetLoader::SAssetLoadContext Inner;
+    };
 
-	bool parseDataObjectSkinMeshHeader(SXMesh &mesh);
+	bool load(SContext& _ctx, io::IReadFile* file);
 
-	bool parseDataObjectMeshNormals(SXMesh &mesh);
+	bool readFileIntoMemory(SContext& _ctx, io::IReadFile* file);
 
-	bool parseDataObjectMeshTextureCoords(SXMesh &mesh);
+	bool parseFile(SContext& _ctx);
 
-	bool parseDataObjectMeshVertexColors(SXMesh &mesh);
+	bool parseDataObject(SContext& _ctx);
 
-	bool parseDataObjectMeshMaterialList(SXMesh &mesh);
+	bool parseDataObjectTemplate(SContext& _ctx);
 
-	bool parseDataObjectMaterial(video::SMaterial& material);
+	bool parseDataObjectFrame(SContext& _ctx, ICPUSkinnedMesh::SJoint *parent);
 
-	bool parseDataObjectAnimationSet();
+	bool parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix4x3 &mat);
 
-	bool parseDataObjectAnimation();
+	bool parseDataObjectMesh(SContext& _ctx, SXMesh &mesh);
 
-	bool parseDataObjectAnimationKey(ICPUSkinnedMesh::SJoint *joint);
+	bool parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh);
 
-	bool parseDataObjectTextureFilename(std::string& texturename);
+	bool parseDataObjectSkinMeshHeader(SContext& _ctx, SXMesh &mesh);
 
-	bool parseUnknownDataObject();
+	bool parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh);
+
+	bool parseDataObjectMeshTextureCoords(SContext& _ctx, SXMesh &mesh);
+
+	bool parseDataObjectMeshVertexColors(SContext& _ctx, SXMesh &mesh);
+
+	bool parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &mesh);
+
+	bool parseDataObjectMaterial(SContext& _ctx, video::SMaterial& material);
+
+	bool parseDataObjectAnimationSet(SContext& _ctx);
+
+	bool parseDataObjectAnimation(SContext& _ctx);
+
+	bool parseDataObjectAnimationKey(SContext& _ctx, ICPUSkinnedMesh::SJoint *joint);
+
+	bool parseDataObjectTextureFilename(SContext& _ctx, std::string& texturename);
+
+	bool parseUnknownDataObject(SContext& _ctx);
 
 	//! places pointer to next begin of a token, and ignores comments
-	void findNextNoneWhiteSpace();
+	void findNextNoneWhiteSpace(SContext& _ctx);
 
 	//! places pointer to next begin of a token, which must be a number,
 	// and ignores comments
-	void findNextNoneWhiteSpaceNumber();
+	void findNextNoneWhiteSpaceNumber(SContext& _ctx);
 
 	//! returns next parseable token. Returns empty string if no token there
-	std::string getNextToken();
+	std::string getNextToken(SContext& _ctx);
 
 	//! reads header of dataobject including the opening brace.
 	//! returns false if error happened, and writes name of object
 	//! if there is one
-	bool readHeadOfDataObject(std::string* outname=0);
+	bool readHeadOfDataObject(SContext& _ctx, std::string* outname=0);
 
 	//! checks for closing curly brace, returns false if not there
-	bool checkForClosingBrace();
+	bool checkForClosingBrace(SContext& _ctx);
 
 	//! checks for one following semicolons, returns false if not there
-	bool checkForOneFollowingSemicolons();
+	bool checkForOneFollowingSemicolons(SContext& _ctx);
 
 	//! checks for two following semicolons, returns false if they are not there
-	bool checkForTwoFollowingSemicolons();
+	bool checkForTwoFollowingSemicolons(SContext& _ctx);
 
 	//! reads a x file style string
-	bool getNextTokenAsString(std::string& out);
+	bool getNextTokenAsString(SContext& _ctx, std::string& out);
 
-	uint16_t readBinWord();
-	uint32_t readBinDWord();
-	uint32_t readInt();
-	float readFloat();
-	bool readVector2(core::vector2df& vec);
-	bool readVector3(core::vector3df& vec);
-	bool readMatrix(core::matrix4& mat);
-	bool readRGB(video::SColor& color);
-	bool readRGBA(video::SColor& color);
+	uint16_t readBinWord(SContext& _ctx);
+	uint32_t readBinDWord(SContext& _ctx);
+	uint32_t readInt(SContext& _ctx);
+	float readFloat(SContext& _ctx);
+	bool readVector2(SContext& _ctx, core::vector2df& vec);
+	bool readVector3(SContext& _ctx, core::vector3df& vec);
+	bool readMatrix(SContext& _ctx, core::matrix4& mat);
+	bool readRGB(SContext& _ctx, video::SColor& color);
+	bool readRGBA(SContext& _ctx, video::SColor& color);
 
 	ISceneManager* SceneManager;
 	io::IFileSystem* FileSystem;
-
-	core::vector<ICPUSkinnedMesh::SJoint*> *AllJoints;
-
-	CCPUSkinnedMesh* AnimatedMesh;
-
-	std::istringstream fileContents;
-	// counter for number arrays in binary format
-	uint32_t BinaryNumCount;
-	io::path FilePath;
-
-	ICPUSkinnedMesh::SJoint *CurFrame;
-
-	core::vector<SXMesh*> Meshes;
-
-	core::vector<SXTemplateMaterial> TemplateMaterials;
-
-	uint32_t MajorVersion;
-	uint32_t MinorVersion;
-	bool BinaryFormat;
-	int8_t FloatSize;
 };
 
 } // end namespace scene
