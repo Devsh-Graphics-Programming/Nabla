@@ -51,28 +51,33 @@ public:
 
     virtual E_TYPE getAssetType() const override { return IAsset::ET_IMAGE; }
 
-    //! @returns {end(), end()} if _mipLvl level mipmap is not present.
+    //! Finds range of images making up _mipLvl miplevel or higher if _mipLvl miplevel is not present. 
+    //! @returns {end(), end()} if _mipLvl > highest present mip level.
     inline RangeType getMipMap(uint32_t _mipLvl)
     {
-        size_t l = 0u, r = m_mipmaps.size()-1u;
-        IteratorType foundItr = m_mipmaps.end();
-        while (l <= r)
+        if (_impLvl > getMipMapCount())
+            return {m_mipmaps.end(), m_mipmaps.end()};
+        IteratorType l = m_mipmaps.begin(), it;
+        int32_t cnt = m_mipmaps.size();
+        int32_t step;
+
+        while (cnt > 0u)
         {
-            const size_t i = l + (r-l)/2u;
-            if (m_mipmaps[i]->getSupposedMipLevel() == _mipLvl)
+            it = l;
+            step = cnt/2;
+            it += step;
+            if ((*it)->getSupposedMipLevel() < _mipLvl)
             {
-                foundItr = m_mipmaps.begin()+i;
-                break;
+                l = ++it;
+                cnt -= step+1;
             }
-            if (m_mipmaps[i]->getSupposedMipLevel() < _mipLvl)
-                l = i+1u;
-            else r = i-1u;
+            else cnt = step;
         }
-        if (foundItr == m_mipmaps.end())
-            return std::make_pair(foundItr, foundItr);
+        if (l == m_mipmaps.end())
+            return std::make_pair(l, l);
         RangeType rng;
-        rng.first = rng.second = foundItr;
-        while (rng.second != m_mipmaps.end() && (*rng.second)->getSupposedMipLevel())
+        rng.first = rng.second = l;
+        while (rng.second != m_mipmaps.end() && (*rng.second)->getSupposedMipLevel() == (*rng.first)->getSupposedMipLevel())
             ++rng.second;
         return rng;
     }
