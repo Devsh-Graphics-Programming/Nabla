@@ -1254,6 +1254,22 @@ scene::IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::
     return new COpenGLVAOSpec(dbgr);
 }
 
+SGPUMaterial COpenGLDriver::makeGPUMaterialFromCPU(const SCPUMaterial& _cpumat)
+{
+    static_assert(sizeof(SGPUMaterial)==sizeof(SCPUMaterial), "Do it other way");
+    SGPUMaterial gpumat;
+    memcpy(&gpumat, &_cpumat, sizeof(gpumat));
+
+    for (uint32_t i = 0u; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+    {
+        if (_cpumat.getTexture(i))
+            gpumat.setTexture(i, addTexture(ITexture::ETT_COUNT, _cpumat.getTexture(i)->getMipmaps(), _cpumat.getTexture(i)->getCacheKey().c_str(), ECF_UNKNOWN));
+        else
+            gpumat.setTexture(i, nullptr);
+    }
+
+    return gpumat;
+}
 core::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& meshes)
 {
     core::vector<scene::IGPUMesh*> retval;
@@ -1378,7 +1394,7 @@ core::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(const core:
                     continue;
 
                 meshbuffer = new scene::IGPUMeshBuffer();
-                meshbuffer->getMaterial() = origmeshbuf->getMaterial();
+                meshbuffer->getMaterial() = makeGPUMaterialFromCPU(origmeshbuf->getMaterial());
                 meshbuffer->setMeshDataAndFormat(vao);
                 {
                     //set bbox

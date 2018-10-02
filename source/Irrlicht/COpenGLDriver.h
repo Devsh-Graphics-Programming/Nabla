@@ -84,6 +84,7 @@ namespace video
 
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
 
+        SGPUMaterial makeGPUMaterialFromCPU(const SCPUMaterial& _cpumat);
 
 	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh);
 

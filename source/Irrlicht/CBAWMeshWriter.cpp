@@ -7,7 +7,7 @@
 
 #include "IFileSystem.h"
 #include "IWriteFile.h"
-#include "ITexture.h"
+#include "ICPUTexture.h"
 #include "irr/core/Types.h"
 #include "irr/macros.h"
 #include "ISkinnedMesh.h"
@@ -67,14 +67,12 @@ namespace irr {namespace scene {
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, _compress);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<video::IVirtualTexture>(video::IVirtualTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
+	void CBAWMeshWriter::exportAsBlob<asset::ICPUTexture>(asset::ICPUTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
 	{
-		video::ITexture* tex;
-		if (!(tex = dynamic_cast<video::ITexture*>(_obj))) // can we static_cast please?
-			return pushCorruptedOffset(_ctx);
+        asset::ICPUTexture* tex = _obj;
 
 		const io::path fileDir = _ctx.props->relPath.size() ? _ctx.props->relPath : io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get relative-file's directory
-		io::path path = m_fileSystem->getRelativeFilename(tex->getName().getInternalName(), fileDir); // get texture-file path relative to the file's directory
+		io::path path = m_fileSystem->getRelativeFilename(tex->getCacheKey().c_str(), fileDir); // get texture-file path relative to the file's directory
 		const uint32_t len = strlen(path.c_str()) + 1;
 
 		tryWrite(&path[0], _file, _ctx, len, _headerIdx, _compress);
@@ -177,7 +175,7 @@ namespace irr {namespace scene {
 				exportAsBlob(reinterpret_cast<CFinalBoneHierarchy*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_ANIMATION_DATA));
 				break;
 			case core::Blob::EBT_TEXTURE_PATH:
-				exportAsBlob(reinterpret_cast<video::IVirtualTexture*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_TEXTURE_PATHS));
+				exportAsBlob(reinterpret_cast<asset::ICPUTexture*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_TEXTURE_PATHS));
 				break;
 			}
 		}
@@ -246,10 +244,10 @@ namespace irr {namespace scene {
 				_ctx.headers.push_back(bh);
 				countedObjects.insert(meshBuffer);
 
-				const video::SGPUMaterial & mat = meshBuffer->getMaterial();
+				const video::SCPUMaterial & mat = meshBuffer->getMaterial();
 				for (int tid = 0; tid < _IRR_MATERIAL_MAX_TEXTURES_; ++tid) // texture path blob headers
 				{
-					video::IVirtualTexture* texture = mat.getTexture(tid);
+                    asset::ICPUTexture* texture = mat.getTexture(tid);
 					if (mat.getTexture(tid) && countedObjects.find(texture) == countedObjects.end())
 					{
 						bh.handle = reinterpret_cast<uint64_t>(texture);

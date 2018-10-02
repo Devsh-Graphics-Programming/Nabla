@@ -71,6 +71,31 @@
 #include "CBAWMeshFileLoader.h"
 #endif
 
+//image loaders
+#ifdef _IRR_COMPILE_WITH_BMP_LOADER_
+#include "CImageLoaderBMP.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_DDS_LOADER_
+#include "CImageLoaderDDS.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_JPG_LOADER_
+#include "CImageLoaderJPG.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_PNG_LOADER_
+#include "CImageLoaderPNG.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_RGB_LOADER_
+#include "CImageLoaderRGB.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_TGA_LOADER_
+#include "CImageLoaderTGA.h"
+#endif
+
 #ifdef _IRR_COMPILE_WITH_COLLADA_WRITER_
 #include "CColladaMeshWriter.h"
 #endif
@@ -291,9 +316,13 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
     ldr->drop();
     }
 	#endif
-	//#ifdef _IRR_COMPILE_WITH_X_LOADER_
-	//MeshLoaderList.push_back(new CXMeshFileLoader(this, FileSystem));
-	//#endif
+	#ifdef _IRR_COMPILE_WITH_X_LOADER_
+    {
+    auto ldr = new CXMeshFileLoader(this, FileSystem);
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
+	#endif
 	#ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
     {
     auto ldr = new COBJMeshFileLoader(this, FileSystem);
@@ -308,6 +337,53 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
     ldr->drop();
     }
 	#endif
+    #ifdef _IRR_COMPILE_WITH_BMP_LOADER_
+    {
+    auto ldr = new video::CImageLoaderBMP();
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
+    #endif
+
+    #ifdef _IRR_COMPILE_WITH_DDS_LOADER_
+    {
+    auto ldr = new video::CImageLoaderDDS();
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
+    #endif
+
+    #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
+    {
+    auto ldr = new video::CImageLoaderJPG();
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
+    #endif
+
+    #ifdef _IRR_COMPILE_WITH_PNG_LOADER_
+    {
+    auto ldr = new video::CImageLoaderPng();
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
+    #endif
+
+    #ifdef _IRR_COMPILE_WITH_RGB_LOADER_
+    {
+    auto ldr = new video::CImageLoaderRGB();
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
+    #endif
+
+    #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
+    {
+    auto ldr = new video::CImageLoaderTGA();
+    m_assetMgr.addAssetLoader(ldr);
+    ldr->drop();
+    }
+    #endif
 }
 
 
