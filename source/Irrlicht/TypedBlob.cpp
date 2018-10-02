@@ -10,6 +10,7 @@
 #include "SMesh.h"
 #include "CSkinnedMesh.h"
 #include "CBlobsLoadingManager.h"
+#include "ICPUTexture.h"
 
 namespace irr { namespace core
 {
@@ -48,47 +49,43 @@ void TypedBlob<RawBufferBlobV0, ICPUBuffer>::releaseObj(const void* _obj)
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::getNeededDeps(const void* _blob)
 {
 	return core::unordered_set<uint64_t>();
 }
 
 template<>
-void* TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob || !_params.fs || !_params.sm)
 		return NULL;
 
 	TexturePathBlobV0* blob = (TexturePathBlobV0*)_blob;
 
-	video::ITexture* texture;
+	asset::ICPUTexture* texture;
 	const char* const texname = (const char*)blob->getData();
-	bool newTexture;
 	if (_params.fs->existFile(texname))
 	{
-		newTexture = _params.sm->getVideoDriver()->findTexture(texname) == 0;
-		texture = _params.sm->getVideoDriver()->getTexture(texname);
+		texture = static_cast<asset::ICPUTexture*>(_params.sm->getAssetManager().getAssetInHierarchy(texname, _params.params, 2u, _params.loaderOverride));
 	}
 	else
 	{
 		const io::path path = _params.filePath + texname;
-		newTexture = _params.sm->getVideoDriver()->findTexture(path) == 0;
 		// try to read from the path relative to where the .baw is loaded from
-		texture = _params.sm->getVideoDriver()->getTexture(path);
+		texture = static_cast<asset::ICPUTexture*>(_params.sm->getAssetManager().getAssetInHierarchy(path.c_str(), _params.params, 2u, _params.loaderOverride));
 	}
-	//! @todo @bug Do somemthing with `newTexture`? In obj loader something happens in case where newTexture is true
 
 	return texture;
 }
 
 template<>
-void* TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	return _obj;
 }
 
 template<>
-void TypedBlob<TexturePathBlobV0, video::IVirtualTexture>::releaseObj(const void* _obj)
+void TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::releaseObj(const void* _obj)
 {
 }
 
@@ -237,7 +234,7 @@ void* TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::finalize(void* _obj, c
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
 		if (tex)
-			buf->getMaterial().setTexture(i, reinterpret_cast<video::ITexture*>(_deps[tex])); // ITexture* since VideoDriver returns ITexture*
+			buf->getMaterial().setTexture(i, reinterpret_cast<asset::ICPUTexture*>(_deps[tex]));
 	}
 	return _obj;
 }
@@ -297,7 +294,7 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::finalize(vo
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
 		if (tex)
 		{
-			buf->getMaterial().setTexture(i, reinterpret_cast<video::ITexture*>(_deps[tex])); // ITexture* since VideoDriver returns ITexture*
+			buf->getMaterial().setTexture(i, reinterpret_cast<asset::ICPUTexture*>(_deps[tex]));
 		}
 	}
 	return _obj;

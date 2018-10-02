@@ -67,7 +67,13 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
     const std::string rootCacheKey = ctx.inner.mainFile->getFileName().c_str();
 
-	const core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/" };
+	const core::BlobLoadingParams params{ 
+        m_sceneMgr,
+        m_fileSystem,
+        ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/",
+        ctx.inner.params,
+        _override
+    };
 	core::stack<SBlobData*> toLoad, toFinalize;
 	toLoad.push(&meshBlobDataIter->second);
     toLoad.top()->hierarchyLvl = 0u;

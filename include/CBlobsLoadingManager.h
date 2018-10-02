@@ -11,6 +11,7 @@
 #include "stdint.h"
 #include "IMesh.h"
 #include "path.h"
+#include "IAssetLoader.h"
 
 namespace irr {
 
@@ -34,6 +35,8 @@ namespace core
 		scene::ISceneManager* sm;
 		io::IFileSystem* fs;
 		io::path filePath;
+        asset::IAssetLoader::SAssetLoadParams params;
+        asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
 	};
 
 	//! Class abstracting blobs version from process of loading them from *.baw file.

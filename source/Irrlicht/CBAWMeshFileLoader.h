@@ -139,6 +139,9 @@ private:
         case core::Blob::EBT_RAW_DATA_BUFFER:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_BUFFER);
             return static_cast<core::ICPUBuffer*>(_assetAddr);
+        case core::Blob::EBT_TEXTURE_PATH:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_IMAGE);
+            return static_cast<asset::ICPUTexture*>(_assetAddr);
         default: return nullptr;
         }
     }
@@ -160,6 +163,9 @@ private:
             break;
         case core::Blob::EBT_RAW_DATA_BUFFER:
             asset = reinterpret_cast<core::ICPUBuffer*>(_asset);
+            break;
+        case core::Blob::EBT_TEXTURE_PATH:
+            asset = reinterpret_cast<asset::ICPUTexture*>(_asset);
             break;
         }
         if (asset)
