@@ -418,7 +418,7 @@ namespace scene
                                                     bone->updateAbsolutePosition();
                                             }
 
-                                            if (currentInstance->attachedNode)
+                                            if (!currentInstance->attachedNode)
                                                 continue;
 
                                             core::aabbox3df bbox;
