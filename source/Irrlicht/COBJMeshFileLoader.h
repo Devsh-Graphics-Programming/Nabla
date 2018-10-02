@@ -111,6 +111,7 @@ class COBJMeshFileLoader : public asset::IAssetLoader
     struct SContext
     {
         asset::IAssetLoader::SAssetLoadContext inner;
+        asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
 
         const bool useGroups = false;
         const bool useMaterials = true;
@@ -135,8 +136,13 @@ public:
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
     {
-        // OBJ doesn't really have any header
-        return true;
+        // OBJ doesn't really have any header but usually starts with a comment
+        const size_t prevPos = _file->getPos();
+        _file->seek(0u);
+        char c;
+        _file->read(&c, 1u);
+        _file->seek(prevPos);
+        return c=='#';
     }
 
     virtual const char** getAssociatedFileExtensions() const override
@@ -183,7 +189,7 @@ private:
 	};
 
 	// helper method for material reading
-	const char* readTextures(const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath);
+	const char* readTextures(const SContext& _ctx, const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath);
 
 	// returns a pointer to the first printable character available in the buffer
 	const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines=true);

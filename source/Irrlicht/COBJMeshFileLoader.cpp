@@ -78,7 +78,8 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         asset::IAssetLoader::SAssetLoadContext{
             _params,
             _file
-        }
+        },
+        _override
     };
 
 	const long filesize = _file->getSize();
@@ -463,7 +464,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 }
 
 
-const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath)
+const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath)
 {
 	E_TEXTURE_TYPE type = ETT_COLOR_MAP; // map_Kd - diffuse color texture map
 	// map_Ks - specular color texture map
@@ -573,29 +574,21 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
 	io::path texname(textureNameBuf);
 	handleBackslashes(&texname);
 
-	video::ITexture * texture = 0;
-	bool newTexture=false;
+	asset::ICPUTexture* texture = nullptr;
 	if (texname.size())
 	{
-	    /*
- 		io::path texnameWithUserPath( SceneManager->getParameters()->getAttributeAsString(OBJ_TEXTURE_PATH) );
- 		if ( texnameWithUserPath.size() )
- 		{
- 			texnameWithUserPath += '/';
- 			texnameWithUserPath += texname;
- 		}
- 		if (FileSystem->existFile(texnameWithUserPath))
- 			texture = SceneManager->getVideoDriver()->getTexture(texnameWithUserPath);
-		else */if (FileSystem->existFile(texname))
+        if (FileSystem->existFile(texname))
 		{
-			newTexture = SceneManager->getVideoDriver()->findTexture(texname) == 0;
-			texture = SceneManager->getVideoDriver()->getTexture(texname);
+            texture = static_cast<asset::ICPUTexture*>(
+                SceneManager->getAssetManager().getAssetInHierarchy(texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+            );
 		}
 		else
 		{
-			newTexture = SceneManager->getVideoDriver()->findTexture(relPath + texname) == 0;
 			// try to read in the relative path, the .obj is loaded from
-			texture = SceneManager->getVideoDriver()->getTexture( relPath + texname );
+            texture = static_cast<asset::ICPUTexture*>(
+                SceneManager->getAssetManager().getAssetInHierarchy((relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+            );
 		}
 	}
 	if ( texture )
@@ -609,8 +602,6 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
 #ifdef _DEBUG
             os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
 #endif // _DEBUG
-			///if (newTexture)
-				///SceneManager->getVideoDriver()->makeNormalMapTexture(texture, bumpiness);
 			currMaterial->Material.setTexture(1, texture);
 			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;
@@ -755,7 +746,7 @@ void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io:
 			case 'm': // texture maps
 			if (currMaterial)
 			{
-				bufPtr=readTextures(bufPtr, bufEnd, currMaterial, relPath);
+				bufPtr=readTextures(_ctx, bufPtr, bufEnd, currMaterial, relPath);
 			}
 			break;
 			case 'd': // d - transparency
