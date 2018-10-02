@@ -24,21 +24,27 @@ public:
     using RangeType = std::pair<IteratorType, IteratorType>;
     using ConstRangeType = std::pair<ConstIteratorType, ConstIteratorType>;
 
-    explicit ICPUTexture(const core::vector<video::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}
+    explicit ICPUTexture(const core::vector<video::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}, m_colorFormat{video::ECF_UNKNOWN}
     {
         assert(m_mipmaps.size() != 0u);
         for (const auto& mm : m_mipmaps)
             mm->grab();
-        sortMipMaps();
-        establishFmt();
+        if (m_mipmaps.size())
+        {
+            sortMipMaps();
+            establishFmt();
+        }
     }
-    explicit ICPUTexture(core::vector<video::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}
+    explicit ICPUTexture(core::vector<video::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{video::ECF_UNKNOWN}
     {
         assert(m_mipmaps.size() != 0u);
         for (const auto& mm : m_mipmaps)
             mm->grab();
-        sortMipMaps();
-        establishFmt();
+        if (m_mipmaps.size())
+        {
+            sortMipMaps();
+            establishFmt();
+        }
     }
 
     ~ICPUTexture()
@@ -50,6 +56,8 @@ public:
     virtual void convertToDummyObject() override {}
 
     virtual E_TYPE getAssetType() const override { return IAsset::ET_IMAGE; }
+
+    const core::vector<video::CImageData*>& getMipmaps() const { return m_mipmaps; }
 
     //! Finds range of images making up _mipLvl miplevel or higher if _mipLvl miplevel is not present. 
     //! @returns {end(), end()} if _mipLvl > highest present mip level.
