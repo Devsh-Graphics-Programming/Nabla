@@ -926,7 +926,7 @@ void C3DSMeshFileLoader::composeObject(io::IReadFile* file, const std::string& n
 	for (uint32_t i=0; i<MaterialGroups.size(); ++i)
 	{
 		SMeshBuffer* mb = 0;
-		video::SMaterial* mat=0;
+		video::SGPUMaterial* mat=0;
 		uint32_t mbPos;
 		// -3 because we add three vertices at once
 		uint32_t maxPrimitives = core::min_(SceneManager->getVideoDriver()->getMaximalIndicesCount(), (uint32_t)((1<<16)-1))-3; // currently hardcoded int16_t max value for index pointers

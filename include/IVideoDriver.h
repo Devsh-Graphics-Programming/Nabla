@@ -183,7 +183,7 @@ namespace video
 		//! Sets a material.
 		/** All 3d drawing functions will draw geometry using this material thereafter.
 		\param material: Material to be used from now on. */
-		virtual void setMaterial(const SMaterial& material) =0;
+		virtual void setMaterial(const SGPUMaterial& material) =0;
 
         //! needs to be "deleted" since its not refcounted by GPU driver internally
         /** Since not owned by any openGL context and hence not owned by driver.
@@ -661,7 +661,7 @@ namespace video
 		IVideoDriver::getExposedVideoData(). Add your class with
 		IVideoDriver::addMaterialRenderer(). To use an object being
 		displayed with your new material, set the MaterialType member of
-		the SMaterial struct to the value returned by this method.
+		the SGPUMaterial struct to the value returned by this method.
 		If you simply want to create a new material using vertex and/or
 		pixel shaders it would be easier to use the
 		video::IGPUProgrammingServices interface which you can get
@@ -669,7 +669,7 @@ namespace video
 		\param renderer A pointer to the new renderer.
 		\param name Optional name for the material renderer entry.
 		\return The number of the material type which can be set in
-		SMaterial::MaterialType to use the renderer. -1 is returned if
+		SGPUMaterial::MaterialType to use the renderer. -1 is returned if
 		an error occured. For example if you tried to add an material
 		renderer to the software renderer or the null device, which do
 		not accept material renderers. */
@@ -737,7 +737,7 @@ namespace video
 
 		//! Get the 2d override material for altering its values
 		/** The 2d override materual allows to alter certain render
-		states of the 2d methods. Not all members of SMaterial are
+		states of the 2d methods. Not all members of SGPUMaterial are
 		honored, especially not MaterialType and Textures. Moreover,
 		the zbuffer is always ignored, and lighting is always off. All
 		other flags can be changed, though some might have to effect
@@ -749,7 +749,7 @@ namespace video
 		\return Material reference which should be altered to reflect
 		the new settings.
 		*/
-		virtual SMaterial& getMaterial2D() =0;
+		virtual SGPUMaterial& getMaterial2D() =0;
 
 		//! Enable the 2d override material
 		/** \param enable Flag which tells whether the material shall be

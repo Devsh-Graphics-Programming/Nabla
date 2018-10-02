@@ -7,13 +7,13 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "IMaterialRendererServices.h"
+#include "SMaterial.h"
 
 namespace irr
 {
 namespace video
 {
 	class IMaterialRendererServices;
-	class SMaterial;
 
 struct SConstantLocationNamePair
 {
@@ -44,9 +44,9 @@ public:
 	 \code
 	class MyCallBack : public IShaderConstantSetCallBack
 	{
-		const video::SMaterial *UsedMaterial;
+		const video::SGPUMaterial *UsedMaterial;
 
-		OnSetMaterial(const video::SMaterial& material)
+		OnSetMaterial(const video::SGPUMaterial& material)
 		{
 			UsedMaterial=&material;
 		}
@@ -58,7 +58,7 @@ public:
 	}
 	\endcode
 	*/
-	virtual void OnSetMaterial(IMaterialRendererServices* services, const SMaterial& material,const SMaterial& lastMaterial) { }
+	virtual void OnSetMaterial(IMaterialRendererServices* services, const SGPUMaterial& material,const SGPUMaterial& lastMaterial) { }
 
 	virtual void OnSetConstants(IMaterialRendererServices* services, int32_t userData) = 0;
 

@@ -74,7 +74,7 @@ void CSphereSceneNode::OnRegisterSceneNode()
 //! This function is needed for inserting the node into the scene hirachy on a
 //! optimal position for minimizing renderstate changes, but can also be used
 //! to directly modify the material of a scene node.
-video::SMaterial& CSphereSceneNode::getMaterial(uint32_t i)
+video::SGPUMaterial& CSphereSceneNode::getMaterial(uint32_t i)
 {
 	if (i>0 || !Mesh)
 		return ISceneNode::getMaterial(i);

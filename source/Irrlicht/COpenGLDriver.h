@@ -132,12 +132,12 @@ namespace video
 		virtual void issueGPUTextureBarrier() {COpenGLExtensionHandler::extGlTextureBarrier();}
 
 
-		virtual const video::SMaterial& getCurrentMaterial() const {return Material;}
+		virtual const video::SGPUMaterial& getCurrentMaterial() const {return Material;}
 
 		//! Sets a material. All 3d drawing functions draw geometry now
 		//! using this material.
 		//! \param material: Material to be used from now on.
-		virtual void setMaterial(const SMaterial& material);
+		virtual void setMaterial(const SGPUMaterial& material);
 
         //! needs to be "deleted" since its not refcounted
         virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false)
@@ -159,7 +159,7 @@ namespace video
 		virtual ECOLOR_FORMAT getColorFormat() const;
 
 		//! Can be called by an IMaterialRenderer to make its work easier.
-		virtual void setBasicRenderStates(const SMaterial& material, const SMaterial& lastmaterial,
+		virtual void setBasicRenderStates(const SGPUMaterial& material, const SGPUMaterial& lastmaterial,
 			bool resetAllRenderstates);
 
 
@@ -607,7 +607,7 @@ namespace video
 		//! bool to make all renderstates reset if set to true.
 		bool ResetRenderStates;
 
-		SMaterial Material, LastMaterial;
+		SGPUMaterial Material, LastMaterial;
 
 
 

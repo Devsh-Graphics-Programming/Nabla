@@ -106,7 +106,7 @@ namespace core
 
 namespace video
 {
-	SMaterial IdentityMaterial;
+	SGPUMaterial IdentityMaterial;
 }
 
 } // end namespace irr

@@ -49,7 +49,7 @@ public:
 	struct SXTemplateMaterial
 	{
 		std::string Name; // template name from Xfile
-		video::SMaterial Material; // material
+		video::SGPUMaterial Material; // material
 	};
 
     //! REMOVE EVENTUALLY
@@ -88,7 +88,7 @@ public:
 
 		core::vector<uint32_t> FaceMaterialIndices; // index of material for each face
 
-		core::vector<video::SMaterial> Materials; // material vector
+		core::vector<video::SCPUMaterial> Materials; // material vector
 
 		int32_t AttachedJointID;
 
@@ -162,7 +162,7 @@ private:
 
 	bool parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &mesh);
 
-	bool parseDataObjectMaterial(SContext& _ctx, video::SMaterial& material);
+	bool parseDataObjectMaterial(SContext& _ctx, video::SGPUMaterial& material);
 
 	bool parseDataObjectAnimationSet(SContext& _ctx);
 

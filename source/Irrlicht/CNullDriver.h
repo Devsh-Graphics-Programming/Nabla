@@ -77,7 +77,7 @@ namespace video
 		virtual IImageWriter* getImageWriter(uint32_t n);
 
 		//! sets a material
-		virtual void setMaterial(const SMaterial& material);
+		virtual void setMaterial(const SGPUMaterial& material);
 
         //! needs to be "deleted" since its not refcounted
         virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) {return NULL;}
@@ -492,7 +492,7 @@ namespace video
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
 
 		//! Get the 2d override material for altering its values
-		virtual SMaterial& getMaterial2D();
+		virtual SGPUMaterial& getMaterial2D();
 
 		//! Enable the 2d override material
 		virtual void enableMaterial2D(bool enable=true);
@@ -663,8 +663,8 @@ namespace video
 
 		SExposedVideoData ExposedData;
 
-		SMaterial OverrideMaterial2D;
-		SMaterial InitMaterial2D;
+		SGPUMaterial OverrideMaterial2D;
+		SGPUMaterial InitMaterial2D;
 		bool OverrideMaterial2DEnabled;
 
 		bool AllowZWriteOnTransparent;

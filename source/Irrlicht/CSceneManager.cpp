@@ -868,7 +868,7 @@ void CSceneManager::drawAll()
 	uint32_t i; // new ISO for scoping problem in some compilers
 
 	// reset all transforms
-	Driver->setMaterial(video::SMaterial());
+	Driver->setMaterial(video::SGPUMaterial());
 	Driver->setTransform(video::EPTS_PROJ,core::matrix4());
 	Driver->setTransform ( video::E4X3TS_VIEW, core::IdentityMatrix );
 	Driver->setTransform ( video::E4X3TS_WORLD, core::IdentityMatrix );
@@ -1203,7 +1203,7 @@ void CSceneManager::removeAll()
 	setActiveCamera(0);
 	// Make sure the driver is reset, might need a more complex method at some point
 	if (Driver)
-		Driver->setMaterial(video::SMaterial());
+		Driver->setMaterial(video::SGPUMaterial());
 }
 
 

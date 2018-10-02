@@ -6,6 +6,7 @@
 #include "IVideoDriver.h"
 #include "ISceneManager.h"
 #include "os.h"
+#include "SMaterial.h"
 
 namespace irr
 {
@@ -67,7 +68,7 @@ void CCubeSceneNode::render()
 
 
         // for debug purposes only:
-        video::SMaterial mat = Mesh->getMeshBuffer(0)->getMaterial();
+        video::SGPUMaterial mat = Mesh->getMeshBuffer(0)->getMaterial();
 
         driver->setMaterial(mat);
         driver->drawMeshBuffer(Mesh->getMeshBuffer(0));
@@ -78,7 +79,7 @@ void CCubeSceneNode::render()
 	// for debug purposes only:
 	if (DebugDataVisible)
 	{
-		video::SMaterial m;
+		video::SGPUMaterial m;
 		driver->setMaterial(m);
 
 		// show mesh
@@ -110,7 +111,7 @@ void CCubeSceneNode::OnRegisterSceneNode()
 
 
 //! returns the material based on the zero based index i.
-video::SMaterial& CCubeSceneNode::getMaterial(uint32_t i)
+video::SGPUMaterial& CCubeSceneNode::getMaterial(uint32_t i)
 {
 	return Mesh->getMeshBuffer(0)->getMaterial();
 }

@@ -84,7 +84,7 @@ private:
 			MaxLights(8), PointSize(1.0f), PointSprites(false),
 			PointSizeMin(0), PointSizeMax(0) {}
 
-		video::SMaterial Material;
+		video::SGPUMaterial Material;
 		OgreTexture Texture;
 		bool AmbientTokenColor;
 		bool DiffuseTokenColor;

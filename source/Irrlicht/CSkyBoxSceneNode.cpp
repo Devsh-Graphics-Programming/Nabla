@@ -33,7 +33,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 
 	// create material
 
-	video::SMaterial mat;
+	video::SGPUMaterial mat;
 	mat.ZBuffer = video::ECFN_NEVER;
 	mat.ZWriteEnable = false;
 	mat.TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
@@ -266,7 +266,7 @@ void CSkyBoxSceneNode::OnRegisterSceneNode()
 //! This function is needed for inserting the node into the scene hirachy on a
 //! optimal position for minimizing renderstate changes, but can also be used
 //! to directly modify the material of a scene node.
-video::SMaterial& CSkyBoxSceneNode::getMaterial(uint32_t i)
+video::SGPUMaterial& CSkyBoxSceneNode::getMaterial(uint32_t i)
 {
 	return Material[i];
 }

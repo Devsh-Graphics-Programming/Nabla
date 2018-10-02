@@ -107,7 +107,7 @@ bool COBJMeshWriter::writeMesh(io::IWriteFile* file, scene::IMesh* mesh, int32_t
 
 	// write mesh buffers
 
-	core::vector<video::SMaterial*> mat;
+	core::vector<video::SGPUMaterial*> mat;
 
 	uint32_t allVertexCount=1; // count vertices over the whole file
 	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)

@@ -79,7 +79,7 @@ void CMeshSceneNodeInstanced::setGPUCullingThresholdMultiplier(const double& mul
 
 
 //! Sets a new meshbuffer
-bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput, CPUCullingFunc cpuCullFunc)
+bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput, CPUCullingFunc cpuCullFunc)
 {
     for (size_t i=0; i<LoD.size(); i++)
     {
@@ -639,7 +639,7 @@ void CMeshSceneNodeInstanced::render()
     {
         for (size_t j=0; j<LoD[i].mesh->getMeshBufferCount(); j++)
         {
-            const video::SMaterial& material = LoD[i].mesh->getMeshBuffer(j)->getMaterial();
+            const video::SGPUMaterial& material = LoD[i].mesh->getMeshBuffer(j)->getMaterial();
 
             video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
             bool transparent = (rnd && rnd->isTransparent());

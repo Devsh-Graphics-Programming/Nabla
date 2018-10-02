@@ -63,7 +63,7 @@ private:
 	struct SCurrentMaterial
 	{
 		void clear() {
-			Material=video::SMaterial();
+			Material=video::SGPUMaterial();
 			Name="";
 			Filename[0]="";
 			Filename[1]="";
@@ -77,7 +77,7 @@ private:
 			Strength[4]=0.f;
 		}
 
-		video::SMaterial Material;
+		video::SGPUMaterial Material;
 		std::string Name;
 		std::string Filename[5];
 		float Strength[5];

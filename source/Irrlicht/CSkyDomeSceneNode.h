@@ -33,7 +33,7 @@ class CSkyDomeSceneNode : public ISceneNode
 		virtual void OnRegisterSceneNode();
 		virtual void render();
 		virtual const core::aabbox3d<float>& getBoundingBox();
-		virtual video::SMaterial& getMaterial(uint32_t i);
+		virtual video::SGPUMaterial& getMaterial(uint32_t i);
 		virtual uint32_t getMaterialCount() const;
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_DOME; }
 

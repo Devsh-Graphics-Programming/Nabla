@@ -206,7 +206,7 @@ void* TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::instantiateEmpty(const
 
 	const MeshBufferBlobV0* blob = (const MeshBufferBlobV0*)_blob;
 	scene::ICPUMeshBuffer* buf = new scene::ICPUMeshBuffer();
-	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SMaterial));
+	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SGPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
@@ -263,7 +263,7 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::instantiate
 
 	const SkinnedMeshBufferBlobV0* blob = (const SkinnedMeshBufferBlobV0*)_blob;
 	scene::SCPUSkinMeshBuffer* buf = new scene::SCPUSkinMeshBuffer();
-	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SMaterial));
+	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SGPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());

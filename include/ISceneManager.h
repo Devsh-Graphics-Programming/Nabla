@@ -37,7 +37,6 @@ namespace io
 namespace video
 {
 	class IVideoDriver;
-	class SMaterial;
 	class ITexture;
 } // end namespace video
 

@@ -28,7 +28,7 @@ namespace video
 		CBurningVideoDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
 
 		//! sets a material
-		virtual void setMaterial(const SMaterial& material);
+		virtual void setMaterial(const SGPUMaterial& material);
 
 		virtual bool setRenderTarget(video::ITexture* texture, bool clearBackBuffer,
 						bool clearZBuffer, SColor color);

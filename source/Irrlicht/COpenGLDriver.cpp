@@ -1011,7 +1011,7 @@ public:
             }
         }
     }
-    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SMaterial &material, const video::SMaterial &lastMaterial)
+    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial &material, const video::SGPUMaterial &lastMaterial)
     {
         currentMatType = material.MaterialType;
 	}
@@ -2376,7 +2376,7 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
 
 
 //! Sets a material. All 3d drawing functions draw geometry now using this material.
-void COpenGLDriver::setMaterial(const SMaterial& material)
+void COpenGLDriver::setMaterial(const SGPUMaterial& material)
 {
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
@@ -2445,7 +2445,7 @@ void COpenGLDriver::setRenderStates3DMode()
 
 
 //! Can be called by an IMaterialRenderer to make its work easier.
-void COpenGLDriver::setBasicRenderStates(const SMaterial& material, const SMaterial& lastmaterial,
+void COpenGLDriver::setBasicRenderStates(const SGPUMaterial& material, const SGPUMaterial& lastmaterial,
 	bool resetAllRenderStates)
 {
 	// fillmode

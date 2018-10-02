@@ -246,7 +246,7 @@ namespace irr {namespace scene {
 				_ctx.headers.push_back(bh);
 				countedObjects.insert(meshBuffer);
 
-				const video::SMaterial & mat = meshBuffer->getMaterial();
+				const video::SGPUMaterial & mat = meshBuffer->getMaterial();
 				for (int tid = 0; tid < _IRR_MATERIAL_MAX_TEXTURES_; ++tid) // texture path blob headers
 				{
 					video::IVirtualTexture* texture = mat.getTexture(tid);

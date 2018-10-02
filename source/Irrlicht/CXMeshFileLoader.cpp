@@ -235,7 +235,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 		// default material if nothing loaded
 		if (!mesh->Materials.size())
 		{
-			mesh->Materials.push_back(video::SMaterial());
+			mesh->Materials.push_back(video::SGPUMaterial());
 			mesh->Materials[0].DiffuseColor.set(0xff777777);
 			mesh->Materials[0].Shininess=0.f;
 			mesh->Materials[0].SpecularColor.set(0xff777777);
@@ -1718,7 +1718,7 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &m
 		else
 		if (objectName == "Material")
 		{
-			mesh.Materials.push_back(video::SMaterial());
+			mesh.Materials.push_back(video::SGPUMaterial());
 			if (!parseDataObjectMaterial(_ctx, mesh.Materials.back()))
 				return false;
 		}
@@ -1738,7 +1738,7 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &m
 }
 
 
-bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SMaterial& material)
+bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SGPUMaterial& material)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading mesh material", ELL_DEBUG);

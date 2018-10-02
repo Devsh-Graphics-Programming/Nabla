@@ -460,7 +460,7 @@ bool COgreMeshFileLoader::readSubMesh(io::IReadFile* file, ChunkData& parent, Og
 
 void COgreMeshFileLoader::composeMeshBufferMaterial(scene::IMeshBuffer* mb, const core::stringc& materialName)
 {
-	video::SMaterial& material=mb->getMaterial();
+	video::SGPUMaterial& material=mb->getMaterial();
 	for (uint32_t k=0; k<Materials.size(); ++k)
 	{
 		if ((materialName==Materials[k].Name)&&(Materials[k].Techniques.size())&&(Materials[k].Techniques[0].Passes.size()))

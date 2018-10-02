@@ -1620,7 +1620,7 @@ void CBurningVideoDriver::drawVertexPrimitiveList(const void* vertices, uint32_t
 
 
 //! sets a material
-void CBurningVideoDriver::setMaterial(const SMaterial& material)
+void CBurningVideoDriver::setMaterial(const SGPUMaterial& material)
 {
 	Material.org = material;
 

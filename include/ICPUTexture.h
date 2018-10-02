@@ -55,7 +55,7 @@ public:
     //! @returns {end(), end()} if _mipLvl > highest present mip level.
     inline RangeType getMipMap(uint32_t _mipLvl)
     {
-        if (_impLvl > getMipMapCount())
+        if (_mipLvl > getHighestMip())
             return {m_mipmaps.end(), m_mipmaps.end()};
         IteratorType l = m_mipmaps.begin(), it;
         int32_t cnt = m_mipmaps.size();
@@ -86,8 +86,6 @@ public:
     {
         return const_cast<ICPUTexture*>(this)->getMipMap(_mipLvl);
     }
-
-    inline size_t getMipMapCount() const { return m_mipmaps.back()->getSupposedMipLevel(); }
 
     inline uint32_t getHighestMip() const { return m_mipmaps.back()->getSupposedMipLevel(); }
 

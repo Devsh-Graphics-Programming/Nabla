@@ -219,7 +219,7 @@ namespace core
 		//! Constructor filling all members
 		explicit MeshBufferBlobV0(const scene::ICPUMeshBuffer*);
 
-		video::SMaterial mat;
+		video::SGPUMaterial mat;
 		core::aabbox3df box;
 		uint64_t descPtr;
 		uint32_t indexType;
@@ -237,7 +237,7 @@ namespace core
 		//! Constructor filling all members
 		explicit SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer*);
 
-		video::SMaterial mat;
+		video::SGPUMaterial mat;
 		core::aabbox3df box;
 		uint64_t descPtr;
 		uint32_t indexType;

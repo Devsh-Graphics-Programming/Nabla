@@ -56,7 +56,7 @@ class COpenGLSLMaterialRenderer : public IMaterialRenderer, public IMaterialRend
             const uint32_t& xformFeedbackOutputCount = 0,
             int32_t userData = 0);
 
-        virtual void OnSetMaterial(const SMaterial& material, const SMaterial& lastMaterial,
+        virtual void OnSetMaterial(const SGPUMaterial& material, const SGPUMaterial& lastMaterial,
             bool resetAllRenderstates, IMaterialRendererServices* services);
 
         virtual bool OnRender(IMaterialRendererServices* service);
@@ -69,7 +69,7 @@ class COpenGLSLMaterialRenderer : public IMaterialRenderer, public IMaterialRend
         virtual bool isTessellation() const {return tessellationPatchVertices!=-1;}
 
         // implementations for the render services
-        virtual void setBasicRenderStates(const SMaterial& material, const SMaterial& lastMaterial, bool resetAllRenderstates);
+        virtual void setBasicRenderStates(const SGPUMaterial& material, const SGPUMaterial& lastMaterial, bool resetAllRenderstates);
         virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
         virtual IVideoDriver* getVideoDriver();
 

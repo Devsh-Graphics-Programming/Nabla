@@ -174,7 +174,7 @@ private:
             core::map<SObjVertex, int> VertMap;
             core::vector<SObjVertex> Vertices;
             core::vector<uint32_t> Indices;
-            video::SMaterial Material;
+            video::SCPUMaterial Material;
             std::string Name;
             std::string Group;
             float Bumpiness;

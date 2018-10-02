@@ -259,7 +259,7 @@ void CNullDriver::deleteAllTextures()
 {
 	// we need to remove previously set textures which might otherwise be kept in the
 	// last set material member. Could be optimized to reduce state changes.
-	setMaterial(SMaterial());
+	setMaterial(SGPUMaterial());
 
 	for (uint32_t i=0; i<Textures.size(); ++i)
 		Textures[i].Surface->drop();
@@ -460,7 +460,7 @@ const core::matrix4& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION
 
 
 //! sets a material
-void CNullDriver::setMaterial(const SMaterial& material)
+void CNullDriver::setMaterial(const SGPUMaterial& material)
 {
 }
 
@@ -520,13 +520,13 @@ void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 //! memory.
 void CNullDriver::removeAllTextures()
 {
-	setMaterial ( SMaterial() );
+	setMaterial ( SGPUMaterial() );
 	deleteAllTextures();
 }
 
 void CNullDriver::removeAllMultisampleTextures()
 {
-	setMaterial ( SMaterial() );
+	setMaterial ( SGPUMaterial() );
 
 	for (uint32_t i=0; i<MultisampleTextures.size(); ++i)
 		MultisampleTextures[i]->drop();
@@ -535,7 +535,7 @@ void CNullDriver::removeAllMultisampleTextures()
 
 void CNullDriver::removeAllTextureBufferObjects()
 {
-	setMaterial ( SMaterial() );
+	setMaterial ( SGPUMaterial() );
 
 	for (uint32_t i=0; i<TextureBufferObjects.size(); ++i)
 		TextureBufferObjects[i]->drop();
@@ -1703,7 +1703,7 @@ void CNullDriver::enableClipPlane(uint32_t index, bool enable)
 }
 
 //! Get the 2d override material for altering its values
-SMaterial& CNullDriver::getMaterial2D()
+SGPUMaterial& CNullDriver::getMaterial2D()
 {
 	return OverrideMaterial2D;
 }
