@@ -49,7 +49,7 @@ public:
 	struct SXTemplateMaterial
 	{
 		std::string Name; // template name from Xfile
-		video::SGPUMaterial Material; // material
+		video::SCPUMaterial Material; // material
 	};
 
     //! REMOVE EVENTUALLY
@@ -98,8 +98,9 @@ public:
 private:
     struct SContext
     {
-        SContext(const asset::IAssetLoader::SAssetLoadContext& _inner) :
+        SContext(const asset::IAssetLoader::SAssetLoadContext& _inner, asset::IAssetLoader::IAssetLoaderOverride* _ovrr) :
             Inner(_inner),
+            loaderOverride(_ovrr),
             AllJoints(0), AnimatedMesh(0),
             BinaryNumCount(0),
             CurFrame(0), MajorVersion(0), MinorVersion(0), BinaryFormat(false), FloatSize(0)
@@ -132,6 +133,7 @@ private:
         int8_t FloatSize;
 
         asset::IAssetLoader::SAssetLoadContext Inner;
+        asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
     };
 
 	bool load(SContext& _ctx, io::IReadFile* file);
@@ -162,7 +164,7 @@ private:
 
 	bool parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &mesh);
 
-	bool parseDataObjectMaterial(SContext& _ctx, video::SGPUMaterial& material);
+	bool parseDataObjectMaterial(SContext& _ctx, video::SCPUMaterial& material);
 
 	bool parseDataObjectAnimationSet(SContext& _ctx);
 

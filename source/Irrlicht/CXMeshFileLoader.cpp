@@ -74,7 +74,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 	uint32_t time = os::Timer::getRealTime();
 //#endif
 
-    SContext ctx(asset::IAssetLoader::SAssetLoadContext{_params, _file});
+    SContext ctx(asset::IAssetLoader::SAssetLoadContext{_params, _file}, _override);
     _file = ctx.Inner.mainFile = _override->getLoadFile(_file, _file->getFileName().c_str(), ctx.Inner, 0u);
 
 	if (!_file)
@@ -235,7 +235,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 		// default material if nothing loaded
 		if (!mesh->Materials.size())
 		{
-			mesh->Materials.push_back(video::SGPUMaterial());
+			mesh->Materials.push_back(video::SCPUMaterial());
 			mesh->Materials[0].DiffuseColor.set(0xff777777);
 			mesh->Materials[0].Shininess=0.f;
 			mesh->Materials[0].SpecularColor.set(0xff777777);
@@ -1718,7 +1718,7 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &m
 		else
 		if (objectName == "Material")
 		{
-			mesh.Materials.push_back(video::SGPUMaterial());
+			mesh.Materials.push_back(video::SCPUMaterial());
 			if (!parseDataObjectMaterial(_ctx, mesh.Materials.back()))
 				return false;
 		}
@@ -1738,7 +1738,7 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &m
 }
 
 
-bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SGPUMaterial& material)
+bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMaterial& material)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading mesh material", ELL_DEBUG);
@@ -1790,17 +1790,32 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SGPUMateri
 			core::stringc TextureFileName = tmp.c_str();
 
 			// original name
-			if (FileSystem->existFile(TextureFileName))
-				material.setTexture(textureLayer, SceneManager->getVideoDriver()->getTexture(TextureFileName));
+            if (FileSystem->existFile(TextureFileName))
+            {
+                asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
+                    SceneManager->getAssetManager().getAssetInHierarchy(TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                );
+                material.setTexture(textureLayer, texture);
+            }
 			// mesh path
 			else
 			{
 				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
-				if (FileSystem->existFile(TextureFileName))
-					material.setTexture(textureLayer, SceneManager->getVideoDriver()->getTexture(TextureFileName));
+                if (FileSystem->existFile(TextureFileName))
+                {
+                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
+                        SceneManager->getAssetManager().getAssetInHierarchy(TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                    );
+                    material.setTexture(textureLayer, texture);
+                }
 				// working directory
-				else
-					material.setTexture(textureLayer, SceneManager->getVideoDriver()->getTexture(io::IFileSystem::getFileBasename(TextureFileName)));
+                else
+                {
+                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
+                        SceneManager->getAssetManager().getAssetInHierarchy(io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                    );
+                    material.setTexture(textureLayer, texture);
+                }
 			}
 			++textureLayer;
 		}
@@ -1814,17 +1829,32 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SGPUMateri
 			core::stringc TextureFileName = tmp.c_str();
 
 			// original name
-			if (FileSystem->existFile(TextureFileName))
-				material.setTexture(1, SceneManager->getVideoDriver()->getTexture(TextureFileName));
+            if (FileSystem->existFile(TextureFileName))
+            {
+                asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
+                    SceneManager->getAssetManager().getAssetInHierarchy(TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                );
+                material.setTexture(1, texture);
+            }
 			// mesh path
 			else
 			{
 				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
-				if (FileSystem->existFile(TextureFileName))
-					material.setTexture(1, SceneManager->getVideoDriver()->getTexture(TextureFileName));
+                if (FileSystem->existFile(TextureFileName))
+                {
+                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
+                        SceneManager->getAssetManager().getAssetInHierarchy(TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                    );
+                    material.setTexture(1, texture);
+                }
 				// working directory
-				else
-					material.setTexture(1, SceneManager->getVideoDriver()->getTexture(io::IFileSystem::getFileBasename(TextureFileName)));
+                else
+                {
+                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
+                        SceneManager->getAssetManager().getAssetInHierarchy(io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                    );
+                    material.setTexture(1, texture);
+                }
 			}
 			if (textureLayer==1)
 				++textureLayer;
