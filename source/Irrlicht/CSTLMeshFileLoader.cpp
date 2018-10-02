@@ -190,7 +190,7 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	return mesh;
 }
 
-bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile * _file) const
+bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 {
     if (_file->getSize() <= 6u)
         return false;
@@ -204,7 +204,19 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile * _file) const
     if (strncmp(header, "solid ", 6u) == 0)
         return true;
     else
-        return _file->getSize() > 80u; // some other validation also needed here...
+    {
+        if (_file->getSize() < 84u)
+        {
+            _file->seek(prevPos);
+            return false;
+        }
+        _file->seek(80u);
+        uint32_t triCnt;
+        _file->read(&triCnt, 4u);
+        _file->seek(prevPos);
+        const size_t STL_TRI_SZ = 50u;
+        return _file->getSize() == (STL_TRI_SZ*triCnt + 84u);
+    }
 }
 
 //! Read 3d vector of floats
