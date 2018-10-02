@@ -16,43 +16,57 @@ namespace core
 
 
 template<typename _size_type>
-class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocator<_size_type> >
+class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type>
 {
+        typedef AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type> Base;
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr bool supportsNullBuffer = true;
+        /// C++17 inline static constexpr bool supportsNullBuffer = true;
 
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(PoolAddressAllocator() : alignOffset(0u), bufferSize(0u) {})
+        #define DUMMY_DEFAULT_CONSTRUCTOR LinearAddressAllocator() : bufferSize(0u), cursor(0u) {}
+        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
+        #undef DUMMY_DEFAULT_CONSTRUCTOR
 
         virtual ~LinearAddressAllocator() {}
 
-        LinearAddressAllocator(void* reservedSpc, void* buffer, size_type buffSz) noexcept : AddressAllocatorBase(reservedSpc,buffer)
-                    alignOffset(calcAlignOffset(buffer,buffSz)), bufferSize(buffSz+alignOffset), cursor(alignOffset) {}
+        LinearAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type buffSz) noexcept :
+                    Base(reservedSpc,buffer,maxAllocatableAlignment), bufferSize(buffSz-Base::alignOffset), cursor(0u) {}
 
         LinearAddressAllocator(const LinearAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) :
-                    AddressAllocatorBase(other,newReservedSpc,newBuffer,newBuffSz), alignOffset(calcAlignOffset(newBuffer,newBuffSz)),
-                    bufferSize(newBuffSz+alignOffset), cursor(other.cursor+alignOffset-other.alignOffset)
+                    Base(other,newReservedSpc,newBuffer,newBuffSz), bufferSize(newBuffSz-Base::alignOffset), cursor(other.cursor)
         {
+            if (other.bufferStart&&Base::bufferStart)
+            {
 #ifdef _DEBUG
-            // new pointer must have greater or equal alignment
-            if (other.bufferStart&&bufferStart)
-                assert(findLSB(reinterpret_cast<size_t>(bufferStart)) >= findLSB(reinterpret_cast<size_t>(other.bufferStart)));
+                // new pointer must have greater or equal alignment
+                assert(findLSB(reinterpret_cast<size_t>(Base::bufferStart)) >= findLSB(reinterpret_cast<size_t>(other.bufferStart)));
 #endif // _DEBUG
+                memmove(reinterpret_cast<uint8_t*>(Base::bufferStart)+alignOffset,
+                        reinterpret_cast<uint8_t*>(other.bufferStart)+other.alignOffset, other.get_allocated_size());
+            }
+        }
+
+        LinearAddressAllocator& operator=(LinearAddressAllocator&& other)
+        {
+            static_cast<Base&>(*this) = std::move(other);
+            bufferSize = other.bufferSize;
+            cursor = other.cursor;
+            return *this;
         }
 
         inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
-            if (bytes==0) // || alignment>max_alignment()
+            if (bytes==0 || alignment>max_alignment())
                 return invalid_address;
 
             size_type result    = alignUp(cursor,alignment);
             size_type newCursor = result+bytes;
-            if (newCursor>bufferSize || newCursor<cursor) //extra or checks for wraparound
+            if (newCursor>bufferSize || newCursor<cursor) //extra OR checks for wraparound
                 return invalid_address;
 
             cursor = newCursor;
-            return result-alignOffset;
+            return result+Base::alignOffset;
         }
 
         inline void         free_addr(size_type addr, size_type bytes) noexcept
@@ -62,52 +76,42 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
 
         inline void         reset()
         {
-            cursor = alignOffset;
+            cursor = 0u;
         }
 
         //! conservative estimate, does not account for space lost to alignment
         inline size_type    max_size() const noexcept
         {
-            if (cursor>bufferSize)
-                return 0u;
-            return bufferSize-cursor;
+            return get_free_size();
         }
 
-        inline size_type    max_alignment() const noexcept
+        inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
-            size_type tmpSize = bufferSize-alignOffset;
-            size_type align = size_type(0x1u)<<findMSB(tmpSize); // what can fit inside the memory?
-
-            while (align)
-            {
-                size_type tmpStart = alignUp(alignOffset,align); // where would it start if it was aligned to itself
-                if (tmpStart+align<=bufferSize) // could it fit?
-                    return align;
-                align = align>>1u;
-            }
-
-            return 1u;
-        }
-
-        inline size_type        safe_shrink_size(size_type bound=0u) const noexcept
-        {
-            return cursor-alignOffset;
+            size_type retval = get_allocated_size();
+            return Base::safe_shrink_size(std::max(retval,byteBound),newBuffAlignmentWeCanGuarantee);
         }
 
         template<typename... Args>
-        static inline size_type reserved_size(size_type bufSz, const Args&... args) noexcept
+        static inline size_type reserved_size(const Args&... args) noexcept
         {
             return 0u;
         }
-    protected:
-        const size_type                                     alignOffset;
-        const size_type                                     bufferSize;
-        size_type                                           cursor;
 
-        static inline size_type calcAlignOffset(void* ptr, size_type bufSz)
+        inline size_type        get_free_size() const noexcept
         {
-            return reinterpret_cast<size_t>(ptr)&((size_type(0x1u)<<findMSB(bufSz))-1u);
+            return bufferSize-cursor;
         }
+        inline size_type        get_allocated_size() const noexcept
+        {
+            return cursor;
+        }
+        inline size_type        get_total_size() const noexcept
+        {
+            return bufferSize+Base::alignOffset;
+        }
+    protected:
+        const size_type bufferSize;
+        size_type       cursor;
 };
 
 

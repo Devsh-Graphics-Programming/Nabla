@@ -271,89 +271,6 @@ int main()
     //! The inside of the loop resets and recreates the instancedNode and instances many times to stress-test for GPU-Memory leaks
 
 	uint64_t lastFPSTime = 0;
-/*
-	while(device->run())
-	//if (device->isWindowActive())
-	{
-		driver->beginScene(true, true, video::SColor(255,0,0,255) );
-
-        IMeshSceneNodeInstanced* node = smgr->addMeshSceneNodeInstanced(smgr->getRootSceneNode());
-        node->setBBoxUpdateEnabled();
-        node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
-        {
-            std::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
-            LevelsOfDetail.resize(2);
-            LevelsOfDetail[0].mesh = gpumeshes[0];
-            LevelsOfDetail[0].lodDistance = instanceLoDDistances[0];
-            LevelsOfDetail[1].mesh = gpumeshes[1];
-            LevelsOfDetail[1].lodDistance = instanceLoDDistances[1];
-
-            node->setLoDMeshes(LevelsOfDetail,37*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,NULL,0,CPUCullingFunc);
-            cb->instanceLoDInvariantBBox = node->getLoDInvariantBBox();
-        }
-
-        //! Special Juice for INSTANCING
-        for (size_t z=0; z<kNumHardwareInstancesZ; z++)
-        for (size_t y=0; y<kNumHardwareInstancesY; y++)
-        for (size_t x=0; x<kNumHardwareInstancesX; x++)
-        {
-            core::matrix4x3 mat;
-            mat.setTranslation(core::vector3df(x,y,z)*2.f);
-            node->addInstance(mat);
-        }
-
-        srand(6945);
-
-        bool alreadyKilled[kHardwareInstancesTOTAL];
-        memset(alreadyKilled,0,kHardwareInstancesTOTAL*sizeof(bool));
-        uint32_t* instancesToRemove = new uint32_t[kHardwareInstancesTOTAL];
-        size_t j=0;
-        for (size_t i=0; i<600; i++)
-        {
-            uint32_t instanceID = rand()%kHardwareInstancesTOTAL;
-            if (alreadyKilled[instanceID])
-                continue;
-
-            instancesToRemove[j++] = instanceID;
-            alreadyKilled[instanceID] = true;
-        }
-        node->removeInstances(j,instancesToRemove);
-
-        //! This animates (moves) the camera and sets the transforms
-        //! Also draws the meshbuffer
-        smgr->drawAll();
-
-        j=0;
-        for (size_t i=0; i<kHardwareInstancesTOTAL; i++)
-        {
-            if (alreadyKilled[i])
-                continue;
-
-            instancesToRemove[j++] = i;
-            alreadyKilled[i] = true;
-        }
-        node->removeInstances(j,instancesToRemove);
-        delete [] instancesToRemove;
-        node->remove();
-
-		driver->endScene();
-
-		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time-lastFPSTime > 1000)
-		{
-			stringw str = L"Builtin Nodes Demo - Irrlicht Engine [";
-			str += driver->getName();
-			str += "] FPS:";
-			str += driver->getFPS();
-			str += " PrimitvesDrawn:";
-			str += driver->getPrimitiveCountDrawn();
-
-			device->setWindowCaption(str.c_str());
-			lastFPSTime = time;
-		}
-	}
-	*/
 
         IMeshSceneNodeInstanced* node = smgr->addMeshSceneNodeInstanced(smgr->getRootSceneNode());
         node->setBBoxUpdateEnabled();
@@ -372,41 +289,42 @@ int main()
         }
 
         //! Special Juice for INSTANCING
+        uint32_t instanceIDs[kNumHardwareInstancesZ][kNumHardwareInstancesY][kNumHardwareInstancesX];
         for (size_t z=0; z<kNumHardwareInstancesZ; z++)
         for (size_t y=0; y<kNumHardwareInstancesY; y++)
         for (size_t x=0; x<kNumHardwareInstancesX; x++)
         {
             core::matrix4x3 mat;
             mat.setTranslation(core::vector3df(x,y,z)*2.f);
-            node->addInstance(mat);
+            instanceIDs[z][y][x] = node->addInstance(mat);
         }
 
         srand(6945);
 
-        bool alreadyKilled[kHardwareInstancesTOTAL];
-        memset(alreadyKilled,0,kHardwareInstancesTOTAL*sizeof(bool));
-        uint32_t* instancesToRemove = new uint32_t[kHardwareInstancesTOTAL];
-        size_t j=0;
         for (size_t i=0; i<600; i++)
         {
-            uint32_t instanceID = rand()%kHardwareInstancesTOTAL;
-            if (alreadyKilled[instanceID])
+            uint32_t x = rand()%kNumHardwareInstancesX;
+            uint32_t y = rand()%kNumHardwareInstancesY;
+            uint32_t z = rand()%kNumHardwareInstancesZ;
+            uint32_t& instanceID = instanceIDs[z][y][x];
+            if (instanceID==0xdeadbeefu)
                 continue;
 
-            instancesToRemove[j++] = instanceID;
-            alreadyKilled[instanceID] = true;
+            node->removeInstance(instanceID);
+            instanceID = 0xdeadbeefu;
         }
-        node->removeInstances(j,instancesToRemove);
 
-
-        j=0;
-        for (size_t i=0; i<kHardwareInstancesTOTAL; i++)
+        size_t removeCount = 0u;
+        uint32_t instancesToRemove[kHardwareInstancesTOTAL];
+        for (size_t z=0; z<kNumHardwareInstancesZ; z++)
+        for (size_t y=0; y<kNumHardwareInstancesY; y++)
+        for (size_t x=0; x<kNumHardwareInstancesX; x++)
         {
-            if (alreadyKilled[i])
+            auto instanceID = instanceIDs[z][y][x];
+            if (instanceID==0xdeadbeefu)
                 continue;
 
-            instancesToRemove[j++] = i;
-            alreadyKilled[i] = true;
+            instancesToRemove[removeCount++] = instanceID;
         }
 
 	while(device->run()&&(!quit))
@@ -431,8 +349,7 @@ int main()
 		}
 	}
 
-        node->removeInstances(j,instancesToRemove);
-        delete [] instancesToRemove;
+        node->removeInstances(removeCount,instancesToRemove);
         node->remove();
 
     gpumeshes[0]->drop();

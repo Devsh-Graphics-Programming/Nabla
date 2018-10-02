@@ -85,7 +85,6 @@
 #include "IMeshSceneNode.h"
 #include "IMeshSceneNodeInstanced.h"
 #include "IMeshWriter.h"
-#include "IMetaGranularBuffer.h"
 #include "IOSOperator.h"
 #include "IReadFile.h"
 #include "IrrlichtDevice.h"

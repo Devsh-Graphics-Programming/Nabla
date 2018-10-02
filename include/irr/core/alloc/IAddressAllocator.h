@@ -21,7 +21,7 @@ class IRR_FORCE_EBO IAddressAllocator
         virtual size_t              get_real_addr(size_t allocated_addr) const noexcept = 0;
 
         //! \param hint will be needed for 3D texture tile sub-allocation
-        virtual void                multi_alloc_addr(size_t* outAddresses, uint32_t count, const size_t* bytes,
+        virtual void                multi_alloc_addr(uint32_t count, size_t* outAddresses, const size_t* bytes,
                                                      const size_t* alignment, const size_t* hint=nullptr) noexcept = 0;
         virtual void                multi_free_addr(uint32_t count, const size_t* addr, const size_t* bytes) noexcept = 0;
         virtual size_t              alloc_addr(size_t bytes, size_t alignment, size_t hint=0ull) noexcept = 0;
@@ -32,12 +32,12 @@ class IRR_FORCE_EBO IAddressAllocator
         virtual size_t              max_size() const noexcept = 0;
         virtual size_t              max_alignment() const noexcept = 0;
 
-        virtual size_t              safe_shrink_size(size_t bound=0u) const noexcept =0;
+        virtual size_t              safe_shrink_size(size_t byteBound=0u) const noexcept =0;
 };
 
 
 template <class AddressAllocator>
-class IRR_FORCE_EBO IAddressAllocatorAdaptor final : public address_allocator_traits<AddressAllocator>, public IAddressAllocator
+class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
 {
         inline AddressAllocator&    getBaseRef() noexcept {return static_cast<AddressAllocator&>(*this);}
     public:
@@ -49,10 +49,10 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : public address_allocator_tr
         inline virtual size_t       get_real_addr(size_t allocated_addr) const noexcept {return traits::get_real_addr(getBaseRef(),allocated_addr);}
 
 
-        inline virtual void         multi_alloc_addr(size_t* outAddresses, uint32_t count, const size_t* bytes,
+        inline virtual void         multi_alloc_addr(uint32_t count, size_t* outAddresses, const size_t* bytes,
                                                      const size_t* alignment, const size_t* hint=nullptr) noexcept
         {
-            traits::multi_alloc_addr(getBaseRef(),outAddresses,count,bytes,alignment,hint);
+            traits::multi_alloc_addr(getBaseRef(),count,outAddresses,bytes,alignment,hint);
         }
         inline virtual void         multi_free_addr(uint32_t count, const size_t* addr, const size_t* bytes) noexcept
         {
@@ -74,12 +74,19 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : public address_allocator_tr
 
         inline virtual size_t       max_alignment() const noexcept {return getBaseRef().max_alignment();}
 
-        inline virtual size_t       safe_shrink_size(size_t bound=0u) const noexcept {return getBaseRef().safe_shrink_size();}
+        inline virtual size_t       safe_shrink_size(size_t byteBound=0u, size_t newBuffAlignmentWeCanGuarantee=1u) const noexcept
+        {
+            return getBaseRef().safe_shrink_size(byteBound,newBuffAlignmentWeCanGuarantee);
+        }
 
         template<typename... Args>
-        static inline size_t reserved_size(size_t bufSz, const Args&... args) noexcept
+        static inline size_t        reserved_size(const Args&... args) noexcept
         {
-            return AddressAllocator::reserved_size(bufSz,args...);
+            return AddressAllocator::reserved_size(args...);
+        }
+        static inline size_t        reserved_size(size_t bufSz, const AddressAllocator& other) noexcept
+        {
+            return AddressAllocator::reserved_size(bufSz,other);
         }
 };
 

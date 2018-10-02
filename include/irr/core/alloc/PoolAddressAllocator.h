@@ -19,47 +19,64 @@ namespace core
 
 //! Can only allocate up to a size of a single block, no support for allocations larger than blocksize
 template<typename _size_type>
-class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_size_type> >
+class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_size_type>,_size_type>
 {
     private:
-        typedef AddressAllocatorBase<PoolAddressAllocator<_size_type> > Base;
+        typedef AddressAllocatorBase<PoolAddressAllocator<_size_type>,_size_type> Base;
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr bool supportsNullBuffer = true;
+        /// C++17 inline static constexpr bool supportsNullBuffer = true;
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR PoolAddressAllocator() : maxAlignment(0x40000000u), alignOffset(0u), blockSize(1u), blockCount(0u) {}
+        #define DUMMY_DEFAULT_CONSTRUCTOR PoolAddressAllocator() : blockSize(1u), blockCount(0u) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
 
         virtual ~PoolAddressAllocator() {}
 
-        PoolAddressAllocator(void* reservedSpc, void* buffer, size_type bufSz, size_type blockSz) noexcept :
-                    AddressAllocatorBase<PoolAddressAllocator<_size_type> >(reservedSpc,buffer), maxAlignment(size_type(1u)<<findLSB(blockSz)),
-                    alignOffset(calcAlignOffset(reinterpret_cast<size_t>(buffer),maxAlignment)), blockCount((bufSz-alignOffset)/blockSz),
-                    blockSize(blockSz), freeStackCtr(0u)
+        PoolAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type bufSz, size_type blockSz) noexcept :
+                    Base(reservedSpc,buffer,std::min(size_type(1u)<<size_type(findLSB(blockSz)),maxAllocatableAlignment)), blockCount((bufSz-Base::alignOffset)/blockSz), blockSize(blockSz), freeStackCtr(0u)
         {
             reset();
         }
 
         PoolAddressAllocator(const PoolAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) noexcept :
-                    AddressAllocatorBase<PoolAddressAllocator<_size_type> >(newReservedSpc,newBuffer), maxAlignment(other.maxAlignment),
-                    alignOffset(calcAlignOffset(reinterpret_cast<size_t>(newBuffer),maxAlignment)),
-                    blockCount((newBuffSz-alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
+                    Base(other,newReservedSpc,newBuffer,newBuffSz), blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize),
+                    freeStackCtr(blockCount>other.blockCount ? (blockCount-other.blockCount):0u)
         {
+            auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
+            for (size_type i=0u; i<freeStackCtr; i++)
+                freeStack[i] = (blockCount-1u-i)*blockSize+Base::alignOffset;
+
             for (size_type i=0; i<other.freeStackCtr; i++)
             {
-                size_type freeEntry = reinterpret_cast<size_type*>(other.reservedSpace)[i];
+                size_type freeEntry = other.addressToBlockID(reinterpret_cast<size_type*>(other.reservedSpace)[i]);
 
-                auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
                 if (freeEntry<blockCount)
-                    freeStack[freeStackCtr++] = freeEntry;
+                    freeStack[freeStackCtr++] = freeEntry*blockSize+Base::alignOffset;
+            }
+
+            if (other.bufferStart&&Base::bufferStart)
+            {
+                memmove(reinterpret_cast<uint8_t*>(Base::bufferStart)+Base::alignOffset,
+                        reinterpret_cast<uint8_t*>(other.bufferStart)+other.alignOffset,
+                        std::min(blockCount,other.blockCount)*blockSize);
             }
         }
 
+        PoolAddressAllocator& operator=(PoolAddressAllocator&& other)
+        {
+            Base::operator=(std::move(other));
+            blockCount = other.blockCount;
+            blockSize = other.blockSize;
+            freeStackCtr = other.freeStackCtr;
+            return *this;
+        }
+
+
         inline size_type        alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
-            if (freeStackCtr==0u || alignment>maxAlignment || bytes==0u)
+            if (freeStackCtr==0u || alignment>Base::maxRequestableAlignment || bytes==0u)
                 return invalid_address;
 
             auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
@@ -69,7 +86,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         inline void             free_addr(size_type addr, size_type bytes) noexcept
         {
 #ifdef _DEBUG
-            assert(addr<alignOffset&&freeStackCtr<blockCount);
+            assert(addr<Base::alignOffset && (addr-Base::alignOffset)%blockSize==0 && freeStackCtr<blockCount);
 #endif // _DEBUG
             auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
             freeStack[freeStackCtr++] = addr;
@@ -79,7 +96,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         {
             auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
             for (freeStackCtr=0u; freeStackCtr<blockCount; freeStackCtr++)
-                freeStack[freeStackCtr] = (blockCount-1u-freeStackCtr)*blockSize+alignOffset;
+                freeStack[freeStackCtr] = (blockCount-1u-freeStackCtr)*blockSize+Base::alignOffset;
         }
 
         //! conservative estimate, does not account for space lost to alignment
@@ -88,85 +105,87 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             return blockSize;
         }
 
-        inline size_type        max_alignment() const noexcept
+        inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
-            return maxAlignment;
-        }
+            size_type retval = get_total_size()-Base::alignOffset;
+            if (byteBound>=retval)
+                return Base::safe_shrink_size(byteBound,newBuffAlignmentWeCanGuarantee);
 
-        inline size_type        safe_shrink_size(size_type bound=0u) const noexcept
-        {
-            size_type retval = (blockCount+1u)*blockSize;
             if (freeStackCtr==0u)
-                return retval;
+                return Base::safe_shrink_size(retval,newBuffAlignmentWeCanGuarantee);
 
             auto allocSize = (blockCount-freeStackCtr)*blockSize;
-            if (allocSize>bound)
-                bound = allocSize;
+            if (allocSize>byteBound)
+                byteBound = allocSize;
 
             auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
-            size_type* tmpStackCopy = _IRR_ALIGNED_MALLOC(freeStackCtr*sizeof(size_type),_IRR_SIMD_ALIGNMENT);
+            size_type* tmpStackCopy = reinterpret_cast<size_type*>(_IRR_ALIGNED_MALLOC(freeStackCtr*sizeof(size_type),_IRR_SIMD_ALIGNMENT));
 
             size_type boundedCount = 0;
             for (size_type i=0; i<freeStackCtr; i++)
             {
-                if (freeStack[i]<bound+alignOffset)
+                auto freeAddr = freeStack[i];
+                if (freeAddr<byteBound+Base::alignOffset)
                     continue;
 
-                tmpStackCopy[boundedCount++] = freeStack[i];
+                tmpStackCopy[boundedCount++] = freeAddr;
             }
 
-            std::make_heap(tmpStackCopy,tmpStackCopy+boundedCount);
-            std::sort_heap(tmpStackCopy,tmpStackCopy+boundedCount);
-            // could do sophisticated modified binary search, but f'it
-            size_type i=1u;
-            for (size_type firstWrong = boundedCount-1; i>=boundedCount; firstWrong--,i++)
+            if (boundedCount)
             {
-                if (tmpStackCopy[firstWrong]!=blockCount-i)
-                    break;
+                std::make_heap(tmpStackCopy,tmpStackCopy+boundedCount);
+                std::sort_heap(tmpStackCopy,tmpStackCopy+boundedCount);
+                // could do sophisticated modified binary search, but f'it
+                size_type endAddr = (blockCount-1u)*blockSize+Base::alignOffset;
+                size_type i=0u;
+                for (;i<boundedCount; i++,endAddr-=blockSize)
+                {
+                    if (tmpStackCopy[boundedCount-1u-i]!=endAddr)
+                        break;
+                }
+
+                retval -= i*blockSize;
             }
-
-            retval -= (i-1u)*blockSize;
-
             _IRR_ALIGNED_FREE(tmpStackCopy);
-            return retval;
+            return Base::safe_shrink_size(retval,newBuffAlignmentWeCanGuarantee);
         }
 
 
-        template<typename... Args>
-        static inline size_type reserved_size(size_type bufSz, size_type blockSz, const Args&... args) noexcept
+        static inline size_type reserved_size(size_type bufSz, size_type maxAlignment, size_type blockSz) noexcept
         {
-            size_type trueAlign = size_type(1u)<<findLSB(blockSz);
-            size_type truncatedOffset = calcAlignOffset(0x8000000000000000ull-size_t(_IRR_SIMD_ALIGNMENT),trueAlign);
+            size_type truncatedOffset = Base::aligned_start_offset(0x7fffFFFFffffFFFFull,maxAlignment);
             size_type probBlockCount =  (bufSz-truncatedOffset)/blockSz;
             return probBlockCount*sizeof(size_type);
         }
+        static inline size_type reserved_size(size_type bufSz, const PoolAddressAllocator<_size_type>& other) noexcept
+        {
+            return reserved_size(bufSz,other.maxRequestableAlignment,other.blockSize);
+        }
+
+        inline size_type        get_free_size() const noexcept
+        {
+            return freeStackCtr*blockSize;
+        }
+        inline size_type        get_allocated_size() const noexcept
+        {
+            return (blockCount-freeStackCtr)*blockSize;
+        }
+        inline size_type        get_total_size() const noexcept
+        {
+            return blockCount*blockSize+Base::alignOffset;
+        }
 
 
-        inline size_type        get_free_block_count() const noexcept
+
+        inline size_type addressToBlockID(size_type addr) const noexcept
         {
-            return freeStackCtr;
-        }
-        inline size_type        get_allocated_block_count() const noexcept
-        {
-            return blockCount-freeStackCtr;
-        }
-        inline size_type        get_total_block_count() const noexcept
-        {
-            return blockCount;
+            return (addr-Base::alignOffset)/blockSize;
         }
     protected:
-        const size_type                                     maxAlignment;
-        const size_type                                     alignOffset;
-        const size_type                                     blockCount;
-        const size_type                                     blockSize;
+        size_type   blockCount;
+        size_type   blockSize;
 
-        size_type                                           freeStackCtr;
-
-        static inline size_type calcAlignOffset(size_t o, size_type a)
-        {
-            size_type remainder = o&(a-1u);
-            return (a-remainder)&(a-1u);
-        }
+        size_type   freeStackCtr;
 };
 
 //! Ideas for general pool allocator (with support for arrays)

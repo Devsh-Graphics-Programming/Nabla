@@ -32,50 +32,63 @@ namespace scene
                                     : ISkinningStateManager(boneControl,driver,sourceHierarchy), Driver(driver)
             {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-                TBO = driver->addTextureBufferObject(finalBoneDataInstanceBuffer->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F);
+                TBO = driver->addTextureBufferObject(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F);
 #endif // _IRR_COMPILE_WITH_OPENGL_
             }
 
-            const void* getRawBoneData() {return finalBoneDataInstanceBuffer->getBackBufferPointer();}
+            //
+            const void* getRawBoneData() {return instanceBoneDataAllocator->getBackBufferPointer();}
 
+            //
+            virtual video::ITextureBufferObject* getBoneDataTBO() const
+            {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-            virtual video::ITextureBufferObject* getBoneDataTBO() const {return TBO;}
+                return TBO;
 #else
-            virtual video::ITextureBufferObject* getBoneDataTBO() const {return NULL;}
+                return NULL;
 #endif // _IRR_COMPILE_WITH_OPENGL_
+            }
 
+            //
             virtual uint32_t addInstance(ISkinnedMeshSceneNode* attachedNode=NULL, const bool& createBoneNodes=false)
             {
                 uint32_t newID;
-                if (!finalBoneDataInstanceBuffer->Alloc(&newID,1))
-                    return 0xdeadbeefu;
+
+                const uint32_t align = _IRR_SIMD_ALIGNMENT;
+                instanceBoneDataAllocator->multi_alloc_addr(1u,&newID,&instanceFinalBoneDataSize,&align);
+                if (newID==std::remove_pointer<decltype(instanceBoneDataAllocator)>::type::alloc_traits::allocator_type::invalid_address)
+                    return std::remove_pointer<decltype(instanceBoneDataAllocator)>::type::alloc_traits::allocator_type::invalid_address;
 
                 //grow instanceData
-                if (finalBoneDataInstanceBuffer->getCapacity()!=instanceDataSize)
+                auto instanceCapacity = getDataInstanceCapacity();
+                if (instanceDataSize!=instanceCapacity)
                 {
-                    instanceDataSize = finalBoneDataInstanceBuffer->getCapacity();
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-                    if (TBO->getByteSize()!=finalBoneDataInstanceBuffer->getFrontBuffer()->getSize())
-                        TBO->bind(finalBoneDataInstanceBuffer->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
+                    if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
+                        TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
 #endif // _IRR_COMPILE_WITH_OPENGL_
-                    size_t instanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
-                    if (instanceData)
-                        instanceData = (uint8_t*)realloc(instanceData,instanceDataByteSize);
+                    auto newInstanceDataSize = instanceCapacity*actualSizeOfInstanceDataElement;
+                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(newInstanceDataSize,_IRR_SIMD_ALIGNMENT));
+                    auto oldInstanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
+                    if (newInstanceDataSize<oldInstanceDataByteSize)
+                        memcpy(newInstanceData,instanceData,newInstanceDataSize);
                     else
-                        instanceData = (uint8_t*)malloc(instanceDataByteSize);
+                    {
+                        memcpy(newInstanceData,instanceData,oldInstanceDataByteSize);
+                        memset(newInstanceData+oldInstanceDataByteSize,0,newInstanceDataSize-oldInstanceDataByteSize);
+                    }
+                    instanceData = newInstanceData;
+                    instanceDataSize = instanceCapacity;
                 }
 
-
-                size_t redirect = finalBoneDataInstanceBuffer->getRedirectFromID(newID);
-                BoneHierarchyInstanceData* tmp = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+redirect*actualSizeOfInstanceDataElement);
+                BoneHierarchyInstanceData* tmp = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(newID));
                 tmp->refCount = 1;
                 tmp->frame = 0.f;
                 tmp->interpolateAnimation = true;
                 tmp->attachedNode = attachedNode;
                 if (boneControlMode!=EBUM_CONTROL)
                 {
-                    FinalBoneData* boneData = reinterpret_cast<FinalBoneData*>(finalBoneDataInstanceBuffer->getBackBufferPointer());
-                    boneData += redirect*referenceHierarchy->getBoneCount();
+                    FinalBoneData* boneData = reinterpret_cast<FinalBoneData*>(instanceBoneDataAllocator->getBackBufferPointer()+newID);
                     for (size_t i=0; i<referenceHierarchy->getBoneCount(); i++)
                         boneData[i].lastAnimatedFrame = -1.f;
                 }
@@ -99,7 +112,7 @@ namespace scene
                             const CFinalBoneHierarchy::BoneReferenceData& boneData = referenceHierarchy->getBoneData()[i];
                             core::matrix4x3 localMatrix = CFinalBoneHierarchy::getMatrixFromKey(referenceHierarchy->getNonInterpolatedAnimationData(i)[0]).getAsRetardedIrrlichtMatrix();
 
-                            IBoneSceneNode* tmpBone;
+                            IBoneSceneNode* tmpBone; //! TODO: change to placement new
                             if (boneData.parentOffsetRelative)
                             {
                                 tmpBone = new IBoneSceneNode(this,newID,getBones(tmp)[boneData.parentOffsetFromTop],i,localMatrix); //want first frame
@@ -112,17 +125,7 @@ namespace scene
                         break;
                 }
 
-
-                if (redirect<=firstDirtyInstance)
-                {
-                    firstDirtyInstance = redirect;
-                    firstDirtyBone = 0;
-                }
-                if (redirect>=lastDirtyInstance)
-                {
-                    lastDirtyInstance = redirect;
-                    lastDirtyBone = referenceHierarchy->getBoneCount()-1;
-                }
+                instanceBoneDataAllocator->markRangeDirty(newID,newID+instanceFinalBoneDataSize);
 
                 return newID;
             }
@@ -130,12 +133,12 @@ namespace scene
             //! true if deleted
             virtual bool dropInstance(const uint32_t& ID)
             {
-                size_t oldInstanceDataSize = instanceDataSize;
+                auto oldInstanceDataSize = instanceDataSize;
                 if (ISkinningStateManager::dropInstance(ID))
                 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-                    if (oldInstanceDataSize!=instanceDataSize && TBO->getByteSize()!=finalBoneDataInstanceBuffer->getFrontBuffer()->getSize())
-                        TBO->bind(finalBoneDataInstanceBuffer->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
+                    if (oldInstanceDataSize!=instanceDataSize && TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
+                        TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
 #endif // _IRR_COMPILE_WITH_OPENGL_
                     return true;
                 }
@@ -149,22 +152,18 @@ namespace scene
                 if (boneControlMode!=EBUM_READ)
                     return;
 
-                size_t redirect = finalBoneDataInstanceBuffer->getRedirectFromID(instanceID);
-                BoneHierarchyInstanceData* tmp = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+redirect*actualSizeOfInstanceDataElement);
+                BoneHierarchyInstanceData* tmp = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(instanceID));
                 for (size_t i=0; i<referenceHierarchy->getBoneCount(); i++)
                 {
                     if (getBones(tmp)[i])
                         continue;
 
                     const CFinalBoneHierarchy::BoneReferenceData& boneData = referenceHierarchy->getBoneData()[i];
-                    //core::matrix4x3 parentInverse;
-                    //getGlobalMatrices(tmp)[boneData.parentOffsetFromTop].getInverse(parentInverse); // todo maybe inversion simd?
 					core::matrix3x4SIMD parentInverse;
 					core::matrix3x4SIMD().set(getGlobalMatrices(tmp)[boneData.parentOffsetFromTop]).getInverse(parentInverse);
 					const core::matrix4x3 localMatrix = core::matrix3x4SIMD::concatenateBFollowedByA(parentInverse, core::matrix3x4SIMD().set(getGlobalMatrices(tmp)[i])).getAsRetardedIrrlichtMatrix();
-					//concatenateBFollowedByA(parentInverse,getGlobalMatrices(tmp)[i]);
 
-                    IBoneSceneNode* tmpBone;
+                    IBoneSceneNode* tmpBone; //! TODO: change to placement new
                     if (boneData.parentOffsetRelative)
                     {
                         tmpBone = new IBoneSceneNode(this,instanceID,getBones(tmp)[boneData.parentOffsetFromTop],i,localMatrix); //want first frame
@@ -181,17 +180,14 @@ namespace scene
             virtual void implicitBone(const size_t& instanceID, const size_t& boneID)
             {
                 assert(boneID<referenceHierarchy->getBoneCount());
-                size_t redirect = finalBoneDataInstanceBuffer->getRedirectFromID(instanceID);
-                assert(redirect<getDataInstanceCount());
-
                 if (boneControlMode!=EBUM_READ)
                     return;
 
-                BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+redirect*actualSizeOfInstanceDataElement);
+                BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(instanceID));
                 if (currentInstance->frame==currentInstance->lastAnimatedFrame) //in other modes, check if also has no bones!!!
                     return;
 
-                FinalBoneData* boneDataForInstance = reinterpret_cast<FinalBoneData*>(reinterpret_cast<uint8_t*>(finalBoneDataInstanceBuffer->getBackBufferPointer())+referenceHierarchy->getBoneCount()*redirect);
+                FinalBoneData* boneDataForInstance = reinterpret_cast<FinalBoneData*>(reinterpret_cast<uint8_t*>(instanceBoneDataAllocator->getBackBufferPointer())+instanceID);
                 if (boneDataForInstance[boneID].lastAnimatedFrame != currentInstance->frame)
                     return;
 
@@ -200,27 +196,17 @@ namespace scene
                 if (currentInstance->attachedNode)
                     attachedNodeTform = currentInstance->attachedNode->getAbsoluteTransformation();
 
+
                 size_t boneStack[256];
                 boneStack[0] = boneID;
                 size_t boneStackSize = 0;
                 while (boneDataForInstance[boneStack[boneStackSize]].lastAnimatedFrame!=currentInstance->frame && boneStack[boneStackSize] >= referenceHierarchy->getBoneLevelRangeEnd(0))
                     boneStack[++boneStackSize] = referenceHierarchy->getBoneData()[boneStack[boneStackSize]].parentOffsetFromTop;
 
-                if (redirect<firstDirtyInstance)
-                {
-                    firstDirtyInstance = redirect;
-                    firstDirtyBone = boneStack[boneStackSize];
-                }
-                else if (redirect==firstDirtyInstance&&boneStack[boneStackSize]<firstDirtyBone)
-                    firstDirtyBone = boneStack[boneStackSize];
-                if (redirect>lastDirtyInstance)
-                {
-                    lastDirtyInstance = redirect;
-                    lastDirtyBone = boneID;
-                }
-                else if (redirect==lastDirtyInstance&&boneID>lastDirtyBone)
-                    lastDirtyBone = boneID;
+                instanceBoneDataAllocator->markRangeDirty(instanceID+boneStack[boneStackSize]*sizeof(FinalBoneData),instanceID+(boneID+1u)*sizeof(FinalBoneData));
+
                 boneStackSize++;
+
 
                 float interpolationFactor;
                 size_t foundKeyIx = referenceHierarchy->getLowerBoundBoneKeyframes(interpolationFactor,currentInstance->frame);
@@ -290,23 +276,17 @@ namespace scene
 
             inline void TrySwapBoneBuffer()
             {
-                if (firstDirtyInstance<=lastDirtyInstance)
-                {
-                    finalBoneDataInstanceBuffer->SwapBuffers();
+                instanceBoneDataAllocator->swapBuffers();
+
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-                    if (TBO->getByteSize()!=finalBoneDataInstanceBuffer->getFrontBuffer()->getSize())
-                        TBO->bind(finalBoneDataInstanceBuffer->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
+                if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
+                    TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
 #endif // _IRR_COMPILE_WITH_OPENGL_
-                    firstDirtyInstance = 0xdeadbeefu;
-                    lastDirtyInstance = 0;
-                    firstDirtyBone = 0xdeadbeefu;
-                    lastDirtyBone = 0;
-                }
             }
 
             virtual void performBoning()
             {
-                if (referenceHierarchy->getHierarchyLevels()==0||getDataInstanceCount()==0)
+                if (referenceHierarchy->getHierarchyLevels()==0||instanceBoneDataAllocator->getAllocator().get_allocated_size()==0)
                     return;
 
                 if (usingGPUorCPUBoning>=0&&boneControlMode==EBUM_NONE)
@@ -322,13 +302,13 @@ namespace scene
                         case EBUM_NONE:
                         case EBUM_READ:
                             {
-                                FinalBoneData* boneData = reinterpret_cast<FinalBoneData*>(finalBoneDataInstanceBuffer->getBackBufferPointer());
+                                uint8_t* boneData = reinterpret_cast<uint8_t*>(instanceBoneDataAllocator->getBackBufferPointer());
                                 bool notModified = true;
-                                uint32_t localFirstDirtyInstance,localLastDirtyInstance,firstBone,lastBone;
-                                for (size_t i=0; i<getDataInstanceCount(); i++)
+                                uint32_t localFirstDirtyInstance,localLastDirtyInstance;
+                                for (size_t i=instanceBoneDataAllocator->getAllocator().get_align_offset(); i<instanceBoneDataAllocator->getAllocator().get_total_size(); i+=instanceFinalBoneDataSize)
                                 {
-                                    BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+i*actualSizeOfInstanceDataElement);
-                                    if (currentInstance->frame==currentInstance->lastAnimatedFrame) //in other modes, check if also has no bones!!!
+                                    BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
+                                    if (!currentInstance->refCount || currentInstance->frame==currentInstance->lastAnimatedFrame) //in other modes, check if also has no bones!!!
                                         continue;
 
                                     core::matrix4x3 attachedNodeTform;
@@ -342,7 +322,7 @@ namespace scene
                                     core::quaternion::flerp_interpolant_terms(interpolantPrecalcTerm2,interpolantPrecalcTerm3,interpolationFactor);
 
 
-                                    FinalBoneData* boneDataForInstance = boneData+referenceHierarchy->getBoneCount()*i;
+                                    FinalBoneData* boneDataForInstance = reinterpret_cast<FinalBoneData*>(boneData+i);
                                     for (size_t j=0; j<referenceHierarchy->getBoneCount(); j++)
                                     {
                                         if (boneDataForInstance[j].lastAnimatedFrame==currentInstance->frame)
@@ -350,11 +330,9 @@ namespace scene
                                         if (notModified)
                                         {
                                             localFirstDirtyInstance = i;
-                                            firstBone = j;
                                             notModified = false;
                                         }
                                         localLastDirtyInstance = i;
-                                        lastBone = j;
                                         boneDataForInstance[j].lastAnimatedFrame = currentInstance->frame;
 
                                         CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundBoneIx];
@@ -416,36 +394,33 @@ namespace scene
                                 }
 
                                 if (!notModified)
+                                    instanceBoneDataAllocator->markRangeDirty(localFirstDirtyInstance,localLastDirtyInstance+instanceFinalBoneDataSize);
+
+                                TrySwapBoneBuffer();
+
+                                if (!notModified)
                                 {
-                                    if (localFirstDirtyInstance<firstDirtyInstance)
+                                    for (size_t i=localFirstDirtyInstance; i<=localLastDirtyInstance; i+=instanceFinalBoneDataSize)
                                     {
-                                        firstDirtyInstance = localFirstDirtyInstance;
-                                        firstDirtyBone = firstBone;
-                                    }
-                                    else if (localFirstDirtyInstance==firstDirtyInstance&&firstBone<firstDirtyBone)
-                                        firstDirtyBone = firstBone;
-                                    if (localLastDirtyInstance>lastDirtyInstance)
-                                    {
-                                        lastDirtyInstance = localLastDirtyInstance;
-                                        lastDirtyBone = lastBone;
-                                    }
-                                    else if (localLastDirtyInstance==lastDirtyInstance&&lastBone>lastDirtyBone)
-                                        lastDirtyBone = lastBone;
-
-
-                                    TrySwapBoneBuffer();
-
-                                    for (size_t i=localFirstDirtyInstance; i<=localLastDirtyInstance; i++)
-                                    {
-                                        BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+i*actualSizeOfInstanceDataElement);
-                                        if (currentInstance->frame==currentInstance->lastAnimatedFrame) //in other modes, check if also has no bones!!!
+                                        BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
+                                        if (!currentInstance->refCount || currentInstance->frame==currentInstance->lastAnimatedFrame) //in other modes, check if also has no bones!!!
                                             continue;
                                         currentInstance->lastAnimatedFrame = currentInstance->frame;
 
                                         core::aabbox3df nodeBBox;
-                                        FinalBoneData* boneDataForInstance = boneData+referenceHierarchy->getBoneCount()*i;
+                                        FinalBoneData* boneDataForInstance = reinterpret_cast<FinalBoneData*>(boneData+i);
                                         for (size_t j=0; j<referenceHierarchy->getBoneCount(); j++)
                                         {
+                                            if (boneControlMode==EBUM_READ)
+                                            {
+                                                IBoneSceneNode* bone = getBones(currentInstance)[j];
+                                                if (bone)
+                                                    bone->updateAbsolutePosition();
+                                            }
+
+                                            if (!currentInstance->attachedNode)
+                                                continue;
+
                                             core::aabbox3df bbox;
                                             bbox.MinEdge.X = boneDataForInstance[j].MinBBoxEdge[0];
                                             bbox.MinEdge.Y = boneDataForInstance[j].MinBBoxEdge[1];
@@ -457,34 +432,26 @@ namespace scene
                                                 nodeBBox.addInternalBox(bbox);
                                             else
                                                 nodeBBox = bbox;
-
-                                            if (boneControlMode==EBUM_READ)
-                                            {
-                                                IBoneSceneNode* bone = getBones(currentInstance)[j];
-                                                if (!bone)
-                                                    continue;
-
-                                                bone->updateAbsolutePosition();
-                                            }
                                         }
 
                                         if (currentInstance->attachedNode)
                                             currentInstance->attachedNode->setBoundingBox(nodeBBox);
                                     }
                                 }
-                                else
-                                    TrySwapBoneBuffer();
                             }
                             break;
                         case EBUM_CONTROL:
                             {
-                                FinalBoneData* boneData = reinterpret_cast<FinalBoneData*>(finalBoneDataInstanceBuffer->getBackBufferPointer());
+                                uint8_t* boneData = reinterpret_cast<uint8_t*>(instanceBoneDataAllocator->getBackBufferPointer());
                                 bool notModified = true;
-                                uint32_t localFirstDirtyInstance,localLastDirtyInstance,firstBone,lastBone;
-                                for (size_t i=0; i<getDataInstanceCount(); i++)
+                                uint32_t localFirstDirtyInstance,localLastDirtyInstance;
+                                for (size_t i=instanceBoneDataAllocator->getAllocator().get_align_offset(); i<instanceBoneDataAllocator->getAllocator().get_total_size(); i+=instanceFinalBoneDataSize)
                                 {
-                                    BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+i*actualSizeOfInstanceDataElement);
-                                    FinalBoneData* boneDataForInstance = boneData+referenceHierarchy->getBoneCount()*i;
+                                    BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
+                                    if (!currentInstance->refCount)
+                                        continue;
+
+                                    FinalBoneData* boneDataForInstance = reinterpret_cast<FinalBoneData*>(boneData+i);
 
                                     core::matrix3x4SIMD attachedNodeInverse;
 									//core::matrix4x3 attachedNodeInverse;
@@ -533,46 +500,32 @@ namespace scene
                                             if (notModified)
                                             {
                                                 localFirstDirtyInstance = i;
-                                                firstBone = j;
                                                 notModified = false;
                                             }
                                             localNotModified = false;
                                         }
                                         localLastDirtyInstance = i;
-                                        lastBone = j;
                                     }
 
                                     currentInstance->needToRecomputeParentBBox = localNotModified;
                                 }
 
+
+                                if (!notModified)
+                                    instanceBoneDataAllocator->markRangeDirty(localFirstDirtyInstance,localLastDirtyInstance+instanceFinalBoneDataSize);
+
+                                TrySwapBoneBuffer();
+
                                 if (!notModified)
                                 {
-                                    if (localFirstDirtyInstance<firstDirtyInstance)
+                                    for (uint32_t i=localFirstDirtyInstance; i<=localLastDirtyInstance; i+=instanceFinalBoneDataSize)
                                     {
-                                        firstDirtyInstance = localFirstDirtyInstance;
-                                        firstDirtyBone = firstBone;
-                                    }
-                                    else if (localFirstDirtyInstance==firstDirtyInstance&&firstBone<firstDirtyBone)
-                                        firstDirtyBone = firstBone;
-                                    if (localLastDirtyInstance>lastDirtyInstance)
-                                    {
-                                        lastDirtyInstance = localLastDirtyInstance;
-                                        lastDirtyBone = lastBone;
-                                    }
-                                    else if (localLastDirtyInstance==lastDirtyInstance&&lastBone>lastDirtyBone)
-                                        lastDirtyBone = lastBone;
-
-
-                                    TrySwapBoneBuffer();
-
-                                    for (size_t i=localFirstDirtyInstance; i<=localLastDirtyInstance; i++)
-                                    {
-                                        BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+i*actualSizeOfInstanceDataElement);
-                                        if (!currentInstance->attachedNode || currentInstance->needToRecomputeParentBBox)
+                                        BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
+                                        if (!currentInstance->refCount || !currentInstance->attachedNode || currentInstance->needToRecomputeParentBBox)
                                             continue;
 
                                         core::aabbox3df nodeBBox;
-                                        FinalBoneData* boneDataForInstance = boneData+referenceHierarchy->getBoneCount()*i;
+                                        FinalBoneData* boneDataForInstance = reinterpret_cast<FinalBoneData*>(boneData+i);
                                         for (size_t j=0; j<referenceHierarchy->getBoneCount(); j++)
                                         {
                                             core::aabbox3df bbox;
@@ -591,8 +544,6 @@ namespace scene
                                         currentInstance->attachedNode->setBoundingBox(nodeBBox);
                                     }
                                 }
-                                else
-                                    TrySwapBoneBuffer();
                             }
                             break;
                     }

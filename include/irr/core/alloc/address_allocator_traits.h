@@ -36,13 +36,13 @@ namespace core
         template<class AddressAlloc>
         struct address_allocator_traits_base<AddressAlloc,false>
         {
-            static constexpr bool supportsNullBuffer= false;
+            /// C++17 inline static constexpr bool supportsNullBuffer= false;
             static constexpr uint32_t maxMultiOps   = 256u;
 
             typedef typename AddressAlloc::size_type size_type;
 
-            static inline void         multi_alloc_addr(AddressAlloc& alloc, size_type* outAddresses, uint32_t count,
-                                                      const size_type* bytes, const size_type* alignment, const size_type* hint=nullptr) noexcept
+            static inline void         multi_alloc_addr(AddressAlloc& alloc, uint32_t count, size_type* outAddresses, const size_type* bytes,
+                                                        const size_type* alignment, const size_type* hint=nullptr) noexcept
             {
                 for (uint32_t i=0; i<count; i++)
                     outAddresses[i] = alloc.alloc_addr(bytes[i],alignment[i],hint ? hint[i]:0ull);
@@ -55,7 +55,7 @@ namespace core
             }
 
 
-            static inline size_type    get_real_addr(AddressAlloc& alloc, size_type allocated_addr)
+            static inline size_type    get_real_addr(const AddressAlloc& alloc, size_type allocated_addr)
             {
                 return allocated_addr;
             }
@@ -64,24 +64,25 @@ namespace core
         template<class AddressAlloc>
         struct address_allocator_traits_base<AddressAlloc,true>
         {
-            static constexpr bool supportsNullBuffer= AddressAlloc::supportsNullBuffer;
+            /// C++17 inline static constexpr bool supportsNullBuffer= AddressAlloc::supportsNullBuffer;
             static constexpr uint32_t maxMultiOps   = AddressAlloc::maxMultiOps;
 
             typedef typename AddressAlloc::size_type size_type;
 
-            static inline void         multi_alloc_addr(AddressAlloc& alloc, size_type* outAddresses, uint32_t count,
-                                                      const size_type* bytes, const size_type* alignment, const size_type* hint=nullptr) noexcept
+            template<typename... Args>
+            static inline void         multi_alloc_addr(AddressAlloc& alloc, Args&&... args) noexcept
             {
-                alloc.multi_alloc_addr(outAddresses,count,bytes,alignment,hint);
+                alloc.multi_alloc_addr(std::forward<Args>(args)...);
             }
 
-            static inline void         multi_free_addr(AddressAlloc& alloc, uint32_t count, const size_type* addr, const size_type* bytes) noexcept
+            template<typename... Args>
+            static inline void         multi_free_addr(AddressAlloc& alloc, Args&&... args) noexcept
             {
-                alloc.multi_free_addr(count,addr,bytes);
+                alloc.multi_free_addr(std::forward<Args>(args)...);
             }
 
 
-            static inline size_type    get_real_addr(AddressAlloc& alloc, size_type allocated_addr)
+            static inline size_type    get_real_addr(const AddressAlloc& alloc, size_type allocated_addr)
             {
                 return alloc.get_real_addr(allocated_addr);
             }
@@ -89,16 +90,16 @@ namespace core
     }
 
     template<class AddressAlloc>
-    class address_allocator_traits : protected AddressAlloc
+    class address_allocator_traits : protected AddressAlloc //maybe private?
     {
         private:
             template<class U> using cstexpr_maxMultiOps             = decltype(U::maxMultiOps);
             template<class U> using cstexpr_supportsNullBuffer      = decltype(U::supportsNullBuffer);
 
-            template<class U> using func_multi_alloc_addr           = decltype(U::multi_alloc_addr(0u,nullptr,nullptr,nullptr));
-            template<class U> using func_multi_free_addr            = decltype(U::multi_free_addr(0u,nullptr,nullptr,nullptr));
+            template<class U> using func_multi_alloc_addr           = decltype(U::multi_alloc_addr(0u,nullptr,nullptr,nullptr,nullptr));
+            template<class U> using func_multi_free_addr            = decltype(U::multi_free_addr(0u,nullptr,nullptr));
 
-            template<class U> using func_get_real_addr              = decltype(U::get_real_addr(0u,nullptr,nullptr,nullptr));
+            template<class U> using func_get_real_addr              = decltype(U::get_real_addr(0u));
         protected:
             template<class,class=void> struct has_maxMultiOps                                       : std::false_type {};
             template<class,class=void> struct has_supportsNullBuffer                                : std::false_type {};
@@ -118,10 +119,11 @@ namespace core
 
             template<class U> struct has_func_get_real_addr<U,void_t<func_get_real_addr<U> > >      : std::is_same<func_get_real_addr<U>,void> {};
         public:
-            static constexpr bool supportsNullBuffer= impl::address_allocator_traits_base<AddressAlloc,has_supportsNullBuffer<AddressAlloc>::value>::supportsNullBuffer;
-            static constexpr uint32_t maxMultiOps = impl::address_allocator_traits_base<AddressAlloc,has_maxMultiOps<AddressAlloc>::value>::maxMultiOps;
+            /// C++17 inline static constexpr bool supportsNullBuffer= impl::address_allocator_traits_base<AddressAlloc,has_supportsNullBuffer<AddressAlloc>::value>::supportsNullBuffer;
+            /// C++17 inline static constexpr uint32_t maxMultiOps = impl::address_allocator_traits_base<AddressAlloc,has_maxMultiOps<AddressAlloc>::value>::maxMultiOps;
 
-            typedef typename AddressAlloc::size_type size_type;
+            typedef AddressAlloc                        allocator_type;
+            typedef typename AddressAlloc::size_type    size_type;
 
 
             using AddressAlloc::AddressAlloc;
@@ -133,25 +135,40 @@ namespace core
             }
 */
 
-            static inline size_type        get_real_addr(AddressAlloc& alloc, size_type allocated_addr) noexcept
+            static inline size_type        get_real_addr(const AddressAlloc& alloc, size_type allocated_addr) noexcept
             {
-                return impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::get_real_addr(allocated_addr);
+                return impl::address_allocator_traits_base<AddressAlloc,has_func_get_real_addr<AddressAlloc>::value>::get_real_addr(allocated_addr);
             }
 
 
-            static inline void              multi_alloc_addr(AddressAlloc& alloc, size_type* outAddresses, uint32_t count,
+            static inline void              multi_alloc_addr(AddressAlloc& alloc, uint32_t count, size_type* outAddresses,
                                                              const size_type* bytes, const size_type* alignment, const size_type* hint=nullptr) noexcept
             {
+                constexpr uint32_t maxMultiOps = impl::address_allocator_traits_base<AddressAlloc,has_maxMultiOps<AddressAlloc>::value>::maxMultiOps;
                 for (uint32_t i=0; i<count; i+=maxMultiOps)
                     impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::multi_alloc_addr(
-                                                                alloc,outAddresses+i,std::max(count-i,maxMultiOps),bytes+i,alignment+i,hint ? (hint+i):nullptr);
+                                                                alloc,std::min(count-i,maxMultiOps),outAddresses+i,bytes+i,alignment+i,hint ? (hint+i):nullptr);
             }
 
             static inline void             multi_free_addr(AddressAlloc& alloc, uint32_t count, const size_type* addr, const size_type* bytes) noexcept
             {
+                constexpr uint32_t maxMultiOps = impl::address_allocator_traits_base<AddressAlloc,has_maxMultiOps<AddressAlloc>::value>::maxMultiOps;
                 for (uint32_t i=0; i<count; i+=maxMultiOps)
-                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::multi_free_addr(
-                                                                alloc,std::max(count-i,maxMultiOps),addr+i,bytes+i);
+                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_free_addr<AddressAlloc>::value>::multi_free_addr(
+                                                                alloc,std::min(count-i,maxMultiOps),addr+i,bytes+i);
+            }
+
+            static inline size_type        get_free_size(const AddressAlloc& alloc) noexcept
+            {
+                return alloc.get_free_size();
+            }
+            static inline size_type        get_allocated_size(const AddressAlloc& alloc) noexcept
+            {
+                return alloc.get_allocated_size();
+            }
+            static inline size_type        get_total_size(const AddressAlloc& alloc) noexcept
+            {
+                return alloc.get_total_size();
             }
     };
 

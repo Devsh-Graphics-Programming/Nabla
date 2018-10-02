@@ -24,15 +24,17 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        static constexpr bool supportsNullBuffer = false;
+        /// C++17 inline static constexpr bool supportsNullBuffer = false;
         static constexpr uint32_t maxMultiOps = 4096u;
 
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(ContiguousPoolAddressAllocator() : addressRedirects(nullptr) {})
+        #define DUMMY_DEFAULT_CONSTRUCTOR ContiguousPoolAddressAllocator() : addressRedirects(nullptr), addressesAllocated(0u) {}
+        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
+        #undef DUMMY_DEFAULT_CONSTRUCTOR
 
         virtual ~ContiguousPoolAddressAllocator() {}
 
-        ContiguousPoolAddressAllocator(void* reservedSpc, void* buffer, size_type bufSz, size_type blockSz) noexcept :
-                                PoolAddressAllocator<_size_type>(reservedSpc,buffer,bufSz,blockSz),
+        ContiguousPoolAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type bufSz, size_type blockSz) noexcept :
+                                PoolAddressAllocator<_size_type>(reservedSpc,buffer,maxAllocatableAlignment,bufSz,blockSz),
                                 addressRedirects(reinterpret_cast<size_type*>(Base::reservedSpace)+Base::blockCount)
         {
             selfOnlyReset();
@@ -42,15 +44,27 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                                 addressRedirects(reinterpret_cast<size_type*>(Base::reservedSpace)+Base::blockCount),
                                 addressesAllocated(other.addressesAllocated)
         {
-            for (auto i=other.blockCount; i<Base::blockCount; i++)
-                addressRedirects[i] = invalid_address;
-            memmove(addressRedirects,other.addressRedirects,std::min(Base::blockCount,other.blockCount)*sizeof(size_type));
+            for (size_type i=0u; i<Base::blockCount; i++)
+            {
+                if (i<other.blockCount)
+                    addressRedirects[i] = other.addressRedirects[i]+Base::alignOffset-other.alignOffset;
+                else
+                    addressRedirects[i] = invalid_address;
+            }
+        }
+
+        ContiguousPoolAddressAllocator& operator=(ContiguousPoolAddressAllocator&& other)
+        {
+            static_cast<Base&>(*this) = std::move(other);
+            addressRedirects = other.addressRedirects;
+            addressesAllocated = other.addressesAllocated;
+            return *this;
         }
 
         // extra
         inline size_type        get_real_addr(size_type allocated_addr) const
         {
-            return addressRedirects[allocated_addr];
+            return addressRedirects[Base::addressToBlockID(allocated_addr)];
         }
 
         // extra
@@ -59,24 +73,26 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             if (count==0)
                 return;
 #ifdef _DEBUG
-            assert(Base::freeStackCtr<=Base::blockCount+count);
+            assert(Base::freeStackCtr<Base::blockCount+count);
 #endif // _DEBUG
 
             size_type sortedRedirects[maxMultiOps];
-            size_type sortedRedirectsEnd = sortedRedirects+count;
+            size_type* sortedRedirectsEnd = sortedRedirects+count;
             for (decltype(count) i=0; i<count; i++)
             {
                 auto tmp  = addr[i];
 #ifdef _DEBUG
                 assert(tmp>=Base::alignOffset);
 #endif // _DEBUG
+                // add allocated address back onto free stack
                 reinterpret_cast<size_type*>(Base::reservedSpace)[Base::freeStackCtr++] = tmp;
-                auto redir = addressRedirects[tmp];
+                auto redir = get_real_addr(tmp);
 #ifdef _DEBUG
-                assert(redir<addressesAllocated);
+                assert(redir<addressesAllocated*Base::blockSize);
 #endif // _DEBUG
                 sortedRedirects[i] = redir;
             }
+            // sortedRedirects becomes a list of holes in our contiguous array
             std::make_heap(sortedRedirects,sortedRedirectsEnd);
             std::sort_heap(sortedRedirects,sortedRedirectsEnd);
 
@@ -88,33 +104,39 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 if (rfrnc>=invalid_address)
                     continue;
 
+                // find first contiguous address to be deleted larger or equal to
                 size_type* ptr = std::lower_bound(sortedRedirects,sortedRedirectsEnd,rfrnc);
-                if (ptr<(sortedRedirectsEnd)&&ptr[0]==rfrnc)
+                if (ptr<sortedRedirectsEnd && ptr[0]==rfrnc) // found in hole list
                     addressRedirects[i] = invalid_address;
-                else
+                else if (ptr>sortedRedirects)
                 {
                     size_type difference = ptr-sortedRedirects;
-                    addressRedirects[i] = rfrnc-difference;
+                    addressRedirects[i] -= difference*Base::blockSize;
                 }
+            }
+
+            if (addressesAllocated==count)
+            {
+                addressesAllocated = 0u;
+                return;
             }
 
             if (Base::bufferStart)
             {
-                for (decltype(count) i=0; i<count; i++)
-                    sortedRedirects[i] *= Base::blockSize;
-
                 decltype(count) nextIx=1;
                 decltype(count) j=0;
                 while (nextIx<count)
                 {
-                    ubyte_pointer oldRedirectedAddress = reinterpret_cast<ubyte_pointer>(Base::bufferStart)+sortedRedirects[j];
                     size_t len = sortedRedirects[nextIx]-sortedRedirects[j]-Base::blockSize;
                     if (len)
+                    {
+                        ubyte_pointer oldRedirectedAddress = reinterpret_cast<ubyte_pointer>(Base::bufferStart)+sortedRedirects[j];
                         memmove(oldRedirectedAddress-j*Base::blockSize,oldRedirectedAddress+Base::blockSize,len);
+                    }
 
                     j = nextIx++;
                 }
-                size_type len = addressesAllocated-sortedRedirects[j]-Base::blockSize;
+                size_type len = (addressesAllocated-1u)*Base::blockSize-sortedRedirects[j];
                 if (len)
                 {
                     ubyte_pointer oldRedirectedAddress = reinterpret_cast<ubyte_pointer>(Base::bufferStart)+sortedRedirects[j];
@@ -127,7 +149,10 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         inline size_type        alloc_addr(size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
             auto ID = Base::alloc_addr(bytes,alignment,hint);
-            addressRedirects[ID] = addressesAllocated++;
+            if (ID==invalid_address)
+                return invalid_address;
+
+            addressRedirects[Base::addressToBlockID(ID)] = (addressesAllocated++)*Base::blockSize;
             return ID;
         }
 
@@ -143,31 +168,70 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         }
 
 
-        inline size_type        safe_shrink_size(size_type bound=0u) const noexcept
+        //! conservative estimate, does not account for space lost to alignment
+        inline size_type        max_size() const noexcept
         {
-            if (addressesAllocated*Base::blockSize>bound)
-                bound = addressesAllocated*Base::blockSize;
+            return Base::max_size();
+        }
+
+        inline size_type        max_alignment() const noexcept
+        {
+            return Base::max_alignment();
+        }
+
+        inline size_type        get_align_offset() const noexcept
+        {
+            return Base::get_align_offset();
+        }
+
+
+        inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+        {
+            auto boundByAllocCount = addressesAllocated*Base::blockSize;
+            if (byteBound<boundByAllocCount)
+                byteBound = boundByAllocCount;
 
             size_type newBound = Base::blockCount;
-            for (; newBound*Base::blockSize>bound; newBound--)
+            for (; newBound>byteBound/Base::blockSize; newBound--)
             {
                 if (addressRedirects[newBound-1u]<invalid_address)
                     break;
             }
-            bound = newBound*Base::blockSize;
+            newBound *= Base::blockSize;
+            if (byteBound<newBound)
+                byteBound = newBound*Base::blockSize;
 
-            return Base::safe_shrink_size(bound);
+            return Base::safe_shrink_size(byteBound,newBuffAlignmentWeCanGuarantee);
         }
 
 
         template<typename... Args>
-        static inline size_type reserved_size(size_type bufSz, size_type blockSz, const Args&... args) noexcept
+        static inline size_type reserved_size(const Args&... args) noexcept
         {
-            return Base::reserved_size(bufSz,blockSz,args...)*2ull;
+            return Base::reserved_size(args...)*2ull;
         }
 
+
+        inline size_type        get_free_size() const noexcept
+        {
+            return Base::get_free_size();
+        }
+        inline size_type        get_allocated_size() const noexcept
+        {
+            return Base::get_allocated_size();
+        }
+        inline size_type        get_total_size() const noexcept
+        {
+            return Base::get_total_size();
+        }
+
+
+        inline size_type addressToBlockID(size_type addr) const noexcept
+        {
+            return Base::addressToBlockID(addr);
+        }
     protected:
-        size_type* const                        addressRedirects;
+        size_type*                              addressRedirects;
         size_type                               addressesAllocated;
     private:
         inline void selfOnlyReset()
@@ -185,7 +249,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 if (key==invalid_address)
                     continue;
 
-                assert(key<addressesAllocated);
+                assert(key<addressesAllocated*Base::blockSize);
                 for (size_type j=0; j<i; j++)
                     assert(key!=addressRedirects[j]);
             }

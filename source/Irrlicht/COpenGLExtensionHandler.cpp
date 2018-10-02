@@ -148,6 +148,8 @@ int32_t COpenGLExtensionHandler::reqUBOAlignment = 0;
 int32_t COpenGLExtensionHandler::reqSSBOAlignment = 0;
 int32_t COpenGLExtensionHandler::reqTBOAlignment = 0;
 
+int32_t COpenGLExtensionHandler::minMemoryMapAlignment = 0;
+
 int32_t COpenGLExtensionHandler::MaxComputeWGSize[3]{0, 0, 0};
 
 uint32_t COpenGLExtensionHandler::MaxArrayTextureLayers = 2048;
@@ -169,7 +171,6 @@ float COpenGLExtensionHandler::MaxTextureLODBias = 0.f;
 
 bool COpenGLExtensionHandler::IsIntelGPU = false;
 
-#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
 //
 PFNGLISENABLEDIPROC COpenGLExtensionHandler::pGlIsEnabledi = NULL;
 PFNGLENABLEIPROC COpenGLExtensionHandler::pGlEnablei = NULL;
@@ -511,7 +512,6 @@ PFNGLDEBUGMESSAGECALLBACKARBPROC COpenGLExtensionHandler::pGlDebugMessageCallbac
     #if defined(GLX_MESA_swap_control)
         PFNGLXSWAPINTERVALMESAPROC COpenGLExtensionHandler::pGlxSwapIntervalMESA = NULL;
     #endif
-#endif
 
 
 core::LeakDebugger COpenGLExtensionHandler::bufferLeaker("GLBuffer");
@@ -801,6 +801,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &reqUBOAlignment);
 	glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &reqSSBOAlignment);
 	glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &reqTBOAlignment);
+	glGetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &minMemoryMapAlignment);
     extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, MaxComputeWGSize);
     extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, MaxComputeWGSize+1);
     extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, MaxComputeWGSize+2);
@@ -991,7 +992,6 @@ void COpenGLExtensionHandler::loadFunctions()
 		FeatureAvailable[i]=false;
 
 
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 
 #ifdef _IRR_WINDOWS_API_
 	#define IRR_OGL_LOAD_EXTENSION(x) wglGetProcAddress(reinterpret_cast<const char*>(x))
@@ -1008,11 +1008,6 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlGetFloati_v = (PFNGLGETFLOATI_VPROC) IRR_OGL_LOAD_EXTENSION("glGetFloati_v");
     pGlGetIntegeri_v = (PFNGLGETINTEGERI_VPROC) IRR_OGL_LOAD_EXTENSION("glGetIntegeri_v");
     pGlGetStringi = (PFNGLGETSTRINGIPROC) IRR_OGL_LOAD_EXTENSION("glGetStringi");
-#else
-
-    pGlGetStringi = &glGetStringi;
-
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 
     GLint extensionCount;
     glGetIntegerv(GL_NUM_EXTENSIONS,&extensionCount);
@@ -1031,7 +1026,6 @@ void COpenGLExtensionHandler::loadFunctions()
     }
 
 
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	float ogl_ver;
 	sscanf(reinterpret_cast<const char*>(glGetString(GL_VERSION)),"%f",&ogl_ver);
 	Version = static_cast<uint16_t>(core::round32(ogl_ver*100.0f));
@@ -1399,7 +1393,6 @@ void COpenGLExtensionHandler::loadFunctions()
 	#endif
 
 	functionsAlreadyLoaded = true;
-#endif // use extension pointer
 }
 
 

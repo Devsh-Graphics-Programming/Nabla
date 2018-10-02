@@ -19,37 +19,80 @@ namespace core
             typedef uint8_t*                                    ubyte_pointer;\
             static constexpr size_type                          invalid_address = address_type_traits<size_type>::invalid_address
 
-    template<typename CRTP>
+    template<typename CRTP, typename _size_type>
     class AddressAllocatorBase
     {
         public:
-            #define DUMMY_DEFAULT_CONSTRUCTOR AddressAllocatorBase() : reservedSpace(nullptr), bufferStart(nullptr) {}
+            #define DUMMY_DEFAULT_CONSTRUCTOR AddressAllocatorBase() : reservedSpace(nullptr), bufferStart(nullptr), maxRequestableAlignment(0u), alignOffset(0u) {}
             GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
             #undef DUMMY_DEFAULT_CONSTRUCTOR
 
-            inline void* getBufferStart() noexcept {return bufferStart;}
+            inline void*                getBufferStart() noexcept {return bufferStart;}
+
+            inline _size_type           max_alignment() const noexcept
+            {
+                return maxRequestableAlignment;
+            }
+
+            inline _size_type           get_align_offset() const noexcept
+            {
+                return alignOffset;
+            }
+
+            inline _size_type           safe_shrink_size(_size_type bound, _size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+            {
+                if (newBuffAlignmentWeCanGuarantee<maxRequestableAlignment)
+                    return bound+maxRequestableAlignment-newBuffAlignmentWeCanGuarantee;
+                else if (bound)
+                    return bound;
+                else
+                    return std::max(maxRequestableAlignment,newBuffAlignmentWeCanGuarantee);
+            }
+
+
+            static inline _size_type    aligned_start_offset(_size_type globalBufferStartAddress, _size_type maxAlignment)
+            {
+                _size_type remainder = globalBufferStartAddress&(maxAlignment-1u);
+                return (globalBufferStartAddress-remainder)&(maxAlignment-1u);
+            }
         protected:
             virtual ~AddressAllocatorBase() {}
 
-            AddressAllocatorBase(void* reservedSpc, void* buffSz) : reservedSpace(reservedSpc), bufferStart(buffSz)
+            AddressAllocatorBase(void* reservedSpc, void* buffStart, _size_type maxAllocatableAlignment) :
+                    reservedSpace(reservedSpc), bufferStart(buffStart), maxRequestableAlignment(maxAllocatableAlignment),
+                    alignOffset(aligned_start_offset(reinterpret_cast<size_t>(bufferStart),maxRequestableAlignment))
             {
     #ifdef _DEBUG
                 assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull); // pointer to reserved memory has to be aligned to SIMD types!
+                assert(core::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
     #endif // _DEBUG
             }
-            AddressAllocatorBase(CRTP& other, void* newReservedSpc, void* newBuffSz) : reservedSpace(newReservedSpc), bufferStart(newBuffSz)
+            AddressAllocatorBase(const CRTP& other, void* newReservedSpc, void* newBuffStart, size_t newBuffSz) :
+                    reservedSpace(newReservedSpc), bufferStart(newBuffStart), maxRequestableAlignment(other.maxRequestableAlignment),
+                    alignOffset(aligned_start_offset(reinterpret_cast<size_t>(bufferStart),maxRequestableAlignment))
             {
     #ifdef _DEBUG
                 assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
                 // cannot reallocate the data into smaller storage than is necessary
-                assert(newBuffSz>=other.safe_shrink_size());
-                if (other.bufferStart&&bufferStart)
-                    memmove(bufferStart,other.bufferStart,newBuffSz);
+                assert(newBuffSz>=other.safe_shrink_size(0u,maxRequestableAlignment));
+                assert(alignOffset<newBuffSz);
     #endif // _DEBUG
             }
 
-            void* const reservedSpace;
-            void* const bufferStart;
+            AddressAllocatorBase& operator=(AddressAllocatorBase&& other)
+            {
+                reservedSpace           = other.reservedSpace;
+                bufferStart             = other.bufferStart;
+                maxRequestableAlignment = other.maxRequestableAlignment;
+                alignOffset             = other.alignOffset;
+                return *this;
+            }
+
+
+            void*       reservedSpace;
+            void*       bufferStart;
+            _size_type  maxRequestableAlignment;
+            _size_type  alignOffset;
     };
 
 }
