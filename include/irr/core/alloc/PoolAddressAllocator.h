@@ -107,7 +107,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
         inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
-            size_type retval = get_total_size();
+            size_type retval = get_total_size()-Base::alignOffset;
             if (byteBound>=retval)
                 return Base::safe_shrink_size(byteBound,newBuffAlignmentWeCanGuarantee);
 
@@ -172,18 +172,20 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         }
         inline size_type        get_total_size() const noexcept
         {
-            return blockCount*blockSize;
+            return blockCount*blockSize+Base::alignOffset;
+        }
+
+
+
+        inline size_type addressToBlockID(size_type addr) const noexcept
+        {
+            return (addr-Base::alignOffset)/blockSize;
         }
     protected:
         size_type   blockCount;
         size_type   blockSize;
 
         size_type   freeStackCtr;
-
-        inline size_type addressToBlockID(size_type addr) const noexcept
-        {
-            return (addr-Base::alignOffset)/blockSize;
-        }
 };
 
 //! Ideas for general pool allocator (with support for arrays)

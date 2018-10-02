@@ -2,8 +2,9 @@
 #define __I_SKINNING_STATE_MANAGER_H_INCLUDED__
 
 #include "CFinalBoneHierarchy.h"
-#include "IMetaGranularBuffer.h"
 #include "IDummyTransformationSceneNode.h"
+#include "irr/core/alloc/PoolAddressAllocator.h"
+#include "irr/video/CResizableDoubleBufferingAllocator.h"
 
 namespace irr
 {
@@ -205,15 +206,17 @@ namespace scene
 
             //! Constructor
             ISkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const CFinalBoneHierarchy* sourceHierarchy)
-                    : usingGPUorCPUBoning(-100), boneControlMode(boneControl), referenceHierarchy(sourceHierarchy), instanceData(NULL), instanceDataSize(0),
-                    firstDirtyInstance(0xdeadbeefu), lastDirtyInstance(0), firstDirtyBone(0xdeadbeefu), lastDirtyBone(0)
+                    : usingGPUorCPUBoning(-100), boneControlMode(boneControl), referenceHierarchy(sourceHierarchy), instanceData(nullptr), instanceDataSize(0)
             {
                 referenceHierarchy->grab();
 
                 instanceFinalBoneDataSize = referenceHierarchy->getBoneCount()*sizeof(FinalBoneData);
 
-                size_t instancesThatFitIn64kb = 0x10000u/instanceFinalBoneDataSize; // FU Bill Gates!!!
-                finalBoneDataInstanceBuffer = new video::IMetaGranularGPUMappedBuffer(driver, instanceFinalBoneDataSize,instancesThatFitIn64kb,false,instancesThatFitIn64kb,instancesThatFitIn64kb);
+                video::IDriverMemoryBacked::SDriverMemoryRequirements stagingReqs = driver->getUpStreamingMemoryReqs();
+                stagingReqs.mappingCapability |= video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ;
+                video::IDriverMemoryBacked::SDriverMemoryRequirements frontReqs = driver->getDeviceLocalGPUMemoryReqs();
+                stagingReqs.vulkanReqs.size = frontReqs.vulkanReqs.size = instanceFinalBoneDataSize*16u; // use more buffer space in the future for GPU scene-tree
+                instanceBoneDataAllocator = new video::CResizableDoubleBufferingAllocator<core::PoolAddressAllocatorST<uint32_t>,true>(driver,stagingReqs,frontReqs,instanceFinalBoneDataSize);
 
                 actualSizeOfInstanceDataElement = sizeof(BoneHierarchyInstanceData)+referenceHierarchy->getBoneCount()*(sizeof(IBoneSceneNode*)+sizeof(core::matrix4x3));
             }
@@ -230,71 +233,52 @@ namespace scene
             virtual void performBoning() = 0;
 
 
+            //!
             virtual void createBones(const size_t& instanceID) = 0;
 
             //! always creates bones in EBUM_CONTROL mode
-            virtual uint32_t addInstance(ISkinnedMeshSceneNode* attachedNode=NULL, const bool& createBoneNodes=false) = 0;
+            virtual uint32_t addInstance(ISkinnedMeshSceneNode* attachedNode=nullptr, const bool& createBoneNodes=false) = 0;
 
+            //!
             inline void grabInstance(const uint32_t& ID)
             {
-                assert(ID<instanceDataSize);
-                reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+finalBoneDataInstanceBuffer->getRedirectFromID(ID)*actualSizeOfInstanceDataElement)->refCount++;
+                reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID))->refCount++;
             }
 
             //! true if deleted
             virtual bool dropInstance(const uint32_t& ID)
             {
-                assert(ID<instanceDataSize);
-
-                size_t redirect = finalBoneDataInstanceBuffer->getRedirectFromID(ID);
-                BoneHierarchyInstanceData* instance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+redirect*actualSizeOfInstanceDataElement);
+                BoneHierarchyInstanceData* instance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID));
                 if ((instance->refCount--)>1)
                     return false;
 
-                if (redirect<=firstDirtyInstance)
-                {
-                    firstDirtyInstance = redirect;
-                    firstDirtyBone = 0;
-                }
-                size_t oldInstanceCount = getDataInstanceCount();
-                assert(oldInstanceCount>0);
-                oldInstanceCount--;
-                if (oldInstanceCount>=lastDirtyInstance)
-                {
-                    lastDirtyInstance = oldInstanceCount;
-                    lastDirtyBone = referenceHierarchy->getBoneCount()-1;
-                }
-
                 //proceed to delete
+                auto instanceBones = getBones(instance);
                 for (size_t i=0; i<referenceHierarchy->getBoneLevelRangeEnd(0); i++)
                 {
-                    getBones(instance)[i]->remove();
-                    getBones(instance)[i]->drop();
+                    instanceBones[i]->remove();
+                    instanceBones[i]->drop();
                 }
+                memset(instance,0,actualSizeOfInstanceDataElement);
 
-                if (oldInstanceCount!=redirect)
-                    memmove(instance,reinterpret_cast<uint8_t*>(instance)+actualSizeOfInstanceDataElement,oldInstanceCount-redirect);
-                memset(instanceData+oldInstanceCount*actualSizeOfInstanceDataElement,0,actualSizeOfInstanceDataElement);
+                instanceBoneDataAllocator->multi_free_addr(1u,&ID,&instanceFinalBoneDataSize);
+                instanceBoneDataAllocator->markRangeDirty(ID,ID+instanceFinalBoneDataSize);
 
-                finalBoneDataInstanceBuffer->Free(&ID,1);
-
-
-                if (finalBoneDataInstanceBuffer->getCapacity()!=instanceDataSize)
+                auto instanceCapacity = getDataInstanceCapacity();
+                if (instanceDataSize!=instanceCapacity)
                 {
-                    instanceDataSize = finalBoneDataInstanceBuffer->getCapacity();
-                    if (instanceDataSize)
+                    auto newInstanceDataSize = instanceCapacity*actualSizeOfInstanceDataElement;
+                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(newInstanceDataSize,_IRR_SIMD_ALIGNMENT));
+                    auto oldInstanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
+                    if (newInstanceDataSize<oldInstanceDataByteSize)
+                        memcpy(newInstanceData,instanceData,newInstanceDataSize);
+                    else
                     {
-                        size_t instanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
-                        if (instanceData)
-                            instanceData = (uint8_t*)realloc(instanceData,instanceDataByteSize);
-                        else
-                            instanceData = (uint8_t*)malloc(instanceDataByteSize);
+                        memcpy(newInstanceData,instanceData,oldInstanceDataByteSize);
+                        memset(newInstanceData+oldInstanceDataByteSize,0,newInstanceDataSize-oldInstanceDataByteSize);
                     }
-                    else if (instanceData)
-                    {
-                        free(instanceData);
-                        instanceData = NULL;
-                    }
+                    instanceData = newInstanceData;
+                    instanceDataSize = instanceCapacity;
                 }
                 return true;
             }
@@ -302,55 +286,52 @@ namespace scene
 
             inline void setInterpolation(const bool& isLinear, const uint32_t& ID)
             {
-                assert(ID<instanceDataSize);
-                reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+finalBoneDataInstanceBuffer->getRedirectFromID(ID)*actualSizeOfInstanceDataElement)->interpolateAnimation = isLinear;
+                reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID))->interpolateAnimation = isLinear;
             }
 
             inline void setFrame(const float& frame, const uint32_t& ID)
             {
-                assert(ID<instanceDataSize);
-                reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+finalBoneDataInstanceBuffer->getRedirectFromID(ID)*actualSizeOfInstanceDataElement)->frame = frame;
+                reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID))->frame = frame;
             }
 
             inline IBoneSceneNode* getBone(const uint32_t& boneID, const uint32_t& ID)
             {
-                assert(ID<instanceDataSize);
                 assert(boneID<referenceHierarchy->getBoneCount());
-                return getBones(reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+finalBoneDataInstanceBuffer->getRedirectFromID(ID)*actualSizeOfInstanceDataElement))[boneID];
+                return getBones(reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID)))[boneID];
             }
 
 
-            inline const size_t& getDataInstanceCount() const {return finalBoneDataInstanceBuffer->getAllocatedCount();}
+            inline size_t getDataInstanceCount() const {return instanceBoneDataAllocator->getAllocator().get_allocated_size()/instanceFinalBoneDataSize;}
 
         protected:
             virtual ~ISkinningStateManager()
             {
-                for (size_t j=0; j<getDataInstanceCount(); j++)
+                for (size_t j=instanceBoneDataAllocator->getAllocator().get_align_offset(); j<instanceBoneDataAllocator->getAllocator().get_total_size(); j+=instanceFinalBoneDataSize)
                 {
-                    BoneHierarchyInstanceData* instance = reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+j*actualSizeOfInstanceDataElement);
+                    BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(j));
+                    if (!currentInstance->refCount)
+                        continue;
+
+                    auto instanceBones = getBones(currentInstance);
                     for (size_t i=0; i<referenceHierarchy->getBoneLevelRangeEnd(0); i++)
                     {
-                        if (getBones(instance)[i])
-                        {
-                            getBones(instance)[i]->remove();
-                            getBones(instance)[i]->drop();
-                        }
+                        if (!instanceBones[i])
+                            continue;
+
+                        instanceBones[i]->remove();
+                        instanceBones[i]->drop();
                     }
                 }
                 referenceHierarchy->drop();
-                finalBoneDataInstanceBuffer->drop();
+                instanceBoneDataAllocator->drop();
 
                 if (instanceData)
-                    free(instanceData);
+                    _IRR_ALIGNED_FREE(instanceData);
             }
 
             int8_t usingGPUorCPUBoning;
             const E_BONE_UPDATE_MODE boneControlMode;
             const CFinalBoneHierarchy* referenceHierarchy;
-
-            video::IMetaGranularGPUMappedBuffer* finalBoneDataInstanceBuffer;
-            uint32_t firstDirtyBone,lastDirtyBone;
-            uint32_t firstDirtyInstance,lastDirtyInstance;
 
             size_t actualSizeOfInstanceDataElement;
             class BoneHierarchyInstanceData
@@ -360,7 +341,7 @@ namespace scene
                     {
                     }
 
-                    size_t refCount;
+                    uint32_t refCount;
                     float frame;
 
                     union
@@ -381,10 +362,9 @@ namespace scene
                 return reinterpret_cast<IBoneSceneNode**>(reinterpret_cast<core::matrix4x3*>(currentInstance+1)+referenceHierarchy->getBoneCount());
             }
             uint8_t* instanceData;
-            //BoneHierarchyInstanceData* instanceData;
-            size_t instanceDataSize;
+            uint32_t instanceDataSize;
 
-            size_t instanceFinalBoneDataSize;
+            uint32_t instanceFinalBoneDataSize;
             #include "irr/irrpack.h"
             struct FinalBoneData
             {
@@ -395,6 +375,18 @@ namespace scene
                 float lastAnimatedFrame; //to pad to 128bit align, maybe parentOffsetRelative?
             } PACK_STRUCT;
             #include "irr/irrunpack.h"
+            video::CResizableDoubleBufferingAllocator<core::PoolAddressAllocatorST<uint32_t>,true>* instanceBoneDataAllocator;
+
+            inline uint32_t getDataInstanceCapacity() const
+            {
+                const auto& alloc = instanceBoneDataAllocator->getAllocator();
+                return alloc.addressToBlockID(alloc.get_total_size());
+            }
+            inline uint8_t* getBoneHierarchyInstanceFromAddr(uint32_t instanceID) const
+            {
+                auto blockID = instanceBoneDataAllocator->getAllocator().addressToBlockID(instanceID);
+                return reinterpret_cast<uint8_t*>(instanceData+blockID*actualSizeOfInstanceDataElement);
+            }
     };
 
 } // end namespace scene

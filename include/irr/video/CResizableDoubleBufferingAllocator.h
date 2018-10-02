@@ -64,10 +64,11 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
                     maxRequestedAllocSize = bytes[i];
             }
 
-            size_type allAllocatorSpace = alloc_traits::get_total_size(Base::mAllocator);
+            size_type allAllocatorSpace = alloc_traits::get_total_size(Base::mAllocator)-Base::mAllocator.get_align_offset();
             size_type newSize = growPolicy(this,totalRequestedNewMem);
             newSize = std::max(newSize,alloc_traits::get_allocated_size(Base::mAllocator)+totalRequestedNewMem);
             //! TODO: Handle cases when fragmentation requires much more new space to be added
+            // idea, first try allocate everything, then count up the unallocatable, grow by unallocatable total size, try allocate rest again
             //if (newSize <=>?! maxRequestedAllocSize)
                 //newSize = allAllocatorSpace+totalRequestedNewMem;
 
@@ -105,7 +106,7 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         {
             alloc_traits::multi_free_addr(Base::mAllocator,std::forward<Args>(args)...);
 
-            size_type allAllocatorSpace = alloc_traits::get_total_size(Base::mAllocator);
+            size_type allAllocatorSpace = alloc_traits::get_total_size(Base::mAllocator)-Base::mAllocator.get_align_offset();
             size_type newSize = shrinkPolicy(this);
             if (newSize>=allAllocatorSpace)
                 return;
@@ -134,12 +135,11 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         typedef CResizableDoubleBufferingAllocator<AddressAllocator,onlySwapRangesMarkedDirty,CPUAllocator> ThisType;
 
     protected:
-        constexpr static size_type growStep = 2u; //debug test
-        ///constexpr static size_type growStep = 32u*4096u; //128k at a time
+        constexpr static size_type growStep = 32u*4096u; //128k at a time
         constexpr static size_type growStepMinus1 = growStep-1u;
         static inline size_type                 defaultGrowPolicy(ThisType* _this, size_type totalRequestedNewMem)
         {
-            size_type allAllocatorSpace = alloc_traits::get_total_size(_this->mAllocator);
+            size_type allAllocatorSpace = alloc_traits::get_total_size(_this->mAllocator)-_this->mAllocator.get_align_offset();
             size_type nextAllocTotal = alloc_traits::get_allocated_size(_this->mAllocator)+totalRequestedNewMem;
             if (nextAllocTotal>allAllocatorSpace)
                 return (nextAllocTotal+growStepMinus1)&(~growStepMinus1);
@@ -148,14 +148,13 @@ class CResizableDoubleBufferingAllocator : public CDoubleBufferingAllocator<Addr
         }
         static inline size_type                 defaultShrinkPolicy(ThisType* _this)
         {
-            constexpr size_type shrinkStep = 2u; //debug test
-            ///constexpr size_type shrinkStep = 256u*4096u; //1M at a time
+            constexpr size_type shrinkStep = 256u*4096u; //1M at a time
 
             size_type allFreeSpace = alloc_traits::get_free_size(_this->mAllocator);
             if (allFreeSpace>shrinkStep)
                 return (alloc_traits::get_allocated_size(_this->mAllocator)+growStepMinus1)&(~growStepMinus1);
 
-            return alloc_traits::get_total_size(_this->mAllocator);
+            return alloc_traits::get_total_size(_this->mAllocator)-_this->mAllocator.get_align_offset();
         }
 
         size_type(*growPolicy)(ThisType*,size_type);

@@ -158,7 +158,6 @@ namespace core
                                                                 alloc,std::min(count-i,maxMultiOps),addr+i,bytes+i);
             }
 
-            //! TODO: implement traits when only 2 of the following are present
             static inline size_type        get_free_size(const AddressAlloc& alloc) noexcept
             {
                 return alloc.get_free_size();

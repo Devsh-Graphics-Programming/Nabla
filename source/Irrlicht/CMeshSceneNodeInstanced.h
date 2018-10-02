@@ -7,7 +7,8 @@
 
 #include "ESceneNodeTypes.h"
 #include "IMeshSceneNodeInstanced.h"
-#include "IMetaGranularBuffer.h"
+#include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
+#include "irr/video/CResizableDoubleBufferingAllocator.h"
 #include "ITransformFeedback.h"
 #include "IQueryObject.h"
 #include "ISceneManager.h"
@@ -175,12 +176,12 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         inline size_t getCurrentInstanceCapacity() const
         {
-            return instanceDataAllocator->getAllocator().get_total_size()/dataPerInstanceInputSize;
+            return getBlockIDFromAddr(instanceDataAllocator->getAllocator().get_total_size());
         }
 
         inline size_t getBlockIDFromAddr(uint32_t instanceID) const
         {
-            return (instanceID-instanceDataAllocator->getAllocator().get_align_offset())/dataPerInstanceInputSize;
+            return instanceDataAllocator->getAllocator().addressToBlockID(instanceID);
         }
 };
 

@@ -387,9 +387,7 @@ namespace scene
                 const float* keyframesIn = keyframes;
                 const float* const keyframesEnd = keyframes+keyframeCount;
                 const AnimationKeyData* inAnimationsIn = interpolatedAnimations;
-                const AnimationKeyData* const inAnimationsEnd = interpolatedAnimations+keyframeCount*boneCount;
                 const AnimationKeyData* noAnimationsIn = nonInterpolatedAnimations;
-                const AnimationKeyData* const noAnimationsEnd = nonInterpolatedAnimations+keyframeCount*boneCount;
 
                 float* newKeyframes = (float*)malloc(keyframeCount+keyframesToAddCount);
                 float* newKeyframesOut = newKeyframes;

@@ -300,7 +300,6 @@
 		<Unit filename="../../include/IMeshSceneNode.h" />
 		<Unit filename="../../include/IMeshSceneNodeInstanced.h" />
 		<Unit filename="../../include/IMeshWriter.h" />
-		<Unit filename="../../include/IMetaGranularBuffer.h" />
 		<Unit filename="../../include/IMultisampleTexture.h" />
 		<Unit filename="../../include/IOSOperator.h" />
 		<Unit filename="../../include/IQueryObject.h" />

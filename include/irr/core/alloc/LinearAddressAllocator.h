@@ -82,9 +82,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         //! conservative estimate, does not account for space lost to alignment
         inline size_type    max_size() const noexcept
         {
-            if (cursor>bufferSize)
-                return 0u;
-            return bufferSize-cursor;
+            return get_free_size();
         }
 
         inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
@@ -109,7 +107,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         }
         inline size_type        get_total_size() const noexcept
         {
-            return bufferSize;
+            return bufferSize+Base::alignOffset;
         }
     protected:
         const size_type bufferSize;
