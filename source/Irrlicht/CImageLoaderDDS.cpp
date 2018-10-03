@@ -174,13 +174,16 @@ int32_t DDSGetInfo(CImageLoaderDDS::ddsBuffer *dds, int32_t *width, int32_t *hei
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* file) const
+bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* _file) const
 {
-	if (!file)
+	if (!_file)
 		return false;
 
+    const size_t prevPos = _file->getPos();
+
 	ddsBuffer header;
-	file->read(&header, sizeof(header));
+	_file->read(&header, sizeof(header));
+    _file->seek(prevPos);
 
 	int32_t width, height, depth;
 	eDDSPixelFormat pixelFormat;

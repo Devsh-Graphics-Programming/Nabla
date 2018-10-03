@@ -55,18 +55,24 @@ void PNGAPI user_read_data_fcn(png_structp png_ptr, png_bytep data, png_size_t l
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* file) const
+bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* _file) const
 {
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
-	if (!file)
+	if (!_file)
 		return false;
+
+    const size_t prevPos = _file->getPos();
 
 	png_byte buffer[8];
-	// Read the first few bytes of the PNG file
-	if (file->read(buffer, 8) != 8)
-		return false;
+	// Read the first few bytes of the PNG _file
+    if (_file->read(buffer, 8) != 8)
+    {
+        _file->seek(prevPos);
+        return false;
+    }
 
-	// Check if it really is a PNG file
+    _file->seek(prevPos);
+	// Check if it really is a PNG _file
 	return !png_sig_cmp(buffer, 0, 8);
 #else
 	return false;

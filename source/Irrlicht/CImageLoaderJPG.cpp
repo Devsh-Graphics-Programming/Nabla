@@ -106,18 +106,21 @@ void CImageLoaderJPG::output_message(j_common_ptr cinfo)
 #endif // _IRR_COMPILE_WITH_LIBJPEG_
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* file) const
+bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
 {
 	#ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	return false;
 	#else
 
-	if (!file)
+	if (!_file)
 		return false;
 
+    const size_t prevPos = _file->getPos();
+
 	int32_t jfif = 0;
-	file->seek(6);
-	file->read(&jfif, sizeof(int32_t));
+	_file->seek(6);
+	_file->read(&jfif, sizeof(int32_t));
+    _file->seek(prevPos);
 	return (jfif == 0x4a464946 || jfif == 0x4649464a);
 
 	#endif

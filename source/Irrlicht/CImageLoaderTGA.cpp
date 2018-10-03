@@ -69,20 +69,23 @@ uint8_t *CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHea
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* file) const
+bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 {
-	if (!file)
+	if (!_file)
 		return false;
+
+    const size_t prevPos = _file->getPos();
 
 	STGAFooter footer;
 	memset(&footer, 0, sizeof(STGAFooter));
-	file->seek(file->getSize()-sizeof(STGAFooter));
-	file->read(&footer, sizeof(STGAFooter));
+	_file->seek(_file->getSize()-sizeof(STGAFooter));
+	_file->read(&footer, sizeof(STGAFooter));
+    _file->seek(prevPos);
 
-	if (strcmp(footer.Signature,"TRUEVISION-XFILE.")) // very old tgas are refused.
+	if (strcmp(footer.Signature,"TRUEVISION-X_file.")) // very old tgas are refused.
 	{
 #ifdef _DEBUG
-		os::Printer::log("Unsupported, very old TGA", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("Unsupported, very old TGA", _file->getFileName().c_str(), ELL_ERROR);
 #endif // _DEBUG
 	    return false;
 	}

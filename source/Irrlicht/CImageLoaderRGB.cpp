@@ -149,10 +149,15 @@ CImageLoaderRGB::CImageLoaderRGB()
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderRGB::isALoadableFileFormat(io::IReadFile* file) const
+bool CImageLoaderRGB::isALoadableFileFormat(io::IReadFile* _file) const
 {
+    const size_t prevPos = _file->getPos();
+
 	rgbStruct rgb;
-	return checkFormat(file, rgb);
+	const bool r = checkFormat(_file, rgb);
+    _file->seek(prevPos);
+
+    return r;
 }
 
 

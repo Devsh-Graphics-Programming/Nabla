@@ -81,10 +81,9 @@ public:
         uint16_t headerId;
         _file->read(&headerId, 2);
 
-        const bool res = headerId == 0x4d42u;
         _file->seek(prevPos);
 
-        return res;
+        return (headerId == 0x4d42u);
     }
 
     virtual const char** getAssociatedFileExtensions() const override
