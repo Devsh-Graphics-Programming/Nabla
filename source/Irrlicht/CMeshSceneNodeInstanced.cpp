@@ -24,7 +24,7 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
     instanceDataAllocator(nullptr), instanceBBoxes(nullptr), instanceBBoxesCount(0),
     flagQueryForRetrieval(false),
     gpuCulledLodInstanceDataBuffer(nullptr), dataPerInstanceOutputSize(0),
-    extraDataInstanceSize(0), visibilityPadding(0), dataPerInstanceInputSize(0), cachedMaterialCount(0)
+    extraDataInstanceSize(0), dataPerInstanceInputSize(0), cachedMaterialCount(0)
 {
     #ifdef _DEBUG
     setDebugName("CMeshSceneNodeInstanced");
@@ -105,8 +105,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     gpuLoDsPerPass = shaderLoDsPerPass;
 
 	extraDataInstanceSize = extraDataSizePerInstanceInput;
-    visibilityPadding = 4-(extraDataInstanceSize&0x3u);
-
+    auto visibilityPadding = 4u-(extraDataInstanceSize&0x3u);
 
     video::IVideoDriver* driver = SceneManager->getVideoDriver();
 
@@ -218,7 +217,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     return true;
 }
 
-uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix4x3& relativeTransform, void* extraData)
+uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix4x3& relativeTransform, const void* extraData)
 {
     uint32_t ix;
     if (!addInstances(&ix,1,&relativeTransform,extraData))
@@ -227,7 +226,7 @@ uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix4x3& relativeTra
     return ix;
 }
 
-bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix4x3* relativeTransforms, void* extraData)
+bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix4x3* relativeTransforms, const void* extraData)
 {
     uint32_t dummyBytes[instanceCount];
     uint32_t aligns[instanceCount];
@@ -292,7 +291,7 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
         instance3x3TranposeInverse[7] = instanceInverse(2,1);
         instance3x3TranposeInverse[8] = instanceInverse(2,2);
         if (extraData&&extraDataInstanceSize)
-            memcpy(ptr+48+36,reinterpret_cast<uint8_t*>(extraData)+extraDataInstanceSize*i,extraDataInstanceSize);
+            memcpy(ptr+48+36,reinterpret_cast<const uint8_t*>(extraData)+extraDataInstanceSize*i,extraDataInstanceSize);
         ptr[48+36+extraDataInstanceSize] = 0xffu;
     }
 
@@ -353,7 +352,7 @@ void CMeshSceneNodeInstanced::setInstanceVisible(const uint32_t& instanceID, con
     /// update BBox?
 }
 
-void CMeshSceneNodeInstanced::setInstanceData(const uint32_t& instanceID, void* data)
+void CMeshSceneNodeInstanced::setInstanceData(const uint32_t& instanceID, const void* data)
 {
     if (extraDataInstanceSize==0)
         return;

@@ -76,9 +76,9 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         virtual size_t getInstanceCount() const { return instanceDataAllocator->getAllocator().get_allocated_size()/dataPerInstanceInputSize; }
 
 
-        virtual uint32_t addInstance(const core::matrix4x3& relativeTransform, void* extraData=NULL);
+        virtual uint32_t addInstance(const core::matrix4x3& relativeTransform, const void* extraData=NULL);
 
-        virtual bool addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix4x3* relativeTransforms, void* extraData);
+        virtual bool addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix4x3* relativeTransforms, const void* extraData);
 
         virtual void setInstanceTransform(const uint32_t& instanceID, const core::matrix4x3& relativeTransform);
 
@@ -86,7 +86,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         virtual void setInstanceVisible(const uint32_t& instanceID, const bool& visible);
 
-        virtual void setInstanceData(const uint32_t& instanceID, void* data);
+        virtual void setInstanceData(const uint32_t& instanceID, const void* data);
 
         virtual void removeInstance(const uint32_t& instanceID);
 
@@ -169,7 +169,6 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         size_t dataPerInstanceOutputSize;
         size_t extraDataInstanceSize;
-        size_t visibilityPadding;
         size_t dataPerInstanceInputSize;
 
         int32_t PassCount;
