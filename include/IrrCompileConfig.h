@@ -36,6 +36,13 @@
 #endif
 
 
+
+#ifdef __IRR_COMPILE_WITH_AVX
+#define SIMD_ALIGNMENT 32
+#else
+#define SIMD_ALIGNMENT 16
+#endif // __IRR_COMPILE_WITH_AVX
+
 #endif
 
 #include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
@@ -360,9 +367,7 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #undef _IRR_COMPILE_WITH_BAW_LOADER_
 #endif
 //! Define _IRR_COMPILE_WITH_PLY_LOADER_ if you want to load Polygon (Stanford Triangle) files
-#ifndef NEW_MESHES
 #define _IRR_COMPILE_WITH_PLY_LOADER_
-#endif // NEW_MESHES
 #ifdef NO_IRR_COMPILE_WITH_PLY_LOADER_
 #undef _IRR_COMPILE_WITH_PLY_LOADER_
 #endif
@@ -377,18 +382,11 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_BAW_WRITER_
 #undef _IRR_COMPILE_WITH_BAW_WRITER_
 #endif
-#ifndef NEW_MESHES
-//! Define _IRR_COMPILE_WITH_OBJ_WRITER_ if you want to write .obj files
-#define _IRR_COMPILE_WITH_OBJ_WRITER_
-#ifdef NO_IRR_COMPILE_WITH_OBJ_WRITER_
-#undef _IRR_COMPILE_WITH_OBJ_WRITER_
-#endif
 //! Define _IRR_COMPILE_WITH_PLY_WRITER_ if you want to write .ply files
 #define _IRR_COMPILE_WITH_PLY_WRITER_
 #ifdef NO_IRR_COMPILE_WITH_PLY_WRITER_
 #undef _IRR_COMPILE_WITH_PLY_WRITER_
 #endif
-#endif // NEW_MESHES
 
 //! Define _IRR_COMPILE_WITH_BMP_LOADER_ if you want to load .bmp files
 //! Disabling this loader will also disable the built-in font

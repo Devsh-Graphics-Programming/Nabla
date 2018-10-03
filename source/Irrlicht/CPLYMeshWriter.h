@@ -6,6 +6,7 @@
 #define __IRR_PLY_MESH_WRITER_H_INCLUDED__
 
 #include "IMeshWriter.h"
+#include "IWriteFile.h"
 #include <iomanip>
 
 namespace irr

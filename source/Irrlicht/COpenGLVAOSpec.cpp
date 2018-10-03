@@ -6,15 +6,19 @@
 
 namespace std
 {
-    size_t hash<irr::video::COpenGLVAOSpec::HashAttribs>::operator()(const irr::video::COpenGLVAOSpec::HashAttribs &x ) const
-    {
-        size_t retval = hash<uint64_t>()(x.hashVal[0]);
+	template <>
+	struct hash<irr::video::COpenGLVAOSpec::HashAttribs>
+	{
+		std::size_t operator()(const irr::video::COpenGLVAOSpec::HashAttribs& x) const noexcept
+		{
+			size_t retval = hash<uint64_t>()(x.hashVal[0]);
 
-        for (size_t i=1; i<irr::video::COpenGLVAOSpec::HashAttribs::getHashLength(); i++)
-            retval ^= hash<uint64_t>()(x.hashVal[i]);
+			for (size_t i = 1; i<irr::video::COpenGLVAOSpec::HashAttribs::getHashLength(); i++)
+				retval ^= hash<uint64_t>()(x.hashVal[i]);
 
-        return retval;
-    }
+			return retval;
+		}
+	};
 }
 
 namespace irr

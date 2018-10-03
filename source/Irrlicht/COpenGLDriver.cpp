@@ -422,6 +422,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	{
 		os::Printer::log("Cannot activate GL rendering context", ELL_ERROR);
 		wglDeleteContext(hrc);
+		_IRR_DELETE_ARRAY(AuxContexts);
 		return false;
 	}
 
@@ -454,6 +455,9 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 
 bool COpenGLDriver::initAuxContext()
 {
+	if (!AuxContexts) // opengl dead and never inited
+		return false;
+
     bool retval = false;
     glContextMutex->Get();
     SAuxContext* found = getThreadContext_helper(true,std::thread::id());
@@ -601,6 +605,9 @@ bool COpenGLDriver::initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts)
 
 bool COpenGLDriver::initAuxContext()
 {
+	if (!AuxContexts) // opengl dead and never inited
+		return false;
+
     bool retval = false;
     glContextMutex->Get();
     SAuxContext* found = getThreadContext_helper(true,std::thread::id());
@@ -616,6 +623,9 @@ bool COpenGLDriver::initAuxContext()
 
 bool COpenGLDriver::deinitAuxContext()
 {
+	if (!AuxContexts) // opengl dead and never inited
+		return false;
+
     bool retval = false;
     glContextMutex->Get();
     SAuxContext* found = getThreadContext_helper(true);
@@ -660,6 +670,9 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 //! destructor
 COpenGLDriver::~COpenGLDriver()
 {
+	if (!AuxContexts) //opengl dead and never initialized in the first place
+		return;
+
     cleanUpContextBeforeDelete();
 
 	deleteMaterialRenders();
@@ -854,6 +867,9 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
 
 bool COpenGLDriver::genericDriverInit()
 {
+	if (!AuxContexts) // opengl dead and never inited
+		return false;
+
     glContextMutex = _IRR_NEW(FW_Mutex);
 
 	Name=L"OpenGL ";

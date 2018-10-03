@@ -274,7 +274,7 @@ ICPUMesh* CPLYMeshFileLoader::createMesh(io::IReadFile* file)
                 desc->mapIndexBuffer(idxBuf);
                 idxBuf->drop();
                 mb->setIndexCount(indices.size());
-                mb->setIndexType(video::EIT_32BIT);
+                mb->setIndexType(EIT_32BIT);
                 mb->setPrimitiveType(EPT_TRIANGLES);
             }
             else

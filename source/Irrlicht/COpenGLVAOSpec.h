@@ -239,17 +239,6 @@ namespace video
 } // end namespace video
 } // end namespace irr
 
-
-namespace std
-{
-    template <>
-    class hash<irr::video::COpenGLVAOSpec::HashAttribs>
-    {
-        public :
-            size_t operator()(const irr::video::COpenGLVAOSpec::HashAttribs &x ) const;
-    };
-}
-
 #endif
 #endif
 
