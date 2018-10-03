@@ -43,10 +43,6 @@
 #include "CMY3DMeshFileLoader.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
-#include "COgreMeshFileLoader.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 #include "COBJMeshFileLoader.h"
 #endif

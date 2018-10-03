@@ -587,7 +587,6 @@
     <ClInclude Include="CMY3DMeshFileLoader.h" />
     <ClInclude Include="COBJMeshFileLoader.h" />
     <ClInclude Include="COCTLoader.h" />
-    <ClInclude Include="COgreMeshFileLoader.h" />
     <ClInclude Include="CPLYMeshFileLoader.h" />
     <ClInclude Include="CSkinnedMesh.h" />
     <ClInclude Include="CSTLMeshFileLoader.h" />
@@ -769,7 +768,6 @@
     <ClCompile Include="CMY3DMeshFileLoader.cpp" />
     <ClCompile Include="COBJMeshFileLoader.cpp" />
     <ClCompile Include="COCTLoader.cpp" />
-    <ClCompile Include="COgreMeshFileLoader.cpp" />
     <ClCompile Include="CPLYMeshFileLoader.cpp" />
     <ClCompile Include="CSkinnedMesh.cpp" />
     <ClCompile Include="CSTLMeshFileLoader.cpp" />
@@ -835,6 +833,9 @@
     <ClCompile Include="CTRTextureGouraudNoZ2.cpp" />
     <ClCompile Include="CTRTextureGouraudVertexAlpha2.cpp" />
     <ClCompile Include="FW_Mutex.cpp" />
+    <ClCompile Include="IAsset.cpp" />
+    <ClCompile Include="IAssetLoader.cpp" />
+    <ClCompile Include="IAssetManager.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
     <ClCompile Include="IReferenceCounted.cpp" />

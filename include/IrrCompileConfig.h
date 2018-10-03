@@ -315,11 +315,6 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_X_LOADER_
 #undef _IRR_COMPILE_WITH_X_LOADER_
 #endif
-//! Define _IRR_COMPILE_WITH_OGRE_LOADER_ if you want to load Ogre 3D files
-//#define _IRR_COMPILE_WITH_OGRE_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_OGRE_LOADER_
-#undef _IRR_COMPILE_WITH_OGRE_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_3DS_LOADER_ if you want to load 3D Studio Max files
 //#define _IRR_COMPILE_WITH_3DS_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_3DS_LOADER_
