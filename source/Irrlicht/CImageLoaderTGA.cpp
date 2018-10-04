@@ -219,7 +219,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 	delete [] data;
 	delete [] palette;
 
-    asset::ICPUTexture* tex = new asset::ICPUTexture{images};
+    asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
     for (auto img : images)
         img->drop();
     return tex;

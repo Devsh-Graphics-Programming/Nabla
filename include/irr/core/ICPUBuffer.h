@@ -46,6 +46,8 @@ class ICPUBuffer : public IBuffer, public asset::IAsset
         }
         virtual asset::IAsset::E_TYPE getAssetType() const override { return asset::IAsset::ET_BUFFER; }
 
+        virtual size_t conservativeSizeEstimate() const override { return getSize(); }
+
         //! Returns size in bytes.
         virtual const uint64_t& getSize() const {return size;}
 

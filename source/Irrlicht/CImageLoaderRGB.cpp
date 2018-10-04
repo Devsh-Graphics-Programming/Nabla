@@ -268,7 +268,7 @@ asset::IAsset* CImageLoaderRGB::loadAsset(io::IReadFile* _file, const asset::IAs
 	// and tidy up allocated memory
 	delete [] paletteData;
 
-    asset::ICPUTexture* tex = new asset::ICPUTexture{images};
+    asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
     for (auto img : images)
         img->drop();
     return tex;

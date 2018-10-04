@@ -152,7 +152,7 @@ namespace scene
             virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue);
 
             //! Does the mesh have no animation
-            virtual bool isStatic();
+            virtual bool isStatic() const;
 
             //Interface for the mesh loaders (finalize should lock these functions, and they should have some prefix like loader_
             //these functions will use the needed arrays, set values, etc to help the loaders

@@ -28,6 +28,9 @@ CPLYMeshWriter::CPLYMeshWriter()
 //! writes a mesh
 bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+    if (!_override)
+        getDefaultOverride(_override);
+
     SAssetWriteContext ctx{_params, _file};
 
     const ICPUMesh* mesh =

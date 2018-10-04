@@ -61,6 +61,8 @@ CImageWriterPNG::CImageWriterPNG()
 
 bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+    if (!_override)
+        getDefaultOverride(_override);
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
     SAssetWriteContext ctx{_params, _file};
 

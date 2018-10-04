@@ -200,7 +200,7 @@ namespace scene
 		virtual SJoint* addJoint(SJoint *parent=0) = 0;
 
 		//! Check if the mesh is non-animated
-		virtual bool isStatic()=0;
+		virtual bool isStatic() const=0;
 	};
 
 } // end namespace scene

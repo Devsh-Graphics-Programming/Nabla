@@ -24,9 +24,70 @@ public:
     using RangeType = std::pair<IteratorType, IteratorType>;
     using ConstRangeType = std::pair<ConstIteratorType, ConstIteratorType>;
 
+private:
+    template<typename VectorRef>
+    inline static ICPUTexture* create_impl(VectorRef&& _mipmaps)
+    {
+        if (!_mipmaps.size())
+            return nullptr;
+
+        uint32_t sizes[17][3];
+        memset(sizes, 0xff, sizeof(sizes));
+
+        bool allUnknown = true;
+        video::ECOLOR_FORMAT colorFmt = video::ECF_UNKNOWN;
+        for (const video::CImageData* img : _mipmaps)
+        {
+            const uint32_t lvl = img->getSupposedMipLevel();
+            if (lvl > 16u)
+                return nullptr;
+
+            const video::ECOLOR_FORMAT fmt = img->getColorFormat();
+            if (fmt != video::ECF_UNKNOWN)
+                allUnknown = false;
+            if (fmt != colorFmt && fmt != video::ECF_UNKNOWN)
+                return nullptr;
+            if (colorFmt == video::ECF_UNKNOWN)
+                colorFmt = fmt;
+
+            for (uint32_t i = 0u; i < 3u; ++i)
+                if (sizes[lvl][i] < img->getSliceMax()[i])
+                    sizes[lvl][i] = img->getSliceMax()[i];
+        }
+        if (allUnknown)
+            return nullptr;
+
+        auto tooLarge = [](const uint32_t* _sz, uint32_t _l) -> bool {
+            for (uint32_t d = 0u; d < 3u; ++d)
+                if (_sz[d] > (0x10000u>>_l))
+                    return true;
+            return false;
+        };
+        for (uint32_t i = 0u; i < 17u; ++i)
+            if (tooLarge(sizes[i], i))
+                return nullptr;
+
+        return new ICPUTexture(std::forward<decltype(_mipmaps)>(_mipmaps));
+    }
+
+public:
+    inline static ICPUTexture* create(const core::vector<video::CImageData*>& _mipmaps)
+    {
+        return create_impl(_mipmaps);
+    }
+    inline static ICPUTexture* create(core::vector<video::CImageData*>&& _mipmaps)
+    {
+        return create_impl(std::move(_mipmaps));
+    }
+    template<typename Iter>
+    inline static ICPUTexture* create(Iter _first, Iter _last)
+    {
+        return create(core::vector<video::CImageData*>(_first, _last));
+    }
+
+protected:
     explicit ICPUTexture(const core::vector<video::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}, m_colorFormat{video::ECF_UNKNOWN}
     {
-        assert(m_mipmaps.size() != 0u);
         for (const auto& mm : m_mipmaps)
             mm->grab();
         if (m_mipmaps.size())
@@ -37,7 +98,6 @@ public:
     }
     explicit ICPUTexture(core::vector<video::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{video::ECF_UNKNOWN}
     {
-        assert(m_mipmaps.size() != 0u);
         for (const auto& mm : m_mipmaps)
             mm->grab();
         if (m_mipmaps.size())
@@ -53,9 +113,15 @@ public:
             mm->drop();
     }
 
+public:
     virtual void convertToDummyObject() override {}
 
     virtual E_TYPE getAssetType() const override { return IAsset::ET_IMAGE; }
+
+    virtual size_t conservativeSizeEstimate() const override
+    {
+        return getCacheKey().length()+1u;
+    }
 
     const core::vector<video::CImageData*>& getMipmaps() const { return m_mipmaps; }
 
@@ -69,7 +135,7 @@ public:
         int32_t cnt = m_mipmaps.size();
         int32_t step;
 
-        while (cnt > 0u)
+        while (cnt > 0)
         {
             it = l;
             step = cnt/2;

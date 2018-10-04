@@ -11,6 +11,7 @@
 #include "irr/core/Types.h"
 #include "irr/macros.h"
 #include "ISkinnedMesh.h"
+#include "SSkinMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 #include "os.h"
 #include "lz4/lz4.h"
@@ -31,98 +32,117 @@ namespace irr {namespace scene {
 	}
 
 	template<>
-	void CBAWMeshWriter::exportAsBlob<ICPUMesh>(ICPUMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
+	void CBAWMeshWriter::exportAsBlob<ICPUMesh>(ICPUMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u<<14];
 		core::MeshBlobV0* data = core::MeshBlobV0::createAndTryOnStack(_obj, stackData, sizeof(stackData));
 
-		tryWrite(data, _file, _ctx, core::MeshBlobV0::calcBlobSizeForObj(_obj), _headerIdx, _compress);
+        const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 0u);
+        const uint8_t* encrPwd = nullptr;
+        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 0u);
+        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 0u);
+		tryWrite(data, _file, _ctx, core::MeshBlobV0::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
 
 		if ((uint8_t*)data != stackData)
 			free(data);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMesh>(ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
+	void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMesh>(ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u << 14];
 		core::SkinnedMeshBlobV0* data = core::SkinnedMeshBlobV0::createAndTryOnStack(_obj,stackData,sizeof(stackData));
 
-		tryWrite(data, _file, _ctx, core::SkinnedMeshBlobV0::calcBlobSizeForObj(_obj), _headerIdx, _compress);
+        const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 0u);
+        const uint8_t* encrPwd = nullptr;
+        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 0u);
+        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 0u);
+		tryWrite(data, _file, _ctx, core::SkinnedMeshBlobV0::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
 
 		if ((uint8_t*)data != stackData)
 			free(data);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
+	void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		core::MeshBufferBlobV0 data(_obj);
 
-		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, _compress);
+        const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
+        const uint8_t* encrPwd = nullptr;
+        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 1u);
+        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);
+		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<SCPUSkinMeshBuffer>(SCPUSkinMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
+	void CBAWMeshWriter::exportAsBlob<SCPUSkinMeshBuffer>(SCPUSkinMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		core::SkinnedMeshBufferBlobV0 data(_obj);
 
-		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, _compress);
+        const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
+        const uint8_t* encrPwd = nullptr;
+        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 1u);
+        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);
+		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<asset::ICPUTexture>(asset::ICPUTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
+	void CBAWMeshWriter::exportAsBlob<asset::ICPUTexture>(asset::ICPUTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
         asset::ICPUTexture* tex = _obj;
 
-		const io::path fileDir = _ctx.props->relPath.size() ? _ctx.props->relPath : io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get relative-file's directory
+        const WriteProperties* props = reinterpret_cast<const WriteProperties*>(_ctx.inner.params.userData);
+		const io::path fileDir = props->relPath.size() ? props->relPath : io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get relative-file's directory
 		io::path path = m_fileSystem->getRelativeFilename(tex->getCacheKey().c_str(), fileDir); // get texture-file path relative to the file's directory
 		const uint32_t len = strlen(path.c_str()) + 1;
 
-		tryWrite(&path[0], _file, _ctx, len, _headerIdx, _compress);
+        const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 2u);
+        const uint8_t* encrPwd = nullptr;
+        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 2u);
+        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 2u);
+		tryWrite(&path[0], _file, _ctx, len, _headerIdx, flags, encrPwd, comprLvl);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<scene::CFinalBoneHierarchy>(scene::CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
+	void CBAWMeshWriter::exportAsBlob<scene::CFinalBoneHierarchy>(scene::CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u<<14]; // 16kB
 		core::FinalBoneHierarchyBlobV0* data = core::FinalBoneHierarchyBlobV0::createAndTryOnStack(_obj,stackData,sizeof(stackData));
 
-		tryWrite(data, _file, _ctx, core::FinalBoneHierarchyBlobV0::calcBlobSizeForObj(_obj), _headerIdx, _compress);
+		tryWrite(data, _file, _ctx, core::FinalBoneHierarchyBlobV0::calcBlobSizeForObj(_obj), _headerIdx, asset::EWF_NONE);
 
 		if ((uint8_t*)data != stackData)
 			free(data);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(IMeshDataFormatDesc<core::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
+	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(IMeshDataFormatDesc<core::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		core::MeshDataFormatDescBlobV0 data(_obj);
 
-		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, _compress);
+		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, asset::EWF_NONE);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<core::ICPUBuffer>(core::ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress)
+	void CBAWMeshWriter::exportAsBlob<core::ICPUBuffer>(core::ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
-		tryWrite(_obj->getPointer(), _file, _ctx, _obj->getSize(), _headerIdx, _compress);
+        const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 3u);
+        const uint8_t* encrPwd = nullptr;
+        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 3u);
+        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 3u);
+		tryWrite(_obj->getPointer(), _file, _ctx, _obj->getSize(), _headerIdx, flags, encrPwd, comprLvl);
 	}
 
-	bool CBAWMeshWriter::writeMesh(io::IWriteFile* _file, ICPUMesh* _mesh, int32_t _flags)
+	bool CBAWMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 	{
-		WriteProperties wp;
-		if (!(_flags & EMWF_WRITE_COMPRESSED))
-			wp.blobLz4ComprThresh = wp.blobLzmaComprThresh = 0xffffffffFFFFFFFFU;
-		wp.encryptBlobBitField = EET_NOTHING;
-		return writeMesh(_file, _mesh, wp);
-	}
+        if (!_file)
+            return false;
 
-	bool CBAWMeshWriter::writeMesh(io::IWriteFile* _file, scene::ICPUMesh* _mesh, WriteProperties& _propsStruct)
-	{
-		if (!_mesh || !_file || _propsStruct.blobLz4ComprThresh > _propsStruct.blobLzmaComprThresh)
-		{
-#ifdef _DEBUG
-			if (_propsStruct.blobLz4ComprThresh > _propsStruct.blobLzmaComprThresh)
-				os::Printer::log("LZMA threshold must be greater or equal LZ4 threshold!", ELL_ERROR);
-#endif
-			return false;
-		}
+        if (!_params.rootAsset || _params.rootAsset->getAssetType() != asset::IAsset::ET_MESH)
+            return false;
 
-		const uint32_t FILE_HEADER_SIZE = 32;
-		_IRR_DEBUG_BREAK_IF(FILE_HEADER_SIZE != sizeof(core::BAWFileV0::fileHeader))
+        CBAWOverride bawOverride;
+        if (!_override)
+            _override = &bawOverride;
+
+        const ICPUMesh* mesh = static_cast<const ICPUMesh*>(_params.rootAsset);
+
+		constexpr uint32_t FILE_HEADER_SIZE = 32;
+        static_assert(FILE_HEADER_SIZE == sizeof(core::BAWFileV0::fileHeader), "BAW header is not 32 bytes long!");
 
 		uint64_t header[4];
 		memcpy(header, BAW_FILE_HEADER, FILE_HEADER_SIZE);
@@ -130,10 +150,9 @@ namespace irr {namespace scene {
 
 		_file->write(header, FILE_HEADER_SIZE);
 
-		SContext ctx; // context of this call of `writeMesh`
-		ctx.props = &_propsStruct;
+        SContext ctx{ asset::IAssetWriter::SAssetWriteContext{_params, _file}, _override }; // context of this call of `writeMesh`
 
-		const uint32_t numOfInternalBlobs = genHeaders(_mesh, ctx);
+		const uint32_t numOfInternalBlobs = genHeaders(mesh, ctx);
 		const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t) + sizeof(core::BAWFileV0::iv);
 		const uint32_t HEADERS_FILE_OFFSET = OFFSETS_FILE_OFFSET + numOfInternalBlobs * sizeof(ctx.offsets[0]);
 
@@ -141,7 +160,8 @@ namespace irr {namespace scene {
 
 		_file->write(&numOfInternalBlobs, sizeof(numOfInternalBlobs));
 		//_file->write(ctx.pwdVer, 2);
-		_file->write(_propsStruct.initializationVector, 16);
+        const WriteProperties* bawSpecific = reinterpret_cast<const WriteProperties*>(ctx.inner.params.userData);
+		_file->write(bawSpecific->initializationVector, 16);
 		// will be overwritten after actually calculating offsets
 		_file->write(ctx.offsets.data(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 
@@ -154,28 +174,28 @@ namespace irr {namespace scene {
 			switch (ctx.headers[i].blobType)
 			{
 			case core::Blob::EBT_MESH:
-				exportAsBlob(reinterpret_cast<ICPUMesh*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_MESHES));
+				exportAsBlob(reinterpret_cast<ICPUMesh*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_SKINNED_MESH:
-				exportAsBlob(reinterpret_cast<ICPUSkinnedMesh*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_MESHES));
+				exportAsBlob(reinterpret_cast<ICPUSkinnedMesh*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_MESH_BUFFER:
-				exportAsBlob(reinterpret_cast<ICPUMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_MESH_BUFFERS));
+				exportAsBlob(reinterpret_cast<ICPUMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_SKINNED_MESH_BUFFER:
-				exportAsBlob(reinterpret_cast<SCPUSkinMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_MESH_BUFFERS));
+				exportAsBlob(reinterpret_cast<SCPUSkinMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_RAW_DATA_BUFFER:
-				exportAsBlob(reinterpret_cast<core::ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_RAW_BUFFERS));
+				exportAsBlob(reinterpret_cast<core::ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_DATA_FORMAT_DESC:
-				exportAsBlob(reinterpret_cast<IMeshDataFormatDesc<core::ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_DATA_FORMAT_DESC));
+				exportAsBlob(reinterpret_cast<IMeshDataFormatDesc<core::ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_FINAL_BONE_HIERARCHY:
-				exportAsBlob(reinterpret_cast<CFinalBoneHierarchy*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_ANIMATION_DATA));
+				exportAsBlob(reinterpret_cast<CFinalBoneHierarchy*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_TEXTURE_PATH:
-				exportAsBlob(reinterpret_cast<asset::ICPUTexture*>(ctx.headers[i].handle), i, _file, ctx, toEncrypt(_propsStruct, EET_TEXTURE_PATHS));
+				exportAsBlob(reinterpret_cast<asset::ICPUTexture*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			}
 		}
@@ -194,16 +214,16 @@ namespace irr {namespace scene {
 		return true;
 	}
 
-	uint32_t CBAWMeshWriter::genHeaders(ICPUMesh* _mesh, SContext& _ctx)
+	uint32_t CBAWMeshWriter::genHeaders(const ICPUMesh* _mesh, SContext& _ctx)
 	{
 		_ctx.headers.clear();
 
 		bool isMeshAnimated = true;
-		ICPUSkinnedMesh* skinnedMesh = 0;
+		const ICPUSkinnedMesh* skinnedMesh = nullptr;
 
 		if (_mesh)
 		{
-			skinnedMesh = _mesh->getMeshType()!=EMT_ANIMATED_SKINNED ? NULL:dynamic_cast<ICPUSkinnedMesh*>(_mesh); //ICPUSkinnedMesh is a direct non-virtual inheritor
+			skinnedMesh = _mesh->getMeshType()!=EMT_ANIMATED_SKINNED ? NULL:dynamic_cast<const ICPUSkinnedMesh*>(_mesh); //ICPUSkinnedMesh is a direct non-virtual inheritor
 			if (!skinnedMesh || (skinnedMesh && skinnedMesh->isStatic()))
 				isMeshAnimated = false;
 
@@ -304,7 +324,7 @@ namespace irr {namespace scene {
 		_ctx.offsets.push_back(!_ctx.offsets.size() ? 0 : _ctx.offsets.back() + _blobSize);
 	}
 
-	void CBAWMeshWriter::tryWrite(void* _data, io::IWriteFile * _file, SContext & _ctx, size_t _size, uint32_t _headerIdx, bool _encrypt) const
+	void CBAWMeshWriter::tryWrite(void* _data, io::IWriteFile * _file, SContext & _ctx, size_t _size, uint32_t _headerIdx, asset::E_WRITER_FLAGS _flags, const uint8_t* _encrPwd, float _comprLvl) const
 	{
 		if (!_data)
 			return pushCorruptedOffset(_ctx);
@@ -319,27 +339,32 @@ namespace irr {namespace scene {
 		void* data = _data;
 		uint8_t comprType = core::Blob::EBCT_RAW;
 
-		if (_size >= _ctx.props->blobLzmaComprThresh)
-		{
-			data = compressWithLzma(data, _size, compressedSize);
-			if (data != _data)
-				comprType |= core::Blob::EBCT_LZMA;
-		}
-		else if (_size >= _ctx.props->blobLz4ComprThresh)
-		{
-			data = compressWithLz4AndTryOnStack(data, _size, stack, sizeof(stack), compressedSize);
-			if (data != _data)
-				comprType |= core::Blob::EBCT_LZ4;
-		}
+        if (_flags & asset::EWF_COMPRESSED)
+        {
+            if (_comprLvl > 0.3f)
+            {
+                data = compressWithLzma(data, _size, compressedSize);
+                if (data != _data)
+                    comprType |= core::Blob::EBCT_LZMA;
+            }
+            else if (_comprLvl == 0.3f)
+            {
+                data = compressWithLz4AndTryOnStack(data, _size, stack, sizeof(stack), compressedSize);
+                if (data != _data)
+                    comprType |= core::Blob::EBCT_LZ4;
+            }
+        }
 
-		if (_encrypt)
+		if (_flags & asset::EWF_ENCRYPTED)
 		{
 			const size_t encrSize = core::BlobHeaderV0::calcEncSize(compressedSize);
 			void* in = malloc(encrSize);
 			memset(((uint8_t*)in) + (compressedSize-16), 0, 16);
 			memcpy(in, data, compressedSize);
 			void* out = malloc(encrSize);
-			if (core::encAes128gcm(data, encrSize, out, encrSize, _ctx.props->encryptionPassPhrase, _ctx.props->initializationVector, _ctx.headers[_headerIdx].gcmTag))
+
+            const WriteProperties* props = reinterpret_cast<const WriteProperties*>(_ctx.inner.params.userData);
+			if (core::encAes128gcm(data, encrSize, out, encrSize, _encrPwd, props->initializationVector, _ctx.headers[_headerIdx].gcmTag))
 			{
 				if (data != _data && data != stack) // allocated in compressing functions?
 					free(data);
@@ -364,11 +389,6 @@ namespace irr {namespace scene {
 
 		if (data != stack && data != _data)
 			free(const_cast<void*>(data)); // safe const_cast since the only case when this executes is when `data` points to malloc'd memory
-	}
-
-	bool CBAWMeshWriter::toEncrypt(const WriteProperties& _wp, E_ENCRYPTION_TARGETS _req) const
-	{
-		return (_wp.encryptBlobBitField & _req);
 	}
 
 	void* CBAWMeshWriter::compressWithLz4AndTryOnStack(const void* _input, size_t _inputSize, void* _stack, size_t _stackSize, size_t& _outComprSize) const

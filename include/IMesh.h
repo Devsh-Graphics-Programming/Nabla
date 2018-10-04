@@ -105,6 +105,8 @@ namespace scene
 
         virtual void convertToDummyObject() override {}
         virtual asset::IAsset::E_TYPE getAssetType() const override { return asset::IAsset::ET_MESH; }
+
+        virtual size_t conservativeSizeEstimate() const override { return getMeshBufferCount() * sizeof(void*); }
 	};
 
 	typedef IMesh<scene::IGPUMeshBuffer> IGPUMesh;

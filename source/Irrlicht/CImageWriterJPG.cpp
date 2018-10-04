@@ -196,6 +196,9 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	return false;
 #else
+    if (!_override)
+        getDefaultOverride(_override);
+
     SAssetWriteContext ctx{_params, _file};
 
     const video::CImageData* image =

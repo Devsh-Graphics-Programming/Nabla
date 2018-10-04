@@ -50,6 +50,8 @@ public:
 
     IAsset() : isCached{false}, isDummyObjectForCacheAliasing{false} {}
 
+    virtual size_t conservativeSizeEstimate() const = 0;
+
 private:
     friend class IAssetManager;
 

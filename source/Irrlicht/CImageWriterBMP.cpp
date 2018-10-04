@@ -25,6 +25,9 @@ CImageWriterBMP::CImageWriterBMP()
 
 bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+    if (!_override)
+        getDefaultOverride(_override);
+
     SAssetWriteContext ctx{_params, _file};
 
 	// we always write 24-bit color because nothing really reads 32-bit

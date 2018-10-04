@@ -281,7 +281,7 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
     images.push_back(image);
 #endif
 
-    asset::ICPUTexture* tex = new asset::ICPUTexture{images};
+    asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
     for (auto img : images)
         img->drop();
     return tex;

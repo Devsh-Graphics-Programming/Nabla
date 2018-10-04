@@ -26,8 +26,6 @@ namespace asset
 	typedef scene::ICPUMesh ICPUMesh;
     typedef scene::IGPUMesh IGPUMesh;
 
-    // (Criss) I see there's no virtuals in it, so maybe we don't need an interface/base class
-    // and also there's template member function which cannot be virtual so...
 	class IAssetManager
 	{
         // the point of those functions is that lambdas returned by them "inherits" friendship
@@ -67,9 +65,7 @@ namespace asset
 
         io::IFileSystem* m_fileSystem;
         IAssetLoader::IAssetLoaderOverride m_defaultLoaderOverride;
-        IAssetWriter::IAssetWriterOverride m_defaultWriterOverride;
 
-        //AssetCacheType m_assetCache[IAsset::ET_STANDARD_TYPES_COUNT];
         std::array<AssetCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
 
         struct Loaders {
@@ -338,11 +334,11 @@ namespace asset
         }
         bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params)
         {
-            return writeAsset(_filename, _params, &m_defaultWriterOverride);
+            return writeAsset(_filename, _params, nullptr);
         }
         bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params)
         {
-            return writeAsset(_file, _params, &m_defaultWriterOverride);
+            return writeAsset(_file, _params, nullptr);
         }
 
         // Asset Loaders [FOLLOWING ARE NOT THREAD SAFE]

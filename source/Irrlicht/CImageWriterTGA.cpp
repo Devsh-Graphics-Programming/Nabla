@@ -25,6 +25,9 @@ CImageWriterTGA::CImageWriterTGA()
 
 bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+    if (!_override)
+        getDefaultOverride(_override);
+
     SAssetWriteContext ctx{_params, _file};
 
     const video::CImageData* image =

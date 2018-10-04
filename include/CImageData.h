@@ -43,6 +43,8 @@ class CImageData : public asset::IAsset
 
         virtual E_TYPE getAssetType() const override { return asset::IAsset::ET_SUB_IMAGE; }
 
+        virtual size_t conservativeSizeEstimate() const override { return getImageDataSizeInBytes(); }
+
         inline void setupMemory(void* inData, const bool& dataAllocatedWithMallocAndCanTake)
         {
             if (inData&&dataAllocatedWithMallocAndCanTake)

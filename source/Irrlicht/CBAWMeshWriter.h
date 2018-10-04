@@ -6,7 +6,7 @@
 #ifndef __IRR_BAW_MESH_WRITER_H_INCLUDED__
 #define __IRR_BAW_MESH_WRITER_H_INCLUDED__
 
-#include "IMeshWriter.h"
+#include "IAssetWriter.h"
 #include "IMesh.h"
 #include "CBAWFile.h"
 
@@ -18,7 +18,7 @@ namespace scene
 {
 	class ISceneManager;
 
-	class CBAWMeshWriter : public IMeshWriter
+	class CBAWMeshWriter : public asset::IAssetWriter
 	{
 	public:
 		//! Flags deciding what will be encrypted.
@@ -40,18 +40,8 @@ namespace scene
 		//! Settings struct for mesh export
 		struct WriteProperties
 		{
-			//! Default constructor
-			WriteProperties() : blobLz4ComprThresh(4096u), blobLzmaComprThresh(32768u), encryptBlobBitField(EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES) {}
-			//! Size of blob threshold to be compressed with LZ4. Defaulted to 4096 bytes.
-			size_t blobLz4ComprThresh;
-			//! Size of blob threshold to be compressed with LZMA. Shall always be higher than LZ4 threshold. Defaulted to 32768 bytes.
-			size_t blobLzmaComprThresh;
-			//! Pass-phrase for GCM encryption
-			unsigned char encryptionPassPhrase[16];
 			//! Initialization vector for GCM encryption
 			unsigned char initializationVector[16];
-			//! Flags deciding what will be encrypted. Values come from CBAWMeshWriter::E_ENCRYPTION_TARGETS. Defaulted to (EET_RAW_BUFFERS | EET_ANIMATION_DATA | EET_TEXTURES).
-			uint64_t encryptBlobBitField;
 			//! Directory to which texture paths will be relative in output mesh file
 			io::path relPath;
 		};
@@ -59,10 +49,23 @@ namespace scene
 	private:
 		struct SContext
 		{
+			asset::IAssetWriter::SAssetWriteContext inner;
+            asset::IAssetWriter::IAssetWriterOverride* writerOverride;
 			core::vector<core::BlobHeaderV0> headers;
 			core::vector<uint32_t> offsets;
-			const WriteProperties* props;
 		};
+
+        class CBAWOverride : public IAssetWriterOverride
+        {
+            inline float getAssetCompressionLevel(const SAssetWriteContext& ctx, const asset::IAsset* assetToWrite, const uint32_t& hierarchyLevel) override
+            {
+                const size_t est = assetToWrite->conservativeSizeEstimate();
+                if (est >= 32768u) // lzma threshold
+                    return 0.5f;
+                else if (est >= 4096u) // lz4 threshold
+                    return 0.3f;
+            }
+        };
 
 	protected:
 		~CBAWMeshWriter() {}
@@ -70,12 +73,25 @@ namespace scene
 	public:
 		explicit CBAWMeshWriter(io::IFileSystem*);
 
-		//! @copydoc irr::scene::IMeshWriter::getType()
-		EMESH_WRITER_TYPE getType() const { return EMWT_BAW; }
+        //! Returns an array of string literals terminated by nullptr
+        virtual const char** getAssociatedFileExtensions() const override
+        {
+            static const char* ext[]{ "baw" };
+            return ext;
+        }
 
-		//! @copydoc irr::scene::IMeshWriter::writeMesh()
-		bool writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, int32_t flags = EMWF_NONE);
-		bool writeMesh(io::IWriteFile* file, scene::ICPUMesh* mesh, WriteProperties& propsStruct);
+        //! Returns the assets which can be written out by the loader
+        /** Bits of the returned value correspond to each IAsset::E_TYPE
+        enumeration member, and the return value cannot be 0. */
+        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+
+        //! Returns which flags are supported for writing modes
+        virtual uint32_t getSupportedFlags() override { return asset::EWF_COMPRESSED | asset::EWF_ENCRYPTED; }
+
+        //! Returns which flags are forced for writing modes, i.e. a writer can only support binary
+        virtual uint32_t getForcedFlags() override { return asset::EWF_BINARY; }
+
+        virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
 	private:
 		//! Takes object and exports (writes to file) its data as another blob.
@@ -83,13 +99,13 @@ namespace scene
 		@param _headersIdx Corresponding index of headers array.
 		@param _file Target file.*/
 		template<typename T>
-		void exportAsBlob(T* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx, bool _compress);
+		void exportAsBlob(T* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx);
 
 		//! Generates header of blobs from mesh object and pushes them to `SContext::headers`.
 		/** After calling this method headers are NOT ready yet. Hashes (and also size in case of texture path blob) are calculated while writing blob data.
 		@param _mesh Pointer to the mesh object.
 		@return Amount of generated headers.*/
-		uint32_t genHeaders(ICPUMesh* _mesh, SContext& _ctx);
+		uint32_t genHeaders(const ICPUMesh* _mesh, SContext& _ctx);
 
 		//! Pushes new offset value to `SContext::offsets` array.
 		/** @param _blobSize Byte-distance from previous blob's first byte (i.e. size of previous blob).
@@ -100,9 +116,7 @@ namespace scene
 		void pushCorruptedOffset(SContext& _ctx) const { _ctx.offsets.push_back(0xffffffff); }
 
 		//! Tries to write given data to file. If not possible (i.e. _data is NULL) - pushes "corrupted offset" and does not call .finalize() on blob-header.
-		void tryWrite(void* _data, io::IWriteFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx, bool _encrypt) const;
-
-		bool toEncrypt(const WriteProperties& _wp, E_ENCRYPTION_TARGETS _req) const;
+		void tryWrite(void* _data, io::IWriteFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx, asset::E_WRITER_FLAGS _flags, const uint8_t* _encrPwd = nullptr, float _comprLvl = 0.f) const;
 
 		void* compressWithLz4AndTryOnStack(const void* _input, size_t _inputSize, void* _stack, size_t _stackSize, size_t& _outComprSize) const;
 		void* compressWithLzma(const void* _input, size_t _inputSize, size_t& _outComprSize) const;
