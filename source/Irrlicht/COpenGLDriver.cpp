@@ -34,13 +34,16 @@
 #endif
 
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#include "CIrrDeviceSDL.h"
 #include <SDL/SDL.h>
 #endif
 
 #if defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "CIrrDeviceWin32.h"
 #elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+#include "CIrrDeviceLinux.h"
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #ifdef _IRR_LINUX_X11_RANDR_
@@ -60,7 +63,7 @@ namespace video
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device)
-: CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
+: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	DeviceType(EIDT_WIN32), AuxContexts(0)
@@ -515,7 +518,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 //! Linux constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device)
-: CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
+: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0)
 {
@@ -642,7 +645,7 @@ bool COpenGLDriver::deinitAuxContext()
 //! SDL constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device)
-: CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
+: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
 	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0)

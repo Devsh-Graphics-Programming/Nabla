@@ -26,7 +26,7 @@ namespace scene
 
             virtual const char** getAssociatedFileExtensions() const
             {
-                static const char* ext[]{ "ply", nullptr };
+                static const char* ext[]{ "stl", nullptr };
                 return ext;
             }
 

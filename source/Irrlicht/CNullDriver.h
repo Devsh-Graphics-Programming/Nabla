@@ -44,7 +44,7 @@ namespace video
         static int32_t incrementAndFetchReallocCounter();
 
 		//! constructor
-		CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
+		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
 		//!
         virtual bool initAuxContext() {return false;}
@@ -533,6 +533,11 @@ namespace video
         virtual uint32_t getMaxComputeWorkGroupSize(uint32_t) const { return 0u; }
 
 	protected:
+        virtual typename asset_traits<core::ICPUBuffer>::GPUObjectType* createGPUObjectFromAsset(core::ICPUBuffer*) override;
+        virtual typename asset_traits<scene::ICPUMeshBuffer>::GPUObjectType* createGPUObjectFromAsset(scene::ICPUMeshBuffer*) override;
+        virtual typename asset_traits<scene::ICPUMesh>::GPUObjectType* createGPUObjectFromAsset(scene::ICPUMesh*) override;
+        virtual typename asset_traits<asset::ICPUTexture>::GPUObjectType* createGPUObjectFromAsset(asset::ICPUTexture*) override;
+
         void addMultisampleTexture(IMultisampleTexture* tex);
 
         void addTextureBufferObject(ITextureBufferObject* tbo);

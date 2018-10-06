@@ -9,7 +9,7 @@
 #include "CConcurrentObjectCache.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
-#include "CGeometryCreator.h"
+//#include "CGeometryCreator.h"
 #include "IAssetLoader.h"
 #include "IAssetWriter.h"
 #include "irr/core/Types.h"
@@ -23,9 +23,6 @@ namespace irr
 {
 namespace asset
 {
-	typedef scene::ICPUMesh ICPUMesh;
-    typedef scene::IGPUMesh IGPUMesh;
-
 	class IAssetManager
 	{
         // the point of those functions is that lambdas returned by them "inherits" friendship
@@ -38,6 +35,8 @@ namespace asset
 #else
         using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, std::vector>;
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
+
+        using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::IReferenceCounted>;
 
     private:
         struct WriterKey
@@ -67,6 +66,7 @@ namespace asset
         IAssetLoader::IAssetLoaderOverride m_defaultLoaderOverride;
 
         std::array<AssetCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
+        CpuGpuCacheType m_cpuGpuCache;
 
         struct Loaders {
             Loaders() : perFileExt{&refCtdGreet<IAssetLoader>, &refCtdDispose<IAssetLoader>} {}
@@ -105,6 +105,7 @@ namespace asset
             m_fileSystem->grab();
             m_defaultLoaderOverride = IAssetLoader::IAssetLoaderOverride{this};
         }
+        /*
         IAssetManager(const IAssetManager&) = delete;
         IAssetManager(IAssetManager&&) = delete;
         IAssetManager& operator=(const IAssetManager&) = delete;
@@ -123,7 +124,7 @@ namespace asset
             if (m_fileSystem)
                 m_fileSystem->drop();
         }
-
+        */
         //! Default Asset Creators (more creators can follow)
         //IMeshCreator* getDefaultMeshCreator(); //old IGeometryCreator
 
@@ -317,14 +318,21 @@ namespace asset
 
         //! This function frees most of the memory consumed by IAssets, but not destroying them.
         /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of. However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
-        // (Criss) This function doesnt create gpu objects from cpu ones, right?
-        // Also: why **ToEmptyCacheHandle**? Next one: cpu_t must be asset type (derivative of IAsset) and gpu_t is whatever corresponding GPU type?
-        // How i understand it as for now: 
-        //  we're passing asset as `object` parameter and as `objectToAssociate` we pass corresponding gpu object created from the cpu one completely outside asset-pipeline
-        //  the cpu object (asset) frees all memory but object itself remains as key for cpu->gpu assoc cache.
-        //Also what if we want to cache gpu stuff but don't want to touch cpu stuff? (e.g. to change one meshbuffer in mesh)
-        template<typename cpu_t, typename gpu_t>
-        void convertCPUObjectToEmptyCacheHandle(cpu_t* object, const gpu_t* objectToAssociate) {}
+        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::IReferenceCounted* _gpuObject)
+        {
+            _asset->convertToDummyObject();
+            m_cpuGpuCache.insert(_asset, _gpuObject);
+        }
+
+        core::IReferenceCounted* getGPUObject(const IAsset* _asset)
+        {
+            core::IReferenceCounted* storage[1];
+            size_t storageSz = 1u;
+            m_cpuGpuCache.findAndStoreRange(_asset, storageSz, storage);
+            if (storageSz > 0u)
+                return storage[0];
+            return nullptr;
+        }
 
         //! Writing an asset
         /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear scale and has different meanings and results with different asset types and writers. */

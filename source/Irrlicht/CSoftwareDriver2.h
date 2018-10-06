@@ -25,7 +25,7 @@ namespace video
 
 	public:
 		//! constructor
-		CBurningVideoDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
+		CBurningVideoDriver(IrrlichtDevice* dev, const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
 
 		//! sets a material
 		virtual void setMaterial(const SGPUMaterial& material);

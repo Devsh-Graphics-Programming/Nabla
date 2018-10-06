@@ -2,7 +2,6 @@
 #define __IRR_I_ASSET_LOADER_H_INCLUDED__
 
 #include "IAsset.h"
-#include "CConcurrentObjectCache.h"
 #include "IReadFile.h"
 
 namespace irr { namespace asset

@@ -1120,7 +1120,7 @@ void CIrrDeviceWin32::createDriver()
 		#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
 		switchToFullScreen();
 
-		VideoDriver = video::createBurningVideoDriver(CreationParams, FileSystem, this);
+		VideoDriver = video::createBurningVideoDriver(this, CreationParams, FileSystem, this);
 		#else
 		os::Printer::log("Burning's Video driver was not compiled in.", ELL_ERROR);
 		#endif
@@ -1128,7 +1128,7 @@ void CIrrDeviceWin32::createDriver()
 
 	case video::EDT_NULL:
 		// create null driver
-		VideoDriver = video::createNullDriver(FileSystem, CreationParams.WindowSize);
+		VideoDriver = video::createNullDriver(this, FileSystem, CreationParams.WindowSize);
 		break;
 
 	default:

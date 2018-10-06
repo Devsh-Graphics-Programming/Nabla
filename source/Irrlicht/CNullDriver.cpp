@@ -74,8 +74,8 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 //IImageWriter* createImageWriterPNG();
 
 //! constructor
-CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
-: FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
+CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
+: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
 	PrimitivesDrawn(0), TextureCreationFlags(0),
 	OverrideMaterial2DEnabled(false), AllowZWriteOnTransparent(false),
 	matrixModifiedBits(0)
@@ -689,6 +689,26 @@ void CNullDriver::addToTextureCache(video::ITexture* texture)
 
     Textures.insert(found,s);
     texture->grab();
+}
+
+typename IDriver::asset_traits<core::ICPUBuffer>::GPUObjectType* CNullDriver::createGPUObjectFromAsset(core::ICPUBuffer*)
+{
+    // unimplemented for now
+    return nullptr;
+}
+typename IDriver::asset_traits<scene::ICPUMeshBuffer>::GPUObjectType* CNullDriver::createGPUObjectFromAsset(scene::ICPUMeshBuffer*)
+{
+    // unimplemented as for now
+    return nullptr;
+}
+typename IDriver::asset_traits<scene::ICPUMesh>::GPUObjectType* CNullDriver::createGPUObjectFromAsset(scene::ICPUMesh* _asset)
+{
+    return createGPUMeshesFromCPU({_asset}).front();
+}
+typename IDriver::asset_traits<asset::ICPUTexture>::GPUObjectType* CNullDriver::createGPUObjectFromAsset(asset::ICPUTexture*)
+{
+    // unimplemented as for now
+    return nullptr;
 }
 
 
@@ -1679,9 +1699,9 @@ void CNullDriver::printVersion()
 
 
 //! creates a video driver
-IVideoDriver* createNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
+IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
 {
-	CNullDriver* nullDriver = new CNullDriver(io, screenSize);
+	CNullDriver* nullDriver = new CNullDriver(dev, io, screenSize);
 
 	// create empty material renderers
 	for(uint32_t i=0; sBuiltInMaterialTypeNames[i]; ++i)

@@ -101,6 +101,8 @@ namespace video
 	class IVideoDriver : public IDriver
 	{
 	public:
+        IVideoDriver(IrrlichtDevice* _dev) : IDriver(_dev) {}
+
 	    //! This is marked for deprecation (move to IAssetManager)
 	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh) {return core::vector<scene::IGPUMesh*>();}
 

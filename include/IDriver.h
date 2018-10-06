@@ -17,6 +17,8 @@
 
 namespace irr
 {
+class IrrlichtDevice;
+
 namespace video
 {
 
@@ -26,7 +28,22 @@ namespace video
 	Examples of such functionality are the creation of buffers, textures, etc.*/
 	class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
 	{
+    protected:
+        template<typename AssetType>
+        struct asset_traits;
+
+        template<>
+        struct asset_traits<core::ICPUBuffer> { using GPUObjectType = video::IGPUBuffer; };
+        template<>
+        struct asset_traits<scene::ICPUMeshBuffer> { using GPUObjectType = scene::IGPUMeshBuffer; };
+        template<>
+        struct asset_traits<scene::ICPUMesh> { using GPUObjectType = scene::IGPUMesh; };
+        template<>
+        struct asset_traits<asset::ICPUTexture> { using GPUObjectType = video::ITexture; };
+
 	public:
+        IDriver(IrrlichtDevice* _dev) : m_device{_dev} {}
+
 	    //! Best for Mesh data, UBOs, SSBOs, etc.
 	    virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
@@ -145,7 +162,6 @@ namespace video
         virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
         virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
 
-
 		//! Convenience function for releasing all images in a mip chain.
 		/**
 		\param List of .
@@ -163,6 +179,22 @@ namespace video
 		    for (; it!=limit; it++)
                 (*it)->drop();
 		}
+
+        template<typename AssetType>
+        core::vector<typename asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** _assets);
+
+        template<typename AssetType>
+        typename asset_traits<AssetType>::GPUObjectType* getGPUObjectFromAsset(AssetType* _asset);
+
+    protected:
+        // Implementation of below in CNullDriver
+        virtual typename asset_traits<core::ICPUBuffer>::GPUObjectType* createGPUObjectFromAsset(core::ICPUBuffer*) = 0;
+        virtual typename asset_traits<scene::ICPUMeshBuffer>::GPUObjectType* createGPUObjectFromAsset(scene::ICPUMeshBuffer*) = 0;
+        virtual typename asset_traits<scene::ICPUMesh>::GPUObjectType* createGPUObjectFromAsset(scene::ICPUMesh*) = 0;
+        virtual typename asset_traits<asset::ICPUTexture>::GPUObjectType* createGPUObjectFromAsset(asset::ICPUTexture*) = 0;
+
+    protected:
+        IrrlichtDevice* m_device;
 	};
 
 } // end namespace video

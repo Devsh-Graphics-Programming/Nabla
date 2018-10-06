@@ -332,8 +332,8 @@ struct program1
 }
 
 //! constructor
-CBurningVideoDriver::CBurningVideoDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter)
-: CNullDriver(io, params.WindowSize), BackBuffer(0), Presenter(presenter),
+CBurningVideoDriver::CBurningVideoDriver(IrrlichtDevice* dev, const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter)
+: CNullDriver(dev, io, params.WindowSize), BackBuffer(0), Presenter(presenter),
 	WindowId(0), SceneSourceRect(0),
 	RenderTargetTexture(0), RenderTargetSurface(0), CurrentShader(0),
 	 DepthBuffer(0), StencilBuffer ( 0 ),
@@ -1992,10 +1992,10 @@ namespace video
 {
 
 //! creates a video driver
-IVideoDriver* createBurningVideoDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter)
+IVideoDriver* createBurningVideoDriver(IrrlichtDevice* dev, const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter)
 {
 	#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
-	return new CBurningVideoDriver(params, io, presenter);
+	return new CBurningVideoDriver(dev, params, io, presenter);
 	#else
 	return 0;
 	#endif // _IRR_COMPILE_WITH_BURNINGSVIDEO_
