@@ -31,14 +31,16 @@ private:
         if (!_mipmaps.size())
             return nullptr;
 
+        bool check[17]{ 0 };
         uint32_t sizes[17][3];
-        memset(sizes, 0xff, sizeof(sizes));
+        memset(sizes, 0, sizeof(sizes));
 
         bool allUnknown = true;
-        video::ECOLOR_FORMAT colorFmt = video::ECF_UNKNOWN;
+        video::ECOLOR_FORMAT colorFmt = _mipmaps.front()->getColorFormat();
         for (const video::CImageData* img : _mipmaps)
         {
             const uint32_t lvl = img->getSupposedMipLevel();
+            check[lvl] = true;
             if (lvl > 16u)
                 return nullptr;
 
@@ -64,7 +66,7 @@ private:
             return false;
         };
         for (uint32_t i = 0u; i < 17u; ++i)
-            if (tooLarge(sizes[i], i))
+            if (check[i] && tooLarge(sizes[i], i))
                 return nullptr;
 
         return new ICPUTexture(std::forward<decltype(_mipmaps)>(_mipmaps));

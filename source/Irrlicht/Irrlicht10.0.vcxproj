@@ -836,10 +836,12 @@
     <ClCompile Include="IAsset.cpp" />
     <ClCompile Include="IAssetLoader.cpp" />
     <ClCompile Include="IAssetManager.cpp" />
+    <ClCompile Include="IAssetWriter.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
     <ClCompile Include="IReferenceCounted.cpp" />
     <ClCompile Include="Irrlicht.cpp" />
+    <ClCompile Include="IrrlichtDevice.cpp" />
     <ClCompile Include="lz4\lz4.c" />
     <ClCompile Include="lz4\lz4frame.c" />
     <ClCompile Include="lz4\lz4hc.c" />

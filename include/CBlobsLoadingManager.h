@@ -15,6 +15,8 @@
 
 namespace irr {
 
+class IrrlichtDevice;
+
 namespace scene
 {
 	class ISceneManager;
@@ -32,7 +34,7 @@ namespace core
 
 	struct BlobLoadingParams
 	{
-		scene::ISceneManager* sm;
+        IrrlichtDevice* dev;
 		io::IFileSystem* fs;
 		io::path filePath;
         asset::IAssetLoader::SAssetLoadParams params;

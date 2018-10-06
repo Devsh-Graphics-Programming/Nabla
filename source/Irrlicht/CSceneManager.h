@@ -56,8 +56,6 @@ namespace scene
 		//! return the filesystem
 		virtual io::IFileSystem* getFileSystem();
 
-        virtual asset::IAssetManager& getAssetManager() { return m_assetMgr; }
-
 		//! adds a cube scene node to the scene. It is a simple cube of (1,1,1) size.
 		//! the returned pointer must not be dropped.
 		virtual IMeshSceneNode* addCubeSceneNode(float size=10.0f, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
@@ -390,7 +388,6 @@ namespace scene
 
 		IGeometryCreator* GeometryCreator;
 		CMeshManipulator* MeshManipulator;
-        asset::IAssetManager m_assetMgr;
 	};
 
 } // end namespace video

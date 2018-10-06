@@ -5,6 +5,7 @@
 #ifndef __I_IRRLICHT_DEVICE_H_INCLUDED__
 #define __I_IRRLICHT_DEVICE_H_INCLUDED__
 
+#include "IrrCompileConfig.h"
 #include "dimension2d.h"
 #include "IVideoDriver.h"
 #include "EDriverTypes.h"
@@ -28,6 +29,10 @@ namespace irr
 		class ISceneManager;
 	} // end namespace scene
 
+    namespace asset {
+        class IAssetManager;
+    }
+
 	//! The Irrlicht device. You can create it with createDevice() or createDeviceEx().
 	/** This is the most important class of the Irrlicht Engine. You can
 	access everything in the engine if you have a pointer to an instance of
@@ -37,6 +42,9 @@ namespace irr
 	class IrrlichtDevice : public virtual core::IReferenceCounted
 	{
 	public:
+        IrrlichtDevice();
+        virtual ~IrrlichtDevice();
+
 		//! Runs the device.
 		/** Also increments the virtual timer by calling
 		ITimer::tick();. You can prevent this
@@ -261,6 +269,14 @@ namespace irr
 					return false;
 			}
 		}
+
+        virtual asset::IAssetManager& getAssetManager();
+        virtual const asset::IAssetManager& getAssetManager() const;
+
+    private:
+        void addLoadersAndWriters();
+
+        asset::IAssetManager* m_assetMgr;
 	};
 
 } // end namespace irr

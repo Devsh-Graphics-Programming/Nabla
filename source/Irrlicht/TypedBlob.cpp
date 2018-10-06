@@ -11,6 +11,8 @@
 #include "CSkinnedMesh.h"
 #include "CBlobsLoadingManager.h"
 #include "ICPUTexture.h"
+#include "IrrlichtDevice.h"
+#include "IAssetManager.h"
 
 namespace irr { namespace core
 {
@@ -57,22 +59,25 @@ core::unordered_set<uint64_t> TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::
 template<>
 void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
-	if (!_blob || !_params.fs || !_params.sm)
-		return NULL;
+	if (!_blob || !_params.fs || !_params.dev)
+		return nullptr;
 
 	TexturePathBlobV0* blob = (TexturePathBlobV0*)_blob;
+
+    // set ECF_DONT_CACHE_TOP_LEVEL flag because it will get cached in BAW loader
+    asset::IAssetLoader::SAssetLoadParams params(_params.params.decryptionKeyLen, _params.params.decryptionKey, asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL);
 
 	asset::ICPUTexture* texture;
 	const char* const texname = (const char*)blob->getData();
 	if (_params.fs->existFile(texname))
 	{
-		texture = static_cast<asset::ICPUTexture*>(_params.sm->getAssetManager().getAssetInHierarchy(texname, _params.params, 2u, _params.loaderOverride));
+		texture = static_cast<asset::ICPUTexture*>(_params.dev->getAssetManager().getAssetInHierarchy(texname, params, 0u, _params.loaderOverride));
 	}
 	else
 	{
 		const io::path path = _params.filePath + texname;
 		// try to read from the path relative to where the .baw is loaded from
-		texture = static_cast<asset::ICPUTexture*>(_params.sm->getAssetManager().getAssetInHierarchy(path.c_str(), _params.params, 2u, _params.loaderOverride));
+		texture = static_cast<asset::ICPUTexture*>(_params.dev->getAssetManager().getAssetInHierarchy(path.c_str(), params, 0u, _params.loaderOverride));
 	}
 
 	return texture;

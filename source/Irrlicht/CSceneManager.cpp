@@ -18,100 +18,6 @@
 #include "CSkinnedMeshSceneNode.h"
 #include "CSkinnedMesh.h"
 
-
-#ifdef _IRR_COMPILE_WITH_MS3D_LOADER_
-#include "CMS3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_3DS_LOADER_
-#include "C3DSMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_X_LOADER_
-#include "CXMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OCT_LOADER_
-#include "COCTLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_LMTS_LOADER_
-#include "CLMTSMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
-#include "CMY3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
-#include "COBJMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_B3D_LOADER_
-#include "CB3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_LWO_LOADER_
-#include "CLWOMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_STL_LOADER_
-#include "CSTLMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_PLY_LOADER_
-#include "CPLYMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
-#include "CBAWMeshFileLoader.h"
-#endif
-
-//image loaders
-#ifdef _IRR_COMPILE_WITH_BMP_LOADER_
-#include "CImageLoaderBMP.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_DDS_LOADER_
-#include "CImageLoaderDDS.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_JPG_LOADER_
-#include "CImageLoaderJPG.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_PNG_LOADER_
-#include "CImageLoaderPNG.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_RGB_LOADER_
-#include "CImageLoaderRGB.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_TGA_LOADER_
-#include "CImageLoaderTGA.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_COLLADA_WRITER_
-#include "CColladaMeshWriter.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_STL_WRITER_
-#include "CSTLMeshWriter.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OBJ_WRITER_
-#include "COBJMeshWriter.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
-#include "CPLYMeshWriter.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_BAW_WRITER_
-#include"CBAWMeshWriter.h"
-#endif
-
 #include "CBillboardSceneNode.h"
 #include "CCubeSceneNode.h"
 #include "CSphereSceneNode.h"
@@ -144,8 +50,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 : ISceneNode(0, 0), Driver(driver), FileSystem(fs),
 	CursorControl(cursorControl),
 	ActiveCamera(0), MeshCache(0), CurrentRendertime(ESNRP_NONE),
-	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type"),
-    m_assetMgr(fs)
+	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type")
 {
 	#ifdef _DEBUG
 	ISceneManager::setDebugName("CSceneManager ISceneManager");
@@ -297,89 +202,6 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 
 	// TODO: now that we have multiple scene managers, these should be
 	// shallow copies from the previous manager if there is one.
-
-	#ifdef _IRR_COMPILE_WITH_STL_LOADER_
-    {
-    auto ldr = new CSTLMeshFileLoader();
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-	#endif
-	#ifdef _IRR_COMPILE_WITH_PLY_LOADER_
-    {
-    auto ldr = new CPLYMeshFileLoader(this);
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-	#endif
-	#ifdef _IRR_COMPILE_WITH_X_LOADER_
-    {
-    auto ldr = new CXMeshFileLoader(this, FileSystem);
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-	#endif
-	#ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
-    {
-    auto ldr = new COBJMeshFileLoader(this, FileSystem);
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-	#endif
-	#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
-    {
-    auto ldr = new CBAWMeshFileLoader(this, FileSystem);
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-	#endif
-    #ifdef _IRR_COMPILE_WITH_BMP_LOADER_
-    {
-    auto ldr = new video::CImageLoaderBMP();
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-    #endif
-
-    #ifdef _IRR_COMPILE_WITH_DDS_LOADER_
-    {
-    auto ldr = new video::CImageLoaderDDS();
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-    #endif
-
-    #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
-    {
-    auto ldr = new video::CImageLoaderJPG();
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-    #endif
-
-    #ifdef _IRR_COMPILE_WITH_PNG_LOADER_
-    {
-    auto ldr = new video::CImageLoaderPng();
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-    #endif
-
-    #ifdef _IRR_COMPILE_WITH_RGB_LOADER_
-    {
-    auto ldr = new video::CImageLoaderRGB();
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-    #endif
-
-    #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
-    {
-    auto ldr = new video::CImageLoaderTGA();
-    m_assetMgr.addAssetLoader(ldr);
-    ldr->drop();
-    }
-    #endif
 }
 
 

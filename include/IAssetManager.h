@@ -105,11 +105,23 @@ namespace asset
             m_fileSystem->grab();
             m_defaultLoaderOverride = IAssetLoader::IAssetLoaderOverride{this};
         }
+        IAssetManager(const IAssetManager&) = delete;
+        IAssetManager(IAssetManager&&) = delete;
+        IAssetManager& operator=(const IAssetManager&) = delete;
+        IAssetManager& operator=(IAssetManager&& _other)
+        {
+            std::swap(m_loaders, _other.m_loaders);
+            std::swap(m_writers, _other.m_writers);
+            std::swap(m_assetCache, _other.m_assetCache);
+            std::swap(m_fileSystem, _other.m_fileSystem);
+        }
         virtual ~IAssetManager()
         {
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
-                delete m_assetCache[i];
-            m_fileSystem->drop();
+                if (m_assetCache[i])
+                    delete m_assetCache[i];
+            if (m_fileSystem)
+                m_fileSystem->drop();
         }
 
         //! Default Asset Creators (more creators can follow)
@@ -151,7 +163,7 @@ namespace asset
                 asset->setNewCacheKey(file->getFileName().c_str());
                 insertAssetIntoCache(asset);
             }
-            else
+            else if (!asset)
             {
                 bool addToCache;
                 asset = _override->handleLoadFail(addToCache, file, file->getFileName().c_str(), file->getFileName().c_str(), ctx, _hierarchyLevel);
@@ -369,7 +381,7 @@ namespace asset
         // Asset Writers [FOLLOWING ARE NOT THREAD SAFE]
         uint32_t getAssetWriterCount() { return m_writers.perType.getSize(); } // todo.. well, it's not really writer count.. but rather type<->writer association count
 
-        uint32_t addAssetWriter(IAssetWriter* _writer)
+        void addAssetWriter(IAssetWriter* _writer)
         {
             const uint64_t suppTypes = _writer->getSupportedAssetTypesBitfield();
             const char** exts = _writer->getAssociatedFileExtensions();
@@ -377,10 +389,12 @@ namespace asset
             {
                 const IAsset::E_TYPE type = IAsset::E_TYPE(1u << i);
                 if ((suppTypes>>i) & 1u)
+                {
                     m_writers.perType.insert(type, _writer);
-                size_t extIx = 0u;
-                while (const char* ext = exts[extIx++])
-                    m_writers.perTypeAndFileExt.insert({type, ext}, _writer);
+                    size_t extIx = 0u;
+                    while (const char* ext = exts[extIx++])
+                        m_writers.perTypeAndFileExt.insert({type, ext}, _writer);
+                }
             }
         }
         void removeAssetWriter(IAssetWriter* _writer)

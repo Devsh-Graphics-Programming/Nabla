@@ -14,6 +14,7 @@
 
 #include "CTimer.h"
 
+#include "IAssetManager.h"
 #include "COSOperator.h"
 #include "dimension2d.h"
 #include <winuser.h>
@@ -1894,7 +1895,6 @@ HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, co
 
 	return cursor;
 }
-
 
 CIrrDeviceWin32::CCursorControl::CCursorControl(CIrrDeviceWin32* device, const core::dimension2d<uint32_t>& wsize, HWND hwnd, bool fullscreen)
 	: Device(device), WindowSize(wsize), InvWindowSize(0.0f, 0.0f),

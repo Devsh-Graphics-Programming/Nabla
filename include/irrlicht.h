@@ -42,6 +42,7 @@
 #include "irr/core/alloc/AddressAllocatorStateTypes.h"
 #include "irr/core/math/irrMath.h"
 
+#include "IAssetManager.h"
 
 #include "IrrCompileConfig.h"
 #include "aabbox3d.h"

@@ -15,6 +15,11 @@
 #include "CBlobsLoadingManager.h"
 #include "SSkinMeshBuffer.h"
 
+namespace irr
+{
+class IrrlichtDevice;
+}
+
 namespace irr { namespace scene
 {
 
@@ -72,7 +77,7 @@ protected:
 
 public:
 	//! Constructor
-	CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSystem* _fs);
+	CBAWMeshFileLoader(IrrlichtDevice* _dev);
 
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
@@ -177,6 +182,7 @@ private:
     }
 
 private:
+    IrrlichtDevice* m_device;
 	scene::ISceneManager* m_sceneMgr;
 	io::IFileSystem* m_fileSystem;
 };

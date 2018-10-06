@@ -163,21 +163,23 @@ namespace impl
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T = std::vector
+    template<typename...> class ContainerT_T = std::vector,
+    typename Alloc = core::allocator<std::pair<const K, T*>>
 >
 using CConcurrentObjectCache =
     impl::CMakeCacheConcurrent<
-        CObjectCache<K, T, ContainerT_T>
+        CObjectCache<K, T, ContainerT_T, Alloc>
     >;
 
 template<
     typename K,
     typename T,
-    template<typename...> class ContainerT_T = std::vector
+    template<typename...> class ContainerT_T = std::vector,
+    typename Alloc = core::allocator<std::pair<const K, T*>>
 >
 using CConcurrentMultiObjectCache = 
     impl::CMakeCacheConcurrent<
-        CMultiObjectCache<K, T, ContainerT_T>
+        CMultiObjectCache<K, T, ContainerT_T, Alloc>
     >;
 
 }}

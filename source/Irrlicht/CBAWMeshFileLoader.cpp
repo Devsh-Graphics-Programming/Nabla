@@ -13,22 +13,21 @@
 #include "os.h"
 #include "lzma/LzmaDec.h"
 #include "lz4/lz4.h"
+#include "IrrlichtDevice.h"
 
 namespace irr { namespace scene
 {
 CBAWMeshFileLoader::~CBAWMeshFileLoader()
 {
-	if (m_fileSystem)
-		m_fileSystem->drop();
+    m_device->drop();
 }
 
-CBAWMeshFileLoader::CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSystem* _fs) : m_sceneMgr(_sm), m_fileSystem(_fs)
+CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m_sceneMgr(_dev->getSceneManager()), m_fileSystem(_dev->getFileSystem())
 {
 #ifdef _DEBUG
 	setDebugName("CBAWMeshFileLoader");
 #endif
-	if (m_fileSystem)
-		m_fileSystem->grab();
+    m_device->grab();
 }
 
 asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -68,7 +67,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
     const std::string rootCacheKey = ctx.inner.mainFile->getFileName().c_str();
 
 	const core::BlobLoadingParams params{ 
-        m_sceneMgr,
+        m_device,
         m_fileSystem,
         ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/",
         ctx.inner.params,

@@ -5,6 +5,9 @@
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 
+#include "IrrlichtDevice.h"
+#include "IFileSystem.h"
+#include "ISceneManager.h"
 #include "COBJMeshFileLoader.h"
 #include "IMeshManipulator.h"
 #include "IVideoDriver.h"
@@ -13,6 +16,7 @@
 #include "IReadFile.h"
 #include "coreutil.h"
 #include "os.h"
+#include "IAssetManager.h"
 
 #include "irr/core/Types.h"
 
@@ -53,23 +57,21 @@ static const uint32_t WORD_BUFFER_LENGTH = 512;
 
 
 //! Constructor
-COBJMeshFileLoader::COBJMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs)
-: SceneManager(smgr), FileSystem(fs)
+COBJMeshFileLoader::COBJMeshFileLoader(IrrlichtDevice* _dev)
+: Device(_dev), SceneManager(_dev->getSceneManager()), FileSystem(_dev->getFileSystem())
 {
 #ifdef _DEBUG
 	setDebugName("COBJMeshFileLoader");
 #endif
 
-	if (FileSystem)
-		FileSystem->grab();
+    Device->grab();
 }
 
 
 //! destructor
 COBJMeshFileLoader::~COBJMeshFileLoader()
 {
-	if (FileSystem)
-		FileSystem->drop();
+    Device->drop();
 }
 
 asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -580,14 +582,14 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
         if (FileSystem->existFile(texname))
 		{
             texture = static_cast<asset::ICPUTexture*>(
-                SceneManager->getAssetManager().getAssetInHierarchy(texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+                Device->getAssetManager().getAssetInHierarchy(texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
             );
 		}
 		else
 		{
 			// try to read in the relative path, the .obj is loaded from
             texture = static_cast<asset::ICPUTexture*>(
-                SceneManager->getAssetManager().getAssetInHierarchy((relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+                Device->getAssetManager().getAssetInHierarchy((relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
             );
 		}
 	}

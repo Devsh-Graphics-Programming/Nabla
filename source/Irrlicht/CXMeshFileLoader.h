@@ -15,6 +15,7 @@
 
 namespace irr
 {
+class IrrlichtDevice;
 namespace io
 {
 	class IFileSystem;
@@ -31,7 +32,8 @@ class CXMeshFileLoader : public asset::IAssetLoader
 public:
 
 	//! Constructor
-	CXMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs);
+	CXMeshFileLoader(IrrlichtDevice* _dev);
+    ~CXMeshFileLoader();
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
@@ -213,6 +215,7 @@ private:
 	bool readRGB(SContext& _ctx, video::SColor& color);
 	bool readRGBA(SContext& _ctx, video::SColor& color);
 
+    IrrlichtDevice* Device;
 	ISceneManager* SceneManager;
 	io::IFileSystem* FileSystem;
 };
