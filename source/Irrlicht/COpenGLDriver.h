@@ -70,6 +70,8 @@ namespace video
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device);
 		#endif
 
+        virtual void setGPUObjectFromAssetConverter(IGPUObjectFromAssetConverter* _converter) override;
+
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
 
@@ -83,6 +85,8 @@ namespace video
 		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false);
 
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
+
+        SGPUMaterial makeGPUMaterialFromCPU(const SCPUMaterial& _cpumat);
 
 	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh);
 
@@ -194,8 +198,6 @@ namespace video
 
 		//! .
         virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
-
-        virtual core::vector<typename asset_traits<asset::ICPUTexture>::GPUObjectType*> createGPUObjectFromAsset(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end) override;
 
         //!
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false);
@@ -595,6 +597,11 @@ namespace video
         void bindTransformFeedback(ITransformFeedback* xformFeedback, SAuxContext* toContext);
 
 
+        //COpenGLDriver::CGPUObjectFromAssetConverter
+        class CGPUObjectFromAssetConverter;
+        friend class CGPUObjectFromAssetConverter;
+
+        IGPUObjectFromAssetConverter* m_defaultCpuToGpuConverter;
 
 		//! enumeration for rendering modes such as 2d and 3d for minizing the switching of renderStates.
 		enum E_RENDER_MODE

@@ -14,8 +14,7 @@
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"
 #include "IGPUTimestampQuery.h"
-#include "IMeshBuffer.h"
-#include "IMesh.h"
+#include "asset_traits.h"
 
 namespace irr
 {
@@ -23,6 +22,7 @@ class IrrlichtDevice;
 
 namespace video
 {
+    class IGPUObjectFromAssetConverter;
 
 	//! Interface to the functionality of the graphics API device which does not require the submission of GPU commands onto a queue.
 	/** This interface only deals with OpenGL and Vulkan concepts which do not require a command to be recorded in a command buffer
@@ -30,23 +30,18 @@ namespace video
 	Examples of such functionality are the creation of buffers, textures, etc.*/
 	class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
 	{
-    protected:
-        template<typename AssetType>
-        struct asset_traits;
-
-        template<>
-        struct asset_traits<core::ICPUBuffer> { using GPUObjectType = video::IGPUBuffer; };
-        template<>
-        struct asset_traits<scene::ICPUMeshBuffer> { using GPUObjectType = scene::IGPUMeshBuffer; };
-        template<>
-        struct asset_traits<scene::ICPUMesh> { using GPUObjectType = scene::IGPUMesh; };
-        template<>
-        struct asset_traits<asset::ICPUTexture> { using GPUObjectType = video::ITexture; };
-
 	protected:
-        IDriver(IrrlichtDevice* _dev) : m_device{_dev} {}
+        IDriver(IrrlichtDevice* _dev);
+
+        virtual ~IDriver();
 
     public:
+        //! Sets converter that will be used to convert assets into GPU objects. If `_converter` is nullptr, then default converter will be set.
+        inline virtual void setGPUObjectFromAssetConverter(IGPUObjectFromAssetConverter* _converter)
+        {
+            m_cpuToGpuConverter = _converter ? _converter : m_defaultCpuToGpuConverter;
+        }
+
 	    //! Best for Mesh data, UBOs, SSBOs, etc.
 	    virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
@@ -152,7 +147,7 @@ namespace video
 
 
         //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) {return nullptr;}
+	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr = nullptr) {return nullptr;}
 
 
         //! Creates a framebuffer object with no attachments
@@ -184,17 +179,14 @@ namespace video
 		}
 
         template<typename AssetType>
-        core::vector<typename asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end);
-
-    protected:
-        // Implementation of below in CNullDriver
-        virtual core::vector<typename asset_traits<core::ICPUBuffer>::GPUObjectType*> createGPUObjectFromAsset(core::ICPUBuffer** const _begin, core::ICPUBuffer** const _end) = 0;
-        virtual core::vector<typename asset_traits<scene::ICPUMeshBuffer>::GPUObjectType*> createGPUObjectFromAsset(scene::ICPUMeshBuffer** const _begin, scene::ICPUMeshBuffer** const _end) = 0;
-        virtual core::vector<typename asset_traits<scene::ICPUMesh>::GPUObjectType*> createGPUObjectFromAsset(scene::ICPUMesh** const _begin, scene::ICPUMesh** const _end) = 0;
-        virtual core::vector<typename asset_traits<asset::ICPUTexture>::GPUObjectType*> createGPUObjectFromAsset(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end) = 0;
+        core::vector<typename asset::asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end);
 
     protected:
         IrrlichtDevice* m_device;
+        IGPUObjectFromAssetConverter* m_cpuToGpuConverter;
+
+    private:
+        IGPUObjectFromAssetConverter* m_defaultCpuToGpuConverter;
 	};
 
 } // end namespace video

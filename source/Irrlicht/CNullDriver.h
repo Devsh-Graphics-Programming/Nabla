@@ -46,6 +46,8 @@ namespace video
 		//! constructor
 		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
+        virtual void setGPUObjectFromAssetConverter(IGPUObjectFromAssetConverter* _converter) override;
+
 		//!
         virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}
@@ -532,14 +534,7 @@ namespace video
 
         virtual uint32_t getMaxComputeWorkGroupSize(uint32_t) const { return 0u; }
 
-        virtual SGPUMaterial makeGPUMaterialFromCPU(const SCPUMaterial& _cpumat);
-
 	protected:
-        virtual core::vector<typename asset_traits<core::ICPUBuffer>::GPUObjectType*> createGPUObjectFromAsset(core::ICPUBuffer** const _begin, core::ICPUBuffer** const _end) override;
-        virtual core::vector<typename asset_traits<scene::ICPUMeshBuffer>::GPUObjectType*> createGPUObjectFromAsset(scene::ICPUMeshBuffer** const _begin, scene::ICPUMeshBuffer** const _end) override;
-        virtual core::vector<typename asset_traits<scene::ICPUMesh>::GPUObjectType*> createGPUObjectFromAsset(scene::ICPUMesh** const _begin, scene::ICPUMesh** const _end) override;
-        virtual core::vector<typename asset_traits<asset::ICPUTexture>::GPUObjectType*> createGPUObjectFromAsset(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end) override;
-
         void addMultisampleTexture(IMultisampleTexture* tex);
 
         void addTextureBufferObject(ITextureBufferObject* tbo);
@@ -581,6 +576,14 @@ namespace video
 			return (float) getAverage ( p[(y * pitch) + x] );
 		}
 
+    private:
+        //CNullDriver::CGPUObjectFromAssetConverter
+        class CGPUObjectFromAssetConverter;
+        friend CGPUObjectFromAssetConverter;
+
+        IGPUObjectFromAssetConverter* m_defaultCpuToGpuConverter;
+
+    protected:
 		struct SSurface
 		{
 			video::ITexture* Surface;
