@@ -839,6 +839,7 @@
     <ClCompile Include="IAssetWriter.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
+    <ClCompile Include="IDriver.cpp" />
     <ClCompile Include="IReferenceCounted.cpp" />
     <ClCompile Include="Irrlicht.cpp" />
     <ClCompile Include="IrrlichtDevice.cpp" />

@@ -84,8 +84,6 @@ namespace video
 
 	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
 
-        SGPUMaterial makeGPUMaterialFromCPU(const SCPUMaterial& _cpumat);
-
 	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh);
 
 
@@ -196,6 +194,8 @@ namespace video
 
 		//! .
         virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
+
+        virtual core::vector<typename asset_traits<asset::ICPUTexture>::GPUObjectType*> createGPUObjectFromAsset(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end) override;
 
         //!
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false);

@@ -98,7 +98,8 @@ namespace asset
         //! Constructor
         explicit IAssetManager(io::IFileSystem* _fs) :
             m_fileSystem{_fs},
-            m_defaultLoaderOverride{nullptr}
+            m_defaultLoaderOverride{nullptr},
+            m_cpuGpuCache{&refCtdGreet<core::IReferenceCounted>, &refCtdDispose<core::IReferenceCounted>}
         {
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 m_assetCache[i] = new AssetCacheType(asset::makeAssetGreetFunc(this), asset::makeAssetDisposeFunc(this));
@@ -321,6 +322,7 @@ namespace asset
         void convertAssetToEmptyCacheHandle(IAsset* _asset, core::IReferenceCounted* _gpuObject)
         {
             _asset->convertToDummyObject();
+            _asset->grab();
             m_cpuGpuCache.insert(_asset, _gpuObject);
         }
 

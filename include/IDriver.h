@@ -14,6 +14,8 @@
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"
 #include "IGPUTimestampQuery.h"
+#include "IMeshBuffer.h"
+#include "IMesh.h"
 
 namespace irr
 {
@@ -41,9 +43,10 @@ namespace video
         template<>
         struct asset_traits<asset::ICPUTexture> { using GPUObjectType = video::ITexture; };
 
-	public:
+	protected:
         IDriver(IrrlichtDevice* _dev) : m_device{_dev} {}
 
+    public:
 	    //! Best for Mesh data, UBOs, SSBOs, etc.
 	    virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
@@ -181,17 +184,14 @@ namespace video
 		}
 
         template<typename AssetType>
-        core::vector<typename asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** _assets);
-
-        template<typename AssetType>
-        typename asset_traits<AssetType>::GPUObjectType* getGPUObjectFromAsset(AssetType* _asset);
+        core::vector<typename asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end);
 
     protected:
         // Implementation of below in CNullDriver
-        virtual typename asset_traits<core::ICPUBuffer>::GPUObjectType* createGPUObjectFromAsset(core::ICPUBuffer*) = 0;
-        virtual typename asset_traits<scene::ICPUMeshBuffer>::GPUObjectType* createGPUObjectFromAsset(scene::ICPUMeshBuffer*) = 0;
-        virtual typename asset_traits<scene::ICPUMesh>::GPUObjectType* createGPUObjectFromAsset(scene::ICPUMesh*) = 0;
-        virtual typename asset_traits<asset::ICPUTexture>::GPUObjectType* createGPUObjectFromAsset(asset::ICPUTexture*) = 0;
+        virtual core::vector<typename asset_traits<core::ICPUBuffer>::GPUObjectType*> createGPUObjectFromAsset(core::ICPUBuffer** const _begin, core::ICPUBuffer** const _end) = 0;
+        virtual core::vector<typename asset_traits<scene::ICPUMeshBuffer>::GPUObjectType*> createGPUObjectFromAsset(scene::ICPUMeshBuffer** const _begin, scene::ICPUMeshBuffer** const _end) = 0;
+        virtual core::vector<typename asset_traits<scene::ICPUMesh>::GPUObjectType*> createGPUObjectFromAsset(scene::ICPUMesh** const _begin, scene::ICPUMesh** const _end) = 0;
+        virtual core::vector<typename asset_traits<asset::ICPUTexture>::GPUObjectType*> createGPUObjectFromAsset(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end) = 0;
 
     protected:
         IrrlichtDevice* m_device;

@@ -1257,22 +1257,6 @@ scene::IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::
     return new COpenGLVAOSpec(dbgr);
 }
 
-SGPUMaterial COpenGLDriver::makeGPUMaterialFromCPU(const SCPUMaterial& _cpumat)
-{
-    static_assert(sizeof(SGPUMaterial)==sizeof(SCPUMaterial), "Do it other way");
-    SGPUMaterial gpumat;
-    memcpy(&gpumat, &_cpumat, sizeof(gpumat));
-
-    for (uint32_t i = 0u; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
-    {
-        if (_cpumat.getTexture(i))
-            gpumat.setTexture(i, addTexture(ITexture::ETT_COUNT, _cpumat.getTexture(i)->getMipmaps(), _cpumat.getTexture(i)->getCacheKey().c_str(), ECF_UNKNOWN));
-        else
-            gpumat.setTexture(i, nullptr);
-    }
-
-    return gpumat;
-}
 core::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& meshes)
 {
     core::vector<scene::IGPUMesh*> retval;
@@ -2761,6 +2745,52 @@ ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const 
         texture->regenerateMipMapLevels();
 
     return texture;
+}
+
+core::vector<typename IDriver::asset_traits<asset::ICPUTexture>::GPUObjectType*> COpenGLDriver::createGPUObjectFromAsset(asset::ICPUTexture** _begin, asset::ICPUTexture**_end)
+{
+    core::vector<typename IDriver::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
+
+    asset::ICPUTexture** it = _begin;
+    while (it != _end)
+    {
+        ECOLOR_FORMAT format = (*it)->getColorFormat();
+
+        const core::vector<CImageData*>& images = (*it)->getMipmaps();
+        bool success = true;
+        for (const CImageData* img : images)
+        {
+            if (img->getColorFormat() == ECF_UNKNOWN)
+            {
+#ifdef _DEBUG
+                os::Printer::log("Invalid mip-chain!", ELL_ERROR);
+#endif // _DEBUG
+                res.push_back(nullptr);
+                success = false;
+            }
+        }
+        if (!success)
+            continue;
+
+        //figure out the texture type if not provided
+        ITexture::E_TEXTURE_TYPE type = (*it)->getType();
+
+        const uint32_t highestMip = (*it)->getHighestMip();
+        video::ITexture* gputexture = createDeviceDependentTexture(type, (*it)->getSize(), highestMip ? (highestMip + 1u) : 0u /* todo, why is that +1? */, (*it)->getCacheKey().c_str(), format);
+
+        for (const CImageData* img : images)
+            gputexture->updateSubRegion(img->getColorFormat(), img->getData(), img->getSliceMin(), img->getSliceMax(), img->getSupposedMipLevel(), img->getUnpackAlignment());
+
+        //has mipmap but no explicit chain
+        if (highestMip == 0u && gputexture->hasMipMaps())
+            gputexture->regenerateMipMapLevels();
+
+        res.push_back(gputexture);
+
+        ++it;
+    }
+
+    return res;
 }
 
 IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format, const bool& fixedSampleLocations)

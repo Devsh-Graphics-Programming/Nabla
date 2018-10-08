@@ -532,11 +532,13 @@ namespace video
 
         virtual uint32_t getMaxComputeWorkGroupSize(uint32_t) const { return 0u; }
 
+        virtual SGPUMaterial makeGPUMaterialFromCPU(const SCPUMaterial& _cpumat);
+
 	protected:
-        virtual typename asset_traits<core::ICPUBuffer>::GPUObjectType* createGPUObjectFromAsset(core::ICPUBuffer*) override;
-        virtual typename asset_traits<scene::ICPUMeshBuffer>::GPUObjectType* createGPUObjectFromAsset(scene::ICPUMeshBuffer*) override;
-        virtual typename asset_traits<scene::ICPUMesh>::GPUObjectType* createGPUObjectFromAsset(scene::ICPUMesh*) override;
-        virtual typename asset_traits<asset::ICPUTexture>::GPUObjectType* createGPUObjectFromAsset(asset::ICPUTexture*) override;
+        virtual core::vector<typename asset_traits<core::ICPUBuffer>::GPUObjectType*> createGPUObjectFromAsset(core::ICPUBuffer** const _begin, core::ICPUBuffer** const _end) override;
+        virtual core::vector<typename asset_traits<scene::ICPUMeshBuffer>::GPUObjectType*> createGPUObjectFromAsset(scene::ICPUMeshBuffer** const _begin, scene::ICPUMeshBuffer** const _end) override;
+        virtual core::vector<typename asset_traits<scene::ICPUMesh>::GPUObjectType*> createGPUObjectFromAsset(scene::ICPUMesh** const _begin, scene::ICPUMesh** const _end) override;
+        virtual core::vector<typename asset_traits<asset::ICPUTexture>::GPUObjectType*> createGPUObjectFromAsset(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end) override;
 
         void addMultisampleTexture(IMultisampleTexture* tex);
 

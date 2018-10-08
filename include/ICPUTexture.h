@@ -7,6 +7,7 @@
 #include "irr/core/Types.h"
 #include "IAsset.h"
 #include "CImageData.h"
+#include "ITexture.h" // for ITexture::E_TEXTURE_COUNT ... this enum should be in global scope
 
 namespace irr { namespace asset
 {
@@ -14,7 +15,9 @@ namespace irr { namespace asset
 class ICPUTexture : public IAsset
 {
 protected:
+    uint32_t m_size[3];
     video::ECOLOR_FORMAT m_colorFormat;
+    video::ITexture::E_TEXTURE_TYPE m_type;
     core::vector<video::CImageData*> m_mipmaps;
 
     using IteratorType = typename decltype(m_mipmaps)::iterator;
@@ -88,24 +91,28 @@ public:
     }
 
 protected:
-    explicit ICPUTexture(const core::vector<video::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}, m_colorFormat{video::ECF_UNKNOWN}
+    explicit ICPUTexture(const core::vector<video::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}, m_colorFormat{video::ECF_UNKNOWN}, m_type{video::ITexture::ETT_COUNT}
     {
         for (const auto& mm : m_mipmaps)
             mm->grab();
         if (m_mipmaps.size())
         {
+            recalcSize();
             sortMipMaps();
             establishFmt();
+            establishType();
         }
     }
-    explicit ICPUTexture(core::vector<video::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{video::ECF_UNKNOWN}
+    explicit ICPUTexture(core::vector<video::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{video::ECF_UNKNOWN}, m_type{ video::ITexture::ETT_COUNT }
     {
         for (const auto& mm : m_mipmaps)
             mm->grab();
         if (m_mipmaps.size())
         {
+            recalcSize();
             sortMipMaps();
             establishFmt();
+            establishType();
         }
     }
 
@@ -167,6 +174,10 @@ public:
 
     inline video::ECOLOR_FORMAT getColorFormat() const { return m_colorFormat; }
 
+    inline video::ITexture::E_TEXTURE_TYPE getType() const { return m_type; }
+
+    inline const uint32_t* getSize() const { return m_size; }
+
 private:
     inline void sortMipMaps()
     {
@@ -186,6 +197,43 @@ private:
             }
         }
         m_colorFormat = fmt;
+    }
+    inline void recalcSize()
+    {
+        m_size[0] = m_size[1] = m_size[2] = 1u;
+        for (const video::CImageData* img : m_mipmaps)
+        {
+            for (uint32_t i = 0u; i < 3u; ++i)
+            {
+                const uint32_t dimSz = img->getSliceMax()[i];
+                if (m_size[i] < dimSz)
+                    m_size[i] = dimSz;
+            }
+        }
+    }
+    //! Assumes that m_mipmaps is already sorted by mip-lvl and size calculated
+    // needs to be reworked for sparse textures
+    inline void establishType()
+    {
+        if (m_size[2] > 1u)
+        {
+            // with this little info I literally can't guess if you want a cubemap!
+            if (m_mipmaps.size() > 1 && m_mipmaps.front()->getSliceMax()[2] == m_mipmaps.back()->getSliceMax()[2])
+                m_type = video::ITexture::ETT_2D_ARRAY;
+            else
+                m_type = video::ITexture::ETT_3D;
+        }
+        else if (m_size[1] > 1u)
+        {
+            if (m_mipmaps.size() > 1 && m_mipmaps.front()->getSliceMax()[1] == m_mipmaps.back()->getSliceMax()[1])
+                m_type = video::ITexture::ETT_1D_ARRAY;
+            else
+                m_type = video::ITexture::ETT_2D;
+        }
+        else
+        {
+            m_type = video::ITexture::ETT_2D; //should be ETT_1D but 2D is default since forever
+        }
     }
 };
 
