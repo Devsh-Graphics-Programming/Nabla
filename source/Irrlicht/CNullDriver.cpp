@@ -27,9 +27,9 @@ class CNullDriver::CGPUObjectFromAssetConverter : public IGPUObjectFromAssetConv
 public:
     using IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;
 
-    inline virtual core::vector<typename asset::asset_traits<asset::ICPUTexture>::GPUObjectType*> create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end) override
+    inline virtual core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end) override
     {
-        core::vector<typename asset::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
+        core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
 
         asset::ICPUTexture** it = _begin;
         while (it != _end)
@@ -81,7 +81,7 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 	setDebugName("CNullDriver");
 	#endif
 
-    m_cpuToGpuConverter = m_defaultCpuToGpuConverter = new CGPUObjectFromAssetConverter(&m_device->getAssetManager(), this);
+    m_defaultCpuToGpuConverter = new CGPUObjectFromAssetConverter(&m_device->getAssetManager(), this);
 
 	for (size_t i=0; i<EQOT_COUNT; i++)
     for (size_t j=0; j<_IRR_XFORM_FEEDBACK_MAX_STREAMS_; j++)
@@ -166,9 +166,9 @@ CNullDriver::~CNullDriver()
     delete m_defaultCpuToGpuConverter;
 }
 
-void CNullDriver::setGPUObjectFromAssetConverter(IGPUObjectFromAssetConverter* _converter)
+IGPUObjectFromAssetConverter* CNullDriver::getGPUObjectFromAssetConverter()
 {
-    m_cpuToGpuConverter = _converter ? _converter : m_defaultCpuToGpuConverter;
+    return  m_defaultCpuToGpuConverter;
 }
 
 //! Adds an external surface loader to the engine.

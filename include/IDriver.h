@@ -35,13 +35,9 @@ namespace video
 
         virtual ~IDriver();
 
-    public:
-        //! Sets converter that will be used to convert assets into GPU objects. If `_converter` is nullptr, then default converter will be set.
-        inline virtual void setGPUObjectFromAssetConverter(IGPUObjectFromAssetConverter* _converter)
-        {
-            m_cpuToGpuConverter = _converter ? _converter : m_defaultCpuToGpuConverter;
-        }
+        inline virtual IGPUObjectFromAssetConverter* getGPUObjectFromAssetConverter() { return m_defaultCpuToGpuConverter;  }
 
+    public:
 	    //! Best for Mesh data, UBOs, SSBOs, etc.
 	    virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
@@ -179,11 +175,10 @@ namespace video
 		}
 
         template<typename AssetType>
-        core::vector<typename asset::asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end);
+        core::vector<typename video::asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 
     protected:
         IrrlichtDevice* m_device;
-        IGPUObjectFromAssetConverter* m_cpuToGpuConverter;
 
     private:
         IGPUObjectFromAssetConverter* m_defaultCpuToGpuConverter;

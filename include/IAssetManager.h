@@ -66,7 +66,7 @@ namespace asset
         IAssetLoader::IAssetLoaderOverride m_defaultLoaderOverride;
 
         std::array<AssetCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
-        CpuGpuCacheType m_cpuGpuCache;
+        std::array<CpuGpuCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_cpuGpuCache;
 
         struct Loaders {
             Loaders() : perFileExt{&refCtdGreet<IAssetLoader>, &refCtdDispose<IAssetLoader>} {}
@@ -98,11 +98,12 @@ namespace asset
         //! Constructor
         explicit IAssetManager(io::IFileSystem* _fs) :
             m_fileSystem{_fs},
-            m_defaultLoaderOverride{nullptr},
-            m_cpuGpuCache{&refCtdGreet<core::IReferenceCounted>, &refCtdDispose<core::IReferenceCounted>}
+            m_defaultLoaderOverride{nullptr}
         {
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 m_assetCache[i] = new AssetCacheType(asset::makeAssetGreetFunc(this), asset::makeAssetDisposeFunc(this));
+            for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
+                m_cpuGpuCache[i] = new CpuGpuCacheType(&refCtdGreet<core::IReferenceCounted>, &refCtdDispose<core::IReferenceCounted>);
             m_fileSystem->grab();
             m_defaultLoaderOverride = IAssetLoader::IAssetLoaderOverride{this};
         }
@@ -117,15 +118,19 @@ namespace asset
             std::swap(m_assetCache, _other.m_assetCache);
             std::swap(m_fileSystem, _other.m_fileSystem);
         }
+        */
         virtual ~IAssetManager()
         {
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 if (m_assetCache[i])
                     delete m_assetCache[i];
+            for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
+                if (m_cpuGpuCache[i])
+                    delete m_cpuGpuCache[i];
             if (m_fileSystem)
                 m_fileSystem->drop();
         }
-        */
+        
         //! Default Asset Creators (more creators can follow)
         //IMeshCreator* getDefaultMeshCreator(); //old IGeometryCreator
 
@@ -295,11 +300,7 @@ namespace asset
         bool insertAssetIntoCache(IAsset* _asset)
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            bool r = m_assetCache[ix]->insert(_asset->cacheKey, _asset);
-            printf("");
-            if (!r)
-                return false;
-            return true;
+            return m_assetCache[ix]->insert(_asset->cacheKey, _asset);
         }
 
         //! Remove an asset from cache (calls the private methods of IAsset behind the scenes)
@@ -323,14 +324,14 @@ namespace asset
         {
             _asset->convertToDummyObject();
             _asset->grab();
-            m_cpuGpuCache.insert(_asset, _gpuObject);
+            m_cpuGpuCache[IAsset::typeFlagToIndex(_asset->getAssetType())]->insert(_asset, _gpuObject);
         }
 
-        core::IReferenceCounted* getGPUObject(const IAsset* _asset)
+        core::IReferenceCounted* findGPUObject(const IAsset* _asset)
         {
             core::IReferenceCounted* storage[1];
             size_t storageSz = 1u;
-            m_cpuGpuCache.findAndStoreRange(_asset, storageSz, storage);
+            m_cpuGpuCache[IAsset::typeFlagToIndex(_asset->getAssetType())]->findAndStoreRange(_asset, storageSz, storage);
             if (storageSz > 0u)
                 return storage[0];
             return nullptr;

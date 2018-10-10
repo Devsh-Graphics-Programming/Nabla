@@ -62,9 +62,9 @@ class COpenGLDriver::CGPUObjectFromAssetConverter : public IGPUObjectFromAssetCo
 public:
     using IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;
 
-    inline virtual core::vector<typename asset::asset_traits<asset::ICPUTexture>::GPUObjectType*> create(asset::ICPUTexture** _begin, asset::ICPUTexture**_end) override
+    inline virtual core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> create(asset::ICPUTexture** _begin, asset::ICPUTexture**_end) override
     {
-        core::vector<typename asset::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
+        core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
 
         asset::ICPUTexture** it = _begin;
         while (it != _end)
@@ -126,12 +126,12 @@ COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 	setDebugName("COpenGLDriver");
 	#endif
 
-    m_cpuToGpuConverter = m_defaultCpuToGpuConverter = new CGPUObjectFromAssetConverter(&m_device->getAssetManager(), this);
+    m_defaultCpuToGpuConverter = new CGPUObjectFromAssetConverter(&m_device->getAssetManager(), this);
 }
 
-void COpenGLDriver::setGPUObjectFromAssetConverter(IGPUObjectFromAssetConverter* _converter)
+IGPUObjectFromAssetConverter* COpenGLDriver::getGPUObjectFromAssetConverter()
 {
-    m_cpuToGpuConverter = _converter ? _converter : m_defaultCpuToGpuConverter;
+    return m_defaultCpuToGpuConverter;
 }
 
 bool COpenGLDriver::changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device)

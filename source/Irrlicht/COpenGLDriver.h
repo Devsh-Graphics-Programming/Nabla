@@ -70,7 +70,7 @@ namespace video
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device);
 		#endif
 
-        virtual void setGPUObjectFromAssetConverter(IGPUObjectFromAssetConverter* _converter) override;
+        virtual IGPUObjectFromAssetConverter* getGPUObjectFromAssetConverter() override;
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}

@@ -6,7 +6,7 @@
 #include "IMeshBuffer.h"
 #include "IMesh.h"
 
-namespace irr { namespace asset
+namespace irr { namespace video
 {
 
 template<typename AssetType>

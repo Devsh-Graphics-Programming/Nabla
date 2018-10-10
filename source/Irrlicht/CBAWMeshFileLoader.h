@@ -173,7 +173,7 @@ private:
             asset = reinterpret_cast<asset::ICPUTexture*>(_asset);
             break;
         }
-        if (asset)
+        if (asset && !asset->isInAResourceCache())
         {
             _override->setAssetCacheKey(asset, _cacheKey, _ctx.inner, _hierLvl);
             _override->insertAssetIntoCache(asset, _ctx.inner, _hierLvl);

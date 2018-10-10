@@ -46,7 +46,7 @@ namespace video
 		//! constructor
 		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
-        virtual void setGPUObjectFromAssetConverter(IGPUObjectFromAssetConverter* _converter) override;
+        virtual IGPUObjectFromAssetConverter* getGPUObjectFromAssetConverter() override;
 
 		//!
         virtual bool initAuxContext() {return false;}
