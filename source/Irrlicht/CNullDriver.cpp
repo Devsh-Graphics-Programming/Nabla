@@ -75,13 +75,11 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 : IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
 	PrimitivesDrawn(0), TextureCreationFlags(0),
 	OverrideMaterial2DEnabled(false), AllowZWriteOnTransparent(false),
-	matrixModifiedBits(0), m_defaultCpuToGpuConverter{nullptr}
+	matrixModifiedBits(0)
 {
 	#ifdef _DEBUG
 	setDebugName("CNullDriver");
 	#endif
-
-    m_defaultCpuToGpuConverter = new CGPUObjectFromAssetConverter(&m_device->getAssetManager(), this);
 
 	for (size_t i=0; i<EQOT_COUNT; i++)
     for (size_t j=0; j<_IRR_XFORM_FEEDBACK_MAX_STREAMS_; j++)
@@ -162,13 +160,11 @@ CNullDriver::~CNullDriver()
 
 	// delete material renderers
 	deleteMaterialRenders();
-
-    delete m_defaultCpuToGpuConverter;
 }
 
-IGPUObjectFromAssetConverter* CNullDriver::getGPUObjectFromAssetConverter()
+IGPUObjectFromAssetConverter* CNullDriver::instantiateDefaultGPUConverter()
 {
-    return  m_defaultCpuToGpuConverter;
+    return new CGPUObjectFromAssetConverter(&m_device->getAssetManager(), this);
 }
 
 //! Adds an external surface loader to the engine.

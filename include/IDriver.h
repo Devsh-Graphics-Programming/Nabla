@@ -31,11 +31,9 @@ namespace video
 	class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
 	{
 	protected:
-        IDriver(IrrlichtDevice* _dev);
+        inline IDriver(IrrlichtDevice* _dev) : m_device{ _dev } {}
 
-        virtual ~IDriver();
-
-        inline virtual IGPUObjectFromAssetConverter* getGPUObjectFromAssetConverter() { return m_defaultCpuToGpuConverter;  }
+        inline virtual IGPUObjectFromAssetConverter* instantiateDefaultGPUConverter();
 
     public:
 	    //! Best for Mesh data, UBOs, SSBOs, etc.
@@ -179,9 +177,6 @@ namespace video
 
     protected:
         IrrlichtDevice* m_device;
-
-    private:
-        IGPUObjectFromAssetConverter* m_defaultCpuToGpuConverter;
 	};
 
 } // end namespace video

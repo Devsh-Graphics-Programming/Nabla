@@ -120,18 +120,16 @@ COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
 	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
-	DeviceType(EIDT_WIN32), AuxContexts(0), m_defaultCpuToGpuConverter{nullptr}
+	DeviceType(EIDT_WIN32), AuxContexts(0)
 {
 	#ifdef _DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
-
-    m_defaultCpuToGpuConverter = new CGPUObjectFromAssetConverter(&m_device->getAssetManager(), this);
 }
 
-IGPUObjectFromAssetConverter* COpenGLDriver::getGPUObjectFromAssetConverter()
+IGPUObjectFromAssetConverter* COpenGLDriver::instantiateDefaultGPUConverter()
 {
-    return m_defaultCpuToGpuConverter;
+    return new CGPUObjectFromAssetConverter(&m_device->getAssetManager(), this);
 }
 
 bool COpenGLDriver::changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device)
@@ -792,8 +790,6 @@ COpenGLDriver::~COpenGLDriver()
     delete [] AuxContexts;
     glContextMutex->Release();
     delete glContextMutex;
-
-    delete m_defaultCpuToGpuConverter;
 }
 
 

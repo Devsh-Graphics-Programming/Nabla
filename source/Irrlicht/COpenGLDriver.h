@@ -70,7 +70,7 @@ namespace video
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device);
 		#endif
 
-        virtual IGPUObjectFromAssetConverter* getGPUObjectFromAssetConverter() override;
+        virtual IGPUObjectFromAssetConverter* instantiateDefaultGPUConverter() override;
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
@@ -601,7 +601,6 @@ namespace video
         class CGPUObjectFromAssetConverter;
         friend class CGPUObjectFromAssetConverter;
 
-        IGPUObjectFromAssetConverter* m_defaultCpuToGpuConverter;
 
 		//! enumeration for rendering modes such as 2d and 3d for minizing the switching of renderStates.
 		enum E_RENDER_MODE

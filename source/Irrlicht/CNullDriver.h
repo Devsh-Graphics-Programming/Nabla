@@ -46,7 +46,7 @@ namespace video
 		//! constructor
 		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
-        virtual IGPUObjectFromAssetConverter* getGPUObjectFromAssetConverter() override;
+        virtual IGPUObjectFromAssetConverter* instantiateDefaultGPUConverter() override;
 
 		//!
         virtual bool initAuxContext() {return false;}
@@ -580,8 +580,6 @@ namespace video
         //CNullDriver::CGPUObjectFromAssetConverter
         class CGPUObjectFromAssetConverter;
         friend CGPUObjectFromAssetConverter;
-
-        IGPUObjectFromAssetConverter* m_defaultCpuToGpuConverter;
 
     protected:
 		struct SSurface
