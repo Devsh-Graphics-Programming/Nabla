@@ -6,7 +6,7 @@
 #include "IMeshBuffer.h"
 #include "ICPUMeshBuffer.h"
 #include "IMesh.h"
-#include "ICPUMesh.h"
+#include "irr/asset/ICPUMesh.h"
 
 namespace irr { namespace video
 {

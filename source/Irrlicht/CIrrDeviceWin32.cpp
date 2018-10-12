@@ -14,7 +14,7 @@
 
 #include "CTimer.h"
 
-#include "IAssetManager.h"
+#include "irr/asset/IAssetManager.h"
 #include "COSOperator.h"
 #include "dimension2d.h"
 #include <winuser.h>

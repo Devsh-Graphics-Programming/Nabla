@@ -10,7 +10,7 @@
 #include "ITransformFeedback.h"
 #include "SMaterial.h"
 #include "aabbox3d.h"
-#include "irr/core/ICPUBuffer.h"
+#include "irr/asset/ICPUBuffer.h"
 #include "IGPUBuffer.h"
 #include "vectorSIMD.h"
 #include "coreutil.h"

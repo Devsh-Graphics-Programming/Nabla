@@ -4,12 +4,12 @@
 
 #include "CGeometryCreator.h"
 #include "SMesh.h"
-#include "SCPUMesh.h"
+#include "irr/asset/SCPUMesh.h"
 #include "IMesh.h"
 #include "IVideoDriver.h"
 #include "SVertexManipulator.h"
 #include "os.h"
-#include "ICPUMeshBuffer.h"
+#include "irr/asset/ICPUMeshBuffer.h"
 
 namespace irr
 {

@@ -11,9 +11,9 @@
 #include "aabbox3d.h"
 #include "matrix4.h"
 #include "IAnimatedMesh.h"
-#include "ICPUMeshBuffer.h"
+#include "irr/asset/ICPUMeshBuffer.h"
 #include "SVertexManipulator.h"
-#include "SCPUMesh.h"
+#include "irr/asset/SCPUMesh.h"
 
 namespace irr
 {

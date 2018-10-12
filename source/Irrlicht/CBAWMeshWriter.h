@@ -6,8 +6,8 @@
 #ifndef __IRR_BAW_MESH_WRITER_H_INCLUDED__
 #define __IRR_BAW_MESH_WRITER_H_INCLUDED__
 
-#include "IAssetWriter.h"
-#include "ICPUMesh.h"
+#include "irr/asset/IAssetWriter.h"
+#include "irr/asset/ICPUMesh.h"
 #include "CBAWFile.h"
 
 namespace irr {

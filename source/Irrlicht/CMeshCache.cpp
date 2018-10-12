@@ -4,7 +4,7 @@
 
 #include "CMeshCache.h"
 #include "IAnimatedMesh.h"
-#include "ICPUMesh.h"
+#include "irr/asset/ICPUMesh.h"
 
 namespace irr
 {

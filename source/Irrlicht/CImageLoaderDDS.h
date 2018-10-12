@@ -9,7 +9,7 @@
 
 #if defined(_IRR_COMPILE_WITH_DDS_LOADER_)
 
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 
 namespace irr
 {

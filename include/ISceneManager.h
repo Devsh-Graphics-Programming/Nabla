@@ -20,7 +20,7 @@
 #include "IMeshCache.h"
 #include "ISkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
-#include "ICPUMesh.h"
+#include "irr/asset/ICPUMesh.h"
 
 namespace irr
 {

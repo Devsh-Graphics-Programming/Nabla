@@ -6,7 +6,7 @@
 #define __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
 #include "ISceneManager.h"
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 
 namespace irr
 {

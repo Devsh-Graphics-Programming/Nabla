@@ -699,6 +699,7 @@
     <ClCompile Include="CBAWMeshFileLoader.cpp" />
     <ClCompile Include="CBAWMeshWriter.cpp" />
     <ClCompile Include="CBlobsLoadingManager.cpp" />
+    <ClCompile Include="CCPUSkinnedMesh.cpp" />
     <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="CGeometryCreator.cpp" />
     <ClCompile Include="CGLSLFunctionGenerator.cpp" />
@@ -745,7 +746,6 @@
     <ClCompile Include="COBJMeshFileLoader.cpp" />
     <ClCompile Include="COCTLoader.cpp" />
     <ClCompile Include="CPLYMeshFileLoader.cpp" />
-    <ClCompile Include="CSkinnedMesh.cpp" />
     <ClCompile Include="CSTLMeshFileLoader.cpp" />
     <ClCompile Include="CTRTextureGouraudAlpha.cpp" />
     <ClCompile Include="CTRTextureGouraudAlphaNoZ.cpp" />

@@ -1,5 +1,5 @@
 #include "IrrCompileConfig.h"
-#include "ICPUMeshBuffer.h"
+#include "irr/asset/ICPUMeshBuffer.h"
 
 // Based on zeux's meshoptimizer (https://github.com/zeux/meshoptimizer) available under MIT license
 

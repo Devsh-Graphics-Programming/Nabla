@@ -16,7 +16,7 @@
 #include "os.h"
 #include "CForsythVertexCacheOptimizer.h"
 #include "COverdrawMeshOptimizer.h"
-#include "SSkinMeshBuffer.h"
+#include "irr/asset/SSkinMeshBuffer.h"
 
 namespace irr
 {

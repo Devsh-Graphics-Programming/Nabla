@@ -8,14 +8,14 @@
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "SMesh.h"
-#include "SCPUMesh.h"
+#include "irr/asset/SCPUMesh.h"
 #include "CSkinnedMesh.h"
-#include "CCPUSkinnedMesh.h"
+#include "irr/asset/CCPUSkinnedMesh.h"
 #include "CBlobsLoadingManager.h"
 #include "ICPUTexture.h"
 #include "IrrlichtDevice.h"
-#include "IAssetManager.h"
-#include "SSkinMeshBuffer.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/SSkinMeshBuffer.h"
 
 namespace irr { namespace core
 {

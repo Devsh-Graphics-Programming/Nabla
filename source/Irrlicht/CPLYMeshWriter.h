@@ -5,7 +5,7 @@
 #ifndef __IRR_PLY_MESH_WRITER_H_INCLUDED__
 #define __IRR_PLY_MESH_WRITER_H_INCLUDED__
 
-#include "IAssetWriter.h"
+#include "irr/asset/IAssetWriter.h"
 #include "IMeshBuffer.h"
 #include <iomanip>
 

@@ -14,7 +14,7 @@
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"
 #include "IGPUTimestampQuery.h"
-#include "asset_traits.h"
+#include "irr/video/asset_traits.h"
 
 namespace irr
 {

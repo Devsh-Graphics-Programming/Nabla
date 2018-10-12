@@ -1,6 +1,6 @@
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 
-#include "IAssetManager.h"
+#include "irr/asset/IAssetManager.h"
 
 using namespace irr;
 using namespace asset;

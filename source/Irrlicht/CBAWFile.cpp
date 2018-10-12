@@ -5,8 +5,8 @@
 
 #include "CBAWFile.h"
 
-#include "ICPUSkinnedMesh.h"
-#include "SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMesh.h"
+#include "irr/asset/SSkinMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 #include "coreutil.h"
 

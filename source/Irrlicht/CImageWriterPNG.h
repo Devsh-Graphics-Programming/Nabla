@@ -9,7 +9,7 @@
 
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
 
-#include "IAssetWriter.h"
+#include "irr/asset/IAssetWriter.h"
 
 namespace irr
 {

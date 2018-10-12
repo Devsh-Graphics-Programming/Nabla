@@ -10,8 +10,8 @@
 #include "IReadFile.h"
 #include "IWriteFile.h"
 //#include "CGeometryCreator.h"
-#include "irr/asset/IAssetLoader.h"
-#include "irr/asset/IAssetWriter.h"
+#include "IAssetLoader.h"
+#include "IAssetWriter.h"
 #include "irr/core/Types.h"
 
 #include <array>

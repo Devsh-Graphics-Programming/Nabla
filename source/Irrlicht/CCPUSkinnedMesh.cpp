@@ -4,10 +4,10 @@
 
 #include "IrrCompileConfig.h"
 
-#include "CCPUSkinnedMesh.h"
+#include "irr/asset/CCPUSkinnedMesh.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "CFinalBoneHierarchy.h"
-#include "SSkinMeshBuffer.h"
+#include "irr/asset/SSkinMeshBuffer.h"
 #include "os.h"
 #include <sstream>
 #include <algorithm>

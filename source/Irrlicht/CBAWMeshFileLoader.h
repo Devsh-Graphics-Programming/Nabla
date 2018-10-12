@@ -7,10 +7,10 @@
 #define __C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 
 
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 #include "ISceneManager.h"
 #include "IFileSystem.h"
-#include "ICPUMesh.h"
+#include "irr/asset/ICPUMesh.h"
 #include "CBAWFile.h"
 #include "CBlobsLoadingManager.h"
 #include "SSkinMeshBuffer.h"

@@ -3,14 +3,14 @@
 #define __IRR_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
 
 #include "irr/core/Types.h"
-#include "IAssetManager.h"
+#include "irr/asset/IAssetManager.h"
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
 #include "SMesh.h"
 #include "CSkinnedMesh.h"
-#include "SSkinMeshBuffer.h"
+#include "irr/asset/SSkinMeshBuffer.h"
 #include "CLogger.h"
-#include "asset_traits.h"
+#include "irr/video/asset_traits.h"
 
 namespace irr 
 {
@@ -309,7 +309,6 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
     return res;
 }
 
-// This is properly implemented in CNullDriver's converter (see CNullDriver.cpp) and COpenGLDriver also has its own converter overriding this method (see COpenGLDriver.cpp)
 auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::ICPUTexture**_end) -> core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*>
 {
     core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
@@ -326,7 +325,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::IC
         }
 
         if (cpuTex->getHighestMip()==0 && t->hasMipMaps())
-            t->regenerateMipMapLevels();
+            t->regenerateMipMapLevels(); // todo : Compute Shader mip-mapper necessary after vulkan
 
         res.push_back(t);
 

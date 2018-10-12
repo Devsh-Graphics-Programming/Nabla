@@ -1,4 +1,4 @@
-#include "IAssetManager.h"
+#include "irr/asset/IAssetManager.h"
 
 using namespace irr;
 using namespace asset;

@@ -7,8 +7,8 @@
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 
 #include "CSTLMeshFileLoader.h"
-#include "SCPUMesh.h"
-#include "ICPUMeshBuffer.h"
+#include "irr/asset/SCPUMesh.h"
+#include "irr/asset/ICPUMeshBuffer.h"
 
 #include "IReadFile.h"
 #include "coreutil.h"

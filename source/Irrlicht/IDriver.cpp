@@ -1,8 +1,8 @@
 #include "IDriver.h"
 
 #include "IrrlichtDevice.h"
-#include "IAssetManager.h"
-#include "IGPUObjectFromAssetConverter.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/video/IGPUObjectFromAssetConverter.h"
 
 namespace irr { namespace video
 {

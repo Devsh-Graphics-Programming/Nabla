@@ -16,7 +16,7 @@
 #include "IReadFile.h"
 #include "coreutil.h"
 #include "os.h"
-#include "IAssetManager.h"
+#include "irr/asset/IAssetManager.h"
 
 #include "irr/core/Types.h"
 

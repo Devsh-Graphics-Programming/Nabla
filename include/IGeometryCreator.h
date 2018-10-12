@@ -7,7 +7,7 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "IMesh.h"
-#include "ICPUMesh.h"
+#include "irr/asset/ICPUMesh.h"
 
 namespace irr
 {

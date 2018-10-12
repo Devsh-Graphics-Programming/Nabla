@@ -12,7 +12,7 @@ class IGPUMappedBuffer;
 }
 }
 
-#include "irr/core/ICPUBuffer.h"
+#include "irr/asset/ICPUBuffer.h"
 #include "IVideoDriver.h"
 
 namespace irr

@@ -7,7 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 
 
 namespace irr

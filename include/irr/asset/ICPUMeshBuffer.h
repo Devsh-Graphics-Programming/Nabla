@@ -2,7 +2,7 @@
 #define __IRR_I_CPU_MESH_BUFFER_H_INCLUDED__
 
 #include "IMeshBuffer.h"
-#include "irr/asset/IAsset.h"
+#include "IAsset.h"
 
 namespace irr { namespace asset
 {

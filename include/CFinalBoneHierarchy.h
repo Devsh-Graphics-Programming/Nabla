@@ -4,7 +4,7 @@
 #include "assert.h"
 #include <algorithm>
 #include <functional>
-#include "ICPUSkinnedMesh.h"
+#include "irr/asset/ICPUSkinnedMesh.h"
 #include "IGPUBuffer.h"
 #include "quaternion.h"
 #include "irr/core/Types.h"

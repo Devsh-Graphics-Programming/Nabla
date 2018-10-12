@@ -9,8 +9,8 @@
 
 #ifdef _IRR_COMPILE_WITH_X_LOADER_
 
-#include "IAssetLoader.h"
-#include "CCPUSkinnedMesh.h"
+#include "irr/asset/IAssetLoader.h"
+#include "irr/asset/CCPUSkinnedMesh.h"
 #include <sstream>
 
 namespace irr

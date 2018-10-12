@@ -17,8 +17,8 @@
 #include "IReadFile.h"
 #include "SVertexManipulator.h"
 #include "assert.h"
-#include "IAssetManager.h"
-#include "SCPUMesh.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/SCPUMesh.h"
 
 #include <vector>
 

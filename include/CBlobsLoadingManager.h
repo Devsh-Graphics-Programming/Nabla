@@ -11,7 +11,7 @@
 #include "stdint.h"
 #include "IMesh.h"
 #include "path.h"
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 
 namespace irr {
 
