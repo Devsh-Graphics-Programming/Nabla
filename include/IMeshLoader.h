@@ -33,7 +33,7 @@ public:
 	\return True if the file might be loaded by this class. */
 	virtual bool isALoadableFileExtension(const io::path& filename) const = 0;
 
-	virtual ICPUMesh* createMesh(io::IReadFile* file) = 0;
+	virtual asset::ICPUMesh* createMesh(io::IReadFile* file) = 0;
 };
 
 

@@ -4,20 +4,22 @@
 
 #include "CGeometryCreator.h"
 #include "SMesh.h"
+#include "SCPUMesh.h"
 #include "IMesh.h"
 #include "IVideoDriver.h"
 #include "SVertexManipulator.h"
 #include "os.h"
+#include "ICPUMeshBuffer.h"
 
 namespace irr
 {
 namespace scene
 {
 
-ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
+asset::ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
 {
 	ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
-	ICPUMeshBuffer* buffer = new ICPUMeshBuffer();
+	asset::ICPUMeshBuffer* buffer = new asset::ICPUMeshBuffer();
 	buffer->setMeshDataAndFormat(desc);
 	desc->drop();
 
@@ -33,7 +35,7 @@ ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
 		u[i*6+5] = 4*i+3;
 	}
 
-    core::ICPUBuffer* indices = new core::ICPUBuffer(sizeof(u));
+    asset::ICPUBuffer* indices = new asset::ICPUBuffer(sizeof(u));
     memcpy(indices->getPointer(),u,sizeof(u));
     desc->mapIndexBuffer(indices);
     buffer->setIndexType(EIT_16BIT);
@@ -42,7 +44,7 @@ ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
 
 	// Create vertices
 	const size_t vertexSize = sizeof(CGeometryCreator::CubeVertex);
-	core::ICPUBuffer* vertices = new core::ICPUBuffer(24*vertexSize);
+	asset::ICPUBuffer* vertices = new asset::ICPUBuffer(24*vertexSize);
 	CubeVertex* ptr = (CubeVertex*)vertices->getPointer();
 
 	const core::vector3d<int8_t> normals[6] =
@@ -136,14 +138,14 @@ ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
 		core::vector3df& pos = *((core::vector3df*)(ptr[i].pos));
 		pos *= size;
 	}
-    //mapVertexAttrBuffer(core::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
+    //mapVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
     desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,vertexSize, offsetof(CubeVertex, pos));
     desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR1,scene::ECPA_FOUR,scene::ECT_NORMALIZED_UNSIGNED_BYTE,vertexSize,offsetof(CubeVertex, color));
     desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,vertexSize,offsetof(CubeVertex, uv));
     desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR3,scene::ECPA_THREE,scene::ECT_BYTE,vertexSize,offsetof(CubeVertex, normal));
     vertices->drop();
 
-	SCPUMesh* mesh = new SCPUMesh;
+	asset::SCPUMesh* mesh = new asset::SCPUMesh;
 	mesh->addMeshBuffer(buffer);
 	buffer->drop();
 
@@ -156,7 +158,7 @@ IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const
     if (!driver)
         return NULL;
 
-	ICPUMesh* cpumesh = createCubeMeshCPU(size);
+	asset::ICPUMesh* cpumesh = createCubeMeshCPU(size);
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
 	IGPUMesh* mesh = nullptr;
@@ -173,7 +175,7 @@ IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const
 	a cylinder, a cone and a cross
 	point up on (0,1.f, 0.f )
 */
-ICPUMesh* CGeometryCreator::createArrowMeshCPU(const uint32_t tesselationCylinder,
+asset::ICPUMesh* CGeometryCreator::createArrowMeshCPU(const uint32_t tesselationCylinder,
 						const uint32_t tesselationCone,
 						const float height,
 						const float cylinderHeight,
@@ -184,15 +186,15 @@ ICPUMesh* CGeometryCreator::createArrowMeshCPU(const uint32_t tesselationCylinde
 {
     assert(height > cylinderHeight);
 
-    ICPUMesh* cylinder = createCylinderMeshCPU(width0, cylinderHeight, tesselationCylinder, vtxColor0, false);
-    SCPUMesh* cone = static_cast<SCPUMesh*>(createConeMeshCPU(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
+    asset::ICPUMesh* cylinder = createCylinderMeshCPU(width0, cylinderHeight, tesselationCylinder, vtxColor0, false);
+    asset::SCPUMesh* cone = static_cast<asset::SCPUMesh*>(createConeMeshCPU(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
 
     if (!cylinder || !cone)
         return nullptr;
 
-    ICPUMeshBuffer* coneMb = cone->getMeshBuffer(0u);
+    asset::ICPUMeshBuffer* coneMb = cone->getMeshBuffer(0u);
 
-    core::ICPUBuffer* coneVtxBuf = const_cast<core::ICPUBuffer*>(coneMb->getMeshDataAndFormat()->getMappedBuffer(EVAI_ATTR0));
+    asset::ICPUBuffer* coneVtxBuf = const_cast<asset::ICPUBuffer*>(coneMb->getMeshDataAndFormat()->getMappedBuffer(EVAI_ATTR0));
     ConeVertex* coneVertices = reinterpret_cast<ConeVertex*>(coneVtxBuf->getPointer());
     for (uint32_t i = 0u; i < tesselationCone+2u; ++i)
         coneVertices[i].pos[1] += cylinderHeight;
@@ -219,7 +221,7 @@ IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
     if (!driver)
         return NULL;
 
-	ICPUMesh* cpumesh = createArrowMeshCPU(tesselationCylinder,tesselationCone,height,cylinderHeight,width0,width1,vtxColor0,vtxColor1);
+	asset::ICPUMesh* cpumesh = createArrowMeshCPU(tesselationCylinder,tesselationCone,height,cylinderHeight,width0,width1,vtxColor0,vtxColor1);
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
 	IGPUMesh* mesh = nullptr;
@@ -233,7 +235,7 @@ IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
 
 
 /* A sphere with proper normals and texture coords */
-ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t polyCountX, uint32_t polyCountY) const
+asset::ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t polyCountX, uint32_t polyCountY) const
 {
 	// thanks to Alfaz93 who made his code available for Irrlicht on which
 	// this one is based!
@@ -248,12 +250,12 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t polyCount
 	const uint32_t polyCountXPitch = polyCountX+1; // get to same vertex on next level
 
 	ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
-	ICPUMeshBuffer* buffer = new ICPUMeshBuffer();
+	asset::ICPUMeshBuffer* buffer = new asset::ICPUMeshBuffer();
 	buffer->setMeshDataAndFormat(desc);
 	desc->drop();
 
     size_t indexCount = (polyCountX * polyCountY) * 6;
-    core::ICPUBuffer* indices = new core::ICPUBuffer(indexCount * 4);
+    asset::ICPUBuffer* indices = new asset::ICPUBuffer(indexCount * 4);
     desc->mapIndexBuffer(indices);
     buffer->setIndexType(EIT_32BIT);
     buffer->setIndexCount(indexCount);
@@ -322,7 +324,7 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t polyCount
 
 	size_t vertexSize = 3*4+4+2*4+4;
 	size_t vertexCount = (polyCountXPitch * polyCountY) + 2;
-    core::ICPUBuffer* vertices = new core::ICPUBuffer(vertexCount*vertexSize);
+    asset::ICPUBuffer* vertices = new asset::ICPUBuffer(vertexCount*vertexSize);
 	uint8_t* tmpMem = (uint8_t*)vertices->getPointer();
 	for (size_t i=0; i<vertexCount; i++)
     {
@@ -414,7 +416,7 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t polyCount
     ((float*)tmpMemPtr)[5] = 1.f;
     ((uint32_t*)tmpMemPtr)[6] = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,-1.f,0.f));
 
-    //mapVertexAttrBuffer(core::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
+    //mapVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
     desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,vertexSize);
     desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR1,scene::ECPA_FOUR,scene::ECT_NORMALIZED_UNSIGNED_BYTE,vertexSize,4*3);
     desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_FLOAT,vertexSize,4*3+4);
@@ -427,7 +429,7 @@ ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t polyCount
 	BoundingBox.addInternalPoint(-radius,-radius,-radius);
 	buffer->setBoundingBox(BoundingBox);
 
-	SCPUMesh* mesh = new SCPUMesh;
+	asset::SCPUMesh* mesh = new asset::SCPUMesh;
 	mesh->addMeshBuffer(buffer);
 	buffer->drop();
 
@@ -440,7 +442,7 @@ IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, flo
     if (!driver)
         return NULL;
 
-	ICPUMesh* cpumesh = createSphereMeshCPU(radius,polyCountX,polyCountY);
+	asset::ICPUMesh* cpumesh = createSphereMeshCPU(radius,polyCountX,polyCountY);
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);;
 	IGPUMesh* mesh = nullptr;
@@ -454,12 +456,12 @@ IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, flo
 
 
 /* A cylinder with proper normals and texture coords */
-ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float length,
+asset::ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float length,
 			uint32_t tesselation, const video::SColor& color,
 			bool closeTop, float oblique) const
 {
     const size_t vtxCnt = 2u*tesselation + 2u;
-    core::ICPUBuffer* vtxBuf = new core::ICPUBuffer(vtxCnt * sizeof(CylinderVertex));
+    asset::ICPUBuffer* vtxBuf = new asset::ICPUBuffer(vtxCnt * sizeof(CylinderVertex));
     CylinderVertex* vertices = reinterpret_cast<CylinderVertex*>(vtxBuf->getPointer());
     std::fill(vertices, vertices + vtxCnt, CylinderVertex());
 
@@ -498,7 +500,7 @@ ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float length,
     memcpy(vertices[topCenterIx].color, glcolor, 4u);
 
     const uint32_t parts = closeTop ? 4u : 3u;
-    core::ICPUBuffer* idxBuf = new core::ICPUBuffer(parts*3u*tesselation*sizeof(uint16_t));
+    asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(parts*3u*tesselation*sizeof(uint16_t));
     uint16_t* indices = (uint16_t*)idxBuf->getPointer();
 
     for (uint32_t i = 1u, j = 0u; i < vtxCnt/2u; ++i)
@@ -532,8 +534,8 @@ ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float length,
         indices[j++] = (i+1u == vtxCnt/2u ? 1u : i+1u) + topCenterIx;
     }
 
-    SCPUMesh* mesh = new SCPUMesh();
-    ICPUMeshBuffer* meshbuf = new ICPUMeshBuffer();
+    asset::SCPUMesh* mesh = new asset::SCPUMesh();
+    asset::ICPUMeshBuffer* meshbuf = new asset::ICPUMeshBuffer();
     ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
     desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR0, ECPA_THREE, ECT_FLOAT, sizeof(CylinderVertex), offsetof(CylinderVertex, pos));
     desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR1, ECPA_FOUR, ECT_NORMALIZED_UNSIGNED_BYTE, sizeof(CylinderVertex), offsetof(CylinderVertex, color));
@@ -563,7 +565,7 @@ IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
     if (!driver)
         return NULL;
 
-	ICPUMesh* cpumesh = createCylinderMeshCPU(radius,length,tesselation,color,closeTop,oblique);
+	asset::ICPUMesh* cpumesh = createCylinderMeshCPU(radius,length,tesselation,color,closeTop,oblique);
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);;
 	IGPUMesh* mesh = nullptr;
@@ -578,13 +580,13 @@ IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
 
 
 /* A cone with proper normals and texture coords */
-ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length, uint32_t tesselation,
+asset::ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length, uint32_t tesselation,
 					const video::SColor& colorTop,
 					const video::SColor& colorBottom,
 					float oblique) const
 {
     const size_t vtxCnt = tesselation+2u;
-    core::ICPUBuffer* vtxBuf = new core::ICPUBuffer(vtxCnt * sizeof(ConeVertex));
+    asset::ICPUBuffer* vtxBuf = new asset::ICPUBuffer(vtxCnt * sizeof(ConeVertex));
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
     std::fill(vertices, vertices + vtxCnt, ConeVertex(core::vectorSIMDf(0.f), 0u, colorBottom));
 
@@ -605,7 +607,7 @@ ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length, uint32
     memset(vertices[bottomCenterIx].pos, 0, 12u);
     vertices[bottomCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
 
-    core::ICPUBuffer* idxBuf = new core::ICPUBuffer(2u*3u*tesselation*sizeof(uint16_t));
+    asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(2u*3u*tesselation*sizeof(uint16_t));
     uint16_t* indices = (uint16_t*)idxBuf->getPointer();
     
     for (uint32_t i = 2u, j = 0u; i < vtxCnt; ++i)
@@ -624,8 +626,8 @@ ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length, uint32
         indices[j++] = i+1u == vtxCnt ? 2u : i+1u;
     }
 
-    SCPUMesh* mesh = new SCPUMesh();
-    ICPUMeshBuffer* meshbuf = new ICPUMeshBuffer();
+    asset::SCPUMesh* mesh = new asset::SCPUMesh();
+    asset::ICPUMeshBuffer* meshbuf = new asset::ICPUMeshBuffer();
     ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
     desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR0, ECPA_THREE, ECT_FLOAT, sizeof(ConeVertex), offsetof(ConeVertex, pos));
     desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR1, ECPA_FOUR, ECT_NORMALIZED_UNSIGNED_BYTE, sizeof(ConeVertex), offsetof(ConeVertex, color));
@@ -655,7 +657,7 @@ IGPUMesh* CGeometryCreator::createConeMeshGPU(video::IVideoDriver* driver,
     if (!driver)
         return NULL;
 
-	ICPUMesh* cpumesh = static_cast<SCPUMesh*>(createConeMeshCPU(radius,length,tesselation,colorTop,colorBottom,oblique));
+	asset::ICPUMesh* cpumesh = static_cast<asset::SCPUMesh*>(createConeMeshCPU(radius,length,tesselation,colorTop,colorBottom,oblique));
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
 	IGPUMesh* mesh = nullptr;

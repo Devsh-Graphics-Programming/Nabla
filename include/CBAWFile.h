@@ -10,6 +10,7 @@
 #include "aabbox3d.h"
 #include "SMaterial.h"
 #include "ICPUTexture.h"
+#include "irr/core/ICPUBuffer.h"
 
 struct ISzAlloc;
 
@@ -19,14 +20,17 @@ namespace core
 {
 	class ICPUBuffer;
 }
+namespace asset
+{
+    class ICPUMeshBuffer;
+    class ICPUMesh;
+    class ICPUSkinnedMesh;
+    class SCPUSkinMeshBuffer;
+}
 
 namespace scene
 {
-	class ICPUMeshBuffer;
-	class ICPUMesh;
 	class ISceneManager;
-	class ICPUSkinnedMesh;
-	class SCPUSkinMeshBuffer;
 	template<typename> class IMeshDataFormatDesc;
 	class CFinalBoneHierarchy;
 }
@@ -187,12 +191,12 @@ namespace core
 	{};
 
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-	struct IRR_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0,scene::ICPUMesh>, TypedBlob<MeshBlobV0, scene::ICPUMesh>
+	struct IRR_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0,asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
 	{
-		friend struct SizedBlob<core::VariableSizeBlob, MeshBlobV0, scene::ICPUMesh>;
+		friend struct SizedBlob<core::VariableSizeBlob, MeshBlobV0, asset::ICPUMesh>;
 	private:
             //! WARNING: Constructor saves only bounding box and mesh buffer count (not mesh buffer pointers)
-		explicit MeshBlobV0(const scene::ICPUMesh* _mesh);
+		explicit MeshBlobV0(const asset::ICPUMesh* _mesh);
 
 	public:
         aabbox3df box;
@@ -201,11 +205,11 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-	struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,scene::ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>
+	struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,asset::ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>
 	{
-		friend struct SizedBlob<core::VariableSizeBlob, SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>;
+		friend struct SizedBlob<core::VariableSizeBlob, SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>;
 	private:
-        explicit SkinnedMeshBlobV0(const scene::ICPUSkinnedMesh* _sm);
+        explicit SkinnedMeshBlobV0(const asset::ICPUSkinnedMesh* _sm);
 
 	public:
         uint64_t boneHierarchyPtr;
@@ -215,10 +219,10 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-	struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>
+	struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>
 	{
 		//! Constructor filling all members
-		explicit MeshBufferBlobV0(const scene::ICPUMeshBuffer*);
+		explicit MeshBufferBlobV0(const asset::ICPUMeshBuffer*);
 
 		video::SGPUMaterial mat;
 		core::aabbox3df box;
@@ -233,10 +237,10 @@ namespace core
 		uint32_t posAttrId;
 	} PACK_STRUCT;
 
-	struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>
+	struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>
 	{
 		//! Constructor filling all members
-		explicit SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer*);
+		explicit SkinnedMeshBufferBlobV0(const asset::SCPUSkinMeshBuffer*);
 
 		video::SGPUMaterial mat;
 		core::aabbox3df box;
@@ -255,13 +259,13 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
-	struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >
+	struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >
 	{
 	private:
 		enum { VERTEX_ATTRIB_CNT = 16 };
 	public:
 		//! Constructor filling all members
-		explicit MeshDataFormatDescBlobV0(const scene::IMeshDataFormatDesc<core::ICPUBuffer>*);
+		explicit MeshDataFormatDescBlobV0(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>*);
 
 		uint32_t cpa[VERTEX_ATTRIB_CNT];
 		uint32_t attrType[VERTEX_ATTRIB_CNT];
@@ -349,17 +353,17 @@ namespace core
 	template<typename>
 	struct CorrespondingBlobTypeFor;
 	template<>
-	struct CorrespondingBlobTypeFor<ICPUBuffer> { typedef RawBufferBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::ICPUBuffer> { typedef RawBufferBlobV0 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<scene::ICPUMesh> { typedef MeshBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::ICPUMesh> { typedef MeshBlobV0 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<scene::ICPUSkinnedMesh> { typedef SkinnedMeshBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::ICPUSkinnedMesh> { typedef SkinnedMeshBlobV0 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<scene::ICPUMeshBuffer> { typedef MeshBufferBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::ICPUMeshBuffer> { typedef MeshBufferBlobV0 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<scene::SCPUSkinMeshBuffer> { typedef SkinnedMeshBufferBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::SCPUSkinMeshBuffer> { typedef SkinnedMeshBufferBlobV0 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<scene::IMeshDataFormatDesc<core::ICPUBuffer> > { typedef MeshDataFormatDescBlobV0 type; };
+	struct CorrespondingBlobTypeFor<scene::IMeshDataFormatDesc<asset::ICPUBuffer> > { typedef MeshDataFormatDescBlobV0 type; };
 	template<>
 	struct CorrespondingBlobTypeFor<scene::CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV0 type; };
 	template<>

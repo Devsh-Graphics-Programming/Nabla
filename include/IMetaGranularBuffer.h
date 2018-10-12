@@ -33,11 +33,11 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
         const size_t BackBufferGrowStep;
         const size_t BackBufferShrinkStep;
 
-        core::ICPUBuffer* B;
+        asset::ICPUBuffer* B;
 
         inline bool GrowBackBuffer(const size_t& newGranuleCount)
         {
-            core::ICPUBuffer* C = new core::ICPUBuffer(newGranuleCount*GranuleByteSize);
+            asset::ICPUBuffer* C = new asset::ICPUBuffer(newGranuleCount*GranuleByteSize);
             if (!C)
                 return false;
 
@@ -51,7 +51,7 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
         inline void ShrinkBackBuffer()
         {
             size_t newGranules = Allocated+BackBufferGrowStep;
-            core::ICPUBuffer* C = new core::ICPUBuffer(newGranules*GranuleByteSize);
+            asset::ICPUBuffer* C = new asset::ICPUBuffer(newGranules*GranuleByteSize);
             if (!C)
                 return;
 
@@ -96,7 +96,7 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
             for (size_t i=0; i<Granules; i++)
                 residencyRedirectTo[i] = 0xdeadbeefu;
 
-            B = new core::ICPUBuffer(GranuleByteSize*granuleCount);
+            B = new asset::ICPUBuffer(GranuleByteSize*granuleCount);
             if (!B)
             {
                 Granules = 0;
@@ -296,7 +296,7 @@ class IMetaGranularBuffer : public virtual core::IReferenceCounted
 };
 
 
-class IMetaGranularCPUBuffer : public IMetaGranularBuffer<core::ICPUBuffer>
+class IMetaGranularCPUBuffer : public IMetaGranularBuffer<asset::ICPUBuffer>
 {
     protected:
         virtual ~IMetaGranularCPUBuffer()
@@ -305,15 +305,15 @@ class IMetaGranularCPUBuffer : public IMetaGranularBuffer<core::ICPUBuffer>
                 A->drop();
         }
 
-        core::ICPUBuffer* A;
+        asset::ICPUBuffer* A;
     public:
         IMetaGranularCPUBuffer(const size_t& granuleSize, const size_t& granuleCount, const bool& clientMemeory=true, const size_t& bufferGrowStep=512, const size_t& bufferShrinkStep=2048)
-                                    : IMetaGranularBuffer<core::ICPUBuffer>(granuleSize,granuleCount,bufferGrowStep,bufferShrinkStep), A(NULL)
+                                    : IMetaGranularBuffer<asset::ICPUBuffer>(granuleSize,granuleCount,bufferGrowStep,bufferShrinkStep), A(NULL)
         {
             if (!B)
                 return;
 
-            A = new core::ICPUBuffer(GranuleByteSize*granuleCount);
+            A = new asset::ICPUBuffer(GranuleByteSize*granuleCount);
             if (!A)
             {
                 B->drop();
@@ -326,13 +326,13 @@ class IMetaGranularCPUBuffer : public IMetaGranularBuffer<core::ICPUBuffer>
             }
         }
 
-        virtual core::ICPUBuffer* getFrontBuffer() {return A;}
+        virtual asset::ICPUBuffer* getFrontBuffer() {return A;}
 
-        virtual void SwapBuffers(void (*StuffToDoToNewBuffer)(core::ICPUBuffer*,void*)=NULL, void* userData=NULL)
+        virtual void SwapBuffers(void (*StuffToDoToNewBuffer)(asset::ICPUBuffer*,void*)=NULL, void* userData=NULL)
         {
             if (A->getSize()!=B->getSize())
             {
-                core::ICPUBuffer* C = new ICPUBuffer(B->getSize());
+                asset::ICPUBuffer* C = new asset::ICPUBuffer(B->getSize());
                 if (!C)
                     return;
 

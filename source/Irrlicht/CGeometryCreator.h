@@ -58,10 +58,10 @@ private:
 #include "irr/irrunpack.h"
 
 public:
-	ICPUMesh* createCubeMeshCPU(const core::vector3df& size) const;
+	asset::ICPUMesh* createCubeMeshCPU(const core::vector3df& size) const;
 	IGPUMesh* createCubeMeshGPU(video::IVideoDriver* driver, const core::vector3df& size) const;
 
-	ICPUMesh* createArrowMeshCPU(const uint32_t tesselationCylinder,
+	asset::ICPUMesh* createArrowMeshCPU(const uint32_t tesselationCylinder,
 			const uint32_t tesselationCone, const float height,
 			const float cylinderHeight, const float width0,
 			const float width1, const video::SColor vtxColor0,
@@ -72,17 +72,17 @@ public:
 			const float width1, const video::SColor vtxColor0,
 			const video::SColor vtxColor1) const;
 
-	ICPUMesh* createSphereMeshCPU(float radius, uint32_t polyCountX, uint32_t polyCountY) const;
+	asset::ICPUMesh* createSphereMeshCPU(float radius, uint32_t polyCountX, uint32_t polyCountY) const;
 	IGPUMesh* createSphereMeshGPU(video::IVideoDriver* driver, float radius, uint32_t polyCountX, uint32_t polyCountY) const;
 
-	ICPUMesh* createCylinderMeshCPU(float radius, float length, uint32_t tesselation,
+	asset::ICPUMesh* createCylinderMeshCPU(float radius, float length, uint32_t tesselation,
 				const video::SColor& color=0xffffffff,
 				bool closeTop=true, float oblique=0.f) const;
 	IGPUMesh* createCylinderMeshGPU(video::IVideoDriver* driver, float radius, float length, uint32_t tesselation,
 				const video::SColor& color=0xffffffff,
 				bool closeTop=true, float oblique=0.f) const;
 
-	ICPUMesh* createConeMeshCPU(float radius, float length, uint32_t tesselation,
+	asset::ICPUMesh* createConeMeshCPU(float radius, float length, uint32_t tesselation,
 				const video::SColor& colorTop=0xffffffff,
 				const video::SColor& colorBottom=0xffffffff,
 				float oblique=0.f) const;

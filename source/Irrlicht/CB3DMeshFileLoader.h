@@ -96,7 +96,7 @@ private:
 	bool readChunkNODE(CSkinnedMesh::SJoint* InJoint);
 	bool readChunkMESH(CSkinnedMesh::SJoint* InJoint);
 	bool readChunkVRTS(CSkinnedMesh::SJoint* InJoint);
-	bool readChunkTRIS(scene::SSkinMeshBuffer *MeshBuffer, uint32_t MeshBufferID, int32_t Vertices_Start);
+	bool readChunkTRIS(asset::SSkinMeshBuffer *MeshBuffer, uint32_t MeshBufferID, int32_t Vertices_Start);
 	bool readChunkBONE(CSkinnedMesh::SJoint* InJoint);
 	bool readChunkKEYS(CSkinnedMesh::SJoint* InJoint);
 	bool readChunkANIM();

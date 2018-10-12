@@ -275,7 +275,7 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             }
             if (indices.size())
             {
-                core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * indices.size());
+                asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * indices.size());
                 memcpy(idxBuf->getPointer(), indices.data(), idxBuf->getSize());
                 desc->mapIndexBuffer(idxBuf);
                 idxBuf->drop();
@@ -585,7 +585,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const c
 
     const size_t stride = std::accumulate(sizes, sizes+4, static_cast<size_t>(0));
 
-    core::ICPUBuffer* buf = new core::ICPUBuffer(_attribs[E_POS].size() * stride);
+    asset::ICPUBuffer* buf = new asset::ICPUBuffer(_attribs[E_POS].size() * stride);
 
     auto desc = _mbuf->getMeshDataAndFormat();
     if (sizes[E_POS])

@@ -47,11 +47,11 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     SAssetWriteContext ctx{_params, _file};
 
-    const ICPUMesh* mesh =
+    const asset::ICPUMesh* mesh =
 #   ifndef _DEBUG
         static_cast<const ICPUMesh*>(_params.rootAsset);
 #   else
-        dynamic_cast<const ICPUMesh*>(_params.rootAsset);
+        dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   endif
     assert(mesh);
 
@@ -72,7 +72,7 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 namespace
 {
 template <class I>
-inline void writeFacesBinary(ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, scene::E_VERTEX_ATTRIBUTE_ID _colorVaid)
+inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, scene::E_VERTEX_ATTRIBUTE_ID _colorVaid)
 {
     bool hasColor = buffer->getMeshDataAndFormat()->getMappedBuffer(_colorVaid);
     const scene::E_COMPONENT_TYPE colorType = buffer->getMeshDataAndFormat()->getAttribType(_colorVaid);
@@ -132,7 +132,7 @@ inline void writeFacesBinary(ICPUMeshBuffer* buffer, const bool& noIndices, io::
 }
 }
 
-bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const scene::ICPUMesh* mesh)
+bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine";
@@ -158,7 +158,7 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const scene::ICPUMesh
 
 	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
 	{
-		ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
+		asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer&&buffer->getMeshDataAndFormat())
 		{
 			E_INDEX_TYPE type = buffer->getIndexType();
@@ -182,7 +182,7 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const scene::ICPUMesh
 }
 
 
-bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const scene::ICPUMesh* mesh)
+bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine ";
@@ -197,7 +197,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const scene::ICPUMesh*
 
 	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
 	{
-		ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
+		asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer&&buffer->getMeshDataAndFormat())
 		{
 			E_INDEX_TYPE type = buffer->getIndexType();

@@ -20,6 +20,7 @@
 #include "IMeshCache.h"
 #include "ISkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
+#include "ICPUMesh.h"
 
 namespace irr
 {
@@ -261,7 +262,7 @@ namespace scene
 		 * \return Null if failed, otherwise pointer to the mesh.
 		 * This pointer should not be dropped. See IReferenceCounted::drop() for more information.
 		 **/
-		virtual ICPUMesh* getMesh(const io::path& filename) = 0;
+		virtual asset::ICPUMesh* getMesh(const io::path& filename) = 0;
 
 		//! Get pointer to an animateable mesh. Loads the file if not loaded already.
 		/** Works just as getMesh(const char* filename). If you want to
@@ -270,13 +271,13 @@ namespace scene
 		\return NULL if failed and pointer to the mesh if successful.
 		This pointer should not be dropped. See
 		IReferenceCounted::drop() for more information. */
-		virtual ICPUMesh* getMesh(io::IReadFile* file) = 0;
+		virtual asset::ICPUMesh* getMesh(io::IReadFile* file) = 0;
 
 		//! Get interface to the mesh cache which is shared beween all existing scene managers.
 		/** With this interface, it is possible to manually add new loaded
 		meshes (if ISceneManager::getMesh() is not sufficient), to remove them and to iterate
 		through already loaded meshes. */
-		virtual IMeshCache<ICPUMesh>* getMeshCache() = 0;
+		virtual IMeshCache<asset::ICPUMesh>* getMeshCache() = 0;
 
 		//! Get the video driver.
 		/** \return Pointer to the video Driver.

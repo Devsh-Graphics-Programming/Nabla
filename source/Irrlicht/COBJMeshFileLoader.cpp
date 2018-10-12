@@ -180,7 +180,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
                     {
                         mb->grab();
                         SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
-                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<ICPUMeshBuffer*>(mb)));
+                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<asset::ICPUMeshBuffer*>(mb)));
                     }
                     else mtlChanged=true;
 
@@ -221,7 +221,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
                     {
                         mb->grab();
                         SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
-                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<ICPUMeshBuffer*>(mb)));
+                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<asset::ICPUMeshBuffer*>(mb)));
                     }
                     else mtlChanged=true;
 
@@ -338,7 +338,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	// Clean up the allocate obj _file contents
 	delete [] buf;
 
-	SCPUMesh* mesh = new SCPUMesh();
+	asset::SCPUMesh* mesh = new asset::SCPUMesh();
 
 	// Combine all the groups (meshbuffers) into the mesh
 	for ( uint32_t m = 0; m < ctx.Materials.size(); ++m )
@@ -398,7 +398,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         }
         else*/
 
-        ICPUMeshBuffer* meshbuffer = new ICPUMeshBuffer();
+        asset::ICPUMeshBuffer* meshbuffer = new asset::ICPUMeshBuffer();
         mesh->addMeshBuffer(meshbuffer);
 
         meshbuffer->getMaterial() = ctx.Materials[m]->Material;
@@ -418,7 +418,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             }
         }
 
-        core::ICPUBuffer* vertexbuf;
+        asset::ICPUBuffer* vertexbuf;
         size_t actualVertexCount;
         if (doesntNeedIndices)
         {
@@ -430,7 +430,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             baseVertex = 0;
             actualVertexCount = ctx.Materials[m]->Vertices.size();
 
-            core::ICPUBuffer* indexbuf = new core::ICPUBuffer(ctx.Materials[m]->Indices.size()*4);
+            asset::ICPUBuffer* indexbuf = new asset::ICPUBuffer(ctx.Materials[m]->Indices.size()*4);
             desc->mapIndexBuffer(indexbuf);
             indexbuf->drop();
             memcpy(indexbuf->getPointer(),&ctx.Materials[m]->Indices[0],indexbuf->getSize());
@@ -439,7 +439,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size());
         }
 
-        vertexbuf = new core::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
+        vertexbuf = new asset::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(SObjVertex),0);
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,sizeof(SObjVertex),12);
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(SObjVertex),20); //normal

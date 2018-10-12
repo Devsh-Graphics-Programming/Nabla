@@ -5,7 +5,7 @@
 
 #include "CBAWFile.h"
 
-#include "ISkinnedMesh.h"
+#include "ICPUSkinnedMesh.h"
 #include "SSkinMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 #include "coreutil.h"
@@ -45,19 +45,19 @@ bool core::BlobHeaderV0::validate(const void* _data) const
 }
 
 
-MeshBlobV0::MeshBlobV0(const scene::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
+MeshBlobV0::MeshBlobV0(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
 {
 	for (uint32_t i = 0; i < meshBufCnt; ++i)
 		meshBufPtrs[i] = reinterpret_cast<uint64_t>(_mesh->getMeshBuffer(i));
 }
 
 template<>
-size_t SizedBlob<VariableSizeBlob, MeshBlobV0, scene::ICPUMesh>::calcBlobSizeForObj(const scene::ICPUMesh* _obj)
+size_t SizedBlob<VariableSizeBlob, MeshBlobV0, asset::ICPUMesh>::calcBlobSizeForObj(const asset::ICPUMesh* _obj)
 {
 	return sizeof(MeshBlobV0) + (_obj->getMeshBufferCount()-1) * sizeof(uint64_t);
 }
 
-SkinnedMeshBlobV0::SkinnedMeshBlobV0(const scene::ICPUSkinnedMesh* _sm)
+SkinnedMeshBlobV0::SkinnedMeshBlobV0(const asset::ICPUSkinnedMesh* _sm)
 	: boneHierarchyPtr(reinterpret_cast<uint64_t>(_sm->getBoneReferenceHierarchy())), box(_sm->getBoundingBox()), meshBufCnt(_sm->getMeshBufferCount())
 {
 	for (uint32_t i = 0; i < meshBufCnt; ++i)
@@ -67,12 +67,12 @@ SkinnedMeshBlobV0::SkinnedMeshBlobV0(const scene::ICPUSkinnedMesh* _sm)
 }
 
 template<>
-size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::calcBlobSizeForObj(const scene::ICPUSkinnedMesh* _obj)
+size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::calcBlobSizeForObj(const asset::ICPUSkinnedMesh* _obj)
 {
 	return sizeof(SkinnedMeshBlobV0) + (_obj->getMeshBufferCount() - 1) * sizeof(uint64_t);
 }
 
-MeshBufferBlobV0::MeshBufferBlobV0(const scene::ICPUMeshBuffer* _mb)
+MeshBufferBlobV0::MeshBufferBlobV0(const asset::ICPUMeshBuffer* _mb)
 {
 	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SGPUMaterial));
 	_mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
@@ -92,12 +92,12 @@ MeshBufferBlobV0::MeshBufferBlobV0(const scene::ICPUMeshBuffer* _mb)
 }
 
 template<>
-size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV0, scene::ICPUMeshBuffer>::calcBlobSizeForObj(const scene::ICPUMeshBuffer* _obj)
+size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV0, asset::ICPUMeshBuffer>::calcBlobSizeForObj(const asset::ICPUMeshBuffer* _obj)
 {
 	return sizeof(MeshBufferBlobV0);
 }
 
-SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer* _smb)
+SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const asset::SCPUSkinMeshBuffer* _smb)
 {
 	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SGPUMaterial));
 	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
@@ -120,12 +120,12 @@ SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer
 }
 
 template<>
-size_t SizedBlob<FixedSizeBlob, SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::calcBlobSizeForObj(const scene::SCPUSkinMeshBuffer* _obj)
+size_t SizedBlob<FixedSizeBlob, SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::calcBlobSizeForObj(const asset::SCPUSkinMeshBuffer* _obj)
 {
 	return sizeof(SkinnedMeshBufferBlobV0);
 }
 
-MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _desc)
+MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc)
 {
 	using namespace scene;
 
@@ -148,7 +148,7 @@ MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatD
 }
 
 template<>
-size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::calcBlobSizeForObj(const scene::IMeshDataFormatDesc<core::ICPUBuffer>* _obj)
+size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
 {
 	return sizeof(MeshDataFormatDescBlobV0);
 }

@@ -302,7 +302,7 @@ bool CMS3DMeshFileLoader::load(io::IReadFile* file)
 			return false;
 		}
 
-		scene::SSkinMeshBuffer *tmpBuffer = AnimatedMesh->addMeshBuffer();
+		asset::SSkinMeshBuffer *tmpBuffer = AnimatedMesh->addMeshBuffer();
 
 		tmpBuffer->Material.MaterialType = video::EMT_SOLID;
 

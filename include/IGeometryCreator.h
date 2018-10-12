@@ -7,6 +7,7 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "IMesh.h"
+#include "ICPUMesh.h"
 
 namespace irr
 {
@@ -31,7 +32,7 @@ public:
 	\return Generated mesh.
 	*/
 	virtual IGPUMesh* createCubeMeshGPU(video::IVideoDriver* driver, const core::vector3df& size=core::vector3df(5.f,5.f,5.f)) const =0;
-	virtual ICPUMesh* createCubeMeshCPU(const core::vector3df& size=core::vector3df(5.f,5.f,5.f)) const =0;
+	virtual asset::ICPUMesh* createCubeMeshCPU(const core::vector3df& size=core::vector3df(5.f,5.f,5.f)) const =0;
 
 
 	//! Create an arrow mesh, composed of a cylinder and a cone.
@@ -53,7 +54,7 @@ public:
 			const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
 			const float widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
 			const video::SColor colorCone = 0xFFFFFFFF) const =0;
-	virtual ICPUMesh* createArrowMeshCPU(const uint32_t tesselationCylinder = 4,
+	virtual asset::ICPUMesh* createArrowMeshCPU(const uint32_t tesselationCylinder = 4,
 			const uint32_t tesselationCone = 8, const float height = 1.f,
 			const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
 			const float widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
@@ -69,7 +70,7 @@ public:
 	*/
 	virtual IGPUMesh* createSphereMeshGPU(video::IVideoDriver* driver, float radius = 5.f,
 			uint32_t polyCountX = 16, uint32_t polyCountY = 16) const =0;
-	virtual ICPUMesh* createSphereMeshCPU(float radius = 5.f,
+	virtual asset::ICPUMesh* createSphereMeshCPU(float radius = 5.f,
 			uint32_t polyCountX = 16, uint32_t polyCountY = 16) const =0;
 
 	//! Create a cylinder mesh.
@@ -86,7 +87,7 @@ public:
 			uint32_t tesselation,
 			const video::SColor& color=video::SColor(0xffffffff),
 			bool closeTop=true, float oblique=0.f) const =0;
-	virtual ICPUMesh* createCylinderMeshCPU(float radius, float length,
+	virtual asset::ICPUMesh* createCylinderMeshCPU(float radius, float length,
 			uint32_t tesselation,
 			const video::SColor& color=video::SColor(0xffffffff),
 			bool closeTop=true, float oblique=0.f) const =0;
@@ -105,7 +106,7 @@ public:
 			const video::SColor& colorTop=video::SColor(0xffffffff),
 			const video::SColor& colorBottom=video::SColor(0xffffffff),
 			float oblique=0.f) const =0;
-	virtual ICPUMesh* createConeMeshCPU(float radius, float length, uint32_t tesselation,
+	virtual asset::ICPUMesh* createConeMeshCPU(float radius, float length, uint32_t tesselation,
 			const video::SColor& colorTop=video::SColor(0xffffffff),
 			const video::SColor& colorBottom=video::SColor(0xffffffff),
 			float oblique=0.f) const =0;

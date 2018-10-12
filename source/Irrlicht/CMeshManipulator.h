@@ -42,7 +42,7 @@ public:
 	//! Flips the direction of surfaces.
 	/** Changes backfacing triangles to frontfacing triangles and vice versa.
 	\param mesh: Mesh on which the operation is performed. */
-	virtual void flipSurfaces(ICPUMeshBuffer* inbuffer) const;
+	virtual void flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const;
 
 #ifndef NEW_MESHES
 	//! Recalculates all normals of the mesh.
@@ -62,25 +62,25 @@ public:
 	virtual void recalculateTangents(IMesh* mesh, bool recalculateNormals=false, bool smooth=false, bool angleWeighted=false) const;
 #endif // NEW_MESHES
 
-	virtual ICPUMeshBuffer* createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer) const;
+	virtual asset::ICPUMeshBuffer* createMeshBufferFetchOptimized(const asset::ICPUMeshBuffer* _inbuffer) const;
 
 	//! Creates a copy of the mesh, which will only consist of unique triangles, i.e. no vertices are shared.
-	virtual ICPUMeshBuffer* createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer) const;
+	virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const;
 
 	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
-	virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh=false) const;
+	virtual asset::ICPUMeshBuffer* createMeshBufferWelded(asset::ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh=false) const;
 
-	virtual ICPUMeshBuffer* createOptimizedMeshBuffer(const ICPUMeshBuffer* inbuffer, const SErrorMetric* _errMetric) const;
+	virtual asset::ICPUMeshBuffer* createOptimizedMeshBuffer(const asset::ICPUMeshBuffer* inbuffer, const SErrorMetric* _errMetric) const;
 
-	virtual void requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const;
+	virtual void requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const;
 
-	virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const;
+	virtual asset::ICPUMeshBuffer* createMeshBufferDuplicate(const asset::ICPUMeshBuffer* _src) const;
 
-    virtual void filterInvalidTriangles(ICPUMeshBuffer* _input) const;
+    virtual void filterInvalidTriangles(asset::ICPUMeshBuffer* _input) const;
 
-    virtual core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const;
+    virtual asset::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const;
 
-    virtual core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const;
+    virtual asset::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const;
 
     virtual bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, E_COMPONENTS_PER_ATTRIBUTE _cpa, const SErrorMetric& _errMetric) const;
 
@@ -91,18 +91,18 @@ private:
     void copyMeshBufferMemberVars(T* _dst, const T* _src) const;
 
     template<typename IdxT>
-    void priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const;
+    void priv_filterInvalidTriangles(asset::ICPUMeshBuffer* _input) const;
 
 	//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
-	core::ICPUBuffer* create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const;
+	asset::ICPUBuffer* create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const;
 
-	core::vector<core::vectorSIMDf> findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
+	core::vector<core::vectorSIMDf> findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
 
 	struct SIntegerAttr
 	{
 		uint32_t pointer[4];
 	};
-	core::vector<SIntegerAttr> findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
+	core::vector<SIntegerAttr> findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
 
 	//E_COMPONENT_TYPE getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const;
 	E_COMPONENT_TYPE getBestTypeI(bool _nativeInt, bool _unsigned, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const uint32_t* _min, const uint32_t* _max) const;
@@ -113,10 +113,10 @@ private:
 	bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric) const;
 
 	template<typename T>
-	core::ICPUBuffer* triangleStripsToTriangles(const void* _input, size_t _idxCount) const;
+	asset::ICPUBuffer* triangleStripsToTriangles(const void* _input, size_t _idxCount) const;
 
 	template<typename T>
-	core::ICPUBuffer* trianglesFanToTriangles(const void* _input, size_t _idxCount) const;
+	asset::ICPUBuffer* trianglesFanToTriangles(const void* _input, size_t _idxCount) const;
 };
 
 } // end namespace scene

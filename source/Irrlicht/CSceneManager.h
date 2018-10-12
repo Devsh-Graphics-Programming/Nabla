@@ -42,13 +42,13 @@ namespace scene
 			gui::ICursorControl* cursorControl);
 
 		//! gets a mesh. loads it if needed. returned pointer must not be dropped.
-		virtual ICPUMesh* getMesh(const io::path& filename);
+		virtual asset::ICPUMesh* getMesh(const io::path& filename);
 
 		//! gets a mesh. loads it if needed. returned pointer must not be dropped.
-		virtual ICPUMesh* getMesh(io::IReadFile* file);
+		virtual asset::ICPUMesh* getMesh(io::IReadFile* file);
 
 		//! Returns an interface to the mesh cache which is shared beween all existing scene managers.
-		virtual IMeshCache<ICPUMesh>* getMeshCache();
+		virtual IMeshCache<asset::ICPUMesh>* getMeshCache();
 
 		//! returns the video driver
 		virtual video::IVideoDriver* getVideoDriver();
@@ -375,7 +375,7 @@ namespace scene
 		core::unordered_map<std::string,ParamStorage> Parameters;
 
 		//! Mesh cache
-		IMeshCache<ICPUMesh>* MeshCache;
+		IMeshCache<asset::ICPUMesh>* MeshCache;
 		video::IGPUBuffer* redundantMeshDataBuf;
 
 		E_SCENE_NODE_RENDER_PASS CurrentRendertime;

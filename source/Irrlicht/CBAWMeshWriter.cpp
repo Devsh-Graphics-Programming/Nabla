@@ -10,7 +10,7 @@
 #include "ICPUTexture.h"
 #include "irr/core/Types.h"
 #include "irr/macros.h"
-#include "ISkinnedMesh.h"
+#include "ICPUSkinnedMesh.h"
 #include "SSkinMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 #include "os.h"
@@ -32,7 +32,7 @@ namespace irr {namespace scene {
 	}
 
 	template<>
-	void CBAWMeshWriter::exportAsBlob<ICPUMesh>(ICPUMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	void CBAWMeshWriter::exportAsBlob<asset::ICPUMesh>(asset::ICPUMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u<<14];
 		core::MeshBlobV0* data = core::MeshBlobV0::createAndTryOnStack(_obj, stackData, sizeof(stackData));
@@ -47,7 +47,7 @@ namespace irr {namespace scene {
 			free(data);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMesh>(ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	void CBAWMeshWriter::exportAsBlob<asset::ICPUSkinnedMesh>(asset::ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u << 14];
 		core::SkinnedMeshBlobV0* data = core::SkinnedMeshBlobV0::createAndTryOnStack(_obj,stackData,sizeof(stackData));
@@ -62,7 +62,7 @@ namespace irr {namespace scene {
 			free(data);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	void CBAWMeshWriter::exportAsBlob<asset::ICPUMeshBuffer>(asset::ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		core::MeshBufferBlobV0 data(_obj);
 
@@ -73,7 +73,7 @@ namespace irr {namespace scene {
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<SCPUSkinMeshBuffer>(SCPUSkinMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	void CBAWMeshWriter::exportAsBlob<asset::SCPUSkinMeshBuffer>(asset::SCPUSkinMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		core::SkinnedMeshBufferBlobV0 data(_obj);
 
@@ -111,14 +111,14 @@ namespace irr {namespace scene {
 			free(data);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<core::ICPUBuffer> >(IMeshDataFormatDesc<core::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<asset::ICPUBuffer> >(IMeshDataFormatDesc<asset::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		core::MeshDataFormatDescBlobV0 data(_obj);
 
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, asset::EWF_NONE);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<core::ICPUBuffer>(core::ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	void CBAWMeshWriter::exportAsBlob<asset::ICPUBuffer>(asset::ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
         const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 3u);
         const uint8_t* encrPwd = nullptr;
@@ -139,7 +139,7 @@ namespace irr {namespace scene {
         if (!_override)
             _override = &bawOverride;
 
-        const ICPUMesh* mesh = static_cast<const ICPUMesh*>(_params.rootAsset);
+        const asset::ICPUMesh* mesh = static_cast<const asset::ICPUMesh*>(_params.rootAsset);
 
 		constexpr uint32_t FILE_HEADER_SIZE = 32;
         static_assert(FILE_HEADER_SIZE == sizeof(core::BAWFileV0::fileHeader), "BAW header is not 32 bytes long!");
@@ -174,22 +174,22 @@ namespace irr {namespace scene {
 			switch (ctx.headers[i].blobType)
 			{
 			case core::Blob::EBT_MESH:
-				exportAsBlob(reinterpret_cast<ICPUMesh*>(ctx.headers[i].handle), i, _file, ctx);
+				exportAsBlob(reinterpret_cast<asset::ICPUMesh*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_SKINNED_MESH:
-				exportAsBlob(reinterpret_cast<ICPUSkinnedMesh*>(ctx.headers[i].handle), i, _file, ctx);
+				exportAsBlob(reinterpret_cast<asset::ICPUSkinnedMesh*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_MESH_BUFFER:
-				exportAsBlob(reinterpret_cast<ICPUMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
+				exportAsBlob(reinterpret_cast<asset::ICPUMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_SKINNED_MESH_BUFFER:
-				exportAsBlob(reinterpret_cast<SCPUSkinMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
+				exportAsBlob(reinterpret_cast<asset::SCPUSkinMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_RAW_DATA_BUFFER:
-				exportAsBlob(reinterpret_cast<core::ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx);
+				exportAsBlob(reinterpret_cast<asset::ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_DATA_FORMAT_DESC:
-				exportAsBlob(reinterpret_cast<IMeshDataFormatDesc<core::ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx);
+				exportAsBlob(reinterpret_cast<IMeshDataFormatDesc<asset::ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case core::Blob::EBT_FINAL_BONE_HIERARCHY:
 				exportAsBlob(reinterpret_cast<CFinalBoneHierarchy*>(ctx.headers[i].handle), i, _file, ctx);
@@ -214,16 +214,16 @@ namespace irr {namespace scene {
 		return true;
 	}
 
-	uint32_t CBAWMeshWriter::genHeaders(const ICPUMesh* _mesh, SContext& _ctx)
+	uint32_t CBAWMeshWriter::genHeaders(const asset::ICPUMesh* _mesh, SContext& _ctx)
 	{
 		_ctx.headers.clear();
 
 		bool isMeshAnimated = true;
-		const ICPUSkinnedMesh* skinnedMesh = nullptr;
+		const asset::ICPUSkinnedMesh* skinnedMesh = nullptr;
 
 		if (_mesh)
 		{
-			skinnedMesh = _mesh->getMeshType()!=EMT_ANIMATED_SKINNED ? NULL:dynamic_cast<const ICPUSkinnedMesh*>(_mesh); //ICPUSkinnedMesh is a direct non-virtual inheritor
+			skinnedMesh = _mesh->getMeshType()!=EMT_ANIMATED_SKINNED ? NULL:dynamic_cast<const asset::ICPUSkinnedMesh*>(_mesh); //asset::ICPUSkinnedMesh is a direct non-virtual inheritor
 			if (!skinnedMesh || (skinnedMesh && skinnedMesh->isStatic()))
 				isMeshAnimated = false;
 
@@ -249,8 +249,8 @@ namespace irr {namespace scene {
 		core::unordered_set<const IReferenceCounted*> countedObjects;
 		for (uint32_t i = 0; i < _mesh->getMeshBufferCount(); ++i)
 		{
-			const ICPUMeshBuffer* const meshBuffer = _mesh->getMeshBuffer(i);
-			const IMeshDataFormatDesc<core::ICPUBuffer>* const desc = meshBuffer->getMeshDataAndFormat();
+			const asset::ICPUMeshBuffer* const meshBuffer = _mesh->getMeshBuffer(i);
+			const IMeshDataFormatDesc<asset::ICPUBuffer>* const desc = meshBuffer->getMeshDataAndFormat();
 
 			if (!meshBuffer || !desc)
 				continue;
@@ -290,7 +290,7 @@ namespace irr {namespace scene {
 				countedObjects.insert(desc);
 			}
 
-			const core::ICPUBuffer* idxBuffer = desc->getIndexBuffer();
+			const asset::ICPUBuffer* idxBuffer = desc->getIndexBuffer();
 			if (idxBuffer && countedObjects.find(idxBuffer) == countedObjects.end())
 			{
 				core::BlobHeaderV0 bh;
@@ -303,7 +303,7 @@ namespace irr {namespace scene {
 
 			for (int attId = 0; attId < EVAI_COUNT; ++attId)
 			{
-				const core::ICPUBuffer* attBuffer = desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)attId);
+				const asset::ICPUBuffer* attBuffer = desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)attId);
 				if (attBuffer && countedObjects.find(attBuffer) == countedObjects.end())
 				{
 					core::BlobHeaderV0 bh;

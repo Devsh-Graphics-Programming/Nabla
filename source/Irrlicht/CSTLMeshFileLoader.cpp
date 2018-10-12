@@ -7,7 +7,8 @@
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 
 #include "CSTLMeshFileLoader.h"
-#include "SMesh.h"
+#include "SCPUMesh.h"
+#include "ICPUMeshBuffer.h"
 
 #include "IReadFile.h"
 #include "coreutil.h"
@@ -29,10 +30,10 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
     bool hasColor = false;
 
-	SCPUMesh* mesh = new SCPUMesh();
+	asset::SCPUMesh* mesh = new asset::SCPUMesh();
 	ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
     {
-	ICPUMeshBuffer* meshbuffer = new ICPUMeshBuffer();
+	asset::ICPUMeshBuffer* meshbuffer = new asset::ICPUMeshBuffer();
 	meshbuffer->setMeshDataAndFormat(desc);
 	desc->drop();
 
@@ -163,7 +164,7 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	} // end while (_file->getPos() < filesize)
 
     const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
-	core::ICPUBuffer* vertexBuf = new core::ICPUBuffer(vtxSize*positions.size());
+	asset::ICPUBuffer* vertexBuf = new asset::ICPUBuffer(vtxSize*positions.size());
 
     uint32_t normal{};
     for (size_t i = 0u; i < positions.size(); ++i)

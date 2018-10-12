@@ -174,7 +174,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	os::Printer::log(tmpString.str());
 #endif // _DEBUG
 
-	return reinterpret_cast<ICPUMesh*>(retval);
+	return reinterpret_cast<asset::ICPUMesh*>(retval);
 }
 
 bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const

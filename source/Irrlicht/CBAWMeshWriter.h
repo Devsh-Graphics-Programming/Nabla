@@ -7,7 +7,7 @@
 #define __IRR_BAW_MESH_WRITER_H_INCLUDED__
 
 #include "IAssetWriter.h"
-#include "IMesh.h"
+#include "ICPUMesh.h"
 #include "CBAWFile.h"
 
 namespace irr {
@@ -105,7 +105,7 @@ namespace scene
 		/** After calling this method headers are NOT ready yet. Hashes (and also size in case of texture path blob) are calculated while writing blob data.
 		@param _mesh Pointer to the mesh object.
 		@return Amount of generated headers.*/
-		uint32_t genHeaders(const ICPUMesh* _mesh, SContext& _ctx);
+		uint32_t genHeaders(const asset::ICPUMesh* _mesh, SContext& _ctx);
 
 		//! Pushes new offset value to `SContext::offsets` array.
 		/** @param _blobSize Byte-distance from previous blob's first byte (i.e. size of previous blob).

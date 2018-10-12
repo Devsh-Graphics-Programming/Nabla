@@ -4,7 +4,9 @@
 #include "IGPUBuffer.h"
 #include "ITexture.h"
 #include "IMeshBuffer.h"
+#include "ICPUMeshBuffer.h"
 #include "IMesh.h"
+#include "ICPUMesh.h"
 
 namespace irr { namespace video
 {
@@ -13,11 +15,11 @@ template<typename AssetType>
 struct asset_traits;
 
 template<>
-struct asset_traits<core::ICPUBuffer> { using GPUObjectType = video::IGPUBuffer; };
+struct asset_traits<asset::ICPUBuffer> { using GPUObjectType = video::IGPUBuffer; };
 template<>
-struct asset_traits<scene::ICPUMeshBuffer> { using GPUObjectType = scene::IGPUMeshBuffer; };
+struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = scene::IGPUMeshBuffer; };
 template<>
-struct asset_traits<scene::ICPUMesh> { using GPUObjectType = scene::IGPUMesh; };
+struct asset_traits<asset::ICPUMesh> { using GPUObjectType = scene::IGPUMesh; };
 template<>
 struct asset_traits<asset::ICPUTexture> { using GPUObjectType = video::ITexture; };
 

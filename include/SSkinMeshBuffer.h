@@ -5,12 +5,12 @@
 #ifndef __I_SKIN_MESH_BUFFER_H_INCLUDED__
 #define __I_SKIN_MESH_BUFFER_H_INCLUDED__
 
-#include "IMeshBuffer.h"
+#include "ICPUMeshBuffer.h"
 
 
 namespace irr
 {
-namespace scene
+namespace asset
 {
 
 
@@ -33,7 +33,7 @@ class SCPUSkinMeshBuffer : public ICPUMeshBuffer
 			return core::CorrespondingBlobTypeFor<SCPUSkinMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}
 
-        virtual E_MESH_BUFFER_TYPE getMeshBufferType() const override { return EMBT_ANIMATED_SKINNED; }
+        virtual scene::E_MESH_BUFFER_TYPE getMeshBufferType() const override { return scene::EMBT_ANIMATED_SKINNED; }
 
         inline void setIndexRange(const uint32_t &minBeforeBaseVxAdd, const uint32_t &maxBeforeBaseVxAdd)
         {
@@ -50,7 +50,7 @@ class SCPUSkinMeshBuffer : public ICPUMeshBuffer
 };
 
 
-} // end namespace scene
+} // end namespace asset
 } // end namespace irr
 
 #endif
