@@ -26,7 +26,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        /// C++17 inline static constexpr bool supportsNullBuffer = true;
+        static constexpr bool supportsNullBuffer = true;
 
         #define DUMMY_DEFAULT_CONSTRUCTOR PoolAddressAllocator() : blockSize(1u), blockCount(0u) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
@@ -76,7 +76,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
         inline size_type        alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
-            if (freeStackCtr==0u || alignment>Base::maxRequestableAlignment || bytes==0u)
+            if (freeStackCtr==0u || alignment>Base::maxRequestableAlignment || bytes==0u || bytes>blockSize)
                 return invalid_address;
 
             auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
@@ -86,7 +86,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         inline void             free_addr(size_type addr, size_type bytes) noexcept
         {
 #ifdef _DEBUG
-            assert(addr<Base::alignOffset && (addr-Base::alignOffset)%blockSize==0 && freeStackCtr<blockCount);
+            assert(addr>=Base::alignOffset && (addr-Base::alignOffset)%blockSize==0 && freeStackCtr<blockCount);
 #endif // _DEBUG
             auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
             freeStack[freeStackCtr++] = addr;
@@ -114,7 +114,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             if (freeStackCtr==0u)
                 return Base::safe_shrink_size(retval,newBuffAlignmentWeCanGuarantee);
 
-            auto allocSize = (blockCount-freeStackCtr)*blockSize;
+            auto allocSize = get_allocated_size();
             if (allocSize>byteBound)
                 byteBound = allocSize;
 
@@ -153,9 +153,8 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
         static inline size_type reserved_size(size_type bufSz, size_type maxAlignment, size_type blockSz) noexcept
         {
-            size_type truncatedOffset = Base::aligned_start_offset(0x7fffFFFFffffFFFFull,maxAlignment);
-            size_type probBlockCount =  (bufSz-truncatedOffset)/blockSz;
-            return probBlockCount*sizeof(size_type);
+            size_type maxBlockCount =  bufSz/blockSz;
+            return maxBlockCount*sizeof(size_type);
         }
         static inline size_type reserved_size(size_type bufSz, const PoolAddressAllocator<_size_type>& other) noexcept
         {

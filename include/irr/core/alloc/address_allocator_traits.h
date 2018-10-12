@@ -36,8 +36,9 @@ namespace core
         template<class AddressAlloc>
         struct address_allocator_traits_base<AddressAlloc,false>
         {
-            /// C++17 inline static constexpr bool supportsNullBuffer= false;
-            static constexpr uint32_t maxMultiOps   = 256u;
+            static constexpr bool       supportsArbitraryOrderFrees     = true;
+            static constexpr uint32_t   maxMultiOps                     = 256u;
+            static constexpr bool       supportsNullBuffer              = false;
 
             typedef typename AddressAlloc::size_type size_type;
 
@@ -64,8 +65,9 @@ namespace core
         template<class AddressAlloc>
         struct address_allocator_traits_base<AddressAlloc,true>
         {
-            /// C++17 inline static constexpr bool supportsNullBuffer= AddressAlloc::supportsNullBuffer;
-            static constexpr uint32_t maxMultiOps   = AddressAlloc::maxMultiOps;
+            static constexpr bool       supportsArbitraryOrderFrees     = AddressAlloc::supportsArbitraryOrderFrees;
+            static constexpr uint32_t   maxMultiOps                     = AddressAlloc::maxMultiOps;
+            /// C++17 inline static constexpr bool supportsNullBuffer   = AddressAlloc::supportsNullBuffer;
 
             typedef typename AddressAlloc::size_type size_type;
 
@@ -93,34 +95,42 @@ namespace core
     class address_allocator_traits : protected AddressAlloc //maybe private?
     {
         private:
-            template<class U> using cstexpr_maxMultiOps             = decltype(U::maxMultiOps);
-            template<class U> using cstexpr_supportsNullBuffer      = decltype(U::supportsNullBuffer);
+            template<class U> using cstexpr_supportsArbitraryOrderFrees = decltype(U::supportsArbitraryOrderFrees);
+            template<class U> using cstexpr_maxMultiOps                 = decltype(U::maxMultiOps);
+            template<class U> using cstexpr_supportsNullBuffer          = decltype(U::supportsNullBuffer);
 
-            template<class U> using func_multi_alloc_addr           = decltype(U::multi_alloc_addr(0u,nullptr,nullptr,nullptr,nullptr));
-            template<class U> using func_multi_free_addr            = decltype(U::multi_free_addr(0u,nullptr,nullptr));
+            template<class U> using func_multi_alloc_addr               = decltype(U::multi_alloc_addr(0u,nullptr,nullptr,nullptr,nullptr));
+            template<class U> using func_multi_free_addr                = decltype(U::multi_free_addr(0u,nullptr,nullptr));
 
-            template<class U> using func_get_real_addr              = decltype(U::get_real_addr(0u));
-        protected:
-            template<class,class=void> struct has_maxMultiOps                                       : std::false_type {};
-            template<class,class=void> struct has_supportsNullBuffer                                : std::false_type {};
-
-            template<class,class=void> struct has_func_multi_alloc_addr                             : std::false_type {};
-            template<class,class=void> struct has_func_multi_free_addr                              : std::false_type {};
-
-            template<class,class=void> struct has_func_get_real_addr                                : std::false_type {};
-
-
-            template<class U> struct has_maxMultiOps<U,void_t<cstexpr_maxMultiOps<U> > >            : std::is_same<cstexpr_maxMultiOps<U>,void> {};
-            template<class U> struct has_supportsNullBuffer<U,void_t<cstexpr_supportsNullBuffer<U> > > :
-                                                                                                std::is_same<cstexpr_supportsNullBuffer<U>,void> {};
-
-            template<class U> struct has_func_multi_alloc_addr<U,void_t<func_multi_alloc_addr<U> > >: std::is_same<func_multi_alloc_addr<U>,void> {};
-            template<class U> struct has_func_multi_free_addr<U,void_t<func_multi_free_addr<U> > >  : std::is_same<func_multi_free_addr<U>,void> {};
-
-            template<class U> struct has_func_get_real_addr<U,void_t<func_get_real_addr<U> > >      : std::is_same<func_get_real_addr<U>,void> {};
+            template<class U> using func_get_real_addr                  = decltype(U::get_real_addr(0u));
+        /// C++17 protected:
         public:
-            /// C++17 inline static constexpr bool supportsNullBuffer= impl::address_allocator_traits_base<AddressAlloc,has_supportsNullBuffer<AddressAlloc>::value>::supportsNullBuffer;
-            /// C++17 inline static constexpr uint32_t maxMultiOps = impl::address_allocator_traits_base<AddressAlloc,has_maxMultiOps<AddressAlloc>::value>::maxMultiOps;
+            template<class,class=void> struct has_supportsArbitraryOrderFrees                   : std::false_type {};
+            template<class,class=void> struct has_maxMultiOps                                   : std::false_type {};
+            template<class,class=void> struct has_supportsNullBuffer                            : std::false_type {};
+
+            template<class,class=void> struct has_func_multi_alloc_addr                         : std::false_type {};
+            template<class,class=void> struct has_func_multi_free_addr                          : std::false_type {};
+
+            template<class,class=void> struct has_func_get_real_addr                            : std::false_type {};
+
+
+            template<class U> struct has_supportsArbitraryOrderFrees<U,void_t<cstexpr_supportsArbitraryOrderFrees<U> > >
+                                                                                                : std::is_same<cstexpr_supportsArbitraryOrderFrees<U>,void> {};
+            template<class U> struct has_maxMultiOps<U,void_t<cstexpr_maxMultiOps<U> > >        : std::is_same<cstexpr_maxMultiOps<U>,void> {};
+            template<class U> struct has_supportsNullBuffer<U,void_t<cstexpr_supportsNullBuffer<U> > >
+                                                                                                : std::is_same<cstexpr_supportsNullBuffer<U>,void> {};
+
+            template<class U> struct has_func_multi_alloc_addr<U,void_t<func_multi_alloc_addr<U> > >
+                                                                                                : std::is_same<func_multi_alloc_addr<U>,void> {};
+            template<class U> struct has_func_multi_free_addr<U,void_t<func_multi_free_addr<U> > >
+                                                                                                : std::is_same<func_multi_free_addr<U>,void> {};
+
+            template<class U> struct has_func_get_real_addr<U,void_t<func_get_real_addr<U> > >  : std::is_same<func_get_real_addr<U>,void> {};
+        /// C++17 public:
+            /// C++17 inline static constexpr bool supportsArbitraryOrderFrees  = impl::address_allocator_traits_base<AddressAlloc,has_supportsArbitraryOrderFrees<AddressAlloc>::value>::supportsArbitraryOrderFrees;
+            /// C++17 inline static constexpr uint32_t maxMultiOps              = impl::address_allocator_traits_base<AddressAlloc,has_maxMultiOps<AddressAlloc>::value>::maxMultiOps;
+            /// C++17 inline static constexpr bool supportsNullBuffer           = impl::address_allocator_traits_base<AddressAlloc,has_supportsNullBuffer<AddressAlloc>::value>::supportsNullBuffer;
 
             typedef AddressAlloc                        allocator_type;
             typedef typename AddressAlloc::size_type    size_type;

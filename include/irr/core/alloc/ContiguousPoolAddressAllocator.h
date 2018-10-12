@@ -24,7 +24,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        /// C++17 inline static constexpr bool supportsNullBuffer = false;
+        static constexpr bool supportsNullBuffer = false;
         static constexpr uint32_t maxMultiOps = 4096u;
 
         #define DUMMY_DEFAULT_CONSTRUCTOR ContiguousPoolAddressAllocator() : addressRedirects(nullptr), addressesAllocated(0u) {}
@@ -148,6 +148,9 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
 
         inline size_type        alloc_addr(size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
+            if (bytes>Base::blockSize)
+                return invalid_address;
+
             auto ID = Base::alloc_addr(bytes,alignment,hint);
             if (ID==invalid_address)
                 return invalid_address;

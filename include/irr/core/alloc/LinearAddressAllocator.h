@@ -22,7 +22,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        /// C++17 inline static constexpr bool supportsNullBuffer = true;
+        static constexpr bool supportsNullBuffer = true;
 
         #define DUMMY_DEFAULT_CONSTRUCTOR LinearAddressAllocator() : bufferSize(0u), cursor(0u) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
