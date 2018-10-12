@@ -104,10 +104,6 @@ namespace video
 		virtual IDepthBuffer * getDepthBuffer () { return DepthBuffer; }
 		virtual IStencilBuffer * getStencilBuffer () { return StencilBuffer; }
 
-        //! .
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
-
-
 	protected:
 		//! sets a render target
 		void setRenderTarget(video::CImage* image);

@@ -8,7 +8,6 @@
 #include "CSkinnedMesh.h"
 
 #include "vectorSIMD.h"
-#include "IGPUObjectFromAssetConverter.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
@@ -57,59 +56,6 @@ namespace irr
 namespace video
 {
 
-class COpenGLDriver::CGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
-{
-public:
-    using IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;
-
-    inline virtual core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> create(asset::ICPUTexture** _begin, asset::ICPUTexture**_end) override
-    {
-        core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
-
-        asset::ICPUTexture** it = _begin;
-        while (it != _end)
-        {
-            ECOLOR_FORMAT format = (*it)->getColorFormat();
-
-            const core::vector<CImageData*>& images = (*it)->getMipmaps();
-            bool success = true;
-            for (const CImageData* img : images)
-            {
-                if (img->getColorFormat() == ECF_UNKNOWN)
-                {
-#ifdef _DEBUG
-                    os::Printer::log("Invalid mip-chain!", ELL_ERROR);
-#endif // _DEBUG
-                    res.push_back(nullptr);
-                    success = false;
-                }
-            }
-            if (!success)
-                continue;
-
-            //figure out the texture type if not provided
-            ITexture::E_TEXTURE_TYPE type = (*it)->getType();
-
-            const uint32_t highestMip = (*it)->getHighestMip();
-            video::ITexture* gputexture = static_cast<COpenGLDriver*>(m_driver)->createDeviceDependentTexture(type, (*it)->getSize(), highestMip ? (highestMip + 1u) : 0u /* todo, why is that +1? */, (*it)->getCacheKey().c_str(), format);
-
-            for (const CImageData* img : images)
-                gputexture->updateSubRegion(img->getColorFormat(), img->getData(), img->getSliceMin(), img->getSliceMax(), img->getSupposedMipLevel(), img->getUnpackAlignment());
-
-            //has mipmap but no explicit chain
-            if (highestMip == 0u && gputexture->hasMipMaps())
-                gputexture->regenerateMipMapLevels();
-
-            res.push_back(gputexture);
-
-            ++it;
-        }
-
-        return res;
-    }
-};
-
-
 // -----------------------------------------------------------------------
 // WINDOWS CONSTRUCTOR
 // -----------------------------------------------------------------------
@@ -125,11 +71,6 @@ COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 	#ifdef _DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
-}
-
-IGPUObjectFromAssetConverter* COpenGLDriver::instantiateDefaultGPUConverter()
-{
-    return new CGPUObjectFromAssetConverter(&m_device->getAssetManager(), this);
 }
 
 bool COpenGLDriver::changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device)
@@ -724,7 +665,6 @@ COpenGLDriver::~COpenGLDriver()
     cleanUpContextBeforeDelete();
 
 	deleteMaterialRenders();
-	deleteAllTextures();
 
     //! Spin wait for other contexts to deinit
     //! @TODO: Change trylock to semaphore
@@ -1314,196 +1254,6 @@ scene::IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::
 {
     return new COpenGLVAOSpec(dbgr);
 }
-
-SGPUMaterial COpenGLDriver::makeGPUMaterialFromCPU(const SCPUMaterial& _cpumat)
-{
-    static_assert(sizeof(SGPUMaterial) == sizeof(SCPUMaterial), "Do it other way");
-    SGPUMaterial gpumat;
-    memcpy(&gpumat, &_cpumat, sizeof(gpumat));
-
-    for (uint32_t i = 0u; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
-    {
-        if (_cpumat.getTexture(i))
-            gpumat.setTexture(i, addTexture(ITexture::ETT_COUNT, _cpumat.getTexture(i)->getMipmaps(), _cpumat.getTexture(i)->getCacheKey().c_str(), ECF_UNKNOWN));
-        else
-            gpumat.setTexture(i, nullptr);
-    }
-
-    return gpumat;
-}
-
-core::vector<scene::IGPUMesh*> COpenGLDriver::createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& meshes)
-{
-    core::vector<scene::IGPUMesh*> retval;
-
-    core::unordered_map<const scene::ICPUMeshBuffer*,scene::IGPUMeshBuffer*> createdMeshBuffers;
-    core::unordered_map<const scene::ICPUMeshDataFormatDesc*,scene::IGPUMeshDataFormatDesc*> createdVAOs;
-    core::unordered_map<const core::ICPUBuffer*,IGPUBuffer*> createdGPUBuffers;
-
-    auto findOrCreateBuffer = [&] (const core::ICPUBuffer* cpubuffer) -> video::IGPUBuffer*
-            {
-                auto foundGPUBuff = createdGPUBuffers.find(cpubuffer);
-                if (foundGPUBuff!=createdGPUBuffers.end())
-                    return foundGPUBuff->second;
-                else
-                {
-                    IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-                    reqs.vulkanReqs.size = cpubuffer->getSize();
-                    reqs.vulkanReqs.alignment = 8;
-                    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-                    reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-                    reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-                    reqs.prefersDedicatedAllocation = true;
-                    reqs.requiresDedicatedAllocation = true;
-                    IGPUBuffer* buffer = createGPUBufferOnDedMem(reqs,true);
-                    if (!buffer)
-                        return nullptr;
-
-                    buffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,cpubuffer->getSize()),cpubuffer->getPointer());
-                    createdGPUBuffers.insert(std::pair<const core::ICPUBuffer*,IGPUBuffer*>(cpubuffer,buffer));
-                    return buffer;
-                }
-
-                return nullptr;
-            };
-
-    for (auto it=meshes.begin(); it!=meshes.end(); it++)
-    {
-        #if _DEBUG
-        for (auto it2=meshes.begin(); it2!=it; it2++)
-        {
-            if (*it==*it2)
-                os::Printer::log("Why are you creating duplicate GPU copies of ICPUMeshes?",ELL_WARNING);
-        }
-        #endif // _DEBUG
-        auto mesh = *it;
-
-        scene::IGPUMesh* gpumesh;
-        switch (mesh->getMeshType())
-        {
-            case scene::EMT_ANIMATED_SKINNED:
-                gpumesh = new scene::CGPUSkinnedMesh(static_cast<scene::ICPUSkinnedMesh*>(mesh)->getBoneReferenceHierarchy());
-                break;
-            default:
-                gpumesh = new scene::SGPUMesh();
-                break;
-        }
-
-        for (size_t i=0; i<mesh->getMeshBufferCount(); i++)
-        {
-            scene::ICPUMeshBuffer* origmeshbuf = mesh->getMeshBuffer(i);
-            const scene::ICPUMeshDataFormatDesc* origdesc = static_cast<scene::ICPUMeshDataFormatDesc*>(origmeshbuf->getMeshDataAndFormat());
-            if (!origdesc)
-                continue;
-
-            scene::IGPUMeshBuffer* meshbuffer = nullptr;
-            auto foundMB = createdMeshBuffers.find(origmeshbuf);
-            if (foundMB!=createdMeshBuffers.end())
-                meshbuffer = foundMB->second;
-            else
-            {
-                scene::IGPUMeshDataFormatDesc* vao = nullptr;
-                auto foundVAO = createdVAOs.find(origdesc);
-                if (foundVAO!=createdVAOs.end())
-                    vao = foundVAO->second;
-                else
-                {
-                    const core::ICPUBuffer* oldbuffer[scene::EVAI_COUNT];
-                    scene::E_COMPONENTS_PER_ATTRIBUTE components[scene::EVAI_COUNT];
-                    scene::E_COMPONENT_TYPE componentTypes[scene::EVAI_COUNT];
-
-                    bool success = true;
-                    bool noAttributes = true;
-                    for (size_t j=0; j<scene::EVAI_COUNT; j++)
-                    {
-                        scene::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(j);
-                        oldbuffer[attrId] = origdesc->getMappedBuffer(attrId);
-                        if (oldbuffer[attrId])
-                            noAttributes = false;
-
-                        components[attrId] = origdesc->getAttribComponentCount(attrId);
-                        componentTypes[attrId] = origdesc->getAttribType(attrId);
-                        if (!scene::validCombination(componentTypes[attrId],components[attrId]))
-                        {
-                            os::Printer::log("createGPUMeshFromCPU input ICPUMeshBuffer(s) have one or more invalid attribute specs!\n",ELL_ERROR);
-                            success = false;
-                            break;
-                        }
-                    }
-
-                    if (!noAttributes&&success)
-                    {
-                        vao = this->createGPUMeshDataFormatDesc();
-                        for (size_t j=0; j<scene::EVAI_COUNT; j++)
-                        {
-                            scene::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(j);
-                            if (!oldbuffer[attrId])
-                                continue;
-
-                            vao->mapVertexAttrBuffer(findOrCreateBuffer(oldbuffer[attrId]),
-                                                     attrId,components[attrId],componentTypes[attrId],
-                                                     origdesc->getMappedBufferStride(attrId),
-                                                     origdesc->getMappedBufferOffset(attrId),
-                                                     origdesc->getAttribDivisor(attrId));
-                        }
-                        if (origdesc->getIndexBuffer())
-                            vao->mapIndexBuffer(findOrCreateBuffer(origdesc->getIndexBuffer()));
-                        createdVAOs.insert(std::pair<const scene::ICPUMeshDataFormatDesc*,scene::IGPUMeshDataFormatDesc*>(origdesc,vao));
-                    }
-                }
-
-                if (!vao)
-                    continue;
-
-                meshbuffer = new scene::IGPUMeshBuffer();
-                meshbuffer->getMaterial() = makeGPUMaterialFromCPU(origmeshbuf->getMaterial());
-                meshbuffer->setMeshDataAndFormat(vao);
-                {
-                    //set bbox
-                    core::aabbox3df oldBBox = origmeshbuf->getBoundingBox();
-                    if (mesh->getMeshType()!=scene::EMT_ANIMATED_SKINNED)
-                        origmeshbuf->recalculateBoundingBox();
-                    meshbuffer->setBoundingBox(origmeshbuf->getBoundingBox());
-                    if (mesh->getMeshType()!=scene::EMT_ANIMATED_SKINNED)
-                        origmeshbuf->setBoundingBox(oldBBox);
-                }
-                meshbuffer->setIndexType(origmeshbuf->getIndexType());
-                meshbuffer->setBaseVertex(origmeshbuf->getBaseVertex());
-                meshbuffer->setIndexCount(origmeshbuf->getIndexCount());
-                meshbuffer->setIndexBufferOffset(origmeshbuf->getIndexBufferOffset());
-                meshbuffer->setInstanceCount(origmeshbuf->getInstanceCount());
-                meshbuffer->setBaseInstance(origmeshbuf->getBaseInstance());
-                meshbuffer->setPrimitiveType(origmeshbuf->getPrimitiveType());
-                createdMeshBuffers.insert(std::pair<const scene::ICPUMeshBuffer*,scene::IGPUMeshBuffer*>(origmeshbuf,meshbuffer));
-            }
-
-            if (!meshbuffer)
-                continue;
-
-            switch (mesh->getMeshType())
-            {
-                case scene::EMT_ANIMATED_SKINNED:
-                    static_cast<scene::CGPUSkinnedMesh*>(gpumesh)->addMeshBuffer(meshbuffer,static_cast<scene::SCPUSkinMeshBuffer*>(origmeshbuf)->getMaxVertexBoneInfluences());
-                    break;
-                default:
-                    static_cast<scene::SGPUMesh*>(gpumesh)->addMeshBuffer(meshbuffer);
-                    break;
-            }
-        }
-        gpumesh->recalculateBoundingBox();
-        retval.push_back(gpumesh);
-    }
-
-    for (auto it=createdGPUBuffers.begin(); it!=createdGPUBuffers.end(); it++)
-        it->second->drop();
-    for (auto it=createdVAOs.begin(); it!=createdVAOs.end(); it++)
-        it->second->drop();
-    for (auto it=createdMeshBuffers.begin(); it!=createdMeshBuffers.end(); it++)
-        it->second->drop();
-
-    return retval;
-}
-
 
 IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()
 {
@@ -2697,129 +2447,9 @@ void COpenGLDriver::setViewPort(const core::rect<int32_t>& area)
 	}
 }
 
-ITexture* COpenGLDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
+ITexture* COpenGLDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format)
 {
-    if (!images.size())
-        return NULL;
-
-    //validate a bit
-    uint32_t initialMaxCoord[3] = {1,1,1};
-    uint32_t highestMip = 0;
-    ECOLOR_FORMAT candidateFormat = format;
-    for (core::vector<CImageData*>::const_iterator it=images.begin(); it!=images.end(); it++)
-    {
-        CImageData* img = *it;
-        if (!img||img->getColorFormat()==ECF_UNKNOWN)
-        {
-#ifdef _DEBUG
-            os::Printer::log("Very invalid mip-chain!", ELL_ERROR);
-#endif // _DEBUG
-            return NULL;
-        }
-
-        for (size_t i=0; i<3; i++)
-        {
-            const uint32_t& sideSize = img->getSliceMax()[i];
-            if (initialMaxCoord[i] < sideSize)
-                initialMaxCoord[i] = sideSize;
-        }
-        if (highestMip < img->getSupposedMipLevel())
-            highestMip = img->getSupposedMipLevel();
-
-        //figure out the format
-        if (format==ECF_UNKNOWN)
-        {
-            if (candidateFormat==ECF_UNKNOWN)
-                candidateFormat = img->getColorFormat();
-            else if (candidateFormat!=img->getColorFormat())
-            {
-#ifdef _DEBUG
-                os::Printer::log("Can't pick a default texture format if the mip-chain doesn't have a consistent one!", ELL_ERROR);
-#endif // _DEBUG
-                return NULL;
-            }
-        }
-    }
-    //haven't figured best format out
-    if (format==ECF_UNKNOWN)
-    {
-        if (candidateFormat==ECF_UNKNOWN)
-        {
-    #ifdef _DEBUG
-            os::Printer::log("Couldn't pick a texture format, entire mip-chain doesn't know!", ELL_ERROR);
-    #endif // _DEBUG
-            return NULL;
-        }
-        //else
-            //candidateFormat = candidateFormat;
-    }
-
-    //! Sort the mipchain!!!
-    core::vector<CImageData*> sortedMipchain(images);
-    std::sort(sortedMipchain.begin(),sortedMipchain.end(),orderByMip);
-
-    //figure out the texture type if not provided
-    ITexture::E_TEXTURE_TYPE actualType = type;
-    if (type>=ITexture::ETT_COUNT)
-    {
-        if (initialMaxCoord[2]>1)
-        {
-            //! with this little info I literally can't guess if you want a cubemap!
-            if (sortedMipchain.size()>1&&sortedMipchain.front()->getSliceMax()[2]==sortedMipchain.back()->getSliceMax()[2])
-                actualType = ITexture::ETT_2D_ARRAY;
-            else
-                actualType = ITexture::ETT_3D;
-        }
-        else if (initialMaxCoord[1]>1)
-        {
-            if (sortedMipchain.size()>1&&sortedMipchain.front()->getSliceMax()[1]==sortedMipchain.back()->getSliceMax()[1])
-                actualType = ITexture::ETT_1D_ARRAY;
-            else
-                actualType = ITexture::ETT_2D;
-        }
-        else
-        {
-            actualType = ITexture::ETT_2D; //should be ETT_1D but 2D is default since forever
-        }
-    }
-
-    //get out max texture size
-    uint32_t maxCoord[3] = {initialMaxCoord[0],initialMaxCoord[1],initialMaxCoord[2]};
-    for (core::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
-    {
-        CImageData* img = *it;
-        if (img->getSliceMax()[0]>getMaxTextureSize(actualType)[0]||
-            (actualType==ITexture::ETT_2D||actualType==ITexture::ETT_1D_ARRAY||actualType==ITexture::ETT_CUBE_MAP)
-                &&img->getSliceMax()[1]>getMaxTextureSize(actualType)[1]||
-            (actualType==ITexture::ETT_3D||actualType==ITexture::ETT_2D_ARRAY||actualType==ITexture::ETT_CUBE_MAP_ARRAY)
-                &&img->getSliceMax()[2]>getMaxTextureSize(actualType)[2])
-        {
-#ifdef _DEBUG
-            os::Printer::log("Attemped to create a larger texture than supported (we should implement mip-chain dropping)!", ELL_ERROR);
-#endif // _DEBUG
-            return NULL;
-        }
-    }
-
-    video::ITexture* texture = createDeviceDependentTexture(actualType,maxCoord,highestMip ? (highestMip+1):0,name,candidateFormat);
-	addToTextureCache(texture);
-	if (texture)
-		texture->drop();
-
-    for (core::vector<CImageData*>::const_iterator it=sortedMipchain.begin(); it!=sortedMipchain.end(); it++)
-    {
-        CImageData* img = *it;
-        if (!img)
-            continue;
-
-        texture->updateSubRegion(img->getColorFormat(),img->getData(),img->getSliceMin(),img->getSliceMax(),img->getSupposedMipLevel(),img->getUnpackAlignment());
-    }
-
-    //has mipmap but no explicit chain
-    if (highestMip==0&&texture->hasMipMaps())
-        texture->regenerateMipMapLevels();
-
-    return texture;
+    return createDeviceDependentTexture(type, size, mipmapLevels, "", format);
 }
 
 IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format, const bool& fixedSampleLocations)
@@ -2903,22 +2533,6 @@ void COpenGLDriver::removeAllFrameBuffers()
 	for (auto fb : found->FrameBuffers)
 		fb->drop();
     found->FrameBuffers.clear();
-}
-
-
-//! Removes a texture from the texture cache and deletes it, freeing lot of memory.
-void COpenGLDriver::removeTexture(ITexture* texture)
-{
-	if (!texture)
-		return;
-
-	CNullDriver::removeTexture(texture);
-	// Remove this texture from CurrentTexture as well
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found)
-        return;
-
-	found->CurrentTexture.remove(texture);
 }
 
 

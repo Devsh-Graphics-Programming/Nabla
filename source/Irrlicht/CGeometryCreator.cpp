@@ -158,7 +158,7 @@ IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const
 
 	ICPUMesh* cpumesh = createCubeMeshCPU(size);
 
-	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
@@ -219,9 +219,9 @@ IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
     if (!driver)
         return NULL;
 
-	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createArrowMeshCPU(tesselationCylinder,tesselationCone,height,cylinderHeight,width0,width1,vtxColor0,vtxColor1));
+	ICPUMesh* cpumesh = createArrowMeshCPU(tesselationCylinder,tesselationCone,height,cylinderHeight,width0,width1,vtxColor0,vtxColor1);
 
-	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
@@ -440,9 +440,9 @@ IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, flo
     if (!driver)
         return NULL;
 
-	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createSphereMeshCPU(radius,polyCountX,polyCountY));
+	ICPUMesh* cpumesh = createSphereMeshCPU(radius,polyCountX,polyCountY);
 
-	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);;
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
@@ -563,9 +563,9 @@ IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
     if (!driver)
         return NULL;
 
-	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createCylinderMeshCPU(radius,length,tesselation,color,closeTop,oblique));
+	ICPUMesh* cpumesh = createCylinderMeshCPU(radius,length,tesselation,color,closeTop,oblique);
 
-	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);;
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
@@ -655,9 +655,9 @@ IGPUMesh* CGeometryCreator::createConeMeshGPU(video::IVideoDriver* driver,
     if (!driver)
         return NULL;
 
-	SCPUMesh* cpumesh = static_cast<SCPUMesh*>(createConeMeshCPU(radius,length,tesselation,colorTop,colorBottom,oblique));
+	ICPUMesh* cpumesh = static_cast<SCPUMesh*>(createConeMeshCPU(radius,length,tesselation,colorTop,colorBottom,oblique));
 
-	auto retval = driver->createGPUMeshesFromCPU(core::vector<ICPUMesh*>(1,cpumesh));
+	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
 	IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];

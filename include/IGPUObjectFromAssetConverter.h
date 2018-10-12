@@ -312,7 +312,28 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMesh** const _begin, scene:
 // This is properly implemented in CNullDriver's converter (see CNullDriver.cpp) and COpenGLDriver also has its own converter overriding this method (see COpenGLDriver.cpp)
 auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::ICPUTexture**_end) -> core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*>
 {
-    return core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*>(_end - _begin, nullptr);
+    core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
+
+    asset::ICPUTexture** it = _begin;
+    while (it != _end)
+    {
+        asset::ICPUTexture* cpuTex = *it;
+        ITexture* t = m_driver->createGPUTexture(cpuTex->getType(), cpuTex->getSize(), cpuTex->getHighestMip() ? cpuTex->getHighestMip()+1 : 0, cpuTex->getColorFormat());
+
+        for (const CImageData* img : cpuTex->getMipmaps())
+        {
+            t->updateSubRegion(img->getColorFormat(), img->getData(), img->getSliceMin(), img->getSliceMax(), img->getSupposedMipLevel(), img->getUnpackAlignment());
+        }
+
+        if (cpuTex->getHighestMip()==0 && t->hasMipMaps())
+            t->regenerateMipMapLevels();
+
+        res.push_back(t);
+
+        ++it;
+    }
+
+    return res;
 }
 
 }}//irr::video

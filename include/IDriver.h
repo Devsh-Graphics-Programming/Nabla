@@ -33,8 +33,6 @@ namespace video
 	protected:
         inline IDriver(IrrlichtDevice* _dev) : m_device{ _dev } {}
 
-        inline virtual IGPUObjectFromAssetConverter* instantiateDefaultGPUConverter();
-
     public:
 	    //! Best for Mesh data, UBOs, SSBOs, etc.
 	    virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
@@ -55,6 +53,8 @@ namespace video
 	    //! Low level function used to implement the above, use with caution
         virtual IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
 
+        //! Creates a texture
+        virtual ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format = ECF_A8R8G8B8) { return nullptr; }
 
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the writes to become GPU visible
         virtual void flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}

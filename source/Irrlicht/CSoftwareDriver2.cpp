@@ -1942,36 +1942,6 @@ void CBurningVideoDriver::clearZBuffer()
 }
 
 
-
-//! .
-ITexture* CBurningVideoDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
-{
-	if ( 0 == name.size () )
-		return 0;
-
-    if (format==ECF_UNKNOWN)
-        format = BURNINGSHADER_COLOR_FORMAT;
-
-    //better safe than sorry
-    if (type!=ITexture::ETT_2D&&type!=ITexture::ETT_COUNT)
-        return NULL;
-    if (format!=BURNINGSHADER_COLOR_FORMAT)
-        return NULL;
-
-    if (images.size()<1)
-        return NULL;
-
-	ITexture* t = new CSoftwareTexture2(images[0], name,
-                                    (getTextureCreationFlag(ETCF_CREATE_MIP_MAPS) ? CSoftwareTexture2::GEN_MIPMAP : 0 ) | CSoftwareTexture2::NP2_SIZE);
-	addToTextureCache(t);
-
-	if (t)
-		t->drop();
-
-	return t;
-}
-
-
 //! Returns the maximum amount of primitives (mostly vertices) which
 //! the device is able to render with one drawIndexedTriangleList
 //! call.

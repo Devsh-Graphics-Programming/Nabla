@@ -103,9 +103,6 @@ namespace video
 	public:
         IVideoDriver(IrrlichtDevice* _dev) : IDriver(_dev) {}
 
-	    //! This is marked for deprecation (move to IAssetManager)
-	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh) {return core::vector<scene::IGPUMesh*>();}
-
 	    //! make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
         virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) {}
 
@@ -194,65 +191,7 @@ namespace video
 		this only works if the first wait is from the same thread as the one which
 		placed the fence.
         **/
-        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) = 0;
-
-		//! Get access to a named texture.
-		/** Loads the texture from disk if it is not
-		already loaded and generates mipmap levels if desired.
-		Texture loading can be influenced using the
-		setTextureCreationFlag() method. The texture can be in several
-		imageformats, such as BMP, JPG, TGA, and PNG.
-		\param filename Filename of the texture to be loaded.
-		\return Pointer to the texture, or 0 if the texture
-		could not be loaded. This pointer should not be dropped. See
-		IReferenceCounted::drop() for more information. */
-		virtual ITexture* getTexture(const io::path& filename, ECOLOR_FORMAT format = ECF_UNKNOWN) = 0;
-
-		//! Get access to a named texture.
-		/** Loads the texture from disk if it is not
-		already loaded and generates mipmap levels if desired.
-		Texture loading can be influenced using the
-		setTextureCreationFlag() method. The texture can be in several
-		imageformats, such as BMP, JPG, TGA, and PNG.
-		\param file Pointer to an already opened file.
-		\return Pointer to the texture, or 0 if the texture
-		could not be loaded. This pointer should not be dropped. See
-		IReferenceCounted::drop() for more information. */
-		virtual ITexture* getTexture(io::IReadFile* file, ECOLOR_FORMAT format = ECF_UNKNOWN) =0;
-
-		//! Returns a texture by index
-		/** \param index: Index of the texture, must be smaller than
-		getTextureCount() Please note that this index might change when
-		adding or removing textures
-		\return Pointer to the texture, or 0 if the texture was not
-		set or index is out of bounds. This pointer should not be
-		dropped. See IReferenceCounted::drop() for more information. */
-		virtual ITexture* getTextureByIndex(uint32_t index) =0;
-
-		//! Returns amount of textures currently loaded
-		/** \return Amount of textures currently loaded */
-		virtual uint32_t getTextureCount() const = 0;
-
-		//! Renames a texture
-		/** \param texture Pointer to the texture to rename.
-		\param newName New name for the texture. This should be a unique name. */
-		virtual void renameTexture(ITexture* texture, const io::path& newName) = 0;
-
-		//! Creates an empty texture of specified size.
-		/** \param size: Size of the texture.
-		\param name A name for the texture. Later calls to
-		getTexture() with this name will return this texture
-		\param format Desired color format of the texture. Please note
-		that the driver may choose to create the texture in another
-		color format.
-		\return Pointer to the newly created texture. This pointer
-		should not be dropped. See IReferenceCounted::drop() for more
-		information. */
-		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
-			const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
-
-        //!
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN) = 0;
+        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread = false) = 0;
 
 		//! A.
 		/** \param B
@@ -274,30 +213,11 @@ namespace video
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false) = 0;
 
-		//! Removes a texture from the texture cache and deletes it.
-		/** This method can free a lot of memory!
-		Please note that after calling this, the pointer to the
-		ITexture may no longer be valid, if it was not grabbed before
-		by other parts of the engine for storing it longer. So it is a
-		good idea to set all materials which are using this texture to
-		0 or another texture first.
-		\param texture Texture to delete from the engine cache. */
-		virtual void removeTexture(ITexture* texture) =0;
-
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex) =0;
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo) =0;
 
-		virtual void removeFrameBuffer(IFrameBuffer* framebuf) =0;
-
-		//! Removes all textures from the texture cache and deletes them.
-		/** This method can free a lot of memory!
-		Please note that after calling this, the pointer to the
-		ITexture may no longer be valid, if it was not grabbed before
-		by other parts of the engine for storing it longer. So it is a
-		good idea to set all materials which are using this texture to
-		0 or another texture first. */
-		virtual void removeAllTextures() =0;
+        virtual void removeFrameBuffer(IFrameBuffer* framebuf) = 0;
 
 		virtual void removeAllMultisampleTextures() =0;
 
@@ -719,13 +639,6 @@ namespace video
 		if the video driver does not support this. For example the
 		Software driver and the Null driver will always return 0. */
 		virtual IGPUProgrammingServices* getGPUProgrammingServices() =0;
-
-		//! Check if the image is already loaded.
-		/** Works similar to getTexture(), but does not load the texture
-		if it is not currently loaded.
-		\param filename Name of the texture.
-		\return Pointer to loaded texture, or 0 if not found. */
-		virtual video::ITexture* findTexture(const io::path& filename) = 0;
 
 		//! Enable or disable a clipping plane.
 		/** There are at least 6 clipping planes available for the user

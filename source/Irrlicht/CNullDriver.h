@@ -46,8 +46,6 @@ namespace video
 		//! constructor
 		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
-        virtual IGPUObjectFromAssetConverter* instantiateDefaultGPUConverter() override;
-
 		//!
         virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}
@@ -84,26 +82,7 @@ namespace video
         //! needs to be "deleted" since its not refcounted
         virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) {return NULL;}
 
-		//! loads a Texture
-		virtual ITexture* getTexture(const io::path& filename, ECOLOR_FORMAT format = ECF_UNKNOWN);
-
-		//! loads a Texture
-		virtual ITexture* getTexture(io::IReadFile* file, ECOLOR_FORMAT format = ECF_UNKNOWN);
-
-		//! Returns a texture by index
-		virtual ITexture* getTextureByIndex(uint32_t index);
-
-		//! Returns amount of textures currently loaded
-		virtual uint32_t getTextureCount() const;
-
-		//! Renames a texture
-		virtual void renameTexture(ITexture* texture, const io::path& newName);
-
-		//! creates a Texture
-		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
-
-        //!
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN);
+        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format = ECF_A8R8G8B8);
 
 		//! A.
         virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<CImageData*>& mipChain)
@@ -309,19 +288,11 @@ namespace video
 		//! Adds an external image writer to the engine.
 		virtual void addExternalImageWriter(IImageWriter* writer);
 
-		//! Removes a texture from the texture cache and deletes it, freeing lot of
-		//! memory.
-		virtual void removeTexture(ITexture* texture);
-
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
 
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
-
-		//! Removes all texture from the texture cache and deletes them, freeing lot of
-		//! memory.
-		virtual void removeAllTextures();
 
 		virtual void removeAllMultisampleTextures();
 
@@ -481,9 +452,6 @@ namespace video
 		//! Sets the name of a material renderer.
 		virtual void setMaterialRendererName(int32_t idx, const char* name);
 
-		//! looks if the image is already loaded
-		virtual video::ITexture* findTexture(const io::path& filename);
-
 		//! Enable/disable a clipping plane.
 		//! There are at least 6 clipping planes available for the user to set at will.
 		//! \param index: The plane index. Must be between 0 and MaxUserClipPlanes.
@@ -519,10 +487,6 @@ namespace video
 		virtual void convertColor(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
 				void* dP, ECOLOR_FORMAT dF) const;
 
-
-		void addToTextureCache(video::ITexture* surface);
-
-
 		//!
 		virtual uint32_t getRequiredUBOAlignment() const {return 0;}
 
@@ -538,12 +502,6 @@ namespace video
         void addMultisampleTexture(IMultisampleTexture* tex);
 
         void addTextureBufferObject(ITextureBufferObject* tbo);
-
-		//! deletes all textures
-		void deleteAllTextures();
-
-		//! opens the file and loads it into the surface
-		video::ITexture* loadTextureFromFile(io::IReadFile* file, ECOLOR_FORMAT format=ECF_UNKNOWN, const io::path& hashName = "");
 
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
@@ -575,11 +533,6 @@ namespace video
 
 			return (float) getAverage ( p[(y * pitch) + x] );
 		}
-
-    private:
-        //CNullDriver::CGPUObjectFromAssetConverter
-        class CGPUObjectFromAssetConverter;
-        friend CGPUObjectFromAssetConverter;
 
     protected:
 		struct SSurface
@@ -640,7 +593,6 @@ namespace video
                 virtual const IDriverMemoryAllocation* getBoundMemory() const {return nullptr;}
                 virtual size_t getBoundMemoryOffset() const {return 0u;}
 		};
-		core::vector<SSurface> Textures;
 
 		core::vector<IMultisampleTexture*> MultisampleTextures;
 		core::vector<ITextureBufferObject*> TextureBufferObjects;
