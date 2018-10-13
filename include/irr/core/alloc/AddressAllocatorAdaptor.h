@@ -73,6 +73,7 @@ class AddressAllocatorAdaptor : public AllocatorTrivialBase<T>
             state->free_addr(reinterpret_cast<typename S::ubyte_pointer>(p)-state->getBufferStart(),n*sizeof(T));
         }
 
+        //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
         inline typename S::size_type                        max_size() const noexcept
         {
             return state->max_size()/sizeof(T);

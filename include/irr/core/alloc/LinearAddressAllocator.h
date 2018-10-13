@@ -79,10 +79,13 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             cursor = 0u;
         }
 
-        //! conservative estimate, does not account for space lost to alignment
+        //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
         inline size_type    max_size() const noexcept
         {
-            return get_free_size();
+            auto worstCursor = alignUp(cursor,Base::maxRequestableAlignment);
+            if (worstCursor<bufferSize)
+                return bufferSize-worstCursor;
+            return 0u;
         }
 
         inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept

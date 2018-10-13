@@ -39,7 +39,7 @@ class GeneralpurposeAddressAllocatorBase
             inline size_type    getLength()                     const {return endOffset-startOffset;}
             inline bool         operator<(const Block& other)   const {return startOffset<other.startOffset;}
 
-            inline void         validate(size_type level)
+            inline void         validate(size_type level)       const
             {
                 #ifdef _DEBUG
                 assert(getLength()>>level); // in the right free list
@@ -49,28 +49,28 @@ class GeneralpurposeAddressAllocatorBase
 
 
         //! Produced blocks can only be larger than `minBlockSize`, it is easier to reason about the correctness and memory boundedness of the allocation algorithm
-        inline size_type calcSubAllocation(Block& retval, const Block& block, const size_type bytes, const size_type alignment) const
+        inline size_type calcSubAllocation(Block& retval, const Block* block, const size_type bytes, const size_type alignment) const
         {
         #ifdef _DEBUG
             assert(bytes>=minBlockSize && isPoT(alignment));
         #endif // _DEBUG
 
-            retval.startOffset = irr::core::alignUp(block.startOffset,alignment);
-            if (block.startOffset!=retval.startOffset)
+            retval.startOffset = irr::core::alignUp(block->startOffset,alignment);
+            if (block->startOffset!=retval.startOffset)
             {
-                auto initialPreceedingBlockSize = retval.startOffset-block.startOffset;
+                auto initialPreceedingBlockSize = retval.startOffset-block->startOffset;
                 if (initialPreceedingBlockSize<minBlockSize)
                     retval.startOffset += (minBlockSize_minus1-initialPreceedingBlockSize+alignment)&alignment;
             }
 
-            if (retval.startOffset>block.endOffset)
+            if (retval.startOffset>block->endOffset)
                 return invalid_address;
 
             retval.endOffset = retval.startOffset+bytes;
-            if (retval.endOffset>block.endOffset)
+            if (retval.endOffset>block->endOffset)
                 return invalid_address;
 
-            size_type wastedSpace = block.endOffset-retval.endOffset;
+            size_type wastedSpace = block->endOffset-retval.endOffset;
             if (wastedSpace!=size_type(0u) && wastedSpace<minBlockSize)
                 return invalid_address;
 
@@ -93,32 +93,40 @@ class GeneralpurposeAddressAllocatorStrategy<true> : protected GeneralpurposeAdd
         GeneralpurposeAddressAllocatorStrategy(const size_type minBlockSz) : GeneralpurposeAddressAllocatorBase(minBlockSz) {}
 
 
-        inline auto blockSearchTargetSize(const size_type bytes, const size_type alignment) const
-        {
-            return bytes;
-        }
-
-        inline auto findSuitableBlock(const size_type bytes, const size_type alignment, const Block* begin, const Block* end) const
+        inline auto findAndPopSuitableBlock(const size_type bytes, const size_type alignment, AllocStrategy::Block** listOfLists, size_type* listCounters)
         {
             size_type bestWastedSpace = ~size_type(0u);
-            std::pair<const Block*,size_type> bestBlock(nullptr,invalid_address);
+            std::tuple<Block,Block*,decltype(freeListCount)> bestBlock(AllocStrategy::Block{invalid_address,invalid_address},nullptr,freeListCount);
 
-            for (const Block* it=begin; it!=end; it++)
+            // using findFreeListInsertIndex on purpose
+            for (uint32_t level=findFreeListInsertIndex(bytes); level<freeListCount && bestWastedSpace; level++)
+            for (Block* it=listOfLists[level]; it!=(listOfLists[level]+listCounters[level]) && bestWastedSpace; it++)
             {
                 Block tmp;
-                size_type wastedSpace = calcSubAllocation(tmp,*it,bytes,alignment);
+                size_type wastedSpace = calcSubAllocation(tmp,it,bytes,alignment);
                 if (wastedSpace==invalid_address)
                     continue;
 
                 wastedSpace += tmp.startOffset-it->startOffset;
-                if (wastedSpace<bestWastedSpace)
-                {
-                    bestWastedSpace = wastedSpace;
-                    bestBlock = std::pair(it,tmp.startOffset);
-                }
+                if (wastedSpace>=bestWastedSpace)
+                    continue;
+
+                bestWastedSpace = wastedSpace;
+                bestBlock = std::tuple(tmp,it,level);
             }
 
-            return bestBlock;
+            AllocStrategy::Block sourceBlock{invalid_address,invalid_address}
+            // if found something
+            Block* out = bestBlock.get<1u>();
+            if (out)
+            {
+                sourceBlock = *out;
+                for (Block* in=out+1u; in!=(listOfLists[level]+listCounters[level]); in++,out++)
+                    *out = *in;
+                listCounters[level]--;
+            }
+
+            return std::pair(bestBlock.get<0u>(),sourceBlock);
         }
 };
 
@@ -133,24 +141,25 @@ class GeneralpurposeAddressAllocatorStrategy<false> : protected GeneralpurposeAd
         GeneralpurposeAddressAllocatorStrategy(const size_type minBlockSz) : GeneralpurposeAddressAllocatorBase(minBlockSz) {}
 
 
-        inline auto blockSearchTargetSize(const size_type bytes, const size_type alignment) const
+        inline auto findAndPopSuitableBlock(const size_type bytes, const size_type alignment, AllocStrategy::Block** listOfLists, size_type* listCounters)
         {
-            return bytes+std::max(alignment,Base::minBlockSize)+Base::minBlockSize;
-        }
-
-        inline auto findSuitableBlock(const size_type bytes, const size_type alignment, const Block* begin, const Block* end) const
-        {
-            for (const Block* it=begin; it!=end; it++)
+            for (uint32_t level=findFreeListSearchIndex(bytes+std::max(alignment,Base::minBlockSize)+Base::minBlockSize); level<freeListCount; level++)
             {
-                Block tmp;
-                size_type wastedSpace = calcSubAllocation(tmp,*it,bytes,alignment);
-                if (wastedSpace==invalid_address)
+                // have any free blocks
+                if (!listCounters[level])
                     continue;
 
-                return std::pair(it,tmp.startOffset);
+                // pop off the top
+                const Block& popped = listOfLists[level][--listCounters[level]];
+                Block tmp;
+                size_type wastedSpace = calcSubAllocation(tmp,popped,bytes,alignment);
+                // if had a block large enough for us with padding then must be able to allocate
+                assert(wastedSpace!=invalid_address);
+
+                return std::pair(tmp,popped);
             }
 
-            return std::pair<const Block*,size_type>(nullptr,invalid_address);
+            return std::pair(AllocStrategy::Block{invalid_address,invalid_address},AllocStrategy::Block{invalid_address,invalid_address});
         }
 };
 
@@ -164,14 +173,17 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         typedef impl::GeneralpurposeAddressAllocatorStrategy<_size_type,useBestFitStrategy> AllocStrategy;
         typedef AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type> Base;
 
-        inline void                     setupFreeListsPointers()
+        inline void                     setupFreeLists()
         {
-            AllocStrategy::Block* tmp = getCoalesceList()+(bufferSize/AllocStrategy::minBlockSize);
+            AllocStrategy::Block* tmp = reinterpret_cast<AllocStrategy::Block*>(Base::reservedSpace);
             for (uint32_t j=usingFirstBuffer; j<2u; j++)
             for (decltype(freeListCount) i=0u; i<freeListCount; i++)
             {
                 freeListStack[i] = tmp;
-                tmp += (bufferSize/(AllocStrategy::minBlockSize<<size_type(i))+size_type(1u))/size_type(2u);
+                tmp += bufferSize/(AllocStrategy::minBlockSize<<size_type(i));
+                if (i)
+                    continue;
+                tmp++; // base level dwarf-blocks
             }
         }
     protected:
@@ -191,16 +203,13 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 return retval+1u;
             return retval;
         }
-        inline AllocStrategy::Block*    getCoalesceList()
-        {
-            return reinterpret_cast<AllocStrategy::Block*>(Base::reservedSpace);
-        }
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         static constexpr bool supportsNullBuffer = true;
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR GeneralpurposeAddressAllocator() : AllocStrategy(0xdeadbeefu), bufferSize(0u),freeSize(0u), allocatedSize(0u), blocksToCoalesceCount(0u), freeListCount(0u), usingFirstBuffer(1u) {}
+        //! TODO: Constructors and Asserts
+        #define DUMMY_DEFAULT_CONSTRUCTOR GeneralpurposeAddressAllocator() : AllocStrategy(0xdeadbeefu), bufferSize(0u), freeSize(0u), freeListCount(0u), usingFirstBuffer(1u) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
 
@@ -208,42 +217,62 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
         GeneralpurposeAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type bufSz, size_type minBlockSz) noexcept :
                     Base(reservedSpc,buffer,maxAllocatableAlignment), AllocStrategy(minBlockSz), bufferSize(bufSz-Base::alignOffset), freeSize(bufferSize),
-                    allocatedSize(0u), blocksToCoalesceCount(0u), freeListCount(findFreeListCount(bufSz-Base::alignOffset)), usingFirstBuffer(1u)
+                    freeListCount(findFreeListCount(bufferSize)), usingFirstBuffer(1u)
         {
             assert(bufferSize>=Base::alignOffset+AllocStrategy::minBlockSize && bufferSize<invalid_address && static_cast<size_t>(bufferSize) < (size_t(1u)<<maxListLevels));
 
-            setupFreeListsPointers();
+            setupFreeLists();
             reset();
         }
 
         GeneralpurposeAddressAllocator(const GeneralpurposeAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) noexcept :
-                    Base(other,newReservedSpc,newBuffer,newBuffSz), AllocStrategy(other.blockSize)
+                    Base(other,newReservedSpc,newBuffer,newBuffSz), AllocStrategy(other.blockSize),  bufferSize(bufSz-Base::alignOffset),
+                    freeSize(bufferSize-other.get_allocated_size()), freeListCount(findFreeListCount(bufferSize)), usingFirstBuffer(1u)
         {
-            auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
-            for (size_type i=0u; i<freeStackCtr; i++)
-                freeStack[i] = (blockCount-1u-i)*blockSize+Base::alignOffset;
+        #ifdef _DEBUG
+            assert(bufferSize>=other.get_allocated_size() && (bufferSize<=other.bufferSize||bufferSize>=other.bufferSize+other.minBlockSize));
+        #endif // _DEBUG
+            setupFreeLists();
 
-            for (size_type i=0; i<other.freeStackCtr; i++)
+            bool needToCreateNewFreeBlock = bufferSize>other.bufferSize;
+            for (decltype(freeListCount) i=0u; i<freeListCount; i++)
+            for (size_type j=0u; j<other.freeListStackCtr[i]; j++)
             {
-                size_type freeEntry = other.addressToBlockID(reinterpret_cast<size_type*>(other.reservedSpace)[i]);
+                AllocStrategy::Block tmp = other.freeListStack[i][j];
+                if (tmp.startOffset<bufferSize)
+                {
+                    if (needToCreateNewFreeBlock && tmp.endOffset==other.bufferSize)
+                    {
+                        tmp.endOffset = bufferSize;
+                        needToCreateNewFreeBlock = false;
+                    }
+                    else if (tmp.endOffset>bufferSize)
+                        tmp.endOffset = bufferSize;
 
-                if (freeEntry<blockCount)
-                    freeStack[freeStackCtr++] = freeEntry*blockSize+Base::alignOffset;
+                    insertFreeBlock(tmp);
+                }
             }
 
-            if (other.bufferStart&&Base::bufferStart)
-            {
-                memmove(reinterpret_cast<uint8_t*>(Base::bufferStart)+Base::alignOffset,
-                        reinterpret_cast<uint8_t*>(other.bufferStart)+other.alignOffset,
-                        std::min(blockCount,other.blockCount)*blockSize);
-            }
+            if (needToCreateNewFreeBlock)
+                insertFreeBlock(AllocStrategy::Block{other.bufferSize,bufferSize});
+
+            //! TODO: copy buffer data
         }
 
         GeneralpurposeAddressAllocator& operator=(GeneralpurposeAddressAllocator&& other)
         {
             Base::operator=(std::move(other));
             AllocStrategy::operator=(std::move(other));
-            //blockSize = other.blockSize;
+            bufferSize      = other.bufferSize;
+            freeSize        = other.freeSize;
+            freeListCount   = other.freeListCount;
+            usingFirstBuffer= other.usingFirstBuffer;
+
+            for (decltype(freeListCount) i=0u; i<freeListCount; i++)
+            {
+                freeListStackCtr[i] = other.freeListStackCtr[i];
+                freeListStack[i] = other.freeListStack[i];
+            }
             return *this;
         }
 
@@ -257,89 +286,60 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             if (bytes>freeSize)
                 return invalid_address;
 
-            std::pair<size_type,AllocStrategy::Block> found;
+            std::pair<AllocStrategy::Block,AllocStrategy::Block> found;
             for (auto i=0u; i<2u; i++)
             {
-                // get finding index
-                uint32_t level = findFreeListSearchIndex(AllocStrategy::blockSearchTargetSize(bytes,alignment));
-                // try to find block going up the hierarchy
-                for (; level<freeListCount; level++)
-                {
-                    auto stackBegin = freeListStack[level];
-                    auto found = AllocStrategy::findSuitableBlock(bytes,alignment,stackBegin,stackBegin+freeListStackCtr[level]);
-                }
-
-                // find block
-                found = AllocStrategy::findSuitableBlock(bytes,alignment,freeListStack,freeListStackCtr);
+                found = AllocStrategy::findAndPopSuitableBlock(bytes,alignment,freeListStack,freeListStackCtr);
 
                 // if not found first time, then defragment, else break
-                if (found.first!=invalid_address || i)
+                if (found.first.startOffset!=invalid_address || i)
                     break;
 
                 defragment();
             }
 
             // not found anything
-            if (found.first==invalid_address)
+            if (found.first.startOffset==invalid_address)
                 return invalid_address;
 
             // splice block and insert parts onto free list
-            found.second.validate();
-            if (found.first+bytes!=found.second.endOffset)
-            {
-                AllocStrategy::Block tmp{found.first+bytes,found.second.endOffset};
-                tmp.validate();
-                auto level = findFreeListInsertIndex(tmp.endOffset-tmp.startOffset);
-                freeListStack[level][freeListStackCtr[level]++] = tmp;
-            }
-            if (found.first!=found.second.startOffset)
-            {
-                AllocStrategy::Block tmp{found.second.startOffset,found.first};
-                tmp.validate();
-                auto level = findFreeListInsertIndex(tmp.endOffset-tmp.startOffset);
-                freeListStack[level][freeListStackCtr[level]++] = tmp;
-            }
+            if (found.first.endOffset!=found.second.endOffset)
+                insertFreeBlock(AllocStrategy::Block{found.first.endOffset,found.second.endOffset});
+            if (found.first.startOffset!=found.second.startOffset)
+                insertFreeBlock(AllocStrategy::Block{found.second.startOffset,found.first.startOffset});
 
-            freeSize        -= bytes;
-            allocatedSize   += bytes;
+            freeSize -= bytes;
 
-            return found.first+Base::alignOffset;
+            return found.first.startOffset+Base::alignOffset;
         }
 
         inline void             free_addr(size_type addr, size_type bytes) noexcept
         {
-            if (bytes<AllocStrategy::minBlockSize)
-                bytes = AllocStrategy::minBlockSize;
+            bytes = std::max(bytes,AllocStrategy::minBlockSize);
 #ifdef _DEBUG
-            assert(addr>=Base::alignOffset && addr+bytes+Base::alignOffset<bufferSize);
+            assert(addr>=Base::alignOffset && addr+bytes<=bufferSize+Base::alignOffset && bytes+freeSize<=bufferSize);
 #endif // _DEBUG
 
-            getCoalesceList()[blocksToCoalesceCount++] = AllocStrategy::Block{addr,addr+bytes};
-
-            allocatedSize -= bytes;
+            addr -= Base::alignOffset;
+            insertFreeBlock(AllocStrategy::Block{addr,addr+bytes});
+            freeSize += bytes;
         }
 
         inline void             reset()
         {
-            freeSize                = bufferSize;
-            allocatedSize           = 0u;
-            blocksToCoalesceCount   = 0u;
-
-            for (decltype(freeListCount) i=0u; i<freeListCount; i++)
-                freeListStackCtr[i] = 0u;
-
-            assert(findFreeListInsertIndex(bufferSize)+1u==freeListCount);
-            freeListStack[freeListCount-1u][freeListStackCtr[freeListCount-1u]++] = AllocStrategy::Block{0u,bufferSize};
+            freeSize = bufferSize;
+            insertFreeBlock(AllocStrategy::Block{0u,bufferSize});
         }
 
-        //! conservative estimate, does not account for space lost to alignment or actual block size
+        //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
         inline size_type        max_size() const noexcept
         {
-            for (decltype(freeListCount) i=freeListCount; i; i--)
+            const auto maxWastedSpace = std::max(Base::maxRequestableAlignment,AllocStrategy::minBlockSize)+AllocStrategy::minBlockSize;
+            for (decltype(freeListCount) i=freeListCount; i>findFreeListSearchIndex(maxWastedSpace); i--)
             {
                 size_type level = i-1u;
                 if (freeListStackCtr[level])
-                    return size_type(AllocStrategy::minBlockSize)<<level;
+                    return (size_type(AllocStrategy::minBlockSize)<<level)-maxWastedSpace;
             }
 
             return 0u;
@@ -363,10 +363,9 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
         static inline size_type reserved_size(size_type bufSz, size_type maxAlignment, size_type blockSz) noexcept
         {
-            size_type reserved = bufSz/blockSz;
             for (size_type i=0u; i<findFreeListCount(blockSz); i++)
-                reserved += alignUp(bufSz/(blockSz<<i)+size_type(1u),size_type(2u));
-            return reserved;
+                reserved += (bufSz/(blockSz<<i))*size_type(2u);
+            return reserved+2u; // +2 for lowest level partial blocks at the end
         }
         static inline size_type reserved_size(size_type bufSz, const GeneralpurposeAddressAllocator<_size_type>& other) noexcept
         {
@@ -375,11 +374,11 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
         inline size_type        get_free_size() const noexcept
         {
-            return freeSize; //allocatable decrement when taking block off free list, increment when putting on
+            return freeSize; // decrement when allocation, increment when freeing
         }
         inline size_type        get_allocated_size() const noexcept
         {
-            return allocatedSize; // increment when allocating, decrement when deallocating
+            return bufferSize-freeSize;
         }
         inline size_type        get_total_size() const noexcept
         {
@@ -388,8 +387,6 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
     protected:
         size_type               bufferSize;
         size_type               freeSize;
-        size_type               allocatedSize;
-        size_type               blocksToCoalesceCount;
         uint32_t                freeListCount;
         uint32_t                usingFirstBuffer;
 
@@ -397,60 +394,52 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         size_type               freeListStackCtr[maxListLevels];
         AllocStrategy::Block*   freeListStack[maxListLevels];
 
-        inline void             insertFreeBlock()
+        inline void             insertFreeBlock(const AllocStrategy::Block& block)
         {
-
+            auto level = findFreeListInsertIndex(block.endOffset-block.startOffset);
+            block.validate(level);
+            freeListStack[level][freeListStackCtr[level]++] = block;
         }
         inline size_type        defragment()
         {
-            auto coalesceList = getCoalesceList();
-            const AllocStrategy::Block* coalesceListEnd = coalesceList+blocksToCoalesceCount;
-            std::sort(coalesceList,const_cast<AllocStrategy::Block*>(coalesceListEnd));
-
-            AllocStrategy::Block* freeList[maxListLevels];
-            const AllocStrategy::Block* freeListEnd[maxListLevels];
+            AllocStrategy::Block* freeListOld[maxListLevels];
+            const AllocStrategy::Block* freeListOldEnd[maxListLevels];
             for (decltype(freeListCount) i=0u; i<freeListCount; i++)
             {
-                freeList[i] = freeListStack[i];
-                freeListEnd[i] = freeList+freeListStackCtr[i];
-                std::sort(freeList[i],const_cast<AllocStrategy::Block*>(freeListEnd[i]));
-
-                freeListStackCtr[i] = 0u;
+                freeListOld[i] = freeListStack[i];
+                freeListOldEnd[i] = freeListOld[i]+freeListStackCtr[i];
+                std::sort(freeListOld[i],const_cast<AllocStrategy::Block*>(freeListOldEnd[i]));
             }
 
-            AllocStrategy::Block* sortedScratchListPtr = coalesceList+(bufferSize/AllocStrategy::minBlockSize);
-            const AllocStrategy::Block* sortedScratchListBegin = sortedScratchListPtr;
+            // swap free-list buffers
+            usingFirstBuffer = usingFirstBuffer ? 0u:1u;
+            setupFreeLists();
 
+            // begin the coalesce
             AllocStrategy::Block lastBlock{0u,0u};
-            auto minimum = findMinimum(freeList,freeListEnd,coalesceList,coalesceListEnd);
-            while (minimum!=invalid_address)
+            auto minimum = findMinimum(freeListOld,freeListOldEnd);
+            while (minimum!=freeListCount)
             {
                 // find next free block and pop it
-                AllocStrategy::Block nextBlock;
-                if (minimum<freeListCount)
-                    nextBlock = *(freeList[minimum]++);
-                else
-                    nextBlock = *(coalesceList++);
+                const AllocStrategy::Block* nextBlock = freeListOld[minimum]++;
 
                 // check if broke continuity
-                if (nextBlock.startOffset!=lastBlock.endOffset)
+                if (nextBlock->startOffset!=lastBlock.endOffset)
                 {
-                    auto blockLen = lastBlock.endOffset-lastBlock.startOffset;
                     // put old on correct free list
-                    if (blockLen)
-                        freeListStack[freeListStackCtr[findFreeListInsertIndex(blockLen)]++] = lastBlock;
+                    if (lastBlock.getLength())
+                        insertFreeBlock(lastBlock);
 
-                    lastBlock.startOffset = nextBlock.startOffset;
+                    lastBlock.startOffset = nextBlock->startOffset;
                 }
 
-                lastBlock.endOffset = nextBlock.endOffset;
-                minimum = findMinimum(freeList,freeListEnd,coalesceList,coalesceListEnd);
+                lastBlock.endOffset = nextBlock->endOffset;
+                minimum = findMinimum(freeListOld,freeListOldEnd);
             }
-            auto blockLen = lastBlock.endOffset-lastBlock.startOffset;
-            // put old on correct free list
-            if (blockLen)
+            // put last block on correct free list
+            if (lastBlock.getLength())
             {
-                freeListStack[freeListStackCtr[findFreeListInsertIndex(blockLen)]++] = lastBlock;
+                insertFreeBlock(lastBlock);
                 if (lastBlock.endOffset==bufferSize)
                     return lastBlock.startOffset;
             }
@@ -458,12 +447,11 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             return bufferSize;
         }
     private:
-        //! Return index of freelist or one past the end for the coalesce list, or invalid_address for nothing
-        inline decltype(freeListCount)  findMinimum(AllocStrategy::Block** listOfLists, const AllocStrategy::Block** listOfListsEnd,
-                                                    AllocStrategy::Block* otherList, AllocStrategy::Block* otherListEnd)
+        //! Return index of freelist or one past the end for nothing
+        inline decltype(freeListCount)  findMinimum(const AllocStrategy::Block** listOfLists, const AllocStrategy::Block** listOfListsEnd)
         {
-            size_type               minval = invalid_address;
-            decltype(freeListCount) retval = invalid_address;
+            size_type               minval = ~size_type(0u);
+            decltype(freeListCount) retval = freeListCount;
 
             for (decltype(freeListCount) i=0; i<freeListCount; i++)
             {
@@ -474,10 +462,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 retval = i;
             }
 
-            if (otherList==otherListEnd || otherList->startOffset>=minval)
-                return retval;
-
-            return freeListCount;
+            return retval;
         }
 };
 

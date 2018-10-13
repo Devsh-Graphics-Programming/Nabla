@@ -171,7 +171,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         }
 
 
-        //! conservative estimate, does not account for space lost to alignment
+        //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
         inline size_type        max_size() const noexcept
         {
             return Base::max_size();

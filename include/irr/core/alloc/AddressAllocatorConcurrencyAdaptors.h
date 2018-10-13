@@ -77,7 +77,14 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
             lock.unlock();
         }
 
-        inline size_type    max_size() const noexcept {return AddressAllocator::max_size();}
+        //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
+        inline size_type    max_size() const noexcept
+        {
+            lock.lock();
+            auto retval = AddressAllocator::max_size();
+            lock.unlock();
+            return retval;
+        }
 
         inline size_type    max_alignment() const noexcept
         {
