@@ -232,7 +232,7 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
     uint32_t aligns[instanceCount];
     for (size_t i=0; i<instanceCount; i++)
     {
-        dummyBytes[i] = instanceDataAllocator->getAllocator().max_size();
+        dummyBytes[i] = dataPerInstanceInputSize;
         aligns[i] = 4u; // 4-byte alignment
     }
 
@@ -379,7 +379,7 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
 
     uint32_t dummyBytes[instanceCount];
     for (size_t i=0; i<instanceCount; i++)
-        dummyBytes[i] = instanceDataAllocator->getAllocator().max_size();
+        dummyBytes[i] = dataPerInstanceInputSize;
 
     instanceDataAllocator->multi_free_addr(instanceCount,instanceIDs,static_cast<const uint32_t*>(dummyBytes));
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)

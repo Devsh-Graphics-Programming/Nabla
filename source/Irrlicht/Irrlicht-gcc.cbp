@@ -362,6 +362,7 @@
 		<Unit filename="../../include/irr/core/alloc/AlignedBase.h" />
 		<Unit filename="../../include/irr/core/alloc/AllocatorTrivialBases.h" />
 		<Unit filename="../../include/irr/core/alloc/ContiguousPoolAddressAllocator.h" />
+		<Unit filename="../../include/irr/core/alloc/GeneralpurposeAddressAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/IAddressAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/IAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/LinearAddressAllocator.h" />
