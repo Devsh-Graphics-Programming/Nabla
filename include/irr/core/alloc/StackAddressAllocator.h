@@ -54,7 +54,7 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
                 return invalid_address;
 
             size_type result    = alignUp(cursor,alignment);
-            size_type newCursor = result+std::max(bytes,minAllocSize);
+            size_type newCursor = result+std::max(bytes,minimumAllocSize);
             if (newCursor>bufferSize || newCursor<cursor) //extra OR checks for wraparound
                 return invalid_address;
 
