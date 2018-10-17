@@ -189,10 +189,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
         inline auto findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
             size_type bestWastedSpace = ~size_type(0u);
-            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock;
-            bestBlock.get<0u>().startOffset = invalid_address; bestBlock.get<0u>().endOffset = invalid_address;
-            bestBlock.get<1u>() = nullptr;
-            bestBlock.get<2u>() = Base::freeListCount;
+            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,Base::freeListCount};
 
             // using findFreeListInsertIndex on purpose
             for (uint32_t level=findFreeListInsertIndex(bytes); level<Base::freeListCount && bestWastedSpace; level++)
@@ -208,21 +205,22 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
                     continue;
 
                 bestWastedSpace = wastedSpace;
-                bestBlock = std::tuple(tmp,it,level);
+                bestBlock = std::tuple<Block,Block*,decltype(Base::freeListCount)>{tmp,it,level};
             }
 
-            Block sourceBlock{invalid_address,invalid_address}
+            Block sourceBlock{invalid_address,invalid_address};
             // if found something
-            Block* out = bestBlock.get<1u>();
+            Block* out = std::get<1u>(bestBlock);
             if (out)
             {
                 sourceBlock = *out;
+                auto level = std::get<2u>(bestBlock);
                 for (Block* in=out+1u; in!=(Base::freeListStack[level]+Base::freeListStackCtr[level]); in++,out++)
                     *out = *in;
                 Base::freeListStackCtr[level]--;
             }
 
-            return std::pair(bestBlock.get<0u>(),sourceBlock);
+            return std::pair<Block,Block>(std::get<0u>(bestBlock),sourceBlock);
         }
 };
 
@@ -263,7 +261,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
 }
 
 //! General-purpose allocator, really its like a buddy allocator that supports more sophisticated coalescing
-template<typename _size_type, class AllocStrategy = impl::GeneralpurposeAddressAllocatorStrategy<_size_type,true> >
+template<typename _size_type, class AllocStrategy = impl::GeneralpurposeAddressAllocatorStrategy<_size_type,false> >
 class GeneralpurposeAddressAllocator : public AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type>, protected AllocStrategy
 {
     private:
