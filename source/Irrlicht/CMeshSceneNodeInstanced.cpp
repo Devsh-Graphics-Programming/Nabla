@@ -232,6 +232,7 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
     uint32_t aligns[instanceCount];
     for (size_t i=0; i<instanceCount; i++)
     {
+        instanceIDs[i] = std::remove_pointer<decltype(instanceDataAllocator)>::type::alloc_traits::allocator_type::invalid_address;
         dummyBytes[i] = dataPerInstanceInputSize;
         aligns[i] = 4u; // 4-byte alignment
     }

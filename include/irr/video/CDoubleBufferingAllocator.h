@@ -13,52 +13,12 @@ namespace irr
 namespace video
 {
 
-//! Specializations for marking dirty areas for swapping
-template<class AddressAllocator, bool onlySwapRangesMarkedDirty>
-class CDoubleBufferingAllocatorBase;
-template<class AddressAllocator>
-class CDoubleBufferingAllocatorBase<AddressAllocator,false>
-{
-    protected:
-        std::pair<typename AddressAllocator::size_type,typename AddressAllocator::size_type> dirtyRange;
-
-        CDoubleBufferingAllocatorBase() {}
-        virtual ~CDoubleBufferingAllocatorBase() {}
-
-        inline void resetDirtyRange() {}
-
-        static constexpr bool alwaysSwapEntireRange = true;
-    public:
-        inline decltype(dirtyRange) getDirtyRange() const {return dirtyRange;}
-};
-template<class AddressAllocator>
-class CDoubleBufferingAllocatorBase<AddressAllocator,true>
-{
-    protected:
-        std::pair<typename AddressAllocator::size_type,typename AddressAllocator::size_type> dirtyRange;
-
-        CDoubleBufferingAllocatorBase() {resetDirtyRange();}
-        virtual ~CDoubleBufferingAllocatorBase() {}
-
-        inline void resetDirtyRange() {dirtyRange.first = 0x7fffFFFFu; dirtyRange.second = 0;}
-
-        static constexpr bool alwaysSwapEntireRange = false;
-    public:
-        inline decltype(dirtyRange) getDirtyRange() const {return dirtyRange;}
-
-        inline void markRangeDirty(typename AddressAllocator::size_type begin, typename AddressAllocator::size_type end)
-        {
-            if (begin<dirtyRange.first) dirtyRange.first = begin;
-            if (end>dirtyRange.second) dirtyRange.second = end;
-        }
-};
-
 
 template<class AddressAllocator, bool onlySwapRangesMarkedDirty = false, class CPUAllocator=core::allocator<uint8_t> >
-class CDoubleBufferingAllocator : public CDoubleBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty>, public virtual core::IReferenceCounted
+class CDoubleBufferingAllocator : public core::MultiBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty>, public virtual core::IReferenceCounted
 {
     private:
-        typedef CDoubleBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty>   Base;
+        typedef core::MultiBufferingAllocatorBase<AddressAllocator,onlySwapRangesMarkedDirty>   Base;
 
         static inline typename AddressAllocator::size_type calcConservBuffAlign(IVideoDriver* driver, void* ptr)
         {

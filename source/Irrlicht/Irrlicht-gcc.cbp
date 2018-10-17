@@ -366,7 +366,9 @@
 		<Unit filename="../../include/irr/core/alloc/IAddressAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/IAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/LinearAddressAllocator.h" />
+		<Unit filename="../../include/irr/core/alloc/MultiBufferingAllocatorBase.h" />
 		<Unit filename="../../include/irr/core/alloc/PoolAddressAllocator.h" />
+		<Unit filename="../../include/irr/core/alloc/ResizableAddressAllocatorAdaptor.h" />
 		<Unit filename="../../include/irr/core/alloc/StackAddressAllocator.h" />
 		<Unit filename="../../include/irr/core/alloc/address_allocator_traits.h" />
 		<Unit filename="../../include/irr/core/alloc/aligned_allocator.h" />

@@ -52,7 +52,7 @@ namespace scene
             //
             virtual uint32_t addInstance(ISkinnedMeshSceneNode* attachedNode=NULL, const bool& createBoneNodes=false)
             {
-                uint32_t newID;
+                uint32_t newID = std::remove_pointer<decltype(instanceBoneDataAllocator)>::type::alloc_traits::allocator_type::invalid_address;
 
                 const uint32_t align = _IRR_SIMD_ALIGNMENT;
                 instanceBoneDataAllocator->multi_alloc_addr(1u,&newID,&instanceFinalBoneDataSize,&align);

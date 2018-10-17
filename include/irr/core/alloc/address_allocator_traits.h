@@ -46,7 +46,12 @@ namespace core
                                                         const size_type* alignment, const size_type* hint=nullptr) noexcept
             {
                 for (uint32_t i=0; i<count; i++)
+                {
+                    if (outAddresses[i]!=AddressAlloc::invalid_address)
+                        continue;
+
                     outAddresses[i] = alloc.alloc_addr(bytes[i],alignment[i],hint ? hint[i]:0ull);
+                }
             }
 
             static inline void         multi_free_addr(AddressAlloc& alloc, uint32_t count, const size_type* addr, const size_type* bytes) noexcept
