@@ -55,12 +55,14 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             return *this;
         }
 
+        //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
         inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
-            if (bytes==0 || alignment>max_alignment())
+            if (bytes==0 || alignment>Base::maxRequestableAlignment)
                 return invalid_address;
 
-            size_type result    = alignUp(cursor,alignment);
+            size_type result    = (cursor+alignment-1u)/alignment;
+            result             *= alignment;
             size_type newCursor = result+bytes;
             if (newCursor>bufferSize || newCursor<cursor) //extra OR checks for wraparound
                 return invalid_address;

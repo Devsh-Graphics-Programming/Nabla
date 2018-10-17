@@ -48,20 +48,16 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
             return *this;
         }
 
+        //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
         inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
-            if (bytes==0 || alignment>max_alignment())
+            bytes = std::max(bytes,minimumAllocSize);
+            size_type result = Base::alloc_addr(bytes,alignment,hint);
+            if (result==invalid_address)
                 return invalid_address;
 
-            size_type result    = alignUp(cursor,alignment);
-            size_type newCursor = result+std::max(bytes,minimumAllocSize);
-            if (newCursor>bufferSize || newCursor<cursor) //extra OR checks for wraparound
-                return invalid_address;
-
-            reinterpret_cast<size_type*>(Base::reservedSpace)[allocStackPtr++] = newCursor-cursor;
-
-            cursor = newCursor;
-            return result+Base::alignOffset;
+            reinterpret_cast<size_type*>(Base::reservedSpace)[allocStackPtr++] = bytes;
+            return result;
         }
 
         inline void         free_addr(size_type addr, size_type bytes) noexcept

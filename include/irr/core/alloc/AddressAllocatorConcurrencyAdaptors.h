@@ -55,6 +55,7 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
             lock.unlock();
         }
 
+        //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
         inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
             lock.lock();

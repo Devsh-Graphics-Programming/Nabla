@@ -120,15 +120,22 @@ class GeneralpurposeAddressAllocatorBase
         inline size_type calcSubAllocation(Block& retval, const Block* block, const size_type bytes, const size_type alignment) const
         {
         #ifdef _DEBUG
-            assert(bytes>=minBlockSize && isPoT(alignment));
+            assert(bytes>=minBlockSize);
         #endif // _DEBUG
 
             retval.startOffset = irr::core::alignUp(block->startOffset,alignment);
+            retval.startOffset = block->startOffset;
+            auto remainder  = (block->startOffset+alignment-1u)/alignment;
+            retval.startOffset *= alignment;
+
             if (block->startOffset!=retval.startOffset)
             {
                 auto initialPreceedingBlockSize = retval.startOffset-block->startOffset;
                 if (initialPreceedingBlockSize<minBlockSize)
-                    retval.startOffset += (minBlockSize_minus1-initialPreceedingBlockSize+alignment)&alignment;
+                {
+                    auto toAdd = (minBlockSize_minus1-initialPreceedingBlockSize+alignment)/alignment;
+                    retval.startOffset += toAdd*alignment;
+                }
             }
 
             if (retval.startOffset>block->endOffset)
@@ -337,7 +344,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             return *this;
         }
 
-
+        //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
         inline size_type        alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
             if (alignment>Base::maxRequestableAlignment || bytes==0u)

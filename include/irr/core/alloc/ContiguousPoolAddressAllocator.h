@@ -146,6 +146,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             addressesAllocated -= count;
         }
 
+        //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
         inline size_type        alloc_addr(size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
             if (bytes>Base::blockSize)

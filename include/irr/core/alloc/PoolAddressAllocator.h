@@ -76,7 +76,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
         inline size_type        alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
-            if (freeStackCtr==0u || alignment>Base::maxRequestableAlignment || bytes==0u || bytes>blockSize)
+            if (freeStackCtr==0u || (blockSize%alignment)==0u || bytes==0u || bytes>blockSize)
                 return invalid_address;
 
             auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
