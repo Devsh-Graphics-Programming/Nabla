@@ -40,6 +40,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             reset();
         }
 
+        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
         PoolAddressAllocator(const PoolAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) noexcept :
                     Base(other,newReservedSpc,newBuffer,newBuffSz), blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize),
                     freeStackCtr(blockCount>other.blockCount ? (blockCount-other.blockCount):0u)
@@ -54,13 +55,6 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
                 if (freeEntry<blockCount)
                     freeStack[freeStackCtr++] = freeEntry*blockSize+Base::alignOffset;
-            }
-
-            if (other.bufferStart&&Base::bufferStart)
-            {
-                memmove(reinterpret_cast<uint8_t*>(Base::bufferStart)+Base::alignOffset,
-                        reinterpret_cast<uint8_t*>(other.bufferStart)+other.alignOffset,
-                        std::min(blockCount,other.blockCount)*blockSize);
             }
         }
 

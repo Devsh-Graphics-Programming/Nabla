@@ -39,6 +39,8 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         {
             selfOnlyReset();
         }
+
+        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
         ContiguousPoolAddressAllocator(const ContiguousPoolAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) noexcept :
                                 PoolAddressAllocator<_size_type>(other,newReservedSpc,newBuffer,newBuffSz),
                                 addressRedirects(reinterpret_cast<size_type*>(Base::reservedSpace)+Base::blockCount),

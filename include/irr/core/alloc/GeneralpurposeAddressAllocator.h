@@ -297,6 +297,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             reset();
         }
 
+        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
         GeneralpurposeAddressAllocator(const GeneralpurposeAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) noexcept :
                     Base(other,newReservedSpc,newBuffer,newBuffSz), AllocStrategy(newBuffSz-Base::alignOffset,other.blockSize),
                     freeSize(AllocStrategy::bufferSize-other.get_allocated_size())
@@ -327,13 +328,6 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
             if (needToCreateNewFreeBlock)
                 AllocStrategy::insertFreeBlock(Block{other.bufferSize,AllocStrategy::bufferSize});
-
-            if (other.bufferStart&&Base::bufferStart)
-            {
-                memmove(reinterpret_cast<uint8_t*>(Base::bufferStart)+Base::alignOffset,
-                        reinterpret_cast<uint8_t*>(other.bufferStart)+other.alignOffset,
-                        std::min(AllocStrategy::bufferSize,other.bufferSize));
-            }
         }
 
         GeneralpurposeAddressAllocator& operator=(GeneralpurposeAddressAllocator&& other)

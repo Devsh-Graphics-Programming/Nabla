@@ -39,6 +39,12 @@ struct BufferDataAllocatorExample
         return pointerWhichCanBeWrittenTo;
     }
 
+    inline void*    reallocate(void* addr, size_t bytes, const AddressAllocator& allocToQueryOffsets) noexcept
+    {
+        // some implementation
+        return possiblyDifferentPointerToAddrArg;
+    }
+
     inline void     deallocate(void* addr) noexcept
     {
         // some implementation
@@ -78,11 +84,15 @@ class ResizableAddressAllocatorAdaptor : protected ResizableAddressAllocatorAdap
         {
             if (Base::reservedSpace)
                 ImplBase::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(Base::reservedSpace),ImplBase::mReservedSize);
-            if (Base::bufferStart)
-                ImplBase::mDataAlloc.deallocate(reinterpret_cast<uint8_t*>(Base::bufferStart));
+
+            // deallocate should handle nullptr without issue
+            ImplBase::mDataAlloc.deallocate(reinterpret_cast<uint8_t*>(Base::bufferStart));
         }
 
 
+        //!
+        /** Warning outAddresses needs to be primed with `invalid_address` values,
+        otherwise no allocation happens for elements not equal to `invalid_address`. */
         template<typename... Args>
         inline void                             multi_alloc_addr(uint32_t count, size_type* outAddresses, const size_type* bytes, const size_type* alignment, const Args&... args)
         {
@@ -112,18 +122,17 @@ class ResizableAddressAllocatorAdaptor : protected ResizableAddressAllocatorAdap
             //resize
             size_type oldReservedSize = ImplBase::mReservedSize;
             void* oldReserved = Base::reservedSpace;
-            void* oldDataBuff = Base::bufferStart;
 
             ImplBase::mReservedSize = AddressAllocator::reserved_size(getBaseRef(),newSize);
             void* newReserved = ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_IRR_SIMD_ALIGNMENT);
-            void* newDataBuff = ImplBase::mDataAlloc.allocate(newSize);
 
-            getBaseRef() = AddressAllocator(getBaseRef(),newReserved,newDataBuff,newSize);
+
+            getBaseRef() = AddressAllocator(getBaseRef(),newReserved,
+                                            ImplBase::mDataAlloc.reallocate(newSize),newSize);
+
 
             if (oldReserved)
                 ImplBase::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(oldReserved),oldReservedSize);
-            if (oldDataBuff)
-                ImplBase::mDataAlloc.deallocate(oldDataBuff);
 
             alloc_traits::multi_alloc_addr(getBaseRef(),count,outAddresses,bytes,alignment,std::forward<Args>(args)...);
         }
@@ -157,8 +166,8 @@ class ResizableAddressAllocatorAdaptor : protected ResizableAddressAllocatorAdap
 
             if (oldReserved)
                 ImplBase::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(oldReserved),oldReservedSize);
-            if (oldDataBuff)
-                ImplBase::mDataAlloc.deallocate(oldDataBuff);
+            // see comment in destructor
+            ImplBase::mDataAlloc.deallocate(oldDataBuff);
         }
 
 

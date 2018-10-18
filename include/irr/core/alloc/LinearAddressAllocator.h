@@ -33,18 +33,18 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         LinearAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type buffSz) noexcept :
                     Base(reservedSpc,buffer,maxAllocatableAlignment), bufferSize(buffSz-Base::alignOffset), cursor(0u) {}
 
+        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
         LinearAddressAllocator(const LinearAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) :
                     Base(other,newReservedSpc,newBuffer,newBuffSz), bufferSize(newBuffSz-Base::alignOffset), cursor(other.cursor)
         {
+#ifdef _DEBUG
             if (other.bufferStart&&Base::bufferStart)
             {
-#ifdef _DEBUG
                 // new pointer must have greater or equal alignment
                 assert(findLSB(reinterpret_cast<size_t>(Base::bufferStart)) >= findLSB(reinterpret_cast<size_t>(other.bufferStart)));
-#endif // _DEBUG
-                memmove(reinterpret_cast<uint8_t*>(Base::bufferStart)+alignOffset,
-                        reinterpret_cast<uint8_t*>(other.bufferStart)+other.alignOffset, other.get_allocated_size());
+
             }
+#endif // _DEBUG
         }
 
         LinearAddressAllocator& operator=(LinearAddressAllocator&& other)

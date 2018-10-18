@@ -6,6 +6,7 @@
 #define __IRR_I_ADDRESS_ALLOCATOR_H_INCLUDED__
 
 
+#include "irr/core/BaseClasses.h"
 #include "irr/core/alloc/address_allocator_traits.h"
 
 namespace irr
@@ -13,14 +14,16 @@ namespace irr
 namespace core
 {
 
-class IRR_FORCE_EBO IAddressAllocator
+class IRR_FORCE_EBO IAddressAllocator : Interface
 {
+        _IRR_INTERFACE_CHILD_DEFAULT(IAddressAllocator);
     public:
-        virtual                     ~IAddressAllocator() {}
-
         virtual size_t              get_real_addr(size_t allocated_addr) const noexcept = 0;
 
-        //! \param hint will be needed for 3D texture tile sub-allocation
+        //!
+        /** Warning outAddresses needs to be primed with `invalid_address` values,
+        otherwise no allocation happens for elements not equal to `invalid_address`.
+        \param hint will be needed for 3D texture tile sub-allocation */
         virtual void                multi_alloc_addr(uint32_t count, size_t* outAddresses, const size_t* bytes,
                                                      const size_t* alignment, const size_t* hint=nullptr) noexcept = 0;
         virtual void                multi_free_addr(uint32_t count, const size_t* addr, const size_t* bytes) noexcept = 0;
@@ -48,7 +51,9 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, p
 
         inline virtual size_t       get_real_addr(size_t allocated_addr) const noexcept {return traits::get_real_addr(getBaseRef(),allocated_addr);}
 
-
+        //!
+        /** Warning outAddresses needs to be primed with `invalid_address` values,
+        otherwise no allocation happens for elements not equal to `invalid_address`. */
         inline virtual void         multi_alloc_addr(uint32_t count, size_t* outAddresses, const size_t* bytes,
                                                      const size_t* alignment, const size_t* hint=nullptr) noexcept
         {

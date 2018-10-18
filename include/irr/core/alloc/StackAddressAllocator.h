@@ -35,6 +35,7 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
         StackAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type buffSz, size_type minAllocSize) noexcept :
                     Base(reservedSpc,buffer,maxAllocatableAlignment,buffSz), minimumAllocSize(minAllocSize), allocStackPtr(0u) {}
 
+        //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
         StackAddressAllocator(const StackAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) :
                     Base(other,newReservedSpc,newBuffer,newBuffSz), minimumAllocSize(other.minimumAllocSize), allocStackPtr(other.allocStackPtr)
         {

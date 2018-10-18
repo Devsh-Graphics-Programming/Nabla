@@ -156,6 +156,9 @@ namespace core
             }
 
 
+            //!
+            /** Warning outAddresses needs to be primed with `invalid_address` values,
+            otherwise no allocation happens for elements not equal to `invalid_address`. */
             static inline void              multi_alloc_addr(AddressAlloc& alloc, uint32_t count, size_type* outAddresses,
                                                              const size_type* bytes, const size_type* alignment, const size_type* hint=nullptr) noexcept
             {
