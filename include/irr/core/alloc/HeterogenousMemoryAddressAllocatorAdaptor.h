@@ -57,12 +57,6 @@ namespace impl
             {
                 return object.mReservedAlloc;
             }
-
-            template<class HeterogenousMemoryAddressAllocatorAdaptorT>
-            inline const typename HeterogenousMemoryAddressAllocatorAdaptorT::Base&             getAddressAllocator(HeterogenousMemoryAddressAllocatorAdaptorT& object) const
-            {
-                return object.getBaseRef();
-            }
     };
 
 
@@ -79,15 +73,15 @@ namespace impl
                                                                         mReservedSize(AddressAllocator::reserved_size(bufSz,mDataAlloc.min_alignment(),args...)),
                                                                         mReservedAlloc(reservedMemAllocator) {}
 
-            size_type                           mDataSize;
-            OtherAllocator                      mDataAlloc;
-            size_type                           mReservedSize;
-            HostAllocator                       mReservedAlloc;
+            size_type               mDataSize;
+            OtherAllocator          mDataAlloc;
+            size_type               mReservedSize;
+            HostAllocator           mReservedAlloc;
         public:
-            typedef typename OtherAllocator     OtherAllocatorType;
-            typedef typename HostAllocator      HostAllocatorType;
+            typedef OtherAllocator  OtherAllocatorType;
+            typedef HostAllocator   HostAllocatorType;
 
-            inline size_type                    getDataBufferSize() const {return mDataSize;}
+            inline size_type                getDataBufferSize() const {return mDataSize;}
     };
 }
 
@@ -106,7 +100,7 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
     public:
         typedef HeterogenousMemoryAddressAllocatorAdaptor<AddressAllocator,BufferAllocator,HostAllocator>           ThisType;
 
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        typedef typename AddressAllocator::size_type                                                                size_type;
 
 
         template<typename... Args>
@@ -140,6 +134,12 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
         inline void                             multi_free_addr(Args&&... args)
         {
             alloc_traits::multi_free_addr(getBaseAddrAllocRef(),std::forward<Args>(args)...);
+        }
+
+
+        inline const AddressAllocator&  getAddressAllocator() const
+        {
+            return *this;
         }
 };
 

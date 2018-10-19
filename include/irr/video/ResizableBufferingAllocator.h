@@ -4,7 +4,7 @@
 
 #include "irr/core/alloc/MultiBufferingAllocatorBase.h"
 #include "irr/core/alloc/ResizableHeterogenousMemoryAllocator.h"
-#include "irr/video/SimpleGPUBufferAllocator.h"
+#include "irr/video/GPUMemoryAllocatorBase.h"
 
 namespace irr
 {
@@ -16,7 +16,7 @@ class HostDeviceMirrorBufferAllocator : public GPUMemoryAllocatorBase
 {
         std::pair<void*,IGPUBuffer*>                 lastAllocation;
 
-        inline auto         createBuffers(size_t bytes, size_t alignment=_IRR_SIMD_ALIGNMENT)
+        inline decltype(lastAllocation) createBuffers(size_t bytes, size_t alignment=_IRR_SIMD_ALIGNMENT)
         {
             decltype(lastAllocation) retval;
             retval.first = _IRR_ALIGNED_MALLOC(bytes,alignment);
@@ -94,12 +94,15 @@ template<class BasicAddressAllocator, class CPUAllocator=core::allocator<uint8_t
 class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>,
                                        protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
 {
+        typedef core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>                                  Base;
     protected:
-        ResizableHeterogenousMemoryAllocator<BasicAddressAllocator,HostDeviceMirrorBufferAllocator,CPUAllocator>    mAllocator;
-        typedef core::address_allocator_traits<decltype(mAllocator)>                                                alloc_traits;
+        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator,CPUAllocator> HeterogenousBase;
+        core::ResizableHeterogenousMemoryAllocator<HeterogenousBase>                                                                mAllocator;
+
+        typedef core::address_allocator_traits<decltype(mAllocator)>                                                                alloc_traits;
 
     public:
-        typedef typename BasicAddressAllocator::size_type                                                           size_type;
+        typedef typename BasicAddressAllocator::size_type                                                                           size_type;
 
         template<typename... Args>
         ResizableBufferingAllocatorST(IVideoDriver* inDriver, const CPUAllocator& reservedMemAllocator, size_type bufSz, Args&&... args) :
@@ -112,17 +115,17 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 
         inline const BasicAddressAllocator& getAddressAllocator() const
         {
-            return core::impl::FriendOfResizableAddressAllocatorAdaptor::getAddressAllocator(mAllocator);
+            return mAllocator.getAddressAllocator();
         }
 
         inline void*                        getBackBufferPointer()
         {
-            return core::impl::FriendOfResizableAddressAllocatorAdaptor::getDataAllocator(mAllocator).getCPUStagingAreaPtr();
+            return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getCPUStagingAreaPtr();
         }
 
         inline IGPUBuffer*                  getFrontBuffer()
         {
-            return core::impl::FriendOfResizableAddressAllocatorAdaptor::getDataAllocator(mAllocator).getGPUBuffer();
+            return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getGPUBuffer();
         }
 
 
@@ -138,9 +141,9 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
         inline bool                         swapBuffers(StreamingTransientDataBuffer* streamingBuff, core::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges)
         {
             uint8_t* data = getBackBufferPointer();
-            typename AddressAllocator::size_type dataSize;
+            size_type dataSize;
             if (Base::alwaysSwapEntireRange)
-                dataSize = core::FriendOfResizableAddressAllocatorAdaptor::getDataBufferSize();
+                dataSize = getFrontBuffer()->getSize();
             else if (Base::dirtyRange.first<Base::dirtyRange.second)
             {
                 data += Base::dirtyRange.first;
@@ -151,8 +154,9 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
             if (offset==StreamingTransientDataBuffer::invalid_address)
                 return false;
 
-            mDriver->copyBuffer(streamingBuff->getBuffer(),getFrontBuffer(),offset,0u,dataSize);
-            auto fence = Driver->placeFence();
+            auto driver = core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getDriver();
+            driver->copyBuffer(streamingBuff->getBuffer(),getFrontBuffer(),offset,0u,dataSize);
+            auto fence = driver->placeFence();
             streamingBuff->Free(offset,dataSize,fence);
             fence->drop();
             Base::resetDirtyRange();

@@ -18,7 +18,8 @@ class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
         IDriverMemoryBacked::SDriverMemoryRequirements  mBufferMemReqs[kNumBuffers];
         std::pair<uint8_t*,IGPUBuffer*[kNumBuffers]>    lastAllocation;
 
-        inline auto     createAndMapBuffers()
+        //
+        inline decltype(lastAllocation) createAndMapBuffers()
         {
             decltype(lastAllocation) retval; retval.first = nullptr;
             for (size_t i=0; i<kNumBuffers; i++)

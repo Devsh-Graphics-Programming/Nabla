@@ -4,6 +4,8 @@
 
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 
+#include "irr/video/SimpleGPUBufferAllocator.h"
+#include "irr/core/alloc/PoolAddressAllocator.h"
 
 namespace irr
 {
@@ -15,12 +17,13 @@ template<class HeterogenousMemoryAllocator>
 class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
 {
         typedef HeterogenousMemoryAllocator                                         Base;
+        typedef typename Base::alloc_traits                                         alloc_traits;
+
         typedef typename Base::alloc_traits::allocator_type                         AddressAllocator;
-        inline AddressAllocator&                                                    getBaseAddrAllocRef() noexcept {return *this;}
     public:
         typedef ResizableHeterogenousMemoryAllocator<HeterogenousMemoryAllocator>   ThisType;
 
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        typedef typename HeterogenousMemoryAllocator::size_type                     size_type;
 
 
         template<typename... Args>
@@ -42,7 +45,7 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
             size_type totalNeededExtraNewMem = 0u;
             for (uint32_t i=0u; i<count; i++)
             {
-                if (outAddresses[i]!=invalid_address)
+                if (outAddresses[i]!=AddressAllocator::invalid_address)
                     continue;
 
                 totalNeededExtraNewMem += std::max(bytes[i],getBaseAddrAllocRef().min_size())+alignment[i]-1u;
@@ -111,16 +114,19 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
                 Base::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(oldReserved),oldReservedSize);
         }
 
+    private:
+        inline AddressAllocator&                getBaseAddrAllocRef() noexcept {return *this;}
+
 
     protected:
-        //
-
         constexpr static size_type defaultGrowStep = 32u*4096u; //128k at a time
         constexpr static size_type defaultGrowStepMinus1 = defaultGrowStep-1u;
         static inline size_type                 defaultGrowPolicy(ThisType* _this, size_type totalRequestedNewMem)
         {
-            size_type allAllocatorSpace = alloc_traits::get_total_size(*_this)-alloc_traits::get_align_offset(*_this);
-            size_type nextAllocTotal = alloc_traits::get_allocated_size(*_this)+totalRequestedNewMem;
+            const auto& underlyingAddrAlloc = _this->getAddressAllocator();
+
+            size_type allAllocatorSpace = alloc_traits::get_total_size(underlyingAddrAlloc)-underlyingAddrAlloc.get_align_offset();
+            size_type nextAllocTotal = alloc_traits::get_allocated_size(underlyingAddrAlloc)+totalRequestedNewMem;
             if (nextAllocTotal>allAllocatorSpace)
                 return (nextAllocTotal+defaultGrowStepMinus1)&(~defaultGrowStepMinus1);
 
@@ -130,11 +136,13 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
         {
             constexpr size_type shrinkStep = 256u*4096u; //1M at a time
 
-            size_type allFreeSpace = alloc_traits::get_free_size(*_this);
-            if (allFreeSpace>shrinkStep)
-                return (alloc_traits::get_allocated_size(*_this)+defaultGrowStepMinus1)&(~defaultGrowStepMinus1);
+            const auto& underlyingAddrAlloc = _this->getAddressAllocator();
 
-            return alloc_traits::get_total_size(*_this)-alloc_traits::get_align_offset(*_this);
+            size_type allFreeSpace = alloc_traits::get_free_size(underlyingAddrAlloc);
+            if (allFreeSpace>shrinkStep)
+                return (alloc_traits::get_allocated_size(underlyingAddrAlloc)+defaultGrowStepMinus1)&(~defaultGrowStepMinus1);
+
+            return alloc_traits::get_total_size(underlyingAddrAlloc)-underlyingAddrAlloc.get_align_offset();
         }
 
         size_type(*growPolicy)(ThisType*,size_type);
@@ -148,6 +156,18 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
         inline const decltype(shrinkPolicy)&    getShrinkPolicy() const {return shrinkPolicy;}
         inline void                             setShrinkPolicy(const decltype(shrinkPolicy)& newShrinkPolicy) {shrinkPolicy=newShrinkPolicy;}
 };
+
+namespace debug
+{
+    template<class U, typename... Args> using templated_func_multi_free_addr = typename U::multi_free_addr::template <Args...>;
+    template<class U> using func_multi_free_addr                    = decltype((typename U::multi_free_addr)(uint32_t(0u),reinterpret_cast<const uint32_t*>(nullptr),reinterpret_cast<const uint32_t*>(nullptr)));
+
+    template<class,class=void> struct has_func_multi_free_addr                          : std::false_type {};
+    template<class U> struct has_func_multi_free_addr<U,void_t<func_multi_free_addr<U> > > : std::is_same<func_multi_free_addr<U>,void> {};
+
+
+    static_assert(has_func_multi_free_addr< ResizableHeterogenousMemoryAllocator<HeterogenousMemoryAddressAllocatorAdaptor<PoolAddressAllocatorST<uint32_t>,video::SimpleGPUBufferAllocator<1u> > > >::value,"FCUK!");
+}
 
 }
 }

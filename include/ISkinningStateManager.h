@@ -213,7 +213,7 @@ namespace scene
                 instanceFinalBoneDataSize = referenceHierarchy->getBoneCount()*sizeof(FinalBoneData);
 
                 auto bufSize = instanceFinalBoneDataSize*16u; // use more buffer space in the future for GPU scene-tree
-                instanceBoneDataAllocator = new video::ResizableBufferingAllocatorST<core::PoolAddressAllocatorST<uint32_t>,true>(core::allocator<uint8_t>(),driver,bufSize,instanceFinalBoneDataSize);
+                instanceBoneDataAllocator = new std::remove_pointer<decltype(instanceBoneDataAllocator)>::type(driver,core::allocator<uint8_t>(),bufSize,instanceFinalBoneDataSize);
 
                 actualSizeOfInstanceDataElement = sizeof(BoneHierarchyInstanceData)+referenceHierarchy->getBoneCount()*(sizeof(IBoneSceneNode*)+sizeof(core::matrix4x3));
             }
@@ -298,12 +298,12 @@ namespace scene
             }
 
 
-            inline size_t getDataInstanceCount() const {return instanceBoneDataAllocator->getAllocator().get_allocated_size()/instanceFinalBoneDataSize;}
+            inline size_t getDataInstanceCount() const {return instanceBoneDataAllocator->getAddressAllocator().get_allocated_size()/instanceFinalBoneDataSize;}
 
         protected:
             virtual ~ISkinningStateManager()
             {
-                for (size_t j=instanceBoneDataAllocator->getAllocator().get_align_offset(); j<instanceBoneDataAllocator->getAllocator().get_total_size(); j+=instanceFinalBoneDataSize)
+                for (size_t j=instanceBoneDataAllocator->getAddressAllocator().get_align_offset(); j<instanceBoneDataAllocator->getAddressAllocator().get_total_size(); j+=instanceFinalBoneDataSize)
                 {
                     BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(j));
                     if (!currentInstance->refCount)
@@ -320,7 +320,7 @@ namespace scene
                     }
                 }
                 referenceHierarchy->drop();
-                instanceBoneDataAllocator->drop();
+                delete instanceBoneDataAllocator;
 
                 if (instanceData)
                     _IRR_ALIGNED_FREE(instanceData);
@@ -372,16 +372,16 @@ namespace scene
                 float lastAnimatedFrame; //to pad to 128bit align, maybe parentOffsetRelative?
             } PACK_STRUCT;
             #include "irr/irrunpack.h"
-            video::ResizableBufferingAllocatorST<core::PoolAddressAllocatorST<uint32_t>,true>* instanceBoneDataAllocator;
+            video::ResizableBufferingAllocatorST<core::PoolAddressAllocatorST<uint32_t>,core::allocator<uint8_t>,true>* instanceBoneDataAllocator;
 
             inline uint32_t getDataInstanceCapacity() const
             {
-                const auto& alloc = instanceBoneDataAllocator->getAllocator();
+                const auto& alloc = instanceBoneDataAllocator->getAddressAllocator();
                 return alloc.addressToBlockID(alloc.get_total_size());
             }
             inline uint8_t* getBoneHierarchyInstanceFromAddr(uint32_t instanceID) const
             {
-                auto blockID = instanceBoneDataAllocator->getAllocator().addressToBlockID(instanceID);
+                auto blockID = instanceBoneDataAllocator->getAddressAllocator().addressToBlockID(instanceID);
                 return reinterpret_cast<uint8_t*>(instanceData+blockID*actualSizeOfInstanceDataElement);
             }
     };

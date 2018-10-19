@@ -51,7 +51,7 @@ CMeshSceneNodeInstanced::~CMeshSceneNodeInstanced()
     lodCullingPointMesh->drop();
 
     if (instanceDataAllocator)
-        instanceDataAllocator->drop();
+        delete instanceDataAllocator;
     if (instanceBBoxes)
         _IRR_ALIGNED_FREE(instanceBBoxes);
     if (gpuCulledLodInstanceDataBuffer)
@@ -111,7 +111,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     dataPerInstanceInputSize = extraDataInstanceSize+visibilityPadding+48+36;
     auto buffSize = dataPerInstanceInputSize*512u;
-    instanceDataAllocator = new video::ResizableBufferingAllocatorST<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>(core::allocator<uint8_t>(),driver,buffSize,dataPerInstanceInputSize);
+    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(core::allocator<uint8_t>(),driver,buffSize,dataPerInstanceInputSize);
 	instanceBBoxesCount = getCurrentInstanceCapacity();
 	instanceBBoxes = (core::aabbox3df*)_IRR_ALIGNED_MALLOC(instanceBBoxesCount*sizeof(core::aabbox3df),_IRR_SIMD_ALIGNMENT);
 	for (size_t i=0; i<instanceBBoxesCount; i++)
