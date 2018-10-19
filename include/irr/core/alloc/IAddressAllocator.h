@@ -33,6 +33,7 @@ class IRR_FORCE_EBO IAddressAllocator : Interface
         virtual void                reset() noexcept = 0;
 
         virtual size_t              max_size() const noexcept = 0;
+        virtual size_t              min_size() const noexcept = 0;
         virtual size_t              max_alignment() const noexcept = 0;
 
         virtual size_t              safe_shrink_size(size_t byteBound=0u) const noexcept =0;
@@ -76,6 +77,8 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, p
         inline virtual void         reset() noexcept {getBaseRef().reset();}
 
         inline virtual size_t       max_size() const noexcept {return getBaseRef().max_size();}
+
+        inline virtual size_t       min_size() const noexcept {return getBaseRef().min_size();}
 
         inline virtual size_t       max_alignment() const noexcept {return getBaseRef().max_alignment();}
 

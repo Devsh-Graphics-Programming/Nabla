@@ -180,6 +180,12 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             return Base::max_size();
         }
 
+        //! Most allocators do not support e.g. 1-byte allocations
+        inline size_type        min_size() const noexcept
+        {
+            return Base::min_size();
+        }
+
         inline size_type        max_alignment() const noexcept
         {
             return Base::max_alignment();

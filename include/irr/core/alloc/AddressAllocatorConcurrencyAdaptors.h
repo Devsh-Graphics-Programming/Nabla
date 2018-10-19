@@ -14,6 +14,8 @@ namespace irr
 namespace core
 {
 
+
+//! TODO: Solve priority inversion issue by providing a default FIFO lock/mutex
 template<class AddressAllocator, class BasicLockable>
 class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 {
@@ -87,6 +89,15 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
             return retval;
         }
 
+        //! Most allocators do not support e.g. 1-byte allocations
+        inline size_type    min_size() const noexcept
+        {
+            lock.lock();
+            auto retval = AddressAllocator::min_size();
+            lock.unlock();
+            return retval;
+        }
+
         inline size_type    max_alignment() const noexcept
         {
             lock.lock();
@@ -111,6 +122,13 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
         static inline size_type reserved_size(size_type bufSz, const AddressAllocator& other) noexcept
         {
             return AddressAllocator::reserved_size(bufSz,other);
+        }
+
+
+        //! Extra == Use WIHT EXTREME CAUTION
+        inline BasicLockable&   get_lock() noexcept
+        {
+            return lock;
         }
 };
 

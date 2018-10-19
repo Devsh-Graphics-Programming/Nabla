@@ -411,6 +411,12 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             return 0u;
         }
 
+        //! Most allocators do not support e.g. 1-byte allocations
+        inline size_type        min_size() const noexcept
+        {
+            return AllocStrategy::minBlockSize;
+        }
+
         inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
             size_type retval = get_total_size()-Base::alignOffset;

@@ -84,6 +84,12 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
             return Base::max_size();
         }
 
+        //! Most allocators do not support e.g. 1-byte allocations
+        inline size_type    min_size() const noexcept
+        {
+            return Base::min_size();
+        }
+
 
         static inline size_type reserved_size(size_type bufSz, size_type maxAlignment, size_type minAllocSize) noexcept
         {

@@ -8,7 +8,7 @@
 #include "ESceneNodeTypes.h"
 #include "IMeshSceneNodeInstanced.h"
 #include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
-#include "irr/video/CResizableDoubleBufferingAllocator.h"
+#include "irr/video/ResizableBufferingAllocator.h"
 #include "ITransformFeedback.h"
 #include "IQueryObject.h"
 #include "ISceneManager.h"
@@ -159,7 +159,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         core::vector<video::ITransformFeedback*> xfb;
         size_t gpuLoDsPerPass;
 
-        video::CResizableDoubleBufferingAllocator<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>* instanceDataAllocator;
+        video::ResizableBufferingAllocatorST<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>* instanceDataAllocator;
         bool needsBBoxRecompute;
         size_t instanceBBoxesCount;
         core::aabbox3df* instanceBBoxes;

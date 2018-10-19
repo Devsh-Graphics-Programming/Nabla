@@ -4,7 +4,7 @@
 #include "CFinalBoneHierarchy.h"
 #include "IDummyTransformationSceneNode.h"
 #include "irr/core/alloc/PoolAddressAllocator.h"
-#include "irr/video/CResizableDoubleBufferingAllocator.h"
+#include "irr/video/ResizableBufferingAllocator.h"
 
 namespace irr
 {
@@ -212,11 +212,8 @@ namespace scene
 
                 instanceFinalBoneDataSize = referenceHierarchy->getBoneCount()*sizeof(FinalBoneData);
 
-                video::IDriverMemoryBacked::SDriverMemoryRequirements stagingReqs = driver->getUpStreamingMemoryReqs();
-                stagingReqs.mappingCapability |= video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ;
-                video::IDriverMemoryBacked::SDriverMemoryRequirements frontReqs = driver->getDeviceLocalGPUMemoryReqs();
-                stagingReqs.vulkanReqs.size = frontReqs.vulkanReqs.size = instanceFinalBoneDataSize*16u; // use more buffer space in the future for GPU scene-tree
-                instanceBoneDataAllocator = new video::CResizableDoubleBufferingAllocator<core::PoolAddressAllocatorST<uint32_t>,true>(driver,stagingReqs,frontReqs,instanceFinalBoneDataSize);
+                auto bufSize = instanceFinalBoneDataSize*16u; // use more buffer space in the future for GPU scene-tree
+                instanceBoneDataAllocator = new video::ResizableBufferingAllocatorST<core::PoolAddressAllocatorST<uint32_t>,true>(core::allocator<uint8_t>(),driver,bufSize,instanceFinalBoneDataSize);
 
                 actualSizeOfInstanceDataElement = sizeof(BoneHierarchyInstanceData)+referenceHierarchy->getBoneCount()*(sizeof(IBoneSceneNode*)+sizeof(core::matrix4x3));
             }
@@ -375,7 +372,7 @@ namespace scene
                 float lastAnimatedFrame; //to pad to 128bit align, maybe parentOffsetRelative?
             } PACK_STRUCT;
             #include "irr/irrunpack.h"
-            video::CResizableDoubleBufferingAllocator<core::PoolAddressAllocatorST<uint32_t>,true>* instanceBoneDataAllocator;
+            video::ResizableBufferingAllocatorST<core::PoolAddressAllocatorST<uint32_t>,true>* instanceBoneDataAllocator;
 
             inline uint32_t getDataInstanceCapacity() const
             {
