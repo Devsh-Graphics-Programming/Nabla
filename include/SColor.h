@@ -890,6 +890,15 @@ namespace video
         _output[3] = pix >> 15;
     }
 
+    template<>
+    inline void decodePixels<ECF_R5G6B5, uint64_t>(const void* _pix, uint64_t* _output)
+    {
+        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
+        _output[0] = ((pix >> 0) & 0x1fULL);
+        _output[1] = ((pix >> 5) & 0x3fULL);
+        _output[2] = ((pix >> 11) & 0x1fULL);
+    }
+
     /*
     namespace impl
     {
@@ -5747,19 +5756,19 @@ namespace video
 
             struct {
                 union {
-                    uint8_t r, g, b, a;
-                    uint8_t c[4];
+                    uint64_t r, g, b, a;
+                    uint64_t c[4];
                 };
             } p[4];
 
             uint16_t r0, g0, b0, r1, g1, b1;
             
 
-            decodePixels<ECF_R5G6B5>(&col.c0, p, 1ull);
+            decodePixels<ECF_R5G6B5, uint64_t>(&col.c0, p[0].c);
             r0 = p[0].r;
             g0 = p[0].g;
             b0 = p[0].b;
-            decodePixels<ECF_R5G6B5>(&col.c1, p+1, 1ull);
+            decodePixels<ECF_R5G6B5, uint64_t>(&col.c1, p[1].c);
             r1 = p[1].r;
             g1 = p[1].g;
             b1 = p[1].b;
