@@ -21,46 +21,11 @@ namespace video
 		/** It is thus preferred by all other irrlicht engine video drivers.
 		There are 5 bits for every color component, and a single bit is left
 		for alpha information. */
-		ECF_A1R5G5B5 = 0,
-
-		//! Standard 16 bit color format.
-		ECF_R5G6B5,
-
-		//! 24 bit color, no alpha channel, but 8 bit for red, green and blue.
-		ECF_R8G8B8,
-
-		//! Default 32 bit color format. 8 bits are used for every component: red, green, blue and alpha.
-		ECF_A8R8G8B8,
-
-		/** Floating Point formats. The following formats may only be used for render target textures. */
-
-		//!
-		ECF_R11G11B10F,
-
-		//! 16 bit floating point format using 16 bits for the red channel.
-		ECF_R16F,
-
-		//! 32 bit floating point format using 16 bits for the red channel and 16 bits for the green channel.
-		ECF_G16R16F,
-
-		//! 64 bit floating point format 16 bits are used for the red, green, blue and alpha channels.
-		ECF_A16B16G16R16F,
-
-		//! 32 bit floating point format using 32 bits for the red channel.
-		ECF_R32F,
-
-		//! 64 bit floating point format using 32 bits for the red channel and 32 bits for the green channel.
-		ECF_G32R32F,
-
-		//! 128 bit floating point format. 32 bits are used for the red, green, blue and alpha channels.
-		ECF_A32B32G32R32F,
-
-		//! Needed for some awesome things
-		ECF_R8,
-		ECF_R8G8,
-		ECF_R8G8B8A8,
+		ECF_A1R5G5B5 = 0, // this doesn't have equivalent in Vulkan (???)
+        ECF_R5G6B5, // this also doesn't have vulkan equivalent..
 
         //! In all freaking honesty, use texture view objects to cast between same bitsize pixel formats
+        // remove this?? todo
         ECF_8BIT_PIX,
         ECF_16BIT_PIX,
         ECF_24BIT_PIX,
@@ -78,9 +43,6 @@ namespace video
         ECF_DEPTH32F_STENCIL8,
         ECF_STENCIL8,
 
-        //! 9 bits for each of R,G,B and 5 bits for shared exponent
-        ECF_RGB9_E5,
-
         //! Vulkan
         ECF_R4G4_UNORM_PACK8,
         ECF_R4G4B4A4_UNORM_PACK16,
@@ -94,18 +56,21 @@ namespace video
         ECF_R8_SNORM,
         ECF_R8_USCALED,
         ECF_R8_SSCALED,
+        ECF_R8_UINT,//new
         ECF_R8_SINT,
         ECF_R8_SRGB,
         ECF_R8G8_UNORM,
         ECF_R8G8_SNORM,
         ECF_R8G8_USCALED,
         ECF_R8G8_SSCALED,
+        ECF_R8G8_UINT,//new
         ECF_R8G8_SINT,
         ECF_R8G8_SRGB,
         ECF_R8G8B8_UNORM,
         ECF_R8G8B8_SNORM,
         ECF_R8G8B8_USCALED,
         ECF_R8G8B8_SSCALED,
+        ECF_R8G8B8_UINT,//new
         ECF_R8G8B8_SINT,
         ECF_R8G8B8_SRGB,
         ECF_B8G8R8_UNORM,
@@ -119,6 +84,7 @@ namespace video
         ECF_R8G8B8A8_SNORM,
         ECF_R8G8B8A8_USCALED,
         ECF_R8G8B8A8_SSCALED,
+        ECF_R8G8B8A8_UINT,//new
         ECF_R8G8B8A8_SINT,
         ECF_R8G8B8A8_SRGB,
         ECF_B8G8R8A8_UNORM,
@@ -153,12 +119,14 @@ namespace video
         ECF_R16_SSCALED,
         ECF_R16_UINT,
         ECF_R16_SINT,
+        ECF_R16_SFLOAT,
         ECF_R16G16_UNORM,
         ECF_R16G16_SNORM,
         ECF_R16G16_USCALED,
         ECF_R16G16_SSCALED,
         ECF_R16G16_UINT,
         ECF_R16G16_SINT,
+        ECF_R16G16_SFLOAT,
         ECF_R16G16B16_UNORM,
         ECF_R16G16B16_SNORM,
         ECF_R16G16B16_USCALED,
@@ -172,15 +140,19 @@ namespace video
         ECF_R16G16B16A16_SSCALED,
         ECF_R16G16B16A16_UINT,
         ECF_R16G16B16A16_SINT,
+        ECF_R16G16B16A16_SFLOAT,//new
         ECF_R32_UINT,
         ECF_R32_SINT,
+        ECF_R32_SFLOAT,//new
         ECF_R32G32_UINT,
         ECF_R32G32_SINT,
+        ECF_R32G32_SFLOAT,//new
         ECF_R32G32B32_UINT,
         ECF_R32G32B32_SINT,
         ECF_R32G32B32_SFLOAT,
         ECF_R32G32B32A32_UINT,
         ECF_R32G32B32A32_SINT,
+        ECF_R32G32B32A32_SFLOAT,//new
         ECF_R64_UINT,
         ECF_R64_SINT,
         ECF_R64_SFLOAT,
@@ -193,19 +165,25 @@ namespace video
         ECF_R64G64B64A64_UINT,
         ECF_R64G64B64A64_SINT,
         ECF_R64G64B64A64_SFLOAT,
-        //ECF_B10G11R11_UFLOAT_PACK32,
-        //ECF_E5B9G9R9_UFLOAT_PACK32,
+        ECF_B10G11R11_UFLOAT_PACK32,//new
+        ECF_E5B9G9R9_UFLOAT_PACK32,//new
         ECF_D16_UNORM,
         ECF_X8_D24_UNORM_PACK32,
         ECF_D16_UNORM_S8_UINT,
+        ECF_D24_UNORM_S8_UINT,
+        ECF_D32_SFLOAT_S8_UINT,
 
         //! Block Compression Formats!
         ECF_RGB_BC1,
+        ECF_BC1_RGB_UNORM_BLOCK,//new
         ECF_BC1_RGB_SRGB_BLOCK,
         ECF_RGBA_BC1,
+        ECF_BC1_RGBA_UNORM_BLOCK,//new
         ECF_BC1_RGBA_SRGB_BLOCK,
+        ECF_BC2_UNORM_BLOCK,//new
         ECF_RGBA_BC2,
         ECF_BC2_SRGB_BLOCK,
+        ECF_BC3_UNORM_BLOCK,//new
         ECF_RGBA_BC3,
         ECF_BC3_SRGB_BLOCK,
         ECF_R_BC4,
@@ -233,19 +211,17 @@ namespace video
         switch (_fmt)
         {
         case ECF_A1R5G5B5: return 2;
-        case ECF_R5G6B5: return 2;
-        case ECF_R8G8B8: return 3;
-        case ECF_A8R8G8B8: return 4;
-        case ECF_R11G11B10F: return 4;
-        case ECF_R16F: return 2;
-        case ECF_G16R16F: return 4;
-        case ECF_A16B16G16R16F: return 8;
-        case ECF_R32F: return 4;
-        case ECF_G32R32F: return 8;
-        case ECF_A32B32G32R32F: return 16;
-        case ECF_R8: return 1;
-        case ECF_R8G8: return 2;
-        case ECF_R8G8B8A8: return 4;
+        case ECF_R8G8B8_UINT: return 3;
+        case ECF_R8G8B8A8_UINT: return 4;
+        case ECF_B10G11R11_UFLOAT_PACK32: return 4;
+        case ECF_R16_SFLOAT: return 2;
+        case ECF_R16G16_SFLOAT: return 4;
+        case ECF_R16G16B16A16_SFLOAT: return 8;
+        case ECF_R32_SFLOAT: return 4;
+        case ECF_R32G32_SFLOAT: return 8;
+        case ECF_R32G32B32A32_SFLOAT: return 16;
+        case ECF_R8_UINT: return 1;
+        case ECF_R8G8_UINT: return 2;
         case ECF_RGB_BC1:
         case ECF_RGBA_BC1:
             return 8;
@@ -268,7 +244,7 @@ namespace video
         case ECF_DEPTH24_STENCIL8: return 4;
         case ECF_DEPTH32F_STENCIL8: return 5;
         case ECF_STENCIL8: return 2;
-        case ECF_RGB9_E5: return 4;
+        case ECF_E5B9G9R9_UFLOAT_PACK32: return 4;
         case ECF_R4G4_UNORM_PACK8: return 1;
         case ECF_R4G4B4A4_UNORM_PACK16: return 2;
         case ECF_B4G4R4A4_UNORM_PACK16: return 2;
@@ -606,6 +582,7 @@ namespace video
             ECF_R16G16B16_USCALED,
             ECF_R16G16B16_SSCALED,
             ECF_R16G16B16A16_USCALED,
+            ECF_R16G16B16A16_SSCALED,
             ECF_R16G16B16A16_SSCALED
         > ::value;
     }
@@ -874,7 +851,7 @@ namespace video
     template<ECOLOR_FORMAT fmt, typename T>
     inline typename 
     std::enable_if<
-        std::is_same<T, double>::value || std::is_same<T, uint64_t>::value ||std::is_same<T, int64_t>::value,
+        std::is_same<T, double>::value && isScaledFormat<fmt>(),
         void
     >::type
     decodePixels(const void* _pix, T* _output, uint64_t _scale);
@@ -882,13 +859,29 @@ namespace video
     template<ECOLOR_FORMAT fmt, typename T>
     inline typename 
     std::enable_if<
-        std::is_same<T, double>::value || std::is_same<T, uint64_t>::value ||std::is_same<T, int64_t>::value,
+        std::is_same<T, double>::value && isScaledFormat<fmt>(),
         void
     >::type
     encodePixels(void* _pix, const T* _input, uint64_t _scale);
 
+    template<ECOLOR_FORMAT fmt, typename T>
+    inline typename 
+    std::enable_if<
+        std::is_same<T, double>::value || std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value,
+        void
+    >::type
+    decodePixels(const void* _pix, T* _output);
+
+    template<ECOLOR_FORMAT fmt, typename T>
+    inline typename 
+    std::enable_if<
+        std::is_same<T, double>::value || std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value,
+        void
+    >::type
+    encodePixels(void* _pix, const T* _input);
+
     template<>
-    inline void decodePixels<ECF_A1R5G5B5, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A1R5G5B5, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[0] = (pix & 0x1fu);
@@ -896,75 +889,8 @@ namespace video
         _output[2] = ((pix>>10) & 0x1fu);
         _output[3] = pix >> 15;
     }
-    template<>
-    inline void decodePixels<ECF_A1R5G5B5, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = (pix & 0x1fu);
-        _output[1] = ((pix>>5) & 0x1fu);
-        _output[2] = ((pix>>10) & 0x1fu);
-        _output[3] = pix >> 15;
-    }
-    template<>
-    inline void decodePixels<ECF_A1R5G5B5, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = (pix & 0x1fu);
-        _output[1] = ((pix>>5) & 0x1fu);
-        _output[2] = ((pix>>10) & 0x1fu);
-        _output[3] = pix >> 15;
-    }
-    template<>
-    inline void decodePixels<ECF_R5G6B5, double>(const void* _pix, double* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = (pix & 0x1fu);
-        _output[1] = ((pix >> 5) & 0x1fu);
-        _output[2] = ((pix >> 10) & 0x1fu);
-    }
-    template<>
-    inline void decodePixels<ECF_R5G6B5, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = (pix & 0x1fu);
-        _output[1] = ((pix >> 5) & 0x1fu);
-        _output[2] = ((pix >> 10) & 0x1fu);
-    }
-    template<>
-    inline void decodePixels<ECF_R5G6B5, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = (pix & 0x1fu);
-        _output[1] = ((pix >> 5) & 0x1fu);
-        _output[2] = ((pix >> 10) & 0x1fu);
-    }
-    template<>
-    inline void decodePixels<ECF_A8R8G8B8, double>(const void* _pix, double* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[3] = (pix & 0xffu);
-        _output[2] = ((pix >> 8) & 0xffu);
-        _output[1] = ((pix >> 16) & 0xffu);
-        _output[0] = ((pix >> 24) & 0xffu);
-    }
-    template<>
-    inline void decodePixels<ECF_A8R8G8B8, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[3] = (pix & 0xffu);
-        _output[2] = ((pix >> 8) & 0xffu);
-        _output[1] = ((pix >> 16) & 0xffu);
-        _output[0] = ((pix >> 24) & 0xffu);
-    }
-    template<>
-    inline void decodePixels<ECF_A8R8G8B8, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[3] = (pix & 0xffu);
-        _output[2] = ((pix >> 8) & 0xffu);
-        _output[1] = ((pix >> 16) & 0xffu);
-        _output[0] = ((pix >> 24) & 0xffu);
-    }
+
+    /*
     namespace impl
     {
         template<typename T>
@@ -994,32 +920,32 @@ namespace video
         }
     }
     template<>
-    inline void decodePixels<ECF_R11G11B10F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode11_11_10f(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R11G11B10F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode11_11_10f(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R11G11B10F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode11_11_10f(_pix, _output);
     }
     template<>
-    inline void encodePixels<ECF_R11G11B10F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode11_11_10f(_pix, _input);
     }
     template<>
-    inline void encodePixels<ECF_R11G11B10F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B10G11R11_UFLOAT_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
     {
         impl::encode11_11_10f(_pix, _input);
     }
     template<>
-    inline void encodePixels<ECF_R11G11B10F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B10G11R11_UFLOAT_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
     {
         impl::encode11_11_10f(_pix, _input);
     }
@@ -1053,32 +979,32 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R16F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R16F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R16F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_G16R16F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_G16R16F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_G16R16F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 2u);
     }
@@ -1098,48 +1024,48 @@ namespace video
         impl::decode16f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_A16B16G16R16F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_A16B16G16R16F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_A16B16G16R16F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 4u);
     }
 
     template<>
-    inline void encodePixels<ECF_R16F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode16f(_pix, _input, 1u);
     }
     template<>
-    inline void encodePixels<ECF_R16F, int64_t>(void* _pix, const int64_t* _input,  uint64_t _scale)
+    inline void encodePixels<ECF_R16_SFLOAT, int64_t>(void* _pix, const int64_t* _input,  uint64_t _scale)
     {
         impl::encode16f(_pix, _input, 1u);
     }
     template<>
-    inline void encodePixels<ECF_R16F, uint64_t>(void* _pix, const uint64_t* _input,  uint64_t _scale)
+    inline void encodePixels<ECF_R16_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input,  uint64_t _scale)
     {
         impl::encode16f(_pix, _input, 1u);
     }
     template<>
-    inline void encodePixels<ECF_G16R16F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode16f(_pix, _input, 2u);
     }
     template<>
-    inline void encodePixels<ECF_G16R16F, int64_t>(void* _pix, const int64_t* _input,  uint64_t _scale)
+    inline void encodePixels<ECF_R16G16_SFLOAT, int64_t>(void* _pix, const int64_t* _input,  uint64_t _scale)
     {
         impl::encode16f(_pix, _input, 2u);
     }
     template<>
-    inline void encodePixels<ECF_G16R16F, uint64_t>(void* _pix, const uint64_t* _input,  uint64_t _scale)
+    inline void encodePixels<ECF_R16G16_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input,  uint64_t _scale)
     {
         impl::encode16f(_pix, _input, 2u);
     }
@@ -1159,17 +1085,17 @@ namespace video
         impl::encode16f(_pix, _input, 3u);
     }
     template<>
-    inline void encodePixels<ECF_A16B16G16R16F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode16f(_pix, _input, 4u);
     }
     template<>
-    inline void encodePixels<ECF_A16B16G16R16F, int64_t>(void* _pix, const int64_t* _input,  uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_SFLOAT, int64_t>(void* _pix, const int64_t* _input,  uint64_t _scale)
     {
         impl::encode16f(_pix, _input, 4u);
     }
     template<>
-    inline void encodePixels<ECF_A16B16G16R16F, uint64_t>(void* _pix, const uint64_t* _input,  uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input,  uint64_t _scale)
     {
         impl::encode16f(_pix, _input, 4u);
     }
@@ -1193,32 +1119,32 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R32F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R32F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R32F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_G32R32F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_G32R32F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_G32R32F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 2u);
     }
@@ -1238,48 +1164,48 @@ namespace video
         impl::decode32f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_A32B32G32R32F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_A32B32G32R32F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_A32B32G32R32F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 4u);
     }
 
     template<>
-    inline void encodePixels<ECF_R32F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode32f(_pix, _input, 1u);
     }
     template<>
-    inline void encodePixels<ECF_R32F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32_SFLOAT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
     {
         impl::encode32f(_pix, _input, 1u);
     }
     template<>
-    inline void encodePixels<ECF_R32F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
     {
         impl::encode32f(_pix, _input, 1u);
     }
     template<>
-    inline void encodePixels<ECF_G32R32F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode32f(_pix, _input, 2u);
     }
     template<>
-    inline void encodePixels<ECF_G32R32F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32_SFLOAT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
     {
         impl::encode32f(_pix, _input, 2u);
     }
     template<>
-    inline void encodePixels<ECF_G32R32F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
     {
         impl::encode32f(_pix, _input, 2u);
     }
@@ -1299,17 +1225,17 @@ namespace video
         impl::encode32f(_pix, _input, 3u);
     }
     template<>
-    inline void encodePixels<ECF_A32B32G32R32F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32A32_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode32f(_pix, _input, 4u);
     }
     template<>
-    inline void encodePixels<ECF_A32B32G32R32F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32A32_SFLOAT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
     {
         impl::encode32f(_pix, _input, 4u);
     }
     template<>
-    inline void encodePixels<ECF_A32B32G32R32F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32A32_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
     {
         impl::encode32f(_pix, _input, 4u);
     }
@@ -1473,32 +1399,32 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R8, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R8, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R8, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 2u);
     }
@@ -1518,48 +1444,48 @@ namespace video
         impl::decode8ui(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 4u);
     }
 
     template<>
-    inline void encodePixels<ECF_R8, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 1u);
     }
     template<>
-    inline void encodePixels<ECF_R8, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 1u);
     }
     template<>
-    inline void encodePixels<ECF_R8, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 1u);
     }
     template<>
-    inline void encodePixels<ECF_R8G8, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 2u);
     }
     template<>
-    inline void encodePixels<ECF_R8G8, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 2u);
     }
     template<>
-    inline void encodePixels<ECF_R8G8, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 2u);
     }
@@ -1579,45 +1505,32 @@ namespace video
         impl::encode8ui(_pix, _input, 3u);
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8A8, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8A8_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 4u);
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8A8, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8A8_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 4u);
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8A8, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8A8_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 4u);
     }
+    */
 
     //integer formats decode/encode
     template<>
-    inline void decodePixels<ECF_R4G4_UNORM_PACK8, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R4G4_UNORM_PACK8, double>(const void* _pix, double* _output)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
         _output[1] = ((pix >> 0) & 0xfULL) / 15.;
         _output[0] = ((pix >> 4) & 0xfULL) / 15.;
     }
     template<>
-    inline void decodePixels<ECF_R4G4_UNORM_PACK8, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
-        _output[1] = ((pix >> 0) & 0xfULL);
-        _output[0] = ((pix >> 4) & 0xfULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R4G4_UNORM_PACK8, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
-        _output[1] = ((pix >> 0) & 0xfULL);
-        _output[0] = ((pix >> 4) & 0xfULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R4G4_UNORM_PACK8, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R4G4_UNORM_PACK8, double>(void* _pix, const double* _input)
     {
         uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
         {
@@ -1634,46 +1547,9 @@ namespace video
             inp *= 15.;
             pix |= ((uint64_t(inp) & mask) << 4);
         }
-
     }
     template<>
-    inline void encodePixels<ECF_R4G4_UNORM_PACK8, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
-        {
-            const uint8_t mask = 0xfULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint8_t mask = 0xfULL;
-            pix &= (~(mask << 4));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 4);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R4G4_UNORM_PACK8, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
-        {
-            const uint8_t mask = 0xfULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint8_t mask = 0xfULL;
-            pix &= (~(mask << 4));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 4);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(const void* _pix, double* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[3] = ((pix >> 0) & 0xfULL) / 15.;
@@ -1682,25 +1558,7 @@ namespace video
         _output[0] = ((pix >> 12) & 0xfULL) / 15.;
     }
     template<>
-    inline void decodePixels<ECF_R4G4B4A4_UNORM_PACK16, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[3] = ((pix >> 0) & 0xfULL);
-        _output[2] = ((pix >> 4) & 0xfULL);
-        _output[1] = ((pix >> 8) & 0xfULL);
-        _output[0] = ((pix >> 12) & 0xfULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R4G4B4A4_UNORM_PACK16, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[3] = ((pix >> 0) & 0xfULL);
-        _output[2] = ((pix >> 4) & 0xfULL);
-        _output[1] = ((pix >> 8) & 0xfULL);
-        _output[0] = ((pix >> 12) & 0xfULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(void* _pix, const double* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -1734,67 +1592,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R4G4B4A4_UNORM_PACK16, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 4));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 4);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 12));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 12);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R4G4B4A4_UNORM_PACK16, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 4));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 4);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 12));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 12);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(const void* _pix, double* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[3] = ((pix >> 0) & 0xfULL) / 15.;
@@ -1803,25 +1601,7 @@ namespace video
         _output[2] = ((pix >> 12) & 0xfULL) / 15.;
     }
     template<>
-    inline void decodePixels<ECF_B4G4R4A4_UNORM_PACK16, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[3] = ((pix >> 0) & 0xfULL);
-        _output[0] = ((pix >> 4) & 0xfULL);
-        _output[1] = ((pix >> 8) & 0xfULL);
-        _output[2] = ((pix >> 12) & 0xfULL);
-    }
-    template<>
-    inline void decodePixels<ECF_B4G4R4A4_UNORM_PACK16, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[3] = ((pix >> 0) & 0xfULL);
-        _output[0] = ((pix >> 4) & 0xfULL);
-        _output[1] = ((pix >> 8) & 0xfULL);
-        _output[2] = ((pix >> 12) & 0xfULL);
-    }
-    template<>
-    inline void encodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(void* _pix, const double* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -1855,67 +1635,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B4G4R4A4_UNORM_PACK16, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 4));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 4);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 12));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 12);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B4G4R4A4_UNORM_PACK16, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 4));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 4);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint16_t mask = 0xfULL;
-            pix &= (~(mask << 12));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 12);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R5G6B5_UNORM_PACK16, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R5G6B5_UNORM_PACK16, double>(const void* _pix, double* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0x1fULL) / 31.;
@@ -1923,23 +1643,7 @@ namespace video
         _output[0] = ((pix >> 11) & 0x1fULL) / 31.;
     }
     template<>
-    inline void decodePixels<ECF_R5G6B5_UNORM_PACK16, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x1fULL);
-        _output[1] = ((pix >> 5) & 0x3fULL);
-        _output[0] = ((pix >> 11) & 0x1fULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R5G6B5_UNORM_PACK16, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x1fULL);
-        _output[1] = ((pix >> 5) & 0x3fULL);
-        _output[0] = ((pix >> 11) & 0x1fULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R5G6B5_UNORM_PACK16, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R5G6B5_UNORM_PACK16, double>(void* _pix, const double* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -1966,55 +1670,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R5G6B5_UNORM_PACK16, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x3fULL;
-            pix &= (~(mask << 5));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 5);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 11));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 11);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R5G6B5_UNORM_PACK16, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x3fULL;
-            pix &= (~(mask << 5));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 5);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 11));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 11);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_B5G6R5_UNORM_PACK16, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B5G6R5_UNORM_PACK16, double>(const void* _pix, double* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0x1fULL) / 31.;
@@ -2022,23 +1678,7 @@ namespace video
         _output[2] = ((pix >> 11) & 0x1fULL) / 31.;
     }
     template<>
-    inline void decodePixels<ECF_B5G6R5_UNORM_PACK16, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x1fULL);
-        _output[1] = ((pix >> 5) & 0x3fULL);
-        _output[2] = ((pix >> 11) & 0x1fULL);
-    }
-    template<>
-    inline void decodePixels<ECF_B5G6R5_UNORM_PACK16, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x1fULL);
-        _output[1] = ((pix >> 5) & 0x3fULL);
-        _output[2] = ((pix >> 11) & 0x1fULL);
-    }
-    template<>
-    inline void encodePixels<ECF_B5G6R5_UNORM_PACK16, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B5G6R5_UNORM_PACK16, double>(void* _pix, const double* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -2065,55 +1705,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B5G6R5_UNORM_PACK16, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x3fULL;
-            pix &= (~(mask << 5));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 5);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 11));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 11);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B5G6R5_UNORM_PACK16, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x3fULL;
-            pix &= (~(mask << 5));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 5);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 11));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 11);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(const void* _pix, double* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[3] = ((pix >> 0) & 0x1ULL) / 1.;
@@ -2122,25 +1714,7 @@ namespace video
         _output[0] = ((pix >> 11) & 0x1fULL) / 31.;
     }
     template<>
-    inline void decodePixels<ECF_R5G5B5A1_UNORM_PACK16, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[3] = ((pix >> 0) & 0x1ULL);
-        _output[2] = ((pix >> 1) & 0x1fULL);
-        _output[1] = ((pix >> 6) & 0x1fULL);
-        _output[0] = ((pix >> 11) & 0x1fULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R5G5B5A1_UNORM_PACK16, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[3] = ((pix >> 0) & 0x1ULL);
-        _output[2] = ((pix >> 1) & 0x1fULL);
-        _output[1] = ((pix >> 6) & 0x1fULL);
-        _output[0] = ((pix >> 11) & 0x1fULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(void* _pix, const double* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -2174,67 +1748,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R5G5B5A1_UNORM_PACK16, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1ULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 1));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 1);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 6));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 6);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 11));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 11);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R5G5B5A1_UNORM_PACK16, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1ULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 1));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 1);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 6));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 6);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 11));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 11);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(const void* _pix, double* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[3] = ((pix >> 0) & 0x1ULL) / 1.;
@@ -2243,25 +1757,7 @@ namespace video
         _output[2] = ((pix >> 11) & 0x1fULL) / 31.;
     }
     template<>
-    inline void decodePixels<ECF_B5G5R5A1_UNORM_PACK16, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[3] = ((pix >> 0) & 0x1ULL);
-        _output[0] = ((pix >> 1) & 0x1fULL);
-        _output[1] = ((pix >> 6) & 0x1fULL);
-        _output[2] = ((pix >> 11) & 0x1fULL);
-    }
-    template<>
-    inline void decodePixels<ECF_B5G5R5A1_UNORM_PACK16, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[3] = ((pix >> 0) & 0x1ULL);
-        _output[0] = ((pix >> 1) & 0x1fULL);
-        _output[1] = ((pix >> 6) & 0x1fULL);
-        _output[2] = ((pix >> 11) & 0x1fULL);
-    }
-    template<>
-    inline void encodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(void* _pix, const double* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -2295,67 +1791,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B5G5R5A1_UNORM_PACK16, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1ULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 1));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 1);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 6));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 6);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 11));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 11);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B5G5R5A1_UNORM_PACK16, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1ULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 1));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 1);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 6));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 6);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 11));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 11);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(const void* _pix, double* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0x1fULL) / 31.;
@@ -2364,25 +1800,7 @@ namespace video
         _output[3] = ((pix >> 15) & 0x1ULL) / 1.;
     }
     template<>
-    inline void decodePixels<ECF_A1R5G5B5_UNORM_PACK16, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x1fULL);
-        _output[1] = ((pix >> 5) & 0x1fULL);
-        _output[0] = ((pix >> 10) & 0x1fULL);
-        _output[3] = ((pix >> 15) & 0x1ULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A1R5G5B5_UNORM_PACK16, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x1fULL);
-        _output[1] = ((pix >> 5) & 0x1fULL);
-        _output[0] = ((pix >> 10) & 0x1fULL);
-        _output[3] = ((pix >> 15) & 0x1ULL);
-    }
-    template<>
-    inline void encodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(void* _pix, const double* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -2416,85 +1834,13 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A1R5G5B5_UNORM_PACK16, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 5));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 5);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint16_t mask = 0x1ULL;
-            pix &= (~(mask << 15));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 15);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A1R5G5B5_UNORM_PACK16, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 5));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 5);
-        }
-        {
-            const uint16_t mask = 0x1fULL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint16_t mask = 0x1ULL;
-            pix &= (~(mask << 15));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 15);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_UNORM, double>(const void* _pix, double* _output)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
     }
     template<>
-    inline void decodePixels<ECF_R8_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8_UNORM, double>(void* _pix, const double* _input)
     {
         uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
         {
@@ -2507,49 +1853,13 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
-        {
-            const uint8_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
-        {
-            const uint8_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_SNORM, double>(const void* _pix, double* _output)
     {
         const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
     }
     template<>
-    inline void decodePixels<ECF_R8_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8_SNORM, double>(void* _pix, const double* _input)
     {
         int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
         {
@@ -2562,46 +1872,10 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
-        {
-            const int8_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
-        {
-            const int8_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R8_USCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R8_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
     }
     template<>
     inline void encodePixels<ECF_R8_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -2618,46 +1892,10 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
-        {
-            const uint8_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
-        {
-            const uint8_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R8_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R8_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
     }
     template<>
     inline void encodePixels<ECF_R8_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -2674,96 +1912,43 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
-        {
-            const int8_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
-        {
-            const int8_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
-    {
-        const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
-        {
-            const int8_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
-        {
-            const int8_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
-        {
-            const int8_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8_SRGB, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[0] = ((pix >> 0) & 0xffULL);
     }
     template<>
-    inline void decodePixels<ECF_R8_SRGB, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void encodePixels<ECF_R8_UINT, uint64_t>(void* _pix, const uint64_t* _input)
+    {
+        uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
+        {
+            const uint8_t mask = 0xffULL;
+            pix &= (~(mask << 0));
+            uint64_t inp = _input[0];
+            pix |= ((inp & mask) << 0);
+        }
+
+    }
+    template<>
+    inline void decodePixels<ECF_R8_SINT, int64_t>(const void* _pix, int64_t* _output)
+    {
+        const int8_t& pix = reinterpret_cast<const int8_t*>(_pix)[0];
+        _output[0] = ((pix >> 0) & 0xffLL);
+    }
+    template<>
+    inline void encodePixels<ECF_R8_SINT, int64_t>(void* _pix, const int64_t* _input)
+    {
+        int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
+        {
+            const int8_t mask = 0xffLL;
+            pix &= (~(mask << 0));
+            int64_t inp = _input[0];
+            pix |= ((inp & mask) << 0);
+        }
+
+    }
+    template<>
+    inline void decodePixels<ECF_R8_SRGB, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -2775,50 +1960,7 @@ namespace video
         };
     }
     template<>
-    inline void decodePixels<ECF_R8_SRGB, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-    }
-    template<>
-    inline void encodePixels<ECF_R8_SRGB, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
-        {
-            const uint8_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8_SRGB, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
-        {
-            const uint8_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8_SRGB, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8_SRGB, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint8_t& pix = reinterpret_cast<uint8_t*>(_pix)[0];
         {
@@ -2834,28 +1976,14 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_UNORM, double>(const void* _pix, double* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
         _output[1] = ((pix >> 8) & 0xffULL) / 255.;
     }
     template<>
-    inline void decodePixels<ECF_R8G8_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8_UNORM, double>(void* _pix, const double* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -2875,64 +2003,14 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8G8_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_SNORM, double>(const void* _pix, double* _output)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
         _output[1] = ((pix >> 8) & 0xffLL) / 127.;
     }
     template<>
-    inline void decodePixels<ECF_R8G8_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8_SNORM, double>(void* _pix, const double* _input)
     {
         int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
         {
@@ -2948,42 +2026,6 @@ namespace video
             double inp = _input[1];
             inp *= 127.;
             pix |= ((uint64_t(inp) & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
         }
 
     }
@@ -2993,20 +2035,6 @@ namespace video
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
         _output[1] = ((pix >> 8) & 0xffULL) / 255. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
     }
     template<>
     inline void encodePixels<ECF_R8G8_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -3031,61 +2059,11 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8G8_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R8G8_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
         _output[1] = ((pix >> 8) & 0xffLL) / 127. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
     }
     template<>
     inline void encodePixels<ECF_R8G8_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -3110,135 +2088,57 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8G8_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int16_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8_SRGB, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[0] = ((pix >> 0) & 0xffULL);
+        _output[1] = ((pix >> 8) & 0xffULL);
     }
     template<>
-    inline void decodePixels<ECF_R8G8_SRGB, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8_UINT, uint64_t>(void* _pix, const uint64_t* _input)
+    {
+        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
+        {
+            const uint16_t mask = 0xffULL;
+            pix &= (~(mask << 0));
+            uint64_t inp = _input[0];
+            pix |= ((inp & mask) << 0);
+        }
+        {
+            const uint16_t mask = 0xffULL;
+            pix &= (~(mask << 8));
+            uint64_t inp = _input[1];
+            pix |= ((inp & mask) << 8);
+        }
+
+    }
+    template<>
+    inline void decodePixels<ECF_R8G8_SINT, int64_t>(const void* _pix, int64_t* _output)
+    {
+        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
+        _output[0] = ((pix >> 0) & 0xffLL);
+        _output[1] = ((pix >> 8) & 0xffLL);
+    }
+    template<>
+    inline void encodePixels<ECF_R8G8_SINT, int64_t>(void* _pix, const int64_t* _input)
+    {
+        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
+        {
+            const int16_t mask = 0xffLL;
+            pix &= (~(mask << 0));
+            int64_t inp = _input[0];
+            pix |= ((inp & mask) << 0);
+        }
+        {
+            const int16_t mask = 0xffLL;
+            pix &= (~(mask << 8));
+            int64_t inp = _input[1];
+            pix |= ((inp & mask) << 8);
+        }
+
+    }
+    template<>
+    inline void decodePixels<ECF_R8G8_SRGB, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -3257,76 +2157,7 @@ namespace video
         };
     }
     template<>
-    inline void decodePixels<ECF_R8G8_SRGB, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SRGB, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SRGB, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint16_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 8);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8_SRGB, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8_SRGB, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -3352,7 +2183,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_UNORM, double>(const void* _pix, double* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -3360,23 +2191,7 @@ namespace video
         _output[2] = ((pix >> 16) & 0xffULL) / 255.;
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8_UNORM, double>(void* _pix, const double* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -3403,55 +2218,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_SNORM, double>(const void* _pix, double* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -3459,23 +2226,7 @@ namespace video
         _output[2] = ((pix >> 16) & 0xffLL) / 127.;
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8_SNORM, double>(void* _pix, const double* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -3498,54 +2249,6 @@ namespace video
             double inp = _input[2];
             inp *= 127.;
             pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
         }
 
     }
@@ -3556,22 +2259,6 @@ namespace video
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
         _output[1] = ((pix >> 8) & 0xffULL) / 255. * _scale;
         _output[2] = ((pix >> 16) & 0xffULL) / 255. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
     }
     template<>
     inline void encodePixels<ECF_R8G8B8_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -3604,76 +2291,12 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R8G8B8_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
         _output[1] = ((pix >> 8) & 0xffLL) / 127. * _scale;
         _output[2] = ((pix >> 16) & 0xffLL) / 127. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
     }
     template<>
     inline void encodePixels<ECF_R8G8B8_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -3706,174 +2329,71 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8_SRGB, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[2] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[0] = ((pix >> 0) & 0xffULL);
+        _output[1] = ((pix >> 8) & 0xffULL);
+        _output[2] = ((pix >> 16) & 0xffULL);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_SRGB, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8_UINT, uint64_t>(void* _pix, const uint64_t* _input)
+    {
+        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
+        {
+            const uint32_t mask = 0xffULL;
+            pix &= (~(mask << 0));
+            uint64_t inp = _input[0];
+            pix |= ((inp & mask) << 0);
+        }
+        {
+            const uint32_t mask = 0xffULL;
+            pix &= (~(mask << 8));
+            uint64_t inp = _input[1];
+            pix |= ((inp & mask) << 8);
+        }
+        {
+            const uint32_t mask = 0xffULL;
+            pix &= (~(mask << 16));
+            uint64_t inp = _input[2];
+            pix |= ((inp & mask) << 16);
+        }
+
+    }
+    template<>
+    inline void decodePixels<ECF_R8G8B8_SINT, int64_t>(const void* _pix, int64_t* _output)
+    {
+        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
+        _output[0] = ((pix >> 0) & 0xffLL);
+        _output[1] = ((pix >> 8) & 0xffLL);
+        _output[2] = ((pix >> 16) & 0xffLL);
+    }
+    template<>
+    inline void encodePixels<ECF_R8G8B8_SINT, int64_t>(void* _pix, const int64_t* _input)
+    {
+        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
+        {
+            const int32_t mask = 0xffLL;
+            pix &= (~(mask << 0));
+            int64_t inp = _input[0];
+            pix |= ((inp & mask) << 0);
+        }
+        {
+            const int32_t mask = 0xffLL;
+            pix &= (~(mask << 8));
+            int64_t inp = _input[1];
+            pix |= ((inp & mask) << 8);
+        }
+        {
+            const int32_t mask = 0xffLL;
+            pix &= (~(mask << 16));
+            int64_t inp = _input[2];
+            pix |= ((inp & mask) << 16);
+        }
+
+    }
+    template<>
+    inline void decodePixels<ECF_R8G8B8_SRGB, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -3899,102 +2419,7 @@ namespace video
         };
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_SRGB, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[2] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SRGB, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SRGB, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8_SRGB, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8_SRGB, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -4030,7 +2455,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8_UNORM, double>(const void* _pix, double* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255.;
@@ -4038,23 +2463,7 @@ namespace video
         _output[0] = ((pix >> 16) & 0xffULL) / 255.;
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8_UNORM, double>(void* _pix, const double* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -4081,55 +2490,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B8G8R8_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8_SNORM, double>(const void* _pix, double* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127.;
@@ -4137,23 +2498,7 @@ namespace video
         _output[0] = ((pix >> 16) & 0xffLL) / 127.;
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8_SNORM, double>(void* _pix, const double* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -4176,54 +2521,6 @@ namespace video
             double inp = _input[0];
             inp *= 127.;
             pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
         }
 
     }
@@ -4234,22 +2531,6 @@ namespace video
         _output[2] = ((pix >> 0) & 0xffULL) / 255. * _scale;
         _output[1] = ((pix >> 8) & 0xffULL) / 255. * _scale;
         _output[0] = ((pix >> 16) & 0xffULL) / 255. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
     }
     template<>
     inline void encodePixels<ECF_B8G8R8_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -4282,76 +2563,12 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B8G8R8_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_B8G8R8_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127. * _scale;
         _output[1] = ((pix >> 8) & 0xffLL) / 127. * _scale;
         _output[0] = ((pix >> 16) & 0xffLL) / 127. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
     }
     template<>
     inline void encodePixels<ECF_B8G8R8_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -4384,55 +2601,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B8G8R8_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -4440,71 +2609,7 @@ namespace video
         _output[0] = ((pix >> 16) & 0xffULL);
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -4528,7 +2633,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffLL);
@@ -4536,47 +2641,7 @@ namespace video
         _output[0] = ((pix >> 16) & 0xffLL);
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -4600,54 +2665,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B8G8R8_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_SRGB, double>(const void* _pix, double* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[0] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8_SRGB, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8_SRGB, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -4673,102 +2691,7 @@ namespace video
         };
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_SRGB, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[0] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_SRGB, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_SRGB, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8_SRGB, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8_SRGB, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -4804,7 +2727,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_UNORM, double>(const void* _pix, double* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -4813,25 +2736,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffULL) / 255.;
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8A8_UNORM, double>(void* _pix, const double* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -4865,67 +2770,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8A8_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_SNORM, double>(const void* _pix, double* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -4934,25 +2779,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffLL) / 127.;
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8A8_SNORM, double>(void* _pix, const double* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -4982,66 +2809,6 @@ namespace video
             double inp = _input[3];
             inp *= 127.;
             pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
         }
 
     }
@@ -5053,24 +2820,6 @@ namespace video
         _output[1] = ((pix >> 8) & 0xffULL) / 255. * _scale;
         _output[2] = ((pix >> 16) & 0xffULL) / 255. * _scale;
         _output[3] = ((pix >> 24) & 0xffULL) / 255. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
     }
     template<>
     inline void encodePixels<ECF_R8G8B8A8_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -5111,66 +2860,6 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8A8_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R8G8B8A8_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
@@ -5178,24 +2867,6 @@ namespace video
         _output[1] = ((pix >> 8) & 0xffLL) / 127. * _scale;
         _output[2] = ((pix >> 16) & 0xffLL) / 127. * _scale;
         _output[3] = ((pix >> 24) & 0xffLL) / 127. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
     }
     template<>
     inline void encodePixels<ECF_R8G8B8A8_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -5236,213 +2907,85 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8A8_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R8G8B8A8_SRGB, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[2] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[3] = ((pix >> 24) & 0xffULL) / 255.;
-        {
-            double& lin = _output[3];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[0] = ((pix >> 0) & 0xffULL);
+        _output[1] = ((pix >> 8) & 0xffULL);
+        _output[2] = ((pix >> 16) & 0xffULL);
+        _output[3] = ((pix >> 24) & 0xffULL);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SRGB, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8A8_UINT, uint64_t>(void* _pix, const uint64_t* _input)
+    {
+        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
+        {
+            const uint32_t mask = 0xffULL;
+            pix &= (~(mask << 0));
+            uint64_t inp = _input[0];
+            pix |= ((inp & mask) << 0);
+        }
+        {
+            const uint32_t mask = 0xffULL;
+            pix &= (~(mask << 8));
+            uint64_t inp = _input[1];
+            pix |= ((inp & mask) << 8);
+        }
+        {
+            const uint32_t mask = 0xffULL;
+            pix &= (~(mask << 16));
+            uint64_t inp = _input[2];
+            pix |= ((inp & mask) << 16);
+        }
+        {
+            const uint32_t mask = 0xffULL;
+            pix &= (~(mask << 24));
+            uint64_t inp = _input[3];
+            pix |= ((inp & mask) << 24);
+        }
+
+    }
+    template<>
+    inline void decodePixels<ECF_R8G8B8A8_SINT, int64_t>(const void* _pix, int64_t* _output)
+    {
+        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
+        _output[0] = ((pix >> 0) & 0xffLL);
+        _output[1] = ((pix >> 8) & 0xffLL);
+        _output[2] = ((pix >> 16) & 0xffLL);
+        _output[3] = ((pix >> 24) & 0xffLL);
+    }
+    template<>
+    inline void encodePixels<ECF_R8G8B8A8_SINT, int64_t>(void* _pix, const int64_t* _input)
+    {
+        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
+        {
+            const int32_t mask = 0xffLL;
+            pix &= (~(mask << 0));
+            int64_t inp = _input[0];
+            pix |= ((inp & mask) << 0);
+        }
+        {
+            const int32_t mask = 0xffLL;
+            pix &= (~(mask << 8));
+            int64_t inp = _input[1];
+            pix |= ((inp & mask) << 8);
+        }
+        {
+            const int32_t mask = 0xffLL;
+            pix &= (~(mask << 16));
+            int64_t inp = _input[2];
+            pix |= ((inp & mask) << 16);
+        }
+        {
+            const int32_t mask = 0xffLL;
+            pix &= (~(mask << 24));
+            int64_t inp = _input[3];
+            pix |= ((inp & mask) << 24);
+        }
+
+    }
+    template<>
+    inline void decodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -5475,128 +3018,7 @@ namespace video
         };
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[2] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-        _output[3] = ((pix >> 24) & 0xffULL);
-        {
-            double lin = _output[3] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[3] = lin * 255.;
-        };
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SRGB, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            double inp = _input[3];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SRGB, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -5642,7 +3064,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8A8_UNORM, double>(const void* _pix, double* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255.;
@@ -5651,25 +3073,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffULL) / 255.;
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8A8_UNORM, double>(void* _pix, const double* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -5703,67 +3107,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B8G8R8A8_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8A8_SNORM, double>(const void* _pix, double* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127.;
@@ -5772,25 +3116,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffLL) / 127.;
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8A8_SNORM, double>(void* _pix, const double* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -5820,66 +3146,6 @@ namespace video
             double inp = _input[3];
             inp *= 127.;
             pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
         }
 
     }
@@ -5891,24 +3157,6 @@ namespace video
         _output[1] = ((pix >> 8) & 0xffULL) / 255. * _scale;
         _output[0] = ((pix >> 16) & 0xffULL) / 255. * _scale;
         _output[3] = ((pix >> 24) & 0xffULL) / 255. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
     }
     template<>
     inline void encodePixels<ECF_B8G8R8A8_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -5949,66 +3197,6 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B8G8R8A8_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_B8G8R8A8_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
@@ -6016,24 +3204,6 @@ namespace video
         _output[1] = ((pix >> 8) & 0xffLL) / 127. * _scale;
         _output[0] = ((pix >> 16) & 0xffLL) / 127. * _scale;
         _output[3] = ((pix >> 24) & 0xffLL) / 127. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
     }
     template<>
     inline void encodePixels<ECF_B8G8R8A8_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -6074,67 +3244,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B8G8R8A8_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8A8_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -6143,85 +3253,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffULL);
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[0] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8A8_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -6251,7 +3283,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8A8_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffLL);
@@ -6260,55 +3292,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffLL);
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[0] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8A8_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -6338,66 +3322,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_B8G8R8A8_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_SRGB, double>(const void* _pix, double* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[0] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[3] = ((pix >> 24) & 0xffULL) / 255.;
-        {
-            double& lin = _output[3];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-    }
-    template<>
-    inline void decodePixels<ECF_B8G8R8A8_SRGB, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -6430,128 +3355,7 @@ namespace video
         };
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[0] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[3] = ((pix >> 24) & 0xffULL);
-        {
-            double lin = _output[3] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[3] = lin * 255.;
-        };
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_SRGB, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            double inp = _input[3];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_SRGB, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[0];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -6597,7 +3401,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(const void* _pix, double* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -6606,25 +3410,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffULL) / 255.;
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_UNORM_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_UNORM_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(void* _pix, const double* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -6658,67 +3444,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A8B8G8R8_UNORM_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_UNORM_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(const void* _pix, double* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -6727,25 +3453,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffLL) / 127.;
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SNORM_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_SNORM_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(void* _pix, const double* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -6775,66 +3483,6 @@ namespace video
             double inp = _input[3];
             inp *= 127.;
             pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_SNORM_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_SNORM_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
         }
 
     }
@@ -6846,24 +3494,6 @@ namespace video
         _output[1] = ((pix >> 8) & 0xffULL) / 255. * _scale;
         _output[2] = ((pix >> 16) & 0xffULL) / 255. * _scale;
         _output[3] = ((pix >> 24) & 0xffULL) / 255. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_USCALED_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_USCALED_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
     }
     template<>
     inline void encodePixels<ECF_A8B8G8R8_USCALED_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -6904,66 +3534,6 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A8B8G8R8_USCALED_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_USCALED_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_A8B8G8R8_SSCALED_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
@@ -6971,24 +3541,6 @@ namespace video
         _output[1] = ((pix >> 8) & 0xffLL) / 127. * _scale;
         _output[2] = ((pix >> 16) & 0xffLL) / 127. * _scale;
         _output[3] = ((pix >> 24) & 0xffLL) / 127. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_SSCALED_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_SSCALED_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
     }
     template<>
     inline void encodePixels<ECF_A8B8G8R8_SSCALED_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -7029,67 +3581,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A8B8G8R8_SSCALED_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_SSCALED_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_UINT_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -7098,85 +3590,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffULL);
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_UINT_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        _output[1] = ((pix >> 8) & 0xffULL);
-        _output[2] = ((pix >> 16) & 0xffULL);
-        _output[3] = ((pix >> 24) & 0xffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_UINT_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_UINT_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -7206,7 +3620,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SINT_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(const void* _pix, int64_t* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -7215,55 +3629,7 @@ namespace video
         _output[3] = ((pix >> 24) & 0xffLL);
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_SINT_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffLL);
-        _output[1] = ((pix >> 8) & 0xffLL);
-        _output[2] = ((pix >> 16) & 0xffLL);
-        _output[3] = ((pix >> 24) & 0xffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_SINT_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(void* _pix, const int64_t* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -7293,66 +3659,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A8B8G8R8_SINT_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 8));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int32_t mask = 0xffLL;
-            pix &= (~(mask << 24));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_SRGB_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[2] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[3] = ((pix >> 24) & 0xffULL) / 255.;
-        {
-            double& lin = _output[3];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-    }
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_SRGB_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -7385,128 +3692,7 @@ namespace video
         };
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[2] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-        _output[3] = ((pix >> 24) & 0xffULL);
-        {
-            double lin = _output[3] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[3] = lin * 255.;
-        };
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_SRGB_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            double inp = _input[3];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_SRGB_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            int64_t inp = _input[1];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[2];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            int64_t inp = _input[3];
-            double s = inp / 255.;
-            if (s <= 0.0031308) s *= 12.92;
-            else s = 1.055 * pow(s, 1. / 2.4) - 0.055;
-            inp = s * 255;
-            pix |= ((inp & mask) << 24);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -7552,7 +3738,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(const void* _pix, double* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0x3ffULL) / 1023.;
@@ -7561,25 +3747,7 @@ namespace video
         _output[3] = ((pix >> 30) & 0x3ULL) / 3.;
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_UNORM_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[0] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_UNORM_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[0] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(void* _pix, const double* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -7613,67 +3781,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2R10G10B10_UNORM_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_UNORM_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(const void* _pix, double* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0x3ffLL) / 511.;
@@ -7682,25 +3790,7 @@ namespace video
         _output[3] = ((pix >> 30) & 0x3LL) / 1.;
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_SNORM_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[0] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_SNORM_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[0] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(void* _pix, const double* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -7734,66 +3824,6 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2R10G10B10_SNORM_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_SNORM_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_A2R10G10B10_USCALED_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
@@ -7801,24 +3831,6 @@ namespace video
         _output[1] = ((pix >> 10) & 0x3ffULL) / 1023. * _scale;
         _output[0] = ((pix >> 20) & 0x3ffULL) / 1023. * _scale;
         _output[3] = ((pix >> 30) & 0x3ULL) / 3. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_USCALED_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[0] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_USCALED_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[0] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
     }
     template<>
     inline void encodePixels<ECF_A2R10G10B10_USCALED_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -7859,66 +3871,6 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2R10G10B10_USCALED_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_USCALED_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_A2R10G10B10_SSCALED_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
@@ -7926,24 +3878,6 @@ namespace video
         _output[1] = ((pix >> 10) & 0x3ffLL) / 511. * _scale;
         _output[0] = ((pix >> 20) & 0x3ffLL) / 511. * _scale;
         _output[3] = ((pix >> 30) & 0x3LL) / 1. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_SSCALED_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[0] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_SSCALED_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[0] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
     }
     template<>
     inline void encodePixels<ECF_A2R10G10B10_SSCALED_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -7984,67 +3918,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2R10G10B10_SSCALED_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_SSCALED_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_UINT_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0x3ffULL);
@@ -8053,85 +3927,7 @@ namespace video
         _output[3] = ((pix >> 30) & 0x3ULL);
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_UINT_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[0] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[0] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_UINT_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_UINT_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -8161,7 +3957,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_SINT_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(const void* _pix, int64_t* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[2] = ((pix >> 0) & 0x3ffLL);
@@ -8170,55 +3966,7 @@ namespace video
         _output[3] = ((pix >> 30) & 0x3LL);
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[0] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2R10G10B10_SINT_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[2] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[0] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_SINT_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(void* _pix, const int64_t* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -8248,37 +3996,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2R10G10B10_SINT_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(const void* _pix, double* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0x3ffULL) / 1023.;
@@ -8287,25 +4005,7 @@ namespace video
         _output[3] = ((pix >> 30) & 0x3ULL) / 3.;
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_UNORM_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[2] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_UNORM_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[2] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(void* _pix, const double* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -8339,67 +4039,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2B10G10R10_UNORM_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_UNORM_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(const void* _pix, double* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0x3ffLL) / 511.;
@@ -8408,25 +4048,7 @@ namespace video
         _output[3] = ((pix >> 30) & 0x3LL) / 1.;
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_SNORM_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[2] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_SNORM_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[2] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(void* _pix, const double* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -8460,66 +4082,6 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2B10G10R10_SNORM_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_SNORM_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_A2B10G10R10_USCALED_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
@@ -8527,24 +4089,6 @@ namespace video
         _output[1] = ((pix >> 10) & 0x3ffULL) / 1023. * _scale;
         _output[2] = ((pix >> 20) & 0x3ffULL) / 1023. * _scale;
         _output[3] = ((pix >> 30) & 0x3ULL) / 3. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_USCALED_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[2] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_USCALED_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[2] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
     }
     template<>
     inline void encodePixels<ECF_A2B10G10R10_USCALED_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -8585,66 +4129,6 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2B10G10R10_USCALED_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_USCALED_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_A2B10G10R10_SSCALED_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
@@ -8652,24 +4136,6 @@ namespace video
         _output[1] = ((pix >> 10) & 0x3ffLL) / 511. * _scale;
         _output[2] = ((pix >> 20) & 0x3ffLL) / 511. * _scale;
         _output[3] = ((pix >> 30) & 0x3LL) / 1. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_SSCALED_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[2] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_SSCALED_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[2] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
     }
     template<>
     inline void encodePixels<ECF_A2B10G10R10_SSCALED_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -8710,67 +4176,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2B10G10R10_SSCALED_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_SSCALED_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_UINT_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0x3ffULL);
@@ -8779,85 +4185,7 @@ namespace video
         _output[3] = ((pix >> 30) & 0x3ULL);
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_UINT_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[2] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffULL);
-        _output[1] = ((pix >> 10) & 0x3ffULL);
-        _output[2] = ((pix >> 20) & 0x3ffULL);
-        _output[3] = ((pix >> 30) & 0x3ULL);
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_UINT_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_UINT_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 10));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const uint32_t mask = 0x3ffULL;
-            pix &= (~(mask << 20));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const uint32_t mask = 0x3ULL;
-            pix &= (~(mask << 30));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -8887,7 +4215,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_SINT_PACK32, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(const void* _pix, int64_t* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0x3ffLL);
@@ -8896,55 +4224,7 @@ namespace video
         _output[3] = ((pix >> 30) & 0x3LL);
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[2] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void decodePixels<ECF_A2B10G10R10_SINT_PACK32, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0x3ffLL);
-        _output[1] = ((pix >> 10) & 0x3ffLL);
-        _output[2] = ((pix >> 20) & 0x3ffLL);
-        _output[3] = ((pix >> 30) & 0x3LL);
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_SINT_PACK32, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(void* _pix, const int64_t* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -8974,55 +4254,13 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_A2B10G10R10_SINT_PACK32, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 10));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 10);
-        }
-        {
-            const int32_t mask = 0x3ffLL;
-            pix &= (~(mask << 20));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 20);
-        }
-        {
-            const int32_t mask = 0x3LL;
-            pix &= (~(mask << 30));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 30);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_UNORM, double>(const void* _pix, double* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
     }
     template<>
-    inline void decodePixels<ECF_R16_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16_UNORM, double>(void* _pix, const double* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -9035,49 +4273,13 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SNORM, double>(const void* _pix, double* _output)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
     }
     template<>
-    inline void decodePixels<ECF_R16_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16_SNORM, double>(void* _pix, const double* _input)
     {
         int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
         {
@@ -9090,46 +4292,10 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R16_USCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R16_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
     }
     template<>
     inline void encodePixels<ECF_R16_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -9146,46 +4312,10 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R16_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R16_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
     }
     template<>
     inline void encodePixels<ECF_R16_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -9202,73 +4332,13 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
     }
     template<>
-    inline void decodePixels<ECF_R16_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
-        {
-            const uint16_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         {
@@ -9280,37 +4350,13 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
     }
     template<>
-    inline void decodePixels<ECF_R16_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int16_t& pix = reinterpret_cast<const int16_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
         {
@@ -9322,40 +4368,14 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
-        {
-            const int16_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_UNORM, double>(const void* _pix, double* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
         _output[1] = ((pix >> 16) & 0xffffULL) / 65535.;
     }
     template<>
-    inline void decodePixels<ECF_R16G16_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16_UNORM, double>(void* _pix, const double* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -9375,64 +4395,14 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_SNORM, double>(const void* _pix, double* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
         _output[1] = ((pix >> 16) & 0xffffLL) / 32767.;
     }
     template<>
-    inline void decodePixels<ECF_R16G16_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16_SNORM, double>(void* _pix, const double* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -9448,42 +4418,6 @@ namespace video
             double inp = _input[1];
             inp *= 32767.;
             pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
         }
 
     }
@@ -9493,20 +4427,6 @@ namespace video
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
         _output[1] = ((pix >> 16) & 0xffffULL) / 65535. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
     }
     template<>
     inline void encodePixels<ECF_R16G16_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -9531,61 +4451,11 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R16G16_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
         _output[1] = ((pix >> 16) & 0xffffLL) / 32767. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
     }
     template<>
     inline void encodePixels<ECF_R16G16_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -9610,100 +4480,14 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
         _output[1] = ((pix >> 16) & 0xffffULL);
     }
     template<>
-    inline void decodePixels<ECF_R16G16_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -9721,46 +4505,14 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
         _output[1] = ((pix >> 16) & 0xffffLL);
     }
     template<>
-    inline void decodePixels<ECF_R16G16_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -9778,25 +4530,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int32_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_UNORM, double>(const void* _pix, double* _output)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
@@ -9804,23 +4538,7 @@ namespace video
         _output[2] = ((pix >> 32) & 0xffffULL) / 65535.;
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16_UNORM, double>(void* _pix, const double* _input)
     {
         uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
         {
@@ -9847,55 +4565,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16B16_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_SNORM, double>(const void* _pix, double* _output)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
@@ -9903,23 +4573,7 @@ namespace video
         _output[2] = ((pix >> 32) & 0xffffLL) / 32767.;
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16_SNORM, double>(void* _pix, const double* _input)
     {
         int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
         {
@@ -9942,54 +4596,6 @@ namespace video
             double inp = _input[2];
             inp *= 32767.;
             pix |= ((uint64_t(inp) & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
         }
 
     }
@@ -10000,22 +4606,6 @@ namespace video
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
         _output[1] = ((pix >> 16) & 0xffffULL) / 65535. * _scale;
         _output[2] = ((pix >> 32) & 0xffffULL) / 65535. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
     }
     template<>
     inline void encodePixels<ECF_R16G16B16_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -10048,76 +4638,12 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16B16_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R16G16B16_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
         _output[1] = ((pix >> 16) & 0xffffLL) / 32767. * _scale;
         _output[2] = ((pix >> 32) & 0xffffLL) / 32767. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
     }
     template<>
     inline void encodePixels<ECF_R16G16B16_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -10150,55 +4676,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16B16_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
@@ -10206,71 +4684,7 @@ namespace video
         _output[2] = ((pix >> 32) & 0xffffULL);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
         {
@@ -10294,7 +4708,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
@@ -10302,47 +4716,7 @@ namespace video
         _output[2] = ((pix >> 32) & 0xffffLL);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
         {
@@ -10366,31 +4740,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16B16_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_UNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_UNORM, double>(const void* _pix, double* _output)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
@@ -10399,25 +4749,7 @@ namespace video
         _output[3] = ((pix >> 48) & 0xffffULL) / 65535.;
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_UNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-        _output[3] = ((pix >> 48) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_UNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-        _output[3] = ((pix >> 48) & 0xffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_UNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_UNORM, double>(void* _pix, const double* _input)
     {
         uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
         {
@@ -10451,67 +4783,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16B16A16_UNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 48));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_UNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 48));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_SNORM, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SNORM, double>(const void* _pix, double* _output)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
@@ -10520,25 +4792,7 @@ namespace video
         _output[3] = ((pix >> 48) & 0xffffLL) / 32767.;
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SNORM, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-        _output[3] = ((pix >> 48) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_SNORM, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-        _output[3] = ((pix >> 48) & 0xffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_SNORM, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_SNORM, double>(void* _pix, const double* _input)
     {
         int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
         {
@@ -10568,66 +4822,6 @@ namespace video
             double inp = _input[3];
             inp *= 32767.;
             pix |= ((uint64_t(inp) & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_SNORM, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 48));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_SNORM, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 48));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
         }
 
     }
@@ -10639,24 +4833,6 @@ namespace video
         _output[1] = ((pix >> 16) & 0xffffULL) / 65535. * _scale;
         _output[2] = ((pix >> 32) & 0xffffULL) / 65535. * _scale;
         _output[3] = ((pix >> 48) & 0xffffULL) / 65535. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_USCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-        _output[3] = ((pix >> 48) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_USCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-        _output[3] = ((pix >> 48) & 0xffffULL);
     }
     template<>
     inline void encodePixels<ECF_R16G16B16A16_USCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -10697,66 +4873,6 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16B16A16_USCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 48));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_USCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 48));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
-        }
-
-    }
-    template<>
     inline void decodePixels<ECF_R16G16B16A16_SSCALED, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
@@ -10764,24 +4880,6 @@ namespace video
         _output[1] = ((pix >> 16) & 0xffffLL) / 32767. * _scale;
         _output[2] = ((pix >> 32) & 0xffffLL) / 32767. * _scale;
         _output[3] = ((pix >> 48) & 0xffffLL) / 32767. * _scale;
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_SSCALED, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-        _output[3] = ((pix >> 48) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_SSCALED, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-        _output[3] = ((pix >> 48) & 0xffffLL);
     }
     template<>
     inline void encodePixels<ECF_R16G16B16A16_SSCALED, double>(void* _pix, const double* _input, uint64_t _scale)
@@ -10822,67 +4920,7 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16B16A16_SSCALED, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 48));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_SSCALED, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 48));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
@@ -10891,85 +4929,7 @@ namespace video
         _output[3] = ((pix >> 48) & 0xffffULL);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-        _output[3] = ((pix >> 48) & 0xffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-        _output[3] = ((pix >> 48) & 0xffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 32);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 48));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 16));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const uint64_t mask = 0xffffULL;
-            pix &= (~(mask << 48));
-            int64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
         {
@@ -10999,7 +4959,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
@@ -11008,55 +4968,7 @@ namespace video
         _output[3] = ((pix >> 48) & 0xffffLL);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-        _output[3] = ((pix >> 48) & 0xffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R16G16B16A16_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffLL);
-        _output[1] = ((pix >> 16) & 0xffffLL);
-        _output[2] = ((pix >> 32) & 0xffffLL);
-        _output[3] = ((pix >> 48) & 0xffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            double inp = _input[2];
-            pix |= ((uint64_t(inp) & mask) << 32);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 48));
-            double inp = _input[3];
-            pix |= ((uint64_t(inp) & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R16G16B16A16_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
         {
@@ -11086,79 +4998,13 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R16G16B16A16_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 16));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 16);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[2];
-            pix |= ((inp & mask) << 32);
-        }
-        {
-            const int64_t mask = 0xffffLL;
-            pix &= (~(mask << 48));
-            uint64_t inp = _input[3];
-            pix |= ((inp & mask) << 48);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R32_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffffffULL);
     }
     template<>
-    inline void decodePixels<ECF_R32_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R32_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R32_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffffffffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R32_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffffffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R32_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
         {
@@ -11170,37 +5016,13 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R32_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffffffLL);
     }
     template<>
-    inline void decodePixels<ECF_R32_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R32_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t& pix = reinterpret_cast<const int32_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R32_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffffffffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R32_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
@@ -11212,76 +5034,14 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R32_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
-        {
-            const int32_t mask = 0xffffffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffffffULL);
         _output[1] = ((pix >> 32) & 0xffffffffULL);
     }
     template<>
-    inline void decodePixels<ECF_R32G32_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffULL);
-        _output[1] = ((pix >> 32) & 0xffffffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffULL);
-        _output[1] = ((pix >> 32) & 0xffffffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffffffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffffffULL;
-            pix &= (~(mask << 32));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const uint64_t mask = 0xffffffffULL;
-            pix &= (~(mask << 32));
-            int64_t inp = _input[1];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
         {
@@ -11299,46 +5059,14 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R32G32_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffffffLL);
         _output[1] = ((pix >> 32) & 0xffffffffLL);
     }
     template<>
-    inline void decodePixels<ECF_R32G32_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffLL);
-        _output[1] = ((pix >> 32) & 0xffffffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffLL);
-        _output[1] = ((pix >> 32) & 0xffffffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffffffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffffffLL;
-            pix &= (~(mask << 32));
-            double inp = _input[1];
-            pix |= ((uint64_t(inp) & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
         {
@@ -11356,235 +5084,69 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R32G32_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-        {
-            const int64_t mask = 0xffffffffLL;
-            pix &= (~(mask << 32));
-            uint64_t inp = _input[1];
-            pix |= ((inp & mask) << 32);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32B32_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32B32_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32B32_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t* pix = reinterpret_cast<uint32_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
             pix[i] = _input[i];
     }
     template<>
-    inline void encodePixels<ECF_R32G32B32_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t* pix = reinterpret_cast<uint32_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32B32_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t* pix = reinterpret_cast<uint32_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32B32_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int32_t* pix = reinterpret_cast<const int32_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t* pix = reinterpret_cast<const int32_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32B32_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t* pix = reinterpret_cast<const int32_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32B32_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int32_t* pix = reinterpret_cast<int32_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
             pix[i] = _input[i];
     }
     template<>
-    inline void encodePixels<ECF_R32G32B32_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t* pix = reinterpret_cast<int32_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32B32_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t* pix = reinterpret_cast<int32_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32B32A32_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32B32A32_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32B32A32_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32A32_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint32_t* pix = reinterpret_cast<uint32_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
             pix[i] = _input[i];
     }
     template<>
-    inline void encodePixels<ECF_R32G32B32A32_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint32_t* pix = reinterpret_cast<uint32_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32B32A32_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint32_t* pix = reinterpret_cast<uint32_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32B32A32_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int32_t* pix = reinterpret_cast<const int32_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int32_t* pix = reinterpret_cast<const int32_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R32G32B32A32_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int32_t* pix = reinterpret_cast<const int32_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32B32A32_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32A32_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int32_t* pix = reinterpret_cast<int32_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
             pix[i] = _input[i];
     }
     template<>
-    inline void encodePixels<ECF_R32G32B32A32_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int32_t* pix = reinterpret_cast<int32_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R32G32B32A32_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int32_t* pix = reinterpret_cast<int32_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffffffffffffffULL);
     }
     template<>
-    inline void decodePixels<ECF_R64_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffffffffffULL);
-    }
-    template<>
-    inline void decodePixels<ECF_R64_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffffffffffULL);
-    }
-    template<>
-    inline void encodePixels<ECF_R64_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffffffffffffffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R64_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
-        {
-            const uint64_t mask = 0xffffffffffffffffULL;
-            pix &= (~(mask << 0));
-            int64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R64_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint64_t& pix = reinterpret_cast<uint64_t*>(_pix)[0];
         {
@@ -11596,37 +5158,13 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R64_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
         _output[0] = ((pix >> 0) & 0xffffffffffffffffLL);
     }
     template<>
-    inline void decodePixels<ECF_R64_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffffffffffLL);
-    }
-    template<>
-    inline void decodePixels<ECF_R64_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t& pix = reinterpret_cast<const int64_t*>(_pix)[0];
-        _output[0] = ((pix >> 0) & 0xffffffffffffffffLL);
-    }
-    template<>
-    inline void encodePixels<ECF_R64_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffffffffffffffLL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void encodePixels<ECF_R64_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
         {
@@ -11638,264 +5176,84 @@ namespace video
 
     }
     template<>
-    inline void encodePixels<ECF_R64_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
-        {
-            const int64_t mask = 0xffffffffffffffffLL;
-            pix &= (~(mask << 0));
-            uint64_t inp = _input[0];
-            pix |= ((inp & mask) << 0);
-        }
-
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix);
         for (uint32_t i = 0u; i < 2u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 2u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 2u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint64_t* pix = reinterpret_cast<uint64_t*>(_pix);
         for (uint32_t i = 0u; i < 2u; ++i)
             pix[i] = _input[i];
     }
     template<>
-    inline void encodePixels<ECF_R64G64_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t* pix = reinterpret_cast<uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 2u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint64_t* pix = reinterpret_cast<uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 2u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int64_t* pix = reinterpret_cast<const int64_t*>(_pix);
         for (uint32_t i = 0u; i < 2u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t* pix = reinterpret_cast<const int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 2u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t* pix = reinterpret_cast<const int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 2u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int64_t* pix = reinterpret_cast<int64_t*>(_pix);
         for (uint32_t i = 0u; i < 2u; ++i)
             pix[i] = _input[i];
     }
     template<>
-    inline void encodePixels<ECF_R64G64_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int64_t* pix = reinterpret_cast<int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 2u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t* pix = reinterpret_cast<int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 2u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64B64_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64B64_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64B64_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint64_t* pix = reinterpret_cast<uint64_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
             pix[i] = _input[i];
     }
     template<>
-    inline void encodePixels<ECF_R64G64B64_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t* pix = reinterpret_cast<uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64B64_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint64_t* pix = reinterpret_cast<uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64B64_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int64_t* pix = reinterpret_cast<const int64_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t* pix = reinterpret_cast<const int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64B64_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t* pix = reinterpret_cast<const int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64B64_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int64_t* pix = reinterpret_cast<int64_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
             pix[i] = _input[i];
     }
     template<>
-    inline void encodePixels<ECF_R64G64B64_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int64_t* pix = reinterpret_cast<int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64B64_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        int64_t* pix = reinterpret_cast<int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64B64A64_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64A64_UINT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64B64A64_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64B64A64_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64A64_UINT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint64_t* pix = reinterpret_cast<uint64_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
             pix[i] = _input[i];
     }
     template<>
-    inline void encodePixels<ECF_R64G64B64A64_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        uint64_t* pix = reinterpret_cast<uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64B64A64_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
-    {
-        uint64_t* pix = reinterpret_cast<uint64_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64B64A64_SINT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64A64_SINT, int64_t>(const void* _pix, int64_t* _output)
     {
         const int64_t* pix = reinterpret_cast<const int64_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
             _output[i] = pix[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
-    {
-        const int64_t* pix = reinterpret_cast<const int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void decodePixels<ECF_R64G64B64A64_SINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
-    {
-        const int64_t* pix = reinterpret_cast<const int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            _output[i] = pix[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64B64A64_SINT, double>(void* _pix, const double* _input, uint64_t _scale)
-    {
-        int64_t* pix = reinterpret_cast<int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64B64A64_SINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
-    {
-        int64_t* pix = reinterpret_cast<int64_t*>(_pix);
-        for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
-    }
-    template<>
-    inline void encodePixels<ECF_R64G64B64A64_SINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64A64_SINT, int64_t>(void* _pix, const int64_t* _input)
     {
         int64_t* pix = reinterpret_cast<int64_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
@@ -11929,32 +5287,32 @@ namespace video
         }
     }
     template<>
-    inline void decodePixels<ECF_R11G11B10F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(const void* _pix, double* _output)
     {
         impl::decode_r11g11b10f<double>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R11G11B10F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decode_r11g11b10f<uint64_t>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R11G11B10F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decode_r11g11b10f<int64_t>(_pix, _output);
     }
     template<>
-    inline void encodePixels<ECF_R11G11B10F, double>(void* _pix, const double* _output, uint64_t _scale)
+    inline void encodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(void* _pix, const double* _output)
     {
         impl::encode_r11g11b10f<double>(_pix, _output);
     }
     template<>
-    inline void encodePixels<ECF_R11G11B10F, uint64_t>(void* _pix, const uint64_t* _output, uint64_t _scale)
+    inline void encodePixels<ECF_B10G11R11_UFLOAT_PACK32, uint64_t>(void* _pix, const uint64_t* _output)
     {
         impl::encode_r11g11b10f<uint64_t>(_pix, _output);
     }
     template<>
-    inline void encodePixels<ECF_R11G11B10F, int64_t>(void* _pix, const int64_t* _output, uint64_t _scale)
+    inline void encodePixels<ECF_B10G11R11_UFLOAT_PACK32, int64_t>(void* _pix, const int64_t* _output)
     {
         impl::encode_r11g11b10f<int64_t>(_pix, _output);
     }
@@ -11979,122 +5337,122 @@ namespace video
         }
     }
     template<>
-    inline void encodePixels<ECF_R16F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef16<double, 1u>(_pix, _input);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void encodePixels<ECF_G16R16F, double>(void* _pix, const double* _input, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void encodePixels<ECF_R16G16_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef16<double, 2u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R16G16B16_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef16<double, 3u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_A16B16G16R16F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef16<double, 4u>(_pix, _input);
     }
     template<>
-    inline void encodePixels<ECF_R16F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef16<uint64_t, 1u>(_pix, _input);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void encodePixels<ECF_G16R16F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void encodePixels<ECF_R16G16_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef16<uint64_t, 2u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R16G16B16_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef16<uint64_t, 3u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_A16B16G16R16F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef16<uint64_t, 4u>(_pix, _input);
     }
     template<>
-    inline void encodePixels<ECF_R16F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef16<int64_t, 1u>(_pix, _input);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void encodePixels<ECF_G16R16F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void encodePixels<ECF_R16G16_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef16<int64_t, 2u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R16G16B16_SFLOAT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef16<int64_t, 3u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_A16B16G16R16F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R16G16B16A16_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef16<int64_t, 4u>(_pix, _input);
     }
     template<>
-    inline void decodePixels<ECF_R16F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef16<double, 1u>(_pix, _output);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void decodePixels<ECF_G16R16F, double>(const void* _pix, double* _output, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void decodePixels<ECF_R16G16_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef16<double, 2u>(_pix, _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_R16G16B16_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef16<double, 3u>(_pix, _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_A16B16G16R16F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef16<double, 4u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R16F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef16<uint64_t, 1u>(_pix, _output);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void decodePixels<ECF_G16R16F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void decodePixels<ECF_R16G16_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef16<uint64_t, 2u>(_pix, _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_R16G16B16_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef16<uint64_t, 3u>(_pix, _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_A16B16G16R16F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef16<uint64_t, 4u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R16F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef16<int64_t, 1u>(_pix, _output);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void decodePixels<ECF_G16R16F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void decodePixels<ECF_R16G16_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef16<int64_t, 2u>(_pix, _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_R16G16B16_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef16<int64_t, 3u>(_pix, _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_A16B16G16R16F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef16<int64_t, 4u>(_pix, _output);
     }
@@ -12116,122 +5474,122 @@ namespace video
         }
     }
     template<>
-    inline void encodePixels<ECF_R32F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef32<double, 1u>(_pix, _input);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void encodePixels<ECF_G32R32F, double>(void* _pix, const double* _input, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void encodePixels<ECF_R32G32_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef32<double, 2u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R32G32B32_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef32<double, 3u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_A32B32G32R32F, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32A32_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef32<double, 4u>(_pix, _input);
     }
     template<>
-    inline void encodePixels<ECF_R32F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef32<uint64_t, 1u>(_pix, _input);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void encodePixels<ECF_G32R32F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void encodePixels<ECF_R32G32_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef32<uint64_t, 2u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R32G32B32_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef32<uint64_t, 3u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_A32B32G32R32F, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32A32_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef32<uint64_t, 4u>(_pix, _input);
     }
     template<>
-    inline void encodePixels<ECF_R32F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef32<int64_t, 1u>(_pix, _input);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void encodePixels<ECF_G32R32F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void encodePixels<ECF_R32G32_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef32<int64_t, 2u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R32G32B32_SFLOAT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef32<int64_t, 3u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_A32B32G32R32F, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R32G32B32A32_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef32<int64_t, 4u>(_pix, _input);
     }
     template<>
-    inline void decodePixels<ECF_R32F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef32<double, 1u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_G32R32F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef32<double, 2u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef32<double, 3u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_A32B32G32R32F, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef32<double, 4u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R32F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef32<uint64_t, 1u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_G32R32F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef32<uint64_t, 2u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef32<uint64_t, 3u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_A32B32G32R32F, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef32<uint64_t, 4u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R32F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef32<int64_t, 1u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_G32R32F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef32<int64_t, 2u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef32<int64_t, 3u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_A32B32G32R32F, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef32<int64_t, 4u>(_pix, _output);
     }
@@ -12253,122 +5611,122 @@ namespace video
         }
     }
     template<>
-    inline void encodePixels<ECF_R64_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef64<double, 1u>(_pix, _input);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void encodePixels<ECF_R64G64_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void encodePixels<ECF_R64G64_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef64<double, 2u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R64G64B64_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef64<double, 3u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R64G64B64A64_SFLOAT, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64A64_SFLOAT, double>(void* _pix, const double* _input)
     {
         impl::encodef64<double, 4u>(_pix, _input);
     }
     template<>
-    inline void encodePixels<ECF_R64_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef64<uint64_t, 1u>(_pix, _input);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void encodePixels<ECF_R64G64_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void encodePixels<ECF_R64G64_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef64<uint64_t, 2u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R64G64B64_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef64<uint64_t, 3u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R64G64B64A64_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64A64_SFLOAT, uint64_t>(void* _pix, const uint64_t* _input)
     {
         impl::encodef64<uint64_t, 4u>(_pix, _input);
     }
     template<>
-    inline void encodePixels<ECF_R64_SFLOAT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef64<int64_t, 1u>(_pix, _input);
     }
-    template<> // ECF_G16R16F gets mapped to GL_RG
-    inline void encodePixels<ECF_R64G64_SFLOAT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void encodePixels<ECF_R64G64_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef64<int64_t, 2u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R64G64B64_SFLOAT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef64<int64_t, 3u>(_pix, _input);
     }
     template<> // mapped to GL_RGBA
-    inline void encodePixels<ECF_R64G64B64A64_SFLOAT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R64G64B64A64_SFLOAT, int64_t>(void* _pix, const int64_t* _input)
     {
         impl::encodef64<int64_t, 4u>(_pix, _input);
     }
     template<>
-    inline void decodePixels<ECF_R64_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef64<double, 1u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef64<double, 2u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef64<double, 3u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, double>(const void* _pix, double* _output)
     {
         impl::decodef64<double, 4u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef64<uint64_t, 1u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef64<uint64_t, 2u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef64<uint64_t, 3u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodef64<uint64_t, 4u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef64<int64_t, 1u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef64<int64_t, 2u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef64<int64_t, 3u>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodef64<int64_t, 4u>(_pix, _output);
     }
@@ -12521,7 +5879,7 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_RGB_BC1, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGB_BC1, double>(const void* _pix, double* _output)
     {
         impl::decodeBC1<double>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
@@ -12533,14 +5891,14 @@ namespace video
         }
     }
     template<>
-    inline void decodePixels<ECF_RGB_BC1, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGB_BC1, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodeBC1<int64_t>(_pix, _output);
         for (uint32_t i = 0u; i <16u; ++i)
             _output[4*i+3] = 255;
     }
     template<>
-    inline void decodePixels<ECF_RGB_BC1, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGB_BC1, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodeBC1<uint64_t>(_pix, _output);
         for (uint32_t i = 0u; i <16u; ++i)
@@ -12548,29 +5906,29 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, double>(const void* _pix, double* _output)
     {
-        decodePixels<ECF_RGB_BC1, double>(_pix, _output, _scale);
+        decodePixels<ECF_RGB_BC1, double>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i*4);
     }
     template<>
-    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output)
     {
-        decodePixels<ECF_RGB_BC1, int64_t>(_pix, _output, _scale);
+        decodePixels<ECF_RGB_BC1, int64_t>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i*4);
     }
     template<>
-    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output)
     {
-        decodePixels<ECF_RGB_BC1, uint64_t>(_pix, _output, _scale);
+        decodePixels<ECF_RGB_BC1, uint64_t>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i*4);
     }
 
     template<>
-    inline void decodePixels<ECF_RGBA_BC1, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGBA_BC1, double>(const void* _pix, double* _output)
     {
         impl::decodeBC1<double>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
@@ -12581,40 +5939,40 @@ namespace video
         }
     }
     template<>
-    inline void decodePixels<ECF_RGBA_BC1, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGBA_BC1, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodeBC1<int64_t>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_RGBA_BC1, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGBA_BC1, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodeBC1<uint64_t>(_pix, _output);
     }
 
     template<>
-    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, double>(const void* _pix, double* _output)
     {
-        decodePixels<ECF_RGBA_BC1, double>(_pix, _output, _scale);
+        decodePixels<ECF_RGBA_BC1, double>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i * 4);
     }
     template<>
-    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output)
     {
-        decodePixels<ECF_RGBA_BC1, int64_t>(_pix, _output, _scale);
+        decodePixels<ECF_RGBA_BC1, int64_t>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i * 4);
     }
     template<>
-    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output)
     {
-        decodePixels<ECF_RGBA_BC1, uint64_t>(_pix, _output, _scale);
+        decodePixels<ECF_RGBA_BC1, uint64_t>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i * 4);
     }
 
     template<>
-    inline void decodePixels<ECF_RGBA_BC2, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGBA_BC2, double>(const void* _pix, double* _output)
     {
         impl::decodeBC2<double>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
@@ -12626,77 +5984,77 @@ namespace video
         }
     }
     template<>
-    inline void decodePixels<ECF_RGBA_BC2, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGBA_BC2, int64_t>(const void* _pix, int64_t* _output)
     {
         impl::decodeBC2<int64_t>(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_RGBA_BC2, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGBA_BC2, uint64_t>(const void* _pix, uint64_t* _output)
     {
         impl::decodeBC2<uint64_t>(_pix, _output);
     }
 
     template<>
-    inline void decodePixels<ECF_BC2_SRGB_BLOCK, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC2_SRGB_BLOCK, double>(const void* _pix, double* _output)
     {
-        decodePixels<ECF_RGBA_BC2, double>(_pix, _output, _scale);
+        decodePixels<ECF_RGBA_BC2, double>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i * 4);
     }
     template<>
-    inline void decodePixels<ECF_BC2_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC2_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output)
     {
-        decodePixels<ECF_RGBA_BC2, int64_t>(_pix, _output, _scale);
+        decodePixels<ECF_RGBA_BC2, int64_t>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i * 4);
     }
     template<>
-    inline void decodePixels<ECF_BC2_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC2_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output)
     {
-        decodePixels<ECF_RGBA_BC2, uint64_t>(_pix, _output, _scale);
+        decodePixels<ECF_RGBA_BC2, uint64_t>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i * 4);
     }
 
     template<>
-    inline void decodePixels<ECF_RGBA_BC3, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGBA_BC3, double>(const void* _pix, double* _output)
     {
-        decodePixels<ECF_RGBA_BC1, double>(reinterpret_cast<const uint8_t*>(_pix)+8, _output, _scale);
+        decodePixels<ECF_RGBA_BC1, double>(reinterpret_cast<const uint8_t*>(_pix)+8, _output);
         impl::decodeBC4(_pix, _output, 4, 3);
         for (uint32_t i = 0u; i < 16u; ++i)
             _output[4*i+3] /= 255.;
     }
     template<>
-    inline void decodePixels<ECF_RGBA_BC3, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGBA_BC3, int64_t>(const void* _pix, int64_t* _output)
     {
-        decodePixels<ECF_RGBA_BC1, int64_t>(reinterpret_cast<const uint8_t*>(_pix) + 8, _output, _scale);
+        decodePixels<ECF_RGBA_BC1, int64_t>(reinterpret_cast<const uint8_t*>(_pix) + 8, _output);
         impl::decodeBC4(_pix, _output, 4, 3);
     }
     template<>
-    inline void decodePixels<ECF_RGBA_BC3, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_RGBA_BC3, uint64_t>(const void* _pix, uint64_t* _output)
     {
-        decodePixels<ECF_RGBA_BC1, uint64_t>(reinterpret_cast<const uint8_t*>(_pix) + 8, _output, _scale);
+        decodePixels<ECF_RGBA_BC1, uint64_t>(reinterpret_cast<const uint8_t*>(_pix) + 8, _output);
         impl::decodeBC4(_pix, _output, 4, 3);
     }
     
     template<>
-    inline void decodePixels<ECF_BC3_SRGB_BLOCK, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC3_SRGB_BLOCK, double>(const void* _pix, double* _output)
     {
-        decodePixels<ECF_RGBA_BC3, double>(_pix, _output, _scale);
+        decodePixels<ECF_RGBA_BC3, double>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i * 4);
     }
     template<>
-    inline void decodePixels<ECF_BC3_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC3_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output)
     {
-        decodePixels<ECF_RGBA_BC3, int64_t>(_pix, _output, _scale);
+        decodePixels<ECF_RGBA_BC3, int64_t>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i * 4);
     }
     template<>
-    inline void decodePixels<ECF_BC3_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_BC3_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output)
     {
-        decodePixels<ECF_RGBA_BC3, uint64_t>(_pix, _output, _scale);
+        decodePixels<ECF_RGBA_BC3, uint64_t>(_pix, _output);
         for (uint32_t i = 0u; i < 16u; ++i)
             impl::SRGB2lin(_output + i * 4);
     }
@@ -12777,32 +6135,28 @@ namespace video
 		{
 		case ECF_A1R5G5B5:
 			return 16;
-		case ECF_R5G6B5:
-			return 16;
-		case ECF_R8G8B8:
+		case ECF_R8G8B8_UINT:
 			return 24;
-		case ECF_A8R8G8B8:
+		case ECF_R8G8B8A8_UINT:
 			return 32;
-        case ECF_R11G11B10F:
+        case ECF_B10G11R11_UFLOAT_PACK32:
             return 32;
-		case ECF_R16F:
+		case ECF_R16_SFLOAT:
 			return 16;
-		case ECF_G16R16F:
+		case ECF_R16G16_SFLOAT:
 			return 32;
-		case ECF_A16B16G16R16F:
+		case ECF_R16G16B16A16_SFLOAT:
 			return 64;
-		case ECF_R32F:
+		case ECF_R32_SFLOAT:
 			return 32;
-		case ECF_G32R32F:
+		case ECF_R32G32_SFLOAT:
 			return 64;
-		case ECF_A32B32G32R32F:
+		case ECF_R32G32B32A32_SFLOAT:
 			return 128;
-		case ECF_R8:
+		case ECF_R8_UINT:
 			return 8;
-		case ECF_R8G8:
+		case ECF_R8G8_UINT:
 			return 16;
-        case ECF_R8G8B8A8:
-            return 32;
         case ECF_RGB_BC1:
         case ECF_RGBA_BC1:
             return 4;
@@ -12840,7 +6194,7 @@ namespace video
             return 40;
         case ECF_STENCIL8:
             return 8;
-        case ECF_RGB9_E5:
+        case ECF_E5B9G9R9_UFLOAT_PACK32:
             return 32;
 		default:
 			return 0;
@@ -13199,10 +6553,10 @@ namespace video
 				case ECF_R5G6B5:
 					color = R5G6B5toA8R8G8B8(*(uint16_t*)data);
 					break;
-				case ECF_A8R8G8B8:
+				case ECF_R8G8B8A8_UINT:
 					color = *(uint32_t*)data;
 					break;
-				case ECF_R8G8B8:
+				case ECF_R8G8B8_UINT:
 					{
 						uint8_t* p = (uint8_t*)data;
 						set(255, p[0],p[1],p[2]);
@@ -13236,7 +6590,7 @@ namespace video
 				}
 				break;
 
-				case ECF_R8G8B8:
+				case ECF_R8G8B8_UINT:
 				{
 					uint8_t* dest = (uint8_t*)data;
 					dest[0] = (uint8_t)getRed();
@@ -13245,7 +6599,7 @@ namespace video
 				}
 				break;
 
-				case ECF_A8R8G8B8:
+				case ECF_R8G8B8A8_UINT:
 				{
 					uint32_t * dest = (uint32_t*)data;
 					*dest = color;
