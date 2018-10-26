@@ -5,9 +5,9 @@
 #ifndef __C_IMAGE_DATA_H_INCLUDED__
 #define __C_IMAGE_DATA_H_INCLUDED__
 
+#include "IReferenceCounted.h"
 #include "string.h"
-
-#include "irr/core/IReferenceCounted.h"
+#include "SColor.h"
 #include "IImage.h"
 
 namespace irr
@@ -15,15 +15,15 @@ namespace irr
 namespace video
 {
 
-class CImageData : public core::IReferenceCounted
+class CImageData : public IReferenceCounted
 {
         void*       data;
 
         uint32_t    minCoord[3];
         uint32_t    maxCoord[3];
-        uint32_t    colorFormat     : 24;
-        uint32_t    mipLevelHint    : 6;
-        uint32_t    unpackAlignment : 2;
+        uint32_t    colorFormat     : 18; // 256k formats in enum supporteds
+        uint32_t    mipLevelHint    : 6; // 64 mip levels => 2^63 max tex size
+        uint32_t    unpackAlignment : 8;
 
         //! Final
         CImageData() {}
