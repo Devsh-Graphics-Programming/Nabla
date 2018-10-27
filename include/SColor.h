@@ -174,20 +174,14 @@ namespace video
         ECF_D32_SFLOAT_S8_UINT,
 
         //! Block Compression Formats!
-        ECF_RGB_BC1,
         ECF_BC1_RGB_UNORM_BLOCK,//new
         ECF_BC1_RGB_SRGB_BLOCK,
-        ECF_RGBA_BC1,
         ECF_BC1_RGBA_UNORM_BLOCK,//new
         ECF_BC1_RGBA_SRGB_BLOCK,
         ECF_BC2_UNORM_BLOCK,//new
-        ECF_RGBA_BC2,
         ECF_BC2_SRGB_BLOCK,
         ECF_BC3_UNORM_BLOCK,//new
-        ECF_RGBA_BC3,
         ECF_BC3_SRGB_BLOCK,
-        ECF_R_BC4,
-        ECF_RG_BC5,
 
 		//! Unknown color format:
 		ECF_UNKNOWN
@@ -222,14 +216,12 @@ namespace video
         case ECF_R32G32B32A32_SFLOAT: return 16;
         case ECF_R8_UINT: return 1;
         case ECF_R8G8_UINT: return 2;
-        case ECF_RGB_BC1:
-        case ECF_RGBA_BC1:
+        case ECF_BC1_RGB_UNORM_BLOCK:
+        case ECF_BC1_RGBA_UNORM_BLOCK:
             return 8;
-        case ECF_RGBA_BC2:
-        case ECF_RGBA_BC3:
+        case ECF_BC2_UNORM_BLOCK:
+        case ECF_BC3_UNORM_BLOCK:
             return 16;
-        case ECF_R_BC4: return 8;
-        case ECF_RG_BC5: return 16;
         case ECF_8BIT_PIX: return 1;
         case ECF_16BIT_PIX: return 2;
         case ECF_24BIT_PIX: return 3;
@@ -600,6 +592,22 @@ namespace video
             ECF_A8B8G8R8_SRGB_PACK32
         >::value;
     }
+    template<ECOLOR_FORMAT cf>
+    constexpr bool isBlockCompressionFormat()
+    {
+        return impl::is_any_of<
+            cf,
+            ECF_BC1_RGB_UNORM_BLOCK,
+            ECF_BC1_RGB_SRGB_BLOCK,
+            ECF_BC1_RGBA_UNORM_BLOCK,
+            ECF_BC1_RGBA_SRGB_BLOCK,
+            ECF_BC2_UNORM_BLOCK,
+            ECF_BC2_SRGB_BLOCK,
+            ECF_BC3_UNORM_BLOCK,
+            ECF_BC3_SRGB_BLOCK,
+            ECF_BC3_SRGB_BLOCK
+        >::value;
+    }
 
     inline bool isSignedFormat(ECOLOR_FORMAT _fmt)
     {
@@ -847,11 +855,27 @@ namespace video
         default: return false;
         }
     }
+    inline bool isBlockCompressionFormat(ECOLOR_FORMAT _fmt)
+    {
+        switch (_fmt)
+        {
+        case ECF_BC1_RGB_UNORM_BLOCK:
+        case ECF_BC1_RGB_SRGB_BLOCK:
+        case ECF_BC1_RGBA_UNORM_BLOCK:
+        case ECF_BC1_RGBA_SRGB_BLOCK:
+        case ECF_BC2_UNORM_BLOCK:
+        case ECF_BC2_SRGB_BLOCK:
+        case ECF_BC3_UNORM_BLOCK:
+        case ECF_BC3_SRGB_BLOCK:
+            return true;
+        default: return false;
+        }
+    }
 
     template<ECOLOR_FORMAT fmt, typename T>
     inline typename 
     std::enable_if<
-        std::is_same<T, double>::value && isScaledFormat<fmt>(),
+        true,//std::is_same<T, double>::value && isScaledFormat<fmt>(),
         void
     >::type
     decodePixels(const void* _pix, T* _output, uint64_t _scale);
@@ -859,7 +883,7 @@ namespace video
     template<ECOLOR_FORMAT fmt, typename T>
     inline typename 
     std::enable_if<
-        std::is_same<T, double>::value && isScaledFormat<fmt>(),
+        true,//std::is_same<T, double>::value && isScaledFormat<fmt>(),
         void
     >::type
     encodePixels(void* _pix, const T* _input, uint64_t _scale);
@@ -867,7 +891,7 @@ namespace video
     template<ECOLOR_FORMAT fmt, typename T>
     inline typename 
     std::enable_if<
-        std::is_same<T, double>::value || std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value,
+        true,//std::is_same<T, double>::value || std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value,
         void
     >::type
     decodePixels(const void* _pix, T* _output);
@@ -875,10 +899,18 @@ namespace video
     template<ECOLOR_FORMAT fmt, typename T>
     inline typename 
     std::enable_if<
-        std::is_same<T, double>::value || std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value,
+        true,//std::is_same<T, double>::value || std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value,
         void
     >::type
     encodePixels(void* _pix, const T* _input);
+
+    template<ECOLOR_FORMAT fmt, typename T>
+    inline typename
+    std::enable_if<
+        true,//std::is_same<T, double>::value && isBlockCompressionFormat<fmt>(),
+        void
+    >::type
+    decodePixels(const void* _pix, T* _output, uint32_t _x, uint32_t _y);
 
     template<>
     inline void decodePixels<ECF_A1R5G5B5, uint64_t>(const void* _pix, uint64_t* _output)
@@ -1438,17 +1470,17 @@ namespace video
         impl::decode8ui(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8, double>(const void* _pix, double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_UINT, double>(const void* _pix, double* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_UINT, int64_t>(const void* _pix, int64_t* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_UINT, uint64_t>(const void* _pix, uint64_t* _output, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 3u);
     }
@@ -1499,17 +1531,17 @@ namespace video
         impl::encode8ui(_pix, _input, 2u);
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8, double>(void* _pix, const double* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8_UINT, double>(void* _pix, const double* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 3u);
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8_UINT, int64_t>(void* _pix, const int64_t* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 3u);
     }
     template<>
-    inline void encodePixels<ECF_R8G8B8, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
+    inline void encodePixels<ECF_R8G8B8_UINT, uint64_t>(void* _pix, const uint64_t* _input, uint64_t _scale)
     {
         impl::encode8ui(_pix, _input, 3u);
     }
@@ -5744,7 +5776,7 @@ namespace video
     namespace impl
     {
         template<typename T>
-        inline void decodeBC1(const void* _pix, T* _output)
+        inline void decodeBC1(const void* _pix, T* _output, uint32_t _x, uint32_t _y, bool _alpha)
         {
 #include "irr/irrpack.h"
             struct {
@@ -5794,28 +5826,26 @@ namespace video
                 p[3].b = 0;
                 p[3].a = 0;
             }
-            for (uint32_t j = 0; j < 16u; j++)
-            {
-                const uint32_t cw = 3u & (col.lut >> (2 * j));
-                for (uint32_t i = 0u; i < 4u; ++i)
-                    _output[4u*j+i] = p[cw].c[i];
-            }
+
+            const uint32_t idx = 4u*_y + _x;
+            const uint32_t cw = 3u & (col.lut >> (2u * idx));
+            for (uint32_t i = 0u; i < (_alpha ? 4u : 3u); ++i)
+                _output[i] = p[cw].c[i];
         }
         template<typename T>
-        inline void decodeBC2(const void* _pix, T* _output)
+        inline void decodeBC2(const void* _pix, T* _output, uint32_t _x, uint32_t _y)
         {
             const uint8_t* pix = reinterpret_cast<const uint8_t*>(_pix);
-            decodeBC1(pix+8, _output);
-            for (uint32_t i = 0; i < 16; i++)
-            {
-                const uint32_t bitI = i * 4;
-                const uint32_t byI = bitI / 8u;
-                const uint32_t av = 0xfu & (pix[byI] >> (bitI & 7u));
-                _output[4u*i + 3u] = av;
-            }
+            decodeBC1(pix+8, _output, _x, _y, false);
+
+            const uint32_t idx = 4u*_y + _x;
+            const uint32_t bitI = idx * 4;
+            const uint32_t byI = bitI / 8u;
+            const uint32_t av = 0xfu & (pix[byI] >> (bitI & 7u));
+            _output[3] = av;
         }
         template<typename T>
-        inline void decodeBC4(const void* _pix, T* _output, int _stride, int _offset)
+        inline void decodeBC4(const void* _pix, T* _output, int _offset, uint32_t _x, uint32_t _y)
         {
             struct
             {
@@ -5848,25 +5878,28 @@ namespace video
                 a[6] = 0;
                 a[7] = 0xff;
             }
-            int lut = b.lut[0] | (b.lut[1] << 8) | (b.lut[2] << 16);
-            for (int n = 0; n < 8; n++)
+
+            const uint32_t idx = 4u*_y + _x;
+
+            if (idx < 8u)
             {
-                int aw = 7 & (lut >> (3 * n));
-                _output[_stride * n + _offset] = a[aw];
+                int lut = int(b.lut[0]) | int(b.lut[1] << 8) | int(b.lut[2] << 16);
+                int aw = 7 & (lut >> (3 * idx));
+                _output[_offset] = a[aw];
             }
-            lut = b.lut[3] | (b.lut[4] << 8) | (b.lut[5] << 16);
-            for (int n = 0; n < 8; n++)
+            else
             {
-                int aw = 7 & (lut >> (3 * n));
-                _output[_stride * (8 + n) + _offset] = a[aw];
+                int lut = int(b.lut[3]) | int(b.lut[4] << 8) | int(b.lut[5] << 16);
+                int aw = 7 & (lut >> (3 * idx));
+                _output[_offset] = a[aw];
             }
         }
 
         template<typename T>
-        void SRGB2lin(T _srgb[3]);
+        inline void SRGB2lin(T _srgb[3]);
 
         template<>
-        void SRGB2lin<double>(double _srgb[3])
+        inline void SRGB2lin<double>(double _srgb[3])
         {
             for (uint32_t i = 0u; i < 3u; ++i)
             {
@@ -5877,7 +5910,7 @@ namespace video
         }
 
         template<typename T>// T is int64_t or uint64_t
-        void SRGB2lin(T _srgb[3])
+        inline void SRGB2lin(T _srgb[3])
         {
             double s[3] { _srgb[0]/255., _srgb[1]/255., _srgb[2]/255. };
             SRGB2lin<double>(s);
@@ -5888,184 +5921,67 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_RGB_BC1, double>(const void* _pix, double* _output)
+    inline void decodePixels<ECF_BC1_RGB_UNORM_BLOCK, double>(const void* _pix, double* _output, uint32_t _x, uint32_t _y)
     {
-        impl::decodeBC1<double>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-        {
-            _output[4*i+0] /= 31.;
-            _output[4*i+1] /= 63.;
-            _output[4*i+2] /= 31.;
-            _output[4*i+3] = 1.;
-        }
-    }
-    template<>
-    inline void decodePixels<ECF_RGB_BC1, int64_t>(const void* _pix, int64_t* _output)
-    {
-        impl::decodeBC1<int64_t>(_pix, _output);
-        for (uint32_t i = 0u; i <16u; ++i)
-            _output[4*i+3] = 255;
-    }
-    template<>
-    inline void decodePixels<ECF_RGB_BC1, uint64_t>(const void* _pix, uint64_t* _output)
-    {
-        impl::decodeBC1<uint64_t>(_pix, _output);
-        for (uint32_t i = 0u; i <16u; ++i)
-            _output[4*i+3] = 255u;
+        impl::decodeBC1<double>(_pix, _output, _x, _y, false);
+        _output[0] /= 31.;
+        _output[1] /= 63.;
+        _output[2] /= 31.;
     }
 
     template<>
-    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, double>(const void* _pix, double* _output)
+    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, double>(const void* _pix, double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_RGB_BC1, double>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i*4);
-    }
-    template<>
-    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output)
-    {
-        decodePixels<ECF_RGB_BC1, int64_t>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i*4);
-    }
-    template<>
-    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output)
-    {
-        decodePixels<ECF_RGB_BC1, uint64_t>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i*4);
+        decodePixels<ECF_BC1_RGB_UNORM_BLOCK, double>(_pix, _output, _x, _y);
+        impl::SRGB2lin(_output);
     }
 
     template<>
-    inline void decodePixels<ECF_RGBA_BC1, double>(const void* _pix, double* _output)
+    inline void decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(const void* _pix, double* _output, uint32_t _x, uint32_t _y)
     {
-        impl::decodeBC1<double>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-        {
-            _output[4*i+0] /= 31.;
-            _output[4*i+1] /= 63.;
-            _output[4*i+2] /= 31.;
-        }
-    }
-    template<>
-    inline void decodePixels<ECF_RGBA_BC1, int64_t>(const void* _pix, int64_t* _output)
-    {
-        impl::decodeBC1<int64_t>(_pix, _output);
-    }
-    template<>
-    inline void decodePixels<ECF_RGBA_BC1, uint64_t>(const void* _pix, uint64_t* _output)
-    {
-        impl::decodeBC1<uint64_t>(_pix, _output);
+        impl::decodeBC1<double>(_pix, _output, _x, _y, true);
+        _output[0] /= 31.;
+        _output[1] /= 63.;
+        _output[2] /= 31.;
     }
 
     template<>
-    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, double>(const void* _pix, double* _output)
+    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, double>(const void* _pix, double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_RGBA_BC1, double>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i * 4);
-    }
-    template<>
-    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output)
-    {
-        decodePixels<ECF_RGBA_BC1, int64_t>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i * 4);
-    }
-    template<>
-    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output)
-    {
-        decodePixels<ECF_RGBA_BC1, uint64_t>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i * 4);
+        decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(_pix, _output, _x, _y);
+        impl::SRGB2lin(_output);
     }
 
     template<>
-    inline void decodePixels<ECF_RGBA_BC2, double>(const void* _pix, double* _output)
+    inline void decodePixels<ECF_BC2_UNORM_BLOCK, double>(const void* _pix, double* _output, uint32_t _x, uint32_t _y)
     {
-        impl::decodeBC2<double>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-        {
-            _output[4*i+0] /= 31.;
-            _output[4*i+1] /= 63.;
-            _output[4*i+2] /= 31.;
-            _output[4*i+3] /= 15.;
-        }
-    }
-    template<>
-    inline void decodePixels<ECF_RGBA_BC2, int64_t>(const void* _pix, int64_t* _output)
-    {
-        impl::decodeBC2<int64_t>(_pix, _output);
-    }
-    template<>
-    inline void decodePixels<ECF_RGBA_BC2, uint64_t>(const void* _pix, uint64_t* _output)
-    {
-        impl::decodeBC2<uint64_t>(_pix, _output);
+        impl::decodeBC2<double>(_pix, _output, _x, _y);
+        _output[0] /= 31.;
+        _output[1] /= 63.;
+        _output[2] /= 31.;
+        _output[3] /= 15.;
     }
 
     template<>
-    inline void decodePixels<ECF_BC2_SRGB_BLOCK, double>(const void* _pix, double* _output)
+    inline void decodePixels<ECF_BC2_SRGB_BLOCK, double>(const void* _pix, double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_RGBA_BC2, double>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i * 4);
-    }
-    template<>
-    inline void decodePixels<ECF_BC2_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output)
-    {
-        decodePixels<ECF_RGBA_BC2, int64_t>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i * 4);
-    }
-    template<>
-    inline void decodePixels<ECF_BC2_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output)
-    {
-        decodePixels<ECF_RGBA_BC2, uint64_t>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i * 4);
+        decodePixels<ECF_BC2_UNORM_BLOCK, double>(_pix, _output, _x, _y);
+        impl::SRGB2lin(_output);
     }
 
     template<>
-    inline void decodePixels<ECF_RGBA_BC3, double>(const void* _pix, double* _output)
+    inline void decodePixels<ECF_BC3_UNORM_BLOCK, double>(const void* _pix, double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_RGBA_BC1, double>(reinterpret_cast<const uint8_t*>(_pix)+8, _output);
-        impl::decodeBC4(_pix, _output, 4, 3);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            _output[4*i+3] /= 255.;
-    }
-    template<>
-    inline void decodePixels<ECF_RGBA_BC3, int64_t>(const void* _pix, int64_t* _output)
-    {
-        decodePixels<ECF_RGBA_BC1, int64_t>(reinterpret_cast<const uint8_t*>(_pix) + 8, _output);
-        impl::decodeBC4(_pix, _output, 4, 3);
-    }
-    template<>
-    inline void decodePixels<ECF_RGBA_BC3, uint64_t>(const void* _pix, uint64_t* _output)
-    {
-        decodePixels<ECF_RGBA_BC1, uint64_t>(reinterpret_cast<const uint8_t*>(_pix) + 8, _output);
-        impl::decodeBC4(_pix, _output, 4, 3);
+        decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(reinterpret_cast<const uint8_t*>(_pix)+8, _output);
+        impl::decodeBC4(_pix, _output, 3, _x, _y);
+        _output[3] /= 255.;
     }
     
     template<>
-    inline void decodePixels<ECF_BC3_SRGB_BLOCK, double>(const void* _pix, double* _output)
+    inline void decodePixels<ECF_BC3_SRGB_BLOCK, double>(const void* _pix, double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_RGBA_BC3, double>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i * 4);
-    }
-    template<>
-    inline void decodePixels<ECF_BC3_SRGB_BLOCK, int64_t>(const void* _pix, int64_t* _output)
-    {
-        decodePixels<ECF_RGBA_BC3, int64_t>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i * 4);
-    }
-    template<>
-    inline void decodePixels<ECF_BC3_SRGB_BLOCK, uint64_t>(const void* _pix, uint64_t* _output)
-    {
-        decodePixels<ECF_RGBA_BC3, uint64_t>(_pix, _output);
-        for (uint32_t i = 0u; i < 16u; ++i)
-            impl::SRGB2lin(_output + i * 4);
+        decodePixels<ECF_BC3_UNORM_BLOCK, double>(_pix, _output);
+        impl::SRGB2lin(_output);
     }
 
 
@@ -6166,15 +6082,11 @@ namespace video
 			return 8;
 		case ECF_R8G8_UINT:
 			return 16;
-        case ECF_RGB_BC1:
-        case ECF_RGBA_BC1:
+        case ECF_BC1_RGB_UNORM_BLOCK:
+        case ECF_BC1_RGBA_UNORM_BLOCK:
             return 4;
-        case ECF_RGBA_BC2:
-        case ECF_RGBA_BC3:
-            return 8;
-        case ECF_R_BC4:
-            return 4;
-        case ECF_RG_BC5:
+        case ECF_BC2_UNORM_BLOCK:
+        case ECF_BC3_UNORM_BLOCK:
             return 8;
         case ECF_8BIT_PIX:
 			return 8;
@@ -6215,12 +6127,10 @@ namespace video
 	{
 		switch(format)
 		{
-            case ECF_RGB_BC1:
-            case ECF_RGBA_BC1:
-            case ECF_RGBA_BC2:
-            case ECF_RGBA_BC3:
-            case ECF_R_BC4:
-            case ECF_RG_BC5:
+            case ECF_BC1_RGB_UNORM_BLOCK:
+            case ECF_BC1_RGBA_UNORM_BLOCK:
+            case ECF_BC2_UNORM_BLOCK:
+            case ECF_BC3_UNORM_BLOCK:
                 return 4;
             default:
                 return 1;
