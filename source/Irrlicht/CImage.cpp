@@ -103,11 +103,11 @@ uint32_t CImage::getRedMask() const
 		return 0x1F<<10;
 	case ECF_R5G6B5:
 		return 0x1F<<11;
-	case ECF_R8G8B8:
+	case ECF_R8G8B8_UINT:
 		return 0x00FF0000;
-	case ECF_A8R8G8B8:
+	case ECF_B8G8R8A8_UINT:
 		return 0x00FF0000;
-	case ECF_R8G8B8A8:
+	case ECF_R8G8B8A8_UINT:
 		return 0xFF000000;
 	default:
 		return 0x0;
@@ -124,11 +124,11 @@ uint32_t CImage::getGreenMask() const
 		return 0x1F<<5;
 	case ECF_R5G6B5:
 		return 0x3F<<5;
-	case ECF_R8G8B8:
+	case ECF_R8G8B8_UINT:
 		return 0x0000FF00;
-	case ECF_A8R8G8B8:
+	case ECF_B8G8R8A8_UINT:
 		return 0x0000FF00;
-	case ECF_R8G8B8A8:
+	case ECF_R8G8B8A8_UINT:
 		return 0x00FF0000;
 	default:
 		return 0x0;
@@ -145,11 +145,11 @@ uint32_t CImage::getBlueMask() const
 		return 0x1F;
 	case ECF_R5G6B5:
 		return 0x1F;
-	case ECF_R8G8B8:
+	case ECF_R8G8B8_UINT:
 		return 0x000000FF;
-	case ECF_A8R8G8B8:
+	case ECF_B8G8R8A8_UINT:
 		return 0x000000FF;
-	case ECF_R8G8B8A8:
+	case ECF_R8G8B8A8_UINT:
 		return 0x0000FF00;
 	default:
 		return 0x0;
@@ -166,11 +166,11 @@ uint32_t CImage::getAlphaMask() const
 		return 0x1<<15;
 	case ECF_R5G6B5:
 		return 0x0;
-	case ECF_R8G8B8:
+	case ECF_R8G8B8_UINT:
 		return 0x0;
-	case ECF_A8R8G8B8:
+	case ECF_B8G8R8A8_UINT:
 		return 0xFF000000;
-	case ECF_R8G8B8A8:
+	case ECF_R8G8B8A8_UINT:
 		return 0x000000FF;
 	default:
 		return 0x0;
@@ -198,7 +198,7 @@ void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 			*dest = video::A8R8G8B8toR5G6B5( color.color );
 		} break;
 
-		case ECF_R8G8B8:
+		case ECF_R8G8B8_UINT:
 		{
 			uint8_t* dest = Data + ( y * Pitch ) + ( x * 3 );
 			dest[0] = (uint8_t)color.getRed();
@@ -206,7 +206,7 @@ void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 			dest[2] = (uint8_t)color.getBlue();
 		} break;
 
-		case ECF_A8R8G8B8:
+		case ECF_B8G8R8A8_UINT:
 		{
 			uint32_t * dest = (uint32_t*) (Data + ( y * Pitch ) + ( x << 2 ));
 //			*dest = blend ? PixelBlend32 ( *dest, color.color ) : color.color;
@@ -244,7 +244,7 @@ void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 //! returns a pixel
 SColor CImage::getPixel(uint32_t x, uint32_t y) const
 {
-	if (x >= Size.Width || y >= Size.Height || (Format>=video::ECF_RGB_BC1&&Format<=video::ECF_DEPTH32F_STENCIL8) )
+	if (x >= Size.Width || y >= Size.Height || (Format>=video::ECF_BC1_RGB_UNORM_BLOCK&&Format<=video::ECF_DEPTH32F_STENCIL8) )
 		return SColor(0);
 
 	switch(Format)
@@ -253,9 +253,9 @@ SColor CImage::getPixel(uint32_t x, uint32_t y) const
 		return A1R5G5B5toA8R8G8B8(((uint16_t*)Data)[y*Size.Width + x]);
 	case ECF_R5G6B5:
 		return R5G6B5toA8R8G8B8(((uint16_t*)Data)[y*Size.Width + x]);
-	case ECF_A8R8G8B8:
+	case ECF_B8G8R8A8_UINT:
 		return ((uint32_t*)Data)[y*Size.Width + x];
-	case ECF_R8G8B8:
+	case ECF_R8G8B8_UINT:
 		{
 			uint8_t* p = Data+(y*3)*Size.Width + (x*3);
 			return SColor(255,p[0],p[1],p[2]);
@@ -279,7 +279,7 @@ void CImage::copyTo(IImage* target, const core::position2d<int32_t>& pos)
     if (!target)
         return;
 
-    if ((target->getColorFormat()>=video::ECF_RGB_BC1&&target->getColorFormat()<=video::ECF_RG_BC5)||(Format>=video::ECF_RGB_BC1&&Format<=video::ECF_RG_BC5))
+    if (video::isBlockCompressionFormat(target->getColorFormat()) || video::isBlockCompressionFormat(Format))
         return;
 
 	Blit(BLITTER_TEXTURE, target, 0, &pos, this, 0, 0);
@@ -292,7 +292,7 @@ void CImage::copyTo(IImage* target, const core::position2d<int32_t>& pos, const 
     if (!target)
         return;
 
-    if ((target->getColorFormat()>=video::ECF_RGB_BC1&&target->getColorFormat()<=video::ECF_RG_BC5)||(Format>=video::ECF_RGB_BC1&&Format<=video::ECF_RG_BC5))
+    if (video::isBlockCompressionFormat(target->getColorFormat()) || video::isBlockCompressionFormat(Format))
         return;
 
 	Blit(BLITTER_TEXTURE, target, clipRect, &pos, this, &sourceRect, 0);
@@ -305,7 +305,7 @@ void CImage::copyToWithAlpha(IImage* target, const core::position2d<int32_t>& po
     if (!target)
         return;
 
-    if ((target->getColorFormat()>=video::ECF_RGB_BC1&&target->getColorFormat()<=video::ECF_RG_BC5)||(Format>=video::ECF_RGB_BC1&&Format<=video::ECF_RG_BC5))
+    if (video::isBlockCompressionFormat(target->getColorFormat()) || video::isBlockCompressionFormat(Format))
         return;
 
 	// color blend only necessary on not full spectrum aka. color.color != 0xFFFFFFFF
@@ -320,7 +320,7 @@ void CImage::copyToScalingBoxFilter(IImage* target, int32_t bias, bool blend)
     if (!target)
         return;
 
-    if ((target->getColorFormat()>=video::ECF_RGB_BC1&&target->getColorFormat()<=video::ECF_RG_BC5)||(Format>=video::ECF_RGB_BC1&&Format<=video::ECF_RG_BC5))
+    if (video::isBlockCompressionFormat(target->getColorFormat()) || video::isBlockCompressionFormat(Format))
         return;
 
 	const core::dimension2d<uint32_t> destSize = target->getDimension();
@@ -363,10 +363,10 @@ void CImage::fill(const SColor &color)
 			c = video::A8R8G8B8toR5G6B5( color.color );
 			c |= c << 16;
 			break;
-		case ECF_A8R8G8B8:
+		case ECF_B8G8R8A8_UINT:
 			c = color.color;
 			break;
-		case ECF_R8G8B8:
+		case ECF_R8G8B8_UINT:
 		{
 			uint8_t rgb[3];
 			CColorConverter::convert_A8R8G8B8toR8G8B8(&color, 1, rgb);
@@ -392,7 +392,7 @@ inline SColor CImage::getPixelBox( int32_t x, int32_t y, int32_t fx, int32_t fy,
 	SColor c;
 	int32_t a = 0, r = 0, g = 0, b = 0;
 
-    if (Format<video::ECF_RGB_BC1||Format>video::ECF_RG_BC5)
+    if (!video::isBlockCompressionFormat(Format))
     {
         for ( int32_t dx = 0; dx != fx; ++dx )
         {

@@ -1430,8 +1430,8 @@ bool CIrrDeviceLinux::present(video::IImage* image, void* windowId, core::rect<i
 			else
 				destColor = video::ECF_A1R5G5B5;
 		break;
-		case 24: destColor = video::ECF_R8G8B8; break;
-		case 32: destColor = video::ECF_A8R8G8B8; break;
+		case 24: destColor = video::ECF_R8G8B8_UINT; break;
+		case 32: destColor = video::ECF_B8G8R8A8_UINT; break;
 		default:
 			os::Printer::log("Unsupported screen depth.");
 			return false;
@@ -1493,7 +1493,7 @@ video::ECOLOR_FORMAT CIrrDeviceLinux::getColorFormat() const
 {
 #ifdef _IRR_COMPILE_WITH_X11_
 	if (visual && (visual->depth != 16))
-		return video::ECF_R8G8B8;
+		return video::ECF_R8G8B8_UINT;
 	else
 #endif
 		return video::ECF_R5G6B5;

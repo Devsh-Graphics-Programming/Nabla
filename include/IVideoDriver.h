@@ -201,7 +201,7 @@ namespace video
 
         //! A.
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
-                                                           ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) {return nullptr;}
+                                                           ECOLOR_FORMAT format = ECF_B8G8R8A8_UINT, const bool& fixedSampleLocations = false) {return nullptr;}
 
         //! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8,

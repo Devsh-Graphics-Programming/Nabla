@@ -776,7 +776,7 @@ video::ITexture* CMY3DMeshFileLoader::readEmbeddedLightmap(io::IReadFile* file, 
 	{
 		// 24 bit lightmap format
 		light_img = SceneManager->getVideoDriver()->createImageFromData(
-		video::ECF_R8G8B8,
+		video::ECF_R8G8B8_UINT,
 		core::dimension2d<uint32_t>(texDataHeader.Width, texDataHeader.Height),
 			data, true);
 	}

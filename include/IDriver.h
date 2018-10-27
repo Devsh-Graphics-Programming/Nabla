@@ -54,7 +54,7 @@ namespace video
         virtual IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
 
         //! Creates a texture
-        virtual ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format = ECF_A8R8G8B8) { return nullptr; }
+        virtual ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format = ECF_B8G8R8A8_UINT) { return nullptr; }
 
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the writes to become GPU visible
         virtual void flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}

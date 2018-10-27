@@ -172,7 +172,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 		{
 			if (header.ImageType==3) // grey image
 			{
-				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
+				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8_UINT);
 				if (image)
 					CColorConverter::convert8BitTo24Bit((uint8_t*)data,
 						(uint8_t*)image->getData(),
@@ -198,13 +198,13 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 				(int16_t*)image->getData(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
 		break;
 	case 24:
-			image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
+			image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8_UINT);
 			if (image)
 				CColorConverter::convert24BitTo24Bit(
 					(uint8_t*)data, (uint8_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
 		break;
 	case 32:
-			image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
+			image = new CImageData(NULL,nullOffset,imageSize,0,ECF_B8G8R8A8_UINT);
 			if (image)
 				CColorConverter::convert32BitTo32Bit((int32_t*)data,
 					(int32_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);

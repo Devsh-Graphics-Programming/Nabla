@@ -240,7 +240,7 @@ asset::IAsset* CImageLoaderRGB::loadAsset(io::IReadFile* _file, const asset::IAs
 			case 3:
 				// RGB image
 				// one byte per COLOR VALUE, eg, 24bpp
-				image = new video::CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
+				image = new video::CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8_UINT);
 				if (image)
 					CColorConverter::convert24BitTo24Bit(rgb.rgbData, (uint8_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true, false);
 				break;
@@ -250,7 +250,7 @@ asset::IAsset* CImageLoaderRGB::loadAsset(io::IReadFile* _file, const asset::IAs
 
 				converttoARGB(reinterpret_cast<uint32_t*>(rgb.rgbData), 	rgb.Header.Ysize * rgb.Header.Xsize);
 
-				image = new video::CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
+				image = new video::CImageData(NULL,nullOffset,imageSize,0,ECF_B8G8R8A8_UINT);
 				if (image)
 					CColorConverter::convert32BitTo32Bit((int32_t*)rgb.rgbData, (int32_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true);
 

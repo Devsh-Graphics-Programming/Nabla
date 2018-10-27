@@ -64,7 +64,7 @@ namespace video
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device)
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8), Params(params),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8_UINT), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	DeviceType(EIDT_WIN32), AuxContexts(0)
 {
@@ -433,14 +433,14 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	if (pfd.cAlphaBits != 0)
 	{
 		if (pfd.cRedBits == 8)
-			ColorFormat = ECF_A8R8G8B8;
+			ColorFormat = ECF_B8G8R8A8_UINT;
 		else
 			ColorFormat = ECF_A1R5G5B5;
 	}
 	else
 	{
 		if (pfd.cRedBits == 8)
-			ColorFormat = ECF_R8G8B8;
+			ColorFormat = ECF_R8G8B8_UINT;
 		else
 			ColorFormat = ECF_R5G6B5;
 	}
@@ -497,7 +497,7 @@ bool COpenGLDriver::deinitAuxContext()
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceMacOSX *device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8_UINT),
 	Params(params),
 	OSXDevice(device), DeviceType(EIDT_OSX), AuxContexts(0)
 {
@@ -518,7 +518,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device)
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8_UINT),
 	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0)
 {
 	#ifdef _DEBUG
@@ -645,7 +645,7 @@ bool COpenGLDriver::deinitAuxContext()
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device)
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8_UINT),
 	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
 	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0)
 {

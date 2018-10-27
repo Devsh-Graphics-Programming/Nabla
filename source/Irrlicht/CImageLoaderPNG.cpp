@@ -218,9 +218,9 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	// Create the image structure to be filled by png data
 	uint32_t nullOffset[3] = {0,0,0};
 	if (ColorType==PNG_COLOR_TYPE_RGB_ALPHA)
-		image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_A8R8G8B8);
+		image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_B8G8R8A8_UINT);
 	else
-		image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_R8G8B8);
+		image = new CImageData(NULL, nullOffset, imageSize, 0, ECF_R8G8B8_UINT);
 	if (!image)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", _file->getFileName().c_str(), ELL_ERROR);

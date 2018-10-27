@@ -298,12 +298,12 @@ asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAs
 			CColorConverter::convert16BitTo16Bit((int16_t*)bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;
 	case 24:
-		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_R8G8B8));
+		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_R8G8B8_UINT));
 		if (images[0])
 			CColorConverter::convert24BitTo24Bit(bmpData, (uint8_t*)images[0]->getData(), header.Width, header.Height, pitch, true, true);
 		break;
 	case 32: // thx to Reinhard Ostermeier
-		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A8R8G8B8));
+		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_B8G8R8A8_UINT));
 		if (images[0])
 			CColorConverter::convert32BitTo32Bit((int32_t*)bmpData, (int32_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;

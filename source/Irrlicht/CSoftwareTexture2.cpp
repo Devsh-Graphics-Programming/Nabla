@@ -38,7 +38,7 @@ CSoftwareTexture2::CSoftwareTexture2(CImageData* image, const io::path& name, ui
 		CImage* tmpImg = new CImage(OriginalFormat,OrigSize,image->getData(),false);
 
 		core::setbit_cond(Flags,
-				image->getColorFormat () == video::ECF_A8R8G8B8 ||
+				image->getColorFormat () == video::ECF_B8G8R8A8_UINT ||
 				image->getColorFormat () == video::ECF_A1R5G5B5,
 				HAS_ALPHA);
 

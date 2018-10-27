@@ -297,96 +297,97 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FO
 			colorformat=GL_RGB;
 			type=GL_UNSIGNED_SHORT_5_6_5;
 			break;
-		case ECF_R8G8B8:
+		case ECF_R8G8B8_UINT:
 			colorformat=GL_RGB;
 			type=GL_UNSIGNED_BYTE;
 			break;
-		case ECF_A8R8G8B8:
+		case ECF_B8G8R8A8_UINT:
 			colorformat=GL_BGRA_EXT;
             type=GL_UNSIGNED_INT_8_8_8_8_REV;
 			break;
-		case ECF_R8G8B8A8:
+		case ECF_R8G8B8A8_UINT:
 			colorformat=GL_RGBA;
             type=GL_UNSIGNED_BYTE;
 			break;
 		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
-		case ECF_R11G11B10F:
+		case ECF_B10G11R11_UFLOAT_PACK32:
 		{
 			colorformat = GL_RGB;
 			type = GL_HALF_FLOAT;
 		}
 			break;
-		case ECF_R16F:
+		case ECF_R16_SFLOAT:
 		{
 			colorformat = GL_RED;
 			type = GL_HALF_FLOAT;
 		}
 			break;
-		case ECF_G16R16F:
+		case ECF_R16G16_SFLOAT:
 		{
 			colorformat = GL_RG;
 			type = GL_HALF_FLOAT;
 		}
 			break;
-		case ECF_A16B16G16R16F:
+		case ECF_R16G16B16A16_SFLOAT:
 		{
 			colorformat = GL_RGBA;
 			type = GL_HALF_FLOAT;
 		}
-		case ECF_R32F:
+		case ECF_R32_SFLOAT:
 		{
 			colorformat = GL_RED;
 			type = GL_FLOAT;
 		}
 			break;
-		case ECF_G32R32F:
+		case ECF_R32G32_SFLOAT:
 		{
 			colorformat = GL_RG;
 			type = GL_FLOAT;
 		}
 			break;
-		case ECF_A32B32G32R32F:
+		case ECF_R32G32B32A32_SFLOAT:
 		{
 			colorformat = GL_RGBA;
 			type = GL_FLOAT;
 		}
 			break;
-		case ECF_R8:
+		case ECF_R8_UINT:
 		{
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_R8G8:
+		case ECF_R8G8_UINT:
 		{
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_RGB_BC1:
+		case ECF_BC1_RGB_UNORM_BLOCK:
 		{
 			colorformat = GL_RGB;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_RGBA_BC1:
+		case ECF_BC1_RGBA_UNORM_BLOCK:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_RGBA_BC2:
+		case ECF_BC2_UNORM_BLOCK:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_RGBA_BC3:
+		case ECF_BC3_UNORM_BLOCK:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
+        /* // todo bc
 		case ECF_R_BC4:
 		{
 			colorformat = GL_RED;
@@ -399,6 +400,7 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FO
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
+         */
 		case ECF_8BIT_PIX:
 		{
 			colorformat = GL_RED;
@@ -484,7 +486,7 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FO
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-        case ECF_RGB9_E5:
+        case ECF_E5B9G9R9_UFLOAT_PACK32:
         {
             colorformat = GL_RGB;
             type = GL_HALF_FLOAT;
@@ -507,61 +509,63 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_F
 		case ECF_R5G6B5:
 			return GL_RGB565;
 			break;
-		case ECF_R8G8B8:
+		case ECF_R8G8B8_UINT:
 			return GL_RGB8;
 			break;
-		case ECF_A8R8G8B8:
+		case ECF_B8G8R8A8_UINT:
 			return GL_RGBA8;
 			break;
-		case ECF_R8G8B8A8:
+		case ECF_R8G8B8A8_UINT:
             return GL_RGBA8;
 			break;
 		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
-		case ECF_R11G11B10F:
+		case ECF_B10G11R11_UFLOAT_PACK32:
             return GL_R11F_G11F_B10F;
 			break;
-		case ECF_R16F:
+		case ECF_R16_SFLOAT:
 		    return GL_R16F;
 			break;
-		case ECF_G16R16F:
+		case ECF_R16G16_SFLOAT:
 		    return GL_RG16F;
 			break;
-		case ECF_A16B16G16R16F:
+		case ECF_R16G16B16A16_SFLOAT:
 		    return GL_RGBA16F;
 			break;
-		case ECF_R32F:
+		case ECF_R32_SFLOAT:
 		    return GL_R32F;
 			break;
-		case ECF_G32R32F:
+		case ECF_R32G32_SFLOAT:
 		    return GL_RG32F;
 			break;
-		case ECF_A32B32G32R32F:
+		case ECF_R32G32B32A32_SFLOAT:
 		    return GL_RGBA32F;
 			break;
-		case ECF_R8:
+		case ECF_R8_UINT:
 		    return GL_R8;
 			break;
-		case ECF_R8G8:
+		case ECF_R8G8_UINT:
 		    return GL_RGB8;
 			break;
-		case ECF_RGB_BC1:
+		case ECF_BC1_RGB_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
 			break;
-		case ECF_RGBA_BC1:
+		case ECF_BC1_RGBA_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
 			break;
-		case ECF_RGBA_BC2:
+		case ECF_BC2_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
 			break;
-		case ECF_RGBA_BC3:
+		case ECF_BC3_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 			break;
+            /* // todo bc
 		case ECF_R_BC4:
 		    return GL_COMPRESSED_RED_RGTC1_EXT;
 			break;
 		case ECF_RG_BC5:
 		    return GL_COMPRESSED_RED_GREEN_RGTC2_EXT;
 			break;
+            */
 		case ECF_8BIT_PIX:
 		    return GL_R8;
 			break;
@@ -605,7 +609,7 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_F
 		case ECF_STENCIL8:
             return GL_STENCIL_INDEX8;
 			break;
-        case ECF_RGB9_E5:
+        case ECF_E5B9G9R9_UFLOAT_PACK32:
             return GL_RGB9_E5;
             break;
 		default:
@@ -623,23 +627,25 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
     switch(sizedFormat)
     {
         case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
-            return ECF_RGB_BC1;
+            return ECF_BC1_RGB_UNORM_BLOCK;
             break;
         case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
-            return ECF_RGBA_BC1;
+            return ECF_BC1_RGBA_UNORM_BLOCK;
             break;
         case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
-            return ECF_RGBA_BC2;
+            return ECF_BC2_UNORM_BLOCK;
             break;
         case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
-            return ECF_RGBA_BC3;
+            return ECF_BC3_UNORM_BLOCK;
             break;
+            /* // todo bc
         case GL_COMPRESSED_RED_RGTC1_EXT:
             return ECF_R_BC4;
             break;
         case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
             return ECF_RG_BC5;
             break;
+            */
         case GL_STENCIL_INDEX8:
             return ECF_STENCIL8;
             break;
@@ -650,16 +656,16 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             ///return ECF_8BIT_PIX;
             break;
         case GL_R8:
-            return ECF_R8;
+            return ECF_R8_UINT;
             break;
         case GL_R8I:
-            ///return ECF_R8;
+            ///return ECF_R8_UINT;
             break;
         case GL_R8UI:
-            ///return ECF_R8;
+            ///return ECF_R8_UINT;
             break;
         case GL_R8_SNORM:
-            ///return ECF_R8;
+            ///return ECF_R8_UINT;
             break;
         case GL_RGB4:
             ///return ECF_16BIT_PIX;
@@ -677,16 +683,16 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             return ECF_A1R5G5B5;
             break;
         case GL_RG8:
-            return ECF_R8G8;
+            return ECF_R8G8_UINT;
             break;
         case GL_RG8I:
-            ///return ECF_R8G8;
+            ///return ECF_R8G8_UINT;
             break;
         case GL_RG8UI:
-            ///return ECF_R8G8;
+            ///return ECF_R8G8_UINT;
             break;
         case GL_RG8_SNORM:
-            ///return ECF_R8G8;
+            ///return ECF_R8G8_UINT;
             break;
         case GL_R16:
             ///return ECF_R16;
@@ -701,22 +707,22 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             ///return ECF_R16;
             break;
         case GL_R16F:
-            return ECF_R16F;
+            return ECF_R16_SFLOAT;
             break;
         case GL_DEPTH_COMPONENT24:
             return ECF_DEPTH24;
             break;
         case GL_RGB8:
-            return ECF_R8G8B8;
+            return ECF_R8G8B8_UINT;
             break;
         case GL_RGB8I:
-            ///return ECF_R8G8B8;
+            ///return ECF_R8G8B8_UINT;
             break;
         case GL_RGB8UI:
-            ///return ECF_R8G8B8;
+            ///return ECF_R8G8B8_UINT;
             break;
         case GL_RGB8_SNORM:
-            ///return ECF_R8G8B8;
+            ///return ECF_R8G8B8_UINT;
             break;
         case GL_SRGB8:
             ///return ECF_;
@@ -734,7 +740,7 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             return ECF_DEPTH32F;
             break;
         case GL_RGBA8:
-            return ECF_A8R8G8B8;
+            return ECF_B8G8R8A8_UINT;
             break;
         case GL_RGBA8I:
             ///return ECF_;
@@ -755,10 +761,10 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             ///return ECF_;
             break;
         case GL_R11F_G11F_B10F:
-            return ECF_R11G11B10F;
+            return ECF_B10G11R11_UFLOAT_PACK32;
             break;
         case GL_RGB9_E5:
-            return ECF_RGB9_E5;
+            return ECF_E5B9G9R9_UFLOAT_PACK32;
             break;
         case GL_RG16:
             ///return ECF_;
@@ -779,7 +785,7 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             ///return ECF_;
             break;
         case GL_R32F:
-            return ECF_R32F;
+            return ECF_R32_SFLOAT;
             break;
         case GL_RGB12:
             ///return ECF_;
@@ -815,7 +821,7 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             ///return ECF_;
             break;
         case GL_RGBA16F:
-            return ECF_A16B16G16R16F;
+            return ECF_R16G16B16A16_SFLOAT;
             break;
         case GL_RG32I:
             ///return ECF_;
@@ -842,7 +848,7 @@ ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& 
             ///return ECF_;
             break;
         case GL_RGBA32F:
-            return ECF_A32B32G32R32F;
+            return ECF_R32G32B32A32_SFLOAT;
             break;
         default:
             break;

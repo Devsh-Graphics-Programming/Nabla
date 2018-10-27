@@ -82,7 +82,7 @@ namespace video
         //! needs to be "deleted" since its not refcounted
         virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) {return NULL;}
 
-        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format = ECF_B8G8R8A8_UINT);
 
 		//! A.
         virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<CImageData*>& mipChain)
@@ -505,7 +505,7 @@ namespace video
 
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_B8G8R8A8_UINT);
 
 
 		// adds a material renderer and drops it afterwards. To be used for internal creation

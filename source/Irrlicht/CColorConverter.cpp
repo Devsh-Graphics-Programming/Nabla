@@ -607,10 +607,10 @@ void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_
 				case ECF_R5G6B5:
 					convert_A1R5G5B5toR5G6B5(sP, sN, dP);
 				break;
-				case ECF_A8R8G8B8:
+				case ECF_B8G8R8A8_UINT:
 					convert_A1R5G5B5toA8R8G8B8(sP, sN, dP);
 				break;
-				case ECF_R8G8B8:
+				case ECF_R8G8B8_UINT:
 					convert_A1R5G5B5toR8G8B8(sP, sN, dP);
 				break;
 #ifndef _DEBUG
@@ -628,10 +628,10 @@ void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_
 				case ECF_R5G6B5:
 					convert_R5G6B5toR5G6B5(sP, sN, dP);
 				break;
-				case ECF_A8R8G8B8:
+				case ECF_B8G8R8A8_UINT:
 					convert_R5G6B5toA8R8G8B8(sP, sN, dP);
 				break;
-				case ECF_R8G8B8:
+				case ECF_R8G8B8_UINT:
 					convert_R5G6B5toR8G8B8(sP, sN, dP);
 				break;
 #ifndef _DEBUG
@@ -640,7 +640,7 @@ void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_
 #endif
 			}
 		break;
-		case ECF_A8R8G8B8:
+		case ECF_B8G8R8A8_UINT:
 			switch (dF)
 			{
 				case ECF_A1R5G5B5:
@@ -649,10 +649,10 @@ void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_
 				case ECF_R5G6B5:
 					convert_A8R8G8B8toR5G6B5(sP, sN, dP);
 				break;
-				case ECF_A8R8G8B8:
+				case ECF_B8G8R8A8_UINT:
 					convert_A8R8G8B8toA8R8G8B8(sP, sN, dP);
 				break;
-				case ECF_R8G8B8:
+				case ECF_R8G8B8_UINT:
 					convert_A8R8G8B8toR8G8B8(sP, sN, dP);
 				break;
 #ifndef _DEBUG
@@ -661,7 +661,7 @@ void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_
 #endif
 			}
 		break;
-		case ECF_R8G8B8:
+		case ECF_R8G8B8_UINT:
 			switch (dF)
 			{
 				case ECF_A1R5G5B5:
@@ -670,10 +670,10 @@ void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_
 				case ECF_R5G6B5:
 					convert_R8G8B8toR5G6B5(sP, sN, dP);
 				break;
-				case ECF_A8R8G8B8:
+				case ECF_B8G8R8A8_UINT:
 					convert_R8G8B8toA8R8G8B8(sP, sN, dP);
 				break;
-				case ECF_R8G8B8:
+				case ECF_R8G8B8_UINT:
 					convert_R8G8B8toR8G8B8(sP, sN, dP);
 				break;
 #ifndef _DEBUG

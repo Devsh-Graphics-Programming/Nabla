@@ -189,10 +189,10 @@ namespace video
 		//! call.
 		virtual uint32_t getMaximalIndicesCount() const;
 
-        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format = ECF_B8G8R8A8_UINT);
 
         //!
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false);
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_B8G8R8A8_UINT, const bool& fixedSampleLocations = false);
 
 		//! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
@@ -610,7 +610,7 @@ namespace video
 		//! inits the parts of the open gl driver used on all platforms
 		bool genericDriverInit();
 		//! returns a device dependent texture from a software surface (IImage)
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_B8G8R8A8_UINT);
 
 		// returns the current size of the screen or rendertarget
 		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;

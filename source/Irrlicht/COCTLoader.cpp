@@ -224,7 +224,7 @@ IAnimatedMesh* COCTLoader::createMesh(io::IReadFile* file)
 	bool oldMipMapState = SceneManager->getVideoDriver()->getTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS);
 	SceneManager->getVideoDriver()->setTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS, false);
 
-	video::IImage* tmpImage = new CImage(video::ECF_R8G8B8, lmapsize);
+	video::IImage* tmpImage = new CImage(video::ECF_R8G8B8_UINT, lmapsize);
 	for (i = 1; i < (header.numLightmaps + 1); ++i)
 	{
 		core::stringc lightmapname = file->getFileName();
