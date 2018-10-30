@@ -52,12 +52,12 @@ namespace scene
             //
             virtual uint32_t addInstance(ISkinnedMeshSceneNode* attachedNode=NULL, const bool& createBoneNodes=false)
             {
-                uint32_t newID = std::remove_pointer<decltype(instanceBoneDataAllocator)>::type::alloc_traits::allocator_type::invalid_address;
+                uint32_t newID = kInvalidInstanceID;
 
                 const uint32_t align = _IRR_SIMD_ALIGNMENT;
                 instanceBoneDataAllocator->multi_alloc_addr(1u,&newID,&instanceFinalBoneDataSize,&align);
-                if (newID==std::remove_pointer<decltype(instanceBoneDataAllocator)>::type::alloc_traits::allocator_type::invalid_address)
-                    return std::remove_pointer<decltype(instanceBoneDataAllocator)>::type::alloc_traits::allocator_type::invalid_address;
+                if (newID==kInvalidInstanceID)
+                    return kInvalidInstanceID;
 
                 //grow instanceData
                 auto instanceCapacity = getDataInstanceCapacity();
@@ -88,7 +88,7 @@ namespace scene
                 tmp->attachedNode = attachedNode;
                 if (boneControlMode!=EBUM_CONTROL)
                 {
-                    FinalBoneData* boneData = reinterpret_cast<FinalBoneData*>(instanceBoneDataAllocator->getBackBufferPointer()+newID);
+                    FinalBoneData* boneData = reinterpret_cast<FinalBoneData*>(reinterpret_cast<uint8_t*>(instanceBoneDataAllocator->getBackBufferPointer())+newID);
                     for (size_t i=0; i<referenceHierarchy->getBoneCount(); i++)
                         boneData[i].lastAnimatedFrame = -1.f;
                 }
@@ -276,7 +276,7 @@ namespace scene
 
             inline void TrySwapBoneBuffer()
             {
-                instanceBoneDataAllocator->swapBuffers();
+                ///instanceBoneDataAllocator->swapBuffers(); TODO
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
                 if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
@@ -286,7 +286,7 @@ namespace scene
 
             virtual void performBoning()
             {
-                if (referenceHierarchy->getHierarchyLevels()==0||instanceBoneDataAllocator->getAllocator().get_allocated_size()==0)
+                if (referenceHierarchy->getHierarchyLevels()==0||instanceBoneDataAllocator->getAddressAllocator().get_allocated_size()==0)
                     return;
 
                 if (usingGPUorCPUBoning>=0&&boneControlMode==EBUM_NONE)
@@ -305,7 +305,7 @@ namespace scene
                                 uint8_t* boneData = reinterpret_cast<uint8_t*>(instanceBoneDataAllocator->getBackBufferPointer());
                                 bool notModified = true;
                                 uint32_t localFirstDirtyInstance,localLastDirtyInstance;
-                                for (size_t i=instanceBoneDataAllocator->getAllocator().get_align_offset(); i<instanceBoneDataAllocator->getAllocator().get_total_size(); i+=instanceFinalBoneDataSize)
+                                for (size_t i=instanceBoneDataAllocator->getAddressAllocator().get_align_offset(); i<instanceBoneDataAllocator->getAddressAllocator().get_total_size(); i+=instanceFinalBoneDataSize)
                                 {
                                     BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
                                     if (!currentInstance->refCount || currentInstance->frame==currentInstance->lastAnimatedFrame) //in other modes, check if also has no bones!!!
@@ -445,7 +445,7 @@ namespace scene
                                 uint8_t* boneData = reinterpret_cast<uint8_t*>(instanceBoneDataAllocator->getBackBufferPointer());
                                 bool notModified = true;
                                 uint32_t localFirstDirtyInstance,localLastDirtyInstance;
-                                for (size_t i=instanceBoneDataAllocator->getAllocator().get_align_offset(); i<instanceBoneDataAllocator->getAllocator().get_total_size(); i+=instanceFinalBoneDataSize)
+                                for (size_t i=instanceBoneDataAllocator->getAddressAllocator().get_align_offset(); i<instanceBoneDataAllocator->getAddressAllocator().get_total_size(); i+=instanceFinalBoneDataSize)
                                 {
                                     BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
                                     if (!currentInstance->refCount)
@@ -454,11 +454,9 @@ namespace scene
                                     FinalBoneData* boneDataForInstance = reinterpret_cast<FinalBoneData*>(boneData+i);
 
                                     core::matrix3x4SIMD attachedNodeInverse;
-									//core::matrix4x3 attachedNodeInverse;
                                     if (currentInstance->attachedNode)
                                     {
                                         currentInstance->attachedNode->updateAbsolutePosition();
-                                        //currentInstance->attachedNode->getAbsoluteTransformation().getInverse(attachedNodeInverse); // todo maybe simd inversion?
 										core::matrix3x4SIMD().set(currentInstance->attachedNode->getAbsoluteTransformation()).getInverse(attachedNodeInverse);
                                     }
 
@@ -475,7 +473,6 @@ namespace scene
 
 
 										boneDataForInstance[j].SkinningTransform = core::matrix3x4SIMD::concatenateBFollowedByA(attachedNodeInverse, core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(bone->getAbsoluteTransformation()), core::matrix3x4SIMD().set(referenceHierarchy->getBoneData()[j].PoseBindMatrix))).getAsRetardedIrrlichtMatrix();
-											//concatenateBFollowedByA(attachedNodeInverse,concatenateBFollowedByA(bone->getAbsoluteTransformation(),referenceHierarchy->getBoneData()[j].PoseBindMatrix)); //!may not be FP precise enough :(
 
                                         boneDataForInstance[j].SkinningTransform.getSub3x3InverseTranspose(boneDataForInstance[j].SkinningNormalMatrix);
 

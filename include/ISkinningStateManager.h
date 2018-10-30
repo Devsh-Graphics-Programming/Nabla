@@ -80,7 +80,10 @@ namespace scene
     **/
     class ISkinningStateManager : public virtual core::IReferenceCounted
     {
+            typedef core::PoolAddressAllocatorST<uint32_t>                                              InstanceDataAddressAllocator;
         public:
+            constexpr static decltype(InstanceDataAddressAllocator::invalid_address) kInvalidInstanceID = InstanceDataAddressAllocator::invalid_address;
+
             enum E_BONE_UPDATE_MODE
             {
                 //! do nothing, no bones get made, GPU_BONING compatibile
@@ -372,7 +375,7 @@ namespace scene
                 float lastAnimatedFrame; //to pad to 128bit align, maybe parentOffsetRelative?
             } PACK_STRUCT;
             #include "irr/irrunpack.h"
-            video::ResizableBufferingAllocatorST<core::PoolAddressAllocatorST<uint32_t>,core::allocator<uint8_t>,true>* instanceBoneDataAllocator;
+            video::ResizableBufferingAllocatorST<InstanceDataAddressAllocator,core::allocator<uint8_t>,true>* instanceBoneDataAllocator;
 
             inline uint32_t getDataInstanceCapacity() const
             {

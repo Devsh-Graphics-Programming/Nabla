@@ -7,8 +7,6 @@
 
 #include "ESceneNodeTypes.h"
 #include "IMeshSceneNodeInstanced.h"
-#include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
-#include "irr/video/ResizableBufferingAllocator.h"
 #include "ITransformFeedback.h"
 #include "IQueryObject.h"
 #include "ISceneManager.h"
@@ -73,7 +71,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         virtual const core::aabbox3df& getLoDInvariantBBox() const {return LoDInvariantBox;}
 
 
-        virtual size_t getInstanceCount() const { return instanceDataAllocator->getAllocator().get_allocated_size()/dataPerInstanceInputSize; }
+        virtual size_t getInstanceCount() const { return core::address_allocator_traits<InstanceDataAddressAllocator>::get_allocated_size(instanceDataAllocator->getAddressAllocator())/dataPerInstanceInputSize; }
 
 
         virtual uint32_t addInstance(const core::matrix4x3& relativeTransform, const void* extraData=NULL);
@@ -159,7 +157,6 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         core::vector<video::ITransformFeedback*> xfb;
         size_t gpuLoDsPerPass;
 
-        video::ResizableBufferingAllocatorST<core::ContiguousPoolAddressAllocatorST<uint32_t>,true>* instanceDataAllocator;
         bool needsBBoxRecompute;
         size_t instanceBBoxesCount;
         core::aabbox3df* instanceBBoxes;
@@ -175,12 +172,12 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         inline size_t getCurrentInstanceCapacity() const
         {
-            return getBlockIDFromAddr(instanceDataAllocator->getAllocator().get_total_size());
+            return getBlockIDFromAddr(core::address_allocator_traits<InstanceDataAddressAllocator>::get_total_size(instanceDataAllocator->getAddressAllocator()));
         }
 
         inline size_t getBlockIDFromAddr(uint32_t instanceID) const
         {
-            return instanceDataAllocator->getAllocator().addressToBlockID(instanceID);
+            return instanceDataAllocator->getAddressAllocator().addressToBlockID(instanceID);
         }
 };
 

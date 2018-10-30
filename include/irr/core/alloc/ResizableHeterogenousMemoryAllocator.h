@@ -40,6 +40,8 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
         template<typename... Args>
         inline void                             multi_alloc_addr(uint32_t count, size_type* outAddresses, const size_type* bytes, const size_type* alignment, const Args&... args)
         {
+            AddressAllocator& mAddrAlloc = Base::getBaseAddrAllocRef();
+
             Base::multi_alloc_addr(count,outAddresses,bytes,alignment,args...);
 
             size_type totalNeededExtraNewMem = 0u;
@@ -48,74 +50,73 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
                 if (outAddresses[i]!=AddressAllocator::invalid_address)
                     continue;
 
-                totalNeededExtraNewMem += std::max(bytes[i],getBaseAddrAllocRef().min_size())+alignment[i]-1u;
+                totalNeededExtraNewMem += std::max(bytes[i],alloc_traits::min_size(mAddrAlloc))+alignment[i]-1u;
             }
 
             if (totalNeededExtraNewMem==size_type(0u))
                 return;
 
-            size_type allAllocatorSpace = alloc_traits::get_total_size(getBaseAddrAllocRef())-AddressAllocator::alignOffset;
+            size_type allAllocatorSpace = alloc_traits::get_total_size(mAddrAlloc)-alloc_traits::get_align_offset(mAddrAlloc);
             size_type newSize = growPolicy(this,totalNeededExtraNewMem);
-            newSize = std::max(newSize,alloc_traits::get_allocated_size(getBaseAddrAllocRef())+totalNeededExtraNewMem);
+            newSize = std::max(newSize,alloc_traits::get_allocated_size(mAddrAlloc)+totalNeededExtraNewMem);
 
             if (newSize<=allAllocatorSpace)
                 return;
 
             size_type guaranteedAlign = Base::mDataAlloc.min_alignment();
-            newSize = AddressAllocator::safe_shrink_size(newSize,guaranteedAlign); // for padding
+            newSize = mAddrAlloc.safe_shrink_size(newSize,guaranteedAlign); // for padding
 
             //resize
             size_type oldReservedSize = Base::mReservedSize;
-            void* oldReserved = AddressAllocator::reservedSpace;
+            const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
-            Base::mReservedSize = AddressAllocator::reserved_size(getBaseAddrAllocRef(),newSize);
+            Base::mReservedSize = AddressAllocator::reserved_size(newSize,mAddrAlloc);
             void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
 
 
             Base::mDataSize = newSize;
-            getBaseAddrAllocRef() = AddressAllocator(getBaseAddrAllocRef(),newReserved,Base::mDataAlloc.reallocate(Base::mDataSize),Base::mDataSize);
+            mAddrAlloc = AddressAllocator(mAddrAlloc,newReserved,Base::mDataAlloc.reallocate(alloc_traits::getBufferStart(mAddrAlloc),Base::mDataSize,mAddrAlloc),Base::mDataSize);
 
 
             if (oldReserved)
-                Base::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(oldReserved),oldReservedSize);
+                Base::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(const_cast<void*>(oldReserved)),oldReservedSize);
 
-            Base::multi_alloc_addr(count,outAddresses,bytes,alignment,std::forward<Args>(args)...);
+            Base::multi_alloc_addr(count,outAddresses,bytes,alignment,args...);
         }
 
         template<typename... Args>
         inline void                             multi_free_addr(Args&&... args)
         {
+            AddressAllocator& mAddrAlloc = Base::getBaseAddrAllocRef();
+
             Base::multi_free_addr(std::forward<Args>(args)...);
 
-            size_type allAllocatorSpace = alloc_traits::get_total_size(getBaseAddrAllocRef())-AddressAllocator::alignOffset;
+            size_type allAllocatorSpace = alloc_traits::get_total_size(mAddrAlloc)-alloc_traits::get_align_offset(mAddrAlloc);
             size_type newSize = shrinkPolicy(this);
             if (newSize>=allAllocatorSpace)
                 return;
 
             size_type guaranteedAlign = Base::mDataAlloc.min_alignment();
             // some allocators may not be shrinkable because of fragmentation
-            newSize = AddressAllocator::safe_shrink_size(newSize,guaranteedAlign);
+            newSize = mAddrAlloc.safe_shrink_size(newSize,guaranteedAlign);
             if (newSize>=allAllocatorSpace)
                 return;
 
             // resize
             size_type oldReservedSize = Base::mReservedSize;
-            void* oldReserved = AddressAllocator::reservedSpace;
+            const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
-            Base::mReservedSize = AddressAllocator::reserved_size(getBaseAddrAllocRef(),newSize);
+            Base::mReservedSize = AddressAllocator::reserved_size(newSize,mAddrAlloc);
             void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
 
 
             Base::mDataSize = newSize;
-            getBaseAddrAllocRef() = AddressAllocator(getBaseAddrAllocRef(),newReserved,Base::mDataAlloc.reallocate(Base::mDataSize),Base::mDataSize);
+            mAddrAlloc = AddressAllocator(mAddrAlloc,newReserved,Base::mDataAlloc.reallocate(alloc_traits::getBufferStart(mAddrAlloc),Base::mDataSize,mAddrAlloc),Base::mDataSize);
 
 
             if (oldReserved)
-                Base::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(oldReserved),oldReservedSize);
+                Base::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(const_cast<void*>(oldReserved)),oldReservedSize);
         }
-
-    private:
-        inline AddressAllocator&                getBaseAddrAllocRef() noexcept {return *this;}
 
 
     protected:
@@ -125,7 +126,7 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
         {
             const auto& underlyingAddrAlloc = _this->getAddressAllocator();
 
-            size_type allAllocatorSpace = alloc_traits::get_total_size(underlyingAddrAlloc)-underlyingAddrAlloc.get_align_offset();
+            size_type allAllocatorSpace = alloc_traits::get_total_size(underlyingAddrAlloc)-alloc_traits::get_align_offset(underlyingAddrAlloc);
             size_type nextAllocTotal = alloc_traits::get_allocated_size(underlyingAddrAlloc)+totalRequestedNewMem;
             if (nextAllocTotal>allAllocatorSpace)
                 return (nextAllocTotal+defaultGrowStepMinus1)&(~defaultGrowStepMinus1);
@@ -142,7 +143,7 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
             if (allFreeSpace>shrinkStep)
                 return (alloc_traits::get_allocated_size(underlyingAddrAlloc)+defaultGrowStepMinus1)&(~defaultGrowStepMinus1);
 
-            return alloc_traits::get_total_size(underlyingAddrAlloc)-underlyingAddrAlloc.get_align_offset();
+            return alloc_traits::get_total_size(underlyingAddrAlloc)-alloc_traits::get_align_offset(underlyingAddrAlloc);
         }
 
         size_type(*growPolicy)(ThisType*,size_type);
@@ -156,18 +157,6 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
         inline const decltype(shrinkPolicy)&    getShrinkPolicy() const {return shrinkPolicy;}
         inline void                             setShrinkPolicy(const decltype(shrinkPolicy)& newShrinkPolicy) {shrinkPolicy=newShrinkPolicy;}
 };
-
-namespace debug
-{
-    template<class U, typename... Args> using templated_func_multi_free_addr = typename U::multi_free_addr::template <Args...>;
-    template<class U> using func_multi_free_addr                    = decltype((typename U::multi_free_addr)(uint32_t(0u),reinterpret_cast<const uint32_t*>(nullptr),reinterpret_cast<const uint32_t*>(nullptr)));
-
-    template<class,class=void> struct has_func_multi_free_addr                          : std::false_type {};
-    template<class U> struct has_func_multi_free_addr<U,void_t<func_multi_free_addr<U> > > : std::is_same<func_multi_free_addr<U>,void> {};
-
-
-    static_assert(has_func_multi_free_addr< ResizableHeterogenousMemoryAllocator<HeterogenousMemoryAddressAllocatorAdaptor<PoolAddressAllocatorST<uint32_t>,video::SimpleGPUBufferAllocator<1u> > > >::value,"FCUK!");
-}
 
 }
 }

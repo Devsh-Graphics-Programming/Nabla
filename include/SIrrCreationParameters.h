@@ -33,7 +33,6 @@ namespace irr
 			Doublebuffer(true),
 			IgnoreInput(false),
 			Stereobuffer(false),
-			HighPrecisionFPU(false),
 			EventReceiver(0),
 			WindowId(0),
 #ifdef _DEBUG
@@ -66,7 +65,6 @@ namespace irr
 			Doublebuffer = other.Doublebuffer;
 			IgnoreInput = other.IgnoreInput;
 			Stereobuffer = other.Stereobuffer;
-			HighPrecisionFPU = other.HighPrecisionFPU;
 			EventReceiver = other.EventReceiver;
 			WindowId = other.WindowId;
 			LoggingLevel = other.LoggingLevel;
@@ -168,15 +166,6 @@ namespace irr
 		Currently only supported by OpenGL.
 		Default value: false */
 		bool Stereobuffer;
-
-		//! Specifies if the device should use high precision FPU setting
-		/** This is only relevant for DirectX Devices, which switch to
-		low FPU precision by default for performance reasons. However,
-		this may lead to problems with the other computations of the
-		application. In this case setting this flag to true should help
-		- on the expense of performance loss, though.
-		Default value: false */
-		bool HighPrecisionFPU;
 
 		//! A user created event receiver.
 		IEventReceiver* EventReceiver;

@@ -46,12 +46,12 @@ class HostDeviceMirrorBufferAllocator : public GPUMemoryAllocatorBase
             assert(!addr && lastAllocation.first==addr && lastAllocation.second);
         #endif // _DEBUG
 
-            auto alignment = allocToQueryOffsets.max_alignment();
+            auto alignment = core::address_allocator_traits<AddressAllocator>::max_alignment(allocToQueryOffsets);
             auto oldMemReqs = lastAllocation.second->getMemoryReqs();
             auto tmp = createBuffers(bytes,alignment);
 
             //move contents
-            size_t oldOffset = allocToQueryOffsets.get_align_offset();
+            size_t oldOffset = core::address_allocator_traits<AddressAllocator>::get_align_offset(allocToQueryOffsets);
             auto copyRangeLen = std::min(oldMemReqs.vulkanReqs.size-oldOffset,bytes);
 
             memcpy(tmp.first,lastAllocation.first+oldOffset,copyRangeLen);
@@ -99,8 +99,6 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
         typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator,CPUAllocator> HeterogenousBase;
         core::ResizableHeterogenousMemoryAllocator<HeterogenousBase>                                                                mAllocator;
 
-        typedef core::address_allocator_traits<decltype(mAllocator)>                                                                alloc_traits;
-
     public:
         typedef typename BasicAddressAllocator::size_type                                                                           size_type;
 
@@ -130,10 +128,10 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 
 
         template<typename... Args>
-        inline void                         multi_alloc_addr(Args&&... args) {alloc_traits::multi_alloc_addr(mAllocator,std::forward<Args>(args)...);}
+        inline void                         multi_alloc_addr(Args&&... args) {mAllocator.multi_alloc_addr(std::forward<Args>(args)...);}
 
         template<typename... Args>
-        inline void                         multi_free_addr(Args&&... args) {alloc_traits::multi_free_addr(mAllocator,std::forward<Args>(args)...);}
+        inline void                         multi_free_addr(Args&&... args) {mAllocator.multi_free_addr(std::forward<Args>(args)...);}
 
 
         //! Makes Writes visible, it can fail if there is a lack of space in the streaming buffer to stream with

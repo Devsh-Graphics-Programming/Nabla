@@ -68,7 +68,6 @@
 #include "IFileList.h"
 #include "IFileSystem.h"
 #include "IGeometryCreator.h"
-#include "IGPUTransientBuffer.h"
 #include "IGPUProgrammingServices.h"
 #include "CImageData.h"
 #include "IImage.h"

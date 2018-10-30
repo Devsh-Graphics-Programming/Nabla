@@ -3498,17 +3498,17 @@ inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFrameb
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&boundReadFBO);
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&boundDrawFBO);
 
-        if (static_cast<GLuint>(readFramebuffer)!=boundReadFBO)
+        if (static_cast<GLint>(readFramebuffer)!=boundReadFBO)
 	        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,readFramebuffer);
-        if (static_cast<GLuint>(drawFramebuffer)!=boundDrawFBO)
+        if (static_cast<GLint>(drawFramebuffer)!=boundDrawFBO)
 	        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,drawFramebuffer);
 
         if (pGlBlitFramebuffer)
             pGlBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
 
-        if (static_cast<GLuint>(readFramebuffer)!=boundReadFBO)
+        if (static_cast<GLint>(readFramebuffer)!=boundReadFBO)
 	        extGlBindFramebuffer(GL_READ_FRAMEBUFFER,boundReadFBO);
-        if (static_cast<GLuint>(drawFramebuffer)!=boundDrawFBO)
+        if (static_cast<GLint>(drawFramebuffer)!=boundDrawFBO)
 	        extGlBindFramebuffer(GL_DRAW_FRAMEBUFFER,boundDrawFBO);
     }
 }

@@ -7,6 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
+#include <cstring>
 #include "irr/core/alloc/PoolAddressAllocator.h"
 
 namespace irr
@@ -174,29 +175,6 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         }
 
 
-        //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
-        inline size_type        max_size() const noexcept
-        {
-            return Base::max_size();
-        }
-
-        //! Most allocators do not support e.g. 1-byte allocations
-        inline size_type        min_size() const noexcept
-        {
-            return Base::min_size();
-        }
-
-        inline size_type        max_alignment() const noexcept
-        {
-            return Base::max_alignment();
-        }
-
-        inline size_type        get_align_offset() const noexcept
-        {
-            return Base::get_align_offset();
-        }
-
-
         inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
             auto boundByAllocCount = addressesAllocated*Base::blockSize;
@@ -221,20 +199,6 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         static inline size_type reserved_size(const Args&... args) noexcept
         {
             return Base::reserved_size(args...)*2ull;
-        }
-
-
-        inline size_type        get_free_size() const noexcept
-        {
-            return Base::get_free_size();
-        }
-        inline size_type        get_allocated_size() const noexcept
-        {
-            return Base::get_allocated_size();
-        }
-        inline size_type        get_total_size() const noexcept
-        {
-            return Base::get_total_size();
         }
 
 

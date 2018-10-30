@@ -96,18 +96,43 @@ namespace core
         };
     }
 
+
+    //! TODO: https://en.cppreference.com/w/cpp/experimental/is_detected
     template<class AddressAlloc>
     class address_allocator_traits : protected AddressAlloc //maybe private?
     {
+        public:
+            typedef AddressAlloc                        allocator_type;
+            typedef typename AddressAlloc::size_type    size_type;
         private:
-            template<class U> using cstexpr_supportsArbitraryOrderFrees = decltype(U::supportsArbitraryOrderFrees);
-            template<class U> using cstexpr_maxMultiOps                 = decltype(U::maxMultiOps);
-            template<class U> using cstexpr_supportsNullBuffer          = decltype(U::supportsNullBuffer);
+            class ConstGetter : public AddressAlloc
+            {
+                    ConstGetter() = delete;
+                    virtual ~ConstGetter() = default;
+                public:
+                    inline void*        getBufferStart() const noexcept     {return AddressAlloc::getBufferStart();}
+                    inline const void*  getReservedSpacePtr() const noexcept{return AddressAlloc::getReservedSpacePtr();}
+                    inline size_type    max_size() const noexcept           {return AddressAlloc::max_size();}
+                    inline size_type    min_size() const noexcept           {return AddressAlloc::min_size();}
+                    inline size_type    max_alignment() const noexcept      {return AddressAlloc::max_alignment();}
+                    inline size_type    get_align_offset() const noexcept   {return AddressAlloc::get_align_offset();}
+                    inline size_type    get_free_size() const noexcept      {return AddressAlloc::get_free_size();}
+                    inline size_type    get_allocated_size() const noexcept {return AddressAlloc::get_allocated_size();}
+                    inline size_type    get_total_size() const noexcept     {return AddressAlloc::get_total_size();}
+            };
+            virtual ~address_allocator_traits() = default;
 
-            template<class U> using func_multi_alloc_addr               = decltype(U::multi_alloc_addr(0u,nullptr,nullptr,nullptr,nullptr));
-            template<class U> using func_multi_free_addr                = decltype(U::multi_free_addr(0u,nullptr,nullptr));
+            template<class U> using cstexpr_supportsArbitraryOrderFrees = decltype(std::declval<U&>().supportsArbitraryOrderFrees);
+            template<class U> using cstexpr_maxMultiOps                 = decltype(std::declval<U&>().maxMultiOps);
+            template<class U> using cstexpr_supportsNullBuffer          = decltype(std::declval<U&>().supportsNullBuffer);
 
-            template<class U> using func_get_real_addr                  = decltype(U::get_real_addr(0u));
+            template<class U> using func_multi_alloc_addr               = decltype(std::declval<U&>().multi_alloc_addr(0u,nullptr,nullptr,nullptr,nullptr));
+            template<class U> using func_multi_free_addr                = decltype(std::declval<U&>().multi_free_addr(0u,nullptr,nullptr));
+
+            template<class U> using template_func_multi_alloc_addr      = decltype(std::declval<U&>().template multi_alloc_addr(0u,nullptr,nullptr,nullptr,nullptr));
+            template<class U> using template_func_multi_free_addr       = decltype(std::declval<U&>().template multi_free_addr(0u,nullptr,nullptr));
+
+            template<class U> using func_get_real_addr                  = decltype(std::declval<U&>().get_real_addr(0u));
         /// C++17 protected:
         public:
             template<class,class=void> struct has_supportsArbitraryOrderFrees                   : std::false_type {};
@@ -116,6 +141,8 @@ namespace core
 
             template<class,class=void> struct has_func_multi_alloc_addr                         : std::false_type {};
             template<class,class=void> struct has_func_multi_free_addr                          : std::false_type {};
+            template<class,class=void> struct has_template_func_multi_alloc_addr                : std::false_type {};
+            template<class,class=void> struct has_template_func_multi_free_addr                 : std::false_type {};
 
             template<class,class=void> struct has_func_get_real_addr                            : std::false_type {};
 
@@ -130,15 +157,16 @@ namespace core
                                                                                                 : std::is_same<func_multi_alloc_addr<U>,void> {};
             template<class U> struct has_func_multi_free_addr<U,void_t<func_multi_free_addr<U> > >
                                                                                                 : std::is_same<func_multi_free_addr<U>,void> {};
+            template<class U> struct has_template_func_multi_alloc_addr<U,void_t<func_multi_alloc_addr<U> > >
+                                                                                                : std::is_same<template_func_multi_alloc_addr<U>,void> {};
+            template<class U> struct has_template_func_multi_free_addr<U,void_t<func_multi_free_addr<U> > >
+                                                                                                : std::is_same<template_func_multi_free_addr<U>,void> {};
 
             template<class U> struct has_func_get_real_addr<U,void_t<func_get_real_addr<U> > >  : std::is_same<func_get_real_addr<U>,void> {};
         /// C++17 public:
             /// C++17 inline static constexpr bool supportsArbitraryOrderFrees  = impl::address_allocator_traits_base<AddressAlloc,has_supportsArbitraryOrderFrees<AddressAlloc>::value>::supportsArbitraryOrderFrees;
             /// C++17 inline static constexpr uint32_t maxMultiOps              = impl::address_allocator_traits_base<AddressAlloc,has_maxMultiOps<AddressAlloc>::value>::maxMultiOps;
             /// C++17 inline static constexpr bool supportsNullBuffer           = impl::address_allocator_traits_base<AddressAlloc,has_supportsNullBuffer<AddressAlloc>::value>::supportsNullBuffer;
-
-            typedef AddressAlloc                        allocator_type;
-            typedef typename AddressAlloc::size_type    size_type;
 
 
             using AddressAlloc::AddressAlloc;
@@ -164,7 +192,7 @@ namespace core
             {
                 constexpr uint32_t maxMultiOps = impl::address_allocator_traits_base<AddressAlloc,has_maxMultiOps<AddressAlloc>::value>::maxMultiOps;
                 for (uint32_t i=0; i<count; i+=maxMultiOps)
-                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::multi_alloc_addr(
+                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value||has_template_func_multi_alloc_addr<AddressAlloc>::value>::multi_alloc_addr(
                                                                 alloc,std::min(count-i,maxMultiOps),outAddresses+i,bytes+i,alignment+i,hint ? (hint+i):nullptr);
             }
 
@@ -172,21 +200,50 @@ namespace core
             {
                 constexpr uint32_t maxMultiOps = impl::address_allocator_traits_base<AddressAlloc,has_maxMultiOps<AddressAlloc>::value>::maxMultiOps;
                 for (uint32_t i=0; i<count; i+=maxMultiOps)
-                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_free_addr<AddressAlloc>::value>::multi_free_addr(
+                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_free_addr<AddressAlloc>::value||has_template_func_multi_free_addr<AddressAlloc>::value>::multi_free_addr(
                                                                 alloc,std::min(count-i,maxMultiOps),addr+i,bytes+i);
             }
 
+
+            static inline void*             getBufferStart(const AddressAlloc& alloc) noexcept
+            {
+                return static_cast<const ConstGetter&>(alloc).getBufferStart();
+            }
+            static inline const void*       getReservedSpacePtr(const AddressAlloc& alloc) noexcept
+            {
+                return static_cast<const ConstGetter&>(alloc).getReservedSpacePtr();
+            }
+
+
+            static inline size_type        max_size(const AddressAlloc& alloc) noexcept
+            {
+                return static_cast<const ConstGetter&>(alloc).max_size();
+            }
+            static inline size_type        min_size(const AddressAlloc& alloc) noexcept
+            {
+                return static_cast<const ConstGetter&>(alloc).min_size();
+            }
+            static inline size_type        max_alignment(const AddressAlloc& alloc) noexcept
+            {
+                return static_cast<const ConstGetter&>(alloc).max_alignment();
+            }
+            static inline size_type        get_align_offset(const AddressAlloc& alloc) noexcept
+            {
+                return static_cast<const ConstGetter&>(alloc).get_align_offset();
+            }
+
+
             static inline size_type        get_free_size(const AddressAlloc& alloc) noexcept
             {
-                return alloc.get_free_size();
+                return static_cast<const ConstGetter&>(alloc).get_free_size();
             }
             static inline size_type        get_allocated_size(const AddressAlloc& alloc) noexcept
             {
-                return alloc.get_allocated_size();
+                return static_cast<const ConstGetter&>(alloc).get_allocated_size();
             }
             static inline size_type        get_total_size(const AddressAlloc& alloc) noexcept
             {
-                return alloc.get_total_size();
+                return static_cast<const ConstGetter&>(alloc).get_total_size();
             }
     };
 

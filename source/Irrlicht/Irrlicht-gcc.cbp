@@ -625,7 +625,6 @@
 		<Unit filename="IZBuffer.h" />
 		<Unit filename="Irrlicht.cpp" />
 		<Unit filename="MacOSX/CIrrDeviceMacOSX.h" />
-		<Unit filename="MacOSX/CIrrDeviceMacOSX.mm" />
 		<Unit filename="S2DVertex.h" />
 		<Unit filename="S4DVertex.h" />
 		<Unit filename="STextureSamplingParams.cpp" />

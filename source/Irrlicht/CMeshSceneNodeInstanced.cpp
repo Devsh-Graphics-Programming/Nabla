@@ -21,8 +21,7 @@ uint32_t CMeshSceneNodeInstanced::recullOrder;
 CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
         const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
     : IMeshSceneNodeInstanced(parent, mgr, id, position, rotation, scale),
-    instanceDataAllocator(nullptr), instanceBBoxes(nullptr), instanceBBoxesCount(0),
-    flagQueryForRetrieval(false),
+    instanceBBoxes(nullptr), instanceBBoxesCount(0), flagQueryForRetrieval(false),
     gpuCulledLodInstanceDataBuffer(nullptr), dataPerInstanceOutputSize(0),
     extraDataInstanceSize(0), dataPerInstanceInputSize(0), cachedMaterialCount(0)
 {
@@ -50,8 +49,6 @@ CMeshSceneNodeInstanced::~CMeshSceneNodeInstanced()
 
     lodCullingPointMesh->drop();
 
-    if (instanceDataAllocator)
-        delete instanceDataAllocator;
     if (instanceBBoxes)
         _IRR_ALIGNED_FREE(instanceBBoxes);
     if (gpuCulledLodInstanceDataBuffer)
@@ -73,7 +70,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     xfb.clear();
 
     if (instanceDataAllocator)
-        instanceDataAllocator->drop();
+        delete instanceDataAllocator;
     if (instanceBBoxes)
         _IRR_ALIGNED_FREE(instanceBBoxes);
     if (gpuCulledLodInstanceDataBuffer)
@@ -111,7 +108,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     dataPerInstanceInputSize = extraDataInstanceSize+visibilityPadding+48+36;
     auto buffSize = dataPerInstanceInputSize*512u;
-    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(core::allocator<uint8_t>(),driver,buffSize,dataPerInstanceInputSize);
+    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(driver,core::allocator<uint8_t>(),buffSize,dataPerInstanceInputSize);
 	instanceBBoxesCount = getCurrentInstanceCapacity();
 	instanceBBoxes = (core::aabbox3df*)_IRR_ALIGNED_MALLOC(instanceBBoxesCount*sizeof(core::aabbox3df),_IRR_SIMD_ALIGNMENT);
 	for (size_t i=0; i<instanceBBoxesCount; i++)
@@ -218,7 +215,7 @@ uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix4x3& relativeTra
 {
     uint32_t ix;
     if (!addInstances(&ix,1,&relativeTransform,extraData))
-        return std::remove_pointer<decltype(instanceDataAllocator)>::type::alloc_traits::allocator_type::invalid_address;
+        return kInvalidInstanceID;
 
     return ix;
 }
@@ -229,23 +226,23 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
     uint32_t aligns[instanceCount];
     for (size_t i=0; i<instanceCount; i++)
     {
-        instanceIDs[i] = std::remove_pointer<decltype(instanceDataAllocator)>::type::alloc_traits::allocator_type::invalid_address;
+        instanceIDs[i] = kInvalidInstanceID;
         dummyBytes[i] = dataPerInstanceInputSize;
         aligns[i] = 4u; // 4-byte alignment
     }
 
-    instanceDataAllocator->multi_alloc_addr(instanceCount,instanceIDs,dummyBytes,static_cast<const uint32_t*>(aligns));
+    instanceDataAllocator->multi_alloc_addr(instanceCount,instanceIDs,static_cast<const uint32_t*>(dummyBytes),static_cast<const uint32_t*>(aligns));
     bool success = true;
     for (size_t i=0; i<instanceCount&&success; i++)
-        success = instanceIDs[i]!=std::remove_pointer<decltype(instanceDataAllocator)>::type::alloc_traits::allocator_type::invalid_address;
+        success = instanceIDs[i]!=kInvalidInstanceID;
     if (!success)
     {
         for (size_t i=0; i<instanceCount; i++)
         {
-            if (instanceIDs[i]==std::remove_pointer<decltype(instanceDataAllocator)>::type::alloc_traits::allocator_type::invalid_address)
+            if (instanceIDs[i]==kInvalidInstanceID)
                 continue;
             instanceDataAllocator->multi_free_addr(1u,instanceIDs+i,dummyBytes+i);
-            instanceIDs[i] = std::remove_pointer<decltype(instanceDataAllocator)>::type::alloc_traits::allocator_type::invalid_address;
+            instanceIDs[i] = kInvalidInstanceID;
         }
         return false;
     }
@@ -271,7 +268,7 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
             instanceBBoxes[blockID] = LoDInvariantBox;
             relativeTransforms[i].transformBoxEx(instanceBBoxes[blockID]);
         }
-        size_t redirect = instanceDataAllocator->getAllocator().get_real_addr(instanceIDs[i]);
+        size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceIDs[i]);
         instanceDataAllocator->markRangeDirty(redirect,redirect+dataPerInstanceInputSize);
         uint8_t* ptr = base_pointer+redirect;
         memcpy(ptr,relativeTransforms+i,48);
@@ -306,7 +303,7 @@ void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, c
         relativeTransform.transformBoxEx(instanceBBoxes[blockID]);
     }
 
-    size_t redirect = instanceDataAllocator->getAllocator().get_real_addr(instanceID);
+    size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
     instanceDataAllocator->markRangeDirty(redirect,redirect+48+36);
     uint8_t* ptr = reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redirect;
     memcpy(ptr,relativeTransform.pointer(),48);
@@ -329,8 +326,8 @@ void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, c
 
 core::matrix4x3 CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& instanceID)
 {
-    size_t redir = instanceDataAllocator->getAllocator().get_real_addr(instanceID);
-    if (redir==std::remove_pointer<decltype(instanceDataAllocator)>::type::alloc_traits::allocator_type::invalid_address)
+    size_t redir = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
+    if (redir==kInvalidInstanceID)
     {
         core::matrix4x3 retval(core::matrix4x3::EM4CONST_NOTHING);
         memset(retval.pointer(),0,48);
@@ -344,7 +341,7 @@ core::matrix4x3 CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& in
 
 void CMeshSceneNodeInstanced::setInstanceVisible(const uint32_t& instanceID, const bool& visible)
 {
-    size_t redirect = instanceDataAllocator->getAllocator().get_real_addr(instanceID)+36+48+extraDataInstanceSize;
+    size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID)+36+48+extraDataInstanceSize;
     instanceDataAllocator->markRangeDirty(redirect,redirect+1u);
     reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())[redirect] = visible;
     /// update BBox?
@@ -355,7 +352,7 @@ void CMeshSceneNodeInstanced::setInstanceData(const uint32_t& instanceID, const 
     if (extraDataInstanceSize==0)
         return;
 
-    size_t redirect = instanceDataAllocator->getAllocator().get_real_addr(instanceID)+36+48;
+    size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID)+36+48;
     instanceDataAllocator->markRangeDirty(redirect,redirect+extraDataInstanceSize);
     uint8_t* ptr = reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redirect;
     memcpy(ptr,data,extraDataInstanceSize);
@@ -414,7 +411,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
 
     {
         //can swap before or after, but defubuteky before tform feedback shadeur
-        instanceDataAllocator->swapBuffers();
+        ///instanceDataAllocator->swapBuffers(); TODO
 
         size_t outputSizePerLoD = dataPerInstanceOutputSize*getCurrentInstanceCapacity();
         if (gpuCulledLodInstanceDataBuffer->getSize()!=xfb.size()*gpuLoDsPerPass*outputSizePerLoD)

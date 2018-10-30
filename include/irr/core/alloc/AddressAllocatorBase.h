@@ -27,7 +27,10 @@ namespace core
             GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
             #undef DUMMY_DEFAULT_CONSTRUCTOR
 
-            inline void*                getBufferStart() noexcept {return bufferStart;}
+            inline void*                getBufferStart() const noexcept {return bufferStart;}
+
+            inline const void*          getReservedSpacePtr() const noexcept {return reservedSpace;}
+
 
             inline _size_type           max_alignment() const noexcept
             {
