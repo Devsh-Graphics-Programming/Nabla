@@ -26,7 +26,7 @@ class IRR_FORCE_EBO aligned_allocator : public irr::core::AllocatorTrivialBase<T
         template< class U> struct rebind { typedef aligned_allocator<U,overAlign> other; };
 
 
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(aligned_allocator() {})
+        aligned_allocator() {}
         virtual ~aligned_allocator() {}
         template<typename U, size_t _align = overAlign>
         aligned_allocator(const aligned_allocator<U,_align>& other) {}
