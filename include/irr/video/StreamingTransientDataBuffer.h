@@ -152,35 +152,25 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         // but only try a few fences before the next alloc attempt
         // hpw many fences to try at each step?
         template<typename... Args>
-        inline size_type    multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const size_type* alignment, const Args&... args) noexcept
+        inline size_type    multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
         {
-            bool lastTimeAllFree = false;
-            while (true)
+            // try allocate once
+            size_type unallocatedSize = try_multi_alloc(count,outAddresses,bytes,args...);
+            if (!unallocatedSize)
+                return 0u;
+
+            auto maxWaitPoint = std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(50000ull); // 50 us
+            // then try to wait at least once and allocate
+            do
             {
-                mAllocator.multi_alloc_addr();
+                deferredFrees.waitUntilForReadyEvents(maxWaitPoint,2u);
 
-                size_type unallocatedSize = 0;
-                for ()
-                {
-                    if (outAddr!=invalid_address)
-                        continue;
-
-                    unallocatedSize += ;
-                }
-
+                unallocatedSize = try_multi_alloc(count,outAddresses,bytes,args...);
                 if (!unallocatedSize)
-                    return true;
+                    return 0u;
+            } while(std::chrono::high_resolution_clock::now()<maxWaitPoint);
 
-                if (execute_frees(8000u)) // 8us
-                {
-                    if (lastTimeAllFree)
-                        break;
-
-                    lastTimeAllFree = true;
-                }
-                else
-                    lastTimeAllFree = false;
-            }
+            return unallocatedSize;
         }
 
         template<typename... Args>
@@ -189,13 +179,14 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         #ifdef _DEBUG
             assert(GPUBuffer has write mapping flags);
         #endif // _DEBUG
-            multi_alloc(count,outAddresses,bytes,alignment,args...);
+            auto retval = multi_alloc(count,outAddresses,bytes,alignment,args...);
             // fill with data
             for (uint32_t i=0; i<count; i++)
             {
                 if (outAddresses[i]!=invalid_address)
                     memcpy(reinterpret_cast<uint8_t*>(getBufferPointer())+outAddresses[i],dataToPlace[i],bytes[i]);
             }
+            return retval;
         }
 
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, IDriverFence* fence) noexcept
@@ -205,51 +196,23 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
             else
                 mAllocator.multi_free_addr(count,addr,bytes);
         }
-
-        //! Returns if all fences have completed
-        inline bool         execute_frees(uint64_t timeOutNs=0u)
-        {
-            auto timeOutPoint = std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(timeOutNs);
-
-            std::sort(deferredFrees.begin(),deferredFrees.end(),deferredFreeCompareFunc);
-
-            lastMeasuredTime
-            // iterate through unique fences
-            for (auto it = deferredFrees.begin(); it!=deferredFrees.end();)
-            {
-                // maybe wait
-                switch (allocs[j].fence->waitCPU(timeOutNs,false))
-                {
-                    case EDFR_TIMEOUT_EXPIRED:
-                        return false;
-                        break;
-                    case EDFR_CONDITION_SATISFIED:
-                    default: //any other thing
-                        cannotFree = false;
-                        break;
-                }
-
-                // decrease our wait period
-                size_t timeDiff = lastMeasuredTime-timeMeasuredNs; //! TODO: c++11 nanosecond epoch elapse
-                if (timeDiff>timeOutNs)
-                    timeOutNs = 0;
-                else
-                    timeOutNs -= timeDiff;
-                lastMeasuredTime = timeMeasuredNs;
-
-                auto next = std::upper_bound(it,deferredFrees.end(),deferredFreeCompareFunc);
-                // free all complete
-                for (auto it2=it; it2!=next; it2++)
-                {
-                    it2->first->drop();
-                    ///totalTrueFreeSpace += it->second.length;
-                    mAllocator.multi_free_addr(it->second.offset,it->second.length);
-                }
-                it = deferredFrees.erase(it,next);
-            }
-            return true;
-        }
     protected:
+        template<typename... Args>
+        inline size_type    try_multi_alloc(const Args&... args) noexcept
+        {
+            mAllocator.multi_alloc_addr(args...);
+
+            size_type unallocatedSize = 0;
+            for (uint32_t i=0u; i<count; i++)
+            {
+                if (outAddresses[i]!=invalid_address)
+                    continue;
+
+                unallocatedSize += bytes[i];
+            }
+            return unallocatedSize;
+        }
+
         class DeferredFreeFunctor : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
         {
             public:

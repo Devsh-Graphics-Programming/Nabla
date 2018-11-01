@@ -15,20 +15,9 @@ class EventDeferredHandlerST
     public:
         typedef std::pair<Event,Functor>    DeferredEvent;
     protected:
-        static inline bool  eventCompareFunction(const DeferredEvent& comp, const Event& val) {return comp.first<val;}
-
         core::vector<DeferredEvent>         mEvents;
-        bool                                mEventsNeedSort;
-        inline void         sortEvents()
-        {
-            if (!mEventsNeedSort)
-                return;
-
-            std::sort(mEvents.begin(),mEvents.end(),eventCompareFunction);
-            mEventsNeedSort = false;
-        }
     public:
-        EventDeferredHandlerST() : mEvents(), mEventsNeedSort(false) {}
+        EventDeferredHandlerST() {}
 
         virtual ~EventDeferredHandlerST()
         {
@@ -42,25 +31,16 @@ class EventDeferredHandlerST
         {
             mEvents.emplace_back(std::forward<Event>(event),std::forward<Functor>(functor));
         }
+        //! Abort does not call the operator()
         inline uint32_t abortEvent(const Event& eventToAbort)
         {
             #ifdef _DEBUG
             assert(mEvents.size());
             #endif // _DEBUG
-            sortEvents();
-
-            auto deletionStart = std::lower_bound(mEvents.begin(),mEvents.end(),eventToAbort,eventCompareFunction);
-            if (deletionStart==mEvents.end())
-                return 0u;
-
-            auto deletetionEnd = std::upper_bound(deletionStart,mEvents.end(),eventToAbort,eventCompareFunction);
-            auto deletedCount = std::distance(deletionStart,deletetionEnd);
-
-            mEvents.erase(deletionStart,deletetionEnd);
-
-            return deletedCount;
+            std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.first==eventToAbort;});
+            return mEvents.size();
         }
-        /** For later implementation
+        /** For later implementation -- WARNING really old code
         inline void     swapEvents()
         {
             // extras from old StreamingTransientDataBuffer
@@ -100,16 +80,6 @@ class EventDeferredHandlerST
         template<class Clock, class Duration>
         inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock, Duration>& timeout_time, size_t maxEventsToPoll)
         {
-            if (mEvents.size()<2u)
-            {
-                if (mEvents.size() && mEvents[0].wait_until(timeout_time))
-                    mEvents.clear();
-
-                return mEvents.size();
-            }
-
-            sortEvents();
-
             while (mEvents.size())
             {
                 // iterate to poll
@@ -118,17 +88,28 @@ class EventDeferredHandlerST
                     if (maxEventsToPoll--)
                         return mEvents.size();
 
-                    auto next = std::upper_bound(it,mEvents.end(),eventCompareFunction);
-                    if (it->poll())
+                    bool success;
+                    auto currentTime = Clock::now();
+                    bool canWait = timeout_time>currentTime;
+                    if (canWait)
                     {
-                        it = mEvents.erase(it,next);
+                        Duration singleWaitTimePt = (currentTime*(mEvents.size()-1u)+timeout_time)/mEvents.size();
+                        success = it->first.wait_until(singleWaitTimePt);
+                    }
+                    else
+                        success = it->first.poll();
+
+                    if (success)
+                    {
+                        it->second();
+                        it = mEvents.erase(it);
                         continue;
                     }
-                    // dont care about timeout until we hit first fence we have to wait for
-                    if (Clock::now()>timeout_time)
+                    // dont care about timeout until we hit first fence we had to wait for
+                    if (!canWait)
                         return mEvents.size();
 
-                    it = next;
+                    it++;
                 }
             }
 
@@ -137,19 +118,16 @@ class EventDeferredHandlerST
 
         inline uint32_t pollForReadyEvents(size_t maxEventsToPoll)
         {
-            sortEvents();
-
-            // iterate through unique fences
             for (auto it = mEvents.begin(); (maxEventsToPoll--) && it!=mEvents.end();)
             {
-                auto next = std::upper_bound(it,mEvents.end(),eventCompareFunction);
-                if (it->poll())
+                if (it->first.poll())
                 {
-                    it = mEvents.erase(it,next);
+                    it->second();
+                    it = mEvents.erase(it);
                     continue;
                 }
 
-                it = next;
+                it++;
             }
 
             return mEvents.size();

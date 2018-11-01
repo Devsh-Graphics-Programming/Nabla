@@ -109,6 +109,10 @@ class GPUEventWrapper : public core::Uncopyable
             return false;
         }
 
+        inline bool operator==(const GPUEventWrapper& other)
+        {
+            return mFence==other.mFence;
+        }
         inline bool operator<(const GPUEventWrapper& other)
         {
             return mFence<other.mFence;
