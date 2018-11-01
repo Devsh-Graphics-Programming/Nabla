@@ -6,6 +6,9 @@
 #ifndef __I_DRIVER_FENCE_H_INCLUDED__
 #define __I_DRIVER_FENCE_H_INCLUDED__
 
+#include <chrono>
+#include "irr/core/BaseClasses.h"
+#include "irr/core/EventDeferredHandler.h"
 
 namespace irr
 {
@@ -39,14 +42,81 @@ class IDriverFence : public core::IReferenceCounted
         The `flush` parameter can do this glFlush for you just before the wait, BUT ONLY IF you've placed the fence in the same
         thread as the one you are waiting on the fence. So if you want to use IDriverFence for inter-context coordination you
         are screwed and must call glFlush manually.*/
-        virtual E_DRIVER_FENCE_RETVAL waitCPU(const uint64_t &timeout, const bool &flush=false) = 0;
+        virtual E_DRIVER_FENCE_RETVAL   waitCPU(const uint64_t &timeout, const bool &flush=false) = 0;
 
         //! This makes the GPU pause executing commands in the current context until commands before the fence in the context which created it, have completed
         /** You may be shocked to learn that OpenGL allows for commands in the same context to execute simultaneously or out of order as long as the result
         of these commands is the same as if they have been executed strictly in-order (except the memory effects on the objects following the incoherent memory model).
         For solving the above within a context you want to issue memory barriers, however for ensuring the order of commands between contexts you want to use waitGPU.*/
-        virtual void waitGPU() = 0;
+        virtual void                    waitGPU() = 0;
 };
+
+
+class GPUEventWrapper : public core::Uncopyable
+{
+    protected:
+        IDriverFence* mFence;
+    public:
+        GPUEventWrapper(IDriverFence* fence) : mFence(fence)
+        {
+            if (mFence)
+                mFence->grab();
+        }
+        virtual ~GPUEventWrapper()
+        {
+            if (mFence)
+                mFence->drop();
+        }
+
+        template<class Clock, class Duration>
+        inline bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time)
+        {
+            auto currentClockTime = Clock::now();
+            do
+            {
+                uint64_t nanosecondsLeft = 0ull;
+                if (currentClockTime<timeout_time)
+                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(currentClockTime-timeout_time).count();
+                switch (mFence->waitCPU(nanosecondsLeft))
+                {
+                    case EDFR_FAIL:
+                        return true;
+                    case EDFR_TIMEOUT_EXPIRED:
+                        break;
+                    case EDFR_CONDITION_SATISFIED:
+                    case EDFR_ALREADY_SIGNALED:
+                        return true;
+                        break;
+                }
+                currentClockTime = Clock::now();
+            } while (currentClockTime<timeout_time);
+
+            return false;
+        }
+
+        inline bool poll()
+        {
+            switch (mFence->waitCPU(0u))
+            {
+                case EDFR_FAIL:
+                case EDFR_CONDITION_SATISFIED:
+                case EDFR_ALREADY_SIGNALED:
+                    return true;
+                    break;
+                default:
+                    break;
+            }
+            return false;
+        }
+
+        inline bool operator<(const GPUEventWrapper& other)
+        {
+            return mFence<other.mFence;
+        }
+};
+
+template<class Functor>
+using GPUEventDeferredHandlerST = core::EventDeferredHandlerST<GPUEventWrapper,Functor>;
 
 } // end namespace scene
 } // end namespace irr
