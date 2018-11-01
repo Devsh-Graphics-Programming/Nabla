@@ -65,29 +65,15 @@ class EventDeferredHandlerST
         }
         */
 
-        template<class Clock, class Duration>
-        inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock, Duration>& timeout_time)
-        {
-            return waitUntilForReadyEvents(timeout_time,~size_t(0u));
-        }
 
-        inline uint32_t pollForReadyEvents()
-        {
-            return pollForReadyEvents(~size_t(0u));
-        }
-
-
-        template<class Clock, class Duration>
-        inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock, Duration>& timeout_time, size_t maxEventsToPoll)
+        template<class Clock, class Duration, typename... Args>
+        inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock, Duration>& timeout_time, Args&... args)
         {
             while (mEvents.size())
             {
                 // iterate to poll
                 for (auto it = mEvents.begin(); it!=mEvents.end();)
                 {
-                    if (maxEventsToPoll--)
-                        return mEvents.size();
-
                     bool success;
                     auto currentTime = Clock::now();
                     bool canWait = timeout_time>currentTime;
@@ -101,8 +87,11 @@ class EventDeferredHandlerST
 
                     if (success)
                     {
-                        it->second();
+                        bool earlyQuit = it->second(args...);
                         it = mEvents.erase(it);
+                        if (earlyQuit)
+                            return mEvents.size();
+
                         continue;
                     }
                     // dont care about timeout until we hit first fence we had to wait for
@@ -116,14 +105,18 @@ class EventDeferredHandlerST
             return 0u;
         }
 
-        inline uint32_t pollForReadyEvents(size_t maxEventsToPoll)
+        template<typename... Args>
+        inline uint32_t pollForReadyEvents(Args&... args)
         {
-            for (auto it = mEvents.begin(); (maxEventsToPoll--) && it!=mEvents.end();)
+            for (auto it = mEvents.begin(); it!=mEvents.end();)
             {
                 if (it->first.poll())
                 {
-                    it->second();
+                    bool earlyQuit = it->second(args...);
                     it = mEvents.erase(it);
+                    if (earlyQuit)
+                        return mEvents.size();
+
                     continue;
                 }
 

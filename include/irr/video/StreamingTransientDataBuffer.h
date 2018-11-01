@@ -163,7 +163,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
             // then try to wait at least once and allocate
             do
             {
-                deferredFrees.waitUntilForReadyEvents(maxWaitPoint,2u);
+                deferredFrees.waitUntilForReadyEvents(maxWaitPoint,unallocatedSize);
 
                 unallocatedSize = try_multi_alloc(count,outAddresses,bytes,args...);
                 if (!unallocatedSize)
@@ -198,7 +198,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         }
     protected:
         template<typename... Args>
-        inline size_type    try_multi_alloc(const Args&... args) noexcept
+        inline size_type    try_multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
         {
             mAllocator.multi_alloc_addr(args...);
 
@@ -217,7 +217,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         {
             public:
                 DeferredFreeFunctor(core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,StreamingGPUBufferAllocator,CPUAllocator>* alloctr,
-                                    size_type numAllocsToFree, const size_type* addrs, const size_type* bytes) : allocRef(alloctr), numAllocs(numAllocsToFree)
+                                    size_type numAllocsToFree, const size_type* addrs, const size_type* bytes) : allocRef(alloctr), rangeData(nullptr), numAllocs(numAllocsToFree)
                 {
                     rangeData = reinterpret_cast<size_type*>(getHostAllocator(*allocRef).allocate(sizeof(size_type)*numAllocs*2u,sizeof(size_type)));
                     memcpy(rangeData            ,addrs,sizeof(size_type)*numAllocs);
@@ -226,11 +226,11 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
                 DeferredFreeFunctor(DeferredFreeFunctor&& other)
                 {
                     allocRef    = other.allocRef;
-                    numAllocs   = other.numAllocs;
                     rangeData   = other.rangeData;
+                    numAllocs   = other.numAllocs;
                     other.allocRef  = nullptr;
-                    other.numAllocs = 0u;
                     other.rangeData = nullptr;
+                    other.numAllocs = 0u;
                 }
                 DeferredFreeFunctor(const DeferredFreeFunctor& other) = delete;
 
@@ -240,20 +240,32 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
                         getHostAllocator(*allocRef).deallocate(rangeData,sizeof(size_type)*numAllocs*2u);
                 }
 
-                inline void operator()
+                inline bool operator()(size_type& unallocatedSize)
                 {
                     #ifdef _DEBUG
                     assert(allocRef && rangeData);
                     #endif // _DEBUG
                     allocRef->multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
+                    for (size_type i=0u; i<numAllocs; i++)
+                    {
+                        auto freedSize = rangeData[numAllocs+i];
+                        if (unallocatedSize>freedSize)
+                            unallocatedSize -= freedSize;
+                        else
+                        {
+                            unallocatedSize = 0u;
+                            return true;
+                        }
+                    }
+                    return unallocatedSize==0u;
                 }
 
             private:
                 core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,StreamingGPUBufferAllocator,CPUAllocator>*    allocRef;
-                size_type                                                                                                           numAllocs;
                 size_type*                                                                                                          rangeData;
+                size_type                                                                                                           numAllocs;
         };
-        core::GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
+        GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
 };
 
 }
