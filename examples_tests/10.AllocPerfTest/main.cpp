@@ -2,7 +2,9 @@
 #include <irrlicht.h>
 #include "driverChoice.h"
 
-#include "IGPUTransientBuffer.h"
+#include <random>
+#include "irr/video/StreamingTransientDataBuffer.h"
+
 
 using namespace irr;
 using namespace core;
@@ -69,15 +71,16 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
-    size_t allocsPerFrame = 10000;
     size_t allocSize = 128;
 
+    constexpr size_t kMaxAllocs = 10000u;
 
 
 	scene::ISceneManager* smgr = device->getSceneManager();
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
+        ///core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<uint32_t> ,video::StreamingGPUBufferAllocator,core::allocator<uint8_t> > mAllocator; // no point for a streaming buffer to grow
 
     video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
     reqs.vulkanReqs.size = 0x1000000u;
@@ -87,29 +90,33 @@ int main()
     reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|video::IDriverMemoryAllocation::EMCF_COHERENT;
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
-    video::IGPUTransientBuffer* buffer = video::IGPUTransientBuffer::createTransientBuffer(driver,driver->createGPUBufferOnDedMem(reqs,false),false);
+    video::StreamingTransientDataBufferST<>* buffer = new video::StreamingTransientDataBufferST<>(driver,reqs);
+
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_int_distribution<uint32_t> allocsPerFrame(1, kMaxAllocs);
+    std::uniform_int_distribution<uint32_t> size(1, 1024*1024);
+    std::uniform_int_distribution<uint32_t> alignment(1, 128);
 
 	uint64_t lastFPSTime = 0;
-
 	while(device->run())
 	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
-		uint64_t startTime = device->getTimer()->getRealTime();
-        for (size_t i=0; i<allocsPerFrame; i++)
+		auto allocsThisFrame = allocsPerFrame(mt);
+		uint32_t outAddr[kMaxAllocs];
+		uint32_t sizes[kMaxAllocs];
+		uint32_t alignments[kMaxAllocs];
+        for (size_t i=0; i<allocsThisFrame; i++)
         {
-            size_t offset;
-            #define ALIGNMENT 32
-            if (buffer->Alloc(offset,allocSize,ALIGNMENT,video::IGPUTransientBuffer::EWP_DONT_WAIT)==video::IGPUTransientBuffer::EARS_SUCCESS)
-            {
-                core::vector<video::IDriverMemoryAllocation::MappedMemoryRange> dummyFlushRanges;
-                buffer->Commit(offset,offset+allocSize,dummyFlushRanges);
-                assert(dummyFlushRanges.size()==0);
-                buffer->fenceRangeUsedByGPU(offset,offset+allocSize);
-                buffer->Free(offset,offset+allocSize);
-            }
+            outAddr[i]  = video::StreamingTransientDataBufferST<>::invalid_address;
+            sizes[i]    = size(mt);
+            alignments[i] = alignment(mt);
         }
+
+        buffer->multi_alloc(allocsThisFrame,(uint32_t*)outAddr,(uint32_t*)sizes,(uint32_t*)alignments);
+        buffer->multi_free(allocsThisFrame,(const uint32_t*)outAddr,(const uint32_t*)sizes,nullptr);
 
 		driver->endScene();
 

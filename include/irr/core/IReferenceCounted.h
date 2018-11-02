@@ -44,7 +44,7 @@ namespace core
 	the name of the method does not start with 'create'. The texture
 	is stored somewhere by the driver.
 	*/
-	class IRR_FORCE_EBO IReferenceCounted : public InterfaceUnmovable, public AllocationOverrideDefault
+	class IRR_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverrideDefault
 	{
 	public:
 		//! Grabs the object. Increments the reference counter by one.

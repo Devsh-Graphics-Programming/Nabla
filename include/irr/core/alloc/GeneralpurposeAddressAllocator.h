@@ -152,15 +152,9 @@ class GeneralpurposeAddressAllocatorBase
             return wastedSpace;
         }
 
-    private:
-        //! Lists contain blocks of size < (minBlock<<listIndex)*2 && size >= (minBlock<<listIndex)
-        static inline uint32_t  findFreeListInsertIndex(size_type byteSize, size_type minBlockSz) noexcept
-        {
-            return findMSB(byteSize/minBlockSz);
-        }
 
         //! Return index of freelist or one past the end for nothing
-        inline decltype(freeListCount)  findMinimum(const Block** listOfLists, const Block** listOfListsEnd) noexcept
+        inline decltype(freeListCount)  findMinimum(const Block* const* listOfLists, const Block* const* listOfListsEnd) noexcept
         {
             size_type               minval = ~size_type(0u);
             decltype(freeListCount) retval = freeListCount;
@@ -176,6 +170,13 @@ class GeneralpurposeAddressAllocatorBase
 
             return retval;
         }
+
+    private:
+        //! Lists contain blocks of size < (minBlock<<listIndex)*2 && size >= (minBlock<<listIndex)
+        static inline uint32_t  findFreeListInsertIndex(size_type byteSize, size_type minBlockSz) noexcept
+        {
+            return findMSB(byteSize/minBlockSz);
+        }
 };
 
 
@@ -186,8 +187,8 @@ template<typename _size_type>
 class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected GeneralpurposeAddressAllocatorBase<_size_type>
 {
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
-        typedef typename Base::Block                            Block;
     protected:
+        typedef typename Base::Block                            Block;
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         GeneralpurposeAddressAllocatorStrategy(size_type bufSz, size_type minBlockSz) noexcept : Base(bufSz,minBlockSz) {}
@@ -203,7 +204,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
             for (Block* it=Base::freeListStack[level]; it!=(Base::freeListStack[level]+Base::freeListStackCtr[level]) && bestWastedSpace; it++)
             {
                 Block tmp;
-                size_type wastedSpace = calcSubAllocation(tmp,it,bytes,alignment);
+                size_type wastedSpace = Base::calcSubAllocation(tmp,it,bytes,alignment);
                 if (wastedSpace==invalid_address)
                     continue;
 
@@ -235,8 +236,8 @@ template<typename _size_type>
 class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected GeneralpurposeAddressAllocatorBase<_size_type>
 {
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
-        typedef typename Base::Block                            Block;
     protected:
+        typedef typename Base::Block                            Block;
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         GeneralpurposeAddressAllocatorStrategy(size_type bufSz, size_type minBlockSz) noexcept : Base(bufSz,minBlockSz) {}
@@ -253,7 +254,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                 // pop off the top
                 const Block& popped = Base::freeListStack[level][--Base::freeListStackCtr[level]];
                 Block tmp;
-                size_type wastedSpace = calcSubAllocation(tmp,popped,bytes,alignment);
+                size_type wastedSpace = Base::calcSubAllocation(tmp,&popped,bytes,alignment);
                 // if had a block large enough for us with padding then must be able to allocate
             #ifdef _DEBUG
                 assert(wastedSpace!=invalid_address);
@@ -366,9 +367,9 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
             // splice block and insert parts onto free list
             if (found.first.endOffset!=found.second.endOffset)
-                insertFreeBlock(Block{found.first.endOffset,found.second.endOffset});
+                AllocStrategy::insertFreeBlock(Block{found.first.endOffset,found.second.endOffset});
             if (found.first.startOffset!=found.second.startOffset)
-                insertFreeBlock(Block{found.second.startOffset,found.first.startOffset});
+                AllocStrategy::insertFreeBlock(Block{found.second.startOffset,found.first.startOffset});
 
             freeSize -= bytes;
 
@@ -393,7 +394,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         inline void             reset()
         {
             freeSize = AllocStrategy::bufferSize;
-            insertFreeBlock(Block{0u,AllocStrategy::bufferSize});
+            AllocStrategy::insertFreeBlock(Block{0u,AllocStrategy::bufferSize});
         }
 
         //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
@@ -471,11 +472,11 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 std::sort(freeListOld[i],const_cast<Block*>(freeListOldEnd[i]));
             }
 
-            swapFreeLists(Base::reservedSpace);
+            AllocStrategy::swapFreeLists(Base::reservedSpace);
 
             // begin the coalesce
             Block lastBlock{0u,0u};
-            auto minimum = findMinimum(freeListOld,freeListOldEnd);
+            auto minimum = AllocStrategy::findMinimum(freeListOld,freeListOldEnd);
             while (minimum!=AllocStrategy::freeListCount)
             {
                 // find next free block and pop it
@@ -486,13 +487,13 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 {
                     // put old on correct free list
                     if (lastBlock.getLength())
-                        insertFreeBlock(lastBlock);
+                        AllocStrategy::insertFreeBlock(lastBlock);
 
                     lastBlock.startOffset = nextBlock->startOffset;
                 }
 
                 lastBlock.endOffset = nextBlock->endOffset;
-                minimum = findMinimum(freeListOld,freeListOldEnd);
+                minimum = AllocStrategy::findMinimum(freeListOld,freeListOldEnd);
             }
             // put last block on correct free list
             if (lastBlock.getLength())

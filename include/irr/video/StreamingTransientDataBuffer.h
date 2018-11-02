@@ -127,15 +127,15 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
         StreamingTransientDataBufferST(IVideoDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
-                                       const CPUAllocator& reservedMemAllocator, size_type bufSz, size_type minAllocSize=64u) :
-                                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufSz,minAllocSize)
+                                       const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=64u) :
+                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,minAllocSize)
         {
         }
 
         template<typename... Args>
         StreamingTransientDataBufferST(IVideoDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
-                                       const CPUAllocator& reservedMemAllocator, size_type bufSz, Args&&... args) :
-                                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufSz,std::forward<Args>(args)...)
+                                       const CPUAllocator& reservedMemAllocator=CPUAllocator(), Args&&... args) :
+                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,std::forward<Args>(args)...)
         {
         }
 
@@ -192,7 +192,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, IDriverFence* fence) noexcept
         {
             if (fence)
-                deferredFrees.emplace_back(GPUEventWrapper(fence),DeferredFreeFunctor(mAllocator,count,addr,bytes));
+                deferredFrees.addEvent(GPUEventWrapper(fence),DeferredFreeFunctor(&mAllocator,count,addr,bytes));
             else
                 mAllocator.multi_free_addr(count,addr,bytes);
         }
@@ -200,7 +200,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         template<typename... Args>
         inline size_type    try_multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
         {
-            mAllocator.multi_alloc_addr(args...);
+            mAllocator.multi_alloc_addr(count,outAddresses,bytes,args...);
 
             size_type unallocatedSize = 0;
             for (uint32_t i=0u; i<count; i++)
@@ -225,6 +225,18 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
                 }
                 DeferredFreeFunctor(DeferredFreeFunctor&& other)
                 {
+                    *this = std::forward<DeferredFreeFunctor>(other);
+                }
+                DeferredFreeFunctor(const DeferredFreeFunctor& other) = delete;
+
+                ~DeferredFreeFunctor()
+                {
+                    if (rangeData)
+                        getHostAllocator(*allocRef).deallocate(reinterpret_cast<typename CPUAllocator::pointer>(rangeData),sizeof(size_type)*numAllocs*2u);
+                }
+
+                inline DeferredFreeFunctor& operator=(DeferredFreeFunctor&& other)
+                {
                     allocRef    = other.allocRef;
                     rangeData   = other.rangeData;
                     numAllocs   = other.numAllocs;
@@ -232,20 +244,10 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
                     other.rangeData = nullptr;
                     other.numAllocs = 0u;
                 }
-                DeferredFreeFunctor(const DeferredFreeFunctor& other) = delete;
-
-                ~DeferredFreeFunctor()
-                {
-                    if (rangeData)
-                        getHostAllocator(*allocRef).deallocate(rangeData,sizeof(size_type)*numAllocs*2u);
-                }
 
                 inline bool operator()(size_type& unallocatedSize)
                 {
-                    #ifdef _DEBUG
-                    assert(allocRef && rangeData);
-                    #endif // _DEBUG
-                    allocRef->multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
+                    operator()();
                     for (size_type i=0u; i<numAllocs; i++)
                     {
                         auto freedSize = rangeData[numAllocs+i];
@@ -258,6 +260,14 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
                         }
                     }
                     return unallocatedSize==0u;
+                }
+
+                inline void operator()()
+                {
+                    #ifdef _DEBUG
+                    assert(allocRef && rangeData);
+                    #endif // _DEBUG
+                    allocRef->multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
                 }
 
             private:

@@ -62,10 +62,21 @@ class GPUEventWrapper : public core::Uncopyable
             if (mFence)
                 mFence->grab();
         }
+        GPUEventWrapper(GPUEventWrapper&& other)
+        {
+            *this = std::forward<GPUEventWrapper>(other);
+        }
         virtual ~GPUEventWrapper()
         {
             if (mFence)
                 mFence->drop();
+        }
+
+        inline GPUEventWrapper& operator=(GPUEventWrapper&& other)
+        {
+            mFence = other.mFence;
+            other.mFence = nullptr;
+            return *this;
         }
 
         template<class Clock, class Duration>

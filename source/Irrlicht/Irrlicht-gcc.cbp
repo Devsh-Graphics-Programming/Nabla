@@ -350,6 +350,7 @@
 		<Unit filename="../../include/dimension2d.h" />
 		<Unit filename="../../include/driverChoice.h" />
 		<Unit filename="../../include/irr/core/BaseClasses.h" />
+		<Unit filename="../../include/irr/core/EventDeferredHandler.h" />
 		<Unit filename="../../include/irr/core/IBuffer.h" />
 		<Unit filename="../../include/irr/core/ICPUBuffer.h" />
 		<Unit filename="../../include/irr/core/IReferenceCounted.h" />

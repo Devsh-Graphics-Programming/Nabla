@@ -23,13 +23,24 @@ class EventDeferredHandlerST
         {
             while (mEvents.size())
             {
-                pollForReadyEvents();
+                for (auto it = mEvents.begin(); it!=mEvents.end();)
+                {
+                    if (it->first.wait_until(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250ull)))
+                    {
+                        it->second();
+                        it = mEvents.erase(it);
+                        continue;
+                    }
+
+                    it++;
+                }
             }
         }
 
         inline void     addEvent(Event&& event, Functor&& functor)
         {
             mEvents.emplace_back(std::forward<Event>(event),std::forward<Functor>(functor));
+            //mEvents.push_back(std::make_pair(std::forward<Event>(event),std::forward<Functor>(functor)));
         }
         //! Abort does not call the operator()
         inline uint32_t abortEvent(const Event& eventToAbort)
@@ -79,7 +90,7 @@ class EventDeferredHandlerST
                     bool canWait = timeout_time>currentTime;
                     if (canWait)
                     {
-                        Duration singleWaitTimePt = (currentTime*(mEvents.size()-1u)+timeout_time)/mEvents.size();
+                        std::chrono::time_point<std::chrono::system_clock> singleWaitTimePt((currentTime.time_since_epoch()*(mEvents.size()-1u)+timeout_time.time_since_epoch())/mEvents.size());
                         success = it->first.wait_until(singleWaitTimePt);
                     }
                     else
