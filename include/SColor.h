@@ -56,21 +56,21 @@ namespace video
         ECF_R8_SNORM,
         ECF_R8_USCALED,
         ECF_R8_SSCALED,
-        ECF_R8_UINT,//new
+        ECF_R8_UINT,
         ECF_R8_SINT,
         ECF_R8_SRGB,
         ECF_R8G8_UNORM,
         ECF_R8G8_SNORM,
         ECF_R8G8_USCALED,
         ECF_R8G8_SSCALED,
-        ECF_R8G8_UINT,//new
+        ECF_R8G8_UINT,
         ECF_R8G8_SINT,
         ECF_R8G8_SRGB,
         ECF_R8G8B8_UNORM,
         ECF_R8G8B8_SNORM,
         ECF_R8G8B8_USCALED,
         ECF_R8G8B8_SSCALED,
-        ECF_R8G8B8_UINT,//new
+        ECF_R8G8B8_UINT,
         ECF_R8G8B8_SINT,
         ECF_R8G8B8_SRGB,
         ECF_B8G8R8_UNORM,
@@ -84,7 +84,7 @@ namespace video
         ECF_R8G8B8A8_SNORM,
         ECF_R8G8B8A8_USCALED,
         ECF_R8G8B8A8_SSCALED,
-        ECF_R8G8B8A8_UINT,//new
+        ECF_R8G8B8A8_UINT,
         ECF_R8G8B8A8_SINT,
         ECF_R8G8B8A8_SRGB,
         ECF_B8G8R8A8_UNORM,
@@ -140,19 +140,19 @@ namespace video
         ECF_R16G16B16A16_SSCALED,
         ECF_R16G16B16A16_UINT,
         ECF_R16G16B16A16_SINT,
-        ECF_R16G16B16A16_SFLOAT,//new
+        ECF_R16G16B16A16_SFLOAT,
         ECF_R32_UINT,
         ECF_R32_SINT,
-        ECF_R32_SFLOAT,//new
+        ECF_R32_SFLOAT,
         ECF_R32G32_UINT,
         ECF_R32G32_SINT,
-        ECF_R32G32_SFLOAT,//new
+        ECF_R32G32_SFLOAT,
         ECF_R32G32B32_UINT,
         ECF_R32G32B32_SINT,
         ECF_R32G32B32_SFLOAT,
         ECF_R32G32B32A32_UINT,
         ECF_R32G32B32A32_SINT,
-        ECF_R32G32B32A32_SFLOAT,//new
+        ECF_R32G32B32A32_SFLOAT,
         ECF_R64_UINT,
         ECF_R64_SINT,
         ECF_R64_SFLOAT,
@@ -165,8 +165,8 @@ namespace video
         ECF_R64G64B64A64_UINT,
         ECF_R64G64B64A64_SINT,
         ECF_R64G64B64A64_SFLOAT,
-        ECF_B10G11R11_UFLOAT_PACK32,//new
-        ECF_E5B9G9R9_UFLOAT_PACK32,//new
+        ECF_B10G11R11_UFLOAT_PACK32,
+        ECF_E5B9G9R9_UFLOAT_PACK32,
         ECF_D16_UNORM,
         ECF_X8_D24_UNORM_PACK32,
         ECF_D16_UNORM_S8_UINT,
@@ -174,13 +174,13 @@ namespace video
         ECF_D32_SFLOAT_S8_UINT,
 
         //! Block Compression Formats!
-        ECF_BC1_RGB_UNORM_BLOCK,//new
+        ECF_BC1_RGB_UNORM_BLOCK,
         ECF_BC1_RGB_SRGB_BLOCK,
-        ECF_BC1_RGBA_UNORM_BLOCK,//new
+        ECF_BC1_RGBA_UNORM_BLOCK,
         ECF_BC1_RGBA_SRGB_BLOCK,
-        ECF_BC2_UNORM_BLOCK,//new
+        ECF_BC2_UNORM_BLOCK,
         ECF_BC2_SRGB_BLOCK,
-        ECF_BC3_UNORM_BLOCK,//new
+        ECF_BC3_UNORM_BLOCK,
         ECF_BC3_SRGB_BLOCK,
 
         //! Planar formats
@@ -985,7 +985,7 @@ namespace video
         true,//std::is_same<T, double>::value && isScaledFormat<fmt>(),
         void
     >::type
-    decodePixels(const void* _pix[4], T* _output, uint64_t _scale);
+    decodePixels(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
 
     template<ECOLOR_FORMAT fmt, typename T>
     inline typename 
@@ -1001,7 +1001,7 @@ namespace video
         true,//std::is_same<T, double>::value || std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value,
         void
     >::type
-    decodePixels(const void* _pix[4], T* _output);
+    decodePixels(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY);
 
     template<ECOLOR_FORMAT fmt, typename T>
     inline typename 
@@ -1011,16 +1011,16 @@ namespace video
     >::type
     encodePixels(void* _pix, const T* _input);
 
-    template<ECOLOR_FORMAT fmt, typename T>
-    inline typename
-    std::enable_if<
-        true,//std::is_same<T, double>::value && isBlockCompressionFormat<fmt>(),
-        void
-    >::type
-    decodePixels(const void* _pix[4], T* _output, uint32_t _x, uint32_t _y);
+    //template<ECOLOR_FORMAT fmt, typename T>
+    //inline typename
+    //std::enable_if<
+    //    true,//std::is_same<T, double>::value && isBlockCompressionFormat<fmt>(),
+    //    void
+    //>::type
+    //decodePixels(const void* _pix[4], T* _output, uint32_t _x, uint32_t _y);
 
     template<>
-    inline void decodePixels<ECF_A1R5G5B5, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_A1R5G5B5, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = (pix & 0x1fu);
@@ -1039,7 +1039,7 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R5G6B5, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R5G6B5, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x1fULL);
@@ -1059,7 +1059,7 @@ namespace video
     namespace impl
     {
         template<typename T>
-        inline void decode11_11_10f(const void* _pix[4], T* _output)
+        inline void decode11_11_10f(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY)
         {
             using fptr = float(*)(uint32_t);
             fptr f[3]{ &core::unpack11bitFloat, &core::unpack11bitFloat, &core::unpack10bitFloat };
@@ -1085,17 +1085,17 @@ namespace video
         }
     }
     template<>
-    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode11_11_10f(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode11_11_10f(_pix, _output);
     }
     template<>
-    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode11_11_10f(_pix, _output);
     }
@@ -1144,62 +1144,62 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R16_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R16_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R16_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R16G16_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R16G16_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R16G16_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode16f(_pix, _output, 4u);
     }
@@ -1284,62 +1284,62 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R32_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R32_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R32_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R32G32_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R32G32_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R32G32_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode32f(_pix, _output, 4u);
     }
@@ -1424,62 +1424,62 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R64_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R64_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R64_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode64f(_pix, _output, 4u);
     }
@@ -1564,62 +1564,62 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R8_UINT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_UINT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R8_UINT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_UINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 1u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8_UINT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_UINT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8_UINT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_UINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 2u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_UINT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_UINT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_UINT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_UINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 3u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_UINT, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_UINT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_UINT, int64_t>(const void* _pix[4], int64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_UINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 4u);
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         impl::decode8ui(_pix, _output, 4u);
     }
@@ -1688,7 +1688,7 @@ namespace video
 
     //integer formats decode/encode
     template<>
-    inline void decodePixels<ECF_R4G4_UNORM_PACK8, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R4G4_UNORM_PACK8, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[1] = ((pix >> 0) & 0xfULL) / 15.;
@@ -1714,7 +1714,7 @@ namespace video
         }
     }
     template<>
-    inline void decodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[3] = ((pix >> 0) & 0xfULL) / 15.;
@@ -1757,7 +1757,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[3] = ((pix >> 0) & 0xfULL) / 15.;
@@ -1800,7 +1800,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R5G6B5_UNORM_PACK16, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R5G6B5_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x1fULL) / 31.;
@@ -1835,7 +1835,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B5G6R5_UNORM_PACK16, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_B5G6R5_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x1fULL) / 31.;
@@ -1870,7 +1870,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[3] = ((pix >> 0) & 0x1ULL) / 1.;
@@ -1913,7 +1913,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[3] = ((pix >> 0) & 0x1ULL) / 1.;
@@ -1956,7 +1956,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x1fULL) / 31.;
@@ -1999,7 +1999,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -2018,7 +2018,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int8_t& pix = reinterpret_cast<const int8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -2037,7 +2037,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -2057,7 +2057,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int8_t& pix = reinterpret_cast<const int8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -2077,7 +2077,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -2095,7 +2095,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int8_t& pix = reinterpret_cast<const int8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -2113,7 +2113,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -2141,7 +2141,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R8G8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -2168,7 +2168,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R8G8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -2195,7 +2195,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -2224,7 +2224,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -2253,7 +2253,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R8G8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -2278,7 +2278,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R8G8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -2303,7 +2303,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R8G8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -2348,7 +2348,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R8G8B8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -2383,7 +2383,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R8G8B8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -2418,7 +2418,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -2456,7 +2456,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -2494,7 +2494,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R8G8B8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -2526,7 +2526,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R8G8B8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -2558,7 +2558,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R8G8B8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -2620,7 +2620,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_B8G8R8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255.;
@@ -2655,7 +2655,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_B8G8R8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127.;
@@ -2690,7 +2690,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -2728,7 +2728,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -2766,7 +2766,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_B8G8R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -2798,7 +2798,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_B8G8R8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL);
@@ -2830,7 +2830,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_B8G8R8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -2892,7 +2892,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R8G8B8A8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -2935,7 +2935,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R8G8B8A8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -2978,7 +2978,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -3025,7 +3025,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R8G8B8A8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -3072,7 +3072,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -3111,7 +3111,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R8G8B8A8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -3150,7 +3150,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -3229,7 +3229,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_B8G8R8A8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255.;
@@ -3272,7 +3272,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_B8G8R8A8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127.;
@@ -3315,7 +3315,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8A8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -3362,7 +3362,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_B8G8R8A8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -3409,7 +3409,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_B8G8R8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -3448,7 +3448,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_B8G8R8A8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL);
@@ -3487,7 +3487,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -3566,7 +3566,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -3609,7 +3609,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -3652,7 +3652,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A8B8G8R8_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -3699,7 +3699,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A8B8G8R8_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -3746,7 +3746,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -3785,7 +3785,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -3824,7 +3824,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -3903,7 +3903,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffULL) / 1023.;
@@ -3946,7 +3946,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffLL) / 511.;
@@ -3989,7 +3989,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2R10G10B10_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffULL) / 1023. * _scale;
@@ -4036,7 +4036,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2R10G10B10_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffLL) / 511. * _scale;
@@ -4083,7 +4083,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffULL);
@@ -4122,7 +4122,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffLL);
@@ -4161,7 +4161,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffULL) / 1023.;
@@ -4204,7 +4204,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffLL) / 511.;
@@ -4247,7 +4247,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2B10G10R10_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffULL) / 1023. * _scale;
@@ -4294,7 +4294,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_A2B10G10R10_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffLL) / 511. * _scale;
@@ -4341,7 +4341,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffULL);
@@ -4380,7 +4380,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffLL);
@@ -4419,7 +4419,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
@@ -4438,7 +4438,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
@@ -4457,7 +4457,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
@@ -4477,7 +4477,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
@@ -4497,7 +4497,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
@@ -4515,7 +4515,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
@@ -4533,7 +4533,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16G16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
@@ -4560,7 +4560,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16G16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
@@ -4587,7 +4587,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
@@ -4616,7 +4616,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
@@ -4645,7 +4645,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R16G16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
@@ -4670,7 +4670,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R16G16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
@@ -4695,7 +4695,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16G16B16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
@@ -4730,7 +4730,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16G16B16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
@@ -4765,7 +4765,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
@@ -4803,7 +4803,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
@@ -4841,7 +4841,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R16G16B16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
@@ -4873,7 +4873,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R16G16B16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
@@ -4905,7 +4905,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16G16B16A16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
@@ -4948,7 +4948,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16G16B16A16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
@@ -4991,7 +4991,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_USCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
@@ -5038,7 +5038,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SSCALED, double>(const void* _pix[4], double* _output, uint64_t _scale)
+    inline void decodePixels<ECF_R16G16B16A16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
@@ -5085,7 +5085,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R16G16B16A16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
@@ -5124,7 +5124,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R16G16B16A16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
@@ -5163,7 +5163,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffULL);
@@ -5181,7 +5181,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R32_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffLL);
@@ -5199,7 +5199,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R32G32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R32G32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffULL);
@@ -5224,7 +5224,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R32G32_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R32G32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffLL);
@@ -5249,7 +5249,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R32G32B32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 3u; ++i)
@@ -5263,7 +5263,7 @@ namespace video
             pix[i] = _input[i];
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R32G32B32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t* pix = reinterpret_cast<const int32_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 3u; ++i)
@@ -5277,7 +5277,7 @@ namespace video
             pix[i] = _input[i];
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R32G32B32A32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 4u; ++i)
@@ -5291,7 +5291,7 @@ namespace video
             pix[i] = _input[i];
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R32G32B32A32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t* pix = reinterpret_cast<const int32_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 4u; ++i)
@@ -5305,7 +5305,7 @@ namespace video
             pix[i] = _input[i];
     }
     template<>
-    inline void decodePixels<ECF_R64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffffffffffULL);
@@ -5323,7 +5323,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R64_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffffffffffLL);
@@ -5341,7 +5341,7 @@ namespace video
 
     }
     template<>
-    inline void decodePixels<ECF_R64G64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R64G64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 2u; ++i)
@@ -5355,7 +5355,7 @@ namespace video
             pix[i] = _input[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R64G64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t* pix = reinterpret_cast<const int64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 2u; ++i)
@@ -5369,7 +5369,7 @@ namespace video
             pix[i] = _input[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R64G64B64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 3u; ++i)
@@ -5383,7 +5383,7 @@ namespace video
             pix[i] = _input[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R64G64B64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t* pix = reinterpret_cast<const int64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 3u; ++i)
@@ -5397,7 +5397,7 @@ namespace video
             pix[i] = _input[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output)
+    inline void decodePixels<ECF_R64G64B64A64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 4u; ++i)
@@ -5411,7 +5411,7 @@ namespace video
             pix[i] = _input[i];
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SINT, int64_t>(const void* _pix[4], int64_t* _output)
+    inline void decodePixels<ECF_R64G64B64A64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t* pix = reinterpret_cast<const int64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 4u; ++i)
@@ -5452,14 +5452,14 @@ namespace video
         }
     }
     template<>
-    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decode_r11g11b10f<double>(_pix[0], _output);
     }
     template<>
-    inline void encodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(void* _pix, const double* _output)
+    inline void encodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(void* _pix, const double* _input)
     {
-        impl::encode_r11g11b10f<double>(_pix, _output);
+        impl::encode_r11g11b10f<double>(_pix, _input);
     }
     namespace impl
     {
@@ -5502,22 +5502,22 @@ namespace video
         impl::encodef16<double, 4u>(_pix, _input);
     }
     template<>
-    inline void decodePixels<ECF_R16_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef16<double, 1u>(_pix[0], _output);
     }
     template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
-    inline void decodePixels<ECF_R16G16_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16G16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef16<double, 2u>(_pix[0], _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_R16G16B16_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16G16B16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef16<double, 3u>(_pix[0], _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef16<double, 4u>(_pix[0], _output);
     }
@@ -5559,22 +5559,22 @@ namespace video
         impl::encodef32<double, 4u>(_pix, _input);
     }
     template<>
-    inline void decodePixels<ECF_R32_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef32<double, 1u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R32G32_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R32G32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef32<double, 2u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R32G32B32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef32<double, 3u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef32<double, 4u>(_pix[0], _output);
     }
@@ -5616,22 +5616,22 @@ namespace video
         impl::encodef64<double, 4u>(_pix, _input);
     }
     template<>
-    inline void decodePixels<ECF_R64_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef64<double, 1u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R64G64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef64<double, 2u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R64G64B64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef64<double, 3u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef64<double, 4u>(_pix[0], _output);
     }
@@ -5652,19 +5652,20 @@ namespace video
 
             struct {
                 union {
-                    uint64_t r, g, b, a;
+                    struct { uint64_t r, g, b, a; };
                     uint64_t c[4];
                 };
             } p[4];
 
             uint16_t r0, g0, b0, r1, g1, b1;
             
-
-            decodePixels<ECF_R5G6B5, uint64_t>(&col.c0, p[0].c);
+            const void* input = &col.c0;
+            decodePixels<ECF_R5G6B5, uint64_t>(&input, p[0].c, 0u, 0u);
             r0 = p[0].r;
             g0 = p[0].g;
             b0 = p[0].b;
-            decodePixels<ECF_R5G6B5, uint64_t>(&col.c1, p[1].c);
+            input = &col.c1;
+            decodePixels<ECF_R5G6B5, uint64_t>(&input, p[1].c, 0u, 0u);
             r1 = p[1].r;
             g1 = p[1].g;
             b1 = p[1].b;
@@ -5839,7 +5840,7 @@ namespace video
         const void* pix[4];
         memcpy(pix, _pix, sizeof(pix));
         pix[0] = reinterpret_cast<const uint8_t*>(pix[0])+8;
-        decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(pix, _output);
+        decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(pix, _output, _x, _y);
         impl::decodeBC4(_pix, _output, 3, _x, _y);
         _output[3] /= 255.;
     }
@@ -5847,12 +5848,12 @@ namespace video
     template<>
     inline void decodePixels<ECF_BC3_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_BC3_UNORM_BLOCK, double>(_pix, _output);
+        decodePixels<ECF_BC3_UNORM_BLOCK, double>(_pix, _output, _x, _y);
         impl::SRGB2lin(_output);
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t** pix = reinterpret_cast<const uint8_t**>(_pix);
         _output[0] = pix[2][0] / 255.;
@@ -5861,7 +5862,7 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8R8_2PLANE_420_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_G8_B8R8_2PLANE_420_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t** pix = reinterpret_cast<const uint8_t**>(_pix);
         _output[0] = pix[1][1] / 255.;
@@ -5870,32 +5871,32 @@ namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8_R8_3PLANE_422_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_G8_B8_R8_3PLANE_422_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         // decoding is same as for ECF_G8_B8_R8_3PLANE_420_UNORM, but iterating through pixels will look differently
         // (420 is both X and Y dimensions halved for R and B planes, in 422 we have only X dimension halved also for R and B planes)
-        decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output);
+        decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY);
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8R8_2PLANE_422_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_G8_B8R8_2PLANE_422_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         // analogous thing as between ECF_G8_B8_R8_3PLANE_420_UNORM and ECF_G8_B8_R8_3PLANE_420_UNORM
-        decodePixels<ECF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output);
+        decodePixels<ECF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY);
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8_R8_3PLANE_444_UNORM, double>(const void* _pix[4], double* _output)
+    inline void decodePixels<ECF_G8_B8_R8_3PLANE_444_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         // also same decoding, but different pixel iteration (444 is all planes same size)
-        decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output);
+        decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY);
     }
 
     //! Runtime-given format decode/encode
     template<typename T>
-    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output);
+    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY);
     template<typename T>
-    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint64_t _scale);
+    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
 
     template<typename T>
     bool encodePixels(ECOLOR_FORMAT _fmt, void* _pix, const T* _input);
@@ -5904,143 +5905,143 @@ namespace video
 
 
     template<>
-    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output)
+    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
-        case ECF_R4G4_UNORM_PACK8: decodePixels<ECF_R4G4_UNORM_PACK8, double>(_pix, _output); return true;
-        case ECF_R4G4B4A4_UNORM_PACK16: decodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(_pix, _output); return true;
-        case ECF_B4G4R4A4_UNORM_PACK16: decodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(_pix, _output); return true;
-        case ECF_R5G6B5_UNORM_PACK16: decodePixels<ECF_R5G6B5_UNORM_PACK16, double>(_pix, _output); return true;
-        case ECF_B5G6R5_UNORM_PACK16: decodePixels<ECF_B5G6R5_UNORM_PACK16, double>(_pix, _output); return true;
-        case ECF_R5G5B5A1_UNORM_PACK16: decodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(_pix, _output); return true;
-        case ECF_B5G5R5A1_UNORM_PACK16: decodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(_pix, _output); return true;
-        case ECF_A1R5G5B5_UNORM_PACK16: decodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(_pix, _output); return true;
-        case ECF_R8_UNORM: decodePixels<ECF_R8_UNORM, double>(_pix, _output); return true;
-        case ECF_R8_SNORM: decodePixels<ECF_R8_SNORM, double>(_pix, _output); return true;
-        case ECF_R8G8_UNORM: decodePixels<ECF_R8G8_UNORM, double>(_pix, _output); return true;
-        case ECF_R8G8_SNORM: decodePixels<ECF_R8G8_SNORM, double>(_pix, _output); return true;
-        case ECF_R8G8B8_UNORM: decodePixels<ECF_R8G8B8_UNORM, double>(_pix, _output); return true;
-        case ECF_R8G8B8_SNORM: decodePixels<ECF_R8G8B8_SNORM, double>(_pix, _output); return true;
-        case ECF_B8G8R8_UNORM: decodePixels<ECF_B8G8R8_UNORM, double>(_pix, _output); return true;
-        case ECF_B8G8R8_SNORM: decodePixels<ECF_B8G8R8_SNORM, double>(_pix, _output); return true;
-        case ECF_R8G8B8A8_UNORM: decodePixels<ECF_R8G8B8A8_UNORM, double>(_pix, _output); return true;
-        case ECF_R8G8B8A8_SNORM: decodePixels<ECF_R8G8B8A8_SNORM, double>(_pix, _output); return true;
-        case ECF_B8G8R8A8_UNORM: decodePixels<ECF_B8G8R8A8_UNORM, double>(_pix, _output); return true;
-        case ECF_B8G8R8A8_SNORM: decodePixels<ECF_B8G8R8A8_SNORM, double>(_pix, _output); return true;
-        case ECF_A8B8G8R8_UNORM_PACK32: decodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(_pix, _output); return true;
-        case ECF_A8B8G8R8_SNORM_PACK32: decodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(_pix, _output); return true;
-        case ECF_A2R10G10B10_UNORM_PACK32: decodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(_pix, _output); return true;
-        case ECF_A2R10G10B10_SNORM_PACK32: decodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(_pix, _output); return true;
-        case ECF_A2B10G10R10_UNORM_PACK32: decodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(_pix, _output); return true;
-        case ECF_A2B10G10R10_SNORM_PACK32: decodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(_pix, _output); return true;
-        case ECF_R16_UNORM: decodePixels<ECF_R16_UNORM, double>(_pix, _output); return true;
-        case ECF_R16_SNORM: decodePixels<ECF_R16_SNORM, double>(_pix, _output); return true;
-        case ECF_R16G16_UNORM: decodePixels<ECF_R16G16_UNORM, double>(_pix, _output); return true;
-        case ECF_R16G16_SNORM: decodePixels<ECF_R16G16_SNORM, double>(_pix, _output); return true;
-        case ECF_R16G16B16_UNORM: decodePixels<ECF_R16G16B16_UNORM, double>(_pix, _output); return true;
-        case ECF_R16G16B16_SNORM: decodePixels<ECF_R16G16B16_SNORM, double>(_pix, _output); return true;
-        case ECF_R16G16B16A16_UNORM: decodePixels<ECF_R16G16B16A16_UNORM, double>(_pix, _output); return true;
-        case ECF_R16G16B16A16_SNORM: decodePixels<ECF_R16G16B16A16_SNORM, double>(_pix, _output); return true;
+        case ECF_R4G4_UNORM_PACK8: decodePixels<ECF_R4G4_UNORM_PACK8, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R4G4B4A4_UNORM_PACK16: decodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B4G4R4A4_UNORM_PACK16: decodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R5G6B5_UNORM_PACK16: decodePixels<ECF_R5G6B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B5G6R5_UNORM_PACK16: decodePixels<ECF_B5G6R5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R5G5B5A1_UNORM_PACK16: decodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B5G5R5A1_UNORM_PACK16: decodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A1R5G5B5_UNORM_PACK16: decodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8_UNORM: decodePixels<ECF_R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8_SNORM: decodePixels<ECF_R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8_UNORM: decodePixels<ECF_R8G8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8_SNORM: decodePixels<ECF_R8G8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8_UNORM: decodePixels<ECF_R8G8B8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8_SNORM: decodePixels<ECF_R8G8B8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8_UNORM: decodePixels<ECF_B8G8R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8_SNORM: decodePixels<ECF_B8G8R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8A8_UNORM: decodePixels<ECF_R8G8B8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8A8_SNORM: decodePixels<ECF_R8G8B8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8A8_UNORM: decodePixels<ECF_B8G8R8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8A8_SNORM: decodePixels<ECF_B8G8R8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A8B8G8R8_UNORM_PACK32: decodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A8B8G8R8_SNORM_PACK32: decodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A2R10G10B10_UNORM_PACK32: decodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A2R10G10B10_SNORM_PACK32: decodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A2B10G10R10_UNORM_PACK32: decodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A2B10G10R10_SNORM_PACK32: decodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16_UNORM: decodePixels<ECF_R16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16_SNORM: decodePixels<ECF_R16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16_UNORM: decodePixels<ECF_R16G16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16_SNORM: decodePixels<ECF_R16G16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16_UNORM: decodePixels<ECF_R16G16B16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16_SNORM: decodePixels<ECF_R16G16B16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16A16_UNORM: decodePixels<ECF_R16G16B16A16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16A16_SNORM: decodePixels<ECF_R16G16B16A16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
         default: return false;
         }
     }
     template<>
-    bool decodePixels<int64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], int64_t* _output)
+    bool decodePixels<int64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
-        case ECF_R8_SINT: decodePixels<ECF_R8_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R8G8_SINT: decodePixels<ECF_R8G8_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R8G8B8_SINT: decodePixels<ECF_R8G8B8_SINT, int64_t>(_pix, _output); return true;
-        case ECF_B8G8R8_SINT: decodePixels<ECF_B8G8R8_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R8G8B8A8_SINT: decodePixels<ECF_R8G8B8A8_SINT, int64_t>(_pix, _output); return true;
-        case ECF_B8G8R8A8_SINT: decodePixels<ECF_B8G8R8A8_SINT, int64_t>(_pix, _output); return true;
-        case ECF_A8B8G8R8_SINT_PACK32: decodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(_pix, _output); return true;
-        case ECF_A2R10G10B10_SINT_PACK32: decodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(_pix, _output); return true;
-        case ECF_A2B10G10R10_SINT_PACK32: decodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(_pix, _output); return true;
-        case ECF_R16_SINT: decodePixels<ECF_R16_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R16G16_SINT: decodePixels<ECF_R16G16_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R16G16B16_SINT: decodePixels<ECF_R16G16B16_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R16G16B16A16_SINT: decodePixels<ECF_R16G16B16A16_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R32_SINT: decodePixels<ECF_R32_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R32G32_SINT: decodePixels<ECF_R32G32_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R32G32B32_SINT: decodePixels<ECF_R32G32B32_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R32G32B32A32_SINT: decodePixels<ECF_R32G32B32A32_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R64_SINT: decodePixels<ECF_R64_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R64G64_SINT: decodePixels<ECF_R64G64_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R64G64B64_SINT: decodePixels<ECF_R64G64B64_SINT, int64_t>(_pix, _output); return true;
-        case ECF_R64G64B64A64_SINT: decodePixels<ECF_R64G64B64A64_SINT, int64_t>(_pix, _output); return true;
+        case ECF_R8_SINT: decodePixels<ECF_R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8_SINT: decodePixels<ECF_R8G8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8_SINT: decodePixels<ECF_R8G8B8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8_SINT: decodePixels<ECF_B8G8R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8A8_SINT: decodePixels<ECF_R8G8B8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8A8_SINT: decodePixels<ECF_B8G8R8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A8B8G8R8_SINT_PACK32: decodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A2R10G10B10_SINT_PACK32: decodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A2B10G10R10_SINT_PACK32: decodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16_SINT: decodePixels<ECF_R16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16_SINT: decodePixels<ECF_R16G16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16_SINT: decodePixels<ECF_R16G16B16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16A16_SINT: decodePixels<ECF_R16G16B16A16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32_SINT: decodePixels<ECF_R32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32G32_SINT: decodePixels<ECF_R32G32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32G32B32_SINT: decodePixels<ECF_R32G32B32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32G32B32A32_SINT: decodePixels<ECF_R32G32B32A32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64_SINT: decodePixels<ECF_R64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64G64_SINT: decodePixels<ECF_R64G64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64G64B64_SINT: decodePixels<ECF_R64G64B64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64G64B64A64_SINT: decodePixels<ECF_R64G64B64A64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
         default: return false;
         }
     }
     template<>
-    bool decodePixels<uint64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], uint64_t* _output)
+    bool decodePixels<uint64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
-        case ECF_R8_UINT: decodePixels<ECF_R8_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R8_SRGB: decodePixels<ECF_R8_SRGB, uint64_t>(_pix, _output); return true;
-        case ECF_R8G8_UINT: decodePixels<ECF_R8G8_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R8G8_SRGB: decodePixels<ECF_R8G8_SRGB, uint64_t>(_pix, _output); return true;
-        case ECF_R8G8B8_UINT: decodePixels<ECF_R8G8B8_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R8G8B8_SRGB: decodePixels<ECF_R8G8B8_SRGB, uint64_t>(_pix, _output); return true;
-        case ECF_B8G8R8_UINT: decodePixels<ECF_B8G8R8_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_B8G8R8_SRGB: decodePixels<ECF_B8G8R8_SRGB, uint64_t>(_pix, _output); return true;
-        case ECF_R8G8B8A8_UINT: decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R8G8B8A8_SRGB: decodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(_pix, _output); return true;
-        case ECF_B8G8R8A8_UINT: decodePixels<ECF_B8G8R8A8_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_B8G8R8A8_SRGB: decodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(_pix, _output); return true;
-        case ECF_A8B8G8R8_UINT_PACK32: decodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(_pix, _output); return true;
-        case ECF_A8B8G8R8_SRGB_PACK32: decodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(_pix, _output); return true;
-        case ECF_A2R10G10B10_UINT_PACK32: decodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(_pix, _output); return true;
-        case ECF_A2B10G10R10_UINT_PACK32: decodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(_pix, _output); return true;
-        case ECF_R16_UINT: decodePixels<ECF_R16_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R16G16_UINT: decodePixels<ECF_R16G16_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R16G16B16_UINT: decodePixels<ECF_R16G16B16_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R16G16B16A16_UINT: decodePixels<ECF_R16G16B16A16_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R32_UINT: decodePixels<ECF_R32_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R32G32_UINT: decodePixels<ECF_R32G32_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R32G32B32_UINT: decodePixels<ECF_R32G32B32_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R32G32B32A32_UINT: decodePixels<ECF_R32G32B32A32_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R64_UINT: decodePixels<ECF_R64_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R64G64_UINT: decodePixels<ECF_R64G64_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R64G64B64_UINT: decodePixels<ECF_R64G64B64_UINT, uint64_t>(_pix, _output); return true;
-        case ECF_R64G64B64A64_UINT: decodePixels<ECF_R64G64B64A64_UINT, uint64_t>(_pix, _output); return true;
+        case ECF_R8_UINT: decodePixels<ECF_R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8_SRGB: decodePixels<ECF_R8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8_UINT: decodePixels<ECF_R8G8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8_SRGB: decodePixels<ECF_R8G8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8_UINT: decodePixels<ECF_R8G8B8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8_SRGB: decodePixels<ECF_R8G8B8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8_UINT: decodePixels<ECF_B8G8R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8_SRGB: decodePixels<ECF_B8G8R8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8A8_UINT: decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8A8_SRGB: decodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8A8_UINT: decodePixels<ECF_B8G8R8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8A8_SRGB: decodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A8B8G8R8_UINT_PACK32: decodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A8B8G8R8_SRGB_PACK32: decodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A2R10G10B10_UINT_PACK32: decodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A2B10G10R10_UINT_PACK32: decodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16_UINT: decodePixels<ECF_R16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16_UINT: decodePixels<ECF_R16G16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16_UINT: decodePixels<ECF_R16G16B16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16A16_UINT: decodePixels<ECF_R16G16B16A16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32_UINT: decodePixels<ECF_R32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32G32_UINT: decodePixels<ECF_R32G32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32G32B32_UINT: decodePixels<ECF_R32G32B32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32G32B32A32_UINT: decodePixels<ECF_R32G32B32A32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64_UINT: decodePixels<ECF_R64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64G64_UINT: decodePixels<ECF_R64G64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64G64B64_UINT: decodePixels<ECF_R64G64B64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64G64B64A64_UINT: decodePixels<ECF_R64G64B64A64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         default: return false;
         }
     }
     template<>
-    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint64_t _scale)
+    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         switch (_fmt)
         {
-        case ECF_R8_USCALED: decodePixels<ECF_R8_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R8_SSCALED: decodePixels<ECF_R8_SSCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R8G8_USCALED: decodePixels<ECF_R8G8_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R8G8_SSCALED: decodePixels<ECF_R8G8_SSCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R8G8B8_USCALED: decodePixels<ECF_R8G8B8_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R8G8B8_SSCALED: decodePixels<ECF_R8G8B8_SSCALED, double>(_pix, _output, _scale); return true;
-        case ECF_B8G8R8_USCALED: decodePixels<ECF_B8G8R8_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_B8G8R8_SSCALED: decodePixels<ECF_B8G8R8_SSCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R8G8B8A8_USCALED: decodePixels<ECF_R8G8B8A8_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R8G8B8A8_SSCALED: decodePixels<ECF_R8G8B8A8_SSCALED, double>(_pix, _output, _scale); return true;
-        case ECF_B8G8R8A8_USCALED: decodePixels<ECF_B8G8R8A8_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_B8G8R8A8_SSCALED: decodePixels<ECF_B8G8R8A8_SSCALED, double>(_pix, _output, _scale); return true;
-        case ECF_A8B8G8R8_USCALED_PACK32: decodePixels<ECF_A8B8G8R8_USCALED_PACK32, double>(_pix, _output, _scale); return true;
-        case ECF_A8B8G8R8_SSCALED_PACK32: decodePixels<ECF_A8B8G8R8_SSCALED_PACK32, double>(_pix, _output, _scale); return true;
-        case ECF_A2R10G10B10_USCALED_PACK32: decodePixels<ECF_A2R10G10B10_USCALED_PACK32, double>(_pix, _output, _scale); return true;
-        case ECF_A2R10G10B10_SSCALED_PACK32: decodePixels<ECF_A2R10G10B10_SSCALED_PACK32, double>(_pix, _output, _scale); return true;
-        case ECF_A2B10G10R10_USCALED_PACK32: decodePixels<ECF_A2B10G10R10_USCALED_PACK32, double>(_pix, _output, _scale); return true;
-        case ECF_A2B10G10R10_SSCALED_PACK32: decodePixels<ECF_A2B10G10R10_SSCALED_PACK32, double>(_pix, _output, _scale); return true;
-        case ECF_R16_USCALED: decodePixels<ECF_R16_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R16_SSCALED: decodePixels<ECF_R16_SSCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R16G16_USCALED: decodePixels<ECF_R16G16_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R16G16_SSCALED: decodePixels<ECF_R16G16_SSCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R16G16B16_USCALED: decodePixels<ECF_R16G16B16_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R16G16B16_SSCALED: decodePixels<ECF_R16G16B16_SSCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R16G16B16A16_USCALED: decodePixels<ECF_R16G16B16A16_USCALED, double>(_pix, _output, _scale); return true;
-        case ECF_R16G16B16A16_SSCALED: decodePixels<ECF_R16G16B16A16_SSCALED, double>(_pix, _output, _scale); return true;
+        case ECF_R8_USCALED: decodePixels<ECF_R8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R8_SSCALED: decodePixels<ECF_R8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R8G8_USCALED: decodePixels<ECF_R8G8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R8G8_SSCALED: decodePixels<ECF_R8G8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R8G8B8_USCALED: decodePixels<ECF_R8G8B8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R8G8B8_SSCALED: decodePixels<ECF_R8G8B8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_B8G8R8_USCALED: decodePixels<ECF_B8G8R8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_B8G8R8_SSCALED: decodePixels<ECF_B8G8R8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R8G8B8A8_USCALED: decodePixels<ECF_R8G8B8A8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R8G8B8A8_SSCALED: decodePixels<ECF_R8G8B8A8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_B8G8R8A8_USCALED: decodePixels<ECF_B8G8R8A8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_B8G8R8A8_SSCALED: decodePixels<ECF_B8G8R8A8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_A8B8G8R8_USCALED_PACK32: decodePixels<ECF_A8B8G8R8_USCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_A8B8G8R8_SSCALED_PACK32: decodePixels<ECF_A8B8G8R8_SSCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_A2R10G10B10_USCALED_PACK32: decodePixels<ECF_A2R10G10B10_USCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_A2R10G10B10_SSCALED_PACK32: decodePixels<ECF_A2R10G10B10_SSCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_A2B10G10R10_USCALED_PACK32: decodePixels<ECF_A2B10G10R10_USCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_A2B10G10R10_SSCALED_PACK32: decodePixels<ECF_A2B10G10R10_SSCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R16_USCALED: decodePixels<ECF_R16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R16_SSCALED: decodePixels<ECF_R16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R16G16_USCALED: decodePixels<ECF_R16G16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R16G16_SSCALED: decodePixels<ECF_R16G16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R16G16B16_USCALED: decodePixels<ECF_R16G16B16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R16G16B16_SSCALED: decodePixels<ECF_R16G16B16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R16G16B16A16_USCALED: decodePixels<ECF_R16G16B16A16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case ECF_R16G16B16A16_SSCALED: decodePixels<ECF_R16G16B16A16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
         default: return false;
         }
     }
@@ -6195,17 +6196,17 @@ namespace video
         template<ECOLOR_FORMAT cf, typename T>
         struct SCallDecode<false, cf, T>
         {
-            inline void operator()(const void* _pix[4], T* _output, uint64_t)
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
             {
-                decodePixels<cf, T>(_pix, _output);
+                decodePixels<cf, T>(_pix, _output, _blockX, _blockY);
             }
         };
         template<ECOLOR_FORMAT cf, typename T>
         struct SCallDecode<true, cf, T>
         {
-            inline void operator()(const void* _pix[4], T* _output, uint64_t _scale)
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
             {
-                decodePixels<cf, T>(_pix, _output, _scale);
+                decodePixels<cf, T>(_pix, _output, _blockX, _blockY, _scale);
             }
         };
 
@@ -6215,24 +6216,24 @@ namespace video
         template<ECOLOR_FORMAT cf, typename T>
         struct SCallEncode<false, cf, T>
         {
-            inline void operator()(void* _pix, const T* _output, uint64_t)
+            inline void operator()(void* _pix, const T* _input, uint64_t)
             {
-                encodePixels<cf, T>(_pix, _output);
+                encodePixels<cf, T>(_pix, _input);
             }
         };
         template<ECOLOR_FORMAT cf, typename T>
         struct SCallEncode<true, cf, T>
         {
-            inline void operator()(void* _pix, const T* _output, uint64_t _scale)
+            inline void operator()(void* _pix, const T* _input, uint64_t _scale)
             {
-                encodePixels<cf, T>(_pix, _output, _scale);
+                encodePixels<cf, T>(_pix, _input, _scale);
             }
         };
     } //namespace impl
 
 
     template<ECOLOR_FORMAT sF, ECOLOR_FORMAT dF>
-    inline void convertColor(const void* srcPix[4], void* dstPix, uint64_t _scale)
+    inline void convertColor(const void* srcPix[4], void* dstPix, uint64_t _scale, uint32_t _blockX, uint32_t _blockY)
     {
         if (isIntegerFormat<sF>() && isIntegerFormat<dF>())
         {
@@ -6241,7 +6242,7 @@ namespace video
 
             decT decbuf[4];
             //decodePixels<sF, decT>(srcPix, decbuf, _scale);
-            impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _scale);
+            impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _blockX, _blockY, _scale);
             //encodePixels<dF, encT>(dstPix, reinterpret_cast<encT*>(decbuf), _scale);
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, reinterpret_cast<encT*>(decbuf), _scale);
         }
@@ -6257,7 +6258,7 @@ namespace video
 
             decT decbuf[4];
             //decodePixels<sF, decT>(srcPix, decbuf, _scale);
-            impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _scale);
+            impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _blockX, _blockY, _scale);
             //encodePixels<dF, encT>(dstPix, decbuf, _scale);
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, decbuf, _scale);
         }
@@ -6268,7 +6269,7 @@ namespace video
 
             decT decbuf[4];
             //decodePixels<sF, decT>(srcPix, decbuf, _scale);
-            impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _scale);
+            impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _blockX, _blockY, _scale);
             encT encbuf[4];
             for (uint32_t i = 0u; i < 4u; ++i)
                 encbuf[i] = decbuf[i];
@@ -6282,7 +6283,7 @@ namespace video
 
             decT decbuf[4];
             //decodePixels<sF, decT>(srcPix, decbuf, _scale);
-            impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _scale);
+            impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _blockX, _blockY, _scale);
             encT encbuf[4];
             for (uint32_t i = 0u; i < 4u; ++i)
                 encbuf[i] = decbuf[i];
@@ -6291,7 +6292,7 @@ namespace video
         }
     }
     template<ECOLOR_FORMAT sF, ECOLOR_FORMAT dF>
-    inline void convertColor(const void* srcPix[4], void* dstPix, uint64_t _scale, size_t _pixCnt, core::vector3d<uint32_t>& _imgSize)
+    inline void convertColor(const void* srcPix[4], void* dstPix, uint64_t _scale, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize)
     {
         const uint32_t srcStride = getTexelOrBlockSize(sF);
         const uint32_t dstStride = getTexelOrBlockSize(dF);
@@ -6301,315 +6302,326 @@ namespace video
         getVerticalReductionFactorPerPlane(sF, vPlaneReduction);
         getChannelsPerPlane(sF, chCntInPlane);
 
+        const core::vector3d<uint32_t> sdims = getBlockDimensions(sF);
+
         const uint8_t** src = reinterpret_cast<const uint8_t**>(srcPix);
-        uint8_t* dst = reinterpret_cast<uint8_t*>(dstPix);
-        for (size_t i = 0u; i < _pixCnt; ++i)
+        uint8_t* const dst_begin = reinterpret_cast<uint8_t*>(dstPix);
+        for (size_t i = 0u; i < _pixOrBlockCnt; ++i)
         {
-            convertColor<sF, dF>(src, dst, _scale);
-            dst += dstStride;
+            // assuming _imgSize is always represented in texels
+            const uint32_t px = i % (_imgSize.X / sdims.X);
+            const uint32_t py = i / (_imgSize.X / sdims.X);
+            //px, py are block or texel position
+            //x, y are position within block
+            for (uint32_t x = 0u; x < sdims.X; ++x)
+            {
+                for (uint32_t y = 0u; y < sdims.Y; ++y)
+                    convertColor<sF, dF>(reinterpret_cast<const void**>(src), dst_begin + ((sdims.Y * py + y)*_imgSize.X + px*sdims.X + x), _scale, x, y);
+            }
             if (!isPlanarFormat<sF>())
             {
                 src[0] += srcStride;
             }
             else
             {
-                const uint32_t x = i % _imgSize.X;
-                const uint32_t y = i / _imgSize.X;
+                const uint32_t px = i % _imgSize.X;
+                const uint32_t py = i / _imgSize.X;
                 for (uint32_t j = 0u; j < 4u; ++j)
-                    src[j] = reinterpret_cast<const uint8_t*>(srcPix[j]) + chCntInPlane[j]*((_imgSize.X/hPlaneReduction[j]) * (y/vPlaneReduction[j]) + x/hPlaneReduction[j]);
+                    src[j] = reinterpret_cast<const uint8_t*>(srcPix[j]) + chCntInPlane[j]*((_imgSize.X/hPlaneReduction[j]) * (py/vPlaneReduction[j]) + px/hPlaneReduction[j]);
             }
         }
     }
 
     namespace impl {
     template<ECOLOR_FORMAT sF>
-    inline void convertColor_RTimpl(ECOLOR_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, uint64_t _scale, size_t _pixCnt, core::vector3d<uint32_t>& _imgSize)
+    inline void convertColor_RTimpl(ECOLOR_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, uint64_t _scale, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize)
     {
         switch (_dfmt)
         {
-        case ECF_A1R5G5B5: return convertColor<sF, ECF_A1R5G5B5>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R5G6B5: return convertColor<sF, ECF_R5G6B5>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R4G4_UNORM_PACK8: return convertColor<sF, ECF_R4G4_UNORM_PACK8>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R4G4B4A4_UNORM_PACK16: return convertColor<sF, ECF_R4G4B4A4_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B4G4R4A4_UNORM_PACK16: return convertColor<sF, ECF_B4G4R4A4_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R5G6B5_UNORM_PACK16: return convertColor<sF, ECF_R5G6B5_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B5G6R5_UNORM_PACK16: return convertColor<sF, ECF_B5G6R5_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R5G5B5A1_UNORM_PACK16: return convertColor<sF, ECF_R5G5B5A1_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B5G5R5A1_UNORM_PACK16: return convertColor<sF, ECF_B5G5R5A1_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A1R5G5B5_UNORM_PACK16: return convertColor<sF, ECF_A1R5G5B5_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_UNORM: return convertColor<sF, ECF_R8_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_SNORM: return convertColor<sF, ECF_R8_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_USCALED: return convertColor<sF, ECF_R8_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_SSCALED: return convertColor<sF, ECF_R8_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_UINT: return convertColor<sF, ECF_R8_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_SINT: return convertColor<sF, ECF_R8_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_SRGB: return convertColor<sF, ECF_R8_SRGB>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_UNORM: return convertColor<sF, ECF_R8G8_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_SNORM: return convertColor<sF, ECF_R8G8_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_USCALED: return convertColor<sF, ECF_R8G8_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_SSCALED: return convertColor<sF, ECF_R8G8_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_UINT: return convertColor<sF, ECF_R8G8_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_SINT: return convertColor<sF, ECF_R8G8_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_SRGB: return convertColor<sF, ECF_R8G8_SRGB>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_UNORM: return convertColor<sF, ECF_R8G8B8_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_SNORM: return convertColor<sF, ECF_R8G8B8_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_USCALED: return convertColor<sF, ECF_R8G8B8_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_SSCALED: return convertColor<sF, ECF_R8G8B8_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_UINT: return convertColor<sF, ECF_R8G8B8_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_SINT: return convertColor<sF, ECF_R8G8B8_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_SRGB: return convertColor<sF, ECF_R8G8B8_SRGB>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_UNORM: return convertColor<sF, ECF_B8G8R8_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_SNORM: return convertColor<sF, ECF_B8G8R8_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_USCALED: return convertColor<sF, ECF_B8G8R8_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_SSCALED: return convertColor<sF, ECF_B8G8R8_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_UINT: return convertColor<sF, ECF_B8G8R8_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_SINT: return convertColor<sF, ECF_B8G8R8_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_SRGB: return convertColor<sF, ECF_B8G8R8_SRGB>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_UNORM: return convertColor<sF, ECF_R8G8B8A8_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_SNORM: return convertColor<sF, ECF_R8G8B8A8_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_USCALED: return convertColor<sF, ECF_R8G8B8A8_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_SSCALED: return convertColor<sF, ECF_R8G8B8A8_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_UINT: return convertColor<sF, ECF_R8G8B8A8_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_SINT: return convertColor<sF, ECF_R8G8B8A8_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_SRGB: return convertColor<sF, ECF_R8G8B8A8_SRGB>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_UNORM: return convertColor<sF, ECF_B8G8R8A8_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_SNORM: return convertColor<sF, ECF_B8G8R8A8_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_USCALED: return convertColor<sF, ECF_B8G8R8A8_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_SSCALED: return convertColor<sF, ECF_B8G8R8A8_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_UINT: return convertColor<sF, ECF_B8G8R8A8_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_SINT: return convertColor<sF, ECF_B8G8R8A8_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_SRGB: return convertColor<sF, ECF_B8G8R8A8_SRGB>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_UNORM_PACK32: return convertColor<sF, ECF_A8B8G8R8_UNORM_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_SNORM_PACK32: return convertColor<sF, ECF_A8B8G8R8_SNORM_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_USCALED_PACK32: return convertColor<sF, ECF_A8B8G8R8_USCALED_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_SSCALED_PACK32: return convertColor<sF, ECF_A8B8G8R8_SSCALED_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_UINT_PACK32: return convertColor<sF, ECF_A8B8G8R8_UINT_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_SINT_PACK32: return convertColor<sF, ECF_A8B8G8R8_SINT_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_SRGB_PACK32: return convertColor<sF, ECF_A8B8G8R8_SRGB_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_UNORM_PACK32: return convertColor<sF, ECF_A2R10G10B10_UNORM_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_SNORM_PACK32: return convertColor<sF, ECF_A2R10G10B10_SNORM_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_USCALED_PACK32: return convertColor<sF, ECF_A2R10G10B10_USCALED_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_SSCALED_PACK32: return convertColor<sF, ECF_A2R10G10B10_SSCALED_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_UINT_PACK32: return convertColor<sF, ECF_A2R10G10B10_UINT_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_SINT_PACK32: return convertColor<sF, ECF_A2R10G10B10_SINT_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_UNORM_PACK32: return convertColor<sF, ECF_A2B10G10R10_UNORM_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_SNORM_PACK32: return convertColor<sF, ECF_A2B10G10R10_SNORM_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_USCALED_PACK32: return convertColor<sF, ECF_A2B10G10R10_USCALED_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_SSCALED_PACK32: return convertColor<sF, ECF_A2B10G10R10_SSCALED_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_UINT_PACK32: return convertColor<sF, ECF_A2B10G10R10_UINT_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_SINT_PACK32: return convertColor<sF, ECF_A2B10G10R10_SINT_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_UNORM: return convertColor<sF, ECF_R16_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_SNORM: return convertColor<sF, ECF_R16_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_USCALED: return convertColor<sF, ECF_R16_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_SSCALED: return convertColor<sF, ECF_R16_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_UINT: return convertColor<sF, ECF_R16_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_SINT: return convertColor<sF, ECF_R16_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_SFLOAT: return convertColor<sF, ECF_R16_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_UNORM: return convertColor<sF, ECF_R16G16_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_SNORM: return convertColor<sF, ECF_R16G16_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_USCALED: return convertColor<sF, ECF_R16G16_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_SSCALED: return convertColor<sF, ECF_R16G16_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_UINT: return convertColor<sF, ECF_R16G16_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_SINT: return convertColor<sF, ECF_R16G16_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_SFLOAT: return convertColor<sF, ECF_R16G16_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_UNORM: return convertColor<sF, ECF_R16G16B16_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_SNORM: return convertColor<sF, ECF_R16G16B16_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_USCALED: return convertColor<sF, ECF_R16G16B16_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_SSCALED: return convertColor<sF, ECF_R16G16B16_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_UINT: return convertColor<sF, ECF_R16G16B16_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_SINT: return convertColor<sF, ECF_R16G16B16_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_SFLOAT: return convertColor<sF, ECF_R16G16B16_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_UNORM: return convertColor<sF, ECF_R16G16B16A16_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_SNORM: return convertColor<sF, ECF_R16G16B16A16_SNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_USCALED: return convertColor<sF, ECF_R16G16B16A16_USCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_SSCALED: return convertColor<sF, ECF_R16G16B16A16_SSCALED>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_UINT: return convertColor<sF, ECF_R16G16B16A16_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_SINT: return convertColor<sF, ECF_R16G16B16A16_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_SFLOAT: return convertColor<sF, ECF_R16G16B16A16_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32_UINT: return convertColor<sF, ECF_R32_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32_SINT: return convertColor<sF, ECF_R32_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32_SFLOAT: return convertColor<sF, ECF_R32_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32_UINT: return convertColor<sF, ECF_R32G32_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32_SINT: return convertColor<sF, ECF_R32G32_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32_SFLOAT: return convertColor<sF, ECF_R32G32_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32_UINT: return convertColor<sF, ECF_R32G32B32_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32_SINT: return convertColor<sF, ECF_R32G32B32_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32_SFLOAT: return convertColor<sF, ECF_R32G32B32_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32A32_UINT: return convertColor<sF, ECF_R32G32B32A32_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32A32_SINT: return convertColor<sF, ECF_R32G32B32A32_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32A32_SFLOAT: return convertColor<sF, ECF_R32G32B32A32_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64_UINT: return convertColor<sF, ECF_R64_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64_SINT: return convertColor<sF, ECF_R64_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64_SFLOAT: return convertColor<sF, ECF_R64_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64_UINT: return convertColor<sF, ECF_R64G64_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64_SINT: return convertColor<sF, ECF_R64G64_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64_SFLOAT: return convertColor<sF, ECF_R64G64_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64_UINT: return convertColor<sF, ECF_R64G64B64_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64_SINT: return convertColor<sF, ECF_R64G64B64_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64_SFLOAT: return convertColor<sF, ECF_R64G64B64_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64A64_UINT: return convertColor<sF, ECF_R64G64B64A64_UINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64A64_SINT: return convertColor<sF, ECF_R64G64B64A64_SINT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64A64_SFLOAT: return convertColor<sF, ECF_R64G64B64A64_SFLOAT>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B10G11R11_UFLOAT_PACK32: return convertColor<sF, ECF_B10G11R11_UFLOAT_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_E5B9G9R9_UFLOAT_PACK32: return convertColor<sF, ECF_E5B9G9R9_UFLOAT_PACK32>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC1_RGB_UNORM_BLOCK: return convertColor<sF, ECF_BC1_RGB_UNORM_BLOCK>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC1_RGB_SRGB_BLOCK: return convertColor<sF, ECF_BC1_RGB_SRGB_BLOCK>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC1_RGBA_UNORM_BLOCK: return convertColor<sF, ECF_BC1_RGBA_UNORM_BLOCK>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC1_RGBA_SRGB_BLOCK: return convertColor<sF, ECF_BC1_RGBA_SRGB_BLOCK>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC2_UNORM_BLOCK: return convertColor<sF, ECF_BC2_UNORM_BLOCK>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC2_SRGB_BLOCK: return convertColor<sF, ECF_BC2_SRGB_BLOCK>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC3_UNORM_BLOCK: return convertColor<sF, ECF_BC3_UNORM_BLOCK>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC3_SRGB_BLOCK: return convertColor<sF, ECF_BC3_SRGB_BLOCK>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8_R8_3PLANE_420_UNORM: return convertColor<sF, ECF_G8_B8_R8_3PLANE_420_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8R8_2PLANE_420_UNORM: return convertColor<sF, ECF_G8_B8R8_2PLANE_420_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8_R8_3PLANE_422_UNORM: return convertColor<sF, ECF_G8_B8_R8_3PLANE_422_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8R8_2PLANE_422_UNORM: return convertColor<sF, ECF_G8_B8R8_2PLANE_422_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8_R8_3PLANE_444_UNORM: return convertColor<sF, ECF_G8_B8_R8_3PLANE_444_UNORM>(_srcPix, _dstPix, _scale, _pixCnt, _imgSize);
+        case ECF_A1R5G5B5: return convertColor<sF, ECF_A1R5G5B5>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R5G6B5: return convertColor<sF, ECF_R5G6B5>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R4G4_UNORM_PACK8: return convertColor<sF, ECF_R4G4_UNORM_PACK8>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R4G4B4A4_UNORM_PACK16: return convertColor<sF, ECF_R4G4B4A4_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B4G4R4A4_UNORM_PACK16: return convertColor<sF, ECF_B4G4R4A4_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R5G6B5_UNORM_PACK16: return convertColor<sF, ECF_R5G6B5_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B5G6R5_UNORM_PACK16: return convertColor<sF, ECF_B5G6R5_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R5G5B5A1_UNORM_PACK16: return convertColor<sF, ECF_R5G5B5A1_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B5G5R5A1_UNORM_PACK16: return convertColor<sF, ECF_B5G5R5A1_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A1R5G5B5_UNORM_PACK16: return convertColor<sF, ECF_A1R5G5B5_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_UNORM: return convertColor<sF, ECF_R8_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_SNORM: return convertColor<sF, ECF_R8_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_USCALED: return convertColor<sF, ECF_R8_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_SSCALED: return convertColor<sF, ECF_R8_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_UINT: return convertColor<sF, ECF_R8_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_SINT: return convertColor<sF, ECF_R8_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_SRGB: return convertColor<sF, ECF_R8_SRGB>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_UNORM: return convertColor<sF, ECF_R8G8_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_SNORM: return convertColor<sF, ECF_R8G8_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_USCALED: return convertColor<sF, ECF_R8G8_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_SSCALED: return convertColor<sF, ECF_R8G8_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_UINT: return convertColor<sF, ECF_R8G8_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_SINT: return convertColor<sF, ECF_R8G8_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_SRGB: return convertColor<sF, ECF_R8G8_SRGB>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_UNORM: return convertColor<sF, ECF_R8G8B8_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_SNORM: return convertColor<sF, ECF_R8G8B8_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_USCALED: return convertColor<sF, ECF_R8G8B8_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_SSCALED: return convertColor<sF, ECF_R8G8B8_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_UINT: return convertColor<sF, ECF_R8G8B8_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_SINT: return convertColor<sF, ECF_R8G8B8_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_SRGB: return convertColor<sF, ECF_R8G8B8_SRGB>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_UNORM: return convertColor<sF, ECF_B8G8R8_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_SNORM: return convertColor<sF, ECF_B8G8R8_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_USCALED: return convertColor<sF, ECF_B8G8R8_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_SSCALED: return convertColor<sF, ECF_B8G8R8_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_UINT: return convertColor<sF, ECF_B8G8R8_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_SINT: return convertColor<sF, ECF_B8G8R8_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_SRGB: return convertColor<sF, ECF_B8G8R8_SRGB>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_UNORM: return convertColor<sF, ECF_R8G8B8A8_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_SNORM: return convertColor<sF, ECF_R8G8B8A8_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_USCALED: return convertColor<sF, ECF_R8G8B8A8_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_SSCALED: return convertColor<sF, ECF_R8G8B8A8_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_UINT: return convertColor<sF, ECF_R8G8B8A8_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_SINT: return convertColor<sF, ECF_R8G8B8A8_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_SRGB: return convertColor<sF, ECF_R8G8B8A8_SRGB>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_UNORM: return convertColor<sF, ECF_B8G8R8A8_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_SNORM: return convertColor<sF, ECF_B8G8R8A8_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_USCALED: return convertColor<sF, ECF_B8G8R8A8_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_SSCALED: return convertColor<sF, ECF_B8G8R8A8_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_UINT: return convertColor<sF, ECF_B8G8R8A8_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_SINT: return convertColor<sF, ECF_B8G8R8A8_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_SRGB: return convertColor<sF, ECF_B8G8R8A8_SRGB>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_UNORM_PACK32: return convertColor<sF, ECF_A8B8G8R8_UNORM_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_SNORM_PACK32: return convertColor<sF, ECF_A8B8G8R8_SNORM_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_USCALED_PACK32: return convertColor<sF, ECF_A8B8G8R8_USCALED_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_SSCALED_PACK32: return convertColor<sF, ECF_A8B8G8R8_SSCALED_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_UINT_PACK32: return convertColor<sF, ECF_A8B8G8R8_UINT_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_SINT_PACK32: return convertColor<sF, ECF_A8B8G8R8_SINT_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_SRGB_PACK32: return convertColor<sF, ECF_A8B8G8R8_SRGB_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_UNORM_PACK32: return convertColor<sF, ECF_A2R10G10B10_UNORM_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_SNORM_PACK32: return convertColor<sF, ECF_A2R10G10B10_SNORM_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_USCALED_PACK32: return convertColor<sF, ECF_A2R10G10B10_USCALED_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_SSCALED_PACK32: return convertColor<sF, ECF_A2R10G10B10_SSCALED_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_UINT_PACK32: return convertColor<sF, ECF_A2R10G10B10_UINT_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_SINT_PACK32: return convertColor<sF, ECF_A2R10G10B10_SINT_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_UNORM_PACK32: return convertColor<sF, ECF_A2B10G10R10_UNORM_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_SNORM_PACK32: return convertColor<sF, ECF_A2B10G10R10_SNORM_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_USCALED_PACK32: return convertColor<sF, ECF_A2B10G10R10_USCALED_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_SSCALED_PACK32: return convertColor<sF, ECF_A2B10G10R10_SSCALED_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_UINT_PACK32: return convertColor<sF, ECF_A2B10G10R10_UINT_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_SINT_PACK32: return convertColor<sF, ECF_A2B10G10R10_SINT_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_UNORM: return convertColor<sF, ECF_R16_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_SNORM: return convertColor<sF, ECF_R16_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_USCALED: return convertColor<sF, ECF_R16_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_SSCALED: return convertColor<sF, ECF_R16_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_UINT: return convertColor<sF, ECF_R16_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_SINT: return convertColor<sF, ECF_R16_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_SFLOAT: return convertColor<sF, ECF_R16_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_UNORM: return convertColor<sF, ECF_R16G16_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_SNORM: return convertColor<sF, ECF_R16G16_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_USCALED: return convertColor<sF, ECF_R16G16_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_SSCALED: return convertColor<sF, ECF_R16G16_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_UINT: return convertColor<sF, ECF_R16G16_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_SINT: return convertColor<sF, ECF_R16G16_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_SFLOAT: return convertColor<sF, ECF_R16G16_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_UNORM: return convertColor<sF, ECF_R16G16B16_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_SNORM: return convertColor<sF, ECF_R16G16B16_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_USCALED: return convertColor<sF, ECF_R16G16B16_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_SSCALED: return convertColor<sF, ECF_R16G16B16_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_UINT: return convertColor<sF, ECF_R16G16B16_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_SINT: return convertColor<sF, ECF_R16G16B16_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_SFLOAT: return convertColor<sF, ECF_R16G16B16_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_UNORM: return convertColor<sF, ECF_R16G16B16A16_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_SNORM: return convertColor<sF, ECF_R16G16B16A16_SNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_USCALED: return convertColor<sF, ECF_R16G16B16A16_USCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_SSCALED: return convertColor<sF, ECF_R16G16B16A16_SSCALED>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_UINT: return convertColor<sF, ECF_R16G16B16A16_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_SINT: return convertColor<sF, ECF_R16G16B16A16_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_SFLOAT: return convertColor<sF, ECF_R16G16B16A16_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32_UINT: return convertColor<sF, ECF_R32_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32_SINT: return convertColor<sF, ECF_R32_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32_SFLOAT: return convertColor<sF, ECF_R32_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32_UINT: return convertColor<sF, ECF_R32G32_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32_SINT: return convertColor<sF, ECF_R32G32_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32_SFLOAT: return convertColor<sF, ECF_R32G32_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32_UINT: return convertColor<sF, ECF_R32G32B32_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32_SINT: return convertColor<sF, ECF_R32G32B32_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32_SFLOAT: return convertColor<sF, ECF_R32G32B32_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32A32_UINT: return convertColor<sF, ECF_R32G32B32A32_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32A32_SINT: return convertColor<sF, ECF_R32G32B32A32_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32A32_SFLOAT: return convertColor<sF, ECF_R32G32B32A32_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64_UINT: return convertColor<sF, ECF_R64_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64_SINT: return convertColor<sF, ECF_R64_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64_SFLOAT: return convertColor<sF, ECF_R64_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64_UINT: return convertColor<sF, ECF_R64G64_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64_SINT: return convertColor<sF, ECF_R64G64_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64_SFLOAT: return convertColor<sF, ECF_R64G64_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64_UINT: return convertColor<sF, ECF_R64G64B64_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64_SINT: return convertColor<sF, ECF_R64G64B64_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64_SFLOAT: return convertColor<sF, ECF_R64G64B64_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64A64_UINT: return convertColor<sF, ECF_R64G64B64A64_UINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64A64_SINT: return convertColor<sF, ECF_R64G64B64A64_SINT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64A64_SFLOAT: return convertColor<sF, ECF_R64G64B64A64_SFLOAT>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B10G11R11_UFLOAT_PACK32: return convertColor<sF, ECF_B10G11R11_UFLOAT_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_E5B9G9R9_UFLOAT_PACK32: return convertColor<sF, ECF_E5B9G9R9_UFLOAT_PACK32>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC1_RGB_UNORM_BLOCK: return convertColor<sF, ECF_BC1_RGB_UNORM_BLOCK>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC1_RGB_SRGB_BLOCK: return convertColor<sF, ECF_BC1_RGB_SRGB_BLOCK>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC1_RGBA_UNORM_BLOCK: return convertColor<sF, ECF_BC1_RGBA_UNORM_BLOCK>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC1_RGBA_SRGB_BLOCK: return convertColor<sF, ECF_BC1_RGBA_SRGB_BLOCK>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC2_UNORM_BLOCK: return convertColor<sF, ECF_BC2_UNORM_BLOCK>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC2_SRGB_BLOCK: return convertColor<sF, ECF_BC2_SRGB_BLOCK>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC3_UNORM_BLOCK: return convertColor<sF, ECF_BC3_UNORM_BLOCK>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC3_SRGB_BLOCK: return convertColor<sF, ECF_BC3_SRGB_BLOCK>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8_R8_3PLANE_420_UNORM: return convertColor<sF, ECF_G8_B8_R8_3PLANE_420_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8R8_2PLANE_420_UNORM: return convertColor<sF, ECF_G8_B8R8_2PLANE_420_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8_R8_3PLANE_422_UNORM: return convertColor<sF, ECF_G8_B8_R8_3PLANE_422_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8R8_2PLANE_422_UNORM: return convertColor<sF, ECF_G8_B8R8_2PLANE_422_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8_R8_3PLANE_444_UNORM: return convertColor<sF, ECF_G8_B8_R8_3PLANE_444_UNORM>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
         }
     }
     }//namespace impl
-    inline void convertColor(ECOLOR_FORMAT _sfmt, ECOLOR_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, uint64_t _scale, size_t _pixCnt, core::vector3d<uint32_t>& _imgSize)
+
+    inline void convertColor(ECOLOR_FORMAT _sfmt, ECOLOR_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, uint64_t _scale, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize)
     {
         switch (_sfmt)
         {
-        case ECF_A1R5G5B5: return impl::convertColor_RTimpl<ECF_A1R5G5B5>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R5G6B5: return impl::convertColor_RTimpl<ECF_R5G6B5>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R4G4_UNORM_PACK8: return impl::convertColor_RTimpl<ECF_R4G4_UNORM_PACK8>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R4G4B4A4_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_R4G4B4A4_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B4G4R4A4_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_B4G4R4A4_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R5G6B5_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_R5G6B5_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B5G6R5_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_B5G6R5_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R5G5B5A1_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_R5G5B5A1_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B5G5R5A1_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_B5G5R5A1_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A1R5G5B5_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_A1R5G5B5_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_UNORM: return impl::convertColor_RTimpl<ECF_R8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_SNORM: return impl::convertColor_RTimpl<ECF_R8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_USCALED: return impl::convertColor_RTimpl<ECF_R8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_SSCALED: return impl::convertColor_RTimpl<ECF_R8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_UINT: return impl::convertColor_RTimpl<ECF_R8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_SINT: return impl::convertColor_RTimpl<ECF_R8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8_SRGB: return impl::convertColor_RTimpl<ECF_R8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_UNORM: return impl::convertColor_RTimpl<ECF_R8G8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_SNORM: return impl::convertColor_RTimpl<ECF_R8G8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_USCALED: return impl::convertColor_RTimpl<ECF_R8G8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_SSCALED: return impl::convertColor_RTimpl<ECF_R8G8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_UINT: return impl::convertColor_RTimpl<ECF_R8G8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_SINT: return impl::convertColor_RTimpl<ECF_R8G8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8_SRGB: return impl::convertColor_RTimpl<ECF_R8G8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_UNORM: return impl::convertColor_RTimpl<ECF_R8G8B8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_SNORM: return impl::convertColor_RTimpl<ECF_R8G8B8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_USCALED: return impl::convertColor_RTimpl<ECF_R8G8B8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_SSCALED: return impl::convertColor_RTimpl<ECF_R8G8B8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_UINT: return impl::convertColor_RTimpl<ECF_R8G8B8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_SINT: return impl::convertColor_RTimpl<ECF_R8G8B8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8_SRGB: return impl::convertColor_RTimpl<ECF_R8G8B8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_UNORM: return impl::convertColor_RTimpl<ECF_B8G8R8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_SNORM: return impl::convertColor_RTimpl<ECF_B8G8R8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_USCALED: return impl::convertColor_RTimpl<ECF_B8G8R8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_SSCALED: return impl::convertColor_RTimpl<ECF_B8G8R8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_UINT: return impl::convertColor_RTimpl<ECF_B8G8R8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_SINT: return impl::convertColor_RTimpl<ECF_B8G8R8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8_SRGB: return impl::convertColor_RTimpl<ECF_B8G8R8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_UNORM: return impl::convertColor_RTimpl<ECF_R8G8B8A8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_SNORM: return impl::convertColor_RTimpl<ECF_R8G8B8A8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_USCALED: return impl::convertColor_RTimpl<ECF_R8G8B8A8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_SSCALED: return impl::convertColor_RTimpl<ECF_R8G8B8A8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_UINT: return impl::convertColor_RTimpl<ECF_R8G8B8A8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_SINT: return impl::convertColor_RTimpl<ECF_R8G8B8A8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R8G8B8A8_SRGB: return impl::convertColor_RTimpl<ECF_R8G8B8A8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_UNORM: return impl::convertColor_RTimpl<ECF_B8G8R8A8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_SNORM: return impl::convertColor_RTimpl<ECF_B8G8R8A8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_USCALED: return impl::convertColor_RTimpl<ECF_B8G8R8A8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_SSCALED: return impl::convertColor_RTimpl<ECF_B8G8R8A8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_UINT: return impl::convertColor_RTimpl<ECF_B8G8R8A8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_SINT: return impl::convertColor_RTimpl<ECF_B8G8R8A8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B8G8R8A8_SRGB: return impl::convertColor_RTimpl<ECF_B8G8R8A8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_UNORM_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_UNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_SNORM_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_SNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_USCALED_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_USCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_SSCALED_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_SSCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_UINT_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_UINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_SINT_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_SINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A8B8G8R8_SRGB_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_SRGB_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_UNORM_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_UNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_SNORM_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_SNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_USCALED_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_USCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_SSCALED_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_SSCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_UINT_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_UINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2R10G10B10_SINT_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_SINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_UNORM_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_UNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_SNORM_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_SNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_USCALED_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_USCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_SSCALED_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_SSCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_UINT_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_UINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_A2B10G10R10_SINT_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_SINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_UNORM: return impl::convertColor_RTimpl<ECF_R16_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_SNORM: return impl::convertColor_RTimpl<ECF_R16_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_USCALED: return impl::convertColor_RTimpl<ECF_R16_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_SSCALED: return impl::convertColor_RTimpl<ECF_R16_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_UINT: return impl::convertColor_RTimpl<ECF_R16_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_SINT: return impl::convertColor_RTimpl<ECF_R16_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16_SFLOAT: return impl::convertColor_RTimpl<ECF_R16_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_UNORM: return impl::convertColor_RTimpl<ECF_R16G16_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_SNORM: return impl::convertColor_RTimpl<ECF_R16G16_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_USCALED: return impl::convertColor_RTimpl<ECF_R16G16_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_SSCALED: return impl::convertColor_RTimpl<ECF_R16G16_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_UINT: return impl::convertColor_RTimpl<ECF_R16G16_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_SINT: return impl::convertColor_RTimpl<ECF_R16G16_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16_SFLOAT: return impl::convertColor_RTimpl<ECF_R16G16_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_UNORM: return impl::convertColor_RTimpl<ECF_R16G16B16_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_SNORM: return impl::convertColor_RTimpl<ECF_R16G16B16_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_USCALED: return impl::convertColor_RTimpl<ECF_R16G16B16_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_SSCALED: return impl::convertColor_RTimpl<ECF_R16G16B16_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_UINT: return impl::convertColor_RTimpl<ECF_R16G16B16_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_SINT: return impl::convertColor_RTimpl<ECF_R16G16B16_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16_SFLOAT: return impl::convertColor_RTimpl<ECF_R16G16B16_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_UNORM: return impl::convertColor_RTimpl<ECF_R16G16B16A16_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_SNORM: return impl::convertColor_RTimpl<ECF_R16G16B16A16_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_USCALED: return impl::convertColor_RTimpl<ECF_R16G16B16A16_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_SSCALED: return impl::convertColor_RTimpl<ECF_R16G16B16A16_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_UINT: return impl::convertColor_RTimpl<ECF_R16G16B16A16_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_SINT: return impl::convertColor_RTimpl<ECF_R16G16B16A16_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R16G16B16A16_SFLOAT: return impl::convertColor_RTimpl<ECF_R16G16B16A16_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32_UINT: return impl::convertColor_RTimpl<ECF_R32_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32_SINT: return impl::convertColor_RTimpl<ECF_R32_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32_SFLOAT: return impl::convertColor_RTimpl<ECF_R32_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32_UINT: return impl::convertColor_RTimpl<ECF_R32G32_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32_SINT: return impl::convertColor_RTimpl<ECF_R32G32_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32_SFLOAT: return impl::convertColor_RTimpl<ECF_R32G32_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32_UINT: return impl::convertColor_RTimpl<ECF_R32G32B32_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32_SINT: return impl::convertColor_RTimpl<ECF_R32G32B32_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32_SFLOAT: return impl::convertColor_RTimpl<ECF_R32G32B32_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32A32_UINT: return impl::convertColor_RTimpl<ECF_R32G32B32A32_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32A32_SINT: return impl::convertColor_RTimpl<ECF_R32G32B32A32_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R32G32B32A32_SFLOAT: return impl::convertColor_RTimpl<ECF_R32G32B32A32_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64_UINT: return impl::convertColor_RTimpl<ECF_R64_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64_SINT: return impl::convertColor_RTimpl<ECF_R64_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64_SFLOAT: return impl::convertColor_RTimpl<ECF_R64_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64_UINT: return impl::convertColor_RTimpl<ECF_R64G64_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64_SINT: return impl::convertColor_RTimpl<ECF_R64G64_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64_SFLOAT: return impl::convertColor_RTimpl<ECF_R64G64_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64_UINT: return impl::convertColor_RTimpl<ECF_R64G64B64_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64_SINT: return impl::convertColor_RTimpl<ECF_R64G64B64_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64_SFLOAT: return impl::convertColor_RTimpl<ECF_R64G64B64_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64A64_UINT: return impl::convertColor_RTimpl<ECF_R64G64B64A64_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64A64_SINT: return impl::convertColor_RTimpl<ECF_R64G64B64A64_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_R64G64B64A64_SFLOAT: return impl::convertColor_RTimpl<ECF_R64G64B64A64_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_B10G11R11_UFLOAT_PACK32: return impl::convertColor_RTimpl<ECF_B10G11R11_UFLOAT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_E5B9G9R9_UFLOAT_PACK32: return impl::convertColor_RTimpl<ECF_E5B9G9R9_UFLOAT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC1_RGB_UNORM_BLOCK: return impl::convertColor_RTimpl<ECF_BC1_RGB_UNORM_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC1_RGB_SRGB_BLOCK: return impl::convertColor_RTimpl<ECF_BC1_RGB_SRGB_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC1_RGBA_UNORM_BLOCK: return impl::convertColor_RTimpl<ECF_BC1_RGBA_UNORM_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC1_RGBA_SRGB_BLOCK: return impl::convertColor_RTimpl<ECF_BC1_RGBA_SRGB_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC2_UNORM_BLOCK: return impl::convertColor_RTimpl<ECF_BC2_UNORM_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC2_SRGB_BLOCK: return impl::convertColor_RTimpl<ECF_BC2_SRGB_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC3_UNORM_BLOCK: return impl::convertColor_RTimpl<ECF_BC3_UNORM_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_BC3_SRGB_BLOCK: return impl::convertColor_RTimpl<ECF_BC3_SRGB_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8_R8_3PLANE_420_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8_R8_3PLANE_420_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8R8_2PLANE_420_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8R8_2PLANE_420_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8_R8_3PLANE_422_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8_R8_3PLANE_422_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8R8_2PLANE_422_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8R8_2PLANE_422_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
-        case ECF_G8_B8_R8_3PLANE_444_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8_R8_3PLANE_444_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixCnt, _imgSize);
+        case ECF_A1R5G5B5: return impl::convertColor_RTimpl<ECF_A1R5G5B5>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R5G6B5: return impl::convertColor_RTimpl<ECF_R5G6B5>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R4G4_UNORM_PACK8: return impl::convertColor_RTimpl<ECF_R4G4_UNORM_PACK8>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R4G4B4A4_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_R4G4B4A4_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B4G4R4A4_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_B4G4R4A4_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R5G6B5_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_R5G6B5_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B5G6R5_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_B5G6R5_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R5G5B5A1_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_R5G5B5A1_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B5G5R5A1_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_B5G5R5A1_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A1R5G5B5_UNORM_PACK16: return impl::convertColor_RTimpl<ECF_A1R5G5B5_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_UNORM: return impl::convertColor_RTimpl<ECF_R8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_SNORM: return impl::convertColor_RTimpl<ECF_R8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_USCALED: return impl::convertColor_RTimpl<ECF_R8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_SSCALED: return impl::convertColor_RTimpl<ECF_R8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_UINT: return impl::convertColor_RTimpl<ECF_R8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_SINT: return impl::convertColor_RTimpl<ECF_R8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8_SRGB: return impl::convertColor_RTimpl<ECF_R8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_UNORM: return impl::convertColor_RTimpl<ECF_R8G8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_SNORM: return impl::convertColor_RTimpl<ECF_R8G8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_USCALED: return impl::convertColor_RTimpl<ECF_R8G8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_SSCALED: return impl::convertColor_RTimpl<ECF_R8G8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_UINT: return impl::convertColor_RTimpl<ECF_R8G8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_SINT: return impl::convertColor_RTimpl<ECF_R8G8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8_SRGB: return impl::convertColor_RTimpl<ECF_R8G8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_UNORM: return impl::convertColor_RTimpl<ECF_R8G8B8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_SNORM: return impl::convertColor_RTimpl<ECF_R8G8B8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_USCALED: return impl::convertColor_RTimpl<ECF_R8G8B8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_SSCALED: return impl::convertColor_RTimpl<ECF_R8G8B8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_UINT: return impl::convertColor_RTimpl<ECF_R8G8B8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_SINT: return impl::convertColor_RTimpl<ECF_R8G8B8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8_SRGB: return impl::convertColor_RTimpl<ECF_R8G8B8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_UNORM: return impl::convertColor_RTimpl<ECF_B8G8R8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_SNORM: return impl::convertColor_RTimpl<ECF_B8G8R8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_USCALED: return impl::convertColor_RTimpl<ECF_B8G8R8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_SSCALED: return impl::convertColor_RTimpl<ECF_B8G8R8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_UINT: return impl::convertColor_RTimpl<ECF_B8G8R8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_SINT: return impl::convertColor_RTimpl<ECF_B8G8R8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8_SRGB: return impl::convertColor_RTimpl<ECF_B8G8R8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_UNORM: return impl::convertColor_RTimpl<ECF_R8G8B8A8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_SNORM: return impl::convertColor_RTimpl<ECF_R8G8B8A8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_USCALED: return impl::convertColor_RTimpl<ECF_R8G8B8A8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_SSCALED: return impl::convertColor_RTimpl<ECF_R8G8B8A8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_UINT: return impl::convertColor_RTimpl<ECF_R8G8B8A8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_SINT: return impl::convertColor_RTimpl<ECF_R8G8B8A8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R8G8B8A8_SRGB: return impl::convertColor_RTimpl<ECF_R8G8B8A8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_UNORM: return impl::convertColor_RTimpl<ECF_B8G8R8A8_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_SNORM: return impl::convertColor_RTimpl<ECF_B8G8R8A8_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_USCALED: return impl::convertColor_RTimpl<ECF_B8G8R8A8_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_SSCALED: return impl::convertColor_RTimpl<ECF_B8G8R8A8_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_UINT: return impl::convertColor_RTimpl<ECF_B8G8R8A8_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_SINT: return impl::convertColor_RTimpl<ECF_B8G8R8A8_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B8G8R8A8_SRGB: return impl::convertColor_RTimpl<ECF_B8G8R8A8_SRGB>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_UNORM_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_UNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_SNORM_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_SNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_USCALED_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_USCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_SSCALED_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_SSCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_UINT_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_UINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_SINT_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_SINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A8B8G8R8_SRGB_PACK32: return impl::convertColor_RTimpl<ECF_A8B8G8R8_SRGB_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_UNORM_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_UNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_SNORM_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_SNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_USCALED_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_USCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_SSCALED_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_SSCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_UINT_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_UINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2R10G10B10_SINT_PACK32: return impl::convertColor_RTimpl<ECF_A2R10G10B10_SINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_UNORM_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_UNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_SNORM_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_SNORM_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_USCALED_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_USCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_SSCALED_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_SSCALED_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_UINT_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_UINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_A2B10G10R10_SINT_PACK32: return impl::convertColor_RTimpl<ECF_A2B10G10R10_SINT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_UNORM: return impl::convertColor_RTimpl<ECF_R16_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_SNORM: return impl::convertColor_RTimpl<ECF_R16_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_USCALED: return impl::convertColor_RTimpl<ECF_R16_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_SSCALED: return impl::convertColor_RTimpl<ECF_R16_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_UINT: return impl::convertColor_RTimpl<ECF_R16_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_SINT: return impl::convertColor_RTimpl<ECF_R16_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16_SFLOAT: return impl::convertColor_RTimpl<ECF_R16_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_UNORM: return impl::convertColor_RTimpl<ECF_R16G16_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_SNORM: return impl::convertColor_RTimpl<ECF_R16G16_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_USCALED: return impl::convertColor_RTimpl<ECF_R16G16_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_SSCALED: return impl::convertColor_RTimpl<ECF_R16G16_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_UINT: return impl::convertColor_RTimpl<ECF_R16G16_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_SINT: return impl::convertColor_RTimpl<ECF_R16G16_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16_SFLOAT: return impl::convertColor_RTimpl<ECF_R16G16_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_UNORM: return impl::convertColor_RTimpl<ECF_R16G16B16_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_SNORM: return impl::convertColor_RTimpl<ECF_R16G16B16_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_USCALED: return impl::convertColor_RTimpl<ECF_R16G16B16_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_SSCALED: return impl::convertColor_RTimpl<ECF_R16G16B16_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_UINT: return impl::convertColor_RTimpl<ECF_R16G16B16_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_SINT: return impl::convertColor_RTimpl<ECF_R16G16B16_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16_SFLOAT: return impl::convertColor_RTimpl<ECF_R16G16B16_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_UNORM: return impl::convertColor_RTimpl<ECF_R16G16B16A16_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_SNORM: return impl::convertColor_RTimpl<ECF_R16G16B16A16_SNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_USCALED: return impl::convertColor_RTimpl<ECF_R16G16B16A16_USCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_SSCALED: return impl::convertColor_RTimpl<ECF_R16G16B16A16_SSCALED>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_UINT: return impl::convertColor_RTimpl<ECF_R16G16B16A16_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_SINT: return impl::convertColor_RTimpl<ECF_R16G16B16A16_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R16G16B16A16_SFLOAT: return impl::convertColor_RTimpl<ECF_R16G16B16A16_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32_UINT: return impl::convertColor_RTimpl<ECF_R32_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32_SINT: return impl::convertColor_RTimpl<ECF_R32_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32_SFLOAT: return impl::convertColor_RTimpl<ECF_R32_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32_UINT: return impl::convertColor_RTimpl<ECF_R32G32_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32_SINT: return impl::convertColor_RTimpl<ECF_R32G32_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32_SFLOAT: return impl::convertColor_RTimpl<ECF_R32G32_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32_UINT: return impl::convertColor_RTimpl<ECF_R32G32B32_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32_SINT: return impl::convertColor_RTimpl<ECF_R32G32B32_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32_SFLOAT: return impl::convertColor_RTimpl<ECF_R32G32B32_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32A32_UINT: return impl::convertColor_RTimpl<ECF_R32G32B32A32_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32A32_SINT: return impl::convertColor_RTimpl<ECF_R32G32B32A32_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R32G32B32A32_SFLOAT: return impl::convertColor_RTimpl<ECF_R32G32B32A32_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64_UINT: return impl::convertColor_RTimpl<ECF_R64_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64_SINT: return impl::convertColor_RTimpl<ECF_R64_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64_SFLOAT: return impl::convertColor_RTimpl<ECF_R64_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64_UINT: return impl::convertColor_RTimpl<ECF_R64G64_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64_SINT: return impl::convertColor_RTimpl<ECF_R64G64_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64_SFLOAT: return impl::convertColor_RTimpl<ECF_R64G64_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64_UINT: return impl::convertColor_RTimpl<ECF_R64G64B64_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64_SINT: return impl::convertColor_RTimpl<ECF_R64G64B64_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64_SFLOAT: return impl::convertColor_RTimpl<ECF_R64G64B64_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64A64_UINT: return impl::convertColor_RTimpl<ECF_R64G64B64A64_UINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64A64_SINT: return impl::convertColor_RTimpl<ECF_R64G64B64A64_SINT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_R64G64B64A64_SFLOAT: return impl::convertColor_RTimpl<ECF_R64G64B64A64_SFLOAT>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_B10G11R11_UFLOAT_PACK32: return impl::convertColor_RTimpl<ECF_B10G11R11_UFLOAT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_E5B9G9R9_UFLOAT_PACK32: return impl::convertColor_RTimpl<ECF_E5B9G9R9_UFLOAT_PACK32>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC1_RGB_UNORM_BLOCK: return impl::convertColor_RTimpl<ECF_BC1_RGB_UNORM_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC1_RGB_SRGB_BLOCK: return impl::convertColor_RTimpl<ECF_BC1_RGB_SRGB_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC1_RGBA_UNORM_BLOCK: return impl::convertColor_RTimpl<ECF_BC1_RGBA_UNORM_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC1_RGBA_SRGB_BLOCK: return impl::convertColor_RTimpl<ECF_BC1_RGBA_SRGB_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC2_UNORM_BLOCK: return impl::convertColor_RTimpl<ECF_BC2_UNORM_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC2_SRGB_BLOCK: return impl::convertColor_RTimpl<ECF_BC2_SRGB_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC3_UNORM_BLOCK: return impl::convertColor_RTimpl<ECF_BC3_UNORM_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_BC3_SRGB_BLOCK: return impl::convertColor_RTimpl<ECF_BC3_SRGB_BLOCK>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8_R8_3PLANE_420_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8_R8_3PLANE_420_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8R8_2PLANE_420_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8R8_2PLANE_420_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8_R8_3PLANE_422_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8_R8_3PLANE_422_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8R8_2PLANE_422_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8R8_2PLANE_422_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
+        case ECF_G8_B8_R8_3PLANE_444_UNORM: return impl::convertColor_RTimpl<ECF_G8_B8_R8_3PLANE_444_UNORM>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
         }
     }
 
