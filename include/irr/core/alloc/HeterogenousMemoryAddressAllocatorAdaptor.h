@@ -105,7 +105,7 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
         HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator, size_type bufSz, Args&&... args) :
                                             ImplBase(reservedMemAllocator,dataMemAllocator,bufSz,args...),
                                             AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_IRR_SIMD_ALIGNMENT),
-                                                            ImplBase::mDataAlloc.allocate(bufSz),bufSz,ImplBase::mDataAlloc.min_alignment(),std::forward<Args>(args)...)
+                                                            ImplBase::mDataAlloc.allocate(bufSz),ImplBase::mDataAlloc.min_alignment(),bufSz,std::forward<Args>(args)...)
         {
         }
 

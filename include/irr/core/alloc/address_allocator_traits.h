@@ -57,7 +57,12 @@ namespace core
             static inline void         multi_free_addr(AddressAlloc& alloc, uint32_t count, const size_type* addr, const size_type* bytes) noexcept
             {
                 for (uint32_t i=0; i<count; i++)
+                {
+                    if (addr[i]==AddressAlloc::invalid_address)
+                        continue;
+
                     alloc.free_addr(addr[i],bytes[i]);
+                }
             }
 
 

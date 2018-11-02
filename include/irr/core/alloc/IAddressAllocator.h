@@ -67,11 +67,13 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, p
 
         inline virtual size_t       alloc_addr(size_t bytes, size_t alignment, size_t hint=0ull) noexcept
         {
-            return getBaseRef().alloc_addr(bytes,alignment,hint);
+            size_t retval = AddressAllocator::invalid_address;
+            traits::multi_alloc_addr(getBaseRef(),1u,&retval,&bytes,&alignment,&hint);
+            return retval;
         }
         inline virtual void         free_addr(size_t addr, size_t bytes) noexcept
         {
-            getBaseRef().free_addr(addr,bytes);
+            traits::multi_free_addr(getBaseRef(),1u,&addr,&bytes);
         }
 
         inline virtual void         reset() noexcept {getBaseRef().reset();}

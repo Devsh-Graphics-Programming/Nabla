@@ -75,15 +75,14 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         {
             if (count==0)
                 return;
-#ifdef _DEBUG
-            assert(Base::freeStackCtr<Base::blockCount+count);
-#endif // _DEBUG
 
             size_type sortedRedirects[maxMultiOps];
-            size_type* sortedRedirectsEnd = sortedRedirects+count;
+            size_type* sortedRedirectsEnd = sortedRedirects;
             for (decltype(count) i=0; i<count; i++)
             {
                 auto tmp  = addr[i];
+                if (tmp==invalid_address)
+                    continue;
 #ifdef _DEBUG
                 assert(tmp>=Base::alignOffset);
 #endif // _DEBUG
@@ -93,8 +92,11 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
 #ifdef _DEBUG
                 assert(redir<addressesAllocated*Base::blockSize);
 #endif // _DEBUG
-                sortedRedirects[i] = redir;
+                *(sortedRedirectsEnd++) = redir;
             }
+            if (sortedRedirectsEnd==sortedRedirects)
+                return;
+
             // sortedRedirects becomes a list of holes in our contiguous array
             std::make_heap(sortedRedirects,sortedRedirectsEnd);
             std::sort_heap(sortedRedirects,sortedRedirectsEnd);

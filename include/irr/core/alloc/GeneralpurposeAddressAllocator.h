@@ -75,7 +75,7 @@ class GeneralpurposeAddressAllocatorBase
         size_type               minBlockSize;
         size_type               minBlockSize_minus1;
 
-        constexpr static size_t maxListLevels = std::min(sizeof(size_type)*sizeof(uint8_t),size_t(59u));
+        constexpr static size_t maxListLevels = std::min(sizeof(size_type)*8u,size_t(59u));
         size_type               freeListStackCtr[maxListLevels];
         Block*                  freeListStack[maxListLevels];
 
@@ -95,6 +95,9 @@ class GeneralpurposeAddressAllocatorBase
 
         inline void              swapFreeLists(void* startPtr) noexcept
         {
+            for (decltype(freeListCount) i=0u; i<freeListCount; i++)
+                freeListStackCtr[i] = 0u;
+
             usingFirstBuffer = usingFirstBuffer ? 0u:1u;
 
             Block* tmp = reinterpret_cast<Block*>(startPtr);
@@ -111,7 +114,10 @@ class GeneralpurposeAddressAllocatorBase
 
         inline void             insertFreeBlock(const Block& block)
         {
-            auto level = findFreeListInsertIndex(block.endOffset-block.startOffset);
+            auto len = block.getLength();
+            if (len<minBlockSize)
+                assert(false);
+            auto level = findFreeListInsertIndex(len);
             block.validate(level);
             freeListStack[level][freeListStackCtr[level]++] = block;
         }
@@ -123,9 +129,7 @@ class GeneralpurposeAddressAllocatorBase
             assert(bytes>=minBlockSize);
         #endif // _DEBUG
 
-            retval.startOffset = irr::core::alignUp(block->startOffset,alignment);
-            retval.startOffset = block->startOffset;
-            auto remainder  = (block->startOffset+alignment-1u)/alignment;
+            retval.startOffset = (block->startOffset+alignment-1u)/alignment;
             retval.startOffset *= alignment;
 
             if (block->startOffset!=retval.startOffset)
@@ -438,8 +442,8 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         {
             size_type reserved = 0u;
             for (size_type i=0u; i<AllocStrategy::findFreeListCount(bufSz,blockSz); i++)
-                reserved += (bufSz/(blockSz<<i))*size_type(2u);
-            return reserved+2u; // +2 for lowest level partial blocks at the end
+                reserved += (bufSz/(blockSz<<i)+1u)*size_type(2u);
+            return (reserved-2u)*sizeof(Block);
         }
         static inline size_type reserved_size(size_type bufSz, const GeneralpurposeAddressAllocator<_size_type>& other) noexcept
         {
