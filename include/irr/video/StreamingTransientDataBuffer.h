@@ -177,7 +177,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         inline size_type    multi_place(uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, const size_type* alignment, const Args&... args) noexcept
         {
         #ifdef _DEBUG
-            assert(GPUBuffer has write mapping flags);
+            assert(getBuffer()->getBoundMemory());
         #endif // _DEBUG
             auto retval = multi_alloc(count,outAddresses,bytes,alignment,args...);
             // fill with data

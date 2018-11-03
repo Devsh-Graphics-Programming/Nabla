@@ -115,8 +115,10 @@ class GeneralpurposeAddressAllocatorBase
         inline void             insertFreeBlock(const Block& block)
         {
             auto len = block.getLength();
+        #ifdef _DEBUG
             if (len<minBlockSize)
                 assert(false);
+        #endif // _DEBUG
             auto level = findFreeListInsertIndex(len);
             block.validate(level);
             freeListStack[level][freeListStackCtr[level]++] = block;
@@ -249,7 +251,11 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
 
         inline auto findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
-            for (uint32_t level=Base::findFreeListSearchIndex(bytes+std::max(alignment,Base::minBlockSize)+Base::minBlockSize); level<Base::freeListCount; level++)
+            auto floor      = Base::minBlockSize/alignment;
+            floor          *= alignment;
+            auto remainder  = Base::minBlockSize-floor;
+            auto biggestPossibleFrontWaste = floor+alignment+remainder-1u;
+            for (uint32_t level=Base::findFreeListSearchIndex(bytes+biggestPossibleFrontWaste+Base::minBlockSize); level<Base::freeListCount; level++)
             {
                 // have any free blocks
                 if (!Base::freeListStackCtr[level])
@@ -261,7 +267,8 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                 size_type wastedSpace = Base::calcSubAllocation(tmp,&popped,bytes,alignment);
                 // if had a block large enough for us with padding then must be able to allocate
             #ifdef _DEBUG
-                assert(wastedSpace!=invalid_address);
+                if (wastedSpace==invalid_address)
+                    assert(false);
             #endif // _DEBUG
                 return std::pair<Block,Block>(tmp,popped);
             }
@@ -385,9 +392,9 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             bytes = std::max(bytes,AllocStrategy::minBlockSize);
 #ifdef _DEBUG
             // address must have had alignOffset already applied to it, and allocation must not be outside the buffer
-            assert(addr>=Base::alignOffset && addr+bytes<=bufferSize+Base::alignOffset);
+            assert(addr>=Base::alignOffset && addr+bytes<=AllocStrategy::bufferSize+Base::alignOffset);
             // sanity check
-            assert(bytes+freeSize<=bufferSize);
+            assert(bytes+freeSize<=AllocStrategy::bufferSize);
 #endif // _DEBUG
 
             addr -= Base::alignOffset;
