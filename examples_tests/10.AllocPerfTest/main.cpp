@@ -115,7 +115,7 @@ int main()
         }
 
         buffer->multi_alloc(allocsThisFrame,(uint32_t*)outAddr,(uint32_t*)sizes,(uint32_t*)alignments);
-        buffer->multi_free(allocsThisFrame,(const uint32_t*)outAddr,(const uint32_t*)sizes,nullptr);
+        buffer->multi_free(allocsThisFrame,(const uint32_t*)outAddr,(const uint32_t*)sizes,driver->placeFence());
 
 		driver->endScene();
 

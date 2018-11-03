@@ -27,8 +27,6 @@ class IRR_FORCE_EBO IAddressAllocator : Interface
         virtual void                multi_alloc_addr(uint32_t count, size_t* outAddresses, const size_t* bytes,
                                                      const size_t* alignment, const size_t* hint=nullptr) noexcept = 0;
         virtual void                multi_free_addr(uint32_t count, const size_t* addr, const size_t* bytes) noexcept = 0;
-        virtual size_t              alloc_addr(size_t bytes, size_t alignment, size_t hint=0ull) noexcept = 0;
-        virtual void                free_addr(size_t addr, size_t bytes) noexcept = 0;
 
         virtual void                reset() noexcept = 0;
 
@@ -63,17 +61,6 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, p
         inline virtual void         multi_free_addr(uint32_t count, const size_t* addr, const size_t* bytes) noexcept
         {
             traits::multi_free_addr(getBaseRef(),count,addr,bytes);
-        }
-
-        inline virtual size_t       alloc_addr(size_t bytes, size_t alignment, size_t hint=0ull) noexcept
-        {
-            size_t retval = AddressAllocator::invalid_address;
-            traits::multi_alloc_addr(getBaseRef(),1u,&retval,&bytes,&alignment,&hint);
-            return retval;
-        }
-        inline virtual void         free_addr(size_t addr, size_t bytes) noexcept
-        {
-            traits::multi_free_addr(getBaseRef(),1u,&addr,&bytes);
         }
 
         inline virtual void         reset() noexcept {getBaseRef().reset();}

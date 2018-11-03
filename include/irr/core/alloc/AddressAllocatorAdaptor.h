@@ -21,7 +21,8 @@ class AddressAllocatorAdaptor : public AllocatorTrivialBase<T>
         template<typename U, class _S>
         friend class    AddressAllocatorAdaptor; // slightly overly friendly
 
-        S* const        state;
+        S* const                            state;
+        typedef address_allocator_traits<S> traits;
     public:
         template< class U > struct rebind { typedef AddressAllocatorAdaptor<U,S> other; };
 
@@ -60,7 +61,10 @@ class AddressAllocatorAdaptor : public AllocatorTrivialBase<T>
         inline typename AddressAllocatorAdaptor::pointer    allocate(   typename S::size_type n,
                                                                         typename AddressAllocatorAdaptor::const_void_pointer hint=nullptr) noexcept
         {
-            typename S::size_type addr = state->alloc_addr(n*sizeof(T),alignof(T));
+            n *= sizeof(T);
+            typename S::size_type align = alignof(T);
+            typename S::size_type addr = S::invalid_address;
+            traits::multi_alloc_addr(*state,1u,&addr,&n,&align);
             if (addr==S::invalid_address)
                 return nullptr;
 
@@ -70,7 +74,9 @@ class AddressAllocatorAdaptor : public AllocatorTrivialBase<T>
         inline void                                         deallocate( typename AddressAllocatorAdaptor::pointer p,
                                                                         typename S::size_type n) noexcept
         {
-            state->free_addr(reinterpret_cast<typename S::ubyte_pointer>(p)-state->getBufferStart(),n*sizeof(T));
+            n *= sizeof(T);
+            typename S::size_type addr = reinterpret_cast<typename S::ubyte_pointer>(p)-state->getBufferStart();
+            traits::multi_free_addr(*state,1u,&addr,&n);
         }
 
         //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate

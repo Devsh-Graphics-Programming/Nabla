@@ -57,22 +57,6 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
             lock.unlock();
         }
 
-        //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
-        inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
-        {
-            lock.lock();
-            auto retval = AddressAllocator::alloc_addr(bytes,alignment,hint);
-            lock.unlock();
-            return retval;
-        }
-
-        inline void         free_addr(size_type addr, size_type bytes) noexcept
-        {
-            lock.lock();
-            AddressAllocator::free_addr(addr,bytes);
-            lock.unlock();
-        }
-
         inline void         reset() noexcept
         {
             lock.lock();

@@ -165,11 +165,6 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             return ID;
         }
 
-        inline void             free_addr(size_type addr, size_type bytes) noexcept
-        {
-            multi_free_addr(1u,&addr,&bytes);
-        }
-
         inline void             reset()
         {
             Base::reset();
