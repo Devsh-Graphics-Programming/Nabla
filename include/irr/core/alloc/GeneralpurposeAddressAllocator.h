@@ -75,7 +75,7 @@ class GeneralpurposeAddressAllocatorBase
         size_type               minBlockSize;
         size_type               minBlockSize_minus1;
 
-        constexpr static size_t maxListLevels = std::min(sizeof(size_type)*8u,size_t(59u));
+        constexpr static size_t maxListLevels = (sizeof(size_type)*8u)<size_t(59ull) ? (sizeof(size_type)*8u):size_t(59ull);
         size_type               freeListStackCtr[maxListLevels];
         Block*                  freeListStack[maxListLevels];
 
@@ -200,7 +200,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
         GeneralpurposeAddressAllocatorStrategy(size_type bufSz, size_type minBlockSz) noexcept : Base(bufSz,minBlockSz) {}
 
 
-        inline auto findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
+        inline std::pair<Block,Block> findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
             size_type bestWastedSpace = ~size_type(0u);
             std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,Base::freeListCount};
@@ -249,7 +249,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
         GeneralpurposeAddressAllocatorStrategy(size_type bufSz, size_type minBlockSz) noexcept : Base(bufSz,minBlockSz) {}
 
 
-        inline auto findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
+        inline std::pair<Block,Block> findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
             auto floor      = Base::minBlockSize/alignment;
             floor          *= alignment;

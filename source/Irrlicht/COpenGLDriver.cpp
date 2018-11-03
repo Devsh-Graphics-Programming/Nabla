@@ -997,6 +997,19 @@ bool COpenGLDriver::genericDriverInit()
 	// This fixes problems with intermediate changes to the material during texture load.
 	ResetRenderStates = true;
 
+	// down
+	{
+        auto reqs = getDownStreamingMemoryReqs();
+        reqs.vulkanReqs.size = Params.StreamingDownloadBufferSize;
+        defaultDownloadBuffer = new video::StreamingTransientDataBufferMT<>(this,reqs);
+	}
+	// up
+	{
+        auto reqs = getUpStreamingMemoryReqs();
+        reqs.vulkanReqs.size = Params.StreamingDownloadBufferSize;
+        defaultUploadBuffer = new video::StreamingTransientDataBufferMT<>(this,reqs);
+	}
+
 	return true;
 }
 

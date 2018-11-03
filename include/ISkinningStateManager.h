@@ -8,6 +8,10 @@
 
 namespace irr
 {
+namespace video
+{
+    class ITextureBufferObject;
+}
 namespace scene
 {
     class ISkinnedMeshSceneNode;

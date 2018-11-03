@@ -7,6 +7,7 @@
 
 #include "ISceneManager.h"
 #include "IFileSystem.h"
+#include "IVideoDriver.h"
 #include "SMesh.h"
 #include "CSkinnedMesh.h"
 #include "CBlobsLoadingManager.h"

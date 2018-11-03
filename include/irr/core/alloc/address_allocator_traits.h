@@ -5,6 +5,8 @@
 #ifndef __IRR_ADDRESS_ALLOCATOR_TYPE_TRAITS_H_INCLUDED__
 #define __IRR_ADDRESS_ALLOCATOR_TYPE_TRAITS_H_INCLUDED__
 
+#include <algorithm>
+
 namespace irr
 {
 namespace core

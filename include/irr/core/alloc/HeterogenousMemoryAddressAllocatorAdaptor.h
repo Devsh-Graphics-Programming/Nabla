@@ -1,6 +1,7 @@
 #ifndef __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 #define __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 
+#include "irr/core/Types.h"
 #include "irr/core/alloc/address_allocator_traits.h"
 #include "irr/core/alloc/AddressAllocatorBase.h"
 

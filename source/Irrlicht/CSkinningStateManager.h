@@ -4,6 +4,7 @@
 
 #include "ISkinningStateManager.h"
 #include "ITextureBufferObject.h"
+#include "IVideoDriver.h"
 
 ///#define UPDATE_WHOLE_BUFFER
 

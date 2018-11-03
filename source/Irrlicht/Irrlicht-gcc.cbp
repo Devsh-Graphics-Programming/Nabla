@@ -380,8 +380,10 @@
 		<Unit filename="../../include/irr/core/memory/new_delete.h" />
 		<Unit filename="../../include/irr/macros.h" />
 		<Unit filename="../../include/irr/video/GPUMemoryAllocatorBase.h" />
+		<Unit filename="../../include/irr/video/HostDeviceMirrorBufferAllocator.h" />
 		<Unit filename="../../include/irr/video/ResizableBufferingAllocator.h" />
 		<Unit filename="../../include/irr/video/SimpleGPUBufferAllocator.h" />
+		<Unit filename="../../include/irr/video/StreamingGPUBufferAllocator.h" />
 		<Unit filename="../../include/irr/video/StreamingTransientDataBuffer.h" />
 		<Unit filename="../../include/irrlicht.h" />
 		<Unit filename="../../include/line2d.h" />
@@ -401,6 +403,10 @@
 		<Unit filename="../../include/vector2d.h" />
 		<Unit filename="../../include/vector3d.h" />
 		<Unit filename="../../include/vectorSIMD.h" />
+		<Unit filename="../../src/irr/video/GPUMemoryAllocatorBase.cpp" />
+		<Unit filename="../../src/irr/video/HostDeviceMirrorBufferAllocator.cpp" />
+		<Unit filename="../../src/irr/video/SimpleGPUBufferAllocator.cpp" />
+		<Unit filename="../../src/irr/video/StreamingGPUBufferAllocator.cpp" />
 		<Unit filename="C3DSMeshFileLoader.cpp" />
 		<Unit filename="C3DSMeshFileLoader.h" />
 		<Unit filename="CAnimatedMeshSceneNode.cpp" />

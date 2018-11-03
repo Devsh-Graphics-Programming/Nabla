@@ -84,7 +84,7 @@ namespace os
 	static BOOL HighPerformanceTimerSupport = FALSE;
 	static BOOL MultiCore = FALSE;
 
-	void Timer::initTimer(bool usePerformanceTimer)
+	void Timer::initTimer()
 	{
 #if !defined(_WIN32_WCE) && !defined (_IRR_XBOX_PLATFORM_)
 		// workaround for hires timer on multiple core systems, bios bugs result in bad hires timers.
@@ -92,10 +92,7 @@ namespace os
 		GetSystemInfo(&sysinfo);
 		MultiCore = (sysinfo.dwNumberOfProcessors > 1);
 #endif
-		if (usePerformanceTimer)
-			HighPerformanceTimerSupport = QueryPerformanceFrequency(&HighPerformanceFreq);
-		else
-			HighPerformanceTimerSupport = FALSE;
+		HighPerformanceTimerSupport = QueryPerformanceFrequency(&HighPerformanceFreq);
 		initVirtualTimer();
 	}
 
@@ -183,7 +180,7 @@ namespace os
 		printf("%s\n", message.c_str());
 	}
 
-	void Timer::initTimer(bool usePerformanceTimer)
+	void Timer::initTimer()
 	{
 		initVirtualTimer();
 	}

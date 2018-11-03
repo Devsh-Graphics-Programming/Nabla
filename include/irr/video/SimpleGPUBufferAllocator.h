@@ -1,6 +1,7 @@
 #ifndef __IRR_SIMPLE_GPU_BUFFER_ALLOCATOR_H__
 #define __IRR_SIMPLE_GPU_BUFFER_ALLOCATOR_H__
 
+#include "IGPUBuffer.h"
 #include "irr/video/GPUMemoryAllocatorBase.h"
 
 
@@ -9,16 +10,26 @@ namespace irr
 namespace video
 {
 
+namespace impl
+{
+    class SimpleGPUBufferAllocatorBase : public GPUMemoryAllocatorBase
+    {
+        protected:
+            IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& bufferMemReqs);
+        public:
+            using GPUMemoryAllocatorBase::GPUMemoryAllocatorBase;
+    };
+}
+
 //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
 template<size_t kNumBuffers> // this is like a GPU memory RAID1 :)
-class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
+class SimpleGPUBufferAllocator : public impl::SimpleGPUBufferAllocatorBase
 {
         VkDeviceSize                                    mSizeOverride;
         VkDeviceSize                                    mAlignmentOverride; /// Used and valid only in Vulkan
         IDriverMemoryBacked::SDriverMemoryRequirements  mBufferMemReqs[kNumBuffers];
         std::pair<uint8_t*,IGPUBuffer*[kNumBuffers]>    lastAllocation;
 
-        //
         inline decltype(lastAllocation) createAndMapBuffers()
         {
             decltype(lastAllocation) retval; retval.first = nullptr;
@@ -26,7 +37,7 @@ class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
             {
                 mBufferMemReqs[i].vulkanReqs.size = mSizeOverride;
                 mBufferMemReqs[i].vulkanReqs.alignment = mAlignmentOverride;
-                retval.second[i] = mDriver->createGPUBufferOnDedMem(mBufferMemReqs[i],false);
+                retval.second[i] = createGPUBuffer(mBufferMemReqs[i]);
             }
 
             // only try to map the first buffer
@@ -43,7 +54,7 @@ class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
         }
     public:
         SimpleGPUBufferAllocator(IVideoDriver* inDriver, VkDeviceSize allBufferSize, VkDeviceSize allBufferAlign, const IDriverMemoryBacked::SDriverMemoryRequirements* bufferReqs) :
-                GPUMemoryAllocatorBase(inDriver), mSizeOverride(allBufferSize), mAlignmentOverride(allBufferAlign)
+                impl::SimpleGPUBufferAllocatorBase(inDriver), mSizeOverride(allBufferSize), mAlignmentOverride(allBufferAlign)
         {
             memcpy(mBufferMemReqs,bufferReqs,kNumBuffers*sizeof(IDriverMemoryBacked::SDriverMemoryRequirements));
             lastAllocation.first = nullptr;
@@ -64,7 +75,7 @@ class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
         }
 
         template<class AddressAllocator>
-        inline void*        reallocate(void* addr, size_t bytes, const AddressAllocator& allocToQueryOffsets, const bool* dontCopyBuffers=nullptr) noexcept
+        inline void*        reallocate(void* addr, size_t bytes, const AddressAllocator& allocToQueryOffsets, const bool* copyBuffers=nullptr) noexcept
         {
         #ifdef _DEBUG
             assert(lastAllocation.first==reinterpret_cast<uint8_t*>(addr));
@@ -81,7 +92,7 @@ class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
             //move contents
             for (size_t i=0; i<kNumBuffers; i++)
             {
-                if (dontCopyBuffers&&dontCopyBuffers[i])
+                if (copyBuffers&&!copyBuffers[i])
                     continue;
 
                 bool firstBuffer = i==0u;
@@ -98,7 +109,7 @@ class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
                     memcpy(tmp.first+newOffset,lastAllocation.first+oldOffset,copyRangeLen);
                 }
                 else
-                    mDriver->copyBuffer(lastAllocation.second[i],tmp.second[i],oldOffset,newOffset,copyRangeLen);
+                    copyBuffersWrapper(lastAllocation.second[i],tmp.second[i],oldOffset,newOffset,copyRangeLen);
             }
 
             //swap the internals of buffers

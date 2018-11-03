@@ -65,7 +65,7 @@ namespace os
 		static ITimer::RealTimeDate getRealTimeAndDate();
 
 		//! initializes the real timer
-		static void initTimer(bool usePerformanceTimer=true);
+		static void initTimer();
 
 		//! sets the current virtual (game) time
 		static void setTime(uint32_t time);

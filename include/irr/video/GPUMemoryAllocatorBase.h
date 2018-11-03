@@ -1,31 +1,27 @@
 #ifndef __IRR_GPU_MEMORY_ALLOCATOR_BASE_H__
 #define __IRR_GPU_MEMORY_ALLOCATOR_BASE_H__
 
-#include "IVideoDriver.h"
-
+#include "IGPUBuffer.h"
 
 namespace irr
 {
 namespace video
 {
 
+class IVideoDriver;
+
 class GPUMemoryAllocatorBase
 {
     protected:
-        IVideoDriver* mDriver;
+        IVideoDriver*   mDriver;
+        void            copyBuffersWrapper(IGPUBuffer* oldBuffer, IGPUBuffer* newBuffer, size_t oldOffset, size_t newOffset, size_t copyRangeLen);
 
         GPUMemoryAllocatorBase(IVideoDriver* inDriver) : mDriver(inDriver) {}
         virtual ~GPUMemoryAllocatorBase() {}
     public:
-        inline size_t           min_alignment() const
-        {
-            return mDriver->getMinimumMemoryMapAlignment();
-        }
+        size_t           min_alignment() const noexcept;
 
-        inline IVideoDriver*    getDriver() noexcept
-        {
-            return mDriver;
-        }
+        IVideoDriver*    getDriver() noexcept;
 };
 
 }

@@ -33,6 +33,8 @@ namespace irr
 			Doublebuffer(true),
 			IgnoreInput(false),
 			Stereobuffer(false),
+			StreamingDownloadBufferSize(0x4000000u), // 64MB should be enough to stream one 4K image in 64bit HDR without breaking it into chunks
+			StreamingUploadBufferSize(0x4000000u), // 64MB should be enough to stream one 4K image in 64bit HDR without breaking it into chunks
 			EventReceiver(0),
 			WindowId(0),
 #ifdef _DEBUG
@@ -41,7 +43,6 @@ namespace irr
 			LoggingLevel(ELL_INFORMATION),
 #endif
 			AuxGLContexts(0),
-			UsePerformanceTimer(true),
 			SDK_version_do_not_use(IRRLICHT_SDK_VERSION)
 		{
 		}
@@ -65,11 +66,12 @@ namespace irr
 			Doublebuffer = other.Doublebuffer;
 			IgnoreInput = other.IgnoreInput;
 			Stereobuffer = other.Stereobuffer;
+			StreamingDownloadBufferSize = other.StreamingDownloadBufferSize;
+			StreamingUploadBufferSize = other.StreamingUploadBufferSize;
 			EventReceiver = other.EventReceiver;
 			WindowId = other.WindowId;
 			LoggingLevel = other.LoggingLevel;
 			AuxGLContexts = other.AuxGLContexts;
-			UsePerformanceTimer = other.UsePerformanceTimer;
 			return *this;
 		}
 
@@ -167,6 +169,12 @@ namespace irr
 		Default value: false */
 		bool Stereobuffer;
 
+		//! Default download buffer size
+		uint32_t StreamingDownloadBufferSize;
+
+		//! Default upload buffer size
+		uint32_t StreamingUploadBufferSize;
+
 		//! A user created event receiver.
 		IEventReceiver* EventReceiver;
 
@@ -233,13 +241,6 @@ namespace irr
 
 		//!
 		uint8_t AuxGLContexts;
-
-		//! Enables use of high performance timers on Windows platform.
-		/** When performance timers are not used, standard GetTickCount()
-		is used instead which usually has worse resolution, but also less
-		problems with speed stepping and other techniques.
-		*/
-		bool UsePerformanceTimer;
 
 		//! Don't use or change this parameter.
 		/** Always set it to IRRLICHT_SDK_VERSION, which is done by default.

@@ -7,6 +7,7 @@
 
 #include "IDriverMemoryAllocation.h"
 #include "IGPUBuffer.h"
+#include "irr/video/StreamingTransientDataBuffer.h"
 #include "ITexture.h"
 #include "IMultisampleTexture.h"
 #include "ITextureBufferObject.h"
@@ -26,169 +27,180 @@ namespace video
 	Examples of such functionality are the creation of buffers, textures, etc.*/
 	class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
 	{
-	public:
-	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
-	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
-	        return reqs;
-	    }
-	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getSpilloverGPUMemoryReqs()
-	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
-	        return reqs;
-	    }
-	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
-	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
-	        return reqs;
-	    }
-	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getDownStreamingMemoryReqs()
-	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
-	        return reqs;
-	    }
-	    static inline IDriverMemoryBacked::SDriverMemoryRequirements getCPUSideGPUVisibleGPUMemoryReqs()
-	    {
-	        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-	        reqs.vulkanReqs.alignment = 0;
-	        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-	        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
-	        reqs.prefersDedicatedAllocation = true;
-	        reqs.requiresDedicatedAllocation = true;
-	        return reqs;
-	    }
+        protected:
+            StreamingTransientDataBufferMT<>* defaultDownloadBuffer;
+            StreamingTransientDataBufferMT<>* defaultUploadBuffer;
 
-	    //! Best for Mesh data, UBOs, SSBOs, etc.
-	    virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+            IDriver() : IVideoCapabilityReporter(), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr) {}
+        public:
+            static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
+            {
+                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+                reqs.vulkanReqs.alignment = 0;
+                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+                reqs.prefersDedicatedAllocation = true;
+                reqs.requiresDedicatedAllocation = true;
+                return reqs;
+            }
+            static inline IDriverMemoryBacked::SDriverMemoryRequirements getSpilloverGPUMemoryReqs()
+            {
+                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+                reqs.vulkanReqs.alignment = 0;
+                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+                reqs.prefersDedicatedAllocation = true;
+                reqs.requiresDedicatedAllocation = true;
+                return reqs;
+            }
+            static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
+            {
+                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+                reqs.vulkanReqs.alignment = 0;
+                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE;
+                reqs.prefersDedicatedAllocation = true;
+                reqs.requiresDedicatedAllocation = true;
+                return reqs;
+            }
+            static inline IDriverMemoryBacked::SDriverMemoryRequirements getDownStreamingMemoryReqs()
+            {
+                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+                reqs.vulkanReqs.alignment = 0;
+                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
+                reqs.prefersDedicatedAllocation = true;
+                reqs.requiresDedicatedAllocation = true;
+                return reqs;
+            }
+            static inline IDriverMemoryBacked::SDriverMemoryRequirements getCPUSideGPUVisibleGPUMemoryReqs()
+            {
+                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+                reqs.vulkanReqs.alignment = 0;
+                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
+                reqs.prefersDedicatedAllocation = true;
+                reqs.requiresDedicatedAllocation = true;
+                return reqs;
+            }
 
-	    //! If cannot or don't want to use device local memory, then this memory can be used
-	    /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
-	    virtual IDriverMemoryAllocation* allocateSpilloverMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+            //! Best for Mesh data, UBOs, SSBOs, etc.
+            virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
-	    //! Best for staging uploads to the GPU, such as resource streaming, and data to update the above memory with
-	    virtual IDriverMemoryAllocation* allocateUpStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+            //! If cannot or don't want to use device local memory, then this memory can be used
+            /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
+            virtual IDriverMemoryAllocation* allocateSpilloverMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
-	    //! Best for staging downloads from the GPU, such as query results, Z-Buffer, video frames for recording, etc.
-	    virtual IDriverMemoryAllocation* allocateDownStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+            //! Best for staging uploads to the GPU, such as resource streaming, and data to update the above memory with
+            virtual IDriverMemoryAllocation* allocateUpStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
-	    //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
-	    virtual IDriverMemoryAllocation* allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+            //! Best for staging downloads from the GPU, such as query results, Z-Buffer, video frames for recording, etc.
+            virtual IDriverMemoryAllocation* allocateDownStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
-	    //! Low level function used to implement the above, use with caution
-        virtual IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
+            //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
+            virtual IDriverMemoryAllocation* allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
-
-        //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the writes to become GPU visible
-        virtual void flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
-
-        //! Utility wrapper for the pointer based func
-        inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
-        {
-            flushMappedMemoryRanges(ranges.size(),ranges.data());
-        }
+            //! Low level function used to implement the above, use with caution
+            virtual IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
 
 
-	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-	    inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(const size_t& size)
-	    {
-	        auto reqs = getDeviceLocalGPUMemoryReqs();
-	        reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs,false);
-	    }
+            //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the writes to become GPU visible
+            virtual void flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
 
-	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-	    inline IGPUBuffer* createSpilloverGPUBufferOnDedMem(const size_t& size)
-	    {
-	        auto reqs = getSpilloverGPUMemoryReqs();
-	        reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs,false);
-	    }
-
-	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-	    inline IGPUBuffer* createUpStreamingGPUBufferOnDedMem(const size_t& size)
-	    {
-	        auto reqs = getUpStreamingMemoryReqs();
-	        reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs,false);
-	    }
-
-	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-	    inline IGPUBuffer* createDownStreamingGPUBufferOnDedMem(const size_t& size)
-	    {
-	        auto reqs = getDownStreamingMemoryReqs();
-	        reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs,false);
-	    }
-
-	    //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-	    inline IGPUBuffer* createCPUSideGPUVisibleGPUBufferOnDedMem(const size_t& size)
-	    {
-	        auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
-	        reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(reqs,false);
-	    }
-
-	    //! Low level function used to implement the above, use with caution
-        virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
+            //! Utility wrapper for the pointer based func
+            inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
+            {
+                flushMappedMemoryRanges(ranges.size(),ranges.data());
+            }
 
 
-        //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) {return nullptr;}
+            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+            inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(const size_t& size)
+            {
+                auto reqs = getDeviceLocalGPUMemoryReqs();
+                reqs.vulkanReqs.size = size;
+                return this->createGPUBufferOnDedMem(reqs,false);
+            }
+
+            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+            inline IGPUBuffer* createSpilloverGPUBufferOnDedMem(const size_t& size)
+            {
+                auto reqs = getSpilloverGPUMemoryReqs();
+                reqs.vulkanReqs.size = size;
+                return this->createGPUBufferOnDedMem(reqs,false);
+            }
+
+            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+            inline IGPUBuffer* createUpStreamingGPUBufferOnDedMem(const size_t& size)
+            {
+                auto reqs = getUpStreamingMemoryReqs();
+                reqs.vulkanReqs.size = size;
+                return this->createGPUBufferOnDedMem(reqs,false);
+            }
+
+            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+            inline IGPUBuffer* createDownStreamingGPUBufferOnDedMem(const size_t& size)
+            {
+                auto reqs = getDownStreamingMemoryReqs();
+                reqs.vulkanReqs.size = size;
+                return this->createGPUBufferOnDedMem(reqs,false);
+            }
+
+            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+            inline IGPUBuffer* createCPUSideGPUVisibleGPUBufferOnDedMem(const size_t& size)
+            {
+                auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
+                reqs.vulkanReqs.size = size;
+                return this->createGPUBufferOnDedMem(reqs,false);
+            }
+
+            //! Low level function used to implement the above, use with caution
+            virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
+
+            //!
+            virtual StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer() {return defaultDownloadBuffer;}
+
+            //!
+            virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer;}
 
 
-        //! Creates a framebuffer object with no attachments
-        virtual IFrameBuffer* addFrameBuffer() {return nullptr;}
+            //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively
+            virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) {return nullptr;}
 
 
-        //these will have to be created by a query pool anyway
-        virtual IQueryObject* createPrimitivesGeneratedQuery() {return nullptr;}
-        virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} //depr
-        virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
-        virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
+            //! Creates a framebuffer object with no attachments
+            virtual IFrameBuffer* addFrameBuffer() {return nullptr;}
 
 
-		//! Convenience function for releasing all images in a mip chain.
-		/**
-		\param List of .
-		\return .
-		Bla bla. */
-		static inline void dropWholeMipChain(const core::vector<CImageData*>& mipImages)
-		{
-		    for (core::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
-                (*it)->drop();
-		}
-		//!
-		template< class Iter >
-		static inline void dropWholeMipChain(Iter it, Iter limit)
-		{
-		    for (; it!=limit; it++)
-                (*it)->drop();
-		}
+            //these will have to be created by a query pool anyway
+            virtual IQueryObject* createPrimitivesGeneratedQuery() {return nullptr;}
+            virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} //depr
+            virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
+            virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
+
+
+            //! Convenience function for releasing all images in a mip chain.
+            /**
+            \param List of .
+            \return .
+            Bla bla. */
+            static inline void dropWholeMipChain(const core::vector<CImageData*>& mipImages)
+            {
+                for (core::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
+                    (*it)->drop();
+            }
+            //!
+            template< class Iter >
+            static inline void dropWholeMipChain(Iter it, Iter limit)
+            {
+                for (; it!=limit; it++)
+                    (*it)->drop();
+            }
 	};
 
 } // end namespace video

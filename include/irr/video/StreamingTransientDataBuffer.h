@@ -5,112 +5,12 @@
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
-#include "irr/video/GPUMemoryAllocatorBase.h"
+#include "irr/video/StreamingGPUBufferAllocator.h"
 
 namespace irr
 {
 namespace video
 {
-
-
-//! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
-class StreamingGPUBufferAllocator : public GPUMemoryAllocatorBase
-{
-        IDriverMemoryBacked::SDriverMemoryRequirements  mBufferMemReqs;
-        std::pair<uint8_t*,IGPUBuffer*>                 lastAllocation;
-
-        inline auto     createAndMapBuffer()
-        {
-            decltype(lastAllocation) retval; retval.first = nullptr;
-            retval.second = mDriver->createGPUBufferOnDedMem(mBufferMemReqs,false);
-
-            auto rangeToMap = IDriverMemoryAllocation::MemoryRange{0u,mBufferMemReqs.vulkanReqs.size};
-            auto memory = const_cast<IDriverMemoryAllocation*>(retval.second->getBoundMemory());
-            auto mappingCaps = mBufferMemReqs.mappingCapability&IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
-            retval.first  = reinterpret_cast<uint8_t*>(memory->mapMemoryRange(static_cast<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(mappingCaps),rangeToMap));
-
-            return retval;
-        }
-    public:
-        StreamingGPUBufferAllocator(IVideoDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs) :
-                        GPUMemoryAllocatorBase(inDriver), mBufferMemReqs(bufferReqs), lastAllocation(nullptr,nullptr)
-        {
-            assert(mBufferMemReqs.mappingCapability&IDriverMemoryAllocation::EMCAF_READ_AND_WRITE); // have to have mapping access to the buffer!
-        }
-
-        inline void*        allocate(size_t bytes) noexcept
-        {
-        #ifdef _DEBUG
-            assert(!lastAllocation.first && !lastAllocation.second);
-        #endif // _DEBUG
-            mBufferMemReqs.vulkanReqs.size = bytes;
-            lastAllocation = createAndMapBuffer();
-            return lastAllocation.first;
-        }
-
-        template<class AddressAllocator>
-        inline void*        reallocate(void* addr, size_t bytes, const AddressAllocator& allocToQueryOffsets, bool dontCopyBuffers=false) noexcept
-        {
-        #ifdef _DEBUG
-            assert(lastAllocation.first && lastAllocation.second);
-        #endif // _DEBUG
-
-            // set up new size
-            auto oldSize = mBufferMemReqs.vulkanReqs.size;
-            mBufferMemReqs.vulkanReqs.size = bytes;
-            //allocate new buffer
-            auto tmp = createAndMapBuffer();
-
-            //move contents
-            if (!dontCopyBuffers)
-            {
-                // only first buffer is bound to allocator
-                size_t oldOffset = allocToQueryOffsets.get_align_offset();
-                size_t newOffset = AddressAllocator::aligned_start_offset(reinterpret_cast<size_t>(tmp.first),allocToQueryOffsets.max_alignment());
-                auto copyRangeLen = std::min(oldSize-oldOffset,bytes-newOffset);
-
-                if ((lastAllocation.second->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_READ) &&
-                    (tmp.second->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_WRITE)) // can read from old and write to new
-                {
-                    memcpy(tmp.first+newOffset,lastAllocation.first+oldOffset,copyRangeLen);
-                }
-                else
-                    mDriver->copyBuffer(lastAllocation.second,tmp.second,oldOffset,newOffset,copyRangeLen);
-            }
-
-            //swap the internals of buffers
-            const_cast<IDriverMemoryAllocation*>(lastAllocation.second->getBoundMemory())->unmapMemory();
-            lastAllocation.second->pseudoMoveAssign(tmp.second);
-            tmp.second->drop();
-
-            //book-keeping and return
-            lastAllocation.first = tmp.first;
-            return lastAllocation.first;
-        }
-
-        inline void         deallocate(void* addr) noexcept
-        {
-        #ifdef _DEBUG
-            assert(lastAllocation.first && lastAllocation.second);
-        #endif // _DEBUG
-            lastAllocation.first = nullptr;
-            const_cast<IDriverMemoryAllocation*>(lastAllocation.second->getBoundMemory())->unmapMemory();
-            lastAllocation.second->drop();
-            lastAllocation.second = nullptr;
-        }
-
-
-        // extras
-        inline IGPUBuffer*  getAllocatedBuffer()
-        {
-            return lastAllocation.second;
-        }
-
-        inline void*        getAllocatedPointer()
-        {
-            return lastAllocation.first;
-        }
-};
 
 
 template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t> >
@@ -277,6 +177,11 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         };
         GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
 };
+
+
+template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t> >
+using StreamingTransientDataBufferMT = StreamingTransientDataBufferST<_size_type,CPUAllocator>;
+
 
 }
 }
