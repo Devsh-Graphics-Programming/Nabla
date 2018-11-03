@@ -179,8 +179,74 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
 };
 
 
-template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t> >
-using StreamingTransientDataBufferMT = StreamingTransientDataBufferST<_size_type,CPUAllocator>;
+template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class BasicLockable=std::mutex>
+class StreamingTransientDataBufferMT : public StreamingTransientDataBufferST<_size_type,CPUAllocator>
+{
+        typedef StreamingTransientDataBufferST<_size_type,CPUAllocator> Base;
+    protected:
+        BasicLockable lock;
+    public:
+        typedef typename Base::size_type                                size_type;
+        static constexpr size_type                                      invalid_address = Base::invalid_address;
+
+        using Base::Base;
+
+
+        inline bool         needsManualFlushOrInvalidate() const
+        {
+            lock.lock();
+            bool retval = !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);
+            lock.unlock();
+            return retval;
+        }
+
+
+        //! With the right Data Allocator, this pointer should remain constant after first allocation but the underlying object may change!
+        inline IGPUBuffer*  getBuffer() noexcept
+        {
+            return Base::getBuffer();
+        }
+
+        //! you should really `this->get_lock()` if you need the pointer to not become invalid while you use it
+        inline void*        getBufferPointer() noexcept
+        {
+            return Base::getBufferPointer();
+        }
+
+
+        template<typename... Args>
+        inline size_type    multi_alloc(Args&&... args) noexcept
+        {
+            lock.lock();
+            auto retval = Base::multi_alloc(std::forward<Args>(args)...);
+            lock.unlock();
+            return retval;
+        }
+
+        template<typename... Args>
+        inline size_type    multi_place(Args&&... args) noexcept
+        {
+            lock.lock();
+            auto retval = Base::multi_place(std::forward<Args>(args)...);
+            lock.unlock();
+            return retval;
+        }
+
+        template<typename... Args>
+        inline void         multi_free(Args&&... args) noexcept
+        {
+            lock.lock();
+            Base::multi_free(std::forward<Args>(args)...);
+            lock.unlock();
+        }
+
+
+        //! Extra == Use WITH EXTREME CAUTION
+        inline BasicLockable&   get_lock() noexcept
+        {
+            return lock;
+        }
+};
 
 
 }
