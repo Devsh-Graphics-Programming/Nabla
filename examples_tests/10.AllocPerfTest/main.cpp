@@ -73,14 +73,14 @@ int main()
 
     size_t allocSize = 128;
 
-    constexpr size_t kMaxAllocs = 10000u;
+    constexpr size_t kMinAllocs = 10000u;
+    constexpr size_t kMaxAllocs = 20000u;
 
 
 	scene::ISceneManager* smgr = device->getSceneManager();
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-        ///core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<uint32_t> ,video::StreamingGPUBufferAllocator,core::allocator<uint8_t> > mAllocator; // no point for a streaming buffer to grow
 
     video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
     reqs.vulkanReqs.size = 0x1000000u;
@@ -92,9 +92,8 @@ int main()
     reqs.requiresDedicatedAllocation = true;
     video::StreamingTransientDataBufferST<>* buffer = new video::StreamingTransientDataBufferST<>(driver,reqs);
 
-    std::random_device rd;
-    std::mt19937 mt(rd());
-    std::uniform_int_distribution<uint32_t> allocsPerFrame(1, kMaxAllocs);
+    std::mt19937 mt(0xdeadu);
+    std::uniform_int_distribution<uint32_t> allocsPerFrame(kMinAllocs,kMaxAllocs);
     std::uniform_int_distribution<uint32_t> size(1, 1024*1024);
     std::uniform_int_distribution<uint32_t> alignment(1, 128);
 

@@ -206,7 +206,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
             std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,Base::freeListCount};
 
             // using findFreeListInsertIndex on purpose
-            for (uint32_t level=findFreeListInsertIndex(bytes); level<Base::freeListCount && bestWastedSpace; level++)
+            for (uint32_t level=Base::findFreeListInsertIndex(bytes); level<Base::freeListCount && bestWastedSpace; level++)
             for (Block* it=Base::freeListStack[level]; it!=(Base::freeListStack[level]+Base::freeListStackCtr[level]) && bestWastedSpace; it++)
             {
                 Block tmp;
