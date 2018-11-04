@@ -81,11 +81,11 @@ class GeneralpurposeAddressAllocatorBase
 
 
         //methods
-        inline uint32_t          findFreeListInsertIndex(size_type byteSize) noexcept
+        inline uint32_t          findFreeListInsertIndex(size_type byteSize) const noexcept
         {
             return findFreeListInsertIndex(byteSize,minBlockSize);
         }
-        inline uint32_t          findFreeListSearchIndex(size_type byteSize) noexcept
+        inline uint32_t          findFreeListSearchIndex(size_type byteSize) const noexcept
         {
             uint32_t retval = findFreeListInsertIndex(byteSize);
             if (retval+1u<freeListCount)
@@ -177,6 +177,12 @@ class GeneralpurposeAddressAllocatorBase
             return retval;
         }
 
+
+        inline size_type        getBiggestPossibleFrontWaste(size_type alignment) const noexcept
+        {
+            return alignment+minBlockSize_minus1;
+        }
+
     private:
         //! Lists contain blocks of size < (minBlock<<listIndex)*2 && size >= (minBlock<<listIndex)
         static inline uint32_t  findFreeListInsertIndex(size_type byteSize, size_type minBlockSz) noexcept
@@ -249,13 +255,10 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
         GeneralpurposeAddressAllocatorStrategy(size_type bufSz, size_type minBlockSz) noexcept : Base(bufSz,minBlockSz) {}
 
 
-        inline std::pair<Block,Block> findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
+        inline std::pair<Block,Block>   findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
-            auto floor      = Base::minBlockSize/alignment;
-            floor          *= alignment;
-            auto remainder  = Base::minBlockSize-floor;
-            auto biggestPossibleFrontWaste = floor+alignment+remainder-1u;
-            for (uint32_t level=Base::findFreeListSearchIndex(bytes+biggestPossibleFrontWaste+Base::minBlockSize); level<Base::freeListCount; level++)
+            auto maxWastedSpace = Base::getBiggestPossibleFrontWaste(alignment)+Base::minBlockSize;
+            for (uint32_t level=Base::findFreeListSearchIndex(bytes+maxWastedSpace); level<Base::freeListCount; level++)
             {
                 // have any free blocks
                 if (!Base::freeListStackCtr[level])
@@ -411,13 +414,19 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
         inline size_type        max_size() const noexcept
         {
-            const auto maxWastedSpace   = std::max(Base::maxRequestableAlignment,AllocStrategy::minBlockSize)+AllocStrategy::minBlockSize;
+            const auto maxWastedSpace   = AllocStrategy::getBiggestPossibleFrontWaste(Base::maxRequestableAlignment)+AllocStrategy::minBlockSize;
             const auto lowestLimit      = AllocStrategy::findFreeListSearchIndex(maxWastedSpace);
             for (decltype(AllocStrategy::freeListCount) i=AllocStrategy::freeListCount; i>lowestLimit; i--)
             {
                 size_type level = i-1u;
-                if (AllocStrategy::freeListStackCtr[level])
-                    return (size_type(AllocStrategy::minBlockSize)<<level)-maxWastedSpace;
+                auto blockCount = AllocStrategy::freeListStackCtr[level];
+                if (!blockCount)
+                    continue;
+
+                blockCount--;
+                auto length = AllocStrategy::freeListStack[level][blockCount].getLength();
+                if (length>maxWastedSpace)
+                    return length-maxWastedSpace;
             }
 
             return 0u;

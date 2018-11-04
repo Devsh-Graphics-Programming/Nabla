@@ -106,8 +106,7 @@ int main()
     size_t yComps = 0x1u<<9;
     size_t zComps = 0x1u<<9;
     size_t verts = xComps*yComps*zComps;
-    size_t bufSize = verts;
-    bufSize *= 4;
+    uint32_t bufSize = verts*sizeof(uint32_t);
     uint32_t* mem = (uint32_t*)malloc(bufSize);
     for (size_t i=0; i<xComps; i++)
     for (size_t j=0; j<yComps; j++)
@@ -116,16 +115,35 @@ int main()
         mem[i+xComps*(j+yComps*k)] = (i<<20)|(j<<10)|(k);
     }
 
-    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-    reqs.vulkanReqs.size = bufSize;
-    reqs.vulkanReqs.alignment = 4;
-    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-    reqs.prefersDedicatedAllocation = true;
-    reqs.requiresDedicatedAllocation = true;
-    video::IGPUBuffer* positionBuf = driver->createGPUBufferOnDedMem(reqs,true);
-    positionBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),mem);
+    video::IGPUBuffer* positionBuf = driver->createDeviceLocalGPUBufferOnDedMem(bufSize);
+    //! Buffer we want to upload is too big, so staging buffer must be used multiple times to upload the full data in parts
+    auto upStreamBuff = driver->getDefaultUpStreamingBuffer();
+    for (uint32_t uploadedSize=0; uploadedSize<bufSize;)
+    {
+        // the offset upload range by how much has already been uploaded
+        const void* dataPtr = reinterpret_cast<uint8_t*>(mem)+uploadedSize;
+        //without offset initialized to invalid_address multi_alloc/multi_place will ignore the request for allocation for that particular element
+        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+        uint32_t alignment = sizeof(uint32_t);
+        // max_size gives us the largest allocation we can hope to be able to perform
+        uint32_t size = core::alignDown(upStreamBuff->max_size(),alignment);
+        // multi_place can fail to allocate if the memory has not been freed yet and it times out on the wait (see comment to multi_free)_
+        upStreamBuff->multi_place(std::chrono::milliseconds(50u),1u,(const void* const*)&dataPtr,&offset,&size,&alignment);
+        // keep trying again
+        if (offset==video::StreamingTransientDataBufferMT<>::invalid_address)
+            continue;
+
+        // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
+        if (upStreamBuff->needsManualFlushOrInvalidate())
+            driver->flushMappedMemoryRanges({{upStreamBuff->getBuffer()->getBoundMemory(),offset,size}});
+        // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
+        driver->copyBuffer(upStreamBuff->getBuffer(),positionBuf,offset,uploadedSize,size);
+        // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
+        upStreamBuff->multi_free(1u,&offset,&size,driver->placeFence());
+        //try upload the next chunk
+        uploadedSize += size;
+    }
+    //positionBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),mem);
     free(mem);
 
 

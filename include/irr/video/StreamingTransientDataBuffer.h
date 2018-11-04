@@ -51,18 +51,31 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
 
         inline void*        getBufferPointer() noexcept {return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getAllocatedPointer();}
 
-        // have to try each fence once (need a function for that)
-        // but only try a few fences before the next alloc attempt
-        // hpw many fences to try at each step?
+
+        inline size_type    max_size() const noexcept {return mAllocator.getAddressAllocator().max_size();}
+
+
         template<typename... Args>
-        inline size_type    multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
+        inline size_type    multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
+        {
+            return multi_alloc(std::chrono::nanoseconds(50000ull),count,outAddresses,bytes,std::forward<Args>(args)...);
+        }
+
+        template<typename... Args>
+        inline size_type    multi_place(uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, const size_type* alignment, Args&&... args) noexcept
+        {
+            return multi_place(std::chrono::nanoseconds(50000ull),count,dataToPlace,outAddresses,bytes,std::forward<Args>(args)...);
+        }
+
+        template<typename... Args>
+        inline size_type    multi_alloc(const std::chrono::nanoseconds& maxWait, uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
         {
             // try allocate once
             size_type unallocatedSize = try_multi_alloc(count,outAddresses,bytes,args...);
             if (!unallocatedSize)
                 return 0u;
 
-            auto maxWaitPoint = std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(50000ull); // 50 us
+            auto maxWaitPoint = std::chrono::high_resolution_clock::now()+maxWait; // 50 us
             // then try to wait at least once and allocate
             do
             {
@@ -77,12 +90,12 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         }
 
         template<typename... Args>
-        inline size_type    multi_place(uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, const size_type* alignment, const Args&... args) noexcept
+        inline size_type    multi_place(const std::chrono::nanoseconds& maxWait, uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, const size_type* alignment, const Args&... args) noexcept
         {
         #ifdef _DEBUG
             assert(getBuffer()->getBoundMemory());
         #endif // _DEBUG
-            auto retval = multi_alloc(count,outAddresses,bytes,alignment,args...);
+            auto retval = multi_alloc(maxWait,count,outAddresses,bytes,alignment,args...);
             // fill with data
             for (uint32_t i=0; i<count; i++)
             {
@@ -215,6 +228,9 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         {
             return Base::getBufferPointer();
         }
+
+        //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
+        inline size_type    max_size() const noexcept {return Base::max_size();}
 
 
         template<typename... Args>
