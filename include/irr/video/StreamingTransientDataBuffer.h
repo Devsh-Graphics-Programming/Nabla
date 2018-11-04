@@ -23,6 +23,9 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         typedef typename BasicAddressAllocator::size_type           size_type;
         static constexpr size_type                                  invalid_address = BasicAddressAllocator::invalid_address;
 
+        #define DUMMY_DEFAULT_CONSTRUCTOR StreamingTransientDataBufferST() {}
+        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
+        #undef DUMMY_DEFAULT_CONSTRUCTOR
         //!
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
@@ -180,7 +183,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
 
 
 template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class BasicLockable=std::mutex>
-class StreamingTransientDataBufferMT : public StreamingTransientDataBufferST<_size_type,CPUAllocator>
+class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<_size_type,CPUAllocator>, public virtual core::IReferenceCounted
 {
         typedef StreamingTransientDataBufferST<_size_type,CPUAllocator> Base;
     protected:

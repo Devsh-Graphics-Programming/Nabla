@@ -31,7 +31,16 @@ namespace video
             StreamingTransientDataBufferMT<>* defaultDownloadBuffer;
             StreamingTransientDataBufferMT<>* defaultUploadBuffer;
 
+
             IDriver() : IVideoCapabilityReporter(), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr) {}
+
+            virtual ~IDriver()
+            {
+                if (defaultDownloadBuffer)
+                    defaultDownloadBuffer->drop();
+                if (defaultUploadBuffer)
+                    defaultUploadBuffer->drop();
+            }
         public:
             static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
             {
