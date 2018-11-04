@@ -195,29 +195,29 @@ int main()
                 1,3,5,3,5,7
             };
 
-            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-            reqs.vulkanReqs.size = sizeof(vertices)+sizeof(indices_indexed16);
-            reqs.vulkanReqs.alignment = 4;
-            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-            reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-            reqs.prefersDedicatedAllocation = true;
-            reqs.requiresDedicatedAllocation = true;
-            video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
-            buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
-            buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
+            auto upStreamBuff = driver->getDefaultUpStreamingBuffer();
+            const void* dataToPlace[2]  = {vertices,indices_indexed16};
+            uint32_t offsets[2]         = {video::StreamingTransientDataBufferMT<>::invalid_address,video::StreamingTransientDataBufferMT<>::invalid_address};
+            uint32_t alignments[2]      = {sizeof(decltype(vertices[0u])),sizeof(decltype(indices_indexed16[0u]))};
+            uint32_t sizes[2]           = {sizeof(vertices),sizeof(indices_indexed16)};
+            upStreamBuff->multi_place(2u,(const void* const*)dataToPlace,(uint32_t*)&offsets,(uint32_t*)&sizes,(uint32_t*)&alignments);
+            if (upStreamBuff->needsManualFlushOrInvalidate())
+            {
+                auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
+                driver->flushMappedMemoryRanges({video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[0],sizes[0]),video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[1],sizes[1])});
+            }
 
 
+            auto buff = upStreamBuff->getBuffer();
             scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0]));
-            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_NORMALIZED_UNSIGNED_BYTE,sizeof(VertexStruct),offsetof(VertexStruct,Col[0]));
+            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0])+offsets[0]);
+            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_NORMALIZED_UNSIGNED_BYTE,sizeof(VertexStruct),offsetof(VertexStruct,Col[0])+offsets[0]);
             desc->mapIndexBuffer(buff);
-            buff->drop();
 
 
             scene::IGPUMeshBuffer* mb = new scene::IGPUMeshBuffer();
             mb->setMeshDataAndFormat(desc);
-            mb->setIndexBufferOffset(sizeof(vertices));
+            mb->setIndexBufferOffset(offsets[1]);
             mb->setIndexType(scene::EIT_16BIT);
             mb->setIndexCount(2*3*6);
             desc->drop();
@@ -227,6 +227,8 @@ int main()
             driver->setMaterial(material);
             driver->drawMeshBuffer(mb);
             mb->drop();
+
+            upStreamBuff->multi_free(1u,(uint32_t*)&offsets,(uint32_t*)&sizes,driver->placeFence());
         }
 
 		driver->endScene();

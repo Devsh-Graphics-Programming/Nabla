@@ -9,7 +9,7 @@ using namespace core;
 
 #define BIG_PRIMORIAL 116396280
 
-#include "irrpack.h"
+#include "irr/irrpack.h"
 template<size_t extraDataCnt = 1> // do not use more than 16
 class ParticleStruct
 {
@@ -23,7 +23,7 @@ class ParticleStruct
             return Key<other.Key;
         }
 } PACK_STRUCT;
-#include "irrunpack.h"
+#include "irr/irrunpack.h"
 
 int main()
 {
@@ -58,8 +58,19 @@ int main()
     for (size_t i=0; i<elementCount; i++)
         randomData[i].Key = rand();
 
+    uint32_t bufferSize = elementCount*elementSize;
     //! GPU buffer allocated using ARB_buffer_storage, you can rewrite this part into pure OpenGL of your choosing
-    video::COpenGLBuffer* buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createGPUBuffer(elementCount*elementSize,randomData));
+    video::COpenGLBuffer* buffer = dynamic_cast<video::COpenGLBuffer*>(driver->createDeviceLocalGPUBufferOnDedMem(bufferSize));
+    uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+    uint32_t alignment = 8u;
+    auto upStreamBuff = driver->getDefaultUpStreamingBuffer();
+    upStreamBuff->multi_place(1u,(const void* const*)&randomData,&offset,&bufferSize,&alignment);
+    if (upStreamBuff->needsManualFlushOrInvalidate())
+    {
+        driver->flushMappedMemoryRanges({{upStreamBuff->getBuffer()->getBoundMemory(),offset,bufferSize}});
+    }
+    driver->copyBuffer(upStreamBuff->getBuffer(),buffer,offset,0u,bufferSize);
+    upStreamBuff->multi_free(1u,&offset,&bufferSize,driver->placeFence());
     // buffer will later be dropped
 
     //! sort on CPU to compare results

@@ -195,7 +195,7 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         using Base::Base;
 
 
-        inline bool         needsManualFlushOrInvalidate() const
+        inline bool         needsManualFlushOrInvalidate()
         {
             lock.lock();
             bool retval = !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);
