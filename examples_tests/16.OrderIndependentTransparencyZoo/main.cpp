@@ -3,6 +3,8 @@
 #include <iostream>
 #include <cstdio>
 
+#include "../ext/FullScreenTriangle/FullScreenTriangle.h"
+
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "COpenGLStateManager.h"
 
@@ -113,13 +115,6 @@ public:
 };
 
 
-#include "irr/irrpack.h"
-struct ScreenQuadVertexStruct
-{
-    float Pos[3];
-    uint8_t TexCoord[2];
-} PACK_STRUCT;
-#include "irr/irrunpack.h"
 
 int main()
 {
@@ -129,10 +124,10 @@ int main()
 	printf(" (2) Stencil Routed Original\n"); //records k-first fragments (needs sorting for depth complexity>k)
 	printf(" (3) Stencil Routed A-la DevSH\n"); //records k nearest fragments from k disjoint sets
 	printf(" (4) Stencil Routed Min-Transmission\n"); //records k most opaque fragments from k disjoint sets (by putting the alpha value into the Z-buffer)
-	printf(" (5) Bin Sorted\n");
+	printf(" (5) A-Buffer\n");
 	printf(" (6) Stochastic\n");
-	printf(" (7) AMD DX11 Method\n");
-	printf(" (X) XXX\n");
+	printf(" (7) Adaptive OIT\n");
+	printf(" (8) Moment Transparency\n");
 	/** TODO
 	+ A-Buffer http://www.icare3d.org/codes-and-projects/codes/opengl-4-0-abuffer-v2-0-linked-lists-of-fragment-pages.html
 	+ Linked List
@@ -199,57 +194,8 @@ int main()
         }
     }
 
-    //! Set up screenquad
-    scene::IGPUMeshBuffer* screenQuadMeshBuffer = new scene::IGPUMeshBuffer();
-    {
-        ScreenQuadVertexStruct vertices[4];
-        vertices[0].Pos[0] = -1.f;
-        vertices[0].Pos[1] = -1.f;
-        vertices[0].Pos[2] = 0.5f;
-        vertices[0].TexCoord[0] = 0;
-        vertices[0].TexCoord[1] = 0;
-        vertices[1].Pos[0] = 1.f;
-        vertices[1].Pos[1] = -1.f;
-        vertices[1].Pos[2] = 0.5f;
-        vertices[1].TexCoord[0] = 1;
-        vertices[1].TexCoord[1] = 0;
-        vertices[2].Pos[0] = -1.f;
-        vertices[2].Pos[1] = 1.f;
-        vertices[2].Pos[2] = 0.5f;
-        vertices[2].TexCoord[0] = 0;
-        vertices[2].TexCoord[1] = 1;
-        vertices[3].Pos[0] = 1.f;
-        vertices[3].Pos[1] = 1.f;
-        vertices[3].Pos[2] = 0.5f;
-        vertices[3].TexCoord[0] = 1;
-        vertices[3].TexCoord[1] = 1;
-
-        uint16_t indices_indexed16[] = {0,1,2,2,1,3};
-
-        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-        reqs.vulkanReqs.size = sizeof(vertices)+sizeof(indices_indexed16);
-        reqs.vulkanReqs.alignment = 4;
-        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-        reqs.prefersDedicatedAllocation = true;
-        reqs.requiresDedicatedAllocation = true;
-        video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
-        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
-        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
-
-        scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-        screenQuadMeshBuffer->setMeshDataAndFormat(desc);
-        desc->drop();
-
-        desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(ScreenQuadVertexStruct),0);
-        desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
-        desc->mapIndexBuffer(buff);
-        screenQuadMeshBuffer->setIndexBufferOffset(sizeof(vertices));
-        screenQuadMeshBuffer->setIndexType(scene::EIT_16BIT);
-        screenQuadMeshBuffer->setIndexCount(6);
-        buff->drop();
-    }
+    //! Set up screen triangle for post-processing
+    scene::IGPUMeshBuffer* screenTriangleMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
 
 
     //! Must be Power Of Two!
@@ -496,7 +442,7 @@ int main()
                         glStencilFunc(GL_ALWAYS,i+2,transparencyLayers-1);
                         video::COpenGLExtensionHandler::extGlSampleMaski(0,0x1u<<i);
                         driver->setMaterial(initMaterial);
-                        driver->drawMeshBuffer(screenQuadMeshBuffer);
+                        driver->drawMeshBuffer(screenTriangleMeshBuffer);
                     }
                     video::COpenGLExtensionHandler::extGlSampleMaski(0,~0x0u);
                     glDisable(GL_SAMPLE_MASK);
@@ -524,7 +470,7 @@ int main()
                         driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
 
                         driver->setMaterial(resolveMaterial);
-                        driver->drawMeshBuffer(screenQuadMeshBuffer);
+                        driver->drawMeshBuffer(screenTriangleMeshBuffer);
                     }
                     //to reset the depth mask
                     ///driver->setMaterial(video::SMaterial());
@@ -552,7 +498,7 @@ int main()
                         glStencilFunc(GL_ALWAYS,i,transparencyLayers-1);
                         video::COpenGLExtensionHandler::extGlSampleMaski(0,0x1u<<i);
                         driver->setMaterial(initMaterial);
-                        driver->drawMeshBuffer(screenQuadMeshBuffer);
+                        driver->drawMeshBuffer(screenTriangleMeshBuffer);
                     }
                     video::COpenGLExtensionHandler::extGlSampleMaski(0,~0x0u);
                     glDisable(GL_SAMPLE_MASK);
@@ -580,7 +526,7 @@ int main()
                         driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
 
                         driver->setMaterial(resolveMaterial);
-                        driver->drawMeshBuffer(screenQuadMeshBuffer);
+                        driver->drawMeshBuffer(screenTriangleMeshBuffer);
                     }
                     //to reset the depth mask
                     ///driver->setMaterial(video::SMaterial());
@@ -610,8 +556,8 @@ int main()
     driver->removeAllFrameBuffers();
     driver->removeAllMultisampleTextures();
 
-    if (screenQuadMeshBuffer)
-        screenQuadMeshBuffer->drop();
+    if (screenTriangleMeshBuffer)
+        screenTriangleMeshBuffer->drop();
 
 
     gpumesh->drop();

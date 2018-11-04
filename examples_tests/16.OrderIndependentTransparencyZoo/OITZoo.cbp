@@ -81,6 +81,7 @@
 			<Add option="-W" />
 			<Add directory="../../include" />
 		</Compiler>
+		<Unit filename="../../ext/FullScreenTriangle/FullScreenTriangle.h" />
 		<Unit filename="main.cpp" />
 		<Unit filename="mesh.frag" />
 		<Unit filename="mesh.vert" />

@@ -183,49 +183,6 @@ int main()
         //! Also draws the meshbuffer
         smgr->drawAll();
 
-        //! Stress test for memleaks aside from demo how to create meshes that live on the GPU RAM
-        {/*
-            scene::IGPUMeshBuffer* mb = new scene::IGPUMeshBuffer();
-            scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-            mb->setMeshDataAndFormat(desc);
-            desc->drop();
-
-            uint16_t indices_indexed16[] = {
-                0,1,2,1,2,3,
-                4,5,6,5,6,7,
-                0,1,4,1,4,5,
-                2,3,6,3,6,7,
-                0,2,4,2,4,6,
-                1,3,5,3,5,7
-            };
-            video::IGPUBuffer* index = driver->createGPUBuffer(sizeof(indices_indexed16),indices_indexed16);
-            desc->mapIndexBuffer(index);
-            mb->setIndexType(scene::EIT_16BIT);
-            mb->setIndexCount(2*3*6);
-            mb->setIndexRange(0,7);
-            index->drop();
-
-            float attrArr[] = {
-                -1.f,-1.f,-1.f,0.f,0.f,
-                 1.f,-1.f,-1.f,0.5f,0.f,
-                -1.f, 1.f,-1.f,1.f,0.f,
-                 1.f, 1.f,-1.f,0.f,0.5f,
-                -1.f,-1.f, 1.f,0.5f,0.5f,
-                 1.f,-1.f, 1.f,1.f,0.5f,
-                -1.f, 1.f, 1.f,0.f,1.f,
-                 1.f, 1.f, 1.f,0.5f,1.f
-            };
-            video::IGPUBuffer* attr0 = driver->createGPUBuffer(sizeof(attrArr),attrArr);
-            desc->mapVertexAttrBuffer(attr0,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,20,0);
-            desc->mapVertexAttrBuffer(attr0,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_FLOAT,20,3*4);
-            attr0->drop();
-
-            driver->setTransform(video::ETS_WORLD,core::matrix4());
-            driver->setMaterial(material);
-            driver->drawMeshBuffer(mb);
-            mb->drop();*/
-        }
-
 		driver->endScene();
 
 		// display frames per second in window title
