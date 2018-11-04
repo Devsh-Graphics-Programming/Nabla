@@ -1154,7 +1154,7 @@ namespace irr { namespace video
     {
         impl::decode_r11g11b10f<double>(_pix[0], _output);
     }
-	
+
 	namespace impl
     {
         template<typename T, uint32_t chCnt>
@@ -1247,6 +1247,21 @@ namespace irr { namespace video
     inline void decodePixels<ECF_R64G64B64A64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef64<double, 4u>(_pix[0], _output);
+    }
+
+    template<>
+    inline void decodePixels<ECF_E5B9G9R9_UFLOAT_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
+
+        const uint64_t exp = (pix >> 27) << 52;
+        for (uint32_t i = 0u; i < 3u; ++i)
+        {
+            uint64_t out = 0u;
+            out |= uint64_t((pix >> (9*i)) & 0x1ffu) << (52-9);
+            out |= exp;
+            memcpy(_output+i, &out, 8);
+        }
     }
 	
     // Block Compression formats
@@ -1550,6 +1565,33 @@ namespace irr { namespace video
         case ECF_R16G16B16_SNORM: decodePixels<ECF_R16G16B16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R16G16B16A16_UNORM: decodePixels<ECF_R16G16B16A16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R16G16B16A16_SNORM: decodePixels<ECF_R16G16B16A16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16_SFLOAT: decodePixels<ECF_R16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16_SFLOAT: decodePixels<ECF_R16G16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16_SFLOAT: decodePixels<ECF_R16G16B16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R16G16B16A16_SFLOAT: decodePixels<ECF_R16G16B16A16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32_SFLOAT: decodePixels<ECF_R32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32G32_SFLOAT: decodePixels<ECF_R32G32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32G32B32_SFLOAT: decodePixels<ECF_R32G32B32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R32G32B32A32_SFLOAT: decodePixels<ECF_R32G32B32A32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64_SFLOAT: decodePixels<ECF_R64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64G64_SFLOAT: decodePixels<ECF_R64G64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64G64B64_SFLOAT: decodePixels<ECF_R64G64B64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R64G64B64A64_SFLOAT: decodePixels<ECF_R64G64B64A64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B10G11R11_UFLOAT_PACK32: decodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_E5B9G9R9_UFLOAT_PACK32: decodePixels<ECF_E5B9G9R9_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_BC1_RGB_UNORM_BLOCK: decodePixels<ECF_BC1_RGB_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_BC1_RGB_SRGB_BLOCK: decodePixels<ECF_BC1_RGB_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_BC1_RGBA_UNORM_BLOCK: decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_BC1_RGBA_SRGB_BLOCK: decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_BC2_UNORM_BLOCK: decodePixels<ECF_BC2_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_BC2_SRGB_BLOCK: decodePixels<ECF_BC2_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_BC3_UNORM_BLOCK: decodePixels<ECF_BC3_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_BC3_SRGB_BLOCK: decodePixels<ECF_BC3_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_G8_B8_R8_3PLANE_420_UNORM: decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_G8_B8R8_2PLANE_420_UNORM: decodePixels<ECF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_G8_B8_R8_3PLANE_422_UNORM: decodePixels<ECF_G8_B8_R8_3PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_G8_B8R8_2PLANE_422_UNORM: decodePixels<ECF_G8_B8R8_2PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_G8_B8_R8_3PLANE_444_UNORM: decodePixels<ECF_G8_B8_R8_3PLANE_444_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
         default: return false;
         }
     }

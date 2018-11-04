@@ -3025,6 +3025,29 @@ namespace irr { namespace video
     {
         impl::encodef64<double, 4u>(_pix, _input);
     }
+
+    template<>
+    inline void encodePixels<ECF_E5B9G9R9_UFLOAT_PACK32, double>(void* _pix, const double* _input)
+    {
+        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
+        pix = 0u;
+        uint32_t exp;
+        {
+            uint64_t inp;
+            memcpy(&inp, _input, 8);
+            inp >>= 52;
+            exp = inp & 0x7ffu;
+            exp <<= 27;
+        }
+        for (uint32_t i = 0u; i < 3u; ++i)
+        {
+            uint64_t inp;
+            memcpy(&inp, _input+i, 8);
+            uint32_t m = (inp >> (52-9)) & 0x1ffu;
+            pix |= (m << (9*i));
+        }
+        pix |= exp;
+    }
 	
     template<typename T>
     inline bool encodePixels(ECOLOR_FORMAT _fmt, void* _pix, const T* _input);
@@ -3070,6 +3093,20 @@ namespace irr { namespace video
         case ECF_R16G16B16_SNORM: encodePixels<ECF_R16G16B16_SNORM, double>(_pix, _input); return true;
         case ECF_R16G16B16A16_UNORM: encodePixels<ECF_R16G16B16A16_UNORM, double>(_pix, _input); return true;
         case ECF_R16G16B16A16_SNORM: encodePixels<ECF_R16G16B16A16_SNORM, double>(_pix, _input); return true;
+        case ECF_R16_SFLOAT: encodePixels<ECF_R16_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R16G16_SFLOAT: encodePixels<ECF_R16G16_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R16G16B16_SFLOAT: encodePixels<ECF_R16G16B16_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R16G16B16A16_SFLOAT: encodePixels<ECF_R16G16B16A16_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R32_SFLOAT: encodePixels<ECF_R32_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R32G32_SFLOAT: encodePixels<ECF_R32G32_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R32G32B32_SFLOAT: encodePixels<ECF_R32G32B32_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R32G32B32A32_SFLOAT: encodePixels<ECF_R32G32B32A32_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R64_SFLOAT: encodePixels<ECF_R64_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R64G64_SFLOAT: encodePixels<ECF_R64G64_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R64G64B64_SFLOAT: encodePixels<ECF_R64G64B64_SFLOAT, double>(_pix, _input); return true;
+        case ECF_R64G64B64A64_SFLOAT: encodePixels<ECF_R64G64B64A64_SFLOAT, double>(_pix, _input); return true;
+        case ECF_B10G11R11_UFLOAT_PACK32: encodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(_pix, _input); return true;
+        case ECF_E5B9G9R9_UFLOAT_PACK32: encodePixels<ECF_E5B9G9R9_UFLOAT_PACK32, double>(_pix, _input); return true;
         default: return false;
         }
     }
