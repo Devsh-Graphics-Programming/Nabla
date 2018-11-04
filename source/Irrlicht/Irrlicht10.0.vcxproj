@@ -733,6 +733,7 @@
     <ClCompile Include="CMeshCache.cpp" />
     <ClCompile Include="CMeshManipulator.cpp" />
     <ClCompile Include="CMeshSceneNodeInstanced.cpp" />
+    <ClCompile Include="convertColor.cpp" />
     <ClCompile Include="convert_utf\ConvertUTF.c" />
     <ClCompile Include="COpenCLHandler.cpp" />
     <ClCompile Include="COpenGL1DTexture.cpp" />

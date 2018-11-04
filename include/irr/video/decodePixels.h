@@ -1507,12 +1507,12 @@ namespace irr { namespace video
 	
 	//! Runtime-given format decode
     template<typename T>
-    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY);
+    inline bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY);
     template<typename T>
-    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
+    inline bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
 	
     template<>
-    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
@@ -1554,7 +1554,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool decodePixels<int64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline bool decodePixels<int64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
@@ -1583,7 +1583,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool decodePixels<uint64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline bool decodePixels<uint64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
@@ -1619,7 +1619,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         switch (_fmt)
         {

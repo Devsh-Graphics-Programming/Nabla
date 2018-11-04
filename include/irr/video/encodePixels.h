@@ -3027,12 +3027,12 @@ namespace irr { namespace video
     }
 	
     template<typename T>
-    bool encodePixels(ECOLOR_FORMAT _fmt, void* _pix, const T* _input);
+    inline bool encodePixels(ECOLOR_FORMAT _fmt, void* _pix, const T* _input);
     template<typename T>
-    bool encodePixels(ECOLOR_FORMAT _fmt, void* _pix, const T* _input, uint64_t _scale);
+    inline bool encodePixels(ECOLOR_FORMAT _fmt, void* _pix, const T* _input, uint64_t _scale);
 	
     template<>
-    bool encodePixels<double>(ECOLOR_FORMAT _fmt, void* _pix, const double* _input)
+    inline bool encodePixels<double>(ECOLOR_FORMAT _fmt, void* _pix, const double* _input)
     {
         switch (_fmt)
         {
@@ -3074,7 +3074,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool encodePixels<int64_t>(ECOLOR_FORMAT _fmt, void* _pix, const int64_t* _input)
+    inline bool encodePixels<int64_t>(ECOLOR_FORMAT _fmt, void* _pix, const int64_t* _input)
     {
         switch (_fmt)
         {
@@ -3103,7 +3103,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool encodePixels<uint64_t>(ECOLOR_FORMAT _fmt, void* _pix, const uint64_t* _input)
+    inline bool encodePixels<uint64_t>(ECOLOR_FORMAT _fmt, void* _pix, const uint64_t* _input)
     {
         switch (_fmt)
         {
@@ -3139,7 +3139,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool encodePixels<double>(ECOLOR_FORMAT _fmt, void* _pix, const double* _input, uint64_t _scale)
+    inline bool encodePixels<double>(ECOLOR_FORMAT _fmt, void* _pix, const double* _input, uint64_t _scale)
     {
         switch (_fmt)
         {

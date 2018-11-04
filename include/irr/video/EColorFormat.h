@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <type_traits>
 #include "IrrCompileConfig.h"
+#include "vector3d.h"
 
 namespace irr
 {
