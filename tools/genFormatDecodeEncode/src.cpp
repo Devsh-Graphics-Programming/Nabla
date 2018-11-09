@@ -71,6 +71,7 @@ uint32_t parseFmtSpec(std::string _fmtName, uint32_t _outBitsPerCh[4], uint32_t 
     {
         flags |= EFS_SRGB;
         flags |= EFS_UNSIGNED;
+        flags |= EFS_NORMALIZED;
     }
     if (_fmtName.find("PACK") != std::string::npos)
         flags |= EFS_PACKED;
