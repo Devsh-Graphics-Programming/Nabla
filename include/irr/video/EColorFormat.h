@@ -1,5 +1,5 @@
-#ifndef __IRR_E_COLOR_FORMAT_H_INCLUDED__
-#define __IRR_E_COLOR_FORMAT_H_INCLUDED__
+#ifndef __IRR_E_COLOR_H_INCLUDED__
+#define __IRR_E_COLOR_H_INCLUDED__
 
 #include <cstdint>
 #include <type_traits>
@@ -179,6 +179,34 @@ namespace video
         ECF_BC2_SRGB_BLOCK,
         ECF_BC3_UNORM_BLOCK,
         ECF_BC3_SRGB_BLOCK,
+        ECF_ASTC_4x4_UNORM_BLOCK,
+        ECF_ASTC_4x4_SRGB_BLOCK,
+        ECF_ASTC_5x4_UNORM_BLOCK,
+        ECF_ASTC_5x4_SRGB_BLOCK,
+        ECF_ASTC_5x5_UNORM_BLOCK,
+        ECF_ASTC_5x5_SRGB_BLOCK,
+        ECF_ASTC_6x5_UNORM_BLOCK,
+        ECF_ASTC_6x5_SRGB_BLOCK,
+        ECF_ASTC_6x6_UNORM_BLOCK,
+        ECF_ASTC_6x6_SRGB_BLOCK,
+        ECF_ASTC_8x5_UNORM_BLOCK,
+        ECF_ASTC_8x5_SRGB_BLOCK,
+        ECF_ASTC_8x6_UNORM_BLOCK,
+        ECF_ASTC_8x6_SRGB_BLOCK,
+        ECF_ASTC_8x8_UNORM_BLOCK,
+        ECF_ASTC_8x8_SRGB_BLOCK,
+        ECF_ASTC_10x5_UNORM_BLOCK,
+        ECF_ASTC_10x5_SRGB_BLOCK,
+        ECF_ASTC_10x6_UNORM_BLOCK,
+        ECF_ASTC_10x6_SRGB_BLOCK,
+        ECF_ASTC_10x8_UNORM_BLOCK,
+        ECF_ASTC_10x8_SRGB_BLOCK,
+        ECF_ASTC_10x10_UNORM_BLOCK,
+        ECF_ASTC_10x10_SRGB_BLOCK,
+        ECF_ASTC_12x10_UNORM_BLOCK,
+        ECF_ASTC_12x10_SRGB_BLOCK,
+        ECF_ASTC_12x12_UNORM_BLOCK,
+        ECF_ASTC_12x12_SRGB_BLOCK,
 
         //! Planar formats
         ECF_G8_B8_R8_3PLANE_420_UNORM,
@@ -352,6 +380,36 @@ namespace video
         case ECF_R64G64_SFLOAT: return 16;
         case ECF_R64G64B64_SFLOAT: return 24;
         case ECF_R64G64B64A64_SFLOAT: return 32;
+
+        case ECF_ASTC_4x4_UNORM_BLOCK:
+        case ECF_ASTC_4x4_SRGB_BLOCK:
+        case ECF_ASTC_5x4_UNORM_BLOCK:
+        case ECF_ASTC_5x4_SRGB_BLOCK:
+        case ECF_ASTC_5x5_UNORM_BLOCK:
+        case ECF_ASTC_5x5_SRGB_BLOCK:
+        case ECF_ASTC_6x5_UNORM_BLOCK:
+        case ECF_ASTC_6x5_SRGB_BLOCK:
+        case ECF_ASTC_6x6_UNORM_BLOCK:
+        case ECF_ASTC_6x6_SRGB_BLOCK:
+        case ECF_ASTC_8x5_UNORM_BLOCK:
+        case ECF_ASTC_8x5_SRGB_BLOCK:
+        case ECF_ASTC_8x6_UNORM_BLOCK:
+        case ECF_ASTC_8x6_SRGB_BLOCK:
+        case ECF_ASTC_8x8_UNORM_BLOCK:
+        case ECF_ASTC_8x8_SRGB_BLOCK:
+        case ECF_ASTC_10x5_UNORM_BLOCK:
+        case ECF_ASTC_10x5_SRGB_BLOCK:
+        case ECF_ASTC_10x6_UNORM_BLOCK:
+        case ECF_ASTC_10x6_SRGB_BLOCK:
+        case ECF_ASTC_10x8_UNORM_BLOCK:
+        case ECF_ASTC_10x8_SRGB_BLOCK:
+        case ECF_ASTC_10x10_UNORM_BLOCK:
+        case ECF_ASTC_10x10_SRGB_BLOCK:
+        case ECF_ASTC_12x10_UNORM_BLOCK:
+        case ECF_ASTC_12x10_SRGB_BLOCK:
+        case ECF_ASTC_12x12_UNORM_BLOCK:
+        case ECF_ASTC_12x12_SRGB_BLOCK:
+            return 16;
         default: return 0;
         }
     }
@@ -368,7 +426,48 @@ namespace video
         case ECF_BC2_SRGB_BLOCK:
         case ECF_BC3_UNORM_BLOCK:
         case ECF_BC3_SRGB_BLOCK:
+        case ECF_ASTC_4x4_UNORM_BLOCK:
+        case ECF_ASTC_4x4_SRGB_BLOCK:
             return core::vector3d<uint32_t>(4u, 4u, 1u);
+        case ECF_ASTC_5x4_UNORM_BLOCK:
+        case ECF_ASTC_5x4_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(5u, 4u, 1u);
+        case ECF_ASTC_5x5_UNORM_BLOCK:
+        case ECF_ASTC_5x5_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(5u, 5u, 1u);
+        case ECF_ASTC_6x5_UNORM_BLOCK:
+        case ECF_ASTC_6x5_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(6u, 5u, 1u);
+        case ECF_ASTC_6x6_UNORM_BLOCK:
+        case ECF_ASTC_6x6_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(6u, 6u, 1u);
+        case ECF_ASTC_8x5_UNORM_BLOCK:
+        case ECF_ASTC_8x5_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(8u, 5u, 1u);
+        case ECF_ASTC_8x6_UNORM_BLOCK:
+        case ECF_ASTC_8x6_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(8u, 6u, 1u);
+        case ECF_ASTC_8x8_UNORM_BLOCK:
+        case ECF_ASTC_8x8_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(8u, 8u, 1u);
+        case ECF_ASTC_10x5_UNORM_BLOCK:
+        case ECF_ASTC_10x5_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(10u, 5u, 1u);
+        case ECF_ASTC_10x6_UNORM_BLOCK:
+        case ECF_ASTC_10x6_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(10u, 6u, 1u);
+        case ECF_ASTC_10x8_UNORM_BLOCK:
+        case ECF_ASTC_10x8_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(10u, 8u, 1u);
+        case ECF_ASTC_10x10_UNORM_BLOCK:
+        case ECF_ASTC_10x10_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(10u, 10u, 1u);
+        case ECF_ASTC_12x10_UNORM_BLOCK:
+        case ECF_ASTC_12x10_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(12u, 10u, 1u);
+        case ECF_ASTC_12x12_UNORM_BLOCK:
+        case ECF_ASTC_12x12_SRGB_BLOCK:
+            return core::vector3d<uint32_t>(12u, 12u, 1u);
         default:
             return core::vector3d<uint32_t>(1u);
         }
@@ -491,12 +590,21 @@ namespace video
     {
         return impl::is_any_of<
             cf,
+            ECF_R16_SFLOAT,
+            ECF_R16G16_SFLOAT,
             ECF_R16G16B16_SFLOAT,
+            ECF_R16G16B16A16_SFLOAT,
+            ECF_R32_SFLOAT,
+            ECF_R32G32_SFLOAT,
             ECF_R32G32B32_SFLOAT,
+            ECF_R32G32B32A32_SFLOAT,
             ECF_R64_SFLOAT,
             ECF_R64G64_SFLOAT,
             ECF_R64G64B64_SFLOAT,
-            ECF_R64G64B64A64_SFLOAT
+            ECF_R64G64B64A64_SFLOAT,
+            ECF_B10G11R11_UFLOAT_PACK32,
+            ECF_E5B9G9R9_UFLOAT_PACK32,
+            ECF_E5B9G9R9_UFLOAT_PACK32
         >::value;
     }
     template<ECOLOR_FORMAT cf>
@@ -563,7 +671,43 @@ namespace video
             ECF_R16G16B16A16_UNORM,
             ECF_R16G16B16A16_SNORM,
             ECF_R16G16B16A16_USCALED,
-            ECF_R16G16B16A16_SSCALED
+            ECF_BC1_RGB_UNORM_BLOCK,
+            ECF_BC1_RGB_SRGB_BLOCK,
+            ECF_BC1_RGBA_UNORM_BLOCK,
+            ECF_BC1_RGBA_SRGB_BLOCK,
+            ECF_BC2_UNORM_BLOCK,
+            ECF_BC2_SRGB_BLOCK,
+            ECF_BC3_UNORM_BLOCK,
+            ECF_BC3_SRGB_BLOCK,
+            ECF_BC3_SRGB_BLOCK,
+            ECF_ASTC_4x4_UNORM_BLOCK,
+            ECF_ASTC_4x4_SRGB_BLOCK,
+            ECF_ASTC_5x4_UNORM_BLOCK,
+            ECF_ASTC_5x4_SRGB_BLOCK,
+            ECF_ASTC_5x5_UNORM_BLOCK,
+            ECF_ASTC_5x5_SRGB_BLOCK,
+            ECF_ASTC_6x5_UNORM_BLOCK,
+            ECF_ASTC_6x5_SRGB_BLOCK,
+            ECF_ASTC_6x6_UNORM_BLOCK,
+            ECF_ASTC_6x6_SRGB_BLOCK,
+            ECF_ASTC_8x5_UNORM_BLOCK,
+            ECF_ASTC_8x5_SRGB_BLOCK,
+            ECF_ASTC_8x6_UNORM_BLOCK,
+            ECF_ASTC_8x6_SRGB_BLOCK,
+            ECF_ASTC_8x8_UNORM_BLOCK,
+            ECF_ASTC_8x8_SRGB_BLOCK,
+            ECF_ASTC_10x5_UNORM_BLOCK,
+            ECF_ASTC_10x5_SRGB_BLOCK,
+            ECF_ASTC_10x6_UNORM_BLOCK,
+            ECF_ASTC_10x6_SRGB_BLOCK,
+            ECF_ASTC_10x8_UNORM_BLOCK,
+            ECF_ASTC_10x8_SRGB_BLOCK,
+            ECF_ASTC_10x10_UNORM_BLOCK,
+            ECF_ASTC_10x10_SRGB_BLOCK,
+            ECF_ASTC_12x10_UNORM_BLOCK,
+            ECF_ASTC_12x10_SRGB_BLOCK,
+            ECF_ASTC_12x12_UNORM_BLOCK,
+            ECF_ASTC_12x12_SRGB_BLOCK
         > ::value;
     }
     template<ECOLOR_FORMAT cf>
@@ -611,7 +755,22 @@ namespace video
             ECF_B8G8R8_SRGB,
             ECF_R8G8B8A8_SRGB,
             ECF_B8G8R8A8_SRGB,
-            ECF_A8B8G8R8_SRGB_PACK32
+            ECF_A8B8G8R8_SRGB_PACK32,
+            ECF_ASTC_4x4_SRGB_BLOCK,
+            ECF_ASTC_5x4_SRGB_BLOCK,
+            ECF_ASTC_5x5_SRGB_BLOCK,
+            ECF_ASTC_6x5_SRGB_BLOCK,
+            ECF_ASTC_6x6_SRGB_BLOCK,
+            ECF_ASTC_8x5_SRGB_BLOCK,
+            ECF_ASTC_8x6_SRGB_BLOCK,
+            ECF_ASTC_8x8_SRGB_BLOCK,
+            ECF_ASTC_10x5_SRGB_BLOCK,
+            ECF_ASTC_10x6_SRGB_BLOCK,
+            ECF_ASTC_10x8_SRGB_BLOCK,
+            ECF_ASTC_10x10_SRGB_BLOCK,
+            ECF_ASTC_12x10_SRGB_BLOCK,
+            ECF_ASTC_12x12_SRGB_BLOCK,
+            ECF_ASTC_12x12_SRGB_BLOCK
         >::value;
     }
     template<ECOLOR_FORMAT cf>
@@ -627,7 +786,34 @@ namespace video
             ECF_BC2_SRGB_BLOCK,
             ECF_BC3_UNORM_BLOCK,
             ECF_BC3_SRGB_BLOCK,
-            ECF_BC3_SRGB_BLOCK
+            ECF_ASTC_4x4_UNORM_BLOCK,
+            ECF_ASTC_4x4_SRGB_BLOCK,
+            ECF_ASTC_5x4_UNORM_BLOCK,
+            ECF_ASTC_5x4_SRGB_BLOCK,
+            ECF_ASTC_5x5_UNORM_BLOCK,
+            ECF_ASTC_5x5_SRGB_BLOCK,
+            ECF_ASTC_6x5_UNORM_BLOCK,
+            ECF_ASTC_6x5_SRGB_BLOCK,
+            ECF_ASTC_6x6_UNORM_BLOCK,
+            ECF_ASTC_6x6_SRGB_BLOCK,
+            ECF_ASTC_8x5_UNORM_BLOCK,
+            ECF_ASTC_8x5_SRGB_BLOCK,
+            ECF_ASTC_8x6_UNORM_BLOCK,
+            ECF_ASTC_8x6_SRGB_BLOCK,
+            ECF_ASTC_8x8_UNORM_BLOCK,
+            ECF_ASTC_8x8_SRGB_BLOCK,
+            ECF_ASTC_10x5_UNORM_BLOCK,
+            ECF_ASTC_10x5_SRGB_BLOCK,
+            ECF_ASTC_10x6_UNORM_BLOCK,
+            ECF_ASTC_10x6_SRGB_BLOCK,
+            ECF_ASTC_10x8_UNORM_BLOCK,
+            ECF_ASTC_10x8_SRGB_BLOCK,
+            ECF_ASTC_10x10_UNORM_BLOCK,
+            ECF_ASTC_10x10_SRGB_BLOCK,
+            ECF_ASTC_12x10_UNORM_BLOCK,
+            ECF_ASTC_12x10_SRGB_BLOCK,
+            ECF_ASTC_12x12_UNORM_BLOCK,
+            ECF_ASTC_12x12_SRGB_BLOCK
         >::value;
     }
     template<ECOLOR_FORMAT cf>
@@ -817,12 +1003,20 @@ namespace video
     {
         switch (_fmt)
         {
+        case ECF_R16_SFLOAT:
+        case ECF_R16G16_SFLOAT:
         case ECF_R16G16B16_SFLOAT:
+        case ECF_R16G16B16A16_SFLOAT:
+        case ECF_R32_SFLOAT:
+        case ECF_R32G32_SFLOAT:
         case ECF_R32G32B32_SFLOAT:
+        case ECF_R32G32B32A32_SFLOAT:
         case ECF_R64_SFLOAT:
         case ECF_R64G64_SFLOAT:
         case ECF_R64G64B64_SFLOAT:
         case ECF_R64G64B64A64_SFLOAT:
+        case ECF_B10G11R11_UFLOAT_PACK32:
+        case ECF_E5B9G9R9_UFLOAT_PACK32:
             return true;
         default: return false;
         }
@@ -892,6 +1086,42 @@ namespace video
         case ECF_R16G16B16A16_SNORM:
         case ECF_R16G16B16A16_USCALED:
         case ECF_R16G16B16A16_SSCALED:
+        case ECF_BC1_RGB_UNORM_BLOCK:
+        case ECF_BC1_RGB_SRGB_BLOCK:
+        case ECF_BC1_RGBA_UNORM_BLOCK:
+        case ECF_BC1_RGBA_SRGB_BLOCK:
+        case ECF_BC2_UNORM_BLOCK:
+        case ECF_BC2_SRGB_BLOCK:
+        case ECF_BC3_UNORM_BLOCK:
+        case ECF_BC3_SRGB_BLOCK:
+        case ECF_ASTC_4x4_UNORM_BLOCK:
+        case ECF_ASTC_4x4_SRGB_BLOCK:
+        case ECF_ASTC_5x4_UNORM_BLOCK:
+        case ECF_ASTC_5x4_SRGB_BLOCK:
+        case ECF_ASTC_5x5_UNORM_BLOCK:
+        case ECF_ASTC_5x5_SRGB_BLOCK:
+        case ECF_ASTC_6x5_UNORM_BLOCK:
+        case ECF_ASTC_6x5_SRGB_BLOCK:
+        case ECF_ASTC_6x6_UNORM_BLOCK:
+        case ECF_ASTC_6x6_SRGB_BLOCK:
+        case ECF_ASTC_8x5_UNORM_BLOCK:
+        case ECF_ASTC_8x5_SRGB_BLOCK:
+        case ECF_ASTC_8x6_UNORM_BLOCK:
+        case ECF_ASTC_8x6_SRGB_BLOCK:
+        case ECF_ASTC_8x8_UNORM_BLOCK:
+        case ECF_ASTC_8x8_SRGB_BLOCK:
+        case ECF_ASTC_10x5_UNORM_BLOCK:
+        case ECF_ASTC_10x5_SRGB_BLOCK:
+        case ECF_ASTC_10x6_UNORM_BLOCK:
+        case ECF_ASTC_10x6_SRGB_BLOCK:
+        case ECF_ASTC_10x8_UNORM_BLOCK:
+        case ECF_ASTC_10x8_SRGB_BLOCK:
+        case ECF_ASTC_10x10_UNORM_BLOCK:
+        case ECF_ASTC_10x10_SRGB_BLOCK:
+        case ECF_ASTC_12x10_UNORM_BLOCK:
+        case ECF_ASTC_12x10_SRGB_BLOCK:
+        case ECF_ASTC_12x12_UNORM_BLOCK:
+        case ECF_ASTC_12x12_SRGB_BLOCK:
             return true;
         default: return false;
         }
@@ -942,6 +1172,24 @@ namespace video
         case ECF_R8G8B8A8_SRGB:
         case ECF_B8G8R8A8_SRGB:
         case ECF_A8B8G8R8_SRGB_PACK32:
+        case ECF_BC1_RGB_SRGB_BLOCK:
+        case ECF_BC1_RGBA_SRGB_BLOCK:
+        case ECF_BC2_SRGB_BLOCK:
+        case ECF_BC3_SRGB_BLOCK:
+        case ECF_ASTC_4x4_SRGB_BLOCK:
+        case ECF_ASTC_5x4_SRGB_BLOCK:
+        case ECF_ASTC_5x5_SRGB_BLOCK:
+        case ECF_ASTC_6x5_SRGB_BLOCK:
+        case ECF_ASTC_6x6_SRGB_BLOCK:
+        case ECF_ASTC_8x5_SRGB_BLOCK:
+        case ECF_ASTC_8x6_SRGB_BLOCK:
+        case ECF_ASTC_8x8_SRGB_BLOCK:
+        case ECF_ASTC_10x5_SRGB_BLOCK:
+        case ECF_ASTC_10x6_SRGB_BLOCK:
+        case ECF_ASTC_10x8_SRGB_BLOCK:
+        case ECF_ASTC_10x10_SRGB_BLOCK:
+        case ECF_ASTC_12x10_SRGB_BLOCK:
+        case ECF_ASTC_12x12_SRGB_BLOCK:
             return true;
         default: return false;
         }
@@ -978,4 +1226,4 @@ namespace video
 	
 }} //irr::video
 
-#endif //__IRR_E_COLOR_FORMAT_H_INCLUDED__
+#endif //__IRR_E_COLOR_H_INCLUDED__

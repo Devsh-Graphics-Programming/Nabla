@@ -6,6 +6,7 @@
 
 #include "coreutil.h"
 #include "EColorFormat.h"
+#include "../source/Irrlicht/astc/astc_codec_internals.h"
 
 namespace irr { namespace video
 {
@@ -1480,6 +1481,189 @@ namespace irr { namespace video
         impl::SRGB2lin(_output);
     }
 
+    namespace impl
+    {
+        template<uint32_t SX, uint32_t SY, bool SRGB = false>
+        void decodeASTC(const void* _pix, double* _output, uint32_t _x, uint32_t _y)
+        {
+            physical_compressed_block pcb = *reinterpret_cast<const physical_compressed_block*>(_pix);
+            symbolic_compressed_block scb;
+            physical_to_symbolic(SX, SY, 1, pcb, &scb);
+            imageblock pb;
+            decompress_symbolic_block(SRGB ? DECODE_LDR_SRGB : DECODE_HDR, SX, SY, 1, 0, 0, 0, &scb, &pb);
+            for (uint32_t i = 0u; i < 4u; ++i)
+                _output[i] = pb.orig_data[4*(_y*SX + _x) + i];
+        }
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_4x4_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<4u, 4u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_5x4_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<5u, 4u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_5x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<5u, 5u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_6x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<6u, 5u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_6x6_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<6u, 6u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_8x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<8u, 5u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_8x6_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<8u, 6u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_8x8_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<8u, 8u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_10x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<10u, 5u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_10x6_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<10u, 6u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_10x8_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<10u, 8u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_10x10_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<10u, 10u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_12x10_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<12u, 10u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_12x12_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<12u, 12u>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_4x4_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<4u, 4u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_5x4_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<5u, 4u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_5x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<5u, 5u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_6x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<6u, 5u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_6x6_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<6u, 6u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_8x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<8u, 5u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_8x6_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<8u, 6u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_8x8_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<8u, 8u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_10x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<10u, 5u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_10x6_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<10u, 6u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_10x8_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<10u, 8u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_10x10_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<10u, 10u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_12x10_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<12u, 10u, true>(_pix[0], _output, _x, _y);
+    }
+
+    template<>
+    inline void decodePixels<ECF_ASTC_12x12_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    {
+        impl::decodeASTC<12u, 12u, true>(_pix[0], _output, _x, _y);
+    }
+
     template<>
     inline void decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
@@ -1522,12 +1706,12 @@ namespace irr { namespace video
 	
 	//! Runtime-given format decode
     template<typename T>
-    inline bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY);
+    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY);
     template<typename T>
-    inline bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
+    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
 	
     template<>
-    inline bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
@@ -1595,8 +1779,9 @@ namespace irr { namespace video
         default: return false;
         }
     }
+    
     template<>
-    inline bool decodePixels<int64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    bool decodePixels<int64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
@@ -1625,7 +1810,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    inline bool decodePixels<uint64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    bool decodePixels<uint64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
@@ -1661,7 +1846,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    inline bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         switch (_fmt)
         {
