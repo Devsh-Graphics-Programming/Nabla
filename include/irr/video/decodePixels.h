@@ -165,19 +165,6 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
-    {
-        const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-    }
-	
-    template<>
     inline void decodePixels<ECF_R8G8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
@@ -223,26 +210,6 @@ namespace irr { namespace video
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
         _output[1] = ((pix >> 8) & 0xffLL);
-    }
-	
-    template<>
-    inline void decodePixels<ECF_R8G8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
-    {
-        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
     }
 	
     template<>
@@ -300,33 +267,6 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[2] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-    }
-	
-    template<>
     inline void decodePixels<ECF_B8G8R8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
@@ -378,33 +318,6 @@ namespace irr { namespace video
         _output[2] = ((pix >> 0) & 0xffLL);
         _output[1] = ((pix >> 8) & 0xffLL);
         _output[0] = ((pix >> 16) & 0xffLL);
-    }
-	
-    template<>
-    inline void decodePixels<ECF_B8G8R8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[0] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
     }
 	
     template<>
@@ -468,40 +381,6 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[2] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-        _output[3] = ((pix >> 24) & 0xffULL);
-        {
-            double lin = _output[3] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[3] = lin * 255.;
-        };
-    }
-	
-    template<>
     inline void decodePixels<ECF_B8G8R8A8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
@@ -562,40 +441,6 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[2] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[0] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[3] = ((pix >> 24) & 0xffULL);
-        {
-            double lin = _output[3] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[3] = lin * 255.;
-        };
-	}
-	
-    template<>
     inline void decodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
@@ -653,40 +498,6 @@ namespace irr { namespace video
         _output[1] = ((pix >> 8) & 0xffLL);
         _output[2] = ((pix >> 16) & 0xffLL);
         _output[3] = ((pix >> 24) & 0xffLL);
-    }
-	
-    template<>
-    inline void decodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
-    {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL);
-        {
-            double lin = _output[0] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[0] = lin * 255.;
-        };
-        _output[1] = ((pix >> 8) & 0xffULL);
-        {
-            double lin = _output[1] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[1] = lin * 255.;
-        };
-        _output[2] = ((pix >> 16) & 0xffULL);
-        {
-            double lin = _output[2] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[2] = lin * 255.;
-        };
-        _output[3] = ((pix >> 24) & 0xffULL);
-        {
-            double lin = _output[3] / 255.;
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-            _output[3] = lin * 255.;
-        };
     }
 	
     template<>
@@ -1136,7 +947,177 @@ namespace irr { namespace video
         for (uint32_t i = 0u; i < 4u; ++i)
             _output[i] = pix[i];
     }
+
+    template<>
+    inline void decodePixels<ECF_R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
+        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
+        {
+            double& lin = _output[0];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+    }
+
+    template<>
+    inline void decodePixels<ECF_R8G8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
+        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
+        {
+            double& lin = _output[0];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
+        {
+            double& lin = _output[1];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+    }
+
+    template<>
+    inline void decodePixels<ECF_R8G8B8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
+        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
+        {
+            double& lin = _output[0];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
+        {
+            double& lin = _output[1];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[2] = ((pix >> 16) & 0xffULL) / 255.;
+        {
+            double& lin = _output[2];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+    }
+
+    template<>
+    inline void decodePixels<ECF_B8G8R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
+        _output[2] = ((pix >> 0) & 0xffULL) / 255.;
+        {
+            double& lin = _output[2];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
+        {
+            double& lin = _output[1];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[0] = ((pix >> 16) & 0xffULL) / 255.;
+        {
+            double& lin = _output[0];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+    }
+
+    template<>
+    inline void decodePixels<ECF_R8G8B8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
+        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
+        {
+            double& lin = _output[0];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
+        {
+            double& lin = _output[1];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[2] = ((pix >> 16) & 0xffULL) / 255.;
+        {
+            double& lin = _output[2];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[3] = ((pix >> 24) & 0xffULL) / 255.;
+        {
+            double& lin = _output[3];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+    }
+
+    template<>
+    inline void decodePixels<ECF_B8G8R8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
+        _output[2] = ((pix >> 0) & 0xffULL) / 255.;
+        {
+            double& lin = _output[2];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
+        {
+            double& lin = _output[1];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[0] = ((pix >> 16) & 0xffULL) / 255.;
+        {
+            double& lin = _output[0];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[3] = ((pix >> 24) & 0xffULL) / 255.;
+        {
+            double& lin = _output[3];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+    }
+
+    template<>
+    inline void decodePixels<ECF_A8B8G8R8_SRGB_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
+        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
+        {
+            double& lin = _output[0];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
+        {
+            double& lin = _output[1];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[2] = ((pix >> 16) & 0xffULL) / 255.;
+        {
+            double& lin = _output[2];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+        _output[3] = ((pix >> 24) & 0xffULL) / 255.;
+        {
+            double& lin = _output[3];
+            if (lin <= 0.4045) lin /= 12.92;
+            else lin = pow((lin + 0.055) / 1.055, 2.4);
+        };
+    }
+
 	
+    //Floating point formats
 	namespace impl
     {
         template<typename T>
@@ -1749,6 +1730,13 @@ namespace irr { namespace video
         case ECF_R16G16B16_SNORM: decodePixels<ECF_R16G16B16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R16G16B16A16_UNORM: decodePixels<ECF_R16G16B16A16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R16G16B16A16_SNORM: decodePixels<ECF_R16G16B16A16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8_SRGB: decodePixels<ECF_R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8_SRGB: decodePixels<ECF_R8G8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8_SRGB: decodePixels<ECF_R8G8B8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8_SRGB: decodePixels<ECF_B8G8R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_R8G8B8A8_SRGB: decodePixels<ECF_R8G8B8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_B8G8R8A8_SRGB: decodePixels<ECF_B8G8R8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_A8B8G8R8_SRGB_PACK32: decodePixels<ECF_A8B8G8R8_SRGB_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R16_SFLOAT: decodePixels<ECF_R16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R16G16_SFLOAT: decodePixels<ECF_R16G16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R16G16B16_SFLOAT: decodePixels<ECF_R16G16B16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
@@ -1771,6 +1759,34 @@ namespace irr { namespace video
         case ECF_BC2_SRGB_BLOCK: decodePixels<ECF_BC2_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_BC3_UNORM_BLOCK: decodePixels<ECF_BC3_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_BC3_SRGB_BLOCK: decodePixels<ECF_BC3_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_4x4_UNORM_BLOCK: decodePixels<ECF_ASTC_4x4_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_4x4_SRGB_BLOCK: decodePixels<ECF_ASTC_4x4_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_5x4_UNORM_BLOCK: decodePixels<ECF_ASTC_5x4_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_5x4_SRGB_BLOCK: decodePixels<ECF_ASTC_5x4_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_5x5_UNORM_BLOCK: decodePixels<ECF_ASTC_5x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_5x5_SRGB_BLOCK: decodePixels<ECF_ASTC_5x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_6x5_UNORM_BLOCK: decodePixels<ECF_ASTC_6x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_6x5_SRGB_BLOCK: decodePixels<ECF_ASTC_6x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_6x6_UNORM_BLOCK: decodePixels<ECF_ASTC_6x6_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_6x6_SRGB_BLOCK: decodePixels<ECF_ASTC_6x6_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_8x5_UNORM_BLOCK: decodePixels<ECF_ASTC_8x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_8x5_SRGB_BLOCK: decodePixels<ECF_ASTC_8x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_8x6_UNORM_BLOCK: decodePixels<ECF_ASTC_8x6_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_8x6_SRGB_BLOCK: decodePixels<ECF_ASTC_8x6_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_8x8_UNORM_BLOCK: decodePixels<ECF_ASTC_8x8_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_8x8_SRGB_BLOCK: decodePixels<ECF_ASTC_8x8_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_10x5_UNORM_BLOCK: decodePixels<ECF_ASTC_10x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_10x5_SRGB_BLOCK: decodePixels<ECF_ASTC_10x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_10x6_UNORM_BLOCK: decodePixels<ECF_ASTC_10x6_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_10x6_SRGB_BLOCK: decodePixels<ECF_ASTC_10x6_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_10x8_UNORM_BLOCK: decodePixels<ECF_ASTC_10x8_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_10x8_SRGB_BLOCK: decodePixels<ECF_ASTC_10x8_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_10x10_UNORM_BLOCK: decodePixels<ECF_ASTC_10x10_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_10x10_SRGB_BLOCK: decodePixels<ECF_ASTC_10x10_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_12x10_UNORM_BLOCK: decodePixels<ECF_ASTC_12x10_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_12x10_SRGB_BLOCK: decodePixels<ECF_ASTC_12x10_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_12x12_UNORM_BLOCK: decodePixels<ECF_ASTC_12x12_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case ECF_ASTC_12x12_SRGB_BLOCK: decodePixels<ECF_ASTC_12x12_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_G8_B8_R8_3PLANE_420_UNORM: decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_G8_B8R8_2PLANE_420_UNORM: decodePixels<ECF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
         case ECF_G8_B8_R8_3PLANE_422_UNORM: decodePixels<ECF_G8_B8_R8_3PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
@@ -1815,19 +1831,12 @@ namespace irr { namespace video
         switch (_fmt)
         {
         case ECF_R8_UINT: decodePixels<ECF_R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8_SRGB: decodePixels<ECF_R8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R8G8_UINT: decodePixels<ECF_R8G8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8_SRGB: decodePixels<ECF_R8G8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R8G8B8_UINT: decodePixels<ECF_R8G8B8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8_SRGB: decodePixels<ECF_R8G8B8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         case ECF_B8G8R8_UINT: decodePixels<ECF_B8G8R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8_SRGB: decodePixels<ECF_B8G8R8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R8G8B8A8_UINT: decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8A8_SRGB: decodePixels<ECF_R8G8B8A8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         case ECF_B8G8R8A8_UINT: decodePixels<ECF_B8G8R8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8A8_SRGB: decodePixels<ECF_B8G8R8A8_SRGB, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         case ECF_A8B8G8R8_UINT_PACK32: decodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A8B8G8R8_SRGB_PACK32: decodePixels<ECF_A8B8G8R8_SRGB_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         case ECF_A2R10G10B10_UINT_PACK32: decodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         case ECF_A2B10G10R10_UINT_PACK32: decodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         case ECF_R16_UINT: decodePixels<ECF_R16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;

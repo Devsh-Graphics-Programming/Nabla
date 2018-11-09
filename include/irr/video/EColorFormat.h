@@ -539,22 +539,15 @@ namespace video
         return impl::is_any_of <
             cf,
             ECF_R8_SINT,
-            ECF_R8_SRGB,
             ECF_R8G8_SINT,
-            ECF_R8G8_SRGB,
             ECF_R8G8B8_SINT,
-            ECF_R8G8B8_SRGB,
             ECF_B8G8R8_UINT,
             ECF_B8G8R8_SINT,
-            ECF_B8G8R8_SRGB,
             ECF_R8G8B8A8_SINT,
-            ECF_R8G8B8A8_SRGB,
             ECF_B8G8R8A8_UINT,
             ECF_B8G8R8A8_SINT,
-            ECF_B8G8R8A8_SRGB,
             ECF_A8B8G8R8_UINT_PACK32,
             ECF_A8B8G8R8_SINT_PACK32,
-            ECF_A8B8G8R8_SRGB_PACK32,
             ECF_A2R10G10B10_UINT_PACK32,
             ECF_A2R10G10B10_SINT_PACK32,
             ECF_A2B10G10R10_UINT_PACK32,
@@ -671,6 +664,13 @@ namespace video
             ECF_R16G16B16A16_UNORM,
             ECF_R16G16B16A16_SNORM,
             ECF_R16G16B16A16_USCALED,
+            ECF_R8_SRGB,
+            ECF_R8G8_SRGB,
+            ECF_R8G8B8_SRGB,
+            ECF_B8G8R8_SRGB,
+            ECF_R8G8B8A8_SRGB,
+            ECF_B8G8R8A8_SRGB,
+            ECF_A8B8G8R8_SRGB_PACK32,
             ECF_BC1_RGB_UNORM_BLOCK,
             ECF_BC1_RGB_SRGB_BLOCK,
             ECF_BC1_RGBA_UNORM_BLOCK,
@@ -707,6 +707,7 @@ namespace video
             ECF_ASTC_12x10_UNORM_BLOCK,
             ECF_ASTC_12x10_SRGB_BLOCK,
             ECF_ASTC_12x12_UNORM_BLOCK,
+            ECF_ASTC_12x12_SRGB_BLOCK,
             ECF_ASTC_12x12_SRGB_BLOCK
         > ::value;
     }
@@ -1086,6 +1087,13 @@ namespace video
         case ECF_R16G16B16A16_SNORM:
         case ECF_R16G16B16A16_USCALED:
         case ECF_R16G16B16A16_SSCALED:
+        case ECF_R8_SRGB:
+        case ECF_R8G8_SRGB:
+        case ECF_R8G8B8_SRGB:
+        case ECF_B8G8R8_SRGB:
+        case ECF_R8G8B8A8_SRGB:
+        case ECF_B8G8R8A8_SRGB:
+        case ECF_A8B8G8R8_SRGB_PACK32:
         case ECF_BC1_RGB_UNORM_BLOCK:
         case ECF_BC1_RGB_SRGB_BLOCK:
         case ECF_BC1_RGBA_UNORM_BLOCK:
