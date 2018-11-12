@@ -62,7 +62,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         }
 
         template<typename... Args>
-        inline size_type    multi_place(uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, const size_type* alignment, Args&&... args) noexcept
+        inline size_type    multi_place(uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
         {
             return multi_place(std::chrono::nanoseconds(50000ull),count,dataToPlace,outAddresses,bytes,std::forward<Args>(args)...);
         }
