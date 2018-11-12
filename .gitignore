@@ -11,4 +11,5 @@ examples_tests/07.HardwareSkinning/bin/dwarf.baw
 source/Irrlicht/libIrrlichtServer.a
 lib/*
 doctemp/*
+.vscode/*
 
