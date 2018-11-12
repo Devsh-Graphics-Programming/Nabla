@@ -32,10 +32,9 @@ public:
 };
 
 #include "irr/irrpack.h"
-struct S3DLine
+struct S3DLineVertex
 {
-    float Start[3];
-    float End[3];
+    float Position[3];
     std::uint32_t Color[4];
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
@@ -45,7 +44,11 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
     public:
         static CDraw3DLine* create(video::IVideoDriver* _driver);
 
-        void draw(const S3DLine& line);
+        void draw(
+            float fromX, float fromY, float fromZ,
+            float toX, float toY, float toZ,
+            std::uint32_t r, std::uint32_t g, std::uint32_t b, std::uint32_t a
+        );
 
     private:
         CDraw3DLine(video::IVideoDriver* _driver);
@@ -56,22 +59,12 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
     scene::IGPUMeshDataFormatDesc* m_desc;
 
     scene::IGPUMeshBuffer* m_meshBuffer;
-    void* m_lineData[3];
-    static constexpr uint32_t offsets[3] =
-        {
-        video::StreamingTransientDataBufferMT<>::invalid_address,
-        video::StreamingTransientDataBufferMT<>::invalid_address
-        };
+    void* m_lineData[2];
 
-    static constexpr uint32_t alignments[3] =
-        {
-        sizeof(decltype(S3DLine::Start[0])),
-        sizeof(decltype(S3DLine::End[0])),
-        sizeof(decltype(S3DLine::Color[0]))
-        };
-
-    static constexpr uint32_t sizes[3] =
-        { sizeof(S3DLine::Start), sizeof(S3DLine::End), sizeof(S3DLine::Color) };
+    static const std::uint16_t m_indices[2];
+    static uint32_t offsets[2];
+    static const uint32_t alignments[2];
+    static const uint32_t sizes[2];
 };
 
 } // namespace draw

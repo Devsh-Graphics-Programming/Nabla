@@ -30,19 +30,16 @@ int main()
 
     uint64_t lastFPSTime = 0;
 
-    ext::draw::S3DLine line =
-    {
-        { 0.5f, 0.f, 0.f }, // start
-        { 1.5f, 0.f, 0.f }, // end
-        { 255, 0, 0, 0 }    // color
-    };
-
     while(device->run())
     if (device->isWindowActive())
     {
         driver->beginScene(true, false, video::SColor(0,0,0,0) );
 
-        draw3DLine->draw(line);
+        draw3DLine->draw(
+            0.5f, 0.f, 0.f, // start
+            1.5f, 0.f, 0.f, // end
+            255, 0, 0, 0    // color
+        );
 
         driver->endScene();
 
