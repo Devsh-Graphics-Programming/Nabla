@@ -28,17 +28,26 @@ int main()
     scene::ISceneManager* smgr = device->getSceneManager();
     auto draw3DLine = ext::draw::CDraw3DLine::create(driver);
 
+    auto camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.001f);
+
+    camera->setPosition(core::vector3df(-4,0,0));
+    camera->setTarget(core::vector3df(0,0,0));
+    camera->setNearValue(0.01f);
+    camera->setFarValue(10.0f);
+
+    smgr->setActiveCamera(camera);
+
     uint64_t lastFPSTime = 0;
 
     while(device->run())
     if (device->isWindowActive())
     {
-        driver->beginScene(true, false, video::SColor(0,0,0,0) );
+        driver->beginScene(true, false, video::SColor(255,255,255,255));
 
         draw3DLine->draw(
-            0.5f, 0.f, 0.f, // start
-            1.5f, 0.f, 0.f, // end
-            255, 0, 0, 0    // color
+            0.f, 0.f, 0.f,   // start
+            0.f, 100.f, 0.f, // end
+            255, 0, 0, 0     // color
         );
 
         driver->endScene();
