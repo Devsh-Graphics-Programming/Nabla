@@ -58,14 +58,14 @@ void CDraw3DLine::draw(
     m_meshBuffer->setPrimitiveType(EPT_LINES);
     m_meshBuffer->setMeshDataAndFormat(m_desc);
     m_meshBuffer->setIndexBufferOffset(m_offsets[1]);
-    // m_meshBuffer->setIndexType(EIT_16BIT);
+    m_meshBuffer->setIndexType(EIT_16BIT);
     m_meshBuffer->setIndexCount(2);
 
     m_driver->setTransform(E4X3TS_WORLD, core::matrix4x3());
     m_driver->setMaterial(m_material);
     m_driver->drawMeshBuffer(m_meshBuffer);
 
-    upStreamBuff->multi_free(1u,(uint32_t*)&m_offsets,(uint32_t*)&sizes,m_driver->placeFence());
+    upStreamBuff->multi_free(2u,(uint32_t*)&m_offsets,(uint32_t*)&sizes,m_driver->placeFence());
 }
 
 CDraw3DLine::~CDraw3DLine()
