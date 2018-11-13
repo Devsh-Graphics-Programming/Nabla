@@ -228,7 +228,7 @@ int main()
             driver->drawMeshBuffer(mb);
             mb->drop();
 
-            upStreamBuff->multi_free(1u,(uint32_t*)&offsets,(uint32_t*)&sizes,driver->placeFence());
+            upStreamBuff->multi_free(2u,(uint32_t*)&offsets,(uint32_t*)&sizes,driver->placeFence());
         }
 
 		driver->endScene();
