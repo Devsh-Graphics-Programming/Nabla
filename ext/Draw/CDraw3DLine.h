@@ -35,7 +35,7 @@ public:
 struct S3DLineVertex
 {
     float Position[3];
-    std::uint32_t Color[4];
+    float Color[4];
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 
@@ -47,7 +47,7 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
         void draw(
             float fromX, float fromY, float fromZ,
             float toX, float toY, float toZ,
-            std::uint32_t r, std::uint32_t g, std::uint32_t b, std::uint32_t a
+            float r, float g, float b, float a
         );
 
     private:
