@@ -33,7 +33,7 @@ int main()
     camera->setPosition(core::vector3df(0,0,-10));
     camera->setTarget(core::vector3df(0,0,0));
     camera->setNearValue(0.01f);
-    camera->setFarValue(10.0f);
+    camera->setFarValue(100.0f);
 
     smgr->setActiveCamera(camera);
 
@@ -42,7 +42,7 @@ int main()
     while(device->run())
     if (device->isWindowActive())
     {
-        driver->beginScene(true, false, video::SColor(255,255,255,255));
+        driver->beginScene(true, true, video::SColor(255,255,255,255));
 
         smgr->drawAll();
 
@@ -66,6 +66,8 @@ int main()
             lastFPSTime = time;
         }
     }
+
+    draw3DLine->drop();
 
     //create a screenshot
     video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
