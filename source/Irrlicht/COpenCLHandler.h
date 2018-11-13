@@ -31,7 +31,7 @@ class COpenCLHandler
 {
         COpenCLHandler() = delete;
     public:
-        class SOpenCLPlatformInfo : public AllocationOverrideDefault
+        class SOpenCLPlatformInfo : public core::AllocationOverrideDefault
         {
             public:
                 enum EOpenCLFeatures
@@ -39,7 +39,7 @@ class COpenCLHandler
                     IRR_KHR_GL_SHARING=0,
                     IRR_OpenCL_Feature_Count
                 };
-                class SOpenCLDeviceInfo : public AllocationOverrideDefault
+                class SOpenCLDeviceInfo : public core::AllocationOverrideDefault
                 {
                     public:
                         std::string Name;
