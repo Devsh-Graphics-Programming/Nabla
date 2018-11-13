@@ -51,7 +51,7 @@ void CDraw3DLine::draw(
     if (upStreamBuff->needsManualFlushOrInvalidate())
     {
         auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
-        m_driver->flushMappedMemoryRanges({{ upStreamMem,m_offsets[0],sizes[0] }, { upStreamMem,m_offsets[1],sizes[1] }});
+        m_driver->flushMappedMemoryRanges({{ upStreamMem,m_offsets[0],sizes[0] }});
     }
 
     auto buff = upStreamBuff->getBuffer();
