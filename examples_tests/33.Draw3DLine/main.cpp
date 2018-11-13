@@ -30,7 +30,7 @@ int main()
 
     auto camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.001f);
 
-    camera->setPosition(core::vector3df(-4,0,0));
+    camera->setPosition(core::vector3df(0,0,-10));
     camera->setTarget(core::vector3df(0,0,0));
     camera->setNearValue(0.01f);
     camera->setFarValue(10.0f);
@@ -44,10 +44,12 @@ int main()
     {
         driver->beginScene(true, false, video::SColor(255,255,255,255));
 
+        smgr->drawAll();
+
         draw3DLine->draw(
             0.f, 0.f, 0.f,   // start
             0.f, 100.f, 0.f, // end
-            255, 0, 0, 255   // color
+            1.f, 0, 0, 1.f   // color
         );
 
         driver->endScene();
