@@ -69,7 +69,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
                 dataSize = Base::dirtyRange.second-Base::dirtyRange.first;
             }
 
-            auto offset = streamingBuff->Place(flushRanges,data,dataSize,1u); //! TODO: Make a keep-trying-to-allocate mode in streamingBuff
+            auto offset = streamingBuff->Place(flushRanges,data,dataSize,1u); //! TODO: Make a keep-trying-to-allocate mode in streamingBuff with max timeout
             if (offset==StreamingTransientDataBuffer::invalid_address)
                 return false;
 

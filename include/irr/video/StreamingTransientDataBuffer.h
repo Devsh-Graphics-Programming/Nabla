@@ -55,6 +55,9 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         inline size_type    max_size() const noexcept {return mAllocator.getAddressAllocator().max_size();}
 
 
+        inline size_type    max_alignment() const noexcept {return mAllocator.getAddressAllocator().max_alignment();}
+
+
         template<typename... Args>
         inline size_type    multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
         {
@@ -231,6 +234,10 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
 
         //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
         inline size_type    max_size() const noexcept {return Base::max_size();}
+
+
+        //! this value should be immutable
+        inline size_type    max_alignment() const noexcept {return Base::max_alignment();}
 
 
         template<typename... Args>

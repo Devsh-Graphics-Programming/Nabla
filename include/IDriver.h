@@ -42,6 +42,14 @@ namespace video
                     defaultUploadBuffer->drop();
             }
         public:
+            //! needs to be "deleted" since its not refcounted by GPU driver internally
+            /** Since not owned by any openGL context and hence not owned by driver.
+            You normally need to call glFlush() after placing a fence
+            \param whether to perform an implicit flush the first time CPU waiting,
+            this only works if the first wait is from the same thread as the one which
+            placed the fence. **/
+            virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) = 0;
+
             static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
             {
                 IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -129,7 +137,7 @@ namespace video
 
 
             //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(const size_t& size)
+            inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(size_t size)
             {
                 auto reqs = getDeviceLocalGPUMemoryReqs();
                 reqs.vulkanReqs.size = size;
@@ -137,7 +145,7 @@ namespace video
             }
 
             //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createSpilloverGPUBufferOnDedMem(const size_t& size)
+            inline IGPUBuffer* createSpilloverGPUBufferOnDedMem(size_t size)
             {
                 auto reqs = getSpilloverGPUMemoryReqs();
                 reqs.vulkanReqs.size = size;
@@ -145,7 +153,7 @@ namespace video
             }
 
             //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createUpStreamingGPUBufferOnDedMem(const size_t& size)
+            inline IGPUBuffer* createUpStreamingGPUBufferOnDedMem(size_t size)
             {
                 auto reqs = getUpStreamingMemoryReqs();
                 reqs.vulkanReqs.size = size;
@@ -153,7 +161,7 @@ namespace video
             }
 
             //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createDownStreamingGPUBufferOnDedMem(const size_t& size)
+            inline IGPUBuffer* createDownStreamingGPUBufferOnDedMem(size_t size)
             {
                 auto reqs = getDownStreamingMemoryReqs();
                 reqs.vulkanReqs.size = size;
@@ -161,7 +169,7 @@ namespace video
             }
 
             //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createCPUSideGPUVisibleGPUBufferOnDedMem(const size_t& size)
+            inline IGPUBuffer* createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
             {
                 auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
                 reqs.vulkanReqs.size = size;
@@ -176,6 +184,39 @@ namespace video
 
             //!
             virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer;}
+
+            //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
+            inline IGPUBuffer* createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
+            {
+                IGPUBuffer*  retval = createDeviceLocalGPUBufferOnDedMem(size);
+
+                for (uint32_t uploadedSize=0; uploadedSize<size;)
+                {
+                    const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
+                    uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+                    uint32_t alignment = defaultUploadBuffer->max_alignment();
+                    uint32_t subSize = core::alignDown(defaultUploadBuffer->max_size(),alignment);
+
+                    defaultUploadBuffer->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&offset,&subSize,&alignment);
+                    // keep trying again
+                    if (offset==video::StreamingTransientDataBufferMT<>::invalid_address)
+                        continue;
+
+                    // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
+                    if (defaultUploadBuffer->needsManualFlushOrInvalidate())
+                        this->flushMappedMemoryRanges({{defaultUploadBuffer->getBuffer()->getBoundMemory(),offset,subSize}});
+                    // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
+                    this->copyBuffer(defaultUploadBuffer->getBuffer(),retval,offset,uploadedSize,subSize);
+                    // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
+                    defaultUploadBuffer->multi_free(1u,&offset,&subSize,this->placeFence());
+                    uploadedSize += subSize;
+                }
+
+                return retval;
+            }
+
+            //! TODO: make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
+            virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) {}
 
 
             //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively

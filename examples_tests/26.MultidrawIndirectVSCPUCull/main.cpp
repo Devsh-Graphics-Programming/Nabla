@@ -235,18 +235,9 @@ int main()
 
         //
         {
-            video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-            reqs.vulkanReqs.size = indexData.size()*sizeof(uint32_t);
-            reqs.vulkanReqs.alignment = 4;
-            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-            reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-            reqs.prefersDedicatedAllocation = true;
-            reqs.requiresDedicatedAllocation = true;
-            video::IGPUBuffer* ixbuf = driver->createGPUBufferOnDedMem(reqs,true);
-            ixbuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),indexData.data());
-            vaospec->mapIndexBuffer(ixbuf);
+            video::IGPUBuffer* ixbuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(indexData.size()*sizeof(uint32_t),indexData.data());
             indexData.clear();
+            vaospec->mapIndexBuffer(ixbuf);
             ixbuf->drop();
         }
 

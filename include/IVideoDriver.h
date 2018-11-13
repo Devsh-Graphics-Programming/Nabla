@@ -104,9 +104,6 @@ namespace video
 	    //! This is marked for deprecation (move to IAssetManager)
 	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh) {return core::vector<scene::IGPUMesh*>();}
 
-	    //! make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
-        virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) {}
-
 
 
         virtual bool initAuxContext() = 0;
@@ -184,15 +181,6 @@ namespace video
 		/** All 3d drawing functions will draw geometry using this material thereafter.
 		\param material: Material to be used from now on. */
 		virtual void setMaterial(const SMaterial& material) =0;
-
-        //! needs to be "deleted" since its not refcounted by GPU driver internally
-        /** Since not owned by any openGL context and hence not owned by driver.
-        You normally need to call glFlush() after placing a fence
-		\param whether to perform an implicit flush the first time CPU waiting,
-		this only works if the first wait is from the same thread as the one which
-		placed the fence.
-        **/
-        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) = 0;
 
 		//! Get access to a named texture.
 		/** Loads the texture from disk if it is not
