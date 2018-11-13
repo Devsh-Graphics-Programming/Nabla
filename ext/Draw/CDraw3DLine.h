@@ -25,7 +25,7 @@ public:
 
     virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
-        // services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
+        services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
     }
 
     virtual void OnUnsetMaterial() {}
@@ -54,28 +54,28 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
         CDraw3DLine(video::IVideoDriver* _driver);
         ~CDraw3DLine();
 
-    video::IVideoDriver* m_driver;
-    video::SMaterial m_material;
-    scene::IGPUMeshDataFormatDesc* m_desc;
+        video::IVideoDriver* m_driver;
+        video::SMaterial m_material;
+        scene::IGPUMeshDataFormatDesc* m_desc;
 
-    scene::IGPUMeshBuffer* m_meshBuffer;
-    void* m_lineData[2];
+        scene::IGPUMeshBuffer* m_meshBuffer;
+        void* m_lineData[2];
 
-    const std::uint16_t m_indices[2] = { 0, 1 };
-    uint32_t m_offsets[2] =
-        {
-        video::StreamingTransientDataBufferMT<>::invalid_address,
-        video::StreamingTransientDataBufferMT<>::invalid_address
-        };
+        const std::uint16_t m_indices[2] = { 0, 1 };
+        uint32_t m_offsets[2] =
+            {
+            video::StreamingTransientDataBufferMT<>::invalid_address,
+            video::StreamingTransientDataBufferMT<>::invalid_address
+            };
 
-    const uint32_t alignments[2] =
-        {
-        sizeof(decltype(S3DLineVertex::Position[0])),
-        sizeof(std::uint16_t)
-        };
+        const uint32_t alignments[2] =
+            {
+            sizeof(S3DLineVertex),
+            sizeof(std::uint16_t)
+            };
 
-    const uint32_t sizes[2] =
-        { sizeof(S3DLineVertex::Position), sizeof(std::uint16_t) };
+        const uint32_t sizes[2] =
+            { sizeof(S3DLineVertex) * 2, sizeof(std::uint16_t) * 2 };
 };
 
 } // namespace draw
