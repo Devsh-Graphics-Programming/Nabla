@@ -28,11 +28,9 @@ CDraw3DLine::CDraw3DLine(IVideoDriver* _driver)
         0);
     callBack->drop();
 
-    m_lineData[1] = (void*) m_indices;
     m_meshBuffer->setPrimitiveType(EPT_LINES);
     m_meshBuffer->setMeshDataAndFormat(m_desc);
     m_desc->drop();
-    m_meshBuffer->setIndexType(EIT_16BIT);
 }
 
 void CDraw3DLine::draw(
@@ -46,9 +44,9 @@ void CDraw3DLine::draw(
     };
 
     auto upStreamBuff = m_driver->getDefaultUpStreamingBuffer();
-    m_lineData[0] = vertices;
+    void* lineData[1] = { vertices };
 
-    upStreamBuff->multi_place(2u, (const void* const*)m_lineData, (uint32_t*)&m_offsets,(uint32_t*)&sizes,(uint32_t*)&alignments);
+    upStreamBuff->multi_place(2u, (const void* const*)lineData, (uint32_t*)&m_offsets,(uint32_t*)&sizes,(uint32_t*)&alignments);
     if (upStreamBuff->needsManualFlushOrInvalidate())
     {
         auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
@@ -58,10 +56,6 @@ void CDraw3DLine::draw(
     auto buff = upStreamBuff->getBuffer();
     m_desc->mapVertexAttrBuffer(buff,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(S3DLineVertex), offsetof(S3DLineVertex, Position[0]) + m_offsets[0]);
     m_desc->mapVertexAttrBuffer(buff,EVAI_ATTR1,ECPA_FOUR,ECT_FLOAT,sizeof(S3DLineVertex), offsetof(S3DLineVertex, Color[0]) + m_offsets[0]);
-    m_desc->mapIndexBuffer(buff);
-
-    m_meshBuffer->setIndexBufferOffset(m_offsets[1]);
-    m_meshBuffer->setIndexCount(2);
 
     m_driver->setTransform(E4X3TS_WORLD, core::matrix4x3());
     m_driver->setMaterial(m_material);

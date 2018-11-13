@@ -57,25 +57,10 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
         video::IVideoDriver* m_driver;
         video::SMaterial m_material;
         scene::IGPUMeshDataFormatDesc* m_desc;
-
         scene::IGPUMeshBuffer* m_meshBuffer;
-        void* m_lineData[2];
-
-        const std::uint16_t m_indices[2] = { 0, 1 };
-        uint32_t m_offsets[2] =
-            {
-            video::StreamingTransientDataBufferMT<>::invalid_address,
-            video::StreamingTransientDataBufferMT<>::invalid_address
-            };
-
-        const uint32_t alignments[2] =
-            {
-            sizeof(S3DLineVertex),
-            sizeof(std::uint16_t)
-            };
-
-        const uint32_t sizes[2] =
-            { sizeof(S3DLineVertex) * 2, sizeof(std::uint16_t) * 2 };
+        uint32_t m_offsets[1] = { video::StreamingTransientDataBufferMT<>::invalid_address };
+        const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
+        const uint32_t sizes[1] = { sizeof(S3DLineVertex) * 2 };
 };
 
 } // namespace draw
