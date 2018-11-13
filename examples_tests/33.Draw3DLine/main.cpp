@@ -47,7 +47,7 @@ int main()
         draw3DLine->draw(
             0.f, 0.f, 0.f,   // start
             0.f, 100.f, 0.f, // end
-            255, 0, 0, 0     // color
+            255, 0, 0, 255   // color
         );
 
         driver->endScene();
