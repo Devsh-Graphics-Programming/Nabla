@@ -30,6 +30,7 @@ CDraw3DLine::CDraw3DLine(IVideoDriver* _driver)
 
     m_meshBuffer->setPrimitiveType(EPT_LINES);
     m_meshBuffer->setMeshDataAndFormat(m_desc);
+    m_meshBuffer->setIndexType(EIT_UNKNOWN);
     m_desc->drop();
 }
 
