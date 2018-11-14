@@ -5,7 +5,7 @@ namespace irr
 {
 namespace ext
 {
-namespace draw
+namespace DebugDraw
 {
 
 static const char* Draw3DLineVertexShader =
@@ -37,7 +37,7 @@ static const char* Draw3DLineFragmentShader =
 "}\n"
 ;
 
-} // namespace draw
+} // namespace DebugDraw
 } // namespace ext
 } // namespace irr
 

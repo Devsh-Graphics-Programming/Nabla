@@ -7,7 +7,7 @@ namespace irr
 {
 namespace ext
 {
-namespace draw
+namespace DebugDraw 
 {
 
 class Draw3DLineCallBack : public video::IShaderConstantSetCallBack
@@ -63,7 +63,7 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
         const uint32_t sizes[1] = { sizeof(S3DLineVertex) * 2 };
 };
 
-} // namespace draw
+} // namespace DebugDraw
 } // namespace ext
 } // namespace irr
 

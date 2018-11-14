@@ -1,11 +1,11 @@
-#include "../ext/Draw/CDraw3DLine.h"
-#include "../ext/Draw/Draw3DLineShaders.h"
+#include "../ext/DebugDraw/CDraw3DLine.h"
+#include "../ext/DebugDraw/Draw3DLineShaders.h"
 
 using namespace irr;
 using namespace video;
 using namespace scene;
 using namespace ext;
-using namespace draw;
+using namespace DebugDraw;
 
 CDraw3DLine* CDraw3DLine::create(IVideoDriver* _driver)
 {

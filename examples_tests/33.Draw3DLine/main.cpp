@@ -1,7 +1,7 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../../ext/Draw/CDraw3DLine.h"
+#include "../../ext/DebugDraw/CDraw3DLine.h"
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 using namespace irr;
@@ -26,7 +26,7 @@ int main()
 
     video::IVideoDriver* driver = device->getVideoDriver();
     scene::ISceneManager* smgr = device->getSceneManager();
-    auto draw3DLine = ext::draw::CDraw3DLine::create(driver);
+    auto draw3DLine = ext::DebugDraw::CDraw3DLine::create(driver);
 
     auto camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.001f);
 
