@@ -14,6 +14,13 @@
 namespace irr { namespace core
 {
 
+//#define I_JUST_WANT_TO_COMFORTABLY_WRITE_CODE_AND_I_WILL_REMEMBER_TO_UNDEF_THIS_BEFORE_BUILD
+
+#if defined(_MSC_VER) && defined(I_JUST_WANT_TO_COMFORTABLY_WRITE_CODE_AND_I_WILL_REMEMBER_TO_UNDEF_THIS_BEFORE_BUILD)
+#   define INTELLISENSE_WORKAROUND
+#   error This should not be built
+#endif
+#ifndef INTELLISENSE_WORKAROUND
 namespace impl
 {
     struct IRR_FORCE_EBO CMultiCache_tag {};
@@ -720,6 +727,56 @@ class CObjectCache<K, T, ContainerT_T, Alloc, false> :
 public:
     using Base::Base;
 };
+
+#else
+
+// BELOW SHALL NOT BE COMPILED! it's because Visual Studio's Intellisense crashes with the code above and doesn't even highlight syntax in any file which includes this
+
+template<typename K, typename T, template<typename...> class C = std::vector, typename A = core::allocator<std::pair<const K, T*>>>
+class CObjectCache
+{
+public:
+    CObjectCache() = default;
+    CObjectCache(const std::function<void(T*)>&, const std::function<void(T*)>&);
+    ~CObjectCache();
+
+    bool insert(const K&, T*);
+    void findRange(const K&) const;
+    void findRange(const K&);
+    bool removeObject(T*, const K&);
+    bool swapObjectValue(const K&, const T* const, T*);
+    bool changeObjectKey(T*, const K&, const K&);
+    bool findAndStoreRange(const K&, size_t&, T**) const;
+    bool findAndStoreRange(const K&, size_t&, std::pair<K, T*>*) const;
+    bool getKeyRangeOrReserve(void*, const K&);
+    bool getAndStoreKeyRangeOrReserve(const K&, size_t&, T**, bool*);
+    bool contains(const T*) const;
+    void clear();
+    size_t getSize() const;
+};
+template<typename K, typename T, template<typename...> class C = std::vector, typename A = core::allocator<std::pair<const K, T*>>>
+class CMultiObjectCache
+{
+public:
+    CMultiObjectCache() = default;
+    CMultiObjectCache(const std::function<void(T*)>&, const std::function<void(T*)>&);
+    ~CMultiObjectCache();
+
+    bool insert(const K&, T*);
+    void findRange(const K&) const;
+    void findRange(const K&);
+    bool removeObject(T*, const K&);
+    bool swapObjectValue(const K&, const T* const, T*);
+    bool changeObjectKey(T*, const K&, const K&);
+    bool findAndStoreRange(const K&, size_t&, T**) const;
+    bool findAndStoreRange(const K&, size_t&, std::pair<K, T*>*) const;
+    bool getKeyRangeOrReserve(void*, const K&);
+    bool getAndStoreKeyRangeOrReserve(const K&, size_t&, T**, bool*);
+    bool contains(const T*) const;
+    void clear();
+    size_t getSize() const;
+};
+#endif //INTELLISENSE_WORKAROUND
 
 }}
 
