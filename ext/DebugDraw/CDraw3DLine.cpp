@@ -52,20 +52,21 @@ void CDraw3DLine::draw(
     auto upStreamBuff = m_driver->getDefaultUpStreamingBuffer();
     void* lineData[1] = { vertices };
 
-    upStreamBuff->multi_place(1u, (const void* const*)lineData, (uint32_t*)&m_offsets,(uint32_t*)&sizes,(uint32_t*)&alignments);
+    uint32_t offset[1] = { video::StreamingTransientDataBufferMT<>::invalid_address };
+    upStreamBuff->multi_place(1u, (const void* const*)lineData, (uint32_t*)&offset,(uint32_t*)&sizes,(uint32_t*)&alignments);
     if (upStreamBuff->needsManualFlushOrInvalidate())
     {
         auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
-        m_driver->flushMappedMemoryRanges({{ upStreamMem,m_offsets[0],sizes[0] }});
+        m_driver->flushMappedMemoryRanges({{ upStreamMem,offset[0],sizes[0] }});
     }
 
-    m_meshBuffer->setBaseVertex(m_offsets[0]/sizeof(S3DLineVertex));
+    m_meshBuffer->setBaseVertex(offset[0]/sizeof(S3DLineVertex));
 
     m_driver->setTransform(E4X3TS_WORLD, core::matrix4x3());
     m_driver->setMaterial(m_material);
     m_driver->drawMeshBuffer(m_meshBuffer);
 
-    upStreamBuff->multi_free(1u,(uint32_t*)&m_offsets,(uint32_t*)&sizes,m_driver->placeFence());
+    upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,m_driver->placeFence());
 }
 
 CDraw3DLine::~CDraw3DLine()

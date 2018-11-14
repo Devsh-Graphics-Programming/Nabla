@@ -7,7 +7,7 @@ namespace irr
 {
 namespace ext
 {
-namespace DebugDraw 
+namespace DebugDraw
 {
 
 class Draw3DLineCallBack : public video::IShaderConstantSetCallBack
@@ -58,7 +58,6 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
         video::SMaterial m_material;
         scene::IGPUMeshDataFormatDesc* m_desc;
         scene::IGPUMeshBuffer* m_meshBuffer;
-        uint32_t m_offsets[1] = { video::StreamingTransientDataBufferMT<>::invalid_address };
         const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
         const uint32_t sizes[1] = { sizeof(S3DLineVertex) * 2 };
 };
