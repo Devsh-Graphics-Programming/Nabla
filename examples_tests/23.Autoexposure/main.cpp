@@ -3,6 +3,8 @@
 #include <iostream>
 #include <cstdio>
 
+#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
+
 #include "../source/Irrlicht/COpenGLDriver.h"
 #include "COpenGLStateManager.h"
 
@@ -232,7 +234,6 @@ int main()
         video::COpenGLExtensionHandler::pGlDebugMessageCallbackARB(openGLCBFunc,NULL);
     }
 #endif // OPENGL_DEBUG
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 
 	//upload screendump to a texture
 	video::ITexture* hdrTex = driver->addTexture(video::ITexture::ETT_2D,&params.WindowSize.Width,1,"Screen",video::ECF_A16B16G16R16F);
@@ -242,56 +243,7 @@ int main()
 	free(tmpLoadingMem);
 
 
-    scene::IGPUMeshBuffer* screenQuadMeshBuffer = new scene::IGPUMeshBuffer();
-    {
-        scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-        screenQuadMeshBuffer->setMeshDataAndFormat(desc);
-        desc->drop();
-
-        ScreenQuadVertexStruct vertices[4];
-        vertices[0].Pos[0] = -1.f;
-        vertices[0].Pos[1] = -1.f;
-        vertices[0].Pos[2] = 0.5f;
-        vertices[0].TexCoord[0] = 0;
-        vertices[0].TexCoord[1] = 0;
-        vertices[1].Pos[0] = 1.f;
-        vertices[1].Pos[1] = -1.f;
-        vertices[1].Pos[2] = 0.5f;
-        vertices[1].TexCoord[0] = 1;
-        vertices[1].TexCoord[1] = 0;
-        vertices[2].Pos[0] = -1.f;
-        vertices[2].Pos[1] = 1.f;
-        vertices[2].Pos[2] = 0.5f;
-        vertices[2].TexCoord[0] = 0;
-        vertices[2].TexCoord[1] = 1;
-        vertices[3].Pos[0] = 1.f;
-        vertices[3].Pos[1] = 1.f;
-        vertices[3].Pos[2] = 0.5f;
-        vertices[3].TexCoord[0] = 1;
-        vertices[3].TexCoord[1] = 1;
-
-        uint16_t indices_indexed16[] = {0,1,2,2,1,3};
-
-        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-        reqs.vulkanReqs.size = sizeof(vertices)+sizeof(indices_indexed16);
-        reqs.vulkanReqs.alignment = 4;
-        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-        reqs.prefersDedicatedAllocation = true;
-        reqs.requiresDedicatedAllocation = true;
-        video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
-        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
-        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
-
-        desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(ScreenQuadVertexStruct),0);
-        desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
-        desc->mapIndexBuffer(buff);
-        screenQuadMeshBuffer->setIndexBufferOffset(sizeof(vertices));
-        screenQuadMeshBuffer->setIndexType(scene::EIT_16BIT);
-        screenQuadMeshBuffer->setIndexCount(6);
-        buff->drop();
-    }
+    scene::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
 
     video::SMaterial postProcMaterial;
     //! First need to make a material other than default to be able to draw with custom shader
@@ -320,17 +272,7 @@ int main()
     toneMapper->setHistogramSamplingRate(block.autoExposureInput.dynResScale,block.autoExposureInput.percentileSearchVals, //out
                                          dynamicResolutionSize,block.dynamicResolutionScale.pointer); //in
 
-
-    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-    reqs.vulkanReqs.size = sizeof(block);
-    reqs.vulkanReqs.alignment = 4;
-    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-    reqs.prefersDedicatedAllocation = true;
-    reqs.requiresDedicatedAllocation = true;
-    video::IGPUBuffer* frameUniformBuffer = driver->createGPUBufferOnDedMem(reqs,true);
-    frameUniformBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(block)),&block);
+    video::IGPUBuffer* frameUniformBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(block),&block);
 
 	uint64_t lastFPSTime = 0;
 
@@ -352,7 +294,7 @@ int main()
             found->setActiveUBO(0,1,buffers,offsets,sizes);
         }
         driver->setMaterial(postProcMaterial);
-        driver->drawMeshBuffer(screenQuadMeshBuffer);
+        driver->drawMeshBuffer(fullScreenTriangle);
 
 		driver->endScene();
 
@@ -369,7 +311,7 @@ int main()
 	}
 
 	toneMapper->drop();
-	screenQuadMeshBuffer->drop();
+	fullScreenTriangle->drop();
 
 
     //create a screenshot

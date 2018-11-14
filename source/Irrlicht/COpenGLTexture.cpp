@@ -333,6 +333,7 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FO
 			colorformat = GL_RGBA;
 			type = GL_HALF_FLOAT;
 		}
+			break;
 		case ECF_R32F:
 		{
 			colorformat = GL_RED;
