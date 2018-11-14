@@ -115,35 +115,8 @@ int main()
         mem[i+xComps*(j+yComps*k)] = (i<<20)|(j<<10)|(k);
     }
 
-    video::IGPUBuffer* positionBuf = driver->createDeviceLocalGPUBufferOnDedMem(bufSize);
     //! Buffer we want to upload is too big, so staging buffer must be used multiple times to upload the full data in parts
-    auto upStreamBuff = driver->getDefaultUpStreamingBuffer();
-    for (uint32_t uploadedSize=0; uploadedSize<bufSize;)
-    {
-        // the offset upload range by how much has already been uploaded
-        const void* dataPtr = reinterpret_cast<uint8_t*>(mem)+uploadedSize;
-        //without offset initialized to invalid_address multi_alloc/multi_place will ignore the request for allocation for that particular element
-        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
-        uint32_t alignment = sizeof(uint32_t);
-        // max_size gives us the largest allocation we can hope to be able to perform
-        uint32_t size = core::alignDown(upStreamBuff->max_size(),alignment);
-        // multi_place can fail to allocate if the memory has not been freed yet and it times out on the wait (see comment to multi_free)_
-        upStreamBuff->multi_place(std::chrono::milliseconds(50u),1u,(const void* const*)&dataPtr,&offset,&size,&alignment);
-        // keep trying again
-        if (offset==video::StreamingTransientDataBufferMT<>::invalid_address)
-            continue;
-
-        // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-        if (upStreamBuff->needsManualFlushOrInvalidate())
-            driver->flushMappedMemoryRanges({{upStreamBuff->getBuffer()->getBoundMemory(),offset,size}});
-        // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
-        driver->copyBuffer(upStreamBuff->getBuffer(),positionBuf,offset,uploadedSize,size);
-        // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-        upStreamBuff->multi_free(1u,&offset,&size,driver->placeFence());
-        //try upload the next chunk
-        uploadedSize += size;
-    }
-    //positionBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),mem);
+    video::IGPUBuffer* positionBuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(bufSize,mem);
     free(mem);
 
 
