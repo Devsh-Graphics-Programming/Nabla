@@ -1264,7 +1264,7 @@ void COpenGLDriver::flushMappedMemoryRanges(const uint32_t& memoryRangeCount, co
     {
         auto range = pMemoryRanges+i;
         #ifdef _DEBUG
-        if (range->memory->haveToFlushWrites())
+        if (!range->memory->haveToFlushWrites())
             os::Printer::log("Why are you flushing a buffer that does not need to be flushed!?",ELL_WARNING);
         #endif // _DEBUG
         extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(range->memory)->getOpenGLName(),range->offset,range->length);
