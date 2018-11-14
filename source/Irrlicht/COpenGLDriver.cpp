@@ -401,7 +401,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 		return false;
 	}
 
-    AuxContexts = new SAuxContext[Params.AuxGLContexts+1];
+    AuxContexts = _IRR_NEW_ARRAY(SAuxContext,Params.AuxGLContexts+1);
     {
         AuxContexts[0].threadId = std::this_thread::get_id();
         AuxContexts[0].ctx = hrc;
@@ -422,7 +422,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	{
 		os::Printer::log("Cannot activate GL rendering context", ELL_ERROR);
 		wglDeleteContext(hrc);
-		_IRR_DELETE_ARRAY(AuxContexts);
+		_IRR_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
 		return false;
 	}
 
@@ -739,7 +739,7 @@ COpenGLDriver::~COpenGLDriver()
         }
     }
 #endif // _IRR_COMPILE_WITH_X11_DEVICE_
-    delete [] AuxContexts;
+    _IRR_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
     glContextMutex->Release();
     _IRR_DELETE(glContextMutex);
 }

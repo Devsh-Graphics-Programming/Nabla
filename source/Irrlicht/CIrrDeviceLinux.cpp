@@ -897,7 +897,7 @@ bool CIrrDeviceLinux::createWindow()
 
                 if (Context)
                 {
-                    AuxContexts = new video::COpenGLDriver::SAuxContext[CreationParams.AuxGLContexts+1];
+                    AuxContexts = _IRR_NEW_ARRAY(video::COpenGLDriver::SAuxContext,CreationParams.AuxGLContexts+1);
                     {
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].threadId = std::this_thread::get_id();
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].ctx = Context;
@@ -929,7 +929,7 @@ bool CIrrDeviceLinux::createWindow()
                             glXDestroyContext(display,reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].ctx);
                         }
 
-                        delete [] reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts);
+                        _IRR_DELETE_ARRAY(reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts),CreationParams.AuxGLContexts+1);
 
                         glXDestroyContext(display, Context);
                         glXMakeCurrent(display, None, NULL);

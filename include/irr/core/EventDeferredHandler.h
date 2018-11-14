@@ -90,7 +90,7 @@ class EventDeferredHandlerST
                     bool canWait = timeout_time>currentTime;
                     if (canWait)
                     {
-                        std::chrono::time_point<std::chrono::system_clock> singleWaitTimePt((currentTime.time_since_epoch()*(mEvents.size()-1u)+timeout_time.time_since_epoch())/mEvents.size());
+                        std::chrono::time_point<Clock> singleWaitTimePt((currentTime.time_since_epoch()*(mEvents.size()-1u)+timeout_time.time_since_epoch())/mEvents.size());
                         success = it->first.wait_until(singleWaitTimePt);
                     }
                     else

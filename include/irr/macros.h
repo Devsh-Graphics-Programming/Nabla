@@ -6,6 +6,7 @@
 #define __IRR_MACROS_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
+#include "assert.h"
 
 //! For dumb MSVC which now has to keep a spec bug to avoid breaking existing source code
 #if defined(_MSC_VER)

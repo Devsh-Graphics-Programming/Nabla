@@ -28,7 +28,7 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 
         typedef address_allocator_traits<AddressAllocator>              traits;
         typedef typename traits::has_supportsArbitraryOrderFrees    has_supportsArbitraryOrderFrees;
-        static_assert(impl::address_allocator_traits_base<AddressAllocator,has_supportsArbitraryOrderFrees::value>::supportsArbitraryOrderFrees,"AddressAllocator does not support arbitrary order frees!");
+        static_assert(impl::address_allocator_traits_base<AddressAllocator,traits::has_supportsArbitraryOrderFrees::value>::supportsArbitraryOrderFrees,"AddressAllocator does not support arbitrary order frees!");
 
 
         using AddressAllocator::AddressAllocator;

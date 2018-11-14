@@ -38,9 +38,9 @@ namespace core
         template<class AddressAlloc>
         struct address_allocator_traits_base<AddressAlloc,false>
         {
-            static constexpr bool       supportsArbitraryOrderFrees     = true;
-            static constexpr uint32_t   maxMultiOps                     = 256u;
-            static constexpr bool       supportsNullBuffer              = false;
+            static constexpr bool       supportsArbitraryOrderFrees = true;
+            static constexpr uint32_t   maxMultiOps                      = 256u;
+            static constexpr bool       supportsNullBuffer                 = false;
 
             typedef typename AddressAlloc::size_type size_type;
 
@@ -77,8 +77,8 @@ namespace core
         template<class AddressAlloc>
         struct address_allocator_traits_base<AddressAlloc,true>
         {
-            static constexpr bool       supportsArbitraryOrderFrees     = AddressAlloc::supportsArbitraryOrderFrees;
-            static constexpr uint32_t   maxMultiOps                     = AddressAlloc::maxMultiOps;
+            static constexpr bool       supportsArbitraryOrderFrees = AddressAlloc::supportsArbitraryOrderFrees;
+            static constexpr uint32_t   maxMultiOps                      = AddressAlloc::maxMultiOps;
             /// C++17 inline static constexpr bool supportsNullBuffer   = AddressAlloc::supportsNullBuffer;
 
             typedef typename AddressAlloc::size_type size_type;

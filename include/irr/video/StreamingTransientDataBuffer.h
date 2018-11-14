@@ -167,6 +167,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
                     other.allocRef  = nullptr;
                     other.rangeData = nullptr;
                     other.numAllocs = 0u;
+                    return *this;
                 }
 
                 inline bool operator()(size_type& unallocatedSize)

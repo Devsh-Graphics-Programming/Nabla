@@ -44,7 +44,7 @@ class HostDeviceMirrorBufferAllocator : public GPUMemoryAllocatorBase
             size_t oldOffset = core::address_allocator_traits<AddressAllocator>::get_align_offset(allocToQueryOffsets);
             auto copyRangeLen = std::min(oldMemReqs.vulkanReqs.size-oldOffset,bytes);
 
-            memcpy(tmp.first,lastAllocation.first+oldOffset,copyRangeLen);
+            memcpy(tmp.first,reinterpret_cast<uint8_t*>(lastAllocation.first)+oldOffset,copyRangeLen);
             _IRR_ALIGNED_FREE(lastAllocation.first);
             copyBuffersWrapper(lastAllocation.second,tmp.second,oldOffset,0u,copyRangeLen);
             //swap the internals of buffers

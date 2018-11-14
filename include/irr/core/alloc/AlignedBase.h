@@ -46,8 +46,8 @@ namespace impl
     class IRR_FORCE_EBO ResolveAlignment<T, Ts...> :  public T, public Ts...
     {
         private:
-            struct DummyForConditional {typedef void most_aligned_type;};
-            static_assert(std::alignment_of<typename DummyForConditional::most_aligned_type>::value<=1,"Why is void not aligned to 1 or 0 in your compiler?");
+            struct DummyForConditional {typedef uint8_t most_aligned_type;};
+            static_assert(std::alignment_of<typename DummyForConditional::most_aligned_type>::value==1ull,"Why is uint8_t not aligned to 1 in your compiler?");
 
             //! In this section we get the type with maximum alignment for the N-1 recursion.
             constexpr static bool isNextRecursionEmpty = std::is_same<ResolveAlignment<Ts...>,ResolveAlignment<> >::value;
