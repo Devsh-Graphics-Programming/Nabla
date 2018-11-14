@@ -132,7 +132,7 @@ namespace video
             //! Utility wrapper for the pointer based func
             inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
             {
-                flushMappedMemoryRanges(ranges.size(),ranges.data());
+                this->flushMappedMemoryRanges(ranges.size(),ranges.data());
             }
 
 
@@ -208,7 +208,9 @@ namespace video
                     // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
                     this->copyBuffer(defaultUploadBuffer->getBuffer(),retval,offset,uploadedSize,subSize);
                     // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                    defaultUploadBuffer->multi_free(1u,&offset,&subSize,this->placeFence());
+                    auto fence = this->placeFence();
+                    defaultUploadBuffer->multi_free(1u,&offset,&subSize,fence);
+                    fence->drop();
                     uploadedSize += subSize;
                 }
 

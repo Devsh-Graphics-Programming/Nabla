@@ -1258,7 +1258,7 @@ IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SD
     return new COpenGLBuffer(extraMreqs, canModifySubData);
 }
 
-void COpenGLDriver::flushBufferRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+void COpenGLDriver::flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
 {
     for (uint32_t i=0; i<memoryRangeCount; i++)
     {
