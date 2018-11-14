@@ -38,7 +38,7 @@ uint encodeRgbIntoRgb9e5(vec3 _rgb)
 
     uint exp = (rgb.r & expMask) >> 23;
     exp -= uint(127-15);
-    
+
     uint res = ((rgb.r & mantMask) >> 14) | (((rgb.g & mantMask) >> 14) << 9) | (((rgb.b & mantMask) >> 14) << 18) | (exp << 27);
     return res;
 }
@@ -160,7 +160,7 @@ void loadFromGmem(uint _inStartIdx, uint _tid)
     );
     storeShared(bi + bankOffsetB,
 	    (bi < ACTUAL_SIZE) ? decodeRgb(samples[_inStartIdx + bi]) : vec3(0)
-    );   
+    );
 }
 void exPsumInSmem()
 {
@@ -283,7 +283,7 @@ R"(
     %s
 ) / %u.f;
 )";
-const char* CS_MAIN_BLUR_LOOP = 
+const char* CS_MAIN_BLUR_LOOP =
 R"(
     exPsumInSmem();
 
@@ -295,7 +295,7 @@ R"(
     barrier();
 
     %s // here goes (local array)->(SMEM) output loop
-    
+
     memoryBarrierShared();
     barrier();
 )";
@@ -496,7 +496,7 @@ static std::string genDownsampling(char* _buf, const core::vector2d<uint32_t>& _
         res += _buf;
     }
 
-    sprintf(_buf, CS_DOWNSAMPLING, (_dsf.X == 1u && _dsf.Y == 1u) ? "" : "+", res.c_str(), (uint32_t)irr::alignUp(_dsf.X/2u, 2u) + (uint32_t)irr::alignUp(_dsf.Y/2u, 2u) + 1u);
+    sprintf(_buf, CS_DOWNSAMPLING, (_dsf.X == 1u && _dsf.Y == 1u) ? "" : "+", res.c_str(), (uint32_t)irr::core::alignUp(_dsf.X/2u, 2u) + (uint32_t)irr::core::alignUp(_dsf.Y/2u, 2u) + 1u);
     return _buf;
 }
 static std::string genMainBlurLoop(char* _buf, uint32_t _passes, uint32_t _simThrNum)

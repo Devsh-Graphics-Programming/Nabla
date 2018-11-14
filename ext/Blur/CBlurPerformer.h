@@ -3,9 +3,8 @@
 
 #include <cstdint>
 #include <tuple>
-#include <irr/core/IReferenceCounted.h>
+#include "irr/core/IReferenceCounted.h"
 #include <IVideoDriver.h>
-#include <irr/core/memory/irrMemory.h>
 
 namespace irr {
     namespace video {
@@ -50,11 +49,11 @@ public:
 
     static inline size_t getRequiredUBOSize(video::IVideoDriver* _driver)
     {
-        return irr::alignUp(sizeof(BlurPassUBO), 16u);
+        return irr::core::alignUp(sizeof(BlurPassUBO), 16u);
     }
 
     //! Instantiates blur performer.
-    /** 
+    /**
     @param _radius Radius of blur in both axes. Must be in range [0; 1] since it indicates % of output texture size in X and Y axes.
     @param _dsFactor Downscale factor of output texture relatively to input texture.
     @param _passesPerAxis Number of box blur passes that will be executed in both axes.
