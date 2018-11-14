@@ -353,9 +353,9 @@ NO BITSHIFTING SUPPORT
 		inline vectorSIMDf& set(const float &nx, const float &ny, const float &nz) {_mm_store_ps(pointer,_mm_set_ps(0.f,nz,ny,nx)); return *this;}
 		inline vectorSIMDf& set(const float &nx, const float &ny) {_mm_store_ps(pointer,_mm_set_ps(0.f,0.f,ny,nx)); return *this;}
 		inline vectorSIMDf& set(const vectorSIMDf& p) {_mm_store_ps(pointer,p.getAsRegister()); return *this;}
-		//! convert from vectorNdf types of irrlicht - it will read a few values past the range of the allocated memory but _mm_loadu_ps shouldnt have that kind of protection
-		inline vectorSIMDf& set(const vector3df &p) {_mm_store_ps(pointer,_mm_loadu_ps(&p.X)); makeSafe3D(); return *this;}
-		inline vectorSIMDf& set(const vector2df &p) {_mm_store_ps(pointer,_mm_loadu_ps(&p.X)); makeSafe2D(); return *this;}
+		//! convert from vectorNdf types of irrlicht
+		inline vectorSIMDf& set(const vector3df &p) {_mm_store_ps(pointer,_mm_setr_ps(p.X,p.Y,p.Z,0.f)); return *this;}
+		inline vectorSIMDf& set(const vector2df &p) {_mm_store_ps(pointer,_mm_setr_ps(p.X,p.Y,0.f,0.f)); return *this;}
 
         //! going directly from vectorSIMD to irrlicht types is safe cause vectorSIMDf is wider
 		inline vector2df& getAsVector2df(void)

@@ -195,7 +195,7 @@ namespace video
                     const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                     uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
                     uint32_t alignment = defaultUploadBuffer->max_alignment();
-                    uint32_t subSize = core::alignDown(defaultUploadBuffer->max_size(),alignment);
+                    uint32_t subSize = std::min(core::alignDown(defaultUploadBuffer->max_size(),alignment),size-uploadedSize);
 
                     defaultUploadBuffer->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&offset,&subSize,&alignment);
                     // keep trying again

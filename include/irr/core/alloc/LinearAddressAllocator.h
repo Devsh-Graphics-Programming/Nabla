@@ -140,8 +140,8 @@ namespace core
 template<typename size_type>
 using LinearAddressAllocatorST = LinearAddressAllocator<size_type>;
 
-template<typename size_type, class BasicLockable>
-using LinearAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<LinearAddressAllocator<size_type>,BasicLockable>;
+template<typename size_type, class RecursiveLockable>
+using LinearAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<LinearAddressAllocator<size_type>,RecursiveLockable>;
 
 }
 }

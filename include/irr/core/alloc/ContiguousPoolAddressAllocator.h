@@ -234,8 +234,8 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
 template<typename size_type>
 using ContiguousPoolAddressAllocatorST = ContiguousPoolAddressAllocator<size_type>;
 
-template<typename size_type, class BasicLockable>
-using ContiguousPoolAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<ContiguousPoolAddressAllocator<size_type>,BasicLockable>;
+template<typename size_type, class RecursiveLockable>
+using ContiguousPoolAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<ContiguousPoolAddressAllocator<size_type>,RecursiveLockable>;
 
 }
 }

@@ -52,7 +52,12 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         inline void*        getBufferPointer() noexcept {return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getAllocatedPointer();}
 
 
-        inline size_type    max_size() const noexcept {return mAllocator.getAddressAllocator().max_size();}
+        inline size_type    max_size() noexcept
+        {
+            size_type valueToStopAt = mAllocator.getAddressAllocator().min_size()*3u; // padding, allocation, more padding = 3u
+            deferredFrees.pollForReadyEvents(valueToStopAt);
+            return mAllocator.getAddressAllocator().max_size();
+        }
 
 
         inline size_type    max_alignment() const noexcept {return mAllocator.getAddressAllocator().max_alignment();}
@@ -198,14 +203,14 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
 };
 
 
-template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class BasicLockable=std::mutex>
+template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class RecursiveLockable=std::recursive_mutex>
 class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<_size_type,CPUAllocator>, public virtual core::IReferenceCounted
 {
         typedef StreamingTransientDataBufferST<_size_type,CPUAllocator> Base;
     protected:
-        BasicLockable lock;
+        RecursiveLockable lock;
     public:
-        typedef typename Base::size_type                                size_type;
+        typedef typename Base::size_type                        size_type;
         static constexpr size_type                                      invalid_address = Base::invalid_address;
 
         using Base::Base;
@@ -220,20 +225,26 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         }
 
 
-        //! With the right Data Allocator, this pointer should remain constant after first allocation but the underlying object may change!
+        //! With the right Data Allocator, this pointer should remain constant after first allocation but the underlying gfx API object may change!
         inline IGPUBuffer*  getBuffer() noexcept
         {
             return Base::getBuffer();
         }
 
-        //! you should really `this->get_lock()` if you need the pointer to not become invalid while you use it
+        //! you should really `this->get_lock()`  if you need the pointer to not become invalid while you use it
         inline void*        getBufferPointer() noexcept
         {
             return Base::getBufferPointer();
         }
 
         //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
-        inline size_type    max_size() const noexcept {return Base::max_size();}
+        inline size_type    max_size() noexcept
+        {
+            lock.lock();
+            auto retval = Base::max_size();
+            lock.unlock();
+            return retval;
+        }
 
 
         //! this value should be immutable
@@ -268,7 +279,7 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
 
 
         //! Extra == Use WITH EXTREME CAUTION
-        inline BasicLockable&   get_lock() noexcept
+        inline RecursiveLockable&   get_lock() noexcept
         {
             return lock;
         }

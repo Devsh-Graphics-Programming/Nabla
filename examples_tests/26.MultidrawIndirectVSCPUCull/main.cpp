@@ -168,7 +168,7 @@ int main()
         }
 	}
 
-	core::matrix4x3 instanceXForm[kInstanceCount];
+	core::matrix4x3* instanceXForm = new core::matrix4x3[kInstanceCount];
 	scene::IGPUMeshBuffer* mbuff[kInstanceCount] = {NULL};
 	video::IGPUBuffer* indirectDrawBuffer = NULL;
 
@@ -413,6 +413,8 @@ int main()
 	perObjectSSBO->drop();
 	indirectDrawBuffer->drop();
     vaospec->drop();
+
+    delete [] instanceXForm;
 
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);

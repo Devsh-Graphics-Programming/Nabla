@@ -542,8 +542,8 @@ namespace core
 template<typename size_type>
 using GeneralpurposeAddressAllocatorST = GeneralpurposeAddressAllocator<size_type>;
 
-template<typename size_type, class BasicLockable>
-using GeneralpurposeAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,BasicLockable>;
+template<typename size_type, class RecursiveLockable>
+using GeneralpurposeAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>;
 
 }
 }
