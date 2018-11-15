@@ -379,12 +379,14 @@
 		<Unit filename="../../include/irr/core/memory/memory.h" />
 		<Unit filename="../../include/irr/core/memory/new_delete.h" />
 		<Unit filename="../../include/irr/macros.h" />
+		<Unit filename="../../include/irr/type_traits.h" />
 		<Unit filename="../../include/irr/video/GPUMemoryAllocatorBase.h" />
 		<Unit filename="../../include/irr/video/HostDeviceMirrorBufferAllocator.h" />
 		<Unit filename="../../include/irr/video/ResizableBufferingAllocator.h" />
 		<Unit filename="../../include/irr/video/SimpleGPUBufferAllocator.h" />
 		<Unit filename="../../include/irr/video/StreamingGPUBufferAllocator.h" />
 		<Unit filename="../../include/irr/video/StreamingTransientDataBuffer.h" />
+		<Unit filename="../../include/irr/void_t.h" />
 		<Unit filename="../../include/irrlicht.h" />
 		<Unit filename="../../include/line2d.h" />
 		<Unit filename="../../include/line3d.h" />

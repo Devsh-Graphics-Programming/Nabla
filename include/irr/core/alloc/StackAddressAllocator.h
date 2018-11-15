@@ -67,9 +67,9 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
 #ifdef _DEBUG
             assert(bytes<=amountToFree);
 #endif // _DEBUG
-            cursor -= amountToFree;
+            Base::cursor -= amountToFree;
 #ifdef _DEBUG
-            assert(cursor+Base::alignOffset<=addr);
+            assert(Base::cursor+Base::alignOffset<=addr);
 #endif // _DEBUG
         }
 
