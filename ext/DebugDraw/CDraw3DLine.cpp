@@ -66,7 +66,9 @@ void CDraw3DLine::draw(
     m_driver->setMaterial(m_material);
     m_driver->drawMeshBuffer(m_meshBuffer);
 
-    upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,m_driver->placeFence());
+    auto fence = m_driver->placeFence();
+    upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,fence);
+    fence->drop();
 }
 
 CDraw3DLine::~CDraw3DLine()

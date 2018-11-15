@@ -23,15 +23,15 @@ class EventDeferredHandlerST
         {
             while (mEvents.size())
             {
-                for (auto it = mEvents.begin(); it!=mEvents.end();)
+                for (auto it = mEvents.begin(); it!=mEvents.end(); )
                 {
                     if (it->first.wait_until(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250ull)))
                     {
                         it->second();
+                        DeferredEvent evntToKill = std::move(*it); // to fight a weird compiler bug
                         it = mEvents.erase(it);
                         continue;
                     }
-
                     it++;
                 }
             }
@@ -40,7 +40,6 @@ class EventDeferredHandlerST
         inline void     addEvent(Event&& event, Functor&& functor)
         {
             mEvents.emplace_back(std::forward<Event>(event),std::forward<Functor>(functor));
-            //mEvents.push_back(std::make_pair(std::forward<Event>(event),std::forward<Functor>(functor)));
         }
         //! Abort does not call the operator()
         inline uint32_t abortEvent(const Event& eventToAbort)
@@ -48,7 +47,7 @@ class EventDeferredHandlerST
             #ifdef _DEBUG
             assert(mEvents.size());
             #endif // _DEBUG
-            std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.first==eventToAbort;});
+            std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.first==eventToAbort;}); // is this affected by the weird compiler bug?
             return mEvents.size();
         }
         /** For later implementation -- WARNING really old code
@@ -99,6 +98,7 @@ class EventDeferredHandlerST
                     if (success)
                     {
                         bool earlyQuit = it->second(args...);
+                        DeferredEvent evntToKill = std::move(*it); // to fight a weird compiler bug
                         it = mEvents.erase(it);
                         if (earlyQuit)
                             return mEvents.size();
@@ -124,6 +124,7 @@ class EventDeferredHandlerST
                 if (it->first.poll())
                 {
                     bool earlyQuit = it->second(args...);
+                    DeferredEvent evntToKill = std::move(*it); // to fight a weird compiler bug
                     it = mEvents.erase(it);
                     if (earlyQuit)
                         return mEvents.size();
