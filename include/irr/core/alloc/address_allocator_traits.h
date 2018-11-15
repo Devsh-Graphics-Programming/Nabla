@@ -129,9 +129,6 @@ namespace core
             template<class U> using func_multi_alloc_addr               = decltype(std::declval<U&>().multi_alloc_addr(0u,nullptr,nullptr,nullptr,nullptr));
             template<class U> using func_multi_free_addr                = decltype(std::declval<U&>().multi_free_addr(0u,nullptr,nullptr));
 
-            template<class U> using template_func_multi_alloc_addr      = decltype(std::declval<U&>().template multi_alloc_addr(0u,nullptr,nullptr,nullptr,nullptr));
-            template<class U> using template_func_multi_free_addr       = decltype(std::declval<U&>().template multi_free_addr(0u,nullptr,nullptr));
-
             template<class U> using func_get_real_addr                  = decltype(std::declval<U&>().get_real_addr(0u));
         /// C++17 protected:
         public:
@@ -141,8 +138,6 @@ namespace core
 
             template<class,class=void> struct has_func_multi_alloc_addr                : std::false_type {};
             template<class,class=void> struct has_func_multi_free_addr                 : std::false_type {};
-            template<class,class=void> struct has_template_func_multi_alloc_addr                : std::false_type {};
-            template<class,class=void> struct has_template_func_multi_free_addr                 : std::false_type {};
 
             template<class,class=void> struct has_func_get_real_addr                     : std::false_type {};
 
@@ -158,10 +153,6 @@ namespace core
                                                                             : std::is_same<func_multi_alloc_addr<U>,void> {};
             template<class U> struct has_func_multi_free_addr<U,void_t<func_multi_free_addr<U> > >
                                                                             : std::is_same<func_multi_free_addr<U>,void> {};
-            template<class U> struct has_template_func_multi_alloc_addr<U,void_t<func_multi_alloc_addr<U> > >
-                                                                            : std::is_same<template_func_multi_alloc_addr<U>,void> {};
-            template<class U> struct has_template_func_multi_free_addr<U,void_t<func_multi_free_addr<U> > >
-                                                                            : std::is_same<template_func_multi_free_addr<U>,void> {};
 
             template<class U> struct has_func_get_real_addr<U,void_t<func_get_real_addr<U> > >  : std::is_same<func_get_real_addr<U>,size_type> {};
 
@@ -173,8 +164,6 @@ namespace core
             {
                 printf("has_func_multi_alloc_addr : %s\n",                  has_func_multi_alloc_addr<AddressAlloc>::value ? "true":"false");
                 printf("has_func_multi_free_addr : %s\n",                   has_func_multi_free_addr<AddressAlloc>::value ? "true":"false");
-                printf("has_template_func_multi_alloc_addr : %s\n",has_template_func_multi_alloc_addr<AddressAlloc>::value ? "true":"false");
-                printf("has_template_func_multi_free_addr : %s\n", has_template_func_multi_free_addr<AddressAlloc>::value ? "true":"false");
                 printf("has_func_get_real_addr : %s\n",                        has_func_get_real_addr<AddressAlloc>::value ? "true":"false");
 
                 printf("supportsArbitraryOrderFrees == %d\n", supportsArbitraryOrderFrees);
@@ -205,14 +194,14 @@ namespace core
                                                              const size_type* bytes, const size_type* alignment, const size_type* hint=nullptr) noexcept
             {
                 for (uint32_t i=0; i<count; i+=maxMultiOps)
-                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value||has_template_func_multi_alloc_addr<AddressAlloc>::value>::multi_alloc_addr(
+                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::multi_alloc_addr(
                                                                 alloc,std::min(count-i,maxMultiOps),outAddresses+i,bytes+i,alignment+i,hint ? (hint+i):nullptr);
             }
 
             static inline void             multi_free_addr(AddressAlloc& alloc, uint32_t count, const size_type* addr, const size_type* bytes) noexcept
             {
                 for (uint32_t i=0; i<count; i+=maxMultiOps)
-                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_free_addr<AddressAlloc>::value||has_template_func_multi_free_addr<AddressAlloc>::value>::multi_free_addr(
+                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_free_addr<AddressAlloc>::value>::multi_free_addr(
                                                                 alloc,std::min(count-i,maxMultiOps),addr+i,bytes+i);
             }
 
