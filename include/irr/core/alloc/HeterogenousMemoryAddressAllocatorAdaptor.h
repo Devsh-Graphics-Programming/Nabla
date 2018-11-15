@@ -91,7 +91,6 @@ namespace impl
 
 
 
-
 template<class AddressAllocator, class BufferAllocator, class HostAllocator=core::allocator<uint8_t> >
 class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemoryAddressAllocatorAdaptorBase<AddressAllocator,BufferAllocator,HostAllocator>, private AddressAllocator
 {

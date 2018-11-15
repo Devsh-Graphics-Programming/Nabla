@@ -16,10 +16,10 @@ namespace core
 template<class HeterogenousMemoryAllocator>
 class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
 {
-        typedef HeterogenousMemoryAllocator                                         Base;
-        typedef typename Base::alloc_traits                                         alloc_traits;
+        typedef HeterogenousMemoryAllocator                        Base;
+        typedef typename Base::alloc_traits                             alloc_traits;
 
-        typedef typename Base::alloc_traits::allocator_type                         AddressAllocator;
+        typedef typename Base::alloc_traits::allocator_type AddressAllocator;
     public:
         typedef ResizableHeterogenousMemoryAllocator<HeterogenousMemoryAllocator>   ThisType;
 
@@ -70,7 +70,7 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
             size_type oldReservedSize = Base::mReservedSize;
             const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
-            Base::mReservedSize = AddressAllocator::reserved_size(newSize,mAddrAlloc);
+            Base::mReservedSize = alloc_traits::reserved_size(newSize,mAddrAlloc);
             void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
 
 
@@ -106,7 +106,7 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
             size_type oldReservedSize = Base::mReservedSize;
             const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
-            Base::mReservedSize = AddressAllocator::reserved_size(newSize,mAddrAlloc);
+            Base::mReservedSize = alloc_traits::reserved_size(newSize,mAddrAlloc);
             void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
 
 

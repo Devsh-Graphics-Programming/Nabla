@@ -252,6 +252,13 @@ namespace core
             {
                 return static_cast<const ConstGetter&>(alloc).get_total_size();
             }
+
+            // underlying allocator statics
+            template<typename... Args>
+            static inline size_type reserved_size(Args&&... args) noexcept
+            {
+                return AddressAlloc::reserved_size(std::forward<Args>(args)...);
+            }
     };
 
 }
