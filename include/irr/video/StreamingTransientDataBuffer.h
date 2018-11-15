@@ -148,7 +148,7 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
                     memcpy(rangeData+numAllocs  ,bytes,sizeof(size_type)*numAllocs);
                 }
                 DeferredFreeFunctor(const DeferredFreeFunctor& other) = delete;
-                DeferredFreeFunctor(DeferredFreeFunctor&& other)
+                DeferredFreeFunctor(DeferredFreeFunctor&& other) : allocRef(nullptr), rangeData(nullptr), numAllocs(0u)
                 {
                     this->operator=(std::forward<DeferredFreeFunctor>(other));
                 }
@@ -162,6 +162,8 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
                 DeferredFreeFunctor& operator=(const DeferredFreeFunctor& other) = delete;
                 inline DeferredFreeFunctor& operator=(DeferredFreeFunctor&& other)
                 {
+                    if (rangeData)
+                        getHostAllocator(*allocRef).deallocate(reinterpret_cast<typename CPUAllocator::pointer>(rangeData),sizeof(size_type)*numAllocs*2u);
                     allocRef    = other.allocRef;
                     rangeData   = other.rangeData;
                     numAllocs   = other.numAllocs;

@@ -1979,7 +1979,8 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
 
 COpenGLDriver::SAuxContext::COpenGLVAO::~COpenGLVAO()
 {
-    extGlDeleteVertexArrays(1,&vao);
+    if (vao)
+        extGlDeleteVertexArrays(1,&vao);
 
     for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
     {

@@ -28,7 +28,6 @@ class EventDeferredHandlerST
                     if (it->first.wait_until(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250ull)))
                     {
                         it->second();
-                        DeferredEvent evntToKill = std::move(*it); // to fight a weird compiler bug
                         it = mEvents.erase(it);
                         continue;
                     }
@@ -47,7 +46,7 @@ class EventDeferredHandlerST
             #ifdef _DEBUG
             assert(mEvents.size());
             #endif // _DEBUG
-            std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.first==eventToAbort;}); // is this affected by the weird compiler bug?
+            std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.first==eventToAbort;});
             return mEvents.size();
         }
         /** For later implementation -- WARNING really old code
@@ -98,7 +97,6 @@ class EventDeferredHandlerST
                     if (success)
                     {
                         bool earlyQuit = it->second(args...);
-                        DeferredEvent evntToKill = std::move(*it); // to fight a weird compiler bug
                         it = mEvents.erase(it);
                         if (earlyQuit)
                             return mEvents.size();
@@ -124,7 +122,6 @@ class EventDeferredHandlerST
                 if (it->first.poll())
                 {
                     bool earlyQuit = it->second(args...);
-                    DeferredEvent evntToKill = std::move(*it); // to fight a weird compiler bug
                     it = mEvents.erase(it);
                     if (earlyQuit)
                         return mEvents.size();

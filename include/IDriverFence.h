@@ -63,7 +63,7 @@ class GPUEventWrapper : public core::Uncopyable
                 mFence->grab();
         }
         GPUEventWrapper(const GPUEventWrapper& other) = delete;
-        GPUEventWrapper(GPUEventWrapper&& other)
+        GPUEventWrapper(GPUEventWrapper&& other) : mFence(nullptr)
         {
             this->operator=(std::forward<GPUEventWrapper>(other));
         }
@@ -76,6 +76,8 @@ class GPUEventWrapper : public core::Uncopyable
         GPUEventWrapper& operator=(const GPUEventWrapper& other) = delete;
         inline GPUEventWrapper& operator=(GPUEventWrapper&& other)
         {
+            if (mFence)
+                mFence->drop();
             mFence = other.mFence;
             other.mFence = nullptr;
             return *this;

@@ -468,6 +468,7 @@ namespace video
 
                     inline COpenGLVAO& operator=(COpenGLVAO&& other)
                     {
+                        this->~COpenGLVAO();
                         memcpy(this,&other,sizeof(COpenGLVAO));
                         memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
                         memset(other.attrStride,0,sizeof(mappedAttrBuf));
