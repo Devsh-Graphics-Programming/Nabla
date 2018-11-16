@@ -17,7 +17,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 {
         typedef core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>                                  Base;
     protected:
-        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator,CPUAllocator> HeterogenousBase;
+        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator<>,CPUAllocator> HeterogenousBase;
         core::ResizableHeterogenousMemoryAllocator<HeterogenousBase>                                                                mAllocator;
 
     public:
@@ -25,7 +25,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 
         template<typename... Args>
         ResizableBufferingAllocatorST(IVideoDriver* inDriver, const CPUAllocator& reservedMemAllocator, size_type bufSz, Args&&... args) :
-                                mAllocator(reservedMemAllocator,HostDeviceMirrorBufferAllocator(inDriver),bufSz,std::forward<Args>(args)...)
+                                mAllocator(reservedMemAllocator,HostDeviceMirrorBufferAllocator<>(inDriver),bufSz,std::forward<Args>(args)...)
         {
         }
 

@@ -4,7 +4,6 @@
 
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 
-#include "irr/video/SimpleGPUBufferAllocator.h"
 #include "irr/core/alloc/PoolAddressAllocator.h"
 
 namespace irr
