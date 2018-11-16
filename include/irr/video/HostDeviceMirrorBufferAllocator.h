@@ -43,7 +43,7 @@ class HostDeviceMirrorBufferAllocator : public GPUMemoryAllocatorBase
         inline void*        reallocate(void* addr, size_t bytes, const AddressAllocator& allocToQueryOffsets) noexcept
         {
         #ifdef _DEBUG
-            assert(!addr && lastAllocation.first==addr && lastAllocation.second);
+            assert(addr && lastAllocation.first==addr && lastAllocation.second);
         #endif // _DEBUG
 
             auto alignment = core::address_allocator_traits<AddressAllocator>::max_alignment(allocToQueryOffsets);
@@ -71,7 +71,7 @@ class HostDeviceMirrorBufferAllocator : public GPUMemoryAllocatorBase
         inline void         deallocate(void* addr) noexcept
         {
         #ifdef _DEBUG
-            assert(!addr && lastAllocation.first==addr && lastAllocation.second);
+            assert(addr && lastAllocation.first==addr && lastAllocation.second);
         #endif // _DEBUG
             hostAllocator.deallocate(lastAllocation.first,lastAllocation.second->getMemoryReqs().vulkanReqs.size);
             lastAllocation.second->drop();

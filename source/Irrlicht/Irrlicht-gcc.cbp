@@ -406,6 +406,7 @@
 		<Unit filename="../../include/vector3d.h" />
 		<Unit filename="../../include/vectorSIMD.h" />
 		<Unit filename="../../src/irr/video/GPUMemoryAllocatorBase.cpp" />
+		<Unit filename="../../src/irr/video/StreamingGPUBufferAllocator.cpp" />
 		<Unit filename="C3DSMeshFileLoader.cpp" />
 		<Unit filename="C3DSMeshFileLoader.h" />
 		<Unit filename="CAnimatedMeshSceneNode.cpp" />

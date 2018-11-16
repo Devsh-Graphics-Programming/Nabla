@@ -15,13 +15,13 @@ template<class BasicAddressAllocator, class CPUAllocator=core::allocator<uint8_t
 class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>,
                                        protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
 {
-        typedef core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>                                  Base;
+        typedef core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>                                                               Base;
     protected:
         typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator<>,CPUAllocator> HeterogenousBase;
-        core::ResizableHeterogenousMemoryAllocator<HeterogenousBase>                                                                mAllocator;
+        core::ResizableHeterogenousMemoryAllocator<HeterogenousBase>                                                                                                            mAllocator;
 
     public:
-        typedef typename BasicAddressAllocator::size_type                                                                           size_type;
+        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename BasicAddressAllocator::size_type);
 
         template<typename... Args>
         ResizableBufferingAllocatorST(IVideoDriver* inDriver, const CPUAllocator& reservedMemAllocator, size_type bufSz, Args&&... args) :
@@ -59,8 +59,8 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
         template<class StreamingTransientDataBuffer>
         inline bool                         swapBuffers(StreamingTransientDataBuffer* streamingBuff, core::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges)
         {
-            uint8_t* data = getBackBufferPointer();
-            size_type dataSize;
+            uint8_t* data = reinterpret_cast<uint8_t*>(getBackBufferPointer());
+            typename StreamingTransientDataBuffer::size_type  dataSize;
             if (Base::alwaysSwapEntireRange)
                 dataSize = getFrontBuffer()->getSize();
             else if (Base::dirtyRange.first<Base::dirtyRange.second)
@@ -69,15 +69,20 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
                 dataSize = Base::dirtyRange.second-Base::dirtyRange.first;
             }
 
-            auto offset = streamingBuff->Place(flushRanges,data,dataSize,1u); //! TODO: Make a keep-trying-to-allocate mode in streamingBuff with max timeout
+            const void* dataPtrWithTypeToMakeForwardingHappy = data;
+            typename StreamingTransientDataBuffer::size_type offset = StreamingTransientDataBuffer::invalid_address;
+            typename StreamingTransientDataBuffer::size_type alignment = 8u;
+            streamingBuff->multi_place(std::chrono::microseconds(1u),1u,&dataPtrWithTypeToMakeForwardingHappy,&offset,&dataSize,&alignment);
             if (offset==StreamingTransientDataBuffer::invalid_address)
                 return false;
 
             auto driver = core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getDriver();
             driver->copyBuffer(streamingBuff->getBuffer(),getFrontBuffer(),offset,0u,dataSize);
+
             auto fence = driver->placeFence();
-            streamingBuff->Free(offset,dataSize,fence);
+            streamingBuff->multi_free(1u,&offset,&dataSize,fence);
             fence->drop();
+
             Base::resetDirtyRange();
             return true;
         }
