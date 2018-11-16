@@ -20,14 +20,14 @@ namespace core
     struct address_type_traits<uint32_t>
     {
         address_type_traits() = delete;
-        static constexpr uint32_t   invalid_address = 0xdeadbeefu;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t   invalid_address = 0xdeadbeefu;
     };
 
     template<>
     struct address_type_traits<uint64_t>
     {
         address_type_traits() = delete;
-        static constexpr uint64_t   invalid_address = 0xdeadbeefBADC0FFEull;
+        _IRR_STATIC_INLINE_CONSTEXPR uint64_t   invalid_address = 0xdeadbeefBADC0FFEull;
     };
 
 
@@ -156,9 +156,9 @@ namespace core
 
             template<class U> struct has_func_get_real_addr<U,void_t<func_get_real_addr<U> > >  : std::is_same<func_get_real_addr<U>,size_type> {};
 
-            static _IRR_STATIC_INLINE_CONSTEXPR constexpr bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
-            static _IRR_STATIC_INLINE_CONSTEXPR constexpr uint32_t     maxMultiOps                 = resolve_maxMultiOps<AddressAlloc>::value;
-            static _IRR_STATIC_INLINE_CONSTEXPR constexpr bool         supportsNullBuffer          = resolve_supportsNullBuffer<AddressAlloc>::value;
+            _IRR_STATIC_INLINE_CONSTEXPR bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
+            _IRR_STATIC_INLINE_CONSTEXPR uint32_t     maxMultiOps                 = resolve_maxMultiOps<AddressAlloc>::value;
+            _IRR_STATIC_INLINE_CONSTEXPR bool         supportsNullBuffer          = resolve_supportsNullBuffer<AddressAlloc>::value;
 
             static inline void          printDebugInfo()
             {
