@@ -12,13 +12,6 @@
 #include "irr/core/alloc/aligned_allocator.h"
 
 
-/*
-//! TODO: FINAL Allow overrides of Global New and Delete ??? "Override global new and delete with optional disable switch"
-#ifdef _IRR_ALLOW_GLOBAL_NEW_TO_THROW
-#else
-#endif
-*/
-
 
 //! Allocator MUST provide a function with signature `pointer allocate(size_type n, size_type alignment, const_void_pointer hint=nullptr) noexcept`
 #define _IRR_DEFAULT_ALLOCATOR_METATYPE                                 irr::core::aligned_allocator

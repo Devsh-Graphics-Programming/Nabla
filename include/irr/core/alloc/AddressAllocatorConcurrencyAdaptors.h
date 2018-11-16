@@ -15,7 +15,7 @@ namespace core
 {
 
 
-//! TODO: Solve priority inversion issue by providing a default FIFO lock/mutex
+//! TODO: Solve priority inversion issue by providing a default FIFO and recursive lock/mutex
 template<class AddressAllocator, class RecursiveLockable>
 class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 {
