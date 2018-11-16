@@ -222,10 +222,11 @@ uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix4x3& relativeTra
 
 bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix4x3* relativeTransforms, const void* extraData)
 {
+    {//dummyBytes, aligns scope
     core::vector<uint32_t> dummyBytes_(instanceCount);
     core::vector<uint32_t> aligns_(instanceCount);
-    uint32_t* dummyBytes = dummyBytes_.data();
-    uint32_t* aligns = aligns_.data();
+    uint32_t* const dummyBytes = dummyBytes_.data();
+    uint32_t* const aligns = aligns_.data();
     for (size_t i=0; i<instanceCount; i++)
     {
         instanceIDs[i] = kInvalidInstanceID;
@@ -248,6 +249,7 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
         }
         return false;
     }
+    }// end of arbitrary scope
 
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {
@@ -374,12 +376,15 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
         instanceBBoxes[blockID].MaxEdge.set(-FLT_MAX,-FLT_MAX,-FLT_MAX);
     }
 
+    {//dummyBytes scope
     core::vector<uint32_t> dummyBytes_(instanceCount);
-    uint32_t* dummyBytes = dummyBytes_.data();
+    uint32_t* const dummyBytes = dummyBytes_.data();
     for (size_t i=0; i<instanceCount; i++)
         dummyBytes[i] = dataPerInstanceInputSize;
 
     instanceDataAllocator->multi_free_addr(instanceCount,instanceIDs,static_cast<const uint32_t*>(dummyBytes));
+    }
+
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {
         size_t newCount = getCurrentInstanceCapacity();

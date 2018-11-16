@@ -8,6 +8,13 @@
 #include "IrrCompileConfig.h"
 #include "assert.h"
 
+//! MSVC doesn't accept constexpr inline constants (claims it's c+17 feature) and ld (this linker which comes with GCC compiler) generates 'undefined references' without inline while defining in header file
+#if defined(_MSC_VER)
+    #define _IRR_STATIC_INLINE_CONSTEXPR static constexpr
+#else
+    #define _IRR_STATIC_INLINE_CONSTEXPR static inline constexpr
+#endif
+
 //! For dumb MSVC which now has to keep a spec bug to avoid breaking existing source code
 #if defined(_MSC_VER)
     #define IRR_FORCE_EBO __declspec(empty_bases)

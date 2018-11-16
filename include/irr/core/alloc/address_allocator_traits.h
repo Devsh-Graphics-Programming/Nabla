@@ -156,9 +156,9 @@ namespace core
 
             template<class U> struct has_func_get_real_addr<U,void_t<func_get_real_addr<U> > >  : std::is_same<func_get_real_addr<U>,size_type> {};
 
-            static constexpr bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
-            static constexpr uint32_t maxMultiOps                           = resolve_maxMultiOps<AddressAlloc>::value;
-            static constexpr bool         supportsNullBuffer                 = resolve_supportsNullBuffer<AddressAlloc>::value;
+            static _IRR_STATIC_INLINE_CONSTEXPR constexpr bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
+            static _IRR_STATIC_INLINE_CONSTEXPR constexpr uint32_t     maxMultiOps                 = resolve_maxMultiOps<AddressAlloc>::value;
+            static _IRR_STATIC_INLINE_CONSTEXPR constexpr bool         supportsNullBuffer          = resolve_supportsNullBuffer<AddressAlloc>::value;
 
             static inline void          printDebugInfo()
             {
