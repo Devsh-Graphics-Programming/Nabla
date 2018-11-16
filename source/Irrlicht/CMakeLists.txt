@@ -93,6 +93,10 @@ set(IRRLICHT_SRCS_COMMON
 # Video
 	CFPSCounter.cpp
 	CVideoModeList.cpp
+	../../src/irr/video/GPUMemoryAllocatorBase.cpp
+	../../src/irr/video/StreamingGPUBufferAllocator.cpp
+	../../src/irr/video/HostDeviceMirrorBufferAllocator.cpp
+	../../src/irr/video/SimpleGPUBufferAllocator.cpp
 
 # Software renderer
 	CBurningShader_Raster_Reference.cpp
@@ -136,7 +140,6 @@ set(IRRLICHT_SRCS_COMMON
 )
 
 set(IRRLICHT_SRCS_NORMAL
-	CGPUTransientBuffer.cpp
 	COpenCLHandler.cpp
 	COpenGL2DTextureArray.cpp
 	COpenGL2DTexture.cpp

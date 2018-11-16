@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CMeshSceneNodeInstanced.h"
+#include "IVideoDriver.h"
 #include "COpenGLDriver.h"
 #include "ISceneManager.h"
 #include "ICameraSceneNode.h"
