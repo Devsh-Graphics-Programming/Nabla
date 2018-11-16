@@ -1,6 +1,7 @@
 #ifndef __IRR_CONVERT_COLOR_H_INCLUDED__
 #define __IRR_CONVERT_COLOR_H_INCLUDED__
 
+#include <cassert>
 #include "EColorFormat.h"
 #include "decodePixels.h"
 #include "encodePixels.h"
@@ -9,40 +10,382 @@ namespace irr { namespace video
 {
     namespace impl
     {
-        template<bool SCALED, ECOLOR_FORMAT cf, typename T>
+        enum E_TYPE
+        {
+            ET_I64,
+            ET_U64,
+            ET_F64
+        };
+
+        template<ECOLOR_FORMAT cf>
+        struct format2type :
+            std::conditional<isIntegerFormat<cf>(), 
+                typename std::conditional<isSignedFormat<cf>(),
+                    std::integral_constant<E_TYPE, ET_I64>,
+                    std::integral_constant<E_TYPE, ET_U64>
+                >::type,
+                typename std::conditional<isFloatingPointFormat<cf>() || isNormalizedFormat<cf>() || isScaledFormat<cf>(),
+                    std::integral_constant<E_TYPE, ET_F64>,
+                    void // gen error if format is neither signed/unsigned integer or floating point/normalized/scaled
+                >::type
+            >::type
+        {};
+
+        template<bool SCALED, ECOLOR_FORMAT cf, typename T, E_TYPE = format2type<cf>::value>
         struct SCallDecode;
 
-        template<ECOLOR_FORMAT cf, typename T>
-        struct SCallDecode<false, cf, T>
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<false, cf, double, ET_F64>
         {
+            using T = double;
             inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
             {
                 decodePixels<cf, T>(_pix, _output, _blockX, _blockY);
             }
         };
-        template<ECOLOR_FORMAT cf, typename T>
-        struct SCallDecode<true, cf, T>
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<false, cf, double, ET_I64>
         {
+            using T = double;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<false, cf, double, ET_U64>
+        {
+            using T = double;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<false, cf, int64_t, ET_F64>
+        {
+            using T = int64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<false, cf, int64_t, ET_I64>
+        {
+            using T = int64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
+            {
+                decodePixels<cf, T>(_pix, _output, _blockX, _blockY);
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<false, cf, int64_t, ET_U64>
+        {
+            using T = int64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<false, cf, uint64_t, ET_F64>
+        {
+            using T = uint64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<false, cf, uint64_t, ET_I64>
+        {
+            using T = uint64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<false, cf, uint64_t, ET_U64>
+        {
+            using T = uint64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t)
+            {
+                decodePixels<cf, T>(_pix, _output, _blockX, _blockY);
+            }
+        };
+
+
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<true, cf, double, ET_F64>
+        {
+            using T = double;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+            {
+                decodePixels<cf, T>(_pix, _output, _blockX, _blockY, _scale);
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<true, cf, double, ET_I64>
+        {
+            using T = double;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<true, cf, double, ET_U64>
+        {
+            using T = double;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<true, cf, int64_t, ET_F64>
+        {
+            using T = int64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<true, cf, int64_t, ET_I64>
+        {
+            using T = int64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+            {
+                decodePixels<cf, T>(_pix, _output, _blockX, _blockY, _scale);
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<true, cf, int64_t, ET_U64>
+        {
+            using T = int64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<true, cf, uint64_t, ET_F64>
+        {
+            using T = uint64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<true, cf, uint64_t, ET_I64>
+        {
+            using T = uint64_t;
+            inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallDecode<true, cf, uint64_t, ET_U64>
+        {
+            using T = uint64_t;
             inline void operator()(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
             {
                 decodePixels<cf, T>(_pix, _output, _blockX, _blockY, _scale);
             }
         };
 
-        template<bool SCALED, ECOLOR_FORMAT cf, typename T>
+
+
+        template<bool SCALED, ECOLOR_FORMAT cf, typename T, E_TYPE = format2type<cf>::value>
         struct SCallEncode;
 
-        template<ECOLOR_FORMAT cf, typename T>
-        struct SCallEncode<false, cf, T>
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<false, cf, double, ET_F64>
         {
+            using T = double;
             inline void operator()(void* _pix, const T* _input, uint64_t)
             {
                 encodePixels<cf, T>(_pix, _input);
             }
         };
-        template<ECOLOR_FORMAT cf, typename T>
-        struct SCallEncode<true, cf, T>
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<false, cf, double, ET_I64>
         {
+            using T = double;
+            inline void operator()(void* _pix, const T* _input, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<false, cf, double, ET_U64>
+        {
+            using T = double;
+            inline void operator()(void* _pix, const T* _input, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<false, cf, int64_t, ET_F64>
+        {
+            using T = int64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<false, cf, int64_t, ET_I64>
+        {
+            using T = int64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t)
+            {
+                encodePixels<cf, T>(_pix, _input);
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<false, cf, int64_t, ET_U64>
+        {
+            using T = int64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<false, cf, uint64_t, ET_F64>
+        {
+            using T = uint64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<false, cf, uint64_t, ET_I64>
+        {
+            using T = uint64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<false, cf, uint64_t, ET_U64>
+        {
+            using T = uint64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t)
+            {
+                encodePixels<cf, T>(_pix, _input);
+            }
+        };
+
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<true, cf, double, ET_F64>
+        {
+            using T = double;
+            inline void operator()(void* _pix, const T* _input, uint64_t _scale)
+            {
+                encodePixels<cf, T>(_pix, _input, _scale);
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<true, cf, double, ET_I64>
+        {
+            using T = double;
+            inline void operator()(void* _pix, const T* _input, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<true, cf, double, ET_U64>
+        {
+            using T = double;
+            inline void operator()(void* _pix, const T* _input, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<true, cf, int64_t, ET_F64>
+        {
+            using T = int64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<true, cf, int64_t, ET_I64>
+        {
+            using T = int64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t _scale)
+            {
+                encodePixels<cf, T>(_pix, _input, _scale);
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<true, cf, int64_t, ET_U64>
+        {
+            using T = int64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<true, cf, uint64_t, ET_F64>
+        {
+            using T = uint64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<true, cf, uint64_t, ET_I64>
+        {
+            using T = uint64_t;
+            inline void operator()(void* _pix, const T* _input, uint64_t _scale)
+            {
+                assert(0);
+                //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
+            }
+        };
+        template<ECOLOR_FORMAT cf>
+        struct SCallEncode<true, cf, uint64_t, ET_U64>
+        {
+            using T = uint64_t;
             inline void operator()(void* _pix, const T* _input, uint64_t _scale)
             {
                 encodePixels<cf, T>(_pix, _input, _scale);

@@ -538,14 +538,20 @@ namespace video
     {
         return impl::is_any_of <
             cf,
+            ECF_A1R5G5B5,
+            ECF_R5G6B5,
             ECF_R8_SINT,
+            ECF_R8_UINT,
             ECF_R8G8_SINT,
+            ECF_R8G8_UINT,
             ECF_R8G8B8_SINT,
             ECF_B8G8R8_UINT,
             ECF_B8G8R8_SINT,
             ECF_R8G8B8A8_SINT,
             ECF_B8G8R8A8_UINT,
             ECF_B8G8R8A8_SINT,
+            ECF_R8G8B8_UINT,
+            ECF_R8G8B8A8_UINT,
             ECF_A8B8G8R8_UINT_PACK32,
             ECF_A8B8G8R8_SINT_PACK32,
             ECF_A2R10G10B10_UINT_PACK32,
@@ -575,6 +581,7 @@ namespace video
             ECF_R64G64B64_UINT,
             ECF_R64G64B64_SINT,
             ECF_R64G64B64A64_UINT,
+            ECF_R64G64B64A64_SINT,
             ECF_R64G64B64A64_SINT
         > ::value;
     }
@@ -664,6 +671,12 @@ namespace video
             ECF_R16G16B16A16_UNORM,
             ECF_R16G16B16A16_SNORM,
             ECF_R16G16B16A16_USCALED,
+            ECF_G8_B8_R8_3PLANE_420_UNORM,
+            ECF_G8_B8R8_2PLANE_420_UNORM,
+            ECF_G8_B8_R8_3PLANE_422_UNORM,
+            ECF_G8_B8R8_2PLANE_422_UNORM,
+            ECF_G8_B8_R8_3PLANE_444_UNORM,
+            ECF_G8_B8_R8_3PLANE_444_UNORM,
             ECF_R8_SRGB,
             ECF_R8G8_SRGB,
             ECF_R8G8B8_SRGB,

@@ -3073,6 +3073,7 @@ namespace irr { namespace video
         case ECF_R16G16B16_SNORM: encodePixels<ECF_R16G16B16_SNORM, double>(_pix, _input); return true;
         case ECF_R16G16B16A16_UNORM: encodePixels<ECF_R16G16B16A16_UNORM, double>(_pix, _input); return true;
         case ECF_R16G16B16A16_SNORM: encodePixels<ECF_R16G16B16A16_SNORM, double>(_pix, _input); return true;
+        case ECF_R8_SRGB: encodePixels<ECF_R8_SRGB, double>(_pix, _input); return true;
         case ECF_R8G8_SRGB: encodePixels<ECF_R8G8_SRGB, double>(_pix, _input); return true;
         case ECF_R8G8B8_SRGB: encodePixels<ECF_R8G8B8_SRGB, double>(_pix, _input); return true;
         case ECF_B8G8R8_SRGB: encodePixels<ECF_B8G8R8_SRGB, double>(_pix, _input); return true;
@@ -3131,7 +3132,6 @@ namespace irr { namespace video
         switch (_fmt)
         {
         case ECF_R8_UINT: encodePixels<ECF_R8_UINT, uint64_t>(_pix, _input); return true;
-        case ECF_R8_SRGB: encodePixels<ECF_R8_SRGB, uint64_t>(_pix, _input); return true;
         case ECF_R8G8_UINT: encodePixels<ECF_R8G8_UINT, uint64_t>(_pix, _input); return true;
         case ECF_R8G8B8_UINT: encodePixels<ECF_R8G8B8_UINT, uint64_t>(_pix, _input); return true;
         case ECF_B8G8R8_UINT: encodePixels<ECF_B8G8R8_UINT, uint64_t>(_pix, _input); return true;
