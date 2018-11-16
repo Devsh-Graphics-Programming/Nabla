@@ -277,11 +277,13 @@ namespace scene
 
             inline void TrySwapBoneBuffer()
             {
-                ///instanceBoneDataAllocator->swapBuffers(); TODO
+                core::vector<video::IDriverMemoryAllocation::MappedMemoryRange> rangesToFlush;
+                instanceBoneDataAllocator->swapBuffers(Driver->getDefaultUpStreamingBuffer(),rangesToFlush);
+                Driver->flushMappedMemoryRanges(rangesToFlush);
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
                 if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
-                    TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
+                    TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the range length :D
 #endif // _IRR_COMPILE_WITH_OPENGL_
             }
 

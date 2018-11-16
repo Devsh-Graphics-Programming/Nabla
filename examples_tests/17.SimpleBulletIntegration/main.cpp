@@ -258,7 +258,6 @@ int main()
 
         bool success = node->setLoDMeshes(LevelsOfDetail,29*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,1,NULL,4);
         assert(success);
-        node->setGPUCullingThresholdMultiplier(0.f);
         cb->instanceLoDInvariantBBox = node->getLoDInvariantBBox();
     }
 
