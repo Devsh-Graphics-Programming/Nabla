@@ -28,7 +28,7 @@ private:
 		mutable bool validated;
 
 		SBlobData(core::BlobHeaderV0* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
-		~SBlobData() { free(heapBlob); }
+		~SBlobData() { _IRR_ALIGNED_FREE(heapBlob); }
 		bool validate() const {
 			validated = false;
 			return validated ? true : (validated = (heapBlob && header->validate(heapBlob)));
