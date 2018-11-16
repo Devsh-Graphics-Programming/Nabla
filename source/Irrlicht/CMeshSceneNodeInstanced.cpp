@@ -222,8 +222,10 @@ uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix4x3& relativeTra
 
 bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix4x3* relativeTransforms, const void* extraData)
 {
-    uint32_t dummyBytes[instanceCount];
-    uint32_t aligns[instanceCount];
+    core::vector<uint32_t> dummyBytes_(instanceCount);
+    core::vector<uint32_t> aligns_(instanceCount);
+    uint32_t* dummyBytes = dummyBytes_.data();
+    uint32_t* aligns = aligns_.data();
     for (size_t i=0; i<instanceCount; i++)
     {
         instanceIDs[i] = kInvalidInstanceID;
@@ -372,7 +374,8 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
         instanceBBoxes[blockID].MaxEdge.set(-FLT_MAX,-FLT_MAX,-FLT_MAX);
     }
 
-    uint32_t dummyBytes[instanceCount];
+    core::vector<uint32_t> dummyBytes_(instanceCount);
+    uint32_t* dummyBytes = dummyBytes_.data();
     for (size_t i=0; i<instanceCount; i++)
         dummyBytes[i] = dataPerInstanceInputSize;
 

@@ -92,7 +92,7 @@ namespace impl
 
 
 template<class AddressAllocator, class BufferAllocator, class HostAllocator=core::allocator<uint8_t> >
-class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemoryAddressAllocatorAdaptorBase<AddressAllocator,BufferAllocator,HostAllocator>, private AddressAllocator
+class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemoryAddressAllocatorAdaptorBase<AddressAllocator,BufferAllocator,HostAllocator>, /* This is supposed to be private inheritance */protected AddressAllocator
 {
         typedef impl::HeterogenousMemoryAddressAllocatorAdaptorBase<AddressAllocator,BufferAllocator,HostAllocator> ImplBase;
     protected:
