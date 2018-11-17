@@ -7,9 +7,9 @@
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
 #include "SMesh.h"
-#include "CSkinnedMesh.h"
+#include "../source/Irrlicht/CSkinnedMesh.h"
 #include "SSkinMeshBuffer.h"
-#include "CLogger.h"
+#include "../source/Irrlicht/CLogger.h"
 #include "asset_traits.h"
 
 namespace irr 
