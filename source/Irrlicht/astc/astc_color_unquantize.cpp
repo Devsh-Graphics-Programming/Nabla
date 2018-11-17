@@ -867,9 +867,6 @@ void unpack_color_endpoints(astc_decode_mode decode_mode, int format, int quanti
 		*alpha_hdr = 1;
 		hdr_rgb_hdr_alpha_unpack3(input, quantization_level, output0, output1);
 		break;
-
-	default:
-		ASTC_CODEC_INTERNAL_ERROR;
 	}
 
 

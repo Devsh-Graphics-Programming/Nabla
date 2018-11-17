@@ -176,6 +176,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <FloatingPointModel>Precise</FloatingPointModel>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -208,6 +209,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <FloatingPointModel>Precise</FloatingPointModel>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -251,6 +253,7 @@
       <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
       <SDLCheck>false</SDLCheck>
       <ControlFlowGuard>false</ControlFlowGuard>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -295,6 +298,7 @@
       <SDLCheck>false</SDLCheck>
       <ControlFlowGuard>false</ControlFlowGuard>
       <PrecompiledHeaderFile />
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -334,6 +338,7 @@
       </DebugInformationFormat>
       <CallingConvention>FastCall</CallingConvention>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -365,6 +370,7 @@
       <WarningLevel>Level3</WarningLevel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FloatingPointModel>Fast</FloatingPointModel>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -551,6 +557,10 @@
     <ClInclude Include="aesGladman\aes_ni.h" />
     <ClInclude Include="aesGladman\brg_endian.h" />
     <ClInclude Include="aesGladman\brg_types.h" />
+    <ClInclude Include="astc\astc_codec_internals.h" />
+    <ClInclude Include="astc\mathlib.h" />
+    <ClInclude Include="astc\softfloat.h" />
+    <ClInclude Include="astc\vectypes.h" />
     <ClInclude Include="CGeometryCreator.h" />
     <ClInclude Include="CIrrDeviceWin32.h" />
     <ClInclude Include="CMeshCache.h" />
@@ -707,6 +717,7 @@
   <ItemGroup>
     <None Include="..\..\changes.txt" />
     <None Include="..\..\readme.txt" />
+    <None Include="astc\Makefile" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="aesGladman\aescrypt.c" />
@@ -718,6 +729,19 @@
     <ClCompile Include="aesGladman\prng.c" />
     <ClCompile Include="aesGladman\pwd2key.c" />
     <ClCompile Include="aesGladman\sha1.c" />
+    <ClCompile Include="astc\astc_block_sizes2.cpp" />
+    <ClCompile Include="astc\astc_color_unquantize.cpp" />
+    <ClCompile Include="astc\astc_compress_symbolic.cpp" />
+    <ClCompile Include="astc\astc_decompress_symbolic.cpp" />
+    <ClCompile Include="astc\astc_image_load_store.cpp" />
+    <ClCompile Include="astc\astc_integer_sequence.cpp" />
+    <ClCompile Include="astc\astc_partition_tables.cpp" />
+    <ClCompile Include="astc\astc_percentile_tables.cpp" />
+    <ClCompile Include="astc\astc_quantization.cpp" />
+    <ClCompile Include="astc\astc_symbolic_physical.cpp" />
+    <ClCompile Include="astc\astc_weight_quant_xfer_tables.cpp" />
+    <ClCompile Include="astc\mathlib.cpp" />
+    <ClCompile Include="astc\softfloat.cpp" />
     <ClCompile Include="bzip2\compress.c" />
     <ClCompile Include="CBAWFile.cpp" />
     <ClCompile Include="CBAWMeshFileLoader.cpp" />
