@@ -403,9 +403,7 @@ namespace irr { namespace video
             using encT = typename std::conditional<isSignedFormat<dF>(), int64_t, uint64_t>::type;
 
             decT decbuf[4];
-            //decodePixels<sF, decT>(srcPix, decbuf, _scale);
             impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _blockX, _blockY, _scale);
-            //encodePixels<dF, encT>(dstPix, reinterpret_cast<encT*>(decbuf), _scale);
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, reinterpret_cast<encT*>(decbuf), _scale);
         }
         else if (
@@ -419,9 +417,7 @@ namespace irr { namespace video
             using encT = double;
 
             decT decbuf[4];
-            //decodePixels<sF, decT>(srcPix, decbuf, _scale);
             impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _blockX, _blockY, _scale);
-            //encodePixels<dF, encT>(dstPix, decbuf, _scale);
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, decbuf, _scale);
         }
         else if ((isFloatingPointFormat<sF>() || isNormalizedFormat<sF>()) && isIntegerFormat<dF>())
@@ -430,12 +426,10 @@ namespace irr { namespace video
             using encT = typename std::conditional<isSignedFormat<dF>(), int64_t, uint64_t>::type;
 
             decT decbuf[4];
-            //decodePixels<sF, decT>(srcPix, decbuf, _scale);
             impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _blockX, _blockY, _scale);
             encT encbuf[4];
             for (uint32_t i = 0u; i < 4u; ++i)
                 encbuf[i] = decbuf[i];
-            //encodePixels<dF, encT>(dstPix, encbuf, _scale);
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, encbuf, _scale);
         }
         else if (isIntegerFormat<sF>() && (isNormalizedFormat<dF>() || isFloatingPointFormat<dF>()))
@@ -444,12 +438,10 @@ namespace irr { namespace video
             using encT = double;
 
             decT decbuf[4];
-            //decodePixels<sF, decT>(srcPix, decbuf, _scale);
             impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _blockX, _blockY, _scale);
             encT encbuf[4];
             for (uint32_t i = 0u; i < 4u; ++i)
                 encbuf[i] = decbuf[i];
-            //encodePixels<dF, encT>(dstPix, encbuf, _scale);
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, encbuf, _scale);
         }
     }
@@ -478,7 +470,10 @@ namespace irr { namespace video
             for (uint32_t x = 0u; x < sdims.X; ++x)
             {
                 for (uint32_t y = 0u; y < sdims.Y; ++y)
-                    convertColor<sF, dF>(reinterpret_cast<const void**>(src), dst_begin + ((sdims.Y * py + y)*_imgSize.X + px*sdims.X + x), _scale, x, y);
+                {
+                    const ptrdiff_t off = ((sdims.Y * py + y)*_imgSize.X + px * sdims.X + x);
+                    convertColor<sF, dF>(reinterpret_cast<const void**>(src), dst_begin + static_cast<ptrdiff_t>(dstStride)*off, _scale, x, y);
+                }
             }
             if (!isPlanarFormat<sF>())
             {
