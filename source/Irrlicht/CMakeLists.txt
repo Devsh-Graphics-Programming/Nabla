@@ -95,8 +95,6 @@ set(IRRLICHT_SRCS_COMMON
 	CVideoModeList.cpp
 	../../src/irr/video/GPUMemoryAllocatorBase.cpp
 	../../src/irr/video/StreamingGPUBufferAllocator.cpp
-	../../src/irr/video/HostDeviceMirrorBufferAllocator.cpp
-	../../src/irr/video/SimpleGPUBufferAllocator.cpp
 
 # Software renderer
 	CBurningShader_Raster_Reference.cpp
