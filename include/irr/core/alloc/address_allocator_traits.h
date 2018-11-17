@@ -145,7 +145,7 @@ namespace core
             template<class U> struct resolve_supportsArbitraryOrderFrees<U,void_t<cstexpr_supportsArbitraryOrderFrees<U> > >
                                                                             :  std::conditional<std::true_type/*std::is_same<cstexpr_supportsArbitraryOrderFrees<U>,bool>*/::value,irr::bool_constant<U::supportsArbitraryOrderFrees>,resolve_supportsArbitraryOrderFrees<void,void> >::type {};
             template<class U> struct resolve_maxMultiOps<U,void_t<cstexpr_maxMultiOps<U> > >
-                                                                            : std::conditional<std::is_integral<cstexpr_maxMultiOps<U> >::value,std::integral_constant<uint32_t,U::maxMultiOps>,resolve_maxMultiOps<void,void> >::type {};
+                                                                            : std::conditional<std::true_type/*std::is_integral<cstexpr_maxMultiOps<U> >*/::value,std::integral_constant<uint32_t,U::maxMultiOps>, resolve_maxMultiOps<void, void> >::type {};
             template<class U> struct resolve_supportsNullBuffer<U,void_t<cstexpr_supportsNullBuffer<U> > >
                                                                             : std::conditional<std::true_type/*std::is_same<cstexpr_supportsNullBuffer<U>,bool>*/::value,irr::bool_constant<U::supportsNullBuffer>,resolve_supportsNullBuffer<void,void> >::type {};
 
