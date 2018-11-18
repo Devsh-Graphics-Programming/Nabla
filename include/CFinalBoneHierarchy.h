@@ -116,9 +116,9 @@ namespace scene
 					_interpAnimsBegin > _interpAnimsEnd ||
 					_nonInterpAnimsBegin > _nonInterpAnimsEnd
 				)
-				_IRR_DEBUG_BREAK_IF(_boneNamesEnd - _boneNamesBegin != boneCount)
-				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != getAnimationCount())
-				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != getAnimationCount())
+				_IRR_DEBUG_BREAK_IF(_boneNamesEnd - _boneNamesBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(boneCount))
+				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
+				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
 
 				boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
 				boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
@@ -323,9 +323,7 @@ namespace scene
                 const float* keyframesIn = keyframes;
                 const float* const keyframesEnd = keyframes+keyframeCount;
                 const AnimationKeyData* inAnimationsIn = interpolatedAnimations;
-                const AnimationKeyData* const inAnimationsEnd = interpolatedAnimations+keyframeCount*boneCount;
                 const AnimationKeyData* noAnimationsIn = nonInterpolatedAnimations;
-                const AnimationKeyData* const noAnimationsEnd = nonInterpolatedAnimations+keyframeCount*boneCount;
 
                 float* keyframesOut = keyframes;
                 AnimationKeyData* inAnimationsOut = interpolatedAnimations;

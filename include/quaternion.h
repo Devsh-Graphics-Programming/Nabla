@@ -499,10 +499,6 @@ inline void quaternion::toAngleAxis(float& angle, vector3df_SIMD &axis) const
 
 inline void quaternion::toEuler(vector3df_SIMD& euler) const
 {
-	const double sqw = W*W;
-	const double sqx = X*X;
-	const double sqy = Y*Y;
-	const double sqz = Z*Z;
 	vectorSIMDf sqr = *reinterpret_cast<const vectorSIMDf*>(this);
 	sqr *= sqr;
 	const double test = 2.0 * (Y*W - X*Z);

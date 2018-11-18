@@ -106,6 +106,9 @@ namespace scene
                             memset(getBones(tmp),0,sizeof(IBoneSceneNode*)*referenceHierarchy->getBoneCount());
                             break;
                         }
+#if __cplusplus >= 201703L
+                        [[fallthrough]];
+#endif
                     case EBUM_CONTROL:
                         tmp->needToRecomputeParentBBox = false;
                         for (size_t i=0; i<referenceHierarchy->getBoneCount(); i++)
@@ -124,6 +127,11 @@ namespace scene
                             getBones(tmp)[i] = tmpBone;
                         }
                         break;
+                    #ifdef _DEBUG
+                    default:
+                        assert(false);
+                        break;
+                    #endif // _DEBUG
                 }
 
                 instanceBoneDataAllocator->markRangeDirty(newID,newID+instanceFinalBoneDataSize);
@@ -537,6 +545,11 @@ namespace scene
                                 }
                             }
                             break;
+                    #ifdef _DEBUG
+                    default:
+                        assert(false);
+                        break;
+                    #endif // _DEBUG
                     }
                 }
             }
