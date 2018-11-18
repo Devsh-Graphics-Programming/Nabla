@@ -57,19 +57,24 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 
         //! Makes Writes visible, it can fail if there is a lack of space in the streaming buffer to stream with
         template<class StreamingTransientDataBuffer>
-        inline bool                         swapBuffers(StreamingTransientDataBuffer* streamingBuff, core::vector<IDriverMemoryAllocation::MappedMemoryRange>& flushRanges)
+        inline bool                         swapBuffers(StreamingTransientDataBuffer* streamingBuff)
         {
-            uint8_t* data = reinterpret_cast<uint8_t*>(getBackBufferPointer());
+            typename StreamingTransientDataBuffer::size_type  dataOffset;
             typename StreamingTransientDataBuffer::size_type  dataSize;
             if (Base::alwaysSwapEntireRange)
+            {
+                dataOffset = 0u;
                 dataSize = getFrontBuffer()->getSize();
+            }
             else if (Base::dirtyRange.first<Base::dirtyRange.second)
             {
-                data += Base::dirtyRange.first;
+                dataOffset = Base::dirtyRange.first;
                 dataSize = Base::dirtyRange.second-Base::dirtyRange.first;
             }
+            else
+                return true;
 
-            const void* dataPtrWithTypeToMakeForwardingHappy = data;
+            const void* dataPtrWithTypeToMakeForwardingHappy = reinterpret_cast<uint8_t*>(getBackBufferPointer())+dataOffset;
             typename StreamingTransientDataBuffer::size_type offset = StreamingTransientDataBuffer::invalid_address;
             typename StreamingTransientDataBuffer::size_type alignment = 8u;
             streamingBuff->multi_place(std::chrono::microseconds(1u),1u,&dataPtrWithTypeToMakeForwardingHappy,&offset,&dataSize,&alignment);
@@ -77,7 +82,12 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
                 return false;
 
             auto driver = core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getDriver();
-            driver->copyBuffer(streamingBuff->getBuffer(),getFrontBuffer(),offset,0u,dataSize);
+            if (streamingBuff->getBuffer()->getBoundMemory()->haveToFlushWrites())
+            {
+                video::IDriverMemoryAllocation::MappedMemoryRange range{const_cast<video::IDriverMemoryAllocation*>(streamingBuff->getBuffer()->getBoundMemory()),offset,dataSize};
+                driver->flushMappedMemoryRanges(1u,&range);
+            }
+            driver->copyBuffer(streamingBuff->getBuffer(),getFrontBuffer(),offset,dataOffset,dataSize);
 
             auto fence = driver->placeFence();
             streamingBuff->multi_free(1u,&offset,&dataSize,fence);

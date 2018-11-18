@@ -2,8 +2,6 @@
 #define __IRR_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
 
 
-#include "irr/core/alloc/MultiBufferingAllocatorBase.h"
-//#include "irr/core/alloc/ResizableHeterogenousMemoryAllocator.h"
 #include "irr/video/GPUMemoryAllocatorBase.h"
 
 namespace irr

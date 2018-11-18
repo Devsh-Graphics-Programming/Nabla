@@ -18,12 +18,18 @@ class MultiBufferingAllocatorBase<AddressAllocator,false>
     protected:
         std::pair<typename AddressAllocator::size_type,typename AddressAllocator::size_type> dirtyRange;
 
-        MultiBufferingAllocatorBase() {}
+        MultiBufferingAllocatorBase() : dirtyRange(0u,~static_cast<typename AddressAllocator::size_type>(0u)) {}
         virtual ~MultiBufferingAllocatorBase() {}
 
         inline void resetDirtyRange() {}
 
-        static constexpr bool alwaysSwapEntireRange = true;
+        _IRR_STATIC_INLINE_CONSTEXPR bool alwaysSwapEntireRange = true;
+    public:
+        //inline decltype(dirtyRange) getDirtyRange() const {return dirtyRange;}
+
+        inline void markRangeDirty(typename AddressAllocator::size_type begin, typename AddressAllocator::size_type end)
+        {
+        }
 };
 template<class AddressAllocator>
 class MultiBufferingAllocatorBase<AddressAllocator,true>
@@ -36,7 +42,7 @@ class MultiBufferingAllocatorBase<AddressAllocator,true>
 
         inline void resetDirtyRange() {dirtyRange.first = ~static_cast<typename AddressAllocator::size_type>(0u); dirtyRange.second = 0u;}
 
-        static constexpr bool alwaysSwapEntireRange = false;
+        _IRR_STATIC_INLINE_CONSTEXPR bool alwaysSwapEntireRange = false;
     public:
         inline decltype(dirtyRange) getDirtyRange() const {return dirtyRange;}
 

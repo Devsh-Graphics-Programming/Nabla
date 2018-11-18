@@ -420,9 +420,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
 
     {
         //can swap before or after, but defubuteky before tform feedback shadeur
-        core::vector<video::IDriverMemoryAllocation::MappedMemoryRange> rangesToFlush;
-        instanceDataAllocator->swapBuffers(driver->getDefaultUpStreamingBuffer(),rangesToFlush);
-        driver->flushMappedMemoryRanges(rangesToFlush);
+        instanceDataAllocator->swapBuffers(driver->getDefaultUpStreamingBuffer());
 
         size_t outputSizePerLoD = dataPerInstanceOutputSize*getCurrentInstanceCapacity();
         if (gpuCulledLodInstanceDataBuffer->getSize()!=xfb.size()*gpuLoDsPerPass*outputSizePerLoD)

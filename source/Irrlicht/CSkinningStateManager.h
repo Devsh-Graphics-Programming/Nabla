@@ -82,7 +82,7 @@ namespace scene
                     instanceDataSize = instanceCapacity;
                 }
 
-                BoneHierarchyInstanceData* tmp = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(newID));
+                BoneHierarchyInstanceData* tmp = getBoneHierarchyInstanceFromAddr(newID);
                 tmp->refCount = 1;
                 tmp->frame = 0.f;
                 tmp->interpolateAnimation = true;
@@ -134,11 +134,10 @@ namespace scene
             //! true if deleted
             virtual bool dropInstance(const uint32_t& ID)
             {
-                auto oldInstanceDataSize = instanceDataSize;
                 if (ISkinningStateManager::dropInstance(ID))
                 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-                    if (oldInstanceDataSize!=instanceDataSize && TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
+                    if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
                         TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
 #endif // _IRR_COMPILE_WITH_OPENGL_
                     return true;
@@ -153,7 +152,7 @@ namespace scene
                 if (boneControlMode!=EBUM_READ)
                     return;
 
-                BoneHierarchyInstanceData* tmp = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(instanceID));
+                BoneHierarchyInstanceData* tmp = getBoneHierarchyInstanceFromAddr(instanceID);
                 for (size_t i=0; i<referenceHierarchy->getBoneCount(); i++)
                 {
                     if (getBones(tmp)[i])
@@ -184,7 +183,7 @@ namespace scene
                 if (boneControlMode!=EBUM_READ)
                     return;
 
-                BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(instanceID));
+                BoneHierarchyInstanceData* currentInstance = getBoneHierarchyInstanceFromAddr(instanceID);
                 if (currentInstance->frame==currentInstance->lastAnimatedFrame) //in other modes, check if also has no bones!!!
                     return;
 
@@ -219,7 +218,6 @@ namespace scene
                     size_t j = boneStack[boneStackSize];
                     CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx];
 
-                    //core::matrix4x3 interpolatedLocalTform;
                     core::matrix3x4SIMD interpolatedLocalTform;
                     if (currentInstance->interpolateAnimation&&interpolationFactor<1.f)
                     {
@@ -235,10 +233,8 @@ namespace scene
                     {
                         const core::matrix4x3& parentTform = getGlobalMatrices(currentInstance)[referenceHierarchy->getBoneData()[j].parentOffsetFromTop];
                         getGlobalMatrices(currentInstance)[j] = core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(parentTform), interpolatedLocalTform).getAsRetardedIrrlichtMatrix();
-						//concatenateBFollowedByA(parentTform,interpolatedLocalTform);
                     }
 					boneDataForInstance[j].SkinningTransform = core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(getGlobalMatrices(currentInstance)[j]), core::matrix3x4SIMD().set(referenceHierarchy->getBoneData()[j].PoseBindMatrix)).getAsRetardedIrrlichtMatrix();
-					//concatenateBFollowedByA(getGlobalMatrices(currentInstance)[j],referenceHierarchy->getBoneData()[j].PoseBindMatrix);
 
 
                     core::aabbox3df bbox;
@@ -277,10 +273,7 @@ namespace scene
 
             inline void TrySwapBoneBuffer()
             {
-                core::vector<video::IDriverMemoryAllocation::MappedMemoryRange> rangesToFlush;
-                instanceBoneDataAllocator->swapBuffers(Driver->getDefaultUpStreamingBuffer(),rangesToFlush);
-                Driver->flushMappedMemoryRanges(rangesToFlush);
-
+                instanceBoneDataAllocator->swapBuffers(Driver->getDefaultUpStreamingBuffer());
 #ifdef _IRR_COMPILE_WITH_OPENGL_
                 if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
                     TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the range length :D
@@ -310,7 +303,7 @@ namespace scene
                                 uint32_t localFirstDirtyInstance,localLastDirtyInstance;
                                 for (size_t i=instanceBoneDataAllocator->getAddressAllocator().get_align_offset(); i<instanceBoneDataAllocator->getAddressAllocator().get_total_size(); i+=instanceFinalBoneDataSize)
                                 {
-                                    BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
+                                    BoneHierarchyInstanceData* currentInstance = getBoneHierarchyInstanceFromAddr(i);
                                     if (!currentInstance->refCount || currentInstance->frame==currentInstance->lastAnimatedFrame) //in other modes, check if also has no bones!!!
                                         continue;
 
@@ -320,7 +313,7 @@ namespace scene
 
 
                                     float interpolationFactor;
-                                    size_t foundBoneIx = referenceHierarchy->getLowerBoundBoneKeyframes(interpolationFactor,currentInstance->frame);
+                                    size_t foundKeyIx = referenceHierarchy->getLowerBoundBoneKeyframes(interpolationFactor,currentInstance->frame);
                                     float interpolantPrecalcTerm2,interpolantPrecalcTerm3;
                                     core::quaternion::flerp_interpolant_terms(interpolantPrecalcTerm2,interpolantPrecalcTerm3,interpolationFactor);
 
@@ -338,27 +331,25 @@ namespace scene
                                         localLastDirtyInstance = i;
                                         boneDataForInstance[j].lastAnimatedFrame = currentInstance->frame;
 
-                                        CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundBoneIx];
+                                        CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx];
 
-                                        core::matrix4x3 interpolatedLocalTform;
+                                        core::matrix3x4SIMD interpolatedLocalTform;
                                         if (currentInstance->interpolateAnimation&&interpolationFactor<1.f)
                                         {
-                                            CFinalBoneHierarchy::AnimationKeyData lowerFrame =  (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundBoneIx-1];
-                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor,interpolantPrecalcTerm2,interpolantPrecalcTerm3).getAsRetardedIrrlichtMatrix();
+                                            CFinalBoneHierarchy::AnimationKeyData lowerFrame =  (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx-1];
+                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
                                         }
                                         else
-                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKey(upperFrame).getAsRetardedIrrlichtMatrix();
+                                            interpolatedLocalTform = referenceHierarchy->getMatrixFromKey(upperFrame);
 
                                         if (j < referenceHierarchy->getBoneLevelRangeEnd(0))
-                                            getGlobalMatrices(currentInstance)[j] = interpolatedLocalTform;
+                                            getGlobalMatrices(currentInstance)[j] = interpolatedLocalTform.getAsRetardedIrrlichtMatrix();
                                         else
                                         {
                                             const core::matrix4x3& parentTform = getGlobalMatrices(currentInstance)[referenceHierarchy->getBoneData()[j].parentOffsetFromTop];
-                                            getGlobalMatrices(currentInstance)[j] = core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(parentTform), core::matrix3x4SIMD().set(interpolatedLocalTform)).getAsRetardedIrrlichtMatrix();
-											//concatenateBFollowedByA(parentTform,interpolatedLocalTform);
+                                            getGlobalMatrices(currentInstance)[j] = core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(parentTform), interpolatedLocalTform).getAsRetardedIrrlichtMatrix();
                                         }
                                         boneDataForInstance[j].SkinningTransform = core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(getGlobalMatrices(currentInstance)[j]), core::matrix3x4SIMD().set(referenceHierarchy->getBoneData()[j].PoseBindMatrix)).getAsRetardedIrrlichtMatrix();
-										//concatenateBFollowedByA(getGlobalMatrices(currentInstance)[j],referenceHierarchy->getBoneData()[j].PoseBindMatrix);
 
 
                                         core::aabbox3df bbox;
@@ -380,7 +371,7 @@ namespace scene
 													bone->setRelativeTransformationMatrix(core::matrix3x4SIMD::concatenateBFollowedByA(core::matrix3x4SIMD().set(attachedNodeTform), core::matrix3x4SIMD().set(getGlobalMatrices(currentInstance)[j])).getAsRetardedIrrlichtMatrix()/*concatenateBFollowedByA(attachedNodeTform,getGlobalMatrices(currentInstance)[j])*/);
                                                 else
                                                 {
-                                                    bone->setRelativeTransformationMatrix(interpolatedLocalTform);
+                                                    bone->setRelativeTransformationMatrix(interpolatedLocalTform.getAsRetardedIrrlichtMatrix());
                                                     bone->updateAbsolutePosition();
                                                 }
                                             }
@@ -405,7 +396,7 @@ namespace scene
                                 {
                                     for (size_t i=localFirstDirtyInstance; i<=localLastDirtyInstance; i+=instanceFinalBoneDataSize)
                                     {
-                                        BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
+                                        BoneHierarchyInstanceData* currentInstance = getBoneHierarchyInstanceFromAddr(i);
                                         if (!currentInstance->refCount || currentInstance->frame==currentInstance->lastAnimatedFrame) //in other modes, check if also has no bones!!!
                                             continue;
                                         currentInstance->lastAnimatedFrame = currentInstance->frame;
@@ -450,7 +441,7 @@ namespace scene
                                 uint32_t localFirstDirtyInstance,localLastDirtyInstance;
                                 for (size_t i=instanceBoneDataAllocator->getAddressAllocator().get_align_offset(); i<instanceBoneDataAllocator->getAddressAllocator().get_total_size(); i+=instanceFinalBoneDataSize)
                                 {
-                                    BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
+                                    BoneHierarchyInstanceData* currentInstance = getBoneHierarchyInstanceFromAddr(i);
                                     if (!currentInstance->refCount)
                                         continue;
 
@@ -520,7 +511,7 @@ namespace scene
                                 {
                                     for (uint32_t i=localFirstDirtyInstance; i<=localLastDirtyInstance; i+=instanceFinalBoneDataSize)
                                     {
-                                        BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(i));
+                                        BoneHierarchyInstanceData* currentInstance = getBoneHierarchyInstanceFromAddr(i);
                                         if (!currentInstance->refCount || !currentInstance->attachedNode || currentInstance->needToRecomputeParentBBox)
                                             continue;
 

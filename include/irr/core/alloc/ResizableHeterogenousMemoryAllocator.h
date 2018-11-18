@@ -16,7 +16,7 @@ template<class HeterogenousMemoryAllocator>
 class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
 {
         typedef HeterogenousMemoryAllocator                        Base;
-        typedef typename Base::alloc_traits                             alloc_traits;
+        typedef typename Base::alloc_traits                            alloc_traits;
 
         typedef typename Base::alloc_traits::allocator_type AddressAllocator;
     public:

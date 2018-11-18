@@ -246,13 +246,13 @@ namespace scene
             //!
             inline void grabInstance(const uint32_t& ID)
             {
-                reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID))->refCount++;
+                getBoneHierarchyInstanceFromAddr(ID)->refCount++;
             }
 
             //! true if deleted
             virtual bool dropInstance(const uint32_t& ID)
             {
-                BoneHierarchyInstanceData* instance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID));
+                BoneHierarchyInstanceData* instance = getBoneHierarchyInstanceFromAddr(ID);
                 if ((instance->refCount--)>1)
                     return false;
 
@@ -266,7 +266,6 @@ namespace scene
                 memset(instance,0,actualSizeOfInstanceDataElement);
 
                 instanceBoneDataAllocator->multi_free_addr(1u,&ID,&instanceFinalBoneDataSize);
-                instanceBoneDataAllocator->markRangeDirty(ID,ID+instanceFinalBoneDataSize);
 
                 auto instanceCapacity = getDataInstanceCapacity();
                 if (instanceDataSize!=instanceCapacity)
@@ -290,18 +289,18 @@ namespace scene
 
             inline void setInterpolation(const bool& isLinear, const uint32_t& ID)
             {
-                reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID))->interpolateAnimation = isLinear;
+                getBoneHierarchyInstanceFromAddr(ID)->interpolateAnimation = isLinear;
             }
 
             inline void setFrame(const float& frame, const uint32_t& ID)
             {
-                reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID))->frame = frame;
+                getBoneHierarchyInstanceFromAddr(ID)->frame = frame;
             }
 
             inline IBoneSceneNode* getBone(const uint32_t& boneID, const uint32_t& ID)
             {
                 assert(boneID<referenceHierarchy->getBoneCount());
-                return getBones(reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(ID)))[boneID];
+                return getBones(getBoneHierarchyInstanceFromAddr(ID))[boneID];
             }
 
 
@@ -312,7 +311,7 @@ namespace scene
             {
                 for (size_t j=instanceBoneDataAllocator->getAddressAllocator().get_align_offset(); j<instanceBoneDataAllocator->getAddressAllocator().get_total_size(); j+=instanceFinalBoneDataSize)
                 {
-                    BoneHierarchyInstanceData* currentInstance = reinterpret_cast<BoneHierarchyInstanceData*>(getBoneHierarchyInstanceFromAddr(j));
+                    BoneHierarchyInstanceData* currentInstance = getBoneHierarchyInstanceFromAddr(j);
                     if (!currentInstance->refCount)
                         continue;
 
@@ -338,7 +337,7 @@ namespace scene
             const CFinalBoneHierarchy* referenceHierarchy;
 
             size_t actualSizeOfInstanceDataElement;
-            class BoneHierarchyInstanceData
+            class BoneHierarchyInstanceData : public core::AlignedBase<std::alignment_of<core::matrix4x3>::value >
             {
                 public:
                     BoneHierarchyInstanceData() : refCount(0), frame(0.f), lastAnimatedFrame(-1.f), interpolateAnimation(true), attachedNode(NULL)
@@ -359,11 +358,11 @@ namespace scene
             };
             inline core::matrix4x3* getGlobalMatrices(BoneHierarchyInstanceData* currentInstance)
             {
-                return reinterpret_cast<core::matrix4x3*>(currentInstance+1);
+                return reinterpret_cast<core::matrix4x3*>(currentInstance+1u);
             }
             inline IBoneSceneNode** getBones(BoneHierarchyInstanceData* currentInstance)
             {
-                return reinterpret_cast<IBoneSceneNode**>(reinterpret_cast<core::matrix4x3*>(currentInstance+1)+referenceHierarchy->getBoneCount());
+                return reinterpret_cast<IBoneSceneNode**>(reinterpret_cast<core::matrix4x3*>(currentInstance+1u)+referenceHierarchy->getBoneCount());
             }
             uint8_t* instanceData;
             uint32_t instanceDataSize;
@@ -386,10 +385,11 @@ namespace scene
                 const auto& alloc = instanceBoneDataAllocator->getAddressAllocator();
                 return alloc.addressToBlockID(alloc.get_total_size());
             }
-            inline uint8_t* getBoneHierarchyInstanceFromAddr(uint32_t instanceID) const
+            inline BoneHierarchyInstanceData* getBoneHierarchyInstanceFromAddr(uint32_t instanceID) const
             {
-                auto blockID = instanceBoneDataAllocator->getAddressAllocator().addressToBlockID(instanceID);
-                return reinterpret_cast<uint8_t*>(instanceData+blockID*actualSizeOfInstanceDataElement);
+                const auto& alloc = instanceBoneDataAllocator->getAddressAllocator();
+                auto blockID = alloc.addressToBlockID(instanceID);
+                return reinterpret_cast<BoneHierarchyInstanceData*>(instanceData+blockID*actualSizeOfInstanceDataElement);
             }
     };
 
