@@ -13,33 +13,44 @@ template<class Event, class Functor>
 class EventDeferredHandlerST
 {
     public:
-        typedef std::pair<Event,Functor>    DeferredEvent;
+        typedef std::pair<Event,Functor>                  DeferredEvent;
     protected:
-        core::list<DeferredEvent>         mEvents;
+        typedef core::forward_list<DeferredEvent> EventContainerType;
+        EventContainerType                                      mEvents;
+        typename EventContainerType::size_type  mEventsCount;
+        typename EventContainerType::iterator      mLastEvent;
     public:
-        EventDeferredHandlerST() {}
+        EventDeferredHandlerST() : mEventsCount(0u)
+        {
+            mLastEvent = mEvents.before_begin();
+        }
 
         virtual ~EventDeferredHandlerST()
         {
-            while (mEvents.size())
+            while (mEventsCount)
             {
+                auto prev = mEvents.before_begin();
                 for (auto it = mEvents.begin(); it!=mEvents.end(); )
                 {
                     if (it->first.wait_until(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250ull)))
                     {
                         it->second();
-                        it = mEvents.erase(it);
+                        it = mEvents.erase_after(prev);
+                        mEventsCount--;
                         continue;
                     }
-                    it++;
+                    prev = it++;
                 }
+                mLastEvent = prev;
             }
         }
 
         inline void     addEvent(Event&& event, Functor&& functor)
         {
-            mEvents.emplace_back(std::forward<Event>(event),std::forward<Functor>(functor));
+            mLastEvent = mEvents.emplace_after(mLastEvent,std::forward<Event>(event),std::forward<Functor>(functor));
+            mEventsCount++;
         }
+        /*
         //! Abort does not call the operator()
         inline uint32_t abortEvent(const Event& eventToAbort)
         {
@@ -47,9 +58,10 @@ class EventDeferredHandlerST
             assert(mEvents.size());
             #endif // _DEBUG
             std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.first==eventToAbort;});
+            mLastEvent = ?
             return mEvents.size();
         }
-        /** For later implementation -- WARNING really old code
+        // For later implementation -- WARNING really old code
         inline void     swapEvents()
         {
             // extras from old StreamingTransientDataBuffer
@@ -78,9 +90,10 @@ class EventDeferredHandlerST
         template<class Clock, class Duration, typename... Args>
         inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock, Duration>& timeout_time, Args&... args)
         {
-            while (mEvents.size())
+            while (mEventsCount)
             {
                 // iterate to poll
+                auto prev = mEvents.before_begin();
                 for (auto it = mEvents.begin(); it!=mEvents.end();)
                 {
                     bool success;
@@ -88,7 +101,7 @@ class EventDeferredHandlerST
                     bool canWait = timeout_time>currentTime;
                     if (canWait)
                     {
-                        std::chrono::time_point<Clock> singleWaitTimePt((currentTime.time_since_epoch()*(mEvents.size()-1u)+timeout_time.time_since_epoch())/mEvents.size());
+                        std::chrono::time_point<Clock> singleWaitTimePt((currentTime.time_since_epoch()*(mEventsCount-1u)+timeout_time.time_since_epoch())/mEventsCount);
                         success = it->first.wait_until(singleWaitTimePt);
                     }
                     else
@@ -97,18 +110,20 @@ class EventDeferredHandlerST
                     if (success)
                     {
                         bool earlyQuit = it->second(args...);
-                        it = mEvents.erase(it);
+                        it = mEvents.erase_after(prev);
+                        mEventsCount--;
                         if (earlyQuit)
-                            return mEvents.size();
+                            return mEventsCount;
 
                         continue;
                     }
                     // dont care about timeout until we hit first fence we had to wait for
                     if (!canWait)
-                        return mEvents.size();
+                        return mEventsCount;
 
-                    it++;
+                    prev = it++;
                 }
+                mLastEvent = prev;
             }
 
             return 0u;
@@ -117,47 +132,48 @@ class EventDeferredHandlerST
         template<typename... Args>
         inline uint32_t pollForReadyEvents(Args&... args)
         {
+            auto prev = mEvents.before_begin();
             for (auto it = mEvents.begin(); it!=mEvents.end();)
             {
                 if (it->first.poll())
                 {
                     bool earlyQuit = it->second(args...);
-                    it = mEvents.erase(it);
+                    it = mEvents.erase_after(prev);
+                    mEventsCount--;
                     if (earlyQuit)
-                        return mEvents.size();
+                        return mEventsCount;
 
                     continue;
                 }
-
-                it++;
+                prev = it++;
             }
+            mLastEvent = prev;
 
-            return mEvents.size();
+            return mEventsCount;
         }
 
         //! Will try to poll enough events so that the number of events in the queue is less or equal to maxEventCount
         template<typename... Args>
         inline uint32_t cullEvents(uint32_t maxEventCount)
         {
-            uint32_t startEventCount = mEvents.size();
-            if (startEventCount<=maxEventCount)
-                return startEventCount;
+            if (mEventsCount<=maxEventCount)
+                return mEventsCount;
 
-            uint32_t eventsToDelete = startEventCount-maxEventCount;
-            for (auto it = mEvents.begin(); eventsToDelete&&it!=mEvents.end();)
+            auto prev = mEvents.before_begin();
+            for (auto it = mEvents.begin(); mEventsCount>maxEventCount&&it!=mEvents.end();)
             {
                 if (it->first.poll())
                 {
                     it->second();
-                    it = mEvents.erase(it);
-                    eventsToDelete--;
+                    it = mEvents.erase_after(prev);
+                    mEventsCount--;
                     continue;
                 }
-
-                it++;
+                prev = it++;
             }
+            mLastEvent = prev;
 
-            return mEvents.size();
+            return mEventsCount;
         }
 };
 
