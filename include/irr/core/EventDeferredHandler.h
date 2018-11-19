@@ -15,7 +15,7 @@ class EventDeferredHandlerST
     public:
         typedef std::pair<Event,Functor>    DeferredEvent;
     protected:
-        core::vector<DeferredEvent>         mEvents;
+        core::list<DeferredEvent>         mEvents;
     public:
         EventDeferredHandlerST() {}
 
@@ -126,6 +126,31 @@ class EventDeferredHandlerST
                     if (earlyQuit)
                         return mEvents.size();
 
+                    continue;
+                }
+
+                it++;
+            }
+
+            return mEvents.size();
+        }
+
+        //! Will try to poll enough events so that the number of events in the queue is less or equal to maxEventCount
+        template<typename... Args>
+        inline uint32_t cullEvents(uint32_t maxEventCount)
+        {
+            uint32_t startEventCount = mEvents.size();
+            if (startEventCount<=maxEventCount)
+                return startEventCount;
+
+            uint32_t eventsToDelete = startEventCount-maxEventCount;
+            for (auto it = mEvents.begin(); eventsToDelete&&it!=mEvents.end();)
+            {
+                if (it->first.poll())
+                {
+                    it->second();
+                    it = mEvents.erase(it);
+                    eventsToDelete--;
                     continue;
                 }
 

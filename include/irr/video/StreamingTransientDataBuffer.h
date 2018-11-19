@@ -116,7 +116,12 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, IDriverFence* fence) noexcept
         {
             if (fence)
+            {
+                //constexpr uint32_t maxEvents = 4096u; // TODO: After Skinned Mesh Instancing, tune this down to 128u
+                // large amount of events being kept alive is bad, mostly because IDriverFences are malloc'ed and lots of malloced objects hanging around slow the system down
+                //deferredFrees.cullEvents(maxEvents);
                 deferredFrees.addEvent(GPUEventWrapper(fence),DeferredFreeFunctor(&mAllocator,count,addr,bytes));
+            }
             else
                 mAllocator.multi_free_addr(count,addr,bytes);
         }
