@@ -1320,7 +1320,7 @@ void CMeshManipulator::priv_filterInvalidTriangles(ICPUMeshBuffer* _input) const
             core::vectorSIMDf p0, p1, p2;
             const E_VERTEX_ATTRIBUTE_ID pvaid = _input->getPositionAttributeIx();
             uint32_t m = 0xffffffff;
-            const core::vectorSIMDf mask(*(float*)&m, *(float*)&m, *(float*)&m, 0);
+            const core::vectorSIMDu32 mask(m, m, m, 0);
             _input->getAttribute(p0, pvaid, _t.i[0]);
             _input->getAttribute(p1, pvaid, _t.i[1]);
             _input->getAttribute(p2, pvaid, _t.i[2]);

@@ -59,14 +59,14 @@ class quaternion : private vectorSIMDf
         {
 /*
             __m128 one = _mm_set1_ps(1.f);
-            __m128 Qx  = _mm_xor_ps(_mm_load1_ps(&m(0,0)),_mm_castsi128_ps(_mm_set_epi32(0x80000000u,0x80000000u,0,0)));
-            __m128 Qy  = _mm_xor_ps(_mm_load1_ps(&m(1,1)),_mm_castsi128_ps(_mm_set_epi32(0x80000000u,0,0x80000000u,0)));
-            __m128 Qz  = _mm_xor_ps(_mm_load1_ps(&m(2,2)),_mm_castsi128_ps(_mm_set_epi32(0,0x80000000u,0x80000000u,0)));
+            __m128 Qx  = _mm_xor_ps(_mm_load1_ps(&m(0,0)),_mm_castsiWRONGCASTSPEAKTODEVSH128_ps(_mm_set_epi32(0x80000000u,0x80000000u,0,0)));
+            __m128 Qy  = _mm_xor_ps(_mm_load1_ps(&m(1,1)),_mm_castsiWRONGCASTSPEAKTODEVSH128_ps(_mm_set_epi32(0x80000000u,0,0x80000000u,0)));
+            __m128 Qz  = _mm_xor_ps(_mm_load1_ps(&m(2,2)),_mm_castsiWRONGCASTSPEAKTODEVSH128_ps(_mm_set_epi32(0,0x80000000u,0x80000000u,0)));
 
             __m128 output = _mm_add_ps(_mm_add_ps(one,Qx),_mm_add_ps(Qy,Qz));
-            output = _mm_and_ps(_mm_mul_ps(_mm_sqrt_ps(output),_mm_set1_ps(0.5f)),_mm_castsi128_ps(_mm_set_epi32(0x7fffffffu,0x7fffffffu,0x7fffffffu,0xffffffffu)));
+            output = _mm_and_ps(_mm_mul_ps(_mm_sqrt_ps(output),_mm_set1_ps(0.5f)),_mm_castsiWRONGCASTSPEAKTODEVSH128_ps(_mm_set_epi32(0x7fffffffu,0x7fffffffu,0x7fffffffu,0xffffffffu)));
 
-            __m128 mask = _mm_and_ps(_mm_cmplt_ps(_mm_set_ps(m(1,0),m(0,2),m(2,1),0.f),_mm_set_ps(m(0,1),m(2,0),m(1,2),0.f)),_mm_castsi128_ps(_mm_set_epi32(0x80000000u,0x80000000u,0x80000000u,0)));
+            __m128 mask = _mm_and_ps(_mm_cmplt_ps(_mm_set_ps(m(1,0),m(0,2),m(2,1),0.f),_mm_set_ps(m(0,1),m(2,0),m(1,2),0.f)),_mm_castsiWRONGCASTSPEAKTODEVSH128_ps(_mm_set_epi32(0x80000000u,0x80000000u,0x80000000u,0)));
 
             _mm_store_ps(pointer,_mm_or_ps(output,mask));
 */
@@ -155,14 +155,14 @@ class quaternion : private vectorSIMDf
             __m128 xyzw = vectorSIMDf::getAsRegister();
             __m128 abcd = reinterpret_cast<const vectorSIMDf&>(other).getAsRegister();
 
-          __m128 t0 = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(abcd), _MM_SHUFFLE (3, 3, 3, 3))); /* 1, 0.5 */
-          __m128 t1 = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xyzw), _MM_SHUFFLE (2, 3, 0, 1))); /* 1, 0.5 */
+          __m128 t0 = FAST_FLOAT_SHUFFLE(abcd, _MM_SHUFFLE (3, 3, 3, 3)); /* 1, 0.5 */
+          __m128 t1 = FAST_FLOAT_SHUFFLE(xyzw, _MM_SHUFFLE (2, 3, 0, 1)); /* 1, 0.5 */
 
-          __m128 t3 = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(abcd), _MM_SHUFFLE (0, 0, 0, 0))); /* 1, 0.5 */
-          __m128 t4 = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xyzw), _MM_SHUFFLE (1, 0, 3, 2))); /* 1, 0.5 */
+          __m128 t3 = FAST_FLOAT_SHUFFLE(abcd, _MM_SHUFFLE (0, 0, 0, 0)); /* 1, 0.5 */
+          __m128 t4 = FAST_FLOAT_SHUFFLE(xyzw, _MM_SHUFFLE (1, 0, 3, 2)); /* 1, 0.5 */
 
-          __m128 t5 = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(abcd), _MM_SHUFFLE (1, 1, 1, 1))); /* 1, 0.5 */
-          __m128 t6 = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xyzw), _MM_SHUFFLE (2, 0, 3, 1))); /* 1, 0.5 */
+          __m128 t5 = FAST_FLOAT_SHUFFLE(abcd, _MM_SHUFFLE (1, 1, 1, 1)); /* 1, 0.5 */
+          __m128 t6 = FAST_FLOAT_SHUFFLE(xyzw, _MM_SHUFFLE (2, 0, 3, 1)); /* 1, 0.5 */
 
           /* [d,d,d,d]*[z,w,x,y] = [dz,dw,dx,dy] */
           __m128 m0 = _mm_mul_ps (t0, t1); /* 5/4, 1 */
@@ -174,8 +174,8 @@ class quaternion : private vectorSIMDf
           __m128 m2 = _mm_mul_ps (t5, t6); /* 5/4, 1 */
 
           /* [c,c,c,c]*[w,z,x,y] = [cw,cz,cx,cy] */
-          __m128 t7 = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(abcd), _MM_SHUFFLE (2, 2, 2, 2))); /* 1, 0.5 */
-          __m128 t8 = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xyzw), _MM_SHUFFLE (3, 2, 0, 1))); /* 1, 0.5 */
+          __m128 t7 = FAST_FLOAT_SHUFFLE(abcd, _MM_SHUFFLE (2, 2, 2, 2)); /* 1, 0.5 */
+          __m128 t8 = FAST_FLOAT_SHUFFLE(xyzw, _MM_SHUFFLE (3, 2, 0, 1)); /* 1, 0.5 */
 
           __m128 m3 = _mm_mul_ps (t7, t8); /* 5/4, 1 */
 
@@ -185,14 +185,14 @@ class quaternion : private vectorSIMDf
 
           /* 2 */
           /* [dx+aw,dz+ay,dy-az,dw-ax] */
-          e = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(e), _MM_SHUFFLE (1, 3, 0, 2))); /* 1, 0.5 */
+          e = FAST_FLOAT_SHUFFLE(e, _MM_SHUFFLE (1, 3, 0, 2)); /* 1, 0.5 */
 
           /* [dx+aw,dz+ay,dy-az,dw-ax]+-[bz,bx,bw,by] = [dx+aw+bz,dz+ay-bx,dy-az+bw,dw-ax-by]*/
           e = _mm_addsub_ps (e, m2); /* 3, 1 */
 
           /* 2 */
           /* [dz+ay-bx,dw-ax-by,dy-az+bw,dx+aw+bz] */
-          e = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(e), _MM_SHUFFLE (2, 0, 1, 3))); /* 1, 0.5 */
+          e = FAST_FLOAT_SHUFFLE(e, _MM_SHUFFLE (2, 0, 1, 3)); /* 1, 0.5 */
 
           /* [dz+ay-bx,dw-ax-by,dy-az+bw,dx+aw+bz]+-[cw,cz,cx,cy]
              = [dz+ay-bx+cw,dw-ax-by-cz,dy-az+bw+cx,dx+aw+bz-cy] */
@@ -201,7 +201,7 @@ class quaternion : private vectorSIMDf
           /* 2 */
           /* [dw-ax-by-cz,dz+ay-bx+cw,dy-az+bw+cx,dx+aw+bz-cy] */
           quaternion tmp;
-          reinterpret_cast<vectorSIMDf&>(tmp) = vectorSIMDf(_mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(e), _MM_SHUFFLE (2, 3, 1, 0)))); /* 1, 0.5 */
+          reinterpret_cast<vectorSIMDf&>(tmp) = FAST_FLOAT_SHUFFLE(e, _MM_SHUFFLE (2, 3, 1, 0)); /* 1, 0.5 */
           return tmp;
         }
 
@@ -256,8 +256,7 @@ class quaternion : private vectorSIMDf
 		//! Inverts this quaternion
 		inline void makeInverse()
 		{
-		    __m128 result = _mm_xor_ps(reinterpret_cast<vectorSIMDf*>(this)->getAsRegister(),_mm_castsi128_ps(_mm_set_epi32(0x0u,0x80000000u,0x80000000u,0x80000000u)));
-		    this->set(result);
+		    reinterpret_cast<vectorSIMDf&>(*this) ^= _mm_set_epi32(0x0u,0x80000000u,0x80000000u,0x80000000u);
 		}
 
 		//! Fills an angle (radians) around an axis (unit vector)

@@ -62,7 +62,7 @@ namespace scene
     {
         core::vectorSIMDf fittingVector = normal;
         fittingVector.makeSafe3D();
-        fittingVector = fittingVector.getAbsoluteValue();
+        fittingVector = abs(fittingVector);
         core::vectorSIMDf vectorForDots(fittingVector);
         vectorForDots /= vectorForDots.getLength(); //precise normalize
         float maxNormalComp;

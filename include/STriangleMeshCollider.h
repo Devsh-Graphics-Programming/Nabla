@@ -45,7 +45,8 @@ class STriangleCollider : public AllocationOverrideDefault
 
             vectorSIMDf outPoint = origin+direction*t;
 
-            vectorSIMDf outPointW1 = outPoint|vectorSIMDf(0.f,0.f,0.f,1.f);
+            vectorSIMDf extraComponent(0.f,0.f,0.f,1.f);
+            vectorSIMDf outPointW1 = outPoint|reinterpret_cast<const vectorSIMDu32&>(extraComponent);
 
             if (dot(outPointW1,boundaryPlanes[0]).X>=0.f&&dot(outPointW1,boundaryPlanes[1]).X>=0.f)
             {

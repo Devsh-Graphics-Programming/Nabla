@@ -11,7 +11,7 @@ class matrix4SIMD : public AlignedBase<_IRR_SIMD_ALIGNMENT>
 {
     vectorSIMDf rows[4];
 
-#define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff))
+#define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff)
 public:
     inline explicit matrix4SIMD(const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f), const vectorSIMDf& _r1 = vectorSIMDf(0.f, 1.f, 0.f, 0.f), const vectorSIMDf& _r2 = vectorSIMDf(0.f, 0.f, 1.f, 0.f), const vectorSIMDf& _r3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f))
         : rows{ _r0, _r1, _r2, _r3 } {}
@@ -126,7 +126,7 @@ public:
     {
         matrix4SIMD out;
 
-        const __m128 mask0011 = BUILD_MASKF(0, 0, 1, 1);
+        const __m128i mask0011 = BUILD_MASKF(0, 0, 1, 1);
         __m128 second;
 
         {
@@ -180,7 +180,7 @@ public:
 
     inline matrix4SIMD& setScale(const core::vectorSIMDf& _scale)
     {
-        const vectorSIMDf mask0001 = BUILD_MASKF(0, 0, 0, 1);
+        const __m128i mask0001 = BUILD_MASKF(0, 0, 0, 1);
 
         rows[0] = (_scale & BUILD_MASKF(1, 0, 0, 0)) | (rows[0] & mask0001);
         rows[1] = (_scale & BUILD_MASKF(0, 1, 0, 0)) | (rows[1] & mask0001);
@@ -247,7 +247,7 @@ public:
         vectorSIMDf outC3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
         core::transpose4(_out.rows[0], _out.rows[1], _out.rows[2], outC3);
 
-        vectorSIMDf mask1110 = BUILD_MASKF(1, 1, 1, 0);
+        __m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
         vectorSIMDf r0 = (rows[0] * c3) & mask1110,
             r1 = (rows[1] * c3) & mask1110,
             r2 = (rows[2] * c3) & mask1110,
@@ -267,8 +267,8 @@ public:
     //! Modifies only upper-left 3x3.
     inline matrix4SIMD& setRotation(const quaternion& _quat)
     {
-        const __m128 mask0001 = BUILD_MASKF(0, 0, 0, 1);
-        const __m128 mask1110 = BUILD_MASKF(1, 1, 1, 0);
+        const __m128i mask0001 = BUILD_MASKF(0, 0, 0, 1);
+        const __m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
 
         const vectorSIMDf& quat = reinterpret_cast<const vectorSIMDf&>(_quat);
         rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (rows[0] & mask0001);
@@ -420,7 +420,7 @@ public:
 
     static inline matrix4SIMD buildShadowMatrix(vectorSIMDf _light, const core::plane3df& _plane, float _point)
     {
-        const vectorSIMDf mask1110 = BUILD_MASKF(1, 1, 1, 0);
+        const __m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
         vectorSIMDf normal = vectorSIMDf(&_plane.Normal.X) & mask1110;
         normal = core::normalize(normal);
         const vectorSIMDf d = normal.dotProduct(_light);
@@ -598,14 +598,14 @@ public:
         return m.setScale(vectorSIMDf(scaleX, scaleY, _zScale, 1.f));
     }
 
-#define BUILD_XORMASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0x80000000, _y_*0x80000000, _z_*0x80000000, _w_*0x80000000))
+#define BUILD_XORMASKF(_x_, _y_, _z_, _w_) _mm_setr_epi32(_x_*0x80000000, _y_*0x80000000, _z_*0x80000000, _w_*0x80000000)
     static inline matrix4SIMD buildTextureTransform(
         float _rotateRad,
         const core::vector2df& _rotateCenter,
         const core::vector2df& _translate,
         const core::vector2df& _scale)
     {
-        const vectorSIMDf mask1100 = BUILD_MASKF(1, 1, 0, 0);
+        const __m128i mask1100 = BUILD_MASKF(1, 1, 0, 0);
 
         const vectorSIMDf scale = vectorSIMDf(&_scale.X) & mask1100;
         const vectorSIMDf rotateCenter = vectorSIMDf(&_rotateCenter.X) & mask1100;

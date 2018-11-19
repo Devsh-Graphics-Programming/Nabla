@@ -30,7 +30,7 @@ class SAABoxCollider : public AllocationOverrideDefault
 /*
             vectorSIMDBool<4> xmm0 = reciprocalDirection>vectorSIMDf(0.f);
             vectorSIMDBool<4> xmm1 = ~xmm0; // SSE GRTER, SSE XOR
-            vectorSIMDf t = (MinEdgeSSE&_mm_castsi128_ps(xmm0.getAsRegister()))|(MaxEdgeSSE&_mm_castsi128_ps(xmm1.getAsRegister())); // SSE AND,AND,OR
+            vectorSIMDf t = (MinEdgeSSE&_mm_castsiWRONGCASTTALKTODEVSH128_ps(xmm0.getAsRegister()))|(MaxEdgeSSE&_mm_castsiWRONGCASTTALKTODEVSH128_ps(xmm1.getAsRegister())); // SSE AND,AND,OR
             t -= origin;
             t *= reciprocalDirection;
 
@@ -61,11 +61,11 @@ class SAABoxCollider : public AllocationOverrideDefault
             MaxEdgeSSE *= reciprocalDirection; //2x SSE MUL
 
             vectorSIMDBool<4> xmm0 = reciprocalDirection>vectorSIMDf(0.f);
-            vectorSIMDf t_Min = MinEdgeSSE&_mm_castsi128_ps(xmm0.getAsRegister());
-            vectorSIMDf t_Max = MaxEdgeSSE&_mm_castsi128_ps(xmm0.getAsRegister());
+            vectorSIMDf t_Min = MinEdgeSSE&xmm0.getAsRegister();
+            vectorSIMDf t_Max = MaxEdgeSSE&xmm0.getAsRegister();
             xmm0 = ~xmm0;
-            t_Min = t_Min|(MaxEdgeSSE&_mm_castsi128_ps(xmm0.getAsRegister()));
-            t_Max = t_Max|(MinEdgeSSE&_mm_castsi128_ps(xmm0.getAsRegister()));
+            t_Min = t_Min|(reinterpret_cast<const vectorSIMDu32&>(MaxEdgeSSE)&xmm0.getAsRegister());
+            t_Max = t_Max|(reinterpret_cast<const vectorSIMDu32&>(MinEdgeSSE)&xmm0.getAsRegister());
 
             if (t_Min.pointer[1]>t_Min.pointer[0])
                 t_Min.pointer[0] = t_Min.pointer[1];
