@@ -12,7 +12,7 @@ namespace core
 static_assert(_IRR_MATRIX_ALIGNMENT>=_IRR_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
 
 //! Equivalent of GLSL's mat4x3
-struct matrix3x4SIMD : private AlignedBase<_IRR_MATRIX_ALIGNMENT>
+struct matrix3x4SIMD : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT>
 {
 	core::vectorSIMDf rows[3];
 
@@ -70,6 +70,10 @@ struct matrix3x4SIMD : private AlignedBase<_IRR_MATRIX_ALIGNMENT>
 
 	static inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
 	{
+    #ifdef _DEBUG
+        assert(_a.isPtrAlignedForThisType(&_a));
+        assert(_b.isPtrAlignedForThisType(&_b));
+    #endif // _DEBUG
 		__m128 r0 = _a.rows[0].getAsRegister();
 		__m128 r1 = _a.rows[1].getAsRegister();
 		__m128 r2 = _a.rows[2].getAsRegister();
@@ -363,23 +367,24 @@ struct matrix3x4SIMD : private AlignedBase<_IRR_MATRIX_ALIGNMENT>
 		return *this;
 	}
 
-#define BUILD_XORMASKF(_x_, _y_, _z_, _w_) _mm_castsi128_ps(_mm_setr_epi32(_x_*0x80000000, _y_*0x80000000, _z_*0x80000000, _w_*0x80000000))
+#define BUILD_XORMASKF(_x_, _y_, _z_, _w_) _mm_setr_epi32(_x_ ? 0x80000000u:0x0u, _y_ ? 0x80000000u:0x0u, _z_ ? 0x80000000u:0x0u, _w_ ? 0x80000000u:0x0u)
     inline matrix3x4SIMD& setScaleRotationAndTranslation(const vectorSIMDf& _scale, const core::quaternion& _quat, const vectorSIMDf& _translation)
     {
         const __m128 mask1110 = BUILD_MASKF(1, 1, 1, 0);
 
         const vectorSIMDf& quat = reinterpret_cast<const vectorSIMDf&>(_quat);
         const vectorSIMDf dblScale = (_scale*2.f) & mask1110;
+        const __m128i dblScaleBitfield = _mm_castps_si128(dblScale.getAsRegister());
 
-        vectorSIMDf mlt = dblScale ^ BUILD_XORMASKF(0, 1, 0, 0);
+        vectorSIMDf mlt =  _mm_castsi128_ps(_mm_xor_si128(dblScaleBitfield,BUILD_XORMASKF(0, 1, 0, 0)));
         rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * dblScale)) + (quat.zzzz() * (quat.zwxx() & mask1110) * mlt));
         rows[0].x = _scale.x - rows[0].x;
 
-        mlt = dblScale ^ BUILD_XORMASKF(0, 0, 1, 0);
+        mlt = _mm_castsi128_ps(_mm_xor_si128(dblScaleBitfield,BUILD_XORMASKF(0, 0, 1, 0)));
         rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * dblScale)) + (quat.xxxx() * (quat.yxwx() & mask1110) * mlt));
         rows[1].y = _scale.y - rows[1].y;
 
-        mlt = dblScale ^ BUILD_XORMASKF(1, 0, 0, 0);
+        mlt = _mm_castsi128_ps(_mm_xor_si128(dblScaleBitfield,BUILD_XORMASKF(1, 0, 0, 0)));
         rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * dblScale)) + (quat.yyyy() * (quat.wzyx() & mask1110) * mlt));
         rows[2].z = _scale.z - rows[2].z;
 

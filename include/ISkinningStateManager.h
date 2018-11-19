@@ -222,7 +222,7 @@ namespace scene
                 auto bufSize = instanceFinalBoneDataSize*16u; // use more buffer space in the future for GPU scene-tree
                 instanceBoneDataAllocator = new std::remove_pointer<decltype(instanceBoneDataAllocator)>::type(driver,core::allocator<uint8_t>(),bufSize,instanceFinalBoneDataSize);
 
-                actualSizeOfInstanceDataElement = sizeof(BoneHierarchyInstanceData)+referenceHierarchy->getBoneCount()*(sizeof(IBoneSceneNode*)+sizeof(core::matrix4x3));
+                actualSizeOfInstanceDataElement = sizeof(BoneHierarchyInstanceData)+referenceHierarchy->getBoneCount()*(sizeof(IBoneSceneNode*)+sizeof(core::matrix4x3)); // TODO: odd bone counts will break alignment badly!
             }
 
             inline const E_BONE_UPDATE_MODE& getBoneUpdateMode() const {return boneControlMode;}
@@ -358,10 +358,18 @@ namespace scene
             };
             inline core::matrix4x3* getGlobalMatrices(BoneHierarchyInstanceData* currentInstance)
             {
+                #ifdef _DEBUG
+                size_t addr = reinterpret_cast<size_t>(currentInstance+1u);
+                assert((addr&0xfu) == 0u);
+                #endif // _DEBUG
                 return reinterpret_cast<core::matrix4x3*>(currentInstance+1u);
             }
             inline IBoneSceneNode** getBones(BoneHierarchyInstanceData* currentInstance)
             {
+                #ifdef _DEBUG
+                size_t addr = reinterpret_cast<size_t>(currentInstance+1u);
+                assert((addr&0xfu) == 0u);
+                #endif // _DEBUG
                 return reinterpret_cast<IBoneSceneNode**>(reinterpret_cast<core::matrix4x3*>(currentInstance+1u)+referenceHierarchy->getBoneCount());
             }
             uint8_t* instanceData;

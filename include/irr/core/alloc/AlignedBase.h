@@ -172,6 +172,10 @@ namespace impl
             static inline void operator delete(void* ptr, size_t size) noexcept {operator delete(ptr);} //roll back to own operator with no size
             static inline void operator delete[](void* ptr, size_t size) noexcept {operator delete[](ptr);} //roll back to own operator with no size
 
+            static inline bool isPtrAlignedForThisType(const void* ptr) noexcept
+            {
+                return is_aligned_to(ptr,object_alignment);
+            }
     };
 }
 

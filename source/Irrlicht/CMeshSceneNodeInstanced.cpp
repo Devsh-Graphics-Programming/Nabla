@@ -331,17 +331,14 @@ void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, c
 
 core::matrix4x3 CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& instanceID)
 {
+        core::matrix4x3 retval(core::matrix4x3::EM4CONST_NOTHING);
     size_t redir = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
     if (redir==kInvalidInstanceID)
-    {
-        core::matrix4x3 retval(core::matrix4x3::EM4CONST_NOTHING);
         memset(retval.pointer(),0,48);
-        return retval;
-    }
     else
-    {
-        return reinterpret_cast<core::matrix4x3*>(reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redir)[0];
-    }
+        memcpy(retval.pointer(),reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redir,sizeof(core::matrix4x3));
+
+    return retval;
 }
 
 void CMeshSceneNodeInstanced::setInstanceVisible(const uint32_t& instanceID, const bool& visible)
