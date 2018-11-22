@@ -384,11 +384,14 @@ endif()
 find_package(Vulkan)
 
 if (Vulkan_FOUND)
+	message(STATUS "Building with Vulkan driver")
 	target_compile_definitions(Irrlicht PRIVATE
 		_IRR_COMPILE_WITH_VULKAN_
 	)
 	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
 	target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
+else()
+	message(STATUS "Vulkan driver is not enabled")
 endif()
 
 target_compile_definitions(Irrlicht PRIVATE
