@@ -418,7 +418,7 @@ void CNullDriver::removeAllFrameBuffers()
 {
 }
 
-ITexture* CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, ECOLOR_FORMAT format)
+ITexture* CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, E_FORMAT format)
 {
     if (type != ITexture::ETT_2D)
         return nullptr;
@@ -430,7 +430,7 @@ ITexture* CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, co
 //! returns a device dependent texture from a software surface (IImage)
 //! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 ITexture* CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
-			const io::path& name, ECOLOR_FORMAT format)
+			const io::path& name, E_FORMAT format)
 {
     //better safe than sorry
     if (type!=ITexture::ETT_2D)
@@ -572,9 +572,9 @@ void CNullDriver::draw2DLine(const core::position2d<int32_t>& start,
 
 
 //! returns color format
-ECOLOR_FORMAT CNullDriver::getColorFormat() const
+E_FORMAT CNullDriver::getColorFormat() const
 {
-	return ECF_R5G6B5;
+	return EF_R5G6B5;
 }
 
 
@@ -760,7 +760,7 @@ IImage* CNullDriver::createImageFromData(CImageData* imageData, bool ownForeignM
 }
 
 //!
-IImage* CNullDriver::createImage(const ECOLOR_FORMAT& format, const core::dimension2d<uint32_t>& size)
+IImage* CNullDriver::createImage(const E_FORMAT& format, const core::dimension2d<uint32_t>& size)
 {
     return new CImage(format, size);
 }
@@ -1400,8 +1400,8 @@ determined by the color formats.
 \param dP Pointer to destination
 \param dF Color format of destination
 */
-void CNullDriver::convertColor(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
-		void* dP, ECOLOR_FORMAT dF) const
+void CNullDriver::convertColor(const void* sP, E_FORMAT sF, int32_t sN,
+		void* dP, E_FORMAT dF) const
 {
 	video::CColorConverter::convert_viaFormat(sP, sF, sN, dP, dF);
 }

@@ -10,7 +10,7 @@
 
 namespace irr { namespace video
 {
-	template<ECOLOR_FORMAT fmt, typename T>
+	template<E_FORMAT fmt, typename T>
     inline typename 
     std::enable_if<
         true,//std::is_same<T, double>::value && isScaledFormat<fmt>(),
@@ -18,7 +18,7 @@ namespace irr { namespace video
     >::type
     decodePixels(const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
 	
-	template<ECOLOR_FORMAT fmt, typename T>
+	template<E_FORMAT fmt, typename T>
     inline typename 
     std::enable_if<
         true,//std::is_same<T, double>::value || std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value,
@@ -28,7 +28,7 @@ namespace irr { namespace video
 	
 	
 	template<>
-    inline void decodePixels<ECF_A1R5G5B5, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A1R5G5B5, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = (pix & 0x1fu);
@@ -38,7 +38,7 @@ namespace irr { namespace video
     }
 	
 	template<>
-    inline void decodePixels<ECF_R5G6B5, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R5G6B5, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x1fULL);
@@ -47,7 +47,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R4G4_UNORM_PACK8, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R4G4_UNORM_PACK8, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[1] = ((pix >> 0) & 0xfULL) / 15.;
@@ -55,7 +55,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R4G4B4A4_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[3] = ((pix >> 0) & 0xfULL) / 15.;
@@ -65,7 +65,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B4G4R4A4_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[3] = ((pix >> 0) & 0xfULL) / 15.;
@@ -75,7 +75,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R5G6B5_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R5G6B5_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x1fULL) / 31.;
@@ -84,7 +84,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B5G6R5_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B5G6R5_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x1fULL) / 31.;
@@ -93,7 +93,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R5G5B5A1_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[3] = ((pix >> 0) & 0x1ULL) / 1.;
@@ -103,7 +103,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B5G5R5A1_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[3] = ((pix >> 0) & 0x1ULL) / 1.;
@@ -113,7 +113,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A1R5G5B5_UNORM_PACK16, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x1fULL) / 31.;
@@ -123,49 +123,49 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
     }
 	
     template<>
-    inline void decodePixels<ECF_R8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int8_t& pix = reinterpret_cast<const int8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
     }
 	
     template<>
-    inline void decodePixels<ECF_R8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
     }
 	
     template<>
-    inline void decodePixels<ECF_R8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int8_t& pix = reinterpret_cast<const int8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
     }
 	
     template<>
-    inline void decodePixels<ECF_R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
     }
 	
     template<>
-    inline void decodePixels<ECF_R8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int8_t& pix = reinterpret_cast<const int8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -173,7 +173,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -181,7 +181,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R8G8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -189,7 +189,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R8G8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -197,7 +197,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -205,7 +205,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -213,7 +213,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -222,7 +222,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -231,7 +231,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R8G8B8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -240,7 +240,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R8G8B8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -249,7 +249,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -258,7 +258,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -267,7 +267,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255.;
@@ -276,7 +276,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127.;
@@ -285,7 +285,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_B8G8R8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -294,7 +294,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_B8G8R8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -303,7 +303,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -312,7 +312,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL);
@@ -321,7 +321,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8A8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -331,7 +331,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8A8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -341,7 +341,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R8G8B8A8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -351,7 +351,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R8G8B8A8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -361,7 +361,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -371,7 +371,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8A8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -381,7 +381,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8A8_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255.;
@@ -391,7 +391,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8A8_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127.;
@@ -401,7 +401,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_B8G8R8A8_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -411,7 +411,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_B8G8R8A8_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -421,7 +421,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8A8_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL);
@@ -431,7 +431,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8A8_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffLL);
@@ -441,7 +441,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A8B8G8R8_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -451,7 +451,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A8B8G8R8_SNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127.;
@@ -461,7 +461,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_A8B8G8R8_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255. * _scale;
@@ -471,7 +471,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_A8B8G8R8_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL) / 127. * _scale;
@@ -481,7 +481,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A8B8G8R8_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL);
@@ -491,7 +491,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A8B8G8R8_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffLL);
@@ -501,7 +501,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A2R10G10B10_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffULL) / 1023.;
@@ -511,7 +511,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A2R10G10B10_SNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffLL) / 511.;
@@ -521,7 +521,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_A2R10G10B10_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffULL) / 1023. * _scale;
@@ -531,7 +531,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_A2R10G10B10_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffLL) / 511. * _scale;
@@ -541,7 +541,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A2R10G10B10_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffULL);
@@ -551,7 +551,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A2R10G10B10_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0x3ffLL);
@@ -561,7 +561,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A2B10G10R10_UNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffULL) / 1023.;
@@ -571,7 +571,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A2B10G10R10_SNORM_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffLL) / 511.;
@@ -581,7 +581,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_A2B10G10R10_USCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffULL) / 1023. * _scale;
@@ -591,7 +591,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_A2B10G10R10_SSCALED_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffLL) / 511. * _scale;
@@ -601,7 +601,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A2B10G10R10_UINT_PACK32, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffULL);
@@ -611,7 +611,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A2B10G10R10_SINT_PACK32, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x3ffLL);
@@ -621,49 +621,49 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
     }
 	
     template<>
-    inline void decodePixels<ECF_R16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
     }
 	
     template<>
-    inline void decodePixels<ECF_R16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
     }
 	
     template<>
-    inline void decodePixels<ECF_R16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
     }
 	
     template<>
-    inline void decodePixels<ECF_R16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
     }
 	
     template<>
-    inline void decodePixels<ECF_R16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int16_t& pix = reinterpret_cast<const int16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
@@ -671,7 +671,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
@@ -679,7 +679,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R16G16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
@@ -687,7 +687,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R16G16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
@@ -695,7 +695,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
@@ -703,7 +703,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
@@ -711,7 +711,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
@@ -720,7 +720,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
@@ -729,7 +729,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R16G16B16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
@@ -738,7 +738,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R16G16B16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
@@ -747,7 +747,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
@@ -756,7 +756,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
@@ -765,7 +765,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16A16_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535.;
@@ -775,7 +775,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16A16_SNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767.;
@@ -785,7 +785,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R16G16B16A16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL) / 65535. * _scale;
@@ -795,7 +795,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline void decodePixels<EF_R16G16B16A16_SSCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL) / 32767. * _scale;
@@ -805,7 +805,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16A16_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffULL);
@@ -815,7 +815,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R16G16B16A16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16A16_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffLL);
@@ -825,21 +825,21 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffULL);
     }
 	
     template<>
-    inline void decodePixels<ECF_R32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t& pix = reinterpret_cast<const int32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffLL);
     }
 	
     template<>
-    inline void decodePixels<ECF_R32G32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32G32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffULL);
@@ -847,7 +847,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R32G32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32G32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffLL);
@@ -855,7 +855,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R32G32B32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32G32B32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 3u; ++i)
@@ -863,7 +863,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R32G32B32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32G32B32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t* pix = reinterpret_cast<const int32_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 3u; ++i)
@@ -871,7 +871,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32G32B32A32_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t* pix = reinterpret_cast<const uint32_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 4u; ++i)
@@ -879,7 +879,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32G32B32A32_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int32_t* pix = reinterpret_cast<const int32_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 4u; ++i)
@@ -887,21 +887,21 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffffffffffULL);
     }
 	
     template<>
-    inline void decodePixels<ECF_R64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t& pix = reinterpret_cast<const int64_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffffffffffffffffLL);
     }
 	
     template<>
-    inline void decodePixels<ECF_R64G64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64G64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 2u; ++i)
@@ -909,7 +909,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R64G64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64G64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t* pix = reinterpret_cast<const int64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 2u; ++i)
@@ -917,7 +917,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R64G64B64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64G64B64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 3u; ++i)
@@ -925,7 +925,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R64G64B64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64G64B64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t* pix = reinterpret_cast<const int64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 3u; ++i)
@@ -933,7 +933,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64G64B64A64_UINT, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t* pix = reinterpret_cast<const uint64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 4u; ++i)
@@ -941,7 +941,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64G64B64A64_SINT, int64_t>(const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const int64_t* pix = reinterpret_cast<const int64_t*>(_pix[0]);
         for (uint32_t i = 0u; i < 4u; ++i)
@@ -949,7 +949,7 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -961,7 +961,7 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R8G8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -979,7 +979,7 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R8G8B8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -1003,7 +1003,7 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_B8G8R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255.;
@@ -1027,7 +1027,7 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_R8G8B8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R8G8B8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -1057,7 +1057,7 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_B8G8R8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B8G8R8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[2] = ((pix >> 0) & 0xffULL) / 255.;
@@ -1087,7 +1087,7 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_A8B8G8R8_SRGB_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A8B8G8R8_SRGB_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0xffULL) / 255.;
@@ -1132,7 +1132,7 @@ namespace irr { namespace video
         }
 	}
 	template<>
-    inline void decodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B10G11R11_UFLOAT_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decode_r11g11b10f<double>(_pix[0], _output);
     }
@@ -1148,22 +1148,22 @@ namespace irr { namespace video
         }
     }
 	    template<>
-    inline void decodePixels<ECF_R16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef16<double, 1u>(_pix[0], _output);
     }
-    template<> // ECF_R16G16_SFLOAT gets mapped to GL_RG
-    inline void decodePixels<ECF_R16G16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    template<> // EF_R16G16_SFLOAT gets mapped to GL_RG
+    inline void decodePixels<EF_R16G16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef16<double, 2u>(_pix[0], _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_R16G16B16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef16<double, 3u>(_pix[0], _output);
     }
     template<> // mapped to GL_RGBA
-    inline void decodePixels<ECF_R16G16B16A16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R16G16B16A16_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef16<double, 4u>(_pix[0], _output);
     }
@@ -1180,22 +1180,22 @@ namespace irr { namespace video
     }
 	
 	template<>
-    inline void decodePixels<ECF_R32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef32<double, 1u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R32G32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32G32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef32<double, 2u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32G32B32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef32<double, 3u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R32G32B32A32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R32G32B32A32_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef32<double, 4u>(_pix[0], _output);
     }
@@ -1211,28 +1211,28 @@ namespace irr { namespace video
         }
     }
     template<>
-    inline void decodePixels<ECF_R64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef64<double, 1u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64G64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef64<double, 2u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64G64B64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef64<double, 3u>(_pix[0], _output);
     }
     template<>
-    inline void decodePixels<ECF_R64G64B64A64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_R64G64B64A64_SFLOAT, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         impl::decodef64<double, 4u>(_pix[0], _output);
     }
 
     template<>
-    inline void decodePixels<ECF_E5B9G9R9_UFLOAT_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_E5B9G9R9_UFLOAT_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
 
@@ -1270,12 +1270,12 @@ namespace irr { namespace video
             uint16_t r0, g0, b0, r1, g1, b1;
             
             const void* input = &col.c0;
-            decodePixels<ECF_R5G6B5, uint64_t>(&input, p[0].c, 0u, 0u);
+            decodePixels<EF_R5G6B5, uint64_t>(&input, p[0].c, 0u, 0u);
             r0 = p[0].r;
             g0 = p[0].g;
             b0 = p[0].b;
             input = &col.c1;
-            decodePixels<ECF_R5G6B5, uint64_t>(&input, p[1].c, 0u, 0u);
+            decodePixels<EF_R5G6B5, uint64_t>(&input, p[1].c, 0u, 0u);
             r1 = p[1].r;
             g1 = p[1].g;
             b1 = p[1].b;
@@ -1396,7 +1396,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void decodePixels<ECF_BC1_RGB_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_BC1_RGB_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeBC1<double>(_pix[0], _output, _x, _y, false);
         _output[0] /= 31.;
@@ -1405,14 +1405,14 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_BC1_RGB_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_BC1_RGB_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_BC1_RGB_UNORM_BLOCK, double>(_pix, _output, _x, _y);
+        decodePixels<EF_BC1_RGB_UNORM_BLOCK, double>(_pix, _output, _x, _y);
         impl::SRGB2lin(_output);
     }
 
     template<>
-    inline void decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_BC1_RGBA_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeBC1<double>(_pix[0], _output, _x, _y, true);
         _output[0] /= 31.;
@@ -1421,14 +1421,14 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_BC1_RGBA_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(_pix, _output, _x, _y);
+        decodePixels<EF_BC1_RGBA_UNORM_BLOCK, double>(_pix, _output, _x, _y);
         impl::SRGB2lin(_output);
     }
 
     template<>
-    inline void decodePixels<ECF_BC2_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_BC2_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeBC2<double>(_pix[0], _output, _x, _y);
         _output[0] /= 31.;
@@ -1438,27 +1438,27 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_BC2_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_BC2_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_BC2_UNORM_BLOCK, double>(_pix, _output, _x, _y);
+        decodePixels<EF_BC2_UNORM_BLOCK, double>(_pix, _output, _x, _y);
         impl::SRGB2lin(_output);
     }
 
     template<>
-    inline void decodePixels<ECF_BC3_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_BC3_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         const void* pix[4];
         memcpy(pix, _pix, sizeof(pix));
         pix[0] = reinterpret_cast<const uint8_t*>(pix[0])+8;
-        decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(pix, _output, _x, _y);
+        decodePixels<EF_BC1_RGBA_UNORM_BLOCK, double>(pix, _output, _x, _y);
         impl::decodeBC4(_pix, _output, 3, _x, _y);
         _output[3] /= 255.;
     }
     
     template<>
-    inline void decodePixels<ECF_BC3_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_BC3_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
-        decodePixels<ECF_BC3_UNORM_BLOCK, double>(_pix, _output, _x, _y);
+        decodePixels<EF_BC3_UNORM_BLOCK, double>(_pix, _output, _x, _y);
         impl::SRGB2lin(_output);
     }
 
@@ -1478,175 +1478,175 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_4x4_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_4x4_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<4u, 4u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_5x4_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_5x4_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<5u, 4u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_5x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_5x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<5u, 5u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_6x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_6x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<6u, 5u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_6x6_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_6x6_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<6u, 6u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_8x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_8x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<8u, 5u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_8x6_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_8x6_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<8u, 6u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_8x8_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_8x8_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<8u, 8u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_10x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_10x5_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<10u, 5u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_10x6_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_10x6_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<10u, 6u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_10x8_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_10x8_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<10u, 8u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_10x10_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_10x10_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<10u, 10u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_12x10_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_12x10_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<12u, 10u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_12x12_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_12x12_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<12u, 12u>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_4x4_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_4x4_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<4u, 4u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_5x4_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_5x4_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<5u, 4u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_5x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_5x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<5u, 5u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_6x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_6x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<6u, 5u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_6x6_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_6x6_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<6u, 6u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_8x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_8x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<8u, 5u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_8x6_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_8x6_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<8u, 6u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_8x8_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_8x8_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<8u, 8u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_10x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_10x5_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<10u, 5u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_10x6_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_10x6_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<10u, 6u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_10x8_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_10x8_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<10u, 8u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_10x10_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_10x10_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<10u, 10u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_12x10_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_12x10_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<12u, 10u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_ASTC_12x12_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
+    inline void decodePixels<EF_ASTC_12x12_SRGB_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         impl::decodeASTC<12u, 12u, true>(_pix[0], _output, _x, _y);
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_G8_B8_R8_3PLANE_420_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t** pix = reinterpret_cast<const uint8_t**>(_pix);
         _output[0] = pix[2][0] / 255.;
@@ -1655,7 +1655,7 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8R8_2PLANE_420_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_G8_B8R8_2PLANE_420_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t** pix = reinterpret_cast<const uint8_t**>(_pix);
         _output[0] = pix[1][1] / 255.;
@@ -1664,227 +1664,227 @@ namespace irr { namespace video
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8_R8_3PLANE_422_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_G8_B8_R8_3PLANE_422_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
-        // decoding is same as for ECF_G8_B8_R8_3PLANE_420_UNORM, but iterating through pixels will look differently
+        // decoding is same as for EF_G8_B8_R8_3PLANE_420_UNORM, but iterating through pixels will look differently
         // (420 is both X and Y dimensions halved for R and B planes, in 422 we have only X dimension halved also for R and B planes)
-        decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY);
+        decodePixels<EF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY);
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8R8_2PLANE_422_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_G8_B8R8_2PLANE_422_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
-        // analogous thing as between ECF_G8_B8_R8_3PLANE_420_UNORM and ECF_G8_B8_R8_3PLANE_420_UNORM
-        decodePixels<ECF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY);
+        // analogous thing as between EF_G8_B8_R8_3PLANE_420_UNORM and EF_G8_B8_R8_3PLANE_420_UNORM
+        decodePixels<EF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY);
     }
 
     template<>
-    inline void decodePixels<ECF_G8_B8_R8_3PLANE_444_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_G8_B8_R8_3PLANE_444_UNORM, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         // also same decoding, but different pixel iteration (444 is all planes same size)
-        decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY);
+        decodePixels<EF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY);
     }
 	
 	//! Runtime-given format decode
     template<typename T>
-    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY);
+    bool decodePixels(E_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY);
     template<typename T>
-    bool decodePixels(ECOLOR_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
+    bool decodePixels(E_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
 	
     template<>
-    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    bool decodePixels<double>(E_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
-        case ECF_R4G4_UNORM_PACK8: decodePixels<ECF_R4G4_UNORM_PACK8, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R4G4B4A4_UNORM_PACK16: decodePixels<ECF_R4G4B4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B4G4R4A4_UNORM_PACK16: decodePixels<ECF_B4G4R4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R5G6B5_UNORM_PACK16: decodePixels<ECF_R5G6B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B5G6R5_UNORM_PACK16: decodePixels<ECF_B5G6R5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R5G5B5A1_UNORM_PACK16: decodePixels<ECF_R5G5B5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B5G5R5A1_UNORM_PACK16: decodePixels<ECF_B5G5R5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A1R5G5B5_UNORM_PACK16: decodePixels<ECF_A1R5G5B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8_UNORM: decodePixels<ECF_R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8_SNORM: decodePixels<ECF_R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8_UNORM: decodePixels<ECF_R8G8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8_SNORM: decodePixels<ECF_R8G8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8_UNORM: decodePixels<ECF_R8G8B8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8_SNORM: decodePixels<ECF_R8G8B8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8_UNORM: decodePixels<ECF_B8G8R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8_SNORM: decodePixels<ECF_B8G8R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8A8_UNORM: decodePixels<ECF_R8G8B8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8A8_SNORM: decodePixels<ECF_R8G8B8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8A8_UNORM: decodePixels<ECF_B8G8R8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8A8_SNORM: decodePixels<ECF_B8G8R8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A8B8G8R8_UNORM_PACK32: decodePixels<ECF_A8B8G8R8_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A8B8G8R8_SNORM_PACK32: decodePixels<ECF_A8B8G8R8_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A2R10G10B10_UNORM_PACK32: decodePixels<ECF_A2R10G10B10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A2R10G10B10_SNORM_PACK32: decodePixels<ECF_A2R10G10B10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A2B10G10R10_UNORM_PACK32: decodePixels<ECF_A2B10G10R10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A2B10G10R10_SNORM_PACK32: decodePixels<ECF_A2B10G10R10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16_UNORM: decodePixels<ECF_R16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16_SNORM: decodePixels<ECF_R16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16_UNORM: decodePixels<ECF_R16G16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16_SNORM: decodePixels<ECF_R16G16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16_UNORM: decodePixels<ECF_R16G16B16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16_SNORM: decodePixels<ECF_R16G16B16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16A16_UNORM: decodePixels<ECF_R16G16B16A16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16A16_SNORM: decodePixels<ECF_R16G16B16A16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8_SRGB: decodePixels<ECF_R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8_SRGB: decodePixels<ECF_R8G8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8_SRGB: decodePixels<ECF_R8G8B8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8_SRGB: decodePixels<ECF_B8G8R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8A8_SRGB: decodePixels<ECF_R8G8B8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8A8_SRGB: decodePixels<ECF_B8G8R8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A8B8G8R8_SRGB_PACK32: decodePixels<ECF_A8B8G8R8_SRGB_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16_SFLOAT: decodePixels<ECF_R16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16_SFLOAT: decodePixels<ECF_R16G16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16_SFLOAT: decodePixels<ECF_R16G16B16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16A16_SFLOAT: decodePixels<ECF_R16G16B16A16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32_SFLOAT: decodePixels<ECF_R32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32G32_SFLOAT: decodePixels<ECF_R32G32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32G32B32_SFLOAT: decodePixels<ECF_R32G32B32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32G32B32A32_SFLOAT: decodePixels<ECF_R32G32B32A32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64_SFLOAT: decodePixels<ECF_R64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64G64_SFLOAT: decodePixels<ECF_R64G64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64G64B64_SFLOAT: decodePixels<ECF_R64G64B64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64G64B64A64_SFLOAT: decodePixels<ECF_R64G64B64A64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B10G11R11_UFLOAT_PACK32: decodePixels<ECF_B10G11R11_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_E5B9G9R9_UFLOAT_PACK32: decodePixels<ECF_E5B9G9R9_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_BC1_RGB_UNORM_BLOCK: decodePixels<ECF_BC1_RGB_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_BC1_RGB_SRGB_BLOCK: decodePixels<ECF_BC1_RGB_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_BC1_RGBA_UNORM_BLOCK: decodePixels<ECF_BC1_RGBA_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_BC1_RGBA_SRGB_BLOCK: decodePixels<ECF_BC1_RGBA_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_BC2_UNORM_BLOCK: decodePixels<ECF_BC2_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_BC2_SRGB_BLOCK: decodePixels<ECF_BC2_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_BC3_UNORM_BLOCK: decodePixels<ECF_BC3_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_BC3_SRGB_BLOCK: decodePixels<ECF_BC3_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_4x4_UNORM_BLOCK: decodePixels<ECF_ASTC_4x4_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_4x4_SRGB_BLOCK: decodePixels<ECF_ASTC_4x4_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_5x4_UNORM_BLOCK: decodePixels<ECF_ASTC_5x4_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_5x4_SRGB_BLOCK: decodePixels<ECF_ASTC_5x4_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_5x5_UNORM_BLOCK: decodePixels<ECF_ASTC_5x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_5x5_SRGB_BLOCK: decodePixels<ECF_ASTC_5x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_6x5_UNORM_BLOCK: decodePixels<ECF_ASTC_6x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_6x5_SRGB_BLOCK: decodePixels<ECF_ASTC_6x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_6x6_UNORM_BLOCK: decodePixels<ECF_ASTC_6x6_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_6x6_SRGB_BLOCK: decodePixels<ECF_ASTC_6x6_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_8x5_UNORM_BLOCK: decodePixels<ECF_ASTC_8x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_8x5_SRGB_BLOCK: decodePixels<ECF_ASTC_8x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_8x6_UNORM_BLOCK: decodePixels<ECF_ASTC_8x6_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_8x6_SRGB_BLOCK: decodePixels<ECF_ASTC_8x6_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_8x8_UNORM_BLOCK: decodePixels<ECF_ASTC_8x8_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_8x8_SRGB_BLOCK: decodePixels<ECF_ASTC_8x8_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_10x5_UNORM_BLOCK: decodePixels<ECF_ASTC_10x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_10x5_SRGB_BLOCK: decodePixels<ECF_ASTC_10x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_10x6_UNORM_BLOCK: decodePixels<ECF_ASTC_10x6_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_10x6_SRGB_BLOCK: decodePixels<ECF_ASTC_10x6_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_10x8_UNORM_BLOCK: decodePixels<ECF_ASTC_10x8_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_10x8_SRGB_BLOCK: decodePixels<ECF_ASTC_10x8_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_10x10_UNORM_BLOCK: decodePixels<ECF_ASTC_10x10_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_10x10_SRGB_BLOCK: decodePixels<ECF_ASTC_10x10_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_12x10_UNORM_BLOCK: decodePixels<ECF_ASTC_12x10_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_12x10_SRGB_BLOCK: decodePixels<ECF_ASTC_12x10_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_12x12_UNORM_BLOCK: decodePixels<ECF_ASTC_12x12_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_ASTC_12x12_SRGB_BLOCK: decodePixels<ECF_ASTC_12x12_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_G8_B8_R8_3PLANE_420_UNORM: decodePixels<ECF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_G8_B8R8_2PLANE_420_UNORM: decodePixels<ECF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_G8_B8_R8_3PLANE_422_UNORM: decodePixels<ECF_G8_B8_R8_3PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_G8_B8R8_2PLANE_422_UNORM: decodePixels<ECF_G8_B8R8_2PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_G8_B8_R8_3PLANE_444_UNORM: decodePixels<ECF_G8_B8_R8_3PLANE_444_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R4G4_UNORM_PACK8: decodePixels<EF_R4G4_UNORM_PACK8, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R4G4B4A4_UNORM_PACK16: decodePixels<EF_R4G4B4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B4G4R4A4_UNORM_PACK16: decodePixels<EF_B4G4R4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R5G6B5_UNORM_PACK16: decodePixels<EF_R5G6B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B5G6R5_UNORM_PACK16: decodePixels<EF_B5G6R5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R5G5B5A1_UNORM_PACK16: decodePixels<EF_R5G5B5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B5G5R5A1_UNORM_PACK16: decodePixels<EF_B5G5R5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A1R5G5B5_UNORM_PACK16: decodePixels<EF_A1R5G5B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8_UNORM: decodePixels<EF_R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8_SNORM: decodePixels<EF_R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8_UNORM: decodePixels<EF_R8G8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8_SNORM: decodePixels<EF_R8G8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8_UNORM: decodePixels<EF_R8G8B8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8_SNORM: decodePixels<EF_R8G8B8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8_UNORM: decodePixels<EF_B8G8R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8_SNORM: decodePixels<EF_B8G8R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8A8_UNORM: decodePixels<EF_R8G8B8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8A8_SNORM: decodePixels<EF_R8G8B8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8A8_UNORM: decodePixels<EF_B8G8R8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8A8_SNORM: decodePixels<EF_B8G8R8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A8B8G8R8_UNORM_PACK32: decodePixels<EF_A8B8G8R8_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A8B8G8R8_SNORM_PACK32: decodePixels<EF_A8B8G8R8_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A2R10G10B10_UNORM_PACK32: decodePixels<EF_A2R10G10B10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A2R10G10B10_SNORM_PACK32: decodePixels<EF_A2R10G10B10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A2B10G10R10_UNORM_PACK32: decodePixels<EF_A2B10G10R10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A2B10G10R10_SNORM_PACK32: decodePixels<EF_A2B10G10R10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16_UNORM: decodePixels<EF_R16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16_SNORM: decodePixels<EF_R16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16_UNORM: decodePixels<EF_R16G16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16_SNORM: decodePixels<EF_R16G16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16_UNORM: decodePixels<EF_R16G16B16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16_SNORM: decodePixels<EF_R16G16B16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16A16_UNORM: decodePixels<EF_R16G16B16A16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16A16_SNORM: decodePixels<EF_R16G16B16A16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8_SRGB: decodePixels<EF_R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8_SRGB: decodePixels<EF_R8G8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8_SRGB: decodePixels<EF_R8G8B8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8_SRGB: decodePixels<EF_B8G8R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8A8_SRGB: decodePixels<EF_R8G8B8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8A8_SRGB: decodePixels<EF_B8G8R8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A8B8G8R8_SRGB_PACK32: decodePixels<EF_A8B8G8R8_SRGB_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16_SFLOAT: decodePixels<EF_R16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16_SFLOAT: decodePixels<EF_R16G16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16_SFLOAT: decodePixels<EF_R16G16B16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16A16_SFLOAT: decodePixels<EF_R16G16B16A16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32_SFLOAT: decodePixels<EF_R32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32G32_SFLOAT: decodePixels<EF_R32G32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32G32B32_SFLOAT: decodePixels<EF_R32G32B32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32G32B32A32_SFLOAT: decodePixels<EF_R32G32B32A32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64_SFLOAT: decodePixels<EF_R64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64G64_SFLOAT: decodePixels<EF_R64G64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64G64B64_SFLOAT: decodePixels<EF_R64G64B64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64G64B64A64_SFLOAT: decodePixels<EF_R64G64B64A64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B10G11R11_UFLOAT_PACK32: decodePixels<EF_B10G11R11_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_E5B9G9R9_UFLOAT_PACK32: decodePixels<EF_E5B9G9R9_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_BC1_RGB_UNORM_BLOCK: decodePixels<EF_BC1_RGB_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_BC1_RGB_SRGB_BLOCK: decodePixels<EF_BC1_RGB_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_BC1_RGBA_UNORM_BLOCK: decodePixels<EF_BC1_RGBA_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_BC1_RGBA_SRGB_BLOCK: decodePixels<EF_BC1_RGBA_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_BC2_UNORM_BLOCK: decodePixels<EF_BC2_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_BC2_SRGB_BLOCK: decodePixels<EF_BC2_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_BC3_UNORM_BLOCK: decodePixels<EF_BC3_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_BC3_SRGB_BLOCK: decodePixels<EF_BC3_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_4x4_UNORM_BLOCK: decodePixels<EF_ASTC_4x4_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_4x4_SRGB_BLOCK: decodePixels<EF_ASTC_4x4_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_5x4_UNORM_BLOCK: decodePixels<EF_ASTC_5x4_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_5x4_SRGB_BLOCK: decodePixels<EF_ASTC_5x4_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_5x5_UNORM_BLOCK: decodePixels<EF_ASTC_5x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_5x5_SRGB_BLOCK: decodePixels<EF_ASTC_5x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_6x5_UNORM_BLOCK: decodePixels<EF_ASTC_6x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_6x5_SRGB_BLOCK: decodePixels<EF_ASTC_6x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_6x6_UNORM_BLOCK: decodePixels<EF_ASTC_6x6_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_6x6_SRGB_BLOCK: decodePixels<EF_ASTC_6x6_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_8x5_UNORM_BLOCK: decodePixels<EF_ASTC_8x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_8x5_SRGB_BLOCK: decodePixels<EF_ASTC_8x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_8x6_UNORM_BLOCK: decodePixels<EF_ASTC_8x6_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_8x6_SRGB_BLOCK: decodePixels<EF_ASTC_8x6_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_8x8_UNORM_BLOCK: decodePixels<EF_ASTC_8x8_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_8x8_SRGB_BLOCK: decodePixels<EF_ASTC_8x8_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_10x5_UNORM_BLOCK: decodePixels<EF_ASTC_10x5_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_10x5_SRGB_BLOCK: decodePixels<EF_ASTC_10x5_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_10x6_UNORM_BLOCK: decodePixels<EF_ASTC_10x6_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_10x6_SRGB_BLOCK: decodePixels<EF_ASTC_10x6_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_10x8_UNORM_BLOCK: decodePixels<EF_ASTC_10x8_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_10x8_SRGB_BLOCK: decodePixels<EF_ASTC_10x8_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_10x10_UNORM_BLOCK: decodePixels<EF_ASTC_10x10_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_10x10_SRGB_BLOCK: decodePixels<EF_ASTC_10x10_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_12x10_UNORM_BLOCK: decodePixels<EF_ASTC_12x10_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_12x10_SRGB_BLOCK: decodePixels<EF_ASTC_12x10_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_12x12_UNORM_BLOCK: decodePixels<EF_ASTC_12x12_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_ASTC_12x12_SRGB_BLOCK: decodePixels<EF_ASTC_12x12_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_G8_B8_R8_3PLANE_420_UNORM: decodePixels<EF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_G8_B8R8_2PLANE_420_UNORM: decodePixels<EF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_G8_B8_R8_3PLANE_422_UNORM: decodePixels<EF_G8_B8_R8_3PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_G8_B8R8_2PLANE_422_UNORM: decodePixels<EF_G8_B8R8_2PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+        case EF_G8_B8_R8_3PLANE_444_UNORM: decodePixels<EF_G8_B8_R8_3PLANE_444_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
         default: return false;
         }
     }
     
     template<>
-    bool decodePixels<int64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    bool decodePixels<int64_t>(E_FORMAT _fmt, const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
-        case ECF_R8_SINT: decodePixels<ECF_R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8_SINT: decodePixels<ECF_R8G8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8_SINT: decodePixels<ECF_R8G8B8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8_SINT: decodePixels<ECF_B8G8R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8A8_SINT: decodePixels<ECF_R8G8B8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8A8_SINT: decodePixels<ECF_B8G8R8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A8B8G8R8_SINT_PACK32: decodePixels<ECF_A8B8G8R8_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A2R10G10B10_SINT_PACK32: decodePixels<ECF_A2R10G10B10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A2B10G10R10_SINT_PACK32: decodePixels<ECF_A2B10G10R10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16_SINT: decodePixels<ECF_R16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16_SINT: decodePixels<ECF_R16G16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16_SINT: decodePixels<ECF_R16G16B16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16A16_SINT: decodePixels<ECF_R16G16B16A16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32_SINT: decodePixels<ECF_R32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32G32_SINT: decodePixels<ECF_R32G32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32G32B32_SINT: decodePixels<ECF_R32G32B32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32G32B32A32_SINT: decodePixels<ECF_R32G32B32A32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64_SINT: decodePixels<ECF_R64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64G64_SINT: decodePixels<ECF_R64G64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64G64B64_SINT: decodePixels<ECF_R64G64B64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64G64B64A64_SINT: decodePixels<ECF_R64G64B64A64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8_SINT: decodePixels<EF_R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8_SINT: decodePixels<EF_R8G8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8_SINT: decodePixels<EF_R8G8B8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8_SINT: decodePixels<EF_B8G8R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8A8_SINT: decodePixels<EF_R8G8B8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8A8_SINT: decodePixels<EF_B8G8R8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A8B8G8R8_SINT_PACK32: decodePixels<EF_A8B8G8R8_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A2R10G10B10_SINT_PACK32: decodePixels<EF_A2R10G10B10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A2B10G10R10_SINT_PACK32: decodePixels<EF_A2B10G10R10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16_SINT: decodePixels<EF_R16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16_SINT: decodePixels<EF_R16G16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16_SINT: decodePixels<EF_R16G16B16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16A16_SINT: decodePixels<EF_R16G16B16A16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32_SINT: decodePixels<EF_R32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32G32_SINT: decodePixels<EF_R32G32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32G32B32_SINT: decodePixels<EF_R32G32B32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32G32B32A32_SINT: decodePixels<EF_R32G32B32A32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64_SINT: decodePixels<EF_R64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64G64_SINT: decodePixels<EF_R64G64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64G64B64_SINT: decodePixels<EF_R64G64B64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64G64B64A64_SINT: decodePixels<EF_R64G64B64A64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
         default: return false;
         }
     }
     template<>
-    bool decodePixels<uint64_t>(ECOLOR_FORMAT _fmt, const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    bool decodePixels<uint64_t>(E_FORMAT _fmt, const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
-        case ECF_R8_UINT: decodePixels<ECF_R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8_UINT: decodePixels<ECF_R8G8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8_UINT: decodePixels<ECF_R8G8B8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8_UINT: decodePixels<ECF_B8G8R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R8G8B8A8_UINT: decodePixels<ECF_R8G8B8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_B8G8R8A8_UINT: decodePixels<ECF_B8G8R8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A8B8G8R8_UINT_PACK32: decodePixels<ECF_A8B8G8R8_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A2R10G10B10_UINT_PACK32: decodePixels<ECF_A2R10G10B10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_A2B10G10R10_UINT_PACK32: decodePixels<ECF_A2B10G10R10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16_UINT: decodePixels<ECF_R16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16_UINT: decodePixels<ECF_R16G16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16_UINT: decodePixels<ECF_R16G16B16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R16G16B16A16_UINT: decodePixels<ECF_R16G16B16A16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32_UINT: decodePixels<ECF_R32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32G32_UINT: decodePixels<ECF_R32G32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32G32B32_UINT: decodePixels<ECF_R32G32B32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R32G32B32A32_UINT: decodePixels<ECF_R32G32B32A32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64_UINT: decodePixels<ECF_R64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64G64_UINT: decodePixels<ECF_R64G64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64G64B64_UINT: decodePixels<ECF_R64G64B64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case ECF_R64G64B64A64_UINT: decodePixels<ECF_R64G64B64A64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8_UINT: decodePixels<EF_R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8_UINT: decodePixels<EF_R8G8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8_UINT: decodePixels<EF_R8G8B8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8_UINT: decodePixels<EF_B8G8R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R8G8B8A8_UINT: decodePixels<EF_R8G8B8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_B8G8R8A8_UINT: decodePixels<EF_B8G8R8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A8B8G8R8_UINT_PACK32: decodePixels<EF_A8B8G8R8_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A2R10G10B10_UINT_PACK32: decodePixels<EF_A2R10G10B10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_A2B10G10R10_UINT_PACK32: decodePixels<EF_A2B10G10R10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16_UINT: decodePixels<EF_R16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16_UINT: decodePixels<EF_R16G16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16_UINT: decodePixels<EF_R16G16B16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R16G16B16A16_UINT: decodePixels<EF_R16G16B16A16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32_UINT: decodePixels<EF_R32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32G32_UINT: decodePixels<EF_R32G32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32G32B32_UINT: decodePixels<EF_R32G32B32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R32G32B32A32_UINT: decodePixels<EF_R32G32B32A32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64_UINT: decodePixels<EF_R64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64G64_UINT: decodePixels<EF_R64G64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64G64B64_UINT: decodePixels<EF_R64G64B64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+        case EF_R64G64B64A64_UINT: decodePixels<EF_R64G64B64A64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
         default: return false;
         }
     }
     template<>
-    bool decodePixels<double>(ECOLOR_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    bool decodePixels<double>(E_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         switch (_fmt)
         {
-        case ECF_R8_USCALED: decodePixels<ECF_R8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R8_SSCALED: decodePixels<ECF_R8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R8G8_USCALED: decodePixels<ECF_R8G8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R8G8_SSCALED: decodePixels<ECF_R8G8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R8G8B8_USCALED: decodePixels<ECF_R8G8B8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R8G8B8_SSCALED: decodePixels<ECF_R8G8B8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_B8G8R8_USCALED: decodePixels<ECF_B8G8R8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_B8G8R8_SSCALED: decodePixels<ECF_B8G8R8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R8G8B8A8_USCALED: decodePixels<ECF_R8G8B8A8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R8G8B8A8_SSCALED: decodePixels<ECF_R8G8B8A8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_B8G8R8A8_USCALED: decodePixels<ECF_B8G8R8A8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_B8G8R8A8_SSCALED: decodePixels<ECF_B8G8R8A8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_A8B8G8R8_USCALED_PACK32: decodePixels<ECF_A8B8G8R8_USCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_A8B8G8R8_SSCALED_PACK32: decodePixels<ECF_A8B8G8R8_SSCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_A2R10G10B10_USCALED_PACK32: decodePixels<ECF_A2R10G10B10_USCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_A2R10G10B10_SSCALED_PACK32: decodePixels<ECF_A2R10G10B10_SSCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_A2B10G10R10_USCALED_PACK32: decodePixels<ECF_A2B10G10R10_USCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_A2B10G10R10_SSCALED_PACK32: decodePixels<ECF_A2B10G10R10_SSCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R16_USCALED: decodePixels<ECF_R16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R16_SSCALED: decodePixels<ECF_R16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R16G16_USCALED: decodePixels<ECF_R16G16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R16G16_SSCALED: decodePixels<ECF_R16G16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R16G16B16_USCALED: decodePixels<ECF_R16G16B16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R16G16B16_SSCALED: decodePixels<ECF_R16G16B16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R16G16B16A16_USCALED: decodePixels<ECF_R16G16B16A16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
-        case ECF_R16G16B16A16_SSCALED: decodePixels<ECF_R16G16B16A16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R8_USCALED: decodePixels<EF_R8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R8_SSCALED: decodePixels<EF_R8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R8G8_USCALED: decodePixels<EF_R8G8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R8G8_SSCALED: decodePixels<EF_R8G8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R8G8B8_USCALED: decodePixels<EF_R8G8B8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R8G8B8_SSCALED: decodePixels<EF_R8G8B8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_B8G8R8_USCALED: decodePixels<EF_B8G8R8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_B8G8R8_SSCALED: decodePixels<EF_B8G8R8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R8G8B8A8_USCALED: decodePixels<EF_R8G8B8A8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R8G8B8A8_SSCALED: decodePixels<EF_R8G8B8A8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_B8G8R8A8_USCALED: decodePixels<EF_B8G8R8A8_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_B8G8R8A8_SSCALED: decodePixels<EF_B8G8R8A8_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_A8B8G8R8_USCALED_PACK32: decodePixels<EF_A8B8G8R8_USCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_A8B8G8R8_SSCALED_PACK32: decodePixels<EF_A8B8G8R8_SSCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_A2R10G10B10_USCALED_PACK32: decodePixels<EF_A2R10G10B10_USCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_A2R10G10B10_SSCALED_PACK32: decodePixels<EF_A2R10G10B10_SSCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_A2B10G10R10_USCALED_PACK32: decodePixels<EF_A2B10G10R10_USCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_A2B10G10R10_SSCALED_PACK32: decodePixels<EF_A2B10G10R10_SSCALED_PACK32, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R16_USCALED: decodePixels<EF_R16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R16_SSCALED: decodePixels<EF_R16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R16G16_USCALED: decodePixels<EF_R16G16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R16G16_SSCALED: decodePixels<EF_R16G16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R16G16B16_USCALED: decodePixels<EF_R16G16B16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R16G16B16_SSCALED: decodePixels<EF_R16G16B16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R16G16B16A16_USCALED: decodePixels<EF_R16G16B16A16_USCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
+        case EF_R16G16B16A16_SSCALED: decodePixels<EF_R16G16B16A16_SSCALED, double>(_pix, _output, _blockX, _blockY, _scale); return true;
         default: return false;
         }
     }

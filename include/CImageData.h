@@ -97,7 +97,7 @@ class CImageData : public asset::IAsset
         }
 
         CImageData(const void* inData, uint32_t inMinCoord[3], uint32_t inMaxCoord[3],
-                   const uint32_t& inMipLevel, const ECOLOR_FORMAT& inFmt,
+                   const uint32_t& inMipLevel, const E_FORMAT& inFmt,
                    const uint32_t& inUnpackLineAlignment=1)
         {
             memcpy(minCoord,inMinCoord,3*sizeof(uint32_t));
@@ -111,7 +111,7 @@ class CImageData : public asset::IAsset
         }
 
         CImageData(void* inData, uint32_t inMinCoord[3], uint32_t inMaxCoord[3],
-                   const uint32_t& inMipLevel, const ECOLOR_FORMAT& inFmt,
+                   const uint32_t& inMipLevel, const E_FORMAT& inFmt,
                    const uint32_t& inUnpackLineAlignment,
                    const bool& dataAllocatedWithMallocAndCanTake)
         {
@@ -167,7 +167,7 @@ class CImageData : public asset::IAsset
         //! Returns bits per pixel.
         inline uint32_t getBitsPerPixel() const
         {
-            return getBitsPerPixelFromFormat(static_cast<ECOLOR_FORMAT>(colorFormat));
+            return getBitsPerPixelFromFormat(static_cast<E_FORMAT>(colorFormat));
         }
 
         //! Returns image data size in bytes
@@ -211,7 +211,7 @@ class CImageData : public asset::IAsset
         }
 
         //! Returns the color format
-        inline ECOLOR_FORMAT getColorFormat() const {return static_cast<ECOLOR_FORMAT>(colorFormat);}
+        inline E_FORMAT getColorFormat() const {return static_cast<E_FORMAT>(colorFormat);}
 
         //! Returns pitch of image
         inline uint32_t getPitch() const

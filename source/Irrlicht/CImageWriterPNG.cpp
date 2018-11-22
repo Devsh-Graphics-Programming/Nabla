@@ -109,8 +109,8 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	// Set info
 	switch(image->getColorFormat())
 	{
-		case ECF_B8G8R8A8_UINT:
-		case ECF_A1R5G5B5:
+		case EF_B8G8R8A8_UNORM:
+		case EF_A1R5G5B5:
 			png_set_IHDR(png_ptr, info_ptr,
 				image->getSize().X, image->getSize().Y,
 				8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
@@ -126,12 +126,12 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	int32_t lineWidth = image->getSize().X;
 	switch(image->getColorFormat())
 	{
-	case ECF_R8G8B8_UINT:
-	case ECF_R5G6B5:
+	case EF_R8G8B8_UNORM:
+	case EF_R5G6B5:
 		lineWidth*=3;
 		break;
-	case ECF_B8G8R8A8_UINT:
-	case ECF_A1R5G5B5:
+	case EF_B8G8R8A8_UNORM:
+	case EF_A1R5G5B5:
 		lineWidth*=4;
 		break;
 	// TODO: Error handling in case of unsupported color format
@@ -149,16 +149,16 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	uint8_t* data = (uint8_t*)image->getData();
 	switch(image->getColorFormat())
 	{
-	case ECF_R8G8B8_UINT:
+	case EF_R8G8B8_UNORM:
 		CColorConverter::convert_R8G8B8toR8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
-	case ECF_B8G8R8A8_UINT:
+	case EF_B8G8R8A8_UNORM:
 		CColorConverter::convert_A8R8G8B8toA8R8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
-	case ECF_R5G6B5:
+	case EF_R5G6B5:
 		CColorConverter::convert_R5G6B5toR8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
-	case ECF_A1R5G5B5:
+	case EF_A1R5G5B5:
 		CColorConverter::convert_A1R5G5B5toA8R8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
 #ifndef _DEBUG
@@ -198,7 +198,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	png_set_rows(png_ptr, info_ptr, RowPointers);
 
-	if (image->getColorFormat()==ECF_B8G8R8A8_UINT || image->getColorFormat()==ECF_A1R5G5B5)
+	if (image->getColorFormat()==EF_B8G8R8A8_UNORM || image->getColorFormat()==EF_A1R5G5B5)
 		png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_BGR, NULL);
 	else
 	{

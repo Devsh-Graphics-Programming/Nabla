@@ -15,68 +15,68 @@ namespace video
 {
 
 	//! get the amount of Bits per Pixel of the given color format
-	static uint32_t getBitsPerPixelFromFormat(const ECOLOR_FORMAT format)
+	static uint32_t getBitsPerPixelFromFormat(const E_FORMAT format)
 	{
 		switch(format)
 		{
-		case ECF_A1R5G5B5:
+		case EF_A1R5G5B5:
 			return 16;
-		case ECF_R8G8B8_UINT:
+		case EF_R8G8B8_UINT:
 			return 24;
-		case ECF_R8G8B8A8_UINT:
+		case EF_R8G8B8A8_UINT:
 			return 32;
-        case ECF_B10G11R11_UFLOAT_PACK32:
+        case EF_B10G11R11_UFLOAT_PACK32:
             return 32;
-		case ECF_R16_SFLOAT:
+		case EF_R16_SFLOAT:
 			return 16;
-		case ECF_R16G16_SFLOAT:
+		case EF_R16G16_SFLOAT:
 			return 32;
-		case ECF_R16G16B16A16_SFLOAT:
+		case EF_R16G16B16A16_SFLOAT:
 			return 64;
-		case ECF_R32_SFLOAT:
+		case EF_R32_SFLOAT:
 			return 32;
-		case ECF_R32G32_SFLOAT:
+		case EF_R32G32_SFLOAT:
 			return 64;
-		case ECF_R32G32B32A32_SFLOAT:
+		case EF_R32G32B32A32_SFLOAT:
 			return 128;
-		case ECF_R8_UINT:
+		case EF_R8_UINT:
 			return 8;
-		case ECF_R8G8_UINT:
+		case EF_R8G8_UINT:
 			return 16;
-        case ECF_BC1_RGB_UNORM_BLOCK:
-        case ECF_BC1_RGBA_UNORM_BLOCK:
+        case EF_BC1_RGB_UNORM_BLOCK:
+        case EF_BC1_RGBA_UNORM_BLOCK:
             return 4;
-        case ECF_BC2_UNORM_BLOCK:
-        case ECF_BC3_UNORM_BLOCK:
+        case EF_BC2_UNORM_BLOCK:
+        case EF_BC3_UNORM_BLOCK:
             return 8;
-        case ECF_8BIT_PIX:
+        case EF_8BIT_PIX:
 			return 8;
-		case ECF_16BIT_PIX:
+		case EF_16BIT_PIX:
 			return 16;
-		case ECF_24BIT_PIX:
+		case EF_24BIT_PIX:
 			return 24;
-		case ECF_32BIT_PIX:
+		case EF_32BIT_PIX:
 			return 32;
-		case ECF_48BIT_PIX: // rgb @ 16bit
+		case EF_48BIT_PIX: // rgb @ 16bit
             return 48;
-        case ECF_64BIT_PIX:
+        case EF_64BIT_PIX:
 			return 64;
-		case ECF_96BIT_PIX:
+		case EF_96BIT_PIX:
 			return 96;
-		case ECF_128BIT_PIX:
+		case EF_128BIT_PIX:
             return 128;
-        case ECF_DEPTH16:
+        case EF_DEPTH16:
             return 16;
-        case ECF_DEPTH24:
+        case EF_DEPTH24:
             return 24;
-        case ECF_DEPTH32F:
-        case ECF_DEPTH24_STENCIL8:
+        case EF_DEPTH32F:
+        case EF_DEPTH24_STENCIL8:
             return 32;
-        case ECF_DEPTH32F_STENCIL8:
+        case EF_DEPTH32F_STENCIL8:
             return 40;
-        case ECF_STENCIL8:
+        case EF_STENCIL8:
             return 8;
-        case ECF_E5B9G9R9_UFLOAT_PACK32:
+        case EF_E5B9G9R9_UFLOAT_PACK32:
             return 32;
 		default:
 			return 0;
@@ -84,14 +84,14 @@ namespace video
 	}   
 
 	//! get
-	static uint32_t getCompressedFormatBlockSize(const ECOLOR_FORMAT format)
+	static uint32_t getCompressedFormatBlockSize(const E_FORMAT format)
 	{
 		switch(format)
 		{
-            case ECF_BC1_RGB_UNORM_BLOCK:
-            case ECF_BC1_RGBA_UNORM_BLOCK:
-            case ECF_BC2_UNORM_BLOCK:
-            case ECF_BC3_UNORM_BLOCK:
+            case EF_BC1_RGB_UNORM_BLOCK:
+            case EF_BC1_RGBA_UNORM_BLOCK:
+            case EF_BC2_UNORM_BLOCK:
+            case EF_BC3_UNORM_BLOCK:
                 return 4;
             default:
                 return 1;
@@ -99,7 +99,7 @@ namespace video
 	}
 
     //todo remove this
-	static bool isFormatCompressed(const ECOLOR_FORMAT format)
+	static bool isFormatCompressed(const E_FORMAT format)
 	{
 	    return getCompressedFormatBlockSize(format)!=1;
 	}
@@ -423,20 +423,20 @@ namespace video
 		/** \param data: must point to valid memory containing color information in the given format
 			\param format: tells the format in which data is available
 		*/
-		void setData(const void *data, ECOLOR_FORMAT format)
+		void setData(const void *data, E_FORMAT format)
 		{
 			switch (format)
 			{
-				case ECF_A1R5G5B5:
+				case EF_A1R5G5B5:
 					color = A1R5G5B5toA8R8G8B8(*(uint16_t*)data);
 					break;
-				case ECF_R5G6B5:
+				case EF_R5G6B5:
 					color = R5G6B5toA8R8G8B8(*(uint16_t*)data);
 					break;
-				case ECF_R8G8B8A8_UINT:
+				case EF_R8G8B8A8_UINT:
 					color = *(uint32_t*)data;
 					break;
-				case ECF_R8G8B8_UINT:
+				case EF_R8G8B8_UINT:
 					{
 						uint8_t* p = (uint8_t*)data;
 						set(255, p[0],p[1],p[2]);
@@ -452,25 +452,25 @@ namespace video
 		/** \param data: target to write the color. Must contain sufficiently large memory to receive the number of bytes neede for format
 			\param format: tells the format used to write the color into data
 		*/
-		void getData(void *data, ECOLOR_FORMAT format)
+		void getData(void *data, E_FORMAT format)
 		{
 			switch(format)
 			{
-				case ECF_A1R5G5B5:
+				case EF_A1R5G5B5:
 				{
 					uint16_t * dest = (uint16_t*)data;
 					*dest = video::A8R8G8B8toA1R5G5B5( color );
 				}
 				break;
 
-				case ECF_R5G6B5:
+				case EF_R5G6B5:
 				{
 					uint16_t * dest = (uint16_t*)data;
 					*dest = video::A8R8G8B8toR5G6B5( color );
 				}
 				break;
 
-				case ECF_R8G8B8_UINT:
+				case EF_R8G8B8_UINT:
 				{
 					uint8_t* dest = (uint8_t*)data;
 					dest[0] = (uint8_t)getRed();
@@ -479,7 +479,7 @@ namespace video
 				}
 				break;
 
-				case ECF_R8G8B8A8_UINT:
+				case EF_R8G8B8A8_UINT:
 				{
 					uint32_t * dest = (uint32_t*)data;
 					*dest = color;

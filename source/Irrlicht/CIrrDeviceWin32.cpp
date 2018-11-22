@@ -1841,7 +1841,7 @@ HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, co
 	HBITMAP oldXorBitmap = (HBITMAP)SelectObject(xorDc, xorBitmap);
 
 
-	video::ECOLOR_FORMAT format = tex->getColorFormat();
+	video::E_FORMAT format = tex->getColorFormat();
 	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
 	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;

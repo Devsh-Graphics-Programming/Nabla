@@ -27,6 +27,11 @@ namespace video
 		//! constructor
 		CBurningVideoDriver(IrrlichtDevice* dev, const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
 
+        inline virtual bool isAllowedVertexAttribFormat(E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isColorRenderableFormat(E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isAllowedImageStoreFormat(E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isAllowedTextureFormat(E_FORMAT _fmt) const override { return false; }
+
 		//! sets a material
 		virtual void setMaterial(const SGPUMaterial& material);
 
@@ -88,7 +93,7 @@ namespace video
 		virtual E_DRIVER_TYPE getDriverType() const;
 
 		//! get color format of the current color buffer
-		virtual ECOLOR_FORMAT getColorFormat() const;
+		virtual E_FORMAT getColorFormat() const;
 
 		//! Clears the DepthBuffer.
 		virtual void clearZBuffer();

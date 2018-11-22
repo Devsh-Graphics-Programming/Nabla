@@ -1929,7 +1929,7 @@ E_DRIVER_TYPE CBurningVideoDriver::getDriverType() const
 
 
 //! returns color format
-ECOLOR_FORMAT CBurningVideoDriver::getColorFormat() const
+E_FORMAT CBurningVideoDriver::getColorFormat() const
 {
 	return BURNINGSHADER_COLOR_FORMAT;
 }

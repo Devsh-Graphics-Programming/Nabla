@@ -241,14 +241,14 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                 tmpDepth /= uint32_t(1)<<i; //! CHANGE AGAIN FOR 2D ARRAY AND CUBEMAP TEXTURES
 
             /* decompress */
-            ECOLOR_FORMAT colorFormat = ECF_UNKNOWN;
+            E_FORMAT colorFormat = EF_UNKNOWN;
             switch( pixelFormat )
             {
                 case DDS_PF_ARGB8888:
                 case DDS_PF_ABGR8888:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = pixelFormat==DDS_PF_ABGR8888 ? ECF_R8G8B8A8_UINT:ECF_B8G8R8A8_UINT;
+                        colorFormat = pixelFormat==DDS_PF_ABGR8888 ? EF_R8G8B8A8_UNORM:EF_B8G8R8A8_UNORM;
                         video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,4);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
@@ -257,7 +257,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                 case DDS_PF_RGB888:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = ECF_R8G8B8_UINT;
+                        colorFormat = EF_R8G8B8_UNORM;
                         CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
@@ -278,7 +278,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                 case DDS_PF_ARGB1555:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = ECF_A1R5G5B5;
+                        colorFormat = EF_A1R5G5B5;
                         video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
@@ -289,7 +289,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                 case DDS_PF_LA88:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = ECF_R8G8_UINT;
+                        colorFormat = EF_R8G8_UNORM;
                         video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
@@ -299,7 +299,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                 case DDS_PF_A8:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = ECF_R8_UINT;
+                        colorFormat = EF_R8_UNORM;
                         video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
@@ -313,13 +313,13 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                 case DDS_PF_DXT5:
                     {
                         if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT2||pixelFormat==CImageLoaderDDS::DDS_PF_DXT3)
-                            colorFormat = video::ECF_BC2_UNORM_BLOCK;
+                            colorFormat = video::EF_BC2_UNORM_BLOCK;
                         else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT4||pixelFormat==CImageLoaderDDS::DDS_PF_DXT5)
-                            colorFormat = video::ECF_BC3_UNORM_BLOCK;
+                            colorFormat = video::EF_BC3_UNORM_BLOCK;
                         else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT1_ALPHA)
-                            colorFormat = video::ECF_BC1_RGBA_UNORM_BLOCK;
+                            colorFormat = video::EF_BC1_RGBA_UNORM_BLOCK;
                         else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT1)
-                            colorFormat = video::ECF_BC1_RGB_UNORM_BLOCK;
+                            colorFormat = video::EF_BC1_RGB_UNORM_BLOCK;
 
                         video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());

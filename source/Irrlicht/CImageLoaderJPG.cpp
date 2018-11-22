@@ -255,7 +255,7 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 	CImageData* image = 0;
 	if (useCMYK)
 	{
-		image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8_UINT);
+		image = new CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
 		const uint32_t size = 3*width*height;
 		uint8_t* data = (uint8_t*)image->getData();
 		if (data)
@@ -274,7 +274,7 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 		free(output);
 	}
 	else
-		image = new CImageData(output,nullOffset,imageSize,0,ECF_R8G8B8_UINT,1,true);
+		image = new CImageData(output,nullOffset,imageSize,0,EF_R8G8B8_UNORM,1,true);
 
 	delete [] input;
 

@@ -731,7 +731,6 @@
     <ClCompile Include="aesGladman\sha1.c" />
     <ClCompile Include="astc\astc_block_sizes2.cpp" />
     <ClCompile Include="astc\astc_color_unquantize.cpp" />
-    <ClCompile Include="astc\astc_compress_symbolic.cpp" />
     <ClCompile Include="astc\astc_decompress_symbolic.cpp" />
     <ClCompile Include="astc\astc_image_load_store.cpp" />
     <ClCompile Include="astc\astc_integer_sequence.cpp" />

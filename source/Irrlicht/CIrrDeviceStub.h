@@ -92,7 +92,7 @@ namespace irr
             virtual bool isFullscreen() const;
 
             //! get color format of the current window
-            virtual video::ECOLOR_FORMAT getColorFormat() const;
+            virtual video::E_FORMAT getColorFormat() const;
 
             //! Activate any joysticks, and generate events for them.
             virtual bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo);

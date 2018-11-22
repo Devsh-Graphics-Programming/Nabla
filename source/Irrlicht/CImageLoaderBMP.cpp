@@ -278,32 +278,32 @@ asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAs
 	switch(header.BPP)
 	{
 	case 1:
-		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A1R5G5B5));
+		images.push_back(new CImageData(NULL, offset, dim, 0, EF_A1R5G5B5));
 		if (images[0])
 			CColorConverter::convert1BitTo16Bit(bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;
 	case 4:
-		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A1R5G5B5));
+		images.push_back(new CImageData(NULL, offset, dim, 0, EF_A1R5G5B5));
 		if (images[0])
 			CColorConverter::convert4BitTo16Bit(bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, paletteData, pitch, true);
 		break;
 	case 8:
-		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A1R5G5B5));
+		images.push_back(new CImageData(NULL, offset, dim, 0, EF_A1R5G5B5));
 		if (images[0])
 			CColorConverter::convert8BitTo16Bit(bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, paletteData, pitch, true);
 		break;
 	case 16:
-		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_A1R5G5B5));
+		images.push_back(new CImageData(NULL, offset, dim, 0, EF_A1R5G5B5));
 		if (images[0])
 			CColorConverter::convert16BitTo16Bit((int16_t*)bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;
 	case 24:
-		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_R8G8B8_UINT));
+		images.push_back(new CImageData(NULL, offset, dim, 0, EF_R8G8B8_UNORM));
 		if (images[0])
 			CColorConverter::convert24BitTo24Bit(bmpData, (uint8_t*)images[0]->getData(), header.Width, header.Height, pitch, true, true);
 		break;
 	case 32: // thx to Reinhard Ostermeier
-		images.push_back(new CImageData(NULL, offset, dim, 0, ECF_B8G8R8A8_UINT));
+		images.push_back(new CImageData(NULL, offset, dim, 0, EF_B8G8R8A8_UNORM));
 		if (images[0])
 			CColorConverter::convert32BitTo32Bit((int32_t*)bmpData, (int32_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;

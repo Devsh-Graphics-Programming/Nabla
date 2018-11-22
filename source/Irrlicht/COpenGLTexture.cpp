@@ -55,7 +55,7 @@ void COpenGLTexture::recreateName(const GLenum& textureType_Target)
 
 //! constructor for basic setup (only for derived classes)
 COpenGLFilterableTexture::COpenGLFilterableTexture(const io::path& name, const GLenum& textureType_Target)
-                                : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,1,1},name), COpenGLTexture(textureType_Target), ColorFormat(ECF_UNKNOWN),
+                                : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,1,1},name), COpenGLTexture(textureType_Target), ColorFormat(EF_UNKNOWN),
                                 InternalFormat(GL_RGBA), MipLevelsStored(0)
 {
     TextureSize[0] = 1;
@@ -279,7 +279,7 @@ bool COpenGLTexture::isInternalFormatCompressed(GLenum format)
 }
 
 //! Get opengl values for the GPU texture storage
-void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format,
+void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT &format,
 				GLenum& colorformat,
 				GLenum& type)
 {
@@ -289,204 +289,204 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FO
 
 	switch(format)
 	{
-		case ECF_A1R5G5B5:
+		case EF_A1R5G5B5:
 			colorformat=GL_BGRA_EXT;
 			type=GL_UNSIGNED_SHORT_1_5_5_5_REV;
 			break;
-		case ECF_R5G6B5:
+		case EF_R5G6B5:
 			colorformat=GL_RGB;
 			type=GL_UNSIGNED_SHORT_5_6_5;
 			break;
-		case ECF_R8G8B8_UNORM:
+		case EF_R8G8B8_UNORM:
 			colorformat=GL_RGB;
 			type=GL_UNSIGNED_BYTE;
 			break;
-		case ECF_B8G8R8A8_UNORM:
+		case EF_B8G8R8A8_UNORM:
 			colorformat=GL_BGRA_EXT;
             type=GL_UNSIGNED_INT_8_8_8_8_REV;
 			break;
-		case ECF_R8G8B8A8_UNORM:
+		case EF_R8G8B8A8_UNORM:
 			colorformat=GL_RGBA;
             type=GL_UNSIGNED_BYTE;
 			break;
 		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
-		case ECF_B10G11R11_UFLOAT_PACK32:
+		case EF_B10G11R11_UFLOAT_PACK32:
 		{
 			colorformat = GL_RGB;
 			type = GL_R11F_G11F_B10F;
 		}
 			break;
-		case ECF_R16_SFLOAT:
+		case EF_R16_SFLOAT:
 		{
 			colorformat = GL_RED;
 			type = GL_HALF_FLOAT;
 		}
 			break;
-		case ECF_R16G16_SFLOAT:
+		case EF_R16G16_SFLOAT:
 		{
 			colorformat = GL_RG;
 			type = GL_HALF_FLOAT;
 		}
 			break;
-		case ECF_R16G16B16A16_SFLOAT:
+		case EF_R16G16B16A16_SFLOAT:
 		{
 			colorformat = GL_RGBA;
 			type = GL_HALF_FLOAT;
 		}
-		case ECF_R32_SFLOAT:
+		case EF_R32_SFLOAT:
 		{
 			colorformat = GL_RED;
 			type = GL_FLOAT;
 		}
 			break;
-		case ECF_R32G32_SFLOAT:
+		case EF_R32G32_SFLOAT:
 		{
 			colorformat = GL_RG;
 			type = GL_FLOAT;
 		}
 			break;
-		case ECF_R32G32B32A32_SFLOAT:
+		case EF_R32G32B32A32_SFLOAT:
 		{
 			colorformat = GL_RGBA;
 			type = GL_FLOAT;
 		}
 			break;
-		case ECF_R8_UNORM:
+		case EF_R8_UNORM:
 		{
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_R8G8_UNORM:
+		case EF_R8G8_UNORM:
 		{
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_BC1_RGB_UNORM_BLOCK:
+		case EF_BC1_RGB_UNORM_BLOCK:
 		{
 			colorformat = GL_RGB;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_BC1_RGBA_UNORM_BLOCK:
+		case EF_BC1_RGBA_UNORM_BLOCK:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_BC2_UNORM_BLOCK:
+		case EF_BC2_UNORM_BLOCK:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_BC3_UNORM_BLOCK:
+		case EF_BC3_UNORM_BLOCK:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
         /* // todo bc
-		case ECF_R_BC4:
+		case EF_R_BC4:
 		{
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_RG_BC5:
+		case EF_RG_BC5:
 		{
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
          */
-		case ECF_8BIT_PIX:
+		case EF_8BIT_PIX:
 		{
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_16BIT_PIX:
+		case EF_16BIT_PIX:
 		{
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_24BIT_PIX:
+		case EF_24BIT_PIX:
 		{
 			colorformat = GL_RGB;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_32BIT_PIX:
+		case EF_32BIT_PIX:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_48BIT_PIX:
+		case EF_48BIT_PIX:
 		{
 			colorformat = GL_RGB;
 			type = GL_UNSIGNED_SHORT;
 		}
 			break;
-		case ECF_64BIT_PIX:
+		case EF_64BIT_PIX:
 		{
 			colorformat = GL_RGBA;
 			type = GL_UNSIGNED_SHORT;
 		}
 			break;
-		case ECF_96BIT_PIX:
+		case EF_96BIT_PIX:
 		{
 			colorformat = GL_RGB;
 			type = GL_FLOAT;
 		}
 			break;
-		case ECF_128BIT_PIX:
+		case EF_128BIT_PIX:
 		{
 			colorformat = GL_RGBA;
 			type = GL_FLOAT;
 		}
 			break;
         /// this is totally wrong but safe - most probs have to reupload
-		case ECF_DEPTH16:
+		case EF_DEPTH16:
 		{
 			colorformat = GL_DEPTH;
 			type = GL_UNSIGNED_SHORT;
 		}
 			break;
-		case ECF_DEPTH24:
+		case EF_DEPTH24:
 		{
 			colorformat = GL_DEPTH;
 			type = GL_UNSIGNED_SHORT;
 		}
 			break;
-		case ECF_DEPTH24_STENCIL8:
+		case EF_DEPTH24_STENCIL8:
 		{
 			colorformat = GL_DEPTH_STENCIL;
 			type = GL_UNSIGNED_INT_24_8_EXT;
 		}
 			break;
-		case ECF_DEPTH32F:
+		case EF_DEPTH32F:
 		{
 			colorformat = GL_DEPTH;
 			type = GL_FLOAT;
 		}
 			break;
-		case ECF_DEPTH32F_STENCIL8:
+		case EF_DEPTH32F_STENCIL8:
 		{
 			colorformat = GL_DEPTH_STENCIL;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-		case ECF_STENCIL8:
+		case EF_STENCIL8:
 		{
 			colorformat = GL_STENCIL;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-        case ECF_E5B9G9R9_UFLOAT_PACK32:
+        case EF_E5B9G9R9_UFLOAT_PACK32:
         {
             colorformat = GL_RGB;
             type = GL_HALF_FLOAT;
@@ -499,117 +499,117 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FO
 	}
 }
 
-GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format)
+GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT &format)
 {
 	switch(format)
 	{
-		case ECF_A1R5G5B5:
+		case EF_A1R5G5B5:
 			return GL_RGB5_A1;
 			break;
-		case ECF_R5G6B5:
+		case EF_R5G6B5:
 			return GL_RGB565;
 			break;
-		case ECF_R8G8B8_UNORM:
+		case EF_R8G8B8_UNORM:
 			return GL_RGB8;
 			break;
-		case ECF_B8G8R8A8_UNORM:
+		case EF_B8G8R8A8_UNORM:
 			return GL_RGBA8;
 			break;
-		case ECF_R8G8B8A8_UNORM:
+		case EF_R8G8B8A8_UNORM:
             return GL_RGBA8;
 			break;
 		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
-		case ECF_B10G11R11_UFLOAT_PACK32:
+		case EF_B10G11R11_UFLOAT_PACK32:
             return GL_R11F_G11F_B10F;
 			break;
-		case ECF_R16_SFLOAT:
+		case EF_R16_SFLOAT:
 		    return GL_R16F;
 			break;
-		case ECF_R16G16_SFLOAT:
+		case EF_R16G16_SFLOAT:
 		    return GL_RG16F;
 			break;
-		case ECF_R16G16B16A16_SFLOAT:
+		case EF_R16G16B16A16_SFLOAT:
 		    return GL_RGBA16F;
 			break;
-		case ECF_R32_SFLOAT:
+		case EF_R32_SFLOAT:
 		    return GL_R32F;
 			break;
-		case ECF_R32G32_SFLOAT:
+		case EF_R32G32_SFLOAT:
 		    return GL_RG32F;
 			break;
-		case ECF_R32G32B32A32_SFLOAT:
+		case EF_R32G32B32A32_SFLOAT:
 		    return GL_RGBA32F;
 			break;
-		case ECF_R8_UNORM:
+		case EF_R8_UNORM:
 		    return GL_R8;
 			break;
-		case ECF_R8G8_UNORM:
+		case EF_R8G8_UNORM:
 		    return GL_RGB8;
 			break;
-		case ECF_BC1_RGB_UNORM_BLOCK:
+		case EF_BC1_RGB_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
 			break;
-		case ECF_BC1_RGBA_UNORM_BLOCK:
+		case EF_BC1_RGBA_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
 			break;
-		case ECF_BC2_UNORM_BLOCK:
+		case EF_BC2_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
 			break;
-		case ECF_BC3_UNORM_BLOCK:
+		case EF_BC3_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 			break;
             /* // todo bc
-		case ECF_R_BC4:
+		case EF_R_BC4:
 		    return GL_COMPRESSED_RED_RGTC1_EXT;
 			break;
-		case ECF_RG_BC5:
+		case EF_RG_BC5:
 		    return GL_COMPRESSED_RED_GREEN_RGTC2_EXT;
 			break;
             */
-		case ECF_8BIT_PIX:
+		case EF_8BIT_PIX:
 		    return GL_R8;
 			break;
-		case ECF_16BIT_PIX:
+		case EF_16BIT_PIX:
 		    return GL_RG8;
 			break;
-		case ECF_24BIT_PIX:
+		case EF_24BIT_PIX:
 		    return GL_RGB8;
 			break;
-		case ECF_32BIT_PIX:
+		case EF_32BIT_PIX:
 		    return GL_RGBA8;
 			break;
-		case ECF_48BIT_PIX:
+		case EF_48BIT_PIX:
 		    return GL_RGB16;
 			break;
-		case ECF_64BIT_PIX:
+		case EF_64BIT_PIX:
 		    return GL_RGBA16;
 			break;
-		case ECF_96BIT_PIX:
+		case EF_96BIT_PIX:
 		    return GL_RGB32F;
 			break;
-		case ECF_128BIT_PIX:
+		case EF_128BIT_PIX:
 		    return GL_RGBA32F;
 			break;
         /// this is totally wrong but safe - most probs have to reupload
-		case ECF_DEPTH16:
+		case EF_DEPTH16:
 		    return GL_DEPTH_COMPONENT16;
 			break;
-		case ECF_DEPTH24:
+		case EF_DEPTH24:
 		    return GL_DEPTH_COMPONENT24;
 			break;
-		case ECF_DEPTH24_STENCIL8:
+		case EF_DEPTH24_STENCIL8:
 		    return GL_DEPTH24_STENCIL8;
 			break;
-		case ECF_DEPTH32F:
+		case EF_DEPTH32F:
 		    return GL_DEPTH_COMPONENT32F;
 			break;
-		case ECF_DEPTH32F_STENCIL8:
+		case EF_DEPTH32F_STENCIL8:
 		    return GL_DEPTH32F_STENCIL8;
 			break;
-		case ECF_STENCIL8:
+		case EF_STENCIL8:
             return GL_STENCIL_INDEX8;
 			break;
-        case ECF_E5B9G9R9_UFLOAT_PACK32:
+        case EF_E5B9G9R9_UFLOAT_PACK32:
             return GL_RGB9_E5;
             break;
 		default:
@@ -622,238 +622,238 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_F
 	}
 }
 
-ECOLOR_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat)
+E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat)
 {
     switch(sizedFormat)
     {
         case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
-            return ECF_BC1_RGB_UNORM_BLOCK;
+            return EF_BC1_RGB_UNORM_BLOCK;
             break;
         case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
-            return ECF_BC1_RGBA_UNORM_BLOCK;
+            return EF_BC1_RGBA_UNORM_BLOCK;
             break;
         case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
-            return ECF_BC2_UNORM_BLOCK;
+            return EF_BC2_UNORM_BLOCK;
             break;
         case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
-            return ECF_BC3_UNORM_BLOCK;
+            return EF_BC3_UNORM_BLOCK;
             break;
             /* // todo bc
         case GL_COMPRESSED_RED_RGTC1_EXT:
-            return ECF_R_BC4;
+            return EF_R_BC4;
             break;
         case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
-            return ECF_RG_BC5;
+            return EF_RG_BC5;
             break;
             */
         case GL_STENCIL_INDEX8:
-            return ECF_STENCIL8;
+            return EF_STENCIL8;
             break;
         case GL_RGBA2:
-            ///return ECF_8BIT_PIX;
+            ///return EF_8BIT_PIX;
             break;
         case GL_R3_G3_B2:
-            ///return ECF_8BIT_PIX;
+            ///return EF_8BIT_PIX;
             break;
         case GL_R8:
-            return ECF_R8_UNORM;
+            return EF_R8_UNORM;
             break;
         case GL_R8I:
-            ///return ECF_R8_UNORM;
+            ///return EF_R8_UNORM;
             break;
         case GL_R8UI:
-            ///return ECF_R8_UNORM;
+            ///return EF_R8_UNORM;
             break;
         case GL_R8_SNORM:
-            ///return ECF_R8_UNORM;
+            ///return EF_R8_UNORM;
             break;
         case GL_RGB4:
-            ///return ECF_16BIT_PIX;
+            ///return EF_16BIT_PIX;
             break;
         case GL_RGB5:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_DEPTH_COMPONENT16:
-            return ECF_DEPTH16;
+            return EF_DEPTH16;
             break;
         case GL_RGBA4:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB5_A1:
-            return ECF_A1R5G5B5;
+            return EF_A1R5G5B5;
             break;
         case GL_RG8:
-            return ECF_R8G8_UNORM;
+            return EF_R8G8_UNORM;
             break;
         case GL_RG8I:
-            ///return ECF_R8G8_UNORM;
+            ///return EF_R8G8_UNORM;
             break;
         case GL_RG8UI:
-            ///return ECF_R8G8_UNORM;
+            ///return EF_R8G8_UNORM;
             break;
         case GL_RG8_SNORM:
-            ///return ECF_R8G8_UNORM;
+            ///return EF_R8G8_UNORM;
             break;
         case GL_R16:
-            ///return ECF_R16;
+            ///return EF_R16;
             break;
         case GL_R16I:
-            ///return ECF_R16;
+            ///return EF_R16;
             break;
         case GL_R16UI:
-            ///return ECF_R16;
+            ///return EF_R16;
             break;
         case GL_R16_SNORM:
-            ///return ECF_R16;
+            ///return EF_R16;
             break;
         case GL_R16F:
-            return ECF_R16_SFLOAT;
+            return EF_R16_SFLOAT;
             break;
         case GL_DEPTH_COMPONENT24:
-            return ECF_DEPTH24;
+            return EF_DEPTH24;
             break;
         case GL_RGB8:
-            return ECF_R8G8B8_UNORM;
+            return EF_R8G8B8_UNORM;
             break;
         case GL_RGB8I:
-            ///return ECF_R8G8B8_UNORM;
+            ///return EF_R8G8B8_UNORM;
             break;
         case GL_RGB8UI:
-            ///return ECF_R8G8B8_UNORM;
+            ///return EF_R8G8B8_UNORM;
             break;
         case GL_RGB8_SNORM:
-            ///return ECF_R8G8B8_UNORM;
+            ///return EF_R8G8B8_UNORM;
             break;
         case GL_SRGB8:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB10:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_DEPTH24_STENCIL8:
-            return ECF_DEPTH24_STENCIL8;
+            return EF_DEPTH24_STENCIL8;
             break;
         case GL_DEPTH_COMPONENT32:
-            ///return ECF_DEPTH32;
+            ///return EF_DEPTH32;
             break;
         case GL_DEPTH_COMPONENT32F:
-            return ECF_DEPTH32F;
+            return EF_DEPTH32F;
             break;
         case GL_RGBA8:
-            return ECF_B8G8R8A8_UNORM;
+            return EF_B8G8R8A8_UNORM;
             break;
         case GL_RGBA8I:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGBA8UI:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGBA8_SNORM:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_SRGB8_ALPHA8:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB10_A2:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB10_A2UI:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_R11F_G11F_B10F:
-            return ECF_B10G11R11_UFLOAT_PACK32;
+            return EF_B10G11R11_UFLOAT_PACK32;
             break;
         case GL_RGB9_E5:
-            return ECF_E5B9G9R9_UFLOAT_PACK32;
+            return EF_E5B9G9R9_UFLOAT_PACK32;
             break;
         case GL_RG16:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RG16I:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RG16UI:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RG16F:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_R32I:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_R32UI:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_R32F:
-            return ECF_R32_SFLOAT;
+            return EF_R32_SFLOAT;
             break;
         case GL_RGB12:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_DEPTH32F_STENCIL8:
-            return ECF_DEPTH32F_STENCIL8;
+            return EF_DEPTH32F_STENCIL8;
             break;
         case GL_RGBA12:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB16:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB16I:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB16UI:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB16_SNORM:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB16F:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGBA16:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGBA16I:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGBA16UI:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGBA16F:
-            return ECF_R16G16B16A16_SFLOAT;
+            return EF_R16G16B16A16_SFLOAT;
             break;
         case GL_RG32I:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RG32UI:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RG32F:
-            ///return ECF_R;
+            ///return EF_R;
             break;
         case GL_RGB32I:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB32UI:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGB32F:
-            ///return ECF_R32;
+            ///return EF_R32;
             break;
         case GL_RGBA32I:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGBA32UI:
-            ///return ECF_;
+            ///return EF_;
             break;
         case GL_RGBA32F:
-            return ECF_R32G32B32A32_SFLOAT;
+            return EF_R32G32B32A32_SFLOAT;
             break;
         default:
             break;
     }
-    return ECF_UNKNOWN;
+    return EF_UNKNOWN;
 }
 
 
