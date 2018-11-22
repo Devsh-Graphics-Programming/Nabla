@@ -389,6 +389,7 @@ if (Vulkan_FOUND)
 		_IRR_COMPILE_WITH_VULKAN_
 	)
 	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
+	target_include_directories(Irrlicht INTERFACE ${Vulkan_INCLUDE_DIR})
 	target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
 else()
 	message(STATUS "Vulkan driver is not enabled")
