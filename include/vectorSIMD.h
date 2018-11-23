@@ -71,6 +71,12 @@ namespace core
                 typedef core::vectorSIMDIntBase Base;
             public:
                 using Base::Base;
+
+#ifdef _MSC_VER
+                // in MSVC default ctor is not inherited?
+                vectorSIMDIntBase() : Base() {}
+#endif
+
                 //! Copy constructor
                 inline vectorSIMDIntBase(const Base& other) : Base(other) {}
                 inline vectorSIMDIntBase(const vectorSIMDIntBase<CRTP>& other) : vectorSIMDIntBase(static_cast<const Base&>(other)) {} // delegate
