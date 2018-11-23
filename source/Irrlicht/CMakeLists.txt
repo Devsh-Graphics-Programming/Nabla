@@ -381,6 +381,19 @@ if (UNIX)
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
+find_package(Vulkan)
+
+if (Vulkan_FOUND)
+	message(STATUS "Building with Vulkan driver")
+	target_compile_definitions(Irrlicht PRIVATE
+		_IRR_COMPILE_WITH_VULKAN_
+	)
+	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
+	target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
+else()
+	message(STATUS "Vulkan driver is not enabled")
+endif()
+
 target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
 	_IRR_COMPILE_WITH_OPENGL_
