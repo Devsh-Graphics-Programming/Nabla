@@ -96,22 +96,19 @@ namespace core
     //a class for bitwise shizz
 	template <int components> class vectorSIMDBool : public impl::vectorSIMDIntBase<vectorSIMDBool<components> >
     {
-        friend class impl::vectorSIMDIntBase<vectorSIMDBool<components> >;
         typedef impl::vectorSIMDIntBase<vectorSIMDBool<components> > Base;
         static_assert(core::isPoT(components)&&components<=16u,"Wrong number of components!\n");
-        //secret constructor so Base can construct CRTP
-        vectorSIMDBool(const vectorSIMDIntBase& other) : Base(other) {}
     public:
         using Base::Base;
-        inline vectorSIMDBool(const __m128 &reg) {_mm_store_ps((float*)this,reg);}
-        inline vectorSIMDBool(const __m128d &reg) {_mm_store_pd((double*)this,reg);}
+        inline explicit vectorSIMDBool(const __m128 &reg) {_mm_store_ps((float*)this,reg);}
+        inline explicit vectorSIMDBool(const __m128d &reg) {_mm_store_pd((double*)this,reg);}
 
 		//! reads 16 bytes from an array of uint8_t
 		inline vectorSIMDBool(const uint8_t* const array) : vectorSIMDBool(_mm_loadu_ps((const float*)array)) {}
 		//! same as above, BUT WILL CRASH IF ARRAY NOT 16 BYTE ALIGNED
 		inline vectorSIMDBool(const uint8_t* const array, bool ALIGNED) : vectorSIMDBool(_mm_load_ps((const float*)array)) {}
 		//! Constructor with the same value for all elements
-		explicit vectorSIMDBool(bool n)  : vectorSIMDBool(n ? _mm_set_epi64x(-0x1ll,-0x1ll):_mm_setzero_si128()) {}
+		inline explicit vectorSIMDBool(bool n)  : vectorSIMDBool(n ? _mm_set_epi64x(-0x1ll,-0x1ll):_mm_setzero_si128()) {}
 
 		inline vectorSIMDBool& operator=(const vectorSIMDBool& other) { _mm_store_si128((__m128i*)value,other.getAsRegister()); return *this; }
 
@@ -254,10 +251,7 @@ namespace core
     template <class T>
     class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
 	{
-        friend class impl::vectorSIMDIntBase<vectorSIMD_32<T> >;
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
-        //secret constructor so Base can construct CRTP
-        vectorSIMD_32(const vectorSIMDIntBase& other) : Base(other) {}
 	public:
 	    using Base::Base;
         //! Constructor with four different values, FASTEST IF the values are constant literals
@@ -542,29 +536,29 @@ namespace core
 		//! I AM BREAKING IRRLICHT'S COMPARISON OPERATORS
 		inline vector4db_SIMD operator<=(const vectorSIMDf& other) const
 		{
-		    return _mm_cmple_ps(getAsRegister(),other.getAsRegister());
+		    return vector4db_SIMD(_mm_cmple_ps(getAsRegister(),other.getAsRegister()));
 		}
 		inline vector4db_SIMD operator>=(const vectorSIMDf& other) const
 		{
-		    return _mm_cmpge_ps(getAsRegister(),other.getAsRegister());
+		    return vector4db_SIMD(_mm_cmpge_ps(getAsRegister(),other.getAsRegister()));
 		}
 		inline vector4db_SIMD operator<(const vectorSIMDf& other) const
 		{
-		    return _mm_cmplt_ps(getAsRegister(),other.getAsRegister());
+		    return vector4db_SIMD(_mm_cmplt_ps(getAsRegister(),other.getAsRegister()));
 		}
 		inline vector4db_SIMD operator>(const vectorSIMDf& other) const
 		{
-		    return _mm_cmpgt_ps(getAsRegister(),other.getAsRegister());
+		    return vector4db_SIMD(_mm_cmpgt_ps(getAsRegister(),other.getAsRegister()));
 		}
 
 		//! only the method that returns bool confirms if two vectors are exactly the same
 		inline vector4db_SIMD operator==(const vectorSIMDf& other) const
 		{
-			return _mm_cmpeq_ps(getAsRegister(),other.getAsRegister());
+			return vector4db_SIMD(_mm_cmpeq_ps(getAsRegister(),other.getAsRegister()));
 		}
 		inline vector4db_SIMD operator!=(const vectorSIMDf& other) const
 		{
-			return _mm_cmpneq_ps(getAsRegister(),other.getAsRegister());
+			return vector4db_SIMD(_mm_cmpneq_ps(getAsRegister(),other.getAsRegister()));
 		}
 
 
