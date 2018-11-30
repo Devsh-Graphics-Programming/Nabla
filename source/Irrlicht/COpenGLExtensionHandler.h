@@ -1252,6 +1252,10 @@ class COpenGLExtensionHandler
 	// blend operations
 	static void extGlBlendEquation(GLenum mode);
 
+    // ARB_internalformat_query
+    static void extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
+    static void extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params);
+
 	// the global feature array
 	static bool FeatureAvailable[IRR_OpenGL_Feature_Count];
 
@@ -1543,6 +1547,10 @@ class COpenGLExtensionHandler
 	static PFNGLENDTRANSFORMFEEDBACKPROC pGlEndTransformFeedback;
 	static PFNGLTRANSFORMFEEDBACKBUFFERBASEPROC pGlTransformFeedbackBufferBase;
 	static PFNGLTRANSFORMFEEDBACKBUFFERRANGEPROC pGlTransformFeedbackBufferRange;
+
+    static PFNGLGETINTERNALFORMATIVPROC pGlGetInternalformativ;
+    static PFNGLGETINTERNALFORMATI64VPROC pGlGetInternalformati64v;
+
     //! REMOVE ALL BELOW
     static PFNGLBLENDFUNCSEPARATEPROC pGlBlendFuncSeparate;
     static PFNGLBLENDFUNCINDEXEDAMDPROC pGlBlendFuncIndexedAMD; //NULL
@@ -5544,6 +5552,31 @@ inline void COpenGLExtensionHandler::extGlBlendEquation(GLenum mode)
 #endif
 }
 
+inline void COpenGLExtensionHandler::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
+{
+    if (Version>=460 || FeatureAvailable[IRR_ARB_internalformat_query])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetInternalformativ)
+            pGlGetInternalformativ(target, internalformat, pname, bufSize, params);
+#else
+        glGetInternalformativ(target, internalformat, pname, bufSize, params);
+#endif
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params)
+{
+    if (Version>=460 || FeatureAvailable[IRR_ARB_internalformat_query])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetInternalformati64v)
+            pGlGetInternalformati64v(target, internalformat, pname, bufSize, params);
+#else
+        glGetInternalformati64v(target, internalformat, pname, bufSize, params);
+#endif
+    }
+}
 
 }
 }
