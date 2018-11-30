@@ -225,18 +225,6 @@
     <ClCompile Include="IAssetWriter.cpp" />
     <ClCompile Include="IDriver.cpp" />
     <ClCompile Include="convertColor.cpp" />
-    <ClCompile Include="astc\astc_block_sizes2.cpp" />
-    <ClCompile Include="astc\astc_color_unquantize.cpp" />
-    <ClCompile Include="astc\astc_decompress_symbolic.cpp" />
-    <ClCompile Include="astc\astc_image_load_store.cpp" />
-    <ClCompile Include="astc\astc_integer_sequence.cpp" />
-    <ClCompile Include="astc\astc_partition_tables.cpp" />
-    <ClCompile Include="astc\astc_symbolic_physical.cpp" />
-    <ClCompile Include="astc\mathlib.cpp" />
-    <ClCompile Include="astc\softfloat.cpp" />
-    <ClCompile Include="astc\astc_percentile_tables.cpp" />
-    <ClCompile Include="astc\astc_weight_quant_xfer_tables.cpp" />
-    <ClCompile Include="astc\astc_quantization.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
@@ -558,9 +546,6 @@
     <ClInclude Include="..\..\include\CObjectCache.h" />
     <ClInclude Include="..\..\include\IAssetManager.h" />
     <ClInclude Include="astc\vectypes.h" />
-    <ClInclude Include="astc\astc_codec_internals.h" />
-    <ClInclude Include="astc\mathlib.h" />
-    <ClInclude Include="astc\softfloat.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />
