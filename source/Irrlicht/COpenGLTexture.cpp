@@ -296,19 +296,7 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
 		case EF_R5G6B5:
 			colorformat=GL_RGB;
 			type=GL_UNSIGNED_SHORT_5_6_5;
-			break;
-		case EF_R8G8B8_UNORM:
-			colorformat=GL_RGB;
-			type=GL_UNSIGNED_BYTE;
-			break;
-		case EF_B8G8R8A8_UNORM:
-			colorformat=GL_BGRA_EXT;
-            type=GL_UNSIGNED_INT_8_8_8_8_REV;
-			break;
-		case EF_R8G8B8A8_UNORM:
-			colorformat=GL_RGBA;
-            type=GL_UNSIGNED_BYTE;
-			break;
+            break;
 		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
 		case EF_B10G11R11_UFLOAT_PACK32:
 		{
@@ -351,18 +339,206 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
 			type = GL_FLOAT;
 		}
 			break;
+        case EF_R8_SNORM:
 		case EF_R8_UNORM:
 		{
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
+        case EF_R8G8_SNORM:
 		case EF_R8G8_UNORM:
 		{
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
+        case EF_R8G8B8_SNORM:
+        case EF_R8G8B8_UNORM:
+            colorformat = GL_RGB;
+            type = GL_UNSIGNED_BYTE;
+            break;
+        case EF_B8G8R8A8_SNORM:
+        case EF_B8G8R8A8_UNORM:
+            colorformat = GL_BGRA_EXT;
+            type = GL_UNSIGNED_INT_8_8_8_8_REV;
+            break;
+        case EF_R8G8B8A8_SNORM:
+        case EF_R8G8B8A8_UNORM:
+            colorformat = GL_RGBA;
+            type = GL_UNSIGNED_BYTE;
+            break;
+        case EF_R8_UINT:
+        {
+            colorformat = GL_RED_INTEGER;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_R8G8_UINT:
+        {
+            colorformat = GL_RG_INTEGER;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_R8G8B8_UINT:
+        {
+            colorformat = GL_RGB_INTEGER;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_R8G8B8A8_UINT:
+        {
+            colorformat = GL_RGBA_INTEGER;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_R8_SINT:
+        {
+            colorformat = GL_RED_INTEGER;
+            type = GL_BYTE;
+        }
+        break;
+        case EF_R8G8_SINT:
+        {
+            colorformat = GL_RG_INTEGER;
+            type = GL_BYTE;
+        }
+        break;
+        case EF_R8G8B8_SINT:
+        {
+            colorformat = GL_RGB_INTEGER;
+            type = GL_BYTE;
+        }
+        break;
+        case EF_R8G8B8A8_SINT:
+        {
+            colorformat = GL_RGBA_INTEGER;
+            type = GL_BYTE;
+        }
+        case EF_R16_SNORM:
+        case EF_R16_UNORM:
+        {
+            colorformat = GL_RED;
+            type = GL_UNSIGNED_SHORT;
+        }
+        break;
+        case EF_R16G16_SNORM:
+        case EF_R16G16_UNORM:
+        {
+            colorformat = GL_RG;
+            type = GL_UNSIGNED_SHORT;
+        }
+        break;
+        case EF_R16G16B16_SNORM:
+        case EF_R16G16B16_UNORM:
+        {
+            colorformat = GL_RGB;
+            type = GL_UNSIGNED_SHORT;
+        }
+            break;
+        case EF_R16G16B16A16_SNORM:
+        case EF_R16G16B16A16_UNORM:
+        {
+            colorformat = GL_RGBA;
+            type = GL_UNSIGNED_SHORT;
+        }
+            break;
+        case EF_R16_UINT:
+        {
+            colorformat = GL_RED_INTEGER;
+            type = GL_UNSIGNED_SHORT;
+        }
+        break;
+        case EF_R16G16_UINT:
+        {
+            colorformat = GL_RG_INTEGER;
+            type = GL_UNSIGNED_SHORT;
+        }
+        break;
+        case EF_R16G16B16_UINT:
+        {
+            colorformat = GL_RGB_INTEGER;
+            type = GL_UNSIGNED_SHORT;
+        }
+        break;
+        case EF_R16G16B16A16_UINT:
+        {
+            colorformat = GL_RGBA_INTEGER;
+            type = GL_UNSIGNED_SHORT;
+        }
+        break;
+        case EF_R16_SINT:
+        {
+            colorformat = GL_RED_INTEGER;
+            type = GL_SHORT;
+        }
+        break;
+        case EF_R16G16_SINT:
+        {
+            colorformat = GL_RG_INTEGER;
+            type = GL_SHORT;
+        }
+        break;
+        case EF_R16G16B16_SINT:
+        {
+            colorformat = GL_RGB_INTEGER;
+            type = GL_SHORT;
+        }
+        break;
+        case EF_R16G16B16A16_SINT:
+        {
+            colorformat = GL_RGBA_INTEGER;
+            type = GL_SHORT;
+        }
+        break;
+        case EF_R32_UINT:
+        {
+            colorformat = GL_RED_INTEGER;
+            type = GL_UNSIGNED_INT;
+        }
+        break;
+        case EF_R32G32_UINT:
+        {
+            colorformat = GL_RG_INTEGER;
+            type = GL_UNSIGNED_INT;
+        }
+        break;
+        case EF_R32G32B32_UINT:
+        {
+            colorformat = GL_RGB_INTEGER;
+            type = GL_UNSIGNED_INT;
+        }
+        break;
+        case EF_R32G32B32A32_UINT:
+        {
+            colorformat = GL_RGBA_INTEGER;
+            type = GL_UNSIGNED_INT;
+        }
+        break;
+        case EF_R32_SINT:
+        {
+            colorformat = GL_RED_INTEGER;
+            type = GL_INT;
+        }
+        break;
+        case EF_R32G32_SINT:
+        {
+            colorformat = GL_RG_INTEGER;
+            type = GL_INT;
+        }
+        break;
+        case EF_R32G32B32_SINT:
+        {
+            colorformat = GL_RGB_INTEGER;
+            type = GL_INT;
+        }
+        break;
+        case EF_R32G32B32A32_SINT:
+        {
+            colorformat = GL_RGBA_INTEGER;
+            type = GL_INT;
+        }
+        break;
 		case EF_BC1_RGB_UNORM_BLOCK:
 		{
 			colorformat = GL_RGB;
@@ -509,15 +685,6 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT
 		case EF_R5G6B5:
 			return GL_RGB565;
 			break;
-		case EF_R8G8B8_UNORM:
-			return GL_RGB8;
-			break;
-		case EF_B8G8R8A8_UNORM:
-			return GL_RGBA8;
-			break;
-		case EF_R8G8B8A8_UNORM:
-            return GL_RGBA8;
-			break;
 		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
 		case EF_B10G11R11_UFLOAT_PACK32:
             return GL_R11F_G11F_B10F;
@@ -528,6 +695,8 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT
 		case EF_R16G16_SFLOAT:
 		    return GL_RG16F;
 			break;
+        case EF_R16G16B16_SFLOAT:
+            return GL_RGB16F;
 		case EF_R16G16B16A16_SFLOAT:
 		    return GL_RGBA16F;
 			break;
@@ -537,6 +706,9 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT
 		case EF_R32G32_SFLOAT:
 		    return GL_RG32F;
 			break;
+        case EF_R32G32B32_SFLOAT:
+            return GL_RGB32F;
+            break;
 		case EF_R32G32B32A32_SFLOAT:
 		    return GL_RGBA32F;
 			break;
@@ -544,8 +716,140 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT
 		    return GL_R8;
 			break;
 		case EF_R8G8_UNORM:
-		    return GL_RGB8;
+		    return GL_RG8;
 			break;
+        case EF_R8G8B8_UNORM:
+            return GL_RGB8;
+            break;
+        case EF_B8G8R8A8_UNORM:
+            return GL_RGBA8;
+            break;
+        case EF_R8G8B8A8_UNORM:
+            return GL_RGBA8;
+            break;
+        case EF_R8_UINT:
+            return GL_R8UI;
+            break;
+        case EF_R8G8_UINT:
+            return GL_RG8UI;
+            break;
+        case EF_R8G8B8_UINT:
+            return GL_RGB8UI;
+            break;
+        case EF_B8G8R8A8_UINT:
+            return GL_RGBA8UI;
+            break;
+        case EF_R8G8B8A8_UINT:
+            return GL_RGBA8UI;
+            break;
+        case EF_R8_SINT:
+            return GL_R8I;
+            break;
+        case EF_R8G8_SINT:
+            return GL_RG8I;
+            break;
+        case EF_R8G8B8_SINT:
+            return GL_RGB8I;
+            break;
+        case EF_B8G8R8A8_SINT:
+            return GL_RGBA8I;
+            break;
+        case EF_R8G8B8A8_SINT:
+            return GL_RGBA8I;
+            break;
+        case EF_R8_SNORM:
+            return GL_R8_SNORM;
+            break;
+        case EF_R8G8_SNORM:
+            return GL_RG8_SNORM;
+            break;
+        case EF_R8G8B8_SNORM:
+            return GL_RGB8_SNORM;
+            break;
+        case EF_B8G8R8A8_SNORM:
+            return GL_RGBA8_SNORM;
+            break;
+        case EF_R8G8B8A8_SNORM:
+            return GL_RGBA8_SNORM;
+            break;
+        case EF_R16_UNORM:
+            return GL_R16;
+            break;
+        case EF_R16G16_UNORM:
+            return GL_RG16;
+            break;
+        case EF_R16G16B16_UNORM:
+            return GL_RGB16;
+            break;
+        case EF_R16G16B16A16_UNORM:
+            return GL_RGBA16;
+            break;
+        case EF_R16_UINT:
+            return GL_R16UI;
+            break;
+        case EF_R16G16_UINT:
+            return GL_RG16UI;
+            break;
+        case EF_R16G16B16_UINT:
+            return GL_RGB16UI;
+            break;
+        case EF_R16G16B16A16_UINT:
+            return GL_RGBA16UI;
+            break;
+        case EF_R16_SINT:
+            return GL_R16I;
+            break;
+        case EF_R16G16_SINT:
+            return GL_RG16I;
+            break;
+        case EF_R16G16B16_SINT:
+            return GL_RGB16I;
+            break;
+        case EF_R16G16B16A16_SINT:
+            return GL_RGBA16I;
+            break;
+        case EF_R16_SNORM:
+            return GL_R16_SNORM;
+            break;
+        case EF_R16G16_SNORM:
+            return GL_RG16_SNORM;
+            break;
+        case EF_R16G16B16_SNORM:
+            return GL_RGB16_SNORM;
+            break;
+        case EF_R16G16B16A16_SNORM:
+            return GL_RGBA16_SNORM;
+            break;
+        case EF_R32_UINT:
+            return GL_R32UI;
+            break;
+        case EF_R32G32_UINT:
+            return GL_RG32UI;
+            break;
+        case EF_R32G32B32_UINT:
+            return GL_RGB32UI;
+            break;
+        case EF_R32G32B32A32_UINT:
+            return GL_RGBA32UI;
+            break;
+        case EF_R32_SINT:
+            return GL_R32I;
+            break;
+        case EF_R32G32_SINT:
+            return GL_RG32I;
+            break;
+        case EF_R32G32B32_SINT:
+            return GL_RGB32I;
+            break;
+        case EF_R32G32B32A32_SINT:
+            return GL_RGBA32I;
+            break;
+        case EF_R8G8B8_SRGB:
+            return GL_SRGB8;
+            break;
+        case EF_R8G8B8A8_SRGB:
+            return GL_SRGB8_ALPHA8;
+            break;
 		case EF_BC1_RGB_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
 			break;
@@ -659,13 +963,13 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             return EF_R8_UNORM;
             break;
         case GL_R8I:
-            ///return EF_R8_UNORM;
+            return EF_R8_SINT;
             break;
         case GL_R8UI:
-            ///return EF_R8_UNORM;
+            return EF_R8_UINT;
             break;
         case GL_R8_SNORM:
-            ///return EF_R8_UNORM;
+            return EF_R8_SNORM;
             break;
         case GL_RGB4:
             ///return EF_16BIT_PIX;
@@ -677,34 +981,34 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             return EF_DEPTH16;
             break;
         case GL_RGBA4:
-            ///return EF_;
+            return EF_R4G4B4A4_UNORM_PACK16;
             break;
         case GL_RGB5_A1:
-            return EF_A1R5G5B5;
+            return EF_R5G5B5A1_UNORM_PACK16;
             break;
         case GL_RG8:
             return EF_R8G8_UNORM;
             break;
         case GL_RG8I:
-            ///return EF_R8G8_UNORM;
+            return EF_R8G8_SINT;
             break;
         case GL_RG8UI:
-            ///return EF_R8G8_UNORM;
+            return EF_R8G8_UINT;
             break;
         case GL_RG8_SNORM:
-            ///return EF_R8G8_UNORM;
+            return EF_R8G8_SNORM;
             break;
         case GL_R16:
-            ///return EF_R16;
+            return EF_R16_UNORM;
             break;
         case GL_R16I:
-            ///return EF_R16;
+            return EF_R16_SINT;
             break;
         case GL_R16UI:
-            ///return EF_R16;
+            return EF_R16_UINT;
             break;
         case GL_R16_SNORM:
-            ///return EF_R16;
+            return EF_R16_SNORM;
             break;
         case GL_R16F:
             return EF_R16_SFLOAT;
@@ -716,16 +1020,16 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             return EF_R8G8B8_UNORM;
             break;
         case GL_RGB8I:
-            ///return EF_R8G8B8_UNORM;
+            return EF_R8G8B8_SINT;
             break;
         case GL_RGB8UI:
-            ///return EF_R8G8B8_UNORM;
+            return EF_R8G8B8_UINT;
             break;
         case GL_RGB8_SNORM:
-            ///return EF_R8G8B8_UNORM;
+            return EF_R8G8B8_SNORM;
             break;
         case GL_SRGB8:
-            ///return EF_;
+            return EF_R8G8B8_SRGB;
             break;
         case GL_RGB10:
             ///return EF_;
@@ -740,25 +1044,25 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             return EF_DEPTH32F;
             break;
         case GL_RGBA8:
-            return EF_B8G8R8A8_UNORM;
+            return EF_R8G8B8A8_UNORM;
             break;
         case GL_RGBA8I:
-            ///return EF_;
+            return EF_R8G8B8A8_SINT;
             break;
         case GL_RGBA8UI:
-            ///return EF_;
+            return EF_R8G8B8A8_UINT;
             break;
         case GL_RGBA8_SNORM:
-            ///return EF_;
+            return EF_R8G8B8A8_SNORM;
             break;
         case GL_SRGB8_ALPHA8:
-            ///return EF_;
+            return EF_R8G8B8A8_SRGB;
             break;
         case GL_RGB10_A2:
-            ///return EF_;
+            return EF_A2B10G10R10_UNORM_PACK32;
             break;
         case GL_RGB10_A2UI:
-            ///return EF_;
+            return EF_A2B10G10R10_UINT_PACK32;
             break;
         case GL_R11F_G11F_B10F:
             return EF_B10G11R11_UFLOAT_PACK32;
@@ -767,22 +1071,22 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             return EF_E5B9G9R9_UFLOAT_PACK32;
             break;
         case GL_RG16:
-            ///return EF_;
+            return EF_R16G16_UNORM;
             break;
         case GL_RG16I:
-            ///return EF_;
+            return EF_R16G16_SINT;
             break;
         case GL_RG16UI:
-            ///return EF_;
+            return EF_R16G16_UINT;
             break;
         case GL_RG16F:
-            ///return EF_;
+            return EF_R16G16_SFLOAT;
             break;
         case GL_R32I:
-            ///return EF_;
+            return EF_R32G32_SINT;
             break;
         case GL_R32UI:
-            ///return EF_;
+            return EF_R32G32_UINT;
             break;
         case GL_R32F:
             return EF_R32_SFLOAT;
@@ -797,55 +1101,55 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             ///return EF_;
             break;
         case GL_RGB16:
-            ///return EF_;
+            return EF_R16G16B16_UNORM;
             break;
         case GL_RGB16I:
-            ///return EF_;
+            return EF_R16G16B16_SINT;
             break;
         case GL_RGB16UI:
-            ///return EF_;
+            return EF_R16G16B16_UINT;
             break;
         case GL_RGB16_SNORM:
-            ///return EF_;
+            return EF_R16G16B16_SNORM;
             break;
         case GL_RGB16F:
-            ///return EF_;
+            return EF_R16G16B16_SFLOAT;
             break;
         case GL_RGBA16:
-            ///return EF_;
+            return EF_R16G16B16A16_UNORM;
             break;
         case GL_RGBA16I:
-            ///return EF_;
+            return EF_R16G16B16A16_SINT;
             break;
         case GL_RGBA16UI:
-            ///return EF_;
+            return EF_R16G16B16A16_UINT;
             break;
         case GL_RGBA16F:
             return EF_R16G16B16A16_SFLOAT;
             break;
         case GL_RG32I:
-            ///return EF_;
+            return EF_R32G32_SINT;
             break;
         case GL_RG32UI:
-            ///return EF_;
+            return EF_R32G32_UINT;
             break;
         case GL_RG32F:
-            ///return EF_R;
+            return EF_R32G32_SFLOAT;
             break;
         case GL_RGB32I:
-            ///return EF_;
+            return EF_R32G32B32_SINT;
             break;
         case GL_RGB32UI:
-            ///return EF_;
+            return EF_R32G32B32_UINT;
             break;
         case GL_RGB32F:
-            ///return EF_R32;
+            return EF_R32G32B32_SFLOAT;
             break;
         case GL_RGBA32I:
-            ///return EF_;
+            return EF_R32G32B32A32_SINT;
             break;
         case GL_RGBA32UI:
-            ///return EF_;
+            return EF_R32G32B32A32_UINT;
             break;
         case GL_RGBA32F:
             return EF_R32G32B32A32_SFLOAT;

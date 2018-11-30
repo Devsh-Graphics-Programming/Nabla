@@ -218,7 +218,12 @@ namespace video
             case EF_R32G32B32A32_SINT:
             case EF_R32G32B32A32_SFLOAT:
                 return true;
-            default: return false;
+            default:
+            {
+                GLint res;
+                extGlGetInternalformativ(GL_RENDERBUFFER, COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
+                return res;
+            }
             }
         }
         inline virtual bool isAllowedImageStoreFormat(E_FORMAT _fmt) const override
@@ -327,7 +332,7 @@ namespace video
             case EF_R32G32B32A32_UINT:
             case EF_R32G32B32A32_SINT:
                 return true;
-            default: return true;
+            default: return false;
             }
         }
 
@@ -871,11 +876,9 @@ namespace video
 		//! inits the parts of the open gl driver used on all platforms
 		bool genericDriverInit();
 
-    public:
 		//! returns a device dependent texture from a software surface (IImage)
 		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, E_FORMAT format = EF_B8G8R8A8_UNORM);
 
-    private:
 		// returns the current size of the screen or rendertarget
 		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
 
