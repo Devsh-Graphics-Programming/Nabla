@@ -13,7 +13,6 @@ namespace irr
 namespace video
 {
 	class IVideoDriver;
-	class SMaterial;
 }
 
 namespace scene

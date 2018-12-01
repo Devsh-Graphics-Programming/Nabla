@@ -9,16 +9,12 @@
 #include "CImageLoaderBMP.h"
 #include "IWriteFile.h"
 #include "CColorConverter.h"
+#include "ICPUTexture.h"
 
 namespace irr
 {
 namespace video
 {
-
-IImageWriter* createImageWriterBMP()
-{
-	return new CImageWriterBMP;
-}
 
 CImageWriterBMP::CImageWriterBMP()
 {
@@ -27,22 +23,31 @@ CImageWriterBMP::CImageWriterBMP()
 #endif
 }
 
-bool CImageWriterBMP::isAWriteableFileExtension(const io::path& filename) const
+bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-	return core::hasFileExtension ( filename, "bmp" );
-}
+    if (!_override)
+        getDefaultOverride(_override);
 
-bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, uint32_t param) const
-{
+    SAssetWriteContext ctx{_params, _file};
+
 	// we always write 24-bit color because nothing really reads 32-bit
+    const video::CImageData* image =
+#   ifndef _DEBUG
+        static_cast<const video::CImageData*>(_params.rootAsset);
+#   else
+        dynamic_cast<const video::CImageData*>(_params.rootAsset);
+#   endif
+    assert(image);
+
+    io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
 
 	SBMPHeader imageHeader;
 	imageHeader.Id = 0x4d42;
 	imageHeader.Reserved = 0;
 	imageHeader.BitmapDataOffset = sizeof(imageHeader);
 	imageHeader.BitmapHeaderSize = 0x28;
-	imageHeader.Width = image->getDimension().Width;
-	imageHeader.Height = image->getDimension().Height;
+	imageHeader.Width = image->getSize().X;
+	imageHeader.Height = image->getSize().Y;
 	imageHeader.Planes = 1;
 	imageHeader.BPP = 24;
 	imageHeader.Compression = 0;
@@ -63,19 +68,19 @@ bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, uint32_t p
 	void (*CColorConverter_convertFORMATtoFORMAT)(const void*, int32_t, void*) = 0;
 	switch(image->getColorFormat())
 	{
-	case ECF_R8G8B8:
+	case EF_R8G8B8_UNORM:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_R8G8B8toR8G8B8;
 		break;
-	case ECF_A8R8G8B8:
+	case EF_B8G8R8A8_UNORM:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_A8R8G8B8toB8G8R8;
 		break;
-	case ECF_A1R5G5B5:
+	case EF_A1R5G5B5:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_A1R5G5B5toR8G8B8;
 		break;
-	case ECF_R5G6B5:
+	case EF_R5G6B5:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_R5G6B5toR8G8B8;
 		break;
@@ -114,7 +119,7 @@ bool CImageWriterBMP::writeImage(io::IWriteFile* file, IImage* image, uint32_t p
 	int32_t y;
 	for (y = imageHeader.Height - 1; 0 <= y; --y)
 	{
-		if (image->getColorFormat()==ECF_R8G8B8)
+		if (image->getColorFormat()==EF_R8G8B8_UNORM)
 			CColorConverter::convert24BitTo24Bit(&scan_lines[y * row_stride], row_pointer, imageHeader.Width, 1, 0, false, true);
 		else
 			// source, length [pixels], destination

@@ -5,14 +5,20 @@
 #ifndef __C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 
-#include "IMeshLoader.h"
-#include "IFileSystem.h"
-#include "ISceneManager.h"
+#include "IAssetLoader.h"
 #include "irr/core/Types.h"
 #include "irr/core/irrString.h"
 
 namespace irr
 {
+class IrrlichtDevice;
+namespace scene {
+    class ISceneManager;
+}
+namespace io {
+    class IFileSystem;
+}
+
 namespace scene
 {
 
@@ -97,7 +103,7 @@ public:
 #include "irr/irrunpack.h"
 
 //! Meshloader capable of loading obj meshes.
-class COBJMeshFileLoader : public IMeshLoader
+class COBJMeshFileLoader : public asset::IAssetLoader
 {
     enum E_TEXTURE_TYPE : uint8_t
     {
@@ -107,23 +113,53 @@ class COBJMeshFileLoader : public IMeshLoader
         ETT_REFLECTION_MAP
     };
 
+    class SObjMtl; // forward decl.
+    struct SContext
+    {
+        asset::IAssetLoader::SAssetLoadContext inner;
+        asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
+
+        const bool useGroups = false;
+        const bool useMaterials = true;
+
+        core::vector<SObjMtl*> Materials;
+        core::unordered_map<SObjMtl*, ICPUMeshBuffer*> preloadedSubmeshes;
+
+        ~SContext()
+        {
+            for (auto& m : Materials)
+                delete m;
+        }
+    };
+
 protected:
 	//! destructor
 	virtual ~COBJMeshFileLoader();
 
 public:
 	//! Constructor
-	COBJMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs);
+	COBJMeshFileLoader(IrrlichtDevice* _dev);
 
-	//! returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (e.g. ".obj")
-	virtual bool isALoadableFileExtension(const io::path& filename) const;
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
+    {
+        // OBJ doesn't really have any header but usually starts with a comment
+        const size_t prevPos = _file->getPos();
+        _file->seek(0u);
+        char c;
+        _file->read(&c, 1u);
+        _file->seek(prevPos);
+        return c=='#';
+    }
 
-	//! creates/loads an animated mesh from the file.
-	//! \return Pointer to the created mesh. Returns 0 if loading failed.
-	//! If you no longer need the mesh, you should call IAnimatedMesh::drop().
-	//! See IReferenceCounted::drop() for more information.
-	virtual ICPUMesh* createMesh(io::IReadFile* file);
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "obj", nullptr };
+        return ext;
+    }
+
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 
@@ -150,7 +186,7 @@ private:
             core::map<SObjVertex, int> VertMap;
             core::vector<SObjVertex> Vertices;
             core::vector<uint32_t> Indices;
-            video::SMaterial Material;
+            video::SCPUMaterial Material;
             std::string Name;
             std::string Group;
             float Bumpiness;
@@ -159,7 +195,7 @@ private:
 	};
 
 	// helper method for material reading
-	const char* readTextures(const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath);
+	const char* readTextures(const SContext& _ctx, const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath);
 
 	// returns a pointer to the first printable character available in the buffer
 	const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines=true);
@@ -176,10 +212,10 @@ private:
 	const char* goAndCopyNextWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* const pBufEnd);
 
 	//! Read the material from the given file
-	void readMTL(const char* fileName, const io::path& relPath);
+	void readMTL(SContext& _ctx, const char* fileName, const io::path& relPath);
 
 	//! Find and return the material with the given name
-	SObjMtl* findMtl(const std::string& mtlName, const std::string& grpName);
+	SObjMtl* findMtl(SContext& _ctx, const std::string& mtlName, const std::string& grpName);
 
 	//! Read RGB color
 	const char* readColor(const char* bufPtr, video::SColor& color, const char* const pBufEnd);
@@ -195,18 +231,14 @@ private:
 	// indices are changed to 0-based index instead of 1-based from the obj file
 	bool retrieveVertexIndices(char* vertexData, int32_t* idx, const char* bufEnd, uint32_t vbsize, uint32_t vtsize, uint32_t vnsize);
 
+    std::string genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const;
 
+    IrrlichtDevice* Device;
 	scene::ISceneManager* SceneManager;
 	io::IFileSystem* FileSystem;
-
-	bool useGroups;
-	bool useMaterials;
-
-	core::vector<SObjMtl*> Materials;
 };
 
 } // end namespace scene
 } // end namespace irr
 
 #endif
-

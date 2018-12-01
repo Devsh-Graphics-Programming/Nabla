@@ -10,15 +10,16 @@
 	mainly c to cpp
 */
 
-
 #include "CImageLoaderDDS.h"
 
 #ifdef _IRR_COMPILE_WITH_DDS_LOADER_
 
+#include <utility>
 #include "IReadFile.h"
 #include "os.h"
 #include "CColorConverter.h"
-#include "CImage.h"
+#include "CImageData.h"
+#include "ICPUTexture.h"
 
 
 namespace irr
@@ -27,12 +28,11 @@ namespace irr
 namespace video
 {
 
+	int32_t CImageLoaderDDS::DDSLittleLong( int32_t src ) { return src; }
+	int16_t CImageLoaderDDS::DDSLittleShort( int16_t src ) { return src; }
+	float CImageLoaderDDS::DDSLittleFloat( float src ) { return src; }
 
-	int32_t   DDSLittleLong( int32_t src ) { return src; }
-	int16_t DDSLittleShort( int16_t src ) { return src; }
-	float DDSLittleFloat( float src ) { return src; }
-
-	int32_t DDSBigLong( int32_t src )
+	int32_t CImageLoaderDDS::DDSBigLong( int32_t src )
 	{
 		return ((src & 0xFF000000) >> 24) |
 			((src & 0x00FF0000) >> 8) |
@@ -40,13 +40,13 @@ namespace video
 			((src & 0x000000FF) << 24);
 	}
 
-	int16_t DDSBigShort( int16_t src )
+	int16_t CImageLoaderDDS::DDSBigShort( int16_t src )
 	{
 		return ((src & 0xFF00) >> 8) |
 			((src & 0x00FF) << 8);
 	}
 
-	float DDSBigFloat( float src )
+	float CImageLoaderDDS::DDSBigFloat( float src )
 	{
 		floatSwapUnion in,out;
 		in.f = src;
@@ -65,7 +65,7 @@ namespace
 	DDSDecodePixelFormat()
 	determines which pixel format the dds texture is in
 */
-void DDSDecodePixelFormat( ddsBuffer *dds, eDDSPixelFormat *pf )
+void DDSDecodePixelFormat(CImageLoaderDDS::ddsBuffer *dds, CImageLoaderDDS::eDDSPixelFormat *pf )
 {
 	/* dummy check */
 	if(	dds == NULL || pf == NULL )
@@ -96,43 +96,43 @@ void DDSDecodePixelFormat( ddsBuffer *dds, eDDSPixelFormat *pf )
 	    }
 
         if (bitDepth==32&&(dds->pixelFormat.rBitMask&0x00ff0000)&&hasRGB&&hasAlpha)
-            *pf = DDS_PF_ARGB8888;
+            *pf = CImageLoaderDDS::DDS_PF_ARGB8888;
         else if (bitDepth==32&&(dds->pixelFormat.rBitMask&0xff)&&hasRGB&&hasAlpha)
-            *pf = DDS_PF_ABGR8888;
+            *pf = CImageLoaderDDS::DDS_PF_ABGR8888;
         else if (bitDepth==24&&(dds->pixelFormat.rBitMask&0x00ff0000)&&hasRGB)
-            *pf = DDS_PF_RGB888;
+            *pf = CImageLoaderDDS::DDS_PF_RGB888;
         else if (bitDepth==16&&(dds->pixelFormat.rBitMask&0x7c00)&&hasRGB&&hasAlpha)
-            *pf = DDS_PF_ARGB1555;
+            *pf = CImageLoaderDDS::DDS_PF_ARGB1555;
         else if (bitDepth==16&&(dds->pixelFormat.rBitMask&0xf800)&&hasRGB)
-            *pf = DDS_PF_RGB565;
+            *pf = CImageLoaderDDS::DDS_PF_RGB565;
         else if (bitDepth==16&&(dds->pixelFormat.rBitMask&0xff)&&hasLuma&&hasAlpha)
-            *pf = DDS_PF_LA88;
+            *pf = CImageLoaderDDS::DDS_PF_LA88;
         else if (bitDepth==8&&(dds->pixelFormat.rBitMask&0xff)&&hasLuma)
-            *pf = DDS_PF_L8;
+            *pf = CImageLoaderDDS::DDS_PF_L8;
         else if (bitDepth==8&&(dds->pixelFormat.rBitMask==0)&&hasAlpha)
-            *pf = DDS_PF_A8;
+            *pf = CImageLoaderDDS::DDS_PF_A8;
         else
-            *pf = DDS_PF_UNKNOWN;
+            *pf = CImageLoaderDDS::DDS_PF_UNKNOWN;
 	}
 	else if( fourCC == *((uint32_t*) "DXT1") )
 	{ // sodan was here
 //	    if (dds->pixelFormat.privateFormatBitCount==24)
-            *pf = DDS_PF_DXT1;
+            *pf = CImageLoaderDDS::DDS_PF_DXT1;
 /*        else if (dds->pixelFormat.privateFormatBitCount==32)
             *pf = DDS_PF_DXT1_ALPHA;
         else
             printf("IRRLICHT BUUUUUUUUGGGGG!!!!!!!!!!\n SHOOT SOMEONE!\n");*/
 	}
 	else if( fourCC == *((uint32_t*) "DXT2") )
-		*pf = DDS_PF_DXT2;
+		*pf = CImageLoaderDDS::DDS_PF_DXT2;
 	else if( fourCC == *((uint32_t*) "DXT3") )
-		*pf = DDS_PF_DXT3;
+		*pf = CImageLoaderDDS::DDS_PF_DXT3;
 	else if( fourCC == *((uint32_t*) "DXT4") )
-		*pf = DDS_PF_DXT4;
+		*pf = CImageLoaderDDS::DDS_PF_DXT4;
 	else if( fourCC == *((uint32_t*) "DXT5") )
-		*pf = DDS_PF_DXT5;
+		*pf = CImageLoaderDDS::DDS_PF_DXT5;
 	else
-		*pf = DDS_PF_UNKNOWN;
+		*pf = CImageLoaderDDS::DDS_PF_UNKNOWN;
 }
 
 
@@ -140,25 +140,25 @@ void DDSDecodePixelFormat( ddsBuffer *dds, eDDSPixelFormat *pf )
 DDSGetInfo()
 extracts relevant info from a dds texture, returns 0 on success
 */
-int32_t DDSGetInfo( ddsBuffer *dds, int32_t *width, int32_t *height, int32_t *depth, eDDSPixelFormat *pf )
+int32_t DDSGetInfo(CImageLoaderDDS::ddsBuffer *dds, int32_t *width, int32_t *height, int32_t *depth, CImageLoaderDDS::eDDSPixelFormat *pf )
 {
 	/* dummy test */
 	if( dds == NULL )
 		return -1;
 
 	/* test dds header */
-	if( *((int32_t*) dds->magic) != *((int32_t*) "DDS ") )
+    if (strncmp(dds->magic, "DDS ", 4u) != 0)	
 		return -1;
-	if( DDSLittleLong( dds->size ) != 124 )
+	if(CImageLoaderDDS::DDSLittleLong( dds->size ) != 124 )
 		return -1;
 
 	/* extract width and height */
 	if ( width != NULL )
-		*width = DDSLittleLong( dds->width );
+		*width = CImageLoaderDDS::DDSLittleLong( dds->width );
 	if ( height != NULL )
-		*height = DDSLittleLong( dds->height );
+		*height = CImageLoaderDDS::DDSLittleLong( dds->height );
     if ( depth != NULL && (dds->flags & 0x800000u) )//DDSD_DEPTH)
-        *depth = DDSLittleLong( dds->depth );
+        *depth = CImageLoaderDDS::DDSLittleLong( dds->depth );
     else
         *depth = 1;
 
@@ -174,21 +174,16 @@ int32_t DDSGetInfo( ddsBuffer *dds, int32_t *width, int32_t *height, int32_t *de
 
 
 //! returns true if the file maybe is able to be loaded by this class
-//! based on the file extension (e.g. ".tga")
-bool CImageLoaderDDS::isALoadableFileExtension(const io::path& filename) const
+bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* _file) const
 {
-	return core::hasFileExtension ( filename, "dds" );
-}
-
-
-//! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* file) const
-{
-	if (!file)
+	if (!_file)
 		return false;
 
+    const size_t prevPos = _file->getPos();
+
 	ddsBuffer header;
-	file->read(&header, sizeof(header));
+	_file->read(&header, sizeof(header));
+    _file->seek(prevPos);
 
 	int32_t width, height, depth;
 	eDDSPixelFormat pixelFormat;
@@ -198,15 +193,15 @@ bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* file) const
 
 
 //! creates a surface from the file
-core::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
+asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	core::vector<CImageData*> images;
 
-    video::eDDSPixelFormat pixelFormat;
+    CImageLoaderDDS::eDDSPixelFormat pixelFormat;
     int32_t width, height, depth, mipmapCnt;
 
 	ddsBuffer header;
-	file->read(&header, sizeof(header)-4);
+	_file->read(&header, sizeof(header)-4);
 
 	if ( 0 == DDSGetInfo( &header, &width, &height, &depth, &pixelFormat) )
 	{
@@ -246,25 +241,25 @@ core::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
                 tmpDepth /= uint32_t(1)<<i; //! CHANGE AGAIN FOR 2D ARRAY AND CUBEMAP TEXTURES
 
             /* decompress */
-            ECOLOR_FORMAT colorFormat = ECF_UNKNOWN;
+            E_FORMAT colorFormat = EF_UNKNOWN;
             switch( pixelFormat )
             {
                 case DDS_PF_ARGB8888:
                 case DDS_PF_ABGR8888:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = pixelFormat==DDS_PF_ABGR8888 ? ECF_R8G8B8A8:ECF_A8R8G8B8;
-                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,4);
-                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        colorFormat = pixelFormat==DDS_PF_ABGR8888 ? EF_R8G8B8A8_UNORM:EF_B8G8R8A8_UNORM;
+                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,4);
+                        _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
                     break;
                 case DDS_PF_RGB888:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = ECF_R8G8B8;
+                        colorFormat = EF_R8G8B8_UNORM;
                         CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
-                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
 
                         uint8_t* dataToManipulate = reinterpret_cast<uint8_t*>(data->getData());
@@ -283,9 +278,9 @@ core::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
                 case DDS_PF_ARGB1555:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = ECF_A1R5G5B5;
-                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
-                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        colorFormat = EF_A1R5G5B5;
+                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
+                        _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
                     break;
@@ -294,9 +289,9 @@ core::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
                 case DDS_PF_LA88:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = ECF_R8G8;
-                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
-                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        colorFormat = EF_R8G8_UNORM;
+                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
+                        _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
                     break;
@@ -304,9 +299,9 @@ core::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
                 case DDS_PF_A8:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = ECF_R8;
-                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
-                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        colorFormat = EF_R8_UNORM;
+                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
+                        _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
                     break;
@@ -317,17 +312,17 @@ core::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
                 case DDS_PF_DXT4:
                 case DDS_PF_DXT5:
                     {
-                        if (pixelFormat==video::DDS_PF_DXT2||pixelFormat==video::DDS_PF_DXT3)
-                            colorFormat = video::ECF_RGBA_BC2;
-                        else if (pixelFormat==video::DDS_PF_DXT4||pixelFormat==video::DDS_PF_DXT5)
-                            colorFormat = video::ECF_RGBA_BC3;
-                        else if (pixelFormat==video::DDS_PF_DXT1_ALPHA)
-                            colorFormat = video::ECF_RGBA_BC1;
-                        else if (pixelFormat==video::DDS_PF_DXT1)
-                            colorFormat = video::ECF_RGB_BC1;
+                        if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT2||pixelFormat==CImageLoaderDDS::DDS_PF_DXT3)
+                            colorFormat = video::EF_BC2_UNORM_BLOCK;
+                        else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT4||pixelFormat==CImageLoaderDDS::DDS_PF_DXT5)
+                            colorFormat = video::EF_BC3_UNORM_BLOCK;
+                        else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT1_ALPHA)
+                            colorFormat = video::EF_BC1_RGBA_UNORM_BLOCK;
+                        else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT1)
+                            colorFormat = video::EF_BC1_RGB_UNORM_BLOCK;
 
-                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
-                        file->read(data->getData(),data->getImageDataSizeInBytes());
+                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
+                        _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
                     break;
@@ -339,15 +334,10 @@ core::vector<CImageData*> CImageLoaderDDS::loadImage(io::IReadFile* file) const
         }
 	}
 
-
-	return images;
-}
-
-
-//! creates a loader which is able to load dds images
-IImageLoader* createImageLoaderDDS()
-{
-	return new CImageLoaderDDS();
+	asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
+    for (auto img : images)
+        img->drop();
+    return tex;
 }
 
 

@@ -67,7 +67,7 @@ namespace scene
 		//! This function is needed for inserting the node into the scene hirachy on a
 		//! optimal position for minimizing renderstate changes, but can also be used
 		//! to directly modify the material of a scene node.
-		virtual video::SMaterial& getMaterial(uint32_t i) = 0;
+		virtual video::SGPUMaterial& getMaterial(uint32_t i) = 0;
 
 		//! returns amount of materials used by this scene node.
 		virtual uint32_t getMaterialCount() const = 0;

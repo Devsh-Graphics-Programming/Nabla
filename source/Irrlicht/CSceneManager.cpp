@@ -18,79 +18,6 @@
 #include "CSkinnedMeshSceneNode.h"
 #include "CSkinnedMesh.h"
 
-
-#ifdef _IRR_COMPILE_WITH_MS3D_LOADER_
-#include "CMS3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_3DS_LOADER_
-#include "C3DSMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_X_LOADER_
-#include "CXMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OCT_LOADER_
-#include "COCTLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_LMTS_LOADER_
-#include "CLMTSMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
-#include "CMY3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
-#include "COgreMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
-#include "COBJMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_B3D_LOADER_
-#include "CB3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_LWO_LOADER_
-#include "CLWOMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_STL_LOADER_
-#include "CSTLMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_PLY_LOADER_
-#include "CPLYMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
-#include "CBAWMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_COLLADA_WRITER_
-#include "CColladaMeshWriter.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_STL_WRITER_
-#include "CSTLMeshWriter.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OBJ_WRITER_
-#include "COBJMeshWriter.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
-#include "CPLYMeshWriter.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_BAW_WRITER_
-#include"CBAWMeshWriter.h"
-#endif
-
 #include "CBillboardSceneNode.h"
 #include "CCubeSceneNode.h"
 #include "CSphereSceneNode.h"
@@ -276,46 +203,6 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 
 	// TODO: now that we have multiple scene managers, these should be
 	// shallow copies from the previous manager if there is one.
-
-	#ifdef _IRR_COMPILE_WITH_STL_LOADER_
-	MeshLoaderList.push_back(new CSTLMeshFileLoader());
-	#endif
-	#ifdef _IRR_COMPILE_WITH_PLY_LOADER_
-	MeshLoaderList.push_back(new CPLYMeshFileLoader(this));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_OCT_LOADER_
-	MeshLoaderList.push_back(new COCTLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_LMTS_LOADER_
-	MeshLoaderList.push_back(new CLMTSMeshFileLoader(FileSystem, Driver));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
-	MeshLoaderList.push_back(new CMY3DMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
-	MeshLoaderList.push_back(new COgreMeshFileLoader(FileSystem, Driver));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_LWO_LOADER_
-	MeshLoaderList.push_back(new CLWOMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_3DS_LOADER_
-	MeshLoaderList.push_back(new C3DSMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_X_LOADER_
-	MeshLoaderList.push_back(new CXMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_MS3D_LOADER_
-	MeshLoaderList.push_back(new CMS3DMeshFileLoader(Driver));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
-	MeshLoaderList.push_back(new COBJMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_B3D_LOADER_
-	MeshLoaderList.push_back(new CB3DMeshFileLoader(this));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
-	MeshLoaderList.push_back(new CBAWMeshFileLoader(this, FileSystem));
-	#endif
 }
 
 
@@ -876,7 +763,7 @@ void CSceneManager::drawAll()
 	uint32_t i; // new ISO for scoping problem in some compilers
 
 	// reset all transforms
-	Driver->setMaterial(video::SMaterial());
+	Driver->setMaterial(video::SGPUMaterial());
 	Driver->setTransform(video::EPTS_PROJ,core::matrix4());
 	Driver->setTransform ( video::E4X3TS_VIEW, core::IdentityMatrix );
 	Driver->setTransform ( video::E4X3TS_WORLD, core::IdentityMatrix );
@@ -1211,7 +1098,7 @@ void CSceneManager::removeAll()
 	setActiveCamera(0);
 	// Make sure the driver is reset, might need a more complex method at some point
 	if (Driver)
-		Driver->setMaterial(video::SMaterial());
+		Driver->setMaterial(video::SGPUMaterial());
 }
 
 
@@ -1249,35 +1136,35 @@ ISceneManager* CSceneManager::createNewSceneManager(bool cloneContent)
 //! Returns a mesh writer implementation if available
 IMeshWriter* CSceneManager::createMeshWriter(EMESH_WRITER_TYPE type)
 {
-	switch(type)
-	{
-	case EMWT_STL:
-#ifdef _IRR_COMPILE_WITH_STL_WRITER_
-		return new CSTLMeshWriter(this);
-#else
-		return 0;
-#endif
-	case EMWT_OBJ:
-#ifdef _IRR_COMPILE_WITH_OBJ_WRITER_
-		return new COBJMeshWriter(this, FileSystem);
-#else
-		return 0;
-#endif
-
-	case EMWT_PLY:
-#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
-		return new CPLYMeshWriter();
-#else
-		return 0;
-#endif
-
-	case EMWT_BAW:
-#ifdef _IRR_COMPILE_WITH_BAW_WRITER_
-		return new CBAWMeshWriter(FileSystem);
-#else
-		return 0;
-#endif
-	}
+//	switch(type)
+//	{
+//	case EMWT_STL:
+//#ifdef _IRR_COMPILE_WITH_STL_WRITER_
+//		return new CSTLMeshWriter(this);
+//#else
+//		return 0;
+//#endif
+//	case EMWT_OBJ:
+//#ifdef _IRR_COMPILE_WITH_OBJ_WRITER_
+//		return new COBJMeshWriter(this, FileSystem);
+//#else
+//		return 0;
+//#endif
+//
+//	case EMWT_PLY:
+//#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
+//		return new CPLYMeshWriter();
+//#else
+//		return 0;
+//#endif
+//
+//	case EMWT_BAW:
+//#ifdef _IRR_COMPILE_WITH_BAW_WRITER_
+//		return new CBAWMeshWriter(FileSystem);
+//#else
+//		return 0;
+//#endif
+//	}
 
 	return 0;
 }

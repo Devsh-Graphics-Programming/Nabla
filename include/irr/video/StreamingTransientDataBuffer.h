@@ -6,6 +6,7 @@
 #include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 #include "irr/video/StreamingGPUBufferAllocator.h"
+#include "IDriverFence.h"
 
 namespace irr
 {

@@ -67,7 +67,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
         FUTURE:
         The compute shader mode can compute ALL LoDs at once and possibly all IMeshSceneNodeInstanced' nodes' culling and instance data at once.
         \param mesh Mesh to display. */
-        virtual bool setLoDMeshes(  const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
+        virtual bool setLoDMeshes(  const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
                                     const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0) = 0;
 
         //! Get the currently defined mesh for display.

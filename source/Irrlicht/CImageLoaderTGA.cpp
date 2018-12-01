@@ -9,22 +9,14 @@
 #include "IReadFile.h"
 #include "os.h"
 #include "CColorConverter.h"
-#include "CImage.h"
+#include "CImageData.h"
+#include "ICPUTexture.h"
 
 
 namespace irr
 {
 namespace video
 {
-
-
-//! returns true if the file maybe is able to be loaded by this class
-//! based on the file extension (e.g. ".tga")
-bool CImageLoaderTGA::isALoadableFileExtension(const io::path& filename) const
-{
-	return core::hasFileExtension ( filename, "tga" );
-}
-
 
 //! loads a compressed tga.
 uint8_t *CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader& header) const
@@ -77,20 +69,23 @@ uint8_t *CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHea
 
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* file) const
+bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 {
-	if (!file)
+	if (!_file)
 		return false;
+
+    const size_t prevPos = _file->getPos();
 
 	STGAFooter footer;
 	memset(&footer, 0, sizeof(STGAFooter));
-	file->seek(file->getSize()-sizeof(STGAFooter));
-	file->read(&footer, sizeof(STGAFooter));
+	_file->seek(_file->getSize()-sizeof(STGAFooter));
+	_file->read(&footer, sizeof(STGAFooter));
+    _file->seek(prevPos);
 
-	if (strcmp(footer.Signature,"TRUEVISION-XFILE.")) // very old tgas are refused.
+	if (strcmp(footer.Signature,"TRUEVISION-X_file.")) // very old tgas are refused.
 	{
 #ifdef _DEBUG
-		os::Printer::log("Unsupported, very old TGA", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("Unsupported, very old TGA", _file->getFileName().c_str(), ELL_ERROR);
 #endif // _DEBUG
 	    return false;
 	}
@@ -101,16 +96,16 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* file) const
 
 
 //! creates a surface from the file
-core::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
+asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	STGAHeader header;
 	uint32_t *palette = 0;
 
-	file->read(&header, sizeof(STGAHeader));
+	_file->read(&header, sizeof(STGAHeader));
 
 	// skip image identification field
 	if (header.IdLength)
-		file->seek(header.IdLength, true);
+		_file->seek(header.IdLength, true);
 
 	if (header.ColorMapType)
 	{
@@ -119,7 +114,7 @@ core::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 
 		// read color map
 		uint8_t * colorMap = new uint8_t[header.ColorMapEntrySize/8 * header.ColorMapLength];
-		file->read(colorMap,header.ColorMapEntrySize/8 * header.ColorMapLength);
+		_file->read(colorMap,header.ColorMapEntrySize/8 * header.ColorMapLength);
 
 		// convert to 32-bit palette
 		switch ( header.ColorMapEntrySize )
@@ -137,7 +132,7 @@ core::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 		delete [] colorMap;
 	}
 
-	core::vector<CImageData*> retval;
+	core::vector<CImageData*> images;
 	// read image
 	uint8_t* data = 0;
 
@@ -148,22 +143,22 @@ core::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 	{
 		const int32_t imageSize = header.ImageHeight * header.ImageWidth * header.PixelDepth/8;
 		data = new uint8_t[imageSize];
-	  	file->read(data, imageSize);
+	  	_file->read(data, imageSize);
 	}
 	else
 	if(header.ImageType == 10)
 	{
 		// Runlength encoded RGB images
-		data = loadCompressedImage(file, header);
+		data = loadCompressedImage(_file, header);
 	}
 	else
 	{
-		os::Printer::log("Unsupported TGA file type", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("Unsupported TGA _file type", _file->getFileName().c_str(), ELL_ERROR);
 
 		if (palette)
             delete [] palette;
 
-		return retval;
+		return nullptr;
 	}
 
 	CImageData* image = 0;
@@ -177,7 +172,7 @@ core::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 		{
 			if (header.ImageType==3) // grey image
 			{
-				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
+				image = new CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
 				if (image)
 					CColorConverter::convert8BitTo24Bit((uint8_t*)data,
 						(uint8_t*)image->getData(),
@@ -186,7 +181,7 @@ core::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 			}
 			else
 			{
-				image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A1R5G5B5);
+				image = new CImageData(NULL,nullOffset,imageSize,0,EF_A1R5G5B5);
 				if (image)
 					CColorConverter::convert8BitTo16Bit((uint8_t*)data,
 						(int16_t*)image->getData(),
@@ -197,41 +192,37 @@ core::vector<CImageData*> CImageLoaderTGA::loadImage(io::IReadFile* file) const
 		}
 		break;
 	case 16:
-		image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A1R5G5B5);
+		image = new CImageData(NULL,nullOffset,imageSize,0,EF_A1R5G5B5);
 		if (image)
 			CColorConverter::convert16BitTo16Bit((int16_t*)data,
 				(int16_t*)image->getData(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
 		break;
 	case 24:
-			image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
+			image = new CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
 			if (image)
 				CColorConverter::convert24BitTo24Bit(
 					(uint8_t*)data, (uint8_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
 		break;
 	case 32:
-			image = new CImageData(NULL,nullOffset,imageSize,0,ECF_A8R8G8B8);
+			image = new CImageData(NULL,nullOffset,imageSize,0,EF_B8G8R8A8_UNORM);
 			if (image)
 				CColorConverter::convert32BitTo32Bit((int32_t*)data,
 					(int32_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
 		break;
 	default:
-		os::Printer::log("Unsupported TGA format", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("Unsupported TGA format", _file->getFileName().c_str(), ELL_ERROR);
 		break;
 	}
-	retval.push_back(image);
+	images.push_back(image);
 
 
 	delete [] data;
 	delete [] palette;
 
-	return retval;
-}
-
-
-//! creates a loader which is able to load tgas
-IImageLoader* createImageLoaderTGA()
-{
-	return new CImageLoaderTGA();
+    asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
+    for (auto img : images)
+        img->drop();
+    return tex;
 }
 
 

@@ -322,11 +322,6 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_X_LOADER_
 #undef _IRR_COMPILE_WITH_X_LOADER_
 #endif
-//! Define _IRR_COMPILE_WITH_OGRE_LOADER_ if you want to load Ogre 3D files
-//#define _IRR_COMPILE_WITH_OGRE_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_OGRE_LOADER_
-#undef _IRR_COMPILE_WITH_OGRE_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_3DS_LOADER_ if you want to load 3D Studio Max files
 //#define _IRR_COMPILE_WITH_3DS_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_3DS_LOADER_
@@ -387,6 +382,13 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_PLY_WRITER_
 #undef _IRR_COMPILE_WITH_PLY_WRITER_
 #endif
+#ifndef NEW_MESHES
+//! Define _IRR_COMPILE_WITH_OBJ_WRITER_ if you want to write .obj files
+#define _IRR_COMPILE_WITH_OBJ_WRITER_
+#ifdef NO_IRR_COMPILE_WITH_OBJ_WRITER_
+#undef _IRR_COMPILE_WITH_OBJ_WRITER_
+#endif
+#endif // NEW_MESHES
 
 //! Define _IRR_COMPILE_WITH_BMP_LOADER_ if you want to load .bmp files
 //! Disabling this loader will also disable the built-in font

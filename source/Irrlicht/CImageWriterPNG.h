@@ -9,24 +9,32 @@
 
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
 
-#include "IImageWriter.h"
+#include "IAssetWriter.h"
 
 namespace irr
 {
 namespace video
 {
 
-class CImageWriterPNG : public IImageWriter
+class CImageWriterPNG : public asset::IAssetWriter
 {
 public:
 	//! constructor
 	CImageWriterPNG();
 
-	//! return true if this writer can write a file with the given extension
-	virtual bool isAWriteableFileExtension(const io::path& filename) const;
+    virtual const char** getAssociatedFileExtensions() const
+    {
+        static const char* ext[]{ "png", nullptr };
+        return ext;
+    }
 
-	//! write image to file
-	virtual bool writeImage(io::IWriteFile *file, IImage *image, uint32_t param) const;
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SUB_IMAGE; }
+
+    virtual uint32_t getSupportedFlags() override { return 0u; }
+
+    virtual uint32_t getForcedFlags() { return asset::EWF_BINARY; }
+
+    virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 };
 
 } // namespace video

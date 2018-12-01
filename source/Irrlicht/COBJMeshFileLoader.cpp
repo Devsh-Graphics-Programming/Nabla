@@ -5,6 +5,9 @@
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 
+#include "IrrlichtDevice.h"
+#include "IFileSystem.h"
+#include "ISceneManager.h"
 #include "COBJMeshFileLoader.h"
 #include "IMeshManipulator.h"
 #include "IVideoDriver.h"
@@ -13,6 +16,7 @@
 #include "IReadFile.h"
 #include "coreutil.h"
 #include "os.h"
+#include "IAssetManager.h"
 
 #include "irr/core/Types.h"
 
@@ -53,43 +57,36 @@ static const uint32_t WORD_BUFFER_LENGTH = 512;
 
 
 //! Constructor
-COBJMeshFileLoader::COBJMeshFileLoader(scene::ISceneManager* smgr, io::IFileSystem* fs)
-: SceneManager(smgr), FileSystem(fs), useGroups(false), useMaterials(true)
+COBJMeshFileLoader::COBJMeshFileLoader(IrrlichtDevice* _dev)
+: Device(_dev), SceneManager(_dev->getSceneManager()), FileSystem(_dev->getFileSystem())
 {
-	#ifdef _DEBUG
+#ifdef _DEBUG
 	setDebugName("COBJMeshFileLoader");
-	#endif
+#endif
 
-	if (FileSystem)
-		FileSystem->grab();
+    Device->grab();
 }
 
 
 //! destructor
 COBJMeshFileLoader::~COBJMeshFileLoader()
 {
-	if (FileSystem)
-		FileSystem->drop();
+    Device->drop();
 }
 
-
-//! returns true if the file maybe is able to be loaded by this class
-//! based on the file extension (e.g. ".bsp")
-bool COBJMeshFileLoader::isALoadableFileExtension(const io::path& filename) const
+asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-	return core::hasFileExtension ( filename, "obj" );
-}
+    SContext ctx{
+        asset::IAssetLoader::SAssetLoadContext{
+            _params,
+            _file
+        },
+        _override
+    };
 
-
-//! creates/loads an animated mesh from the file.
-//! \return Pointer to the created mesh. Returns 0 if loading failed.
-//! If you no longer need the mesh, you should call ICPUMesh::drop().
-//! See IReferenceCounted::drop() for more information.
-ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
-{
-	const long filesize = file->getSize();
+	const long filesize = _file->getSize();
 	if (!filesize)
-		return 0;
+		return nullptr;
 
 	const uint32_t WORD_BUFFER_LENGTH = 512;
 
@@ -98,40 +95,43 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 	core::vector<core::vector2df> textureCoordBuffer;
 
 	SObjMtl * currMtl = new SObjMtl();
-	Materials.push_back(currMtl);
+	ctx.Materials.push_back(currMtl);
 	uint32_t smoothingGroup=0;
 
-	const io::path fullName = file->getFileName();
+	const io::path fullName = _file->getFileName();
 	const io::path relPath = io::IFileSystem::getFileDir(fullName)+"/";
 
 	char* buf = new char[filesize];
 	memset(buf, 0, filesize);
-	file->read((void*)buf, filesize);
+	_file->read((void*)buf, filesize);
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information
 	const char* bufPtr = buf;
 	std::string grpName, mtlName;
 	bool mtlChanged=false;
+    bool submeshLoadedFromCache = false;
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
 		{
 		case 'm':	// mtllib (material)
 		{
-			if (useMaterials)
+			if (ctx.useMaterials)
 			{
 				char name[WORD_BUFFER_LENGTH];
 				bufPtr = goAndCopyNextWord(name, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 #ifdef _IRR_DEBUG_OBJ_LOADER_
-				os::Printer::log("Reading material file",name);
+				os::Printer::log("Reading material _file",name);
 #endif
-				readMTL(name, relPath);
+				readMTL(ctx, name, relPath);
 			}
 		}
 			break;
 
 		case 'v':               // v, vn, vt
+            if (submeshLoadedFromCache)
+                break;
 			switch(bufPtr[1])
 			{
 			case ' ':          // vertex
@@ -167,14 +167,24 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 #ifdef _IRR_DEBUG_OBJ_LOADER_
 	os::Printer::log("Loaded group start",grp, ELL_DEBUG);
 #endif
-				if (useGroups)
+				if (ctx.useGroups)
 				{
 					if (0 != grp[0])
 						grpName = grp;
 					else
 						grpName = "default";
 
-                    mtlChanged=true;
+                    asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
+                    asset::IAsset* mb = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u);
+                    if (mb)
+                    {
+                        mb->grab();
+                        SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
+                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<ICPUMeshBuffer*>(mb)));
+                    }
+                    else mtlChanged=true;
+
+                    submeshLoadedFromCache = bool(mb);
 				}
 			}
 			break;
@@ -202,26 +212,42 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 	os::Printer::log("Loaded material start",matName, ELL_DEBUG);
 #endif
 				mtlName=matName;
-				mtlChanged=true;
+
+                if (ctx.useMaterials && !ctx.useGroups)
+                {
+                    asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
+                    asset::IAsset* mb = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u);
+                    if (mb)
+                    {
+                        mb->grab();
+                        SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
+                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<ICPUMeshBuffer*>(mb)));
+                    }
+                    else mtlChanged=true;
+
+                    submeshLoadedFromCache = bool(mb);
+                }
 			}
 			break;
 
 		case 'f':               // face
 		{
+            if (submeshLoadedFromCache)
+                break;
 			char vertexWord[WORD_BUFFER_LENGTH]; // for retrieving vertex data
 			SObjVertex v;
 			// Assign vertex color from currently active material's diffuse color
 			if (mtlChanged)
 			{
 				// retrieve the material
-				SObjMtl *useMtl = findMtl(mtlName, grpName);
+				SObjMtl *useMtl = findMtl(ctx, mtlName, grpName);
 				// only change material if we found it
 				if (useMtl)
 					currMtl = useMtl;
 				mtlChanged=false;
 			}
 
-			// get all vertices data in this face (current line of obj file)
+			// get all vertices data in this face (current line of obj _file)
 			const core::stringc wordBuffer = copyLine(bufPtr, bufEnd);
 			const char* linePtr = wordBuffer.c_str();
 			const char* const endPtr = linePtr+wordBuffer.size();
@@ -309,53 +335,63 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 		// eat up rest of line
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
-	// Clean up the allocate obj file contents
+	// Clean up the allocate obj _file contents
 	delete [] buf;
 
 	SCPUMesh* mesh = new SCPUMesh();
 
 	// Combine all the groups (meshbuffers) into the mesh
-	for ( uint32_t m = 0; m < Materials.size(); ++m )
+	for ( uint32_t m = 0; m < ctx.Materials.size(); ++m )
 	{
-		if ( Materials[m]->Indices.size() == 0 )
+        {//arbitrary scope
+            auto preloadedMbItr = ctx.preloadedSubmeshes.find(ctx.Materials[m]);
+            if (preloadedMbItr != ctx.preloadedSubmeshes.end())
+            {
+                mesh->addMeshBuffer(preloadedMbItr->second);
+                preloadedMbItr->second->drop(); // after grab inside addMeshBuffer()
+                preloadedMbItr->second->drop(); // after grab when we got it from cache
+                continue;
+            }
+        }
+
+		if ( ctx.Materials[m]->Indices.size() == 0 )
         {
-            delete Materials[m];
             continue;
         }
 
-        if (Materials[m]->RecalculateNormals)
+        if (ctx.Materials[m]->RecalculateNormals)
         {
             core::allocator<core::vectorSIMDf> alctr;
-            core::vectorSIMDf* newNormals = alctr.allocate(Materials[m]->Vertices.size());
-            memset(newNormals,0,sizeof(core::vectorSIMDf)*Materials[m]->Vertices.size());
-            for (size_t i=0; i<Materials[m]->Indices.size(); i+=3)
+            core::vectorSIMDf* newNormals = alctr.allocate(ctx.Materials[m]->Vertices.size());
+            memset(newNormals,0,sizeof(core::vectorSIMDf)*ctx.Materials[m]->Vertices.size());
+            for (size_t i=0; i<ctx.Materials[m]->Indices.size(); i+=3)
             {
                 core::vectorSIMDf v1;
-                v1.set(Materials[m]->Vertices[Materials[m]->Indices[i+0]].pos);
+                v1.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+0]].pos);
                 core::vectorSIMDf v2;
-                v2.set(Materials[m]->Vertices[Materials[m]->Indices[i+1]].pos);
+                v2.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+1]].pos);
                 core::vectorSIMDf v3;
-                v3.set(Materials[m]->Vertices[Materials[m]->Indices[i+2]].pos);
+                v3.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+2]].pos);
                 v1.makeSafe3D();
                 v2.makeSafe3D();
                 v3.makeSafe3D();
                 core::vectorSIMDf normal;
                 normal.set(core::plane3d<float>(v1.getAsVector3df(), v2.getAsVector3df(), v3.getAsVector3df()).Normal);
-                newNormals[Materials[m]->Indices[i+0]] += normal;
-                newNormals[Materials[m]->Indices[i+1]] += normal;
-                newNormals[Materials[m]->Indices[i+2]] += normal;
+                newNormals[ctx.Materials[m]->Indices[i+0]] += normal;
+                newNormals[ctx.Materials[m]->Indices[i+1]] += normal;
+                newNormals[ctx.Materials[m]->Indices[i+2]] += normal;
             }
-            for (size_t i=0; i<Materials[m]->Vertices.size(); i++)
+            for (size_t i=0; i<ctx.Materials[m]->Vertices.size(); i++)
             {
-                Materials[m]->Vertices[i].normal32bit = quantizeNormal2_10_10_10(newNormals[i]);
+                ctx.Materials[m]->Vertices[i].normal32bit = quantizeNormal2_10_10_10(newNormals[i]);
             }
-            alctr.deallocate(newNormals,Materials[m]->Vertices.size());
+            alctr.deallocate(newNormals,ctx.Materials[m]->Vertices.size());
         }
-        if (Materials[m]->Material.MaterialType == -1)
+        if (ctx.Materials[m]->Material.MaterialType == -1)
             os::Printer::log("Loading OBJ Models with normal maps and tangents not supported!\n",ELL_ERROR);/*
         {
             SMesh tmp;
-            tmp.addMeshBuffer(Materials[m]->Meshbuffer);
+            tmp.addMeshBuffer(ctx.Materials[m]->Meshbuffer);
             IMesh* tangentMesh = SceneManager->getMeshManipulator()->createMeshWithTangents(&tmp);
             mesh->addMeshBuffer(tangentMesh->getMeshBuffer(0));
             tangentMesh->drop();
@@ -364,19 +400,18 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 
         ICPUMeshBuffer* meshbuffer = new ICPUMeshBuffer();
         mesh->addMeshBuffer(meshbuffer);
-        meshbuffer->drop();
 
-        meshbuffer->getMaterial() = Materials[m]->Material;
+        meshbuffer->getMaterial() = ctx.Materials[m]->Material;
 
         ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
         meshbuffer->setMeshDataAndFormat(desc);
         desc->drop();
 
         bool doesntNeedIndices = true;
-        size_t baseVertex = Materials[m]->Indices[0];
-        for (size_t i=1; i<Materials[m]->Indices.size(); i++)
+        size_t baseVertex = ctx.Materials[m]->Indices[0];
+        for (size_t i=1; i<ctx.Materials[m]->Indices.size(); i++)
         {
-            if (baseVertex+i!=Materials[m]->Indices[i])
+            if (baseVertex+i!=ctx.Materials[m]->Indices[i])
             {
                 doesntNeedIndices = false;
                 break;
@@ -387,36 +422,37 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
         size_t actualVertexCount;
         if (doesntNeedIndices)
         {
-            meshbuffer->setIndexCount(Materials[m]->Indices.size()-baseVertex);
+            meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size()-baseVertex);
             actualVertexCount = meshbuffer->getIndexCount();
         }
         else
         {
             baseVertex = 0;
-            actualVertexCount = Materials[m]->Vertices.size();
+            actualVertexCount = ctx.Materials[m]->Vertices.size();
 
-            core::ICPUBuffer* indexbuf = new core::ICPUBuffer(Materials[m]->Indices.size()*4);
+            core::ICPUBuffer* indexbuf = new core::ICPUBuffer(ctx.Materials[m]->Indices.size()*4);
             desc->mapIndexBuffer(indexbuf);
             indexbuf->drop();
-            memcpy(indexbuf->getPointer(),&Materials[m]->Indices[0],indexbuf->getSize());
+            memcpy(indexbuf->getPointer(),&ctx.Materials[m]->Indices[0],indexbuf->getSize());
 
             meshbuffer->setIndexType(EIT_32BIT);
-            meshbuffer->setIndexCount(Materials[m]->Indices.size());
+            meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size());
         }
 
         vertexbuf = new core::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(SObjVertex),0);
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,sizeof(SObjVertex),12);
         desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(SObjVertex),20); //normal
-        memcpy(vertexbuf->getPointer(),Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
+        memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
 
-        //memory is precious
-        delete Materials[m];
+        _override->setAssetCacheKey(meshbuffer, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
+        _override->insertAssetIntoCache(meshbuffer, ctx.inner, 1u);
+        meshbuffer->drop();
 	}
 
 	// more cleaning up
-	Materials.clear();
+	ctx.Materials.clear();
 
 	if ( 0 != mesh->getMeshBufferCount() )
 		mesh->recalculateBoundingBox(true);
@@ -430,7 +466,7 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
 }
 
 
-const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath)
+const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath)
 {
 	E_TEXTURE_TYPE type = ETT_COLOR_MAP; // map_Kd - diffuse color texture map
 	// map_Ks - specular color texture map
@@ -540,29 +576,21 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
 	io::path texname(textureNameBuf);
 	handleBackslashes(&texname);
 
-	video::ITexture * texture = 0;
-	bool newTexture=false;
+	asset::ICPUTexture* texture = nullptr;
 	if (texname.size())
 	{
-	    /*
- 		io::path texnameWithUserPath( SceneManager->getParameters()->getAttributeAsString(OBJ_TEXTURE_PATH) );
- 		if ( texnameWithUserPath.size() )
- 		{
- 			texnameWithUserPath += '/';
- 			texnameWithUserPath += texname;
- 		}
- 		if (FileSystem->existFile(texnameWithUserPath))
- 			texture = SceneManager->getVideoDriver()->getTexture(texnameWithUserPath);
-		else */if (FileSystem->existFile(texname))
+        if (FileSystem->existFile(texname))
 		{
-			newTexture = SceneManager->getVideoDriver()->findTexture(texname) == 0;
-			texture = SceneManager->getVideoDriver()->getTexture(texname);
+            texture = static_cast<asset::ICPUTexture*>(
+                Device->getAssetManager().getAssetInHierarchy(texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+            );
 		}
 		else
 		{
-			newTexture = SceneManager->getVideoDriver()->findTexture(relPath + texname) == 0;
 			// try to read in the relative path, the .obj is loaded from
-			texture = SceneManager->getVideoDriver()->getTexture( relPath + texname );
+            texture = static_cast<asset::ICPUTexture*>(
+                Device->getAssetManager().getAssetInHierarchy((relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+            );
 		}
 	}
 	if ( texture )
@@ -576,8 +604,6 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
 #ifdef _DEBUG
             os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
 #endif // _DEBUG
-			///if (newTexture)
-				///SceneManager->getVideoDriver()->makeNormalMapTexture(texture, bumpiness);
 			currMaterial->Material.setTexture(1, texture);
 			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;
@@ -597,7 +623,7 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
 }
 
 
-void COBJMeshFileLoader::readMTL(const char* fileName, const io::path& relPath)
+void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io::path& relPath)
 {
 	const io::path realFile(fileName);
 	io::IReadFile * mtlReader;
@@ -639,7 +665,7 @@ void COBJMeshFileLoader::readMTL(const char* fileName, const io::path& relPath)
 			{
 				// if there's an existing material, store it first
 				if ( currMaterial )
-					Materials.push_back( currMaterial );
+					_ctx.Materials.push_back( currMaterial );
 
 				// extract new material's name
 				char mtlNameBuf[WORD_BUFFER_LENGTH];
@@ -722,7 +748,7 @@ void COBJMeshFileLoader::readMTL(const char* fileName, const io::path& relPath)
 			case 'm': // texture maps
 			if (currMaterial)
 			{
-				bufPtr=readTextures(bufPtr, bufEnd, currMaterial, relPath);
+				bufPtr=readTextures(_ctx, bufPtr, bufEnd, currMaterial, relPath);
 			}
 			break;
 			case 'd': // d - transparency
@@ -776,7 +802,7 @@ void COBJMeshFileLoader::readMTL(const char* fileName, const io::path& relPath)
 
 	// end of file. if there's an existing material, store it
 	if ( currMaterial )
-		Materials.push_back( currMaterial );
+		_ctx.Materials.push_back( currMaterial );
 
 	delete [] buf;
 	mtlReader->drop();
@@ -851,34 +877,34 @@ const char* COBJMeshFileLoader::readBool(const char* bufPtr, bool& tf, const cha
 }
 
 
-COBJMeshFileLoader::SObjMtl* COBJMeshFileLoader::findMtl(const std::string& mtlName, const std::string& grpName)
+COBJMeshFileLoader::SObjMtl* COBJMeshFileLoader::findMtl(SContext& _ctx, const std::string& mtlName, const std::string& grpName)
 {
 	COBJMeshFileLoader::SObjMtl* defMaterial = 0;
 	// search existing Materials for best match
 	// exact match does return immediately, only name match means a new group
-	for (uint32_t i = 0; i < Materials.size(); ++i)
+	for (uint32_t i = 0; i < _ctx.Materials.size(); ++i)
 	{
-		if ( Materials[i]->Name == mtlName )
+		if (_ctx.Materials[i]->Name == mtlName )
 		{
-			if ( Materials[i]->Group == grpName )
-				return Materials[i];
+			if (_ctx.Materials[i]->Group == grpName )
+				return _ctx.Materials[i];
 			else
-				defMaterial = Materials[i];
+				defMaterial = _ctx.Materials[i];
 		}
 	}
 	// we found a partial match
 	if (defMaterial)
 	{
-		Materials.push_back(new SObjMtl(*defMaterial));
-		Materials.back()->Group = grpName;
-		return Materials.back();
+        _ctx.Materials.push_back(new SObjMtl(*defMaterial));
+        _ctx.Materials.back()->Group = grpName;
+		return _ctx.Materials.back();
 	}
 	// we found a new group for a non-existant material
 	else if (grpName.length())
 	{
-		Materials.push_back(new SObjMtl(*Materials[0]));
-		Materials.back()->Group = grpName;
-		return Materials.back();
+        _ctx.Materials.push_back(new SObjMtl(*_ctx.Materials[0]));
+        _ctx.Materials.back()->Group = grpName;
+		return _ctx.Materials.back();
 	}
 	return 0;
 }
@@ -1045,6 +1071,17 @@ bool COBJMeshFileLoader::retrieveVertexIndices(char* vertexData, int32_t* idx, c
 	return true;
 }
 
+std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext & _ctx, const std::string & _baseKey, const std::string & _mtlName, const std::string & _grpName) const
+{
+    if (_ctx.useMaterials)
+    {   
+        if (_ctx.useGroups)
+            return _baseKey + "?" + _grpName + "?" + _mtlName;
+        return _baseKey + "?" +  _mtlName;
+    }
+    return ""; // if nothing's broken this will never happen
+}
+
 
 
 
@@ -1052,4 +1089,3 @@ bool COBJMeshFileLoader::retrieveVertexIndices(char* vertexData, int32_t* idx, c
 } // end namespace irr
 
 #endif // _IRR_COMPILE_WITH_OBJ_LOADER_
-

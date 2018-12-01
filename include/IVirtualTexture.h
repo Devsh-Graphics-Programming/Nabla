@@ -53,12 +53,12 @@ class IVirtualTexture : public virtual core::IReferenceCounted
 
         //! Get the color format of texture.
         /** \return The color format of texture. */
-        virtual ECOLOR_FORMAT getColorFormat() const = 0;
+        virtual E_FORMAT getColorFormat() const = 0;
 
         //! Returns if the texture has an alpha channel
         inline bool hasAlpha() const {
-            return getColorFormat () == video::ECF_A8R8G8B8 || getColorFormat () == video::ECF_R8G8B8A8 || getColorFormat () == video::ECF_A1R5G5B5 || getColorFormat () == video::ECF_A16B16G16R16F || getColorFormat () == ECF_A32B32G32R32F
-                                                || getColorFormat() == ECF_RGBA_BC1 || getColorFormat() == ECF_RGBA_BC2 || getColorFormat() == ECF_RGBA_BC3;
+            return getColorFormat () == video::EF_B8G8R8A8_UNORM || getColorFormat() == video::EF_R8G8B8A8_UNORM || getColorFormat () == video::EF_A1R5G5B5 || getColorFormat () == video::EF_R16G16B16A16_SFLOAT || getColorFormat () == EF_R32G32B32A32_SFLOAT
+                                                || getColorFormat() == EF_BC1_RGBA_UNORM_BLOCK || getColorFormat() == EF_BC2_UNORM_BLOCK || getColorFormat() == EF_BC3_UNORM_BLOCK;
         }
 };
 

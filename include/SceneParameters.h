@@ -20,7 +20,7 @@ namespace scene
 	/** The default behavior in Irrlicht is to disable writing to the
 	z-buffer for all really transparent, i.e. blending materials. This
 	avoids problems with intersecting faces, but can also break renderings.
-	If transparent materials should use the SMaterial flag for ZWriteEnable
+	If transparent materials should use the SGPUMaterial flag for ZWriteEnable
 	just as other material types use this attribute.
 	Use it like this:
 	\code

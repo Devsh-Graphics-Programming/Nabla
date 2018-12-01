@@ -7,17 +7,23 @@
 #define __C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 
 
-#include "IMeshLoader.h"
+#include "IAssetLoader.h"
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "IMesh.h"
 #include "CBAWFile.h"
 #include "CBlobsLoadingManager.h"
+#include "SSkinMeshBuffer.h"
+
+namespace irr
+{
+class IrrlichtDevice;
+}
 
 namespace irr { namespace scene
 {
 
-class CBAWMeshFileLoader : public IMeshLoader
+class CBAWMeshFileLoader : public asset::IAssetLoader
 {
 private:
 	struct SBlobData
@@ -26,6 +32,7 @@ private:
 		size_t absOffset; // absolute
 		void* heapBlob;
 		mutable bool validated;
+        uint32_t hierarchyLvl;
 
 		SBlobData(core::BlobHeaderV0* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
 		~SBlobData() { _IRR_ALIGNED_FREE(heapBlob); }
@@ -56,8 +63,7 @@ private:
 			}
 		}
 
-		io::IReadFile* file;
-		io::path filePath;
+        asset::IAssetLoader::SAssetLoadContext inner;
 		uint64_t fileVersion;
 		core::unordered_map<uint64_t, SBlobData> blobs;
 		core::unordered_map<uint64_t, void*> createdObjs;
@@ -71,18 +77,35 @@ protected:
 
 public:
 	//! Constructor
-	CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSystem* _fs);
+	CBAWMeshFileLoader(IrrlichtDevice* _dev);
 
-	//! @returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (e.g. ".baw")
-	virtual bool isALoadableFileExtension(const io::path& filename) const { return core::hasFileExtension(filename, "baw"); }
 
-	//! creates/loads an animated mesh from the file.
-	/** @returns Pointer to the created mesh. Returns 0 if loading failed.
-	If you no longer need the mesh, you should call IAnimatedMesh::drop().
-	See IReferenceCounted::drop() for more information.*/
-	virtual ICPUMesh* createMesh(io::IReadFile* file);
-	ICPUMesh* createMesh(io::IReadFile* file, unsigned char pwd[16]);
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
+    {
+        SContext ctx{
+            asset::IAssetLoader::SAssetLoadContext{
+                asset::IAssetLoader::SAssetLoadParams{},
+                _file
+            }
+        };
+        
+        const size_t prevPos = _file->getPos();
+        _file->seek(0u);
+        const bool res = verifyFile(ctx);
+        _file->seek(prevPos);
+
+        return res;
+    }
+
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "baw", nullptr };
+        return ext;
+    }
+
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
 
 private:
 	//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
@@ -96,12 +119,70 @@ private:
 
 	//! Reads blob to memory on stack or allocates sufficient amount on heap if provided stack storage was not big enough.
 	/** @returns `_stackPtr` if blob was read to it or pointer to malloc'd memory otherwise.*/
-	void* tryReadBlobOnStack(const SBlobData& _data, SContext& _ctx, unsigned char pwd[16], void* _stackPtr=NULL, size_t _stackSize=0) const;
+	void* tryReadBlobOnStack(const SBlobData& _data, SContext& _ctx, const unsigned char pwd[16], void* _stackPtr=NULL, size_t _stackSize=0) const;
 
 	bool decompressLzma(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
 	bool decompressLz4(void* _dst, size_t _dstSize, const void* _src, size_t _srcSize) const;
 
+    inline std::string genSubAssetCacheKey(const std::string& _rootKey, uint64_t _handle) const { return _rootKey + "?" + std::to_string(_handle); }
+
+    static inline void* toAddrUsedByBlobsLoadingMgr(asset::IAsset* _assetAddr, uint32_t _blobType)
+    {
+        // add here when more asset types will be available
+        switch (_blobType)
+        {
+        case core::Blob::EBT_MESH:
+        case core::Blob::EBT_SKINNED_MESH:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_MESH);
+            return static_cast<ICPUMesh*>(_assetAddr);
+        case core::Blob::EBT_MESH_BUFFER:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
+            return static_cast<ICPUMeshBuffer*>(_assetAddr);
+        case core::Blob::EBT_SKINNED_MESH_BUFFER:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
+            return static_cast<SCPUSkinMeshBuffer*>(_assetAddr);
+        case core::Blob::EBT_RAW_DATA_BUFFER:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_BUFFER);
+            return static_cast<core::ICPUBuffer*>(_assetAddr);
+        case core::Blob::EBT_TEXTURE_PATH:
+            assert(_assetAddr->getAssetType()==asset::IAsset::ET_IMAGE);
+            return static_cast<asset::ICPUTexture*>(_assetAddr);
+        default: return nullptr;
+        }
+    }
+    static inline void insertAssetIntoCache(const SContext& _ctx, asset::IAssetLoader::IAssetLoaderOverride* _override, void* _asset, uint32_t _blobType, uint32_t _hierLvl, const std::string& _cacheKey)
+    {
+        // add here when more asset types will be available
+        asset::IAsset* asset = nullptr;
+        switch (_blobType)
+        {
+        case core::Blob::EBT_MESH:
+        case core::Blob::EBT_SKINNED_MESH:
+            asset = reinterpret_cast<ICPUMesh*>(_asset);
+            break;
+        case core::Blob::EBT_MESH_BUFFER:
+            asset = reinterpret_cast<ICPUMeshBuffer*>(_asset);
+            break;
+        case core::Blob::EBT_SKINNED_MESH_BUFFER:
+            asset = reinterpret_cast<SCPUSkinMeshBuffer*>(_asset);
+            break;
+        case core::Blob::EBT_RAW_DATA_BUFFER:
+            asset = reinterpret_cast<core::ICPUBuffer*>(_asset);
+            break;
+        case core::Blob::EBT_TEXTURE_PATH:
+            asset = reinterpret_cast<asset::ICPUTexture*>(_asset);
+            break;
+        }
+        if (asset && !asset->isInAResourceCache())
+        {
+            _override->setAssetCacheKey(asset, _cacheKey, _ctx.inner, _hierLvl);
+            _override->insertAssetIntoCache(asset, _ctx.inner, _hierLvl);
+            asset->drop();
+        }
+    }
+
 private:
+    IrrlichtDevice* m_device;
 	scene::ISceneManager* m_sceneMgr;
 	io::IFileSystem* m_fileSystem;
 };

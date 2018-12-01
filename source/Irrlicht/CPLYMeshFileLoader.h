@@ -5,8 +5,8 @@
 #ifndef __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
-#include "IMeshLoader.h"
 #include "ISceneManager.h"
+#include "IAssetLoader.h"
 
 namespace irr
 {
@@ -25,7 +25,7 @@ enum E_PLY_PROPERTY_TYPE
 };
 
 //! Meshloader capable of loading obj meshes.
-class CPLYMeshFileLoader : public IMeshLoader
+class CPLYMeshFileLoader : public asset::IAssetLoader
 {
 protected:
 	//! Destructor
@@ -35,12 +35,18 @@ public:
 	//! Constructor
 	CPLYMeshFileLoader(scene::ISceneManager* smgr);
 
-	//! returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (e.g. ".ply")
-	virtual bool isALoadableFileExtension(const io::path& filename) const;
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "ply", nullptr };
+        return ext;
+    }
+
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
 	//! creates/loads an animated mesh from the file.
-	virtual ICPUMesh* createMesh(io::IReadFile* file);
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 
@@ -118,32 +124,51 @@ private:
 		uint32_t KnownSize;
 	};
 
+    struct SContext
+    {
+        core::vector<SPLYElement*> ElementList;
+
+        io::IReadFile *File = nullptr;
+        char *Buffer = nullptr;
+        bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
+        int32_t LineLength = 0, WordLength = 0;
+        char *StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
+
+        ~SContext()
+        {
+            if (File)
+                File->drop();
+            File = nullptr;
+            if (Buffer)
+            {
+                delete[] Buffer;
+                Buffer = nullptr;
+            }
+            for (auto& e : ElementList)
+                delete e;
+            ElementList.clear();
+        }
+    };
+
     enum { E_POS = 0, E_UV = 2, E_NORM = 3, E_COL = 1 };
 
-	bool allocateBuffer();
-	char* getNextLine();
-	char* getNextWord();
-	void fillBuffer();
+	bool allocateBuffer(SContext& _ctx);
+	char* getNextLine(SContext& _ctx);
+	char* getNextWord(SContext& _ctx);
+	void fillBuffer(SContext& _ctx);
 	E_PLY_PROPERTY_TYPE getPropertyType(const char* typeString) const;
 
-	bool readVertex(const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4]);
-	bool readFace(const SPLYElement &Element, core::vector<uint32_t>& _outIndices);
-	void skipElement(const SPLYElement &Element);
-	void skipProperty(const SPLYProperty &Property);
-	float getFloat(E_PLY_PROPERTY_TYPE t);
-	uint32_t getInt(E_PLY_PROPERTY_TYPE t);
-	void moveForward(uint32_t bytes);
+	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4]);
+	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices);
+	void skipElement(SContext& _ctx, const SPLYElement &Element);
+	void skipProperty(SContext& _ctx, const SPLYProperty &Property);
+	float getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
+	uint32_t getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
+	void moveForward(SContext& _ctx, uint32_t bytes);
 
     bool genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const;
 
-	core::vector<SPLYElement*> ElementList;
-
-	scene::ISceneManager* SceneManager;
-	io::IReadFile *File;
-	char *Buffer;
-	bool IsBinaryFile, IsWrongEndian, EndOfFile;
-	int32_t LineLength, WordLength;
-	char *StartPointer, *EndPointer, *LineEndPointer;
+    scene::ISceneManager* SceneManager;
 };
 
 } // end namespace scene

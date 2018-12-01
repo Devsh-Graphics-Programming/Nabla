@@ -14,6 +14,7 @@
 
 #include "CTimer.h"
 
+#include "IAssetManager.h"
 #include "COSOperator.h"
 #include "dimension2d.h"
 #include <winuser.h>
@@ -1119,7 +1120,7 @@ void CIrrDeviceWin32::createDriver()
 		#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
 		switchToFullScreen();
 
-		VideoDriver = video::createBurningVideoDriver(CreationParams, FileSystem, this);
+		VideoDriver = video::createBurningVideoDriver(this, CreationParams, FileSystem, this);
 		#else
 		os::Printer::log("Burning's Video driver was not compiled in.", ELL_ERROR);
 		#endif
@@ -1127,7 +1128,7 @@ void CIrrDeviceWin32::createDriver()
 
 	case video::EDT_NULL:
 		// create null driver
-		VideoDriver = video::createNullDriver(FileSystem, CreationParams.WindowSize);
+		VideoDriver = video::createNullDriver(this, FileSystem, CreationParams.WindowSize);
 		break;
 
 	default:
@@ -1840,7 +1841,7 @@ HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, co
 	HBITMAP oldXorBitmap = (HBITMAP)SelectObject(xorDc, xorBitmap);
 
 
-	video::ECOLOR_FORMAT format = tex->getColorFormat();
+	video::E_FORMAT format = tex->getColorFormat();
 	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
 	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
@@ -1894,7 +1895,6 @@ HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, co
 
 	return cursor;
 }
-
 
 CIrrDeviceWin32::CCursorControl::CCursorControl(CIrrDeviceWin32* device, const core::dimension2d<uint32_t>& wsize, HWND hwnd, bool fullscreen)
 	: Device(device), WindowSize(wsize), InvWindowSize(0.0f, 0.0f),

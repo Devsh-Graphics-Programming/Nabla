@@ -45,7 +45,7 @@ namespace scene
 		//! This function is needed for inserting the node into the scene hirachy on a
 		//! optimal position for minimizing renderstate changes, but can also be used
 		//! to directly modify the material of a scene node.
-		virtual video::SMaterial& getMaterial(uint32_t i);
+		virtual video::SGPUMaterial& getMaterial(uint32_t i);
 
 		//! returns amount of materials used by this scene node.
 		virtual uint32_t getMaterialCount() const;
@@ -74,7 +74,7 @@ namespace scene
 
 		void copyMaterials();
 
-		core::vector<video::SMaterial> Materials;
+		core::vector<video::SGPUMaterial> Materials;
 		core::aabbox3d<float> Box;
 
 		IGPUMesh* Mesh;

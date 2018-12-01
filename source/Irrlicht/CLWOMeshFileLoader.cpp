@@ -282,7 +282,7 @@ IAnimatedMesh* CLWOMeshFileLoader::createMesh(io::IReadFile* file)
 		Materials[i]->Meshbuffer->recalculateBoundingBox();
 
 		// load textures
-		video::SMaterial& irrMat=Materials[i]->Meshbuffer->Material;
+		video::SGPUMaterial& irrMat=Materials[i]->Meshbuffer->Material;
 		if (Materials[i]->Texture[0].Map != "") // diffuse
 			irrMat.setTexture(0,loadTexture(Materials[i]->Texture[0].Map));
 
@@ -858,7 +858,7 @@ void CLWOMeshFileLoader::readMat(uint32_t size)
 	if (FormatVersion==2)
 		size -= readString(name);
 
-	video::SMaterial& irrMat=mat->Meshbuffer->Material;
+	video::SGPUMaterial& irrMat=mat->Meshbuffer->Material;
 
 	uint8_t currTexture=0;
 	while (size!=0)

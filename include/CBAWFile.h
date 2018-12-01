@@ -9,6 +9,7 @@
 
 #include "aabbox3d.h"
 #include "SMaterial.h"
+#include "ICPUTexture.h"
 
 struct ISzAlloc;
 
@@ -182,7 +183,7 @@ namespace core
 	struct IRR_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, FixedSizeBlob<RawBufferBlobV0, ICPUBuffer>
 	{};
 
-	struct IRR_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, video::IVirtualTexture>, FixedSizeBlob<TexturePathBlobV0, video::IVirtualTexture>
+	struct IRR_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, asset::ICPUTexture>, FixedSizeBlob<TexturePathBlobV0, asset::ICPUTexture>
 	{};
 
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
@@ -219,7 +220,7 @@ namespace core
 		//! Constructor filling all members
 		explicit MeshBufferBlobV0(const scene::ICPUMeshBuffer*);
 
-		video::SMaterial mat;
+		video::SGPUMaterial mat;
 		core::aabbox3df box;
 		uint64_t descPtr;
 		uint32_t indexType;
@@ -237,7 +238,7 @@ namespace core
 		//! Constructor filling all members
 		explicit SkinnedMeshBufferBlobV0(const scene::SCPUSkinMeshBuffer*);
 
-		video::SMaterial mat;
+		video::SGPUMaterial mat;
 		core::aabbox3df box;
 		uint64_t descPtr;
 		uint32_t indexType;

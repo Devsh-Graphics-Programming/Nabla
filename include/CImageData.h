@@ -9,13 +9,14 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "IImage.h"
+#include "IAsset.h"
 
 namespace irr
 {
 namespace video
 {
 
-class CImageData : public core::IReferenceCounted
+class CImageData : public asset::IAsset
 {
         void*       data;
 
@@ -33,6 +34,16 @@ class CImageData : public core::IReferenceCounted
             if (data)
                 _IRR_ALIGNED_FREE(data);
         }
+
+        virtual void convertToDummyObject() override
+        {
+            free(data);
+            data = nullptr;
+        }
+
+        virtual E_TYPE getAssetType() const override { return asset::IAsset::ET_SUB_IMAGE; }
+
+        virtual size_t conservativeSizeEstimate() const override { return getImageDataSizeInBytes(); }
 
         inline void setupMemory(void* inData, const bool& dataAllocatedWithMallocAndCanTake)
         {
@@ -86,7 +97,7 @@ class CImageData : public core::IReferenceCounted
         }
 
         CImageData(const void* inData, uint32_t inMinCoord[3], uint32_t inMaxCoord[3],
-                   const uint32_t& inMipLevel, const ECOLOR_FORMAT& inFmt,
+                   const uint32_t& inMipLevel, const E_FORMAT& inFmt,
                    const uint32_t& inUnpackLineAlignment=1)
         {
             memcpy(minCoord,inMinCoord,3*sizeof(uint32_t));
@@ -100,7 +111,7 @@ class CImageData : public core::IReferenceCounted
         }
 
         CImageData(void* inData, uint32_t inMinCoord[3], uint32_t inMaxCoord[3],
-                   const uint32_t& inMipLevel, const ECOLOR_FORMAT& inFmt,
+                   const uint32_t& inMipLevel, const E_FORMAT& inFmt,
                    const uint32_t& inUnpackLineAlignment,
                    const bool& dataAllocatedWithMallocAndCanTake)
         {
@@ -156,7 +167,7 @@ class CImageData : public core::IReferenceCounted
         //! Returns bits per pixel.
         inline uint32_t getBitsPerPixel() const
         {
-            return getBitsPerPixelFromFormat(static_cast<ECOLOR_FORMAT>(colorFormat));
+            return getBitsPerPixelFromFormat(static_cast<E_FORMAT>(colorFormat));
         }
 
         //! Returns image data size in bytes
@@ -187,15 +198,20 @@ class CImageData : public core::IReferenceCounted
             }
         }
 
+        inline core::vector3d<uint32_t> getSize() const
+        {
+            return core::vector3d<uint32_t>{maxCoord[0]-minCoord[0], maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
+        }
+
         //! Returns image data size in pixels
         inline size_t getImageDataSizeInPixels() const
         {
-            size_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
-            return size[0]*size[1]*size[2];
+            core::vector3d<uint32_t> sz = getSize();
+            return sz.X * sz.Y * sz.Z;
         }
 
         //! Returns the color format
-        inline ECOLOR_FORMAT getColorFormat() const {return static_cast<ECOLOR_FORMAT>(colorFormat);}
+        inline E_FORMAT getColorFormat() const {return static_cast<E_FORMAT>(colorFormat);}
 
         //! Returns pitch of image
         inline uint32_t getPitch() const

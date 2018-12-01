@@ -24,7 +24,7 @@
 #include <pthread.h>
 #endif
 
-#ifdef WIN32
+#if (defined(WIN32) || defined(_MSC_VER))
 #include "Windows.h"
 #endif
 
@@ -36,7 +36,7 @@ inline void FW_SleepMs(const uint64_t &milliseconds)
 		std::this_thread::yield();
 	else
 		std::this_thread::sleep_for(std::chrono::duration<uint64_t, std::milli>(milliseconds));
-#elif defined(WIN32)
+#elif (defined(WIN32) || defined(_MSC_VER))
     if (!milliseconds)
         SwitchToThread();
 	else
@@ -62,7 +62,7 @@ inline void FW_SleepNano(const uint64_t &nanoseconds)
 		std::this_thread::yield();
 	else
 		std::this_thread::sleep_for(std::chrono::duration<uint64_t, std::nano>(nanoseconds));
-#elif defined(WIN32)
+#elif (defined(WIN32) || defined(_MSC_VER))
     if (!nanoseconds)
         SwitchToThread();
     else
@@ -95,7 +95,7 @@ inline uint64_t FW_GetTimestampNs()
 {
 #if defined(FW_MUTEX_H_CXX11_IMPL)
 	return std::chrono::steady_clock::now().time_since_epoch().count();
-#elif defined(WIN32)
+#elif (defined(WIN32) || defined(_MSC_VER))
     __int64 time1 = 0, freq = 0;
 
     QueryPerformanceCounter((LARGE_INTEGER*)&time1);

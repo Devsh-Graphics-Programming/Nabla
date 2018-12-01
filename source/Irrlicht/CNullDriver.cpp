@@ -16,6 +16,7 @@
 #include "CMeshSceneNodeInstanced.h"
 
 #include <new>
+#include "IrrlichtDevice.h"
 
 namespace irr
 {
@@ -35,47 +36,9 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 #endif // _MSC_VER
 }
 
-
-//! creates a loader which is able to load windows bitmaps
-IImageLoader* createImageLoaderBMP();
-
-//! creates a loader which is able to load jpeg images
-IImageLoader* createImageLoaderJPG();
-
-//! creates a loader which is able to load targa images
-IImageLoader* createImageLoaderTGA();
-
-//! creates a loader which is able to load dds images
-IImageLoader* createImageLoaderDDS();
-
-//! creates a loader which is able to load png images
-IImageLoader* createImageLoaderPNG();
-
-//! creates a loader which is able to load WAL images
-IImageLoader* createImageLoaderWAL();
-
-//! creates a loader which is able to load lmp images
-IImageLoader* createImageLoaderLMP();
-
-//! creates a loader which is able to load rgb images
-IImageLoader* createImageLoaderRGB();
-
-
-//! creates a writer which is able to save bmp images
-IImageWriter* createImageWriterBMP();
-
-//! creates a writer which is able to save jpg images
-IImageWriter* createImageWriterJPG();
-
-//! creates a writer which is able to save tga images
-IImageWriter* createImageWriterTGA();
-
-//! creates a writer which is able to save png images
-IImageWriter* createImageWriterPNG();
-
 //! constructor
-CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
-: FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
+CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
+: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
 	PrimitivesDrawn(0), TextureCreationFlags(0),
 	OverrideMaterial2DEnabled(false), AllowZWriteOnTransparent(false),
 	matrixModifiedBits(0)
@@ -96,40 +59,6 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>&
 
 	if (FileSystem)
 		FileSystem->grab();
-
-	// create surface loader
-#ifdef _IRR_COMPILE_WITH_RGB_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderRGB());
-#endif
-#ifdef _IRR_COMPILE_WITH_DDS_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderDDS());
-#endif
-#ifdef _IRR_COMPILE_WITH_TGA_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderTGA());
-#endif
-#ifdef _IRR_COMPILE_WITH_PNG_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderPNG());
-#endif
-#ifdef _IRR_COMPILE_WITH_JPG_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderJPG());
-#endif
-#ifdef _IRR_COMPILE_WITH_BMP_LOADER_
-	SurfaceLoader.push_back(video::createImageLoaderBMP());
-#endif
-
-
-#ifdef _IRR_COMPILE_WITH_TGA_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterTGA());
-#endif
-#ifdef _IRR_COMPILE_WITH_JPG_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterJPG());
-#endif
-#ifdef _IRR_COMPILE_WITH_PNG_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterPNG());
-#endif
-#ifdef _IRR_COMPILE_WITH_BMP_WRITER_
-	SurfaceWriter.push_back(video::createImageWriterBMP());
-#endif
 
     MaxTextureSizes[ITexture::ETT_1D][0] = 0x80u;
     MaxTextureSizes[ITexture::ETT_1D][1] = 0x1u;
@@ -186,8 +115,6 @@ CNullDriver::~CNullDriver()
 	if (FileSystem)
 		FileSystem->drop();
 
-	deleteAllTextures();
-
 	uint32_t i;
 	for (i=0; i<SurfaceLoader.size(); ++i)
 		SurfaceLoader[i]->drop();
@@ -198,7 +125,6 @@ CNullDriver::~CNullDriver()
 	// delete material renderers
 	deleteMaterialRenders();
 }
-
 
 //! Adds an external surface loader to the engine.
 void CNullDriver::addExternalImageLoader(IImageLoader* loader)
@@ -252,22 +178,6 @@ IImageWriter* CNullDriver::getImageWriter(uint32_t n)
 		return SurfaceWriter[n];
 	return 0;
 }
-
-
-//! deletes all textures
-void CNullDriver::deleteAllTextures()
-{
-	// we need to remove previously set textures which might otherwise be kept in the
-	// last set material member. Could be optimized to reduce state changes.
-	setMaterial(SMaterial());
-
-	for (uint32_t i=0; i<Textures.size(); ++i)
-		Textures[i].Surface->drop();
-
-	Textures.clear();
-}
-
-
 
 //! applications must call this method before performing any rendering. returns false if failed.
 bool CNullDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
@@ -460,35 +370,8 @@ const core::matrix4& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION
 
 
 //! sets a material
-void CNullDriver::setMaterial(const SMaterial& material)
+void CNullDriver::setMaterial(const SGPUMaterial& material)
 {
-}
-
-
-//! Removes a texture from the texture cache and deletes it, freeing lot of
-//! memory.
-void CNullDriver::removeTexture(ITexture* texture)
-{
-	if (!texture)
-		return;
-
-    SSurface s;
-    s.Surface = texture;
-
-	auto found = std::lower_bound(Textures.begin(),Textures.end(),s);
-	if (found==Textures.end() || s<*found)
-        return;
-
-	auto foundHi = std::upper_bound(found,Textures.end(),s);
-	for (; found!=foundHi; found++)
-    {
-        if (found->Surface==texture)
-        {
-            Textures.erase(found);
-            texture->drop();
-			return;
-        }
-    }
 }
 
 void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
@@ -515,18 +398,9 @@ void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 {
 }
 
-
-//! Removes all texture from the texture cache and deletes them, freeing lot of
-//! memory.
-void CNullDriver::removeAllTextures()
-{
-	setMaterial ( SMaterial() );
-	deleteAllTextures();
-}
-
 void CNullDriver::removeAllMultisampleTextures()
 {
-	setMaterial ( SMaterial() );
+	setMaterial ( SGPUMaterial() );
 
 	for (uint32_t i=0; i<MultisampleTextures.size(); ++i)
 		MultisampleTextures[i]->drop();
@@ -535,7 +409,7 @@ void CNullDriver::removeAllMultisampleTextures()
 
 void CNullDriver::removeAllTextureBufferObjects()
 {
-	setMaterial ( SMaterial() );
+	setMaterial ( SGPUMaterial() );
 
 	for (uint32_t i=0; i<TextureBufferObjects.size(); ++i)
 		TextureBufferObjects[i]->drop();
@@ -546,224 +420,19 @@ void CNullDriver::removeAllFrameBuffers()
 {
 }
 
-
-//! Returns a texture by index
-ITexture* CNullDriver::getTextureByIndex(uint32_t i)
+ITexture* CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, E_FORMAT format)
 {
-	if ( i < Textures.size() )
-		return Textures[i].Surface;
-
-	return 0;
-}
-
-
-//! Returns amount of textures currently loaded
-uint32_t CNullDriver::getTextureCount() const
-{
-	return Textures.size();
-}
-
-
-//! Renames a texture
-void CNullDriver::renameTexture(ITexture* texture, const io::path& newName)
-{
-	// we can do a const_cast here safely, the name of the ITexture interface
-	// is just readonly to prevent the user changing the texture name without invoking
-	// this method, because the textures will need resorting afterwards
-
-	io::SNamedPath& name = const_cast<io::SNamedPath&>(texture->getName());
-	name.setPath(newName);
-
-	std::sort(Textures.begin(),Textures.end());
-}
-
-
-//! loads a Texture
-ITexture* CNullDriver::getTexture(const io::path& filename, ECOLOR_FORMAT format)
-{
-	// Identify textures by their absolute filenames if possible.
-	const io::path absolutePath = FileSystem->getAbsolutePath(filename);
-
-	ITexture* texture = findTexture(absolutePath);
-	if (texture)
-		return texture;
-
-	// Then try the raw filename, which might be in an Archive
-	texture = findTexture(filename);
-	if (texture)
-		return texture;
-
-	// Now try to open the file using the complete path.
-	io::IReadFile* file = FileSystem->createAndOpenFile(absolutePath);
-
-	if (!file)
-	{
-		// Try to open it using the raw filename.
-		file = FileSystem->createAndOpenFile(filename);
-	}
-
-	if (file)
-	{
-		// Re-check name for actual archive names
-		texture = findTexture(file->getFileName());
-		if (texture)
-		{
-			file->drop();
-			return texture;
-		}
-
-		texture = loadTextureFromFile(file,format);
-		file->drop();
-
-		if (!texture)
-			os::Printer::log("Could not load texture", filename.c_str(), ELL_ERROR);
-
-		return texture;
-	}
-	else
-	{
-		os::Printer::log("Could not open file of texture", filename.c_str(), ELL_WARNING);
-		return 0;
-	}
-}
-
-
-//! loads a Texture
-ITexture* CNullDriver::getTexture(io::IReadFile* file, ECOLOR_FORMAT format)
-{
-	ITexture* texture = 0;
-
-	if (file)
-	{
-		texture = findTexture(file->getFileName());
-
-		if (texture)
-			return texture;
-
-		texture = loadTextureFromFile(file,format);
-
-		if (!texture)
-			os::Printer::log("Could not load texture", file->getFileName().c_str(), ELL_WARNING);
-	}
-
-	return texture;
-}
-
-
-//! opens the file and loads it into the surface
-video::ITexture* CNullDriver::loadTextureFromFile(io::IReadFile* file, ECOLOR_FORMAT format, const io::path& hashName )
-{
-	auto images = createImageDataFromFile(file);
-
-	if (images.size()==0)
+    if (type != ITexture::ETT_2D)
         return nullptr;
 
-    // create texture from surface
-    ITexture* texture = this->addTexture(ITexture::ETT_COUNT, images, hashName.size() ? hashName : file->getFileName(), format);
-    dropWholeMipChain(images.begin(),images.end());
-    os::Printer::log("Loaded texture", file->getFileName().c_str());
-
-	return texture;
-}
-
-
-//! adds a surface, not loaded or created by the Irrlicht Engine
-void CNullDriver::addToTextureCache(video::ITexture* texture)
-{
-	if (!texture)
-        return;
-
-    SSurface s;
-    s.Surface = texture;
-
-    auto found = std::lower_bound(Textures.begin(),Textures.end(),s);
-    if (found!=Textures.end())
-    {
-        auto foundHi = std::upper_bound(found,Textures.end(),s);
-        for (; found!=foundHi; found++)
-        {
-            if (found->Surface==texture)
-                return;
-        }
-    }
-
-    Textures.insert(found,s);
-    texture->grab();
-}
-
-
-//! looks if the image is already loaded
-video::ITexture* CNullDriver::findTexture(const io::path& filename)
-{
-    uint8_t stackData[sizeof(SDummyTexture)];
-
-    SDummyTexture* dummy = new(stackData) SDummyTexture(filename);
-
-
-	SSurface s;
-	s.Surface = dummy;
-
-	auto found = std::lower_bound(Textures.begin(),Textures.end(),s);
-	if (found==Textures.end())
-    {
-        dummy->drop();
-        return nullptr;
-    }
-
-	auto foundHi = std::upper_bound(found,Textures.end(),s);
-    dummy->drop();
-	for (; found!=foundHi; found++)
-    {
-        if (found->Surface->getName().getInternalName()==io::SNamedPath::PathToName(filename))
-            return found->Surface;
-    }
-
-	return nullptr;
-}
-
-//! creates a Texture
-ITexture* CNullDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipMapLevels,
-				  const io::path& name, ECOLOR_FORMAT format)
-{
-	if ( 0 == name.size () )
-		return 0;
-
-	ITexture* t = createDeviceDependentTexture(type,size,mipMapLevels,name,format);
-	addToTextureCache(t);
-
-	if (t)
-		t->drop();
-
-	return t;
-}
-
-//! .
-ITexture* CNullDriver::addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format)
-{
-	if ( 0 == name.size () )
-		return 0;
-
-    if (format==ECF_UNKNOWN)
-        format = ECF_A1R5G5B5;
-
-    //better safe than sorry
-    if (type!=ITexture::ETT_2D||format!=ECF_A1R5G5B5)
-        return NULL;
-
-	ITexture* t = new SDummyTexture(name);
-	addToTextureCache(t);
-
-	if (t)
-		t->drop();
-
-	return t;
+    return new SDummyTexture("");
 }
 
 
 //! returns a device dependent texture from a software surface (IImage)
 //! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 ITexture* CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
-			const io::path& name, ECOLOR_FORMAT format)
+			const io::path& name, E_FORMAT format)
 {
     //better safe than sorry
     if (type!=ITexture::ETT_2D)
@@ -905,9 +574,9 @@ void CNullDriver::draw2DLine(const core::position2d<int32_t>& start,
 
 
 //! returns color format
-ECOLOR_FORMAT CNullDriver::getColorFormat() const
+E_FORMAT CNullDriver::getColorFormat() const
 {
-	return ECF_R5G6B5;
+	return EF_R5G6B5;
 }
 
 
@@ -1093,7 +762,7 @@ IImage* CNullDriver::createImageFromData(CImageData* imageData, bool ownForeignM
 }
 
 //!
-IImage* CNullDriver::createImage(const ECOLOR_FORMAT& format, const core::dimension2d<uint32_t>& size)
+IImage* CNullDriver::createImage(const E_FORMAT& format, const core::dimension2d<uint32_t>& size)
 {
     return new CImage(format, size);
 }
@@ -1680,9 +1349,9 @@ void CNullDriver::printVersion()
 
 
 //! creates a video driver
-IVideoDriver* createNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
+IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
 {
-	CNullDriver* nullDriver = new CNullDriver(io, screenSize);
+	CNullDriver* nullDriver = new CNullDriver(dev, io, screenSize);
 
 	// create empty material renderers
 	for(uint32_t i=0; sBuiltInMaterialTypeNames[i]; ++i)
@@ -1704,7 +1373,7 @@ void CNullDriver::enableClipPlane(uint32_t index, bool enable)
 }
 
 //! Get the 2d override material for altering its values
-SMaterial& CNullDriver::getMaterial2D()
+SGPUMaterial& CNullDriver::getMaterial2D()
 {
 	return OverrideMaterial2D;
 }
@@ -1733,8 +1402,8 @@ determined by the color formats.
 \param dP Pointer to destination
 \param dF Color format of destination
 */
-void CNullDriver::convertColor(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
-		void* dP, ECOLOR_FORMAT dF) const
+void CNullDriver::convertColor(const void* sP, E_FORMAT sF, int32_t sN,
+		void* dP, E_FORMAT dF) const
 {
 	video::CColorConverter::convert_viaFormat(sP, sF, sN, dP, dF);
 }

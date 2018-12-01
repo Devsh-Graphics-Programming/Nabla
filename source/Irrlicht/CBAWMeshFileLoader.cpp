@@ -13,37 +13,35 @@
 #include "os.h"
 #include "lzma/LzmaDec.h"
 #include "lz4/lz4.h"
+#include "IrrlichtDevice.h"
 
 namespace irr { namespace scene
 {
 CBAWMeshFileLoader::~CBAWMeshFileLoader()
 {
-	if (m_fileSystem)
-		m_fileSystem->drop();
+    m_device->drop();
 }
 
-CBAWMeshFileLoader::CBAWMeshFileLoader(scene::ISceneManager* _sm, io::IFileSystem* _fs) : m_sceneMgr(_sm), m_fileSystem(_fs)
+CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m_sceneMgr(_dev->getSceneManager()), m_fileSystem(_dev->getFileSystem())
 {
 #ifdef _DEBUG
 	setDebugName("CBAWMeshFileLoader");
 #endif
-	if (m_fileSystem)
-		m_fileSystem->grab();
+    m_device->grab();
 }
 
-ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
-{
-	unsigned char pwd[16] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
-	return createMesh(_file, pwd);
-}
-
-ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _pwd[16])
+asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifdef _DEBUG
 	uint32_t time = os::Timer::getRealTime();
 #endif // _DEBUG
 
-	SContext ctx{ _file };
+	SContext ctx{
+        asset::IAssetLoader::SAssetLoadContext{
+            _params,
+            _file
+        }
+    };
 	if (!verifyFile(ctx))
 		return NULL;
 
@@ -52,9 +50,6 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 	core::BlobHeaderV0* headers;
 	if (!validateHeaders(&blobCnt, &offsets, (void**)&headers, ctx))
 		return NULL;
-	ctx.filePath = ctx.file->getFileName();
-	if (ctx.filePath[ctx.filePath.size() - 1] != '/')
-		ctx.filePath += "/";
 
 	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{ {}, blobCnt }.calcBlobsOffset();
 
@@ -69,18 +64,42 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 	}
 	_IRR_ALIGNED_FREE(offsets);
 
-	const core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, ctx.filePath };
+    const std::string rootCacheKey = ctx.inner.mainFile->getFileName().c_str();
+
+	const core::BlobLoadingParams params{ 
+        m_device,
+        m_fileSystem,
+        ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/",
+        ctx.inner.params,
+        _override
+    };
 	core::stack<SBlobData*> toLoad, toFinalize;
 	toLoad.push(&meshBlobDataIter->second);
+    toLoad.top()->hierarchyLvl = 0u;
 	while (!toLoad.empty())
 	{
 		SBlobData* data = toLoad.top();
 		toLoad.pop();
 
 		const uint64_t handle = data->header->handle;
-		const uint32_t size = data->header->blobSizeDecompr;
-		const uint32_t blobType = data->header->blobType;
-		const void* blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, _pwd);
+        const uint32_t size = data->header->blobSizeDecompr;
+        const uint32_t blobType = data->header->blobType;
+        const std::string thisCacheKey = genSubAssetCacheKey(rootCacheKey, handle);
+        const uint32_t hierLvl = data->hierarchyLvl;
+
+        uint8_t decrKey[16];
+        size_t decrKeyLen = 16u;
+        uint32_t attempt = 0u;
+        const void* blob = nullptr;
+        // todo: supposedFilename arg is missing (empty string) - what is it? 
+        while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, hierLvl))
+        {
+            if (!((data->header->compressionType & core::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
+                blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, decrKey);
+            if (blob)
+                break;
+            ++attempt;
+        }
 
 		if (!blob)
 		{
@@ -90,9 +109,20 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 		}
 
 		core::unordered_set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
-		for (auto it = deps.begin(); it != deps.end(); ++it)
-			if (ctx.createdObjs.find(*it) == ctx.createdObjs.end())
-				toLoad.push(&ctx.blobs[*it]);
+        for (auto it = deps.begin(); it != deps.end(); ++it)
+        {
+            if (ctx.createdObjs.find(*it) == ctx.createdObjs.end())
+            {
+                toLoad.push(&ctx.blobs[*it]);
+                toLoad.top()->hierarchyLvl = hierLvl+1u;
+            }
+        }
+
+        if (asset::IAsset* found = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, hierLvl))
+        {
+            ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(found, blobType);
+            continue;
+        }
 
 		bool fail = !(ctx.createdObjs[handle] = ctx.loadingMgr.instantiateEmpty(blobType, blob, size, params));
 
@@ -105,9 +135,11 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 
 		if (!deps.size())
 		{
-			ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params);
-			_IRR_ALIGNED_FREE(data->heapBlob);
+            void* obj = ctx.createdObjs[handle];
+			ctx.loadingMgr.finalize(blobType, obj, blob, size, ctx.createdObjs, params);
+            _IRR_ALIGNED_FREE(data->heapBlob);
 			blob = data->heapBlob = NULL;
+            insertAssetIntoCache(ctx, _override, obj, blobType, hierLvl, thisCacheKey);
 		}
 		else
 			toFinalize.push(data);
@@ -123,8 +155,12 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 		const uint64_t handle = data->header->handle;
 		const uint32_t size = data->header->blobSizeDecompr;
 		const uint32_t blobType = data->header->blobType;
+        const uint32_t hierLvl = data->hierarchyLvl;
+        const std::string thisCacheKey = genSubAssetCacheKey(rootCacheKey, handle);
 
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
+        if (!toFinalize.empty()) // don't cache root-asset (mesh) as sub-asset because it'll be cached by asset manager directly (and there's only one IAsset::cacheKey)
+            insertAssetIntoCache(ctx, _override, retval, blobType, hierLvl, thisCacheKey);
 	}
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
@@ -144,8 +180,8 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const
 {
 	char headerStr[sizeof(core::BAWFileV0::fileHeader)];
-	_ctx.file->seek(0);
-	if (!safeRead(_ctx.file, headerStr, sizeof(headerStr)))
+	_ctx.inner.mainFile->seek(0);
+	if (!safeRead(_ctx.inner.mainFile, headerStr, sizeof(headerStr)))
 		return false;
 
 	const char * const headerStrPattern = "IrrlichtBaW BinaryFile";
@@ -164,10 +200,10 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 	if (!_blobCnt)
 		return false;
 
-	_ctx.file->seek(sizeof(core::BAWFileV0::fileHeader));
-	if (!safeRead(_ctx.file, _blobCnt, sizeof(*_blobCnt)))
+	_ctx.inner.mainFile->seek(sizeof(core::BAWFileV0::fileHeader));
+	if (!safeRead(_ctx.inner.mainFile, _blobCnt, sizeof(*_blobCnt)))
 		return false;
-	if (!safeRead(_ctx.file, _ctx.iv, 16))
+	if (!safeRead(_ctx.inner.mainFile, _ctx.iv, 16))
 		return false;
 	uint32_t* const offsets = *_offsets = (uint32_t*)_IRR_ALIGNED_MALLOC(*_blobCnt * sizeof(uint32_t),_IRR_SIMD_ALIGNMENT);
 	*_headers = _IRR_ALIGNED_MALLOC(*_blobCnt * sizeof(core::BlobHeaderV0),_IRR_SIMD_ALIGNMENT);
@@ -175,24 +211,24 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 
 	bool nope = false;
 
-	if (!safeRead(_ctx.file, offsets, *_blobCnt * sizeof(uint32_t)))
+	if (!safeRead(_ctx.inner.mainFile, offsets, *_blobCnt * sizeof(uint32_t)))
 		nope = true;
-	if (!safeRead(_ctx.file, headers, *_blobCnt * sizeof(core::BlobHeaderV0)))
+	if (!safeRead(_ctx.inner.mainFile, headers, *_blobCnt * sizeof(core::BlobHeaderV0)))
 		nope = true;
 
 	const uint32_t offsetRelByte = core::BAWFileV0{{}, *_blobCnt}.calcBlobsOffset(); // num of byte to which offsets are relative
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether offsets are in ascending order none of them points past the end of file
-		if (offsets[i] >= offsets[i+1] || offsetRelByte + offsets[i] >= _ctx.file->getSize())
+		if (offsets[i] >= offsets[i+1] || offsetRelByte + offsets[i] >= _ctx.inner.mainFile->getSize())
 			nope = true;
 
-	if (offsetRelByte + offsets[*_blobCnt-1] >= _ctx.file->getSize()) // check the last offset
+	if (offsetRelByte + offsets[*_blobCnt-1] >= _ctx.inner.mainFile->getSize()) // check the last offset
 		nope = true;
 
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether blobs are tightly packed (do not overlays each other and there's no space bewteen any pair)
 		if (offsets[i] + headers[i].effectiveSize() != offsets[i+1])
 			nope = true;
 
-	if (offsets[*_blobCnt-1] + headers[*_blobCnt-1].effectiveSize() >= _ctx.file->getSize()) // whether last blob doesn't "go out of file"
+	if (offsets[*_blobCnt-1] + headers[*_blobCnt-1].effectiveSize() >= _ctx.inner.mainFile->getSize()) // whether last blob doesn't "go out of file"
 		nope = true;
 
 	if (nope)
@@ -212,7 +248,7 @@ bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _si
 	return true;
 }
 
-void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext & _ctx, unsigned char _pwd[16], void * _stackPtr, size_t _stackSize) const
+void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext & _ctx, const unsigned char _pwd[16], void * _stackPtr, size_t _stackSize) const
 {
 	void* dst;
 	if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
@@ -227,8 +263,8 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 	if (compressed)
 		dstCompressed = _IRR_ALIGNED_MALLOC(_data.header->effectiveSize(),_IRR_SIMD_ALIGNMENT);
 
-	_ctx.file->seek(_data.absOffset);
-	_ctx.file->read(dstCompressed, _data.header->effectiveSize());
+	_ctx.inner.mainFile->seek(_data.absOffset);
+	_ctx.inner.mainFile->read(dstCompressed, _data.header->effectiveSize());
 
 	if (!_data.header->validate(dstCompressed))
 	{
@@ -257,11 +293,11 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 		if (!ok)
 		{
 			if (dst != _stackPtr && dstCompressed != dst)
-				_IRR_ALIGNED_FREE(dst);
+			_IRR_ALIGNED_FREE(dst);
 			_IRR_ALIGNED_FREE(out);
 #ifdef _DEBUG
 			os::Printer::log("Blob decryption failed!", ELL_ERROR);
-#endif
+#       endif
 			return NULL;
 		}
 		dstCompressed = out;

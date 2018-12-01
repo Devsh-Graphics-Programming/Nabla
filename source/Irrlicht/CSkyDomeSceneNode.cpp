@@ -200,7 +200,7 @@ void CSkyDomeSceneNode::render()
 	// for debug purposes only:
 	if ( DebugDataVisible )
 	{
-		video::SMaterial m;
+		video::SGPUMaterial m;
 
 		// show mesh
 		if ( DebugDataVisible & scene::EDS_MESH_WIRE_OVERLAY )
@@ -237,7 +237,7 @@ void CSkyDomeSceneNode::OnRegisterSceneNode()
 //! This function is needed for inserting the node into the scene hirachy on a
 //! optimal position for minimizing renderstate changes, but can also be used
 //! to directly modify the material of a scene node.
-video::SMaterial& CSkyDomeSceneNode::getMaterial(uint32_t i)
+video::SGPUMaterial& CSkyDomeSceneNode::getMaterial(uint32_t i)
 {
 	return Buffer->getMaterial();
 }

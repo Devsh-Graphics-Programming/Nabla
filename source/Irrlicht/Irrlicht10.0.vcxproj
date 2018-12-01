@@ -176,6 +176,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <FloatingPointModel>Precise</FloatingPointModel>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -208,6 +209,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <FloatingPointModel>Precise</FloatingPointModel>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -251,6 +253,7 @@
       <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
       <SDLCheck>false</SDLCheck>
       <ControlFlowGuard>false</ControlFlowGuard>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -295,6 +298,7 @@
       <SDLCheck>false</SDLCheck>
       <ControlFlowGuard>false</ControlFlowGuard>
       <PrecompiledHeaderFile />
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -334,6 +338,7 @@
       </DebugInformationFormat>
       <CallingConvention>FastCall</CallingConvention>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -365,6 +370,7 @@
       <WarningLevel>Level3</WarningLevel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FloatingPointModel>Fast</FloatingPointModel>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -551,6 +557,7 @@
     <ClInclude Include="aesGladman\aes_ni.h" />
     <ClInclude Include="aesGladman\brg_endian.h" />
     <ClInclude Include="aesGladman\brg_types.h" />
+    <ClInclude Include="astc\vectypes.h" />
     <ClInclude Include="CGeometryCreator.h" />
     <ClInclude Include="CIrrDeviceWin32.h" />
     <ClInclude Include="CMeshCache.h" />
@@ -587,7 +594,6 @@
     <ClInclude Include="CMY3DMeshFileLoader.h" />
     <ClInclude Include="COBJMeshFileLoader.h" />
     <ClInclude Include="COCTLoader.h" />
-    <ClInclude Include="COgreMeshFileLoader.h" />
     <ClInclude Include="CPLYMeshFileLoader.h" />
     <ClInclude Include="CSkinnedMesh.h" />
     <ClInclude Include="CSTLMeshFileLoader.h" />
@@ -708,8 +714,11 @@
   <ItemGroup>
     <None Include="..\..\changes.txt" />
     <None Include="..\..\readme.txt" />
+    <None Include="astc\Makefile" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\irr\video\GPUMemoryAllocatorBase.cpp" />
+    <ClCompile Include="..\..\src\irr\video\StreamingGPUBufferAllocator.cpp" />
     <ClCompile Include="aesGladman\aescrypt.c" />
     <ClCompile Include="aesGladman\aeskey.c" />
     <ClCompile Include="aesGladman\aestab.c" />
@@ -727,13 +736,13 @@
     <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="CGeometryCreator.cpp" />
     <ClCompile Include="CGLSLFunctionGenerator.cpp" />
-    <ClCompile Include="CGPUTransientBuffer.cpp" />
     <ClCompile Include="CIrrDeviceWin32.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="CMeshCache.cpp" />
     <ClCompile Include="CMeshManipulator.cpp" />
     <ClCompile Include="CMeshSceneNodeInstanced.cpp" />
+    <ClCompile Include="convertColor.cpp" />
     <ClCompile Include="convert_utf\ConvertUTF.c" />
     <ClCompile Include="COpenCLHandler.cpp" />
     <ClCompile Include="COpenGL1DTexture.cpp" />
@@ -769,7 +778,6 @@
     <ClCompile Include="CMY3DMeshFileLoader.cpp" />
     <ClCompile Include="COBJMeshFileLoader.cpp" />
     <ClCompile Include="COCTLoader.cpp" />
-    <ClCompile Include="COgreMeshFileLoader.cpp" />
     <ClCompile Include="CPLYMeshFileLoader.cpp" />
     <ClCompile Include="CSkinnedMesh.cpp" />
     <ClCompile Include="CSTLMeshFileLoader.cpp" />
@@ -835,10 +843,16 @@
     <ClCompile Include="CTRTextureGouraudNoZ2.cpp" />
     <ClCompile Include="CTRTextureGouraudVertexAlpha2.cpp" />
     <ClCompile Include="FW_Mutex.cpp" />
+    <ClCompile Include="IAsset.cpp" />
+    <ClCompile Include="IAssetLoader.cpp" />
+    <ClCompile Include="IAssetManager.cpp" />
+    <ClCompile Include="IAssetWriter.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
+    <ClCompile Include="IDriver.cpp" />
     <ClCompile Include="IReferenceCounted.cpp" />
     <ClCompile Include="Irrlicht.cpp" />
+    <ClCompile Include="IrrlichtDevice.cpp" />
     <ClCompile Include="lz4\lz4.c" />
     <ClCompile Include="lz4\lz4frame.c" />
     <ClCompile Include="lz4\lz4hc.c" />

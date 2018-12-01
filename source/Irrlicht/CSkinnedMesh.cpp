@@ -483,7 +483,7 @@ CCPUSkinnedMesh::SJoint *CCPUSkinnedMesh::addJoint(SJoint *parent)
 	return joint;
 }
 
-bool CCPUSkinnedMesh::isStatic()
+bool CCPUSkinnedMesh::isStatic() const
 {
 	return !HasAnimation;
 }

@@ -85,7 +85,7 @@ private:
 			for (uint32_t i=0; i<video::MATERIAL_MAX_TEXTURES; ++i)
 				Textures[i]=0;
 		}
-		video::SMaterial Material;
+		video::SGPUMaterial Material;
 		float red, green, blue, alpha;
 		float shininess;
 		int32_t blend,fx;

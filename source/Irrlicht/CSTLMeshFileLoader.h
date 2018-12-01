@@ -5,7 +5,7 @@
 #ifndef __C_STL_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_STL_MESH_FILE_LOADER_H_INCLUDED__
 
-#include "IMeshLoader.h"
+#include "IAssetLoader.h"
 
 #include "vectorSIMD.h"
 
@@ -15,19 +15,20 @@ namespace scene
 {
 
 //! Meshloader capable of loading STL meshes.
-class CSTLMeshFileLoader : public IMeshLoader
+class CSTLMeshFileLoader : public asset::IAssetLoader
 {
 public:
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-	//! returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (i.e. ".stl")
-	virtual bool isALoadableFileExtension(const io::path& filename) const;
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
-	//! creates/loads an animated mesh from the file.
-	//! \return Pointer to the created mesh. Returns 0 if loading failed.
-	//! If you no longer need the mesh, you should call IAnimatedMesh::drop().
-	//! See IReferenceCounted::drop() for more information.
-	virtual ICPUMesh* createMesh(io::IReadFile* file);
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "stl", nullptr };
+        return ext;
+    }
+
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
 private:
 

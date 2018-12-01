@@ -495,6 +495,9 @@ PFNGLTEXTUREBARRIERNVPROC COpenGLExtensionHandler::pGlTextureBarrierNV = NULL;
 PFNGLBLENDEQUATIONEXTPROC COpenGLExtensionHandler::pGlBlendEquationEXT = NULL;
 PFNGLBLENDEQUATIONPROC COpenGLExtensionHandler::pGlBlendEquation = NULL;
 
+PFNGLGETINTERNALFORMATIVPROC COpenGLExtensionHandler::pGlGetInternalformativ = NULL;
+PFNGLGETINTERNALFORMATI64VPROC COpenGLExtensionHandler::pGlGetInternalformati64v = NULL;
+
 PFNGLDEBUGMESSAGECONTROLPROC COpenGLExtensionHandler::pGlDebugMessageControl = NULL;
 PFNGLDEBUGMESSAGECONTROLARBPROC COpenGLExtensionHandler::pGlDebugMessageControlARB = NULL;
 PFNGLDEBUGMESSAGECALLBACKPROC COpenGLExtensionHandler::pGlDebugMessageCallback = NULL;
@@ -1377,6 +1380,9 @@ void COpenGLExtensionHandler::loadFunctions()
 	// blend equation
 	pGlBlendEquationEXT = (PFNGLBLENDEQUATIONEXTPROC) IRR_OGL_LOAD_EXTENSION("glBlendEquationEXT");
 	pGlBlendEquation = (PFNGLBLENDEQUATIONPROC) IRR_OGL_LOAD_EXTENSION("glBlendEquation");
+
+    pGlGetInternalformativ = (PFNGLGETINTERNALFORMATIVPROC) IRR_OGL_LOAD_EXTENSION("glGetInternalformativ");
+    pGlGetInternalformati64v = (PFNGLGETINTERNALFORMATI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetInternalformati64v");
 
 	// get vsync extension
 	#if defined(WGL_EXT_swap_control) && !defined(_IRR_COMPILE_WITH_SDL_DEVICE_)

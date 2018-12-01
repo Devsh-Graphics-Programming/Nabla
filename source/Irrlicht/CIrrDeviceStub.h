@@ -30,9 +30,9 @@ namespace irr
 
 	namespace video
 	{
-		IVideoDriver* createBurningVideoDriver(const irr::SIrrlichtCreationParameters& params,
+		IVideoDriver* createBurningVideoDriver(IrrlichtDevice* device, const irr::SIrrlichtCreationParameters& params,
 				io::IFileSystem* io, video::IImagePresenter* presenter);
-		IVideoDriver* createNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
+		IVideoDriver* createNullDriver(IrrlichtDevice* device, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 	}
 
 
@@ -92,7 +92,7 @@ namespace irr
             virtual bool isFullscreen() const;
 
             //! get color format of the current window
-            virtual video::ECOLOR_FORMAT getColorFormat() const;
+            virtual video::E_FORMAT getColorFormat() const;
 
             //! Activate any joysticks, and generate events for them.
             virtual bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo);

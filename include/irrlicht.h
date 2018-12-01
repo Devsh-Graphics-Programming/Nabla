@@ -43,6 +43,8 @@
 #include "irr/core/alloc/IAllocator.h"
 #include "irr/core/math/irrMath.h"
 
+#include "IAssetManager.h"
+#include "IGPUObjectFromAssetConverter.h"
 
 #include "IrrCompileConfig.h"
 #include "aabbox3d.h"

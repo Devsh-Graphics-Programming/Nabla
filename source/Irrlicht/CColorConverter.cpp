@@ -593,24 +593,24 @@ void CColorConverter::convert_R5G6B5toA1R5G5B5(const void* sP, int32_t sN, void*
 }
 
 
-void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
-				void* dP, ECOLOR_FORMAT dF)
+void CColorConverter::convert_viaFormat(const void* sP, E_FORMAT sF, int32_t sN,
+				void* dP, E_FORMAT dF)
 {
 	switch (sF)
 	{
-		case ECF_A1R5G5B5:
+		case EF_A1R5G5B5:
 			switch (dF)
 			{
-				case ECF_A1R5G5B5:
+				case EF_A1R5G5B5:
 					convert_A1R5G5B5toA1R5G5B5(sP, sN, dP);
 				break;
-				case ECF_R5G6B5:
+				case EF_R5G6B5:
 					convert_A1R5G5B5toR5G6B5(sP, sN, dP);
 				break;
-				case ECF_A8R8G8B8:
+				case EF_B8G8R8A8_UNORM:
 					convert_A1R5G5B5toA8R8G8B8(sP, sN, dP);
 				break;
-				case ECF_R8G8B8:
+				case EF_R8G8B8_UNORM:
 					convert_A1R5G5B5toR8G8B8(sP, sN, dP);
 				break;
 #ifndef _DEBUG
@@ -619,19 +619,19 @@ void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_
 #endif
 			}
 		break;
-		case ECF_R5G6B5:
+		case EF_R5G6B5:
 			switch (dF)
 			{
-				case ECF_A1R5G5B5:
+				case EF_A1R5G5B5:
 					convert_R5G6B5toA1R5G5B5(sP, sN, dP);
 				break;
-				case ECF_R5G6B5:
+				case EF_R5G6B5:
 					convert_R5G6B5toR5G6B5(sP, sN, dP);
 				break;
-				case ECF_A8R8G8B8:
+				case EF_B8G8R8A8_UNORM:
 					convert_R5G6B5toA8R8G8B8(sP, sN, dP);
 				break;
-				case ECF_R8G8B8:
+				case EF_R8G8B8_UNORM:
 					convert_R5G6B5toR8G8B8(sP, sN, dP);
 				break;
 #ifndef _DEBUG
@@ -640,19 +640,19 @@ void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_
 #endif
 			}
 		break;
-		case ECF_A8R8G8B8:
+		case EF_B8G8R8A8_UNORM:
 			switch (dF)
 			{
-				case ECF_A1R5G5B5:
+				case EF_A1R5G5B5:
 					convert_A8R8G8B8toA1R5G5B5(sP, sN, dP);
 				break;
-				case ECF_R5G6B5:
+				case EF_R5G6B5:
 					convert_A8R8G8B8toR5G6B5(sP, sN, dP);
 				break;
-				case ECF_A8R8G8B8:
+				case EF_B8G8R8A8_UNORM:
 					convert_A8R8G8B8toA8R8G8B8(sP, sN, dP);
 				break;
-				case ECF_R8G8B8:
+				case EF_R8G8B8_UNORM:
 					convert_A8R8G8B8toR8G8B8(sP, sN, dP);
 				break;
 #ifndef _DEBUG
@@ -661,19 +661,19 @@ void CColorConverter::convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_
 #endif
 			}
 		break;
-		case ECF_R8G8B8:
+		case EF_R8G8B8_UNORM:
 			switch (dF)
 			{
-				case ECF_A1R5G5B5:
+				case EF_A1R5G5B5:
 					convert_R8G8B8toA1R5G5B5(sP, sN, dP);
 				break;
-				case ECF_R5G6B5:
+				case EF_R5G6B5:
 					convert_R8G8B8toR5G6B5(sP, sN, dP);
 				break;
-				case ECF_A8R8G8B8:
+				case EF_B8G8R8A8_UNORM:
 					convert_R8G8B8toA8R8G8B8(sP, sN, dP);
 				break;
-				case ECF_R8G8B8:
+				case EF_R8G8B8_UNORM:
 					convert_R8G8B8toR8G8B8(sP, sN, dP);
 				break;
 #ifndef _DEBUG

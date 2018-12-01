@@ -9,7 +9,7 @@
 
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 
-#include "IImageLoader.h"
+#include "IAssetLoader.h"
 
 #include <stdio.h> // required for jpeglib.h
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
@@ -31,7 +31,7 @@ namespace video
 
 
 //! Surface Loader for JPG images
-class CImageLoaderJPG : public IImageLoader
+class CImageLoaderJPG : public asset::IAssetLoader
 {
 protected:
 	//! destructor
@@ -41,15 +41,17 @@ public:
 	//! constructor
 	CImageLoaderJPG();
 
-	//! returns true if the file maybe is able to be loaded by this class
-	//! based on the file extension (e.g. ".tga")
-	virtual bool isALoadableFileExtension(const io::path& filename) const;
+    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
-	//! returns true if the file maybe is able to be loaded by this class
-	virtual bool isALoadableFileFormat(io::IReadFile* file) const;
+    virtual const char** getAssociatedFileExtensions() const override
+    {
+        static const char* ext[]{ "jpg", "jpeg", nullptr };
+        return ext;
+    }
 
-	//! creates a surface from the file
-	virtual core::vector<CImageData*> loadImage(io::IReadFile* file) const;
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
+
+    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
 
@@ -101,7 +103,7 @@ private:
 	static void term_source (j_decompress_ptr cinfo);
 
 	// Copy filename to have it around for error-messages
-	static io::path Filename;
+	//static io::path Filename;
 
 	#endif // _IRR_COMPILE_WITH_LIBJPEG_
 };

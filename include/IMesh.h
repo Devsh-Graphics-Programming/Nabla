@@ -8,6 +8,7 @@
 #include "irr/core/IReferenceCounted.h"
 #include "SMaterial.h"
 #include "IMeshBuffer.h"
+#include "IAsset.h"
 
 namespace irr
 {
@@ -89,7 +90,7 @@ namespace scene
 		virtual E_MESH_TYPE getMeshType() const = 0;
 	};
 
-	class ICPUMesh : public IMesh<scene::ICPUMeshBuffer>, public core::BlobSerializable
+	class ICPUMesh : public IMesh<scene::ICPUMeshBuffer>, public core::BlobSerializable, public asset::IAsset
 	{
 	public:
 		//! Serializes mesh to blob for *.baw file format.
@@ -97,10 +98,15 @@ namespace scene
 			@param _stackSize Size of stack memory pointed by _stackPtr.
 			@returns Pointer to memory on which blob was written.
 		*/
-		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
+		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
 		{
 			return core::CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}
+
+        virtual void convertToDummyObject() override {}
+        virtual asset::IAsset::E_TYPE getAssetType() const override { return asset::IAsset::ET_MESH; }
+
+        virtual size_t conservativeSizeEstimate() const override { return getMeshBufferCount() * sizeof(void*); }
 	};
 
 	typedef IMesh<scene::IGPUMeshBuffer> IGPUMesh;

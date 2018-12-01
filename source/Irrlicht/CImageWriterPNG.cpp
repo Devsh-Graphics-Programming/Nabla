@@ -10,6 +10,7 @@
 #include "CColorConverter.h"
 #include "IWriteFile.h"
 #include "os.h" // for logging
+#include "ICPUTexture.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 #ifndef _IRR_USE_NON_SYSTEM_LIB_PNG_
@@ -23,11 +24,6 @@ namespace irr
 {
 namespace video
 {
-
-IImageWriter* createImageWriterPNG()
-{
-	return new CImageWriterPNG;
-}
 
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 // PNG function for error handling
@@ -63,18 +59,23 @@ CImageWriterPNG::CImageWriterPNG()
 #endif
 }
 
-bool CImageWriterPNG::isAWriteableFileExtension(const io::path& filename) const
+bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+    if (!_override)
+        getDefaultOverride(_override);
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
-	return core::hasFileExtension ( filename, "png" );
-#else
-	return false;
-#endif
-}
+    SAssetWriteContext ctx{_params, _file};
 
-bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t param) const
-{
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+    const video::CImageData* image =
+#   ifndef _DEBUG
+        static_cast<const video::CImageData*>(_params.rootAsset);
+#   else
+        dynamic_cast<const video::CImageData*>(_params.rootAsset);
+#   endif
+    assert(image);
+
+    io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
+
 	if (!file || !image)
 		return false;
 
@@ -108,36 +109,36 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 	// Set info
 	switch(image->getColorFormat())
 	{
-		case ECF_A8R8G8B8:
-		case ECF_A1R5G5B5:
+		case EF_B8G8R8A8_UNORM:
+		case EF_A1R5G5B5:
 			png_set_IHDR(png_ptr, info_ptr,
-				image->getDimension().Width, image->getDimension().Height,
+				image->getSize().X, image->getSize().Y,
 				8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 		break;
 		default:
 			png_set_IHDR(png_ptr, info_ptr,
-				image->getDimension().Width, image->getDimension().Height,
+				image->getSize().X, image->getSize().Y,
 				8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 	}
 
-	int32_t lineWidth = image->getDimension().Width;
+	int32_t lineWidth = image->getSize().X;
 	switch(image->getColorFormat())
 	{
-	case ECF_R8G8B8:
-	case ECF_R5G6B5:
+	case EF_R8G8B8_UNORM:
+	case EF_R5G6B5:
 		lineWidth*=3;
 		break;
-	case ECF_A8R8G8B8:
-	case ECF_A1R5G5B5:
+	case EF_B8G8R8A8_UNORM:
+	case EF_A1R5G5B5:
 		lineWidth*=4;
 		break;
 	// TODO: Error handling in case of unsupported color format
 	default:
 		break;
 	}
-	uint8_t* tmpImage = new uint8_t[image->getDimension().Height*lineWidth];
+	uint8_t* tmpImage = new uint8_t[image->getSize().Y*lineWidth];
 	if (!tmpImage)
 	{
 		os::Printer::log("PNGWriter: Internal PNG create image failure\n", file->getFileName().c_str(), ELL_ERROR);
@@ -148,17 +149,17 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 	uint8_t* data = (uint8_t*)image->getData();
 	switch(image->getColorFormat())
 	{
-	case ECF_R8G8B8:
-		CColorConverter::convert_R8G8B8toR8G8B8(data,image->getDimension().Height*image->getDimension().Width,tmpImage);
+	case EF_R8G8B8_UNORM:
+		CColorConverter::convert_R8G8B8toR8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
-	case ECF_A8R8G8B8:
-		CColorConverter::convert_A8R8G8B8toA8R8G8B8(data,image->getDimension().Height*image->getDimension().Width,tmpImage);
+	case EF_B8G8R8A8_UNORM:
+		CColorConverter::convert_A8R8G8B8toA8R8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
-	case ECF_R5G6B5:
-		CColorConverter::convert_R5G6B5toR8G8B8(data,image->getDimension().Height*image->getDimension().Width,tmpImage);
+	case EF_R5G6B5:
+		CColorConverter::convert_R5G6B5toR8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
-	case ECF_A1R5G5B5:
-		CColorConverter::convert_A1R5G5B5toA8R8G8B8(data,image->getDimension().Height*image->getDimension().Width,tmpImage);
+	case EF_A1R5G5B5:
+		CColorConverter::convert_A1R5G5B5toA8R8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
 #ifndef _DEBUG
 		// TODO: Error handling in case of unsupported color format
@@ -170,7 +171,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 	// Create array of pointers to rows in image data
 
 	//Used to point to image rows
-	uint8_t** RowPointers = new png_bytep[image->getDimension().Height];
+	uint8_t** RowPointers = new png_bytep[image->getSize().Y];
 	if (!RowPointers)
 	{
 		os::Printer::log("PNGWriter: Internal PNG create row pointers failure\n", file->getFileName().c_str(), ELL_ERROR);
@@ -181,7 +182,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 
 	data=tmpImage;
 	// Fill array of pointers to rows in image data
-	for (uint32_t i=0; i<image->getDimension().Height; ++i)
+	for (uint32_t i=0; i<image->getSize().Y; ++i)
 	{
 		RowPointers[i]=data;
 		data += lineWidth;
@@ -197,7 +198,7 @@ bool CImageWriterPNG::writeImage(io::IWriteFile* file, IImage* image,uint32_t pa
 
 	png_set_rows(png_ptr, info_ptr, RowPointers);
 
-	if (image->getColorFormat()==ECF_A8R8G8B8 || image->getColorFormat()==ECF_A1R5G5B5)
+	if (image->getColorFormat()==EF_B8G8R8A8_UNORM || image->getColorFormat()==EF_A1R5G5B5)
 		png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_BGR, NULL);
 	else
 	{

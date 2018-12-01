@@ -21,20 +21,9 @@ namespace irr
 namespace scene
 {
 
-//! \returns true if the file maybe is able to be loaded by this class
-//! based on the file extension (e.g. ".stl")
-bool CSTLMeshFileLoader::isALoadableFileExtension(const io::path& filename) const
+asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-	return core::hasFileExtension ( filename, "stl" );
-}
-
-//! creates/loads an animated mesh from the file.
-//! \return Pointer to the created mesh. Returns 0 if loading failed.
-//! If you no longer need the mesh, you should call ICPUMesh::drop().
-//! See IReferenceCounted::drop() for more information.
-ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
-{
-	const long filesize = file->getSize();
+	const long filesize = _file->getSize();
 	if (filesize < 6) // we need a header
 		return nullptr;
 
@@ -53,43 +42,43 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 
 	bool binary = false;
 	core::stringc token;
-	if (getNextToken(file, token) != "solid")
+	if (getNextToken(_file, token) != "solid")
 		binary = hasColor = true;
 
     core::vector<core::vectorSIMDf> positions, normals;
     core::vector<uint32_t> colors;
 	if (binary)
 	{
-        if (file->getSize() < 80)
+        if (_file->getSize() < 80)
         {
             mesh->drop();
             return nullptr;
         }
-		file->seek(80); // skip header
+		_file->seek(80); // skip header
         uint32_t vtxCnt = 0u;
-		file->read(&vtxCnt, 4);
+		_file->read(&vtxCnt, 4);
         positions.reserve(3*vtxCnt);
         normals.reserve(vtxCnt);
         colors.reserve(vtxCnt);
 	}
 	else
-		goNextLine(file); // skip header
+		goNextLine(_file); // skip header
 
 
 	uint16_t attrib=0u;
 	token.reserve(32);
-	while (file->getPos() < filesize)
+	while (_file->getPos() < filesize)
 	{
 		if (!binary)
 		{
-			if (getNextToken(file, token) != "facet")
+			if (getNextToken(_file, token) != "facet")
 			{
 				if (token=="endsolid")
 					break;
 				mesh->drop();
 				return nullptr;
 			}
-			if (getNextToken(file, token) != "normal")
+			if (getNextToken(_file, token) != "normal")
 			{
 				mesh->drop();
 				return nullptr;
@@ -98,18 +87,18 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 
         {
         core::vectorSIMDf n;
-		getNextVector(file, n, binary);
+		getNextVector(_file, n, binary);
         normals.push_back(n);
         }
 
 		if (!binary)
 		{
-			if (getNextToken(file, token) != "outer")
+			if (getNextToken(_file, token) != "outer")
 			{
 				mesh->drop();
 				return nullptr;
 			}
-			if (getNextToken(file, token) != "loop")
+			if (getNextToken(_file, token) != "loop")
 			{
 				mesh->drop();
 				return nullptr;
@@ -122,13 +111,13 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 		{
 			if (!binary)
 			{
-				if (getNextToken(file, token) != "vertex")
+				if (getNextToken(_file, token) != "vertex")
 				{
 					mesh->drop();
 					return nullptr;
 				}
 			}
-			getNextVector(file, p[i], binary);
+			getNextVector(_file, p[i], binary);
 		}
         for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
             positions.push_back(p[2u-i]);
@@ -136,12 +125,12 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 
 		if (!binary)
 		{
-			if (getNextToken(file, token) != "endloop")
+			if (getNextToken(_file, token) != "endloop")
 			{
 				mesh->drop();
 				return nullptr;
 			}
-			if (getNextToken(file, token) != "endfacet")
+			if (getNextToken(_file, token) != "endfacet")
 			{
 				mesh->drop();
 				return nullptr;
@@ -149,7 +138,7 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 		}
 		else
 		{
-			file->read(&attrib, 2);
+			_file->read(&attrib, 2);
 		}
 
         if (hasColor && (attrib & 0x8000)) // assuming VisCam/SolidView non-standard trick to store color in 2 bytes of extra attribute
@@ -171,7 +160,7 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
                     (positions.rbegin()+0)->getAsVector3df()).Normal
             );
         }
-	} // end while (file->getPos() < filesize)
+	} // end while (_file->getPos() < filesize)
 
     const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
 	core::ICPUBuffer* vertexBuf = new core::ICPUBuffer(vtxSize*positions.size());
@@ -201,6 +190,34 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 	return mesh;
 }
 
+bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
+{
+    if (_file->getSize() <= 6u)
+        return false;
+
+    char header[6];
+    const size_t prevPos = _file->getPos();
+    _file->seek(0u);
+    _file->read(header, 6u);
+    _file->seek(prevPos);
+
+    if (strncmp(header, "solid ", 6u) == 0)
+        return true;
+    else
+    {
+        if (_file->getSize() < 84u)
+        {
+            _file->seek(prevPos);
+            return false;
+        }
+        _file->seek(80u);
+        uint32_t triCnt;
+        _file->read(&triCnt, 4u);
+        _file->seek(prevPos);
+        const size_t STL_TRI_SZ = 50u;
+        return _file->getSize() == (STL_TRI_SZ*triCnt + 84u);
+    }
+}
 
 //! Read 3d vector of floats
 void CSTLMeshFileLoader::getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const

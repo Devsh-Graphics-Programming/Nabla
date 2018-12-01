@@ -9,17 +9,13 @@
 #include "IReadFile.h"
 #include "CImage.h"
 #include "os.h"
+#include "ICPUTexture.h"
 #include <string>
 
 namespace irr
 {
 namespace video
 {
-
-#ifdef _IRR_COMPILE_WITH_LIBJPEG_
-// Static members
-io::path CImageLoaderJPG::Filename; //! NOT THREAD SAFE, USE A F***ING CONTEXT
-#endif // _IRR_COMPILE_WITH_LIBJPEG_
 
 //! constructor
 CImageLoaderJPG::CImageLoaderJPG()
@@ -34,15 +30,6 @@ CImageLoaderJPG::CImageLoaderJPG()
 //! destructor
 CImageLoaderJPG::~CImageLoaderJPG()
 {
-}
-
-
-
-//! returns true if the file maybe is able to be loaded by this class
-//! based on the file extension (e.g. ".tga")
-bool CImageLoaderJPG::isALoadableFileExtension(const io::path& filename) const
-{
-	return core::hasFileExtension ( filename, "jpg", "jpeg" );
 }
 
 
@@ -113,45 +100,48 @@ void CImageLoaderJPG::output_message(j_common_ptr cinfo)
 	char temp1[JMSG_LENGTH_MAX];
 	(*cinfo->err->format_message)(cinfo, temp1);
 	std::string errMsg("JPEG FATAL ERROR in ");
-	errMsg += std::string(Filename.c_str());
+    errMsg += reinterpret_cast<char*>(cinfo->client_data);
 	os::Printer::log(errMsg,temp1, ELL_ERROR);
 }
 #endif // _IRR_COMPILE_WITH_LIBJPEG_
 
 //! returns true if the file maybe is able to be loaded by this class
-bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* file) const
+bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
 {
 	#ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	return false;
 	#else
 
-	if (!file)
+	if (!_file)
 		return false;
 
+    const size_t prevPos = _file->getPos();
+
 	int32_t jfif = 0;
-	file->seek(6);
-	file->read(&jfif, sizeof(int32_t));
+	_file->seek(6);
+	_file->read(&jfif, sizeof(int32_t));
+    _file->seek(prevPos);
 	return (jfif == 0x4a464946 || jfif == 0x4649464a);
 
 	#endif
 }
 
 //! creates a surface from the file
-core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
+asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-    core::vector<CImageData*> retval;
+    core::vector<CImageData*> images;
 
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
-	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", file->getFileName(), ELL_DEBUG);
+	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", _file->getFileName(), ELL_DEBUG);
 #else
-	if (!file)
-		return retval;
+	if (!_file)
+		return nullptr;
 
-	Filename = file->getFileName();
+	const io::path& Filename = _file->getFileName();
 
 	uint8_t **rowPtr=0;
-	uint8_t* input = new uint8_t[file->getSize()];
-	file->read(input, file->getSize());
+	uint8_t* input = new uint8_t[_file->getSize()];
+	_file->read(input, _file->getSize());
 
 	// allocate and initialize JPEG decompression object
 	struct jpeg_decompress_struct cinfo;
@@ -165,6 +155,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	cinfo.err = jpeg_std_error(&jerr.pub);
 	cinfo.err->error_exit = error_exit;
 	cinfo.err->output_message = output_message;
+    cinfo.client_data = const_cast<char*>(Filename.c_str());
 
 	// compatibility fudge:
 	// we need to use setjmp/longjmp for error handling as gcc-linux
@@ -182,7 +173,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 			delete [] rowPtr;
 
 		// return null pointer
-		return retval;
+		return nullptr;
 	}
 
 	// Now we can initialize the JPEG decompression object.
@@ -192,7 +183,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	jpeg_source_mgr jsrc;
 
 	// Set up data pointer
-	jsrc.bytes_in_buffer = file->getSize();
+	jsrc.bytes_in_buffer = _file->getSize();
 	jsrc.next_input_byte = (JOCTET*)input;
 	cinfo.src = &jsrc;
 
@@ -207,7 +198,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	// and BEFORE jpeg_destroy_decompress
 	// Caller is responsible for arranging these + setting up cinfo
 
-	// read file parameters with jpeg_read_header()
+	// read _file parameters with jpeg_read_header()
 	jpeg_read_header(&cinfo, TRUE);
 
 	bool useCMYK=false;
@@ -264,7 +255,7 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 	CImageData* image = 0;
 	if (useCMYK)
 	{
-		image = new CImageData(NULL,nullOffset,imageSize,0,ECF_R8G8B8);
+		image = new CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
 		const uint32_t size = 3*width*height;
 		uint8_t* data = (uint8_t*)image->getData();
 		if (data)
@@ -283,22 +274,17 @@ core::vector<CImageData*> CImageLoaderJPG::loadImage(io::IReadFile* file) const
 		_IRR_ALIGNED_FREE(output);
 	}
 	else
-		image = new CImageData(output,nullOffset,imageSize,0,ECF_R8G8B8,1,true);
+		image = new CImageData(output,nullOffset,imageSize,0,EF_R8G8B8_UNORM,1,true);
 
 	delete [] input;
 
-    retval.push_back(image);
+    images.push_back(image);
 #endif
 
-	return retval;
-}
-
-
-
-//! creates a loader which is able to load jpeg images
-IImageLoader* createImageLoaderJPG()
-{
-	return new CImageLoaderJPG();
+    asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
+    for (auto img : images)
+        img->drop();
+    return tex;
 }
 
 } // end namespace video

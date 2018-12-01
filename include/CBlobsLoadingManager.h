@@ -11,8 +11,11 @@
 #include "stdint.h"
 #include "IMesh.h"
 #include "path.h"
+#include "IAssetLoader.h"
 
 namespace irr {
+
+class IrrlichtDevice;
 
 namespace scene
 {
@@ -31,9 +34,11 @@ namespace core
 
 	struct BlobLoadingParams
 	{
-		scene::ISceneManager* sm;
+        IrrlichtDevice* dev;
 		io::IFileSystem* fs;
 		io::path filePath;
+        asset::IAssetLoader::SAssetLoadParams params;
+        asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
 	};
 
 	//! Class abstracting blobs version from process of loading them from *.baw file.
