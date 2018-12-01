@@ -136,7 +136,7 @@ int main()
 
 	//! Test Loading of Obj
     asset::IAssetLoader::SAssetLoadParams lparams;
-    scene::ICPUMesh* cpumesh = static_cast<scene::ICPUMesh*>(device->getAssetManager().getAsset("../../media/extrusionLogo_TEST_fixed.stl", lparams));
+    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/extrusionLogo_TEST_fixed.stl", lparams));
 	// export mesh
     scene::CBAWMeshWriter::WriteProperties bawprops;
     asset::IAssetWriter::SAssetWriteParams wparams(cpumesh, asset::EWF_COMPRESSED, 0.f, 0, nullptr, &bawprops);
@@ -144,7 +144,7 @@ int main()
 	// end export
 
 	// import .baw mesh (test)
-    cpumesh = static_cast<scene::ICPUMesh*>(device->getAssetManager().getAsset("extrusionLogo_TEST_fixed.baw", lparams));
+    cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("extrusionLogo_TEST_fixed.baw", lparams));
 	// end import
 
     if (cpumesh)
@@ -155,14 +155,14 @@ int main()
         gpumesh->drop();
     }
 
-    cpumesh = static_cast<scene::ICPUMesh*>(device->getAssetManager().getAsset("../../media/cow.obj", lparams));
+    cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/cow.obj", lparams));
 	// export mesh
     wparams.rootAsset = cpumesh;
     device->getAssetManager().writeAsset("cow.baw", wparams);
 	// end export
 
 	// import .baw mesh (test)
-	cpumesh = static_cast<scene::ICPUMesh*>(device->getAssetManager().getAsset("cow.baw", lparams));
+	cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("cow.baw", lparams));
 	// end import
 
     if (cpumesh)
