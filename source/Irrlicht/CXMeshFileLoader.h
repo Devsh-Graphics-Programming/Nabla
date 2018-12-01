@@ -9,8 +9,8 @@
 
 #ifdef _IRR_COMPILE_WITH_X_LOADER_
 
-#include "IAssetLoader.h"
-#include "CSkinnedMesh.h"
+#include "irr/asset/IAssetLoader.h"
+#include "irr/asset/CCPUSkinnedMesh.h"
 #include <sstream>
 
 namespace irr
@@ -79,7 +79,7 @@ public:
 
 		core::vector<uint16_t> IndexCountPerFace; // default 3, but could be more
 
-		core::vector<SCPUSkinMeshBuffer*> Buffers;
+		core::vector<asset::SCPUSkinMeshBuffer*> Buffers;
 
 		core::vector<SXVertex> Vertices;
 		core::vector<uint32_t> Colors;
@@ -114,16 +114,16 @@ private:
                 delete m;
         }
 
-        core::vector<ICPUSkinnedMesh::SJoint*> *AllJoints;
+        core::vector<asset::ICPUSkinnedMesh::SJoint*> *AllJoints;
 
-        CCPUSkinnedMesh* AnimatedMesh;
+        asset::CCPUSkinnedMesh* AnimatedMesh;
 
         std::istringstream fileContents;
         // counter for number arrays in binary format
         uint32_t BinaryNumCount;
         io::path FilePath;
 
-        ICPUSkinnedMesh::SJoint *CurFrame;
+        asset::ICPUSkinnedMesh::SJoint *CurFrame;
 
         core::vector<SXMesh*> Meshes;
 
@@ -148,7 +148,7 @@ private:
 
 	bool parseDataObjectTemplate(SContext& _ctx);
 
-	bool parseDataObjectFrame(SContext& _ctx, ICPUSkinnedMesh::SJoint *parent);
+	bool parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *parent);
 
 	bool parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix4x3 &mat);
 
@@ -172,7 +172,7 @@ private:
 
 	bool parseDataObjectAnimation(SContext& _ctx);
 
-	bool parseDataObjectAnimationKey(SContext& _ctx, ICPUSkinnedMesh::SJoint *joint);
+	bool parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *joint);
 
 	bool parseDataObjectTextureFilename(SContext& _ctx, std::string& texturename);
 

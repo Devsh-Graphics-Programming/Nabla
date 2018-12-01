@@ -11,9 +11,9 @@
 #include "aabbox3d.h"
 #include "matrix4.h"
 #include "IAnimatedMesh.h"
-#include "IMeshBuffer.h"
+#include "irr/asset/ICPUMeshBuffer.h"
 #include "SVertexManipulator.h"
-#include "SMesh.h"
+#include "irr/asset/SCPUMesh.h"
 
 namespace irr
 {
@@ -65,7 +65,7 @@ namespace scene
 		/** Changes backfacing triangles to frontfacing
 		triangles and vice versa.
 		\param mesh Mesh on which the operation is performed. */
-		virtual void flipSurfaces(ICPUMeshBuffer* inbuffer) const = 0;
+		virtual void flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const = 0;
 
 		//! Creates a copy of a mesh with all vertices unwelded
 		/** \param mesh Input mesh
@@ -73,7 +73,7 @@ namespace scene
 		which were previously shared are now duplicated. If you no
 		longer need the cloned mesh, you should call IMesh::drop(). See
 		IReferenceCounted::drop() for more information. */
-		virtual ICPUMeshBuffer* createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer) const = 0;
+		virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const = 0;
 
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh
@@ -82,11 +82,11 @@ namespace scene
 		\return Mesh without redundant vertices. If you no longer need
 		the cloned mesh, you should call IMesh::drop(). See
 		IReferenceCounted::drop() for more information. */
-		virtual ICPUMeshBuffer* createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh = false) const = 0;
+		virtual asset::ICPUMeshBuffer* createMeshBufferWelded(asset::ICPUMeshBuffer *inbuffer, const SErrorMetric* errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh = false) const = 0;
 
 		//! Throws meshbuffer into full optimizing pipeline consisting of: vertices welding, z-buffer optimization, vertex cache optimization (Forsyth's algorithm), fetch optimization and attributes requantization. A new meshbuffer is created unless given meshbuffer doesn't own (getMeshDataAndFormat()==NULL) a data format descriptor.
 		/**@return A new meshbuffer or NULL if an error occured. */
-		virtual ICPUMeshBuffer* createOptimizedMeshBuffer(const ICPUMeshBuffer* inbuffer, const SErrorMetric* _errMetric) const = 0;
+		virtual asset::ICPUMeshBuffer* createOptimizedMeshBuffer(const asset::ICPUMeshBuffer* inbuffer, const SErrorMetric* _errMetric) const = 0;
 
 		//! Requantizes vertex attributes to the smallest possible types taking into account values of the attribute under consideration. A brand new vertex buffer is created and attributes are going to be interleaved in single buffer.
 		/**
@@ -95,9 +95,9 @@ namespace scene
 		@param _meshbuffer Input meshbuffer that is to be requantized.
 		@param _errMetric Array of structs defining methods of error metrics. The array must be of EVAI_COUNT length since each index of the array directly corresponds to attribute's id.
 		*/
-		virtual void requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const = 0;
+		virtual void requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const = 0;
 
-		virtual ICPUMeshBuffer* createMeshBufferDuplicate(const ICPUMeshBuffer* _src) const = 0;
+		virtual asset::ICPUMeshBuffer* createMeshBufferDuplicate(const asset::ICPUMeshBuffer* _src) const = 0;
 
         //! Creates new index buffer with invalid triangles removed.
         /**
@@ -106,7 +106,7 @@ namespace scene
         @param _idxType Type of indices in the index buffer.
         @returns New index buffer or nullptr if input indices were of unknown type or _input was nullptr.
         */
-        virtual void filterInvalidTriangles(ICPUMeshBuffer* _input) const = 0;
+        virtual void filterInvalidTriangles(asset::ICPUMeshBuffer* _input) const = 0;
 
         //! Creates index buffer from input converting it to indices for triangle primitives. Input is assumed to be indices for triangle strip.
         /**
@@ -114,7 +114,7 @@ namespace scene
         @param _idxCount Index count.
         @param _idxType Type of indices (16bit or 32bit).
         */
-        virtual core::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const = 0;
+        virtual asset::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const = 0;
 
         //! Creates index buffer from input converting it to indices for triangle primitives. Input is assumed to be indices for triangle fan.
         /**
@@ -122,7 +122,7 @@ namespace scene
         @param _idxCount Index count.
         @param _idxType Type of indices (16bit or 32bit).
         */
-        virtual core::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const = 0;
+        virtual asset::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const = 0;
 
         //! Compares two attributes of floating point types in accordance with passed error metric.
         /**

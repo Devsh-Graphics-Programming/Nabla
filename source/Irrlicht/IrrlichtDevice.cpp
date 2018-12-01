@@ -72,7 +72,7 @@
 #include "CImageWriterBMP.h"
 #endif
 
-#include "IAssetManager.h"
+#include "irr/asset/IAssetManager.h"
 
 namespace irr
 {

@@ -11,10 +11,10 @@
 
 namespace irr
 {
-namespace core
+namespace asset
 {
 
-class ICPUBuffer : public IBuffer, public asset::IAsset
+class ICPUBuffer : public core::IBuffer, public asset::IAsset
 {
     protected:
         virtual ~ICPUBuffer()
@@ -93,7 +93,7 @@ class ICPUBuffer : public IBuffer, public asset::IAsset
         void* data;
 };
 
-} // end namespace scene
+} // end namespace asset
 } // end namespace irr
 
 #endif

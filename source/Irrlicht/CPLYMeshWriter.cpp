@@ -33,11 +33,11 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     SAssetWriteContext ctx{_params, _file};
 
-    const ICPUMesh* mesh =
+    const asset::ICPUMesh* mesh =
 #   ifndef _DEBUG
         static_cast<const ICPUMesh*>(_params.rootAsset);
 #   else
-        dynamic_cast<const ICPUMesh*>(_params.rootAsset);
+        dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   endif
     assert(mesh);
 
@@ -121,7 +121,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
         const E_PRIMITIVE_TYPE primitiveT = mesh->getMeshBuffer(0)->getPrimitiveType();
         if (primitiveT == EPT_TRIANGLE_FAN || primitiveT == EPT_TRIANGLE_STRIP)
         {
-            core::ICPUBuffer* buf = nullptr;
+            asset::ICPUBuffer* buf = nullptr;
             if (primitiveT == EPT_TRIANGLE_FAN)
             {
                 buf = CMeshManipulator().idxBufferFromTrianglesFanToTriangles(ind, idxCnt, idxtype);
@@ -186,13 +186,13 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 	return true;
 }
 
-void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
+void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
 {
     size_t colCpa = _mbuf->getMeshDataAndFormat()->getAttribComponentCount(EVAI_ATTR1);
     if (colCpa == ECPA_REVERSED_OR_BGRA)
         colCpa = 4u;
 
-    ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
+    asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
         core::vectorSIMDf f;
@@ -260,9 +260,9 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, s
         _IRR_ALIGNED_FREE(indices);
 }
 
-void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
+void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
 {
-    ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
+    asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
 
     auto writefunc = [&_file,&mbCopy,this](E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa)
     {
@@ -360,7 +360,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, siz
         _IRR_ALIGNED_FREE(indices);
 }
 
-void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, ICPUMeshBuffer* _mbuf, E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa) const
+void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa) const
 {
     uint32_t ui[4];
     core::vectorSIMDf f;
@@ -395,9 +395,9 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, ICPUMeshBuffer* _m
     }
 }
 
-ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const ICPUMeshBuffer* _mbuf)
+asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf)
 {
-    ICPUMeshBuffer* mbCopy = new ICPUMeshBuffer();
+    asset::ICPUMeshBuffer* mbCopy = new asset::ICPUMeshBuffer();
     auto origDesc = _mbuf->getMeshDataAndFormat();
     ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
     for (size_t i = EVAI_ATTR0; i < EVAI_COUNT; ++i)
@@ -407,7 +407,7 @@ ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(con
         if (origDesc->getMappedBuffer(vaid))
         {
             desc->mapVertexAttrBuffer(
-                const_cast<core::ICPUBuffer*>(origDesc->getMappedBuffer(vaid)),
+                const_cast<asset::ICPUBuffer*>(origDesc->getMappedBuffer(vaid)),
                 vaid,
                 origDesc->getAttribComponentCount(vaid),
                 scene::isNormalized(t) ? scene::getCorrespondingNativeIntType(scene::getCorrespondingDenormalizedType(t)) : t,

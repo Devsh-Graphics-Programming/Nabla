@@ -9,7 +9,7 @@
 namespace irr { namespace scene
 {
 
-ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffer, bool _createNew, float _threshold)
+asset::ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _inbuffer, bool _createNew, float _threshold)
 {
 	if (!_inbuffer)
 		return NULL;
@@ -20,7 +20,7 @@ ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(ICPUMeshBuffer* _inbuffe
 
 	const size_t indexSize = indexType == EIT_16BIT ? 2u : 4u;
 
-	ICPUMeshBuffer* outbuffer = _createNew ? CMeshManipulator().createMeshBufferDuplicate(_inbuffer) : _inbuffer;
+	asset::ICPUMeshBuffer* outbuffer = _createNew ? CMeshManipulator().createMeshBufferDuplicate(_inbuffer) : _inbuffer;
 
 	void* const indices = outbuffer->getIndices();
 	if (!indices)

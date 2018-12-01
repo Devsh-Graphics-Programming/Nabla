@@ -196,7 +196,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 	}
 
 	// create mesh cache if not there already
-	MeshCache = new CMeshCache<ICPUMesh>();
+	MeshCache = new CMeshCache<asset::ICPUMesh>();
 
 	// add file format loaders. add the least commonly used ones first,
 	// as these are checked last
@@ -251,9 +251,9 @@ CSceneManager::~CSceneManager()
 
 
 //! gets an animateable mesh. loads it if needed. returned pointer must not be dropped.
-ICPUMesh* CSceneManager::getMesh(const io::path& filename)
+asset::ICPUMesh* CSceneManager::getMesh(const io::path& filename)
 {
-	ICPUMesh* msh = MeshCache->getMeshByName(filename);
+	asset::ICPUMesh* msh = MeshCache->getMeshByName(filename);
 	if (msh)
 		return msh;
 
@@ -267,7 +267,7 @@ ICPUMesh* CSceneManager::getMesh(const io::path& filename)
 
 
 //! gets an animateable mesh. loads it if needed. returned pointer must not be dropped.
-ICPUMesh* CSceneManager::getMesh(io::IReadFile* file)
+asset::ICPUMesh* CSceneManager::getMesh(io::IReadFile* file)
 {
 	if (!file)
     {
@@ -276,7 +276,7 @@ ICPUMesh* CSceneManager::getMesh(io::IReadFile* file)
     }
 
 	io::path name = file->getFileName();
-	ICPUMesh* msh = MeshCache->getMeshByName(file->getFileName());
+	asset::ICPUMesh* msh = MeshCache->getMeshByName(file->getFileName());
 	if (msh)
 		return msh;
 
@@ -1117,7 +1117,7 @@ E_SCENE_NODE_RENDER_PASS CSceneManager::getSceneNodeRenderPass() const
 
 
 //! Returns an interface to the mesh cache which is shared between all existing scene managers.
-IMeshCache<ICPUMesh>* CSceneManager::getMeshCache()
+IMeshCache<asset::ICPUMesh>* CSceneManager::getMeshCache()
 {
 	return MeshCache;
 }

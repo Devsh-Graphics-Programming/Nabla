@@ -5,7 +5,7 @@
 #ifndef __IRR_STL_MESH_WRITER_H_INCLUDED__
 #define __IRR_STL_MESH_WRITER_H_INCLUDED__
 
-#include "IAssetWriter.h"
+#include "irr/asset/IAssetWriter.h"
 #include "IMesh.h"
 
 
@@ -40,10 +40,10 @@ namespace scene
 
         protected:
             // write binary format
-            bool writeMeshBinary(io::IWriteFile* file, const scene::ICPUMesh* mesh);
+            bool writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh);
 
             // write text format
-            bool writeMeshASCII(io::IWriteFile* file, const scene::ICPUMesh* mesh);
+            bool writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh);
 
             // create vector output with line end into string
             void getVectorAsStringLine(const core::vector3df& v,

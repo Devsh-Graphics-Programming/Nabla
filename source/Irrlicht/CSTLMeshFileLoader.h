@@ -5,7 +5,7 @@
 #ifndef __C_STL_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_STL_MESH_FILE_LOADER_H_INCLUDED__
 
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 
 #include "vectorSIMD.h"
 

@@ -5,7 +5,7 @@
 #ifndef __I_SKIN_MESH_BUFFER_H_INCLUDED__
 #define __I_SKIN_MESH_BUFFER_H_INCLUDED__
 
-#include "irr/asset/ICPUMeshBuffer.h"
+#include "ICPUMeshBuffer.h"
 
 
 namespace irr

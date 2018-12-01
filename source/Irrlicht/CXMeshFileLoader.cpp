@@ -17,7 +17,8 @@
 #include "IReadFile.h"
 #include "SVertexManipulator.h"
 #include "assert.h"
-#include "IAssetManager.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/SCPUMesh.h"
 
 #include <vector>
 
@@ -89,22 +90,22 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 	if (!_file)
 		return 0;
 
-	ctx.AnimatedMesh = new CCPUSkinnedMesh();
-    ICPUMesh* retVal = nullptr;
+	ctx.AnimatedMesh = new asset::CCPUSkinnedMesh();
+    asset::ICPUMesh* retVal = nullptr;
 
 	if (load(ctx, _file))
 	{
         ctx.AnimatedMesh->finalize();
 		if (ctx.AnimatedMesh->isStatic())
         {
-            SCPUMesh* staticMesh = new SCPUMesh();
+            asset::SCPUMesh* staticMesh = new asset::SCPUMesh();
             for (size_t i=0; i<ctx.AnimatedMesh->getMeshBufferCount(); i++)
             {
-                ICPUMeshBuffer* meshbuffer = new ICPUMeshBuffer();
+                asset::ICPUMeshBuffer* meshbuffer = new asset::ICPUMeshBuffer();
                 staticMesh->addMeshBuffer(meshbuffer);
                 meshbuffer->drop();
 
-                ICPUMeshBuffer* origMeshBuffer = ctx.AnimatedMesh->getMeshBuffer(i);
+                asset::ICPUMeshBuffer* origMeshBuffer = ctx.AnimatedMesh->getMeshBuffer(i);
                 ICPUMeshDataFormatDesc* desc = static_cast<ICPUMeshDataFormatDesc*>(origMeshBuffer->getMeshDataAndFormat());
                 meshbuffer->getMaterial() = origMeshBuffer->getMaterial();
                 meshbuffer->setPrimitiveType(origMeshBuffer->getPrimitiveType());
@@ -140,18 +141,18 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
                     indexType = EIT_UNKNOWN;
                 else
                 {
-                    core::ICPUBuffer* indexBuffer;
+                    asset::ICPUBuffer* indexBuffer;
                     if (largestVertex>=0x10000u)
                     {
                         indexType = EIT_32BIT;
-                        indexBuffer = new core::ICPUBuffer(4*origMeshBuffer->getIndexCount());
+                        indexBuffer = new asset::ICPUBuffer(4*origMeshBuffer->getIndexCount());
                         for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
                            ((uint32_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                     }
                     else
                     {
                         indexType = EIT_16BIT;
-                        indexBuffer = new core::ICPUBuffer(2*origMeshBuffer->getIndexCount());
+                        indexBuffer = new asset::ICPUBuffer(2*origMeshBuffer->getIndexCount());
                         for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
                            ((uint16_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                     }
@@ -169,8 +170,8 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 
                     if (attrId==EVAI_ATTR3)
                     {
-                        const core::ICPUBuffer* normalBuffer = desc->getMappedBuffer(EVAI_ATTR3);
-                        core::ICPUBuffer* newNormalBuffer = new core::ICPUBuffer(normalBuffer->getSize()/3);
+                        const asset::ICPUBuffer* normalBuffer = desc->getMappedBuffer(EVAI_ATTR3);
+                        asset::ICPUBuffer* newNormalBuffer = new asset::ICPUBuffer(normalBuffer->getSize()/3);
                         for (size_t k=0; k<newNormalBuffer->getSize()/4; k++)
                         {
                             core::vectorSIMDf simdNormal;
@@ -218,7 +219,7 @@ class SuperSkinningTMPStruct
         uint32_t redir;
 };
 
-core::matrix4x3 getGlobalMatrix_evil(ICPUSkinnedMesh::SJoint* joint)
+core::matrix4x3 getGlobalMatrix_evil(asset::ICPUSkinnedMesh::SJoint* joint)
 {
     //if (joint->GlobalInversedMatrix.isIdentity())
         //return joint->GlobalInversedMatrix;
@@ -311,40 +312,40 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 			{
 				scene::ICPUMeshDataFormatDesc* desc = new scene::ICPUMeshDataFormatDesc();
 
-				core::ICPUBuffer* vPosBuf = new core::ICPUBuffer(mesh->Vertices.size()*4*3);
+				asset::ICPUBuffer* vPosBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
 				desc->mapVertexAttrBuffer(vPosBuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT);
 				vPosBuf->drop();
-				core::ICPUBuffer* vColorBuf = NULL;
+				asset::ICPUBuffer* vColorBuf = NULL;
 				if (mesh->Colors.size())
                 {
-                    vColorBuf = new core::ICPUBuffer(mesh->Vertices.size()*4);
+                    vColorBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4);
                     desc->mapVertexAttrBuffer(vColorBuf,EVAI_ATTR1,ECPA_REVERSED_OR_BGRA,ECT_NORMALIZED_UNSIGNED_BYTE);
                     vColorBuf->drop();
                 }
-				core::ICPUBuffer* vTCBuf = new core::ICPUBuffer(mesh->Vertices.size()*4*2);
+				asset::ICPUBuffer* vTCBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
                 desc->mapVertexAttrBuffer(vTCBuf,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT);
                 vTCBuf->drop();
-				core::ICPUBuffer* vNormalBuf = new core::ICPUBuffer(mesh->Vertices.size()*4*3);
+				asset::ICPUBuffer* vNormalBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
 				desc->mapVertexAttrBuffer(vNormalBuf,EVAI_ATTR3,ECPA_THREE,ECT_FLOAT);
 				vNormalBuf->drop();
-				core::ICPUBuffer* vTC2Buf = NULL;
+				asset::ICPUBuffer* vTC2Buf = NULL;
 				if (mesh->TCoords2.size())
 				{
-                    vTC2Buf = new core::ICPUBuffer(mesh->Vertices.size()*4*2);
+                    vTC2Buf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
                     desc->mapVertexAttrBuffer(vTC2Buf,EVAI_ATTR4,ECPA_TWO,ECT_FLOAT);
                     vTC2Buf->drop();
 				}
-				core::ICPUBuffer* vSkinningDataBuf = NULL;
+				asset::ICPUBuffer* vSkinningDataBuf = NULL;
 				if (mesh->VertexSkinWeights.size())
                 {
-                    vSkinningDataBuf = new core::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
+                    vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
                     desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,ECPA_FOUR,ECT_INTEGER_UNSIGNED_BYTE,8,0);
                     desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,ECPA_FOUR,ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV,8,4);
                     vSkinningDataBuf->drop();
                 }
 				else if (mesh->AttachedJointID!=-1)
                 {
-                    vSkinningDataBuf = new core::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
+                    vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
                     desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,ECPA_FOUR,ECT_INTEGER_UNSIGNED_BYTE,8,0);
                     desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,ECPA_FOUR,ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV,8,4);
                     vSkinningDataBuf->drop();
@@ -415,7 +416,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 				memset(cumBaseVertex, 0, mesh->Buffers.size()*sizeof(uint32_t));
                 for (i=0; i<mesh->Buffers.size(); ++i)
                 {
-					scene::SCPUSkinMeshBuffer *buffer = mesh->Buffers[i];
+					asset::SCPUSkinMeshBuffer *buffer = mesh->Buffers[i];
 
                     buffer->setIndexRange(0,vCountArray[i]);
                     if (vCountArray[i]>0x10000u)
@@ -441,7 +442,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 					// if a vertex is missing for some reason, just skip it
 					if (verticesLinkBuffer[i]==-1)
 						continue;
-					scene::SCPUSkinMeshBuffer *buffer = mesh->Buffers[ verticesLinkBuffer[i] ];
+                    asset::SCPUSkinMeshBuffer *buffer = mesh->Buffers[ verticesLinkBuffer[i] ];
 
                     uint32_t &Ix = vCountArray[ verticesLinkBuffer[i] ];
                     verticesLinkIndex[i] = Ix;
@@ -585,7 +586,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                 uint32_t indexBufferSz = 0;
 				for (i=0; i<mesh->Buffers.size(); ++i)
                 {
-					scene::SCPUSkinMeshBuffer *buffer = mesh->Buffers[ i ];
+                    asset::SCPUSkinMeshBuffer *buffer = mesh->Buffers[ i ];
 
 
 					uint32_t subBufferSz = vCountArray[i]*3;
@@ -597,14 +598,14 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 					buffer->setIndexBufferOffset(indexBufferSz);
                     indexBufferSz += subBufferSz;
                 }
-                core::ICPUBuffer* ixbuf = new core::ICPUBuffer(indexBufferSz);
+                asset::ICPUBuffer* ixbuf = new asset::ICPUBuffer(indexBufferSz);
 				desc->mapIndexBuffer(ixbuf);
 				ixbuf->drop();
 				// create indices per buffer
 				memset(vCountArray, 0, mesh->Buffers.size()*sizeof(uint32_t));
 				for (i=0; i<mesh->FaceMaterialIndices.size(); ++i)
 				{
-					scene::SCPUSkinMeshBuffer *buffer = mesh->Buffers[ mesh->FaceMaterialIndices[i] ];
+					asset::SCPUSkinMeshBuffer *buffer = mesh->Buffers[ mesh->FaceMaterialIndices[i] ];
 
 					void* indexBufAlreadyOffset = ((uint8_t*)ixbuf->getPointer())+cumBaseVertex[mesh->FaceMaterialIndices[i]];
 
@@ -809,7 +810,7 @@ bool CXMeshFileLoader::parseDataObjectTemplate(SContext& _ctx)
 }
 
 
-bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, ICPUSkinnedMesh::SJoint *Parent)
+bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *Parent)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading frame", ELL_DEBUG);
@@ -832,7 +833,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, ICPUSkinnedMesh::SJo
 		return false;
 	}
 
-	ICPUSkinnedMesh::SJoint *joint=0;
+    asset::ICPUSkinnedMesh::SJoint *joint=0;
 
 	if (name.size())
 	{
@@ -1350,7 +1351,7 @@ bool CXMeshFileLoader::parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh)
 		return false;
 	}
 
-	ICPUSkinnedMesh::SJoint *joint=0;
+    asset::ICPUSkinnedMesh::SJoint *joint=0;
 
 	size_t jointID;
 	for (jointID=0; jointID < _ctx.AnimatedMesh->getAllJoints().size(); jointID++)
@@ -1943,7 +1944,7 @@ bool CXMeshFileLoader::parseDataObjectAnimation(SContext& _ctx)
 
 	//anim.closed = true;
 	//anim.linearPositionQuality = true;
-	ICPUSkinnedMesh::SJoint animationDump;
+    asset::ICPUSkinnedMesh::SJoint animationDump;
 
 	std::string FrameName;
 
@@ -2001,7 +2002,7 @@ bool CXMeshFileLoader::parseDataObjectAnimation(SContext& _ctx)
 #ifdef _XREADER_DEBUG
 		os::Printer::log("frame name", FrameName, ELL_DEBUG);
 #endif
-		ICPUSkinnedMesh::SJoint *joint=0;
+        asset::ICPUSkinnedMesh::SJoint *joint=0;
 
 		uint32_t n;
 		for (n=0; n < _ctx.AnimatedMesh->getAllJoints().size(); ++n)
@@ -2047,7 +2048,7 @@ bool CXMeshFileLoader::parseDataObjectAnimation(SContext& _ctx)
 }
 
 
-bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, ICPUSkinnedMesh::SJoint *joint)
+bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *joint)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: reading animation key", ELL_DEBUG);
@@ -2113,7 +2114,7 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, ICPUSkinnedMe
 
 				}
 
-				ICPUSkinnedMesh::SRotationKey *key=joint->addRotationKey();
+                asset::ICPUSkinnedMesh::SRotationKey *key=joint->addRotationKey();
 				key->frame=time;
 				key->rotation.set(quatern);
 			}
@@ -2142,13 +2143,13 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, ICPUSkinnedMe
 
 				if (keyType==2)
 				{
-					ICPUSkinnedMesh::SPositionKey *key=joint->addPositionKey();
+                    asset::ICPUSkinnedMesh::SPositionKey *key=joint->addPositionKey();
 					key->frame=time;
 					key->position=vector;
 				}
 				else
 				{
-					ICPUSkinnedMesh::SScaleKey *key=joint->addScaleKey();
+                    asset::ICPUSkinnedMesh::SScaleKey *key=joint->addScaleKey();
 					key->frame=time;
 					key->scale=vector;
 				}
@@ -2181,7 +2182,7 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, ICPUSkinnedMe
 
 				//core::vector3df rotation = mat.getRotationDegrees();
 
-				ICPUSkinnedMesh::SRotationKey *keyR=joint->addRotationKey();
+                asset::ICPUSkinnedMesh::SRotationKey *keyR=joint->addRotationKey();
 				keyR->frame=time;
 
 				// IRR_TEST_BROKEN_QUATERNION_USE: TODO - switched from mat to mat.getTransposed() for downward compatibility.
@@ -2201,7 +2202,7 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, ICPUSkinnedMe
                 mat4x3(2,3) = mat(3,2);
 				keyR->rotation = core::quaternion(mat4x3);
 
-				ICPUSkinnedMesh::SPositionKey *keyP=joint->addPositionKey();
+                asset::ICPUSkinnedMesh::SPositionKey *keyP=joint->addPositionKey();
 				keyP->frame=time;
 				keyP->position=mat4x3.getTranslation();
 
@@ -2214,7 +2215,7 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, ICPUSkinnedMe
 					scale.Y=1;
 				if (scale.Z==0)
 					scale.Z=1;
-				ICPUSkinnedMesh::SScaleKey *keyS=joint->addScaleKey();
+                asset::ICPUSkinnedMesh::SScaleKey *keyS=joint->addScaleKey();
 				keyS->frame=time;
 				keyS->scale=scale;
 			}

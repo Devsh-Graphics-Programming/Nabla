@@ -257,7 +257,7 @@ bool CB3DMeshFileLoader::readChunkMESH(CSkinnedMesh::SJoint *inJoint)
 		}
 		else if ( strncmp( B3dStack.back().name, "TRIS", 4 ) == 0 )
 		{
-			scene::SSkinMeshBuffer *meshBuffer = AnimatedMesh->addMeshBuffer();
+			asset::SSkinMeshBuffer *meshBuffer = AnimatedMesh->addMeshBuffer();
 
 			if (brushID!=-1)
 			{
@@ -418,7 +418,7 @@ bool CB3DMeshFileLoader::readChunkVRTS(CSkinnedMesh::SJoint *inJoint)
 }
 
 
-bool CB3DMeshFileLoader::readChunkTRIS(scene::SSkinMeshBuffer *meshBuffer, uint32_t meshBufferID, int32_t vertices_Start)
+bool CB3DMeshFileLoader::readChunkTRIS(asset::SSkinMeshBuffer *meshBuffer, uint32_t meshBufferID, int32_t vertices_Start)
 {
 #ifdef _B3D_READER_DEBUG
 	core::stringc logStr;

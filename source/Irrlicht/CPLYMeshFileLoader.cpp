@@ -82,7 +82,7 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	}
 
 	// start with empty mesh
-    SCPUMesh* mesh = nullptr;
+    asset::SCPUMesh* mesh = nullptr;
 	uint32_t vertCount=0;
 
 	// Currently only supports ASCII meshes
@@ -235,7 +235,7 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		if (continueReading)
 		{
 			// create a mesh buffer
-            ICPUMeshBuffer *mb = new ICPUMeshBuffer();
+            asset::ICPUMeshBuffer *mb = new asset::ICPUMeshBuffer();
             auto desc = new ICPUMeshDataFormatDesc();
             mb->setMeshDataAndFormat(desc);
             desc->drop();
@@ -275,7 +275,7 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             }
             if (indices.size())
             {
-                core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * indices.size());
+                asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * indices.size());
                 memcpy(idxBuf->getPointer(), indices.data(), idxBuf->getSize());
                 desc->mapIndexBuffer(idxBuf);
                 idxBuf->drop();
@@ -290,7 +290,7 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
                 //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
             }
 
-            mesh = new SCPUMesh();
+            mesh = new asset::SCPUMesh();
 
 			mb->recalculateBoundingBox();
 			//if (!hasNormals)
@@ -554,7 +554,7 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 		_ctx.StartPointer = +_ctx.EndPointer;
 }
 
-bool CPLYMeshFileLoader::genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
 {
     {
     size_t check = _attribs[0].size();
@@ -566,7 +566,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const c
             check = _attribs[i].size();
     }
     }
-    auto putAttr = [&_attribs](ICPUMeshBuffer* _buf, size_t _attr, E_VERTEX_ATTRIBUTE_ID _vaid)
+    auto putAttr = [&_attribs](asset::ICPUMeshBuffer* _buf, size_t _attr, E_VERTEX_ATTRIBUTE_ID _vaid)
     {
         size_t i = 0u;
         for (const core::vectorSIMDf& v : _attribs[_attr])
@@ -585,7 +585,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const c
 
     const size_t stride = std::accumulate(sizes, sizes+4, static_cast<size_t>(0));
 
-    core::ICPUBuffer* buf = new core::ICPUBuffer(_attribs[E_POS].size() * stride);
+    asset::ICPUBuffer* buf = new asset::ICPUBuffer(_attribs[E_POS].size() * stride);
 
     auto desc = _mbuf->getMeshDataAndFormat();
     if (sizes[E_POS])

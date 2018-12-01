@@ -9,11 +9,14 @@
 #include "IFileSystem.h"
 #include "IVideoDriver.h"
 #include "SMesh.h"
+#include "irr/asset/SCPUMesh.h"
 #include "CSkinnedMesh.h"
+#include "irr/asset/CCPUSkinnedMesh.h"
 #include "CBlobsLoadingManager.h"
 #include "ICPUTexture.h"
 #include "IrrlichtDevice.h"
-#include "IAssetManager.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/SSkinMeshBuffer.h"
 
 namespace irr { namespace core
 {
@@ -32,7 +35,7 @@ void* TypedBlob<RawBufferBlobV0, ICPUBuffer>::instantiateEmpty(const void* _blob
 		return NULL;
 
 	RawBufferBlobV0* blob = (RawBufferBlobV0*)_blob;
-	core::ICPUBuffer* buf = new core::ICPUBuffer(_blobSize);
+	asset::ICPUBuffer* buf = new asset::ICPUBuffer(_blobSize);
 	memcpy(buf->getPointer(), blob->getData(), _blobSize);
 
 	return buf;
@@ -48,7 +51,7 @@ template<>
 void TypedBlob<RawBufferBlobV0, ICPUBuffer>::releaseObj(const void* _obj)
 {
 	if (_obj)
-		reinterpret_cast<const ICPUBuffer*>(_obj)->drop();
+		reinterpret_cast<const asset::ICPUBuffer*>(_obj)->drop();
 }
 
 template<>
@@ -96,7 +99,7 @@ void TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::releaseObj(const void* _o
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<MeshBlobV0, scene::ICPUMesh>::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<MeshBlobV0, asset::ICPUMesh>::getNeededDeps(const void* _blob)
 {
 	MeshBlobV0* blob = (MeshBlobV0*)_blob;
 	core::unordered_set<uint64_t> deps;
@@ -107,40 +110,40 @@ core::unordered_set<uint64_t> TypedBlob<MeshBlobV0, scene::ICPUMesh>::getNeededD
 }
 
 template<>
-void* TypedBlob<MeshBlobV0, scene::ICPUMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
 
 	const MeshBlobV0* blob = (const MeshBlobV0*)_blob;
-	scene::SCPUMesh* mesh = new scene::SCPUMesh();
+	asset::SCPUMesh* mesh = new asset::SCPUMesh();
 	mesh->setBoundingBox(blob->box);
 
 	return mesh;
 }
 
 template<>
-void* TypedBlob<MeshBlobV0, scene::ICPUMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
 
 	const MeshBlobV0* blob = reinterpret_cast<const MeshBlobV0*>(_blob);
-	scene::SCPUMesh* mesh = (scene::SCPUMesh*)_obj;
+	asset::SCPUMesh* mesh = (asset::SCPUMesh*)_obj;
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
-		mesh->addMeshBuffer(reinterpret_cast<scene::ICPUMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
+		mesh->addMeshBuffer(reinterpret_cast<asset::ICPUMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
 	return _obj;
 }
 
 template<>
-void TypedBlob<MeshBlobV0, scene::ICPUMesh>::releaseObj(const void* _obj)
+void TypedBlob<MeshBlobV0, asset::ICPUMesh>::releaseObj(const void* _obj)
 {
 	if (_obj)
-		reinterpret_cast<const scene::ICPUMesh*>(_obj)->drop();
+		reinterpret_cast<const asset::ICPUMesh*>(_obj)->drop();
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::getNeededDeps(const void* _blob)
 {
 	SkinnedMeshBlobV0* blob = (SkinnedMeshBlobV0*)_blob;
 	core::unordered_set<uint64_t> deps;
@@ -152,42 +155,42 @@ core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMes
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
 
 	const SkinnedMeshBlobV0* blob = (const SkinnedMeshBlobV0*)_blob;
-	scene::CCPUSkinnedMesh* mesh = new scene::CCPUSkinnedMesh();
+	asset::CCPUSkinnedMesh* mesh = new asset::CCPUSkinnedMesh();
 	mesh->setBoundingBox(blob->box);
 
 	return mesh;
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
 
 	const SkinnedMeshBlobV0* blob = (const SkinnedMeshBlobV0*)_blob;
-	scene::CCPUSkinnedMesh* mesh = reinterpret_cast<scene::CCPUSkinnedMesh*>(_obj);
+	asset::CCPUSkinnedMesh* mesh = reinterpret_cast<asset::CCPUSkinnedMesh*>(_obj);
 	mesh->setBoneReferenceHierarchy(reinterpret_cast<scene::CFinalBoneHierarchy*>(_deps[blob->boneHierarchyPtr]));
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
-		mesh->addMeshBuffer(reinterpret_cast<scene::SCPUSkinMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
+		mesh->addMeshBuffer(reinterpret_cast<asset::SCPUSkinMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
 
 	return _obj;
 }
 
 template<>
-void TypedBlob<SkinnedMeshBlobV0, scene::ICPUSkinnedMesh>::releaseObj(const void* _obj)
+void TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::releaseObj(const void* _obj)
 {
 	if (_obj)
-		reinterpret_cast<const scene::ICPUSkinnedMesh*>(_obj)->drop();
+		reinterpret_cast<const asset::ICPUSkinnedMesh*>(_obj)->drop();
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::getNeededDeps(const void* _blob)
 {
 	MeshBufferBlobV0* blob = (MeshBufferBlobV0*)_blob;
 	core::unordered_set<uint64_t> deps;
@@ -202,13 +205,13 @@ core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>
 }
 
 template<>
-void* TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
 
 	const MeshBufferBlobV0* blob = (const MeshBufferBlobV0*)_blob;
-	scene::ICPUMeshBuffer* buf = new scene::ICPUMeshBuffer();
+	asset::ICPUMeshBuffer* buf = new asset::ICPUMeshBuffer();
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SGPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
@@ -228,14 +231,14 @@ void* TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::instantiateEmpty(const
 }
 
 template<>
-void* TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
 
 	const MeshBufferBlobV0* blob = (const MeshBufferBlobV0*)_blob;
-	scene::ICPUMeshBuffer* buf = reinterpret_cast<scene::ICPUMeshBuffer*>(_obj);
-	buf->setMeshDataAndFormat(reinterpret_cast<scene::IMeshDataFormatDesc<core::ICPUBuffer>*>(_deps[blob->descPtr]));
+	asset::ICPUMeshBuffer* buf = reinterpret_cast<asset::ICPUMeshBuffer*>(_obj);
+	buf->setMeshDataAndFormat(reinterpret_cast<scene::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_deps[blob->descPtr]));
 	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
@@ -246,26 +249,26 @@ void* TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::finalize(void* _obj, c
 }
 
 template<>
-void TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::releaseObj(const void* _obj)
+void TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::releaseObj(const void* _obj)
 {
 	if (_obj)
-		reinterpret_cast<const scene::ICPUMeshBuffer*>(_obj)->drop();
+		reinterpret_cast<const asset::ICPUMeshBuffer*>(_obj)->drop();
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::getNeededDeps(const void* _blob)
 {
-	return TypedBlob<MeshBufferBlobV0, scene::ICPUMeshBuffer>::getNeededDeps(_blob);
+	return TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::getNeededDeps(_blob);
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
 
 	const SkinnedMeshBufferBlobV0* blob = (const SkinnedMeshBufferBlobV0*)_blob;
-	scene::SCPUSkinMeshBuffer* buf = new scene::SCPUSkinMeshBuffer();
+	asset::SCPUSkinMeshBuffer* buf = new asset::SCPUSkinMeshBuffer();
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SGPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
@@ -287,14 +290,14 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::instantiate
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
 
 	const SkinnedMeshBufferBlobV0* blob = (const SkinnedMeshBufferBlobV0*)_blob;
-	scene::SCPUSkinMeshBuffer* buf = reinterpret_cast<scene::SCPUSkinMeshBuffer*>(_obj);
-	buf->setMeshDataAndFormat(reinterpret_cast<scene::IMeshDataFormatDesc<core::ICPUBuffer>*>(_deps[blob->descPtr]));
+	asset::SCPUSkinMeshBuffer* buf = reinterpret_cast<asset::SCPUSkinMeshBuffer*>(_obj);
+	buf->setMeshDataAndFormat(reinterpret_cast<scene::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_deps[blob->descPtr]));
 	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
@@ -307,14 +310,14 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::finalize(vo
 }
 
 template<>
-void TypedBlob<SkinnedMeshBufferBlobV0, scene::SCPUSkinMeshBuffer>::releaseObj(const void* _obj)
+void TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::releaseObj(const void* _obj)
 {
 	if (_obj)
-		reinterpret_cast<const scene::SCPUSkinMeshBuffer*>(_obj)->drop();
+		reinterpret_cast<const asset::SCPUSkinMeshBuffer*>(_obj)->drop();
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::getNeededDeps(const void* _blob)
 {
 	MeshDataFormatDescBlobV0* blob = (MeshDataFormatDescBlobV0*)_blob;
 	core::unordered_set<uint64_t> deps;
@@ -327,13 +330,13 @@ core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDa
 }
 
 template<>
-void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	return new scene::ICPUMeshDataFormatDesc();
 }
 
 template<>
-void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	using namespace scene;
 
@@ -341,12 +344,12 @@ void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUB
 		return NULL;
 
 	const MeshDataFormatDescBlobV0* blob = (const MeshDataFormatDescBlobV0*)_blob;
-	scene::IMeshDataFormatDesc<core::ICPUBuffer>* desc = reinterpret_cast<scene::ICPUMeshDataFormatDesc*>(_obj);
+	scene::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = reinterpret_cast<scene::ICPUMeshDataFormatDesc*>(_obj);
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
 	{
 		if (blob->attrBufPtrs[(int)i])
 			desc->mapVertexAttrBuffer(
-				reinterpret_cast<ICPUBuffer*>(_deps[blob->attrBufPtrs[(int)i]]),
+				reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->attrBufPtrs[(int)i]]),
 				i,
 				(scene::E_COMPONENTS_PER_ATTRIBUTE)blob->cpa[(int)i],
 				(scene::E_COMPONENT_TYPE)blob->attrType[(int)i],
@@ -356,15 +359,15 @@ void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUB
 			);
 	}
 	if (blob->idxBufPtr)
-		desc->mapIndexBuffer(reinterpret_cast<ICPUBuffer*>(_deps[blob->idxBufPtr]));
+		desc->mapIndexBuffer(reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->idxBufPtr]));
 	return _obj;
 }
 
 template<>
-void TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<core::ICPUBuffer> >::releaseObj(const void* _obj)
+void TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::releaseObj(const void* _obj)
 {
 	if (_obj)
-		reinterpret_cast<const scene::IMeshDataFormatDesc<core::ICPUBuffer>*>(_obj)->drop();
+		reinterpret_cast<const scene::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_obj)->drop();
 }
 
 template<>

@@ -4,8 +4,10 @@
 
 #include "IrrCompileConfig.h"
 
-#include "CSkinnedMesh.h"
+#include "irr/asset/CCPUSkinnedMesh.h"
 #include "IAnimatedMeshSceneNode.h"
+#include "CFinalBoneHierarchy.h"
+#include "irr/asset/SSkinMeshBuffer.h"
 #include "os.h"
 #include <sstream>
 #include <algorithm>
@@ -13,7 +15,7 @@
 
 namespace irr
 {
-namespace scene
+namespace asset
 {
 
 
@@ -50,9 +52,9 @@ void CCPUSkinnedMesh::clearMeshBuffers()
 	LocalBuffers.clear();
 }
 
-void CCPUSkinnedMesh::setBoneReferenceHierarchy(CFinalBoneHierarchy* fbh)
+void CCPUSkinnedMesh::setBoneReferenceHierarchy(scene::CFinalBoneHierarchy* fbh)
 {
-	CFinalBoneHierarchy* referenceHierarchyOld = referenceHierarchy;
+	scene::CFinalBoneHierarchy* referenceHierarchyOld = referenceHierarchy;
 
 	if (fbh)
 		fbh->grab();
@@ -103,7 +105,7 @@ void CCPUSkinnedMesh::setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue
 
 
 
-core::vector<scene::SCPUSkinMeshBuffer*> &CCPUSkinnedMesh::getMeshBuffers()
+core::vector<asset::SCPUSkinMeshBuffer*> &CCPUSkinnedMesh::getMeshBuffers()
 {
 	return LocalBuffers;
 }
@@ -146,7 +148,7 @@ void CCPUSkinnedMesh::checkForAnimation()
 		    if (!buff)
                 continue;
 
-			scene::IMeshDataFormatDesc<core::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
+			scene::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
 			if (!desc)
                 continue;
 
@@ -215,7 +217,7 @@ void CCPUSkinnedMesh::finalize()
 	bool firstStaticMesh = true;
 	for (auto buff : LocalBuffers)
 	{
-	    IMeshDataFormatDesc<core::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
+	    scene::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
 
         if (!desc->getMappedBuffer(scene::EVAI_ATTR5) || !desc->getMappedBuffer(scene::EVAI_ATTR6))
         {
@@ -331,7 +333,7 @@ void CCPUSkinnedMesh::finalize()
         // fix the weights
         for (auto buff : LocalBuffers)
         {
-            IMeshDataFormatDesc<core::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
+            scene::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
             if (!desc)
                 continue;
 
@@ -440,14 +442,14 @@ void CCPUSkinnedMesh::finalize()
             }
         }
 
-        referenceHierarchy = new CFinalBoneHierarchy(AllJoints,JointIxLevelEnd);
+        referenceHierarchy = new scene::CFinalBoneHierarchy(AllJoints,JointIxLevelEnd);
     }
 }
 
 
-scene::SCPUSkinMeshBuffer *CCPUSkinnedMesh::addMeshBuffer()
+asset::SCPUSkinMeshBuffer *CCPUSkinnedMesh::addMeshBuffer()
 {
-	scene::SCPUSkinMeshBuffer *buffer=new scene::SCPUSkinMeshBuffer();
+	SCPUSkinMeshBuffer *buffer = new SCPUSkinMeshBuffer();
 	LocalBuffers.push_back(buffer);
 	return buffer;
 }

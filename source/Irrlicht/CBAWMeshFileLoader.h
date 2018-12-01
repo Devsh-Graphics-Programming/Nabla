@@ -7,10 +7,10 @@
 #define __C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 
 
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 #include "ISceneManager.h"
 #include "IFileSystem.h"
-#include "IMesh.h"
+#include "irr/asset/ICPUMesh.h"
 #include "CBAWFile.h"
 #include "CBlobsLoadingManager.h"
 #include "SSkinMeshBuffer.h"
@@ -134,16 +134,16 @@ private:
         case core::Blob::EBT_MESH:
         case core::Blob::EBT_SKINNED_MESH:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_MESH);
-            return static_cast<ICPUMesh*>(_assetAddr);
+            return static_cast<asset::ICPUMesh*>(_assetAddr);
         case core::Blob::EBT_MESH_BUFFER:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
-            return static_cast<ICPUMeshBuffer*>(_assetAddr);
+            return static_cast<asset::ICPUMeshBuffer*>(_assetAddr);
         case core::Blob::EBT_SKINNED_MESH_BUFFER:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
-            return static_cast<SCPUSkinMeshBuffer*>(_assetAddr);
+            return static_cast<asset::SCPUSkinMeshBuffer*>(_assetAddr);
         case core::Blob::EBT_RAW_DATA_BUFFER:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_BUFFER);
-            return static_cast<core::ICPUBuffer*>(_assetAddr);
+            return static_cast<asset::ICPUBuffer*>(_assetAddr);
         case core::Blob::EBT_TEXTURE_PATH:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_IMAGE);
             return static_cast<asset::ICPUTexture*>(_assetAddr);
@@ -158,16 +158,16 @@ private:
         {
         case core::Blob::EBT_MESH:
         case core::Blob::EBT_SKINNED_MESH:
-            asset = reinterpret_cast<ICPUMesh*>(_asset);
+            asset = reinterpret_cast<asset::ICPUMesh*>(_asset);
             break;
         case core::Blob::EBT_MESH_BUFFER:
-            asset = reinterpret_cast<ICPUMeshBuffer*>(_asset);
+            asset = reinterpret_cast<asset::ICPUMeshBuffer*>(_asset);
             break;
         case core::Blob::EBT_SKINNED_MESH_BUFFER:
-            asset = reinterpret_cast<SCPUSkinMeshBuffer*>(_asset);
+            asset = reinterpret_cast<asset::SCPUSkinMeshBuffer*>(_asset);
             break;
         case core::Blob::EBT_RAW_DATA_BUFFER:
-            asset = reinterpret_cast<core::ICPUBuffer*>(_asset);
+            asset = reinterpret_cast<asset::ICPUBuffer*>(_asset);
             break;
         case core::Blob::EBT_TEXTURE_PATH:
             asset = reinterpret_cast<asset::ICPUTexture*>(_asset);

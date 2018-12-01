@@ -9,7 +9,7 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "IImage.h"
-#include "IAsset.h"
+#include "irr/asset/IAsset.h"
 
 namespace irr
 {

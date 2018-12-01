@@ -9,7 +9,7 @@
 
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 
 #include <stdio.h> // required for jpeglib.h
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_

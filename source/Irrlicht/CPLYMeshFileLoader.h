@@ -6,7 +6,7 @@
 #define __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
 #include "ISceneManager.h"
-#include "IAssetLoader.h"
+#include "irr/asset/IAssetLoader.h"
 
 namespace irr
 {
@@ -166,7 +166,7 @@ private:
 	uint32_t getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
 	void moveForward(SContext& _ctx, uint32_t bytes);
 
-    bool genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const;
+    bool genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const;
 
     scene::ISceneManager* SceneManager;
 };

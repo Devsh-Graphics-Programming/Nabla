@@ -3,14 +3,14 @@
 #define __IRR_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
 
 #include "irr/core/Types.h"
-#include "IAssetManager.h"
+#include "irr/asset/IAssetManager.h"
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
 #include "SMesh.h"
-#include "../source/Irrlicht/CSkinnedMesh.h"
-#include "SSkinMeshBuffer.h"
-#include "../source/Irrlicht/CLogger.h"
-#include "asset_traits.h"
+#include "CSkinnedMesh.h"
+#include "irr/asset/SSkinMeshBuffer.h"
+#include "CLogger.h"
+#include "irr/video/asset_traits.h"
 
 namespace irr 
 {
@@ -28,9 +28,9 @@ public:
 
     virtual ~IGPUObjectFromAssetConverter() = default;
 
-    inline virtual core::vector<typename video::asset_traits<core::ICPUBuffer>::GPUObjectType*> create(core::ICPUBuffer** const _begin, core::ICPUBuffer** const _end);
-    inline virtual core::vector<typename video::asset_traits<scene::ICPUMeshBuffer>::GPUObjectType*> create(scene::ICPUMeshBuffer** const _begin, scene::ICPUMeshBuffer** const _end);
-    inline virtual core::vector<typename video::asset_traits<scene::ICPUMesh>::GPUObjectType*> create(scene::ICPUMesh** const _begin, scene::ICPUMesh** const _end);
+    inline virtual core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end);
+    inline virtual core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*> create(asset::ICPUMeshBuffer** const _begin, asset::ICPUMeshBuffer** const _end);
+    inline virtual core::vector<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType*> create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end);
     inline virtual core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end);
 
     template<typename AssetType>
@@ -86,11 +86,11 @@ protected:
     }
 };
 
-auto IGPUObjectFromAssetConverter::create(core::ICPUBuffer** const _begin, core::ICPUBuffer** const _end) -> core::vector<typename video::asset_traits<core::ICPUBuffer>::GPUObjectType*>
+auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*>
 {
-    core::vector<typename video::asset_traits<core::ICPUBuffer>::GPUObjectType*> res;
+    core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> res;
 
-    core::ICPUBuffer** it = _begin;
+    asset::ICPUBuffer** it = _begin;
     while (it != _end)
     {
         IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -112,7 +112,7 @@ auto IGPUObjectFromAssetConverter::create(core::ICPUBuffer** const _begin, core:
 
     return res;
 }
-auto IGPUObjectFromAssetConverter::create(scene::ICPUMeshBuffer** _begin, scene::ICPUMeshBuffer** _end) -> core::vector<typename video::asset_traits<scene::ICPUMeshBuffer>::GPUObjectType*>
+auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset::ICPUMeshBuffer** _end) -> core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*>
 {
     struct VaoConfig
     {
@@ -121,23 +121,23 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMeshBuffer** _begin, scene:
             std::fill(oldbuffer, oldbuffer + scene::EVAI_COUNT, nullptr);
         }
 
-        const core::ICPUBuffer* oldbuffer[scene::EVAI_COUNT];
+        const asset::ICPUBuffer* oldbuffer[scene::EVAI_COUNT];
         scene::E_COMPONENTS_PER_ATTRIBUTE components[scene::EVAI_COUNT];
         scene::E_COMPONENT_TYPE componentTypes[scene::EVAI_COUNT];
         size_t strides[scene::EVAI_COUNT];
         size_t offsets[scene::EVAI_COUNT];
         uint32_t divisors[scene::EVAI_COUNT];
-        const core::ICPUBuffer* idxbuf;
+        const asset::ICPUBuffer* idxbuf;
         bool noAttributes;
         bool success;
     };
 
-    core::vector<core::ICPUBuffer*> cpuBufDeps;
+    core::vector<asset::ICPUBuffer*> cpuBufDeps;
     core::vector<VaoConfig> vaoConfigs;
-    core::vector<typename video::asset_traits<scene::ICPUMeshBuffer>::GPUObjectType*> res;
+    core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*> res;
     core::vector<SCPUMaterial> cpumaterials;
 
-    scene::ICPUMeshBuffer** it = _begin;
+    asset::ICPUMeshBuffer** it = _begin;
     while (it != _end)
     {
         cpumaterials.push_back((*it)->getMaterial());
@@ -154,7 +154,7 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMeshBuffer** _begin, scene:
             vaoConf.oldbuffer[attrId] = origdesc->getMappedBuffer(attrId);
             if (vaoConf.oldbuffer[attrId])
             {
-                cpuBufDeps.push_back(const_cast<core::ICPUBuffer*>(vaoConf.oldbuffer[attrId]));
+                cpuBufDeps.push_back(const_cast<asset::ICPUBuffer*>(vaoConf.oldbuffer[attrId]));
                 vaoConf.noAttributes = false;
             }
 
@@ -172,7 +172,7 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMeshBuffer** _begin, scene:
         }
         vaoConf.idxbuf = origdesc->getIndexBuffer();
         if (vaoConf.idxbuf)
-            cpuBufDeps.push_back(const_cast<core::ICPUBuffer*>(vaoConf.idxbuf));
+            cpuBufDeps.push_back(const_cast<asset::ICPUBuffer*>(vaoConf.idxbuf));
         vaoConfigs.push_back(vaoConf);
 
         scene::IGPUMeshBuffer* gpuMeshBuf = new scene::IGPUMeshBuffer();
@@ -204,7 +204,7 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMeshBuffer** _begin, scene:
 
     const core::vector<size_t> bufRedir = eliminateDuplicatesAndGenRedirs(cpuBufDeps);
     const core::vector<size_t> texRedir = eliminateDuplicatesAndGenRedirs(cpuTexDeps);
-    core::vector<typename video::asset_traits<core::ICPUBuffer>::GPUObjectType*> gpuBufDeps = getGPUObjectsFromAssets(cpuBufDeps.data(), cpuBufDeps.data() + cpuBufDeps.size());
+    core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> gpuBufDeps = getGPUObjectsFromAssets(cpuBufDeps.data(), cpuBufDeps.data() + cpuBufDeps.size());
     core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> gpuTexDeps = getGPUObjectsFromAssets(cpuTexDeps.data(), cpuTexDeps.data() + cpuTexDeps.size());
     size_t j = 0u; // buffer deps iterator
     size_t t = 0u; // texture deps iterator
@@ -257,12 +257,12 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMeshBuffer** _begin, scene:
 
     return res;
 }
-auto IGPUObjectFromAssetConverter::create(scene::ICPUMesh** const _begin, scene::ICPUMesh** const _end) -> core::vector<typename video::asset_traits<scene::ICPUMesh>::GPUObjectType*>
+auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end) -> core::vector<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType*>
 {
-    core::vector<typename video::asset_traits<scene::ICPUMesh>::GPUObjectType*> res;
-    core::vector<scene::ICPUMeshBuffer*> cpuDeps;
+    core::vector<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType*> res;
+    core::vector<asset::ICPUMeshBuffer*> cpuDeps;
 
-    scene::ICPUMesh** it = _begin;
+    asset::ICPUMesh** it = _begin;
     while (it != _end)
     {
         for (uint32_t i = 0u; i < (*it)->getMeshBufferCount(); ++i)
@@ -272,7 +272,7 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMesh** const _begin, scene:
         switch ((*it)->getMeshType())
         {
         case scene::EMT_ANIMATED_SKINNED:
-            gpumesh = new scene::CGPUSkinnedMesh(static_cast<scene::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy());
+            gpumesh = new scene::CGPUSkinnedMesh(static_cast<asset::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy());
             break;
         default:
             gpumesh = new scene::SGPUMesh();
@@ -284,7 +284,7 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMesh** const _begin, scene:
     }
 
     core::vector<size_t> redir = eliminateDuplicatesAndGenRedirs(cpuDeps);
-    core::vector<typename video::asset_traits<scene::ICPUMeshBuffer>::GPUObjectType*> gpuDeps = getGPUObjectsFromAssets(cpuDeps.data(), cpuDeps.data() + cpuDeps.size());
+    core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*> gpuDeps = getGPUObjectsFromAssets(cpuDeps.data(), cpuDeps.data() + cpuDeps.size());
     for (size_t i = 0u, j = 0u; i < res.size(); ++i)
     {
         switch (res[i]->getMeshType())
@@ -292,7 +292,7 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMesh** const _begin, scene:
         case scene::EMT_ANIMATED_SKINNED:
             for (uint32_t k = 0u; k < (*(_begin + i))->getMeshBufferCount(); ++k)
             {
-                static_cast<scene::CGPUSkinnedMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]], static_cast<scene::SCPUSkinMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
+                static_cast<scene::CGPUSkinnedMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]], static_cast<asset::SCPUSkinMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
                 ++j;
             }
             break;
@@ -309,7 +309,6 @@ auto IGPUObjectFromAssetConverter::create(scene::ICPUMesh** const _begin, scene:
     return res;
 }
 
-// This is properly implemented in CNullDriver's converter (see CNullDriver.cpp) and COpenGLDriver also has its own converter overriding this method (see COpenGLDriver.cpp)
 auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::ICPUTexture**_end) -> core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*>
 {
     core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
@@ -326,7 +325,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::IC
         }
 
         if (cpuTex->getHighestMip()==0 && t->hasMipMaps())
-            t->regenerateMipMapLevels();
+            t->regenerateMipMapLevels(); // todo : Compute Shader mip-mapper necessary after vulkan
 
         res.push_back(t);
 
