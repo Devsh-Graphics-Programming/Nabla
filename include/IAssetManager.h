@@ -341,6 +341,10 @@ namespace asset
         /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear scale and has different meanings and results with different asset types and writers. */
         bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
+            IAssetWriter::IAssetWriterOverride defOverride;
+            if (!_override)
+                _override = &defOverride;
+
             io::IWriteFile* file = m_fileSystem->createAndWriteFile(_filename.c_str());
             bool res = writeAsset(file, _params, _override);
             file->drop();
@@ -348,6 +352,10 @@ namespace asset
         }
         bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
+            IAssetWriter::IAssetWriterOverride defOverride;
+            if (!_override)
+                _override = &defOverride;
+
             auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), getFileExt(_file->getFileName())});
 
             for (auto it = capableWritersRng.first; it != capableWritersRng.second; ++it)
