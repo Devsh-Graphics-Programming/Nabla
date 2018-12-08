@@ -9,7 +9,7 @@
 #include "CImageLoaderBMP.h"
 #include "IWriteFile.h"
 #include "CColorConverter.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 
 namespace irr
 {
@@ -76,11 +76,11 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_A8R8G8B8toB8G8R8;
 		break;
-	case EF_A1R5G5B5:
+	case EF_A1R5G5B5_UNORM_PACK16:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_A1R5G5B5toR8G8B8;
 		break;
-	case EF_R5G6B5:
+	case EF_B5G6R5_UNORM_PACK16:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_R5G6B5toR8G8B8;
 		break;

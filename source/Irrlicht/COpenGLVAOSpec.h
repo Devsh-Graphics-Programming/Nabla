@@ -11,50 +11,6 @@ namespace irr
 {
 namespace video
 {
-    static GLint eComponentsPerAttributeToGLint[scene::ECPA_COUNT] =
-    {
-        GL_BGRA,
-        1,2,3,4
-    };
-
-    static GLenum eComponentTypeToGLenum[scene::ECT_COUNT] =
-    {
-        GL_FLOAT,
-        GL_HALF_FLOAT,
-        GL_DOUBLE,
-        GL_UNSIGNED_INT_10F_11F_11F_REV,
-        //normalized ints
-        GL_INT_2_10_10_10_REV,
-        GL_UNSIGNED_INT_2_10_10_10_REV,
-        GL_BYTE,
-        GL_UNSIGNED_BYTE,
-        GL_SHORT,
-        GL_UNSIGNED_SHORT,
-        GL_INT,
-        GL_UNSIGNED_INT,
-        //unnorm ints
-        GL_INT_2_10_10_10_REV,
-        GL_UNSIGNED_INT_2_10_10_10_REV,
-        GL_BYTE,
-        GL_UNSIGNED_BYTE,
-        GL_SHORT,
-        GL_UNSIGNED_SHORT,
-        GL_INT,
-        GL_UNSIGNED_INT,
-        //native ints
-        GL_INT_2_10_10_10_REV,
-        GL_UNSIGNED_INT_2_10_10_10_REV,
-        GL_BYTE,
-        GL_UNSIGNED_BYTE,
-        GL_SHORT,
-        GL_UNSIGNED_SHORT,
-        GL_INT,
-        GL_UNSIGNED_INT,
-        //native double
-        GL_DOUBLE
-    };
-
-
     //! Convert E_PRIMITIVE_TYPE to OpenGL equivalent
     inline GLenum primitiveTypeToGL(scene::E_PRIMITIVE_TYPE type)
     {
@@ -86,8 +42,8 @@ namespace video
             {
                 HashAttribs()
                 {
-                    static_assert(scene::ECPA_COUNT==5, "scene::ECPA_COUNT != 5"); //otherwise our hashing system falls apart
                     static_assert(scene::EVAI_COUNT==16, "scene::EVAI_COUNT != 16"); //otherwise our hashing system falls apart
+                    static_assert(EF_UNKNOWN < 256, "video::EF_UNKNOW >= 256"); //otherwise our hashing system falls apart
                     static_assert(sizeof(HashAttribs)/sizeof(uint64_t)==(scene::EVAI_COUNT+2+_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS*2+sizeof(uint64_t)-1)/sizeof(uint64_t), ""); //otherwise our hashing system falls apart
 
                     for (size_t i=0; i<getHashLength(); i++)
@@ -96,20 +52,14 @@ namespace video
 
                 constexpr static size_t getHashLength() {return sizeof(hashVal)/sizeof(uint64_t);}
 
-                inline void setAttrFmtAndCompCnt(const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const scene::E_COMPONENTS_PER_ATTRIBUTE& components, const scene::E_COMPONENT_TYPE& type)
+                inline void setAttrFmt(const scene::E_VERTEX_ATTRIBUTE_ID& attrId, E_FORMAT fmt)
                 {
-                    attribFormatAndComponentCount[attrId] = components|(type<<3);
+                    attribFormatAndComponentCount[attrId] = fmt;
                 }
 
-
-                inline scene::E_COMPONENTS_PER_ATTRIBUTE getAttribComponentCount(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                inline E_FORMAT getAttribFormat(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
                 {
-                    return static_cast<scene::E_COMPONENTS_PER_ATTRIBUTE>(attribFormatAndComponentCount[attrId]&0x7u);
-                }
-
-                inline scene::E_COMPONENT_TYPE getAttribType(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
-                {
-                    return static_cast<scene::E_COMPONENT_TYPE>(attribFormatAndComponentCount[attrId]>>3);
+                    return static_cast<E_FORMAT>(attribFormatAndComponentCount[attrId]);
                 }
 
                 inline uint32_t getAttribDivisor(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
@@ -183,7 +133,7 @@ namespace video
 
             COpenGLVAOSpec(core::LeakDebugger* dbgr=NULL);
 
-            virtual void mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, scene::E_COMPONENTS_PER_ATTRIBUTE components, scene::E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0, uint32_t divisor=0);
+            virtual void mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, E_FORMAT format, const size_t &stride=0, size_t offset=0, uint32_t divisor=0) override;
 
             inline const IGPUBuffer* const* getMappedBuffers() const
             {

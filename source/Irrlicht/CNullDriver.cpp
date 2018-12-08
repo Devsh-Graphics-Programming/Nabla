@@ -576,7 +576,7 @@ void CNullDriver::draw2DLine(const core::position2d<int32_t>& start,
 //! returns color format
 E_FORMAT CNullDriver::getColorFormat() const
 {
-	return EF_R5G6B5;
+	return EF_B5G6R5_UNORM_PACK16;
 }
 
 

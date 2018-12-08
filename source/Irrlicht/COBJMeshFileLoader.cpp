@@ -440,9 +440,9 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         }
 
         vertexbuf = new asset::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
-        desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,sizeof(SObjVertex),0);
-        desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,sizeof(SObjVertex),12);
-        desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,ECPA_FOUR,ECT_INT_2_10_10_10_REV,sizeof(SObjVertex),20); //normal
+        desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR0,video::EF_R32G32B32_SFLOAT,sizeof(SObjVertex),0);
+        desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR2,video::EF_R32G32_SFLOAT,sizeof(SObjVertex),12);
+        desc->mapVertexAttrBuffer(vertexbuf,EVAI_ATTR3,video::EF_A2B10G10R10_SSCALED_PACK32,sizeof(SObjVertex),20); //normal
         memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
 

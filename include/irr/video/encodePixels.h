@@ -27,7 +27,7 @@ namespace irr { namespace video
     encodePixels(void* _pix, const T* _input);
 	
     template<>
-    inline void encodePixels<EF_A1R5G5B5, uint64_t>(void* _pix, const uint64_t* _input)
+    inline void encodePixels<EF_A1R5G5B5_UNORM_PACK16, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         pix = _input[0] & 0x1fu;
@@ -37,7 +37,7 @@ namespace irr { namespace video
     }
 	
     template<>
-    inline void encodePixels<EF_R5G6B5, uint64_t>(void* _pix, const uint64_t* _input)
+    inline void encodePixels<EF_B5G6R5_UNORM_PACK16, uint64_t>(void* _pix, const uint64_t* _input)
     {
         uint16_t& pix = reinterpret_cast<uint16_t*>(_pix)[0];
         pix = _input[0] & 0x1fu;
@@ -2674,7 +2674,7 @@ namespace irr { namespace video
     inline bool encodePixels(E_FORMAT _fmt, void* _pix, const T* _input, uint64_t _scale);
 	
     template<>
-    bool encodePixels<double>(E_FORMAT _fmt, void* _pix, const double* _input)
+    inline bool encodePixels<double>(E_FORMAT _fmt, void* _pix, const double* _input)
     {
         switch (_fmt)
         {
@@ -2737,7 +2737,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool encodePixels<int64_t>(E_FORMAT _fmt, void* _pix, const int64_t* _input)
+    inline bool encodePixels<int64_t>(E_FORMAT _fmt, void* _pix, const int64_t* _input)
     {
         switch (_fmt)
         {
@@ -2766,7 +2766,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool encodePixels<uint64_t>(E_FORMAT _fmt, void* _pix, const uint64_t* _input)
+    inline bool encodePixels<uint64_t>(E_FORMAT _fmt, void* _pix, const uint64_t* _input)
     {
         switch (_fmt)
         {
@@ -2795,7 +2795,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool encodePixels<double>(E_FORMAT _fmt, void* _pix, const double* _input, uint64_t _scale)
+    inline bool encodePixels<double>(E_FORMAT _fmt, void* _pix, const double* _input, uint64_t _scale)
     {
         switch (_fmt)
         {

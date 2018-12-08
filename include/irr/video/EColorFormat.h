@@ -14,16 +14,9 @@ namespace video
 	/** A color format specifies how color information is stored. */
 	enum E_FORMAT
 	{
-		//! 16 bit color format used by the software driver.
-		/** It is thus preferred by all other irrlicht engine video drivers.
-		There are 5 bits for every color component, and a single bit is left
-		for alpha information. */
-		EF_A1R5G5B5 = 0, // this doesn't have equivalent in Vulkan (???)
-        EF_R5G6B5, // this also doesn't have vulkan equivalent..
-
         //! In all freaking honesty, use texture view objects to cast between same bitsize pixel formats
         // remove this?? todo
-        EF_8BIT_PIX,
+        EF_8BIT_PIX = 0,
         EF_16BIT_PIX,
         EF_24BIT_PIX,
         EF_32BIT_PIX,
@@ -236,7 +229,6 @@ namespace video
     {
         switch (_fmt)
         {
-        case EF_A1R5G5B5: return 2;
         case EF_R8G8B8_UINT: return 3;
         case EF_R8G8B8A8_UINT: return 4;
         case EF_B10G11R11_UFLOAT_PACK32: return 4;
@@ -465,7 +457,6 @@ namespace video
 
         case EF_R5G6B5_UNORM_PACK16:
         case EF_B5G6R5_UNORM_PACK16:
-        case EF_R5G6B5:
         case EF_R8G8B8_UNORM:
         case EF_R8G8B8_SNORM:
         case EF_R8G8B8_USCALED:
@@ -504,7 +495,6 @@ namespace video
         case EF_G8_B8_R8_3PLANE_444_UNORM:
             return 3u;
 
-        case EF_A1R5G5B5:
         case EF_R4G4B4A4_UNORM_PACK16:
         case EF_B4G4R4A4_UNORM_PACK16:
         case EF_R5G5B5A1_UNORM_PACK16:
@@ -594,6 +584,37 @@ namespace video
 
         default:
             return 0u;
+        }
+    }
+
+    inline bool isBGRALayoutFormat(E_FORMAT _fmt)
+    {
+        switch (_fmt)
+        {
+        //case EF_B8G8R8_UNORM:
+        //case EF_B8G8R8_SNORM:
+        //case EF_B8G8R8_USCALED:
+        //case EF_B8G8R8_SSCALED:
+        //case EF_B8G8R8_UINT:
+        //case EF_B8G8R8_SINT:
+        //case EF_B8G8R8_SRGB:
+        case EF_A1R5G5B5_UNORM_PACK16:
+        case EF_B8G8R8A8_UNORM:
+        case EF_B8G8R8A8_SNORM:
+        case EF_B8G8R8A8_USCALED:
+        case EF_B8G8R8A8_SSCALED:
+        case EF_B8G8R8A8_UINT:
+        case EF_B8G8R8A8_SINT:
+        case EF_B8G8R8A8_SRGB:
+        case EF_A2R10G10B10_UNORM_PACK32:
+        case EF_A2R10G10B10_SNORM_PACK32:
+        case EF_A2R10G10B10_USCALED_PACK32:
+        case EF_A2R10G10B10_SSCALED_PACK32:
+        case EF_A2R10G10B10_UINT_PACK32:
+        case EF_A2R10G10B10_SINT_PACK32:
+            return true;
+        default:
+            return false;
         }
     }
 
@@ -721,8 +742,6 @@ namespace video
     {
         return impl::is_any_of <
             cf,
-            EF_A1R5G5B5,
-            EF_R5G6B5,
             EF_R8_SINT,
             EF_R8_UINT,
             EF_R8G8_SINT,
@@ -805,55 +824,30 @@ namespace video
             EF_A1R5G5B5_UNORM_PACK16,
             EF_R8_UNORM,
             EF_R8_SNORM,
-            EF_R8_USCALED,
-            EF_R8_SSCALED,
             EF_R8G8_UNORM,
             EF_R8G8_SNORM,
-            EF_R8G8_USCALED,
-            EF_R8G8_SSCALED,
             EF_R8G8B8_UNORM,
             EF_R8G8B8_SNORM,
-            EF_R8G8B8_USCALED,
-            EF_R8G8B8_SSCALED,
             EF_B8G8R8_UNORM,
             EF_B8G8R8_SNORM,
-            EF_B8G8R8_USCALED,
-            EF_B8G8R8_SSCALED,
             EF_R8G8B8A8_UNORM,
             EF_R8G8B8A8_SNORM,
-            EF_R8G8B8A8_USCALED,
-            EF_R8G8B8A8_SSCALED,
             EF_B8G8R8A8_UNORM,
             EF_B8G8R8A8_SNORM,
-            EF_B8G8R8A8_USCALED,
-            EF_B8G8R8A8_SSCALED,
             EF_A8B8G8R8_UNORM_PACK32,
             EF_A8B8G8R8_SNORM_PACK32,
-            EF_A8B8G8R8_USCALED_PACK32,
-            EF_A8B8G8R8_SSCALED_PACK32,
             EF_A2R10G10B10_UNORM_PACK32,
             EF_A2R10G10B10_SNORM_PACK32,
-            EF_A2R10G10B10_USCALED_PACK32,
-            EF_A2R10G10B10_SSCALED_PACK32,
             EF_A2B10G10R10_UNORM_PACK32,
             EF_A2B10G10R10_SNORM_PACK32,
-            EF_A2B10G10R10_USCALED_PACK32,
-            EF_A2B10G10R10_SSCALED_PACK32,
             EF_R16_UNORM,
             EF_R16_SNORM,
-            EF_R16_USCALED,
-            EF_R16_SSCALED,
             EF_R16G16_UNORM,
             EF_R16G16_SNORM,
-            EF_R16G16_USCALED,
-            EF_R16G16_SSCALED,
             EF_R16G16B16_UNORM,
             EF_R16G16B16_SNORM,
-            EF_R16G16B16_USCALED,
-            EF_R16G16B16_SSCALED,
             EF_R16G16B16A16_UNORM,
             EF_R16G16B16A16_SNORM,
-            EF_R16G16B16A16_USCALED,
             EF_G8_B8_R8_3PLANE_420_UNORM,
             EF_G8_B8R8_2PLANE_420_UNORM,
             EF_G8_B8_R8_3PLANE_422_UNORM,
@@ -1233,56 +1227,30 @@ namespace video
         case EF_A1R5G5B5_UNORM_PACK16:
         case EF_R8_UNORM:
         case EF_R8_SNORM:
-        case EF_R8_USCALED:
-        case EF_R8_SSCALED:
         case EF_R8G8_UNORM:
         case EF_R8G8_SNORM:
-        case EF_R8G8_USCALED:
-        case EF_R8G8_SSCALED:
         case EF_R8G8B8_UNORM:
         case EF_R8G8B8_SNORM:
-        case EF_R8G8B8_USCALED:
-        case EF_R8G8B8_SSCALED:
         case EF_B8G8R8_UNORM:
         case EF_B8G8R8_SNORM:
-        case EF_B8G8R8_USCALED:
-        case EF_B8G8R8_SSCALED:
         case EF_R8G8B8A8_UNORM:
         case EF_R8G8B8A8_SNORM:
-        case EF_R8G8B8A8_USCALED:
-        case EF_R8G8B8A8_SSCALED:
         case EF_B8G8R8A8_UNORM:
         case EF_B8G8R8A8_SNORM:
-        case EF_B8G8R8A8_USCALED:
-        case EF_B8G8R8A8_SSCALED:
         case EF_A8B8G8R8_UNORM_PACK32:
         case EF_A8B8G8R8_SNORM_PACK32:
-        case EF_A8B8G8R8_USCALED_PACK32:
-        case EF_A8B8G8R8_SSCALED_PACK32:
         case EF_A2R10G10B10_UNORM_PACK32:
         case EF_A2R10G10B10_SNORM_PACK32:
-        case EF_A2R10G10B10_USCALED_PACK32:
-        case EF_A2R10G10B10_SSCALED_PACK32:
         case EF_A2B10G10R10_UNORM_PACK32:
         case EF_A2B10G10R10_SNORM_PACK32:
-        case EF_A2B10G10R10_USCALED_PACK32:
-        case EF_A2B10G10R10_SSCALED_PACK32:
         case EF_R16_UNORM:
         case EF_R16_SNORM:
-        case EF_R16_USCALED:
-        case EF_R16_SSCALED:
         case EF_R16G16_UNORM:
         case EF_R16G16_SNORM:
-        case EF_R16G16_USCALED:
-        case EF_R16G16_SSCALED:
         case EF_R16G16B16_UNORM:
         case EF_R16G16B16_SNORM:
-        case EF_R16G16B16_USCALED:
-        case EF_R16G16B16_SSCALED:
         case EF_R16G16B16A16_UNORM:
         case EF_R16G16B16A16_SNORM:
-        case EF_R16G16B16A16_USCALED:
-        case EF_R16G16B16A16_SSCALED:
         case EF_R8_SRGB:
         case EF_R8G8_SRGB:
         case EF_R8G8B8_SRGB:

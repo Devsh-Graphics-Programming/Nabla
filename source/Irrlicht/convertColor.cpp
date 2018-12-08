@@ -10,8 +10,6 @@ namespace impl
     {
         switch (_dfmt)
         {
-        case EF_A1R5G5B5: return convertColor<sF, EF_A1R5G5B5>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
-        case EF_R5G6B5: return convertColor<sF, EF_R5G6B5>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
         case EF_R4G4_UNORM_PACK8: return convertColor<sF, EF_R4G4_UNORM_PACK8>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
         case EF_R4G4B4A4_UNORM_PACK16: return convertColor<sF, EF_R4G4B4A4_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
         case EF_B4G4R4A4_UNORM_PACK16: return convertColor<sF, EF_B4G4R4A4_UNORM_PACK16>(_srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
@@ -156,8 +154,6 @@ void convertColor(E_FORMAT _sfmt, E_FORMAT _dfmt, const void* _srcPix[4], void* 
 {
     switch (_sfmt)
     {
-    case EF_A1R5G5B5: return impl::convertColor_RTimpl<EF_A1R5G5B5>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
-    case EF_R5G6B5: return impl::convertColor_RTimpl<EF_R5G6B5>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
     case EF_R4G4_UNORM_PACK8: return impl::convertColor_RTimpl<EF_R4G4_UNORM_PACK8>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
     case EF_R4G4B4A4_UNORM_PACK16: return impl::convertColor_RTimpl<EF_R4G4B4A4_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);
     case EF_B4G4R4A4_UNORM_PACK16: return impl::convertColor_RTimpl<EF_B4G4R4A4_UNORM_PACK16>(_dfmt, _srcPix, _dstPix, _scale, _pixOrBlockCnt, _imgSize);

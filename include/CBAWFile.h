@@ -9,7 +9,7 @@
 
 #include "aabbox3d.h"
 #include "SMaterial.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 #include "irr/asset/ICPUBuffer.h"
 
 struct ISzAlloc;

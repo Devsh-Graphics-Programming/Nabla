@@ -13,7 +13,7 @@
 #include "CSkinnedMesh.h"
 #include "irr/asset/CCPUSkinnedMesh.h"
 #include "CBlobsLoadingManager.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 #include "IrrlichtDevice.h"
 #include "irr/asset/IAssetManager.h"
 #include "irr/asset/SSkinMeshBuffer.h"
@@ -349,13 +349,12 @@ void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPU
 	{
 		if (blob->attrBufPtrs[(int)i])
 			desc->mapVertexAttrBuffer(
-				reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->attrBufPtrs[(int)i]]),
+				reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->attrBufPtrs[i]]),
 				i,
-				(scene::E_COMPONENTS_PER_ATTRIBUTE)blob->cpa[(int)i],
-				(scene::E_COMPONENT_TYPE)blob->attrType[(int)i],
-				blob->attrStride[(int)i],
-				blob->attrOffset[(int)i],
-				blob->attrDivisor[(int)i]
+				static_cast<video::E_FORMAT>(blob->attrType[i]),
+				blob->attrStride[i],
+				blob->attrOffset[i],
+				blob->attrDivisor[i]
 			);
 	}
 	if (blob->idxBufPtr)

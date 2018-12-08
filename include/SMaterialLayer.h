@@ -6,7 +6,7 @@
 #define __S_MATERIAL_LAYER_H_INCLUDED__
 
 #include "STextureSamplingParams.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 
 namespace irr
 {

@@ -137,7 +137,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         if (floatComponents>EVAI_COUNT*4)
         {
             for (uint32_t i=0; i<EVAI_COUNT; i++)
-                vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)i,ECPA_FOUR,ECT_FLOAT,dataPerInstanceInputSize,i*16);
+                vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)i,video::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,i*16);
         }
         else
         {
@@ -145,14 +145,25 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             uint32_t attr = 0;
             for (; attr*4+3<floatComponents; attr++)
             {
-                vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)attr,ECPA_FOUR,ECT_FLOAT,dataPerInstanceInputSize,attr*16);
+                vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)attr,video::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16);
                 memoryUsed+=16;
             }
             memoryUsed -= (12+9)*4;
 
             size_t leftOverMemory = extraDataInstanceSize+1-memoryUsed;
+
+            auto convertFunc = [](size_t x) { // rename this? What's this for actually?
+                switch (x)
+                {
+                case 1ull: return video::EF_R32_UINT;
+                case 2ull: return video::EF_R32G32_UINT;
+                case 3ull: return video::EF_R32G32B32_UINT;
+                default: return video::EF_R32G32B32A32_UINT;
+                }
+            };
+
             //assume a padding of 4 at the end
-            vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)attr,(E_COMPONENTS_PER_ATTRIBUTE)((leftOverMemory+3)/4),ECT_INTEGER_UNSIGNED_INT,dataPerInstanceInputSize,attr*16);
+            vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)attr,convertFunc(((leftOverMemory+3)/4)),dataPerInstanceInputSize,attr*16);
         }
     }
 

@@ -7,7 +7,7 @@
 
 #include "IFileSystem.h"
 #include "IWriteFile.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 #include "irr/core/Types.h"
 #include "irr/macros.h"
 #include "irr/asset/ICPUSkinnedMesh.h"

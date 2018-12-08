@@ -589,13 +589,13 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
     auto desc = _mbuf->getMeshDataAndFormat();
     if (sizes[E_POS])
-        desc->mapVertexAttrBuffer(buf, EVAI_ATTR0, ECPA_THREE, ECT_FLOAT, stride, offsets[E_POS]);
+        desc->mapVertexAttrBuffer(buf, EVAI_ATTR0, video::EF_R32G32B32_SFLOAT, stride, offsets[E_POS]);
     if (sizes[E_COL])
-        desc->mapVertexAttrBuffer(buf, EVAI_ATTR1, ECPA_FOUR, ECT_FLOAT, stride, offsets[E_COL]);
+        desc->mapVertexAttrBuffer(buf, EVAI_ATTR1, video::EF_R32G32B32A32_SFLOAT, stride, offsets[E_COL]);
     if (sizes[E_UV])
-        desc->mapVertexAttrBuffer(buf, EVAI_ATTR2, ECPA_TWO, ECT_FLOAT, stride, offsets[E_UV]);
+        desc->mapVertexAttrBuffer(buf, EVAI_ATTR2, video::EF_R32G32_SFLOAT, stride, offsets[E_UV]);
     if (sizes[E_NORM])
-        desc->mapVertexAttrBuffer(buf, EVAI_ATTR3, ECPA_THREE, ECT_FLOAT, stride, offsets[E_NORM]);
+        desc->mapVertexAttrBuffer(buf, EVAI_ATTR3, video::EF_R32G32B32_SFLOAT, stride, offsets[E_NORM]);
     buf->drop();
 
     E_VERTEX_ATTRIBUTE_ID vaids[4];

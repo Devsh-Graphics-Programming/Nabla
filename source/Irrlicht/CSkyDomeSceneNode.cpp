@@ -169,8 +169,8 @@ void CSkyDomeSceneNode::generateMesh()
     video::IGPUBuffer* vAttr = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
     vAttr->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),vertices);
     _IRR_ALIGNED_FREE(vertices);
-    vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,4*(3+2),0);
-    vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,4*(3+2),4*3);
+    vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR0,video::EF_R32G32B32_SFLOAT,4*(3+2),0);
+    vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR2,video::EF_R32G32_SFLOAT,4*(3+2),4*3);
     vAttr->drop();
 
     vao->drop();

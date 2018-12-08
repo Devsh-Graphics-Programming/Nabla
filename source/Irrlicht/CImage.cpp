@@ -99,9 +99,9 @@ uint32_t CImage::getRedMask() const
 {
 	switch(Format)
 	{
-	case EF_A1R5G5B5:
+	case EF_A1R5G5B5_UNORM_PACK16:
 		return 0x1F<<10;
-	case EF_R5G6B5:
+	case EF_B5G6R5_UNORM_PACK16:
 		return 0x1F<<11;
 	case EF_R8G8B8_UNORM:
 		return 0x00FF0000;
@@ -120,9 +120,9 @@ uint32_t CImage::getGreenMask() const
 {
 	switch(Format)
 	{
-	case EF_A1R5G5B5:
+	case EF_A1R5G5B5_UNORM_PACK16:
 		return 0x1F<<5;
-	case EF_R5G6B5:
+	case EF_B5G6R5_UNORM_PACK16:
 		return 0x3F<<5;
 	case EF_R8G8B8_UNORM:
 		return 0x0000FF00;
@@ -141,9 +141,9 @@ uint32_t CImage::getBlueMask() const
 {
 	switch(Format)
 	{
-	case EF_A1R5G5B5:
+	case EF_A1R5G5B5_UNORM_PACK16:
 		return 0x1F;
-	case EF_R5G6B5:
+	case EF_B5G6R5_UNORM_PACK16:
 		return 0x1F;
 	case EF_R8G8B8_UNORM:
 		return 0x000000FF;
@@ -162,9 +162,9 @@ uint32_t CImage::getAlphaMask() const
 {
 	switch(Format)
 	{
-	case EF_A1R5G5B5:
+	case EF_A1R5G5B5_UNORM_PACK16:
 		return 0x1<<15;
-	case EF_R5G6B5:
+	case EF_B5G6R5_UNORM_PACK16:
 		return 0x0;
 	case EF_R8G8B8_UNORM:
 		return 0x0;
@@ -186,13 +186,13 @@ void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 
 	switch(Format)
 	{
-		case EF_A1R5G5B5:
+		case EF_A1R5G5B5_UNORM_PACK16:
 		{
 			uint16_t * dest = (uint16_t*) (Data + ( y * Pitch ) + ( x << 1 ));
 			*dest = video::A8R8G8B8toA1R5G5B5( color.color );
 		} break;
 
-		case EF_R5G6B5:
+		case EF_B5G6R5_UNORM_PACK16:
 		{
 			uint16_t * dest = (uint16_t*) (Data + ( y * Pitch ) + ( x << 1 ));
 			*dest = video::A8R8G8B8toR5G6B5( color.color );
@@ -249,9 +249,9 @@ SColor CImage::getPixel(uint32_t x, uint32_t y) const
 
 	switch(Format)
 	{
-	case EF_A1R5G5B5:
+	case EF_A1R5G5B5_UNORM_PACK16:
 		return A1R5G5B5toA8R8G8B8(((uint16_t*)Data)[y*Size.Width + x]);
-	case EF_R5G6B5:
+	case EF_B5G6R5_UNORM_PACK16:
 		return R5G6B5toA8R8G8B8(((uint16_t*)Data)[y*Size.Width + x]);
 	case EF_B8G8R8A8_UNORM:
 		return ((uint32_t*)Data)[y*Size.Width + x];
@@ -355,11 +355,11 @@ void CImage::fill(const SColor &color)
 
 	switch ( Format )
 	{
-		case EF_A1R5G5B5:
+		case EF_A1R5G5B5_UNORM_PACK16:
 			c = color.toA1R5G5B5();
 			c |= c << 16;
 			break;
-		case EF_R5G6B5:
+		case EF_B5G6R5_UNORM_PACK16:
 			c = video::A8R8G8B8toR5G6B5( color.color );
 			c |= c << 16;
 			break;

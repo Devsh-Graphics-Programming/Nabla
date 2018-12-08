@@ -91,10 +91,16 @@ namespace video
             case EF_R8G8B8A8_SNORM:
             case EF_R8G8B8A8_UINT:
             case EF_R8G8B8A8_SINT:
+            case EF_R8_USCALED:
+            case EF_R8_SSCALED:
+            case EF_R8G8_USCALED:
+            case EF_R8G8_SSCALED:
+            case EF_R8G8B8_USCALED:
+            case EF_R8G8B8_SSCALED:
+            case EF_R8G8B8A8_USCALED:
+            case EF_R8G8B8A8_SSCALED:
             // unsigned byte BGRA (normalized only)
             case EF_B8G8R8A8_UNORM:
-            case EF_B8G8R8A8_SNORM:
-            case EF_B8G8R8A8_UINT:
             // unsigned/signed short
             case EF_R16_UNORM:
             case EF_R16_SNORM:
@@ -112,6 +118,14 @@ namespace video
             case EF_R16G16B16A16_SNORM:
             case EF_R16G16B16A16_UINT:
             case EF_R16G16B16A16_SINT:
+            case EF_R16_USCALED:
+            case EF_R16_SSCALED:
+            case EF_R16G16_USCALED:
+            case EF_R16G16_SSCALED:
+            case EF_R16G16B16_USCALED:
+            case EF_R16G16B16_SSCALED:
+            case EF_R16G16B16A16_USCALED:
+            case EF_R16G16B16A16_SSCALED:
             // unsigned/signed int
             case EF_R32_UINT:
             case EF_R32_SINT:
@@ -129,6 +143,8 @@ namespace video
             case EF_A2B10G10R10_SNORM_PACK32:
             case EF_A2B10G10R10_UINT_PACK32:
             case EF_A2B10G10R10_SINT_PACK32:
+            case EF_A2B10G10R10_SSCALED_PACK32:
+            case EF_A2B10G10R10_USCALED_PACK32:
             // GL_UNSIGNED_INT_10F_11F_11F_REV 
             case EF_B10G11R11_UFLOAT_PACK32:
             // half float
@@ -154,12 +170,12 @@ namespace video
         {
             switch (_fmt)
             {
-            case EF_A1R5G5B5:
-            case EF_R5G6B5:
+            case EF_A1R5G5B5_UNORM_PACK16:
+            case EF_B5G6R5_UNORM_PACK16:
+            case EF_R5G6B5_UNORM_PACK16:
             case EF_R4G4_UNORM_PACK8:
             case EF_R4G4B4A4_UNORM_PACK16:
             case EF_B4G4R4A4_UNORM_PACK16:
-            case EF_B5G6R5_UNORM_PACK16:
             case EF_R8_UNORM:
             case EF_R8_SNORM:
             case EF_R8_UINT:
@@ -286,7 +302,7 @@ namespace video
             case EF_R16G16_SNORM:
             case EF_R8G8B8_UNORM:
             case EF_R8G8B8_SNORM:
-            case EF_A1R5G5B5:
+            case EF_A1R5G5B5_UNORM_PACK16:
             case EF_R8G8B8A8_SRGB:
             case EF_A8B8G8R8_UNORM_PACK32:
             case EF_A8B8G8R8_SNORM_PACK32:

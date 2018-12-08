@@ -21,21 +21,19 @@ class CMeshManipulator : public IMeshManipulator
 {
 	struct SAttrib
 	{
-		E_COMPONENT_TYPE type;
-		E_COMPONENT_TYPE prevType;
+		video::E_FORMAT type;
+		video::E_FORMAT prevType;
 		size_t size;
 		E_VERTEX_ATTRIBUTE_ID vaid;
-		E_COMPONENTS_PER_ATTRIBUTE cpa;
 		size_t offset;
 
-		SAttrib() : type(ECT_COUNT), size(0), vaid(EVAI_COUNT) {}
+		SAttrib() : type(video::EF_UNKNOWN), size(0), vaid(EVAI_COUNT) {}
 
 		friend bool operator>(const SAttrib& _a, const SAttrib& _b) { return _a.size > _b.size; }
 	};
 	struct SAttribTypeChoice
 	{
-		E_COMPONENT_TYPE type;
-		E_COMPONENTS_PER_ATTRIBUTE cpa;
+		video::E_FORMAT type;
 	};
 
 public:
@@ -82,7 +80,7 @@ public:
 
     virtual asset::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const;
 
-    virtual bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, E_COMPONENTS_PER_ATTRIBUTE _cpa, const SErrorMetric& _errMetric) const;
+    virtual bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, size_t _cpa, const SErrorMetric& _errMetric) const;
 
 private:
     //! Copies only member variables not being pointers to another dynamically allocated irr::IReferenceCounted derivatives.
@@ -96,17 +94,17 @@ private:
 	//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
 	asset::ICPUBuffer* create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const;
 
-	core::vector<core::vectorSIMDf> findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
+	core::vector<core::vectorSIMDf> findBetterFormatF(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
 
 	struct SIntegerAttr
 	{
 		uint32_t pointer[4];
 	};
-	core::vector<SIntegerAttr> findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
+	core::vector<SIntegerAttr> findBetterFormatI(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
 
 	//E_COMPONENT_TYPE getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const;
-	E_COMPONENT_TYPE getBestTypeI(bool _nativeInt, bool _unsigned, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const uint32_t* _min, const uint32_t* _max) const;
-	core::vector<SAttribTypeChoice> findTypesOfProperRangeF(E_COMPONENT_TYPE _type, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t _sizeThreshold, const float* _min, const float* _max, const SErrorMetric& _errMetric) const;
+	video::E_FORMAT getBestTypeI(video::E_FORMAT _originalType, size_t* _outSize, const uint32_t* _min, const uint32_t* _max) const;
+	core::vector<SAttribTypeChoice> findTypesOfProperRangeF(video::E_FORMAT _type, size_t _sizeThreshold, const float* _min, const float* _max, const SErrorMetric& _errMetric) const;
 
 	//! Calculates quantization errors and compares them with given epsilon.
 	/** @returns false when first of calculated errors goes above epsilon or true if reached end without such. */

@@ -1008,19 +1008,19 @@ struct blitterTable
 static const blitterTable blitTable[] =
 {
 	{ BLITTER_TEXTURE, -2, -2, executeBlit_TextureCopy_x_to_x },
-	{ BLITTER_TEXTURE, video::EF_A1R5G5B5, video::EF_B8G8R8A8_UNORM, executeBlit_TextureCopy_32_to_16 },
-	{ BLITTER_TEXTURE, video::EF_A1R5G5B5, video::EF_R8G8B8_UNORM, executeBlit_TextureCopy_24_to_16 },
-	{ BLITTER_TEXTURE, video::EF_B8G8R8A8_UNORM, video::EF_A1R5G5B5, executeBlit_TextureCopy_16_to_32 },
+	{ BLITTER_TEXTURE, video::EF_A1R5G5B5_UNORM_PACK16, video::EF_B8G8R8A8_UNORM, executeBlit_TextureCopy_32_to_16 },
+	{ BLITTER_TEXTURE, video::EF_A1R5G5B5_UNORM_PACK16, video::EF_R8G8B8_UNORM, executeBlit_TextureCopy_24_to_16 },
+	{ BLITTER_TEXTURE, video::EF_B8G8R8A8_UNORM, video::EF_A1R5G5B5_UNORM_PACK16, executeBlit_TextureCopy_16_to_32 },
 	{ BLITTER_TEXTURE, video::EF_B8G8R8A8_UNORM, video::EF_R8G8B8_UNORM, executeBlit_TextureCopy_24_to_32 },
-	{ BLITTER_TEXTURE, video::EF_R8G8B8_UNORM, video::EF_A1R5G5B5, executeBlit_TextureCopy_16_to_24 },
+	{ BLITTER_TEXTURE, video::EF_R8G8B8_UNORM, video::EF_A1R5G5B5_UNORM_PACK16, executeBlit_TextureCopy_16_to_24 },
 	{ BLITTER_TEXTURE, video::EF_R8G8B8_UNORM, video::EF_B8G8R8A8_UNORM, executeBlit_TextureCopy_32_to_24 },
-	{ BLITTER_TEXTURE_ALPHA_BLEND, video::EF_A1R5G5B5, video::EF_A1R5G5B5, executeBlit_TextureBlend_16_to_16 },
+	{ BLITTER_TEXTURE_ALPHA_BLEND, video::EF_A1R5G5B5_UNORM_PACK16, video::EF_A1R5G5B5_UNORM_PACK16, executeBlit_TextureBlend_16_to_16 },
 	{ BLITTER_TEXTURE_ALPHA_BLEND, video::EF_B8G8R8A8_UNORM, video::EF_B8G8R8A8_UNORM, executeBlit_TextureBlend_32_to_32 },
-	{ BLITTER_TEXTURE_ALPHA_COLOR_BLEND, video::EF_A1R5G5B5, video::EF_A1R5G5B5, executeBlit_TextureBlendColor_16_to_16 },
+	{ BLITTER_TEXTURE_ALPHA_COLOR_BLEND, video::EF_A1R5G5B5_UNORM_PACK16, video::EF_A1R5G5B5_UNORM_PACK16, executeBlit_TextureBlendColor_16_to_16 },
 	{ BLITTER_TEXTURE_ALPHA_COLOR_BLEND, video::EF_B8G8R8A8_UNORM, video::EF_B8G8R8A8_UNORM, executeBlit_TextureBlendColor_32_to_32 },
-	{ BLITTER_COLOR, video::EF_A1R5G5B5, -1, executeBlit_Color_16_to_16 },
+	{ BLITTER_COLOR, video::EF_A1R5G5B5_UNORM_PACK16, -1, executeBlit_Color_16_to_16 },
 	{ BLITTER_COLOR, video::EF_B8G8R8A8_UNORM, -1, executeBlit_Color_32_to_32 },
-	{ BLITTER_COLOR_ALPHA, video::EF_A1R5G5B5, -1, executeBlit_ColorAlpha_16_to_16 },
+	{ BLITTER_COLOR_ALPHA, video::EF_A1R5G5B5_UNORM_PACK16, -1, executeBlit_ColorAlpha_16_to_16 },
 	{ BLITTER_COLOR_ALPHA, video::EF_B8G8R8A8_UNORM, -1, executeBlit_ColorAlpha_32_to_32 },
 	{ BLITTER_INVALID, -1, -1, 0 }
 };
@@ -1220,7 +1220,7 @@ static void drawLine(video::IImage* img, const core::position2d<int32_t>& from,
 
 		switch(img->getColorFormat())
 		{
-		case video::EF_A1R5G5B5:
+		case video::EF_A1R5G5B5_UNORM_PACK16:
 				if (alpha == 256)
 				{
 					RenderLine16_Decal(img, p[0], p[1], video::A8R8G8B8toA1R5G5B5(color.color));

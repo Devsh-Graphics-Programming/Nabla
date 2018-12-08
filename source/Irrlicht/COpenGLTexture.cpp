@@ -289,11 +289,11 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
 
 	switch(format)
 	{
-		case EF_A1R5G5B5:
+		case EF_A1R5G5B5_UNORM_PACK16:
 			colorformat=GL_BGRA_EXT;
 			type=GL_UNSIGNED_SHORT_1_5_5_5_REV;
 			break;
-		case EF_R5G6B5:
+		case EF_R5G6B5_UNORM_PACK16:
 			colorformat=GL_RGB;
 			type=GL_UNSIGNED_SHORT_5_6_5;
             break;
@@ -680,10 +680,10 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT
 {
 	switch(format)
 	{
-		case EF_A1R5G5B5:
+		case EF_A1R5G5B5_UNORM_PACK16:
 			return GL_RGB5_A1;
 			break;
-		case EF_R5G6B5:
+		case EF_R5G6B5_UNORM_PACK16:
 			return GL_RGB565;
 			break;
 		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.

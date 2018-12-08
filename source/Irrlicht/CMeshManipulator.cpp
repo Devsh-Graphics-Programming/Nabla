@@ -536,8 +536,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 
 	size_t offsets[EVAI_COUNT];
 	memset(offsets, -1, sizeof(offsets));
-	E_COMPONENT_TYPE types[EVAI_COUNT];
-	E_COMPONENTS_PER_ATTRIBUTE cpas[EVAI_COUNT];
+	video::E_FORMAT types[EVAI_COUNT];
 	if (buffers.size() != 1)
 	{
 		size_t lastOffset = 0u;
@@ -546,17 +545,17 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 		{
 			if (outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
 			{
-				types[i] = outDesc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i);
-				cpas[i] = outDesc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i);
+				types[i] = outDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
 
-				const size_t alignment = ((types[i] == ECT_DOUBLE_IN_DOUBLE_OUT || types[i] == ECT_DOUBLE_IN_FLOAT_OUT) ? 8u : 4u);
+                const uint32_t typeSz = video::getTexelOrBlockSize(types[i]);
+                const size_t alignment = (typeSz/video::getFormatChannelCount(types[i]) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
 
 				offsets[i] = lastOffset + lastSize;
 				const size_t mod = offsets[i] % alignment;
 				offsets[i] += mod;
 
 				lastOffset = offsets[i];
-				lastSize = vertexAttrSize[types[i]][cpas[i]];
+                lastSize = typeSz;
 			}
 		}
 		const size_t vertexSize = lastOffset + lastSize;
@@ -566,7 +565,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 		{
 			if (offsets[i] < 0xffffffff)
 			{
-				outDesc->mapVertexAttrBuffer(newVertBuffer, (E_VERTEX_ATTRIBUTE_ID)i, cpas[i], types[i], vertexSize, offsets[i]);
+				outDesc->mapVertexAttrBuffer(newVertBuffer, (E_VERTEX_ATTRIBUTE_ID)i, types[i], vertexSize, offsets[i]);
 			}
 		}
 	}
@@ -594,10 +593,9 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 		{
 			for (size_t j = 0; j < activeAttribs.size(); ++j)
 			{
-				E_COMPONENT_TYPE type = types[activeAttribs[j]];
-				E_COMPONENTS_PER_ATTRIBUTE cpa = cpas[activeAttribs[j]];
+				video::E_FORMAT type = types[activeAttribs[j]];
 
-				if (!scene::isNormalized(type) && (scene::isNativeInteger(type) || scene::isWeakInteger(type)))
+                if (!video::isNormalizedFormat(type) && (video::isIntegerFormat(type) || video::isScaledFormat(type)))
 				{
 					uint32_t dst[4];
 					_inbuffer->getAttribute(dst, (E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], index);
@@ -664,7 +662,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
         if (vbuf)
         {
             offset[i] = stride;
-            newAttribSizes[i] = vertexAttrSize[oldDesc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i)][oldDesc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i)];
+            newAttribSizes[i] = video::getTexelOrBlockSize(oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
             stride += newAttribSizes[i];
             if (stride>=0xdeadbeefu)
             {
@@ -683,7 +681,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
     for (size_t i=0; i<EVAI_COUNT; i++)
     {
         if (offset[i]>=0)
-            desc->mapVertexAttrBuffer(vertexBuffer,(E_VERTEX_ATTRIBUTE_ID)i,oldDesc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i),oldDesc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i),stride,offset[i]);
+            desc->mapVertexAttrBuffer(vertexBuffer,(E_VERTEX_ATTRIBUTE_ID)i,oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),stride,offset[i]);
     }
     vertexBuffer->drop();
 
@@ -732,28 +730,29 @@ static bool cmpVertices(asset::ICPUMeshBuffer* _inbuf, const void* _va, const vo
         if (!desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
             continue;
 
-        const auto atype = desc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i);
-        const auto cpa = desc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i);
+        const auto atype = desc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
+        const auto cpa = video::getFormatChannelCount(atype);
 
-        if (scene::isNativeInteger(atype) || scene::isWeakInteger(atype))
+        if (video::isIntegerFormat(atype) || video::isScaledFormat(atype))
         {
             uint32_t attr[8];
-            asset::ICPUMeshBuffer::getAttribute(attr, va, atype, cpa);
-            asset::ICPUMeshBuffer::getAttribute(attr+4, vb, atype, cpa);
-            if (!cmpInteger(attr, attr+4, cpa == ECPA_REVERSED_OR_BGRA ? ECPA_FOUR : cpa))
+            asset::ICPUMeshBuffer::getAttribute(attr, va, atype);
+            asset::ICPUMeshBuffer::getAttribute(attr+4, vb, atype);
+            if (!cmpInteger(attr, attr+4, cpa))
                 return false;
         }
         else
         {
             core::vectorSIMDf attr[2];
-            asset::ICPUMeshBuffer::getAttribute(attr[0], va, atype, cpa);
-            asset::ICPUMeshBuffer::getAttribute(attr[1], vb, atype, cpa);
+            asset::ICPUMeshBuffer::getAttribute(attr[0], va, atype);
+            asset::ICPUMeshBuffer::getAttribute(attr[1], vb, atype);
             if (!_meshManip->compareFloatingPointAttribute(attr[0], attr[1], cpa, _errMetrics[i]))
                 return false;
         }
 
-        va += scene::vertexAttrSize[atype][cpa];
-        vb += scene::vertexAttrSize[atype][cpa];
+        const uint32_t sz = video::getTexelOrBlockSize(atype);
+        va += sz;
+        vb += sz;
     }
 
     return true;
@@ -778,9 +777,8 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(asset::ICPUMeshB
         bufferPresent[i] = buf;
         if (buf)
         {
-            scene::E_COMPONENTS_PER_ATTRIBUTE componentCount = oldDesc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i);
-            scene::E_COMPONENT_TYPE componentType = oldDesc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i);
-            vertexAttrSize[i] = scene::vertexAttrSize[componentType][componentCount];
+            const video::E_FORMAT componentType = oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
+            vertexAttrSize[i] = video::getTexelOrBlockSize(componentType);
             vertexSize += vertexAttrSize[i];
         }
     }
@@ -1100,14 +1098,14 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 	core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>> attribsF;
 	for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
 	{
-		const E_COMPONENT_TYPE type = _meshbuffer->getMeshDataAndFormat()->getAttribType((E_VERTEX_ATTRIBUTE_ID)vaid);
+		const video::E_FORMAT type = _meshbuffer->getMeshDataAndFormat()->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)vaid);
 
 		if (_meshbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
 		{
-			if (!scene::isNormalized(type) && scene::isNativeInteger(type))
-				attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
+			if (!video::isNormalizedFormat(type) && video::isIntegerFormat(type))
+				attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
 			else
-				attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].cpa, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
+				attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
 		}
 	}
 
@@ -1129,7 +1127,8 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 
 	for (size_t i = 0u; i < activeAttributeCount; ++i)
 	{
-		const size_t alignment = ((newAttribs[i].type == ECT_DOUBLE_IN_DOUBLE_OUT || newAttribs[i].type == ECT_DOUBLE_IN_FLOAT_OUT) ? 8u : 4u);
+        const uint32_t typeSz = video::getTexelOrBlockSize(newAttribs[i].type);
+        const size_t alignment = (typeSz / video::getFormatChannelCount(newAttribs[i].type) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
 
 		newAttribs[i].offset = (i ? newAttribs[i - 1].offset + newAttribs[i - 1].size : 0u);
 		const size_t mod = newAttribs[i].offset % alignment;
@@ -1143,7 +1142,7 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 
 	for (size_t i = 0u; i < activeAttributeCount; ++i)
 	{
-		desc->mapVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].cpa, newAttribs[i].type, vertexSize, newAttribs[i].offset);
+		desc->mapVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].type, vertexSize, newAttribs[i].offset);
 
 		core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
 		if (iti != attribsI.end())
@@ -1271,8 +1270,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const asset::
 			newBuf = const_cast<asset::ICPUBuffer*>(newDesc->getMappedBuffer(itr->second));
 		}
 
-		newDesc->mapVertexAttrBuffer(newBuf, (E_VERTEX_ATTRIBUTE_ID)i,
-			oldDesc->getAttribComponentCount((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getAttribType((E_VERTEX_ATTRIBUTE_ID)i),
+		newDesc->mapVertexAttrBuffer(newBuf, (E_VERTEX_ATTRIBUTE_ID)i, oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),
 			oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getAttribDivisor((E_VERTEX_ATTRIBUTE_ID)i));
 	}
 	if (idxBuffer)
@@ -1355,67 +1353,30 @@ asset::ICPUBuffer* CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(const
 	return out;
 }
 
-core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
+core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
 {
-	const E_COMPONENT_TYPE suppTypes[]
-	{
-		ECT_FLOAT,
-		ECT_HALF_FLOAT,
-		ECT_DOUBLE_IN_FLOAT_OUT,
-		ECT_UNSIGNED_INT_10F_11F_11F_REV,
-		ECT_DOUBLE_IN_DOUBLE_OUT,
-		ECT_NORMALIZED_INT_2_10_10_10_REV,
-		ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV,
-		ECT_NORMALIZED_BYTE,
-		ECT_NORMALIZED_UNSIGNED_BYTE,
-		ECT_NORMALIZED_SHORT,
-		ECT_NORMALIZED_UNSIGNED_SHORT,
-		ECT_NORMALIZED_INT,
-		ECT_NORMALIZED_UNSIGNED_INT,
-		ECT_INT_2_10_10_10_REV,
-		ECT_UNSIGNED_INT_2_10_10_10_REV,
-		ECT_BYTE,
-		ECT_UNSIGNED_BYTE,
-		ECT_SHORT,
-		ECT_UNSIGNED_SHORT,
-		ECT_INT,
-		ECT_UNSIGNED_INT
-	};
+	const video::E_FORMAT thisType = _meshbuffer->getMeshDataAndFormat()->getAttribFormat(_attrId);
 
-	const E_COMPONENT_TYPE thisType = _meshbuffer->getMeshDataAndFormat()->getAttribType(_attrId);
-	{
-		bool ok = false;
-		for (size_t i = 0; i < sizeof(suppTypes)/sizeof(*suppTypes); ++i)
-		{
-			if (suppTypes[i] == thisType)
-			{
-				ok = true;
-				break;
-			}
-		}
-		if (!ok)
-			return core::vector<core::vectorSIMDf>();
-	}
+    if (!video::isFloatingPointFormat(thisType) && !video::isNormalizedFormat(thisType) && !video::isScaledFormat(thisType))
+        return {};
 
 	core::vector<core::vectorSIMDf> attribs;
 
 	if (!_meshbuffer->getMeshDataAndFormat())
 		return attribs;
 
-	E_COMPONENTS_PER_ATTRIBUTE cpa = _meshbuffer->getMeshDataAndFormat()->getAttribComponentCount(_attrId);
+    const uint32_t cpa = video::getFormatChannelCount(thisType);
 
 	float min[4]{ FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX };
 	float max[4]{ -FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX };
 
 	core::vectorSIMDf attr;
-	//size_t idx = 0u;
-	//while (_meshbuffer->getAttribute(attr, _attrId, idx++)) // getAttribute returns false when idx goes out of buffer's range
     const size_t cnt = _meshbuffer->calcVertexCount();
     for (size_t idx = 0u; idx < cnt; ++idx)
 	{
         _meshbuffer->getAttribute(attr, _attrId, idx);
 		attribs.push_back(attr);
-		for (size_t i = 0; i < (cpa == ECPA_REVERSED_OR_BGRA ? ECPA_FOUR : cpa) ; ++i)
+		for (uint32_t i = 0; i < cpa ; ++i)
 		{
 			if (attr.pointer[i] < min[i])
 				min[i] = attr.pointer[i];
@@ -1424,23 +1385,21 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_
 		}
 	}
 
-	core::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, cpa, vertexAttrSize[thisType][cpa], min, max, _errMetric);
-	std::sort(possibleTypes.begin(), possibleTypes.end(), [](const SAttribTypeChoice& t1, const SAttribTypeChoice& t2) { return vertexAttrSize[t1.type][t1.cpa] < vertexAttrSize[t2.type][t2.cpa]; });
+	core::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, video::getTexelOrBlockSize(thisType), min, max, _errMetric);
+	std::sort(possibleTypes.begin(), possibleTypes.end(), [](const SAttribTypeChoice& t1, const SAttribTypeChoice& t2) { return video::getTexelOrBlockSize(t1.type) < video::getTexelOrBlockSize(t2.type); });
 
 	*_outPrevType = thisType;
     *_outType = thisType;
-    *_outCpa = cpa;
-    *_outSize = vertexAttrSize[*_outType][*_outCpa];
+    *_outSize = video::getTexelOrBlockSize(*_outType);
 
 	for (const SAttribTypeChoice& t : possibleTypes)
 	{
-		if (calcMaxQuantizationError({ thisType, cpa }, t, attribs, _errMetric))
+		if (calcMaxQuantizationError({ thisType }, t, attribs, _errMetric))
 		{
-            if (scene::vertexAttrSize[t.type][t.cpa] < scene::vertexAttrSize[thisType][cpa])
+            if (video::getTexelOrBlockSize(t.type) < video::getTexelOrBlockSize(thisType))
             {
                 *_outType = t.type;
-                *_outCpa = t.cpa;
-                *_outSize = vertexAttrSize[*_outType][*_outCpa];
+                *_outSize = video::getTexelOrBlockSize(*_outType);
             }
 
 			return attribs;
@@ -1450,53 +1409,32 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_COMPONENT_
 	return attribs;
 }
 
-core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_COMPONENT_TYPE* _outType, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, E_COMPONENT_TYPE* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
+core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
 {
-	const E_COMPONENT_TYPE suppTypes[]
-	{
-		ECT_INTEGER_INT_2_10_10_10_REV,
-		ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV,
-		ECT_INTEGER_BYTE,
-		ECT_INTEGER_UNSIGNED_BYTE,
-		ECT_INTEGER_SHORT,
-		ECT_INTEGER_UNSIGNED_SHORT,
-		ECT_INTEGER_INT,
-		ECT_INTEGER_UNSIGNED_INT
-	};
+    const video::E_FORMAT thisType = _meshbuffer->getMeshDataAndFormat()->getAttribFormat(_attrId);
 
-	const E_COMPONENT_TYPE thisType = _meshbuffer->getMeshDataAndFormat()->getAttribType(_attrId);
-	{
-		bool ok = false;
-		for (size_t i = 0; i < sizeof(suppTypes)/sizeof(*suppTypes); ++i)
-		{
-			if (suppTypes[i] == thisType)
-			{
-				ok = true;
-				break;
-			}
-		}
-		if (!ok)
-			return core::vector<SIntegerAttr>();
-	}
+    if (!video::isIntegerFormat(thisType))
+        return {};
+
+    if (video::isBGRALayoutFormat(thisType))
+        return {}; // BGRA is supported only by a few normalized types (this is function for integer types)
 
 	core::vector<SIntegerAttr> attribs;
 
 	if (!_meshbuffer->getMeshDataAndFormat())
 		return attribs;
 
-	E_COMPONENTS_PER_ATTRIBUTE cpa = _meshbuffer->getMeshDataAndFormat()->getAttribComponentCount(_attrId);
-	if (cpa == ECPA_REVERSED_OR_BGRA)
-		return core::vector<SIntegerAttr>(); // BGRA is supported only by a few normalized types (this is function for integer types)
+    const uint32_t cpa = video::getFormatChannelCount(thisType);
 
 	uint32_t min[4];
 	uint32_t max[4];
-	if (isUnsigned(thisType))
+	if (!video::isSignedFormat(thisType))
 		for (size_t i = 0; i < 4; ++i)
 			min[i] = UINT_MAX;
 	else
 		for (size_t i = 0; i < 4; ++i)
 			min[i] = INT_MAX;
-	if (isUnsigned(thisType))
+	if (!video::isSignedFormat(thisType))
 		for (size_t i = 0; i < 4; ++i)
 			max[i] = 0;
 	else
@@ -1505,8 +1443,6 @@ core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI
 
 
 	SIntegerAttr attr;
-	//size_t idx = 0;
-	//while (_meshbuffer->getAttribute(attr.pointer, _attrId, idx++)) // getAttribute returns false when idx goes out of buffer's range
     const size_t cnt = _meshbuffer->calcVertexCount();
     for (size_t idx = 0u; idx < cnt; ++idx)
 	{
@@ -1514,7 +1450,7 @@ core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI
 		attribs.push_back(attr);
 		for (size_t i = 0; i < cpa; ++i)
 		{
-			if (scene::isUnsigned(thisType))
+			if (!video::isSignedFormat(thisType))
 			{
 				if (attr.pointer[i] < min[i])
 					min[i] = attr.pointer[i];
@@ -1532,161 +1468,340 @@ core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI
 	}
 
 	*_outPrevType = *_outType = thisType;
-	*_outCpa = cpa;
-	*_outSize = vertexAttrSize[thisType][cpa];
+	*_outSize = video::getTexelOrBlockSize(thisType);
 	*_outPrevType = thisType;
 
 	if (_errMetric.method == EEM_ANGLES) // native integers normals does not change
 		return attribs;
 
-	*_outType = getBestTypeI(scene::isNativeInteger(thisType), scene::isUnsigned(thisType), cpa, _outSize, _outCpa, min, max);
-    if (scene::vertexAttrSize[*_outType][*_outCpa] >= scene::vertexAttrSize[thisType][cpa])
+	*_outType = getBestTypeI(thisType, _outSize, min, max);
+    if (video::getTexelOrBlockSize(*_outType) >= video::getTexelOrBlockSize(thisType))
     {
         *_outType = thisType;
-        *_outCpa = cpa;
-        *_outSize = vertexAttrSize[thisType][cpa];
+        *_outSize = video::getTexelOrBlockSize(thisType);
     }
 	return attribs;
 }
 
-E_COMPONENT_TYPE CMeshManipulator::getBestTypeI(bool _nativeInt, bool _unsigned, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const uint32_t* _min, const uint32_t* _max) const
+video::E_FORMAT CMeshManipulator::getBestTypeI(video::E_FORMAT _originalType, size_t* _outSize, const uint32_t* _min, const uint32_t* _max) const
 {
-	core::unordered_set<E_COMPONENT_TYPE> all;
-	{
-		E_COMPONENT_TYPE arrayAll[]{ ECT_INT_2_10_10_10_REV, ECT_UNSIGNED_INT_2_10_10_10_REV, ECT_BYTE, ECT_UNSIGNED_BYTE, ECT_SHORT, ECT_UNSIGNED_SHORT, ECT_INT, ECT_UNSIGNED_INT, ECT_INTEGER_INT_2_10_10_10_REV, ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV, ECT_INTEGER_BYTE, ECT_INTEGER_UNSIGNED_BYTE, ECT_INTEGER_SHORT, ECT_INTEGER_UNSIGNED_SHORT, ECT_INTEGER_INT, ECT_INTEGER_UNSIGNED_INT };
-		for (size_t i = 0; i < sizeof(arrayAll)/sizeof(*arrayAll); ++i)
-			all.insert(arrayAll[i]);
-	}
-	core::unordered_set<E_COMPONENT_TYPE> nativeInts;
-	{
-		E_COMPONENT_TYPE arrayNative[]{ ECT_INTEGER_INT_2_10_10_10_REV, ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV, ECT_INTEGER_BYTE, ECT_INTEGER_UNSIGNED_BYTE, ECT_INTEGER_SHORT, ECT_INTEGER_UNSIGNED_SHORT, ECT_INTEGER_INT, ECT_INTEGER_UNSIGNED_INT };
-		for (size_t i = 0; i < sizeof(arrayNative)/sizeof(*arrayNative); ++i)
-			nativeInts.insert(arrayNative[i]);
-	}
+    using namespace video;
 
-	if (_nativeInt)
-		all = nativeInts;
-	else
-	{
-		for (core::unordered_set<E_COMPONENT_TYPE>::iterator it = nativeInts.begin(); it != nativeInts.end(); ++it)
-			all.erase(*it);
-	}
+    const bool isNativeInteger = isIntegerFormat(_originalType);
+    const bool isUnsigned = !isSignedFormat(_originalType);
 
-	E_COMPONENT_TYPE bestType = _nativeInt ? (_unsigned ? ECT_INTEGER_UNSIGNED_INT : ECT_INTEGER_INT) : (_unsigned ? ECT_UNSIGNED_INT : ECT_INT);
-	for (core::unordered_set<E_COMPONENT_TYPE>::iterator it = all.begin(); it != all.end(); ++it)
-	{
-		bool validComb = false;
-		E_COMPONENTS_PER_ATTRIBUTE chosenCpa = _cpa; // cpa compatible with currently considered type
-		for (size_t c = _cpa; c <= ECPA_FOUR; ++c)
-		{
-			if (validCombination(*it, (E_COMPONENTS_PER_ATTRIBUTE)c))
-			{
-				chosenCpa = (E_COMPONENTS_PER_ATTRIBUTE)c;
-				validComb = true;
-				break;
-			}
-		}
-		if (validComb)
-		{
-			bool ok = true;
-			for (size_t cmpntNum = 0; cmpntNum < _cpa; ++cmpntNum) // check only `_cpa` components because even if (chosenCpa > _cpa), we don't care about extra components
-			{
-				if (_unsigned)
-				{
-					if (!(_min[cmpntNum] >= minValueOfTypeINT(*it, cmpntNum) && _max[cmpntNum] <= maxValueOfTypeINT(*it, cmpntNum))) //! TODO: FIX signed vs. unsigned comparison
-					{
-						ok = false;
-						break;
-					}
-				}
-				else
-				{
-					if (!(((int32_t*)(_min + cmpntNum))[0] >= minValueOfTypeINT(*it, cmpntNum) && ((int32_t*)(_max + cmpntNum))[0] <= maxValueOfTypeINT(*it, cmpntNum))) //! TODO: FIX signed vs. unsigned comparison
-					{
-						ok = false;
-						break;
-					}
-				}
-			}
-			if (ok && vertexAttrSize[*it][chosenCpa] < vertexAttrSize[bestType][chosenCpa]) // vertexAttrSize array defined in IMeshBuffer.h
-			{
-				bestType = *it;
-				*_outSize = vertexAttrSize[bestType][chosenCpa];
-				*_outCpa = chosenCpa;
-			}
-		}
-	}
-	return bestType;
+    const uint32_t originalCpa = getFormatChannelCount(_originalType);
+
+    core::vector<video::E_FORMAT> nativeInts{
+        EF_R8G8_UINT,
+        EF_R8G8_SINT,
+        EF_R8G8B8_UINT,
+        EF_R8G8B8_SINT,
+        EF_R8G8B8A8_UINT,
+        EF_R8G8B8A8_SINT,
+        EF_A2B10G10R10_UINT_PACK32,
+        EF_A2B10G10R10_SINT_PACK32,
+        EF_R16_UINT,
+        EF_R16_SINT,
+        EF_R16G16_UINT,
+        EF_R16G16_SINT,
+        EF_R16G16B16_UINT,
+        EF_R16G16B16_SINT,
+        EF_R16G16B16A16_UINT,
+        EF_R16G16B16A16_SINT,
+        EF_R32_UINT,
+        EF_R32_SINT,
+        EF_R32G32_UINT,
+        EF_R32G32_SINT,
+        EF_R32G32B32_UINT,
+        EF_R32G32B32_SINT,
+        EF_R32G32B32A32_UINT,
+        EF_R32G32B32A32_SINT
+    };
+    core::vector<video::E_FORMAT> scaledInts{
+        EF_R8G8_USCALED,
+        EF_R8G8_SSCALED,
+        EF_R8G8B8_USCALED,
+        EF_R8G8B8_SSCALED,
+        EF_R8G8B8A8_USCALED,
+        EF_R8G8B8A8_SSCALED,
+        EF_A2B10G10R10_USCALED_PACK32,
+        EF_A2B10G10R10_SSCALED_PACK32,
+        EF_R16_USCALED,
+        EF_R16_SSCALED,
+        EF_R16G16_USCALED,
+        EF_R16G16_SSCALED,
+        EF_R16G16B16_USCALED,
+        EF_R16G16B16_SSCALED,
+        EF_R16G16B16A16_USCALED,
+        EF_R16G16B16A16_SSCALED
+    };
+
+    core::vector<E_FORMAT>& all = isNativeInteger ? nativeInts : scaledInts;
+    if (originalCpa > 1u)
+    {
+        all.erase(
+            std::remove_if(all.begin(), all.end(),
+                [originalCpa](E_FORMAT fmt) { return getFormatChannelCount(fmt) < originalCpa; }
+            ),
+            all.end()
+        );
+    }
+
+    auto minValueOfTypeINT = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> int32_t {
+        if (!isSignedFormat(_fmt))
+            return 0;
+
+        switch (_fmt)
+        {
+        case EF_A2B10G10R10_SSCALED_PACK32:
+        case EF_A2B10G10R10_SINT_PACK32:
+            if (_cmpntNum < 3u)
+                return -512;
+            else return -2;
+            break;
+        default:
+        {
+        const uint32_t bitsPerCh = getTexelOrBlockSize(_fmt)/getFormatChannelCount(_fmt);
+        return int32_t(-uint64_t(1ull<<(bitsPerCh-1u)));
+        }
+        }
+    };
+    auto maxValueOfTypeINT = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> uint32_t {
+        switch (_fmt)
+        {
+        case EF_A2B10G10R10_USCALED_PACK32:
+        case EF_A2B10G10R10_UINT_PACK32:
+            if (_cmpntNum < 3u)
+                return 1023u;
+            else return 3u;
+            break;
+        case EF_A2B10G10R10_SSCALED_PACK32:
+        case EF_A2B10G10R10_SINT_PACK32:
+            if (_cmpntNum < 3u)
+                return 511u;
+            else return 1u;
+            break;
+        default:
+        {
+            const uint32_t bitsPerCh = getTexelOrBlockSize(_fmt)/getFormatChannelCount(_fmt);
+            const uint64_t r = (1ull<<bitsPerCh)-1ull;
+            if (!isSignedFormat(_fmt))
+                return (uint32_t)r;
+            return (uint32_t)(r>>1);
+        }
+        }
+    };
+
+    E_FORMAT bestType = _originalType;
+    for (auto it = all.begin(); it != all.end(); ++it)
+    {
+        bool ok = true;
+        for (uint32_t cmpntNum = 0; cmpntNum < originalCpa; ++cmpntNum) // check only `_cpa` components because even if (chosenCpa > _cpa), we don't care about extra components
+        {
+            if (isUnsigned)
+            {
+                if (!(_min[cmpntNum] >= minValueOfTypeINT(*it, cmpntNum) && _max[cmpntNum] <= maxValueOfTypeINT(*it, cmpntNum))) //! TODO: FIX signed vs. unsigned comparison
+                {
+                    ok = false;
+                    break;
+                }
+            }
+            else
+            {
+                if (!(((int32_t*)(_min + cmpntNum))[0] >= minValueOfTypeINT(*it, cmpntNum) && ((int32_t*)(_max + cmpntNum))[0] <= maxValueOfTypeINT(*it, cmpntNum))) //! TODO: FIX signed vs. unsigned comparison
+                {
+                    ok = false;
+                    break;
+                }
+            }
+        }
+        if (ok && getTexelOrBlockSize(*it) < getTexelOrBlockSize(bestType)) // vertexAttrSize array defined in IMeshBuffer.h
+        {
+            bestType = *it;
+            *_outSize = getTexelOrBlockSize(bestType);
+        }
+    }
+
+    return bestType;
 }
 
-core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfProperRangeF(E_COMPONENT_TYPE _type, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t _sizeThreshold, const float * _min, const float * _max, const SErrorMetric& _errMetric) const
+core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfProperRangeF(video::E_FORMAT _type, size_t _sizeThreshold, const float * _min, const float * _max, const SErrorMetric& _errMetric) const
 {
-	core::vector<E_COMPONENT_TYPE> all{ ECT_FLOAT, ECT_HALF_FLOAT, ECT_DOUBLE_IN_FLOAT_OUT, ECT_DOUBLE_IN_DOUBLE_OUT, ECT_UNSIGNED_INT_10F_11F_11F_REV, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
-	core::vector<E_COMPONENT_TYPE> normalized{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_UNSIGNED_BYTE, ECT_NORMALIZED_SHORT, ECT_NORMALIZED_UNSIGNED_SHORT, ECT_NORMALIZED_INT, ECT_NORMALIZED_UNSIGNED_INT };
-	core::vector<E_COMPONENT_TYPE> bgra{ ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV, ECT_NORMALIZED_UNSIGNED_BYTE };
-	core::vector<E_COMPONENT_TYPE> normals{ ECT_NORMALIZED_SHORT, ECT_NORMALIZED_BYTE, ECT_NORMALIZED_INT_2_10_10_10_REV, ECT_HALF_FLOAT };
+    using namespace video;
 
-	if (scene::isNormalized(_type) || _errMetric.method == EEM_ANGLES)
+    core::vector<E_FORMAT> all{
+        EF_B10G11R11_UFLOAT_PACK32,
+        EF_R16_SFLOAT,
+        EF_R16G16_SFLOAT,
+        EF_R16G16B16_SFLOAT,
+        EF_R16G16B16A16_SFLOAT,
+        EF_R32_SFLOAT,
+        EF_R32G32_SFLOAT,
+        EF_R32G32B32_SFLOAT,
+        EF_R32G32B32A32_SFLOAT,
+        EF_R8G8_UNORM,
+        EF_R8G8_SNORM,
+        EF_R8G8B8_UNORM,
+        EF_R8G8B8_SNORM,
+        EF_B8G8R8A8_UNORM, //bgra
+        EF_R8G8B8A8_UNORM,
+        EF_R8G8B8A8_SNORM,
+        EF_A2B10G10R10_UNORM_PACK32,
+        EF_A2B10G10R10_SNORM_PACK32,
+        EF_A2R10G10B10_UNORM_PACK32, //bgra
+        EF_A2R10G10B10_SNORM_PACK32, //bgra
+        EF_R16_UNORM,
+        EF_R16_SNORM,
+        EF_R16G16_UNORM,
+        EF_R16G16_SNORM,
+        EF_R16G16B16_UNORM,
+        EF_R16G16B16_SNORM,
+        EF_R16G16B16A16_UNORM,
+        EF_R16G16B16A16_SNORM
+    };
+    core::vector<E_FORMAT> normalized{
+        EF_B8G8R8A8_UNORM, //bgra
+        EF_R8G8B8A8_UNORM,
+        EF_R8G8B8A8_SNORM,
+        EF_A2B10G10R10_UNORM_PACK32,
+        EF_A2B10G10R10_SNORM_PACK32,
+        EF_A2R10G10B10_UNORM_PACK32, //bgra
+        EF_A2R10G10B10_SNORM_PACK32, //bgra
+        EF_R16_UNORM,
+        EF_R16_SNORM,
+        EF_R16G16_UNORM,
+        EF_R16G16_SNORM,
+        EF_R16G16B16_UNORM,
+        EF_R16G16B16_SNORM,
+        EF_R16G16B16A16_UNORM,
+        EF_R16G16B16A16_SNORM
+    };
+    core::vector<E_FORMAT> bgra{
+        EF_B8G8R8A8_UNORM, //bgra
+        EF_A2R10G10B10_UNORM_PACK32, //bgra
+        EF_A2R10G10B10_SNORM_PACK32, //bgra
+    };
+    core::vector<E_FORMAT> normals{
+        EF_R8_SNORM,
+        EF_R8G8_SNORM,
+        EF_R8G8B8_SNORM,
+        EF_R8G8B8A8_SNORM,
+        EF_R16_SNORM,
+        EF_R16G16_SNORM,
+        EF_R16G16B16_SNORM,
+        EF_R16G16B16A16_SNORM,
+        EF_A2B10G10R10_SNORM_PACK32,
+        EF_A2R10G10B10_SNORM_PACK32, //bgra
+        EF_R16_SFLOAT,
+        EF_R16G16_SFLOAT,
+        EF_R16G16B16_SFLOAT,
+        EF_R16G16B16A16_SFLOAT
+    };
+
+    auto minValueOfTypeFP = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> float {
+        if (isNormalizedFormat(_fmt))
+        {
+            return isSignedFormat(_fmt) ? -1.f : 0.f;
+        }
+        switch (_fmt)
+        {
+        case EF_R16_SFLOAT:
+        case EF_R16G16_SFLOAT:
+        case EF_R16G16B16_SFLOAT:
+        case EF_R16G16B16A16_SFLOAT:
+            return -65504.f;
+        case EF_R32_SFLOAT:
+        case EF_R32G32_SFLOAT:
+        case EF_R32G32B32_SFLOAT:
+        case EF_R32G32B32A32_SFLOAT:
+            return -FLT_MAX;
+        case EF_B10G11R11_UFLOAT_PACK32:
+            return 0.f;
+        default:
+            return 1.f;
+        }
+    };
+    auto maxValueOfTypeFP = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> float {
+        if (isNormalizedFormat(_fmt))
+        {
+            return 1.f;
+        }
+        switch (_fmt)
+        {
+        case EF_R16_SFLOAT:
+        case EF_R16G16_SFLOAT:
+        case EF_R16G16B16_SFLOAT:
+        case EF_R16G16B16A16_SFLOAT:
+            return 65504.f;
+        case EF_R32_SFLOAT:
+        case EF_R32G32_SFLOAT:
+        case EF_R32G32B32_SFLOAT:
+        case EF_R32G32B32A32_SFLOAT:
+            return FLT_MAX;
+        case EF_B10G11R11_UFLOAT_PACK32:
+            if (_cmpntNum < 2u)
+                return 65024.f;
+            else return 64512.f;
+        default:
+            return 0.f;
+        }
+    };
+
+	if (isNormalizedFormat(_type) || _errMetric.method == EEM_ANGLES)
 	{
 		if (_errMetric.method == EEM_ANGLES)
 		{
-			all = std::move(normals);
-			if (_cpa == ECPA_REVERSED_OR_BGRA)
-				all.erase(std::remove_if(all.begin(), all.end(), [](E_COMPONENT_TYPE _t) { return _t == ECT_NORMALIZED_SHORT || _t == ECT_HALF_FLOAT;}), all.end());
+            if (isBGRALayoutFormat(_type))
+            {
+                all = core::vector<E_FORMAT>(1u, EF_A2R10G10B10_SNORM_PACK32);
+            }
+			else all = std::move(normals);
 		}
-		else if (_cpa == ECPA_REVERSED_OR_BGRA)
+		else if (isBGRALayoutFormat(_type))
 			all = std::move(bgra);
 		else
 			all = std::move(normalized);
 	}
 
-	if (scene::isNormalized(_type) && scene::isUnsigned(_type))
-		all.erase(std::remove_if(all.begin(), all.end(), [](E_COMPONENT_TYPE _t) { return scene::isSigned(_t); }), all.end());
-	else if (scene::isNormalized(_type) && scene::isSigned(_type))
-		all.erase(std::remove_if(all.begin(), all.end(), [](E_COMPONENT_TYPE _t) { return scene::isUnsigned(_t); }), all.end());
+	if (isNormalizedFormat(_type) && !isSignedFormat(_type))
+		all.erase(std::remove_if(all.begin(), all.end(), [](E_FORMAT _t) { return isSignedFormat(_t); }), all.end());
+	else if (isNormalizedFormat(_type) && isSignedFormat(_type))
+		all.erase(std::remove_if(all.begin(), all.end(), [](E_FORMAT _t) { return !isSignedFormat(_t); }), all.end());
+
+    const uint32_t originalCpa = getFormatChannelCount(_type);
+    all.erase(
+        std::remove_if(all.begin(), all.end(),
+            [originalCpa](E_FORMAT fmt) { return getFormatChannelCount(fmt) < originalCpa; }
+        ),
+        all.end()
+    );
 
 	core::vector<SAttribTypeChoice> possibleTypes;
 	core::vectorSIMDf min(_min), max(_max);
 
 	for (auto it = all.begin(); it != all.end(); ++it)
 	{
-		bool validComb = false;
-		E_COMPONENTS_PER_ATTRIBUTE chosenCpa = _cpa; // find cpa compatible with currently considered type
-		if (_cpa != ECPA_REVERSED_OR_BGRA)
+		bool ok = true;
+		for (uint32_t cmpntNum = 0; cmpntNum < originalCpa; ++cmpntNum) // check only `_cpa` components because even if (chosenCpa > _cpa), we don't care about extra components
 		{
-			for (size_t c = _cpa; c <= ECPA_FOUR; ++c)
+			if (!(min.pointer[cmpntNum] >= minValueOfTypeFP(*it, cmpntNum) && max.pointer[cmpntNum] <= maxValueOfTypeFP(*it, cmpntNum)))
 			{
-				if (validCombination(*it, (E_COMPONENTS_PER_ATTRIBUTE)c))
-				{
-					chosenCpa = (E_COMPONENTS_PER_ATTRIBUTE)c;
-					validComb = true;
-					break;
-				}
+				ok = false;
+				break; // break loop comparing (*it)'s range component by component
 			}
 		}
-		else
-			validComb = true; // all types from considered types set are supporting BGRA and BGRA cannot be substitued with anything
-		if (validComb)
-		{
-			bool ok = true;
-			for (size_t cmpntNum = 0; cmpntNum < (_cpa == ECPA_REVERSED_OR_BGRA ? ECPA_FOUR : _cpa); ++cmpntNum) // check only `_cpa` components because even if (chosenCpa > _cpa), we don't care about extra components
-			{
-				if (!(min.pointer[cmpntNum] >= minValueOfTypeFP(*it, cmpntNum) && max.pointer[cmpntNum] <= maxValueOfTypeFP(*it, cmpntNum)))
-				{
-					ok = false;
-					break; // break loop comparing (*it)'s range component by component
-				}
-			}
-			if (ok && vertexAttrSize[*it][chosenCpa] <= _sizeThreshold) // vertexAttrSize array defined in IMeshBuffer.h
-				possibleTypes.push_back({*it, chosenCpa});
-		}
+		if (ok && getTexelOrBlockSize(*it) <= _sizeThreshold)
+			possibleTypes.push_back({*it});
 	}
 	return possibleTypes;
 }
 
 bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _srcData, const SErrorMetric& _errMetric) const
 {
-	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE);
+    using namespace video;
+
+	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, E_FORMAT, E_FORMAT);
 
 	QuantF_t quantFunc = nullptr;
 
@@ -1694,46 +1809,55 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	{
 		switch (_dstType.type)
 		{
-		case ECT_NORMALIZED_BYTE:
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf {
+		case EF_R8_SNORM:
+        case EF_R8G8_SNORM:
+        case EF_R8G8B8_SNORM:
+        case EF_R8G8B8A8_SNORM:
+			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint32_t*)buf)[0] = scene::quantizeNormal888(_in);
 
 				core::vectorSIMDf retval;
-				asset::ICPUMeshBuffer::getAttribute(retval, buf, ECT_NORMALIZED_BYTE, ECPA_FOUR);
+				asset::ICPUMeshBuffer::getAttribute(retval, buf, EF_R8G8B8A8_SNORM);
 				retval.w = 1.f;
 				return retval;
 			};
 			break;
-		case ECT_NORMALIZED_INT_2_10_10_10_REV: // RGB10_A2
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf {
+		case EF_A2B10G10R10_SINT_PACK32: // RGB10_A2
+			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint32_t*)buf)[0] = scene::quantizeNormal2_10_10_10(_in);
 
 				core::vectorSIMDf retval;
-				asset::ICPUMeshBuffer::getAttribute(retval, buf, ECT_NORMALIZED_INT_2_10_10_10_REV, ECPA_FOUR);
+				asset::ICPUMeshBuffer::getAttribute(retval, buf, EF_A2B10G10R10_SINT_PACK32);
 				retval.w = 1.f;
 				return retval;
 			};
 			break;
-		case ECT_NORMALIZED_SHORT:
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE) -> core::vectorSIMDf {
+        case EF_R16_SNORM:
+        case EF_R16G16_SNORM:
+        case EF_R16G16B16_SNORM:
+        case EF_R16G16B16A16_SNORM:
+			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint64_t*)buf)[0] = scene::quantizeNormal16_16_16(_in);
 
 				core::vectorSIMDf retval;
-				asset::ICPUMeshBuffer::getAttribute(retval, buf, ECT_NORMALIZED_SHORT, ECPA_FOUR);
+				asset::ICPUMeshBuffer::getAttribute(retval, buf, EF_R16G16B16A16_SNORM);
 				retval.w = 1.f;
 				return retval;
 			};
 			break;
-		case ECT_HALF_FLOAT:
-			quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE, E_COMPONENT_TYPE, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> core::vectorSIMDf {
+        case EF_R16_SFLOAT:
+        case EF_R16G16_SFLOAT:
+        case EF_R16G16B16_SFLOAT:
+        case EF_R16G16B16A16_SFLOAT:
+			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint64_t*)buf)[0] = scene::quantizeNormalHalfFloat(_in);
 
 				core::vectorSIMDf retval;
-				asset::ICPUMeshBuffer::getAttribute(retval, buf, ECT_HALF_FLOAT, ECPA_FOUR);
+				asset::ICPUMeshBuffer::getAttribute(retval, buf, EF_R16G16B16A16_SFLOAT);
 				retval.w = 1.f;
 				return retval;
 			};
@@ -1742,11 +1866,11 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	}
 	else
 	{
-		quantFunc = [](const core::vectorSIMDf& _in, E_COMPONENT_TYPE _inType, E_COMPONENT_TYPE _outType, E_COMPONENTS_PER_ATTRIBUTE _cpa)->core::vectorSIMDf {
+		quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT _inType, E_FORMAT _outType) -> core::vectorSIMDf {
 			uint8_t buf[32];
-			asset::ICPUMeshBuffer::setAttribute(_in, buf, _outType, _cpa);
+			asset::ICPUMeshBuffer::setAttribute(_in, buf, _outType);
 			core::vectorSIMDf out(0.f, 0.f, 0.f, 1.f);
-			asset::ICPUMeshBuffer::getAttribute(out, buf, _outType, _cpa);
+			asset::ICPUMeshBuffer::getAttribute(out, buf, _outType);
 			return out;
 		};
 	}
@@ -1757,9 +1881,9 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 
 	for (const core::vectorSIMDf& d : _srcData)
 	{
-		const core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type, _dstType.cpa);
+		const core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type);
 
-        if (!compareFloatingPointAttribute(d, quantized, _srcType.cpa, _errMetric))
+        if (!compareFloatingPointAttribute(d, quantized, video::getFormatChannelCount(_srcType.type), _errMetric))
             return false;
 	}
 
@@ -1827,7 +1951,7 @@ inline asset::ICPUBuffer* CMeshManipulator::trianglesFanToTriangles(const void* 
 template asset::ICPUBuffer* CMeshManipulator::trianglesFanToTriangles<uint16_t>(const void* _input, size_t _idxCount) const;
 template asset::ICPUBuffer* CMeshManipulator::trianglesFanToTriangles<uint32_t>(const void* _input, size_t _idxCount) const;
 
-bool CMeshManipulator::compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, E_COMPONENTS_PER_ATTRIBUTE _cpa, const SErrorMetric& _errMetric) const
+bool CMeshManipulator::compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, size_t _cpa, const SErrorMetric& _errMetric) const
 {
 	using ErrorF_t = core::vectorSIMDf(*)(core::vectorSIMDf, core::vectorSIMDf);
 
@@ -1853,15 +1977,15 @@ bool CMeshManipulator::compareFloatingPointAttribute(const core::vectorSIMDf& _a
 		break;
 	}
 
-	using CmpF_t = bool(*)(const core::vectorSIMDf&, const core::vectorSIMDf&, E_COMPONENTS_PER_ATTRIBUTE);
+	using CmpF_t = bool(*)(const core::vectorSIMDf&, const core::vectorSIMDf&, size_t);
 
 	CmpF_t cmpFunc = nullptr;
 
 	switch (_errMetric.method)
 	{
 	case EEM_POSITIONS:
-		cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> bool {
-			for (size_t i = 0u; i < (size_t)(_cpa == ECPA_REVERSED_OR_BGRA ? ECPA_FOUR : _cpa); ++i)
+		cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, size_t _cpa) -> bool {
+			for (size_t i = 0u; i < _cpa; ++i)
 				if (_err.pointer[i] > _epsilon.pointer[i])
 					return false;
 			return true;
@@ -1869,7 +1993,7 @@ bool CMeshManipulator::compareFloatingPointAttribute(const core::vectorSIMDf& _a
 		break;
 	case EEM_ANGLES:
 	case EEM_QUATERNION:
-		cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, E_COMPONENTS_PER_ATTRIBUTE _cpa) -> bool {
+		cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, size_t _cpa) -> bool {
 			return _err.x > (1.f - _epsilon.x);
 		};
 		break;

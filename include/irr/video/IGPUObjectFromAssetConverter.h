@@ -122,8 +122,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         }
 
         const asset::ICPUBuffer* oldbuffer[scene::EVAI_COUNT];
-        scene::E_COMPONENTS_PER_ATTRIBUTE components[scene::EVAI_COUNT];
-        scene::E_COMPONENT_TYPE componentTypes[scene::EVAI_COUNT];
+        video::E_FORMAT formats[scene::EVAI_COUNT];
         size_t strides[scene::EVAI_COUNT];
         size_t offsets[scene::EVAI_COUNT];
         uint32_t divisors[scene::EVAI_COUNT];
@@ -158,17 +157,16 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
                 vaoConf.noAttributes = false;
             }
 
-            vaoConf.components[attrId] = origdesc->getAttribComponentCount(attrId);
-            vaoConf.componentTypes[attrId] = origdesc->getAttribType(attrId);
+            vaoConf.formats[attrId] = origdesc->getAttribFormat(attrId);
             vaoConf.strides[attrId] = origdesc->getMappedBufferStride(attrId);
             vaoConf.offsets[attrId] = origdesc->getMappedBufferOffset(attrId);
             vaoConf.divisors[attrId] = origdesc->getAttribDivisor(attrId);
-            if (!scene::validCombination(vaoConf.componentTypes[attrId], vaoConf.components[attrId]))
-            {
-                os::Printer::log("createGPUObjectFromAsset input ICPUMeshBuffer(s) have one or more invalid attribute specs!\n", ELL_ERROR);
-                vaoConf.success = false;
-                break;
-            }
+            //if (!scene::validCombination(vaoConf.componentTypes[attrId], vaoConf.components[attrId]))
+            //{
+            //    os::Printer::log("createGPUObjectFromAsset input ICPUMeshBuffer(s) have one or more invalid attribute specs!\n", ELL_ERROR);
+            //    vaoConf.success = false;
+            //    break;
+            //}
         }
         vaoConf.idxbuf = origdesc->getIndexBuffer();
         if (vaoConf.idxbuf)
@@ -236,8 +234,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
                     vao->mapVertexAttrBuffer(
                         gpuBufDeps[bufRedir[j]],
                         scene::E_VERTEX_ATTRIBUTE_ID(k),
-                        vaoConf.components[k],
-                        vaoConf.componentTypes[k],
+                        vaoConf.formats[k],
                         vaoConf.strides[k],
                         vaoConf.offsets[k],
                         vaoConf.divisors[k]

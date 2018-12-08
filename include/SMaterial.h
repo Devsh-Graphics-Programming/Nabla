@@ -10,7 +10,7 @@
 #include "EMaterialTypes.h"
 #include "EMaterialFlags.h"
 #include "SMaterialLayer.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 #include "IVirtualTexture.h"
 
 namespace irr

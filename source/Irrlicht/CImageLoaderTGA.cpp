@@ -10,7 +10,7 @@
 #include "os.h"
 #include "CColorConverter.h"
 #include "CImageData.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 
 
 namespace irr
@@ -181,7 +181,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 			}
 			else
 			{
-				image = new CImageData(NULL,nullOffset,imageSize,0,EF_A1R5G5B5);
+				image = new CImageData(NULL,nullOffset,imageSize,0, EF_A1R5G5B5_UNORM_PACK16);
 				if (image)
 					CColorConverter::convert8BitTo16Bit((uint8_t*)data,
 						(int16_t*)image->getData(),
@@ -192,7 +192,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 		}
 		break;
 	case 16:
-		image = new CImageData(NULL,nullOffset,imageSize,0,EF_A1R5G5B5);
+		image = new CImageData(NULL,nullOffset,imageSize,0, EF_A1R5G5B5_UNORM_PACK16);
 		if (image)
 			CColorConverter::convert16BitTo16Bit((int16_t*)data,
 				(int16_t*)image->getData(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);

@@ -588,7 +588,7 @@ namespace video
                 virtual uint32_t getMipMapLevelCount() const {return 1;}
                 virtual core::dimension2du getRenderableSize() const { return size; }
                 virtual E_DRIVER_TYPE getDriverType() const { return video::EDT_NULL; }
-                virtual E_FORMAT getColorFormat() const { return video::EF_A1R5G5B5; }
+                virtual E_FORMAT getColorFormat() const { return video::EF_A1R5G5B5_UNORM_PACK16; }
                 virtual uint32_t getPitch() const { return 0; }
                 virtual void regenerateMipMapLevels() {}
                 virtual bool updateSubRegion(const E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}

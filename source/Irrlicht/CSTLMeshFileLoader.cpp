@@ -178,10 +178,10 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             memcpy(ptr+16, colors.data()+i/3, 4);
     }
 
-	desc->mapVertexAttrBuffer(vertexBuf, EVAI_ATTR0, ECPA_THREE, ECT_FLOAT, vtxSize, 0);
-	desc->mapVertexAttrBuffer(vertexBuf, EVAI_ATTR3, ECPA_FOUR, ECT_INT_2_10_10_10_REV, vtxSize, 12);
+	desc->mapVertexAttrBuffer(vertexBuf, EVAI_ATTR0, video::EF_R32G32B32_SFLOAT, vtxSize, 0);
+	desc->mapVertexAttrBuffer(vertexBuf, EVAI_ATTR3, video::EF_A2B10G10R10_SSCALED_PACK32, vtxSize, 12);
     if (hasColor)
-	    desc->mapVertexAttrBuffer(vertexBuf, EVAI_ATTR1, ECPA_REVERSED_OR_BGRA, ECT_NORMALIZED_UNSIGNED_BYTE, vtxSize, 16);
+	    desc->mapVertexAttrBuffer(vertexBuf, EVAI_ATTR1, video::EF_B8G8R8A8_UNORM, vtxSize, 16);
 	vertexBuf->drop();
 
 	mesh->getMeshBuffer(0)->setIndexCount(positions.size());

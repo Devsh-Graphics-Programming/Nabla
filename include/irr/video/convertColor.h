@@ -407,10 +407,7 @@ namespace irr { namespace video
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, reinterpret_cast<encT*>(decbuf), _scale);
         }
         else if (
-            (isNormalizedFormat<sF>() && isNormalizedFormat<dF>()) ||
-            (isFloatingPointFormat<sF>() && isFloatingPointFormat<dF>()) ||
-            (isNormalizedFormat<sF>() && isFloatingPointFormat<dF>()) ||
-            (isFloatingPointFormat<sF>() && isNormalizedFormat<dF>())
+            (isNormalizedFormat<sF>() || isScaledFormat<sF>() || isFloatingPointFormat<sF>()) && (isNormalizedFormat<dF>() || isScaledFormat<dF>() || isFloatingPointFormat<dF>())
         )
         {
             using decT = double;
@@ -420,7 +417,7 @@ namespace irr { namespace video
             impl::SCallDecode<isScaledFormat<sF>(), sF, decT>{}(srcPix, decbuf, _blockX, _blockY, _scale);
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, decbuf, _scale);
         }
-        else if ((isFloatingPointFormat<sF>() || isNormalizedFormat<sF>()) && isIntegerFormat<dF>())
+        else if ((isFloatingPointFormat<sF>() || isScaledFormat<sF>() || isNormalizedFormat<sF>()) && isIntegerFormat<dF>())
         {
             using decT = double;
             using encT = typename std::conditional<isSignedFormat<dF>(), int64_t, uint64_t>::type;
@@ -432,7 +429,7 @@ namespace irr { namespace video
                 encbuf[i] = decbuf[i];
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, encbuf, _scale);
         }
-        else if (isIntegerFormat<sF>() && (isNormalizedFormat<dF>() || isFloatingPointFormat<dF>()))
+        else if (isIntegerFormat<sF>() && (isNormalizedFormat<dF>() || isScaledFormat<dF>() || isFloatingPointFormat<dF>()))
         {
             using decT = typename std::conditional<isSignedFormat<sF>(), int64_t, uint64_t>::type;
             using encT = double;

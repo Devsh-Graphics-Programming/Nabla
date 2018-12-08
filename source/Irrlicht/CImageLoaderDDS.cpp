@@ -19,7 +19,7 @@
 #include "os.h"
 #include "CColorConverter.h"
 #include "CImageData.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 
 
 namespace irr
@@ -278,7 +278,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                 case DDS_PF_ARGB1555:
                     /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = EF_A1R5G5B5;
+                        colorFormat = EF_A1R5G5B5_UNORM_PACK16;
                         video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);

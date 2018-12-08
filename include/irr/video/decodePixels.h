@@ -27,7 +27,7 @@ namespace irr { namespace video
 	
 	
 	template<>
-    inline void decodePixels<EF_A1R5G5B5, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_A1R5G5B5_UNORM_PACK16, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = (pix & 0x1fu);
@@ -37,7 +37,7 @@ namespace irr { namespace video
     }
 	
 	template<>
-    inline void decodePixels<EF_R5G6B5, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixels<EF_B5G6R5_UNORM_PACK16, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
         _output[0] = ((pix >> 0) & 0x1fULL);
@@ -1269,12 +1269,12 @@ namespace irr { namespace video
             uint16_t r0, g0, b0, r1, g1, b1;
             
             const void* input = &col.c0;
-            decodePixels<EF_R5G6B5, uint64_t>(&input, p[0].c, 0u, 0u);
+            decodePixels<EF_B5G6R5_UNORM_PACK16, uint64_t>(&input, p[0].c, 0u, 0u);
             r0 = p[0].r;
             g0 = p[0].g;
             b0 = p[0].b;
             input = &col.c1;
-            decodePixels<EF_R5G6B5, uint64_t>(&input, p[1].c, 0u, 0u);
+            decodePixels<EF_B5G6R5_UNORM_PACK16, uint64_t>(&input, p[1].c, 0u, 0u);
             r1 = p[1].r;
             g1 = p[1].g;
             b1 = p[1].b;
@@ -1676,7 +1676,7 @@ namespace irr { namespace video
     bool decodePixels(E_FORMAT _fmt, const void* _pix[4], T* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale);
 	
     template<>
-    bool decodePixels<double>(E_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
+    inline bool decodePixels<double>(E_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
@@ -1753,7 +1753,7 @@ namespace irr { namespace video
     }
     
     template<>
-    bool decodePixels<int64_t>(E_FORMAT _fmt, const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline bool decodePixels<int64_t>(E_FORMAT _fmt, const void* _pix[4], int64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
@@ -1782,7 +1782,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool decodePixels<uint64_t>(E_FORMAT _fmt, const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    inline bool decodePixels<uint64_t>(E_FORMAT _fmt, const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
         switch (_fmt)
         {
@@ -1811,7 +1811,7 @@ namespace irr { namespace video
         }
     }
     template<>
-    bool decodePixels<double>(E_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
+    inline bool decodePixels<double>(E_FORMAT _fmt, const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY, uint64_t _scale)
     {
         switch (_fmt)
         {

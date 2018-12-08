@@ -49,7 +49,7 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     const asset::ICPUMesh* mesh =
 #   ifndef _DEBUG
-        static_cast<const ICPUMesh*>(_params.rootAsset);
+        static_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   endif
@@ -75,7 +75,7 @@ template <class I>
 inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, scene::E_VERTEX_ATTRIBUTE_ID _colorVaid)
 {
     bool hasColor = buffer->getMeshDataAndFormat()->getMappedBuffer(_colorVaid);
-    const scene::E_COMPONENT_TYPE colorType = buffer->getMeshDataAndFormat()->getAttribType(_colorVaid);
+    const video::E_FORMAT colorType = buffer->getMeshDataAndFormat()->getAttribFormat(_colorVaid);
 
     const uint32_t indexCount = buffer->getIndexCount();
     for (uint32_t j = 0u; j < indexCount; j += 3u)
@@ -96,7 +96,7 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
         uint16_t color = 0u;
         if (hasColor)
         {
-            if (scene::isNativeInteger(colorType))
+            if (video::isIntegerFormat(colorType))
             {
                 uint32_t res[4];
                 for (uint32_t i = 0u; i < 3u; ++i)

@@ -39,7 +39,7 @@ CSoftwareTexture2::CSoftwareTexture2(CImageData* image, const io::path& name, ui
 
 		core::setbit_cond(Flags,
 				image->getColorFormat () == video::EF_B8G8R8A8_UNORM ||
-				image->getColorFormat () == video::EF_A1R5G5B5,
+				image->getColorFormat () == video::EF_A1R5G5B5_UNORM_PACK16,
 				HAS_ALPHA);
 
 		core::dimension2d<uint32_t> optSize(

@@ -57,7 +57,7 @@ class IVirtualTexture : public virtual core::IReferenceCounted
 
         //! Returns if the texture has an alpha channel
         inline bool hasAlpha() const {
-            return getColorFormat () == video::EF_B8G8R8A8_UNORM || getColorFormat() == video::EF_R8G8B8A8_UNORM || getColorFormat () == video::EF_A1R5G5B5 || getColorFormat () == video::EF_R16G16B16A16_SFLOAT || getColorFormat () == EF_R32G32B32A32_SFLOAT
+            return getColorFormat () == video::EF_B8G8R8A8_UNORM || getColorFormat() == video::EF_R8G8B8A8_UNORM || getColorFormat () == video::EF_A1R5G5B5_UNORM_PACK16 || getColorFormat () == video::EF_R16G16B16A16_SFLOAT || getColorFormat () == EF_R32G32B32A32_SFLOAT
                                                 || getColorFormat() == EF_BC1_RGBA_UNORM_BLOCK || getColorFormat() == EF_BC2_UNORM_BLOCK || getColorFormat() == EF_BC3_UNORM_BLOCK;
         }
 };

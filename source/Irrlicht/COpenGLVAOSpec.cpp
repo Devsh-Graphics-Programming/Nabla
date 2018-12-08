@@ -32,7 +32,7 @@ COpenGLVAOSpec::COpenGLVAOSpec(core::LeakDebugger* dbgr) :  leakDebugger(dbgr)
         leakDebugger->registerObj(this);
 
     for (size_t i=0; i<scene::EVAI_COUNT; i++)
-        individualHashFields.setAttrFmtAndCompCnt(static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(i),compntsPerAttr[i],attrType[i]);
+        individualHashFields.setAttrFmt(static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(i),attrFormat[i]);
 }
 
 COpenGLVAOSpec::~COpenGLVAOSpec()
@@ -42,18 +42,12 @@ COpenGLVAOSpec::~COpenGLVAOSpec()
 }
 
 
-void COpenGLVAOSpec::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, scene::E_COMPONENTS_PER_ATTRIBUTE components, scene::E_COMPONENT_TYPE type, const size_t &stride, size_t offset, uint32_t divisor)
+void COpenGLVAOSpec::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, E_FORMAT format, const size_t &stride, size_t offset, uint32_t divisor)
 {
     if (attrId>=scene::EVAI_COUNT)
 #ifdef _DEBUG
     {
         os::Printer::log("MeshBuffer mapVertexAttrBuffer attribute ID out of range!\n",ELL_ERROR);
-        return;
-    }
-
-    if (!validCombination(type,components))
-    {
-        os::Printer::log("MeshBuffer mapVertexAttrBuffer INVALID COMBINATION OF COMPONENT TYPE AND COUNT!\n",ELL_ERROR);
         return;
     }
 #else
@@ -69,7 +63,7 @@ void COpenGLVAOSpec::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VER
     if (attrBuf)
     {
         attrBuf->grab();
-        newStride = stride!=0 ? stride:scene::vertexAttrSize[type][components];
+        newStride = stride!=0u ? stride : getTexelOrBlockSize(format);
         //bind new buffer
         if (mappedAttrBuf[attrId])
             mappedAttrBuf[attrId]->drop();
@@ -83,17 +77,14 @@ void COpenGLVAOSpec::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VER
             individualHashFields.enabledAttribs &= invMask;
             mappedAttrBuf[attrId]->drop();
         }
-        components = scene::ECPA_FOUR;
-        type = scene::ECT_FLOAT;
-        newStride = 16;
-        offset = 0;
-        divisor = 0;
+        format = EF_R32G32B32A32_SFLOAT;
+        newStride = 16u;
+        offset = 0u;
+        divisor = 0u;
     }
 
 
-    //set format
-    if (components!=compntsPerAttr[attrId]||type!=attrType[attrId])
-        individualHashFields.setAttrFmtAndCompCnt(attrId,components,type);
+    individualHashFields.setAttrFmt(attrId, format);
 
 
     const uint32_t maxDivisor = 0x1u<<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS;
@@ -113,8 +104,7 @@ void COpenGLVAOSpec::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VER
         attrDivisor[attrId] = divisor;
     }
 
-    compntsPerAttr[attrId] = components;
-    attrType[attrId] = type;
+    attrFormat[attrId] = format;
     attrStride[attrId] = newStride;
     attrOffset[attrId] = offset;
 

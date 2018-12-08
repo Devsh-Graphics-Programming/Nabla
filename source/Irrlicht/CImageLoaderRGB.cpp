@@ -126,7 +126,7 @@ DUMMY -		This 404 bytes of data should be set to 0. This makes the Header exactl
 #ifdef _IRR_COMPILE_WITH_RGB_LOADER_
 
 #include "IReadFile.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 #include "SColor.h"
 #include "CColorConverter.h"
 #include "CImageData.h"
@@ -233,7 +233,7 @@ asset::IAsset* CImageLoaderRGB::loadAsset(io::IReadFile* _file, const asset::IAs
 				for (int n=0; n<256; n++)
 					paletteData[n] = n;
 
-				image = new video::CImageData(NULL,nullOffset,imageSize,0,EF_A1R5G5B5);
+				image = new video::CImageData(NULL,nullOffset,imageSize,0,EF_A1R5G5B5_UNORM_PACK16);
 				if (image)
 					CColorConverter::convert8BitTo16Bit(rgb.rgbData, (int16_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, paletteData, 0, true);
 				break;

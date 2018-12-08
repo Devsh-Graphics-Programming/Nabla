@@ -18,6 +18,39 @@ namespace irr
 namespace scene
 {
 
+namespace impl
+{
+static video::E_FORMAT getCorrespondingIntegerFormat(video::E_FORMAT _fmt)
+{
+    using namespace video;
+    switch (_fmt)
+    {
+    case EF_R8_UNORM: return EF_R8_UINT;
+    case EF_R8_SNORM: return EF_R8_SINT;
+    case EF_R8G8_UNORM: return EF_R8G8_UINT;
+    case EF_R8G8_SNORM: return EF_R8G8_SINT;
+    case EF_R8G8B8_UNORM: return EF_R8G8B8_UINT;
+    case EF_R8G8B8_SNORM: return EF_R8G8B8_SINT;
+    case EF_R8G8B8A8_UNORM: return EF_R8G8B8A8_UINT;
+    case EF_R8G8B8A8_SNORM: return EF_R8G8B8A8_SINT;
+    case EF_R16_UNORM: return EF_R16_UINT;
+    case EF_R16_SNORM: return EF_R16_SINT;
+    case EF_R16G16_UNORM: return EF_R16G16_UINT;
+    case EF_R16G16_SNORM: return EF_R16G16_SINT;
+    case EF_R16G16B16_UNORM: return EF_R16G16B16_UINT;
+    case EF_R16G16B16_SNORM: return EF_R16G16B16_SINT;
+    case EF_R16G16B16A16_UNORM: return EF_R16G16B16A16_UINT;
+    case EF_R16G16B16A16_SNORM: return EF_R16G16B16A16_SINT;
+    case EF_A2B10G10R10_UNORM_PACK32: return EF_A2B10G10R10_UINT_PACK32;
+    case EF_A2B10G10R10_SNORM_PACK32: return EF_A2B10G10R10_SINT_PACK32;
+    case EF_B8G8R8A8_UNORM: return EF_R8G8B8A8_SINT;
+    case EF_A2R10G10B10_UNORM_PACK32: return EF_A2B10G10R10_UINT_PACK32;
+    case EF_A2R10G10B10_SNORM_PACK32: return EF_A2B10G10R10_SINT_PACK32;
+    default: return EF_UNKNOWN;
+    }
+}
+}
+
 CPLYMeshWriter::CPLYMeshWriter()
 {
 	#ifdef _DEBUG
@@ -68,7 +101,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     auto desc = mesh->getMeshBuffer(0)->getMeshDataAndFormat();
     if (desc->getMappedBuffer(EVAI_ATTR0))
     {
-        const E_COMPONENT_TYPE t = desc->getAttribType(EVAI_ATTR0);
+        const video::E_FORMAT t = desc->getAttribFormat(EVAI_ATTR0);
         std::string typeStr = getTypeString(t);
         vaidToWrite[0] = true;
         header +=
@@ -78,21 +111,21 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     }
     if (desc->getMappedBuffer(EVAI_ATTR1))
     {
-        const E_COMPONENT_TYPE t = desc->getAttribType(EVAI_ATTR1);
+        const video::E_FORMAT t = desc->getAttribFormat(EVAI_ATTR1);
         std::string typeStr = getTypeString(t);
         vaidToWrite[1] = true;
         header +=
             "property " + typeStr + " red\n" +
             "property " + typeStr + " green\n" +
             "property " + typeStr + " blue\n";
-        if (desc->getAttribComponentCount(EVAI_ATTR1) == ECPA_FOUR || desc->getAttribComponentCount(EVAI_ATTR1) == ECPA_REVERSED_OR_BGRA)
+        if (video::getFormatChannelCount(t) == 4u)
         {
             header += "property " + typeStr + " alpha\n";
         }
     }
     if (desc->getMappedBuffer(EVAI_ATTR2))
     {
-        const E_COMPONENT_TYPE t = desc->getAttribType(EVAI_ATTR2);
+        const video::E_FORMAT t = desc->getAttribFormat(EVAI_ATTR1);
         std::string typeStr = getTypeString(t);
         vaidToWrite[2] = true;
         header +=
@@ -101,7 +134,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     }
     if (desc->getMappedBuffer(EVAI_ATTR3))
     {
-        const E_COMPONENT_TYPE t = desc->getAttribType(EVAI_ATTR3);
+        const video::E_FORMAT t = desc->getAttribFormat(EVAI_ATTR1);
         std::string typeStr = getTypeString(t);
         vaidToWrite[3] = true;
         header +=
@@ -188,9 +221,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
 void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
 {
-    size_t colCpa = _mbuf->getMeshDataAndFormat()->getAttribComponentCount(EVAI_ATTR1);
-    if (colCpa == ECPA_REVERSED_OR_BGRA)
-        colCpa = 4u;
+    const size_t colCpa = video::getFormatChannelCount(_mbuf->getMeshDataAndFormat()->getAttribFormat(EVAI_ATTR1));
 
     asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
@@ -268,11 +299,11 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
     {
         uint32_t ui[4];
         core::vectorSIMDf f;
-        const E_COMPONENT_TYPE t = mbCopy->getMeshDataAndFormat()->getAttribType(_vaid);
-        if (scene::isWeakInteger(t) || scene::isNativeInteger(t))
+        const video::E_FORMAT t = mbCopy->getMeshDataAndFormat()->getAttribFormat(_vaid);
+        if (video::isScaledFormat(t) || video::isIntegerFormat(t))
         {
             mbCopy->getAttribute(ui, _vaid, _ix);
-            if (scene::isUnsigned(t))
+            if (!video::isSignedFormat(t))
                 writeVectorAsText(_file, ui, _cpa);
             else
             {
@@ -288,9 +319,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
         }
     };
 
-    size_t colCpa = _mbuf->getMeshDataAndFormat()->getAttribComponentCount(EVAI_ATTR1);
-    if (colCpa == ECPA_REVERSED_OR_BGRA)
-        colCpa = 4u;
+    const size_t colCpa = video::getFormatChannelCount(_mbuf->getMeshDataAndFormat()->getAttribFormat(EVAI_ATTR1));
 
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
@@ -364,26 +393,27 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuf
 {
     uint32_t ui[4];
     core::vectorSIMDf f;
-    E_COMPONENT_TYPE t = _mbuf->getMeshDataAndFormat()->getAttribType(_vaid);
-    if (scene::isWeakInteger(t) || scene::isNativeInteger(t))
+    video::E_FORMAT t = _mbuf->getMeshDataAndFormat()->getAttribFormat(_vaid);
+    if (video::isScaledFormat(t) || video::isIntegerFormat(t))
     {
         _mbuf->getAttribute(ui, _vaid, _ix);
 
-        if (scene::vertexAttrSize[t][ECPA_ONE] == 1 || t == ECT_INT_2_10_10_10_REV || t == ECT_UNSIGNED_INT_2_10_10_10_REV)
+        const uint32_t bytesPerCh = video::getTexelOrBlockSize(t)/video::getFormatChannelCount(t);
+        if (bytesPerCh == 1u || t == video::EF_A2B10G10R10_UINT_PACK32 || t == video::EF_A2B10G10R10_SINT_PACK32 || t == video::EF_A2B10G10R10_SSCALED_PACK32 || t == video::EF_A2B10G10R10_USCALED_PACK32)
         {
             uint8_t a[4];
             for (uint32_t k = 0u; k < _cpa; ++k)
                 a[k] = ui[k];
             _file->write(a, _cpa);
         }
-        else if (scene::vertexAttrSize[t][ECPA_ONE] == 2)
+        else if (bytesPerCh == 2u)
         {
             uint16_t a[4];
             for (uint32_t k = 0u; k < _cpa; ++k)
                 a[k] = ui[k];
             _file->write(a, 2*_cpa);
         }
-        else if (scene::vertexAttrSize[t][ECPA_ONE] == 4)
+        else if (bytesPerCh == 4u)
         {
             _file->write(ui, 4*_cpa);
         }
@@ -403,14 +433,13 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
     for (size_t i = EVAI_ATTR0; i < EVAI_COUNT; ++i)
     {
         E_VERTEX_ATTRIBUTE_ID vaid = (E_VERTEX_ATTRIBUTE_ID)i;
-        E_COMPONENT_TYPE t = origDesc->getAttribType(vaid);
+        video::E_FORMAT t = origDesc->getAttribFormat(vaid);
         if (origDesc->getMappedBuffer(vaid))
         {
             desc->mapVertexAttrBuffer(
                 const_cast<asset::ICPUBuffer*>(origDesc->getMappedBuffer(vaid)),
                 vaid,
-                origDesc->getAttribComponentCount(vaid),
-                scene::isNormalized(t) ? scene::getCorrespondingNativeIntType(scene::getCorrespondingDenormalizedType(t)) : t,
+                video::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t,
                 origDesc->getMappedBufferStride(vaid),
                 origDesc->getMappedBufferOffset(vaid),
                 origDesc->getAttribDivisor(vaid)
@@ -432,48 +461,95 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
     return mbCopy;
 }
 
-std::string CPLYMeshWriter::getTypeString(E_COMPONENT_TYPE _t)
+std::string CPLYMeshWriter::getTypeString(video::E_FORMAT _t)
 {
+    using namespace video;
+
+    if (video::isFloatingPointFormat(_t))
+        return "float";
+
     switch (_t)
     {
-    case ECT_DOUBLE_IN_DOUBLE_OUT:
-    case ECT_DOUBLE_IN_FLOAT_OUT:
-    case ECT_FLOAT:
-    case ECT_HALF_FLOAT:
-    case ECT_UNSIGNED_INT_10F_11F_11F_REV:
-        return "float";
-    case ECT_BYTE:
-    case ECT_NORMALIZED_BYTE:
-    case ECT_INT_2_10_10_10_REV:
-    case ECT_NORMALIZED_INT_2_10_10_10_REV:
-    case ECT_INTEGER_BYTE:
-    case ECT_INTEGER_INT_2_10_10_10_REV:
+    case EF_R8_SNORM:
+    case EF_R8_SINT:
+    case EF_R8_SSCALED:
+    case EF_R8G8_SNORM:
+    case EF_R8G8_SINT:
+    case EF_R8G8_SSCALED:
+    case EF_R8G8B8_SNORM:
+    case EF_R8G8B8_SINT:
+    case EF_R8G8B8_SSCALED:
+    case EF_R8G8B8A8_SNORM:
+    case EF_R8G8B8A8_SINT:
+    case EF_R8G8B8A8_SSCALED:
+    case EF_B8G8R8A8_UNORM:
+    case EF_A2B10G10R10_SNORM_PACK32:
+    case EF_A2B10G10R10_SINT_PACK32:
+    case EF_A2B10G10R10_SSCALED_PACK32:
+    case EF_A2R10G10B10_SNORM_PACK32:
         return "char";
-    case ECT_UNSIGNED_BYTE:
-    case ECT_NORMALIZED_UNSIGNED_BYTE:
-    case ECT_UNSIGNED_INT_2_10_10_10_REV:
-    case ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV:
-    case ECT_INTEGER_UNSIGNED_BYTE:
-    case ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV:
+
+    case EF_R8_UNORM:
+    case EF_R8_UINT:
+    case EF_R8_USCALED:
+    case EF_R8G8_UNORM:
+    case EF_R8G8_UINT:
+    case EF_R8G8_USCALED:
+    case EF_R8G8B8_UNORM:
+    case EF_R8G8B8_UINT:
+    case EF_R8G8B8_USCALED:
+    case EF_R8G8B8A8_UNORM:
+    case EF_R8G8B8A8_UINT:
+    case EF_R8G8B8A8_USCALED:
+    case EF_A2R10G10B10_UNORM_PACK32:
+    case EF_A2B10G10R10_UNORM_PACK32:
+    case EF_A2B10G10R10_UINT_PACK32:
+    case EF_A2B10G10R10_USCALED_PACK32:
         return "uchar";
-    case ECT_SHORT:
-    case ECT_NORMALIZED_SHORT:
-    case ECT_INTEGER_SHORT:
-        return "short";
-    case ECT_UNSIGNED_SHORT:
-    case ECT_NORMALIZED_UNSIGNED_SHORT:
-    case ECT_INTEGER_UNSIGNED_SHORT:
+
+    case EF_R16_UNORM:
+    case EF_R16_UINT:
+    case EF_R16_USCALED:
+    case EF_R16G16_UNORM:
+    case EF_R16G16_UINT:
+    case EF_R16G16_USCALED:
+    case EF_R16G16B16_UNORM:
+    case EF_R16G16B16_UINT:
+    case EF_R16G16B16_USCALED:
+    case EF_R16G16B16A16_UNORM:
+    case EF_R16G16B16A16_UINT:
+    case EF_R16G16B16A16_USCALED:
         return "ushort";
-    case ECT_INT:
-    case ECT_NORMALIZED_INT:
-    case ECT_INTEGER_INT:
-        return "int";
-    case ECT_UNSIGNED_INT:
-    case ECT_INTEGER_UNSIGNED_INT:
-    case ECT_NORMALIZED_UNSIGNED_INT:
+
+    case EF_R16_SNORM:
+    case EF_R16_SINT:
+    case EF_R16_SSCALED:
+    case EF_R16G16_SNORM:
+    case EF_R16G16_SINT:
+    case EF_R16G16_SSCALED:
+    case EF_R16G16B16_SNORM:
+    case EF_R16G16B16_SINT:
+    case EF_R16G16B16_SSCALED:
+    case EF_R16G16B16A16_SNORM:
+    case EF_R16G16B16A16_SINT:
+    case EF_R16G16B16A16_SSCALED:
+        return "short";
+
+    case EF_R32_UINT:
+    case EF_R32G32_UINT:
+    case EF_R32G32B32_UINT:
+    case EF_R32G32B32A32_UINT:
         return "uint";
+
+    case EF_R32_SINT:
+    case EF_R32G32_SINT:
+    case EF_R32G32B32_SINT:
+    case EF_R32G32B32A32_SINT:
+        return "int";
+
+    default:
+        return "";
     }
-    return "";
 }
 
 } // end namespace

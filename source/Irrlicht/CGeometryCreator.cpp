@@ -139,10 +139,10 @@ asset::ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size
 		pos *= size;
 	}
     //mapVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,vertexSize, offsetof(CubeVertex, pos));
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR1,scene::ECPA_FOUR,scene::ECT_NORMALIZED_UNSIGNED_BYTE,vertexSize,offsetof(CubeVertex, color));
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,vertexSize,offsetof(CubeVertex, uv));
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR3,scene::ECPA_THREE,scene::ECT_BYTE,vertexSize,offsetof(CubeVertex, normal));
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR0,video::EF_R32G32B32_SFLOAT,vertexSize, offsetof(CubeVertex, pos));
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR1,video::EF_R8G8B8A8_UNORM,vertexSize,offsetof(CubeVertex, color));
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR2,video::EF_R8G8_USCALED,vertexSize,offsetof(CubeVertex, uv));
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR3,video::EF_R8G8B8_SSCALED,vertexSize,offsetof(CubeVertex, normal));
     vertices->drop();
 
 	asset::SCPUMesh* mesh = new asset::SCPUMesh;
@@ -417,10 +417,10 @@ asset::ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t po
     ((uint32_t*)tmpMemPtr)[6] = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,-1.f,0.f));
 
     //mapVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,vertexSize);
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR1,scene::ECPA_FOUR,scene::ECT_NORMALIZED_UNSIGNED_BYTE,vertexSize,4*3);
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_FLOAT,vertexSize,4*3+4);
-    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR3,scene::ECPA_FOUR,scene::ECT_INT_2_10_10_10_REV,vertexSize,4*3+4+2*4);
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR0,video::EF_R32G32B32_SFLOAT,vertexSize);
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR1,video::EF_R8G8B8A8_UNORM,vertexSize,4*3);
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR2,video::EF_R32G32_SFLOAT,vertexSize,4*3+4);
+    desc->mapVertexAttrBuffer(vertices,scene::EVAI_ATTR3,video::EF_A2B10G10R10_SSCALED_PACK32,vertexSize,4*3+4+2*4);
     vertices->drop();
 
 	// recalculate bounding box
@@ -537,10 +537,10 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float len
     asset::SCPUMesh* mesh = new asset::SCPUMesh();
     asset::ICPUMeshBuffer* meshbuf = new asset::ICPUMeshBuffer();
     ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
-    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR0, ECPA_THREE, ECT_FLOAT, sizeof(CylinderVertex), offsetof(CylinderVertex, pos));
-    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR1, ECPA_FOUR, ECT_NORMALIZED_UNSIGNED_BYTE, sizeof(CylinderVertex), offsetof(CylinderVertex, color));
-    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR2, ECPA_TWO, ECT_FLOAT, sizeof(CylinderVertex), offsetof(CylinderVertex, uv));
-    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR3, ECPA_THREE, ECT_UNSIGNED_INT_2_10_10_10_REV, sizeof(CylinderVertex), offsetof(CylinderVertex, normal));
+    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR0, video::EF_R32G32B32_SFLOAT, sizeof(CylinderVertex), offsetof(CylinderVertex, pos));
+    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR1, video::EF_R8G8B8A8_UNORM, sizeof(CylinderVertex), offsetof(CylinderVertex, color));
+    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR2, video::EF_R32G32_SFLOAT, sizeof(CylinderVertex), offsetof(CylinderVertex, uv));
+    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR3, video::EF_A2B10G10R10_USCALED_PACK32, sizeof(CylinderVertex), offsetof(CylinderVertex, normal));
     vtxBuf->drop();
     desc->mapIndexBuffer(idxBuf);
     meshbuf->setIndexCount(idxBuf->getSize()/2u);
@@ -629,9 +629,9 @@ asset::ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length,
     asset::SCPUMesh* mesh = new asset::SCPUMesh();
     asset::ICPUMeshBuffer* meshbuf = new asset::ICPUMeshBuffer();
     ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
-    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR0, ECPA_THREE, ECT_FLOAT, sizeof(ConeVertex), offsetof(ConeVertex, pos));
-    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR1, ECPA_FOUR, ECT_NORMALIZED_UNSIGNED_BYTE, sizeof(ConeVertex), offsetof(ConeVertex, color));
-    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR3, ECPA_THREE, ECT_UNSIGNED_INT_2_10_10_10_REV, sizeof(ConeVertex), offsetof(ConeVertex, normal));
+    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR0, video::EF_R32G32B32_SFLOAT, sizeof(ConeVertex), offsetof(ConeVertex, pos));
+    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR1, video::EF_R8G8B8A8_UNORM, sizeof(ConeVertex), offsetof(ConeVertex, color));
+    desc->mapVertexAttrBuffer(vtxBuf, EVAI_ATTR3, video::EF_A2B10G10R10_USCALED_PACK32, sizeof(ConeVertex), offsetof(ConeVertex, normal));
     vtxBuf->drop();
     desc->mapIndexBuffer(idxBuf);
     meshbuf->setIndexCount(idxBuf->getSize()/2u);

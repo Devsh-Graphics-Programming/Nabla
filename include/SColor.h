@@ -19,9 +19,9 @@ namespace video
 	{
 		switch(format)
 		{
-		case EF_A1R5G5B5:
+        case EF_A1R5G5B5_UNORM_PACK16:
 			return 16;
-        case EF_R5G6B5:
+        case EF_B5G6R5_UNORM_PACK16:
             return 16;
 		case EF_R8G8B8_UNORM:
 			return 24;
@@ -429,10 +429,10 @@ namespace video
 		{
 			switch (format)
 			{
-				case EF_A1R5G5B5:
+				case EF_A1R5G5B5_UNORM_PACK16:
 					color = A1R5G5B5toA8R8G8B8(*(uint16_t*)data);
 					break;
-				case EF_R5G6B5:
+				case EF_B5G6R5_UNORM_PACK16:
 					color = R5G6B5toA8R8G8B8(*(uint16_t*)data);
 					break;
 				case EF_B8G8R8A8_UNORM:
@@ -458,14 +458,14 @@ namespace video
 		{
 			switch(format)
 			{
-				case EF_A1R5G5B5:
+				case EF_A1R5G5B5_UNORM_PACK16:
 				{
 					uint16_t * dest = (uint16_t*)data;
 					*dest = video::A8R8G8B8toA1R5G5B5( color );
 				}
 				break;
 
-				case EF_R5G6B5:
+				case EF_B5G6R5_UNORM_PACK16:
 				{
 					uint16_t * dest = (uint16_t*)data;
 					*dest = video::A8R8G8B8toR5G6B5( color );

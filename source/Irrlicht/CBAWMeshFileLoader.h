@@ -13,7 +13,7 @@
 #include "irr/asset/ICPUMesh.h"
 #include "CBAWFile.h"
 #include "CBlobsLoadingManager.h"
-#include "SSkinMeshBuffer.h"
+#include "irr/asset/SSkinMeshBuffer.h"
 
 namespace irr
 {

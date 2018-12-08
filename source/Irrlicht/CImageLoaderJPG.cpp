@@ -9,7 +9,7 @@
 #include "IReadFile.h"
 #include "CImage.h"
 #include "os.h"
-#include "ICPUTexture.h"
+#include "irr/asset/ICPUTexture.h"
 #include <string>
 
 namespace irr
