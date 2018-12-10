@@ -1842,7 +1842,6 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
             extGlVertexArrayAttribBinding(vao,attrId,attrId);
 
             E_FORMAT format = spec->getAttribFormat(attrId);
-            GLenum a;
             switch (format)
             {
             //DOUBLE
@@ -1850,7 +1849,6 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
             case EF_R64G64B64_SFLOAT:
             case EF_R64G64_SFLOAT:
             case EF_R64_SFLOAT:
-                a = formatEnumToGLenum(format);
                 extGlVertexArrayAttribLFormat(vao, attrId, getFormatChannelCount(format), GL_DOUBLE, 0);
                 break;
             //FLOATING POINT
@@ -1903,7 +1901,6 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
             case EF_B8G8R8A8_UNORM:
             case EF_A2B10G10R10_USCALED_PACK32:
             case EF_A2B10G10R10_SSCALED_PACK32:
-                a = formatEnumToGLenum(format);
                 extGlVertexArrayAttribFormat(vao, attrId, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, 0);
                 break;
             case EF_R8_UINT:
@@ -1932,7 +1929,6 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
             case EF_R32G32B32A32_SINT:
             case EF_A2B10G10R10_UINT_PACK32:
             case EF_A2B10G10R10_SINT_PACK32:
-                a = formatEnumToGLenum(format);
                 extGlVertexArrayAttribIFormat(vao,attrId,getFormatChannelCount(format), formatEnumToGLenum(format),0);
                 break;
             }
