@@ -132,9 +132,9 @@ MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatD
 	static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");
 
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
-		cpa[(int)i] = 0u;
+		cpa[(int)i] = 0u; // was storing scene::E_COMPONENTS_PER_ATTRIBUTE in .baw v0 (in version 1 MeshDataFormatDescBlobV1 is used)
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
-		attrType[(int)i] = _desc->getAttribFormat(i);
+		attrType[(int)i] = _desc->getAttribFormat(i); // was storing E_COMPONENT_TYPE in .baw v0
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
 		attrStride[(int)i] = _desc->getMappedBufferStride(i);
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
@@ -283,6 +283,37 @@ size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize() const
 {
 	return keyframeCount * boneCount * scene::CFinalBoneHierarchy::getSizeOfSingleAnimationData();
 }
+
+
+// .baw VERSION 1
+
+MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc)
+{
+    using namespace scene;
+
+    static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");
+
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrFormat[(int)i] = _desc->getAttribFormat(i);
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrStride[(int)i] = _desc->getMappedBufferStride(i);
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrOffset[(int)i] = _desc->getMappedBufferOffset(i);
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrDivisor[(int)i] = _desc->getAttribDivisor(i);
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrBufPtrs[(int)i] = reinterpret_cast<uint64_t>(_desc->getMappedBuffer(i));
+
+    idxBufPtr = reinterpret_cast<uint64_t>(_desc->getIndexBuffer());
+}
+
+template<>
+size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
+{
+    return sizeof(MeshDataFormatDescBlobV1);
+}
+
+
 
 bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {

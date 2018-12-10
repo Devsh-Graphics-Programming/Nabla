@@ -28,13 +28,13 @@ class CBAWMeshFileLoader : public asset::IAssetLoader
 private:
 	struct SBlobData
 	{
-		core::BlobHeaderV0* header;
+		core::BlobHeaderV1* header;
 		size_t absOffset; // absolute
 		void* heapBlob;
 		mutable bool validated;
         uint32_t hierarchyLvl;
 
-		SBlobData(core::BlobHeaderV0* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
+		SBlobData(core::BlobHeaderV1* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
 		~SBlobData() { _IRR_ALIGNED_FREE(heapBlob); }
 		bool validate() const {
 			validated = false;

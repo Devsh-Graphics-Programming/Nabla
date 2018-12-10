@@ -51,7 +51,7 @@ namespace scene
 		{
 			asset::IAssetWriter::SAssetWriteContext inner;
             asset::IAssetWriter::IAssetWriterOverride* writerOverride;
-			core::vector<core::BlobHeaderV0> headers;
+			core::vector<core::BlobHeaderV1> headers;
 			core::vector<uint32_t> offsets;
 		};
 

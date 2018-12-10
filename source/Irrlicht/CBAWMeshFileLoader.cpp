@@ -47,11 +47,11 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 	uint32_t blobCnt;
 	uint32_t* offsets;
-	core::BlobHeaderV0* headers;
+	core::BlobHeaderV1* headers;
 	if (!validateHeaders(&blobCnt, &offsets, (void**)&headers, ctx))
 		return NULL;
 
-	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV0{ {}, blobCnt }.calcBlobsOffset();
+	const uint32_t BLOBS_FILE_OFFSET = core::BAWFileV1{ {}, blobCnt }.calcBlobsOffset();
 
 	core::unordered_map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
@@ -179,7 +179,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const
 {
-	char headerStr[sizeof(core::BAWFileV0::fileHeader)];
+	char headerStr[sizeof(core::BAWFileV1::fileHeader)];
 	_ctx.inner.mainFile->seek(0);
 	if (!safeRead(_ctx.inner.mainFile, headerStr, sizeof(headerStr)))
 		return false;
@@ -189,7 +189,7 @@ bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const
 		return false;
 
 	_ctx.fileVersion = ((uint64_t*)headerStr)[3];
-	if (_ctx.fileVersion >= 1)
+	if (_ctx.fileVersion != _IRR_BAW_FORMAT_VERSION)
         return false;
 
 	return true;
@@ -200,23 +200,23 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 	if (!_blobCnt)
 		return false;
 
-	_ctx.inner.mainFile->seek(sizeof(core::BAWFileV0::fileHeader));
+	_ctx.inner.mainFile->seek(sizeof(core::BAWFileV1::fileHeader));
 	if (!safeRead(_ctx.inner.mainFile, _blobCnt, sizeof(*_blobCnt)))
 		return false;
 	if (!safeRead(_ctx.inner.mainFile, _ctx.iv, 16))
 		return false;
 	uint32_t* const offsets = *_offsets = (uint32_t*)_IRR_ALIGNED_MALLOC(*_blobCnt * sizeof(uint32_t),_IRR_SIMD_ALIGNMENT);
-	*_headers = _IRR_ALIGNED_MALLOC(*_blobCnt * sizeof(core::BlobHeaderV0),_IRR_SIMD_ALIGNMENT);
-	core::BlobHeaderV0* const headers = (core::BlobHeaderV0*)*_headers;
+	*_headers = _IRR_ALIGNED_MALLOC(*_blobCnt * sizeof(core::BlobHeaderV1),_IRR_SIMD_ALIGNMENT);
+	core::BlobHeaderV1* const headers = (core::BlobHeaderV1*)*_headers;
 
 	bool nope = false;
 
 	if (!safeRead(_ctx.inner.mainFile, offsets, *_blobCnt * sizeof(uint32_t)))
 		nope = true;
-	if (!safeRead(_ctx.inner.mainFile, headers, *_blobCnt * sizeof(core::BlobHeaderV0)))
+	if (!safeRead(_ctx.inner.mainFile, headers, *_blobCnt * sizeof(core::BlobHeaderV1)))
 		nope = true;
 
-	const uint32_t offsetRelByte = core::BAWFileV0{{}, *_blobCnt}.calcBlobsOffset(); // num of byte to which offsets are relative
+	const uint32_t offsetRelByte = core::BAWFileV1{{}, *_blobCnt}.calcBlobsOffset(); // num of byte to which offsets are relative
 	for (uint32_t i = 0; i < *_blobCnt-1; ++i) // whether offsets are in ascending order none of them points past the end of file
 		if (offsets[i] >= offsets[i+1] || offsetRelByte + offsets[i] >= _ctx.inner.mainFile->getSize())
 			nope = true;
@@ -254,7 +254,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 	if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
 		dst = _stackPtr;
 	else
-		dst = _IRR_ALIGNED_MALLOC(core::BlobHeaderV0::calcEncSize(_data.header->blobSizeDecompr),_IRR_SIMD_ALIGNMENT);
+		dst = _IRR_ALIGNED_MALLOC(core::BlobHeaderV1::calcEncSize(_data.header->blobSizeDecompr),_IRR_SIMD_ALIGNMENT);
 
 	const bool encrypted = (_data.header->compressionType & core::Blob::EBCT_AES128_GCM);
 	const bool compressed = (_data.header->compressionType & core::Blob::EBCT_LZ4) || (_data.header->compressionType & core::Blob::EBCT_LZMA);

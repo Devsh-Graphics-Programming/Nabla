@@ -259,6 +259,8 @@ namespace core
 	} PACK_STRUCT;
 
 	//! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
+    //! Irrelevant in version 1.
+    //! @see @ref MeshDataFormatDescBlobV1
 	struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >
 	{
 	private:
@@ -267,7 +269,9 @@ namespace core
 		//! Constructor filling all members
 		explicit MeshDataFormatDescBlobV0(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>*);
 
+        //! was storing scene::E_COMPONENTS_PER_ATTRIBUTE in .baw v0 (in version 1 MeshDataFormatDescBlobV1 is used)
 		uint32_t cpa[VERTEX_ATTRIB_CNT];
+        //! was storing E_COMPONENT_TYPE in .baw v0
 		uint32_t attrType[VERTEX_ATTRIB_CNT];
 		size_t attrStride[VERTEX_ATTRIB_CNT];
 		size_t attrOffset[VERTEX_ATTRIB_CNT];
@@ -350,24 +354,55 @@ namespace core
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
+    // ===============
+    // .baw VERSION 1
+    // ===============
+    using BlobHeaderV1 = BlobHeaderV0;
+    using BAWFileV1 = BAWFileV0;
+    using RawBufferBlobV1 = RawBufferBlobV0;
+    using TexturePathBlobV1 = TexturePathBlobV0;
+    using MeshBlobV1 = MeshBlobV0;
+    using SkinnedMeshBlobV1 = SkinnedMeshBlobV0;
+    using MeshBufferBlobV1 = MeshBufferBlobV0;
+    using SkinnedMeshBufferBlobV1 = SkinnedMeshBufferBlobV0;
+    using FinalBoneHierarchyBlobV1 = FinalBoneHierarchyBlobV0;
+
+#include "irr/irrpack.h"
+    struct MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >
+    {
+    private:
+        enum { VERTEX_ATTRIB_CNT = 16 };
+    public:
+        //! Constructor filling all members
+        explicit MeshDataFormatDescBlobV1(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>*);
+
+        uint32_t attrFormat[VERTEX_ATTRIB_CNT];
+        size_t attrStride[VERTEX_ATTRIB_CNT];
+        size_t attrOffset[VERTEX_ATTRIB_CNT];
+        uint32_t attrDivisor[VERTEX_ATTRIB_CNT];
+        uint64_t attrBufPtrs[VERTEX_ATTRIB_CNT];
+        uint64_t idxBufPtr;
+    } PACK_STRUCT;
+#include "irr/irrunpack.h"
+
 	template<typename>
 	struct CorrespondingBlobTypeFor;
 	template<>
-	struct CorrespondingBlobTypeFor<asset::ICPUBuffer> { typedef RawBufferBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::ICPUBuffer> { typedef RawBufferBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<asset::ICPUMesh> { typedef MeshBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::ICPUMesh> { typedef MeshBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<asset::ICPUSkinnedMesh> { typedef SkinnedMeshBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::ICPUSkinnedMesh> { typedef SkinnedMeshBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<asset::ICPUMeshBuffer> { typedef MeshBufferBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::ICPUMeshBuffer> { typedef MeshBufferBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<asset::SCPUSkinMeshBuffer> { typedef SkinnedMeshBufferBlobV0 type; };
+	struct CorrespondingBlobTypeFor<asset::SCPUSkinMeshBuffer> { typedef SkinnedMeshBufferBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<scene::IMeshDataFormatDesc<asset::ICPUBuffer> > { typedef MeshDataFormatDescBlobV0 type; };
+	struct CorrespondingBlobTypeFor<scene::IMeshDataFormatDesc<asset::ICPUBuffer> > { typedef MeshDataFormatDescBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<scene::CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV0 type; };
+	struct CorrespondingBlobTypeFor<scene::CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV0 type; };
+	struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV1 type; };
 
 	template<typename T>
 	typename CorrespondingBlobTypeFor<T>::type* toBlobPtr(const void* _blob)

@@ -616,6 +616,8 @@ precision will be lower but speed higher. currently X86 only
 	#endif
 #endif
 
+#define _IRR_BAW_FORMAT_VERSION 1
+
 //! @see @ref CBlobsLoadingManager
 #define _IRR_ADD_BLOB_SUPPORT(BlobClassName, EnumValue, Function, ...) \
 case core::Blob::EnumValue:\
@@ -623,14 +625,14 @@ case core::Blob::EnumValue:\
 
 //! Used inside CBlobsLoadingManager. Adds support of given blob types.
 #define _IRR_SUPPORTED_BLOBS(Function, ...) \
-_IRR_ADD_BLOB_SUPPORT(RawBufferBlobV0, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(TexturePathBlobV0, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshBlobV0, EBT_MESH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV0, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV0, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV0, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV0, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV0, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
+_IRR_ADD_BLOB_SUPPORT(RawBufferBlobV1, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(TexturePathBlobV1, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshBlobV1, EBT_MESH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV1, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV1, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV1, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV1, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV1, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
 
 #endif // __IRR_COMPILE_CONFIG_H_INCLUDED__
 

@@ -17,8 +17,6 @@
 #include "lz4/lz4.h"
 #include "lzma/LzmaEnc.h"
 
-#define BAW_FILE_VERSION 0
-
 
 namespace irr {namespace scene {
 
@@ -35,13 +33,13 @@ namespace irr {namespace scene {
 	void CBAWMeshWriter::exportAsBlob<asset::ICPUMesh>(asset::ICPUMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u<<14];
-		core::MeshBlobV0* data = core::MeshBlobV0::createAndTryOnStack(_obj, stackData, sizeof(stackData));
+		core::MeshBlobV1* data = core::MeshBlobV1::createAndTryOnStack(_obj, stackData, sizeof(stackData));
 
         const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 0u);
         const uint8_t* encrPwd = nullptr;
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 0u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 0u);
-		tryWrite(data, _file, _ctx, core::MeshBlobV0::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
+		tryWrite(data, _file, _ctx, core::MeshBlobV1::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
 
 		if ((uint8_t*)data != stackData)
 			_IRR_ALIGNED_FREE(data);
@@ -50,13 +48,13 @@ namespace irr {namespace scene {
 	void CBAWMeshWriter::exportAsBlob<asset::ICPUSkinnedMesh>(asset::ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u << 14];
-		core::SkinnedMeshBlobV0* data = core::SkinnedMeshBlobV0::createAndTryOnStack(_obj,stackData,sizeof(stackData));
+		core::SkinnedMeshBlobV1* data = core::SkinnedMeshBlobV1::createAndTryOnStack(_obj,stackData,sizeof(stackData));
 
         const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 0u);
         const uint8_t* encrPwd = nullptr;
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 0u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 0u);
-		tryWrite(data, _file, _ctx, core::SkinnedMeshBlobV0::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
+		tryWrite(data, _file, _ctx, core::SkinnedMeshBlobV1::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
 
 		if ((uint8_t*)data != stackData)
 			_IRR_ALIGNED_FREE(data);
@@ -64,7 +62,7 @@ namespace irr {namespace scene {
 	template<>
 	void CBAWMeshWriter::exportAsBlob<asset::ICPUMeshBuffer>(asset::ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
-		core::MeshBufferBlobV0 data(_obj);
+		core::MeshBufferBlobV1 data(_obj);
 
         const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
         const uint8_t* encrPwd = nullptr;
@@ -75,7 +73,7 @@ namespace irr {namespace scene {
 	template<>
 	void CBAWMeshWriter::exportAsBlob<asset::SCPUSkinMeshBuffer>(asset::SCPUSkinMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
-		core::SkinnedMeshBufferBlobV0 data(_obj);
+		core::SkinnedMeshBufferBlobV1 data(_obj);
 
         const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
         const uint8_t* encrPwd = nullptr;
@@ -103,9 +101,9 @@ namespace irr {namespace scene {
 	void CBAWMeshWriter::exportAsBlob<scene::CFinalBoneHierarchy>(scene::CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u<<14]; // 16kB
-		core::FinalBoneHierarchyBlobV0* data = core::FinalBoneHierarchyBlobV0::createAndTryOnStack(_obj,stackData,sizeof(stackData));
+		core::FinalBoneHierarchyBlobV1* data = core::FinalBoneHierarchyBlobV1::createAndTryOnStack(_obj,stackData,sizeof(stackData));
 
-		tryWrite(data, _file, _ctx, core::FinalBoneHierarchyBlobV0::calcBlobSizeForObj(_obj), _headerIdx, asset::EWF_NONE);
+		tryWrite(data, _file, _ctx, core::FinalBoneHierarchyBlobV1::calcBlobSizeForObj(_obj), _headerIdx, asset::EWF_NONE);
 
 		if ((uint8_t*)data != stackData)
 			_IRR_ALIGNED_FREE(data);
@@ -113,7 +111,7 @@ namespace irr {namespace scene {
 	template<>
 	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<asset::ICPUBuffer> >(IMeshDataFormatDesc<asset::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
-		core::MeshDataFormatDescBlobV0 data(_obj);
+		core::MeshDataFormatDescBlobV1 data(_obj);
 
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, asset::EWF_NONE);
 	}
@@ -142,18 +140,18 @@ namespace irr {namespace scene {
         const asset::ICPUMesh* mesh = static_cast<const asset::ICPUMesh*>(_params.rootAsset);
 
 		constexpr uint32_t FILE_HEADER_SIZE = 32;
-        static_assert(FILE_HEADER_SIZE == sizeof(core::BAWFileV0::fileHeader), "BAW header is not 32 bytes long!");
+        static_assert(FILE_HEADER_SIZE == sizeof(core::BAWFileV1::fileHeader), "BAW header is not 32 bytes long!");
 
 		uint64_t header[4];
 		memcpy(header, BAW_FILE_HEADER, FILE_HEADER_SIZE);
-		header[3] = BAW_FILE_VERSION;
+		header[3] = _IRR_BAW_FORMAT_VERSION;
 
 		_file->write(header, FILE_HEADER_SIZE);
 
         SContext ctx{ asset::IAssetWriter::SAssetWriteContext{_params, _file}, _override }; // context of this call of `writeMesh`
 
 		const uint32_t numOfInternalBlobs = genHeaders(mesh, ctx);
-		const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t) + sizeof(core::BAWFileV0::iv);
+		const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t) + sizeof(core::BAWFileV1::iv);
 		const uint32_t HEADERS_FILE_OFFSET = OFFSETS_FILE_OFFSET + numOfInternalBlobs * sizeof(ctx.offsets[0]);
 
 		ctx.offsets.resize(numOfInternalBlobs);
@@ -166,7 +164,7 @@ namespace irr {namespace scene {
 		_file->write(ctx.offsets.data(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 
 		// will be overwritten after calculating not known yet data (hash and size for texture paths)
-		_file->write(ctx.headers.data(), ctx.headers.size() * sizeof(core::BlobHeaderV0));
+		_file->write(ctx.headers.data(), ctx.headers.size() * sizeof(core::BlobHeaderV1));
 
 		ctx.offsets.resize(0); // set `used` to 0, to allow push starting from 0 index
 		for (int i = 0; i < ctx.headers.size(); ++i)
@@ -207,7 +205,7 @@ namespace irr {namespace scene {
 		_file->write(ctx.offsets.data(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
 		// overwrite headers
 		_file->seek(HEADERS_FILE_OFFSET);
-		_file->write(ctx.headers.data(), ctx.headers.size() * sizeof(core::BlobHeaderV0));
+		_file->write(ctx.headers.data(), ctx.headers.size() * sizeof(core::BlobHeaderV1));
 
 		_file->seek(prevPos);
 
@@ -227,7 +225,7 @@ namespace irr {namespace scene {
 			if (!skinnedMesh || (skinnedMesh && skinnedMesh->isStatic()))
 				isMeshAnimated = false;
 
-			core::BlobHeaderV0 bh;
+			core::BlobHeaderV1 bh;
 			bh.handle = reinterpret_cast<uint64_t>(_mesh);
 			bh.compressionType = core::Blob::EBCT_RAW;
 			bh.blobType = isMeshAnimated ? core::Blob::EBT_SKINNED_MESH : core::Blob::EBT_MESH;
@@ -238,7 +236,7 @@ namespace irr {namespace scene {
 
 		if (isMeshAnimated)
 		{
-			core::BlobHeaderV0 bh;
+			core::BlobHeaderV1 bh;
 			bh.handle = reinterpret_cast<uint64_t>(skinnedMesh->getBoneReferenceHierarchy());
 			bh.compressionType = core::Blob::EBCT_RAW;
 			bh.blobType = core::Blob::EBT_FINAL_BONE_HIERARCHY;
@@ -257,7 +255,7 @@ namespace irr {namespace scene {
 
 			if (countedObjects.find(meshBuffer) == countedObjects.end())
 			{
-				core::BlobHeaderV0 bh;
+				core::BlobHeaderV1 bh;
 				bh.handle = reinterpret_cast<uint64_t>(meshBuffer);
 				bh.compressionType = core::Blob::EBCT_RAW;
 				bh.blobType = isMeshAnimated ? core::Blob::EBT_SKINNED_MESH_BUFFER : core::Blob::EBT_MESH_BUFFER;
@@ -282,7 +280,7 @@ namespace irr {namespace scene {
 
 			if (countedObjects.find(desc) == countedObjects.end())
 			{
-				core::BlobHeaderV0 bh;
+				core::BlobHeaderV1 bh;
 				bh.handle = reinterpret_cast<uint64_t>(desc);
 				bh.compressionType = core::Blob::EBCT_RAW;
 				bh.blobType = core::Blob::EBT_DATA_FORMAT_DESC;
@@ -293,7 +291,7 @@ namespace irr {namespace scene {
 			const asset::ICPUBuffer* idxBuffer = desc->getIndexBuffer();
 			if (idxBuffer && countedObjects.find(idxBuffer) == countedObjects.end())
 			{
-				core::BlobHeaderV0 bh;
+				core::BlobHeaderV1 bh;
 				bh.handle = reinterpret_cast<uint64_t>(idxBuffer);
 				bh.compressionType = core::Blob::EBCT_RAW;
 				bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
@@ -306,7 +304,7 @@ namespace irr {namespace scene {
 				const asset::ICPUBuffer* attBuffer = desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)attId);
 				if (attBuffer && countedObjects.find(attBuffer) == countedObjects.end())
 				{
-					core::BlobHeaderV0 bh;
+					core::BlobHeaderV1 bh;
 					bh.handle = reinterpret_cast<uint64_t>(attBuffer);
 					bh.compressionType = core::Blob::EBCT_RAW;
 					bh.blobType = core::Blob::EBT_RAW_DATA_BUFFER;
@@ -357,7 +355,7 @@ namespace irr {namespace scene {
 
 		if (_flags & asset::EWF_ENCRYPTED)
 		{
-			const size_t encrSize = core::BlobHeaderV0::calcEncSize(compressedSize);
+			const size_t encrSize = core::BlobHeaderV1::calcEncSize(compressedSize);
 			void* in = _IRR_ALIGNED_MALLOC(encrSize,_IRR_SIMD_ALIGNMENT);
 			memset(((uint8_t*)in) + (compressedSize-16), 0, 16);
 			memcpy(in, data, compressedSize);
@@ -384,7 +382,7 @@ namespace irr {namespace scene {
 		}
 
 		_ctx.headers[_headerIdx].finalize(data, _size, compressedSize, comprType);
-		const size_t writeSize = (comprType & core::Blob::EBCT_AES128_GCM) ? core::BlobHeaderV0::calcEncSize(compressedSize) : compressedSize;
+		const size_t writeSize = (comprType & core::Blob::EBCT_AES128_GCM) ? core::BlobHeaderV1::calcEncSize(compressedSize) : compressedSize;
 		_file->write(data, writeSize);
 		calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].effectiveSize(), _ctx);
 
@@ -403,7 +401,7 @@ namespace irr {namespace scene {
 		{
 			if (lz4CompressBound > _stackSize)
 			{
-				dstSize = core::BlobHeaderV0::calcEncSize(lz4CompressBound);
+				dstSize = core::BlobHeaderV1::calcEncSize(lz4CompressBound);
 				data = _IRR_ALIGNED_MALLOC(dstSize,_IRR_SIMD_ALIGNMENT);
 			}
 			compressedSize = LZ4_compress_default((const char*)_input, (char*)data, _inputSize, dstSize);

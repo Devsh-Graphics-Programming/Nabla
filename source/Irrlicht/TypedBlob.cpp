@@ -450,4 +450,59 @@ void TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::releaseObj
 }
 
 
+
+template<>
+core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::getNeededDeps(const void* _blob)
+{
+	MeshDataFormatDescBlobV1* blob = (MeshDataFormatDescBlobV1*)_blob;
+	core::unordered_set<uint64_t> deps;
+	if (blob->idxBufPtr)
+		deps.insert(blob->idxBufPtr);
+	for (uint32_t i = 0; i < scene::EVAI_COUNT; ++i)
+		if (blob->attrBufPtrs[i])
+			deps.insert(blob->attrBufPtrs[i]);
+	return deps;
+}
+
+template<>
+void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+{
+	return new scene::ICPUMeshDataFormatDesc();
+}
+
+template<>
+void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+{
+	using namespace scene;
+
+	if (!_obj || !_blob)
+		return NULL;
+
+	const MeshDataFormatDescBlobV1* blob = (const MeshDataFormatDescBlobV1*)_blob;
+	scene::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = reinterpret_cast<scene::ICPUMeshDataFormatDesc*>(_obj);
+	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+	{
+		if (blob->attrBufPtrs[(int)i])
+			desc->mapVertexAttrBuffer(
+				reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->attrBufPtrs[i]]),
+				i,
+				static_cast<video::E_FORMAT>(blob->attrFormat[i]),
+				blob->attrStride[i],
+				blob->attrOffset[i],
+				blob->attrDivisor[i]
+			);
+	}
+	if (blob->idxBufPtr)
+		desc->mapIndexBuffer(reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->idxBufPtr]));
+	return _obj;
+}
+
+template<>
+void TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::releaseObj(const void* _obj)
+{
+	if (_obj)
+		reinterpret_cast<const scene::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_obj)->drop();
+}
+
+
 }} // irr:core
