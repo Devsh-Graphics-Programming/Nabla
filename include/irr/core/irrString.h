@@ -70,7 +70,7 @@ static inline uint32_t locale_upper ( uint32_t x )
 
 
 template <typename T, typename TAlloc = aligned_allocator<T> >
-class string : public AllocationOverrideDefault
+class string
 {
 public:
 

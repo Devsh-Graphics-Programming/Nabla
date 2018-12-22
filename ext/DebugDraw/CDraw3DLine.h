@@ -50,6 +50,8 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
             float r, float g, float b, float a
         );
 
+        void draw(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData);
+
     private:
         CDraw3DLine(video::IVideoDriver* _driver);
         ~CDraw3DLine();
@@ -59,7 +61,6 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
         scene::IGPUMeshDataFormatDesc* m_desc;
         scene::IGPUMeshBuffer* m_meshBuffer;
         const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
-        const uint32_t sizes[1] = { sizeof(S3DLineVertex) * 2 };
 };
 
 } // namespace DebugDraw

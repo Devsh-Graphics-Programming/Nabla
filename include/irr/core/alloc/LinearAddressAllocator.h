@@ -49,7 +49,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
 
         LinearAddressAllocator& operator=(LinearAddressAllocator&& other)
         {
-            static_cast<Base&>(*this) = std::move(other);
+            Base::operator=(std::move(other));
             bufferSize = other.bufferSize;
             cursor = other.cursor;
             return *this;

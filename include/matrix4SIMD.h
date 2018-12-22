@@ -7,7 +7,7 @@
 namespace irr { namespace core
 {
 
-class matrix4SIMD : public AlignedBase<_IRR_SIMD_ALIGNMENT>
+class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 {
     vectorSIMDf rows[4];
 

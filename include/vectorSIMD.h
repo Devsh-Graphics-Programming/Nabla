@@ -122,7 +122,9 @@ namespace core
 		//! Constructor with the same value for all elements
 		inline explicit vectorSIMDBool(bool n)  : vectorSIMDBool(n ? _mm_set_epi64x(-0x1ll,-0x1ll):_mm_setzero_si128()) {}
 
+
 		inline vectorSIMDBool& operator=(const vectorSIMDBool& other) { _mm_store_si128((__m128i*)value,other.getAsRegister()); return *this; }
+
 
         /*
         NO BITSHIFTING SUPPORT
@@ -257,16 +259,12 @@ namespace core
 #include "SIMDswizzle.h"
 
 
-
-
-
     template <class T>
     class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
 	public:
 	    using Base::Base;
-
 #ifdef _MSC_VER
         // in MSVC default ctor is not inherited?
         vectorSIMD_32() : Base() {}
@@ -584,8 +582,8 @@ namespace core
 		// functions
 		//! zeroes out out of range components (useful before performing a dot product so it doesnt get polluted with random values)
 		//! WARNING IT DOES COST CYCLES
-		inline void makeSafe2D(void) {this->operator^=(_mm_set_epi32(0,0,-1,-1));}
-		inline void makeSafe3D(void) {this->operator^=(_mm_set_epi32(0,-1,-1,-1));}
+		inline void makeSafe2D(void) {this->operator&=(_mm_set_epi32(0,0,-1,-1));}
+		inline void makeSafe3D(void) {this->operator&=(_mm_set_epi32(0,-1,-1,-1));}
 
 		//! slightly faster than memcpy'ing into the pointers
 		inline vectorSIMDf& set(float* const &array) {_mm_store_ps(pointer,_mm_loadu_ps(array)); return *this;}

@@ -17,11 +17,12 @@ template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8
 class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor, public virtual core::IReferenceCounted
 {
     protected:
-        typedef core::GeneralpurposeAddressAllocator<_size_type>                                                        BasicAddressAllocator;
-        core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,StreamingGPUBufferAllocator,CPUAllocator> mAllocator; // no point for a streaming buffer to grow
+        typedef core::GeneralpurposeAddressAllocator<_size_type>                                                                                                              BasicAddressAllocator;
+        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,StreamingGPUBufferAllocator,CPUAllocator> AddressAllocator;
+        AddressAllocator mAllocator; // no point for a streaming buffer to grow
     public:
-        typedef typename BasicAddressAllocator::size_type           size_type;
-        static constexpr size_type                                  invalid_address = BasicAddressAllocator::invalid_address;
+        typedef typename BasicAddressAllocator::size_type   size_type;
+        static constexpr size_type                                            invalid_address = BasicAddressAllocator::invalid_address;
 
         #define DUMMY_DEFAULT_CONSTRUCTOR StreamingTransientDataBufferST() {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
@@ -43,6 +44,8 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         }
 
         virtual ~StreamingTransientDataBufferST() {}
+
+        const AddressAllocator& getAllocator() const {return mAllocator;}
 
 
         inline bool         needsManualFlushOrInvalidate() const {return !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);}
@@ -218,6 +221,8 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         static constexpr size_type                                      invalid_address = Base::invalid_address;
 
         using Base::Base;
+
+        const typename Base::AddressAllocator& getAllocator() const {return Base::getAllocator();}
 
 
         inline bool         needsManualFlushOrInvalidate()
