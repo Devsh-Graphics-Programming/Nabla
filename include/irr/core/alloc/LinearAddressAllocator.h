@@ -121,7 +121,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             return bufferSize+Base::alignOffset;
         }
     protected:
-        const size_type bufferSize;
+        size_type bufferSize;
         size_type       cursor;
 };
 

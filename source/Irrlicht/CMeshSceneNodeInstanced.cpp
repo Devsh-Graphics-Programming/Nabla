@@ -10,6 +10,9 @@
 #include "IMaterialRenderer.h"
 #include "os.h"
 
+//enable after C++14
+//#include "irr/static_if.h"
+
 namespace irr
 {
 namespace scene
@@ -367,14 +370,23 @@ void CMeshSceneNodeInstanced::removeInstance(const uint32_t& instanceID)
 
 void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const uint32_t* instanceIDs)
 {
+    constexpr bool usesContiguousAddrAllocator = std::is_same<core::ContiguousPoolAddressAllocatorST<uint32_t>,InstanceDataAddressAllocator>::value;
+
+    uint32_t minRedirect  = kInvalidInstanceID;
     for (size_t i=0; i<instanceCount; i++)
     {
+        //static_if<usesContiguousAddrAllocator>([&](auto f){
+            uint32_t redirect =  instanceDataAllocator->getAddressAllocator().get_real_addr(instanceIDs[i]);
+            if (redirect<minRedirect)
+                minRedirect = redirect;
+        //});
+
         uint32_t blockID = getBlockIDFromAddr(instanceIDs[i]);
         instanceBBoxes[blockID].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
         instanceBBoxes[blockID].MaxEdge.set(-FLT_MAX,-FLT_MAX,-FLT_MAX);
     }
 
-    {//dummyBytes scope
+    {// dummyBytes scope
     core::vector<uint32_t> dummyBytes_(instanceCount);
     uint32_t* const dummyBytes = dummyBytes_.data();
     for (size_t i=0; i<instanceCount; i++)
@@ -382,6 +394,11 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
 
     instanceDataAllocator->multi_free_addr(instanceCount,instanceIDs,static_cast<const uint32_t*>(dummyBytes));
     }
+
+    //static_if<usesContiguousAddrAllocator>([&](auto f){
+        // everything got shifted down by 1 so mark dirty
+        instanceDataAllocator->markRangeDirty(minRedirect,core::address_allocator_traits<InstanceDataAddressAllocator>::get_allocated_size(instanceDataAllocator->getAddressAllocator()));
+    //});
 
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {

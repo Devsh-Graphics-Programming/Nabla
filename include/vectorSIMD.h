@@ -122,9 +122,7 @@ namespace core
 		//! Constructor with the same value for all elements
 		inline explicit vectorSIMDBool(bool n)  : vectorSIMDBool(n ? _mm_set_epi64x(-0x1ll,-0x1ll):_mm_setzero_si128()) {}
 
-
 		inline vectorSIMDBool& operator=(const vectorSIMDBool& other) { _mm_store_si128((__m128i*)value,other.getAsRegister()); return *this; }
-
 
         /*
         NO BITSHIFTING SUPPORT
