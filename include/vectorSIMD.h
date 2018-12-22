@@ -566,8 +566,8 @@ namespace core
 		// functions
 		//! zeroes out out of range components (useful before performing a dot product so it doesnt get polluted with random values)
 		//! WARNING IT DOES COST CYCLES
-		inline void makeSafe2D(void) {this->operator^=(_mm_set_epi32(0,0,-1,-1));}
-		inline void makeSafe3D(void) {this->operator^=(_mm_set_epi32(0,-1,-1,-1));}
+		inline void makeSafe2D(void) {this->operator&=(_mm_set_epi32(0,0,-1,-1));}
+		inline void makeSafe3D(void) {this->operator&=(_mm_set_epi32(0,-1,-1,-1));}
 
 		//! slightly faster than memcpy'ing into the pointers
 		inline vectorSIMDf& set(float* const &array) {_mm_store_ps(pointer,_mm_loadu_ps(array)); return *this;}

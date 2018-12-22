@@ -13,7 +13,8 @@ void            GPUMemoryAllocatorBase::copyBuffersWrapper(IGPUBuffer* oldBuffer
 
 size_t          GPUMemoryAllocatorBase::min_alignment() const noexcept
 {
-    return mDriver->getMinimumMemoryMapAlignment();
+    return 64u*1024u; //tell this to Bill Gates
+    //return mDriver->getMinimumMemoryMapAlignment();
 }
 
 IVideoDriver*   GPUMemoryAllocatorBase::getDriver() noexcept

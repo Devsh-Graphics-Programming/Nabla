@@ -678,6 +678,9 @@ COpenGLDriver::~COpenGLDriver()
 	deleteMaterialRenders();
 	deleteAllTextures();
 
+	defaultDownloadBuffer->drop();
+	defaultUploadBuffer->drop();
+
     //! Spin wait for other contexts to deinit
     //! @TODO: Change trylock to semaphore
 	while (true)

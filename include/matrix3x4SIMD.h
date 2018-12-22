@@ -12,7 +12,7 @@ namespace core
 static_assert(_IRR_MATRIX_ALIGNMENT>=_IRR_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
 
 //! Equivalent of GLSL's mat4x3
-struct matrix3x4SIMD : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT>
+struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> EBO inheritance problem w.r.t `rows[3]`
 {
 	core::vectorSIMDf rows[3];
 

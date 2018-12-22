@@ -9,7 +9,7 @@ namespace irr
 namespace core
 {
 
-class STriangleCollider : public AllocationOverrideDefault
+class STriangleCollider// : public AllocationOverrideDefault EBO inheritance problem
 {
     public:
         STriangleCollider() {}

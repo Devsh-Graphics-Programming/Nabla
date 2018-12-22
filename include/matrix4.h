@@ -230,16 +230,6 @@ namespace core
 			//! Transforms a plane by this matrix
 			void transformPlane( const core::plane3d<float> &in, core::plane3d<float> &out) const;
 
-			//! Transforms a axis aligned bounding box
-			/** The result box of this operation may not be accurate at all. For
-			correct results, use transformBoxEx() */
-			void transformBox(core::aabbox3d<float>& box) const;
-
-			//! Transforms a axis aligned bounding box
-			/** The result box of this operation should by accurate, but this operation
-			is slower than transformBox(). */
-			void transformBoxEx(core::aabbox3d<float>& box) const;
-
 			//! Multiplies this matrix by a 1x4 matrix
 			void multiplyWith1x4Matrix(T* matrix) const;
 
@@ -1223,57 +1213,6 @@ namespace core
         out.Normal.Y = in.Normal.X*transposedInverse[4] + in.Normal.Y*transposedInverse[5] + in.Normal.Z*transposedInverse[6] + in.D*transposedInverse[7];
         out.Normal.Z = in.Normal.X*transposedInverse[8] + in.Normal.Y*transposedInverse[9] + in.Normal.Z*transposedInverse[10] + in.D*transposedInverse[11];
         out.D = in.Normal.X*transposedInverse[12] + in.Normal.Y*transposedInverse[13] + in.Normal.Z*transposedInverse[14] + in.D*transposedInverse[15];
-	}
-
-
-	//! Transforms a axis aligned bounding box more accurately than transformBox()
-	template <class T>
-	inline void CMatrix4<T>::transformBoxEx(core::aabbox3d<float>& box) const
-	{
-#if defined ( USE_MATRIX_TEST )
-		if (isIdentity())
-			return;
-#endif
-
-		const float Amin[3] = {box.MinEdge.X, box.MinEdge.Y, box.MinEdge.Z};
-		const float Amax[3] = {box.MaxEdge.X, box.MaxEdge.Y, box.MaxEdge.Z};
-
-		float Bmin[3];
-		float Bmax[3];
-
-		Bmin[0] = Bmax[0] = M[12];
-		Bmin[1] = Bmax[1] = M[13];
-		Bmin[2] = Bmax[2] = M[14];
-
-		const CMatrix4<T> &m = *this;
-
-		for (uint32_t i = 0; i < 3; ++i)
-		{
-			for (uint32_t j = 0; j < 3; ++j)
-			{
-				const float a = m(j,i) * Amin[j];
-				const float b = m(j,i) * Amax[j];
-
-				if (a < b)
-				{
-					Bmin[i] += a;
-					Bmax[i] += b;
-				}
-				else
-				{
-					Bmin[i] += b;
-					Bmax[i] += a;
-				}
-			}
-		}
-
-		box.MinEdge.X = Bmin[0];
-		box.MinEdge.Y = Bmin[1];
-		box.MinEdge.Z = Bmin[2];
-
-		box.MaxEdge.X = Bmax[0];
-		box.MaxEdge.Y = Bmax[1];
-		box.MaxEdge.Z = Bmax[2];
 	}
 
 

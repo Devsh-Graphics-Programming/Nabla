@@ -186,33 +186,38 @@ namespace video
             virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer;}
 
             //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
-            inline IGPUBuffer* createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
+            inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)
             {
-                IGPUBuffer*  retval = createDeviceLocalGPUBufferOnDedMem(size);
-
                 for (uint32_t uploadedSize=0; uploadedSize<size;)
                 {
                     const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
-                    uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+                    uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                     uint32_t alignment = defaultUploadBuffer->max_alignment();
                     uint32_t subSize = std::min(core::alignDown(defaultUploadBuffer->max_size(),alignment),size-uploadedSize);
 
-                    defaultUploadBuffer->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&offset,&subSize,&alignment);
+                    defaultUploadBuffer->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                     // keep trying again
-                    if (offset==video::StreamingTransientDataBufferMT<>::invalid_address)
+                    if (localOffset==video::StreamingTransientDataBufferMT<>::invalid_address)
                         continue;
 
                     // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
                     if (defaultUploadBuffer->needsManualFlushOrInvalidate())
-                        this->flushMappedMemoryRanges({{defaultUploadBuffer->getBuffer()->getBoundMemory(),offset,subSize}});
+                        this->flushMappedMemoryRanges({{defaultUploadBuffer->getBuffer()->getBoundMemory(),localOffset,subSize}});
                     // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
-                    this->copyBuffer(defaultUploadBuffer->getBuffer(),retval,offset,uploadedSize,subSize);
+                    this->copyBuffer(defaultUploadBuffer->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
                     // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
                     auto fence = this->placeFence();
-                    defaultUploadBuffer->multi_free(1u,&offset,&subSize,fence);
+                    defaultUploadBuffer->multi_free(1u,&localOffset,&subSize,fence);
                     fence->drop();
                     uploadedSize += subSize;
                 }
+            }
+
+            inline IGPUBuffer* createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
+            {
+                IGPUBuffer*  retval = createDeviceLocalGPUBufferOnDedMem(size);
+
+                updateBufferRangeViaStagingBuffer(retval,0u,size,data);
 
                 return retval;
             }
