@@ -71,6 +71,12 @@ namespace core
                 typedef core::vectorSIMDIntBase Base;
             public:
                 using Base::Base;
+
+#ifdef _MSC_VER
+                // in MSVC default ctor is not inherited?
+                vectorSIMDIntBase() : Base() {}
+#endif
+
                 //! Copy constructor
                 inline vectorSIMDIntBase(const Base& other) : Base(other) {}
                 inline vectorSIMDIntBase(const vectorSIMDIntBase<CRTP>& other) : vectorSIMDIntBase(static_cast<const Base&>(other)) {} // delegate
@@ -100,6 +106,12 @@ namespace core
         static_assert(core::isPoT(components)&&components<=16u,"Wrong number of components!\n");
     public:
         using Base::Base;
+
+#ifdef _MSC_VER
+        // in MSVC default ctor is not inherited?
+        vectorSIMDBool() : Base() {}
+#endif
+
         inline explicit vectorSIMDBool(const __m128 &reg) {_mm_store_ps((float*)this,reg);}
         inline explicit vectorSIMDBool(const __m128d &reg) {_mm_store_pd((double*)this,reg);}
 
@@ -110,7 +122,9 @@ namespace core
 		//! Constructor with the same value for all elements
 		inline explicit vectorSIMDBool(bool n)  : vectorSIMDBool(n ? _mm_set_epi64x(-0x1ll,-0x1ll):_mm_setzero_si128()) {}
 
+
 		inline vectorSIMDBool& operator=(const vectorSIMDBool& other) { _mm_store_si128((__m128i*)value,other.getAsRegister()); return *this; }
+
 
         /*
         NO BITSHIFTING SUPPORT
@@ -245,15 +259,17 @@ namespace core
 #include "SIMDswizzle.h"
 
 
-
-
-
     template <class T>
     class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
 	public:
 	    using Base::Base;
+#ifdef _MSC_VER
+        // in MSVC default ctor is not inherited?
+        vectorSIMD_32() : Base() {}
+#endif
+
         //! Constructor with four different values, FASTEST IF the values are constant literals
 		//yes this is correct usage with _mm_set_**(), due to little endianness the thing gets set in "reverse" order
 		inline explicit vectorSIMD_32(T nx, T ny, T nz, T nw) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(nw,nz,ny,nx));}
