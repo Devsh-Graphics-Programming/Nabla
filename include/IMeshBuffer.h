@@ -157,7 +157,7 @@ namespace scene
                 return retVal;
             }
 
-            inline void mapIndexBuffer(T* ixbuf)
+            inline void setIndexBuffer(T* ixbuf)
             {
         /*
         #ifdef _DEBUG
@@ -183,7 +183,7 @@ namespace scene
 
 
             //! remember that the divisor needs to be <=0x1u<<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS
-            virtual void mapVertexAttrBuffer(T* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, video::E_FORMAT format, const size_t &stride=0, size_t offset=0, uint32_t divisor=0) = 0;
+            virtual void setVertexAttrBuffer(T* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, video::E_FORMAT format, const size_t &stride=0, size_t offset=0, uint32_t divisor=0) = 0;
 
             inline const T* getMappedBuffer(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
             {
@@ -263,7 +263,7 @@ namespace scene
 			}
 
             //! remember that the divisor needs to be <=0x1u<<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS
-            void mapVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, video::E_FORMAT format, const size_t &stride=0, size_t offset=0, uint32_t divisor=0)
+            void setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, video::E_FORMAT format, const size_t &stride=0, size_t offset=0, uint32_t divisor=0) override
             {
                 assert(attrId<EVAI_COUNT);
 

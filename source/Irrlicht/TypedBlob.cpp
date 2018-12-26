@@ -348,7 +348,7 @@ void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPU
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
 	{
 		if (blob->attrBufPtrs[(int)i])
-			desc->mapVertexAttrBuffer(
+			desc->setVertexAttrBuffer(
 				reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->attrBufPtrs[i]]),
 				i,
 				static_cast<video::E_FORMAT>(blob->attrType[i]),
@@ -358,7 +358,7 @@ void* TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPU
 			);
 	}
 	if (blob->idxBufPtr)
-		desc->mapIndexBuffer(reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->idxBufPtr]));
+		desc->setIndexBuffer(reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->idxBufPtr]));
 	return _obj;
 }
 
@@ -483,7 +483,7 @@ void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPU
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
 	{
 		if (blob->attrBufPtrs[(int)i])
-			desc->mapVertexAttrBuffer(
+			desc->setVertexAttrBuffer(
 				reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->attrBufPtrs[i]]),
 				i,
 				static_cast<video::E_FORMAT>(blob->attrFormat[i]),
@@ -493,7 +493,7 @@ void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPU
 			);
 	}
 	if (blob->idxBufPtr)
-		desc->mapIndexBuffer(reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->idxBufPtr]));
+		desc->setIndexBuffer(reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->idxBufPtr]));
 	return _obj;
 }
 

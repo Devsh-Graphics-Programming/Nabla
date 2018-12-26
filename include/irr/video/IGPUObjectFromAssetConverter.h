@@ -231,7 +231,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             {
                 if (vaoConf.oldbuffer[k])
                 {
-                    vao->mapVertexAttrBuffer(
+                    vao->setVertexAttrBuffer(
                         gpuBufDeps[bufRedir[j]],
                         scene::E_VERTEX_ATTRIBUTE_ID(k),
                         vaoConf.formats[k],
@@ -244,7 +244,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             }
             if (vaoConf.idxbuf)
             {
-                vao->mapIndexBuffer(gpuBufDeps[bufRedir[j]]);
+                vao->setIndexBuffer(gpuBufDeps[bufRedir[j]]);
                 ++j;
             }
         }

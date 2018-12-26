@@ -436,7 +436,7 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
         video::E_FORMAT t = origDesc->getAttribFormat(vaid);
         if (origDesc->getMappedBuffer(vaid))
         {
-            desc->mapVertexAttrBuffer(
+            desc->setVertexAttrBuffer(
                 const_cast<asset::ICPUBuffer*>(origDesc->getMappedBuffer(vaid)),
                 vaid,
                 video::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t,

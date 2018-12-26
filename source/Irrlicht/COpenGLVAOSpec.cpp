@@ -42,12 +42,12 @@ COpenGLVAOSpec::~COpenGLVAOSpec()
 }
 
 
-void COpenGLVAOSpec::mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, E_FORMAT format, const size_t &stride, size_t offset, uint32_t divisor)
+void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, E_FORMAT format, const size_t &stride, size_t offset, uint32_t divisor)
 {
     if (attrId>=scene::EVAI_COUNT)
 #ifdef _DEBUG
     {
-        os::Printer::log("MeshBuffer mapVertexAttrBuffer attribute ID out of range!\n",ELL_ERROR);
+        os::Printer::log("MeshBuffer setVertexAttrBuffer attribute ID out of range!\n",ELL_ERROR);
         return;
     }
 #else

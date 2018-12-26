@@ -130,7 +130,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 
                     if (doesntNeedIndices)
                     {
-                        desc->mapIndexBuffer(NULL);
+                        desc->setIndexBuffer(NULL);
                         meshbuffer->setBaseVertex(baseVertex);
                     }
                 }
@@ -156,7 +156,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
                         for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
                            ((uint16_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                     }
-                    desc->mapIndexBuffer(indexBuffer);
+                    desc->setIndexBuffer(indexBuffer);
                 }
                 meshbuffer->setIndexType(indexType);
                 meshbuffer->setMeshDataAndFormat(desc);
@@ -178,7 +178,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
                             simdNormal.set(((core::vector3df*)normalBuffer->getPointer())[k]);
                             ((uint32_t*)newNormalBuffer->getPointer())[k] = quantizeNormal2_10_10_10(simdNormal);
                         }
-                        desc->mapVertexAttrBuffer(newNormalBuffer,EVAI_ATTR3,video::EF_A2B10G10R10_SSCALED_PACK32);
+                        desc->setVertexAttrBuffer(newNormalBuffer,EVAI_ATTR3,video::EF_A2B10G10R10_SSCALED_PACK32);
                         newNormalBuffer->drop();
                     }
                 }
@@ -313,41 +313,41 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 				scene::ICPUMeshDataFormatDesc* desc = new scene::ICPUMeshDataFormatDesc();
 
 				asset::ICPUBuffer* vPosBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
-				desc->mapVertexAttrBuffer(vPosBuf,EVAI_ATTR0,video::EF_R32G32B32_SFLOAT);
+				desc->setVertexAttrBuffer(vPosBuf,EVAI_ATTR0,video::EF_R32G32B32_SFLOAT);
 				vPosBuf->drop();
 				asset::ICPUBuffer* vColorBuf = NULL;
 				if (mesh->Colors.size())
                 {
                     vColorBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4);
-                    desc->mapVertexAttrBuffer(vColorBuf,EVAI_ATTR1,video::EF_B8G8R8A8_UNORM);
+                    desc->setVertexAttrBuffer(vColorBuf,EVAI_ATTR1,video::EF_B8G8R8A8_UNORM);
                     vColorBuf->drop();
                 }
 				asset::ICPUBuffer* vTCBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
-                desc->mapVertexAttrBuffer(vTCBuf,EVAI_ATTR2,video::EF_R32G32_SFLOAT);
+                desc->setVertexAttrBuffer(vTCBuf,EVAI_ATTR2,video::EF_R32G32_SFLOAT);
                 vTCBuf->drop();
 				asset::ICPUBuffer* vNormalBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
-				desc->mapVertexAttrBuffer(vNormalBuf,EVAI_ATTR3,video::EF_R32G32B32_SFLOAT);
+				desc->setVertexAttrBuffer(vNormalBuf,EVAI_ATTR3,video::EF_R32G32B32_SFLOAT);
 				vNormalBuf->drop();
 				asset::ICPUBuffer* vTC2Buf = NULL;
 				if (mesh->TCoords2.size())
 				{
                     vTC2Buf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
-                    desc->mapVertexAttrBuffer(vTC2Buf,EVAI_ATTR4,video::EF_R32G32_SFLOAT);
+                    desc->setVertexAttrBuffer(vTC2Buf,EVAI_ATTR4,video::EF_R32G32_SFLOAT);
                     vTC2Buf->drop();
 				}
 				asset::ICPUBuffer* vSkinningDataBuf = NULL;
 				if (mesh->VertexSkinWeights.size())
                 {
                     vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
-                    desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,video::EF_R8G8B8A8_UINT,8,0);
-                    desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,video::EF_A2B10G10R10_UNORM_PACK32,8,4);
+                    desc->setVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,video::EF_R8G8B8A8_UINT,8,0);
+                    desc->setVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,video::EF_A2B10G10R10_UNORM_PACK32,8,4);
                     vSkinningDataBuf->drop();
                 }
 				else if (mesh->AttachedJointID!=-1)
                 {
                     vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
-                    desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,video::EF_R8G8B8A8_UINT,8,0);
-                    desc->mapVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,video::EF_A2B10G10R10_UNORM_PACK32,8,4);
+                    desc->setVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,video::EF_R8G8B8A8_UINT,8,0);
+                    desc->setVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,video::EF_A2B10G10R10_UNORM_PACK32,8,4);
                     vSkinningDataBuf->drop();
 
                     bool correctBindMatrix = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.isIdentity();
@@ -599,7 +599,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                     indexBufferSz += subBufferSz;
                 }
                 asset::ICPUBuffer* ixbuf = new asset::ICPUBuffer(indexBufferSz);
-				desc->mapIndexBuffer(ixbuf);
+				desc->setIndexBuffer(ixbuf);
 				ixbuf->drop();
 				// create indices per buffer
 				memset(vCountArray, 0, mesh->Buffers.size()*sizeof(uint32_t));

@@ -94,7 +94,7 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
                 memcpy(((uint16_t*)newIndexBuffer->getPointer())+1,idx,idxcnt*2);
                 inbuffer->setIndexCount(idxcnt+1);
                 inbuffer->setIndexBufferOffset(0);
-                inbuffer->getMeshDataAndFormat()->mapIndexBuffer(newIndexBuffer);
+                inbuffer->getMeshDataAndFormat()->setIndexBuffer(newIndexBuffer);
                 newIndexBuffer->drop();
             }
             break;
@@ -138,7 +138,7 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
                 memcpy(((uint32_t*)newIndexBuffer->getPointer())+1,idx,idxcnt*4);
                 inbuffer->setIndexCount(idxcnt+1);
                 inbuffer->setIndexBufferOffset(0);
-                inbuffer->getMeshDataAndFormat()->mapIndexBuffer(newIndexBuffer);
+                inbuffer->getMeshDataAndFormat()->setIndexBuffer(newIndexBuffer);
                 newIndexBuffer->drop();
             }
             break;
@@ -565,7 +565,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 		{
 			if (offsets[i] < 0xffffffff)
 			{
-				outDesc->mapVertexAttrBuffer(newVertBuffer, (E_VERTEX_ATTRIBUTE_ID)i, types[i], vertexSize, offsets[i]);
+				outDesc->setVertexAttrBuffer(newVertBuffer, (E_VERTEX_ATTRIBUTE_ID)i, types[i], vertexSize, offsets[i]);
 			}
 		}
 	}
@@ -681,7 +681,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
     for (size_t i=0; i<EVAI_COUNT; i++)
     {
         if (offset[i]>=0)
-            desc->mapVertexAttrBuffer(vertexBuffer,(E_VERTEX_ATTRIBUTE_ID)i,oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),stride,offset[i]);
+            desc->setVertexAttrBuffer(vertexBuffer,(E_VERTEX_ATTRIBUTE_ID)i,oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),stride,offset[i]);
     }
     vertexBuffer->drop();
 
@@ -847,7 +847,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(asset::ICPUMeshB
         if (!oldDesc->getIndexBuffer())
         {
             asset::ICPUBuffer* indexCpy = new asset::ICPUBuffer((maxRedirect>=0x10000u ? 4:2)*inbuffer->getIndexCount());
-            oldDesc->mapIndexBuffer(indexCpy);
+            oldDesc->setIndexBuffer(indexCpy);
             indexCpy->drop();
         }
     }
@@ -924,7 +924,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 		uint32_t* indices = (uint32_t*)ib->getPointer();
 		for (uint32_t i = 0; i < vertexCount; ++i)
 			indices[i] = i;
-		newDesc->mapIndexBuffer(ib);
+		newDesc->setIndexBuffer(ib);
 		ib->drop();
 		outbuffer->setIndexCount(vertexCount);
 		outbuffer->setIndexType(EIT_32BIT);
@@ -935,7 +935,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 	{
 		IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
 		asset::ICPUBuffer* newIb = create32BitFrom16BitIdxBufferSubrange((uint16_t*)outbuffer->getIndices(), outbuffer->getIndexCount());
-		newDesc->mapIndexBuffer(newIb);
+		newDesc->setIndexBuffer(newIb);
 		// no need to set index buffer offset to 0 because it already is
 		outbuffer->setIndexType(EIT_32BIT);
 	}
@@ -946,7 +946,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 		IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
 		const asset::ICPUBuffer* ib = newDesc->getIndexBuffer();
 		asset::ICPUBuffer* newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
-		newDesc->mapIndexBuffer(newIb);
+		newDesc->setIndexBuffer(newIb);
 		outbuffer->setPrimitiveType(EPT_TRIANGLES);
 		outbuffer->setIndexCount(newIb->getSize() / 4);
 	}
@@ -954,7 +954,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 	{
 		IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
 		asset::ICPUBuffer* newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
-		newDesc->mapIndexBuffer(newIb);
+		newDesc->setIndexBuffer(newIb);
 		outbuffer->setPrimitiveType(EPT_TRIANGLES);
 		outbuffer->setIndexCount(newIb->getSize() / 4);
 	}
@@ -1058,7 +1058,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 
 		if (newIdxBuffer)
 		{
-			outbuffer->getMeshDataAndFormat()->mapIndexBuffer(newIdxBuffer);
+			outbuffer->getMeshDataAndFormat()->setIndexBuffer(newIdxBuffer);
 			newIdxBuffer->drop();
 		}
 
@@ -1142,7 +1142,7 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 
 	for (size_t i = 0u; i < activeAttributeCount; ++i)
 	{
-		desc->mapVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].type, vertexSize, newAttribs[i].offset);
+		desc->setVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].type, vertexSize, newAttribs[i].offset);
 
 		core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
 		if (iti != attribsI.end())
@@ -1270,12 +1270,12 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const asset::
 			newBuf = const_cast<asset::ICPUBuffer*>(newDesc->getMappedBuffer(itr->second));
 		}
 
-		newDesc->mapVertexAttrBuffer(newBuf, (E_VERTEX_ATTRIBUTE_ID)i, oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),
+		newDesc->setVertexAttrBuffer(newBuf, (E_VERTEX_ATTRIBUTE_ID)i, oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),
 			oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getAttribDivisor((E_VERTEX_ATTRIBUTE_ID)i));
 	}
 	if (idxBuffer)
 	{
-		newDesc->mapIndexBuffer(idxBuffer);
+		newDesc->setIndexBuffer(idxBuffer);
 		idxBuffer->drop();
 	}
 	for (size_t i = 0; i < newBuffers.size(); ++i)
@@ -1330,7 +1330,7 @@ void CMeshManipulator::priv_filterInvalidTriangles(asset::ICPUMeshBuffer* _input
     auto newBuf = new asset::ICPUBuffer(newSize);
     memcpy(newBuf->getPointer(), copy, newSize);
     _IRR_ALIGNED_FREE(copy);
-    _input->getMeshDataAndFormat()->mapIndexBuffer(newBuf);
+    _input->getMeshDataAndFormat()->setIndexBuffer(newBuf);
     _input->setIndexBufferOffset(0);
     _input->setIndexCount(newSize/sizeof(IdxT));
     newBuf->drop();
