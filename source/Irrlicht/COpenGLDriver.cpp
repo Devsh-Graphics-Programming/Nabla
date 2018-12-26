@@ -1835,110 +1835,27 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
         mappedAttrBuf[attrId] = static_cast<const COpenGLBuffer*>(buf);
         if (mappedAttrBuf[attrId])
         {
+            const E_FORMAT format = spec->getAttribFormat(attrId);
+
             mappedAttrBuf[attrId]->grab();
             attrStride[attrId] = spec->getMappedBufferStride(attrId);
 
             extGlEnableVertexArrayAttrib(vao,attrId);
             extGlVertexArrayAttribBinding(vao,attrId,attrId);
 
-            E_FORMAT format = spec->getAttribFormat(attrId);
-            switch (format)
-            {
-            //DOUBLE
-            case EF_R64G64B64A64_SFLOAT:
-            case EF_R64G64B64_SFLOAT:
-            case EF_R64G64_SFLOAT:
-            case EF_R64_SFLOAT:
+            if (isFloatingPointFormat(format) && getTexelOrBlockSize(format)/getFormatChannelCount(format)==8u)//DOUBLE
                 extGlVertexArrayAttribLFormat(vao, attrId, getFormatChannelCount(format), GL_DOUBLE, 0);
-                break;
-            //FLOATING POINT
-            case EF_B10G11R11_UFLOAT_PACK32:
-            case EF_R16_SFLOAT:
-            case EF_R16G16_SFLOAT:
-            case EF_R16G16B16_SFLOAT:
-            case EF_R16G16B16A16_SFLOAT:
-            case EF_R32_SFLOAT:
-            case EF_R32G32_SFLOAT:
-            case EF_R32G32B32_SFLOAT:
-            case EF_R32G32B32A32_SFLOAT:
-            //NORMALIZED and SCALED (aka "weak integers")
-            case EF_A2B10G10R10_UNORM_PACK32:
-            case EF_A2B10G10R10_SNORM_PACK32:
-            case EF_A2R10G10B10_UNORM_PACK32:
-            case EF_A2R10G10B10_SNORM_PACK32:
-            case EF_R16_UNORM:
-            case EF_R16_SNORM:
-            case EF_R16G16_UNORM:
-            case EF_R16G16_SNORM:
-            case EF_R16G16B16_UNORM:
-            case EF_R16G16B16_SNORM:
-            case EF_R16G16B16A16_UNORM:
-            case EF_R16G16B16A16_SNORM:
-            case EF_R16_USCALED:
-            case EF_R16_SSCALED:
-            case EF_R16G16_USCALED:
-            case EF_R16G16_SSCALED:
-            case EF_R16G16B16_USCALED:
-            case EF_R16G16B16_SSCALED:
-            case EF_R16G16B16A16_USCALED:
-            case EF_R16G16B16A16_SSCALED:
-            case EF_R8_UNORM:
-            case EF_R8_SNORM:
-            case EF_R8G8_UNORM:
-            case EF_R8G8_SNORM:
-            case EF_R8G8B8_UNORM:
-            case EF_R8G8B8_SNORM:
-            case EF_R8G8B8A8_UNORM:
-            case EF_R8G8B8A8_SNORM:
-            case EF_R8_USCALED:
-            case EF_R8_SSCALED:
-            case EF_R8G8_USCALED:
-            case EF_R8G8_SSCALED:
-            case EF_R8G8B8_USCALED:
-            case EF_R8G8B8_SSCALED:
-            case EF_R8G8B8A8_USCALED:
-            case EF_R8G8B8A8_SSCALED:
-            case EF_B8G8R8A8_UNORM:
-            case EF_A2B10G10R10_USCALED_PACK32:
-            case EF_A2B10G10R10_SSCALED_PACK32:
+            else if (isFloatingPointFormat(format) || isScaledFormat(format) || isNormalizedFormat(format))//FLOATING-POINT, SCALED ("weak integer"), NORMALIZED
                 extGlVertexArrayAttribFormat(vao, attrId, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, 0);
-                break;
-            case EF_R8_UINT:
-            case EF_R8_SINT:
-            case EF_R8G8_UINT:
-            case EF_R8G8_SINT:
-            case EF_R8G8B8_UINT:
-            case EF_R8G8B8_SINT:
-            case EF_R8G8B8A8_UINT:
-            case EF_R8G8B8A8_SINT:
-            case EF_R16_UINT:
-            case EF_R16_SINT:
-            case EF_R16G16_UINT:
-            case EF_R16G16_SINT:
-            case EF_R16G16B16_UINT:
-            case EF_R16G16B16_SINT:
-            case EF_R16G16B16A16_UINT:
-            case EF_R16G16B16A16_SINT:
-            case EF_R32_UINT:
-            case EF_R32_SINT:
-            case EF_R32G32_UINT:
-            case EF_R32G32_SINT:
-            case EF_R32G32B32_UINT:
-            case EF_R32G32B32_SINT:
-            case EF_R32G32B32A32_UINT:
-            case EF_R32G32B32A32_SINT:
-            case EF_A2B10G10R10_UINT_PACK32:
-            case EF_A2B10G10R10_SINT_PACK32:
-                extGlVertexArrayAttribIFormat(vao,attrId,getFormatChannelCount(format), formatEnumToGLenum(format),0);
-                break;
-            }
+            else if (isIntegerFormat(format))//INTEGERS
+                extGlVertexArrayAttribIFormat(vao, attrId, getFormatChannelCount(format), formatEnumToGLenum(format), 0);
 
             extGlVertexArrayBindingDivisor(vao,attrId,spec->getAttribDivisor(attrId));
             extGlVertexArrayVertexBuffer(vao,attrId,mappedAttrBuf[attrId]->getOpenGLName(),attrOffset[attrId],attrStride[attrId]);
         }
         else
         {
-            mappedAttrBuf[attrId] = NULL;
+            mappedAttrBuf[attrId] = nullptr;
             attrStride[attrId] = 16;
         }
     }
