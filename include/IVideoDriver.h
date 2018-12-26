@@ -680,19 +680,6 @@ namespace video
 		Use the SceneManager attribute to set this value from your app.
 		\param flag Default behavior is to disable ZWrite, i.e. false. */
 		virtual void setAllowZWriteOnTransparent(bool flag) =0;
-
-		//! Color conversion convenience function
-		/** Convert an image (as array of pixels) from source to destination
-		array, thereby converting the color format. The pixel size is
-		determined by the color formats.
-		\param sP Pointer to source
-		\param sF Color format of source
-		\param sN Number of pixels to convert, both array must be large enough
-		\param dP Pointer to destination
-		\param dF Color format of destination
-		*/
-		virtual void convertColor(const void* sP, E_FORMAT sF, int32_t sN,
-				void* dP, E_FORMAT dF) const =0;
 	};
 
 } // end namespace video

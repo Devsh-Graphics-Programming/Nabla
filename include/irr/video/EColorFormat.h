@@ -242,9 +242,13 @@ namespace video
         case EF_R8G8_UINT: return 2;
         case EF_BC1_RGB_UNORM_BLOCK:
         case EF_BC1_RGBA_UNORM_BLOCK:
+        case EF_BC1_RGB_SRGB_BLOCK:
+        case EF_BC1_RGBA_SRGB_BLOCK:
             return 8;
         case EF_BC2_UNORM_BLOCK:
         case EF_BC3_UNORM_BLOCK:
+        case EF_BC2_SRGB_BLOCK:
+        case EF_BC3_SRGB_BLOCK:
             return 16;
         case EF_8BIT_PIX: return 1;
         case EF_16BIT_PIX: return 2;
@@ -1378,6 +1382,34 @@ namespace video
         case EF_BC2_SRGB_BLOCK:
         case EF_BC3_UNORM_BLOCK:
         case EF_BC3_SRGB_BLOCK:
+        case EF_ASTC_4x4_UNORM_BLOCK:
+        case EF_ASTC_4x4_SRGB_BLOCK:
+        case EF_ASTC_5x4_UNORM_BLOCK:
+        case EF_ASTC_5x4_SRGB_BLOCK:
+        case EF_ASTC_5x5_UNORM_BLOCK:
+        case EF_ASTC_5x5_SRGB_BLOCK:
+        case EF_ASTC_6x5_UNORM_BLOCK:
+        case EF_ASTC_6x5_SRGB_BLOCK:
+        case EF_ASTC_6x6_UNORM_BLOCK:
+        case EF_ASTC_6x6_SRGB_BLOCK:
+        case EF_ASTC_8x5_UNORM_BLOCK:
+        case EF_ASTC_8x5_SRGB_BLOCK:
+        case EF_ASTC_8x6_UNORM_BLOCK:
+        case EF_ASTC_8x6_SRGB_BLOCK:
+        case EF_ASTC_8x8_UNORM_BLOCK:
+        case EF_ASTC_8x8_SRGB_BLOCK:
+        case EF_ASTC_10x5_UNORM_BLOCK:
+        case EF_ASTC_10x5_SRGB_BLOCK:
+        case EF_ASTC_10x6_UNORM_BLOCK:
+        case EF_ASTC_10x6_SRGB_BLOCK:
+        case EF_ASTC_10x8_UNORM_BLOCK:
+        case EF_ASTC_10x8_SRGB_BLOCK:
+        case EF_ASTC_10x10_UNORM_BLOCK:
+        case EF_ASTC_10x10_SRGB_BLOCK:
+        case EF_ASTC_12x10_UNORM_BLOCK:
+        case EF_ASTC_12x10_SRGB_BLOCK:
+        case EF_ASTC_12x12_UNORM_BLOCK:
+        case EF_ASTC_12x12_SRGB_BLOCK:
             return true;
         default: return false;
         }
@@ -1397,5 +1429,14 @@ namespace video
     }
 	
 }} //irr::video
+
+namespace std
+{
+    template <>
+    struct hash<irr::video::E_FORMAT>
+    {
+        std::size_t operator()(irr::video::E_FORMAT k) const noexcept { return k; }
+    };
+}
 
 #endif //__IRR_E_COLOR_H_INCLUDED__

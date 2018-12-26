@@ -160,10 +160,6 @@
 #define _IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_ 8
 #define _IRR_MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS_ (24-_IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_) //opengl has one set of slots for both
 
-//! Maximum number of bits allowed in the VAO Attribute Divisor
-//! Must be 1 for Vulkan compatibility
-#define _IRR_VAO_MAX_ATTRIB_DIVISOR_BITS 1
-
 //! Maximum number of output buffers and streams a Transform Feedback Object can have
 #define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4
 #define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4

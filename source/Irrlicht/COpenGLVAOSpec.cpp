@@ -87,20 +87,13 @@ void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VER
     individualHashFields.setAttrFmt(attrId, format);
 
 
-    const uint32_t maxDivisor = 0x1u<<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS;
+    const uint32_t maxDivisor = 1u;
     if (divisor>maxDivisor)
         divisor = maxDivisor;
 
     if (divisor!=attrDivisor[attrId])
     {
-        for (size_t i=0; i<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS; i++)
-        {
-            if (divisor&(0x1u<<i))
-                individualHashFields.attributeDivisors[i] |= mask; //set
-            else
-                individualHashFields.attributeDivisors[i] &= invMask; //zero out
-        }
-
+        individualHashFields.attributeDivisors = divisor;
         attrDivisor[attrId] = divisor;
     }
 

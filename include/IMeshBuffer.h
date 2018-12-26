@@ -272,7 +272,8 @@ namespace scene
                     attrBuf->grab();
 
                     attrFormat[attrId] = format;
-                    attrStride[attrId] = stride!=0 ? stride:video::getTexelOrBlockSize(format);
+                    // Don't get confused by `getTexelOrBlockSize` name. All vertex attrib, color, etc. are maintained with single enum E_FORMAT and its naming conventions is color-like, and so are related functions. Whole story began from Vulkan's VkFormat.
+                    attrStride[attrId] = stride!=0 ? stride : video::getTexelOrBlockSize(format);
                     attrOffset[attrId] = offset;
                     attrDivisor[attrId] = divisor;
                 }
@@ -553,7 +554,7 @@ namespace std
 	template <>
 	struct hash<irr::scene::E_VERTEX_ATTRIBUTE_ID>
 	{
-		std::size_t operator()(const irr::scene::E_VERTEX_ATTRIBUTE_ID& k) const noexcept {return k;}
+		std::size_t operator()(irr::scene::E_VERTEX_ATTRIBUTE_ID k) const noexcept {return k;}
 	};
 }
 

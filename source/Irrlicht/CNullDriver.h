@@ -479,19 +479,6 @@ namespace video
 		//! Returns the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const;
 
-		//! Color conversion convenience function
-		/** Convert an image (as array of pixels) from source to destination
-		array, thereby converting the color format. The pixel size is
-		determined by the color formats.
-		\param sP Pointer to source
-		\param sF Color format of source
-		\param sN Number of pixels to convert, both array must be large enough
-		\param dP Pointer to destination
-		\param dF Color format of destination
-		*/
-		virtual void convertColor(const void* sP, E_FORMAT sF, int32_t sN,
-				void* dP, E_FORMAT dF) const;
-
 		//!
 		virtual uint32_t getRequiredUBOAlignment() const {return 0;}
 

@@ -33,7 +33,7 @@ COpenGL2DTextureArray::COpenGL2DTextureArray(GLenum internalFormat, const uint32
 
 bool COpenGL2DTextureArray::updateSubRegion(const E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
 {
-    bool sourceCompressed = isFormatCompressed(inDataColorFormat);
+    bool sourceCompressed = isBlockCompressionFormat(inDataColorFormat);
 
     bool destinationCompressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
     if ((!destinationCompressed)&&sourceCompressed)

@@ -33,7 +33,7 @@ COpenGL3DTexture::COpenGL3DTexture(GLenum internalFormat, const uint32_t* size, 
 
 bool COpenGL3DTexture::updateSubRegion(const E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
 {
-    bool sourceCompressed = isFormatCompressed(inDataColorFormat);
+    bool sourceCompressed = isBlockCompressionFormat(inDataColorFormat);
 
     bool destinationCompressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
     if ((!destinationCompressed)&&sourceCompressed)

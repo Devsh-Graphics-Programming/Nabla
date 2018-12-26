@@ -64,7 +64,7 @@ class CImageData : public asset::IAsset
 
         inline const void* getSliceRowPointer_helper(uint32_t slice, uint32_t row) const
         {
-            if (getCompressedFormatBlockSize(getColorFormat())!=1)
+            if (isBlockCompressionFormat(getColorFormat()))
                 return NULL;
 
             if (row<minCoord[0]||row>=maxCoord[0])
@@ -174,7 +174,7 @@ class CImageData : public asset::IAsset
         inline size_t getImageDataSizeInBytes() const
         {
             uint32_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
-            const uint32_t blockAlignment = getCompressedFormatBlockSize(getColorFormat());
+            const uint32_t blockAlignment = isBlockCompressionFormat(getColorFormat()) ? getTexelOrBlockSize(getColorFormat()) : 1u;
 
             if (blockAlignment!=1)
             {
@@ -222,7 +222,7 @@ class CImageData : public asset::IAsset
         //!
         inline uint32_t getPitchIncludingAlignment() const
         {
-            if (getCompressedFormatBlockSize(getColorFormat())!=1)
+            if (isBlockCompressionFormat(getColorFormat()))
                 return 0; //special error val
 
             return (getPitch()+unpackAlignment-1)/unpackAlignment;
