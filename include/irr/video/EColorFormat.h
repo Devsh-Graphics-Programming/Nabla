@@ -15,7 +15,6 @@ namespace video
 	enum E_FORMAT
 	{
         //! In all freaking honesty, use texture view objects to cast between same bitsize pixel formats
-        // remove this?? todo
         EF_8BIT_PIX = 0,
         EF_16BIT_PIX,
         EF_24BIT_PIX,
@@ -26,12 +25,13 @@ namespace video
         EF_128BIT_PIX,
 
         //! Custom shizz we wont ever use
-        EF_DEPTH16,
-        EF_DEPTH24,
-        EF_DEPTH32F,
-        EF_DEPTH24_STENCIL8,
-        EF_DEPTH32F_STENCIL8,
-        EF_STENCIL8,
+        EF_D16_UNORM,
+        EF_X8_D24_UNORM_PACK32,
+        EF_D32_SFLOAT,
+        EF_S8_UINT,
+        EF_D16_UNORM_S8_UINT,
+        EF_D24_UNORM_S8_UINT,
+        EF_D32_SFLOAT_S8_UINT,
 
         //! Vulkan
         EF_R4G4_UNORM_PACK8,
@@ -157,11 +157,6 @@ namespace video
         EF_R64G64B64A64_SFLOAT,
         EF_B10G11R11_UFLOAT_PACK32,
         EF_E5B9G9R9_UFLOAT_PACK32,
-        EF_D16_UNORM,
-        EF_X8_D24_UNORM_PACK32,
-        EF_D16_UNORM_S8_UINT,
-        EF_D24_UNORM_S8_UINT,
-        EF_D32_SFLOAT_S8_UINT,
 
         //! Block Compression Formats!
         EF_BC1_RGB_UNORM_BLOCK,
@@ -172,6 +167,14 @@ namespace video
         EF_BC2_SRGB_BLOCK,
         EF_BC3_UNORM_BLOCK,
         EF_BC3_SRGB_BLOCK,
+        EF_BC4_UNORM_BLOCK,
+        EF_BC4_SNORM_BLOCK,
+        EF_BC5_UNORM_BLOCK,
+        EF_BC5_SNORM_BLOCK,
+        EF_BC6H_UFLOAT_BLOCK,
+        EF_BC6H_SFLOAT_BLOCK,
+        EF_BC7_UNORM_BLOCK,
+        EF_BC7_SRGB_BLOCK,
         EF_ASTC_4x4_UNORM_BLOCK,
         EF_ASTC_4x4_SRGB_BLOCK,
         EF_ASTC_5x4_UNORM_BLOCK,
@@ -200,6 +203,16 @@ namespace video
         EF_ASTC_12x10_SRGB_BLOCK,
         EF_ASTC_12x12_UNORM_BLOCK,
         EF_ASTC_12x12_SRGB_BLOCK,
+        EF_ETC2_R8G8B8_UNORM_BLOCK,
+        EF_ETC2_R8G8B8_SRGB_BLOCK,
+        EF_ETC2_R8G8B8A1_UNORM_BLOCK,
+        EF_ETC2_R8G8B8A1_SRGB_BLOCK,
+        EF_ETC2_R8G8B8A8_UNORM_BLOCK,
+        EF_ETC2_R8G8B8A8_SRGB_BLOCK,
+        EF_EAC_R11_UNORM_BLOCK,
+        EF_EAC_R11_SNORM_BLOCK,
+        EF_EAC_R11G11_UNORM_BLOCK,
+        EF_EAC_R11G11_SNORM_BLOCK,
 
         //! Planar formats
         EF_G8_B8_R8_3PLANE_420_UNORM,
@@ -250,6 +263,16 @@ namespace video
         case EF_BC2_SRGB_BLOCK:
         case EF_BC3_SRGB_BLOCK:
             return 16;
+        case EF_BC4_SNORM_BLOCK:
+        case EF_BC4_UNORM_BLOCK:
+            return 8u;
+        case EF_BC5_SNORM_BLOCK:
+        case EF_BC5_UNORM_BLOCK:
+        case EF_BC6H_SFLOAT_BLOCK:
+        case EF_BC6H_UFLOAT_BLOCK:
+        case EF_BC7_SRGB_BLOCK:
+        case EF_BC7_UNORM_BLOCK:
+            return 16u;
         case EF_8BIT_PIX: return 1;
         case EF_16BIT_PIX: return 2;
         case EF_24BIT_PIX: return 3;
@@ -258,12 +281,12 @@ namespace video
         case EF_64BIT_PIX: return 8;
         case EF_96BIT_PIX: return 12;
         case EF_128BIT_PIX: return 16;
-        case EF_DEPTH16: return 2;
-        case EF_DEPTH24: return 3;
-        case EF_DEPTH32F:
-        case EF_DEPTH24_STENCIL8: return 4;
-        case EF_DEPTH32F_STENCIL8: return 5;
-        case EF_STENCIL8: return 2;
+        case EF_D16_UNORM: return 2;
+        case EF_X8_D24_UNORM_PACK32: return 3;
+        case EF_D32_SFLOAT:
+        case EF_D24_UNORM_S8_UINT: return 4;
+        case EF_D32_SFLOAT_S8_UINT: return 5;
+        case EF_S8_UINT: return 2;
         case EF_E5B9G9R9_UFLOAT_PACK32: return 4;
         case EF_R4G4_UNORM_PACK8: return 1;
         case EF_R4G4B4A4_UNORM_PACK16: return 2;
@@ -406,6 +429,19 @@ namespace video
         case EF_ASTC_12x12_UNORM_BLOCK:
         case EF_ASTC_12x12_SRGB_BLOCK:
             return 16;
+
+        case EF_ETC2_R8G8B8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+        case EF_EAC_R11_UNORM_BLOCK:
+        case EF_EAC_R11_SNORM_BLOCK:
+        case EF_EAC_R11G11_UNORM_BLOCK:
+        case EF_EAC_R11G11_SNORM_BLOCK:
+            return 8u;
+
         default: return 0;
         }
     }
@@ -434,6 +470,10 @@ namespace video
         case EF_R64_UINT:
         case EF_R64_SINT:
         case EF_R64_SFLOAT:
+        case EF_EAC_R11_UNORM_BLOCK:
+        case EF_EAC_R11_SNORM_BLOCK:
+        case EF_BC4_SNORM_BLOCK:
+        case EF_BC4_UNORM_BLOCK:
             return 1u;
 
         case EF_R8G8_UNORM:
@@ -457,6 +497,10 @@ namespace video
         case EF_R64G64_UINT:
         case EF_R64G64_SINT:
         case EF_R64G64_SFLOAT:
+        case EF_EAC_R11G11_UNORM_BLOCK:
+        case EF_EAC_R11G11_SNORM_BLOCK:
+        case EF_BC5_SNORM_BLOCK:
+        case EF_BC5_UNORM_BLOCK:
             return 2u;
 
         case EF_R5G6B5_UNORM_PACK16:
@@ -497,6 +541,10 @@ namespace video
         case EF_G8_B8_R8_3PLANE_422_UNORM:
         case EF_G8_B8R8_2PLANE_422_UNORM:
         case EF_G8_B8_R8_3PLANE_444_UNORM:
+        case EF_ETC2_R8G8B8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8_SRGB_BLOCK:
+        case EF_BC6H_SFLOAT_BLOCK:
+        case EF_BC6H_UFLOAT_BLOCK:
             return 3u;
 
         case EF_R4G4B4A4_UNORM_PACK16:
@@ -584,6 +632,12 @@ namespace video
         case EF_ASTC_12x10_SRGB_BLOCK:
         case EF_ASTC_12x12_UNORM_BLOCK:
         case EF_ASTC_12x12_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+        case EF_BC7_UNORM_BLOCK:
+        case EF_BC7_SRGB_BLOCK:
             return 4u;
 
         default:
@@ -634,8 +688,26 @@ namespace video
         case EF_BC2_SRGB_BLOCK:
         case EF_BC3_UNORM_BLOCK:
         case EF_BC3_SRGB_BLOCK:
+        case EF_BC4_SNORM_BLOCK:
+        case EF_BC4_UNORM_BLOCK:
+        case EF_BC5_SNORM_BLOCK:
+        case EF_BC5_UNORM_BLOCK:
+        case EF_BC6H_SFLOAT_BLOCK:
+        case EF_BC6H_UFLOAT_BLOCK:
+        case EF_BC7_SRGB_BLOCK:
+        case EF_BC7_UNORM_BLOCK:
         case EF_ASTC_4x4_UNORM_BLOCK:
         case EF_ASTC_4x4_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+        case EF_EAC_R11_UNORM_BLOCK:
+        case EF_EAC_R11_SNORM_BLOCK:
+        case EF_EAC_R11G11_UNORM_BLOCK:
+        case EF_EAC_R11G11_SNORM_BLOCK:
             return core::vector3d<uint32_t>(4u, 4u, 1u);
         case EF_ASTC_5x4_UNORM_BLOCK:
         case EF_ASTC_5x4_SRGB_BLOCK:
@@ -738,7 +810,15 @@ namespace video
             EF_R64_SFLOAT,
             EF_R64G64_SFLOAT,
             EF_R64G64B64_SFLOAT,
-            EF_R64G64B64A64_SFLOAT
+            EF_R64G64B64A64_SFLOAT,
+            EF_EAC_R11_SNORM_BLOCK,
+            EF_EAC_R11G11_SNORM_BLOCK,
+            EF_EAC_R11G11_SNORM_BLOCK,
+            EF_EAC_R11G11_SNORM_BLOCK,
+            EF_BC4_SNORM_BLOCK,
+            EF_BC5_SNORM_BLOCK,
+            EF_BC6H_SFLOAT_BLOCK,
+            EF_BC6H_SFLOAT_BLOCK
         > ::value;
     }
     template<E_FORMAT cf>
@@ -810,7 +890,10 @@ namespace video
             EF_R64G64B64A64_SFLOAT,
             EF_B10G11R11_UFLOAT_PACK32,
             EF_E5B9G9R9_UFLOAT_PACK32,
-            EF_E5B9G9R9_UFLOAT_PACK32
+            EF_E5B9G9R9_UFLOAT_PACK32,
+            EF_BC6H_SFLOAT_BLOCK,
+            EF_BC6H_UFLOAT_BLOCK,
+            EF_BC6H_UFLOAT_BLOCK
         >::value;
     }
     template<E_FORMAT cf>
@@ -874,6 +957,12 @@ namespace video
             EF_BC3_UNORM_BLOCK,
             EF_BC3_SRGB_BLOCK,
             EF_BC3_SRGB_BLOCK,
+            EF_BC4_SNORM_BLOCK,
+            EF_BC4_UNORM_BLOCK,
+            EF_BC5_SNORM_BLOCK,
+            EF_BC5_UNORM_BLOCK,
+            EF_BC7_SRGB_BLOCK,
+            EF_BC7_UNORM_BLOCK,
             EF_ASTC_4x4_UNORM_BLOCK,
             EF_ASTC_4x4_SRGB_BLOCK,
             EF_ASTC_5x4_UNORM_BLOCK,
@@ -902,7 +991,17 @@ namespace video
             EF_ASTC_12x10_SRGB_BLOCK,
             EF_ASTC_12x12_UNORM_BLOCK,
             EF_ASTC_12x12_SRGB_BLOCK,
-            EF_ASTC_12x12_SRGB_BLOCK
+            EF_ETC2_R8G8B8_UNORM_BLOCK,
+            EF_ETC2_R8G8B8_SRGB_BLOCK,
+            EF_ETC2_R8G8B8A1_UNORM_BLOCK,
+            EF_ETC2_R8G8B8A1_SRGB_BLOCK,
+            EF_ETC2_R8G8B8A8_UNORM_BLOCK,
+            EF_ETC2_R8G8B8A8_SRGB_BLOCK,
+            EF_EAC_R11_UNORM_BLOCK,
+            EF_EAC_R11_SNORM_BLOCK,
+            EF_EAC_R11G11_UNORM_BLOCK,
+            EF_EAC_R11G11_SNORM_BLOCK,
+            EF_EAC_R11G11_SNORM_BLOCK
         > ::value;
     }
     template<E_FORMAT cf>
@@ -951,6 +1050,7 @@ namespace video
             EF_R8G8B8A8_SRGB,
             EF_B8G8R8A8_SRGB,
             EF_A8B8G8R8_SRGB_PACK32,
+            EF_BC7_SRGB_BLOCK,
             EF_ASTC_4x4_SRGB_BLOCK,
             EF_ASTC_5x4_SRGB_BLOCK,
             EF_ASTC_5x5_SRGB_BLOCK,
@@ -965,7 +1065,10 @@ namespace video
             EF_ASTC_10x10_SRGB_BLOCK,
             EF_ASTC_12x10_SRGB_BLOCK,
             EF_ASTC_12x12_SRGB_BLOCK,
-            EF_ASTC_12x12_SRGB_BLOCK
+            EF_ETC2_R8G8B8_SRGB_BLOCK,
+            EF_ETC2_R8G8B8A1_SRGB_BLOCK,
+            EF_ETC2_R8G8B8A8_SRGB_BLOCK,
+            EF_ETC2_R8G8B8A8_SRGB_BLOCK
         >::value;
     }
     template<E_FORMAT cf>
@@ -981,6 +1084,14 @@ namespace video
             EF_BC2_SRGB_BLOCK,
             EF_BC3_UNORM_BLOCK,
             EF_BC3_SRGB_BLOCK,
+            EF_BC4_SNORM_BLOCK,
+            EF_BC4_UNORM_BLOCK,
+            EF_BC5_SNORM_BLOCK,
+            EF_BC5_UNORM_BLOCK,
+            EF_BC6H_SFLOAT_BLOCK,
+            EF_BC6H_UFLOAT_BLOCK,
+            EF_BC7_SRGB_BLOCK,
+            EF_BC7_UNORM_BLOCK,
             EF_ASTC_4x4_UNORM_BLOCK,
             EF_ASTC_4x4_SRGB_BLOCK,
             EF_ASTC_5x4_UNORM_BLOCK,
@@ -1008,7 +1119,18 @@ namespace video
             EF_ASTC_12x10_UNORM_BLOCK,
             EF_ASTC_12x10_SRGB_BLOCK,
             EF_ASTC_12x12_UNORM_BLOCK,
-            EF_ASTC_12x12_SRGB_BLOCK
+            EF_ASTC_12x12_SRGB_BLOCK,
+            EF_ETC2_R8G8B8_UNORM_BLOCK,
+            EF_ETC2_R8G8B8_SRGB_BLOCK,
+            EF_ETC2_R8G8B8A1_UNORM_BLOCK,
+            EF_ETC2_R8G8B8A1_SRGB_BLOCK,
+            EF_ETC2_R8G8B8A8_UNORM_BLOCK,
+            EF_ETC2_R8G8B8A8_SRGB_BLOCK,
+            EF_EAC_R11_UNORM_BLOCK,
+            EF_EAC_R11_SNORM_BLOCK,
+            EF_EAC_R11G11_UNORM_BLOCK,
+            EF_EAC_R11G11_SNORM_BLOCK,
+            EF_EAC_R11G11_SNORM_BLOCK
         >::value;
     }
     template<E_FORMAT cf>
@@ -1137,6 +1259,11 @@ namespace video
         case EF_R64G64_SFLOAT:
         case EF_R64G64B64_SFLOAT:
         case EF_R64G64B64A64_SFLOAT:
+        case EF_EAC_R11_SNORM_BLOCK:
+        case EF_EAC_R11G11_SNORM_BLOCK:
+        case EF_BC4_SNORM_BLOCK:
+        case EF_BC5_SNORM_BLOCK:
+        case EF_BC6H_SFLOAT_BLOCK:
             return true;
         default: return false;
         }
@@ -1212,6 +1339,8 @@ namespace video
         case EF_R64G64B64A64_SFLOAT:
         case EF_B10G11R11_UFLOAT_PACK32:
         case EF_E5B9G9R9_UFLOAT_PACK32:
+        case EF_BC6H_SFLOAT_BLOCK:
+        case EF_BC6H_UFLOAT_BLOCK:
             return true;
         default: return false;
         }
@@ -1298,6 +1427,22 @@ namespace video
         case EF_ASTC_12x10_SRGB_BLOCK:
         case EF_ASTC_12x12_UNORM_BLOCK:
         case EF_ASTC_12x12_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+        case EF_EAC_R11_UNORM_BLOCK:
+        case EF_EAC_R11_SNORM_BLOCK:
+        case EF_EAC_R11G11_UNORM_BLOCK:
+        case EF_EAC_R11G11_SNORM_BLOCK:
+        case EF_BC4_SNORM_BLOCK:
+        case EF_BC4_UNORM_BLOCK:
+        case EF_BC5_SNORM_BLOCK:
+        case EF_BC5_UNORM_BLOCK:
+        case EF_BC7_SRGB_BLOCK:
+        case EF_BC7_UNORM_BLOCK:
             return true;
         default: return false;
         }
@@ -1352,6 +1497,7 @@ namespace video
         case EF_BC1_RGBA_SRGB_BLOCK:
         case EF_BC2_SRGB_BLOCK:
         case EF_BC3_SRGB_BLOCK:
+        case EF_BC7_SRGB_BLOCK:
         case EF_ASTC_4x4_SRGB_BLOCK:
         case EF_ASTC_5x4_SRGB_BLOCK:
         case EF_ASTC_5x5_SRGB_BLOCK:
@@ -1366,6 +1512,9 @@ namespace video
         case EF_ASTC_10x10_SRGB_BLOCK:
         case EF_ASTC_12x10_SRGB_BLOCK:
         case EF_ASTC_12x12_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
             return true;
         default: return false;
         }
@@ -1382,6 +1531,14 @@ namespace video
         case EF_BC2_SRGB_BLOCK:
         case EF_BC3_UNORM_BLOCK:
         case EF_BC3_SRGB_BLOCK:
+        case EF_BC4_SNORM_BLOCK:
+        case EF_BC4_UNORM_BLOCK:
+        case EF_BC5_SNORM_BLOCK:
+        case EF_BC5_UNORM_BLOCK:
+        case EF_BC6H_SFLOAT_BLOCK:
+        case EF_BC6H_UFLOAT_BLOCK:
+        case EF_BC7_SRGB_BLOCK:
+        case EF_BC7_UNORM_BLOCK:
         case EF_ASTC_4x4_UNORM_BLOCK:
         case EF_ASTC_4x4_SRGB_BLOCK:
         case EF_ASTC_5x4_UNORM_BLOCK:
@@ -1410,6 +1567,16 @@ namespace video
         case EF_ASTC_12x10_SRGB_BLOCK:
         case EF_ASTC_12x12_UNORM_BLOCK:
         case EF_ASTC_12x12_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+        case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+        case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+        case EF_EAC_R11_UNORM_BLOCK:
+        case EF_EAC_R11_SNORM_BLOCK:
+        case EF_EAC_R11G11_UNORM_BLOCK:
+        case EF_EAC_R11G11_SNORM_BLOCK:
             return true;
         default: return false;
         }

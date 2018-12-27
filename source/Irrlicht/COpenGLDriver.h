@@ -236,9 +236,9 @@ namespace video
                 return true;
             default:
             {
-                GLint res;
+                GLint res = GL_FALSE;
                 extGlGetInternalformativ(GL_RENDERBUFFER, COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
-                return res;
+                return res==GL_TRUE;
             }
             }
         }
@@ -290,8 +290,10 @@ namespace video
         }
         inline virtual bool isAllowedTextureFormat(E_FORMAT _fmt) const override
         {
+            // opengl spec section 8.5.1
             switch (_fmt)
             {
+            // formats checked as "Req. tex"
             case EF_R8_UNORM:
             case EF_R8_SNORM:
             case EF_R16_UNORM:
@@ -347,8 +349,32 @@ namespace video
             case EF_R32G32B32_SINT:
             case EF_R32G32B32A32_UINT:
             case EF_R32G32B32A32_SINT:
+
+            // depth/stencil/depth+stencil formats checked as "Req. format"
+            case EF_D16_UNORM:
+            case EF_X8_D24_UNORM_PACK32:
+            case EF_D32_SFLOAT:
+            case EF_D24_UNORM_S8_UINT:
+            case EF_S8_UINT:
+
+            // specific compressed formats
+            case EF_BC6H_UFLOAT_BLOCK:
+            case EF_BC6H_SFLOAT_BLOCK:
+            case EF_BC7_UNORM_BLOCK:
+            case EF_BC7_SRGB_BLOCK:
+            case EF_ETC2_R8G8B8_UNORM_BLOCK:
+            case EF_ETC2_R8G8B8_SRGB_BLOCK:
+            case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+            case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+            case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+            case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+            case EF_EAC_R11_UNORM_BLOCK:
+            case EF_EAC_R11_SNORM_BLOCK:
+            case EF_EAC_R11G11_UNORM_BLOCK:
+            case EF_EAC_R11G11_SNORM_BLOCK:
                 return true;
-            default: return false;
+
+            default: return false; // todo, here should be extGlGetInternalformativ call, but i have no idea about parameters
             }
         }
 

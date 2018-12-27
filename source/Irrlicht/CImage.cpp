@@ -244,7 +244,7 @@ void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 //! returns a pixel
 SColor CImage::getPixel(uint32_t x, uint32_t y) const
 {
-	if (x >= Size.Width || y >= Size.Height || (Format>=video::EF_BC1_RGB_UNORM_BLOCK&&Format<=video::EF_DEPTH32F_STENCIL8) )
+	if (x >= Size.Width || y >= Size.Height || Format<=EF_D32_SFLOAT_S8_UINT || isBlockCompressionFormat(Format))
 		return SColor(0);
 
 	switch(Format)

@@ -341,6 +341,11 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
 		}
 			break;
         case EF_R8_SNORM:
+        {
+            colorformat = GL_RED;
+            type = GL_BYTE;
+        }
+        break;
 		case EF_R8_UNORM:
 		{
 			colorformat = GL_RED;
@@ -348,6 +353,11 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
 		}
 			break;
         case EF_R8G8_SNORM:
+        {
+            colorformat = GL_RG;
+            type = GL_BYTE;
+        }
+        break;
 		case EF_R8G8_UNORM:
 		{
 			colorformat = GL_RG;
@@ -355,16 +365,25 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
 		}
 			break;
         case EF_R8G8B8_SNORM:
+            colorformat = GL_RGB;
+            type = GL_BYTE;
+            break;
         case EF_R8G8B8_UNORM:
             colorformat = GL_RGB;
             type = GL_UNSIGNED_BYTE;
             break;
         case EF_B8G8R8A8_SNORM:
+            colorformat = GL_BGRA_EXT;
+            type = GL_BYTE;
+            break;
         case EF_B8G8R8A8_UNORM:
             colorformat = GL_BGRA_EXT;
-            type = GL_UNSIGNED_INT_8_8_8_8_REV;
+            type = GL_UNSIGNED_BYTE;
             break;
         case EF_R8G8B8A8_SNORM:
+            colorformat = GL_RGBA;
+            type = GL_BYTE;
+            break;
         case EF_R8G8B8A8_UNORM:
             colorformat = GL_RGBA;
             type = GL_UNSIGNED_BYTE;
@@ -416,7 +435,13 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
             colorformat = GL_RGBA_INTEGER;
             type = GL_BYTE;
         }
+        break;
         case EF_R16_SNORM:
+        {
+            colorformat = GL_RED;
+            type = GL_SHORT;
+        }
+        break;
         case EF_R16_UNORM:
         {
             colorformat = GL_RED;
@@ -424,6 +449,11 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
         }
         break;
         case EF_R16G16_SNORM:
+        {
+            colorformat = GL_RG;
+            type = GL_SHORT;
+        }
+        break;
         case EF_R16G16_UNORM:
         {
             colorformat = GL_RG;
@@ -431,6 +461,11 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
         }
         break;
         case EF_R16G16B16_SNORM:
+        {
+            colorformat = GL_RGB;
+            type = GL_SHORT;
+        }
+        break;
         case EF_R16G16B16_UNORM:
         {
             colorformat = GL_RGB;
@@ -438,6 +473,11 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
         }
             break;
         case EF_R16G16B16A16_SNORM:
+        {
+            colorformat = GL_RGBA;
+            type = GL_SHORT;
+        }
+        break;
         case EF_R16G16B16A16_UNORM:
         {
             colorformat = GL_RGBA;
@@ -564,20 +604,90 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-        /* // todo bc
-		case EF_R_BC4:
-		{
-			colorformat = GL_RED;
-			type = GL_UNSIGNED_BYTE;
-		}
-			break;
-		case EF_RG_BC5:
-		{
-			colorformat = GL_RG;
-			type = GL_UNSIGNED_BYTE;
-		}
-			break;
-         */
+        case EF_BC7_UNORM_BLOCK:
+        {
+            colorformat = GL_RGBA;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_BC7_SRGB_BLOCK:
+        {
+            colorformat = GL_RGBA;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_BC6H_SFLOAT_BLOCK:
+        {
+            colorformat = GL_RGB;
+            type = GL_HALF_FLOAT;
+        }
+        break;
+        case EF_BC6H_UFLOAT_BLOCK:
+        {
+            colorformat = GL_RGB;
+            type = GL_HALF_FLOAT;
+        }
+        break;
+        case EF_ETC2_R8G8B8_UNORM_BLOCK:
+        {
+            colorformat = GL_RGB;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_ETC2_R8G8B8_SRGB_BLOCK:
+        {
+            colorformat = GL_RGB;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+        {
+            colorformat = GL_RGBA;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+        {
+            colorformat = GL_RGBA;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+        {
+            colorformat = GL_RGBA;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+        {
+            colorformat = GL_RGBA;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_EAC_R11G11_UNORM_BLOCK:
+        {
+            colorformat = GL_RG;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_EAC_R11G11_SNORM_BLOCK:
+        {
+            colorformat = GL_RG;
+            type = GL_BYTE;
+        }
+        break;
+        case EF_EAC_R11_UNORM_BLOCK:
+        {
+            colorformat = GL_RED;
+            type = GL_UNSIGNED_BYTE;
+        }
+        break;
+        case EF_EAC_R11_SNORM_BLOCK:
+        {
+            colorformat = GL_RED;
+            type = GL_BYTE;
+        }
+        break;
 		case EF_8BIT_PIX:
 		{
 			colorformat = GL_RED;
@@ -626,49 +736,49 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
 			type = GL_FLOAT;
 		}
 			break;
+        case EF_E5B9G9R9_UFLOAT_PACK32:
+        {
+            colorformat = GL_RGB;
+            type = GL_UNSIGNED_INT_5_9_9_9_REV;
+        }
+        break;
         /// this is totally wrong but safe - most probs have to reupload
-		case EF_DEPTH16:
+		case EF_D16_UNORM:
 		{
 			colorformat = GL_DEPTH;
 			type = GL_UNSIGNED_SHORT;
 		}
 			break;
-		case EF_DEPTH24:
+		case EF_X8_D24_UNORM_PACK32:
 		{
 			colorformat = GL_DEPTH;
 			type = GL_UNSIGNED_SHORT;
 		}
 			break;
-		case EF_DEPTH24_STENCIL8:
+		case EF_D24_UNORM_S8_UINT:
 		{
 			colorformat = GL_DEPTH_STENCIL;
-			type = GL_UNSIGNED_INT_24_8_EXT;
+			type = GL_UNSIGNED_INT_24_8;
 		}
 			break;
-		case EF_DEPTH32F:
+		case EF_D32_SFLOAT:
 		{
 			colorformat = GL_DEPTH;
 			type = GL_FLOAT;
 		}
 			break;
-		case EF_DEPTH32F_STENCIL8:
+		case EF_D32_SFLOAT_S8_UINT:
 		{
 			colorformat = GL_DEPTH_STENCIL;
-			type = GL_UNSIGNED_BYTE;
+			type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
 		}
 			break;
-		case EF_STENCIL8:
+		case EF_S8_UINT:
 		{
 			colorformat = GL_STENCIL;
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
-        case EF_E5B9G9R9_UFLOAT_PACK32:
-        {
-            colorformat = GL_RGB;
-            type = GL_HALF_FLOAT;
-        }
-            break;
 		default:
 		{
 			os::Printer::log("Unsupported upload format", ELL_ERROR);
@@ -863,6 +973,34 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT
 		case EF_BC3_UNORM_BLOCK:
 		    return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 			break;
+        case EF_BC7_UNORM_BLOCK:
+            return GL_COMPRESSED_RGBA_BPTC_UNORM;
+        case EF_BC7_SRGB_BLOCK:
+            return GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM;
+        case EF_BC6H_SFLOAT_BLOCK:
+            return GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT;
+        case EF_BC6H_UFLOAT_BLOCK:
+            return GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT;
+        case EF_ETC2_R8G8B8_UNORM_BLOCK:
+            return GL_COMPRESSED_RGB8_ETC2;
+        case EF_ETC2_R8G8B8_SRGB_BLOCK:
+            return GL_COMPRESSED_SRGB8_ETC2;
+        case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+            return GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2;
+        case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+            return GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2;
+        case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+            return GL_COMPRESSED_RGBA8_ETC2_EAC;
+        case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+            return GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC;
+        case EF_EAC_R11G11_UNORM_BLOCK:
+            return GL_COMPRESSED_RG11_EAC;
+        case EF_EAC_R11G11_SNORM_BLOCK:
+            return GL_COMPRESSED_SIGNED_RG11_EAC;
+        case EF_EAC_R11_UNORM_BLOCK:
+            return GL_COMPRESSED_R11_EAC;
+        case EF_EAC_R11_SNORM_BLOCK:
+            return GL_COMPRESSED_SIGNED_R11_EAC;
             /* // todo bc
 		case EF_R_BC4:
 		    return GL_COMPRESSED_RED_RGTC1_EXT;
@@ -896,22 +1034,22 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT
 		    return GL_RGBA32F;
 			break;
         /// this is totally wrong but safe - most probs have to reupload
-		case EF_DEPTH16:
+		case EF_D16_UNORM:
 		    return GL_DEPTH_COMPONENT16;
 			break;
-		case EF_DEPTH24:
+		case EF_X8_D24_UNORM_PACK32:
 		    return GL_DEPTH_COMPONENT24;
 			break;
-		case EF_DEPTH24_STENCIL8:
+		case EF_D24_UNORM_S8_UINT:
 		    return GL_DEPTH24_STENCIL8;
 			break;
-		case EF_DEPTH32F:
+		case EF_D32_SFLOAT:
 		    return GL_DEPTH_COMPONENT32F;
 			break;
-		case EF_DEPTH32F_STENCIL8:
+		case EF_D32_SFLOAT_S8_UINT:
 		    return GL_DEPTH32F_STENCIL8;
 			break;
-		case EF_STENCIL8:
+		case EF_S8_UINT:
             return GL_STENCIL_INDEX8;
 			break;
         case EF_E5B9G9R9_UFLOAT_PACK32:
@@ -943,16 +1081,36 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
         case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
             return EF_BC3_UNORM_BLOCK;
             break;
-            /* // todo bc
-        case GL_COMPRESSED_RED_RGTC1_EXT:
-            return EF_R_BC4;
-            break;
-        case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
-            return EF_RG_BC5;
-            break;
-            */
+        case GL_COMPRESSED_RGBA_BPTC_UNORM:
+            return EF_BC7_UNORM_BLOCK;
+        case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM:
+            return EF_BC7_SRGB_BLOCK;
+        case GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT:
+            return EF_BC6H_SFLOAT_BLOCK;
+        case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
+            return EF_BC6H_UFLOAT_BLOCK;
+        case GL_COMPRESSED_RGB8_ETC2:
+            return EF_ETC2_R8G8B8_UNORM_BLOCK;
+        case GL_COMPRESSED_SRGB8_ETC2:
+            return EF_ETC2_R8G8B8_SRGB_BLOCK;
+        case GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+            return EF_ETC2_R8G8B8A1_UNORM_BLOCK;
+        case GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+            return EF_ETC2_R8G8B8A1_SRGB_BLOCK;
+        case GL_COMPRESSED_RGBA8_ETC2_EAC:
+            return EF_ETC2_R8G8B8A8_UNORM_BLOCK;
+        case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC:
+            return EF_ETC2_R8G8B8A8_SRGB_BLOCK;
+        case GL_COMPRESSED_RG11_EAC:
+            return EF_EAC_R11G11_UNORM_BLOCK;
+        case GL_COMPRESSED_SIGNED_RG11_EAC:
+            return EF_EAC_R11G11_SNORM_BLOCK;
+        case GL_COMPRESSED_R11_EAC:
+            return EF_EAC_R11_UNORM_BLOCK;
+        case GL_COMPRESSED_SIGNED_R11_EAC:
+            return EF_EAC_R11_SNORM_BLOCK;
         case GL_STENCIL_INDEX8:
-            return EF_STENCIL8;
+            return EF_S8_UINT;
             break;
         case GL_RGBA2:
             ///return EF_8BIT_PIX;
@@ -979,7 +1137,7 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             ///return EF_;
             break;
         case GL_DEPTH_COMPONENT16:
-            return EF_DEPTH16;
+            return EF_D16_UNORM;
             break;
         case GL_RGBA4:
             return EF_R4G4B4A4_UNORM_PACK16;
@@ -1015,7 +1173,7 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             return EF_R16_SFLOAT;
             break;
         case GL_DEPTH_COMPONENT24:
-            return EF_DEPTH24;
+            return EF_X8_D24_UNORM_PACK32;
             break;
         case GL_RGB8:
             return EF_R8G8B8_UNORM;
@@ -1036,13 +1194,13 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             ///return EF_;
             break;
         case GL_DEPTH24_STENCIL8:
-            return EF_DEPTH24_STENCIL8;
+            return EF_D24_UNORM_S8_UINT;
             break;
         case GL_DEPTH_COMPONENT32:
             ///return EF_DEPTH32;
             break;
         case GL_DEPTH_COMPONENT32F:
-            return EF_DEPTH32F;
+            return EF_D32_SFLOAT;
             break;
         case GL_RGBA8:
             return EF_R8G8B8A8_UNORM;
@@ -1096,7 +1254,7 @@ E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sized
             ///return EF_;
             break;
         case GL_DEPTH32F_STENCIL8:
-            return EF_DEPTH32F_STENCIL8;
+            return EF_D32_SFLOAT_S8_UINT;
             break;
         case GL_RGBA12:
             ///return EF_;
