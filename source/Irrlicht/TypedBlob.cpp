@@ -489,7 +489,7 @@ void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPU
 				static_cast<video::E_FORMAT>(blob->attrFormat[i]),
 				blob->attrStride[i],
 				blob->attrOffset[i],
-				blob->attrDivisor[i]
+				(blob->attrDivisor>>i)&1u
 			);
 	}
 	if (blob->idxBufPtr)

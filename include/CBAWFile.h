@@ -379,7 +379,7 @@ namespace core
         uint32_t attrFormat[VERTEX_ATTRIB_CNT];
         size_t attrStride[VERTEX_ATTRIB_CNT];
         size_t attrOffset[VERTEX_ATTRIB_CNT];
-        uint32_t attrDivisor[VERTEX_ATTRIB_CNT];
+        uint32_t attrDivisor;
         uint64_t attrBufPtrs[VERTEX_ATTRIB_CNT];
         uint64_t idxBufPtr;
     } PACK_STRUCT;

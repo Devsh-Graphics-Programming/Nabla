@@ -91,10 +91,13 @@ void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VER
     if (divisor>maxDivisor)
         divisor = maxDivisor;
 
-    if (divisor!=attrDivisor[attrId])
+    if (divisor!=getAttribDivisor(attrId))
     {
-        individualHashFields.attributeDivisors = divisor;
-        attrDivisor[attrId] = divisor;
+        if (divisor)
+            attrDivisor |= (divisor<<attrId);
+        else
+            attrDivisor &= ~(divisor<<attrId);
+        individualHashFields.attributeDivisors = attrDivisor;
     }
 
     attrFormat[attrId] = format;

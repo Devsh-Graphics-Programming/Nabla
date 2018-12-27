@@ -96,12 +96,10 @@ namespace scene
 	{
         protected:
 			//! Read https://www.khronos.org/opengl/wiki/Vertex_Specification for understanding of attribute IDs, indices, attribute formats etc.
-            //E_COMPONENTS_PER_ATTRIBUTE compntsPerAttr[EVAI_COUNT];
-            //E_COMPONENT_TYPE attrType[EVAI_COUNT];
             video::E_FORMAT attrFormat[EVAI_COUNT];
             size_t attrStride[EVAI_COUNT];
             size_t attrOffset[EVAI_COUNT];
-            uint32_t attrDivisor[EVAI_COUNT];
+            uint32_t attrDivisor;
 
             //vertices
             T* mappedAttrBuf[scene::EVAI_COUNT];
@@ -128,10 +126,10 @@ namespace scene
                     attrFormat[i] = video::EF_R32G32B32A32_SFLOAT;
                     attrStride[i] = 16;
                     attrOffset[i] = 0;
-                    attrDivisor[i] = 0;
-                    mappedAttrBuf[i] = NULL;
+                    mappedAttrBuf[i] = nullptr;
                 }
-                mappedIndexBuf = NULL;
+                attrDivisor = 0u;
+                mappedIndexBuf = nullptr;
             }
 
             inline bool formatCanBeAppended(const IMeshDataFormatDesc<T>* other) const
@@ -222,7 +220,7 @@ namespace scene
             inline const uint32_t& getAttribDivisor(const E_VERTEX_ATTRIBUTE_ID& attrId) const
             {
                 assert(attrId<EVAI_COUNT);
-                return attrDivisor[attrId];
+                return (attrDivisor>>attrId)&1u;
             }
 
             inline void swapVertexAttrBuffer(T* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId)
@@ -262,10 +260,11 @@ namespace scene
 				return core::CorrespondingBlobTypeFor<IMeshDataFormatDesc<asset::ICPUBuffer> >::type::createAndTryOnStack(static_cast<const IMeshDataFormatDesc<asset::ICPUBuffer>*>(this), _stackPtr, _stackSize);
 			}
 
-            //! remember that the divisor needs to be <=0x1u<<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS
+            //! remember that the divisor must be 0 or 1
             void setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, video::E_FORMAT format, const size_t &stride=0, size_t offset=0, uint32_t divisor=0) override
             {
                 assert(attrId<EVAI_COUNT);
+                assert(divisor>1u);
 
                 if (attrBuf)
                 {
@@ -275,14 +274,14 @@ namespace scene
                     // Don't get confused by `getTexelOrBlockSize` name. All vertex attrib, color, etc. are maintained with single enum E_FORMAT and its naming conventions is color-like, and so are related functions. Whole story began from Vulkan's VkFormat.
                     attrStride[attrId] = stride!=0 ? stride : video::getTexelOrBlockSize(format);
                     attrOffset[attrId] = offset;
-                    attrDivisor[attrId] = divisor;
+                    attrDivisor |= (divisor<<attrId);
                 }
                 else
                 {
                     attrFormat[attrId] = video::EF_R32G32B32A32_SFLOAT;
                     attrStride[attrId] = 16;
                     attrOffset[attrId] = 0;
-                    attrDivisor[attrId] = 0;
+                    attrDivisor &= ~(1u<<attrId);
                 }
 
                 if (mappedAttrBuf[attrId])
