@@ -42,7 +42,7 @@ namespace impl
         case video::EF_R16G16B16A16_USCALED: return video::EF_R16G16B16A16_UINT;
         case video::EF_R16G16B16A16_SSCALED: return video::EF_R16G16B16A16_SINT;
 
-        default: video::EF_UNKNOWN;
+        default: return video::EF_UNKNOWN;
         }
     }
 }

@@ -68,7 +68,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     const asset::ICPUMesh* mesh =
 #   ifndef _DEBUG
-        static_cast<const ICPUMesh*>(_params.rootAsset);
+        static_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   endif

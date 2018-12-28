@@ -827,6 +827,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(asset::ICPUMeshB
             if (cmpfunc(epicData+vertexSize*i, epicData+vertexSize*j))
             {
                 redir = j;
+                break;
             }
         }
 

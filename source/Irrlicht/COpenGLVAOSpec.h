@@ -126,7 +126,7 @@ namespace video
 
             COpenGLVAOSpec(core::LeakDebugger* dbgr=NULL);
 
-            virtual void setVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, E_FORMAT format, const size_t &stride=0, size_t offset=0, uint32_t divisor=0) override;
+            virtual void setVertexAttrBuffer(IGPUBuffer* attrBuf, scene::E_VERTEX_ATTRIBUTE_ID attrId, E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override;
 
             inline const IGPUBuffer* const* getMappedBuffers() const
             {

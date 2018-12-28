@@ -181,9 +181,9 @@ namespace scene
 
 
             //! remember that the divisor needs to be <=0x1u<<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS
-            virtual void setVertexAttrBuffer(T* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, video::E_FORMAT format, const size_t &stride=0, size_t offset=0, uint32_t divisor=0) = 0;
+            virtual void setVertexAttrBuffer(T* attrBuf, E_VERTEX_ATTRIBUTE_ID attrId, video::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) = 0;
 
-            inline const T* getMappedBuffer(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+            inline const T* getMappedBuffer(scene::E_VERTEX_ATTRIBUTE_ID attrId) const
             {
                 assert(attrId<EVAI_COUNT);
                 return mappedAttrBuf[attrId];
@@ -195,7 +195,7 @@ namespace scene
                 return attrFormat[attrId];
             }
 
-            inline void setMappedBufferOffset(const E_VERTEX_ATTRIBUTE_ID& attrId, const size_t &offset)
+            inline void setMappedBufferOffset(E_VERTEX_ATTRIBUTE_ID attrId, size_t offset)
             {
                 assert(attrId<EVAI_COUNT);
 
@@ -205,35 +205,35 @@ namespace scene
                 attrOffset[attrId] = offset;
             }
 
-            inline const size_t& getMappedBufferOffset(const E_VERTEX_ATTRIBUTE_ID& attrId) const
+            inline const size_t& getMappedBufferOffset(E_VERTEX_ATTRIBUTE_ID attrId) const
             {
                 assert(attrId<EVAI_COUNT);
                 return attrOffset[attrId];
             }
 
-            inline const size_t& getMappedBufferStride(const E_VERTEX_ATTRIBUTE_ID& attrId) const
+            inline const size_t& getMappedBufferStride(E_VERTEX_ATTRIBUTE_ID attrId) const
             {
                 assert(attrId<EVAI_COUNT);
                 return attrStride[attrId];
             }
 
-            inline const uint32_t& getAttribDivisor(const E_VERTEX_ATTRIBUTE_ID& attrId) const
+            inline uint32_t getAttribDivisor(E_VERTEX_ATTRIBUTE_ID attrId) const
             {
                 assert(attrId<EVAI_COUNT);
                 return (attrDivisor>>attrId)&1u;
             }
 
-            inline void swapVertexAttrBuffer(T* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId)
+            inline void swapVertexAttrBuffer(T* attrBuf, scene::E_VERTEX_ATTRIBUTE_ID attrId)
             {
                 swapVertexAttrBuffer(attrBuf, attrId, attrOffset[attrId], attrStride[attrId]);
             }
 
-            inline void swapVertexAttrBuffer(T* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const size_t& newOffset)
+            inline void swapVertexAttrBuffer(T* attrBuf, scene::E_VERTEX_ATTRIBUTE_ID attrId, size_t newOffset)
             {
                 swapVertexAttrBuffer(attrBuf, attrId, newOffset, attrStride[attrId]);
             }
 
-            inline void swapVertexAttrBuffer(T* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const size_t& newOffset, const size_t& newStride)
+            inline void swapVertexAttrBuffer(T* attrBuf, scene::E_VERTEX_ATTRIBUTE_ID attrId, size_t newOffset, size_t newStride)
             {
                 if (!mappedAttrBuf[attrId] || !attrBuf)
                     return;
@@ -261,10 +261,10 @@ namespace scene
 			}
 
             //! remember that the divisor must be 0 or 1
-            void setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, video::E_FORMAT format, const size_t &stride=0, size_t offset=0, uint32_t divisor=0) override
+            void setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, E_VERTEX_ATTRIBUTE_ID attrId, video::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override
             {
                 assert(attrId<EVAI_COUNT);
-                assert(divisor>1u);
+                assert(divisor<=1u);
 
                 if (attrBuf)
                 {
