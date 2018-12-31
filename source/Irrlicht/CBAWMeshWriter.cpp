@@ -18,7 +18,7 @@
 #include "lzma/LzmaEnc.h"
 
 
-namespace irr {namespace asset {
+namespace irr {namespace scene {
 
 	const char * const CBAWMeshWriter::BAW_FILE_HEADER = "IrrlichtBaW BinaryFile\0\0\0\0\0\0\0\0\0";
 

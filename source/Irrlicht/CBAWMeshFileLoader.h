@@ -20,7 +20,7 @@ namespace irr
 class IrrlichtDevice;
 }
 
-namespace irr { namespace asset
+namespace irr { namespace scene
 {
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
@@ -284,10 +284,10 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
     if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
         dst = _stackPtr;
     else
-        dst = _IRR_ALIGNED_MALLOC(core::BlobHeaderV1::calcEncSize(_data.header->blobSizeDecompr), _IRR_SIMD_ALIGNMENT);
+        dst = _IRR_ALIGNED_MALLOC(asset::BlobHeaderV1::calcEncSize(_data.header->blobSizeDecompr), _IRR_SIMD_ALIGNMENT);
 
-    const bool encrypted = (_data.header->compressionType & core::Blob::EBCT_AES128_GCM);
-    const bool compressed = (_data.header->compressionType & core::Blob::EBCT_LZ4) || (_data.header->compressionType & core::Blob::EBCT_LZMA);
+    const bool encrypted = (_data.header->compressionType & asset::Blob::EBCT_AES128_GCM);
+    const bool compressed = (_data.header->compressionType & asset::Blob::EBCT_LZ4) || (_data.header->compressionType & asset::Blob::EBCT_LZMA);
 
     void* dstCompressed = dst; // ptr to mem to load possibly compressed data
     if (compressed)
@@ -317,7 +317,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
 #ifdef _IRR_COMPILE_WITH_OPENSSL_
         const size_t size = _data.header->effectiveSize();
         void* out = _IRR_ALIGNED_MALLOC(size, _IRR_SIMD_ALIGNMENT);
-        const bool ok = core::decAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, _data.header->gcmTag);
+        const bool ok = asset::decAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, _data.header->gcmTag);
         if (dstCompressed != _stackPtr)
             _IRR_ALIGNED_FREE(dstCompressed);
         if (!ok)
@@ -351,9 +351,9 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
         const uint8_t comprType = _data.header->compressionType;
         bool res = false;
 
-        if (comprType & core::Blob::EBCT_LZ4)
+        if (comprType & asset::Blob::EBCT_LZ4)
             res = decompressLz4(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
-        else if (comprType & core::Blob::EBCT_LZMA)
+        else if (comprType & asset::Blob::EBCT_LZMA)
             res = decompressLzma(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
 
         _IRR_ALIGNED_FREE(dstCompressed);

@@ -17,7 +17,7 @@
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CMemoryFile.h"
 
-namespace irr { namespace asset
+namespace irr { namespace scene
 {
 CBAWMeshFileLoader::~CBAWMeshFileLoader()
 {

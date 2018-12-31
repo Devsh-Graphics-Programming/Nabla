@@ -14,7 +14,7 @@ namespace irr {
 
 namespace io { class IFileSystem; }
 
-namespace asset
+namespace scene
 {
 	class ISceneManager;
 

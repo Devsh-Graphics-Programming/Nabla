@@ -193,8 +193,8 @@ namespace asset
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 	struct IRR_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0,asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
 	{
-		friend struct SizedBlob<VariableSizeBlob, MeshBlobV0, asset::ICPUMesh>;
-	private:
+		//friend struct SizedBlob<VariableSizeBlob, MeshBlobV0, asset::ICPUMesh>;
+	public:
             //! WARNING: Constructor saves only bounding box and mesh buffer count (not mesh buffer pointers)
 		explicit MeshBlobV0(const asset::ICPUMesh* _mesh);
 
@@ -207,8 +207,8 @@ namespace asset
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 	struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,asset::ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>
 	{
-		friend struct SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>;
-	private:
+		//friend struct SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>;
+	public:
         explicit SkinnedMeshBlobV0(const asset::ICPUSkinnedMesh* _sm);
 
 	public:
@@ -260,8 +260,8 @@ namespace asset
 
 	struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>
 	{
-		friend struct SizedBlob<VariableSizeBlob, FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>;
-	private:
+		//friend struct SizedBlob<VariableSizeBlob, FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>;
+	public:
 		FinalBoneHierarchyBlobV0(const scene::CFinalBoneHierarchy* _fbh);
 
 	public:
