@@ -38,10 +38,6 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
         /** \return true on success, some requirements are mutually exclusive, so it may be impossible to combine them. */
         static inline bool combineRequirements(SDriverMemoryRequirements& out, const SDriverMemoryRequirements& a, const SDriverMemoryRequirements& b)
         {
-            if (!IDriverMemoryAllocation::validFlags(static_cast<IDriverMemoryAllocation::E_MAPPING_CAPABILITY_FLAGS>(a.mappingCapability)) ||
-                !IDriverMemoryAllocation::validFlags(static_cast<IDriverMemoryAllocation::E_MAPPING_CAPABILITY_FLAGS>(b.mappingCapability)))
-                return false;
-
             switch (a.memoryHeapLocation)
             {
                 case IDriverMemoryAllocation::ESMT_DEVICE_LOCAL:

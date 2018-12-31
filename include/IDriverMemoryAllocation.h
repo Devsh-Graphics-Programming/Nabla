@@ -80,23 +80,11 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         enum E_MAPPING_CAPABILITY_FLAGS
         {
             EMCF_CANNOT_MAP=EMCAF_NO_MAPPING_ACCESS,
-            EMCF_CAN_MAP_FOR_READ=EMCAF_READ, ///< implies EMCF_COHERENT present too
+            EMCF_CAN_MAP_FOR_READ=EMCAF_READ,
             EMCF_CAN_MAP_FOR_WRITE=EMCAF_WRITE,
             EMCF_COHERENT=0x04u, ///< whether mapping is coherent, i.e. no need to flush, which always true on read-enabled mappings.
             EMCF_CACHED=0x08u, ///< whether mapping is cached, i.e. if cpu reads go through cache, this is relevant to Vulkan only and is transparent to program operation.
         };
-        //! Validation inline function.
-        static inline bool validFlags(const E_MAPPING_CAPABILITY_FLAGS& flags)
-        {
-            if (flags&EMCF_CAN_MAP_FOR_READ)
-                return (flags&EMCF_COHERENT)!=0u;
-            else if (flags&EMCF_CAN_MAP_FOR_WRITE)
-                return true;
-            else if (flags==0u)
-                return true;
-
-            return false;
-        }
 
         //! Where the memory was actually allocated
         virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DONT_KNOW;}
@@ -104,13 +92,13 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         //! Utility function, tells whether the allocation can be mapped (whether mapMemory will ever return anything other than nullptr)
         inline bool isMappable() const {return this->getMappingCaps()!=EMCF_CANNOT_MAP;}
 
-        //! Utility function, tell us if writes through the mapping's pointer need to be flushed to become visible to the GPU.
-        /** Only execute flushes if the allocation requires them, and batch them (flush one combined range instead of two or more)
-        for greater efficiency. To execute a flush, use IDriver::flushMappedAllocationRange. */
-        inline bool haveToFlushWrites() const
+        //! Utility function, tell us if writes by the CPU or GPU need extra visibility operations to become visible for reading on the other processor
+        /** Only execute flushes or invalidations if the allocation requires them, and batch them (flush one combined range instead of two or more)
+        for greater efficiency. To execute a flush or invalidation, use IDriver::flushMappedAllocationRanges and IDriver::invalidateMappedAllocationRanges respectively. */
+        inline bool haveToMakeVisible() const
         {
             auto caps = this->getMappingCaps();
-            return (caps&EMCF_COHERENT)==0u&&(caps&EMCF_CAN_MAP_FOR_WRITE)!=0u;
+            return (caps&EMCF_COHERENT)==0u;
         }
 
         //! Returns the size of the memory allocation

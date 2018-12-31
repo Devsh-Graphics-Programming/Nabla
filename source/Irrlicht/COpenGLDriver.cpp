@@ -41,6 +41,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+#include <dlfcn.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #ifdef _IRR_LINUX_X11_RANDR_
@@ -61,7 +62,7 @@ namespace video
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8), Params(params),
+	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	DeviceType(EIDT_WIN32), AuxContexts(0)
 {
@@ -499,7 +500,7 @@ bool COpenGLDriver::deinitAuxContext()
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceMacOSX *device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
+	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	Params(params),
 	OSXDevice(device), DeviceType(EIDT_OSX), AuxContexts(0)
 {
@@ -520,7 +521,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
+	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0)
 {
 	#ifdef _DEBUG
@@ -653,7 +654,7 @@ bool COpenGLDriver::deinitAuxContext()
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device)
 : CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
+	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
 	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
 	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0)
 {
@@ -872,6 +873,17 @@ bool COpenGLDriver::genericDriverInit()
 
     glContextMutex = _IRR_NEW(FW_Mutex);
 
+#ifdef _IRR_WINDOWS_API_
+    if (GetModuleHandleA("renderdoc.dll"))
+#elif defined(_IRR_ANDROID_PLATFORM_)
+    if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
+#elif defined(_IRR_LINUX_PLATFORM_)
+    if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
+#else
+    if (false)
+#endif // LINUX
+        runningInRenderDoc = true;
+
 	Name=L"OpenGL ";
 	Name.append(glGetString(GL_VERSION));
 	int32_t pos=Name.findNext(L' ', 7);
@@ -1006,7 +1018,7 @@ bool COpenGLDriver::genericDriverInit()
 	// up
 	{
         auto reqs = getUpStreamingMemoryReqs();
-        reqs.vulkanReqs.size = Params.StreamingDownloadBufferSize;
+        reqs.vulkanReqs.size = Params.StreamingUploadBufferSize;
         defaultUploadBuffer = new video::StreamingTransientDataBufferMT<>(this,reqs);
 	}
 
@@ -1252,26 +1264,42 @@ IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SD
 {
     auto extraMreqs = initialMreqs;
 
-    if (extraMreqs.memoryHeapLocation!=IDriverMemoryAllocation::ESMT_DONT_KNOW)
+    if (extraMreqs.memoryHeapLocation==IDriverMemoryAllocation::ESMT_DONT_KNOW)
         extraMreqs.memoryHeapLocation = (initialMreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ)!=0u ? IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL:IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+
+    if ((extraMreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ) && !runningInRenderDoc)
+        extraMreqs.mappingCapability |= IDriverMemoryAllocation::EMCF_COHERENT;
 
     return new COpenGLBuffer(extraMreqs, canModifySubData);
 }
 
-void COpenGLDriver::flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+void COpenGLDriver::flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
 {
     for (uint32_t i=0; i<memoryRangeCount; i++)
     {
         auto range = pMemoryRanges+i;
         #ifdef _DEBUG
-        if (!range->memory->haveToFlushWrites())
-            os::Printer::log("Why are you flushing a buffer that does not need to be flushed!?",ELL_WARNING);
+        if (!range->memory->haveToMakeVisible())
+            os::Printer::log("Why are you flushing mapped memory that does not need to be flushed!?",ELL_WARNING);
         #endif // _DEBUG
         extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(range->memory)->getOpenGLName(),range->offset,range->length);
     }
 }
 
-void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length)
+void COpenGLDriver::invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+{
+    for (uint32_t i=0; i<memoryRangeCount; i++)
+    {
+        auto range = pMemoryRanges+i;
+        #ifdef _DEBUG
+        if (!range->memory->haveToMakeVisible())
+            os::Printer::log("Why are you invalidating mapped memory that does not need to be invalidated!?",ELL_WARNING);
+        #endif // _DEBUG
+        extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+    }
+}
+
+void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length)
 {
     COpenGLBuffer* readbuffer = static_cast<COpenGLBuffer*>(readBuffer);
     COpenGLBuffer* writebuffer = static_cast<COpenGLBuffer*>(writeBuffer);

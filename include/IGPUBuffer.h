@@ -25,7 +25,7 @@ class IGPUBuffer : public core::IBuffer, public IDriverMemoryBacked
 
     public:
         //! Get usable buffer byte size.
-        virtual const uint64_t& getSize() const {return cachedMemoryReqs.vulkanReqs.size;}
+        inline const uint64_t& getSize() const {return cachedMemoryReqs.vulkanReqs.size;}
 
         //! Whether calling updateSubRange will produce any effects.
         virtual bool canUpdateSubRange() const = 0;
