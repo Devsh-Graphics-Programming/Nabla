@@ -34,8 +34,9 @@ set(IRRLICHT_SRCS_COMMON
 
 # Other mesh-related stuff
 	CAnimatedMeshSceneNode.cpp
-	CBAWFile.cpp
-	CBlobsLoadingManager.cpp
+	../../src/irr/asset/bawformat/CBAWFile.cpp
+	../../src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
+	../../src/irr/asset/bawformat/CBlobsLoadingManager.cpp
 	CForsythVertexCacheOptimizer.cpp
 	CMeshCache.cpp
 	CMeshManipulator.cpp
@@ -44,7 +45,7 @@ set(IRRLICHT_SRCS_COMMON
 	COverdrawMeshOptimizer.cpp
 	CSkinnedMesh.cpp
 	CSkinnedMeshSceneNode.cpp
-	TypedBlob.cpp
+	../../src/irr/asset/bawformat/TypedBlob.cpp
 
 # Scene objects
 	CBillboardSceneNode.cpp
@@ -374,6 +375,7 @@ target_include_directories(Irrlicht PUBLIC
 	../../include
 	${COMMON_INCLUDE_DIRS}
 )
+target_include_directories(Irrlicht PRIVATE ../../src) 
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 
@@ -426,6 +428,7 @@ target_include_directories(IrrlichtServer PUBLIC
 	../../include
 	${COMMON_INCLUDE_DIRS}
 )
+target_include_directories(IrrlichtServer PRIVATE ../../src)
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_
