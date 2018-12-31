@@ -8,7 +8,7 @@
 
 #include "irr/asset/IAssetWriter.h"
 #include "irr/asset/ICPUMesh.h"
-#include "CBAWFile.h"
+#include "irr/asset/bawformat/CBAWFile.h"
 
 namespace irr {
 

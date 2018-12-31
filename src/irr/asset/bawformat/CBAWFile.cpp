@@ -3,10 +3,11 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 // and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
 
-#include "CBAWFile.h"
+#include "irr/asset/bawformat/CBAWFile.h"
 
 #include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CFinalBoneHierarchy.h"
 #include "coreutil.h"
 
@@ -22,19 +23,19 @@
 namespace irr { namespace core
 {
 
-void core::BlobHeaderV0::finalize(const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType)
+void BlobHeaderV0::finalize(const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType)
 {
 	blobSizeDecompr = _sizeDecompr;
 	blobSize = _sizeCompr;
 	compressionType = _comprType;
 
-	if (!(compressionType & core::Blob::EBCT_AES128_GCM)) // use gcmTag instead (set while encrypting).
+	if (!(compressionType & Blob::EBCT_AES128_GCM)) // use gcmTag instead (set while encrypting).
 		core::XXHash_256(_data, blobSize, blobHash);
 }
 
-bool core::BlobHeaderV0::validate(const void* _data) const
+bool BlobHeaderV0::validate(const void* _data) const
 {
-	if (compressionType & core::Blob::EBCT_AES128_GCM) // use gcm authentication instead. Decryption will fail if data is corrupted.
+	if (compressionType & Blob::EBCT_AES128_GCM) // use gcm authentication instead. Decryption will fail if data is corrupted.
 		return true;
     uint64_t tmpHash[4];
 	core::XXHash_256(_data, blobSize, tmpHash);
@@ -123,34 +124,6 @@ template<>
 size_t SizedBlob<FixedSizeBlob, SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::calcBlobSizeForObj(const asset::SCPUSkinMeshBuffer* _obj)
 {
 	return sizeof(SkinnedMeshBufferBlobV0);
-}
-
-MeshDataFormatDescBlobV0::MeshDataFormatDescBlobV0(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc)
-{
-	using namespace scene;
-
-	static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");
-
-	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
-		cpa[(int)i] = 0u; // was storing scene::E_COMPONENTS_PER_ATTRIBUTE in .baw v0 (in version 1 MeshDataFormatDescBlobV1 is used)
-	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
-		attrType[(int)i] = _desc->getAttribFormat(i); // was storing E_COMPONENT_TYPE in .baw v0
-	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
-		attrStride[(int)i] = _desc->getMappedBufferStride(i);
-	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
-		attrOffset[(int)i] = _desc->getMappedBufferOffset(i);
-	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
-		attrDivisor[(int)i] = _desc->getAttribDivisor(i);
-	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
-		attrBufPtrs[(int)i] = reinterpret_cast<uint64_t>(_desc->getMappedBuffer(i));
-
-	idxBufPtr = reinterpret_cast<uint64_t>(_desc->getIndexBuffer());
-}
-
-template<>
-size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
-{
-	return sizeof(MeshDataFormatDescBlobV0);
 }
 
 FinalBoneHierarchyBlobV0::FinalBoneHierarchyBlobV0(const scene::CFinalBoneHierarchy* _fbh)
@@ -305,6 +278,30 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const scene::IMeshDataFormatD
         attrBufPtrs[(int)i] = reinterpret_cast<uint64_t>(_desc->getMappedBuffer(i));
 
     idxBufPtr = reinterpret_cast<uint64_t>(_desc->getIndexBuffer());
+}
+
+MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacy::MeshDataFormatDescBlobV0& _v0blob) : attrDivisor{0u}
+{
+    using namespace scene;
+
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+    {
+        attrFormat[i] =
+            asset::legacy::mapECT_plus_ECPA_onto_E_FORMAT(
+                static_cast<asset::legacy::E_COMPONENT_TYPE>(_v0blob.attrType[i]),
+                static_cast<asset::legacy::E_COMPONENTS_PER_ATTRIBUTE>(_v0blob.cpa[i])
+            );
+    }
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+        attrStride[i] = _v0blob.attrStride[i];
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+        attrOffset[i] = _v0blob.attrOffset[i];
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+        attrDivisor |= (std::min(_v0blob.attrDivisor[i], 1u) << i); // attribute divisor can be equal max 1 now
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+        attrBufPtrs[i] = _v0blob.attrBufPtrs[i];
+
+    idxBufPtr = _v0blob.idxBufPtr;
 }
 
 template<>

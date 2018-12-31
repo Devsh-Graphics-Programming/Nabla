@@ -165,7 +165,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\..\openssl\openssl-build\include;.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\openssl\openssl-build\include;.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories);../../src/</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_7ZIP_ST;WIN32;WIN64;_DEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -198,7 +198,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories);../../src/</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_7ZIP_ST;BAW_SERVER;WIN32;WIN64;_DEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -234,7 +234,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>..\..\..\openssl\openssl-build\include;.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\openssl\openssl-build\include;.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories);../../src/</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_7ZIP_ST;WIN32;WIN64;NDEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>false</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -278,7 +278,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories);../../src/</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_7ZIP_ST;BAW_SERVER;WIN32;WIN64;NDEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -324,7 +324,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories);../../src/</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_7ZIP_ST;WIN32;WIN64;NDEBUG;_WINDOWS;_USRDLL;_IRR_STATIC_LIB_;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>
@@ -360,7 +360,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\include;zlib;utf8\source;convert_utf;%(AdditionalIncludeDirectories);../../src/</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_7ZIP_ST;WIN32;WIN64;_DEBUG;_WINDOWS;_USRDLL;IRRLICHT_EXPORTS;_CRT_SECURE_NO_DEPRECATE;_IRR_USE_SDL_DEVICE_=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>
       </ExceptionHandling>
@@ -407,6 +407,8 @@
     <ClInclude Include="..\..\include\irrlicht.h" />
     <ClInclude Include="..\..\include\IrrlichtDevice.h" />
     <ClInclude Include="..\..\include\irrTypes.h" />
+    <ClInclude Include="..\..\include\irr\asset\bawformat\CBAWFile.h" />
+    <ClInclude Include="..\..\include\irr\asset\bawformat\CBlobsLoadingManager.h" />
     <ClInclude Include="..\..\include\ITimer.h" />
     <ClInclude Include="..\..\include\Keycodes.h" />
     <ClInclude Include="..\..\include\matrix3x4SIMD.h" />
@@ -527,6 +529,7 @@
     <ClInclude Include="..\..\include\EMessageBoxFlags.h" />
     <ClInclude Include="..\..\include\ICursorControl.h" />
     <ClInclude Include="..\..\include\vectorSIMD.h" />
+    <ClInclude Include="..\..\src\irr\asset\bawformat\legacy\CBAWLegacy.h" />
     <ClInclude Include="aesGladman\aestab.h" />
     <ClInclude Include="aesGladman\aes_ni.h" />
     <ClInclude Include="aesGladman\brg_endian.h" />
@@ -691,6 +694,10 @@
     <None Include="astc\Makefile" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\irr\asset\bawformat\CBAWFile.cpp" />
+    <ClCompile Include="..\..\src\irr\asset\bawformat\CBlobsLoadingManager.cpp" />
+    <ClCompile Include="..\..\src\irr\asset\bawformat\legacy\CBAWLegacy.cpp" />
+    <ClCompile Include="..\..\src\irr\asset\bawformat\TypedBlob.cpp" />
     <ClCompile Include="..\..\src\irr\video\GPUMemoryAllocatorBase.cpp" />
     <ClCompile Include="..\..\src\irr\video\StreamingGPUBufferAllocator.cpp" />
     <ClCompile Include="aesGladman\aescrypt.c" />
@@ -703,10 +710,8 @@
     <ClCompile Include="aesGladman\pwd2key.c" />
     <ClCompile Include="aesGladman\sha1.c" />
     <ClCompile Include="bzip2\compress.c" />
-    <ClCompile Include="CBAWFile.cpp" />
     <ClCompile Include="CBAWMeshFileLoader.cpp" />
     <ClCompile Include="CBAWMeshWriter.cpp" />
-    <ClCompile Include="CBlobsLoadingManager.cpp" />
     <ClCompile Include="CCPUSkinnedMesh.cpp" />
     <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="CGeometryCreator.cpp" />
@@ -840,7 +845,6 @@
     <ClCompile Include="os.cpp" />
     <ClCompile Include="lzma\LzmaDec.c" />
     <ClCompile Include="STextureSamplingParams.cpp" />
-    <ClCompile Include="TypedBlob.cpp" />
     <ClCompile Include="zlib\adler32.c" />
     <ClCompile Include="zlib\zcompress.c" />
     <ClCompile Include="zlib\crc32.c" />

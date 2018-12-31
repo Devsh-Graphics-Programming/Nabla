@@ -378,7 +378,7 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
             break;
         case EF_B8G8R8A8_UNORM:
             colorformat = GL_BGRA_EXT;
-            type = GL_UNSIGNED_BYTE;
+            type = GL_UNSIGNED_INT_8_8_8_8_REV;
             break;
         case EF_R8G8B8A8_SNORM:
             colorformat = GL_RGBA;

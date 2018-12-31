@@ -20,9 +20,12 @@ class IrrlichtDevice;
 namespace scene
 {
 	class ISceneManager;
-	class ICPUSkinnedMesh;
-	class SCPUSkinMeshBuffer;
 	class CFinalBoneHierarchy;
+}
+namespace asset
+{
+    class ICPUSkinnedMesh;
+    class SCPUSkinMeshBuffer;
 }
 namespace io
 {

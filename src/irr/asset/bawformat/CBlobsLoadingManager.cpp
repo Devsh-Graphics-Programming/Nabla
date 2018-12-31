@@ -3,9 +3,9 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 // and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
 
-#include "CBlobsLoadingManager.h"
+#include "irr/asset/bawformat/CBlobsLoadingManager.h"
 
-#include "CBAWFile.h"
+#include "irr/asset/bawformat/CBAWFile.h"
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "SMesh.h"

@@ -9,7 +9,7 @@
 #include "quaternion.h"
 #include "irr/core/Types.h"
 #include "irr/core/irrString.h"
-#include "CBAWFile.h"
+#include "irr/asset/bawformat/CBAWFile.h"
 #include "matrix3x4SIMD.h"
 
 namespace irr

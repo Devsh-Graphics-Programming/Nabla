@@ -127,6 +127,10 @@ namespace asset
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
                 if (m_cpuGpuCache[i])
                     delete m_cpuGpuCache[i];
+            for (auto ldr : m_loaders.vector)
+                ldr->drop();
+            for (auto wtr : m_writers.perType)
+                wtr.second->drop();
             if (m_fileSystem)
                 m_fileSystem->drop();
         }

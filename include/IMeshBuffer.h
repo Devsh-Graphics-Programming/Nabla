@@ -14,7 +14,7 @@
 #include "IGPUBuffer.h"
 #include "vectorSIMD.h"
 #include "coreutil.h"
-#include "CBAWFile.h"
+#include "irr/asset/bawformat/CBAWFile.h"
 #include "assert.h"
 #include "irr/video/EColorFormat.h"
 
@@ -266,6 +266,8 @@ namespace scene
                 assert(attrId<EVAI_COUNT);
                 assert(divisor<=1u);
 
+                attrDivisor &= ~(divisor<<attrId);
+
                 if (attrBuf)
                 {
                     attrBuf->grab();
@@ -281,7 +283,7 @@ namespace scene
                     attrFormat[attrId] = video::EF_R32G32B32A32_SFLOAT;
                     attrStride[attrId] = 16;
                     attrOffset[attrId] = 0;
-                    attrDivisor &= ~(1u<<attrId);
+                    //attrDivisor &= ~(1u<<attrId); //cleared before if
                 }
 
                 if (mappedAttrBuf[attrId])
@@ -553,7 +555,7 @@ namespace std
 	template <>
 	struct hash<irr::scene::E_VERTEX_ATTRIBUTE_ID>
 	{
-		std::size_t operator()(irr::scene::E_VERTEX_ATTRIBUTE_ID k) const noexcept {return k;}
+		std::size_t operator()(const irr::scene::E_VERTEX_ATTRIBUTE_ID& k) const noexcept {return k;}
 	};
 }
 

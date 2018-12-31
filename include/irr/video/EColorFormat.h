@@ -1602,7 +1602,7 @@ namespace std
     template <>
     struct hash<irr::video::E_FORMAT>
     {
-        std::size_t operator()(irr::video::E_FORMAT k) const noexcept { return k; }
+        std::size_t operator()(const irr::video::E_FORMAT& k) const noexcept { return k; }
     };
 }
 
