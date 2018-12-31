@@ -5,6 +5,7 @@
 #include "CImage.h"
 #include "CColorConverter.h"
 #include "CBlit.h"
+#include "irr/video/convertColor.h"
 
 namespace irr
 {
@@ -244,24 +245,45 @@ void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 //! returns a pixel
 SColor CImage::getPixel(uint32_t x, uint32_t y) const
 {
-	if (x >= Size.Width || y >= Size.Height || Format<=EF_D32_SFLOAT_S8_UINT || isBlockCompressionFormat(Format))
+	if (x >= Size.Width || y >= Size.Height || isDepthOrStencilFormat(Format) || isBlockCompressionFormat(Format))
 		return SColor(0);
 
+    uint32_t color8888 = 0u;
+    const void* original[4]{};
 	switch(Format)
 	{
 	case EF_A1R5G5B5_UNORM_PACK16:
-		return A1R5G5B5toA8R8G8B8(((uint16_t*)Data)[y*Size.Width + x]);
+    {
+        double decOutput[4];
+        original[0] = &reinterpret_cast<uint16_t*>(Data)[y*Size.Width + x];
+        decodePixels<EF_A1R5G5B5_UNORM_PACK16, double>(original, decOutput, 0u, 0u);
+        uint64_t encInput[4];
+        std::transform(decOutput, decOutput+4, encInput, [](double x) { return x*255.; });
+        encodePixels<EF_B8G8R8A8_UINT, uint64_t>(&color8888, encInput);
+        return color8888;
+    }
 	case EF_B5G6R5_UNORM_PACK16:
-		return R5G6B5toA8R8G8B8(((uint16_t*)Data)[y*Size.Width + x]);
+    {
+        double decOutput[4];
+        original[0] = &reinterpret_cast<uint16_t*>(Data)[y*Size.Width + x];
+        decodePixels<EF_A1R5G5B5_UNORM_PACK16, double>(original, decOutput, 0u, 0u);
+        decOutput[3] = 1.;
+        uint64_t encInput[4];
+        std::transform(decOutput, decOutput+4, encInput, [](double x) { return x*255.; });
+        encodePixels<EF_B8G8R8A8_UINT, uint64_t>(&color8888, encInput);
+        return color8888;
+    }
 	case EF_B8G8R8A8_UNORM:
-		return ((uint32_t*)Data)[y*Size.Width + x];
+		return reinterpret_cast<uint32_t*>(Data)[y*Size.Width + x];
 	case EF_R8G8B8_UNORM:
-		{
-			uint8_t* p = Data+(y*3)*Size.Width + (x*3);
-			return SColor(255,p[0],p[1],p[2]);
-		}
+	{
+        original[0] = Data+(y*3)*Size.Width + (x*3);
+        convertColor<EF_R8G8B8_UINT, EF_B8G8R8A8_UINT>(original, &color8888, 1ull, 0u, 0u);
+        reinterpret_cast<uint8_t*>(&color8888)[3] = 0xffu;
+        return color8888;
+	}
 	default:
-        return SColor(0);
+        return SColor(0u);
 	}
 }
 

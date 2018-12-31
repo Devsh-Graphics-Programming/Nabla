@@ -627,6 +627,23 @@ namespace video
         }
     }
 
+    inline bool isDepthOrStencilFormat(E_FORMAT _fmt)
+    {
+        switch (_fmt)
+        {
+        case EF_D16_UNORM:
+        case EF_X8_D24_UNORM_PACK32:
+        case EF_D32_SFLOAT:
+        case EF_S8_UINT:
+        case EF_D16_UNORM_S8_UINT:
+        case EF_D24_UNORM_S8_UINT:
+        case EF_D32_SFLOAT_S8_UINT:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     inline bool isBGRALayoutFormat(E_FORMAT _fmt)
     {
         switch (_fmt)
