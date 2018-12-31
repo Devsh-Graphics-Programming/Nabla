@@ -21,6 +21,62 @@ namespace irr
 namespace video
 {
 
+
+
+//! get the amount of Bits per Pixel of the given color format
+inline uint32_t getBitsPerPixelFromGLenum(const GLenum& format)
+{
+    switch(format)
+    {
+        case GL_R8:
+        case GL_R8I:
+        case GL_R8UI:
+            return 8;
+        case GL_R16:
+        case GL_R16F:
+        case GL_R16I:
+        case GL_R16UI:
+            return 16;
+        case GL_R32F:
+        case GL_R32I:
+        case GL_R32UI:
+            return 32;
+        case GL_RG8:
+        case GL_RG8I:
+        case GL_RG8UI:
+            return 16;
+        case GL_RG16:
+        case GL_RG16F:
+        case GL_RG16I:
+        case GL_RG16UI:
+            return 32;
+        case GL_RG32F:
+        case GL_RG32I:
+        case GL_RG32UI:
+            return 64;
+        case GL_RGB32F:
+        case GL_RGB32I:
+        case GL_RGB32UI:
+            return 96;
+        case GL_RGBA8:
+        case GL_RGBA8I:
+        case GL_RGBA8UI:
+        case GL_RGB9_E5:
+            return 32;
+        case GL_RGBA16:
+        case GL_RGBA16F:
+        case GL_RGBA16I:
+        case GL_RGBA16UI:
+            return 64;
+        case GL_RGBA32F:
+        case GL_RGBA32I:
+        case GL_RGBA32UI:
+            return 128;
+        default:
+            return 0;
+    }
+}
+
 class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferObject
 {
     protected:
