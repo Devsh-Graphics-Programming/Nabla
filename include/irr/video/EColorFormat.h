@@ -14,16 +14,6 @@ namespace video
 	/** A color format specifies how color information is stored. */
 	enum E_FORMAT
 	{
-        //! In all freaking honesty, use texture view objects to cast between same bitsize pixel formats
-        EF_8BIT_PIX = 0,
-        EF_16BIT_PIX,
-        EF_24BIT_PIX,
-        EF_32BIT_PIX,
-        EF_48BIT_PIX,
-        EF_64BIT_PIX,
-        EF_96BIT_PIX,
-        EF_128BIT_PIX,
-
         //! Custom shizz we wont ever use
         EF_D16_UNORM,
         EF_X8_D24_UNORM_PACK32,
@@ -273,14 +263,6 @@ namespace video
         case EF_BC7_SRGB_BLOCK:
         case EF_BC7_UNORM_BLOCK:
             return 16u;
-        case EF_8BIT_PIX: return 1;
-        case EF_16BIT_PIX: return 2;
-        case EF_24BIT_PIX: return 3;
-        case EF_32BIT_PIX: return 4;
-        case EF_48BIT_PIX: return 6;
-        case EF_64BIT_PIX: return 8;
-        case EF_96BIT_PIX: return 12;
-        case EF_128BIT_PIX: return 16;
         case EF_D16_UNORM: return 2;
         case EF_X8_D24_UNORM_PACK32: return 3;
         case EF_D32_SFLOAT:

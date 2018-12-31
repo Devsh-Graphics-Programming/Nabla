@@ -688,54 +688,6 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT 
             type = GL_BYTE;
         }
         break;
-		case EF_8BIT_PIX:
-		{
-			colorformat = GL_RED;
-			type = GL_UNSIGNED_BYTE;
-		}
-			break;
-		case EF_16BIT_PIX:
-		{
-			colorformat = GL_RG;
-			type = GL_UNSIGNED_BYTE;
-		}
-			break;
-		case EF_24BIT_PIX:
-		{
-			colorformat = GL_RGB;
-			type = GL_UNSIGNED_BYTE;
-		}
-			break;
-		case EF_32BIT_PIX:
-		{
-			colorformat = GL_RGBA;
-			type = GL_UNSIGNED_BYTE;
-		}
-			break;
-		case EF_48BIT_PIX:
-		{
-			colorformat = GL_RGB;
-			type = GL_UNSIGNED_SHORT;
-		}
-			break;
-		case EF_64BIT_PIX:
-		{
-			colorformat = GL_RGBA;
-			type = GL_UNSIGNED_SHORT;
-		}
-			break;
-		case EF_96BIT_PIX:
-		{
-			colorformat = GL_RGB;
-			type = GL_FLOAT;
-		}
-			break;
-		case EF_128BIT_PIX:
-		{
-			colorformat = GL_RGBA;
-			type = GL_FLOAT;
-		}
-			break;
         case EF_E5B9G9R9_UFLOAT_PACK32:
         {
             colorformat = GL_RGB;
@@ -1009,30 +961,6 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT
 		    return GL_COMPRESSED_RED_GREEN_RGTC2_EXT;
 			break;
             */
-		case EF_8BIT_PIX:
-		    return GL_R8;
-			break;
-		case EF_16BIT_PIX:
-		    return GL_RG8;
-			break;
-		case EF_24BIT_PIX:
-		    return GL_RGB8;
-			break;
-		case EF_32BIT_PIX:
-		    return GL_RGBA8;
-			break;
-		case EF_48BIT_PIX:
-		    return GL_RGB16;
-			break;
-		case EF_64BIT_PIX:
-		    return GL_RGBA16;
-			break;
-		case EF_96BIT_PIX:
-		    return GL_RGB32F;
-			break;
-		case EF_128BIT_PIX:
-		    return GL_RGBA32F;
-			break;
         /// this is totally wrong but safe - most probs have to reupload
 		case EF_D16_UNORM:
 		    return GL_DEPTH_COMPONENT16;
