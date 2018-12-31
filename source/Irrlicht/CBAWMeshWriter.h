@@ -14,7 +14,7 @@ namespace irr {
 
 namespace io { class IFileSystem; }
 
-namespace scene
+namespace asset
 {
 	class ISceneManager;
 
@@ -51,7 +51,7 @@ namespace scene
 		{
 			asset::IAssetWriter::SAssetWriteContext inner;
             asset::IAssetWriter::IAssetWriterOverride* writerOverride;
-			core::vector<core::BlobHeaderV1> headers;
+			core::vector<asset::BlobHeaderV1> headers;
 			core::vector<uint32_t> offsets;
 		};
 

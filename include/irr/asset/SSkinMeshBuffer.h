@@ -30,7 +30,7 @@ class SCPUSkinMeshBuffer : public ICPUMeshBuffer
 
 		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
 		{
-			return core::CorrespondingBlobTypeFor<SCPUSkinMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+			return asset::CorrespondingBlobTypeFor<SCPUSkinMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}
 
         virtual scene::E_MESH_BUFFER_TYPE getMeshBufferType() const override { return scene::EMBT_ANIMATED_SKINNED; }

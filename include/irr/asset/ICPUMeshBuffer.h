@@ -47,7 +47,7 @@ namespace impl
     }
 }
 
-class ICPUMeshBuffer : public scene::IMeshBuffer<asset::ICPUBuffer>, public core::BlobSerializable, public asset::IAsset
+class ICPUMeshBuffer : public scene::IMeshBuffer<asset::ICPUBuffer>, public asset::BlobSerializable, public asset::IAsset
 {
     //vertices
     scene::E_VERTEX_ATTRIBUTE_ID posAttrId;
@@ -56,7 +56,7 @@ public:
 
     virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
     {
-        return core::CorrespondingBlobTypeFor<ICPUMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+        return asset::CorrespondingBlobTypeFor<ICPUMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
     }
 
     virtual void convertToDummyObject() override {}

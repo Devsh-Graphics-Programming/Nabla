@@ -32,7 +32,7 @@ namespace io
 	class IFileSystem;
 }
 
-namespace core
+namespace asset
 {
 
 	struct BlobLoadingParams
@@ -69,6 +69,6 @@ namespace core
 		//static void printMemberPackingDebug();
 	};
 
-}} // irr::core
+}} // irr::asset
 
 #endif

@@ -12,7 +12,7 @@
 #include "IFileSystem.h"
 #include "irr/asset/ICPUMesh.h"
 #include "irr/asset/bawformat/CBAWFile.h"
-#include "CBlobsLoadingManager.h"
+#include "irr/asset/bawformat/CBlobsLoadingManager.h"
 #include "irr/asset/SSkinMeshBuffer.h"
 
 namespace irr
@@ -20,7 +20,7 @@ namespace irr
 class IrrlichtDevice;
 }
 
-namespace irr { namespace scene
+namespace irr { namespace asset
 {
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
@@ -46,7 +46,7 @@ private:
 		// SBlobData(const SBlobData&) {}
         SBlobData_t<HeaderT>& operator=(const SBlobData_t<HeaderT>&) = delete;
 	};
-    using SBlobData = SBlobData_t<core::BlobHeaderV1>;
+    using SBlobData = SBlobData_t<asset::BlobHeaderV1>;
 
 	struct SContext
 	{
@@ -69,7 +69,7 @@ private:
 		uint64_t fileVersion;
 		core::unordered_map<uint64_t, SBlobData> blobs;
 		core::unordered_map<uint64_t, void*> createdObjs;
-        core::CBlobsLoadingManager loadingMgr;
+        asset::CBlobsLoadingManager loadingMgr;
 		unsigned char iv[16];
 	};
 
@@ -121,8 +121,8 @@ private:
     {
         switch (_expectedVer)
         {
-        case 0ull: return verifyFile<core::BAWFileV0>(_ctx, 0ull);
-        case 1ull: return verifyFile<core::BAWFileV1>(_ctx, 1ull);
+        case 0ull: return verifyFile<asset::BAWFileV0>(_ctx, 0ull);
+        case 1ull: return verifyFile<asset::BAWFileV1>(_ctx, 1ull);
         default: return false;
         }
     }
@@ -150,20 +150,20 @@ private:
         // add here when more asset types will be available
         switch (_blobType)
         {
-        case core::Blob::EBT_MESH:
-        case core::Blob::EBT_SKINNED_MESH:
+        case asset::Blob::EBT_MESH:
+        case asset::Blob::EBT_SKINNED_MESH:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_MESH);
             return static_cast<asset::ICPUMesh*>(_assetAddr);
-        case core::Blob::EBT_MESH_BUFFER:
+        case asset::Blob::EBT_MESH_BUFFER:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
             return static_cast<asset::ICPUMeshBuffer*>(_assetAddr);
-        case core::Blob::EBT_SKINNED_MESH_BUFFER:
+        case asset::Blob::EBT_SKINNED_MESH_BUFFER:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
             return static_cast<asset::SCPUSkinMeshBuffer*>(_assetAddr);
-        case core::Blob::EBT_RAW_DATA_BUFFER:
+        case asset::Blob::EBT_RAW_DATA_BUFFER:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_BUFFER);
             return static_cast<asset::ICPUBuffer*>(_assetAddr);
-        case core::Blob::EBT_TEXTURE_PATH:
+        case asset::Blob::EBT_TEXTURE_PATH:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_IMAGE);
             return static_cast<asset::ICPUTexture*>(_assetAddr);
         default: return nullptr;
@@ -175,20 +175,20 @@ private:
         asset::IAsset* asset = nullptr;
         switch (_blobType)
         {
-        case core::Blob::EBT_MESH:
-        case core::Blob::EBT_SKINNED_MESH:
+        case asset::Blob::EBT_MESH:
+        case asset::Blob::EBT_SKINNED_MESH:
             asset = reinterpret_cast<asset::ICPUMesh*>(_asset);
             break;
-        case core::Blob::EBT_MESH_BUFFER:
+        case asset::Blob::EBT_MESH_BUFFER:
             asset = reinterpret_cast<asset::ICPUMeshBuffer*>(_asset);
             break;
-        case core::Blob::EBT_SKINNED_MESH_BUFFER:
+        case asset::Blob::EBT_SKINNED_MESH_BUFFER:
             asset = reinterpret_cast<asset::SCPUSkinMeshBuffer*>(_asset);
             break;
-        case core::Blob::EBT_RAW_DATA_BUFFER:
+        case asset::Blob::EBT_RAW_DATA_BUFFER:
             asset = reinterpret_cast<asset::ICPUBuffer*>(_asset);
             break;
-        case core::Blob::EBT_TEXTURE_PATH:
+        case asset::Blob::EBT_TEXTURE_PATH:
             asset = reinterpret_cast<asset::ICPUTexture*>(_asset);
             break;
         }

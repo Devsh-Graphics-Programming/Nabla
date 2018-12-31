@@ -6,7 +6,7 @@ using namespace asset;
 using namespace legacy;
 
 template<>
-size_t core::SizedBlob<core::FixedSizeBlob, MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
+size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
 {
 	return sizeof(MeshDataFormatDescBlobV0);
 }

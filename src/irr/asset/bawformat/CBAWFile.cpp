@@ -20,7 +20,7 @@
 //! for C++11
 //using namespace std;
 
-namespace irr { namespace core
+namespace irr { namespace asset
 {
 
 void BlobHeaderV0::finalize(const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType)

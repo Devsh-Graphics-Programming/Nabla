@@ -8,7 +8,7 @@
 namespace irr { namespace asset
 {
 
-class ICPUMesh : public scene::IMesh<ICPUMeshBuffer>, public core::BlobSerializable, public asset::IAsset
+class ICPUMesh : public scene::IMesh<ICPUMeshBuffer>, public asset::BlobSerializable, public asset::IAsset
 {
 public:
     //! Serializes mesh to blob for *.baw file format.
@@ -18,7 +18,7 @@ public:
     */
     virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
     {
-        return core::CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+        return asset::CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
     }
 
     virtual void convertToDummyObject() override {}

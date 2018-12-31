@@ -17,7 +17,7 @@ namespace irr
 namespace scene
 {
     //! If it has no animation, make 1 frame of animation with LocalMatrix
-    class CFinalBoneHierarchy : public core::IReferenceCounted, public core::BlobSerializable
+    class CFinalBoneHierarchy : public core::IReferenceCounted, public asset::BlobSerializable
     {
         protected:
             virtual ~CFinalBoneHierarchy()
@@ -138,7 +138,7 @@ namespace scene
 
 			virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
 			{
-				return core::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type::createAndTryOnStack(static_cast<const CFinalBoneHierarchy*>(this), _stackPtr, _stackSize);
+				return asset::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type::createAndTryOnStack(static_cast<const CFinalBoneHierarchy*>(this), _stackPtr, _stackSize);
 			}
 
 			inline size_t getSizeOfAllBoneNames() const

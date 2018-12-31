@@ -58,7 +58,7 @@ enum E_COMPONENT_TYPE
 //! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
 //! Irrelevant in version 1.
 //! @see @ref MeshDataFormatDescBlobV1
-struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : core::TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >, core::FixedSizeBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >
+struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV0, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >
 {
 private:
     enum { VERTEX_ATTRIB_CNT = 16 };

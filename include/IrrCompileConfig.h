@@ -616,8 +616,8 @@ precision will be lower but speed higher. currently X86 only
 
 //! @see @ref CBlobsLoadingManager
 #define _IRR_ADD_BLOB_SUPPORT(BlobClassName, EnumValue, Function, ...) \
-case core::Blob::EnumValue:\
-	return core::BlobClassName::Function(__VA_ARGS__);
+case asset::Blob::EnumValue:\
+	return asset::BlobClassName::Function(__VA_ARGS__);
 
 //! Used inside CBlobsLoadingManager. Adds support of given blob types.
 #define _IRR_SUPPORTED_BLOBS(Function, ...) \

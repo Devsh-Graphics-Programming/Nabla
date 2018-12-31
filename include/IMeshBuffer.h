@@ -248,7 +248,7 @@ namespace scene
 	};
 
 
-	class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, core::BlobSerializable
+	class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, asset::BlobSerializable
 	{
         protected:
 	        ~ICPUMeshDataFormatDesc()
@@ -257,7 +257,7 @@ namespace scene
 	    public:
 			virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
 			{
-				return core::CorrespondingBlobTypeFor<IMeshDataFormatDesc<asset::ICPUBuffer> >::type::createAndTryOnStack(static_cast<const IMeshDataFormatDesc<asset::ICPUBuffer>*>(this), _stackPtr, _stackSize);
+				return asset::CorrespondingBlobTypeFor<IMeshDataFormatDesc<asset::ICPUBuffer> >::type::createAndTryOnStack(static_cast<const IMeshDataFormatDesc<asset::ICPUBuffer>*>(this), _stackPtr, _stackSize);
 			}
 
             //! remember that the divisor must be 0 or 1

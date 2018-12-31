@@ -12,13 +12,13 @@
 #include "irr/asset/SCPUMesh.h"
 #include "CSkinnedMesh.h"
 #include "irr/asset/CCPUSkinnedMesh.h"
-#include "CBlobsLoadingManager.h"
+#include "irr/asset/bawformat/CBlobsLoadingManager.h"
 #include "irr/asset/ICPUTexture.h"
 #include "IrrlichtDevice.h"
 #include "irr/asset/IAssetManager.h"
 #include "irr/asset/SSkinMeshBuffer.h"
 
-namespace irr { namespace core
+namespace irr { namespace asset
 {
 
 // Loading-related blobs' function implementations
@@ -29,7 +29,7 @@ core::unordered_set<uint64_t> TypedBlob<RawBufferBlobV0, asset::ICPUBuffer>::get
 }
 
 template<>
-void* TypedBlob<RawBufferBlobV0, asset::ICPUBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const core::BlobLoadingParams& _params)
+void* TypedBlob<RawBufferBlobV0, asset::ICPUBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
@@ -42,7 +42,7 @@ void* TypedBlob<RawBufferBlobV0, asset::ICPUBuffer>::instantiateEmpty(const void
 }
 
 template<>
-void* TypedBlob<RawBufferBlobV0, asset::ICPUBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const core::BlobLoadingParams& _params)
+void* TypedBlob<RawBufferBlobV0, asset::ICPUBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	return _obj;
 }
@@ -61,7 +61,7 @@ core::unordered_set<uint64_t> TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::
 }
 
 template<>
-void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const void* _blob, size_t _blobSize, const core::BlobLoadingParams& _params)
+void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob || !_params.fs || !_params.dev)
 		return nullptr;
@@ -88,7 +88,7 @@ void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const v
 }
 
 template<>
-void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const core::BlobLoadingParams& _params)
+void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	return _obj;
 }
@@ -110,7 +110,7 @@ core::unordered_set<uint64_t> TypedBlob<MeshBlobV0, asset::ICPUMesh>::getNeededD
 }
 
 template<>
-void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const core::BlobLoadingParams& _params)
+void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
@@ -123,7 +123,7 @@ void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::instantiateEmpty(const void* _blob
 }
 
 template<>
-void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const core::BlobLoadingParams& _params)
+void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
@@ -155,7 +155,7 @@ core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMes
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const core::BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
@@ -168,7 +168,7 @@ void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::instantiateEmpty(con
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const core::BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
@@ -205,7 +205,7 @@ core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>
 }
 
 template<>
-void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const core::BlobLoadingParams& _params)
+void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
@@ -231,7 +231,7 @@ void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::instantiateEmpty(const
 }
 
 template<>
-void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const core::BlobLoadingParams& _params)
+void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
@@ -262,7 +262,7 @@ core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkin
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const core::BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
@@ -290,7 +290,7 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::instantiate
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const core::BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
@@ -323,7 +323,7 @@ core::unordered_set<uint64_t> TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalB
 }
 
 template<>
-void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::instantiateEmpty(const void* _blob, size_t _blobSize, const core::BlobLoadingParams& _params)
+void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
@@ -384,7 +384,7 @@ void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::instantia
 }
 
 template<>
-void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const core::BlobLoadingParams& _params)
+void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	return _obj;
 }
@@ -412,13 +412,13 @@ core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDa
 }
 
 template<>
-void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, const core::BlobLoadingParams& _params)
+void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	return new scene::ICPUMeshDataFormatDesc();
 }
 
 template<>
-void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const core::BlobLoadingParams& _params)
+void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	using namespace scene;
 
