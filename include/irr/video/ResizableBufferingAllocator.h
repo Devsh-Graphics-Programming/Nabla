@@ -24,8 +24,8 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename BasicAddressAllocator::size_type);
 
         template<typename... Args>
-        ResizableBufferingAllocatorST(IVideoDriver* inDriver, const CPUAllocator& reservedMemAllocator, size_type bufSz, Args&&... args) :
-                                mAllocator(reservedMemAllocator,HostDeviceMirrorBufferAllocator<>(inDriver),bufSz,std::forward<Args>(args)...)
+        ResizableBufferingAllocatorST(IVideoDriver* inDriver, const CPUAllocator& reservedMemAllocator, Args&&... args) :
+                                mAllocator(reservedMemAllocator,HostDeviceMirrorBufferAllocator<>(inDriver),std::forward<Args>(args)...)
         {
         }
 

@@ -62,8 +62,8 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
             if (newSize<=allAllocatorSpace)
                 return;
 
-            size_type guaranteedAlign = Base::mDataAlloc.min_alignment();
-            newSize = mAddrAlloc.safe_shrink_size(newSize,guaranteedAlign); // for padding
+            auto maxAllocatableAlignment = alloc_traits::max_alignment(mAddrAlloc); // for now, until we actually make Buffers from Vulkan memory
+            newSize = mAddrAlloc.safe_shrink_size(newSize,maxAllocatableAlignment); // for padding
 
             //resize
             size_type oldReservedSize = Base::mReservedSize;
@@ -95,9 +95,9 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
             if (newSize>=allAllocatorSpace)
                 return;
 
-            size_type guaranteedAlign = Base::mDataAlloc.min_alignment();
             // some allocators may not be shrinkable because of fragmentation
-            newSize = mAddrAlloc.safe_shrink_size(newSize,guaranteedAlign);
+            auto maxAllocatableAlignment = alloc_traits::max_alignment(mAddrAlloc); // for now, until we actually make Buffers from Vulkan memory
+            newSize = mAddrAlloc.safe_shrink_size(newSize,maxAllocatableAlignment);
             if (newSize>=allAllocatorSpace)
                 return;
 

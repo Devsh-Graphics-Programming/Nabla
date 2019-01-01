@@ -67,6 +67,7 @@ namespace core
             {
     #ifdef _DEBUG
                 assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull); // pointer to reserved memory has to be aligned to SIMD types!
+                assert(maxAllocatableAlignment);
                 assert(core::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
     #endif // _DEBUG
             }

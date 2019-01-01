@@ -19,9 +19,7 @@ class GPUMemoryAllocatorBase
         GPUMemoryAllocatorBase(IVideoDriver* inDriver) : mDriver(inDriver) {}
         virtual ~GPUMemoryAllocatorBase() {}
     public:
-        size_t           min_alignment() const noexcept;
-
-        IVideoDriver*    getDriver() noexcept;
+        IVideoDriver*    getDriver() noexcept {return mDriver;}
 };
 
 }

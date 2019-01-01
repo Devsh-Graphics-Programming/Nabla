@@ -220,7 +220,7 @@ namespace scene
                 instanceFinalBoneDataSize = referenceHierarchy->getBoneCount()*sizeof(FinalBoneData);
 
                 auto bufSize = instanceFinalBoneDataSize*16u; // use more buffer space in the future for GPU scene-tree
-                instanceBoneDataAllocator = new std::remove_pointer<decltype(instanceBoneDataAllocator)>::type(driver,core::allocator<uint8_t>(),bufSize,instanceFinalBoneDataSize);
+                instanceBoneDataAllocator = new std::remove_pointer<decltype(instanceBoneDataAllocator)>::type(driver,core::allocator<uint8_t>(),bufSize,core::roundUpToPoT(instanceFinalBoneDataSize),instanceFinalBoneDataSize);
 
                 actualSizeOfInstanceDataElement = sizeof(BoneHierarchyInstanceData)+referenceHierarchy->getBoneCount()*(sizeof(IBoneSceneNode*)+sizeof(core::matrix4x3)); // TODO: odd bone counts will break alignment badly!
             }
@@ -337,7 +337,7 @@ namespace scene
             const CFinalBoneHierarchy* referenceHierarchy;
 
             size_t actualSizeOfInstanceDataElement;
-            class BoneHierarchyInstanceData : public core::AlignedBase<std::alignment_of<core::matrix4x3>::value >
+            class BoneHierarchyInstanceData : public core::AlignedBase<_IRR_SIMD_ALIGNMENT>
             {
                 public:
                     BoneHierarchyInstanceData() : refCount(0), frame(0.f), lastAnimatedFrame(-1.f), interpolateAnimation(true), attachedNode(NULL)

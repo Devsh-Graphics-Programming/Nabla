@@ -2,14 +2,13 @@
 #define __IRR_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
 
 
-#include "irr/video/GPUMemoryAllocatorBase.h"
+#include "irr/video/SimpleGPUBufferAllocator.h"
 
 namespace irr
 {
 namespace video
 {
 
-//! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
 template<class HostAllocator = core::allocator<uint8_t> >
 class HostDeviceMirrorBufferAllocator : public GPUMemoryAllocatorBase
 {

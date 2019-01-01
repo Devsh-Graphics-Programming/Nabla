@@ -16,7 +16,7 @@ struct BufferDataAllocatorExample
 {
     video::IDriver* mDriver;
 
-    inline void*    allocate(size_t bytes) noexcept
+    inline void*    allocate(size_t bytes, size_t alignment) noexcept
     {
         // some implementation
         return pointerWhichCanBeWrittenTo;
@@ -31,11 +31,6 @@ struct BufferDataAllocatorExample
     inline void     deallocate(void* addr) noexcept
     {
         // some implementation
-    }
-
-    inline size_t   min_alignment() const
-    {
-        return mDriver->getMinimumMemoryMapAlignment();
     }
 };
 */
@@ -52,9 +47,9 @@ namespace impl
             typedef typename AddressAllocator::size_type    size_type;
         protected:
             template<typename... Args>
-            HeterogenousMemoryAddressAllocatorAdaptorBase(const HostAllocator& reservedMemAllocator, const OtherAllocator& dataMemAllocator, size_type bufSz, const Args&... args) :
+            HeterogenousMemoryAddressAllocatorAdaptorBase(const HostAllocator& reservedMemAllocator, const OtherAllocator& dataMemAllocator, size_type bufSz, size_type maxAllocatableAlignment, const Args&... args) :
                                                                         mDataSize(bufSz), mDataAlloc(dataMemAllocator),
-                                                                        mReservedSize(AddressAllocator::reserved_size(bufSz,mDataAlloc.min_alignment(),args...)),
+                                                                        mReservedSize(AddressAllocator::reserved_size(bufSz,maxAllocatableAlignment,args...)),
                                                                         mReservedAlloc(reservedMemAllocator) {}
 
             size_type               mDataSize;
@@ -102,10 +97,10 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
         typedef typename AddressAllocator::size_type                                                                size_type;
 
         template<typename... Args>
-        HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator, size_type bufSz, Args&&... args) :
-                                            ImplBase(reservedMemAllocator,dataMemAllocator,bufSz,args...),
+        HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator, size_type bufSz, size_type maxAllocatableAlignment, Args&&... args) :
+                                            ImplBase(reservedMemAllocator,dataMemAllocator,bufSz,maxAllocatableAlignment,args...),
                                             AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_IRR_SIMD_ALIGNMENT),
-                                                            ImplBase::mDataAlloc.allocate(bufSz),ImplBase::mDataAlloc.min_alignment(),bufSz,std::forward<Args>(args)...)
+                                                            ImplBase::mDataAlloc.allocate(bufSz),maxAllocatableAlignment,bufSz,std::forward<Args>(args)...)
         {
         }
 
