@@ -1,5 +1,5 @@
-#include "CDraw3DLine.h"
-#include "Draw3DLineShaders.h"
+#include "../ext/DebugDraw/CDraw3DLine.h"
+#include "../ext/DebugDraw/Draw3DLineShaders.h"
 
 using namespace irr;
 using namespace video;
