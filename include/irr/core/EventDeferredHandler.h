@@ -113,7 +113,11 @@ class EventDeferredHandlerST
                         it = mEvents.erase_after(prev);
                         mEventsCount--;
                         if (earlyQuit)
+                        {
+                            if (it==mEvents.end())
+                                mLastEvent = prev;
                             return mEventsCount;
+                        }
 
                         continue;
                     }
@@ -141,7 +145,11 @@ class EventDeferredHandlerST
                     it = mEvents.erase_after(prev);
                     mEventsCount--;
                     if (earlyQuit)
+                    {
+                        if (it==mEvents.end())
+                            mLastEvent = prev;
                         return mEventsCount;
+                    }
 
                     continue;
                 }
