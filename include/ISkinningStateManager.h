@@ -6,6 +6,8 @@
 #include "irr/core/alloc/PoolAddressAllocator.h"
 #include "irr/video/ResizableBufferingAllocator.h"
 
+#include "IVideoDriver.h"
+
 namespace irr
 {
 namespace video

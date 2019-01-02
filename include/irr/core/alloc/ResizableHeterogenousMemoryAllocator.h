@@ -74,7 +74,8 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
 
 
             Base::mDataSize = newSize;
-            mAddrAlloc = AddressAllocator(mAddrAlloc,newReserved,Base::mDataAlloc.reallocate(alloc_traits::getBufferStart(mAddrAlloc),Base::mDataSize,mAddrAlloc),Base::mDataSize);
+            Base::mDataAlloc.reallocate(Base::mAllocation,Base::mDataSize,maxAllocatableAlignment,mAddrAlloc);
+            mAddrAlloc = AddressAllocator(mAddrAlloc,newReserved,nullptr,Base::mDataSize);
 
 
             if (oldReserved)
@@ -110,7 +111,8 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
 
 
             Base::mDataSize = newSize;
-            mAddrAlloc = AddressAllocator(mAddrAlloc,newReserved,Base::mDataAlloc.reallocate(alloc_traits::getBufferStart(mAddrAlloc),Base::mDataSize,mAddrAlloc),Base::mDataSize);
+            Base::mDataAlloc.reallocate(Base::mAllocation,Base::mDataSize,maxAllocatableAlignment,mAddrAlloc);
+            mAddrAlloc = AddressAllocator(mAddrAlloc,newReserved,nullptr,Base::mDataSize);
 
 
             if (oldReserved)

@@ -1,10 +1,13 @@
 #ifndef __IRR_STREAMING_TRANSIENT_DATA_BUFFER_H__
 #define __IRR_STREAMING_TRANSIENT_DATA_BUFFER_H__
 
+#include <cstring>
 
 #include "irr/core/IReferenceCounted.h"
 #include "irr/video/SubAllocatedDataBuffer.h"
 #include "irr/video/StreamingGPUBufferAllocator.h"
+
+#include "IDriverFence.h"
 
 namespace irr
 {
@@ -13,7 +16,7 @@ namespace video
 
 
 template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t> >
-class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor, public virtual core::IReferenceCounted
+class StreamingTransientDataBufferST : public virtual core::IReferenceCounted
 {
     protected:
         typedef core::GeneralpurposeAddressAllocator<_size_type>                                                                                                              BasicAddressAllocator;
@@ -29,14 +32,14 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         //!
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
-        StreamingTransientDataBufferST(IVideoDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
+        StreamingTransientDataBufferST(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
                                        const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=64u) :
                                 mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,bufferReqs.vulkanReqs.alignment,minAllocSize)
         {
         }
 
         template<typename... Args>
-        StreamingTransientDataBufferST(IVideoDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
+        StreamingTransientDataBufferST(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
                                        const CPUAllocator& reservedMemAllocator=CPUAllocator(), Args&&... args) :
                                 mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,bufferReqs.vulkanReqs.alignment,std::forward<Args>(args)...)
         {
@@ -49,9 +52,9 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
 
         inline bool         needsManualFlushOrInvalidate() const {return !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);}
 
-        inline IGPUBuffer*  getBuffer() noexcept {return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getAllocatedBuffer();}
+        inline IGPUBuffer*  getBuffer() noexcept {return mAllocator.getCurrentBufferAllocation().first;}
 
-        inline void*        getBufferPointer() noexcept {return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getAllocatedPointer();}
+        inline void*        getBufferPointer() noexcept {return mAllocator.getCurrentBufferAllocation().second;}
 
 
         inline size_type    max_size() noexcept

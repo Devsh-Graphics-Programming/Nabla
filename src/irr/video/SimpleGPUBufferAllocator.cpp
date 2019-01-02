@@ -1,15 +1,15 @@
-#include <cstring>
-
 #include "irr/video/SimpleGPUBufferAllocator.h"
-#include "IVideoDriver.h"
+#include "IDriver.h"
 
 
 using namespace irr;
 using namespace video;
 
 
-IGPUBuffer* SimpleGPUBufferAllocator::createBuffer()
+SimpleGPUBufferAllocator::value_type SimpleGPUBufferAllocator::allocate(size_t bytes, size_t alignment) noexcept
 {
-    return mDriver->createGPUBufferOnDedMem(mBufferMemReqs,false);
+    auto reqs = mBufferMemReqs;
+    reqs.vulkanReqs.size = bytes;
+    reqs.vulkanReqs.alignment = alignment;
+    return mDriver->createGPUBufferOnDedMem(reqs,false);
 }
-

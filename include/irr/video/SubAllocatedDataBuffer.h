@@ -14,7 +14,7 @@ namespace video
 
 // this buffer is not growable
 template< typename _size_type=uint32_t, class GPUBufferAllocator=SimpleGPUBufferAllocator, class CPUAllocator=core::allocator<uint8_t> >
-class SubAllocatedDataBufferST : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor, public virtual core::IReferenceCounted
+class SubAllocatedDataBufferST : public virtual core::IReferenceCounted
 {
     protected:
         typedef core::GeneralpurposeAddressAllocator<_size_type>                                                                                             BasicAddressAllocator;
@@ -31,7 +31,7 @@ class SubAllocatedDataBufferST : protected core::impl::FriendOfHeterogenousMemor
         template<typename... Args>
         SubAllocatedDataBufferST(size_type bufferSize, size_type maxAllocatableAlignment, const GPUBufferAllocator& deviceAllocator,
                                        const CPUAllocator& reservedMemAllocator=CPUAllocator(), Args&&... args) :
-                                mAllocator(reservedMemAllocator,deviceAllocator,bufferSize,maxAllocatableAlignment,std::forward<Args>(args)...) // TODO
+                                mAllocator(reservedMemAllocator,deviceAllocator,bufferSize,maxAllocatableAlignment,std::forward<Args>(args)...)
         {
         }
 
@@ -39,8 +39,8 @@ class SubAllocatedDataBufferST : protected core::impl::FriendOfHeterogenousMemor
 
         const AddressAllocator& getAllocator() const {return mAllocator;}
 
-
-        inline IGPUBuffer*  getBuffer() noexcept {return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getAllocatedBuffer();}
+/*
+        inline IGPUBuffer*  getBuffer() noexcept {return mAllocator.getCurrentBufferAllocation().first;}
 
 
         inline size_type    max_size() noexcept
@@ -88,8 +88,8 @@ class SubAllocatedDataBufferST : protected core::impl::FriendOfHeterogenousMemor
                 deferredFrees.addEvent(GPUEventWrapper(fence),DeferredFreeFunctor(&mAllocator,count,addr,bytes));
             else
                 mAllocator.multi_free_addr(count,addr,bytes);
-        }
-    protected:
+        }*/
+    protected:/*
         template<typename... Args>
         inline size_type    try_multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
         {
@@ -172,7 +172,7 @@ class SubAllocatedDataBufferST : protected core::impl::FriendOfHeterogenousMemor
                 size_type*                                                                                                          rangeData; // TODO : RobustPoolAllocator
                 size_type                                                                                                           numAllocs;
         };
-        GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
+        GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;*/
 };
 
 //MT version?

@@ -24,7 +24,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename BasicAddressAllocator::size_type);
 
         template<typename... Args>
-        ResizableBufferingAllocatorST(IVideoDriver* inDriver, const CPUAllocator& reservedMemAllocator, Args&&... args) :
+        ResizableBufferingAllocatorST(IDriver* inDriver, const CPUAllocator& reservedMemAllocator, Args&&... args) :
                                 mAllocator(reservedMemAllocator,HostDeviceMirrorBufferAllocator<>(inDriver),std::forward<Args>(args)...)
         {
         }
@@ -39,12 +39,12 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 
         inline void*                        getBackBufferPointer()
         {
-            return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getCPUStagingAreaPtr();
+            return mAllocator.getCurrentBufferAllocation().second;
         }
 
         inline IGPUBuffer*                  getFrontBuffer()
         {
-            return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getGPUBuffer();
+            return mAllocator.getCurrentBufferAllocation().first;
         }
 
 

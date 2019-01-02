@@ -6,7 +6,10 @@
 #define __IRR_ADDRESS_ALLOCATOR_TYPE_TRAITS_H_INCLUDED__
 
 #include <algorithm>
+#include "stdint.h"
+#include "irr/macros.h"
 #include "irr/type_traits.h"
+#include "irr/void_t.h"
 
 namespace irr
 {
