@@ -6,7 +6,7 @@
 #include <cassert>
 #include "irr/core/Types.h"
 #include "irr/asset/IAsset.h"
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "ITexture.h" // for ITexture::E_TEXTURE_COUNT ... this enum should be in global scope
 
 namespace irr { namespace asset

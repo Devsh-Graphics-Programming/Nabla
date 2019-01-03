@@ -7,7 +7,7 @@
 
 #include "path.h"
 #include "dimension2d.h"
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "IFrameBuffer.h"
 #include "IVirtualTexture.h"
 #include "IDriverMemoryBacked.h"

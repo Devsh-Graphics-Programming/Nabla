@@ -5,7 +5,7 @@
 #ifndef __I_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __I_VIRTUAL_TEXTURE_H_INCLUDED__
 
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "IFrameBuffer.h"
 
 namespace irr

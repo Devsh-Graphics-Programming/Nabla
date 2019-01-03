@@ -6,7 +6,7 @@
 #define __I_SURFACE_LOADER_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "path.h"
 
 namespace irr

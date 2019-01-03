@@ -56,6 +56,7 @@
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/SCPUMesh.h"
 #include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/CImageData.h"
 
 #include "irr/video/asset_traits.h"
 #include "irr/video/IGPUObjectFromAssetConverter.h"
@@ -85,7 +86,6 @@
 #include "IFileSystem.h"
 #include "IGeometryCreator.h"
 #include "IGPUProgrammingServices.h"
-#include "CImageData.h"
 #include "IImage.h"
 #include "IImageLoader.h"
 #include "IImageWriter.h"

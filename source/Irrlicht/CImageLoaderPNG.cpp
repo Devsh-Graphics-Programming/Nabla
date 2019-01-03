@@ -15,7 +15,7 @@
 #endif // _IRR_COMPILE_WITH_LIBPNG_
 
 #include "irr/asset/ICPUTexture.h"
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "CReadFile.h"
 #include "os.h"
 

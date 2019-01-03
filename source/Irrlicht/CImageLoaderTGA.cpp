@@ -9,7 +9,7 @@
 #include "IReadFile.h"
 #include "os.h"
 #include "CColorConverter.h"
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "irr/asset/ICPUTexture.h"
 
 

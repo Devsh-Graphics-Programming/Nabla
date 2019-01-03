@@ -129,7 +129,7 @@ DUMMY -		This 404 bytes of data should be set to 0. This makes the Header exactl
 #include "irr/asset/ICPUTexture.h"
 #include "SColor.h"
 #include "CColorConverter.h"
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "os.h"
 #include "irr/core/irrString.h"
 

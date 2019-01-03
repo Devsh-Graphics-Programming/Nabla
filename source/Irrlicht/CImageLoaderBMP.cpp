@@ -11,7 +11,7 @@
 #include "CColorConverter.h"
 #include "CImage.h"
 #include "os.h"
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "irr/asset/ICPUTexture.h"
 
 namespace irr
