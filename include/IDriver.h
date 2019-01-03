@@ -248,9 +248,9 @@ namespace video
             \param List of .
             \return .
             Bla bla. */
-            static inline void dropWholeMipChain(const core::vector<CImageData*>& mipImages)
+            static inline void dropWholeMipChain(const core::vector<asset::CImageData*>& mipImages)
             {
-                for (core::vector<CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
+                for (core::vector<asset::CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
                     (*it)->drop();
             }
             //!

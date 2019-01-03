@@ -2200,7 +2200,7 @@ void COpenGLDriver::SAuxContext::STextureStageCache::clear()
 }
 
 
-bool orderByMip(CImageData* a, CImageData* b)
+bool orderByMip(asset::CImageData* a, asset::CImageData* b)
 {
     return a->getSupposedMipLevel() < b->getSupposedMipLevel();
 }

@@ -195,7 +195,7 @@ bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* _file) const
 //! creates a surface from the file
 asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-	core::vector<CImageData*> images;
+	core::vector<asset::CImageData*> images;
 
     CImageLoaderDDS::eDDSPixelFormat pixelFormat;
     int32_t width, height, depth, mipmapCnt;
@@ -249,7 +249,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                     /* fixme: support other [a]rgb formats */
                     {
                         colorFormat = pixelFormat==DDS_PF_ABGR8888 ? EF_R8G8B8A8_UNORM:EF_B8G8R8A8_UNORM;
-                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,4);
+                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,4);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
@@ -258,7 +258,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                     /* fixme: support other [a]rgb formats */
                     {
                         colorFormat = EF_R8G8B8_UNORM;
-                        CImageData* data = new CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
+                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
 
@@ -279,7 +279,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                     /* fixme: support other [a]rgb formats */
                     {
                         colorFormat = EF_A1R5G5B5_UNORM_PACK16;
-                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
+                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
@@ -290,7 +290,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                     /* fixme: support other [a]rgb formats */
                     {
                         colorFormat = EF_R8G8_UNORM;
-                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
+                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
@@ -300,7 +300,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                     /* fixme: support other [a]rgb formats */
                     {
                         colorFormat = EF_R8_UNORM;
-                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
+                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
@@ -321,7 +321,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                         else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT1)
                             colorFormat = video::EF_BC1_RGB_UNORM_BLOCK;
 
-                        video::CImageData* data = new video::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
+                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }

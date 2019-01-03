@@ -104,7 +104,7 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
-static bool writeJPEGFile(io::IWriteFile* file, const CImageData* image, uint32_t quality)
+static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, uint32_t quality)
 {
 	void (*format)(const void*, int32_t, void*) = 0;
 	switch( image->getColorFormat () )
@@ -201,11 +201,11 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
     SAssetWriteContext ctx{_params, _file};
 
-    const video::CImageData* image =
+    const asset::CImageData* image =
 #   ifndef _DEBUG
-        static_cast<const video::CImageData*>(_params.rootAsset);
+        static_cast<const asset::CImageData*>(_params.rootAsset);
 #   else
-        dynamic_cast<const video::CImageData*>(_params.rootAsset);
+        dynamic_cast<const asset::CImageData*>(_params.rootAsset);
 #   endif
     assert(image);
 

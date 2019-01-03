@@ -18,7 +18,7 @@ protected:
     uint32_t m_size[3];
     video::E_FORMAT m_colorFormat;
     video::ITexture::E_TEXTURE_TYPE m_type;
-    core::vector<video::CImageData*> m_mipmaps;
+    core::vector<asset::CImageData*> m_mipmaps;
 
     using IteratorType = typename decltype(m_mipmaps)::iterator;
     using ConstIteratorType = typename decltype(m_mipmaps)::const_iterator;
@@ -40,7 +40,7 @@ private:
 
         bool allUnknown = true;
         video::E_FORMAT colorFmt = _mipmaps.front()->getColorFormat();
-        for (const video::CImageData* img : _mipmaps)
+        for (const asset::CImageData* img : _mipmaps)
         {
             const uint32_t lvl = img->getSupposedMipLevel();
             check[lvl] = true;
@@ -76,22 +76,22 @@ private:
     }
 
 public:
-    inline static ICPUTexture* create(const core::vector<video::CImageData*>& _mipmaps)
+    inline static ICPUTexture* create(const core::vector<asset::CImageData*>& _mipmaps)
     {
         return create_impl(_mipmaps);
     }
-    inline static ICPUTexture* create(core::vector<video::CImageData*>&& _mipmaps)
+    inline static ICPUTexture* create(core::vector<asset::CImageData*>&& _mipmaps)
     {
         return create_impl(std::move(_mipmaps));
     }
     template<typename Iter>
     inline static ICPUTexture* create(Iter _first, Iter _last)
     {
-        return create(core::vector<video::CImageData*>(_first, _last));
+        return create(core::vector<asset::CImageData*>(_first, _last));
     }
 
 protected:
-    explicit ICPUTexture(const core::vector<video::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}, m_colorFormat{video::EF_UNKNOWN}, m_type{video::ITexture::ETT_COUNT}
+    explicit ICPUTexture(const core::vector<asset::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}, m_colorFormat{video::EF_UNKNOWN}, m_type{video::ITexture::ETT_COUNT}
     {
         for (const auto& mm : m_mipmaps)
             mm->grab();
@@ -103,7 +103,7 @@ protected:
             establishType();
         }
     }
-    explicit ICPUTexture(core::vector<video::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{video::EF_UNKNOWN}, m_type{ video::ITexture::ETT_COUNT }
+    explicit ICPUTexture(core::vector<asset::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{video::EF_UNKNOWN}, m_type{ video::ITexture::ETT_COUNT }
     {
         for (const auto& mm : m_mipmaps)
             mm->grab();
@@ -132,7 +132,7 @@ public:
         return getCacheKey().length()+1u;
     }
 
-    const core::vector<video::CImageData*>& getMipmaps() const { return m_mipmaps; }
+    const core::vector<asset::CImageData*>& getMipmaps() const { return m_mipmaps; }
 
     //! Finds range of images making up _mipLvl miplevel or higher if _mipLvl miplevel is not present. 
     //! @returns {end(), end()} if _mipLvl > highest present mip level.
@@ -182,7 +182,7 @@ private:
     inline void sortMipMaps()
     {
         std::sort(std::begin(m_mipmaps), std::end(m_mipmaps), 
-            [](const video::CImageData* _a, const video::CImageData* _b) { return _a->getSupposedMipLevel() < _b->getSupposedMipLevel(); }
+            [](const asset::CImageData* _a, const asset::CImageData* _b) { return _a->getSupposedMipLevel() < _b->getSupposedMipLevel(); }
         );
     }
     inline void establishFmt()
@@ -201,7 +201,7 @@ private:
     inline void recalcSize()
     {
         m_size[0] = m_size[1] = m_size[2] = 1u;
-        for (const video::CImageData* img : m_mipmaps)
+        for (const asset::CImageData* img : m_mipmaps)
         {
             for (uint32_t i = 0u; i < 3u; ++i)
             {

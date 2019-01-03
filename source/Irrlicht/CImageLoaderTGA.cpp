@@ -132,7 +132,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 		delete [] colorMap;
 	}
 
-	core::vector<CImageData*> images;
+	core::vector<asset::CImageData*> images;
 	// read image
 	uint8_t* data = 0;
 
@@ -161,7 +161,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 		return nullptr;
 	}
 
-	CImageData* image = 0;
+    asset::CImageData* image = 0;
 
 	uint32_t nullOffset[3] = {0,0,0};
 	uint32_t imageSize[3] = {header.ImageWidth,header.ImageHeight,1};
@@ -172,7 +172,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 		{
 			if (header.ImageType==3) // grey image
 			{
-				image = new CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
 				if (image)
 					CColorConverter::convert8BitTo24Bit((uint8_t*)data,
 						(uint8_t*)image->getData(),
@@ -181,7 +181,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 			}
 			else
 			{
-				image = new CImageData(NULL,nullOffset,imageSize,0, EF_A1R5G5B5_UNORM_PACK16);
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0, EF_A1R5G5B5_UNORM_PACK16);
 				if (image)
 					CColorConverter::convert8BitTo16Bit((uint8_t*)data,
 						(int16_t*)image->getData(),
@@ -192,19 +192,19 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 		}
 		break;
 	case 16:
-		image = new CImageData(NULL,nullOffset,imageSize,0, EF_A1R5G5B5_UNORM_PACK16);
+		image = new asset::CImageData(NULL,nullOffset,imageSize,0, EF_A1R5G5B5_UNORM_PACK16);
 		if (image)
 			CColorConverter::convert16BitTo16Bit((int16_t*)data,
 				(int16_t*)image->getData(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
 		break;
 	case 24:
-			image = new CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
+			image = new asset::CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
 			if (image)
 				CColorConverter::convert24BitTo24Bit(
 					(uint8_t*)data, (uint8_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
 		break;
 	case 32:
-			image = new CImageData(NULL,nullOffset,imageSize,0,EF_B8G8R8A8_UNORM);
+			image = new asset::CImageData(NULL,nullOffset,imageSize,0,EF_B8G8R8A8_UNORM);
 			if (image)
 				CColorConverter::convert32BitTo32Bit((int32_t*)data,
 					(int32_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);

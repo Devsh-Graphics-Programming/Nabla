@@ -655,31 +655,31 @@ bool CNullDriver::getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const
 
 
 //! Creates a software image from a file.
-core::vector<CImageData*> CNullDriver::createImageDataFromFile(const io::path& filename)
+core::vector<asset::CImageData*> CNullDriver::createImageDataFromFile(const io::path& filename)
 {
 	if (!filename.size())
-		return core::vector<CImageData*>();
+		return core::vector<asset::CImageData*>();
 
 	io::IReadFile* file = FileSystem->createAndOpenFile(filename);
 
 	if (file)
 	{
-		core::vector<CImageData*> imageData = createImageDataFromFile(file);
+		core::vector<asset::CImageData*> imageData = createImageDataFromFile(file);
 		file->drop();
 		return imageData;
 	}
 //	else
 //		os::Printer::log("Could not open file of image", filename, ELL_WARNING);	// sodan
 
-	return core::vector<CImageData*>();
+	return core::vector<asset::CImageData*>();
 }
 
 
 //! Creates a software image from a file.
-core::vector<CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* file)
+core::vector<asset::CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* file)
 {
 	if (!file)
-		return core::vector<CImageData*>();
+		return core::vector<asset::CImageData*>();
 
 
 	int32_t i;
@@ -691,7 +691,7 @@ core::vector<CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* fi
 		{
 			// reset file position which might have changed due to previous loadImage calls
 			file->seek(0);
-			core::vector<CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
+			core::vector<asset::CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
 			if (imageData.size())
 				return imageData;
 		}
@@ -705,13 +705,13 @@ core::vector<CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* fi
 		if (SurfaceLoader[i]->isALoadableFileFormat(file))
 		{
 			file->seek(0);
-			core::vector<CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
+			core::vector<asset::CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
 			if (imageData.size())
 				return imageData;
 		}
 	}
 
-	return core::vector<CImageData*>(); // failed to load
+	return core::vector<asset::CImageData*>(); // failed to load
 }
 
 
@@ -748,7 +748,7 @@ bool CNullDriver::writeImageToFile(IImage* image, io::IWriteFile * file, uint32_
 
 
 //! Creates a software image from a byte array.
-IImage* CNullDriver::createImageFromData(CImageData* imageData, bool ownForeignMemory)
+IImage* CNullDriver::createImageFromData(asset::CImageData* imageData, bool ownForeignMemory)
 {
     core::dimension2du size;
     size.Width = imageData->getSliceMax()[0]-imageData->getSliceMin()[0];

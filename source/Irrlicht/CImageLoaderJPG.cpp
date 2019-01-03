@@ -129,7 +129,7 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
 //! creates a surface from the file
 asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-    core::vector<CImageData*> images;
+    core::vector<asset::CImageData*> images;
 
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", _file->getFileName(), ELL_DEBUG);
@@ -252,10 +252,10 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 
 	uint32_t nullOffset[3] = {0,0,0};
 	// convert image
-	CImageData* image = 0;
+    asset::CImageData* image = 0;
 	if (useCMYK)
 	{
-		image = new CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
+		image = new asset::CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
 		const uint32_t size = 3*width*height;
 		uint8_t* data = (uint8_t*)image->getData();
 		if (data)
@@ -274,7 +274,7 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 		_IRR_ALIGNED_FREE(output);
 	}
 	else
-		image = new CImageData(output,nullOffset,imageSize,0,EF_R8G8B8_UNORM,1,true);
+		image = new asset::CImageData(output,nullOffset,imageSize,0,EF_R8G8B8_UNORM,1,true);
 
 	delete [] input;
 

@@ -90,7 +90,7 @@ namespace video
         ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, E_FORMAT format = EF_B8G8R8A8_UNORM) override;
 
 		//! A.
-        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<CImageData*>& mipChain)
+        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<asset::CImageData*>& mipChain)
         {
             if (!tex)
                 return EMCE_OTHER_ERR;
@@ -98,9 +98,9 @@ namespace video
             if (mipChain.size()==0)
                 return EMCE_NO_ERR;
 
-            for (core::vector<CImageData*>::const_iterator it = mipChain.begin(); it!=mipChain.end(); it++)
+            for (core::vector<asset::CImageData*>::const_iterator it = mipChain.begin(); it!=mipChain.end(); it++)
             {
-                CImageData* img = *it;
+                asset::CImageData* img = *it;
                 if (!img)
                     return EMCE_INVALID_IMAGE;
 
@@ -323,16 +323,16 @@ namespace video
 		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const;
 
 		//! Creates a software image from a file.
-		virtual core::vector<CImageData*> createImageDataFromFile(const io::path& filename);
+		virtual core::vector<asset::CImageData*> createImageDataFromFile(const io::path& filename);
 
 		//! Creates a software image from a file.
-		virtual core::vector<CImageData*> createImageDataFromFile(io::IReadFile* file);
+		virtual core::vector<asset::CImageData*> createImageDataFromFile(io::IReadFile* file);
 
 		//! Creates a software image from a byte array.
 		/** \param useForeignMemory: If true, the image will use the data pointer
 		directly and own it from now on, which means it will also try to delete [] the
 		data when the image will be destructed. If false, the memory will by copied. */
-		virtual IImage* createImageFromData(CImageData* imageData, bool ownForeignMemory=true);
+		virtual IImage* createImageFromData(asset::CImageData* imageData, bool ownForeignMemory=true);
 
 		//!
 		virtual IImage* createImage(const E_FORMAT& format, const core::dimension2d<uint32_t>& size);

@@ -13,7 +13,7 @@
 
 namespace irr
 {
-namespace video
+namespace asset
 {
 
 class CImageData : public asset::IAsset
@@ -64,7 +64,7 @@ class CImageData : public asset::IAsset
 
         inline const void* getSliceRowPointer_helper(uint32_t slice, uint32_t row) const
         {
-            if (isBlockCompressionFormat(getColorFormat()))
+            if (video::isBlockCompressionFormat(getColorFormat()))
                 return NULL;
 
             if (row<minCoord[0]||row>=maxCoord[0])
@@ -79,7 +79,7 @@ class CImageData : public asset::IAsset
         }
 
     public:
-        CImageData(IImage* fromImage, const uint32_t& inMipLevel=0,
+        CImageData(video::IImage* fromImage, const uint32_t& inMipLevel=0,
                    const bool& dataAllocatedWithMallocAndCanTake=false)
         {
             minCoord[0] = 0;
@@ -97,7 +97,7 @@ class CImageData : public asset::IAsset
         }
 
         CImageData(const void* inData, uint32_t inMinCoord[3], uint32_t inMaxCoord[3],
-                   const uint32_t& inMipLevel, const E_FORMAT& inFmt,
+                   const uint32_t& inMipLevel, const video::E_FORMAT& inFmt,
                    const uint32_t& inUnpackLineAlignment=1)
         {
             memcpy(minCoord,inMinCoord,3*sizeof(uint32_t));
@@ -111,7 +111,7 @@ class CImageData : public asset::IAsset
         }
 
         CImageData(void* inData, uint32_t inMinCoord[3], uint32_t inMaxCoord[3],
-                   const uint32_t& inMipLevel, const E_FORMAT& inFmt,
+                   const uint32_t& inMipLevel, const video::E_FORMAT& inFmt,
                    const uint32_t& inUnpackLineAlignment,
                    const bool& dataAllocatedWithMallocAndCanTake)
         {
@@ -167,14 +167,14 @@ class CImageData : public asset::IAsset
         //! Returns bits per pixel.
         inline uint32_t getBitsPerPixel() const
         {
-            return getBitsPerPixelFromFormat(static_cast<E_FORMAT>(colorFormat));
+            return getBitsPerPixelFromFormat(static_cast<video::E_FORMAT>(colorFormat));
         }
 
         //! Returns image data size in bytes
         inline size_t getImageDataSizeInBytes() const
         {
             uint32_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
-            const uint32_t blockAlignment = isBlockCompressionFormat(getColorFormat()) ? getTexelOrBlockSize(getColorFormat()) : 1u;
+            const uint32_t blockAlignment = video::isBlockCompressionFormat(getColorFormat()) ? video::getTexelOrBlockSize(getColorFormat()) : 1u;
 
             if (blockAlignment!=1)
             {
@@ -211,7 +211,7 @@ class CImageData : public asset::IAsset
         }
 
         //! Returns the color format
-        inline E_FORMAT getColorFormat() const {return static_cast<E_FORMAT>(colorFormat);}
+        inline video::E_FORMAT getColorFormat() const {return static_cast<video::E_FORMAT>(colorFormat);}
 
         //! Returns pitch of image
         inline uint32_t getPitch() const

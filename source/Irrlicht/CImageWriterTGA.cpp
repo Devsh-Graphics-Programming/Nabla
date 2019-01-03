@@ -30,11 +30,11 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
     SAssetWriteContext ctx{_params, _file};
 
-    const video::CImageData* image =
+    const asset::CImageData* image =
 #   ifndef _DEBUG
-        static_cast<const video::CImageData*>(_params.rootAsset);
+        static_cast<const asset::CImageData*>(_params.rootAsset);
 #   else
-        dynamic_cast<const video::CImageData*>(_params.rootAsset);
+        dynamic_cast<const asset::CImageData*>(_params.rootAsset);
 #   endif
     assert(image);
 

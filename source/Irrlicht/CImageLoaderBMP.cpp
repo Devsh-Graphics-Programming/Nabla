@@ -274,36 +274,36 @@ asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAs
 	uint32_t offset[3] = {0,0,0};
 	uint32_t dim[3] = {header.Width,header.Height,1};
 
-	core::vector<CImageData*> images;
+	core::vector<asset::CImageData*> images;
 	switch(header.BPP)
 	{
 	case 1:
-		images.push_back(new CImageData(NULL, offset, dim, 0, EF_A1R5G5B5_UNORM_PACK16));
+		images.push_back(new asset::CImageData(NULL, offset, dim, 0, EF_A1R5G5B5_UNORM_PACK16));
 		if (images[0])
 			CColorConverter::convert1BitTo16Bit(bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;
 	case 4:
-		images.push_back(new CImageData(NULL, offset, dim, 0, EF_A1R5G5B5_UNORM_PACK16));
+		images.push_back(new asset::CImageData(NULL, offset, dim, 0, EF_A1R5G5B5_UNORM_PACK16));
 		if (images[0])
 			CColorConverter::convert4BitTo16Bit(bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, paletteData, pitch, true);
 		break;
 	case 8:
-		images.push_back(new CImageData(NULL, offset, dim, 0, EF_A1R5G5B5_UNORM_PACK16));
+		images.push_back(new asset::CImageData(NULL, offset, dim, 0, EF_A1R5G5B5_UNORM_PACK16));
 		if (images[0])
 			CColorConverter::convert8BitTo16Bit(bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, paletteData, pitch, true);
 		break;
 	case 16:
-		images.push_back(new CImageData(NULL, offset, dim, 0, EF_A1R5G5B5_UNORM_PACK16));
+		images.push_back(new asset::CImageData(NULL, offset, dim, 0, EF_A1R5G5B5_UNORM_PACK16));
 		if (images[0])
 			CColorConverter::convert16BitTo16Bit((int16_t*)bmpData, (int16_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;
 	case 24:
-		images.push_back(new CImageData(NULL, offset, dim, 0, EF_R8G8B8_UNORM));
+		images.push_back(new asset::CImageData(NULL, offset, dim, 0, EF_R8G8B8_UNORM));
 		if (images[0])
 			CColorConverter::convert24BitTo24Bit(bmpData, (uint8_t*)images[0]->getData(), header.Width, header.Height, pitch, true, true);
 		break;
 	case 32: // thx to Reinhard Ostermeier
-		images.push_back(new CImageData(NULL, offset, dim, 0, EF_B8G8R8A8_UNORM));
+		images.push_back(new asset::CImageData(NULL, offset, dim, 0, EF_B8G8R8A8_UNORM));
 		if (images[0])
 			CColorConverter::convert32BitTo32Bit((int32_t*)bmpData, (int32_t*)images[0]->getData(), header.Width, header.Height, pitch, true);
 		break;

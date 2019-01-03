@@ -201,7 +201,7 @@ namespace video
 		/** \param B
 		\param C
 		\return D. */
-        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<CImageData*>& mipChain) = 0;
+        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<asset::CImageData*>& mipChain) = 0;
 
         //! A.
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
@@ -527,7 +527,7 @@ namespace video
 		\return .
 		If you no longer need the image data, you should call CImageData::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual core::vector<CImageData*> createImageDataFromFile(const io::path& filename) = 0;
+		virtual core::vector<asset::CImageData*> createImageDataFromFile(const io::path& filename) = 0;
 
 		//! Creates a ... from a file.
 		/**
@@ -536,7 +536,7 @@ namespace video
 		If you no longer need the image data, you should call CImageData::drop()
 		on all vector members.
 		See IReferenceCounted::drop() for more information. */
-		virtual core::vector<CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
+		virtual core::vector<asset::CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
 
 		//! Writes the provided image to a file.
 		/** Requires that there is a suitable image writer registered
@@ -568,7 +568,7 @@ namespace video
 		\return The created image.
 		If you no longer need the image, you should call IImage::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual IImage* createImageFromData(CImageData* imageData, bool ownForeignMemory=true) =0;
+		virtual IImage* createImageFromData(asset::CImageData* imageData, bool ownForeignMemory=true) =0;
 
 		//!
 		virtual IImage* createImage(const E_FORMAT& format, const core::dimension2d<uint32_t>& size) =0;

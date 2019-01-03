@@ -33,7 +33,7 @@ public:
 		NP2_SIZE	= 4,
 		HAS_ALPHA	= 8
 	};
-	CSoftwareTexture2(CImageData* surface, const io::path& name, uint32_t flags);
+	CSoftwareTexture2(asset::CImageData* surface, const io::path& name, uint32_t flags);
 
     virtual IVirtualTexture::E_DIMENSION_COUNT getDimensionality() const {return IVirtualTexture::EDC_TWO;}
     virtual bool updateSubRegion(const E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
