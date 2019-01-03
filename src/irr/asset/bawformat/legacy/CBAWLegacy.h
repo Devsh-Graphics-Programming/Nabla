@@ -74,6 +74,11 @@ public:
     uint64_t idxBufPtr;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
+static_assert(
+    sizeof(MeshDataFormatDescBlobV0) == 
+    sizeof(MeshDataFormatDescBlobV0::cpa) + sizeof(MeshDataFormatDescBlobV0::attrType) + sizeof(MeshDataFormatDescBlobV0::attrStride) + sizeof(MeshDataFormatDescBlobV0::attrOffset) + sizeof(MeshDataFormatDescBlobV0::attrDivisor) + sizeof(MeshDataFormatDescBlobV0::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV0::idxBufPtr),
+    "MeshDataFormatDescBlobV0: Size of blob is not sum of its contents!"
+);
 
 video::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
 

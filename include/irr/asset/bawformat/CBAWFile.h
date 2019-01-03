@@ -203,6 +203,11 @@ namespace asset
         uint32_t meshBufCnt;
         uint64_t meshBufPtrs[1];
 	} PACK_STRUCT;
+    static_assert(
+        sizeof(MeshBlobV0) ==
+        sizeof(MeshBlobV0::box) + sizeof(MeshBlobV0::meshBufCnt) + sizeof(MeshBlobV0::meshBufPtrs),
+        "MeshBlobV0: Size of blob is not sum of its contents!"
+    );
 
 	//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 	struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,asset::ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>
@@ -217,6 +222,11 @@ namespace asset
         uint32_t meshBufCnt;
         uint64_t meshBufPtrs[1];
 	} PACK_STRUCT;
+    static_assert(
+        sizeof(SkinnedMeshBlobV0) ==
+        sizeof(SkinnedMeshBlobV0::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV0::box) + sizeof(SkinnedMeshBlobV0::meshBufCnt) + sizeof(SkinnedMeshBlobV0::meshBufPtrs),
+        "SkinnedMeshBlobV0: Size of blob is not sum of its contents!"
+    );
 
 	//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
 	struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>
@@ -236,6 +246,13 @@ namespace asset
 		uint32_t primitiveType;
 		uint32_t posAttrId;
 	} PACK_STRUCT;
+    static_assert(
+        sizeof(MeshBufferBlobV0) ==
+        sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex)
+        + sizeof(MeshBufferBlobV0::indexCount) + sizeof(MeshBufferBlobV0::indexBufOffset) + sizeof(MeshBufferBlobV0::instanceCount) + sizeof(MeshBufferBlobV0::baseInstance)
+        + sizeof(MeshBufferBlobV0::primitiveType) + sizeof(MeshBufferBlobV0::posAttrId),
+        "MeshBufferBlobV0: Size of blob is not sum of its contents!"
+    );
 
 	struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>
 	{
@@ -257,6 +274,13 @@ namespace asset
 		uint32_t indexValMax;
 		uint32_t maxVertexBoneInfluences;
 	} PACK_STRUCT;
+    static_assert(
+        sizeof(SkinnedMeshBufferBlobV0) ==
+        sizeof(SkinnedMeshBufferBlobV0::mat) + sizeof(SkinnedMeshBufferBlobV0::box) + sizeof(SkinnedMeshBufferBlobV0::descPtr) + sizeof(SkinnedMeshBufferBlobV0::indexType) + sizeof(SkinnedMeshBufferBlobV0::baseVertex)
+        + sizeof(SkinnedMeshBufferBlobV0::indexCount) + sizeof(SkinnedMeshBufferBlobV0::indexBufOffset) + sizeof(SkinnedMeshBufferBlobV0::instanceCount) + sizeof(SkinnedMeshBufferBlobV0::baseInstance)
+        + sizeof(SkinnedMeshBufferBlobV0::primitiveType) + sizeof(SkinnedMeshBufferBlobV0::posAttrId) + sizeof(SkinnedMeshBufferBlobV0::indexValMin) + sizeof(SkinnedMeshBufferBlobV0::indexValMax) + sizeof(SkinnedMeshBufferBlobV0::maxVertexBoneInfluences),
+        "SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!"
+    );
 
 	struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>
 	{
@@ -331,6 +355,11 @@ namespace asset
         size_t keyframeCount;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
+    static_assert(
+        sizeof(FinalBoneHierarchyBlobV0) ==
+        sizeof(FinalBoneHierarchyBlobV0::boneCount) + sizeof(FinalBoneHierarchyBlobV0::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV0::keyframeCount),
+        "FinalBoneHierarchyBlobV0: Size of blob is not sum of its contents!"
+    );
 
     // ===============
     // .baw VERSION 1
@@ -364,6 +393,11 @@ namespace asset
         uint64_t idxBufPtr;
     } PACK_STRUCT;
 #include "irr/irrunpack.h"
+    static_assert(
+        sizeof(MeshDataFormatDescBlobV1) == 
+        sizeof(MeshDataFormatDescBlobV1::attrFormat) + sizeof(MeshDataFormatDescBlobV1::attrStride) + sizeof(MeshDataFormatDescBlobV1::attrOffset) + sizeof(MeshDataFormatDescBlobV1::attrDivisor) + sizeof(MeshDataFormatDescBlobV1::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV1::idxBufPtr),
+        "MeshDataFormatDescBlobV1: Size of blob is not sum of its contents!"
+    );
 
 	template<typename>
 	struct CorrespondingBlobTypeFor;
