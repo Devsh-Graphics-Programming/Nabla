@@ -148,6 +148,11 @@ int32_t COpenGLExtensionHandler::reqUBOAlignment = 0;
 int32_t COpenGLExtensionHandler::reqSSBOAlignment = 0;
 int32_t COpenGLExtensionHandler::reqTBOAlignment = 0;
 
+uint64_t COpenGLExtensionHandler::maxUBOSize = 0;
+uint64_t COpenGLExtensionHandler::maxSSBOSize = 0;
+uint64_t COpenGLExtensionHandler::maxTBOSize = 0;
+uint64_t COpenGLExtensionHandler::maxBufferSize = 0;
+
 int32_t COpenGLExtensionHandler::minMemoryMapAlignment = 0;
 
 int32_t COpenGLExtensionHandler::MaxComputeWGSize[3]{0, 0, 0};
@@ -177,6 +182,7 @@ PFNGLENABLEIPROC COpenGLExtensionHandler::pGlEnablei = NULL;
 PFNGLDISABLEIPROC COpenGLExtensionHandler::pGlDisablei = NULL;
 PFNGLGETBOOLEANI_VPROC COpenGLExtensionHandler::pGlGetBooleani_v = NULL;
 PFNGLGETFLOATI_VPROC COpenGLExtensionHandler::pGlGetFloati_v = NULL;
+PFNGLGETINTEGER64VPROC COpenGLExtensionHandler::pGlGetInteger64v = NULL;
 PFNGLGETINTEGERI_VPROC COpenGLExtensionHandler::pGlGetIntegeri_v = NULL;
 PFNGLGETSTRINGIPROC COpenGLExtensionHandler::pGlGetStringi = NULL;
 PFNGLPROVOKINGVERTEXPROC COpenGLExtensionHandler::pGlProvokingVertex = NULL;
@@ -804,7 +810,14 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &reqUBOAlignment);
 	glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &reqSSBOAlignment);
 	glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &reqTBOAlignment);
+
+    extGlGetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&maxUBOSize));
+    extGlGetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&maxSSBOSize));
+    extGlGetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&maxTBOSize));
+    maxBufferSize = std::max(maxUBOSize, std::max(maxSSBOSize, maxTBOSize));
+
 	glGetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &minMemoryMapAlignment);
+
     extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, MaxComputeWGSize);
     extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, MaxComputeWGSize+1);
     extGlGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, MaxComputeWGSize+2);
@@ -1009,6 +1022,7 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlDisablei = (PFNGLDISABLEIPROC) IRR_OGL_LOAD_EXTENSION("glDisablei");
     pGlGetBooleani_v = (PFNGLGETBOOLEANI_VPROC) IRR_OGL_LOAD_EXTENSION("glGetBooleani_v");
     pGlGetFloati_v = (PFNGLGETFLOATI_VPROC) IRR_OGL_LOAD_EXTENSION("glGetFloati_v");
+    pGlGetInteger64v = (PFNGLGETINTEGER64VPROC)IRR_OGL_LOAD_EXTENSION("glGetInteger64v");
     pGlGetIntegeri_v = (PFNGLGETINTEGERI_VPROC) IRR_OGL_LOAD_EXTENSION("glGetIntegeri_v");
     pGlGetStringi = (PFNGLGETSTRINGIPROC) IRR_OGL_LOAD_EXTENSION("glGetStringi");
 

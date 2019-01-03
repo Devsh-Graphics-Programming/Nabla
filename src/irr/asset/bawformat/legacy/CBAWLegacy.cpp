@@ -15,7 +15,7 @@ size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV0, scene::IMeshDataFormat
 using namespace video;
 namespace
 {
-    E_FORMAT CTplusCPAtoEF[ECT_COUNT][ECPA_COUNT]
+    constexpr E_FORMAT CTplusCPAtoEF[ECT_COUNT][ECPA_COUNT]
     {
         {EF_UNKNOWN, EF_R32_SFLOAT, EF_R32G32_SFLOAT, EF_R32G32B32_SFLOAT, EF_R32G32B32A32_SFLOAT},
         {EF_UNKNOWN, EF_R16_SFLOAT, EF_R16G16_SFLOAT, EF_R16G16B16_SFLOAT, EF_R16G16B16A16_SFLOAT},

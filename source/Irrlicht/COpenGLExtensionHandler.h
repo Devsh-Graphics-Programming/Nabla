@@ -968,6 +968,14 @@ class COpenGLExtensionHandler
 	static int32_t reqSSBOAlignment;
 	//!
 	static int32_t reqTBOAlignment;
+    //!
+    static uint64_t maxUBOSize;
+    //!
+    static uint64_t maxSSBOSize;
+    //!
+    static uint64_t maxTBOSize;
+    //!
+    static uint64_t maxBufferSize;
 	//!
 	static int32_t minMemoryMapAlignment;
     //!
@@ -1021,6 +1029,7 @@ class COpenGLExtensionHandler
     static void extGlDisablei(GLenum cap, GLuint index);
     static void extGlGetBooleani_v(GLenum pname, GLuint index, GLboolean* data);
     static void extGlGetFloati_v(GLenum pname, GLuint index, float* data);
+    static void extGlGetInteger64v(GLenum pname, GLint64* data);
     static void extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data);
     static void extGlProvokingVertex(GLenum provokeMode);
     //
@@ -1265,6 +1274,7 @@ class COpenGLExtensionHandler
     static PFNGLDISABLEIPROC pGlDisablei;
     static PFNGLGETBOOLEANI_VPROC pGlGetBooleani_v;
     static PFNGLGETFLOATI_VPROC pGlGetFloati_v;
+    static PFNGLGETINTEGER64VPROC pGlGetInteger64v;
     static PFNGLGETINTEGERI_VPROC pGlGetIntegeri_v;
     static PFNGLGETSTRINGIPROC pGlGetStringi;
     static PFNGLPROVOKINGVERTEXPROC pGlProvokingVertex;
@@ -1669,6 +1679,15 @@ inline void COpenGLExtensionHandler::extGlGetFloati_v(GLenum pname, GLuint index
         return pGlGetFloati_v(pname,index,data);
 #else
     return glGetFloati_v(pname,index,data);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+inline void COpenGLExtensionHandler::extGlGetInteger64v(GLenum pname, GLint64* data)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlGetInteger64v)
+        return pGlGetInteger64v(pname, data);
+#else
+    return glGetIntegeri_v(pname, index, data);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 inline void COpenGLExtensionHandler::extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data)

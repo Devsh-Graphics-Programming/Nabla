@@ -89,6 +89,7 @@ protected:
 auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*>
 {
     core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> res;
+    core::GeneralpurposeAddressAllocator<uint64_t> addrAlloc(nullptr, nullptr, 16u, uint64_t(-1), 16u);
 
     asset::ICPUBuffer** it = _begin;
     while (it != _end)

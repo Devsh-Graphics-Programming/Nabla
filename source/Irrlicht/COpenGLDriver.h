@@ -889,6 +889,18 @@ namespace video
         //!
         virtual uint32_t getMaxComputeWorkGroupSize(uint32_t _dimension) const { return COpenGLExtensionHandler::MaxComputeWGSize[_dimension]; }
 
+        //!
+        virtual uint64_t getMaxUBOSize() const override { return COpenGLExtensionHandler::maxUBOSize; }
+
+        //!
+        virtual uint64_t getMaxSSBOSize() const override { return COpenGLExtensionHandler::maxSSBOSize; }
+
+        //!
+        virtual uint64_t getMaxTBOSize() const override { return COpenGLExtensionHandler::maxTBOSize; }
+
+        //!
+        virtual uint64_t getMaxBufferSize() const override { return COpenGLExtensionHandler::maxBufferSize; }
+
     private:
         SAuxContext* getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid = std::this_thread::get_id());
 

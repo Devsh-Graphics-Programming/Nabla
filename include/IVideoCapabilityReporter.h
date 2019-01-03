@@ -106,6 +106,10 @@ namespace video
 
         virtual uint16_t retrieveDisplayRefreshRate() const { return 0u; }
 
+        virtual uint64_t getMaxUBOSize() const = 0;
+        virtual uint64_t getMaxSSBOSize() const = 0;
+        virtual uint64_t getMaxTBOSize() const = 0;
+        virtual uint64_t getMaxBufferSize() const = 0;
 	};
 
 } // end namespace video

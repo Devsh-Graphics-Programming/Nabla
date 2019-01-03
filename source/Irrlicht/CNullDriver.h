@@ -480,15 +480,23 @@ namespace video
 		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const;
 
 		//!
-		virtual uint32_t getRequiredUBOAlignment() const {return 0;}
+		virtual uint32_t getRequiredUBOAlignment() const override {return 0u;}
 
 		//!
-		virtual uint32_t getRequiredSSBOAlignment() const {return 0;}
+		virtual uint32_t getRequiredSSBOAlignment() const override {return 0u;}
 
 		//!
-		virtual uint32_t getRequiredTBOAlignment() const {return 0;}
+		virtual uint32_t getRequiredTBOAlignment() const override {return 0u;}
 
-        virtual uint32_t getMaxComputeWorkGroupSize(uint32_t) const { return 0u; }
+        virtual uint32_t getMaxComputeWorkGroupSize(uint32_t) const override { return 0u; }
+
+        virtual uint64_t getMaxUBOSize() const override { return 0ull; }
+
+        virtual uint64_t getMaxSSBOSize() const override { return 0ull; }
+
+        virtual uint64_t getMaxTBOSize() const override { return 0ull; }
+
+        virtual uint64_t getMaxBufferSize() const override { return 0ull; }
 
 	protected:
         void addMultisampleTexture(IMultisampleTexture* tex);
