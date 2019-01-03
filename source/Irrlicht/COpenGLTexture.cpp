@@ -907,6 +907,12 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const E_FORMAT
         case EF_R32G32B32A32_SINT:
             return GL_RGBA32I;
             break;
+        case EF_A2B10G10R10_UNORM_PACK32:
+            return GL_RGB10_A2;
+            break;
+        case EF_A2B10G10R10_UINT_PACK32:
+            return GL_RGB10_A2UI;
+            break;
         case EF_R8G8B8_SRGB:
             return GL_SRGB8;
             break;
