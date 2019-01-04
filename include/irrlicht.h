@@ -139,7 +139,7 @@
 #include "SIrrCreationParameters.h"
 #include "SKeyMap.h"
 #include "SMaterial.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "SViewFrustum.h"
 #include "triangle3d.h"
 #include "vector2d.h"

@@ -11,7 +11,7 @@
 #include "COBJMeshFileLoader.h"
 #include "IMeshManipulator.h"
 #include "IVideoDriver.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "SVertexManipulator.h"
 #include "IReadFile.h"
 #include "coreutil.h"

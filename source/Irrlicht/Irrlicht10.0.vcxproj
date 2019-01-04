@@ -412,6 +412,7 @@
     <ClInclude Include="..\..\include\irr\asset\IMesh.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUMesh.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUMeshBuffer.h" />
+    <ClInclude Include="..\..\include\irr\video\SGPUMesh.h" />
     <ClInclude Include="..\..\include\ITimer.h" />
     <ClInclude Include="..\..\include\Keycodes.h" />
     <ClInclude Include="..\..\include\matrix3x4SIMD.h" />
@@ -518,7 +519,6 @@
     <ClInclude Include="..\..\include\IVolumeLightSceneNode.h" />
     <ClInclude Include="..\..\include\SAnimatedMesh.h" />
     <ClInclude Include="..\..\include\SceneParameters.h" />
-    <ClInclude Include="..\..\include\SMesh.h" />
     <ClInclude Include="..\..\include\SMeshBuffer.h" />
     <ClInclude Include="..\..\include\SMeshBufferLightMap.h" />
     <ClInclude Include="..\..\include\SMeshBufferTangents.h" />

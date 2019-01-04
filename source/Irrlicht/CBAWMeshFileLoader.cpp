@@ -8,7 +8,7 @@
 #include <stack>
 
 #include "CFinalBoneHierarchy.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "CSkinnedMesh.h"
 #include "os.h"
 #include "lzma/LzmaDec.h"

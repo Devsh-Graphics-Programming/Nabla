@@ -45,7 +45,7 @@
 
 #include "IMeshLoader.h"
 #include "IReadFile.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 
 
 namespace irr

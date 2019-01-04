@@ -10,7 +10,7 @@
 #include "IMeshLoader.h"
 #include "IFileSystem.h"
 #include "ISceneManager.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "matrix4.h"
 
 namespace irr

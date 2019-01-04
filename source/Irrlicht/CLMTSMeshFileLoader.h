@@ -22,7 +22,7 @@ Version 1.5 - 15 March 2005
 #define __C_LMTS_MESH_FILE_LOADER_H_INCLUDED__
 
 #include "IMeshLoader.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "IFileSystem.h"
 #include "IVideoDriver.h"
 

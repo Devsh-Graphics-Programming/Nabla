@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
 #include "os.h"
 #include "CForsythVertexCacheOptimizer.h"

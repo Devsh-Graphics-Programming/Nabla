@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CGeometryCreator.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "irr/asset/SCPUMesh.h"
 #include "irr/asset/IMesh.h"
 #include "IVideoDriver.h"

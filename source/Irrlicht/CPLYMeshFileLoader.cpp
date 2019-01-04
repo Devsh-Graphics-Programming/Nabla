@@ -9,7 +9,7 @@
 
 #include "CPLYMeshFileLoader.h"
 #include "IMeshManipulator.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 
 #include "IReadFile.h"
 #include "os.h"

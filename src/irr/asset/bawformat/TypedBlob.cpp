@@ -8,7 +8,7 @@
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "IVideoDriver.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "irr/asset/SCPUMesh.h"
 #include "CSkinnedMesh.h"
 #include "irr/asset/CCPUSkinnedMesh.h"

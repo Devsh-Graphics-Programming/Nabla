@@ -6,7 +6,7 @@
 #include "irr/asset/IAssetManager.h"
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "CSkinnedMesh.h"
 #include "irr/asset/SSkinMeshBuffer.h"
 #include "CLogger.h"
@@ -272,7 +272,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
             gpumesh = new scene::CGPUSkinnedMesh(static_cast<asset::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy());
             break;
         default:
-            gpumesh = new scene::SGPUMesh();
+            gpumesh = new video::SGPUMesh();
             break;
         }
         res.push_back(gpumesh);
@@ -296,7 +296,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
         default:
             for (uint32_t k = 0u; k < (*(_begin + i))->getMeshBufferCount(); ++k)
             {
-                static_cast<scene::SGPUMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]]);
+                static_cast<video::SGPUMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]]);
                 ++j;
             }
             break;

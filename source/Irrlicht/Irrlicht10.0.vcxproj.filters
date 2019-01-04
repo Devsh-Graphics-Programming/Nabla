@@ -309,7 +309,6 @@
     <ClInclude Include="..\..\include\ICameraSceneNode.h" />
     <ClInclude Include="..\..\include\IDummyTransformationSceneNode.h" />
     <ClInclude Include="..\..\include\ILightSceneNode.h" />
-    <ClInclude Include="..\..\include\IMesh.h" />
     <ClInclude Include="..\..\include\IMeshCache.h" />
     <ClInclude Include="..\..\include\IMeshLoader.h" />
     <ClInclude Include="..\..\include\IMeshManipulator.h" />
@@ -347,7 +346,6 @@
     <ClInclude Include="..\..\include\IVolumeLightSceneNode.h" />
     <ClInclude Include="..\..\include\SAnimatedMesh.h" />
     <ClInclude Include="..\..\include\SceneParameters.h" />
-    <ClInclude Include="..\..\include\SMesh.h" />
     <ClInclude Include="..\..\include\SMeshBuffer.h" />
     <ClInclude Include="..\..\include\SMeshBufferLightMap.h" />
     <ClInclude Include="..\..\include\SMeshBufferTangents.h" />
@@ -525,6 +523,9 @@
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBAWFile.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBlobsLoadingManager.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUMeshBuffer.h" />
+    <ClInclude Include="..\..\include\irr\asset\IMesh.h" />
+    <ClInclude Include="..\..\include\irr\video\IGPUMesh.h" />
+    <ClInclude Include="..\..\include\irr\video\SGPUMesh.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />

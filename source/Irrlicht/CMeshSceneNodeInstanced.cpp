@@ -9,6 +9,7 @@
 #include "ICameraSceneNode.h"
 #include "IMaterialRenderer.h"
 #include "os.h"
+#include "irr/video/SGPUMesh.h"
 
 namespace irr
 {
@@ -176,7 +177,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         tmp.distanceSQ = levelsOfDetail[i].lodDistance;
         tmp.distanceSQ *= tmp.distanceSQ;
 
-        tmp.mesh = new SGPUMesh();
+        tmp.mesh = new video::SGPUMesh();
         for (size_t j=0; j<levelsOfDetail[i].mesh->getMeshBufferCount(); j++)
         {
             video::IGPUMeshBuffer* origBuff = levelsOfDetail[i].mesh->getMeshBuffer(j);

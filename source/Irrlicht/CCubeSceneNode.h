@@ -6,7 +6,7 @@
 #define __C_CUBE_SCENE_NODE_H_INCLUDED__
 
 #include "IMeshSceneNode.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 
 namespace irr
 {

@@ -8,7 +8,7 @@
 #include "irr/asset/bawformat/CBAWFile.h"
 #include "ISceneManager.h"
 #include "IFileSystem.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "CSkinnedMesh.h"
 
 //! Adds support of given blob type to BlobsLoadingManager. For use ONLY inside BlobsLoadingManager's member functions. _IRR_SUPPORTED_BLOBS is defined in IrrCompileConfig.h.

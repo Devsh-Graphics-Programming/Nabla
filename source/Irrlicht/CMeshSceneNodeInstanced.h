@@ -11,8 +11,13 @@
 #include "IQueryObject.h"
 #include "ISceneManager.h"
 
+
 namespace irr
 {
+namespace video
+{
+class SGPUMesh;
+}
 namespace scene
 {
 
@@ -66,7 +71,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
-        virtual SGPUMesh* getLoDMesh(const size_t &lod) {return LoD[lod].mesh;}
+        virtual video::SGPUMesh* getLoDMesh(const size_t &lod) {return LoD[lod].mesh;}
 
         virtual const core::aabbox3df& getLoDInvariantBBox() const {return LoDInvariantBox;}
 
@@ -148,7 +153,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         struct LoDData
         {
-            SGPUMesh* mesh;
+            video::SGPUMesh* mesh;
             video::IQueryObject* query;
             float distanceSQ;
             size_t instancesToDraw;

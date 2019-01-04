@@ -7,7 +7,7 @@
 #ifdef _IRR_COMPILE_WITH_LWO_LOADER_
 #include "os.h"
 
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "IReadFile.h"
 #include "ISceneManager.h"
 #include "IFileSystem.h"

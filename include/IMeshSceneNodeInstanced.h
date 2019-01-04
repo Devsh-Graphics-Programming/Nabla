@@ -10,7 +10,7 @@
 #include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
 #include "irr/video/ResizableBufferingAllocator.h"
 #include "ISceneNode.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "irr/video/IGPUMesh.h"
 
 namespace irr
@@ -73,7 +73,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
-        virtual SGPUMesh* getLoDMesh(const size_t &lod) = 0;
+        virtual video::SGPUMesh* getLoDMesh(const size_t &lod) = 0;
 
         virtual size_t getInstanceCount() const = 0;
 

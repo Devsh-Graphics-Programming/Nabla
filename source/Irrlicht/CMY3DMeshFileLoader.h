@@ -31,8 +31,7 @@
 
 
 #include "IMeshLoader.h"
-#include "SMesh.h"
-#include "SMeshBufferLightMap.h"
+#include "irr/video/SGPUMesh.h"
 #include "IFileSystem.h"
 #include "IVideoDriver.h"
 
