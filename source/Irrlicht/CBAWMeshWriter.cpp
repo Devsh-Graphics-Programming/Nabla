@@ -11,7 +11,7 @@
 #include "irr/core/Types.h"
 #include "irr/macros.h"
 #include "irr/asset/ICPUSkinnedMesh.h"
-#include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 #include "os.h"
 #include "lz4/lz4.h"
@@ -71,7 +71,7 @@ namespace irr {namespace scene {
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<asset::SCPUSkinMeshBuffer>(asset::SCPUSkinMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	void CBAWMeshWriter::exportAsBlob<asset::ICPUSkinnedMeshBuffer>(asset::ICPUSkinnedMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
         asset::SkinnedMeshBufferBlobV1 data(_obj);
 
@@ -181,7 +181,7 @@ namespace irr {namespace scene {
 				exportAsBlob(reinterpret_cast<asset::ICPUMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case asset::Blob::EBT_SKINNED_MESH_BUFFER:
-				exportAsBlob(reinterpret_cast<asset::SCPUSkinMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
+				exportAsBlob(reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case asset::Blob::EBT_RAW_DATA_BUFFER:
 				exportAsBlob(reinterpret_cast<asset::ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx);

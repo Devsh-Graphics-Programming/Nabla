@@ -25,7 +25,7 @@ namespace scene
 namespace asset
 {
     class ICPUSkinnedMesh;
-    class SCPUSkinMeshBuffer;
+    class ICPUSkinnedMeshBuffer;
 }
 namespace io
 {

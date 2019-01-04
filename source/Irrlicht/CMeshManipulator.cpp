@@ -16,7 +16,7 @@
 #include "os.h"
 #include "CForsythVertexCacheOptimizer.h"
 #include "COverdrawMeshOptimizer.h"
-#include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
 namespace irr
 {
@@ -1206,7 +1206,7 @@ void CMeshManipulator::copyMeshBufferMemberVars<asset::ICPUMeshBuffer>(asset::IC
     _dst->getMaterial() = _src->getMaterial();
 }
 template<>
-void CMeshManipulator::copyMeshBufferMemberVars<asset::SCPUSkinMeshBuffer>(asset::SCPUSkinMeshBuffer* _dst, const asset::SCPUSkinMeshBuffer* _src) const
+void CMeshManipulator::copyMeshBufferMemberVars<asset::ICPUSkinnedMeshBuffer>(asset::ICPUSkinnedMeshBuffer* _dst, const asset::ICPUSkinnedMeshBuffer* _src) const
 {
     copyMeshBufferMemberVars<asset::ICPUMeshBuffer>(_dst, _src);
     _dst->setIndexRange(
@@ -1224,10 +1224,10 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const asset::
 		return NULL;
 
 	asset::ICPUMeshBuffer* dst = NULL;
-    if (const asset::SCPUSkinMeshBuffer* smb = dynamic_cast<const asset::SCPUSkinMeshBuffer*>(_src)) // we can do other checks for meshbuffer type than dynamic_cast // how then?
+    if (const asset::ICPUSkinnedMeshBuffer* smb = dynamic_cast<const asset::ICPUSkinnedMeshBuffer*>(_src)) // we can do other checks for meshbuffer type than dynamic_cast // how then?
     {
-        dst = new asset::SCPUSkinMeshBuffer();
-        copyMeshBufferMemberVars(static_cast<asset::SCPUSkinMeshBuffer*>(dst), smb);
+        dst = new asset::ICPUSkinnedMeshBuffer();
+        copyMeshBufferMemberVars(static_cast<asset::ICPUSkinnedMeshBuffer*>(dst), smb);
     }
     else
     {

@@ -416,7 +416,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 				memset(cumBaseVertex, 0, mesh->Buffers.size()*sizeof(uint32_t));
                 for (i=0; i<mesh->Buffers.size(); ++i)
                 {
-					asset::SCPUSkinMeshBuffer *buffer = mesh->Buffers[i];
+					asset::ICPUSkinnedMeshBuffer *buffer = mesh->Buffers[i];
 
                     buffer->setIndexRange(0,vCountArray[i]);
                     if (vCountArray[i]>0x10000u)
@@ -442,7 +442,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 					// if a vertex is missing for some reason, just skip it
 					if (verticesLinkBuffer[i]==-1)
 						continue;
-                    asset::SCPUSkinMeshBuffer *buffer = mesh->Buffers[ verticesLinkBuffer[i] ];
+                    asset::ICPUSkinnedMeshBuffer *buffer = mesh->Buffers[ verticesLinkBuffer[i] ];
 
                     uint32_t &Ix = vCountArray[ verticesLinkBuffer[i] ];
                     verticesLinkIndex[i] = Ix;
@@ -586,7 +586,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                 uint32_t indexBufferSz = 0;
 				for (i=0; i<mesh->Buffers.size(); ++i)
                 {
-                    asset::SCPUSkinMeshBuffer *buffer = mesh->Buffers[ i ];
+                    asset::ICPUSkinnedMeshBuffer *buffer = mesh->Buffers[ i ];
 
 
 					uint32_t subBufferSz = vCountArray[i]*3;
@@ -605,7 +605,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 				memset(vCountArray, 0, mesh->Buffers.size()*sizeof(uint32_t));
 				for (i=0; i<mesh->FaceMaterialIndices.size(); ++i)
 				{
-					asset::SCPUSkinMeshBuffer *buffer = mesh->Buffers[ mesh->FaceMaterialIndices[i] ];
+					asset::ICPUSkinnedMeshBuffer *buffer = mesh->Buffers[ mesh->FaceMaterialIndices[i] ];
 
 					void* indexBufAlreadyOffset = ((uint8_t*)ixbuf->getPointer())+cumBaseVertex[mesh->FaceMaterialIndices[i]];
 

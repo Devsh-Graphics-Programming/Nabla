@@ -10,7 +10,7 @@
 #include "irr/video/IGPUSkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
 #include "irr/core/irrString.h"
-#include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
 namespace irr
 {

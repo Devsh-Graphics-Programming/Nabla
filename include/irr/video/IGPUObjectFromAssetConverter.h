@@ -8,7 +8,7 @@
 #include "IDriverMemoryBacked.h"
 #include "irr/video/SGPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
-#include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "CLogger.h"
 #include "irr/video/asset_traits.h"
 
@@ -289,7 +289,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
         case asset::EMT_ANIMATED_SKINNED:
             for (uint32_t k = 0u; k < (*(_begin + i))->getMeshBufferCount(); ++k)
             {
-                static_cast<video::CGPUSkinnedMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]], static_cast<asset::SCPUSkinMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
+                static_cast<video::CGPUSkinnedMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]], static_cast<asset::ICPUSkinnedMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
                 ++j;
             }
             break;

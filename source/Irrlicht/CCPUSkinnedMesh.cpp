@@ -7,7 +7,7 @@
 #include "irr/asset/CCPUSkinnedMesh.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "CFinalBoneHierarchy.h"
-#include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "os.h"
 #include <sstream>
 #include <algorithm>
@@ -105,7 +105,7 @@ void CCPUSkinnedMesh::setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue
 
 
 
-core::vector<asset::SCPUSkinMeshBuffer*> &CCPUSkinnedMesh::getMeshBuffers()
+core::vector<asset::ICPUSkinnedMeshBuffer*> &CCPUSkinnedMesh::getMeshBuffers()
 {
 	return LocalBuffers;
 }
@@ -447,15 +447,15 @@ void CCPUSkinnedMesh::finalize()
 }
 
 
-asset::SCPUSkinMeshBuffer *CCPUSkinnedMesh::addMeshBuffer()
+asset::ICPUSkinnedMeshBuffer *CCPUSkinnedMesh::addMeshBuffer()
 {
-	SCPUSkinMeshBuffer *buffer = new SCPUSkinMeshBuffer();
+	ICPUSkinnedMeshBuffer *buffer = new ICPUSkinnedMeshBuffer();
 	LocalBuffers.push_back(buffer);
 	return buffer;
 }
 
 
-void CCPUSkinnedMesh::addMeshBuffer(SCPUSkinMeshBuffer* buf)
+void CCPUSkinnedMesh::addMeshBuffer(ICPUSkinnedMeshBuffer* buf)
 {
 	if (buf)
 	{

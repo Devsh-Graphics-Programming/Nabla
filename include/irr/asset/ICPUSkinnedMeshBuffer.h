@@ -14,23 +14,23 @@ namespace asset
 {
 
 
-class SCPUSkinMeshBuffer : public ICPUMeshBuffer
+class ICPUSkinnedMeshBuffer : public ICPUMeshBuffer
 {
         uint32_t indexValMin;
         uint32_t indexValMax;
         uint32_t maxVertexBoneInfluences;
     public:
         //! Default constructor
-        SCPUSkinMeshBuffer() : indexValMin(0), indexValMax(0), maxVertexBoneInfluences(1)
+        ICPUSkinnedMeshBuffer() : indexValMin(0), indexValMax(0), maxVertexBoneInfluences(1)
         {
             #ifdef _DEBUG
-            setDebugName("SCPUSkinMeshBuffer");
+            setDebugName("ICPUSkinnedMeshBuffer");
             #endif
         }
 
 		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
 		{
-			return asset::CorrespondingBlobTypeFor<SCPUSkinMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+			return asset::CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}
 
         virtual asset::E_MESH_BUFFER_TYPE getMeshBufferType() const override { return asset::EMBT_ANIMATED_SKINNED; }

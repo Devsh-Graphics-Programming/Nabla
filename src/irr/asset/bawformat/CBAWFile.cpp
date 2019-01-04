@@ -6,7 +6,7 @@
 #include "irr/asset/bawformat/CBAWFile.h"
 
 #include "irr/asset/ICPUSkinnedMesh.h"
-#include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CFinalBoneHierarchy.h"
 #include "coreutil.h"
@@ -98,7 +98,7 @@ size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV0, asset::ICPUMeshBuffer>::calcBl
 	return sizeof(MeshBufferBlobV0);
 }
 
-SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const asset::SCPUSkinMeshBuffer* _smb)
+SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const asset::ICPUSkinnedMeshBuffer* _smb)
 {
 	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SGPUMaterial));
 	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
@@ -121,7 +121,7 @@ SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const asset::SCPUSkinMeshBuffer
 }
 
 template<>
-size_t SizedBlob<FixedSizeBlob, SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::calcBlobSizeForObj(const asset::SCPUSkinMeshBuffer* _obj)
+size_t SizedBlob<FixedSizeBlob, SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::calcBlobSizeForObj(const asset::ICPUSkinnedMeshBuffer* _obj)
 {
 	return sizeof(SkinnedMeshBufferBlobV0);
 }

@@ -16,7 +16,7 @@
 #include "irr/asset/ICPUTexture.h"
 #include "IrrlichtDevice.h"
 #include "irr/asset/IAssetManager.h"
-#include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
 namespace irr { namespace asset
 {
@@ -177,7 +177,7 @@ void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::finalize(void* _obj,
 	asset::CCPUSkinnedMesh* mesh = reinterpret_cast<asset::CCPUSkinnedMesh*>(_obj);
 	mesh->setBoneReferenceHierarchy(reinterpret_cast<scene::CFinalBoneHierarchy*>(_deps[blob->boneHierarchyPtr]));
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
-		mesh->addMeshBuffer(reinterpret_cast<asset::SCPUSkinMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
+		mesh->addMeshBuffer(reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
 
 	return _obj;
 }
@@ -256,19 +256,19 @@ void TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::releaseObj(const void* 
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::getNeededDeps(const void* _blob)
 {
 	return TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::getNeededDeps(_blob);
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
 
 	const SkinnedMeshBufferBlobV0* blob = (const SkinnedMeshBufferBlobV0*)_blob;
-	asset::SCPUSkinMeshBuffer* buf = new asset::SCPUSkinMeshBuffer();
+	asset::ICPUSkinnedMeshBuffer* buf = new asset::ICPUSkinnedMeshBuffer();
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SGPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
@@ -290,13 +290,13 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::instantiate
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
 
 	const SkinnedMeshBufferBlobV0* blob = (const SkinnedMeshBufferBlobV0*)_blob;
-	asset::SCPUSkinMeshBuffer* buf = reinterpret_cast<asset::SCPUSkinMeshBuffer*>(_obj);
+	asset::ICPUSkinnedMeshBuffer* buf = reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_obj);
 	buf->setMeshDataAndFormat(reinterpret_cast<asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_deps[blob->descPtr]));
 	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 	{
@@ -310,10 +310,10 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::finalize(vo
 }
 
 template<>
-void TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::releaseObj(const void* _obj)
+void TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::releaseObj(const void* _obj)
 {
 	if (_obj)
-		reinterpret_cast<const asset::SCPUSkinMeshBuffer*>(_obj)->drop();
+		reinterpret_cast<const asset::ICPUSkinnedMeshBuffer*>(_obj)->drop();
 }
 
 template<>

@@ -2,7 +2,7 @@
 #define __IRR_C_CPU_SKINNED_MESH_INCLUDED__
 
 #include "ICPUSkinnedMesh.h"
-#include "SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
 namespace irr 
 {
@@ -12,7 +12,7 @@ namespace scene {
 
 namespace asset
 {
-class SCPUSkinMeshBuffer;
+class ICPUSkinnedMeshBuffer;
 
 class CCPUSkinnedMesh : public ICPUSkinnedMesh
 {
@@ -54,7 +54,7 @@ public:
     //these functions will use the needed arrays, set values, etc to help the loaders
 
     //! exposed for loaders to add mesh buffers
-    virtual core::vector<SCPUSkinMeshBuffer*> &getMeshBuffers();
+    virtual core::vector<ICPUSkinnedMeshBuffer*> &getMeshBuffers();
 
     //! alternative method for adding joints
     virtual core::vector<SJoint*> &getAllJoints();
@@ -66,10 +66,10 @@ public:
     virtual void finalize();
 
     //! Adds a new meshbuffer to the mesh, access it as last one
-    virtual SCPUSkinMeshBuffer *addMeshBuffer();
+    virtual ICPUSkinnedMeshBuffer *addMeshBuffer();
 
     //! Adds a new meshbuffer to the mesh
-    virtual void addMeshBuffer(SCPUSkinMeshBuffer* buf);
+    virtual void addMeshBuffer(ICPUSkinnedMeshBuffer* buf);
 
     //! Adds a new joint to the mesh, access it as last one
     virtual SJoint *addJoint(SJoint *parent = 0);
@@ -79,7 +79,7 @@ private:
 
     void calculateGlobalMatrices();
 
-    core::vector<SCPUSkinMeshBuffer*> LocalBuffers;
+    core::vector<ICPUSkinnedMeshBuffer*> LocalBuffers;
 
     core::vector<SJoint*> AllJoints;
 

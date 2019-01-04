@@ -43,7 +43,7 @@
 #include "irr/core/alloc/IAllocator.h"
 #include "irr/core/math/irrMath.h"
 
-#include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/IAssetManager.h"
 #include "irr/asset/CCPUSkinnedMesh.h"
 #include "irr/asset/IAsset.h"
@@ -55,7 +55,6 @@
 #include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/SCPUMesh.h"
-#include "irr/asset/SSkinMeshBuffer.h"
 #include "irr/asset/CImageData.h"
 
 #include "irr/video/asset_traits.h"

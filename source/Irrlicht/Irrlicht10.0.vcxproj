@@ -410,6 +410,7 @@
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBAWFile.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBlobsLoadingManager.h" />
     <ClInclude Include="..\..\include\irr\asset\IMesh.h" />
+    <ClInclude Include="..\..\include\irr\asset\ICPUSkinnedMeshBuffer.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUMesh.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUMeshBuffer.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUObjectFromAssetConverter.h" />
@@ -524,7 +525,6 @@
     <ClInclude Include="..\..\include\SMeshBufferLightMap.h" />
     <ClInclude Include="..\..\include\SMeshBufferTangents.h" />
     <ClInclude Include="..\..\include\SParticle.h" />
-    <ClInclude Include="..\..\include\SSkinMeshBuffer.h" />
     <ClInclude Include="..\..\include\SViewFrustum.h" />
     <ClInclude Include="..\..\include\EGUIAlignment.h" />
     <ClInclude Include="..\..\include\EGUIElementTypes.h" />

@@ -99,7 +99,7 @@ public:
 
 		core::vector<uint16_t> IndexCountPerFace; // default 3, but could be more
 
-		core::vector<asset::SCPUSkinMeshBuffer*> Buffers;
+		core::vector<asset::ICPUSkinnedMeshBuffer*> Buffers;
 
 		core::vector<SXVertex> Vertices;
 		core::vector<uint32_t> Colors;

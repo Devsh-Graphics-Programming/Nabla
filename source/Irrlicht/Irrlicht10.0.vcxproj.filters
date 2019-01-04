@@ -349,7 +349,6 @@
     <ClInclude Include="..\..\include\SMeshBufferLightMap.h" />
     <ClInclude Include="..\..\include\SMeshBufferTangents.h" />
     <ClInclude Include="..\..\include\SParticle.h" />
-    <ClInclude Include="..\..\include\SSkinMeshBuffer.h" />
     <ClInclude Include="..\..\include\SViewFrustum.h" />
     <ClInclude Include="..\..\include\EGUIAlignment.h" />
     <ClInclude Include="..\..\include\EGUIElementTypes.h" />
@@ -527,6 +526,7 @@
     <ClInclude Include="..\..\include\irr\video\IGPUSkinnedMesh.h" />
     <ClInclude Include="..\..\src\irr\video\CGPUSkinnedMesh.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUObjectFromAssetConverter.h" />
+    <ClInclude Include="..\..\include\irr\asset\ICPUSkinnedMeshBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />

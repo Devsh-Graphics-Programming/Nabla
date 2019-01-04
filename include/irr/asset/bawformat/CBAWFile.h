@@ -21,7 +21,7 @@ namespace asset
     class ICPUMeshBuffer;
     class ICPUMesh;
     class ICPUSkinnedMesh;
-    class SCPUSkinMeshBuffer;
+    class ICPUSkinnedMeshBuffer;
 	template<typename> class IMeshDataFormatDesc;
     namespace legacy
     {
@@ -254,10 +254,10 @@ namespace asset
         "MeshBufferBlobV0: Size of blob is not sum of its contents!"
     );
 
-	struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>
+	struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>
 	{
 		//! Constructor filling all members
-		explicit SkinnedMeshBufferBlobV0(const asset::SCPUSkinMeshBuffer*);
+		explicit SkinnedMeshBufferBlobV0(const asset::ICPUSkinnedMeshBuffer*);
 
 		video::SGPUMaterial mat;
 		core::aabbox3df box;
@@ -410,7 +410,7 @@ namespace asset
 	template<>
 	struct CorrespondingBlobTypeFor<asset::ICPUMeshBuffer> { typedef MeshBufferBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<asset::SCPUSkinMeshBuffer> { typedef SkinnedMeshBufferBlobV1 type; };
+	struct CorrespondingBlobTypeFor<asset::ICPUSkinnedMeshBuffer> { typedef SkinnedMeshBufferBlobV1 type; };
 	template<>
 	struct CorrespondingBlobTypeFor<asset::IMeshDataFormatDesc<asset::ICPUBuffer> > { typedef MeshDataFormatDescBlobV1 type; };
 	template<>

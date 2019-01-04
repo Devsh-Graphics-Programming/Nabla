@@ -13,7 +13,7 @@
 #include "irr/asset/ICPUMesh.h"
 #include "irr/asset/bawformat/CBAWFile.h"
 #include "irr/asset/bawformat/CBlobsLoadingManager.h"
-#include "irr/asset/SSkinMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
 namespace irr
 {
@@ -160,7 +160,7 @@ private:
             return static_cast<asset::ICPUMeshBuffer*>(_assetAddr);
         case asset::Blob::EBT_SKINNED_MESH_BUFFER:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
-            return static_cast<asset::SCPUSkinMeshBuffer*>(_assetAddr);
+            return static_cast<asset::ICPUSkinnedMeshBuffer*>(_assetAddr);
         case asset::Blob::EBT_RAW_DATA_BUFFER:
             assert(_assetAddr->getAssetType()==asset::IAsset::ET_BUFFER);
             return static_cast<asset::ICPUBuffer*>(_assetAddr);
@@ -184,7 +184,7 @@ private:
             asset = reinterpret_cast<asset::ICPUMeshBuffer*>(_asset);
             break;
         case asset::Blob::EBT_SKINNED_MESH_BUFFER:
-            asset = reinterpret_cast<asset::SCPUSkinMeshBuffer*>(_asset);
+            asset = reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_asset);
             break;
         case asset::Blob::EBT_RAW_DATA_BUFFER:
             asset = reinterpret_cast<asset::ICPUBuffer*>(_asset);
