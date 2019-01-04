@@ -31,8 +31,8 @@ COpenGLVAOSpec::COpenGLVAOSpec(core::LeakDebugger* dbgr) :  leakDebugger(dbgr)
     if (leakDebugger)
         leakDebugger->registerObj(this);
 
-    for (size_t i=0; i<scene::EVAI_COUNT; i++)
-        individualHashFields.setAttrFmt(static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(i),attrFormat[i]);
+    for (size_t i=0; i<asset::EVAI_COUNT; i++)
+        individualHashFields.setAttrFmt(static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(i),attrFormat[i]);
 }
 
 COpenGLVAOSpec::~COpenGLVAOSpec()
@@ -42,9 +42,9 @@ COpenGLVAOSpec::~COpenGLVAOSpec()
 }
 
 
-void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, scene::E_VERTEX_ATTRIBUTE_ID attrId, E_FORMAT format, size_t stride, size_t offset, uint32_t divisor)
+void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, E_FORMAT format, size_t stride, size_t offset, uint32_t divisor)
 {
-    if (attrId>=scene::EVAI_COUNT)
+    if (attrId>= asset::EVAI_COUNT)
 #ifdef _DEBUG
     {
         os::Printer::log("MeshBuffer setVertexAttrBuffer attribute ID out of range!\n",ELL_ERROR);

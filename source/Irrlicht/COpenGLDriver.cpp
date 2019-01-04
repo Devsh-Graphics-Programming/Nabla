@@ -1428,12 +1428,12 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
     {
         switch (mb->getIndexType())
         {
-            case scene::EIT_16BIT:
+            case asset::EIT_16BIT:
             {
                 indexSize=GL_UNSIGNED_SHORT;
                 break;
             }
-            case scene::EIT_32BIT:
+            case asset::EIT_32BIT:
             {
                 indexSize=GL_UNSIGNED_INT;
                 break;
@@ -1446,7 +1446,7 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
     GLenum primType = primitiveTypeToGL(mb->getPrimitiveType());
 	switch (mb->getPrimitiveType())
 	{
-		case scene::EPT_POINTS:
+		case asset::EPT_POINTS:
 		{
 			// prepare size and attenuation (where supported)
 			GLfloat particleSize=Material.Thickness;
@@ -1455,7 +1455,7 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
 
 		}
 			break;
-		case scene::EPT_TRIANGLES:
+		case asset::EPT_TRIANGLES:
         {
             if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
             {
@@ -1488,8 +1488,8 @@ void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
 
 
 //! Indirect Draw
-void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const scene::E_PRIMITIVE_TYPE& mode,
+void COpenGLDriver::drawArraysIndirect(  const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                         const asset::E_PRIMITIVE_TYPE& mode,
                                          const IGPUBuffer* indirectDrawBuff,
                                          const size_t& offset, const size_t& count, const size_t& stride)
 {
@@ -1512,7 +1512,7 @@ void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video:
     GLenum primType = primitiveTypeToGL(mode);
 	switch (mode)
 	{
-		case scene::EPT_POINTS:
+		case asset::EPT_POINTS:
 		{
 			// prepare size and attenuation (where supported)
 			GLfloat particleSize=Material.Thickness;
@@ -1520,7 +1520,7 @@ void COpenGLDriver::drawArraysIndirect(  const scene::IMeshDataFormatDesc<video:
 			glPointSize(particleSize);
 		}
 			break;
-		case scene::EPT_TRIANGLES:
+		case asset::EPT_TRIANGLES:
         {
             if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
             {
@@ -1572,9 +1572,9 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 	return false;
 }
 
-void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const scene::E_PRIMITIVE_TYPE& mode,
-                                        const scene::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
+void COpenGLDriver::drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const asset::E_PRIMITIVE_TYPE& mode,
+                                        const asset::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
                                         const size_t& offset, const size_t& count, const size_t& stride)
 {
     if (!indirectDrawBuff)
@@ -1593,11 +1593,11 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
 	// draw everything
 	setRenderStates3DMode();
 
-	GLenum indexSize = type!=scene::EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
+	GLenum indexSize = type!=asset::EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
     GLenum primType = primitiveTypeToGL(mode);
 	switch (mode)
 	{
-		case scene::EPT_POINTS:
+		case asset::EPT_POINTS:
 		{
 			// prepare size and attenuation (where supported)
 			GLfloat particleSize=Material.Thickness;
@@ -1605,7 +1605,7 @@ void COpenGLDriver::drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::
 			glPointSize(particleSize);
 		}
 			break;
-		case scene::EPT_TRIANGLES:
+		case asset::EPT_TRIANGLES:
         {
             if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
             {
@@ -1828,8 +1828,8 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
 {
     extGlCreateVertexArrays(1,&vao);
 
-    memcpy(attrOffset,&spec->getMappedBufferOffset(scene::EVAI_ATTR0),sizeof(attrOffset));
-    for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
+    memcpy(attrOffset,&spec->getMappedBufferOffset(asset::EVAI_ATTR0),sizeof(attrOffset));
+    for (asset::E_VERTEX_ATTRIBUTE_ID attrId=asset::EVAI_ATTR0; attrId<asset::EVAI_COUNT; attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
     {
         const IGPUBuffer* buf = spec->getMappedBuffer(attrId);
         mappedAttrBuf[attrId] = static_cast<const COpenGLBuffer*>(buf);
@@ -1874,7 +1874,7 @@ COpenGLDriver::SAuxContext::COpenGLVAO::~COpenGLVAO()
     if (vao)
         extGlDeleteVertexArrays(1,&vao);
 
-    for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
+    for (asset::E_VERTEX_ATTRIBUTE_ID attrId=asset::EVAI_ATTR0; attrId<asset::EVAI_COUNT; attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
     {
         if (!mappedAttrBuf[attrId])
             continue;
@@ -1888,12 +1888,12 @@ COpenGLDriver::SAuxContext::COpenGLVAO::~COpenGLVAO()
 
 void COpenGLDriver::SAuxContext::COpenGLVAO::bindBuffers(   const COpenGLBuffer* indexBuf,
                                                             const COpenGLBuffer* const* attribBufs,
-                                                            const size_t offsets[scene::EVAI_COUNT],
-                                                            const size_t strides[scene::EVAI_COUNT])
+                                                            const size_t offsets[asset::EVAI_COUNT],
+                                                            const size_t strides[asset::EVAI_COUNT])
 {
     uint64_t beginStamp = CNullDriver::ReallocationCounter;
 
-    for (scene::E_VERTEX_ATTRIBUTE_ID attrId=scene::EVAI_ATTR0; attrId<scene::EVAI_COUNT; attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
+    for (asset::E_VERTEX_ATTRIBUTE_ID attrId=asset::EVAI_ATTR0; attrId<asset::EVAI_COUNT; attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
     {
 #ifdef _DEBUG
         assert( (mappedAttrBuf[attrId]==NULL && attribBufs[attrId]==NULL)||
@@ -1981,28 +1981,28 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, 
 
     if (correctOffsetsForXFormDraw)
     {
-        size_t offsets[scene::EVAI_COUNT] = {0};
-        memcpy(offsets,&spec->getMappedBufferOffset(scene::EVAI_ATTR0),sizeof(offsets));
-        for (size_t i=0; i<scene::EVAI_COUNT; i++)
+        size_t offsets[asset::EVAI_COUNT] = {0};
+        memcpy(offsets,&spec->getMappedBufferOffset(asset::EVAI_ATTR0),sizeof(offsets));
+        for (size_t i=0; i<asset::EVAI_COUNT; i++)
         {
-            if (!spec->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i))
+            if (!spec->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i))
                 continue;
 
-            if (spec->getAttribDivisor((scene::E_VERTEX_ATTRIBUTE_ID)i))
+            if (spec->getAttribDivisor((asset::E_VERTEX_ATTRIBUTE_ID)i))
             {
                 if (correctOffsetsForXFormDraw->getBaseInstance())
-                    offsets[i] += spec->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i)*correctOffsetsForXFormDraw->getBaseInstance();
+                    offsets[i] += spec->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)i)*correctOffsetsForXFormDraw->getBaseInstance();
             }
             else
             {
                 if (correctOffsetsForXFormDraw->getBaseVertex())
-                    offsets[i] = int64_t(offsets[i])+int64_t(spec->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)i))*correctOffsetsForXFormDraw->getBaseVertex();
+                    offsets[i] = int64_t(offsets[i])+int64_t(spec->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)i))*correctOffsetsForXFormDraw->getBaseVertex();
             }
         }
-        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),offsets,&spec->getMappedBufferStride(scene::EVAI_ATTR0));
+        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),offsets,&spec->getMappedBufferStride(asset::EVAI_ATTR0));
     }
     else
-        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),&spec->getMappedBufferOffset(scene::EVAI_ATTR0),&spec->getMappedBufferStride(scene::EVAI_ATTR0));
+        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),&spec->getMappedBufferOffset(asset::EVAI_ATTR0),&spec->getMappedBufferStride(asset::EVAI_ATTR0));
 
     return true;
 }
@@ -3068,7 +3068,7 @@ void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback, SAu
     }
 }
 
-void COpenGLDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType)
+void COpenGLDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType)
 {
     if (xformFeedback)
     {
@@ -3090,19 +3090,19 @@ void COpenGLDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, co
 
 	switch (primType)
 	{
-		case scene::EPT_POINTS:
+		case asset::EPT_POINTS:
             found->CurrentXFormFeedback->setPrimitiveType(GL_POINTS);
             break;
-		case scene::EPT_LINE_STRIP:
-		case scene::EPT_LINE_LOOP:
+		case asset::EPT_LINE_STRIP:
+		case asset::EPT_LINE_LOOP:
 			os::Printer::log("Not using PROPER TRANSFORM FEEDBACK primitive type (only EPT_POINTS, EPT_LINES and EPT_TRIANGLES allowed!)!\n",ELL_ERROR);
-		case scene::EPT_LINES:
+		case asset::EPT_LINES:
             found->CurrentXFormFeedback->setPrimitiveType(GL_LINES);
             break;
-		case scene::EPT_TRIANGLE_STRIP:
-		case scene::EPT_TRIANGLE_FAN:
+		case asset::EPT_TRIANGLE_STRIP:
+		case asset::EPT_TRIANGLE_FAN:
 			os::Printer::log("Not using PROPER TRANSFORM FEEDBACK primitive type (only EPT_POINTS, EPT_LINES and EPT_TRIANGLES allowed!)!\n",ELL_ERROR);
-		case scene::EPT_TRIANGLES:
+		case asset::EPT_TRIANGLES:
             found->CurrentXFormFeedback->setPrimitiveType(GL_TRIANGLES);
             break;
 	}

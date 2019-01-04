@@ -159,7 +159,7 @@ namespace video
         /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
         This issues an implicit call to bindTransformFeedback()
         **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType=scene::EPT_POINTS);
+		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType=asset::EPT_POINTS);
 
 		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
 		virtual void pauseTransformFeedback();
@@ -179,13 +179,13 @@ namespace video
         virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb);
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect( const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const scene::E_PRIMITIVE_TYPE& mode,
+		virtual void drawArraysIndirect( const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                         const asset::E_PRIMITIVE_TYPE& mode,
                                          const IGPUBuffer* indirectDrawBuff,
                                          const size_t& offset, const size_t& count, const size_t& stride);
-		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const scene::E_PRIMITIVE_TYPE& mode,
-                                         const scene::E_INDEX_TYPE& type,
+		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                         const asset::E_PRIMITIVE_TYPE& mode,
+                                         const asset::E_INDEX_TYPE& type,
                                          const IGPUBuffer* indirectDrawBuff,
                                          const size_t& offset, const size_t& count, const size_t& stride);
 

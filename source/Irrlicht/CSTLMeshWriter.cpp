@@ -72,7 +72,7 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 namespace
 {
 template <class I>
-inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, scene::E_VERTEX_ATTRIBUTE_ID _colorVaid)
+inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, asset::E_VERTEX_ATTRIBUTE_ID _colorVaid)
 {
     bool hasColor = buffer->getMeshDataAndFormat()->getMappedBuffer(_colorVaid);
     const video::E_FORMAT colorType = buffer->getMeshDataAndFormat()->getAttribFormat(_colorVaid);
@@ -161,20 +161,20 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
 		asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer&&buffer->getMeshDataAndFormat())
 		{
-			E_INDEX_TYPE type = buffer->getIndexType();
+            asset::E_INDEX_TYPE type = buffer->getIndexType();
 			if (!buffer->getMeshDataAndFormat()->getIndexBuffer())
-                type = EIT_UNKNOWN;
-			if (type==EIT_16BIT)
+                type = asset::EIT_UNKNOWN;
+			if (type== asset::EIT_16BIT)
             {
-                writeFacesBinary<uint16_t>(buffer, false, file, scene::EVAI_ATTR1);
+                writeFacesBinary<uint16_t>(buffer, false, file, asset::EVAI_ATTR1);
             }
-			else if (type==EIT_32BIT)
+			else if (type== asset::EIT_32BIT)
             {
-                writeFacesBinary<uint32_t>(buffer, false, file, scene::EVAI_ATTR1);
+                writeFacesBinary<uint32_t>(buffer, false, file, asset::EVAI_ATTR1);
             }
 			else
             {
-                writeFacesBinary<uint16_t>(buffer, true, file, scene::EVAI_ATTR1); //template param doesn't matter if there's no indices
+                writeFacesBinary<uint16_t>(buffer, true, file, asset::EVAI_ATTR1); //template param doesn't matter if there's no indices
             }
 		}
 	}
@@ -200,11 +200,11 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
 		asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer&&buffer->getMeshDataAndFormat())
 		{
-			E_INDEX_TYPE type = buffer->getIndexType();
+            asset::E_INDEX_TYPE type = buffer->getIndexType();
 			if (!buffer->getMeshDataAndFormat()->getIndexBuffer())
-                type = EIT_UNKNOWN;
+                type = asset::EIT_UNKNOWN;
 			const uint32_t indexCount = buffer->getIndexCount();
-			if (type==EIT_16BIT)
+			if (type==asset::EIT_16BIT)
 			{
                 //os::Printer::log("Writing mesh with 16bit indices");
                 for (uint32_t j=0; j<indexCount; j+=3)
@@ -216,7 +216,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                     );
                 }
 			}
-			else if (type==EIT_32BIT)
+			else if (type==asset::EIT_32BIT)
 			{
                 //os::Printer::log("Writing mesh with 32bit indices");
                 for (uint32_t j=0; j<indexCount; j+=3)

@@ -218,14 +218,14 @@ void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::instantiateEmpty(const
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
 
 	buf->setBoundingBox(blob->box);
-	buf->setIndexType((scene::E_INDEX_TYPE)blob->indexType);
+	buf->setIndexType((asset::E_INDEX_TYPE)blob->indexType);
 	buf->setBaseVertex(blob->baseVertex);
 	buf->setIndexCount(blob->indexCount);
 	buf->setIndexBufferOffset(blob->indexBufOffset);
 	buf->setInstanceCount(blob->instanceCount);
 	buf->setBaseInstance(blob->baseInstance);
-	buf->setPrimitiveType((scene::E_PRIMITIVE_TYPE)blob->primitiveType);
-	buf->setPositionAttributeIx((scene::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
+	buf->setPrimitiveType((asset::E_PRIMITIVE_TYPE)blob->primitiveType);
+	buf->setPositionAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
 
 	return buf;
 }
@@ -238,7 +238,7 @@ void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 
 	const MeshBufferBlobV0* blob = (const MeshBufferBlobV0*)_blob;
 	asset::ICPUMeshBuffer* buf = reinterpret_cast<asset::ICPUMeshBuffer*>(_obj);
-	buf->setMeshDataAndFormat(reinterpret_cast<scene::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_deps[blob->descPtr]));
+	buf->setMeshDataAndFormat(reinterpret_cast<asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_deps[blob->descPtr]));
 	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
@@ -275,14 +275,14 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::instantiate
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
 
 	buf->setBoundingBox(blob->box);
-	buf->setIndexType((scene::E_INDEX_TYPE)blob->indexType);
+	buf->setIndexType((asset::E_INDEX_TYPE)blob->indexType);
 	buf->setBaseVertex(blob->baseVertex);
 	buf->setIndexCount(blob->indexCount);
 	buf->setIndexBufferOffset(blob->indexBufOffset);
 	buf->setInstanceCount(blob->instanceCount);
 	buf->setBaseInstance(blob->baseInstance);
-	buf->setPrimitiveType((scene::E_PRIMITIVE_TYPE)blob->primitiveType);
-	buf->setPositionAttributeIx((scene::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
+	buf->setPrimitiveType((asset::E_PRIMITIVE_TYPE)blob->primitiveType);
+	buf->setPositionAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
 	buf->setIndexRange(blob->indexValMin, blob->indexValMax);
 	buf->setMaxVertexBoneInfluences(blob->maxVertexBoneInfluences);
 
@@ -297,7 +297,7 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, asset::SCPUSkinMeshBuffer>::finalize(vo
 
 	const SkinnedMeshBufferBlobV0* blob = (const SkinnedMeshBufferBlobV0*)_blob;
 	asset::SCPUSkinMeshBuffer* buf = reinterpret_cast<asset::SCPUSkinMeshBuffer*>(_obj);
-	buf->setMeshDataAndFormat(reinterpret_cast<scene::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_deps[blob->descPtr]));
+	buf->setMeshDataAndFormat(reinterpret_cast<asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_deps[blob->descPtr]));
 	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
@@ -399,26 +399,26 @@ void TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::releaseObj
 
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::getNeededDeps(const void* _blob)
 {
 	MeshDataFormatDescBlobV1* blob = (MeshDataFormatDescBlobV1*)_blob;
 	core::unordered_set<uint64_t> deps;
 	if (blob->idxBufPtr)
 		deps.insert(blob->idxBufPtr);
-	for (uint32_t i = 0; i < scene::EVAI_COUNT; ++i)
+	for (uint32_t i = 0; i < asset::EVAI_COUNT; ++i)
 		if (blob->attrBufPtrs[i])
 			deps.insert(blob->attrBufPtrs[i]);
 	return deps;
 }
 
 template<>
-void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
-	return new scene::ICPUMeshDataFormatDesc();
+	return new asset::ICPUMeshDataFormatDesc();
 }
 
 template<>
-void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	using namespace scene;
 
@@ -426,7 +426,7 @@ void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPU
 		return NULL;
 
 	const MeshDataFormatDescBlobV1* blob = (const MeshDataFormatDescBlobV1*)_blob;
-	scene::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = reinterpret_cast<scene::ICPUMeshDataFormatDesc*>(_obj);
+	asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = reinterpret_cast<asset::ICPUMeshDataFormatDesc*>(_obj);
 	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
 	{
 		if (blob->attrBufPtrs[(int)i])
@@ -445,10 +445,10 @@ void* TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPU
 }
 
 template<>
-void TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::releaseObj(const void* _obj)
+void TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::releaseObj(const void* _obj)
 {
 	if (_obj)
-		reinterpret_cast<const scene::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_obj)->drop();
+		reinterpret_cast<const asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_obj)->drop();
 }
 
 

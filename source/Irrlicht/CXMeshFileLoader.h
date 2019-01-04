@@ -24,6 +24,26 @@ namespace io
 namespace scene
 {
 
+#include "irr/irrpack.h"
+struct SkinnedVertexIntermediateData
+{
+    SkinnedVertexIntermediateData()
+    {
+        memset(this, 0, 20);
+    }
+    uint8_t boneIDs[4];
+    float boneWeights[4];
+} PACK_STRUCT;
+
+struct SkinnedVertexFinalData
+{
+public:
+    uint8_t boneIDs[4];
+    //! rgb10a2
+    uint32_t boneWeights;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+
 class ISceneManager;
 
 //! Meshloader capable of loading x meshes.

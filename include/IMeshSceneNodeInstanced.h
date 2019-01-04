@@ -37,7 +37,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
     public:
         constexpr static decltype(InstanceDataAddressAllocator::invalid_address) kInvalidInstanceID         = InstanceDataAddressAllocator::invalid_address;
 
-        typedef scene::IMeshDataFormatDesc<video::IGPUBuffer>* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const scene::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
+        typedef asset::IMeshDataFormatDesc<video::IGPUBuffer>* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const asset::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
 
         struct MeshLoD
         {

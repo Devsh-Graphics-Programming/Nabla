@@ -22,6 +22,7 @@ namespace asset
     class ICPUMesh;
     class ICPUSkinnedMesh;
     class SCPUSkinMeshBuffer;
+	template<typename> class IMeshDataFormatDesc;
     namespace legacy
     {
         struct MeshDataFormatDescBlobV0;
@@ -31,7 +32,6 @@ namespace asset
 namespace scene
 {
 	class ISceneManager;
-	template<typename> class IMeshDataFormatDesc;
 	class CFinalBoneHierarchy;
 }
 namespace io
@@ -375,13 +375,13 @@ namespace asset
     using FinalBoneHierarchyBlobV1 = FinalBoneHierarchyBlobV0;
 
 #include "irr/irrpack.h"
-    struct MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >
+    struct MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >
     {
     private:
         enum { VERTEX_ATTRIB_CNT = 16 };
     public:
         //! Constructor filling all members
-        explicit MeshDataFormatDescBlobV1(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>*);
+        explicit MeshDataFormatDescBlobV1(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>*);
         //! Backward compatibility constructor
         explicit MeshDataFormatDescBlobV1(const asset::legacy::MeshDataFormatDescBlobV0&);
     
@@ -412,7 +412,7 @@ namespace asset
 	template<>
 	struct CorrespondingBlobTypeFor<asset::SCPUSkinMeshBuffer> { typedef SkinnedMeshBufferBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<scene::IMeshDataFormatDesc<asset::ICPUBuffer> > { typedef MeshDataFormatDescBlobV1 type; };
+	struct CorrespondingBlobTypeFor<asset::IMeshDataFormatDesc<asset::ICPUBuffer> > { typedef MeshDataFormatDescBlobV1 type; };
 	template<>
 	struct CorrespondingBlobTypeFor<scene::CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV1 type; };
 	template<>

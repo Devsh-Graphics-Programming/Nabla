@@ -89,7 +89,6 @@ protected:
 auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*>
 {
     core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> res;
-    core::GeneralpurposeAddressAllocator<uint64_t> addrAlloc(nullptr, nullptr, 16u, uint64_t(-1), 16u);
 
     asset::ICPUBuffer** it = _begin;
     while (it != _end)
@@ -119,14 +118,14 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
     {
         VaoConfig() : noAttributes{ true }, success{ true }, idxbuf{ nullptr }
         {
-            std::fill(oldbuffer, oldbuffer + scene::EVAI_COUNT, nullptr);
+            std::fill(oldbuffer, oldbuffer + asset::EVAI_COUNT, nullptr);
         }
 
-        const asset::ICPUBuffer* oldbuffer[scene::EVAI_COUNT];
-        video::E_FORMAT formats[scene::EVAI_COUNT];
-        size_t strides[scene::EVAI_COUNT];
-        size_t offsets[scene::EVAI_COUNT];
-        uint32_t divisors[scene::EVAI_COUNT];
+        const asset::ICPUBuffer* oldbuffer[asset::EVAI_COUNT];
+        video::E_FORMAT formats[asset::EVAI_COUNT];
+        size_t strides[asset::EVAI_COUNT];
+        size_t offsets[asset::EVAI_COUNT];
+        uint32_t divisors[asset::EVAI_COUNT];
         const asset::ICPUBuffer* idxbuf;
         bool noAttributes;
         bool success;
@@ -142,15 +141,15 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
     {
         cpumaterials.push_back((*it)->getMaterial());
 
-        scene::ICPUMeshDataFormatDesc* origdesc = static_cast<scene::ICPUMeshDataFormatDesc*>((*it)->getMeshDataAndFormat());
+        asset::ICPUMeshDataFormatDesc* origdesc = static_cast<asset::ICPUMeshDataFormatDesc*>((*it)->getMeshDataAndFormat());
         //if (!origdesc)
          //   return nullptr; //todo
 
         VaoConfig vaoConf;
 
-        for (size_t j = 0; j < scene::EVAI_COUNT; j++)
+        for (size_t j = 0; j < asset::EVAI_COUNT; j++)
         {
-            scene::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(j);
+            asset::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(j);
             vaoConf.oldbuffer[attrId] = origdesc->getMappedBuffer(attrId);
             if (vaoConf.oldbuffer[attrId])
             {
@@ -162,7 +161,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             vaoConf.strides[attrId] = origdesc->getMappedBufferStride(attrId);
             vaoConf.offsets[attrId] = origdesc->getMappedBufferOffset(attrId);
             vaoConf.divisors[attrId] = origdesc->getAttribDivisor(attrId);
-            //if (!scene::validCombination(vaoConf.componentTypes[attrId], vaoConf.components[attrId]))
+            //if (!asset::validCombination(vaoConf.componentTypes[attrId], vaoConf.components[attrId]))
             //{
             //    os::Printer::log("createGPUObjectFromAsset input ICPUMeshBuffer(s) have one or more invalid attribute specs!\n", ELL_ERROR);
             //    vaoConf.success = false;
@@ -183,10 +182,10 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         gpuMeshBuf->setBaseInstance((*it)->getBaseInstance());
         gpuMeshBuf->setPrimitiveType((*it)->getPrimitiveType());
         const core::aabbox3df oldBBox = (*it)->getBoundingBox();
-        if ((*it)->getMeshBufferType() != scene::EMBT_ANIMATED_SKINNED)
+        if ((*it)->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
             (*it)->recalculateBoundingBox();
         gpuMeshBuf->setBoundingBox((*it)->getBoundingBox());
-        if ((*it)->getMeshBufferType() != scene::EMBT_ANIMATED_SKINNED)
+        if ((*it)->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
             (*it)->setBoundingBox(oldBBox);
         res.push_back(gpuMeshBuf);
 
@@ -228,13 +227,13 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             scene::IGPUMeshDataFormatDesc* vao = m_driver->createGPUMeshDataFormatDesc();
             res[i]->setMeshDataAndFormat(vao);
             vao->drop();
-            for (size_t k = 0u; k < scene::EVAI_COUNT; ++k)
+            for (size_t k = 0u; k < asset::EVAI_COUNT; ++k)
             {
                 if (vaoConf.oldbuffer[k])
                 {
                     vao->setVertexAttrBuffer(
                         gpuBufDeps[bufRedir[j]],
-                        scene::E_VERTEX_ATTRIBUTE_ID(k),
+                        asset::E_VERTEX_ATTRIBUTE_ID(k),
                         vaoConf.formats[k],
                         vaoConf.strides[k],
                         vaoConf.offsets[k],
@@ -317,7 +316,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::IC
         asset::ICPUTexture* cpuTex = *it;
         ITexture* t = m_driver->createGPUTexture(cpuTex->getType(), cpuTex->getSize(), cpuTex->getHighestMip() ? cpuTex->getHighestMip()+1 : 0, cpuTex->getColorFormat());
 
-        for (const CImageData* img : cpuTex->getMipmaps())
+        for (const asset::CImageData* img : cpuTex->getMipmaps())
         {
             t->updateSubRegion(img->getColorFormat(), img->getData(), img->getSliceMin(), img->getSliceMax(), img->getSupposedMipLevel(), img->getUnpackAlignment());
         }

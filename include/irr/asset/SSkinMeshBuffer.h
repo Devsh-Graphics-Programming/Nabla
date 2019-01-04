@@ -33,7 +33,7 @@ class SCPUSkinMeshBuffer : public ICPUMeshBuffer
 			return asset::CorrespondingBlobTypeFor<SCPUSkinMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}
 
-        virtual scene::E_MESH_BUFFER_TYPE getMeshBufferType() const override { return scene::EMBT_ANIMATED_SKINNED; }
+        virtual asset::E_MESH_BUFFER_TYPE getMeshBufferType() const override { return asset::EMBT_ANIMATED_SKINNED; }
 
         inline void setIndexRange(const uint32_t &minBeforeBaseVxAdd, const uint32_t &maxBeforeBaseVxAdd)
         {

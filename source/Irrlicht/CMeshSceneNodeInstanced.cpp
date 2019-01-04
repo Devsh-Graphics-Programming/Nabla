@@ -34,7 +34,7 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
     renderPriority = 0x80000000u;
 
     lodCullingPointMesh = new IGPUMeshBuffer();
-    lodCullingPointMesh->setPrimitiveType(EPT_POINTS);
+    lodCullingPointMesh->setPrimitiveType(asset::EPT_POINTS);
 }
 
 //! destructor
@@ -134,10 +134,10 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         uint32_t floatComponents = extraDataInstanceSize+1;
         floatComponents /= 4;
         floatComponents += 12+9;
-        if (floatComponents>EVAI_COUNT*4)
+        if (floatComponents>asset::EVAI_COUNT*4)
         {
-            for (uint32_t i=0; i<EVAI_COUNT; i++)
-                vao->setVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)i,video::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,i*16);
+            for (uint32_t i=0; i<asset::EVAI_COUNT; i++)
+                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)i,video::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,i*16);
         }
         else
         {
@@ -145,7 +145,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             uint32_t attr = 0;
             for (; attr*4+3<floatComponents; attr++)
             {
-                vao->setVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)attr,video::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16);
+                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)attr,video::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16);
                 memoryUsed+=16;
             }
             memoryUsed -= (12+9)*4;
@@ -163,7 +163,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             };
 
             //assume a padding of 4 at the end
-            vao->setVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)attr,convertFunc(((leftOverMemory+3)/4)),dataPerInstanceInputSize,attr*16);
+            vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)attr,convertFunc(((leftOverMemory+3)/4)),dataPerInstanceInputSize,attr*16);
         }
     }
 
@@ -191,7 +191,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             meshBuff->setIndexType(origBuff->getIndexType());
             meshBuff->setPrimitiveType(origBuff->getPrimitiveType());
 
-            IMeshDataFormatDesc<video::IGPUBuffer>* vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
+            asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
             meshBuff->setMeshDataAndFormat(vao);
             vao->drop();
 
@@ -449,7 +449,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam) = i*gpuLoDsPerPass;
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam2) = i*gpuLoDsPerPass+gpuLoDsPerPass-1;
             driver->setMaterial(lodCullingPointMesh->getMaterial());
-            driver->beginTransformFeedback(xfb[i],lodCullingPointMesh->getMaterial().MaterialType,scene::EPT_POINTS);
+            driver->beginTransformFeedback(xfb[i],lodCullingPointMesh->getMaterial().MaterialType,asset::EPT_POINTS);
             for (size_t j=0; j<gpuLoDsPerPass&&(i*gpuLoDsPerPass+j)<LoD.size(); j++)
                 driver->beginQuery(LoD[i*gpuLoDsPerPass+j].query,j);
             driver->drawMeshBuffer(lodCullingPointMesh);

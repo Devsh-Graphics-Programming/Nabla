@@ -37,13 +37,12 @@ private:
 
         SBlobData_t(HeaderT* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
 		~SBlobData_t() { _IRR_ALIGNED_FREE(heapBlob); }
+
 		bool validate() const {
 			validated = false;
 			return validated ? true : (validated = (heapBlob && header->validate(heapBlob)));
 		}
-	private:
-		// a bit dangerous to leave it copyable but until c++11 I have to to be able to store it in unordered_map
-		// SBlobData(const SBlobData&) {}
+
         SBlobData_t<HeaderT>& operator=(const SBlobData_t<HeaderT>&) = delete;
 	};
     using SBlobData = SBlobData_t<asset::BlobHeaderV1>;
@@ -54,6 +53,7 @@ private:
 		{
 			for (auto it = createdObjs.begin(); it != createdObjs.end(); ++it)
 				loadingMgr.releaseObj(blobs[it->first].header->blobType, it->second);
+            createdObjs.clear();
 		}
 		void releaseAllButThisOne(core::unordered_map<uint64_t, SBlobData>::iterator _thisIt)
 		{
@@ -63,6 +63,7 @@ private:
 				if (it->first != theHandle)
 					loadingMgr.releaseObj(blobs[it->first].header->blobType, it->second);
 			}
+            createdObjs.clear();
 		}
 
         asset::IAssetLoader::SAssetLoadContext inner;

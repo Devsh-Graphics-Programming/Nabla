@@ -776,25 +776,25 @@ void CNullDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
     uint32_t increment = mb->getInstanceCount();
     switch (mb->getPrimitiveType())
     {
-        case scene::EPT_POINTS:
+        case asset::EPT_POINTS:
             increment *= mb->getIndexCount();
             break;
-        case scene::EPT_LINE_STRIP:
+        case asset::EPT_LINE_STRIP:
             increment *= mb->getIndexCount()-1;
             break;
-        case scene::EPT_LINE_LOOP:
+        case asset::EPT_LINE_LOOP:
             increment *= mb->getIndexCount();
             break;
-        case scene::EPT_LINES:
+        case asset::EPT_LINES:
             increment *= mb->getIndexCount()/2;
             break;
-        case scene::EPT_TRIANGLE_STRIP:
+        case asset::EPT_TRIANGLE_STRIP:
             increment *= mb->getIndexCount()-2;
             break;
-        case scene::EPT_TRIANGLE_FAN:
+        case asset::EPT_TRIANGLE_FAN:
             increment *= mb->getIndexCount()-2;
             break;
-        case scene::EPT_TRIANGLES:
+        case asset::EPT_TRIANGLES:
             increment *= mb->getIndexCount()/3;
             break;
     }
@@ -803,16 +803,16 @@ void CNullDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
 
 
 //! Indirect Draw
-void CNullDriver::drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                     const scene::E_PRIMITIVE_TYPE& mode,
+void CNullDriver::drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                     const asset::E_PRIMITIVE_TYPE& mode,
                                      const IGPUBuffer* indirectDrawBuff,
                                      const size_t& offset, const size_t& count, const size_t& stride)
 {
 }
 
-void CNullDriver::drawIndexedIndirect(  const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const scene::E_PRIMITIVE_TYPE& mode,
-                                        const scene::E_INDEX_TYPE& type,
+void CNullDriver::drawIndexedIndirect(  const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const asset::E_PRIMITIVE_TYPE& mode,
+                                        const asset::E_INDEX_TYPE& type,
                                         const IGPUBuffer* indirectDrawBuff,
                                         const size_t& offset, const size_t& count, const size_t& stride)
 {
@@ -1318,7 +1318,7 @@ void CNullDriver::bindTransformFeedback(ITransformFeedback* xformFeedback)
     os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
 }
 
-void CNullDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType)
+void CNullDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType)
 {
     os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
 }

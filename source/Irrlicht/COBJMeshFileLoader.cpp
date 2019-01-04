@@ -403,7 +403,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
         meshbuffer->getMaterial() = ctx.Materials[m]->Material;
 
-        ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
+        asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
         meshbuffer->setMeshDataAndFormat(desc);
         desc->drop();
 
@@ -435,14 +435,14 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             indexbuf->drop();
             memcpy(indexbuf->getPointer(),&ctx.Materials[m]->Indices[0],indexbuf->getSize());
 
-            meshbuffer->setIndexType(EIT_32BIT);
+            meshbuffer->setIndexType(asset::EIT_32BIT);
             meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size());
         }
 
         vertexbuf = new asset::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
-        desc->setVertexAttrBuffer(vertexbuf,EVAI_ATTR0,video::EF_R32G32B32_SFLOAT,sizeof(SObjVertex),0);
-        desc->setVertexAttrBuffer(vertexbuf,EVAI_ATTR2,video::EF_R32G32_SFLOAT,sizeof(SObjVertex),12);
-        desc->setVertexAttrBuffer(vertexbuf,EVAI_ATTR3,video::EF_A2B10G10R10_SSCALED_PACK32,sizeof(SObjVertex),20); //normal
+        desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR0,video::EF_R32G32B32_SFLOAT,sizeof(SObjVertex),0);
+        desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR2,video::EF_R32G32_SFLOAT,sizeof(SObjVertex),12);
+        desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR3,video::EF_A2B10G10R10_SSCALED_PACK32,sizeof(SObjVertex),20); //normal
         memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
 

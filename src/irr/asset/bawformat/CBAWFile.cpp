@@ -260,7 +260,7 @@ size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize() const
 
 // .baw VERSION 1
 
-MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc) : attrDivisor{0u}
+MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc) : attrDivisor{0u}
 {
     using namespace scene;
 
@@ -305,7 +305,7 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacy::MeshData
 }
 
 template<>
-size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV1, scene::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
+size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
 {
     return sizeof(MeshDataFormatDescBlobV1);
 }

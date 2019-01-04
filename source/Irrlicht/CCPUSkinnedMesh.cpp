@@ -148,11 +148,11 @@ void CCPUSkinnedMesh::checkForAnimation()
 		    if (!buff)
                 continue;
 
-			scene::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
+            asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
 			if (!desc)
                 continue;
 
-            if (desc->getMappedBuffer(scene::EVAI_ATTR5)&&desc->getMappedBuffer(scene::EVAI_ATTR6))
+            if (desc->getMappedBuffer(asset::EVAI_ATTR5)&&desc->getMappedBuffer(asset::EVAI_ATTR6))
             {
                 HasAnimation = true;
                 break;
@@ -217,9 +217,9 @@ void CCPUSkinnedMesh::finalize()
 	bool firstStaticMesh = true;
 	for (auto buff : LocalBuffers)
 	{
-	    scene::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
+        asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
 
-        if (!desc->getMappedBuffer(scene::EVAI_ATTR5) || !desc->getMappedBuffer(scene::EVAI_ATTR6))
+        if (!desc->getMappedBuffer(asset::EVAI_ATTR5) || !desc->getMappedBuffer(asset::EVAI_ATTR6))
         {
             buff->recalculateBoundingBox();
             buff->setMaxVertexBoneInfluences(0);
@@ -243,7 +243,7 @@ void CCPUSkinnedMesh::finalize()
             {
                 core::vectorSIMDf origPos, boneWeights;
 				uint32_t boneIDs[4];
-                if (!buff->getAttribute(origPos,scene::EVAI_ATTR0,j) || !buff->getAttribute(boneIDs,scene::EVAI_ATTR5,j) || !buff->getAttribute(boneWeights,scene::EVAI_ATTR6,j))
+                if (!buff->getAttribute(origPos,asset::EVAI_ATTR0,j) || !buff->getAttribute(boneIDs,asset::EVAI_ATTR5,j) || !buff->getAttribute(boneWeights,asset::EVAI_ATTR6,j))
                     continue;
 
                 size_t boneID = size_t(boneIDs[0]);
@@ -333,24 +333,24 @@ void CCPUSkinnedMesh::finalize()
         // fix the weights
         for (auto buff : LocalBuffers)
         {
-            scene::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
+            asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
             if (!desc)
                 continue;
 
-            if (!desc->getMappedBuffer(scene::EVAI_ATTR5))
+            if (!desc->getMappedBuffer(asset::EVAI_ATTR5))
                 continue;
 
             for (size_t j=buff->getIndexMinBound(); j<buff->getIndexMaxBound(); j++)
             {
 				uint32_t boneIDs[4];
-                if (!buff->getAttribute(boneIDs,scene::EVAI_ATTR5,j))
+                if (!buff->getAttribute(boneIDs,asset::EVAI_ATTR5,j))
                     continue;
 
                 uint32_t newBoneIDs[4];
                 for (size_t k=0; k<4; k++)
                     newBoneIDs[k] = reorderIndexRedirect[boneIDs[k]];
 
-                buff->setAttribute(newBoneIDs,scene::EVAI_ATTR5,j);
+                buff->setAttribute(newBoneIDs,asset::EVAI_ATTR5,j);
             }
         }
 	}

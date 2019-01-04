@@ -14,11 +14,11 @@ asset::ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBu
 	if (!_inbuffer)
 		return NULL;
 
-	const E_INDEX_TYPE indexType = _inbuffer->getIndexType();
-	if (indexType == EIT_UNKNOWN)
+	const asset::E_INDEX_TYPE indexType = _inbuffer->getIndexType();
+	if (indexType == asset::EIT_UNKNOWN)
 		return NULL;
 
-	const size_t indexSize = indexType == EIT_16BIT ? 2u : 4u;
+	const size_t indexSize = indexType == asset::EIT_16BIT ? 2u : 4u;
 
 	asset::ICPUMeshBuffer* outbuffer = _createNew ? CMeshManipulator().createMeshBufferDuplicate(_inbuffer) : _inbuffer;
 
@@ -46,17 +46,17 @@ asset::ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBu
 	}
 
 	uint32_t* const hardClusters = (uint32_t*)_IRR_ALIGNED_MALLOC((idxCount/3) * 4,_IRR_SIMD_ALIGNMENT);
-	const size_t hardClusterCount = indexType == EIT_16BIT ?
+	const size_t hardClusterCount = indexType == asset::EIT_16BIT ?
 		genHardBoundaries(hardClusters, (uint16_t*)indices, idxCount, vertexCount) :
 		genHardBoundaries(hardClusters, (uint32_t*)indices, idxCount, vertexCount);
 
 	uint32_t* const softClusters = (uint32_t*)_IRR_ALIGNED_MALLOC((idxCount/3 + 1) * 4,_IRR_SIMD_ALIGNMENT);
-	const size_t softClusterCount = indexType == EIT_16BIT ?
+	const size_t softClusterCount = indexType == asset::EIT_16BIT ?
 		genSoftBoundaries(softClusters, (uint16_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold) :
 		genSoftBoundaries(softClusters, (uint32_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold);
 
 	ClusterSortData* sortedData = (ClusterSortData*)_IRR_ALIGNED_MALLOC(softClusterCount*sizeof(ClusterSortData),_IRR_SIMD_ALIGNMENT);
-	if (indexType == EIT_16BIT)
+	if (indexType == asset::EIT_16BIT)
 		calcSortData(sortedData, (uint16_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
 	else
 		calcSortData(sortedData, (uint32_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
@@ -70,7 +70,7 @@ asset::ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBu
 		size_t start = softClusters[cluster];
 		size_t end = (cluster+1 < softClusterCount) ? softClusters[cluster+1] : idxCount/3;
 
-		if (indexType == EIT_16BIT)
+		if (indexType == asset::EIT_16BIT)
 		{
 			for (size_t i = start; i < end; ++i)
 			{

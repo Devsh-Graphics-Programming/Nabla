@@ -114,7 +114,7 @@ namespace scene
         @param _idxCount Index count.
         @param _idxType Type of indices (16bit or 32bit).
         */
-        virtual asset::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const = 0;
+        virtual asset::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, asset::E_INDEX_TYPE _idxType) const = 0;
 
         //! Creates index buffer from input converting it to indices for triangle primitives. Input is assumed to be indices for triangle fan.
         /**
@@ -122,7 +122,7 @@ namespace scene
         @param _idxCount Index count.
         @param _idxType Type of indices (16bit or 32bit).
         */
-        virtual asset::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const = 0;
+        virtual asset::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, asset::E_INDEX_TYPE _idxType) const = 0;
 
         //! Compares two attributes of floating point types in accordance with passed error metric.
         /**
@@ -138,7 +138,7 @@ namespace scene
 		\param Outputted Number of polygons in mesh buffer, if successful.
 		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
 		template<typename T>
-		static bool getPolyCount(uint32_t& outCount, IMeshBuffer<T>* meshbuffer);
+		static bool getPolyCount(uint32_t& outCount, asset::IMeshBuffer<T>* meshbuffer);
 
 		//! Get amount of polygons in mesh.
 		/** \param meshbuffer Input mesh

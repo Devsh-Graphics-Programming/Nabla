@@ -419,13 +419,13 @@ namespace video
 
         virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb);
 
-		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const scene::E_PRIMITIVE_TYPE& mode,
+		virtual void drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const asset::E_PRIMITIVE_TYPE& mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         const size_t& offset, const size_t& count, const size_t& stride);
-		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                            const scene::E_PRIMITIVE_TYPE& mode,
-                                            const scene::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
+		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                            const asset::E_PRIMITIVE_TYPE& mode,
+                                            const asset::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
                                             const size_t& offset, const size_t& count, const size_t& stride);
 
 
@@ -547,7 +547,7 @@ namespace video
         /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
         This issues an implicit call to bindTransformFeedback()
         **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType=scene::EPT_POINTS);
+		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType= asset::EPT_POINTS);
 
 		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
 		virtual void pauseTransformFeedback();
@@ -734,10 +734,10 @@ namespace video
             **/
             class COpenGLVAO : public core::AllocationOverrideDefault
             {
-                    size_t                      attrOffset[scene::EVAI_COUNT];
-                    uint32_t                    attrStride[scene::EVAI_COUNT];
+                    size_t                      attrOffset[asset::EVAI_COUNT];
+                    uint32_t                    attrStride[asset::EVAI_COUNT];
                     //vertices
-                    const COpenGLBuffer*        mappedAttrBuf[scene::EVAI_COUNT];
+                    const COpenGLBuffer*        mappedAttrBuf[asset::EVAI_COUNT];
                     //indices
                     const COpenGLBuffer*        mappedIndexBuf;
 
@@ -782,8 +782,8 @@ namespace video
 
                     void bindBuffers(   const COpenGLBuffer* indexBuf,
                                         const COpenGLBuffer* const* attribBufs,
-                                        const size_t offsets[scene::EVAI_COUNT],
-                                        const size_t strides[scene::EVAI_COUNT]);
+                                        const size_t offsets[asset::EVAI_COUNT],
+                                        const size_t strides[asset::EVAI_COUNT]);
 
                     inline const uint64_t& getLastBoundStamp() const {return lastValidated;}
 

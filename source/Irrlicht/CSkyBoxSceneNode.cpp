@@ -123,24 +123,24 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 	for (size_t i=0; i<6; i++)
     {
         sides[i] = new IGPUMeshBuffer();
-        sides[i]->setPrimitiveType(EPT_TRIANGLE_FAN);
+        sides[i]->setPrimitiveType(asset::EPT_TRIANGLE_FAN);
         sides[i]->setIndexCount(4);
         IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
         sides[i]->setMeshDataAndFormat(desc);
         desc->drop();
     }
-    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf);
-    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
-    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*1);
-    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
-    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*2);
-    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
-    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*3);
-    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
-    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*4);
-    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
-    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*5);
-    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,video::EF_R32G32_SFLOAT,0,2*4*sizeof(float));
+    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf);
+    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
+    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*1);
+    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
+    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*2);
+    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
+    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*3);
+    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
+    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*4);
+    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
+    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,video::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*5);
+    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,video::EF_R32G32_SFLOAT,0,2*4*sizeof(float));
     texcoordBuf->drop();
 }
 

@@ -64,12 +64,12 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
         return;
 
 
-    if (inbuffer->getIndexType() == EIT_16BIT)
+    if (inbuffer->getIndexType() == asset::EIT_16BIT)
     {
         uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
         switch (inbuffer->getPrimitiveType())
         {
-        case EPT_TRIANGLE_FAN:
+        case asset::EPT_TRIANGLE_FAN:
             for (uint32_t i=1; i<idxcnt; i+=2)
             {
                 const uint16_t tmp = idx[i];
@@ -77,7 +77,7 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
                 idx[i+1] = tmp;
             }
             break;
-        case EPT_TRIANGLE_STRIP:
+        case asset::EPT_TRIANGLE_STRIP:
             if (idxcnt%2) //odd
             {
                 for (uint32_t i=0; i<(idxcnt>>1); i++)
@@ -98,7 +98,7 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
                 newIndexBuffer->drop();
             }
             break;
-        case EPT_TRIANGLES:
+        case asset::EPT_TRIANGLES:
             for (uint32_t i=0; i<idxcnt; i+=3)
             {
                 const uint16_t tmp = idx[i+1];
@@ -108,12 +108,12 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
             break;
         }
     }
-    else if (inbuffer->getIndexType() == EIT_32BIT)
+    else if (inbuffer->getIndexType() == asset::EIT_32BIT)
     {
         uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
         switch (inbuffer->getPrimitiveType())
         {
-        case EPT_TRIANGLE_FAN:
+        case asset::EPT_TRIANGLE_FAN:
             for (uint32_t i=1; i<idxcnt; i+=2)
             {
                 const uint32_t tmp = idx[i];
@@ -121,7 +121,7 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
                 idx[i+1] = tmp;
             }
             break;
-        case EPT_TRIANGLE_STRIP:
+        case asset::EPT_TRIANGLE_STRIP:
             if (idxcnt%2) //odd
             {
                 for (uint32_t i=0; i<(idxcnt>>1); i++)
@@ -142,7 +142,7 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
                 newIndexBuffer->drop();
             }
             break;
-        case EPT_TRIANGLES:
+        case asset::EPT_TRIANGLES:
             for (uint32_t i=0; i<idxcnt; i+=3)
             {
                 const uint32_t tmp = idx[i+1];
@@ -524,28 +524,28 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 		return NULL;
 
 	asset::ICPUMeshBuffer* outbuffer = createMeshBufferDuplicate(_inbuffer);
-	IMeshDataFormatDesc<asset::ICPUBuffer>* outDesc = outbuffer->getMeshDataAndFormat();
+    asset::IMeshDataFormatDesc<asset::ICPUBuffer>* outDesc = outbuffer->getMeshDataAndFormat();
 
 	// Find vertex count
 	size_t vertexCount = _inbuffer->calcVertexCount();
 	const void* ind = _inbuffer->getIndices();
 
 	core::unordered_set<const asset::ICPUBuffer*> buffers;
-	for (size_t i = 0; i < EVAI_COUNT; ++i)
-		buffers.insert(outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i));
+	for (size_t i = 0; i < asset::EVAI_COUNT; ++i)
+		buffers.insert(outDesc->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i));
 
-	size_t offsets[EVAI_COUNT];
+	size_t offsets[asset::EVAI_COUNT];
 	memset(offsets, -1, sizeof(offsets));
-	video::E_FORMAT types[EVAI_COUNT];
+	video::E_FORMAT types[asset::EVAI_COUNT];
 	if (buffers.size() != 1)
 	{
 		size_t lastOffset = 0u;
 		size_t lastSize = 0u;
-		for (size_t i = 0; i < EVAI_COUNT; ++i)
+		for (size_t i = 0; i < asset::EVAI_COUNT; ++i)
 		{
-			if (outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
+			if (outDesc->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i))
 			{
-				types[i] = outDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
+				types[i] = outDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i);
 
                 const uint32_t typeSz = video::getTexelOrBlockSize(types[i]);
                 const size_t alignment = (typeSz/video::getFormatChannelCount(types[i]) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
@@ -561,31 +561,31 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 		const size_t vertexSize = lastOffset + lastSize;
 
 		asset::ICPUBuffer* newVertBuffer = new asset::ICPUBuffer(vertexCount*vertexSize);
-		for (size_t i = 0; i < EVAI_COUNT; ++i)
+		for (size_t i = 0; i < asset::EVAI_COUNT; ++i)
 		{
 			if (offsets[i] < 0xffffffff)
 			{
-				outDesc->setVertexAttrBuffer(newVertBuffer, (E_VERTEX_ATTRIBUTE_ID)i, types[i], vertexSize, offsets[i]);
+				outDesc->setVertexAttrBuffer(newVertBuffer, (asset::E_VERTEX_ATTRIBUTE_ID)i, types[i], vertexSize, offsets[i]);
 			}
 		}
 	}
 	outbuffer->setBaseVertex(0);
 
-	core::vector<E_VERTEX_ATTRIBUTE_ID> activeAttribs;
-	for (size_t i = 0; i < EVAI_COUNT; ++i)
-		if (outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
-			activeAttribs.push_back((E_VERTEX_ATTRIBUTE_ID)i);
+	core::vector<asset::E_VERTEX_ATTRIBUTE_ID> activeAttribs;
+	for (size_t i = 0; i < asset::EVAI_COUNT; ++i)
+		if (outDesc->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i))
+			activeAttribs.push_back((asset::E_VERTEX_ATTRIBUTE_ID)i);
 
 	uint32_t* remapBuffer = (uint32_t*)_IRR_ALIGNED_MALLOC(vertexCount*4,_IRR_SIMD_ALIGNMENT);
 	memset(remapBuffer, 0xffffffffu, vertexCount*4);
 
-	const E_INDEX_TYPE idxType = outbuffer->getIndexType();
+	const asset::E_INDEX_TYPE idxType = outbuffer->getIndexType();
 	void* indices = outbuffer->getIndices();
 	size_t nextVert = 0u;
 
 	for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
 	{
-		const uint32_t index = idxType == EIT_32BIT ? ((uint32_t*)indices)[i] : ((uint16_t*)indices)[i];
+		const uint32_t index = idxType == asset::EIT_32BIT ? ((uint32_t*)indices)[i] : ((uint16_t*)indices)[i];
 
 		uint32_t& remap = remapBuffer[index];
 
@@ -598,21 +598,21 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
                 if (!video::isNormalizedFormat(type) && (video::isIntegerFormat(type) || video::isScaledFormat(type)))
 				{
 					uint32_t dst[4];
-					_inbuffer->getAttribute(dst, (E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], index);
-					outbuffer->setAttribute(dst, (E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], nextVert);
+					_inbuffer->getAttribute(dst, (asset::E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], index);
+					outbuffer->setAttribute(dst, (asset::E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], nextVert);
 				}
 				else
 				{
 					core::vectorSIMDf dst;
-					_inbuffer->getAttribute(dst, (E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], index);
-					outbuffer->setAttribute(dst, (E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], nextVert);
+					_inbuffer->getAttribute(dst, (asset::E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], index);
+					outbuffer->setAttribute(dst, (asset::E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], nextVert);
 				}
 			}
 
 			remap = nextVert++;
 		}
 
-		if (idxType == EIT_32BIT)
+		if (idxType == asset::EIT_32BIT)
 			((uint32_t*)indices)[i] = remap;
 		else
 			((uint16_t*)indices)[i] = remap;
@@ -630,7 +630,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
 {
 	if (!inbuffer)
 		return 0;
-    IMeshDataFormatDesc<asset::ICPUBuffer>* oldDesc = inbuffer->getMeshDataAndFormat();
+    asset::IMeshDataFormatDesc<asset::ICPUBuffer>* oldDesc = inbuffer->getMeshDataAndFormat();
     if (!oldDesc)
         return 0;
 
@@ -643,26 +643,26 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
     asset::ICPUMeshBuffer* clone = new asset::ICPUMeshBuffer();
     clone->setBoundingBox(inbuffer->getBoundingBox());
     clone->setIndexCount(idxCnt);
-    const E_PRIMITIVE_TYPE ept = inbuffer->getPrimitiveType();
+    const asset::E_PRIMITIVE_TYPE ept = inbuffer->getPrimitiveType();
     clone->setPrimitiveType(ept);
     clone->getMaterial() = inbuffer->getMaterial();
 
-    ICPUMeshDataFormatDesc* desc = new ICPUMeshDataFormatDesc();
+    asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
     clone->setMeshDataAndFormat(desc);
     desc->drop();
 
     size_t stride = 0;
-    int32_t offset[EVAI_COUNT];
-    size_t newAttribSizes[EVAI_COUNT];
-    uint8_t* sourceBuffers[EVAI_COUNT] = {NULL};
-    size_t sourceBufferStrides[EVAI_COUNT];
-    for (size_t i=0; i<EVAI_COUNT; i++)
+    int32_t offset[asset::EVAI_COUNT];
+    size_t newAttribSizes[asset::EVAI_COUNT];
+    uint8_t* sourceBuffers[asset::EVAI_COUNT] = {NULL};
+    size_t sourceBufferStrides[asset::EVAI_COUNT];
+    for (size_t i=0; i< asset::EVAI_COUNT; i++)
     {
-        const asset::ICPUBuffer* vbuf = oldDesc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)i);
+        const asset::ICPUBuffer* vbuf = oldDesc->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i);
         if (vbuf)
         {
             offset[i] = stride;
-            newAttribSizes[i] = video::getTexelOrBlockSize(oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
+            newAttribSizes[i] = video::getTexelOrBlockSize(oldDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i));
             stride += newAttribSizes[i];
             if (stride>=0xdeadbeefu)
             {
@@ -670,27 +670,27 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
                 return 0;
             }
             sourceBuffers[i] = (uint8_t*)vbuf->getPointer();
-            sourceBuffers[i] += oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i);
-            sourceBufferStrides[i] = oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i);
+            sourceBuffers[i] += oldDesc->getMappedBufferOffset((asset::E_VERTEX_ATTRIBUTE_ID)i);
+            sourceBufferStrides[i] = oldDesc->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)i);
         }
         else
             offset[i] = -1;
     }
 
     asset::ICPUBuffer* vertexBuffer = new asset::ICPUBuffer(stride*idxCnt);
-    for (size_t i=0; i<EVAI_COUNT; i++)
+    for (size_t i=0; i<asset::EVAI_COUNT; i++)
     {
         if (offset[i]>=0)
-            desc->setVertexAttrBuffer(vertexBuffer,(E_VERTEX_ATTRIBUTE_ID)i,oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),stride,offset[i]);
+            desc->setVertexAttrBuffer(vertexBuffer,(asset::E_VERTEX_ATTRIBUTE_ID)i,oldDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i),stride,offset[i]);
     }
     vertexBuffer->drop();
 
     uint8_t* destPointer = (uint8_t*)vertexBuffer->getPointer();
-    if (inbuffer->getIndexType()==EIT_16BIT)
+    if (inbuffer->getIndexType()==asset::EIT_16BIT)
     {
         uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
         for (uint64_t i=0; i<idxCnt; i++,idx++)
-        for (size_t j=0; j<EVAI_COUNT; j++)
+        for (size_t j=0; j<asset::EVAI_COUNT; j++)
         {
             if (offset[j]<0)
                 continue;
@@ -699,11 +699,11 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
             destPointer += newAttribSizes[j];
         }
     }
-    else if (inbuffer->getIndexType()==EIT_32BIT)
+    else if (inbuffer->getIndexType()==asset::EIT_32BIT)
     {
         uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
         for (uint64_t i=0; i<idxCnt; i++,idx++)
-        for (size_t j=0; j<EVAI_COUNT; j++)
+        for (size_t j=0; j<asset::EVAI_COUNT; j++)
         {
             if (offset[j]<0)
                 continue;
@@ -725,12 +725,12 @@ static bool cmpVertices(asset::ICPUMeshBuffer* _inbuf, const void* _va, const vo
 
     const uint8_t* va = (uint8_t*)_va, *vb = (uint8_t*)_vb;
     auto desc = _inbuf->getMeshDataAndFormat();
-    for (size_t i = 0u; i < EVAI_COUNT; ++i)
+    for (size_t i = 0u; i < asset::EVAI_COUNT; ++i)
     {
-        if (!desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
+        if (!desc->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i))
             continue;
 
-        const auto atype = desc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
+        const auto atype = desc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i);
         const auto cpa = video::getFormatChannelCount(atype);
 
         if (video::isIntegerFormat(atype) || video::isScaledFormat(atype))
@@ -763,21 +763,21 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(asset::ICPUMeshB
 {
     if (!inbuffer)
         return nullptr;
-    IMeshDataFormatDesc<asset::ICPUBuffer>* oldDesc = inbuffer->getMeshDataAndFormat();
+    asset::IMeshDataFormatDesc<asset::ICPUBuffer>* oldDesc = inbuffer->getMeshDataAndFormat();
     if (!oldDesc)
         return nullptr;
 
-    bool bufferPresent[EVAI_COUNT];
+    bool bufferPresent[asset::EVAI_COUNT];
 
-    size_t vertexAttrSize[EVAI_COUNT];
+    size_t vertexAttrSize[asset::EVAI_COUNT];
     size_t vertexSize = 0;
-    for (size_t i=0; i<EVAI_COUNT; i++)
+    for (size_t i=0; i<asset::EVAI_COUNT; i++)
     {
-        const asset::ICPUBuffer* buf = oldDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i);
+        const asset::ICPUBuffer* buf = oldDesc->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i);
         bufferPresent[i] = buf;
         if (buf)
         {
-            const video::E_FORMAT componentType = oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
+            const video::E_FORMAT componentType = oldDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i);
             vertexAttrSize[i] = video::getTexelOrBlockSize(componentType);
             vertexSize += vertexAttrSize[i];
         }
@@ -788,7 +788,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(asset::ICPUMeshB
     };
 
     size_t vertexCount = inbuffer->calcVertexCount();
-    E_INDEX_TYPE oldIndexType = inbuffer->getIndexType();
+    asset::E_INDEX_TYPE oldIndexType = inbuffer->getIndexType();
 
     if (vertexCount==0)
     {
@@ -804,13 +804,13 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(asset::ICPUMeshB
     for (size_t i=0; i < vertexCount; i++)
     {
         uint8_t* currentVertexPtr = epicData+i*vertexSize;
-        for (size_t k=0; k<EVAI_COUNT; k++)
+        for (size_t k=0; k<asset::EVAI_COUNT; k++)
         {
             if (!bufferPresent[k])
                 continue;
 
-            size_t stride = oldDesc->getMappedBufferStride((scene::E_VERTEX_ATTRIBUTE_ID)k);
-            void* sourcePtr = inbuffer->getAttribPointer((scene::E_VERTEX_ATTRIBUTE_ID)k)+i*stride;
+            size_t stride = oldDesc->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)k);
+            void* sourcePtr = inbuffer->getAttribPointer((asset::E_VERTEX_ATTRIBUTE_ID)k)+i*stride;
             memcpy(currentVertexPtr,sourcePtr,vertexAttrSize[k]);
             currentVertexPtr += vertexAttrSize[k];
         }
@@ -854,45 +854,45 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(asset::ICPUMeshB
     }
 
 
-    if (oldIndexType==EIT_16BIT)
+    if (oldIndexType==asset::EIT_16BIT)
     {
         uint16_t* indicesIn = reinterpret_cast<uint16_t*>(oldIndices);
-        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_32BIT)
+        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==asset::EIT_32BIT)
         {
             uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
                 indicesOut[i] = redirects[indicesIn[i]];
         }
-        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_16BIT)
+        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==asset::EIT_16BIT)
         {
             uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
                 indicesOut[i] = redirects[indicesIn[i]];
         }
     }
-    else if (oldIndexType==EIT_32BIT)
+    else if (oldIndexType==asset::EIT_32BIT)
     {
         uint32_t* indicesIn = reinterpret_cast<uint32_t*>(oldIndices);
-        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_32BIT)
+        if ((makeNewMesh ? clone:inbuffer)->getIndexType()==asset::EIT_32BIT)
         {
             uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
                 indicesOut[i] = redirects[indicesIn[i]];
         }
-        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_16BIT)
+        else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==asset::EIT_16BIT)
         {
             uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
             for (size_t i=0; i<inbuffer->getIndexCount(); i++)
                 indicesOut[i] = redirects[indicesIn[i]];
         }
     }
-    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_32BIT)
+    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==asset::EIT_32BIT)
     {
         uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
         for (size_t i=0; i<inbuffer->getIndexCount(); i++)
             indicesOut[i] = redirects[i];
     }
-    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==EIT_16BIT)
+    else if ((makeNewMesh ? clone:inbuffer)->getIndexType()==asset::EIT_16BIT)
     {
         uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone:inbuffer)->getIndices());
         for (size_t i=0; i<inbuffer->getIndexCount(); i++)
@@ -921,45 +921,45 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 	if (!outbuffer->getIndices())
 	{
 		asset::ICPUBuffer* ib = new asset::ICPUBuffer(vertexCount * 4);
-		IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
+		asset::IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
 		uint32_t* indices = (uint32_t*)ib->getPointer();
 		for (uint32_t i = 0; i < vertexCount; ++i)
 			indices[i] = i;
 		newDesc->setIndexBuffer(ib);
 		ib->drop();
 		outbuffer->setIndexCount(vertexCount);
-		outbuffer->setIndexType(EIT_32BIT);
+		outbuffer->setIndexType(asset::EIT_32BIT);
 	}
 
 	// make 32bit index buffer if 16bit one is present
-	if (outbuffer->getIndexType() == EIT_16BIT)
+	if (outbuffer->getIndexType() == asset::EIT_16BIT)
 	{
-		IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
+        asset::IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
 		asset::ICPUBuffer* newIb = create32BitFrom16BitIdxBufferSubrange((uint16_t*)outbuffer->getIndices(), outbuffer->getIndexCount());
 		newDesc->setIndexBuffer(newIb);
 		// no need to set index buffer offset to 0 because it already is
-		outbuffer->setIndexType(EIT_32BIT);
+		outbuffer->setIndexType(asset::EIT_32BIT);
 	}
 
 	// convert index buffer for triangle primitives
-	if (outbuffer->getPrimitiveType() == EPT_TRIANGLE_FAN)
+	if (outbuffer->getPrimitiveType() == asset::EPT_TRIANGLE_FAN)
 	{
-		IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
+        asset::IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
 		const asset::ICPUBuffer* ib = newDesc->getIndexBuffer();
-		asset::ICPUBuffer* newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
+		asset::ICPUBuffer* newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), asset::EIT_32BIT);
 		newDesc->setIndexBuffer(newIb);
-		outbuffer->setPrimitiveType(EPT_TRIANGLES);
+		outbuffer->setPrimitiveType(asset::EPT_TRIANGLES);
 		outbuffer->setIndexCount(newIb->getSize() / 4);
 	}
-	else if (outbuffer->getPrimitiveType() == EPT_TRIANGLE_STRIP)
+	else if (outbuffer->getPrimitiveType() == asset::EPT_TRIANGLE_STRIP)
 	{
-		IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
-		asset::ICPUBuffer* newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
+        asset::IMeshDataFormatDesc<asset::ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
+		asset::ICPUBuffer* newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), asset::EIT_32BIT);
 		newDesc->setIndexBuffer(newIb);
-		outbuffer->setPrimitiveType(EPT_TRIANGLES);
+		outbuffer->setPrimitiveType(asset::EPT_TRIANGLES);
 		outbuffer->setIndexCount(newIb->getSize() / 4);
 	}
-	else if (outbuffer->getPrimitiveType() != EPT_TRIANGLES)
+	else if (outbuffer->getPrimitiveType() != asset::EPT_TRIANGLES)
 	{
 		outbuffer->drop();
 		return NULL;
@@ -1025,7 +1025,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 
 		asset::ICPUBuffer* newIdxBuffer = NULL;
 		bool verticesMustBeReordered = false;
-		E_INDEX_TYPE newIdxType = EIT_32BIT;
+        asset::E_INDEX_TYPE newIdxType = asset::EIT_32BIT;
 
 		if (!continuous)
 		{
@@ -1038,12 +1038,12 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 			else
 			{
 				if (maxIdx - minIdx <= USHRT_MAX)
-					newIdxType = EIT_16BIT;
+					newIdxType = asset::EIT_16BIT;
 
 				outbuffer->setIndexType(newIdxType);
 				outbuffer->setBaseVertex(outbuffer->getBaseVertex() + minIdx);
 
-				if (newIdxType == EIT_16BIT)
+				if (newIdxType == asset::EIT_16BIT)
 				{
 					newIdxBuffer = new asset::ICPUBuffer(outbuffer->getIndexCount()*2);
 					// no need to change index buffer offset because it's always 0 (after duplicating original mesh)
@@ -1067,7 +1067,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 		if (verticesMustBeReordered)
 		{
 			// reorder vertices according to index buffer
-#define _ACCESS_IDX(n) ((newIdxType == EIT_32BIT) ? *((uint32_t*)(indices)+(n)) : *((uint16_t*)(indices)+(n)))
+#define _ACCESS_IDX(n) ((newIdxType == asset::EIT_32BIT) ? *((uint32_t*)(indices)+(n)) : *((uint16_t*)(indices)+(n)))
 
 			const size_t vertexSize = outbuffer->getMeshDataAndFormat()->getMappedBufferStride(outbuffer->getPositionAttributeIx());
 			uint8_t* const v = (uint8_t*)(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
@@ -1091,22 +1091,22 @@ asset::ICPUMeshBuffer* CMeshManipulator::createOptimizedMeshBuffer(const asset::
 
 void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const
 {
-	SAttrib newAttribs[EVAI_COUNT];
-	for (size_t i = 0u; i < EVAI_COUNT; ++i)
-		newAttribs[i].vaid = (E_VERTEX_ATTRIBUTE_ID)i;
+	SAttrib newAttribs[asset::EVAI_COUNT];
+	for (size_t i = 0u; i < asset::EVAI_COUNT; ++i)
+		newAttribs[i].vaid = (asset::E_VERTEX_ATTRIBUTE_ID)i;
 
-	core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>> attribsI;
-	core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>> attribsF;
-	for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
+	core::unordered_map<asset::E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>> attribsI;
+	core::unordered_map<asset::E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>> attribsF;
+	for (size_t vaid = asset::EVAI_ATTR0; vaid < (size_t)asset::EVAI_COUNT; ++vaid)
 	{
-		const video::E_FORMAT type = _meshbuffer->getMeshDataAndFormat()->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)vaid);
+		const video::E_FORMAT type = _meshbuffer->getMeshDataAndFormat()->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)vaid);
 
-		if (_meshbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
+		if (_meshbuffer->getMeshDataAndFormat()->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)vaid))
 		{
 			if (!video::isNormalizedFormat(type) && video::isIntegerFormat(type))
-				attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
+				attribsI[(asset::E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (asset::E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
 			else
-				attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
+				attribsF[(asset::E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (asset::E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
 		}
 	}
 
@@ -1115,16 +1115,16 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 #ifdef _DEBUG
 	{
 		core::unordered_set<size_t> sizesSet;
-		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
+		for (core::unordered_map<asset::E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
 			sizesSet.insert(it->second.size());
-		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
+		for (core::unordered_map<asset::E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
 			sizesSet.insert(it->second.size());
 		_IRR_DEBUG_BREAK_IF(sizesSet.size() != 1);
 	}
 #endif
 	const size_t vertexCnt = (!attribsI.empty() ? attribsI.begin()->second.size() : (!attribsF.empty() ? attribsF.begin()->second.size() : 0));
 
-	std::sort(newAttribs, newAttribs + EVAI_COUNT, std::greater<SAttrib>()); // sort decreasing by size
+	std::sort(newAttribs, newAttribs + asset::EVAI_COUNT, std::greater<SAttrib>()); // sort decreasing by size
 
 	for (size_t i = 0u; i < activeAttributeCount; ++i)
 	{
@@ -1138,14 +1138,14 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 
 	const size_t vertexSize = newAttribs[activeAttributeCount - 1].offset + newAttribs[activeAttributeCount - 1].size;
 
-	IMeshDataFormatDesc<asset::ICPUBuffer>* desc = _meshbuffer->getMeshDataAndFormat();
+    asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = _meshbuffer->getMeshDataAndFormat();
 	asset::ICPUBuffer* newVertexBuffer = new asset::ICPUBuffer(vertexCnt * vertexSize);
 
 	for (size_t i = 0u; i < activeAttributeCount; ++i)
 	{
 		desc->setVertexAttrBuffer(newVertexBuffer, newAttribs[i].vaid, newAttribs[i].type, vertexSize, newAttribs[i].offset);
 
-		core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
+		core::unordered_map<asset::E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
 		if (iti != attribsI.end())
 		{
 			const core::vector<SIntegerAttr>& attrVec = iti->second;
@@ -1157,7 +1157,7 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 			continue;
 		}
 
-		core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator itf = attribsF.find(newAttribs[i].vaid);
+		core::unordered_map<asset::E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator itf = attribsF.find(newAttribs[i].vaid);
 		if (itf != attribsF.end())
 		{
 			const core::vector<core::vectorSIMDf>& attrVec = itf->second;
@@ -1241,27 +1241,27 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const asset::
 	asset::ICPUBuffer* idxBuffer = NULL;
 	if (_src->getIndices())
 	{
-		idxBuffer = new asset::ICPUBuffer((_src->getIndexType() == EIT_16BIT ? 2 : 4) * _src->getIndexCount());
+		idxBuffer = new asset::ICPUBuffer((_src->getIndexType() == asset::EIT_16BIT ? 2 : 4) * _src->getIndexCount());
 		memcpy(idxBuffer->getPointer(), _src->getIndices(), idxBuffer->getSize());
 		dst->setIndexBufferOffset(0);
 	}
 
-	ICPUMeshDataFormatDesc* newDesc = new ICPUMeshDataFormatDesc();
-	const IMeshDataFormatDesc<asset::ICPUBuffer>* oldDesc = _src->getMeshDataAndFormat();
+    asset::ICPUMeshDataFormatDesc* newDesc = new asset::ICPUMeshDataFormatDesc();
+	const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* oldDesc = _src->getMeshDataAndFormat();
 
-	core::unordered_map<const asset::ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID> oldBuffers;
+	core::unordered_map<const asset::ICPUBuffer*, asset::E_VERTEX_ATTRIBUTE_ID> oldBuffers;
 	core::vector<asset::ICPUBuffer*> newBuffers;
-	for (size_t i = 0; i < EVAI_COUNT; ++i)
+	for (size_t i = 0; i < asset::EVAI_COUNT; ++i)
 	{
-		const asset::ICPUBuffer* oldBuf = oldDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i);
+		const asset::ICPUBuffer* oldBuf = oldDesc->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i);
 		if (!oldBuf)
 			continue;
 		asset::ICPUBuffer* newBuf = NULL;
 
-		core::unordered_map<const asset::ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID>::iterator itr = oldBuffers.find(oldBuf);
+		core::unordered_map<const asset::ICPUBuffer*, asset::E_VERTEX_ATTRIBUTE_ID>::iterator itr = oldBuffers.find(oldBuf);
 		if (itr == oldBuffers.end())
 		{
-			oldBuffers[oldBuf] = (E_VERTEX_ATTRIBUTE_ID)i;
+			oldBuffers[oldBuf] = (asset::E_VERTEX_ATTRIBUTE_ID)i;
 			newBuf = new asset::ICPUBuffer(oldBuf->getSize());
 			memcpy(newBuf->getPointer(), oldBuf->getPointer(), newBuf->getSize());
 			newBuffers.push_back(newBuf);
@@ -1271,8 +1271,8 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferDuplicate(const asset::
 			newBuf = const_cast<asset::ICPUBuffer*>(newDesc->getMappedBuffer(itr->second));
 		}
 
-		newDesc->setVertexAttrBuffer(newBuf, (E_VERTEX_ATTRIBUTE_ID)i, oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),
-			oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getAttribDivisor((E_VERTEX_ATTRIBUTE_ID)i));
+		newDesc->setVertexAttrBuffer(newBuf, (asset::E_VERTEX_ATTRIBUTE_ID)i, oldDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i),
+			oldDesc->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getMappedBufferOffset((asset::E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getAttribDivisor((asset::E_VERTEX_ATTRIBUTE_ID)i));
 	}
 	if (idxBuffer)
 	{
@@ -1295,9 +1295,9 @@ void CMeshManipulator::filterInvalidTriangles(asset::ICPUMeshBuffer* _input) con
 
     switch (_input->getIndexType())
     {
-    case EIT_16BIT:
+    case asset::EIT_16BIT:
         return priv_filterInvalidTriangles<uint16_t>(_input);
-    case EIT_32BIT:
+    case asset::EIT_32BIT:
         return priv_filterInvalidTriangles<uint32_t>(_input);
     }
 }
@@ -1317,7 +1317,7 @@ void CMeshManipulator::priv_filterInvalidTriangles(asset::ICPUMeshBuffer* _input
     Triangle* const newEnd = std::remove_if(begin, end,
         [&_input](const Triangle& _t) {
             core::vectorSIMDf p0, p1, p2;
-            const E_VERTEX_ATTRIBUTE_ID pvaid = _input->getPositionAttributeIx();
+            const asset::E_VERTEX_ATTRIBUTE_ID pvaid = _input->getPositionAttributeIx();
             uint32_t m = 0xffffffff;
             const core::vectorSIMDu32 mask(m, m, m, 0);
             _input->getAttribute(p0, pvaid, _t.i[0]);
@@ -1354,7 +1354,7 @@ asset::ICPUBuffer* CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(const
 	return out;
 }
 
-core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
+core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, asset::E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
 {
 	const video::E_FORMAT thisType = _meshbuffer->getMeshDataAndFormat()->getAttribFormat(_attrId);
 
@@ -1410,7 +1410,7 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(video::E_FOR
 	return attribs;
 }
 
-core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
+core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, asset::E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
 {
     const video::E_FORMAT thisType = _meshbuffer->getMeshDataAndFormat()->getAttribFormat(_attrId);
 
@@ -1891,11 +1891,11 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	return true;
 }
 
-asset::ICPUBuffer* CMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const
+asset::ICPUBuffer* CMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, asset::E_INDEX_TYPE _idxType) const
 {
-	if (_idxType == EIT_16BIT)
+	if (_idxType == asset::EIT_16BIT)
 		return triangleStripsToTriangles<uint16_t>(_input, _idxCount);
-	else if (_idxType == EIT_32BIT)
+	else if (_idxType == asset::EIT_32BIT)
 		return triangleStripsToTriangles<uint32_t>(_input, _idxCount);
 	return NULL;
 }
@@ -1924,11 +1924,11 @@ asset::ICPUBuffer* CMeshManipulator::triangleStripsToTriangles(const void* _inpu
 template asset::ICPUBuffer* CMeshManipulator::triangleStripsToTriangles<uint16_t>(const void* _input, size_t _idxCount) const;
 template asset::ICPUBuffer* CMeshManipulator::triangleStripsToTriangles<uint32_t>(const void* _input, size_t _idxCount) const;
 
-asset::ICPUBuffer* CMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType) const
+asset::ICPUBuffer* CMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, asset::E_INDEX_TYPE _idxType) const
 {
-	if (_idxType == EIT_16BIT)
+	if (_idxType == asset::EIT_16BIT)
 		return trianglesFanToTriangles<uint16_t>(_input, _idxCount);
-	else if (_idxType == EIT_32BIT)
+	else if (_idxType == asset::EIT_32BIT)
 		return trianglesFanToTriangles<uint32_t>(_input, _idxCount);
 	return NULL;
 }
@@ -2010,7 +2010,7 @@ bool CMeshManipulator::compareFloatingPointAttribute(const core::vectorSIMDf& _a
 }
 
 template<>
-bool IMeshManipulator::getPolyCount<asset::ICPUBuffer>(uint32_t& outCount, IMeshBuffer<asset::ICPUBuffer>* meshbuffer)
+bool IMeshManipulator::getPolyCount<asset::ICPUBuffer>(uint32_t& outCount, asset::IMeshBuffer<asset::ICPUBuffer>* meshbuffer)
 {
     outCount= 0;
     if (meshbuffer)
@@ -2020,25 +2020,25 @@ bool IMeshManipulator::getPolyCount<asset::ICPUBuffer>(uint32_t& outCount, IMesh
 
     switch (meshbuffer->getPrimitiveType())
     {
-        case scene::EPT_POINTS:
+        case asset::EPT_POINTS:
             trianglecount = meshbuffer->getIndexCount();
             break;
-        case scene::EPT_LINE_STRIP:
+        case asset::EPT_LINE_STRIP:
             trianglecount = meshbuffer->getIndexCount()-1;
             break;
-        case scene::EPT_LINE_LOOP:
+        case asset::EPT_LINE_LOOP:
             trianglecount = meshbuffer->getIndexCount();
             break;
-        case scene::EPT_LINES:
+        case asset::EPT_LINES:
             trianglecount = meshbuffer->getIndexCount()/2;
             break;
-        case scene::EPT_TRIANGLE_STRIP:
+        case asset::EPT_TRIANGLE_STRIP:
             trianglecount = meshbuffer->getIndexCount()-2;
             break;
-        case scene::EPT_TRIANGLE_FAN:
+        case asset::EPT_TRIANGLE_FAN:
             trianglecount = meshbuffer->getIndexCount()-2;
             break;
-        case scene::EPT_TRIANGLES:
+        case asset::EPT_TRIANGLES:
             trianglecount = meshbuffer->getIndexCount()/3;
             break;
     }
@@ -2047,7 +2047,7 @@ bool IMeshManipulator::getPolyCount<asset::ICPUBuffer>(uint32_t& outCount, IMesh
     return true;
 }
 template<>
-bool IMeshManipulator::getPolyCount<video::IGPUBuffer>(uint32_t& outCount, IMeshBuffer<video::IGPUBuffer>* meshbuffer)
+bool IMeshManipulator::getPolyCount<video::IGPUBuffer>(uint32_t& outCount, asset::IMeshBuffer<video::IGPUBuffer>* meshbuffer)
 {
     outCount = 0;
     if (meshbuffer)
@@ -2060,25 +2060,25 @@ bool IMeshManipulator::getPolyCount<video::IGPUBuffer>(uint32_t& outCount, IMesh
 
     switch (meshbuffer->getPrimitiveType())
     {
-        case scene::EPT_POINTS:
+        case asset::EPT_POINTS:
             trianglecount = meshbuffer->getIndexCount();
             break;
-        case scene::EPT_LINE_STRIP:
+        case asset::EPT_LINE_STRIP:
             trianglecount = meshbuffer->getIndexCount()-1;
             break;
-        case scene::EPT_LINE_LOOP:
+        case asset::EPT_LINE_LOOP:
             trianglecount = meshbuffer->getIndexCount();
             break;
-        case scene::EPT_LINES:
+        case asset::EPT_LINES:
             trianglecount = meshbuffer->getIndexCount()/2;
             break;
-        case scene::EPT_TRIANGLE_STRIP:
+        case asset::EPT_TRIANGLE_STRIP:
             trianglecount = meshbuffer->getIndexCount()-2;
             break;
-        case scene::EPT_TRIANGLE_FAN:
+        case asset::EPT_TRIANGLE_FAN:
             trianglecount = meshbuffer->getIndexCount()-2;
             break;
-        case scene::EPT_TRIANGLES:
+        case asset::EPT_TRIANGLES:
             trianglecount = meshbuffer->getIndexCount()/3;
             break;
     }

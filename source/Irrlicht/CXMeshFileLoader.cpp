@@ -106,7 +106,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
                 meshbuffer->drop();
 
                 asset::ICPUMeshBuffer* origMeshBuffer = ctx.AnimatedMesh->getMeshBuffer(i);
-                ICPUMeshDataFormatDesc* desc = static_cast<ICPUMeshDataFormatDesc*>(origMeshBuffer->getMeshDataAndFormat());
+                asset::ICPUMeshDataFormatDesc* desc = static_cast<asset::ICPUMeshDataFormatDesc*>(origMeshBuffer->getMeshDataAndFormat());
                 meshbuffer->getMaterial() = origMeshBuffer->getMaterial();
                 meshbuffer->setPrimitiveType(origMeshBuffer->getPrimitiveType());
 
@@ -117,10 +117,10 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
                 {
                     largestVertex = 0;
 
-                    size_t baseVertex = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[0]:((uint16_t*)origMeshBuffer->getIndices())[0];
+                    size_t baseVertex = origMeshBuffer->getIndexType()==asset::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[0]:((uint16_t*)origMeshBuffer->getIndices())[0];
                     for (size_t j=1; j<origMeshBuffer->getIndexCount(); j++)
                     {
-                        uint32_t nextIx = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
+                        uint32_t nextIx = origMeshBuffer->getIndexType()==asset::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                         if (nextIx>largestVertex)
                             largestVertex = nextIx;
 
@@ -136,25 +136,25 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
                 }
 
 
-                E_INDEX_TYPE indexType;
+                asset::E_INDEX_TYPE indexType;
                 if (doesntNeedIndices)
-                    indexType = EIT_UNKNOWN;
+                    indexType = asset::EIT_UNKNOWN;
                 else
                 {
                     asset::ICPUBuffer* indexBuffer;
                     if (largestVertex>=0x10000u)
                     {
-                        indexType = EIT_32BIT;
+                        indexType = asset::EIT_32BIT;
                         indexBuffer = new asset::ICPUBuffer(4*origMeshBuffer->getIndexCount());
                         for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
-                           ((uint32_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
+                           ((uint32_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==asset::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                     }
                     else
                     {
-                        indexType = EIT_16BIT;
+                        indexType = asset::EIT_16BIT;
                         indexBuffer = new asset::ICPUBuffer(2*origMeshBuffer->getIndexCount());
                         for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
-                           ((uint16_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
+                           ((uint16_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==asset::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                     }
                     desc->setIndexBuffer(indexBuffer);
                 }
@@ -162,15 +162,15 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
                 meshbuffer->setMeshDataAndFormat(desc);
 
                 meshbuffer->setPositionAttributeIx(origMeshBuffer->getPositionAttributeIx());
-                for (size_t j=0; j<EVAI_COUNT; j++)
+                for (size_t j=0; j<asset::EVAI_COUNT; j++)
                 {
-                    E_VERTEX_ATTRIBUTE_ID attrId = (E_VERTEX_ATTRIBUTE_ID)j;
+                    asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)j;
                     if (!desc->getMappedBuffer(attrId))
                         continue;
 
-                    if (attrId==EVAI_ATTR3)
+                    if (attrId==asset::EVAI_ATTR3)
                     {
-                        const asset::ICPUBuffer* normalBuffer = desc->getMappedBuffer(EVAI_ATTR3);
+                        const asset::ICPUBuffer* normalBuffer = desc->getMappedBuffer(asset::EVAI_ATTR3);
                         asset::ICPUBuffer* newNormalBuffer = new asset::ICPUBuffer(normalBuffer->getSize()/3);
                         for (size_t k=0; k<newNormalBuffer->getSize()/4; k++)
                         {
@@ -178,7 +178,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
                             simdNormal.set(((core::vector3df*)normalBuffer->getPointer())[k]);
                             ((uint32_t*)newNormalBuffer->getPointer())[k] = quantizeNormal2_10_10_10(simdNormal);
                         }
-                        desc->setVertexAttrBuffer(newNormalBuffer,EVAI_ATTR3,video::EF_A2B10G10R10_SSCALED_PACK32);
+                        desc->setVertexAttrBuffer(newNormalBuffer,asset::EVAI_ATTR3,video::EF_A2B10G10R10_SSCALED_PACK32);
                         newNormalBuffer->drop();
                     }
                 }
@@ -310,44 +310,44 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 
 			if (mesh->FaceMaterialIndices.size() != 0)
 			{
-				scene::ICPUMeshDataFormatDesc* desc = new scene::ICPUMeshDataFormatDesc();
+                asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
 
 				asset::ICPUBuffer* vPosBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
-				desc->setVertexAttrBuffer(vPosBuf,EVAI_ATTR0,video::EF_R32G32B32_SFLOAT);
+				desc->setVertexAttrBuffer(vPosBuf,asset::EVAI_ATTR0,video::EF_R32G32B32_SFLOAT);
 				vPosBuf->drop();
 				asset::ICPUBuffer* vColorBuf = NULL;
 				if (mesh->Colors.size())
                 {
                     vColorBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4);
-                    desc->setVertexAttrBuffer(vColorBuf,EVAI_ATTR1,video::EF_B8G8R8A8_UNORM);
+                    desc->setVertexAttrBuffer(vColorBuf,asset::EVAI_ATTR1,video::EF_B8G8R8A8_UNORM);
                     vColorBuf->drop();
                 }
 				asset::ICPUBuffer* vTCBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
-                desc->setVertexAttrBuffer(vTCBuf,EVAI_ATTR2,video::EF_R32G32_SFLOAT);
+                desc->setVertexAttrBuffer(vTCBuf,asset::EVAI_ATTR2,video::EF_R32G32_SFLOAT);
                 vTCBuf->drop();
 				asset::ICPUBuffer* vNormalBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
-				desc->setVertexAttrBuffer(vNormalBuf,EVAI_ATTR3,video::EF_R32G32B32_SFLOAT);
+				desc->setVertexAttrBuffer(vNormalBuf,asset::EVAI_ATTR3,video::EF_R32G32B32_SFLOAT);
 				vNormalBuf->drop();
 				asset::ICPUBuffer* vTC2Buf = NULL;
 				if (mesh->TCoords2.size())
 				{
                     vTC2Buf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
-                    desc->setVertexAttrBuffer(vTC2Buf,EVAI_ATTR4,video::EF_R32G32_SFLOAT);
+                    desc->setVertexAttrBuffer(vTC2Buf,asset::EVAI_ATTR4,video::EF_R32G32_SFLOAT);
                     vTC2Buf->drop();
 				}
 				asset::ICPUBuffer* vSkinningDataBuf = NULL;
 				if (mesh->VertexSkinWeights.size())
                 {
                     vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,video::EF_R8G8B8A8_UINT,8,0);
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,video::EF_A2B10G10R10_UNORM_PACK32,8,4);
+                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR5,video::EF_R8G8B8A8_UINT,8,0);
+                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR6,video::EF_A2B10G10R10_UNORM_PACK32,8,4);
                     vSkinningDataBuf->drop();
                 }
 				else if (mesh->AttachedJointID!=-1)
                 {
                     vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR5,video::EF_R8G8B8A8_UINT,8,0);
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,EVAI_ATTR6,video::EF_A2B10G10R10_UNORM_PACK32,8,4);
+                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR5,video::EF_R8G8B8A8_UINT,8,0);
+                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR6,video::EF_A2B10G10R10_UNORM_PACK32,8,4);
                     vSkinningDataBuf->drop();
 
                     bool correctBindMatrix = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.isIdentity();
@@ -420,9 +420,9 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 
                     buffer->setIndexRange(0,vCountArray[i]);
                     if (vCountArray[i]>0x10000u)
-                        buffer->setIndexType(EIT_32BIT);
+                        buffer->setIndexType(asset::EIT_32BIT);
                     else
-                        buffer->setIndexType(EIT_16BIT);
+                        buffer->setIndexType(asset::EIT_16BIT);
 
                     buffer->setMeshDataAndFormat(desc);
 
@@ -591,7 +591,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 
 					uint32_t subBufferSz = vCountArray[i]*3;
 					buffer->setIndexCount(subBufferSz);
-                    subBufferSz *= (buffer->getIndexType()==EIT_32BIT) ? 4:2;
+                    subBufferSz *= (buffer->getIndexType()==asset::EIT_32BIT) ? 4:2;
 
                     //now cumulative
                     cumBaseVertex[i] = indexBufferSz;
@@ -609,7 +609,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 
 					void* indexBufAlreadyOffset = ((uint8_t*)ixbuf->getPointer())+cumBaseVertex[mesh->FaceMaterialIndices[i]];
 
-                    if (buffer->getIndexType()==EIT_32BIT)
+                    if (buffer->getIndexType()==asset::EIT_32BIT)
                     {
                         for (uint32_t id=i*3+0; id!=i*3+3; ++id)
                             ((uint32_t*)indexBufAlreadyOffset)[vCountArray[mesh->FaceMaterialIndices[i]]++] = verticesLinkIndex[ mesh->Indices[id] ];

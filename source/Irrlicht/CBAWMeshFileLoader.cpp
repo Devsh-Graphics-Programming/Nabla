@@ -48,23 +48,31 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
     ctx.inner.mainFile = tryCreateNewestFormatVersionFile(ctx.inner.mainFile, _override);
 
-    auto dropFileIfNeeded = [&] {
+    asset::BlobHeaderV1* headers = nullptr;
+
+    auto exitRoutine = [&] {
         if (ctx.inner.mainFile != overridenFile) // if mainFile is temparary memory file created just to update format to the newest version
             ctx.inner.mainFile->drop();
+        ctx.releaseLoadedObjects();
+        if (headers)
+            _IRR_ALIGNED_FREE(headers);
     };
+    struct RAIILikeExiter
+    {
+        decltype(exitRoutine)& onDestr;
+        RAIILikeExiter(decltype(exitRoutine)& _rtn) : onDestr{_rtn} {}
+        ~RAIILikeExiter() { onDestr(); }
+    } exiter{exitRoutine};
 
     if (!verifyFile<asset::BAWFileV1>(ctx, _IRR_BAW_FORMAT_VERSION))
     {
-        dropFileIfNeeded();
         return nullptr;
     }
 
-	uint32_t blobCnt;
-	uint32_t* offsets;
-    asset::BlobHeaderV1* headers;
+    uint32_t blobCnt{};
+	uint32_t* offsets = nullptr;
     if (!validateHeaders<asset::BAWFileV1, asset::BlobHeaderV1>(&blobCnt, &offsets, (void**)&headers, ctx))
     {
-        dropFileIfNeeded();
         return nullptr;
     }
 
@@ -120,9 +128,6 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 		if (!blob)
 		{
-			ctx.releaseLoadedObjects();
-			_IRR_ALIGNED_FREE(headers);
-            dropFileIfNeeded();
 			return nullptr;
 		}
 
@@ -146,9 +151,6 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 		if (fail)
 		{
-			ctx.releaseLoadedObjects();
-			_IRR_ALIGNED_FREE(headers);
-            dropFileIfNeeded();
 			return nullptr;
 		}
 
@@ -183,7 +185,6 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	}
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
-	_IRR_ALIGNED_FREE(headers);
 
 #ifdef _DEBUG
 	time = os::Timer::getRealTime() - time;
@@ -193,7 +194,6 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	os::Printer::log(tmpString.str());
 #endif // _DEBUG
 
-    dropFileIfNeeded();
 	return reinterpret_cast<asset::ICPUMesh*>(retval);
 }
 

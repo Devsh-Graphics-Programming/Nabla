@@ -109,7 +109,7 @@ namespace irr {namespace scene {
 			_IRR_ALIGNED_FREE(data);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<scene::IMeshDataFormatDesc<asset::ICPUBuffer> >(scene::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	void CBAWMeshWriter::exportAsBlob<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
         asset::MeshDataFormatDescBlobV1 data(_obj);
 
@@ -187,7 +187,7 @@ namespace irr {namespace scene {
 				exportAsBlob(reinterpret_cast<asset::ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case asset::Blob::EBT_DATA_FORMAT_DESC:
-				exportAsBlob(reinterpret_cast<scene::IMeshDataFormatDesc<asset::ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx);
+				exportAsBlob(reinterpret_cast<asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx);
 				break;
 			case asset::Blob::EBT_FINAL_BONE_HIERARCHY:
 				exportAsBlob(reinterpret_cast<scene::CFinalBoneHierarchy*>(ctx.headers[i].handle), i, _file, ctx);
@@ -248,7 +248,7 @@ namespace irr {namespace scene {
 		for (uint32_t i = 0; i < _mesh->getMeshBufferCount(); ++i)
 		{
 			const asset::ICPUMeshBuffer* const meshBuffer = _mesh->getMeshBuffer(i);
-			const scene::IMeshDataFormatDesc<asset::ICPUBuffer>* const desc = meshBuffer->getMeshDataAndFormat();
+			const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* const desc = meshBuffer->getMeshDataAndFormat();
 
 			if (!meshBuffer || !desc)
 				continue;
@@ -299,9 +299,9 @@ namespace irr {namespace scene {
 				countedObjects.insert(desc->getIndexBuffer());
 			}
 
-			for (int attId = 0; attId < scene::EVAI_COUNT; ++attId)
+			for (int attId = 0; attId < asset::EVAI_COUNT; ++attId)
 			{
-				const asset::ICPUBuffer* attBuffer = desc->getMappedBuffer((scene::E_VERTEX_ATTRIBUTE_ID)attId);
+				const asset::ICPUBuffer* attBuffer = desc->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)attId);
 				if (attBuffer && countedObjects.find(attBuffer) == countedObjects.end())
 				{
                     asset::BlobHeaderV1 bh;

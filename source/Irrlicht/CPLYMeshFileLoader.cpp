@@ -236,7 +236,7 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		{
 			// create a mesh buffer
             asset::ICPUMeshBuffer *mb = new asset::ICPUMeshBuffer();
-            auto desc = new ICPUMeshDataFormatDesc();
+            auto desc = new asset::ICPUMeshDataFormatDesc();
             mb->setMeshDataAndFormat(desc);
             desc->drop();
 
@@ -280,12 +280,12 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
                 desc->setIndexBuffer(idxBuf);
                 idxBuf->drop();
                 mb->setIndexCount(indices.size());
-                mb->setIndexType(scene::EIT_32BIT);
-                mb->setPrimitiveType(EPT_TRIANGLES);
+                mb->setIndexType(asset::EIT_32BIT);
+                mb->setPrimitiveType(asset::EPT_TRIANGLES);
             }
             else
             {
-                mb->setPrimitiveType(EPT_POINTS);
+                mb->setPrimitiveType(asset::EPT_POINTS);
                 mb->setIndexCount(attribs[E_POS].size());
                 //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
             }
@@ -566,7 +566,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
             check = _attribs[i].size();
     }
     }
-    auto putAttr = [&_attribs](asset::ICPUMeshBuffer* _buf, size_t _attr, E_VERTEX_ATTRIBUTE_ID _vaid)
+    auto putAttr = [&_attribs](asset::ICPUMeshBuffer* _buf, size_t _attr, asset::E_VERTEX_ATTRIBUTE_ID _vaid)
     {
         size_t i = 0u;
         for (const core::vectorSIMDf& v : _attribs[_attr])
@@ -589,20 +589,20 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
     auto desc = _mbuf->getMeshDataAndFormat();
     if (sizes[E_POS])
-        desc->setVertexAttrBuffer(buf, EVAI_ATTR0, video::EF_R32G32B32_SFLOAT, stride, offsets[E_POS]);
+        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR0, video::EF_R32G32B32_SFLOAT, stride, offsets[E_POS]);
     if (sizes[E_COL])
-        desc->setVertexAttrBuffer(buf, EVAI_ATTR1, video::EF_R32G32B32A32_SFLOAT, stride, offsets[E_COL]);
+        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR1, video::EF_R32G32B32A32_SFLOAT, stride, offsets[E_COL]);
     if (sizes[E_UV])
-        desc->setVertexAttrBuffer(buf, EVAI_ATTR2, video::EF_R32G32_SFLOAT, stride, offsets[E_UV]);
+        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR2, video::EF_R32G32_SFLOAT, stride, offsets[E_UV]);
     if (sizes[E_NORM])
-        desc->setVertexAttrBuffer(buf, EVAI_ATTR3, video::EF_R32G32B32_SFLOAT, stride, offsets[E_NORM]);
+        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR3, video::EF_R32G32B32_SFLOAT, stride, offsets[E_NORM]);
     buf->drop();
 
-    E_VERTEX_ATTRIBUTE_ID vaids[4];
-    vaids[E_POS] = EVAI_ATTR0;
-    vaids[E_COL] = EVAI_ATTR1;
-    vaids[E_UV] = EVAI_ATTR2;
-    vaids[E_NORM] = EVAI_ATTR3;
+    asset::E_VERTEX_ATTRIBUTE_ID vaids[4];
+    vaids[E_POS] = asset::EVAI_ATTR0;
+    vaids[E_COL] = asset::EVAI_ATTR1;
+    vaids[E_UV] = asset::EVAI_ATTR2;
+    vaids[E_NORM] = asset::EVAI_ATTR3;
 
     for (size_t i = 0u; i < 4u; ++i)
     {
