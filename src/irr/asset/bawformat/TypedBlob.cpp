@@ -10,7 +10,7 @@
 #include "IVideoDriver.h"
 #include "irr/video/SGPUMesh.h"
 #include "irr/asset/SCPUMesh.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 #include "irr/asset/CCPUSkinnedMesh.h"
 #include "irr/asset/bawformat/CBlobsLoadingManager.h"
 #include "irr/asset/ICPUTexture.h"

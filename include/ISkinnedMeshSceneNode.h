@@ -6,7 +6,7 @@
 #define __I_SKINNED_MESH_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "ISkinnedMesh.h"
+#include "irr/video/IGPUSkinnedMesh.h"
 #include "ISkinningStateManager.h"
 #include "IAnimatedMeshSceneNode.h"
 
@@ -126,10 +126,10 @@ namespace scene
 		virtual void setAnimationEndCallback(IAnimationEndCallBack<ISkinnedMeshSceneNode>* callback=0) = 0;
 
 		//! Sets a new mesh
-		virtual void setMesh(IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE) = 0;
+		virtual void setMesh(video::IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE) = 0;
 
 		//! Returns the current mesh
-		virtual IGPUSkinnedMesh* getMesh(void) = 0;
+		virtual video::IGPUSkinnedMesh* getMesh(void) = 0;
 
 		//! animates the joints in the mesh based on the current frame.
 		/** Also takes in to account transitions. */

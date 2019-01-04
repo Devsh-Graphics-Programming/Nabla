@@ -18,7 +18,7 @@
 #include "SceneParameters.h"
 #include "IGeometryCreator.h"
 #include "IMeshCache.h"
-#include "ISkinnedMesh.h"
+#include "irr/video/IGPUSkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "irr/asset/ICPUMesh.h"
 
@@ -330,7 +330,7 @@ namespace scene
 
 		//! Adds a scene node for rendering an skinned mesh model.
 		virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(
-                IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
+                video::IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
 				IDummyTransformationSceneNode* parent=0, int32_t id=-1,
 				const core::vector3df& position = core::vector3df(0,0,0),
 				const core::vector3df& rotation = core::vector3df(0,0,0),

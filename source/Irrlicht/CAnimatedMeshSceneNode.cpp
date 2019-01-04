@@ -6,7 +6,7 @@
 #include "IVideoDriver.h"
 #include "ISceneManager.h"
 #include "os.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 #include "IDummyTransformationSceneNode.h"
 #include "IMaterialRenderer.h"
 #include "irr/asset/IMesh.h"

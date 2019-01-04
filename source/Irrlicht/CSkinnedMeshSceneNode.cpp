@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CSkinnedMeshSceneNode.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 #include "IMaterialRenderer.h"
 #include "irr/asset/IMesh.h"
 #include "ISceneManager.h"
@@ -224,7 +224,7 @@ void CSkinnedMeshSceneNode::render()
 
 
 //! Sets a new mesh
-void CSkinnedMeshSceneNode::setMesh(IGPUSkinnedMesh* inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl)
+void CSkinnedMeshSceneNode::setMesh(video::IGPUSkinnedMesh* inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl)
 {
     if (mesh)
         mesh->drop();

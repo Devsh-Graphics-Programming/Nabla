@@ -7,7 +7,7 @@
 
 #include "IMeshLoader.h"
 #include "IVideoDriver.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 
 namespace irr
 {

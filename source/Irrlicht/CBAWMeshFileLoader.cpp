@@ -9,7 +9,7 @@
 
 #include "CFinalBoneHierarchy.h"
 #include "irr/video/SGPUMesh.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 #include "os.h"
 #include "lzma/LzmaDec.h"
 #include "lz4/lz4.h"

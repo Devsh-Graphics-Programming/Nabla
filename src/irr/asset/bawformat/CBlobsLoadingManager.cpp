@@ -9,7 +9,7 @@
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "irr/video/SGPUMesh.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 
 //! Adds support of given blob type to BlobsLoadingManager. For use ONLY inside BlobsLoadingManager's member functions. _IRR_SUPPORTED_BLOBS is defined in IrrCompileConfig.h.
 #define _IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(Function, BlobType, ...)\

@@ -111,7 +111,7 @@
 #include "ISceneNodeAnimatorCameraFPS.h"
 #include "ISceneNodeAnimatorCameraMaya.h"
 #include "IShaderConstantSetCallBack.h"
-#include "ISkinnedMesh.h"
+#include "irr/video/IGPUSkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "ITexture.h"
 #include "ITextureBufferObject.h"

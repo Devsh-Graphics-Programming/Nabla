@@ -7,14 +7,14 @@
 #ifndef __C_SKINNED_MESH_H_INCLUDED__
 #define __C_SKINNED_MESH_H_INCLUDED__
 
-#include "ISkinnedMesh.h"
+#include "irr/video/IGPUSkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
 #include "irr/core/irrString.h"
 #include "irr/asset/SSkinMeshBuffer.h"
 
 namespace irr
 {
-namespace scene
+namespace video
 {
 
     class CGPUSkinnedMesh : public IGPUSkinnedMesh
@@ -37,7 +37,7 @@ namespace scene
             }
 
         public:
-            CGPUSkinnedMesh(CFinalBoneHierarchy* boneHierarchy) : IGPUSkinnedMesh(boneHierarchy)
+            CGPUSkinnedMesh(scene::CFinalBoneHierarchy* boneHierarchy) : IGPUSkinnedMesh(boneHierarchy)
             {
                 #ifdef _DEBUG
                 setDebugName("CGPUSkinnedMesh");
@@ -118,7 +118,7 @@ namespace scene
             }
     };
 
-} // end namespace scene
+} // end namespace video
 } // end namespace irr
 
 #endif

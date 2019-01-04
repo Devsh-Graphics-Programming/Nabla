@@ -7,7 +7,7 @@
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
 #include "irr/video/SGPUMesh.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 #include "irr/asset/SSkinMeshBuffer.h"
 #include "CLogger.h"
 #include "irr/video/asset_traits.h"
@@ -269,7 +269,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
         switch ((*it)->getMeshType())
         {
         case asset::EMT_ANIMATED_SKINNED:
-            gpumesh = new scene::CGPUSkinnedMesh(static_cast<asset::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy());
+            gpumesh = new video::CGPUSkinnedMesh(static_cast<asset::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy());
             break;
         default:
             gpumesh = new video::SGPUMesh();
@@ -289,7 +289,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
         case asset::EMT_ANIMATED_SKINNED:
             for (uint32_t k = 0u; k < (*(_begin + i))->getMeshBufferCount(); ++k)
             {
-                static_cast<scene::CGPUSkinnedMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]], static_cast<asset::SCPUSkinMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
+                static_cast<video::CGPUSkinnedMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]], static_cast<asset::SCPUSkinMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
                 ++j;
             }
             break;

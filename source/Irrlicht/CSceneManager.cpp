@@ -16,7 +16,7 @@
 // We need this include for the case of skinned mesh support without
 // any such loader
 #include "CSkinnedMeshSceneNode.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 
 #include "CBillboardSceneNode.h"
 #include "CCubeSceneNode.h"
@@ -383,7 +383,7 @@ IMeshSceneNodeInstanced* CSceneManager::addMeshSceneNodeInstanced(IDummyTransfor
 
 //! adds a scene node for rendering an animated mesh model
 ISkinnedMeshSceneNode* CSceneManager::addSkinnedMeshSceneNode(
-    IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode,
+    video::IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode,
     IDummyTransformationSceneNode* parent, int32_t id,
     const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
 {

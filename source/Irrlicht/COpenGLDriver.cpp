@@ -5,7 +5,7 @@
 #include "COpenGLDriver.h"
 // needed here also because of the create methods' parameters
 #include "CNullDriver.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 
 #include "vectorSIMD.h"
 

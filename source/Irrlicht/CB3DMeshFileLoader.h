@@ -13,7 +13,7 @@
 
 #include "IMeshLoader.h"
 #include "ISceneManager.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 #include "IReadFile.h"
 
 namespace irr

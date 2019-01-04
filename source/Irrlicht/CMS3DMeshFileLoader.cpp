@@ -8,7 +8,7 @@
 #include "IReadFile.h"
 #include "os.h"
 #include "CMS3DMeshFileLoader.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 
 
 namespace irr

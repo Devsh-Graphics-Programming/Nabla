@@ -412,6 +412,8 @@
     <ClInclude Include="..\..\include\irr\asset\IMesh.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUMesh.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUMeshBuffer.h" />
+    <ClInclude Include="..\..\include\irr\video\IGPUObjectFromAssetConverter.h" />
+    <ClInclude Include="..\..\include\irr\video\IGPUSkinnedMesh.h" />
     <ClInclude Include="..\..\include\irr\video\SGPUMesh.h" />
     <ClInclude Include="..\..\include\ITimer.h" />
     <ClInclude Include="..\..\include\Keycodes.h" />
@@ -513,7 +515,6 @@
     <ClInclude Include="..\..\include\ISceneNodeAnimatorFactory.h" />
     <ClInclude Include="..\..\include\ISceneNodeFactory.h" />
     <ClInclude Include="..\..\include\IShadowVolumeSceneNode.h" />
-    <ClInclude Include="..\..\include\ISkinnedMesh.h" />
     <ClInclude Include="..\..\include\ITerrainSceneNode.h" />
     <ClInclude Include="..\..\include\ITextSceneNode.h" />
     <ClInclude Include="..\..\include\IVolumeLightSceneNode.h" />
@@ -531,6 +532,7 @@
     <ClInclude Include="..\..\include\ICursorControl.h" />
     <ClInclude Include="..\..\include\vectorSIMD.h" />
     <ClInclude Include="..\..\src\irr\asset\bawformat\legacy\CBAWLegacy.h" />
+    <ClInclude Include="..\..\src\irr\video\CGPUSkinnedMesh.h" />
     <ClInclude Include="aesGladman\aestab.h" />
     <ClInclude Include="aesGladman\aes_ni.h" />
     <ClInclude Include="aesGladman\brg_endian.h" />
@@ -573,7 +575,6 @@
     <ClInclude Include="COBJMeshFileLoader.h" />
     <ClInclude Include="COCTLoader.h" />
     <ClInclude Include="CPLYMeshFileLoader.h" />
-    <ClInclude Include="CSkinnedMesh.h" />
     <ClInclude Include="CSTLMeshFileLoader.h" />
     <ClInclude Include="CXMeshFileLoader.h" />
     <ClInclude Include="dmfsupport.h" />
