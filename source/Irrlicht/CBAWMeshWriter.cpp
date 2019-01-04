@@ -221,7 +221,7 @@ namespace irr {namespace scene {
 
 		if (_mesh)
 		{
-			skinnedMesh = _mesh->getMeshType()!=scene::EMT_ANIMATED_SKINNED ? NULL:dynamic_cast<const asset::ICPUSkinnedMesh*>(_mesh); //asset::ICPUSkinnedMesh is a direct non-virtual inheritor
+			skinnedMesh = _mesh->getMeshType()!=asset::EMT_ANIMATED_SKINNED ? NULL:dynamic_cast<const asset::ICPUSkinnedMesh*>(_mesh); //asset::ICPUSkinnedMesh is a direct non-virtual inheritor
 			if (!skinnedMesh || (skinnedMesh && skinnedMesh->isStatic()))
 				isMeshAnimated = false;
 

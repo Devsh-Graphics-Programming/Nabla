@@ -9,7 +9,7 @@
 #include <unordered_map>
 
 #include "stdint.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 #include "path.h"
 #include "irr/asset/IAssetLoader.h"
 

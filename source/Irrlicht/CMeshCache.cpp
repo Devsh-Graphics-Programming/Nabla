@@ -5,6 +5,7 @@
 #include "CMeshCache.h"
 #include "IAnimatedMesh.h"
 #include "irr/asset/ICPUMesh.h"
+#include "irr/video/IGPUMesh.h"
 
 namespace irr
 {
@@ -186,7 +187,7 @@ void CMeshCache<T>::clearUnusedMeshes()
 }
 // Instantiate CMeshCache for the supported template type parameters
 template class CMeshCache<asset::ICPUMesh>;
-template class CMeshCache<IGPUMesh>;
+template class CMeshCache<video::IGPUMesh>;
 
 
 } // end namespace scene

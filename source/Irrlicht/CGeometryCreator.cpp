@@ -5,7 +5,7 @@
 #include "CGeometryCreator.h"
 #include "SMesh.h"
 #include "irr/asset/SCPUMesh.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 #include "IVideoDriver.h"
 #include "SVertexManipulator.h"
 #include "os.h"
@@ -153,7 +153,7 @@ asset::ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size
 	return mesh;
 }
 
-IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const core::vector3df& size) const
+video::IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const core::vector3df& size) const
 {
     if (!driver)
         return NULL;
@@ -161,7 +161,7 @@ IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const
 	asset::ICPUMesh* cpumesh = createCubeMeshCPU(size);
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
-	IGPUMesh* mesh = nullptr;
+	video::IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
 
@@ -208,7 +208,7 @@ asset::ICPUMesh* CGeometryCreator::createArrowMeshCPU(const uint32_t tesselation
     return cone;
 }
 
-IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
+video::IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
                         const uint32_t tesselationCylinder,
 						const uint32_t tesselationCone,
 						const float height,
@@ -224,7 +224,7 @@ IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
 	asset::ICPUMesh* cpumesh = createArrowMeshCPU(tesselationCylinder,tesselationCone,height,cylinderHeight,width0,width1,vtxColor0,vtxColor1);
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
-	IGPUMesh* mesh = nullptr;
+	video::IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
 
@@ -437,7 +437,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t po
 	return mesh;
 }
 
-IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, float radius, uint32_t polyCountX, uint32_t polyCountY) const
+video::IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, float radius, uint32_t polyCountX, uint32_t polyCountY) const
 {
     if (!driver)
         return NULL;
@@ -445,7 +445,7 @@ IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, flo
 	asset::ICPUMesh* cpumesh = createSphereMeshCPU(radius,polyCountX,polyCountY);
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);;
-	IGPUMesh* mesh = nullptr;
+	video::IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
 
@@ -557,7 +557,7 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float len
     return mesh;
 }
 
-IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
+video::IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
             float radius, float length,
 			uint32_t tesselation, const video::SColor& color,
 			bool closeTop, float oblique) const
@@ -568,7 +568,7 @@ IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
 	asset::ICPUMesh* cpumesh = createCylinderMeshCPU(radius,length,tesselation,color,closeTop,oblique);
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);;
-	IGPUMesh* mesh = nullptr;
+	video::IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
 
@@ -648,7 +648,7 @@ asset::ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length,
     return mesh;
 }
 
-IGPUMesh* CGeometryCreator::createConeMeshGPU(video::IVideoDriver* driver,
+video::IGPUMesh* CGeometryCreator::createConeMeshGPU(video::IVideoDriver* driver,
                     float radius, float length, uint32_t tesselation,
 					const video::SColor& colorTop,
 					const video::SColor& colorBottom,
@@ -660,7 +660,7 @@ IGPUMesh* CGeometryCreator::createConeMeshGPU(video::IVideoDriver* driver,
 	asset::ICPUMesh* cpumesh = static_cast<asset::SCPUMesh*>(createConeMeshCPU(radius,length,tesselation,colorTop,colorBottom,oblique));
 
 	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
-	IGPUMesh* mesh = nullptr;
+	video::IGPUMesh* mesh = nullptr;
 	if (retval.size())
         mesh = retval[0];
 

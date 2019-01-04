@@ -6,7 +6,7 @@
 #define __I_ANIMATED_MESH_H_INCLUDED__
 
 #include "aabbox3d.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 
 namespace irr
 {

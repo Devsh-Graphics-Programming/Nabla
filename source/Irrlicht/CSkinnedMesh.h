@@ -98,9 +98,9 @@ namespace scene
                     return 0.f;
             }
 
-            virtual E_MESH_TYPE getMeshType() const
+            virtual asset::E_MESH_TYPE getMeshType() const
             {
-                return EMT_ANIMATED_SKINNED;
+                return asset::EMT_ANIMATED_SKINNED;
             }
 
             //! can use more efficient shaders this way :D

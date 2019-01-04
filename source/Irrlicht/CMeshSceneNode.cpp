@@ -19,7 +19,7 @@ namespace scene
 
 
 //! constructor
-CMeshSceneNode::CMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
+CMeshSceneNode::CMeshSceneNode(video::IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position, const core::vector3df& rotation,
 			const core::vector3df& scale)
 : IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
@@ -212,7 +212,7 @@ uint32_t CMeshSceneNode::getMaterialCount() const
 
 
 //! Sets a new mesh
-void CMeshSceneNode::setMesh(IGPUMesh* mesh)
+void CMeshSceneNode::setMesh(video::IGPUMesh* mesh)
 {
 	if (mesh)
 	{

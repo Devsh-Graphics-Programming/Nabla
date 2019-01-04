@@ -7,7 +7,7 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "EMeshWriterEnums.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 
 namespace irr
 {

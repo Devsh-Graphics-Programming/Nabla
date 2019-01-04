@@ -6,7 +6,7 @@
 #define __I_SKINNED_MESH_H_INCLUDED__
 
 #include "irr/core/Types.h"
-#include "IMesh.h"
+#include "irr/video/IGPUMesh.h"
 #include "quaternion.h"
 #include "matrix4.h"
 #include <vector>
@@ -18,7 +18,7 @@ namespace scene
 {
     class CFinalBoneHierarchy;
 
-    class IGPUSkinnedMesh : public IGPUMesh
+    class IGPUSkinnedMesh : public video::IGPUMesh
     {
         protected:
             virtual ~IGPUSkinnedMesh()
@@ -59,9 +59,9 @@ namespace scene
             virtual float getFirstFrame() const =0;
             virtual float getLastFrame() const =0;
 
-            virtual E_MESH_TYPE getMeshType() const
+            virtual asset::E_MESH_TYPE getMeshType() const
             {
-                return EMT_ANIMATED_SKINNED;
+                return asset::EMT_ANIMATED_SKINNED;
             }
 
             //! can use more efficient shaders this way :D

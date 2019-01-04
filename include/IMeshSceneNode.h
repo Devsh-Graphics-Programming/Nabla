@@ -6,7 +6,8 @@
 #define __I_MESH_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
+#include "irr/video/IGPUMesh.h"
 
 namespace irr
 {
@@ -30,11 +31,11 @@ public:
 
 	//! Sets a new mesh to display
 	/** \param mesh Mesh to display. */
-	virtual void setMesh(IGPUMesh* mesh) = 0;
+	virtual void setMesh(video::IGPUMesh* mesh) = 0;
 
 	//! Get the currently defined mesh for display.
 	/** \return Pointer to mesh which is displayed by this node. */
-	virtual IGPUMesh* getMesh(void) = 0;
+	virtual video::IGPUMesh* getMesh(void) = 0;
 
 
 	virtual void setReferencingMeshMaterials(const bool &referencing) = 0;

@@ -9,7 +9,7 @@
 #include "IFileSystem.h"
 #include "IImagePresenter.h"
 #include "IGPUProgrammingServices.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
 #include "IMeshSceneNode.h"
 #include "CFPSCounter.h"

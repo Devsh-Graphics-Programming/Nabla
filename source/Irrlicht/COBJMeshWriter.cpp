@@ -8,7 +8,7 @@
 
 #include "COBJMeshWriter.h"
 #include "os.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
 #include "ISceneManager.h"
 #include "IMeshCache.h"

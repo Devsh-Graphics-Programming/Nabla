@@ -16,9 +16,9 @@ public:
     virtual scene::CFinalBoneHierarchy* getBoneReferenceHierarchy() const = 0;
 
     //!
-    virtual scene::E_MESH_TYPE getMeshType() const
+    virtual asset::E_MESH_TYPE getMeshType() const
     {
-        return scene::EMT_ANIMATED_SKINNED;
+        return asset::EMT_ANIMATED_SKINNED;
     }
 
     virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const

@@ -145,7 +145,7 @@ namespace scene
 		\param Outputted Number of polygons in mesh, if successful.
 		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
 		template<typename T>
-		static bool getPolyCount(uint32_t& outCount, IMesh<T>* mesh);
+		static bool getPolyCount(uint32_t& outCount, asset::IMesh<T>* mesh);
     protected:
 };
 

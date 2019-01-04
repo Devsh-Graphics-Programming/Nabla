@@ -353,7 +353,7 @@ IMeshSceneNode* CSceneManager::addSphereSceneNode(float radius, int32_t polyCoun
 
 //! adds a scene node for rendering a static mesh
 //! the returned pointer must not be dropped.
-IMeshSceneNode* CSceneManager::addMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent, int32_t id,
+IMeshSceneNode* CSceneManager::addMeshSceneNode(video::IGPUMesh* mesh, IDummyTransformationSceneNode* parent, int32_t id,
 	const core::vector3df& position, const core::vector3df& rotation,
 	const core::vector3df& scale, bool alsoAddIfMeshPointerZero)
 {

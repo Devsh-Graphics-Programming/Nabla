@@ -2090,7 +2090,7 @@ bool IMeshManipulator::getPolyCount<video::IGPUBuffer>(uint32_t& outCount, asset
 
 //! Returns amount of polygons in mesh.
 template<typename T>
-bool IMeshManipulator::getPolyCount(uint32_t& outCount, scene::IMesh<T>* mesh)
+bool IMeshManipulator::getPolyCount(uint32_t& outCount, asset::IMesh<T>* mesh)
 {
     outCount = 0;
 	if (!mesh)
@@ -2106,8 +2106,8 @@ bool IMeshManipulator::getPolyCount(uint32_t& outCount, scene::IMesh<T>* mesh)
 	return retval;
 }
 
-template bool IMeshManipulator::getPolyCount<asset::ICPUMeshBuffer>(uint32_t& outCount, IMesh<asset::ICPUMeshBuffer>* mesh);
-template bool IMeshManipulator::getPolyCount<video::IGPUMeshBuffer>(uint32_t& outCount, IMesh<video::IGPUMeshBuffer>* mesh);
+template bool IMeshManipulator::getPolyCount<asset::ICPUMeshBuffer>(uint32_t& outCount, asset::IMesh<asset::ICPUMeshBuffer>* mesh);
+template bool IMeshManipulator::getPolyCount<video::IGPUMeshBuffer>(uint32_t& outCount, asset::IMesh<video::IGPUMeshBuffer>* mesh);
 
 #ifndef NEW_MESHES
 //! Returns amount of polygons in mesh.

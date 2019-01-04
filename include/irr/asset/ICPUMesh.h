@@ -8,7 +8,7 @@
 namespace irr { namespace asset
 {
 
-class ICPUMesh : public scene::IMesh<ICPUMeshBuffer>, public asset::BlobSerializable, public asset::IAsset
+class ICPUMesh : public asset::IMesh<ICPUMeshBuffer>, public asset::BlobSerializable, public asset::IAsset
 {
 public:
     //! Serializes mesh to blob for *.baw file format.

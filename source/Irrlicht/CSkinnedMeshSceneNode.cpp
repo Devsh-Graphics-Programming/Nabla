@@ -5,7 +5,7 @@
 #include "CSkinnedMeshSceneNode.h"
 #include "CSkinnedMesh.h"
 #include "IMaterialRenderer.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 #include "ISceneManager.h"
 
 namespace irr

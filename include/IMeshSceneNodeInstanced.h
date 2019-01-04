@@ -11,6 +11,7 @@
 #include "irr/video/ResizableBufferingAllocator.h"
 #include "ISceneNode.h"
 #include "SMesh.h"
+#include "irr/video/IGPUMesh.h"
 
 namespace irr
 {
@@ -41,7 +42,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
 
         struct MeshLoD
         {
-            IGPUMesh* mesh;
+            video::IGPUMesh* mesh;
             void* userDataForVAOSetup; //put array of vertex attribute mappings here or something
             float lodDistance;
         };

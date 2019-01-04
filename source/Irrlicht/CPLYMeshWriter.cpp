@@ -8,7 +8,7 @@
 
 #include "CPLYMeshWriter.h"
 #include "os.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 #include "IWriteFile.h"
 #include "CMeshManipulator.h"
 

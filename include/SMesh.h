@@ -5,7 +5,7 @@
 #ifndef __S_MESH_H_INCLUDED__
 #define __S_MESH_H_INCLUDED__
 
-#include "IMesh.h"
+#include "irr/video/IGPUMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
 #include "aabbox3d.h"
 #include "coreutil.h"
@@ -15,7 +15,7 @@ namespace irr
 namespace scene
 {
 	//! Simple implementation of the IMesh interface.
-	class SGPUMesh : public IGPUMesh
+	class SGPUMesh : public video::IGPUMesh
 	{
             core::LeakDebugger* leakDebugger;
         protected:
@@ -93,7 +93,7 @@ namespace scene
                     MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
             }
 
-            virtual E_MESH_TYPE getMeshType() const {return EMT_NOT_ANIMATED;}
+            virtual asset::E_MESH_TYPE getMeshType() const override {return asset::EMT_NOT_ANIMATED;}
 
         //private:
             //! The bounding box of this mesh

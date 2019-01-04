@@ -265,10 +265,10 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
         for (uint32_t i = 0u; i < (*it)->getMeshBufferCount(); ++i)
             cpuDeps.push_back((*it)->getMeshBuffer(i));
 
-        scene::IGPUMesh* gpumesh = nullptr;
+        video::IGPUMesh* gpumesh = nullptr;
         switch ((*it)->getMeshType())
         {
-        case scene::EMT_ANIMATED_SKINNED:
+        case asset::EMT_ANIMATED_SKINNED:
             gpumesh = new scene::CGPUSkinnedMesh(static_cast<asset::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy());
             break;
         default:
@@ -286,7 +286,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
     {
         switch (res[i]->getMeshType())
         {
-        case scene::EMT_ANIMATED_SKINNED:
+        case asset::EMT_ANIMATED_SKINNED:
             for (uint32_t k = 0u; k < (*(_begin + i))->getMeshBufferCount(); ++k)
             {
                 static_cast<scene::CGPUSkinnedMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]], static_cast<asset::SCPUSkinMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());

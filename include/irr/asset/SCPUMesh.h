@@ -116,7 +116,7 @@ public:
             MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
     }
 
-    virtual scene::E_MESH_TYPE getMeshType() const { return scene::EMT_NOT_ANIMATED; }
+    virtual asset::E_MESH_TYPE getMeshType() const { return asset::EMT_NOT_ANIMATED; }
 
     //! The bounding box of this mesh
     core::aabbox3d<float> BoundingBox;

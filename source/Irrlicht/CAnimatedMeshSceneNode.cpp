@@ -9,7 +9,7 @@
 #include "CSkinnedMesh.h"
 #include "IDummyTransformationSceneNode.h"
 #include "IMaterialRenderer.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 #include "IMeshCache.h"
 #include "IAnimatedMesh.h"
 
