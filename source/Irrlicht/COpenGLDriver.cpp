@@ -1279,7 +1279,7 @@ void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, 
     extGlCopyNamedBufferSubData(readbuffer->getOpenGLName(),writebuffer->getOpenGLName(),readOffset,writeOffset,length);
 }
 
-scene::IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr)
+IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr)
 {
     return new COpenGLVAOSpec(dbgr);
 }
@@ -1396,7 +1396,7 @@ static inline uint8_t* buffer_offset(const long offset)
 
 
 
-void COpenGLDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
+void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 {
     if (mb && !mb->getInstanceCount())
         return;
@@ -1949,7 +1949,7 @@ void COpenGLDriver::SAuxContext::COpenGLVAO::bindBuffers(   const COpenGLBuffer*
     lastValidated = beginStamp;
 }
 
-bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw)
+bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, const IGPUMeshBuffer* correctOffsetsForXFormDraw)
 {
     if (!spec)
     {

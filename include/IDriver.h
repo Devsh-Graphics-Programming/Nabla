@@ -229,7 +229,7 @@ namespace video
 
 
             //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively
-            virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) {return nullptr;}
+            virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) {return nullptr;}
 
 
             //! Creates a framebuffer object with no attachments

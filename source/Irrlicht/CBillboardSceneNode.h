@@ -79,8 +79,8 @@ private:
 	video::SGPUMaterial Material;
 
     video::IGPUBuffer* vertexBuffer;
-    IGPUMeshDataFormatDesc* desc;
-	IGPUMeshBuffer* meshbuffer;
+    video::IGPUMeshDataFormatDesc* desc;
+    video::IGPUMeshBuffer* meshbuffer;
 };
 
 

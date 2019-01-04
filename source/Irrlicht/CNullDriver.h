@@ -176,7 +176,7 @@ namespace video
 		//! gets the area of the current viewport
 		virtual const core::rect<int32_t>& getViewPort() const;
 
-        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb);
+        virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
 
 		//! Indirect Draw
 		virtual void drawArraysIndirect( const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
@@ -615,7 +615,7 @@ namespace video
 
 		CFPSCounter FPSCounter;
 
-        scene::IGPUMeshBuffer* boxLineMesh;
+        video::IGPUMeshBuffer* boxLineMesh;
 
 		uint32_t PrimitivesDrawn;
 

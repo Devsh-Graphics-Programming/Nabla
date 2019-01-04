@@ -390,7 +390,7 @@ namespace video
 		//!
 		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false);
 
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
+	    virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
 
         virtual void flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override;
 
@@ -417,7 +417,7 @@ namespace video
         virtual IGPUTimestampQuery* createTimestampQuery();
 
 
-        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb);
+        virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
 
 		virtual void drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
                                         const asset::E_PRIMITIVE_TYPE& mode,
@@ -621,7 +621,7 @@ namespace video
                 indirectDraw.set(buff);
             }
 
-            bool setActiveVAO(const COpenGLVAOSpec* const spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
+            bool setActiveVAO(const COpenGLVAOSpec* const spec, const video::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.

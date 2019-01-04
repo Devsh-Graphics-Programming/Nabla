@@ -441,7 +441,7 @@ namespace video
 
 		//! Draws a mesh buffer
 		/** \param mb Buffer to draw */
-		virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb) =0;
+		virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb) =0;
 
 		//! Indirect Draw
 		virtual void drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,

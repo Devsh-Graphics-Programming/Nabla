@@ -88,7 +88,7 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
         // count copied materials
         for (uint32_t i=0; i<Materials.size(); ++i)
         {
-            scene::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+            video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
             if (!mb||mb->getIndexCount()<1)
                 continue;
 
@@ -176,7 +176,7 @@ void CSkinnedMeshSceneNode::render()
         // render original meshes
         for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
         {
-            scene::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+            video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
             if (mb)
             {
                 const video::SGPUMaterial& material = Materials[i];
@@ -254,7 +254,7 @@ void CSkinnedMeshSceneNode::setMesh(IGPUSkinnedMesh* inMesh, const ISkinningStat
 
     for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
     {
-        IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+        video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
         if (mb)
             Materials[i] = mb->getMaterial();
         else

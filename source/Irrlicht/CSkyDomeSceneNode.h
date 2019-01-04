@@ -43,7 +43,7 @@ class CSkyDomeSceneNode : public ISceneNode
 
 		void generateMesh();
 
-		IGPUMeshBuffer* Buffer;
+        video::IGPUMeshBuffer* Buffer;
 
         core::aabbox3df BoundingBox;
 		uint32_t HorizontalResolution, VerticalResolution;

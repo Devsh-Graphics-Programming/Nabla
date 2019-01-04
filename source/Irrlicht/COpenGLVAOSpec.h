@@ -35,7 +35,7 @@ namespace video
     }
 
 
-    class COpenGLVAOSpec : public scene::IGPUMeshDataFormatDesc
+    class COpenGLVAOSpec : public video::IGPUMeshDataFormatDesc
     {
         public:
             struct HashAttribs

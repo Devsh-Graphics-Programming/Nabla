@@ -63,7 +63,7 @@ namespace scene
         private:
 
             core::aabbox3d<float> Box;
-            IGPUMeshBuffer* sides[6];
+            video::IGPUMeshBuffer* sides[6];
             video::SGPUMaterial Material[6];
 	};
 

@@ -55,7 +55,7 @@ namespace scene
             }
 
             //! returns pointer to a mesh buffer
-            virtual IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const
+            virtual video::IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const
             {
                 if (MeshBuffers.size())
                     return MeshBuffers[nr];
@@ -77,7 +77,7 @@ namespace scene
 
             //! adds a MeshBuffer
             /** The bounding box is not updated automatically. */
-            void addMeshBuffer(IGPUMeshBuffer* buf)
+            void addMeshBuffer(video::IGPUMeshBuffer* buf)
             {
                 if (buf)
                 {
@@ -100,7 +100,7 @@ namespace scene
             core::aabbox3d<float> BoundingBox;
 
             //! The meshbuffers of this mesh
-            core::vector<IGPUMeshBuffer*> MeshBuffers;
+            core::vector<video::IGPUMeshBuffer*> MeshBuffers;
 	};
 
 

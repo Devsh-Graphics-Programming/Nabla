@@ -173,7 +173,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             cpuBufDeps.push_back(const_cast<asset::ICPUBuffer*>(vaoConf.idxbuf));
         vaoConfigs.push_back(vaoConf);
 
-        scene::IGPUMeshBuffer* gpuMeshBuf = new scene::IGPUMeshBuffer();
+        IGPUMeshBuffer* gpuMeshBuf = new IGPUMeshBuffer();
         gpuMeshBuf->setIndexType((*it)->getIndexType());
         gpuMeshBuf->setBaseVertex((*it)->getBaseVertex());
         gpuMeshBuf->setIndexCount((*it)->getIndexCount());
@@ -224,7 +224,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         const VaoConfig& vaoConf = vaoConfigs[i];
         if (!vaoConf.noAttributes && vaoConf.success)
         {
-            scene::IGPUMeshDataFormatDesc* vao = m_driver->createGPUMeshDataFormatDesc();
+            IGPUMeshDataFormatDesc* vao = m_driver->createGPUMeshDataFormatDesc();
             res[i]->setMeshDataAndFormat(vao);
             vao->drop();
             for (size_t k = 0u; k < asset::EVAI_COUNT; ++k)

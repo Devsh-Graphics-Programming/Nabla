@@ -161,7 +161,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         size_t instanceBBoxesCount;
         core::aabbox3df* instanceBBoxes;
         bool flagQueryForRetrieval;
-        IGPUMeshBuffer* lodCullingPointMesh;
+        video::IGPUMeshBuffer* lodCullingPointMesh;
         video::IGPUBuffer* gpuCulledLodInstanceDataBuffer;
 
         size_t dataPerInstanceOutputSize;

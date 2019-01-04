@@ -17,7 +17,7 @@ struct asset_traits;
 template<>
 struct asset_traits<asset::ICPUBuffer> { using GPUObjectType = video::IGPUBuffer; };
 template<>
-struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = scene::IGPUMeshBuffer; };
+struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
 template<>
 struct asset_traits<asset::ICPUMesh> { using GPUObjectType = scene::IGPUMesh; };
 template<>

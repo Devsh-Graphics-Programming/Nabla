@@ -25,7 +25,7 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
 
 	setSize(size);
 
-    meshbuffer = new IGPUMeshBuffer();
+    meshbuffer = new video::IGPUMeshBuffer();
     meshbuffer->setIndexCount(4);
     meshbuffer->setPrimitiveType(asset::EPT_TRIANGLE_STRIP);
 

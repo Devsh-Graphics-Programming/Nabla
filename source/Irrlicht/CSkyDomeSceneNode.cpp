@@ -45,7 +45,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(video::IVirtualTexture* sky, uint32_t horiR
 
 	setAutomaticCulling(scene::EAC_OFF);
 
-	Buffer = new IGPUMeshBuffer();
+	Buffer = new video::IGPUMeshBuffer();
 	Buffer->getMaterial().ZBuffer = video::ECFN_NEVER;
 	Buffer->getMaterial().BackfaceCulling = false;
 	Buffer->getMaterial().ZWriteEnable = false;
@@ -145,7 +145,7 @@ void CSkyDomeSceneNode::generateMesh()
 		}
 	}
 
-	scene::IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
+    video::IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
 	Buffer->setMeshDataAndFormat(vao);
 
 	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;

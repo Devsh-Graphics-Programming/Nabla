@@ -21,7 +21,7 @@
 
 namespace irr
 {
-namespace scene
+namespace video
 {
 
 	class IGPUMeshDataFormatDesc : public asset::IMeshDataFormatDesc<video::IGPUBuffer>

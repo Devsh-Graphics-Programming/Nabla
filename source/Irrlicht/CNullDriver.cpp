@@ -768,7 +768,7 @@ IImage* CNullDriver::createImage(const E_FORMAT& format, const core::dimension2d
 }
 
 
-void CNullDriver::drawMeshBuffer(const scene::IGPUMeshBuffer* mb)
+void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 {
 	if (!mb)
 		return;

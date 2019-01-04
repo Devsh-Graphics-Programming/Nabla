@@ -89,7 +89,7 @@ namespace scene
 		virtual E_MESH_TYPE getMeshType() const = 0;
 	};
 
-	typedef IMesh<scene::IGPUMeshBuffer> IGPUMesh;
+	typedef IMesh<video::IGPUMeshBuffer> IGPUMesh;
 
 } // end namespace scene
 } // end namespace irr

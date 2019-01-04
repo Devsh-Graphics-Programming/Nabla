@@ -2053,7 +2053,7 @@ bool IMeshManipulator::getPolyCount<video::IGPUBuffer>(uint32_t& outCount, asset
     if (meshbuffer)
         return false;
 
-    if (static_cast<IGPUMeshBuffer*>(meshbuffer)->isIndexCountGivenByXFormFeedback())
+    if (static_cast<video::IGPUMeshBuffer*>(meshbuffer)->isIndexCountGivenByXFormFeedback())
         return false;
 
     uint32_t trianglecount;
@@ -2107,7 +2107,7 @@ bool IMeshManipulator::getPolyCount(uint32_t& outCount, scene::IMesh<T>* mesh)
 }
 
 template bool IMeshManipulator::getPolyCount<asset::ICPUMeshBuffer>(uint32_t& outCount, IMesh<asset::ICPUMeshBuffer>* mesh);
-template bool IMeshManipulator::getPolyCount<IGPUMeshBuffer>(uint32_t& outCount, IMesh<IGPUMeshBuffer>* mesh);
+template bool IMeshManipulator::getPolyCount<video::IGPUMeshBuffer>(uint32_t& outCount, IMesh<video::IGPUMeshBuffer>* mesh);
 
 #ifndef NEW_MESHES
 //! Returns amount of polygons in mesh.

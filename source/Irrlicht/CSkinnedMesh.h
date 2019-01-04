@@ -22,7 +22,7 @@ namespace scene
         private:
             struct SGPUMeshBufferMetaData
             {
-                IGPUMeshBuffer* mb;
+                video::IGPUMeshBuffer* mb;
                 uint32_t maxVertexWeightInfluences;
             };
             core::vector<SGPUMeshBufferMetaData> meshbuffers;
@@ -50,7 +50,7 @@ namespace scene
             virtual uint32_t getMeshBufferCount() const {return meshbuffers.size();}
 
             //! Returns the IMesh interface for a frame.
-            virtual IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const
+            virtual video::IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const
             {
                 if (nr>=meshbuffers.size())
                     return NULL;
@@ -59,7 +59,7 @@ namespace scene
             }
 
             //! adds a Mesh
-            inline void addMeshBuffer(IGPUMeshBuffer* meshbuffer, const size_t& maxBonesPerVx=4)
+            inline void addMeshBuffer(video::IGPUMeshBuffer* meshbuffer, const size_t& maxBonesPerVx=4)
             {
                 if (meshbuffer)
                 {

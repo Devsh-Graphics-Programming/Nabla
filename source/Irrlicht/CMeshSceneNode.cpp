@@ -64,7 +64,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 
 			for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
 			{
-				scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+                video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 				if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
                     continue;
 
@@ -85,7 +85,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 
 			for (uint32_t i=0; i<Materials.size(); ++i)
 			{
-				scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+                video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 				if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
                     continue;
 
@@ -134,7 +134,7 @@ void CMeshSceneNode::render()
 
         for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
         {
-            scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+            video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
             if (mb)
             {
                 const video::SGPUMaterial& material = ReferencingMeshMaterials ? mb->getMaterial() : Materials[i];
@@ -237,7 +237,7 @@ void CMeshSceneNode::copyMaterials()
 
 		for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
 		{
-			IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+            video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 			if (mb)
 				mat = mb->getMaterial();
 

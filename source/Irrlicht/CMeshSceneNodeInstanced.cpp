@@ -33,7 +33,7 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
 
     renderPriority = 0x80000000u;
 
-    lodCullingPointMesh = new IGPUMeshBuffer();
+    lodCullingPointMesh = new video::IGPUMeshBuffer();
     lodCullingPointMesh->setPrimitiveType(asset::EPT_POINTS);
 }
 
@@ -127,7 +127,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     {
         video::IGPUBuffer* buff = instanceDataAllocator->getFrontBuffer();
 
-        IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
+        video::IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
         lodCullingPointMesh->setMeshDataAndFormat(vao);
         vao->drop();
 
@@ -179,9 +179,9 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         tmp.mesh = new SGPUMesh();
         for (size_t j=0; j<levelsOfDetail[i].mesh->getMeshBufferCount(); j++)
         {
-            IGPUMeshBuffer* origBuff = levelsOfDetail[i].mesh->getMeshBuffer(j);
+            video::IGPUMeshBuffer* origBuff = levelsOfDetail[i].mesh->getMeshBuffer(j);
 
-            IGPUMeshBuffer* meshBuff = new IGPUMeshBuffer();
+            video::IGPUMeshBuffer* meshBuff = new video::IGPUMeshBuffer();
             meshBuff->setBaseVertex(origBuff->getBaseVertex());
             if (origBuff->isIndexCountGivenByXFormFeedback())
                 meshBuff->setIndexCountFromXFormFeedback(origBuff->getXFormFeedback(),origBuff->getXFormFeedbackStream());
@@ -484,7 +484,7 @@ void CMeshSceneNodeInstanced::OnRegisterSceneNode()
         for (size_t i=0; i<LoD.size(); ++i)
         for (size_t j=0; j<LoD[i].mesh->getMeshBufferCount(); j++)
         {
-            scene::IGPUMeshBuffer* mb = LoD[i].mesh->getMeshBuffer(j);
+            video::IGPUMeshBuffer* mb = LoD[i].mesh->getMeshBuffer(j);
             if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
                 continue;
 

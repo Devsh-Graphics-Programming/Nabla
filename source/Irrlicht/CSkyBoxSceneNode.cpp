@@ -122,10 +122,10 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 
 	for (size_t i=0; i<6; i++)
     {
-        sides[i] = new IGPUMeshBuffer();
+        sides[i] = new video::IGPUMeshBuffer();
         sides[i]->setPrimitiveType(asset::EPT_TRIANGLE_FAN);
         sides[i]->setIndexCount(4);
-        IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+        video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
         sides[i]->setMeshDataAndFormat(desc);
         desc->drop();
     }
