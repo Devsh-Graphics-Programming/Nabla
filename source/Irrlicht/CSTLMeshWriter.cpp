@@ -75,7 +75,7 @@ template <class I>
 inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, asset::E_VERTEX_ATTRIBUTE_ID _colorVaid)
 {
     bool hasColor = buffer->getMeshDataAndFormat()->getMappedBuffer(_colorVaid);
-    const video::E_FORMAT colorType = buffer->getMeshDataAndFormat()->getAttribFormat(_colorVaid);
+    const asset::E_FORMAT colorType = buffer->getMeshDataAndFormat()->getAttribFormat(_colorVaid);
 
     const uint32_t indexCount = buffer->getIndexCount();
     for (uint32_t j = 0u; j < indexCount; j += 3u)
@@ -96,7 +96,7 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
         uint16_t color = 0u;
         if (hasColor)
         {
-            if (video::isIntegerFormat(colorType))
+            if (asset::isIntegerFormat(colorType))
             {
                 uint32_t res[4];
                 for (uint32_t i = 0u; i < 3u; ++i)

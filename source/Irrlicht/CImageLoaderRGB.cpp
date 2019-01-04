@@ -233,14 +233,14 @@ asset::IAsset* CImageLoaderRGB::loadAsset(io::IReadFile* _file, const asset::IAs
 				for (int n=0; n<256; n++)
 					paletteData[n] = n;
 
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0,EF_A1R5G5B5_UNORM_PACK16);
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_A1R5G5B5_UNORM_PACK16);
 				if (image)
 					CColorConverter::convert8BitTo16Bit(rgb.rgbData, (int16_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, paletteData, 0, true);
 				break;
 			case 3:
 				// RGB image
 				// one byte per COLOR VALUE, eg, 24bpp
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0,EF_R8G8B8_UNORM);
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8_UNORM);
 				if (image)
 					CColorConverter::convert24BitTo24Bit(rgb.rgbData, (uint8_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true, false);
 				break;
@@ -250,7 +250,7 @@ asset::IAsset* CImageLoaderRGB::loadAsset(io::IReadFile* _file, const asset::IAs
 
 				converttoARGB(reinterpret_cast<uint32_t*>(rgb.rgbData), 	rgb.Header.Ysize * rgb.Header.Xsize);
 
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0,EF_B8G8R8A8_UNORM);
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_B8G8R8A8_UNORM);
 				if (image)
 					CColorConverter::convert32BitTo32Bit((int32_t*)rgb.rgbData, (int32_t*)image->getData(), rgb.Header.Xsize, rgb.Header.Ysize, 0, true);
 

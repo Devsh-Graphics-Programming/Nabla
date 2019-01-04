@@ -17,7 +17,7 @@
 #include "triangle3d.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
-#include "irr/video/EColorFormat.h"
+#include "irr/asset/EFormat.h"
 
 namespace irr
 {
@@ -110,10 +110,10 @@ namespace video
         virtual bool deinitAuxContext() = 0;
 
 
-        virtual bool isAllowedVertexAttribFormat(E_FORMAT _fmt) const = 0;
-        virtual bool isColorRenderableFormat(E_FORMAT _fmt) const = 0;
-        virtual bool isAllowedImageStoreFormat(E_FORMAT _fmt) const = 0;
-        virtual bool isAllowedTextureFormat(E_FORMAT _fmt) const = 0;
+        virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const = 0;
+        virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const = 0;
+        virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const = 0;
+        virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const = 0;
 
 
 		//! Applications must call this method before performing any rendering.
@@ -205,7 +205,7 @@ namespace video
 
         //! A.
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
-                                                           E_FORMAT format = EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) {return nullptr;}
+                                                           asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) {return nullptr;}
 
         //! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8,
@@ -571,7 +571,7 @@ namespace video
 		virtual IImage* createImageFromData(asset::CImageData* imageData, bool ownForeignMemory=true) =0;
 
 		//!
-		virtual IImage* createImage(const E_FORMAT& format, const core::dimension2d<uint32_t>& size) =0;
+		virtual IImage* createImage(const asset::E_FORMAT& format, const core::dimension2d<uint32_t>& size) =0;
 
 		//! Event handler for resize events. Only used by the engine internally.
 		/** Used to notify the driver that the window was resized.

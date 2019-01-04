@@ -64,7 +64,7 @@ namespace video
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device)
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(EF_R8G8B8_UNORM), Params(params),
+	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	DeviceType(EIDT_WIN32), AuxContexts(0)
 {
@@ -434,16 +434,16 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	if (pfd.cAlphaBits != 0)
 	{
 		if (pfd.cRedBits == 8)
-			ColorFormat = EF_B8G8R8A8_UNORM;
+			ColorFormat = asset::EF_B8G8R8A8_UNORM;
 		else
-			ColorFormat = EF_A1R5G5B5_UNORM_PACK16;
+			ColorFormat = asset::EF_A1R5G5B5_UNORM_PACK16;
 	}
 	else
 	{
 		if (pfd.cRedBits == 8)
-			ColorFormat = EF_R8G8B8_UNORM;
+			ColorFormat = asset::EF_R8G8B8_UNORM;
 		else
-			ColorFormat = EF_B5G6R5_UNORM_PACK16;
+			ColorFormat = asset::EF_B5G6R5_UNORM_PACK16;
 	}
 
 #ifdef _IRR_COMPILE_WITH_OPENCL_
@@ -1721,8 +1721,9 @@ void COpenGLDriver::SAuxContext::BoundBuffer<BIND_POINT>::set(const COpenGLBuffe
 }
 
 
-static GLenum formatEnumToGLenum(E_FORMAT fmt)
+static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 {
+    using namespace asset;
     switch (fmt)
     {
     case EF_R16_SFLOAT:
@@ -1835,7 +1836,7 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
         mappedAttrBuf[attrId] = static_cast<const COpenGLBuffer*>(buf);
         if (mappedAttrBuf[attrId])
         {
-            const E_FORMAT format = spec->getAttribFormat(attrId);
+            const asset::E_FORMAT format = spec->getAttribFormat(attrId);
 
             mappedAttrBuf[attrId]->grab();
             attrStride[attrId] = spec->getMappedBufferStride(attrId);
@@ -2208,7 +2209,7 @@ bool orderByMip(asset::CImageData* a, asset::CImageData* b)
 
 //! returns a device dependent texture from a software surface (IImage)
 video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
-			const io::path& name, E_FORMAT format)
+			const io::path& name, asset::E_FORMAT format)
 {
 #ifdef _DEBUG
     //if the max coords are not 0, then there is something seriously wrong
@@ -2541,12 +2542,12 @@ void COpenGLDriver::setViewPort(const core::rect<int32_t>& area)
 	}
 }
 
-ITexture* COpenGLDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, E_FORMAT format)
+ITexture* COpenGLDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
 {
     return createDeviceDependentTexture(type, size, mipmapLevels, "", format);
 }
 
-IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, E_FORMAT format, const bool& fixedSampleLocations)
+IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format, const bool& fixedSampleLocations)
 {
     //check to implement later on  attachment of textures to FBO
     //if (!isFormatRenderable(glTex->getOpenGLInternalFormat()))
@@ -2638,7 +2639,7 @@ E_DRIVER_TYPE COpenGLDriver::getDriverType() const
 
 
 //! returns color format
-E_FORMAT COpenGLDriver::getColorFormat() const
+asset::E_FORMAT COpenGLDriver::getColorFormat() const
 {
 	return ColorFormat;
 }

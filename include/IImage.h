@@ -48,7 +48,7 @@ public:
 	virtual void setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend = false ) = 0;
 
 	//! Returns the color format
-	virtual E_FORMAT getColorFormat() const = 0;
+	virtual asset::E_FORMAT getColorFormat() const = 0;
 
 	//! Returns mask for red value of a pixel
 	virtual uint32_t getRedMask() const = 0;

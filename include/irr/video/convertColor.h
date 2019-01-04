@@ -2,7 +2,7 @@
 #define __IRR_CONVERT_COLOR_H_INCLUDED__
 
 #include <cassert>
-#include "EColorFormat.h"
+#include "irr/asset/EFormat.h"
 #include "decodePixels.h"
 #include "encodePixels.h"
 
@@ -17,24 +17,24 @@ namespace irr { namespace video
             ET_F64
         };
 
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct format2type :
-            std::conditional<isIntegerFormat<cf>(), 
-                typename std::conditional<isSignedFormat<cf>(),
+            std::conditional<asset::isIntegerFormat<cf>(), 
+                typename std::conditional<asset::isSignedFormat<cf>(),
                     std::integral_constant<E_TYPE, ET_I64>,
                     std::integral_constant<E_TYPE, ET_U64>
                 >::type,
-                typename std::conditional<isFloatingPointFormat<cf>() || isNormalizedFormat<cf>() || isScaledFormat<cf>(),
+                typename std::conditional<asset::isFloatingPointFormat<cf>() || asset::isNormalizedFormat<cf>() || asset::isScaledFormat<cf>(),
                     std::integral_constant<E_TYPE, ET_F64>,
                     void // gen error if format is neither signed/unsigned integer or floating point/normalized/scaled
                 >::type
             >::type
         {};
 
-        template<bool SCALED, E_FORMAT cf, typename T, E_TYPE = format2type<cf>::value>
+        template<bool SCALED, asset::E_FORMAT cf, typename T, E_TYPE = format2type<cf>::value>
         struct SCallDecode;
 
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<false, cf, double, ET_F64>
         {
             using T = double;
@@ -43,7 +43,7 @@ namespace irr { namespace video
                 decodePixels<cf, T>(_pix, _output, _blockX, _blockY);
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<false, cf, double, ET_I64>
         {
             using T = double;
@@ -53,7 +53,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<false, cf, double, ET_U64>
         {
             using T = double;
@@ -63,7 +63,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<false, cf, int64_t, ET_F64>
         {
             using T = int64_t;
@@ -73,7 +73,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<false, cf, int64_t, ET_I64>
         {
             using T = int64_t;
@@ -82,7 +82,7 @@ namespace irr { namespace video
                 decodePixels<cf, T>(_pix, _output, _blockX, _blockY);
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<false, cf, int64_t, ET_U64>
         {
             using T = int64_t;
@@ -92,7 +92,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<false, cf, uint64_t, ET_F64>
         {
             using T = uint64_t;
@@ -102,7 +102,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<false, cf, uint64_t, ET_I64>
         {
             using T = uint64_t;
@@ -112,7 +112,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<false, cf, uint64_t, ET_U64>
         {
             using T = uint64_t;
@@ -123,7 +123,7 @@ namespace irr { namespace video
         };
 
 
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<true, cf, double, ET_F64>
         {
             using T = double;
@@ -132,7 +132,7 @@ namespace irr { namespace video
                 decodePixels<cf, T>(_pix, _output, _blockX, _blockY, _scale);
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<true, cf, double, ET_I64>
         {
             using T = double;
@@ -142,7 +142,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<true, cf, double, ET_U64>
         {
             using T = double;
@@ -152,7 +152,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<true, cf, int64_t, ET_F64>
         {
             using T = int64_t;
@@ -162,7 +162,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<true, cf, int64_t, ET_I64>
         {
             using T = int64_t;
@@ -171,7 +171,7 @@ namespace irr { namespace video
                 decodePixels<cf, T>(_pix, _output, _blockX, _blockY, _scale);
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<true, cf, int64_t, ET_U64>
         {
             using T = int64_t;
@@ -181,7 +181,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<true, cf, uint64_t, ET_F64>
         {
             using T = uint64_t;
@@ -191,7 +191,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<true, cf, uint64_t, ET_I64>
         {
             using T = uint64_t;
@@ -201,7 +201,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallDecode<true, cf, uint64_t, ET_U64>
         {
             using T = uint64_t;
@@ -213,10 +213,10 @@ namespace irr { namespace video
 
 
 
-        template<bool SCALED, E_FORMAT cf, typename T, E_TYPE = format2type<cf>::value>
+        template<bool SCALED, asset::E_FORMAT cf, typename T, E_TYPE = format2type<cf>::value>
         struct SCallEncode;
 
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<false, cf, double, ET_F64>
         {
             using T = double;
@@ -225,7 +225,7 @@ namespace irr { namespace video
                 encodePixels<cf, T>(_pix, _input);
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<false, cf, double, ET_I64>
         {
             using T = double;
@@ -235,7 +235,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<false, cf, double, ET_U64>
         {
             using T = double;
@@ -245,7 +245,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<false, cf, int64_t, ET_F64>
         {
             using T = int64_t;
@@ -255,7 +255,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<false, cf, int64_t, ET_I64>
         {
             using T = int64_t;
@@ -264,7 +264,7 @@ namespace irr { namespace video
                 encodePixels<cf, T>(_pix, _input);
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<false, cf, int64_t, ET_U64>
         {
             using T = int64_t;
@@ -274,7 +274,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<false, cf, uint64_t, ET_F64>
         {
             using T = uint64_t;
@@ -284,7 +284,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<false, cf, uint64_t, ET_I64>
         {
             using T = uint64_t;
@@ -294,7 +294,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<false, cf, uint64_t, ET_U64>
         {
             using T = uint64_t;
@@ -304,7 +304,7 @@ namespace irr { namespace video
             }
         };
 
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<true, cf, double, ET_F64>
         {
             using T = double;
@@ -313,7 +313,7 @@ namespace irr { namespace video
                 encodePixels<cf, T>(_pix, _input, _scale);
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<true, cf, double, ET_I64>
         {
             using T = double;
@@ -323,7 +323,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<true, cf, double, ET_U64>
         {
             using T = double;
@@ -333,7 +333,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<true, cf, int64_t, ET_F64>
         {
             using T = int64_t;
@@ -343,7 +343,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<true, cf, int64_t, ET_I64>
         {
             using T = int64_t;
@@ -352,7 +352,7 @@ namespace irr { namespace video
                 encodePixels<cf, T>(_pix, _input, _scale);
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<true, cf, int64_t, ET_U64>
         {
             using T = int64_t;
@@ -362,7 +362,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<true, cf, uint64_t, ET_F64>
         {
             using T = uint64_t;
@@ -372,7 +372,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<true, cf, uint64_t, ET_I64>
         {
             using T = uint64_t;
@@ -382,7 +382,7 @@ namespace irr { namespace video
                 //this never gets called but must be defined because of runtime if-statements (we don't support c++17 and so can't use constexpr-if)
             }
         };
-        template<E_FORMAT cf>
+        template<asset::E_FORMAT cf>
         struct SCallEncode<true, cf, uint64_t, ET_U64>
         {
             using T = uint64_t;
@@ -394,9 +394,10 @@ namespace irr { namespace video
     } //namespace impl
 
 
-    template<E_FORMAT sF, E_FORMAT dF>
+    template<asset::E_FORMAT sF, asset::E_FORMAT dF>
     inline void convertColor(const void* srcPix[4], void* dstPix, uint64_t _scale, uint32_t _blockX, uint32_t _blockY)
     {
+        using namespace asset;
         if (isIntegerFormat<sF>() && isIntegerFormat<dF>())
         {
             using decT = typename std::conditional<isSignedFormat<sF>(), int64_t, uint64_t>::type;
@@ -442,9 +443,11 @@ namespace irr { namespace video
             impl::SCallEncode<isScaledFormat<dF>(), dF, encT>{}(dstPix, encbuf, _scale);
         }
     }
-    template<E_FORMAT sF, E_FORMAT dF>
+    template<asset::E_FORMAT sF, asset::E_FORMAT dF>
     inline void convertColor(const void* srcPix[4], void* dstPix, uint64_t _scale, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize)
     {
+        using namespace asset;
+
         const uint32_t srcStride = getTexelOrBlockSize(sF);
         const uint32_t dstStride = getTexelOrBlockSize(dF);
 
@@ -486,7 +489,7 @@ namespace irr { namespace video
         }
     }
 
-    void convertColor(E_FORMAT _sfmt, E_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, uint64_t _scale, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize);
+    void convertColor(asset::E_FORMAT _sfmt, asset::E_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, uint64_t _scale, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize);
 }} //irr:video
 
 #endif //__IRR_CONVERT_COLOR_H_INCLUDED__

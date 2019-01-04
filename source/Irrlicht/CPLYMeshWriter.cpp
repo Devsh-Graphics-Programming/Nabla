@@ -20,9 +20,9 @@ namespace scene
 
 namespace impl
 {
-static video::E_FORMAT getCorrespondingIntegerFormat(video::E_FORMAT _fmt)
+static asset::E_FORMAT getCorrespondingIntegerFormat(asset::E_FORMAT _fmt)
 {
-    using namespace video;
+    using namespace asset;
     switch (_fmt)
     {
     case EF_R8_UNORM: return EF_R8_UINT;
@@ -101,7 +101,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     auto desc = mesh->getMeshBuffer(0)->getMeshDataAndFormat();
     if (desc->getMappedBuffer(asset::EVAI_ATTR0))
     {
-        const video::E_FORMAT t = desc->getAttribFormat(asset::EVAI_ATTR0);
+        const asset::E_FORMAT t = desc->getAttribFormat(asset::EVAI_ATTR0);
         std::string typeStr = getTypeString(t);
         vaidToWrite[0] = true;
         header +=
@@ -111,21 +111,21 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     }
     if (desc->getMappedBuffer(asset::EVAI_ATTR1))
     {
-        const video::E_FORMAT t = desc->getAttribFormat(asset::EVAI_ATTR1);
+        const asset::E_FORMAT t = desc->getAttribFormat(asset::EVAI_ATTR1);
         std::string typeStr = getTypeString(t);
         vaidToWrite[1] = true;
         header +=
             "property " + typeStr + " red\n" +
             "property " + typeStr + " green\n" +
             "property " + typeStr + " blue\n";
-        if (video::getFormatChannelCount(t) == 4u)
+        if (asset::getFormatChannelCount(t) == 4u)
         {
             header += "property " + typeStr + " alpha\n";
         }
     }
     if (desc->getMappedBuffer(asset::EVAI_ATTR2))
     {
-        const video::E_FORMAT t = desc->getAttribFormat(asset::EVAI_ATTR1);
+        const asset::E_FORMAT t = desc->getAttribFormat(asset::EVAI_ATTR1);
         std::string typeStr = getTypeString(t);
         vaidToWrite[2] = true;
         header +=
@@ -134,7 +134,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     }
     if (desc->getMappedBuffer(asset::EVAI_ATTR3))
     {
-        const video::E_FORMAT t = desc->getAttribFormat(asset::EVAI_ATTR1);
+        const asset::E_FORMAT t = desc->getAttribFormat(asset::EVAI_ATTR1);
         std::string typeStr = getTypeString(t);
         vaidToWrite[3] = true;
         header +=
@@ -221,7 +221,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
 void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
 {
-    const size_t colCpa = video::getFormatChannelCount(_mbuf->getMeshDataAndFormat()->getAttribFormat(asset::EVAI_ATTR1));
+    const size_t colCpa = asset::getFormatChannelCount(_mbuf->getMeshDataAndFormat()->getAttribFormat(asset::EVAI_ATTR1));
 
     asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
@@ -299,11 +299,11 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
     {
         uint32_t ui[4];
         core::vectorSIMDf f;
-        const video::E_FORMAT t = mbCopy->getMeshDataAndFormat()->getAttribFormat(_vaid);
-        if (video::isScaledFormat(t) || video::isIntegerFormat(t))
+        const asset::E_FORMAT t = mbCopy->getMeshDataAndFormat()->getAttribFormat(_vaid);
+        if (asset::isScaledFormat(t) || asset::isIntegerFormat(t))
         {
             mbCopy->getAttribute(ui, _vaid, _ix);
-            if (!video::isSignedFormat(t))
+            if (!asset::isSignedFormat(t))
                 writeVectorAsText(_file, ui, _cpa);
             else
             {
@@ -319,7 +319,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
         }
     };
 
-    const size_t colCpa = video::getFormatChannelCount(_mbuf->getMeshDataAndFormat()->getAttribFormat(asset::EVAI_ATTR1));
+    const size_t colCpa = asset::getFormatChannelCount(_mbuf->getMeshDataAndFormat()->getAttribFormat(asset::EVAI_ATTR1));
 
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
@@ -393,13 +393,13 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuf
 {
     uint32_t ui[4];
     core::vectorSIMDf f;
-    video::E_FORMAT t = _mbuf->getMeshDataAndFormat()->getAttribFormat(_vaid);
-    if (video::isScaledFormat(t) || video::isIntegerFormat(t))
+    asset::E_FORMAT t = _mbuf->getMeshDataAndFormat()->getAttribFormat(_vaid);
+    if (asset::isScaledFormat(t) || asset::isIntegerFormat(t))
     {
         _mbuf->getAttribute(ui, _vaid, _ix);
 
-        const uint32_t bytesPerCh = video::getTexelOrBlockSize(t)/video::getFormatChannelCount(t);
-        if (bytesPerCh == 1u || t == video::EF_A2B10G10R10_UINT_PACK32 || t == video::EF_A2B10G10R10_SINT_PACK32 || t == video::EF_A2B10G10R10_SSCALED_PACK32 || t == video::EF_A2B10G10R10_USCALED_PACK32)
+        const uint32_t bytesPerCh = asset::getTexelOrBlockSize(t)/asset::getFormatChannelCount(t);
+        if (bytesPerCh == 1u || t == asset::EF_A2B10G10R10_UINT_PACK32 || t == asset::EF_A2B10G10R10_SINT_PACK32 || t == asset::EF_A2B10G10R10_SSCALED_PACK32 || t == asset::EF_A2B10G10R10_USCALED_PACK32)
         {
             uint8_t a[4];
             for (uint32_t k = 0u; k < _cpa; ++k)
@@ -433,13 +433,13 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
     for (size_t i = asset::EVAI_ATTR0; i < asset::EVAI_COUNT; ++i)
     {
         asset::E_VERTEX_ATTRIBUTE_ID vaid = (asset::E_VERTEX_ATTRIBUTE_ID)i;
-        video::E_FORMAT t = origDesc->getAttribFormat(vaid);
+        asset::E_FORMAT t = origDesc->getAttribFormat(vaid);
         if (origDesc->getMappedBuffer(vaid))
         {
             desc->setVertexAttrBuffer(
                 const_cast<asset::ICPUBuffer*>(origDesc->getMappedBuffer(vaid)),
                 vaid,
-                video::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t,
+                asset::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t,
                 origDesc->getMappedBufferStride(vaid),
                 origDesc->getMappedBufferOffset(vaid),
                 origDesc->getAttribDivisor(vaid)
@@ -461,11 +461,11 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
     return mbCopy;
 }
 
-std::string CPLYMeshWriter::getTypeString(video::E_FORMAT _t)
+std::string CPLYMeshWriter::getTypeString(asset::E_FORMAT _t)
 {
-    using namespace video;
+    using namespace asset;
 
-    if (video::isFloatingPointFormat(_t))
+    if (isFloatingPointFormat(_t))
         return "float";
 
     switch (_t)

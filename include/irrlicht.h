@@ -59,6 +59,7 @@
 
 #include "irr/video/asset_traits.h"
 #include "irr/video/IGPUObjectFromAssetConverter.h"
+#include "irr/video/IGPUMesh.h"
 
 #include "IrrCompileConfig.h"
 #include "aabbox3d.h"

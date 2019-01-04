@@ -44,7 +44,7 @@ namespace scene
         //! Creates new mesh buffer with the same attribute buffers mapped but with normalized types changed to corresponding true integer types.
         static asset::ICPUMeshBuffer* createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf);
 
-        static std::string getTypeString(video::E_FORMAT _t);
+        static std::string getTypeString(asset::E_FORMAT _t);
 
         template<typename T>
         void writeVectorAsText(io::IWriteFile* _file, const T* _vec, size_t _elementsToWrite) const

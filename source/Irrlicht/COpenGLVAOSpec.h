@@ -43,7 +43,7 @@ namespace video
                 HashAttribs()
                 {
                     static_assert(asset::EVAI_COUNT==16, "scene::EVAI_COUNT != 16"); //otherwise our hashing system falls apart
-                    static_assert(EF_UNKNOWN < 256, "video::EF_UNKNOW >= 256"); //otherwise our hashing system falls apart
+                    static_assert(asset::EF_UNKNOWN < 256, "EF_UNKNOW >= 256"); //otherwise our hashing system falls apart
                     static_assert(sizeof(HashAttribs)/sizeof(uint64_t)==(asset::EVAI_COUNT+2+2+sizeof(uint64_t)-1)/sizeof(uint64_t), ""); //otherwise our hashing system falls apart
 
                     for (size_t i=0; i<getHashLength(); i++)
@@ -52,14 +52,14 @@ namespace video
 
                 constexpr static size_t getHashLength() {return sizeof(hashVal)/sizeof(uint64_t);}
 
-                inline void setAttrFmt(const asset::E_VERTEX_ATTRIBUTE_ID& attrId, E_FORMAT fmt)
+                inline void setAttrFmt(const asset::E_VERTEX_ATTRIBUTE_ID& attrId, asset::E_FORMAT fmt)
                 {
                     attribFormatAndComponentCount[attrId] = fmt;
                 }
 
-                inline E_FORMAT getAttribFormat(const asset::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                inline asset::E_FORMAT getAttribFormat(const asset::E_VERTEX_ATTRIBUTE_ID& attrId) const
                 {
-                    return static_cast<E_FORMAT>(attribFormatAndComponentCount[attrId]);
+                    return static_cast<asset::E_FORMAT>(attribFormatAndComponentCount[attrId]);
                 }
 
                 inline uint32_t getAttribDivisor(const asset::E_VERTEX_ATTRIBUTE_ID& attrId) const
@@ -126,7 +126,7 @@ namespace video
 
             COpenGLVAOSpec(core::LeakDebugger* dbgr=NULL);
 
-            virtual void setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override;
+            virtual void setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override;
 
             inline const IGPUBuffer* const* getMappedBuffers() const
             {

@@ -2,7 +2,7 @@
 #define __IRR_CBAW_LEGACY_H_INCLUDED__
 
 #include "irr/asset/bawformat/CBAWFile.h"
-#include "irr/video/EColorFormat.h"
+#include "irr/asset/EFormat.h"
 
 namespace irr { namespace asset { namespace legacy
 {
@@ -80,7 +80,7 @@ static_assert(
     "MeshDataFormatDescBlobV0: Size of blob is not sum of its contents!"
 );
 
-video::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
+asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
 
 }}}//irr::asset::legacy
 

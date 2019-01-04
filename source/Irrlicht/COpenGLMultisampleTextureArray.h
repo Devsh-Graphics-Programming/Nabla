@@ -49,7 +49,7 @@ class COpenGLMultisampleTextureArray : public COpenGLTexture, public IMultisampl
         virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_THREE;}
 
         //! returns color format of texture
-        virtual E_FORMAT getColorFormat() const {return ColorFormat;}
+        virtual asset::E_FORMAT getColorFormat() const {return ColorFormat;}
 
         //!
         virtual E_MULTISAMPLE_TEXTURE_TYPE getTextureType() const {return EMTT_2D_ARRAY;}
@@ -85,7 +85,7 @@ class COpenGLMultisampleTextureArray : public COpenGLTexture, public IMultisampl
         bool FixedSampleLocations;
 
         GLint InternalFormat;
-        E_FORMAT ColorFormat;
+        asset::E_FORMAT ColorFormat;
 };
 
 } // end namespace video

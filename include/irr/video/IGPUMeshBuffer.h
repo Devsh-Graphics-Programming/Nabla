@@ -16,7 +16,7 @@
 #include "coreutil.h"
 #include "irr/asset/bawformat/CBAWFile.h"
 #include "assert.h"
-#include "irr/video/EColorFormat.h"
+#include "irr/asset/EFormat.h"
 #include "irr/asset/ICPUMeshBuffer.h"
 
 namespace irr

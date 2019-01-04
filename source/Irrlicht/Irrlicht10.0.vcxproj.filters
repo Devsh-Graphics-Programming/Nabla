@@ -527,6 +527,9 @@
     <ClInclude Include="..\..\src\irr\video\CGPUSkinnedMesh.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUObjectFromAssetConverter.h" />
     <ClInclude Include="..\..\include\irr\asset\ICPUSkinnedMeshBuffer.h" />
+    <ClInclude Include="..\..\include\irr\video\convertColor.h" />
+    <ClInclude Include="..\..\include\irr\video\decodePixels.h" />
+    <ClInclude Include="..\..\include\irr\video\encodePixels.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />

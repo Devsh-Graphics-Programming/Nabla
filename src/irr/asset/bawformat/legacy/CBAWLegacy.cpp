@@ -15,7 +15,7 @@ size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV0, asset::IMeshDataFormat
 using namespace video;
 namespace
 {
-    constexpr E_FORMAT CTplusCPAtoEF[ECT_COUNT][ECPA_COUNT]
+    constexpr asset::E_FORMAT CTplusCPAtoEF[ECT_COUNT][ECPA_COUNT]
     {
         {EF_UNKNOWN, EF_R32_SFLOAT, EF_R32G32_SFLOAT, EF_R32G32B32_SFLOAT, EF_R32G32B32A32_SFLOAT},
         {EF_UNKNOWN, EF_R16_SFLOAT, EF_R16G16_SFLOAT, EF_R16G16B16_SFLOAT, EF_R16G16B16A16_SFLOAT},
@@ -52,7 +52,7 @@ namespace
 namespace irr { namespace asset { namespace legacy
 {
 
-E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa)
+asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa)
 {
     if (_ct >= ECT_COUNT || _cpa >= ECPA_COUNT)
         return EF_UNKNOWN;

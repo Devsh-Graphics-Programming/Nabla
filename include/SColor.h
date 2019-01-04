@@ -7,7 +7,7 @@
 
 #include "vectorSIMD.h"
 #include "coreutil.h"
-#include "irr/video/EColorFormat.h"
+#include "irr/asset/EFormat.h"
 
 namespace irr
 {
@@ -15,7 +15,7 @@ namespace video
 {
 
 	//! get the amount of Bits per Pixel of the given color format
-	static uint32_t getBitsPerPixelFromFormat(const E_FORMAT format)
+	static uint32_t getBitsPerPixelFromFormat(const asset::E_FORMAT format)
 	{
 		return getTexelOrBlockSize(format)*8u;
 	}
@@ -339,20 +339,20 @@ namespace video
 		/** \param data: must point to valid memory containing color information in the given format
 			\param format: tells the format in which data is available
 		*/
-		void setData(const void *data, E_FORMAT format)
+		void setData(const void *data, asset::E_FORMAT format)
 		{
 			switch (format)
 			{
-				case EF_A1R5G5B5_UNORM_PACK16:
+				case asset::EF_A1R5G5B5_UNORM_PACK16:
 					color = A1R5G5B5toA8R8G8B8(*(uint16_t*)data);
 					break;
-				case EF_B5G6R5_UNORM_PACK16:
+				case asset::EF_B5G6R5_UNORM_PACK16:
 					color = R5G6B5toA8R8G8B8(*(uint16_t*)data);
 					break;
-				case EF_B8G8R8A8_UNORM:
+				case asset::EF_B8G8R8A8_UNORM:
 					color = *(uint32_t*)data;
 					break;
-				case EF_R8G8B8_UNORM:
+				case asset::EF_R8G8B8_UNORM:
 					{
 						uint8_t* p = (uint8_t*)data;
 						set(255, p[0],p[1],p[2]);
@@ -368,25 +368,25 @@ namespace video
 		/** \param data: target to write the color. Must contain sufficiently large memory to receive the number of bytes neede for format
 			\param format: tells the format used to write the color into data
 		*/
-		void getData(void *data, E_FORMAT format)
+		void getData(void *data, asset::E_FORMAT format)
 		{
 			switch(format)
 			{
-				case EF_A1R5G5B5_UNORM_PACK16:
+				case asset::EF_A1R5G5B5_UNORM_PACK16:
 				{
 					uint16_t * dest = (uint16_t*)data;
 					*dest = video::A8R8G8B8toA1R5G5B5( color );
 				}
 				break;
 
-				case EF_B5G6R5_UNORM_PACK16:
+				case asset::EF_B5G6R5_UNORM_PACK16:
 				{
 					uint16_t * dest = (uint16_t*)data;
 					*dest = video::A8R8G8B8toR5G6B5( color );
 				}
 				break;
 
-				case EF_R8G8B8_UNORM:
+				case asset::EF_R8G8B8_UNORM:
 				{
 					uint8_t* dest = (uint8_t*)data;
 					dest[0] = (uint8_t)getRed();
@@ -395,7 +395,7 @@ namespace video
 				}
 				break;
 
-				case EF_B8G8R8A8_UNORM:
+				case asset::EF_B8G8R8A8_UNORM:
 				{
 					uint32_t * dest = (uint32_t*)data;
 					*dest = color;

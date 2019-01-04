@@ -536,7 +536,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 
 	size_t offsets[asset::EVAI_COUNT];
 	memset(offsets, -1, sizeof(offsets));
-	video::E_FORMAT types[asset::EVAI_COUNT];
+	asset::E_FORMAT types[asset::EVAI_COUNT];
 	if (buffers.size() != 1)
 	{
 		size_t lastOffset = 0u;
@@ -547,8 +547,8 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 			{
 				types[i] = outDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i);
 
-                const uint32_t typeSz = video::getTexelOrBlockSize(types[i]);
-                const size_t alignment = (typeSz/video::getFormatChannelCount(types[i]) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
+                const uint32_t typeSz = asset::getTexelOrBlockSize(types[i]);
+                const size_t alignment = (typeSz/asset::getFormatChannelCount(types[i]) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
 
 				offsets[i] = lastOffset + lastSize;
 				const size_t mod = offsets[i] % alignment;
@@ -593,9 +593,9 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferFetchOptimized(const as
 		{
 			for (size_t j = 0; j < activeAttribs.size(); ++j)
 			{
-				video::E_FORMAT type = types[activeAttribs[j]];
+				asset::E_FORMAT type = types[activeAttribs[j]];
 
-                if (!video::isNormalizedFormat(type) && (video::isIntegerFormat(type) || video::isScaledFormat(type)))
+                if (!asset::isNormalizedFormat(type) && (asset::isIntegerFormat(type) || asset::isScaledFormat(type)))
 				{
 					uint32_t dst[4];
 					_inbuffer->getAttribute(dst, (asset::E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], index);
@@ -662,7 +662,7 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
         if (vbuf)
         {
             offset[i] = stride;
-            newAttribSizes[i] = video::getTexelOrBlockSize(oldDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i));
+            newAttribSizes[i] = asset::getTexelOrBlockSize(oldDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i));
             stride += newAttribSizes[i];
             if (stride>=0xdeadbeefu)
             {
@@ -731,9 +731,9 @@ static bool cmpVertices(asset::ICPUMeshBuffer* _inbuf, const void* _va, const vo
             continue;
 
         const auto atype = desc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i);
-        const auto cpa = video::getFormatChannelCount(atype);
+        const auto cpa = asset::getFormatChannelCount(atype);
 
-        if (video::isIntegerFormat(atype) || video::isScaledFormat(atype))
+        if (asset::isIntegerFormat(atype) || asset::isScaledFormat(atype))
         {
             uint32_t attr[8];
             asset::ICPUMeshBuffer::getAttribute(attr, va, atype);
@@ -750,7 +750,7 @@ static bool cmpVertices(asset::ICPUMeshBuffer* _inbuf, const void* _va, const vo
                 return false;
         }
 
-        const uint32_t sz = video::getTexelOrBlockSize(atype);
+        const uint32_t sz = asset::getTexelOrBlockSize(atype);
         va += sz;
         vb += sz;
     }
@@ -777,8 +777,8 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferWelded(asset::ICPUMeshB
         bufferPresent[i] = buf;
         if (buf)
         {
-            const video::E_FORMAT componentType = oldDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i);
-            vertexAttrSize[i] = video::getTexelOrBlockSize(componentType);
+            const asset::E_FORMAT componentType = oldDesc->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)i);
+            vertexAttrSize[i] = asset::getTexelOrBlockSize(componentType);
             vertexSize += vertexAttrSize[i];
         }
     }
@@ -1099,11 +1099,11 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 	core::unordered_map<asset::E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>> attribsF;
 	for (size_t vaid = asset::EVAI_ATTR0; vaid < (size_t)asset::EVAI_COUNT; ++vaid)
 	{
-		const video::E_FORMAT type = _meshbuffer->getMeshDataAndFormat()->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)vaid);
+		const asset::E_FORMAT type = _meshbuffer->getMeshDataAndFormat()->getAttribFormat((asset::E_VERTEX_ATTRIBUTE_ID)vaid);
 
 		if (_meshbuffer->getMeshDataAndFormat()->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)vaid))
 		{
-			if (!video::isNormalizedFormat(type) && video::isIntegerFormat(type))
+			if (!asset::isNormalizedFormat(type) && asset::isIntegerFormat(type))
 				attribsI[(asset::E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (asset::E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
 			else
 				attribsF[(asset::E_VERTEX_ATTRIBUTE_ID)vaid] = findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (asset::E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
@@ -1128,8 +1128,8 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 
 	for (size_t i = 0u; i < activeAttributeCount; ++i)
 	{
-        const uint32_t typeSz = video::getTexelOrBlockSize(newAttribs[i].type);
-        const size_t alignment = (typeSz / video::getFormatChannelCount(newAttribs[i].type) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
+        const uint32_t typeSz = asset::getTexelOrBlockSize(newAttribs[i].type);
+        const size_t alignment = (typeSz / asset::getFormatChannelCount(newAttribs[i].type) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
 
 		newAttribs[i].offset = (i ? newAttribs[i - 1].offset + newAttribs[i - 1].size : 0u);
 		const size_t mod = newAttribs[i].offset % alignment;
@@ -1354,11 +1354,11 @@ asset::ICPUBuffer* CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(const
 	return out;
 }
 
-core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, asset::E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
+core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(asset::E_FORMAT* _outType, size_t* _outSize, asset::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, asset::E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
 {
-	const video::E_FORMAT thisType = _meshbuffer->getMeshDataAndFormat()->getAttribFormat(_attrId);
+	const asset::E_FORMAT thisType = _meshbuffer->getMeshDataAndFormat()->getAttribFormat(_attrId);
 
-    if (!video::isFloatingPointFormat(thisType) && !video::isNormalizedFormat(thisType) && !video::isScaledFormat(thisType))
+    if (!asset::isFloatingPointFormat(thisType) && !asset::isNormalizedFormat(thisType) && !asset::isScaledFormat(thisType))
         return {};
 
 	core::vector<core::vectorSIMDf> attribs;
@@ -1366,7 +1366,7 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(video::E_FOR
 	if (!_meshbuffer->getMeshDataAndFormat())
 		return attribs;
 
-    const uint32_t cpa = video::getFormatChannelCount(thisType);
+    const uint32_t cpa = asset::getFormatChannelCount(thisType);
 
 	float min[4]{ FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX };
 	float max[4]{ -FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX };
@@ -1386,21 +1386,21 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(video::E_FOR
 		}
 	}
 
-	core::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, video::getTexelOrBlockSize(thisType), min, max, _errMetric);
-	std::sort(possibleTypes.begin(), possibleTypes.end(), [](const SAttribTypeChoice& t1, const SAttribTypeChoice& t2) { return video::getTexelOrBlockSize(t1.type) < video::getTexelOrBlockSize(t2.type); });
+	core::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, asset::getTexelOrBlockSize(thisType), min, max, _errMetric);
+	std::sort(possibleTypes.begin(), possibleTypes.end(), [](const SAttribTypeChoice& t1, const SAttribTypeChoice& t2) { return asset::getTexelOrBlockSize(t1.type) < asset::getTexelOrBlockSize(t2.type); });
 
 	*_outPrevType = thisType;
     *_outType = thisType;
-    *_outSize = video::getTexelOrBlockSize(*_outType);
+    *_outSize = asset::getTexelOrBlockSize(*_outType);
 
 	for (const SAttribTypeChoice& t : possibleTypes)
 	{
 		if (calcMaxQuantizationError({ thisType }, t, attribs, _errMetric))
 		{
-            if (video::getTexelOrBlockSize(t.type) < video::getTexelOrBlockSize(thisType))
+            if (asset::getTexelOrBlockSize(t.type) < asset::getTexelOrBlockSize(thisType))
             {
                 *_outType = t.type;
-                *_outSize = video::getTexelOrBlockSize(*_outType);
+                *_outSize = asset::getTexelOrBlockSize(*_outType);
             }
 
 			return attribs;
@@ -1410,14 +1410,14 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(video::E_FOR
 	return attribs;
 }
 
-core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(video::E_FORMAT* _outType, size_t* _outSize, video::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, asset::E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
+core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(asset::E_FORMAT* _outType, size_t* _outSize, asset::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, asset::E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const
 {
-    const video::E_FORMAT thisType = _meshbuffer->getMeshDataAndFormat()->getAttribFormat(_attrId);
+    const asset::E_FORMAT thisType = _meshbuffer->getMeshDataAndFormat()->getAttribFormat(_attrId);
 
-    if (!video::isIntegerFormat(thisType))
+    if (!asset::isIntegerFormat(thisType))
         return {};
 
-    if (video::isBGRALayoutFormat(thisType))
+    if (asset::isBGRALayoutFormat(thisType))
         return {}; // BGRA is supported only by a few normalized types (this is function for integer types)
 
 	core::vector<SIntegerAttr> attribs;
@@ -1425,17 +1425,17 @@ core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI
 	if (!_meshbuffer->getMeshDataAndFormat())
 		return attribs;
 
-    const uint32_t cpa = video::getFormatChannelCount(thisType);
+    const uint32_t cpa = asset::getFormatChannelCount(thisType);
 
 	uint32_t min[4];
 	uint32_t max[4];
-	if (!video::isSignedFormat(thisType))
+	if (!asset::isSignedFormat(thisType))
 		for (size_t i = 0; i < 4; ++i)
 			min[i] = UINT_MAX;
 	else
 		for (size_t i = 0; i < 4; ++i)
 			min[i] = INT_MAX;
-	if (!video::isSignedFormat(thisType))
+	if (!asset::isSignedFormat(thisType))
 		for (size_t i = 0; i < 4; ++i)
 			max[i] = 0;
 	else
@@ -1451,7 +1451,7 @@ core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI
 		attribs.push_back(attr);
 		for (size_t i = 0; i < cpa; ++i)
 		{
-			if (!video::isSignedFormat(thisType))
+			if (!asset::isSignedFormat(thisType))
 			{
 				if (attr.pointer[i] < min[i])
 					min[i] = attr.pointer[i];
@@ -1469,22 +1469,22 @@ core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI
 	}
 
 	*_outPrevType = *_outType = thisType;
-	*_outSize = video::getTexelOrBlockSize(thisType);
+	*_outSize = asset::getTexelOrBlockSize(thisType);
 	*_outPrevType = thisType;
 
 	if (_errMetric.method == EEM_ANGLES) // native integers normals does not change
 		return attribs;
 
 	*_outType = getBestTypeI(thisType, _outSize, min, max);
-    if (video::getTexelOrBlockSize(*_outType) >= video::getTexelOrBlockSize(thisType))
+    if (asset::getTexelOrBlockSize(*_outType) >= asset::getTexelOrBlockSize(thisType))
     {
         *_outType = thisType;
-        *_outSize = video::getTexelOrBlockSize(thisType);
+        *_outSize = asset::getTexelOrBlockSize(thisType);
     }
 	return attribs;
 }
 
-video::E_FORMAT CMeshManipulator::getBestTypeI(video::E_FORMAT _originalType, size_t* _outSize, const uint32_t* _min, const uint32_t* _max) const
+asset::E_FORMAT CMeshManipulator::getBestTypeI(asset::E_FORMAT _originalType, size_t* _outSize, const uint32_t* _min, const uint32_t* _max) const
 {
     using namespace video;
 
@@ -1493,70 +1493,70 @@ video::E_FORMAT CMeshManipulator::getBestTypeI(video::E_FORMAT _originalType, si
 
     const uint32_t originalCpa = getFormatChannelCount(_originalType);
 
-    core::vector<video::E_FORMAT> nativeInts{
-        EF_R8G8_UINT,
-        EF_R8G8_SINT,
-        EF_R8G8B8_UINT,
-        EF_R8G8B8_SINT,
-        EF_R8G8B8A8_UINT,
-        EF_R8G8B8A8_SINT,
-        EF_A2B10G10R10_UINT_PACK32,
-        EF_A2B10G10R10_SINT_PACK32,
-        EF_R16_UINT,
-        EF_R16_SINT,
-        EF_R16G16_UINT,
-        EF_R16G16_SINT,
-        EF_R16G16B16_UINT,
-        EF_R16G16B16_SINT,
-        EF_R16G16B16A16_UINT,
-        EF_R16G16B16A16_SINT,
-        EF_R32_UINT,
-        EF_R32_SINT,
-        EF_R32G32_UINT,
-        EF_R32G32_SINT,
-        EF_R32G32B32_UINT,
-        EF_R32G32B32_SINT,
-        EF_R32G32B32A32_UINT,
-        EF_R32G32B32A32_SINT
+    core::vector<asset::E_FORMAT> nativeInts{
+        asset::EF_R8G8_UINT,
+        asset::EF_R8G8_SINT,
+        asset::EF_R8G8B8_UINT,
+        asset::EF_R8G8B8_SINT,
+        asset::EF_R8G8B8A8_UINT,
+        asset::EF_R8G8B8A8_SINT,
+        asset::EF_A2B10G10R10_UINT_PACK32,
+        asset::EF_A2B10G10R10_SINT_PACK32,
+        asset::EF_R16_UINT,
+        asset::EF_R16_SINT,
+        asset::EF_R16G16_UINT,
+        asset::EF_R16G16_SINT,
+        asset::EF_R16G16B16_UINT,
+        asset::EF_R16G16B16_SINT,
+        asset::EF_R16G16B16A16_UINT,
+        asset::EF_R16G16B16A16_SINT,
+        asset::EF_R32_UINT,
+        asset::EF_R32_SINT,
+        asset::EF_R32G32_UINT,
+        asset::EF_R32G32_SINT,
+        asset::EF_R32G32B32_UINT,
+        asset::EF_R32G32B32_SINT,
+        asset::EF_R32G32B32A32_UINT,
+        asset::EF_R32G32B32A32_SINT
     };
-    core::vector<video::E_FORMAT> scaledInts{
-        EF_R8G8_USCALED,
-        EF_R8G8_SSCALED,
-        EF_R8G8B8_USCALED,
-        EF_R8G8B8_SSCALED,
-        EF_R8G8B8A8_USCALED,
-        EF_R8G8B8A8_SSCALED,
-        EF_A2B10G10R10_USCALED_PACK32,
-        EF_A2B10G10R10_SSCALED_PACK32,
-        EF_R16_USCALED,
-        EF_R16_SSCALED,
-        EF_R16G16_USCALED,
-        EF_R16G16_SSCALED,
-        EF_R16G16B16_USCALED,
-        EF_R16G16B16_SSCALED,
-        EF_R16G16B16A16_USCALED,
-        EF_R16G16B16A16_SSCALED
+    core::vector<asset::E_FORMAT> scaledInts{
+        asset::EF_R8G8_USCALED,
+        asset::EF_R8G8_SSCALED,
+        asset::EF_R8G8B8_USCALED,
+        asset::EF_R8G8B8_SSCALED,
+        asset::EF_R8G8B8A8_USCALED,
+        asset::EF_R8G8B8A8_SSCALED,
+        asset::EF_A2B10G10R10_USCALED_PACK32,
+        asset::EF_A2B10G10R10_SSCALED_PACK32,
+        asset::EF_R16_USCALED,
+        asset::EF_R16_SSCALED,
+        asset::EF_R16G16_USCALED,
+        asset::EF_R16G16_SSCALED,
+        asset::EF_R16G16B16_USCALED,
+        asset::EF_R16G16B16_SSCALED,
+        asset::EF_R16G16B16A16_USCALED,
+        asset::EF_R16G16B16A16_SSCALED
     };
 
-    core::vector<E_FORMAT>& all = isNativeInteger ? nativeInts : scaledInts;
+    core::vector<asset::E_FORMAT>& all = isNativeInteger ? nativeInts : scaledInts;
     if (originalCpa > 1u)
     {
         all.erase(
             std::remove_if(all.begin(), all.end(),
-                [originalCpa](E_FORMAT fmt) { return getFormatChannelCount(fmt) < originalCpa; }
+                [originalCpa](asset::E_FORMAT fmt) { return getFormatChannelCount(fmt) < originalCpa; }
             ),
             all.end()
         );
     }
 
-    auto minValueOfTypeINT = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> int32_t {
+    auto minValueOfTypeINT = [](asset::E_FORMAT _fmt, uint32_t _cmpntNum) -> int32_t {
         if (!isSignedFormat(_fmt))
             return 0;
 
         switch (_fmt)
         {
-        case EF_A2B10G10R10_SSCALED_PACK32:
-        case EF_A2B10G10R10_SINT_PACK32:
+        case asset::EF_A2B10G10R10_SSCALED_PACK32:
+        case asset::EF_A2B10G10R10_SINT_PACK32:
             if (_cmpntNum < 3u)
                 return -512;
             else return -2;
@@ -1568,17 +1568,17 @@ video::E_FORMAT CMeshManipulator::getBestTypeI(video::E_FORMAT _originalType, si
         }
         }
     };
-    auto maxValueOfTypeINT = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> uint32_t {
+    auto maxValueOfTypeINT = [](asset::E_FORMAT _fmt, uint32_t _cmpntNum) -> uint32_t {
         switch (_fmt)
         {
-        case EF_A2B10G10R10_USCALED_PACK32:
-        case EF_A2B10G10R10_UINT_PACK32:
+        case asset::EF_A2B10G10R10_USCALED_PACK32:
+        case asset::EF_A2B10G10R10_UINT_PACK32:
             if (_cmpntNum < 3u)
                 return 1023u;
             else return 3u;
             break;
-        case EF_A2B10G10R10_SSCALED_PACK32:
-        case EF_A2B10G10R10_SINT_PACK32:
+        case asset::EF_A2B10G10R10_SSCALED_PACK32:
+        case asset::EF_A2B10G10R10_SINT_PACK32:
             if (_cmpntNum < 3u)
                 return 511u;
             else return 1u;
@@ -1594,7 +1594,7 @@ video::E_FORMAT CMeshManipulator::getBestTypeI(video::E_FORMAT _originalType, si
         }
     };
 
-    E_FORMAT bestType = _originalType;
+    asset::E_FORMAT bestType = _originalType;
     for (auto it = all.begin(); it != all.end(); ++it)
     {
         bool ok = true;
@@ -1627,120 +1627,120 @@ video::E_FORMAT CMeshManipulator::getBestTypeI(video::E_FORMAT _originalType, si
     return bestType;
 }
 
-core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfProperRangeF(video::E_FORMAT _type, size_t _sizeThreshold, const float * _min, const float * _max, const SErrorMetric& _errMetric) const
+core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfProperRangeF(asset::E_FORMAT _type, size_t _sizeThreshold, const float * _min, const float * _max, const SErrorMetric& _errMetric) const
 {
     using namespace video;
 
-    core::vector<E_FORMAT> all{
-        EF_B10G11R11_UFLOAT_PACK32,
-        EF_R16_SFLOAT,
-        EF_R16G16_SFLOAT,
-        EF_R16G16B16_SFLOAT,
-        EF_R16G16B16A16_SFLOAT,
-        EF_R32_SFLOAT,
-        EF_R32G32_SFLOAT,
-        EF_R32G32B32_SFLOAT,
-        EF_R32G32B32A32_SFLOAT,
-        EF_R8G8_UNORM,
-        EF_R8G8_SNORM,
-        EF_R8G8B8_UNORM,
-        EF_R8G8B8_SNORM,
-        EF_B8G8R8A8_UNORM, //bgra
-        EF_R8G8B8A8_UNORM,
-        EF_R8G8B8A8_SNORM,
-        EF_A2B10G10R10_UNORM_PACK32,
-        EF_A2B10G10R10_SNORM_PACK32,
-        EF_A2R10G10B10_UNORM_PACK32, //bgra
-        EF_A2R10G10B10_SNORM_PACK32, //bgra
-        EF_R16_UNORM,
-        EF_R16_SNORM,
-        EF_R16G16_UNORM,
-        EF_R16G16_SNORM,
-        EF_R16G16B16_UNORM,
-        EF_R16G16B16_SNORM,
-        EF_R16G16B16A16_UNORM,
-        EF_R16G16B16A16_SNORM
+    core::vector<asset::E_FORMAT> all{
+        asset::EF_B10G11R11_UFLOAT_PACK32,
+        asset::EF_R16_SFLOAT,
+        asset::EF_R16G16_SFLOAT,
+        asset::EF_R16G16B16_SFLOAT,
+        asset::EF_R16G16B16A16_SFLOAT,
+        asset::EF_R32_SFLOAT,
+        asset::EF_R32G32_SFLOAT,
+        asset::EF_R32G32B32_SFLOAT,
+        asset::EF_R32G32B32A32_SFLOAT,
+        asset::EF_R8G8_UNORM,
+        asset::EF_R8G8_SNORM,
+        asset::EF_R8G8B8_UNORM,
+        asset::EF_R8G8B8_SNORM,
+        asset::EF_B8G8R8A8_UNORM, //bgra
+        asset::EF_R8G8B8A8_UNORM,
+        asset::EF_R8G8B8A8_SNORM,
+        asset::EF_A2B10G10R10_UNORM_PACK32,
+        asset::EF_A2B10G10R10_SNORM_PACK32,
+        asset::EF_A2R10G10B10_UNORM_PACK32, //bgra
+        asset::EF_A2R10G10B10_SNORM_PACK32, //bgra
+        asset::EF_R16_UNORM,
+        asset::EF_R16_SNORM,
+        asset::EF_R16G16_UNORM,
+        asset::EF_R16G16_SNORM,
+        asset::EF_R16G16B16_UNORM,
+        asset::EF_R16G16B16_SNORM,
+        asset::EF_R16G16B16A16_UNORM,
+        asset::EF_R16G16B16A16_SNORM
     };
-    core::vector<E_FORMAT> normalized{
-        EF_B8G8R8A8_UNORM, //bgra
-        EF_R8G8B8A8_UNORM,
-        EF_R8G8B8A8_SNORM,
-        EF_A2B10G10R10_UNORM_PACK32,
-        EF_A2B10G10R10_SNORM_PACK32,
-        EF_A2R10G10B10_UNORM_PACK32, //bgra
-        EF_A2R10G10B10_SNORM_PACK32, //bgra
-        EF_R16_UNORM,
-        EF_R16_SNORM,
-        EF_R16G16_UNORM,
-        EF_R16G16_SNORM,
-        EF_R16G16B16_UNORM,
-        EF_R16G16B16_SNORM,
-        EF_R16G16B16A16_UNORM,
-        EF_R16G16B16A16_SNORM
+    core::vector<asset::E_FORMAT> normalized{
+        asset::EF_B8G8R8A8_UNORM, //bgra
+        asset::EF_R8G8B8A8_UNORM,
+        asset::EF_R8G8B8A8_SNORM,
+        asset::EF_A2B10G10R10_UNORM_PACK32,
+        asset::EF_A2B10G10R10_SNORM_PACK32,
+        asset::EF_A2R10G10B10_UNORM_PACK32, //bgra
+        asset::EF_A2R10G10B10_SNORM_PACK32, //bgra
+        asset::EF_R16_UNORM,
+        asset::EF_R16_SNORM,
+        asset::EF_R16G16_UNORM,
+        asset::EF_R16G16_SNORM,
+        asset::EF_R16G16B16_UNORM,
+        asset::EF_R16G16B16_SNORM,
+        asset::EF_R16G16B16A16_UNORM,
+        asset::EF_R16G16B16A16_SNORM
     };
-    core::vector<E_FORMAT> bgra{
-        EF_B8G8R8A8_UNORM, //bgra
-        EF_A2R10G10B10_UNORM_PACK32, //bgra
-        EF_A2R10G10B10_SNORM_PACK32, //bgra
+    core::vector<asset::E_FORMAT> bgra{
+        asset::EF_B8G8R8A8_UNORM, //bgra
+        asset::EF_A2R10G10B10_UNORM_PACK32, //bgra
+        asset::EF_A2R10G10B10_SNORM_PACK32, //bgra
     };
-    core::vector<E_FORMAT> normals{
-        EF_R8_SNORM,
-        EF_R8G8_SNORM,
-        EF_R8G8B8_SNORM,
-        EF_R8G8B8A8_SNORM,
-        EF_R16_SNORM,
-        EF_R16G16_SNORM,
-        EF_R16G16B16_SNORM,
-        EF_R16G16B16A16_SNORM,
-        EF_A2B10G10R10_SNORM_PACK32,
-        EF_A2R10G10B10_SNORM_PACK32, //bgra
-        EF_R16_SFLOAT,
-        EF_R16G16_SFLOAT,
-        EF_R16G16B16_SFLOAT,
-        EF_R16G16B16A16_SFLOAT
+    core::vector<asset::E_FORMAT> normals{
+        asset::EF_R8_SNORM,
+        asset::EF_R8G8_SNORM,
+        asset::EF_R8G8B8_SNORM,
+        asset::EF_R8G8B8A8_SNORM,
+        asset::EF_R16_SNORM,
+        asset::EF_R16G16_SNORM,
+        asset::EF_R16G16B16_SNORM,
+        asset::EF_R16G16B16A16_SNORM,
+        asset::EF_A2B10G10R10_SNORM_PACK32,
+        asset::EF_A2R10G10B10_SNORM_PACK32, //bgra
+        asset::EF_R16_SFLOAT,
+        asset::EF_R16G16_SFLOAT,
+        asset::EF_R16G16B16_SFLOAT,
+        asset::EF_R16G16B16A16_SFLOAT
     };
 
-    auto minValueOfTypeFP = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> float {
+    auto minValueOfTypeFP = [](asset::E_FORMAT _fmt, uint32_t _cmpntNum) -> float {
         if (isNormalizedFormat(_fmt))
         {
             return isSignedFormat(_fmt) ? -1.f : 0.f;
         }
         switch (_fmt)
         {
-        case EF_R16_SFLOAT:
-        case EF_R16G16_SFLOAT:
-        case EF_R16G16B16_SFLOAT:
-        case EF_R16G16B16A16_SFLOAT:
+        case asset::EF_R16_SFLOAT:
+        case asset::EF_R16G16_SFLOAT:
+        case asset::EF_R16G16B16_SFLOAT:
+        case asset::EF_R16G16B16A16_SFLOAT:
             return -65504.f;
-        case EF_R32_SFLOAT:
-        case EF_R32G32_SFLOAT:
-        case EF_R32G32B32_SFLOAT:
-        case EF_R32G32B32A32_SFLOAT:
+        case asset::EF_R32_SFLOAT:
+        case asset::EF_R32G32_SFLOAT:
+        case asset::EF_R32G32B32_SFLOAT:
+        case asset::EF_R32G32B32A32_SFLOAT:
             return -FLT_MAX;
-        case EF_B10G11R11_UFLOAT_PACK32:
+        case asset::EF_B10G11R11_UFLOAT_PACK32:
             return 0.f;
         default:
             return 1.f;
         }
     };
-    auto maxValueOfTypeFP = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> float {
+    auto maxValueOfTypeFP = [](asset::E_FORMAT _fmt, uint32_t _cmpntNum) -> float {
         if (isNormalizedFormat(_fmt))
         {
             return 1.f;
         }
         switch (_fmt)
         {
-        case EF_R16_SFLOAT:
-        case EF_R16G16_SFLOAT:
-        case EF_R16G16B16_SFLOAT:
-        case EF_R16G16B16A16_SFLOAT:
+        case asset::EF_R16_SFLOAT:
+        case asset::EF_R16G16_SFLOAT:
+        case asset::EF_R16G16B16_SFLOAT:
+        case asset::EF_R16G16B16A16_SFLOAT:
             return 65504.f;
-        case EF_R32_SFLOAT:
-        case EF_R32G32_SFLOAT:
-        case EF_R32G32B32_SFLOAT:
-        case EF_R32G32B32A32_SFLOAT:
+        case asset::EF_R32_SFLOAT:
+        case asset::EF_R32G32_SFLOAT:
+        case asset::EF_R32G32B32_SFLOAT:
+        case asset::EF_R32G32B32A32_SFLOAT:
             return FLT_MAX;
-        case EF_B10G11R11_UFLOAT_PACK32:
+        case asset::EF_B10G11R11_UFLOAT_PACK32:
             if (_cmpntNum < 2u)
                 return 65024.f;
             else return 64512.f;
@@ -1755,7 +1755,7 @@ core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfP
 		{
             if (isBGRALayoutFormat(_type))
             {
-                all = core::vector<E_FORMAT>(1u, EF_A2R10G10B10_SNORM_PACK32);
+                all = core::vector<asset::E_FORMAT>(1u, asset::EF_A2R10G10B10_SNORM_PACK32);
             }
 			else all = std::move(normals);
 		}
@@ -1766,14 +1766,14 @@ core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfP
 	}
 
 	if (isNormalizedFormat(_type) && !isSignedFormat(_type))
-		all.erase(std::remove_if(all.begin(), all.end(), [](E_FORMAT _t) { return isSignedFormat(_t); }), all.end());
+		all.erase(std::remove_if(all.begin(), all.end(), [](asset::E_FORMAT _t) { return isSignedFormat(_t); }), all.end());
 	else if (isNormalizedFormat(_type) && isSignedFormat(_type))
-		all.erase(std::remove_if(all.begin(), all.end(), [](E_FORMAT _t) { return !isSignedFormat(_t); }), all.end());
+		all.erase(std::remove_if(all.begin(), all.end(), [](asset::E_FORMAT _t) { return !isSignedFormat(_t); }), all.end());
 
     const uint32_t originalCpa = getFormatChannelCount(_type);
     all.erase(
         std::remove_if(all.begin(), all.end(),
-            [originalCpa](E_FORMAT fmt) { return getFormatChannelCount(fmt) < originalCpa; }
+            [originalCpa](asset::E_FORMAT fmt) { return getFormatChannelCount(fmt) < originalCpa; }
         ),
         all.end()
     );
@@ -1802,7 +1802,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 {
     using namespace video;
 
-	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, E_FORMAT, E_FORMAT);
+	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, asset::E_FORMAT, asset::E_FORMAT);
 
 	QuantF_t quantFunc = nullptr;
 
@@ -1810,55 +1810,55 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	{
 		switch (_dstType.type)
 		{
-		case EF_R8_SNORM:
-        case EF_R8G8_SNORM:
-        case EF_R8G8B8_SNORM:
-        case EF_R8G8B8A8_SNORM:
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
+		case asset::EF_R8_SNORM:
+        case asset::EF_R8G8_SNORM:
+        case asset::EF_R8G8B8_SNORM:
+        case asset::EF_R8G8B8A8_SNORM:
+			quantFunc = [](const core::vectorSIMDf& _in, asset::E_FORMAT, asset::E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint32_t*)buf)[0] = scene::quantizeNormal888(_in);
 
 				core::vectorSIMDf retval;
-				asset::ICPUMeshBuffer::getAttribute(retval, buf, EF_R8G8B8A8_SNORM);
+				asset::ICPUMeshBuffer::getAttribute(retval, buf, asset::EF_R8G8B8A8_SNORM);
 				retval.w = 1.f;
 				return retval;
 			};
 			break;
-		case EF_A2B10G10R10_SINT_PACK32: // RGB10_A2
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
+		case asset::EF_A2B10G10R10_SINT_PACK32: // RGB10_A2
+			quantFunc = [](const core::vectorSIMDf& _in, asset::E_FORMAT, asset::E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint32_t*)buf)[0] = scene::quantizeNormal2_10_10_10(_in);
 
 				core::vectorSIMDf retval;
-				asset::ICPUMeshBuffer::getAttribute(retval, buf, EF_A2B10G10R10_SINT_PACK32);
+				asset::ICPUMeshBuffer::getAttribute(retval, buf, asset::EF_A2B10G10R10_SINT_PACK32);
 				retval.w = 1.f;
 				return retval;
 			};
 			break;
-        case EF_R16_SNORM:
-        case EF_R16G16_SNORM:
-        case EF_R16G16B16_SNORM:
-        case EF_R16G16B16A16_SNORM:
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
+        case asset::EF_R16_SNORM:
+        case asset::EF_R16G16_SNORM:
+        case asset::EF_R16G16B16_SNORM:
+        case asset::EF_R16G16B16A16_SNORM:
+			quantFunc = [](const core::vectorSIMDf& _in, asset::E_FORMAT, asset::E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint64_t*)buf)[0] = scene::quantizeNormal16_16_16(_in);
 
 				core::vectorSIMDf retval;
-				asset::ICPUMeshBuffer::getAttribute(retval, buf, EF_R16G16B16A16_SNORM);
+				asset::ICPUMeshBuffer::getAttribute(retval, buf, asset::EF_R16G16B16A16_SNORM);
 				retval.w = 1.f;
 				return retval;
 			};
 			break;
-        case EF_R16_SFLOAT:
-        case EF_R16G16_SFLOAT:
-        case EF_R16G16B16_SFLOAT:
-        case EF_R16G16B16A16_SFLOAT:
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
+        case asset::EF_R16_SFLOAT:
+        case asset::EF_R16G16_SFLOAT:
+        case asset::EF_R16G16B16_SFLOAT:
+        case asset::EF_R16G16B16A16_SFLOAT:
+			quantFunc = [](const core::vectorSIMDf& _in, asset::E_FORMAT, asset::E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint64_t*)buf)[0] = scene::quantizeNormalHalfFloat(_in);
 
 				core::vectorSIMDf retval;
-				asset::ICPUMeshBuffer::getAttribute(retval, buf, EF_R16G16B16A16_SFLOAT);
+				asset::ICPUMeshBuffer::getAttribute(retval, buf, asset::EF_R16G16B16A16_SFLOAT);
 				retval.w = 1.f;
 				return retval;
 			};
@@ -1867,7 +1867,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	}
 	else
 	{
-		quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT _inType, E_FORMAT _outType) -> core::vectorSIMDf {
+		quantFunc = [](const core::vectorSIMDf& _in, asset::E_FORMAT _inType, asset::E_FORMAT _outType) -> core::vectorSIMDf {
 			uint8_t buf[32];
 			asset::ICPUMeshBuffer::setAttribute(_in, buf, _outType);
 			core::vectorSIMDf out(0.f, 0.f, 0.f, 1.f);
@@ -1884,7 +1884,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	{
 		const core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type);
 
-        if (!compareFloatingPointAttribute(d, quantized, video::getFormatChannelCount(_srcType.type), _errMetric))
+        if (!compareFloatingPointAttribute(d, quantized, asset::getFormatChannelCount(_srcType.type), _errMetric))
             return false;
 	}
 

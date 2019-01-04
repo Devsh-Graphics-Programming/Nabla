@@ -11,38 +11,38 @@ namespace irr { namespace asset
 
 namespace impl
 {
-    inline video::E_FORMAT getCorrespondingIntegerFmt(video::E_FORMAT _scaledFmt)
+    inline asset::E_FORMAT getCorrespondingIntegerFmt(asset::E_FORMAT _scaledFmt)
     {
         switch (_scaledFmt)
         {
-        case video::EF_R8_USCALED: return video::EF_R8_UINT;
-        case video::EF_R8_SSCALED: return video::EF_R8_SINT;
-        case video::EF_R8G8_USCALED: return video::EF_R8G8_UINT;
-        case video::EF_R8G8_SSCALED: return video::EF_R8G8_SINT;
-        case video::EF_R8G8B8_USCALED: return video::EF_R8G8B8_UINT;
-        case video::EF_R8G8B8_SSCALED: return video::EF_R8G8B8_SINT;
-        case video::EF_B8G8R8_USCALED: return video::EF_B8G8R8_UINT;
-        case video::EF_B8G8R8_SSCALED: return video::EF_B8G8R8_SINT;
-        case video::EF_R8G8B8A8_USCALED: return video::EF_R8G8B8A8_UINT;
-        case video::EF_R8G8B8A8_SSCALED: return video::EF_R8G8B8A8_SINT;
-        case video::EF_B8G8R8A8_USCALED: return video::EF_B8G8R8A8_UINT;
-        case video::EF_B8G8R8A8_SSCALED: return video::EF_B8G8R8A8_SINT;
-        case video::EF_A8B8G8R8_USCALED_PACK32: return video::EF_A8B8G8R8_UINT_PACK32;
-        case video::EF_A8B8G8R8_SSCALED_PACK32: return video::EF_A8B8G8R8_SINT_PACK32;
-        case video::EF_A2R10G10B10_USCALED_PACK32: return video::EF_A2R10G10B10_UINT_PACK32;
-        case video::EF_A2R10G10B10_SSCALED_PACK32: return video::EF_A2R10G10B10_SINT_PACK32;
-        case video::EF_A2B10G10R10_USCALED_PACK32: return video::EF_A2B10G10R10_UINT_PACK32;
-        case video::EF_A2B10G10R10_SSCALED_PACK32: return video::EF_A2B10G10R10_SINT_PACK32;
-        case video::EF_R16_USCALED: return video::EF_R16_UINT;
-        case video::EF_R16_SSCALED: return video::EF_R16_SINT;
-        case video::EF_R16G16_USCALED: return video::EF_R16G16_UINT;
-        case video::EF_R16G16_SSCALED: return video::EF_R16G16_SINT;
-        case video::EF_R16G16B16_USCALED: return video::EF_R16G16B16_UINT;
-        case video::EF_R16G16B16_SSCALED: return video::EF_R16G16B16_SINT;
-        case video::EF_R16G16B16A16_USCALED: return video::EF_R16G16B16A16_UINT;
-        case video::EF_R16G16B16A16_SSCALED: return video::EF_R16G16B16A16_SINT;
+        case EF_R8_USCALED: return EF_R8_UINT;
+        case EF_R8_SSCALED: return EF_R8_SINT;
+        case EF_R8G8_USCALED: return EF_R8G8_UINT;
+        case EF_R8G8_SSCALED: return EF_R8G8_SINT;
+        case EF_R8G8B8_USCALED: return EF_R8G8B8_UINT;
+        case EF_R8G8B8_SSCALED: return EF_R8G8B8_SINT;
+        case EF_B8G8R8_USCALED: return EF_B8G8R8_UINT;
+        case EF_B8G8R8_SSCALED: return EF_B8G8R8_SINT;
+        case EF_R8G8B8A8_USCALED: return EF_R8G8B8A8_UINT;
+        case EF_R8G8B8A8_SSCALED: return EF_R8G8B8A8_SINT;
+        case EF_B8G8R8A8_USCALED: return EF_B8G8R8A8_UINT;
+        case EF_B8G8R8A8_SSCALED: return EF_B8G8R8A8_SINT;
+        case EF_A8B8G8R8_USCALED_PACK32: return EF_A8B8G8R8_UINT_PACK32;
+        case EF_A8B8G8R8_SSCALED_PACK32: return EF_A8B8G8R8_SINT_PACK32;
+        case EF_A2R10G10B10_USCALED_PACK32: return EF_A2R10G10B10_UINT_PACK32;
+        case EF_A2R10G10B10_SSCALED_PACK32: return EF_A2R10G10B10_SINT_PACK32;
+        case EF_A2B10G10R10_USCALED_PACK32: return EF_A2B10G10R10_UINT_PACK32;
+        case EF_A2B10G10R10_SSCALED_PACK32: return EF_A2B10G10R10_SINT_PACK32;
+        case EF_R16_USCALED: return EF_R16_UINT;
+        case EF_R16_SSCALED: return EF_R16_SINT;
+        case EF_R16G16_USCALED: return EF_R16G16_UINT;
+        case EF_R16G16_SSCALED: return EF_R16G16_SINT;
+        case EF_R16G16B16_USCALED: return EF_R16G16B16_UINT;
+        case EF_R16G16B16_SSCALED: return EF_R16G16B16_SINT;
+        case EF_R16G16B16A16_USCALED: return EF_R16G16B16A16_UINT;
+        case EF_R16G16B16A16_SSCALED: return EF_R16G16B16A16_SINT;
 
-        default: return video::EF_UNKNOWN;
+        default: return EF_UNKNOWN;
         }
     }
 }
@@ -120,7 +120,7 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
 {
     protected:
 		//! Read https://www.khronos.org/opengl/wiki/Vertex_Specification for understanding of attribute IDs, indices, attribute formats etc.
-        video::E_FORMAT attrFormat[EVAI_COUNT];
+        asset::E_FORMAT attrFormat[EVAI_COUNT];
         size_t attrStride[EVAI_COUNT];
         size_t attrOffset[EVAI_COUNT];
         uint32_t attrDivisor;
@@ -147,7 +147,7 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
         {
             for (size_t i=0; i<EVAI_COUNT; i++)
             {
-                attrFormat[i] = video::EF_R32G32B32A32_SFLOAT;
+                attrFormat[i] = EF_R32G32B32A32_SFLOAT;
                 attrStride[i] = 16;
                 attrOffset[i] = 0;
                 mappedAttrBuf[i] = nullptr;
@@ -205,7 +205,7 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
 
 
         //! remember that the divisor needs to be <=0x1u<<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS
-        virtual void setVertexAttrBuffer(T* attrBuf, E_VERTEX_ATTRIBUTE_ID attrId, video::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) = 0;
+        virtual void setVertexAttrBuffer(T* attrBuf, E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) = 0;
 
         inline const T* getMappedBuffer(E_VERTEX_ATTRIBUTE_ID attrId) const
         {
@@ -213,7 +213,7 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
             return mappedAttrBuf[attrId];
         }
 
-        inline video::E_FORMAT getAttribFormat(E_VERTEX_ATTRIBUTE_ID attrId) const
+        inline asset::E_FORMAT getAttribFormat(E_VERTEX_ATTRIBUTE_ID attrId) const
         {
             assert(attrId < EVAI_COUNT);
             return attrFormat[attrId];
@@ -285,7 +285,7 @@ class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, as
 		}
 
         //! remember that the divisor must be 0 or 1
-        void setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, E_VERTEX_ATTRIBUTE_ID attrId, video::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override
+        void setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override
         {
             assert(attrId<EVAI_COUNT);
             assert(divisor<=1u);
@@ -297,14 +297,14 @@ class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, as
                 attrBuf->grab();
 
                 attrFormat[attrId] = format;
-                // Don't get confused by `getTexelOrBlockSize` name. All vertex attrib, color, etc. are maintained with single enum E_FORMAT and its naming conventions is color-like, and so are related functions. Whole story began from Vulkan's VkFormat.
-                attrStride[attrId] = stride!=0 ? stride : video::getTexelOrBlockSize(format);
+                // Don't get confused by `getTexelOrBlockSize` name. All vertex attrib, color, etc. are maintained with single enum asset::E_FORMAT and its naming conventions is color-like, and so are related functions. Whole story began from Vulkan's VkFormat.
+                attrStride[attrId] = stride!=0 ? stride : asset::getTexelOrBlockSize(format);
                 attrOffset[attrId] = offset;
                 attrDivisor |= (divisor<<attrId);
             }
             else
             {
-                attrFormat[attrId] = video::EF_R32G32B32A32_SFLOAT;
+                attrFormat[attrId] = EF_R32G32B32A32_SFLOAT;
                 attrStride[attrId] = 16;
                 attrOffset[attrId] = 0;
                 //attrDivisor &= ~(1u<<attrId); //cleared before if
@@ -526,7 +526,7 @@ public:
         size_t size = 0u;
         for (size_t i = 0; i < EVAI_COUNT; ++i)
             if (meshLayout->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
-                size += video::getTexelOrBlockSize(meshLayout->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
+                size += asset::getTexelOrBlockSize(meshLayout->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
         return size;
     }
 
@@ -650,13 +650,13 @@ public:
         return ((uint8_t*)mappedAttrBuf->getPointer()) + ix;
     }
 
-    static bool getAttribute(core::vectorSIMDf& output, const void* src, video::E_FORMAT format)
+    static bool getAttribute(core::vectorSIMDf& output, const void* src, asset::E_FORMAT format)
     {
         if (!src)
             return false;
 
         bool scaled = false;
-        if (!video::isNormalizedFormat(format) && !video::isFloatingPointFormat(format) && !(scaled = video::isScaledFormat(format)))
+        if (!asset::isNormalizedFormat(format) && !asset::isFloatingPointFormat(format) && !(scaled = asset::isScaledFormat(format)))
             return false;
 
         if (!scaled)
@@ -667,7 +667,7 @@ public:
         }
         else
         {
-            if (video::isSignedFormat(format))
+            if (asset::isSignedFormat(format))
             {
                 int64_t output64i[4];
                 video::decodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64i, 0u, 0u);
@@ -708,26 +708,26 @@ public:
         return getAttribute(output, src, meshLayout->getAttribFormat(attrId));
     }
 
-    static bool getAttribute(uint32_t* output, const void* src, video::E_FORMAT format)
+    static bool getAttribute(uint32_t* output, const void* src, asset::E_FORMAT format)
     {
         if (!src)
             return false;
 
         bool scaled = false;
-        if ((scaled = video::isScaledFormat(format)) || video::isIntegerFormat(format))
+        if ((scaled = asset::isScaledFormat(format)) || asset::isIntegerFormat(format))
         {
-            if (video::isSignedFormat(format))
+            if (asset::isSignedFormat(format))
             {
                 int64_t output64[4];
                 video::decodePixels<int64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
-                for (uint32_t i = 0u; i < video::getFormatChannelCount(format); ++i)
+                for (uint32_t i = 0u; i < asset::getFormatChannelCount(format); ++i)
                     output[i] = output64[i];
             }
             else
             {
                 uint64_t output64[4];
                 video::decodePixels<uint64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
-                for (uint32_t i = 0u; i < video::getFormatChannelCount(format); ++i)
+                for (uint32_t i = 0u; i < asset::getFormatChannelCount(format); ++i)
                     output[i] = output64[i];
             }
             return true;
@@ -761,10 +761,10 @@ public:
         return getAttribute(output, src, meshLayout->getAttribFormat(attrId));
     }
 
-    static bool setAttribute(core::vectorSIMDf input, void* dst, video::E_FORMAT format)
+    static bool setAttribute(core::vectorSIMDf input, void* dst, asset::E_FORMAT format)
     {
         bool scaled = false;
-        if (!dst || (!video::isFloatingPointFormat(format) && !video::isNormalizedFormat(format) && !(scaled = video::isScaledFormat(format))))
+        if (!dst || (!asset::isFloatingPointFormat(format) && !asset::isNormalizedFormat(format) && !(scaled = asset::isScaledFormat(format))))
             return false;
 
         double input64[4];
@@ -775,7 +775,7 @@ public:
             video::encodePixels<double>(format, dst, input64);
         else
         {
-            if (video::isSignedFormat(format))
+            if (asset::isSignedFormat(format))
             {
                 int64_t input64i[4]{ input64[0], input64[1], input64[2], input64[3] };
                 video::encodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), dst, input64i);
@@ -813,14 +813,14 @@ public:
         return setAttribute(input, dst, meshLayout->getAttribFormat(attrId));
     }
 
-    static bool setAttribute(const uint32_t* _input, void* dst, video::E_FORMAT format)
+    static bool setAttribute(const uint32_t* _input, void* dst, asset::E_FORMAT format)
     {
-        const bool scaled = video::isScaledFormat(format);
-        if (!dst || !(scaled || video::isIntegerFormat(format)))
+        const bool scaled = asset::isScaledFormat(format);
+        if (!dst || !(scaled || asset::isIntegerFormat(format)))
             return false;
         uint8_t* vxPtr = (uint8_t*)dst;
 
-        if (video::isSignedFormat(format))
+        if (asset::isSignedFormat(format))
         {
             int64_t input[4];
             for (uint32_t i = 0u; i < 4u; ++i)

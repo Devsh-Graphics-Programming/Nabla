@@ -53,11 +53,11 @@ class IVirtualTexture : public virtual core::IReferenceCounted
 
         //! Get the color format of texture.
         /** \return The color format of texture. */
-        virtual E_FORMAT getColorFormat() const = 0;
+        virtual asset::E_FORMAT getColorFormat() const = 0;
 
         //! Returns if the texture has an alpha channel
         inline bool hasAlpha() const {
-            return video::getFormatChannelCount(getColorFormat()) == 4u;
+            return asset::getFormatChannelCount(getColorFormat()) == 4u;
         }
 };
 

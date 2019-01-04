@@ -82,7 +82,7 @@ namespace video
 
 		//! Get the current color format of the color buffer
 		/** \return Color format of the color buffer. */
-		virtual E_FORMAT getColorFormat() const =0;
+		virtual asset::E_FORMAT getColorFormat() const =0;
 
 		//! Get the graphics card vendor name.
 		virtual std::string getVendorInfo() =0;

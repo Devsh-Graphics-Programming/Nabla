@@ -65,25 +65,25 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	void (*CColorConverter_convertFORMATtoFORMAT)(const void*, int32_t, void*) = 0;
 	switch(image->getColorFormat())
 	{
-	case EF_B8G8R8A8_UNORM:
+	case asset::EF_B8G8R8A8_UNORM:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_A8R8G8B8toA8R8G8B8;
 		imageHeader.PixelDepth = 32;
 		imageHeader.ImageDescriptor |= 8;
 		break;
-	case EF_A1R5G5B5_UNORM_PACK16:
+	case asset::EF_A1R5G5B5_UNORM_PACK16:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_A1R5G5B5toA1R5G5B5;
 		imageHeader.PixelDepth = 16;
 		imageHeader.ImageDescriptor |= 1;
 		break;
-	case EF_B5G6R5_UNORM_PACK16:
+	case asset::EF_B5G6R5_UNORM_PACK16:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_R5G6B5toA1R5G5B5;
 		imageHeader.PixelDepth = 16;
 		imageHeader.ImageDescriptor |= 1;
 		break;
-	case EF_R8G8B8_UNORM:
+	case asset::EF_R8G8B8_UNORM:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_R8G8B8toR8G8B8;
 		imageHeader.PixelDepth = 24;
@@ -122,7 +122,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	for (y = 0; y < imageHeader.ImageHeight; ++y)
 	{
 		// source, length [pixels], destination
-		if (image->getColorFormat()==EF_R8G8B8_UNORM)
+		if (image->getColorFormat()==asset::EF_R8G8B8_UNORM)
 			CColorConverter::convert24BitTo24Bit(&scan_lines[y * row_stride], row_pointer, imageHeader.ImageWidth, 1, 0, 0, true);
 		else
 			CColorConverter_convertFORMATtoFORMAT(&scan_lines[y * row_stride], imageHeader.ImageWidth, row_pointer);

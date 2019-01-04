@@ -70,8 +70,9 @@ namespace video
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device);
 		#endif
 
-        inline virtual bool isAllowedVertexAttribFormat(E_FORMAT _fmt) const override
+        inline virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override
         {
+            using namespace asset;
             switch (_fmt)
             {
             // signed/unsigned byte
@@ -166,8 +167,9 @@ namespace video
             default: return false;
             }
         }
-        inline virtual bool isColorRenderableFormat(E_FORMAT _fmt) const override
+        inline virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override
         {
+            using namespace asset;
             switch (_fmt)
             {
             case EF_A1R5G5B5_UNORM_PACK16:
@@ -242,8 +244,9 @@ namespace video
             }
             }
         }
-        inline virtual bool isAllowedImageStoreFormat(E_FORMAT _fmt) const override
+        inline virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override
         {
+            using namespace asset;
             switch (_fmt)
             {
             case EF_R32G32B32A32_SFLOAT:
@@ -288,8 +291,9 @@ namespace video
             default: return false;
             }
         }
-        inline virtual bool isAllowedTextureFormat(E_FORMAT _fmt) const override
+        inline virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override
         {
+            using namespace asset;
             // opengl spec section 8.5.1
             switch (_fmt)
             {
@@ -460,7 +464,7 @@ namespace video
 		virtual E_DRIVER_TYPE getDriverType() const;
 
 		//! get color format of the current color buffer
-		virtual E_FORMAT getColorFormat() const;
+		virtual asset::E_FORMAT getColorFormat() const;
 
 		//! Can be called by an IMaterialRenderer to make its work easier.
 		virtual void setBasicRenderStates(const SGPUMaterial& material, const SGPUMaterial& lastmaterial,
@@ -497,10 +501,10 @@ namespace video
 		//! call.
 		virtual uint32_t getMaximalIndicesCount() const;
 
-        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, E_FORMAT format = EF_B8G8R8A8_UNORM) override;
+        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
         //!
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, E_FORMAT format = EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false);
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false);
 
 		//! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
@@ -935,7 +939,7 @@ namespace video
 		bool genericDriverInit();
 
 		//! returns a device dependent texture from a software surface (IImage)
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, E_FORMAT format = EF_B8G8R8A8_UNORM);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
 
 		// returns the current size of the screen or rendertarget
 		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
@@ -947,7 +951,7 @@ namespace video
 		std::string VendorName;
 
 		//! Color buffer format
-		E_FORMAT ColorFormat; //FIXME
+		asset::E_FORMAT ColorFormat; //FIXME
 
 		SIrrlichtCreationParameters Params;
 

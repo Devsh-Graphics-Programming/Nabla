@@ -8,7 +8,7 @@
 
 namespace irr
 {
-namespace video
+namespace asset
 {
 	//! An enum for the color format of textures used by the Irrlicht Engine.
 	/** A color format specifies how color information is stored. */
@@ -217,18 +217,18 @@ namespace video
 
     namespace impl
     {
-        template<E_FORMAT cf, E_FORMAT cmp, E_FORMAT... searchtab>
+        template<asset::E_FORMAT cf, asset::E_FORMAT cmp, asset::E_FORMAT... searchtab>
         struct is_any_of : is_any_of<cf, searchtab...> {};
 
-        template<E_FORMAT cf, E_FORMAT cmp>
+        template<asset::E_FORMAT cf, asset::E_FORMAT cmp>
         struct is_any_of<cf, cmp> : std::false_type {}; //if last comparison is also false, than return false
 
-        template<E_FORMAT cf, E_FORMAT... searchtab>
+        template<asset::E_FORMAT cf, asset::E_FORMAT... searchtab>
         struct is_any_of<cf, cf, searchtab...> : std::true_type {};
     }//namespace impl
 
     //! Utility functions
-    inline uint32_t getTexelOrBlockSize(E_FORMAT _fmt)
+    inline uint32_t getTexelOrBlockSize(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -428,7 +428,7 @@ namespace video
         }
     }
 
-    inline uint32_t getFormatChannelCount(E_FORMAT _fmt)
+    inline uint32_t getFormatChannelCount(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -627,7 +627,7 @@ namespace video
         }
     }
 
-    inline bool isDepthOrStencilFormat(E_FORMAT _fmt)
+    inline bool isDepthOrStencilFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -644,7 +644,7 @@ namespace video
         }
     }
 
-    inline bool isBGRALayoutFormat(E_FORMAT _fmt)
+    inline bool isBGRALayoutFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -675,7 +675,7 @@ namespace video
         }
     }
 
-    inline core::vector3d<uint32_t> getBlockDimensions(E_FORMAT _fmt)
+    inline core::vector3d<uint32_t> getBlockDimensions(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -752,7 +752,7 @@ namespace video
         }
     }
 
-    template<E_FORMAT cf>
+    template<asset::E_FORMAT cf>
     constexpr bool isSignedFormat()
     {
         return impl::is_any_of <
@@ -820,7 +820,7 @@ namespace video
             EF_BC6H_SFLOAT_BLOCK
         > ::value;
     }
-    template<E_FORMAT cf>
+    template<asset::E_FORMAT cf>
     constexpr bool isIntegerFormat()
     {
         return impl::is_any_of <
@@ -870,7 +870,7 @@ namespace video
             EF_R64G64B64A64_SINT
         > ::value;
     }
-    template<E_FORMAT cf>
+    template<asset::E_FORMAT cf>
     constexpr bool isFloatingPointFormat()
     {
         return impl::is_any_of<
@@ -895,7 +895,7 @@ namespace video
             EF_BC6H_UFLOAT_BLOCK
         >::value;
     }
-    template<E_FORMAT cf>
+    template<asset::E_FORMAT cf>
     constexpr bool isNormalizedFormat()
     {
         return impl::is_any_of <
@@ -1003,7 +1003,7 @@ namespace video
             EF_EAC_R11G11_SNORM_BLOCK
         > ::value;
     }
-    template<E_FORMAT cf>
+    template<asset::E_FORMAT cf>
     constexpr bool isScaledFormat()
     {
         return impl::is_any_of <
@@ -1037,7 +1037,7 @@ namespace video
             EF_R16G16B16A16_SSCALED
         > ::value;
     }
-    template<E_FORMAT cf>
+    template<asset::E_FORMAT cf>
     constexpr bool isSRGBFormat()
     {
         return impl::is_any_of<
@@ -1070,7 +1070,7 @@ namespace video
             EF_ETC2_R8G8B8A8_SRGB_BLOCK
         >::value;
     }
-    template<E_FORMAT cf>
+    template<asset::E_FORMAT cf>
     constexpr bool isBlockCompressionFormat()
     {
         return impl::is_any_of<
@@ -1132,7 +1132,7 @@ namespace video
             EF_EAC_R11G11_SNORM_BLOCK
         >::value;
     }
-    template<E_FORMAT cf>
+    template<asset::E_FORMAT cf>
     constexpr bool isPlanarFormat()
     {
         return impl::is_any_of<
@@ -1146,7 +1146,7 @@ namespace video
         >::value;
     }
 
-    inline void getHorizontalReductionFactorPerPlane(E_FORMAT _planarFmt, uint32_t _reductionFactor[4])
+    inline void getHorizontalReductionFactorPerPlane(asset::E_FORMAT _planarFmt, uint32_t _reductionFactor[4])
     {
         switch (_planarFmt)
         {
@@ -1165,7 +1165,7 @@ namespace video
             return;
         }
     }
-    inline void getVerticalReductionFactorPerPlane(E_FORMAT _planarFmt, uint32_t _reductionFactor[4])
+    inline void getVerticalReductionFactorPerPlane(asset::E_FORMAT _planarFmt, uint32_t _reductionFactor[4])
     {
         switch (_planarFmt)
         {
@@ -1184,7 +1184,7 @@ namespace video
             return;
         }
     }
-    inline void getChannelsPerPlane(E_FORMAT _planarFmt, uint32_t _chCnt[4])
+    inline void getChannelsPerPlane(asset::E_FORMAT _planarFmt, uint32_t _chCnt[4])
     {
         switch (_planarFmt)
         {
@@ -1201,7 +1201,7 @@ namespace video
         }
     }
 
-    inline bool isSignedFormat(E_FORMAT _fmt)
+    inline bool isSignedFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -1267,7 +1267,7 @@ namespace video
         default: return false;
         }
     }
-    inline bool isIntegerFormat(E_FORMAT _fmt)
+    inline bool isIntegerFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -1320,7 +1320,7 @@ namespace video
         default: return false;
         }
     }
-    inline bool isFloatingPointFormat(E_FORMAT _fmt)
+    inline bool isFloatingPointFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -1345,7 +1345,7 @@ namespace video
         }
     }
     //! Note that scaled formats are subset of normalized formats
-    inline bool isNormalizedFormat(E_FORMAT _fmt)
+    inline bool isNormalizedFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -1447,7 +1447,7 @@ namespace video
         }
     }
     //SCALED implies NORMALIZED!
-    inline bool isScaledFormat(E_FORMAT _fmt)
+    inline bool isScaledFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -1481,7 +1481,7 @@ namespace video
         default: return false;
         }
     }
-    inline bool isSRGBFormat(E_FORMAT _fmt)
+    inline bool isSRGBFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -1518,7 +1518,7 @@ namespace video
         default: return false;
         }
     }
-    inline bool isBlockCompressionFormat(E_FORMAT _fmt)
+    inline bool isBlockCompressionFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -1580,7 +1580,7 @@ namespace video
         default: return false;
         }
     }
-    inline bool isPlanarFormat(E_FORMAT _fmt)
+    inline bool isPlanarFormat(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -1599,9 +1599,9 @@ namespace video
 namespace std
 {
     template <>
-    struct hash<irr::video::E_FORMAT>
+    struct hash<irr::asset::E_FORMAT>
     {
-        std::size_t operator()(const irr::video::E_FORMAT& k) const noexcept { return k; }
+        std::size_t operator()(const irr::asset::E_FORMAT& k) const noexcept { return k; }
     };
 }
 

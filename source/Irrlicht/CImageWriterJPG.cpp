@@ -109,16 +109,16 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 	void (*format)(const void*, int32_t, void*) = 0;
 	switch( image->getColorFormat () )
 	{
-		case EF_R8G8B8_UNORM:
+		case asset::EF_R8G8B8_UNORM:
 			format = CColorConverter::convert_R8G8B8toR8G8B8;
 			break;
-		case EF_B8G8R8A8_UNORM:
+		case asset::EF_B8G8R8A8_UNORM:
 			format = CColorConverter::convert_A8R8G8B8toR8G8B8;
 			break;
-		case EF_A1R5G5B5_UNORM_PACK16:
+		case asset::EF_A1R5G5B5_UNORM_PACK16:
 			format = CColorConverter::convert_A1R5G5B5toB8G8R8;
 			break;
-		case EF_B5G6R5_UNORM_PACK16:
+		case asset::EF_B5G6R5_UNORM_PACK16:
 			format = CColorConverter::convert_R5G6B5toR8G8B8;
 			break;
 #ifndef _DEBUG

@@ -68,19 +68,19 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	void (*CColorConverter_convertFORMATtoFORMAT)(const void*, int32_t, void*) = 0;
 	switch(image->getColorFormat())
 	{
-	case EF_R8G8B8_UNORM:
+	case asset::EF_R8G8B8_UNORM:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_R8G8B8toR8G8B8;
 		break;
-	case EF_B8G8R8A8_UNORM:
+	case asset::EF_B8G8R8A8_UNORM:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_A8R8G8B8toB8G8R8;
 		break;
-	case EF_A1R5G5B5_UNORM_PACK16:
+	case asset::EF_A1R5G5B5_UNORM_PACK16:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_A1R5G5B5toR8G8B8;
 		break;
-	case EF_B5G6R5_UNORM_PACK16:
+	case asset::EF_B5G6R5_UNORM_PACK16:
 		CColorConverter_convertFORMATtoFORMAT
 			= CColorConverter::convert_R5G6B5toR8G8B8;
 		break;
@@ -119,7 +119,7 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	int32_t y;
 	for (y = imageHeader.Height - 1; 0 <= y; --y)
 	{
-		if (image->getColorFormat()==EF_R8G8B8_UNORM)
+		if (image->getColorFormat()==asset::EF_R8G8B8_UNORM)
 			CColorConverter::convert24BitTo24Bit(&scan_lines[y * row_stride], row_pointer, imageHeader.Width, 1, 0, false, true);
 		else
 			// source, length [pixels], destination

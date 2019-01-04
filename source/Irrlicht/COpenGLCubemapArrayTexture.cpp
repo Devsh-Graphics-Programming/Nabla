@@ -32,7 +32,7 @@ COpenGLCubemapArrayTexture::COpenGLCubemapArrayTexture(GLenum internalFormat, co
     ColorFormat = getColorFormatFromSizedOpenGLFormat(InternalFormat);
 }
 
-bool COpenGLCubemapArrayTexture::updateSubRegion(const E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
+bool COpenGLCubemapArrayTexture::updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
 {
     bool sourceCompressed = isBlockCompressionFormat(inDataColorFormat);
 

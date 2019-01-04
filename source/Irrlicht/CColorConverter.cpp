@@ -593,9 +593,10 @@ void CColorConverter::convert_R5G6B5toA1R5G5B5(const void* sP, int32_t sN, void*
 }
 
 
-void CColorConverter::convert_viaFormat(const void* sP, E_FORMAT sF, int32_t sN,
-				void* dP, E_FORMAT dF)
+void CColorConverter::convert_viaFormat(const void* sP, asset::E_FORMAT sF, int32_t sN,
+				void* dP, asset::E_FORMAT dF)
 {
+    using namespace asset;
 	switch (sF)
 	{
 		case EF_A1R5G5B5_UNORM_PACK16:

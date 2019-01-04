@@ -16,7 +16,7 @@ class ICPUTexture : public IAsset
 {
 protected:
     uint32_t m_size[3];
-    video::E_FORMAT m_colorFormat;
+    asset::E_FORMAT m_colorFormat;
     video::ITexture::E_TEXTURE_TYPE m_type;
     core::vector<asset::CImageData*> m_mipmaps;
 
@@ -39,7 +39,7 @@ private:
         memset(sizes, 0, sizeof(sizes));
 
         bool allUnknown = true;
-        video::E_FORMAT colorFmt = _mipmaps.front()->getColorFormat();
+        asset::E_FORMAT colorFmt = _mipmaps.front()->getColorFormat();
         for (const asset::CImageData* img : _mipmaps)
         {
             const uint32_t lvl = img->getSupposedMipLevel();
@@ -47,12 +47,12 @@ private:
             if (lvl > 16u)
                 return nullptr;
 
-            const video::E_FORMAT fmt = img->getColorFormat();
-            if (fmt != video::EF_UNKNOWN)
+            const asset::E_FORMAT fmt = img->getColorFormat();
+            if (fmt != EF_UNKNOWN)
                 allUnknown = false;
-            if (fmt != colorFmt && fmt != video::EF_UNKNOWN)
+            if (fmt != colorFmt && fmt != EF_UNKNOWN)
                 return nullptr;
-            if (colorFmt == video::EF_UNKNOWN)
+            if (colorFmt == EF_UNKNOWN)
                 colorFmt = fmt;
 
             for (uint32_t i = 0u; i < 3u; ++i)
@@ -91,7 +91,7 @@ public:
     }
 
 protected:
-    explicit ICPUTexture(const core::vector<asset::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}, m_colorFormat{video::EF_UNKNOWN}, m_type{video::ITexture::ETT_COUNT}
+    explicit ICPUTexture(const core::vector<asset::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}, m_colorFormat{EF_UNKNOWN}, m_type{video::ITexture::ETT_COUNT}
     {
         for (const auto& mm : m_mipmaps)
             mm->grab();
@@ -103,7 +103,7 @@ protected:
             establishType();
         }
     }
-    explicit ICPUTexture(core::vector<asset::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{video::EF_UNKNOWN}, m_type{ video::ITexture::ETT_COUNT }
+    explicit ICPUTexture(core::vector<asset::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{EF_UNKNOWN}, m_type{ video::ITexture::ETT_COUNT }
     {
         for (const auto& mm : m_mipmaps)
             mm->grab();
@@ -172,7 +172,7 @@ public:
 
     inline uint32_t getHighestMip() const { return m_mipmaps.back()->getSupposedMipLevel(); }
 
-    inline video::E_FORMAT getColorFormat() const { return m_colorFormat; }
+    inline asset::E_FORMAT getColorFormat() const { return m_colorFormat; }
 
     inline video::ITexture::E_TEXTURE_TYPE getType() const { return m_type; }
 
@@ -187,12 +187,12 @@ private:
     }
     inline void establishFmt()
     {
-        video::E_FORMAT fmt = m_mipmaps[0]->getColorFormat();
+        asset::E_FORMAT fmt = m_mipmaps[0]->getColorFormat();
         for (uint32_t i = 1u; i < m_mipmaps.size(); ++i)
         {
             if (fmt != m_mipmaps[i]->getColorFormat())
             {
-                fmt = video::EF_UNKNOWN;
+                fmt = EF_UNKNOWN;
                 break;
             }
         }

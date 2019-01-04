@@ -240,9 +240,9 @@ bool CIrrDeviceStub::isFullscreen() const
 
 
 //! returns color format
-video::E_FORMAT CIrrDeviceStub::getColorFormat() const
+asset::E_FORMAT CIrrDeviceStub::getColorFormat() const
 {
-	return video::EF_B5G6R5_UNORM_PACK16;
+	return asset::EF_B5G6R5_UNORM_PACK16;
 }
 
 //! No-op in this implementation

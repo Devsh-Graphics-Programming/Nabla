@@ -2,7 +2,7 @@
 
 namespace irr { namespace video
 {
-
+    using namespace asset;//for E_FORMAT
 namespace impl
 {
     template<E_FORMAT sF>

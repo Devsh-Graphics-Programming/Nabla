@@ -420,7 +420,7 @@ void CNullDriver::removeAllFrameBuffers()
 {
 }
 
-ITexture* CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, E_FORMAT format)
+ITexture* CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
 {
     if (type != ITexture::ETT_2D)
         return nullptr;
@@ -432,7 +432,7 @@ ITexture* CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, co
 //! returns a device dependent texture from a software surface (IImage)
 //! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 ITexture* CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
-			const io::path& name, E_FORMAT format)
+			const io::path& name, asset::E_FORMAT format)
 {
     //better safe than sorry
     if (type!=ITexture::ETT_2D)
@@ -574,9 +574,9 @@ void CNullDriver::draw2DLine(const core::position2d<int32_t>& start,
 
 
 //! returns color format
-E_FORMAT CNullDriver::getColorFormat() const
+asset::E_FORMAT CNullDriver::getColorFormat() const
 {
-	return EF_B5G6R5_UNORM_PACK16;
+	return asset::EF_B5G6R5_UNORM_PACK16;
 }
 
 
@@ -762,7 +762,7 @@ IImage* CNullDriver::createImageFromData(asset::CImageData* imageData, bool ownF
 }
 
 //!
-IImage* CNullDriver::createImage(const E_FORMAT& format, const core::dimension2d<uint32_t>& size)
+IImage* CNullDriver::createImage(const asset::E_FORMAT& format, const core::dimension2d<uint32_t>& size)
 {
     return new CImage(format, size);
 }

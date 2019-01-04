@@ -589,13 +589,13 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
     auto desc = _mbuf->getMeshDataAndFormat();
     if (sizes[E_POS])
-        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR0, video::EF_R32G32B32_SFLOAT, stride, offsets[E_POS]);
+        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, stride, offsets[E_POS]);
     if (sizes[E_COL])
-        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR1, video::EF_R32G32B32A32_SFLOAT, stride, offsets[E_COL]);
+        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR1, asset::EF_R32G32B32A32_SFLOAT, stride, offsets[E_COL]);
     if (sizes[E_UV])
-        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR2, video::EF_R32G32_SFLOAT, stride, offsets[E_UV]);
+        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR2, asset::EF_R32G32_SFLOAT, stride, offsets[E_UV]);
     if (sizes[E_NORM])
-        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR3, video::EF_R32G32B32_SFLOAT, stride, offsets[E_NORM]);
+        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR3, asset::EF_R32G32B32_SFLOAT, stride, offsets[E_NORM]);
     buf->drop();
 
     asset::E_VERTEX_ATTRIBUTE_ID vaids[4];

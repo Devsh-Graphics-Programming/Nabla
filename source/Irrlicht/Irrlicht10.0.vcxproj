@@ -411,6 +411,9 @@
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBlobsLoadingManager.h" />
     <ClInclude Include="..\..\include\irr\asset\IMesh.h" />
     <ClInclude Include="..\..\include\irr\asset\ICPUSkinnedMeshBuffer.h" />
+    <ClInclude Include="..\..\include\irr\video\convertColor.h" />
+    <ClInclude Include="..\..\include\irr\video\decodePixels.h" />
+    <ClInclude Include="..\..\include\irr\video\encodePixels.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUMesh.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUMeshBuffer.h" />
     <ClInclude Include="..\..\include\irr\video\IGPUObjectFromAssetConverter.h" />

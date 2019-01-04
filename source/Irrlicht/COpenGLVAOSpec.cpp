@@ -42,7 +42,7 @@ COpenGLVAOSpec::~COpenGLVAOSpec()
 }
 
 
-void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, E_FORMAT format, size_t stride, size_t offset, uint32_t divisor)
+void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride, size_t offset, uint32_t divisor)
 {
     if (attrId>= asset::EVAI_COUNT)
 #ifdef _DEBUG
@@ -77,7 +77,7 @@ void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_AT
             individualHashFields.enabledAttribs &= invMask;
             mappedAttrBuf[attrId]->drop();
         }
-        format = EF_R32G32B32A32_SFLOAT;
+        format = asset::EF_R32G32B32A32_SFLOAT;
         newStride = 16u;
         offset = 0u;
         divisor = 0u;

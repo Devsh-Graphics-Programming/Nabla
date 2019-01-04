@@ -614,8 +614,8 @@ bool CIrrDeviceSDL::present(video::IImage* surface, void* windowId, core::rect<i
 	SDL_SetColorKey(sdlSurface, 0, 0);
 	sdlSurface->format->BitsPerPixel=surface->getBitsPerPixel();
 	sdlSurface->format->BytesPerPixel=sdlSurface->format->BitsPerPixel/8;
-	if ((surface->getColorFormat()==video::EF_R8G8B8_UNORM) ||
-			(surface->getColorFormat()==video::EF_B8G8R8A8_UNORM))
+	if ((surface->getColorFormat()==EF_R8G8B8_UNORM) ||
+			(surface->getColorFormat()==EF_B8G8R8A8_UNORM))
 	{
 		sdlSurface->format->Rloss=0;
 		sdlSurface->format->Gloss=0;
@@ -623,7 +623,7 @@ bool CIrrDeviceSDL::present(video::IImage* surface, void* windowId, core::rect<i
 		sdlSurface->format->Rshift=16;
 		sdlSurface->format->Gshift=8;
 		sdlSurface->format->Bshift=0;
-		if (surface->getColorFormat()==video::EF_R8G8B8_UNORM)
+		if (surface->getColorFormat()==EF_R8G8B8_UNORM)
 		{
 			sdlSurface->format->Aloss=8;
 			sdlSurface->format->Ashift=32;
@@ -634,7 +634,7 @@ bool CIrrDeviceSDL::present(video::IImage* surface, void* windowId, core::rect<i
 			sdlSurface->format->Ashift=24;
 		}
 	}
-	else if (surface->getColorFormat()==video::EF_R5G6B5)
+	else if (surface->getColorFormat()==EF_R5G6B5)
 	{
 		sdlSurface->format->Rloss=3;
 		sdlSurface->format->Gloss=2;
@@ -645,7 +645,7 @@ bool CIrrDeviceSDL::present(video::IImage* surface, void* windowId, core::rect<i
 		sdlSurface->format->Bshift=0;
 		sdlSurface->format->Ashift=16;
 	}
-	else if (surface->getColorFormat()==video::EF_A1R5G5B5)
+	else if (surface->getColorFormat()==EF_A1R5G5B5)
 	{
 		sdlSurface->format->Rloss=3;
 		sdlSurface->format->Gloss=3;
@@ -771,23 +771,23 @@ bool CIrrDeviceSDL::isWindowMinimized() const
 
 
 //! returns color format of the window.
-video::E_FORMAT CIrrDeviceSDL::getColorFormat() const
+asset::E_FORMAT CIrrDeviceSDL::getColorFormat() const
 {
 	if (Screen)
 	{
 		if (Screen->format->BitsPerPixel==16)
 		{
 			if (Screen->format->Amask != 0)
-				return video::EF_A1R5G5B5;
+				return EF_A1R5G5B5;
 			else
-				return video::EF_R5G6B5;
+				return EF_R5G6B5;
 		}
 		else
 		{
 			if (Screen->format->Amask != 0)
-				return video::EF_B8G8R8A8_UNORM;
+				return EF_B8G8R8A8_UNORM;
 			else
-				return video::EF_R8G8B8_UNORM;
+				return EF_R8G8B8_UNORM;
 		}
 	}
 	else

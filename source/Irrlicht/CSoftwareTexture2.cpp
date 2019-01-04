@@ -18,7 +18,7 @@ namespace video
 //! constructor
 CSoftwareTexture2::CSoftwareTexture2(asset::CImageData* image, const io::path& name, uint32_t flags)
                         : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,0,0},name), MipMapLOD(0), Flags ( flags ),
-                            OriginalFormat(video::EF_UNKNOWN)
+                            OriginalFormat(asset::EF_UNKNOWN)
 {
 	#ifdef _DEBUG
 	setDebugName("CSoftwareTexture2");
@@ -38,8 +38,8 @@ CSoftwareTexture2::CSoftwareTexture2(asset::CImageData* image, const io::path& n
 		CImage* tmpImg = new CImage(OriginalFormat,OrigSize,image->getData(),false);
 
 		core::setbit_cond(Flags,
-				image->getColorFormat () == video::EF_B8G8R8A8_UNORM ||
-				image->getColorFormat () == video::EF_A1R5G5B5_UNORM_PACK16,
+				image->getColorFormat () == asset::EF_B8G8R8A8_UNORM ||
+				image->getColorFormat () == asset::EF_A1R5G5B5_UNORM_PACK16,
 				HAS_ALPHA);
 
 		core::dimension2d<uint32_t> optSize(

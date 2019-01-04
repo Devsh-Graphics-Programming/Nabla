@@ -138,7 +138,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         if (floatComponents>asset::EVAI_COUNT*4)
         {
             for (uint32_t i=0; i<asset::EVAI_COUNT; i++)
-                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)i,video::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,i*16);
+                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)i,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,i*16);
         }
         else
         {
@@ -146,7 +146,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             uint32_t attr = 0;
             for (; attr*4+3<floatComponents; attr++)
             {
-                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)attr,video::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16);
+                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)attr,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16);
                 memoryUsed+=16;
             }
             memoryUsed -= (12+9)*4;
@@ -156,10 +156,10 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             auto convertFunc = [](size_t x) { // rename this? What's this for actually?
                 switch (x)
                 {
-                case 1ull: return video::EF_R32_UINT;
-                case 2ull: return video::EF_R32G32_UINT;
-                case 3ull: return video::EF_R32G32B32_UINT;
-                default: return video::EF_R32G32B32A32_UINT;
+                case 1ull: return asset::EF_R32_UINT;
+                case 2ull: return asset::EF_R32G32_UINT;
+                case 3ull: return asset::EF_R32G32B32_UINT;
+                default: return asset::EF_R32G32B32A32_UINT;
                 }
             };
 

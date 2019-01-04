@@ -433,7 +433,7 @@ void* TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPU
 			desc->setVertexAttrBuffer(
 				reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->attrBufPtrs[i]]),
 				i,
-				static_cast<video::E_FORMAT>(blob->attrFormat[i]),
+				static_cast<asset::E_FORMAT>(blob->attrFormat[i]),
 				blob->attrStride[i],
 				blob->attrOffset[i],
 				(blob->attrDivisor>>i)&1u

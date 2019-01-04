@@ -122,7 +122,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         }
 
         const asset::ICPUBuffer* oldbuffer[asset::EVAI_COUNT];
-        video::E_FORMAT formats[asset::EVAI_COUNT];
+        asset::E_FORMAT formats[asset::EVAI_COUNT];
         size_t strides[asset::EVAI_COUNT];
         size_t offsets[asset::EVAI_COUNT];
         uint32_t divisors[asset::EVAI_COUNT];
