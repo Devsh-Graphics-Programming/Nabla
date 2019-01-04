@@ -409,6 +409,7 @@
     <ClInclude Include="..\..\include\irrTypes.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBAWFile.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBlobsLoadingManager.h" />
+    <ClInclude Include="..\..\include\irr\video\IGPUMeshBuffer.h" />
     <ClInclude Include="..\..\include\ITimer.h" />
     <ClInclude Include="..\..\include\Keycodes.h" />
     <ClInclude Include="..\..\include\matrix3x4SIMD.h" />
@@ -479,7 +480,6 @@
     <ClInclude Include="..\..\include\IDummyTransformationSceneNode.h" />
     <ClInclude Include="..\..\include\ILightSceneNode.h" />
     <ClInclude Include="..\..\include\IMesh.h" />
-    <ClInclude Include="..\..\include\IMeshBuffer.h" />
     <ClInclude Include="..\..\include\IMeshCache.h" />
     <ClInclude Include="..\..\include\IMeshLoader.h" />
     <ClInclude Include="..\..\include\IMeshManipulator.h" />

@@ -6,7 +6,7 @@
 #define __C_SKY_BOX_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 
 namespace irr
 {

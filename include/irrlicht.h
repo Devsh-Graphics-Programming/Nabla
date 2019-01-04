@@ -93,7 +93,7 @@
 #include "IMaterialRenderer.h"
 #include "IMaterialRendererServices.h"
 #include "IMesh.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 #include "IMeshCache.h"
 #include "IMeshLoader.h"
 #include "IMeshManipulator.h"

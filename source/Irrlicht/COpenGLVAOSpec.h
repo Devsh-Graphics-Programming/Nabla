@@ -3,7 +3,7 @@
 
 #include "IrrCompileConfig.h"
 #include "COpenGLBuffer.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 

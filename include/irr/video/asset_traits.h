@@ -3,7 +3,7 @@
 
 #include "IGPUBuffer.h"
 #include "ITexture.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "IMesh.h"
 #include "irr/asset/ICPUMesh.h"

@@ -9,7 +9,7 @@
 #include "CSTLMeshWriter.h"
 #include "os.h"
 #include "IMesh.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 #include "ISceneManager.h"
 #include "IMeshCache.h"
 #include "IWriteFile.h"

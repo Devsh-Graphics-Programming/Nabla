@@ -12,7 +12,7 @@
 #include <unordered_set>
 
 #include "SMesh.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 #include "os.h"
 #include "CForsythVertexCacheOptimizer.h"
 #include "COverdrawMeshOptimizer.h"

@@ -10,7 +10,7 @@
 #include "IImagePresenter.h"
 #include "IGPUProgrammingServices.h"
 #include "IMesh.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 #include "IMeshSceneNode.h"
 #include "CFPSCounter.h"
 #include "SExposedVideoData.h"

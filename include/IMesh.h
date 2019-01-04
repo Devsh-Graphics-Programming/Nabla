@@ -7,7 +7,7 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "SMaterial.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 
 namespace irr
 {

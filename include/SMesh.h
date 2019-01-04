@@ -6,7 +6,7 @@
 #define __S_MESH_H_INCLUDED__
 
 #include "IMesh.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 #include "aabbox3d.h"
 #include "coreutil.h"
 

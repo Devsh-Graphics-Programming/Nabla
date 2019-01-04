@@ -310,7 +310,6 @@
     <ClInclude Include="..\..\include\IDummyTransformationSceneNode.h" />
     <ClInclude Include="..\..\include\ILightSceneNode.h" />
     <ClInclude Include="..\..\include\IMesh.h" />
-    <ClInclude Include="..\..\include\IMeshBuffer.h" />
     <ClInclude Include="..\..\include\IMeshCache.h" />
     <ClInclude Include="..\..\include\IMeshLoader.h" />
     <ClInclude Include="..\..\include\IMeshManipulator.h" />
@@ -525,6 +524,7 @@
     <ClInclude Include="..\..\src\irr\asset\bawformat\legacy\CBAWLegacy.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBAWFile.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBlobsLoadingManager.h" />
+    <ClInclude Include="..\..\include\irr\video\IGPUMeshBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="clwinlib\OpenCL.lib" />

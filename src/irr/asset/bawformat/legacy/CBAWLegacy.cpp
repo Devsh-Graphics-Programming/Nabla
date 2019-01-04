@@ -1,5 +1,5 @@
 #include "CBAWLegacy.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 
 using namespace irr;
 using namespace asset;
