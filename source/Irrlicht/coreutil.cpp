@@ -168,17 +168,16 @@ core::vector<std::string> getBackTrace(void)
 
 LeakDebugger::LeakDebugger(const std::string& nameOfDbgr) : name(nameOfDbgr)
 {
-    tsafer = new FW_Mutex();
 }
 LeakDebugger::~LeakDebugger()
 {
-    delete tsafer;
 }
 
 void LeakDebugger::registerObj(const void* obj)
 {
 #ifdef _DEBUG
-    tsafer->Get();
+    std::lock_guard<std::mutex> lock(tsafer);
+
     core::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
     if (found!=tracker.end())
     {
@@ -189,14 +188,14 @@ void LeakDebugger::registerObj(const void* obj)
         printf(strm.str().c_str());
     }
     tracker[obj] = getBackTrace();
-    tsafer->Release();
 #endif // _DEBUG
 }
 
 void LeakDebugger::deregisterObj(const void* obj)
 {
 #ifdef _DEBUG
-    tsafer->Get();
+    std::lock_guard<std::mutex> lock(tsafer);
+
     core::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
     if (found==tracker.end())
     {
@@ -208,7 +207,14 @@ void LeakDebugger::deregisterObj(const void* obj)
     }
     else
         tracker.erase(obj);
-    tsafer->Release();
+#endif // _DEBUG
+}
+
+void LeakDebugger::clearLeaks()
+{
+#ifdef _DEBUG
+    std::lock_guard<std::mutex> lock(tsafer);
+    tracker.clear();
 #endif // _DEBUG
 }
 
@@ -217,28 +223,29 @@ void LeakDebugger::dumpLeaks()
 #ifdef _DEBUG
     core::unordered_multiset<StackTrace> epicCounter;
 
-    tsafer->Get();
-    printf("Printing the leaks of %s\n\n",name.c_str());
-
-    for (core::unordered_map<const void*,StackTrace>::iterator it=tracker.begin(); it!=tracker.end(); it++)
-        epicCounter.insert(it->second);
-
+    std::lock_guard<std::mutex> lock(tsafer);
     {
-        core::unordered_multiset<StackTrace>::iterator it=epicCounter.begin();
-        while (it!=epicCounter.end())
+        printf("Printing the leaks of %s\n\n",name.c_str());
+
+        for (core::unordered_map<const void*,StackTrace>::iterator it=tracker.begin(); it!=tracker.end(); it++)
+            epicCounter.insert(it->second);
+
         {
-            size_t occurences = epicCounter.count(*it);
+            core::unordered_multiset<StackTrace>::iterator it=epicCounter.begin();
+            while (it!=epicCounter.end())
+            {
+                size_t occurences = epicCounter.count(*it);
 
-            std::ostringstream strm;
-            strm << "Number of Leak Occurrences: " << occurences << "\n";
-            it->printStackToOStream(strm);
-            printf(strm.str().c_str());
+                std::ostringstream strm;
+                strm << "Number of Leak Occurrences: " << occurences << "\n";
+                it->printStackToOStream(strm);
+                printf(strm.str().c_str());
 
-            for (size_t j=0; j<occurences; j++)
-                it++;
+                for (size_t j=0; j<occurences; j++)
+                    it++;
+            }
         }
     }
-    tsafer->Release();
 #else
     printf("Object Leak Tracking Not Enabled, _DEBUG not defined during Irrlicht compilation!\n");
 #endif // _DEBUG

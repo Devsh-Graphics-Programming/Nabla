@@ -2,99 +2,79 @@
 #define __IRR_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
 
 
-#include "irr/video/GPUMemoryAllocatorBase.h"
+#include "irr/video/SimpleGPUBufferAllocator.h"
 
 namespace irr
 {
 namespace video
 {
 
-//! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
 template<class HostAllocator = core::allocator<uint8_t> >
-class HostDeviceMirrorBufferAllocator : public GPUMemoryAllocatorBase
+class HostDeviceMirrorBufferAllocator : protected SimpleGPUBufferAllocator
 {
-        typedef std::pair<uint8_t*,IGPUBuffer*> AllocationType;
-
         HostAllocator                                            hostAllocator;
-        AllocationType                                          lastAllocation;
-
-        AllocationType createBuffers(size_t bytes, size_t alignment=_IRR_SIMD_ALIGNMENT);
     public:
-        HostDeviceMirrorBufferAllocator(IVideoDriver* inDriver) : GPUMemoryAllocatorBase(inDriver), lastAllocation(nullptr,nullptr) {}
+        typedef std::pair<IGPUBuffer*,uint8_t*> value_type;
+
+        HostDeviceMirrorBufferAllocator(IDriver* inDriver);
         virtual ~HostDeviceMirrorBufferAllocator()
         {
-        #ifdef _DEBUG
-            assert(!lastAllocation.first && !lastAllocation.second);
-        #endif // _DEBUG
         }
 
-        inline void*        allocate(size_t bytes) noexcept
+        inline value_type   allocate(size_t bytes, size_t alignment) noexcept
         {
-        #ifdef _DEBUG
-            assert(bytes && !lastAllocation.first && !lastAllocation.second);
-        #endif // _DEBUG
-            lastAllocation = createBuffers(bytes);
-            return lastAllocation.first;
+            auto buff =  SimpleGPUBufferAllocator::allocate(bytes,alignment);
+            if (!buff)
+                return {nullptr,nullptr};
+            auto hostPtr = hostAllocator.allocate(bytes,alignment);
+            if (!hostPtr)
+            {
+                SimpleGPUBufferAllocator::deallocate(buff);
+                return {nullptr,nullptr};
+            }
+            return {buff,hostPtr};
         }
 
         template<class AddressAllocator>
-        inline void*        reallocate(void* addr, size_t bytes, const AddressAllocator& allocToQueryOffsets) noexcept
+        inline void                 reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets) noexcept
         {
-        #ifdef _DEBUG
-            assert(addr && lastAllocation.first==addr && lastAllocation.second);
-        #endif // _DEBUG
-
-            auto alignment = core::address_allocator_traits<AddressAllocator>::max_alignment(allocToQueryOffsets);
-            auto oldMemReqs = lastAllocation.second->getMemoryReqs();
-            auto tmp = createBuffers(bytes,alignment);
+            auto newAlloc = allocate(bytes,alignment);
+            if (!newAlloc.first)
+            {
+                deallocate(allocation);
+                return;
+            }
 
             //move contents
-            size_t oldOffset = core::address_allocator_traits<AddressAllocator>::get_align_offset(allocToQueryOffsets);
-            auto copyRangeLen = std::min(oldMemReqs.vulkanReqs.size-oldOffset,bytes);
+            auto oldOffset_copyRange_oldSize = getOldOffset_CopyRange_OldSize(allocation.first,bytes,allocToQueryOffsets);
 
+            copyBuffersWrapper(allocation.first,newAlloc.first,std::get<0u>(oldOffset_copyRange_oldSize),0u,std::get<1u>(oldOffset_copyRange_oldSize));
 
-            memcpy(tmp.first,lastAllocation.first+oldOffset,copyRangeLen);
-            hostAllocator.deallocate(lastAllocation.first,oldMemReqs.vulkanReqs.size);
+            memcpy(newAlloc.second,allocation.second+std::get<0u>(oldOffset_copyRange_oldSize),std::get<1u>(oldOffset_copyRange_oldSize));
 
-            copyBuffersWrapper(lastAllocation.second,tmp.second,oldOffset,0u,copyRangeLen);
-            //swap the internals of buffers
-            lastAllocation.second->pseudoMoveAssign(tmp.second);
-            tmp.second->drop();
-
-            //book-keeping and return
-            lastAllocation.first = tmp.first;
-            return lastAllocation.first;
+            //swap the internals of buffers and book keeping
+            hostAllocator.deallocate(allocation.second,std::get<2u>(oldOffset_copyRange_oldSize));
+            allocation.first->pseudoMoveAssign(newAlloc.first);
+            newAlloc.first->drop();
+            allocation.second = newAlloc.second;
         }
 
-        inline void         deallocate(void* addr) noexcept
+        inline void         deallocate(value_type& allocation) noexcept
         {
-        #ifdef _DEBUG
-            assert(addr && lastAllocation.first==addr && lastAllocation.second);
-        #endif // _DEBUG
-            hostAllocator.deallocate(lastAllocation.first,lastAllocation.second->getMemoryReqs().vulkanReqs.size);
-            lastAllocation.second->drop();
-            lastAllocation.first = nullptr;
-            lastAllocation.second = nullptr;
+            hostAllocator.deallocate(allocation.second,allocation.first->getSize());
+            SimpleGPUBufferAllocator::deallocate(allocation.first);
+            allocation.second = nullptr;
         }
 
-
-        // extras
-        inline void*        getCPUStagingAreaPtr()
-        {
-            return lastAllocation.first;
-        }
-
-        inline IGPUBuffer*  getGPUBuffer()
-        {
-            return lastAllocation.second;
-        }
+        //to expose base functions again
+        IDriver*   getDriver() noexcept {return SimpleGPUBufferAllocator::getDriver();}
 };
 
 
 }
 }
 
-#include "IVideoDriver.h"
+#include "IDriver.h"
 
 namespace irr
 {
@@ -102,17 +82,8 @@ namespace video
 {
 
 template<class HostAllocator>
-inline typename HostDeviceMirrorBufferAllocator<HostAllocator>::AllocationType HostDeviceMirrorBufferAllocator<HostAllocator>::createBuffers(size_t bytes, size_t alignment)
-{
-    AllocationType retval;
-    retval.first = hostAllocator.allocate(bytes,alignment);
+HostDeviceMirrorBufferAllocator<HostAllocator>::HostDeviceMirrorBufferAllocator(IDriver* inDriver) : SimpleGPUBufferAllocator(inDriver,inDriver->getDeviceLocalGPUMemoryReqs()) {}
 
-    auto memReqs = mDriver->getDeviceLocalGPUMemoryReqs();
-    memReqs.vulkanReqs.size = bytes;
-    retval.second = mDriver->createGPUBufferOnDedMem(memReqs,false);
-
-    return retval;
-}
 }
 }
 

@@ -8,6 +8,7 @@
 #include "IDriverMemoryAllocation.h"
 #include "IGPUBuffer.h"
 #include "irr/video/StreamingTransientDataBuffer.h"
+#include "IMeshBuffer.h"
 #include "ITexture.h"
 #include "IMultisampleTexture.h"
 #include "ITextureBufferObject.h"
@@ -94,7 +95,7 @@ namespace video
                 reqs.vulkanReqs.alignment = 0;
                 reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
                 reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
+                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CACHED;
                 reqs.prefersDedicatedAllocation = true;
                 reqs.requiresDedicatedAllocation = true;
                 return reqs;
@@ -133,13 +134,22 @@ namespace video
             //! Creates a texture
             virtual ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) { return nullptr; }
 
-            //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the writes to become GPU visible
-            virtual void flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
+            //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
+            virtual void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
 
             //! Utility wrapper for the pointer based func
             inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
             {
                 this->flushMappedMemoryRanges(ranges.size(),ranges.data());
+            }
+
+            //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
+            virtual void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
+
+            //! Utility wrapper for the pointer based func
+            inline void invalidateMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
+            {
+                this->invalidateMappedMemoryRanges(ranges.size(),ranges.data());
             }
 
 
@@ -193,39 +203,44 @@ namespace video
             virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer;}
 
             //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
-            inline IGPUBuffer* createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
+            inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)
             {
-                IGPUBuffer*  retval = createDeviceLocalGPUBufferOnDedMem(size);
-
                 for (uint32_t uploadedSize=0; uploadedSize<size;)
                 {
                     const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
-                    uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                    uint32_t alignment = defaultUploadBuffer->max_alignment();
+                    uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
+                    uint32_t alignment = 64u; // smallest mapping alignment capability
                     uint32_t subSize = std::min(core::alignDown(defaultUploadBuffer->max_size(),alignment),size-uploadedSize);
 
-                    defaultUploadBuffer->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&offset,&subSize,&alignment);
+                    defaultUploadBuffer->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                     // keep trying again
-                    if (offset==video::StreamingTransientDataBufferMT<>::invalid_address)
+                    if (localOffset==video::StreamingTransientDataBufferMT<>::invalid_address)
                         continue;
 
                     // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
                     if (defaultUploadBuffer->needsManualFlushOrInvalidate())
-                        this->flushMappedMemoryRanges({{defaultUploadBuffer->getBuffer()->getBoundMemory(),offset,subSize}});
+                        this->flushMappedMemoryRanges({{defaultUploadBuffer->getBuffer()->getBoundMemory(),localOffset,subSize}});
                     // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
-                    this->copyBuffer(defaultUploadBuffer->getBuffer(),retval,offset,uploadedSize,subSize);
+                    this->copyBuffer(defaultUploadBuffer->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
                     // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
                     auto fence = this->placeFence();
-                    defaultUploadBuffer->multi_free(1u,&offset,&subSize,fence);
+                    defaultUploadBuffer->multi_free(1u,&localOffset,&subSize,fence);
                     fence->drop();
                     uploadedSize += subSize;
                 }
+            }
+
+            inline IGPUBuffer* createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
+            {
+                IGPUBuffer*  retval = createDeviceLocalGPUBufferOnDedMem(size);
+
+                updateBufferRangeViaStagingBuffer(retval,0u,size,data);
 
                 return retval;
             }
 
             //! TODO: make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
-            virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length) {}
+            virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) {}
 
 
             //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively

@@ -15,64 +15,7 @@ namespace irr
 namespace video
 {
 
-
-
-//! get the amount of Bits per Pixel of the given color format
-inline uint32_t getBitsPerPixelFromGLenum(const GLenum& format)
-{
-    switch(format)
-    {
-        case GL_R8:
-        case GL_R8I:
-        case GL_R8UI:
-            return 8;
-        case GL_R16:
-        case GL_R16F:
-        case GL_R16I:
-        case GL_R16UI:
-            return 16;
-        case GL_R32F:
-        case GL_R32I:
-        case GL_R32UI:
-            return 32;
-        case GL_RG8:
-        case GL_RG8I:
-        case GL_RG8UI:
-            return 16;
-        case GL_RG16:
-        case GL_RG16F:
-        case GL_RG16I:
-        case GL_RG16UI:
-            return 32;
-        case GL_RG32F:
-        case GL_RG32I:
-        case GL_RG32UI:
-            return 64;
-        case GL_RGB32F:
-        case GL_RGB32I:
-        case GL_RGB32UI:
-            return 96;
-        case GL_RGBA8:
-        case GL_RGBA8I:
-        case GL_RGBA8UI:
-        case GL_RGB9_E5:
-            return 32;
-        case GL_RGBA16:
-        case GL_RGBA16F:
-        case GL_RGBA16I:
-        case GL_RGBA16UI:
-            return 64;
-        case GL_RGBA32F:
-        case GL_RGBA32I:
-        case GL_RGBA32UI:
-            return 128;
-        default:
-            return 0;
-    }
-}
-
-
-class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
+class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 {
     protected:
         virtual ~COpenGLBuffer()
@@ -122,10 +65,10 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
 
 
         //!
-        virtual bool canUpdateSubRange() const {return cachedFlags&GL_DYNAMIC_STORAGE_BIT;}
+        inline bool canUpdateSubRange() const override {return cachedFlags&GL_DYNAMIC_STORAGE_BIT;}
 
         //!
-        virtual void updateSubRange(const MemoryRange& memrange, const void* data)
+        inline void updateSubRange(const MemoryRange& memrange, const void* data) override
         {
             if (canUpdateSubRange())
                 COpenGLExtensionHandler::extGlNamedBufferSubData(BufferName,memrange.offset,memrange.length,data);
@@ -133,31 +76,32 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
 
 
         //! Returns the allocation which is bound to the resource
-        virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
+        inline IDriverMemoryAllocation* getBoundMemory() override {return this;}
 
         //! Constant version
-        virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
+        inline const IDriverMemoryAllocation* getBoundMemory() const override {return this;}
 
         //! Returns the offset in the allocation at which it is bound to the resource
-        virtual size_t getBoundMemoryOffset() const {return 0ull;}
+        inline size_t getBoundMemoryOffset() const override {return 0ull;}
 
 
         //!
-        virtual size_t getAllocationSize() const {return IGPUBuffer::getSize();}
+        inline size_t getAllocationSize() const override {return IGPUBuffer::getSize();}
 
         //!
-        virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DONT_KNOW;}
+        inline E_SOURCE_MEMORY_TYPE getType() const override {return ESMT_DONT_KNOW;}
 
         //!
-        virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return static_cast<E_MAPPING_CAPABILITY_FLAGS>(cachedMemoryReqs.mappingCapability);} //move up?
+        inline E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const override {return static_cast<E_MAPPING_CAPABILITY_FLAGS>(cachedMemoryReqs.mappingCapability);} //move up?
 
         //!
-        virtual void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const MemoryRange& memrange)
+        inline void* mapMemoryRange(const E_MAPPING_CPU_ACCESS_FLAG& accessType, const MemoryRange& memrange) override
         {
         #ifdef _DEBUG
             assert(!mappedPtr&&accessType!=EMCAF_NO_MAPPING_ACCESS&&BufferName);
             assert(accessType);
         #endif // _DEBUG
+
             GLbitfield flags = GL_MAP_PERSISTENT_BIT|((accessType&EMCAF_READ) ? GL_MAP_READ_BIT:0u);
             if (cachedFlags&GL_MAP_COHERENT_BIT)
             {
@@ -177,7 +121,7 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         }
 
         //!
-        virtual void unmapMemory()
+        inline void unmapMemory() override
         {
         #ifdef _DEBUG
             assert(mappedPtr&&BufferName);
@@ -189,12 +133,12 @@ class COpenGLBuffer : public IGPUBuffer, public IDriverMemoryAllocation
         }
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
-        virtual bool isDedicated() const {return true;}
+        inline bool isDedicated() const override {return true;}
     protected:
         GLbitfield cachedFlags;
         GLuint BufferName;
 
-        virtual bool pseudoMoveAssign(IGPUBuffer* other)
+        inline bool pseudoMoveAssign(IGPUBuffer* other) override
         {
             COpenGLBuffer* otherAsGL = static_cast<COpenGLBuffer*>(other);
             if (!otherAsGL || otherAsGL==this || otherAsGL->cachedFlags!=cachedFlags || otherAsGL->BufferName==0)

@@ -389,16 +389,17 @@ namespace video
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id()) const;
         bool deinitAuxContext();
 
-        virtual uint16_t retrieveDisplayRefreshRate() const override;
-
-		//!
-		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false);
-
 	    virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
 
-        virtual void flushMappedMemoryRanges(const uint32_t& memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override;
+        virtual uint16_t retrieveDisplayRefreshRate() const override;
 
-        virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, const size_t& readOffset, const size_t& writeOffset, const size_t& length);
+		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false);
+
+        void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override final;
+
+        void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override final;
+
+        void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) override final;
 
 		//! clears the zbuffer
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
@@ -646,8 +647,8 @@ namespace video
                 AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
             #endif
 
-            bool                        XFormFeedbackRunning; // TODO: delete
-            COpenGLTransformFeedback*   CurrentXFormFeedback; //TODO: delete
+            bool                                         XFormFeedbackRunning; // TODO: delete
+            COpenGLTransformFeedback* CurrentXFormFeedback; //TODO: delete
 
 
             //! FBOs
@@ -918,6 +919,8 @@ namespace video
         class CGPUObjectFromAssetConverter;
         friend class CGPUObjectFromAssetConverter;
 
+
+        bool runningInRenderDoc;
 
 		//! enumeration for rendering modes such as 2d and 3d for minizing the switching of renderStates.
 		enum E_RENDER_MODE

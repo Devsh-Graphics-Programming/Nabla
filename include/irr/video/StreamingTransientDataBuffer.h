@@ -1,12 +1,13 @@
 #ifndef __IRR_STREAMING_TRANSIENT_DATA_BUFFER_H__
 #define __IRR_STREAMING_TRANSIENT_DATA_BUFFER_H__
 
+#include <cstring>
 
 #include "irr/core/IReferenceCounted.h"
-#include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
-#include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
+#include "irr/video/SubAllocatedDataBuffer.h"
 #include "irr/video/StreamingGPUBufferAllocator.h"
 #include "IDriverFence.h"
+
 
 namespace irr
 {
@@ -15,14 +16,15 @@ namespace video
 
 
 template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t> >
-class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor, public virtual core::IReferenceCounted
+class StreamingTransientDataBufferST : public virtual core::IReferenceCounted
 {
     protected:
-        typedef core::GeneralpurposeAddressAllocator<_size_type>                                                        BasicAddressAllocator;
-        core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,StreamingGPUBufferAllocator,CPUAllocator> mAllocator; // no point for a streaming buffer to grow
+        typedef core::GeneralpurposeAddressAllocator<_size_type>                                                                                                              BasicAddressAllocator;
+        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,StreamingGPUBufferAllocator,CPUAllocator> AddressAllocator;
+        AddressAllocator mAllocator; // no point for a streaming buffer to grow
     public:
-        typedef typename BasicAddressAllocator::size_type           size_type;
-        static constexpr size_type                                  invalid_address = BasicAddressAllocator::invalid_address;
+        typedef typename BasicAddressAllocator::size_type   size_type;
+        static constexpr size_type                                            invalid_address = BasicAddressAllocator::invalid_address;
 
         #define DUMMY_DEFAULT_CONSTRUCTOR StreamingTransientDataBufferST() {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
@@ -30,27 +32,29 @@ class StreamingTransientDataBufferST : protected core::impl::FriendOfHeterogenou
         //!
         /**
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
-        StreamingTransientDataBufferST(IVideoDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
+        StreamingTransientDataBufferST(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
                                        const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=64u) :
-                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,minAllocSize)
+                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,bufferReqs.vulkanReqs.alignment,minAllocSize)
         {
         }
 
         template<typename... Args>
-        StreamingTransientDataBufferST(IVideoDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
+        StreamingTransientDataBufferST(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
                                        const CPUAllocator& reservedMemAllocator=CPUAllocator(), Args&&... args) :
-                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,std::forward<Args>(args)...)
+                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,bufferReqs.vulkanReqs.alignment,std::forward<Args>(args)...)
         {
         }
 
         virtual ~StreamingTransientDataBufferST() {}
 
+        const AddressAllocator& getAllocator() const {return mAllocator;}
+
 
         inline bool         needsManualFlushOrInvalidate() const {return !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);}
 
-        inline IGPUBuffer*  getBuffer() noexcept {return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getAllocatedBuffer();}
+        inline IGPUBuffer*  getBuffer() noexcept {return mAllocator.getCurrentBufferAllocation().first;}
 
-        inline void*        getBufferPointer() noexcept {return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getAllocatedPointer();}
+        inline void*        getBufferPointer() noexcept {return mAllocator.getCurrentBufferAllocation().second;}
 
 
         inline size_type    max_size() noexcept
@@ -219,6 +223,8 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         static constexpr size_type                                      invalid_address = Base::invalid_address;
 
         using Base::Base;
+
+        const typename Base::AddressAllocator& getAllocator() const {return Base::getAllocator();}
 
 
         inline bool         needsManualFlushOrInvalidate()

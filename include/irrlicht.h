@@ -29,20 +29,46 @@
 #ifndef __IRRLICHT_H_INCLUDED__
 #define __IRRLICHT_H_INCLUDED__
 
+//{ core lib
 // overarching includes
-#include "irr/core/BaseClasses.h"
 #include "irr/macros.h"
 
 //core
-#include "irr/core/IReferenceCounted.h"
+#include "irr/core/BaseClasses.h"
+#include "irr/core/ICPUBuffer.h"
+#include "irr/core/irrString.h" //kill this abomination
+#include "irr/core/IThreadBound.h"
 #include "irr/core/Types.h"
-#include "irr/core/irrString.h"
 
-#include "irr/core/alloc/IAddressAllocator.h"
-#include "irr/core/alloc/IAddressAllocator.h"
-#include "irr/core/alloc/IAllocator.h"
+// core math
 #include "irr/core/math/irrMath.h"
 
+// core memory
+#include "irr/core/memory/memory.h"
+#include "irr/core/memory/new_delete.h"
+
+//core allocators
+#include "irr/core/alloc/address_allocator_traits.h"
+#include "irr/core/alloc/AddressAllocatorAdaptor.h"
+#include "irr/core/alloc/AddressAllocatorBase.h"
+#include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
+#include "irr/core/alloc/aligned_allocator.h"
+#include "irr/core/alloc/aligned_allocator_adaptor.h"
+#include "irr/core/alloc/AlignedBase.h"
+#include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
+#include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
+#include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
+#include "irr/core/alloc/IAddressAllocator.h"
+#include "irr/core/alloc/IAllocator.h"
+#include "irr/core/alloc/LinearAddressAllocator.h"
+#include "irr/core/alloc/MultiBufferingAllocatorBase.h"
+#include "irr/core/alloc/ResizableHeterogenousMemoryAllocator.h"
+//} end core lib
+
+//{ system lib (fibers, mutexes, file I/O operations) [DEPENDS: core]
+//} end system lib
+
+//{ asset lib (importing and exporting meshes, textures and shaders) [DEPENDS: system]
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/IAssetManager.h"
 #include "irr/asset/CCPUSkinnedMesh.h"
@@ -56,14 +82,40 @@
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/SCPUMesh.h"
 #include "irr/asset/CImageData.h"
+//} end asset lib
 
+//{ ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
+//} end ui lib
+
+//{ video lib (access to Graphics API, remote rendering, etc) [DEPENDS: asset, (optional) ui]
+//video allocators (TODO: move on layer deeper to {include|src}/video/alloc)
+#include "irr/video/GPUMemoryAllocatorBase.h"
+#include "irr/video/HostDeviceMirrorBufferAllocator.h"
+#include "irr/video/ResizableBufferingAllocator.h"
+#include "irr/video/SimpleGPUBufferAllocator.h"
+#include "irr/video/StreamingTransientDataBuffer.h"
 #include "irr/video/asset_traits.h"
 #include "irr/video/IGPUObjectFromAssetConverter.h"
 #include "irr/video/IGPUMesh.h"
+//} end video lib
+
+//{ scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
+//}
 
 #include "IrrCompileConfig.h"
 #include "aabbox3d.h"
+#include "triangle3d.h"
+#include "vector2d.h"
+#include "vector3d.h"
+#include "vectorSIMD.h"
 #include "coreutil.h"
+#include "line2d.h"
+#include "line3d.h"
+#include "matrix4.h"
+#include "plane3d.h"
+#include "position2d.h"
+#include "quaternion.h"
+#include "rect.h"
 #include "dimension2d.h"
 #include "CFinalBoneHierarchy.h"
 #include "CGLSLFunctionGenerator.h"
@@ -122,13 +174,6 @@
 #include "IVideoModeList.h"
 #include "IWriteFile.h"
 #include "Keycodes.h"
-#include "line2d.h"
-#include "line3d.h"
-#include "matrix4.h"
-#include "plane3d.h"
-#include "position2d.h"
-#include "quaternion.h"
-#include "rect.h"
 #include "splines.h"
 
 
@@ -141,10 +186,6 @@
 #include "SMaterial.h"
 #include "irr/video/SGPUMesh.h"
 #include "SViewFrustum.h"
-#include "triangle3d.h"
-#include "vector2d.h"
-#include "vector3d.h"
-#include "vectorSIMD.h"
 
 
 #include "SIrrCreationParameters.h"
@@ -211,11 +252,6 @@ namespace irr
 
 	//! Basic classes such as vectors, planes, arrays, lists, and so on can be found in this namespace.
 	namespace core
-	{
-	}
-
-	//! The gui namespace contains useful classes for easy creation of a graphical user interface.
-	namespace gui
 	{
 	}
 

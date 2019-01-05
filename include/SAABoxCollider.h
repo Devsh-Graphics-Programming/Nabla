@@ -9,7 +9,7 @@ namespace irr
 namespace core
 {
 
-class SAABoxCollider : public AllocationOverrideDefault
+class SAABoxCollider// : public AllocationOverrideDefault EBO inheritance problem
 {
     public:
         SAABoxCollider(const aabbox3df& box) : Box(box) {}

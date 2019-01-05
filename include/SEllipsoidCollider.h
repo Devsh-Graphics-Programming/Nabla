@@ -8,7 +8,7 @@ namespace irr
 namespace core
 {
 
-class SEllipsoidCollider : public AllocationOverrideDefault
+class SEllipsoidCollider// : public AllocationOverrideDefault EBO inheritance problem
 {
         vectorSIMDf negativeCenter;
         vectorSIMDf reciprocalAxes;

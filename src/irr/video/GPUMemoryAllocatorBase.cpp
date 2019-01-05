@@ -10,14 +10,3 @@ void            GPUMemoryAllocatorBase::copyBuffersWrapper(IGPUBuffer* oldBuffer
 {
     mDriver->copyBuffer(oldBuffer,newBuffer,oldOffset,newOffset,copyRangeLen);
 }
-
-size_t          GPUMemoryAllocatorBase::min_alignment() const noexcept
-{
-    return mDriver->getMinimumMemoryMapAlignment();
-}
-
-IVideoDriver*   GPUMemoryAllocatorBase::getDriver() noexcept
-{
-    return mDriver;
-}
-

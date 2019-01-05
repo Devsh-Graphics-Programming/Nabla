@@ -814,8 +814,10 @@ class LeakDebugger : public AllocationOverrideDefault
         void deregisterObj(const void* obj);
 
         void dumpLeaks();
+
+        void clearLeaks();
     private:
-        FW_Mutex* tsafer;
+        std::mutex tsafer;
         core::unordered_map<const void*,StackTrace> tracker;
 };
 

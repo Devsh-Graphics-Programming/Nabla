@@ -24,8 +24,8 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename BasicAddressAllocator::size_type);
 
         template<typename... Args>
-        ResizableBufferingAllocatorST(IVideoDriver* inDriver, const CPUAllocator& reservedMemAllocator, size_type bufSz, Args&&... args) :
-                                mAllocator(reservedMemAllocator,HostDeviceMirrorBufferAllocator<>(inDriver),bufSz,std::forward<Args>(args)...)
+        ResizableBufferingAllocatorST(IDriver* inDriver, const CPUAllocator& reservedMemAllocator, Args&&... args) :
+                                mAllocator(reservedMemAllocator,HostDeviceMirrorBufferAllocator<>(inDriver),std::forward<Args>(args)...)
         {
         }
 
@@ -39,12 +39,12 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 
         inline void*                        getBackBufferPointer()
         {
-            return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getCPUStagingAreaPtr();
+            return mAllocator.getCurrentBufferAllocation().second;
         }
 
         inline IGPUBuffer*                  getFrontBuffer()
         {
-            return core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getGPUBuffer();
+            return mAllocator.getCurrentBufferAllocation().first;
         }
 
 
@@ -74,24 +74,8 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
             else
                 return true;
 
-            const void* dataPtrWithTypeToMakeForwardingHappy = reinterpret_cast<uint8_t*>(getBackBufferPointer())+dataOffset;
-            typename StreamingTransientDataBuffer::size_type offset = StreamingTransientDataBuffer::invalid_address;
-            typename StreamingTransientDataBuffer::size_type alignment = 8u;
-            streamingBuff->multi_place(std::chrono::microseconds(1u),1u,&dataPtrWithTypeToMakeForwardingHappy,&offset,&dataSize,&alignment);
-            if (offset==StreamingTransientDataBuffer::invalid_address)
-                return false;
-
             auto driver = core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getDriver();
-            if (streamingBuff->getBuffer()->getBoundMemory()->haveToFlushWrites())
-            {
-                video::IDriverMemoryAllocation::MappedMemoryRange range{const_cast<video::IDriverMemoryAllocation*>(streamingBuff->getBuffer()->getBoundMemory()),offset,dataSize};
-                driver->flushMappedMemoryRanges(1u,&range);
-            }
-            driver->copyBuffer(streamingBuff->getBuffer(),getFrontBuffer(),offset,dataOffset,dataSize);
-
-            auto fence = driver->placeFence();
-            streamingBuff->multi_free(1u,&offset,&dataSize,fence);
-            fence->drop();
+            driver->updateBufferRangeViaStagingBuffer(getFrontBuffer(),dataOffset,dataSize,reinterpret_cast<uint8_t*>(getBackBufferPointer())+dataOffset); // TODO: create and change to non-blocking variant with std::chrono::microseconds(1u)
 
             Base::resetDirtyRange();
             return true;

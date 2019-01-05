@@ -39,6 +39,21 @@ int main()
 
     uint64_t lastFPSTime = 0;
 
+    core::vector<std::pair<ext::DebugDraw::S3DLineVertex, ext::DebugDraw::S3DLineVertex>> lines;
+
+    for (int i = 0; i < 100; ++i)
+    {
+        lines.push_back({
+        {
+            { 0.f, 0.f, 0.f },     // start origin
+            { 1.f, 0.f, 0.f, 1.f } // start color
+        }, {
+            { i % 2 ? i : -i, 50.f, 10.f}, // end origin
+            { 1.f, 0.f, 0.f, 1.f }         // end color
+        }
+        });
+    }
+
     while(device->run())
     if (device->isWindowActive())
     {
@@ -51,6 +66,8 @@ int main()
             0.f, 100.f, 0.f, // end
             1.f, 0, 0, 1.f   // color
         );
+
+        draw3DLine->draw(lines); // multiple lines
 
         driver->endScene();
 

@@ -257,16 +257,12 @@ namespace core
 #include "SIMDswizzle.h"
 
 
-
-
-
     template <class T>
     class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
 	public:
 	    using Base::Base;
-
 #ifdef _MSC_VER
         // in MSVC default ctor is not inherited?
         vectorSIMD_32() : Base() {}
