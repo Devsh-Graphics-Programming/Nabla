@@ -35,7 +35,6 @@
 
 //core
 #include "irr/core/BaseClasses.h"
-#include "irr/core/ICPUBuffer.h"
 #include "irr/core/irrString.h" //kill this abomination
 #include "irr/core/IThreadBound.h"
 #include "irr/core/Types.h"

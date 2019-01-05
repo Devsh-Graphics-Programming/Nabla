@@ -734,7 +734,7 @@
     <ClCompile Include="..\..\src\irr\asset\IAssetLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\IAssetWriter.cpp" />
     <ClCompile Include="..\..\src\irr\video\GPUMemoryAllocatorBase.cpp" />
-    <ClCompile Include="..\..\src\irr\video\StreamingGPUBufferAllocator.cpp" />
+    <ClCompile Include="..\..\src\irr\video\SimpleGPUBufferAllocator.cpp" />
     <ClCompile Include="aesGladman\aescrypt.c" />
     <ClCompile Include="aesGladman\aeskey.c" />
     <ClCompile Include="aesGladman\aestab.c" />
