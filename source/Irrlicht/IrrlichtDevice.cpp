@@ -1,75 +1,75 @@
 #include "IrrlichtDevice.h"
 
 #ifdef _IRR_COMPILE_WITH_X_LOADER_
-#include "CXMeshFileLoader.h"
+#include "irr/asset/CXMeshFileLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
-#include "COBJMeshFileLoader.h"
+#include "irr/asset/COBJMeshFileLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
-#include "CSTLMeshFileLoader.h"
+#include "irr/asset/CSTLMeshFileLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
-#include "CPLYMeshFileLoader.h"
+#include "irr/asset/CPLYMeshFileLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_BAW_LOADER_
-#include "CBAWMeshFileLoader.h"
+#include "irr/asset/CBAWMeshFileLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_BMP_LOADER_
-#include "CImageLoaderBMP.h"
+#include "irr/asset/CImageLoaderBMP.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_DDS_LOADER_
-#include "CImageLoaderDDS.h"
+#include "irr/asset/CImageLoaderDDS.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
-#include "CImageLoaderJPG.h"
+#include "irr/asset/CImageLoaderJPG.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_PNG_LOADER_
-#include "CImageLoaderPNG.h"
+#include "irr/asset/CImageLoaderPNG.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_RGB_LOADER_
-#include "CImageLoaderRGB.h"
+#include "irr/asset/CImageLoaderRGB.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
-#include "CImageLoaderTGA.h"
+#include "irr/asset/CImageLoaderTGA.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_STL_WRITER_
-#include "CSTLMeshWriter.h"
+#include "irr/asset/CSTLMeshWriter.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_PLY_WRITER_
-#include "CPLYMeshWriter.h"
+#include "irr/asset/CPLYMeshWriter.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_BAW_WRITER_
-#include"CBAWMeshWriter.h"
+#include"irr/asset/CBAWMeshWriter.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_TGA_WRITER_
-#include "CImageWriterTGA.h"
+#include "irr/asset/CImageWriterTGA.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_JPG_WRITER_
-#include "CImageWriterJPG.h"
+#include "irr/asset/CImageWriterJPG.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
-#include "CImageWriterPNG.h"
+#include "irr/asset/CImageWriterPNG.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_BMP_WRITER_
-#include "CImageWriterBMP.h"
+#include "irr/asset/CImageWriterBMP.h"
 #endif
 
 #include "irr/asset/IAssetManager.h"
@@ -105,126 +105,126 @@ void IrrlichtDevice::addLoadersAndWriters()
 {
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
     {
-        auto ldr = new scene::CSTLMeshFileLoader();
+        auto ldr = new asset::CSTLMeshFileLoader();
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
     {
-        auto ldr = new scene::CPLYMeshFileLoader(getSceneManager());
+        auto ldr = new asset::CPLYMeshFileLoader(getSceneManager());
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_X_LOADER_
     {
-        auto ldr = new scene::CXMeshFileLoader(this);
+        auto ldr = new asset::CXMeshFileLoader(this);
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
     {
-        auto ldr = new scene::COBJMeshFileLoader(this);
+        auto ldr = new asset::COBJMeshFileLoader(this);
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_BAW_LOADER_
     {
-        auto ldr = new scene::CBAWMeshFileLoader(this);
+        auto ldr = new asset::CBAWMeshFileLoader(this);
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_BMP_LOADER_
     {
-        auto ldr = new video::CImageLoaderBMP();
+        auto ldr = new asset::CImageLoaderBMP();
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_DDS_LOADER_
     {
-        auto ldr = new video::CImageLoaderDDS();
+        auto ldr = new asset::CImageLoaderDDS();
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
     {
-        auto ldr = new video::CImageLoaderJPG();
+        auto ldr = new asset::CImageLoaderJPG();
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_PNG_LOADER_
     {
-        auto ldr = new video::CImageLoaderPng();
+        auto ldr = new asset::CImageLoaderPng();
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_RGB_LOADER_
     {
-        auto ldr = new video::CImageLoaderRGB();
+        auto ldr = new asset::CImageLoaderRGB();
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
     {
-        auto ldr = new video::CImageLoaderTGA();
+        auto ldr = new asset::CImageLoaderTGA();
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_BAW_WRITER_
     {
-        auto wtr = new scene::CBAWMeshWriter(getFileSystem());
+        auto wtr = new asset::CBAWMeshWriter(getFileSystem());
         m_assetMgr->addAssetWriter(wtr);
         wtr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_PLY_WRITER_
     {
-        auto wtr = new scene::CPLYMeshWriter();
+        auto wtr = new asset::CPLYMeshWriter();
         m_assetMgr->addAssetWriter(wtr);
         wtr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_STL_WRITER_
     {
-        auto wtr = new scene::CSTLMeshWriter(getSceneManager());
+        auto wtr = new asset::CSTLMeshWriter(getSceneManager());
         m_assetMgr->addAssetWriter(wtr);
         wtr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_TGA_WRITER_
     {
-        auto wtr = new video::CImageWriterTGA();
+        auto wtr = new asset::CImageWriterTGA();
         m_assetMgr->addAssetWriter(wtr);
         wtr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_JPG_WRITER_
     {
-        auto wtr = new video::CImageWriterJPG();
+        auto wtr = new asset::CImageWriterJPG();
         m_assetMgr->addAssetWriter(wtr);
         wtr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
     {
-        auto wtr = new video::CImageWriterPNG();
+        auto wtr = new asset::CImageWriterPNG();
         m_assetMgr->addAssetWriter(wtr);
         wtr->drop();
     }
 #endif
 #ifdef _IRR_COMPILE_WITH_BMP_WRITER_
     {
-        auto wtr = new video::CImageWriterBMP();
+        auto wtr = new asset::CImageWriterBMP();
         m_assetMgr->addAssetWriter(wtr);
         wtr->drop();
     }
