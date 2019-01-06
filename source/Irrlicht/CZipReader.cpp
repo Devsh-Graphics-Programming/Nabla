@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CZipReader.h"
+#include "CMemoryFile.h"
 
 #include "os.h"
 #include <sstream>
@@ -589,7 +590,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 			delete [] decryptedBuf;
 			return 0;
 		}
-		decrypted = io::createMemoryReadFile(decryptedBuf, decryptedSize, Files[index].FullName, true);
+        decrypted = new io::CMemoryReadFile(decryptedBuf, decryptedSize, Files[index].FullName);
 		actualCompressionMethod = (e.header.Sig & 0xffff);
 #if 0
 		if ((e.header.Sig & 0xff000000)==0x01000000)
@@ -610,6 +611,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 	{
 	case 0: // no compression
 		{
+            delete[] decryptedBuf;
 			if (decrypted)
 				return decrypted;
 			else
@@ -625,6 +627,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 			{
 				swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
 				os::Printer::log( buf, ELL_ERROR);
+                delete[] decryptedBuf;
 				if (decrypted)
 					decrypted->drop();
 				return 0;
@@ -638,6 +641,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 				{
 					swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
 					os::Printer::log( buf, ELL_ERROR);
+                    delete[] decryptedBuf;
 					delete [] pBuf;
 					return 0;
 				}
@@ -675,6 +679,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 			else
 				delete[] pcData;
 
+            delete[] decryptedBuf;
 			if (err != Z_OK)
 			{
 				swprintf ( buf, 64, L"Error decompressing %s", Files[index].FullName.c_str() );
@@ -682,8 +687,12 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 				delete [] pBuf;
 				return 0;
 			}
-			else
-				return io::createMemoryReadFile(pBuf, uncompressedSize, Files[index].FullName, true);
+            else
+            {
+                auto ret = new io::CMemoryReadFile(pBuf, uncompressedSize, Files[index].FullName);
+                delete[] pBuf;
+                return ret;
+            }
 
 			#else
 			return 0; // zlib not compiled, we cannot decompress the data.
@@ -699,6 +708,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 			{
 				swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
 				os::Printer::log( buf, ELL_ERROR);
+                delete[] decryptedBuf;
 				if (decrypted)
 					decrypted->drop();
 				return 0;
@@ -713,6 +723,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 					swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
 					os::Printer::log( buf, ELL_ERROR);
 					delete [] pBuf;
+                    delete[] decryptedBuf;
 					return 0;
 				}
 
@@ -731,6 +742,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 			if(err != BZ_OK)
 			{
 				os::Printer::log("bzip2 decompression failed. File cannot be read.", ELL_ERROR);
+                delete[] decryptedBuf;
 				return 0;
 			}
 			bz_ctx.next_in = (char*)pcData;
@@ -751,12 +763,18 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 				swprintf ( buf, 64, L"Error decompressing %s", Files[index].FullName.c_str() );
 				os::Printer::log( buf, ELL_ERROR);
 				delete [] pBuf;
+                delete[] decryptedBuf;
 				return 0;
 			}
-			else
-				return io::createMemoryReadFile(pBuf, uncompressedSize, Files[index].FullName, true);
+            else
+            {
+                auto ret = new io::CMemoryReadFile(pBuf, uncompressedSize, Files[index].FullName);
+                delete[] pBuf;
+                return ret;
+            }
 
 			#else
+            delete[] decryptedBuf;
 			os::Printer::log("bzip2 decompression not supported. File cannot be read.", ELL_ERROR);
 			return 0;
 			#endif
@@ -771,6 +789,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 			{
 				swprintf ( buf, 64, L"Not enough memory for decompressing %s", Files[index].FullName.c_str() );
 				os::Printer::log( buf, ELL_ERROR);
+                delete[] decryptedBuf;
 				if (decrypted)
 					decrypted->drop();
 				return 0;
@@ -810,6 +829,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 			else
 				delete[] pcData;
 
+            delete[] decryptedBuf;
 			if (err != SZ_OK)
 			{
 				os::Printer::log( "Error decompressing", Files[index].FullName, ELL_ERROR);
@@ -820,6 +840,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 				return io::createMemoryReadFile(pBuf, uncompressedSize, Files[index].FullName, true);
 
 			#else
+            delete[] decryptedBuf;
 			os::Printer::log("lzma decompression not supported. File cannot be read.", ELL_ERROR);
 			return 0;
 			#endif
@@ -827,10 +848,12 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 	case 99:
 		// If we come here with an encrypted file, decryption support is missing
 		os::Printer::log("Decryption support not enabled. File cannot be read.", ELL_ERROR);
+        delete[] decryptedBuf;
 		return 0;
 	default:
 		swprintf ( buf, 64, L"file has unsupported compression method. %s", Files[index].FullName.c_str() );
 		os::Printer::log( buf, ELL_ERROR);
+        delete[] decryptedBuf;
 		return 0;
 	};
 

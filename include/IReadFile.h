@@ -49,8 +49,6 @@ namespace io
 	IReadFile* createReadFile(const io::path& fileName);
 	//! Internal function, please do not use.
 	IReadFile* createLimitReadFile(const io::path& fileName, IReadFile* alreadyOpenedFile, const size_t& pos, const size_t& areaSize);
-	//! Internal function, please do not use.
-	IReadFile* createMemoryReadFile(const void* memory, const size_t& size, const io::path& fileName, bool deleteMemoryWhenDropped);
 
 } // end namespace io
 } // end namespace irr

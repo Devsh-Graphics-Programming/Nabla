@@ -225,7 +225,7 @@ bool CBAWMeshFileLoader::decompressLz4(void * _dst, size_t _dstSize, const void 
 
 io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override)
 {
-    uint8_t* const baw1mem = new uint8_t[_baw0file->getSize()]; // baw.v1 will be for sure a little smaller than baw.v0
+    io::CMemoryWriteFile* const baw1mem = new io::CMemoryWriteFile(0u, _baw0file->getFileName());
 
 	SContext ctx{
         asset::IAssetLoader::SAssetLoadContext{
@@ -294,16 +294,11 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
     const char * const headerStr = "IrrlichtBaW BinaryFile";
     uint64_t fileHeader[4] {0u, 0u, 0u, 1u/*baw v1*/};
     memcpy(fileHeader, headerStr, strlen(headerStr));
-    uint8_t* baw1mem_tmp = baw1mem;
-    memcpy(baw1mem_tmp, fileHeader, sizeof(fileHeader));
-    baw1mem_tmp += sizeof(fileHeader);
-    memcpy(baw1mem_tmp, &blobCnt, 4);
-    baw1mem_tmp += 4;
-    memcpy(baw1mem_tmp, ctx.iv, 16);
-    baw1mem_tmp += 16;
-    memcpy(baw1mem_tmp, newoffsets.data(), newoffsets.size()*4);
-    baw1mem_tmp += newoffsets.size()*4;
-    memcpy(baw1mem_tmp, headers, blobCnt*sizeof(headers[0])); // blob header in v0 and in v1 is exact same thing, so we can do this
+    baw1mem->write(fileHeader, sizeof(fileHeader));
+    baw1mem->write(&blobCnt, 4);
+    baw1mem->write(ctx.iv, 16);
+    baw1mem->write(newoffsets.data(), newoffsets.size()*4);
+    baw1mem->write(headers, blobCnt*sizeof(headers[0])); // blob header in v0 and in v1 is exact same thing, so we can do this
 
     const uint32_t baseOffsetv1 = asset::BAWFileV1{{}, blobCnt}.calcBlobsOffset();
 
@@ -331,8 +326,8 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
             _baw0file->read(blob, sz);
         }
 
-        baw1mem_tmp = baw1mem + baseOffsetv1 + newoffsets[i];
-        memcpy(baw1mem_tmp, blob, sz);
+        baw1mem->seek(baseOffsetv1 + newoffsets[i]);
+        baw1mem->write(blob, sz);
 
         if (headers[i].blobType != asset::Blob::EBT_DATA_FORMAT_DESC && blob != stackmem)
             _IRR_ALIGNED_FREE(blob);
@@ -343,7 +338,9 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
     _IRR_ALIGNED_FREE(offsets);
     _IRR_ALIGNED_FREE(headers);
 
-    return new io::CMemoryReadFile(baw1mem, newFileSz, _baw0file->getFileName(), true);
+    auto ret = new io::CMemoryReadFile(baw1mem->getPointer(), baw1mem->getSize(), _baw0file->getFileName());
+    baw1mem->drop();
+    return ret;
 }
 
 io::IReadFile* CBAWMeshFileLoader::tryCreateNewestFormatVersionFile(io::IReadFile* _originalFile, asset::IAssetLoader::IAssetLoaderOverride* _override)

@@ -7,6 +7,7 @@
 
 #include "IReadFile.h"
 #include "IWriteFile.h"
+#include "irr/core/Types.h"
 
 namespace irr
 {
@@ -17,27 +18,22 @@ namespace io
 	/*!
 		Class for reading and writing from memory.
 	*/
-	template <class T>
 	class CMemoryFile
 	{
 	    protected:
-            T           Buffer;
-            size_t      Len;
-            size_t      Pos;
-
             //! changes position in file, returns true if successful
             inline bool seek(const size_t& finalPos, bool relativeMovement = false)
             {
                 if (relativeMovement)
                 {
-                    if (Pos + finalPos > Len)
+                    if (Pos + finalPos > Buffer.size())
                         return false;
 
                     Pos += finalPos;
                 }
                 else
                 {
-                    if (finalPos > Len)
+                    if (finalPos > Buffer.size())
                         return false;
 
                     Pos = finalPos;
@@ -47,7 +43,7 @@ namespace io
             }
 
             //! returns size of file
-            inline size_t getSize() const {return Len;}
+            inline size_t getSize() const {return Buffer.size();}
 
             //! returns where in the file we are.
             inline size_t getPos() const {return Pos;}
@@ -56,22 +52,23 @@ namespace io
             inline const io::path& getFileName() const {return Filename;}
 
             //! Constructor
-            CMemoryFile(T memory, const size_t& len, const io::path& fileName, bool deleteMemoryWhenDropped);
+            CMemoryFile(const size_t& len, const io::path& fileName);
 
             //! Destructor
             virtual ~CMemoryFile();
 
 
+            core::vector<uint8_t> Buffer;
+            size_t      Pos;
         private:
             io::path    Filename;
-            bool        deleteMemoryWhenDropped;
 	};
 
-	class CMemoryReadFile : public IReadFile, public CMemoryFile<const void*>
+	class CMemoryReadFile : public IReadFile, public CMemoryFile
 	{
         public:
             //! Constructor
-            CMemoryReadFile(const void* memory, const size_t& len, const io::path& fileName, bool deleteMemoryWhenDropped);
+            CMemoryReadFile(const void* contents, const size_t& len, const io::path& fileName);
 
             //! changes position in file, returns true if successful
             virtual bool seek(const size_t& finalPos, bool relativeMovement = false) {return CMemoryFile::seek(finalPos,relativeMovement);}
@@ -89,14 +86,14 @@ namespace io
             virtual int32_t read(void* buffer, uint32_t sizeToRead);
 	};
 
-	class CMemoryWriteFile : public IWriteFile, public CMemoryFile<void*>
+	class CMemoryWriteFile : public IWriteFile, public CMemoryFile
 	{
         public:
             //! Constructor
-            CMemoryWriteFile(void* memory, const size_t& len, const io::path& fileName, bool deleteMemoryWhenDropped);
+            CMemoryWriteFile(const size_t& len, const io::path& fileName);
 
             //! changes position in file, returns true if successful
-            virtual bool seek(const size_t& finalPos, bool relativeMovement = false) {return CMemoryFile::seek(finalPos,relativeMovement);}
+            virtual bool seek(const size_t& finalPos, bool relativeMovement = false);
 
             //! returns size of file
             virtual size_t getSize() const {return CMemoryFile::getSize();}
@@ -109,6 +106,8 @@ namespace io
 
             //! returns how much was written
             virtual int32_t write(const void* buffer, uint32_t sizeToWrite);
+
+            inline void* getPointer() { return Buffer.data(); }
 	};
 
 } // end namespace io

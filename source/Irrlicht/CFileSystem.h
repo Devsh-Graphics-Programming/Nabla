@@ -33,13 +33,13 @@ class CFileSystem : public IFileSystem
         virtual IReadFile* createAndOpenFile(const io::path& filename);
 
         //! Creates an IReadFile interface for accessing memory like a file.
-        virtual IReadFile* createMemoryReadFile(const void* memory, const size_t& len, const io::path& fileName, bool deleteMemoryWhenDropped = false);
+        virtual IReadFile* createMemoryReadFile(const void* contents, size_t len, const io::path& fileName) override;
 
         //! Creates an IReadFile interface for accessing files inside files
         virtual IReadFile* createLimitReadFile(const io::path& fileName, IReadFile* alreadyOpenedFile, const size_t& pos, const size_t& areaSize);
 
         //! Creates an IWriteFile interface for accessing memory like a file.
-        virtual IWriteFile* createMemoryWriteFile(void* memory, const size_t& len, const io::path& fileName, bool deleteMemoryWhenDropped=false);
+        virtual IWriteFile* createMemoryWriteFile(size_t len, const io::path& fileName) override;
 
         //! Opens a file for write access.
         virtual IWriteFile* createAndWriteFile(const io::path& filename, bool append=false);
