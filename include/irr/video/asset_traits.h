@@ -11,11 +11,42 @@
 namespace irr { namespace video
 {
 
+template<typename BuffT>
+class SOffsetBufferPair : public core::IReferenceCounted
+{
+public:
+    SOffsetBufferPair(uint64_t _offset = 0ull, BuffT* _buffer = nullptr) : m_offset{_offset}, m_buffer{_buffer}
+    {
+        m_buffer->grab();
+    }
+    virtual ~SOffsetBufferPair()
+    {
+        m_buffer->drop();
+    }
+
+    void setOffset(uint64_t _offset) { m_offset = _offset; }
+    void setBuffer(BuffT* _buffer)
+    {
+        if (_buffer)
+            _buffer->grab();
+        if (m_buffer)
+            m_buffer->drop();
+        m_buffer = _buffer;
+    }
+
+    uint64_t getOffset() const { return m_offset; }
+    BuffT* getBuffer() const { return m_buffer; }
+
+private:
+    uint64_t m_offset;
+    BuffT* m_buffer;
+};
+
 template<typename AssetType>
 struct asset_traits;
 
 template<>
-struct asset_traits<asset::ICPUBuffer> { using GPUObjectType = video::IGPUBuffer; };
+struct asset_traits<asset::ICPUBuffer> { using GPUObjectType = SOffsetBufferPair<video::IGPUBuffer>; };
 template<>
 struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
 template<>
