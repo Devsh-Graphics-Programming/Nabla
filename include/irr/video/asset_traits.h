@@ -14,14 +14,18 @@ namespace irr { namespace video
 template<typename BuffT>
 class SOffsetBufferPair : public core::IReferenceCounted
 {
+protected:
+    virtual ~SOffsetBufferPair()
+    {
+        if (m_buffer)
+            m_buffer->drop();
+    }
+
 public:
     SOffsetBufferPair(uint64_t _offset = 0ull, BuffT* _buffer = nullptr) : m_offset{_offset}, m_buffer{_buffer}
     {
-        m_buffer->grab();
-    }
-    virtual ~SOffsetBufferPair()
-    {
-        m_buffer->drop();
+        if (m_buffer)
+            m_buffer->grab();
     }
 
     void setOffset(uint64_t _offset) { m_offset = _offset; }
