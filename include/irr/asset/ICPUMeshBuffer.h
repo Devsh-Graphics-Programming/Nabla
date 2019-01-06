@@ -121,7 +121,7 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
     protected:
 		//! Read https://www.khronos.org/opengl/wiki/Vertex_Specification for understanding of attribute IDs, indices, attribute formats etc.
         asset::E_FORMAT attrFormat[EVAI_COUNT];
-        size_t attrStride[EVAI_COUNT];
+        uint32_t attrStride[EVAI_COUNT];
         size_t attrOffset[EVAI_COUNT];
         uint32_t attrDivisor;
 
@@ -235,7 +235,7 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
             return attrOffset[attrId];
         }
 
-        inline const size_t& getMappedBufferStride(E_VERTEX_ATTRIBUTE_ID attrId) const
+        inline const uint32_t& getMappedBufferStride(E_VERTEX_ATTRIBUTE_ID attrId) const
         {
             assert(attrId<EVAI_COUNT);
             return attrStride[attrId];

@@ -788,7 +788,7 @@ namespace video
                     void bindBuffers(   const COpenGLBuffer* indexBuf,
                                         const COpenGLBuffer* const* attribBufs,
                                         const size_t offsets[asset::EVAI_COUNT],
-                                        const size_t strides[asset::EVAI_COUNT]);
+                                        const uint32_t strides[asset::EVAI_COUNT]);
 
                     inline const uint64_t& getLastBoundStamp() const {return lastValidated;}
 

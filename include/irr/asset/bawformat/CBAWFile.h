@@ -386,16 +386,17 @@ namespace asset
         explicit MeshDataFormatDescBlobV1(const asset::legacy::MeshDataFormatDescBlobV0&);
     
         uint32_t attrFormat[VERTEX_ATTRIB_CNT];
-        size_t attrStride[VERTEX_ATTRIB_CNT];
+        uint32_t attrStride[VERTEX_ATTRIB_CNT];
         size_t attrOffset[VERTEX_ATTRIB_CNT];
         uint32_t attrDivisor;
+        uint32_t padding;
         uint64_t attrBufPtrs[VERTEX_ATTRIB_CNT];
         uint64_t idxBufPtr;
     } PACK_STRUCT;
 #include "irr/irrunpack.h"
     static_assert(
         sizeof(MeshDataFormatDescBlobV1) == 
-        sizeof(MeshDataFormatDescBlobV1::attrFormat) + sizeof(MeshDataFormatDescBlobV1::attrStride) + sizeof(MeshDataFormatDescBlobV1::attrOffset) + sizeof(MeshDataFormatDescBlobV1::attrDivisor) + sizeof(MeshDataFormatDescBlobV1::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV1::idxBufPtr),
+        sizeof(MeshDataFormatDescBlobV1::attrFormat) + sizeof(MeshDataFormatDescBlobV1::attrStride) + sizeof(MeshDataFormatDescBlobV1::attrOffset) + sizeof(MeshDataFormatDescBlobV1::attrDivisor) + sizeof(MeshDataFormatDescBlobV1::padding) + sizeof(MeshDataFormatDescBlobV1::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV1::idxBufPtr),
         "MeshDataFormatDescBlobV1: Size of blob is not sum of its contents!"
     );
 
