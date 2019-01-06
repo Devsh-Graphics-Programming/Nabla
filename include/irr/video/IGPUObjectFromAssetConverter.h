@@ -88,26 +88,31 @@ protected:
 
 auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*>
 {
+    const uint64_t alignment = 16ull;
+
     core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> res;
+    res.reserve(_end-_begin);
 
     asset::ICPUBuffer** it = _begin;
+    uint64_t addr = 0ull;
     while (it != _end)
     {
-        IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-        reqs.vulkanReqs.size = (*it)->getSize();
-        reqs.vulkanReqs.alignment = 8;
-        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-        reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-        reqs.prefersDedicatedAllocation = true;
-        reqs.requiresDedicatedAllocation = true;
-        IGPUBuffer* buffer = m_driver->createGPUBufferOnDedMem(reqs, true);
-
-        if (buffer)
-            buffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0, (*it)->getSize()), (*it)->getPointer());
-
-        res.push_back(buffer);
+        res.push_back(new typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType{addr});
+        addr = it==(_end-1) ? (addr + (*it)->getSize()) : core::alignUp(addr + (*it)->getSize(), alignment);
         ++it;
+    }
+
+    const uint64_t finalBufSz = addr;
+    auto reqs = m_driver->getDeviceLocalGPUMemoryReqs();
+    reqs.vulkanReqs.size = finalBufSz;
+    reqs.vulkanReqs.alignment = alignment;
+
+    IGPUBuffer* gpubuffer = m_driver->createGPUBufferOnDedMem(reqs, true);
+
+    for (size_t i = 0u; i < res.size(); ++i)
+    {
+        res[i]->setBuffer(gpubuffer);
+        gpubuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(res[i]->getOffset(), _begin[i]->getSize()), _begin[i]->getPointer());
     }
 
     return res;
@@ -232,11 +237,11 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
                 if (vaoConf.oldbuffer[k])
                 {
                     vao->setVertexAttrBuffer(
-                        gpuBufDeps[bufRedir[j]],
+                        gpuBufDeps[bufRedir[j]]->getBuffer(),
                         asset::E_VERTEX_ATTRIBUTE_ID(k),
                         vaoConf.formats[k],
                         vaoConf.strides[k],
-                        vaoConf.offsets[k],
+                        vaoConf.offsets[k] + gpuBufDeps[bufRedir[j]]->getOffset(),
                         vaoConf.divisors[k]
                     );
                     ++j;
@@ -244,12 +249,13 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             }
             if (vaoConf.idxbuf)
             {
-                vao->setIndexBuffer(gpuBufDeps[bufRedir[j]]);
+                vao->setIndexBuffer(gpuBufDeps[bufRedir[j]]->getBuffer());
+                res[i]->setIndexBufferOffset(res[i]->getIndexBufferOffset() + gpuBufDeps[bufRedir[j]]->getOffset());
                 ++j;
             }
         }
     }
-    for (video::IGPUBuffer* b : gpuBufDeps)
+    for (SOffsetBufferPair<IGPUBuffer>* b : gpuBufDeps)
         b->drop(); // drop after mappings
 
     return res;
