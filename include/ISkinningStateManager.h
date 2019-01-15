@@ -328,7 +328,7 @@ namespace scene
                     }
                 }
                 referenceHierarchy->drop();
-                delete instanceBoneDataAllocator;
+                instanceBoneDataAllocator->drop();
 
                 if (instanceData)
                     _IRR_ALIGNED_FREE(instanceData);

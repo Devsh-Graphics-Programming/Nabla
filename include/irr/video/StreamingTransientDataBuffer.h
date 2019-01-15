@@ -15,15 +15,17 @@ namespace video
 
 
 template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t> >
-class StreamingTransientDataBufferST : public virtual core::IReferenceCounted
+class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator> >,
+                                                                public virtual core::IReferenceCounted
 {
+        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator> HeterogenousMemoryAddressAllocator;
+        typedef StreamingTransientDataBufferST<_size_type,CPUAllocator> ThisType;
+        typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator> Base;
     protected:
-        typedef core::GeneralpurposeAddressAllocator<_size_type>                                                                                                              BasicAddressAllocator;
-        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,StreamingGPUBufferAllocator,CPUAllocator> AddressAllocator;
-        AddressAllocator mAllocator; // no point for a streaming buffer to grow
+        virtual ~StreamingTransientDataBufferST() {}
     public:
-        typedef typename BasicAddressAllocator::size_type   size_type;
-        static constexpr size_type                                            invalid_address = BasicAddressAllocator::invalid_address;
+        typedef typename Base::size_type    size_type;
+        static constexpr size_type                  invalid_address = Base::invalid_address;
 
         #define DUMMY_DEFAULT_CONSTRUCTOR StreamingTransientDataBufferST() {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
@@ -33,45 +35,24 @@ class StreamingTransientDataBufferST : public virtual core::IReferenceCounted
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
         StreamingTransientDataBufferST(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
                                        const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=64u) :
-                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,bufferReqs.vulkanReqs.alignment,minAllocSize)
+                                Base(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,bufferReqs.vulkanReqs.alignment,minAllocSize)
         {
         }
 
-        template<typename... Args>
-        StreamingTransientDataBufferST(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
-                                       const CPUAllocator& reservedMemAllocator=CPUAllocator(), Args&&... args) :
-                                mAllocator(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,bufferReqs.vulkanReqs.alignment,std::forward<Args>(args)...)
-        {
-        }
-
-        virtual ~StreamingTransientDataBufferST() {}
-
-        const AddressAllocator& getAllocator() const {return mAllocator;}
+        const auto& getAllocator() const {return Base::getAllocator();}
 
 
         inline bool         needsManualFlushOrInvalidate() const {return !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);}
 
-        inline IGPUBuffer*  getBuffer() noexcept {return mAllocator.getCurrentBufferAllocation().first;}
+        inline IGPUBuffer*  getBuffer() noexcept {return Base::getBuffer();}
 
-        inline void*        getBufferPointer() noexcept {return mAllocator.getCurrentBufferAllocation().second;}
-
-
-        inline size_type    max_size() noexcept
-        {
-            size_type valueToStopAt = mAllocator.getAddressAllocator().min_size()*3u; // padding, allocation, more padding = 3u
-            deferredFrees.pollForReadyEvents(valueToStopAt);
-            return mAllocator.getAddressAllocator().max_size();
-        }
+        inline void*        getBufferPointer() noexcept {return Base::mAllocator.getCurrentBufferAllocation().second;}
 
 
-        inline size_type    max_alignment() const noexcept {return mAllocator.getAddressAllocator().max_alignment();}
+        inline size_type    max_size() noexcept {return Base::max_size();}
 
+        inline size_type    max_alignment() const noexcept {return Base::max_alignment();}
 
-        template<typename... Args>
-        inline size_type    multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
-        {
-            return multi_alloc(std::chrono::nanoseconds(50000ull),count,outAddresses,bytes,std::forward<Args>(args)...);
-        }
 
         template<typename... Args>
         inline size_type    multi_place(uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
@@ -80,34 +61,18 @@ class StreamingTransientDataBufferST : public virtual core::IReferenceCounted
         }
 
         template<typename... Args>
-        inline size_type    multi_alloc(const std::chrono::nanoseconds& maxWait, uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
+        inline size_type    multi_alloc(Args&&... args) noexcept
         {
-            // try allocate once
-            size_type unallocatedSize = try_multi_alloc(count,outAddresses,bytes,args...);
-            if (!unallocatedSize)
-                return 0u;
-
-            auto maxWaitPoint = std::chrono::high_resolution_clock::now()+maxWait; // 50 us
-            // then try to wait at least once and allocate
-            do
-            {
-                deferredFrees.waitUntilForReadyEvents(maxWaitPoint,unallocatedSize);
-
-                unallocatedSize = try_multi_alloc(count,outAddresses,bytes,args...);
-                if (!unallocatedSize)
-                    return 0u;
-            } while(std::chrono::high_resolution_clock::now()<maxWaitPoint);
-
-            return unallocatedSize;
+            return Base::multi_alloc(std::forward<Args>(args)...);
         }
 
         template<typename... Args>
-        inline size_type    multi_place(const std::chrono::nanoseconds& maxWait, uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, const size_type* alignment, const Args&... args) noexcept
+        inline size_type    multi_place(const std::chrono::nanoseconds& maxWait, uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
         {
         #ifdef _DEBUG
             assert(getBuffer()->getBoundMemory());
         #endif // _DEBUG
-            auto retval = multi_alloc(maxWait,count,outAddresses,bytes,alignment,args...);
+            auto retval = multi_alloc(maxWait,count,outAddresses,bytes,std::forward<Args>(args)...);
             // fill with data
             for (uint32_t i=0; i<count; i++)
             {
@@ -117,97 +82,11 @@ class StreamingTransientDataBufferST : public virtual core::IReferenceCounted
             return retval;
         }
 
-        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, IDriverFence* fence) noexcept
-        {
-            if (fence)
-                deferredFrees.addEvent(GPUEventWrapper(fence),DeferredFreeFunctor(&mAllocator,count,addr,bytes));
-            else
-                mAllocator.multi_free_addr(count,addr,bytes);
-        }
-    protected:
         template<typename... Args>
-        inline size_type    try_multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
+        inline void         multi_free(Args&&... args) noexcept
         {
-            mAllocator.multi_alloc_addr(count,outAddresses,bytes,args...);
-
-            size_type unallocatedSize = 0;
-            for (uint32_t i=0u; i<count; i++)
-            {
-                if (outAddresses[i]!=invalid_address)
-                    continue;
-
-                unallocatedSize += bytes[i];
-            }
-            return unallocatedSize;
+            Base::multi_free(std::forward<Args>(args)...);
         }
-
-        class DeferredFreeFunctor : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
-        {
-            public:
-                DeferredFreeFunctor(core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,StreamingGPUBufferAllocator,CPUAllocator>* alloctr,
-                                    size_type numAllocsToFree, const size_type* addrs, const size_type* bytes) : allocRef(alloctr), rangeData(nullptr), numAllocs(numAllocsToFree)
-                {
-                    rangeData = reinterpret_cast<size_type*>(getHostAllocator(*allocRef).allocate(sizeof(size_type)*numAllocs*2u,sizeof(size_type))); // TODO : RobustPoolAllocator
-                    memcpy(rangeData            ,addrs,sizeof(size_type)*numAllocs);
-                    memcpy(rangeData+numAllocs  ,bytes,sizeof(size_type)*numAllocs);
-                }
-                DeferredFreeFunctor(const DeferredFreeFunctor& other) = delete;
-                DeferredFreeFunctor(DeferredFreeFunctor&& other) : allocRef(nullptr), rangeData(nullptr), numAllocs(0u)
-                {
-                    this->operator=(std::forward<DeferredFreeFunctor>(other));
-                }
-
-                ~DeferredFreeFunctor()
-                {
-                    if (rangeData)
-                        getHostAllocator(*allocRef).deallocate(reinterpret_cast<typename CPUAllocator::pointer>(rangeData),sizeof(size_type)*numAllocs*2u);// TODO : RobustPoolAllocator
-                }
-
-                DeferredFreeFunctor& operator=(const DeferredFreeFunctor& other) = delete;
-                inline DeferredFreeFunctor& operator=(DeferredFreeFunctor&& other)
-                {
-                    if (rangeData)
-                        getHostAllocator(*allocRef).deallocate(reinterpret_cast<typename CPUAllocator::pointer>(rangeData),sizeof(size_type)*numAllocs*2u);// TODO : RobustPoolAllocator
-                    allocRef    = other.allocRef;
-                    rangeData   = other.rangeData;
-                    numAllocs   = other.numAllocs;
-                    other.allocRef  = nullptr;
-                    other.rangeData = nullptr;
-                    other.numAllocs = 0u;
-                    return *this;
-                }
-
-                inline bool operator()(size_type& unallocatedSize)
-                {
-                    operator()();
-                    for (size_type i=0u; i<numAllocs; i++)
-                    {
-                        auto freedSize = rangeData[numAllocs+i];
-                        if (unallocatedSize>freedSize)
-                            unallocatedSize -= freedSize;
-                        else
-                        {
-                            unallocatedSize = 0u;
-                            return true;
-                        }
-                    }
-                    return unallocatedSize==0u;
-                }
-
-                inline void operator()()
-                {
-                    #ifdef _DEBUG
-                    assert(allocRef && rangeData);
-                    #endif // _DEBUG
-                    allocRef->multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
-                }
-
-            private:
-                core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,StreamingGPUBufferAllocator,CPUAllocator>*    allocRef;
-                size_type*                                                                                                          rangeData; // TODO : RobustPoolAllocator
-                size_type                                                                                                           numAllocs;
-        };
-        GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
 };
 
 
@@ -217,13 +96,15 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         typedef StreamingTransientDataBufferST<_size_type,CPUAllocator> Base;
     protected:
         RecursiveLockable lock;
+
+        virtual ~StreamingTransientDataBufferMT() {}
     public:
         typedef typename Base::size_type                        size_type;
         static constexpr size_type                                      invalid_address = Base::invalid_address;
 
         using Base::Base;
 
-        const typename Base::AddressAllocator& getAllocator() const {return Base::getAllocator();}
+        const auto& getAllocator() const {return Base::getAllocator();}
 
 
         inline bool         needsManualFlushOrInvalidate()

@@ -13,46 +13,47 @@ namespace video
 
 template<class BasicAddressAllocator, class CPUAllocator=core::allocator<uint8_t>, bool onlySwapRangesMarkedDirty = false >
 class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>,
-                                       protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
+                                                            protected  SubAllocatedDataBuffer<core::ResizableHeterogenousMemoryAllocator<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator<>,CPUAllocator> > >,
+                                                            protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor,
+                                                            public virtual core::IReferenceCounted
 {
-        typedef core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>                                                               Base;
+        typedef core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>                                                                                                                                                                                          MultiBase;
+        typedef SubAllocatedDataBuffer<core::ResizableHeterogenousMemoryAllocator<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator<>,CPUAllocator> > > Base;
     protected:
-        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator<>,CPUAllocator> HeterogenousBase;
-        core::ResizableHeterogenousMemoryAllocator<HeterogenousBase>                                                                                                            mAllocator;
-
+        virtual ~ResizableBufferingAllocatorST() {}
     public:
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename BasicAddressAllocator::size_type);
+        typedef typename Base::size_type    size_type;
+        static constexpr size_type                  invalid_address = Base::invalid_address;
 
         template<typename... Args>
         ResizableBufferingAllocatorST(IDriver* inDriver, const CPUAllocator& reservedMemAllocator, Args&&... args) :
-                                mAllocator(reservedMemAllocator,HostDeviceMirrorBufferAllocator<>(inDriver),std::forward<Args>(args)...)
+                                Base(reservedMemAllocator,HostDeviceMirrorBufferAllocator<>(inDriver),std::forward<Args>(args)...)
         {
         }
 
-        virtual ~ResizableBufferingAllocatorST() {}
+        const auto& getAllocator() const {return Base::getAllocator();}
 
 
         inline const BasicAddressAllocator& getAddressAllocator() const
         {
-            return mAllocator.getAddressAllocator();
+            return getAllocator().getAddressAllocator();
         }
 
         inline void*                        getBackBufferPointer()
         {
-            return mAllocator.getCurrentBufferAllocation().second;
+            return Base::mAllocator.getCurrentBufferAllocation().second;
         }
 
         inline IGPUBuffer*                  getFrontBuffer()
         {
-            return mAllocator.getCurrentBufferAllocation().first;
+            return Base::getBuffer();
         }
 
-
+        //! no waiting because of no fencing
         template<typename... Args>
-        inline void                         multi_alloc_addr(Args&&... args) {mAllocator.multi_alloc_addr(std::forward<Args>(args)...);}
-
-        template<typename... Args>
-        inline void                         multi_free_addr(Args&&... args) {mAllocator.multi_free_addr(std::forward<Args>(args)...);}
+        inline void                         multi_alloc_addr(Args&&... args) {Base::multi_alloc(std::chrono::nanoseconds(0ull),std::forward<Args>(args)...);}
+        //! no fencing of deallocations,the data update is already fenced
+        inline void                         multi_free_addr(uint32_t count, const size_type* addr, const size_type* bytes) {Base::multi_free(count,addr,bytes,nullptr);}
 
 
         //! Makes Writes visible, it can fail if there is a lack of space in the streaming buffer to stream with
@@ -61,23 +62,23 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
         {
             typename StreamingTransientDataBuffer::size_type  dataOffset;
             typename StreamingTransientDataBuffer::size_type  dataSize;
-            if (Base::alwaysSwapEntireRange)
+            if (MultiBase::alwaysSwapEntireRange)
             {
                 dataOffset = 0u;
                 dataSize = getFrontBuffer()->getSize();
             }
-            else if (Base::dirtyRange.first<Base::dirtyRange.second)
+            else if (MultiBase::dirtyRange.first<MultiBase::dirtyRange.second)
             {
-                dataOffset = Base::dirtyRange.first;
-                dataSize = Base::dirtyRange.second-Base::dirtyRange.first;
+                dataOffset = MultiBase::dirtyRange.first;
+                dataSize = MultiBase::dirtyRange.second-MultiBase::dirtyRange.first;
             }
             else
                 return true;
 
-            auto driver = core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(mAllocator).getDriver();
+            auto driver = core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(Base::mAllocator).getDriver();
             driver->updateBufferRangeViaStagingBuffer(getFrontBuffer(),dataOffset,dataSize,reinterpret_cast<uint8_t*>(getBackBufferPointer())+dataOffset); // TODO: create and change to non-blocking variant with std::chrono::microseconds(1u)
 
-            Base::resetDirtyRange();
+            MultiBase::resetDirtyRange();
             return true;
         }
 };

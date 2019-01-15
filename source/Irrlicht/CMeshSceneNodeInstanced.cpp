@@ -74,7 +74,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     xfb.clear();
 
     if (instanceDataAllocator)
-        delete instanceDataAllocator;
+        instanceDataAllocator->drop();
     if (instanceBBoxes)
         _IRR_ALIGNED_FREE(instanceBBoxes);
     if (gpuCulledLodInstanceDataBuffer)

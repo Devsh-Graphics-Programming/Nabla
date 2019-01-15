@@ -19,44 +19,40 @@ namespace video
 {
 
 // this buffer is not growable, CRTP is an optional parameter, only for use when making inherited specialized allocators
-template< typename _size_type=uint32_t, class GPUBufferAllocator=SimpleGPUBufferAllocator, class CPUAllocator=core::allocator<uint8_t>, typename CRTP=void >
-class SubAllocatedDataBufferST : public virtual core::IReferenceCounted
+template<class HeterogenousMemoryAddressAllocator, typename CRTP=void >
+class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
 {
-        typedef SubAllocatedDataBufferST<_size_type,GPUBufferAllocator,CPUAllocator>    ThisType;
+        typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CRTP> ThisType;
 
         template<class U> using std_get_0 = decltype(std::get<0u>(std::declval<U&>()));
         template<class,class=void> struct is_std_get_0_defined                                   : std::false_type {};
         template<class U> struct is_std_get_0_defined<U,void_t<std_get_0<U> > > : std::true_type {};
     protected:
-        typedef core::GeneralpurposeAddressAllocator<_size_type>                                                                                             BasicAddressAllocator;
-        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,GPUBufferAllocator,CPUAllocator> AddressAllocator;
-        AddressAllocator mAllocator;
+        HeterogenousMemoryAddressAllocator mAllocator;
     public:
-        typedef typename BasicAddressAllocator::size_type   size_type;
-        static constexpr size_type                                            invalid_address = BasicAddressAllocator::invalid_address;
+        typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType  GPUBufferAllocator;
+        typedef typename HeterogenousMemoryAddressAllocator::HostAllocatorType  CPUAllocator;
+        typedef typename HeterogenousMemoryAddressAllocator::size_type  size_type;
+        static constexpr size_type invalid_address                                          = HeterogenousMemoryAddressAllocator::invalid_address;
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR SubAllocatedDataBufferST() {}
+        #define DUMMY_DEFAULT_CONSTRUCTOR SubAllocatedDataBuffer() {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
         //!
         template<typename... Args>
-        SubAllocatedDataBufferST(size_type bufferSize, size_type maxAllocatableAlignment, const GPUBufferAllocator& deviceAllocator,
-                                       const CPUAllocator& reservedMemAllocator=CPUAllocator(), Args&&... args) :
-                                mAllocator(reservedMemAllocator,deviceAllocator,bufferSize,maxAllocatableAlignment,std::forward<Args>(args)...)
+        SubAllocatedDataBuffer(Args&&... args) : mAllocator(std::forward<Args>(args)...)
         {
         }
 
-        virtual ~SubAllocatedDataBufferST() {}
-
         //!
-        const AddressAllocator& getAllocator() const {return mAllocator;}
+        const HeterogenousMemoryAddressAllocator& getAllocator() const {return mAllocator;}
         //!
         inline IGPUBuffer*  getBuffer() noexcept
         {
-            auto& allocation = mAllocator.getCurrentBufferAllocation();
+            auto allocation = mAllocator.getCurrentBufferAllocation();
 
             IGPUBuffer* retval;
-            static_if<is_std_get_0_defined<typename AddressAllocator::allocation_type>::value >([&](auto f){
+            static_if<is_std_get_0_defined<decltype(allocation)>::value >([&](auto f){
                 retval = std::get<0u>(allocation);
             }).else_([&](auto f){
                 retval = allocation;
@@ -108,7 +104,7 @@ class SubAllocatedDataBufferST : public virtual core::IReferenceCounted
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, IDriverFence* fence) noexcept
         {
             if (fence)
-                deferredFrees.addEvent(GPUEventWrapper(fence),DeferredFreeFunctor(&mAllocator,count,addr,bytes));
+                deferredFrees.addEvent(GPUEventWrapper(fence),DeferredFreeFunctor(this,count,addr,bytes));
             else
                 mAllocator.multi_free_addr(count,addr,bytes);
         }
@@ -130,12 +126,16 @@ class SubAllocatedDataBufferST : public virtual core::IReferenceCounted
         }
 
         //! Mutable version for protected usage
-        inline AddressAllocator& getAllocator() noexcept {return mAllocator;}
+        inline HeterogenousMemoryAddressAllocator& getAllocator() noexcept {return mAllocator;}
 
         inline core::allocator<std::tuple<size_type,size_type> >& getFunctorAllocator() noexcept {return functorAllocator;} // TODO : RobustPoolAllocator
 
         class DeferredFreeFunctor
         {
+            private:
+                ThisType*   sadbRef;
+                size_type*  rangeData;
+                size_type   numAllocs;
             public:
                 DeferredFreeFunctor(ThisType* _this, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes)
                                                     : sadbRef(_this), rangeData(nullptr), numAllocs(numAllocsToFree)
@@ -198,17 +198,17 @@ class SubAllocatedDataBufferST : public virtual core::IReferenceCounted
                     #ifdef _DEBUG
                     assert(sadbRef && rangeData);
                     #endif // _DEBUG
-                    sadbRef->getAllocator().multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
+                    HeterogenousMemoryAddressAllocator& alloctr = sadbRef->getAllocator();
+                    alloctr.multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
                 }
-
-            private:
-                ThisType*   sadbRef;
-                size_type*  rangeData;
-                size_type   numAllocs;
         };
         GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
         core::allocator<std::tuple<size_type,size_type> > functorAllocator; // TODO : RobustPoolAllocator
 };
+
+
+template< typename _size_type=uint32_t, class BasicAddressAllocator=core::GeneralpurposeAddressAllocator<_size_type>, class GPUBufferAllocator=SimpleGPUBufferAllocator, class CPUAllocator=core::allocator<uint8_t> >
+using SubAllocatedDataBufferST = SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,GPUBufferAllocator,CPUAllocator> >;
 
 //MT version?
 
