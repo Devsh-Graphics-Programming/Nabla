@@ -733,6 +733,7 @@
     <ClCompile Include="..\..\src\irr\asset\CSTLMeshWriter.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CXMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\IAssetLoader.cpp" />
+    <ClCompile Include="..\..\src\irr\asset\IAssetManager.cpp" />
     <ClCompile Include="..\..\src\irr\asset\IAssetWriter.cpp" />
     <ClCompile Include="..\..\src\irr\video\GPUMemoryAllocatorBase.cpp" />
     <ClCompile Include="..\..\src\irr\video\SimpleGPUBufferAllocator.cpp" />
@@ -832,7 +833,6 @@
     <ClCompile Include="CTRTextureGouraudVertexAlpha2.cpp" />
     <ClCompile Include="FW_Mutex.cpp" />
     <ClCompile Include="IAsset.cpp" />
-    <ClCompile Include="IAssetManager.cpp" />
     <ClCompile Include="IBurningShader.cpp" />
     <ClCompile Include="CLogger.cpp" />
     <ClCompile Include="IDriver.cpp" />
