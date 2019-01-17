@@ -174,7 +174,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
                         {
                             core::vectorSIMDf simdNormal;
                             simdNormal.set(((core::vector3df*)normalBuffer->getPointer())[k]);
-                            ((uint32_t*)newNormalBuffer->getPointer())[k] = scene::quantizeNormal2_10_10_10(simdNormal);
+                            ((uint32_t*)newNormalBuffer->getPointer())[k] = asset::quantizeNormal2_10_10_10(simdNormal);
                         }
                         desc->setVertexAttrBuffer(newNormalBuffer,asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SSCALED_PACK32);
                         newNormalBuffer->drop();

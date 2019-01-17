@@ -71,7 +71,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 
 	// create geometry creator
 	GeometryCreator = new asset::CGeometryCreator();
-	MeshManipulator = new CMeshManipulator();
+	MeshManipulator = new asset::CMeshManipulator();
 	{
         //ICPUMesh* boxmesh = GeometryCreator->createCubeMeshCPU();
 
@@ -955,7 +955,7 @@ IMeshLoader* CSceneManager::getMeshLoader(uint32_t index) const
 
 
 //! Returns a pointer to the mesh manipulator.
-IMeshManipulator* CSceneManager::getMeshManipulator()
+asset::IMeshManipulator* CSceneManager::getMeshManipulator()
 {
 	return MeshManipulator;
 }

@@ -10,7 +10,7 @@
 #include "ICursorControl.h"
 #include "IMeshLoader.h"
 #include "ISkinningStateManager.h"
-#include "CMeshManipulator.h"
+#include "irr/asset/CMeshManipulator.h"
 
 #include <map>
 #include <string>
@@ -222,7 +222,7 @@ namespace scene
 		virtual IMeshLoader* getMeshLoader(uint32_t index) const;
 
 		//! Returns a pointer to the mesh manipulator.
-		virtual IMeshManipulator* getMeshManipulator();
+		virtual asset::IMeshManipulator* getMeshManipulator();
 
 		//! Adds a scene node to the deletion queue.
 		virtual void addToDeletionQueue(IDummyTransformationSceneNode* node);
@@ -386,7 +386,7 @@ namespace scene
 		const core::stringw IRR_XML_FORMAT_NODE_ATTR_TYPE;
 
 		asset::IGeometryCreator* GeometryCreator;
-		CMeshManipulator* MeshManipulator;
+		asset::CMeshManipulator* MeshManipulator;
 	};
 
 } // end namespace video

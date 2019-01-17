@@ -9,7 +9,7 @@
 #include "IFileSystem.h"
 #include "ISceneManager.h"
 #include "COBJMeshFileLoader.h"
-#include "IMeshManipulator.h"
+#include "irr/asset/IMeshManipulator.h"
 #include "IVideoDriver.h"
 #include "irr/video/SGPUMesh.h"
 #include "SVertexManipulator.h"
@@ -288,7 +288,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
                 {
 					core::vectorSIMDf simdNormal;
 					simdNormal.set(normalsBuffer[Idx[2]]);
-					v.normal32bit = scene::quantizeNormal2_10_10_10(simdNormal);
+					v.normal32bit = asset::quantizeNormal2_10_10_10(simdNormal);
                 }
 				else
 				{
@@ -383,7 +383,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             }
             for (size_t i=0; i<ctx.Materials[m]->Vertices.size(); i++)
             {
-                ctx.Materials[m]->Vertices[i].normal32bit = scene::quantizeNormal2_10_10_10(newNormals[i]);
+                ctx.Materials[m]->Vertices[i].normal32bit = asset::quantizeNormal2_10_10_10(newNormals[i]);
             }
             alctr.deallocate(newNormals,ctx.Materials[m]->Vertices.size());
         }

@@ -20,7 +20,7 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#include "CForsythVertexCacheOptimizer.h"
+#include "irr/asset/CForsythVertexCacheOptimizer.h"
 
 #include <cmath>
 
@@ -28,7 +28,7 @@
 
 #define MAX_SIZE_VERTEX_CACHE 16
 
-namespace irr { namespace scene
+namespace irr { namespace asset
 {
 	template<typename IdxT>
 	void CForsythVertexCacheOptimizer::optimizeTriangleOrdering(const size_t _numVerts, const size_t _numIndices, const IdxT* _indices, IdxT* _outIndices) const

@@ -8,7 +8,7 @@
 #include <numeric>
 
 #include "CPLYMeshFileLoader.h"
-#include "IMeshManipulator.h"
+#include "irr/asset/IMeshManipulator.h"
 #include "irr/video/SGPUMesh.h"
 
 #include "IReadFile.h"

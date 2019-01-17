@@ -14,13 +14,13 @@
 #include "irr/video/SGPUMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
 #include "os.h"
-#include "CForsythVertexCacheOptimizer.h"
+#include "irr/asset/CForsythVertexCacheOptimizer.h"
 #include "COverdrawMeshOptimizer.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
 namespace irr
 {
-namespace scene
+namespace asset
 {
 
 // declared as extern in SVertexManipulator.h
@@ -1816,7 +1816,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
         case asset::EF_R8G8B8A8_SNORM:
 			quantFunc = [](const core::vectorSIMDf& _in, asset::E_FORMAT, asset::E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((uint32_t*)buf)[0] = scene::quantizeNormal888(_in);
+				((uint32_t*)buf)[0] = quantizeNormal888(_in);
 
 				core::vectorSIMDf retval;
 				asset::ICPUMeshBuffer::getAttribute(retval, buf, asset::EF_R8G8B8A8_SNORM);
@@ -1827,7 +1827,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 		case asset::EF_A2B10G10R10_SINT_PACK32: // RGB10_A2
 			quantFunc = [](const core::vectorSIMDf& _in, asset::E_FORMAT, asset::E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((uint32_t*)buf)[0] = scene::quantizeNormal2_10_10_10(_in);
+				((uint32_t*)buf)[0] = quantizeNormal2_10_10_10(_in);
 
 				core::vectorSIMDf retval;
 				asset::ICPUMeshBuffer::getAttribute(retval, buf, asset::EF_A2B10G10R10_SINT_PACK32);
@@ -1841,7 +1841,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
         case asset::EF_R16G16B16A16_SNORM:
 			quantFunc = [](const core::vectorSIMDf& _in, asset::E_FORMAT, asset::E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((uint64_t*)buf)[0] = scene::quantizeNormal16_16_16(_in);
+				((uint64_t*)buf)[0] = quantizeNormal16_16_16(_in);
 
 				core::vectorSIMDf retval;
 				asset::ICPUMeshBuffer::getAttribute(retval, buf, asset::EF_R16G16B16A16_SNORM);
@@ -1855,7 +1855,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
         case asset::EF_R16G16B16A16_SFLOAT:
 			quantFunc = [](const core::vectorSIMDf& _in, asset::E_FORMAT, asset::E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((uint64_t*)buf)[0] = scene::quantizeNormalHalfFloat(_in);
+				((uint64_t*)buf)[0] = quantizeNormalHalfFloat(_in);
 
 				core::vectorSIMDf retval;
 				asset::ICPUMeshBuffer::getAttribute(retval, buf, asset::EF_R16G16B16A16_SFLOAT);

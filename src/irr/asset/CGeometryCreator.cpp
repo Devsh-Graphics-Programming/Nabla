@@ -320,7 +320,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMesh(float radius, uint32_t polyC
 			// for spheres the normal is the position
 			core::vectorSIMDf normal(&pos.X);
 			normal.makeSafe3D();
-			uint32_t quantizedNormal = scene::quantizeNormal2_10_10_10(normal);
+			uint32_t quantizedNormal = quantizeNormal2_10_10_10(normal);
 			pos *= radius;
 
 			// calculate texture coordinates via sphere mapping
@@ -363,7 +363,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMesh(float radius, uint32_t polyC
     ((float*)tmpMemPtr)[2] = 0.f;
     ((float*)tmpMemPtr)[4] = 0.5f;
     ((float*)tmpMemPtr)[5] = 0.f;
-    ((uint32_t*)tmpMemPtr)[6] = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,1.f,0.f));
+    ((uint32_t*)tmpMemPtr)[6] = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,1.f,0.f));
 
 	// the vertex at the bottom of the sphere
     tmpMemPtr += vertexSize;
@@ -372,7 +372,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMesh(float radius, uint32_t polyC
     ((float*)tmpMemPtr)[2] = 0.f;
     ((float*)tmpMemPtr)[4] = 0.5f;
     ((float*)tmpMemPtr)[5] = 1.f;
-    ((uint32_t*)tmpMemPtr)[6] = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,-1.f,0.f));
+    ((uint32_t*)tmpMemPtr)[6] = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,-1.f,0.f));
 
     //setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,vertexSize);
@@ -418,7 +418,7 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMesh(float radius, float length
     {
         core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
         p *= radius;
-        const uint32_t n = scene::quantizeNormal2_10_10_10(core::normalize(p));
+        const uint32_t n = quantizeNormal2_10_10_10(core::normalize(p));
 
         memcpy(vertices[i].pos, p.pointer, 12u);
         vertices[i].normal = n;
@@ -433,11 +433,11 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMesh(float radius, float length
         vertices[i + topCenterIx].uv[1] = 1.f;
     }
     memset(vertices[bottomCenterIx].pos, 0, 12u);
-    vertices[bottomCenterIx].normal = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
+    vertices[bottomCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
     memcpy(vertices[bottomCenterIx].color, glcolor, 4u);
     core::vectorSIMDf p(oblique, length, 0.f, 0.f);
     memcpy(vertices[topCenterIx].pos, p.pointer, 12u);
-    vertices[topCenterIx].normal = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
+    vertices[topCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
     memcpy(vertices[topCenterIx].color, glcolor, 4u);
 
     const uint32_t parts = closeTop ? 4u : 3u;
@@ -514,17 +514,17 @@ asset::ICPUMesh* CGeometryCreator::createConeMesh(float radius, float length, ui
     {
         const core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
         memcpy(vertices[i].pos, (p*radius).pointer, 12u);
-        vertices[i].normal = scene::quantizeNormal2_10_10_10(core::normalize(p));
+        vertices[i].normal = quantizeNormal2_10_10_10(core::normalize(p));
     }
     const uint32_t peakIx = 0u;
     const uint32_t bottomCenterIx = 1u;
 
     const core::vectorSIMDf p(oblique, length, 0.f, 0.f);
     memcpy(vertices[peakIx].pos, p.pointer, 12u);
-    vertices[peakIx].normal = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
+    vertices[peakIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
     colorTop.toOpenGLColor(vertices[peakIx].color);
     memset(vertices[bottomCenterIx].pos, 0, 12u);
-    vertices[bottomCenterIx].normal = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
+    vertices[bottomCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
 
     asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(2u*3u*tesselation*sizeof(uint16_t));
     uint16_t* indices = (uint16_t*)idxBuf->getPointer();

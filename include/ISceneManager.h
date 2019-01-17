@@ -40,6 +40,11 @@ namespace video
 	class ITexture;
 } // end namespace video
 
+namespace asset
+{
+    class IMeshManipulator;
+} // end namespace asset
+
 namespace scene
 {
 	//! Enumeration for render passes.
@@ -90,7 +95,6 @@ namespace scene
 	class IDummyTransformationSceneNode;
 	class ILightSceneNode;
 	class IMeshLoader;
-	class IMeshManipulator;
 	class IMeshSceneNode;
 	class IMeshSceneNodeInstanced;
 	class IMeshWriter;
@@ -688,7 +692,7 @@ namespace scene
 		//! Get pointer to the mesh manipulator.
 		/** \return Pointer to the mesh manipulator
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IMeshManipulator* getMeshManipulator() = 0;
+		virtual asset::IMeshManipulator* getMeshManipulator() = 0;
 
 		//! Adds a scene node to the deletion queue.
 		/** The scene node is immediatly

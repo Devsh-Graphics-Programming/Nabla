@@ -3,7 +3,7 @@
 
 // Based on zeux's meshoptimizer (https://github.com/zeux/meshoptimizer) available under MIT license
 
-namespace irr { namespace scene
+namespace irr { namespace asset
 {
 
 class COverdrawMeshOptimizer

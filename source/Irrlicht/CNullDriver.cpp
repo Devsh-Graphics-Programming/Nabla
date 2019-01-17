@@ -12,7 +12,7 @@
 #include "IMaterialRenderer.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "CColorConverter.h"
-#include "CMeshManipulator.h"
+#include "irr/asset/CMeshManipulator.h"
 #include "CMeshSceneNodeInstanced.h"
 
 #include <new>

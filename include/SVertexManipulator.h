@@ -14,7 +14,7 @@
 
 namespace irr
 {
-namespace scene
+namespace asset
 {
 	struct QuantizationCacheEntryBase
 	{

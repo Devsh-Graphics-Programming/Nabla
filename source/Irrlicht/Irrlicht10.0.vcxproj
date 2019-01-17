@@ -392,7 +392,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\CConcurrentObjectCache.h" />
-    <ClInclude Include="..\..\include\CForsythVertexCacheOptimizer.h" />
     <ClInclude Include="..\..\include\CObjectCache.h" />
     <ClInclude Include="..\..\include\EDriverFeatures.h" />
     <ClInclude Include="..\..\include\EMaterialFlags.h" />
@@ -409,9 +408,11 @@
     <ClInclude Include="..\..\include\irrTypes.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBAWFile.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBlobsLoadingManager.h" />
+    <ClInclude Include="..\..\include\irr\asset\CForsythVertexCacheOptimizer.h" />
     <ClInclude Include="..\..\include\irr\asset\IGeometryCreator.h" />
     <ClInclude Include="..\..\include\irr\asset\IMesh.h" />
     <ClInclude Include="..\..\include\irr\asset\ICPUSkinnedMeshBuffer.h" />
+    <ClInclude Include="..\..\include\irr\asset\IMeshManipulator.h" />
     <ClInclude Include="..\..\include\irr\video\convertColor.h" />
     <ClInclude Include="..\..\include\irr\video\decodePixels.h" />
     <ClInclude Include="..\..\include\irr\video\encodePixels.h" />
@@ -490,7 +491,6 @@
     <ClInclude Include="..\..\include\ILightSceneNode.h" />
     <ClInclude Include="..\..\include\IMeshCache.h" />
     <ClInclude Include="..\..\include\IMeshLoader.h" />
-    <ClInclude Include="..\..\include\IMeshManipulator.h" />
     <ClInclude Include="..\..\include\IMeshSceneNode.h" />
     <ClInclude Include="..\..\include\IMeshWriter.h" />
     <ClInclude Include="..\..\include\IParticleAffector.h" />
@@ -552,11 +552,13 @@
     <ClInclude Include="..\..\src\irr\asset\CImageWriterTGA.h" />
     <ClInclude Include="..\..\src\irr\asset\CLMTSMeshFileLoader.h" />
     <ClInclude Include="..\..\src\irr\asset\CLWOMeshFileLoader.h" />
+    <ClInclude Include="..\..\src\irr\asset\CMeshManipulator.h" />
     <ClInclude Include="..\..\src\irr\asset\CMS3DMeshFileLoader.h" />
     <ClInclude Include="..\..\src\irr\asset\CMY3DMeshFileLoader.h" />
     <ClInclude Include="..\..\src\irr\asset\COBJMeshFileLoader.h" />
     <ClInclude Include="..\..\src\irr\asset\COBJMeshWriter.h" />
     <ClInclude Include="..\..\src\irr\asset\COCTLoader.h" />
+    <ClInclude Include="..\..\src\irr\asset\COverdrawMeshOptimizer.h" />
     <ClInclude Include="..\..\src\irr\asset\CPLYMeshFileLoader.h" />
     <ClInclude Include="..\..\src\irr\asset\CPLYMeshWriter.h" />
     <ClInclude Include="..\..\src\irr\asset\CSTLMeshFileLoader.h" />
@@ -570,7 +572,6 @@
     <ClInclude Include="astc\vectypes.h" />
     <ClInclude Include="CIrrDeviceWin32.h" />
     <ClInclude Include="CMeshCache.h" />
-    <ClInclude Include="CMeshManipulator.h" />
     <ClInclude Include="CMeshSceneNodeInstanced.h" />
     <ClInclude Include="COpenCLHandler.h" />
     <ClInclude Include="COpenGL3DTexture.h" />
@@ -579,7 +580,6 @@
     <ClInclude Include="COpenGLTransformFeedback.h" />
     <ClInclude Include="COpenGLVAOSpec.h" />
     <ClInclude Include="COSOperator.h" />
-    <ClInclude Include="COverdrawMeshOptimizer.h" />
     <ClInclude Include="CSceneManager.h" />
     <ClInclude Include="CSkinnedMeshSceneNode.h" />
     <ClInclude Include="FW_Mutex.h" />
@@ -709,6 +709,7 @@
     <ClCompile Include="..\..\src\irr\asset\CB3DMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CBAWMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CBAWMeshWriter.cpp" />
+    <ClCompile Include="..\..\src\irr\asset\CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CGeometryCreator.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CImageLoaderBMP.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CImageLoaderDDS.cpp" />
@@ -722,11 +723,13 @@
     <ClCompile Include="..\..\src\irr\asset\CImageWriterTGA.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CLMTSMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CLWOMeshFileLoader.cpp" />
+    <ClCompile Include="..\..\src\irr\asset\CMeshManipulator.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CMS3DMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CMY3DMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\COBJMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\COBJMeshWriter.cpp" />
     <ClCompile Include="..\..\src\irr\asset\COCTLoader.cpp" />
+    <ClCompile Include="..\..\src\irr\asset\COverdrawMeshOptimizer.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CPLYMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CPLYMeshWriter.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CSTLMeshFileLoader.cpp" />
@@ -748,13 +751,11 @@
     <ClCompile Include="aesGladman\sha1.c" />
     <ClCompile Include="bzip2\compress.c" />
     <ClCompile Include="CCPUSkinnedMesh.cpp" />
-    <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
     <ClCompile Include="CGLSLFunctionGenerator.cpp" />
     <ClCompile Include="CIrrDeviceWin32.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="CMeshCache.cpp" />
-    <ClCompile Include="CMeshManipulator.cpp" />
     <ClCompile Include="CMeshSceneNodeInstanced.cpp" />
     <ClCompile Include="convertColor.cpp" />
     <ClCompile Include="convert_utf\ConvertUTF.c" />
@@ -781,7 +782,6 @@
     </ClCompile>
     <ClCompile Include="coreutil.cpp" />
     <ClCompile Include="COSOperator.cpp" />
-    <ClCompile Include="COverdrawMeshOptimizer.cpp" />
     <ClCompile Include="CSceneManager.cpp" />
     <ClCompile Include="CSkinnedMeshSceneNode.cpp" />
     <ClCompile Include="CTRTextureGouraudAlpha.cpp" />

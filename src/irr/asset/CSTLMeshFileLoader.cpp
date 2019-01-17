@@ -170,7 +170,7 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
     for (size_t i = 0u; i < positions.size(); ++i)
     {
         if (i%3 == 0)
-            normal = scene::quantizeNormal2_10_10_10(normals[i/3]);
+            normal = asset::quantizeNormal2_10_10_10(normals[i/3]);
         uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i*vtxSize;
         memcpy(ptr, positions[i].pointer, 3*4);
         ((uint32_t*)(ptr+12))[0] = normal;

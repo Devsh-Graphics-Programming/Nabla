@@ -29,7 +29,7 @@
 #include <cstring>
 #include "irr/core/Types.h"
 
-namespace irr { namespace scene
+namespace irr { namespace asset
 {
 
 class IRR_FORCE_EBO CForsythVertexCacheOptimizer

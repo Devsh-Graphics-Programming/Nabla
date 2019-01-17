@@ -6,7 +6,7 @@
 #include "CMeshManipulator.h"
 #include "os.h"
 
-namespace irr { namespace scene
+namespace irr { namespace asset
 {
 
 asset::ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _inbuffer, bool _createNew, float _threshold)

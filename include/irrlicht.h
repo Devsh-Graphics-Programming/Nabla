@@ -82,6 +82,7 @@
 #include "irr/asset/SCPUMesh.h"
 #include "irr/asset/CImageData.h"
 #include "irr/asset/IGeometryCreator.h"
+#include "irr/asset/IMeshManipulator.h"
 //} end asset lib
 
 //{ ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
@@ -148,7 +149,6 @@
 #include "irr/video/IGPUMeshBuffer.h"
 #include "IMeshCache.h"
 #include "IMeshLoader.h"
-#include "IMeshManipulator.h"
 #include "IMeshSceneNode.h"
 #include "IMeshSceneNodeInstanced.h"
 #include "IMeshWriter.h"
