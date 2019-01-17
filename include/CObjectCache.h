@@ -8,6 +8,7 @@
 #include <functional>
 #include <string>
 
+#include "irr/static_if.h"
 #include "irr/macros.h"
 #include "irr/core/Types.h"
 
@@ -255,6 +256,7 @@ namespace impl
     };
 
     //! Use in non-static member functions
+    // insert()'s prototype: template<bool GreetOnInsert> bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val);
 #define INSERT_IMPL_VEC \
     const typename Base::PairType newVal{ _key, _val };\
     auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), newVal, [](const typename Base::PairType& _a, const typename Base::PairType& _b) -> bool {return _a.first < _b.first; });\
@@ -263,14 +265,16 @@ namespace impl
     )\
         return false;\
     \
-    this->greet(newVal.second);\
+    static_if<GreetOnInsert>([this,&newVal] (auto f) { this->greet(newVal.second); });\
     this->m_container.insert(it, newVal);\
     return true;
 #define INSERT_IMPL_ASSOC \
     auto res = this->m_container.insert({ _key, _val });\
     const bool verif = impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value>::verify(res);\
-    if (verif)\
-        this->greet(_val);\
+    static_if<GreetOnInsert>([verif,&_val,this] (auto f) {\
+        if (verif)\
+            this->greet(_val);\
+    });\
     return verif;
 
     template<
@@ -296,6 +300,7 @@ namespace impl
     public:
         using Base::Base;
 
+        template<bool GreetOnInsert = true>
         inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
         {
             INSERT_IMPL_ASSOC
@@ -325,6 +330,7 @@ namespace impl
     public:
         using Base::Base;
 
+        template<bool GreetOnInsert = true>
         inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
         {
             INSERT_IMPL_VEC
@@ -394,6 +400,7 @@ namespace impl
         }
 
         //! @returns true if object was removed (i.e. was present in cache)
+        template<bool DisposeOnRemove = true>
         inline bool removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
         {
             typename Base::RangeType range = this->findRange(_key);
@@ -401,7 +408,7 @@ namespace impl
             {
                 if (it->second == _obj)
                 {
-                    this->dispose(it->second);
+                    static_if<DisposeOnRemove>([this,&it] (auto f) { this->dispose(it->second); });
                     Base::m_container.erase(it);
                     return true;
                 }
@@ -448,6 +455,7 @@ namespace impl
     public:
         using Base::Base;
 
+        template<bool GreetOnInsert = true>
         inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
         {
             INSERT_IMPL_VEC
@@ -482,6 +490,7 @@ namespace impl
     public:
         using Base::Base;
 
+        template<bool GreetOnInsert = true>
         inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
         {
             INSERT_IMPL_ASSOC
@@ -518,13 +527,14 @@ namespace impl
         using Base::Base;
 
         //! @returns true if object was removed (i.e. was present in cache)
+        template<bool DisposeOnRemove = true>
         inline bool removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
         {
             typename Base::RangeType range = this->findRange(_key);
             auto it = range.first;
             if (Base::isNonZeroRange(range) && it->second == _obj)
             {
-                this->dispose(it->second);
+                static_if<DisposeOnRemove>([this] (auto f) { this->dispose(it->second); });
                 this->m_container.erase(it);
                 return true;
             }
@@ -569,14 +579,12 @@ namespace impl
 
         inline bool changeObjectKey(typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key, const typename Base::KeyType_impl& _newKey)
         {
-            this->greet(_obj);
-            if (this->removeObject(_obj, _key))
+            constexpr bool DoGreetOrDispose = false;
+            if (this->removeObject<DoGreetOrDispose>(_obj, _key))
             {
-                this->insert(_newKey, _obj);
-                this->dispose(_obj);
+                this->insert<DoGreetOrDispose>(_newKey, _obj);
                 return true;
             }
-            this->dispose(_obj);
             return false;
         }
 
