@@ -106,6 +106,8 @@ namespace asset
 
 	//! Cast pointer to (first byte of) file buffer to BAWFile*. 256bit header must be first member (start of file).
 	struct IRR_FORCE_EBO BAWFileV0 {
+        static constexpr const char* HEADER_STRING = "IrrlichtBaW BinaryFile";
+
 		//! 32-byte BaW binary format header, currently equal to "IrrlichtBaW BinaryFile" (and the rest filled with zeroes).
 		//! Also: last 8 bytes of file header is file-version number.
 		uint64_t fileHeader[4];

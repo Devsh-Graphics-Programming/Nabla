@@ -251,15 +251,17 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
     }
 
     const uint32_t baseOffsetv0 = asset::BAWFileV0{{},blobCnt}.calcBlobsOffset();
+    const uint32_t baseOffsetv1 = asset::BAWFileV1{{}, blobCnt}.calcBlobsOffset();
 
     std::vector<uint32_t> newoffsets(blobCnt);
-    std::vector<asset::MeshDataFormatDescBlobV1> newblobs;
     int32_t offsetDiff = 0;
     for (uint32_t i = 0u; i < blobCnt; ++i)
     {
         asset::BlobHeaderV0& hdr = headers[i];
         const uint32_t offset = offsets[i];
         uint32_t& newoffset = newoffsets[i];
+
+        newoffset = offset + offsetDiff;
 
         bool adjustDiff = false;
         uint32_t prevBlobSz{};
@@ -270,7 +272,11 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
             uint8_t decrKey[16];
             size_t decrKeyLen = 16u;
             void* blob = nullptr;
-            while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), ctx.inner, 2u))
+            /* to state blob's/asset's hierarchy level we'd have to load (and possibly decrypt and decompress) the blob
+            however we don't need to do this here since we know format's version (baw v0) and so we can be sure that hierarchy level for mesh data descriptors is 2
+            */
+            constexpr uint32_t ICPUMESHDATAFORMATDESC_HIERARCHY_LVL = 2u;
+            while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), ctx.inner, ICPUMESHDATAFORMATDESC_HIERARCHY_LVL))
             {
                 if (!((hdr.compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
                     blob = tryReadBlobOnStack<asset::BlobHeaderV0>(SBlobData_t<asset::BlobHeaderV0>(&hdr, baseOffsetv0+offset), ctx, decrKey, stackmem, sizeof(stackmem));
@@ -278,32 +284,34 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
                     break;
                 ++attempt;
             }
-            newblobs.emplace_back(reinterpret_cast<asset::legacy::MeshDataFormatDescBlobV0*>(blob)[0]);
+
+            const uint32_t absOffset = baseOffsetv1 + newoffset;
+            baw1mem->seek(absOffset);
+            baw1mem->write(
+                asset::MeshDataFormatDescBlobV1(reinterpret_cast<asset::legacy::MeshDataFormatDescBlobV0*>(blob)[0]).getData(),
+                sizeof(asset::MeshDataFormatDescBlobV1)
+            );
 
             prevBlobSz = hdr.effectiveSize();
             hdr.compressionType = asset::Blob::EBCT_RAW;
-            core::XXHash_256(&newblobs.back(), sizeof(newblobs.back()), hdr.blobHash);
-            hdr.blobSizeDecompr = hdr.blobSize = sizeof(newblobs.back());
+            core::XXHash_256(reinterpret_cast<uint8_t*>(baw1mem->getPointer())+absOffset, sizeof(asset::MeshDataFormatDescBlobV1), hdr.blobHash);
+            hdr.blobSizeDecompr = hdr.blobSize = sizeof(asset::MeshDataFormatDescBlobV1);
 
             adjustDiff = true;
         }
-        newoffset = offset + offsetDiff;
         if (adjustDiff)
-            offsetDiff += static_cast<int32_t>(sizeof(newblobs.back())) - static_cast<int32_t>(prevBlobSz);
+            offsetDiff += static_cast<int32_t>(sizeof(asset::MeshDataFormatDescBlobV1)) - static_cast<int32_t>(prevBlobSz);
     }
-    const char * const headerStr = "IrrlichtBaW BinaryFile";
     uint64_t fileHeader[4] {0u, 0u, 0u, 1u/*baw v1*/};
-    memcpy(fileHeader, headerStr, strlen(headerStr));
+    memcpy(fileHeader, asset::BAWFileV1::HEADER_STRING, strlen(asset::BAWFileV1::HEADER_STRING));
+    baw1mem->seek(0u);
     baw1mem->write(fileHeader, sizeof(fileHeader));
     baw1mem->write(&blobCnt, 4);
     baw1mem->write(ctx.iv, 16);
     baw1mem->write(newoffsets.data(), newoffsets.size()*4);
     baw1mem->write(headers, blobCnt*sizeof(headers[0])); // blob header in v0 and in v1 is exact same thing, so we can do this
 
-    const uint32_t baseOffsetv1 = asset::BAWFileV1{{}, blobCnt}.calcBlobsOffset();
-
     uint8_t stackmem[1u<<13]{};
-    auto newblobsItr = newblobs.begin();
     size_t newFileSz = 0u;
     for (uint32_t i = 0u; i < blobCnt; ++i)
     {
@@ -311,8 +319,7 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
         void* blob = nullptr;
         if (headers[i].blobType == asset::Blob::EBT_DATA_FORMAT_DESC)
         {
-            blob = &(*(newblobsItr++));
-            sz = sizeof(newblobs[0]);
+            sz = 0u;
         }
         else
         {

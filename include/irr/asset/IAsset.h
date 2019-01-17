@@ -30,15 +30,17 @@ public:
         ET_KEYFRAME_ANIMATION = 1u<<6u,
         //! the coming asset::IProtoShader
         ET_SHADER = 1u<<7u,
+        //! asset::ICPUMeshDataFormatDesc
+        ET_MESH_DATA_DESCRIPTOR = 1u<<8,
         //! reserved, to implement later
-        ET_GRAPHICS_PIPELINE = 1u<<8u,
+        ET_GRAPHICS_PIPELINE = 1u<<9u,
         //! reserved, to implement later
-        ET_SCENE = 1u<<9u,
+        ET_SCENE = 1u<<10u,
         //! lights, etc.
         ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u
         //! Reserved special value used for things like terminating lists of this enum
     };
-    constexpr static size_t ET_STANDARD_TYPES_COUNT = 10u;
+    constexpr static size_t ET_STANDARD_TYPES_COUNT = 11u;
 
     static uint32_t typeFlagToIndex(E_TYPE _type)
     {

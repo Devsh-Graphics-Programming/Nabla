@@ -145,7 +145,7 @@ private:
                 Buffer = nullptr;
             }
             for (auto& e : ElementList)
-                delete e;
+                if (e) delete e;
             ElementList.clear();
         }
     };

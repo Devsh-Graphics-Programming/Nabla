@@ -128,7 +128,7 @@ class COBJMeshFileLoader : public asset::IAssetLoader
         ~SContext()
         {
             for (auto& m : Materials)
-                delete m;
+                if (m) delete m;
         }
     };
 

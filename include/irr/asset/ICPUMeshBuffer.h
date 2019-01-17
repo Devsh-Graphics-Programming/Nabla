@@ -229,13 +229,13 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
             attrOffset[attrId] = offset;
         }
 
-        inline const size_t& getMappedBufferOffset(E_VERTEX_ATTRIBUTE_ID attrId) const
+        inline size_t getMappedBufferOffset(E_VERTEX_ATTRIBUTE_ID attrId) const
         {
             assert(attrId<EVAI_COUNT);
             return attrOffset[attrId];
         }
 
-        inline const uint32_t& getMappedBufferStride(E_VERTEX_ATTRIBUTE_ID attrId) const
+        inline uint32_t getMappedBufferStride(E_VERTEX_ATTRIBUTE_ID attrId) const
         {
             assert(attrId<EVAI_COUNT);
             return attrStride[attrId];
@@ -272,7 +272,7 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
 };
 
 
-class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, asset::BlobSerializable
+class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, public asset::BlobSerializable, public asset::IAsset
 {
     protected:
 	    ~ICPUMeshDataFormatDesc()
@@ -283,6 +283,17 @@ class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, as
 		{
 			return asset::CorrespondingBlobTypeFor<IMeshDataFormatDesc<asset::ICPUBuffer> >::type::createAndTryOnStack(static_cast<const IMeshDataFormatDesc<asset::ICPUBuffer>*>(this), _stackPtr, _stackSize);
 		}
+
+        size_t conservativeSizeEstimate() const override
+        {
+            return asset::CorrespondingBlobTypeFor<IMeshDataFormatDesc<asset::ICPUBuffer>>::type::calcBlobSizeForObj(this);
+        }
+
+        void convertToDummyObject() override
+        {
+        }
+
+        asset::IAsset::E_TYPE getAssetType() const override { return asset::IAsset::ET_MESH_DATA_DESCRIPTOR; }
 
         //! remember that the divisor must be 0 or 1
         void setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override

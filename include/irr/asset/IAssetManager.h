@@ -151,7 +151,7 @@ namespace asset
             {
                 core::vector<IAsset*> found = findAssets(file->getFileName().c_str());
                 if (found.size())
-                    return found.front();
+                    return _override->chooseRelevantFromFound(found, ctx, _hierarchyLevel);
                 else if (asset = _override->handleSearchFail(file->getFileName().c_str(), ctx, _hierarchyLevel))
                     return asset;
             }
@@ -326,8 +326,8 @@ namespace asset
         /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of. However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
         void convertAssetToEmptyCacheHandle(IAsset* _asset, core::IReferenceCounted* _gpuObject)
         {
-            _asset->convertToDummyObject();
             _asset->grab();
+            _asset->convertToDummyObject();
             m_cpuGpuCache[IAsset::typeFlagToIndex(_asset->getAssetType())]->insert(_asset, _gpuObject);
         }
 

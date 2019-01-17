@@ -91,6 +91,13 @@ public:
         //! The most imporant overrides are the ones for caching
         virtual IAsset* findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
 
+        //! Since more then one asset of the same key of the same type can exist, this function is called right after search for cached assets (if anything was found) and decides which of them is relevant.
+        //! Note: this function can assume that `found` is never empty.
+        inline virtual IAsset* chooseRelevantFromFound(const core::vector<IAsset*>& found, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        {
+            return found.front();
+        }
+
         //! Only called when the asset was searched for, no correct asset was found
         /** Any non-nullptr asset returned here will not be added to cache,
         since the overload operates “as if” the asset was found. */
