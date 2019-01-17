@@ -57,12 +57,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         if (headers)
             _IRR_ALIGNED_FREE(headers);
     };
-    struct RAIILikeExiter
-    {
-        decltype(exitRoutine)& onDestr;
-        RAIILikeExiter(decltype(exitRoutine)& _rtn) : onDestr{_rtn} {}
-        ~RAIILikeExiter() { onDestr(); }
-    } exiter{exitRoutine};
+    auto exiter = core::makeRAIIExiter(exitRoutine);
 
     if (!verifyFile<asset::BAWFileV1>(ctx, _IRR_BAW_FORMAT_VERSION))
     {
