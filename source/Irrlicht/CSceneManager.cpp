@@ -37,7 +37,7 @@
 #include "CSceneNodeAnimatorCameraFPS.h"
 #include "CSceneNodeAnimatorCameraMaya.h"
 
-#include "CGeometryCreator.h"
+#include "irr/asset/CGeometryCreator.h"
 
 namespace irr
 {
@@ -70,7 +70,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 		CursorControl->grab();
 
 	// create geometry creator
-	GeometryCreator = new CGeometryCreator();
+	GeometryCreator = new asset::CGeometryCreator();
 	MeshManipulator = new CMeshManipulator();
 	{
         //ICPUMesh* boxmesh = GeometryCreator->createCubeMeshCPU();

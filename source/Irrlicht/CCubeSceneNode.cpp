@@ -53,7 +53,11 @@ void CCubeSceneNode::setSize()
 {
 	if (Mesh)
 		Mesh->drop();
-	Mesh = SceneManager->getGeometryCreator()->createCubeMeshGPU(SceneManager->getVideoDriver(),core::vector3df(Size));
+
+    asset::ICPUMesh* cpumesh = SceneManager->getGeometryCreator()->createCubeMesh(core::vector3df(Size));
+    auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
+    Mesh = res.size() ? res.front() : nullptr;
+    assert(Mesh);
 }
 
 

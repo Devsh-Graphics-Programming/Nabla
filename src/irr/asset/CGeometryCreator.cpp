@@ -13,10 +13,10 @@
 
 namespace irr
 {
-namespace scene
+namespace asset
 {
 
-asset::ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size) const
+asset::ICPUMesh* CGeometryCreator::createCubeMesh(const core::vector3df& size) const
 {
 	asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
 	asset::ICPUMeshBuffer* buffer = new asset::ICPUMeshBuffer();
@@ -153,29 +153,12 @@ asset::ICPUMesh* CGeometryCreator::createCubeMeshCPU(const core::vector3df& size
 	return mesh;
 }
 
-video::IGPUMesh* CGeometryCreator::createCubeMeshGPU(video::IVideoDriver* driver, const core::vector3df& size) const
-{
-    if (!driver)
-        return NULL;
-
-	asset::ICPUMesh* cpumesh = createCubeMeshCPU(size);
-
-	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
-	video::IGPUMesh* mesh = nullptr;
-	if (retval.size())
-        mesh = retval[0];
-
-	cpumesh->drop();
-
-	return mesh;
-}
-
 
 /*
 	a cylinder, a cone and a cross
 	point up on (0,1.f, 0.f )
 */
-asset::ICPUMesh* CGeometryCreator::createArrowMeshCPU(const uint32_t tesselationCylinder,
+asset::ICPUMesh* CGeometryCreator::createArrowMesh(const uint32_t tesselationCylinder,
 						const uint32_t tesselationCone,
 						const float height,
 						const float cylinderHeight,
@@ -186,8 +169,8 @@ asset::ICPUMesh* CGeometryCreator::createArrowMeshCPU(const uint32_t tesselation
 {
     assert(height > cylinderHeight);
 
-    asset::ICPUMesh* cylinder = createCylinderMeshCPU(width0, cylinderHeight, tesselationCylinder, vtxColor0, false);
-    asset::SCPUMesh* cone = static_cast<asset::SCPUMesh*>(createConeMeshCPU(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
+    asset::ICPUMesh* cylinder = createCylinderMesh(width0, cylinderHeight, tesselationCylinder, vtxColor0, false);
+    asset::SCPUMesh* cone = static_cast<asset::SCPUMesh*>(createConeMesh(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
 
     if (!cylinder || !cone)
         return nullptr;
@@ -208,34 +191,9 @@ asset::ICPUMesh* CGeometryCreator::createArrowMeshCPU(const uint32_t tesselation
     return cone;
 }
 
-video::IGPUMesh* CGeometryCreator::createArrowMeshGPU(video::IVideoDriver* driver,
-                        const uint32_t tesselationCylinder,
-						const uint32_t tesselationCone,
-						const float height,
-						const float cylinderHeight,
-						const float width0,
-						const float width1,
-						const video::SColor vtxColor0,
-						const video::SColor vtxColor1) const
-{
-    if (!driver)
-        return NULL;
-
-	asset::ICPUMesh* cpumesh = createArrowMeshCPU(tesselationCylinder,tesselationCone,height,cylinderHeight,width0,width1,vtxColor0,vtxColor1);
-
-	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
-	video::IGPUMesh* mesh = nullptr;
-	if (retval.size())
-        mesh = retval[0];
-
-	cpumesh->drop();
-
-	return mesh;
-}
-
 
 /* A sphere with proper normals and texture coords */
-asset::ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t polyCountX, uint32_t polyCountY) const
+asset::ICPUMesh* CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY) const
 {
 	// thanks to Alfaz93 who made his code available for Irrlicht on which
 	// this one is based!
@@ -362,7 +320,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t po
 			// for spheres the normal is the position
 			core::vectorSIMDf normal(&pos.X);
 			normal.makeSafe3D();
-			uint32_t quantizedNormal = quantizeNormal2_10_10_10(normal);
+			uint32_t quantizedNormal = scene::quantizeNormal2_10_10_10(normal);
 			pos *= radius;
 
 			// calculate texture coordinates via sphere mapping
@@ -405,7 +363,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t po
     ((float*)tmpMemPtr)[2] = 0.f;
     ((float*)tmpMemPtr)[4] = 0.5f;
     ((float*)tmpMemPtr)[5] = 0.f;
-    ((uint32_t*)tmpMemPtr)[6] = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,1.f,0.f));
+    ((uint32_t*)tmpMemPtr)[6] = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,1.f,0.f));
 
 	// the vertex at the bottom of the sphere
     tmpMemPtr += vertexSize;
@@ -414,7 +372,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t po
     ((float*)tmpMemPtr)[2] = 0.f;
     ((float*)tmpMemPtr)[4] = 0.5f;
     ((float*)tmpMemPtr)[5] = 1.f;
-    ((uint32_t*)tmpMemPtr)[6] = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,-1.f,0.f));
+    ((uint32_t*)tmpMemPtr)[6] = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f,-1.f,0.f));
 
     //setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,vertexSize);
@@ -437,26 +395,9 @@ asset::ICPUMesh* CGeometryCreator::createSphereMeshCPU(float radius, uint32_t po
 	return mesh;
 }
 
-video::IGPUMesh* CGeometryCreator::createSphereMeshGPU(video::IVideoDriver* driver, float radius, uint32_t polyCountX, uint32_t polyCountY) const
-{
-    if (!driver)
-        return NULL;
-
-	asset::ICPUMesh* cpumesh = createSphereMeshCPU(radius,polyCountX,polyCountY);
-
-	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);;
-	video::IGPUMesh* mesh = nullptr;
-	if (retval.size())
-        mesh = retval[0];
-
-	cpumesh->drop();
-
-	return mesh;
-}
-
 
 /* A cylinder with proper normals and texture coords */
-asset::ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float length,
+asset::ICPUMesh* CGeometryCreator::createCylinderMesh(float radius, float length,
 			uint32_t tesselation, const video::SColor& color,
 			bool closeTop, float oblique) const
 {
@@ -477,7 +418,7 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float len
     {
         core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
         p *= radius;
-        const uint32_t n = quantizeNormal2_10_10_10(core::normalize(p));
+        const uint32_t n = scene::quantizeNormal2_10_10_10(core::normalize(p));
 
         memcpy(vertices[i].pos, p.pointer, 12u);
         vertices[i].normal = n;
@@ -492,11 +433,11 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float len
         vertices[i + topCenterIx].uv[1] = 1.f;
     }
     memset(vertices[bottomCenterIx].pos, 0, 12u);
-    vertices[bottomCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
+    vertices[bottomCenterIx].normal = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
     memcpy(vertices[bottomCenterIx].color, glcolor, 4u);
     core::vectorSIMDf p(oblique, length, 0.f, 0.f);
     memcpy(vertices[topCenterIx].pos, p.pointer, 12u);
-    vertices[topCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
+    vertices[topCenterIx].normal = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
     memcpy(vertices[topCenterIx].color, glcolor, 4u);
 
     const uint32_t parts = closeTop ? 4u : 3u;
@@ -557,30 +498,8 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMeshCPU(float radius, float len
     return mesh;
 }
 
-video::IGPUMesh* CGeometryCreator::createCylinderMeshGPU(video::IVideoDriver* driver,
-            float radius, float length,
-			uint32_t tesselation, const video::SColor& color,
-			bool closeTop, float oblique) const
-{
-    if (!driver)
-        return NULL;
-
-	asset::ICPUMesh* cpumesh = createCylinderMeshCPU(radius,length,tesselation,color,closeTop,oblique);
-
-	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);;
-	video::IGPUMesh* mesh = nullptr;
-	if (retval.size())
-        mesh = retval[0];
-
-	cpumesh->drop();
-
-	return mesh;
-}
-
-
-
 /* A cone with proper normals and texture coords */
-asset::ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length, uint32_t tesselation,
+asset::ICPUMesh* CGeometryCreator::createConeMesh(float radius, float length, uint32_t tesselation,
 					const video::SColor& colorTop,
 					const video::SColor& colorBottom,
 					float oblique) const
@@ -595,17 +514,17 @@ asset::ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length,
     {
         const core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
         memcpy(vertices[i].pos, (p*radius).pointer, 12u);
-        vertices[i].normal = quantizeNormal2_10_10_10(core::normalize(p));
+        vertices[i].normal = scene::quantizeNormal2_10_10_10(core::normalize(p));
     }
     const uint32_t peakIx = 0u;
     const uint32_t bottomCenterIx = 1u;
 
     const core::vectorSIMDf p(oblique, length, 0.f, 0.f);
     memcpy(vertices[peakIx].pos, p.pointer, 12u);
-    vertices[peakIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
+    vertices[peakIx].normal = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
     colorTop.toOpenGLColor(vertices[peakIx].color);
     memset(vertices[bottomCenterIx].pos, 0, 12u);
-    vertices[bottomCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
+    vertices[bottomCenterIx].normal = scene::quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
 
     asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(2u*3u*tesselation*sizeof(uint16_t));
     uint16_t* indices = (uint16_t*)idxBuf->getPointer();
@@ -648,28 +567,7 @@ asset::ICPUMesh* CGeometryCreator::createConeMeshCPU(float radius, float length,
     return mesh;
 }
 
-video::IGPUMesh* CGeometryCreator::createConeMeshGPU(video::IVideoDriver* driver,
-                    float radius, float length, uint32_t tesselation,
-					const video::SColor& colorTop,
-					const video::SColor& colorBottom,
-					float oblique) const
-{
-    if (!driver)
-        return NULL;
 
-	asset::ICPUMesh* cpumesh = static_cast<asset::SCPUMesh*>(createConeMeshCPU(radius,length,tesselation,colorTop,colorBottom,oblique));
-
-	auto retval = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
-	video::IGPUMesh* mesh = nullptr;
-	if (retval.size())
-        mesh = retval[0];
-
-	cpumesh->drop();
-
-	return mesh;
-}
-
-
-} // end namespace scene
+} // end namespace asset
 } // end namespace irr
 

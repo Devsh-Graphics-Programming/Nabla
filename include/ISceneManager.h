@@ -16,7 +16,7 @@
 #include "ESceneNodeAnimatorTypes.h"
 #include "EMeshWriterEnums.h"
 #include "SceneParameters.h"
-#include "IGeometryCreator.h"
+#include "irr/asset/IGeometryCreator.h"
 #include "IMeshCache.h"
 #include "irr/video/IGPUSkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
@@ -735,7 +735,7 @@ namespace scene
 		//! Get an instance of a geometry creator.
 		/** The geometry creator provides some helper methods to create various types of
 		basic geometry. This can be useful for custom scene nodes. */
-		virtual const IGeometryCreator* getGeometryCreator(void) const = 0;
+		virtual const asset::IGeometryCreator* getGeometryCreator(void) const = 0;
 
 		//! Check if node is culled in current view frustum
 		/** Please note that depending on the used culling method this

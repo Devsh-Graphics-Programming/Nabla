@@ -81,6 +81,7 @@
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/SCPUMesh.h"
 #include "irr/asset/CImageData.h"
+#include "irr/asset/IGeometryCreator.h"
 //} end asset lib
 
 //{ ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
@@ -135,7 +136,6 @@
 #include "IEventReceiver.h"
 #include "IFileList.h"
 #include "IFileSystem.h"
-#include "IGeometryCreator.h"
 #include "IGPUProgrammingServices.h"
 #include "IImage.h"
 #include "IImageLoader.h"

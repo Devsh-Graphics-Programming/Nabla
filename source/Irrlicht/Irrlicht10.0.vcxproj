@@ -409,6 +409,7 @@
     <ClInclude Include="..\..\include\irrTypes.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBAWFile.h" />
     <ClInclude Include="..\..\include\irr\asset\bawformat\CBlobsLoadingManager.h" />
+    <ClInclude Include="..\..\include\irr\asset\IGeometryCreator.h" />
     <ClInclude Include="..\..\include\irr\asset\IMesh.h" />
     <ClInclude Include="..\..\include\irr\asset\ICPUSkinnedMeshBuffer.h" />
     <ClInclude Include="..\..\include\irr\video\convertColor.h" />
@@ -425,7 +426,6 @@
     <ClInclude Include="..\..\include\SIrrCreationParameters.h" />
     <ClInclude Include="..\..\include\SKeyMap.h" />
     <ClInclude Include="..\..\include\EDriverTypes.h" />
-    <ClInclude Include="..\..\include\IGeometryCreator.h" />
     <ClInclude Include="..\..\include\IGPUProgrammingServices.h" />
     <ClInclude Include="..\..\include\IImage.h" />
     <ClInclude Include="..\..\include\IImageLoader.h" />
@@ -539,6 +539,7 @@
     <ClInclude Include="..\..\src\irr\asset\CB3DMeshFileLoader.h" />
     <ClInclude Include="..\..\src\irr\asset\CBAWMeshFileLoader.h" />
     <ClInclude Include="..\..\src\irr\asset\CBAWMeshWriter.h" />
+    <ClInclude Include="..\..\src\irr\asset\CGeometryCreator.h" />
     <ClInclude Include="..\..\src\irr\asset\CImageLoaderBMP.h" />
     <ClInclude Include="..\..\src\irr\asset\CImageLoaderDDS.h" />
     <ClInclude Include="..\..\src\irr\asset\CImageLoaderJPG.h" />
@@ -567,7 +568,6 @@
     <ClInclude Include="aesGladman\brg_endian.h" />
     <ClInclude Include="aesGladman\brg_types.h" />
     <ClInclude Include="astc\vectypes.h" />
-    <ClInclude Include="CGeometryCreator.h" />
     <ClInclude Include="CIrrDeviceWin32.h" />
     <ClInclude Include="CMeshCache.h" />
     <ClInclude Include="CMeshManipulator.h" />
@@ -709,6 +709,7 @@
     <ClCompile Include="..\..\src\irr\asset\CB3DMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CBAWMeshFileLoader.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CBAWMeshWriter.cpp" />
+    <ClCompile Include="..\..\src\irr\asset\CGeometryCreator.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CImageLoaderBMP.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CImageLoaderDDS.cpp" />
     <ClCompile Include="..\..\src\irr\asset\CImageLoaderJPG.cpp" />
@@ -747,7 +748,6 @@
     <ClCompile Include="bzip2\compress.c" />
     <ClCompile Include="CCPUSkinnedMesh.cpp" />
     <ClCompile Include="CForsythVertexCacheOptimizer.cpp" />
-    <ClCompile Include="CGeometryCreator.cpp" />
     <ClCompile Include="CGLSLFunctionGenerator.cpp" />
     <ClCompile Include="CIrrDeviceWin32.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>

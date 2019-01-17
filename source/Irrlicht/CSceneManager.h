@@ -24,7 +24,6 @@ namespace io
 }
 namespace scene
 {
-	class IGeometryCreator;
 	class IAnimatedMeshSceneNode;
 
 	/*!
@@ -269,7 +268,7 @@ namespace scene
 		virtual void setCurrentRendertime(E_SCENE_NODE_RENDER_PASS currentRendertime) { CurrentRendertime = currentRendertime; }
 
 		//! Get an instance of a geometry creator.
-		virtual const IGeometryCreator* getGeometryCreator(void) const { return GeometryCreator; }
+		virtual const asset::IGeometryCreator* getGeometryCreator(void) const override { return GeometryCreator; }
 
 		//! returns if node is culled
 		virtual bool isCulled(ISceneNode* node) const;
@@ -386,7 +385,7 @@ namespace scene
 		const core::stringw IRR_XML_FORMAT_NODE;
 		const core::stringw IRR_XML_FORMAT_NODE_ATTR_TYPE;
 
-		IGeometryCreator* GeometryCreator;
+		asset::IGeometryCreator* GeometryCreator;
 		CMeshManipulator* MeshManipulator;
 	};
 

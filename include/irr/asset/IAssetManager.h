@@ -135,7 +135,6 @@ namespace asset
                 m_fileSystem->drop();
         }
         
-        //! Default Asset Creators (more creators can follow)
         //IMeshCreator* getDefaultMeshCreator(); //old IGeometryCreator
 
     public:

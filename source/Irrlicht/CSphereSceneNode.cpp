@@ -24,7 +24,10 @@ CSphereSceneNode::CSphereSceneNode(float radius, uint32_t polyCountX, uint32_t p
 	setDebugName("CSphereSceneNode");
 	#endif
 
-	Mesh = SceneManager->getGeometryCreator()->createSphereMeshGPU(SceneManager->getVideoDriver(),radius, polyCountX, polyCountY);
+    asset::ICPUMesh* cpumesh = SceneManager->getGeometryCreator()->createSphereMesh(radius, polyCountX, polyCountY);
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
+    Mesh = res.size() ? res.front() : nullptr;
+    assert(Mesh);
 }
 
 
