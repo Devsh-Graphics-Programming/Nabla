@@ -1870,8 +1870,7 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
 {
     extGlCreateVertexArrays(1,&vao);
 
-    for (uint32_t i = 0u; i < asset::EVAI_COUNT; ++i)
-        attrOffset[i] = spec->getMappedBufferOffset(static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(i));
+    memcpy(attrOffset,&spec->getMappedBufferOffset(asset::EVAI_ATTR0),sizeof(attrOffset));
     for (asset::E_VERTEX_ATTRIBUTE_ID attrId=asset::EVAI_ATTR0; attrId<asset::EVAI_COUNT; attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
     {
         const IGPUBuffer* buf = spec->getMappedBuffer(attrId);
@@ -2022,17 +2021,10 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, 
         extGlBindVertexArray(CurrentVAO.second->getOpenGLName());
     }
 
-    size_t originalOffsets[asset::EVAI_COUNT];
-    uint32_t originalStrides[asset::EVAI_COUNT];
     if (correctOffsetsForXFormDraw)
     {
-        for (uint32_t i = 0u; i < asset::EVAI_COUNT; ++i)
-        {
-            originalOffsets[i] = spec->getMappedBufferOffset(static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(i));
-            originalStrides[i] = spec->getMappedBufferStride(static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(i));
-        }
         size_t offsets[asset::EVAI_COUNT] = {0};
-        memcpy(offsets, originalOffsets, sizeof(offsets));
+        memcpy(offsets,&spec->getMappedBufferOffset(asset::EVAI_ATTR0),sizeof(offsets));
         for (size_t i=0; i<asset::EVAI_COUNT; i++)
         {
             if (!spec->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i))
@@ -2049,10 +2041,10 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, 
                     offsets[i] = int64_t(offsets[i])+int64_t(spec->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)i))*correctOffsetsForXFormDraw->getBaseVertex();
             }
         }
-        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),offsets,originalStrides);
+        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),offsets,&spec->getMappedBufferStride(asset::EVAI_ATTR0));
     }
     else
-        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),originalOffsets,originalStrides);
+        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),&spec->getMappedBufferOffset(asset::EVAI_ATTR0),&spec->getMappedBufferStride(asset::EVAI_ATTR0));
 
     return true;
 }
@@ -3338,5 +3330,4 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 
 } // end namespace
 } // end namespace
-
 

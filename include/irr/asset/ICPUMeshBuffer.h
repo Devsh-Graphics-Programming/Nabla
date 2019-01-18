@@ -229,13 +229,13 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
             attrOffset[attrId] = offset;
         }
 
-        inline size_t getMappedBufferOffset(E_VERTEX_ATTRIBUTE_ID attrId) const
+        inline const size_t& getMappedBufferOffset(E_VERTEX_ATTRIBUTE_ID attrId) const
         {
             assert(attrId<EVAI_COUNT);
             return attrOffset[attrId];
         }
 
-        inline uint32_t getMappedBufferStride(E_VERTEX_ATTRIBUTE_ID attrId) const
+        inline const uint32_t& getMappedBufferStride(E_VERTEX_ATTRIBUTE_ID attrId) const
         {
             assert(attrId<EVAI_COUNT);
             return attrStride[attrId];
