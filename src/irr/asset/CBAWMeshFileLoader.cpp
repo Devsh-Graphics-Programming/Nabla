@@ -44,14 +44,13 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             _file
         }
     };
-    io::IReadFile* const overridenFile = ctx.inner.mainFile = _override->getLoadFile(ctx.inner.mainFile, ctx.inner.mainFile->getFileName().c_str(), ctx.inner, 0u);
 
     ctx.inner.mainFile = tryCreateNewestFormatVersionFile(ctx.inner.mainFile, _override);
 
     asset::BlobHeaderV1* headers = nullptr;
 
     auto exitRoutine = [&] {
-        if (ctx.inner.mainFile != overridenFile) // if mainFile is temparary memory file created just to update format to the newest version
+        if (ctx.inner.mainFile != _file) // if mainFile is temparary memory file created just to update format to the newest version
             ctx.inner.mainFile->drop();
         ctx.releaseLoadedObjects();
         if (headers)

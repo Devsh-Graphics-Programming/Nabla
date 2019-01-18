@@ -15,7 +15,7 @@
 #include "irr/video/IGPUMeshBuffer.h"
 #include "os.h"
 #include "irr/asset/CForsythVertexCacheOptimizer.h"
-#include "COverdrawMeshOptimizer.h"
+#include "irr/asset/COverdrawMeshOptimizer.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
 namespace irr

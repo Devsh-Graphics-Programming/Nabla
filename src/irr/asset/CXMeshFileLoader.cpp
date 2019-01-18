@@ -83,7 +83,6 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 //#endif
 
     SContext ctx(asset::IAssetLoader::SAssetLoadContext{_params, _file}, _override);
-    _file = ctx.Inner.mainFile = _override->getLoadFile(_file, _file->getFileName().c_str(), ctx.Inner, 0u);
 
 	if (!_file)
 		return 0;
