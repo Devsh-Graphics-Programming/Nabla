@@ -138,24 +138,27 @@ namespace asset
         //IMeshCreator* getDefaultMeshCreator(); //old IGeometryCreator
 
     public:
-        IAsset* getAssetInHierarchy(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        IAsset* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, _file};
-            io::IReadFile* file = _override->getLoadFile(_file, _file->getFileName().c_str(), ctx, _hierarchyLevel);
+
+            std::string filename = _file ? _file->getFileName().c_str() : _supposedFilename;
+            io::IReadFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel);
+            filename = file ? file->getFileName().c_str() : _supposedFilename;
 
             const uint64_t levelFlags = _params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
             IAsset* asset = nullptr;
             if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
             {
-                core::vector<IAsset*> found = findAssets(file->getFileName().c_str());
+                core::vector<IAsset*> found = findAssets(filename);
                 if (found.size())
                     return _override->chooseRelevantFromFound(found, ctx, _hierarchyLevel);
-                else if (asset = _override->handleSearchFail(file->getFileName().c_str(), ctx, _hierarchyLevel))
+                else if (asset = _override->handleSearchFail(filename, ctx, _hierarchyLevel))
                     return asset;
             }
 
-            auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(file->getFileName()));
+            auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(filename.c_str()));
 
             for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr) // loaders associated with the file's extension tryout
             {
@@ -170,13 +173,13 @@ namespace asset
 
             if (asset && !(levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL))
             {
-                asset->setNewCacheKey(file->getFileName().c_str());
+                asset->setNewCacheKey(filename);
                 insertAssetIntoCache(asset);
             }
             else if (!asset)
             {
                 bool addToCache;
-                asset = _override->handleLoadFail(addToCache, file, file->getFileName().c_str(), file->getFileName().c_str(), ctx, _hierarchyLevel);
+                asset = _override->handleLoadFail(addToCache, file, filename, filename, ctx, _hierarchyLevel);
                 if (asset && addToCache)
                     insertAssetIntoCache(asset);
             }
@@ -190,18 +193,16 @@ namespace asset
             std::string filename = _filename;
             _override->getLoadFilename(filename, ctx, _hierarchyLevel);
             io::IReadFile* file = m_fileSystem->createAndOpenFile(filename.c_str());
-            if (!file)
-                return nullptr;
 
-            IAsset* asset = getAssetInHierarchy(file, _params, _hierarchyLevel, _override);
+            IAsset* asset = getAssetInHierarchy(file, _filename, _params, _hierarchyLevel, _override);
             file->drop();
 
             return asset;
         }
 
-        IAsset* getAssetInHierarchy(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        IAsset* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
         {
-            return getAssetInHierarchy(_file, _params, _hierarchyLevel, &m_defaultLoaderOverride);
+            return getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
         }
 
         IAsset* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
@@ -215,9 +216,9 @@ namespace asset
         {
             return getAssetInHierarchy(_filename, _params, 0u, _override);
         }
-        IAsset* getAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
+        IAsset* getAsset(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
         {
-            return getAssetInHierarchy(_file, _params,  0u, _override);
+            return getAssetInHierarchy(_file, _supposedFilename, _params,  0u, _override);
         }
 
         IAsset* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params)
@@ -225,9 +226,9 @@ namespace asset
             return getAsset(_filename, _params, &m_defaultLoaderOverride);
         }
 
-        IAsset* getAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params)
+        IAsset* getAsset(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params)
         {
-            return getAsset(_file, _params, &m_defaultLoaderOverride);
+            return getAsset(_file, _supposedFilename, _params, &m_defaultLoaderOverride);
         }
 
         inline bool findAssets(size_t& _inOutStorageSize, IAsset** _out, const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
