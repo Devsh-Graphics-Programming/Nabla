@@ -10,7 +10,6 @@
 #include "ICursorControl.h"
 #include "IMeshLoader.h"
 #include "ISkinningStateManager.h"
-#include "irr/asset/CMeshManipulator.h"
 
 #include <map>
 #include <string>
@@ -37,7 +36,7 @@ namespace scene
 
 	public:
 		//! constructor
-		CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
+		CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, io::IFileSystem* fs,
 			gui::ICursorControl* cursorControl);
 
 		//! gets a mesh. loads it if needed. returned pointer must not be dropped.
@@ -54,6 +53,8 @@ namespace scene
 
 		//! return the filesystem
 		virtual io::IFileSystem* getFileSystem();
+
+        virtual IrrlichtDevice* getDevice() override;
 
 		//! adds a cube scene node to the scene. It is a simple cube of (1,1,1) size.
 		//! the returned pointer must not be dropped.
@@ -221,9 +222,6 @@ namespace scene
 		//! Retrieve the given mesh loader
 		virtual IMeshLoader* getMeshLoader(uint32_t index) const;
 
-		//! Returns a pointer to the mesh manipulator.
-		virtual asset::IMeshManipulator* getMeshManipulator();
-
 		//! Adds a scene node to the deletion queue.
 		virtual void addToDeletionQueue(IDummyTransformationSceneNode* node);
 /*
@@ -266,9 +264,6 @@ namespace scene
 
 		//! Set current render time.
 		virtual void setCurrentRendertime(E_SCENE_NODE_RENDER_PASS currentRendertime) { CurrentRendertime = currentRendertime; }
-
-		//! Get an instance of a geometry creator.
-		virtual const asset::IGeometryCreator* getGeometryCreator(void) const override { return GeometryCreator; }
 
 		//! returns if node is culled
 		virtual bool isCulled(ISceneNode* node) const;
@@ -350,6 +345,9 @@ namespace scene
 		//! file system
 		io::IFileSystem* FileSystem;
 
+        //! parent device
+        IrrlichtDevice* Device;
+
 		//! cursor control
 		gui::ICursorControl* CursorControl;
 
@@ -384,9 +382,6 @@ namespace scene
 		const core::stringw IRR_XML_FORMAT_SCENE;
 		const core::stringw IRR_XML_FORMAT_NODE;
 		const core::stringw IRR_XML_FORMAT_NODE_ATTR_TYPE;
-
-		asset::IGeometryCreator* GeometryCreator;
-		asset::CMeshManipulator* MeshManipulator;
 	};
 
 } // end namespace video

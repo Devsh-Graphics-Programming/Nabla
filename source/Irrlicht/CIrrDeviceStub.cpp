@@ -66,7 +66,7 @@ CIrrDeviceStub::~CIrrDeviceStub()
 void CIrrDeviceStub::createGUIAndScene()
 {
 	// create Scene manager
-	SceneManager = scene::createSceneManager(VideoDriver, FileSystem, CursorControl);
+	SceneManager = scene::createSceneManager(this, VideoDriver, FileSystem, CursorControl);
 
 	setEventReceiver(UserReceiver);
 }

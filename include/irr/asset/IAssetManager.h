@@ -9,7 +9,6 @@
 #include "CConcurrentObjectCache.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
-//#include "CGeometryCreator.h"
 #include "IAssetLoader.h"
 #include "IAssetWriter.h"
 #include "irr/core/Types.h"
@@ -23,6 +22,9 @@ namespace irr
 {
 namespace asset
 {
+    class IGeometryCreator;
+    class IMeshManipulator;
+
 	class IAssetManager
 	{
         // the point of those functions is that lambdas returned by them "inherits" friendship
@@ -94,12 +96,20 @@ namespace asset
 
         friend class IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
 
+        IGeometryCreator* m_geometryCreator;
+        IMeshManipulator* m_meshManipulator;
+        // called as a part of constructor only
+        void initializeMeshTools();
+        void dropMeshTools();
+
     public:
         //! Constructor
         explicit IAssetManager(io::IFileSystem* _fs) :
             m_fileSystem{_fs},
             m_defaultLoaderOverride{nullptr}
         {
+            initializeMeshTools();
+
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 m_assetCache[i] = new AssetCacheType(asset::makeAssetGreetFunc(this), asset::makeAssetDisposeFunc(this));
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
@@ -133,9 +143,11 @@ namespace asset
                 wtr.second->drop();
             if (m_fileSystem)
                 m_fileSystem->drop();
+            dropMeshTools();
         }
         
-        //IMeshCreator* getDefaultMeshCreator(); //old IGeometryCreator
+        const IGeometryCreator* getGeometryCreator() const;
+        const IMeshManipulator* getMeshManipulator() const;
 
     public:
         IAsset* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
@@ -173,8 +185,7 @@ namespace asset
 
             if (asset && !(levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL))
             {
-                asset->setNewCacheKey(filename);
-                insertAssetIntoCache(asset);
+                _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
             }
             else if (!asset)
             {
@@ -195,7 +206,9 @@ namespace asset
             io::IReadFile* file = m_fileSystem->createAndOpenFile(filename.c_str());
 
             IAsset* asset = getAssetInHierarchy(file, _filename, _params, _hierarchyLevel, _override);
-            file->drop();
+
+            if (file)
+                file->drop();
 
             return asset;
         }

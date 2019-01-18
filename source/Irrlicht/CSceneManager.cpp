@@ -45,9 +45,9 @@ namespace scene
 {
 
 //! constructor
-CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
+CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, io::IFileSystem* fs,
 		gui::ICursorControl* cursorControl)
-: ISceneNode(0, 0), Driver(driver), FileSystem(fs),
+: ISceneNode(0, 0), Driver(driver), FileSystem(fs), Device(device),
 	CursorControl(cursorControl),
 	ActiveCamera(0), MeshCache(0), CurrentRendertime(ESNRP_NONE),
 	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type")
@@ -69,12 +69,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 	if (CursorControl)
 		CursorControl->grab();
 
-	// create geometry creator
-	GeometryCreator = new asset::CGeometryCreator();
-	MeshManipulator = new asset::CMeshManipulator();
 	{
-        //ICPUMesh* boxmesh = GeometryCreator->createCubeMeshCPU();
-
         size_t redundantMeshDataBufSize = sizeof(char)*24*3+ //data for the skybox positions
                                         0;
         void* tmpMem = _IRR_ALIGNED_MALLOC(redundantMeshDataBufSize,_IRR_SIMD_ALIGNMENT);
@@ -222,12 +217,6 @@ CSceneManager::~CSceneManager()
 	if (CursorControl)
 		CursorControl->drop();
 
-    if (MeshManipulator)
-        MeshManipulator->drop();
-
-	if (GeometryCreator)
-		GeometryCreator->drop();
-
 	uint32_t i;
 	for (i=0; i<MeshLoaderList.size(); ++i)
 		MeshLoaderList[i]->drop();
@@ -319,6 +308,11 @@ This pointer should not be dropped. See IReferenceCounted::drop() for more infor
 io::IFileSystem* CSceneManager::getFileSystem()
 {
 	return FileSystem;
+}
+
+IrrlichtDevice * CSceneManager::getDevice()
+{
+    return Device;
 }
 
 //! adds a test scene node for test purposes to the scene. It is a simple cube of (1,1,1) size.
@@ -952,14 +946,6 @@ IMeshLoader* CSceneManager::getMeshLoader(uint32_t index) const
 		return 0;
 }
 
-
-
-//! Returns a pointer to the mesh manipulator.
-asset::IMeshManipulator* CSceneManager::getMeshManipulator()
-{
-	return MeshManipulator;
-}
-
 //! Adds a scene node to the deletion queue.
 void CSceneManager::addToDeletionQueue(IDummyTransformationSceneNode* node)
 {
@@ -1125,7 +1111,7 @@ IMeshCache<asset::ICPUMesh>* CSceneManager::getMeshCache()
 //! Creates a new scene manager.
 ISceneManager* CSceneManager::createNewSceneManager(bool cloneContent)
 {
-	CSceneManager* manager = new CSceneManager(Driver, FileSystem, CursorControl);
+	CSceneManager* manager = new CSceneManager(Device, Driver, FileSystem, CursorControl);
 
 	if (cloneContent)
 		manager->cloneMembers(this, manager);
@@ -1170,10 +1156,10 @@ IMeshWriter* CSceneManager::createMeshWriter(EMESH_WRITER_TYPE type)
 }
 
 // creates a scenemanager
-ISceneManager* createSceneManager(video::IVideoDriver* driver,
+ISceneManager* createSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver,
 		io::IFileSystem* fs, gui::ICursorControl* cursorcontrol)
 {
-	return new CSceneManager(driver, fs, cursorcontrol);
+	return new CSceneManager(device, driver, fs, cursorcontrol);
 }
 
 

@@ -18,13 +18,10 @@ IAsset* IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::string& i
     return found.front();
 }
 
-void IAssetLoader::IAssetLoaderOverride::setAssetCacheKey(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, uint32_t hierarchyLevel)
+void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
 {
     m_manager->changeAssetKey(asset, supposedKey);
-}
 
-void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(IAsset* asset, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
-{
     auto levelFlag = ctx.params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
     if (levelFlag&ECF_DONT_CACHE_TOP_LEVEL)
         asset->grab(); // because loader will call drop() straight after insertAssetIntoCache

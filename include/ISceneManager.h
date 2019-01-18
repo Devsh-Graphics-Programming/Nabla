@@ -16,7 +16,6 @@
 #include "ESceneNodeAnimatorTypes.h"
 #include "EMeshWriterEnums.h"
 #include "SceneParameters.h"
-#include "irr/asset/IGeometryCreator.h"
 #include "IMeshCache.h"
 #include "irr/video/IGPUSkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
@@ -26,6 +25,7 @@ namespace irr
 {
 	struct SKeyMap;
 	struct SEvent;
+    class IrrlichtDevice;
 
 namespace io
 {
@@ -39,11 +39,6 @@ namespace video
 	class IVideoDriver;
 	class ITexture;
 } // end namespace video
-
-namespace asset
-{
-    class IMeshManipulator;
-} // end namespace asset
 
 namespace scene
 {
@@ -293,6 +288,9 @@ namespace scene
 		/** \return Pointer to the FileSystem
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual io::IFileSystem* getFileSystem() = 0;
+
+
+        virtual IrrlichtDevice* getDevice() = 0;
 
 
 		//! Adds a cube scene node
@@ -689,11 +687,6 @@ namespace scene
 		\return A pointer to the specified loader, 0 if the index is incorrect. */
 		virtual IMeshLoader* getMeshLoader(uint32_t index) const = 0;
 
-		//! Get pointer to the mesh manipulator.
-		/** \return Pointer to the mesh manipulator
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual asset::IMeshManipulator* getMeshManipulator() = 0;
-
 		//! Adds a scene node to the deletion queue.
 		/** The scene node is immediatly
 		deleted when it's secure. Which means when the scene node does not
@@ -735,11 +728,6 @@ namespace scene
 		/** Note: You need to drop() the pointer after use again, see IReferenceCounted::drop()
 		for details. */
 		virtual IMeshWriter* createMeshWriter(EMESH_WRITER_TYPE type) = 0;
-
-		//! Get an instance of a geometry creator.
-		/** The geometry creator provides some helper methods to create various types of
-		basic geometry. This can be useful for custom scene nodes. */
-		virtual const asset::IGeometryCreator* getGeometryCreator(void) const = 0;
 
 		//! Check if node is culled in current view frustum
 		/** Please note that depending on the used culling method this

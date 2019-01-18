@@ -19,7 +19,7 @@ namespace irr
 
 	namespace scene
 	{
-		ISceneManager* createSceneManager(video::IVideoDriver* driver,
+		ISceneManager* createSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver,
 			io::IFileSystem* fs, gui::ICursorControl* cc);
 	}
 

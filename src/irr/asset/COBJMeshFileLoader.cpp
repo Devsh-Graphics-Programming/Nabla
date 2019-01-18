@@ -446,8 +446,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
 
-        _override->setAssetCacheKey(meshbuffer, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
-        _override->insertAssetIntoCache(meshbuffer, ctx.inner, 1u);
+        _override->insertAssetIntoCache(meshbuffer, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
         meshbuffer->drop();
 	}
 

@@ -135,11 +135,8 @@ public:
             return nullptr;
         }
 
-        //! Before insert
-        virtual void setAssetCacheKey(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, uint32_t hierarchyLevel);
-
         //! After a successful load of an asset or sub-asset
-        virtual void insertAssetIntoCache(IAsset* asset, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
+        virtual void insertAssetIntoCache(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
     };
 
 public:

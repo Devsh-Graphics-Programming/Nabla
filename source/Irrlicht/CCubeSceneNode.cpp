@@ -7,6 +7,9 @@
 #include "ISceneManager.h"
 #include "os.h"
 #include "SMaterial.h"
+#include "IrrlichtDevice.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/IGeometryCreator.h"
 
 namespace irr
 {
@@ -54,7 +57,7 @@ void CCubeSceneNode::setSize()
 	if (Mesh)
 		Mesh->drop();
 
-    asset::ICPUMesh* cpumesh = SceneManager->getGeometryCreator()->createCubeMesh(core::vector3df(Size));
+    asset::ICPUMesh* cpumesh = SceneManager->getDevice()->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(Size));
     auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
     Mesh = res.size() ? res.front() : nullptr;
     assert(Mesh);
