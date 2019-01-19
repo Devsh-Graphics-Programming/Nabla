@@ -8,7 +8,6 @@
 #include "ISceneManager.h"
 #include "ISceneNode.h"
 #include "ICursorControl.h"
-#include "IMeshLoader.h"
 #include "ISkinningStateManager.h"
 
 #include <map>
@@ -38,15 +37,6 @@ namespace scene
 		//! constructor
 		CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, io::IFileSystem* fs,
 			gui::ICursorControl* cursorControl);
-
-		//! gets a mesh. loads it if needed. returned pointer must not be dropped.
-		virtual asset::ICPUMesh* getMesh(const io::path& filename);
-
-		//! gets a mesh. loads it if needed. returned pointer must not be dropped.
-		virtual asset::ICPUMesh* getMesh(io::IReadFile* file);
-
-		//! Returns an interface to the mesh cache which is shared beween all existing scene managers.
-		virtual IMeshCache<asset::ICPUMesh>* getMeshCache();
 
 		//! returns the video driver
 		virtual video::IVideoDriver* getVideoDriver();
@@ -213,15 +203,6 @@ namespace scene
 			float speed, float tightness, bool loop, bool pingpong);
 
 
-		//! Adds an external mesh loader.
-		virtual void addExternalMeshLoader(IMeshLoader* externalLoader);
-
-		//! Returns the number of mesh loaders supported by Irrlicht at this time
-		virtual uint32_t getMeshLoaderCount() const;
-
-		//! Retrieve the given mesh loader
-		virtual IMeshLoader* getMeshLoader(uint32_t index) const;
-
 		//! Adds a scene node to the deletion queue.
 		virtual void addToDeletionQueue(IDummyTransformationSceneNode* node);
 /*
@@ -255,9 +236,6 @@ namespace scene
 
 		//! Returns type of the scene node
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SCENE_MANAGER; }
-
-		//! Returns a mesh writer implementation if available
-		virtual IMeshWriter* createMeshWriter(EMESH_WRITER_TYPE type);
 
 		//! Get current render time.
 		virtual E_SCENE_NODE_RENDER_PASS getCurrentRendertime() const { return CurrentRendertime; }
@@ -359,7 +337,6 @@ namespace scene
 		core::vector<TransparentNodeEntry> TransparentNodeList;
 		core::vector<TransparentNodeEntry> TransparentEffectNodeList;
 
-		core::vector<IMeshLoader*> MeshLoaderList;
 		core::vector<IDummyTransformationSceneNode*> DeletionList;
 
 		//! current active camera
@@ -371,8 +348,6 @@ namespace scene
         };
 		core::unordered_map<std::string,ParamStorage> Parameters;
 
-		//! Mesh cache
-		IMeshCache<asset::ICPUMesh>* MeshCache;
 		video::IGPUBuffer* redundantMeshDataBuf;
 
 		E_SCENE_NODE_RENDER_PASS CurrentRendertime;

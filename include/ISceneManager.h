@@ -16,7 +16,6 @@
 #include "ESceneNodeAnimatorTypes.h"
 #include "EMeshWriterEnums.h"
 #include "SceneParameters.h"
-#include "IMeshCache.h"
 #include "irr/video/IGPUSkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "irr/asset/ICPUMesh.h"
@@ -121,163 +120,6 @@ namespace scene
 	class ISceneManager : public virtual core::IReferenceCounted
 	{
 	public:
-
-		//! Get pointer to an animateable mesh. Loads the file if not loaded already.
-		/**
-		 * If you want to remove a loaded mesh from the cache again, use removeMesh().
-		 *  Currently there are the following mesh formats supported:
-		 *  <TABLE border="1" cellpadding="2" cellspacing="0">
-		 *  <TR>
-		 *    <TD>Format</TD>
-		 *    <TD>Description</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>3D Studio (.3ds)</TD>
-		 *    <TD>Loader for 3D-Studio files which lots of 3D packages
-		 *      are able to export. Only static meshes are currently
-		 *      supported by this importer.</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>Bliz Basic B3D (.b3d)</TD>
-		 *    <TD>Loader for blitz basic files, developed by Mark
-		 *      Sibly. This is the ideal animated mesh format for game
-		 *      characters as it is both rigidly defined and widely
-		 *      supported by modeling and animation software.
-		 *      As this format supports skeletal animations, an
-		 *      ISkinnedMesh will be returned by this importer.</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>DirectX (.x)</TD>
-		 *    <TD>Platform independent importer (so not D3D-only) for
-		 *      .x files. Most 3D packages can export these natively
-		 *      and there are several tools for them available, e.g.
-		 *      the Maya exporter included in the DX SDK.
-		 *      .x files can include skeletal animations and Irrlicht
-		 *      is able to play and display them, users can manipulate
-		 *      the joints via the ISkinnedMesh interface. Currently,
-		 *      Irrlicht only supports uncompressed .x files.</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>LightWave (.lwo)</TD>
-		 *    <TD>Native to NewTek's LightWave 3D, the LWO format is well
-		 *      known and supported by many exporters. This loader will
-		 *      import LWO2 models including lightmaps, bumpmaps and
-		 *      reflection textures.</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>Maya (.obj)</TD>
-		 *    <TD>Most 3D software can create .obj files which contain
-		 *      static geometry without material data. The material
-		 *      files .mtl are also supported. This importer for
-		 *      Irrlicht can load them directly. </TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>Milkshape (.ms3d)</TD>
-		 *    <TD>.MS3D files contain models and sometimes skeletal
-		 *      animations from the Milkshape 3D modeling and animation
-		 *      software. Like the other skeletal mesh loaders, oints
-		 *      are exposed via the ISkinnedMesh animated mesh type.</TD>
-		 *  </TR>
-		 *  <TR>
-		 *  <TD>My3D (.my3d)</TD>
-		 *      <TD>.my3D is a flexible 3D file format. The My3DTools
-		 *        contains plug-ins to export .my3D files from several
-		 *        3D packages. With this built-in importer, Irrlicht
-		 *        can read and display those files directly. This
-		 *        loader was written by Zhuck Dimitry who also created
-		 *        the whole My3DTools package. If you are using this
-		 *        loader, please note that you can set the path of the
-		 *        textures before loading .my3d files. You can do this
-		 *        using
-		 *        SceneManager-&gt;getParameters()-&gt;setAttribute(scene::MY3D_TEXTURE_PATH,
-		 *        &quot;path/to/your/textures&quot;);
-		 *        </TD>
-		 *    </TR>
-		 *    <TR>
-		 *      <TD>OCT (.oct)</TD>
-		 *      <TD>The oct file format contains 3D geometry and
-		 *        lightmaps and can be loaded directly by Irrlicht. OCT
-		 *        files<br> can be created by FSRad, Paul Nette's
-		 *        radiosity processor or exported from Blender using
-		 *        OCTTools which can be found in the exporters/OCTTools
-		 *        directory of the SDK. Thanks to Murphy McCauley for
-		 *        creating all this.</TD>
-		 *    </TR>
-		 *    <TR>
-		 *      <TD>OGRE Meshes (.mesh)</TD>
-		 *      <TD>Ogre .mesh files contain 3D data for the OGRE 3D
-		 *        engine. Irrlicht can read and display them directly
-		 *        with this importer. To define materials for the mesh,
-		 *        copy a .material file named like the corresponding
-		 *        .mesh file where the .mesh file is. (For example
-		 *        ogrehead.material for ogrehead.mesh). Thanks to
-		 *        Christian Stehno who wrote and contributed this
-		 *        loader.</TD>
-		 *    </TR>
-		 *    <TR>
-		 *      <TD>Pulsar LMTools (.lmts)</TD>
-		 *      <TD>LMTools is a set of tools (Windows &amp; Linux) for
-		 *        creating lightmaps. Irrlicht can directly read .lmts
-		 *        files thanks to<br> the importer created by Jonas
-		 *        Petersen. If you are using this loader, please note
-		 *        that you can set the path of the textures before
-		 *        loading .lmts files. You can do this using
-		 *        SceneManager-&gt;getParameters()-&gt;setAttribute(scene::LMTS_TEXTURE_PATH,
-		 *        &quot;path/to/your/textures&quot;);
-		 *        Notes for<br> this version of the loader:<br>
-		 *        - It does not recognise/support user data in the
-		 *          *.lmts files.<br>
-		 *        - The TGAs generated by LMTools don't work in
-		 *          Irrlicht for some reason (the textures are upside
-		 *          down). Opening and resaving them in a graphics app
-		 *          will solve the problem.</TD>
-		 *    </TR>
-		 *    <TR>
-		 *      <TD>Stanford Triangle (.ply)</TD>
-		 *      <TD>Invented by Stanford University and known as the native
-		 *        format of the infamous "Stanford Bunny" model, this is a
-		 *        popular static mesh format used by 3D scanning hardware
-		 *        and software. This loader supports extremely large models
-		 *        in both ASCII and binary format, but only has rudimentary
-		 *        material support in the form of vertex colors and texture
-		 *        coordinates.</TD>
-		 *    </TR>
-		 *    <TR>
-		 *      <TD>Stereolithography (.stl)</TD>
-		 *      <TD>The STL format is used for rapid prototyping and
-		 *        computer-aided manufacturing, thus has no support for
-		 *        materials.</TD>
-		 *    </TR>
-		 *  </TABLE>
-		 *
-		 *  To load and display a mesh quickly, just do this:
-		 *  \code
-		 *  SceneManager->addAnimatedMeshSceneNode(
-		 *		SceneManager->getMesh("yourmesh.3ds"));
-		 * \endcode
-		 * If you would like to implement and add your own file format loader to Irrlicht,
-		 * see addExternalMeshLoader().
-		 * \param filename: Filename of the mesh to load.
-		 * \return Null if failed, otherwise pointer to the mesh.
-		 * This pointer should not be dropped. See IReferenceCounted::drop() for more information.
-		 **/
-		virtual asset::ICPUMesh* getMesh(const io::path& filename) = 0;
-
-		//! Get pointer to an animateable mesh. Loads the file if not loaded already.
-		/** Works just as getMesh(const char* filename). If you want to
-		remove a loaded mesh from the cache again, use removeMesh().
-		\param file File handle of the mesh to load.
-		\return NULL if failed and pointer to the mesh if successful.
-		This pointer should not be dropped. See
-		IReferenceCounted::drop() for more information. */
-		virtual asset::ICPUMesh* getMesh(io::IReadFile* file) = 0;
-
-		//! Get interface to the mesh cache which is shared beween all existing scene managers.
-		/** With this interface, it is possible to manually add new loaded
-		meshes (if ISceneManager::getMesh() is not sufficient), to remove them and to iterate
-		through already loaded meshes. */
-		virtual IMeshCache<asset::ICPUMesh>* getMeshCache() = 0;
-
 		//! Get the video driver.
 		/** \return Pointer to the video Driver.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
@@ -668,25 +510,6 @@ namespace scene
 			const core::vector< core::vector3df >& points,
 			float speed = 1.0f, float tightness = 0.5f, bool loop=true, bool pingpong=false) = 0;
 
-
-		//! Adds an external mesh loader for extending the engine with new file formats.
-		/** If you want the engine to be extended with
-		file formats it currently is not able to load (e.g. .cob), just implement
-		the IMeshLoader interface in your loading class and add it with this method.
-		Using this method it is also possible to override built-in mesh loaders with
-		newer or updated versions without the need to recompile the engine.
-		\param externalLoader: Implementation of a new mesh loader. */
-		virtual void addExternalMeshLoader(IMeshLoader* externalLoader) = 0;
-
-		//! Returns the number of mesh loaders supported by Irrlicht at this time
-		virtual uint32_t getMeshLoaderCount() const = 0;
-
-		//! Retrieve the given mesh loader
-		/** \param index The index of the loader to retrieve. This parameter is an 0-based
-		array index.
-		\return A pointer to the specified loader, 0 if the index is incorrect. */
-		virtual IMeshLoader* getMeshLoader(uint32_t index) const = 0;
-
 		//! Adds a scene node to the deletion queue.
 		/** The scene node is immediatly
 		deleted when it's secure. Which means when the scene node does not
@@ -723,11 +546,6 @@ namespace scene
 		ISceneManager::drop().
 		See IReferenceCounted::drop() for more information. */
 		virtual ISceneManager* createNewSceneManager(bool cloneContent=false) = 0;
-
-		//! Get a mesh writer implementation if available
-		/** Note: You need to drop() the pointer after use again, see IReferenceCounted::drop()
-		for details. */
-		virtual IMeshWriter* createMeshWriter(EMESH_WRITER_TYPE type) = 0;
 
 		//! Check if node is culled in current view frustum
 		/** Please note that depending on the used culling method this

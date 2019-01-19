@@ -10,8 +10,6 @@
 #include "IDummyTransformationSceneNode.h"
 #include "IMaterialRenderer.h"
 #include "irr/asset/IMesh.h"
-#include "IMeshCache.h"
-#include "IAnimatedMesh.h"
 
 
 namespace irr

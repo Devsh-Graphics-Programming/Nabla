@@ -489,10 +489,7 @@
     <ClInclude Include="..\..\include\ICameraSceneNode.h" />
     <ClInclude Include="..\..\include\IDummyTransformationSceneNode.h" />
     <ClInclude Include="..\..\include\ILightSceneNode.h" />
-    <ClInclude Include="..\..\include\IMeshCache.h" />
-    <ClInclude Include="..\..\include\IMeshLoader.h" />
     <ClInclude Include="..\..\include\IMeshSceneNode.h" />
-    <ClInclude Include="..\..\include\IMeshWriter.h" />
     <ClInclude Include="..\..\include\IParticleAffector.h" />
     <ClInclude Include="..\..\include\IParticleAnimatedMeshSceneNodeEmitter.h" />
     <ClInclude Include="..\..\include\IParticleAttractionAffector.h" />
@@ -571,7 +568,6 @@
     <ClInclude Include="aesGladman\brg_types.h" />
     <ClInclude Include="astc\vectypes.h" />
     <ClInclude Include="CIrrDeviceWin32.h" />
-    <ClInclude Include="CMeshCache.h" />
     <ClInclude Include="CMeshSceneNodeInstanced.h" />
     <ClInclude Include="COpenCLHandler.h" />
     <ClInclude Include="COpenGL3DTexture.h" />
@@ -755,7 +751,6 @@
     <ClCompile Include="CIrrDeviceWin32.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Static lib - Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="CMeshCache.cpp" />
     <ClCompile Include="CMeshSceneNodeInstanced.cpp" />
     <ClCompile Include="convertColor.cpp" />
     <ClCompile Include="convert_utf\ConvertUTF.c" />
