@@ -481,6 +481,8 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_SUNX_constant_data",
 	"GL_WIN_phong_shading",
 	"GL_WIN_specular_fog",
+    "GL_KHR_texture_compression_astc_hdr",
+    "GL_KHR_texture_compression_astc_ldr",
 	//"GLX_EXT_swap_control_tear",
 	// unofficial stuff
 	"GL_NVX_gpu_memory_info"
@@ -926,6 +928,8 @@ class COpenGLExtensionHandler
 		IRR_SUNX_constant_data,
 		IRR_WIN_phong_shading,
 		IRR_WIN_specular_fog,
+        IRR_KHR_texture_compression_astc_hdr,
+        IRR_KHR_texture_compression_astc_ldr,
 		//IRR_GLX_EXT_swap_control_tear,
 		IRR_NVX_gpu_memory_info,
 		IRR_OpenGL_Feature_Count
