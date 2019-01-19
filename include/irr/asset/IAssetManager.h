@@ -94,6 +94,7 @@ namespace asset
             core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType;
         } m_writers;
 
+        friend class IAssetLoader;
         friend class IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
 
         IGeometryCreator* m_geometryCreator;
@@ -149,7 +150,7 @@ namespace asset
         const IGeometryCreator* getGeometryCreator() const;
         const IMeshManipulator* getMeshManipulator() const;
 
-    public:
+    protected:
         IAsset* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, _file};
@@ -223,6 +224,7 @@ namespace asset
             return getAssetInHierarchy(_filename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
         }
 
+    public:
         //! These can be grabbed and dropped, but you must not use drop() to try to unload/release memory of a cached IAsset (which is cached if IAsset::isInAResourceCache() returns true). See IAsset::E_CACHING_FLAGS
         /** Instead for a cached asset you call IAsset::removeSelfFromCache() instead of IAsset::drop() as the cache has an internal grab of the IAsset and it will drop it on removal from cache, which will result in deletion if nothing else is holding onto the IAsset through grabs (in that sense the last drop will delete the object). */
         IAsset* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)

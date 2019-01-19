@@ -25,6 +25,8 @@ namespace irr { namespace asset
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {
+    friend struct TypedBlob<TexturePathBlobV1, asset::ICPUTexture>; // needed for loading textures
+
 private:
     template<typename HeaderT>
 	struct SBlobData_t

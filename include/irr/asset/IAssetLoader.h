@@ -15,7 +15,6 @@ public:
         ECF_CACHE_EVERYTHING = 0,
         //! master/parent is searched for in the caches, but not added to the cache if not found and loaded
         ECF_DONT_CACHE_TOP_LEVEL = 0x1ull,
-        // (Criss) ECF_DUPLICATE_TOP_LEVEL implies ECF_DONT_CACHE_TOP_LEVEL? This is a bug, right?
         //! master/parent object is loaded without searching for it in the cache, nor adding it to the cache after the load   
         ECF_DUPLICATE_TOP_LEVEL = 0x3ull,
         //! this concerns any asset that the top level asset refers to, such as a texture
@@ -156,6 +155,13 @@ public:
 
     //! Loads an asset from an opened file, returns nullptr in case of failure.
     virtual IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) = 0;
+
+protected:
+    // accessors for loaders
+    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
+    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 };
 
 }}

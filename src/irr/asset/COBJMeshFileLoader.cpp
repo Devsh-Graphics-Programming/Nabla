@@ -581,14 +581,14 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
         if (FileSystem->existFile(texname))
 		{
             texture = static_cast<asset::ICPUTexture*>(
-                Device->getAssetManager().getAssetInHierarchy(texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+                interm_getAssetInHierarchy(Device->getAssetManager(), texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
             );
 		}
 		else
 		{
 			// try to read in the relative path, the .obj is loaded from
             texture = static_cast<asset::ICPUTexture*>(
-                Device->getAssetManager().getAssetInHierarchy((relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+                interm_getAssetInHierarchy(Device->getAssetManager(), (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
             );
 		}
 	}

@@ -86,6 +86,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
     const std::string rootCacheKey = ctx.inner.mainFile->getFileName().c_str();
 
 	const asset::BlobLoadingParams params{
+        this,
         m_device,
         m_fileSystem,
         ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/",

@@ -37,7 +37,8 @@ namespace asset
 
 	struct BlobLoadingParams
 	{
-        IrrlichtDevice* dev;
+        IAssetLoader* ldr;
+        IrrlichtDevice* device;
 		io::IFileSystem* fs;
 		io::path filePath;
         asset::IAssetLoader::SAssetLoadParams params;
