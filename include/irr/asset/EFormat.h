@@ -203,6 +203,14 @@ namespace asset
         EF_EAC_R11_SNORM_BLOCK,
         EF_EAC_R11G11_UNORM_BLOCK,
         EF_EAC_R11G11_SNORM_BLOCK,
+        EF_PVRTC1_2BPP_UNORM_BLOCK_IMG,
+        EF_PVRTC1_4BPP_UNORM_BLOCK_IMG,
+        EF_PVRTC2_2BPP_UNORM_BLOCK_IMG,
+        EF_PVRTC2_4BPP_UNORM_BLOCK_IMG,
+        EF_PVRTC1_2BPP_SRGB_BLOCK_IMG,
+        EF_PVRTC1_4BPP_SRGB_BLOCK_IMG,
+        EF_PVRTC2_2BPP_SRGB_BLOCK_IMG,
+        EF_PVRTC2_4BPP_SRGB_BLOCK_IMG,
 
         //! Planar formats
         EF_G8_B8_R8_3PLANE_420_UNORM,
@@ -424,6 +432,16 @@ namespace asset
         case EF_EAC_R11G11_SNORM_BLOCK:
             return 8u;
 
+        case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
+            return 8u;
+
         default: return 0;
         }
     }
@@ -620,6 +638,14 @@ namespace asset
         case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
         case EF_BC7_UNORM_BLOCK:
         case EF_BC7_SRGB_BLOCK:
+        case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
             return 4u;
 
         default:
@@ -747,6 +773,16 @@ namespace asset
         case EF_ASTC_12x12_UNORM_BLOCK:
         case EF_ASTC_12x12_SRGB_BLOCK:
             return core::vector3d<uint32_t>(12u, 12u, 1u);
+        case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+            return core::vector3d<uint32_t>(8u, 4u, 1u);
+        case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
+            return core::vector3d<uint32_t>(4u, 4u, 1u);
         default:
             return core::vector3d<uint32_t>(1u);
         }
@@ -1000,7 +1036,15 @@ namespace asset
             EF_EAC_R11_SNORM_BLOCK,
             EF_EAC_R11G11_UNORM_BLOCK,
             EF_EAC_R11G11_SNORM_BLOCK,
-            EF_EAC_R11G11_SNORM_BLOCK
+            EF_PVRTC1_2BPP_UNORM_BLOCK_IMG,
+            EF_PVRTC1_4BPP_UNORM_BLOCK_IMG,
+            EF_PVRTC2_2BPP_UNORM_BLOCK_IMG,
+            EF_PVRTC2_4BPP_UNORM_BLOCK_IMG,
+            EF_PVRTC1_2BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC1_4BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC2_2BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC2_4BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC2_4BPP_SRGB_BLOCK_IMG
         > ::value;
     }
     template<asset::E_FORMAT cf>
@@ -1067,7 +1111,11 @@ namespace asset
             EF_ETC2_R8G8B8_SRGB_BLOCK,
             EF_ETC2_R8G8B8A1_SRGB_BLOCK,
             EF_ETC2_R8G8B8A8_SRGB_BLOCK,
-            EF_ETC2_R8G8B8A8_SRGB_BLOCK
+            EF_PVRTC1_2BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC1_4BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC2_2BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC2_4BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC2_4BPP_SRGB_BLOCK_IMG
         >::value;
     }
     template<asset::E_FORMAT cf>
@@ -1129,7 +1177,15 @@ namespace asset
             EF_EAC_R11_SNORM_BLOCK,
             EF_EAC_R11G11_UNORM_BLOCK,
             EF_EAC_R11G11_SNORM_BLOCK,
-            EF_EAC_R11G11_SNORM_BLOCK
+            EF_PVRTC1_2BPP_UNORM_BLOCK_IMG,
+            EF_PVRTC1_4BPP_UNORM_BLOCK_IMG,
+            EF_PVRTC2_2BPP_UNORM_BLOCK_IMG,
+            EF_PVRTC2_4BPP_UNORM_BLOCK_IMG,
+            EF_PVRTC1_2BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC1_4BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC2_2BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC2_4BPP_SRGB_BLOCK_IMG,
+            EF_PVRTC2_4BPP_SRGB_BLOCK_IMG
         >::value;
     }
     template<asset::E_FORMAT cf>
@@ -1442,6 +1498,14 @@ namespace asset
         case EF_BC5_UNORM_BLOCK:
         case EF_BC7_SRGB_BLOCK:
         case EF_BC7_UNORM_BLOCK:
+        case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
             return true;
         default: return false;
         }
@@ -1514,6 +1578,10 @@ namespace asset
         case EF_ETC2_R8G8B8_SRGB_BLOCK:
         case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
         case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+        case EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
             return true;
         default: return false;
         }
@@ -1576,6 +1644,14 @@ namespace asset
         case EF_EAC_R11_SNORM_BLOCK:
         case EF_EAC_R11G11_UNORM_BLOCK:
         case EF_EAC_R11G11_SNORM_BLOCK:
+        case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+        case EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+        case EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
             return true;
         default: return false;
         }
