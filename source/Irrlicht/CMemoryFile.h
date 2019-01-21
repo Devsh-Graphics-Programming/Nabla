@@ -9,6 +9,8 @@
 #include "IWriteFile.h"
 #include "irr/core/Types.h"
 #include "irr/core/memory/new_delete.h"
+#include "irr/core/alloc/null_allocator.h"
+#include "coreutil.h"
 
 namespace irr
 {
@@ -90,13 +92,11 @@ namespace io
 	};
 
 
-    struct adopt_memory_t {};
-    constexpr adopt_memory_t adopt_memory {};
-
     template<typename Alloc = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>>
     class CCustomAllocatorMemoryReadFile : public IReadFile
     {
         static_assert(sizeof(Alloc::value_type)==1, "Alloc::value_type must be of size 1");
+        static_assert(std::is_same_v<Alloc, core::null_allocator<typename Alloc::value_type>>, "Use CNullAllocatorReadFile instead");
 
     protected:
         virtual ~CCustomAllocatorMemoryReadFile ()
@@ -164,6 +164,19 @@ namespace io
         Alloc m_allocator;
     };
 
+    class CNullAllocatorMemoryReadFile : public CCustomAllocatorMemoryReadFile<core::null_allocator<uint8_t>>
+    {
+        using Base = CCustomAllocatorMemoryReadFile<core::null_allocator<uint8_t>>;
+
+    protected:
+        virtual ~CNullAllocatorMemoryReadFile() = default;
+
+    public:
+        CNullAllocatorMemoryReadFile(void* _data, size_t _length, const io::path& _filename, core::adopt_memory_t) :
+            Base(_data, _length, _filename, core::adopt_memory)
+        {}
+    };
+
     class CMemoryReadFile : public CCustomAllocatorMemoryReadFile<>
     {
         using Base = CCustomAllocatorMemoryReadFile<>;
@@ -172,8 +185,8 @@ namespace io
         virtual ~CMemoryReadFile() = default;
 
     public:
-        CMemoryReadFile(void* _data, size_t _length, const io::path& _filename, adopt_memory_t) :
-            Base(_data, _length, _filename, adopt_memory)
+        CMemoryReadFile(void* _data, size_t _length, const io::path& _filename, core::adopt_memory_t) :
+            Base(_data, _length, _filename, core::adopt_memory)
         {
         }
         CMemoryReadFile(const void* _data, size_t _length, const io::path& _filename) :

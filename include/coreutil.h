@@ -20,6 +20,9 @@ namespace irr
 {
 namespace core
 {
+struct adopt_memory_t {};
+constexpr adopt_memory_t adopt_memory{};
+
 
 /*! \file coreutil.h
 	\brief File containing useful basic utility functions
