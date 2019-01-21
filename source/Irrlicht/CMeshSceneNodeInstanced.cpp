@@ -334,10 +334,13 @@ void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, c
 
 core::matrix4x3 CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& instanceID)
 {
-        core::matrix4x3 retval(core::matrix4x3::EM4CONST_NOTHING);
+    core::matrix4x3 retval(core::matrix4x3::EM4CONST_NOTHING);
     size_t redir = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
     if (redir==kInvalidInstanceID)
+    {
+        _IRR_BREAK_IF(true);
         memset(retval.pointer(),0,48);
+    }
     else
         memcpy(retval.pointer(),reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redir,sizeof(core::matrix4x3));
 

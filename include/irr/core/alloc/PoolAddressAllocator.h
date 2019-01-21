@@ -56,6 +56,8 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
                 if (freeEntry<blockCount)
                     freeStack[freeStackCtr++] = freeEntry*blockSize+Base::alignOffset;
             }
+
+            // Ultra Debug
         }
 
         PoolAddressAllocator& operator=(PoolAddressAllocator&& other)

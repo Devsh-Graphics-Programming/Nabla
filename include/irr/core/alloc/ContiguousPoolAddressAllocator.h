@@ -49,11 +49,14 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         {
             for (size_type i=0u; i<Base::blockCount; i++)
             {
-                if (i<other.blockCount)
+                if (i<other.blockCount && other.addressRedirects[i] != invalid_address)
                     addressRedirects[i] = other.addressRedirects[i]+Base::alignOffset-other.alignOffset;
                 else
                     addressRedirects[i] = invalid_address;
             }
+
+            // Ultra Debug
+            validateRedirects();
         }
 
         ContiguousPoolAddressAllocator& operator=(ContiguousPoolAddressAllocator&& other)
@@ -61,6 +64,10 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             static_cast<Base&>(*this) = std::move(other);
             addressRedirects = other.addressRedirects;
             addressesAllocated = other.addressesAllocated;
+
+            // Ultra Debug
+            validateRedirects();
+
             return *this;
         }
 
@@ -149,6 +156,9 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 }
             }
             addressesAllocated -= count;
+
+            // Ultra Debug
+            validateRedirects();
         }
 
         //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
@@ -162,11 +172,16 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 return invalid_address;
 
             addressRedirects[Base::addressToBlockID(ID)] = (addressesAllocated++)*Base::blockSize;
+
+            // Ultra Debug
+            validateRedirects();
+
             return ID;
         }
 
         inline void             reset()
         {
+            _IRR_DEBUG_BREAK_IF(true);
             Base::reset();
             selfOnlyReset();
         }
@@ -216,16 +231,26 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
 
         inline void validateRedirects()
         {
+            auto freeStack = reinterpret_cast<size_type*>(Base::reservedSpace);
+            for (size_type i=0; i<Base::freeStackCtr; i++)
+            {
+                _IRR_BREAK_IF(freeStack[i]>=Base::blockCount*Base::blockSize+Base::alignOffset);
+                _IRR_BREAK_IF(addressRedirects[Base::addressToBlockID(freeStack[i])]!=invalid_address);
+            }
+
+            size_type reportedAllocated=0;
             for (size_type i=0; i<Base::blockCount; i++)
             {
                 size_type key = addressRedirects[i];
                 if (key==invalid_address)
                     continue;
+                reportedAllocated++;
 
-                assert(key<addressesAllocated*Base::blockSize);
+                _IRR_BREAK_IF(key>=addressesAllocated*Base::blockSize+Base::alignOffset);
                 for (size_type j=0; j<i; j++)
-                    assert(key!=addressRedirects[j]);
+                    _IRR_BREAK_IF(key==addressRedirects[j]);
             }
+            _IRR_BREAK_IF(addressesAllocated!=reportedAllocated);
         }
 };
 
