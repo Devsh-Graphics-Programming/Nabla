@@ -4,7 +4,7 @@
 #include "irr/asset/bawformat/CBAWFile.h"
 #include "irr/asset/EFormat.h"
 
-namespace irr { namespace asset { namespace legacy
+namespace irr { namespace asset { namespace legacyv0
 {
 
 enum E_COMPONENTS_PER_ATTRIBUTE

@@ -23,7 +23,7 @@ namespace asset
     class ICPUSkinnedMesh;
     class ICPUSkinnedMeshBuffer;
 	template<typename> class IMeshDataFormatDesc;
-    namespace legacy
+    namespace legacyv0
     {
         struct MeshDataFormatDescBlobV0;
     }
@@ -205,6 +205,8 @@ namespace asset
         uint32_t meshBufCnt;
         uint64_t meshBufPtrs[1];
 	} PACK_STRUCT;
+    static_assert(sizeof(core::aabbox3df)==24, "sizeof(core::aabbox3df) must be 24");
+    static_assert(sizeof(MeshBlobV0::meshBufPtrs)==8, "sizeof(MeshBlobV0::meshBufPtrs) must be 8");
     static_assert(
         sizeof(MeshBlobV0) ==
         sizeof(MeshBlobV0::box) + sizeof(MeshBlobV0::meshBufCnt) + sizeof(MeshBlobV0::meshBufPtrs),
@@ -224,6 +226,7 @@ namespace asset
         uint32_t meshBufCnt;
         uint64_t meshBufPtrs[1];
 	} PACK_STRUCT;
+    static_assert(sizeof(SkinnedMeshBlobV0::meshBufPtrs)==8, "sizeof(SkinnedMeshBlobV0::meshBufPtrs) must be 8");
     static_assert(
         sizeof(SkinnedMeshBlobV0) ==
         sizeof(SkinnedMeshBlobV0::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV0::box) + sizeof(SkinnedMeshBlobV0::meshBufCnt) + sizeof(SkinnedMeshBlobV0::meshBufPtrs),
@@ -248,6 +251,7 @@ namespace asset
 		uint32_t primitiveType;
 		uint32_t posAttrId;
 	} PACK_STRUCT;
+    static_assert(sizeof(MeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
     static_assert(
         sizeof(MeshBufferBlobV0) ==
         sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex)
@@ -276,6 +280,7 @@ namespace asset
 		uint32_t indexValMax;
 		uint32_t maxVertexBoneInfluences;
 	} PACK_STRUCT;
+    static_assert(sizeof(SkinnedMeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
     static_assert(
         sizeof(SkinnedMeshBufferBlobV0) ==
         sizeof(SkinnedMeshBufferBlobV0::mat) + sizeof(SkinnedMeshBufferBlobV0::box) + sizeof(SkinnedMeshBufferBlobV0::descPtr) + sizeof(SkinnedMeshBufferBlobV0::indexType) + sizeof(SkinnedMeshBufferBlobV0::baseVertex)
@@ -385,7 +390,7 @@ namespace asset
         //! Constructor filling all members
         explicit MeshDataFormatDescBlobV1(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>*);
         //! Backward compatibility constructor
-        explicit MeshDataFormatDescBlobV1(const asset::legacy::MeshDataFormatDescBlobV0&);
+        explicit MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDataFormatDescBlobV0&);
     
         uint32_t attrFormat[VERTEX_ATTRIB_CNT];
         uint32_t attrStride[VERTEX_ATTRIB_CNT];

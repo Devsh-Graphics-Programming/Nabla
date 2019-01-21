@@ -283,7 +283,7 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
             const uint32_t absOffset = baseOffsetv1 + newoffset;
             baw1mem->seek(absOffset);
             baw1mem->write(
-                asset::MeshDataFormatDescBlobV1(reinterpret_cast<asset::legacy::MeshDataFormatDescBlobV0*>(blob)[0]).getData(),
+                asset::MeshDataFormatDescBlobV1(reinterpret_cast<asset::legacyv0::MeshDataFormatDescBlobV0*>(blob)[0]).getData(),
                 sizeof(asset::MeshDataFormatDescBlobV1)
             );
 

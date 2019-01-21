@@ -3,14 +3,7 @@
 
 using namespace irr;
 using namespace asset;
-using namespace legacy;
-
-template<>
-size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
-{
-	return sizeof(MeshDataFormatDescBlobV0);
-}
-
+using namespace legacyv0;
 
 using namespace video;
 namespace
@@ -49,7 +42,7 @@ namespace
     };
 }
 
-namespace irr { namespace asset { namespace legacy
+namespace irr { namespace asset { namespace legacyv0
 {
 
 asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa)

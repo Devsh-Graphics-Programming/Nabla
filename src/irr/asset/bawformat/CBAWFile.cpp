@@ -280,16 +280,16 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::IMeshDataFormatD
     idxBufPtr = reinterpret_cast<uint64_t>(_desc->getIndexBuffer());
 }
 
-MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacy::MeshDataFormatDescBlobV0& _v0blob) : attrDivisor{0u}
+MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDataFormatDescBlobV0& _v0blob) : attrDivisor{0u}
 {
     using namespace scene;
 
     for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
     {
         attrFormat[i] =
-            asset::legacy::mapECT_plus_ECPA_onto_E_FORMAT(
-                static_cast<asset::legacy::E_COMPONENT_TYPE>(_v0blob.attrType[i]),
-                static_cast<asset::legacy::E_COMPONENTS_PER_ATTRIBUTE>(_v0blob.cpa[i])
+            asset::legacyv0::mapECT_plus_ECPA_onto_E_FORMAT(
+                static_cast<asset::legacyv0::E_COMPONENT_TYPE>(_v0blob.attrType[i]),
+                static_cast<asset::legacyv0::E_COMPONENTS_PER_ATTRIBUTE>(_v0blob.cpa[i])
             );
     }
     for (uint32_t i = 0u; i < EVAI_COUNT; ++i)

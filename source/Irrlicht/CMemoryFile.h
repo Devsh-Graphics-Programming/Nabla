@@ -96,7 +96,6 @@ namespace io
     class CCustomAllocatorMemoryReadFile : public IReadFile
     {
         static_assert(sizeof(Alloc::value_type)==1, "Alloc::value_type must be of size 1");
-        static_assert(std::is_same_v<Alloc, core::null_allocator<typename Alloc::value_type>>, "Use CNullAllocatorReadFile instead");
 
     protected:
         virtual ~CCustomAllocatorMemoryReadFile ()
@@ -105,12 +104,12 @@ namespace io
         }
 
     public:
-        CCustomAllocatorMemoryReadFile(void* _data, size_t _length, const io::path& _filename, adopt_memory_t, Alloc&& _alloc = Alloc()) :
+        CCustomAllocatorMemoryReadFile(void* _data, size_t _length, const io::path& _filename, core::adopt_memory_t, Alloc&& _alloc = Alloc()) :
             m_storage{_data}, m_length{_length}, m_position{0u}, m_filename{_filename}, m_allocator{std::move(_alloc)}
         {
         }
         CCustomAllocatorMemoryReadFile(const void* _data, size_t _length, const io::path& _filename, Alloc&& _alloc = Alloc()) :
-            CCustomAllocatorMemoryReadFile(const_cast<void*>(_data), _length, _filename, adopt_memory, std::move(_alloc))
+            CCustomAllocatorMemoryReadFile(const_cast<void*>(_data), _length, _filename, core::adopt_memory, std::move(_alloc))
         {
             const void* tmp = m_storage;
             m_storage = m_allocator.allocate(m_length);
