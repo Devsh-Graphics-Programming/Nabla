@@ -258,7 +258,14 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {
         size_t newCount = getCurrentInstanceCapacity();
-        instanceBBoxes = (core::aabbox3df*)realloc(instanceBBoxes,newCount*sizeof(core::aabbox3df));
+        // kind-of realloc
+        {
+            size_t newSize = newCount*sizeof(core::aabbox3df);
+            void* newPtr = _IRR_ALIGNED_MALLOC(newSize,_IRR_SIMD_ALIGNMENT);
+            memcpy(newPtr,instanceBBoxes,newSize);
+            _IRR_ALIGNED_FREE(instanceBBoxes);
+            instanceBBoxes = (core::aabbox3df*)newPtr;
+        }
         for (size_t i=instanceBBoxesCount; i<newCount; i++)
         {
             instanceBBoxes[i].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
@@ -406,7 +413,13 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {
         size_t newCount = getCurrentInstanceCapacity();
-        instanceBBoxes = (core::aabbox3df*)realloc(instanceBBoxes,newCount*sizeof(core::aabbox3df));
+        { // kind-of realloc
+            size_t newSize = newCount*sizeof(core::aabbox3df);
+            void* newPtr = _IRR_ALIGNED_MALLOC(newSize,_IRR_SIMD_ALIGNMENT);
+            memcpy(newPtr,instanceBBoxes,newSize);
+            _IRR_ALIGNED_FREE(instanceBBoxes);
+            instanceBBoxes = (core::aabbox3df*)newPtr;
+        }
         for (size_t i=instanceBBoxesCount; i<newCount; i++)
         {
             instanceBBoxes[i].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
