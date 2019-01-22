@@ -54,9 +54,6 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 else
                     addressRedirects[i] = invalid_address;
             }
-
-            // Ultra Debug
-            validateRedirects();
         }
 
         ContiguousPoolAddressAllocator& operator=(ContiguousPoolAddressAllocator&& other)
@@ -65,8 +62,6 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             addressRedirects = other.addressRedirects;
             addressesAllocated = other.addressesAllocated;
 
-            // Ultra Debug
-            validateRedirects();
 
             return *this;
         }
@@ -156,9 +151,6 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 }
             }
             addressesAllocated -= count;
-
-            // Ultra Debug
-            validateRedirects();
         }
 
         //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
@@ -173,15 +165,12 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
 
             addressRedirects[Base::addressToBlockID(ID)] = (addressesAllocated++)*Base::blockSize;
 
-            // Ultra Debug
-            validateRedirects();
-
             return ID;
         }
 
         inline void             reset()
         {
-            _IRR_DEBUG_BREAK_IF(true);
+            _IRR_BREAK_IF(true);
             Base::reset();
             selfOnlyReset();
         }

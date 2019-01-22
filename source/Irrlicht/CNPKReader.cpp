@@ -113,9 +113,7 @@ CNPKReader::CNPKReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
 	if (File)
 	{
 		File->grab();
-		if (scanLocalHeader())
-			sort();
-		else
+		if (!scanLocalHeader())
 			os::Printer::log("Failed to load NPK archive.");
 	}
 }
@@ -223,23 +221,11 @@ bool CNPKReader::scanLocalHeader()
 //! opens a file by file name
 IReadFile* CNPKReader::createAndOpenFile(const io::path& filename)
 {
-	int32_t index = findFile(filename, false);
+    auto it = findFile(Files.begin(),Files.end(),filename,false);
+	if (it!=Files.end())
+        return createLimitReadFile( it->FullName, File, it->Offset, it->Size );
 
-	if (index != -1)
-		return createAndOpenFile(index);
-
-	return 0;
-}
-
-
-//! opens a file by index
-IReadFile* CNPKReader::createAndOpenFile(uint32_t index)
-{
-	if (index >= Files.size() )
-		return 0;
-
-	const SFileListEntry &entry = Files[index];
-	return createLimitReadFile( entry.FullName, File, entry.Offset, entry.Size );
+	return nullptr;
 }
 
 void CNPKReader::readString(core::stringc& name)

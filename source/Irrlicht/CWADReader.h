@@ -132,9 +132,6 @@ namespace io
             //! opens a file by file name
             virtual IReadFile* createAndOpenFile(const io::path& filename);
 
-            //! opens a file by index
-            virtual IReadFile* createAndOpenFile(uint32_t index);
-
             //! returns the list of files
             virtual const IFileList* getFileList() const;
 

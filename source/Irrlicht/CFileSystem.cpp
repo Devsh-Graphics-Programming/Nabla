@@ -849,18 +849,15 @@ IFileList* CFileSystem::createFileList()
 		{
 			const IFileList *merge = FileArchives[i]->getFileList();
 
-			for (uint32_t j=0; j < merge->getFileCount(); ++j)
+			auto files = merge->getFiles();
+			for (auto it=files.begin(); it!=files.end(); it++)
 			{
-				if (core::isInSameDirectory(Path, merge->getFullFileName(j)) == 0)
-				{
-					r->addItem(merge->getFullFileName(j), merge->getFileOffset(j), merge->getFileSize(j), merge->isDirectory(j), 0);
-				}
+				if (core::isInSameDirectory(Path, it->FullName) == 0)
+					r->addItem(it->FullName, it->Offset, it->Size, it->IsDirectory, 0);
 			}
 		}
 	}
 
-	if (r)
-		r->sort();
 	return r;
 }
 
@@ -875,8 +872,12 @@ IFileList* CFileSystem::createEmptyFileList(const io::path& path, bool ignoreCas
 bool CFileSystem::existFile(const io::path& filename) const
 {
 	for (uint32_t i=0; i < FileArchives.size(); ++i)
-		if (FileArchives[i]->getFileList()->findFile(filename)!=-1)
+	{
+        auto _list = FileArchives[i]->getFileList();
+        auto files = _list->getFiles();
+		if (_list->findFile(files.begin(),files.end(),filename)!=files.end())
 			return true;
+	}
 
 #if defined(_MSC_VER)
     #if defined(_IRR_WCHAR_FILESYSTEM)

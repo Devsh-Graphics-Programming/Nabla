@@ -110,7 +110,6 @@ CPakReader::CPakReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
 	{
 		File->grab();
 		scanLocalHeader();
-		sort();
 	}
 }
 
@@ -161,23 +160,11 @@ bool CPakReader::scanLocalHeader()
 //! opens a file by file name
 IReadFile* CPakReader::createAndOpenFile(const io::path& filename)
 {
-	int32_t index = findFile(filename, false);
-
-	if (index != -1)
-		return createAndOpenFile(index);
+    auto it = findFile(Files.begin(),Files.end(),filename,false);
+	if (it!=Files.end())
+        return createLimitReadFile( it->FullName, File, it->Offset, it->Size );
 
 	return 0;
-}
-
-
-//! opens a file by index
-IReadFile* CPakReader::createAndOpenFile(uint32_t index)
-{
-	if (index >= Files.size() )
-		return 0;
-
-	const SFileListEntry &entry = Files[index];
-	return createLimitReadFile( entry.FullName, File, entry.Offset, entry.Size );
 }
 
 } // end namespace io

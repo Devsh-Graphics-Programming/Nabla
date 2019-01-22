@@ -621,7 +621,7 @@ inline plane3df transformPlane(const plane3df& _in, const matrix3x4SIMD& _mat)
 inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
 {
     vectorSIMDf inMinPt(&box.MinEdge.X);
-    vectorSIMDf inMaxPt(&box.MaxEdge.X);
+    vectorSIMDf inMaxPt(box.MaxEdge.X,box.MaxEdge.Y,box.MaxEdge.Z); // TODO: after change to SSE aabbox3df
     inMinPt.makeSafe3D();
     inMaxPt.makeSafe3D();
 
