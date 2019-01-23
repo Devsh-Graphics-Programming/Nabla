@@ -50,6 +50,7 @@ namespace video
         inline virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override { return false; }
         inline virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override { return false; }
         inline virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override { return false; }
 
 		//!
         virtual bool initAuxContext() {return false;}

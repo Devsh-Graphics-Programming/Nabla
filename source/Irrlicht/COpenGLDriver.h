@@ -412,6 +412,10 @@ namespace video
             default: return false;
             }
         }
+        inline virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override
+        {
+            return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
+        }
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
