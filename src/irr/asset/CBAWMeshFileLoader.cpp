@@ -231,7 +231,7 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
 
     if (!verifyFile<asset::BAWFileV0>(ctx, 0ull))
     {
-        delete[] baw1mem;
+        baw1mem->drop();
         return nullptr;
     }
 
@@ -241,12 +241,12 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
 
     if (!validateHeaders<asset::BAWFileV0, asset::BlobHeaderV0>(&blobCnt, &offsets, reinterpret_cast<void**>(&headers), ctx))
     {
-        delete[] baw1mem;
+        baw1mem->drop();
         return nullptr;
     }
 
     const uint32_t baseOffsetv0 = asset::BAWFileV0{{},blobCnt}.calcBlobsOffset();
-    const uint32_t baseOffsetv1 = asset::BAWFileV1{{}, blobCnt}.calcBlobsOffset();
+    const uint32_t baseOffsetv1 = asset::BAWFileV1{{},blobCnt}.calcBlobsOffset();
 
     std::vector<uint32_t> newoffsets(blobCnt);
     int32_t offsetDiff = 0;
