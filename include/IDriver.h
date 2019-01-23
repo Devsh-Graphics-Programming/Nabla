@@ -8,6 +8,7 @@
 #include "IDriverMemoryAllocation.h"
 #include "IGPUBuffer.h"
 #include "irr/video/StreamingTransientDataBuffer.h"
+#include "IMeshBuffer.h"
 #include "ITexture.h"
 #include "IMultisampleTexture.h"
 #include "ITextureBufferObject.h"

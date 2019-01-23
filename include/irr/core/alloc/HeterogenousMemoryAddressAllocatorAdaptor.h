@@ -12,31 +12,29 @@ namespace core
 
 /** The BufferAllocator concept
 
-struct BufferDataAllocatorExample
+class BufferDataAllocatorExample
 {
-    video::IDriver* mDriver;
+    public:
+        typedef ______ value_type;
 
-    inline void*    allocate(size_t bytes) noexcept
-    {
-        // some implementation
-        return pointerWhichCanBeWrittenTo;
-    }
+        inline value_type   allocate(size_t bytes, size_t alignment) noexcept
+        {
+            // some implementation
+            return pointerWhichCanBeWrittenTo;
+        }
 
-    inline void*    reallocate(void* addr, size_t bytes, const AddressAllocator& allocToQueryOffsets, ...) noexcept
-    {
-        // some implementation
-        return possiblyDifferentPointerToAddrArg;
-    }
+        inline void                 reallocate(value_type& allocation, size_t bytes,  size_t alignment, const AddressAllocator& allocToQueryOffsets, ...) noexcept
+        {
+            // some implementation
+            return possiblyDifferentPointerToAddrArg;
+        }
 
-    inline void     deallocate(void* addr) noexcept
-    {
-        // some implementation
-    }
+        inline void                 deallocate(value_type& allocation) noexcept
+        {
+            // some implementation
+        }
 
-    inline size_t   min_alignment() const
-    {
-        return mDriver->getMinimumMemoryMapAlignment();
-    }
+        IVideoDriver*   getDriver() noexcept;
 };
 */
 namespace impl
@@ -44,28 +42,30 @@ namespace impl
     class FriendOfHeterogenousMemoryAddressAllocatorAdaptor;
 
 
-    template<class AddressAllocator, class OtherAllocator, class HostAllocator>
+    template<class AddrAllocator, class OtherAllocator, class HostAllocator>
     class HeterogenousMemoryAddressAllocatorAdaptorBase
     {
+        public:
+            typedef AddrAllocator AddressAllocator;
+            typedef OtherAllocator  OtherAllocatorType;
+            typedef HostAllocator   HostAllocatorType;
+        private:
             friend class FriendOfHeterogenousMemoryAddressAllocatorAdaptor;
+            typedef  typename AddressAllocator::size_type    size_type;
 
-            typedef typename AddressAllocator::size_type    size_type;
+        public:
+            inline size_type        getDataBufferSize() const {return mDataSize;}
         protected:
             template<typename... Args>
-            HeterogenousMemoryAddressAllocatorAdaptorBase(const HostAllocator& reservedMemAllocator, const OtherAllocator& dataMemAllocator, size_type bufSz, const Args&... args) :
+            HeterogenousMemoryAddressAllocatorAdaptorBase(const HostAllocator& reservedMemAllocator, const OtherAllocator& dataMemAllocator, size_type bufSz, size_type maxAllocatableAlignment, const Args&... args) :
                                                                         mDataSize(bufSz), mDataAlloc(dataMemAllocator),
-                                                                        mReservedSize(AddressAllocator::reserved_size(bufSz,mDataAlloc.min_alignment(),args...)),
+                                                                        mReservedSize(AddressAllocator::reserved_size(bufSz,maxAllocatableAlignment,args...)),
                                                                         mReservedAlloc(reservedMemAllocator) {}
 
             size_type               mDataSize;
             OtherAllocator          mDataAlloc;
             size_type               mReservedSize;
             HostAllocator           mReservedAlloc;
-        public:
-            typedef OtherAllocator  OtherAllocatorType;
-            typedef HostAllocator   HostAllocatorType;
-
-            inline size_type        getDataBufferSize() const {return mDataSize;}
     };
 
 
@@ -98,15 +98,19 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
     protected:
         typedef address_allocator_traits<AddressAllocator>                                                          alloc_traits;
         inline AddressAllocator&                                                                                    getBaseAddrAllocRef() noexcept {return *this;}
+
+        typedef typename BufferAllocator::value_type allocation_type;
+        allocation_type mAllocation;
     public:
-        typedef typename AddressAllocator::size_type                                                                size_type;
+        typedef typename AddressAllocator::size_type    size_type;
+        static constexpr size_type invalid_address          = AddressAllocator::invalid_address;
 
         template<typename... Args>
-        HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator, size_type bufSz, Args&&... args) :
-                                            ImplBase(reservedMemAllocator,dataMemAllocator,bufSz,args...),
-                                            AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_IRR_SIMD_ALIGNMENT),
-                                                            ImplBase::mDataAlloc.allocate(bufSz),ImplBase::mDataAlloc.min_alignment(),bufSz,std::forward<Args>(args)...)
+        HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator, size_type bufSz, size_type maxAllocatableAlignment, Args&&... args) :
+                                            ImplBase(reservedMemAllocator,dataMemAllocator,bufSz,maxAllocatableAlignment,args...),
+                                            AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_IRR_SIMD_ALIGNMENT),nullptr,maxAllocatableAlignment,bufSz,std::forward<Args>(args)...)
         {
+            mAllocation = ImplBase::mDataAlloc.allocate(bufSz,maxAllocatableAlignment);
         }
 
         virtual ~HeterogenousMemoryAddressAllocatorAdaptor()
@@ -115,8 +119,10 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
                 ImplBase::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(AddressAllocator::reservedSpace),ImplBase::mReservedSize);
 
             // deallocate should handle nullptr without issue
-            ImplBase::mDataAlloc.deallocate(reinterpret_cast<uint8_t*>(AddressAllocator::bufferStart));
+            ImplBase::mDataAlloc.deallocate(mAllocation);
         }
+
+        inline allocation_type getCurrentBufferAllocation() noexcept {return mAllocation;}
 
 
         //!

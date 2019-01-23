@@ -72,6 +72,7 @@ class EventDeferredHandlerST
 
                 for (auto it=swaplist_begin; it!=swaplist_end; it++)
                 {
+                    //! WARNING The deferredFrees has changed into a forward list!
                     auto lbound = std::lower_bound(deferredFrees.begin(),deferredFrees.end(),*it,deferredFreeCompareFunc);
                     auto ubound = std::upper_bound(lbound,deferredFrees.end(),*it,deferredFreeCompareFunc);
                     for (auto it2=lbound; it2!=ubound; it2++)

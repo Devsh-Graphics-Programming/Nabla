@@ -124,10 +124,11 @@ std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(IVideoCapab
     }
 #endif // _IRR_COMPILE_WITH_OPENGL_
 #ifdef _IRR_COMPILE_WITH_VULKAN_
-    else if (reporter->getDriverType()==EDT_VULKAN)
-    {
-        //! something
-    }
+    
+    //else if (reporter->getDriverType()==EDT_VULKAN)
+    //{
+    //    //! something
+   // }
 #endif // _IRR_COMPILE_WITH_VULKAN_
 #if defined(_IRR_COMPILE_WITH_OPENGL_)||defined(_IRR_COMPILE_WITH_VULKAN_)
     else

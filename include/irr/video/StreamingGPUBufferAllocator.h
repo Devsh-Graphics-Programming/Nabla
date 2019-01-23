@@ -1,102 +1,85 @@
 #ifndef __IRR_STREAMING_GPUBUFFER_ALLOCATOR_H__
 #define __IRR_STREAMING_GPUBUFFER_ALLOCATOR_H__
 
-#include "IGPUBuffer.h"
-#include "irr/video/GPUMemoryAllocatorBase.h"
+#include "irr/video/SimpleGPUBufferAllocator.h"
 
 namespace irr
 {
 namespace video
 {
 
-class IVideoDriver;
-
-//! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
-class StreamingGPUBufferAllocator : public GPUMemoryAllocatorBase
+class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
 {
-        IDriverMemoryBacked::SDriverMemoryRequirements  mBufferMemReqs;
-        std::pair<uint8_t*,IGPUBuffer*>                 lastAllocation;
-
-        decltype(lastAllocation)    createAndMapBuffer();
+    protected:
+        inline uint8_t* mapWholeBuffer(IGPUBuffer* buff) noexcept
+        {
+            auto rangeToMap = IDriverMemoryAllocation::MemoryRange{0u,buff->getSize()};
+            auto memory = const_cast<IDriverMemoryAllocation*>(buff->getBoundMemory());
+            auto mappingCaps = memory->getMappingCaps()&IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
+            return reinterpret_cast<uint8_t*>(memory->mapMemoryRange(static_cast<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(mappingCaps),rangeToMap));
+        }
     public:
-        StreamingGPUBufferAllocator(IVideoDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs) :
-                        GPUMemoryAllocatorBase(inDriver), mBufferMemReqs(bufferReqs), lastAllocation(nullptr,nullptr)
+        typedef std::pair<IGPUBuffer*,uint8_t*> value_type;
+
+        StreamingGPUBufferAllocator(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs) : SimpleGPUBufferAllocator(inDriver,bufferReqs)
         {
             assert(mBufferMemReqs.mappingCapability&IDriverMemoryAllocation::EMCAF_READ_AND_WRITE); // have to have mapping access to the buffer!
         }
 
-        inline void*        allocate(size_t bytes) noexcept
+        inline value_type   allocate(size_t bytes, size_t alignment) noexcept
         {
-        #ifdef _DEBUG
-            assert(!lastAllocation.first && !lastAllocation.second);
-        #endif // _DEBUG
-            mBufferMemReqs.vulkanReqs.size = bytes;
-            lastAllocation = createAndMapBuffer();
-            return lastAllocation.first;
+            auto buff =  SimpleGPUBufferAllocator::allocate(bytes,alignment);
+            if (!buff)
+                return {nullptr,nullptr};
+            auto mappedPtr = mapWholeBuffer(buff);
+            if (!mappedPtr)
+            {
+                SimpleGPUBufferAllocator::deallocate(buff);
+                return {nullptr,nullptr};
+            }
+            return {buff,mappedPtr};
         }
 
         template<class AddressAllocator>
-        inline void*        reallocate(void* addr, size_t bytes, const AddressAllocator& allocToQueryOffsets, bool copyBuffers=true) noexcept
+        inline void                 reallocate(value_type& allocation, size_t bytes, size_t alignment, const AddressAllocator& allocToQueryOffsets, bool copyBuffers=true) noexcept
         {
-        #ifdef _DEBUG
-            assert(lastAllocation.first && lastAllocation.second);
-        #endif // _DEBUG
-
-            // set up new size
-            auto oldSize = mBufferMemReqs.vulkanReqs.size;
-            mBufferMemReqs.vulkanReqs.size = bytes;
-            //allocate new buffer
-            auto tmp = createAndMapBuffer();
-            auto newOffset = AddressAllocator::aligned_start_offset(reinterpret_cast<size_t>(tmp.first),allocToQueryOffsets.max_alignment());
+            auto newAlloc = allocate(bytes,alignment);
+            if (!newAlloc.first)
+            {
+                deallocate(allocation);
+                return;
+            }
 
             //move contents
             if (copyBuffers)
             {
-                // only first buffer is bound to allocator
-                auto oldOffset = allocToQueryOffsets.get_align_offset();
-                auto copyRangeLen = std::min(oldSize-oldOffset,bytes-newOffset);
+                auto oldOffset_copyRange = getOldOffset_CopyRange_OldSize(allocation,bytes,allocToQueryOffsets);
 
-                if ((lastAllocation.second->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_READ) &&
-                    (tmp.second->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_WRITE)) // can read from old and write to new
+                if (allocation.second && (allocation.first->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_READ) &&
+                    (newAlloc.first->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_WRITE)) // can read from old and write to new
                 {
-                    memcpy(tmp.first+newOffset,lastAllocation.first+oldOffset,copyRangeLen);
+                    memcpy(newAlloc.second,allocation.second+oldOffset_copyRange.first,oldOffset_copyRange.second);
                 }
                 else
-                    copyBufferWrapper(lastAllocation.second,tmp.second,oldOffset,newOffset,copyRangeLen);
+                    copyBufferWrapper(allocation.first,newAlloc.first,oldOffset_copyRange.first,0u,oldOffset_copyRange.second);
             }
 
-            //swap the internals of buffers
-            const_cast<IDriverMemoryAllocation*>(lastAllocation.second->getBoundMemory())->unmapMemory();
-            lastAllocation.second->pseudoMoveAssign(tmp.second);
-            tmp.second->drop();
-
-            //book-keeping and return
-            lastAllocation.first = tmp.first;
-            return lastAllocation.first;
+            //swap the internals of buffers and book keeping
+            const_cast<IDriverMemoryAllocation*>(allocation.first->getBoundMemory())->unmapMemory();
+            allocation.first->pseudoMoveAssign(newAlloc.first);
+            newAlloc.first->drop();
+            allocation.second = newAlloc.second;
         }
 
-        inline void         deallocate(void* addr) noexcept
+        inline void                 deallocate(value_type& allocation) noexcept
         {
-        #ifdef _DEBUG
-            assert(lastAllocation.first && lastAllocation.second);
-        #endif // _DEBUG
-            lastAllocation.first = nullptr;
-            const_cast<IDriverMemoryAllocation*>(lastAllocation.second->getBoundMemory())->unmapMemory();
-            lastAllocation.second->drop();
-            lastAllocation.second = nullptr;
+            allocation.second = nullptr;
+            const_cast<IDriverMemoryAllocation*>(allocation.first->getBoundMemory())->unmapMemory();
+            SimpleGPUBufferAllocator::deallocate(allocation.first);
         }
 
-
-        // extras
-        inline IGPUBuffer*  getAllocatedBuffer()
-        {
-            return lastAllocation.second;
-        }
-
-        inline void*        getAllocatedPointer()
-        {
-            return lastAllocation.first;
-        }
+        //to expose base functions again
+        IDriver*   getDriver() noexcept {return SimpleGPUBufferAllocator::getDriver();}
 };
 
 }

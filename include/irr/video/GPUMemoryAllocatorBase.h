@@ -8,20 +8,18 @@ namespace irr
 namespace video
 {
 
-class IVideoDriver;
+class IDriver;
 
 class GPUMemoryAllocatorBase
 {
     protected:
-        IVideoDriver*   mDriver;
+        IDriver*   mDriver;
         void            copyBuffersWrapper(IGPUBuffer* oldBuffer, IGPUBuffer* newBuffer, size_t oldOffset, size_t newOffset, size_t copyRangeLen);
 
-        GPUMemoryAllocatorBase(IVideoDriver* inDriver) : mDriver(inDriver) {}
+        GPUMemoryAllocatorBase(IDriver* inDriver) : mDriver(inDriver) {}
         virtual ~GPUMemoryAllocatorBase() {}
     public:
-        size_t           min_alignment() const noexcept;
-
-        IVideoDriver*    getDriver() noexcept;
+        IDriver*    getDriver() noexcept {return mDriver;}
 };
 
 }

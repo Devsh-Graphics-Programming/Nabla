@@ -17,3 +17,5 @@ General rules for extensions are:
 Current List of Extensions:
 + AutoExposure
 + Compute Shader 2D Box Blur
++ Full-screen Triangle for Fragment Shader Post Processing
++ Debug Line Draw using streaming buffer

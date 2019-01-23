@@ -137,7 +137,7 @@
 				<Compiler>
 					<Add option="-Wextra" />
 					<Add option="-Wall" />
-					<Add option="-std=c++11" />
+					<Add option="-std=c++14" />
 					<Add option="-g" />
 					<Add option="-fno-omit-frame-pointer" />
 					<Add option="-fno-exceptions" />
@@ -178,7 +178,7 @@
 				<Compiler>
 					<Add option="-O3" />
 					<Add option="-Wextra" />
-					<Add option="-std=c++11" />
+					<Add option="-std=c++14" />
 					<Add option="-W" />
 					<Add option="-fno-exceptions" />
 					<Add option="-fuse-ld=gold" />
@@ -208,7 +208,7 @@
 					<Add option="-fexpensive-optimizations" />
 					<Add option="-O3" />
 					<Add option="-Wextra" />
-					<Add option="-std=c++11" />
+					<Add option="-std=c++14" />
 					<Add option="-W" />
 					<Add option="-ffast-math" />
 					<Add option="-fno-exceptions" />
@@ -388,6 +388,7 @@
 		<Unit filename="../../include/irr/video/SimpleGPUBufferAllocator.h" />
 		<Unit filename="../../include/irr/video/StreamingGPUBufferAllocator.h" />
 		<Unit filename="../../include/irr/video/StreamingTransientDataBuffer.h" />
+		<Unit filename="../../include/irr/video/SubAllocatedDataBuffer.h" />
 		<Unit filename="../../include/irr/void_t.h" />
 		<Unit filename="../../include/irrlicht.h" />
 		<Unit filename="../../include/line2d.h" />
@@ -408,7 +409,7 @@
 		<Unit filename="../../include/vector3d.h" />
 		<Unit filename="../../include/vectorSIMD.h" />
 		<Unit filename="../../src/irr/video/GPUMemoryAllocatorBase.cpp" />
-		<Unit filename="../../src/irr/video/StreamingGPUBufferAllocator.cpp" />
+		<Unit filename="../../src/irr/video/SimpleGPUBufferAllocator.cpp" />
 		<Unit filename="C3DSMeshFileLoader.cpp" />
 		<Unit filename="C3DSMeshFileLoader.h" />
 		<Unit filename="CAnimatedMeshSceneNode.cpp" />

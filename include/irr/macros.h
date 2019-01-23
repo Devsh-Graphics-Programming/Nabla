@@ -74,8 +74,8 @@
   #define _IRR_BREAK_IF( _CONDITION_ ) if (_CONDITION_) {_asm int 3}
   #endif
 #else
-#include "assert.h"
-#define _IRR_BREAK_IF( _CONDITION_ ) assert( !(_CONDITION_) );
+#include "signal.h"
+#define _IRR_BREAK_IF( _CONDITION_ ) if ( (_CONDITION_) ) raise(SIGTRAP);
 #endif
 
 #if defined(_DEBUG)

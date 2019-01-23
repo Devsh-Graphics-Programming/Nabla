@@ -74,7 +74,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     xfb.clear();
 
     if (instanceDataAllocator)
-        delete instanceDataAllocator;
+        instanceDataAllocator->drop();
     if (instanceBBoxes)
         _IRR_ALIGNED_FREE(instanceBBoxes);
     if (gpuCulledLodInstanceDataBuffer)
@@ -112,7 +112,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     dataPerInstanceInputSize = extraDataInstanceSize+visibilityPadding+48+36;
     auto buffSize = dataPerInstanceInputSize*512u;
-    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(driver,core::allocator<uint8_t>(),buffSize,dataPerInstanceInputSize);
+    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(driver,core::allocator<uint8_t>(),buffSize,core::roundUpToPoT(dataPerInstanceInputSize),dataPerInstanceInputSize);
 	instanceBBoxesCount = getCurrentInstanceCapacity();
 	instanceBBoxes = (core::aabbox3df*)_IRR_ALIGNED_MALLOC(instanceBBoxesCount*sizeof(core::aabbox3df),_IRR_SIMD_ALIGNMENT);
 	for (size_t i=0; i<instanceBBoxesCount; i++)
@@ -258,7 +258,14 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {
         size_t newCount = getCurrentInstanceCapacity();
-        instanceBBoxes = (core::aabbox3df*)realloc(instanceBBoxes,newCount*sizeof(core::aabbox3df));
+        // kind-of realloc
+        {
+            size_t newSize = newCount*sizeof(core::aabbox3df);
+            void* newPtr = _IRR_ALIGNED_MALLOC(newSize,_IRR_SIMD_ALIGNMENT);
+            memcpy(newPtr,instanceBBoxes,newSize);
+            _IRR_ALIGNED_FREE(instanceBBoxes);
+            instanceBBoxes = (core::aabbox3df*)newPtr;
+        }
         for (size_t i=instanceBBoxesCount; i<newCount; i++)
         {
             instanceBBoxes[i].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
@@ -334,10 +341,13 @@ void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, c
 
 core::matrix4x3 CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& instanceID)
 {
-        core::matrix4x3 retval(core::matrix4x3::EM4CONST_NOTHING);
+    core::matrix4x3 retval(core::matrix4x3::EM4CONST_NOTHING);
     size_t redir = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
     if (redir==kInvalidInstanceID)
+    {
+        _IRR_BREAK_IF(true);
         memset(retval.pointer(),0,48);
+    }
     else
         memcpy(retval.pointer(),reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redir,sizeof(core::matrix4x3));
 
@@ -403,7 +413,13 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {
         size_t newCount = getCurrentInstanceCapacity();
-        instanceBBoxes = (core::aabbox3df*)realloc(instanceBBoxes,newCount*sizeof(core::aabbox3df));
+        { // kind-of realloc
+            size_t newSize = newCount*sizeof(core::aabbox3df);
+            void* newPtr = _IRR_ALIGNED_MALLOC(newSize,_IRR_SIMD_ALIGNMENT);
+            memcpy(newPtr,instanceBBoxes,newSize);
+            _IRR_ALIGNED_FREE(instanceBBoxes);
+            instanceBBoxes = (core::aabbox3df*)newPtr;
+        }
         for (size_t i=instanceBBoxesCount; i<newCount; i++)
         {
             instanceBBoxes[i].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
