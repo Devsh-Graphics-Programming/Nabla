@@ -45,6 +45,9 @@ set(IRRLICHT_SRCS_COMMON
 	CSkinnedMesh.cpp
 	CSkinnedMeshSceneNode.cpp
 	TypedBlob.cpp
+	
+# Shader loading and processing
+	CGLSLFunctionGenerator.cpp
 
 # Scene objects
 	CBillboardSceneNode.cpp
