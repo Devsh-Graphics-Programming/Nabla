@@ -13,7 +13,17 @@ namespace ext
 {
 namespace Bullet3
 {
+
+class CCollisionShape;
 class CRigidBody : public core::IReferenceCounted {
+
+    struct InitParams {
+        CCollisionShape *shape = nullptr;
+        float mass;
+        float friction;
+        core::matrix4x3 transform;
+    };
+
 public:
     CRigidBody();
 protected:

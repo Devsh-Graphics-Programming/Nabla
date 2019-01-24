@@ -16,8 +16,16 @@ namespace Bullet3
 class CCollisionShape : public core::IReferenceCounted {
 public:
     CCollisionShape();
+
+    virtual void setMargin(float margin);
+    virtual void setBox(core::vector3df halfExts);
+    virtual void setSphere(float radius);
+
 protected:
     virtual ~CCollisionShape();
+
+    virtual void clear();
+    virtual void dirty();
 
     btCollisionShape *m_collisionShape;
 
