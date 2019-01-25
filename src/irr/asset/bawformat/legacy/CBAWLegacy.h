@@ -7,6 +7,9 @@
 namespace irr { namespace asset { namespace legacyv0
 {
 
+using BAWFileV0 = BAWFileVn<0>;
+using BlobHeaderV0 = BlobHeaderVn<0>;
+
 enum E_COMPONENTS_PER_ATTRIBUTE
 {
     //! Special ID for reverse XYZW order

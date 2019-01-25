@@ -45,7 +45,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         }
     };
 
-    ctx.inner.mainFile = tryCreateNewestFormatVersionFile(ctx.inner.mainFile, _override);
+    ctx.inner.mainFile = tryCreateNewestFormatVersionFile(ctx.inner.mainFile, _override, std::make_integer_sequence<uint64_t, _IRR_BAW_FORMAT_VERSION>{});
 
     asset::BlobHeaderV1* headers = nullptr;
 
@@ -58,26 +58,26 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
     };
     auto exiter = core::makeRAIIExiter(exitRoutine);
 
-    if (!verifyFile<asset::BAWFileV1>(ctx, _IRR_BAW_FORMAT_VERSION))
+    if (!verifyFile<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>>(ctx))
     {
         return nullptr;
     }
 
     uint32_t blobCnt{};
 	uint32_t* offsets = nullptr;
-    if (!validateHeaders<asset::BAWFileV1, asset::BlobHeaderV1>(&blobCnt, &offsets, (void**)&headers, ctx))
+    if (!validateHeaders<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>, asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>>(&blobCnt, &offsets, (void**)&headers, ctx))
     {
         return nullptr;
     }
 
-	const uint32_t BLOBS_FILE_OFFSET = asset::BAWFileV1{ {}, blobCnt }.calcBlobsOffset();
+	const uint32_t BLOBS_FILE_OFFSET = asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>{ {}, blobCnt }.calcBlobsOffset();
 
 	core::unordered_map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
 	for (uint32_t i = 0; i < blobCnt; ++i)
 	{
 		SBlobData data(headers + i, BLOBS_FILE_OFFSET + offsets[i]);
-		const core::unordered_map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, data)).first;
+		const core::unordered_map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, std::move(data))).first;
 		if (data.header->blobType == asset::Blob::EBT_MESH || data.header->blobType == asset::Blob::EBT_SKINNED_MESH)
 			meshBlobDataIter = it;
 	}
@@ -218,41 +218,23 @@ bool CBAWMeshFileLoader::decompressLz4(void * _dst, size_t _dstSize, const void 
 	return res >= 0;
 }
 
-io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override)
+template<>
+io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override, CommonDataTuple<0>& _common)
 {
-    io::CMemoryWriteFile* const baw1mem = new io::CMemoryWriteFile(0u, _baw0file->getFileName());
-
-	SContext ctx{
-        asset::IAssetLoader::SAssetLoadContext{
-            asset::IAssetLoader::SAssetLoadParams{},
-            _baw0file
-        }
-    };
-
-    if (!verifyFile<asset::BAWFileV0>(ctx, 0ull))
-    {
-        baw1mem->drop();
-        return nullptr;
-    }
-
     uint32_t blobCnt{};
+    asset::legacyv0::BlobHeaderV0* headers = nullptr;
     uint32_t* offsets = nullptr;
-    asset::BlobHeaderV0* headers = nullptr;
+    uint32_t baseOffsetv0{};
+    uint32_t baseOffsetv1{};
+    std::tie(blobCnt, headers, offsets, baseOffsetv0, baseOffsetv1) = _common;
 
-    if (!validateHeaders<asset::BAWFileV0, asset::BlobHeaderV0>(&blobCnt, &offsets, reinterpret_cast<void**>(&headers), ctx))
-    {
-        baw1mem->drop();
-        return nullptr;
-    }
-
-    const uint32_t baseOffsetv0 = asset::BAWFileV0{{},blobCnt}.calcBlobsOffset();
-    const uint32_t baseOffsetv1 = asset::BAWFileV1{{},blobCnt}.calcBlobsOffset();
+    io::CMemoryWriteFile* const baw1mem = new io::CMemoryWriteFile(0u, _baw0file->getFileName());
 
     std::vector<uint32_t> newoffsets(blobCnt);
     int32_t offsetDiff = 0;
     for (uint32_t i = 0u; i < blobCnt; ++i)
     {
-        asset::BlobHeaderV0& hdr = headers[i];
+        asset::legacyv0::BlobHeaderV0& hdr = headers[i];
         const uint32_t offset = offsets[i];
         uint32_t& newoffset = newoffsets[i];
 
@@ -271,10 +253,10 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
             however we don't need to do this here since we know format's version (baw v0) and so we can be sure that hierarchy level for mesh data descriptors is 2
             */
             constexpr uint32_t ICPUMESHDATAFORMATDESC_HIERARCHY_LVL = 2u;
-            while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), ctx.inner, ICPUMESHDATAFORMATDESC_HIERARCHY_LVL))
+            while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), _ctx.inner, ICPUMESHDATAFORMATDESC_HIERARCHY_LVL))
             {
                 if (!((hdr.compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
-                    blob = tryReadBlobOnStack<asset::BlobHeaderV0>(SBlobData_t<asset::BlobHeaderV0>(&hdr, baseOffsetv0+offset), ctx, decrKey, stackmem, sizeof(stackmem));
+                    blob = tryReadBlobOnStack<asset::legacyv0::BlobHeaderV0>(SBlobData_t<asset::legacyv0::BlobHeaderV0>(&hdr, baseOffsetv0+offset), _ctx, decrKey, stackmem, sizeof(stackmem));
                 if (blob)
                     break;
                 ++attempt;
@@ -302,7 +284,7 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
     baw1mem->seek(0u);
     baw1mem->write(fileHeader, sizeof(fileHeader));
     baw1mem->write(&blobCnt, 4);
-    baw1mem->write(ctx.iv, 16);
+    baw1mem->write(_ctx.iv, 16);
     baw1mem->write(newoffsets.data(), newoffsets.size()*4);
     baw1mem->write(headers, blobCnt*sizeof(headers[0])); // blob header in v0 and in v1 is exact same thing, so we can do this
 
@@ -343,39 +325,6 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
     auto ret = new io::CMemoryReadFile(baw1mem->getPointer(), baw1mem->getSize(), _baw0file->getFileName());
     baw1mem->drop();
     return ret;
-}
-
-io::IReadFile* CBAWMeshFileLoader::tryCreateNewestFormatVersionFile(io::IReadFile* _originalFile, asset::IAssetLoader::IAssetLoaderOverride* _override)
-{
-    using convertFuncT = io::IReadFile*(CBAWMeshFileLoader::*)(io::IReadFile*, asset::IAssetLoader::IAssetLoaderOverride*);
-    convertFuncT convertFunc[_IRR_BAW_FORMAT_VERSION]{ &CBAWMeshFileLoader::createConvertBAW0intoBAW1 };
-
-    if (!_originalFile)
-        return nullptr;
-
-    _originalFile->grab();
-
-    uint64_t version{};
-    _originalFile->seek(24u);
-    _originalFile->read(&version, 8u);
-    _originalFile->seek(0u);
-
-    io::IReadFile* newestFormatFile = _originalFile;
-    while (version != _IRR_BAW_FORMAT_VERSION)
-    {
-#define CALL_MEMBER_FN(object,ptrToMember)  ((object).*(ptrToMember))
-        io::IReadFile* tmp = CALL_MEMBER_FN(*this, convertFunc[version])(newestFormatFile, _override);
-        newestFormatFile->drop();
-        newestFormatFile = tmp;
-        ++version;
-        if (!newestFormatFile)
-            return nullptr;
-    }
-    if (newestFormatFile == _originalFile)
-        newestFormatFile->drop();
-
-    return newestFormatFile;
-#undef CALL_MEMBER_FN
 }
 
 }} // irr::scene

@@ -9,7 +9,6 @@
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CFinalBoneHierarchy.h"
-#include "coreutil.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENSSL_
 #include <openssl/evp.h>
@@ -22,29 +21,6 @@
 
 namespace irr { namespace asset
 {
-
-void BlobHeaderV0::finalize(const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType)
-{
-	blobSizeDecompr = _sizeDecompr;
-	blobSize = _sizeCompr;
-	compressionType = _comprType;
-
-	if (!(compressionType & Blob::EBCT_AES128_GCM)) // use gcmTag instead (set while encrypting).
-		core::XXHash_256(_data, blobSize, blobHash);
-}
-
-bool BlobHeaderV0::validate(const void* _data) const
-{
-	if (compressionType & Blob::EBCT_AES128_GCM) // use gcm authentication instead. Decryption will fail if data is corrupted.
-		return true;
-    uint64_t tmpHash[4];
-	core::XXHash_256(_data, blobSize, tmpHash);
-	for (size_t i=0; i<4; i++)
-		if (tmpHash[i] != blobHash[i])
-			return false;
-    return true;
-}
-
 
 MeshBlobV0::MeshBlobV0(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
 {

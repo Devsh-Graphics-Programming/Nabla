@@ -11,7 +11,7 @@
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "irr/asset/ICPUMesh.h"
-#include "irr/asset/bawformat/CBAWFile.h"
+#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "irr/asset/bawformat/CBlobsLoadingManager.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
@@ -33,21 +33,32 @@ private:
 	{
 		HeaderT* header;
 		size_t absOffset; // absolute
-		void* heapBlob;
-		mutable bool validated;
-        uint32_t hierarchyLvl;
+		void* heapBlob = nullptr;
+		mutable bool validated = false;
+        uint32_t hierarchyLvl = 0u;
 
-        SBlobData_t(HeaderT* _hd=NULL, size_t _offset=0xdeadbeefdeadbeef) : header(_hd), absOffset(_offset), heapBlob(NULL), validated(false) {}
-		~SBlobData_t() { _IRR_ALIGNED_FREE(heapBlob); }
+        SBlobData_t(HeaderT* _hd = nullptr, size_t _offset = 0xdeadbeefdeadbeefu) : header(_hd), absOffset(_offset) {}
+        SBlobData_t(const SBlobData_t<HeaderT>&) = delete;
+        SBlobData_t(SBlobData_t<HeaderT>&& _other) {
+            std::swap(heapBlob, _other.heapBlob);
+            header = _other.header;
+            absOffset = _other.absOffset;
+            validated = _other.validated;
+            hierarchyLvl = _other.hierarchyLvl;
+        }
+        SBlobData_t<HeaderT>& operator=(const SBlobData_t<HeaderT>&) = delete;
+		~SBlobData_t() { 
+            if (heapBlob)
+                _IRR_ALIGNED_FREE(heapBlob); 
+        }
 
 		bool validate() const {
 			validated = false;
 			return validated ? true : (validated = (heapBlob && header->validate(heapBlob)));
 		}
 
-        SBlobData_t<HeaderT>& operator=(const SBlobData_t<HeaderT>&) = delete;
 	};
-    using SBlobData = SBlobData_t<asset::BlobHeaderV1>;
+    using SBlobData = SBlobData_t<asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>>;
 
 	struct SContext
 	{
@@ -118,14 +129,14 @@ private:
 	//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
     //! Specialize if file header verification differs somehow from general template
     template<typename BAWFileT>
-	bool verifyFile(SContext& _ctx, uint64_t _expectedVer) const;
+	bool verifyFile(SContext& _ctx) const;
     //! Add another case here when new version of .baw appears
     bool verifyFile(uint64_t _expectedVer, SContext& _ctx) const
     {
         switch (_expectedVer)
         {
-        case 0ull: return verifyFile<asset::BAWFileV0>(_ctx, 0ull);
-        case 1ull: return verifyFile<asset::BAWFileV1>(_ctx, 1ull);
+        case 0ull: return verifyFile<asset::legacyv0::BAWFileV0>(_ctx);
+        case 1ull: return verifyFile<asset::BAWFileV1>(_ctx);
         default: return false;
         }
     }
@@ -204,9 +215,100 @@ private:
 
     // Compatibility functions:
 
-    io::IReadFile* createConvertBAW0intoBAW1(io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override);
+    template<uint64_t IntoVersion>
+    std::enable_if_t<IntoVersion, bool> formatConversionProlog(
+        SContext& _ctx,
+        uint32_t& _outBlobCnt,
+        BlobHeaderVn<IntoVersion-1ull>*& _outHeaders,
+        uint32_t*& _outOffsets,
+        uint32_t& _outBaseOffset_from,
+        uint32_t& _outBaseOffset_into
+    )
+    {
+        constexpr uint64_t FromVersion = IntoVersion-1ull;
 
-    io::IReadFile* tryCreateNewestFormatVersionFile(io::IReadFile* _originalFile, asset::IAssetLoader::IAssetLoaderOverride* _override);
+        if (!verifyFile<BAWFileVn<FromVersion>>(_ctx))
+        {
+            return false;
+        }
+        if (!validateHeaders<BAWFileVn<FromVersion>, BlobHeaderVn<FromVersion>>(&_outBlobCnt, &_outOffsets, reinterpret_cast<void**>(&_outHeaders), _ctx))
+        {
+            return false;
+        }
+
+        _outBaseOffset_from = BAWFileVn<FromVersion>{ {},_outBlobCnt }.calcBlobsOffset();
+        _outBaseOffset_into = BAWFileVn<IntoVersion>{ {},_outBlobCnt }.calcBlobsOffset();
+
+        return true;
+    }
+
+    //! tuple consists of: blobCnt, from-version headers, from-version offsets, from-version baseOffset, into-version baseOffset
+    template<uint64_t FromVersion>
+    using CommonDataTuple = std::tuple<uint32_t, BlobHeaderVn<FromVersion>*, uint32_t*, uint32_t, uint32_t>;
+
+    //! Converts file from format version (IntoVersion-1) into version IntoVersion (i.e. specialization with IntoVersion == 0 would be invalid).
+    //! Must return _original if _original's version is IntoVersion.
+    //! If new format version comes up, just increment _IRR_BAW_FORMAT_VERSION and specialize this template. All the other code will take care of itself.
+    template<uint64_t IntoVersion>
+    io::IReadFile* createConvertIntoVer_spec(SContext& _ctx, io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override, CommonDataTuple<IntoVersion-1ull>& _common); // here goes unpack tuple
+
+    template<uint64_t IntoVersion>
+    io::IReadFile* createConvertIntoVer(io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override)
+    {
+        constexpr uint64_t FromVersion = IntoVersion-1ull;
+
+        SContext ctx{
+            asset::IAssetLoader::SAssetLoadContext{
+                asset::IAssetLoader::SAssetLoadParams{},
+                _original
+            }
+        };
+        uint32_t blobCnt{};
+        BlobHeaderVn<FromVersion>* headers = nullptr;
+        uint32_t* offsets = nullptr;
+        uint32_t baseOffsetv0{};
+        uint32_t baseOffsetv1{};
+        if (!formatConversionProlog<IntoVersion>(ctx, blobCnt, headers, offsets, baseOffsetv0, baseOffsetv1))
+            return nullptr;
+
+        return createConvertIntoVer_spec<IntoVersion>(ctx, _original, _override, std::make_tuple(blobCnt, headers, offsets, baseOffsetv0, baseOffsetv1));
+    }
+
+    template<uint64_t ...Versions>
+    io::IReadFile* tryCreateNewestFormatVersionFile(io::IReadFile* _originalFile, asset::IAssetLoader::IAssetLoaderOverride* _override, std::integer_sequence<uint64_t, Versions...>)
+    {
+        static_assert(sizeof...(Versions)==_IRR_BAW_FORMAT_VERSION, "sizeof...(Versions) must be equal to _IRR_BAW_FORMAT_VERSION");
+
+        using convertFuncT = io::IReadFile*(CBAWMeshFileLoader::*)(io::IReadFile*, asset::IAssetLoader::IAssetLoaderOverride*);
+        convertFuncT convertFunc[_IRR_BAW_FORMAT_VERSION]{ &CBAWMeshFileLoader::createConvertIntoVer<Versions+1ull>... };
+
+        if (!_originalFile)
+            return nullptr;
+
+        _originalFile->grab();
+
+        uint64_t version{};
+        _originalFile->seek(24u);
+        _originalFile->read(&version, 8u);
+        _originalFile->seek(0u);
+
+        io::IReadFile* newestFormatFile = _originalFile;
+        while (version != _IRR_BAW_FORMAT_VERSION)
+        {
+#define CALL_MEMBER_FN(object,ptrToMember)  ((object).*(ptrToMember))
+            io::IReadFile* tmp = CALL_MEMBER_FN(*this, convertFunc[version])(newestFormatFile, _override);
+            newestFormatFile->drop();
+            newestFormatFile = tmp;
+            ++version;
+            if (!newestFormatFile)
+                return nullptr;
+        }
+        if (newestFormatFile == _originalFile)
+            newestFormatFile->drop();
+
+        return newestFormatFile;
+#undef CALL_MEMBER_FN
+    }
 
 private:
     IrrlichtDevice* m_device;
@@ -215,19 +317,19 @@ private:
 };
 
 template<typename BAWFileT>
-bool CBAWMeshFileLoader::verifyFile(SContext& _ctx, uint64_t _expectedVer) const
+bool CBAWMeshFileLoader::verifyFile(SContext& _ctx) const
 {
     char headerStr[sizeof(BAWFileT)];
     _ctx.inner.mainFile->seek(0);
     if (!safeRead(_ctx.inner.mainFile, headerStr, sizeof(headerStr)))
         return false;
 
-    const char * const headerStrPattern = "IrrlichtBaW BinaryFile";
+    const char* const headerStrPattern = BAWFileT::HEADER_STRING;
     if (strcmp(headerStr, headerStrPattern) != 0)
         return false;
 
     _ctx.fileVersion = ((uint64_t*)headerStr)[3];
-    if (_ctx.fileVersion != _expectedVer)
+    if (_ctx.fileVersion != BAWFileT::version)
         return false;
 
     return true;
@@ -286,7 +388,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
     if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
         dst = _stackPtr;
     else
-        dst = _IRR_ALIGNED_MALLOC(asset::BlobHeaderV1::calcEncSize(_data.header->blobSizeDecompr), _IRR_SIMD_ALIGNMENT);
+        dst = _IRR_ALIGNED_MALLOC(asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>::calcEncSize(_data.header->blobSizeDecompr), _IRR_SIMD_ALIGNMENT);
 
     const bool encrypted = (_data.header->compressionType & asset::Blob::EBCT_AES128_GCM);
     const bool compressed = (_data.header->compressionType & asset::Blob::EBCT_LZ4) || (_data.header->compressionType & asset::Blob::EBCT_LZMA);
