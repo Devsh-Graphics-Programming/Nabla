@@ -75,7 +75,7 @@ public:
             allUnknownFmt &= (mip->getColorFormat()==EF_UNKNOWN);
         }
 
-        return allUnknownFmt;
+        return !allUnknownFmt;
     }
 
 protected:
