@@ -114,7 +114,8 @@ namespace core
 			_IRR_DEBUG_BREAK_IF(ctrVal == 0)
 			if (ctrVal==1)
 			{
-				delete this; // aligned overrides of delete should do the job :D
+			    // https://eli.thegreenplace.net/2015/c-deleting-destructors-and-virtual-operator-delete/
+				delete this; // aligned overrides of delete should do the job :D due to C++ standard trickery
 				return true;
 			}
 

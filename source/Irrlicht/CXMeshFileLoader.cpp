@@ -16,6 +16,7 @@
 #include "IReadFile.h"
 #include "SVertexManipulator.h"
 #include "assert.h"
+#include <chrono>
 #include <vector>
 
 #ifdef _DEBUG
@@ -57,7 +58,7 @@ ICPUMesh* CXMeshFileLoader::createMesh(io::IReadFile* f)
 		return 0;
 
 //#ifdef _XREADER_DEBUG
-	uint32_t time = os::Timer::getRealTime();
+	auto time = std::chrono::high_resolution_clock::now();
 //#endif
 
 	AnimatedMesh = new CCPUSkinnedMesh();
@@ -170,10 +171,9 @@ ICPUMesh* CXMeshFileLoader::createMesh(io::IReadFile* f)
 		AnimatedMesh = 0;
 	}
 //#ifdef _XREADER_DEBUG
-	time = os::Timer::getRealTime() - time;
 	std::ostringstream tmpString("Time to load ");
 	tmpString.seekp(0,std::ios_base::end);
-	tmpString << (BinaryFormat ? "binary" : "ascii") << " X file: " << time << "ms";
+	tmpString << (BinaryFormat ? "binary" : "ascii") << " X file: " << (std::chrono::high_resolution_clock::now()-time).count() << "ms";
 	os::Printer::log(tmpString.str());
 //#endif
 	//Clear up

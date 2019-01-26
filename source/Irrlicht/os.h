@@ -19,16 +19,39 @@ namespace os
 {
 	class Byteswap
 	{
-	    Byteswap() = delete;
-	public:
-		static uint16_t byteswap(uint16_t num);
-		static int16_t byteswap(int16_t num);
-		static uint32_t byteswap(uint32_t num);
-		static int32_t byteswap(int32_t num);
-		static float byteswap(float num);
-		// prevent accidental swapping of chars
-		static uint8_t  byteswap(uint8_t  num);
-		static int8_t  byteswap(int8_t  num);
+			Byteswap() = delete;
+		public:
+			#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+			#include <SDL/SDL_endian.h>
+			#define bswap_16(X) SDL_Swap16(X)
+			#define bswap_32(X) SDL_Swap32(X)
+			#elif defined(_IRR_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER > 1298)
+			#include <stdlib.h>
+			#define bswap_16(X) _byteswap_ushort(X)
+			#define bswap_32(X) _byteswap_ulong(X)
+			#elif defined(_IRR_OSX_PLATFORM_)
+			#include <libkern/OSByteOrder.h>
+			#define bswap_16(X) OSReadSwapInt16(&X,0)
+			#define bswap_32(X) OSReadSwapInt32(&X,0)
+			#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+			#include <sys/endian.h>
+			#define bswap_16(X) bswap16(X)
+			#define bswap_32(X) bswap32(X)
+			#elif !defined(_IRR_SOLARIS_PLATFORM_) && !defined(__PPC__) && !defined(_IRR_WINDOWS_API_)
+			#include <byteswap.h>
+			#else
+			#define bswap_16(X) ((((X)&0xFF) << 8) | (((X)&0xFF00) >> 8))
+			#define bswap_32(X) ( (((X)&0x000000FF)<<24) | (((X)&0xFF000000) >> 24) | (((X)&0x0000FF00) << 8) | (((X) &0x00FF0000) >> 8))
+			#endif
+
+			static inline uint16_t byteswap(uint16_t num) { return bswap_16(num); }
+			static inline int16_t byteswap(int16_t num) { return bswap_16(num); }
+			static inline uint32_t byteswap(uint32_t num) { return bswap_32(num); }
+			static inline int32_t byteswap(int32_t num) { return bswap_32(num); }
+			static inline float byteswap(float num) { uint32_t tmp = IR(num); tmp = bswap_32(tmp); return (FR(tmp)); }
+			// prevent accidental byte swapping of chars
+			static inline uint8_t  byteswap(uint8_t num) { return num; }
+			static inline int8_t  byteswap(int8_t num) { return num; }
 	};
 
 	class Printer
@@ -40,68 +63,10 @@ namespace os
 		static void log(const std::string& message, ELOG_LEVEL ll = ELL_INFORMATION);
 		static void log(const std::wstring& message, ELOG_LEVEL ll = ELL_INFORMATION);
 		static void log(const std::string& message, const std::string& hint, ELOG_LEVEL ll = ELL_INFORMATION);
+
 		static ILogger* Logger;
 	};
 
-
-
-	class Timer
-	{
-	    Timer() = delete;
-	public:
-/*	    Timer()
-	    {
-            VirtualTimerSpeed = 1.0f;
-            VirtualTimerStopCounter = 0;
-            LastVirtualTime = 0;
-            StartRealTime = 0;
-            StaticTime = 0;
-	    }
-*/
-		//! returns the current time in milliseconds
-		static uint32_t getTime();
-
-		//! get current time and date in calendar form
-		static ITimer::RealTimeDate getRealTimeAndDate();
-
-		//! initializes the real timer
-		static void initTimer();
-
-		//! sets the current virtual (game) time
-		static void setTime(uint32_t time);
-
-		//! stops the virtual (game) timer
-		static void stopTimer();
-
-		//! starts the game timer
-		static void startTimer();
-
-		//! sets the speed of the virtual timer
-		static void setSpeed(float speed);
-
-		//! gets the speed of the virtual timer
-		static float getSpeed();
-
-		//! returns if the timer currently is stopped
-		static bool isStopped();
-
-		//! makes the virtual timer update the time value based on the real time
-		static void tick();
-
-		//! returns the current real time in milliseconds
-		static uint32_t getRealTime();
-		static uint64_t getRealTime64();
-
-	private:
-
-		static void initVirtualTimer();
-
-		static float VirtualTimerSpeed;
-		static int32_t VirtualTimerStopCounter;
-		static uint32_t StartRealTime;
-		static uint32_t LastVirtualTime;
-		static uint32_t StaticTime;
-	};
 
 } // end namespace os
 } // end namespace irr

@@ -270,7 +270,7 @@ void CIrrDeviceSDL::createDriver()
 //! runs the device. Returns false if device wants to be deleted
 bool CIrrDeviceSDL::run()
 {
-	os::Timer::tick();
+	Timer->tick();
 
 	SEvent irrevent;
 	SDL_Event SDL_event;

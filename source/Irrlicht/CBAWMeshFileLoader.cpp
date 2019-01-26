@@ -40,7 +40,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile* _file)
 ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _pwd[16])
 {
 #ifdef _DEBUG
-	uint32_t time = os::Timer::getRealTime();
+	auto time = std::chrono::high_resolution_clock::now();
 #endif // _DEBUG
 
 	SContext ctx{ _file };
@@ -131,10 +131,9 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 	_IRR_ALIGNED_FREE(headers);
 
 #ifdef _DEBUG
-	time = os::Timer::getRealTime() - time;
 	std::ostringstream tmpString("Time to load ");
 	tmpString.seekp(0, std::ios_base::end);
-	tmpString << "BAW file: " << time << "ms";
+	tmpString << "BAW file: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-time).count() << "us";
 	os::Printer::log(tmpString.str());
 #endif // _DEBUG
 
