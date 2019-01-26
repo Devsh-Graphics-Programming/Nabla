@@ -124,7 +124,7 @@ namespace irr
 
             video::IVideoDriver* VideoDriver;
             scene::ISceneManager* SceneManager;
-            ITimer* Timer;
+            irr::ITimer* Timer;
             gui::ICursorControl* CursorControl;
             IEventReceiver* UserReceiver;
             CLogger* Logger;

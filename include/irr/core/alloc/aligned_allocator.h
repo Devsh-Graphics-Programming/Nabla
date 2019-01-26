@@ -18,10 +18,8 @@ template <class T, size_t overAlign=_IRR_DEFAULT_ALIGNMENT(T)>
 class IRR_FORCE_EBO aligned_allocator : public irr::core::AllocatorTrivialBase<T>
 {
     public:
-        typedef size_t      size_type;
-        typedef ptrdiff_t   difference_type;
-
-        typedef uint8_t*    ubyte_pointer;
+        typedef size_t	size_type;
+        typedef T*		pointer;
 
         template< class U> struct rebind { typedef aligned_allocator<U,overAlign> other; };
 
@@ -35,7 +33,7 @@ class IRR_FORCE_EBO aligned_allocator : public irr::core::AllocatorTrivialBase<T
 
 
         inline typename aligned_allocator::pointer  allocate(   size_type n, size_type alignment,
-                                                                typename aligned_allocator::const_void_pointer hint=nullptr) noexcept
+                                                                const void* hint=nullptr) noexcept
         {
             if (n==0)
                 return nullptr;
@@ -44,20 +42,20 @@ class IRR_FORCE_EBO aligned_allocator : public irr::core::AllocatorTrivialBase<T
             //printf("Alloc'ed %p with %d\n",retval,n*sizeof(T));
             return reinterpret_cast<typename aligned_allocator::pointer>(retval);
         }
-        inline typename aligned_allocator::pointer  allocate(   size_type n, typename aligned_allocator::const_void_pointer hint=nullptr) noexcept
+        inline typename aligned_allocator::pointer  allocate(   size_type n, const void* hint=nullptr) noexcept
         {
             return allocate(n,overAlign,hint);
         }
 
-        inline void                                 deallocate( typename aligned_allocator::pointer p) noexcept
-        {
-            //printf("Freed %p\n",p);
-            _IRR_ALIGNED_FREE(p);
-        }
-        inline void                                 deallocate( typename aligned_allocator::pointer p, size_type n) noexcept
-        {
-            deallocate(p);
-        }
+		inline void                                 deallocate(	typename aligned_allocator::pointer p) noexcept
+		{
+			//printf("Freed %p\n",p);
+			_IRR_ALIGNED_FREE(p);
+		}
+		inline void                                 deallocate(	typename aligned_allocator::pointer p, size_type n) noexcept
+		{
+			deallocate(p);
+		}
 
         template<typename U, size_t _align>
         inline bool                                 operator!=(const aligned_allocator<U,_align>& other) const noexcept

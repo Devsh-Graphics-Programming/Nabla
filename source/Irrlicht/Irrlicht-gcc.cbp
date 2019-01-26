@@ -378,6 +378,7 @@
 		<Unit filename="../../include/irr/core/math/irrMath.h" />
 		<Unit filename="../../include/irr/core/memory/memory.h" />
 		<Unit filename="../../include/irr/core/memory/new_delete.h" />
+		<Unit filename="../../include/irr/core/unlock_guard.h" />
 		<Unit filename="../../include/irr/macros.h" />
 		<Unit filename="../../include/irr/static_if.h" />
 		<Unit filename="../../include/irr/switch_constexpr.h" />

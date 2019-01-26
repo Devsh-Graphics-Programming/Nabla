@@ -283,7 +283,7 @@ bool CNullDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 //! applications must call this method after performing any rendering. returns false if failed.
 bool CNullDriver::endScene()
 {
-	FPSCounter.registerFrame(os::Timer::getRealTime(), PrimitivesDrawn);
+	FPSCounter.registerFrame(std::chrono::high_resolution_clock::now(), PrimitivesDrawn);
 
 	return true;
 }
