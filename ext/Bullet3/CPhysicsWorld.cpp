@@ -25,16 +25,24 @@ CPhysicsWorld::~CPhysicsWorld() {
     _IRR_DELETE(m_overlappingPairCache);
     _IRR_DELETE(m_solver);
     _IRR_DELETE(m_physicsWorld);
+    
 }
 
-void CPhysicsWorld::step(float dt) {
-    m_physicsWorld->stepSimulation(dt);
+
+
+btRigidBody *CPhysicsWorld::createRigidBody(RigidBodyData data) {
+    void *mem = _IRR_ALIGNED_MALLOC(sizeof(btDefaultMotionState), 32u);
+    btDefaultMotionState *state = new(mem) btDefaultMotionState();
+
+    btRigidBody *rigidBody = _IRR_NEW(btRigidBody, data.mass, nullptr, data.shape);
+    return rigidBody;
 }
 
-void CPhysicsWorld::setGravity(core::vector3df gravity) {
-    m_physicsWorld->setGravity(irrVec3Convert(gravity));
+void CPhysicsWorld::unbindRigidBody(btRigidBody *body) {
+    m_physicsWorld->removeRigidBody(body);
+    _IRR_ALIGNED_FREE(body->getMotionState());
 }
 
-core::vector3df CPhysicsWorld::getGravity() const {
-    return btVec3Convert(m_physicsWorld->getGravity());
+btDiscreteDynamicsWorld *CPhysicsWorld::getWorld() {
+    return m_physicsWorld;
 }

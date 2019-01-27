@@ -2,6 +2,11 @@
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
+#include <btBulletDynamicsCommon.h>
+#include "../ext/Bullet3/BulletUtility.h"
+#include "../ext/Bullet3/CPhysicsWorld.h"
+#include "../ext/Bullet3/CDefaultMotionState.h"
+
 using namespace irr;
 using namespace core;
 using namespace scene;
@@ -175,8 +180,37 @@ public:
 
 
 
+
 int main()
 {
+
+
+    btTransform m;
+    m.setOrigin(btVector3(0, 100, 0));
+
+    irr::ext::Bullet3::CPhysicsWorld *world = _IRR_NEW(irr::ext::Bullet3::CPhysicsWorld);
+
+
+    irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data;
+    data.mass = 1.0f;
+    data.shape = _IRR_NEW(btSphereShape, 5.0f);
+
+
+
+    btRigidBody *body = world->createRigidBody(data);
+    world->bindRigidBody<irr::ext::Bullet3::CDefaultMotionState>(body);
+
+    irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
+    data2.mass = 0.0f;
+    data2.shape = _IRR_NEW(btBoxShape, btVector3(100, 1, 100)); 
+
+    btRigidBody *body2 = world->createRigidBody(data2);
+    world->bindRigidBody<irr::ext::Bullet3::CDefaultMotionState>(body2);
+
+    world->unbindRigidBody(body2);
+
+
+    body->setWorldTransform(m);
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
@@ -243,9 +277,10 @@ int main()
     cullingXFormFeedbackShader.RasterizerDiscard = true;
 
 
+
     //!
 	uint64_t lastFPSTime = 0;
-
+    
     IMeshSceneNodeInstanced* node = smgr->addMeshSceneNodeInstanced(smgr->getRootSceneNode());
     node->setBBoxUpdateEnabled();
     node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
@@ -288,6 +323,7 @@ int main()
         color[2] = rand()%256;
         color[3] = 255u;
         instances[y*towerWidth+z] = node->addInstance(mat,color);
+        
     }
 
 	while(device->run()&&(!quit))
@@ -302,8 +338,24 @@ int main()
 
 		// display frames per second in window title
 		uint64_t time = device->getTimer()->getRealTime();
+
+        world->getWorld()->stepSimulation(1);
+
 		if (time-lastFPSTime > 1000)
 		{
+            for (size_t y = 0; y < towerHeight; y++) {
+                for (size_t z = 0; z < towerWidth; z++) {
+                    uint32_t instanceID = instances[y*towerWidth + z];
+
+                    matrix4x3 currentMat = node->getInstanceTransform(instanceID);
+                    currentMat.setTranslation(currentMat.getTranslation() + core::vector3df(0.0, 1.0, 0.0));
+             
+                    node->setInstanceTransform(instanceID, currentMat);
+
+                }
+            }
+            
+
 			std::wostringstream str;
 			str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
@@ -311,6 +363,11 @@ int main()
 			lastFPSTime = time;
 		}
 	}
+
+    world->unbindRigidBody(body);
+
+    _IRR_DELETE(data.shape);
+    _IRR_DELETE(data2.shape);
 
     node->removeInstances(towerHeight*towerWidth,instances);
     node->remove();

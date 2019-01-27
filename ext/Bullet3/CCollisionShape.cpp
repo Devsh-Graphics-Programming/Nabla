@@ -21,13 +21,13 @@ void CCollisionShape::setMargin(float margin) {
 
 void CCollisionShape::setBox(core::vector3df halfExts) {
     clear();
-    m_collisionShape = _IRR_NEW(btBoxShape, irrVec3Convert(halfExts));
+//    m_collisionShape = _IRR_NEW(btBoxShape, irrVec3Convert(halfExts));
     dirty();
 }
 
 void CCollisionShape::setSphere(float radius) {
     clear();
-    m_collisionShape = _IRR_NEW(btSphereShape, radius);
+  //  m_collisionShape = _IRR_NEW(btSphereShape, radius);
     dirty();
 }
 

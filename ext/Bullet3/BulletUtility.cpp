@@ -1,19 +1,32 @@
 #include "../../ext/Bullet3/BulletUtility.h"
 
+#include <iostream>
+
 namespace irr
 {
 namespace ext 
 {
 
-namespace Bullet3 {
+namespace Bullet3 
+{
 
-core::vector3df btVec3Convert(btVector3 vec) {
-    return core::vector3df(vec.m_floats);
-}
+    /*
+        01 02 03 00 | 04 05 06 00 | 07 08 09 00 | 10 11 12 00
+        
+        05 02 08 10 | 04 01 07 11 | 06 03 09 12 
+    */
 
-btVector3 irrVec3Convert(core::vector3df vec) {
-    return btVector3(vec.X, vec.Y, vec.Z);
-}
+    core::matrix3x4SIMD &convertbtTransform(btTransform &transform) {
+        core::matrix3x4SIMD mat;
+        float *data = (float*)(&transform);
+      
+
+        btQuaternion quat = transform.getRotation();
+        
+       // mat.setRotation(irr::core::quaternion((float*)(&quat)));
+      
+        return mat;
+    }
 
 }
 }
