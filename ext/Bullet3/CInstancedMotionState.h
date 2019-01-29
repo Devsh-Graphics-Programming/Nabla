@@ -17,6 +17,7 @@ namespace Bullet3
 
 class CInstancedMotionState : public IMotionStateBase{
 public:
+    CInstancedMotionState();
     CInstancedMotionState(scene::IMeshSceneNodeInstanced *node, uint32_t index);
     
 

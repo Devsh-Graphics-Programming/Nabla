@@ -6,6 +6,7 @@
 #include "../ext/Bullet3/BulletUtility.h"
 #include "../ext/Bullet3/CPhysicsWorld.h"
 #include "../ext/Bullet3/CDefaultMotionState.h"
+#include "../ext/Bullet3/CInstancedMotionState.h"
 
 using namespace irr;
 using namespace core;
@@ -185,32 +186,24 @@ int main()
 {
 
 
-    btTransform m;
-    m.setOrigin(btVector3(0, 100, 0));
+   
 
     irr::ext::Bullet3::CPhysicsWorld *world = _IRR_NEW(irr::ext::Bullet3::CPhysicsWorld);
+    world->getWorld()->setGravity(btVector3(0, -5, 0));
 
-
-    irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data;
-    data.mass = 1.0f;
-    data.shape = _IRR_NEW(btSphereShape, 5.0f);
-
-
-
-    btRigidBody *body = world->createRigidBody(data);
-    world->bindRigidBody<irr::ext::Bullet3::CDefaultMotionState>(body);
 
     irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
     data2.mass = 0.0f;
-    data2.shape = _IRR_NEW(btBoxShape, btVector3(100, 1, 100)); 
+    data2.shape = _IRR_NEW(btBoxShape, btVector3(300,1,300)); 
+    data2.pos = irr::core::vectorSIMDf(0, -10, 0);
 
     btRigidBody *body2 = world->createRigidBody(data2);
+   
     world->bindRigidBody<irr::ext::Bullet3::CDefaultMotionState>(body2);
+   
 
-    world->unbindRigidBody(body2);
 
-
-    body->setWorldTransform(m);
+  
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
@@ -255,7 +248,7 @@ int main()
 	device->setEventReceiver(&receiver);
 
 	//!
-    scene::IGPUMesh* gpumesh = smgr->getGeometryCreator()->createCubeMeshGPU(driver,core::vector3df(5.f,1.f,1.f));
+    scene::IGPUMesh* gpumesh = smgr->getGeometryCreator()->createCubeMeshGPU(driver,core::vector3df(1.f,1.f,1.f));
     for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
         gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
 
@@ -300,22 +293,31 @@ int main()
 
     const uint32_t towerHeight = 20;
     const uint32_t towerWidth = 5;
+
+    btRigidBody **bodies = _IRR_NEW_ARRAY(btRigidBody*, towerHeight * towerWidth);
+
+
+    irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data3;
+    data3.mass = 2.0f;
+    data3.shape = _IRR_NEW(btBoxShape, btVector3(0.5, 0.5, 0.5));
+
     //! Special Juice for INSTANCING
     uint32_t instances[towerHeight*towerWidth];
     for (size_t y=0; y<towerHeight; y++)
     for (size_t z=0; z<towerWidth; z++)
     {
         core::matrix4x3 mat;
-        if (y&0x1u)
+        if (1==1)
         {
-            mat.setTranslation(core::vector3df(1.5f,y,z));
+            mat.setTranslation(core::vector3df(((double)rand() / (double)RAND_MAX) * 2,y * 2,z));
         }
         else
         {
             core::vectorSIMDf eulerXYZ;
-            core::quaternion(0.f,1.f,0.f,1.f).toEuler(eulerXYZ);
+            core::quaternion(0.3,1.f,0.f,1.f).toEuler(eulerXYZ);
             mat.setRotationRadians(eulerXYZ.getAsVector3df());
-            mat.setTranslation(core::vector3df(z,y,1.5f));
+            mat.setTranslation(core::vector3df(z,y * 5,(double)rand()/(double)RAND_MAX));
+            
         }
         uint8_t color[4];
         color[0] = rand()%256;
@@ -324,6 +326,14 @@ int main()
         color[3] = 255u;
         instances[y*towerWidth+z] = node->addInstance(mat,color);
         
+        irr::core::vector3df pos = node->getInstanceTransform(instances[y*towerWidth + z]).getTranslation();
+
+        data3.pos = irr::core::vector3df_SIMD(pos.X, pos.Y, pos.Z);
+
+        bodies[y*towerWidth + z] = world->createRigidBody(data3);
+        bodies[y*towerWidth + z]->setRollingFriction(10.0);
+        world->bindRigidBody<irr::ext::Bullet3::CInstancedMotionState>(bodies[y*towerWidth + z],node, instances[y*towerWidth+z]);
+
     }
 
 	while(device->run()&&(!quit))
@@ -343,17 +353,8 @@ int main()
 
 		if (time-lastFPSTime > 1000)
 		{
-            for (size_t y = 0; y < towerHeight; y++) {
-                for (size_t z = 0; z < towerWidth; z++) {
-                    uint32_t instanceID = instances[y*towerWidth + z];
-
-                    matrix4x3 currentMat = node->getInstanceTransform(instanceID);
-                    currentMat.setTranslation(currentMat.getTranslation() + core::vector3df(0.0, 1.0, 0.0));
-             
-                    node->setInstanceTransform(instanceID, currentMat);
-
-                }
-            }
+            
+            
             
 
 			std::wostringstream str;
@@ -363,10 +364,8 @@ int main()
 			lastFPSTime = time;
 		}
 	}
-
-    world->unbindRigidBody(body);
-
-    _IRR_DELETE(data.shape);
+    
+   
     _IRR_DELETE(data2.shape);
 
     node->removeInstances(towerHeight*towerWidth,instances);

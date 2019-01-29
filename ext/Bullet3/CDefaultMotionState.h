@@ -17,6 +17,7 @@ namespace Bullet3
 
 class CDefaultMotionState : public IMotionStateBase {
 public:
+    CDefaultMotionState();
     virtual void getWorldTransform(btTransform &worldTrans) const;
     virtual void setWorldTransform(const btTransform &worldTrans);
 protected:

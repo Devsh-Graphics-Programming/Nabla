@@ -34,7 +34,15 @@ btRigidBody *CPhysicsWorld::createRigidBody(RigidBodyData data) {
     void *mem = _IRR_ALIGNED_MALLOC(sizeof(btDefaultMotionState), 32u);
     btDefaultMotionState *state = new(mem) btDefaultMotionState();
 
-    btRigidBody *rigidBody = _IRR_NEW(btRigidBody, data.mass, nullptr, data.shape);
+    btRigidBody *rigidBody = _IRR_NEW(btRigidBody, data.mass, state, data.shape);
+    
+    btTransform trans;
+    trans.setIdentity();
+    trans.setOrigin(SIMDfConvertToVec3(data.pos));
+    trans.setRotation(btQuaternion(0, 0, btRadians(70)));
+
+    rigidBody->setWorldTransform(trans);
+
     return rigidBody;
 }
 

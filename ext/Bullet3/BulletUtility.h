@@ -28,22 +28,35 @@ namespace Bullet3
         return reinterpret_cast<core::vectorSIMDf&>(vec);
     }
 
-    inline core::vectorSIMDf &btVec3Convert(btVector3 &vec) {
+    inline core::vectorSIMDf &btVec3Convert(btVector3 vec) {
         return convertToVecSIMDf<btVector3>(vec);
     }
     
-    inline core::vectorSIMDf &btVec4Convert(btVector4 &vec) {
+    inline core::vectorSIMDf &btVec4Convert(btVector4 vec) {
         return convertToVecSIMDf<btVector4>(vec);
     }
 
-    inline btVector3 &SIMDfConvertToVec3(core::vectorSIMDf &vec) {
+    inline btVector3 &SIMDfConvertToVec3(core::vectorSIMDf vec) {
         return convertFromVecSIMDf<btVector3&>(vec);
     }
 
-    inline btVector4 &SIMDfConvertToVec4(core::vectorSIMDf &vec) {
+    inline btVector4 &SIMDfConvertToVec4(core::vectorSIMDf vec) {
         return convertFromVecSIMDf<btVector4&>(vec);
     }
 
+
+    inline core::matrix3x4SIMD convertTransform(btTransform trans) {
+        core::matrix3x4SIMD mat;
+
+    //    for (uint32_t i = 0; i < 3u; ++i) {
+  //          mat.rows[i] = btVec3Convert(trans.getBasis().getRow(i));
+//        }
+
+        mat.setTranslation(btVec3Convert(trans.getOrigin()));
+    
+
+        return mat;
+    }
 
 }
 }
