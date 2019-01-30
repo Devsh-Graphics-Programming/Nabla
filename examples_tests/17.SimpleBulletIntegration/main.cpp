@@ -192,10 +192,15 @@ int main()
     world->getWorld()->setGravity(btVector3(0, -5, 0));
 
 
+
+
+    core::matrix3x4SIMD baseplateMat;
+    baseplateMat.setTranslation(core::vectorSIMDf(0.0, -30.0, 0.0));
+
     irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
     data2.mass = 0.0f;
     data2.shape = _IRR_NEW(btBoxShape, btVector3(300,1,300)); 
-    data2.pos = irr::core::vectorSIMDf(0, -10, 0);
+    data2.trans = baseplateMat;
 
     btRigidBody *body2 = world->createRigidBody(data2);
    
@@ -326,12 +331,14 @@ int main()
         color[3] = 255u;
         instances[y*towerWidth+z] = node->addInstance(mat,color);
         
-        irr::core::vector3df pos = node->getInstanceTransform(instances[y*towerWidth + z]).getTranslation();
+        core::vectorSIMDf pos; 
+        pos.set(node->getInstanceTransform(instances[y*towerWidth + z]).getTranslation());
+        core::matrix3x4SIMD instancedMat;
+        instancedMat.setTranslation(pos);
 
-        data3.pos = irr::core::vector3df_SIMD(pos.X, pos.Y, pos.Z);
+        data3.trans = instancedMat;
 
         bodies[y*towerWidth + z] = world->createRigidBody(data3);
-        bodies[y*towerWidth + z]->setRollingFriction(10.0);
         world->bindRigidBody<irr::ext::Bullet3::CInstancedMotionState>(bodies[y*towerWidth + z],node, instances[y*towerWidth+z]);
 
     }

@@ -12,17 +12,11 @@ CInstancedMotionState::CInstancedMotionState(scene::IMeshSceneNodeInstanced *nod
 }
 
 void CInstancedMotionState::getWorldTransform(btTransform &worldTrans) const {
-
+    worldTrans = convertMatrixSIMD(m_transform);
 }
 
 void CInstancedMotionState::setWorldTransform(const btTransform &worldTrans) {
-    core::matrix3x4SIMD irrTrans;
+    m_transform = convertbtTransform(worldTrans);
 
-    for (uint32_t i = 0; i < 3u; ++i) {
-        irrTrans.rows[i] = btVec3Convert(worldTrans.getBasis().getRow(i));
-    }
-    irrTrans.setTranslation(btVec3Convert(worldTrans.getOrigin()));
-
-   
-    m_node->setInstanceTransform(m_index, irrTrans.getAsRetardedIrrlichtMatrix());
+    m_node->setInstanceTransform(m_index, m_transform.getAsRetardedIrrlichtMatrix());
 }

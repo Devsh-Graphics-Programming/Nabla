@@ -16,17 +16,6 @@ namespace Bullet3
         05 02 08 10 | 04 01 07 11 | 06 03 09 12 
     */
 
-    core::matrix3x4SIMD &convertbtTransform(btTransform &transform) {
-        core::matrix3x4SIMD mat;
-        float *data = (float*)(&transform);
-      
-
-        btQuaternion quat = transform.getRotation();
-        
-       // mat.setRotation(irr::core::quaternion((float*)(&quat)));
-      
-        return mat;
-    }
 
 }
 }

@@ -23,7 +23,7 @@ public:
 
     struct RigidBodyData {
         btCollisionShape *shape;
-        core::vectorSIMDf pos;
+        core::matrix3x4SIMD trans;
         float mass;
     };
 
@@ -32,13 +32,16 @@ public:
 
     btRigidBody *createRigidBody(RigidBodyData data);
 
+    inline void bindRigidBody(btRigidBody *body) {
+        m_physicsWorld->addRigidBody(body);
+    }
+
+
     template<class state, typename... Args>
     inline state *bindRigidBody(btRigidBody *body, Args... args) {
-       // static_assert(!std::is_base_of<IMotionStateBase, state>, "Motionstate being binded not inherited from IMotionStateBase!");
-        _IRR_ALIGNED_FREE(body->getMotionState());
-        
+        assert(body->getMotionState());
         void *mem = _IRR_ALIGNED_MALLOC(sizeof(state), 32u);
-        state *motionState = new(mem) state(args...);
+        state *motionState = new(mem) state(std::forward<Args>(args)...);
 
         body->setMotionState(motionState);
 
@@ -47,7 +50,7 @@ public:
         return motionState;
     }
 
-    void unbindRigidBody(btRigidBody *body);
+    void unbindRigidBody(btRigidBody *body, bool free = true);
 
 
     btDiscreteDynamicsWorld *getWorld();

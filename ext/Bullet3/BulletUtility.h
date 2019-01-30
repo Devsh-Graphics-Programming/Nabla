@@ -4,6 +4,7 @@
 #include "irrlicht.h"
 #include <cstdint>
 #include <type_traits>
+#include <typeinfo>
 
 #include "btBulletDynamicsCommon.h"
 
@@ -14,48 +15,72 @@ namespace ext
 namespace Bullet3
 {
 
-    core::matrix3x4SIMD &convertbtTransform(btTransform &transform);
 
-
-    template<class to>
-    to &convertFromVecSIMDf(core::vectorSIMDf &vec) {
-        static_assert(sizeof(to) == 16u && alignof(to) == 16u, "from vectorSIMDf conversion - Size and Alignment Assumptions violated!");
-        return reinterpret_cast<to&>(vec);
-    }
-    template<class to>
-    core::vectorSIMDf &convertToVecSIMDf(to &vec) {
-        static_assert(sizeof(to) == 16u && alignof(to) == 16u, "to vectorSIMDf conversion - Size and Alignment Assumptions violated!");
-        return reinterpret_cast<core::vectorSIMDf&>(vec);
+   
+ 
+   
+    template<class to, class from>
+    to convert(from vec) {
+        static_assert(sizeof(to) == 16u && alignof(to) == 16u && sizeof(from) == 16u && alignof(from) == 16u,
+            "Size/Alignment Assumptions When Converting Broken!");
+        return reinterpret_cast<to>(vec);
     }
 
-    inline core::vectorSIMDf &btVec3Convert(btVector3 vec) {
-        return convertToVecSIMDf<btVector3>(vec);
+
+    inline core::vectorSIMDf &frombtVec3(btVector3 &vec) {
+        return convert<core::vectorSIMDf&, btVector3&>(vec);
     }
     
-    inline core::vectorSIMDf &btVec4Convert(btVector4 vec) {
-        return convertToVecSIMDf<btVector4>(vec);
+    inline const core::vectorSIMDf &frombtVec3(const btVector3 &vec) {
+        return convert<const core::vectorSIMDf&, const btVector3&>(vec);
+    }
+   
+    inline core::vectorSIMDf &frombtVec4(btVector4 &vec) {
+        return convert<core::vectorSIMDf&, btVector4&>(vec);
     }
 
-    inline btVector3 &SIMDfConvertToVec3(core::vectorSIMDf vec) {
-        return convertFromVecSIMDf<btVector3&>(vec);
+    inline const core::vectorSIMDf &frombtVec4(const btVector4 &vec) {
+        return convert<const core::vectorSIMDf&, const btVector4&>(vec);
+    }
+        
+    inline btVector3 &tobtVec3(core::vectorSIMDf &vec) {
+        return convert<btVector3&, core::vectorSIMDf&>(vec);
     }
 
-    inline btVector4 &SIMDfConvertToVec4(core::vectorSIMDf vec) {
-        return convertFromVecSIMDf<btVector4&>(vec);
+    inline const btVector3 &tobtVec3(const core::vectorSIMDf &vec) {
+        return convert<const btVector3&, const core::vectorSIMDf&>(vec);
     }
 
+    inline btVector4 &tobtVec4(core::vectorSIMDf &vec) {
+        return convert<btVector4&, core::vectorSIMDf&>(vec);
+    }
 
-    inline core::matrix3x4SIMD convertTransform(btTransform trans) {
+    inline const btVector4 &tobtVec4(const core::vectorSIMDf &vec) {
+        return convert<const btVector4&, const core::vectorSIMDf&>(vec);
+    }
+
+    inline core::matrix3x4SIMD convertbtTransform(btTransform trans) {
         core::matrix3x4SIMD mat;
 
-    //    for (uint32_t i = 0; i < 3u; ++i) {
-  //          mat.rows[i] = btVec3Convert(trans.getBasis().getRow(i));
-//        }
-
-        mat.setTranslation(btVec3Convert(trans.getOrigin()));
-    
+        for (uint32_t i = 0; i < 3u; ++i) {
+            mat.rows[i] = frombtVec3(trans.getBasis().getRow(i));
+        }
+        mat.setTranslation(frombtVec3(trans.getOrigin()));
 
         return mat;
+    }
+
+    inline btTransform convertMatrixSIMD(core::matrix3x4SIMD mat) {
+        btTransform trans;
+
+        btMatrix3x3 data;
+        for (uint32_t i = 0; i < 3u; ++i) {
+            data[i] = tobtVec3(mat.rows[i]);
+        }
+        trans.setBasis(data);
+        trans.setOrigin(tobtVec3(mat.getTranslation()));
+        
+        return trans;
     }
 
 }

@@ -36,19 +36,18 @@ btRigidBody *CPhysicsWorld::createRigidBody(RigidBodyData data) {
 
     btRigidBody *rigidBody = _IRR_NEW(btRigidBody, data.mass, state, data.shape);
     
-    btTransform trans;
-    trans.setIdentity();
-    trans.setOrigin(SIMDfConvertToVec3(data.pos));
-    trans.setRotation(btQuaternion(0, 0, btRadians(70)));
-
+    btTransform trans = convertMatrixSIMD(data.trans);
     rigidBody->setWorldTransform(trans);
 
     return rigidBody;
 }
 
-void CPhysicsWorld::unbindRigidBody(btRigidBody *body) {
+void CPhysicsWorld::unbindRigidBody(btRigidBody *body, bool free) {
     m_physicsWorld->removeRigidBody(body);
-    _IRR_ALIGNED_FREE(body->getMotionState());
+    if (free) {
+        body->getMotionState()->~btMotionState();
+        _IRR_ALIGNED_FREE(body->getMotionState());
+    }
 }
 
 btDiscreteDynamicsWorld *CPhysicsWorld::getWorld() {
