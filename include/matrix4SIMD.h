@@ -489,44 +489,6 @@ public:
         _out = getTransposed();
     }
 
-    inline matrix4SIMD buildRotateFromTo(const core::vectorSIMDf& from, const core::vectorSIMDf& to)
-	{
-		// unit vectors
-		const core::vectorSIMDf f = core::normalize(from);
-		const core::vectorSIMDf t = core::normalize(to);
-
-		// axis multiplication by sin
-		const core::vectorSIMDf vs(t.crossProduct(f));
-
-		// axis of rotation
-		const core::vectorSIMDf v = core::normalize(vs);
-
-		// cosinus angle
-		const core::vectorSIMDf ca = f.dotProduct(t);
-
-		const core::vectorSIMDf vt(v * (core::vectorSIMDf(1.f) - ca));
-		const core::vectorSIMDf wt = vt * v.yzxx();
-		const core::vectorSIMDf vtuppca = vt * v + ca;
-
-        matrix4SIMD m;
-
-		core::vectorSIMDf& row0 = m.rows[0];
-		core::vectorSIMDf& row1 = m.rows[1];
-		core::vectorSIMDf& row2 = m.rows[2];
-        core::vectorSIMDf& row3 = m.rows[3];
-
-		row0 = vtuppca & BUILD_MASKF(1, 0, 0, 0);
-		row1 = vtuppca & BUILD_MASKF(0, 1, 0, 0);
-		row2 = vtuppca & BUILD_MASKF(0, 0, 1, 0);
-
-		row0 += (wt.xxzx() + vs.xzyx()*core::vectorSIMDf(1.f, 1.f, -1.f, 1.f)) & BUILD_MASKF(0, 1, 1, 0);
-		row1 += (wt.xxyx() + vs.zxxx()*core::vectorSIMDf(-1.f, 1.f, 1.f, 1.f)) & BUILD_MASKF(1, 0, 1, 0);
-		row2 += (wt.zyxx() + vs.yxxx()*core::vectorSIMDf(1.f, -1.f, 1.f, 1.f)) & BUILD_MASKF(1, 1, 0, 0);
-        row3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-
-		return m;
-	}
-
     inline void setRotationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation)
     {
         core::vectorSIMDf r0 = rows[0] * _center;
