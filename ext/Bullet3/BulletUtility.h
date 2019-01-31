@@ -21,6 +21,7 @@ namespace Bullet3
    
     template<class to, class from>
     to convert(from vec) {
+        static_assert(std::is_reference<to>::value && std::is_reference<from>::value, "Pass-By-Reference Assumptions Broken");
         static_assert(sizeof(to) == 16u && alignof(to) == 16u && sizeof(from) == 16u && alignof(from) == 16u,
             "Size/Alignment Assumptions When Converting Broken!");
         return reinterpret_cast<to>(vec);
@@ -59,7 +60,7 @@ namespace Bullet3
         return convert<const btVector4&, const core::vectorSIMDf&>(vec);
     }
 
-    inline core::matrix3x4SIMD convertbtTransform(btTransform trans) {
+    inline core::matrix3x4SIMD convertbtTransform(const btTransform &trans) {
         core::matrix3x4SIMD mat;
 
         for (uint32_t i = 0; i < 3u; ++i) {
@@ -70,17 +71,34 @@ namespace Bullet3
         return mat;
     }
 
-    inline btTransform convertMatrixSIMD(core::matrix3x4SIMD mat) {
-        btTransform trans;
+    inline btTransform convertMatrixSIMD(const core::matrix3x4SIMD &mat) {
+        btTransform transform;
+        
+        //Calling makeSafe3D on rows erases translation so save it
+        mat.getTranslation().makeSafe3D();
+        btVector3 translation = tobtVec3(mat.getTranslation());
+
+
 
         btMatrix3x3 data;
         for (uint32_t i = 0; i < 3u; ++i) {
+            //TODO - makeSafe3D()
             data[i] = tobtVec3(mat.rows[i]);
         }
-        trans.setBasis(data);
-        trans.setOrigin(tobtVec3(mat.getTranslation()));
+        transform.setBasis(data);
+        transform.setOrigin(translation);
         
-        return trans;
+        return transform;
+    }
+
+
+    /*
+        NOTICE: REMOVE WHEN MESHSCENENODEINSTANCE IMPLEMENTS core::matrix3x4SIMD OVER core::matrix4x3
+    */
+    inline btTransform convertRetardedMatrix(const core::matrix4x3 &mat) {
+        core::matrix3x4SIMD irrMat;
+        irrMat.set(mat);
+        return convertMatrixSIMD(irrMat);
     }
 
 }

@@ -5,7 +5,7 @@
 #include <btBulletDynamicsCommon.h>
 #include "../ext/Bullet3/BulletUtility.h"
 #include "../ext/Bullet3/CPhysicsWorld.h"
-#include "../ext/Bullet3/CDefaultMotionState.h"
+
 #include "../ext/Bullet3/CInstancedMotionState.h"
 
 using namespace irr;
@@ -199,12 +199,11 @@ int main()
 
     irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
     data2.mass = 0.0f;
-    data2.shape = _IRR_NEW(btBoxShape, btVector3(300,1,300)); 
+    data2.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
     data2.trans = baseplateMat;
 
     btRigidBody *body2 = world->createRigidBody(data2);
-   
-    world->bindRigidBody<irr::ext::Bullet3::CDefaultMotionState>(body2);
+    world->bindRigidBody(body2);
    
 
 
@@ -304,7 +303,14 @@ int main()
 
     irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data3;
     data3.mass = 2.0f;
-    data3.shape = _IRR_NEW(btBoxShape, btVector3(0.5, 0.5, 0.5));
+    data3.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
+     
+
+    btVector3 inertia;
+    data3.shape->calculateLocalInertia(data3.mass, inertia);
+
+    data3.inertia = ext::Bullet3::frombtVec3(inertia);
+
 
     //! Special Juice for INSTANCING
     uint32_t instances[towerHeight*towerWidth];
@@ -312,18 +318,8 @@ int main()
     for (size_t z=0; z<towerWidth; z++)
     {
         core::matrix4x3 mat;
-        if (1==1)
-        {
-            mat.setTranslation(core::vector3df(((double)rand() / (double)RAND_MAX) * 2,y * 2,z));
-        }
-        else
-        {
-            core::vectorSIMDf eulerXYZ;
-            core::quaternion(0.3,1.f,0.f,1.f).toEuler(eulerXYZ);
-            mat.setRotationRadians(eulerXYZ.getAsVector3df());
-            mat.setTranslation(core::vector3df(z,y * 5,(double)rand()/(double)RAND_MAX));
-            
-        }
+        mat.setTranslation(core::vector3df(z, y, 1));
+     
         uint8_t color[4];
         color[0] = rand()%256;
         color[1] = rand()%256;
@@ -336,10 +332,15 @@ int main()
         core::matrix3x4SIMD instancedMat;
         instancedMat.setTranslation(pos);
 
+        
         data3.trans = instancedMat;
 
         bodies[y*towerWidth + z] = world->createRigidBody(data3);
+      
         world->bindRigidBody<irr::ext::Bullet3::CInstancedMotionState>(bodies[y*towerWidth + z],node, instances[y*towerWidth+z]);
+
+        
+       
 
     }
 
@@ -373,7 +374,22 @@ int main()
 	}
     
    
-    _IRR_DELETE(data2.shape);
+
+    world->unbindRigidBody(body2, false);
+    world->deleteRigidBody(body2);
+    world->deletebtObject(data2.shape);
+
+
+
+    for (size_t i = 0; i < towerHeight * towerWidth; ++i) {
+        world->unbindRigidBody(bodies[i]);
+        world->deleteRigidBody(bodies[i]);
+    }
+
+    _IRR_DELETE_ARRAY(bodies, towerHeight * towerWidth);
+    world->deletebtObject(data3.shape);
+
+
 
     node->removeInstances(towerHeight*towerWidth,instances);
     node->remove();

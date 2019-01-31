@@ -6,6 +6,7 @@
 #include "irr/core/IReferenceCounted.h"
 #include "btBulletDynamicsCommon.h"
 
+#include "BulletUtility.h"
 #include "IMotionStateBase.h"
 
 namespace irr
@@ -17,8 +18,20 @@ namespace Bullet3
 
 class CInstancedMotionState : public IMotionStateBase{
 public:
-    CInstancedMotionState();
-    CInstancedMotionState(scene::IMeshSceneNodeInstanced *node, uint32_t index);
+    inline CInstancedMotionState() {}
+    inline CInstancedMotionState(scene::IMeshSceneNodeInstanced *node, uint32_t index)
+        : m_node(node), 
+          m_index(index),
+          IMotionStateBase(convertRetardedMatrix(node->getInstanceTransform(index)))
+    {
+       
+
+        m_node->grab();
+    }
+
+    inline ~CInstancedMotionState() {
+        m_node->drop();
+    }
     
 
     virtual void getWorldTransform(btTransform &worldTrans) const;
@@ -28,7 +41,7 @@ protected:
     scene::IMeshSceneNodeInstanced *m_node;
     uint32_t m_index;
 
-    core::matrix3x4SIMD m_transform;
+
 
 };
 
