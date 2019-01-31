@@ -8,7 +8,7 @@
 #include "btBulletDynamicsCommon.h"
 
 #include "IMotionStateBase.h"
-#include "CDefaultMotionState.h"
+
 
 namespace irr
 {
