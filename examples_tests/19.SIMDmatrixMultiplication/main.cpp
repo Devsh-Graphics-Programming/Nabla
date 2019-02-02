@@ -15,7 +15,7 @@
 #define EXEC_CNT (1e6)
 #define BROADCAST32(fpx) _MM_SHUFFLE(fpx, fpx, fpx, fpx)
 
-#define AVX 1 // set to 0 or 1 (sse3/avx), set appropriate compiler flags and run
+#define AVX 0 // set to 0 or 1 (sse3/avx), set appropriate compiler flags and run
 #define COL_MAJOR 1 // set to 0 or 1 (col-major/row-major)
 #define VERIFY 0
 
@@ -56,19 +56,12 @@ namespace avx
 	private:
 		static inline __m256 doJob(__m256 _A01, const matrix4x3_row& _mtx)
 		{
-			__m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0xffffffff, 0, 0, 0, 0xffffffff));
-
-			__m256 r01 = _mm256_load_ps(&_mtx.m[0][0]);
-			__m256 r23 = _mm256_load_ps(&_mtx.m[2][0]);
-			__m128 r0 = _mm256_extractf128_ps(r01, 0);
-			__m128 r1 = _mm256_extractf128_ps(r01, 1);
-			__m128 r2 = _mm256_extractf128_ps(r23, 0);
-			__m128 r3 = _mm256_extractf128_ps(r23, 1);
+			const __m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0xffffffff, 0, 0, 0, 0xffffffff));
 
 			__m256 res;
-			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&r0));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&r1)));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&r2)));
+			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[0][0])));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[1][0]))));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[2][0]))));
 			res = _mm256_add_ps(res, _mm256_and_ps(_A01,mask));
 			return res;
 		}
@@ -115,21 +108,14 @@ namespace avx
 	private:
 		static inline __m256 doJob(__m256 _A01, size_t j, const matrix4x3_col& _mtx)
 		{
-			__m256 c01 = _mm256_load_ps(&_mtx.m[0][0]);
-			__m256 c23 = _mm256_load_ps(&_mtx.m[2][0]);
-			__m128 c0 = _mm256_extractf128_ps(c01, 0);
-			__m128 c1 = _mm256_extractf128_ps(c01, 1);
-			__m128 c2 = _mm256_extractf128_ps(c23, 0);
-			__m128 c3 = _mm256_extractf128_ps(c23, 1);
-
 			__m256 res;
-			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(&c0));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(&c1)));
-			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(&c2)));
+			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[0][0])));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[1][0]))));
+			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[2][0]))));
 			if (j)
             {
-                __m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff));
-                res = _mm256_add_ps(res, _mm256_and_ps(mask, _mm256_broadcast_ps(&c3)));
+                const __m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff));
+                res = _mm256_add_ps(res, _mm256_and_ps(mask, _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[3][0]))));
             }
 			return res;
 		}
@@ -387,7 +373,7 @@ int main()
 	double nosimdtime = 0.0;
 	double simdtime = 0.0;
 
-	for (size_t i = 0; i < 10; ++i)
+	for (size_t i = 0; i < 100; ++i)
 	{
 #if COL_MAJOR
 		nosimdtime += run<matrix4x3_col_nosimd>(alignedData, nosimdOut, 0);
