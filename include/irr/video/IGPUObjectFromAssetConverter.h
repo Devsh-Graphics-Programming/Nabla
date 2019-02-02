@@ -11,6 +11,7 @@
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "CLogger.h"
 #include "irr/video/asset_traits.h"
+#include "irr/core/alloc/LinearAddressAllocator.h"
 
 namespace irr 
 {
@@ -88,23 +89,25 @@ protected:
 
 auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*>
 {
-    const uint64_t alignment = 16ull;
+    const uint64_t alignment = 8ull;
 
     core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> res;
     res.reserve(_end-_begin);
 
+    core::LinearAddressAllocator<uint64_t> addrAllctr(nullptr, nullptr, alignment, m_driver->getMaxBufferSize());
     asset::ICPUBuffer** it = _begin;
-    uint64_t addr = 0ull;
     while (it != _end)
     {
+        const uint64_t addr = addrAllctr.alloc_addr((*it)->getSize(), alignment);
+        assert(addr != decltype(addrAllctr)::invalid_address);
+        if (addr == decltype(addrAllctr)::invalid_address)
+            return {};
         res.push_back(new typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType{addr});
-        addr = it==(_end-1) ? (addr + (*it)->getSize()) : core::alignUp(addr + (*it)->getSize(), alignment);
         ++it;
     }
 
-    const uint64_t finalBufSz = addr;
     auto reqs = m_driver->getDeviceLocalGPUMemoryReqs();
-    reqs.vulkanReqs.size = finalBufSz;
+    reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
     reqs.vulkanReqs.alignment = alignment;
 
     IGPUBuffer* gpubuffer = m_driver->createGPUBufferOnDedMem(reqs, true);
