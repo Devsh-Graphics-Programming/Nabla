@@ -35,7 +35,7 @@ private:
         if (!validateMipchain(_mipmaps))
             return nullptr;
 
-        return new ICPUTexture(std::forward<std::decay_t<decltype(_mipmaps)>>(_mipmaps));
+        return new ICPUTexture(std::forward<decltype(_mipmaps)>(_mipmaps));
     }
 
 public:
