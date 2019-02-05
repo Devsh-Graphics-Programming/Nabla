@@ -16,6 +16,7 @@ class ICPUTexture : public IAsset
 {
 protected:
     uint32_t m_size[3];
+    uint32_t m_minReqBaseLvlSz[3];
     asset::E_FORMAT m_colorFormat;
     video::ITexture::E_TEXTURE_TYPE m_type;
     core::vector<asset::CImageData*> m_mipmaps;
@@ -34,7 +35,7 @@ private:
         if (!validateMipchain(_mipmaps))
             return nullptr;
 
-        return new ICPUTexture(std::forward<decltype(_mipmaps)>(_mipmaps));
+        return new ICPUTexture(std::forward<std::decay_t<decltype(_mipmaps)>>(_mipmaps));
     }
 
 public:
@@ -63,7 +64,7 @@ public:
         {
             if (mip->getSupposedMipLevel() > 16u)
                 return false;
-            if (std::max_element(mip->getSliceMax(), mip->getSliceMax()+3)[0] > (0x10000>>mip->getSupposedMipLevel()))
+            if (std::max_element(mip->getSliceMax(), mip->getSliceMax()+3)[0] > (0x10000u>>mip->getSupposedMipLevel()))
                 return false;
             if (commonFmt != EF_UNKNOWN)
             {
@@ -89,6 +90,7 @@ protected:
             sortMipMaps();
             establishFmt();
             establishType();
+            establishMinBaseLevelSize();
         }
     }
     explicit ICPUTexture(core::vector<asset::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{EF_UNKNOWN}, m_type{ video::ITexture::ETT_COUNT }
@@ -101,6 +103,7 @@ protected:
             sortMipMaps();
             establishFmt();
             establishType();
+            establishMinBaseLevelSize();
         }
     }
 
@@ -166,6 +169,8 @@ public:
 
     inline const uint32_t* getSize() const { return m_size; }
 
+    inline const uint32_t* getBaseLevelSizeHint() const { return m_minReqBaseLvlSz; }
+
 private:
     inline void sortMipMaps()
     {
@@ -212,6 +217,19 @@ private:
         else
         {
             m_type = video::ITexture::ETT_2D; //should be ETT_1D but 2D is default since forever
+        }
+    }
+    inline void establishMinBaseLevelSize()
+    {
+        memset(m_minReqBaseLvlSz, 0, sizeof(m_minReqBaseLvlSz));
+        for (CImageData* mip : m_mipmaps)
+        {
+            for (uint32_t d = 0u; d < 3u; ++d)
+            {
+                const uint32_t extent = mip->getSliceMax()[d] << mip->getSupposedMipLevel();
+                if (m_minReqBaseLvlSz[d] < extent)
+                    m_minReqBaseLvlSz[d] = extent;
+            }
         }
     }
 };

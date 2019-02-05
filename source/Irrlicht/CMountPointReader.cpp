@@ -155,7 +155,7 @@ IReadFile* CMountPointReader::createAndOpenFile(uint32_t index)
 	if (index >= Files.size())
 		return 0;
 
-	return createReadFile(RealFileNames[Files[index].ID]);
+    return Parent->createAndOpenFile(RealFileNames[Files[index].ID]);
 }
 
 //! opens a file by file name

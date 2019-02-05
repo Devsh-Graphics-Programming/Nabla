@@ -245,7 +245,7 @@ IReadFile* CTarReader::createAndOpenFile(uint32_t index)
 		return 0;
 
 	const SFileListEntry &entry = Files[index];
-	return createLimitReadFile( entry.FullName, File, entry.Offset, entry.Size );
+    return new CLimitReadFile(File, entry.Offset, entry.Size, entry.FullName);
 }
 
 } // end namespace io

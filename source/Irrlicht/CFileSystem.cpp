@@ -5,7 +5,7 @@
 #include "IrrCompileConfig.h"
 #include <list>
 #include "CFileSystem.h"
-#include "IReadFile.h"
+#include "CReadFile.h"
 #include "IWriteFile.h"
 #include "CZipReader.h"
 #include "CMountPointReader.h"
@@ -114,7 +114,12 @@ IReadFile* CFileSystem::createAndOpenFile(const io::path& filename)
 
 	// Create the file using an absolute path so that it matches
 	// the scheme used by CNullDriver::getTexture().
-	return createReadFile(getAbsolutePath(filename));
+    file = new CReadFile(getAbsolutePath(filename));
+    if (static_cast<CReadFile*>(file)->isOpen())
+        return file;
+
+    file->drop();
+    return 0;
 }
 
 

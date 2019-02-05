@@ -89,7 +89,11 @@ protected:
 
 auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*>
 {
-    const uint64_t alignment = 8ull;
+    const uint64_t alignment = 
+        std::max(
+            std::max(m_driver->getRequiredTBOAlignment(), m_driver->getRequiredUBOAlignment()),
+            std::max(m_driver->getRequiredSSBOAlignment(), 16u)
+        );
 
     core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> res;
     res.reserve(_end-_begin);

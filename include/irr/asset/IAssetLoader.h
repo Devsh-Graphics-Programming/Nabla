@@ -117,13 +117,15 @@ public:
         // I would really like to merge getLoadFilename and getLoadFile into one function!
 
         //! When you sometimes have different passwords for different assets
-        /** \param outDecrKeyLen is always >= ctx.decryptionKeyLen
+        /** \param inOutDecrKeyLen expects length of buffer `outDecrKey`, then function writes into it length of actual key.
+                Write to `outDecrKey` happens only if output value of `inOutDecrKeyLen` is less or equal to input value of `inOutDecrKeyLen`.
         \param supposedFilename is the string after modification by getLoadFilename.
         \param attempt if decryption or validation algorithm supports reporting failure, you can try different key*/
-        inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& outDecrKeyLen, const size_t& maxDecrKeyLen, const uint32_t& attempt, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& inOutDecrKeyLen, const uint32_t& attempt, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
-            outDecrKeyLen = ctx.params.decryptionKeyLen;
-            memcpy(outDecrKey, ctx.params.decryptionKey, outDecrKeyLen);
+            if (ctx.params.decryptionKeyLen <= inOutDecrKeyLen)
+                memcpy(outDecrKey, ctx.params.decryptionKey, ctx.params.decryptionKeyLen);
+            inOutDecrKeyLen = ctx.params.decryptionKeyLen;
             return attempt == 0u; // no failed attempts
         }
 

@@ -112,7 +112,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         uint32_t attempt = 0u;
         const void* blob = nullptr;
         // todo: supposedFilename arg is missing (empty string) - what is it? 
-        while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, hierLvl))
+        while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, hierLvl))
         {
             if (!((data->header->compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
                 blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, decrKey);
@@ -253,7 +253,7 @@ io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, 
             however we don't need to do this here since we know format's version (baw v0) and so we can be sure that hierarchy level for mesh data descriptors is 2
             */
             constexpr uint32_t ICPUMESHDATAFORMATDESC_HIERARCHY_LVL = 2u;
-            while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), _ctx.inner, ICPUMESHDATAFORMATDESC_HIERARCHY_LVL))
+            while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), _ctx.inner, ICPUMESHDATAFORMATDESC_HIERARCHY_LVL))
             {
                 if (!((hdr.compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
                     blob = tryReadBlobOnStack<asset::legacyv0::BlobHeaderV0>(SBlobData_t<asset::legacyv0::BlobHeaderV0>(&hdr, baseOffsetv0+offset), _ctx, decrKey, stackmem, sizeof(stackmem));

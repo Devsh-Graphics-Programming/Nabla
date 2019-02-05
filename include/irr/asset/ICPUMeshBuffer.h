@@ -672,7 +672,7 @@ public:
 
         if (!scaled)
         {
-            double output64[4];
+            double output64[4]{ 0., 0., 0., 1. };
             video::decodePixels<double>(format, &src, output64, 0u, 0u);
             std::copy(output64, output64+4, output.pointer);
         }
@@ -680,13 +680,13 @@ public:
         {
             if (asset::isSignedFormat(format))
             {
-                int64_t output64i[4];
+                int64_t output64i[4]{ 0, 0, 0, 1 };
                 video::decodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64i, 0u, 0u);
                 std::copy(output64i, output64i+4, output.pointer);
             }
             else
             {
-                uint64_t output64u[4];
+                uint64_t output64u[4]{ 0u, 0u, 0u, 1u };
                 video::decodePixels<uint64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64u, 0u, 0u);
                 std::copy(output64u, output64u+4, output.pointer);
             }
@@ -729,14 +729,14 @@ public:
         {
             if (asset::isSignedFormat(format))
             {
-                int64_t output64[4];
+                int64_t output64[4]{0, 0, 0, 1};
                 video::decodePixels<int64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
                 for (uint32_t i = 0u; i < asset::getFormatChannelCount(format); ++i)
                     output[i] = output64[i];
             }
             else
             {
-                uint64_t output64[4];
+                uint64_t output64[4]{0u, 0u, 0u, 1u};
                 video::decodePixels<uint64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
                 for (uint32_t i = 0u; i < asset::getFormatChannelCount(format); ++i)
                     output[i] = output64[i];

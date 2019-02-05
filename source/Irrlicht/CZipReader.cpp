@@ -4,6 +4,7 @@
 
 #include "CZipReader.h"
 #include "CMemoryFile.h"
+#include "CLimitReadFile.h"
 
 #include "os.h"
 #include <sstream>
@@ -615,7 +616,7 @@ IReadFile* CZipReader::createAndOpenFile(uint32_t index)
 			if (decrypted)
 				return decrypted;
 			else
-				return createLimitReadFile(Files[index].FullName, File, e.Offset, decryptedSize);
+                return new CLimitReadFile(File, e.Offset, decryptedSize, Files[index].FullName);
 		}
 	case 8:
 		{
