@@ -1027,15 +1027,6 @@ bool COpenGLDriver::genericDriverInit()
         defaultUploadBuffer = new video::StreamingTransientDataBufferMT<>(this,reqs);
 	}
 
-	{
-        auto reqs = getDeviceLocalGPUMemoryReqs();
-        reqs.vulkanReqs.size = 1024*1024;
-        reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        auto alloctr = SimpleGPUBufferAllocator(this,reqs);
-        auto tmp  = new video::SubAllocatedDataBufferST<>(reqs.vulkanReqs.size,reqs.vulkanReqs.alignment ,alloctr,core::allocator<uint8_t>(),64u);
-        tmp->drop();
-	}
-
 	return true;
 }
 

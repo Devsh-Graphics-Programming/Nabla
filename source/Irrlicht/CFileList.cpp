@@ -32,36 +32,8 @@ CFileList::~CFileList()
 	Files.clear();
 }
 
-uint32_t CFileList::getFileCount() const
-{
-	return Files.size();
-}
-
-void CFileList::sort()
-{
-	std::sort(Files.begin(),Files.end());
-}
-
-const io::path& CFileList::getFileName(uint32_t index) const
-{
-	if (index >= Files.size())
-		return emptyFileListEntry;
-
-	return Files[index].Name;
-}
-
-
-//! Gets the full name of a file in the list, path included, based on an index.
-const io::path& CFileList::getFullFileName(uint32_t index) const
-{
-	if (index >= Files.size())
-		return emptyFileListEntry;
-
-	return Files[index].FullName;
-}
-
 //! adds a file or folder
-uint32_t CFileList::addItem(const io::path& fullPath, uint32_t offset, uint32_t size, bool isDirectory, uint32_t id)
+void CFileList::addItem(const io::path& fullPath, uint32_t offset, uint32_t size, bool isDirectory, uint32_t id)
 {
 	SFileListEntry entry;
 	entry.ID   = id ? id : Files.size();
@@ -91,76 +63,40 @@ uint32_t CFileList::addItem(const io::path& fullPath, uint32_t offset, uint32_t 
 
 	//os::Printer::log(Path.c_str(), entry.FullName);
 
-	Files.push_back(entry);
-
-	return Files.size() - 1;
+	Files.insert(std::lower_bound(Files.begin(),Files.end(),entry),entry);
 }
 
-//! Returns the ID of a file in the file list, based on an index.
-uint32_t CFileList::getID(uint32_t index) const
-{
-	return index < Files.size() ? Files[index].ID : 0;
-}
-
-bool CFileList::isDirectory(uint32_t index) const
-{
-	bool ret = false;
-	if (index < Files.size())
-		ret = Files[index].IsDirectory;
-
-	return ret;
-}
-
-//! Returns the size of a file
-uint32_t CFileList::getFileSize(uint32_t index) const
-{
-	return index < Files.size() ? Files[index].Size : 0;
-}
-
-//! Returns the size of a file
-uint32_t CFileList::getFileOffset(uint32_t index) const
-{
-	return index < Files.size() ? Files[index].Offset : 0;
-}
 
 
 //! Searches for a file or folder within the list, returns the index
-int32_t CFileList::findFile(const io::path& filename, bool isDirectory = false) const
+IFileList::ListCIterator CFileList::findFile(IFileList::ListCIterator _begin, IFileList::ListCIterator _end, const io::path& filename, bool isDirectory) const
 {
-	SFileListEntry entry;
-	// we only need FullName to be set for the search
-	entry.FullName = filename;
-	entry.IsDirectory = isDirectory;
+    SFileListEntry entry;
+    // we only need FullName to be set for the search
+    entry.FullName = filename;
+    entry.IsDirectory = isDirectory;
 
-	// exchange
-	handleBackslashes(&entry.FullName);
+    // exchange
+    handleBackslashes(&entry.FullName);
 
-	// remove trailing slash
-	if (entry.FullName.lastChar() == '/')
-	{
-		entry.IsDirectory = true;
-		entry.FullName[entry.FullName.size()-1] = 0;
-		entry.FullName.validate();
-	}
+    // remove trailing slash
+    if (entry.FullName.lastChar() == '/')
+    {
+        entry.IsDirectory = true;
+        entry.FullName[entry.FullName.size()-1] = 0;
+        entry.FullName.validate();
+    }
 
-	if (IgnoreCase)
-		entry.FullName.make_lower();
+    if (IgnoreCase)
+        entry.FullName.make_lower();
 
-	if (IgnorePaths)
-		core::deletePathFromFilename(entry.FullName);
+    if (IgnorePaths)
+        core::deletePathFromFilename(entry.FullName);
 
-    auto retval = std::lower_bound(Files.begin(),Files.end(),entry);
-    if (retval!=Files.end() && !(entry<*retval))
-        return std::distance(Files.begin(),retval);
-    else
-        return -1;
-}
-
-
-//! Returns the base path of the file list
-const io::path& CFileList::getPath() const
-{
-	return Path;
+    auto retval = std::lower_bound(_begin,_end,entry);
+    if (retval!=_end && entry<*retval)
+        return _end;
+    return retval;
 }
 
 

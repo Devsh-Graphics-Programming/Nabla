@@ -15,6 +15,7 @@
 
 namespace irr
 {
+	class ITimer;
 namespace io
 {
 	class IXMLWriter;
@@ -35,7 +36,7 @@ namespace scene
 
 	public:
 		//! constructor
-		CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, io::IFileSystem* fs,
+		CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, irr::ITimer* timer, io::IFileSystem* fs,
 			gui::ICursorControl* cursorControl);
 
 		//! returns the video driver
@@ -319,6 +320,9 @@ namespace scene
 
 		//! video driver
 		video::IVideoDriver* Driver;
+
+		//! timer
+		irr::ITimer* Timer;
 
 		//! file system
 		io::IFileSystem* FileSystem;

@@ -12,46 +12,39 @@ endif()
 
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
-	C3DSMeshFileLoader.cpp
-	CB3DMeshFileLoader.cpp
-	CBAWMeshFileLoader.cpp
-	CLMTSMeshFileLoader.cpp
-	CLWOMeshFileLoader.cpp
-	CMS3DMeshFileLoader.cpp
-	CMY3DMeshFileLoader.cpp
-	COBJMeshFileLoader.cpp
-	COCTLoader.cpp
-	COgreMeshFileLoader.cpp
-	CPLYMeshFileLoader.cpp
-	CSTLMeshFileLoader.cpp
-	CXMeshFileLoader.cpp
+	../../src/irr/asset/CBAWMeshFileLoader.cpp
+	../../src/irr/asset/COBJMeshFileLoader.cpp
+	../../src/irr/asset/CPLYMeshFileLoader.cpp
+	../../src/irr/asset/CSTLMeshFileLoader.cpp
+	../../src/irr/asset/CXMeshFileLoader.cpp
 
 # Mesh writers
-	CBAWMeshWriter.cpp
-	COBJMeshWriter.cpp
-	CPLYMeshWriter.cpp
-	CSTLMeshWriter.cpp
+	../../src/irr/asset/CBAWMeshWriter.cpp
+	../../src/irr/asset/COBJMeshWriter.cpp
+	../../src/irr/asset/CPLYMeshWriter.cpp
+	../../src/irr/asset/CSTLMeshWriter.cpp
 
 # Other mesh-related stuff
 	CAnimatedMeshSceneNode.cpp
 	../../src/irr/asset/bawformat/CBAWFile.cpp
 	../../src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
 	../../src/irr/asset/bawformat/CBlobsLoadingManager.cpp
-	CForsythVertexCacheOptimizer.cpp
-	CMeshCache.cpp
-	CMeshManipulator.cpp
+	../../src/irr/asset/CForsythVertexCacheOptimizer.cpp
+	../../src/irr/asset/CMeshManipulator.cpp
 	CMeshSceneNode.cpp
 	CMeshSceneNodeInstanced.cpp
-	COverdrawMeshOptimizer.cpp
-	CSkinnedMesh.cpp
+	../../src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
 	../../src/irr/asset/bawformat/TypedBlob.cpp
+	
+# Shader loading and processing
+	CGLSLFunctionGenerator.cpp
 
 # Scene objects
 	CBillboardSceneNode.cpp
 	CCameraSceneNode.cpp
 	CCubeSceneNode.cpp
-	CGeometryCreator.cpp
+	../../src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
 	CSkyBoxSceneNode.cpp
 	CSkyDomeSceneNode.cpp
@@ -80,22 +73,22 @@ set(IRRLICHT_SRCS_COMMON
 # Image processing
 	CColorConverter.cpp
 	CImage.cpp
-	CImageLoaderBMP.cpp
-	CImageLoaderDDS.cpp
-	CImageLoaderJPG.cpp
-	CImageLoaderPNG.cpp
-	CImageLoaderRGB.cpp
-	CImageLoaderTGA.cpp
-	CImageWriterBMP.cpp
-	CImageWriterJPG.cpp
-	CImageWriterPNG.cpp
-	CImageWriterTGA.cpp
+	../../src/irr/asset/CImageLoaderBMP.cpp
+	../../src/irr/asset/CImageLoaderDDS.cpp
+	../../src/irr/asset/CImageLoaderJPG.cpp
+	../../src/irr/asset/CImageLoaderPNG.cpp
+	../../src/irr/asset/CImageLoaderRGB.cpp
+	../../src/irr/asset/CImageLoaderTGA.cpp
+	../../src/irr/asset/CImageWriterBMP.cpp
+	../../src/irr/asset/CImageWriterJPG.cpp
+	../../src/irr/asset/CImageWriterPNG.cpp
+	../../src/irr/asset/CImageWriterTGA.cpp
 
 # Video
 	CFPSCounter.cpp
 	CVideoModeList.cpp
 	../../src/irr/video/GPUMemoryAllocatorBase.cpp
-	../../src/irr/video/StreamingGPUBufferAllocator.cpp
+	../../src/irr/video/SimpleGPUBufferAllocator.cpp
 
 # Software renderer
 	CBurningShader_Raster_Reference.cpp
@@ -375,7 +368,7 @@ target_include_directories(Irrlicht PUBLIC
 	../../include
 	${COMMON_INCLUDE_DIRS}
 )
-target_include_directories(Irrlicht PRIVATE ../../src) 
+target_include_directories(Irrlicht PRIVATE ../../src ../../source/Irrlicht) 
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 
@@ -391,8 +384,7 @@ if (Vulkan_FOUND)
 		_IRR_COMPILE_WITH_VULKAN_
 	)
 	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
-	target_include_directories(Irrlicht INTERFACE ${Vulkan_INCLUDE_DIR})
-	target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
+	#target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
 else()
 	message(STATUS "Vulkan driver is not enabled")
 endif()
@@ -428,7 +420,7 @@ target_include_directories(IrrlichtServer PUBLIC
 	../../include
 	${COMMON_INCLUDE_DIRS}
 )
-target_include_directories(IrrlichtServer PRIVATE ../../src)
+target_include_directories(IrrlichtServer PRIVATE ../../src ../../source/Irrlicht)
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_

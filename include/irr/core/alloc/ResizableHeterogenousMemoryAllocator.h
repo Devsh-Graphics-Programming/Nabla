@@ -13,7 +13,7 @@ namespace core
 
 
 template<class HeterogenousMemoryAllocator>
-class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator
+class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator // make protected?
 {
         typedef HeterogenousMemoryAllocator                        Base;
         typedef typename Base::alloc_traits                            alloc_traits;

@@ -42,12 +42,19 @@ namespace impl
     class FriendOfHeterogenousMemoryAddressAllocatorAdaptor;
 
 
-    template<class AddressAllocator, class OtherAllocator, class HostAllocator>
+    template<class AddrAllocator, class OtherAllocator, class HostAllocator>
     class HeterogenousMemoryAddressAllocatorAdaptorBase
     {
+        public:
+            typedef AddrAllocator AddressAllocator;
+            typedef OtherAllocator  OtherAllocatorType;
+            typedef HostAllocator   HostAllocatorType;
+        private:
             friend class FriendOfHeterogenousMemoryAddressAllocatorAdaptor;
+            typedef  typename AddressAllocator::size_type    size_type;
 
-            typedef typename AddressAllocator::size_type    size_type;
+        public:
+            inline size_type        getDataBufferSize() const {return mDataSize;}
         protected:
             template<typename... Args>
             HeterogenousMemoryAddressAllocatorAdaptorBase(const HostAllocator& reservedMemAllocator, const OtherAllocator& dataMemAllocator, size_type bufSz, size_type maxAllocatableAlignment, const Args&... args) :
@@ -59,11 +66,6 @@ namespace impl
             OtherAllocator          mDataAlloc;
             size_type               mReservedSize;
             HostAllocator           mReservedAlloc;
-        public:
-            typedef OtherAllocator  OtherAllocatorType;
-            typedef HostAllocator   HostAllocatorType;
-
-            inline size_type        getDataBufferSize() const {return mDataSize;}
     };
 
 
@@ -100,7 +102,8 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
         typedef typename BufferAllocator::value_type allocation_type;
         allocation_type mAllocation;
     public:
-        typedef typename AddressAllocator::size_type                                                                size_type;
+        typedef typename AddressAllocator::size_type    size_type;
+        static constexpr size_type invalid_address          = AddressAllocator::invalid_address;
 
         template<typename... Args>
         HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator, size_type bufSz, size_type maxAllocatableAlignment, Args&&... args) :

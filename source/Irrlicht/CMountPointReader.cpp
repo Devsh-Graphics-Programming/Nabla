@@ -36,8 +36,9 @@ bool CArchiveLoaderMount::isALoadableFileFormat(const io::path& filename) const
 	bool ret = false;
 	if (list)
 	{
+	    auto files = list->getFiles();
 		// check if name is found as directory
-		if (list->findFile(filename, true))
+		if (list->findFile(files.begin(),files.end(),filename, true)!=files.end())
 			ret=true;
 		list->drop();
 	}
@@ -98,8 +99,6 @@ CMountPointReader::CMountPointReader(IFileSystem * parent, const io::path& basen
 	Parent->changeWorkingDirectoryTo(basename);
 	buildDirectory();
 	Parent->changeWorkingDirectoryTo(work);
-
-	sort();
 }
 
 
@@ -115,21 +114,21 @@ void CMountPointReader::buildDirectory()
 	if (!list)
 		return;
 
-	const uint32_t size = list->getFileCount();
-	for (uint32_t i=0; i < size; ++i)
+	auto files = list->getFiles();
+	for (auto it=files.begin(); it!=files.end(); it++)
 	{
-		io::path full = list->getFullFileName(i);
+		io::path full = it->FullName;
 		full = full.subString(Path.size(), full.size() - Path.size());
 
-		if (!list->isDirectory(i))
+		if (!it->IsDirectory)
 		{
-			addItem(full, list->getFileOffset(i), list->getFileSize(i), false, RealFileNames.size());
-			RealFileNames.push_back(list->getFullFileName(i));
+			addItem(full, it->Offset, it->Size, false, RealFileNames.size());
+			RealFileNames.push_back(it->FullName);
 		}
 		else
 		{
-			const io::path rel = list->getFileName(i);
-			RealFileNames.push_back(list->getFullFileName(i));
+			const io::path rel = it->Name;
+			RealFileNames.push_back(it->FullName);
 
 			io::path pwd  = Parent->getWorkingDirectory();
 			if (pwd.lastChar() != '/')
@@ -149,23 +148,16 @@ void CMountPointReader::buildDirectory()
 	list->drop();
 }
 
-//! opens a file by index
-IReadFile* CMountPointReader::createAndOpenFile(uint32_t index)
-{
-	if (index >= Files.size())
-		return 0;
-
-    return Parent->createAndOpenFile(RealFileNames[Files[index].ID]);
-}
-
 //! opens a file by file name
 IReadFile* CMountPointReader::createAndOpenFile(const io::path& filename)
 {
-	int32_t index = findFile(filename, false);
-	if (index != -1)
-		return createAndOpenFile(index);
-	else
-		return 0;
+    auto found = findFile(Files.begin(),Files.end(),filename,false);
+	if (found != Files.end())
+    {
+        return Parent->createAndOpenFile(RealFileNames[found->ID]);
+    }
+	
+	return nullptr;
 }
 
 

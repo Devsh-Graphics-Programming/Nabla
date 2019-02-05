@@ -175,6 +175,7 @@ float COpenGLExtensionHandler::MaxTextureLODBias = 0.f;
 //uint32_t COpenGLExtensionHandler::MaxXFormFeedbackSeparateAttributes = GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS;
 
 bool COpenGLExtensionHandler::IsIntelGPU = false;
+bool COpenGLExtensionHandler::needsDSAFramebufferHack = true;
 
 //
 PFNGLISENABLEDIPROC COpenGLExtensionHandler::pGlIsEnabledi = NULL;
@@ -963,8 +964,8 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     pGlVertexArrayVertexAttribIFormatEXT = NULL;
     pGlVertexArrayVertexAttribLFormatEXT = NULL;
     pGlVertexArrayVertexBindingDivisorEXT = NULL;
-    pGlCreateQueries = NULL;
-**/
+    pGlCreateQueries = NULL;*/
+
 
     num=0;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &num);

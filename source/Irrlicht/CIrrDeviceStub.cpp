@@ -3,12 +3,11 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CIrrDeviceStub.h"
-#include "ISceneManager.h"
+#include "CSceneManager.h"
 #include "IEventReceiver.h"
 #include "IFileSystem.h"
 #include "os.h"
 #include "IrrCompileConfig.h"
-#include "CTimer.h"
 #include "CLogger.h"
 namespace irr
 {
@@ -20,7 +19,7 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 	InputReceivingSceneManager(0), VideoModeList(0),
 	CreationParams(params), Close(false)
 {
-	Timer = new CTimer();
+	Timer = new ITimer();
 	if (os::Printer::Logger)
 	{
 		os::Printer::Logger->grab();
@@ -66,7 +65,7 @@ CIrrDeviceStub::~CIrrDeviceStub()
 void CIrrDeviceStub::createGUIAndScene()
 {
 	// create Scene manager
-	SceneManager = scene::createSceneManager(this, VideoDriver, FileSystem, CursorControl);
+	SceneManager = new scene::CSceneManager(this, VideoDriver, Timer, FileSystem, CursorControl);
 
 	setEventReceiver(UserReceiver);
 }

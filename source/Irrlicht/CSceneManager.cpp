@@ -44,9 +44,9 @@ namespace scene
 {
 
 //! constructor
-CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, io::IFileSystem* fs,
+CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, irr::ITimer* timer, io::IFileSystem* fs,
 		gui::ICursorControl* cursorControl)
-: ISceneNode(0, 0), Driver(driver), FileSystem(fs), Device(device),
+: ISceneNode(0, 0), Driver(driver), Timer(timer), FileSystem(fs), Device(device),
 	CursorControl(cursorControl),
 	ActiveCamera(0), CurrentRendertime(ESNRP_NONE),
 	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type")
@@ -698,7 +698,7 @@ void CSceneManager::drawAll()
 	Driver->setAllowZWriteOnTransparent( *((bool*)&(Parameters[ALLOW_ZWRITE_ON_TRANSPARENT])) );
 
 	// do animations and other stuff.
-	OnAnimate(os::Timer::getTime());
+	OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
 
 	/*!
 		First Scene Node for prerendering should be the active camera
@@ -784,7 +784,7 @@ void CSceneManager::drawAll()
 //! creates a rotation animator, which rotates the attached scene node around itself.
 ISceneNodeAnimator* CSceneManager::createRotationAnimator(const core::vector3df& rotationPerSecond)
 {
-	ISceneNodeAnimator* anim = new CSceneNodeAnimatorRotation(os::Timer::getTime(),
+	ISceneNodeAnimator* anim = new CSceneNodeAnimatorRotation(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count(),
 		rotationPerSecond);
 
 	return anim;
@@ -799,7 +799,7 @@ ISceneNodeAnimator* CSceneManager::createFlyCircleAnimator(
 		float radiusEllipsoid)
 {
 	const float orbitDurationMs = (core::DEGTORAD * 360.f) / speed;
-	const uint32_t effectiveTime = os::Timer::getTime() + (uint32_t)(orbitDurationMs * startPosition);
+	const uint32_t effectiveTime = std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count() + (uint32_t)(orbitDurationMs * startPosition);
 
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyCircle(
 			effectiveTime, center,
@@ -814,7 +814,7 @@ ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vector3
 					const core::vector3df& endPoint, uint32_t timeForWay, bool loop,bool pingpong)
 {
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyStraight(startPoint,
-		endPoint, timeForWay, loop, os::Timer::getTime(), pingpong);
+		endPoint, timeForWay, loop, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count(), pingpong);
 
 	return anim;
 }
@@ -826,7 +826,7 @@ ISceneNodeAnimator* CSceneManager::createTextureAnimator(const core::vector<vide
 	int32_t timePerFrame, bool loop)
 {
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorTexture(textures,
-		timePerFrame, loop, os::Timer::getTime());
+		timePerFrame, loop, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
 
 	return anim;
 }
@@ -836,7 +836,7 @@ ISceneNodeAnimator* CSceneManager::createTextureAnimator(const core::vector<vide
 //! some time automaticly.
 ISceneNodeAnimator* CSceneManager::createDeleteAnimator(uint32_t when)
 {
-	return new CSceneNodeAnimatorDelete(this, os::Timer::getTime() + when);
+	return new CSceneNodeAnimatorDelete(this, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count() + when);
 }
 
 
@@ -1009,19 +1009,12 @@ E_SCENE_NODE_RENDER_PASS CSceneManager::getSceneNodeRenderPass() const
 //! Creates a new scene manager.
 ISceneManager* CSceneManager::createNewSceneManager(bool cloneContent)
 {
-	CSceneManager* manager = new CSceneManager(Device, Driver, FileSystem, CursorControl);
+    CSceneManager* manager = new CSceneManager(Device, Driver, Timer, FileSystem, CursorControl);
 
-	if (cloneContent)
-		manager->cloneMembers(this, manager);
+    if (cloneContent)
+        manager->cloneMembers(this, manager);
 
-	return manager;
-}
-
-// creates a scenemanager
-ISceneManager* createSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver,
-		io::IFileSystem* fs, gui::ICursorControl* cursorcontrol)
-{
-	return new CSceneManager(device, driver, fs, cursorcontrol);
+    return manager;
 }
 
 

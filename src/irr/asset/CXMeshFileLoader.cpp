@@ -19,6 +19,8 @@
 #include "assert.h"
 #include "irr/asset/IAssetManager.h"
 #include "irr/asset/SCPUMesh.h"
+#include <chrono>
+#include <vector>
 
 #ifdef _DEBUG
 #define _XREADER_DEBUG
@@ -79,7 +81,7 @@ bool CXMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 //#ifdef _XREADER_DEBUG
-	uint32_t time = os::Timer::getRealTime();
+	auto time = std::chrono::high_resolution_clock::now();
 //#endif
 
     SContext ctx(asset::IAssetLoader::SAssetLoadContext{_params, _file}, _override);
@@ -197,10 +199,9 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
         ctx.AnimatedMesh = 0;
 	}
 //#ifdef _XREADER_DEBUG
-	time = os::Timer::getRealTime() - time;
 	std::ostringstream tmpString("Time to load ");
 	tmpString.seekp(0,std::ios_base::end);
-	tmpString << (ctx.BinaryFormat ? "binary" : "ascii") << " X file: " << time << "ms";
+	tmpString << (ctx.BinaryFormat ? "binary" : "ascii") << " X file: " << (std::chrono::high_resolution_clock::now()-time).count() << "ms";
 	os::Printer::log(tmpString.str());
 //#endif
 

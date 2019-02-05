@@ -18,45 +18,142 @@ namespace irr
 namespace video
 {
 
-// this buffer is not growable, CRTP is an optional parameter, only for use when making inherited specialized allocators
-template< typename _size_type=uint32_t, class GPUBufferAllocator=SimpleGPUBufferAllocator, class CPUAllocator=core::allocator<uint8_t>, typename CRTP=void >
-class SubAllocatedDataBufferST : public virtual core::IReferenceCounted
+// this buffer is not growabl
+template<class HeterogenousMemoryAddressAllocator, class CustomDeferredFreeFunctor=void>
+class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
 {
-        typedef SubAllocatedDataBufferST<_size_type,GPUBufferAllocator,CPUAllocator>    ThisType;
+    public:
+        typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType  GPUBufferAllocator;
+        typedef typename HeterogenousMemoryAddressAllocator::HostAllocatorType  CPUAllocator;
+        typedef typename HeterogenousMemoryAddressAllocator::size_type  size_type;
+        static constexpr size_type invalid_address                                          = HeterogenousMemoryAddressAllocator::invalid_address;
+
+    private:
+        typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator> ThisType;
 
         template<class U> using std_get_0 = decltype(std::get<0u>(std::declval<U&>()));
         template<class,class=void> struct is_std_get_0_defined                                   : std::false_type {};
         template<class U> struct is_std_get_0_defined<U,void_t<std_get_0<U> > > : std::true_type {};
     protected:
-        typedef core::GeneralpurposeAddressAllocator<_size_type>                                                                                             BasicAddressAllocator;
-        typedef core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,GPUBufferAllocator,CPUAllocator> AddressAllocator;
-        AddressAllocator mAllocator;
-    public:
-        typedef typename BasicAddressAllocator::size_type   size_type;
-        static constexpr size_type                                            invalid_address = BasicAddressAllocator::invalid_address;
+        HeterogenousMemoryAddressAllocator mAllocator;
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR SubAllocatedDataBufferST() {}
+        template<typename... Args>
+        inline size_type    try_multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
+        {
+            mAllocator.multi_alloc_addr(count,outAddresses,bytes,args...);
+
+            size_type unallocatedSize = 0;
+            for (uint32_t i=0u; i<count; i++)
+            {
+                if (outAddresses[i]!=invalid_address)
+                    continue;
+
+                unallocatedSize += bytes[i];
+            }
+            return unallocatedSize;
+        }
+
+        //! Mutable version for protected usage
+        inline HeterogenousMemoryAddressAllocator& getAllocator() noexcept {return mAllocator;}
+
+        inline core::allocator<std::tuple<size_type,size_type> >& getFunctorAllocator() noexcept {return functorAllocator;} // TODO : RobustPoolAllocator
+
+        class DefaultDeferredFreeFunctor
+        {
+            private:
+                ThisType*   sadbRef;
+                size_type*  rangeData;
+                size_type   numAllocs;
+            public:
+                DefaultDeferredFreeFunctor(ThisType* _this, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes)
+                                                    : sadbRef(_this), rangeData(nullptr), numAllocs(numAllocsToFree)
+                {
+                    rangeData = reinterpret_cast<size_type*>(sadbRef->getFunctorAllocator().allocate(numAllocs,sizeof(size_type)));
+                    memcpy(rangeData            ,addrs,sizeof(size_type)*numAllocs);
+                    memcpy(rangeData+numAllocs  ,bytes,sizeof(size_type)*numAllocs);
+                }
+                DefaultDeferredFreeFunctor(const DefaultDeferredFreeFunctor& other) = delete;
+                DefaultDeferredFreeFunctor(DefaultDeferredFreeFunctor&& other) : sadbRef(nullptr), rangeData(nullptr), numAllocs(0u)
+                {
+                    this->operator=(std::forward<DefaultDeferredFreeFunctor>(other));
+                }
+
+                ~DefaultDeferredFreeFunctor()
+                {
+                    if (rangeData)
+                    {
+                        auto alloctr = sadbRef->getFunctorAllocator();
+                        alloctr.deallocate(reinterpret_cast<typename std::remove_pointer<decltype(alloctr)>::type::pointer>(rangeData),numAllocs);
+                    }
+                }
+
+                DefaultDeferredFreeFunctor& operator=(const DefaultDeferredFreeFunctor& other) = delete;
+                inline DefaultDeferredFreeFunctor& operator=(DefaultDeferredFreeFunctor&& other)
+                {
+                    if (rangeData)
+                    {
+                        auto alloctr = sadbRef->getFunctorAllocator();
+                        alloctr.deallocate(reinterpret_cast<typename std::remove_pointer<decltype(alloctr)>::type::pointer>(rangeData),numAllocs);
+                    }
+                    sadbRef    = other.sadbRef;
+                    rangeData   = other.rangeData;
+                    numAllocs   = other.numAllocs;
+                    other.sadbRef  = nullptr;
+                    other.rangeData = nullptr;
+                    other.numAllocs = 0u;
+                    return *this;
+                }
+
+                inline bool operator()(size_type& unallocatedSize)
+                {
+                    operator()();
+                    for (size_type i=0u; i<numAllocs; i++)
+                    {
+                        auto freedSize = rangeData[numAllocs+i];
+                        if (unallocatedSize>freedSize)
+                            unallocatedSize -= freedSize;
+                        else
+                        {
+                            unallocatedSize = 0u;
+                            return true;
+                        }
+                    }
+                    return unallocatedSize==0u;
+                }
+
+                inline void operator()()
+                {
+                    #ifdef _DEBUG
+                    assert(sadbRef && rangeData);
+                    #endif // _DEBUG
+                    HeterogenousMemoryAddressAllocator& alloctr = sadbRef->getAllocator();
+                    alloctr.multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
+                }
+        };
+        constexpr static bool UsingDefaultFunctor = std::is_same<CustomDeferredFreeFunctor,void>::value;
+        typedef typename std::conditional<UsingDefaultFunctor,DefaultDeferredFreeFunctor,CustomDeferredFreeFunctor>::type DeferredFreeFunctor;
+        GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
+        core::allocator<std::tuple<size_type,size_type> > functorAllocator; // TODO : RobustPoolAllocator
+
+    public:
+        #define DUMMY_DEFAULT_CONSTRUCTOR SubAllocatedDataBuffer() {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
         //!
         template<typename... Args>
-        SubAllocatedDataBufferST(size_type bufferSize, size_type maxAllocatableAlignment, const GPUBufferAllocator& deviceAllocator,
-                                       const CPUAllocator& reservedMemAllocator=CPUAllocator(), Args&&... args) :
-                                mAllocator(reservedMemAllocator,deviceAllocator,bufferSize,maxAllocatableAlignment,std::forward<Args>(args)...)
+        SubAllocatedDataBuffer(Args&&... args) : mAllocator(std::forward<Args>(args)...)
         {
         }
 
-        virtual ~SubAllocatedDataBufferST() {}
-
         //!
-        const AddressAllocator& getAllocator() const {return mAllocator;}
+        const HeterogenousMemoryAddressAllocator& getAllocator() const {return mAllocator;}
         //!
         inline IGPUBuffer*  getBuffer() noexcept
         {
-            auto& allocation = mAllocator.getCurrentBufferAllocation();
+            auto allocation = mAllocator.getCurrentBufferAllocation();
 
             IGPUBuffer* retval;
-            static_if<is_std_get_0_defined<typename AddressAllocator::allocation_type>::value >([&](auto f){
+            static_if<is_std_get_0_defined<decltype(allocation)>::value >([&](auto f){
                 retval = std::get<0u>(allocation);
             }).else_([&](auto f){
                 retval = allocation;
@@ -105,110 +202,27 @@ class SubAllocatedDataBufferST : public virtual core::IReferenceCounted
             return unallocatedSize;
         }
         //!
-        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, IDriverFence* fence) noexcept
+        inline void         multi_free(IDriverFence* fence, DeferredFreeFunctor&& functor) noexcept
+        {
+            deferredFrees.addEvent(GPUEventWrapper(fence),std::forward<DeferredFreeFunctor>(functor));
+        }
+        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
+        {
+            mAllocator.multi_free_addr(count,addr,bytes);
+        }
+        template<typename Q=DeferredFreeFunctor>
+        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, IDriverFence* fence, typename std::enable_if<std::is_same<Q,DefaultDeferredFreeFunctor>::value>::type* = 0) noexcept
         {
             if (fence)
-                deferredFrees.addEvent(GPUEventWrapper(fence),DeferredFreeFunctor(&mAllocator,count,addr,bytes));
+                multi_free(fence,DeferredFreeFunctor(this,count,addr,bytes));
             else
-                mAllocator.multi_free_addr(count,addr,bytes);
+                multi_free(count,addr,bytes);
         }
-    protected:
-        template<typename... Args>
-        inline size_type    try_multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
-        {
-            mAllocator.multi_alloc_addr(count,outAddresses,bytes,args...);
-
-            size_type unallocatedSize = 0;
-            for (uint32_t i=0u; i<count; i++)
-            {
-                if (outAddresses[i]!=invalid_address)
-                    continue;
-
-                unallocatedSize += bytes[i];
-            }
-            return unallocatedSize;
-        }
-
-        //! Mutable version for protected usage
-        inline AddressAllocator& getAllocator() noexcept {return mAllocator;}
-
-        inline core::allocator<std::tuple<size_type,size_type> >& getFunctorAllocator() noexcept {return functorAllocator;} // TODO : RobustPoolAllocator
-
-        class DeferredFreeFunctor
-        {
-            public:
-                DeferredFreeFunctor(ThisType* _this, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes)
-                                                    : sadbRef(_this), rangeData(nullptr), numAllocs(numAllocsToFree)
-                {
-                    rangeData = reinterpret_cast<size_type*>(sadbRef->getFunctorAllocator().allocate(numAllocs,sizeof(size_type)));
-                    memcpy(rangeData            ,addrs,sizeof(size_type)*numAllocs);
-                    memcpy(rangeData+numAllocs  ,bytes,sizeof(size_type)*numAllocs);
-                }
-                DeferredFreeFunctor(const DeferredFreeFunctor& other) = delete;
-                DeferredFreeFunctor(DeferredFreeFunctor&& other) : sadbRef(nullptr), rangeData(nullptr), numAllocs(0u)
-                {
-                    this->operator=(std::forward<DeferredFreeFunctor>(other));
-                }
-
-                ~DeferredFreeFunctor()
-                {
-                    if (rangeData)
-                    {
-                        auto alloctr = sadbRef->getFunctorAllocator();
-                        alloctr.deallocate(reinterpret_cast<typename std::remove_pointer<decltype(alloctr)>::type::pointer>(rangeData),numAllocs);
-                    }
-                }
-
-                DeferredFreeFunctor& operator=(const DeferredFreeFunctor& other) = delete;
-                inline DeferredFreeFunctor& operator=(DeferredFreeFunctor&& other)
-                {
-                    if (rangeData)
-                    {
-                        auto alloctr = sadbRef->getFunctorAllocator();
-                        alloctr.deallocate(reinterpret_cast<typename std::remove_pointer<decltype(alloctr)>::type::pointer>(rangeData),numAllocs);
-                    }
-                    sadbRef    = other.sadbRef;
-                    rangeData   = other.rangeData;
-                    numAllocs   = other.numAllocs;
-                    other.sadbRef  = nullptr;
-                    other.rangeData = nullptr;
-                    other.numAllocs = 0u;
-                    return *this;
-                }
-
-                inline bool operator()(size_type& unallocatedSize)
-                {
-                    operator()();
-                    for (size_type i=0u; i<numAllocs; i++)
-                    {
-                        auto freedSize = rangeData[numAllocs+i];
-                        if (unallocatedSize>freedSize)
-                            unallocatedSize -= freedSize;
-                        else
-                        {
-                            unallocatedSize = 0u;
-                            return true;
-                        }
-                    }
-                    return unallocatedSize==0u;
-                }
-
-                inline void operator()()
-                {
-                    #ifdef _DEBUG
-                    assert(sadbRef && rangeData);
-                    #endif // _DEBUG
-                    sadbRef->getAllocator().multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
-                }
-
-            private:
-                ThisType*   sadbRef;
-                size_type*  rangeData;
-                size_type   numAllocs;
-        };
-        GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
-        core::allocator<std::tuple<size_type,size_type> > functorAllocator; // TODO : RobustPoolAllocator
 };
+
+
+template< typename _size_type=uint32_t, class BasicAddressAllocator=core::GeneralpurposeAddressAllocator<_size_type>, class GPUBufferAllocator=SimpleGPUBufferAllocator, class CPUAllocator=core::allocator<uint8_t> >
+using SubAllocatedDataBufferST = SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,GPUBufferAllocator,CPUAllocator> >;
 
 //MT version?
 

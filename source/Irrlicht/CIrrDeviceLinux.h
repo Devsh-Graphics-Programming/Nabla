@@ -309,12 +309,12 @@ namespace irr
                     if (Null)
                         return;
 
-                    if ( PlatformBehavior&gui::ECPB_X11_CACHE_UPDATES && !os::Timer::isStopped() )
+                    if ( PlatformBehavior&gui::ECPB_X11_CACHE_UPDATES && !Device->getTimer()->isStopped() )
                     {
-                        uint32_t now = os::Timer::getTime();
+                        auto now = Device->getTimer()->getTime();
                         if (now <= lastQuery)
                             return;
-                        lastQuery = now;
+                        lastQuery = std::chrono::duration_cast<std::chrono::milliseconds>(now);
                     }
 
                     Window tmp;
@@ -341,7 +341,7 @@ namespace irr
                 core::rect<int32_t> ReferenceRect;
     #ifdef _IRR_COMPILE_WITH_X11_
                 gui::ECURSOR_PLATFORM_BEHAVIOR PlatformBehavior;
-                uint32_t lastQuery;
+                std::chrono::milliseconds lastQuery;
                 Cursor invisCursor;
 
                 struct CursorFrameX11

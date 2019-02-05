@@ -11,9 +11,6 @@
 #include "IEventReceiver.h"
 #include <list>
 #include "os.h"
-
-#include "CTimer.h"
-
 #include "irr/asset/IAssetManager.h"
 #include "COSOperator.h"
 #include "dimension2d.h"
@@ -1141,7 +1138,7 @@ void CIrrDeviceWin32::createDriver()
 //! runs the device. Returns false if device wants to be deleted
 bool CIrrDeviceWin32::run()
 {
-	os::Timer::tick();
+	Timer->tick();
 
 	static_cast<CCursorControl*>(CursorControl)->update();
 

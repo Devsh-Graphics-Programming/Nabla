@@ -11,7 +11,7 @@
 #include "CFinalBoneHierarchy.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENSSL_
-#include <openssl/evp.h>
+#include "openssl/evp.h"
 #pragma comment(lib, "libeay32.lib")
 #endif
 
