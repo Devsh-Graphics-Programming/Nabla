@@ -4,8 +4,9 @@ Stuff which is not 100% necessary for a GPGPU engine, or could have 3 or 4 possi
 none of which would be optimal for all circumstances such as shadows or deferred rendering.
 
 General rules for extensions are:
+0) **Put a LICENSE.md file at the root of your extension directory**
 1) Put it in the irr::ext::YourExtension namespace
-2) Make it compile only through inclusion with end-user projects, or **exceptionally** as a static library.
+2) Make it compile only through inclusion with end-user projects, or **exceptionally** as a library with CMake.
 3) Include your own files (even in your own .c/cpp files) by specifying their
    paths relative to the irrlicht root (see rule 2)
 4) If the extension requires higher capability hardware than IrrlichtBAW then
