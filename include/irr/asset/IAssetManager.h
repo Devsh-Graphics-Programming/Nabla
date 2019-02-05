@@ -33,9 +33,9 @@ namespace asset
 
     public:
 #ifdef USE_MAPS_FOR_PATH_BASED_CACHE
-        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, std::multimap>;
+        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, core::multimap>;
 #else
-        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, std::vector>;
+        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, core::vector>;
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
         using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::IReferenceCounted>;
