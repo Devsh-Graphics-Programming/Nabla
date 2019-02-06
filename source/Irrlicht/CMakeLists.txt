@@ -10,6 +10,8 @@ if(UNIX)
 	find_package(Threads REQUIRED)
 endif()
 
+file(GLOB_RECURSE IRRLICHT_HEADERS "../../*.h") # just gather all the header files and later put them into project so it's easy to search for things using IDE
+
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
 	../../src/irr/asset/CBAWMeshFileLoader.cpp
@@ -348,6 +350,7 @@ endmacro()
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_NORMAL}
+	${IRRLICHT_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
@@ -413,6 +416,7 @@ endif()
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_SERVER}
+	${IRRLICHT_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
