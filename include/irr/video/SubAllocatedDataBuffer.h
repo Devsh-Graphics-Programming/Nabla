@@ -153,7 +153,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
             auto allocation = mAllocator.getCurrentBufferAllocation();
 
             IGPUBuffer* retval;
-            static_if<is_std_get_0_defined<decltype(allocation)>::value >([&](auto f){
+            static_if<true/*is_std_get_0_defined<decltype(allocation)>::value*/ >([&](auto f){ // <-- todo, apparently MSVC SFINAE bug, however i can't even reproduce this in simpler form
                 retval = std::get<0u>(allocation);
             }).else_([&](auto f){
                 retval = allocation;

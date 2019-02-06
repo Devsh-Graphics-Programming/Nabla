@@ -23,6 +23,12 @@ set(IRRLICHT_SRCS_COMMON
 	../../src/irr/asset/COBJMeshWriter.cpp
 	../../src/irr/asset/CPLYMeshWriter.cpp
 	../../src/irr/asset/CSTLMeshWriter.cpp
+	
+# Assets
+	../../src/irr/asset/IAsset.cpp
+	../../src/irr/asset/IAssetManager.cpp
+	../../src/irr/asset/IAssetWriter.cpp
+	../../src/irr/asset/IAssetLoader.cpp
 
 # Other mesh-related stuff
 	CAnimatedMeshSceneNode.cpp
@@ -36,6 +42,7 @@ set(IRRLICHT_SRCS_COMMON
 	../../src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
 	../../src/irr/asset/bawformat/TypedBlob.cpp
+	CCPUSkinnedMesh.cpp
 	
 # Shader loading and processing
 	CGLSLFunctionGenerator.cpp
@@ -61,6 +68,7 @@ set(IRRLICHT_SRCS_COMMON
 	CSceneNodeAnimatorTexture.cpp
 
 # Driver-specific objects
+	IDriver.cpp
 	CNullDriver.cpp
 	COpenGLDriver.cpp
 	COpenGLExtensionHandler.cpp
@@ -119,6 +127,7 @@ set(IRRLICHT_SRCS_COMMON
 
 # Other
 	coreutil.cpp
+	IrrlichtDevice.cpp
 	CIrrDeviceSDL.cpp
 	CIrrDeviceLinux.cpp
 	CIrrDeviceConsole.cpp
@@ -368,7 +377,7 @@ target_include_directories(Irrlicht PUBLIC
 	../../include
 	${COMMON_INCLUDE_DIRS}
 )
-target_include_directories(Irrlicht PRIVATE ../../src ../../source/Irrlicht) 
+target_include_directories(Irrlicht PUBLIC ../../src ../../source/Irrlicht) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 

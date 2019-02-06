@@ -153,6 +153,11 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             addressesAllocated -= count;
         }
 
+        inline void             free_addr(size_type addr, size_type bytes) noexcept
+        {
+            multi_free_addr(1u, &addr, &bytes);
+        }
+
         //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
         inline size_type        alloc_addr(size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {

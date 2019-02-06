@@ -76,13 +76,13 @@ COBJMeshFileLoader::~COBJMeshFileLoader()
 
 asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-    SContext ctx{
+    SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
             _params,
             _file
         },
         _override
-    };
+    );
 
 	const long filesize = _file->getSize();
 	if (!filesize)
