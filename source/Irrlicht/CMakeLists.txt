@@ -1,8 +1,4 @@
-
-if(NOT NASTY_OPENSSL_WORKAROUND)
-	find_package(OpenSSL REQUIRED)
-endif()
-
+find_package(OpenSSL REQUIRED)
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -327,24 +323,11 @@ add_library(libshaderc OBJECT
 target_include_directories(libshaderc PUBLIC ${COMMON_INCLUDE_DIRS})
 
 macro(irr_target_link_openssl _trgt)
-	if(NOT NASTY_OPENSSL_WORKAROUND)
-		target_link_libraries(${_trgt} INTERFACE
-			OpenSSL::Crypto
-			OpenSSL::SSL
-		)
-		target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
-	else()
-		target_include_directories(${_trgt} PUBLIC ../../../openssl/include/)
-		if (UNIX)
-			target_link_libraries(${_trgt} INTERFACE
-				../../../openssl/crypto.a
-			)
-		elseif (WIN32)
-			target_link_libraries(${_trgt} INTERFACE
-				../../../openssl/lib/libeay32.lib
-			)
-		endif()
-	endif()
+	target_link_libraries(${_trgt} INTERFACE
+		OpenSSL::Crypto
+		OpenSSL::SSL
+	)
+	target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
 endmacro()
 
 add_library(Irrlicht STATIC
@@ -405,13 +388,6 @@ target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
 	_IRR_COMPILE_WITH_OPENGL_
 )
-
-if(BUILD_EXAMPLES)
-	add_custom_command(TARGET Irrlicht POST_BUILD
-					   COMMAND ${CMAKE_COMMAND} -E 
-					   copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../../examples_tests/media" "${CMAKE_CURRENT_BINARY_DIR}/../../examples_tests/media"
-	)
-endif()
 
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
