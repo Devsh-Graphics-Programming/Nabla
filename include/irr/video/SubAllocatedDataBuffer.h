@@ -2,6 +2,7 @@
 #define __IRR_SUB_ALLOCATED_DATA_BUFFER_H__
 
 #include <type_traits>
+#include <mutex>
 
 #include "irr/static_if.h"
 #include "irr/void_t.h"
@@ -29,6 +30,9 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
         static constexpr size_type invalid_address                                          = HeterogenousMemoryAddressAllocator::invalid_address;
 
     private:
+        #ifdef _DEBUG
+        std::recursive_mutex stAccessVerfier;
+        #endif // _DEBUG
         typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator> ThisType;
 
         template<class U> using std_get_0 = decltype(std::get<0u>(std::declval<U&>()));
@@ -56,7 +60,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
         //! Mutable version for protected usage
         inline HeterogenousMemoryAddressAllocator& getAllocator() noexcept {return mAllocator;}
 
-        inline core::allocator<std::tuple<size_type,size_type> >& getFunctorAllocator() noexcept {return functorAllocator;} // TODO : RobustPoolAllocator
+        inline core::allocator<std::tuple<size_type,size_type> >& getFunctorAllocator() noexcept {return functorAllocator;} // TODO : RobustGeneralpurposeAllocator a-la naughty dog
 
         class DefaultDeferredFreeFunctor
         {
@@ -133,7 +137,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
         constexpr static bool UsingDefaultFunctor = std::is_same<CustomDeferredFreeFunctor,void>::value;
         typedef typename std::conditional<UsingDefaultFunctor,DefaultDeferredFreeFunctor,CustomDeferredFreeFunctor>::type DeferredFreeFunctor;
         GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
-        core::allocator<std::tuple<size_type,size_type> > functorAllocator; // TODO : RobustPoolAllocator
+        core::allocator<std::tuple<size_type,size_type> > functorAllocator; // TODO : RobustGeneralpurposeAllocator a-la naughty dog, unbounded allocation, but without resize, use blocks
 
     public:
         #define DUMMY_DEFAULT_CONSTRUCTOR SubAllocatedDataBuffer() {}
@@ -143,6 +147,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
         template<typename... Args>
         SubAllocatedDataBuffer(Args&&... args) : mAllocator(std::forward<Args>(args)...)
         {
+            #ifdef _DEBUG
+            std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
+            assert(tLock.owns_lock());
+            #endif // _DEBUG
         }
 
         //!
@@ -164,6 +172,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more
         inline size_type    max_size() noexcept
         {
+            #ifdef _DEBUG
+            std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
+            assert(tLock.owns_lock());
+            #endif // _DEBUG
             size_type valueToStopAt = mAllocator.getAddressAllocator().min_size()*3u; // padding, allocation, more padding = 3u
             // we don't actually want or need to poll all possible blocks to free, only first few
             deferredFrees.pollForReadyEvents(valueToStopAt);
@@ -183,6 +195,11 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
         template<typename... Args>
         inline size_type    multi_alloc(const std::chrono::nanoseconds& maxWait, uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
         {
+            #ifdef _DEBUG
+            std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
+            assert(tLock.owns_lock());
+            #endif // _DEBUG
+
             // try allocate once
             size_type unallocatedSize = try_multi_alloc(count,outAddresses,bytes,args...);
             if (!unallocatedSize)
@@ -204,10 +221,18 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
         //!
         inline void         multi_free(IDriverFence* fence, DeferredFreeFunctor&& functor) noexcept
         {
+            #ifdef _DEBUG
+            std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
+            assert(tLock.owns_lock());
+            #endif // _DEBUG
             deferredFrees.addEvent(GPUEventWrapper(fence),std::forward<DeferredFreeFunctor>(functor));
         }
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
         {
+            #ifdef _DEBUG
+            std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
+            assert(tLock.owns_lock());
+            #endif // _DEBUG
             mAllocator.multi_free_addr(count,addr,bytes);
         }
         template<typename Q=DeferredFreeFunctor>

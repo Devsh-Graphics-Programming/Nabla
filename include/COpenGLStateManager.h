@@ -313,7 +313,7 @@ P.S. Maybe Ghost == Pending
                     IndexedObjectToBind() : index(0xdeadbeefu), obj(0)
                     {
                     }
-                    IndexedObjectToBind(const uint32_t& ix, const GLuint& object) : index(ix), obj(object)
+                    IndexedObjectToBind(const uint32_t ix, const GLuint object) : index(ix), obj(object)
                     {
                     }
 
@@ -356,7 +356,7 @@ P.S. Maybe Ghost == Pending
                     RangedBufferBinding() : object(0), offset(0), size(0)
                     {
                     }
-                    RangedBufferBinding(const GLuint& obj, const GLintptr& off, const GLsizeiptr& sz)
+                    RangedBufferBinding(const GLuint obj, const GLintptr off, const GLsizeiptr sz)
                                         : object(obj), offset(off), size(sz)
                     {
                     }
@@ -380,7 +380,7 @@ P.S. Maybe Ghost == Pending
                     RangedBufferBindingDiff() : RangedBufferBinding(), index(0xdeadbeefu), bindPoint(GL_INVALID_ENUM)
                     {
                     }
-                    RangedBufferBindingDiff(const GLenum& bndPt, const uint32_t& ix, const RangedBufferBinding& buff)
+                    RangedBufferBindingDiff(const GLenum bndPt, const uint32_t ix, const RangedBufferBinding& buff)
                                             : RangedBufferBinding(buff), bindPoint(bndPt), index(ix)
                     {
                     }
@@ -429,9 +429,9 @@ P.S. Maybe Ghost == Pending
                                 layered(GL_FALSE), layer(0), access(GL_READ_ONLY), format(GL_R8)
                     {
                     }
-                    ImageToBind(const uint32_t& unit, const GLuint& texture, const GLint level_in,
-                                  const GLboolean& layered_in, const GLint& layer_in,
-                                  const GLenum& access_in, const GLenum& format_in)
+                    ImageToBind(const uint32_t unit, const GLuint texture, const GLint level_in,
+                                  const GLboolean layered_in, const GLint layer_in,
+                                  const GLenum access_in, const GLenum format_in)
                                 : IndexedObjectToBind(unit,texture), level(level_in),
                                     layered(layered_in), layer(layer_in),
                                     access(access_in), format(format_in)
@@ -453,7 +453,7 @@ P.S. Maybe Ghost == Pending
                     TextureToBind() : IndexedObjectToBind(), target(GL_INVALID_ENUM)
                     {
                     }
-                    TextureToBind(const uint32_t& ix, const GLuint& object, const GLenum& tgt) : IndexedObjectToBind(ix,object), target(tgt)
+                    TextureToBind(const uint32_t ix, const GLuint object, const GLenum tgt) : IndexedObjectToBind(ix,object), target(tgt)
                     {
                     }
 
@@ -582,7 +582,7 @@ P.S. Maybe Ghost == Pending
                 }
             }
 
-            inline GLenum glEnableiBitToGLenum(uint16_t& indexedBitOut, const uint64_t &bit) const
+            inline GLenum glEnableiBitToGLenum(uint16_t& indexedBitOut, const uint64_t bit) const
             {
                 uint64_t ix = bit%OGL_MAX_ENDISABLEI_INDICES;
                 indexedBitOut = 0x1u<<ix;
@@ -600,7 +600,7 @@ P.S. Maybe Ghost == Pending
                 }
             }
 
-            inline static GLenum glPackParamToGLenum(const uint32_t& packParam)
+            inline static GLenum glPackParamToGLenum(const uint32_t packParam)
             {
                 if (packParam<EGPP_COUNT)
                 {
@@ -688,7 +688,7 @@ P.S. Maybe Ghost == Pending
                 }
             }
 
-            inline static GLenum glTextureTypeToGLenum(const uint32_t& texType)
+            inline static GLenum glTextureTypeToGLenum(const uint32_t texType)
             {
                 switch (texType)
                 {
@@ -731,7 +731,7 @@ P.S. Maybe Ghost == Pending
                 }
             }
 
-            inline static GLenum glTextureTypeToBindingGLenum(const uint32_t& texType)
+            inline static GLenum glTextureTypeToBindingGLenum(const uint32_t texType)
             {
                 switch (texType)
                 {
@@ -774,7 +774,7 @@ P.S. Maybe Ghost == Pending
                 }
             }
 
-            inline static GLenum glRangedBufferTypeToGLenum(const uint32_t& rangedBufferType)
+            inline static GLenum glRangedBufferTypeToGLenum(const uint32_t rangedBufferType)
             {
                 switch (rangedBufferType)
                 {
@@ -791,7 +791,7 @@ P.S. Maybe Ghost == Pending
             }
 
             //default OGL state at start of context as per the spec
-            COpenGLState(const uint32_t& windowSizeX=0, const uint32_t& windowSizeY=0)
+            COpenGLState(const uint32_t windowSizeX=0, const uint32_t windowSizeY=0)
             {
                 for (size_t i=0; i<EGHB_COUNT; i++)
                     glHint_vals[i] = GL_DONT_CARE;
@@ -924,32 +924,33 @@ P.S. Maybe Ghost == Pending
             }
 
             //! THIS IS SLOW AND FOR DEBUG ONLY!
-            static COpenGLState collectGLState(const bool& careAboutHints=true, //should be default false
-                                              const bool& careAboutFBOs=true,
-                                              const bool& careAboutPolygonOffset=true, //should be default false
-                                              const bool& careAboutPixelXferOps=true,
-                                              const bool& careAboutSSBOAndAtomicCounters=true,
-                                              const bool& careAboutXFormFeedback=true,
-                                              const bool& careAboutProgram=true,
-                                              const bool& careAboutPipeline=true,
-                                              const bool& careAboutTesellationParams=true,
-                                              const bool& careAboutViewports=true,
-                                              const bool& careAboutDrawIndirectBuffers=true,
-                                              const bool& careAboutPointSize=true,
-                                              const bool& careAboutLineWidth=true,
-                                              const bool& careAboutLogicOp=true,
-                                              const bool& careAboutMultisampling=true,
-                                              const bool& careAboutBlending=true,
-                                              const bool& careAboutColorWriteMasks=true,
-                                              const bool& careAboutStencilFunc=true,
-                                              const bool& careAboutStencilOp=true,
-                                              const bool& careAboutStencilMask=true,
-                                              const bool& careAboutDepthFunc=true,
-                                              const bool& careAboutDepthMask=true,
-                                              const bool& careAboutImages=true,
-                                              const bool& careAboutTextures=true,
-                                              const bool& careAboutFaceOrientOrCull=true,
-                                              const bool& careAboutVAO=true);
+            static COpenGLState collectGLState(bool careAboutHints=true, //should be default false
+                                              bool careAboutFBOs=true,
+                                              bool careAboutPolygonOffset=true, //should be default false
+                                              bool careAboutPixelXferOps=true,
+                                              bool careAboutSSBOAndAtomicCounters=true,
+                                              bool careAboutXFormFeedback=true,
+                                              bool careAboutProgram=true,
+                                              bool careAboutPipeline=true,
+                                              bool careAboutTesellationParams=true,
+                                              bool careAboutViewports=true,
+                                              bool careAboutDrawIndirectBuffers=true,
+                                              bool careAboutPointSize=true,
+                                              bool careAboutLineWidth=true,
+                                              bool careAboutLogicOp=true,
+                                              bool careAboutMultisampling=true,
+                                              bool careAboutBlending=true,
+                                              bool careAboutColorWriteMasks=true,
+                                              bool careAboutStencilFunc=true,
+                                              bool careAboutStencilOp=true,
+                                              bool careAboutStencilMask=true,
+                                              bool careAboutDepthFunc=true,
+                                              bool careAboutDepthMask=true,
+                                              bool careAboutImages=true,
+                                              bool careAboutTextures=true,
+                                              bool careAboutFaceOrientOrCull=true,
+                                              bool careAboutVAO=true,
+                                              bool careAboutUBO=true);
 
             inline void correctTheState()
             {
@@ -968,32 +969,33 @@ P.S. Maybe Ghost == Pending
             }
 
             inline COpenGLStateDiff getStateDiff(const COpenGLState &previousState,
-                                              const bool& careAboutHints=true, //should be default false
-                                              const bool& careAboutFBOs=true,
-                                              const bool& careAboutPolygonOffset=true, //should be default false
-                                              const bool& careAboutPixelXferOps=true,
-                                              const bool& careAboutSSBOAndAtomicCounters=true,
-                                              const bool& careAboutXFormFeedback=true,
-                                              const bool& careAboutProgram=true,
-                                              const bool& careAboutPipeline=true,
-                                              const bool& careAboutTesellationParams=true,
-                                              const bool& careAboutViewports=true,
-                                              const bool& careAboutDrawIndirectBuffers=true,
-                                              const bool& careAboutPointSize=true,
-                                              const bool& careAboutLineWidth=true,
-                                              const bool& careAboutLogicOp=true,
-                                              const bool& careAboutMultisampling=true,
-                                              const bool& careAboutBlending=true,
-                                              const bool& careAboutColorWriteMasks=true,
-                                              const bool& careAboutStencilFunc=true,
-                                              const bool& careAboutStencilOp=true,
-                                              const bool& careAboutStencilMask=true,
-                                              const bool& careAboutDepthFunc=true,
-                                              const bool& careAboutDepthMask=true,
-                                              const bool& careAboutImages=true,
-                                              const bool& careAboutTextures=true,
-                                              const bool& careAboutFaceOrientOrCull=true,
-                                              const bool& careAboutVAO=true) const
+                                              bool careAboutHints=true, //should be default false
+                                              bool careAboutFBOs=true,
+                                              bool careAboutPolygonOffset=true, //should be default false
+                                              bool careAboutPixelXferOps=true,
+                                              bool careAboutSSBOAndAtomicCounters=true,
+                                              bool careAboutXFormFeedback=true,
+                                              bool careAboutProgram=true,
+                                              bool careAboutPipeline=true,
+                                              bool careAboutTesellationParams=true,
+                                              bool careAboutViewports=true,
+                                              bool careAboutDrawIndirectBuffers=true,
+                                              bool careAboutPointSize=true,
+                                              bool careAboutLineWidth=true,
+                                              bool careAboutLogicOp=true,
+                                              bool careAboutMultisampling=true,
+                                              bool careAboutBlending=true,
+                                              bool careAboutColorWriteMasks=true,
+                                              bool careAboutStencilFunc=true,
+                                              bool careAboutStencilOp=true,
+                                              bool careAboutStencilMask=true,
+                                              bool careAboutDepthFunc=true,
+                                              bool careAboutDepthMask=true,
+                                              bool careAboutImages=true,
+                                              bool careAboutTextures=true,
+                                              bool careAboutFaceOrientOrCull=true,
+                                              bool careAboutVAO=true,
+                                              bool careAboutUBO=true) const
             {
                 COpenGLStateDiff diff;
 
@@ -1446,10 +1448,13 @@ P.S. Maybe Ghost == Pending
                     diff.bindVAO = boundVAO;
                 }
 
-                for (uint32_t j=0; j<OGL_MAX_BUFFER_BINDINGS; j++)
+                if (careAboutUBO)
                 {
-                    if (boundBufferRanges[EGRBT_UNIFORM_BUFFER][j]!=previousState.boundBufferRanges[EGRBT_UNIFORM_BUFFER][j])
-                        diff.bindBufferRange[diff.setBufferRanges++] = COpenGLStateDiff::RangedBufferBindingDiff(GL_UNIFORM_BUFFER,j,boundBufferRanges[EGRBT_UNIFORM_BUFFER][j]);
+                    for (uint32_t j=0; j<OGL_MAX_BUFFER_BINDINGS; j++)
+                    {
+                        if (boundBufferRanges[EGRBT_UNIFORM_BUFFER][j]!=previousState.boundBufferRanges[EGRBT_UNIFORM_BUFFER][j])
+                            diff.bindBufferRange[diff.setBufferRanges++] = COpenGLStateDiff::RangedBufferBindingDiff(GL_UNIFORM_BUFFER,j,boundBufferRanges[EGRBT_UNIFORM_BUFFER][j]);
+                    }
                 }
 
                 return diff;
@@ -1560,11 +1565,11 @@ P.S. Maybe Ghost == Pending
             GLenum glProvokingVertex_val;
 
             uint64_t glEnableBitfield[(EGEB_COUNT+63)/64];
-            inline bool getGlEnableBit(const E_GL_ENABLE_BIT& bit) const
+            inline bool getGlEnableBit(const E_GL_ENABLE_BIT bit) const
             {
                 return glEnableBitfield[bit/64]&(uint64_t(0x1ull)<<(bit%64));
             }
-            inline void setGlEnableBit(const E_GL_ENABLE_BIT& bit, bool value)
+            inline void setGlEnableBit(const E_GL_ENABLE_BIT bit, bool value)
             {
                 if (value)
                     glEnableBitfield[bit/64] |= uint64_t(0x1ull)<<(bit%64);
@@ -1573,13 +1578,13 @@ P.S. Maybe Ghost == Pending
             }
 
             uint64_t glEnableiBitfield[(EGEIB_COUNT*OGL_MAX_ENDISABLEI_INDICES+63)/64];
-            inline bool getGlEnableiBit(uint64_t bit, const uint32_t& index) const
+            inline bool getGlEnableiBit(uint64_t bit, const uint32_t index) const
             {
                 bit *= OGL_MAX_ENDISABLEI_INDICES;
                 bit += index;
                 return glEnableiBitfield[bit/64]&(uint64_t(0x1ull)<<(bit%64));
             }
-            inline void setGlEnableiBit(uint64_t bit, const uint32_t& index, bool value)
+            inline void setGlEnableiBit(uint64_t bit, const uint32_t index, bool value)
             {
                 bit *= OGL_MAX_ENDISABLEI_INDICES;
                 bit += index;
@@ -1657,7 +1662,7 @@ P.S. Maybe Ghost == Pending
             //VAO
             GLuint boundVAO;
         private:
-            inline void setEnableDiffBits(COpenGLStateDiff& diff, const uint64_t& bitdiff, const uint64_t& i, const uint64_t& j) const
+            inline void setEnableDiffBits(COpenGLStateDiff& diff, const uint64_t bitdiff, const uint64_t i, const uint64_t j) const
             {
                 const uint64_t bitFlag = uint64_t(0x1ull)<<j;
                 if (bitdiff&bitFlag)
@@ -1668,7 +1673,7 @@ P.S. Maybe Ghost == Pending
                         diff.glDisables[diff.glDisableCount++] = glEnableBitToGLenum(i*64+j);
                 }
             }
-            inline void setEnableiDiffBits(COpenGLStateDiff& diff, const uint64_t& bitdiff, const uint64_t& i, const uint64_t& j) const
+            inline void setEnableiDiffBits(COpenGLStateDiff& diff, const uint64_t bitdiff, const uint64_t i, const uint64_t j) const
             {
                 const uint64_t bitFlag = uint64_t(0x1ull)<<j;
                 if (bitdiff&bitFlag)

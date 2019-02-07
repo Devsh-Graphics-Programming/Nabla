@@ -35,7 +35,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         virtual ~PoolAddressAllocator() {}
 
         PoolAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type bufSz, size_type blockSz) noexcept :
-                    Base(reservedSpc,buffer,std::min(size_type(1u)<<size_type(findLSB(blockSz)),maxAllocatableAlignment)), blockCount((bufSz-Base::alignOffset)/blockSz), blockSize(blockSz), freeStackCtr(0u)
+                    Base(reservedSpc,buffer,std::min(roundDownToPoT(blockSz),maxAllocatableAlignment)), blockCount((bufSz-Base::alignOffset)/blockSz), blockSize(blockSz), freeStackCtr(0u)
         {
             reset();
         }
@@ -185,16 +185,12 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
     protected:
         size_type   blockCount;
         size_type   blockSize;
-
+        // TODO: free address min-heap and allocated addresses max-heap, packed into the same memory (whatever is not allocated is free)
+        // although to implement that one of the heaps would have to be in reverse in the memory (no wiggle room)
+        // then can minimize fragmentation due to allocation and give lighting fast returns from `safe_shrink_size`
+        // but then should probably have two pool allocators, because doing that changes insertion/removal from O(1) to O(log(N))
         size_type   freeStackCtr;
 };
-
-//! Ideas for general pool allocator (with support for arrays)
-// sorted free vector - binary search insertion on free, linear search on allocate
-// sorted free ranges - binary search on free, possible insertion or deletion (less stuff to search)
-
-// how to find the correct free range size?
-// sorted per-size vector of ranges (2x lower overhead)
 
 
 }

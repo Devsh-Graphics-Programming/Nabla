@@ -54,6 +54,10 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 else
                     addressRedirects[i] = invalid_address;
             }
+		#ifdef _DEBUG
+			for (size_type i = Base::blockCount; i < other.blockCount; i++)
+				assert(other.addressRedirects[i]==invalid_address);
+		#endif
         }
 
         ContiguousPoolAddressAllocator& operator=(ContiguousPoolAddressAllocator&& other)
@@ -73,7 +77,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         }
 
         // extra
-        inline void             multi_free_addr(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
+        inline void             multi_free_addr(uint32_t count, const size_type* addr, const size_type* bytes) noexcept // TODO: rewrite
         {
             if (count==0)
                 return;
@@ -92,7 +96,8 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 reinterpret_cast<size_type*>(Base::reservedSpace)[Base::freeStackCtr++] = tmp;
                 auto redir = get_real_addr(tmp);
 #ifdef _DEBUG
-                assert(redir<addressesAllocated*Base::blockSize);
+                assert(redir!=invalid_address);
+                assert(redir<addressesAllocated*Base::blockSize+Base::alignOffset);
 #endif // _DEBUG
                 *(sortedRedirectsEnd++) = redir;
             }
@@ -108,14 +113,14 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             for (size_t i=0; i<Base::blockCount; i++)
             {
                 size_type rfrnc = addressRedirects[i];
-                if (rfrnc>=invalid_address)
+                if (rfrnc==invalid_address)
                     continue;
 
                 // find first contiguous address to be deleted larger or equal to
                 size_type* ptr = std::lower_bound(sortedRedirects,sortedRedirectsEnd,rfrnc);
                 if (ptr<sortedRedirectsEnd && ptr[0]==rfrnc) // found in hole list
                     addressRedirects[i] = invalid_address;
-                else if (ptr>sortedRedirects)
+                else if (ptr!=sortedRedirects)
                 {
                     size_type difference = ptr-sortedRedirects;
                     addressRedirects[i] -= difference*Base::blockSize;
@@ -208,6 +213,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             return Base::addressToBlockID(addr);
         }
     protected:
+        // TODO: Rewrite to also keep a link from the memory to the addresses, helps to speed up the free() operation as well as enables validation
         size_type*                              addressRedirects;
         size_type                               addressesAllocated;
     private:

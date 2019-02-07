@@ -81,6 +81,23 @@ class GeneralpurposeAddressAllocatorBase
 
 
         //methods
+        inline bool                 is_double_free(size_type addr, size_type bytes) const noexcept
+        {
+            for (uint32_t level=0u; level<freeListCount; level++)
+            for (uint32_t i=0u; i<freeListStackCtr[level]; i++)
+            {
+                const Block& freeb = freeListStack[level][i];
+                if (addr>=freeb.endOffset)
+                    continue;
+
+                if (addr+bytes<=freeb.startOffset)
+                    continue;
+
+                return true;
+            }
+
+            return false;
+        }
         inline uint32_t          findFreeListInsertIndex(size_type byteSize) const noexcept
         {
             return findFreeListInsertIndex(byteSize,minBlockSize);
@@ -122,6 +139,9 @@ class GeneralpurposeAddressAllocatorBase
             auto level = findFreeListInsertIndex(len);
             block.validate(level);
             freeListStack[level][freeListStackCtr[level]++] = block;
+        #ifdef _DEBUG
+            assert(freeListStackCtr[level]<=bufferSize/(minBlockSize<<level)+(level==0u ? 1u:0u));
+        #endif // _DEBUG
         }
 
         //! Produced blocks can only be larger than `minBlockSize`, as it's easier to reason about the correctness and memory boundedness of the allocation algorithm
@@ -187,6 +207,9 @@ class GeneralpurposeAddressAllocatorBase
         //! Lists contain blocks of size < (minBlock<<listIndex)*2 && size >= (minBlock<<listIndex)
         static inline uint32_t  findFreeListInsertIndex(size_type byteSize, size_type minBlockSz) noexcept
         {
+#ifdef _DEBUG
+            assert(byteSize>=minBlockSz); // logic fail
+#endif // _DEBUG
             return findMSB(byteSize/minBlockSz);
         }
 };
@@ -397,10 +420,14 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             // address must have had alignOffset already applied to it, and allocation must not be outside the buffer
             assert(addr>=Base::alignOffset && addr+bytes<=AllocStrategy::bufferSize+Base::alignOffset);
             // sanity check
-            assert(bytes+freeSize<=AllocStrategy::bufferSize);
+            assert(freeSize+bytes<=AllocStrategy::bufferSize);
 #endif // _DEBUG
 
             addr -= Base::alignOffset;
+#ifdef _EXTREME_DEBUG
+            // double free protection
+            assert(!AllocStrategy::is_double_free(addr,bytes));
+#endif // _EXTREME_DEBUG
             AllocStrategy::insertFreeBlock(Block{addr,addr+bytes});
             freeSize += bytes;
         }
@@ -477,6 +504,11 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         inline size_type        get_total_size() const noexcept
         {
             return AllocStrategy::bufferSize+Base::alignOffset;
+        }
+
+        inline bool                 is_double_free(size_type addr, size_type bytes) const noexcept
+        {
+            return AllocStrategy::is_double_free(addr,bytes);
         }
     protected:
         size_type               freeSize;

@@ -58,7 +58,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 
         //! Makes Writes visible, it can fail if there is a lack of space in the streaming buffer to stream with
         template<class StreamingTransientDataBuffer>
-        inline bool                         swapBuffers(StreamingTransientDataBuffer* streamingBuff)
+        inline bool                         pushBuffer(StreamingTransientDataBuffer* streamingBuf)
         {
             typename StreamingTransientDataBuffer::size_type  dataOffset;
             typename StreamingTransientDataBuffer::size_type  dataSize;
@@ -67,10 +67,10 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
                 dataOffset = 0u;
                 dataSize = getFrontBuffer()->getSize();
             }
-            else if (MultiBase::dirtyRange.first<MultiBase::dirtyRange.second)
+            else if (MultiBase::pushRange.first<MultiBase::pushRange.second)
             {
-                dataOffset = MultiBase::dirtyRange.first;
-                dataSize = MultiBase::dirtyRange.second-MultiBase::dirtyRange.first;
+                dataOffset = MultiBase::pushRange.first;
+                dataSize = MultiBase::pushRange.second-MultiBase::pushRange.first;
             }
             else
                 return true;
@@ -78,7 +78,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
             auto driver = core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor::getDataAllocator(Base::mAllocator).getDriver();
             driver->updateBufferRangeViaStagingBuffer(getFrontBuffer(),dataOffset,dataSize,reinterpret_cast<uint8_t*>(getBackBufferPointer())+dataOffset); // TODO: create and change to non-blocking variant with std::chrono::microseconds(1u)
 
-            MultiBase::resetDirtyRange();
+            MultiBase::resetPushRange();
             return true;
         }
 };
