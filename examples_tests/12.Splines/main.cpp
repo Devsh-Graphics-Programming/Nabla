@@ -160,7 +160,7 @@ int main()
     SimpleCallBack* callBack = new SimpleCallBack();
 
     //! First need to make a material other than default to be able to draw with custom shader
-    video::SMaterial material;
+    video::SGPUMaterial material;
     material.BackfaceCulling = false; //! Triangles will be visible from both sides
     material.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
                                                         "","","", //! No Geometry or Tessellation Shaders
@@ -184,14 +184,20 @@ int main()
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
+    asset::IAssetLoader::SAssetLoadParams lparams;
+    asset::ICPUTexture* cputextures[]{
+        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/irrlicht2_dn.jpg", lparams)),
+        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/wall.jpg", lparams))
+    };
+    core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
 
 	//! Test Creation Of Builtin
 	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f,0,-1));
     cube->setRotation(core::vector3df(45,20,15));
-    cube->getMaterial(0).setTexture(0,driver->getTexture("../../media/irrlicht2_dn.jpg"));
+    cube->getMaterial(0).setTexture(0,gputextures[0]);
 
 	scene::ISceneNode* billboard = smgr->addCubeSceneNode(2.f,0,-1,core::vector3df(0,0,0));
-    billboard->getMaterial(0).setTexture(0,driver->getTexture("../../media/wall.jpg"));
+    billboard->getMaterial(0).setTexture(0,gputextures[1]);
 
     float cubeDistance = 0.f;
     float cubeParameterHint = 0.f;
@@ -272,7 +278,7 @@ int main()
         delete spline;
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.

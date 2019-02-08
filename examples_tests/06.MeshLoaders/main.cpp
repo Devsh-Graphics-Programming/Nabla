@@ -1,9 +1,7 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
-#include "../source/Irrlicht/CGeometryCreator.h"
-#include "../source/Irrlicht/CBAWMeshWriter.h"
+#include "../src/irr/asset/CBAWMeshWriter.h"
 #include <SVertexManipulator.h>
 
 using namespace irr;
@@ -138,7 +136,7 @@ int main()
     asset::IAssetLoader::SAssetLoadParams lparams;
     asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/extrusionLogo_TEST_fixed.stl", lparams));
 	// export mesh
-    scene::CBAWMeshWriter::WriteProperties bawprops;
+    asset::CBAWMeshWriter::WriteProperties bawprops;
     asset::IAssetWriter::SAssetWriteParams wparams(cpumesh, asset::EWF_COMPRESSED, 0.f, 0, nullptr, &bawprops);
     device->getAssetManager().writeAsset("extrusionLogo_TEST_fixed.baw", wparams);
 	// end export
@@ -149,8 +147,7 @@ int main()
 
     if (cpumesh)
     {
-        scene::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
-        smgr->getMeshCache()->removeMesh(cpumesh);
+        video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
         smgr->addMeshSceneNode(gpumesh)->setMaterialType(newMaterialType);
         gpumesh->drop();
     }
@@ -167,8 +164,7 @@ int main()
 
     if (cpumesh)
     {
-        scene::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
-        smgr->getMeshCache()->removeMesh(cpumesh);
+        video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
         smgr->addMeshSceneNode(gpumesh,0,-1,core::vector3df(3.f,1.f,0.f))->setMaterialType(newMaterialType);
         gpumesh->drop();
     }
@@ -198,19 +194,7 @@ int main()
 			lastFPSTime = time;
 		}
 	}
-
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    video::CImageData* img = new video::CImageData(screenshot);
-    screenshot->drop();
-	//driver->writeImageToFile(screenshot,"./screenshot.png");
-    wparams.rootAsset = img;
-    wparams.userData = nullptr;
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
-    img->drop();
-	device->sleep(3000);
-
+    
 	device->drop();
 
 	return 0;

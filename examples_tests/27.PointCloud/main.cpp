@@ -3,7 +3,6 @@
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
-#include "../source/Irrlicht/COpenGLPersistentlyMappedBuffer.h"
 
 #include "createComputeShader.h"
 
@@ -50,7 +49,7 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 public:
     SimpleCallBack() : cameraDirUniformLocation(-1), cameraDirUniformType(video::ESCT_FLOAT_VEC3) {}
 
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::array<video::SConstantLocationNamePair>& constants)
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
         for (size_t i = 0; i<constants.size(); i++)
         {
@@ -85,22 +84,22 @@ protected:
     virtual ~ISorter() = default;
 
 public:
-    virtual void init(scene::ICPUMeshBuffer* _mb) = 0;
+    virtual void init(asset::ICPUMeshBuffer* _mb) = 0;
     virtual void run(const core::vector3df& _camPos) = 0;
 
     //! Takes index buffer from passed meshbuffer and converts it (creates new buffer and overrides old one in meshbuffer) to 32bit indices if they're 16bit.
     //! Assumues that index count is always power of two.
-    virtual void setIndexBuffer(scene::IGPUMeshBuffer* _mb)
+    virtual void setIndexBuffer(video::IGPUMeshBuffer* _mb)
     {
         if (_mb)
         {
-            const video::IGPUBuffer* idxBuf = nullptr;
-            if (_mb->getIndexType() == video::EIT_16BIT)
+            video::IGPUBuffer* idxBuf = nullptr;
+            if (_mb->getIndexType() == asset::EIT_16BIT)
             {
                 if (!m_16to32Cs)
                     m_16to32Cs = createComputeShaderFromFile("../shaders/16to32.comp");
                 auto idxBuf16 = _mb->getMeshDataAndFormat()->getIndexBuffer();
-                idxBuf = m_driver->createGPUBuffer(4*_mb->getIndexCount(), nullptr);
+                idxBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(4*_mb->getIndexCount());
 
                 auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
                 const video::COpenGLBuffer* bufs[2]{ static_cast<const video::COpenGLBuffer*>(idxBuf16), static_cast<const video::COpenGLBuffer*>(idxBuf) };
@@ -117,12 +116,12 @@ public:
 
                 gl::extGlUseProgram(prevProgram);
 
-                _mb->getMeshDataAndFormat()->mapIndexBuffer(const_cast<video::IGPUBuffer*>(idxBuf));
+                _mb->getMeshDataAndFormat()->setIndexBuffer(const_cast<video::IGPUBuffer*>(idxBuf));
                 _mb->setIndexBufferOffset(0u);
-                _mb->setIndexType(video::EIT_32BIT);
+                _mb->setIndexType(asset::EIT_32BIT);
                 idxBuf->drop();
             }
-            else idxBuf = _mb->getMeshDataAndFormat()->getIndexBuffer();
+            else idxBuf = const_cast<video::IGPUBuffer*>(_mb->getMeshDataAndFormat()->getIndexBuffer());
 
             const video::IGPUBuffer* prev = m_idxBuf;
             m_idxBuf = idxBuf;
@@ -136,7 +135,7 @@ public:
 
 protected:
     video::IVideoDriver* m_driver;
-    const video::IGPUBuffer* m_idxBuf;
+    video::IGPUBuffer* m_idxBuf;
 
 private:
     GLuint m_16to32Cs;
@@ -217,8 +216,6 @@ protected:
             m_histogramBuf->drop();
         if (m_ubo)
             m_ubo->drop();
-        if (m_mappedBuf)
-            m_mappedBuf->drop();
     }
 
 public:
@@ -230,11 +227,11 @@ public:
     {
     }
 
-    void init(scene::ICPUMeshBuffer* _mb) override
+    void init(asset::ICPUMeshBuffer* _mb) override
     {
-        m_histogramBuf = m_driver->createGPUBuffer(64 * 16 * sizeof(GLuint), nullptr);
+        m_histogramBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(64 * 16 * sizeof(GLuint));
 
-        scene::IMeshDataFormatDesc<core::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
+        asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
         std::vector<core::vectorSIMDf> pos;
         vectorSIMDf v;
         size_t ix = 0u;
@@ -242,31 +239,44 @@ public:
             pos.push_back(v);
 
         const size_t idxCount = pos.size();
-        core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * idxCount);
+        asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * idxCount);
         uint32_t* indices = (uint32_t*)idxBuf->getPointer();
         for (uint32_t i = 0u; i < idxCount; ++i)
             indices[i] = i;
 
 
-        desc->mapIndexBuffer(idxBuf);
+        desc->setIndexBuffer(idxBuf);
         idxBuf->drop();
         _mb->setIndexCount(idxCount);
         _mb->setIndexBufferOffset(0u);
-        _mb->setPrimitiveType(scene::EPT_POINTS);
-        _mb->setIndexType(video::EIT_32BIT);
+        _mb->setPrimitiveType(asset::EPT_POINTS);
+        _mb->setIndexType(asset::EIT_32BIT);
         printf("pos.size() == %u\n", pos.size());
 
         m_wgCnt = (idxCount + ELEMENTS_PER_WG - 1u) / ELEMENTS_PER_WG;
         printf("m_wgCnt == %u\n", m_wgCnt);
 
-        m_posBuf = m_driver->createGPUBuffer(pos.size() * sizeof(v), pos.data());
-        m_keyBuf1 = m_driver->createGPUBuffer(idxCount * sizeof(GLuint), nullptr);
-        m_keyBuf2 = m_driver->createGPUBuffer(idxCount * sizeof(GLuint), nullptr);
-        m_sumsBuf = m_driver->createGPUBuffer(m_wgCnt * 2 * sizeof(GLuint), nullptr);
-        m_histogramBuf = m_driver->createGPUBuffer(2 * sizeof(GLuint), nullptr);
-        m_psumBuf = m_driver->createGPUBuffer(idxCount * 2 * sizeof(GLuint), nullptr);
-        m_ubo = m_driver->createGPUBuffer(s_uboSize, nullptr);
-        m_mappedBuf = m_driver->createPersistentlyMappedBuffer(4*s_uboSize, nullptr, video::EGBA_WRITE, false, false);
+        auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
+        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+        uint32_t size = pos.size() * sizeof(v);
+        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
+        {
+            uint32_t alignment = 4u;
+            const void* data = pos.data();
+            upStrBuf->multi_place(std::chrono::seconds(1u), 1u, &data, &offset, &size, &alignment);
+        }
+        if (upStrBuf->needsManualFlushOrInvalidate())
+            m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, 0, size);
+        upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
+
+        m_keyBuf1 = m_driver->createDeviceLocalGPUBufferOnDedMem(idxCount * sizeof(GLuint));
+        m_keyBuf2 = m_driver->createDeviceLocalGPUBufferOnDedMem(idxCount * sizeof(GLuint));
+        m_sumsBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(m_wgCnt * 2 * sizeof(GLuint));
+        m_histogramBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(2 * sizeof(GLuint));
+        m_psumBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(idxCount * 2 * sizeof(GLuint));
+        m_ubo = m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize);
 
         m_genKeysCs = createComputeShader(CS_GEN_KEYS_SRC);
         m_histogramCs = createComputeShaderFromFile("../shaders/histogram.comp");
@@ -347,46 +357,38 @@ public:
         gl::extGlUseProgram(prevProgram);
     }
 
-    void setIndexBuffer(scene::IGPUMeshBuffer* _mb) override
+    void setIndexBuffer(video::IGPUMeshBuffer* _mb) override
     {
         ISorter::setIndexBuffer(_mb);
         if (m_idxBuf)
         {
             if (m_idxBuf2)
                 m_idxBuf2->drop();
-            m_idxBuf2 = m_driver->createGPUBuffer(m_idxBuf->getSize(), nullptr);
+            m_idxBuf2 = m_driver->createDeviceLocalGPUBufferOnDedMem(m_idxBuf->getSize());
         }
     }
 
 private:
     void updateUbo(ptrdiff_t _offset, ptrdiff_t _size, const core::vector3df& _camPos, GLuint _nbit)
     {
-        if (m_fences[m_updateNum])
-        {
-            auto waitf = [this] {
-                auto res = m_fences[m_updateNum]->waitCPU(10000000000ull);
-                return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
-            };
-            while (!waitf())
-            {
-                m_fences[m_updateNum]->drop();
-                m_fences[m_updateNum] = nullptr;
-            }
-        }
-
         uint32_t m[5];
         memcpy(m, &_camPos.X, 12);
         m[4] = _nbit;
-        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getPointer())) + m_updateNum*s_uboSize + _offset, (uint8_t*)m + _offset, _size);
-        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getOpenGLName(), m_updateNum * 24 + _offset, _size);
 
-        m_driver->bufferCopy(m_mappedBuf, m_ubo, m_updateNum*s_uboSize + _offset, _offset, _size);
-
-        if (!m_fences[m_updateNum])
-            m_fences[m_updateNum] = m_driver->placeFence();
-
-        if (++m_updateNum == 4u)
-            m_updateNum = 0u;
+        auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
+        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+        uint32_t size = _size;
+        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
+        {
+            uint32_t alignment = 4u;
+            const void* data = reinterpret_cast<uint8_t*>(m) + _offset;
+            upStrBuf->multi_place(std::chrono::seconds(1u), 1u, &data, &offset, &size, &alignment);
+        }
+        if (upStrBuf->needsManualFlushOrInvalidate())
+            m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, _offset, size);
+        upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
     }
 
     void bindSSBuffers() const
@@ -426,12 +428,9 @@ private:
 
 private:
     GLuint m_genKeysCs, m_histogramCs, m_presumCs, m_permuteCs;
-    const video::IGPUBuffer *m_posBuf, *m_keyBuf1, *m_keyBuf2, *m_idxBuf2, *m_histogramBuf, *m_psumBuf, *m_sumsBuf;
-    video::IGPUBuffer* m_ubo, *m_mappedBuf;
+    video::IGPUBuffer *m_posBuf, *m_keyBuf1, *m_keyBuf2, *m_idxBuf2, *m_histogramBuf, *m_psumBuf, *m_sumsBuf;
+    video::IGPUBuffer* m_ubo;
     GLuint m_wgCnt;
-
-    video::IDriverFence* m_fences[4];
-    uint8_t m_updateNum;
 
     constexpr static size_t s_uboSize = 20u;
 };
@@ -460,30 +459,43 @@ public:
         m_startIdx{0u},
         m_wgCount{}
     {}
-    void init(scene::ICPUMeshBuffer* _mb) override
+    void init(asset::ICPUMeshBuffer* _mb) override
     {
-        scene::IMeshDataFormatDesc<core::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
+        asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
         std::vector<core::vectorSIMDf> pos;
         vectorSIMDf v;
         size_t ix{};
         while (_mb->getAttribute(v, _mb->getPositionAttributeIx(), ix++))
             pos.push_back(v);
 
-        m_posBuf = m_driver->createGPUBuffer(pos.size() * sizeof(v), pos.data());
-        m_ubo = m_driver->createGPUBuffer(s_uboSize, nullptr);
-        m_mappedBuf = m_driver->createPersistentlyMappedBuffer(s_uboSize*4, nullptr, video::EGBA_WRITE, false, false);
+        auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
+        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+        uint32_t size = pos.size() * sizeof(v);
+        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
+        {
+            uint32_t alignment = 4u;
+            const void* data = pos.data();
+            upStrBuf->multi_place(std::chrono::seconds(1u), 1u, &data, &offset, &size, &alignment);
+        }
+        if (upStrBuf->needsManualFlushOrInvalidate())
+            m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, 0, size);
+        upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
 
-        core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * pos.size());
+        m_ubo = m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize);
+
+        asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * pos.size());
         uint32_t* indices = (uint32_t*)idxBuf->getPointer();
         for (uint32_t i = 0u; i < pos.size(); ++i)
             indices[i] = i;
 
-        desc->mapIndexBuffer(idxBuf);
+        desc->setIndexBuffer(idxBuf);
         idxBuf->drop();
         _mb->setIndexCount(pos.size());
         _mb->setIndexBufferOffset(0u);
-        _mb->setPrimitiveType(scene::EPT_POINTS);
-        _mb->setIndexType(video::EIT_32BIT);
+        _mb->setPrimitiveType(asset::EPT_POINTS);
+        _mb->setIndexType(asset::EIT_32BIT);
         printf("pos.size() == %u\n", pos.size());
 
         m_wgCount = (GLuint)std::ceil(double(pos.size()) / 256.);
@@ -519,33 +531,25 @@ public:
 private:
     void updateUbo(ptrdiff_t _offset, ptrdiff_t _size, const core::vector3df& _camPos, GLuint _off, GLuint _sz)
     {
-        if (m_fences[m_updateNum])
-        {
-            auto waitf = [this] {
-                auto res = m_fences[m_updateNum]->waitCPU(10000000000ull);
-                return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
-            };
-            while (!waitf())
-            {
-                m_fences[m_updateNum]->drop();
-                m_fences[m_updateNum] = nullptr;
-            }
-        }
-
         uint32_t m[6];
         memcpy(m, &_camPos.X, 12);
         m[4] = _off;
         m[5] = _sz;
-        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getPointer())) + m_updateNum*s_uboSize + _offset, (uint8_t*)m + _offset, _size);
-        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getOpenGLName(), m_updateNum * 24 + _offset, _size);
 
-        m_driver->bufferCopy(m_mappedBuf, m_ubo, m_updateNum*s_uboSize + _offset, _offset, _size);
-
-        if (!m_fences[m_updateNum])
-            m_fences[m_updateNum] = m_driver->placeFence();
-
-        if (++m_updateNum == 4u)
-            m_updateNum = 0u;
+        auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
+        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+        uint32_t size = _size;
+        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
+        {
+            uint32_t alignment = 4u;
+            const void* data = reinterpret_cast<uint8_t*>(m)+_offset;
+            upStrBuf->multi_place(std::chrono::seconds(1u), 1u, &data, &offset, &size, &alignment);
+        }
+        if (upStrBuf->needsManualFlushOrInvalidate())
+            m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, _offset, size);
+        upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
     }
 
     void bindSSBuffers() const
@@ -571,7 +575,6 @@ private:
     GLuint m_wgCount;
 
     video::IDriverFence* m_fences[4];
-    uint8_t m_updateNum;
     constexpr static size_t s_uboSize = 24u;
 };
 
@@ -587,8 +590,6 @@ protected:
             m_idxBuf->drop();
         if (m_ubo)
             m_ubo->drop();
-        if (m_mappedBuf)
-            m_mappedBuf->drop();
     }
 
 public:
@@ -599,36 +600,47 @@ public:
         m_sSortCs{ 0u },
         m_posBuf{ nullptr },
         m_ubo{ nullptr },
-        m_wgCount{},
-        m_fences{nullptr, nullptr, nullptr, nullptr},
-        m_updateNum{}
+        m_wgCount{}
     {}
-    void init(scene::ICPUMeshBuffer* _mb) override
+    void init(asset::ICPUMeshBuffer* _mb) override
     {
-        scene::IMeshDataFormatDesc<core::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
+        asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
         std::vector<core::vectorSIMDf> pos;
         vectorSIMDf v;
         size_t ix{};
         while (_mb->getAttribute(v, _mb->getPositionAttributeIx(), ix++))
             pos.push_back(v);
 
-        m_posBuf = m_driver->createGPUBuffer(pos.size() * sizeof(v), pos.data());
-        m_ubo = m_driver->createGPUBuffer(s_uboSize, nullptr);
-        m_mappedBuf = m_driver->createPersistentlyMappedBuffer(4*s_uboSize, nullptr, video::EGBA_WRITE, false, false);
+        auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
+        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+        uint32_t size = pos.size() * sizeof(v);
+        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
+        {
+            uint32_t alignment = 4u;
+            const void* data = pos.data();
+            upStrBuf->multi_place(std::chrono::seconds(1u), 1u, &data, &offset, &size, &alignment);
+        }
+        if (upStrBuf->needsManualFlushOrInvalidate())
+            m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, 0, size);
+        upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
+
+        m_ubo = m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize);
 
         const size_t idxCount = 1u << ((size_t)std::ceil(std::log2((double)pos.size())));
-        core::ICPUBuffer* idxBuf = new core::ICPUBuffer(4 * idxCount);
+        asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * idxCount);
         uint32_t* indices = (uint32_t*)idxBuf->getPointer();
         memset(indices, 0, (idxCount - pos.size()) * 4);
         for (uint32_t i = idxCount - pos.size(); i < idxCount; ++i)
             indices[i] = i - (idxCount - pos.size());
 
-        desc->mapIndexBuffer(idxBuf);
+        desc->setIndexBuffer(idxBuf);
         idxBuf->drop();
         _mb->setIndexCount(idxCount);
         _mb->setIndexBufferOffset(0u);
-        _mb->setPrimitiveType(scene::EPT_POINTS);
-        _mb->setIndexType(video::EIT_32BIT);
+        _mb->setPrimitiveType(asset::EPT_POINTS);
+        _mb->setIndexType(asset::EIT_32BIT);
         printf("pos.size() == %u\n", pos.size());
 
         m_wgCount = idxCount / 256u;
@@ -695,33 +707,25 @@ public:
 private:
     void updateUbo(ptrdiff_t _offset, ptrdiff_t _size, const core::vector3df& _camPos, GLuint _sz, GLuint _str)
     {
-        if (m_fences[m_updateNum])
-        {
-            auto waitf = [this] {
-                auto res = m_fences[m_updateNum]->waitCPU(10000000000ull);
-                return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
-            };
-            while (!waitf())
-            {
-                m_fences[m_updateNum]->drop();
-                m_fences[m_updateNum] = nullptr;
-            }
-        }
-
         uint32_t m[6];
         memcpy(m, &_camPos.X, 12);
         m[4] = _sz;
         m[5] = _str;
-        memcpy(((uint8_t*)(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getPointer())) + m_updateNum*s_uboSize + _offset, (uint8_t*)m+_offset, _size);
-        video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLPersistentlyMappedBuffer*>(m_mappedBuf)->getOpenGLName(), m_updateNum*24 + _offset, _size);
 
-        m_driver->bufferCopy(m_mappedBuf, m_ubo, m_updateNum*s_uboSize + _offset, _offset, _size);
-
-        if (!m_fences[m_updateNum])
-            m_fences[m_updateNum] = m_driver->placeFence();
-
-        if(++m_updateNum == 4u)
-            m_updateNum = 0u;
+        auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
+        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+        uint32_t size = _size;
+        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
+        {
+            uint32_t alignment = 4u;
+            const void* data = reinterpret_cast<uint8_t*>(m) + _offset;
+            upStrBuf->multi_place(std::chrono::seconds(1u), 1u, &data, &offset, &size, &alignment);
+        }
+        if (upStrBuf->needsManualFlushOrInvalidate())
+            m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, _offset, size);
+        upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
     }
 
     GLuint makeSortCs(size_t _wgSize)
@@ -756,11 +760,8 @@ private:
     GLuint m_sMergeCs, m_gMergeCs, m_sSortCs;
     video::IGPUBuffer* m_posBuf;
     video::IGPUBuffer* m_ubo;
-    video::IGPUBuffer* m_mappedBuf;
     GLuint m_wgCount;
 
-    video::IDriverFence* m_fences[4];
-    uint8_t m_updateNum;
     constexpr static size_t s_uboSize = 24u;
 };
 
@@ -807,13 +808,14 @@ int main()
     MyEventReceiver receiver;
     device->setEventReceiver(&receiver);
 
-    scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/cow.obj");
+    asset::IAssetLoader::SAssetLoadParams lparams;
+    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/cow.obj", lparams));
     ISorter* sorter =
         //new RadixSorter(driver);
         new ProgressiveSorter(driver);
         //new BitonicSorter(driver);
     sorter->init(cpumesh->getMeshBuffer(0));
-    scene::IGPUMesh* gpumesh = driver->createGPUMeshFromCPU(dynamic_cast<scene::SCPUMesh*>(cpumesh));
+    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
     sorter->setIndexBuffer(gpumesh->getMeshBuffer(0));
     printf("IDX_TYPE %d\n", gpumesh->getMeshBuffer(0)->getIndexType());
     smgr->addMeshSceneNode(gpumesh, 0, -1, core::vector3df(), core::vector3df(), core::vector3df(4.f))->setMaterialType(newMaterialType);
@@ -845,7 +847,7 @@ int main()
     }
 
     //create a screenshot
-    video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8, params.WindowSize);
+    video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM, params.WindowSize);
     glReadPixels(0, 0, params.WindowSize.Width, params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.
@@ -864,7 +866,10 @@ int main()
         }
         delete[] tmpBuffer;
     }
-    driver->writeImageToFile(screenshot, "./screenshot.png");
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
     screenshot->drop();
     device->sleep(3000);
 
