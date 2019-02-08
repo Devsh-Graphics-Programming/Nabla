@@ -121,6 +121,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
         res[i]->setBuffer(gpubuffer);
         gpubuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(res[i]->getOffset(), _begin[i]->getSize()), _begin[i]->getPointer());
     }
+    gpubuffer->drop();
 
     return res;
 }
@@ -263,7 +264,9 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         }
     }
     for (SOffsetBufferPair<IGPUBuffer>* b : gpuBufDeps)
-        b->drop(); // drop after mappings
+    {
+        b->drop();
+    }
 
     return res;
 }
@@ -315,6 +318,9 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
             break;
         }
     }
+
+    for (auto mb : gpuDeps)
+        mb->drop();
 
     return res;
 }

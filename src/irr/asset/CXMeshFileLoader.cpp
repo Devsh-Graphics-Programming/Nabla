@@ -38,12 +38,10 @@ CXMeshFileLoader::CXMeshFileLoader(IrrlichtDevice* _dev)
 	#ifdef _DEBUG
 	setDebugName("CXMeshFileLoader");
 	#endif
-    Device->grab();
 }
 
 CXMeshFileLoader::~CXMeshFileLoader()
 {
-    Device->drop();
 }
 
 bool CXMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const

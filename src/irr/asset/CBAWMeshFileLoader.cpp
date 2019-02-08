@@ -21,7 +21,6 @@ namespace irr { namespace asset
 {
 CBAWMeshFileLoader::~CBAWMeshFileLoader()
 {
-    m_device->drop();
 }
 
 CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m_sceneMgr(_dev->getSceneManager()), m_fileSystem(_dev->getFileSystem())
@@ -29,7 +28,6 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m
 #ifdef _DEBUG
 	setDebugName("CBAWMeshFileLoader");
 #endif
-    m_device->grab();
 }
 
 asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)

@@ -152,8 +152,6 @@ namespace asset
             }
             for (auto ldr : m_loaders.vector)
                 ldr->drop();
-            for (auto wtr : m_writers.perType)
-                wtr.second->drop();
             if (m_fileSystem)
                 m_fileSystem->drop();
             dropMeshTools();

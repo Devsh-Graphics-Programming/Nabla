@@ -63,15 +63,12 @@ COBJMeshFileLoader::COBJMeshFileLoader(IrrlichtDevice* _dev)
 #ifdef _DEBUG
 	setDebugName("COBJMeshFileLoader");
 #endif
-
-    Device->grab();
 }
 
 
 //! destructor
 COBJMeshFileLoader::~COBJMeshFileLoader()
 {
-    Device->drop();
 }
 
 asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
