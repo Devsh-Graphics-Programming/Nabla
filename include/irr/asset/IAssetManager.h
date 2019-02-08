@@ -135,9 +135,21 @@ namespace asset
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 if (m_assetCache[i])
                     delete m_assetCache[i];
+
+            core::vector<typename CpuGpuCacheType::MutablePairType> buf;
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
+            {
                 if (m_cpuGpuCache[i])
-                    delete m_cpuGpuCache[i];
+                {
+                    size_t sizeToReserve{};
+                    m_cpuGpuCache[i]->outputAll(sizeToReserve, nullptr);
+                    buf.resize(sizeToReserve);
+                    m_cpuGpuCache[i]->outputAll(sizeToReserve, buf.data());
+                    for (auto& pair : buf)
+                        pair.first->drop(); // drop keys (CPU "empty cache handles")
+                    delete m_cpuGpuCache[i]; // drop on values (GPU objects) will be done by cache's destructor
+                }
+            }
             for (auto ldr : m_loaders.vector)
                 ldr->drop();
             for (auto wtr : m_writers.perType)
