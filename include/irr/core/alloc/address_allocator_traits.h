@@ -113,8 +113,8 @@ namespace core
                     ConstGetter() = delete;
                     virtual ~ConstGetter() = default;
                 public:
-                    inline void*        getBufferStart() const noexcept     {return AddressAlloc::getBufferStart();}
-                    inline const void*  getReservedSpacePtr() const noexcept{return AddressAlloc::getReservedSpacePtr();}
+                    //inline void*        getBufferStart() const noexcept     {return AddressAlloc::getBufferStart();}
+                    //inline const void*  getReservedSpacePtr() const noexcept{return AddressAlloc::getReservedSpacePtr();}
                     inline size_type    max_size() const noexcept           {return AddressAlloc::max_size();}
                     inline size_type    min_size() const noexcept           {return AddressAlloc::min_size();}
                     inline size_type    max_alignment() const noexcept      {return AddressAlloc::max_alignment();}
@@ -208,7 +208,7 @@ namespace core
                                                                 alloc,std::min(count-i,maxMultiOps),addr+i,bytes+i);
             }
 
-
+/*
             static inline void*             getBufferStart(const AddressAlloc& alloc) noexcept
             {
                 return static_cast<const ConstGetter&>(alloc).getBufferStart();
@@ -217,7 +217,7 @@ namespace core
             {
                 return static_cast<const ConstGetter&>(alloc).getReservedSpacePtr();
             }
-
+*/
 
             static inline size_type        max_size(const AddressAlloc& alloc) noexcept
             {
@@ -252,9 +252,9 @@ namespace core
 
             // underlying allocator statics
             template<typename... Args>
-            static inline size_type reserved_size(Args&&... args) noexcept
+            static inline size_type reserved_size(const Args&... args) noexcept
             {
-                return AddressAlloc::reserved_size(std::forward<Args>(args)...);
+                return AddressAlloc::reserved_size(args...);
             }
     };
 

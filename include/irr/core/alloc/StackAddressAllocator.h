@@ -7,7 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
-#include "irr/core/alloc/AddressAllocatorBase.h"
+#include "irr/core/alloc/LinearAddressAllocator.h"
 
 
 namespace irr
@@ -26,51 +26,54 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
 
         static constexpr bool supportsNullBuffer = true;
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR StackAddressAllocator() : minimumAllocSize(0u), allocStackPtr(0u) {}
+        #define DUMMY_DEFAULT_CONSTRUCTOR StackAddressAllocator() : minimumAllocSize(invalid_address), allocStackPtr(invalid_address) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
 
         virtual ~StackAddressAllocator() {}
 
-        StackAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type buffSz, size_type minAllocSize) noexcept :
-                    Base(reservedSpc,buffer,maxAllocatableAlignment,buffSz), minimumAllocSize(minAllocSize), allocStackPtr(0u) {}
+        StackAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz, size_type minAllocSize) noexcept :
+                    Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz), minimumAllocSize(minAllocSize), allocStackPtr(0u) {}
 
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
-        StackAddressAllocator(const StackAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) :
-                    Base(other,newReservedSpc,newBuffer,newBuffSz), minimumAllocSize(other.minimumAllocSize), allocStackPtr(other.allocStackPtr)
+        template<typename... Args>
+        StackAddressAllocator(size_type newBuffSz, StackAddressAllocator&& other, Args&&... args) :
+                    Base(newBuffSz,std::move(other),std::forward<Args>(args)...),  minimumAllocSize(invalid_address), allocStackPtr(invalid_address)
         {
+            std::swap(minimumAllocSize,other.minimumAllocSize);
+            std::swap(allocStackPtr,other.allocStackPtr);
         }
 
         StackAddressAllocator& operator=(StackAddressAllocator&& other)
         {
             static_cast<Base&>(*this) = std::move(other);
-            minimumAllocSize = other.minimumAllocSize;
-            allocStackPtr = other.allocStackPtr;
+            std::swap(minimumAllocSize,other.minimumAllocSize);
+            std::swap(allocStackPtr,other.allocStackPtr);
             return *this;
         }
 
         //! non-PoT alignments cannot be guaranteed after a resize or move of the backing buffer
         inline size_type    alloc_addr( size_type bytes, size_type alignment, size_type hint=0ull) noexcept
         {
-            bytes = std::max(bytes,minimumAllocSize);
-            size_type result = Base::alloc_addr(bytes,alignment,hint);
+            auto oldCursor = Base::cursor;
+            size_type result = Base::alloc_addr(std::max(bytes,minimumAllocSize),alignment,hint);
             if (result==invalid_address)
                 return invalid_address;
 
-            reinterpret_cast<size_type*>(Base::reservedSpace)[allocStackPtr++] = bytes;
+            reinterpret_cast<size_type*>(Base::reservedSpace)[allocStackPtr++] = Base::cursor-oldCursor;
             return result;
         }
 
         inline void         free_addr(size_type addr, size_type bytes) noexcept
         {
             auto amountToFree = reinterpret_cast<size_type*>(Base::reservedSpace)[--allocStackPtr];
-#ifdef _DEBUG
-            assert(bytes<=amountToFree);
-#endif // _DEBUG
+            #ifdef _DEBUG
+                assert(bytes<=amountToFree);
+            #endif // _DEBUG
             Base::cursor -= amountToFree;
-#ifdef _DEBUG
-            assert(Base::cursor+Base::alignOffset<=addr);
-#endif // _DEBUG
+            #ifdef _DEBUG
+                assert(Base::cursor+Base::alignOffset<=addr);
+            #endif // _DEBUG
         }
 
         inline void         reset()
@@ -84,21 +87,20 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
             return Base::max_size();
         }
 
-        //! Most allocators do not support e.g. 1-byte allocations
         inline size_type    min_size() const noexcept
         {
             return Base::min_size();
         }
 
 
-        static inline size_type reserved_size(size_type bufSz, size_type maxAlignment, size_type minAllocSize) noexcept
+        static inline size_type reserved_size(size_type maxAlignment, size_type bufSz, size_type minAllocSize) noexcept
         {
             size_type maxAllocCount = bufSz/minAllocSize;
             return maxAllocCount*sizeof(size_type);
         }
-        static inline size_type reserved_size(size_type bufSz, const PoolAddressAllocator<_size_type>& other) noexcept
+        static inline size_type reserved_size(size_type bufSz, const StackAddressAllocator<_size_type>& other) noexcept
         {
-            return reserved_size(bufSz,other.maxRequestableAlignment,other.minimumAllocSize);
+            return reserved_size(other.maxRequestableAlignment,bufSz,other.minimumAllocSize);
         }
 
 

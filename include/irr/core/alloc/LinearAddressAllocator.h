@@ -24,34 +24,33 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
 
         static constexpr bool supportsNullBuffer = true;
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR LinearAddressAllocator() : bufferSize(0u), cursor(0u) {}
+        #define DUMMY_DEFAULT_CONSTRUCTOR LinearAddressAllocator() : bufferSize(invalid_address), cursor(invalid_address) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
 
         virtual ~LinearAddressAllocator() {}
 
-        LinearAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type buffSz) noexcept :
-                    Base(reservedSpc,buffer,maxAllocatableAlignment), bufferSize(buffSz-Base::alignOffset), cursor(0u) {}
+        LinearAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz) noexcept :
+                    Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), bufferSize(bufSz-Base::alignOffset)
+        {
+            reset();
+        }
 
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
-        LinearAddressAllocator(const LinearAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) :
-                    Base(other,newReservedSpc,newBuffer,newBuffSz), bufferSize(newBuffSz-Base::alignOffset), cursor(other.cursor)
+        template<typename... Args>
+        LinearAddressAllocator(_size_type newBuffSz, LinearAddressAllocator&& other, Args&&... args) :
+            Base(std::move(other),std::forward<Args>(args)...), bufferSize(invalid_address), cursor(invalid_address)
         {
-#ifdef _DEBUG
-            if (other.bufferStart&&Base::bufferStart)
-            {
-                // new pointer must have greater or equal alignment
-                assert(findLSB(reinterpret_cast<size_t>(Base::bufferStart)) >= findLSB(reinterpret_cast<size_t>(other.bufferStart)));
-
-            }
-#endif // _DEBUG
+            std::swap(bufferSize,other.bufferSize);
+            bufferSize = newBuffSz-Base::alignOffset;
+            std::swap(cursor,other.cursor);
         }
 
         LinearAddressAllocator& operator=(LinearAddressAllocator&& other)
         {
             Base::operator=(std::move(other));
-            bufferSize = other.bufferSize;
-            cursor = other.cursor;
+            std::swap(bufferSize,other.bufferSize);
+            std::swap(cursor,other.cursor);
             return *this;
         }
 
@@ -61,21 +60,22 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             if (bytes==0 || alignment>Base::maxRequestableAlignment)
                 return invalid_address;
 
-            size_type result    = (cursor+alignment-1u)/alignment;
-            result             *= alignment;
+            size_type result = core::roundUp(cursor,alignment);
             size_type newCursor = result+bytes;
-            if (newCursor>bufferSize || newCursor<cursor) //extra OR checks for wraparound
+            if (newCursor>bufferSize || newCursor<cursor) // the extra OR checks for wraparound
                 return invalid_address;
 
             cursor = newCursor;
-            return result+Base::alignOffset;
+            return result+Base::combinedOffset;
         }
 
+        // free is a No-OP, only reset can actually reclaim memory
         inline void         free_addr(size_type addr, size_type bytes) noexcept
         {
             return;
         }
 
+        // free all allocations
         inline void         reset()
         {
             cursor = 0u;
@@ -84,7 +84,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
         inline size_type    max_size() const noexcept
         {
-            auto worstCursor = alignUp(cursor,Base::maxRequestableAlignment);
+            auto worstCursor = roundUp(cursor,Base::maxRequestableAlignment);
             if (worstCursor<bufferSize)
                 return bufferSize-worstCursor;
             return 0u;
@@ -96,10 +96,10 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             return 1u;
         }
 
-        inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+        inline size_type        safe_shrink_size(size_type sizeBound, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
             size_type retval = get_allocated_size();
-            return Base::safe_shrink_size(std::max(retval,byteBound),newBuffAlignmentWeCanGuarantee);
+            return Base::safe_shrink_size(std::max(retval,sizeBound),newBuffAlignmentWeCanGuarantee);
         }
 
         template<typename... Args>
@@ -108,14 +108,17 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             return 0u;
         }
 
+        // total allocatable size, align offset is not allocatable so it's not included
         inline size_type        get_free_size() const noexcept
         {
-            return bufferSize-cursor;
+            return bufferSize-get_allocated_size();
         }
+        // the align offset doesn't count as allocated, its just unusable
         inline size_type        get_allocated_size() const noexcept
         {
             return cursor;
         }
+        // total size is the metric that includes the align offset
         inline size_type        get_total_size() const noexcept
         {
             return bufferSize+Base::alignOffset;

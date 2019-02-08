@@ -399,6 +399,30 @@ namespace core
         return INT_TYPE(0x1u)<<core::findLSB(value);
     }
 
+    template<typename INT_TYPE>
+    inline constexpr INT_TYPE roundUp(INT_TYPE value, INT_TYPE multiple)
+    {
+        INT_TYPE tmp = (value+multiple-1u)/multiple;
+        return tmp*multiple;
+    }
+
+    template<typename INT_TYPE>
+    inline constexpr INT_TYPE align(INT_TYPE alignment, INT_TYPE size, INT_TYPE& address, INT_TYPE& space)
+    {
+        INT_TYPE nextAlignedAddr = roundUp(address,alignment);
+
+        INT_TYPE spaceDecrement = nextAlignedAddr-address;
+        if (spaceDecrement>space)
+            return 0u;
+
+        INT_TYPE newSpace = space-spaceDecrement;
+        if (size>newSpace)
+            return 0u;
+
+        space = newSpace;
+        return address = nextAlignedAddr;
+    }
+
 
 	//! KILL EVERYTHING BELOW???
 
