@@ -402,6 +402,15 @@ inline int32_t isupper(int32_t c) { return c >= 'A' && c <= 'Z'; }
 
 
 
+template<typename IntegerT>
+constexpr uint32_t numberOfSetBit(IntegerT _flag)
+{
+    constexpr uint32_t nbits = sizeof(IntegerT)/8u;
+    for (uint32_t n = 0u; i < nbits; ++i)
+        if ((_flag>>n)&1u)
+            return n;
+    return uint32_t(-1);
+}
 
 core::vector<std::string> getBackTrace(void);
 

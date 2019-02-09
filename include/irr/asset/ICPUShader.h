@@ -12,43 +12,28 @@ class ICPUShader : public IAsset
 protected:
     virtual ~ICPUShader()
     {
-        if (m_spirvProgram)
-            m_spirvProgram->drop();
+        if (m_spirvBytecode)
+            m_spirvBytecode->drop();
     }
 
 public:
-    explicit ICPUShader(ISPIR_VProgram* _spirvProgram) : m_spirvProgram{_spirvProgram}, m_containsSpirv{_spirvProgram!=nullptr}
+    ICPUShader(const void* _spirvBytecode, size_t _bytesize) : m_spirvBytecode(new ICPUBuffer(_bytesize))
     {
-        if (m_spirvProgram)
-            m_spirvProgram->grab();
-    }
-    explicit ICPUShader(const std::string& _vkglsl) : m_spirvProgram{nullptr}, m_containsSpirv{false}
-    {
-        ICPUBuffer* vkglsl = new ICPUBuffer(_vkglsl.size()+1);
-        memcpy(vkglsl->getPointer(), _vkglsl.data(), vkglsl->getSize());
-        reinterpret_cast<char*>(vkglsl->getPointer())[_vkglsl.size()] = 0;
-
-        m_spirvProgram = new ISPIR_VProgram(vkglsl);
-        vkglsl->drop();
+        memcpy(m_spirvBytecode->getPointer(), _spirvBytecode, _bytesize);
     }
 
-    const ISPIR_VProgram* getSPIR_VProgram()
-    {
-        if (m_containsSpirv)
-        {
-            /* use GLSL code held in current m_spirvProgram,
-            take care of #include directives and insert extensions #define's,
-            compile it to SPIR-V (IGLSLCompiler),
-            create new ISPIR_VProgram (while dropping current one)
-            */
-            m_containsSpirv = false;
-        }
-        return m_spirvProgram;
+    IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SHADER; }
+    size_t conservativeSizeEstimate() const override { return m_spirvBytecode ? m_spirvBytecode->conservativeSizeEstimate() : 0u; }
+    void convertToDummyObject() override 
+    { 
+        if (m_spirvBytecode)
+            m_spirvBytecode->drop();
     }
+
+    const ICPUBuffer* getSPIR_VBytecode() const { return m_spirvBytecode; };
 
 protected:
-    bool m_containsSpirv;
-    ISPIR_VProgram* m_spirvProgram;
+    ICPUBuffer* m_spirvBytecode;
 };
 
 }}
