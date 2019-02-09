@@ -7,11 +7,6 @@
 namespace irr { namespace asset
 {
 
-struct SIntrospectionData
-{
-    //
-};
-
 class ICPUSpecializedShader : IAsset
 {
 protected:
@@ -34,11 +29,6 @@ public:
     }
 
     const SSpecializationInfo* getSpecializationInfo() const { return m_specInfo; }
-
-    const SIntrospectionData& enableIntrospection()
-    {
-        // get introspection result from ISPIR_VCross by passing bytecode to it
-    }
 
 private:
     const SSpecializationInfo* m_specInfo;

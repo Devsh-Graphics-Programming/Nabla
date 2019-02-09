@@ -24,7 +24,7 @@ public:
 
     Such annotation should be placed right after #version directive.
     */
-    ICPUShader* compileFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, bool _debug = false, const char* compilationId = nullptr) const;
+    ICPUShader* createShaderFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, bool _debug = false, const char* compilationId = nullptr) const;
 };
 
 }}

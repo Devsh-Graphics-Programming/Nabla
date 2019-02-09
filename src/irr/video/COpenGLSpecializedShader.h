@@ -3,6 +3,7 @@
 
 #include "irr/asset/ICPUSpecializedShader.h"
 #include "irr/video/IGPUSpecializedShader.h"
+#include "COpenGLExtensionHandler.h"
 
 namespace irr { namespace video
 {
@@ -18,10 +19,10 @@ public:
         // feed to OpenGL and get GL name
     }
 
-    uint32_t getOpenGLName() const { return m_GLname; }
+    GLuint getOpenGLName() const { return m_GLname; }
 
 private:
-    uint32_t m_GLname;
+    GLuint m_GLname;
 };
 
 }}

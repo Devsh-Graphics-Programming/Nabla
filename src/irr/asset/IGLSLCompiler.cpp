@@ -24,7 +24,7 @@ namespace
     }
 }
 
-ICPUShader* IGLSLCompiler::compileFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, bool _debug, const char* _compilationId) const
+ICPUShader* IGLSLCompiler::createShaderFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, bool _debug, const char* _compilationId) const
 {
     shaderc::Compiler comp;
     shaderc::CompileOptions options;

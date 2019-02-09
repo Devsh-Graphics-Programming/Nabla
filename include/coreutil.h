@@ -23,7 +23,6 @@ namespace core
 struct adopt_memory_t {};
 constexpr adopt_memory_t adopt_memory{};
 
-
 /*! \file coreutil.h
 	\brief File containing useful basic utility functions
 */
@@ -409,7 +408,7 @@ template<typename IntegerT>
 constexpr uint32_t numberOfSetBit(IntegerT _flag)
 {
     constexpr uint32_t nbits = sizeof(IntegerT)/8u;
-    for (uint32_t n = 0u; i < nbits; ++i)
+    for (uint32_t n = 0u; n < nbits; ++n)
         if ((_flag>>n)&1u)
             return n;
     return uint32_t(-1);

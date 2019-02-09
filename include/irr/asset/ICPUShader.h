@@ -3,9 +3,20 @@
 
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ISPIR_VProgram.h"
+#include "irr/asset/ShaderCommons.h"
+
+namespace spirv_cross
+{
+    class ParsedIR;
+}
 
 namespace irr { namespace asset
 {
+
+struct SIntrospectionData
+{
+    //
+};
 
 class ICPUShader : public IAsset
 {
@@ -14,6 +25,8 @@ protected:
     {
         if (m_spirvBytecode)
             m_spirvBytecode->drop();
+        if (m_parsed)
+            delete m_parsed;
     }
 
 public:
@@ -32,8 +45,14 @@ public:
 
     const ICPUBuffer* getSPIR_VBytecode() const { return m_spirvBytecode; };
 
+    const SIntrospectionData& enableIntrospection(const std::string& _entryPoint, E_SHADER_STAGE _stage);
+
 protected:
     ICPUBuffer* m_spirvBytecode;
+    spirv_cross::ParsedIR* m_parsed = nullptr;
+
+    using CacheKey = std::pair<std::string, E_SHADER_STAGE>;
+    std::unordered_map<CacheKey, SIntrospectionData> m_introspectionCache;
 };
 
 }}

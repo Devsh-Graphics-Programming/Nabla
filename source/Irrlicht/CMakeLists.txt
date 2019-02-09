@@ -30,6 +30,7 @@ set(IRRLICHT_SRCS_COMMON
 	
 # Shaders
 	../../src/irr/asset/IGLSLCompiler.cpp
+	../../src/irr/asset/ICPUShader.cpp
 
 # Other mesh-related stuff
 	CAnimatedMeshSceneNode.cpp
@@ -308,6 +309,7 @@ add_library(spirv_cross OBJECT
 	spirv_cross/spirv_cross.cpp
 	spirv_cross/spirv_glsl.cpp
 	spirv_cross/spirv_reflect.cpp
+	spirv_cross/spirv_parser.cpp
 )
 target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 target_include_directories(spirv_cross PUBLIC ${COMMON_INCLUDE_DIRS})
