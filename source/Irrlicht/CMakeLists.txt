@@ -27,6 +27,9 @@ set(IRRLICHT_SRCS_COMMON
 	../../src/irr/asset/IAssetManager.cpp
 	../../src/irr/asset/IAssetWriter.cpp
 	../../src/irr/asset/IAssetLoader.cpp
+	
+# Shaders
+	../../src/irr/asset/IGLSLCompiler.cpp
 
 # Other mesh-related stuff
 	CAnimatedMeshSceneNode.cpp
