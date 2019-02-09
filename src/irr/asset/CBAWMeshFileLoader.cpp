@@ -186,7 +186,8 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	os::Printer::log(tmpString.str());
 #endif // _DEBUG
 
-	return reinterpret_cast<asset::ICPUMesh*>(retval);
+    asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
+    return mesh;
 }
 
 bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _size) const

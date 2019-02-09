@@ -197,6 +197,7 @@ namespace asset
             if (asset && !(levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL))
             {
                 _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
+                asset->drop(); // drop ownership after transfering it to cache container
             }
             else if (!asset)
             {

@@ -206,10 +206,11 @@ private:
             asset = reinterpret_cast<asset::ICPUTexture*>(_asset);
             break;
         }
-        if (_blobType != asset::Blob::EBT_RAW_DATA_BUFFER && asset && !asset->isInAResourceCache()) // fix todo, not caching buffers, because it causes crash when caches are being destroyed (seems like too many drops somewhere)
+        if (asset && !asset->isInAResourceCache())
         {
             _override->insertAssetIntoCache(asset, _cacheKey, _ctx.inner, _hierLvl);
-            asset->drop();
+            // drop shouldn't be performed here at all; it's done in main loading function by ctx.releaseAllButThisOne(meshBlobDataIter);
+            // this is quite different from other loaders so explenation is probably wellcome
         }
     }
 

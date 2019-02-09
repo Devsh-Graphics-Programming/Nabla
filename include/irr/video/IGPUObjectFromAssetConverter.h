@@ -58,6 +58,9 @@ public:
         {
             m_assetManager->convertAssetToEmptyCacheHandle(notFound[i], created[i]);
             res.insert(res.begin() + pos[i], created[i]);
+            irr::static_if<std::is_same_v<asset::ICPUTexture, AssetType>>(
+                [&created, i](auto f) { created[i]->drop(); } // IGPUTexture is not grabbed when set in SGPUMaterial, so we have to drop it after inserting into cache (done by convertAssetToEmptyCacheHandle)
+            );
         }
 
         return res;
