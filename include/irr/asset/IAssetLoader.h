@@ -15,7 +15,6 @@ public:
         ECF_CACHE_EVERYTHING = 0,
         //! master/parent is searched for in the caches, but not added to the cache if not found and loaded
         ECF_DONT_CACHE_TOP_LEVEL = 0x1ull,
-        // (Criss) ECF_DUPLICATE_TOP_LEVEL implies ECF_DONT_CACHE_TOP_LEVEL? This is a bug, right?
         //! master/parent object is loaded without searching for it in the cache, nor adding it to the cache after the load   
         ECF_DUPLICATE_TOP_LEVEL = 0x3ull,
         //! this concerns any asset that the top level asset refers to, such as a texture
@@ -91,6 +90,13 @@ public:
         //! The most imporant overrides are the ones for caching
         virtual IAsset* findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
 
+        //! Since more then one asset of the same key of the same type can exist, this function is called right after search for cached assets (if anything was found) and decides which of them is relevant.
+        //! Note: this function can assume that `found` is never empty.
+        inline virtual IAsset* chooseRelevantFromFound(const core::vector<IAsset*>& found, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        {
+            return found.front();
+        }
+
         //! Only called when the asset was searched for, no correct asset was found
         /** Any non-nullptr asset returned here will not be added to cache,
         since the overload operates “as if” the asset was found. */
@@ -111,13 +117,15 @@ public:
         // I would really like to merge getLoadFilename and getLoadFile into one function!
 
         //! When you sometimes have different passwords for different assets
-        /** \param outDecrKeyLen is always >= ctx.decryptionKeyLen
+        /** \param inOutDecrKeyLen expects length of buffer `outDecrKey`, then function writes into it length of actual key.
+                Write to `outDecrKey` happens only if output value of `inOutDecrKeyLen` is less or equal to input value of `inOutDecrKeyLen`.
         \param supposedFilename is the string after modification by getLoadFilename.
         \param attempt if decryption or validation algorithm supports reporting failure, you can try different key*/
-        inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& outDecrKeyLen, const size_t& maxDecrKeyLen, const uint32_t& attempt, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& inOutDecrKeyLen, const uint32_t& attempt, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
-            outDecrKeyLen = ctx.params.decryptionKeyLen;
-            memcpy(outDecrKey, ctx.params.decryptionKey, outDecrKeyLen);
+            if (ctx.params.decryptionKeyLen <= inOutDecrKeyLen)
+                memcpy(outDecrKey, ctx.params.decryptionKey, ctx.params.decryptionKeyLen);
+            inOutDecrKeyLen = ctx.params.decryptionKeyLen;
             return attempt == 0u; // no failed attempts
         }
 
@@ -128,11 +136,8 @@ public:
             return nullptr;
         }
 
-        //! Before insert
-        virtual void setAssetCacheKey(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, uint32_t hierarchyLevel);
-
         //! After a successful load of an asset or sub-asset
-        virtual void insertAssetIntoCache(IAsset* asset, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
+        virtual void insertAssetIntoCache(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
     };
 
 public:
@@ -152,6 +157,13 @@ public:
 
     //! Loads an asset from an opened file, returns nullptr in case of failure.
     virtual IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) = 0;
+
+protected:
+    // accessors for loaders
+    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
+    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 };
 
 }}

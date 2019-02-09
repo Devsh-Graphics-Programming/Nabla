@@ -57,9 +57,9 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
         ~CDraw3DLine();
 
         video::IVideoDriver* m_driver;
-        video::SMaterial m_material;
-        scene::IGPUMeshDataFormatDesc* m_desc;
-        scene::IGPUMeshBuffer* m_meshBuffer;
+        video::SGPUMaterial m_material;
+        video::IGPUMeshDataFormatDesc* m_desc;
+        video::IGPUMeshBuffer* m_meshBuffer;
         const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
 };
 

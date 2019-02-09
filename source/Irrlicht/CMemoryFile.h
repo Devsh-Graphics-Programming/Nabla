@@ -8,6 +8,9 @@
 #include "IReadFile.h"
 #include "IWriteFile.h"
 #include "irr/core/Types.h"
+#include "irr/core/memory/new_delete.h"
+#include "irr/core/alloc/null_allocator.h"
+#include "coreutil.h"
 
 namespace irr
 {
@@ -64,28 +67,6 @@ namespace io
             io::path    Filename;
 	};
 
-	class CMemoryReadFile : public IReadFile, public CMemoryFile
-	{
-        public:
-            //! Constructor
-            CMemoryReadFile(const void* contents, const size_t& len, const io::path& fileName);
-
-            //! changes position in file, returns true if successful
-            virtual bool seek(const size_t& finalPos, bool relativeMovement = false) {return CMemoryFile::seek(finalPos,relativeMovement);}
-
-            //! returns size of file
-            virtual size_t getSize() const {return CMemoryFile::getSize();}
-
-            //! returns where in the file we are.
-            virtual size_t getPos() const {return CMemoryFile::getPos();}
-
-            //! returns name of file
-            virtual const io::path& getFileName() const {return CMemoryFile::getFileName();}
-
-            //! returns how much was read
-            virtual int32_t read(void* buffer, uint32_t sizeToRead);
-	};
-
 	class CMemoryWriteFile : public IWriteFile, public CMemoryFile
 	{
         public:
@@ -109,6 +90,109 @@ namespace io
 
             inline void* getPointer() { return Buffer.data(); }
 	};
+
+
+    template<typename Alloc = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>>
+    class CCustomAllocatorMemoryReadFile : public IReadFile
+    {
+        static_assert(sizeof(Alloc::value_type)==1, "Alloc::value_type must be of size 1");
+
+    protected:
+        virtual ~CCustomAllocatorMemoryReadFile ()
+        {
+            m_allocator.deallocate(reinterpret_cast<typename Alloc::pointer>(m_storage), m_length);
+        }
+
+    public:
+        CCustomAllocatorMemoryReadFile(void* _data, size_t _length, const io::path& _filename, core::adopt_memory_t, Alloc&& _alloc = Alloc()) :
+            m_storage{_data}, m_length{_length}, m_position{0u}, m_filename{_filename}, m_allocator{std::move(_alloc)}
+        {
+        }
+        CCustomAllocatorMemoryReadFile(const void* _data, size_t _length, const io::path& _filename, Alloc&& _alloc = Alloc()) :
+            CCustomAllocatorMemoryReadFile(const_cast<void*>(_data), _length, _filename, core::adopt_memory, std::move(_alloc))
+        {
+            const void* tmp = m_storage;
+            m_storage = m_allocator.allocate(m_length);
+            memcpy(m_storage, tmp, m_length);
+        }
+
+        virtual bool seek(const size_t& finalPos, bool relativeMovement = false) override 
+        {
+            if (relativeMovement)
+            {
+                if (m_position + finalPos > m_length)
+                    return false;
+                m_position += finalPos;
+            }
+            else
+            {
+                if (finalPos > m_length)
+                    return false;
+                m_position = finalPos;
+            }
+            return true;
+        }
+
+        virtual size_t getSize() const override { return m_length; }
+
+        virtual size_t getPos() const override { return m_position; }
+
+        virtual const io::path& getFileName() const override { return m_filename; }
+
+        virtual int32_t read(void* buffer, uint32_t sizeToRead) override
+        {
+            int64_t amount = static_cast<int64_t>(sizeToRead);
+            if (m_position + amount > getSize())
+                amount -= m_position + amount - m_length;
+
+            if (amount <= 0ll)
+                return 0;
+
+            memcpy(buffer, reinterpret_cast<uint8_t*>(m_storage)+m_position, amount);
+
+            m_position += amount;
+
+            return static_cast<int32_t>(amount);
+        }
+
+    protected:
+        void* m_storage;
+        size_t m_length;
+        size_t m_position;
+        io::path m_filename;
+        Alloc m_allocator;
+    };
+
+    class CNullAllocatorMemoryReadFile : public CCustomAllocatorMemoryReadFile<core::null_allocator<uint8_t>>
+    {
+        using Base = CCustomAllocatorMemoryReadFile<core::null_allocator<uint8_t>>;
+
+    protected:
+        virtual ~CNullAllocatorMemoryReadFile() = default;
+
+    public:
+        CNullAllocatorMemoryReadFile(void* _data, size_t _length, const io::path& _filename, core::adopt_memory_t) :
+            Base(_data, _length, _filename, core::adopt_memory)
+        {}
+    };
+
+    class CMemoryReadFile : public CCustomAllocatorMemoryReadFile<>
+    {
+        using Base = CCustomAllocatorMemoryReadFile<>;
+
+    protected:
+        virtual ~CMemoryReadFile() = default;
+
+    public:
+        CMemoryReadFile(void* _data, size_t _length, const io::path& _filename, core::adopt_memory_t) :
+            Base(_data, _length, _filename, core::adopt_memory)
+        {
+        }
+        CMemoryReadFile(const void* _data, size_t _length, const io::path& _filename) :
+            Base(_data, _length, _filename)
+        {
+        }
+    };
 
 } // end namespace io
 } // end namespace irr

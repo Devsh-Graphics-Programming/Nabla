@@ -239,7 +239,7 @@ namespace video
             default:
             {
                 GLint res = GL_FALSE;
-                extGlGetInternalformativ(GL_RENDERBUFFER, COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
+                extGlGetInternalformativ(GL_TEXTURE_2D, COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
                 return res==GL_TRUE;
             }
             }
@@ -378,8 +378,43 @@ namespace video
             case EF_EAC_R11G11_SNORM_BLOCK:
                 return true;
 
-            default: return false; // todo, here should be extGlGetInternalformativ call, but i have no idea about parameters
+            // astc
+            case EF_ASTC_4x4_UNORM_BLOCK:
+            case EF_ASTC_5x4_UNORM_BLOCK:
+            case EF_ASTC_5x5_UNORM_BLOCK:
+            case EF_ASTC_6x5_UNORM_BLOCK:
+            case EF_ASTC_6x6_UNORM_BLOCK:
+            case EF_ASTC_8x5_UNORM_BLOCK:
+            case EF_ASTC_8x6_UNORM_BLOCK:
+            case EF_ASTC_8x8_UNORM_BLOCK:
+            case EF_ASTC_10x5_UNORM_BLOCK:
+            case EF_ASTC_10x6_UNORM_BLOCK:
+            case EF_ASTC_10x8_UNORM_BLOCK:
+            case EF_ASTC_10x10_UNORM_BLOCK:
+            case EF_ASTC_12x10_UNORM_BLOCK:
+            case EF_ASTC_12x12_UNORM_BLOCK:
+            case EF_ASTC_4x4_SRGB_BLOCK:
+            case EF_ASTC_5x4_SRGB_BLOCK:
+            case EF_ASTC_5x5_SRGB_BLOCK:
+            case EF_ASTC_6x5_SRGB_BLOCK:
+            case EF_ASTC_6x6_SRGB_BLOCK:
+            case EF_ASTC_8x5_SRGB_BLOCK:
+            case EF_ASTC_8x6_SRGB_BLOCK:
+            case EF_ASTC_8x8_SRGB_BLOCK:
+            case EF_ASTC_10x5_SRGB_BLOCK:
+            case EF_ASTC_10x6_SRGB_BLOCK:
+            case EF_ASTC_10x8_SRGB_BLOCK:
+            case EF_ASTC_10x10_SRGB_BLOCK:
+            case EF_ASTC_12x10_SRGB_BLOCK:
+            case EF_ASTC_12x12_SRGB_BLOCK:
+                return queryOpenGLFeature(IRR_KHR_texture_compression_astc_ldr);
+
+            default: return false;
             }
+        }
+        inline virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override
+        {
+            return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
         }
 
 		//! generic version which overloads the unimplemented versions

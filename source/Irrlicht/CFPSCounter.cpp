@@ -12,7 +12,7 @@ namespace video
 
 
 CFPSCounter::CFPSCounter()
-:	FPS(60), Primitive(0), StartTime(0), FramesCounted(0),
+:	FPS(60), Primitive(0), StartTime(std::chrono::high_resolution_clock::duration::zero()), FramesCounted(0),
 	PrimitivesCounted(0), PrimitiveAverage(0), PrimitiveTotal(0)
 {
 
@@ -48,21 +48,21 @@ uint32_t CFPSCounter::getPrimitiveTotal() const
 
 
 //! to be called every frame
-void CFPSCounter::registerFrame(uint32_t now, uint32_t primitivesDrawn)
+void CFPSCounter::registerFrame(const std::chrono::high_resolution_clock::time_point& now, uint32_t primitivesDrawn)
 {
 	++FramesCounted;
 	PrimitiveTotal += primitivesDrawn;
 	PrimitivesCounted += primitivesDrawn;
 	Primitive = primitivesDrawn;
 
-	const uint32_t milliseconds = now - StartTime;
+	auto delta = now - StartTime;
 
-	if (milliseconds >= 1500 )
+	if (delta >= std::chrono::milliseconds(1500) )
 	{
-		const float invMilli = core::reciprocal ( (float) milliseconds );
+		const double invDelta = core::reciprocal ( (double) delta.count() );
 
-		FPS = core::ceil32 ( ( 1000 * FramesCounted ) * invMilli );
-		PrimitiveAverage = core::ceil32 ( ( 1000 * PrimitivesCounted ) * invMilli );
+		FPS = core::ceil32 ( (static_cast<double>(decltype(delta)::period::den) * FramesCounted)  * invDelta );
+		PrimitiveAverage = core::ceil32 ( (static_cast<double>(decltype(delta)::period::den) * PrimitivesCounted ) * invDelta);
 
 		FramesCounted = 0;
 		PrimitivesCounted = 0;

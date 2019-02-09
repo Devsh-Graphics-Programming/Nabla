@@ -24,7 +24,7 @@ public:
 
     virtual const char** getAssociatedFileExtensions() const
     {
-        static const char* ext[]{ "jpg", "jpeg", nullptr };
+        static const char* ext[]{ "jpg", "jpeg", "jpe", "jif", "jfif", "jfi", nullptr };
         return ext;
     }
 

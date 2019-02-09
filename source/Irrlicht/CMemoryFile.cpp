@@ -19,35 +19,6 @@ CMemoryFile::~CMemoryFile()
 }
 
 
-
-//! Constructor
-CMemoryReadFile::CMemoryReadFile(const void* contents, const size_t& len, const io::path& fileName)
-                : CMemoryFile(len,fileName)
-{
-	#ifdef _DEBUG
-	setDebugName("CMemoryReadFile");
-	#endif
-    memcpy(Buffer.data(), contents, len);
-}
-
-//! returns how much was read
-int32_t CMemoryReadFile::read(void* buffer, uint32_t sizeToRead)
-{
-	int64_t amount = static_cast<int64_t>(sizeToRead);
-	if (Pos + amount > getSize())
-		amount -= Pos + amount - Buffer.size();
-
-	if (amount <= 0ll)
-		return 0;
-
-	memcpy(buffer, Buffer.data() + Pos, amount);
-
-	Pos += amount;
-
-	return static_cast<int32_t>(amount);
-}
-
-
 //! Constructor
 CMemoryWriteFile::CMemoryWriteFile(const size_t& len, const io::path& fileName)
                 : CMemoryFile(len,fileName)

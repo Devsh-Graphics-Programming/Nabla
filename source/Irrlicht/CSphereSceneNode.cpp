@@ -5,6 +5,9 @@
 #include "CSphereSceneNode.h"
 #include "IVideoDriver.h"
 #include "ISceneManager.h"
+#include "IrrlichtDevice.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/IGeometryCreator.h"
 
 #include "os.h"
 
@@ -24,7 +27,10 @@ CSphereSceneNode::CSphereSceneNode(float radius, uint32_t polyCountX, uint32_t p
 	setDebugName("CSphereSceneNode");
 	#endif
 
-	Mesh = SceneManager->getGeometryCreator()->createSphereMeshGPU(SceneManager->getVideoDriver(),radius, polyCountX, polyCountY);
+    asset::ICPUMesh* cpumesh = SceneManager->getDevice()->getAssetManager().getGeometryCreator()->createSphereMesh(radius, polyCountX, polyCountY);
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
+    Mesh = res.size() ? res.front() : nullptr;
+    assert(Mesh);
 }
 
 

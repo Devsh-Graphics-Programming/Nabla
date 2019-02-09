@@ -61,12 +61,6 @@ public:
 	or 0 on failure. */
 	virtual IReadFile* createAndOpenFile(const path& filename) =0;
 
-	//! Opens a file based on its position in the file list.
-	/** Creates and returns
-	\param index The zero based index of the file.
-	\return Returns a pointer to the created file on success, or 0 on failure. */
-	virtual IReadFile* createAndOpenFile(uint32_t index) =0;
-
 	//! Returns the complete file tree
 	/** \return Returns the complete directory tree for the archive,
 	including all files and folders */

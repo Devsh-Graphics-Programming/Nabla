@@ -16,6 +16,7 @@ class ICPUTexture : public IAsset
 {
 protected:
     uint32_t m_size[3];
+    uint32_t m_minReqBaseLvlSz[3];
     asset::E_FORMAT m_colorFormat;
     video::ITexture::E_TEXTURE_TYPE m_type;
     core::vector<asset::CImageData*> m_mipmaps;
@@ -31,46 +32,8 @@ private:
     template<typename VectorRef>
     inline static ICPUTexture* create_impl(VectorRef&& _mipmaps)
     {
-        if (!_mipmaps.size())
+        if (!validateMipchain(_mipmaps))
             return nullptr;
-
-        bool check[17]{ 0 };
-        uint32_t sizes[17][3];
-        memset(sizes, 0, sizeof(sizes));
-
-        bool allUnknown = true;
-        asset::E_FORMAT colorFmt = _mipmaps.front()->getColorFormat();
-        for (const asset::CImageData* img : _mipmaps)
-        {
-            const uint32_t lvl = img->getSupposedMipLevel();
-            check[lvl] = true;
-            if (lvl > 16u)
-                return nullptr;
-
-            const asset::E_FORMAT fmt = img->getColorFormat();
-            if (fmt != EF_UNKNOWN)
-                allUnknown = false;
-            if (fmt != colorFmt && fmt != EF_UNKNOWN)
-                return nullptr;
-            if (colorFmt == EF_UNKNOWN)
-                colorFmt = fmt;
-
-            for (uint32_t i = 0u; i < 3u; ++i)
-                if (sizes[lvl][i] < img->getSliceMax()[i])
-                    sizes[lvl][i] = img->getSliceMax()[i];
-        }
-        if (allUnknown)
-            return nullptr;
-
-        auto tooLarge = [](const uint32_t* _sz, uint32_t _l) -> bool {
-            for (uint32_t d = 0u; d < 3u; ++d)
-                if (_sz[d] > (0x10000u>>_l))
-                    return true;
-            return false;
-        };
-        for (uint32_t i = 0u; i < 17u; ++i)
-            if (check[i] && tooLarge(sizes[i], i))
-                return nullptr;
 
         return new ICPUTexture(std::forward<decltype(_mipmaps)>(_mipmaps));
     }
@@ -90,6 +53,32 @@ public:
         return create(core::vector<asset::CImageData*>(_first, _last));
     }
 
+    static bool validateMipchain(const core::vector<CImageData*>& _mipchain)
+    {
+        if (_mipchain.empty())
+            return false;
+
+        bool allUnknownFmt = true;
+        E_FORMAT commonFmt = _mipchain.front()->getColorFormat();
+        for (auto mip : _mipchain)
+        {
+            if (mip->getSupposedMipLevel() > 16u)
+                return false;
+            if (std::max_element(mip->getSliceMax(), mip->getSliceMax()+3)[0] > (0x10000u>>mip->getSupposedMipLevel()))
+                return false;
+            if (commonFmt != EF_UNKNOWN)
+            {
+                if (mip->getColorFormat() != commonFmt && mip->getColorFormat() != EF_UNKNOWN)
+                    return false;
+            }
+            else commonFmt = mip->getColorFormat();
+
+            allUnknownFmt &= (mip->getColorFormat()==EF_UNKNOWN);
+        }
+
+        return !allUnknownFmt;
+    }
+
 protected:
     explicit ICPUTexture(const core::vector<asset::CImageData*>& _mipmaps) : m_mipmaps{_mipmaps}, m_colorFormat{EF_UNKNOWN}, m_type{video::ITexture::ETT_COUNT}
     {
@@ -101,6 +90,7 @@ protected:
             sortMipMaps();
             establishFmt();
             establishType();
+            establishMinBaseLevelSize();
         }
     }
     explicit ICPUTexture(core::vector<asset::CImageData*>&& _mipmaps) : m_mipmaps{std::move(_mipmaps)}, m_colorFormat{EF_UNKNOWN}, m_type{ video::ITexture::ETT_COUNT }
@@ -113,6 +103,7 @@ protected:
             sortMipMaps();
             establishFmt();
             establishType();
+            establishMinBaseLevelSize();
         }
     }
 
@@ -178,6 +169,8 @@ public:
 
     inline const uint32_t* getSize() const { return m_size; }
 
+    inline const uint32_t* getBaseLevelSizeHint() const { return m_minReqBaseLvlSz; }
+
 private:
     inline void sortMipMaps()
     {
@@ -187,16 +180,7 @@ private:
     }
     inline void establishFmt()
     {
-        asset::E_FORMAT fmt = m_mipmaps[0]->getColorFormat();
-        for (uint32_t i = 1u; i < m_mipmaps.size(); ++i)
-        {
-            if (fmt != m_mipmaps[i]->getColorFormat())
-            {
-                fmt = EF_UNKNOWN;
-                break;
-            }
-        }
-        m_colorFormat = fmt;
+        m_colorFormat = (*std::find_if(m_mipmaps.begin(), m_mipmaps.end(), [](CImageData* mip) { return mip->getColorFormat() != EF_UNKNOWN; }))->getColorFormat();
     }
     inline void recalcSize()
     {
@@ -233,6 +217,19 @@ private:
         else
         {
             m_type = video::ITexture::ETT_2D; //should be ETT_1D but 2D is default since forever
+        }
+    }
+    inline void establishMinBaseLevelSize()
+    {
+        memset(m_minReqBaseLvlSz, 0, sizeof(m_minReqBaseLvlSz));
+        for (CImageData* mip : m_mipmaps)
+        {
+            for (uint32_t d = 0u; d < 3u; ++d)
+            {
+                const uint32_t extent = mip->getSliceMax()[d] << mip->getSupposedMipLevel();
+                if (m_minReqBaseLvlSz[d] < extent)
+                    m_minReqBaseLvlSz[d] = extent;
+            }
         }
     }
 };

@@ -11,6 +11,7 @@
 #include "SMaterial.h"
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/ICPUBuffer.h"
+#include "coreutil.h"
 
 struct ISzAlloc;
 
@@ -23,7 +24,7 @@ namespace asset
     class ICPUSkinnedMesh;
     class ICPUSkinnedMeshBuffer;
 	template<typename> class IMeshDataFormatDesc;
-    namespace legacy
+    namespace legacyv0
     {
         struct MeshDataFormatDescBlobV0;
     }
@@ -79,7 +80,8 @@ namespace asset
 	};
 
 	//! Cast pointer to block of blob-headers to BlobHeader* and easily iterate and/or access members
-	struct BlobHeaderV0
+    template<uint64_t Version>
+	struct BlobHeaderVn
 	{
 		uint32_t blobSize;
 		uint32_t blobSizeDecompr;
@@ -103,9 +105,36 @@ namespace asset
 		uint32_t calcEncSize() const { return calcEncSize(blobSize); }
 		uint32_t effectiveSize() const { return (compressionType & Blob::EBCT_AES128_GCM) ? calcEncSize() : blobSize; }
 	} PACK_STRUCT;
+    template<uint64_t Version>
+    void BlobHeaderVn<Version>::finalize(const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType)
+    {
+	    blobSizeDecompr = _sizeDecompr;
+	    blobSize = _sizeCompr;
+	    compressionType = _comprType;
+
+	    if (!(compressionType & Blob::EBCT_AES128_GCM)) // use gcmTag instead (set while encrypting).
+		    core::XXHash_256(_data, blobSize, blobHash);
+    }
+    template<uint64_t Version>
+    bool BlobHeaderVn<Version>::validate(const void* _data) const
+    {
+	    if (compressionType & Blob::EBCT_AES128_GCM) // use gcm authentication instead. Decryption will fail if data is corrupted.
+		    return true;
+        uint64_t tmpHash[4];
+	    core::XXHash_256(_data, blobSize, tmpHash);
+	    for (size_t i=0; i<4; i++)
+		    if (tmpHash[i] != blobHash[i])
+			    return false;
+        return true;
+    }
 
 	//! Cast pointer to (first byte of) file buffer to BAWFile*. 256bit header must be first member (start of file).
-	struct IRR_FORCE_EBO BAWFileV0 {
+    //! If something changes in basic format structure, this should go to asset::legacyv0 namespace
+    template<uint64_t Version>
+	struct IRR_FORCE_EBO BAWFileVn {
+        static constexpr const char* HEADER_STRING = "IrrlichtBaW BinaryFile";
+        static constexpr uint64_t version = Version;
+
 		//! 32-byte BaW binary format header, currently equal to "IrrlichtBaW BinaryFile" (and the rest filled with zeroes).
 		//! Also: last 8 bytes of file header is file-version number.
 		uint64_t fileHeader[4];
@@ -119,7 +148,7 @@ namespace asset
 
 		size_t calcOffsetsOffset() const { return sizeof(fileHeader) + sizeof(numOfInternalBlobs) + sizeof(iv); }
 		size_t calcHeadersOffset() const { return calcOffsetsOffset() + numOfInternalBlobs*sizeof(blobOffsets[0]); }
-		size_t calcBlobsOffset() const { return calcHeadersOffset() + numOfInternalBlobs*sizeof(BlobHeaderV0); }
+		size_t calcBlobsOffset() const { return calcHeadersOffset() + numOfInternalBlobs*sizeof(BlobHeaderVn<Version>); }
 	} PACK_STRUCT;
 
 	template<template<typename, typename> class SizingT, typename B, typename T>
@@ -203,6 +232,8 @@ namespace asset
         uint32_t meshBufCnt;
         uint64_t meshBufPtrs[1];
 	} PACK_STRUCT;
+    static_assert(sizeof(core::aabbox3df)==24, "sizeof(core::aabbox3df) must be 24");
+    static_assert(sizeof(MeshBlobV0::meshBufPtrs)==8, "sizeof(MeshBlobV0::meshBufPtrs) must be 8");
     static_assert(
         sizeof(MeshBlobV0) ==
         sizeof(MeshBlobV0::box) + sizeof(MeshBlobV0::meshBufCnt) + sizeof(MeshBlobV0::meshBufPtrs),
@@ -222,6 +253,7 @@ namespace asset
         uint32_t meshBufCnt;
         uint64_t meshBufPtrs[1];
 	} PACK_STRUCT;
+    static_assert(sizeof(SkinnedMeshBlobV0::meshBufPtrs)==8, "sizeof(SkinnedMeshBlobV0::meshBufPtrs) must be 8");
     static_assert(
         sizeof(SkinnedMeshBlobV0) ==
         sizeof(SkinnedMeshBlobV0::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV0::box) + sizeof(SkinnedMeshBlobV0::meshBufCnt) + sizeof(SkinnedMeshBlobV0::meshBufPtrs),
@@ -246,6 +278,7 @@ namespace asset
 		uint32_t primitiveType;
 		uint32_t posAttrId;
 	} PACK_STRUCT;
+    static_assert(sizeof(MeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
     static_assert(
         sizeof(MeshBufferBlobV0) ==
         sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex)
@@ -274,6 +307,7 @@ namespace asset
 		uint32_t indexValMax;
 		uint32_t maxVertexBoneInfluences;
 	} PACK_STRUCT;
+    static_assert(sizeof(SkinnedMeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
     static_assert(
         sizeof(SkinnedMeshBufferBlobV0) ==
         sizeof(SkinnedMeshBufferBlobV0::mat) + sizeof(SkinnedMeshBufferBlobV0::box) + sizeof(SkinnedMeshBufferBlobV0::descPtr) + sizeof(SkinnedMeshBufferBlobV0::indexType) + sizeof(SkinnedMeshBufferBlobV0::baseVertex)
@@ -364,8 +398,8 @@ namespace asset
     // ===============
     // .baw VERSION 1
     // ===============
-    using BlobHeaderV1 = BlobHeaderV0;
-    using BAWFileV1 = BAWFileV0;
+    using BlobHeaderV1 = BlobHeaderVn<1>;
+    using BAWFileV1 = BAWFileVn<1>;
     using RawBufferBlobV1 = RawBufferBlobV0;
     using TexturePathBlobV1 = TexturePathBlobV0;
     using MeshBlobV1 = MeshBlobV0;
@@ -383,7 +417,7 @@ namespace asset
         //! Constructor filling all members
         explicit MeshDataFormatDescBlobV1(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>*);
         //! Backward compatibility constructor
-        explicit MeshDataFormatDescBlobV1(const asset::legacy::MeshDataFormatDescBlobV0&);
+        explicit MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDataFormatDescBlobV0&);
     
         uint32_t attrFormat[VERTEX_ATTRIB_CNT];
         uint32_t attrStride[VERTEX_ATTRIB_CNT];

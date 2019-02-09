@@ -11,7 +11,6 @@
 #include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
 #include "ISceneManager.h"
-#include "IMeshCache.h"
 #include "IWriteFile.h"
 #include "IFileSystem.h"
 #include <sstream>

@@ -19,6 +19,7 @@
 -fuse-linker-plugin
 -msse3
 */
+#define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
@@ -67,7 +68,7 @@ int main()
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<uint32_t>(1920, 1080);
+	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
@@ -82,7 +83,7 @@ int main()
 	SimpleCallBack* callBack = new SimpleCallBack();
 
     //! First need to make a material other than default to be able to draw with custom shader
-    video::SMaterial material;
+    video::SGPUMaterial material;
     //material.BackfaceCulling = false; //! Triangles will be visible from both sides
     material.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../points.vert",
                                                         "","","", //! No Geometry or Tessellation Shaders
@@ -97,8 +98,8 @@ int main()
 	scene::ISceneManager* smgr = device->getSceneManager();
 
 
-    scene::IGPUMeshBuffer* mb = new scene::IGPUMeshBuffer();
-    scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+    video::IGPUMeshBuffer* mb = new video::IGPUMeshBuffer();
+    video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
     mb->setMeshDataAndFormat(desc);
     desc->drop();
 
@@ -121,10 +122,9 @@ int main()
 
 
     //! By mapping we increase/grab() ref counter of positionBuf, any previously mapped buffer will have it's reference dropped
-    desc->mapVertexAttrBuffer(positionBuf,
-                            scene::EVAI_ATTR0, //! we use first attribute slot (out of a minimum of 16)
-                            scene::ECPA_FOUR, //! there are 3 components per vertex
-                            scene::ECT_INT_2_10_10_10_REV); //! and they are floats
+    desc->setVertexAttrBuffer(positionBuf,
+        asset::EVAI_ATTR0, //! we use first attribute slot (out of a minimum of 16)
+        asset::EF_A2B10G10R10_SSCALED_PACK32); //! there are 3 components per vertex and they are floats
 
     /** Since we mapped the buffer, the MeshBuffers will be using it.
         If we drop it, it will be automatically deleted when MeshBuffers are done using it.
@@ -133,12 +133,13 @@ int main()
 
 
     mb->setIndexCount(verts);
-    mb->setPrimitiveType(scene::EPT_POINTS);
+    mb->setPrimitiveType(asset::EPT_POINTS);
 
     scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,80.f,0.001f);
     smgr->setActiveCamera(camera);
     camera->setNearValue(0.001f);
     camera->setFarValue(10.f);
+    device->getCursorControl()->setVisible(false);
 
 	uint64_t lastFPSTime = 0;
 
@@ -170,7 +171,7 @@ int main()
 	mb->drop();
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.
@@ -189,8 +190,11 @@ int main()
         }
         delete [] tmpBuffer;
     }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
+    screenshot->drop();
 
 	device->drop();
 

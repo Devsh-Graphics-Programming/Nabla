@@ -114,6 +114,7 @@ namespace video
         virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const = 0;
         virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const = 0;
         virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const = 0;
+        virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const = 0;
 
 
 		//! Applications must call this method before performing any rendering.

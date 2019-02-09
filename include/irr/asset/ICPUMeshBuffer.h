@@ -272,7 +272,7 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
 };
 
 
-class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, asset::BlobSerializable
+class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, public asset::BlobSerializable, public asset::IAsset
 {
     protected:
 	    ~ICPUMeshDataFormatDesc()
@@ -283,6 +283,17 @@ class ICPUMeshDataFormatDesc : public IMeshDataFormatDesc<asset::ICPUBuffer>, as
 		{
 			return asset::CorrespondingBlobTypeFor<IMeshDataFormatDesc<asset::ICPUBuffer> >::type::createAndTryOnStack(static_cast<const IMeshDataFormatDesc<asset::ICPUBuffer>*>(this), _stackPtr, _stackSize);
 		}
+
+        size_t conservativeSizeEstimate() const override
+        {
+            return asset::CorrespondingBlobTypeFor<IMeshDataFormatDesc<asset::ICPUBuffer>>::type::calcBlobSizeForObj(this);
+        }
+
+        void convertToDummyObject() override
+        {
+        }
+
+        asset::IAsset::E_TYPE getAssetType() const override { return asset::IAsset::ET_MESH_DATA_DESCRIPTOR; }
 
         //! remember that the divisor must be 0 or 1
         void setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override
@@ -661,7 +672,7 @@ public:
 
         if (!scaled)
         {
-            double output64[4];
+            double output64[4]{ 0., 0., 0., 1. };
             video::decodePixels<double>(format, &src, output64, 0u, 0u);
             std::copy(output64, output64+4, output.pointer);
         }
@@ -669,13 +680,13 @@ public:
         {
             if (asset::isSignedFormat(format))
             {
-                int64_t output64i[4];
+                int64_t output64i[4]{ 0, 0, 0, 1 };
                 video::decodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64i, 0u, 0u);
                 std::copy(output64i, output64i+4, output.pointer);
             }
             else
             {
-                uint64_t output64u[4];
+                uint64_t output64u[4]{ 0u, 0u, 0u, 1u };
                 video::decodePixels<uint64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64u, 0u, 0u);
                 std::copy(output64u, output64u+4, output.pointer);
             }
@@ -718,14 +729,14 @@ public:
         {
             if (asset::isSignedFormat(format))
             {
-                int64_t output64[4];
+                int64_t output64[4]{0, 0, 0, 1};
                 video::decodePixels<int64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
                 for (uint32_t i = 0u; i < asset::getFormatChannelCount(format); ++i)
                     output[i] = output64[i];
             }
             else
             {
-                uint64_t output64[4];
+                uint64_t output64[4]{0u, 0u, 0u, 1u};
                 video::decodePixels<uint64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
                 for (uint32_t i = 0u; i < asset::getFormatChannelCount(format); ++i)
                     output[i] = output64[i];

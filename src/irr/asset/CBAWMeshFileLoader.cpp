@@ -21,7 +21,6 @@ namespace irr { namespace asset
 {
 CBAWMeshFileLoader::~CBAWMeshFileLoader()
 {
-    m_device->drop();
 }
 
 CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m_sceneMgr(_dev->getSceneManager()), m_fileSystem(_dev->getFileSystem())
@@ -29,13 +28,12 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m
 #ifdef _DEBUG
 	setDebugName("CBAWMeshFileLoader");
 #endif
-    m_device->grab();
 }
 
 asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifdef _DEBUG
-	uint32_t time = os::Timer::getRealTime();
+    auto time = std::chrono::high_resolution_clock::now();
 #endif // _DEBUG
 
 	SContext ctx{
@@ -44,46 +42,40 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             _file
         }
     };
-    io::IReadFile* const overridenFile = ctx.inner.mainFile = _override->getLoadFile(ctx.inner.mainFile, ctx.inner.mainFile->getFileName().c_str(), ctx.inner, 0u);
 
-    ctx.inner.mainFile = tryCreateNewestFormatVersionFile(ctx.inner.mainFile, _override);
+    ctx.inner.mainFile = tryCreateNewestFormatVersionFile(ctx.inner.mainFile, _override, std::make_integer_sequence<uint64_t, _IRR_BAW_FORMAT_VERSION>{});
 
     asset::BlobHeaderV1* headers = nullptr;
 
     auto exitRoutine = [&] {
-        if (ctx.inner.mainFile != overridenFile) // if mainFile is temparary memory file created just to update format to the newest version
+        if (ctx.inner.mainFile != _file) // if mainFile is temparary memory file created just to update format to the newest version
             ctx.inner.mainFile->drop();
         ctx.releaseLoadedObjects();
         if (headers)
             _IRR_ALIGNED_FREE(headers);
     };
-    struct RAIILikeExiter
-    {
-        decltype(exitRoutine)& onDestr;
-        RAIILikeExiter(decltype(exitRoutine)& _rtn) : onDestr{_rtn} {}
-        ~RAIILikeExiter() { onDestr(); }
-    } exiter{exitRoutine};
+    auto exiter = core::makeRAIIExiter(exitRoutine);
 
-    if (!verifyFile<asset::BAWFileV1>(ctx, _IRR_BAW_FORMAT_VERSION))
+    if (!verifyFile<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>>(ctx))
     {
         return nullptr;
     }
 
     uint32_t blobCnt{};
 	uint32_t* offsets = nullptr;
-    if (!validateHeaders<asset::BAWFileV1, asset::BlobHeaderV1>(&blobCnt, &offsets, (void**)&headers, ctx))
+    if (!validateHeaders<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>, asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>>(&blobCnt, &offsets, (void**)&headers, ctx))
     {
         return nullptr;
     }
 
-	const uint32_t BLOBS_FILE_OFFSET = asset::BAWFileV1{ {}, blobCnt }.calcBlobsOffset();
+	const uint32_t BLOBS_FILE_OFFSET = asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>{ {}, blobCnt }.calcBlobsOffset();
 
 	core::unordered_map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
 	for (uint32_t i = 0; i < blobCnt; ++i)
 	{
 		SBlobData data(headers + i, BLOBS_FILE_OFFSET + offsets[i]);
-		const core::unordered_map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, data)).first;
+		const core::unordered_map<uint64_t, SBlobData>::iterator it = ctx.blobs.insert(std::make_pair(headers[i].handle, std::move(data))).first;
 		if (data.header->blobType == asset::Blob::EBT_MESH || data.header->blobType == asset::Blob::EBT_SKINNED_MESH)
 			meshBlobDataIter = it;
 	}
@@ -92,6 +84,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
     const std::string rootCacheKey = ctx.inner.mainFile->getFileName().c_str();
 
 	const asset::BlobLoadingParams params{
+        this,
         m_device,
         m_fileSystem,
         ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/",
@@ -117,7 +110,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         uint32_t attempt = 0u;
         const void* blob = nullptr;
         // todo: supposedFilename arg is missing (empty string) - what is it? 
-        while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, hierLvl))
+        while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, hierLvl))
         {
             if (!((data->header->compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
                 blob = data->heapBlob = tryReadBlobOnStack(*data, ctx, decrKey);
@@ -187,14 +180,14 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
 
 #ifdef _DEBUG
-	time = os::Timer::getRealTime() - time;
 	std::ostringstream tmpString("Time to load ");
 	tmpString.seekp(0, std::ios_base::end);
-	tmpString << "BAW file: " << time << "ms";
+	tmpString << "BAW file: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-time).count() << "us";
 	os::Printer::log(tmpString.str());
 #endif // _DEBUG
 
-	return reinterpret_cast<asset::ICPUMesh*>(retval);
+    asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
+    return mesh;
 }
 
 bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _size) const
@@ -223,43 +216,27 @@ bool CBAWMeshFileLoader::decompressLz4(void * _dst, size_t _dstSize, const void 
 	return res >= 0;
 }
 
-io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override)
+template<>
+io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override, CommonDataTuple<0>& _common)
 {
+    uint32_t blobCnt{};
+    asset::legacyv0::BlobHeaderV0* headers = nullptr;
+    uint32_t* offsets = nullptr;
+    uint32_t baseOffsetv0{};
+    uint32_t baseOffsetv1{};
+    std::tie(blobCnt, headers, offsets, baseOffsetv0, baseOffsetv1) = _common;
+
     io::CMemoryWriteFile* const baw1mem = new io::CMemoryWriteFile(0u, _baw0file->getFileName());
 
-	SContext ctx{
-        asset::IAssetLoader::SAssetLoadContext{
-            asset::IAssetLoader::SAssetLoadParams{},
-            _baw0file
-        }
-    };
-
-    if (!verifyFile<asset::BAWFileV0>(ctx, 0ull))
-    {
-        delete[] baw1mem;
-        return nullptr;
-    }
-
-    uint32_t blobCnt{};
-    uint32_t* offsets = nullptr;
-    asset::BlobHeaderV0* headers = nullptr;
-
-    if (!validateHeaders<asset::BAWFileV0, asset::BlobHeaderV0>(&blobCnt, &offsets, reinterpret_cast<void**>(&headers), ctx))
-    {
-        delete[] baw1mem;
-        return nullptr;
-    }
-
-    const uint32_t baseOffsetv0 = asset::BAWFileV0{{},blobCnt}.calcBlobsOffset();
-
     std::vector<uint32_t> newoffsets(blobCnt);
-    std::vector<asset::MeshDataFormatDescBlobV1> newblobs;
     int32_t offsetDiff = 0;
     for (uint32_t i = 0u; i < blobCnt; ++i)
     {
-        asset::BlobHeaderV0& hdr = headers[i];
+        asset::legacyv0::BlobHeaderV0& hdr = headers[i];
         const uint32_t offset = offsets[i];
         uint32_t& newoffset = newoffsets[i];
+
+        newoffset = offset + offsetDiff;
 
         bool adjustDiff = false;
         uint32_t prevBlobSz{};
@@ -270,40 +247,46 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
             uint8_t decrKey[16];
             size_t decrKeyLen = 16u;
             void* blob = nullptr;
-            while (_override->getDecryptionKey(decrKey, decrKeyLen, 16u, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), ctx.inner, 2u))
+            /* to state blob's/asset's hierarchy level we'd have to load (and possibly decrypt and decompress) the blob
+            however we don't need to do this here since we know format's version (baw v0) and so we can be sure that hierarchy level for mesh data descriptors is 2
+            */
+            constexpr uint32_t ICPUMESHDATAFORMATDESC_HIERARCHY_LVL = 2u;
+            while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), _ctx.inner, ICPUMESHDATAFORMATDESC_HIERARCHY_LVL))
             {
                 if (!((hdr.compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
-                    blob = tryReadBlobOnStack<asset::BlobHeaderV0>(SBlobData_t<asset::BlobHeaderV0>(&hdr, baseOffsetv0+offset), ctx, decrKey, stackmem, sizeof(stackmem));
+                    blob = tryReadBlobOnStack<asset::legacyv0::BlobHeaderV0>(SBlobData_t<asset::legacyv0::BlobHeaderV0>(&hdr, baseOffsetv0+offset), _ctx, decrKey, stackmem, sizeof(stackmem));
                 if (blob)
                     break;
                 ++attempt;
             }
-            newblobs.emplace_back(reinterpret_cast<asset::legacy::MeshDataFormatDescBlobV0*>(blob)[0]);
+
+            const uint32_t absOffset = baseOffsetv1 + newoffset;
+            baw1mem->seek(absOffset);
+            baw1mem->write(
+                asset::MeshDataFormatDescBlobV1(reinterpret_cast<asset::legacyv0::MeshDataFormatDescBlobV0*>(blob)[0]).getData(),
+                sizeof(asset::MeshDataFormatDescBlobV1)
+            );
 
             prevBlobSz = hdr.effectiveSize();
             hdr.compressionType = asset::Blob::EBCT_RAW;
-            core::XXHash_256(&newblobs.back(), sizeof(newblobs.back()), hdr.blobHash);
-            hdr.blobSizeDecompr = hdr.blobSize = sizeof(newblobs.back());
+            core::XXHash_256(reinterpret_cast<uint8_t*>(baw1mem->getPointer())+absOffset, sizeof(asset::MeshDataFormatDescBlobV1), hdr.blobHash);
+            hdr.blobSizeDecompr = hdr.blobSize = sizeof(asset::MeshDataFormatDescBlobV1);
 
             adjustDiff = true;
         }
-        newoffset = offset + offsetDiff;
         if (adjustDiff)
-            offsetDiff += static_cast<int32_t>(sizeof(newblobs.back())) - static_cast<int32_t>(prevBlobSz);
+            offsetDiff += static_cast<int32_t>(sizeof(asset::MeshDataFormatDescBlobV1)) - static_cast<int32_t>(prevBlobSz);
     }
-    const char * const headerStr = "IrrlichtBaW BinaryFile";
     uint64_t fileHeader[4] {0u, 0u, 0u, 1u/*baw v1*/};
-    memcpy(fileHeader, headerStr, strlen(headerStr));
+    memcpy(fileHeader, asset::BAWFileV1::HEADER_STRING, strlen(asset::BAWFileV1::HEADER_STRING));
+    baw1mem->seek(0u);
     baw1mem->write(fileHeader, sizeof(fileHeader));
     baw1mem->write(&blobCnt, 4);
-    baw1mem->write(ctx.iv, 16);
+    baw1mem->write(_ctx.iv, 16);
     baw1mem->write(newoffsets.data(), newoffsets.size()*4);
     baw1mem->write(headers, blobCnt*sizeof(headers[0])); // blob header in v0 and in v1 is exact same thing, so we can do this
 
-    const uint32_t baseOffsetv1 = asset::BAWFileV1{{}, blobCnt}.calcBlobsOffset();
-
     uint8_t stackmem[1u<<13]{};
-    auto newblobsItr = newblobs.begin();
     size_t newFileSz = 0u;
     for (uint32_t i = 0u; i < blobCnt; ++i)
     {
@@ -311,8 +294,7 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
         void* blob = nullptr;
         if (headers[i].blobType == asset::Blob::EBT_DATA_FORMAT_DESC)
         {
-            blob = &(*(newblobsItr++));
-            sz = sizeof(newblobs[0]);
+            sz = 0u;
         }
         else
         {
@@ -341,39 +323,6 @@ io::IReadFile* CBAWMeshFileLoader::createConvertBAW0intoBAW1(io::IReadFile* _baw
     auto ret = new io::CMemoryReadFile(baw1mem->getPointer(), baw1mem->getSize(), _baw0file->getFileName());
     baw1mem->drop();
     return ret;
-}
-
-io::IReadFile* CBAWMeshFileLoader::tryCreateNewestFormatVersionFile(io::IReadFile* _originalFile, asset::IAssetLoader::IAssetLoaderOverride* _override)
-{
-    using convertFuncT = io::IReadFile*(CBAWMeshFileLoader::*)(io::IReadFile*, asset::IAssetLoader::IAssetLoaderOverride*);
-    convertFuncT convertFunc[_IRR_BAW_FORMAT_VERSION]{ &CBAWMeshFileLoader::createConvertBAW0intoBAW1 };
-
-    if (!_originalFile)
-        return nullptr;
-
-    _originalFile->grab();
-
-    uint64_t version{};
-    _originalFile->seek(24u);
-    _originalFile->read(&version, 8u);
-    _originalFile->seek(0u);
-
-    io::IReadFile* newestFormatFile = _originalFile;
-    while (version != _IRR_BAW_FORMAT_VERSION)
-    {
-#define CALL_MEMBER_FN(object,ptrToMember)  ((object).*(ptrToMember))
-        io::IReadFile* tmp = CALL_MEMBER_FN(*this, convertFunc[version])(newestFormatFile, _override);
-        newestFormatFile->drop();
-        newestFormatFile = tmp;
-        ++version;
-        if (!newestFormatFile)
-            return nullptr;
-    }
-    if (newestFormatFile == _originalFile)
-        newestFormatFile->drop();
-
-    return newestFormatFile;
-#undef CALL_MEMBER_FN
 }
 
 }} // irr::scene

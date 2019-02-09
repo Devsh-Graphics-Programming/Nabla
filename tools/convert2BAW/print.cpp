@@ -5,13 +5,13 @@
 
 using namespace irr;
 
-static std::string idxTypeToStr(video::E_INDEX_TYPE _it) 
+static std::string idxTypeToStr(scene::E_INDEX_TYPE _it) 
 {
 	switch (_it)
 	{
-	case video::EIT_16BIT: return "EIT_16BIT";
-	case video::EIT_32BIT: return "EIT_32BIT";
-	case video::EIT_UNKNOWN: return "EIT_UNKNOWN";
+	case scene::EIT_16BIT: return "EIT_16BIT";
+	case scene::EIT_32BIT: return "EIT_32BIT";
+	case scene::EIT_UNKNOWN: return "EIT_UNKNOWN";
 	}
 	return "";
 }

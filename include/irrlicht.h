@@ -81,6 +81,8 @@
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/SCPUMesh.h"
 #include "irr/asset/CImageData.h"
+#include "irr/asset/IGeometryCreator.h"
+#include "irr/asset/IMeshManipulator.h"
 //} end asset lib
 
 //{ ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
@@ -135,7 +137,6 @@
 #include "IEventReceiver.h"
 #include "IFileList.h"
 #include "IFileSystem.h"
-#include "IGeometryCreator.h"
 #include "IGPUProgrammingServices.h"
 #include "IImage.h"
 #include "IImageLoader.h"
@@ -146,12 +147,8 @@
 #include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
-#include "IMeshCache.h"
-#include "IMeshLoader.h"
-#include "IMeshManipulator.h"
 #include "IMeshSceneNode.h"
 #include "IMeshSceneNodeInstanced.h"
-#include "IMeshWriter.h"
 #include "IOSOperator.h"
 #include "IReadFile.h"
 #include "IrrlichtDevice.h"

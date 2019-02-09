@@ -33,7 +33,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
         virtual ~IMeshSceneNodeInstanced()
         {
             if (instanceDataAllocator)
-                delete instanceDataAllocator;
+                instanceDataAllocator->drop();
         }
     public:
         constexpr static decltype(InstanceDataAddressAllocator::invalid_address) kInvalidInstanceID         = InstanceDataAddressAllocator::invalid_address;

@@ -302,12 +302,6 @@ namespace core
 			//! Gets transposed matrix
 			inline void getTransposed( CMatrix4<T>& dest ) const;
 
-			//! Builds a matrix that rotates from one vector to another
-			/** \param from: vector to rotate from
-			\param to: vector to rotate to
-			 */
-			CMatrix4<T>& buildRotateFromTo(const core::vector3df& from, const core::vector3df& to);
-
 			//! Builds a combined matrix which translates to a center before rotation and translates from origin afterwards
 			/** \param center Position to rotate around
 			\param translate Translation applied after the rotation
@@ -1875,61 +1869,6 @@ namespace core
 		M[12] = (T)dx;
 		M[13] = (T)dy;
 		return setScale(core::vector3d<T>((T)scaleX, (T)scaleY, (T)zScale));
-	}
-
-	//! Builds a matrix that rotates from one vector to another
-	/** \param from: vector to rotate from
-	\param to: vector to rotate to
-
-		http://www.euclideanspace.com/maths/geometry/rotations/conversions/angleToMatrix/index.htm
-	 */
-	template <class T>
-	inline CMatrix4<T>& CMatrix4<T>::buildRotateFromTo(const core::vector3df& from, const core::vector3df& to)
-	{
-		// unit vectors
-		core::vector3df f(from);
-		core::vector3df t(to);
-		f.normalize();
-		t.normalize();
-
-		// axis multiplication by sin
-		core::vector3df vs(t.crossProduct(f));
-
-		// axis of rotation
-		core::vector3df v(vs);
-		v.normalize();
-
-		// cosinus angle
-		T ca = f.dotProduct(t);
-
-		core::vector3df vt(v * (1 - ca));
-
-		M[0] = vt.X * v.X + ca;
-		M[5] = vt.Y * v.Y + ca;
-		M[10] = vt.Z * v.Z + ca;
-
-		vt.X *= v.Y;
-		vt.Z *= v.X;
-		vt.Y *= v.Z;
-
-		M[1] = vt.X - vs.Z;
-		M[2] = vt.Z + vs.Y;
-		M[3] = 0;
-
-		M[4] = vt.X + vs.Z;
-		M[6] = vt.Y - vs.X;
-		M[7] = 0;
-
-		M[8] = vt.Z - vs.Y;
-		M[9] = vt.Y + vs.X;
-		M[11] = 0;
-
-		M[12] = 0;
-		M[13] = 0;
-		M[14] = 0;
-		M[15] = 1;
-
-		return *this;
 	}
 
 	//! Builds a matrix which rotates a source vector to a look vector over an arbitrary axis

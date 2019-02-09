@@ -102,7 +102,7 @@ public:
         }
     }
 
-    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SMaterial& material, const video::SMaterial& lastMaterial)
+    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial)
     {
         currentMat = material.MaterialType;
         currentLodPass = material.MaterialTypeParam;
@@ -137,38 +137,38 @@ public:
 };
 
 
- scene::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const scene::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
+ asset::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
  {
     video::IVideoDriver* driver = smgr->getVideoDriver();
-    scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao = driver->createGPUMeshDataFormatDesc();
+    asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao = driver->createGPUMeshDataFormatDesc();
 
     //
-    for (size_t k=0; k<EVAI_COUNT; k++)
+    for (size_t k=0; k<asset::EVAI_COUNT; k++)
     {
-        E_VERTEX_ATTRIBUTE_ID attrId = (E_VERTEX_ATTRIBUTE_ID)k;
+        asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)k;
         if (!oldVAO->getMappedBuffer(attrId))
             continue;
 
-        vao->mapVertexAttrBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId)),attrId,oldVAO->getAttribComponentCount(attrId),oldVAO->getAttribType(attrId),
+        vao->setVertexAttrBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId)),attrId,oldVAO->getAttribFormat(attrId),
                                  oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),oldVAO->getAttribDivisor(attrId));
     }
 
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR1,ECPA_FOUR,ECT_NORMALIZED_UNSIGNED_BYTE,29*sizeof(float),28*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR1,asset::EF_R8G8B8A8_UNORM,29*sizeof(float),28*sizeof(float),1);
 
     // I know what attributes are unused in my mesh and I've set up the shader to use thse as instance data
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR4,ECPA_FOUR,ECT_FLOAT,29*sizeof(float),0,1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR5,ECPA_FOUR,ECT_FLOAT,29*sizeof(float),4*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR6,ECPA_FOUR,ECT_FLOAT,29*sizeof(float),8*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR2,ECPA_FOUR,ECT_FLOAT,29*sizeof(float),12*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR4,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),0,1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR5,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),4*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR6,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),8*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR2,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),12*sizeof(float),1);
 
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR7,ECPA_THREE,ECT_FLOAT,29*sizeof(float),16*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR8,ECPA_THREE,ECT_FLOAT,29*sizeof(float),19*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR9,ECPA_THREE,ECT_FLOAT,29*sizeof(float),22*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR10,ECPA_THREE,ECT_FLOAT,29*sizeof(float),25*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR7,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),16*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),19*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),22*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),25*sizeof(float),1);
 
 
     if (oldVAO->getIndexBuffer())
-        vao->mapIndexBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer()));
+        vao->setIndexBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer()));
 
     return vao;
  }
@@ -221,12 +221,13 @@ int main()
 	device->setEventReceiver(&receiver);
 
 	//!
-    scene::IGPUMesh* gpumesh = smgr->getGeometryCreator()->createCubeMeshGPU(driver,core::vector3df(5.f,1.f,1.f));
+    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(5.f, 1.f, 1.f));
+    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
     for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
         gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
 
 
-    video::SMaterial cullingXFormFeedbackShader;
+    video::SGPUMaterial cullingXFormFeedbackShader;
     const char* xformFeedbackOutputs[] =
     {
         "outLoD0_worldViewProjMatCol0",
@@ -318,7 +319,7 @@ int main()
     gpumesh->drop();
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.
@@ -337,8 +338,11 @@ int main()
         }
         delete [] tmpBuffer;
     }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
+    screenshot->drop();
 
 
 	device->drop();

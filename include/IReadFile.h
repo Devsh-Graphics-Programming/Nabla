@@ -45,11 +45,6 @@ namespace io
 		virtual const io::path& getFileName() const = 0;
 	};
 
-	//! Internal function, please do not use.
-	IReadFile* createReadFile(const io::path& fileName);
-	//! Internal function, please do not use.
-	IReadFile* createLimitReadFile(const io::path& fileName, IReadFile* alreadyOpenedFile, const size_t& pos, const size_t& areaSize);
-
 } // end namespace io
 } // end namespace irr
 

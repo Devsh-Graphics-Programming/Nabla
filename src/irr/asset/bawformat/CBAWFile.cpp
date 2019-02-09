@@ -9,10 +9,9 @@
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CFinalBoneHierarchy.h"
-#include "coreutil.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENSSL_
-#include <openssl/evp.h>
+#include "openssl/evp.h"
 #pragma comment(lib, "libeay32.lib")
 #endif
 
@@ -22,29 +21,6 @@
 
 namespace irr { namespace asset
 {
-
-void BlobHeaderV0::finalize(const void* _data, size_t _sizeDecompr, size_t _sizeCompr, uint8_t _comprType)
-{
-	blobSizeDecompr = _sizeDecompr;
-	blobSize = _sizeCompr;
-	compressionType = _comprType;
-
-	if (!(compressionType & Blob::EBCT_AES128_GCM)) // use gcmTag instead (set while encrypting).
-		core::XXHash_256(_data, blobSize, blobHash);
-}
-
-bool BlobHeaderV0::validate(const void* _data) const
-{
-	if (compressionType & Blob::EBCT_AES128_GCM) // use gcm authentication instead. Decryption will fail if data is corrupted.
-		return true;
-    uint64_t tmpHash[4];
-	core::XXHash_256(_data, blobSize, tmpHash);
-	for (size_t i=0; i<4; i++)
-		if (tmpHash[i] != blobHash[i])
-			return false;
-    return true;
-}
-
 
 MeshBlobV0::MeshBlobV0(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
 {
@@ -280,16 +256,16 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::IMeshDataFormatD
     idxBufPtr = reinterpret_cast<uint64_t>(_desc->getIndexBuffer());
 }
 
-MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacy::MeshDataFormatDescBlobV0& _v0blob) : attrDivisor{0u}
+MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDataFormatDescBlobV0& _v0blob) : attrDivisor{0u}
 {
     using namespace scene;
 
     for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
     {
         attrFormat[i] =
-            asset::legacy::mapECT_plus_ECPA_onto_E_FORMAT(
-                static_cast<asset::legacy::E_COMPONENT_TYPE>(_v0blob.attrType[i]),
-                static_cast<asset::legacy::E_COMPONENTS_PER_ATTRIBUTE>(_v0blob.cpa[i])
+            asset::legacyv0::mapECT_plus_ECPA_onto_E_FORMAT(
+                static_cast<asset::legacyv0::E_COMPONENT_TYPE>(_v0blob.attrType[i]),
+                static_cast<asset::legacyv0::E_COMPONENTS_PER_ATTRIBUTE>(_v0blob.cpa[i])
             );
     }
     for (uint32_t i = 0u; i < EVAI_COUNT; ++i)

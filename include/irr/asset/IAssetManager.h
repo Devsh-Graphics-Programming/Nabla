@@ -9,7 +9,6 @@
 #include "CConcurrentObjectCache.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
-//#include "CGeometryCreator.h"
 #include "IAssetLoader.h"
 #include "IAssetWriter.h"
 #include "irr/core/Types.h"
@@ -23,6 +22,9 @@ namespace irr
 {
 namespace asset
 {
+    class IGeometryCreator;
+    class IMeshManipulator;
+
 	class IAssetManager
 	{
         // the point of those functions is that lambdas returned by them "inherits" friendship
@@ -92,7 +94,14 @@ namespace asset
             core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType;
         } m_writers;
 
+        friend class IAssetLoader;
         friend class IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
+
+        IGeometryCreator* m_geometryCreator;
+        IMeshManipulator* m_meshManipulator;
+        // called as a part of constructor only
+        void initializeMeshTools();
+        void dropMeshTools();
 
     public:
         //! Constructor
@@ -100,6 +109,8 @@ namespace asset
             m_fileSystem{_fs},
             m_defaultLoaderOverride{nullptr}
         {
+            initializeMeshTools();
+
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 m_assetCache[i] = new AssetCacheType(asset::makeAssetGreetFunc(this), asset::makeAssetDisposeFunc(this));
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
@@ -124,39 +135,53 @@ namespace asset
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 if (m_assetCache[i])
                     delete m_assetCache[i];
+
+            core::vector<typename CpuGpuCacheType::MutablePairType> buf;
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
+            {
                 if (m_cpuGpuCache[i])
-                    delete m_cpuGpuCache[i];
+                {
+                    size_t sizeToReserve{};
+                    m_cpuGpuCache[i]->outputAll(sizeToReserve, nullptr);
+                    buf.resize(sizeToReserve);
+                    m_cpuGpuCache[i]->outputAll(sizeToReserve, buf.data());
+                    for (auto& pair : buf)
+                        pair.first->drop(); // drop keys (CPU "empty cache handles")
+                    delete m_cpuGpuCache[i]; // drop on values (GPU objects) will be done by cache's destructor
+                }
+            }
             for (auto ldr : m_loaders.vector)
                 ldr->drop();
-            for (auto wtr : m_writers.perType)
-                wtr.second->drop();
             if (m_fileSystem)
                 m_fileSystem->drop();
+            dropMeshTools();
         }
         
-        //! Default Asset Creators (more creators can follow)
-        //IMeshCreator* getDefaultMeshCreator(); //old IGeometryCreator
+        const IGeometryCreator* getGeometryCreator() const;
+        const IMeshManipulator* getMeshManipulator() const;
 
-    public:
-        IAsset* getAssetInHierarchy(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+    protected:
+        IAsset* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, _file};
-            io::IReadFile* file = _override->getLoadFile(_file, _file->getFileName().c_str(), ctx, _hierarchyLevel);
+
+            std::string filename = _file ? _file->getFileName().c_str() : _supposedFilename;
+            io::IReadFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel);
+            filename = file ? file->getFileName().c_str() : _supposedFilename;
 
             const uint64_t levelFlags = _params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
             IAsset* asset = nullptr;
             if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
             {
-                core::vector<IAsset*> found = findAssets(file->getFileName().c_str());
+                core::vector<IAsset*> found = findAssets(filename);
                 if (found.size())
-                    return found.front();
-                else if (asset = _override->handleSearchFail(file->getFileName().c_str(), ctx, _hierarchyLevel))
+                    return _override->chooseRelevantFromFound(found, ctx, _hierarchyLevel);
+                else if (asset = _override->handleSearchFail(filename, ctx, _hierarchyLevel))
                     return asset;
             }
 
-            auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(file->getFileName()));
+            auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(filename.c_str()));
 
             for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr) // loaders associated with the file's extension tryout
             {
@@ -171,13 +196,13 @@ namespace asset
 
             if (asset && !(levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL))
             {
-                asset->setNewCacheKey(file->getFileName().c_str());
-                insertAssetIntoCache(asset);
+                _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
+                asset->drop(); // drop ownership after transfering it to cache container
             }
             else if (!asset)
             {
                 bool addToCache;
-                asset = _override->handleLoadFail(addToCache, file, file->getFileName().c_str(), file->getFileName().c_str(), ctx, _hierarchyLevel);
+                asset = _override->handleLoadFail(addToCache, file, filename, filename, ctx, _hierarchyLevel);
                 if (asset && addToCache)
                     insertAssetIntoCache(asset);
             }
@@ -191,18 +216,18 @@ namespace asset
             std::string filename = _filename;
             _override->getLoadFilename(filename, ctx, _hierarchyLevel);
             io::IReadFile* file = m_fileSystem->createAndOpenFile(filename.c_str());
-            if (!file)
-                return nullptr;
 
-            IAsset* asset = getAssetInHierarchy(file, _params, _hierarchyLevel, _override);
-            file->drop();
+            IAsset* asset = getAssetInHierarchy(file, _filename, _params, _hierarchyLevel, _override);
+
+            if (file)
+                file->drop();
 
             return asset;
         }
 
-        IAsset* getAssetInHierarchy(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        IAsset* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
         {
-            return getAssetInHierarchy(_file, _params, _hierarchyLevel, &m_defaultLoaderOverride);
+            return getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
         }
 
         IAsset* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
@@ -210,15 +235,16 @@ namespace asset
             return getAssetInHierarchy(_filename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
         }
 
+    public:
         //! These can be grabbed and dropped, but you must not use drop() to try to unload/release memory of a cached IAsset (which is cached if IAsset::isInAResourceCache() returns true). See IAsset::E_CACHING_FLAGS
         /** Instead for a cached asset you call IAsset::removeSelfFromCache() instead of IAsset::drop() as the cache has an internal grab of the IAsset and it will drop it on removal from cache, which will result in deletion if nothing else is holding onto the IAsset through grabs (in that sense the last drop will delete the object). */
         IAsset* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
         {
             return getAssetInHierarchy(_filename, _params, 0u, _override);
         }
-        IAsset* getAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
+        IAsset* getAsset(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
         {
-            return getAssetInHierarchy(_file, _params,  0u, _override);
+            return getAssetInHierarchy(_file, _supposedFilename, _params,  0u, _override);
         }
 
         IAsset* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params)
@@ -226,9 +252,9 @@ namespace asset
             return getAsset(_filename, _params, &m_defaultLoaderOverride);
         }
 
-        IAsset* getAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params)
+        IAsset* getAsset(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params)
         {
-            return getAsset(_file, _params, &m_defaultLoaderOverride);
+            return getAsset(_file, _supposedFilename, _params, &m_defaultLoaderOverride);
         }
 
         inline bool findAssets(size_t& _inOutStorageSize, IAsset** _out, const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
@@ -326,8 +352,8 @@ namespace asset
         /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of. However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
         void convertAssetToEmptyCacheHandle(IAsset* _asset, core::IReferenceCounted* _gpuObject)
         {
-            _asset->convertToDummyObject();
             _asset->grab();
+            _asset->convertToDummyObject();
             m_cpuGpuCache[IAsset::typeFlagToIndex(_asset->getAssetType())]->insert(_asset, _gpuObject);
         }
 

@@ -15,7 +15,6 @@
 #include "IEventReceiver.h"
 #include "ISceneManager.h"
 #include "os.h"
-#include "CTimer.h"
 #include "coreutil.h"
 #include "Keycodes.h"
 #include "COSOperator.h"
@@ -1041,7 +1040,7 @@ void CIrrDeviceLinux::createDriver()
 //! runs the device. Returns false if device wants to be deleted
 bool CIrrDeviceLinux::run()
 {
-	os::Timer::tick();
+	Timer->tick();
 
 #ifdef _IRR_COMPILE_WITH_X11_
 

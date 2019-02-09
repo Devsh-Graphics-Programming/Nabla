@@ -108,8 +108,12 @@ class SCollisionEngine : public AllocationOverrideDefault
             if (!collider)
                 return;
 
+            auto found = std::lower_bound(colliders.begin(),colliders.end(),collider);
+            if (found!=colliders.end() && *found==collider)
+                return;
+
             collider->grab();
-            colliders.push_back(collider);
+            colliders.insert(found,collider);
         }
 
 		//! Removes collider pointed by `collider`

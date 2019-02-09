@@ -97,18 +97,6 @@ const io::path& CReadFile::getFileName() const
 }
 
 
-
-IReadFile* createReadFile(const io::path& fileName)
-{
-	CReadFile* file = new CReadFile(fileName);
-	if (file->isOpen())
-		return file;
-
-	file->drop();
-	return 0;
-}
-
-
 } // end namespace io
 } // end namespace irr
 

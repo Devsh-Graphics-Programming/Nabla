@@ -32,13 +32,13 @@ public:
 	uint32_t getPrimitiveTotal() const;
 
 	//! to be called every frame
-	void registerFrame(uint32_t now, uint32_t primitive);
+	void registerFrame(const std::chrono::high_resolution_clock::time_point& now, uint32_t primitive);
 
 private:
 
 	int32_t FPS;
 	uint32_t Primitive;
-	uint32_t StartTime;
+	std::chrono::high_resolution_clock::time_point StartTime;
 
 	uint32_t FramesCounted;
 	uint32_t PrimitivesCounted;

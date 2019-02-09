@@ -116,8 +116,10 @@ class COBJMeshFileLoader : public asset::IAssetLoader
     class SObjMtl; // forward decl.
     struct SContext
     {
-        asset::IAssetLoader::SAssetLoadContext inner;
-        asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
+        SContext(const IAssetLoader::SAssetLoadContext& _innerCtx, IAssetLoader::IAssetLoaderOverride* _override) : inner(_innerCtx), loaderOverride(_override) {}
+
+        IAssetLoader::SAssetLoadContext inner;
+        IAssetLoader::IAssetLoaderOverride* loaderOverride;
 
         const bool useGroups = false;
         const bool useMaterials = true;
@@ -128,7 +130,7 @@ class COBJMeshFileLoader : public asset::IAssetLoader
         ~SContext()
         {
             for (auto& m : Materials)
-                delete m;
+                if (m) delete m;
         }
     };
 

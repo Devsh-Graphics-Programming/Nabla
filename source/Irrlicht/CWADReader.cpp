@@ -10,6 +10,7 @@
 #include "CWADReader.h"
 #include "os.h"
 #include "coreutil.h"
+#include "CLimitReadFile.h"
 
 namespace irr
 {
@@ -106,8 +107,6 @@ CWADReader::CWADReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
 
 		// scan local headers
 		scanLocalHeader();
-
-		sort();
 	}
 
 #if 0
@@ -230,26 +229,12 @@ bool CWADReader::scanLocalHeader()
 //! opens a file by file name
 IReadFile* CWADReader::createAndOpenFile(const io::path& filename)
 {
-	int32_t index = findFile(filename, false);
-
-	if (index != -1)
-		return createAndOpenFile(index);
+    auto it = findFile(Files.begin(),Files.end(),filename,false);
+	if (it!=Files.end())
+        return new CLimitReadFile(File, it->Offset, it->Size, it->FullName);
 
 	return 0;
 }
-
-
-//! opens a file by index
-IReadFile* CWADReader::createAndOpenFile(uint32_t index)
-{
-	if (index >= Files.size() )
-		return 0;
-
-	const SFileListEntry &entry = Files[index];
-	return createLimitReadFile( entry.FullName, File, entry.Offset, entry.Size );
-}
-
-
 
 } // end namespace io
 } // end namespace irr

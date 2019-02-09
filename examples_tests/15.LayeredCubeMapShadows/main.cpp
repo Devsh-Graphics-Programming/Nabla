@@ -212,16 +212,19 @@ int main()
 
     #define kCubeMapSize 2048
     uint32_t size[3] = {kCubeMapSize,kCubeMapSize,6};
-    video::ITexture* cubeMap = driver->addTexture(video::ITexture::ETT_CUBE_MAP,size,1,"shadowmap",video::ECF_DEPTH32F); //dat ZBuffer Precision, may be excessive
+    video::ITexture* cubeMap = driver->createGPUTexture(video::ITexture::ETT_CUBE_MAP,size,1u,asset::EF_D32_SFLOAT); //dat ZBuffer Precision, may be excessive
     //notice this FBO only has a depth attachment, no colour!
     video::IFrameBuffer* fbo = driver->addFrameBuffer();
     fbo->attach(video::EFAP_DEPTH_ATTACHMENT,cubeMap,0); //attach all 6 faces at once
     //! REMEMBER THIS IS NOT THE END OF THE OPTIMIZATIONS, WE COULD ALWAYS USE TRANSFORM FEEDBACK TO SAVE GPU SKINNING AND NOT HAVE TO DO IT AGAIN (100% FASTER RENDER on second pass)
 
+    asset::IAssetManager& assetMgr = device->getAssetManager();
+    asset::IAssetLoader::SAssetLoadParams lparams;
+    asset::ICPUTexture* wallTexture = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/wall.jpg", lparams));
 
 	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
-	camera->setPosition(core::vector3df(-4,0,0));
+		smgr->addCameraSceneNodeFPS(0,100.0f,0.0001f);
+	camera->setPosition(core::vector3df(-4,10,0));
 	camera->setTarget(core::vector3df(0,0,0));
 	camera->setNearValue(0.01f);
 	camera->setFarValue(250.0f);
@@ -233,8 +236,8 @@ int main()
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	//add a floor
 	scene::ISceneNode* floor = smgr->addCubeSceneNode(kInstanceSquareSize*20.f,0,-1,core::vector3df(0,-0.75f,0),core::vector3df(0,0,0),core::vector3df(1.f,1.f/(kInstanceSquareSize*20.f),1.f));
-	video::SMaterial& floorMaterial = floor->getMaterial(0);
-	floorMaterial.setTexture(0,driver->getTexture("../../media/wall.jpg"));
+	video::SGPUMaterial& floorMaterial = floor->getMaterial(0);
+	floorMaterial.setTexture(0,driver->getGPUObjectsFromAssets(&wallTexture, (&wallTexture)+1).front());
 	floorMaterial.setTexture(1,cubeMap);
 	floorMaterial.MaterialType = litSolidMaterialType;
 
@@ -243,28 +246,26 @@ int main()
 	//! For Shadow Optimization
 	scene::ISkinnedMeshSceneNode* fastestNode = NULL;
 	//
-    scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/dwarf.x");
-    if (cpumesh&&cpumesh->getMeshType()==scene::EMT_ANIMATED_SKINNED)
-    {
-        scene::ISkinnedMeshSceneNode* anode = 0;
-        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh))[0];
-        smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
+	asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.baw", lparams));
 
-        for (size_t x=0; x<kInstanceSquareSize; x++)
-        for (size_t z=0; z<kInstanceSquareSize; z++)
-        {
-            anodes[x+kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(static_cast<scene::IGPUSkinnedMesh*>(gpumesh));
-            anode->setScale(core::vector3df(0.05f));
-            anode->setPosition((core::vector3df(x,0.f,z)+core::vector3df(0.5f,0.f,0.5f))*4.f);
-            anode->setAnimationSpeed(18.f*float(x+1+(z+1)*kInstanceSquareSize)/float(kInstanceSquareSize*kInstanceSquareSize));
-            anode->setMaterialType(skinnedMaterialType);
-            anode->setMaterialTexture(1,cubeMap);
-            anode->setMaterialTexture(3,anode->getBonePoseTBO());
-        }
+	if (cpumesh&&cpumesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
+	{
+		scene::ISkinnedMeshSceneNode* anode = 0;
+		video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
+
+		for (size_t x = 0; x<kInstanceSquareSize; x++)
+			for (size_t z = 0; z<kInstanceSquareSize; z++)
+			{
+				anodes[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(static_cast<video::IGPUSkinnedMesh*>(gpumesh));
+				anode->setScale(core::vector3df(0.05f));
+				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
+				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
+				anode->setMaterialType(skinnedMaterialType);
+				anode->setMaterialTexture(3, anode->getBonePoseTBO());
+			}
         fastestNode = anode;
-
-        gpumesh->drop();
-    }
+		gpumesh->drop();
+	}
 
 
 	uint64_t lastFPSTime = 0;
@@ -273,10 +274,10 @@ int main()
 	while(device->run()&&(!quit))
 	//if (device->isWindowActive())
 	{
-		driver->beginScene(true, true, video::SColor(255,0,0,0) );
+		driver->beginScene(true, true, video::SColor(255,255,255,255) );
 
 		//! Animate first
-		smgr->getRootSceneNode()->OnAnimate(os::Timer::getTime());
+		smgr->getRootSceneNode()->OnAnimate(ITimer::getRealTime());
 
 		// without this optimization FPS is 400 instead of 1000 FPS
 		if (fastestNode->getFrameNr()!=lastFastestMeshFrameNr)
@@ -344,7 +345,7 @@ int main()
 	}
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.

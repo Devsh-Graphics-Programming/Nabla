@@ -1,8 +1,4 @@
-
-if(NOT NASTY_OPENSSL_WORKAROUND)
-	find_package(OpenSSL REQUIRED)
-endif()
-
+find_package(OpenSSL REQUIRED)
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -10,48 +6,50 @@ if(UNIX)
 	find_package(Threads REQUIRED)
 endif()
 
+file(GLOB_RECURSE IRRLICHT_HEADERS "../../*.h") # just gather all the header files and later put them into project so it's easy to search for things using IDE
+
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
-	C3DSMeshFileLoader.cpp
-	CB3DMeshFileLoader.cpp
-	CBAWMeshFileLoader.cpp
-	CLMTSMeshFileLoader.cpp
-	CLWOMeshFileLoader.cpp
-	CMS3DMeshFileLoader.cpp
-	CMY3DMeshFileLoader.cpp
-	COBJMeshFileLoader.cpp
-	COCTLoader.cpp
-	COgreMeshFileLoader.cpp
-	CPLYMeshFileLoader.cpp
-	CSTLMeshFileLoader.cpp
-	CXMeshFileLoader.cpp
+	../../src/irr/asset/CBAWMeshFileLoader.cpp
+	../../src/irr/asset/COBJMeshFileLoader.cpp
+	../../src/irr/asset/CPLYMeshFileLoader.cpp
+	../../src/irr/asset/CSTLMeshFileLoader.cpp
+	../../src/irr/asset/CXMeshFileLoader.cpp
 
 # Mesh writers
-	CBAWMeshWriter.cpp
-	COBJMeshWriter.cpp
-	CPLYMeshWriter.cpp
-	CSTLMeshWriter.cpp
+	../../src/irr/asset/CBAWMeshWriter.cpp
+	../../src/irr/asset/COBJMeshWriter.cpp
+	../../src/irr/asset/CPLYMeshWriter.cpp
+	../../src/irr/asset/CSTLMeshWriter.cpp
+	
+# Assets
+	../../src/irr/asset/IAsset.cpp
+	../../src/irr/asset/IAssetManager.cpp
+	../../src/irr/asset/IAssetWriter.cpp
+	../../src/irr/asset/IAssetLoader.cpp
 
 # Other mesh-related stuff
 	CAnimatedMeshSceneNode.cpp
 	../../src/irr/asset/bawformat/CBAWFile.cpp
 	../../src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
 	../../src/irr/asset/bawformat/CBlobsLoadingManager.cpp
-	CForsythVertexCacheOptimizer.cpp
-	CMeshCache.cpp
-	CMeshManipulator.cpp
+	../../src/irr/asset/CForsythVertexCacheOptimizer.cpp
+	../../src/irr/asset/CMeshManipulator.cpp
 	CMeshSceneNode.cpp
 	CMeshSceneNodeInstanced.cpp
-	COverdrawMeshOptimizer.cpp
-	CSkinnedMesh.cpp
+	../../src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
 	../../src/irr/asset/bawformat/TypedBlob.cpp
+	CCPUSkinnedMesh.cpp
+	
+# Shader loading and processing
+	CGLSLFunctionGenerator.cpp
 
 # Scene objects
 	CBillboardSceneNode.cpp
 	CCameraSceneNode.cpp
 	CCubeSceneNode.cpp
-	CGeometryCreator.cpp
+	../../src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
 	CSkyBoxSceneNode.cpp
 	CSkyDomeSceneNode.cpp
@@ -68,6 +66,7 @@ set(IRRLICHT_SRCS_COMMON
 	CSceneNodeAnimatorTexture.cpp
 
 # Driver-specific objects
+	IDriver.cpp
 	CNullDriver.cpp
 	COpenGLDriver.cpp
 	COpenGLExtensionHandler.cpp
@@ -80,22 +79,22 @@ set(IRRLICHT_SRCS_COMMON
 # Image processing
 	CColorConverter.cpp
 	CImage.cpp
-	CImageLoaderBMP.cpp
-	CImageLoaderDDS.cpp
-	CImageLoaderJPG.cpp
-	CImageLoaderPNG.cpp
-	CImageLoaderRGB.cpp
-	CImageLoaderTGA.cpp
-	CImageWriterBMP.cpp
-	CImageWriterJPG.cpp
-	CImageWriterPNG.cpp
-	CImageWriterTGA.cpp
+	../../src/irr/asset/CImageLoaderBMP.cpp
+	../../src/irr/asset/CImageLoaderDDS.cpp
+	../../src/irr/asset/CImageLoaderJPG.cpp
+	../../src/irr/asset/CImageLoaderPNG.cpp
+	../../src/irr/asset/CImageLoaderRGB.cpp
+	../../src/irr/asset/CImageLoaderTGA.cpp
+	../../src/irr/asset/CImageWriterBMP.cpp
+	../../src/irr/asset/CImageWriterJPG.cpp
+	../../src/irr/asset/CImageWriterPNG.cpp
+	../../src/irr/asset/CImageWriterTGA.cpp
 
 # Video
 	CFPSCounter.cpp
 	CVideoModeList.cpp
 	../../src/irr/video/GPUMemoryAllocatorBase.cpp
-	../../src/irr/video/StreamingGPUBufferAllocator.cpp
+	../../src/irr/video/SimpleGPUBufferAllocator.cpp
 
 # Software renderer
 	CBurningShader_Raster_Reference.cpp
@@ -126,6 +125,7 @@ set(IRRLICHT_SRCS_COMMON
 
 # Other
 	coreutil.cpp
+	IrrlichtDevice.cpp
 	CIrrDeviceSDL.cpp
 	CIrrDeviceLinux.cpp
 	CIrrDeviceConsole.cpp
@@ -323,29 +323,17 @@ add_library(libshaderc OBJECT
 target_include_directories(libshaderc PUBLIC ${COMMON_INCLUDE_DIRS})
 
 macro(irr_target_link_openssl _trgt)
-	if(NOT NASTY_OPENSSL_WORKAROUND)
-		target_link_libraries(${_trgt} INTERFACE
-			OpenSSL::Crypto
-			OpenSSL::SSL
-		)
-		target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
-	else()
-		target_include_directories(${_trgt} PUBLIC ../../../openssl/include/)
-		if (UNIX)
-			target_link_libraries(${_trgt} INTERFACE
-				../../../openssl/crypto.a
-			)
-		elseif (WIN32)
-			target_link_libraries(${_trgt} INTERFACE
-				../../../openssl/lib/libeay32.lib
-			)
-		endif()
-	endif()
+	target_link_libraries(${_trgt} INTERFACE
+		OpenSSL::Crypto
+		OpenSSL::SSL
+	)
+	target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
 endmacro()
 
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_NORMAL}
+	${IRRLICHT_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
@@ -375,7 +363,7 @@ target_include_directories(Irrlicht PUBLIC
 	../../include
 	${COMMON_INCLUDE_DIRS}
 )
-target_include_directories(Irrlicht PRIVATE ../../src) 
+target_include_directories(Irrlicht PUBLIC ../../src ../../source/Irrlicht) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 
@@ -391,8 +379,7 @@ if (Vulkan_FOUND)
 		_IRR_COMPILE_WITH_VULKAN_
 	)
 	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
-	target_include_directories(Irrlicht INTERFACE ${Vulkan_INCLUDE_DIR})
-	target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
+	#target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
 else()
 	message(STATUS "Vulkan driver is not enabled")
 endif()
@@ -402,16 +389,10 @@ target_compile_definitions(Irrlicht PRIVATE
 	_IRR_COMPILE_WITH_OPENGL_
 )
 
-if(BUILD_EXAMPLES)
-	add_custom_command(TARGET Irrlicht POST_BUILD
-					   COMMAND ${CMAKE_COMMAND} -E 
-					   copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../../examples_tests/media" "${CMAKE_CURRENT_BINARY_DIR}/../../examples_tests/media"
-	)
-endif()
-
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_SERVER}
+	${IRRLICHT_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
@@ -428,7 +409,7 @@ target_include_directories(IrrlichtServer PUBLIC
 	../../include
 	${COMMON_INCLUDE_DIRS}
 )
-target_include_directories(IrrlichtServer PRIVATE ../../src)
+target_include_directories(IrrlichtServer PRIVATE ../../src ../../source/Irrlicht)
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_

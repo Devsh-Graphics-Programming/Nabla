@@ -6,7 +6,6 @@
 #include "CSceneManager.h"
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
-#include "CMeshCache.h"
 #include "IMaterialRenderer.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
@@ -37,7 +36,7 @@
 #include "CSceneNodeAnimatorCameraFPS.h"
 #include "CSceneNodeAnimatorCameraMaya.h"
 
-#include "CGeometryCreator.h"
+#include "irr/asset/CGeometryCreator.h"
 
 namespace irr
 {
@@ -45,11 +44,11 @@ namespace scene
 {
 
 //! constructor
-CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
+CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, irr::ITimer* timer, io::IFileSystem* fs,
 		gui::ICursorControl* cursorControl)
-: ISceneNode(0, 0), Driver(driver), FileSystem(fs),
+: ISceneNode(0, 0), Driver(driver), Timer(timer), FileSystem(fs), Device(device),
 	CursorControl(cursorControl),
-	ActiveCamera(0), MeshCache(0), CurrentRendertime(ESNRP_NONE),
+	ActiveCamera(0), CurrentRendertime(ESNRP_NONE),
 	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type")
 {
 	#ifdef _DEBUG
@@ -69,12 +68,7 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
 	if (CursorControl)
 		CursorControl->grab();
 
-	// create geometry creator
-	GeometryCreator = new CGeometryCreator();
-	MeshManipulator = new CMeshManipulator();
 	{
-        //ICPUMesh* boxmesh = GeometryCreator->createCubeMeshCPU();
-
         size_t redundantMeshDataBufSize = sizeof(char)*24*3+ //data for the skybox positions
                                         0;
         void* tmpMem = _IRR_ALIGNED_MALLOC(redundantMeshDataBufSize,_IRR_SIMD_ALIGNMENT);
@@ -195,9 +189,6 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, io::IFileSystem* fs,
         _IRR_ALIGNED_FREE(tmpMem);
 	}
 
-	// create mesh cache if not there already
-	MeshCache = new CMeshCache<asset::ICPUMesh>();
-
 	// add file format loaders. add the least commonly used ones first,
 	// as these are checked last
 
@@ -222,22 +213,9 @@ CSceneManager::~CSceneManager()
 	if (CursorControl)
 		CursorControl->drop();
 
-    if (MeshManipulator)
-        MeshManipulator->drop();
-
-	if (GeometryCreator)
-		GeometryCreator->drop();
-
-	uint32_t i;
-	for (i=0; i<MeshLoaderList.size(); ++i)
-		MeshLoaderList[i]->drop();
-
 	if (ActiveCamera)
 		ActiveCamera->drop();
 	ActiveCamera = 0;
-
-	if (MeshCache)
-		MeshCache->drop();
 
 	// remove all nodes and animators before dropping the driver
 	// as render targets may be destroyed twice
@@ -247,63 +225,6 @@ CSceneManager::~CSceneManager()
 
 	if (Driver)
 		Driver->drop();
-}
-
-
-//! gets an animateable mesh. loads it if needed. returned pointer must not be dropped.
-asset::ICPUMesh* CSceneManager::getMesh(const io::path& filename)
-{
-	asset::ICPUMesh* msh = MeshCache->getMeshByName(filename);
-	if (msh)
-		return msh;
-
-	io::IReadFile* file = FileSystem->createAndOpenFile(filename);
-	msh = getMesh(file);
-	if (file)
-        file->drop();
-
-	return msh;
-}
-
-
-//! gets an animateable mesh. loads it if needed. returned pointer must not be dropped.
-asset::ICPUMesh* CSceneManager::getMesh(io::IReadFile* file)
-{
-	if (!file)
-    {
-		os::Printer::log("Could not load mesh, because file could not be opened", ELL_ERROR);
-		return 0;
-    }
-
-	io::path name = file->getFileName();
-	asset::ICPUMesh* msh = MeshCache->getMeshByName(file->getFileName());
-	if (msh)
-		return msh;
-
-	// iterate the list in reverse order so user-added loaders can override the built-in ones
-	int32_t count = MeshLoaderList.size();
-	for (int32_t i=count-1; i>=0; --i)
-	{
-		if (MeshLoaderList[i]->isALoadableFileExtension(name))
-		{
-			// reset file to avoid side effects of previous calls to createMesh
-			file->seek(0);
-			msh = MeshLoaderList[i]->createMesh(file);
-			if (msh)
-			{
-				MeshCache->addMesh(file->getFileName(), msh);
-				msh->drop();
-				break;
-			}
-		}
-	}
-
-	if (!msh)
-		os::Printer::log("Could not load mesh, file format seems to be unsupported", file->getFileName().c_str(), ELL_ERROR);
-	else
-		os::Printer::log("Loaded mesh", file->getFileName().c_str(), ELL_INFORMATION);
-
-	return msh;
 }
 
 
@@ -319,6 +240,11 @@ This pointer should not be dropped. See IReferenceCounted::drop() for more infor
 io::IFileSystem* CSceneManager::getFileSystem()
 {
 	return FileSystem;
+}
+
+IrrlichtDevice * CSceneManager::getDevice()
+{
+    return Device;
 }
 
 //! adds a test scene node for test purposes to the scene. It is a simple cube of (1,1,1) size.
@@ -772,7 +698,7 @@ void CSceneManager::drawAll()
 	Driver->setAllowZWriteOnTransparent( *((bool*)&(Parameters[ALLOW_ZWRITE_ON_TRANSPARENT])) );
 
 	// do animations and other stuff.
-	OnAnimate(os::Timer::getTime());
+	OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
 
 	/*!
 		First Scene Node for prerendering should be the active camera
@@ -858,7 +784,7 @@ void CSceneManager::drawAll()
 //! creates a rotation animator, which rotates the attached scene node around itself.
 ISceneNodeAnimator* CSceneManager::createRotationAnimator(const core::vector3df& rotationPerSecond)
 {
-	ISceneNodeAnimator* anim = new CSceneNodeAnimatorRotation(os::Timer::getTime(),
+	ISceneNodeAnimator* anim = new CSceneNodeAnimatorRotation(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count(),
 		rotationPerSecond);
 
 	return anim;
@@ -873,7 +799,7 @@ ISceneNodeAnimator* CSceneManager::createFlyCircleAnimator(
 		float radiusEllipsoid)
 {
 	const float orbitDurationMs = (core::DEGTORAD * 360.f) / speed;
-	const uint32_t effectiveTime = os::Timer::getTime() + (uint32_t)(orbitDurationMs * startPosition);
+	const uint32_t effectiveTime = std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count() + (uint32_t)(orbitDurationMs * startPosition);
 
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyCircle(
 			effectiveTime, center,
@@ -888,7 +814,7 @@ ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vector3
 					const core::vector3df& endPoint, uint32_t timeForWay, bool loop,bool pingpong)
 {
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyStraight(startPoint,
-		endPoint, timeForWay, loop, os::Timer::getTime(), pingpong);
+		endPoint, timeForWay, loop, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count(), pingpong);
 
 	return anim;
 }
@@ -900,7 +826,7 @@ ISceneNodeAnimator* CSceneManager::createTextureAnimator(const core::vector<vide
 	int32_t timePerFrame, bool loop)
 {
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorTexture(textures,
-		timePerFrame, loop, os::Timer::getTime());
+		timePerFrame, loop, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
 
 	return anim;
 }
@@ -910,7 +836,7 @@ ISceneNodeAnimator* CSceneManager::createTextureAnimator(const core::vector<vide
 //! some time automaticly.
 ISceneNodeAnimator* CSceneManager::createDeleteAnimator(uint32_t when)
 {
-	return new CSceneNodeAnimatorDelete(this, os::Timer::getTime() + when);
+	return new CSceneNodeAnimatorDelete(this, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count() + when);
 }
 
 
@@ -924,41 +850,6 @@ ISceneNodeAnimator* CSceneManager::createFollowSplineAnimator(int32_t startTime,
 	return a;
 }
 
-
-//! Adds an external mesh loader.
-void CSceneManager::addExternalMeshLoader(IMeshLoader* externalLoader)
-{
-	if (!externalLoader)
-		return;
-
-	externalLoader->grab();
-	MeshLoaderList.push_back(externalLoader);
-}
-
-
-//! Returns the number of mesh loaders supported by Irrlicht at this time
-uint32_t CSceneManager::getMeshLoaderCount() const
-{
-	return MeshLoaderList.size();
-}
-
-
-//! Retrieve the given mesh loader
-IMeshLoader* CSceneManager::getMeshLoader(uint32_t index) const
-{
-	if (index < MeshLoaderList.size())
-		return MeshLoaderList[index];
-	else
-		return 0;
-}
-
-
-
-//! Returns a pointer to the mesh manipulator.
-IMeshManipulator* CSceneManager::getMeshManipulator()
-{
-	return MeshManipulator;
-}
 
 //! Adds a scene node to the deletion queue.
 void CSceneManager::addToDeletionQueue(IDummyTransformationSceneNode* node)
@@ -1115,65 +1006,15 @@ E_SCENE_NODE_RENDER_PASS CSceneManager::getSceneNodeRenderPass() const
 	return CurrentRendertime;
 }
 
-
-//! Returns an interface to the mesh cache which is shared between all existing scene managers.
-IMeshCache<asset::ICPUMesh>* CSceneManager::getMeshCache()
-{
-	return MeshCache;
-}
-
 //! Creates a new scene manager.
 ISceneManager* CSceneManager::createNewSceneManager(bool cloneContent)
 {
-	CSceneManager* manager = new CSceneManager(Driver, FileSystem, CursorControl);
+    CSceneManager* manager = new CSceneManager(Device, Driver, Timer, FileSystem, CursorControl);
 
-	if (cloneContent)
-		manager->cloneMembers(this, manager);
+    if (cloneContent)
+        manager->cloneMembers(this, manager);
 
-	return manager;
-}
-
-//! Returns a mesh writer implementation if available
-IMeshWriter* CSceneManager::createMeshWriter(EMESH_WRITER_TYPE type)
-{
-//	switch(type)
-//	{
-//	case EMWT_STL:
-//#ifdef _IRR_COMPILE_WITH_STL_WRITER_
-//		return new CSTLMeshWriter(this);
-//#else
-//		return 0;
-//#endif
-//	case EMWT_OBJ:
-//#ifdef _IRR_COMPILE_WITH_OBJ_WRITER_
-//		return new COBJMeshWriter(this, FileSystem);
-//#else
-//		return 0;
-//#endif
-//
-//	case EMWT_PLY:
-//#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
-//		return new CPLYMeshWriter();
-//#else
-//		return 0;
-//#endif
-//
-//	case EMWT_BAW:
-//#ifdef _IRR_COMPILE_WITH_BAW_WRITER_
-//		return new CBAWMeshWriter(FileSystem);
-//#else
-//		return 0;
-//#endif
-//	}
-
-	return 0;
-}
-
-// creates a scenemanager
-ISceneManager* createSceneManager(video::IVideoDriver* driver,
-		io::IFileSystem* fs, gui::ICursorControl* cursorcontrol)
-{
-	return new CSceneManager(driver, fs, cursorcontrol);
+    return manager;
 }
 
 

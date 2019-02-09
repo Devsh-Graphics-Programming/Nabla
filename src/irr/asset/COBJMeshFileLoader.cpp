@@ -9,7 +9,7 @@
 #include "IFileSystem.h"
 #include "ISceneManager.h"
 #include "COBJMeshFileLoader.h"
-#include "IMeshManipulator.h"
+#include "irr/asset/IMeshManipulator.h"
 #include "IVideoDriver.h"
 #include "irr/video/SGPUMesh.h"
 #include "SVertexManipulator.h"
@@ -63,26 +63,23 @@ COBJMeshFileLoader::COBJMeshFileLoader(IrrlichtDevice* _dev)
 #ifdef _DEBUG
 	setDebugName("COBJMeshFileLoader");
 #endif
-
-    Device->grab();
 }
 
 
 //! destructor
 COBJMeshFileLoader::~COBJMeshFileLoader()
 {
-    Device->drop();
 }
 
 asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-    SContext ctx{
+    SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
             _params,
             _file
         },
         _override
-    };
+    );
 
 	const long filesize = _file->getSize();
 	if (!filesize)
@@ -288,7 +285,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
                 {
 					core::vectorSIMDf simdNormal;
 					simdNormal.set(normalsBuffer[Idx[2]]);
-					v.normal32bit = scene::quantizeNormal2_10_10_10(simdNormal);
+					v.normal32bit = asset::quantizeNormal2_10_10_10(simdNormal);
                 }
 				else
 				{
@@ -383,7 +380,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             }
             for (size_t i=0; i<ctx.Materials[m]->Vertices.size(); i++)
             {
-                ctx.Materials[m]->Vertices[i].normal32bit = scene::quantizeNormal2_10_10_10(newNormals[i]);
+                ctx.Materials[m]->Vertices[i].normal32bit = asset::quantizeNormal2_10_10_10(newNormals[i]);
             }
             alctr.deallocate(newNormals,ctx.Materials[m]->Vertices.size());
         }
@@ -446,8 +443,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
 
-        _override->setAssetCacheKey(meshbuffer, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
-        _override->insertAssetIntoCache(meshbuffer, ctx.inner, 1u);
+        _override->insertAssetIntoCache(meshbuffer, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
         meshbuffer->drop();
 	}
 
@@ -582,14 +578,14 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
         if (FileSystem->existFile(texname))
 		{
             texture = static_cast<asset::ICPUTexture*>(
-                Device->getAssetManager().getAssetInHierarchy(texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+                interm_getAssetInHierarchy(Device->getAssetManager(), texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
             );
 		}
 		else
 		{
 			// try to read in the relative path, the .obj is loaded from
             texture = static_cast<asset::ICPUTexture*>(
-                Device->getAssetManager().getAssetInHierarchy((relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
+                interm_getAssetInHierarchy(Device->getAssetManager(), (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
             );
 		}
 	}

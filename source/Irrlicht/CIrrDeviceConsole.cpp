@@ -181,7 +181,7 @@ CIrrDeviceConsole::~CIrrDeviceConsole()
 bool CIrrDeviceConsole::run()
 {
 	// increment timer
-	os::Timer::tick();
+	Timer->tick();
 
 	// process Windows console input
 #ifdef _IRR_WINDOWS_NT_CONSOLE_
