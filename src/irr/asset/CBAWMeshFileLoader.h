@@ -206,7 +206,7 @@ private:
             asset = reinterpret_cast<asset::ICPUTexture*>(_asset);
             break;
         }
-        if (asset && !asset->isInAResourceCache())
+        if (_blobType != asset::Blob::EBT_RAW_DATA_BUFFER && asset && !asset->isInAResourceCache()) // fix todo, not caching buffers, because it causes crash when caches are being destroyed (seems like too many drops somewhere)
         {
             _override->insertAssetIntoCache(asset, _cacheKey, _ctx.inner, _hierLvl);
             asset->drop();
@@ -216,7 +216,7 @@ private:
     // Compatibility functions:
 
     template<uint64_t IntoVersion>
-    std::enable_if_t<IntoVersion, bool> formatConversionProlog(
+    std::enable_if_t<IntoVersion/*cannot convert into version 0*/, bool> formatConversionProlog(
         SContext& _ctx,
         uint32_t& _outBlobCnt,
         BlobHeaderVn<IntoVersion-1ull>*& _outHeaders,
