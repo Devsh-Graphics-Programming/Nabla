@@ -1,7 +1,5 @@
 #include "../../ext/Bullet3/CPhysicsWorld.h"
 #include "../../ext/Bullet3/BulletUtility.h"
-#include "btBulletDynamicsCommon.h"
-
 
 using namespace irr;
 using namespace ext;

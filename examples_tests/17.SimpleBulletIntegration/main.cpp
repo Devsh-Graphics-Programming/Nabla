@@ -7,6 +7,8 @@
 #include "../ext/Bullet3/CPhysicsWorld.h"
 
 #include "../ext/Bullet3/CInstancedMotionState.h"
+#include "../ext/Bullet3/CDebugRender.h"
+#include <iostream>
 
 using namespace irr;
 using namespace core;
@@ -179,7 +181,7 @@ public:
     return vao;
  }
 
-
+ 
 
 
 int main()
@@ -195,7 +197,7 @@ int main()
 
 
     core::matrix3x4SIMD baseplateMat;
-    baseplateMat.setTranslation(core::vectorSIMDf(0.0, -30.0, 0.0));
+    baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
 
     irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
     data2.mass = 0.0f;
@@ -205,8 +207,6 @@ int main()
     btRigidBody *body2 = world->createRigidBody(data2);
     world->bindRigidBody(body2);
    
-
-
   
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
@@ -227,6 +227,12 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
+    //------------------------------------
+    irr::ext::Bullet3::CDebugRender *debugRender =
+        world->createbtObject<irr::ext::Bullet3::CDebugRender>(driver);
+
+    //------------------------------------
+
     SimpleCallBack* cb = new SimpleCallBack();
     video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
                                                         "","","", //! No Geometry or Tessellation Shaders
@@ -236,7 +242,29 @@ int main()
                                                         0); //! No custom user data
     cb->drop();
 
+    //
 
+    {
+        scene::IGPUMeshDataFormatDesc *desc;
+        video::SMaterial material;
+
+        desc = driver->createGPUMeshDataFormatDesc();
+
+        driver->getGPUProgrammingServices()->addHighLevelShaderMaterial(nullptr, nullptr, nullptr, nullptr, nullptr, 2, video::EMT_SOLID);
+        IGPUMeshBuffer *meshBuf = _IRR_NEW(IGPUMeshBuffer);
+
+        meshBuf->setPrimitiveType(EPT_LINES);
+        meshBuf->setIndexType(EIT_UNKNOWN);
+        
+
+        auto buf = driver->getDefaultUpStreamingBuffer()->getBuffer();
+        meshBuf->setMeshDataAndFormat(desc);
+
+
+        meshBuf->drop();
+    }
+
+    //
 
 	scene::ISceneManager* smgr = device->getSceneManager();
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
@@ -333,6 +361,7 @@ int main()
         instancedMat.setTranslation(pos);
 
         
+        
         data3.trans = instancedMat;
 
         bodies[y*towerWidth + z] = world->createRigidBody(data3);
@@ -344,8 +373,13 @@ int main()
 
     }
 
+    
+
+    uint64_t timeDiff = 0;
 	while(device->run()&&(!quit))
 	{
+        uint64_t now = device->getTimer()->getRealTime();
+
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
         //! This animates (moves) the camera and sets the transforms
@@ -355,18 +389,17 @@ int main()
 		driver->endScene();
 
 		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
+		
+        world->getWorld()->stepSimulation(timeDiff);
+        
+        
+        uint64_t time = device->getTimer()->getRealTime();  
+        timeDiff = (time - now);
 
-        world->getWorld()->stepSimulation(1);
-
-		if (time-lastFPSTime > 1000)
+		if (time-lastFPSTime > 250)
 		{
-            
-            
-            
-
 			std::wostringstream str;
-			str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+			str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << 1000/timeDiff << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
 			device->setWindowCaption(str.str());
 			lastFPSTime = time;
