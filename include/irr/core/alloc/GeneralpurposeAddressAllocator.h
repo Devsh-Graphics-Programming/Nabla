@@ -48,21 +48,41 @@ class GeneralpurposeAddressAllocatorBase
 
         // constructors
         GeneralpurposeAddressAllocatorBase(size_type bufSz, size_type minBlockSz) noexcept :
-            bufferSize(bufSz), freeListCount(findFreeListCount(bufferSize,minBlockSz)),usingFirstBuffer(0u), minBlockSize(minBlockSz), minBlockSize_minus1(minBlockSize-1u) {}
+            bufferSize(bufSz), freeSize(bufSz), freeListCount(findFreeListCount(bufferSize,minBlockSz)),
+            usingFirstBuffer(0u), minBlockSize(minBlockSz){}
+
+        GeneralpurposeAddressAllocatorBase(size_type newBuffSz, GeneralpurposeAddressAllocatorBase&& other) noexcept :
+            bufferSize(newBuffSz), freeListCount(invalid_address), usingFirstBuffer(invalid_address), minBlockSize(invalid_address)
+        {
+            other.bufferSize = invalid_address;
+            std::swap(freeListCount,other.freeListCount);
+            for (decltype(freeListCount) i=0u; i<freeListCount; i++)
+            {
+                freeListStackCtr[i] = invalid_address;
+                freeListStack[i] = nullptr;
+                std::swap(freeListStackCtr[i],other.freeListStackCtr[i]);
+                std::swap(freeListStack[i],other.freeListStack[i]);
+            }
+            std::swap(other.usingFirstBuffer,usingFirstBuffer);
+            std::swap(other.minBlockSize,minBlockSize);
+        }
 
         virtual ~GeneralpurposeAddressAllocatorBase() {}
 
 
         GeneralpurposeAddressAllocatorBase& operator=(GeneralpurposeAddressAllocatorBase&& other)
         {
-            bufferSize      = other.bufferSize;
-            freeListCount   = other.freeListCount;
-            usingFirstBuffer= other.usingFirstBuffer;
+            std::swap(bufferSize,other.bufferSize);
+            std::swap(freeSize,other.freeSize);
+            std::swap(freeListCount,other.freeListCount);
+            std::swap(usingFirstBuffer,other.usingFirstBuffer);
 
             for (decltype(freeListCount) i=0u; i<freeListCount; i++)
             {
-                freeListStackCtr[i] = other.freeListStackCtr[i];
-                freeListStack[i] = other.freeListStack[i];
+                freeListStackCtr[i] = invalid_address;
+                freeListStack[i] = nullptr;
+                std::swap(freeListStackCtr[i],other.freeListStackCtr[i]);
+                std::swap(freeListStack[i],other.freeListStack[i]);
             }
             return *this;
         }
@@ -70,10 +90,10 @@ class GeneralpurposeAddressAllocatorBase
 
         // members
         size_type               bufferSize;
+        size_type               freeSize;
         uint32_t                freeListCount;
         uint32_t                usingFirstBuffer;
         size_type               minBlockSize;
-        size_type               minBlockSize_minus1;
 
         constexpr static size_t maxListLevels = (sizeof(size_type)*8u)<size_t(59ull) ? (sizeof(size_type)*8u):size_t(59ull);
         size_type               freeListStackCtr[maxListLevels];
@@ -83,10 +103,12 @@ class GeneralpurposeAddressAllocatorBase
         //methods
         inline bool                 is_double_free(size_type addr, size_type bytes) const noexcept
         {
+            size_type totalFree = 0u;
             for (uint32_t level=0u; level<freeListCount; level++)
             for (uint32_t i=0u; i<freeListStackCtr[level]; i++)
             {
                 const Block& freeb = freeListStack[level][i];
+                totalFree += freeb.getLength();
                 if (addr>=freeb.endOffset)
                     continue;
 
@@ -95,7 +117,9 @@ class GeneralpurposeAddressAllocatorBase
 
                 return true;
             }
-
+            #ifdef _DEBUG
+            assert(freeSize==totalFree);
+            #endif // _DEBUG
             return false;
         }
         inline uint32_t          findFreeListInsertIndex(size_type byteSize) const noexcept
@@ -112,6 +136,7 @@ class GeneralpurposeAddressAllocatorBase
 
         inline void              swapFreeLists(void* startPtr) noexcept
         {
+            freeSize = 0u;
             for (decltype(freeListCount) i=0u; i<freeListCount; i++)
                 freeListStackCtr[i] = 0u;
 
@@ -142,26 +167,23 @@ class GeneralpurposeAddressAllocatorBase
         #ifdef _DEBUG
             assert(freeListStackCtr[level]<=bufferSize/(minBlockSize<<level)+(level==0u ? 1u:0u));
         #endif // _DEBUG
+            freeSize += len;
         }
 
-        //! Produced blocks can only be larger than `minBlockSize`, as it's easier to reason about the correctness and memory boundedness of the allocation algorithm
+        //! Produced blocks can only be larger than `minBlockSize`, so it's easier to reason about the correctness and memory boundedness of the allocation algorithm
         inline size_type calcSubAllocation(Block& retval, const Block* block, const size_type bytes, const size_type alignment) const
         {
         #ifdef _DEBUG
             assert(bytes>=minBlockSize);
         #endif // _DEBUG
 
-            retval.startOffset = (block->startOffset+alignment-1u)/alignment;
-            retval.startOffset *= alignment;
+            retval.startOffset = core::roundUp(block->startOffset,alignment);
 
             if (block->startOffset!=retval.startOffset)
             {
                 auto initialPreceedingBlockSize = retval.startOffset-block->startOffset;
                 if (initialPreceedingBlockSize<minBlockSize)
-                {
-                    auto toAdd = (minBlockSize_minus1-initialPreceedingBlockSize+alignment)/alignment;
-                    retval.startOffset += toAdd*alignment;
-                }
+                    retval.startOffset += core::roundUp(minBlockSize-initialPreceedingBlockSize,alignment);
             }
 
             if (retval.startOffset>block->endOffset)
@@ -200,7 +222,7 @@ class GeneralpurposeAddressAllocatorBase
 
         inline size_type        getBiggestPossibleFrontWaste(size_type alignment) const noexcept
         {
-            return alignment+minBlockSize_minus1;
+            return alignment+minBlockSize-1u;
         }
 
     private:
@@ -226,7 +248,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
         typedef typename Base::Block                            Block;
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        GeneralpurposeAddressAllocatorStrategy(size_type bufSz, size_type minBlockSz) noexcept : Base(bufSz,minBlockSz) {}
+        using Base::Base;
 
 
         inline std::pair<Block,Block> findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
@@ -236,7 +258,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
 
             // using findFreeListInsertIndex on purpose
             for (uint32_t level=Base::findFreeListInsertIndex(bytes); level<Base::freeListCount && bestWastedSpace; level++)
-            for (Block* it=Base::freeListStack[level]; it!=(Base::freeListStack[level]+Base::freeListStackCtr[level]) && bestWastedSpace; it++)
+            for (Block* it=Base::freeListStack[level]; it!=(Base::freeListStack[level]+Base::freeListStackCtr[level]) && bestWastedSpace; it++) // TODO: Iterate in reverse
             {
                 Block tmp;
                 size_type wastedSpace = Base::calcSubAllocation(tmp,it,bytes,alignment);
@@ -261,6 +283,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
                 for (Block* in=out+1u; in!=(Base::freeListStack[level]+Base::freeListStackCtr[level]); in++,out++)
                     *out = *in;
                 Base::freeListStackCtr[level]--;
+                Base::freeSize -= sourceBlock.getLength();
             }
 
             return std::pair<Block,Block>(std::get<0u>(bestBlock),sourceBlock);
@@ -275,7 +298,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
         typedef typename Base::Block                            Block;
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        GeneralpurposeAddressAllocatorStrategy(size_type bufSz, size_type minBlockSz) noexcept : Base(bufSz,minBlockSz) {}
+        using Base::Base;
 
 
         inline std::pair<Block,Block>   findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
@@ -292,10 +315,11 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                 Block tmp;
                 size_type wastedSpace = Base::calcSubAllocation(tmp,&popped,bytes,alignment);
                 // if had a block large enough for us with padding then must be able to allocate
-            #ifdef _DEBUG
-                if (wastedSpace==invalid_address)
-                    assert(false);
-            #endif // _DEBUG
+                #ifdef _DEBUG
+                    if (wastedSpace==invalid_address)
+                        assert(false);
+                #endif // _DEBUG
+                Base::freeSize -= popped.getLength();
                 return std::pair<Block,Block>(tmp,popped);
             }
 
@@ -317,62 +341,35 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
         static constexpr bool supportsNullBuffer = true;
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR GeneralpurposeAddressAllocator() noexcept : AllocStrategy(0u,1u), freeSize(0u) {}
+        #define DUMMY_DEFAULT_CONSTRUCTOR GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
         #undef DUMMY_DEFAULT_CONSTRUCTOR
 
         virtual ~GeneralpurposeAddressAllocator() {}
 
-        GeneralpurposeAddressAllocator(void* reservedSpc, void* buffer, size_type maxAllocatableAlignment, size_type bufSz, size_type minBlockSz) noexcept :
-                    Base(reservedSpc,buffer,maxAllocatableAlignment), AllocStrategy(bufSz-Base::alignOffset,minBlockSz), freeSize(AllocStrategy::bufferSize)
+        GeneralpurposeAddressAllocator(void* reservedSpc, size_type addressOffsetToApply, size_type alignOffsetNeeded, size_type maxAllocatableAlignment, size_type bufSz, size_type minBlockSz) noexcept :
+                    Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), AllocStrategy(bufSz-Base::alignOffset,minBlockSz)
         {
             // buffer has to be large enough for at least one block of minimum size, buffer has to be smaller than magic value
             assert(bufSz>=Base::alignOffset+AllocStrategy::minBlockSize && AllocStrategy::bufferSize<invalid_address);
             // max free block size (buffer size) must not force the segregated free list to have too many levels
             assert(AllocStrategy::findFreeListInsertIndex(AllocStrategy::bufferSize) < AllocStrategy::maxListLevels);
 
-            AllocStrategy::swapFreeLists(Base::reservedSpace);
             reset();
         }
 
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
-        GeneralpurposeAddressAllocator(const GeneralpurposeAddressAllocator& other, void* newReservedSpc, void* newBuffer, size_type newBuffSz) noexcept :
-                    Base(other,newReservedSpc,newBuffer,newBuffSz), AllocStrategy(newBuffSz-Base::alignOffset,other.blockSize),
-                    freeSize(AllocStrategy::bufferSize-other.get_allocated_size())
+        template<typename... Args>
+        GeneralpurposeAddressAllocator(size_type newBuffSz, GeneralpurposeAddressAllocator&& other, void* newReservedSpc, Args&&... args) noexcept :
+                    Base(std::move(other),storeNewValuesInOther(newBuffSz,other,newReservedSpc),std::forward<Args>(args)...),
+                    AllocStrategy(newBuffSz-Base::alignOffset,std::move(other))
         {
-            // buffer must be big enough to contain other buffer's allocations
-            assert(AllocStrategy::bufferSize>=other.get_allocated_size());
-
-            AllocStrategy::swapFreeLists(Base::reservedSpace);
-
-            bool needToCreateNewFreeBlock = AllocStrategy::bufferSize>other.bufferSize;
-            for (decltype(AllocStrategy::freeListCount) i=0u; i<AllocStrategy::freeListCount; i++)
-            for (size_type j=0u; j<other.freeListStackCtr[i]; j++)
-            {
-                Block tmp = other.freeListStack[i][j];
-                if (tmp.startOffset<AllocStrategy::bufferSize)
-                {
-                    if (needToCreateNewFreeBlock && tmp.endOffset==other.bufferSize)
-                    {
-                        tmp.endOffset = AllocStrategy::bufferSize;
-                        needToCreateNewFreeBlock = false;
-                    }
-                    else if (tmp.endOffset>AllocStrategy::bufferSize)
-                        tmp.endOffset = AllocStrategy::bufferSize;
-
-                    AllocStrategy::insertFreeBlock(tmp);
-                }
-            }
-
-            if (needToCreateNewFreeBlock)
-                AllocStrategy::insertFreeBlock(Block{other.bufferSize,AllocStrategy::bufferSize});
         }
 
         GeneralpurposeAddressAllocator& operator=(GeneralpurposeAddressAllocator&& other)
         {
             Base::operator=(std::move(other));
             AllocStrategy::operator=(std::move(other));
-            freeSize = other.freeSize;
             return *this;
         }
 
@@ -383,7 +380,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 return invalid_address;
 
             bytes = std::max(bytes,AllocStrategy::minBlockSize);
-            if (bytes>freeSize)
+            if (bytes>AllocStrategy::freeSize)
                 return invalid_address;
 
             std::pair<Block,Block> found;
@@ -408,33 +405,30 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             if (found.first.startOffset!=found.second.startOffset)
                 AllocStrategy::insertFreeBlock(Block{found.second.startOffset,found.first.startOffset});
 
-            freeSize -= bytes;
-
-            return found.first.startOffset+Base::alignOffset;
+            return found.first.startOffset+Base::combinedOffset;
         }
 
         inline void             free_addr(size_type addr, size_type bytes) noexcept
         {
             bytes = std::max(bytes,AllocStrategy::minBlockSize);
 #ifdef _DEBUG
-            // address must have had alignOffset already applied to it, and allocation must not be outside the buffer
-            assert(addr>=Base::alignOffset && addr+bytes<=AllocStrategy::bufferSize+Base::alignOffset);
+            // address must have had combinedOffset already applied to it, and allocation must not be outside the buffer
+            assert(addr>=Base::combinedOffset && addr+bytes<=AllocStrategy::bufferSize+Base::combinedOffset);
             // sanity check
-            assert(freeSize+bytes<=AllocStrategy::bufferSize);
+            assert(AllocStrategy::freeSize+bytes<=AllocStrategy::bufferSize);
 #endif // _DEBUG
 
-            addr -= Base::alignOffset;
+            addr -= Base::combinedOffset;
 #ifdef _EXTREME_DEBUG
             // double free protection
             assert(!AllocStrategy::is_double_free(addr,bytes));
 #endif // _EXTREME_DEBUG
             AllocStrategy::insertFreeBlock(Block{addr,addr+bytes});
-            freeSize += bytes;
         }
 
         inline void             reset()
         {
-            freeSize = AllocStrategy::bufferSize;
+            AllocStrategy::swapFreeLists(Base::reservedSpace);
             AllocStrategy::insertFreeBlock(Block{0u,AllocStrategy::bufferSize});
         }
 
@@ -450,6 +444,8 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 if (!blockCount)
                     continue;
 
+                // get first block in the size's free-list, not accurate since there might be bigger blocks further in the list.
+                // however because the free-lists are binned by size, this is accurate within a factor of 1.99999999x
                 blockCount--;
                 auto length = AllocStrategy::freeListStack[level][blockCount].getLength();
                 if (length>maxWastedSpace)
@@ -465,7 +461,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             return AllocStrategy::minBlockSize;
         }
 
-        inline size_type        safe_shrink_size(size_type byteBound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+        inline size_type        safe_shrink_size(size_type sizeBound, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
         {
             size_type retval = get_total_size()-Base::alignOffset;
             if (byteBound>=retval)
@@ -481,11 +477,11 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         }
 
 
-        static inline size_type reserved_size(size_type bufSz, size_type maxAlignment, size_type blockSz) noexcept
+        static inline size_type reserved_size(size_type bufSz, size_type maxAlignment, size_type minBlockSize) noexcept
         {
             size_type reserved = 0u;
-            for (size_type i=0u; i<AllocStrategy::findFreeListCount(bufSz,blockSz); i++)
-                reserved += (bufSz/(blockSz<<i)+1u)*size_type(2u);
+            for (size_type i=0u; i<AllocStrategy::findFreeListCount(bufSz,minBlockSize); i++)
+                reserved += (bufSz/(minBlockSize<<i)+1u)*size_type(2u);
             return (reserved-2u)*sizeof(Block);
         }
         static inline size_type reserved_size(size_type bufSz, const GeneralpurposeAddressAllocator<_size_type>& other) noexcept
@@ -495,11 +491,11 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
         inline size_type        get_free_size() const noexcept
         {
-            return freeSize; // decrement when allocation, increment when freeing
+            return AllocStrategy::freeSize; // decrement when allocating, increment when freeing
         }
         inline size_type        get_allocated_size() const noexcept
         {
-            return AllocStrategy::bufferSize-freeSize;
+            return AllocStrategy::bufferSize-AllocStrategy::freeSize;
         }
         inline size_type        get_total_size() const noexcept
         {
@@ -508,13 +504,13 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
         inline bool                 is_double_free(size_type addr, size_type bytes) const noexcept
         {
-            return AllocStrategy::is_double_free(addr,bytes);
+            return AllocStrategy::is_double_free(addr-Base::combinedOffset,bytes);
         }
     protected:
-        size_type               freeSize;
-
         inline size_type        defragment() noexcept
         {
+            // TODO: radix sort the whole thing on the block-start value and do a coalesce without `AllocStrategy::findMinimum`
+            // also add the blocks in reverse order
             Block* freeListOld[AllocStrategy::maxListLevels];
             const Block* freeListOldEnd[AllocStrategy::maxListLevels];
             for (decltype(AllocStrategy::freeListCount) i=0u; i<AllocStrategy::freeListCount; i++)
@@ -547,6 +543,10 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 lastBlock.endOffset = nextBlock->endOffset;
                 minimum = AllocStrategy::findMinimum(freeListOld,freeListOldEnd);
             }
+            #ifdef _DEBUG
+            for (decltype(AllocStrategy::freeListCount) i=0u; i<AllocStrategy::freeListCount; i++)
+                assert(freeListOld[i]==freeListOldEnd[i]);
+            #endif // _DEBUG
             // put last block on correct free list
             if (lastBlock.getLength())
             {
@@ -556,6 +556,38 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             }
 
             return AllocStrategy::bufferSize;
+        }
+
+    private:
+        inline void* storeNewValuesInOther(size_type newBuffSz, GeneralpurposeAddressAllocator& other, void* newReservedSpc)
+        {
+            Block* freeListOld[AllocStrategy::maxListLevels];
+            const Block* freeListOldEnd[AllocStrategy::maxListLevels];
+            for (auto i=0u; i<other.freeListCount; i++)
+            {
+                freeListOld[i] = other.freeListStack[i];
+                freeListOldEnd[i] = freeListOld[i]+other.freeListStackCtr[i];
+                std::sort(freeListOld[i],const_cast<Block*>(freeListOldEnd[i]));
+            }
+            for (auto i=freeListCount; i<other.freeListCount; i++)
+            {
+
+                other.freeListStack[i] = nullptr;
+            }
+            std::min(freeListCount,other.freeListCount)
+
+            bool needToCreateNewFreeBlock = other.bufferSize<newBuffSz;
+            if (needToCreateNewFreeBlock)
+                AllocStrategy::insertFreeBlock(Block{other.bufferSize,newBuffSz});
+
+            AllocStrategy::freeListCount = findFreeListCount(newBuffSz,other.minBlockSize);
+            AllocStrategy::usingFirstBuffer = 1u;
+            swapFreeLists(newReservedSpc);
+
+            for (decltype(AllocStrategy::freeListCount) i=0u; i<AllocStrategy::freeListCount; i++)
+                memcpy(freeListStack[i]+freeListStackCtr[i],other.freeListStack[i],other.freeListStackCtr[i]*sizeof(AllocStrategy::Block));
+
+            freeSize = newBuffSz-other.bufferSize+other.freeSize;
         }
 };
 

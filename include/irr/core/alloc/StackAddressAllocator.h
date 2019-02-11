@@ -89,7 +89,7 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
 
         inline size_type    min_size() const noexcept
         {
-            return Base::min_size();
+            return minimumAllocSize;
         }
 
 
