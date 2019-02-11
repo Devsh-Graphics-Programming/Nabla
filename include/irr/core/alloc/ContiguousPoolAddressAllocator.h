@@ -51,11 +51,11 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
         template<typename... Args>
         ContiguousPoolAddressAllocator(void* newDataBuffer, _size_type newBuffSz, ContiguousPoolAddressAllocator&& other, Args&&... args) noexcept :
-                    Base(constructorReorderWrapper(newBuffSz,other,args...),std::move(other),std::forward<Args>(args)...),
+                    Base(setUpRedirectsOutOfOrder(newBuffSz,other,args...),std::move(other),std::forward<Args>(args)...),
                     addressesAllocated(invalid_address), dataBuffer(newDataBuffer)
         {
-            other.redirToAddress = nullptr;
-            other.redirToMemory = nullptr;
+            std::swap(redirToAddress,other.redirToAddress);
+            std::swap(redirToMemory,other.redirToMemory);
             std::swap(addressesAllocated,other.addressesAllocated);
             other.dataBuffer = nullptr;
             #ifdef _DEBUG
@@ -265,43 +265,50 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 _IRR_BREAK_IF(redirToAddress[i]!=invalid_address);
         }
         #endif // _DEBUG
-    private:
-        inline size_type constructorReorderWrapper(size_type newBuffSz, const ContiguousPoolAddressAllocator& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) noexcept
+
+        inline size_type setUpRedirectsOutOfOrder(size_type newBuffSz, ContiguousPoolAddressAllocator& other, void* newReservedSpc) noexcept
         {
-            auto newCombinedOffset = newAddressOffset+newAlignOffset;
-            auto newBlockCount = (newBuffSz-newAlignOffset)/other.blockSize;
-            redirToAddress = reinterpret_cast<size_type*>(reinterpret_cast<uint8_t*>(newReservedSpc)+Base::reserved_size(other,newBuffSz));
-            redirToMemory = redirToAddress+newBlockCount;
+            return setUpRedirectsOutOfOrder(newBuffSz,other,newReservedSpc,other.addressOffset,other.alignOffset);
+        }
+        inline size_type setUpRedirectsOutOfOrder(size_type newBuffSz, ContiguousPoolAddressAllocator& other, void* newReservedSpc, _size_type newAddressOffset) noexcept
+        {
+            return setUpRedirectsOutOfOrder(newBuffSz,other,newReservedSpc,newAddressOffset,other.alignOffset);
+        }
+        inline size_type setUpRedirectsOutOfOrder(size_type newBuffSz, ContiguousPoolAddressAllocator& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) noexcept
+        {
             #ifdef _DEBUG
                 other.validateRedirects();
-                for (size_type i=0u; i<newBlockCount; i++)
-                    redirToMemory[i] = invalid_address;
             #endif // _DEBUG
+
+            auto newBlockCount = (newBuffSz-newAlignOffset)/other.blockSize;
+            size_type* newRedirToAddress = reinterpret_cast<size_type*>(reinterpret_cast<uint8_t*>(newReservedSpc)+Base::reserved_size(other,newBuffSz));
+            size_type* newRedirToMemory = newRedirToAddress+newBlockCount;
+            #ifdef _DEBUG
+                for (size_type i=0u; i<newBlockCount; i++)
+                {
+                    newRedirToAddress[i] = invalid_address;
+                    newRedirToMemory[i] = invalid_address;
+                    if (i<other.blockCount)
+                        assert(other.redirToAddress[i]==invalid_address);
+                }
+            #endif // _DEBUG
+
+            auto newCombinedOffset = newAddressOffset+newAlignOffset;
             for (size_type i=0u; i<other.addressesAllocated; i++)
             {
                 auto addr = other.redirToAddress[i];
                 auto addrSansOffset = addr-other.combinedOffset;
-                auto& memRedir = redirToMemory[addrSansOffset/other.blockSize];
+                auto memRedir = other.redirToMemory[addrSansOffset/other.blockSize];
                 #ifdef _DEBUG
                     assert(addr!=invalid_address && addr<other.blockCount);
                     assert(memRedir!=invalid_address);
                 #endif // _DEBUG
-                redirToAddress[i] = addrSansOffset+newCombinedOffset;
-                memRedir += newCombinedOffset-other.combinedOffset;
+                newRedirToAddress[i] = addrSansOffset+newCombinedOffset;
+                newRedirToMemory[i] = memRedir+(newCombinedOffset-other.combinedOffset);
             }
-            #ifdef _DEBUG
-                for (size_type i=other.addressesAllocated; i<newBlockCount; i++)
-                {
-                    if (i<other.blockCount)
-                        assert(other.redirToAddress[i]==invalid_address);
-                    redirToAddress[i] = invalid_address;
-                }
-            #endif // _DEBUG
+            other.redirToAddress = newRedirToAddress;
+            other.redirToMemory = newRedirToMemory;
             return newBuffSz;
-        }
-        inline size_type constructorReorderWrapper(size_type newBuffSz, const ContiguousPoolAddressAllocator& other, void* newReservedSpc) noexcept
-        {
-            return constructorReorderWrapper(newBuffSz,other,newReservedSpc,other.addressOffset,other.alignOffset);
         }
 };
 
