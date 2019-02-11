@@ -49,7 +49,6 @@
 
 //core allocators
 #include "irr/core/alloc/address_allocator_traits.h"
-#include "irr/core/alloc/AddressAllocatorAdaptor.h"
 #include "irr/core/alloc/AddressAllocatorBase.h"
 #include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
 #include "irr/core/alloc/aligned_allocator.h"
