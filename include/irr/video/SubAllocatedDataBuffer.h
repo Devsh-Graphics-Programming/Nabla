@@ -21,7 +21,7 @@ namespace video
 
 // this buffer is not growabl
 template<class HeterogenousMemoryAddressAllocator, class CustomDeferredFreeFunctor=void>
-class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
+class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
 {
     public:
         typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType  GPUBufferAllocator;
@@ -156,7 +156,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
         //!
         const HeterogenousMemoryAddressAllocator& getAllocator() const {return mAllocator;}
         //!
-        inline IGPUBuffer*  getBuffer() noexcept
+        inline const IGPUBuffer*  getBuffer() const noexcept
         {
             auto allocation = mAllocator.getCurrentBufferAllocation();
 
@@ -167,6 +167,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
                 retval = allocation;
             });
             return retval;
+        }
+        inline IGPUBuffer* getBuffer() noexcept
+        {
+            return const_cast<IGPUBuffer*>(static_cast<const ThisType*>(this)->getBuffer());
         }
 
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more
@@ -187,13 +191,13 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
 
         //!
         template<typename... Args>
-        inline size_type    multi_alloc(uint32_t count, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
+        inline size_type    multi_alloc(uint32_t count, Args&&... args) noexcept
         {
-            return multi_alloc(std::chrono::nanoseconds(50000ull),count,outAddresses,bytes,std::forward<Args>(args)...);
+            return multi_alloc(std::chrono::nanoseconds(50000ull),count,std::forward<Args>(args)...);
         }
         //!
         template<typename... Args>
-        inline size_type    multi_alloc(const std::chrono::nanoseconds& maxWait, uint32_t count, size_type* outAddresses, const size_type* bytes, const Args&... args) noexcept
+        inline size_type    multi_alloc(const std::chrono::nanoseconds& maxWait, const Args&... args) noexcept
         {
             #ifdef _DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
@@ -201,7 +205,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
             #endif // _DEBUG
 
             // try allocate once
-            size_type unallocatedSize = try_multi_alloc(count,outAddresses,bytes,args...);
+            size_type unallocatedSize = try_multi_alloc(args...);
             if (!unallocatedSize)
                 return 0u;
 
@@ -211,7 +215,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted
             {
                 deferredFrees.waitUntilForReadyEvents(maxWaitPoint,unallocatedSize);
 
-                unallocatedSize = try_multi_alloc(count,outAddresses,bytes,args...);
+                unallocatedSize = try_multi_alloc(args...);
                 if (!unallocatedSize)
                     return 0u;
             } while(std::chrono::high_resolution_clock::now()<maxWaitPoint);

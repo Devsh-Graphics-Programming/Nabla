@@ -42,6 +42,11 @@ namespace core
                 return alignOffset;
             }
 
+            inline _size_type           get_combined_offset() const noexcept
+            {
+                return combinedOffset;
+            }
+
             // usage: for resizeable allocators built on top of non-resizeable ones (that resize via the CRTP constructor)
             // we usually call this before attempting to create the memory for the resized allocator,
             // so we don't know exactly what the addressOffset or alignOffset will be

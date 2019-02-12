@@ -20,7 +20,7 @@ namespace video
             std::tuple<typename AddressAllocator::size_type,size_t,size_t> getOldOffset_CopyRange_OldSize(IGPUBuffer* oldBuff, size_t bytes, const AddressAllocator& allocToQueryOffsets)
             {
                 auto oldSize = oldBuff->getSize();
-                auto oldOffset = core::address_allocator_traits<AddressAllocator>::get_align_offset(allocToQueryOffsets);
+                auto oldOffset = core::address_allocator_traits<AddressAllocator>::get_combined_offset(allocToQueryOffsets);
                 auto copyRangeLen = std::min(oldSize-oldOffset,bytes);
                 return std::make_tuple(oldOffset,copyRangeLen,oldSize);
             }

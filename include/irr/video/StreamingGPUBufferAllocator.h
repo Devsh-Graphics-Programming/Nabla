@@ -55,11 +55,8 @@ class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
             {
                 auto oldOffset_copyRange = getOldOffset_CopyRange_OldSize(allocation,bytes,allocToQueryOffsets);
 
-                if (allocation.second && (allocation.first->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_READ) &&
-                    (newAlloc.first->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_WRITE)) // can read from old and write to new
-                {
+                if (allocation.second && (allocation.first->getBoundMemory()->getCurrentMappingCaps()&IDriverMemoryAllocation::EMCAF_READ) )// can read from old
                     memcpy(newAlloc.second,allocation.second+oldOffset_copyRange.first,oldOffset_copyRange.second);
-                }
                 else
                     copyBufferWrapper(allocation.first,newAlloc.first,oldOffset_copyRange.first,0u,oldOffset_copyRange.second);
             }

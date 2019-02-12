@@ -71,7 +71,7 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, p
 
         inline virtual size_t       max_alignment() const noexcept override {return getBaseRef().max_alignment();}
 
-        inline virtual size_t       safe_shrink_size(size_t sizeBound, size_t newBuffAlignmentWeCanGuarantee=1u) const noexcept override
+        inline virtual size_t       safe_shrink_size(size_t byteBound, size_t newBuffAlignmentWeCanGuarantee=1u) const noexcept override
         {
             return getBaseRef().safe_shrink_size(byteBound,newBuffAlignmentWeCanGuarantee);
         }

@@ -112,7 +112,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     dataPerInstanceInputSize = extraDataInstanceSize+visibilityPadding+48+36;
     auto buffSize = dataPerInstanceInputSize;//*512u;
-    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(driver,core::allocator<uint8_t>(),buffSize,core::roundDownToPoT(dataPerInstanceInputSize),dataPerInstanceInputSize);
+    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(driver,core::allocator<uint8_t>(),0u,0u,core::roundDownToPoT(dataPerInstanceInputSize),buffSize,dataPerInstanceInputSize,nullptr);
 	instanceBBoxesCount = getCurrentInstanceCapacity();
 	instanceBBoxes = (core::aabbox3df*)_IRR_ALIGNED_MALLOC(instanceBBoxesCount*sizeof(core::aabbox3df),_IRR_SIMD_ALIGNMENT);
 	for (size_t i=0; i<instanceBBoxesCount; i++)

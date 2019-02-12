@@ -42,9 +42,6 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                     redirToAddress(Base::getFreeStack()+Base::reserved_size(*this,bufSz)/sizeof(size_type)),
                     redirToMemory(redirToAddress+Base::blockCount), addressesAllocated(0u), dataBuffer(dataBuf)
         {
-            #ifdef _DEBUG
-                assert(dataBuffer);
-            #endif // _DEBUG
             selfOnlyReset();
         }
 
@@ -72,6 +69,11 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             std::swap(addressesAllocated,other.addressesAllocated);
             std::swap(dataBuffer,other.dataBuffer);
             return *this;
+        }
+
+        inline void setDataBufferPtr(void* newDataBuffer) noexcept
+        {
+            dataBuffer = newDataBuffer;
         }
 
         // this one differs from Base
@@ -183,7 +185,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         }
 
 
-        inline size_type        safe_shrink_size(size_type sizeBound, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+        inline size_type        safe_shrink_size(size_type sizeBound, size_type newBuffAlignmentWeCanGuarantee=1u) noexcept
         {
             auto boundByAllocCount = addressesAllocated*Base::blockSize;
             if (sizeBound<boundByAllocCount)
@@ -192,8 +194,8 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             return Base::safe_shrink_size(sizeBound,newBuffAlignmentWeCanGuarantee);
         }
 
-
-        static inline size_type reserved_size(size_type maxAlignment, size_type bufSz, size_type blockSz) noexcept
+        // dummy needed for some of the higher-up classes, so that arguments to constructor after `maxAlignment` can also be sent to `reserved_size`
+        static inline size_type reserved_size(size_type maxAlignment, size_type bufSz, size_type blockSz, void* dummy=nullptr) noexcept
         {
             size_type retval = Base::reserved_size(maxAlignment,bufSz,blockSz);
             size_type maxBlockCount =  bufSz/blockSz;

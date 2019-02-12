@@ -14,7 +14,6 @@ namespace video
 template<class BasicAddressAllocator, class CPUAllocator=core::allocator<uint8_t>, bool onlySwapRangesMarkedDirty = false, class CustomDeferredFreeFunctor=void >
 class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>,
                                                             protected SubAllocatedDataBuffer<core::ResizableHeterogenousMemoryAllocator<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,HostDeviceMirrorBufferAllocator<>,CPUAllocator> >,CustomDeferredFreeFunctor>,
-                                                            protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor,
                                                             public virtual core::IReferenceCounted
 {
         typedef core::MultiBufferingAllocatorBase<BasicAddressAllocator,onlySwapRangesMarkedDirty>                                                                                                                                                                                          MultiBase;
