@@ -49,7 +49,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         template<typename... Args>
         ContiguousPoolAddressAllocator(void* newDataBuffer, _size_type newBuffSz, ContiguousPoolAddressAllocator&& other, Args&&... args) noexcept :
                     Base(setUpRedirectsOutOfOrder(newBuffSz,other,args...),std::move(other),std::forward<Args>(args)...),
-                    addressesAllocated(invalid_address), dataBuffer(newDataBuffer)
+                    redirToAddress(nullptr), redirToMemory(nullptr), addressesAllocated(invalid_address), dataBuffer(newDataBuffer)
         {
             std::swap(redirToAddress,other.redirToAddress);
             std::swap(redirToMemory,other.redirToMemory);
@@ -172,8 +172,9 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             if (ID==invalid_address)
                 return invalid_address;
 
-            redirToAddress[addressesAllocated++] = ID;
+            redirToAddress[addressesAllocated] = ID;
             redirToMemory[Base::addressToBlockID(ID)] = addressesAllocated*Base::blockSize;
+            addressesAllocated++;
 
             return ID;
         }
@@ -290,6 +291,8 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 {
                     newRedirToAddress[i] = invalid_address;
                     newRedirToMemory[i] = invalid_address;
+                    if (i<other.addressesAllocated)
+                        continue;
                     if (i<other.blockCount)
                         assert(other.redirToAddress[i]==invalid_address);
                 }
@@ -299,14 +302,17 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             for (size_type i=0u; i<other.addressesAllocated; i++)
             {
                 auto addr = other.redirToAddress[i];
-                auto addrSansOffset = addr-other.combinedOffset;
-                auto memRedir = other.redirToMemory[addrSansOffset/other.blockSize];
                 #ifdef _DEBUG
                     assert(addr!=invalid_address && addr<other.blockCount);
+                #endif // _DEBUG
+                auto addrSansOffset = addr-other.combinedOffset;
+                auto addrBlock = addrSansOffset/other.blockSize;
+                auto memRedir = other.redirToMemory[addrBlock];
+                #ifdef _DEBUG
                     assert(memRedir!=invalid_address);
                 #endif // _DEBUG
                 newRedirToAddress[i] = addrSansOffset+newCombinedOffset;
-                newRedirToMemory[i] = memRedir+(newCombinedOffset-other.combinedOffset);
+                newRedirToMemory[addrBlock] = memRedir+(newCombinedOffset-other.combinedOffset);
             }
             other.redirToAddress = newRedirToAddress;
             other.redirToMemory = newRedirToMemory;

@@ -509,7 +509,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         }
 
 
-        static inline size_type reserved_size(size_type bufSz, size_type maxAlignment, size_type minBlockSize) noexcept
+        static inline size_type reserved_size(size_type maxAlignment, size_type bufSz, size_type minBlockSize) noexcept
         {
             size_type reserved = 0u;
             for (size_type i=0u; i<AllocStrategy::findFreeListCount(bufSz,minBlockSize); i++)

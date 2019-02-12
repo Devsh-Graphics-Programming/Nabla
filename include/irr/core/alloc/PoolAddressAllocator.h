@@ -43,16 +43,11 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
         template<typename... Args>
         PoolAddressAllocator(_size_type newBuffSz, PoolAddressAllocator&& other, Args&&... args) noexcept :
-                    Base(std::move(other),std::forward<Args>(args)...), blockCount(invalid_address), blockSize(invalid_address), freeStackCtr(invalid_address)
+                    Base(std::move(other),std::forward<Args>(args)...), blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
         {
-            std::swap(blockCount,other.blockCount);
-            blockCount = (newBuffSz-Base::alignOffset)/other.blockSize;
-            std::swap(blockSize,other.blockSize);
-            std::swap(freeStackCtr,other.freeStackCtr);
             if (blockCount>other.blockCount)
                 freeStackCtr = blockCount-other.blockCount;
-            else
-                freeStackCtr = 0u;
+            other.blockCount = invalid_address;
 
             #ifdef _DEBUG
                 assert(Base::checkResize(newBuffSz,Base::alignOffset));
@@ -69,6 +64,8 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
                 if (freeEntry<blockCount*blockSize)
                     freeStack[freeStackCtr++] = freeEntry+Base::combinedOffset;
             }
+            other.blockSize = invalid_address;
+            other.freeStackCtr = invalid_address;
         }
 
         PoolAddressAllocator& operator=(PoolAddressAllocator&& other)
