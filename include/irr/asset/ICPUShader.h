@@ -4,10 +4,13 @@
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ISPIR_VProgram.h"
 #include "irr/asset/ShaderCommons.h"
+#include "irr/asset/ShaderRes.h"
+#include "irr/core/memory/new_delete.h"
 
 namespace spirv_cross
 {
     class ParsedIR;
+    class Compiler;
 }
 
 namespace irr { namespace asset
@@ -15,7 +18,14 @@ namespace irr { namespace asset
 
 struct SIntrospectionData
 {
-    //
+    struct SSpecConstant
+    {
+        uint32_t id;
+        size_t byteSize;
+        std::string name;
+    };
+    core::vector<SSpecConstant> specConstants;
+    core::vector<SShaderResourceVariant> descriptorSetBindings[4];
 };
 
 class ICPUShader : public IAsset
@@ -26,10 +36,12 @@ protected:
         if (m_spirvBytecode)
             m_spirvBytecode->drop();
         if (m_parsed)
-            delete m_parsed;
+            _IRR_DELETE(m_parsed);
     }
 
 public:
+    using SEntryPointStagePair = std::pair<std::string, E_SHADER_STAGE>;
+
     ICPUShader(const void* _spirvBytecode, size_t _bytesize) : m_spirvBytecode(new ICPUBuffer(_bytesize))
     {
         memcpy(m_spirvBytecode->getPointer(), _spirvBytecode, _bytesize);
@@ -45,14 +57,29 @@ public:
 
     const ICPUBuffer* getSPIR_VBytecode() const { return m_spirvBytecode; };
 
-    const SIntrospectionData& enableIntrospection(const std::string& _entryPoint, E_SHADER_STAGE _stage);
+    void enableIntrospection();
+    const SIntrospectionData* getIntrospectionData(const SEntryPointStagePair& _entryPoint) const
+    {
+        auto found = m_introspectionCache.find(_entryPoint);
+        return found == m_introspectionCache.end() ? nullptr : &found->second;
+    }
+
+    const core::vector<SEntryPointStagePair>& getStageEntryPoints();
+protected:
+    const core::vector<SEntryPointStagePair>& getStageEntryPoints(spirv_cross::Compiler& _comp);
+
+    //! returns pointer to parsed representation of contained SPIR-V code. Returned object is allocated by _IRR_NEW macro.
+    spirv_cross::ParsedIR* parseSPIR_V() const;
+
+    SIntrospectionData doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
 
 protected:
     ICPUBuffer* m_spirvBytecode;
-    spirv_cross::ParsedIR* m_parsed = nullptr;
+    mutable spirv_cross::ParsedIR* m_parsed = nullptr;
 
-    using CacheKey = std::pair<std::string, E_SHADER_STAGE>;
-    std::unordered_map<CacheKey, SIntrospectionData> m_introspectionCache;
+    using CacheKey = SEntryPointStagePair;
+    core::unordered_map<CacheKey, SIntrospectionData> m_introspectionCache;
+    core::vector<SEntryPointStagePair> m_entryPoints;
 };
 
 }}

@@ -11,7 +11,7 @@ namespace irr { namespace video
 class COpenGLSpecializedShader : public IGPUSpecializedShader
 {
 public:
-    COpenGLSpecializedShader(const asset::ICPUSpecializedShader* _cpushader, const asset::SSpecializationInfo& _spc)
+    COpenGLSpecializedShader(const asset::ICPUSpecializedShader* _cpushader)
     {
         // manipulate spir-v (specialize spec. constants)
         // down-compile to GLSL (SPIRV-Cross)
