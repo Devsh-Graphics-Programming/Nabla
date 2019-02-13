@@ -2,7 +2,7 @@
 #define __IRR_C_DOUBLE_BUFFERING_ALLOCATOR_H__
 
 
-#include "irr/core/alloc/AddressAllocatorBase.h"
+#include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
 
 namespace irr
 {
@@ -38,6 +38,7 @@ class MultiBufferingAllocatorBase<AddressAllocator,false>
 template<class AddressAllocator>
 class MultiBufferingAllocatorBase<AddressAllocator,true>
 {
+        static_assert(!std::is_base_of<ContiguousPoolAddressAllocator<typename AddressAllocator::size_type>,AddressAllocator>::value,"Cannot use a Buffering Allocator that marks dirty ranges with an address allocator that moves them.");
     protected:
         std::pair<typename AddressAllocator::size_type,typename AddressAllocator::size_type> pushRange;
         std::pair<typename AddressAllocator::size_type,typename AddressAllocator::size_type> pullRange;

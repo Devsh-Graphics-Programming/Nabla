@@ -129,7 +129,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             #endif // _DEBUG
 
             auto movedRedirStart = redirToAddress+Base::addressToBlockID(sortedRedirects[0]);
-            auto movedRangeStart = dataBuffer+(sortedRedirects[0]-Base::combinedOffset);
+            auto movedRangeStart = reinterpret_cast<uint8_t*>(dataBuffer)+(sortedRedirects[0]-Base::combinedOffset);
             for (decltype(count) j=0u; j<count; )
             {
                 decltype(count) nextIx = j+1u;
@@ -146,13 +146,14 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 auto blockRangeEnd = Base::addressToBlockID(rangeEnd);
                 for (auto i=Base::addressToBlockID(nextVal); i<blockRangeEnd; i++)
                 {
-                    auto addr = redirToAddress[i];
-                    *movedRedirStart++ = addr;
-                    redirToMemory[Base::addressToBlockID(addr)] -= nextIx*Base::blockSize;
+                    auto tmpAddr = redirToAddress[i];
+                    *movedRedirStart++ = tmpAddr;
+                    redirToMemory[Base::addressToBlockID(tmpAddr)] -= nextIx*Base::blockSize;
                 }
                 // shift actual memory
                 auto rangeLen = rangeEnd-nextVal;
                 memmove(movedRangeStart,reinterpret_cast<uint8_t*>(dataBuffer)+(nextVal-Base::combinedOffset),rangeLen);
+                movedRangeStart+=rangeLen;
                 j = nextIx;
             }
             #ifdef _DEBUG

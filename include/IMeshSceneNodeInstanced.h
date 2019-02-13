@@ -26,7 +26,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
     protected:
         typedef core::ContiguousPoolAddressAllocatorST<uint32_t>                                            InstanceDataAddressAllocator;
 
-        video::ResizableBufferingAllocatorST<InstanceDataAddressAllocator,core::allocator<uint8_t>,true>*   instanceDataAllocator;
+        video::ResizableBufferingAllocatorST<InstanceDataAddressAllocator,core::allocator<uint8_t>,false>*   instanceDataAllocator;
         bool wantBBoxUpdate;
 
         virtual ~IMeshSceneNodeInstanced()
