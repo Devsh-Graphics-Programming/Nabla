@@ -1,6 +1,7 @@
 #ifndef __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 #define __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 
+#include "irr/static_if.h"
 #include "irr/core/Types.h"
 #include "irr/core/alloc/address_allocator_traits.h"
 #include "irr/core/alloc/AddressAllocatorBase.h"
@@ -57,9 +58,9 @@ namespace impl
             inline size_type        getDataBufferSize() const {return mDataSize;}
         protected:
             template<typename... Args>
-            HeterogenousMemoryAddressAllocatorAdaptorBase(const HostAllocator& reservedMemAllocator, const OtherAllocator& dataMemAllocator, size_type bufSz, size_type maxAllocatableAlignment, const Args&... args) :
+            HeterogenousMemoryAddressAllocatorAdaptorBase(const HostAllocator& reservedMemAllocator, const OtherAllocator& dataMemAllocator, size_type maxAllocatableAlignment, size_type bufSz, const Args&... args) :
                                                                         mDataSize(bufSz), mDataAlloc(dataMemAllocator),
-                                                                        mReservedSize(AddressAllocator::reserved_size(bufSz,maxAllocatableAlignment,args...)),
+                                                                        mReservedSize(AddressAllocator::reserved_size(maxAllocatableAlignment,bufSz,args...)),
                                                                         mReservedAlloc(reservedMemAllocator) {}
 
             size_type               mDataSize;
@@ -96,21 +97,26 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
 {
         typedef impl::HeterogenousMemoryAddressAllocatorAdaptorBase<AddressAllocator,BufferAllocator,HostAllocator> ImplBase;
     protected:
-        typedef address_allocator_traits<AddressAllocator>                                                          alloc_traits;
         inline AddressAllocator&                                                                                    getBaseAddrAllocRef() noexcept {return *this;}
 
         typedef typename BufferAllocator::value_type allocation_type;
         allocation_type mAllocation;
     public:
-        typedef typename AddressAllocator::size_type    size_type;
-        static constexpr size_type invalid_address          = AddressAllocator::invalid_address;
+        typedef address_allocator_traits<AddressAllocator>  alloc_traits;
+        typedef typename AddressAllocator::size_type        size_type;
+        static constexpr size_type invalid_address              = AddressAllocator::invalid_address;
 
         template<typename... Args>
-        HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator, size_type bufSz, size_type maxAllocatableAlignment, Args&&... args) :
-                                            ImplBase(reservedMemAllocator,dataMemAllocator,bufSz,maxAllocatableAlignment,args...),
-                                            AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_IRR_SIMD_ALIGNMENT),nullptr,maxAllocatableAlignment,bufSz,std::forward<Args>(args)...)
+        HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator,
+                                                                                    size_type addressOffsetToApply, size_type alignOffsetNeeded, size_type maxAllocatableAlignment, size_type bufSz, Args&&... args) :
+                                            ImplBase(reservedMemAllocator,dataMemAllocator,maxAllocatableAlignment,bufSz,args...),
+                                            AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_IRR_SIMD_ALIGNMENT),
+                                                                        addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz,std::forward<Args>(args)...)
         {
             mAllocation = ImplBase::mDataAlloc.allocate(bufSz,maxAllocatableAlignment);
+            irr::static_if<!alloc_traits::supportsNullBuffer>([&](auto f){
+                getBaseAddrAllocRef().setDataBufferPtr(std::get<1u>(mAllocation));
+            });
         }
 
         virtual ~HeterogenousMemoryAddressAllocatorAdaptor()
@@ -123,6 +129,7 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
         }
 
         inline allocation_type getCurrentBufferAllocation() noexcept {return mAllocation;}
+        inline allocation_type getCurrentBufferAllocation() const noexcept {return mAllocation;}
 
 
         //!

@@ -356,7 +356,6 @@
 		<Unit filename="../../include/irr/core/IReferenceCounted.h" />
 		<Unit filename="../../include/irr/core/IThreadBound.h" />
 		<Unit filename="../../include/irr/core/Types.h" />
-		<Unit filename="../../include/irr/core/alloc/AddressAllocatorAdaptor.h" />
 		<Unit filename="../../include/irr/core/alloc/AddressAllocatorBase.h" />
 		<Unit filename="../../include/irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h" />
 		<Unit filename="../../include/irr/core/alloc/AlignedBase.h" />

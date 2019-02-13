@@ -14,13 +14,13 @@ namespace video
 {
 
 
-template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t> >
-class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator> >,
+template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void >
+class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator>,CustomDeferredFreeFunctor>,
                                                                 public virtual core::IReferenceCounted
 {
         typedef core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator> HeterogenousMemoryAddressAllocator;
         typedef StreamingTransientDataBufferST<_size_type,CPUAllocator> ThisType;
-        typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator> Base;
+        typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CustomDeferredFreeFunctor> Base;
     protected:
         virtual ~StreamingTransientDataBufferST() {}
     public:
@@ -35,7 +35,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
         StreamingTransientDataBufferST(IDriver* inDriver, const IDriverMemoryBacked::SDriverMemoryRequirements& bufferReqs,
                                        const CPUAllocator& reservedMemAllocator=CPUAllocator(), size_type minAllocSize=64u) :
-                                Base(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),bufferReqs.vulkanReqs.size,bufferReqs.vulkanReqs.alignment,minAllocSize)
+                                Base(reservedMemAllocator,StreamingGPUBufferAllocator(inDriver,bufferReqs),0u,0u,bufferReqs.vulkanReqs.alignment,bufferReqs.vulkanReqs.size,minAllocSize)
         {
         }
 
@@ -45,6 +45,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         inline bool         needsManualFlushOrInvalidate() const {return !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);}
 
         inline IGPUBuffer*  getBuffer() noexcept {return Base::getBuffer();}
+        inline const IGPUBuffer*  getBuffer() const noexcept {return Base::getBuffer();}
 
         inline void*        getBufferPointer() noexcept {return Base::mAllocator.getCurrentBufferAllocation().second;}
 
@@ -55,9 +56,9 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
 
 
         template<typename... Args>
-        inline size_type    multi_place(uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
+        inline size_type    multi_place(uint32_t count, Args&&... args) noexcept
         {
-            return multi_place(std::chrono::nanoseconds(50000ull),count,dataToPlace,outAddresses,bytes,std::forward<Args>(args)...);
+            return multi_place(std::chrono::nanoseconds(50000ull),count,std::forward<Args>(args)...);
         }
 
         template<typename... Args>
@@ -90,10 +91,10 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
 };
 
 
-template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class RecursiveLockable=std::recursive_mutex>
-class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<_size_type,CPUAllocator>, public virtual core::IReferenceCounted
+template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void, class RecursiveLockable=std::recursive_mutex>
+class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor>, public virtual core::IReferenceCounted
 {
-        typedef StreamingTransientDataBufferST<_size_type,CPUAllocator> Base;
+        typedef StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor> Base;
     protected:
         RecursiveLockable lock;
 
@@ -110,7 +111,7 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
         inline bool         needsManualFlushOrInvalidate()
         {
             lock.lock();
-            bool retval = !(getBuffer()->getMemoryReqs().mappingCapability&video::IDriverMemoryAllocation::EMCF_COHERENT);
+            bool retval = Base::needsManualFlushOrInvalidate(); // if this cap doesn't change we can cache it and avoid a stupid lock that protects against invalid buffer pointer
             lock.unlock();
             return retval;
         }
