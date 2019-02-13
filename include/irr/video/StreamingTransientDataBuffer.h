@@ -58,7 +58,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         template<typename... Args>
         inline size_type    multi_place(uint32_t count, Args&&... args) noexcept
         {
-            return multi_place(std::chrono::nanoseconds(50000ull),std::forward<Args>(args)...);
+            return multi_place(std::chrono::nanoseconds(50000ull),count,std::forward<Args>(args)...);
         }
 
         template<typename... Args>

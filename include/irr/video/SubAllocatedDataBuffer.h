@@ -33,7 +33,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         #ifdef _DEBUG
         std::recursive_mutex stAccessVerfier;
         #endif // _DEBUG
-        typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator> ThisType;
+        typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CustomDeferredFreeFunctor> ThisType;
 
         template<class U> using std_get_0 = decltype(std::get<0u>(std::declval<U&>()));
         template<class,class=void> struct is_std_get_0_defined                                   : std::false_type {};
