@@ -22,15 +22,18 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
             if (data)
                 _IRR_ALIGNED_FREE(data);
         }
+
+        //! Non-allocating constructor for IMemoryAdoptingCPUBuffer derivative
+        ICPUBuffer(size_t sizeInBytes, void* dat) : size(dat ? sizeInBytes : 0), data(dat)
+        {}
     public:
 		//! Constructor.
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
 		@param dat Optional parameter. Pointer to data, must be allocated with `_IRR_ALIGNED_MALLOC`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
 		*/
-        ICPUBuffer(const size_t &sizeInBytes, void *dat = NULL) : size(0), data(dat)
+        ICPUBuffer(size_t sizeInBytes) : size(0)
         {
-			if (!data)
-				data = _IRR_ALIGNED_MALLOC(sizeInBytes,_IRR_SIMD_ALIGNMENT);
+			data = _IRR_ALIGNED_MALLOC(sizeInBytes,_IRR_SIMD_ALIGNMENT);
             if (!data)
                 return;
 
@@ -88,9 +91,27 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
 		*/
         virtual void* getPointer() {return data;}
 
-    private:
+    protected:
         uint64_t size;
         void* data;
+};
+
+template<typename Allocator = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>>
+class IMemoryAdoptingCPUBuffer : public ICPUBuffer
+{
+protected:
+    Allocator m_allocator;
+
+    virtual ~IMemoryAdoptingCPUBuffer()
+    {
+        if (ICPUBuffer::data)
+            m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size/sizeof(typename Allocator::value_type));
+        ICPUBuffer::data = nullptr; // so that ICPUBuffer will not try deallocating
+    }
+
+public:
+    IMemoryAdoptingCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& allctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(allctr))
+    {}
 };
 
 } // end namespace asset
