@@ -101,7 +101,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
     core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> res;
     res.reserve(_end-_begin);
 
-    core::LinearAddressAllocator<uint64_t> addrAllctr(nullptr, nullptr, alignment, m_driver->getMaxBufferSize());
+    core::LinearAddressAllocator<uint64_t> addrAllctr(nullptr, 0u, 0u, alignment, m_driver->getMaxBufferSize());
     asset::ICPUBuffer** it = _begin;
     while (it != _end)
     {
