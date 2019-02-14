@@ -134,7 +134,7 @@ namespace scene
                     #endif // _DEBUG
                 }
 
-                instanceBoneDataAllocator->markRangeDirty(newID,newID+instanceFinalBoneDataSize);
+                instanceBoneDataAllocator->markRangeForPush(newID,newID+instanceFinalBoneDataSize);
 
                 return newID;
             }
@@ -211,7 +211,7 @@ namespace scene
                 while (boneDataForInstance[boneStack[boneStackSize]].lastAnimatedFrame!=currentInstance->frame && boneStack[boneStackSize] >= referenceHierarchy->getBoneLevelRangeEnd(0))
                     boneStack[++boneStackSize] = referenceHierarchy->getBoneData()[boneStack[boneStackSize]].parentOffsetFromTop;
 
-                instanceBoneDataAllocator->markRangeDirty(instanceID+boneStack[boneStackSize]*sizeof(FinalBoneData),instanceID+(boneID+1u)*sizeof(FinalBoneData));
+                instanceBoneDataAllocator->markRangeForPush(instanceID+boneStack[boneStackSize]*sizeof(FinalBoneData),instanceID+(boneID+1u)*sizeof(FinalBoneData));
 
                 boneStackSize++;
 
@@ -281,7 +281,7 @@ namespace scene
 
             inline void TrySwapBoneBuffer()
             {
-                instanceBoneDataAllocator->swapBuffers(Driver->getDefaultUpStreamingBuffer());
+                instanceBoneDataAllocator->pushBuffer(Driver->getDefaultUpStreamingBuffer());
 #ifdef _IRR_COMPILE_WITH_OPENGL_
                 if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
                     TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the range length :D
@@ -396,7 +396,7 @@ namespace scene
                                 }
 
                                 if (!notModified)
-                                    instanceBoneDataAllocator->markRangeDirty(localFirstDirtyInstance,localLastDirtyInstance+instanceFinalBoneDataSize);
+                                    instanceBoneDataAllocator->markRangeForPush(localFirstDirtyInstance,localLastDirtyInstance+instanceFinalBoneDataSize);
 
                                 TrySwapBoneBuffer();
 
@@ -511,7 +511,7 @@ namespace scene
 
 
                                 if (!notModified)
-                                    instanceBoneDataAllocator->markRangeDirty(localFirstDirtyInstance,localLastDirtyInstance+instanceFinalBoneDataSize);
+                                    instanceBoneDataAllocator->markRangeForPush(localFirstDirtyInstance,localLastDirtyInstance+instanceFinalBoneDataSize);
 
                                 TrySwapBoneBuffer();
 

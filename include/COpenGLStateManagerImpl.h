@@ -135,32 +135,33 @@
 #endif // glBindVertexArray_MACRO
 
 
-COpenGLState COpenGLState::collectGLState(  const bool& careAboutHints, //should be default false
-                                            const bool& careAboutFBOs,
-                                            const bool& careAboutPolygonOffset, //should be default false
-                                            const bool& careAboutPixelXferOps,
-                                            const bool& careAboutSSBOAndAtomicCounters,
-                                            const bool& careAboutXFormFeedback,
-                                            const bool& careAboutProgram,
-                                            const bool& careAboutPipeline,
-                                            const bool& careAboutTesellationParams,
-                                            const bool& careAboutViewports,
-                                            const bool& careAboutDrawIndirectBuffers,
-                                            const bool& careAboutPointSize,
-                                            const bool& careAboutLineWidth,
-                                            const bool& careAboutLogicOp,
-                                            const bool& careAboutMultisampling,
-                                            const bool& careAboutBlending,
-                                            const bool& careAboutColorWriteMasks,
-                                            const bool& careAboutStencilFunc,
-                                            const bool& careAboutStencilOp,
-                                            const bool& careAboutStencilMask,
-                                            const bool& careAboutDepthFunc,
-                                            const bool& careAboutDepthMask,
-                                            const bool& careAboutImages,
-                                            const bool& careAboutTextures,
-                                            const bool& careAboutFaceOrientOrCull,
-                                            const bool& careAboutVAO)
+COpenGLState COpenGLState::collectGLState(  bool careAboutHints, //should be default false
+                                            bool careAboutFBOs,
+                                            bool careAboutPolygonOffset, //should be default false
+                                            bool careAboutPixelXferOps,
+                                            bool careAboutSSBOAndAtomicCounters,
+                                            bool careAboutXFormFeedback,
+                                            bool careAboutProgram,
+                                            bool careAboutPipeline,
+                                            bool careAboutTesellationParams,
+                                            bool careAboutViewports,
+                                            bool careAboutDrawIndirectBuffers,
+                                            bool careAboutPointSize,
+                                            bool careAboutLineWidth,
+                                            bool careAboutLogicOp,
+                                            bool careAboutMultisampling,
+                                            bool careAboutBlending,
+                                            bool careAboutColorWriteMasks,
+                                            bool careAboutStencilFunc,
+                                            bool careAboutStencilOp,
+                                            bool careAboutStencilMask,
+                                            bool careAboutDepthFunc,
+                                            bool careAboutDepthMask,
+                                            bool careAboutImages,
+                                            bool careAboutTextures,
+                                            bool careAboutFaceOrientOrCull,
+                                            bool careAboutVAO,
+                                            bool careAboutUBO)
 {
     COpenGLState retval;
 
@@ -433,24 +434,26 @@ COpenGLState COpenGLState::collectGLState(  const bool& careAboutHints, //should
         glGetIntegerv(GL_CULL_FACE_MODE,reinterpret_cast<GLint*>(&retval.glCullFace_val));
     }
 
-    //UBO
-    int32_t maxUBOs = 0;
-    glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS,&maxUBOs);
-    if (maxUBOs>OGL_MAX_BUFFER_BINDINGS)
-        maxUBOs = OGL_MAX_BUFFER_BINDINGS;
-
-    for (int32_t i=0; i<maxUBOs; i++)
+    if (careAboutUBO)
     {
-        glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_BINDING,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].object));
-        if (retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].object)
+        int32_t maxUBOs = 0;
+        glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS,&maxUBOs);
+        if (maxUBOs>OGL_MAX_BUFFER_BINDINGS)
+            maxUBOs = OGL_MAX_BUFFER_BINDINGS;
+
+        for (int32_t i=0; i<maxUBOs; i++)
         {
-            glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_SIZE,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size));
-            if (retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size)
-                glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_START,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].offset));
-            else
+            glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_BINDING,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].object));
+            if (retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].object)
             {
-                    glGetNamedBufferParameteri64v_MACRO(retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].object,GL_BUFFER_SIZE,
-                                                        reinterpret_cast<GLint64*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size));
+                glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_SIZE,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size));
+                if (retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size)
+                    glGetIntegeri_v_MACRO(GL_UNIFORM_BUFFER_START,i,reinterpret_cast<GLint*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].offset));
+                else
+                {
+                        glGetNamedBufferParameteri64v_MACRO(retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].object,GL_BUFFER_SIZE,
+                                                            reinterpret_cast<GLint64*>(&retval.boundBufferRanges[EGRBT_UNIFORM_BUFFER][i].size));
+                }
             }
         }
     }

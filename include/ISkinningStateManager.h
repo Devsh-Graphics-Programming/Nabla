@@ -222,7 +222,7 @@ namespace scene
                 instanceFinalBoneDataSize = referenceHierarchy->getBoneCount()*sizeof(FinalBoneData);
 
                 auto bufSize = instanceFinalBoneDataSize*16u; // use more buffer space in the future for GPU scene-tree
-                instanceBoneDataAllocator = new std::remove_pointer<decltype(instanceBoneDataAllocator)>::type(driver,core::allocator<uint8_t>(),bufSize,core::roundUpToPoT(instanceFinalBoneDataSize),instanceFinalBoneDataSize);
+                instanceBoneDataAllocator = new std::remove_pointer<decltype(instanceBoneDataAllocator)>::type(driver,core::allocator<uint8_t>(),0u,0u,core::roundDownToPoT(instanceFinalBoneDataSize),bufSize,instanceFinalBoneDataSize);
 
                 actualSizeOfInstanceDataElement = sizeof(BoneHierarchyInstanceData)+referenceHierarchy->getBoneCount()*(sizeof(IBoneSceneNode*)+sizeof(core::matrix4x3)); // TODO: odd bone counts will break alignment badly!
             }
@@ -311,7 +311,7 @@ namespace scene
         protected:
             virtual ~ISkinningStateManager()
             {
-                for (size_t j=instanceBoneDataAllocator->getAddressAllocator().get_align_offset(); j<instanceBoneDataAllocator->getAddressAllocator().get_total_size(); j+=instanceFinalBoneDataSize)
+                for (size_t j=instanceBoneDataAllocator->getAddressAllocator().get_combined_offset(); j<instanceBoneDataAllocator->getAddressAllocator().get_total_size(); j+=instanceFinalBoneDataSize)
                 {
                     BoneHierarchyInstanceData* currentInstance = getBoneHierarchyInstanceFromAddr(j);
                     if (!currentInstance->refCount)
