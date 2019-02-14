@@ -311,12 +311,12 @@ int main()
     {
         printf("Benchmarking Pixel %d %d %d\n",method,texSize[0],texSize[1]);
 
-        video::ITexture* depthBuffer = driver->addTexture(video::ITexture::ETT_2D,texSize,1,"Depth",video::ECF_DEPTH32F);
+        video::ITexture* depthBuffer = driver->createGPUTexture(video::ITexture::ETT_2D,texSize,1,asset::EF_D32_SFLOAT);
 
 
-        scene::IGPUMeshBuffer* screenQuadMeshBuffer = new scene::IGPUMeshBuffer();
+        video::IGPUMeshBuffer* screenQuadMeshBuffer = new video::IGPUMeshBuffer();
         {
-            scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+            video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
             screenQuadMeshBuffer->setMeshDataAndFormat(desc);
             desc->drop();
 
@@ -356,16 +356,16 @@ int main()
             buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
             buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
 
-            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(ScreenQuadVertexStruct),0);
-            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_UNSIGNED_BYTE,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
-            desc->mapIndexBuffer(buff);
+            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(ScreenQuadVertexStruct),0);
+            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R8G8_UNORM,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
+            desc->setIndexBuffer(buff);
             screenQuadMeshBuffer->setIndexBufferOffset(sizeof(vertices));
-            screenQuadMeshBuffer->setIndexType(scene::EIT_16BIT);
+            screenQuadMeshBuffer->setIndexType(asset::EIT_16BIT);
             screenQuadMeshBuffer->setIndexCount(6);
             buff->drop();
         }
 
-        video::SMaterial postProcMaterial;
+        video::SGPUMaterial postProcMaterial;
         //! First need to make a material other than default to be able to draw with custom shader
         postProcMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
         postProcMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test

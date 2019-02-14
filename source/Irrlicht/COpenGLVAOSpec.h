@@ -3,7 +3,7 @@
 
 #include "IrrCompileConfig.h"
 #include "COpenGLBuffer.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
@@ -11,84 +11,40 @@ namespace irr
 {
 namespace video
 {
-    static GLint eComponentsPerAttributeToGLint[scene::ECPA_COUNT] =
-    {
-        GL_BGRA,
-        1,2,3,4
-    };
-
-    static GLenum eComponentTypeToGLenum[scene::ECT_COUNT] =
-    {
-        GL_FLOAT,
-        GL_HALF_FLOAT,
-        GL_DOUBLE,
-        GL_UNSIGNED_INT_10F_11F_11F_REV,
-        //normalized ints
-        GL_INT_2_10_10_10_REV,
-        GL_UNSIGNED_INT_2_10_10_10_REV,
-        GL_BYTE,
-        GL_UNSIGNED_BYTE,
-        GL_SHORT,
-        GL_UNSIGNED_SHORT,
-        GL_INT,
-        GL_UNSIGNED_INT,
-        //unnorm ints
-        GL_INT_2_10_10_10_REV,
-        GL_UNSIGNED_INT_2_10_10_10_REV,
-        GL_BYTE,
-        GL_UNSIGNED_BYTE,
-        GL_SHORT,
-        GL_UNSIGNED_SHORT,
-        GL_INT,
-        GL_UNSIGNED_INT,
-        //native ints
-        GL_INT_2_10_10_10_REV,
-        GL_UNSIGNED_INT_2_10_10_10_REV,
-        GL_BYTE,
-        GL_UNSIGNED_BYTE,
-        GL_SHORT,
-        GL_UNSIGNED_SHORT,
-        GL_INT,
-        GL_UNSIGNED_INT,
-        //native double
-        GL_DOUBLE
-    };
-
-
     //! Convert E_PRIMITIVE_TYPE to OpenGL equivalent
-    inline GLenum primitiveTypeToGL(scene::E_PRIMITIVE_TYPE type)
+    inline GLenum primitiveTypeToGL(asset::E_PRIMITIVE_TYPE type)
     {
         switch (type)
         {
-            case scene::EPT_POINTS:
+            case asset::EPT_POINTS:
                 return GL_POINTS;
-            case scene::EPT_LINE_STRIP:
+            case asset::EPT_LINE_STRIP:
                 return GL_LINE_STRIP;
-            case scene::EPT_LINE_LOOP:
+            case asset::EPT_LINE_LOOP:
                 return GL_LINE_LOOP;
-            case scene::EPT_LINES:
+            case asset::EPT_LINES:
                 return GL_LINES;
-            case scene::EPT_TRIANGLE_STRIP:
+            case asset::EPT_TRIANGLE_STRIP:
                 return GL_TRIANGLE_STRIP;
-            case scene::EPT_TRIANGLE_FAN:
+            case asset::EPT_TRIANGLE_FAN:
                 return GL_TRIANGLE_FAN;
-            case scene::EPT_TRIANGLES:
+            case asset::EPT_TRIANGLES:
                 return GL_TRIANGLES;
         }
         return GL_TRIANGLES;
     }
 
 
-    class COpenGLVAOSpec : public scene::IGPUMeshDataFormatDesc
+    class COpenGLVAOSpec : public video::IGPUMeshDataFormatDesc
     {
         public:
             struct HashAttribs
             {
                 HashAttribs()
                 {
-                    static_assert(scene::ECPA_COUNT==5, "scene::ECPA_COUNT != 5"); //otherwise our hashing system falls apart
-                    static_assert(scene::EVAI_COUNT==16, "scene::EVAI_COUNT != 16"); //otherwise our hashing system falls apart
-                    static_assert(sizeof(HashAttribs)/sizeof(uint64_t)==(scene::EVAI_COUNT+2+_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS*2+sizeof(uint64_t)-1)/sizeof(uint64_t), ""); //otherwise our hashing system falls apart
+                    static_assert(asset::EVAI_COUNT==16, "scene::EVAI_COUNT != 16"); //otherwise our hashing system falls apart
+                    static_assert(asset::EF_UNKNOWN < 256, "EF_UNKNOW >= 256"); //otherwise our hashing system falls apart
+                    static_assert(sizeof(HashAttribs)/sizeof(uint64_t)==(asset::EVAI_COUNT+2+2+sizeof(uint64_t)-1)/sizeof(uint64_t), ""); //otherwise our hashing system falls apart
 
                     for (size_t i=0; i<getHashLength(); i++)
                         hashVal[i] = 0;
@@ -96,32 +52,19 @@ namespace video
 
                 constexpr static size_t getHashLength() {return sizeof(hashVal)/sizeof(uint64_t);}
 
-                inline void setAttrFmtAndCompCnt(const scene::E_VERTEX_ATTRIBUTE_ID& attrId, const scene::E_COMPONENTS_PER_ATTRIBUTE& components, const scene::E_COMPONENT_TYPE& type)
+                inline void setAttrFmt(const asset::E_VERTEX_ATTRIBUTE_ID& attrId, asset::E_FORMAT fmt)
                 {
-                    attribFormatAndComponentCount[attrId] = components|(type<<3);
+                    attribFormatAndComponentCount[attrId] = fmt;
                 }
 
-
-                inline scene::E_COMPONENTS_PER_ATTRIBUTE getAttribComponentCount(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                inline asset::E_FORMAT getAttribFormat(const asset::E_VERTEX_ATTRIBUTE_ID& attrId) const
                 {
-                    return static_cast<scene::E_COMPONENTS_PER_ATTRIBUTE>(attribFormatAndComponentCount[attrId]&0x7u);
+                    return static_cast<asset::E_FORMAT>(attribFormatAndComponentCount[attrId]);
                 }
 
-                inline scene::E_COMPONENT_TYPE getAttribType(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
+                inline uint32_t getAttribDivisor(const asset::E_VERTEX_ATTRIBUTE_ID& attrId) const
                 {
-                    return static_cast<scene::E_COMPONENT_TYPE>(attribFormatAndComponentCount[attrId]>>3);
-                }
-
-                inline uint32_t getAttribDivisor(const scene::E_VERTEX_ATTRIBUTE_ID& attrId) const
-                {
-                    uint32_t retval = 0;
-                    for (size_t i=0; i<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS; i++)
-                    {
-                        uint16_t mask = 0x1u<<attrId;
-                        if (attributeDivisors[i]&mask)
-                            retval |= 0x1u<<i;
-                    }
-                    return retval;
+                    return (attributeDivisors<<attrId) & 1u;
                 }
 
 
@@ -171,19 +114,19 @@ namespace video
                     #include "irr/irrpack.h"
                     struct
                     {
-                        uint8_t attribFormatAndComponentCount[scene::EVAI_COUNT];
+                        uint8_t attribFormatAndComponentCount[asset::EVAI_COUNT];
                         uint16_t enabledAttribs;
-                        uint16_t attributeDivisors[_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS];
+                        uint16_t attributeDivisors;
                     } PACK_STRUCT;
                     #include "irr/irrunpack.h"
 
-                    uint64_t hashVal[(scene::EVAI_COUNT+2*_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS+sizeof(uint64_t)-1)/sizeof(uint64_t)];
+                    uint64_t hashVal[(asset::EVAI_COUNT+2+sizeof(uint64_t)-1)/sizeof(uint64_t)];
                 };
             };
 
             COpenGLVAOSpec(core::LeakDebugger* dbgr=NULL);
 
-            virtual void mapVertexAttrBuffer(IGPUBuffer* attrBuf, const scene::E_VERTEX_ATTRIBUTE_ID& attrId, scene::E_COMPONENTS_PER_ATTRIBUTE components, scene::E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0, uint32_t divisor=0);
+            virtual void setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override;
 
             inline const IGPUBuffer* const* getMappedBuffers() const
             {

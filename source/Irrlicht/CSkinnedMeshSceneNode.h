@@ -16,10 +16,10 @@ namespace scene
 	class CSkinnedMeshSceneNode : public ISkinnedMeshSceneNode
 	{
             void buildFrameNr(const uint32_t& deltaTimeMs);
-            IGPUSkinnedMesh* mesh;
+            video::IGPUSkinnedMesh* mesh;
             CSkinningStateManager* boneStateManager;
 
-            core::vector<video::SMaterial> Materials;
+            core::vector<video::SGPUMaterial> Materials;
             core::aabbox3d<float> Box;
             IAnimationEndCallBack<ISkinnedMeshSceneNode>* LoopCallBack;
 
@@ -47,7 +47,7 @@ namespace scene
         public:
 
             //! Constructor
-            CSkinnedMeshSceneNode(IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode, IDummyTransformationSceneNode* parent, ISceneManager* mgr,	int32_t id,
+            CSkinnedMeshSceneNode(video::IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode, IDummyTransformationSceneNode* parent, ISceneManager* mgr,	int32_t id,
                     const core::vector3df& position = core::vector3df(0.f), const core::vector3df& rotation = core::vector3df(0.f),
                     const core::vector3df& scale = core::vector3df(1.f))
                 : ISkinnedMeshSceneNode(parent, mgr, id, position, rotation, scale), mesh(NULL), boneStateManager(NULL),
@@ -100,7 +100,7 @@ namespace scene
             //! This function is needed for inserting the node into the scene hirachy on a
             //! optimal position for minimizing renderstate changes, but can also be used
             //! to directly modify the material of a scene node.
-            virtual video::SMaterial& getMaterial(uint32_t i)
+            virtual video::SGPUMaterial& getMaterial(uint32_t i)
             {
                 if (i >= Materials.size())
                     return ISceneNode::getMaterial(i);
@@ -164,10 +164,10 @@ namespace scene
             virtual void setAnimationEndCallback(IAnimationEndCallBack<ISkinnedMeshSceneNode>* callback=0);
 
             //! Sets a new mesh
-            virtual void setMesh(IGPUSkinnedMesh* inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE);
+            virtual void setMesh(video::IGPUSkinnedMesh* inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE);
 
             //! Returns the current mesh
-            virtual IGPUSkinnedMesh* getMesh(void) {return mesh;}
+            virtual video::IGPUSkinnedMesh* getMesh(void) {return mesh;}
 
             //! animates the joints in the mesh based on the current frame.
             /** Also takes in to account transitions. */

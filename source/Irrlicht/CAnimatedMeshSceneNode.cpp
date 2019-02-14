@@ -6,12 +6,10 @@
 #include "IVideoDriver.h"
 #include "ISceneManager.h"
 #include "os.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 #include "IDummyTransformationSceneNode.h"
 #include "IMaterialRenderer.h"
-#include "IMesh.h"
-#include "IMeshCache.h"
-#include "IAnimatedMesh.h"
+#include "irr/asset/IMesh.h"
 
 
 namespace irr

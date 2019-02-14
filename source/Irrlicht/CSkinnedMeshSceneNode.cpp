@@ -3,9 +3,9 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CSkinnedMeshSceneNode.h"
-#include "CSkinnedMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 #include "IMaterialRenderer.h"
-#include "IMesh.h"
+#include "irr/asset/IMesh.h"
 #include "ISceneManager.h"
 
 namespace irr
@@ -88,7 +88,7 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
         // count copied materials
         for (uint32_t i=0; i<Materials.size(); ++i)
         {
-            scene::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+            video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
             if (!mb||mb->getIndexCount()<1)
                 continue;
 
@@ -176,10 +176,10 @@ void CSkinnedMeshSceneNode::render()
         // render original meshes
         for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
         {
-            scene::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+            video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
             if (mb)
             {
-                const video::SMaterial& material = Materials[i];
+                const video::SGPUMaterial& material = Materials[i];
 
                 video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
                 bool transparent = (rnd && rnd->isTransparent());
@@ -200,7 +200,7 @@ void CSkinnedMeshSceneNode::render()
 	{
         driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
-		video::SMaterial debug_mat;
+		video::SGPUMaterial debug_mat;
         debug_mat.Thickness = 3.f;
 		driver->setMaterial(debug_mat);
 /**
@@ -224,7 +224,7 @@ void CSkinnedMeshSceneNode::render()
 
 
 //! Sets a new mesh
-void CSkinnedMeshSceneNode::setMesh(IGPUSkinnedMesh* inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl)
+void CSkinnedMeshSceneNode::setMesh(video::IGPUSkinnedMesh* inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl)
 {
     if (mesh)
         mesh->drop();
@@ -254,11 +254,11 @@ void CSkinnedMeshSceneNode::setMesh(IGPUSkinnedMesh* inMesh, const ISkinningStat
 
     for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
     {
-        IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+        video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
         if (mb)
             Materials[i] = mb->getMaterial();
         else
-            Materials[i] = video::SMaterial();
+            Materials[i] = video::SGPUMaterial();
     }
 }
 

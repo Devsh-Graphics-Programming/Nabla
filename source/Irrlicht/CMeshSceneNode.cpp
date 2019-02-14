@@ -6,7 +6,6 @@
 #include "IVideoDriver.h"
 #include "ISceneManager.h"
 #include "ICameraSceneNode.h"
-#include "IMeshCache.h"
 #include "IAnimatedMesh.h"
 #include "IMaterialRenderer.h"
 #include "IFileSystem.h"
@@ -19,7 +18,7 @@ namespace scene
 
 
 //! constructor
-CMeshSceneNode::CMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
+CMeshSceneNode::CMeshSceneNode(video::IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position, const core::vector3df& rotation,
 			const core::vector3df& scale)
 : IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
@@ -64,7 +63,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 
 			for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
 			{
-				scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+                video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 				if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
                     continue;
 
@@ -85,7 +84,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 
 			for (uint32_t i=0; i<Materials.size(); ++i)
 			{
-				scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+                video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 				if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
                     continue;
 
@@ -134,10 +133,10 @@ void CMeshSceneNode::render()
 
         for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
         {
-            scene::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+            video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
             if (mb)
             {
-                const video::SMaterial& material = ReferencingMeshMaterials ? mb->getMaterial() : Materials[i];
+                const video::SGPUMaterial& material = ReferencingMeshMaterials ? mb->getMaterial() : Materials[i];
 
                 video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
                 bool transparent = (rnd && rnd->isTransparent());
@@ -158,7 +157,7 @@ void CMeshSceneNode::render()
 	{
         driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
 
-		video::SMaterial m;
+		video::SGPUMaterial m;
 		driver->setMaterial(m);
 
 		// show mesh
@@ -189,7 +188,7 @@ const core::aabbox3d<float>& CMeshSceneNode::getBoundingBox()
 //! This function is needed for inserting the node into the scene hierarchy on a
 //! optimal position for minimizing renderstate changes, but can also be used
 //! to directly modify the material of a scene node.
-video::SMaterial& CMeshSceneNode::getMaterial(uint32_t i)
+video::SGPUMaterial& CMeshSceneNode::getMaterial(uint32_t i)
 {
 	if (Mesh && ReferencingMeshMaterials && i<Mesh->getMeshBufferCount())
 		return Mesh->getMeshBuffer(i)->getMaterial();
@@ -212,7 +211,7 @@ uint32_t CMeshSceneNode::getMaterialCount() const
 
 
 //! Sets a new mesh
-void CMeshSceneNode::setMesh(IGPUMesh* mesh)
+void CMeshSceneNode::setMesh(video::IGPUMesh* mesh)
 {
 	if (mesh)
 	{
@@ -233,11 +232,11 @@ void CMeshSceneNode::copyMaterials()
 
 	if (Mesh)
 	{
-		video::SMaterial mat;
+		video::SGPUMaterial mat;
 
 		for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
 		{
-			IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+            video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 			if (mb)
 				mat = mb->getMaterial();
 

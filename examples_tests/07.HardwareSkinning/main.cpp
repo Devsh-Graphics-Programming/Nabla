@@ -1,7 +1,6 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
-#include "../source/Irrlicht/CSkinnedMesh.h"
 
 using namespace irr;
 using namespace core;
@@ -123,34 +122,22 @@ int main()
 	device->setEventReceiver(&receiver);
 
 	io::IFileSystem* fs = device->getFileSystem();
-	scene::IMeshWriter* writer = smgr->createMeshWriter(irr::scene::EMWT_BAW);
 
 #define kInstanceSquareSize 10
 	scene::ISceneNode* instancesToRemove[kInstanceSquareSize*kInstanceSquareSize] = { 0 };
 
-	//! Test Loading of Obj
-	scene::ICPUMesh* cpumeshold = smgr->getMesh("../../media/dwarf.x");
-	// export mesh
-	io::IWriteFile* file = fs->createAndWriteFile("dwarf.baw");
-	writer->writeMesh(file, cpumeshold);
-	file->drop();
-	// end export
+    asset::IAssetLoader::SAssetLoadParams lparams;
+	asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.baw", lparams));
 
-	smgr->getMeshCache()->removeMesh(cpumeshold);
-
-	// import .baw mesh (test)
-	scene::ICPUMesh* cpumesh = smgr->getMesh("dwarf.baw");
-
-	if (cpumesh&&cpumesh->getMeshType() == scene::EMT_ANIMATED_SKINNED)
+	if (cpumesh&&cpumesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
 	{
 		scene::ISkinnedMeshSceneNode* anode = 0;
-		scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh))[0];
-		smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
+		video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
 
 		for (size_t x = 0; x<kInstanceSquareSize; x++)
 			for (size_t z = 0; z<kInstanceSquareSize; z++)
 			{
-				instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(static_cast<scene::IGPUSkinnedMesh*>(gpumesh));
+				instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(static_cast<video::IGPUSkinnedMesh*>(gpumesh));
 				anode->setScale(core::vector3df(0.05f));
 				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
 				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
@@ -160,9 +147,6 @@ int main()
 
 		gpumesh->drop();
 	}
-
-	writer->drop();
-
 
 	uint64_t lastFPSTime = 0;
 
@@ -192,29 +176,6 @@ int main()
 	for (size_t x = 0; x<kInstanceSquareSize; x++)
 		for (size_t z = 0; z<kInstanceSquareSize; z++)
 			instancesToRemove[x + kInstanceSquareSize*z]->remove();
-
-	//create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8, params.WindowSize);
-	glReadPixels(0, 0, params.WindowSize.Width, params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-	{
-		// images are horizontally flipped, so we have to fix that here.
-		uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-		const int32_t pitch = screenshot->getPitch();
-		uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-		uint8_t* tmpBuffer = new uint8_t[pitch];
-		for (uint32_t i = 0; i < params.WindowSize.Height; i += 2)
-		{
-			memcpy(tmpBuffer, pixels, pitch);
-			memcpy(pixels, p2, pitch);
-			memcpy(p2, tmpBuffer, pitch);
-			pixels += pitch;
-			p2 -= pitch;
-		}
-		delete[] tmpBuffer;
-	}
-	driver->writeImageToFile(screenshot, "./screenshot.png");
-	screenshot->drop();
 
 	device->drop();
 

@@ -33,7 +33,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 
 	// create material
 
-	video::SMaterial mat;
+	video::SGPUMaterial mat;
 	mat.ZBuffer = video::ECFN_NEVER;
 	mat.ZWriteEnable = false;
 	mat.TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
@@ -122,25 +122,25 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 
 	for (size_t i=0; i<6; i++)
     {
-        sides[i] = new IGPUMeshBuffer();
-        sides[i]->setPrimitiveType(EPT_TRIANGLE_FAN);
+        sides[i] = new video::IGPUMeshBuffer();
+        sides[i]->setPrimitiveType(asset::EPT_TRIANGLE_FAN);
         sides[i]->setIndexCount(4);
-        IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+        video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
         sides[i]->setMeshDataAndFormat(desc);
         desc->drop();
     }
-    sides[0]->getMeshDataAndFormat()->mapVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_BYTE,0,positionsOffsetInBuf);
-    sides[0]->getMeshDataAndFormat()->mapVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_FLOAT);
-    sides[1]->getMeshDataAndFormat()->mapVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_BYTE,0,positionsOffsetInBuf+3*4*1);
-    sides[1]->getMeshDataAndFormat()->mapVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_FLOAT);
-    sides[2]->getMeshDataAndFormat()->mapVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_BYTE,0,positionsOffsetInBuf+3*4*2);
-    sides[2]->getMeshDataAndFormat()->mapVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_FLOAT);
-    sides[3]->getMeshDataAndFormat()->mapVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_BYTE,0,positionsOffsetInBuf+3*4*3);
-    sides[3]->getMeshDataAndFormat()->mapVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_FLOAT);
-    sides[4]->getMeshDataAndFormat()->mapVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_BYTE,0,positionsOffsetInBuf+3*4*4);
-    sides[4]->getMeshDataAndFormat()->mapVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_FLOAT);
-    sides[5]->getMeshDataAndFormat()->mapVertexAttrBuffer(vertPositions,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_BYTE,0,positionsOffsetInBuf+3*4*5);
-    sides[5]->getMeshDataAndFormat()->mapVertexAttrBuffer(texcoordBuf,scene::EVAI_ATTR2,scene::ECPA_TWO,scene::ECT_FLOAT,0,2*4*sizeof(float));
+    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf);
+    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*1);
+    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*2);
+    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*3);
+    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*4);
+    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*5);
+    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,0,2*4*sizeof(float));
     texcoordBuf->drop();
 }
 
@@ -266,7 +266,7 @@ void CSkyBoxSceneNode::OnRegisterSceneNode()
 //! This function is needed for inserting the node into the scene hirachy on a
 //! optimal position for minimizing renderstate changes, but can also be used
 //! to directly modify the material of a scene node.
-video::SMaterial& CSkyBoxSceneNode::getMaterial(uint32_t i)
+video::SGPUMaterial& CSkyBoxSceneNode::getMaterial(uint32_t i)
 {
 	return Material[i];
 }

@@ -65,7 +65,7 @@ CIrrDeviceStub::~CIrrDeviceStub()
 void CIrrDeviceStub::createGUIAndScene()
 {
 	// create Scene manager
-	SceneManager = new scene::CSceneManager(VideoDriver, Timer, FileSystem, CursorControl);
+	SceneManager = new scene::CSceneManager(this, VideoDriver, Timer, FileSystem, CursorControl);
 
 	setEventReceiver(UserReceiver);
 }
@@ -239,9 +239,9 @@ bool CIrrDeviceStub::isFullscreen() const
 
 
 //! returns color format
-video::ECOLOR_FORMAT CIrrDeviceStub::getColorFormat() const
+asset::E_FORMAT CIrrDeviceStub::getColorFormat() const
 {
-	return video::ECF_R5G6B5;
+	return asset::EF_B5G6R5_UNORM_PACK16;
 }
 
 //! No-op in this implementation

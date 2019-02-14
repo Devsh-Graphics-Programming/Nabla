@@ -2,7 +2,6 @@
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
-#include "../source/Irrlicht/CGeometryCreator.h"
 #include "../../ext/Blur/CBlurPerformer.h"
 
 using namespace irr;
@@ -126,30 +125,36 @@ int main()
     device->setEventReceiver(&receiver);
 
 
-    scene::ICPUMesh* cpumesh = smgr->getGeometryCreator()->createCubeMeshCPU();
-    video::ITexture* texture = driver->getTexture("../tex.jpg", video::ECF_A16B16G16R16F);
+    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh();
+    asset::IAssetLoader::SAssetLoadParams lparams;
+    asset::ICPUTexture* cputexture = static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../tex.jpg", lparams));
+    video::ITexture* texture = driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
 
     const core::vector2d<uint32_t> dsFactor{ 1u, 1u };
-    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, dsFactor,2u);
+    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, dsFactor, 2u);
     receiver.blurPerf = blur;
 
-    video::ITexture* outputTex = blur->createOutputTexture(texture, "blur_output");
+    video::ITexture* outputTex = blur->createOutputTexture(texture);
 
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
-    scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh))[0];
-    video::SMaterial& mutableMaterial = smgr->addMeshSceneNode(gpumesh)->getMaterial(0);
+    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+    video::SGPUMaterial& mutableMaterial = smgr->addMeshSceneNode(gpumesh)->getMaterial(0);
     mutableMaterial.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     mutableMaterial.TextureLayer[0].Texture = outputTex;
     gpumesh->drop();
 
-    cpumesh->getMeshBuffer(0)->getMaterial().setTexture(0, texture);
-    gpumesh = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh))[0];
-    smgr->addMeshSceneNode(gpumesh, nullptr, -1, vector3df(10.f, 0.f, 0.f))->setMaterialType(newMaterialType);
-    gpumesh->drop();
+    cpumesh->drop();
+    cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh();
+    cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+    cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
-    smgr->getMeshCache()->removeMesh(cpumesh);
+    gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+    video::SGPUMaterial& mat2 = smgr->addMeshSceneNode(gpumesh, nullptr, -1, vector3df(10.f, 0.f, 0.f))->getMaterial(0);
+    mat2.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
+    mat2.TextureLayer[0].Texture = texture;
+    gpumesh->drop();
 
     uint64_t lastFPSTime = 0;
 
@@ -178,7 +183,7 @@ int main()
     blur->drop();
 
     //create a screenshot
-    video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8, params.WindowSize);
+    video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0, 0, params.WindowSize.Width, params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.
@@ -197,7 +202,10 @@ int main()
         }
         delete[] tmpBuffer;
     }
-    driver->writeImageToFile(screenshot, "./screenshot.png");
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
     screenshot->drop();
     device->sleep(3000);
 

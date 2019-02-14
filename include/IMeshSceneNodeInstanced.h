@@ -10,7 +10,8 @@
 #include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
 #include "irr/video/ResizableBufferingAllocator.h"
 #include "ISceneNode.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
+#include "irr/video/IGPUMesh.h"
 
 namespace irr
 {
@@ -37,11 +38,11 @@ class IMeshSceneNodeInstanced : public ISceneNode
     public:
         constexpr static decltype(InstanceDataAddressAllocator::invalid_address) kInvalidInstanceID         = InstanceDataAddressAllocator::invalid_address;
 
-        typedef scene::IMeshDataFormatDesc<video::IGPUBuffer>* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const scene::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
+        typedef asset::IMeshDataFormatDesc<video::IGPUBuffer>* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const asset::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
 
         struct MeshLoD
         {
-            IGPUMesh* mesh;
+            video::IGPUMesh* mesh;
             void* userDataForVAOSetup; //put array of vertex attribute mappings here or something
             float lodDistance;
         };
@@ -67,12 +68,12 @@ class IMeshSceneNodeInstanced : public ISceneNode
         FUTURE:
         The compute shader mode can compute ALL LoDs at once and possibly all IMeshSceneNodeInstanced' nodes' culling and instance data at once.
         \param mesh Mesh to display. */
-        virtual bool setLoDMeshes(  const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
+        virtual bool setLoDMeshes(  const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
                                     const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0) = 0;
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
-        virtual SGPUMesh* getLoDMesh(const size_t &lod) = 0;
+        virtual video::SGPUMesh* getLoDMesh(const size_t &lod) = 0;
 
         virtual size_t getInstanceCount() const = 0;
 

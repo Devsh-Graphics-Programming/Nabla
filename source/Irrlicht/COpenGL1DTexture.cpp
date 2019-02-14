@@ -30,9 +30,9 @@ COpenGL1DTexture::COpenGL1DTexture(GLenum internalFormat, const uint32_t* size, 
     ColorFormat = getColorFormatFromSizedOpenGLFormat(InternalFormat);
 }
 
-bool COpenGL1DTexture::updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
+bool COpenGL1DTexture::updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
 {
-    bool sourceCompressed = isFormatCompressed(inDataColorFormat);
+    bool sourceCompressed = isBlockCompressionFormat(inDataColorFormat);
 
     bool destinationCompressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
     if ((!destinationCompressed)&&sourceCompressed)

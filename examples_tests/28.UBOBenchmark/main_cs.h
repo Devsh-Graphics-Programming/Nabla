@@ -113,7 +113,7 @@ int main()
 #endif
 #endif
 
-    core::ICPUBuffer* cpubuffer = new core::ICPUBuffer(bufSize);
+    asset::ICPUBuffer* cpubuffer = new asset::ICPUBuffer(bufSize);
     for (size_t i = 0u; i < bufSize / 2; ++i)
         ((uint16_t*)(cpubuffer->getPointer()))[i] = rand();
 

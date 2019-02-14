@@ -481,6 +481,8 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_SUNX_constant_data",
 	"GL_WIN_phong_shading",
 	"GL_WIN_specular_fog",
+    "GL_KHR_texture_compression_astc_hdr",
+    "GL_KHR_texture_compression_astc_ldr",
 	//"GLX_EXT_swap_control_tear",
 	// unofficial stuff
 	"GL_NVX_gpu_memory_info"
@@ -926,6 +928,8 @@ class COpenGLExtensionHandler
 		IRR_SUNX_constant_data,
 		IRR_WIN_phong_shading,
 		IRR_WIN_specular_fog,
+        IRR_KHR_texture_compression_astc_hdr,
+        IRR_KHR_texture_compression_astc_ldr,
 		//IRR_GLX_EXT_swap_control_tear,
 		IRR_NVX_gpu_memory_info,
 		IRR_OpenGL_Feature_Count
@@ -968,6 +972,14 @@ class COpenGLExtensionHandler
 	static int32_t reqSSBOAlignment;
 	//!
 	static int32_t reqTBOAlignment;
+    //!
+    static uint64_t maxUBOSize;
+    //!
+    static uint64_t maxSSBOSize;
+    //!
+    static uint64_t maxTBOSize;
+    //!
+    static uint64_t maxBufferSize;
 	//!
 	static int32_t minMemoryMapAlignment;
     //!
@@ -1022,6 +1034,7 @@ class COpenGLExtensionHandler
     static void extGlDisablei(GLenum cap, GLuint index);
     static void extGlGetBooleani_v(GLenum pname, GLuint index, GLboolean* data);
     static void extGlGetFloati_v(GLenum pname, GLuint index, float* data);
+    static void extGlGetInteger64v(GLenum pname, GLint64* data);
     static void extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data);
     static void extGlProvokingVertex(GLenum provokeMode);
     //
@@ -1252,6 +1265,10 @@ class COpenGLExtensionHandler
 	// blend operations
 	static void extGlBlendEquation(GLenum mode);
 
+    // ARB_internalformat_query
+    static void extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
+    static void extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params);
+
 	// the global feature array
 	static bool FeatureAvailable[IRR_OpenGL_Feature_Count];
 
@@ -1262,6 +1279,7 @@ class COpenGLExtensionHandler
     static PFNGLDISABLEIPROC pGlDisablei;
     static PFNGLGETBOOLEANI_VPROC pGlGetBooleani_v;
     static PFNGLGETFLOATI_VPROC pGlGetFloati_v;
+    static PFNGLGETINTEGER64VPROC pGlGetInteger64v;
     static PFNGLGETINTEGERI_VPROC pGlGetIntegeri_v;
     static PFNGLGETSTRINGIPROC pGlGetStringi;
     static PFNGLPROVOKINGVERTEXPROC pGlProvokingVertex;
@@ -1543,6 +1561,10 @@ class COpenGLExtensionHandler
 	static PFNGLENDTRANSFORMFEEDBACKPROC pGlEndTransformFeedback;
 	static PFNGLTRANSFORMFEEDBACKBUFFERBASEPROC pGlTransformFeedbackBufferBase;
 	static PFNGLTRANSFORMFEEDBACKBUFFERRANGEPROC pGlTransformFeedbackBufferRange;
+
+    static PFNGLGETINTERNALFORMATIVPROC pGlGetInternalformativ;
+    static PFNGLGETINTERNALFORMATI64VPROC pGlGetInternalformati64v;
+
     //! REMOVE ALL BELOW
     static PFNGLBLENDFUNCSEPARATEPROC pGlBlendFuncSeparate;
     static PFNGLBLENDFUNCINDEXEDAMDPROC pGlBlendFuncIndexedAMD; //NULL
@@ -1640,6 +1662,15 @@ inline void COpenGLExtensionHandler::extGlGetFloati_v(GLenum pname, GLuint index
         return pGlGetFloati_v(pname,index,data);
 #else
     return glGetFloati_v(pname,index,data);
+#endif // _IRR_OPENGL_USE_EXTPOINTER_
+}
+inline void COpenGLExtensionHandler::extGlGetInteger64v(GLenum pname, GLint64* data)
+{
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+    if (pGlGetInteger64v)
+        return pGlGetInteger64v(pname, data);
+#else
+    return glGetIntegeri_v(pname, index, data);
 #endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 inline void COpenGLExtensionHandler::extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data)
@@ -5302,6 +5333,31 @@ inline void COpenGLExtensionHandler::extGlBlendEquation(GLenum mode)
 #endif
 }
 
+inline void COpenGLExtensionHandler::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
+{
+    if (Version>=460 || FeatureAvailable[IRR_ARB_internalformat_query])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetInternalformativ)
+            pGlGetInternalformativ(target, internalformat, pname, bufSize, params);
+#else
+        glGetInternalformativ(target, internalformat, pname, bufSize, params);
+#endif
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params)
+{
+    if (Version>=460 || FeatureAvailable[IRR_ARB_internalformat_query])
+    {
+#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+        if (pGlGetInternalformati64v)
+            pGlGetInternalformati64v(target, internalformat, pname, bufSize, params);
+#else
+        glGetInternalformati64v(target, internalformat, pname, bufSize, params);
+#endif
+    }
+}
 
 }
 }

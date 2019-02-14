@@ -51,7 +51,7 @@ namespace video
 
 	struct SBurningShaderMaterial
 	{
-		SMaterial org;
+		SGPUMaterial org;
 
 		sVec3 AmbientColor;
 		sVec3 DiffuseColor;

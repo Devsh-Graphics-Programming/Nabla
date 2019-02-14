@@ -6,7 +6,7 @@
 #define __C_CUBE_SCENE_NODE_H_INCLUDED__
 
 #include "IMeshSceneNode.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 
 namespace irr
 {
@@ -41,7 +41,7 @@ namespace scene
             //! This function is needed for inserting the node into the scene hirachy on a
             //! optimal position for minimizing renderstate changes, but can also be used
             //! to directly modify the material of a scene node.
-            virtual video::SMaterial& getMaterial(uint32_t i);
+            virtual video::SGPUMaterial& getMaterial(uint32_t i);
 
             //! returns amount of materials used by this scene node.
             virtual uint32_t getMaterialCount() const;
@@ -53,10 +53,10 @@ namespace scene
             virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
 
             //! Sets a new mesh to display
-            virtual void setMesh(IGPUMesh* mesh) {}
+            virtual void setMesh(video::IGPUMesh* mesh) {}
 
             //! Returns the current mesh
-            virtual IGPUMesh* getMesh(void) { return Mesh; }
+            virtual video::IGPUMesh* getMesh(void) { return Mesh; }
 
             //! Sets if the scene node should not copy the materials of the mesh but use them in a read only style.
             /* In this way it is possible to change the materials a mesh causing all mesh scene nodes
@@ -69,7 +69,7 @@ namespace scene
         private:
             void setSize();
 
-            IGPUMesh* Mesh;
+            video::IGPUMesh* Mesh;
             float Size;
 	};
 

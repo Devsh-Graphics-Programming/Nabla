@@ -1420,17 +1420,17 @@ bool CIrrDeviceLinux::present(video::IImage* image, void* windowId, core::rect<i
 	const uint32_t minWidth = core::min_(image->getDimension().Width, destwidth);
 	const uint32_t destPitch = SoftwareImage->bytes_per_line;
 
-	video::ECOLOR_FORMAT destColor;
+	asset::E_FORMAT destColor;
 	switch (SoftwareImage->bits_per_pixel)
 	{
 		case 16:
 			if (SoftwareImage->depth==16)
-				destColor = video::ECF_R5G6B5;
+				destColor = EF_R5G6B5;
 			else
-				destColor = video::ECF_A1R5G5B5;
+				destColor = EF_A1R5G5B5;
 		break;
-		case 24: destColor = video::ECF_R8G8B8; break;
-		case 32: destColor = video::ECF_A8R8G8B8; break;
+		case 24: destColor = EF_R8G8B8_UNORM; break;
+		case 32: destColor = EF_B8G8R8A8_UNORM; break;
 		default:
 			os::Printer::log("Unsupported screen depth.");
 			return false;
@@ -1488,14 +1488,14 @@ bool CIrrDeviceLinux::isWindowMinimized() const
 
 
 //! returns color format of the window.
-video::ECOLOR_FORMAT CIrrDeviceLinux::getColorFormat() const
+asset::E_FORMAT CIrrDeviceLinux::getColorFormat() const
 {
 #ifdef _IRR_COMPILE_WITH_X11_
 	if (visual && (visual->depth != 16))
-		return video::ECF_R8G8B8;
+		return EF_R8G8B8_UNORM;
 	else
 #endif
-		return video::ECF_R5G6B5;
+		return EF_R5G6B5;
 }
 
 
@@ -2098,7 +2098,7 @@ Cursor CIrrDeviceLinux::TextureToMonochromeCursor(irr::video::IImage * tex, cons
 	maskImage->data = new char[maskImage->height * maskImage->bytes_per_line];
 
 	// write texture into XImage
-	video::ECOLOR_FORMAT format = tex->getColorFormat();
+	asset::E_FORMAT format = tex->getColorFormat();
 	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
 	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
@@ -2172,7 +2172,7 @@ Cursor CIrrDeviceLinux::TextureToARGBCursor(irr::video::IImage * tex, const core
 	image->yhot = hotspot.Y;
 
 	// write texture into XcursorImage
-	video::ECOLOR_FORMAT format = tex->getColorFormat();
+	asset::E_FORMAT format = tex->getColorFormat();
 	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
 	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
 	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;

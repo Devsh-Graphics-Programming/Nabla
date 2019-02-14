@@ -33,10 +33,10 @@ public:
 		NP2_SIZE	= 4,
 		HAS_ALPHA	= 8
 	};
-	CSoftwareTexture2(CImageData* surface, const io::path& name, uint32_t flags);
+	CSoftwareTexture2(asset::CImageData* surface, const io::path& name, uint32_t flags);
 
     virtual IVirtualTexture::E_DIMENSION_COUNT getDimensionality() const {return IVirtualTexture::EDC_TWO;}
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
+    virtual bool updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
     virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
     virtual IVirtualTexture::E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return IVirtualTexture::EVTT_OPAQUE_FILTERABLE;}
     virtual E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
@@ -110,7 +110,7 @@ public:
 	}
 
 	//! returns color format of texture
-	virtual ECOLOR_FORMAT getColorFormat() const
+	virtual asset::E_FORMAT getColorFormat() const
 	{
 		return BURNINGSHADER_COLOR_FORMAT;
 	}
@@ -145,7 +145,7 @@ private:
 
 	uint32_t MipMapLOD;
 	uint32_t Flags;
-	ECOLOR_FORMAT OriginalFormat;
+	asset::E_FORMAT OriginalFormat;
 };
 
 

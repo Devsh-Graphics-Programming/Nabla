@@ -48,7 +48,7 @@ int main()
             { 0.f, 0.f, 0.f },     // start origin
             { 1.f, 0.f, 0.f, 1.f } // start color
         }, {
-            { i % 2 ? i : -i, 50.f, 10.f}, // end origin
+            { i % 2 ? float(i) : float(-i), 50.f, 10.f}, // end origin
             { 1.f, 0.f, 0.f, 1.f }         // end color
         }
         });
@@ -87,7 +87,7 @@ int main()
     draw3DLine->drop();
 
     //create a screenshot
-    video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+    video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.
@@ -106,7 +106,10 @@ int main()
         }
         delete [] tmpBuffer;
     }
-    driver->writeImageToFile(screenshot,"./screenshot.png");
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
     screenshot->drop();
 
     device->drop();

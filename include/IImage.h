@@ -25,7 +25,7 @@ public:
 	/**
 	\return Pointer to the image data. What type of data is pointed to
 	depends on the color format of the image. For example if the color
-	format is ECF_A8R8G8B8, it is of uint32_t. */
+	format is EF_B8G8R8A8_UNORM, it is of uint32_t. */
 	virtual void* getData() = 0;
 	virtual const void* getData() const = 0;
 
@@ -48,7 +48,7 @@ public:
 	virtual void setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend = false ) = 0;
 
 	//! Returns the color format
-	virtual ECOLOR_FORMAT getColorFormat() const = 0;
+	virtual asset::E_FORMAT getColorFormat() const = 0;
 
 	//! Returns mask for red value of a pixel
 	virtual uint32_t getRedMask() const = 0;

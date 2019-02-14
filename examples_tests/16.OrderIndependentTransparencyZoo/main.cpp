@@ -177,13 +177,12 @@ int main()
         #define kInstanceSquareSize 10
 	core::matrix4x3 instancePositions[kInstanceSquareSize*kInstanceSquareSize];
 
-	//! Test Loading of Obj
-    scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/dwarf.x");
-    scene::IGPUMesh* gpumesh = NULL;
+    asset::IAssetLoader::SAssetLoadParams lparams;
+    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.x", lparams));
+    video::IGPUMesh* gpumesh = nullptr;
     if (cpumesh)
     {
-        gpumesh = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh))[0];
-        smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
+        gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1).front();
 
         for (size_t z=0; z<kInstanceSquareSize; z++)
         for (size_t x=0; x<kInstanceSquareSize; x++)
@@ -195,7 +194,7 @@ int main()
     }
 
     //! Set up screen triangle for post-processing
-    scene::IGPUMeshBuffer* screenTriangleMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
+    video::IGPUMeshBuffer* screenTriangleMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
 
 
     //! Must be Power Of Two!
@@ -204,7 +203,7 @@ int main()
 
     video::IFrameBuffer* framebuffer = driver->addFrameBuffer();
     video::IMultisampleTexture* colorMT=NULL,* depthMT=NULL;
-    video::SMaterial initMaterial,resolveMaterial;
+    video::SGPUMaterial initMaterial,resolveMaterial;
     switch (method)
     {
         case 0:
@@ -220,7 +219,7 @@ int main()
                 cb->drop();
                 for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
                 {
-                    video::SMaterial& mat = gpumesh->getMeshBuffer(i)->getMaterial();
+                    video::SGPUMaterial& mat = gpumesh->getMeshBuffer(i)->getMaterial();
                     mat.BlendOperation = video::EBO_ADD;
                     mat.ZWriteEnable = false;
                     mat.BackfaceCulling = false;
@@ -241,7 +240,7 @@ int main()
                 cb->drop();
                 for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
                 {
-                    video::SMaterial& mat = gpumesh->getMeshBuffer(i)->getMaterial();
+                    video::SGPUMaterial& mat = gpumesh->getMeshBuffer(i)->getMaterial();
                     if (method==2)
                     {
                         mat.ZBuffer = video::ECFN_ALWAYS;
@@ -253,8 +252,8 @@ int main()
 
                 {
                     const uint32_t numberOfSamples = transparencyLayers;
-                    colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_A8R8G8B8);
-                    depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_DEPTH32F_STENCIL8);
+                    colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_B8G8R8A8_UNORM);
+                    depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_D32_SFLOAT_S8_UINT);
                     framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorMT);
                     framebuffer->attach(video::EFAP_DEPTH_STENCIL_ATTACHMENT,depthMT);
 
@@ -303,7 +302,7 @@ int main()
                 cb->drop();
                 for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
                 {
-                    video::SMaterial& mat = gpumesh->getMeshBuffer(i)->getMaterial();
+                    video::SGPUMaterial& mat = gpumesh->getMeshBuffer(i)->getMaterial();
                     mat.BackfaceCulling = false;
                     mat.ZBuffer = video::ECFN_GREATER;
                     mat.MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
@@ -311,8 +310,8 @@ int main()
 
                 {
                     const uint32_t numberOfSamples = transparencyLayers;
-                    colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_A8R8G8B8);
-                    depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_DEPTH32F_STENCIL8);
+                    colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_B8G8R8A8_UNORM);
+                    depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_D32_SFLOAT_S8_UINT);
                     framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorMT);
                     framebuffer->attach(video::EFAP_DEPTH_STENCIL_ATTACHMENT,depthMT);
 
@@ -563,7 +562,7 @@ int main()
     gpumesh->drop();
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
         video::COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(0,GL_BACK);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {

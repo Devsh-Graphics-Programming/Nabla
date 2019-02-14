@@ -7,7 +7,7 @@
 #define __C_SKY_DOME_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 
 namespace irr
 {
@@ -33,7 +33,7 @@ class CSkyDomeSceneNode : public ISceneNode
 		virtual void OnRegisterSceneNode();
 		virtual void render();
 		virtual const core::aabbox3d<float>& getBoundingBox();
-		virtual video::SMaterial& getMaterial(uint32_t i);
+		virtual video::SGPUMaterial& getMaterial(uint32_t i);
 		virtual uint32_t getMaterialCount() const;
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_DOME; }
 
@@ -43,7 +43,7 @@ class CSkyDomeSceneNode : public ISceneNode
 
 		void generateMesh();
 
-		IGPUMeshBuffer* Buffer;
+        video::IGPUMeshBuffer* Buffer;
 
         core::aabbox3df BoundingBox;
 		uint32_t HorizontalResolution, VerticalResolution;

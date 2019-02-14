@@ -160,9 +160,6 @@
 #define _IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_ 8
 #define _IRR_MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS_ (24-_IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_) //opengl has one set of slots for both
 
-//! Maximum number of bits allowed in the VAO Attribute Divisor
-#define _IRR_VAO_MAX_ATTRIB_DIVISOR_BITS 1
-
 //! Maximum number of output buffers and streams a Transform Feedback Object can have
 #define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4
 #define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4
@@ -322,11 +319,6 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_X_LOADER_
 #undef _IRR_COMPILE_WITH_X_LOADER_
 #endif
-//! Define _IRR_COMPILE_WITH_OGRE_LOADER_ if you want to load Ogre 3D files
-//#define _IRR_COMPILE_WITH_OGRE_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_OGRE_LOADER_
-#undef _IRR_COMPILE_WITH_OGRE_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_3DS_LOADER_ if you want to load 3D Studio Max files
 //#define _IRR_COMPILE_WITH_3DS_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_3DS_LOADER_
@@ -387,6 +379,13 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_PLY_WRITER_
 #undef _IRR_COMPILE_WITH_PLY_WRITER_
 #endif
+#ifndef NEW_MESHES
+//! Define _IRR_COMPILE_WITH_OBJ_WRITER_ if you want to write .obj files
+#define _IRR_COMPILE_WITH_OBJ_WRITER_
+#ifdef NO_IRR_COMPILE_WITH_OBJ_WRITER_
+#undef _IRR_COMPILE_WITH_OBJ_WRITER_
+#endif
+#endif // NEW_MESHES
 
 //! Define _IRR_COMPILE_WITH_BMP_LOADER_ if you want to load .bmp files
 //! Disabling this loader will also disable the built-in font
@@ -613,21 +612,23 @@ precision will be lower but speed higher. currently X86 only
 	#endif
 #endif
 
+#define _IRR_BAW_FORMAT_VERSION 1
+
 //! @see @ref CBlobsLoadingManager
 #define _IRR_ADD_BLOB_SUPPORT(BlobClassName, EnumValue, Function, ...) \
-case core::Blob::EnumValue:\
-	return core::BlobClassName::Function(__VA_ARGS__);
+case asset::Blob::EnumValue:\
+	return asset::BlobClassName::Function(__VA_ARGS__);
 
 //! Used inside CBlobsLoadingManager. Adds support of given blob types.
 #define _IRR_SUPPORTED_BLOBS(Function, ...) \
-_IRR_ADD_BLOB_SUPPORT(RawBufferBlobV0, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(TexturePathBlobV0, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshBlobV0, EBT_MESH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV0, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV0, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV0, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV0, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV0, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
+_IRR_ADD_BLOB_SUPPORT(RawBufferBlobV1, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(TexturePathBlobV1, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshBlobV1, EBT_MESH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV1, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV1, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV1, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV1, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV1, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
 
 #endif // __IRR_COMPILE_CONFIG_H_INCLUDED__
 

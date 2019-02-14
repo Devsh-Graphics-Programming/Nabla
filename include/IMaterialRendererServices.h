@@ -60,8 +60,8 @@ public:
 	\param lastMaterial The material used until now.
 	\param resetAllRenderstates Set to true if all renderstates should be
 	set, regardless of their current state. */
-	virtual void setBasicRenderStates(const SMaterial& material,
-		const SMaterial& lastMaterial,
+	virtual void setBasicRenderStates(const SGPUMaterial& material,
+		const SGPUMaterial& lastMaterial,
 		bool resetAllRenderstates) = 0; //depr
 
 

@@ -51,7 +51,7 @@ public:
 	//! Destructor
 	virtual ~COpenGLShaderMaterialRenderer();
 
-	virtual void OnSetMaterial(const SMaterial& material, const SMaterial& lastMaterial,
+	virtual void OnSetMaterial(const SGPUMaterial& material, const SGPUMaterial& lastMaterial,
 		bool resetAllRenderstates, IMaterialRendererServices* services);
 
 	virtual bool OnRender(IMaterialRendererServices* service, E_VERTEX_TYPE vtxtype);

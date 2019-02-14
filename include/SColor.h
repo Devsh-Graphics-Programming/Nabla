@@ -6,188 +6,18 @@
 #define __COLOR_H_INCLUDED__
 
 #include "vectorSIMD.h"
+#include "coreutil.h"
+#include "irr/asset/EFormat.h"
 
 namespace irr
 {
 namespace video
 {
-	//! An enum for the color format of textures used by the Irrlicht Engine.
-	/** A color format specifies how color information is stored. */
-	enum ECOLOR_FORMAT
-	{
-		//! 16 bit color format used by the software driver.
-		/** It is thus preferred by all other irrlicht engine video drivers.
-		There are 5 bits for every color component, and a single bit is left
-		for alpha information. */
-		ECF_A1R5G5B5 = 0,
-
-		//! Standard 16 bit color format.
-		ECF_R5G6B5,
-
-		//! 24 bit color, no alpha channel, but 8 bit for red, green and blue.
-		ECF_R8G8B8,
-
-		//! Default 32 bit color format. 8 bits are used for every component: red, green, blue and alpha.
-		ECF_A8R8G8B8,
-
-		/** Floating Point formats. The following formats may only be used for render target textures. */
-
-		//!
-		ECF_R11G11B10F,
-
-		//! 16 bit floating point format using 16 bits for the red channel.
-		ECF_R16F,
-
-		//! 32 bit floating point format using 16 bits for the red channel and 16 bits for the green channel.
-		ECF_G16R16F,
-
-		//! 64 bit floating point format 16 bits are used for the red, green, blue and alpha channels.
-		ECF_A16B16G16R16F,
-
-		//! 32 bit floating point format using 32 bits for the red channel.
-		ECF_R32F,
-
-		//! 64 bit floating point format using 32 bits for the red channel and 32 bits for the green channel.
-		ECF_G32R32F,
-
-		//! 128 bit floating point format. 32 bits are used for the red, green, blue and alpha channels.
-		ECF_A32B32G32R32F,
-
-		//! Needed for some awesome things
-		ECF_R8,
-		ECF_R8G8,
-		ECF_R8G8B8A8,
-
-		//! Block Compression Formats!
-		ECF_RGB_BC1,
-		ECF_RGBA_BC1,
-		ECF_RGBA_BC2,
-		ECF_RGBA_BC3,
-		ECF_R_BC4,
-		ECF_RG_BC5,
-
-        //! In all freaking honesty, use texture view objects to cast between same bitsize pixel formats
-        ECF_8BIT_PIX,
-        ECF_16BIT_PIX,
-        ECF_24BIT_PIX,
-        ECF_32BIT_PIX,
-        ECF_48BIT_PIX,
-        ECF_64BIT_PIX,
-        ECF_96BIT_PIX,
-        ECF_128BIT_PIX,
-
-        //! Custom shizz we wont ever use
-        ECF_DEPTH16,
-        ECF_DEPTH24,
-        ECF_DEPTH32F,
-        ECF_DEPTH24_STENCIL8,
-        ECF_DEPTH32F_STENCIL8,
-        ECF_STENCIL8,
-
-        //! 9 bits for each of R,G,B and 5 bits for shared exponent
-        ECF_RGB9_E5,
-
-		//! Unknown color format:
-		ECF_UNKNOWN
-	};
 
 	//! get the amount of Bits per Pixel of the given color format
-	static uint32_t getBitsPerPixelFromFormat(const ECOLOR_FORMAT format)
+	static uint32_t getBitsPerPixelFromFormat(const asset::E_FORMAT format)
 	{
-		switch(format)
-		{
-		case ECF_A1R5G5B5:
-			return 16;
-		case ECF_R5G6B5:
-			return 16;
-		case ECF_R8G8B8:
-			return 24;
-		case ECF_A8R8G8B8:
-			return 32;
-        case ECF_R11G11B10F:
-            return 32;
-		case ECF_R16F:
-			return 16;
-		case ECF_G16R16F:
-			return 32;
-		case ECF_A16B16G16R16F:
-			return 64;
-		case ECF_R32F:
-			return 32;
-		case ECF_G32R32F:
-			return 64;
-		case ECF_A32B32G32R32F:
-			return 128;
-		case ECF_R8:
-			return 8;
-		case ECF_R8G8:
-			return 16;
-        case ECF_R8G8B8A8:
-            return 32;
-        case ECF_RGB_BC1:
-        case ECF_RGBA_BC1:
-            return 4;
-        case ECF_RGBA_BC2:
-        case ECF_RGBA_BC3:
-            return 8;
-        case ECF_R_BC4:
-            return 4;
-        case ECF_RG_BC5:
-            return 8;
-        case ECF_8BIT_PIX:
-			return 8;
-		case ECF_16BIT_PIX:
-			return 16;
-		case ECF_24BIT_PIX:
-			return 24;
-		case ECF_32BIT_PIX:
-			return 32;
-		case ECF_48BIT_PIX: // rgb @ 16bit
-            return 48;
-        case ECF_64BIT_PIX:
-			return 64;
-		case ECF_96BIT_PIX:
-			return 96;
-		case ECF_128BIT_PIX:
-            return 128;
-        case ECF_DEPTH16:
-            return 16;
-        case ECF_DEPTH24:
-            return 24;
-        case ECF_DEPTH32F:
-        case ECF_DEPTH24_STENCIL8:
-            return 32;
-        case ECF_DEPTH32F_STENCIL8:
-            return 40;
-        case ECF_STENCIL8:
-            return 8;
-        case ECF_RGB9_E5:
-            return 32;
-		default:
-			return 0;
-		}
-	}
-
-	//! get
-	static uint32_t getCompressedFormatBlockSize(const ECOLOR_FORMAT format)
-	{
-		switch(format)
-		{
-            case ECF_RGB_BC1:
-            case ECF_RGBA_BC1:
-            case ECF_RGBA_BC2:
-            case ECF_RGBA_BC3:
-            case ECF_R_BC4:
-            case ECF_RG_BC5:
-                return 4;
-            default:
-                return 1;
-		}
-	}
-
-	static bool isFormatCompressed(const ECOLOR_FORMAT format)
-	{
-	    return getCompressedFormatBlockSize(format)!=1;
+		return getTexelOrBlockSize(format)*8u;
 	}
 
 	//! Creates a 16 bit A1R5G5B5 color
@@ -509,20 +339,20 @@ namespace video
 		/** \param data: must point to valid memory containing color information in the given format
 			\param format: tells the format in which data is available
 		*/
-		void setData(const void *data, ECOLOR_FORMAT format)
+		void setData(const void *data, asset::E_FORMAT format)
 		{
 			switch (format)
 			{
-				case ECF_A1R5G5B5:
+				case asset::EF_A1R5G5B5_UNORM_PACK16:
 					color = A1R5G5B5toA8R8G8B8(*(uint16_t*)data);
 					break;
-				case ECF_R5G6B5:
+				case asset::EF_B5G6R5_UNORM_PACK16:
 					color = R5G6B5toA8R8G8B8(*(uint16_t*)data);
 					break;
-				case ECF_A8R8G8B8:
+				case asset::EF_B8G8R8A8_UNORM:
 					color = *(uint32_t*)data;
 					break;
-				case ECF_R8G8B8:
+				case asset::EF_R8G8B8_UNORM:
 					{
 						uint8_t* p = (uint8_t*)data;
 						set(255, p[0],p[1],p[2]);
@@ -538,25 +368,25 @@ namespace video
 		/** \param data: target to write the color. Must contain sufficiently large memory to receive the number of bytes neede for format
 			\param format: tells the format used to write the color into data
 		*/
-		void getData(void *data, ECOLOR_FORMAT format)
+		void getData(void *data, asset::E_FORMAT format)
 		{
 			switch(format)
 			{
-				case ECF_A1R5G5B5:
+				case asset::EF_A1R5G5B5_UNORM_PACK16:
 				{
 					uint16_t * dest = (uint16_t*)data;
 					*dest = video::A8R8G8B8toA1R5G5B5( color );
 				}
 				break;
 
-				case ECF_R5G6B5:
+				case asset::EF_B5G6R5_UNORM_PACK16:
 				{
 					uint16_t * dest = (uint16_t*)data;
 					*dest = video::A8R8G8B8toR5G6B5( color );
 				}
 				break;
 
-				case ECF_R8G8B8:
+				case asset::EF_R8G8B8_UNORM:
 				{
 					uint8_t* dest = (uint8_t*)data;
 					dest[0] = (uint8_t)getRed();
@@ -565,7 +395,7 @@ namespace video
 				}
 				break;
 
-				case ECF_A8R8G8B8:
+				case asset::EF_B8G8R8A8_UNORM:
 				{
 					uint32_t * dest = (uint32_t*)data;
 					*dest = color;
