@@ -1,6 +1,7 @@
 #ifndef __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 #define __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 
+#include "irr/static_if.h"
 
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 
@@ -11,14 +12,56 @@ namespace irr
 namespace core
 {
 
+// if only we could use c++17 if-constexpr
+namespace impl
+{
+    template<class HeterogenousMemoryAllocator, bool supportsNullBuffer=HeterogenousMemoryAllocator::alloc_traits::supportsNullBuffer> class ResizableHeterogenousMemoryAllocatorBase;
+
+    template<class HeterogenousMemoryAllocator>
+    class ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator,true> : public HeterogenousMemoryAllocator // make protected?
+    {
+        protected:
+            typedef HeterogenousMemoryAllocator Base;
+
+            using Base::Base;
+
+            inline void resizeAddressAllocator(void* newReserved)
+            {
+                using alloc_traits = typename Base::alloc_traits;
+                using AddressAllocator = typename alloc_traits::allocator_type;
+
+                AddressAllocator& mAddrAlloc = Base::getBaseAddrAllocRef();
+                mAddrAlloc = AddressAllocator(Base::mDataSize,std::move(mAddrAlloc),newReserved);
+            }
+    };
+
+    template<class HeterogenousMemoryAllocator>
+    class ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator,false> : public HeterogenousMemoryAllocator // make protected?
+    {
+        protected:
+            typedef HeterogenousMemoryAllocator Base;
+
+            using Base::Base;
+
+            inline void resizeAddressAllocator(void* newReserved)
+            {
+                using alloc_traits = typename Base::alloc_traits;
+                using AddressAllocator = typename alloc_traits::allocator_type;
+
+                AddressAllocator& mAddrAlloc = Base::getBaseAddrAllocRef();
+                void* templateDeductionWorkaround = std::get<1u>(Base::mAllocation);
+                mAddrAlloc = AddressAllocator(templateDeductionWorkaround,Base::mDataSize,std::move(mAddrAlloc),newReserved);
+            }
+    };
+}
 
 template<class HeterogenousMemoryAllocator>
-class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator // make protected?
+class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator> // make protected?
 {
-        typedef HeterogenousMemoryAllocator                        Base;
-        typedef typename Base::alloc_traits                            alloc_traits;
+        typedef impl::ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator> Base;
+        typedef typename Base::alloc_traits                                                                                             alloc_traits;
 
-        typedef typename Base::alloc_traits::allocator_type AddressAllocator;
+        typedef typename Base::alloc_traits::allocator_type                                                                     AddressAllocator;
     public:
         typedef ResizableHeterogenousMemoryAllocator<HeterogenousMemoryAllocator>   ThisType;
 
@@ -26,7 +69,7 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator 
 
 
         template<typename... Args>
-        ResizableHeterogenousMemoryAllocator(Args&&... args) : HeterogenousMemoryAllocator(std::forward<Args>(args)...),growPolicy(defaultGrowPolicy),shrinkPolicy(defaultShrinkPolicy)
+        ResizableHeterogenousMemoryAllocator(Args&&... args) : Base(std::forward<Args>(args)...), growPolicy(defaultGrowPolicy), shrinkPolicy(defaultShrinkPolicy)
         {
         }
 
@@ -69,14 +112,13 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator 
             size_type oldReservedSize = Base::mReservedSize;
             const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
-            Base::mReservedSize = alloc_traits::reserved_size(newSize,mAddrAlloc);
+            Base::mReservedSize = alloc_traits::reserved_size(mAddrAlloc,newSize);
             void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
 
 
             Base::mDataSize = newSize;
             Base::mDataAlloc.reallocate(Base::mAllocation,Base::mDataSize,maxAllocatableAlignment,mAddrAlloc);
-            mAddrAlloc = AddressAllocator(mAddrAlloc,newReserved,nullptr,Base::mDataSize);
-
+            Base::resizeAddressAllocator(newReserved);
 
             if (oldReserved)
                 Base::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(const_cast<void*>(oldReserved)),oldReservedSize);
@@ -106,19 +148,17 @@ class ResizableHeterogenousMemoryAllocator : public HeterogenousMemoryAllocator 
             size_type oldReservedSize = Base::mReservedSize;
             const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
-            Base::mReservedSize = alloc_traits::reserved_size(newSize,mAddrAlloc);
+            Base::mReservedSize = alloc_traits::reserved_size(mAddrAlloc,newSize);
             void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
 
 
             Base::mDataSize = newSize;
             Base::mDataAlloc.reallocate(Base::mAllocation,Base::mDataSize,maxAllocatableAlignment,mAddrAlloc);
-            mAddrAlloc = AddressAllocator(mAddrAlloc,newReserved,nullptr,Base::mDataSize);
-
+            Base::resizeAddressAllocator(newReserved);
 
             if (oldReserved)
                 Base::mReservedAlloc.deallocate(reinterpret_cast<uint8_t*>(const_cast<void*>(oldReserved)),oldReservedSize);
         }
-
 
     protected:
         constexpr static size_type defaultGrowStep = 32u*4096u; //128k at a time

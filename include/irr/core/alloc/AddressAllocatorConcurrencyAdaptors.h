@@ -72,7 +72,7 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
             return retval;
         }
 
-        //! Most allocators do not support e.g. 1-byte allocations
+        //! Most address allocators do not support e.g. 1-byte allocations
         inline size_type    min_size() const noexcept
         {
             lock.lock();
@@ -89,10 +89,11 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
             return retval;
         }
 
-        inline size_type    safe_shrink_size(size_type bound=0u, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+        template<typename... Args>
+        inline size_type    safe_shrink_size(const Args&... args) const noexcept
         {
             lock.lock();
-            auto retval = AddressAllocator::safe_shrink_size(bound,newBuffAlignmentWeCanGuarantee);
+            auto retval = AddressAllocator::safe_shrink_size(args...);
             lock.unlock();
             return retval;
         }
@@ -102,15 +103,12 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
         {
             return AddressAllocator::reserved_size(args...);
         }
-        static inline size_type reserved_size(size_type bufSz, const AddressAllocator& other) noexcept
-        {
-            return AddressAllocator::reserved_size(bufSz,other);
-        }
 
 
-        //! Extra == Use WIHT EXTREME CAUTION
+        //! Extra == USE WITH EXTREME CAUTION
         inline RecursiveLockable&   get_lock() noexcept
         {
+            // TODO: Some static assert to check that lock type is recursive
             return lock;
         }
 };
