@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __IRR_SHADER_RES_H_INCLUDED__
+#define __IRR_SHADER_RES_H_INCLUDED__
 
 #include <cstdint>
 #include "irr/macros.h"
@@ -22,16 +23,23 @@ enum E_SHADER_RESOURCE_TYPE : uint8_t
     ESRT_SAMPLER,
     //! UBO (uniform block in GLSL)
     ESRT_UNIFORM_BUFFER,
-    //! GLSL declaration: `layout(push_constant) uniform name;`
-    ESRT_PUSH_CONSTANT_BLOCK,
     //! GLSL declaration: subpassInput
     ESRT_INPUT_ATTACHMENT,
-    //! e.g. `in vec4 Position;` in vertex shader
-    ESRT_STAGE_INPUT,
-    //! e.g. `out vec4 Color;` in fragment shader
-    ESRT_STAGE_OUTPUT,
     //! SSBO, GLSL declaration: buffer
     ESRT_STORAGE_BUFFER
+};
+enum E_SHADER_INFO_TYPE : uint8_t
+{
+    //! e.g. `in vec4 Position;` in vertex shader
+    ESIT_STAGE_INPUT,
+    //! e.g. `out vec4 Color;` in fragment shader
+    ESIT_STAGE_OUTPUT
+};
+
+//! push-constants are treated seprately (see SIntrospectionData in ICPUShader.h)
+struct SShaderPushConstant
+{
+    // todo
 };
 
 template<E_SHADER_RESOURCE_TYPE restype>
@@ -43,7 +51,7 @@ struct SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER>
 
 };
 template<>
-struct SShaderResource<ESTR_SAMPLED_IMAGE>
+struct SShaderResource<ESRT_SAMPLED_IMAGE>
 {
 
 };
@@ -68,32 +76,47 @@ struct SShaderResource<ESRT_SAMPLER>
 
 };
 template<>
-struct SShaderResource<ESRT_UNIFORM_BUFFER>
-{
-
-};
-template<>
-struct SShaderResource<ESRT_PUSH_CONSTANT_BLOCK>
-{
-
-};
-template<>
 struct SShaderResource<ESRT_INPUT_ATTACHMENT>
 {
-
+    uint32_t inputAttachmentIndex;
 };
+
+namespace impl
+{
+struct SShaderMemoryBlock
+{
+    struct SMember
+    {
+        //! count==1 implies not array
+        uint32_t count = 1u;
+        uint32_t offset = 0u;
+        uint32_t size = 0u;
+        uint32_t arrayStride = 0u;
+        //! mtxStride==0 implies not matrix
+        uint32_t mtxStride = 0u;
+        //! (mtxRowCnt>1 && mtxColCnt==1) implies vector
+        //! (mtxRowCnt==1 && mtxColCnt==1) implies basic type (i.e. int/uint/float/...)
+        uint32_t mtxRowCnt = 1u, mtxColCnt = 1u;
+    };
+    core::vector<SMember> members;
+    //! size==0 implies runtime-sized array; i.e. last (or the only) member is runtime-sized array (e.g. buffer SSBO { float buf[]; }).
+    //! Then rtSizedArrayOneElementSize is equal to size of this array assuming it is of size 1.
+    //! You can use getRuntimeSizedArraySize() to get size of this array with assumption of passed number of elements
+    size_t size;
+    size_t rtSizedArrayOneElementSize;
+
+    //! See docs for `size` member
+    inline size_t getRuntimeSizedArraySize(size_t _elmntCnt) const { return _elmntCnt*rtSizedArrayOneElementSize; }
+};
+}
+
 template<>
-struct SShaderResource<ESRT_STAGE_INPUT>
+struct SShaderResource<ESRT_UNIFORM_BUFFER> : public impl::SShaderMemoryBlock
 {
 
 };
 template<>
-struct SShaderResource<ESRT_STAGE_OUTPUT>
-{
-
-};
-template<>
-struct SShaderResource<ESRT_STORAGE_BUFFER>
+struct SShaderResource<ESRT_STORAGE_BUFFER> : public impl::SShaderMemoryBlock
 {
 
 };
@@ -101,11 +124,12 @@ struct SShaderResource<ESRT_STORAGE_BUFFER>
 
 struct SShaderResourceVariant
 {
-    //! binding or location
+    //! binding
     uint32_t binding;
     E_SHADER_RESOURCE_TYPE type;
     //! Basically size of an array in shader (equal to 1 if individual variable)
     uint32_t descriptorCount;
+    bool descCountIsSpecConstant;
 
     template<E_SHADER_RESOURCE_TYPE restype>
     SShaderResource<restype>& get() { return reinterpret_cast<SShaderResource<restype>&>(variant); }
@@ -115,16 +139,13 @@ struct SShaderResourceVariant
     union
     {
         SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER> combinedImageSampler;
-        SShaderResource<ESTR_SAMPLED_IMAGE> sampledImage;
+        SShaderResource<ESRT_SAMPLED_IMAGE> sampledImage;
         SShaderResource<ESRT_STORAGE_IMAGE> storageImage;
         SShaderResource<ESRT_UNIFORM_TEXEL_BUFFER> uniformTexelBuffer;
         SShaderResource<ESRT_STORAGE_TEXEL_BUFFER> storageTexelBuffer;
         SShaderResource<ESRT_SAMPLER> sampler;
         SShaderResource<ESRT_UNIFORM_BUFFER> uniformBuffer;
-        SShaderResource<ESRT_PUSH_CONSTANT_BLOCK> pushConstantBlock;
         SShaderResource<ESRT_INPUT_ATTACHMENT> inputAttachment;
-        SShaderResource<ESRT_STAGE_INPUT> stageInput;
-        SShaderResource<ESRT_STAGE_OUTPUT> stageOutput;
         SShaderResource<ESRT_STORAGE_BUFFER> storageBuffer;
     } variant;
 };
@@ -133,4 +154,42 @@ bool operator<(const SShaderResourceVariant& _lhs, const SShaderResourceVariant&
     return _lhs.binding < _rhs.binding;
 }
 
+template<E_SHADER_INFO_TYPE type>
+struct SShaderInfo;
+
+template<>
+struct SShaderInfo<ESIT_STAGE_INPUT>
+{
+
+};
+template<>
+struct SShaderInfo<ESIT_STAGE_OUTPUT>
+{
+    //! for dual source blending. Only relevant in Fragment Stage
+    uint32_t colorIndex;
+};
+
+struct SShaderInfoVariant
+{
+    uint32_t location;
+    E_SHADER_INFO_TYPE type;
+
+    template<E_SHADER_INFO_TYPE type>
+    SShaderInfo<type>& get() { return reinterpret_cast<SShaderInfo<type>&>(variant); }
+    template<E_SHADER_INFO_TYPE type>
+    const SShaderInfo<type>& get() const { return reinterpret_cast<const SShaderInfo<type>&>(variant); }
+
+    union
+    {
+        SShaderInfo<ESIT_STAGE_INPUT> stageInput;
+        SShaderInfo<ESIT_STAGE_OUTPUT> stageOutput;
+    } variant;
+};
+bool operator<(const SShaderInfoVariant& _lhs, const SShaderInfoVariant& _rhs)
+{
+    return _lhs.location < _rhs.location;
+}
+
 }}
+
+#endif//__IRR_SHADER_RES_H_INCLUDED__

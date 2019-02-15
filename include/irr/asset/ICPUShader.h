@@ -26,6 +26,22 @@ struct SIntrospectionData
     };
     core::vector<SSpecConstant> specConstants;
     core::vector<SShaderResourceVariant> descriptorSetBindings[4];
+    core::vector<SShaderInfoVariant> inputOutput;
+    struct {
+        bool present;
+        SShaderPushConstant info;
+    } pushConstant;
+
+    bool canSpecializationlesslyCreateDescSetFrom() const
+    {
+        for (const auto& descSet : descriptorSetBindings)
+        {
+            auto found = std::find_if(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& bnd) { return bnd.descCountIsSpecConstant; });
+            if (found != descSet.end())
+                return false;
+        }
+        return true;
+    }
 };
 
 class ICPUShader : public IAsset
@@ -71,8 +87,6 @@ protected:
     //! returns pointer to parsed representation of contained SPIR-V code. Returned object is allocated by _IRR_NEW macro.
     spirv_cross::ParsedIR* parseSPIR_V() const;
 
-    SIntrospectionData doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
-
 protected:
     ICPUBuffer* m_spirvBytecode;
     mutable spirv_cross::ParsedIR* m_parsed = nullptr;
@@ -80,6 +94,13 @@ protected:
     using CacheKey = SEntryPointStagePair;
     core::unordered_map<CacheKey, SIntrospectionData> m_introspectionCache;
     core::vector<SEntryPointStagePair> m_entryPoints;
+
+protected:
+    struct SIntrospectionPerformer
+    {
+        SIntrospectionData doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
+        void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID) const;
+    };
 };
 
 }}

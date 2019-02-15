@@ -61,8 +61,8 @@ protected:
 
 public:
     //! _entries must be sorted!
-    SSpecializationInfo(core::vector<SSpecializationMapEntry>&& _entries, ICPUBuffer* _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss, E_PIPELINE_CREATION _pcf, uint32_t _backingBaseOffset = 0u) : 
-        m_entries{std::move(_entries)}, m_backingBuffer{_backingBuff}, m_baseOffset{_backingBaseOffset}, entryPoint{_entryPoint}, shaderStage{_ss}, pipelineCreationFlags{_pcf}
+    SSpecializationInfo(core::vector<SSpecializationMapEntry>&& _entries, ICPUBuffer* _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) : 
+        m_entries{std::move(_entries)}, m_backingBuffer{_backingBuff}, entryPoint{_entryPoint}, shaderStage{_ss}
     {
         if (m_backingBuffer)
             m_backingBuffer->grab();
@@ -74,8 +74,8 @@ public:
             return {nullptr, 0u};
 
         auto entry = std::lower_bound(m_entries.begin(), m_entries.end(), SSpecializationMapEntry{_specConstID});
-        if (entry != m_entries.end() && entry->specConstID == _specConstID && (m_baseOffset + entry->offset + entry->size) < m_backingBuffer->getSize())
-            return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + m_baseOffset + entry->offset, entry->size};
+        if (entry != m_entries.end() && entry->specConstID == _specConstID && (entry->offset + entry->size) < m_backingBuffer->getSize())
+            return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + entry->offset, entry->size};
         else
             return {nullptr, 0u};
     }
@@ -83,13 +83,10 @@ public:
 public:
     std::string entryPoint;
     E_SHADER_STAGE shaderStage;
-    //! values (bit fields) taken from asset::E_PIPELINE_CREATION
-    uint32_t pipelineCreationFlags;
 
 private:
     core::vector<SSpecializationMapEntry> m_entries;
     ICPUBuffer* m_backingBuffer = nullptr;
-    uint32_t m_baseOffset;
 };
 
 }}
