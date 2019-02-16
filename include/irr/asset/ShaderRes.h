@@ -99,14 +99,17 @@ struct SShaderMemoryBlock
         uint32_t mtxRowCnt = 1u, mtxColCnt = 1u;
     };
     core::vector<SMember> members;
-    //! size==0 implies runtime-sized array; i.e. last (or the only) member is runtime-sized array (e.g. buffer SSBO { float buf[]; }).
-    //! Then rtSizedArrayOneElementSize is equal to size of this array assuming it is of size 1.
-    //! You can use getRuntimeSizedArraySize() to get size of this array with assumption of passed number of elements
-    size_t size;
-    size_t rtSizedArrayOneElementSize;
+
+    //! size!=rtSizedArrayOneElementSize implies that last member is rutime-sized array (e.g. buffer SSBO { float buf[]; }).
+    //! Use getRuntimeSize for size of the struct with assumption of passed number of elements.
+    size_t size = 0u;
+    //! If last member is runtime-sized array, rtSizedArrayOneElementSize is equal to `size+RTSZ` where RTSZ is size (bytes) of this array assuming it's of size 1.
+    //! Otherwise rtSizedArrayOneElementSize==size.
+    size_t rtSizedArrayOneElementSize = 0u;
 
     //! See docs for `size` member
-    inline size_t getRuntimeSizedArraySize(size_t _elmntCnt) const { return _elmntCnt*rtSizedArrayOneElementSize; }
+    inline size_t getRuntimeSize(size_t _elmntCnt) const { return size + _elmntCnt*(rtSizedArrayOneElementSize-size); }
+    inline bool isRuntimeSized() const { return size != rtSizedArrayOneElementSize; }
 };
 }
 

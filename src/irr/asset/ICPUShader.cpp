@@ -208,11 +208,10 @@ void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cros
     using MembT = impl::SShaderMemoryBlock::SMember;
     std::sort(_res.members.begin(), _res.members.end(), [](const MembT& _lhs, const MembT& _rhs) { _lhs.offset < _rhs.offset; });
 
-    _res.size = _comp.get_declared_struct_size(type);
-    if (!_res.size)
-    {
-        _res.rtSizedArrayOneElementSize = _comp.get_declared_struct_size_runtime_array(type, 2u) / 2u; // size of 2 elements divided by 2 so that it takes into account stride/alignment
-    }
+    _res.size = _res.rtSizedArrayOneElementSize = _comp.get_declared_struct_size(type);
+    const spirv_cross::SPIRType& lastType = _comp.get_type(type.member_types[memberCnt-1u]);
+    if (lastType.array.size() && lastType.array_size_literal[0] && lastType.array[0] == 0u)
+        _res.rtSizedArrayOneElementSize += _comp.type_struct_member_array_stride(type, type.member_types[memberCnt-1u]);
 }
 
 }}
