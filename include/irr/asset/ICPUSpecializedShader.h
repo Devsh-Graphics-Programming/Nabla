@@ -14,26 +14,24 @@ protected:
     {
         if (m_specInfo)
             m_specInfo->drop();
-        if (m_spirvBytecode)
-            m_spirvBytecode->drop();
+        if (m_unspecialized)
+            m_unspecialized->drop();
     }
 
 public:
-    ICPUSpecializedShader(ICPUShader* _unspecialized, const SSpecializationInfo* _spc)
-        : m_specInfo{_spc}, m_spirvBytecode{_unspecialized->getSPIR_VBytecode()}
+    ICPUSpecializedShader(const ICPUShader* _unspecialized, const SSpecializationInfo* _spc)
+        : m_unspecialized{_unspecialized}, m_specInfo{_spc}
     {
-        if (m_specInfo)
-            m_specInfo->grab();
-        if (m_spirvBytecode)
-            m_spirvBytecode->grab();
+        m_unspecialized->grab();
+        m_specInfo->grab();
     }
 
-    const SSpecializationInfo* getSpecializationInfo() const { return m_specInfo; }
+    inline const SSpecializationInfo* getSpecializationInfo() const { return m_specInfo; }
+    inline const ICPUShader* getUnspecialized() const { return m_unspecialized; }
 
 private:
+    const ICPUShader* m_unspecialized;
     const SSpecializationInfo* m_specInfo;
-    const ICPUBuffer* m_spirvBytecode;
-    SIntrospectionData m_introspectionData;
 };
 
 }}

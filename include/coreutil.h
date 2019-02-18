@@ -23,6 +23,9 @@ namespace core
 struct adopt_memory_t {};
 constexpr adopt_memory_t adopt_memory{};
 
+struct defer_t {};
+constexpr defer_t defer{};
+
 /*! \file coreutil.h
 	\brief File containing useful basic utility functions
 */

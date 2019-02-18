@@ -139,6 +139,7 @@ struct SShaderResourceVariant
     E_SHADER_RESOURCE_TYPE type;
     //! Basically size of an array in shader (equal to 1 if individual variable)
     uint32_t descriptorCount;
+    //! If descCountIsSpecConstant is true, than descriptorCount is ID of spec constant which is going to be size of this array
     bool descCountIsSpecConstant;
 
     template<E_SHADER_RESOURCE_TYPE restype>

@@ -6,6 +6,7 @@
 #include "irr/asset/ShaderCommons.h"
 #include "irr/asset/ShaderRes.h"
 #include "irr/core/memory/new_delete.h"
+#include "irr/asset/IParsedShaderSource.h"
 
 namespace spirv_cross
 {
@@ -53,13 +54,13 @@ protected:
         if (m_spirvBytecode)
             m_spirvBytecode->drop();
         if (m_parsed)
-            _IRR_DELETE(m_parsed);
+            m_parsed->drop();
     }
 
 public:
     using SEntryPointStagePair = std::pair<std::string, E_SHADER_STAGE>;
 
-    ICPUShader(const void* _spirvBytecode, size_t _bytesize) : m_spirvBytecode(new ICPUBuffer(_bytesize))
+    ICPUShader(const void* _spirvBytecode, size_t _bytesize) : m_spirvBytecode(new ICPUBuffer(_bytesize)), m_parsed(new IParsedShaderSource(m_spirvBytecode, core::defer))
     {
         memcpy(m_spirvBytecode->getPointer(), _spirvBytecode, _bytesize);
     }
@@ -82,15 +83,18 @@ public:
     }
 
     const core::vector<SEntryPointStagePair>& getStageEntryPoints();
+
+    inline const IParsedShaderSource* getParsed() const
+    {
+        return m_parsed;
+    }
+
 protected:
     const core::vector<SEntryPointStagePair>& getStageEntryPoints(spirv_cross::Compiler& _comp);
 
-    //! returns pointer to parsed representation of contained SPIR-V code. Returned object is allocated by _IRR_NEW macro.
-    spirv_cross::ParsedIR* parseSPIR_V() const;
-
 protected:
     ICPUBuffer* m_spirvBytecode;
-    mutable spirv_cross::ParsedIR* m_parsed = nullptr;
+    IParsedShaderSource* m_parsed = nullptr;
 
     using CacheKey = SEntryPointStagePair;
     core::unordered_map<CacheKey, SIntrospectionData> m_introspectionCache;

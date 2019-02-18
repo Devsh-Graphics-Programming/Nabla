@@ -11,13 +11,14 @@ namespace irr { namespace video
 class COpenGLSpecializedShader : public IGPUSpecializedShader
 {
 public:
-    COpenGLSpecializedShader(const asset::ICPUSpecializedShader* _cpushader)
-    {
+    COpenGLSpecializedShader(const asset::ICPUSpecializedShader* _cpushader);
+    /*{
         // manipulate spir-v (specialize spec. constants)
         // down-compile to GLSL (SPIRV-Cross)
         // manipulation 2nd pass (on GLSL code)
         // feed to OpenGL and get GL name
-    }
+    }*/
+
 
     GLuint getOpenGLName() const { return m_GLname; }
 

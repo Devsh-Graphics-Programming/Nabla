@@ -42,10 +42,8 @@ void ICPUShader::enableIntrospection()
 {
     if (m_introspectionCache.size()) // already enabled
         return;
-    if (!m_parsed)
-        m_parsed = parseSPIR_V();
 
-    spirv_cross::Compiler comp(*m_parsed);
+    spirv_cross::Compiler comp(m_parsed->getUnderlyingRepresentation());
     auto eps = getStageEntryPoints(comp);
 
     SIntrospectionPerformer introPerformer;
@@ -57,10 +55,8 @@ auto ICPUShader::getStageEntryPoints() -> const core::vector<SEntryPointStagePai
 {
     if (m_entryPoints.size())
         return m_entryPoints;
-    if (!m_parsed)
-        m_parsed = parseSPIR_V();
 
-    spirv_cross::Compiler comp(*m_parsed);
+    spirv_cross::Compiler comp(m_parsed->getUnderlyingRepresentation());
 
     return getStageEntryPoints(comp);
 }
@@ -69,8 +65,6 @@ auto ICPUShader::getStageEntryPoints(spirv_cross::Compiler& _comp) -> const core
 {
     if (m_entryPoints.size())
         return m_entryPoints;
-    if (!m_parsed)
-        m_parsed = parseSPIR_V();
 
     auto eps = _comp.get_entry_points_and_stages();
     m_entryPoints.reserve(eps.size());
@@ -80,13 +74,6 @@ auto ICPUShader::getStageEntryPoints(spirv_cross::Compiler& _comp) -> const core
     std::sort(m_entryPoints.begin(), m_entryPoints.end());
 
     return m_entryPoints;
-}
-
-spirv_cross::ParsedIR* ICPUShader::parseSPIR_V() const
-{
-    assert(!m_parsed && "probably memleak"); // shouldn't be called more then once per object
-    spirv_cross::Parser parser(reinterpret_cast<uint32_t*>(m_spirvBytecode->getPointer()), m_spirvBytecode->getSize()/4u);
-    return _IRR_NEW(spirv_cross::ParsedIR, std::move(parser.get_parsed_ir()));
 }
 
 SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const
