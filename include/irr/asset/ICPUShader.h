@@ -22,13 +22,37 @@ struct SIntrospectionData
 {
     struct SSpecConstant
     {
+        enum E_TYPE
+        {
+            ET_U64,
+            ET_I64,
+            ET_U32,
+            ET_I32,
+            ET_F64,
+            ET_F32
+        };
+
         uint32_t id;
+        //! TODO: remove this?
         size_t byteSize;
+        E_TYPE type;
         std::string name;
+        union {
+            uint64_t u64;
+            int64_t i64;
+            uint32_t u32;
+            int32_t i32;
+            double f64;
+            float f32;
+        } defaultValue;
     };
+    //! Sorted by `id`
     core::vector<SSpecConstant> specConstants;
+    //! Each vector is sorted by `binding`
     core::vector<SShaderResourceVariant> descriptorSetBindings[4];
+    //! Sorted by `location`
     core::vector<SShaderInfoVariant> inputOutput;
+
     struct {
         bool present;
         SShaderPushConstant info;
@@ -67,11 +91,7 @@ public:
 
     IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SHADER; }
     size_t conservativeSizeEstimate() const override { return m_spirvBytecode ? m_spirvBytecode->conservativeSizeEstimate() : 0u; }
-    void convertToDummyObject() override 
-    { 
-        if (m_spirvBytecode)
-            m_spirvBytecode->drop();
-    }
+    void convertToDummyObject() override { }
 
     const ICPUBuffer* getSPIR_VBytecode() const { return m_spirvBytecode; };
 

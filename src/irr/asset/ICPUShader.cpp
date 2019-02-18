@@ -150,7 +150,11 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_SAMPLER);
     }
+    for (auto& descSet : introData.descriptorSetBindings)
+        std::sort(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& _lhs, const SShaderResourceVariant& _rhs) { return _lhs.binding < _rhs.binding; });
 
+
+    // in/out
     for (const spirv_cross::Resource& r : resources.stage_inputs)
     {
         SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_INPUT);
@@ -160,6 +164,9 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
         SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_OUTPUT);
         res.get<ESIT_STAGE_OUTPUT>().colorIndex = _comp.get_decoration(r.id, spv::DecorationIndex);
     }
+    std::sort(introData.inputOutput.begin(), introData.inputOutput.end(), [](const SShaderInfoVariant& _lhs, const SShaderInfoVariant& _rhs) { return _lhs.location < _rhs.location; });
+
+    // push constants
     if (resources.push_constant_buffers.size())
     {
         const spirv_cross::Resource& r = resources.push_constant_buffers.front();
@@ -178,7 +185,38 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
 
         const spirv_cross::SPIRType& type = _comp.get_type(sconsts[i].id);
         specConst.byteSize = calcBytesizeforType(_comp, type);
+
+        const spirv_cross::SPIRConstant& sconstval = _comp.get_constant(sconsts[i].id);
+        switch (type.basetype)
+        {
+        case spirv_cross::SPIRType::Int:
+            specConst.type = SIntrospectionData::SSpecConstant::ET_I32;
+            specConst.defaultValue.i32 = sconstval.scalar_i32();
+            break;
+        case spirv_cross::SPIRType::UInt:
+            specConst.type = SIntrospectionData::SSpecConstant::ET_U32;
+            specConst.defaultValue.u32 = sconstval.scalar_i32();
+            break;
+        case spirv_cross::SPIRType::Float:
+            specConst.type = SIntrospectionData::SSpecConstant::ET_F32;
+            specConst.defaultValue.f32 = sconstval.scalar_f32();
+            break;
+        case spirv_cross::SPIRType::Int64:
+            specConst.type = SIntrospectionData::SSpecConstant::ET_I64;
+            specConst.defaultValue.i64 = sconstval.scalar_i64();
+            break;
+        case spirv_cross::SPIRType::UInt64:
+            specConst.type = SIntrospectionData::SSpecConstant::ET_U64;
+            specConst.defaultValue.u64 = sconstval.scalar_u64();
+            break;
+        case spirv_cross::SPIRType::Double:
+            specConst.type = SIntrospectionData::SSpecConstant::ET_F64;
+            specConst.defaultValue.f64 = sconstval.scalar_f64();
+            break;
+        }
     }
+    using SSpecConstant = SIntrospectionData::SSpecConstant;
+    std::sort(introData.specConstants.begin(), introData.specConstants.end(), [](const SSpecConstant& _lhs, const SSpecConstant& _rhs) { return _lhs.id < _rhs.id; });
 }
 
 void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID) const
@@ -215,7 +253,7 @@ void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cros
         _res.rtSizedArrayOneElementSize += _comp.type_struct_member_array_stride(type, type.member_types[memberCnt-1u]);
 
     spirv_cross::Bitset flags = _comp.get_buffer_block_flags(_varID);
-    _res.restrict = flags.get(spv::DecorationRestrict);
+    _res.restrict_ = flags.get(spv::DecorationRestrict);
     _res.volatile_ = flags.get(spv::DecorationVolatile);
     _res.coherent = flags.get(spv::DecorationCoherent);
     _res.readonly = flags.get(spv::DecorationNonWritable);

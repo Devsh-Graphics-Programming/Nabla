@@ -7,7 +7,7 @@
 namespace irr { namespace asset
 {
 
-class ICPUSpecializedShader : IAsset
+class ICPUSpecializedShader : public IAsset
 {
 protected:
     virtual ~ICPUSpecializedShader()
@@ -19,19 +19,23 @@ protected:
     }
 
 public:
-    ICPUSpecializedShader(const ICPUShader* _unspecialized, const SSpecializationInfo* _spc)
+    ICPUSpecializedShader(const ICPUShader* _unspecialized, const ISpecializationInfo* _spc)
         : m_unspecialized{_unspecialized}, m_specInfo{_spc}
     {
         m_unspecialized->grab();
         m_specInfo->grab();
     }
 
-    inline const SSpecializationInfo* getSpecializationInfo() const { return m_specInfo; }
+    IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SPECIALIZED_SHADER; }
+    size_t conservativeSizeEstimate() const override { return 0u; /* TODO: ???? */ }
+    void convertToDummyObject() override { }
+
+    inline const ISpecializationInfo* getSpecializationInfo() const { return m_specInfo; }
     inline const ICPUShader* getUnspecialized() const { return m_unspecialized; }
 
 private:
     const ICPUShader* m_unspecialized;
-    const SSpecializationInfo* m_specInfo;
+    const ISpecializationInfo* m_specInfo;
 };
 
 }}

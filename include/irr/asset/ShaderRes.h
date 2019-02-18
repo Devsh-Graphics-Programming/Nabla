@@ -79,7 +79,7 @@ namespace impl
 {
 struct SShaderMemoryBlock
 {
-    bool restrict;
+    bool restrict_;
     bool volatile_;
     bool coherent;
     bool readonly;
@@ -140,6 +140,7 @@ struct SShaderResourceVariant
     //! Basically size of an array in shader (equal to 1 if individual variable)
     uint32_t descriptorCount;
     //! If descCountIsSpecConstant is true, than descriptorCount is ID of spec constant which is going to be size of this array
+    //! Then user can look up default value of this specialization constant in SIntrospectionData::specConstants.
     bool descCountIsSpecConstant;
 
     template<E_SHADER_RESOURCE_TYPE restype>

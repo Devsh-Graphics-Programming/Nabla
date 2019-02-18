@@ -50,10 +50,10 @@ bool operator<(const SSpecializationMapEntry& _a, const SSpecializationMapEntry&
     return _a.specConstID < _b.specConstID;
 }
 
-class SSpecializationInfo : public core::IReferenceCounted
+class ISpecializationInfo : public core::IReferenceCounted
 {
 protected:
-    ~SSpecializationInfo()
+    ~ISpecializationInfo()
     {
         if (m_backingBuffer)
             m_backingBuffer->drop();
@@ -61,7 +61,7 @@ protected:
 
 public:
     //! _entries must be sorted!
-    SSpecializationInfo(core::vector<SSpecializationMapEntry>&& _entries, ICPUBuffer* _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) : 
+    ISpecializationInfo(core::vector<SSpecializationMapEntry>&& _entries, ICPUBuffer* _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) : 
         m_entries{std::move(_entries)}, m_backingBuffer{_backingBuff}, entryPoint{_entryPoint}, shaderStage{_ss}
     {
         if (m_backingBuffer)
