@@ -11,6 +11,7 @@ namespace spirv_cross
 {
     class ParsedIR;
     class Compiler;
+    struct SPIRType;
 }
 
 namespace irr { namespace asset
@@ -99,7 +100,8 @@ protected:
     struct SIntrospectionPerformer
     {
         SIntrospectionData doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
-        void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID) const;
+        void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID) const;
+        size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
     };
 };
 

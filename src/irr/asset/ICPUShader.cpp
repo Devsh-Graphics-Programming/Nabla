@@ -131,12 +131,12 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
     for (const spirv_cross::Resource& r : resources.uniform_buffers)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_UNIFORM_BUFFER);
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()), r.base_type_id);
+        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()), r.base_type_id, r.id);
     }
     for (const spirv_cross::Resource& r : resources.storage_buffers)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_STORAGE_BUFFER);
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()), r.base_type_id);
+        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()), r.base_type_id, r.id);
     }
     for (const spirv_cross::Resource& r : resources.subpass_inputs)
     {
@@ -175,12 +175,26 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
     }
     if (resources.push_constant_buffers.size())
     {
+        const spirv_cross::Resource& r = resources.push_constant_buffers.front();
         introData.pushConstant.present = true;
-        // todo
+        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(introData.pushConstant.info), r.base_type_id, r.id);
+    }
+    
+    // spec constants
+    std::vector<spirv_cross::SpecializationConstant> sconsts = _comp.get_specialization_constants();
+    introData.specConstants.resize(sconsts.size());
+    for (size_t i = 0u; i < sconsts.size(); ++i)
+    {
+        SIntrospectionData::SSpecConstant& specConst = introData.specConstants[i];
+        specConst.id = sconsts[i].constant_id;
+        specConst.name = _comp.get_name(sconsts[i].id);
+
+        const spirv_cross::SPIRType& type = _comp.get_type(sconsts[i].id);
+        specConst.byteSize = calcBytesizeforType(_comp, type);
     }
 }
 
-void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID) const
+void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID) const
 {
     const spirv_cross::SPIRType& type = _comp.get_type(_blockBaseTypeID);
     const uint32_t memberCnt = type.member_types.size();
@@ -212,6 +226,54 @@ void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cros
     const spirv_cross::SPIRType& lastType = _comp.get_type(type.member_types[memberCnt-1u]);
     if (lastType.array.size() && lastType.array_size_literal[0] && lastType.array[0] == 0u)
         _res.rtSizedArrayOneElementSize += _comp.type_struct_member_array_stride(type, type.member_types[memberCnt-1u]);
+
+    spirv_cross::Bitset flags = _comp.get_buffer_block_flags(_varID);
+    _res.restrict = flags.get(spv::DecorationRestrict);
+    _res.volatile_ = flags.get(spv::DecorationVolatile);
+    _res.coherent = flags.get(spv::DecorationCoherent);
+    _res.readonly = flags.get(spv::DecorationNonWritable);
+    _res.writeonly = flags.get(spv::DecorationNonReadable);
+}
+
+size_t ICPUShader::SIntrospectionPerformer::calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType & _type) const
+{
+    size_t bytesize = 0u;
+    switch (_type.basetype)
+    {
+    case spirv_cross::SPIRType::Boolean:
+    case spirv_cross::SPIRType::Char:
+    case spirv_cross::SPIRType::SByte:
+    case spirv_cross::SPIRType::UByte:
+        bytesize = 1u;
+        break;
+    case spirv_cross::SPIRType::Short:
+    case spirv_cross::SPIRType::UShort:
+    case spirv_cross::SPIRType::Half:
+        bytesize = 2u;
+        break;
+    case spirv_cross::SPIRType::Int:
+    case spirv_cross::SPIRType::UInt:
+    case spirv_cross::SPIRType::Float:
+        bytesize = 4u;
+        break;
+    case spirv_cross::SPIRType::Int64:
+    case spirv_cross::SPIRType::UInt64:
+    case spirv_cross::SPIRType::Double:
+        bytesize = 8u;
+        break;
+    case spirv_cross::SPIRType::Struct:
+        bytesize = _comp.get_declared_struct_size(_type);
+        assert(_type.columns > 1u || _type.vecsize > 1u); // something went wrong (cannot have matrix/vector of struct type)
+        break;
+    default:
+        assert(0);
+        break;
+    }
+    bytesize *= _type.vecsize * _type.columns; //vector or matrix
+    if (_type.array.size()) //array
+        bytesize *= _type.array[0];
+
+    return bytesize;
 }
 
 }}

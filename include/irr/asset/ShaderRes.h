@@ -36,12 +36,6 @@ enum E_SHADER_INFO_TYPE : uint8_t
     ESIT_STAGE_OUTPUT
 };
 
-//! push-constants are treated seprately (see SIntrospectionData in ICPUShader.h)
-struct SShaderPushConstant
-{
-    // todo
-};
-
 template<E_SHADER_RESOURCE_TYPE restype>
 struct SShaderResource;
 
@@ -85,6 +79,12 @@ namespace impl
 {
 struct SShaderMemoryBlock
 {
+    bool restrict;
+    bool volatile_;
+    bool coherent;
+    bool readonly;
+    bool writeonly;
+
     struct SMember
     {
         //! count==1 implies not array
@@ -122,6 +122,13 @@ template<>
 struct SShaderResource<ESRT_STORAGE_BUFFER> : public impl::SShaderMemoryBlock
 {
 
+};
+
+
+//! push-constants are treated seprately (see SIntrospectionData in ICPUShader.h)
+struct SShaderPushConstant : public impl::SShaderMemoryBlock
+{
+    // todo
 };
 
 
