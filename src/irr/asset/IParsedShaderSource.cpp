@@ -4,6 +4,14 @@
 namespace irr { namespace asset
 {
 
+IParsedShaderSource::~IParsedShaderSource()
+{
+    if (m_parsed)
+        _IRR_DELETE(const_cast<spirv_cross::ParsedIR*>(m_parsed));
+    if (m_raw)
+        m_raw->drop();
+}
+
 IParsedShaderSource::IParsedShaderSource(const asset::ICPUBuffer* _spirvBytecode) : IParsedShaderSource(_spirvBytecode, core::defer)
 {
     parse();

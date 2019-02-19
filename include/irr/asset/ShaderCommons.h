@@ -45,7 +45,7 @@ struct SSpecializationMapEntry
     uint32_t offset;
     size_t size;
 };
-bool operator<(const SSpecializationMapEntry& _a, const SSpecializationMapEntry& _b)
+inline bool operator<(const SSpecializationMapEntry& _a, const SSpecializationMapEntry& _b)
 {
     return _a.specConstID < _b.specConstID;
 }

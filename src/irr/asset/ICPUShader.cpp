@@ -277,14 +277,29 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
 
 void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID) const
 {
+    // SShaderMemoryBlock (and its members) cannot define custom default ctor nor even default member values, because then it's "non-trivial default ctor" and
+    // union containing it (as member) has deleted default ctor... (union default ctor is deleted if any of its members defines non-trivial default ctor)
+    auto shdrMemBlockMemberDefault = [] {
+        impl::SShaderMemoryBlock::SMember m;
+        m.count = 1u;
+        m.offset = 0u;
+        m.size = 0u;
+        m.arrayStride = 0u;
+        m.mtxStride = 0u;
+        m.mtxRowCnt = m.mtxColCnt = 1u;
+        return m;
+    };
+
     const spirv_cross::SPIRType& type = _comp.get_type(_blockBaseTypeID);
     const uint32_t memberCnt = type.member_types.size();
-    _res.members.resize(memberCnt);
+    _res.members.array = _IRR_NEW_ARRAY(impl::SShaderMemoryBlock::SMember, memberCnt);
+    _res.members.count = memberCnt;
+    std::fill(_res.members.array, _res.members.array+memberCnt, shdrMemBlockMemberDefault());
 
     for (uint32_t m = 0u; m < memberCnt; ++m)
     {
         const spirv_cross::SPIRType& mtype = _comp.get_type(type.member_types[m]);
-        impl::SShaderMemoryBlock::SMember& member = _res.members[m];
+        impl::SShaderMemoryBlock::SMember& member = _res.members.array[m];
 
         member.size = _comp.get_declared_struct_member_size(type, m);
         member.offset = _comp.type_struct_member_offset(type, m);
@@ -301,7 +316,7 @@ void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cros
             member.mtxStride = _comp.type_struct_member_matrix_stride(type, m);
     }
     using MembT = impl::SShaderMemoryBlock::SMember;
-    std::sort(_res.members.begin(), _res.members.end(), [](const MembT& _lhs, const MembT& _rhs) { _lhs.offset < _rhs.offset; });
+    std::sort(_res.members.array, _res.members.array+memberCnt, [](const MembT& _lhs, const MembT& _rhs) { return _lhs.offset < _rhs.offset; });
 
     _res.size = _res.rtSizedArrayOneElementSize = _comp.get_declared_struct_size(type);
     const spirv_cross::SPIRType& lastType = _comp.get_type(type.member_types[memberCnt-1u]);
@@ -355,6 +370,31 @@ size_t ICPUShader::SIntrospectionPerformer::calcBytesizeforType(spirv_cross::Com
         bytesize *= _type.array[0];
 
     return bytesize;
+}
+
+void ICPUShader::SIntrospectionPerformer::deinitIntrospectionData(SIntrospectionData& _data)
+{
+    for (auto& descSet : _data.descriptorSetBindings)
+        for (auto& res : descSet)
+        {
+            switch (res.type)
+            {
+            case ESRT_STORAGE_BUFFER:
+                deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()));
+                break;
+            case ESRT_UNIFORM_BUFFER:
+                deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()));
+                break;
+            }
+        }
+    if (_data.pushConstant.present)
+        deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(_data.pushConstant.info));
+}
+
+void ICPUShader::SIntrospectionPerformer::deinitShdrMemBlock(impl::SShaderMemoryBlock& _res)
+{
+    if (_res.members.array)
+        _IRR_DELETE_ARRAY(_res.members.array, _res.members.count);
 }
 
 }}

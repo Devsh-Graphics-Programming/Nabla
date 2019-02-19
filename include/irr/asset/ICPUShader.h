@@ -79,6 +79,8 @@ protected:
             m_spirvBytecode->drop();
         if (m_parsed)
             m_parsed->drop();
+        for (auto& introData : m_introspectionCache)
+            SIntrospectionPerformer::deinitIntrospectionData(introData.second);
     }
 
 public:
@@ -117,7 +119,7 @@ protected:
     IParsedShaderSource* m_parsed = nullptr;
 
     using CacheKey = SEntryPointStagePair;
-    core::unordered_map<CacheKey, SIntrospectionData> m_introspectionCache;
+    core::map<CacheKey, SIntrospectionData> m_introspectionCache;
     core::vector<SEntryPointStagePair> m_entryPoints;
 
 protected:
@@ -126,6 +128,9 @@ protected:
         SIntrospectionData doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
         void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID) const;
         size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
+
+        static void deinitIntrospectionData(SIntrospectionData& _data);
+        static void deinitShdrMemBlock(impl::SShaderMemoryBlock& _res);
     };
 };
 

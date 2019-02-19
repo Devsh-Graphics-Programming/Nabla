@@ -91,24 +91,27 @@ struct SShaderMemoryBlock
     struct SMember
     {
         //! count==1 implies not array
-        uint32_t count = 1u;
-        uint32_t offset = 0u;
-        uint32_t size = 0u;
-        uint32_t arrayStride = 0u;
+        uint32_t count;
+        uint32_t offset;
+        uint32_t size;
+        uint32_t arrayStride;
         //! mtxStride==0 implies not matrix
-        uint32_t mtxStride = 0u;
+        uint32_t mtxStride;
         //! (mtxRowCnt>1 && mtxColCnt==1) implies vector
         //! (mtxRowCnt==1 && mtxColCnt==1) implies basic type (i.e. int/uint/float/...)
-        uint32_t mtxRowCnt = 1u, mtxColCnt = 1u;
+        uint32_t mtxRowCnt, mtxColCnt;
     };
-    core::vector<SMember> members;
+    struct {
+        SMember* array;
+        size_t count;
+    } members;
 
     //! size!=rtSizedArrayOneElementSize implies that last member is rutime-sized array (e.g. buffer SSBO { float buf[]; }).
     //! Use getRuntimeSize for size of the struct with assumption of passed number of elements.
-    size_t size = 0u;
+    size_t size;
     //! If last member is runtime-sized array, rtSizedArrayOneElementSize is equal to `size+RTSZ` where RTSZ is size (bytes) of this array assuming it's of size 1.
     //! Otherwise rtSizedArrayOneElementSize==size.
-    size_t rtSizedArrayOneElementSize = 0u;
+    size_t rtSizedArrayOneElementSize;
 
     //! See docs for `size` member
     inline size_t getRuntimeSize(size_t _elmntCnt) const { return size + _elmntCnt*(rtSizedArrayOneElementSize-size); }
@@ -151,7 +154,7 @@ struct SShaderResourceVariant
     template<E_SHADER_RESOURCE_TYPE restype>
     const SShaderResource<restype>& get() const { return reinterpret_cast<const SShaderResource<restype>&>(variant); }
 
-    union
+    union Variant
     {
         SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER> combinedImageSampler;
         SShaderResource<ESRT_SAMPLED_IMAGE> sampledImage;
@@ -164,7 +167,7 @@ struct SShaderResourceVariant
         SShaderResource<ESRT_STORAGE_BUFFER> storageBuffer;
     } variant;
 };
-bool operator<(const SShaderResourceVariant& _lhs, const SShaderResourceVariant& _rhs)
+inline bool operator<(const SShaderResourceVariant& _lhs, const SShaderResourceVariant& _rhs)
 {
     return _lhs.binding < _rhs.binding;
 }
@@ -200,7 +203,7 @@ struct SShaderInfoVariant
         SShaderInfo<ESIT_STAGE_OUTPUT> stageOutput;
     } variant;
 };
-bool operator<(const SShaderInfoVariant& _lhs, const SShaderInfoVariant& _rhs)
+inline bool operator<(const SShaderInfoVariant& _lhs, const SShaderInfoVariant& _rhs)
 {
     return _lhs.location < _rhs.location;
 }

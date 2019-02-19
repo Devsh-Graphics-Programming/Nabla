@@ -1,7 +1,6 @@
 #ifndef __IRR_I_GLSL_COMPILER_H_INCLUDED__
 #define __IRR_I_GLSL_COMPILER_H_INCLUDED__
 
-#include <string>
 #include "irr/core/IReferenceCounted.h"
 #include "irr/asset/ShaderCommons.h"
 

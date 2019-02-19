@@ -16,13 +16,7 @@ namespace irr { namespace asset
 class IParsedShaderSource : public core::IReferenceCounted
 {
 protected:
-    virtual ~IParsedShaderSource()
-    {
-        if (m_parsed)
-            _IRR_DELETE(m_parsed);
-        if (m_raw)
-            m_raw->drop();
-    }
+    virtual ~IParsedShaderSource();
 
 public:
     //! Parsing occurs instantly, during constructor execution
