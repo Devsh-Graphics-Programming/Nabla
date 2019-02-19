@@ -113,6 +113,7 @@ protected:
 public:
     CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : CCustomAllocatorCPUBuffer(sizeInBytes, alctr.allocate(allocSz), core::adopt_memory, std::move(alctr))
     {
+        memcpy(data, dat, size);
     }
     CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))
     {
