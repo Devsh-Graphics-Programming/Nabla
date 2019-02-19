@@ -336,7 +336,6 @@ size_t ICPUShader::SIntrospectionPerformer::calcBytesizeforType(spirv_cross::Com
     size_t bytesize = 0u;
     switch (_type.basetype)
     {
-    case spirv_cross::SPIRType::Boolean:
     case spirv_cross::SPIRType::Char:
     case spirv_cross::SPIRType::SByte:
     case spirv_cross::SPIRType::UByte:
@@ -347,6 +346,9 @@ size_t ICPUShader::SIntrospectionPerformer::calcBytesizeforType(spirv_cross::Com
     case spirv_cross::SPIRType::Half:
         bytesize = 2u;
         break;
+    //Vulkan spec: "If the specialization constant is of type boolean, size must be the byte size of VkBool32"
+    //https://vulkan.lunarg.com/doc/view/1.0.30.0/linux/vkspec.chunked/ch09s07.html
+    case spirv_cross::SPIRType::Boolean:
     case spirv_cross::SPIRType::Int:
     case spirv_cross::SPIRType::UInt:
     case spirv_cross::SPIRType::Float:
