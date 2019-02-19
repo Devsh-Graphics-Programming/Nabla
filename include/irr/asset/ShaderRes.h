@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "irr/macros.h"
 #include "irr/asset/ShaderCommons.h"
+#include "irr/asset/EFormat.h"
 
 namespace irr { namespace asset
 {
@@ -42,7 +43,8 @@ struct SShaderResource;
 template<>
 struct SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER>
 {
-
+    bool arrayed;
+    bool multisample;
 };
 template<>
 struct SShaderResource<ESRT_SAMPLED_IMAGE>
@@ -52,6 +54,7 @@ struct SShaderResource<ESRT_SAMPLED_IMAGE>
 template<>
 struct SShaderResource<ESRT_STORAGE_IMAGE>
 {
+    E_FORMAT approxFormat;
 
 };
 template<>

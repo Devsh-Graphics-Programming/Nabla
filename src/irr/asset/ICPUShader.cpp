@@ -1,7 +1,7 @@
 #include "irr/asset/ICPUShader.h"
 #include "spirv_cross/spirv_parser.hpp"
 #include "spirv_cross/spirv_cross.hpp"
-
+#include "irr/asset/EFormat.h"
 
 namespace irr { namespace asset
 {
@@ -35,6 +35,55 @@ spv::ExecutionModel ESS2spvExecModel(E_SHADER_STAGE _ss)
     case ESS_COMPUTE: return ExecutionModelGLCompute;
     default: return ExecutionModelMax;
     }
+}
+E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
+{
+    using namespace spv;
+    constexpr E_FORMAT convert[]
+    {
+        EF_UNKNOWN,
+        EF_R32G32B32A32_SFLOAT,
+        EF_R16G16B16A16_SFLOAT,
+        EF_R32_SFLOAT,
+        EF_R8G8B8A8_UNORM,
+        EF_R8G8B8A8_SNORM,
+        EF_R32G32_SFLOAT,
+        EF_R16G16_SFLOAT,
+        EF_B10G11R11_UFLOAT_PACK32,
+        EF_R16_SFLOAT,
+        EF_R16G16B16A16_UNORM,
+        EF_A2B10G10R10_UNORM_PACK32,
+        EF_R16G16_UNORM,
+        EF_R8G8_UNORM,
+        EF_R16G16_UNORM,
+        EF_R8_UNORM,
+        EF_R16G16B16A16_SNORM,
+        EF_R16G16_SNORM,
+        EF_R8G8_SNORM,
+        EF_R16_SNORM,
+        EF_R8_SNORM,
+        EF_R32G32B32A32_SINT,
+        EF_R16G16B16A16_SINT,
+        EF_R8G8B8A8_SINT,
+        EF_R32_SINT,
+        EF_R32G32_SINT,
+        EF_R16G16_SINT,
+        EF_R8G8_SINT,
+        EF_R16_SINT,
+        EF_R8_SINT,
+        EF_R32G32B32A32_UINT,
+        EF_R16G16B16A16_UINT,
+        EF_R8G8B8A8_UINT,
+        EF_R32_UINT,
+        EF_A2B10G10R10_UINT_PACK32,
+        EF_R32G32_UINT,
+        EF_R16G16_UINT,
+        EF_R8G8_UINT,
+        EF_R16_UINT,
+        EF_R8_UINT,
+        EF_UNKNOWN
+    };
+    return convert[_imgfmt];
 }
 }
 
@@ -132,17 +181,24 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
     }
     for (const spirv_cross::Resource& r : resources.storage_images)
     {
-        const spirv_cross::SPIRType type = _comp.get_type(r.id);
+        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
         const bool buffer = type.image.dim == spv::DimBuffer;
         SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_STORAGE_TEXEL_BUFFER : ESRT_STORAGE_IMAGE);
+        if (!buffer)
+        {
+            res.get<ESRT_STORAGE_IMAGE>().approxFormat = spvImageFormat2E_FORMAT(type.image.format);
+        }
     }
     for (const spirv_cross::Resource& r : resources.sampled_images)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_COMBINED_IMAGE_SAMPLER);
+        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
+        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().arrayed = type.image.arrayed;
+        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().multisample = type.image.ms;
     }
     for (const spirv_cross::Resource& r : resources.separate_images)
     {
-        const spirv_cross::SPIRType type = _comp.get_type(r.id);
+        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
         const bool buffer = type.image.dim == spv::DimBuffer;
         SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_UNIFORM_TEXEL_BUFFER : ESRT_SAMPLED_IMAGE);
     }
