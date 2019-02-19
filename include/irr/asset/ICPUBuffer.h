@@ -23,7 +23,7 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
                 _IRR_ALIGNED_FREE(data);
         }
 
-        //! Non-allocating constructor for IMemoryAdoptingCPUBuffer derivative
+        //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
         ICPUBuffer(size_t sizeInBytes, void* dat) : size(dat ? sizeInBytes : 0), data(dat)
         {}
     public:
@@ -97,21 +97,26 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
 };
 
 template<typename Allocator = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>>
-class IMemoryAdoptingCPUBuffer : public ICPUBuffer
+class CCustomAllocatorCPUBuffer : public ICPUBuffer
 {
+    static_assert(sizeof(Allocator::value_type)==1u, "Allocator::value_type must be of size 1");
 protected:
     Allocator m_allocator;
 
-    virtual ~IMemoryAdoptingCPUBuffer()
+    virtual ~CCustomAllocatorCPUBuffer()
     {
         if (ICPUBuffer::data)
-            m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size/sizeof(typename Allocator::value_type));
-        ICPUBuffer::data = nullptr; // so that ICPUBuffer will not try deallocating
+            m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);
+        ICPUBuffer::data = nullptr;
     }
 
 public:
-    IMemoryAdoptingCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& allctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(allctr))
-    {}
+    CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : CCustomAllocatorCPUBuffer(sizeInBytes, alctr.allocate(allocSz), core::adopt_memory, std::move(alctr))
+    {
+    }
+    CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))
+    {
+    }
 };
 
 } // end namespace asset
