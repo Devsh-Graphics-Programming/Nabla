@@ -14,6 +14,24 @@ namespace spirv_cross
     class Compiler;
     struct SPIRType;
 }
+namespace irr { namespace asset
+{
+    using SEntryPointStagePair = std::pair<std::string, E_SHADER_STAGE>;
+}}//irr::asset
+namespace std
+{
+    template<>
+    struct hash<irr::asset::SEntryPointStagePair>
+    {
+        using T = irr::asset::SEntryPointStagePair;
+        // based on boost::hash_combine
+        size_t operator()(const T& x)
+        {
+            size_t seed = hash<T::first_type>{}(x.first);
+            return seed ^= hash<underlying_type_t<T::second_type>>{}(x.second) + 0x9e3779b9ull + (seed << 6) + (seed >> 2);
+        }
+    };
+}//std
 
 namespace irr { namespace asset
 {
@@ -33,7 +51,6 @@ struct SIntrospectionData
         };
 
         uint32_t id;
-        //! TODO: remove this?
         size_t byteSize;
         E_TYPE type;
         std::string name;
@@ -84,8 +101,6 @@ protected:
     }
 
 public:
-    using SEntryPointStagePair = std::pair<std::string, E_SHADER_STAGE>;
-
     ICPUShader(const void* _spirvBytecode, size_t _bytesize) : m_spirvBytecode(new ICPUBuffer(_bytesize)), m_parsed(new IParsedShaderSource(m_spirvBytecode, core::defer))
     {
         memcpy(m_spirvBytecode->getPointer(), _spirvBytecode, _bytesize);
@@ -119,7 +134,7 @@ protected:
     IParsedShaderSource* m_parsed = nullptr;
 
     using CacheKey = SEntryPointStagePair;
-    core::map<CacheKey, SIntrospectionData> m_introspectionCache;
+    core::unordered_map<CacheKey, SIntrospectionData> m_introspectionCache;
     core::vector<SEntryPointStagePair> m_entryPoints;
 
 protected:
