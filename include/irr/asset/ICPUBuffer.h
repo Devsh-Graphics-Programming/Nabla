@@ -8,6 +8,7 @@
 
 #include "irr/core/IBuffer.h"
 #include "IAsset.h"
+#include "irr/core/alloc/null_allocator.h"
 
 namespace irr
 {
@@ -96,10 +97,16 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
         void* data;
 };
 
-template<typename Allocator = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>>
-class CCustomAllocatorCPUBuffer : public ICPUBuffer
+template<
+    typename Allocator = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
+    bool = std::is_same_v<Allocator, core::null_allocator<typename Allocator::value_type>>
+>
+class CCustomAllocatorCPUBuffer;
+
+template<typename Allocator>
+class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 {
-    static_assert(sizeof(Allocator::value_type)==1u, "Allocator::value_type must be of size 1");
+    static_assert(sizeof(Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
 protected:
     Allocator m_allocator;
 
@@ -107,16 +114,28 @@ protected:
     {
         if (ICPUBuffer::data)
             m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);
-        ICPUBuffer::data = nullptr;
+        ICPUBuffer::data = nullptr; // so that ICPUBuffer won't try deallocating
     }
 
 public:
-    CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : CCustomAllocatorCPUBuffer(sizeInBytes, alctr.allocate(allocSz), core::adopt_memory, std::move(alctr))
-    {
-        memcpy(data, dat, size);
-    }
     CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))
     {
+    }
+};
+
+template<typename Allocator>
+class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
+{
+    using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
+protected:
+    virtual ~CCustomAllocatorCPUBuffer() = default;
+
+public:
+    using Base::Base;
+
+    CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
+    {
+        memcpy(data, dat, size);
     }
 };
 
