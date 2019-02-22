@@ -94,7 +94,7 @@ namespace io
 
     template<
         typename Alloc = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
-        bool = std::is_same_v<Alloc, core::null_allocator<typename Alloc::value_type>>
+        bool = std::is_same<Alloc, core::null_allocator<typename Alloc::value_type>>::value
     >
     class CCustomAllocatorMemoryReadFile;
 
@@ -116,7 +116,7 @@ namespace io
         {
         }
 
-        virtual bool seek(const size_t& finalPos, bool relativeMovement = false) override 
+        virtual bool seek(const size_t& finalPos, bool relativeMovement = false) override
         {
             if (relativeMovement)
             {
@@ -176,9 +176,9 @@ namespace io
         CCustomAllocatorMemoryReadFile(const void* _data, size_t _length, const io::path& _filename, Alloc&& _alloc = Alloc()) :
             Base(const_cast<void*>(_data), _length, _filename, core::adopt_memory, std::move(_alloc))
         {
-            const void* tmp = m_storage;
-            m_storage = m_allocator.allocate(m_length);
-            memcpy(m_storage, tmp, m_length);
+            const void* tmp = Base::m_storage;
+            Base::m_storage = m_allocator.allocate(m_length);
+            memcpy(Base::m_storage, tmp, m_length);
         }
     };
 
