@@ -35,7 +35,8 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         virtual ~PoolAddressAllocator() {}
 
         PoolAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz, size_type blockSz) noexcept :
-                    Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), blockCount((bufSz-alignOffsetNeeded)/blockSz), blockSize(blockSz), freeStackCtr(0u)
+					Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment),
+						blockCount((bufSz-alignOffsetNeeded)/blockSz), blockSize(blockSz), freeStack(reinterpret_cast<size_type*>(Base::reservedSpace)), freeStackCtr(0u)
         {
             reset();
         }
@@ -43,7 +44,8 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
         template<typename... Args>
         PoolAddressAllocator(_size_type newBuffSz, PoolAddressAllocator&& other, Args&&... args) noexcept :
-                    Base(std::move(other),std::forward<Args>(args)...), blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
+					Base(std::move(other),std::forward<Args>(args)...),
+						blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStack(reinterpret_cast<size_type*>(Base::reservedSpace)), freeStackCtr(0u)
         {
             if (blockCount>other.blockCount)
                 freeStackCtr = blockCount-other.blockCount;
@@ -52,19 +54,18 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             #ifdef _DEBUG
                 assert(Base::checkResize(newBuffSz,Base::alignOffset));
             #endif // _DEBUG
+			other.blockSize = invalid_address;
 
-            auto freeStack = getFreeStack();
             for (size_type i=0u; i<freeStackCtr; i++)
                 freeStack[i] = (blockCount-1u-i)*blockSize+Base::combinedOffset;
 
             for (size_type i=0; i<other.freeStackCtr; i++)
             {
-                size_type freeEntry = other.getFreeStack()[i]-other.combinedOffset;
+                size_type freeEntry = other.freeStack[i]-other.combinedOffset;
 
                 if (freeEntry<blockCount*blockSize)
                     freeStack[freeStackCtr++] = freeEntry+Base::combinedOffset;
             }
-            other.blockSize = invalid_address;
             other.freeStackCtr = invalid_address;
         }
 
@@ -73,6 +74,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             Base::operator=(std::move(other));
             std::swap(blockCount,other.blockCount);
             std::swap(blockSize,other.blockSize);
+			std::swap(freeStack,other.freeStack);
             std::swap(freeStackCtr,other.freeStackCtr);
             return *this;
         }
@@ -83,7 +85,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             if (freeStackCtr==0u || (blockSize%alignment)!=0u || bytes==0u || bytes>blockSize)
                 return invalid_address;
 
-            return getFreeStack()[--freeStackCtr];
+            return freeStack[--freeStackCtr];
         }
 
         inline void             free_addr(size_type addr, size_type bytes) noexcept
@@ -91,12 +93,11 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             #ifdef _DEBUG
                 assert(addr>=Base::combinedOffset && (addr-Base::combinedOffset)%blockSize==0 && freeStackCtr<blockCount);
             #endif // _DEBUG
-            getFreeStack()[freeStackCtr++] = addr;
+			freeStack[freeStackCtr++] = addr;
         }
 
         inline void             reset()
         {
-            auto freeStack = getFreeStack();
             for (freeStackCtr=0u; freeStackCtr<blockCount; freeStackCtr++)
                 freeStack[freeStackCtr] = (blockCount-1u-freeStackCtr)*blockSize+Base::combinedOffset;
         }
@@ -126,7 +127,6 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             if (allocSize>sizeBound)
                 sizeBound = allocSize;
 
-            auto freeStack = getFreeStack();
             auto tmpStackCopy = freeStack+freeStackCtr;
 
             size_type boundedCount = 0;
@@ -194,16 +194,8 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         // although to implement that one of the heaps would have to be in reverse in the memory (no wiggle room)
         // then can minimize fragmentation due to allocation and give lighting fast returns from `safe_shrink_size`
         // but then should probably have two pool allocators, because doing that changes insertion/removal from O(1) to O(log(N))
+		size_type*	freeStack;
         size_type   freeStackCtr;
-
-        inline size_type* getFreeStack()
-        {
-            return reinterpret_cast<size_type*>(Base::reservedSpace);
-        }
-        inline const size_type* getFreeStack() const
-        {
-            return reinterpret_cast<const size_type*>(Base::reservedSpace);
-        }
 };
 
 
