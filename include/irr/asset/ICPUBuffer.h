@@ -137,7 +137,7 @@ public:
 
     CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
     {
-        memcpy(Base::data, dat, size);
+        memcpy(Base::data, dat, sizeInBytes);
     }
 };
 
