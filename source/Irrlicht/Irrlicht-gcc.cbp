@@ -241,6 +241,7 @@
 			<Add option="-Wno-error=unused-variable" />
 			<Add option="-Wno-unused-parameter" />
 			<Add option="-D_7ZIP_ST" />
+			<Add directory="../../src" />
 		</Compiler>
 		<Unit filename="../../include/CBAWFile.h" />
 		<Unit filename="../../include/CBlobsLoadingManager.h" />

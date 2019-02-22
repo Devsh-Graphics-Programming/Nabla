@@ -6,6 +6,8 @@
 #ifndef __I_CPU_BUFFER_H_INCLUDED__
 #define __I_CPU_BUFFER_H_INCLUDED__
 
+#include <type_traits>
+
 #include "irr/core/IBuffer.h"
 #include "IAsset.h"
 #include "irr/core/alloc/null_allocator.h"
@@ -41,7 +43,7 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
             size = sizeInBytes;
         }
 
-        virtual void convertToDummyObject() override 
+        virtual void convertToDummyObject() override
         {
             _IRR_ALIGNED_FREE(data);
             data = nullptr;
