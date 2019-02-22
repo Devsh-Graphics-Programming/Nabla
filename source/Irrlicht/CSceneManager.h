@@ -8,9 +8,7 @@
 #include "ISceneManager.h"
 #include "ISceneNode.h"
 #include "ICursorControl.h"
-#include "IMeshLoader.h"
 #include "ISkinningStateManager.h"
-#include "CMeshManipulator.h"
 
 #include <map>
 #include <string>
@@ -25,7 +23,6 @@ namespace io
 }
 namespace scene
 {
-	class IGeometryCreator;
 	class IAnimatedMeshSceneNode;
 
 	/*!
@@ -39,23 +36,16 @@ namespace scene
 
 	public:
 		//! constructor
-		CSceneManager(video::IVideoDriver* driver, irr::ITimer* timer, io::IFileSystem* fs,
+		CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, irr::ITimer* timer, io::IFileSystem* fs,
 			gui::ICursorControl* cursorControl);
-
-		//! gets a mesh. loads it if needed. returned pointer must not be dropped.
-		virtual ICPUMesh* getMesh(const io::path& filename);
-
-		//! gets a mesh. loads it if needed. returned pointer must not be dropped.
-		virtual ICPUMesh* getMesh(io::IReadFile* file);
-
-		//! Returns an interface to the mesh cache which is shared beween all existing scene managers.
-		virtual IMeshCache<ICPUMesh>* getMeshCache();
 
 		//! returns the video driver
 		virtual video::IVideoDriver* getVideoDriver();
 
 		//! return the filesystem
 		virtual io::IFileSystem* getFileSystem();
+
+        virtual IrrlichtDevice* getDevice() override;
 
 		//! adds a cube scene node to the scene. It is a simple cube of (1,1,1) size.
 		//! the returned pointer must not be dropped.
@@ -69,7 +59,7 @@ namespace scene
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
 
         //!
-        virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
+        virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(video::IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
             IDummyTransformationSceneNode* parent=0, int32_t id=-1,
             const core::vector3df& position = core::vector3df(0,0,0),
             const core::vector3df& rotation = core::vector3df(0,0,0),
@@ -77,7 +67,7 @@ namespace scene
 
 		//! adds a scene node for rendering a static mesh
 		//! the returned pointer must not be dropped.
-		virtual IMeshSceneNode* addMeshSceneNode(IGPUMesh* mesh, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
+		virtual IMeshSceneNode* addMeshSceneNode(video::IGPUMesh* mesh, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f),
@@ -214,18 +204,6 @@ namespace scene
 			float speed, float tightness, bool loop, bool pingpong);
 
 
-		//! Adds an external mesh loader.
-		virtual void addExternalMeshLoader(IMeshLoader* externalLoader);
-
-		//! Returns the number of mesh loaders supported by Irrlicht at this time
-		virtual uint32_t getMeshLoaderCount() const;
-
-		//! Retrieve the given mesh loader
-		virtual IMeshLoader* getMeshLoader(uint32_t index) const;
-
-		//! Returns a pointer to the mesh manipulator.
-		virtual IMeshManipulator* getMeshManipulator();
-
 		//! Adds a scene node to the deletion queue.
 		virtual void addToDeletionQueue(IDummyTransformationSceneNode* node);
 /*
@@ -260,17 +238,11 @@ namespace scene
 		//! Returns type of the scene node
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SCENE_MANAGER; }
 
-		//! Returns a mesh writer implementation if available
-		virtual IMeshWriter* createMeshWriter(EMESH_WRITER_TYPE type);
-
 		//! Get current render time.
 		virtual E_SCENE_NODE_RENDER_PASS getCurrentRendertime() const { return CurrentRendertime; }
 
 		//! Set current render time.
 		virtual void setCurrentRendertime(E_SCENE_NODE_RENDER_PASS currentRendertime) { CurrentRendertime = currentRendertime; }
-
-		//! Get an instance of a geometry creator.
-		virtual const IGeometryCreator* getGeometryCreator(void) const { return GeometryCreator; }
 
 		//! returns if node is culled
 		virtual bool isCulled(ISceneNode* node) const;
@@ -355,6 +327,9 @@ namespace scene
 		//! file system
 		io::IFileSystem* FileSystem;
 
+        //! parent device
+        IrrlichtDevice* Device;
+
 		//! cursor control
 		gui::ICursorControl* CursorControl;
 
@@ -366,7 +341,6 @@ namespace scene
 		core::vector<TransparentNodeEntry> TransparentNodeList;
 		core::vector<TransparentNodeEntry> TransparentEffectNodeList;
 
-		core::vector<IMeshLoader*> MeshLoaderList;
 		core::vector<IDummyTransformationSceneNode*> DeletionList;
 
 		//! current active camera
@@ -378,8 +352,6 @@ namespace scene
         };
 		core::unordered_map<std::string,ParamStorage> Parameters;
 
-		//! Mesh cache
-		IMeshCache<ICPUMesh>* MeshCache;
 		video::IGPUBuffer* redundantMeshDataBuf;
 
 		E_SCENE_NODE_RENDER_PASS CurrentRendertime;
@@ -389,9 +361,6 @@ namespace scene
 		const core::stringw IRR_XML_FORMAT_SCENE;
 		const core::stringw IRR_XML_FORMAT_NODE;
 		const core::stringw IRR_XML_FORMAT_NODE_ATTR_TYPE;
-
-		IGeometryCreator* GeometryCreator;
-		CMeshManipulator* MeshManipulator;
 	};
 
 } // end namespace video

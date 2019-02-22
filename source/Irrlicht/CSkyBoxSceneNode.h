@@ -6,7 +6,7 @@
 #define __C_SKY_BOX_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 
 namespace irr
 {
@@ -49,7 +49,7 @@ namespace scene
             //! This function is needed for inserting the node into the scene hirachy on a
             //! optimal position for minimizing renderstate changes, but can also be used
             //! to directly modify the material of a scene node.
-            virtual video::SMaterial& getMaterial(uint32_t i);
+            virtual video::SGPUMaterial& getMaterial(uint32_t i);
 
             //! returns amount of materials used by this scene node.
             virtual uint32_t getMaterialCount() const;
@@ -63,8 +63,8 @@ namespace scene
         private:
 
             core::aabbox3d<float> Box;
-            IGPUMeshBuffer* sides[6];
-            video::SMaterial Material[6];
+            video::IGPUMeshBuffer* sides[6];
+            video::SGPUMaterial Material[6];
 	};
 
 } // end namespace scene

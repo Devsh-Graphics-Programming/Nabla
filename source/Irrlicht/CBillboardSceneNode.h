@@ -6,7 +6,7 @@
 #define __C_BILLBOARD_SCENE_NODE_H_INCLUDED__
 
 #include "IBillboardSceneNode.h"
-#include "IMeshBuffer.h"
+#include "irr/video/IGPUMeshBuffer.h"
 
 namespace irr
 {
@@ -49,7 +49,7 @@ public:
 	//! Gets the widths of the top and bottom edges of the billboard.
 	virtual void getSize(float& height, float& bottomEdgeWidth, float& topEdgeWidth) const;
 
-	virtual video::SMaterial& getMaterial(uint32_t i) {return Material;}
+	virtual video::SGPUMaterial& getMaterial(uint32_t i) {return Material;}
 
 	//! returns amount of materials used by this scene node.
 	virtual uint32_t getMaterialCount() const {return 1;}
@@ -76,11 +76,11 @@ private:
 	core::dimension2d<float> Size;
 	float TopEdgeWidth;
 	core::aabbox3d<float> BBox;
-	video::SMaterial Material;
+	video::SGPUMaterial Material;
 
     video::IGPUBuffer* vertexBuffer;
-    IGPUMeshDataFormatDesc* desc;
-	IGPUMeshBuffer* meshbuffer;
+    video::IGPUMeshDataFormatDesc* desc;
+    video::IGPUMeshBuffer* meshbuffer;
 };
 
 

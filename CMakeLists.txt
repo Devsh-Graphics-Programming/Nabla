@@ -104,7 +104,6 @@ option(BUILD_EXAMPLES "Enable building examples" ON)
 
 option(BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
-option(NASTY_OPENSSL_WORKAROUND "Enable this if you can't get CMake to find OpenSSL and you have it in ../openssl/ relative to this CMakeLists.txt" OFF)
 add_subdirectory(source/Irrlicht) # Irrlicht code
 
 if(BUILD_TOOLS)

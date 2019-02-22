@@ -6,6 +6,10 @@
 #include "IVideoDriver.h"
 #include "ISceneManager.h"
 #include "os.h"
+#include "SMaterial.h"
+#include "IrrlichtDevice.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/IGeometryCreator.h"
 
 namespace irr
 {
@@ -52,7 +56,11 @@ void CCubeSceneNode::setSize()
 {
 	if (Mesh)
 		Mesh->drop();
-	Mesh = SceneManager->getGeometryCreator()->createCubeMeshGPU(SceneManager->getVideoDriver(),core::vector3df(Size));
+
+    asset::ICPUMesh* cpumesh = SceneManager->getDevice()->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(Size));
+    auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
+    Mesh = res.size() ? res.front() : nullptr;
+    assert(Mesh);
 }
 
 
@@ -67,7 +75,7 @@ void CCubeSceneNode::render()
 
 
         // for debug purposes only:
-        video::SMaterial mat = Mesh->getMeshBuffer(0)->getMaterial();
+        video::SGPUMaterial mat = Mesh->getMeshBuffer(0)->getMaterial();
 
         driver->setMaterial(mat);
         driver->drawMeshBuffer(Mesh->getMeshBuffer(0));
@@ -78,7 +86,7 @@ void CCubeSceneNode::render()
 	// for debug purposes only:
 	if (DebugDataVisible)
 	{
-		video::SMaterial m;
+		video::SGPUMaterial m;
 		driver->setMaterial(m);
 
 		// show mesh
@@ -110,7 +118,7 @@ void CCubeSceneNode::OnRegisterSceneNode()
 
 
 //! returns the material based on the zero based index i.
-video::SMaterial& CCubeSceneNode::getMaterial(uint32_t i)
+video::SGPUMaterial& CCubeSceneNode::getMaterial(uint32_t i)
 {
 	return Mesh->getMeshBuffer(0)->getMaterial();
 }

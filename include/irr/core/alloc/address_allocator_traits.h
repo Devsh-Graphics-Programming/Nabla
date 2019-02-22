@@ -113,12 +113,12 @@ namespace core
                     ConstGetter() = delete;
                     virtual ~ConstGetter() = default;
                 public:
-                    inline void*        getBufferStart() const noexcept     {return AddressAlloc::getBufferStart();}
                     inline const void*  getReservedSpacePtr() const noexcept{return AddressAlloc::getReservedSpacePtr();}
                     inline size_type    max_size() const noexcept           {return AddressAlloc::max_size();}
                     inline size_type    min_size() const noexcept           {return AddressAlloc::min_size();}
                     inline size_type    max_alignment() const noexcept      {return AddressAlloc::max_alignment();}
                     inline size_type    get_align_offset() const noexcept   {return AddressAlloc::get_align_offset();}
+                    inline size_type    get_combined_offset() const noexcept   {return AddressAlloc::get_combined_offset();}
                     inline size_type    get_free_size() const noexcept      {return AddressAlloc::get_free_size();}
                     inline size_type    get_allocated_size() const noexcept {return AddressAlloc::get_allocated_size();}
                     inline size_type    get_total_size() const noexcept     {return AddressAlloc::get_total_size();}
@@ -176,19 +176,12 @@ namespace core
 
 
             using AddressAlloc::AddressAlloc;
-/*
-            template<typename... Args>
-            address_allocator_traits(void* reservedSpc, size_t alignOff, typename AddressAlloc::size_type bufSz, Args&&... args) noexcept :
-                    AddressAlloc(reservedSpc, nullptr, alignOff, bufSz, std::forward<Args>(args)...)
-            {
-            }
-*/
+
 
             static inline size_type        get_real_addr(const AddressAlloc& alloc, size_type allocated_addr) noexcept
             {
                 return impl::address_allocator_traits_base<AddressAlloc,has_func_get_real_addr<AddressAlloc>::value>::get_real_addr(allocated_addr);
             }
-
 
             //!
             /** Warning outAddresses needs to be primed with `invalid_address` values,
@@ -208,11 +201,6 @@ namespace core
                                                                 alloc,std::min(count-i,maxMultiOps),addr+i,bytes+i);
             }
 
-
-            static inline void*             getBufferStart(const AddressAlloc& alloc) noexcept
-            {
-                return static_cast<const ConstGetter&>(alloc).getBufferStart();
-            }
             static inline const void*       getReservedSpacePtr(const AddressAlloc& alloc) noexcept
             {
                 return static_cast<const ConstGetter&>(alloc).getReservedSpacePtr();
@@ -235,6 +223,10 @@ namespace core
             {
                 return static_cast<const ConstGetter&>(alloc).get_align_offset();
             }
+            static inline size_type        get_combined_offset(const AddressAlloc& alloc) noexcept
+            {
+                return static_cast<const ConstGetter&>(alloc).get_combined_offset();
+            }
 
 
             static inline size_type        get_free_size(const AddressAlloc& alloc) noexcept
@@ -252,9 +244,9 @@ namespace core
 
             // underlying allocator statics
             template<typename... Args>
-            static inline size_type reserved_size(Args&&... args) noexcept
+            static inline size_type reserved_size(const Args&... args) noexcept
             {
-                return AddressAlloc::reserved_size(std::forward<Args>(args)...);
+                return AddressAlloc::reserved_size(args...);
             }
     };
 

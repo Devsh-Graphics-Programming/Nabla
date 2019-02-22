@@ -82,8 +82,8 @@ public:
 	static void convert_R5G6B5toB8G8R8(const void* sP, int32_t sN, void* dP);
 	static void convert_R5G6B5toA8R8G8B8(const void* sP, int32_t sN, void* dP);
 	static void convert_R5G6B5toA1R5G5B5(const void* sP, int32_t sN, void* dP);
-	static void convert_viaFormat(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
-				void* dP, ECOLOR_FORMAT dF);
+	static void convert_viaFormat(const void* sP, asset::E_FORMAT sF, int32_t sN,
+				void* dP, asset::E_FORMAT dF);
 };
 
 

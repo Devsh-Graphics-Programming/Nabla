@@ -346,9 +346,9 @@ constexpr uint32_t CBlurPerformer::s_MAX_OUTPUT_SIZE_XY;
 constexpr uint32_t CBlurPerformer::s_MIN_DS_FACTOR;
 constexpr uint32_t CBlurPerformer::s_MAX_DS_FACTOR;
 
-CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis, video::ECOLOR_FORMAT _outputColorFmt, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
+CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis, asset::E_FORMAT _outputColorFmt, video::IGPUBuffer* uboBuffer, const size_t& uboDataStaticOffset)
 {
-    assert(_outputColorFmt == video::ECF_A16B16G16R16F || _outputColorFmt == video::ECF_RGB9_E5);
+    assert(_outputColorFmt == asset::EF_R16G16B16A16_SFLOAT || _outputColorFmt == asset::EF_E5B9G9R9_UFLOAT_PACK32);
 
     if (s_MAX_WORK_GROUP_SIZE == 0u)
         s_MAX_WORK_GROUP_SIZE = std::min(s_ABSOLUTELY_MAX_WORK_GROUP_SIZE, _driver->getMaxComputeWorkGroupSize(0u));
@@ -356,11 +356,11 @@ CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, float 
     return new CBlurPerformer(_driver, _radius, _dsFactor, _passesPerAxis, _outputColorFmt, uboBuffer, uboDataStaticOffset);
 }
 
-video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex, const std::string& _name)
+video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex)
 {
     prepareForBlur(_inputTex->getSize(), false);
 
-    return m_driver->addTexture(video::ITexture::ETT_2D, &m_outSize.X, 1, _name.c_str(), m_outputColorFormat);
+    return m_driver->createGPUTexture(video::ITexture::ETT_2D, &m_outSize.X, 1, m_outputColorFormat);
 }
 
 #define PROFILE_BLUR_PERFORMER
@@ -531,7 +531,7 @@ static std::string genMainBlurLoop(char* _buf, uint32_t _passes, uint32_t _simTh
 
     return res;
 }
-bool CBlurPerformer::genBlurPassCs(char* _out, video::IVideoDriver* _driver, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, const core::vector2d<uint32_t>& _dsf, video::ECOLOR_FORMAT _colorFmt, int _finalPass)
+bool CBlurPerformer::genBlurPassCs(char* _out, video::IVideoDriver* _driver, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, const core::vector2d<uint32_t>& _dsf, asset::E_FORMAT _colorFmt, int _finalPass)
 {
     std::string scan_warp = video::CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(_driver) + video::CGLSLFunctionGenerator::getWarpPaddingFunctions() +
         video::CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(video::CGLSLFunctionGenerator::EGCO_ADD, video::CGLSLFunctionGenerator::EGT_VEC3, "blur", "loadShared", "storeShared");
@@ -544,8 +544,8 @@ bool CBlurPerformer::genBlurPassCs(char* _out, video::IVideoDriver* _driver, siz
 
     const char outputFunc_fmt[] = "for (uint i = 0; i < %u; ++i) outputFunc(LC_IDX + i*WG_SIZE);\n";
 
-    const std::string outImageDecl = _colorFmt == video::ECF_A16B16G16R16F ? "layout(binding = 0, rgba16f) uniform writeonly image2D out_img;" : "layout(binding = 0, r32ui) uniform writeonly uimage2D out_img;";
-    const std::string imageOutput = _colorFmt == video::ECF_A16B16G16R16F ? "imageStore(out_img, ivec2(IDX), vec4(res, 1.f));" : "imageStore(out_img, ivec2(IDX), uvec4(encodeRgbIntoRgb9e5(res), 0u, 0u, 0u));";
+    const std::string outImageDecl = _colorFmt == asset::EF_R16G16B16A16_SFLOAT ? "layout(binding = 0, rgba16f) uniform writeonly image2D out_img;" : "layout(binding = 0, r32ui) uniform writeonly uimage2D out_img;";
+    const std::string imageOutput = _colorFmt == asset::EF_R16G16B16A16_SFLOAT ? "imageStore(out_img, ivec2(IDX), vec4(res, 1.f));" : "imageStore(out_img, ivec2(IDX), uvec4(encodeRgbIntoRgb9e5(res), 0u, 0u, 0u));";
 
     char buf[1u<<12];
 
@@ -671,7 +671,7 @@ void CBlurPerformer::updateUBO()
     updateUBO(mem);
 }
 
-auto CBlurPerformer::makeShaders(video::IVideoDriver* _driver, const core::vector2d<uint32_t>& _outSize, const core::vector2d<uint32_t>& _dsf, uint32_t _passesPerAxis, video::ECOLOR_FORMAT _colorFmt) -> tuple2xu32
+auto CBlurPerformer::makeShaders(video::IVideoDriver* _driver, const core::vector2d<uint32_t>& _outSize, const core::vector2d<uint32_t>& _dsf, uint32_t _passesPerAxis, asset::E_FORMAT _colorFmt) -> tuple2xu32
 {
     uint32_t blurx{}, blury{};
 

@@ -110,12 +110,12 @@ public:
         }
     }
 
-    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SMaterial& material, const video::SMaterial& lastMaterial)
+
+    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial)
     {
         currentMat = material.MaterialType;
         currentLodPass = material.MaterialTypeParam;
     }
-
     virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
         if (uniformLocation[currentMat][EU_PROJ_VIEW_WORLD_MAT]>=0)
@@ -143,6 +143,7 @@ public:
 
     virtual void OnUnsetMaterial() {}
 };
+
 
 
  scene::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const scene::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
@@ -182,6 +183,44 @@ public:
  }
 
  
+
+
+ asset::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
+ {
+    video::IVideoDriver* driver = smgr->getVideoDriver();
+    asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao = driver->createGPUMeshDataFormatDesc();
+
+    //
+    for (size_t k=0; k<asset::EVAI_COUNT; k++)
+    {
+        asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)k;
+        if (!oldVAO->getMappedBuffer(attrId))
+            continue;
+
+        vao->setVertexAttrBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId)),attrId,oldVAO->getAttribFormat(attrId),
+                                 oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),oldVAO->getAttribDivisor(attrId));
+    }
+
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR1,asset::EF_R8G8B8A8_UNORM,29*sizeof(float),28*sizeof(float),1);
+
+    // I know what attributes are unused in my mesh and I've set up the shader to use thse as instance data
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR4,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),0,1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR5,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),4*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR6,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),8*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR2,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),12*sizeof(float),1);
+
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR7,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),16*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),19*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),22*sizeof(float),1);
+    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),25*sizeof(float),1);
+
+
+    if (oldVAO->getIndexBuffer())
+        vao->setIndexBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer()));
+
+    return vao;
+ }
+
 
 
 int main()
@@ -279,13 +318,13 @@ int main()
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-	//!
-    scene::IGPUMesh* gpumesh = smgr->getGeometryCreator()->createCubeMeshGPU(driver,core::vector3df(1.f,1.f,1.f));
+    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(5.f, 1.f, 1.f));
+    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
     for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
         gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
 
 
-    video::SMaterial cullingXFormFeedbackShader;
+    video::SGPUMaterial cullingXFormFeedbackShader;
     const char* xformFeedbackOutputs[] =
     {
         "outLoD0_worldViewProjMatCol0",
@@ -301,7 +340,7 @@ int main()
     cullingXFormFeedbackShader.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../culling.vert","","","../culling.geom","",3,video::EMT_SOLID,cb,xformFeedbackOutputs,9);
     cullingXFormFeedbackShader.RasterizerDiscard = true;
 
-
+>>>>>>> 6561907e7da34d1937f074801a95694da64bc2bc
 
     //!
 	uint64_t lastFPSTime = 0;
@@ -426,11 +465,11 @@ int main()
 
     node->removeInstances(towerHeight*towerWidth,instances);
     node->remove();
-
     gpumesh->drop();
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
+
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.
@@ -449,10 +488,11 @@ int main()
         }
         delete [] tmpBuffer;
     }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
-
-
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
+    screenshot->drop();
 	device->drop();
 
 	return 0;

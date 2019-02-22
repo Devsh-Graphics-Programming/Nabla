@@ -10,15 +10,13 @@
 #include "EMaterialTypes.h"
 #include "EMaterialFlags.h"
 #include "SMaterialLayer.h"
-#include "IGPUBuffer.h"
+#include "irr/asset/ICPUTexture.h"
+#include "IVirtualTexture.h"
 
 namespace irr
 {
 namespace video
 {
-	class IVirtualTexture;
-
-
 	//!
 	enum E_POLYGON_RASTER_MODE
 	{
@@ -117,6 +115,7 @@ namespace video
 
 #include "irr/irrpack.h"
 	//! Struct for holding parameters for a material renderer
+    template<typename TexT>
 	class SMaterial
 	{
 	public:
@@ -132,14 +131,14 @@ namespace video
 
 		//! Copy constructor
 		/** \param other Material to copy from. */
-		SMaterial(const SMaterial& other)
+		SMaterial(const SMaterial<TexT>& other)
 		{
 			*this = other;
 		}
 
 		//! Assignment operator
 		/** \param other Material to copy from. */
-		SMaterial& operator=(const SMaterial& other)
+		SMaterial<TexT>& operator=(const SMaterial<TexT>& other)
 		{
 			// Check for self-assignment!
 			if (this == &other)
@@ -177,7 +176,7 @@ namespace video
 		}
 
 		//! Texture layer array.
-		SMaterialLayer TextureLayer[MATERIAL_MAX_TEXTURES];
+		SMaterialLayer<TexT> TextureLayer[MATERIAL_MAX_TEXTURES];
 
 		//! Type of the material. Specifies how everything is blended together
 		E_MATERIAL_TYPE MaterialType;
@@ -329,7 +328,7 @@ namespace video
 		//! Gets the i-th texture
 		/** \param i The desired level.
 		\return Texture for texture level i, if defined, else 0. */
-		IVirtualTexture* getTexture(uint32_t i) const
+		TexT* getTexture(uint32_t i) const
 		{
 			return i < MATERIAL_MAX_TEXTURES ? TextureLayer[i].Texture : 0;
 		}
@@ -338,7 +337,7 @@ namespace video
 		/** If i>=MATERIAL_MAX_TEXTURES this setting will be ignored.
 		\param i The desired level.
 		\param tex Texture for texture level i. */
-		void setTexture(uint32_t i, IVirtualTexture* tex)
+		void setTexture(uint32_t i, TexT* tex)
 		{
 			if (i>=MATERIAL_MAX_TEXTURES)
 				return;
@@ -404,7 +403,7 @@ namespace video
 		//! Inequality operator
 		/** \param b Material to compare to.
 		\return True if the materials differ, else false. */
-		inline bool operator!=(const SMaterial& b) const
+		inline bool operator!=(const SMaterial<TexT>& b) const
 		{
 			bool different =
 				MaterialType != b.MaterialType ||
@@ -438,7 +437,7 @@ namespace video
 		//! Equality operator
 		/** \param b Material to compare to.
 		\return True if the materials are equal, else false. */
-		inline bool operator==(const SMaterial& b) const
+		inline bool operator==(const SMaterial<TexT>& b) const
 		{ return !(b!=*this); }
 
 		bool isTransparent() const
@@ -451,8 +450,11 @@ namespace video
 
 #include "irr/irrunpack.h"
 
+    using SGPUMaterial = SMaterial<IVirtualTexture>;
+    using SCPUMaterial = SMaterial<asset::ICPUTexture>;
+
 	//! global const identity Material
-	IRRLICHT_API extern SMaterial IdentityMaterial;
+	IRRLICHT_API extern SGPUMaterial IdentityMaterial;
 
 
 

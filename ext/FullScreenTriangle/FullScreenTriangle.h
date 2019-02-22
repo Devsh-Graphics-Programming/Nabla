@@ -20,7 +20,7 @@ struct ScreenTriangleVertexStruct
 #include "irr/irrunpack.h"
 
 
-inline scene::IGPUMeshBuffer* createFullScreenTriangle(video::IVideoDriver* driver)
+inline video::IGPUMeshBuffer* createFullScreenTriangle(video::IVideoDriver* driver)
 {
     ScreenTriangleVertexStruct vertices[3];
     vertices[0] = {{-1,-1},{0,0}};
@@ -47,15 +47,15 @@ inline scene::IGPUMeshBuffer* createFullScreenTriangle(video::IVideoDriver* driv
     // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
     upStreamBuff->multi_free(1u,&offset,&size,driver->placeFence());
 
-    scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+    video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
 
-    scene::IGPUMeshBuffer* triangleMeshBuffer = new scene::IGPUMeshBuffer();
+    video::IGPUMeshBuffer* triangleMeshBuffer = new video::IGPUMeshBuffer();
     triangleMeshBuffer->setMeshDataAndFormat(desc);
     desc->drop();
 
-    desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_TWO,scene::ECT_SHORT,sizeof(ScreenTriangleVertexStruct),0);
-    desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_UNSIGNED_SHORT,sizeof(ScreenTriangleVertexStruct),offsetof(ScreenTriangleVertexStruct,TexCoord[0]));
-    desc->mapIndexBuffer(buff);
+    desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R16G16_SSCALED,sizeof(ScreenTriangleVertexStruct),0);
+    desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R16G16_USCALED,sizeof(ScreenTriangleVertexStruct),offsetof(ScreenTriangleVertexStruct,TexCoord[0]));
+    desc->setIndexBuffer(buff);
     triangleMeshBuffer->setIndexCount(3u);
     buff->drop();
 

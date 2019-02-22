@@ -9,8 +9,8 @@
 #include "IFileSystem.h"
 #include "IImagePresenter.h"
 #include "IGPUProgrammingServices.h"
-#include "IMesh.h"
-#include "IMeshBuffer.h"
+#include "irr/asset/IMesh.h"
+#include "irr/video/IGPUMeshBuffer.h"
 #include "IMeshSceneNode.h"
 #include "CFPSCounter.h"
 #include "SExposedVideoData.h"
@@ -44,7 +44,13 @@ namespace video
         static int32_t incrementAndFetchReallocCounter();
 
 		//! constructor
-		CNullDriver(io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
+		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
+
+        inline virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override { return false; }
 
 		//!
         virtual bool initAuxContext() {return false;}
@@ -77,34 +83,15 @@ namespace video
 		virtual IImageWriter* getImageWriter(uint32_t n);
 
 		//! sets a material
-		virtual void setMaterial(const SMaterial& material);
+		virtual void setMaterial(const SGPUMaterial& material);
 
         //! needs to be "deleted" since its not refcounted
         virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) {return NULL;}
 
-		//! loads a Texture
-		virtual ITexture* getTexture(const io::path& filename, ECOLOR_FORMAT format = ECF_UNKNOWN);
-
-		//! loads a Texture
-		virtual ITexture* getTexture(io::IReadFile* file, ECOLOR_FORMAT format = ECF_UNKNOWN);
-
-		//! Returns a texture by index
-		virtual ITexture* getTextureByIndex(uint32_t index);
-
-		//! Returns amount of textures currently loaded
-		virtual uint32_t getTextureCount() const;
-
-		//! Renames a texture
-		virtual void renameTexture(ITexture* texture, const io::path& newName);
-
-		//! creates a Texture
-		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
-
-        //!
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN);
+        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
 		//! A.
-        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<CImageData*>& mipChain)
+        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<asset::CImageData*>& mipChain)
         {
             if (!tex)
                 return EMCE_OTHER_ERR;
@@ -112,9 +99,9 @@ namespace video
             if (mipChain.size()==0)
                 return EMCE_NO_ERR;
 
-            for (core::vector<CImageData*>::const_iterator it = mipChain.begin(); it!=mipChain.end(); it++)
+            for (core::vector<asset::CImageData*>::const_iterator it = mipChain.begin(); it!=mipChain.end(); it++)
             {
-                CImageData* img = *it;
+                asset::CImageData* img = *it;
                 if (!img)
                     return EMCE_INVALID_IMAGE;
 
@@ -173,7 +160,7 @@ namespace video
         /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
         This issues an implicit call to bindTransformFeedback()
         **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType=scene::EPT_POINTS);
+		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType=asset::EPT_POINTS);
 
 		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
 		virtual void pauseTransformFeedback();
@@ -190,16 +177,16 @@ namespace video
 		//! gets the area of the current viewport
 		virtual const core::rect<int32_t>& getViewPort() const;
 
-        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb);
+        virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect( const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const scene::E_PRIMITIVE_TYPE& mode,
+		virtual void drawArraysIndirect( const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                         const asset::E_PRIMITIVE_TYPE& mode,
                                          const IGPUBuffer* indirectDrawBuff,
                                          const size_t& offset, const size_t& count, const size_t& stride);
-		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const scene::E_PRIMITIVE_TYPE& mode,
-                                         const scene::E_INDEX_TYPE& type,
+		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                         const asset::E_PRIMITIVE_TYPE& mode,
+                                         const asset::E_INDEX_TYPE& type,
                                          const IGPUBuffer* indirectDrawBuff,
                                          const size_t& offset, const size_t& count, const size_t& stride);
 
@@ -282,7 +269,7 @@ namespace video
 					SColor color=SColor(255,255,255,255));
 
 		//! get color format of the current color buffer
-		virtual ECOLOR_FORMAT getColorFormat() const;
+		virtual asset::E_FORMAT getColorFormat() const;
 
 		//! get screen size
 		virtual const core::dimension2d<uint32_t>& getScreenSize() const;
@@ -307,19 +294,11 @@ namespace video
 		//! Adds an external image writer to the engine.
 		virtual void addExternalImageWriter(IImageWriter* writer);
 
-		//! Removes a texture from the texture cache and deletes it, freeing lot of
-		//! memory.
-		virtual void removeTexture(ITexture* texture);
-
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
 
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
-
-		//! Removes all texture from the texture cache and deletes them, freeing lot of
-		//! memory.
-		virtual void removeAllTextures();
 
 		virtual void removeAllMultisampleTextures();
 
@@ -345,19 +324,19 @@ namespace video
 		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const;
 
 		//! Creates a software image from a file.
-		virtual core::vector<CImageData*> createImageDataFromFile(const io::path& filename);
+		virtual core::vector<asset::CImageData*> createImageDataFromFile(const io::path& filename);
 
 		//! Creates a software image from a file.
-		virtual core::vector<CImageData*> createImageDataFromFile(io::IReadFile* file);
+		virtual core::vector<asset::CImageData*> createImageDataFromFile(io::IReadFile* file);
 
 		//! Creates a software image from a byte array.
 		/** \param useForeignMemory: If true, the image will use the data pointer
 		directly and own it from now on, which means it will also try to delete [] the
 		data when the image will be destructed. If false, the memory will by copied. */
-		virtual IImage* createImageFromData(CImageData* imageData, bool ownForeignMemory=true);
+		virtual IImage* createImageFromData(asset::CImageData* imageData, bool ownForeignMemory=true);
 
 		//!
-		virtual IImage* createImage(const ECOLOR_FORMAT& format, const core::dimension2d<uint32_t>& size);
+		virtual IImage* createImage(const asset::E_FORMAT& format, const core::dimension2d<uint32_t>& size);
 
 
 	public:
@@ -479,9 +458,6 @@ namespace video
 		//! Sets the name of a material renderer.
 		virtual void setMaterialRendererName(int32_t idx, const char* name);
 
-		//! looks if the image is already loaded
-		virtual video::ITexture* findTexture(const io::path& filename);
-
 		//! Enable/disable a clipping plane.
 		//! There are at least 6 clipping planes available for the user to set at will.
 		//! \param index: The plane index. Must be between 0 and MaxUserClipPlanes.
@@ -492,7 +468,7 @@ namespace video
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
 
 		//! Get the 2d override material for altering its values
-		virtual SMaterial& getMaterial2D();
+		virtual SGPUMaterial& getMaterial2D();
 
 		//! Enable the 2d override material
 		virtual void enableMaterial2D(bool enable=true);
@@ -504,48 +480,33 @@ namespace video
 		//! Returns the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const;
 
-		//! Color conversion convenience function
-		/** Convert an image (as array of pixels) from source to destination
-		array, thereby converting the color format. The pixel size is
-		determined by the color formats.
-		\param sP Pointer to source
-		\param sF Color format of source
-		\param sN Number of pixels to convert, both array must be large enough
-		\param dP Pointer to destination
-		\param dF Color format of destination
-		*/
-		virtual void convertColor(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
-				void* dP, ECOLOR_FORMAT dF) const;
-
-
-		void addToTextureCache(video::ITexture* surface);
-
+		//!
+		virtual uint32_t getRequiredUBOAlignment() const override {return 0u;}
 
 		//!
-		virtual uint32_t getRequiredUBOAlignment() const {return 0;}
+		virtual uint32_t getRequiredSSBOAlignment() const override {return 0u;}
 
 		//!
-		virtual uint32_t getRequiredSSBOAlignment() const {return 0;}
+		virtual uint32_t getRequiredTBOAlignment() const override {return 0u;}
 
-		//!
-		virtual uint32_t getRequiredTBOAlignment() const {return 0;}
+        virtual uint32_t getMaxComputeWorkGroupSize(uint32_t) const override { return 0u; }
 
-        virtual uint32_t getMaxComputeWorkGroupSize(uint32_t) const { return 0u; }
+        virtual uint64_t getMaxUBOSize() const override { return 0ull; }
+
+        virtual uint64_t getMaxSSBOSize() const override { return 0ull; }
+
+        virtual uint64_t getMaxTBOSize() const override { return 0ull; }
+
+        virtual uint64_t getMaxBufferSize() const override { return 0ull; }
 
 	protected:
         void addMultisampleTexture(IMultisampleTexture* tex);
 
         void addTextureBufferObject(ITextureBufferObject* tbo);
 
-		//! deletes all textures
-		void deleteAllTextures();
-
-		//! opens the file and loads it into the surface
-		video::ITexture* loadTextureFromFile(io::IReadFile* file, ECOLOR_FORMAT format=ECF_UNKNOWN, const io::path& hashName = "");
-
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
 
 
 		// adds a material renderer and drops it afterwards. To be used for internal creation
@@ -574,6 +535,7 @@ namespace video
 			return (float) getAverage ( p[(y * pitch) + x] );
 		}
 
+    protected:
 		struct SSurface
 		{
 			video::ITexture* Surface;
@@ -622,17 +584,16 @@ namespace video
                 virtual uint32_t getMipMapLevelCount() const {return 1;}
                 virtual core::dimension2du getRenderableSize() const { return size; }
                 virtual E_DRIVER_TYPE getDriverType() const { return video::EDT_NULL; }
-                virtual ECOLOR_FORMAT getColorFormat() const { return video::ECF_A1R5G5B5; }
+                virtual asset::E_FORMAT getColorFormat() const { return asset::EF_A1R5G5B5_UNORM_PACK16; }
                 virtual uint32_t getPitch() const { return 0; }
                 virtual void regenerateMipMapLevels() {}
-                virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
+                virtual bool updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
                 virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
 
                 virtual IDriverMemoryAllocation* getBoundMemory() {return nullptr;}
                 virtual const IDriverMemoryAllocation* getBoundMemory() const {return nullptr;}
                 virtual size_t getBoundMemoryOffset() const {return 0u;}
 		};
-		core::vector<SSurface> Textures;
 
 		core::vector<IMultisampleTexture*> MultisampleTextures;
 		core::vector<ITextureBufferObject*> TextureBufferObjects;
@@ -655,7 +616,7 @@ namespace video
 
 		CFPSCounter FPSCounter;
 
-        scene::IGPUMeshBuffer* boxLineMesh;
+        video::IGPUMeshBuffer* boxLineMesh;
 
 		uint32_t PrimitivesDrawn;
 
@@ -663,8 +624,8 @@ namespace video
 
 		SExposedVideoData ExposedData;
 
-		SMaterial OverrideMaterial2D;
-		SMaterial InitMaterial2D;
+		SGPUMaterial OverrideMaterial2D;
+		SGPUMaterial InitMaterial2D;
 		bool OverrideMaterial2DEnabled;
 
 		bool AllowZWriteOnTransparent;

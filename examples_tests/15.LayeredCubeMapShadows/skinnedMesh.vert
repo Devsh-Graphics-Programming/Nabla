@@ -1,8 +1,5 @@
 #version 420 core
 layout(binding = 3) uniform samplerBuffer tex3;
-uniform vec3 worldSpaceLightPos;
-uniform mat4x3 worldMat;
-uniform mat3 normalMat;
 uniform mat4 MVP;
 
 layout(location = 0) in vec3 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
@@ -97,8 +94,8 @@ void main()
     vec3 pos,nml;
     linearSkin(pos,nml,vBoneIDs,vBoneWeights);
 
-    gl_Position = MVP*vec4(pos,1.0);
-    Normal = normalMat*normalize(nml); //have to normalize twice because of normal quantization
-    lightDir = worldSpaceLightPos-worldMat*vec4(pos.xyz,1.0);
+    gl_Position = MVP*vec4(pos,1.0); //only thing preventing the shader from being core-compliant
+    Normal = normalize(nml); //have to normalize twice because of normal quantization
+    lightDir = vec3(100.0,0.0,0.0)-vPos.xyz;
     TexCoord = vTC;
 }

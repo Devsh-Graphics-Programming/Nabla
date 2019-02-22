@@ -11,8 +11,13 @@
 #include "IQueryObject.h"
 #include "ISceneManager.h"
 
+
 namespace irr
 {
+namespace video
+{
+class SGPUMesh;
+}
 namespace scene
 {
 
@@ -45,7 +50,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         //! This function is needed for inserting the node into the scene hirachy on a
         //! optimal position for minimizing renderstate changes, but can also be used
         //! to directly modify the material of a scene node.
-        virtual video::SMaterial& getMaterial(uint32_t i)
+        virtual video::SGPUMaterial& getMaterial(uint32_t i)
         {
             uint32_t cumMaterialCnt = 0;
             for (size_t j=0; j<LoD.size(); j++)
@@ -62,11 +67,11 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         //! Sets a new mesh to display
         /** \param mesh Mesh to display. */
-        virtual bool setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0);
+        virtual bool setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0);
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
-        virtual SGPUMesh* getLoDMesh(const size_t &lod) {return LoD[lod].mesh;}
+        virtual video::SGPUMesh* getLoDMesh(const size_t &lod) {return LoD[lod].mesh;}
 
         virtual const core::aabbox3df& getLoDInvariantBBox() const {return LoDInvariantBox;}
 
@@ -148,7 +153,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         struct LoDData
         {
-            SGPUMesh* mesh;
+            video::SGPUMesh* mesh;
             video::IQueryObject* query;
             float distanceSQ;
             size_t instancesToDraw;
@@ -161,7 +166,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         size_t instanceBBoxesCount;
         core::aabbox3df* instanceBBoxes;
         bool flagQueryForRetrieval;
-        IGPUMeshBuffer* lodCullingPointMesh;
+        video::IGPUMeshBuffer* lodCullingPointMesh;
         video::IGPUBuffer* gpuCulledLodInstanceDataBuffer;
 
         size_t dataPerInstanceOutputSize;

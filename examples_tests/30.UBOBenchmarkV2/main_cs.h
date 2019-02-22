@@ -106,7 +106,7 @@ int main()
 
     const size_t bufSize = offsets[99] + wgCnts[99] * uboStructSizes[15];
 
-    core::ICPUBuffer* cpubuffer = new core::ICPUBuffer(bufSize);
+    asset::ICPUBuffer* cpubuffer = new asset::ICPUBuffer(bufSize);
     for (size_t i = 0u; i < bufSize / 2; ++i)
         ((uint16_t*)(cpubuffer->getPointer()))[i] = rand();
 

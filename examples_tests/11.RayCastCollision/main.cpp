@@ -58,7 +58,7 @@ int main()
 	video::IVideoDriver* driver = device->getVideoDriver();
 
     //! First need to make a material other than default to be able to draw with custom shader
-    video::SMaterial material;
+    video::SGPUMaterial material;
     material.BackfaceCulling = false; //! Triangles will be visible from both sides
 
 
@@ -79,11 +79,18 @@ int main()
 
     core::SCollisionEngine* gCollEng = new core::SCollisionEngine();
 
+    asset::IAssetLoader::SAssetLoadParams lparams;
+    asset::ICPUTexture* cputextures[]{
+        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/irrlicht2_dn.jpg", lparams)),
+        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/skydome.jpg", lparams))
+    };
+    core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
+
 	//! Test Creation Of Builtin
 	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f,0,-1));
     cube->setRotation(core::vector3df(45,20,15));
     cube->setMaterialFlag(video::EMF_BACK_FACE_CULLING,false);
-    cube->getMaterial(0).setTexture(0,driver->getTexture("../../media/irrlicht2_dn.jpg"));
+    cube->getMaterial(0).setTexture(0,gputextures[0]);
 	core::SCompoundCollider* compound = new core::SCompoundCollider();
 	compound->AddBox(core::SAABoxCollider(cube->getBoundingBox()));
 	core::SColliderData collData;
@@ -94,7 +101,7 @@ int main()
 
 	scene::IMeshSceneNode* sphere = dynamic_cast<scene::IMeshSceneNode*>(smgr->addSphereSceneNode(2,32));
     sphere->setMaterialFlag(video::EMF_BACK_FACE_CULLING,false);
-    sphere->getMaterial(0).setTexture(0,driver->getTexture("../../media/skydome.jpg"));
+    sphere->getMaterial(0).setTexture(0,gputextures[1]);
     sphere->getMaterial(0).MaterialType = material.MaterialType;
     sphere->setPosition(core::vector3df(4,0,0));
 	compound = new core::SCompoundCollider();
@@ -151,7 +158,7 @@ int main()
 	}
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.

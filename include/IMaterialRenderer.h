@@ -46,7 +46,7 @@ public:
 	fogenable.
 	\param services: Interface providing some methods for changing
 	advanced, internal states of a IVideoDriver. */
-	virtual void OnSetMaterial(const SMaterial& material, const SMaterial& lastMaterial,
+	virtual void OnSetMaterial(const SGPUMaterial& material, const SGPUMaterial& lastMaterial,
 		bool resetAllRenderstates, IMaterialRendererServices* services) {}
 
 	//! Called every time before a new bunch of geometry is being drawn using this material with for example drawIndexedTriangleList() call.

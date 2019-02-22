@@ -52,9 +52,8 @@ class IDummyTransformationSceneNode : public virtual core::IReferenceCounted
 			for (; ait != Animators.end(); ++ait)
 				(*ait)->drop();
         }
-    public:
 
-        //! Constructor (TODO: Move to protected)
+    public:
         IDummyTransformationSceneNode(IDummyTransformationSceneNode* parent,
 				const core::vector3df& position = core::vector3df(0,0,0),
 				const core::vector3df& rotation = core::vector3df(0,0,0),

@@ -9,6 +9,7 @@
 #include "ICameraSceneNode.h"
 #include "IMaterialRenderer.h"
 #include "os.h"
+#include "irr/video/SGPUMesh.h"
 
 //enable after C++14
 //#include "irr/static_if.h"
@@ -36,8 +37,8 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
 
     renderPriority = 0x80000000u;
 
-    lodCullingPointMesh = new IGPUMeshBuffer();
-    lodCullingPointMesh->setPrimitiveType(EPT_POINTS);
+    lodCullingPointMesh = new video::IGPUMeshBuffer();
+    lodCullingPointMesh->setPrimitiveType(asset::EPT_POINTS);
 }
 
 //! destructor
@@ -61,7 +62,7 @@ CMeshSceneNodeInstanced::~CMeshSceneNodeInstanced()
 
 
 //! Sets a new meshbuffer
-bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput)
+bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput)
 {
     for (size_t i=0; i<LoD.size(); i++)
     {
@@ -112,7 +113,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     dataPerInstanceInputSize = extraDataInstanceSize+visibilityPadding+48+36;
     auto buffSize = dataPerInstanceInputSize*512u;
-    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(driver,core::allocator<uint8_t>(),buffSize,core::roundUpToPoT(dataPerInstanceInputSize),dataPerInstanceInputSize);
+    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(driver,core::allocator<uint8_t>(),0u,0u,core::roundDownToPoT(dataPerInstanceInputSize),buffSize,dataPerInstanceInputSize,nullptr);
 	instanceBBoxesCount = getCurrentInstanceCapacity();
 	instanceBBoxes = (core::aabbox3df*)_IRR_ALIGNED_MALLOC(instanceBBoxesCount*sizeof(core::aabbox3df),_IRR_SIMD_ALIGNMENT);
 	for (size_t i=0; i<instanceBBoxesCount; i++)
@@ -130,17 +131,17 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     {
         video::IGPUBuffer* buff = instanceDataAllocator->getFrontBuffer();
 
-        IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
+        video::IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
         lodCullingPointMesh->setMeshDataAndFormat(vao);
         vao->drop();
 
         uint32_t floatComponents = extraDataInstanceSize+1;
         floatComponents /= 4;
         floatComponents += 12+9;
-        if (floatComponents>EVAI_COUNT*4)
+        if (floatComponents>asset::EVAI_COUNT*4)
         {
-            for (uint32_t i=0; i<EVAI_COUNT; i++)
-                vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)i,ECPA_FOUR,ECT_FLOAT,dataPerInstanceInputSize,i*16);
+            for (uint32_t i=0; i<asset::EVAI_COUNT; i++)
+                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)i,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,i*16);
         }
         else
         {
@@ -148,14 +149,25 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             uint32_t attr = 0;
             for (; attr*4+3<floatComponents; attr++)
             {
-                vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)attr,ECPA_FOUR,ECT_FLOAT,dataPerInstanceInputSize,attr*16);
+                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)attr,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16);
                 memoryUsed+=16;
             }
             memoryUsed -= (12+9)*4;
 
             size_t leftOverMemory = extraDataInstanceSize+1-memoryUsed;
+
+            auto convertFunc = [](size_t x) { // rename this? What's this for actually?
+                switch (x)
+                {
+                case 1ull: return asset::EF_R32_UINT;
+                case 2ull: return asset::EF_R32G32_UINT;
+                case 3ull: return asset::EF_R32G32B32_UINT;
+                default: return asset::EF_R32G32B32A32_UINT;
+                }
+            };
+
             //assume a padding of 4 at the end
-            vao->mapVertexAttrBuffer(buff,(E_VERTEX_ATTRIBUTE_ID)attr,(E_COMPONENTS_PER_ATTRIBUTE)((leftOverMemory+3)/4),ECT_INTEGER_UNSIGNED_INT,dataPerInstanceInputSize,attr*16);
+            vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)attr,convertFunc(((leftOverMemory+3)/4)),dataPerInstanceInputSize,attr*16);
         }
     }
 
@@ -168,12 +180,12 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         tmp.distanceSQ = levelsOfDetail[i].lodDistance;
         tmp.distanceSQ *= tmp.distanceSQ;
 
-        tmp.mesh = new SGPUMesh();
+        tmp.mesh = new video::SGPUMesh();
         for (size_t j=0; j<levelsOfDetail[i].mesh->getMeshBufferCount(); j++)
         {
-            IGPUMeshBuffer* origBuff = levelsOfDetail[i].mesh->getMeshBuffer(j);
+            video::IGPUMeshBuffer* origBuff = levelsOfDetail[i].mesh->getMeshBuffer(j);
 
-            IGPUMeshBuffer* meshBuff = new IGPUMeshBuffer();
+            video::IGPUMeshBuffer* meshBuff = new video::IGPUMeshBuffer();
             meshBuff->setBaseVertex(origBuff->getBaseVertex());
             if (origBuff->isIndexCountGivenByXFormFeedback())
                 meshBuff->setIndexCountFromXFormFeedback(origBuff->getXFormFeedback(),origBuff->getXFormFeedbackStream());
@@ -183,7 +195,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             meshBuff->setIndexType(origBuff->getIndexType());
             meshBuff->setPrimitiveType(origBuff->getPrimitiveType());
 
-            IMeshDataFormatDesc<video::IGPUBuffer>* vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
+            asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
             meshBuff->setMeshDataAndFormat(vao);
             vao->drop();
 
@@ -262,7 +274,7 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
         {
             size_t newSize = newCount*sizeof(core::aabbox3df);
             void* newPtr = _IRR_ALIGNED_MALLOC(newSize,_IRR_SIMD_ALIGNMENT);
-            memcpy(newPtr,instanceBBoxes,newSize);
+            memcpy(newPtr,instanceBBoxes,std::min(instanceBBoxesCount*sizeof(core::aabbox3df),newSize));
             _IRR_ALIGNED_FREE(instanceBBoxes);
             instanceBBoxes = (core::aabbox3df*)newPtr;
         }
@@ -284,7 +296,7 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
             relativeTransforms[i].transformBoxEx(instanceBBoxes[blockID]);
         }
         size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceIDs[i]);
-        instanceDataAllocator->markRangeDirty(redirect,redirect+dataPerInstanceInputSize);
+        instanceDataAllocator->markRangeForPush(redirect,redirect+dataPerInstanceInputSize);
         uint8_t* ptr = base_pointer+redirect;
         memcpy(ptr,relativeTransforms+i,48);
 
@@ -319,7 +331,7 @@ void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, c
     }
 
     size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
-    instanceDataAllocator->markRangeDirty(redirect,redirect+48+36);
+    instanceDataAllocator->markRangeForPush(redirect,redirect+48+36);
     uint8_t* ptr = reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redirect;
     memcpy(ptr,relativeTransform.pointer(),48);
 
@@ -357,7 +369,7 @@ core::matrix4x3 CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& in
 void CMeshSceneNodeInstanced::setInstanceVisible(const uint32_t& instanceID, const bool& visible)
 {
     size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID)+36+48+extraDataInstanceSize;
-    instanceDataAllocator->markRangeDirty(redirect,redirect+1u);
+    instanceDataAllocator->markRangeForPush(redirect,redirect+1u);
     reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())[redirect] = visible;
     /// update BBox?
 }
@@ -368,7 +380,7 @@ void CMeshSceneNodeInstanced::setInstanceData(const uint32_t& instanceID, const 
         return;
 
     size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID)+36+48;
-    instanceDataAllocator->markRangeDirty(redirect,redirect+extraDataInstanceSize);
+    instanceDataAllocator->markRangeForPush(redirect,redirect+extraDataInstanceSize);
     uint8_t* ptr = reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redirect;
     memcpy(ptr,data,extraDataInstanceSize);
 }
@@ -397,17 +409,15 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
     }
 
     {// dummyBytes scope
-    core::vector<uint32_t> dummyBytes_(instanceCount);
+    core::vector<uint32_t> dummyBytes_(instanceCount,dataPerInstanceInputSize);
     uint32_t* const dummyBytes = dummyBytes_.data();
-    for (size_t i=0; i<instanceCount; i++)
-        dummyBytes[i] = dataPerInstanceInputSize;
 
     instanceDataAllocator->multi_free_addr(instanceCount,instanceIDs,static_cast<const uint32_t*>(dummyBytes));
     }
 
     //static_if<usesContiguousAddrAllocator>([&](auto f){
         // everything got shifted down by 1 so mark dirty
-        instanceDataAllocator->markRangeDirty(minRedirect,core::address_allocator_traits<InstanceDataAddressAllocator>::get_allocated_size(instanceDataAllocator->getAddressAllocator()));
+        instanceDataAllocator->markRangeForPush(minRedirect,core::address_allocator_traits<InstanceDataAddressAllocator>::get_allocated_size(instanceDataAllocator->getAddressAllocator()));
     //});
 
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
@@ -450,7 +460,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
 
     {
         //can swap before or after, but defubuteky before tform feedback shadeur
-        instanceDataAllocator->swapBuffers(driver->getDefaultUpStreamingBuffer());
+        instanceDataAllocator->pushBuffer(driver->getDefaultUpStreamingBuffer());
 
         size_t outputSizePerLoD = dataPerInstanceOutputSize*getCurrentInstanceCapacity();
         if (gpuCulledLodInstanceDataBuffer->getSize()!=xfb.size()*gpuLoDsPerPass*outputSizePerLoD)
@@ -471,7 +481,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam) = i*gpuLoDsPerPass;
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam2) = i*gpuLoDsPerPass+gpuLoDsPerPass-1;
             driver->setMaterial(lodCullingPointMesh->getMaterial());
-            driver->beginTransformFeedback(xfb[i],lodCullingPointMesh->getMaterial().MaterialType,scene::EPT_POINTS);
+            driver->beginTransformFeedback(xfb[i],lodCullingPointMesh->getMaterial().MaterialType,asset::EPT_POINTS);
             for (size_t j=0; j<gpuLoDsPerPass&&(i*gpuLoDsPerPass+j)<LoD.size(); j++)
                 driver->beginQuery(LoD[i*gpuLoDsPerPass+j].query,j);
             driver->drawMeshBuffer(lodCullingPointMesh);
@@ -506,7 +516,7 @@ void CMeshSceneNodeInstanced::OnRegisterSceneNode()
         for (size_t i=0; i<LoD.size(); ++i)
         for (size_t j=0; j<LoD[i].mesh->getMeshBufferCount(); j++)
         {
-            scene::IGPUMeshBuffer* mb = LoD[i].mesh->getMeshBuffer(j);
+            video::IGPUMeshBuffer* mb = LoD[i].mesh->getMeshBuffer(j);
             if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
                 continue;
 
@@ -574,7 +584,7 @@ void CMeshSceneNodeInstanced::render()
     {
         for (size_t j=0; j<LoD[i].mesh->getMeshBufferCount(); j++)
         {
-            const video::SMaterial& material = LoD[i].mesh->getMeshBuffer(j)->getMaterial();
+            const video::SGPUMaterial& material = LoD[i].mesh->getMeshBuffer(j)->getMaterial();
 
             video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
             bool transparent = (rnd && rnd->isTransparent());

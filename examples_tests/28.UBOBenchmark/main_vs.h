@@ -45,7 +45,7 @@ int main()
 
     video::IVideoDriver* driver = device->getVideoDriver();
     uint32_t depthBufSz[]{ 64u, 64u };
-    video::ITexture* depthBuffer = driver->addTexture(video::ITexture::ETT_2D, depthBufSz, 1, "Depth", video::ECF_DEPTH32F);
+    video::ITexture* depthBuffer = driver->createGPUTexture(video::ITexture::ETT_2D, depthBufSz, 1, asset::EF_D32_SFLOAT);
 
     video::E_MATERIAL_TYPE material[16];
     for (size_t i = 0u; i < 16u; ++i)
@@ -57,8 +57,8 @@ int main()
             3, video::EMT_SOLID);
     }
 
-    scene::IGPUMeshBuffer* meshes[100];
-    scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+    video::IGPUMeshBuffer* meshes[100];
+    video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
 
     video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 #if ATTRIB_DIVISOR==0
@@ -74,12 +74,12 @@ int main()
     reqs.requiresDedicatedAllocation = true;
 
     auto attrBuf = driver->createGPUBufferOnDedMem(reqs,false);
-    desc->mapVertexAttrBuffer(attrBuf, scene::EVAI_ATTR0, scene::ECPA_ONE, scene::ECT_FLOAT, 0u, 0u, ATTRIB_DIVISOR); // map whatever buffer just to activate whatever vertex attribute (look below)
+    desc->setVertexAttrBuffer(attrBuf, asset::EVAI_ATTR0, asset::EF_R32_SFLOAT, 0u, 0u, ATTRIB_DIVISOR); // map whatever buffer just to activate whatever vertex attribute (look below)
     {
         size_t triBudget = 1600000u; //1.6M
         for (size_t i = 0u; i < 100u; ++i)
         {
-            meshes[i] = new scene::IGPUMeshBuffer();
+            meshes[i] = new video::IGPUMeshBuffer();
             const size_t instCnt = rand() % 10 + 1;
             const size_t triCnt = rand() % 3000 + 3000/3;
             meshes[i]->setInstanceCount(instCnt);
@@ -143,7 +143,7 @@ int main()
 #endif
 #endif
 
-    core::ICPUBuffer* cpubuffer = new core::ICPUBuffer(bufSize);
+    asset::ICPUBuffer* cpubuffer = new asset::ICPUBuffer(bufSize);
     for (size_t i = 0u; i < bufSize / 2; ++i)
         ((uint16_t*)(cpubuffer->getPointer()))[i] = rand();
 
@@ -185,7 +185,7 @@ int main()
     video::IFrameBuffer* fbo = driver->addFrameBuffer();
     fbo->attach(video::EFAP_DEPTH_ATTACHMENT, depthBuffer);
 
-    video::SMaterial smaterial;
+    video::SGPUMaterial smaterial;
     smaterial.RasterizerDiscard = RASTERIZER_DISCARD;
     auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(driver)->getThreadContext());
     size_t frameNum = 0u;

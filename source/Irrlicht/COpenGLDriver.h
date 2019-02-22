@@ -70,6 +70,353 @@ namespace video
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device);
 		#endif
 
+        inline virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override
+        {
+            using namespace asset;
+            switch (_fmt)
+            {
+            // signed/unsigned byte
+            case EF_R8_UNORM:
+            case EF_R8_SNORM:
+            case EF_R8_UINT:
+            case EF_R8_SINT:
+            case EF_R8G8_UNORM:
+            case EF_R8G8_SNORM:
+            case EF_R8G8_UINT:
+            case EF_R8G8_SINT:
+            case EF_R8G8B8_UNORM:
+            case EF_R8G8B8_SNORM:
+            case EF_R8G8B8_UINT:
+            case EF_R8G8B8_SINT:
+            case EF_R8G8B8A8_UNORM:
+            case EF_R8G8B8A8_SNORM:
+            case EF_R8G8B8A8_UINT:
+            case EF_R8G8B8A8_SINT:
+            case EF_R8_USCALED:
+            case EF_R8_SSCALED:
+            case EF_R8G8_USCALED:
+            case EF_R8G8_SSCALED:
+            case EF_R8G8B8_USCALED:
+            case EF_R8G8B8_SSCALED:
+            case EF_R8G8B8A8_USCALED:
+            case EF_R8G8B8A8_SSCALED:
+            // unsigned byte BGRA (normalized only)
+            case EF_B8G8R8A8_UNORM:
+            // unsigned/signed short
+            case EF_R16_UNORM:
+            case EF_R16_SNORM:
+            case EF_R16_UINT:
+            case EF_R16_SINT:
+            case EF_R16G16_UNORM:
+            case EF_R16G16_SNORM:
+            case EF_R16G16_UINT:
+            case EF_R16G16_SINT:
+            case EF_R16G16B16_UNORM:
+            case EF_R16G16B16_SNORM:
+            case EF_R16G16B16_UINT:
+            case EF_R16G16B16_SINT:
+            case EF_R16G16B16A16_UNORM:
+            case EF_R16G16B16A16_SNORM:
+            case EF_R16G16B16A16_UINT:
+            case EF_R16G16B16A16_SINT:
+            case EF_R16_USCALED:
+            case EF_R16_SSCALED:
+            case EF_R16G16_USCALED:
+            case EF_R16G16_SSCALED:
+            case EF_R16G16B16_USCALED:
+            case EF_R16G16B16_SSCALED:
+            case EF_R16G16B16A16_USCALED:
+            case EF_R16G16B16A16_SSCALED:
+            // unsigned/signed int
+            case EF_R32_UINT:
+            case EF_R32_SINT:
+            case EF_R32G32_UINT:
+            case EF_R32G32_SINT:
+            case EF_R32G32B32_UINT:
+            case EF_R32G32B32_SINT:
+            case EF_R32G32B32A32_UINT:
+            case EF_R32G32B32A32_SINT:
+            // unsigned/signed rgb10a2 BGRA (normalized only)
+            case EF_A2R10G10B10_UNORM_PACK32:
+            case EF_A2R10G10B10_SNORM_PACK32:
+            // unsigned/signed rgb10a2
+            case EF_A2B10G10R10_UNORM_PACK32:
+            case EF_A2B10G10R10_SNORM_PACK32:
+            case EF_A2B10G10R10_UINT_PACK32:
+            case EF_A2B10G10R10_SINT_PACK32:
+            case EF_A2B10G10R10_SSCALED_PACK32:
+            case EF_A2B10G10R10_USCALED_PACK32:
+            // GL_UNSIGNED_INT_10F_11F_11F_REV 
+            case EF_B10G11R11_UFLOAT_PACK32:
+            // half float
+            case EF_R16_SFLOAT:
+            case EF_R16G16_SFLOAT:
+            case EF_R16G16B16_SFLOAT:
+            case EF_R16G16B16A16_SFLOAT:
+            // float
+            case EF_R32_SFLOAT:
+            case EF_R32G32_SFLOAT:
+            case EF_R32G32B32_SFLOAT:
+            case EF_R32G32B32A32_SFLOAT:
+            // double
+            case EF_R64_SFLOAT:
+            case EF_R64G64_SFLOAT:
+            case EF_R64G64B64_SFLOAT:
+            case EF_R64G64B64A64_SFLOAT:
+                return true;
+            default: return false;
+            }
+        }
+        inline virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override
+        {
+            using namespace asset;
+            switch (_fmt)
+            {
+            case EF_A1R5G5B5_UNORM_PACK16:
+            case EF_B5G6R5_UNORM_PACK16:
+            case EF_R5G6B5_UNORM_PACK16:
+            case EF_R4G4_UNORM_PACK8:
+            case EF_R4G4B4A4_UNORM_PACK16:
+            case EF_B4G4R4A4_UNORM_PACK16:
+            case EF_R8_UNORM:
+            case EF_R8_SNORM:
+            case EF_R8_UINT:
+            case EF_R8_SINT:
+            case EF_R8G8_UNORM:
+            case EF_R8G8_SNORM:
+            case EF_R8G8_UINT:
+            case EF_R8G8_SINT:
+            case EF_R8G8B8_UNORM:
+            case EF_R8G8B8_SNORM:
+            case EF_R8G8B8_UINT:
+            case EF_R8G8B8_SINT:
+            case EF_R8G8B8_SRGB:
+            case EF_R8G8B8A8_UNORM:
+            case EF_R8G8B8A8_SNORM:
+            case EF_R8G8B8A8_UINT:
+            case EF_R8G8B8A8_SINT:
+            case EF_R8G8B8A8_SRGB:
+            case EF_A8B8G8R8_UNORM_PACK32:
+            case EF_A8B8G8R8_SNORM_PACK32:
+            case EF_A8B8G8R8_UINT_PACK32:
+            case EF_A8B8G8R8_SINT_PACK32:
+            case EF_A8B8G8R8_SRGB_PACK32:
+            case EF_A2B10G10R10_UNORM_PACK32:
+            case EF_A2B10G10R10_UINT_PACK32:
+            case EF_R16_UNORM:
+            case EF_R16_SNORM:
+            case EF_R16_UINT:
+            case EF_R16_SINT:
+            case EF_R16_SFLOAT:
+            case EF_R16G16_UNORM:
+            case EF_R16G16_SNORM:
+            case EF_R16G16_UINT:
+            case EF_R16G16_SINT:
+            case EF_R16G16_SFLOAT:
+            case EF_R16G16B16_UNORM:
+            case EF_R16G16B16_SNORM:
+            case EF_R16G16B16_UINT:
+            case EF_R16G16B16_SINT:
+            case EF_R16G16B16_SFLOAT:
+            case EF_R16G16B16A16_UNORM:
+            case EF_R16G16B16A16_SNORM:
+            case EF_R16G16B16A16_UINT:
+            case EF_R16G16B16A16_SINT:
+            case EF_R16G16B16A16_SFLOAT:
+            case EF_R32_UINT:
+            case EF_R32_SINT:
+            case EF_R32_SFLOAT:
+            case EF_R32G32_UINT:
+            case EF_R32G32_SINT:
+            case EF_R32G32_SFLOAT:
+            case EF_R32G32B32_UINT:
+            case EF_R32G32B32_SINT:
+            case EF_R32G32B32_SFLOAT:
+            case EF_R32G32B32A32_UINT:
+            case EF_R32G32B32A32_SINT:
+            case EF_R32G32B32A32_SFLOAT:
+                return true;
+            default:
+            {
+                GLint res = GL_FALSE;
+                extGlGetInternalformativ(GL_TEXTURE_2D, COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
+                return res==GL_TRUE;
+            }
+            }
+        }
+        inline virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override
+        {
+            using namespace asset;
+            switch (_fmt)
+            {
+            case EF_R32G32B32A32_SFLOAT:
+            case EF_R16G16B16A16_SFLOAT:
+            case EF_R32G32_SFLOAT:
+            case EF_R16G16_SFLOAT:
+            case EF_B10G11R11_UFLOAT_PACK32:
+            case EF_R32_SFLOAT:
+            case EF_R16_SFLOAT:
+            case EF_R16G16B16A16_UNORM:
+            case EF_A2B10G10R10_UNORM_PACK32:
+            case EF_R8G8B8A8_UNORM:
+            case EF_R16G16_UNORM:
+            case EF_R8G8_UNORM:
+            case EF_R16_UNORM:
+            case EF_R8_UNORM:
+            case EF_R16G16B16A16_SNORM:
+            case EF_R8G8B8A8_SNORM:
+            case EF_R16G16_SNORM:
+            case EF_R8G8_SNORM:
+            case EF_R16_SNORM:
+            case EF_R32G32B32A32_UINT:
+            case EF_R16G16B16A16_UINT:
+            case EF_A2B10G10R10_UINT_PACK32:
+            case EF_R8G8B8A8_UINT:
+            case EF_R32G32_UINT:
+            case EF_R16G16_UINT:
+            case EF_R8G8_UINT:
+            case EF_R32_UINT:
+            case EF_R16_UINT:
+            case EF_R8_UINT:
+            case EF_R32G32B32A32_SINT:
+            case EF_R16G16B16A16_SINT:
+            case EF_R8G8B8A8_SINT:
+            case EF_R32G32_SINT:
+            case EF_R16G16_SINT:
+            case EF_R8G8_SINT:
+            case EF_R32_SINT:
+            case EF_R16_SINT:
+            case EF_R8_SINT:
+                return true;
+            default: return false;
+            }
+        }
+        inline virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override
+        {
+            using namespace asset;
+            // opengl spec section 8.5.1
+            switch (_fmt)
+            {
+            // formats checked as "Req. tex"
+            case EF_R8_UNORM:
+            case EF_R8_SNORM:
+            case EF_R16_UNORM:
+            case EF_R16_SNORM:
+            case EF_R8G8_UNORM:
+            case EF_R8G8_SNORM:
+            case EF_R16G16_UNORM:
+            case EF_R16G16_SNORM:
+            case EF_R8G8B8_UNORM:
+            case EF_R8G8B8_SNORM:
+            case EF_A1R5G5B5_UNORM_PACK16:
+            case EF_R8G8B8A8_SRGB:
+            case EF_A8B8G8R8_UNORM_PACK32:
+            case EF_A8B8G8R8_SNORM_PACK32:
+            case EF_A8B8G8R8_SRGB_PACK32:
+            case EF_R16_SFLOAT:
+            case EF_R16G16_SFLOAT:
+            case EF_R16G16B16_SFLOAT:
+            case EF_R16G16B16A16_SFLOAT:
+            case EF_R32_SFLOAT:
+            case EF_R32G32_SFLOAT:
+            case EF_R32G32B32_SFLOAT:
+            case EF_R32G32B32A32_SFLOAT:
+            case EF_B10G11R11_UFLOAT_PACK32:
+            case EF_E5B9G9R9_UFLOAT_PACK32:
+            case EF_A2B10G10R10_UNORM_PACK32:
+            case EF_A2B10G10R10_UINT_PACK32:
+            case EF_R16G16B16A16_UNORM:
+            case EF_R8_UINT:
+            case EF_R8_SINT:
+            case EF_R8G8_UINT:
+            case EF_R8G8_SINT:
+            case EF_R8G8B8_UINT:
+            case EF_R8G8B8_SINT:
+            case EF_R8G8B8A8_UNORM:
+            case EF_R8G8B8A8_SNORM:
+            case EF_R8G8B8A8_UINT:
+            case EF_R8G8B8A8_SINT:
+            case EF_B8G8R8A8_UINT:
+            case EF_R16_UINT:
+            case EF_R16_SINT:
+            case EF_R16G16_UINT:
+            case EF_R16G16_SINT:
+            case EF_R16G16B16_UINT:
+            case EF_R16G16B16_SINT:
+            case EF_R16G16B16A16_UINT:
+            case EF_R16G16B16A16_SINT:
+            case EF_R32_UINT:
+            case EF_R32_SINT:
+            case EF_R32G32_UINT:
+            case EF_R32G32_SINT:
+            case EF_R32G32B32_UINT:
+            case EF_R32G32B32_SINT:
+            case EF_R32G32B32A32_UINT:
+            case EF_R32G32B32A32_SINT:
+
+            // depth/stencil/depth+stencil formats checked as "Req. format"
+            case EF_D16_UNORM:
+            case EF_X8_D24_UNORM_PACK32:
+            case EF_D32_SFLOAT:
+            case EF_D24_UNORM_S8_UINT:
+            case EF_S8_UINT:
+
+            // specific compressed formats
+            case EF_BC6H_UFLOAT_BLOCK:
+            case EF_BC6H_SFLOAT_BLOCK:
+            case EF_BC7_UNORM_BLOCK:
+            case EF_BC7_SRGB_BLOCK:
+            case EF_ETC2_R8G8B8_UNORM_BLOCK:
+            case EF_ETC2_R8G8B8_SRGB_BLOCK:
+            case EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+            case EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+            case EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+            case EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+            case EF_EAC_R11_UNORM_BLOCK:
+            case EF_EAC_R11_SNORM_BLOCK:
+            case EF_EAC_R11G11_UNORM_BLOCK:
+            case EF_EAC_R11G11_SNORM_BLOCK:
+                return true;
+
+            // astc
+            case EF_ASTC_4x4_UNORM_BLOCK:
+            case EF_ASTC_5x4_UNORM_BLOCK:
+            case EF_ASTC_5x5_UNORM_BLOCK:
+            case EF_ASTC_6x5_UNORM_BLOCK:
+            case EF_ASTC_6x6_UNORM_BLOCK:
+            case EF_ASTC_8x5_UNORM_BLOCK:
+            case EF_ASTC_8x6_UNORM_BLOCK:
+            case EF_ASTC_8x8_UNORM_BLOCK:
+            case EF_ASTC_10x5_UNORM_BLOCK:
+            case EF_ASTC_10x6_UNORM_BLOCK:
+            case EF_ASTC_10x8_UNORM_BLOCK:
+            case EF_ASTC_10x10_UNORM_BLOCK:
+            case EF_ASTC_12x10_UNORM_BLOCK:
+            case EF_ASTC_12x12_UNORM_BLOCK:
+            case EF_ASTC_4x4_SRGB_BLOCK:
+            case EF_ASTC_5x4_SRGB_BLOCK:
+            case EF_ASTC_5x5_SRGB_BLOCK:
+            case EF_ASTC_6x5_SRGB_BLOCK:
+            case EF_ASTC_6x6_SRGB_BLOCK:
+            case EF_ASTC_8x5_SRGB_BLOCK:
+            case EF_ASTC_8x6_SRGB_BLOCK:
+            case EF_ASTC_8x8_SRGB_BLOCK:
+            case EF_ASTC_10x5_SRGB_BLOCK:
+            case EF_ASTC_10x6_SRGB_BLOCK:
+            case EF_ASTC_10x8_SRGB_BLOCK:
+            case EF_ASTC_10x10_SRGB_BLOCK:
+            case EF_ASTC_12x10_SRGB_BLOCK:
+            case EF_ASTC_12x12_SRGB_BLOCK:
+                return queryOpenGLFeature(IRR_KHR_texture_compression_astc_ldr);
+
+            default: return false;
+            }
+        }
+        inline virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override
+        {
+            return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
+        }
+
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
 
@@ -77,16 +424,11 @@ namespace video
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id()) const;
         bool deinitAuxContext();
 
+	    virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
+
         virtual uint16_t retrieveDisplayRefreshRate() const override;
 
-		//!
 		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false);
-
-	    virtual scene::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
-
-
-	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh);
-
 
         void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override final;
 
@@ -115,15 +457,15 @@ namespace video
         virtual IGPUTimestampQuery* createTimestampQuery();
 
 
-        virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb);
+        virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
 
-		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const scene::E_PRIMITIVE_TYPE& mode,
+		virtual void drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const asset::E_PRIMITIVE_TYPE& mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         const size_t& offset, const size_t& count, const size_t& stride);
-		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                            const scene::E_PRIMITIVE_TYPE& mode,
-                                            const scene::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
+		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                            const asset::E_PRIMITIVE_TYPE& mode,
+                                            const asset::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
                                             const size_t& offset, const size_t& count, const size_t& stride);
 
 
@@ -134,12 +476,12 @@ namespace video
 		virtual void issueGPUTextureBarrier() {COpenGLExtensionHandler::extGlTextureBarrier();}
 
 
-		virtual const video::SMaterial& getCurrentMaterial() const {return Material;}
+		virtual const video::SGPUMaterial& getCurrentMaterial() const {return Material;}
 
 		//! Sets a material. All 3d drawing functions draw geometry now
 		//! using this material.
 		//! \param material: Material to be used from now on.
-		virtual void setMaterial(const SMaterial& material);
+		virtual void setMaterial(const SGPUMaterial& material);
 
         //! needs to be "deleted" since its not refcounted
         virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false)
@@ -158,10 +500,10 @@ namespace video
 		virtual E_DRIVER_TYPE getDriverType() const;
 
 		//! get color format of the current color buffer
-		virtual ECOLOR_FORMAT getColorFormat() const;
+		virtual asset::E_FORMAT getColorFormat() const;
 
 		//! Can be called by an IMaterialRenderer to make its work easier.
-		virtual void setBasicRenderStates(const SMaterial& material, const SMaterial& lastmaterial,
+		virtual void setBasicRenderStates(const SGPUMaterial& material, const SGPUMaterial& lastmaterial,
 			bool resetAllRenderstates);
 
 
@@ -195,11 +537,10 @@ namespace video
 		//! call.
 		virtual uint32_t getMaximalIndicesCount() const;
 
-		//! .
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
+        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
         //!
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false);
+        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false);
 
 		//! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
@@ -246,7 +587,7 @@ namespace video
         /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
         This issues an implicit call to bindTransformFeedback()
         **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType=scene::EPT_POINTS);
+		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType= asset::EPT_POINTS);
 
 		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
 		virtual void pauseTransformFeedback();
@@ -268,9 +609,6 @@ namespace video
 
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return VendorName;}
-
-		//! Removes a texture from the texture cache and deletes it, freeing lot of memory.
-		void removeTexture(ITexture* texture);
 
 		//! sets the needed renderstates
 		void setRenderStates3DMode();
@@ -323,7 +661,7 @@ namespace video
                 indirectDraw.set(buff);
             }
 
-            bool setActiveVAO(const COpenGLVAOSpec* const spec, const scene::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
+            bool setActiveVAO(const COpenGLVAOSpec* const spec, const video::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
@@ -436,10 +774,10 @@ namespace video
             **/
             class COpenGLVAO : public core::AllocationOverrideDefault
             {
-                    size_t                      attrOffset[scene::EVAI_COUNT];
-                    uint32_t                    attrStride[scene::EVAI_COUNT];
+                    size_t                      attrOffset[asset::EVAI_COUNT];
+                    uint32_t                    attrStride[asset::EVAI_COUNT];
                     //vertices
-                    const COpenGLBuffer*        mappedAttrBuf[scene::EVAI_COUNT];
+                    const COpenGLBuffer*        mappedAttrBuf[asset::EVAI_COUNT];
                     //indices
                     const COpenGLBuffer*        mappedIndexBuf;
 
@@ -484,8 +822,8 @@ namespace video
 
                     void bindBuffers(   const COpenGLBuffer* indexBuf,
                                         const COpenGLBuffer* const* attribBufs,
-                                        const size_t offsets[scene::EVAI_COUNT],
-                                        const size_t strides[scene::EVAI_COUNT]);
+                                        const size_t offsets[asset::EVAI_COUNT],
+                                        const uint32_t strides[asset::EVAI_COUNT]);
 
                     inline const uint64_t& getLastBoundStamp() const {return lastValidated;}
 
@@ -591,6 +929,18 @@ namespace video
         //!
         virtual uint32_t getMaxComputeWorkGroupSize(uint32_t _dimension) const { return COpenGLExtensionHandler::MaxComputeWGSize[_dimension]; }
 
+        //!
+        virtual uint64_t getMaxUBOSize() const override { return COpenGLExtensionHandler::maxUBOSize; }
+
+        //!
+        virtual uint64_t getMaxSSBOSize() const override { return COpenGLExtensionHandler::maxSSBOSize; }
+
+        //!
+        virtual uint64_t getMaxTBOSize() const override { return COpenGLExtensionHandler::maxTBOSize; }
+
+        //!
+        virtual uint64_t getMaxBufferSize() const override { return COpenGLExtensionHandler::maxBufferSize; }
+
     private:
         SAuxContext* getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid = std::this_thread::get_id());
 
@@ -599,6 +949,10 @@ namespace video
 
         void bindTransformFeedback(ITransformFeedback* xformFeedback, SAuxContext* toContext);
 
+
+        //COpenGLDriver::CGPUObjectFromAssetConverter
+        class CGPUObjectFromAssetConverter;
+        friend class CGPUObjectFromAssetConverter;
 
 
         bool runningInRenderDoc;
@@ -615,14 +969,15 @@ namespace video
 		//! bool to make all renderstates reset if set to true.
 		bool ResetRenderStates;
 
-		SMaterial Material, LastMaterial;
+		SGPUMaterial Material, LastMaterial;
 
 
 
 		//! inits the parts of the open gl driver used on all platforms
 		bool genericDriverInit();
+
 		//! returns a device dependent texture from a software surface (IImage)
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8);
+		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
 
 		// returns the current size of the screen or rendertarget
 		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
@@ -634,7 +989,7 @@ namespace video
 		std::string VendorName;
 
 		//! Color buffer format
-		ECOLOR_FORMAT ColorFormat; //FIXME
+		asset::E_FORMAT ColorFormat; //FIXME
 
 		SIrrlichtCreationParameters Params;
 
