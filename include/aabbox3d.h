@@ -6,7 +6,6 @@
 #define __IRR_AABBOX_3D_H_INCLUDED__
 
 #include "irr/core/math/irrMath.h"
-#include "plane3d.h"
 #include "line3d.h"
 
 namespace irr
@@ -181,19 +180,6 @@ class aabbox3d // : public AllocationOverrideDefault ?
 				{ t=MinEdge.Z; MinEdge.Z = MaxEdge.Z; MaxEdge.Z=t; }
 		}
 
-		//! Calculates a new interpolated bounding box.
-		/** d=0 returns other, d=1 returns this, all other values blend between
-		the two boxes.
-		\param other Other box to interpolate between
-		\param d Value between 0.0f and 1.0f.
-		\return Interpolated box. */
-		aabbox3d<T> getInterpolated(const aabbox3d<T>& other, float d) const
-		{
-			float inv = 1.0f - d;
-			return aabbox3d<T>((other.MinEdge*inv) + (MinEdge*d),
-				(other.MaxEdge*inv) + (MaxEdge*d));
-		}
-
 		//! Determines if a point is within this box.
 		/** Border is included (IS part of the box)!
 		\param p: Point to check.
@@ -274,43 +260,6 @@ class aabbox3d // : public AllocationOverrideDefault ?
 				return false;
 
 			return true;
-		}
-
-		//! Classifies a relation with a plane.
-		/** \param plane Plane to classify relation to.
-		\return Returns ISREL3D_FRONT if the box is in front of the plane,
-		ISREL3D_BACK if the box is behind the plane, and
-		ISREL3D_CLIPPED if it is on both sides of the plane. */
-		EIntersectionRelation3D classifyPlaneRelation(const plane3d<T>& plane) const
-		{
-			vector3d<T> nearPoint(MaxEdge);
-			vector3d<T> farPoint(MinEdge);
-
-			if (plane.Normal.X > (T)0)
-			{
-				nearPoint.X = MinEdge.X;
-				farPoint.X = MaxEdge.X;
-			}
-
-			if (plane.Normal.Y > (T)0)
-			{
-				nearPoint.Y = MinEdge.Y;
-				farPoint.Y = MaxEdge.Y;
-			}
-
-			if (plane.Normal.Z > (T)0)
-			{
-				nearPoint.Z = MinEdge.Z;
-				farPoint.Z = MaxEdge.Z;
-			}
-
-			if (plane.Normal.dotProduct(nearPoint) + plane.D > (T)0)
-				return ISREL3D_FRONT;
-
-			if (plane.Normal.dotProduct(farPoint) + plane.D > (T)0)
-				return ISREL3D_CLIPPED;
-
-			return ISREL3D_BACK;
 		}
 
 		//! The near edge
