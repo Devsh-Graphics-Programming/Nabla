@@ -6,6 +6,7 @@ using namespace ext;
 using namespace Bullet3;
 
 CPhysicsWorld::CPhysicsWorld() {
+
     m_collisionCfg = createbtObject<btDefaultCollisionConfiguration>();
     m_dispatcher = createbtObject<btCollisionDispatcher>(m_collisionCfg);
     m_overlappingPairCache = createbtObject<btDbvtBroadphase>();

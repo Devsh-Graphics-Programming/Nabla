@@ -3,6 +3,8 @@
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 #include <btBulletDynamicsCommon.h>
+#include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+
 #include "../ext/Bullet3/BulletUtility.h"
 #include "../ext/Bullet3/CPhysicsWorld.h"
 
@@ -28,13 +30,41 @@ const float instanceLoDDistances[] = {8.f,50.f};
 
 bool quit = false;
 
+void handleRaycast(scene::ICameraSceneNode *cam, ext::Bullet3::CPhysicsWorld *physicsWorld) {
+    //TODO - find way to extract rigidybody from closeRay (?)
 
-//!Same As Last Example
+    using namespace ext::Bullet3;
+
+    core::vectorSIMDf to;
+    to.set(cam->getAbsolutePosition());
+
+    core::vectorSIMDf from;
+    from.set(cam->getTarget());
+    
+    btCollisionWorld::ClosestRayResultCallback closeRay(tobtVec3(to), tobtVec3(from));
+    closeRay.m_flags = btTriangleRaycastCallback::kF_UseSubSimplexConvexCastRaytest;
+    
+    physicsWorld->getWorld()->rayTest(tobtVec3(from), tobtVec3(to), closeRay);
+
+    if (closeRay.hasHit()) {
+        physicsWorld->getWorld()->getDebugDrawer()->drawSphere(
+            tobtVec3(from).lerp(tobtVec3(to), closeRay.m_closestHitFraction), 2, btVector3(1, 0, 0)
+        );
+
+      
+    };
+
+}
+
+
+//!Disptaches Raycast when R is pressed
 class MyEventReceiver : public IEventReceiver
 {
 public:
 
-	MyEventReceiver()
+	MyEventReceiver(scene::ICameraSceneNode *cam, ext::Bullet3::CPhysicsWorld *physicsWorld):
+        physicsWorld(physicsWorld),
+        cam(cam)
 	{
 	}
 
@@ -48,18 +78,25 @@ public:
                 quit = true;
                 return true;
             case irr::KEY_KEY_R: //Bullet raycast
+                handleRaycast(cam, physicsWorld);
                 return true;
-
+            
 
             default:
                 break;
             }
         }
 
+       
+
+
 		return false;
 	}
 
 private:
+    scene::ICameraSceneNode *cam;
+    ext::Bullet3::CPhysicsWorld *physicsWorld;
+
 };
 
 const char* uniformNames[] =
@@ -210,6 +247,7 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
+    
 
     SimpleCallBack* cb = new SimpleCallBack();
     video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
@@ -237,14 +275,14 @@ int main()
     // ! - INITIALIZE BULLET WORLD + FLAT PLANE FOR TESTING
 //------------------------------------------------------------------
 
-    irr::ext::Bullet3::CPhysicsWorld *world = _IRR_NEW(irr::ext::Bullet3::CPhysicsWorld);
+    ext::Bullet3::CPhysicsWorld *world = _IRR_NEW(irr::ext::Bullet3::CPhysicsWorld);
     world->getWorld()->setGravity(btVector3(0, -5, 0));
 
 
     core::matrix3x4SIMD baseplateMat;
     baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
 
-    irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
+    ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
     data2.mass = 0.0f;
     data2.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
     data2.trans = baseplateMat;
@@ -256,11 +294,11 @@ int main()
 
 
     
-    MyEventReceiver receiver;
+    MyEventReceiver receiver(camera, world);
 	device->setEventReceiver(&receiver);
 
-
-
+    
+   
 
 	//!
     asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(1.f, 1.f, 1.f));
@@ -327,7 +365,7 @@ int main()
     data3.mass = 2.0f;
     data3.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
 
-
+   
     btVector3 inertia;
     data3.shape->calculateLocalInertia(data3.mass, inertia);
 
@@ -361,6 +399,8 @@ int main()
 
         bodies[y*towerWidth + z] = world->createRigidBody(data3);
 
+        bodies[y*towerWidth + z]->setUserPointer((uint32_t*)(y*towerWidth + z));
+
         world->bindRigidBody<irr::ext::Bullet3::CInstancedMotionState>(bodies[y*towerWidth + z], node, instances[y*towerWidth + z]);
 
 
@@ -384,12 +424,15 @@ int main()
         smgr->drawAll();
 
         world->getWorld()->debugDrawWorld();
+        handleRaycast(camera, world);
         debugDraw->draw();
        
 		driver->endScene();
 
         world->getWorld()->stepSimulation(timeDiff);
        
+
+        
 
         uint64_t time = device->getTimer()->getRealTime();
         timeDiff = (time - now);
@@ -421,7 +464,7 @@ int main()
     _IRR_DELETE_ARRAY(bodies, towerHeight * towerWidth);
     world->deletebtObject(data3.shape);
 
-
+   
     node->removeInstances(towerHeight*towerWidth,instances);
     node->remove();
 
