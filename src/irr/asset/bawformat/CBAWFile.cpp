@@ -280,12 +280,6 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDa
     idxBufPtr = _v0blob.idxBufPtr;
 }
 
-template<>
-size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
-{
-    return sizeof(MeshDataFormatDescBlobV1);
-}
-
 
 
 bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)

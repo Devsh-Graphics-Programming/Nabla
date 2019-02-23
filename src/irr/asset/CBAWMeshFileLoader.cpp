@@ -109,7 +109,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         size_t decrKeyLen = 16u;
         uint32_t attempt = 0u;
         const void* blob = nullptr;
-        // todo: supposedFilename arg is missing (empty string) - what is it? 
+        // todo: supposedFilename arg is missing (empty string) - what is it?
         while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, ctx.inner.mainFile, "", thisCacheKey, ctx.inner, hierLvl))
         {
             if (!((data->header->compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
@@ -217,7 +217,7 @@ bool CBAWMeshFileLoader::decompressLz4(void * _dst, size_t _dstSize, const void 
 }
 
 template<>
-io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override, CommonDataTuple<0>& _common)
+io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<0>& _common)
 {
     uint32_t blobCnt{};
     asset::legacyv0::BlobHeaderV0* headers = nullptr;

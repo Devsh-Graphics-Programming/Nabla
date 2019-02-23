@@ -524,8 +524,8 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 //! Linux constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device)
-: CNullDriver(io, params.WindowSize), COpenGLExtensionHandler(),
-	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(ECF_R8G8B8),
+: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
+	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM),
 	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0)
 {
 	#ifdef _DEBUG
