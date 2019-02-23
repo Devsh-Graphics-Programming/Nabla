@@ -276,7 +276,7 @@ int main()
 		driver->beginScene(true, true, video::SColor(255,0,0,0) );
 
 		//! Animate first
-		smgr->getRootSceneNode()->OnAnimate(os::Timer::getTime());
+		smgr->getRootSceneNode()->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 
 		// without this optimization FPS is 400 instead of 1000 FPS
 		if (fastestNode->getFrameNr()!=lastFastestMeshFrameNr)
