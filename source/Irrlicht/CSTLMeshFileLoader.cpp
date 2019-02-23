@@ -9,6 +9,8 @@
 #include "CSTLMeshFileLoader.h"
 #include "SMesh.h"
 
+#include "plane3d.h"
+
 #include "IReadFile.h"
 #include "coreutil.h"
 #include "os.h"
