@@ -167,7 +167,7 @@ private:
 	float readFloat();
 	bool readVector2(core::vector2df& vec);
 	bool readVector3(core::vector3df& vec);
-	bool readMatrix(core::matrix4& mat);
+	bool readMatrix(core::matrix4x3& mat);
 	bool readRGB(video::SColor& color);
 	bool readRGBA(video::SColor& color);
 
