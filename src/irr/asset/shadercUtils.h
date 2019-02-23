@@ -3,7 +3,7 @@
 
 //! This file is not supposed to be included in user-accesible header files
 
-#include "libshaderc/shaderc/shaderc.hpp"
+#include <shaderc/shaderc.hpp>
 #include "irr/asset/ShaderCommons.h"
 #include "irr/core/math/irrMath.h"
 
