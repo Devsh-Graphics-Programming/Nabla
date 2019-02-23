@@ -992,7 +992,7 @@ bool COpenGLDriver::genericDriverInit()
 	glClearDepth(0.0);
 	glDepthFunc(GL_GEQUAL);
 	glDepthRange(1.0,0.0);
-	glFrontFace(GL_CW);
+	glFrontFace(GL_CCW);
 
 	// adjust flat coloring scheme to DirectX version
 	///extGlProvokingVertex(GL_FIRST_VERTEX_CONVENTION_EXT);
@@ -1235,15 +1235,6 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 	if (DeviceType==EIDT_OSX)
 		changeRenderContext(videoData, (void*)0);
 #endif // _IRR_COMPILE_WITH_OSX_DEVICE_
-
-#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-	if (DeviceType == EIDT_SDL)
-	{
-		// todo: SDL sets glFrontFace(GL_CCW) after driver creation,
-		// it would be better if this was fixed elsewhere.
-		glFrontFace(GL_CW);
-	}
-#endif
 
     if (zBuffer)
     {
