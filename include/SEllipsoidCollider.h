@@ -32,9 +32,10 @@ class SEllipsoidCollider// : public AllocationOverrideDefault EBO inheritance pr
         inline bool CollideWithRay(float& collisionDistance, vectorSIMDf origin, vectorSIMDf direction, const float& dirMaxMultiplier) const
         {
             origin += negativeCenter;
+            origin *= reciprocalAxes;
 
-            vectorSIMDf originLen2 = dot(origin,origin);
-            if (originLen2.X<=1.f) //point is inside
+            float originLen2 = dot(origin,origin).x;
+            if (originLen2<=1.f) //point is inside
             {
                 collisionDistance = 0.f;
                 return true;
@@ -42,21 +43,20 @@ class SEllipsoidCollider// : public AllocationOverrideDefault EBO inheritance pr
 
             direction *= reciprocalAxes;
             vectorSIMDf dirLen2 = dot(direction,direction);
-            vectorSIMDf dirDotOrigin = dot(direction,origin);
-
-            vectorSIMDf determinant = dirDotOrigin+dirLen2*originLen2-dirLen2;
-            if (determinant.X<0.f)
+            float dirInvLen = core::inversesqrt(dirLen2).x;
+            float dirDotOrigin = dot(direction,origin).x*dirInvLen;
+            float partDet = originLen2-dirDotOrigin*dirDotOrigin;
+            if (partDet>1.0)
                 return false;
 
-            determinant = dirDotOrigin+sqrt(determinant);
-            if (determinant.X>0.f)
+            float t = -dirDotOrigin-sqrtf(1.0-partDet);
+            if (t<0.f)
                 return false;
 
-            vectorSIMDf t = -determinant*reciprocal(dirLen2);
-
-            if (t.X<dirMaxMultiplier)
+            t *= dirInvLen;
+            if (t<dirMaxMultiplier)
             {
-                collisionDistance = t.X;
+                collisionDistance = t;
                 return true;
             }
             else
