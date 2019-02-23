@@ -294,6 +294,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
             gpumesh = new video::SGPUMesh();
             break;
         }
+        gpumesh->setBoundingBox((*it)->getBoundingBox());
         res.push_back(gpumesh);
 
         ++it;
