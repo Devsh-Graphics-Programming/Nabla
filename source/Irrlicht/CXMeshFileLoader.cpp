@@ -2625,7 +2625,7 @@ bool CXMeshFileLoader::readMatrix(core::matrix4x3& mat)
     for (uint32_t j=0u; j<4u; j++)
     {
         for (uint32_t i=0u; i<3u; i++)
-            mat4x3(i,j) = readFloat();
+            mat(i,j) = readFloat();
         readFloat();
     }
 	return checkForOneFollowingSemicolons();
