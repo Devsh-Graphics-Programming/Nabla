@@ -1411,29 +1411,6 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-#ifdef _IRR_WINDOWS_API_
-/*
-    if (!(FeatureAvailable[WGL_ARB_pixel_format] || FeatureAvailable[WGL_ARB_framebuffer_sRGB]))
-    {
-        retval =  false;
-        std::string error = "WGL_ARB_framebuffer_sRGB missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }*/
-#else
-    if (!(FeatureAvailable[IRR_EXT_framebuffer_sRGB]))
-    {
-        retval =  false;
-        std::string error = "GL_EXT_framebuffer_sRGB missing\n";
-        if (failedExtensions)
-            failedExtensions->push_back(error);
-        else
-            os::Printer::log(error.c_str(), ELL_ERROR);
-    }
-#endif // _IRR_WINDOWS_API_
-
     if (!(FeatureAvailable[IRR_EXT_texture_filter_anisotropic]))
     {
         retval =  false;
@@ -1464,6 +1441,16 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
+    if (!(FeatureAvailable[IRR_ARB_clip_control]||Version>=450))
+    {
+        retval =  false;
+        std::string error = "GL_ARB_clip_control missing\n";
+        if (failedExtensions)
+            failedExtensions->push_back(error);
+        else
+            os::Printer::log(error.c_str(), ELL_ERROR);
+    }
+
 /*
     if (!(FeatureAvailable[IRR_NV_texture_barrier]||FeatureAvailable[IRR_ARB_texture_barrier]||Version>=450))
     {
@@ -1473,7 +1460,8 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
             failedExtensions->push_back(error);
         else
             os::Printer::log(error.c_str(), ELL_ERROR);
-    }*/
+    }
+*/
 
     if (!(FeatureAvailable[IRR_ARB_direct_state_access] || FeatureAvailable[IRR_EXT_direct_state_access] || Version>=450))
     {

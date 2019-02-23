@@ -58,7 +58,13 @@ namespace video
             //! Whether we can force overlapping pixels to not rasterize in parallel, INTEL_fragment_shader_ordering, NV_fragment_shader_interlock or ARB_fragment_shader_interlock
             EDF_FRAGMENT_SHADER_INTERLOCK,
 
-            //other feature ideas are; bindless, sparse texture, sparse texture 2
+            //! Whether textures can be used by their hardware handles bindlessly (without specifying them in descriptor sets)
+            EDF_TEXTURE_BINDLESS,
+
+            //! Whether we can index samplers dynamically in a shader (automatically true if bindless is enabled)
+            EDF_DYNAMIC_SAMPLER_INDEXING,
+
+            //other feature ideas are; bindless buffers, sparse texture, sparse texture 2
 
             //! Only used for counting the elements of this enum
             EDF_COUNT

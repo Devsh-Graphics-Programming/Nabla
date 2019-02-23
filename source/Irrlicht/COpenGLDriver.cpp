@@ -980,10 +980,8 @@ bool COpenGLDriver::genericDriverInit()
 
 	// Reset The Current Viewport
 	glViewport(0, 0, Params.WindowSize.Width, Params.WindowSize.Height);
-/*
-	Params.HandleSRGB &= ((FeatureAvailable[IRR_ARB_framebuffer_sRGB] || FeatureAvailable[IRR_EXT_framebuffer_sRGB]) &&
-		FeatureAvailable[IRR_EXT_texture_sRGB]);
 
+/* Pending enabling test
 	if (Params.HandleSRGB)
 		glEnable(GL_FRAMEBUFFER_SRGB);
 */
@@ -991,7 +989,6 @@ bool COpenGLDriver::genericDriverInit()
     glDisable(GL_MULTISAMPLE);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 	glClearDepth(0.0);
-	///glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 	glDepthFunc(GL_GEQUAL);
 	glDepthRange(1.0,0.0);
 	glFrontFace(GL_CW);
@@ -1768,6 +1765,10 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
             return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_shuffle];
         case EDF_FRAGMENT_SHADER_INTERLOCK:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_INTEL_fragment_shader_ordering]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_fragment_shader_interlock]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_fragment_shader_interlock];
+        case EDF_BINDLESS_TEXTURE:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_bindless_texture]||Version>=450;
+        case EDF_DYNAMIC_SAMPLER_INDEXING:
+            return queryFeature(EDF_BINDLESS_TEXTURE);
         default:
             break;
 	};
