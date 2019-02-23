@@ -611,7 +611,22 @@ void CBurningVideoDriver::setViewPort(const core::rect<int32_t>& area)
 	core::rect<int32_t> rendert(0,0,RenderTargetSize.Width,RenderTargetSize.Height);
 	ViewPort.clipAgainst(rendert);
 
-	ClipscaleTransformation.buildNDCToDCMatrix ( ViewPort, 1 );
+	auto buildNDCToDCMatrix = []( const core::rect<int32_t>& viewport)
+	{
+	    // wtf is with the 0.75 ?
+		const float scaleX = (viewport.getWidth() - 0.75f ) * 0.5f;
+		const float scaleY = -(viewport.getHeight() - 0.75f ) * 0.5f;
+
+		const float dx = -0.5f + ( (viewport.UpperLeftCorner.X + viewport.LowerRightCorner.X ) * 0.5f );
+		const float dy = -0.5f + ( (viewport.UpperLeftCorner.Y + viewport.LowerRightCorner.Y ) * 0.5f );
+
+		core::matrix4 retval;
+		retval.setScale(core::vector3df(scaleX, scaleY, 1.f));
+		retval.setTranslation(core::vector3df(dx, dy, 0.f));
+		return retval;
+	};
+
+	ClipscaleTransformation = buildNDCToDCMatrix(ViewPort);
 
 	if (CurrentShader)
 		CurrentShader->setRenderTarget(RenderTargetSurface, ViewPort);
