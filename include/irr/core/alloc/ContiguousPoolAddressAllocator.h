@@ -39,7 +39,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         ContiguousPoolAddressAllocator( void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment,
                                                                 size_type bufSz, size_type blockSz, void* dataBuf) noexcept :
                     Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz,blockSz),
-                    redirToAddress(Base::getFreeStack()+Base::reserved_size(*this,bufSz)/sizeof(size_type)),
+                    redirToAddress(Base::freeStack+Base::reserved_size(*this,bufSz)/sizeof(size_type)),
                     redirToMemory(redirToAddress+Base::blockCount), addressesAllocated(0u), dataBuffer(dataBuf)
         {
             selfOnlyReset();
@@ -103,7 +103,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                     assert(tmp>=Base::combinedOffset);
                 #endif // _DEBUG
                 // add allocated address back onto free stack
-                Base::getFreeStack()[Base::freeStackCtr++] = tmp;
+                Base::freeStack[Base::freeStackCtr++] = tmp;
                 auto& redir = redirToMemory[Base::addressToBlockID(tmp)];
                 *(sortedRedirectsEnd++) = redir;
                 #ifdef _DEBUG
@@ -242,11 +242,10 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
         #ifdef _EXTREME_DEBUG
         inline void validateRedirects() const
         {
-            auto freeStack = Base::getFreeStack();
             for (size_type i=0; i<Base::freeStackCtr; i++)
             {
-                _IRR_BREAK_IF(freeStack[i]>=Base::blockCount*Base::blockSize+Base::combinedOffset);
-                _IRR_BREAK_IF(redirToMemory[Base::addressToBlockID(freeStack[i])]!=invalid_address);
+                _IRR_BREAK_IF(Base::freeStack[i]>=Base::blockCount*Base::blockSize+Base::combinedOffset);
+                _IRR_BREAK_IF(redirToMemory[Base::addressToBlockID(Base::freeStack[i])]!=invalid_address);
             }
 
             size_type reportedAllocated=0;

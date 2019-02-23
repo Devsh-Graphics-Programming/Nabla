@@ -3,12 +3,12 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 // and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
 
-#include "CBAWMeshFileLoader.h"
+#include "irr/asset/CBAWMeshFileLoader.h"
 
 #include <stack>
 
 #include "CFinalBoneHierarchy.h"
-#include "SMesh.h"
+#include "SMesh.h" // Why is this nowhere to be found?
 #include "CSkinnedMesh.h"
 #include "os.h"
 #include "lzma/LzmaDec.h"

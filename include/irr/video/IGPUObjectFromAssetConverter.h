@@ -13,7 +13,7 @@
 #include "irr/video/asset_traits.h"
 #include "irr/core/alloc/LinearAddressAllocator.h"
 
-namespace irr 
+namespace irr
 {
 namespace video
 {
@@ -58,7 +58,7 @@ public:
         {
             m_assetManager->convertAssetToEmptyCacheHandle(notFound[i], created[i]);
             res.insert(res.begin() + pos[i], created[i]);
-            irr::static_if<std::is_same_v<asset::ICPUTexture, AssetType>>(
+            irr::static_if<std::is_same<asset::ICPUTexture, AssetType>::value>(
                 [&created, i](auto f) { created[i]->drop(); } // IGPUTexture is not grabbed when set in SGPUMaterial, so we have to drop it after inserting into cache (done by convertAssetToEmptyCacheHandle)
             );
         }
@@ -92,7 +92,7 @@ protected:
 
 auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*>
 {
-    const uint64_t alignment = 
+    const uint64_t alignment =
         std::max(
             std::max(m_driver->getRequiredTBOAlignment(), m_driver->getRequiredUBOAlignment()),
             std::max(m_driver->getRequiredSSBOAlignment(), 16u)
@@ -294,6 +294,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
             gpumesh = new video::SGPUMesh();
             break;
         }
+        gpumesh->setBoundingBox((*it)->getBoundingBox());
         res.push_back(gpumesh);
 
         ++it;

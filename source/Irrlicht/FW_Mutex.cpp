@@ -4,7 +4,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 // and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
 
-#include "stdafx.h"
+//#include "stdafx.h"
 
 #include "FW_Mutex.h"
 #include "os.h"

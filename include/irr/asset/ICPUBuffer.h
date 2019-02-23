@@ -6,8 +6,11 @@
 #ifndef __I_CPU_BUFFER_H_INCLUDED__
 #define __I_CPU_BUFFER_H_INCLUDED__
 
+#include <type_traits>
+
 #include "irr/core/IBuffer.h"
 #include "IAsset.h"
+#include "irr/core/alloc/null_allocator.h"
 
 namespace irr
 {
@@ -22,22 +25,25 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
             if (data)
                 _IRR_ALIGNED_FREE(data);
         }
+
+        //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
+        ICPUBuffer(size_t sizeInBytes, void* dat) : size(dat ? sizeInBytes : 0), data(dat)
+        {}
     public:
 		//! Constructor.
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
 		@param dat Optional parameter. Pointer to data, must be allocated with `_IRR_ALIGNED_MALLOC`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
 		*/
-        ICPUBuffer(const size_t &sizeInBytes, void *dat = NULL) : size(0), data(dat)
+        ICPUBuffer(size_t sizeInBytes) : size(0)
         {
-			if (!data)
-				data = _IRR_ALIGNED_MALLOC(sizeInBytes,_IRR_SIMD_ALIGNMENT);
+			data = _IRR_ALIGNED_MALLOC(sizeInBytes,_IRR_SIMD_ALIGNMENT);
             if (!data)
                 return;
 
             size = sizeInBytes;
         }
 
-        virtual void convertToDummyObject() override 
+        virtual void convertToDummyObject() override
         {
             _IRR_ALIGNED_FREE(data);
             data = nullptr;
@@ -88,9 +94,51 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
 		*/
         virtual void* getPointer() {return data;}
 
-    private:
+    protected:
         uint64_t size;
         void* data;
+};
+
+template<
+    typename Allocator = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
+    bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value
+>
+class CCustomAllocatorCPUBuffer;
+
+template<typename Allocator>
+class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
+{
+    static_assert(sizeof(Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
+protected:
+    Allocator m_allocator;
+
+    virtual ~CCustomAllocatorCPUBuffer()
+    {
+        if (ICPUBuffer::data)
+            m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);
+        ICPUBuffer::data = nullptr; // so that ICPUBuffer won't try deallocating
+    }
+
+public:
+    CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))
+    {
+    }
+};
+
+template<typename Allocator>
+class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
+{
+    using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
+protected:
+    virtual ~CCustomAllocatorCPUBuffer() = default;
+
+public:
+    using Base::Base;
+
+    CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
+    {
+        memcpy(Base::data, dat, sizeInBytes);
+    }
 };
 
 } // end namespace asset

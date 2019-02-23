@@ -86,7 +86,7 @@ namespace impl
         }
 
         //! Returns true if had to insert
-        bool swapObjectValue(const K& _key, const const T* _obj, T* _val)
+        bool swapObjectValue(const K& _key, const T* _obj, T* _val)
         {
             this->m_lock.lockWrite();
             bool r = BaseCache::swapObjectValue(_key, _obj, _val);
@@ -110,7 +110,7 @@ namespace impl
             return r;
         }
 
-        inline bool findAndStoreRange(const typename K& _key, size_t& _inOutStorageSize, MutablePairType* _out)
+        inline bool findAndStoreRange(const K& _key, size_t& _inOutStorageSize, MutablePairType* _out)
         {
             m_lock.lockRead();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
@@ -118,7 +118,7 @@ namespace impl
             return r;
         }
 
-        inline bool findAndStoreRange(const typename K& _key, size_t& _inOutStorageSize, MutablePairType* _out) const
+        inline bool findAndStoreRange(const K& _key, size_t& _inOutStorageSize, MutablePairType* _out) const
         {
             m_lock.lockRead();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
@@ -126,7 +126,7 @@ namespace impl
             return r;
         }
 
-        inline bool findAndStoreRange(const typename K& _key, size_t& _inOutStorageSize, CachedType** _out)
+        inline bool findAndStoreRange(const K& _key, size_t& _inOutStorageSize, CachedType** _out)
         {
             m_lock.lockRead();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
@@ -134,7 +134,7 @@ namespace impl
             return r;
         }
 
-        inline bool findAndStoreRange(const typename K& _key, size_t& _inOutStorageSize, CachedType** _out) const
+        inline bool findAndStoreRange(const K& _key, size_t& _inOutStorageSize, CachedType** _out) const
         {
             m_lock.lockRead();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
@@ -164,7 +164,7 @@ template<
     typename K,
     typename T,
     template<typename...> class ContainerT_T = std::vector,
-    typename Alloc = core::allocator<std::pair<const K, T*>>
+    typename Alloc = core::allocator<typename impl::key_val_pair_type_for<ContainerT_T, K, T>::type>
 >
 using CConcurrentObjectCache =
     impl::CMakeCacheConcurrent<
@@ -175,7 +175,7 @@ template<
     typename K,
     typename T,
     template<typename...> class ContainerT_T = std::vector,
-    typename Alloc = core::allocator<std::pair<const K, T*>>
+    typename Alloc = core::allocator<typename impl::key_val_pair_type_for<ContainerT_T, K, T>::type>
 >
 using CConcurrentMultiObjectCache =
     impl::CMakeCacheConcurrent<
