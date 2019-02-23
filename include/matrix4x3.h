@@ -11,8 +11,6 @@
 #include "plane3d.h"
 #include "aabbox3d.h"
 #include "rect.h"
-#include "matrix4.h"
-
 
 
 namespace irr
@@ -26,10 +24,6 @@ namespace core
     matrix4x3 concatenateBFollowedByA(const matrix4x3& other_a,const matrix4x3& other_b );
 
     matrix4x3 concatenatePreciselyBFollowedByA(const matrix4x3& other_a,const matrix4x3& other_b );
-
-    matrix4 concatenateBFollowedByA(const matrix4& other_a,const matrix4x3& other_b );
-
-    matrix4 concatenatePreciselyBFollowedByA(const matrix4& other_a,const matrix4x3& other_b );
 
 
 	class matrix4x3// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
@@ -84,22 +78,14 @@ namespace core
                         break;
                     case EM4CONST_INVERSE:
                         if (!other.getInverse(*this))
-                            memset(column, 0, 12*sizeof(float));
+                        {
+                            for (auto i=0; i<4; i++)
+                                column[i].set(0.f,0.f,0.f);
+                        }
                         break;
                     default:
                         break;
                 }
-			}
-
-			inline matrix4 convertTo4x4() const
-			{
-			    matrix4 retval;
-			    reinterpret_cast<vector3df*>(retval.pointer()+0)[0] = column[0];
-			    reinterpret_cast<vector3df*>(retval.pointer()+4)[0] = column[1];
-			    reinterpret_cast<vector3df*>(retval.pointer()+8)[0] = column[2];
-			    reinterpret_cast<vector3df*>(retval.pointer()+12)[0] = column[3];
-				retval[15] = 1.f;
-			    return retval;
 			}
 
 			//! Simple operator for directly accessing every element of the matrix.
@@ -320,7 +306,7 @@ namespace core
 			{
 			    reinterpret_cast<vector3df*>(out)[0] = column[0]*in[0]+column[1]*in[1]+column[2]*in[2];
 			}
-
+/* No point keeping it around
 			//! Transforms a plane by this matrix
 			inline void transformPlane( core::plane3d<float> &plane) const
 			{
@@ -343,7 +329,7 @@ namespace core
 
                 out.D = in.Normal.dotProduct(inverse.column[3]) + in.D;
             }
-
+*/
 
 			//! Transforms a axis aligned bounding box
 			inline void transformBoxEx(core::aabbox3d<float>& box) const
@@ -477,7 +463,7 @@ namespace core
 			//! Sets all matrix data members at once
 			inline matrix4x3& setM(const float* data)
 			{
-			    memcpy(column,data,48);
+			    std::copy(data,data+12,reinterpret_cast<float*>(column));
 				return *this;
 			}
 
@@ -519,53 +505,6 @@ namespace core
             ret(1,i) = outColumn[i].Y;
             ret(2,i) = outColumn[i].Z;
         }
-
-        return ret;
-    }
-
-    inline matrix4 concatenateBFollowedByA(const matrix4& other_a,const matrix4x3& other_b )
-    {
-        vectorSIMDf inColumn[4];
-        for (size_t i=0; i<4; i++)
-            inColumn[i] = vectorSIMDf(other_a.pointer()+i*4);
-        vectorSIMDf outColumn[4];
-
-        outColumn[0] = inColumn[0]*other_b(0,0)+inColumn[1]*other_b(1,0)+inColumn[2]*other_b(2,0);
-        outColumn[1] = inColumn[0]*other_b(0,1)+inColumn[1]*other_b(1,1)+inColumn[2]*other_b(2,1);
-        outColumn[2] = inColumn[0]*other_b(0,2)+inColumn[1]*other_b(1,2)+inColumn[2]*other_b(2,2);
-        outColumn[3] = inColumn[0]*other_b(0,3)+inColumn[1]*other_b(1,3)+inColumn[2]*other_b(2,3)+inColumn[3];
-
-        return *reinterpret_cast<matrix4*>(outColumn);
-    }
-
-    inline matrix4 concatenatePreciselyBFollowedByA(const matrix4& other_a,const matrix4x3& other_b )
-    {
-        matrix4 ret;
-        double aComponents[16];
-
-        aComponents[ 0] = double(other_a(0,0))*double(other_b(0,0))+double(other_a(1,0))*double(other_b(1,0))+double(other_a(2,0))*double(other_b(2,0));
-        aComponents[ 1] = double(other_a(0,1))*double(other_b(0,0))+double(other_a(1,1))*double(other_b(1,0))+double(other_a(2,1))*double(other_b(2,0));
-        aComponents[ 2] = double(other_a(0,2))*double(other_b(0,0))+double(other_a(1,2))*double(other_b(1,0))+double(other_a(2,2))*double(other_b(2,0));
-        aComponents[ 3] = double(other_a(0,3))*double(other_b(0,0))+double(other_a(1,3))*double(other_b(1,0))+double(other_a(2,3))*double(other_b(2,0));
-
-        aComponents[ 4] = double(other_a(0,0))*double(other_b(0,1))+double(other_a(1,0))*double(other_b(1,1))+double(other_a(2,0))*double(other_b(2,1));
-        aComponents[ 5] = double(other_a(0,1))*double(other_b(0,1))+double(other_a(1,1))*double(other_b(1,1))+double(other_a(2,1))*double(other_b(2,1));
-        aComponents[ 6] = double(other_a(0,2))*double(other_b(0,1))+double(other_a(1,2))*double(other_b(1,1))+double(other_a(2,2))*double(other_b(2,1));
-        aComponents[ 7] = double(other_a(0,3))*double(other_b(0,1))+double(other_a(1,3))*double(other_b(1,1))+double(other_a(2,3))*double(other_b(2,1));
-
-        aComponents[ 8] = double(other_a(0,0))*double(other_b(0,2))+double(other_a(1,0))*double(other_b(1,2))+double(other_a(2,0))*double(other_b(2,2));
-        aComponents[ 9] = double(other_a(0,1))*double(other_b(0,2))+double(other_a(1,1))*double(other_b(1,2))+double(other_a(2,1))*double(other_b(2,2));
-        aComponents[10] = double(other_a(0,2))*double(other_b(0,2))+double(other_a(1,2))*double(other_b(1,2))+double(other_a(2,2))*double(other_b(2,2));
-        aComponents[11] = double(other_a(0,3))*double(other_b(0,2))+double(other_a(1,3))*double(other_b(1,2))+double(other_a(2,3))*double(other_b(2,2));
-
-        aComponents[12] = double(other_a(0,0))*double(other_b(0,3))+double(other_a(1,0))*double(other_b(1,3))+double(other_a(2,0))*double(other_b(2,3))+double(other_a(3,0));
-        aComponents[13] = double(other_a(0,1))*double(other_b(0,3))+double(other_a(1,1))*double(other_b(1,3))+double(other_a(2,1))*double(other_b(2,3))+double(other_a(3,1));
-        aComponents[14] = double(other_a(0,2))*double(other_b(0,3))+double(other_a(1,2))*double(other_b(1,3))+double(other_a(2,2))*double(other_b(2,3))+double(other_a(3,2));
-        aComponents[15] = double(other_a(0,3))*double(other_b(0,3))+double(other_a(1,3))*double(other_b(1,3))+double(other_a(2,3))*double(other_b(2,3))+double(other_a(3,3));
-
-        for (size_t j=0; j<4; j++)
-        for (size_t i=0; i<4; i++)
-            ret(j,i) = aComponents[j*4+i];
 
         return ret;
     }
@@ -850,10 +789,6 @@ namespace core
 		column[3].Y = -column[0].Y*center.X - column[1].Y*center.Y - column[2].Y*center.Z + (center.Y - translation.Y );
 		column[3].Z = -column[0].Z*center.X - column[1].Z*center.Y - column[2].Z*center.Z + (center.Z - translation.Z );
 	}
-
-
-	//! global const identity matrix
-	IRRLICHT_API extern const matrix4x3 IdentityMatrix;
 
 } // end namespace core
 } // end namespace irr

@@ -2,10 +2,18 @@
 #define __IRR_MATRIX4SIMD_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
-#include "quaternion.h"
+#include "matrix3x4SIMD.h"
 
-namespace irr { namespace core
+namespace irr
 {
+namespace core
+{
+
+class matrix4SIMD;
+
+matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& other_a,const matrix4x3& other_b );
+
+matrix4SIMD concatenatePreciselyBFollowedByA(const matrix4SIMD& other_a,const matrix4x3& other_b );
 
 class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 {
@@ -40,15 +48,23 @@ public:
             rows[i] = vectorSIMDf(_data + 4 * i, ALIGNED);
     }
 
+    inline explicit matrix4SIMD(const matrix3x4SIMD& smallMat)
+    {
+        *reinterpret_cast<matrix3x4SIMD*>(this) = smallMat;
+        rows[3].set(0.f,0.f,0.f,1.f);
+    }
+
     //! Access by row
-    inline const vectorSIMDf& operator[](size_t _rown) const { return rows[_rown]; }
-    //! Access by row
-    inline vectorSIMDf& operator[](size_t _rown) { return rows[_rown]; }
+    inline const vectorSIMDf& getRow(size_t _rown) const{ return rows[_rown]; }
+    inline vectorSIMDf& getRow(size_t _rown) { return rows[_rown]; }
 
     //! Access by element
     inline float operator()(size_t _i, size_t _j) const { return rows[_i].pointer[_j]; }
-    //! Access by element
     inline float& operator()(size_t _i, size_t _j) { return rows[_i].pointer[_j]; }
+
+    //! Access for memory
+    inline const float* pointer() const {return rows[0].pointer;}
+    inline float* pointer() {return rows[0].pointer;}
 
     inline bool operator==(const matrix4SIMD& _other) const
     {
@@ -133,28 +149,28 @@ public:
         __m128d r00 = _b.halfRowAsDouble(0u, true);
         __m128d r01 = _b.halfRowAsDouble(0u, false);
         second = _mm_cvtpd_ps(concat64_helper(r00, r01, _a, false));
-        out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r00, r01, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r00, r01, _a, true))) | (vectorSIMDu32(_mm_castps_si128(_mm_movelh_ps(second, second))) & mask0011);
         }
 
         {
         __m128d r10 = _b.halfRowAsDouble(1u, true);
         __m128d r11 = _b.halfRowAsDouble(1u, false);
         second = _mm_cvtpd_ps(concat64_helper(r10, r11, _a, false));
-        out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r10, r11, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r10, r11, _a, true))) | (vectorSIMDu32(_mm_castps_si128(_mm_movelh_ps(second, second))) & mask0011);
         }
 
         {
         __m128d r20 = _b.halfRowAsDouble(2u, true);
         __m128d r21 = _b.halfRowAsDouble(2u, false);
         second = _mm_cvtpd_ps(concat64_helper(r20, r21, _a, false));
-        out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r20, r21, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r20, r21, _a, true))) | (vectorSIMDu32(_mm_castps_si128(_mm_movelh_ps(second, second))) & mask0011);
         }
 
         {
         __m128d r30 = _b.halfRowAsDouble(3u, true);
         __m128d r31 = _b.halfRowAsDouble(3u, false);
         second = _mm_cvtpd_ps(concat64_helper(r30, r31, _a, false));
-        out.rows[3] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r30, r31, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        out.rows[3] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r30, r31, _a, true))) | (vectorSIMDu32(_mm_castps_si128(_mm_movelh_ps(second, second))) & mask0011);
         }
 
         return out;
@@ -182,9 +198,9 @@ public:
     {
         const __m128i mask0001 = BUILD_MASKF(0, 0, 0, 1);
 
-        rows[0] = (_scale & BUILD_MASKF(1, 0, 0, 0)) | (rows[0] & mask0001);
-        rows[1] = (_scale & BUILD_MASKF(0, 1, 0, 0)) | (rows[1] & mask0001);
-        rows[2] = (_scale & BUILD_MASKF(0, 0, 1, 0)) | (rows[2] & mask0001);
+        rows[0] = (_scale & BUILD_MASKF(1, 0, 0, 0)) | _mm_castps_si128((rows[0] & mask0001).getAsRegister());
+        rows[1] = (_scale & BUILD_MASKF(0, 1, 0, 0)) | _mm_castps_si128((rows[1] & mask0001).getAsRegister());
+        rows[2] = (_scale & BUILD_MASKF(0, 0, 1, 0)) | _mm_castps_si128((rows[2] & mask0001).getAsRegister());
         rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 
         return *this;
@@ -263,7 +279,7 @@ public:
 
         return true;
     }
-
+/* Fails to compile
     //! Modifies only upper-left 3x3.
     inline matrix4SIMD& setRotation(const quaternion& _quat)
     {
@@ -282,7 +298,7 @@ public:
 
         return *this;
     }
-
+*/
     inline vectorSIMDf sub3x3TransformVect(const vectorSIMDf& _in) const
     {
         matrix4SIMD cp{*this};
@@ -439,6 +455,28 @@ public:
         setTranslation(vcol3);
     }
 
+    inline bool isBoxInsideFrustum(const core::aabbox3df& box) const
+    {
+        return true;
+/*
+        vectorSIMDf inMinPt(&box.MinEdge.X);
+        vectorSIMDf inMaxPt(box.MaxEdge.X,box.MaxEdge.Y,box.MaxEdge.Z); // TODO: after change to SSE aabbox3df
+        inMinPt.makeSafe3D();
+        inMaxPt.makeSafe3D();
+
+        vectorSIMDf c0 = _mat.rows[0], c1 = _mat.rows[1], c2 = _mat.rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
+        transpose4(c0, c1, c2, c3);
+
+        const vectorSIMDf zero;
+        vectorSIMDf minPt = c0*mix(inMinPt.xxxw(),inMaxPt.xxxw(),c0<zero)+c1*mix(inMinPt.yyyw(),inMaxPt.yyyw(),c1<zero)+c2*mix(inMinPt.zzzw(),inMaxPt.zzzw(),c2<zero);
+        vectorSIMDf maxPt = c0*mix(inMaxPt.xxxw(),inMinPt.xxxw(),c0<zero)+c1*mix(inMaxPt.yyyw(),inMinPt.yyyw(),c1<zero)+c2*mix(inMaxPt.zzzw(),inMinPt.zzzw(),c2<zero);
+
+        minPt += c3;
+        maxPt += c3;
+
+        aabbox3df(minPt.getAsVector3df(),maxPt.getAsVector3df());*/
+    }
+
     inline bool equals(const matrix4SIMD& _other, float _tolerance) const
     {
         for (size_t i = 0u; i < 4u; ++i)
@@ -447,7 +485,20 @@ public:
         return true;
     }
 
+    static inline matrix4SIMD mix(const matrix4SIMD& _a, const matrix4SIMD& _b, float _x)
+    {
+        matrix4SIMD m;
+        for (size_t i = 0u; i < 4u; ++i)
+            m[i] = core::mix(_a[i], _b[i], vectorSIMDf(_x));
+        return m;
+    }
+
 private:
+    //! Access by row
+    inline const vectorSIMDf& operator[](size_t _rown) const { return rows[_rown]; }
+    //! Access by row
+    inline vectorSIMDf& operator[](size_t _rown) { return rows[_rown]; }
+
     inline __m128d halfRowAsDouble(size_t _n, bool _firstHalf) const
     {
         return _mm_cvtps_pd(_firstHalf ? rows[_n].xyxx().getAsRegister() : rows[_n].zwxx().getAsRegister());
@@ -490,17 +541,50 @@ inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const
 
 inline matrix4SIMD mix(const matrix4SIMD& _a, const matrix4SIMD& _b, float _x)
 {
-    matrix4SIMD m;
-    for (size_t i = 0u; i < 4u; ++i)
-        m[i] = core::mix(_a[i], _b[i], vectorSIMDf(_x));
-
-    return m;
+    return matrix4SIMD::mix(_a, _b, _x);
 }
 
 inline matrix4SIMD lerp(const matrix4SIMD& _a, const matrix4SIMD& _b, float _x)
 {
     return mix(_a, _b, _x);
 }
+
+
+inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& other_a,const matrix4x3& other_b )
+{
+    matrix3x4SIMD rowBasedMatrixB;
+    rowBasedMatrixB.set(other_b);
+
+    //! TODO: OPTIMIZE THIS, DON'T PROMOTE THE MATRIX IF DON'T HAVE TO
+    // optimize for the case as-if other_b was a `matrix3x4SIMD`
+    matrix4SIMD retval = concatenateBFollowedByA(other_a,matrix4SIMD(rowBasedMatrixB));
+
+
+    /* OLD code for column ordered matrices
+    vectorSIMDf inColumn[4];
+    for (size_t i=0; i<4; i++)
+        inColumn[i] = vectorSIMDf(other_a.pointer()+i*4);
+    vectorSIMDf outColumn[4];
+
+    outColumn[0] = inColumn[0]*other_b(0,0)+inColumn[1]*other_b(1,0)+inColumn[2]*other_b(2,0);
+    outColumn[1] = inColumn[0]*other_b(0,1)+inColumn[1]*other_b(1,1)+inColumn[2]*other_b(2,1);
+    outColumn[2] = inColumn[0]*other_b(0,2)+inColumn[1]*other_b(1,2)+inColumn[2]*other_b(2,2);
+    outColumn[3] = inColumn[0]*other_b(0,3)+inColumn[1]*other_b(1,3)+inColumn[2]*other_b(2,3)+inColumn[3];
+
+    return *reinterpret_cast<matrix4*>(outColumn);
+    */
+    return retval;
+}
+/* Unimplemented yet
+inline matrix4SIMD concatenatePreciselyBFollowedByA(const matrix4SIMD& other_a,const matrix4x3& other_b )
+{
+    matrix4SIMD ret;
+
+    IMPLEMENTATION AWAITS
+
+    return ret;
+}
+*/
 
 }} // irr::core
 
