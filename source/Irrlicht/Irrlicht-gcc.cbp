@@ -394,7 +394,6 @@
 		<Unit filename="../../include/line2d.h" />
 		<Unit filename="../../include/line3d.h" />
 		<Unit filename="../../include/matrix3x4SIMD.h" />
-		<Unit filename="../../include/matrix4.h" />
 		<Unit filename="../../include/matrix4SIMD.h" />
 		<Unit filename="../../include/matrix4x3.h" />
 		<Unit filename="../../include/matrixutil.h" />
@@ -411,7 +410,6 @@
 		<Unit filename="../../src/irr/video/GPUMemoryAllocatorBase.cpp" />
 		<Unit filename="../../src/irr/video/SimpleGPUBufferAllocator.cpp" />
 		<Unit filename="CAnimatedMeshSceneNode.cpp" />
-		<Unit filename="CAnimatedMeshSceneNode.h" />
 		<Unit filename="CBAWFile.cpp" />
 		<Unit filename="CBAWMeshFileLoader.cpp" />
 		<Unit filename="CBAWMeshFileLoader.h" />
@@ -481,8 +479,6 @@
 		<Unit filename="CLogger.cpp" />
 		<Unit filename="CLogger.h" />
 		<Unit filename="CMY3DHelper.h" />
-		<Unit filename="CMY3DMeshFileLoader.cpp" />
-		<Unit filename="CMY3DMeshFileLoader.h" />
 		<Unit filename="CMemoryFile.cpp" />
 		<Unit filename="CMemoryFile.h" />
 		<Unit filename="CMeshCache.cpp" />
