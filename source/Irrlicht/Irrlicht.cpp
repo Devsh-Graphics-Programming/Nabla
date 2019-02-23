@@ -95,12 +95,6 @@ namespace irr
 		return dev;
 	}
 
-namespace core
-{
-	const matrix4x3 IdentityMatrix(matrix4x3::EM4CONST_IDENTITY);
-
-	irr::core::stringc LOCALE_DECIMAL_POINTS(".");
-}
 
 namespace video
 {
