@@ -443,21 +443,24 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		return true;
 	}
 
-	inline void setRotationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation)
-	{
-		core::vectorSIMDf r0 = rows[0] * _center;
-		core::vectorSIMDf r1 = rows[1] * _center;
-		core::vectorSIMDf r2 = rows[2] * _center;
-		core::vectorSIMDf r3(0.f, 0.f, 0.f, 1.f);
+	// TODO: Double check this!-
+    inline void setTransformationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation)
+   {
+           core::vectorSIMDf r0 = rows[0] * _center;
+           core::vectorSIMDf r1 = rows[1] * _center;
+           core::vectorSIMDf r2 = rows[2] * _center;
+           core::vectorSIMDf r3(0.f, 0.f, 0.f, 1.f);
 
-		__m128 col3 = _mm_hadd_ps(_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()), _mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister()));
-		const vectorSIMDf vcol3 = _center - _translation - col3;
+           __m128 col3 = _mm_hadd_ps(_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()), _mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister()));
+           const vectorSIMDf vcol3 = _center - _translation - col3;
 
-		for (size_t i = 0u; i < 3u; ++i)
-			rows[i].w = vcol3.pointer[i];
-	}
+           for (size_t i = 0u; i < 3u; ++i)
+                   rows[i].w = vcol3.pointer[i];
+   }
 
-	inline void buildAxisAlignedBillboard(
+
+	// TODO: Double check this!
+	static inline matrix3x4SIMD buildAxisAlignedBillboard(
 		const core::vectorSIMDf& camPos,
 		const core::vectorSIMDf& center,
 		const core::vectorSIMDf& translation,
@@ -483,9 +486,10 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		const core::vectorSIMDf wt = vt * up.yzxx();
 		const core::vectorSIMDf vtuppca = vt * up + ca;
 
-		core::vectorSIMDf& row0 = rows[0];
-		core::vectorSIMDf& row1 = rows[1];
-		core::vectorSIMDf& row2 = rows[2];
+		matrix3x4SIMD mat;
+		core::vectorSIMDf& row0 = mat.rows[0];
+		core::vectorSIMDf& row1 = mat.rows[1];
+		core::vectorSIMDf& row2 = mat.rows[2];
 
 		row0 = vtuppca & BUILD_MASKF(1, 0, 0, 0);
 		row1 = vtuppca & BUILD_MASKF(0, 1, 0, 0);
@@ -495,7 +499,8 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		row1 += (wt.xxyx() + vs.zxxx()*core::vectorSIMDf(-1.f, 1.f, 1.f, 1.f)) & BUILD_MASKF(1, 0, 1, 0);
 		row2 += (wt.zyxx() + vs.yxxx()*core::vectorSIMDf(1.f, -1.f, 1.f, 1.f)) & BUILD_MASKF(1, 1, 0, 0);
 
-		setRotationCenter(center, translation);
+		mat.setTransformationCenter(center, translation);
+		return mat;
 	}
 
 #undef BUILD_MASKF

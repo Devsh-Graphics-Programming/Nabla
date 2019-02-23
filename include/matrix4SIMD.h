@@ -442,19 +442,6 @@ public:
         _out = getTransposed();
     }
 
-    inline void setRotationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation)
-    {
-        core::vectorSIMDf r0 = rows[0] * _center;
-        core::vectorSIMDf r1 = rows[1] * _center;
-        core::vectorSIMDf r2 = rows[2] * _center;
-        core::vectorSIMDf r3(0.f, 0.f, 0.f, 1.f);
-
-        __m128 col3 = _mm_hadd_ps(_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()), _mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister()));
-        const vectorSIMDf vcol3 = _center - _translation - col3;
-
-        setTranslation(vcol3);
-    }
-
     inline bool isBoxInsideFrustum(const core::aabbox3df& box) const
     {
         return true;

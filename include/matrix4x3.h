@@ -440,26 +440,6 @@ namespace core
 					const vector3df& upVector);
 
 
-			//! Builds a combined matrix which translates to a center before rotation and translates from origin afterwards
-			/** \param center Position to rotate around
-			\param translate Translation applied after the rotation
-			 */
-			inline void setRotationCenter(const core::vector3df& center, const core::vector3df& translate);
-
-			//! Builds a matrix which rotates a source vector to a look vector over an arbitrary axis
-			/** \param camPos: viewer position in world coo
-			\param center: object position in world-coo and rotation pivot
-			\param translation: object final translation from center
-			\param axis: axis to rotate about
-			\param from: source vector to rotate from
-			 */
-			inline void buildAxisAlignedBillboard(const core::vector3df& camPos,
-						const core::vector3df& center,
-						const core::vector3df& translation,
-						const core::vector3df& axis,
-						const core::vector3df& from);
-
-
 			//! Sets all matrix data members at once
 			inline matrix4x3& setM(const float* data)
 			{
@@ -714,7 +694,6 @@ namespace core
 
 
 	// creates a new matrix as interpolated matrix from this and the passed one.
-
 	inline matrix4x3 mix(const core::matrix4x3& a, const core::matrix4x3& b, const float& x)
 	{
 		matrix4x3 mat ( matrix4x3::EM4CONST_NOTHING );
@@ -725,69 +704,6 @@ namespace core
 		mat.getColumn(3) = a.getColumn(3)+(b.getColumn(3)-a.getColumn(3))*x;
 
 		return mat;
-	}
-
-	//! Builds a matrix which rotates a source vector to a look vector over an arbitrary axis
-	/** \param camPos: viewer position in world coord
-	\param center: object position in world-coord, rotation pivot
-	\param translation: object final translation from center
-	\param axis: axis to rotate about
-	\param from: source vector to rotate from
-	 */
-
-	inline void matrix4x3::buildAxisAlignedBillboard(
-				const core::vector3df& camPos,
-				const core::vector3df& center,
-				const core::vector3df& translation,
-				const core::vector3df& axis,
-				const core::vector3df& from)
-	{
-		// axis of rotation
-		core::vector3df up = axis;
-		up.normalize();
-		const core::vector3df forward = (camPos - center).normalize();
-		const core::vector3df right = up.crossProduct(forward).normalize();
-
-		// correct look vector
-		const core::vector3df look = right.crossProduct(up);
-
-		// rotate from to
-		// axis multiplication by sin
-		const core::vector3df vs = look.crossProduct(from);
-
-		// cosinus angle
-		const float ca = from.dotProduct(look);
-
-		core::vector3df vt(up * (1.f - ca));
-
-		column[0].X = static_cast<float>(vt.X * up.X + ca);
-		column[1].Y = static_cast<float>(vt.Y * up.Y + ca);
-		column[2].Z = static_cast<float>(vt.Z * up.Z + ca);
-
-		vt.X *= up.Y;
-		vt.Z *= up.X;
-		vt.Y *= up.Z;
-
-		column[0].Y = static_cast<float>(vt.X - vs.Z);
-		column[0].Z = static_cast<float>(vt.Z + vs.Y);
-
-		column[1].X = static_cast<float>(vt.X + vs.Z);
-		column[1].Z = static_cast<float>(vt.Y - vs.X);
-
-		column[2].X = static_cast<float>(vt.Z - vs.Y);
-		column[2].Y = static_cast<float>(vt.Y + vs.X);
-
-		setRotationCenter(center, translation);
-	}
-
-
-	//! Builds a combined matrix which translate to a center before rotation and translate afterwards
-
-	inline void matrix4x3::setRotationCenter(const core::vector3df& center, const core::vector3df& translation)
-	{
-		column[3].X = -column[0].X*center.X - column[1].X*center.Y - column[2].X*center.Z + (center.X - translation.X );
-		column[3].Y = -column[0].Y*center.X - column[1].Y*center.Y - column[2].Y*center.Z + (center.Y - translation.Y );
-		column[3].Z = -column[0].Z*center.X - column[1].Z*center.Y - column[2].Z*center.Z + (center.Z - translation.Z );
 	}
 
 } // end namespace core
