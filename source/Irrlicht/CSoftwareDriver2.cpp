@@ -620,9 +620,9 @@ void CBurningVideoDriver::setViewPort(const core::rect<int32_t>& area)
 		const float dx = -0.5f + ( (viewport.UpperLeftCorner.X + viewport.LowerRightCorner.X ) * 0.5f );
 		const float dy = -0.5f + ( (viewport.UpperLeftCorner.Y + viewport.LowerRightCorner.Y ) * 0.5f );
 
-		core::matrix4 retval;
-		retval.setScale(core::vector3df(scaleX, scaleY, 1.f));
-		retval.setTranslation(core::vector3df(dx, dy, 0.f));
+		core::matrix4SIMD retval;
+		retval.setScale(core::vectorSIMDf(scaleX, scaleY, 1.f));
+		retval.setTranslation(core::vectorSIMDf(dx, dy, 0.f));
 		return retval;
 	};
 
@@ -841,8 +841,8 @@ inline void CBurningVideoDriver::ndc_2_dc_and_project ( s4DVertex *dest,s4DVerte
 		const float iw = core::reciprocal ( w );
 
 		// to device coordinates
-		dest[g].Pos.x = iw * ( source[g].Pos.x * ClipscaleTransformation[ 0] + w * ClipscaleTransformation[12] );
-		dest[g].Pos.y = iw * ( source[g].Pos.y * ClipscaleTransformation[ 5] + w * ClipscaleTransformation[13] );
+		dest[g].Pos.x = iw * ( source[g].Pos.x * ClipscaleTransformation(0,0) + w * ClipscaleTransformation(0,3) );
+		dest[g].Pos.y = iw * ( source[g].Pos.y * ClipscaleTransformation(1,1) + w * ClipscaleTransformation(1,3) );
 
 #ifndef SOFTWARE_DRIVER_2_USE_WBUFFER
 		dest[g].Pos.z = iw * source[g].Pos.z;
@@ -880,9 +880,8 @@ inline void CBurningVideoDriver::ndc_2_dc_and_project2 ( const s4DVertex **v, co
 		const float iw = core::reciprocal ( w );
 
 		// to device coordinates
-		const float * p = ClipscaleTransformation.pointer();
-		a[1].Pos.x = iw * ( a->Pos.x * p[ 0] + w * p[12] );
-		a[1].Pos.y = iw * ( a->Pos.y * p[ 5] + w * p[13] );
+		a[1].Pos.x = iw * ( a->Pos.x * ClipscaleTransformation(0,0) + w * ClipscaleTransformation(0,3) );
+		a[1].Pos.y = iw * ( a->Pos.y * ClipscaleTransformation(1,1)+ w * ClipscaleTransformation(1,3) );
 
 #ifndef SOFTWARE_DRIVER_2_USE_WBUFFER
 		a[1].Pos.z = a->Pos.z * iw;
