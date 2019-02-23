@@ -59,7 +59,7 @@ namespace video
             EDF_FRAGMENT_SHADER_INTERLOCK,
 
             //! Whether textures can be used by their hardware handles bindlessly (without specifying them in descriptor sets)
-            EDF_TEXTURE_BINDLESS,
+            EDF_BINDLESS_TEXTURE,
 
             //! Whether we can index samplers dynamically in a shader (automatically true if bindless is enabled)
             EDF_DYNAMIC_SAMPLER_INDEXING,

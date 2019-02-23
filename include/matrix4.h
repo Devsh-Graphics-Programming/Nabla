@@ -253,15 +253,6 @@ namespace core
 			//! Builds a left-handed perspective projection matrix based on a field of view
 			CMatrix4<T>& buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar);
 
-			//! Builds a left-handed perspective projection matrix based on a field of view, with far plane at infinity
-			CMatrix4<T>& buildProjectionMatrixPerspectiveFovInfinityLH(float fieldOfViewRadians, float aspectRatio, float zNear, float epsilon=0);
-
-			//! Builds a right-handed perspective projection matrix.
-			CMatrix4<T>& buildProjectionMatrixPerspectiveRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar);
-
-			//! Builds a left-handed perspective projection matrix.
-			CMatrix4<T>& buildProjectionMatrixPerspectiveLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar);
-
 			//! Builds a left-handed orthogonal projection matrix.
 			CMatrix4<T>& buildProjectionMatrixOrthoLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar);
 
@@ -280,17 +271,6 @@ namespace core
 					const vector3df& target,
 					const vector3df& upVector);
 
-			//! Builds a matrix that flattens geometry into a plane.
-			/** \param light: light source
-			\param plane: plane into which the geometry if flattened into
-			\param point: value between 0 and 1, describing the light source.
-			If this is 1, it is a point light, if it is 0, it is a directional light. */
-			CMatrix4<T>& buildShadowMatrix(const core::vector3df& light, core::plane3df plane, float point=1.0f);
-
-			//! Builds a matrix which transforms a normalized Device Coordinate to Device Coordinates.
-			/** Used to scale <-1,-1><1,1> to viewport, for example from <-1,-1> <1,1> to the viewport <0,0><0,640> */
-			CMatrix4<T>& buildNDCToDCMatrix( const core::rect<int32_t>& area, float zScale);
-
 			//! Creates a new matrix as interpolated matrix from two other ones.
 			/** \param b: other matrix to interpolate with
 			\param time: Must be a value between 0 and 1. */
@@ -307,29 +287,6 @@ namespace core
 			\param translate Translation applied after the rotation
 			 */
 			void setRotationCenter(const core::vector3df& center, const core::vector3df& translate);
-
-			//! Builds a matrix which rotates a source vector to a look vector over an arbitrary axis
-			/** \param camPos: viewer position in world coo
-			\param center: object position in world-coo and rotation pivot
-			\param translation: object final translation from center
-			\param axis: axis to rotate about
-			\param from: source vector to rotate from
-			 */
-			void buildAxisAlignedBillboard(const core::vector3df& camPos,
-						const core::vector3df& center,
-						const core::vector3df& translation,
-						const core::vector3df& axis,
-						const core::vector3df& from);
-
-			/*
-				construct 2D Texture transformations
-				rotate about center, scale, and transform.
-			*/
-			//! Set to a texture transformation matrix with the given parameters.
-			CMatrix4<T>& buildTextureTransform( float rotateRad,
-					const core::vector2df &rotatecenter,
-					const core::vector2df &translate,
-					const core::vector2df &scale);
 
 			//! Set texture transformation rotation
 			/** Rotate about z axis, recenter at (0.5,0.5).
@@ -1456,14 +1413,12 @@ namespace core
 
 		M[8] = 0;
 		M[9] = 0;
-		M[10] = (T)(zFar/(zNear-zFar)); // DirectX version
-//		M[10] = (T)(zFar+zNear/(zNear-zFar)); // OpenGL version
+		M[10] = (T)(zFar/(zNear-zFar));
 		M[11] = -1;
 
 		M[12] = 0;
 		M[13] = 0;
-		M[14] = (T)(zNear*zFar/(zNear-zFar)); // DirectX version
-//		M[14] = (T)(2.0f*zNear*zFar/(zNear-zFar)); // OpenGL version
+		M[14] = (T)(zNear*zFar/(zNear-zFar));
 		M[15] = 0;
 
 #if defined ( USE_MATRIX_TEST )
@@ -1509,78 +1464,6 @@ namespace core
 		return *this;
 	}
 
-
-	// Builds a left-handed perspective projection matrix based on a field of view, with far plane culling at infinity
-	template <class T>
-	inline CMatrix4<T>& CMatrix4<T>::buildProjectionMatrixPerspectiveFovInfinityLH(
-			float fieldOfViewRadians, float aspectRatio, float zNear, float epsilon)
-	{
-		const double h = reciprocal(tan(fieldOfViewRadians*0.5));
-		_IRR_DEBUG_BREAK_IF(aspectRatio==0.f); //divide by zero
-		const T w = static_cast<T>(h / aspectRatio);
-
-		M[0] = w;
-		M[1] = 0;
-		M[2] = 0;
-		M[3] = 0;
-
-		M[4] = 0;
-		M[5] = (T)h;
-		M[6] = 0;
-		M[7] = 0;
-
-		M[8] = 0;
-		M[9] = 0;
-		M[10] = (T)(1.f-epsilon);
-		M[11] = 1;
-
-		M[12] = 0;
-		M[13] = 0;
-		M[14] = (T)(zNear*(epsilon-1.f));
-		M[15] = 0;
-
-#if defined ( USE_MATRIX_TEST )
-		definitelyIdentityMatrix=false;
-#endif
-		return *this;
-	}
-
-
-	// Builds a left-handed orthogonal projection matrix.
-	template <class T>
-	inline CMatrix4<T>& CMatrix4<T>::buildProjectionMatrixOrthoLH(
-			float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
-	{
-		_IRR_DEBUG_BREAK_IF(widthOfViewVolume==0.f); //divide by zero
-		_IRR_DEBUG_BREAK_IF(heightOfViewVolume==0.f); //divide by zero
-		_IRR_DEBUG_BREAK_IF(zNear==zFar); //divide by zero
-		M[0] = (T)(2/widthOfViewVolume);
-		M[1] = 0;
-		M[2] = 0;
-		M[3] = 0;
-
-		M[4] = 0;
-		M[5] = (T)(2/heightOfViewVolume);
-		M[6] = 0;
-		M[7] = 0;
-
-		M[8] = 0;
-		M[9] = 0;
-		M[10] = (T)(1/(zFar-zNear));
-		M[11] = 0;
-
-		M[12] = 0;
-		M[13] = 0;
-		M[14] = (T)(zNear/(zNear-zFar));
-		M[15] = 1;
-
-#if defined ( USE_MATRIX_TEST )
-		definitelyIdentityMatrix=false;
-#endif
-		return *this;
-	}
-
-
 	// Builds a right-handed orthogonal projection matrix.
 	template <class T>
 	inline CMatrix4<T>& CMatrix4<T>::buildProjectionMatrixOrthoRH(
@@ -1615,34 +1498,33 @@ namespace core
 		return *this;
 	}
 
-
-	// Builds a right-handed perspective projection matrix.
+	// Builds a left-handed orthogonal projection matrix.
 	template <class T>
-	inline CMatrix4<T>& CMatrix4<T>::buildProjectionMatrixPerspectiveRH(
+	inline CMatrix4<T>& CMatrix4<T>::buildProjectionMatrixOrthoLH(
 			float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
 	{
 		_IRR_DEBUG_BREAK_IF(widthOfViewVolume==0.f); //divide by zero
 		_IRR_DEBUG_BREAK_IF(heightOfViewVolume==0.f); //divide by zero
 		_IRR_DEBUG_BREAK_IF(zNear==zFar); //divide by zero
-		M[0] = (T)(2*zNear/widthOfViewVolume);
+		M[0] = (T)(2/widthOfViewVolume);
 		M[1] = 0;
 		M[2] = 0;
 		M[3] = 0;
 
 		M[4] = 0;
-		M[5] = (T)(2*zNear/heightOfViewVolume);
+		M[5] = (T)(2/heightOfViewVolume);
 		M[6] = 0;
 		M[7] = 0;
 
 		M[8] = 0;
 		M[9] = 0;
-		M[10] = (T)(zFar/(zNear-zFar));
-		M[11] = -1;
+		M[10] = (T)(1/(zFar-zNear));
+		M[11] = 0;
 
 		M[12] = 0;
 		M[13] = 0;
-		M[14] = (T)(zNear*zFar/(zNear-zFar));
-		M[15] = 0;
+		M[14] = (T)(-zNear/(zFar-zNear));
+		M[15] = 1;
 
 #if defined ( USE_MATRIX_TEST )
 		definitelyIdentityMatrix=false;
@@ -1650,72 +1532,6 @@ namespace core
 		return *this;
 	}
 
-
-	// Builds a left-handed perspective projection matrix.
-	template <class T>
-	inline CMatrix4<T>& CMatrix4<T>::buildProjectionMatrixPerspectiveLH(
-			float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
-	{
-		_IRR_DEBUG_BREAK_IF(widthOfViewVolume==0.f); //divide by zero
-		_IRR_DEBUG_BREAK_IF(heightOfViewVolume==0.f); //divide by zero
-		_IRR_DEBUG_BREAK_IF(zNear==zFar); //divide by zero
-		M[0] = (T)(2*zNear/widthOfViewVolume);
-		M[1] = 0;
-		M[2] = 0;
-		M[3] = 0;
-
-		M[4] = 0;
-		M[5] = (T)(2*zNear/heightOfViewVolume);
-		M[6] = 0;
-		M[7] = 0;
-
-		M[8] = 0;
-		M[9] = 0;
-		M[10] = (T)(zFar/(zFar-zNear));
-		M[11] = 1;
-
-		M[12] = 0;
-		M[13] = 0;
-		M[14] = (T)(zNear*zFar/(zNear-zFar));
-		M[15] = 0;
-#if defined ( USE_MATRIX_TEST )
-		definitelyIdentityMatrix=false;
-#endif
-		return *this;
-	}
-
-
-	// Builds a matrix that flattens geometry into a plane.
-	template <class T>
-	inline CMatrix4<T>& CMatrix4<T>::buildShadowMatrix(const core::vector3df& light, core::plane3df plane, float point)
-	{
-		plane.Normal.normalize();
-		const float d = plane.Normal.dotProduct(light);
-
-		M[ 0] = (T)(-plane.Normal.X * light.X + d);
-		M[ 1] = (T)(-plane.Normal.X * light.Y);
-		M[ 2] = (T)(-plane.Normal.X * light.Z);
-		M[ 3] = (T)(-plane.Normal.X * point);
-
-		M[ 4] = (T)(-plane.Normal.Y * light.X);
-		M[ 5] = (T)(-plane.Normal.Y * light.Y + d);
-		M[ 6] = (T)(-plane.Normal.Y * light.Z);
-		M[ 7] = (T)(-plane.Normal.Y * point);
-
-		M[ 8] = (T)(-plane.Normal.Z * light.X);
-		M[ 9] = (T)(-plane.Normal.Z * light.Y);
-		M[10] = (T)(-plane.Normal.Z * light.Z + d);
-		M[11] = (T)(-plane.Normal.Z * point);
-
-		M[12] = (T)(-plane.D * light.X);
-		M[13] = (T)(-plane.D * light.Y);
-		M[14] = (T)(-plane.D * light.Z);
-		M[15] = (T)(-plane.D * point + d);
-#if defined ( USE_MATRIX_TEST )
-		definitelyIdentityMatrix=false;
-#endif
-		return *this;
-	}
 
 	// Builds a left-handed look-at matrix.
 	template <class T>
@@ -1854,80 +1670,6 @@ namespace core
 #endif
 	}
 
-
-	// used to scale <-1,-1><1,1> to viewport
-	template <class T>
-	inline CMatrix4<T>& CMatrix4<T>::buildNDCToDCMatrix( const core::rect<int32_t>& viewport, float zScale)
-	{
-		const float scaleX = (viewport.getWidth() - 0.75f ) * 0.5f;
-		const float scaleY = -(viewport.getHeight() - 0.75f ) * 0.5f;
-
-		const float dx = -0.5f + ( (viewport.UpperLeftCorner.X + viewport.LowerRightCorner.X ) * 0.5f );
-		const float dy = -0.5f + ( (viewport.UpperLeftCorner.Y + viewport.LowerRightCorner.Y ) * 0.5f );
-
-		makeIdentity();
-		M[12] = (T)dx;
-		M[13] = (T)dy;
-		return setScale(core::vector3d<T>((T)scaleX, (T)scaleY, (T)zScale));
-	}
-
-	//! Builds a matrix which rotates a source vector to a look vector over an arbitrary axis
-	/** \param camPos: viewer position in world coord
-	\param center: object position in world-coord, rotation pivot
-	\param translation: object final translation from center
-	\param axis: axis to rotate about
-	\param from: source vector to rotate from
-	 */
-	template <class T>
-	inline void CMatrix4<T>::buildAxisAlignedBillboard(
-				const core::vector3df& camPos,
-				const core::vector3df& center,
-				const core::vector3df& translation,
-				const core::vector3df& axis,
-				const core::vector3df& from)
-	{
-		// axis of rotation
-		core::vector3df up = axis;
-		up.normalize();
-		const core::vector3df forward = (camPos - center).normalize();
-		const core::vector3df right = up.crossProduct(forward).normalize();
-
-		// correct look vector
-		const core::vector3df look = right.crossProduct(up);
-
-		// rotate from to
-		// axis multiplication by sin
-		const core::vector3df vs = look.crossProduct(from);
-
-		// cosinus angle
-		const float ca = from.dotProduct(look);
-
-		core::vector3df vt(up * (1.f - ca));
-
-		M[0] = static_cast<T>(vt.X * up.X + ca);
-		M[5] = static_cast<T>(vt.Y * up.Y + ca);
-		M[10] = static_cast<T>(vt.Z * up.Z + ca);
-
-		vt.X *= up.Y;
-		vt.Z *= up.X;
-		vt.Y *= up.Z;
-
-		M[1] = static_cast<T>(vt.X - vs.Z);
-		M[2] = static_cast<T>(vt.Z + vs.Y);
-		M[3] = 0;
-
-		M[4] = static_cast<T>(vt.X + vs.Z);
-		M[6] = static_cast<T>(vt.Y - vs.X);
-		M[7] = 0;
-
-		M[8] = static_cast<T>(vt.Z - vs.Y);
-		M[9] = static_cast<T>(vt.Y + vs.X);
-		M[11] = 0;
-
-		setRotationCenter(center, translation);
-	}
-
-
 	//! Builds a combined matrix which translate to a center before rotation and translate afterwards
 	template <class T>
 	inline void CMatrix4<T>::setRotationCenter(const core::vector3df& center, const core::vector3df& translation)
@@ -1939,52 +1681,6 @@ namespace core
 #if defined ( USE_MATRIX_TEST )
 		definitelyIdentityMatrix=false;
 #endif
-	}
-
-	/*!
-		Generate texture coordinates as linear functions so that:
-			u = Ux*x + Uy*y + Uz*z + Uw
-			v = Vx*x + Vy*y + Vz*z + Vw
-		The matrix M for this case is:
-			Ux  Vx  0  0
-			Uy  Vy  0  0
-			Uz  Vz  0  0
-			Uw  Vw  0  0
-	*/
-
-
-	template <class T>
-	inline CMatrix4<T>& CMatrix4<T>::buildTextureTransform( float rotateRad,
-			const core::vector2df &rotatecenter,
-			const core::vector2df &translate,
-			const core::vector2df &scale)
-	{
-		const float c = cosf(rotateRad);
-		const float s = sinf(rotateRad);
-
-		M[0] = (T)(c * scale.X);
-		M[1] = (T)(s * scale.Y);
-		M[2] = 0;
-		M[3] = 0;
-
-		M[4] = (T)(-s * scale.X);
-		M[5] = (T)(c * scale.Y);
-		M[6] = 0;
-		M[7] = 0;
-
-		M[8] = (T)(c * scale.X * rotatecenter.X + -s * rotatecenter.Y + translate.X);
-		M[9] = (T)(s * scale.Y * rotatecenter.X +  c * rotatecenter.Y + translate.Y);
-		M[10] = 1;
-		M[11] = 0;
-
-		M[12] = 0;
-		M[13] = 0;
-		M[14] = 0;
-		M[15] = 1;
-#if defined ( USE_MATRIX_TEST )
-		definitelyIdentityMatrix=false;
-#endif
-		return *this;
 	}
 
 
