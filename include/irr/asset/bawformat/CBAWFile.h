@@ -434,7 +434,7 @@ namespace asset
         "MeshDataFormatDescBlobV1: Size of blob is not sum of its contents!"
     );
     template<>
-    size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
+    inline size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::calcBlobSizeForObj(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _obj)
     {
         return sizeof(MeshDataFormatDescBlobV1);
     }
