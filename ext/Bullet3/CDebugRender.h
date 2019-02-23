@@ -5,6 +5,8 @@
 #include "irr/core/IReferenceCounted.h"
 #include "btBulletDynamicsCommon.h"
 
+#include "../../ext/DebugDraw/CDraw3DLine.h"
+
 namespace irr
 {
 namespace ext
@@ -24,10 +26,10 @@ public:
     CDebugRender(irr::video::IVideoDriver *driver);
     ~CDebugRender();
 
-    virtual void clear();
+
     virtual void draw();
    
-
+    virtual void clearLines();
     virtual void drawLine(const btVector3 &from, const btVector3 &to, const btVector3 &color) override;
    
     virtual void drawContactPoint(const btVector3& PointOnB, const btVector3& normalOnB, btScalar distance, int lifeTime, const btVector3& color);
@@ -38,23 +40,12 @@ public:
 
     
 protected:
-    struct DebugVertex
-    {
-        float pos[3];
-        uint8_t col[3];
-        uint8_t padding;
+    
+    irr::video::IVideoDriver *m_driver;
+    irr::ext::DebugDraw::CDraw3DLine *m_lineRender;
+    core::vector<std::pair<DebugDraw::S3DLineVertex, DebugDraw::S3DLineVertex>> m_scene;
 
-    } PACK_STRUCT;
-#include "irr/irrunpack.h"
-
-    std::vector<DebugVertex> m_scene;
-
-    video::IVideoDriver *m_driver;
-    scene::IGPUMeshBuffer *m_mesh;
-    scene::IGPUMeshDataFormatDesc *m_desc;
-
-    video::SMaterial m_material;
-
+    int m_drawMode;
 };
 
 

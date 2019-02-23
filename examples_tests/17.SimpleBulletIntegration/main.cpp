@@ -8,11 +8,13 @@
 
 #include "../ext/Bullet3/CInstancedMotionState.h"
 #include "../ext/Bullet3/CDebugRender.h"
-#include <iostream>
 
 using namespace irr;
 using namespace core;
 using namespace scene;
+
+
+
 
 
 #define kNumHardwareInstancesX 10
@@ -45,6 +47,10 @@ public:
             case irr::KEY_KEY_Q: // switch wire frame mode
                 quit = true;
                 return true;
+            case irr::KEY_KEY_R: //Bullet raycast
+                return true;
+
+
             default:
                 break;
             }
@@ -110,12 +116,12 @@ public:
         }
     }
 
-
     virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial)
     {
         currentMat = material.MaterialType;
         currentLodPass = material.MaterialTypeParam;
     }
+
     virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
         if (uniformLocation[currentMat][EU_PROJ_VIEW_WORLD_MAT]>=0)
@@ -143,46 +149,6 @@ public:
 
     virtual void OnUnsetMaterial() {}
 };
-
-
-
- scene::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const scene::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
- {
-    video::IVideoDriver* driver = smgr->getVideoDriver();
-    scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao = driver->createGPUMeshDataFormatDesc();
-
-    //
-    for (size_t k=0; k<EVAI_COUNT; k++)
-    {
-        E_VERTEX_ATTRIBUTE_ID attrId = (E_VERTEX_ATTRIBUTE_ID)k;
-        if (!oldVAO->getMappedBuffer(attrId))
-            continue;
-
-        vao->mapVertexAttrBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId)),attrId,oldVAO->getAttribComponentCount(attrId),oldVAO->getAttribType(attrId),
-                                 oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),oldVAO->getAttribDivisor(attrId));
-    }
-
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR1,ECPA_FOUR,ECT_NORMALIZED_UNSIGNED_BYTE,29*sizeof(float),28*sizeof(float),1);
-
-    // I know what attributes are unused in my mesh and I've set up the shader to use thse as instance data
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR4,ECPA_FOUR,ECT_FLOAT,29*sizeof(float),0,1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR5,ECPA_FOUR,ECT_FLOAT,29*sizeof(float),4*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR6,ECPA_FOUR,ECT_FLOAT,29*sizeof(float),8*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR2,ECPA_FOUR,ECT_FLOAT,29*sizeof(float),12*sizeof(float),1);
-
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR7,ECPA_THREE,ECT_FLOAT,29*sizeof(float),16*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR8,ECPA_THREE,ECT_FLOAT,29*sizeof(float),19*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR9,ECPA_THREE,ECT_FLOAT,29*sizeof(float),22*sizeof(float),1);
-    vao->mapVertexAttrBuffer(instanceDataBuffer,EVAI_ATTR10,ECPA_THREE,ECT_FLOAT,29*sizeof(float),25*sizeof(float),1);
-
-
-    if (oldVAO->getIndexBuffer())
-        vao->mapIndexBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer()));
-
-    return vao;
- }
-
- 
 
 
  asset::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
@@ -225,28 +191,6 @@ public:
 
 int main()
 {
-
-
-   
-
-    irr::ext::Bullet3::CPhysicsWorld *world = _IRR_NEW(irr::ext::Bullet3::CPhysicsWorld);
-    world->getWorld()->setGravity(btVector3(0, -5, 0));
-
-
-
-
-    core::matrix3x4SIMD baseplateMat;
-    baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
-
-    irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
-    data2.mass = 0.0f;
-    data2.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
-    data2.trans = baseplateMat;
-
-    btRigidBody *body2 = world->createRigidBody(data2);
-    world->bindRigidBody(body2);
-   
-  
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
@@ -266,11 +210,6 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
-    //------------------------------------
-    irr::ext::Bullet3::CDebugRender *debugRender =
-        world->createbtObject<irr::ext::Bullet3::CDebugRender>(driver);
-
-    //------------------------------------
 
     SimpleCallBack* cb = new SimpleCallBack();
     video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
@@ -281,29 +220,7 @@ int main()
                                                         0); //! No custom user data
     cb->drop();
 
-    //
 
-    {
-        scene::IGPUMeshDataFormatDesc *desc;
-        video::SMaterial material;
-
-        desc = driver->createGPUMeshDataFormatDesc();
-
-        driver->getGPUProgrammingServices()->addHighLevelShaderMaterial(nullptr, nullptr, nullptr, nullptr, nullptr, 2, video::EMT_SOLID);
-        IGPUMeshBuffer *meshBuf = _IRR_NEW(IGPUMeshBuffer);
-
-        meshBuf->setPrimitiveType(EPT_LINES);
-        meshBuf->setIndexType(EIT_UNKNOWN);
-        
-
-        auto buf = driver->getDefaultUpStreamingBuffer()->getBuffer();
-        meshBuf->setMeshDataAndFormat(desc);
-
-
-        meshBuf->drop();
-    }
-
-    //
 
 	scene::ISceneManager* smgr = device->getSceneManager();
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
@@ -315,10 +232,38 @@ int main()
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
 	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
+	
+    
+    // ! - INITIALIZE BULLET WORLD + FLAT PLANE FOR TESTING
+//------------------------------------------------------------------
+
+    irr::ext::Bullet3::CPhysicsWorld *world = _IRR_NEW(irr::ext::Bullet3::CPhysicsWorld);
+    world->getWorld()->setGravity(btVector3(0, -5, 0));
+
+
+    core::matrix3x4SIMD baseplateMat;
+    baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
+
+    irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
+    data2.mass = 0.0f;
+    data2.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
+    data2.trans = baseplateMat;
+
+    btRigidBody *body2 = world->createRigidBody(data2);
+    world->bindRigidBody(body2);
+
+    //------------------------------------------------------------------
+
+
+    
+    MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(5.f, 1.f, 1.f));
+
+
+
+	//!
+    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(1.f, 1.f, 1.f));
     video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
     for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
         gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
@@ -340,11 +285,10 @@ int main()
     cullingXFormFeedbackShader.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../culling.vert","","","../culling.geom","",3,video::EMT_SOLID,cb,xformFeedbackOutputs,9);
     cullingXFormFeedbackShader.RasterizerDiscard = true;
 
->>>>>>> 6561907e7da34d1937f074801a95694da64bc2bc
 
     //!
 	uint64_t lastFPSTime = 0;
-    
+
     IMeshSceneNodeInstanced* node = smgr->addMeshSceneNodeInstanced(smgr->getRootSceneNode());
     node->setBBoxUpdateEnabled();
     node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
@@ -362,21 +306,33 @@ int main()
 
     srand(6945);
 
-    const uint32_t towerHeight = 20;
-    const uint32_t towerWidth = 5;
+
+    const uint32_t towerHeight = 100;
+    const uint32_t towerWidth = 2;
+
+
+
+
+
+    ext::Bullet3::CDebugRender *debugDraw = world->createbtObject<ext::Bullet3::CDebugRender>(driver);
+    world->getWorld()->setDebugDrawer(debugDraw);
+
+    
 
     btRigidBody **bodies = _IRR_NEW_ARRAY(btRigidBody*, towerHeight * towerWidth);
+
 
 
     irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data3;
     data3.mass = 2.0f;
     data3.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
-     
+
 
     btVector3 inertia;
     data3.shape->calculateLocalInertia(data3.mass, inertia);
 
     data3.inertia = ext::Bullet3::frombtVec3(inertia);
+
 
 
     //! Special Juice for INSTANCING
@@ -386,71 +342,75 @@ int main()
     {
         core::matrix4x3 mat;
         mat.setTranslation(core::vector3df(z, y, 1));
-     
+
         uint8_t color[4];
-        color[0] = rand()%256;
-        color[1] = rand()%256;
-        color[2] = rand()%256;
+        color[0] = rand() % 256;
+        color[1] = rand() % 256;
+        color[2] = rand() % 256;
         color[3] = 255u;
-        instances[y*towerWidth+z] = node->addInstance(mat,color);
-        
-        core::vectorSIMDf pos; 
+        instances[y*towerWidth + z] = node->addInstance(mat, color);
+
+        core::vectorSIMDf pos;
         pos.set(node->getInstanceTransform(instances[y*towerWidth + z]).getTranslation());
         core::matrix3x4SIMD instancedMat;
         instancedMat.setTranslation(pos);
 
-        
-        
+
+
         data3.trans = instancedMat;
 
         bodies[y*towerWidth + z] = world->createRigidBody(data3);
-      
-        world->bindRigidBody<irr::ext::Bullet3::CInstancedMotionState>(bodies[y*towerWidth + z],node, instances[y*towerWidth+z]);
 
-        
-       
+        world->bindRigidBody<irr::ext::Bullet3::CInstancedMotionState>(bodies[y*towerWidth + z], node, instances[y*towerWidth + z]);
+
 
     }
-
-    
 
     uint64_t timeDiff = 0;
 	while(device->run()&&(!quit))
 	{
+
         uint64_t now = device->getTimer()->getRealTime();
+
+
+        
 
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
         //! This animates (moves) the camera and sets the transforms
         //! Also draws the meshbuffer
+ 
+        
         smgr->drawAll();
 
+        world->getWorld()->debugDrawWorld();
+        debugDraw->draw();
+       
 		driver->endScene();
 
-		// display frames per second in window title
-		
         world->getWorld()->stepSimulation(timeDiff);
-        
-        
-        uint64_t time = device->getTimer()->getRealTime();  
+       
+
+        uint64_t time = device->getTimer()->getRealTime();
         timeDiff = (time - now);
 
-		if (time-lastFPSTime > 250)
-		{
-			std::wostringstream str;
-			str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << 1000/timeDiff << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+		// display frames per second in window title
+        if (time - lastFPSTime > 250)
+        {
+            std::wostringstream str;
+            str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << 1000 / timeDiff << " PrimitivesDrawn:" << driver->getPrimitiveCountDrawn();
 
-			device->setWindowCaption(str.str());
-			lastFPSTime = time;
-		}
+            device->setWindowCaption(str.str());
+            lastFPSTime = time;
+        }
 	}
-    
-   
+
+
+
 
     world->unbindRigidBody(body2, false);
     world->deleteRigidBody(body2);
     world->deletebtObject(data2.shape);
-
 
 
     for (size_t i = 0; i < towerHeight * towerWidth; ++i) {
@@ -462,14 +422,15 @@ int main()
     world->deletebtObject(data3.shape);
 
 
-
     node->removeInstances(towerHeight*towerWidth,instances);
     node->remove();
+
     gpumesh->drop();
+
+    world->drop();
 
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.
@@ -493,6 +454,8 @@ int main()
     device->getAssetManager().writeAsset("screenshot.png", wparams);
     img->drop();
     screenshot->drop();
+
+
 	device->drop();
 
 	return 0;
