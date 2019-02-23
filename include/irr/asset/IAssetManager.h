@@ -25,6 +25,9 @@ namespace asset
     class IGeometryCreator;
     class IMeshManipulator;
 
+    std::function<void(IAsset*)> makeAssetGreetFunc(const IAssetManager* const _mgr);
+    std::function<void(IAsset*)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
+
 	class IAssetManager
 	{
         // the point of those functions is that lambdas returned by them "inherits" friendship
@@ -77,9 +80,9 @@ namespace asset
             //! The key is file extension
             core::CMultiObjectCache<std::string, IAssetLoader, std::vector> perFileExt;
 
-            void pushToVector(IAssetLoader* _loader) { 
+            void pushToVector(IAssetLoader* _loader) {
                 _loader->grab();
-                vector.push_back(_loader); 
+                vector.push_back(_loader);
             }
             void eraseFromVector(decltype(vector)::const_iterator _loaderItr) {
                 (*_loaderItr)->drop();
@@ -156,7 +159,7 @@ namespace asset
                 m_fileSystem->drop();
             dropMeshTools();
         }
-        
+
         const IGeometryCreator* getGeometryCreator() const;
         const IMeshManipulator* getMeshManipulator() const;
 
