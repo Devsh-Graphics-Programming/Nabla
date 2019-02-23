@@ -55,7 +55,7 @@ bool CCameraSceneNode::isInputReceiverEnabled() const
 
 //! Sets the projection matrix of the camera.
 /** The core::matrix4 class has some methods
-to build a projection matrix. e.g: core::matrix4::buildProjectionMatrixPerspectiveFovLH
+to build a projection matrix. e.g: core::matrix4::buildProjectionMatrixPerspectiveFovRH
 \param projection: The new projection matrix of the camera. */
 void CCameraSceneNode::setProjectionMatrix(const core::matrix4& projection, bool isOrthogonal)
 {
@@ -211,7 +211,7 @@ void CCameraSceneNode::setFOV(float f)
 
 void CCameraSceneNode::recalculateProjectionMatrix()
 {
-	projMatrix.buildProjectionMatrixPerspectiveFovLH(Fovy, Aspect, ZNear, ZFar);
+	projMatrix.buildProjectionMatrixPerspectiveFovRH(Fovy, Aspect, ZNear, ZFar);
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 }
 
