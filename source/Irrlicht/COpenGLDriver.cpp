@@ -988,7 +988,7 @@ bool COpenGLDriver::genericDriverInit()
     glDisable(GL_DITHER);
     glDisable(GL_MULTISAMPLE);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-    ///glClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
+    extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
 	glClearDepth(0.0);
 	glDepthFunc(GL_GEQUAL);
 	glDepthRange(1.0,0.0);
