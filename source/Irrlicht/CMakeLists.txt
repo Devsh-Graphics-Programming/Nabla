@@ -353,6 +353,9 @@ add_library(Irrlicht STATIC
 )
 
 irr_target_link_openssl(Irrlicht)
+add_dependencies(Irrlicht shaderc)
+target_link_libraries(Irrlicht INTERFACE shaderc)
+target_include_directories(Irrlicht PUBLIC ../../3rdparty/shaderc/libshaderc/include)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
