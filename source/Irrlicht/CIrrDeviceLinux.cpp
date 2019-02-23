@@ -1003,7 +1003,7 @@ void CIrrDeviceLinux::createDriver()
 
 	case video::EDT_BURNINGSVIDEO:
 		#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
-		VideoDriver = video::createBurningVideoDriver(CreationParams, FileSystem, this);
+		VideoDriver = video::createBurningVideoDriver(this, CreationParams, FileSystem, this);
 		#else
 		os::Printer::log("Burning's video driver was not compiled in.", ELL_ERROR);
 		#endif
@@ -1019,7 +1019,7 @@ void CIrrDeviceLinux::createDriver()
 		break;
 
 	case video::EDT_NULL:
-		VideoDriver = video::createNullDriver(FileSystem, CreationParams.WindowSize);
+		VideoDriver = video::createNullDriver(this, FileSystem, CreationParams.WindowSize);
 		break;
 
 	default:
@@ -1425,12 +1425,12 @@ bool CIrrDeviceLinux::present(video::IImage* image, void* windowId, core::rect<i
 	{
 		case 16:
 			if (SoftwareImage->depth==16)
-				destColor = EF_R5G6B5;
+				destColor = asset::EF_R5G6B5_UNORM_PACK16;
 			else
-				destColor = EF_A1R5G5B5;
+				destColor = asset::EF_A1R5G5B5_UNORM_PACK16;
 		break;
-		case 24: destColor = EF_R8G8B8_UNORM; break;
-		case 32: destColor = EF_B8G8R8A8_UNORM; break;
+		case 24: destColor = asset::EF_R8G8B8_UNORM; break;
+		case 32: destColor = asset::EF_B8G8R8A8_UNORM; break;
 		default:
 			os::Printer::log("Unsupported screen depth.");
 			return false;
@@ -1492,10 +1492,10 @@ asset::E_FORMAT CIrrDeviceLinux::getColorFormat() const
 {
 #ifdef _IRR_COMPILE_WITH_X11_
 	if (visual && (visual->depth != 16))
-		return EF_R8G8B8_UNORM;
+		return asset::EF_R8G8B8_UNORM;
 	else
 #endif
-		return EF_R5G6B5;
+		return asset::EF_R5G6B5_UNORM_PACK16;
 }
 
 

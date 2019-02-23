@@ -47,9 +47,9 @@ private:
             hierarchyLvl = _other.hierarchyLvl;
         }
         SBlobData_t<HeaderT>& operator=(const SBlobData_t<HeaderT>&) = delete;
-		~SBlobData_t() { 
+		~SBlobData_t() {
             if (heapBlob)
-                _IRR_ALIGNED_FREE(heapBlob); 
+                _IRR_ALIGNED_FREE(heapBlob);
         }
 
 		bool validate() const {
@@ -104,7 +104,7 @@ public:
                 _file
             }
         };
-        
+
         const size_t prevPos = _file->getPos();
         _file->seek(0u);
         bool res = false;
@@ -251,7 +251,7 @@ private:
     //! Must return _original if _original's version is IntoVersion.
     //! If new format version comes up, just increment _IRR_BAW_FORMAT_VERSION and specialize this template. All the other code will take care of itself.
     template<uint64_t IntoVersion>
-    io::IReadFile* createConvertIntoVer_spec(SContext& _ctx, io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override, CommonDataTuple<IntoVersion-1ull>& _common); // here goes unpack tuple
+    io::IReadFile* createConvertIntoVer_spec(SContext& _ctx, io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<IntoVersion-1ull>& _common); // here goes unpack tuple
 
     template<uint64_t IntoVersion>
     io::IReadFile* createConvertIntoVer(io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override)

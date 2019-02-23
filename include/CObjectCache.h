@@ -54,7 +54,7 @@ namespace impl
     struct is_assoc_container<std::multimap> : std::true_type {};
     template<>
     struct is_assoc_container<std::unordered_multimap> : std::true_type {};
-    
+
     template<typename K, typename...>
     struct IRR_FORCE_EBO PropagKeyTypeTypedef_ { using KeyType = K; };
     template<typename ...K>
@@ -561,7 +561,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct CDirectCacheBase : 
+    struct CDirectCacheBase :
         public std::conditional<forMultiCache, CMultiObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>, CUniqObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>>::type
     {
     private:
@@ -573,9 +573,9 @@ namespace impl
         inline bool changeObjectKey(typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key, const typename Base::KeyType_impl& _newKey)
         {
             constexpr bool DoGreetOrDispose = false;
-            if (this->removeObject<DoGreetOrDispose>(_obj, _key))
+            if (this->template removeObject<DoGreetOrDispose>(_obj, _key))
             {
-                this->insert<DoGreetOrDispose>(_newKey, _obj);
+                this->template insert<DoGreetOrDispose>(_newKey, _obj);
                 return true;
             }
             return false;
@@ -665,7 +665,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class CMultiObjectCache<K, T, ContainerT_T, Alloc, true> : 
+class CMultiObjectCache<K, T, ContainerT_T, Alloc, true> :
     public impl::CDirectMultiCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>,
     public impl::PropagTypedefs<T, K>
 {
@@ -681,7 +681,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class CMultiObjectCache<K, T, ContainerT_T, Alloc, false> : 
+class CMultiObjectCache<K, T, ContainerT_T, Alloc, false> :
     public impl::CDirectMultiCacheBase<false, ContainerT_T, Alloc, T*, const K>,
     public impl::PropagTypedefs<T, const K>
 {
@@ -709,7 +709,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class CObjectCache<K, T, ContainerT_T, Alloc, true> : 
+class CObjectCache<K, T, ContainerT_T, Alloc, true> :
     public impl::CDirectUniqCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>,
     public impl::PropagTypedefs<T, K>
 {
@@ -726,7 +726,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class CObjectCache<K, T, ContainerT_T, Alloc, false> : 
+class CObjectCache<K, T, ContainerT_T, Alloc, false> :
     public impl::CDirectUniqCacheBase<false, ContainerT_T, Alloc, T*, const K>,
     public impl::PropagTypedefs<T, const K>
 {

@@ -102,7 +102,7 @@ namespace io
     template<typename Alloc>
     class CCustomAllocatorMemoryReadFile<Alloc, true> : public IReadFile
     {
-        static_assert(sizeof(Alloc::value_type)==1, "Alloc::value_type must be of size 1");
+        static_assert(sizeof(typename Alloc::value_type)==1, "Alloc::value_type must be of size 1");
 
     protected:
         virtual ~CCustomAllocatorMemoryReadFile ()
@@ -177,8 +177,8 @@ namespace io
             Base(const_cast<void*>(_data), _length, _filename, core::adopt_memory, std::move(_alloc))
         {
             const void* tmp = Base::m_storage;
-            Base::m_storage = m_allocator.allocate(m_length);
-            memcpy(Base::m_storage, tmp, m_length);
+            Base::m_storage = Base::m_allocator.allocate(Base::m_length);
+            memcpy(Base::m_storage, tmp, Base::m_length);
         }
     };
 
