@@ -19,13 +19,6 @@
 #include "CSkinnedMesh.h"
 
 
-#ifdef _IRR_COMPILE_WITH_MS3D_LOADER_
-#include "CMS3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_3DS_LOADER_
-#include "C3DSMeshFileLoader.h"
-#endif
 
 #ifdef _IRR_COMPILE_WITH_X_LOADER_
 #include "CXMeshFileLoader.h"
@@ -39,20 +32,8 @@
 #include "CLMTSMeshFileLoader.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
-#include "CMY3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
-#include "COgreMeshFileLoader.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 #include "COBJMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_B3D_LOADER_
-#include "CB3DMeshFileLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_LWO_LOADER_
@@ -289,29 +270,14 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, irr::ITimer* timer, io
 	#ifdef _IRR_COMPILE_WITH_LMTS_LOADER_
 	MeshLoaderList.push_back(new CLMTSMeshFileLoader(FileSystem, Driver));
 	#endif
-	#ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
-	MeshLoaderList.push_back(new CMY3DMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
-	MeshLoaderList.push_back(new COgreMeshFileLoader(FileSystem, Driver));
-	#endif
 	#ifdef _IRR_COMPILE_WITH_LWO_LOADER_
 	MeshLoaderList.push_back(new CLWOMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_3DS_LOADER_
-	MeshLoaderList.push_back(new C3DSMeshFileLoader(this, FileSystem));
 	#endif
 	#ifdef _IRR_COMPILE_WITH_X_LOADER_
 	MeshLoaderList.push_back(new CXMeshFileLoader(this, FileSystem));
 	#endif
-	#ifdef _IRR_COMPILE_WITH_MS3D_LOADER_
-	MeshLoaderList.push_back(new CMS3DMeshFileLoader(Driver));
-	#endif
 	#ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 	MeshLoaderList.push_back(new COBJMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_B3D_LOADER_
-	MeshLoaderList.push_back(new CB3DMeshFileLoader(this));
 	#endif
 	#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
 	MeshLoaderList.push_back(new CBAWMeshFileLoader(this, FileSystem));

@@ -307,30 +307,10 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 //#define IGNORE_DEPRECATED_WARNING
 
 
-//! Define _IRR_COMPILE_WITH_B3D_LOADER_ if you want to use Blitz3D files
-//#define _IRR_COMPILE_WITH_B3D_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_B3D_LOADER_
-#undef _IRR_COMPILE_WITH_B3D_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_MS3D_LOADER_ if you want to Milkshape files
-//#define _IRR_COMPILE_WITH_MS3D_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_MS3D_LOADER_
-#undef _IRR_COMPILE_WITH_MS3D_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_X_LOADER_ if you want to use Microsoft X files
 #define _IRR_COMPILE_WITH_X_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_X_LOADER_
 #undef _IRR_COMPILE_WITH_X_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_OGRE_LOADER_ if you want to load Ogre 3D files
-//#define _IRR_COMPILE_WITH_OGRE_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_OGRE_LOADER_
-#undef _IRR_COMPILE_WITH_OGRE_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_3DS_LOADER_ if you want to load 3D Studio Max files
-//#define _IRR_COMPILE_WITH_3DS_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_3DS_LOADER_
-#undef _IRR_COMPILE_WITH_3DS_LOADER_
 #endif
 //! Define _IRR_COMPILE_WITH_LMTS_LOADER_ if you want to load LMTools files
 //#define _IRR_COMPILE_WITH_LMTS_LOADER_

@@ -133,21 +133,6 @@ namespace scene
 		 *    <TD>Description</TD>
 		 *  </TR>
 		 *  <TR>
-		 *    <TD>3D Studio (.3ds)</TD>
-		 *    <TD>Loader for 3D-Studio files which lots of 3D packages
-		 *      are able to export. Only static meshes are currently
-		 *      supported by this importer.</TD>
-		 *  </TR>
-		 *  <TR>
-		 *    <TD>Bliz Basic B3D (.b3d)</TD>
-		 *    <TD>Loader for blitz basic files, developed by Mark
-		 *      Sibly. This is the ideal animated mesh format for game
-		 *      characters as it is both rigidly defined and widely
-		 *      supported by modeling and animation software.
-		 *      As this format supports skeletal animations, an
-		 *      ISkinnedMesh will be returned by this importer.</TD>
-		 *  </TR>
-		 *  <TR>
 		 *    <TD>DirectX (.x)</TD>
 		 *    <TD>Platform independent importer (so not D3D-only) for
 		 *      .x files. Most 3D packages can export these natively
@@ -166,55 +151,12 @@ namespace scene
 		 *      reflection textures.</TD>
 		 *  </TR>
 		 *  <TR>
-		 *    <TD>Maya (.obj)</TD>
+		 *    <TD>Wavefront (.obj)</TD>
 		 *    <TD>Most 3D software can create .obj files which contain
 		 *      static geometry without material data. The material
 		 *      files .mtl are also supported. This importer for
 		 *      Irrlicht can load them directly. </TD>
 		 *  </TR>
-		 *  <TR>
-		 *    <TD>Milkshape (.ms3d)</TD>
-		 *    <TD>.MS3D files contain models and sometimes skeletal
-		 *      animations from the Milkshape 3D modeling and animation
-		 *      software. Like the other skeletal mesh loaders, oints
-		 *      are exposed via the ISkinnedMesh animated mesh type.</TD>
-		 *  </TR>
-		 *  <TR>
-		 *  <TD>My3D (.my3d)</TD>
-		 *      <TD>.my3D is a flexible 3D file format. The My3DTools
-		 *        contains plug-ins to export .my3D files from several
-		 *        3D packages. With this built-in importer, Irrlicht
-		 *        can read and display those files directly. This
-		 *        loader was written by Zhuck Dimitry who also created
-		 *        the whole My3DTools package. If you are using this
-		 *        loader, please note that you can set the path of the
-		 *        textures before loading .my3d files. You can do this
-		 *        using
-		 *        SceneManager-&gt;getParameters()-&gt;setAttribute(scene::MY3D_TEXTURE_PATH,
-		 *        &quot;path/to/your/textures&quot;);
-		 *        </TD>
-		 *    </TR>
-		 *    <TR>
-		 *      <TD>OCT (.oct)</TD>
-		 *      <TD>The oct file format contains 3D geometry and
-		 *        lightmaps and can be loaded directly by Irrlicht. OCT
-		 *        files<br> can be created by FSRad, Paul Nette's
-		 *        radiosity processor or exported from Blender using
-		 *        OCTTools which can be found in the exporters/OCTTools
-		 *        directory of the SDK. Thanks to Murphy McCauley for
-		 *        creating all this.</TD>
-		 *    </TR>
-		 *    <TR>
-		 *      <TD>OGRE Meshes (.mesh)</TD>
-		 *      <TD>Ogre .mesh files contain 3D data for the OGRE 3D
-		 *        engine. Irrlicht can read and display them directly
-		 *        with this importer. To define materials for the mesh,
-		 *        copy a .material file named like the corresponding
-		 *        .mesh file where the .mesh file is. (For example
-		 *        ogrehead.material for ogrehead.mesh). Thanks to
-		 *        Christian Stehno who wrote and contributed this
-		 *        loader.</TD>
-		 *    </TR>
 		 *    <TR>
 		 *      <TD>Pulsar LMTools (.lmts)</TD>
 		 *      <TD>LMTools is a set of tools (Windows &amp; Linux) for
@@ -254,7 +196,7 @@ namespace scene
 		 *  To load and display a mesh quickly, just do this:
 		 *  \code
 		 *  SceneManager->addAnimatedMeshSceneNode(
-		 *		SceneManager->getMesh("yourmesh.3ds"));
+		 *		SceneManager->getMesh("yourmesh.obj"));
 		 * \endcode
 		 * If you would like to implement and add your own file format loader to Irrlicht,
 		 * see addExternalMeshLoader().

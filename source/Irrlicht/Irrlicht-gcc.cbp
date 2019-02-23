@@ -410,12 +410,8 @@
 		<Unit filename="../../include/vectorSIMD.h" />
 		<Unit filename="../../src/irr/video/GPUMemoryAllocatorBase.cpp" />
 		<Unit filename="../../src/irr/video/SimpleGPUBufferAllocator.cpp" />
-		<Unit filename="C3DSMeshFileLoader.cpp" />
-		<Unit filename="C3DSMeshFileLoader.h" />
 		<Unit filename="CAnimatedMeshSceneNode.cpp" />
 		<Unit filename="CAnimatedMeshSceneNode.h" />
-		<Unit filename="CB3DMeshFileLoader.cpp" />
-		<Unit filename="CB3DMeshFileLoader.h" />
 		<Unit filename="CBAWFile.cpp" />
 		<Unit filename="CBAWMeshFileLoader.cpp" />
 		<Unit filename="CBAWMeshFileLoader.h" />
@@ -484,8 +480,6 @@
 		<Unit filename="CLimitReadFile.h" />
 		<Unit filename="CLogger.cpp" />
 		<Unit filename="CLogger.h" />
-		<Unit filename="CMS3DMeshFileLoader.cpp" />
-		<Unit filename="CMS3DMeshFileLoader.h" />
 		<Unit filename="CMY3DHelper.h" />
 		<Unit filename="CMY3DMeshFileLoader.cpp" />
 		<Unit filename="CMY3DMeshFileLoader.h" />
@@ -513,8 +507,6 @@
 		<Unit filename="COCTLoader.h" />
 		<Unit filename="COSOperator.cpp" />
 		<Unit filename="COSOperator.h" />
-		<Unit filename="COgreMeshFileLoader.cpp" />
-		<Unit filename="COgreMeshFileLoader.h" />
 		<Unit filename="COpenCLHandler.cpp" />
 		<Unit filename="COpenCLHandler.h" />
 		<Unit filename="COpenGL1DTexture.cpp" />
