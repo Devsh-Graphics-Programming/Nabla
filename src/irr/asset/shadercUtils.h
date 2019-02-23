@@ -22,7 +22,7 @@ shaderc_shader_kind ESStoShadercEnum(E_SHADER_STAGE _ss)
     convert[core::findLSB<uint32_t>(ESS_FRAGMENT)] = shaderc_fragment_shader;
     convert[core::findLSB<uint32_t>(ESS_COMPUTE)] = shaderc_compute_shader;
 
-    return convert[_ss];
+    return convert[core::findLSB<uint32_t>(_ss)];
 }
 
 }}
