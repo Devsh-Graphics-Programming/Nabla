@@ -335,6 +335,13 @@ macro(irr_target_link_openssl _trgt)
 	)
 	target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
 endmacro()
+macro(irr_target_link_shaderc _trgt)
+	add_dependencies(Irrlicht shaderc)
+	target_link_libraries(${_trgt} INTERFACE
+		shaderc
+	)
+	target_include_directories(${_trgt} PUBLIC ../../3rdparty/shaderc/libshaderc/include)
+endmacro()
 
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
@@ -353,9 +360,7 @@ add_library(Irrlicht STATIC
 )
 
 irr_target_link_openssl(Irrlicht)
-add_dependencies(Irrlicht shaderc)
-target_link_libraries(Irrlicht INTERFACE shaderc)
-target_include_directories(Irrlicht PUBLIC ../../3rdparty/shaderc/libshaderc/include)
+irr_target_link_shaderc(Irrlicht)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -413,6 +418,7 @@ add_library(IrrlichtServer STATIC
 )
 
 irr_target_link_openssl(IrrlichtServer)
+irr_target_link_shaderc(IrrlichtServer)
 
 target_include_directories(IrrlichtServer PUBLIC 
 	../../include
