@@ -63,7 +63,6 @@ namespace impl
     template<typename T, typename ...K>
     struct IRR_FORCE_EBO PropagTypedefs : PropagKeyTypeTypedef<K...> { using CachedType = T; };
 
-
     template<
         template<typename...> class ContainerT_T,
         typename Alloc,
@@ -79,14 +78,14 @@ namespace impl
         template<template<typename...> class C>
         struct help<true, C>
         {
-            template<typename K, typename T, typename Alloc>
-            using container_t = C<K, T, std::less<K>, Alloc>;
+            template<typename KK, typename TT, typename AAlloc>
+            using container_t = C<KK, TT, std::less<KK>, AAlloc>;
         };
         template<template<typename...> class C>
         struct help<false, C>
         {
-            template<typename T, typename Alloc>
-            using container_t = C<T, Alloc>;
+            template<typename TT, typename AAlloc>
+            using container_t = C<TT, AAlloc>;
         };
 
     public:
@@ -148,16 +147,10 @@ namespace impl
 
     private:
         template<typename StorageT>
-        void outputThis(const ConstIteratorType& _itr, size_t _ix, StorageT* _storage) const;
-        template<>
-        void outputThis<MutablePairType>(const ConstIteratorType& _itr, size_t _ix, MutablePairType* _storage) const
+        void outputThis(const ConstIteratorType& _itr, size_t _ix, StorageT* _storage) const
         {
-            _storage[_ix] = *_itr;
-        }
-        template<>
-        void outputThis<ValueType_impl>(const ConstIteratorType& _itr, size_t _ix, ValueType_impl* _storage) const
-        {
-            _storage[_ix] = _itr->second;
+            static_if<std::is_same<StorageT, MutablePairType>::value>([&](auto f) { _storage[_ix] = *_itr; }).
+                else_([&](auto f) { _storage[_ix] = _itr->second; });
         }
 
         //! Only in non-concurrent cache
@@ -534,7 +527,7 @@ namespace impl
             auto it = range.first;
             if (Base::isNonZeroRange(range) && it->second == _obj)
             {
-                static_if<DisposeOnRemove>([this] (auto f) { this->dispose(it->second); });
+                static_if<DisposeOnRemove>([this,&it] (auto f) { this->dispose(it->second); });
                 this->m_container.erase(it);
                 return true;
             }
@@ -648,11 +641,20 @@ namespace impl
     using CDirectUniqCacheBase = CDirectCacheBase<false, isVectorContainer, ContainerT_T, Alloc, T, K...>;
 }
 
+
+namespace impl
+{
+    template<template<typename...> class Container, typename K, typename V>
+    struct key_val_pair_type_for { using type = std::pair<const K, V*>; };
+
+    template<typename K, typename V>
+    struct key_val_pair_type_for<std::vector, K, V> { using type = std::pair<K, V*>; };
+}
 template<
     typename K,
     typename T,
     template<typename...> class ContainerT_T = std::vector,
-    typename Alloc = core::allocator<std::pair<const K, T*>>,
+    typename Alloc = core::allocator<typename impl::key_val_pair_type_for<ContainerT_T, K, T>::type>,
     bool = impl::is_same_templ<ContainerT_T, std::vector>::value
 >
 class CMultiObjectCache;
@@ -692,12 +694,11 @@ public:
     using Base::Base;
 };
 
-
 template<
     typename K,
     typename T,
     template<typename...> class ContainerT_T = std::vector,
-    typename Alloc = core::allocator<std::pair<const K, T*>>,
+    typename Alloc = core::allocator<typename impl::key_val_pair_type_for<ContainerT_T, K, T>::type>,
     bool = impl::is_same_templ<ContainerT_T, std::vector>::value
 >
 class CObjectCache;
