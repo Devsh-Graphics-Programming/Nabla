@@ -322,9 +322,9 @@ public:
 
         matrix4SIMD m;
         m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
-        m.rows[1] = vectorSIMDf(0.f, (float)h, 0.f, 0.f);
-        m.rows[2] = vectorSIMDf(0.f, 0.f, zFar/(zNear-zFar), zNear*zFar/(zNear-zFar));
-        m.rows[3] = vectorSIMDf(0.f, 0.f, -1.f, 0.f);
+        m.rows[1] = vectorSIMDf(0.f, -h, 0.f, 0.f);
+        m.rows[2] = vectorSIMDf(0.f, 0.f, zFar/(zFar-zNear), -zNear*zFar/(zFar-zNear));
+        m.rows[3] = vectorSIMDf(0.f, 0.f, 1.f, 0.f);
 
         return m;
     }
@@ -353,8 +353,8 @@ public:
 
         matrix4SIMD m;
         m.rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
-        m.rows[1] = vectorSIMDf(0.f, 2.f/heightOfViewVolume, 0.f, 0.f);
-        m.rows[2] = vectorSIMDf(0.f, 0.f, 1.f/(zNear-zFar), -zNear/(zNear-zFar));
+        m.rows[1] = vectorSIMDf(0.f, -2.f/heightOfViewVolume, 0.f, 0.f);
+        m.rows[2] = vectorSIMDf(0.f, 0.f, 1.f/(zFar-zNear), -zNear/(zFar-zNear));
         m.rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 
         return m;
