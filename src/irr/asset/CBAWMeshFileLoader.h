@@ -15,6 +15,8 @@
 #include "irr/asset/bawformat/CBlobsLoadingManager.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
+#include "os.h"
+
 namespace irr
 {
 class IrrlichtDevice;
