@@ -9,7 +9,7 @@
 #include "vectorSIMD.h"
 #include "line3d.h"
 #include "aabbox3d.h"
-#include "matrix4.h"
+#include "matrix4SIMD.h"
 #include "IVideoDriver.h"
 
 namespace irr
@@ -21,6 +21,8 @@ namespace scene
 	/** The view frustum is enclosed by 6 planes. These six planes share
 	eight points. A bounding box around these eight points is also stored in
 	this structure.
+	WARNING: The FRUSTUM IS FLIPPED INSIDE OUT COMPARED TO OTHER ENGINES
+	THE CLIP-PLANE'S NORMALS POINT OUTSIDE, NOT INSIDE !!!
 	*/
 	struct SViewFrustum
 	{
@@ -48,21 +50,17 @@ namespace scene
 		SViewFrustum() {}
 
 		//! Copy Constructor.
-		SViewFrustum(const SViewFrustum& other);
+		SViewFrustum(const SViewFrustum& other) = default;
 
 		//! This constructor creates a view frustum based on a projection and/or view matrix.
 		/** @param mat Source matrix. */
-		SViewFrustum(const core::matrix4& mat);
+		inline explicit SViewFrustum(const core::matrix4SIMD& mat) { setFrom ( mat );}
 
 		//! Modifies frustum as if it was constructed with a matrix.
 		/** @param mat Source matrix.
-		@see @ref SViewFrustum(const core::matrix4&)
+		@see @ref SViewFrustum(const core::matrix4SIMD&)
 		*/
-		inline void setFrom(const core::matrix4& mat);
-
-		//! Transforms the frustum by the matrix
-		/** @param mat: Matrix by which the view frustum is transformed.*/
-		void transform(const core::matrix4& mat);
+		inline void setFrom(const core::matrix4SIMD& mat);
 
 		//! @returns the point which is on the far left upper corner inside the the view frustum.
 		core::vector3df_SIMD getFarLeftUp() const;
@@ -88,58 +86,75 @@ namespace scene
 		//! @returns the point which is on the near right bottom corner inside the the view frustum.
 		core::vector3df_SIMD getNearRightDown() const;
 
-		//! @returns a bounding box enclosing the whole view frustum.
-		const core::aabbox3d<float> &getBoundingBox() const;
-
 		//! Recalculates the bounding box member based on the planes.
-		inline void recalculateBoundingBox();
+        inline void recalculateBoundingBox()
+        {
+            boundingBox.reset(getNearLeftUp().getAsVector3df());
+            boundingBox.addInternalPoint(getNearRightUp().getAsVector3df());
+            boundingBox.addInternalPoint(getNearLeftDown().getAsVector3df());
+            boundingBox.addInternalPoint(getNearRightDown().getAsVector3df());
 
-		//! Clips a line to the view frustum.
-		/** @return True if the line was clipped, false if not. */
-		bool clipLine(core::line3d<float>& line) const;
+            boundingBox.addInternalPoint(getFarLeftUp().getAsVector3df());
+            boundingBox.addInternalPoint(getFarRightUp().getAsVector3df());
+            boundingBox.addInternalPoint(getFarLeftDown().getAsVector3df());
+            boundingBox.addInternalPoint(getFarRightDown().getAsVector3df());
+        }
 
-		//! Is point lying within the frustum?
-		/** @returns Whether point is lying within the frustum. */
-		bool cullPoint(const core::vector3d<float>& point) const;
+#if 0 // AWAITING plane3dSIMD implementation!
+		//! Transforms the frustum by the matrix
+		/** @param mat: Matrix by which the view frustum is transformed.*/
+		void transform(const core::matrix4SIMD& mat)
+        {
+            for (uint32_t i=0; i<VF_PLANE_COUNT; ++i)
+                mat.transformPlane(planes[i]);
 
-		//! The position of the camera.
-		core::vector3df_SIMD cameraPosition;
+            recalculateBoundingBox();
+        }
+#endif // 0
+
+		//! @returns a bounding box enclosing the whole view frustum.
+		inline const core::aabbox3df &getBoundingBox() const {return boundingBox;}
 
 		//! All planes enclosing the view frustum.
-		core::plane3d<float> planes[VF_PLANE_COUNT];
+		core::plane3df planes[VF_PLANE_COUNT];
 
 		//! Bounding box around the view frustum.
-		core::aabbox3d<float> boundingBox;
-
-	private:
+		core::aabbox3df boundingBox;
 	};
 
 
-	inline SViewFrustum::SViewFrustum(const SViewFrustum& other)
+
+	//! This constructor creates a view frustum based on a projection
+	//! and/or view matrix.
+	inline void SViewFrustum::setFrom(const core::matrix4SIMD& mat)
 	{
-		cameraPosition=other.cameraPosition;
-		boundingBox=other.boundingBox;
+	    core::vectorSIMDf lastRow = mat.getRow(3u);
+		// left clipping plane
+		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_LEFT_PLANE) = lastRow+mat.getRow(0u);
+		// right clipping plane
+		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_RIGHT_PLANE) = lastRow-mat.getRow(0u);
+		// top clipping plane
+		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_TOP_PLANE) = lastRow+mat.getRow(1u);
+		// bottom clipping plane
+		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_BOTTOM_PLANE) = lastRow-mat.getRow(1u);
 
-		uint32_t i;
-		for (i=0; i<VF_PLANE_COUNT; ++i)
-			planes[i]=other.planes[i];
-	}
+		// far clipping plane
+		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_FAR_PLANE) = lastRow-mat.getRow(2u);
 
-	inline SViewFrustum::SViewFrustum(const core::matrix4& mat)
-	{
-		setFrom ( mat );
-	}
+		// near clipping plane
+		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_NEAR_PLANE) = mat.getRow(2u);
 
+		// normalize normals
+		for ( auto i=0; i != VF_PLANE_COUNT; ++i)
+		{
+		    core::vectorSIMDf normal = *reinterpret_cast<core::vectorSIMDf*>(planes+i);
+		    normal.makeSafe3D();
+            *reinterpret_cast<core::vectorSIMDf*>(planes+i) *= core::inversesqrt(core::dot(normal,normal));
+		}
 
-	inline void SViewFrustum::transform(const core::matrix4& mat)
-	{
-		for (uint32_t i=0; i<VF_PLANE_COUNT; ++i)
-			mat.transformPlane(planes[i]);
-
-		mat.transformVect(cameraPosition.getAsVector3df());
+		// make bounding box
 		recalculateBoundingBox();
 	}
-
 
 	inline core::vector3df_SIMD SViewFrustum::getFarLeftUp() const
 	{
@@ -220,109 +235,6 @@ namespace scene
 
 		return p;
 	}
-
-	inline const core::aabbox3d<float> &SViewFrustum::getBoundingBox() const
-	{
-		return boundingBox;
-	}
-
-	inline void SViewFrustum::recalculateBoundingBox()
-	{
-		boundingBox.reset ( cameraPosition.getAsVector3df() );
-
-		boundingBox.addInternalPoint(getFarLeftUp().getAsVector3df());
-		boundingBox.addInternalPoint(getFarRightUp().getAsVector3df());
-		boundingBox.addInternalPoint(getFarLeftDown().getAsVector3df());
-		boundingBox.addInternalPoint(getFarRightDown().getAsVector3df());
-	}
-
-	//! This constructor creates a view frustum based on a projection
-	//! and/or view matrix.
-	inline void SViewFrustum::setFrom(const core::matrix4& mat)
-	{
-		// left clipping plane
-		planes[VF_LEFT_PLANE].Normal.X = mat[3 ] + mat[0];
-		planes[VF_LEFT_PLANE].Normal.Y = mat[7 ] + mat[4];
-		planes[VF_LEFT_PLANE].Normal.Z = mat[11] + mat[8];
-		planes[VF_LEFT_PLANE].D =        mat[15] + mat[12];
-
-		// right clipping plane
-		planes[VF_RIGHT_PLANE].Normal.X = mat[3 ] - mat[0];
-		planes[VF_RIGHT_PLANE].Normal.Y = mat[7 ] - mat[4];
-		planes[VF_RIGHT_PLANE].Normal.Z = mat[11] - mat[8];
-		planes[VF_RIGHT_PLANE].D =        mat[15] - mat[12];
-
-		// top clipping plane
-		planes[VF_TOP_PLANE].Normal.X = mat[3 ] - mat[1];
-		planes[VF_TOP_PLANE].Normal.Y = mat[7 ] - mat[5];
-		planes[VF_TOP_PLANE].Normal.Z = mat[11] - mat[9];
-		planes[VF_TOP_PLANE].D =        mat[15] - mat[13];
-
-		// bottom clipping plane
-		planes[VF_BOTTOM_PLANE].Normal.X = mat[3 ] + mat[1];
-		planes[VF_BOTTOM_PLANE].Normal.Y = mat[7 ] + mat[5];
-		planes[VF_BOTTOM_PLANE].Normal.Z = mat[11] + mat[9];
-		planes[VF_BOTTOM_PLANE].D =        mat[15] + mat[13];
-
-		// far clipping plane
-		planes[VF_FAR_PLANE].Normal.X = mat[3 ] - mat[2];
-		planes[VF_FAR_PLANE].Normal.Y = mat[7 ] - mat[6];
-		planes[VF_FAR_PLANE].Normal.Z = mat[11] - mat[10];
-		planes[VF_FAR_PLANE].D =        mat[15] - mat[14];
-
-		// near clipping plane
-		planes[VF_NEAR_PLANE].Normal.X = mat[2];
-		planes[VF_NEAR_PLANE].Normal.Y = mat[6];
-		planes[VF_NEAR_PLANE].Normal.Z = mat[10];
-		planes[VF_NEAR_PLANE].D =        mat[14];
-
-		// normalize normals
-		uint32_t i;
-		for ( i=0; i != VF_PLANE_COUNT; ++i)
-		{
-			const float len = -core::reciprocal_squareroot(
-					planes[i].Normal.getLengthSQ());
-			planes[i].Normal *= len;
-			planes[i].D *= len;
-		}
-
-		// make bounding box
-		recalculateBoundingBox();
-	}
-
-	//! Clips a line to the frustum
-	inline bool SViewFrustum::clipLine(core::line3d<float>& line) const
-	{
-		bool wasClipped = false;
-		for (uint32_t i=0; i < VF_PLANE_COUNT; ++i)
-		{
-			if (planes[i].classifyPointRelation(line.start) == core::ISREL3D_FRONT)
-			{
-				line.start = line.start.getInterpolated(line.end,
-						planes[i].getKnownIntersectionWithLine(line.start, line.end));
-				wasClipped = true;
-			}
-			if (planes[i].classifyPointRelation(line.end) == core::ISREL3D_FRONT)
-			{
-				line.end = line.start.getInterpolated(line.end,
-						planes[i].getKnownIntersectionWithLine(line.start, line.end));
-				wasClipped = true;
-			}
-		}
-		return wasClipped;
-	}
-
-
-	inline bool SViewFrustum::cullPoint(const core::vector3d<float>& point) const
-	{
-		for (uint32_t i = 0; i < VF_PLANE_COUNT; ++i)
-		{
-			if (planes[i].classifyPointRelation(point) == core::ISREL3D_FRONT)
-				return true;
-		}
-		return false;
-	}
-
 
 } // end namespace scene
 } // end namespace irr

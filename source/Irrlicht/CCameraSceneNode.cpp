@@ -54,12 +54,8 @@ bool CCameraSceneNode::isInputReceiverEnabled() const
 
 
 //! Sets the projection matrix of the camera.
-/** The core::matrix4 class has some methods
-to build a projection matrix. e.g: core::matrix4::buildProjectionMatrixPerspectiveFovRH
-\param projection: The new projection matrix of the camera. */
-void CCameraSceneNode::setProjectionMatrix(const core::matrix4& projection, bool isOrthogonal)
+void CCameraSceneNode::setProjectionMatrix(const core::matrix4SIMD& projection)
 {
-	IsOrthogonal = isOrthogonal;
 	projMatrix = projection;
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 }
@@ -67,7 +63,7 @@ void CCameraSceneNode::setProjectionMatrix(const core::matrix4& projection, bool
 
 //! Gets the current projection matrix of the camera
 //! \return Returns the current projection matrix of the camera.
-const core::matrix4& CCameraSceneNode::getProjectionMatrix() const
+const core::matrix4SIMD& CCameraSceneNode::getProjectionMatrix() const
 {
 	return projMatrix;
 }
@@ -211,7 +207,7 @@ void CCameraSceneNode::setFOV(float f)
 
 void CCameraSceneNode::recalculateProjectionMatrix()
 {
-	projMatrix.buildProjectionMatrixPerspectiveFovRH(Fovy, Aspect, ZNear, ZFar);
+	projMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(Fovy, Aspect, ZNear, ZFar);
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 }
 
@@ -245,7 +241,7 @@ void CCameraSceneNode::render()
 		up.X += 0.5f;
 	}
 
-	viewMatrix.buildCameraLookAtMatrixLH(pos, Target, up);
+	viewMatrix.buildCameraLookAtMatrixLH(pos, Target, up); // TODO: Change this to static
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 	recalculateViewArea();
 
@@ -274,8 +270,6 @@ const SViewFrustum* CCameraSceneNode::getViewFrustum() const
 
 void CCameraSceneNode::recalculateViewArea()
 {
-	ViewArea.cameraPosition.getAsVector3df() = getAbsolutePosition();
-
 	ViewArea.setFrom(concatMatrix);
 }
 
@@ -309,7 +303,6 @@ ISceneNode* CCameraSceneNode::clone(IDummyTransformationSceneNode* newParent, IS
 		newManager, ID, RelativeTranslation, Target);
 
 	nb->ISceneNode::cloneMembers(this, newManager);
-	nb->ICameraSceneNode::cloneMembers(this);
 
 	nb->Target = Target;
 	nb->UpVector = UpVector;

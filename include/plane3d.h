@@ -12,15 +12,6 @@ namespace irr
 namespace core
 {
 
-//! Enumeration for intersection relations of 3d objects
-enum EIntersectionRelation3D
-{
-	ISREL3D_FRONT = 0,
-	ISREL3D_BACK,
-	ISREL3D_PLANAR,
-	ISREL3D_SPANNING,
-	ISREL3D_CLIPPED
-};
 
 //! Template plane class with some intersection testing methods.
 /** It has to be ensured, that the normal is always normalized. The constructors
@@ -29,7 +20,7 @@ enum EIntersectionRelation3D
     made by any of the class methods.
 */
 template <class T>
-class plane3d// : public AllocationOverrideDefault
+class plane3d : public AllocationOverrideDefault
 {
 	public:
 
@@ -96,21 +87,6 @@ class plane3d// : public AllocationOverrideDefault
 			return true;
 		}
 
-		//! Get percentage of line between two points where an intersection with this plane happens.
-		/** Only useful if known that there is an intersection.
-		\param linePoint1 Point1 of the line to intersect with.
-		\param linePoint2 Point2 of the line to intersect with.
-		\return Where on a line between two points an intersection with this plane happened.
-		For example, 0.5 is returned if the intersection happened exactly in the middle of the two points.
-		*/
-		float getKnownIntersectionWithLine(const vector3d<T>& linePoint1,
-			const vector3d<T>& linePoint2) const
-		{
-			vector3d<T> vect = linePoint2 - linePoint1;
-			T t2 = (float)Normal.dotProduct(vect);
-			return (float)-((Normal.dotProduct(linePoint1) + D) / t2);
-		}
-
 		//! Get an intersection with a 3d line, limited between two 3d points.
 		/** \param linePoint1 Point 1 of the line.
 		\param linePoint2 Point 2 of the line.
@@ -124,24 +100,6 @@ class plane3d// : public AllocationOverrideDefault
 		{
 			return (getIntersectionWithLine(linePoint1, linePoint2 - linePoint1, outIntersection) &&
 					outIntersection.isBetweenPoints(linePoint1, linePoint2));
-		}
-
-		//! Classifies the relation of a point to this plane.
-		/** \param point Point to classify its relation.
-		\return ISREL3D_FRONT if the point is in front of the plane,
-		ISREL3D_BACK if the point is behind of the plane, and
-		ISREL3D_PLANAR if the point is within the plane. */
-		EIntersectionRelation3D classifyPointRelation(const vector3d<T>& point) const
-		{
-			const T d = Normal.dotProduct(point) + D;
-
-			if (d < -ROUNDING_ERROR_f32)
-				return ISREL3D_BACK;
-
-			if (d > ROUNDING_ERROR_f32)
-				return ISREL3D_FRONT;
-
-			return ISREL3D_PLANAR;
 		}
 
 		//! Recalculates the distance from origin by applying a new member point to the plane.

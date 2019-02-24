@@ -75,7 +75,6 @@
 #include "CBillboardSceneNode.h"
 #include "CCubeSceneNode.h"
 #include "CSphereSceneNode.h"
-#include "CAnimatedMeshSceneNode.h"
 #include "CCameraSceneNode.h"
 #include "CMeshSceneNode.h"
 #include "CMeshSceneNodeInstanced.h"
@@ -696,7 +695,7 @@ bool CSceneManager::isCulled(ISceneNode* node) const
             return true;
 
         //transform the frustum to the node's current absolute transformation
-        core::matrix4 worldviewproj = concatenateBFollowedByA(cam->getProjectionMatrix(),concatenateBFollowedByA(cam->getViewMatrix(),node->getAbsoluteTransformation()));
+        core::matrix4SIMD worldviewproj = concatenateBFollowedByA(cam->getProjectionMatrix(),concatenateBFollowedByA(cam->getViewMatrix(),node->getAbsoluteTransformation()));
 
         if (!worldviewproj.isBoxInsideFrustum(tbox))
             return true;
@@ -843,9 +842,9 @@ void CSceneManager::drawAll()
 
 	// reset all transforms
 	Driver->setMaterial(video::SMaterial());
-	Driver->setTransform(video::EPTS_PROJ,core::matrix4());
-	Driver->setTransform ( video::E4X3TS_VIEW, core::IdentityMatrix );
-	Driver->setTransform ( video::E4X3TS_WORLD, core::IdentityMatrix );
+	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
+	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
+	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
 
 	// TODO: This should not use an attribute here but a real parameter when necessary (too slow!)
 	Driver->setAllowZWriteOnTransparent( *((bool*)&(Parameters[ALLOW_ZWRITE_ON_TRANSPARENT])) );
