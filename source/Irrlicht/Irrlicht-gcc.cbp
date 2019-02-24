@@ -409,7 +409,6 @@
 		<Unit filename="../../include/vectorSIMD.h" />
 		<Unit filename="../../src/irr/video/GPUMemoryAllocatorBase.cpp" />
 		<Unit filename="../../src/irr/video/SimpleGPUBufferAllocator.cpp" />
-		<Unit filename="CAnimatedMeshSceneNode.cpp" />
 		<Unit filename="CBAWFile.cpp" />
 		<Unit filename="CBAWMeshFileLoader.cpp" />
 		<Unit filename="CBAWMeshFileLoader.h" />
