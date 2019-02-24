@@ -110,37 +110,17 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		return out;
 	}
 */
-	inline matrix3x4SIMD& concatenateAfter(const matrix3x4SIMD& _other)
-	{
-		return *this = concatenateBFollowedByA(*this, _other);
-	}
-
-	inline matrix3x4SIMD& concatenateBefore(const matrix3x4SIMD& _other)
-	{
-		return *this = concatenateBFollowedByA(_other, *this);
-	}
-/* Not implemented yet
-	inline matrix3x4SIMD& concatenateAfterPrecisely(const matrix3x4SIMD& _other)
-	{
-		return *this = concatenateBFollowedByAPrecisely(*this, _other);
-	}
-
-	inline matrix3x4SIMD& concatenateBeforePrecisely(const matrix3x4SIMD& _other)
-	{
-		return *this = concatenateBFollowedByAPrecisely(_other, *this);
-	}
-*/
 	inline bool operator==(const matrix3x4SIMD& _other)
 	{
-		for (size_t i = 0u; i < 3u; ++i)
-			if (!((rows[i] == _other.rows[i]).all()))
-				return false;
-		return true;
+		return !(*this != _other);
 	}
 
 	inline bool operator!=(const matrix3x4SIMD& _other)
 	{
-		return !(*this == _other);
+		for (size_t i = 0u; i < 3u; ++i)
+			if ((rows[i] != _other.rows[i]).any())
+				return true;
+		return false;
 	}
 
 	inline matrix3x4SIMD& operator+=(const matrix3x4SIMD& _other)

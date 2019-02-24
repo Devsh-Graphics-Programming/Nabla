@@ -18,74 +18,25 @@ namespace irr
 namespace core
 {
 
-    class matrix4x3;
-
-    /** Calculate a*b */
-    matrix4x3 concatenateBFollowedByA(const matrix4x3& other_a,const matrix4x3& other_b );
-
-    matrix4x3 concatenatePreciselyBFollowedByA(const matrix4x3& other_a,const matrix4x3& other_b );
-
 
 	class matrix4x3// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 	{
 		public:
-
-			//! Constructor Flags
-			enum eConstructor
-			{
-				EM4CONST_NOTHING = 0,
-				EM4CONST_COPY,
-				EM4CONST_IDENTITY,
-				//EM4CONST_TRANSPOSED,
-				EM4CONST_INVERSE=4,
-				//EM4CONST_INVERSE_TRANSPOSED
-			};
-
 			//! Default constructor
 			/** \param constructor Choose the initialization style */
-			inline matrix4x3( eConstructor constructor = EM4CONST_IDENTITY )
+			inline matrix4x3()
             {
-                switch ( constructor )
-                {
-                    case EM4CONST_NOTHING:
-                    case EM4CONST_COPY:
-                        break;
-                    case EM4CONST_IDENTITY:
-                    case EM4CONST_INVERSE:
-                    default:
-                        column[0].set(1.f,0.f,0.f);
-                        column[1].set(0.f,1.f,0.f);
-                        column[2].set(0.f,0.f,1.f);
-                        column[3].set(0.f,0.f,0.f);
-                        break;
-                }
+                column[0].set(1.f,0.f,0.f);
+                column[1].set(0.f,1.f,0.f);
+                column[2].set(0.f,0.f,1.f);
+                column[3].set(0.f,0.f,0.f);
             }
 			//! Copy constructor
 			/** \param other Other matrix to copy from
 			\param constructor Choose the initialization style */
-			inline matrix4x3(const matrix4x3& other, eConstructor constructor = EM4CONST_COPY)
+			inline matrix4x3(const matrix4x3& other)
 			{
-                switch ( constructor )
-                {
-                    case EM4CONST_IDENTITY:
-                        column[0].set(1.f,0.f,0.f);
-                        column[1].set(0.f,1.f,0.f);
-                        column[2].set(0.f,0.f,1.f);
-                        column[3].set(0.f,0.f,0.f);
-                        break;
-                    case EM4CONST_COPY:
-                        *this = other;
-                        break;
-                    case EM4CONST_INVERSE:
-                        if (!other.getInverse(*this))
-                        {
-                            for (auto i=0; i<4; i++)
-                                column[i].set(0.f,0.f,0.f);
-                        }
-                        break;
-                    default:
-                        break;
-                }
+                *this = other;
 			}
 
 			//! Simple operator for directly accessing every element of the matrix.
@@ -162,30 +113,6 @@ namespace core
 			    column[3] -= other.column[3];
 			    return *this;
 			}
-
-			//! apply this transformation before other (i.e. this==world, other==viewproj, gl_WorldViewProj = world.concatenateBefore(viewproj) )
-            inline matrix4x3& concatenateBefore(const matrix4x3& other)
-            {
-                *this = concatenateBFollowedByA(other,*this);
-                return *this;
-            }
-            inline matrix4x3& concatenatePreciselyBefore(const matrix4x3& other)
-            {
-                *this = concatenatePreciselyBFollowedByA(other,*this);
-                return *this;
-            }
-
-			//! apply this transformation after other (i.e. this==proj, other==view, gl_ViewProj = proj.concatenateAfter(view) )
-            inline matrix4x3& concatenateAfter(const matrix4x3& other)
-            {
-                *this = concatenateBFollowedByA(*this,other);
-                return *this;
-            }
-            inline matrix4x3& concatenatePreciselyAfter(const matrix4x3& other)
-            {
-                *this = concatenatePreciselyBFollowedByA(*this,other);
-                return *this;
-            }
 
 			//! Multiply by scalar.
 			inline matrix4x3 operator*(const float& scalar) const
@@ -351,7 +278,9 @@ namespace core
 			/** \return Returns false if there is no inverse matrix.*/
 			inline bool makeInverse()
 			{
-                matrix4x3 temp ( EM4CONST_NOTHING );
+                matrix4x3 temp;
+                for (auto i=0u; i<4u; i++)
+                    temp.column[i].set(0.f,0.f,0.f);
 
                 if (getInverse(temp))
                 {
@@ -696,7 +625,7 @@ namespace core
 	// creates a new matrix as interpolated matrix from this and the passed one.
 	inline matrix4x3 mix(const core::matrix4x3& a, const core::matrix4x3& b, const float& x)
 	{
-		matrix4x3 mat ( matrix4x3::EM4CONST_NOTHING );
+		matrix4x3 mat;
 
 		mat.getColumn(0) = a.getColumn(0)+(b.getColumn(0)-a.getColumn(0))*x;
 		mat.getColumn(1) = a.getColumn(1)+(b.getColumn(1)-a.getColumn(1))*x;

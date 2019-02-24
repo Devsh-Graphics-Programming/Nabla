@@ -9,11 +9,6 @@ namespace irr
 namespace core
 {
 
-class matrix4SIMD;
-
-matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& other_a,const matrix4x3& other_b );
-
-matrix4SIMD concatenatePreciselyBFollowedByA(const matrix4SIMD& other_a,const matrix4x3& other_b );
 
 class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 {
@@ -68,14 +63,14 @@ public:
 
     inline bool operator==(const matrix4SIMD& _other) const
     {
-        for (size_t i = 0u; i < 4u; ++i)
-            if ((rows[i] != _other.rows[i]).all())
-                return false;
-        return true;
+        return !(*this != _other);
     }
     inline bool operator!=(const matrix4SIMD& _other) const
     {
-        return !(*this == _other);
+        for (size_t i = 0u; i < 4u; ++i)
+            if ((rows[i] != _other.rows[i]).any())
+                return true;
+        return false;
     }
 
     inline matrix4SIMD& operator+=(const matrix4SIMD& _other)
@@ -134,10 +129,11 @@ public:
 
         matrix4SIMD r;
         for (size_t i = 0u; i < 4u; ++i)
-            r.rows[i] = calcRow(_b.rows[i].getAsRegister(), _a);
+            r.rows[i] = calcRow(_a.rows[i].getAsRegister(), _b);
 
         return r;
     }
+    /* Above had a bug, so this most probably does not work!
     static inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const matrix4SIMD& _b)
     {
         matrix4SIMD out;
@@ -174,7 +170,7 @@ public:
         }
 
         return out;
-    }
+    }*/
 
     inline bool isIdentity() const
     {
@@ -279,26 +275,7 @@ public:
 
         return true;
     }
-/* Fails to compile
-    //! Modifies only upper-left 3x3.
-    inline matrix4SIMD& setRotation(const quaternion& _quat)
-    {
-        const __m128i mask0001 = BUILD_MASKF(0, 0, 0, 1);
-        const __m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
 
-        const vectorSIMDf& quat = reinterpret_cast<const vectorSIMDf&>(_quat);
-        rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (rows[0] & mask0001);
-        rows[0].x = 1.f - rows[0].x;
-
-        rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * vectorSIMDf(2.f))) + (quat.xxxx() * (quat.yxwx() & mask1110) * vectorSIMDf(2.f, 2.f, -2.f, 0.f))) | (rows[1] & mask0001);
-        rows[1].y = 1.f - rows[1].y;
-
-        rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * vectorSIMDf(2.f))) + (quat.yyyy() * (quat.wzyx() & mask1110) * vectorSIMDf(-2.f, 2.f, 2.f, 0.f))) | (rows[2] & mask0001);
-        rows[2].z = 1.f - rows[2].z;
-
-        return *this;
-    }
-*/
     inline vectorSIMDf sub3x3TransformVect(const vectorSIMDf& _in) const
     {
         matrix4SIMD cp{*this};
@@ -520,12 +497,12 @@ inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix4S
 {
     return matrix4SIMD::concatenateBFollowedByA(_a, _b);
 }
-
+/*
 inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const matrix4SIMD& _b)
 {
     return matrix4SIMD::concatenateBFollowedByAPrecisely(_a, _b);
 }
-
+*/
 inline matrix4SIMD mix(const matrix4SIMD& _a, const matrix4SIMD& _b, float _x)
 {
     return matrix4SIMD::mix(_a, _b, _x);
@@ -536,42 +513,6 @@ inline matrix4SIMD lerp(const matrix4SIMD& _a, const matrix4SIMD& _b, float _x)
     return mix(_a, _b, _x);
 }
 
-
-inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& other_a,const matrix4x3& other_b )
-{
-    matrix3x4SIMD rowBasedMatrixB;
-    rowBasedMatrixB.set(other_b);
-
-    //! TODO: OPTIMIZE THIS, DON'T PROMOTE THE MATRIX IF DON'T HAVE TO
-    // optimize for the case as-if other_b was a `matrix3x4SIMD`
-    matrix4SIMD retval = concatenateBFollowedByA(other_a,matrix4SIMD(rowBasedMatrixB));
-
-
-    /* OLD code for column ordered matrices
-    vectorSIMDf inColumn[4];
-    for (size_t i=0; i<4; i++)
-        inColumn[i] = vectorSIMDf(other_a.pointer()+i*4);
-    vectorSIMDf outColumn[4];
-
-    outColumn[0] = inColumn[0]*other_b(0,0)+inColumn[1]*other_b(1,0)+inColumn[2]*other_b(2,0);
-    outColumn[1] = inColumn[0]*other_b(0,1)+inColumn[1]*other_b(1,1)+inColumn[2]*other_b(2,1);
-    outColumn[2] = inColumn[0]*other_b(0,2)+inColumn[1]*other_b(1,2)+inColumn[2]*other_b(2,2);
-    outColumn[3] = inColumn[0]*other_b(0,3)+inColumn[1]*other_b(1,3)+inColumn[2]*other_b(2,3)+inColumn[3];
-
-    return *reinterpret_cast<matrix4*>(outColumn);
-    */
-    return retval;
-}
-/* Unimplemented yet
-inline matrix4SIMD concatenatePreciselyBFollowedByA(const matrix4SIMD& other_a,const matrix4x3& other_b )
-{
-    matrix4SIMD ret;
-
-    IMPLEMENTATION AWAITS
-
-    return ret;
-}
-*/
 
 }} // irr::core
 
