@@ -1,7 +1,6 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
-
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
