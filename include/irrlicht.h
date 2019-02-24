@@ -94,7 +94,7 @@
 #include "coreutil.h"
 #include "line2d.h"
 #include "line3d.h"
-#include "matrix4.h"
+#include "matrix4SIMD.h"
 #include "plane3d.h"
 #include "position2d.h"
 #include "quaternion.h"
