@@ -315,19 +315,6 @@ add_library(spirv_cross OBJECT
 target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 target_include_directories(spirv_cross PUBLIC ${COMMON_INCLUDE_DIRS})
 
-add_library(libshaderc OBJECT
-	libshaderc/compiler.cc
-	libshaderc/file_finder.cc
-	libshaderc/io.cc
-	libshaderc/message.cc
-	libshaderc/resources.cc
-	libshaderc/shader_stage.cc
-	libshaderc/shaderc.cc
-	libshaderc/spirv_tools_wrapper.cc
-	libshaderc/version_profile.cc
-)
-target_include_directories(libshaderc PUBLIC ${COMMON_INCLUDE_DIRS})
-
 macro(irr_target_link_openssl _trgt)
 	target_link_libraries(${_trgt} INTERFACE
 		OpenSSL::Crypto
@@ -356,7 +343,6 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
 	$<TARGET_OBJECTS:spirv_cross>
-	$<TARGET_OBJECTS:libshaderc>
 )
 
 irr_target_link_openssl(Irrlicht)
