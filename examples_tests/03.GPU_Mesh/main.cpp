@@ -221,7 +221,7 @@ int main()
             uint32_t offsets[2]         = {video::StreamingTransientDataBufferMT<>::invalid_address,video::StreamingTransientDataBufferMT<>::invalid_address};
             uint32_t alignments[2]      = {sizeof(decltype(vertices[0u])),sizeof(decltype(indices_indexed16[0u]))};
             uint32_t sizes[2]           = {sizeof(vertices),sizeof(indices_indexed16)};
-            upStreamBuff->multi_place(2u,(const void* const*)dataToPlace,(uint32_t*)&offsets,(uint32_t*)&sizes,(uint32_t*)&alignments);
+            upStreamBuff->multi_place(2u,(const void* const*)dataToPlace,(uint32_t*)offsets,(uint32_t*)sizes,(uint32_t*)alignments);
             if (upStreamBuff->needsManualFlushOrInvalidate())
             {
                 auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
