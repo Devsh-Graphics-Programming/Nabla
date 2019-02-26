@@ -25,7 +25,7 @@ namespace std
     {
         using T = irr::asset::SEntryPointStagePair;
         // based on boost::hash_combine
-        size_t operator()(const T& x)
+        size_t operator()(const T& x) const
         {
             size_t seed = hash<T::first_type>{}(x.first);
             return seed ^= hash<underlying_type_t<T::second_type>>{}(x.second) + 0x9e3779b9ull + (seed << 6) + (seed >> 2);
